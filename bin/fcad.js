@@ -11,12 +11,14 @@ Usage:
   fcad create <config.toml|json>  Create model from config
   fcad fem <config.toml|json>     Run FEM structural analysis
   fcad inspect <model.step|fcstd> Inspect model metadata
+  fcad serve [port]               Start 3D viewer server (default: 3000)
   fcad help                       Show this help
 
 Examples:
   fcad create configs/examples/bracket.toml
   fcad fem configs/examples/bracket_fem.toml
   fcad inspect output/bracket_v1.step
+  fcad serve 8080
 `.trim();
 
 async function main() {
@@ -33,11 +35,19 @@ async function main() {
     await cmdFem(args[0]);
   } else if (command === 'inspect') {
     await cmdInspect(args[0]);
+  } else if (command === 'serve') {
+    await cmdServe(args[0]);
   } else {
     console.error(`Unknown command: ${command}`);
     console.log(USAGE);
     process.exit(1);
   }
+}
+
+async function cmdServe(portArg) {
+  const port = parseInt(portArg) || 3000;
+  const { startServer } = await import('../server.js');
+  startServer(port);
 }
 
 async function cmdCreate(configPath) {

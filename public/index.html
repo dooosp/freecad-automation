@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FreeCAD Viewer</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div class="layout">
+    <!-- Config Panel -->
+    <aside class="panel">
+      <h1 class="panel-title">FreeCAD Viewer</h1>
+
+      <label for="examples">Examples</label>
+      <select id="examples">
+        <option value="">-- Select --</option>
+      </select>
+
+      <label for="config-editor">TOML Config</label>
+      <textarea id="config-editor" spellcheck="false"></textarea>
+
+      <div class="btn-row">
+        <button id="btn-build" class="btn btn-primary">Build</button>
+        <button id="btn-clear" class="btn">Clear</button>
+      </div>
+      <div class="btn-row">
+        <button id="btn-screenshot" class="btn">Screenshot</button>
+        <label class="toggle">
+          <input type="checkbox" id="chk-wireframe">
+          <span>Wireframe</span>
+        </label>
+      </div>
+
+      <div id="status" class="status"></div>
+
+      <div id="model-info" class="model-info" hidden></div>
+    </aside>
+
+    <!-- 3D Viewport -->
+    <main id="viewport"></main>
+  </div>
+
+  <script type="module" src="/js/viewer.js"></script>
+</body>
+</html>
