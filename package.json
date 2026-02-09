@@ -1,0 +1,15 @@
+{
+  "name": "freecad-automation",
+  "version": "1.0.0",
+  "description": "FreeCAD automation framework - parametric 3D modeling via WSL→Windows bridge",
+  "type": "module",
+  "bin": {
+    "fcad": "./bin/fcad.js"
+  },
+  "scripts": {
+    "test": "node tests/test-runner.js"
+  },
+  "dependencies": {
+    "smol-toml": "^1.3.1"
+  }
+}
