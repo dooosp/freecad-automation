@@ -1,0 +1,288 @@
+# PTU (Power Transfer Unit) Assembly
+# Demonstrates: multi-part assembly with library parts + custom shapes
+# Parts: housing, input_shaft, output_shaft, drive_gear, driven_gear, bearing_front, bearing_rear
+
+name = "ptu_assembly"
+
+# ── Export ───────────────────────────────────────────────────
+[export]
+formats = ["step", "stl"]
+directory = "./output"
+
+
+# ═════════════════════════════════════════════════════════════
+# PART DEFINITIONS
+# ═════════════════════════════════════════════════════════════
+
+# ── 1. Housing (revolution body with bore) ──────────────────
+[[parts]]
+id = "housing"
+final = "body"
+
+  [[parts.shapes]]
+  id = "outer"
+  type = "revolution"
+  angle = 360
+  axis = [0, 0, 1]
+  axis_point = [0, 0, 0]
+  plane = "xz"
+  profile_start = [0, 0]
+
+    [[parts.shapes.profile]]
+    type = "line"
+    to = [40, 0]
+
+    [[parts.shapes.profile]]
+    type = "line"
+    to = [40, 10]
+
+    [[parts.shapes.profile]]
+    type = "line"
+    to = [50, 10]
+
+    [[parts.shapes.profile]]
+    type = "line"
+    to = [50, 15]
+
+    [[parts.shapes.profile]]
+    type = "line"
+    to = [40, 15]
+
+    [[parts.shapes.profile]]
+    type = "line"
+    to = [40, 60]
+
+    [[parts.shapes.profile]]
+    type = "arc"
+    to = [35, 65]
+    center = [35, 60]
+    clockwise = false
+
+    [[parts.shapes.profile]]
+    type = "line"
+    to = [0, 65]
+
+  [[parts.shapes]]
+  id = "bore"
+  type = "revolution"
+  angle = 360
+  axis = [0, 0, 1]
+  plane = "xz"
+  profile_start = [0, 3]
+
+    [[parts.shapes.profile]]
+    type = "line"
+    to = [33, 3]
+
+    [[parts.shapes.profile]]
+    type = "line"
+    to = [33, 62]
+
+    [[parts.shapes.profile]]
+    type = "line"
+    to = [0, 62]
+
+  [[parts.shapes]]
+  id = "input_hole"
+  type = "cylinder"
+  radius = 12
+  height = 80
+  position = [0, -40, 30]
+  direction = [0, 1, 0]
+
+  [[parts.shapes]]
+  id = "bolt_hole"
+  type = "cylinder"
+  radius = 4
+  height = 20
+  position = [45, 0, -5]
+
+  [[parts.operations]]
+  op = "cut"
+  base = "outer"
+  tool = "bore"
+  result = "body"
+
+  [[parts.operations]]
+  op = "cut"
+  base = "body"
+  tool = "input_hole"
+  result = "body"
+
+  [[parts.operations]]
+  op = "circular_pattern"
+  target = "bolt_hole"
+  axis = [0, 0, 1]
+  center = [0, 0, 0]
+  count = 6
+  angle = 360
+  include_original = true
+  result = "bolt_holes"
+
+  [[parts.operations]]
+  op = "cut"
+  base = "body"
+  tool = "bolt_holes"
+  result = "body"
+
+
+# ── 2. Input Shaft (stepped shaft with keyway) ─────────────
+[[parts]]
+id = "input_shaft"
+final = "shaft"
+
+  [[parts.shapes]]
+  id = "shaft_body"
+  type = "library/stepped_shaft"
+  bore_d = 0
+
+    [[parts.shapes.segments]]
+    diameter = 20
+    length = 15
+
+    [[parts.shapes.segments]]
+    diameter = 24
+    length = 30
+
+    [[parts.shapes.segments]]
+    diameter = 20
+    length = 15
+
+  [[parts.shapes]]
+  id = "keyway"
+  type = "extrusion"
+  direction = [0, 0, 25]
+  plane = "xy"
+  position = [0, 0, 17]
+  profile_start = [-2, 9]
+
+    [[parts.shapes.profile]]
+    type = "line"
+    to = [2, 9]
+
+    [[parts.shapes.profile]]
+    type = "line"
+    to = [2, 13]
+
+    [[parts.shapes.profile]]
+    type = "line"
+    to = [-2, 13]
+
+  [[parts.operations]]
+  op = "cut"
+  base = "shaft_body"
+  tool = "keyway"
+  result = "shaft"
+
+
+# ── 3. Output Shaft ────────────────────────────────────────
+[[parts]]
+id = "output_shaft"
+
+  [[parts.shapes]]
+  id = "shaft_body"
+  type = "library/stepped_shaft"
+  bore_d = 0
+
+    [[parts.shapes.segments]]
+    diameter = 18
+    length = 20
+
+    [[parts.shapes.segments]]
+    diameter = 22
+    length = 25
+
+    [[parts.shapes.segments]]
+    diameter = 18
+    length = 20
+
+
+# ── 4. Drive Gear (spur gear) ──────────────────────────────
+[[parts]]
+id = "drive_gear"
+
+  [[parts.shapes]]
+  id = "gear"
+  type = "library/spur_gear"
+  module = 2
+  teeth = 20
+  width = 10
+  bore_d = 24
+  pressure_angle = 20
+
+
+# ── 5. Driven Gear (spur gear) ─────────────────────────────
+[[parts]]
+id = "driven_gear"
+
+  [[parts.shapes]]
+  id = "gear"
+  type = "library/spur_gear"
+  module = 2
+  teeth = 30
+  width = 10
+  bore_d = 22
+  pressure_angle = 20
+
+
+# ── 6. Front Bearing ───────────────────────────────────────
+[[parts]]
+id = "bearing_front"
+
+  [[parts.shapes]]
+  id = "brg"
+  type = "library/ball_bearing"
+  inner_d = 20
+  outer_d = 42
+  width = 12
+  num_balls = 8
+
+
+# ── 7. Rear Bearing ────────────────────────────────────────
+[[parts]]
+id = "bearing_rear"
+
+  [[parts.shapes]]
+  id = "brg"
+  type = "library/ball_bearing"
+  inner_d = 20
+  outer_d = 42
+  width = 12
+  num_balls = 8
+
+
+# ═════════════════════════════════════════════════════════════
+# ASSEMBLY — placement of parts
+# ═════════════════════════════════════════════════════════════
+
+[assembly]
+
+  [[assembly.parts]]
+  ref = "housing"
+  position = [0, 0, 0]
+
+  [[assembly.parts]]
+  ref = "input_shaft"
+  position = [0, 0, 3]
+
+  [[assembly.parts]]
+  ref = "output_shaft"
+  position = [0, 0, -65]
+  rotation = [0, 1, 0, 90]
+
+  [[assembly.parts]]
+  ref = "drive_gear"
+  position = [0, 0, 20]
+
+  [[assembly.parts]]
+  ref = "driven_gear"
+  position = [0, 0, 20]
+  rotation = [0, 1, 0, 90]
+
+  [[assembly.parts]]
+  ref = "bearing_front"
+  position = [0, 0, 5]
+
+  [[assembly.parts]]
+  ref = "bearing_rear"
+  position = [0, 0, 50]

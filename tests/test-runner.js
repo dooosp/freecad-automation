@@ -422,6 +422,313 @@ async function testPTU() {
   assert(existsSync(stepFile), 'PTU STEP file exists');
 }
 
+// ---------------------------------------------------------------------------
+// Phase 5 Tests: Parts Library, Assembly
+// ---------------------------------------------------------------------------
+
+async function testBallBearing() {
+  console.log('\n--- Test: Ball bearing (library part) ---');
+
+  const config = {
+    name: 'test_bearing',
+    shapes: [{
+      id: 'brg',
+      type: 'library/ball_bearing',
+      inner_d: 20,
+      outer_d: 42,
+      width: 12,
+      num_balls: 8,
+    }],
+    operations: [],
+    export: { formats: ['brep'], directory: resolve(OUTPUT_DIR) },
+  };
+
+  const result = await runScript('create_model.py', config, {
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Ball bearing creation succeeded');
+  assert(result.model.volume > 0, `Volume is positive (${result.model.volume})`);
+  // Compound should have inner race + outer race + 8 balls = 10 sub-shapes
+  assert(result.model.faces > 0, `Has faces (${result.model.faces})`);
+}
+
+async function testSpurGear() {
+  console.log('\n--- Test: Spur gear (library part) ---');
+
+  const config = {
+    name: 'test_gear',
+    shapes: [{
+      id: 'gear',
+      type: 'library/spur_gear',
+      module: 3,
+      teeth: 16,
+      width: 10,
+      bore_d: 10,
+      pressure_angle: 20,
+    }],
+    operations: [],
+    export: { formats: ['brep'], directory: resolve(OUTPUT_DIR) },
+  };
+
+  const result = await runScript('create_model.py', config, {
+    timeout: 120_000,
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Spur gear creation succeeded');
+  assert(result.model.volume > 0, `Volume is positive (${result.model.volume})`);
+  // Gear should have bore hole
+  assert(result.model.faces > 3, `Has many faces from teeth (${result.model.faces})`);
+}
+
+async function testSteppedShaft() {
+  console.log('\n--- Test: Stepped shaft (library part) ---');
+
+  const config = {
+    name: 'test_shaft',
+    shapes: [{
+      id: 'shaft',
+      type: 'library/stepped_shaft',
+      bore_d: 5,
+      segments: [
+        { diameter: 20, length: 15 },
+        { diameter: 30, length: 25 },
+        { diameter: 20, length: 15 },
+      ],
+    }],
+    operations: [],
+    export: { formats: ['brep'], directory: resolve(OUTPUT_DIR) },
+  };
+
+  const result = await runScript('create_model.py', config, {
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Stepped shaft creation succeeded');
+  assert(result.model.volume > 0, `Volume is positive (${result.model.volume})`);
+  // Approximate volume: pi*(10^2*15 + 15^2*25 + 10^2*15) - pi*2.5^2*55
+  const expected = Math.PI * (100*15 + 225*25 + 100*15) - Math.PI * 6.25 * 55;
+  assert(Math.abs(result.model.volume - expected) / expected < 0.05,
+    `Volume ~${Math.round(expected)} (got ${result.model.volume})`);
+  // Check bounding box height = 55
+  const bb = result.model.bounding_box;
+  assert(Math.abs(bb.size[2] - 55) < 1, `Height is 55mm (got ${bb.size[2]})`);
+}
+
+async function testLibraryPartWithPosition() {
+  console.log('\n--- Test: Library part with position offset ---');
+
+  const config = {
+    name: 'test_lib_pos',
+    shapes: [{
+      id: 'brg',
+      type: 'library/ball_bearing',
+      inner_d: 15,
+      outer_d: 32,
+      width: 9,
+      position: [100, 0, 0],
+    }],
+    operations: [],
+    export: { formats: ['brep'], directory: resolve(OUTPUT_DIR) },
+  };
+
+  const result = await runScript('create_model.py', config, {
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Library part with position succeeded');
+  const bb = result.model.bounding_box;
+  assert(bb.min[0] > 50, `BB offset X (min=${bb.min[0]})`);
+}
+
+async function testSimpleAssembly() {
+  console.log('\n--- Test: Simple assembly (2 boxes) ---');
+
+  const config = {
+    name: 'test_assembly',
+    parts: [
+      {
+        id: 'box_a',
+        shapes: [{ id: 'b', type: 'box', length: 10, width: 10, height: 10 }],
+        operations: [],
+      },
+      {
+        id: 'box_b',
+        shapes: [{ id: 'b', type: 'box', length: 10, width: 10, height: 10 }],
+        operations: [],
+      },
+    ],
+    assembly: {
+      parts: [
+        { ref: 'box_a', position: [0, 0, 0] },
+        { ref: 'box_b', position: [20, 0, 0] },
+      ],
+    },
+    export: { formats: ['brep'], directory: resolve(OUTPUT_DIR) },
+  };
+
+  const result = await runScript('create_model.py', config, {
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Simple assembly succeeded');
+  assert(result.assembly !== undefined, 'Assembly metadata present');
+  assert(result.assembly.part_count === 2, `Part count is 2 (got ${result.assembly.part_count})`);
+  // Two 10x10x10 boxes, total volume = 2000
+  assert(Math.abs(result.model.volume - 2000) < 1, `Volume is 2000 (got ${result.model.volume})`);
+}
+
+async function testAssemblyWithBoolean() {
+  console.log('\n--- Test: Assembly with boolean part ---');
+
+  const config = {
+    name: 'test_asm_bool',
+    parts: [
+      {
+        id: 'plate_with_hole',
+        shapes: [
+          { id: 'plate', type: 'box', length: 50, width: 50, height: 5 },
+          { id: 'hole', type: 'cylinder', radius: 10, height: 10, position: [25, 25, -2] },
+        ],
+        operations: [
+          { op: 'cut', base: 'plate', tool: 'hole', result: 'drilled' },
+        ],
+        final: 'drilled',
+      },
+      {
+        id: 'pin',
+        shapes: [{ id: 'p', type: 'cylinder', radius: 9, height: 20 }],
+        operations: [],
+      },
+    ],
+    assembly: {
+      parts: [
+        { ref: 'plate_with_hole', position: [0, 0, 0] },
+        { ref: 'pin', position: [25, 25, 0] },
+      ],
+    },
+    export: { formats: ['step', 'brep'], directory: resolve(OUTPUT_DIR) },
+  };
+
+  const result = await runScript('create_model.py', config, {
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Assembly with boolean succeeded');
+  assert(result.assembly.part_count === 2, `Part count is 2 (got ${result.assembly.part_count})`);
+  assert(result.exports.length === 2, `Exported 2 formats`);
+
+  // Check STEP file exists
+  const stepFile = resolve(OUTPUT_DIR, 'test_asm_bool.step');
+  assert(existsSync(stepFile), 'Assembly STEP file exists');
+}
+
+async function testAssemblyWithLibraryParts() {
+  console.log('\n--- Test: Assembly with library parts ---');
+
+  const config = {
+    name: 'test_asm_lib',
+    parts: [
+      {
+        id: 'shaft',
+        shapes: [{
+          id: 's',
+          type: 'library/stepped_shaft',
+          segments: [
+            { diameter: 20, length: 10 },
+            { diameter: 25, length: 30 },
+            { diameter: 20, length: 10 },
+          ],
+        }],
+        operations: [],
+      },
+      {
+        id: 'bearing1',
+        shapes: [{
+          id: 'b',
+          type: 'library/ball_bearing',
+          inner_d: 20,
+          outer_d: 42,
+          width: 12,
+        }],
+        operations: [],
+      },
+      {
+        id: 'bearing2',
+        shapes: [{
+          id: 'b',
+          type: 'library/ball_bearing',
+          inner_d: 20,
+          outer_d: 42,
+          width: 12,
+        }],
+        operations: [],
+      },
+    ],
+    assembly: {
+      parts: [
+        { ref: 'shaft', position: [0, 0, 0] },
+        { ref: 'bearing1', position: [0, 0, 5] },
+        { ref: 'bearing2', position: [0, 0, 40] },
+      ],
+    },
+    export: { formats: ['brep'], directory: resolve(OUTPUT_DIR) },
+  };
+
+  const result = await runScript('create_model.py', config, {
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Assembly with library parts succeeded');
+  assert(result.assembly.part_count === 3, `Part count is 3 (got ${result.assembly.part_count})`);
+  assert(Object.keys(result.assembly.parts).length === 3, 'Parts metadata has 3 entries');
+  assert(result.model.volume > 0, `Volume is positive (${result.model.volume})`);
+}
+
+async function testPTUAssembly() {
+  console.log('\n--- Test: PTU assembly (full integration) ---');
+
+  const config = await loadConfig(resolve(ROOT, 'configs/examples/ptu_assembly.toml'));
+  config.export.directory = resolve(OUTPUT_DIR);
+
+  const result = await runScript('create_model.py', config, {
+    timeout: 300_000,
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'PTU assembly creation succeeded');
+  assert(result.model.name === 'ptu_assembly', 'PTU assembly name matches');
+  assert(result.assembly !== undefined, 'Assembly metadata present');
+  assert(result.assembly.part_count === 7, `Part count is 7 (got ${result.assembly.part_count})`);
+  assert(result.model.volume > 0, `Volume is positive (${result.model.volume})`);
+  assert(result.exports.length === 2, `Exported 2 formats`);
+
+  // Check STEP file exists
+  const stepFile = resolve(OUTPUT_DIR, 'ptu_assembly.step');
+  assert(existsSync(stepFile), 'PTU assembly STEP file exists');
+}
+
+async function testAssemblyLegacyCompat() {
+  console.log('\n--- Test: Legacy mode (no assembly key) still works ---');
+
+  const config = {
+    name: 'test_legacy',
+    shapes: [{ id: 'box', type: 'box', length: 10, width: 10, height: 10 }],
+    operations: [],
+    export: { formats: ['brep'], directory: resolve(OUTPUT_DIR) },
+  };
+
+  const result = await runScript('create_model.py', config, {
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Legacy mode succeeded');
+  assert(result.assembly === undefined, 'No assembly metadata in legacy mode');
+  assert(Math.abs(result.model.volume - 1000) < 1, `Volume is 1000 (got ${result.model.volume})`);
+}
+
+
 async function main() {
   console.log('FreeCAD Automation - Integration Tests');
   console.log('=' .repeat(40));
@@ -456,6 +763,19 @@ async function main() {
 
     // Phase 3 tests: PTU full integration
     await testPTU();
+
+    // Phase 5 tests: Parts Library
+    await testBallBearing();
+    await testSpurGear();
+    await testSteppedShaft();
+    await testLibraryPartWithPosition();
+
+    // Phase 5 tests: Assembly
+    await testSimpleAssembly();
+    await testAssemblyWithBoolean();
+    await testAssemblyWithLibraryParts();
+    await testPTUAssembly();
+    await testAssemblyLegacyCompat();
   } catch (err) {
     failed++;
     console.error(`\nFATAL: ${err.message}`);

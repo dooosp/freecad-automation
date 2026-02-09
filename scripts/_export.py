@@ -61,6 +61,40 @@ def export_multi(shape, name, formats, directory):
     return results
 
 
+def export_assembly(features, compound, name, formats, directory):
+    """
+    Export an assembly (multiple Part::Feature objects) to various formats.
+
+    STEP: exports features list → preserves part tree with names.
+    STL/OBJ: exports compound as single mesh.
+    BREP: exports compound.
+
+    Returns list of export result dicts.
+    """
+    results = []
+    os.makedirs(directory, exist_ok=True)
+
+    for fmt in formats:
+        fmt = fmt.lower()
+        filepath = os.path.join(directory, f"{name}.{fmt}")
+
+        if fmt in ("step", "stp"):
+            # Export features to preserve part names in STEP tree
+            Part.export([f for f in features], filepath)
+        elif fmt in ("stl", "obj"):
+            mesh = Mesh.Mesh(compound.tessellate(0.1))
+            mesh.write(filepath)
+        elif fmt in ("brep", "brp"):
+            compound.exportBrep(filepath)
+        else:
+            raise ValueError(f"Unsupported export format: {fmt}")
+
+        size = os.path.getsize(filepath) if os.path.exists(filepath) else 0
+        results.append({"format": fmt, "path": filepath, "size_bytes": size})
+
+    return results
+
+
 def shape_to_feature(shape):
     """Wrap a TopoShape in a Part::Feature for export compatibility."""
     doc = FreeCAD.newDocument("ExportTemp")

@@ -227,12 +227,16 @@ def make_shape(spec):
         shape = make_revolution(spec)
     elif shape_type == "extrusion":
         shape = make_extrusion(spec)
+    elif shape_type.startswith("library/"):
+        from _parts_library import make_library_part
+        shape = make_library_part(spec)
     else:
         raise ValueError(f"Unknown shape type: {shape_type}")
 
-    # Apply position offset for sketch-based shapes (revolution/extrusion already in 3D)
-    if shape_type in ("revolution", "extrusion") and pos != [0, 0, 0]:
-        shape.translate(Vector(*pos))
+    # Apply position offset for sketch-based/library shapes
+    if shape_type in ("revolution", "extrusion") or shape_type.startswith("library/"):
+        if pos != [0, 0, 0]:
+            shape.translate(Vector(*pos))
 
     # Apply rotation if specified: [axis_x, axis_y, axis_z, angle_degrees]
     if "rotation" in spec:

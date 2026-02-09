@@ -74,6 +74,12 @@ async function cmdCreate(configPath) {
     console.log(`  Faces: ${result.model.faces}, Edges: ${result.model.edges}`);
     const bb = result.model.bounding_box;
     console.log(`  Bounding box: ${bb.size[0]} × ${bb.size[1]} × ${bb.size[2]} mm`);
+    if (result.assembly) {
+      console.log(`  Assembly: ${result.assembly.part_count} parts`);
+      for (const [name, meta] of Object.entries(result.assembly.parts)) {
+        console.log(`    ${name}: vol=${meta.volume} mm³, faces=${meta.faces}`);
+      }
+    }
     if (result.exports?.length > 0) {
       console.log('  Exports:');
       for (const exp of result.exports) {

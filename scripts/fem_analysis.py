@@ -16,6 +16,10 @@ try:
     model_name = config.get("name", "unnamed")
     log(f"FEM Analysis: {model_name}")
 
+    # Guard: assembly configs are not supported for FEM
+    if "parts" in config and "assembly" in config:
+        respond_error("FEM analysis does not support assembly configs. Use a single-part config instead.")
+
     FreeCAD = init_freecad()
     import Part
     import ObjectsFem
