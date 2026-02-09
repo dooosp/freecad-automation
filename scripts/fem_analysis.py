@@ -19,7 +19,7 @@ try:
     FreeCAD = init_freecad()
     import Part
     import ObjectsFem
-    from _shapes import make_shape, boolean_op, apply_fillet, apply_chamfer, get_metadata
+    from _shapes import make_shape, boolean_op, apply_fillet, apply_chamfer, circular_pattern, get_metadata
     from _export import export_multi
     from _fem import (
         wrap_shape_as_feature, setup_material, setup_mesh,
@@ -54,6 +54,17 @@ try:
             shapes[op_spec.get("result", op_spec["target"])] = apply_chamfer(
                 target, op_spec["size"], op_spec.get("edges")
             )
+        elif op == "circular_pattern":
+            target = shapes[op_spec["target"]]
+            result = circular_pattern(
+                target,
+                op_spec.get("axis", [0, 0, 1]),
+                op_spec.get("center", [0, 0, 0]),
+                op_spec["count"],
+                op_spec.get("angle", 360),
+                op_spec.get("include_original", True),
+            )
+            shapes[op_spec.get("result", op_spec["target"])] = result
 
     # Get final shape
     final_name = config.get("final", list(shapes.keys())[-1])

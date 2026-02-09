@@ -16,7 +16,7 @@ try:
     log(f"Creating model: {config.get('name', 'unnamed')}")
 
     FreeCAD = init_freecad()
-    from _shapes import make_shape, boolean_op, apply_fillet, apply_chamfer, get_metadata
+    from _shapes import make_shape, boolean_op, apply_fillet, apply_chamfer, circular_pattern, get_metadata
     from _export import export_multi
 
     # Phase 1: Create all named shapes
@@ -63,6 +63,18 @@ try:
             result_id = op_spec.get("result", op_spec["target"])
             shapes[result_id] = result
             log(f"  Chamfer s={size} → '{result_id}'")
+
+        elif op == "circular_pattern":
+            target = shapes[op_spec["target"]]
+            axis = op_spec.get("axis", [0, 0, 1])
+            center = op_spec.get("center", [0, 0, 0])
+            count = op_spec["count"]
+            angle = op_spec.get("angle", 360)
+            incl = op_spec.get("include_original", True)
+            result = circular_pattern(target, axis, center, count, angle, incl)
+            result_id = op_spec.get("result", op_spec["target"])
+            shapes[result_id] = result
+            log(f"  CircularPattern x{count} → '{result_id}'")
 
         else:
             raise ValueError(f"Unknown operation: {op}")

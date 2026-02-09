@@ -114,6 +114,314 @@ async function testFemAnalysis() {
   return result;
 }
 
+// ---------------------------------------------------------------------------
+// Phase 3 Tests: Revolution, Extrusion, Circular Pattern
+// ---------------------------------------------------------------------------
+
+async function testRevolutionSimple() {
+  console.log('\n--- Test: Simple revolution (full cylinder-like) ---');
+
+  // A rectangle profile revolved 360° around Z axis → hollow tube shape
+  const config = {
+    name: 'test_revolution',
+    shapes: [{
+      id: 'ring',
+      type: 'revolution',
+      angle: 360,
+      axis: [0, 0, 1],
+      axis_point: [0, 0, 0],
+      plane: 'xz',
+      profile_start: [10, 0],
+      profile: [
+        { type: 'line', to: [20, 0] },
+        { type: 'line', to: [20, 10] },
+        { type: 'line', to: [10, 10] },
+      ],
+    }],
+    operations: [],
+    export: { formats: ['brep'], directory: resolve(OUTPUT_DIR) },
+  };
+
+  const result = await runScript('create_model.py', config, {
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Revolution creation succeeded');
+  assert(result.model.volume > 0, `Volume is positive (${result.model.volume})`);
+  // Expected: pi * (20^2 - 10^2) * 10 = pi * 300 * 10 = ~9424.78
+  const expected = Math.PI * (20*20 - 10*10) * 10;
+  assert(Math.abs(result.model.volume - expected) / expected < 0.02,
+    `Volume ~${Math.round(expected)} (got ${result.model.volume})`);
+  assert(result.model.faces >= 2, `Has faces (${result.model.faces})`);
+}
+
+async function testRevolutionPartial() {
+  console.log('\n--- Test: Partial revolution (180°) ---');
+
+  const config = {
+    name: 'test_rev_partial',
+    shapes: [{
+      id: 'half',
+      type: 'revolution',
+      angle: 180,
+      axis: [0, 0, 1],
+      axis_point: [0, 0, 0],
+      plane: 'xz',
+      profile_start: [5, 0],
+      profile: [
+        { type: 'line', to: [15, 0] },
+        { type: 'line', to: [15, 10] },
+        { type: 'line', to: [5, 10] },
+      ],
+    }],
+    operations: [],
+    export: { formats: ['brep'], directory: resolve(OUTPUT_DIR) },
+  };
+
+  const result = await runScript('create_model.py', config, {
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Partial revolution succeeded');
+  assert(result.model.volume > 0, `Volume is positive (${result.model.volume})`);
+  // Half of full: pi * (15^2 - 5^2) * 10 / 2 = ~3141.59
+  const expected = Math.PI * (15*15 - 5*5) * 10 / 2;
+  assert(Math.abs(result.model.volume - expected) / expected < 0.02,
+    `Volume ~${Math.round(expected)} (got ${result.model.volume})`);
+}
+
+async function testRevolutionWithArc() {
+  console.log('\n--- Test: Revolution with arc segment ---');
+
+  const config = {
+    name: 'test_rev_arc',
+    shapes: [{
+      id: 'rounded',
+      type: 'revolution',
+      angle: 360,
+      axis: [0, 0, 1],
+      axis_point: [0, 0, 0],
+      plane: 'xz',
+      profile_start: [10, 0],
+      profile: [
+        { type: 'line', to: [20, 0] },
+        { type: 'arc', to: [20, 10], center: [20, 5], clockwise: false },
+        { type: 'line', to: [10, 10] },
+      ],
+    }],
+    operations: [],
+    export: { formats: ['brep'], directory: resolve(OUTPUT_DIR) },
+  };
+
+  const result = await runScript('create_model.py', config, {
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Revolution with arc succeeded');
+  assert(result.model.volume > 0, `Volume is positive (${result.model.volume})`);
+  assert(result.model.faces >= 2, `Has faces (${result.model.faces})`);
+}
+
+async function testExtrusionSimple() {
+  console.log('\n--- Test: Simple extrusion (L-shaped profile) ---');
+
+  const config = {
+    name: 'test_extrusion',
+    shapes: [{
+      id: 'L_shape',
+      type: 'extrusion',
+      direction: [0, 0, 30],
+      plane: 'xy',
+      profile_start: [0, 0],
+      profile: [
+        { type: 'line', to: [20, 0] },
+        { type: 'line', to: [20, 5] },
+        { type: 'line', to: [5, 5] },
+        { type: 'line', to: [5, 15] },
+        { type: 'line', to: [0, 15] },
+      ],
+    }],
+    operations: [],
+    export: { formats: ['brep'], directory: resolve(OUTPUT_DIR) },
+  };
+
+  const result = await runScript('create_model.py', config, {
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Extrusion creation succeeded');
+  // L-shape area = 20*5 + 5*10 = 150, volume = 150*30 = 4500
+  const expected = 4500;
+  assert(Math.abs(result.model.volume - expected) < 1,
+    `Volume is ${expected} (got ${result.model.volume})`);
+  assert(result.model.faces > 0, `Has faces (${result.model.faces})`);
+}
+
+async function testExtrusionWithPosition() {
+  console.log('\n--- Test: Extrusion with position offset ---');
+
+  const config = {
+    name: 'test_extrusion_pos',
+    shapes: [{
+      id: 'block',
+      type: 'extrusion',
+      direction: [0, 0, 10],
+      plane: 'xy',
+      position: [100, 100, 100],
+      profile_start: [0, 0],
+      profile: [
+        { type: 'line', to: [10, 0] },
+        { type: 'line', to: [10, 10] },
+        { type: 'line', to: [0, 10] },
+      ],
+    }],
+    operations: [],
+    export: { formats: ['brep'], directory: resolve(OUTPUT_DIR) },
+  };
+
+  const result = await runScript('create_model.py', config, {
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Extrusion with position succeeded');
+  assert(Math.abs(result.model.volume - 1000) < 1, `Volume is 1000 (got ${result.model.volume})`);
+  // Check bounding box is offset
+  const bb = result.model.bounding_box;
+  assert(bb.min[0] >= 99, `BB min X offset (${bb.min[0]})`);
+  assert(bb.min[1] >= 99, `BB min Y offset (${bb.min[1]})`);
+}
+
+async function testCircularPattern() {
+  console.log('\n--- Test: Circular pattern (6 bolt holes) ---');
+
+  const config = {
+    name: 'test_circ_pattern',
+    shapes: [
+      {
+        id: 'plate',
+        type: 'cylinder',
+        radius: 50,
+        height: 5,
+      },
+      {
+        id: 'hole',
+        type: 'cylinder',
+        radius: 3,
+        height: 10,
+        position: [30, 0, -2],
+      },
+    ],
+    operations: [
+      {
+        op: 'circular_pattern',
+        target: 'hole',
+        axis: [0, 0, 1],
+        center: [0, 0, 0],
+        count: 6,
+        angle: 360,
+        include_original: true,
+        result: 'holes',
+      },
+      {
+        op: 'cut',
+        base: 'plate',
+        tool: 'holes',
+        result: 'plate',
+      },
+    ],
+    final: 'plate',
+    export: { formats: ['brep'], directory: resolve(OUTPUT_DIR) },
+  };
+
+  const result = await runScript('create_model.py', config, {
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Circular pattern succeeded');
+  // Volume should be plate minus 6 holes; verify holes were cut
+  const plateVol = Math.PI * 50*50 * 5; // ~39270
+  assert(result.model.volume > 0, `Volume is positive (${result.model.volume})`);
+  assert(result.model.volume < plateVol, `Volume < uncut plate (${result.model.volume} < ${Math.round(plateVol)})`);
+  // Should have more faces than a plain cylinder (6 holes add faces)
+  assert(result.model.faces > 3, `Has many faces from holes (${result.model.faces})`);
+}
+
+async function testRevolutionBooleanCombo() {
+  console.log('\n--- Test: Revolution + boolean (hollow housing) ---');
+
+  const config = {
+    name: 'test_rev_boolean',
+    shapes: [
+      {
+        id: 'outer',
+        type: 'revolution',
+        angle: 360,
+        axis: [0, 0, 1],
+        plane: 'xz',
+        profile_start: [0, 0],
+        profile: [
+          { type: 'line', to: [30, 0] },
+          { type: 'line', to: [30, 40] },
+          { type: 'line', to: [0, 40] },
+        ],
+      },
+      {
+        id: 'bore',
+        type: 'revolution',
+        angle: 360,
+        axis: [0, 0, 1],
+        plane: 'xz',
+        profile_start: [0, 5],
+        profile: [
+          { type: 'line', to: [25, 5] },
+          { type: 'line', to: [25, 35] },
+          { type: 'line', to: [0, 35] },
+        ],
+      },
+    ],
+    operations: [
+      { op: 'cut', base: 'outer', tool: 'bore', result: 'housing' },
+    ],
+    final: 'housing',
+    export: { formats: ['brep'], directory: resolve(OUTPUT_DIR) },
+  };
+
+  const result = await runScript('create_model.py', config, {
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Revolution + boolean succeeded');
+  assert(result.model.volume > 0, `Volume is positive (${result.model.volume})`);
+  // outer = pi*30^2*40, bore = pi*25^2*30 → result > 0
+  const outerVol = Math.PI * 30*30 * 40;
+  const boreVol = Math.PI * 25*25 * 30;
+  const expected = outerVol - boreVol;
+  assert(Math.abs(result.model.volume - expected) / expected < 0.02,
+    `Volume ~${Math.round(expected)} (got ${result.model.volume})`);
+}
+
+async function testPTU() {
+  console.log('\n--- Test: PTU housing (full integration) ---');
+
+  const config = await loadConfig(resolve(ROOT, 'configs/examples/ptu.toml'));
+  config.export.directory = resolve(OUTPUT_DIR);
+
+  const result = await runScript('create_model.py', config, {
+    timeout: 120_000,
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'PTU creation succeeded');
+  assert(result.model.name === 'ptu_housing', 'PTU model name matches');
+  assert(result.model.volume > 0, `PTU volume is positive (${result.model.volume})`);
+  assert(result.model.faces > 10, `PTU has many faces (${result.model.faces})`);
+  assert(result.exports.length === 2, `PTU exported 2 formats`);
+
+  // Check STEP file exists
+  const stepFile = resolve(OUTPUT_DIR, 'ptu_housing.step');
+  assert(existsSync(stepFile), 'PTU STEP file exists');
+}
+
 async function main() {
   console.log('FreeCAD Automation - Integration Tests');
   console.log('=' .repeat(40));
@@ -123,10 +431,31 @@ async function main() {
   mkdirSync(OUTPUT_DIR, { recursive: true });
 
   try {
+    // Phase 1 tests
     await testSimpleBox();
     await testCreateModel();
     await testInspectSTEP();
+
+    // Phase 2 test
     await testFemAnalysis();
+
+    // Phase 3 tests: Revolution
+    await testRevolutionSimple();
+    await testRevolutionPartial();
+    await testRevolutionWithArc();
+
+    // Phase 3 tests: Extrusion
+    await testExtrusionSimple();
+    await testExtrusionWithPosition();
+
+    // Phase 3 tests: Circular Pattern
+    await testCircularPattern();
+
+    // Phase 3 tests: Combined
+    await testRevolutionBooleanCombo();
+
+    // Phase 3 tests: PTU full integration
+    await testPTU();
   } catch (err) {
     failed++;
     console.error(`\nFATAL: ${err.message}`);

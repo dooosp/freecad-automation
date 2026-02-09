@@ -1,0 +1,304 @@
+# Power Transfer Unit (PTU) — parametric model
+# Demonstrates: revolution, extrusion, circular_pattern, boolean ops
+
+name = "ptu_housing"
+
+# ── Final shape ──────────────────────────────────────────────
+final = "body"
+
+# ── Export ───────────────────────────────────────────────────
+[export]
+formats = ["step", "stl"]
+directory = "./output"
+
+# ═════════════════════════════════════════════════════════════
+# SHAPES
+# ═════════════════════════════════════════════════════════════
+
+# 1. Main housing — stepped revolution profile
+[[shapes]]
+id = "housing_outer"
+type = "revolution"
+angle = 360
+axis = [0, 0, 1]
+axis_point = [0, 0, 0]
+plane = "xz"
+profile_start = [0, 0]
+
+  [[shapes.profile]]
+  type = "line"
+  to = [40, 0]
+
+  [[shapes.profile]]
+  type = "line"
+  to = [40, 10]
+
+  [[shapes.profile]]
+  type = "line"
+  to = [50, 10]
+
+  [[shapes.profile]]
+  type = "line"
+  to = [50, 15]
+
+  [[shapes.profile]]
+  type = "line"
+  to = [40, 15]
+
+  [[shapes.profile]]
+  type = "line"
+  to = [40, 60]
+
+  [[shapes.profile]]
+  type = "arc"
+  to = [35, 65]
+  center = [35, 60]
+  clockwise = false
+
+  [[shapes.profile]]
+  type = "line"
+  to = [0, 65]
+
+
+# 2. Flange ring — wider disc at the base
+[[shapes]]
+id = "flange_ring"
+type = "revolution"
+angle = 360
+axis = [0, 0, 1]
+plane = "xz"
+profile_start = [40, 0]
+
+  [[shapes.profile]]
+  type = "line"
+  to = [55, 0]
+
+  [[shapes.profile]]
+  type = "line"
+  to = [55, 8]
+
+  [[shapes.profile]]
+  type = "line"
+  to = [40, 8]
+
+
+# 3. Internal bore (will be cut out)
+[[shapes]]
+id = "bore"
+type = "revolution"
+angle = 360
+axis = [0, 0, 1]
+plane = "xz"
+profile_start = [0, 3]
+
+  [[shapes.profile]]
+  type = "line"
+  to = [35, 3]
+
+  [[shapes.profile]]
+  type = "line"
+  to = [35, 62]
+
+  [[shapes.profile]]
+  type = "line"
+  to = [0, 62]
+
+
+# 4. Input shaft bore — 90° side bore
+[[shapes]]
+id = "input_bore"
+type = "cylinder"
+radius = 12
+height = 80
+position = [0, -40, 30]
+direction = [0, 1, 0]
+
+# 5. Single bolt hole (will be patterned)
+[[shapes]]
+id = "bolt_hole"
+type = "cylinder"
+radius = 4
+height = 20
+position = [47, 0, -5]
+
+# 6. Bevel gear blank
+[[shapes]]
+id = "gear_blank"
+type = "revolution"
+angle = 360
+axis = [0, 0, 1]
+plane = "xz"
+profile_start = [8, 25]
+
+  [[shapes.profile]]
+  type = "line"
+  to = [28, 25]
+
+  [[shapes.profile]]
+  type = "arc"
+  to = [30, 27]
+  center = [28, 27]
+  clockwise = false
+
+  [[shapes.profile]]
+  type = "line"
+  to = [30, 33]
+
+  [[shapes.profile]]
+  type = "arc"
+  to = [28, 35]
+  center = [28, 33]
+  clockwise = false
+
+  [[shapes.profile]]
+  type = "line"
+  to = [8, 35]
+
+
+# 7. Single gear tooth (extrusion, will be patterned)
+[[shapes]]
+id = "gear_tooth"
+type = "extrusion"
+direction = [0, 0, 8]
+plane = "xy"
+position = [0, 0, 26]
+profile_start = [28, -1.5]
+
+  [[shapes.profile]]
+  type = "line"
+  to = [33, -1]
+
+  [[shapes.profile]]
+  type = "line"
+  to = [33, 1]
+
+  [[shapes.profile]]
+  type = "line"
+  to = [28, 1.5]
+
+
+# 8. Keyway slot (extrusion)
+[[shapes]]
+id = "keyway"
+type = "extrusion"
+direction = [0, 0, 20]
+plane = "xy"
+position = [0, 0, 27]
+profile_start = [-2, 30]
+
+  [[shapes.profile]]
+  type = "line"
+  to = [2, 30]
+
+  [[shapes.profile]]
+  type = "line"
+  to = [2, 36]
+
+  [[shapes.profile]]
+  type = "line"
+  to = [-2, 36]
+
+
+# 9. Seal groove (thin revolution channel)
+[[shapes]]
+id = "seal_groove"
+type = "revolution"
+angle = 360
+axis = [0, 0, 1]
+plane = "xz"
+profile_start = [33, 58]
+
+  [[shapes.profile]]
+  type = "line"
+  to = [37, 58]
+
+  [[shapes.profile]]
+  type = "line"
+  to = [37, 60]
+
+  [[shapes.profile]]
+  type = "line"
+  to = [33, 60]
+
+
+# ═════════════════════════════════════════════════════════════
+# OPERATIONS
+# ═════════════════════════════════════════════════════════════
+
+# 1. Fuse housing + flange
+[[operations]]
+op = "fuse"
+base = "housing_outer"
+tool = "flange_ring"
+result = "body"
+
+# 2. Cut internal bore
+[[operations]]
+op = "cut"
+base = "body"
+tool = "bore"
+result = "body"
+
+# 3. Cut input shaft bore (side hole)
+[[operations]]
+op = "cut"
+base = "body"
+tool = "input_bore"
+result = "body"
+
+# 4. Pattern bolt holes x8
+[[operations]]
+op = "circular_pattern"
+target = "bolt_hole"
+axis = [0, 0, 1]
+center = [0, 0, 0]
+count = 8
+angle = 360
+include_original = true
+result = "bolt_holes"
+
+# 5. Cut bolt holes from body
+[[operations]]
+op = "cut"
+base = "body"
+tool = "bolt_holes"
+result = "body"
+
+# 6. Pattern gear teeth x16
+[[operations]]
+op = "circular_pattern"
+target = "gear_tooth"
+axis = [0, 0, 1]
+center = [0, 0, 0]
+count = 16
+angle = 360
+include_original = true
+result = "teeth"
+
+# 7. Fuse gear blank + teeth
+[[operations]]
+op = "fuse"
+base = "gear_blank"
+tool = "teeth"
+result = "gear"
+
+# 8. Cut keyway
+[[operations]]
+op = "cut"
+base = "gear"
+tool = "keyway"
+result = "gear"
+
+# 9. Cut seal groove from body
+[[operations]]
+op = "cut"
+base = "body"
+tool = "seal_groove"
+result = "body"
+
+# 10. Fillet body edges (best-effort)
+[[operations]]
+op = "fillet"
+target = "body"
+radius = 1.5
+result = "body"
