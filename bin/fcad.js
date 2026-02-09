@@ -9,11 +9,13 @@ fcad - FreeCAD automation CLI
 
 Usage:
   fcad create <config.toml|json>  Create model from config
+  fcad fem <config.toml|json>     Run FEM structural analysis
   fcad inspect <model.step|fcstd> Inspect model metadata
   fcad help                       Show this help
 
 Examples:
   fcad create configs/examples/bracket.toml
+  fcad fem configs/examples/bracket_fem.toml
   fcad inspect output/bracket_v1.step
 `.trim();
 
@@ -27,6 +29,8 @@ async function main() {
 
   if (command === 'create') {
     await cmdCreate(args[0]);
+  } else if (command === 'fem') {
+    await cmdFem(args[0]);
   } else if (command === 'inspect') {
     await cmdInspect(args[0]);
   } else {
@@ -60,6 +64,53 @@ async function cmdCreate(configPath) {
     console.log(`  Faces: ${result.model.faces}, Edges: ${result.model.edges}`);
     const bb = result.model.bounding_box;
     console.log(`  Bounding box: ${bb.size[0]} × ${bb.size[1]} × ${bb.size[2]} mm`);
+    if (result.exports?.length > 0) {
+      console.log('  Exports:');
+      for (const exp of result.exports) {
+        console.log(`    ${exp.format}: ${exp.path} (${exp.size_bytes} bytes)`);
+      }
+    }
+  } else {
+    console.error(`\nError: ${result.error}`);
+    process.exit(1);
+  }
+
+  return result;
+}
+
+async function cmdFem(configPath) {
+  if (!configPath) {
+    console.error('Error: config file path required');
+    process.exit(1);
+  }
+
+  const absPath = resolve(configPath);
+  console.log(`Loading config: ${absPath}`);
+
+  const config = await loadConfig(absPath);
+  const analysisType = config.fem?.analysis_type || 'static';
+  console.log(`FEM Analysis: ${config.name || 'unnamed'} (${analysisType})`);
+  console.log(`  Shapes: ${config.shapes?.length || 0}`);
+  console.log(`  Constraints: ${config.fem?.constraints?.length || 0}`);
+
+  const result = await runScript('fem_analysis.py', config, {
+    timeout: 300_000,
+    onStderr: (text) => process.stderr.write(text),
+  });
+
+  if (result.success) {
+    const fem = result.fem;
+    const mat = fem.material;
+    console.log(`\nFEM Analysis: ${result.model.name} (${fem.analysis_type})`);
+    console.log(`  Material: ${mat.name} (E=${mat.youngs_modulus} MPa)`);
+    console.log(`  Mesh: ${fem.mesh.nodes.toLocaleString()} nodes, ${fem.mesh.elements.toLocaleString()} elements (${fem.mesh.element_type})`);
+    console.log('');
+    console.log('  Results:');
+    console.log(`    Max displacement: ${fem.results.displacement.max.toFixed(4)} mm (Node ${fem.results.displacement.max_node})`);
+    console.log(`    Max von Mises stress: ${fem.results.von_mises.max.toFixed(2)} MPa (Node ${fem.results.von_mises.max_node})`);
+    console.log(`    Min von Mises stress: ${fem.results.von_mises.min.toFixed(2)} MPa`);
+    console.log(`    Safety factor: ${fem.results.safety_factor} (yield=${mat.yield_strength} MPa)`);
+
     if (result.exports?.length > 0) {
       console.log('  Exports:');
       for (const exp of result.exports) {

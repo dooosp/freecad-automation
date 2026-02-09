@@ -83,6 +83,37 @@ async function testSimpleBox() {
   return result;
 }
 
+async function testFemAnalysis() {
+  console.log('\n--- Test: FEM static analysis ---');
+
+  const config = await loadConfig(resolve(ROOT, 'configs/examples/bracket_fem.toml'));
+  config.export.directory = resolve(OUTPUT_DIR);
+
+  const result = await runScript('fem_analysis.py', config, {
+    timeout: 300_000,
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'FEM analysis succeeded');
+  assert(result.model.name === 'bracket_fem', 'Model name matches');
+  assert(result.model.volume > 0, `Volume is positive (${result.model.volume})`);
+
+  // FEM-specific assertions
+  assert(result.fem !== undefined, 'FEM results present');
+  assert(result.fem.analysis_type === 'static', 'Analysis type is static');
+  assert(result.fem.mesh.nodes > 0, `Mesh has nodes (${result.fem.mesh.nodes})`);
+  assert(result.fem.mesh.elements > 0, `Mesh has elements (${result.fem.mesh.elements})`);
+  assert(result.fem.results.displacement.max > 0, `Max displacement > 0 (${result.fem.results.displacement.max})`);
+  assert(result.fem.results.von_mises.max > 0, `Max von Mises > 0 (${result.fem.results.von_mises.max})`);
+  assert(result.fem.results.safety_factor > 0, `Safety factor > 0 (${result.fem.results.safety_factor})`);
+
+  // Verify .FCStd saved
+  const fcstdPath = resolve(OUTPUT_DIR, 'bracket_fem.FCStd');
+  assert(existsSync(fcstdPath), 'FCStd file saved with results');
+
+  return result;
+}
+
 async function main() {
   console.log('FreeCAD Automation - Integration Tests');
   console.log('=' .repeat(40));
@@ -95,6 +126,7 @@ async function main() {
     await testSimpleBox();
     await testCreateModel();
     await testInspectSTEP();
+    await testFemAnalysis();
   } catch (err) {
     failed++;
     console.error(`\nFATAL: ${err.message}`);

@@ -1,0 +1,57 @@
+name = "bracket_fem"
+
+# --- Shapes: L-bracket geometry ---
+
+[[shapes]]
+id = "base_plate"
+type = "box"
+length = 100
+width = 60
+height = 5
+
+[[shapes]]
+id = "rib"
+type = "box"
+length = 5
+width = 60
+height = 40
+position = [0, 0, 5]
+
+# --- Operations ---
+
+[[operations]]
+op = "fuse"
+base = "base_plate"
+tool = "rib"
+result = "body"
+
+# --- FEM Configuration ---
+
+[fem]
+analysis_type = "static"
+
+[fem.material]
+preset = "steel"
+
+[fem.mesh]
+max_element_size = 10.0
+min_element_size = 2.0
+element_order = "2nd"
+
+# Fix the left face of the rib (wall mount)
+[[fem.constraints]]
+type = "fixed"
+faces = ["Face10"]
+
+# Apply downward force on top of base plate
+[[fem.constraints]]
+type = "force"
+faces = ["Face2"]
+magnitude = 1000
+direction = [0, 0, -1]
+
+# --- Export ---
+
+[export]
+formats = ["step"]
+directory = "output"
