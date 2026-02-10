@@ -30,6 +30,14 @@ def _cam_displacement(angle_deg, max_lift, profile):
 
     if profile == "cycloidal":
         lift = max_lift * (phase - math.sin(2.0 * math.pi * phase) / (2.0 * math.pi))
+    elif profile == "dwell":
+        # Dwell at max_lift for middle 50% (phase 0.25–0.75), ramp up/down outside
+        if 0.25 <= phase <= 0.75:
+            lift = max_lift
+        elif phase < 0.25:
+            lift = max_lift * (1.0 - math.cos(math.pi * phase / 0.25)) / 2.0
+        else:
+            lift = max_lift * (1.0 - math.cos(math.pi * (1.0 - phase) / 0.25)) / 2.0
     else:  # harmonic (default)
         lift = max_lift * (1.0 - math.cos(math.pi * phase)) / 2.0
 

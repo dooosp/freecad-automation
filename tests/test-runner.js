@@ -4,7 +4,8 @@
  */
 
 import { resolve } from 'node:path';
-import { existsSync, rmSync, mkdirSync } from 'node:fs';
+import { existsSync, rmSync, mkdirSync, readFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
 import { runScript } from '../lib/runner.js';
 import { loadConfig } from '../lib/config-loader.js';
 
@@ -1472,6 +1473,223 @@ async function testPistonEngine() {
   assert(Math.abs(d360) < 0.5, `Piston returns to ~0mm at 360° (got ${d360.toFixed(2)})`);
 }
 
+// ---------------------------------------------------------------------------
+// Seatbelt Retractor Demo Tests
+// ---------------------------------------------------------------------------
+
+async function testRetractorBuild() {
+  console.log('\n--- Test: Seatbelt retractor build (7 parts) ---');
+
+  const config = await loadConfig(resolve(ROOT, 'configs/examples/seatbelt_retractor.toml'));
+  config.export.directory = resolve(OUTPUT_DIR);
+
+  const result = await runScript('create_model.py', config, {
+    timeout: 300_000,
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Retractor build succeeded');
+  assert(result.model.name === 'seatbelt_retractor', 'Model name matches');
+  assert(result.model.volume > 0, `Volume is positive (${result.model.volume})`);
+
+  // Verify all 7 parts built
+  const stepFile = resolve(OUTPUT_DIR, 'seatbelt_retractor.step');
+  assert(existsSync(stepFile), 'STEP file exists');
+
+  return result;
+}
+
+async function testRetractorMotionData() {
+  console.log('\n--- Test: Retractor motion data structure ---');
+
+  const config = await loadConfig(resolve(ROOT, 'configs/examples/seatbelt_retractor.toml'));
+  config.export.directory = resolve(OUTPUT_DIR);
+
+  const result = await runScript('create_model.py', config, {
+    timeout: 300_000,
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.motion_data !== undefined, 'motion_data present');
+  assert(result.motion_data.duration === 4.0, 'Duration is 4s');
+  assert(result.motion_data.loop === true, 'Loop is true');
+
+  // Spool (driver) should have revolute keyframes
+  const spool = result.motion_data.parts.spool;
+  assert(spool !== undefined, 'Spool part in motion');
+  assert(spool.type === 'revolute', 'Spool is revolute');
+  assert(spool.keyframes.length === 121, `Spool has 121 keyframes (got ${spool.keyframes.length})`);
+
+  // Lock cam (gear coupled)
+  const cam = result.motion_data.parts.lock_cam;
+  assert(cam !== undefined, 'Lock cam part in motion');
+  assert(cam.type === 'revolute', 'Lock cam is revolute');
+
+  // Pawl (cam_follower coupled)
+  const pawl = result.motion_data.parts.pawl;
+  assert(pawl !== undefined, 'Pawl part in motion');
+  assert(pawl.type === 'prismatic', `Pawl is prismatic (got ${pawl?.type})`);
+
+  return result;
+}
+
+async function testRetractorCamLock() {
+  console.log('\n--- Test: Retractor cam lock (dwell zone) ---');
+
+  const config = await loadConfig(resolve(ROOT, 'configs/examples/seatbelt_retractor.toml'));
+  config.export.directory = resolve(OUTPUT_DIR);
+
+  const result = await runScript('create_model.py', config, {
+    timeout: 300_000,
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  const pawl = result.motion_data.parts.pawl;
+  const spool = result.motion_data.parts.spool;
+  const nKf = pawl.keyframes.length;
+
+  // Dwell profile: phase = angle/180 for 0→180°, symmetrically back for 180→360°
+  // Dwell zone is phase 0.25–0.75, i.e., 45°–135° and 225°–315°
+  // At 90° (phase=0.5): max_lift=6mm (center of dwell)
+  // At 180° (phase=1.0): returns to 0mm
+  const step45 = Math.round(45 / 720 * (nKf - 1));
+  const step90 = Math.round(90 / 720 * (nKf - 1));
+  const step135 = Math.round(135 / 720 * (nKf - 1));
+
+  const d45 = pawl.keyframes[step45].displacement;
+  const d90 = pawl.keyframes[step90].displacement;
+  const d135 = pawl.keyframes[step135].displacement;
+
+  assert(d90 > 5.5, `Pawl at 90° at max lift (got ${d90.toFixed(3)}mm)`);
+  assert(d45 > 5.5, `Pawl at 45° in dwell zone (got ${d45.toFixed(3)}mm)`);
+  assert(d135 > 5.5, `Pawl at 135° in dwell zone (got ${d135.toFixed(3)}mm)`);
+}
+
+async function testRetractorSpoolCamSync() {
+  console.log('\n--- Test: Retractor spool-cam sync (1:1 gear) ---');
+
+  const config = await loadConfig(resolve(ROOT, 'configs/examples/seatbelt_retractor.toml'));
+  config.export.directory = resolve(OUTPUT_DIR);
+
+  const result = await runScript('create_model.py', config, {
+    timeout: 300_000,
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  const spool = result.motion_data.parts.spool;
+  const cam = result.motion_data.parts.lock_cam;
+
+  // 1:1 gear ratio: cam angle should equal spool angle at every keyframe
+  let maxSyncErr = 0;
+  for (let i = 0; i < spool.keyframes.length; i++) {
+    const err = Math.abs(cam.keyframes[i].angle - spool.keyframes[i].angle);
+    maxSyncErr = Math.max(maxSyncErr, err);
+  }
+  assert(maxSyncErr < 0.01, `Spool-cam 1:1 sync (max err ${maxSyncErr.toFixed(4)}°)`);
+
+  // Final angles should both be 720°
+  const spoolEnd = spool.keyframes[spool.keyframes.length - 1].angle;
+  const camEnd = cam.keyframes[cam.keyframes.length - 1].angle;
+  assert(Math.abs(spoolEnd - 720) < 0.01, `Spool ends at 720° (got ${spoolEnd})`);
+  assert(Math.abs(camEnd - 720) < 0.01, `Cam ends at 720° (got ${camEnd})`);
+}
+
+async function testRetractorPawlProfile() {
+  console.log('\n--- Test: Retractor pawl dwell profile shape ---');
+
+  const config = await loadConfig(resolve(ROOT, 'configs/examples/seatbelt_retractor.toml'));
+  config.export.directory = resolve(OUTPUT_DIR);
+
+  const result = await runScript('create_model.py', config, {
+    timeout: 300_000,
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  const pawl = result.motion_data.parts.pawl;
+  const nKf = pawl.keyframes.length;
+
+  // At 0° and 360°, pawl displacement should be near 0
+  const d0 = pawl.keyframes[0].displacement;
+  const step360 = Math.round(360 / 720 * (nKf - 1));
+  const d360 = pawl.keyframes[step360].displacement;
+  assert(Math.abs(d0) < 0.1, `Pawl at 0° near zero (got ${d0.toFixed(4)})`);
+  assert(Math.abs(d360) < 0.1, `Pawl at 360° near zero (got ${d360.toFixed(4)})`);
+
+  // Dwell zone should be flat: between 45° and 135° (phase 0.25–0.75) displacement is max_lift
+  const step45 = Math.round(45 / 720 * (nKf - 1));
+  const step135 = Math.round(135 / 720 * (nKf - 1));
+  let minDwell = Infinity, maxDwell = -Infinity;
+  for (let i = step45; i <= step135; i++) {
+    const d = pawl.keyframes[i].displacement;
+    minDwell = Math.min(minDwell, d);
+    maxDwell = Math.max(maxDwell, d);
+  }
+  const dwellRange = maxDwell - minDwell;
+  assert(dwellRange < 0.5, `Dwell zone is flat (range ${dwellRange.toFixed(4)}mm)`);
+}
+
+async function testMjcfConversion() {
+  console.log('\n--- Test: TOML to MJCF conversion ---');
+
+  const inputToml = resolve(ROOT, 'configs/examples/seatbelt_retractor.toml');
+  const outputXml = resolve(OUTPUT_DIR, 'seatbelt_retractor.xml');
+
+  // Run conversion
+  const cmd = `node ${resolve(ROOT, 'scripts/toml-to-mjcf.js')} ${inputToml} ${outputXml}`;
+  const stdout = execSync(cmd, { encoding: 'utf8', timeout: 30_000 });
+  const result = JSON.parse(stdout);
+
+  assert(result.success === true, 'MJCF conversion succeeded');
+  assert(result.bodies === 7, `7 assembly parts (got ${result.bodies})`);
+  assert(result.joints === 3, `3 joints (got ${result.joints})`);
+  assert(result.couplings === 2, `2 couplings (got ${result.couplings})`);
+
+  // Verify XML file exists and is valid XML
+  assert(existsSync(outputXml), 'MJCF XML file exists');
+  const xml = readFileSync(outputXml, 'utf8');
+  assert(xml.includes('<mujoco model="seatbelt_retractor"'), 'XML has correct model name');
+  assert(xml.includes('joint name="spool_rev"'), 'XML has spool_rev joint');
+  assert(xml.includes('joint name="cam_rev"'), 'XML has cam_rev joint');
+  assert(xml.includes('joint name="pawl_prism"'), 'XML has pawl_prism joint');
+  assert(xml.includes('<actuator>'), 'XML has actuator section');
+  assert(xml.includes('<equality>'), 'XML has equality constraints');
+  assert(xml.includes('cam_follower'), 'XML references cam_follower coupling');
+}
+
+async function testMjcfValidation() {
+  console.log('\n--- Test: MuJoCo MJCF validation ---');
+
+  const outputXml = resolve(OUTPUT_DIR, 'seatbelt_retractor.xml');
+
+  // Ensure XML exists (testMjcfConversion should run first)
+  if (!existsSync(outputXml)) {
+    // Run conversion first
+    const inputToml = resolve(ROOT, 'configs/examples/seatbelt_retractor.toml');
+    execSync(`node ${resolve(ROOT, 'scripts/toml-to-mjcf.js')} ${inputToml} ${outputXml}`, { timeout: 30_000 });
+  }
+
+  // Run MuJoCo validation
+  const cmd = `python3 ${resolve(ROOT, 'scripts/validate-mjcf.py')} ${outputXml}`;
+  let stdout;
+  try {
+    stdout = execSync(cmd, { encoding: 'utf8', timeout: 30_000 });
+  } catch (e) {
+    // validate-mjcf.py exits 1 on validation failure but still outputs JSON
+    stdout = e.stdout || '';
+  }
+
+  const result = JSON.parse(stdout);
+
+  assert(result.checks.xml_load === true, 'MuJoCo XML loads successfully');
+  assert(result.checks.has_bodies === true, 'Has bodies');
+  assert(result.checks.has_joints === true, 'Has joints');
+  assert(result.checks.positive_mass === true, 'Positive total mass');
+  assert(result.total_mass_kg > 0, `Total mass ${result.total_mass_kg} kg`);
+  assert(result.counts.bodies === 7, `7 bodies (got ${result.counts.bodies})`);
+  assert(result.counts.joints === 3, `3 joints (got ${result.counts.joints})`);
+  assert(result.stability.stable === true, `Stable after 100 steps (drift ${result.stability.max_position_drift})`);
+}
+
 async function main() {
   console.log('FreeCAD Automation - Integration Tests');
   console.log('=' .repeat(40));
@@ -1545,6 +1763,15 @@ async function main() {
     await testCamFollower();
     await testFourBarLinkage();
     await testPistonEngine();
+
+    // Seatbelt Retractor Demo tests
+    await testRetractorBuild();
+    await testRetractorMotionData();
+    await testRetractorCamLock();
+    await testRetractorSpoolCamSync();
+    await testRetractorPawlProfile();
+    await testMjcfConversion();
+    await testMjcfValidation();
   } catch (err) {
     failed++;
     console.error(`\nFATAL: ${err.message}`);

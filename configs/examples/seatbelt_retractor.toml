@@ -1,0 +1,202 @@
+# Seatbelt Retractor Mechanism
+# Demonstrates: spool(pulley) + rewind spring(coil_spring) + lock cam(disc_cam dwell)
+#               + pawl(cylinder) with gear coupling + cam_follower coupling
+#
+# Mechanism:
+#   Spool rotates → gear coupling drives lock cam 1:1
+#   Lock cam dwell profile pushes pawl outward at 90-270° (lock zone)
+#   Rewind spring provides visual return force reference
+#
+# Geometry (XY plane, Z=depth):
+#   Base plate: 120x80x10
+#   Housing: centered at [60, 40], bore for spool shaft
+#   Spool: pulley at [60, 40, 15], pitch_d=40
+#   Spool shaft: cylinder at [60, 40, 10]
+#   Rewind spring: coil_spring inside housing at [60, 40, 35]
+#   Lock cam: disc_cam dwell at [60, 70, 20], base_radius=12, max_lift=6
+#   Pawl: cylinder at [60, 82, 20], slides along Y (radial to cam)
+
+name = "seatbelt_retractor"
+
+[export]
+formats = ["step", "stl"]
+directory = "./output"
+per_part_stl = true
+
+
+# ═══════════════════════════════════════════════════
+# PART DEFINITIONS
+# ═══════════════════════════════════════════════════
+
+# ── 1. Base plate ─────────────────────────────────
+[[parts]]
+id = "base_plate"
+  [[parts.shapes]]
+  id = "plate"
+  type = "box"
+  length = 120
+  width = 80
+  height = 10
+
+# ── 2. Housing (with bore for shaft) ─────────────
+[[parts]]
+id = "housing"
+  [[parts.shapes]]
+  id = "outer"
+  type = "box"
+  length = 60
+  width = 50
+  height = 40
+
+  [[parts.shapes]]
+  id = "bore"
+  type = "cylinder"
+  radius = 8
+  height = 42
+
+  [[parts.operations]]
+  op = "cut"
+  base = "outer"
+  tool = "bore"
+  result = "housing_body"
+
+# ── 3. Spool (pulley) ────────────────────────────
+[[parts]]
+id = "spool"
+  [[parts.shapes]]
+  id = "wheel"
+  type = "library/pulley"
+  pitch_d = 40
+  width = 15
+  groove_angle = 38
+  groove_depth = 3
+  bore_d = 10
+  num_grooves = 2
+
+# ── 4. Spool shaft ───────────────────────────────
+[[parts]]
+id = "spool_shaft"
+  [[parts.shapes]]
+  id = "shaft"
+  type = "cylinder"
+  radius = 5
+  height = 45
+
+# ── 5. Rewind spring (coil_spring) ───────────────
+[[parts]]
+id = "rewind_spring"
+  [[parts.shapes]]
+  id = "spring"
+  type = "library/coil_spring"
+  coil_d = 30
+  wire_d = 2
+  pitch = 4
+  num_coils = 5
+
+# ── 6. Lock cam (disc_cam with dwell profile) ────
+[[parts]]
+id = "lock_cam"
+  [[parts.shapes]]
+  id = "cam"
+  type = "library/disc_cam"
+  base_radius = 12
+  max_lift = 6
+  width = 10
+  bore_d = 6
+  profile_type = "dwell"
+
+# ── 7. Pawl (cylinder) ───────────────────────────
+[[parts]]
+id = "pawl"
+  [[parts.shapes]]
+  id = "rod"
+  type = "cylinder"
+  radius = 4
+  height = 20
+
+
+# ═══════════════════════════════════════════════════
+# ASSEMBLY
+# ═══════════════════════════════════════════════════
+
+[assembly]
+
+[[assembly.parts]]
+ref = "base_plate"
+position = [0, 0, 0]
+
+[[assembly.parts]]
+ref = "housing"
+position = [30, 15, 10]
+
+[[assembly.parts]]
+ref = "spool_shaft"
+position = [60, 40, 10]
+
+[[assembly.parts]]
+ref = "spool"
+position = [60, 40, 15]
+
+[[assembly.parts]]
+ref = "rewind_spring"
+position = [60, 40, 35]
+
+[[assembly.parts]]
+ref = "lock_cam"
+position = [60, 70, 20]
+
+[[assembly.parts]]
+ref = "pawl"
+position = [60, 82, 20]
+
+
+# ── Joints with explicit anchors ──────────────────
+
+[[assembly.joints]]
+id = "spool_rev"
+type = "revolute"
+part = "spool"
+axis = [0, 0, 1]
+anchor = [60, 40, 22.5]     # spool center
+
+[[assembly.joints]]
+id = "cam_rev"
+type = "revolute"
+part = "lock_cam"
+axis = [0, 0, 1]
+anchor = [60, 70, 25]       # cam center
+
+[[assembly.joints]]
+id = "pawl_prism"
+type = "prismatic"
+part = "pawl"
+axis = [0, 1, 0]            # pawl slides along Y (radial)
+anchor = [60, 82, 25]
+
+
+# ── Couplings ─────────────────────────────────────
+
+# Spool → Lock cam: 1:1 gear ratio
+[[assembly.couplings]]
+type = "gear"
+driver = "spool_rev"
+follower = "cam_rev"
+ratio = 1.0
+
+# Spool → Pawl: cam_follower with dwell profile
+[[assembly.couplings]]
+type = "cam_follower"
+driver = "spool_rev"
+follower = "pawl_prism"
+cam_profile = "dwell"
+max_lift = 6
+
+
+# ── Motion ────────────────────────────────────────
+
+[assembly.motion]
+driver = "spool_rev"
+range = [0, 720]         # 2 full revolutions
+duration = 4.0
+steps = 120
+loop = true
