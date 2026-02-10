@@ -62,7 +62,7 @@ def _solve_four_bar(crank_angle_deg, a, b, c, d):
         return None
 
     sqrt_d = math.sqrt(discriminant)
-    t1 = (-B + sqrt_d) / (2.0 * A) if abs(A) > 1e-12 else 0
+    t1 = (-B - sqrt_d) / (2.0 * A) if abs(A) > 1e-12 else 0
     theta4 = 2.0 * math.atan(t1)
 
     # Compute joint positions
@@ -98,7 +98,7 @@ def _solve_crank_slider(crank_angle_deg, crank_r, rod_length):
         under_sqrt = 0
     x = crank_r * cos_t + math.sqrt(under_sqrt)
     x_tdc = crank_r + rod_length
-    displacement = round(x_tdc - x, 4)
+    displacement = round(x - x_tdc, 4)
 
     # Rod angle
     sin_phi = crank_r * sin_t / rod_length

@@ -1,12 +1,13 @@
-# Piston Engine (Crank-Slider Mechanism)
+# Piston Engine (Crank-Slider Mechanism) — Horizontal layout
 # Demonstrates: crankshaft (revolute) → connecting rod (floating) → piston (prismatic)
 # Crank rotates 360° → piston reciprocates via crank-slider kinematics.
 #
 # Geometry (XY plane, Z=depth):
-#   Crankshaft center at [40, 20]
+#   Crankshaft center at [20, 30]
 #   Crank radius = 15mm, rod length = 50mm
-#   At TDC (θ=0): crank pin at [55, 20], piston at top
-#   Piston stroke = 2 * crank_r = 30mm
+#   At TDC (θ=0): crank pin at [35, 30], piston at x = 20+15+50 = 85
+#   Piston slides along X axis (horizontal)
+#   Piston stroke = 2 × crank_r = 30mm  (range: x=55 to x=85)
 
 name = "piston_engine"
 
@@ -20,27 +21,15 @@ per_part_stl = true
 # PART DEFINITIONS
 # ═══════════════════════════════════════════════════
 
-# ── 1. Engine block ───────────────────────────────
+# ── 1. Base plate ───────────────────────────────
 [[parts]]
-id = "block"
+id = "base"
   [[parts.shapes]]
-  id = "body"
+  id = "plate"
   type = "box"
-  length = 80
-  width = 40
-  height = 100
-
-  [[parts.shapes]]
-  id = "bore"
-  type = "cylinder"
-  radius = 15
-  height = 70
-
-  [[parts.operations]]
-  op = "cut"
-  base = "body"
-  tool = "bore"
-  result = "block_body"
+  length = 100
+  width = 60
+  height = 8
 
 # ── 2. Crankshaft ─────────────────────────────────
 [[parts]]
@@ -49,9 +38,9 @@ id = "crankshaft"
   id = "main"
   type = "cylinder"
   radius = 6
-  height = 60
+  height = 30
 
-# ── 3. Crank arm (offset = 15mm) ─────────────────
+# ── 3. Crank arm (length = 2×crank_r = 30mm) ────
 [[parts]]
 id = "crank_arm"
   [[parts.shapes]]
@@ -61,15 +50,15 @@ id = "crank_arm"
   width = 8
   height = 8
 
-# ── 4. Connecting rod ────────────────────────────
+# ── 4. Connecting rod (length = 50mm) ────────────
 [[parts]]
 id = "con_rod"
   [[parts.shapes]]
   id = "rod"
   type = "box"
-  length = 10
+  length = 50
   width = 8
-  height = 50
+  height = 8
 
 # ── 5. Piston ────────────────────────────────────
 [[parts]]
@@ -77,7 +66,7 @@ id = "piston"
   [[parts.shapes]]
   id = "head"
   type = "cylinder"
-  radius = 14
+  radius = 12
   height = 15
 
 
@@ -88,28 +77,27 @@ id = "piston"
 [assembly]
 
 [[assembly.parts]]
-ref = "block"
+ref = "base"
 position = [0, 0, 0]
 
 [[assembly.parts]]
 ref = "crankshaft"
-position = [40, 20, -10]
-rotation = [1, 0, 0, 90]
+position = [20, 30, 8]
 
-# Crank arm: centered on crankshaft, pivot at [40,20,15]
+# Crank arm: pivot at crankshaft center [20, 30], horizontal at θ=0
 [[assembly.parts]]
 ref = "crank_arm"
-position = [25, 16, 11]
+position = [5, 26, 24]
 
-# Connecting rod: big end at crank pin [55,20,15] at TDC
+# Connecting rod: big end at crank pin [35, 30] at TDC, extends right to piston
 [[assembly.parts]]
 ref = "con_rod"
-position = [35, 16, 15]
+position = [35, 26, 24]
 
-# Piston: at TDC position
+# Piston: at TDC position (x = 20 + 15 + 50 = 85)
 [[assembly.parts]]
 ref = "piston"
-position = [40, 20, 60]
+position = [85, 30, 24]
 
 
 # ── Joints with explicit anchors ──────────────────
@@ -119,21 +107,21 @@ id = "crank_rev"
 type = "revolute"
 part = "crank_arm"
 axis = [0, 0, 1]
-anchor = [40, 20, 15]      # crankshaft center
+anchor = [20, 30, 24]      # crankshaft center
 
 [[assembly.joints]]
 id = "rod_rev"
 type = "revolute"
 part = "con_rod"
 axis = [0, 0, 1]
-anchor = [55, 20, 15]      # crank pin at TDC (40+15, 20)
+anchor = [35, 30, 24]      # crank pin at TDC (20+15, 30)
 
 [[assembly.joints]]
 id = "piston_prism"
 type = "prismatic"
 part = "piston"
-axis = [0, 0, 1]
-anchor = [40, 20, 60]      # piston center
+axis = [1, 0, 0]           # piston slides along X (horizontal)
+anchor = [85, 30, 24]      # piston center at TDC
 
 
 # ── Motion (Crank-Slider) ────────────────────────
@@ -151,4 +139,4 @@ crank_r = 15           # crank throw radius (mm)
 rod_length = 50        # connecting rod length (mm)
 piston_joint = "piston_prism"
 rod_joint = "rod_rev"
-origin = [40, 20, 15]  # crankshaft center in 3D
+origin = [20, 30, 24]  # crankshaft center in 3D

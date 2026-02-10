@@ -1372,13 +1372,13 @@ async function testPistonEngine() {
   assert(Math.abs(piston.keyframes[0].displacement) < 0.01,
     `Piston at TDC near 0mm (got ${piston.keyframes[0].displacement})`);
 
-  // At 180° (BDC), displacement = 2*crank_r = 30mm
+  // At 180° (BDC), displacement = -30mm (piston moves toward crank)
   // Find keyframe near 180°
   const crank = result.motion_data.parts.crank_arm;
   const idx180 = crank.keyframes.findIndex(kf => Math.abs(kf.angle - 180) < 4);
   if (idx180 >= 0) {
     const bdc = piston.keyframes[idx180].displacement;
-    assert(Math.abs(bdc - 30) < 1, `Piston at BDC near 30mm (got ${bdc})`);
+    assert(Math.abs(bdc - (-30)) < 1, `Piston at BDC near -30mm (got ${bdc})`);
   }
 
   // Connecting rod is floating link (per-keyframe anchor follows crank pin)
