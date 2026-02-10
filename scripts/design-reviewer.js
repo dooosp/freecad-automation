@@ -83,9 +83,19 @@ const DESIGN_PROMPT = `You are a senior mechanical engineer. Given a natural lan
 ## TOML Structure
 - \`name = "mechanism_name"\`
 - \`[export]\` with formats, directory, per_part_stl
-- \`[[parts]]\` array, each with id and [[parts.shapes]] (type: box/cylinder/library/pulley/library/disc_cam/library/coil_spring/library/spur_gear/library/helical_gear)
+- \`[[parts]]\` array, each with id and [[parts.shapes]]
+  - Shape types: box, cylinder, or library parts:
+    library/spur_gear, library/helical_gear, library/ball_bearing, library/stepped_shaft,
+    library/disc_cam, library/pulley, library/coil_spring,
+    library/robot_base (diameter, height, bolt_count, bolt_d, cable_hole_d),
+    library/robot_link (length, width, taper_ratio, motor_d, wall_thickness, bore_d),
+    library/robot_wrist (diameter, length, wall_thickness, bore_d),
+    library/tool_flange (diameter, thickness, bolt_count, bolt_circle_d, bolt_d, pilot_d, pin_d)
+  - Each shape MUST have an \`id\` field (unique within the part, e.g. "body", "shaft", "flange")
   - Each shape MUST have a \`material\` field (steel/aluminum/brass/plastic/rubber)
+  - Shape \`rotation\` format: \`[axis_x, axis_y, axis_z, angle_degrees]\` (axis-angle, 4 elements)
 - \`[assembly]\` with [[assembly.parts]] (ref + position), [[assembly.joints]], [[assembly.couplings]], [assembly.motion]
+  - Assembly part \`rotation\` format: \`[axis_x, axis_y, axis_z, angle_degrees]\` (axis-angle, 4 elements)
 - Joint types: revolute, prismatic, cylindrical
 - Coupling types: gear, belt, cam_follower
 
@@ -96,6 +106,162 @@ const DESIGN_PROMPT = `You are a senior mechanical engineer. Given a natural lan
 - All dimensions in mm
 - Joint anchors within part bounding volumes
 - Realistic material assignments
+
+## Example TOML (6-axis robot arm)
+\`\`\`toml
+name = "6axis_robot_arm"
+
+[export]
+formats = ["step", "stl"]
+directory = "./output"
+per_part_stl = true
+
+# ── Part Definitions ────────────────────────────
+[[parts]]
+id = "base"
+  [[parts.shapes]]
+  id = "pedestal"
+  type = "library/robot_base"
+  diameter = 200
+  height = 50
+  bolt_count = 8
+  bolt_d = 10
+  cable_hole_d = 50
+  material = "steel"
+
+[[parts]]
+id = "shoulder"
+  [[parts.shapes]]
+  id = "link"
+  type = "library/robot_link"
+  length = 300
+  width = 100
+  taper_ratio = 0.8
+  motor_d = 95
+  wall_thickness = 6
+  bore_d = 20
+  material = "aluminum"
+
+[[parts]]
+id = "upper_arm"
+  [[parts.shapes]]
+  id = "link"
+  type = "library/robot_link"
+  length = 400
+  width = 80
+  taper_ratio = 0.75
+  wall_thickness = 5
+  bore_d = 15
+  material = "aluminum"
+
+[[parts]]
+id = "forearm"
+  [[parts.shapes]]
+  id = "link"
+  type = "library/robot_link"
+  length = 350
+  width = 60
+  taper_ratio = 0.7
+  wall_thickness = 4
+  bore_d = 12
+  material = "aluminum"
+
+[[parts]]
+id = "wrist_pitch"
+  [[parts.shapes]]
+  id = "housing"
+  type = "library/robot_wrist"
+  diameter = 50
+  length = 80
+  wall_thickness = 4
+  bore_d = 10
+  material = "steel"
+
+[[parts]]
+id = "wrist_roll"
+  [[parts.shapes]]
+  id = "housing"
+  type = "library/robot_wrist"
+  diameter = 40
+  length = 60
+  wall_thickness = 3
+  bore_d = 8
+  material = "steel"
+
+[[parts]]
+id = "tool_flange"
+  [[parts.shapes]]
+  id = "flange"
+  type = "library/tool_flange"
+  diameter = 63
+  thickness = 12
+  bolt_count = 4
+  bolt_d = 6
+  pilot_d = 31.5
+  material = "steel"
+
+# ── Assembly ────────────────────────────────────
+[assembly]
+
+[[assembly.parts]]
+ref = "base"
+position = [0, 0, 0]
+
+[[assembly.parts]]
+ref = "shoulder"
+position = [0, 0, 50]
+rotation = [1, 0, 0, 90]
+
+[[assembly.parts]]
+ref = "upper_arm"
+position = [0, 0, 350]
+
+[[assembly.parts]]
+ref = "forearm"
+position = [0, 0, 750]
+
+[[assembly.parts]]
+ref = "wrist_pitch"
+position = [0, 0, 1100]
+
+[[assembly.parts]]
+ref = "wrist_roll"
+position = [0, 0, 1180]
+
+[[assembly.parts]]
+ref = "tool_flange"
+position = [0, 0, 1240]
+
+# ── Joints ──────────────────────────────────────
+[[assembly.joints]]
+id = "j1_base"
+type = "revolute"
+part = "shoulder"
+axis = [0, 0, 1]
+anchor = [0, 0, 50]
+
+[[assembly.joints]]
+id = "j2_shoulder"
+type = "revolute"
+part = "upper_arm"
+axis = [0, 1, 0]
+anchor = [0, 0, 350]
+
+[[assembly.joints]]
+id = "j3_elbow"
+type = "revolute"
+part = "forearm"
+axis = [0, 1, 0]
+anchor = [0, 0, 750]
+
+# ── Motion ──────────────────────────────────────
+[assembly.motion]
+driver = "j1_base"
+range = [0, 180]
+duration = 3.0
+steps = 90
+loop = true
+\`\`\`
 
 ## Output Format
 Output exactly two sections:
@@ -152,6 +318,21 @@ async function callGeminiWithRetry(model, prompt, retries = 2) {
     }
   }
   throw new Error(`Gemini API failed after ${retries + 1} attempts: ${lastError.message}`);
+}
+
+/**
+ * Streaming Gemini call — invokes onChunk(deltaText, totalLength) for each chunk.
+ * Returns the full accumulated response text.
+ */
+async function callGeminiStreaming(model, prompt, onChunk) {
+  const result = await model.generateContentStream(prompt);
+  let fullText = '';
+  for await (const chunk of result.stream) {
+    const delta = chunk.text();
+    fullText += delta;
+    if (onChunk) onChunk(delta, fullText.length);
+  }
+  return fullText;
 }
 
 // ---------------------------------------------------------------------------
@@ -438,8 +619,48 @@ async function main() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Design mode — streaming
+// ---------------------------------------------------------------------------
+
+async function designFromTextStreaming(description, onChunk) {
+  const model = initGemini();
+
+  const prompt = `${DESIGN_PROMPT}
+
+Design a mechanism for: "${description}"
+
+Generate a complete, valid TOML config with realistic dimensions, proper clearances, and material assignments.`;
+
+  let response = await callGeminiStreaming(model, prompt, onChunk);
+
+  let toml = extractTomlFromResponse(response);
+  if (toml) {
+    const validation = validateTomlStructure(toml);
+    if (!validation.valid) {
+      // Retry with error feedback (non-streaming — retry is fast)
+      const retryPrompt = `${prompt}
+
+Your previous TOML had parse errors:
+${validation.errors.join('\n')}
+
+Please fix and regenerate with the same two sections.`;
+      response = await callGeminiWithRetry(model, retryPrompt, 1);
+      toml = extractTomlFromResponse(response);
+    }
+  }
+
+  let report = {};
+  const reportJson = extractJsonFromResponse(response, '### DESIGN REPORT');
+  if (reportJson) {
+    try { report = JSON.parse(reportJson); } catch { /* use empty */ }
+  }
+
+  return { toml, report, rawResponse: response };
+}
+
 // Export for programmatic use
-export { reviewToml, designFromText, validateTomlStructure, extractTomlFromResponse, extractJsonFromResponse };
+export { reviewToml, designFromText, designFromTextStreaming, validateTomlStructure, extractTomlFromResponse, extractJsonFromResponse };
 
 // Only run CLI when executed directly (not when imported)
 if (process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/'))) {

@@ -1,0 +1,253 @@
+# ============================================================
+# 6-Axis Industrial Robot Arm (Industry-style)
+# - Coordinate: Z up, X forward, Y left
+# - Each robot_link grows along LOCAL +Z
+# - Use rotation = [axis_x, axis_y, axis_z, angle_deg] to orient links
+#
+# Kinematic posture (default build pose):
+#   J1: base yaw = 0
+#   J2: shoulder pitch = +45 deg (upper arm tilted forward)
+#   J3: elbow pitch   = +45 deg (forearm becomes horizontal)
+#   J4: wrist yaw     = 0
+#   J5: wrist pitch   = 0 (keep horizontal)
+#   J6: wrist roll    = 0
+# ============================================================
+
+name = "6axis_industrial_robot_arm"
+
+[export]
+formats = ["step", "stl"]
+directory = "./output"
+per_part_stl = true
+
+# ============================================================
+# PARTS
+# ============================================================
+
+# ---- Base / Pedestal ----
+[[parts]]
+id = "base"
+  [[parts.shapes]]
+  id = "pedestal"
+  type = "library/robot_base"
+  diameter = 280
+  height = 90
+  bolt_count = 8
+  bolt_d = 12
+  cable_hole_d = 70
+  material = "steel"
+
+# ---- Shoulder column / tower (houses J1/J2 motor) ----
+[[parts]]
+id = "shoulder_tower"
+  [[parts.shapes]]
+  id = "tower"
+  type = "library/robot_link"
+  length = 220
+  width = 160
+  taper_ratio = 0.90
+  motor_d = 140
+  wall_thickness = 8
+  bore_d = 30
+  material = "aluminum"
+
+# ---- Upper arm (main link) ----
+[[parts]]
+id = "upper_arm"
+  [[parts.shapes]]
+  id = "link"
+  type = "library/robot_link"
+  length = 420
+  width = 110
+  taper_ratio = 0.75
+  motor_d = 100
+  wall_thickness = 6
+  bore_d = 25
+  material = "aluminum"
+
+# ---- Elbow housing ----
+[[parts]]
+id = "elbow_housing"
+  [[parts.shapes]]
+  id = "housing"
+  type = "library/robot_wrist"
+  diameter = 90
+  length = 80
+  wall_thickness = 6
+  bore_d = 25
+  material = "steel"
+
+# ---- Forearm link ----
+[[parts]]
+id = "forearm"
+  [[parts.shapes]]
+  id = "link"
+  type = "library/robot_link"
+  length = 360
+  width = 80
+  taper_ratio = 0.68
+  motor_d = 85
+  wall_thickness = 5
+  bore_d = 20
+  material = "aluminum"
+
+# ---- Wrist 3-axis: J4 yaw, J5 pitch, J6 roll ----
+[[parts]]
+id = "wrist_yaw"
+  [[parts.shapes]]
+  id = "housing"
+  type = "library/robot_wrist"
+  diameter = 70
+  length = 75
+  wall_thickness = 5
+  bore_d = 16
+  material = "steel"
+
+[[parts]]
+id = "wrist_pitch"
+  [[parts.shapes]]
+  id = "housing"
+  type = "library/robot_wrist"
+  diameter = 58
+  length = 65
+  wall_thickness = 4
+  bore_d = 12
+  material = "steel"
+
+[[parts]]
+id = "wrist_roll"
+  [[parts.shapes]]
+  id = "housing"
+  type = "library/robot_wrist"
+  diameter = 45
+  length = 55
+  wall_thickness = 3
+  bore_d = 10
+  material = "steel"
+
+# ---- Tool flange ----
+[[parts]]
+id = "tool_flange"
+  [[parts.shapes]]
+  id = "flange"
+  type = "library/tool_flange"
+  diameter = 63
+  thickness = 12
+  bolt_count = 6
+  bolt_d = 6
+  pilot_d = 31.5
+  material = "steel"
+
+# ============================================================
+# ASSEMBLY
+# ============================================================
+# upper arm tip:
+#   x = sin(45)*420 = 297.0
+#   z = 310 + cos(45)*420 = 607.0
+# elbow housing length = 80 along X (horizontal)
+# forearm start x = 297 + 80 = 377
+# forearm end x = 377 + 360 = 737
+# wrist chain: +75, +65, +55, +12
+# ============================================================
+
+[assembly]
+
+[[assembly.parts]]
+ref = "base"
+position = [0, 0, 0]
+
+[[assembly.parts]]
+ref = "shoulder_tower"
+position = [0, 0, 90]
+
+[[assembly.parts]]
+ref = "upper_arm"
+position = [0, 0, 310]
+rotation = [0, 1, 0, 45]
+
+[[assembly.parts]]
+ref = "elbow_housing"
+position = [297, 0, 607]
+rotation = [0, 1, 0, 90]
+
+[[assembly.parts]]
+ref = "forearm"
+position = [377, 0, 607]
+rotation = [0, 1, 0, 90]
+
+[[assembly.parts]]
+ref = "wrist_yaw"
+position = [737, 0, 607]
+rotation = [0, 1, 0, 90]
+
+[[assembly.parts]]
+ref = "wrist_pitch"
+position = [812, 0, 607]
+rotation = [0, 1, 0, 90]
+
+[[assembly.parts]]
+ref = "wrist_roll"
+position = [877, 0, 607]
+rotation = [0, 1, 0, 90]
+
+[[assembly.parts]]
+ref = "tool_flange"
+position = [932, 0, 607]
+rotation = [0, 1, 0, 90]
+
+# ============================================================
+# JOINTS (6 revolute)
+# ============================================================
+
+[[assembly.joints]]
+id = "j1_base_yaw"
+type = "revolute"
+part = "shoulder_tower"
+axis = [0, 0, 1]
+anchor = [0, 0, 90]
+
+[[assembly.joints]]
+id = "j2_shoulder_pitch"
+type = "revolute"
+part = "upper_arm"
+axis = [0, 1, 0]
+anchor = [0, 0, 310]
+
+[[assembly.joints]]
+id = "j3_elbow_pitch"
+type = "revolute"
+part = "forearm"
+axis = [0, 1, 0]
+anchor = [297, 0, 607]
+
+[[assembly.joints]]
+id = "j4_wrist_yaw"
+type = "revolute"
+part = "wrist_yaw"
+axis = [0, 0, 1]
+anchor = [737, 0, 607]
+
+[[assembly.joints]]
+id = "j5_wrist_pitch"
+type = "revolute"
+part = "wrist_pitch"
+axis = [0, 1, 0]
+anchor = [812, 0, 607]
+
+[[assembly.joints]]
+id = "j6_wrist_roll"
+type = "revolute"
+part = "wrist_roll"
+axis = [1, 0, 0]
+anchor = [877, 0, 607]
+
+# ============================================================
+# MOTION
+# ============================================================
+
+[assembly.motion]
+driver = "j1_base_yaw"
+range = [0, 180]
+duration = 3.0
+steps = 90
+loop = true

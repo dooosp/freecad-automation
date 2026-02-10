@@ -429,6 +429,39 @@ select {
   font-style: italic;
 }
 
+/* Stream preview */
+.stream-preview {
+  display: none;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px;
+  font-size: 11px;
+}
+
+.stream-preview.open {
+  display: block;
+}
+
+.stream-bar {
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.stream-bar-fill {
+  height: 100%;
+  background: var(--success);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.stream-stats {
+  color: var(--text-dim);
+}
+
 /* Viewport */
 #viewport {
   position: relative;

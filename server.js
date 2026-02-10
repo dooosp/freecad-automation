@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { parse as parseTOML } from 'smol-toml';
 import { runScript } from './lib/runner.js';
-import { designFromText } from './scripts/design-reviewer.js';
+import { designFromTextStreaming } from './scripts/design-reviewer.js';
 
 const PUBLIC_DIR = join(import.meta.dirname, 'public');
 const EXAMPLES_DIR = join(import.meta.dirname, 'configs', 'examples');
@@ -62,7 +62,21 @@ export function startServer(port = 3000) {
 
     try {
       sendJSON(ws, { type: 'progress', text: 'Generating design with Gemini...' });
-      const result = await designFromText(description.trim());
+
+      let lastSendTime = 0;
+      const result = await designFromTextStreaming(description.trim(), (delta, totalChars) => {
+        if (ws.readyState !== ws.OPEN) return;
+        const now = Date.now();
+        if (now - lastSendTime >= 400) {
+          lastSendTime = now;
+          const kChars = (totalChars / 1000).toFixed(1);
+          sendJSON(ws, {
+            type: 'stream_chunk',
+            chars: totalChars,
+            text: `Generating design... ${kChars}k chars`,
+          });
+        }
+      });
 
       if (!result.toml) {
         return sendJSON(ws, { type: 'error', message: 'Failed to generate valid TOML from description' });
@@ -142,6 +156,7 @@ export function startServer(port = 3000) {
           label: pf.label,
           index: i,
           size_bytes: pf.size_bytes,
+          material: pf.material || null,
         }));
         sendJSON(ws, { type: 'parts_manifest', parts: manifest });
 

@@ -1,10 +1,13 @@
 """
 Shape creation and boolean operations for FreeCAD automation.
 Supports: Box, Cylinder, Sphere, Cone, Torus, Revolution, Extrusion
-          + boolean ops + fillet/chamfer + circular pattern.
+          + boolean ops + fillet/chamfer + circular pattern + import (STEP/BREP/IGES).
 """
 
 import math
+import os
+import sys
+import hashlib
 import FreeCAD
 import Part
 from FreeCAD import Vector
@@ -168,6 +171,239 @@ def make_extrusion(spec):
     return face.extrude(Vector(*direction))
 
 
+# ---------------------------------------------------------------------------
+# Cross-section wire helpers (for Loft / Sweep)
+# ---------------------------------------------------------------------------
+
+def _make_rounded_rect_wire(w, h, r, z=0):
+    """Rounded rectangle wire in XY plane at height z, centered at origin."""
+    hw, hh = w / 2.0, h / 2.0
+    r = max(0.1, min(r, hw - 0.1, hh - 0.1))
+
+    edges = []
+    # Counterclockwise from top-right arc
+    edges.append(Part.makeCircle(r, Vector(hw - r, hh - r, z), Vector(0, 0, 1), 0, 90))
+    edges.append(Part.makeLine(Vector(hw - r, hh, z), Vector(-(hw - r), hh, z)))
+    edges.append(Part.makeCircle(r, Vector(-(hw - r), hh - r, z), Vector(0, 0, 1), 90, 180))
+    edges.append(Part.makeLine(Vector(-hw, hh - r, z), Vector(-hw, -(hh - r), z)))
+    edges.append(Part.makeCircle(r, Vector(-(hw - r), -(hh - r), z), Vector(0, 0, 1), 180, 270))
+    edges.append(Part.makeLine(Vector(-(hw - r), -hh, z), Vector(hw - r, -hh, z)))
+    edges.append(Part.makeCircle(r, Vector(hw - r, -(hh - r), z), Vector(0, 0, 1), 270, 360))
+    edges.append(Part.makeLine(Vector(hw, -(hh - r), z), Vector(hw, hh - r, z)))
+
+    return Part.Wire(edges)
+
+
+def _make_circle_wire(d, z=0):
+    """Circle wire in XY plane at height z, centered at origin."""
+    edge = Part.makeCircle(d / 2.0, Vector(0, 0, z), Vector(0, 0, 1))
+    return Part.Wire([edge])
+
+
+def _make_ellipse_wire(w, h, z=0):
+    """Ellipse wire in XY plane at height z, centered at origin."""
+    a, b = w / 2.0, h / 2.0
+    n = 48
+    pts = [Vector(a * math.cos(2 * math.pi * i / n),
+                  b * math.sin(2 * math.pi * i / n), z) for i in range(n)]
+    pts.append(pts[0])
+    bs = Part.BSplineCurve()
+    bs.interpolate(pts)
+    return Part.Wire([bs.toShape()])
+
+
+def _make_section_wire(section):
+    """Create a wire from a section definition dict."""
+    profile = section.get("profile", "circle")
+    z = float(section.get("z", 0))
+
+    if profile == "circle":
+        d = float(section.get("diameter", section.get("d", 50)))
+        return _make_circle_wire(d, z)
+    elif profile == "rounded_rect":
+        w = float(section["width"])
+        h = float(section["height"])
+        r = float(section.get("radius", min(w, h) * 0.1))
+        return _make_rounded_rect_wire(w, h, r, z)
+    elif profile == "ellipse":
+        w = float(section["width"])
+        h = float(section["height"])
+        return _make_ellipse_wire(w, h, z)
+    else:
+        raise ValueError(f"Unknown section profile: {profile}")
+
+
+# ---------------------------------------------------------------------------
+# Loft (multiple cross-sections → solid)
+# ---------------------------------------------------------------------------
+
+def make_loft(spec):
+    """
+    Create a loft solid from multiple cross-section profiles.
+
+    Required: sections (list of {z, profile, ...})
+    Optional: solid (true), ruled (false)
+    """
+    sections = spec.get("sections", [])
+    if len(sections) < 2:
+        raise ValueError("Loft requires at least 2 sections")
+
+    solid = spec.get("solid", True)
+    ruled = spec.get("ruled", False)
+
+    wires = []
+    for s in sorted(sections, key=lambda x: float(x.get("z", 0))):
+        wires.append(_make_section_wire(s))
+
+    return Part.makeLoft(wires, solid, ruled)
+
+
+# ---------------------------------------------------------------------------
+# Sweep (profile along BSpline path)
+# ---------------------------------------------------------------------------
+
+def make_sweep(spec):
+    """
+    Sweep a profile along a BSpline path.
+
+    Required: path (list of [x,y,z] control points)
+    Optional: profile ("circle"), profile_d, profile_width, profile_height, profile_radius
+    """
+    path_pts = [Vector(*p) for p in spec["path"]]
+    if len(path_pts) < 2:
+        raise ValueError("Sweep path requires at least 2 points")
+
+    bs = Part.BSplineCurve()
+    bs.interpolate(path_pts)
+    path_wire = Part.Wire([bs.toShape()])
+
+    # Build profile wire at origin (XY plane)
+    profile_type = spec.get("profile", "circle")
+    if profile_type == "circle":
+        d = float(spec.get("profile_d", spec.get("diameter", 20)))
+        profile_wire = _make_circle_wire(d, 0)
+    elif profile_type == "rounded_rect":
+        w = float(spec["profile_width"])
+        h = float(spec["profile_height"])
+        r = float(spec.get("profile_radius", min(w, h) * 0.1))
+        profile_wire = _make_rounded_rect_wire(w, h, r, 0)
+    elif profile_type == "ellipse":
+        w = float(spec["profile_width"])
+        h = float(spec["profile_height"])
+        profile_wire = _make_ellipse_wire(w, h, 0)
+    else:
+        raise ValueError(f"Unknown sweep profile: {profile_type}")
+
+    # Move profile to path start
+    profile_wire.translate(path_pts[0])
+
+    # Sweep with Frenet frame
+    try:
+        return path_wire.makePipeShell([profile_wire], True, True)
+    except Exception:
+        # Fallback: makePipe with face
+        face = Part.Face(profile_wire)
+        return path_wire.makePipe(face)
+
+
+# ---------------------------------------------------------------------------
+# Shell (thin-wall from solid)
+# ---------------------------------------------------------------------------
+
+def apply_shell(shape, thickness, face_indices=None):
+    """
+    Create a thin-wall shell from a solid by removing specified faces.
+
+    Args:
+        shape: solid Part.Shape
+        thickness: wall thickness (mm)
+        face_indices: list of face indices (1-based) to remove, or None for top face
+    """
+    import sys
+    if face_indices:
+        faces = [shape.Faces[i - 1] for i in face_indices]
+    else:
+        faces = [max(shape.Faces, key=lambda f: f.CenterOfMass.z)]
+
+    try:
+        return shape.makeThickness(faces, -thickness, 1e-3)
+    except Exception as e:
+        print(f"[freecad] Shell failed: {e}", file=sys.stderr, flush=True)
+        return shape
+
+
+def _fetch_url(url, cache_dir):
+    """
+    Download a file from URL to cache_dir using SHA256-based filename.
+    Returns the local cached filepath. Skips download if cached.
+    """
+    # Determine extension from URL
+    url_path = url.split("?")[0]
+    ext = os.path.splitext(url_path)[1].lower()
+    if not ext:
+        ext = ".step"
+
+    url_hash = hashlib.sha256(url.encode()).hexdigest()[:16]
+    cached_path = os.path.join(cache_dir, f"{url_hash}{ext}")
+
+    if os.path.exists(cached_path):
+        print(f"[freecad] Import: cache hit {cached_path}", file=sys.stderr, flush=True)
+        return cached_path
+
+    os.makedirs(cache_dir, exist_ok=True)
+
+    # Use urllib (available in FreeCAD's bundled Python)
+    import urllib.request
+    print(f"[freecad] Import: downloading {url}", file=sys.stderr, flush=True)
+    urllib.request.urlretrieve(url, cached_path)
+    print(f"[freecad] Import: saved to {cached_path}", file=sys.stderr, flush=True)
+    return cached_path
+
+
+def import_shape(spec):
+    """
+    Import an external CAD file (STEP/BREP/IGES).
+
+    Required (one of):
+        file: local file path (absolute, or relative to project root)
+        url:  HTTP(S) URL (downloaded and cached in parts/cache/)
+
+    Optional:
+        scale: uniform scale factor (default 1.0)
+    """
+    filepath = spec.get("file")
+    url = spec.get("url")
+
+    if not filepath and not url:
+        raise ValueError("import shape requires 'file' or 'url'")
+
+    scripts_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(scripts_dir)
+
+    if url and not filepath:
+        cache_dir = os.path.join(project_root, "parts", "cache")
+        filepath = _fetch_url(url, cache_dir)
+
+    # Resolve relative paths against project root
+    if not os.path.isabs(filepath):
+        filepath = os.path.join(project_root, filepath)
+
+    if not os.path.isfile(filepath):
+        raise FileNotFoundError(f"Import file not found: {filepath}")
+
+    print(f"[freecad] Import: reading {filepath}", file=sys.stderr, flush=True)
+    shape = Part.read(filepath)
+
+    # Apply scale if specified
+    scale = float(spec.get("scale", 1.0))
+    if abs(scale - 1.0) > 1e-9:
+        mat = FreeCAD.Matrix()
+        mat.scale(scale, scale, scale)
+        shape = shape.transformGeometry(mat)
+
+    return shape
+
+
 def make_shape(spec):
     """
     Create a shape from a spec dict.
@@ -180,6 +416,9 @@ def make_shape(spec):
       torus:      radius1, radius2
       revolution: profile + profile_start (+ plane, angle, axis, axis_point)
       extrusion:  profile + profile_start + direction (+ plane)
+      loft:       sections [{z, profile, ...}] (+ solid, ruled)
+      sweep:      path [[x,y,z],...] + profile/profile_d (+ profile_width/height)
+      import:     file or url (STEP/BREP/IGES)
 
     Common optional: position [x,y,z], rotation [ax,ay,az,angle]
     """
@@ -227,21 +466,36 @@ def make_shape(spec):
         shape = make_revolution(spec)
     elif shape_type == "extrusion":
         shape = make_extrusion(spec)
+    elif shape_type == "loft":
+        shape = make_loft(spec)
+    elif shape_type == "sweep":
+        shape = make_sweep(spec)
+    elif shape_type == "import":
+        shape = import_shape(spec)
     elif shape_type.startswith("library/"):
         from _parts_library import make_library_part
         shape = make_library_part(spec)
     else:
         raise ValueError(f"Unknown shape type: {shape_type}")
 
-    # Apply position offset for sketch-based/library shapes
-    if shape_type in ("revolution", "extrusion") or shape_type.startswith("library/"):
+    # Apply position offset for sketch-based/library/loft/sweep/import shapes
+    if shape_type in ("revolution", "extrusion", "loft", "sweep", "import") or shape_type.startswith("library/"):
         if pos != [0, 0, 0]:
             shape.translate(Vector(*pos))
 
     # Apply rotation if specified: [axis_x, axis_y, axis_z, angle_degrees]
     if "rotation" in spec:
         r = spec["rotation"]
-        shape.rotate(Vector(*pos), Vector(r[0], r[1], r[2]), r[3])
+        if len(r) >= 4:
+            shape.rotate(Vector(*pos), Vector(r[0], r[1], r[2]), r[3])
+        elif len(r) == 3:
+            # Treat as Euler angles [rx, ry, rz] in degrees
+            if r[0] != 0:
+                shape.rotate(Vector(*pos), Vector(1, 0, 0), r[0])
+            if r[1] != 0:
+                shape.rotate(Vector(*pos), Vector(0, 1, 0), r[1])
+            if r[2] != 0:
+                shape.rotate(Vector(*pos), Vector(0, 0, 1), r[2])
 
     return shape
 

@@ -20,8 +20,9 @@ def _build_single_part(part_config):
     """
     shapes = {}
 
-    for spec in part_config.get("shapes", []):
-        sid = spec["id"]
+    for i, spec in enumerate(part_config.get("shapes", [])):
+        sid = spec.get("id", f"shape_{i}")
+        spec["id"] = sid  # ensure id exists for downstream
         shapes[sid] = make_shape(spec)
 
     for op_spec in part_config.get("operations", []):
@@ -79,11 +80,21 @@ def _apply_placement(shape, placement):
         shape.translate(Vector(*pos))
 
     if rot:
-        # rotation: [axis_x, axis_y, axis_z, angle_degrees]
         center = Vector(*pos)
-        axis = Vector(rot[0], rot[1], rot[2])
-        angle = rot[3]
-        shape.rotate(center, axis, angle)
+        if len(rot) >= 4:
+            # [axis_x, axis_y, axis_z, angle_degrees]
+            axis = Vector(rot[0], rot[1], rot[2])
+            angle = rot[3]
+            if axis.Length > 1e-9 and abs(angle) > 1e-9:
+                shape.rotate(center, axis, angle)
+        elif len(rot) == 3:
+            # Euler angles [rx, ry, rz] in degrees
+            if abs(rot[0]) > 1e-9:
+                shape.rotate(center, Vector(1, 0, 0), rot[0])
+            if abs(rot[1]) > 1e-9:
+                shape.rotate(center, Vector(0, 1, 0), rot[1])
+            if abs(rot[2]) > 1e-9:
+                shape.rotate(center, Vector(0, 0, 1), rot[2])
 
     return shape
 

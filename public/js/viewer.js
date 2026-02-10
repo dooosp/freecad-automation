@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // --- DOM ---
 const viewport = document.getElementById('viewport');
@@ -17,6 +19,7 @@ const sliderOpacity = document.getElementById('slider-opacity');
 const designInput = document.getElementById('design-input');
 const btnDesign = document.getElementById('btn-design');
 const reviewPanel = document.getElementById('review-panel');
+const streamPreview = document.getElementById('stream-preview');
 
 // --- Animation DOM ---
 const btnPlay = document.getElementById('btn-play');
@@ -34,22 +37,54 @@ let motionSpeed = 1.0;
 let initialStates = new Map();
 const clock = new THREE.Clock(false);
 
-// --- Part Colors ---
-const PART_COLORS = [
-  0x58a6ff, 0x3fb950, 0xd29922, 0xf85149,
-  0xbc8cff, 0x39d2c0, 0xff7b72, 0x79c0ff,
+// --- PBR Material Definitions ---
+const MATERIAL_DEFS = {
+  steel:          { color: 0x8a8d91, metalness: 0.85, roughness: 0.35 },
+  aluminum:       { color: 0xb0b8c0, metalness: 0.75, roughness: 0.28 },
+  dark_steel:     { color: 0x4a4e54, metalness: 0.9,  roughness: 0.4  },
+  painted_green:  { color: 0x2e7d32, metalness: 0.15, roughness: 0.55 },
+  painted_orange: { color: 0xe65100, metalness: 0.1,  roughness: 0.5  },
+  painted_yellow: { color: 0xf9a825, metalness: 0.12, roughness: 0.48 },
+  painted_blue:   { color: 0x1565c0, metalness: 0.12, roughness: 0.5  },
+  rubber:         { color: 0x1a1a1a, metalness: 0.0,  roughness: 0.9  },
+  brass:          { color: 0xc5a54e, metalness: 0.85, roughness: 0.3  },
+  cast_iron:      { color: 0x5c5c5c, metalness: 0.6,  roughness: 0.7  },
+};
+const PALETTE_ORDER = [
+  'painted_blue','aluminum','painted_orange','steel',
+  'painted_green','dark_steel','brass','painted_yellow',
 ];
+
+function createPartMaterial(materialName, index) {
+  const def = MATERIAL_DEFS[materialName]
+    || MATERIAL_DEFS[PALETTE_ORDER[index % PALETTE_ORDER.length]];
+  return new THREE.MeshStandardMaterial({
+    color: def.color,
+    metalness: def.metalness,
+    roughness: def.roughness,
+    transparent: true,
+    opacity: sliderOpacity ? sliderOpacity.value / 100 : 1.0,
+  });
+}
+
+// --- Edge Rendering ---
+const EDGE_THRESHOLD = 30;
+const EDGE_COLOR = 0x1a1a2e;
+let edgesVisible = true;
 
 // --- Three.js Scene ---
 let scene, camera, renderer, controls;
 let currentMesh = null;       // legacy single-part mesh
 let assemblyGroup = null;     // THREE.Group for assembly
-let partMeshes = [];          // [{mesh, material, label, id}]
+let partMeshes = [];          // [{mesh, material, label, id, edgeLines, edgeMat}]
 let selectedPartIndex = -1;
 let pendingManifest = null;   // waiting for binary STLs
 let receivedPartCount = 0;
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
+
+// Lights stored for dynamic repositioning
+let keyLight, fillLight, rimLight, groundPlane;
 
 // Default material for legacy single-part
 let defaultMaterial;
@@ -58,43 +93,71 @@ function initScene() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x0d1117);
 
-  camera = new THREE.PerspectiveCamera(45, viewport.clientWidth / viewport.clientHeight, 0.1, 10000);
+  camera = new THREE.PerspectiveCamera(35, viewport.clientWidth / viewport.clientHeight, 0.1, 10000);
   camera.position.set(150, 100, 150);
 
   renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   renderer.setSize(viewport.clientWidth, viewport.clientHeight);
   renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   viewport.appendChild(renderer.domElement);
+
+  // PBR environment map
+  const pmremGenerator = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
+  pmremGenerator.dispose();
 
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.1;
 
-  // Lights
-  const ambient = new THREE.AmbientLight(0xffffff, 0.5);
-  scene.add(ambient);
+  // Lights — Hemisphere + Key(shadow) + Fill + Rim
+  const hemi = new THREE.HemisphereLight(0xc8d0e0, 0x282c34, 0.4);
+  scene.add(hemi);
 
-  const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
-  dirLight.position.set(100, 200, 150);
-  scene.add(dirLight);
+  keyLight = new THREE.DirectionalLight(0xffffff, 1.6);
+  keyLight.position.set(100, 200, 150);
+  keyLight.castShadow = true;
+  keyLight.shadow.mapSize.set(2048, 2048);
+  keyLight.shadow.bias = -0.0002;
+  scene.add(keyLight);
+  scene.add(keyLight.target);
 
-  const backLight = new THREE.DirectionalLight(0x58a6ff, 0.3);
-  backLight.position.set(-100, -50, -100);
-  scene.add(backLight);
+  fillLight = new THREE.DirectionalLight(0x8ab4f8, 0.4);
+  fillLight.position.set(-80, 60, -60);
+  scene.add(fillLight);
+
+  rimLight = new THREE.DirectionalLight(0xffffff, 0.3);
+  rimLight.position.set(0, 10, -150);
+  scene.add(rimLight);
+
+  // Shadow-receiving ground plane
+  const groundGeo = new THREE.PlaneGeometry(2000, 2000);
+  const groundMat = new THREE.ShadowMaterial({ opacity: 0.25 });
+  groundPlane = new THREE.Mesh(groundGeo, groundMat);
+  groundPlane.rotation.x = -Math.PI / 2;
+  groundPlane.position.y = -0.1;
+  groundPlane.receiveShadow = true;
+  scene.add(groundPlane);
 
   // Grid + Axes
   const grid = new THREE.GridHelper(300, 30, 0x30363d, 0x21262d);
+  grid.material.opacity = 0.4;
+  grid.material.transparent = true;
   scene.add(grid);
 
   const axes = new THREE.AxesHelper(50);
   scene.add(axes);
 
-  // Default material
-  defaultMaterial = new THREE.MeshPhongMaterial({
+  // Default material (PBR)
+  defaultMaterial = new THREE.MeshStandardMaterial({
     color: 0x58a6ff,
-    specular: 0x222222,
-    shininess: 40,
-    flatShading: false,
+    metalness: 0.5,
+    roughness: 0.4,
   });
 
   // Resize
@@ -137,16 +200,34 @@ function animate() {
 function loadSTL(arrayBuffer) {
   clearAssembly();
   if (currentMesh) {
+    if (currentMesh.userData.edgeLines) {
+      currentMesh.userData.edgeLines.geometry.dispose();
+    }
+    if (currentMesh.userData.edgeMat) {
+      currentMesh.userData.edgeMat.dispose();
+    }
     scene.remove(currentMesh);
     currentMesh.geometry.dispose();
   }
 
   const loader = new STLLoader();
-  const geometry = loader.parse(arrayBuffer);
+  let geometry = loader.parse(arrayBuffer);
+  geometry = mergeVertices(geometry);
   geometry.computeVertexNormals();
 
   currentMesh = new THREE.Mesh(geometry, defaultMaterial);
+  currentMesh.castShadow = true;
+  currentMesh.receiveShadow = true;
   scene.add(currentMesh);
+
+  // Edge lines for single-part
+  const edgeGeo = new THREE.EdgesGeometry(geometry, EDGE_THRESHOLD);
+  const edgeMat = new THREE.LineBasicMaterial({ color: EDGE_COLOR, transparent: true, opacity: 0.6 });
+  const edgeLines = new THREE.LineSegments(edgeGeo, edgeMat);
+  edgeLines.visible = edgesVisible;
+  currentMesh.add(edgeLines);
+  currentMesh.userData.edgeLines = edgeLines;
+  currentMesh.userData.edgeMat = edgeMat;
 
   partsListEl.innerHTML = '';
   fitCamera(currentMesh);
@@ -171,23 +252,26 @@ function addPartMesh(arrayBuffer) {
   if (!partInfo) return;
 
   const loader = new STLLoader();
-  const geometry = loader.parse(arrayBuffer);
+  let geometry = loader.parse(arrayBuffer);
+  geometry = mergeVertices(geometry);
   geometry.computeVertexNormals();
 
-  const color = PART_COLORS[index % PART_COLORS.length];
-  const mat = new THREE.MeshPhongMaterial({
-    color,
-    specular: 0x222222,
-    shininess: 40,
-    flatShading: false,
-    transparent: true,
-    opacity: sliderOpacity ? sliderOpacity.value / 100 : 1.0,
-  });
+  const mat = createPartMaterial(partInfo.material, index);
 
   const mesh = new THREE.Mesh(geometry, mat);
   mesh.userData.partIndex = index;
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
   assemblyGroup.add(mesh);
-  partMeshes.push({ mesh, material: mat, label: partInfo.label, id: partInfo.id });
+
+  // Edge lines
+  const edgeGeo = new THREE.EdgesGeometry(geometry, EDGE_THRESHOLD);
+  const edgeMat = new THREE.LineBasicMaterial({ color: EDGE_COLOR, transparent: true, opacity: 0.6 });
+  const edgeLines = new THREE.LineSegments(edgeGeo, edgeMat);
+  edgeLines.visible = edgesVisible;
+  mesh.add(edgeLines);
+
+  partMeshes.push({ mesh, material: mat, label: partInfo.label, id: partInfo.id, edgeLines, edgeMat });
 
   receivedPartCount++;
 
@@ -203,7 +287,7 @@ function buildPartsList() {
   let html = '<h3>Parts</h3>';
   for (let i = 0; i < partMeshes.length; i++) {
     const p = partMeshes[i];
-    const color = '#' + PART_COLORS[i % PART_COLORS.length].toString(16).padStart(6, '0');
+    const color = '#' + p.material.color.getHexString();
     const cls = i === selectedPartIndex ? 'part-item selected' : 'part-item';
     html += `<div class="${cls}" data-index="${i}">`;
     html += `<span class="part-swatch" style="background:${color}"></span>`;
@@ -300,6 +384,26 @@ function fitCamera(obj) {
   camera.position.set(center.x + dist * 0.7, center.y + dist * 0.5, center.z + dist * 0.7);
   camera.lookAt(center);
   controls.update();
+
+  // Reposition key light and shadow camera to match model bounds
+  if (keyLight) {
+    keyLight.position.set(center.x + maxDim, center.y + maxDim * 1.5, center.z + maxDim);
+    keyLight.target.position.copy(center);
+    keyLight.target.updateMatrixWorld();
+    const s = maxDim * 1.5;
+    keyLight.shadow.camera.left = -s;
+    keyLight.shadow.camera.right = s;
+    keyLight.shadow.camera.top = s;
+    keyLight.shadow.camera.bottom = -s;
+    keyLight.shadow.camera.near = 0.1;
+    keyLight.shadow.camera.far = maxDim * 5;
+    keyLight.shadow.camera.updateProjectionMatrix();
+  }
+
+  // Move ground plane to model bottom
+  if (groundPlane) {
+    groundPlane.position.y = box.min.y - 0.1;
+  }
 }
 
 // --- WebSocket ---
@@ -329,6 +433,11 @@ function connectWS() {
         setStatus(msg.text, 'progress');
         break;
 
+      case 'stream_chunk':
+        setStatus(msg.text, 'progress');
+        showStreamPreview(msg.chars);
+        break;
+
       case 'metadata':
         showModelInfo(msg.model, msg.fem);
         break;
@@ -347,6 +456,7 @@ function connectWS() {
 
       case 'design_result':
         editor.value = msg.toml || '';
+        hideStreamPreview();
         showReviewPanel(msg.report);
         break;
 
@@ -448,6 +558,12 @@ function clearAssembly() {
     for (const p of partMeshes) {
       p.mesh.geometry.dispose();
       p.material.dispose();
+      if (p.edgeLines) {
+        p.edgeLines.geometry.dispose();
+      }
+      if (p.edgeMat) {
+        p.edgeMat.dispose();
+      }
     }
     scene.remove(assemblyGroup);
     assemblyGroup = null;
@@ -468,6 +584,12 @@ function clearAssembly() {
 
 function clearScene() {
   if (currentMesh) {
+    if (currentMesh.userData.edgeLines) {
+      currentMesh.userData.edgeLines.geometry.dispose();
+    }
+    if (currentMesh.userData.edgeMat) {
+      currentMesh.userData.edgeMat.dispose();
+    }
     scene.remove(currentMesh);
     currentMesh.geometry.dispose();
     currentMesh = null;
@@ -493,6 +615,8 @@ async function loadExamples() {
 }
 
 // --- AI Design ---
+let streamStartTime = 0;
+
 function designModel() {
   const desc = designInput.value.trim();
   if (!desc) return setStatus('Enter a mechanism description', 'error');
@@ -501,9 +625,29 @@ function designModel() {
   btnDesign.disabled = true;
   btnBuild.disabled = true;
   reviewPanel.classList.remove('open');
+  hideStreamPreview();
+  streamStartTime = Date.now();
   setStatus('Sending design request...', 'progress');
 
   ws.send(JSON.stringify({ action: 'design', description: desc }));
+}
+
+function showStreamPreview(chars) {
+  if (!streamPreview) return;
+  const elapsed = ((Date.now() - streamStartTime) / 1000).toFixed(0);
+  const bar = buildProgressBar(chars);
+  streamPreview.innerHTML = `${bar}<span class="stream-stats">${chars.toLocaleString()} chars &middot; ${elapsed}s elapsed</span>`;
+  streamPreview.classList.add('open');
+}
+
+function buildProgressBar(chars) {
+  // Estimate ~8k chars for a typical design, cap at 100%
+  const pct = Math.min(100, Math.round((chars / 8000) * 100));
+  return `<div class="stream-bar"><div class="stream-bar-fill" style="width:${pct}%"></div></div>`;
+}
+
+function hideStreamPreview() {
+  if (streamPreview) streamPreview.classList.remove('open');
 }
 
 function showReviewPanel(report) {
@@ -562,6 +706,21 @@ chkWireframe.addEventListener('change', () => {
     p.material.wireframe = chkWireframe.checked;
   }
 });
+
+const chkEdges = document.getElementById('chk-edges');
+if (chkEdges) {
+  chkEdges.addEventListener('change', () => {
+    edgesVisible = chkEdges.checked;
+    // Toggle on assembly parts
+    for (const p of partMeshes) {
+      if (p.edgeLines) p.edgeLines.visible = edgesVisible;
+    }
+    // Toggle on single-part mesh
+    if (currentMesh && currentMesh.userData.edgeLines) {
+      currentMesh.userData.edgeLines.visible = edgesVisible;
+    }
+  });
+}
 
 if (sliderOpacity) {
   sliderOpacity.addEventListener('input', () => {

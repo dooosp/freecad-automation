@@ -29,10 +29,10 @@ def export_shape(shape, filepath, fmt=None):
     if fmt in ("step", "stp"):
         Part.export([shape_to_feature(shape)], filepath)
     elif fmt == "stl":
-        mesh = Mesh.Mesh(shape.tessellate(0.1))
+        mesh = Mesh.Mesh(shape.tessellate(0.05))
         mesh.write(filepath)
     elif fmt == "obj":
-        mesh = Mesh.Mesh(shape.tessellate(0.1))
+        mesh = Mesh.Mesh(shape.tessellate(0.05))
         mesh.write(filepath)
     elif fmt in ("brep", "brp"):
         shape.exportBrep(filepath)
@@ -82,7 +82,7 @@ def export_assembly(features, compound, name, formats, directory):
             # Export features to preserve part names in STEP tree
             Part.export([f for f in features], filepath)
         elif fmt in ("stl", "obj"):
-            mesh = Mesh.Mesh(compound.tessellate(0.1))
+            mesh = Mesh.Mesh(compound.tessellate(0.05))
             mesh.write(filepath)
         elif fmt in ("brep", "brp"):
             compound.exportBrep(filepath)
@@ -105,7 +105,7 @@ def export_assembly_parts(features, name, directory):
     for feat in features:
         label = feat.Label
         filepath = os.path.join(directory, f"{name}__{label}.stl")
-        mesh = Mesh.Mesh(feat.Shape.tessellate(0.1))
+        mesh = Mesh.Mesh(feat.Shape.tessellate(0.05))
         mesh.write(filepath)
         size = os.path.getsize(filepath) if os.path.exists(filepath) else 0
         results.append({"id": label, "label": label, "path": filepath, "size_bytes": size})

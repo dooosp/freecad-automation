@@ -520,6 +520,291 @@ def make_coil_spring(spec):
 
 
 # ---------------------------------------------------------------------------
+# Robot Base (industrial pedestal + flange + bolt holes)
+# ---------------------------------------------------------------------------
+
+def make_robot_base(spec):
+    """
+    Industrial robot base with smooth BSpline revolution profile.
+    Shape: sharp mounting flange → smooth organic pedestal → top plate.
+
+    Required: diameter, height
+    Optional: bolt_count (6), bolt_d (8), cable_hole_d (0)
+    """
+    d = float(spec.get("diameter", 200))
+    h = float(spec.get("height", 50))
+    bolt_count = int(spec.get("bolt_count", 6))
+    bolt_d = float(spec.get("bolt_d", 8))
+    cable_hole_d = float(spec.get("cable_hole_d", d * 0.25))
+
+    r = d / 2.0
+    flange_r = r * 1.15
+    flange_h = max(8, h * 0.15)
+    top_r = r * 0.82
+    eps = 0.01
+
+    # --- Profile: sharp flange + BSpline organic body ---
+    e_bot = Part.makeLine(Vector(eps, 0, 0), Vector(flange_r, 0, 0))
+    e_flange = Part.makeLine(Vector(flange_r, 0, 0), Vector(flange_r, 0, flange_h))
+
+    # Organic body: BSpline from flange top → top surface
+    body_pts = [
+        Vector(flange_r, 0, flange_h),
+        Vector(r * 1.05, 0, flange_h + h * 0.08),
+        Vector(r * 0.92, 0, h * 0.35),
+        Vector(r * 0.88, 0, h * 0.50),
+        Vector(r * 0.93, 0, h * 0.65),
+        Vector(r * 1.05, 0, h * 0.78),
+        Vector(r * 0.98, 0, h * 0.90),
+        Vector(top_r, 0, h),
+    ]
+    bs = Part.BSplineCurve()
+    bs.interpolate(body_pts)
+    e_body = bs.toShape()
+
+    # Closing edges
+    e_top = Part.makeLine(Vector(top_r, 0, h), Vector(eps, 0, h))
+    e_axis = Part.makeLine(Vector(eps, 0, h), Vector(eps, 0, 0))
+
+    wire = Part.Wire([e_bot, e_flange, e_body, e_top, e_axis])
+    face = Part.Face(wire)
+    base = face.revolve(Vector(0, 0, 0), Vector(0, 0, 1), 360)
+
+    # Bolt holes in flange
+    bolt_circle_r = flange_r * 0.82
+    for i in range(bolt_count):
+        angle = 2.0 * math.pi * i / bolt_count
+        x = bolt_circle_r * math.cos(angle)
+        y = bolt_circle_r * math.sin(angle)
+        hole = Part.makeCylinder(bolt_d / 2.0, flange_h + 2, Vector(x, y, -1))
+        base = base.cut(hole)
+
+    # Center cable pass-through
+    if cable_hole_d > 0:
+        cable = Part.makeCylinder(cable_hole_d / 2.0, h + 2, Vector(0, 0, -1))
+        base = base.cut(cable)
+
+    # Edge fillet (best-effort)
+    try:
+        base = base.makeFillet(2.0, base.Edges)
+    except Exception:
+        pass
+
+    return base
+
+
+# ---------------------------------------------------------------------------
+# Robot Link (tapered arm segment + motor housing + end flange)
+# ---------------------------------------------------------------------------
+
+def make_robot_link(spec):
+    """
+    Industrial robot arm link using Loft (rounded-rect cross-sections).
+    Shape: motor housing → neck taper → body → end cap.
+    Non-circular cross-sections for industrial look.
+    Oriented along Z axis.
+
+    Required: length, width
+    Optional: taper_ratio (0.75), motor_d (auto), wall_thickness (5), bore_d (0)
+    """
+    from _shapes import _make_rounded_rect_wire
+
+    length = float(spec.get("length", 300))
+    width = float(spec.get("width", 80))
+    taper = float(spec.get("taper_ratio", 0.75))
+    motor_d = float(spec.get("motor_d", 0)) or width * 0.95
+    wall = float(spec.get("wall_thickness", 5))
+    bore_d = float(spec.get("bore_d", 0))
+
+    # Dimensions
+    motor_w = motor_d
+    motor_h = motor_d * 0.82
+    motor_len = width * 0.45
+    tip_w = width * taper
+    tip_h = motor_h * taper
+    cap_w = tip_w + 6
+    cap_h = tip_h + 6
+
+    r = min(width, motor_h) * 0.18
+    r_tip = min(tip_w, tip_h) * 0.22
+
+    # --- Loft sections (all rounded_rect, Z=along link axis) ---
+    sections = [
+        _make_rounded_rect_wire(motor_w, motor_h, r, z=0),
+        _make_rounded_rect_wire(motor_w * 0.96, motor_h * 0.94, r, z=motor_len),
+        _make_rounded_rect_wire(width * 0.55, motor_h * 0.55, r * 1.2, z=motor_len + width * 0.25),
+        _make_rounded_rect_wire(width * 0.48, motor_h * 0.46, r_tip, z=length * 0.45),
+        _make_rounded_rect_wire(tip_w * 0.92, tip_h * 0.92, r_tip, z=length * 0.75),
+        _make_rounded_rect_wire(cap_w, cap_h, r_tip * 0.8, z=length - 5),
+        _make_rounded_rect_wire(cap_w, cap_h, r_tip * 0.8, z=length),
+    ]
+
+    link = Part.makeLoft(sections, True, False)
+
+    # --- Shell for hollow interior ---
+    try:
+        top_face = max(link.Faces, key=lambda f: f.CenterOfMass.z)
+        bot_face = min(link.Faces, key=lambda f: f.CenterOfMass.z)
+        link = link.makeThickness([top_face, bot_face], -wall, 1e-3)
+    except Exception:
+        pass
+
+    # --- Asymmetric motor drum (side protrusion on +X) ---
+    drum_r = motor_len * 0.38
+    drum_depth = width * 0.14
+    drum_z = motor_len * 0.25
+    try:
+        drum = Part.makeCylinder(drum_r, drum_depth,
+                                  Vector(motor_w / 2.0 - 2, 0, drum_z),
+                                  Vector(1, 0, 0))
+        drum_cap = Part.makeSphere(drum_r,
+                                    Vector(motor_w / 2.0 - 2 + drum_depth, 0, drum_z))
+        drum = drum.fuse(drum_cap)
+        link = link.fuse(drum)
+    except Exception:
+        pass
+
+    # Cable bore
+    if bore_d > 0:
+        bore = Part.makeCylinder(bore_d / 2.0, length + 10, Vector(0, 0, -5))
+        link = link.cut(bore)
+
+    # Edge fillet (best-effort)
+    try:
+        link = link.makeFillet(1.5, link.Edges)
+    except Exception:
+        pass
+
+    return link
+
+
+# ---------------------------------------------------------------------------
+# Robot Wrist (compact joint housing with bearing seats)
+# ---------------------------------------------------------------------------
+
+def make_robot_wrist(spec):
+    """
+    Compact robot wrist with smooth BSpline revolution profile.
+    Shape: bearing flange → organic body with mid-ring detail → bearing flange.
+    Oriented along Z axis.
+
+    Required: diameter, length
+    Optional: wall_thickness (4), bore_d (0)
+    """
+    d = float(spec.get("diameter", 60))
+    length = float(spec.get("length", 80))
+    wall = float(spec.get("wall_thickness", 4))
+    bore_d = float(spec.get("bore_d", 0))
+
+    r = d / 2.0
+    flange_r = r + 3
+    eps = 0.01
+
+    # BSpline revolution profile: flanges + smooth body with mid-ring
+    profile_pts = [
+        Vector(flange_r, 0, 0),
+        Vector(flange_r, 0, 5),
+        Vector(r * 0.92, 0, 8),
+        Vector(r * 0.88, 0, length * 0.25),
+        Vector(r * 0.92, 0, length * 0.43),
+        Vector(r + 1.5, 0, length * 0.50),
+        Vector(r * 0.92, 0, length * 0.57),
+        Vector(r * 0.88, 0, length * 0.75),
+        Vector(r * 0.92, 0, length - 8),
+        Vector(flange_r, 0, length - 5),
+        Vector(flange_r, 0, length),
+    ]
+    bs = Part.BSplineCurve()
+    bs.interpolate(profile_pts)
+    e_body = bs.toShape()
+
+    e_bot = Part.makeLine(Vector(eps, 0, 0), Vector(flange_r, 0, 0))
+    e_top = Part.makeLine(Vector(flange_r, 0, length), Vector(eps, 0, length))
+    e_axis = Part.makeLine(Vector(eps, 0, length), Vector(eps, 0, 0))
+
+    wire = Part.Wire([e_bot, e_body, e_top, e_axis])
+    face = Part.Face(wire)
+    result = face.revolve(Vector(0, 0, 0), Vector(0, 0, 1), 360)
+
+    # Hollow out
+    inner_r = r - wall
+    if inner_r > 2:
+        inner = Part.makeCylinder(inner_r, length - 2 * wall,
+                                   Vector(0, 0, wall))
+        result = result.cut(inner)
+
+    # Cable bore
+    if bore_d > 0:
+        bore = Part.makeCylinder(bore_d / 2.0, length + 10,
+                                  Vector(0, 0, -5))
+        result = result.cut(bore)
+
+    # Edge fillet (best-effort)
+    try:
+        result = result.makeFillet(1.5, result.Edges)
+    except Exception:
+        pass
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Tool Flange (ISO 9409 style mounting plate)
+# ---------------------------------------------------------------------------
+
+def make_tool_flange(spec):
+    """
+    ISO 9409-style tool flange: disc + bolt pattern + pilot bore + alignment pin.
+
+    Required: diameter
+    Optional: thickness (12), bolt_count (4), bolt_circle_d (auto),
+              bolt_d (6), pilot_d (auto), pin_d (6)
+    """
+    d = float(spec.get("diameter", 63))
+    thickness = float(spec.get("thickness", 12))
+    bolt_count = int(spec.get("bolt_count", 4))
+    bolt_circle_d = float(spec.get("bolt_circle_d", 0)) or d * 0.78
+    bolt_d = float(spec.get("bolt_d", 6))
+    pilot_d = float(spec.get("pilot_d", 0)) or d * 0.5
+    pin_d = float(spec.get("pin_d", 6))
+
+    r = d / 2.0
+
+    # Main disc
+    flange = Part.makeCylinder(r, thickness)
+
+    # Raised center boss
+    boss_r = pilot_d / 2.0 + 3
+    boss_h = 3
+    boss = Part.makeCylinder(boss_r, boss_h, Vector(0, 0, thickness))
+    flange = flange.fuse(boss)
+
+    # Pilot bore (center locating hole)
+    if pilot_d > 0:
+        pilot = Part.makeCylinder(pilot_d / 2.0, thickness + boss_h + 2,
+                                   Vector(0, 0, -1))
+        flange = flange.cut(pilot)
+
+    # Bolt holes
+    bolt_circle_r = bolt_circle_d / 2.0
+    for i in range(bolt_count):
+        angle = 2.0 * math.pi * i / bolt_count
+        x = bolt_circle_r * math.cos(angle)
+        y = bolt_circle_r * math.sin(angle)
+        hole = Part.makeCylinder(bolt_d / 2.0, thickness + 2, Vector(x, y, -1))
+        flange = flange.cut(hole)
+
+    # Alignment pin hole (offset from center)
+    if pin_d > 0:
+        pin_offset = bolt_circle_r * 0.7
+        pin_hole = Part.makeCylinder(pin_d / 2.0, thickness + 2,
+                                      Vector(pin_offset, 0, -1))
+        flange = flange.cut(pin_hole)
+
+    return flange
+
+
+# ---------------------------------------------------------------------------
 # Dispatch
 # ---------------------------------------------------------------------------
 
@@ -531,6 +816,10 @@ LIBRARY_DISPATCH = {
     "library/disc_cam": make_disc_cam,
     "library/pulley": make_pulley,
     "library/coil_spring": make_coil_spring,
+    "library/robot_base": make_robot_base,
+    "library/robot_link": make_robot_link,
+    "library/robot_wrist": make_robot_wrist,
+    "library/tool_flange": make_tool_flange,
 }
 
 

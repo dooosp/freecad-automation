@@ -1,0 +1,42 @@
+# ============================================================
+# Import Test — demonstrates STEP/BREP import feature
+# - Uses a locally generated BREP file
+# - Also tests URL import (FreeCAD parts library)
+# ============================================================
+
+name = "import_test"
+
+[export]
+formats = ["step", "stl"]
+directory = "./output"
+per_part_stl = true
+
+# ---- Local BREP import ----
+[[parts]]
+id = "local_part"
+  [[parts.shapes]]
+  id = "imported"
+  type = "import"
+  file = "output/test_box.brep"
+  material = "steel"
+
+# ---- Primitive part (for assembly reference) ----
+[[parts]]
+id = "base_plate"
+  [[parts.shapes]]
+  id = "plate"
+  type = "box"
+  length = 100
+  width = 100
+  height = 10
+  material = "aluminum"
+
+[assembly]
+
+[[assembly.parts]]
+ref = "base_plate"
+position = [0, 0, 0]
+
+[[assembly.parts]]
+ref = "local_part"
+position = [10, 10, 10]

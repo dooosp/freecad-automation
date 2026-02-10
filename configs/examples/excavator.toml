@@ -1,0 +1,222 @@
+# ============================================================
+# Mini Excavator (Primitive-shape Assembly Demo)
+# - Demonstrates multi-part assembly with PBR materials
+# - 13 parts: chassis, cab, boom, stick, bucket, turntable,
+#   track_left, track_right, boom_cyl, stick_cyl, bucket_cyl,
+#   counterweight, engine_cover
+# - Ready for BREP import: swap type="box" → type="import" + file="..."
+# ============================================================
+
+name = "excavator"
+
+[export]
+formats = ["step", "stl"]
+directory = "./output"
+per_part_stl = true
+
+# ============================================================
+# PARTS
+# ============================================================
+
+# ---- Chassis / Undercarriage ----
+[[parts]]
+id = "chassis"
+  [[parts.shapes]]
+  id = "body"
+  type = "box"
+  length = 600
+  width = 300
+  height = 80
+  material = "dark_steel"
+
+# ---- Left Track ----
+[[parts]]
+id = "track_left"
+  [[parts.shapes]]
+  id = "track"
+  type = "box"
+  length = 700
+  width = 80
+  height = 120
+  material = "rubber"
+
+# ---- Right Track ----
+[[parts]]
+id = "track_right"
+  [[parts.shapes]]
+  id = "track"
+  type = "box"
+  length = 700
+  width = 80
+  height = 120
+  material = "rubber"
+
+# ---- Turntable ----
+[[parts]]
+id = "turntable"
+  [[parts.shapes]]
+  id = "ring"
+  type = "cylinder"
+  radius = 140
+  height = 30
+  material = "dark_steel"
+
+# ---- Cab ----
+[[parts]]
+id = "cab"
+  [[parts.shapes]]
+  id = "body"
+  type = "box"
+  length = 200
+  width = 200
+  height = 220
+  material = "painted_yellow"
+
+# ---- Engine Cover ----
+[[parts]]
+id = "engine_cover"
+  [[parts.shapes]]
+  id = "cover"
+  type = "box"
+  length = 280
+  width = 240
+  height = 160
+  material = "painted_yellow"
+
+# ---- Counterweight ----
+[[parts]]
+id = "counterweight"
+  [[parts.shapes]]
+  id = "block"
+  type = "box"
+  length = 100
+  width = 260
+  height = 140
+  material = "cast_iron"
+
+# ---- Boom ----
+[[parts]]
+id = "boom"
+  [[parts.shapes]]
+  id = "arm"
+  type = "box"
+  length = 500
+  width = 80
+  height = 100
+  material = "painted_yellow"
+
+# ---- Stick (Dipper Arm) ----
+[[parts]]
+id = "stick"
+  [[parts.shapes]]
+  id = "arm"
+  type = "box"
+  length = 400
+  width = 60
+  height = 80
+  material = "painted_yellow"
+
+# ---- Bucket ----
+[[parts]]
+id = "bucket"
+  [[parts.shapes]]
+  id = "scoop"
+  type = "box"
+  length = 200
+  width = 180
+  height = 120
+  material = "cast_iron"
+
+# ---- Boom Cylinder ----
+[[parts]]
+id = "boom_cyl"
+  [[parts.shapes]]
+  id = "cyl"
+  type = "cylinder"
+  radius = 25
+  height = 350
+  material = "dark_steel"
+
+# ---- Stick Cylinder ----
+[[parts]]
+id = "stick_cyl"
+  [[parts.shapes]]
+  id = "cyl"
+  type = "cylinder"
+  radius = 20
+  height = 280
+  material = "dark_steel"
+
+# ---- Bucket Cylinder ----
+[[parts]]
+id = "bucket_cyl"
+  [[parts.shapes]]
+  id = "cyl"
+  type = "cylinder"
+  radius = 18
+  height = 200
+  material = "dark_steel"
+
+# ============================================================
+# ASSEMBLY
+# ============================================================
+
+[assembly]
+
+[[assembly.parts]]
+ref = "chassis"
+position = [0, 0, 0]
+
+[[assembly.parts]]
+ref = "track_left"
+position = [-50, -190, -60]
+
+[[assembly.parts]]
+ref = "track_right"
+position = [-50, 110, -60]
+
+[[assembly.parts]]
+ref = "turntable"
+position = [100, 150, 80]
+
+[[assembly.parts]]
+ref = "cab"
+position = [0, 50, 110]
+
+[[assembly.parts]]
+ref = "engine_cover"
+position = [250, 30, 110]
+
+[[assembly.parts]]
+ref = "counterweight"
+position = [430, 20, 110]
+
+[[assembly.parts]]
+ref = "boom"
+position = [80, 120, 200]
+rotation = [0, 1, 0, -30]
+
+[[assembly.parts]]
+ref = "stick"
+position = [480, 130, 420]
+rotation = [0, 1, 0, 50]
+
+[[assembly.parts]]
+ref = "bucket"
+position = [350, 80, 150]
+rotation = [0, 1, 0, 80]
+
+[[assembly.parts]]
+ref = "boom_cyl"
+position = [200, 100, 150]
+rotation = [0, 1, 0, -20]
+
+[[assembly.parts]]
+ref = "stick_cyl"
+position = [400, 100, 350]
+rotation = [0, 1, 0, 30]
+
+[[assembly.parts]]
+ref = "bucket_cyl"
+position = [350, 100, 280]
+rotation = [0, 1, 0, 60]

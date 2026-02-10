@@ -18,7 +18,7 @@ try:
 
     FreeCAD = init_freecad()
     import Part
-    from _shapes import make_shape, boolean_op, apply_fillet, apply_chamfer, circular_pattern, get_metadata
+    from _shapes import make_shape, boolean_op, apply_fillet, apply_chamfer, apply_shell, circular_pattern, get_metadata
     from _export import export_multi, export_assembly, export_assembly_parts
 
     # Detect assembly mode: "parts" key + "assembly" key present
@@ -49,6 +49,13 @@ try:
             # Per-part STL export for viewer
             if export_config.get("per_part_stl"):
                 part_files = export_assembly_parts(features, model_name, directory)
+                # Inject material from parts config into part_files for viewer PBR
+                parts_config = {p["id"]: p for p in config.get("parts", [])}
+                for pf in part_files:
+                    pid = pf["id"]
+                    if pid in parts_config:
+                        shapes = parts_config[pid].get("shapes", [])
+                        pf["material"] = shapes[0].get("material") if shapes else None
                 log(f"  Exported {len(part_files)} per-part STL(s)")
 
         # Build response
@@ -117,6 +124,15 @@ try:
                 result_id = op_spec.get("result", op_spec["target"])
                 shapes[result_id] = result
                 log(f"  Chamfer s={size} → '{result_id}'")
+
+            elif op == "shell":
+                target = shapes[op_spec["target"]]
+                thickness = op_spec["thickness"]
+                face_indices = op_spec.get("faces")
+                result = apply_shell(target, thickness, face_indices)
+                result_id = op_spec.get("result", op_spec["target"])
+                shapes[result_id] = result
+                log(f"  Shell t={thickness} → '{result_id}'")
 
             elif op == "circular_pattern":
                 target = shapes[op_spec["target"]]

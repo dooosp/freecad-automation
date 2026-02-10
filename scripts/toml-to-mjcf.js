@@ -158,6 +158,46 @@ function estimateLibraryPart(spec, libType, density = DEFAULT_DENSITY) {
         inertia: [mass * (3 * r * r + h * h) / 12, mass * (3 * r * r + h * h) / 12, mass * r * r / 2],
       };
     }
+    case 'robot_base': {
+      const r = ((spec.diameter || 200) / 2) * MM_TO_M;
+      const h = (spec.height || 50) * MM_TO_M;
+      const vol = Math.PI * r * r * h * 0.7;
+      const mass = vol * density;
+      return {
+        geomType: 'cylinder', size: [r, h / 2], mass,
+        inertia: [mass * (3 * r * r + h * h) / 12, mass * (3 * r * r + h * h) / 12, mass * r * r / 2],
+      };
+    }
+    case 'robot_link': {
+      const r = ((spec.width || 80) / 2) * MM_TO_M;
+      const h = (spec.length || 300) * MM_TO_M;
+      const vol = Math.PI * r * r * h * 0.4; // hollow tapered
+      const mass = vol * density;
+      return {
+        geomType: 'cylinder', size: [r, h / 2], mass,
+        inertia: [mass * (3 * r * r + h * h) / 12, mass * (3 * r * r + h * h) / 12, mass * r * r / 2],
+      };
+    }
+    case 'robot_wrist': {
+      const r = ((spec.diameter || 60) / 2) * MM_TO_M;
+      const h = (spec.length || 80) * MM_TO_M;
+      const vol = Math.PI * r * r * h * 0.5;
+      const mass = vol * density;
+      return {
+        geomType: 'cylinder', size: [r, h / 2], mass,
+        inertia: [mass * (3 * r * r + h * h) / 12, mass * (3 * r * r + h * h) / 12, mass * r * r / 2],
+      };
+    }
+    case 'tool_flange': {
+      const r = ((spec.diameter || 63) / 2) * MM_TO_M;
+      const h = (spec.thickness || 12) * MM_TO_M;
+      const vol = Math.PI * r * r * h * 0.6;
+      const mass = vol * density;
+      return {
+        geomType: 'cylinder', size: [r, h / 2], mass,
+        inertia: [mass * (3 * r * r + h * h) / 12, mass * (3 * r * r + h * h) / 12, mass * r * r / 2],
+      };
+    }
     default: {
       // Generic library part → small cylinder
       const r = 0.01;
