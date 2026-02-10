@@ -1284,6 +1284,17 @@ async function testBeltDrive() {
   const lastDriven = driven.keyframes[driven.keyframes.length - 1].angle;
   assert(Math.abs(lastDriven - lastMotor * 0.5) < 0.1,
     `Belt ratio correct: motor ${lastMotor}° → driven ${lastDriven}°`);
+
+  // ── Physics: constant ratio at every keyframe ──
+  let maxRatioErr = 0;
+  for (let i = 1; i < motor.keyframes.length; i++) {
+    const r = driven.keyframes[i].angle / motor.keyframes[i].angle;
+    maxRatioErr = Math.max(maxRatioErr, Math.abs(r - 0.5));
+  }
+  assert(maxRatioErr < 0.001, `Belt ratio constant all frames (max err ${maxRatioErr.toFixed(6)})`);
+
+  // ── Physics: same direction (positive belt, not gear reversal) ──
+  assert(lastMotor > 0 && lastDriven > 0, 'Belt: same rotation direction');
 }
 
 async function testCamFollower() {
@@ -1315,6 +1326,36 @@ async function testCamFollower() {
 
   // At 0° and 360°, displacement should be near 0
   assert(Math.abs(follower.keyframes[0].displacement) < 0.1, 'Follower at 0° near zero');
+
+  // ── Physics: harmonic profile d(θ) = (max_lift/2)(1-cos(πφ)) ──
+  const maxLift = 10;
+  const nKf = follower.keyframes.length;
+  const step90 = Math.round(90 / 360 * (nKf - 1));
+  const step270 = Math.round(270 / 360 * (nKf - 1));
+  const d90 = follower.keyframes[step90].displacement;
+  const d270 = follower.keyframes[step270].displacement;
+  const d360 = follower.keyframes[nKf - 1].displacement;
+  assert(Math.abs(d90 - 5) < 0.2, `Harmonic at 90° ≈ 5mm (got ${d90.toFixed(3)})`);
+  assert(Math.abs(d270 - 5) < 0.2, `Harmonic at 270° ≈ 5mm (got ${d270.toFixed(3)})`);
+  assert(Math.abs(d360) < 0.2, `Follower at 360° returns to ~0 (got ${d360.toFixed(3)})`);
+  assert(Math.abs(d90 - d270) < 0.1, `Harmonic symmetry d(90°) ≈ d(270°)`);
+
+  // ── Physics: monotonic rise 0→180° then fall 180→360° ──
+  let monotonicRise = true;
+  for (let i = 1; i <= midIdx; i++) {
+    if (follower.keyframes[i].displacement < follower.keyframes[i - 1].displacement - 0.01) {
+      monotonicRise = false; break;
+    }
+  }
+  assert(monotonicRise, 'Monotonic rise 0°→180°');
+
+  let monotonicFall = true;
+  for (let i = midIdx + 1; i < nKf; i++) {
+    if (follower.keyframes[i].displacement > follower.keyframes[i - 1].displacement + 0.01) {
+      monotonicFall = false; break;
+    }
+  }
+  assert(monotonicFall, 'Monotonic fall 180°→360°');
 }
 
 async function testFourBarLinkage() {
@@ -1348,6 +1389,26 @@ async function testFourBarLinkage() {
   const minA = Math.min(...angles);
   const maxA = Math.max(...angles);
   assert(maxA - minA < 180, `Rocker oscillates within <180° range (${minA.toFixed(1)} to ${maxA.toFixed(1)})`);
+
+  // ── Physics: loop closure |BC|=50 at every keyframe ──
+  const initRockerDeg = 108.2; // solved initial rocker angle
+  let maxClosureErr = 0;
+  for (let i = 0; i < coupler.keyframes.length; i++) {
+    const B = coupler.keyframes[i].anchor;
+    const delta = rocker.keyframes[i].angle;
+    const ra = (initRockerDeg + delta) * Math.PI / 180;
+    const Cx = 60 + 45 * Math.cos(ra);
+    const Cy = 45 * Math.sin(ra);
+    const BC = Math.sqrt((Cx - B[0]) ** 2 + (Cy - B[1]) ** 2);
+    maxClosureErr = Math.max(maxClosureErr, Math.abs(BC - 50));
+  }
+  assert(maxClosureErr < 0.5, `Loop closure |BC|=50 all frames (max err ${maxClosureErr.toFixed(4)}mm)`);
+
+  // ── Physics: periodicity — returns to start after 360° ──
+  const couplerEnd = coupler.keyframes[coupler.keyframes.length - 1].angle;
+  const rockerEnd = rocker.keyframes[rocker.keyframes.length - 1].angle;
+  assert(Math.abs(couplerEnd) < 1.0, `Coupler returns to ~0° at 360° (got ${couplerEnd.toFixed(2)}°)`);
+  assert(Math.abs(rockerEnd) < 1.0, `Rocker returns to ~0° at 360° (got ${rockerEnd.toFixed(2)}°)`);
 }
 
 async function testPistonEngine() {
@@ -1386,6 +1447,29 @@ async function testPistonEngine() {
   assert(rod !== undefined, 'Connecting rod in motion');
   assert(rod.type === 'floating', 'Con rod is floating link');
   assert(Array.isArray(rod.keyframes[0].anchor), 'Con rod has per-keyframe anchor');
+
+  // ── Physics: pin→piston distance = rod_length at key angles ──
+  const crank_r = 15, rod_l = 50;
+  const pistonInitX = 85; // TDC position from TOML
+  const pistonY = 30;     // piston Y from TOML
+  for (const step of [0, idx180, Math.round(90 / 720 * (crank.keyframes.length - 1))]) {
+    if (step < 0) continue;
+    const pinA = rod.keyframes[step].anchor;
+    const px = pistonInitX + piston.keyframes[step].displacement;
+    const dist = Math.sqrt((px - pinA[0]) ** 2 + (pistonY - pinA[1]) ** 2);
+    const angle = crank.keyframes[step].angle;
+    assert(Math.abs(dist - rod_l) < 0.5, `|pin→piston| = ${rod_l}mm at θ=${angle}° (got ${dist.toFixed(2)})`);
+  }
+
+  // ── Physics: stroke = 2×crank_r ──
+  const allDisp = piston.keyframes.map(kf => kf.displacement);
+  const stroke = Math.max(...allDisp) - Math.min(...allDisp);
+  assert(Math.abs(stroke - 2 * crank_r) < 1, `Stroke = ${2 * crank_r}mm (got ${stroke.toFixed(2)})`);
+
+  // ── Physics: periodicity — displacement returns to 0 after 360° ──
+  const step360 = Math.round(360 / 720 * (crank.keyframes.length - 1));
+  const d360 = piston.keyframes[step360].displacement;
+  assert(Math.abs(d360) < 0.5, `Piston returns to ~0mm at 360° (got ${d360.toFixed(2)})`);
 }
 
 async function main() {
