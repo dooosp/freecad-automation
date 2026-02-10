@@ -48,6 +48,8 @@ export function startServer(port = 3000) {
         await handleBuild(ws, msg.config);
       } else if (msg.action === 'design') {
         await handleDesign(ws, msg.description);
+      } else if (msg.action === 'draw') {
+        await handleDraw(ws, msg.config);
       }
     });
   });
@@ -92,6 +94,79 @@ export function startServer(port = 3000) {
         ? 'GEMINI_API_KEY not set. Add it to .env or export it.'
         : err.message;
       sendJSON(ws, { type: 'error', message: msg });
+    }
+  }
+
+  async function handleDraw(ws, tomlStr) {
+    if (!tomlStr) {
+      return sendJSON(ws, { type: 'error', message: 'TOML config is required for drawing' });
+    }
+    if (ws._building) {
+      return sendJSON(ws, { type: 'error', message: 'Build already in progress' });
+    }
+    ws._building = true;
+    let tmpDir = null;
+
+    try {
+      sendJSON(ws, { type: 'progress', text: 'Parsing TOML for drawing...' });
+
+      let config;
+      try {
+        config = parseTOML(tomlStr);
+      } catch (e) {
+        return sendJSON(ws, { type: 'error', message: `TOML parse error: ${e.message}` });
+      }
+
+      // Create temp dir for SVG output
+      tmpDir = await mkdtemp(join(tmpdir(), 'drawing-'));
+      config.export = { formats: [], directory: tmpDir };
+
+      // Ensure drawing config defaults
+      config.drawing = config.drawing || {};
+      if (!config.drawing.views) {
+        config.drawing.views = ['front', 'top', 'right', 'iso'];
+      }
+      config.drawing.bom_csv = true;
+
+      sendJSON(ws, { type: 'progress', text: 'Generating engineering drawing...' });
+
+      const result = await runScript('generate_drawing.py', config, {
+        timeout: 180_000,
+        onStderr: (text) => {
+          if (ws.readyState === ws.OPEN) {
+            sendJSON(ws, { type: 'progress', text: text.trim() });
+          }
+        },
+      });
+
+      if (!result.success) {
+        return sendJSON(ws, { type: 'error', message: result.error || 'Drawing generation failed' });
+      }
+
+      // Read SVG content and send to client
+      let svgContent = null;
+      const svgExport = (result.drawing_paths || []).find(p => p.format === 'svg');
+      if (svgExport) {
+        const svgFilename = svgExport.path.replace(/\\/g, '/').split('/').pop();
+        svgContent = await readFile(join(tmpDir, svgFilename), 'utf8');
+      }
+
+      sendJSON(ws, {
+        type: 'drawing_result',
+        svg: svgContent,
+        bom: result.bom || [],
+        views: result.views || [],
+        scale: result.scale || '1:1',
+      });
+
+      sendJSON(ws, { type: 'complete' });
+    } catch (err) {
+      sendJSON(ws, { type: 'error', message: err.message });
+    } finally {
+      ws._building = false;
+      if (tmpDir) {
+        rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+      }
     }
   }
 

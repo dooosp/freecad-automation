@@ -11,13 +11,19 @@ fcad - FreeCAD automation CLI
 Usage:
   fcad create <config.toml|json>  Create model from config
   fcad design "description"       AI-generate TOML from natural language, then build
+  fcad draw <config.toml|json>    Generate engineering drawing (4-view SVG + BOM)
   fcad fem <config.toml|json>     Run FEM structural analysis
   fcad inspect <model.step|fcstd> Inspect model metadata
   fcad serve [port]               Start 3D viewer server (default: 3000)
   fcad help                       Show this help
 
+Options:
+  --bom                           Export BOM as separate CSV file (with draw)
+
 Examples:
   fcad create configs/examples/bracket.toml
+  fcad draw configs/examples/robot_arm_drawing.toml
+  fcad draw configs/examples/bracket.toml --bom
   fcad fem configs/examples/bracket_fem.toml
   fcad inspect output/bracket_v1.step
   fcad serve 8080
@@ -35,6 +41,10 @@ async function main() {
     await cmdCreate(args[0]);
   } else if (command === 'design') {
     await cmdDesign(args.join(' '));
+  } else if (command === 'draw') {
+    const flags = args.filter(a => a.startsWith('--'));
+    const configArg = args.find(a => !a.startsWith('--'));
+    await cmdDraw(configArg, flags);
   } else if (command === 'fem') {
     await cmdFem(args[0]);
   } else if (command === 'inspect') {
@@ -93,6 +103,61 @@ async function cmdDesign(description) {
   console.log('\nBuilding model...');
   await cmdCreate(tomlPath);
   console.log(`\nView: fcad serve → http://localhost:3000 → select ${fileName}`);
+}
+
+async function cmdDraw(configPath, flags = []) {
+  if (!configPath) {
+    console.error('Error: config file path required');
+    console.error('  fcad draw configs/examples/bracket.toml');
+    process.exit(1);
+  }
+
+  const absPath = resolve(configPath);
+  console.log(`Loading config: ${absPath}`);
+
+  const config = await loadConfig(absPath);
+
+  // Inject --bom flag into drawing config
+  if (flags.includes('--bom')) {
+    config.drawing = config.drawing || {};
+    config.drawing.bom_csv = true;
+  }
+
+  // Ensure drawing section exists with defaults
+  config.drawing = config.drawing || {};
+  if (!config.drawing.views) {
+    config.drawing.views = ['front', 'top', 'right', 'iso'];
+  }
+
+  const modelName = config.name || 'unnamed';
+  console.log(`Generating drawing: ${modelName}`);
+  console.log(`  Views: ${config.drawing.views.join(', ')}`);
+
+  const result = await runScript('generate_drawing.py', config, {
+    timeout: 180_000,
+    onStderr: (text) => process.stderr.write(text),
+  });
+
+  if (result.success) {
+    console.log(`\nDrawing generated!`);
+    console.log(`  Scale: ${result.scale}`);
+    console.log(`  Views: ${result.views.join(', ')}`);
+    for (const dp of result.drawing_paths) {
+      console.log(`  ${dp.format.toUpperCase()}: ${dp.path} (${dp.size_bytes} bytes)`);
+    }
+    if (result.bom?.length > 0) {
+      console.log(`\n  BOM (${result.bom.length} items):`);
+      for (const item of result.bom) {
+        const joint = item.joint ? ` [${item.joint.type}: ${item.joint.id}]` : '';
+        console.log(`    ${item.id}: ${item.material} ${item.dimensions}${joint}`);
+      }
+    }
+  } else {
+    console.error(`\nError: ${result.error}`);
+    process.exit(1);
+  }
+
+  return result;
 }
 
 async function cmdCreate(configPath) {
