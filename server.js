@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { parse as parseTOML } from 'smol-toml';
 import { runScript } from './lib/runner.js';
+import { designFromText } from './scripts/design-reviewer.js';
 
 const PUBLIC_DIR = join(import.meta.dirname, 'public');
 const EXAMPLES_DIR = join(import.meta.dirname, 'configs', 'examples');
@@ -45,9 +46,40 @@ export function startServer(port = 3000) {
 
       if (msg.action === 'build') {
         await handleBuild(ws, msg.config);
+      } else if (msg.action === 'design') {
+        await handleDesign(ws, msg.description);
       }
     });
   });
+
+  async function handleDesign(ws, description) {
+    if (!description || !description.trim()) {
+      return sendJSON(ws, { type: 'error', message: 'Description is required' });
+    }
+    if (ws._building) {
+      return sendJSON(ws, { type: 'error', message: 'Build already in progress' });
+    }
+
+    try {
+      sendJSON(ws, { type: 'progress', text: 'Generating design with Gemini...' });
+      const result = await designFromText(description.trim());
+
+      if (!result.toml) {
+        return sendJSON(ws, { type: 'error', message: 'Failed to generate valid TOML from description' });
+      }
+
+      // Send design result (TOML + report) to frontend
+      sendJSON(ws, { type: 'design_result', toml: result.toml, report: result.report });
+
+      // Automatically build the generated TOML
+      await handleBuild(ws, result.toml);
+    } catch (err) {
+      const msg = err.message.includes('GEMINI_API_KEY')
+        ? 'GEMINI_API_KEY not set. Add it to .env or export it.'
+        : err.message;
+      sendJSON(ws, { type: 'error', message: msg });
+    }
+  }
 
   async function handleBuild(ws, tomlStr) {
     if (ws._building) {

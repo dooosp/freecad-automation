@@ -14,6 +14,9 @@ const statusEl = document.getElementById('status');
 const modelInfoEl = document.getElementById('model-info');
 const partsListEl = document.getElementById('parts-list');
 const sliderOpacity = document.getElementById('slider-opacity');
+const designInput = document.getElementById('design-input');
+const btnDesign = document.getElementById('btn-design');
+const reviewPanel = document.getElementById('review-panel');
 
 // --- Animation DOM ---
 const btnPlay = document.getElementById('btn-play');
@@ -342,14 +345,21 @@ function connectWS() {
         setStatus('Motion data loaded — press Play', 'success');
         break;
 
+      case 'design_result':
+        editor.value = msg.toml || '';
+        showReviewPanel(msg.report);
+        break;
+
       case 'complete':
         setStatus(motionData ? 'Build complete — motion ready' : 'Build complete', 'success');
         btnBuild.disabled = false;
+        btnDesign.disabled = false;
         break;
 
       case 'error':
         setStatus(msg.message, 'error');
         btnBuild.disabled = false;
+        btnDesign.disabled = false;
         break;
     }
   };
@@ -482,7 +492,66 @@ async function loadExamples() {
   }
 }
 
+// --- AI Design ---
+function designModel() {
+  const desc = designInput.value.trim();
+  if (!desc) return setStatus('Enter a mechanism description', 'error');
+  if (!ws || ws.readyState !== WebSocket.OPEN) return setStatus('Not connected', 'error');
+
+  btnDesign.disabled = true;
+  btnBuild.disabled = true;
+  reviewPanel.classList.remove('open');
+  setStatus('Sending design request...', 'progress');
+
+  ws.send(JSON.stringify({ action: 'design', description: desc }));
+}
+
+function showReviewPanel(report) {
+  if (!report || !reviewPanel) return;
+
+  let html = '<h3>Design Review</h3>';
+
+  if (report.mechanism_type) {
+    html += `<div><span class="review-label">Type:</span> <span class="review-value">${report.mechanism_type}</span></div>`;
+  }
+  if (report.dof !== undefined) {
+    html += `<div><span class="review-label">DOF:</span> <span class="review-value">${report.dof}</span></div>`;
+  }
+
+  if (report.motion_chain && report.motion_chain.length > 0) {
+    html += '<div><span class="review-label">Motion Chain:</span></div>';
+    html += '<ul class="review-chain">';
+    for (const step of report.motion_chain) {
+      html += `<li>${step}</li>`;
+    }
+    html += '</ul>';
+  }
+
+  if (report.materials_assigned && Object.keys(report.materials_assigned).length > 0) {
+    html += '<div><span class="review-label">Materials:</span></div>';
+    html += '<table class="review-materials">';
+    for (const [part, mat] of Object.entries(report.materials_assigned)) {
+      html += `<tr><td>${part}</td><td>${mat}</td></tr>`;
+    }
+    html += '</table>';
+  }
+
+  if (report.recommendation) {
+    html += `<div class="review-recommendation">${report.recommendation}</div>`;
+  }
+
+  reviewPanel.innerHTML = html;
+  reviewPanel.classList.add('open');
+}
+
 // --- Events ---
+btnDesign.addEventListener('click', designModel);
+designInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    designModel();
+  }
+});
 btnBuild.addEventListener('click', buildModel);
 btnClear.addEventListener('click', clearScene);
 btnScreenshot.addEventListener('click', takeScreenshot);

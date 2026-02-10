@@ -20,6 +20,13 @@
     <aside class="panel">
       <h1 class="panel-title">FreeCAD Viewer</h1>
 
+      <label for="design-input">AI Design</label>
+      <div class="design-row">
+        <input type="text" id="design-input"
+               placeholder="Describe a mechanism..." spellcheck="false">
+        <button id="btn-design" class="btn btn-accent">Generate</button>
+      </div>
+
       <label for="examples">Examples</label>
       <select id="examples">
         <option value="">-- Select --</option>
@@ -69,6 +76,7 @@
       </div>
 
       <div id="model-info" class="model-info" hidden></div>
+      <div id="review-panel" class="review-panel"></div>
     </aside>
 
     <!-- 3D Viewport -->

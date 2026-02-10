@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-import { resolve } from 'node:path';
+import { resolve, join } from 'node:path';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { loadConfig } from '../lib/config-loader.js';
 import { runScript } from '../lib/runner.js';
 
@@ -9,6 +10,7 @@ fcad - FreeCAD automation CLI
 
 Usage:
   fcad create <config.toml|json>  Create model from config
+  fcad design "description"       AI-generate TOML from natural language, then build
   fcad fem <config.toml|json>     Run FEM structural analysis
   fcad inspect <model.step|fcstd> Inspect model metadata
   fcad serve [port]               Start 3D viewer server (default: 3000)
@@ -31,6 +33,8 @@ async function main() {
 
   if (command === 'create') {
     await cmdCreate(args[0]);
+  } else if (command === 'design') {
+    await cmdDesign(args.join(' '));
   } else if (command === 'fem') {
     await cmdFem(args[0]);
   } else if (command === 'inspect') {
@@ -48,6 +52,47 @@ async function cmdServe(portArg) {
   const port = parseInt(portArg) || 3000;
   const { startServer } = await import('../server.js');
   startServer(port);
+}
+
+async function cmdDesign(description) {
+  if (!description || !description.trim()) {
+    console.error('Error: description string required');
+    console.error('  fcad design "shaft with two bearings"');
+    process.exit(1);
+  }
+
+  console.log(`Generating design from: "${description}"`);
+  const { designFromText } = await import('../scripts/design-reviewer.js');
+  const result = await designFromText(description.trim());
+
+  if (!result.toml) {
+    console.error('Error: Failed to generate valid TOML');
+    process.exit(1);
+  }
+
+  // Derive filename from mechanism_type or description
+  const rawName = result.report?.mechanism_type || description;
+  const fileName = rawName.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 60);
+
+  // Save to configs/generated/
+  const generatedDir = resolve(import.meta.dirname, '..', 'configs', 'generated');
+  mkdirSync(generatedDir, { recursive: true });
+  const tomlPath = join(generatedDir, `${fileName}.toml`);
+  writeFileSync(tomlPath, result.toml, 'utf8');
+  console.log(`TOML saved: ${tomlPath}`);
+
+  if (result.report) {
+    console.log(`\nDesign: ${result.report.mechanism_type || 'unknown'}`);
+    console.log(`  DOF: ${result.report.dof || '?'}`);
+    if (result.report.motion_chain) {
+      console.log(`  Chain: ${result.report.motion_chain.join(' → ')}`);
+    }
+  }
+
+  // Build the generated TOML
+  console.log('\nBuilding model...');
+  await cmdCreate(tomlPath);
+  console.log(`\nView: fcad serve → http://localhost:3000 → select ${fileName}`);
 }
 
 async function cmdCreate(configPath) {

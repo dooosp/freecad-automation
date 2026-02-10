@@ -6,6 +6,7 @@
 import { resolve } from 'node:path';
 import { existsSync, rmSync, mkdirSync, readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
+import { parse as parseTOML } from 'smol-toml';
 import { runScript } from '../lib/runner.js';
 import { loadConfig } from '../lib/config-loader.js';
 
@@ -1690,6 +1691,96 @@ async function testMjcfValidation() {
   assert(result.stability.stable === true, `Stable after 100 steps (drift ${result.stability.max_position_drift})`);
 }
 
+// ---------------------------------------------------------------------------
+// Design Reviewer Tests (require GEMINI_API_KEY)
+// ---------------------------------------------------------------------------
+
+async function testDesignReview() {
+  console.log('\n--- Test: Design review (Gemini) ---');
+
+  if (!process.env.GEMINI_API_KEY) {
+    console.log('  SKIP: GEMINI_API_KEY not set');
+    return;
+  }
+
+  const inputToml = resolve(ROOT, 'configs/examples/seatbelt_retractor.toml');
+  const cmd = `node ${resolve(ROOT, 'scripts/design-reviewer.js')} --review ${inputToml} --json`;
+
+  let stdout;
+  try {
+    stdout = execSync(cmd, { encoding: 'utf8', timeout: 60_000 });
+  } catch (e) {
+    // Exit code 1 = critical issues found (expected), still has stdout
+    stdout = e.stdout || '';
+    if (!stdout) {
+      failed++;
+      console.error(`  FAIL: Design review crashed: ${e.message}`);
+      return;
+    }
+  }
+
+  const result = JSON.parse(stdout);
+
+  assert(result.mode === 'review', 'Mode is review');
+  assert(Array.isArray(result.issues), 'Issues is an array');
+  assert(result.issues.length >= 3, `Found 3+ issues (got ${result.issues.length})`);
+  assert(result.report !== undefined, 'Report object present');
+
+  // Corrected TOML should parse
+  if (result.correctedToml) {
+    let parsed = false;
+    try {
+      parseTOML(result.correctedToml);
+      parsed = true;
+    } catch { /* parse failed */ }
+    assert(parsed, 'Corrected TOML parses successfully');
+  }
+}
+
+async function testDesignGenerate() {
+  console.log('\n--- Test: Design generate (Gemini) ---');
+
+  if (!process.env.GEMINI_API_KEY) {
+    console.log('  SKIP: GEMINI_API_KEY not set');
+    return;
+  }
+
+  const cmd = `node ${resolve(ROOT, 'scripts/design-reviewer.js')} --design "simple cam-follower" --json`;
+
+  let stdout;
+  try {
+    stdout = execSync(cmd, { encoding: 'utf8', timeout: 60_000 });
+  } catch (e) {
+    stdout = e.stdout || '';
+    if (!stdout) {
+      failed++;
+      console.error(`  FAIL: Design generate crashed: ${e.message}`);
+      return;
+    }
+  }
+
+  const result = JSON.parse(stdout);
+
+  assert(result.mode === 'design', 'Mode is design');
+  assert(result.toml !== null && result.toml !== undefined, 'Generated TOML present');
+
+  // TOML should parse
+  if (result.toml) {
+    let parsed = false;
+    let config;
+    try {
+      config = parseTOML(result.toml);
+      parsed = true;
+    } catch { /* parse failed */ }
+    assert(parsed, 'Generated TOML parses successfully');
+    if (config) {
+      const parts = config.parts || [];
+      assert(parts.length >= 2, `Has 2+ parts (got ${parts.length})`);
+      assert(config.assembly !== undefined, 'Has assembly section');
+    }
+  }
+}
+
 async function main() {
   console.log('FreeCAD Automation - Integration Tests');
   console.log('=' .repeat(40));
@@ -1772,6 +1863,10 @@ async function main() {
     await testRetractorPawlProfile();
     await testMjcfConversion();
     await testMjcfValidation();
+
+    // Design Reviewer tests (require GEMINI_API_KEY — skipped if not set)
+    await testDesignReview();
+    await testDesignGenerate();
   } catch (err) {
     failed++;
     console.error(`\nFATAL: ${err.message}`);

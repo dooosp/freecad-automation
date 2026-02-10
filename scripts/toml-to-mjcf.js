@@ -31,6 +31,15 @@ const MATERIAL_DENSITY = {
   rubber: 1100,
 };
 
+// Material friction coefficients [sliding, torsional, rolling] for MuJoCo geom
+const MATERIAL_FRICTION = {
+  steel: [0.6, 0.005, 0.0001],
+  aluminum: [0.4, 0.003, 0.0001],
+  brass: [0.35, 0.003, 0.0001],
+  plastic: [0.3, 0.002, 0.00005],
+  rubber: [0.9, 0.01, 0.0005],
+};
+
 // ---------------------------------------------------------------------------
 // Geometry helpers
 // ---------------------------------------------------------------------------
@@ -45,34 +54,39 @@ function estimateGeometry(part) {
 
   const primary = shapes[0];  // use first shape for approximation
   const type = primary.type || 'box';
+  const material = primary.material || 'steel';  // default steel for backward compat
+  const density = MATERIAL_DENSITY[material] || DEFAULT_DENSITY;
+  const friction = MATERIAL_FRICTION[material] || MATERIAL_FRICTION.steel;
 
+  let geom;
   if (type.startsWith('library/')) {
-    return estimateLibraryPart(primary, type.replace('library/', ''));
+    geom = estimateLibraryPart(primary, type.replace('library/', ''), density);
+  } else if (type === 'box') {
+    geom = estimateBox(primary, density);
+  } else if (type === 'cylinder') {
+    geom = estimateCylinder(primary, density);
+  } else {
+    // Fallback: treat as small box
+    geom = {
+      geomType: 'box',
+      size: [0.01, 0.01, 0.01],
+      mass: 0.1,
+      inertia: [1e-5, 1e-5, 1e-5],
+    };
   }
 
-  if (type === 'box') {
-    return estimateBox(primary);
-  }
-  if (type === 'cylinder') {
-    return estimateCylinder(primary);
-  }
-
-  // Fallback: treat as small box
-  return {
-    geomType: 'box',
-    size: [0.01, 0.01, 0.01],
-    mass: 0.1,
-    inertia: [1e-5, 1e-5, 1e-5],
-  };
+  geom.material = material;
+  geom.friction = friction;
+  return geom;
 }
 
-function estimateBox(spec) {
+function estimateBox(spec, density = DEFAULT_DENSITY) {
   const lx = (spec.length || 10) * MM_TO_M;
   const ly = (spec.width || 10) * MM_TO_M;
   const lz = (spec.height || 10) * MM_TO_M;
   const half = [lx / 2, ly / 2, lz / 2];
   const vol = lx * ly * lz;
-  const mass = vol * DEFAULT_DENSITY;
+  const mass = vol * density;
   const inertia = [
     mass * (ly * ly + lz * lz) / 12,
     mass * (lx * lx + lz * lz) / 12,
@@ -81,11 +95,11 @@ function estimateBox(spec) {
   return { geomType: 'box', size: half, mass, inertia };
 }
 
-function estimateCylinder(spec) {
+function estimateCylinder(spec, density = DEFAULT_DENSITY) {
   const r = (spec.radius || 5) * MM_TO_M;
   const h = (spec.height || 10) * MM_TO_M;
   const vol = Math.PI * r * r * h;
-  const mass = vol * DEFAULT_DENSITY;
+  const mass = vol * density;
   const inertia = [
     mass * (3 * r * r + h * h) / 12,
     mass * (3 * r * r + h * h) / 12,
@@ -94,14 +108,14 @@ function estimateCylinder(spec) {
   return { geomType: 'cylinder', size: [r, h / 2], mass, inertia };
 }
 
-function estimateLibraryPart(spec, libType) {
+function estimateLibraryPart(spec, libType, density = DEFAULT_DENSITY) {
   // Approximate library parts as bounding cylinders
   switch (libType) {
     case 'pulley': {
       const r = ((spec.pitch_d || 40) / 2) * MM_TO_M;
       const h = (spec.width || 15) * MM_TO_M;
       const vol = Math.PI * r * r * h * 0.6;  // hollow factor
-      const mass = vol * DEFAULT_DENSITY;
+      const mass = vol * density;
       return {
         geomType: 'cylinder', size: [r, h / 2], mass,
         inertia: [mass * (3 * r * r + h * h) / 12, mass * (3 * r * r + h * h) / 12, mass * r * r / 2],
@@ -112,7 +126,7 @@ function estimateLibraryPart(spec, libType) {
       const rMax = rBase + (spec.max_lift || 5) * MM_TO_M;
       const h = (spec.width || 10) * MM_TO_M;
       const vol = Math.PI * rMax * rMax * h * 0.7;
-      const mass = vol * DEFAULT_DENSITY;
+      const mass = vol * density;
       return {
         geomType: 'cylinder', size: [rMax, h / 2], mass,
         inertia: [mass * (3 * rMax * rMax + h * h) / 12, mass * (3 * rMax * rMax + h * h) / 12, mass * rMax * rMax / 2],
@@ -127,7 +141,7 @@ function estimateLibraryPart(spec, libType) {
       const coils = numCoils;
       const wireLen = 2 * Math.PI * r * coils;
       const vol = Math.PI * wireR * wireR * wireLen;
-      const mass = vol * DEFAULT_DENSITY;
+      const mass = vol * density;
       return {
         geomType: 'cylinder', size: [r, h / 2], mass,
         inertia: [mass * (3 * r * r + h * h) / 12, mass * (3 * r * r + h * h) / 12, mass * r * r / 2],
@@ -138,7 +152,7 @@ function estimateLibraryPart(spec, libType) {
       const r = ((spec.module || 2) * (spec.teeth || 20) / 2) * MM_TO_M;
       const h = (spec.width || spec.face_width || 10) * MM_TO_M;
       const vol = Math.PI * r * r * h * 0.7;
-      const mass = vol * DEFAULT_DENSITY;
+      const mass = vol * density;
       return {
         geomType: 'cylinder', size: [r, h / 2], mass,
         inertia: [mass * (3 * r * r + h * h) / 12, mass * (3 * r * r + h * h) / 12, mass * r * r / 2],
@@ -299,11 +313,12 @@ function tomlToMjcf(config) {
     // Inertial
     lines.push(`${indent(3)}<inertial pos="0 0 0" mass="${g.mass.toFixed(6)}" diaginertia="${g.inertia.map(v => v.toFixed(8)).join(' ')}"/>`);
 
-    // Geom
+    // Geom (with per-material friction if available)
+    const frictionAttr = g.friction ? ` friction="${g.friction.join(' ')}"` : '';
     if (g.geomType === 'box') {
-      lines.push(`${indent(3)}<geom type="box" size="${g.size.map(v => v.toFixed(4)).join(' ')}" rgba="0.6 0.6 0.8 1"/>`);
+      lines.push(`${indent(3)}<geom type="box" size="${g.size.map(v => v.toFixed(4)).join(' ')}"${frictionAttr} rgba="0.6 0.6 0.8 1"/>`);
     } else if (g.geomType === 'cylinder') {
-      lines.push(`${indent(3)}<geom type="cylinder" size="${g.size.map(v => v.toFixed(4)).join(' ')}" rgba="0.7 0.7 0.7 1"/>`);
+      lines.push(`${indent(3)}<geom type="cylinder" size="${g.size.map(v => v.toFixed(4)).join(' ')}"${frictionAttr} rgba="0.7 0.7 0.7 1"/>`);
     }
 
     // Joints
@@ -431,6 +446,6 @@ function main() {
 }
 
 // Also export for testing
-export { tomlToMjcf, estimateGeometry, sampleDwellProfile, posToMjcf };
+export { tomlToMjcf, estimateGeometry, sampleDwellProfile, posToMjcf, MATERIAL_DENSITY, MATERIAL_FRICTION };
 
 main();

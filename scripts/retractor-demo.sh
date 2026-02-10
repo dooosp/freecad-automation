@@ -12,6 +12,16 @@ echo "════════════════════════�
 echo " Seatbelt Retractor Demo Pipeline"
 echo "═══════════════════════════════════════════════════"
 
+# 0. Design review (optional — requires GEMINI_API_KEY)
+echo ""
+if [ -n "${GEMINI_API_KEY:-}" ]; then
+  echo "▶ Step 0: Design review (Gemini)..."
+  node "$ROOT/scripts/design-reviewer.js" --review "$INPUT" --json || true
+  echo "  ✓ Design review complete"
+else
+  echo "▶ Step 0: Design review skipped (no GEMINI_API_KEY)"
+fi
+
 # 1. Build CAD model (FreeCAD via WSL→Windows bridge)
 echo ""
 echo "▶ Step 1: Building CAD model..."

@@ -46,22 +46,40 @@ id = "housing"
   id = "outer"
   type = "box"
   length = 60
-  width = 50
-  height = 40
+  width = 80 # FIX: Increased width to 80mm to accommodate cam and pawl mechanism
+  height = 50 # FIX: Increased height to 50mm to fully contain the rewind spring
   material = "aluminum"
 
   [[parts.shapes]]
-  id = "bore"
+  id = "bore_shaft" # FIX: Renamed ID from 'bore' for clarity
   type = "cylinder"
-  radius = 8
-  height = 42
+  radius = 5.03 # FIX: Adjusted radius for H7/g6 clearance (0.03mm) with spool_shaft (R=5)
+  height = 50 # FIX: Matched height of outer body to provide full shaft support
+  material = "aluminum"
+
+  [[parts.shapes]] # FIX: Added a dedicated shape for the spring cavity
+  id = "bore_spring_cavity"
+  type = "cylinder"
+  radius = 17 # FIX: Radius (17mm) to accommodate rewind_spring (coil_d=30, wire_d=2 -> outer R=16) with 1mm clearance
+  height = 20 # FIX: Height (20mm) to match the rewind_spring's coil height (num_coils * pitch = 5 * 4)
   material = "aluminum"
 
   [[parts.operations]]
   op = "cut"
   base = "outer"
-  tool = "bore"
-  result = "housing_body"
+  tool = "bore_shaft"
+  result = "housing_with_shaft_bore" # FIX: Intermediate result ID for the first cut
+
+  [[parts.operations]] # FIX: Added operation for cutting the spring cavity
+  op = "cut"
+  base = "housing_with_shaft_bore"
+  tool = "bore_spring_cavity"
+  result = "housing_body" # Final body after all cuts
+  # FIX: Positioned the spring cavity relative to the housing part origin.
+  # Spring starts at Z=35 (assembly), housing at Z=10. So spring base is at Z=25 relative to housing's Z=0.
+  # The 'bore_spring_cavity' (height 20) positioned at Z=25 will span Z=25 to Z=45 (relative to housing).
+  # In assembly, this is Z=35 to Z=55, perfectly containing the spring.
+  position = [0, 0, 25]
 
 # ── 3. Spool (pulley) ────────────────────────────
 [[parts]]
@@ -73,8 +91,10 @@ id = "spool"
   width = 15
   groove_angle = 38
   groove_depth = 3
-  bore_d = 10
+  bore_d = 10.06 # FIX: Adjusted bore for H7/g6 fit (0.03mm clearance) with spool_shaft
   num_grooves = 2
+  module = 1 # FIX: Added gear module to explicitly define the spool as a gear for coupling
+  teeth = 40 # FIX: Added teeth count (pitch_d 40 / module 1 = 40 teeth) for 1:1 gear ratio with cam_gear
   material = "steel"
 
 # ── 4. Spool shaft ───────────────────────────────
@@ -122,6 +142,28 @@ id = "pawl"
   height = 20
   material = "steel"
 
+# ── 8. Cam Shaft (new part) ──────────────────────
+[[parts]] # FIX: Added new part for the cam shaft
+id = "cam_shaft"
+  [[parts.shapes]]
+  id = "shaft"
+  type = "cylinder"
+  radius = 2.97 # FIX: Adjusted radius for H7/g6 clearance (0.03mm) with lock_cam bore (R=3) and cam_gear bore (R=3)
+  height = 15 # FIX: Height to adequately support the cam and gear (each 10mm wide)
+  material = "steel"
+
+# ── 9. Cam Gear (new part) ───────────────────────
+[[parts]] # FIX: Added new part for the cam gear, to be mounted coaxially with the lock cam
+id = "cam_gear"
+  [[parts.shapes]]
+  id = "gear_body"
+  type = "library/gear"
+  module = 1 # FIX: Chosen module for pitch_d=40 (spool) and 40 teeth for 1:1 ratio
+  teeth = 40 # FIX: Chosen teeth count for 1:1 ratio
+  width = 10 # FIX: Matches lock_cam width
+  bore_d = 6 # FIX: Matches lock_cam bore diameter for coaxial mounting
+  material = "steel"
+
 
 # ═══════════════════════════════════════════════════
 # ASSEMBLY
@@ -152,11 +194,17 @@ position = [60, 40, 35]
 [[assembly.parts]]
 ref = "lock_cam"
 position = [60, 70, 20]
+  [[assembly.parts.children]] # FIX: Added cam_gear as a child of lock_cam
+  ref = "cam_gear"
+  position = [0, 0, 0] # FIX: Positioned at lock_cam's origin, making them coaxial and rigid
 
 [[assembly.parts]]
 ref = "pawl"
-position = [60, 82, 20]
+position = [60, 86, 20] # FIX: Adjusted Y-position to 86mm to prevent interference with lock_cam
 
+[[assembly.parts]] # FIX: Added cam_shaft to the assembly
+ref = "cam_shaft"
+position = [60, 70, 20] # FIX: Positioned coaxially with lock_cam
 
 # ── Joints with explicit anchors ──────────────────
 
@@ -172,15 +220,20 @@ id = "cam_rev"
 type = "revolute"
 part = "lock_cam"
 axis = [0, 0, 1]
-anchor = [60, 70, 25]       # cam center
+anchor = [60, 70, 25]       # cam center (also cam_gear center)
 
 [[assembly.joints]]
 id = "pawl_prism"
 type = "prismatic"
 part = "pawl"
 axis = [0, 1, 0]            # pawl slides along Y (radial)
-anchor = [60, 82, 25]
+anchor = [60, 86, 25]       # FIX: Adjusted Y-anchor to 86mm to match new pawl position
 
+[[assembly.joints]] # FIX: Added fixed joint for cam_shaft
+id = "cam_shaft_fixed"
+type = "fixed"
+part = "cam_shaft"
+parent = "base_plate" # FIX: Fixed the cam_shaft to the base plate as a supporting structure
 
 # ── Couplings ─────────────────────────────────────
 
@@ -188,13 +241,13 @@ anchor = [60, 82, 25]
 [[assembly.couplings]]
 type = "gear"
 driver = "spool_rev"
-follower = "cam_rev"
+follower = "cam_rev" # Now drives the lock_cam and its attached cam_gear
 ratio = 1.0
 
-# Spool → Pawl: cam_follower with dwell profile
+# Cam → Pawl: cam_follower with dwell profile
 [[assembly.couplings]]
 type = "cam_follower"
-driver = "spool_rev"
+driver = "cam_rev" # FIX: Changed driver to 'cam_rev' as lock_cam drives the pawl
 follower = "pawl_prism"
 cam_profile = "dwell"
 max_lift = 6
