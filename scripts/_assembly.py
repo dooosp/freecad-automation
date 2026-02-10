@@ -184,14 +184,11 @@ def build_assembly(config, doc):
     joints = assembly_config.get("joints", [])
     if motion_config and joints:
         from _kinematics import solve_kinematics
-        # Build placed_shapes dict for kinematics anchor computation
+        # Build placed_shapes dict from ACTUALLY PLACED shapes (not originals)
+        # so anchors computed from CenterOfMass reflect assembly positions
         placed_dict = {}
-        for entry in assembly_config.get("parts", []):
-            ref = entry["ref"]
-            if solved_shapes and ref in solved_shapes:
-                placed_dict[ref] = solved_shapes[ref]
-            elif ref in part_shapes:
-                placed_dict[ref] = part_shapes[ref]
+        for feat in features:
+            placed_dict[feat.Label] = feat.Shape
         motion_data = solve_kinematics(assembly_config, placed_dict)
         if motion_data:
             result["motion_data"] = motion_data

@@ -1,8 +1,16 @@
 # Four-Bar Linkage Mechanism
-# Demonstrates: 4 bars + 4 revolute joints + Grashof-compliant linkage solver
+# Demonstrates: 4 bars + revolute/floating joints + Grashof-compliant linkage solver
 # Crank rotates 360° → coupler and rocker follow via closed-loop kinematics.
 #
 # Grashof condition (s+l < p+q): 20+60 < 50+45 → 80 < 95 ✓ (crank-rocker)
+#
+# Geometry at θ2=0 (crank horizontal):
+#   A (crank pivot)  = [0,   0]   — origin
+#   B (crank tip)    = [20,  0]   — crank end
+#   D (rocker pivot) = [60,  0]   — ground end
+#   C (coupler-rocker) ≈ [45.94, 42.75]  — solved from |BC|=50, |DC|=45
+#   θ3_init ≈ 58.8°  (coupler angle)
+#   θ4_init ≈ 108.2° (rocker angle)
 
 name = "four_bar_linkage"
 
@@ -13,10 +21,10 @@ per_part_stl = true
 
 
 # ═══════════════════════════════════════════════════
-# PART DEFINITIONS
+# PART DEFINITIONS (all bars in XY plane, depth=5 along Z)
 # ═══════════════════════════════════════════════════
 
-# ── 1. Ground frame ───────────────────────────────
+# ── 1. Ground frame (A to D) ─────────────────────
 [[parts]]
 id = "ground"
   [[parts.shapes]]
@@ -26,7 +34,7 @@ id = "ground"
   width = 8
   height = 5
 
-# ── 2. Crank (shortest bar = s = 20) ─────────────
+# ── 2. Crank (A to B, length=20) ─────────────────
 [[parts]]
 id = "crank"
   [[parts.shapes]]
@@ -36,7 +44,7 @@ id = "crank"
   width = 6
   height = 5
 
-# ── 3. Coupler (longest bar = l = 50) ────────────
+# ── 3. Coupler (B to C, length=50) ───────────────
 [[parts]]
 id = "coupler"
   [[parts.shapes]]
@@ -46,7 +54,7 @@ id = "coupler"
   width = 6
   height = 5
 
-# ── 4. Rocker (bar = 45) ─────────────────────────
+# ── 4. Rocker (D to C, length=45) ────────────────
 [[parts]]
 id = "rocker"
   [[parts.shapes]]
@@ -58,50 +66,59 @@ id = "rocker"
 
 
 # ═══════════════════════════════════════════════════
-# ASSEMBLY
+# ASSEMBLY — parts placed at solved initial positions
 # ═══════════════════════════════════════════════════
 
 [assembly]
 
+# Ground: A=[0,0,0] to D=[60,0,0], centered on Y
 [[assembly.parts]]
 ref = "ground"
-position = [0, 0, 0]
+position = [0, -4, 0]
 
+# Crank: pivot at A=[0,0,6], horizontal at θ2=0
 [[assembly.parts]]
 ref = "crank"
-position = [0, 0, 6]
+position = [0, -3, 6]
 
+# Coupler: pivot at B=[20,0,12], rotated ~58.8° (solved initial angle)
 [[assembly.parts]]
 ref = "coupler"
-position = [20, 0, 12]
+position = [20, -3, 12]
+rotation = [0, 0, 1, 58.8]
 
+# Rocker: pivot at D=[60,0,6], rotated ~108.2° (solved initial angle)
 [[assembly.parts]]
 ref = "rocker"
-position = [60, 0, 6]
+position = [60, -3, 6]
+rotation = [0, 0, 1, 108.2]
 
 
-# ── Joints ────────────────────────────────────────
+# ── Joints with explicit anchors (actual pivot points) ──
 
-# Crank pivot at origin (ground-crank)
+# Crank pivot at A
 [[assembly.joints]]
 id = "crank_rev"
 type = "revolute"
 part = "crank"
 axis = [0, 0, 1]
+anchor = [0, 0, 6]
 
-# Coupler pivot at crank end
+# Coupler: floating link pinned at crank tip B
 [[assembly.joints]]
 id = "coupler_rev"
 type = "revolute"
 part = "coupler"
 axis = [0, 0, 1]
+anchor = [20, 0, 12]
 
-# Rocker pivot at ground end (x=60)
+# Rocker pivot at D
 [[assembly.joints]]
 id = "rocker_rev"
 type = "revolute"
 part = "rocker"
 axis = [0, 0, 1]
+anchor = [60, 0, 6]
 
 
 # ── Motion (Linkage-based) ────────────────────────
@@ -121,3 +138,4 @@ c = 45   # rocker
 d = 60   # ground
 coupler_joint = "coupler_rev"
 rocker_joint = "rocker_rev"
+origin = [0, 0, 12]  # 3D position of pivot A projected to coupler Z-plane

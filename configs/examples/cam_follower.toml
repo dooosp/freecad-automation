@@ -1,6 +1,11 @@
 # Cam-Follower Mechanism
 # Demonstrates: disc cam + prismatic joint + cam_follower coupling
 # Cam rotates 360° → follower rod moves up/down with harmonic profile.
+#
+# Geometry:
+#   Cam center at [40, 40, 20], base_radius=20, max_lift=10
+#   Follower aligned above cam at [40, 40+20, 35] = [40, 60, 35]
+#   (follower Y = cam_center_Y + base_radius, so it contacts cam at baseline)
 
 name = "cam_follower"
 
@@ -94,28 +99,31 @@ position = [40, 40, 15]
 ref = "cam"
 position = [40, 40, 20]
 
+# Follower at Y=60 (cam center Y=40 + base_radius=20) — contacts cam at baseline
 [[assembly.parts]]
 ref = "guide"
-position = [40, 10, 35]
+position = [40, 60, 30]
 
 [[assembly.parts]]
 ref = "follower"
-position = [40, 10, 35]
+position = [40, 60, 30]
 
 
-# ── Joints ────────────────────────────────────────
+# ── Joints with explicit anchors ──────────────────
 
 [[assembly.joints]]
 id = "cam_rev"
 type = "revolute"
 part = "cam"
 axis = [0, 0, 1]
+anchor = [40, 40, 27.5]   # cam center
 
 [[assembly.joints]]
 id = "follower_prism"
 type = "prismatic"
 part = "follower"
-axis = [0, 0, 1]
+axis = [0, 1, 0]          # follower moves along Y (toward/away from cam)
+anchor = [40, 60, 30]
 
 
 # ── Couplings ─────────────────────────────────────
@@ -125,7 +133,6 @@ type = "cam_follower"
 driver = "cam_rev"
 follower = "follower_prism"
 cam_profile = "harmonic"
-base_radius = 20
 max_lift = 10
 
 

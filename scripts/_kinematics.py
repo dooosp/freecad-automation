@@ -2,9 +2,14 @@
 Kinematic motion simulation for assemblies.
 Parses joints + couplings + motion config → generates keyframes for viewer animation.
 
-Supported joint types: revolute, prismatic, cylindrical
+Supported joint types: revolute, prismatic, cylindrical, floating
 Supported coupling types: gear, belt, cam_follower
 Supported linkage solvers: four_bar, crank_slider
+
+Physics correctness:
+- Joints support explicit `anchor` coordinates (actual pivot point)
+- Four-bar/crank-slider produce delta angles + floating links with per-keyframe anchors
+- Cam-follower computes displacement from cam profile function
 """
 
 import math
@@ -12,10 +17,10 @@ import sys
 
 
 # ---------------------------------------------------------------------------
-# Cam profile helper (shared with _parts_library.py disc_cam)
+# Cam profile helper
 # ---------------------------------------------------------------------------
 
-def _cam_displacement(angle_deg, base_radius, max_lift, profile):
+def _cam_displacement(angle_deg, max_lift, profile):
     """Compute follower displacement from cam angle (degrees)."""
     theta = math.radians(angle_deg) % (2.0 * math.pi)
     if theta <= math.pi:
@@ -39,11 +44,9 @@ def _solve_four_bar(crank_angle_deg, a, b, c, d):
     """
     Solve 4-bar linkage for given crank angle.
     a=crank, b=coupler, c=rocker, d=ground length.
-    Returns (coupler_angle_deg, rocker_angle_deg) or None if no solution.
+    Returns (coupler_angle_deg, rocker_angle_deg, Bx, By, Cx, Cy) or None.
 
-    Uses the Freudenstein equation:
-    K1*cos(theta4) - K2*cos(theta2) + K3 = cos(theta2 - theta4)
-    where K1=d/a, K2=d/c, K3=(a²-b²+c²+d²)/(2ac)
+    Uses the Freudenstein equation with half-angle tangent substitution.
     """
     theta2 = math.radians(crank_angle_deg)
     K1 = d / a
@@ -62,16 +65,14 @@ def _solve_four_bar(crank_angle_deg, a, b, c, d):
     t1 = (-B + sqrt_d) / (2.0 * A) if abs(A) > 1e-12 else 0
     theta4 = 2.0 * math.atan(t1)
 
-    # Coupler angle from triangle
+    # Compute joint positions
     Bx = a * math.cos(theta2)
     By = a * math.sin(theta2)
-    Dx = d
-    Dy = 0
-    Cx = Dx + c * math.cos(theta4)
-    Cy = Dy + c * math.sin(theta4)
+    Cx = d + c * math.cos(theta4)
+    Cy = c * math.sin(theta4)
     theta3 = math.atan2(Cy - By, Cx - Bx)
 
-    return (math.degrees(theta3), math.degrees(theta4))
+    return (math.degrees(theta3), math.degrees(theta4), Bx, By, Cx, Cy)
 
 
 # ---------------------------------------------------------------------------
@@ -80,20 +81,31 @@ def _solve_four_bar(crank_angle_deg, a, b, c, d):
 
 def _solve_crank_slider(crank_angle_deg, crank_r, rod_length):
     """
-    Solve crank-slider: crank angle → piston displacement along X axis.
-    displacement = r*cos(θ) + sqrt(l² - r²*sin²(θ))
-    Returns displacement from TDC (top dead center at θ=0).
+    Solve crank-slider: crank angle → piston displacement + rod angle + crank pin position.
+    Returns (displacement, rod_angle_deg, pin_x, pin_y).
     """
     theta = math.radians(crank_angle_deg)
     sin_t = math.sin(theta)
     cos_t = math.cos(theta)
+
+    # Crank pin position (relative to crankshaft center)
+    pin_x = crank_r * cos_t
+    pin_y = crank_r * sin_t
+
+    # Piston displacement from TDC
     under_sqrt = rod_length * rod_length - crank_r * crank_r * sin_t * sin_t
     if under_sqrt < 0:
         under_sqrt = 0
     x = crank_r * cos_t + math.sqrt(under_sqrt)
-    # TDC position (theta=0): x_tdc = crank_r + rod_length
     x_tdc = crank_r + rod_length
-    return round(x_tdc - x, 4)
+    displacement = round(x_tdc - x, 4)
+
+    # Rod angle
+    sin_phi = crank_r * sin_t / rod_length
+    sin_phi = max(-1.0, min(1.0, sin_phi))
+    rod_angle = math.degrees(math.asin(sin_phi))
+
+    return (displacement, round(rod_angle, 4), round(pin_x, 4), round(pin_y, 4))
 
 
 # ---------------------------------------------------------------------------
@@ -116,7 +128,7 @@ def solve_kinematics(assembly_config, placed_shapes):
     if not motion_config or not joints_list:
         return None
 
-    # 1. Parse joints: joint_id → {id, type, part, axis, lead?}
+    # 1. Parse joints: joint_id → {id, type, part, axis, lead?, anchor?}
     joints = {}
     for j in joints_list:
         jid = j["id"]
@@ -125,10 +137,11 @@ def solve_kinematics(assembly_config, placed_shapes):
             "type": j.get("type", "revolute"),
             "part": j["part"],
             "axis": j.get("axis", [0, 0, 1]),
-            "lead": j.get("lead", 0),  # mm/rev for cylindrical
+            "lead": j.get("lead", 0),
+            "explicit_anchor": j.get("anchor"),  # explicit [x,y,z] or None
         }
 
-    # 2. Parse couplings: driver_joint_id → [(type, follower_id, params)]
+    # 2. Parse couplings
     coupling_map = {}
     for c in couplings_list:
         driver_id = c["driver"]
@@ -141,7 +154,6 @@ def solve_kinematics(assembly_config, placed_shapes):
         }
         if ctype == "cam_follower":
             entry["cam_profile"] = c.get("cam_profile", "harmonic")
-            entry["base_radius"] = c.get("base_radius", 20)
             entry["max_lift"] = c.get("max_lift", 10)
         if driver_id not in coupling_map:
             coupling_map[driver_id] = []
@@ -150,22 +162,27 @@ def solve_kinematics(assembly_config, placed_shapes):
     # 3. Motion parameters
     driver_joint_id = motion_config["driver"]
     angle_range = motion_config.get("range", [0, 360])
-    disp_range = motion_config.get("displacement_range")  # for prismatic driver
+    disp_range = motion_config.get("displacement_range")
     duration = motion_config.get("duration", 2.0)
     steps = motion_config.get("steps", 60)
     loop = motion_config.get("loop", True)
 
-    # Linkage parameters
-    linkage_type = motion_config.get("linkage")  # "four_bar" or "crank_slider"
+    linkage_type = motion_config.get("linkage")
     linkage_params = motion_config.get("linkage_params", {})
 
     if driver_joint_id not in joints:
         print(f"[kinematics] WARNING: driver joint '{driver_joint_id}' not found", file=sys.stderr, flush=True)
         return None
 
-    # 4. Compute anchor points from placed shapes
+    # 4. Compute anchor points: explicit > CenterOfMass > [0,0,0]
     anchors = {}
     for jid, jinfo in joints.items():
+        # Priority 1: explicit anchor from joint config
+        if jinfo["explicit_anchor"]:
+            anchors[jid] = [float(v) for v in jinfo["explicit_anchor"]]
+            continue
+
+        # Priority 2: CenterOfMass from placed shape
         part_id = jinfo["part"]
         if part_id in placed_shapes:
             shape = placed_shapes[part_id]
@@ -189,7 +206,6 @@ def solve_kinematics(assembly_config, placed_shapes):
 
     driver_keyframes = []
     if driver_type == "prismatic" and disp_range:
-        # Prismatic driver: displacement keyframes
         start_d = disp_range[0]
         end_d = disp_range[1]
         for i in range(steps + 1):
@@ -197,14 +213,12 @@ def solve_kinematics(assembly_config, placed_shapes):
             d = round(start_d + (end_d - start_d) * i / steps, 4)
             driver_keyframes.append({"t": t, "displacement": d})
     else:
-        # Revolute/cylindrical driver: angle keyframes
         start_angle = angle_range[0]
         end_angle = angle_range[1]
         for i in range(steps + 1):
             t = round(duration * i / steps, 4)
             angle = round(start_angle + (end_angle - start_angle) * i / steps, 4)
             kf = {"t": t, "angle": angle}
-            # Cylindrical: auto-compute displacement from lead
             if driver_type == "cylindrical" and driver_joint["lead"] != 0:
                 kf["displacement"] = round(angle / 360.0 * driver_joint["lead"], 4)
             driver_keyframes.append(kf)
@@ -233,21 +247,17 @@ def solve_kinematics(assembly_config, placed_shapes):
 
             for kf in driver_keyframes:
                 if ctype in ("gear", "belt"):
-                    # gear/belt: angle ratio (belt = same direction by default)
                     driver_angle = kf.get("angle", 0)
                     follower_angle = round(driver_angle * entry["ratio"], 4)
                     fkf = {"t": kf["t"], "angle": follower_angle}
-                    # Cylindrical follower: auto displacement from lead
                     if follower_joint["type"] == "cylindrical" and follower_joint["lead"] != 0:
                         fkf["displacement"] = round(follower_angle / 360.0 * follower_joint["lead"], 4)
                     follower_keyframes.append(fkf)
 
                 elif ctype == "cam_follower":
-                    # Driver revolute angle → follower prismatic displacement via cam profile
                     driver_angle = kf.get("angle", 0)
                     disp = _cam_displacement(
                         driver_angle,
-                        entry["base_radius"],
                         entry["max_lift"],
                         entry["cam_profile"],
                     )
@@ -262,43 +272,75 @@ def solve_kinematics(assembly_config, placed_shapes):
 
     # 8. Linkage-based motion (four_bar, crank_slider)
     if linkage_type == "four_bar":
-        # Expects linkage_params: {a, b, c, d, coupler_joint, rocker_joint}
-        a = linkage_params["a"]  # crank length
-        b = linkage_params["b"]  # coupler length
-        c = linkage_params["c"]  # rocker length
-        d_len = linkage_params["d"]  # ground length
+        a = linkage_params["a"]
+        b = linkage_params["b"]
+        c = linkage_params["c"]
+        d_len = linkage_params["d"]
         coupler_jid = linkage_params.get("coupler_joint")
         rocker_jid = linkage_params.get("rocker_joint")
+        # 3D origin of the mechanism (pivot A position)
+        origin = linkage_params.get("origin", [0, 0, 0])
+        oz = origin[2] if len(origin) > 2 else 0
 
-        for jid in [coupler_jid, rocker_jid]:
-            if jid and jid in joints:
-                j = joints[jid]
-                kfs = []
-                for kf in driver_keyframes:
-                    angle = kf.get("angle", 0)
-                    sol = _solve_four_bar(angle, a, b, c, d_len)
-                    if sol:
-                        coupler_a, rocker_a = sol
-                        val = coupler_a if jid == coupler_jid else rocker_a
-                        kfs.append({"t": kf["t"], "angle": round(val, 4)})
-                    else:
-                        # Dead position: hold last angle
-                        last_a = kfs[-1]["angle"] if kfs else 0
-                        kfs.append({"t": kf["t"], "angle": last_a})
+        # Compute initial state at crank angle = start
+        start_angle = angle_range[0]
+        init_sol = _solve_four_bar(start_angle, a, b, c, d_len)
+        init_coupler_a = init_sol[0] if init_sol else 0
+        init_rocker_a = init_sol[1] if init_sol else 0
 
-                result_parts[j["part"]] = {
-                    "type": "revolute",
-                    "axis": j["axis"],
-                    "anchor": anchors.get(jid, [0, 0, 0]),
-                    "keyframes": kfs,
-                }
+        # Coupler: floating link — pivot follows crank tip B
+        if coupler_jid and coupler_jid in joints:
+            j = joints[coupler_jid]
+            kfs = []
+            for kf in driver_keyframes:
+                angle = kf.get("angle", 0)
+                sol = _solve_four_bar(angle, a, b, c, d_len)
+                if sol:
+                    coupler_a, rocker_a, Bx, By, Cx, Cy = sol
+                    delta = round(coupler_a - init_coupler_a, 4)
+                    # Crank tip B mapped to 3D
+                    anchor = [round(origin[0] + Bx, 4), round(origin[1] + By, 4), oz]
+                    kfs.append({"t": kf["t"], "angle": delta, "anchor": anchor})
+                else:
+                    last = kfs[-1] if kfs else {"angle": 0, "anchor": anchors.get(coupler_jid, [0, 0, 0])}
+                    kfs.append({"t": kf["t"], "angle": last["angle"], "anchor": last["anchor"]})
+
+            result_parts[j["part"]] = {
+                "type": "floating",
+                "axis": j["axis"],
+                "anchor": anchors.get(coupler_jid, [0, 0, 0]),
+                "keyframes": kfs,
+            }
+
+        # Rocker: revolute around fixed pivot D — use delta angle
+        if rocker_jid and rocker_jid in joints:
+            j = joints[rocker_jid]
+            kfs = []
+            for kf in driver_keyframes:
+                angle = kf.get("angle", 0)
+                sol = _solve_four_bar(angle, a, b, c, d_len)
+                if sol:
+                    rocker_a = sol[1]
+                    delta = round(rocker_a - init_rocker_a, 4)
+                    kfs.append({"t": kf["t"], "angle": delta})
+                else:
+                    last_a = kfs[-1]["angle"] if kfs else 0
+                    kfs.append({"t": kf["t"], "angle": last_a})
+
+            result_parts[j["part"]] = {
+                "type": "revolute",
+                "axis": j["axis"],
+                "anchor": anchors.get(rocker_jid, [0, 0, 0]),
+                "keyframes": kfs,
+            }
 
     elif linkage_type == "crank_slider":
-        # Expects linkage_params: {crank_r, rod_length, piston_joint}
         crank_r = linkage_params["crank_r"]
         rod_length = linkage_params["rod_length"]
         piston_jid = linkage_params.get("piston_joint")
         rod_jid = linkage_params.get("rod_joint")
+        origin = linkage_params.get("origin", [0, 0, 0])
+        oz = origin[2] if len(origin) > 2 else 0
 
         # Piston (prismatic)
         if piston_jid and piston_jid in joints:
@@ -306,7 +348,7 @@ def solve_kinematics(assembly_config, placed_shapes):
             kfs = []
             for kf in driver_keyframes:
                 angle = kf.get("angle", 0)
-                disp = _solve_crank_slider(angle, crank_r, rod_length)
+                disp, rod_a, pin_x, pin_y = _solve_crank_slider(angle, crank_r, rod_length)
                 kfs.append({"t": kf["t"], "displacement": disp})
             result_parts[j["part"]] = {
                 "type": "prismatic",
@@ -315,19 +357,21 @@ def solve_kinematics(assembly_config, placed_shapes):
                 "keyframes": kfs,
             }
 
-        # Connecting rod (revolute, angle derived from crank-slider geometry)
+        # Connecting rod: floating link — pivot follows crank pin
         if rod_jid and rod_jid in joints:
             j = joints[rod_jid]
             kfs = []
+            # Initial crank pin position
+            init_disp, init_rod_a, init_px, init_py = _solve_crank_slider(angle_range[0], crank_r, rod_length)
             for kf in driver_keyframes:
                 angle = kf.get("angle", 0)
-                theta = math.radians(angle)
-                sin_phi = crank_r * math.sin(theta) / rod_length
-                sin_phi = max(-1, min(1, sin_phi))
-                phi = math.degrees(math.asin(sin_phi))
-                kfs.append({"t": kf["t"], "angle": round(phi, 4)})
+                disp, rod_a, pin_x, pin_y = _solve_crank_slider(angle, crank_r, rod_length)
+                delta_rod = round(rod_a - init_rod_a, 4)
+                # Crank pin mapped to 3D
+                anchor = [round(origin[0] + pin_x, 4), round(origin[1] + pin_y, 4), oz]
+                kfs.append({"t": kf["t"], "angle": delta_rod, "anchor": anchor})
             result_parts[j["part"]] = {
-                "type": "revolute",
+                "type": "floating",
                 "axis": j["axis"],
                 "anchor": anchors.get(rod_jid, [0, 0, 0]),
                 "keyframes": kfs,

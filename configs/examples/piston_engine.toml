@@ -1,6 +1,12 @@
 # Piston Engine (Crank-Slider Mechanism)
-# Demonstrates: crankshaft (revolute) → connecting rod → piston (prismatic)
+# Demonstrates: crankshaft (revolute) → connecting rod (floating) → piston (prismatic)
 # Crank rotates 360° → piston reciprocates via crank-slider kinematics.
+#
+# Geometry (XY plane, Z=depth):
+#   Crankshaft center at [40, 20]
+#   Crank radius = 15mm, rod length = 50mm
+#   At TDC (θ=0): crank pin at [55, 20], piston at top
+#   Piston stroke = 2 * crank_r = 30mm
 
 name = "piston_engine"
 
@@ -90,38 +96,44 @@ ref = "crankshaft"
 position = [40, 20, -10]
 rotation = [1, 0, 0, 90]
 
+# Crank arm: centered on crankshaft, pivot at [40,20,15]
 [[assembly.parts]]
 ref = "crank_arm"
-position = [25, 20, 15]
+position = [25, 16, 11]
 
+# Connecting rod: big end at crank pin [55,20,15] at TDC
 [[assembly.parts]]
 ref = "con_rod"
-position = [35, 16, 20]
+position = [35, 16, 15]
 
+# Piston: at TDC position
 [[assembly.parts]]
 ref = "piston"
 position = [40, 20, 60]
 
 
-# ── Joints ────────────────────────────────────────
+# ── Joints with explicit anchors ──────────────────
 
 [[assembly.joints]]
 id = "crank_rev"
 type = "revolute"
 part = "crank_arm"
 axis = [0, 0, 1]
+anchor = [40, 20, 15]      # crankshaft center
 
 [[assembly.joints]]
 id = "rod_rev"
 type = "revolute"
 part = "con_rod"
 axis = [0, 0, 1]
+anchor = [55, 20, 15]      # crank pin at TDC (40+15, 20)
 
 [[assembly.joints]]
 id = "piston_prism"
 type = "prismatic"
 part = "piston"
 axis = [0, 0, 1]
+anchor = [40, 20, 60]      # piston center
 
 
 # ── Motion (Crank-Slider) ────────────────────────
@@ -139,3 +151,4 @@ crank_r = 15           # crank throw radius (mm)
 rod_length = 50        # connecting rod length (mm)
 piston_joint = "piston_prism"
 rod_joint = "rod_rev"
+origin = [40, 20, 15]  # crankshaft center in 3D

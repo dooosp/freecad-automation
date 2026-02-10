@@ -103,12 +103,14 @@ id = "motor_rev"
 type = "revolute"
 part = "motor_pulley"
 axis = [0, 0, 1]
+anchor = [50, 40, 30]     # pulley center
 
 [[assembly.joints]]
 id = "driven_rev"
 type = "revolute"
 part = "driven_pulley"
 axis = [0, 0, 1]
+anchor = [150, 40, 30]    # pulley center
 
 
 # ── Couplings ─────────────────────────────────────

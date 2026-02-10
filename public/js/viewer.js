@@ -562,6 +562,12 @@ function applyMotionFrame(t) {
       // Apply prismatic on top of revolute
       const axisVec = new THREE.Vector3(...partMotion.axis).normalize();
       p.mesh.position.addScaledVector(axisVec, disp);
+    } else if (partMotion.type === 'floating') {
+      // Floating link: per-keyframe moving anchor + delta rotation
+      const angle = getAngleAtTime(partMotion.keyframes, t);
+      const kfAnchor = getAnchorAtTime(partMotion.keyframes, t);
+      const initAnchor = partMotion.anchor;
+      applyFloatingTransform(p.mesh, partMotion.axis, initAnchor, kfAnchor, angle, initial);
     }
   }
 }
@@ -622,6 +628,49 @@ function applyPrismaticTransform(mesh, axis, displacement, initial) {
   mesh.quaternion.copy(initial.quat);
   const axisVec = new THREE.Vector3(...axis).normalize();
   mesh.position.addScaledVector(axisVec, displacement);
+}
+
+function applyFloatingTransform(mesh, axis, initAnchor, kfAnchor, angleDeg, initial) {
+  // Floating link: translate by anchor delta, then rotate around new anchor
+  mesh.position.copy(initial.pos);
+  mesh.quaternion.copy(initial.quat);
+
+  // 1. Translate by anchor movement
+  const dx = kfAnchor[0] - initAnchor[0];
+  const dy = kfAnchor[1] - initAnchor[1];
+  const dz = kfAnchor[2] - initAnchor[2];
+  mesh.position.add(new THREE.Vector3(dx, dy, dz));
+
+  // 2. Rotate around new anchor by delta angle
+  const rad = THREE.MathUtils.degToRad(angleDeg);
+  const axisVec = new THREE.Vector3(...axis).normalize();
+  const anchorVec = new THREE.Vector3(...kfAnchor);
+  const offset = mesh.position.clone().sub(anchorVec);
+  offset.applyAxisAngle(axisVec, rad);
+  mesh.position.copy(anchorVec).add(offset);
+  const rotQuat = new THREE.Quaternion().setFromAxisAngle(axisVec, rad);
+  mesh.quaternion.premultiply(rotQuat);
+}
+
+function getAnchorAtTime(keyframes, t) {
+  if (!keyframes || keyframes.length === 0) return [0, 0, 0];
+  if (t <= keyframes[0].t) return keyframes[0].anchor || [0, 0, 0];
+  const last = keyframes[keyframes.length - 1];
+  if (t >= last.t) return last.anchor || [0, 0, 0];
+
+  for (let i = 0; i < keyframes.length - 1; i++) {
+    if (t >= keyframes[i].t && t < keyframes[i + 1].t) {
+      const alpha = (t - keyframes[i].t) / (keyframes[i + 1].t - keyframes[i].t);
+      const a0 = keyframes[i].anchor || [0, 0, 0];
+      const a1 = keyframes[i + 1].anchor || [0, 0, 0];
+      return [
+        a0[0] + alpha * (a1[0] - a0[0]),
+        a0[1] + alpha * (a1[1] - a0[1]),
+        a0[2] + alpha * (a1[2] - a0[2]),
+      ];
+    }
+  }
+  return last.anchor || [0, 0, 0];
 }
 
 function updateTimelineUI() {

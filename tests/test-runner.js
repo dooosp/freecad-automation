@@ -1333,12 +1333,17 @@ async function testFourBarLinkage() {
   assert(result.motion_data.parts.coupler !== undefined, 'Coupler part in motion');
   assert(result.motion_data.parts.rocker !== undefined, 'Rocker part in motion');
 
-  // Coupler and rocker should have revolute type
-  assert(result.motion_data.parts.coupler.type === 'revolute', 'Coupler is revolute');
+  // Coupler is floating (per-keyframe anchor), rocker is revolute
+  assert(result.motion_data.parts.coupler.type === 'floating', 'Coupler is floating link');
   assert(result.motion_data.parts.rocker.type === 'revolute', 'Rocker is revolute');
 
-  // Rocker should oscillate (not full 360)
+  // Coupler keyframes should have per-keyframe anchor arrays
+  const coupler = result.motion_data.parts.coupler;
+  assert(Array.isArray(coupler.keyframes[0].anchor), 'Coupler has per-keyframe anchor');
+
+  // Rocker uses delta angles — should start near 0 and oscillate
   const rocker = result.motion_data.parts.rocker;
+  assert(Math.abs(rocker.keyframes[0].angle) < 0.1, `Rocker starts near 0° delta (got ${rocker.keyframes[0].angle})`);
   const angles = rocker.keyframes.map(kf => kf.angle);
   const minA = Math.min(...angles);
   const maxA = Math.max(...angles);
@@ -1376,10 +1381,11 @@ async function testPistonEngine() {
     assert(Math.abs(bdc - 30) < 1, `Piston at BDC near 30mm (got ${bdc})`);
   }
 
-  // Connecting rod should also be in motion
+  // Connecting rod is floating link (per-keyframe anchor follows crank pin)
   const rod = result.motion_data.parts.con_rod;
   assert(rod !== undefined, 'Connecting rod in motion');
-  assert(rod.type === 'revolute', 'Con rod is revolute');
+  assert(rod.type === 'floating', 'Con rod is floating link');
+  assert(Array.isArray(rod.keyframes[0].anchor), 'Con rod has per-keyframe anchor');
 }
 
 async function main() {
