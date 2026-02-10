@@ -68,7 +68,12 @@ export function startServer(port = 3000) {
 
       // Create temp dir for STL output
       tmpDir = await mkdtemp(join(tmpdir(), 'viewer-'));
-      config.export = { formats: ['stl'], directory: tmpDir };
+      const isAssembly = !!config.parts && !!config.assembly;
+      config.export = {
+        formats: ['stl'],
+        directory: tmpDir,
+        ...(isAssembly && { per_part_stl: true }),
+      };
 
       const hasFem = !!config.fem;
       const script = hasFem ? 'fem_analysis.py' : 'create_model.py';
@@ -96,18 +101,44 @@ export function startServer(port = 3000) {
         exports: result.exports || [],
       });
 
-      // Find and send STL file
-      const stlExport = (result.exports || []).find(e => e.format === 'stl');
-      if (stlExport) {
-        // Read STL from WSL temp path (not the Windows path in result)
-        const files = await readdir(tmpDir);
-        const stlFile = files.find(f => f.endsWith('.stl'));
-        if (stlFile) {
-          const stlData = await readFile(join(tmpDir, stlFile));
+      // Send STL data
+      const partFiles = result.assembly?.part_files;
+      if (partFiles && partFiles.length > 0) {
+        // Assembly mode: send parts manifest then each part STL
+        const manifest = partFiles.map((pf, i) => ({
+          id: pf.id,
+          label: pf.label,
+          index: i,
+          size_bytes: pf.size_bytes,
+        }));
+        sendJSON(ws, { type: 'parts_manifest', parts: manifest });
+
+        for (const pf of partFiles) {
+          // path may be Windows (\) or Unix (/) — extract filename from either
+          const filename = pf.path.replace(/\\/g, '/').split('/').pop();
+          const stlData = await readFile(join(tmpDir, filename));
           if (ws.readyState === ws.OPEN) {
             ws.send(stlData);
           }
         }
+      } else {
+        // Single-part (legacy): send one STL
+        const stlExport = (result.exports || []).find(e => e.format === 'stl');
+        if (stlExport) {
+          const files = await readdir(tmpDir);
+          const stlFile = files.find(f => f.endsWith('.stl'));
+          if (stlFile) {
+            const stlData = await readFile(join(tmpDir, stlFile));
+            if (ws.readyState === ws.OPEN) {
+              ws.send(stlData);
+            }
+          }
+        }
+      }
+
+      // Send motion data (if kinematic simulation present)
+      if (result.motion_data) {
+        sendJSON(ws, { type: 'motion_data', ...result.motion_data });
       }
 
       sendJSON(ws, { type: 'complete' });

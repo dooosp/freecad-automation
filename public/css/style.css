@@ -185,6 +185,144 @@ select {
   border-top: 1px solid var(--border);
 }
 
+/* Slider row */
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slider-row label {
+  flex-shrink: 0;
+  min-width: 50px;
+}
+
+.slider-row input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent);
+  height: 4px;
+}
+
+/* Parts list */
+.parts-list {
+  font-size: 11px;
+}
+
+.parts-list h3 {
+  color: var(--accent);
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+.part-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.part-item:hover {
+  background: rgba(88, 166, 255, 0.1);
+}
+
+.part-item.selected {
+  background: rgba(88, 166, 255, 0.2);
+  border-left: 2px solid var(--accent);
+}
+
+.part-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.part-label {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Animation controls */
+.animation-controls {
+  display: none;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px;
+  font-size: 11px;
+}
+
+.animation-controls.visible {
+  display: block;
+}
+
+.animation-controls h3 {
+  color: var(--accent);
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+
+.anim-btn-row {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.btn-sm {
+  padding: 3px 10px;
+  font-size: 11px;
+}
+
+.anim-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.anim-slider-row input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent);
+  height: 4px;
+}
+
+.time-display {
+  color: var(--text-dim);
+  min-width: 36px;
+  text-align: right;
+}
+
+.speed-row {
+  display: flex;
+  gap: 4px;
+}
+
+.speed-btn {
+  background: var(--bg-input);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  cursor: pointer;
+}
+
+.speed-btn:hover {
+  border-color: var(--text-dim);
+}
+
+.speed-btn.selected {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 /* Viewport */
 #viewport {
   position: relative;

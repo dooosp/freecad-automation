@@ -95,6 +95,23 @@ def export_assembly(features, compound, name, formats, directory):
     return results
 
 
+def export_assembly_parts(features, name, directory):
+    """
+    Export each assembly part as a separate STL file.
+    Returns list of {id, label, path, size_bytes}.
+    """
+    os.makedirs(directory, exist_ok=True)
+    results = []
+    for feat in features:
+        label = feat.Label
+        filepath = os.path.join(directory, f"{name}__{label}.stl")
+        mesh = Mesh.Mesh(feat.Shape.tessellate(0.1))
+        mesh.write(filepath)
+        size = os.path.getsize(filepath) if os.path.exists(filepath) else 0
+        results.append({"id": label, "label": label, "path": filepath, "size_bytes": size})
+    return results
+
+
 def shape_to_feature(shape):
     """Wrap a TopoShape in a Part::Feature for export compatibility."""
     doc = FreeCAD.newDocument("ExportTemp")

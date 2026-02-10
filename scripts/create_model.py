@@ -19,7 +19,7 @@ try:
     FreeCAD = init_freecad()
     import Part
     from _shapes import make_shape, boolean_op, apply_fillet, apply_chamfer, circular_pattern, get_metadata
-    from _export import export_multi, export_assembly
+    from _export import export_multi, export_assembly, export_assembly_parts
 
     # Detect assembly mode: "parts" key + "assembly" key present
     is_assembly = "parts" in config and "assembly" in config
@@ -38,6 +38,7 @@ try:
 
         # Export
         exports = []
+        part_files = []
         export_config = config.get("export", {})
         if export_config:
             formats = export_config.get("formats", ["step"])
@@ -45,11 +46,16 @@ try:
             exports = export_assembly(features, compound, model_name, formats, directory)
             log(f"  Exported {len(exports)} format(s) to {directory}")
 
+            # Per-part STL export for viewer
+            if export_config.get("per_part_stl"):
+                part_files = export_assembly_parts(features, model_name, directory)
+                log(f"  Exported {len(part_files)} per-part STL(s)")
+
         # Build response
         compound_meta = get_metadata(compound)
         compound_meta["name"] = model_name
 
-        respond({
+        response = {
             "success": True,
             "model": compound_meta,
             "assembly": {
@@ -57,7 +63,14 @@ try:
                 "parts": parts_metadata,
             },
             "exports": exports,
-        })
+        }
+        if part_files:
+            response["assembly"]["part_files"] = part_files
+
+        if assembly_result.get("motion_data"):
+            response["motion_data"] = assembly_result["motion_data"]
+
+        respond(response)
 
     else:
         # ── Legacy single-part mode ──

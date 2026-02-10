@@ -709,6 +709,332 @@ async function testPTUAssembly() {
   assert(existsSync(stepFile), 'PTU assembly STEP file exists');
 }
 
+// ---------------------------------------------------------------------------
+// Phase 6 Tests: Mate Constraints
+// ---------------------------------------------------------------------------
+
+async function testMateCoaxial() {
+  console.log('\n--- Test: Mate coaxial (shaft in housing bore) ---');
+
+  const config = {
+    name: 'test_mate_coaxial',
+    parts: [
+      {
+        id: 'housing',
+        shapes: [{
+          id: 'body',
+          type: 'cylinder',
+          radius: 30,
+          height: 40,
+        }, {
+          id: 'bore',
+          type: 'cylinder',
+          radius: 15,
+          height: 50,
+          position: [0, 0, -5],
+        }],
+        operations: [
+          { op: 'cut', base: 'body', tool: 'bore', result: 'housing' },
+        ],
+        final: 'housing',
+      },
+      {
+        id: 'shaft',
+        shapes: [{
+          id: 's',
+          type: 'cylinder',
+          radius: 14,
+          height: 60,
+        }],
+        operations: [],
+      },
+    ],
+    assembly: {
+      parts: [
+        { ref: 'housing', position: [0, 0, 0] },
+        { ref: 'shaft' },
+      ],
+      mates: [
+        {
+          type: 'coaxial',
+          part1: 'housing',
+          face1: 'cyl:z:min',
+          part2: 'shaft',
+          face2: 'cyl:z',
+        },
+      ],
+    },
+    export: { formats: ['brep'], directory: resolve(OUTPUT_DIR) },
+  };
+
+  const result = await runScript('create_model.py', config, {
+    timeout: 120_000,
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Coaxial mate succeeded');
+  assert(result.assembly !== undefined, 'Assembly metadata present');
+  assert(result.assembly.part_count === 2, `Part count is 2 (got ${result.assembly.part_count})`);
+  assert(result.model.volume > 0, `Volume is positive (${result.model.volume})`);
+}
+
+async function testMateCoincidentOnly() {
+  console.log('\n--- Test: Mate coincident (box stacking) ---');
+
+  const config = {
+    name: 'test_mate_coincident',
+    parts: [
+      {
+        id: 'base_box',
+        shapes: [{ id: 'b', type: 'box', length: 20, width: 20, height: 10 }],
+        operations: [],
+      },
+      {
+        id: 'top_box',
+        shapes: [{ id: 'b', type: 'box', length: 20, width: 20, height: 10 }],
+        operations: [],
+      },
+    ],
+    assembly: {
+      parts: [
+        { ref: 'base_box', position: [0, 0, 0] },
+        { ref: 'top_box' },
+      ],
+      mates: [
+        {
+          type: 'coincident',
+          part1: 'base_box',
+          face1: 'plane:+z:max',
+          part2: 'top_box',
+          face2: 'plane:-z:min',
+        },
+      ],
+    },
+    export: { formats: ['brep'], directory: resolve(OUTPUT_DIR) },
+  };
+
+  const result = await runScript('create_model.py', config, {
+    timeout: 120_000,
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Coincident mate succeeded');
+  assert(result.assembly.part_count === 2, `Part count is 2 (got ${result.assembly.part_count})`);
+  // Two 20x20x10 boxes stacked: total volume = 8000
+  assert(Math.abs(result.model.volume - 8000) < 10, `Volume ~8000 (got ${result.model.volume})`);
+  // Bounding box height should be ~20 (two 10mm boxes stacked)
+  const bb = result.model.bounding_box;
+  assert(Math.abs(bb.size[2] - 20) < 1, `BB height ~20 (got ${bb.size[2]})`);
+}
+
+async function testMateDistance() {
+  console.log('\n--- Test: Mate distance (5mm gap) ---');
+
+  const config = {
+    name: 'test_mate_distance',
+    parts: [
+      {
+        id: 'plate_a',
+        shapes: [{ id: 'b', type: 'box', length: 30, width: 30, height: 5 }],
+        operations: [],
+      },
+      {
+        id: 'plate_b',
+        shapes: [{ id: 'b', type: 'box', length: 30, width: 30, height: 5 }],
+        operations: [],
+      },
+    ],
+    assembly: {
+      parts: [
+        { ref: 'plate_a', position: [0, 0, 0] },
+        { ref: 'plate_b' },
+      ],
+      mates: [
+        {
+          type: 'distance',
+          part1: 'plate_a',
+          face1: 'plane:+z:max',
+          part2: 'plate_b',
+          face2: 'plane:-z:min',
+          value: 5.0,
+        },
+      ],
+    },
+    export: { formats: ['brep'], directory: resolve(OUTPUT_DIR) },
+  };
+
+  const result = await runScript('create_model.py', config, {
+    timeout: 120_000,
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Distance mate succeeded');
+  assert(result.assembly.part_count === 2, `Part count is 2 (got ${result.assembly.part_count})`);
+  // BB height should be ~15 (5mm plate + 5mm gap + 5mm plate)
+  const bb = result.model.bounding_box;
+  assert(Math.abs(bb.size[2] - 15) < 1, `BB height ~15 (got ${bb.size[2]})`);
+}
+
+async function testMateMixedPlacement() {
+  console.log('\n--- Test: Mate mixed (explicit + mate placement) ---');
+
+  const config = {
+    name: 'test_mate_mixed',
+    parts: [
+      {
+        id: 'base',
+        shapes: [{ id: 'b', type: 'box', length: 40, width: 40, height: 10 }],
+        operations: [],
+      },
+      {
+        id: 'pillar',
+        shapes: [{ id: 'c', type: 'cylinder', radius: 5, height: 30 }],
+        operations: [],
+      },
+      {
+        id: 'side_box',
+        shapes: [{ id: 'b', type: 'box', length: 10, width: 10, height: 10 }],
+        operations: [],
+      },
+    ],
+    assembly: {
+      parts: [
+        { ref: 'base', position: [0, 0, 0] },
+        { ref: 'pillar' },
+        { ref: 'side_box', position: [50, 0, 0] },
+      ],
+      mates: [
+        {
+          type: 'coincident',
+          part1: 'base',
+          face1: 'plane:+z:max',
+          part2: 'pillar',
+          face2: 'plane:-z:min',
+        },
+      ],
+    },
+    export: { formats: ['brep'], directory: resolve(OUTPUT_DIR) },
+  };
+
+  const result = await runScript('create_model.py', config, {
+    timeout: 120_000,
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Mixed placement succeeded');
+  assert(result.assembly.part_count === 3, `Part count is 3 (got ${result.assembly.part_count})`);
+  assert(result.model.volume > 0, `Volume is positive (${result.model.volume})`);
+}
+
+async function testMateChain() {
+  console.log('\n--- Test: Mate chain (A → B → C) ---');
+
+  const config = {
+    name: 'test_mate_chain',
+    parts: [
+      {
+        id: 'block_a',
+        shapes: [{ id: 'b', type: 'box', length: 10, width: 10, height: 10 }],
+        operations: [],
+      },
+      {
+        id: 'block_b',
+        shapes: [{ id: 'b', type: 'box', length: 10, width: 10, height: 10 }],
+        operations: [],
+      },
+      {
+        id: 'block_c',
+        shapes: [{ id: 'b', type: 'box', length: 10, width: 10, height: 10 }],
+        operations: [],
+      },
+    ],
+    assembly: {
+      parts: [
+        { ref: 'block_a', position: [0, 0, 0] },
+        { ref: 'block_b' },
+        { ref: 'block_c' },
+      ],
+      mates: [
+        {
+          type: 'coincident',
+          part1: 'block_a',
+          face1: 'plane:+z:max',
+          part2: 'block_b',
+          face2: 'plane:-z:min',
+        },
+        {
+          type: 'coincident',
+          part1: 'block_b',
+          face1: 'plane:+z:max',
+          part2: 'block_c',
+          face2: 'plane:-z:min',
+        },
+      ],
+    },
+    export: { formats: ['brep'], directory: resolve(OUTPUT_DIR) },
+  };
+
+  const result = await runScript('create_model.py', config, {
+    timeout: 120_000,
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Chain mate succeeded');
+  assert(result.assembly.part_count === 3, `Part count is 3 (got ${result.assembly.part_count})`);
+  // Three 10mm blocks stacked: height = 30
+  const bb = result.model.bounding_box;
+  assert(Math.abs(bb.size[2] - 30) < 1, `BB height ~30 (got ${bb.size[2]})`);
+  // Total volume = 3000
+  assert(Math.abs(result.model.volume - 3000) < 10, `Volume ~3000 (got ${result.model.volume})`);
+}
+
+async function testMateErrorNoAnchor() {
+  console.log('\n--- Test: Mate error (no anchor) ---');
+
+  const config = {
+    name: 'test_mate_no_anchor',
+    parts: [
+      {
+        id: 'box_a',
+        shapes: [{ id: 'b', type: 'box', length: 10, width: 10, height: 10 }],
+        operations: [],
+      },
+      {
+        id: 'box_b',
+        shapes: [{ id: 'b', type: 'box', length: 10, width: 10, height: 10 }],
+        operations: [],
+      },
+    ],
+    assembly: {
+      parts: [
+        { ref: 'box_a' },
+        { ref: 'box_b' },
+      ],
+      mates: [
+        {
+          type: 'coincident',
+          part1: 'box_a',
+          face1: 'plane:+z:max',
+          part2: 'box_b',
+          face2: 'plane:-z:min',
+        },
+      ],
+    },
+    export: { formats: ['brep'], directory: resolve(OUTPUT_DIR) },
+  };
+
+  try {
+    await runScript('create_model.py', config, {
+      timeout: 120_000,
+      onStderr: (t) => process.stderr.write(`    ${t}`),
+    });
+    assert(false, 'No-anchor mate should have thrown');
+  } catch (err) {
+    assert(err.message.includes('anchor'), `Error mentions anchor`);
+    assert(true, 'No-anchor mate correctly rejected');
+  }
+}
+
 async function testAssemblyLegacyCompat() {
   console.log('\n--- Test: Legacy mode (no assembly key) still works ---');
 
@@ -728,6 +1054,98 @@ async function testAssemblyLegacyCompat() {
   assert(Math.abs(result.model.volume - 1000) < 1, `Volume is 1000 (got ${result.model.volume})`);
 }
 
+
+// ---------------------------------------------------------------------------
+// Phase 7 Tests: Kinematic Motion Simulation
+// ---------------------------------------------------------------------------
+
+async function testMotionKeyframes() {
+  console.log('\n--- Test: Motion keyframe generation ---');
+
+  const config = await loadConfig(resolve(ROOT, 'configs/examples/ptu_motion.toml'));
+  config.export.directory = resolve(OUTPUT_DIR);
+
+  const result = await runScript('create_model.py', config, {
+    timeout: 300_000,
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'PTU motion build succeeded');
+  assert(result.motion_data !== undefined, 'motion_data present in result');
+  assert(result.motion_data.duration === 2.0, `Duration is 2.0s (got ${result.motion_data?.duration})`);
+  assert(result.motion_data.loop === true, 'Loop is true');
+  assert(result.motion_data.parts !== undefined, 'Parts dict present');
+
+  // Shaft should have keyframes
+  const shaft = result.motion_data.parts.input_shaft;
+  assert(shaft !== undefined, 'input_shaft motion present');
+  assert(shaft.type === 'revolute', `Shaft type is revolute (got ${shaft?.type})`);
+  assert(shaft.keyframes.length === 61, `Shaft has 61 keyframes (60 steps + 1) (got ${shaft?.keyframes?.length})`);
+  assert(shaft.keyframes[0].angle === 0, 'Shaft starts at 0°');
+  assert(shaft.keyframes[shaft.keyframes.length - 1].angle === 360, 'Shaft ends at 360°');
+
+  // Gear should have coupled keyframes
+  const gear = result.motion_data.parts.drive_gear;
+  assert(gear !== undefined, 'drive_gear motion present');
+  assert(gear.type === 'revolute', `Gear type is revolute (got ${gear?.type})`);
+
+  return result;
+}
+
+async function testGearRatio() {
+  console.log('\n--- Test: Gear ratio coupling ---');
+
+  const config = await loadConfig(resolve(ROOT, 'configs/examples/ptu_motion.toml'));
+  config.export.directory = resolve(OUTPUT_DIR);
+
+  const result = await runScript('create_model.py', config, {
+    timeout: 300_000,
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  const shaft = result.motion_data.parts.input_shaft;
+  const gear = result.motion_data.parts.drive_gear;
+
+  // At final keyframe: shaft=360, gear should be 360*(-0.8333) ≈ -300
+  const lastShaft = shaft.keyframes[shaft.keyframes.length - 1].angle;
+  const lastGear = gear.keyframes[gear.keyframes.length - 1].angle;
+  const expectedGear = lastShaft * -0.8333;
+
+  assert(Math.abs(lastGear - expectedGear) < 0.1,
+    `Gear end angle ~${expectedGear.toFixed(1)} (got ${lastGear})`);
+  // Gear rotates opposite direction (negative)
+  assert(lastGear < 0, `Gear rotates in negative direction (${lastGear})`);
+}
+
+async function testMotionBackwardCompat() {
+  console.log('\n--- Test: Motion backward compat (no motion config) ---');
+
+  // Use existing bracket.toml which has no motion
+  const config = await loadConfig(resolve(ROOT, 'configs/examples/bracket.toml'));
+  config.export.directory = resolve(OUTPUT_DIR);
+
+  const result = await runScript('create_model.py', config, {
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Bracket build still succeeds');
+  assert(result.motion_data === undefined, 'No motion_data for non-motion config');
+}
+
+async function testMotionMatesAssembly() {
+  console.log('\n--- Test: Mates assembly without motion still works ---');
+
+  const config = await loadConfig(resolve(ROOT, 'configs/examples/ptu_assembly_mates.toml'));
+  config.export.directory = resolve(OUTPUT_DIR);
+
+  const result = await runScript('create_model.py', config, {
+    timeout: 300_000,
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'PTU mates assembly still succeeds');
+  assert(result.motion_data === undefined, 'No motion_data when no joints/motion defined');
+}
 
 async function main() {
   console.log('FreeCAD Automation - Integration Tests');
@@ -776,6 +1194,20 @@ async function main() {
     await testAssemblyWithLibraryParts();
     await testPTUAssembly();
     await testAssemblyLegacyCompat();
+
+    // Phase 6 tests: Mate Constraints
+    await testMateCoaxial();
+    await testMateCoincidentOnly();
+    await testMateDistance();
+    await testMateMixedPlacement();
+    await testMateChain();
+    await testMateErrorNoAnchor();
+
+    // Phase 7 tests: Kinematic Motion
+    await testMotionKeyframes();
+    await testGearRatio();
+    await testMotionBackwardCompat();
+    await testMotionMatesAssembly();
   } catch (err) {
     failed++;
     console.error(`\nFATAL: ${err.message}`);

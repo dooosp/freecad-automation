@@ -40,7 +40,33 @@
         </label>
       </div>
 
+      <div class="slider-row">
+        <label>Opacity</label>
+        <input type="range" id="slider-opacity" min="10" max="100" value="100">
+      </div>
+
       <div id="status" class="status"></div>
+
+      <div id="parts-list" class="parts-list"></div>
+
+      <div id="animation-controls" class="animation-controls">
+        <h3>Animation</h3>
+        <div class="anim-btn-row">
+          <button id="btn-play" class="btn btn-sm">Play</button>
+          <button id="btn-pause" class="btn btn-sm">Pause</button>
+          <button id="btn-reset" class="btn btn-sm">Reset</button>
+        </div>
+        <div class="anim-slider-row">
+          <input type="range" id="timeline" min="0" max="1000" value="0">
+          <span id="time-display" class="time-display">0.0s</span>
+        </div>
+        <div class="speed-row">
+          <button class="btn btn-sm speed-btn" data-speed="0.25">0.25x</button>
+          <button class="btn btn-sm speed-btn" data-speed="0.5">0.5x</button>
+          <button class="btn btn-sm speed-btn selected" data-speed="1">1x</button>
+          <button class="btn btn-sm speed-btn" data-speed="2">2x</button>
+        </div>
+      </div>
 
       <div id="model-info" class="model-info" hidden></div>
     </aside>

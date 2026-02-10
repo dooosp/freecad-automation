@@ -111,8 +111,25 @@ def build_assembly(config, doc):
         part_shapes[pid] = shape
         print(f"[freecad]   Part '{pid}' built", file=sys.stderr, flush=True)
 
-    # Phase 2: Apply assembly placements
+    # Phase 1.5: Solve mate constraints (if any)
     assembly_config = config.get("assembly", {})
+    mates = assembly_config.get("mates", [])
+    solved_shapes = None
+
+    if mates:
+        from _mate_solver import solve_mates
+
+        # Collect explicit placements (parts with position in assembly.parts)
+        explicit_placements = {}
+        for entry in assembly_config.get("parts", []):
+            ref = entry["ref"]
+            if "position" in entry:
+                explicit_placements[ref] = entry
+
+        solved_shapes = solve_mates(part_shapes, mates, explicit_placements)
+        print(f"[freecad]   Solved {len(mates)} mate(s) for {len(solved_shapes)} part(s)", file=sys.stderr, flush=True)
+
+    # Phase 2: Apply assembly placements
     placed_shapes = []
     features = []
     parts_metadata = {}
@@ -122,8 +139,12 @@ def build_assembly(config, doc):
         if ref not in part_shapes:
             raise ValueError(f"Assembly references unknown part: {ref}")
 
-        shape = part_shapes[ref].copy()
-        _apply_placement(shape, entry)
+        if solved_shapes and ref in solved_shapes:
+            # Already transformed by mate solver
+            shape = solved_shapes[ref]
+        else:
+            shape = part_shapes[ref].copy()
+            _apply_placement(shape, entry)
 
         # Add as Part::Feature to doc (preserves name in STEP)
         label = entry.get("label", ref)
@@ -133,15 +154,46 @@ def build_assembly(config, doc):
         placed_shapes.append(shape)
 
         parts_metadata[label] = get_metadata(shape)
-        print(f"[freecad]   Placed '{label}' at {entry.get('position', [0,0,0])}", file=sys.stderr, flush=True)
+        print(f"[freecad]   Placed '{label}'", file=sys.stderr, flush=True)
+
+    # Include mate-solved parts not listed in assembly.parts
+    if solved_shapes:
+        listed_refs = {entry["ref"] for entry in assembly_config.get("parts", [])}
+        for pid, shape in solved_shapes.items():
+            if pid not in listed_refs:
+                feat = doc.addObject("Part::Feature", pid)
+                feat.Shape = shape
+                features.append(feat)
+                placed_shapes.append(shape)
+                parts_metadata[pid] = get_metadata(shape)
+                print(f"[freecad]   Placed '{pid}' (mate-only)", file=sys.stderr, flush=True)
 
     doc.recompute()
 
     # Phase 3: Create compound for export
     compound = Part.makeCompound(placed_shapes) if placed_shapes else Part.Shape()
 
-    return {
+    result = {
         "features": features,
         "compound": compound,
         "parts_metadata": parts_metadata,
     }
+
+    # Phase 4: Kinematic motion (if joints + motion defined)
+    motion_config = assembly_config.get("motion")
+    joints = assembly_config.get("joints", [])
+    if motion_config and joints:
+        from _kinematics import solve_kinematics
+        # Build placed_shapes dict for kinematics anchor computation
+        placed_dict = {}
+        for entry in assembly_config.get("parts", []):
+            ref = entry["ref"]
+            if solved_shapes and ref in solved_shapes:
+                placed_dict[ref] = solved_shapes[ref]
+            elif ref in part_shapes:
+                placed_dict[ref] = part_shapes[ref]
+        motion_data = solve_kinematics(assembly_config, placed_dict)
+        if motion_data:
+            result["motion_data"] = motion_data
+
+    return result
