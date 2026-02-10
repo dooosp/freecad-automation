@@ -1,0 +1,141 @@
+# Piston Engine (Crank-Slider Mechanism)
+# Demonstrates: crankshaft (revolute) → connecting rod → piston (prismatic)
+# Crank rotates 360° → piston reciprocates via crank-slider kinematics.
+
+name = "piston_engine"
+
+[export]
+formats = ["step", "stl"]
+directory = "./output"
+per_part_stl = true
+
+
+# ═══════════════════════════════════════════════════
+# PART DEFINITIONS
+# ═══════════════════════════════════════════════════
+
+# ── 1. Engine block ───────────────────────────────
+[[parts]]
+id = "block"
+  [[parts.shapes]]
+  id = "body"
+  type = "box"
+  length = 80
+  width = 40
+  height = 100
+
+  [[parts.shapes]]
+  id = "bore"
+  type = "cylinder"
+  radius = 15
+  height = 70
+
+  [[parts.operations]]
+  op = "cut"
+  base = "body"
+  tool = "bore"
+  result = "block_body"
+
+# ── 2. Crankshaft ─────────────────────────────────
+[[parts]]
+id = "crankshaft"
+  [[parts.shapes]]
+  id = "main"
+  type = "cylinder"
+  radius = 6
+  height = 60
+
+# ── 3. Crank arm (offset = 15mm) ─────────────────
+[[parts]]
+id = "crank_arm"
+  [[parts.shapes]]
+  id = "arm"
+  type = "box"
+  length = 30
+  width = 8
+  height = 8
+
+# ── 4. Connecting rod ────────────────────────────
+[[parts]]
+id = "con_rod"
+  [[parts.shapes]]
+  id = "rod"
+  type = "box"
+  length = 10
+  width = 8
+  height = 50
+
+# ── 5. Piston ────────────────────────────────────
+[[parts]]
+id = "piston"
+  [[parts.shapes]]
+  id = "head"
+  type = "cylinder"
+  radius = 14
+  height = 15
+
+
+# ═══════════════════════════════════════════════════
+# ASSEMBLY
+# ═══════════════════════════════════════════════════
+
+[assembly]
+
+[[assembly.parts]]
+ref = "block"
+position = [0, 0, 0]
+
+[[assembly.parts]]
+ref = "crankshaft"
+position = [40, 20, -10]
+rotation = [1, 0, 0, 90]
+
+[[assembly.parts]]
+ref = "crank_arm"
+position = [25, 20, 15]
+
+[[assembly.parts]]
+ref = "con_rod"
+position = [35, 16, 20]
+
+[[assembly.parts]]
+ref = "piston"
+position = [40, 20, 60]
+
+
+# ── Joints ────────────────────────────────────────
+
+[[assembly.joints]]
+id = "crank_rev"
+type = "revolute"
+part = "crank_arm"
+axis = [0, 0, 1]
+
+[[assembly.joints]]
+id = "rod_rev"
+type = "revolute"
+part = "con_rod"
+axis = [0, 0, 1]
+
+[[assembly.joints]]
+id = "piston_prism"
+type = "prismatic"
+part = "piston"
+axis = [0, 0, 1]
+
+
+# ── Motion (Crank-Slider) ────────────────────────
+
+[assembly.motion]
+driver = "crank_rev"
+range = [0, 720]      # 2 full revolutions
+duration = 3.0
+steps = 120
+loop = true
+linkage = "crank_slider"
+
+[assembly.motion.linkage_params]
+crank_r = 15           # crank throw radius (mm)
+rod_length = 50        # connecting rod length (mm)
+piston_joint = "piston_prism"
+rod_joint = "rod_rev"

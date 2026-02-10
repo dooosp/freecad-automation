@@ -1,6 +1,7 @@
 """
 Parametric parts library for FreeCAD automation.
-Provides: ball bearing, spur gear, stepped shaft.
+Provides: ball bearing, spur gear, stepped shaft,
+          helical gear, disc cam, pulley, coil spring.
 Each generator returns a Part.Shape (Compound or Solid).
 """
 
@@ -267,6 +268,258 @@ def make_stepped_shaft(spec):
 
 
 # ---------------------------------------------------------------------------
+# Helical Gear (spur gear with helix angle approximation)
+# ---------------------------------------------------------------------------
+
+def make_helical_gear(spec):
+    """
+    Create a helical gear by extruding spur teeth with a twist.
+
+    Required: module, teeth, width
+    Optional: bore_d (0), pressure_angle (20), helix_angle (15)
+    """
+    helix_angle = float(spec.get("helix_angle", 15))
+
+    # Build base spur gear then apply twist via shear
+    spur = make_spur_gear(spec)
+
+    if abs(helix_angle) < 0.1:
+        return spur
+
+    # Approximate helix by shearing: rotate top face relative to bottom
+    # twist_angle = tan(helix_angle) * width / pitch_radius
+    mod = float(spec["module"])
+    teeth = int(spec["teeth"])
+    width = float(spec["width"])
+    pitch_r = mod * teeth / 2.0
+    twist_deg = math.degrees(math.tan(math.radians(helix_angle)) * width / pitch_r)
+
+    # Apply twist via rotation matrix on a copy
+    from FreeCAD import Rotation, Placement
+    # Slice into N layers and rotate each
+    n_slices = 8
+    slices = []
+    for i in range(n_slices):
+        z0 = width * i / n_slices
+        z1 = width * (i + 1) / n_slices
+        h = z1 - z0
+        # Cut a slice
+        cutter = Part.makeBox(pitch_r * 4, pitch_r * 4, h,
+                              Vector(-pitch_r * 2, -pitch_r * 2, z0))
+        sl = spur.common(cutter)
+        # Rotate slice around Z by interpolated angle
+        angle_mid = twist_deg * (z0 + h / 2.0) / width
+        sl.rotate(Vector(0, 0, 0), Vector(0, 0, 1), angle_mid)
+        slices.append(sl)
+
+    result = slices[0]
+    for s in slices[1:]:
+        result = result.fuse(s)
+
+    # Bore (re-apply since fuse may have closed it)
+    bore_d = float(spec.get("bore_d", 0))
+    if bore_d > 0:
+        bore = Part.makeCylinder(bore_d / 2.0, width * 2, Vector(0, 0, -width / 2))
+        result = result.cut(bore)
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Disc Cam (eccentric cam with lift profile)
+# ---------------------------------------------------------------------------
+
+def _cam_radius(theta, base_radius, max_lift, profile_type):
+    """Compute cam radius at angle theta (radians)."""
+    # Normalize theta to [0, 2*pi]
+    theta = theta % (2.0 * math.pi)
+    # Rise from 0 to pi, return from pi to 2*pi
+    if theta <= math.pi:
+        phase = theta / math.pi  # 0→1
+    else:
+        phase = (2.0 * math.pi - theta) / math.pi  # 1→0
+
+    if profile_type == "harmonic":
+        lift = max_lift * (1.0 - math.cos(math.pi * phase)) / 2.0
+    elif profile_type == "cycloidal":
+        lift = max_lift * (phase - math.sin(2.0 * math.pi * phase) / (2.0 * math.pi))
+    elif profile_type == "dwell":
+        # Dwell at max for middle 50%
+        if 0.25 <= phase <= 0.75:
+            lift = max_lift
+        elif phase < 0.25:
+            lift = max_lift * (1.0 - math.cos(math.pi * phase / 0.25)) / 2.0
+        else:
+            lift = max_lift * (1.0 - math.cos(math.pi * (1.0 - phase) / 0.25)) / 2.0
+    else:
+        lift = max_lift * (1.0 - math.cos(math.pi * phase)) / 2.0
+
+    return base_radius + lift
+
+
+def make_disc_cam(spec):
+    """
+    Create a disc cam with configurable lift profile.
+
+    Required: base_radius, max_lift, width
+    Optional: bore_d (0), profile_type (harmonic)
+    """
+    base_radius = float(spec["base_radius"])
+    max_lift = float(spec["max_lift"])
+    width = float(spec["width"])
+    bore_d = float(spec.get("bore_d", 0))
+    profile_type = spec.get("profile_type", "harmonic")
+
+    # Generate 2D profile points
+    num_pts = 72
+    pts = []
+    for i in range(num_pts):
+        theta = 2.0 * math.pi * i / num_pts
+        r = _cam_radius(theta, base_radius, max_lift, profile_type)
+        pts.append(Vector(r * math.cos(theta), r * math.sin(theta), 0))
+
+    # Close the wire
+    edges = []
+    for i in range(len(pts)):
+        edges.append(Part.makeLine(pts[i], pts[(i + 1) % len(pts)]))
+
+    wire = Part.Wire(edges)
+    face = Part.Face(wire)
+    cam = face.extrude(Vector(0, 0, width))
+
+    # Bore
+    if bore_d > 0:
+        bore = Part.makeCylinder(bore_d / 2.0, width * 2, Vector(0, 0, -width / 2))
+        cam = cam.cut(bore)
+
+    return cam
+
+
+# ---------------------------------------------------------------------------
+# Pulley (V-belt pulley with grooves)
+# ---------------------------------------------------------------------------
+
+def make_pulley(spec):
+    """
+    Create a V-belt pulley with V-grooves via revolution.
+
+    Required: pitch_d, width
+    Optional: groove_angle (38), groove_depth (5), bore_d (0), num_grooves (1)
+    """
+    pitch_d = float(spec["pitch_d"])
+    width = float(spec["width"])
+    groove_angle = float(spec.get("groove_angle", 38))
+    groove_depth = float(spec.get("groove_depth", 5))
+    bore_d = float(spec.get("bore_d", 0))
+    num_grooves = int(spec.get("num_grooves", 1))
+
+    outer_r = pitch_d / 2.0
+    hub_r = outer_r - groove_depth - 3  # 3mm wall
+    if hub_r < 2:
+        hub_r = 2.0
+
+    half_w = width / 2.0
+    half_angle = math.radians(groove_angle / 2.0)
+    groove_w = 2.0 * groove_depth * math.tan(half_angle)
+
+    # Build revolution profile in XZ plane (X=radius, Z=axial)
+    # Profile: hub wall bottom → hub wall top → grooves → hub wall top other side → close
+    total_groove_width = num_grooves * groove_w + (num_grooves - 1) * 2.0
+    groove_start_z = -total_groove_width / 2.0
+
+    profile_pts = []
+    # Start at inner bore, bottom
+    profile_pts.append(Vector(hub_r, 0, -half_w))
+    profile_pts.append(Vector(outer_r, 0, -half_w))
+
+    # Grooves from left to right
+    z = groove_start_z
+    for g in range(num_grooves):
+        # Left rim
+        profile_pts.append(Vector(outer_r, 0, z))
+        # V-groove bottom
+        groove_bottom_r = outer_r - groove_depth
+        profile_pts.append(Vector(groove_bottom_r, 0, z + groove_w / 2.0))
+        # Right rim
+        profile_pts.append(Vector(outer_r, 0, z + groove_w))
+        z += groove_w + 2.0  # 2mm between grooves
+
+    profile_pts.append(Vector(outer_r, 0, half_w))
+    profile_pts.append(Vector(hub_r, 0, half_w))
+    # Close back to start
+    profile_pts.append(Vector(hub_r, 0, -half_w))
+
+    # Build wire
+    edges = []
+    for i in range(len(profile_pts) - 1):
+        edges.append(Part.makeLine(profile_pts[i], profile_pts[i + 1]))
+    wire = Part.Wire(edges)
+    face = Part.Face(wire)
+
+    # Revolve around Z axis
+    pulley = face.revolve(Vector(0, 0, 0), Vector(0, 0, 1), 360)
+
+    # Bore
+    if bore_d > 0:
+        bore = Part.makeCylinder(bore_d / 2.0, width * 2, Vector(0, 0, -width))
+        pulley = pulley.cut(bore)
+
+    return pulley
+
+
+# ---------------------------------------------------------------------------
+# Coil Spring
+# ---------------------------------------------------------------------------
+
+def make_coil_spring(spec):
+    """
+    Create a coil spring using helix + pipe shell.
+
+    Required: wire_d, coil_d, pitch, num_coils
+    Optional: end_type (open)
+    """
+    wire_d = float(spec["wire_d"])
+    coil_d = float(spec["coil_d"])
+    pitch_val = float(spec["pitch"])
+    num_coils = float(spec["num_coils"])
+    end_type = spec.get("end_type", "open")
+
+    coil_r = coil_d / 2.0
+    wire_r = wire_d / 2.0
+    height = pitch_val * num_coils
+
+    # Make helix spine
+    helix = Part.makeHelix(pitch_val, height, coil_r)
+
+    # Wire cross-section circle at helix start
+    start_pt = helix.Edges[0].Vertexes[0].Point
+    # Tangent direction at start for normal plane
+    circle = Part.makeCircle(wire_r, start_pt, Vector(0, 0, 1))
+    # Actually, align circle normal to helix tangent
+    # For simplicity, use Z-normal circle at start — pipe shell handles orientation
+    profile_wire = Part.Wire([circle])
+
+    # Sweep along helix
+    try:
+        mkPipe = Part.BRepOffsetAPI.MakePipeShell(Part.Wire(helix.Edges))
+        mkPipe.add(profile_wire)
+        mkPipe.build()
+        spring = mkPipe.shape()
+    except Exception:
+        # Fallback: simple sweep
+        spring = Part.Wire(helix.Edges).makePipeShell([profile_wire], True, False)
+
+    if end_type == "closed":
+        # Add flat end coils (half-pitch at each end)
+        # Approximate by adding flat discs at top and bottom
+        bottom = Part.makeTorus(coil_r, wire_r, Vector(0, 0, 0))
+        top = Part.makeTorus(coil_r, wire_r, Vector(0, 0, height))
+        spring = Part.makeCompound([spring, bottom, top])
+
+    return spring
+
+
+# ---------------------------------------------------------------------------
 # Dispatch
 # ---------------------------------------------------------------------------
 
@@ -274,6 +527,10 @@ LIBRARY_DISPATCH = {
     "library/ball_bearing": make_ball_bearing,
     "library/spur_gear": make_spur_gear,
     "library/stepped_shaft": make_stepped_shaft,
+    "library/helical_gear": make_helical_gear,
+    "library/disc_cam": make_disc_cam,
+    "library/pulley": make_pulley,
+    "library/coil_spring": make_coil_spring,
 }
 
 

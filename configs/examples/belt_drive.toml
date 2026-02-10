@@ -1,0 +1,130 @@
+# Belt Drive System — 2 pulleys with belt coupling
+# Demonstrates: pulley parts + belt coupling + revolute joints + motion animation
+# Motor pulley (small) drives output pulley (large) at 2:1 ratio.
+
+name = "belt_drive"
+
+[export]
+formats = ["step", "stl"]
+directory = "./output"
+per_part_stl = true
+
+
+# ═══════════════════════════════════════════════════
+# PART DEFINITIONS
+# ═══════════════════════════════════════════════════
+
+# ── 1. Base plate ──────────────────────────────────
+[[parts]]
+id = "base"
+  [[parts.shapes]]
+  id = "plate"
+  type = "box"
+  length = 200
+  width = 80
+  height = 10
+
+# ── 2. Motor pulley (small) ───────────────────────
+[[parts]]
+id = "motor_pulley"
+  [[parts.shapes]]
+  id = "pulley"
+  type = "library/pulley"
+  pitch_d = 40
+  width = 20
+  groove_angle = 38
+  groove_depth = 4
+  bore_d = 12
+  num_grooves = 1
+
+# ── 3. Driven pulley (large) ──────────────────────
+[[parts]]
+id = "driven_pulley"
+  [[parts.shapes]]
+  id = "pulley"
+  type = "library/pulley"
+  pitch_d = 80
+  width = 20
+  groove_angle = 38
+  groove_depth = 4
+  bore_d = 15
+  num_grooves = 1
+
+# ── 4. Motor shaft ────────────────────────────────
+[[parts]]
+id = "motor_shaft"
+  [[parts.shapes]]
+  id = "shaft"
+  type = "cylinder"
+  radius = 6
+  height = 40
+
+# ── 5. Driven shaft ──────────────────────────────
+[[parts]]
+id = "driven_shaft"
+  [[parts.shapes]]
+  id = "shaft"
+  type = "cylinder"
+  radius = 7.5
+  height = 40
+
+
+# ═══════════════════════════════════════════════════
+# ASSEMBLY
+# ═══════════════════════════════════════════════════
+
+[assembly]
+
+[[assembly.parts]]
+ref = "base"
+position = [0, 0, 0]
+
+[[assembly.parts]]
+ref = "motor_shaft"
+position = [50, 40, 10]
+
+[[assembly.parts]]
+ref = "motor_pulley"
+position = [50, 40, 20]
+
+[[assembly.parts]]
+ref = "driven_shaft"
+position = [150, 40, 10]
+
+[[assembly.parts]]
+ref = "driven_pulley"
+position = [150, 40, 20]
+
+
+# ── Joints ────────────────────────────────────────
+
+[[assembly.joints]]
+id = "motor_rev"
+type = "revolute"
+part = "motor_pulley"
+axis = [0, 0, 1]
+
+[[assembly.joints]]
+id = "driven_rev"
+type = "revolute"
+part = "driven_pulley"
+axis = [0, 0, 1]
+
+
+# ── Couplings ─────────────────────────────────────
+
+[[assembly.couplings]]
+type = "belt"
+driver = "motor_rev"
+follower = "driven_rev"
+ratio = 0.5  # driven turns at half speed (larger pulley)
+
+
+# ── Motion ────────────────────────────────────────
+
+[assembly.motion]
+driver = "motor_rev"
+range = [0, 720]      # motor: 2 full revolutions
+duration = 4.0
+steps = 120
+loop = true

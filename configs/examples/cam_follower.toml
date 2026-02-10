@@ -1,0 +1,139 @@
+# Cam-Follower Mechanism
+# Demonstrates: disc cam + prismatic joint + cam_follower coupling
+# Cam rotates 360° → follower rod moves up/down with harmonic profile.
+
+name = "cam_follower"
+
+[export]
+formats = ["step", "stl"]
+directory = "./output"
+per_part_stl = true
+
+
+# ═══════════════════════════════════════════════════
+# PART DEFINITIONS
+# ═══════════════════════════════════════════════════
+
+# ── 1. Base block ─────────────────────────────────
+[[parts]]
+id = "base"
+  [[parts.shapes]]
+  id = "block"
+  type = "box"
+  length = 80
+  width = 80
+  height = 15
+
+# ── 2. Disc cam ───────────────────────────────────
+[[parts]]
+id = "cam"
+  [[parts.shapes]]
+  id = "disc"
+  type = "library/disc_cam"
+  base_radius = 20
+  max_lift = 10
+  width = 15
+  bore_d = 8
+  profile_type = "harmonic"
+
+# ── 3. Cam shaft ──────────────────────────────────
+[[parts]]
+id = "cam_shaft"
+  [[parts.shapes]]
+  id = "shaft"
+  type = "cylinder"
+  radius = 4
+  height = 30
+
+# ── 4. Follower rod ───────────────────────────────
+[[parts]]
+id = "follower"
+  [[parts.shapes]]
+  id = "rod"
+  type = "cylinder"
+  radius = 3
+  height = 40
+
+# ── 5. Follower guide ─────────────────────────────
+[[parts]]
+id = "guide"
+  [[parts.shapes]]
+  id = "outer"
+  type = "cylinder"
+  radius = 6
+  height = 30
+
+  [[parts.shapes]]
+  id = "bore"
+  type = "cylinder"
+  radius = 3.2
+  height = 32
+
+  [[parts.operations]]
+  op = "cut"
+  base = "outer"
+  tool = "bore"
+  result = "guide_body"
+
+
+# ═══════════════════════════════════════════════════
+# ASSEMBLY
+# ═══════════════════════════════════════════════════
+
+[assembly]
+
+[[assembly.parts]]
+ref = "base"
+position = [0, 0, 0]
+
+[[assembly.parts]]
+ref = "cam_shaft"
+position = [40, 40, 15]
+
+[[assembly.parts]]
+ref = "cam"
+position = [40, 40, 20]
+
+[[assembly.parts]]
+ref = "guide"
+position = [40, 10, 35]
+
+[[assembly.parts]]
+ref = "follower"
+position = [40, 10, 35]
+
+
+# ── Joints ────────────────────────────────────────
+
+[[assembly.joints]]
+id = "cam_rev"
+type = "revolute"
+part = "cam"
+axis = [0, 0, 1]
+
+[[assembly.joints]]
+id = "follower_prism"
+type = "prismatic"
+part = "follower"
+axis = [0, 0, 1]
+
+
+# ── Couplings ─────────────────────────────────────
+
+[[assembly.couplings]]
+type = "cam_follower"
+driver = "cam_rev"
+follower = "follower_prism"
+cam_profile = "harmonic"
+base_radius = 20
+max_lift = 10
+
+
+# ── Motion ────────────────────────────────────────
+
+[assembly.motion]
+driver = "cam_rev"
+range = [0, 360]
+duration = 2.0
+steps = 72
+loop = true

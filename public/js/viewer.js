@@ -552,6 +552,16 @@ function applyMotionFrame(t) {
     if (partMotion.type === 'revolute') {
       const angle = getAngleAtTime(partMotion.keyframes, t);
       applyRevoluteTransform(p.mesh, partMotion.axis, partMotion.anchor, angle, initial);
+    } else if (partMotion.type === 'prismatic') {
+      const disp = getDisplacementAtTime(partMotion.keyframes, t);
+      applyPrismaticTransform(p.mesh, partMotion.axis, disp, initial);
+    } else if (partMotion.type === 'cylindrical') {
+      const angle = getAngleAtTime(partMotion.keyframes, t);
+      const disp = getDisplacementAtTime(partMotion.keyframes, t);
+      applyRevoluteTransform(p.mesh, partMotion.axis, partMotion.anchor, angle, initial);
+      // Apply prismatic on top of revolute
+      const axisVec = new THREE.Vector3(...partMotion.axis).normalize();
+      p.mesh.position.addScaledVector(axisVec, disp);
     }
   }
 }
@@ -588,6 +598,30 @@ function getAngleAtTime(keyframes, t) {
     }
   }
   return last.angle;
+}
+
+function getDisplacementAtTime(keyframes, t) {
+  if (!keyframes || keyframes.length === 0) return 0;
+  if (t <= keyframes[0].t) return keyframes[0].displacement || 0;
+  const last = keyframes[keyframes.length - 1];
+  if (t >= last.t) return last.displacement || 0;
+
+  for (let i = 0; i < keyframes.length - 1; i++) {
+    if (t >= keyframes[i].t && t < keyframes[i + 1].t) {
+      const alpha = (t - keyframes[i].t) / (keyframes[i + 1].t - keyframes[i].t);
+      const d0 = keyframes[i].displacement || 0;
+      const d1 = keyframes[i + 1].displacement || 0;
+      return d0 + alpha * (d1 - d0);
+    }
+  }
+  return last.displacement || 0;
+}
+
+function applyPrismaticTransform(mesh, axis, displacement, initial) {
+  mesh.position.copy(initial.pos);
+  mesh.quaternion.copy(initial.quat);
+  const axisVec = new THREE.Vector3(...axis).normalize();
+  mesh.position.addScaledVector(axisVec, displacement);
 }
 
 function updateTimelineUI() {

@@ -1147,6 +1147,241 @@ async function testMotionMatesAssembly() {
   assert(result.motion_data === undefined, 'No motion_data when no joints/motion defined');
 }
 
+// ---------------------------------------------------------------------------
+// Phase 8 Tests: Extended Parts Library
+// ---------------------------------------------------------------------------
+
+async function testHelicalGear() {
+  console.log('\n--- Test: Helical gear (library part) ---');
+
+  const config = {
+    name: 'test_helical_gear',
+    shapes: [{
+      id: 'gear',
+      type: 'library/helical_gear',
+      module: 3,
+      teeth: 16,
+      width: 12,
+      bore_d: 10,
+      helix_angle: 15,
+    }],
+    operations: [],
+    export: { formats: ['brep'], directory: resolve(OUTPUT_DIR) },
+  };
+
+  const result = await runScript('create_model.py', config, {
+    timeout: 180_000,
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Helical gear creation succeeded');
+  assert(result.model.volume > 0, `Volume is positive (${result.model.volume})`);
+}
+
+async function testDiscCam() {
+  console.log('\n--- Test: Disc cam (library part) ---');
+
+  const config = {
+    name: 'test_disc_cam',
+    shapes: [{
+      id: 'cam',
+      type: 'library/disc_cam',
+      base_radius: 20,
+      max_lift: 10,
+      width: 15,
+      bore_d: 8,
+      profile_type: 'harmonic',
+    }],
+    operations: [],
+    export: { formats: ['brep'], directory: resolve(OUTPUT_DIR) },
+  };
+
+  const result = await runScript('create_model.py', config, {
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Disc cam creation succeeded');
+  assert(result.model.volume > 0, `Volume is positive (${result.model.volume})`);
+}
+
+async function testPulley() {
+  console.log('\n--- Test: Pulley (library part) ---');
+
+  const config = {
+    name: 'test_pulley',
+    shapes: [{
+      id: 'pulley',
+      type: 'library/pulley',
+      pitch_d: 60,
+      width: 20,
+      groove_angle: 38,
+      groove_depth: 5,
+      bore_d: 12,
+      num_grooves: 2,
+    }],
+    operations: [],
+    export: { formats: ['brep'], directory: resolve(OUTPUT_DIR) },
+  };
+
+  const result = await runScript('create_model.py', config, {
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Pulley creation succeeded');
+  assert(result.model.volume > 0, `Volume is positive (${result.model.volume})`);
+}
+
+async function testCoilSpring() {
+  console.log('\n--- Test: Coil spring (library part) ---');
+
+  const config = {
+    name: 'test_coil_spring',
+    shapes: [{
+      id: 'spring',
+      type: 'library/coil_spring',
+      wire_d: 2,
+      coil_d: 20,
+      pitch: 8,
+      num_coils: 5,
+    }],
+    operations: [],
+    export: { formats: ['brep'], directory: resolve(OUTPUT_DIR) },
+  };
+
+  const result = await runScript('create_model.py', config, {
+    timeout: 120_000,
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Coil spring creation succeeded');
+  assert(result.model.volume > 0, `Volume is positive (${result.model.volume})`);
+}
+
+// ---------------------------------------------------------------------------
+// Phase 8 Tests: Extended Kinematics
+// ---------------------------------------------------------------------------
+
+async function testBeltDrive() {
+  console.log('\n--- Test: Belt drive assembly ---');
+
+  const config = await loadConfig(resolve(ROOT, 'configs/examples/belt_drive.toml'));
+  config.export.directory = resolve(OUTPUT_DIR);
+
+  const result = await runScript('create_model.py', config, {
+    timeout: 300_000,
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Belt drive build succeeded');
+  assert(result.motion_data !== undefined, 'motion_data present');
+  assert(result.motion_data.parts.motor_pulley !== undefined, 'Motor pulley in motion');
+  assert(result.motion_data.parts.driven_pulley !== undefined, 'Driven pulley in motion');
+
+  // Belt ratio: motor 720° → driven 360° (ratio 0.5)
+  const motor = result.motion_data.parts.motor_pulley;
+  const driven = result.motion_data.parts.driven_pulley;
+  const lastMotor = motor.keyframes[motor.keyframes.length - 1].angle;
+  const lastDriven = driven.keyframes[driven.keyframes.length - 1].angle;
+  assert(Math.abs(lastDriven - lastMotor * 0.5) < 0.1,
+    `Belt ratio correct: motor ${lastMotor}° → driven ${lastDriven}°`);
+}
+
+async function testCamFollower() {
+  console.log('\n--- Test: Cam-follower mechanism ---');
+
+  const config = await loadConfig(resolve(ROOT, 'configs/examples/cam_follower.toml'));
+  config.export.directory = resolve(OUTPUT_DIR);
+
+  const result = await runScript('create_model.py', config, {
+    timeout: 300_000,
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Cam follower build succeeded');
+  assert(result.motion_data !== undefined, 'motion_data present');
+
+  const cam = result.motion_data.parts.cam;
+  assert(cam !== undefined, 'Cam part in motion');
+  assert(cam.type === 'revolute', 'Cam is revolute');
+
+  const follower = result.motion_data.parts.follower;
+  assert(follower !== undefined, 'Follower part in motion');
+  assert(follower.type === 'prismatic', `Follower is prismatic (got ${follower?.type})`);
+
+  // At half rotation (180°), harmonic cam should be at max lift (10mm)
+  const midIdx = Math.floor(follower.keyframes.length / 2);
+  const midDisp = follower.keyframes[midIdx].displacement;
+  assert(Math.abs(midDisp - 10) < 0.5, `Follower at 180° near max lift 10mm (got ${midDisp})`);
+
+  // At 0° and 360°, displacement should be near 0
+  assert(Math.abs(follower.keyframes[0].displacement) < 0.1, 'Follower at 0° near zero');
+}
+
+async function testFourBarLinkage() {
+  console.log('\n--- Test: Four-bar linkage ---');
+
+  const config = await loadConfig(resolve(ROOT, 'configs/examples/four_bar_linkage.toml'));
+  config.export.directory = resolve(OUTPUT_DIR);
+
+  const result = await runScript('create_model.py', config, {
+    timeout: 300_000,
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Four-bar linkage build succeeded');
+  assert(result.motion_data !== undefined, 'motion_data present');
+  assert(result.motion_data.parts.coupler !== undefined, 'Coupler part in motion');
+  assert(result.motion_data.parts.rocker !== undefined, 'Rocker part in motion');
+
+  // Coupler and rocker should have revolute type
+  assert(result.motion_data.parts.coupler.type === 'revolute', 'Coupler is revolute');
+  assert(result.motion_data.parts.rocker.type === 'revolute', 'Rocker is revolute');
+
+  // Rocker should oscillate (not full 360)
+  const rocker = result.motion_data.parts.rocker;
+  const angles = rocker.keyframes.map(kf => kf.angle);
+  const minA = Math.min(...angles);
+  const maxA = Math.max(...angles);
+  assert(maxA - minA < 180, `Rocker oscillates within <180° range (${minA.toFixed(1)} to ${maxA.toFixed(1)})`);
+}
+
+async function testPistonEngine() {
+  console.log('\n--- Test: Piston engine (crank-slider) ---');
+
+  const config = await loadConfig(resolve(ROOT, 'configs/examples/piston_engine.toml'));
+  config.export.directory = resolve(OUTPUT_DIR);
+
+  const result = await runScript('create_model.py', config, {
+    timeout: 300_000,
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Piston engine build succeeded');
+  assert(result.motion_data !== undefined, 'motion_data present');
+
+  const piston = result.motion_data.parts.piston;
+  assert(piston !== undefined, 'Piston part in motion');
+  assert(piston.type === 'prismatic', 'Piston is prismatic');
+
+  // At 0° (TDC), displacement = 0
+  assert(Math.abs(piston.keyframes[0].displacement) < 0.01,
+    `Piston at TDC near 0mm (got ${piston.keyframes[0].displacement})`);
+
+  // At 180° (BDC), displacement = 2*crank_r = 30mm
+  // Find keyframe near 180°
+  const crank = result.motion_data.parts.crank_arm;
+  const idx180 = crank.keyframes.findIndex(kf => Math.abs(kf.angle - 180) < 4);
+  if (idx180 >= 0) {
+    const bdc = piston.keyframes[idx180].displacement;
+    assert(Math.abs(bdc - 30) < 1, `Piston at BDC near 30mm (got ${bdc})`);
+  }
+
+  // Connecting rod should also be in motion
+  const rod = result.motion_data.parts.con_rod;
+  assert(rod !== undefined, 'Connecting rod in motion');
+  assert(rod.type === 'revolute', 'Con rod is revolute');
+}
+
 async function main() {
   console.log('FreeCAD Automation - Integration Tests');
   console.log('=' .repeat(40));
@@ -1208,6 +1443,18 @@ async function main() {
     await testGearRatio();
     await testMotionBackwardCompat();
     await testMotionMatesAssembly();
+
+    // Phase 8 tests: Extended Parts Library
+    await testHelicalGear();
+    await testDiscCam();
+    await testPulley();
+    await testCoilSpring();
+
+    // Phase 8 tests: Extended Kinematics
+    await testBeltDrive();
+    await testCamFollower();
+    await testFourBarLinkage();
+    await testPistonEngine();
   } catch (err) {
     failed++;
     console.error(`\nFATAL: ${err.message}`);
