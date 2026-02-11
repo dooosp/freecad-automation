@@ -334,6 +334,19 @@ def compose_drawing(views_svg, name, bom, scale, bbox, mates=None, tol_specs=Non
 
 # -- Helpers -------------------------------------------------------------------
 
+def tight_bbox(shape):
+    """Compute tight bounding box from actual vertices.
+    FreeCAD's BoundBox can be wildly wrong after edge-by-edge fillet."""
+    import FreeCAD as _FC
+    verts = shape.Vertexes
+    if not verts:
+        return shape.BoundBox
+    xs = [v.Point.x for v in verts]
+    ys = [v.Point.y for v in verts]
+    zs = [v.Point.z for v in verts]
+    return _FC.BoundBox(min(xs), min(ys), min(zs), max(xs), max(ys), max(zs))
+
+
 def auto_scale(bbox, cell_w, cell_h):
     """Compute scale factor to fit shape in a view cell."""
     max_dim = max(bbox.XLength, bbox.YLength, bbox.ZLength, 1e-6)
@@ -438,7 +451,7 @@ try:
         log(f"  Single part: {final_name}")
 
     # -- Compute Scale --
-    bbox = compound.BoundBox
+    bbox = tight_bbox(compound)
     log(f"  BBox: {bbox.XLength:.1f} x {bbox.YLength:.1f} x {bbox.ZLength:.1f} mm")
 
     if scale_hint:
