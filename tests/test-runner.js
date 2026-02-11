@@ -1781,6 +1781,192 @@ async function testDesignGenerate() {
   }
 }
 
+// --- Phase 13: Tolerance Analysis Tests ---
+
+async function testToleranceDB() {
+  console.log('\n--- Test: ISO 286 Tolerance Database ---');
+
+  // Pure Python test: verify DB accuracy without FreeCAD
+  const result = await runScript('tolerance_db_test.py', {}, {
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Tolerance DB test succeeded');
+
+  // Ø20 H7 = +0.021/0
+  const h7 = result.tests.h7_20;
+  assert(h7.upper === 0.021, `Ø20 H7 upper = +0.021 (got ${h7.upper})`);
+  assert(h7.lower === 0.0, `Ø20 H7 lower = 0.000 (got ${h7.lower})`);
+
+  // Ø20 g6 = -0.007/-0.020
+  const g6 = result.tests.g6_20;
+  assert(g6.upper === -0.007, `Ø20 g6 upper = -0.007 (got ${g6.upper})`);
+  assert(g6.lower === -0.02, `Ø20 g6 lower = -0.020 (got ${g6.lower})`);
+
+  // H7/g6 fit = clearance
+  const fit = result.tests.fit_h7g6_20;
+  assert(fit.fit_type === 'clearance', `H7/g6 is clearance fit (got ${fit.fit_type})`);
+  assert(fit.clearance_min === 0.007, `Min clearance = 0.007 (got ${fit.clearance_min})`);
+  assert(fit.clearance_max === 0.041, `Max clearance = 0.041 (got ${fit.clearance_max})`);
+
+  // H7/p6 fit = interference
+  const fit2 = result.tests.fit_h7p6_20;
+  assert(fit2.fit_type === 'interference', `H7/p6 is interference fit (got ${fit2.fit_type})`);
+
+  // Fuzzy match
+  assert(result.tests.fuzzy_20 === 20, `fuzzy 19.998 → 20 (got ${result.tests.fuzzy_20})`);
+}
+
+async function testTolerancePairDetection() {
+  console.log('\n--- Test: Tolerance pair detection from assembly ---');
+
+  const config = await loadConfig(resolve(ROOT, 'configs/examples/ptu_assembly_mates.toml'));
+  config.export = config.export || {};
+  config.export.directory = resolve(OUTPUT_DIR);
+
+  const result = await runScript('tolerance_analysis.py', config, {
+    timeout: 120_000,
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Tolerance analysis succeeded');
+  assert(Array.isArray(result.pairs), 'Has pairs array');
+
+  // Should find at least one coaxial pair from mates
+  const coaxialPairs = result.pairs.filter(p => p.nominal_d > 0);
+  assert(coaxialPairs.length > 0, `Found ${coaxialPairs.length} tolerance pair(s)`);
+
+  // Each pair should have required fields
+  if (coaxialPairs.length > 0) {
+    const p = coaxialPairs[0];
+    assert(p.bore_part !== undefined, 'Pair has bore_part');
+    assert(p.shaft_part !== undefined, 'Pair has shaft_part');
+    assert(p.fit_type !== undefined, `Pair has fit_type (${p.fit_type})`);
+    assert(p.clearance_min !== undefined, 'Pair has clearance_min');
+    assert(p.spec !== undefined, `Pair has spec (${p.spec})`);
+  }
+}
+
+async function testToleranceFitAnalysis() {
+  console.log('\n--- Test: Fit analysis accuracy ---');
+
+  // Use a simple assembly with known geometry
+  const config = await loadConfig(resolve(ROOT, 'configs/examples/ptu_assembly_mates.toml'));
+  config.export = config.export || {};
+  config.export.directory = resolve(OUTPUT_DIR);
+
+  // Override: force a specific spec for all pairs
+  config.tolerance = { specs: {}, recommend: true };
+
+  const result = await runScript('tolerance_analysis.py', config, {
+    timeout: 120_000,
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Fit analysis succeeded');
+
+  for (const pr of result.pairs || []) {
+    // Verify fit type consistency
+    if (pr.clearance_min > 0) {
+      assert(pr.fit_type === 'clearance', `Positive min clearance → clearance fit (${pr.spec})`);
+    } else if (pr.clearance_max < 0) {
+      assert(pr.fit_type === 'interference', `Negative max clearance → interference fit (${pr.spec})`);
+    } else {
+      assert(pr.fit_type === 'transition', `Mixed clearance → transition fit (${pr.spec})`);
+    }
+  }
+}
+
+async function testToleranceStackUp() {
+  console.log('\n--- Test: Tolerance stack-up calculation ---');
+
+  // Pure Python stack-up test with known values
+  const result = await runScript('tolerance_stackup_test.py', {}, {
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Stack-up test succeeded');
+  const s = result.stack_up;
+  assert(s.chain_length === 3, `Chain length = 3 (got ${s.chain_length})`);
+  assert(s.worst_case_mm > 0, `Worst case > 0 (${s.worst_case_mm})`);
+  assert(s.rss_3sigma_mm > 0, `RSS > 0 (${s.rss_3sigma_mm})`);
+  assert(s.rss_3sigma_mm <= s.worst_case_mm, 'RSS <= worst case');
+  assert(s.success_rate_pct > 95, `Success rate > 95% (${s.success_rate_pct})`);
+}
+
+async function testGDTSymbols() {
+  console.log('\n--- Test: GD&T symbols in drawing ---');
+
+  // Use ptu_assembly_mates.toml which has coaxial mates
+  const config = await loadConfig(resolve(ROOT, 'configs/examples/ptu_assembly_mates.toml'));
+  config.export = config.export || {};
+  config.export.directory = OUTPUT_DIR;
+
+  const result = await runScript('generate_drawing.py', config, {
+    timeout: 120_000,
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Drawing generated');
+  let svgPath = result.drawing_paths[0].path;
+  // Convert Windows/UNC path to WSL path
+  if (svgPath.includes('wsl.localhost') || svgPath.includes('wsl$')) {
+    svgPath = svgPath.replace(/\\/g, '/').replace(/^\/\/wsl\.localhost\/Ubuntu/, '').replace(/^\/\/wsl\$\/Ubuntu/, '');
+  } else if (svgPath.includes('\\')) {
+    svgPath = svgPath.replace(/\\/g, '/');
+    if (svgPath.match(/^[A-Z]:\//)) {
+      svgPath = '/mnt/' + svgPath[0].toLowerCase() + svgPath.slice(2);
+    }
+  }
+
+  // Read SVG and check for GD&T elements
+  const svgContent = readFileSync(svgPath, 'utf8');
+  const hasGDT = svgContent.includes('gdt-symbol');
+  assert(hasGDT, 'SVG contains GD&T symbols (class="gdt-symbol")');
+
+  const hasConcentricity = svgContent.includes('data-type="concentricity"');
+  assert(hasConcentricity, 'SVG contains concentricity symbol for coaxial mates');
+}
+
+async function testEngineeringReport() {
+  console.log('\n--- Test: Engineering PDF report ---');
+
+  const result = await runScript('report_test.py', {}, {
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Report test succeeded');
+  assert(result.size_bytes > 10000, `PDF size > 10KB (got ${result.size_bytes} bytes)`);
+  assert(result.pdf_path.endsWith('_report.pdf'), `PDF path ends with _report.pdf`);
+}
+
+async function testToleranceMonteCarlo() {
+  console.log('\n--- Test: Monte Carlo tolerance simulation ---');
+
+  const result = await runScript('tolerance_mc_test.py', {}, {
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'MC test succeeded');
+  const mc = result.mc_result;
+  assert(mc.chain_length === 3, `Chain length = 3 (got ${mc.chain_length})`);
+  assert(mc.num_samples === 10000, `Samples = 10000 (got ${mc.num_samples})`);
+  assert(mc.mean_mm > 0, `Mean gap > 0 (${mc.mean_mm})`);
+  assert(mc.fail_rate_pct < 5, `Fail rate < 5% (${mc.fail_rate_pct})`);
+  assert(mc.cpk >= 0.5, `Cpk >= 0.5 (${mc.cpk})`);
+  assert(mc.histogram.counts.length === 20, `Histogram 20 bins (got ${mc.histogram.counts.length})`);
+  assert(mc.histogram.edges.length === 21, `Histogram 21 edges (got ${mc.histogram.edges.length})`);
+
+  const p = mc.percentiles;
+  assert(p.p0_1 <= p.p1, 'P0.1 <= P1');
+  assert(p.p1 <= p.p50, 'P1 <= P50');
+  assert(p.p50 <= p.p99, 'P50 <= P99');
+  assert(p.p99 <= p.p99_9, 'P99 <= P99.9');
+
+  const total = mc.histogram.counts.reduce((a, b) => a + b, 0);
+  assert(total === 10000, `Histogram sum = 10000 (got ${total})`);
+}
+
 async function main() {
   console.log('FreeCAD Automation - Integration Tests');
   console.log('=' .repeat(40));
@@ -1867,6 +2053,15 @@ async function main() {
     // Design Reviewer tests (require GEMINI_API_KEY — skipped if not set)
     await testDesignReview();
     await testDesignGenerate();
+
+    // Phase 13: Tolerance Analysis tests
+    await testToleranceDB();
+    await testTolerancePairDetection();
+    await testToleranceFitAnalysis();
+    await testToleranceStackUp();
+    await testToleranceMonteCarlo();
+    await testEngineeringReport();
+    await testGDTSymbols();
   } catch (err) {
     failed++;
     console.error(`\nFATAL: ${err.message}`);

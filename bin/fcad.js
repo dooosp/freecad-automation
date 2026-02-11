@@ -13,12 +13,19 @@ Usage:
   fcad design "description"       AI-generate TOML from natural language, then build
   fcad draw <config.toml|json>    Generate engineering drawing (4-view SVG + BOM)
   fcad fem <config.toml|json>     Run FEM structural analysis
+  fcad tolerance <config.toml>    Tolerance analysis (fit + stack-up)
+  fcad report <config.toml>      Generate engineering PDF report
   fcad inspect <model.step|fcstd> Inspect model metadata
   fcad serve [port]               Start 3D viewer server (default: 3000)
   fcad help                       Show this help
 
 Options:
   --bom                           Export BOM as separate CSV file (with draw)
+  --recommend                     Auto-recommend fit specs (with tolerance)
+  --csv                           Export tolerance report as CSV (with tolerance)
+  --monte-carlo                   Include Monte Carlo simulation (with tolerance/report)
+  --fem                           Include FEM analysis in report
+  --tolerance                     Include tolerance analysis in report (default)
 
 Examples:
   fcad create configs/examples/bracket.toml
@@ -47,6 +54,14 @@ async function main() {
     await cmdDraw(configArg, flags);
   } else if (command === 'fem') {
     await cmdFem(args[0]);
+  } else if (command === 'tolerance') {
+    const flags = args.filter(a => a.startsWith('--'));
+    const configArg = args.find(a => !a.startsWith('--'));
+    await cmdTolerance(configArg, flags);
+  } else if (command === 'report') {
+    const flags = args.filter(a => a.startsWith('--'));
+    const configArg = args.find(a => !a.startsWith('--'));
+    await cmdReport(configArg, flags);
   } else if (command === 'inspect') {
     await cmdInspect(args[0]);
   } else if (command === 'serve') {
@@ -243,6 +258,171 @@ async function cmdFem(configPath) {
         console.log(`    ${exp.format}: ${exp.path} (${exp.size_bytes} bytes)`);
       }
     }
+  } else {
+    console.error(`\nError: ${result.error}`);
+    process.exit(1);
+  }
+
+  return result;
+}
+
+async function cmdTolerance(configPath, flags = []) {
+  if (!configPath) {
+    console.error('Error: config file path required');
+    console.error('  fcad tolerance configs/examples/ptu_assembly_mates.toml');
+    process.exit(1);
+  }
+
+  const absPath = resolve(configPath);
+  console.log(`Loading config: ${absPath}`);
+
+  const config = await loadConfig(absPath);
+
+  // Inject flags into tolerance config
+  config.tolerance = config.tolerance || {};
+  if (flags.includes('--recommend')) {
+    config.tolerance.recommend = true;
+  }
+  if (flags.includes('--csv')) {
+    config.tolerance.csv = true;
+  }
+  if (flags.includes('--monte-carlo')) {
+    config.tolerance.monte_carlo = true;
+  }
+
+  const modelName = config.name || 'unnamed';
+  console.log(`Tolerance Analysis: ${modelName}`);
+
+  const result = await runScript('tolerance_analysis.py', config, {
+    timeout: 120_000,
+    onStderr: (text) => process.stderr.write(text),
+  });
+
+  if (result.success) {
+    const pairs = result.pairs || [];
+    const stack = result.stack_up || {};
+
+    if (pairs.length === 0) {
+      console.log('\nNo tolerance pairs found. Add coaxial mates or [tolerance_pairs] to config.');
+    } else {
+      console.log(`\n=== Tolerance Analysis Report ===\n`);
+      for (const pr of pairs) {
+        console.log(`Pair: ${pr.shaft_part} (${pr.shaft_spec}) ↔ ${pr.bore_part} (${pr.hole_spec})`);
+        console.log(`  Nominal Ø${pr.nominal_d} mm, Spec: ${pr.spec}`);
+        console.log(`  Bore:  ${pr.bore_range}`);
+        console.log(`  Shaft: ${pr.shaft_range}`);
+        console.log(`  Fit: ${pr.fit_type}, Clearance: ${pr.clearance_min.toFixed(3)} ~ ${pr.clearance_max.toFixed(3)} mm`);
+        console.log(`  Status: ${pr.status}`);
+        console.log('');
+      }
+
+      if (stack.chain_length > 0) {
+        console.log(`--- Stack-up Analysis (${stack.chain_length} pairs) ---`);
+        console.log(`  Worst case: ±${(stack.worst_case_mm / 2).toFixed(4)} mm`);
+        console.log(`  RSS (3σ):   ±${(stack.rss_3sigma_mm / 2).toFixed(4)} mm`);
+        console.log(`  Mean gap:   ${stack.mean_gap_mm.toFixed(4)} mm`);
+        console.log(`  Assembly success rate: ${stack.success_rate_pct}%`);
+      }
+
+      // Monte Carlo results
+      const mc = result.monte_carlo;
+      if (mc) {
+        console.log(`\n--- Monte Carlo Simulation (N=${mc.num_samples}, ${mc.distribution}) ---`);
+        console.log(`  Mean gap:   ${mc.mean_mm.toFixed(4)} mm  (σ=${mc.std_mm.toFixed(4)})`);
+        console.log(`  Cpk:        ${mc.cpk}`);
+        console.log(`  Fail rate:  ${mc.fail_rate_pct}%`);
+        const p = mc.percentiles;
+        console.log(`  Percentiles: P0.1=${p.p0_1.toFixed(4)} | P1=${p.p1.toFixed(4)} | P50=${p.p50.toFixed(4)} | P99=${p.p99.toFixed(4)} | P99.9=${p.p99_9.toFixed(4)}`);
+        // ASCII histogram
+        const hist = mc.histogram;
+        const maxCount = Math.max(...hist.counts);
+        console.log(`  Histogram (gap mm):`);
+        for (let i = 0; i < hist.counts.length; i++) {
+          const lo = hist.edges[i].toFixed(3);
+          const barLen = Math.round((hist.counts[i] / maxCount) * 30);
+          const bar = '█'.repeat(barLen);
+          console.log(`    ${lo.padStart(7)} |${bar} ${hist.counts[i]}`);
+        }
+      }
+    }
+
+    if (result.exports?.length > 0) {
+      console.log('\nExports:');
+      for (const exp of result.exports) {
+        console.log(`  ${exp.format.toUpperCase()}: ${exp.path} (${exp.size_bytes} bytes)`);
+      }
+    }
+  } else {
+    console.error(`\nError: ${result.error}`);
+    process.exit(1);
+  }
+
+  return result;
+}
+
+async function cmdReport(configPath, flags = []) {
+  if (!configPath) {
+    console.error('Error: config file path required');
+    console.error('  fcad report configs/examples/ptu_assembly_mates.toml');
+    process.exit(1);
+  }
+
+  const absPath = resolve(configPath);
+  console.log(`Loading config: ${absPath}`);
+  const config = await loadConfig(absPath);
+  const modelName = config.name || 'unnamed';
+
+  const includeTolerance = !flags.includes('--no-tolerance');
+  const includeFem = flags.includes('--fem');
+  const includeMC = flags.includes('--monte-carlo');
+
+  const reportInput = { ...config };
+
+  // Step 1: Run tolerance analysis if needed
+  if (includeTolerance && config.assembly) {
+    console.log('Running tolerance analysis...');
+    config.tolerance = config.tolerance || {};
+    if (includeMC) config.tolerance.monte_carlo = true;
+
+    const tolResult = await runScript('tolerance_analysis.py', config, {
+      timeout: 120_000,
+      onStderr: (text) => process.stderr.write(text),
+    });
+    if (tolResult.success) {
+      reportInput.tolerance_results = {
+        pairs: tolResult.pairs,
+        stack_up: tolResult.stack_up,
+      };
+      if (tolResult.monte_carlo) {
+        reportInput.monte_carlo_results = tolResult.monte_carlo;
+      }
+      console.log(`  ${tolResult.pairs?.length || 0} tolerance pair(s) analyzed`);
+    }
+  }
+
+  // Step 2: Run FEM analysis if requested
+  if (includeFem) {
+    console.log('Running FEM analysis...');
+    const femResult = await runScript('fem_analysis.py', config, {
+      timeout: 300_000,
+      onStderr: (text) => process.stderr.write(text),
+    });
+    if (femResult.success) {
+      reportInput.fem_results = femResult.results;
+      console.log(`  FEM complete: safety factor = ${femResult.results?.safety_factor || '?'}`);
+    }
+  }
+
+  // Step 3: Generate PDF report
+  console.log('Generating PDF report...');
+  const result = await runScript('engineering_report.py', reportInput, {
+    timeout: 60_000,
+    onStderr: (text) => process.stderr.write(text),
+  });
+
+  if (result.success) {
+    console.log(`\n=== Engineering Report Generated ===`);
+    console.log(`  PDF: ${result.path} (${result.size_bytes} bytes)`);
   } else {
     console.error(`\nError: ${result.error}`);
     process.exit(1);

@@ -59,10 +59,12 @@ def nice_scale(raw):
     return min(standards, key=lambda s: abs(s - raw))
 
 
-def compose_svg(views_svg, name, bom, scale, bbox):
+def compose_svg(views_svg, name, bom, scale, bbox, mates=None, tolerance_specs=None):
     """
-    Compose A3 landscape SVG with 4 views, title block, and BOM.
+    Compose A3 landscape SVG with 4 views, title block, BOM, and optional GD&T symbols.
     views_svg: dict of view_name → svg_fragment
+    mates: list of mate constraint dicts (optional, for GD&T)
+    tolerance_specs: dict of "part1/part2" → spec like "H7/g6" (optional)
     """
     # Drawable area (excluding margins and title block)
     draw_w = PAGE_W - 2 * MARGIN
@@ -146,12 +148,29 @@ def compose_svg(views_svg, name, bom, scale, bbox):
             parts.append(f'<text x="{bom_x}" y="{ry}" '
                          f'font-family="monospace" font-size="2.5">'
                          f'{i+1:<3} {_escape(item.get("id","?")):<20} '
-                         f'{_escape(item.get("material","—")):<12} {item.get("count",1):<4}</text>')
+                         f'{_escape(item.get("material","-")):<12} {item.get("count",1):<4}</text>')
         if len(bom) > 4:
             ry = hdr_y + 5 * row_h
             parts.append(f'<text x="{bom_x}" y="{ry}" '
                          f'font-family="monospace" font-size="2.5" fill="#999">'
                          f'... +{len(bom)-4} more items</text>')
+
+    # GD&T symbols layer (placed in front view area)
+    if mates:
+        try:
+            from _gdt_symbols import generate_gdt_for_mates
+            front_pos = positions.get("front", (MARGIN, MARGIN))
+            gdt_x = front_pos[0] + cell_w - 35  # right side of front view
+            gdt_y = front_pos[1] + 20            # offset from top
+            gdt_frags = generate_gdt_for_mates(
+                mates, tolerance_specs=tolerance_specs or {},
+                start_x=gdt_x, start_y=gdt_y, spacing=12,
+            )
+            if gdt_frags:
+                parts.append('<!-- GD&T Symbols -->')
+                parts.extend(gdt_frags)
+        except Exception:
+            pass  # GD&T is optional, don't break drawing
 
     parts.append('</svg>')
     return '\n'.join(parts)
@@ -174,10 +193,10 @@ def extract_bom(config, parts_metadata):
         ref = entry["ref"]
         pc = parts_config.get(ref, {})
         shapes = pc.get("shapes", [])
-        material = shapes[0].get("material", "—") if shapes else "—"
+        material = shapes[0].get("material", "-") if shapes else "-"
 
         # Get dimensions from parts_metadata
-        dims = "—"
+        dims = "-"
         meta = parts_metadata.get(entry.get("label", ref)) or parts_metadata.get(ref)
         if meta and "bounding_box" in meta:
             bb = meta["bounding_box"]
@@ -305,8 +324,11 @@ try:
     # --- Extract BOM ---
     bom = extract_bom(config, parts_metadata) if is_assembly else []
 
-    # --- Compose SVG ---
-    svg_content = compose_svg(views_svg, model_name, bom, scale, bbox)
+    # --- Compose SVG (with optional GD&T symbols) ---
+    mates = config.get("assembly", {}).get("mates", []) if is_assembly else []
+    tol_specs = config.get("tolerance", {}).get("specs", {})
+    svg_content = compose_svg(views_svg, model_name, bom, scale, bbox,
+                              mates=mates, tolerance_specs=tol_specs)
 
     # --- Save SVG ---
     export_dir = config.get("export", {}).get("directory", ".")
