@@ -61,6 +61,22 @@ target = "body"
 radius = 2
 result = "final"
 
+# --- Drawing ---
+
+[drawing]
+views = ["front", "top", "right", "iso"]
+
+[drawing.meta]
+part_name = "Mounting Bracket"
+drawing_no = "BRKT-001"
+material = "SS304"
+tolerance = "ISO 2768-m"
+designed_by = "TH Jang"
+
+[drawing.style]
+show_hidden = true
+show_centerlines = true
+
 # --- Export ---
 
 [export]

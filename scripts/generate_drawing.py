@@ -49,16 +49,21 @@ EDGE_NAMES = [
 ]
 
 # group_index -> (stroke-width, color, dash-array|None)
+# ISO 128: Thick(0.7) for visible outlines, Thin(0.25-0.35) for hidden/dimensions
 LINE_STYLES = {
-    0: ("0.7",  "#000", None),
-    1: ("0.35", "#000", "3,1.5"),
-    2: ("0.5",  "#000", None),
-    3: ("0.25", "#444", "2,1"),
-    5: ("0.35", "#000", None),
-    6: ("0.25", "#555", "2,1"),
-    8: ("0.18", "#888", None),
-    9: ("0.13", "#aaa", "1,1"),
+    0: ("0.7",  "#000", None),          # Hard visible — thick solid
+    1: ("0.30", "#000", "4,2"),          # Hard hidden — thin dashed (longer dash)
+    2: ("0.50", "#000", None),           # Outer visible — medium solid
+    3: ("0.20", "#333", "3,1.5"),        # Outer hidden — thin dashed
+    5: ("0.35", "#000", None),           # Smooth visible — medium solid
+    6: ("0.20", "#444", "3,1.5"),        # Smooth hidden — thin dashed
+    8: ("0.13", "#999", None),           # ISO visible — extra-thin solid
+    9: ("0.10", "#bbb", "1.5,1"),        # ISO hidden — extra-thin dashed
 }
+
+# Global SVG line attributes for industrial look
+LINE_CAP = "round"
+LINE_JOIN = "round"
 
 RENDER_ORDER = [9, 6, 3, 1, 8, 5, 2, 0]
 
@@ -168,7 +173,8 @@ def project_view(shape, direction, view_name):
 
 # -- SVG Rendering -------------------------------------------------------------
 
-def render_view_svg(vname, groups, bounds, centers, cx, cy, scale):
+def render_view_svg(vname, groups, bounds, centers, cx, cy, scale,
+                    show_hidden=True, show_centerlines=True):
     """Render one view's edges as SVG, centered at (cx, cy) on the page."""
     out = []
     u0, v0, u1, v1 = bounds
@@ -177,11 +183,17 @@ def render_view_svg(vname, groups, bounds, centers, cx, cy, scale):
     def pg(u, v):
         return cx + (u - bcx) * scale, cy - (v - bcy) * scale
 
+    # Hidden line groups: 1, 3, 6, 9
+    hidden_groups = {1, 3, 6, 9}
+
     for gi in RENDER_ORDER:
         if gi not in groups:
             continue
+        if not show_hidden and gi in hidden_groups:
+            continue
         w, color, dash = LINE_STYLES[gi]
-        attr = f'stroke="{color}" stroke-width="{w}" fill="none"'
+        attr = (f'stroke="{color}" stroke-width="{w}" fill="none" '
+                f'stroke-linecap="{LINE_CAP}" stroke-linejoin="{LINE_JOIN}"')
         if dash:
             attr += f' stroke-dasharray="{dash}"'
         gn = EDGE_NAMES[gi] if gi < len(EDGE_NAMES) else f"g{gi}"
@@ -204,17 +216,56 @@ def render_view_svg(vname, groups, bounds, centers, cx, cy, scale):
 
         out.append('</g>')
 
-    # Center lines for circular features
-    if centers:
-        arm = min(CELL_W, CELL_H) * 0.08
-        out.append('<g class="centerlines" stroke="#d00" stroke-width="0.18" '
-                   'fill="none" stroke-dasharray="6,2,1,2">')
+    # Center lines for circular features (ISO chain line: long-dash-dot)
+    # Also compute radius info for proportional arm extension
+    if centers and show_centerlines:
+        # Find max circle radius from groups for proportional arm sizing
+        max_r_scaled = 0
+        for gi in groups:
+            for e in groups[gi]:
+                if "circ" in e:
+                    max_r_scaled = max(max_r_scaled, e["circ"][2] * scale)
+        arm_base = max(max_r_scaled * 1.3, min(CELL_W, CELL_H) * 0.06)
+
+        out.append('<g class="centerlines" stroke="#000" stroke-width="0.18" '
+                   'fill="none" stroke-dasharray="8,2,1.5,2" '
+                   f'stroke-linecap="{LINE_CAP}">')
         for cu, cv in centers:
             px, py = pg(cu, cv)
+            # Find this circle's radius for proportional arm
+            circ_r = 0
+            for gi in groups:
+                for e in groups[gi]:
+                    if "circ" in e:
+                        cc = e["circ"]
+                        if abs(cc[0] - cu) < 0.01 and abs(cc[1] - cv) < 0.01:
+                            circ_r = max(circ_r, cc[2] * scale)
+            arm = max(circ_r * 1.3, arm_base) if circ_r > 0 else arm_base
             out.append(f'  <line x1="{px-arm:.2f}" y1="{py:.2f}" '
                        f'x2="{px+arm:.2f}" y2="{py:.2f}"/>')
             out.append(f'  <line x1="{px:.2f}" y1="{py-arm:.2f}" '
                        f'x2="{px:.2f}" y2="{py+arm:.2f}"/>')
+        out.append('</g>')
+
+    # Symmetry axis center lines (if view bounds suggest symmetric shape)
+    bw = (u1 - u0) * scale
+    bh = (v1 - v0) * scale
+    sym_margin = min(CELL_W, CELL_H) * 0.04  # extend beyond shape
+    if show_centerlines and bw > 5 and bh > 5:  # only for non-trivial shapes
+        mid_u = (u0 + u1) / 2
+        mid_v = (v0 + v1) / 2
+        px_mid, py_mid = pg(mid_u, mid_v)
+        half_w = bw / 2 + sym_margin
+        half_h = bh / 2 + sym_margin
+        out.append('<g class="symmetry-axes" stroke="#000" stroke-width="0.13" '
+                   'fill="none" stroke-dasharray="8,2,1.5,2" '
+                   f'stroke-linecap="{LINE_CAP}" opacity="0.5">')
+        # Horizontal symmetry axis
+        out.append(f'  <line x1="{px_mid-half_w:.2f}" y1="{py_mid:.2f}" '
+                   f'x2="{px_mid+half_w:.2f}" y2="{py_mid:.2f}"/>')
+        # Vertical symmetry axis
+        out.append(f'  <line x1="{px_mid:.2f}" y1="{py_mid-half_h:.2f}" '
+                   f'x2="{px_mid:.2f}" y2="{py_mid+half_h:.2f}"/>')
         out.append('</g>')
 
     # View label
@@ -228,12 +279,60 @@ def render_view_svg(vname, groups, bounds, centers, cx, cy, scale):
 
 # -- A3 Drawing Composition ---------------------------------------------------
 
-def compose_drawing(views_svg, name, bom, scale, bbox, mates=None, tol_specs=None):
-    """Assemble full A3 landscape SVG with views, title block, BOM, legend, GD&T."""
+def _render_3rd_angle_symbol(x, y, size=10):
+    """Render ISO 128 3rd angle projection symbol (truncated cone + circle)."""
+    s = size
+    hs = s / 2
+    parts = [f'<g class="projection-symbol" transform="translate({x},{y})">']
+    # Left: truncated cone (front view)
+    parts.append(f'<line x1="0" y1="{-hs}" x2="0" y2="{hs}" '
+                 f'stroke="black" stroke-width="0.35"/>')
+    parts.append(f'<line x1="0" y1="{-hs*0.4}" x2="{s*0.6}" y2="{-hs}" '
+                 f'stroke="black" stroke-width="0.35"/>')
+    parts.append(f'<line x1="0" y1="{hs*0.4}" x2="{s*0.6}" y2="{hs}" '
+                 f'stroke="black" stroke-width="0.35"/>')
+    parts.append(f'<line x1="{s*0.6}" y1="{-hs}" x2="{s*0.6}" y2="{hs}" '
+                 f'stroke="black" stroke-width="0.35"/>')
+    # Center line through cone
+    parts.append(f'<line x1="{-1}" y1="0" x2="{s*0.6+1}" y2="0" '
+                 f'stroke="black" stroke-width="0.13" stroke-dasharray="2,1"/>')
+    # Right: circle (side view of cone)
+    cx_r = s * 0.6 + s * 0.45
+    parts.append(f'<circle cx="{cx_r}" cy="0" r="{hs}" '
+                 f'fill="none" stroke="black" stroke-width="0.35"/>')
+    parts.append(f'<circle cx="{cx_r}" cy="0" r="{hs*0.4}" '
+                 f'fill="none" stroke="black" stroke-width="0.35"/>')
+    # Center crosshair on circle
+    parts.append(f'<line x1="{cx_r-hs-1}" y1="0" x2="{cx_r+hs+1}" y2="0" '
+                 f'stroke="black" stroke-width="0.13" stroke-dasharray="2,1"/>')
+    parts.append(f'<line x1="{cx_r}" y1="{-hs-1}" x2="{cx_r}" y2="{hs+1}" '
+                 f'stroke="black" stroke-width="0.13" stroke-dasharray="2,1"/>')
+    parts.append('</g>')
+    return '\n'.join(parts)
+
+
+def _render_hatch_pattern():
+    """SVG <defs> for 45-degree cross-hatch pattern (ISO 128 section hatching)."""
+    return (
+        '<defs>'
+        '<pattern id="hatch45" patternUnits="userSpaceOnUse" width="3" height="3" '
+        'patternTransform="rotate(45)">'
+        '<line x1="0" y1="0" x2="0" y2="3" stroke="#555" stroke-width="0.15"/>'
+        '</pattern>'
+        '</defs>'
+    )
+
+
+def compose_drawing(views_svg, name, bom, scale, bbox,
+                    mates=None, tol_specs=None, meta=None, style_cfg=None):
+    """Assemble full A3 landscape SVG with views, ISO 7200 title block, BOM, legend, GD&T."""
+    meta = meta or {}
+    style_cfg = style_cfg or {}
     p = []
     p.append(f'<svg xmlns="http://www.w3.org/2000/svg" '
              f'width="{PAGE_W}mm" height="{PAGE_H}mm" viewBox="0 0 {PAGE_W} {PAGE_H}">')
     p.append(f'<rect width="{PAGE_W}" height="{PAGE_H}" fill="white"/>')
+    p.append(_render_hatch_pattern())
 
     # ISO 5457 double border
     bw, bh = PAGE_W - 2 * MARGIN, PAGE_H - 2 * MARGIN
@@ -242,75 +341,137 @@ def compose_drawing(views_svg, name, bom, scale, bbox, mates=None, tol_specs=Non
     p.append(f'<rect x="{MARGIN+1}" y="{MARGIN+1}" width="{bw-2}" height="{bh-2}" '
              f'fill="none" stroke="black" stroke-width="0.35"/>')
 
-    # Cell dividers
+    # Cell dividers (lighter, less distracting)
     for _, (ccx, ccy) in VIEW_CELLS.items():
         x0, y0 = ccx - CELL_W / 2, ccy - CELL_H / 2
         p.append(f'<rect x="{x0:.1f}" y="{y0:.1f}" width="{CELL_W:.1f}" '
-                 f'height="{CELL_H:.1f}" fill="none" stroke="#ddd" '
-                 f'stroke-width="0.2" stroke-dasharray="4,2"/>')
+                 f'height="{CELL_H:.1f}" fill="none" stroke="#ccc" '
+                 f'stroke-width="0.15" stroke-dasharray="6,3"/>')
 
     # View content
     for vn, svg in views_svg.items():
         p.append(f'<!-- {vn.upper()} -->')
         p.append(svg)
 
-    # Title block
+    # ── ISO 7200 Title Block ──────────────────────────────────────────────
     tb_y = PAGE_H - MARGIN - TITLE_H
-    p.append(f'<rect x="{MARGIN}" y="{tb_y}" width="{DRAW_W}" height="{TITLE_H}" '
-             f'fill="#f8f8f8" stroke="black" stroke-width="0.5"/>')
-    mid_x = MARGIN + DRAW_W * 0.55
-    p.append(f'<line x1="{mid_x}" y1="{tb_y}" x2="{mid_x}" y2="{PAGE_H - MARGIN}" '
-             f'stroke="black" stroke-width="0.3"/>')
+    tb_x = MARGIN
+    tb_w = DRAW_W
+    tb_h = TITLE_H
+    tb_bottom = PAGE_H - MARGIN
+
+    # Title block background
+    p.append(f'<rect x="{tb_x}" y="{tb_y}" width="{tb_w}" height="{tb_h}" '
+             f'fill="#fafafa" stroke="black" stroke-width="0.5"/>')
+
+    # Layout: left zone (BOM + legend) | right zone (ISO 7200 fields)
+    # Right zone width: 170mm (standardized for ISO 7200)
+    rz_w = 170
+    rz_x = tb_x + tb_w - rz_w
+    p.append(f'<line x1="{rz_x}" y1="{tb_y}" x2="{rz_x}" y2="{tb_bottom}" '
+             f'stroke="black" stroke-width="0.35"/>')
+
+    # ── Right Zone: ISO 7200 compartments ──
+    # 4 rows, 2 columns
+    row_h = tb_h / 4
+    col_w = rz_w / 2
 
     sl = f"1:{round(1/scale)}" if scale < 1 else f"{round(scale)}:1"
     dt = _date.today().isoformat()
-    p.append(f'<text x="{MARGIN+5}" y="{tb_y+10}" font-family="sans-serif" '
-             f'font-size="6" font-weight="bold">{_escape(name)}</text>')
-    p.append(f'<text x="{MARGIN+5}" y="{tb_y+18}" font-family="monospace" '
-             f'font-size="3" fill="#444">'
-             f'Scale: {sl}  |  A3 Landscape  |  3rd Angle Projection</text>')
-    p.append(f'<text x="{MARGIN+5}" y="{tb_y+24}" font-family="monospace" '
-             f'font-size="3" fill="#444">'
-             f'Date: {dt}  |  '
+
+    fields = [
+        # (row, col, label, value)
+        (0, 0, "PART NAME",    meta.get("part_name", _escape(name))),
+        (0, 1, "DRAWING NO.",  meta.get("drawing_no", "-")),
+        (1, 0, "MATERIAL",     meta.get("material", "-")),
+        (1, 1, "SCALE",        sl),
+        (2, 0, "TOLERANCE",    meta.get("tolerance", "ISO 2768-m")),
+        (2, 1, "DATE",         dt),
+        (3, 0, "DESIGNED BY",  meta.get("designed_by", "-")),
+        (3, 1, "SIZE / SHEET", "A3"),
+    ]
+
+    # Draw grid lines
+    for row in range(1, 4):
+        ry = tb_y + row * row_h
+        p.append(f'<line x1="{rz_x}" y1="{ry:.1f}" x2="{tb_x+tb_w}" y2="{ry:.1f}" '
+                 f'stroke="black" stroke-width="0.25"/>')
+    # Vertical divider in right zone
+    col_div_x = rz_x + col_w
+    p.append(f'<line x1="{col_div_x:.1f}" y1="{tb_y}" x2="{col_div_x:.1f}" y2="{tb_bottom}" '
+             f'stroke="black" stroke-width="0.25"/>')
+
+    # Fill fields
+    for row, col, label, value in fields:
+        fx = rz_x + col * col_w + 2
+        fy = tb_y + row * row_h
+        # Label (small, gray)
+        p.append(f'<text x="{fx:.1f}" y="{fy+3.5:.1f}" font-family="sans-serif" '
+                 f'font-size="2" fill="#888" letter-spacing="0.3">{label}</text>')
+        # Value (larger, bold for row 0)
+        fw = "bold" if row == 0 else "normal"
+        fs = "4.5" if row == 0 else "3.5"
+        p.append(f'<text x="{fx:.1f}" y="{fy+row_h-1.5:.1f}" font-family="sans-serif" '
+                 f'font-size="{fs}" font-weight="{fw}">{_escape(str(value))}</text>')
+
+    # 3rd Angle Projection symbol (bottom-right corner of title block)
+    sym_x = tb_x + tb_w - 18
+    sym_y = tb_bottom - row_h / 2
+    p.append(_render_3rd_angle_symbol(sym_x, sym_y, size=8))
+
+    # Bounding box info (small text under sheet size)
+    bbox_x = col_div_x + 2
+    bbox_y = tb_y + 3 * row_h + 3.5
+    p.append(f'<text x="{bbox_x:.1f}" y="{bbox_y:.1f}" font-family="monospace" '
+             f'font-size="1.8" fill="#999">'
              f'BBox: {bbox.XLength:.0f} x {bbox.YLength:.0f} x {bbox.ZLength:.0f} mm</text>')
 
-    # Line legend
-    leg_y = tb_y + 31
-    leg_x = MARGIN + 5
+    # ── Left Zone: Line Legend + BOM ──────────────────────────────────────
+    lz_w = rz_x - tb_x
+
+    # Line legend (bottom of left zone)
+    leg_y = tb_bottom - 5
+    leg_x = tb_x + 4
     for label, color, w, dash in [("Visible", "#000", "0.7", None),
-                                   ("Hidden", "#000", "0.35", "3,1.5"),
-                                   ("Center", "#d00", "0.18", "6,2,1,2")]:
-        la = f'stroke="{color}" stroke-width="{w}"'
+                                   ("Hidden", "#000", "0.30", "4,2"),
+                                   ("Center", "#000", "0.18", "8,2,1.5,2")]:
+        la = f'stroke="{color}" stroke-width="{w}" stroke-linecap="{LINE_CAP}"'
         if dash:
             la += f' stroke-dasharray="{dash}"'
-        p.append(f'<line x1="{leg_x}" y1="{leg_y}" x2="{leg_x+12}" '
+        p.append(f'<line x1="{leg_x}" y1="{leg_y}" x2="{leg_x+10}" '
                  f'y2="{leg_y}" {la}/>')
-        p.append(f'<text x="{leg_x+14}" y="{leg_y+1}" font-family="monospace" '
-                 f'font-size="2.2" fill="#666">{label}</text>')
-        leg_x += 40
+        p.append(f'<text x="{leg_x+12}" y="{leg_y+0.8}" font-family="monospace" '
+                 f'font-size="2" fill="#666">{label}</text>')
+        leg_x += 32
 
-    # BOM (right half of title block)
+    # BOM table (top of left zone)
     if bom:
-        bx = mid_x + 5
-        by = tb_y + 4
-        rh = 4.5
-        p.append(f'<text x="{bx}" y="{by+4}" font-family="monospace" '
-                 f'font-size="3" font-weight="bold">BOM</text>')
-        hy = by + 8
+        bx = tb_x + 3
+        by = tb_y + 2
+        rh = 4.2
+        # BOM header
+        p.append(f'<text x="{bx}" y="{by+3.5}" font-family="sans-serif" '
+                 f'font-size="2.5" font-weight="bold" fill="#333">BILL OF MATERIALS</text>')
+        # Column headers
+        hy = by + 7
+        p.append(f'<line x1="{bx}" y1="{hy+1}" x2="{rz_x-3}" y2="{hy+1}" '
+                 f'stroke="#ccc" stroke-width="0.2"/>')
         p.append(f'<text x="{bx}" y="{hy}" font-family="monospace" '
-                 f'font-size="2.5" fill="#666">'
-                 f'{"#":<3} {"Part":<20} {"Material":<12} {"Qty":<4}</text>')
-        for i, item in enumerate(bom[:4]):
+                 f'font-size="2" fill="#888" letter-spacing="0.2">'
+                 f'{"#":<3}  {"PART":<18} {"MATERIAL":<10} {"QTY":<3}</text>')
+        max_rows = min(len(bom), 5)
+        for i in range(max_rows):
+            item = bom[i]
             ry = hy + (i + 1) * rh
             p.append(f'<text x="{bx}" y="{ry}" font-family="monospace" '
-                     f'font-size="2.5">'
-                     f'{i+1:<3} {_escape(item.get("id","?")):<20} '
-                     f'{_escape(item.get("material","-")):<12} '
-                     f'{item.get("count",1):<4}</text>')
-        if len(bom) > 4:
-            ry = hy + 5 * rh
+                     f'font-size="2.2">'
+                     f'{i+1:<3}  {_escape(item.get("id","?")):<18} '
+                     f'{_escape(item.get("material","-")):<10} '
+                     f'{item.get("count",1):<3}</text>')
+        if len(bom) > 5:
+            ry = hy + (max_rows + 1) * rh
             p.append(f'<text x="{bx}" y="{ry}" font-family="monospace" '
-                     f'font-size="2.5" fill="#999">... +{len(bom)-4} more</text>')
+                     f'font-size="2" fill="#999">... +{len(bom)-5} more items</text>')
 
     # GD&T symbols
     if mates:
@@ -333,6 +494,108 @@ def compose_drawing(views_svg, name, bom, scale, bbox, mates=None, tol_specs=Non
 
 
 # -- Helpers -------------------------------------------------------------------
+
+def make_section(shape, plane="XZ", offset=0.0):
+    """Cut shape with a plane and return the cross-section wire/face.
+
+    Args:
+        shape: Part.Shape to section
+        plane: "XZ" (front section) or "YZ" (side section) or "XY" (top section)
+        offset: offset along the normal direction (mm)
+
+    Returns: (section_shape, view_direction, label) or None
+    """
+    import Part
+    from FreeCAD import Vector
+
+    bbox = shape.BoundBox
+    plane_map = {
+        "XZ": (Vector(0, 1, 0), Vector(0, offset or bbox.Center.y, 0), (0, -1, 0), "A-A"),
+        "YZ": (Vector(1, 0, 0), Vector(offset or bbox.Center.x, 0, 0), (1, 0, 0), "B-B"),
+        "XY": (Vector(0, 0, 1), Vector(0, 0, offset or bbox.Center.z), (0, 0, -1), "C-C"),
+    }
+
+    if plane not in plane_map:
+        return None
+
+    normal, base_pt, view_dir, label = plane_map[plane]
+
+    try:
+        # Create large cutting box
+        half = max(bbox.DiagonalLength, 500)
+        cut_plane = Part.makePlane(half * 2, half * 2, base_pt - Vector(half, half, half))
+        # Use slice to get cross-section wires
+        wires = shape.slice(normal, base_pt.dot(normal))
+        if not wires:
+            return None
+        # Build compound from wires
+        section_compound = Part.Compound(wires)
+        return (section_compound, view_dir, label)
+    except Exception:
+        return None
+
+
+def render_section_svg(label, groups, bounds, centers, cx, cy, scale, shape_bounds):
+    """Render section view with hatching and section label.
+
+    Like render_view_svg but adds:
+    - 45-degree hatching fill for the sectioned area
+    - Section label (e.g., "SECTION A-A")
+    """
+    out = []
+    u0, v0, u1, v1 = bounds
+    bcx, bcy = (u0 + u1) / 2, (v0 + v1) / 2
+
+    def pg(u, v):
+        return cx + (u - bcx) * scale, cy - (v - bcy) * scale
+
+    # Render edges (visible only — sections show cut face outline)
+    for gi in [0, 2, 5]:  # visible groups only
+        if gi not in groups:
+            continue
+        w, color, dash = LINE_STYLES[gi]
+        attr = (f'stroke="{color}" stroke-width="{w}" fill="none" '
+                f'stroke-linecap="{LINE_CAP}" stroke-linejoin="{LINE_JOIN}"')
+        gn = EDGE_NAMES[gi] if gi < len(EDGE_NAMES) else f"g{gi}"
+        out.append(f'<g class="section-{gn}" {attr}>')
+
+        for e in groups[gi]:
+            if "circ" in e:
+                cu, cv, r = e["circ"]
+                px, py = pg(cu, cv)
+                out.append(f'  <circle cx="{px:.2f}" cy="{py:.2f}" r="{r*scale:.2f}"/>')
+            else:
+                pts = e["pts"]
+                if len(pts) < 2:
+                    continue
+                pp = [pg(u, v) for u, v in pts]
+                d = f'M{pp[0][0]:.2f},{pp[0][1]:.2f}'
+                for x, y in pp[1:]:
+                    d += f'L{x:.2f},{y:.2f}'
+                out.append(f'  <path d="{d}"/>')
+
+        out.append('</g>')
+
+    # Hatching overlay: bounding rectangle with hatch pattern
+    # (simplified: fills the view area with 45-deg hatch; real section
+    #  would clip to the cross-section boundary)
+    hw = (u1 - u0) * scale
+    hh = (v1 - v0) * scale
+    hx = cx - hw / 2
+    hy = cy - hh / 2
+    if hw > 0 and hh > 0:
+        out.append(f'<rect x="{hx:.2f}" y="{hy:.2f}" width="{hw:.2f}" height="{hh:.2f}" '
+                   f'fill="url(#hatch45)" stroke="none" opacity="0.4"/>')
+
+    # Section label
+    lx = cx
+    ly = cy - CELL_H / 2 + 8
+    out.append(f'<text x="{lx:.1f}" y="{ly:.1f}" font-family="sans-serif" '
+               f'font-size="4" font-weight="bold" text-anchor="middle" '
+               f'fill="#333">SECTION {label}</text>')
+
+    return '\n'.join(out)
+
 
 def tight_bbox(shape):
     """Compute tight bounding box from actual vertices.
@@ -505,11 +768,39 @@ try:
         n_edges = sum(len(v) for v in groups.values())
         log(f"  View '{vname}': {n_edges} edges")
 
-        svg = render_view_svg(vname, groups, bounds, centers, cx, cy, scale)
+        show_hidden = drawing_cfg.get("style", {}).get("show_hidden", True)
+        show_cl = drawing_cfg.get("style", {}).get("show_centerlines", True)
+        svg = render_view_svg(vname, groups, bounds, centers, cx, cy, scale,
+                              show_hidden=show_hidden, show_centerlines=show_cl)
         views_svg[vname] = svg
 
     if not views_svg:
         respond_error("No views could be projected. Shape may be empty.")
+
+    # -- Section View (optional) --
+    section_cfg = drawing_cfg.get("section")
+    if section_cfg:
+        sec_plane = section_cfg.get("plane", "XZ")
+        sec_offset = section_cfg.get("offset", 0.0)
+        sec_result = make_section(compound, sec_plane, sec_offset)
+        if sec_result:
+            sec_shape, sec_dir, sec_label = sec_result
+            sec_groups, sec_bounds, sec_centers = project_view(
+                sec_shape, sec_dir, "front")
+            if sec_groups:
+                # Place section in ISO cell (top-right), replacing ISO if present
+                sec_cx, sec_cy = VIEW_CELLS.get("iso", VIEW_CELLS["right"])
+                sec_svg = render_section_svg(
+                    sec_label, sec_groups, sec_bounds, sec_centers,
+                    sec_cx, sec_cy, scale, bounds if 'bounds' in dir() else None)
+                views_svg["section"] = sec_svg
+                if "iso" in views_svg:
+                    del views_svg["iso"]
+                log(f"  Section '{sec_label}': {sum(len(v) for v in sec_groups.values())} edges")
+            else:
+                log(f"  Section '{sec_label}': no edges (empty cross-section)")
+        else:
+            log(f"  Section: failed to create section on plane {sec_plane}")
 
     # -- Extract BOM --
     bom = extract_bom(config, parts_metadata) if is_assembly else []
@@ -518,9 +809,12 @@ try:
     mates = (config.get("assembly", {}).get("mates", [])
              if is_assembly else [])
     tol_specs = config.get("tolerance", {}).get("specs", {})
+    drawing_meta = drawing_cfg.get("meta", {})
+    drawing_style = drawing_cfg.get("style", {})
     svg_content = compose_drawing(
         views_svg, model_name, bom, scale, bbox,
-        mates=mates, tol_specs=tol_specs)
+        mates=mates, tol_specs=tol_specs,
+        meta=drawing_meta, style_cfg=drawing_style)
 
     # -- Save SVG --
     export_dir = config.get("export", {}).get("directory", ".")
