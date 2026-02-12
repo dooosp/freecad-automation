@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { resolve, join, dirname } from 'node:path';
-import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, existsSync, unlinkSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { loadConfig } from '../lib/config-loader.js';
@@ -176,18 +176,40 @@ async function cmdDraw(configPath, flags = []) {
       }
     }
 
-    // Step 2: SVG Post-Processing
+    // Step 2-3: Post-process + QA (with before/after merge)
     const svgPaths = (result.drawing_paths || [])
       .filter(dp => dp.format === 'svg')
-      .map(dp => dp.path);
+      .map(dp => dp.path.replace(/\\/g, '/'));
+    const qaScript = join(PROJECT_ROOT, 'scripts', 'qa_scorer.py');
+    const ppScript = join(PROJECT_ROOT, 'scripts', 'postprocess_svg.py');
+    const failIdx = flags.indexOf('--fail-under');
+    const failUnder = failIdx >= 0 && flags[failIdx + 1] ? ` --fail-under ${flags[failIdx + 1]}` : '';
 
-    if (svgPaths.length > 0 && !flags.includes('--raw')) {
-      console.log('\nPost-processing SVG...');
-      for (const svgPath of svgPaths) {
+    for (const svgPath of svgPaths) {
+      const reportJson = svgPath.replace('.svg', '_repair_report.json');
+      const qaJson = svgPath.replace('.svg', '_qa.json');
+
+      // Step 2a: QA before (on raw SVG)
+      let qaBefore = null;
+      if (!flags.includes('--no-score') && !flags.includes('--raw')) {
         try {
-          const ppScript = join(PROJECT_ROOT, 'scripts', 'postprocess_svg.py');
+          const qaBeforeJson = svgPath.replace('.svg', '_qa_before.json');
+          execSync(
+            `python3 "${qaScript}" "${svgPath}" --json "${qaBeforeJson}"`,
+            { cwd: PROJECT_ROOT, encoding: 'utf-8', timeout: 30_000 }
+          );
+          qaBefore = JSON.parse(readFileSync(qaBeforeJson, 'utf-8'));
+        } catch (e) {
+          console.error(`  QA before warning: ${e.message}`);
+        }
+      }
+
+      // Step 2b: SVG Post-Processing
+      if (!flags.includes('--raw')) {
+        console.log('\nPost-processing SVG...');
+        try {
           const ppOut = execSync(
-            `python3 "${ppScript}" "${svgPath}" -o "${svgPath}"`,
+            `python3 "${ppScript}" "${svgPath}" -o "${svgPath}" --report "${reportJson}"`,
             { cwd: PROJECT_ROOT, encoding: 'utf-8', timeout: 30_000 }
           );
           if (ppOut.trim()) console.log(ppOut.trim());
@@ -195,25 +217,49 @@ async function cmdDraw(configPath, flags = []) {
           console.error(`  Post-process warning: ${e.message}`);
         }
       }
-    }
 
-    // Step 3: QA Scoring
-    if (svgPaths.length > 0 && !flags.includes('--no-score')) {
-      console.log('\nQA Scoring...');
-      for (const svgPath of svgPaths) {
+      // Step 3: QA after + merge into repair report
+      if (!flags.includes('--no-score')) {
+        console.log('\nQA Scoring...');
         try {
-          const qaScript = join(PROJECT_ROOT, 'scripts', 'qa_scorer.py');
-          const qaJson = svgPath.replace('.svg', '_qa.json');
-          const failIdx = args.indexOf('--fail-under');
-          const failUnder = failIdx >= 0 && args[failIdx + 1] ? ` --fail-under ${args[failIdx + 1]}` : '';
           const qaOut = execSync(
             `python3 "${qaScript}" "${svgPath}" --json "${qaJson}"${failUnder}`,
             { cwd: PROJECT_ROOT, encoding: 'utf-8', timeout: 30_000 }
           );
           if (qaOut.trim()) console.log(qaOut.trim());
+
+          // Merge qa_diff into repair report
+          if (!flags.includes('--raw') && qaBefore) {
+            try {
+              const qaAfter = JSON.parse(readFileSync(qaJson, 'utf-8'));
+              const repairReport = JSON.parse(readFileSync(reportJson, 'utf-8'));
+              const beforeMetrics = qaBefore.metrics || {};
+              const afterMetrics = qaAfter.metrics || {};
+              const delta = {};
+              for (const key of Object.keys(beforeMetrics)) {
+                const bv = typeof beforeMetrics[key] === 'number' ? beforeMetrics[key] : 0;
+                const av = typeof afterMetrics[key] === 'number' ? afterMetrics[key] : 0;
+                delta[key] = av - bv;
+              }
+              repairReport.qa_diff = {
+                before: { score: qaBefore.score, metrics: beforeMetrics },
+                after: { score: qaAfter.score, metrics: afterMetrics },
+                delta: { score: (qaAfter.score || 0) - (qaBefore.score || 0), metrics: delta },
+                gate: {
+                  fail_under: failUnder ? parseInt(flags[failIdx + 1]) : null,
+                  passed: !failUnder || (qaAfter.score || 0) >= parseInt(flags[failIdx + 1]),
+                },
+              };
+              writeFileSync(reportJson, JSON.stringify(repairReport, null, 2));
+              console.log(`  QA diff: ${qaBefore.score} → ${qaAfter.score} (${qaAfter.score - qaBefore.score >= 0 ? '+' : ''}${qaAfter.score - qaBefore.score})`);
+              // Clean up temporary before file
+              try { unlinkSync(svgPath.replace('.svg', '_qa_before.json')); } catch {}
+            } catch (mergeErr) {
+              console.error(`  QA merge warning: ${mergeErr.message}`);
+            }
+          }
         } catch (e) {
           if (e.status) {
-            // --fail-under triggered
             console.error(e.stdout || e.message);
             process.exit(1);
           }

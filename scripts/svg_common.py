@@ -34,6 +34,14 @@ GEOMETRY_CLASSES = frozenset({
     "centerlines", "symmetry-axes",
 })
 
+ANNOTATION_PREFIXES = (
+    "dimensions-", "datums-", "gdt-", "chamfer-callouts",
+    "surface-finish", "thread-callouts", "ordinate-dimensions",
+    "baseline-dimensions",
+)
+
+TITLEBLOCK_Y = 247.0
+
 
 # -- BBox ---------------------------------------------------------------------
 

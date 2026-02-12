@@ -4,6 +4,8 @@
 Rule-based filter applied to generate_drawing.py output.
 Does NOT modify generate_drawing.py — works on output SVG only.
 
+Report schema v0.3: meta, summary, risks, qa_diff (placeholder), changes.
+
 Usage:
     python scripts/postprocess_svg.py input.svg -o output.svg [--profile ks] [--report report.json]
     python scripts/postprocess_svg.py input.svg --dry-run --report report.json
@@ -13,6 +15,8 @@ import json
 import sys
 import os
 import re
+import time
+from datetime import datetime, timezone, timedelta
 
 sys.path.insert(0, os.path.dirname(__file__))
 from svg_common import (
@@ -22,6 +26,9 @@ from svg_common import (
     round_float_str, count_long_floats_in_str,
     HIDDEN_CLASSES, BBox,
 )
+from svg_repair import rebuild_notes, repair_text_overlaps, repair_overflow
+
+VERSION = "0.3.0"
 
 
 # -- Stroke Profile ------------------------------------------------------------
@@ -52,14 +59,11 @@ _DIM_PROFILE = {"stroke-width": "0.18", "vector-effect": "non-scaling-stroke"}
 # -- P0 Rule 1: Remove ISO hidden lines ----------------------------------------
 
 def remove_iso_hidden(tree):
-    """Remove hidden-line groups that fall within the ISO cell.
-
-    Returns number of removed groups.
-    """
+    """Remove hidden-line groups that fall within the ISO cell."""
     root = tree.getroot()
     iso_cell = cell_bbox("iso")
-    removed = 0
     to_remove = []
+    paths_removed = 0
 
     for elem in list(root):
         cls = elem.get("class", "")
@@ -67,22 +71,22 @@ def remove_iso_hidden(tree):
             continue
         center = group_center(elem)
         if center and iso_cell.contains(*center):
+            paths_removed += count_paths(elem)
             to_remove.append(elem)
 
     for elem in to_remove:
         root.remove(elem)
-        removed += 1
 
-    return removed
+    return {
+        "groups_removed": len(to_remove),
+        "paths_removed": paths_removed,
+    }
 
 
 # -- P0 Rule 2: Stroke normalization -------------------------------------------
 
 def normalize_strokes(tree, profile=None):
-    """Enforce stroke attributes per class according to profile.
-
-    Returns number of modified groups.
-    """
+    """Enforce stroke attributes per class according to profile."""
     if profile is None:
         profile = STROKE_PROFILE_KS
 
@@ -96,13 +100,9 @@ def normalize_strokes(tree, profile=None):
         if not cls:
             continue
 
-        # Exact match
         attrs = profile.get(cls)
-
-        # Wildcard match for dimensions-*
         if attrs is None and cls.startswith("dimensions-"):
             attrs = _DIM_PROFILE
-
         if attrs is None:
             continue
 
@@ -114,101 +114,7 @@ def normalize_strokes(tree, profile=None):
         if changed:
             modified += 1
 
-    return modified
-
-
-# -- P0 Rule 3: Notes rewrap ---------------------------------------------------
-
-NOTES_CONFIG = {
-    "max_width_mm": 180.0,
-    "line_height_mm": 4.0,
-    "font_size_mm": 2.0,
-    "char_width_factor": 0.55,
-    "start_x": 19.0,
-}
-
-
-def rewrap_notes(tree, config=None):
-    """Reformat general-notes text elements with consistent spacing.
-
-    Returns number of repositioned lines.
-    """
-    if config is None:
-        config = NOTES_CONFIG
-
-    root = tree.getroot()
-    notes_group = None
-
-    for elem in root.iter():
-        if local_tag(elem) == "g" and elem.get("class") == "general-notes":
-            notes_group = elem
-            break
-
-    if notes_group is None:
-        return 0
-
-    texts = [c for c in notes_group if local_tag(c) == "text"]
-    if not texts:
-        return 0
-
-    max_chars = int(config["max_width_mm"] / (config["font_size_mm"] * config["char_width_factor"]))
-
-    # Build line list: split long lines
-    lines = []
-    for t in texts:
-        content = t.text or ""
-        is_header = t.get("font-weight") == "bold"
-
-        if is_header or len(content) <= max_chars:
-            lines.append({"text": content, "elem": t, "is_header": is_header})
-        else:
-            # Word-wrap
-            words = content.split(" ")
-            current = ""
-            first = True
-            for w in words:
-                if current and len(current) + 1 + len(w) > max_chars:
-                    lines.append({"text": current, "elem": t if first else None,
-                                  "is_header": False})
-                    current = "   " + w  # indent continuation
-                    first = False
-                else:
-                    current = (current + " " + w).strip() if current else w
-            if current:
-                lines.append({"text": current, "elem": t if first else None,
-                              "is_header": False})
-
-    if not lines:
-        return 0
-
-    # Find starting y from first text (NOTES: header)
-    first_y = float(texts[0].get("y", "236.0"))
-    lh = config["line_height_mm"]
-    repositioned = 0
-
-    # Remove all existing text children
-    for t in texts:
-        notes_group.remove(t)
-
-    # Re-create text elements with correct spacing
-    for i, line_info in enumerate(lines):
-        y = first_y + i * lh
-        t = line_info.get("elem")
-        if t is not None:
-            # Reuse original element (preserve attributes like font-weight)
-            t.set("y", f"{y:.1f}")
-            t.text = line_info["text"]
-            notes_group.append(t)
-        else:
-            # Create new text element for wrapped continuation
-            import xml.etree.ElementTree as ET
-            new_t = ET.SubElement(notes_group, svg_tag("text"))
-            new_t.set("x", str(config["start_x"]))
-            new_t.set("y", f"{y:.1f}")
-            new_t.text = line_info["text"]
-        repositioned += 1
-
-    return repositioned
+    return {"stroke_overrides": modified}
 
 
 # -- P0 Rule 4: Round coordinates ----------------------------------------------
@@ -218,14 +124,10 @@ _COORD_ATTRS = {"x", "y", "x1", "y1", "x2", "y2", "cx", "cy", "r",
 
 
 def round_coordinates(tree, precision=2):
-    """Round floating-point noise in coordinate attributes.
-
-    Returns number of modified attributes.
-    """
+    """Round floating-point noise in coordinate attributes."""
     modified = 0
 
     for elem in tree.iter():
-        # Scalar attributes
         for attr in _COORD_ATTRS:
             val = elem.get(attr)
             if val is None:
@@ -239,7 +141,6 @@ def round_coordinates(tree, precision=2):
                 elem.set(attr, rounded)
                 modified += 1
 
-        # path d attribute
         tag = local_tag(elem)
         if tag == "path":
             d = elem.get("d", "")
@@ -247,26 +148,19 @@ def round_coordinates(tree, precision=2):
                 elem.set("d", round_float_str(d, precision))
                 modified += 1
 
-        # polyline/polygon points
         if tag in ("polyline", "polygon"):
             pts = elem.get("points", "")
             if count_long_floats_in_str(pts) > 0:
                 elem.set("points", round_float_str(pts, precision))
                 modified += 1
 
-    return modified
+    return {"coords_rounded": modified}
 
 
 # -- P1 Rule 5: Simplify ISO view ----------------------------------------------
 
 def simplify_iso(tree, max_smooth_paths=600):
-    """Remove excessive detail from ISO view.
-
-    - iso_visible groups in ISO cell: always remove
-    - smooth_visible groups in ISO cell: remove if path count > threshold
-
-    Returns number of removed paths.
-    """
+    """Remove excessive detail from ISO view."""
     root = tree.getroot()
     iso_cell = cell_bbox("iso")
     removed_paths = 0
@@ -292,33 +186,22 @@ def simplify_iso(tree, max_smooth_paths=600):
     for elem in to_remove:
         root.remove(elem)
 
-    return removed_paths
+    return {"iso_paths_removed": removed_paths, "dense_iso_trimmed": removed_paths > 0}
 
 
 # -- P1 Rule 6: GD&T audit -----------------------------------------------------
 
 def audit_gdt(tree):
-    """Audit GD&T structure. Minimal modifications (coordinate rounding only).
-
-    Returns dict with audit results.
-    """
-    root = tree.getroot()
+    """Audit GD&T structure."""
     total = 0
     anchored = 0
     overflow = 0
-    rounded = 0
 
-    iso_cell = cell_bbox("iso")
-    front_cell = cell_bbox("front")
-    right_cell = cell_bbox("right")
-    top_cell = cell_bbox("top")
-
-    for elem in root.iter():
+    for elem in tree.iter():
         if local_tag(elem) != "g" or elem.get("class") != "gdt-leader":
             continue
         total += 1
 
-        # Check leader polyline
         for child in elem:
             if local_tag(child) == "polyline":
                 pts = polyline_coords(child.get("points", ""))
@@ -328,7 +211,6 @@ def audit_gdt(tree):
                     if dist > 1.0:
                         anchored += 1
 
-        # Check if FCF bbox is within any view cell
         bb = elem_bbox_approx(elem)
         if bb:
             cx, cy = bb.center()
@@ -336,40 +218,172 @@ def audit_gdt(tree):
             if view is None:
                 overflow += 1
 
-    return {
-        "total": total,
-        "anchored": anchored,
-        "overflow": overflow,
-    }
+    return {"total": total, "anchored": anchored, "overflow": overflow}
 
 
 # -- Main pipeline -------------------------------------------------------------
 
 def postprocess(input_path, output_path, profile="ks", dry_run=False):
-    """Run all post-processing rules and return report."""
+    """Run all post-processing rules and return structured report."""
     tree = load_svg(input_path)
-    report = {"rules": {}, "errors": []}
+    kst = timezone(timedelta(hours=9))
 
-    rules = [
-        ("iso_hidden_removed", lambda: remove_iso_hidden(tree)),
-        ("strokes_normalized", lambda: normalize_strokes(tree)),
-        ("notes_rewrapped", lambda: rewrap_notes(tree)),
-        ("coords_rounded", lambda: round_coordinates(tree)),
-        ("iso_paths_simplified", lambda: simplify_iso(tree)),
+    report = {
+        "meta": {
+            "tool": "postprocess_svg.py",
+            "version": VERSION,
+            "profile": profile,
+            "timestamp": datetime.now(kst).isoformat(timespec="seconds"),
+            "input_svg": input_path,
+            "output_svg": output_path if not dry_run else None,
+            "dry_run": dry_run,
+        },
+        "summary": {
+            "passes": [],
+            "counts": {
+                "elements_removed": 0,
+                "groups_removed": 0,
+                "paths_removed": 0,
+                "texts_moved": 0,
+                "texts_wrapped": 0,
+                "transforms_added": 0,
+                "stroke_overrides": 0,
+                "coords_rounded": 0,
+            },
+            "view_fixes": {},
+        },
+        "risks": [],
+        "qa_diff": None,  # filled by orchestrator (fcad.js)
+        "changes": [],
+        "errors": [],
+    }
+
+    # Define pass pipeline
+    pass_defs = [
+        ("remove_iso_hidden", lambda: remove_iso_hidden(tree)),
+        ("normalize_strokes", lambda: normalize_strokes(tree)),
+        ("rebuild_notes", lambda: rebuild_notes(tree)),
+        ("deoverlap_text", lambda: repair_text_overlaps(tree)),
+        ("repair_overflow_scale", lambda: repair_overflow(tree)),
+        ("round_coords", lambda: round_coordinates(tree)),
+        ("simplify_iso", lambda: simplify_iso(tree)),
         ("gdt_audit", lambda: audit_gdt(tree)),
     ]
 
-    for name, fn in rules:
+    counts = report["summary"]["counts"]
+
+    for name, fn in pass_defs:
+        t0 = time.monotonic()
         try:
-            report["rules"][name] = fn()
+            result = fn()
         except Exception as e:
             report["errors"].append({"rule": name, "error": str(e)})
-            print(f"  WARN: rule '{name}' failed: {e}", file=sys.stderr)
+            report["summary"]["passes"].append({
+                "name": name, "applied": False,
+                "duration_ms": round((time.monotonic() - t0) * 1000),
+            })
+            print(f"  WARN: pass '{name}' failed: {e}", file=sys.stderr)
+            continue
 
-    if not dry_run:
+        dur_ms = round((time.monotonic() - t0) * 1000)
+        report["summary"]["passes"].append({
+            "name": name, "applied": True, "duration_ms": dur_ms,
+        })
+
+        # Aggregate counts + changes + risks from each pass
+        _aggregate(report, name, result, counts)
+
+    if not dry_run and output_path:
         write_svg(tree, output_path)
 
     return report
+
+
+def _aggregate(report, pass_name, result, counts):
+    """Merge pass result into the global report."""
+
+    # Repair functions return {"summary": ..., "changes": [...], "risks": [...]}
+    if isinstance(result, dict) and "changes" in result:
+        report["changes"].extend(result.get("changes", []))
+        report["risks"].extend(result.get("risks", []))
+        summary = result.get("summary", {})
+    elif isinstance(result, dict):
+        summary = result
+    else:
+        summary = {}
+
+    # --- remove_iso_hidden ---
+    if pass_name == "remove_iso_hidden":
+        gr = summary.get("groups_removed", 0)
+        pr = summary.get("paths_removed", 0)
+        counts["groups_removed"] += gr
+        counts["paths_removed"] += pr
+        counts["elements_removed"] += gr
+        if gr > 0:
+            report["summary"]["view_fixes"]["iso"] = {
+                "hidden_groups_removed": gr,
+                "paths_removed": pr,
+            }
+            report["changes"].append({
+                "pass": pass_name,
+                "type": "delete",
+                "view": "iso",
+                "selector": "g.outer_hidden, g.hard_hidden, g.smooth_hidden, g.iso_hidden",
+                "count": gr,
+                "note": f"Removed {gr} hidden-line groups ({pr} paths) inside ISO cell",
+            })
+
+    # --- normalize_strokes ---
+    elif pass_name == "normalize_strokes":
+        counts["stroke_overrides"] += summary.get("stroke_overrides", 0)
+
+    # --- rebuild_notes ---
+    elif pass_name == "rebuild_notes":
+        counts["texts_wrapped"] += summary.get("texts_wrapped", 0)
+
+    # --- deoverlap_text ---
+    elif pass_name == "deoverlap_text":
+        counts["texts_moved"] += summary.get("texts_moved", 0)
+
+    # --- repair_overflow_scale ---
+    elif pass_name == "repair_overflow_scale":
+        vs = summary.get("views_scaled", {})
+        counts["transforms_added"] += len(vs)
+        for vname, scale in vs.items():
+            report["summary"]["view_fixes"].setdefault(vname, {})
+            report["summary"]["view_fixes"][vname]["overflow_repaired"] = True
+            report["summary"]["view_fixes"][vname]["scale_factor"] = scale
+            report["summary"]["view_fixes"][vname]["transform_target"] = "geometry_only"
+
+    # --- round_coords ---
+    elif pass_name == "round_coords":
+        counts["coords_rounded"] += summary.get("coords_rounded", 0)
+
+    # --- simplify_iso ---
+    elif pass_name == "simplify_iso":
+        pr = summary.get("iso_paths_removed", 0)
+        counts["paths_removed"] += pr
+        trimmed = summary.get("dense_iso_trimmed", False)
+        if trimmed:
+            report["summary"]["view_fixes"].setdefault("iso", {})
+            report["summary"]["view_fixes"]["iso"]["dense_iso_trimmed"] = True
+            report["risks"].append({
+                "code": "iso_simplified",
+                "severity": "info",
+                "view": "iso",
+                "reason": f"Removed {pr} excessive paths from ISO view",
+            })
+
+    # --- gdt_audit ---
+    elif pass_name == "gdt_audit":
+        unanchored = summary.get("overflow", 0)
+        if unanchored > 0:
+            report["risks"].append({
+                "code": "gdt_unanchored_remaining",
+                "severity": "warning",
+                "view": "page",
+                "reason": f"{unanchored} GD&T FCF(s) outside any view cell",
+            })
 
 
 # -- CLI -----------------------------------------------------------------------
@@ -394,8 +408,20 @@ def main():
                          dry_run=args.dry_run)
 
     # Print summary
-    for rule, result in report["rules"].items():
-        print(f"  {rule}: {result}")
+    summary = report["summary"]
+    for p in summary["passes"]:
+        status = "OK" if p["applied"] else "FAIL"
+        print(f"  {p['name']}: {status} ({p['duration_ms']}ms)")
+    c = summary["counts"]
+    print(f"  counts: removed={c['elements_removed']} moved={c['texts_moved']} "
+          f"strokes={c['stroke_overrides']} rounded={c['coords_rounded']}")
+    if report["risks"]:
+        warns = [r for r in report["risks"] if r["severity"] == "warning"]
+        infos = [r for r in report["risks"] if r["severity"] == "info"]
+        if warns:
+            print(f"  risks: {len(warns)} warning(s)")
+        if infos:
+            print(f"  info: {len(infos)} note(s)")
     if report["errors"]:
         print(f"  ERRORS: {len(report['errors'])}")
 
