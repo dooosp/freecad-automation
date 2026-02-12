@@ -102,10 +102,10 @@ def _extract_fn(view_name, sample_pts=None):
 
 def project_view(shape, direction, view_name):
     """Project shape with TechDraw.projectEx() and classify edges.
-    Returns: (groups, bounds, circle_centers)
+    Returns: (groups, bounds, circles)
       groups: {group_idx: [{"pts": [(u,v),...], "circ": (cu,cv,r)|None}, ...]}
       bounds: (u_min, v_min, u_max, v_max)
-      circle_centers: [(u,v), ...]
+      circles: [(u, v, radius), ...]  — full circles with center and radius
     """
     import TechDraw
     from FreeCAD import Vector
@@ -154,7 +154,7 @@ def project_view(shape, direction, view_name):
     # Pass 2: convert to 2D
     groups = {}
     all_2d = []
-    centers = []
+    circles = []
 
     for gi, pts_3d, center_3d, is_circ, radius in raw:
         pts_2d = [ext(p) for p in pts_3d]
@@ -163,17 +163,17 @@ def project_view(shape, direction, view_name):
         if is_circ and center_3d:
             c = ext(center_3d)
             entry["circ"] = (c[0], c[1], radius)
-            centers.append(c)
+            circles.append((c[0], c[1], radius))
         groups.setdefault(gi, []).append(entry)
 
     us, vs = zip(*all_2d)
     bounds = (min(us), min(vs), max(us), max(vs))
-    return groups, bounds, centers
+    return groups, bounds, circles
 
 
 # -- SVG Rendering -------------------------------------------------------------
 
-def render_view_svg(vname, groups, bounds, centers, cx, cy, scale,
+def render_view_svg(vname, groups, bounds, circles, cx, cy, scale,
                     show_hidden=True, show_centerlines=True):
     """Render one view's edges as SVG, centered at (cx, cy) on the page."""
     out = []
@@ -217,30 +217,17 @@ def render_view_svg(vname, groups, bounds, centers, cx, cy, scale,
         out.append('</g>')
 
     # Center lines for circular features (ISO chain line: long-dash-dot)
-    # Also compute radius info for proportional arm extension
-    if centers and show_centerlines:
-        # Find max circle radius from groups for proportional arm sizing
-        max_r_scaled = 0
-        for gi in groups:
-            for e in groups[gi]:
-                if "circ" in e:
-                    max_r_scaled = max(max_r_scaled, e["circ"][2] * scale)
+    # circles = [(cu, cv, radius), ...]
+    if circles and show_centerlines:
+        max_r_scaled = max(r * scale for _, _, r in circles) if circles else 0
         arm_base = max(max_r_scaled * 1.3, min(CELL_W, CELL_H) * 0.06)
 
         out.append('<g class="centerlines" stroke="#000" stroke-width="0.18" '
                    'fill="none" stroke-dasharray="8,2,1.5,2" '
                    f'stroke-linecap="{LINE_CAP}">')
-        for cu, cv in centers:
+        for cu, cv, cr in circles:
             px, py = pg(cu, cv)
-            # Find this circle's radius for proportional arm
-            circ_r = 0
-            for gi in groups:
-                for e in groups[gi]:
-                    if "circ" in e:
-                        cc = e["circ"]
-                        if abs(cc[0] - cu) < 0.01 and abs(cc[1] - cv) < 0.01:
-                            circ_r = max(circ_r, cc[2] * scale)
-            arm = max(circ_r * 1.3, arm_base) if circ_r > 0 else arm_base
+            arm = max(cr * scale * 1.3, arm_base)
             out.append(f'  <line x1="{px-arm:.2f}" y1="{py:.2f}" '
                        f'x2="{px+arm:.2f}" y2="{py:.2f}"/>')
             out.append(f'  <line x1="{px:.2f}" y1="{py-arm:.2f}" '
@@ -274,6 +261,173 @@ def render_view_svg(vname, groups, bounds, centers, cx, cy, scale,
     out.append(f'<text x="{lx:.1f}" y="{ly:.1f}" font-family="monospace" '
                f'font-size="3.5" fill="#666">{vname.upper()}</text>')
 
+    return '\n'.join(out)
+
+
+# -- Dimension Lines (ISO 129) ------------------------------------------------
+
+# Dimension line constants
+DIM_LINE_W = "0.18"          # thin line
+DIM_COLOR = "#000"
+DIM_FONT = "sans-serif"
+DIM_FONT_SIZE = "3"          # mm
+DIM_ARROW_L = 2.0            # arrow length mm
+DIM_ARROW_W = 0.7            # arrow half-width mm
+DIM_GAP = 2.0                # gap between shape edge and extension line start
+DIM_OFFSET = 8.0             # distance from shape edge to dimension line
+DIM_EXT_OVERSHOOT = 1.5      # extension line past dimension line
+
+
+def _arrow_head(x, y, angle):
+    """SVG polygon for a filled arrowhead pointing in `angle` radians."""
+    ca, sa = math.cos(angle), math.sin(angle)
+    # tip at (x,y), two base corners
+    bx = x - DIM_ARROW_L * ca
+    by = y - DIM_ARROW_L * sa
+    lx = bx + DIM_ARROW_W * sa
+    ly = by - DIM_ARROW_W * ca
+    rx = bx - DIM_ARROW_W * sa
+    ry = by + DIM_ARROW_W * ca
+    return (f'<polygon points="{x:.2f},{y:.2f} {lx:.2f},{ly:.2f} '
+            f'{rx:.2f},{ry:.2f}" fill="{DIM_COLOR}"/>')
+
+
+def _dim_horizontal(x1, x2, y_base, y_dim, value_mm):
+    """Horizontal dimension: extension lines + dim line + arrows + text."""
+    out = []
+    # Extension lines (vertical, from shape to dimension line)
+    out.append(f'<line x1="{x1:.2f}" y1="{y_base+DIM_GAP:.2f}" '
+               f'x2="{x1:.2f}" y2="{y_dim-DIM_EXT_OVERSHOOT:.2f}"/>')
+    out.append(f'<line x1="{x2:.2f}" y1="{y_base+DIM_GAP:.2f}" '
+               f'x2="{x2:.2f}" y2="{y_dim-DIM_EXT_OVERSHOOT:.2f}"/>')
+    # Dimension line (horizontal)
+    out.append(f'<line x1="{x1:.2f}" y1="{y_dim:.2f}" '
+               f'x2="{x2:.2f}" y2="{y_dim:.2f}"/>')
+    # Arrows
+    out.append(_arrow_head(x1, y_dim, 0))           # right-pointing at left end
+    out.append(_arrow_head(x2, y_dim, math.pi))      # left-pointing at right end
+    # Text (centered above dim line)
+    tx = (x1 + x2) / 2
+    ty = y_dim - 1.0
+    text = f"{value_mm:.1f}" if value_mm != int(value_mm) else f"{int(value_mm)}"
+    out.append(f'<text x="{tx:.2f}" y="{ty:.2f}" text-anchor="middle" '
+               f'font-family="{DIM_FONT}" font-size="{DIM_FONT_SIZE}" '
+               f'fill="{DIM_COLOR}">{text}</text>')
+    return out
+
+
+def _dim_vertical(y1, y2, x_base, x_dim, value_mm):
+    """Vertical dimension: extension lines + dim line + arrows + text."""
+    out = []
+    # Extension lines (horizontal, from shape to dimension line)
+    out.append(f'<line x1="{x_base-DIM_GAP:.2f}" y1="{y1:.2f}" '
+               f'x2="{x_dim+DIM_EXT_OVERSHOOT:.2f}" y2="{y1:.2f}"/>')
+    out.append(f'<line x1="{x_base-DIM_GAP:.2f}" y1="{y2:.2f}" '
+               f'x2="{x_dim+DIM_EXT_OVERSHOOT:.2f}" y2="{y2:.2f}"/>')
+    # Dimension line (vertical)
+    out.append(f'<line x1="{x_dim:.2f}" y1="{y1:.2f}" '
+               f'x2="{x_dim:.2f}" y2="{y2:.2f}"/>')
+    # Arrows
+    out.append(_arrow_head(x_dim, y1, math.pi / 2))      # down at top
+    out.append(_arrow_head(x_dim, y2, -math.pi / 2))     # up at bottom
+    # Text (rotated, centered beside dim line)
+    tx = x_dim - 1.5
+    ty = (y1 + y2) / 2
+    text = f"{value_mm:.1f}" if value_mm != int(value_mm) else f"{int(value_mm)}"
+    out.append(f'<text x="{tx:.2f}" y="{ty:.2f}" text-anchor="middle" '
+               f'font-family="{DIM_FONT}" font-size="{DIM_FONT_SIZE}" '
+               f'fill="{DIM_COLOR}" '
+               f'transform="rotate(-90,{tx:.2f},{ty:.2f})">{text}</text>')
+    return out
+
+
+def _dim_diameter(px, py, radius_scaled, radius_mm, angle_deg=45):
+    """Diameter dimension: leader line from circle + diameter text."""
+    out = []
+    angle = math.radians(angle_deg)
+    # Leader line start (on circle edge) and end (outside)
+    sx = px + radius_scaled * math.cos(angle)
+    sy = py - radius_scaled * math.sin(angle)
+    leader_len = max(radius_scaled * 0.8, 6)
+    ex = sx + leader_len * math.cos(angle)
+    ey = sy - leader_len * math.sin(angle)
+    # Leader line
+    out.append(f'<line x1="{sx:.2f}" y1="{sy:.2f}" '
+               f'x2="{ex:.2f}" y2="{ey:.2f}"/>')
+    # Horizontal shelf
+    shelf_dir = 1 if math.cos(angle) >= 0 else -1
+    shelf_len = 8
+    shx = ex + shelf_dir * shelf_len
+    out.append(f'<line x1="{ex:.2f}" y1="{ey:.2f}" '
+               f'x2="{shx:.2f}" y2="{ey:.2f}"/>')
+    # Arrow at circle edge
+    out.append(_arrow_head(sx, sy, angle + math.pi))
+    # Text
+    d_mm = radius_mm * 2
+    text = f"\u2300{d_mm:.1f}" if d_mm != int(d_mm) else f"\u2300{int(d_mm)}"
+    tx = (ex + shx) / 2
+    ty = ey - 1.2
+    out.append(f'<text x="{tx:.2f}" y="{ty:.2f}" text-anchor="middle" '
+               f'font-family="{DIM_FONT}" font-size="{DIM_FONT_SIZE}" '
+               f'fill="{DIM_COLOR}">{text}</text>')
+    return out
+
+
+def render_dimensions_svg(vname, bounds, circles, cx, cy, scale):
+    """Generate ISO 129 dimension lines for a view.
+
+    - Bounding dimensions (overall width + height) for front/top/right
+    - Hole diameter callouts for circular features
+    - ISO view is skipped (no dimensions on pictorial views)
+    """
+    if vname == "iso":
+        return ""
+
+    out = []
+    u0, v0, u1, v1 = bounds
+    bcx, bcy = (u0 + u1) / 2, (v0 + v1) / 2
+
+    def pg(u, v):
+        return cx + (u - bcx) * scale, cy - (v - bcy) * scale
+
+    # Shape extents in page coordinates
+    left, top = pg(u0, v1)      # top-left (v1 is max = top in model)
+    right, bottom = pg(u1, v0)  # bottom-right
+
+    out.append(f'<g class="dimensions-{vname}" stroke="{DIM_COLOR}" '
+               f'stroke-width="{DIM_LINE_W}" fill="none" '
+               f'stroke-linecap="{LINE_CAP}">')
+
+    # Overall width (horizontal, below shape)
+    width_mm = (u1 - u0)
+    if width_mm > 0.5:
+        y_dim = bottom + DIM_OFFSET
+        out.extend(_dim_horizontal(left, right, bottom, y_dim, width_mm))
+
+    # Overall height (vertical, right of shape)
+    height_mm = (v1 - v0)
+    if height_mm > 0.5:
+        x_dim = right + DIM_OFFSET
+        out.extend(_dim_vertical(top, bottom, right, x_dim, height_mm))
+
+    # Hole diameters (deduplicated by radius within tolerance)
+    seen_radii = []
+    leader_angle = 45
+    for cu, cv, cr in circles:
+        # Skip duplicate radii (same size holes)
+        is_dup = any(abs(cr - sr) < 0.1 for sr in seen_radii)
+        if is_dup:
+            continue
+        seen_radii.append(cr)
+
+        px, py = pg(cu, cv)
+        r_scaled = cr * scale
+        if r_scaled < 1.5:
+            continue  # too small to dimension
+        out.extend(_dim_diameter(px, py, r_scaled, cr, angle_deg=leader_angle))
+        leader_angle += 30  # stagger angles for multiple holes
+
+    out.append('</g>')
     return '\n'.join(out)
 
 
@@ -434,7 +588,8 @@ def compose_drawing(views_svg, name, bom, scale, bbox,
     leg_x = tb_x + 4
     for label, color, w, dash in [("Visible", "#000", "0.7", None),
                                    ("Hidden", "#000", "0.30", "4,2"),
-                                   ("Center", "#000", "0.18", "8,2,1.5,2")]:
+                                   ("Center", "#000", "0.18", "8,2,1.5,2"),
+                                   ("Dimension", "#000", "0.18", None)]:
         la = f'stroke="{color}" stroke-width="{w}" stroke-linecap="{LINE_CAP}"'
         if dash:
             la += f' stroke-dasharray="{dash}"'
@@ -535,7 +690,7 @@ def make_section(shape, plane="XZ", offset=0.0):
         return None
 
 
-def render_section_svg(label, groups, bounds, centers, cx, cy, scale, shape_bounds):
+def render_section_svg(label, groups, bounds, circles, cx, cy, scale, shape_bounds):
     """Render section view with hatching and section label.
 
     Like render_view_svg but adds:
@@ -736,21 +891,21 @@ try:
             log(f"  Skipping unknown view: {vname}")
             continue
 
-        groups, bounds, centers = project_view(
+        groups, bounds, circles = project_view(
             compound, VIEW_DIRECTIONS[vname], vname)
 
         if not groups:
             # Fallback: project individual solids
             if hasattr(compound, 'Solids') and compound.Solids:
                 log(f"  View '{vname}': empty compound, trying per-solid")
-                all_groups, all_centers = {}, []
+                all_groups, all_circles = {}, []
                 all_bounds = [1e9, 1e9, -1e9, -1e9]
                 for solid in compound.Solids:
                     sg, sb, sc = project_view(
                         solid, VIEW_DIRECTIONS[vname], vname)
                     for gi, edges in sg.items():
                         all_groups.setdefault(gi, []).extend(edges)
-                    all_centers.extend(sc)
+                    all_circles.extend(sc)
                     all_bounds[0] = min(all_bounds[0], sb[0])
                     all_bounds[1] = min(all_bounds[1], sb[1])
                     all_bounds[2] = max(all_bounds[2], sb[2])
@@ -758,7 +913,7 @@ try:
                 if all_groups:
                     groups = all_groups
                     bounds = tuple(all_bounds)
-                    centers = all_centers
+                    circles = all_circles
 
         if not groups:
             log(f"  View '{vname}': no edges projected")
@@ -770,8 +925,14 @@ try:
 
         show_hidden = drawing_cfg.get("style", {}).get("show_hidden", True)
         show_cl = drawing_cfg.get("style", {}).get("show_centerlines", True)
-        svg = render_view_svg(vname, groups, bounds, centers, cx, cy, scale,
+        show_dims = drawing_cfg.get("style", {}).get("show_dimensions", True)
+        svg = render_view_svg(vname, groups, bounds, circles, cx, cy, scale,
                               show_hidden=show_hidden, show_centerlines=show_cl)
+        # Append dimension lines (front/top/right only)
+        if show_dims and vname != "iso":
+            dim_svg = render_dimensions_svg(vname, bounds, circles, cx, cy, scale)
+            if dim_svg:
+                svg += '\n' + dim_svg
         views_svg[vname] = svg
 
     if not views_svg:
@@ -785,13 +946,13 @@ try:
         sec_result = make_section(compound, sec_plane, sec_offset)
         if sec_result:
             sec_shape, sec_dir, sec_label = sec_result
-            sec_groups, sec_bounds, sec_centers = project_view(
+            sec_groups, sec_bounds, sec_circles = project_view(
                 sec_shape, sec_dir, "front")
             if sec_groups:
                 # Place section in ISO cell (top-right), replacing ISO if present
                 sec_cx, sec_cy = VIEW_CELLS.get("iso", VIEW_CELLS["right"])
                 sec_svg = render_section_svg(
-                    sec_label, sec_groups, sec_bounds, sec_centers,
+                    sec_label, sec_groups, sec_bounds, sec_circles,
                     sec_cx, sec_cy, scale, bounds if 'bounds' in dir() else None)
                 views_svg["section"] = sec_svg
                 if "iso" in views_svg:

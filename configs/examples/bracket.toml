@@ -76,6 +76,7 @@ designed_by = "TH Jang"
 [drawing.style]
 show_hidden = true
 show_centerlines = true
+show_dimensions = true
 
 # --- Export ---
 
