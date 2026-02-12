@@ -1,553 +1,594 @@
-# SVG Post-Processor + QA Scorer 구현 계획
+# Phase 19: Intent Compiler + Drawing Plan System
 
-## 0. 목표
+## 목표
 
-- `generate_drawing.py`는 **건드리지 않는다** (기존 패치 루프 탈출)
-- SVG 품질 문제를 **후처리 규칙**으로 해결한다
-- 품질을 **QA 점수로 수치화**해서 "개선이 누적"되게 만든다
-- 두 스크립트 모두 **독립 실행 + fcad CLI 통합** 가능
+FreeCAD 자동 도면에서 "AI 티"를 제거하기 위해, 규칙 기반 Intent Plan 시스템을 도입한다.
+- LLM은 부품 유형 분류 1회 호출에만 사용 (규칙 매칭 실패 시 fallback)
+- 템플릿은 TOML (기존 관례 유지)
+- generate_drawing.py 변경 최소화 (plan read-only)
+- QA 지표 확장 (레이아웃 9개 → 14개)
 
----
+## 품질 3축 정의
 
-## 실제 SVG 구조 (설계 전제)
+| 축 | 내용 | 현재 커버리지 |
+|----|------|---------------|
+| 의미(Manufacturing Intent) | 치수 선택, 기준면, GD&T가 가공/검사 가능 | 없음 |
+| 표현(Conventions) | KS/ISO 관례, 뷰 선택, 단면, 노트 형식 | 부분 (postprocess) |
+| 레이아웃(미학+가독성) | 겹침, 오버플로, 정렬, 여백 | QA 9개 지표 |
 
-### 페이지 레이아웃
-
-```
-A3 landscape: 420mm x 297mm
-Drawing border: (15,15) → (405,282)
-
-Cell grid (dashed rects):
-  Top-Left:     x=15,  y=15,  w=195, h=116  → TOP view
-  Top-Right:    x=210, y=15,  w=195, h=116  → ISO view
-  Bottom-Left:  x=15,  y=131, w=195, h=116  → FRONT view
-  Bottom-Right: x=210, y=131, w=195, h=116  → RIGHT view
-```
-
-### 뷰 식별자
-
-- HTML 주석: `<!-- FRONT -->`, `<!-- TOP -->`, `<!-- RIGHT -->`, `<!-- ISO -->`
-- 라벨 텍스트: `<text ... font-family="monospace" font-size="3.5">FRONT</text>`
-  - FRONT → (18, 141), TOP → (18, 25), RIGHT → (213, 141), ISO → (213, 25)
-
-### 클래스 체계 (실제 출력에서 확인됨)
-
-| 클래스 | 용도 | 기본 stroke-width |
-|--------|------|-------------------|
-| `hard_visible` | 외형선 (굵은) | 0.7 |
-| `outer_visible` | 외형선 (중간) | 0.50 |
-| `smooth_visible` | 부드러운 가시선 | 0.35 |
-| `hard_hidden` | 숨은선 (굵은) | 0.2, dash 3,1.5 |
-| `outer_hidden` | 숨은선 (외곽) | 0.2, dash 3,1.5 |
-| `smooth_hidden` | 숨은선 (부드러운) | 0.2, dash 3,1.5 |
-| `iso_visible` | ISO 내부선 (얇은, 회색) | 0.13, #999 |
-| `centerlines` | 중심선 | 0.18, dash 8,2,1.5,2 |
-| `symmetry-axes` | 대칭축 | 0.13, dash 8,2,1.5,2 |
-| `dimensions-{view}` | 치수선 (뷰별) | 0.18 |
-| `datums-{view}` | 데이텀 (뷰별) | - |
-| `chamfer-callouts` | 모따기 콜아웃 | - |
-| `thread-callouts` | 나사산 콜아웃 | - |
-| `ordinate-dimensions` | 좌표 치수 | - |
-| `gdt-leader` | GD&T 리더선 + FCF | 0.25 |
-| `general-notes` | 일반 주석 | font 2.0 |
-| `revision-table` | 리비전 테이블 | - |
-| `surface-finish` | 표면 거칠기 | 0.25 |
-| `projection-symbol` | 투영법 기호 | - |
-
-### GD&T FCF 구조 (중요 — 래퍼 없음)
-
-```xml
-<g class="gdt-leader" stroke="#000" stroke-width="0.25" fill="none">
-  <polyline points="112.50,226.32 124.50,226.32 ..."/>
-  <circle cx="112.50" cy="226.32" r="0.6" fill="#000"/>
-</g>
-<!-- 이하 rect + line + text가 느슨하게 이어짐 (부모 <g> 없음) -->
-<rect x="124.5" y="223.3" width="60" height="6" fill="white" stroke="#000" stroke-width="0.3"/>
-<line .../>  <!-- 셀 구분선들 -->
-<text ...>⌖</text>
-<text ...>⌀0.5 Ⓜ</text>
-<text ...>A</text>
-```
-
-→ **하나의 FCF = `gdt-leader` <g> + 뒤따르는 rect + line + text 시퀀스**
+Phase 19는 **의미 + 표현** 축을 체계적으로 끌어올린다.
 
 ---
 
-## S1. SVG Post-Processor
+## 파이프라인 (확정)
 
-### 파일
+```
+ks_flange.toml
+     │
+     ▼
+intent_compiler.py ◄── configs/templates/flange.toml
+     │                  (부품군별 규칙)
+     ▼
+enriched config (drawing_plan 섹션 병합)
+     │
+     ▼
+generate_drawing.py  ← plan 필드 조건부 읽기 (없으면 기존 fallback)
+     │
+     ▼
+postprocess_svg.py   ← 기존 그대로
+     │
+     ▼
+qa_scorer.py         ← 기존 9개 + 신규 5개 지표
+```
 
-- `scripts/postprocess_svg.py` — 메인
-- `scripts/svg_common.py` — 공용 유틸 (S2와 공유)
+---
 
-### CLI
+## M1: Intent Compiler + Flange Template + Validator
+
+### 산출물
+
+| 파일 | 역할 |
+|------|------|
+| `scripts/intent_compiler.py` | config + template → drawing_plan 병합 |
+| `configs/templates/flange.toml` | 플랜지 부품군 규칙 |
+| `configs/templates/bracket.toml` | 브라켓 부품군 규칙 (2차) |
+| `scripts/plan_validator.py` | plan 필드 유효성 검증 |
+
+### intent_compiler.py 설계
+
+```python
+"""Intent Compiler: config → enriched config with drawing_plan."""
+import json, sys, os
+
+def classify_part_type(config):
+    """규칙 기반 부품 유형 분류. LLM 없이 shapes/operations에서 추론."""
+    shapes = config.get("shapes", [])
+    ops = config.get("operations", [])
+    assembly = config.get("assembly")
+
+    # 분류 규칙 (우선순위 순)
+    if assembly:
+        return "assembly"
+
+    shape_types = {s.get("type") for s in shapes}
+    op_types = {o.get("type") for o in ops}
+    has_cylinder = "cylinder" in shape_types
+    has_hole = "hole" in op_types or "circular_pattern" in op_types
+    has_fillet = "fillet" in op_types
+    has_chamfer = "chamfer" in op_types
+    has_step = sum(1 for s in shapes if s.get("type") == "cylinder") > 2
+
+    if has_cylinder and has_hole and not has_step:
+        return "flange"
+    if has_cylinder and has_step:
+        return "shaft"
+    if "box" in shape_types and has_hole:
+        if any(s.get("type") == "box" and s.get("size", [0,0,0])[2] < 20 for s in shapes):
+            return "bracket"
+        return "housing"
+
+    return "generic"  # fallback → Gemini 1회 호출 가능
+
+def load_template(part_type, templates_dir):
+    """configs/templates/{part_type}.toml 로드."""
+    ...
+
+def merge_plan(config, template):
+    """template 규칙 + config 명시값 → drawing_plan 섹션 생성.
+    우선순위: config 명시값 > template 규칙값 > generate 기존 로직
+    """
+    ...
+
+def main():
+    config = json.load(sys.stdin)
+    part_type = config.get("drawing_plan", {}).get("part_type") or classify_part_type(config)
+    template = load_template(part_type, templates_dir)
+    plan = merge_plan(config, template)
+    config["drawing_plan"] = plan
+    json.dump(config, sys.stdout)
+```
+
+### 부품 유형 분류 규칙
+
+| 조건 | 분류 |
+|------|------|
+| assembly 섹션 존재 | assembly |
+| cylinder + hole/circular_pattern, step 없음 | flange |
+| cylinder 3개+ (단차) | shaft |
+| box + hole + 얇은 두께(<20mm) | bracket |
+| box + hole + cavity | housing |
+| 매칭 실패 | generic (Gemini fallback) |
+
+### drawing_plan TOML 스키마
+
+```toml
+[drawing_plan]
+schema_version = "0.1"
+part_type = "flange"
+profile = "KS"
+
+# --- 뷰 ---
+[drawing_plan.views]
+enabled = ["front", "top", "right", "iso"]
+layout = "third_angle"
+
+[drawing_plan.views.options]
+front = { show_hidden = true, show_centerlines = true }
+top   = { show_hidden = true, show_centerlines = true }
+right = { show_hidden = true, show_centerlines = true }
+iso   = { show_hidden = false, show_centerlines = false }
+
+# --- 단면 (선택) ---
+# [[drawing_plan.sections]]
+# label = "A-A"
+# plane = "XZ"
+# offset = 0.0
+# source_view = "front"
+
+# --- 스케일 ---
+[drawing_plan.scale]
+mode = "auto"
+min = 0.4
+max = 2.5
+
+# --- Datum ---
+[[drawing_plan.datums]]
+name = "A"
+kind = "plane"
+selector = "largest_planar"
+reason = "primary mounting face"
+
+[[drawing_plan.datums]]
+name = "B"
+kind = "axis"
+selector = "largest_cyl_axis"
+reason = "bore center axis"
+
+# --- 치수 스타일 ---
+[drawing_plan.dimensioning]
+scheme = "baseline"
+baseline_datum = "A"
+avoid_redundant = true
+
+# --- 필수 치수 목록 (부품군 DNA) ---
+[[drawing_plan.dim_intents]]
+id = "OD"
+feature = "outer_diameter"
+view = "front"
+style = "diameter"
+required = true
+priority = 100
+
+[[drawing_plan.dim_intents]]
+id = "ID"
+feature = "inner_diameter"
+view = "front"
+style = "diameter"
+required = true
+priority = 95
+
+[[drawing_plan.dim_intents]]
+id = "PCD"
+feature = "bolt_circle_diameter"
+view = "front"
+style = "diameter"
+required = true
+priority = 90
+
+[[drawing_plan.dim_intents]]
+id = "BOLT_DIA"
+feature = "bolt_hole_diameter"
+view = "front"
+style = "diameter"
+required = true
+priority = 85
+
+[[drawing_plan.dim_intents]]
+id = "BOLT_COUNT"
+feature = "bolt_hole_count"
+view = "notes"
+style = "note"
+required = true
+priority = 80
+
+[[drawing_plan.dim_intents]]
+id = "THK"
+feature = "thickness"
+view = "right"
+style = "linear"
+required = true
+priority = 75
+
+# --- 노트 ---
+[drawing_plan.notes]
+general = [
+  "UNLESS OTHERWISE SPECIFIED:",
+  "  TOLERANCES PER KS B 0401 CLASS m",
+  "  SURFACE FINISH Ra 3.2",
+  "REMOVE ALL BURRS AND SHARP EDGES.",
+]
+placement = "bottom_left"
+```
+
+### flange.toml 템플릿
+
+```toml
+[template]
+part_type = "flange"
+schema_version = "0.1"
+description = "KS flange standard drawing template"
+
+[views]
+enabled = ["front", "top", "right", "iso"]
+layout = "third_angle"
+front = { show_hidden = true, show_centerlines = true }
+top   = { show_hidden = true, show_centerlines = true }
+right = { show_hidden = true, show_centerlines = true }
+iso   = { show_hidden = false, show_centerlines = false }
+
+[[datums]]
+name = "A"
+kind = "plane"
+selector = "largest_planar"
+reason = "primary mounting face"
+
+[[datums]]
+name = "B"
+kind = "axis"
+selector = "largest_cyl_axis"
+reason = "bore center axis"
+
+[dimensioning]
+scheme = "baseline"
+baseline_datum = "A"
+avoid_redundant = true
+
+[[dim_intents]]
+id = "OD"
+feature = "outer_diameter"
+view = "front"
+style = "diameter"
+required = true
+priority = 100
+
+[[dim_intents]]
+id = "ID"
+feature = "inner_diameter"
+view = "front"
+style = "diameter"
+required = true
+priority = 95
+
+[[dim_intents]]
+id = "PCD"
+feature = "bolt_circle_diameter"
+view = "front"
+style = "diameter"
+required = true
+priority = 90
+
+[[dim_intents]]
+id = "BOLT_DIA"
+feature = "bolt_hole_diameter"
+view = "front"
+style = "diameter"
+required = true
+priority = 85
+
+[[dim_intents]]
+id = "BOLT_COUNT"
+feature = "bolt_hole_count"
+view = "notes"
+style = "note"
+required = true
+priority = 80
+
+[[dim_intents]]
+id = "THK"
+feature = "thickness"
+view = "right"
+style = "linear"
+required = true
+priority = 75
+
+[[dim_intents]]
+id = "FILLET"
+feature = "fillet_radius"
+view = "right"
+style = "radius"
+required = false
+priority = 40
+
+[[dim_intents]]
+id = "CHAMFER"
+feature = "chamfer"
+view = "right"
+style = "callout"
+required = false
+priority = 35
+
+[notes]
+general = [
+  "UNLESS OTHERWISE SPECIFIED:",
+  "  TOLERANCES PER KS B 0401 CLASS m",
+  "  SURFACE FINISH Ra 3.2",
+  "REMOVE ALL BURRS AND SHARP EDGES.",
+]
+placement = "bottom_left"
+```
+
+### plan_validator.py 체크리스트
+
+| # | 검증 항목 | 레벨 | 설명 |
+|---|-----------|------|------|
+| V1 | schema_version 존재 | ERROR | 지원 버전 "0.1" |
+| V2 | part_type 존재 | ERROR | 알려진 유형 집합 |
+| V3 | views.enabled 비어있지 않음 | ERROR | 유효 뷰 이름만 |
+| V4 | required dim_intents 완전성 | ERROR | part_type별 필수 목록 |
+| V5 | dim_intents[].view ∈ views.enabled | WARN | notes 제외 |
+| V6 | datums 최소 1개 | WARN | |
+| V7 | scale.min <= scale.max | ERROR | |
+| V8 | notes.general 비어있지 않음 | WARN | |
+| V9 | 알 수 없는 key | WARN | typo 탐지 |
+| V10 | dim_intents[].id 중복 없음 | ERROR | |
+
+```python
+def validate_plan(plan, part_type):
+    """plan 유효성 검사. 반환: { valid: bool, errors: [...], warnings: [...] }"""
+```
+
+### 검증
 
 ```bash
-python scripts/postprocess_svg.py input.svg -o output.svg [--profile ks] [--report report.json]
+# M1 검증 명령
+echo '{"name":"test","shapes":[{"type":"cylinder"}],"operations":[{"type":"hole"}]}' | \
+  python3 scripts/intent_compiler.py | python3 -m json.tool
 
-# 옵션
-#   --profile ks     KS 표준 프로파일 (기본값)
-#   --report FILE    적용된 변경 리포트 (JSON)
-#   --dry-run        변경 없이 리포트만 출력
+# validator 단독 실행
+python3 scripts/plan_validator.py enriched_config.json
 ```
-
-### 공용 모듈: `svg_common.py`
-
-```python
-"""S1/S2 공유 유틸리티"""
-import xml.etree.ElementTree as ET
-import re
-from dataclasses import dataclass
-
-# A3 landscape 고정
-PAGE_W, PAGE_H = 420.0, 297.0
-
-# 셀 레이아웃 (generate_drawing.py 출력 기준)
-CELLS = {
-    "top":   {"x": 15.0, "y": 15.0,  "w": 195.0, "h": 116.0},
-    "iso":   {"x": 210.0,"y": 15.0,  "w": 195.0, "h": 116.0},
-    "front": {"x": 15.0, "y": 131.0, "w": 195.0, "h": 116.0},
-    "right": {"x": 210.0,"y": 131.0, "w": 195.0, "h": 116.0},
-}
-
-# 뷰 라벨 좌표 (monospace 3.5px, 셀 좌상단 근처)
-VIEW_LABELS = {
-    "front": (18.0, 141.0),
-    "top":   (18.0, 25.0),
-    "right": (213.0, 141.0),
-    "iso":   (213.0, 25.0),
-}
-
-@dataclass
-class BBox:
-    x: float; y: float; w: float; h: float
-
-    def contains(self, px, py) -> bool: ...
-    def overlaps(self, other) -> bool: ...
-    def area(self) -> float: ...
-
-def load_svg(path: str) -> ET.ElementTree: ...
-def write_svg(tree: ET.ElementTree, path: str): ...
-
-def cell_bbox(view_name: str) -> BBox:
-    """셀 이름 → BBox 반환. CELLS dict 기반."""
-
-def classify_element_view(elem, tree) -> str | None:
-    """요소가 속한 뷰를 추정.
-    1) 부모/이전 형제의 <!-- VIEW --> 주석 탐색
-    2) 요소 bbox 중심이 어느 셀에 속하는지 판정
-    fallback: None
-    """
-
-def elem_bbox_approx(elem) -> BBox | None:
-    """요소의 근사 bbox.
-    - <path>: d 속성에서 숫자 추출 → min/max
-    - <circle>: cx,cy,r → bbox
-    - <line>: x1,y1,x2,y2
-    - <rect>: x,y,width,height
-    - <text>: x,y + len(text)*font_size*0.55 (근사)
-    - <g>: 자식들의 bbox union
-    """
-
-def path_coords(d: str) -> list[tuple[float,float]]:
-    """SVG path d 속성에서 (x,y) 좌표 추출 (M/L 위주)"""
-
-def count_paths_in_group(g_elem) -> int:
-    """<g> 내부 <path> 개수"""
-```
-
-### 룰 세트
-
-#### P0 룰 (무조건 적용)
-
-**Rule 1: ISO hidden 완전 제거**
-
-```python
-def remove_iso_hidden(tree) -> int:
-    """ISO 셀 영역에 위치한 hidden 그룹 제거.
-
-    대상 클래스: outer_hidden, hard_hidden, smooth_hidden, iso_hidden
-    조건: 그룹의 첫 번째 path bbox 중심이 ISO 셀(210,15,195,116) 안에 있을 때
-
-    구현:
-    1. 모든 <g class="*_hidden"> 탐색
-    2. 그룹 내 첫 path의 bbox 중심 계산
-    3. ISO 셀 영역이면 부모에서 remove
-    4. 제거된 그룹 수 반환
-
-    반환: 제거된 그룹 수
-    """
-```
-
-**Rule 2: Stroke Normalization 강제**
-
-```python
-STROKE_PROFILE_KS = {
-    "hard_visible":   {"stroke-width": "0.7",  "stroke": "#000"},
-    "outer_visible":  {"stroke-width": "0.50", "stroke": "#000"},
-    "smooth_visible": {"stroke-width": "0.35", "stroke": "#000"},
-    "outer_hidden":   {"stroke-width": "0.20", "stroke": "#333", "stroke-dasharray": "3,1.5"},
-    "hard_hidden":    {"stroke-width": "0.20", "stroke": "#333", "stroke-dasharray": "3,1.5"},
-    "smooth_hidden":  {"stroke-width": "0.20", "stroke": "#444", "stroke-dasharray": "3,1.5"},
-    "centerlines":    {"stroke-width": "0.18", "stroke-dasharray": "8,2,1.5,2",
-                       "vector-effect": "non-scaling-stroke"},
-    "symmetry-axes":  {"stroke-width": "0.13", "stroke-dasharray": "8,2,1.5,2",
-                       "vector-effect": "non-scaling-stroke"},
-    "gdt-leader":     {"stroke-width": "0.25"},
-    "dimensions-*":   {"stroke-width": "0.18",
-                       "vector-effect": "non-scaling-stroke"},
-}
-
-def normalize_strokes(tree, profile=STROKE_PROFILE_KS) -> int:
-    """모든 <g class="..."> 에 프로파일 속성 강제 적용.
-
-    dimensions-* 는 dimensions-front, dimensions-top 등 와일드카드 매칭.
-    반환: 수정된 그룹 수
-    """
-```
-
-**Rule 3: Notes 자동 줄바꿈/행간 정리**
-
-```python
-NOTES_CONFIG = {
-    "max_width_mm": 180.0,      # FRONT 셀 폭 - 좌우 패딩
-    "line_height_mm": 4.0,      # 행간
-    "font_size_mm": 2.0,        # 폰트 크기
-    "char_width_factor": 0.55,  # monospace 근사 폭 = font_size * factor
-    "start_x": 19.0,            # 시작 X
-}
-
-def rewrap_notes(tree, config=NOTES_CONFIG) -> int:
-    """<g class="general-notes"> 내부 <text> 요소들을 재배치.
-
-    1. general-notes 그룹 탐색
-    2. 각 <text>의 텍스트 추출
-    3. max_width 초과 시 <tspan>으로 줄바꿈
-    4. y 좌표를 line_height 간격으로 재배치
-    5. NOTES: 헤더는 font-size 2.5 유지
-
-    반환: 재배치된 줄 수
-    """
-```
-
-**Rule 4: 소수점 좌표 정리**
-
-```python
-def round_coordinates(tree, precision=2) -> int:
-    """rect, line, circle, text, polyline 속성의 소수점을 N자리로 반올림.
-
-    대상 속성: x, y, x1, y1, x2, y2, cx, cy, r, width, height, points
-    <path d="...">의 좌표도 반올림
-
-    목적: FCF의 `y="223.31840390126624"` 같은 부동소수점 노이즈 제거
-    반환: 수정된 속성 수
-    """
-```
-
-#### P1 룰 (가능하면 적용)
-
-**Rule 5: ISO simplify (과다 내부선 제거)**
-
-```python
-def simplify_iso(tree, max_paths=600) -> int:
-    """ISO 셀의 iso_visible, smooth_visible 그룹에서 path 수 초과 시 제거.
-
-    1. ISO 셀 내 iso_visible 그룹: 무조건 제거 (얇은 회색 내부선)
-    2. ISO 셀 내 smooth_visible 그룹: path 수 > max_paths 이면 제거
-    3. hard_visible, outer_visible는 유지
-
-    반환: 제거된 path 수
-    """
-```
-
-**Rule 6: GD&T FCF 좌표 라운딩 + 리더 연결 검증**
-
-```python
-def audit_gdt(tree) -> dict:
-    """GD&T 구조 검증 (수정은 최소, 주로 리포트).
-
-    1. 각 gdt-leader 그룹 탐색
-    2. 리더 polyline의 시작점(앵커)이 뷰 geometry 근처인지 확인
-    3. 뒤따르는 FCF rect의 좌표를 precision=1로 반올림
-    4. FCF가 셀 밖으로 나갔는지 검사
-
-    반환: {"total": N, "anchored": N, "overflow": N, "rounded": N}
-    """
-```
-
-### 실행 파이프라인
-
-```python
-def postprocess(input_path, output_path, profile="ks", dry_run=False):
-    tree = load_svg(input_path)
-    report = {}
-
-    # P0 룰 (순서 중요)
-    report["iso_hidden_removed"] = remove_iso_hidden(tree)
-    report["strokes_normalized"] = normalize_strokes(tree)
-    report["notes_rewrapped"] = rewrap_notes(tree)
-    report["coords_rounded"] = round_coordinates(tree)
-
-    # P1 룰
-    report["iso_simplified"] = simplify_iso(tree)
-    report["gdt_audit"] = audit_gdt(tree)
-
-    if not dry_run:
-        write_svg(tree, output_path)
-
-    return report
-```
-
-### 실패 시 동작
-
-- SVG 파싱 실패 → 에러 + 원본 유지 (덮어쓰기 금지)
-- 개별 룰 실패 → 해당 룰만 skip + 경고, 나머지 룰 계속 적용
-- `--report`에 모든 실패도 기록
 
 ---
 
-## S2. Drawing QA Scorer
+## M2: generate_drawing.py Plan Read-Only 적용
 
-### 파일
+### 변경 원칙
 
-- `scripts/qa_scorer.py` — 메인 (svg_common.py 공유)
+- 조건부 읽기만 추가 (plan 없으면 기존 동작 100% 유지)
+- 새 SVG 조작 코드 없음
+- 총 변경량 ~20줄
 
-### CLI
+### 2-1. 뷰 옵션 읽기 (~5줄)
+
+위치: compose_drawing() → render_view_svg() 호출부 (line ~2410)
+
+```python
+# 기존: show_hidden = style.get("show_hidden", True)
+# 변경:
+plan_views = config.get("drawing_plan", {}).get("views", {}).get("options", {})
+vplan = plan_views.get(vname, {})
+show_hidden = vplan.get("show_hidden", style.get("show_hidden", True))
+show_centerlines = vplan.get("show_centerlines", style.get("show_centerlines", True))
+```
+
+### 2-2. 치수 전략 읽기 (~5줄)
+
+위치: 치수 전략 선택부 (line ~2434)
+
+```python
+# 기존: dim_strategy = select_dimension_strategy(feature_graph)
+# 변경:
+plan_dim = config.get("drawing_plan", {}).get("dimensioning", {})
+if plan_dim.get("scheme"):
+    dim_strategy = plan_dim["scheme"]
+else:
+    dim_strategy = select_dimension_strategy(feature_graph)
+```
+
+### 2-3. 노트 텍스트 읽기 (~5줄)
+
+위치: compose_drawing() 내 notes 렌더링 부분
+
+```python
+# 기존: notes_lines 하드코딩
+# 변경:
+plan_notes = config.get("drawing_plan", {}).get("notes", {})
+if plan_notes.get("general"):
+    notes_lines = plan_notes["general"]
+else:
+    notes_lines = [기존 하드코딩 값]
+```
+
+### 2-4. ISO hidden 제어 (~3줄)
+
+```python
+plan_views = config.get("drawing_plan", {}).get("views", {}).get("options", {})
+iso_hidden = plan_views.get("iso", {}).get("show_hidden", False)
+```
+
+### 변경하지 않는 것 (M4로 연기)
+
+- dim_intents → 치수 생성 로직 연동
+- sections → 자동 단면 뷰 생성
+- datums → GD&T 연동
+
+### 검증
 
 ```bash
-python scripts/qa_scorer.py input.svg [--json report.json] [--fail-under 80]
-
-# 출력 예시:
-# QA Score: 87/100
-#   iso_hidden_count: 0 (0점 감점)
-#   overflow_count: 1 (-10점)
-#   text_overlap_pairs: 2 (-4점)
-#   notes_overflow: false (0점 감점)
-#   gdt_unanchored: 1 (-3점)
-#   stroke_violations: 0 (0점 감점)
+# plan 적용
+fcad draw configs/examples/ks_flange.toml
+# plan 스킵 (회귀 확인)
+fcad draw configs/examples/ks_flange.toml --no-plan
+# 두 결과의 QA 점수 비교: plan >= no-plan 이어야 함
 ```
 
-### 체크 항목 + 감점 기준
+---
 
-#### P0 지표 (핵심)
+## M3: QA 지표 확장 (5개 추가)
 
-| 지표 | 측정 방법 | 감점 |
-|------|-----------|------|
-| `iso_hidden_count` | ISO 셀 내 `*_hidden` 그룹 수 | 1개당 -5 |
-| `overflow_count` | 뷰 geometry가 셀 bbox 밖으로 나간 요소 수 | 1개당 -10 |
-| `text_overlap_pairs` | 텍스트 bbox 간 IoU > 0.1인 쌍 수 | 1쌍당 -2 |
-| `dim_overlap_pairs` | 치수 텍스트 vs 형상 path 겹침 쌍 수 | 1쌍당 -2 |
-| `notes_overflow` | notes 텍스트가 셀/타이틀블록 영역 침범 여부 | -15 |
+### 기존 9개 + 신규 5개 = 14개
 
-#### P1 지표 (보조)
+| # | 이름 | 감점 | 측정 방법 | plan 필요 |
+|---|------|------|-----------|-----------|
+| Q10 | `dim_completeness` | 5/missing | plan required intents vs SVG 텍스트 매칭 | Yes |
+| Q11 | `dim_redundancy` | 2/duplicate | 동일 수치(±0.5mm)가 다른 뷰에 반복 | No |
+| Q12 | `datum_coherence` | 3 (bool) | 치수 extension line 방향 분산도 | No |
+| Q13 | `view_coverage` | 5 (bool) | required feature의 view 가시성 | Yes |
+| Q14 | `note_convention` | 3 | notes 위치/행간/wrap 준수 | No |
 
-| 지표 | 측정 방법 | 감점 |
-|------|-----------|------|
-| `gdt_unanchored` | leader polyline 길이가 0(시작=끝)인 FCF 수 | 1개당 -3 |
-| `dense_iso` | ISO 셀 내 전체 path 수 > 800 | -5 |
-| `stroke_violations` | 클래스별 stroke 규칙 불일치 수 | 1개당 -1 |
-| `float_precision` | 소수점 6자리+ 좌표 수 | 10개당 -1 (max -5) |
-
-### 스코어 계산
+### dim_completeness (핵심 지표)
 
 ```python
-def compute_score(metrics: dict) -> tuple[int, dict]:
-    """100점 만점에서 감점.
+def check_dim_completeness(tree, plan):
+    """plan의 required dim_intents가 SVG에 존재하는지.
+    plan 없으면 0 반환 (하위 호환).
 
-    score = 100
-    deductions = {}
+    매칭 규칙:
+    - diameter → SVG에 "Ø" + 숫자 존재
+    - linear → 숫자 + mm 형태 존재
+    - note → 키워드 매칭 (e.g., "6-" for bolt count)
+    - callout → "C" + 숫자 or 각도 형태
 
-    score -= metrics["iso_hidden_count"] * 5
-    score -= metrics["overflow_count"] * 10
-    score -= metrics["text_overlap_pairs"] * 2
-    score -= metrics["dim_overlap_pairs"] * 2
-    score -= 15 if metrics["notes_overflow"] else 0
-    score -= metrics["gdt_unanchored"] * 3
-    score -= 5 if metrics["dense_iso"] else 0
-    score -= metrics["stroke_violations"] * 1
-    score -= min(metrics["float_precision_count"] // 10, 5)
-
-    return (max(score, 0), deductions)
+    반환: missing count (감점 = count * 5)
     """
 ```
 
-### 구현 함수
+### dim_redundancy
 
 ```python
-def count_iso_hidden(tree) -> int:
-    """ISO 셀 내 *_hidden 클래스 그룹 수"""
-
-def detect_overflow(tree) -> list[dict]:
-    """각 뷰별로 geometry 요소가 셀 밖으로 나갔는지 검사.
-
-    1. 뷰별 셀 bbox 확인
-    2. 해당 뷰의 path/circle/line 그룹들의 bbox 계산
-    3. 셀 bbox 밖으로 나간 요소 목록 반환
-
-    반환: [{"view": "front", "class": "hard_visible", "overflow_px": 12.3}, ...]
+def check_dim_redundancy(tree):
+    """동일 수치가 다른 뷰 셀에 반복되는 치수 쌍 수.
+    뷰별 <text> 숫자 추출 → round(0.5) → 교집합 카운트.
+    반환: duplicate count (감점 = count * 2)
     """
-
-def detect_text_overlaps(tree) -> list[tuple]:
-    """모든 <text> 요소의 bbox를 계산하고 IoU > threshold인 쌍 반환.
-
-    bbox 근사: x, y-font_size → x+len*font_size*0.55, y
-    같은 그룹 내 텍스트끼리만 비교 (다른 뷰 간 겹침은 무시)
-
-    반환: [(text1, text2, iou), ...]
-    """
-
-def check_notes_overflow(tree) -> bool:
-    """general-notes 그룹의 마지막 텍스트 y가 title block 영역(y>247)을 침범하는지"""
-
-def count_gdt_unanchored(tree) -> int:
-    """gdt-leader polyline에서 시작점==끝점인 경우 (앵커 없음) 카운트"""
-
-def count_stroke_violations(tree, profile) -> int:
-    """클래스별 stroke 속성이 프로파일과 불일치하는 그룹 수"""
-
-def count_float_precision(tree, threshold=5) -> int:
-    """소수점 N자리 이상인 좌표 속성 수"""
 ```
 
-### JSON 리포트 형식
+### datum_coherence
 
-```json
-{
-  "file": "ks_flange_drawing.svg",
-  "score": 87,
-  "timestamp": "2026-02-12T18:00:00",
-  "metrics": {
-    "iso_hidden_count": 0,
-    "overflow_count": 1,
-    "text_overlap_pairs": 2,
-    "dim_overlap_pairs": 0,
-    "notes_overflow": false,
-    "gdt_unanchored": 1,
-    "dense_iso": false,
-    "stroke_violations": 0,
-    "float_precision_count": 45
-  },
-  "deductions": {
-    "overflow_count": -10,
-    "text_overlap_pairs": -4,
-    "gdt_unanchored": -3
-  },
-  "details": {
-    "overflows": [
-      {"view": "front", "class": "gdt-leader", "overflow_px": 3.2}
-    ],
-    "overlaps": [
-      {"text1": "⌀0.5 Ⓜ", "text2": "0.05", "iou": 0.12}
-    ]
+```python
+def check_datum_coherence(tree):
+    """치수 extension line들이 일관된 기준에서 출발하는지.
+    dimensions-* 그룹 내 수직/수평 line 시작점 클러스터링.
+    기준점이 3개 이상으로 분산 → incoherent.
+    반환: bool (감점 = 3 if incoherent)
+    """
+```
+
+### view_coverage
+
+```python
+def check_view_coverage(tree, plan):
+    """plan의 required dim_intents 중, 해당 view에 치수가 실제로 존재하는지.
+    plan 없으면 0 반환 (하위 호환).
+    반환: bool (감점 = 5 if uncovered features exist)
+    """
+```
+
+### note_convention
+
+```python
+def check_note_convention(tree):
+    """general-notes 그룹의 위치/행간/wrap 규칙 준수.
+    - notes가 bottom_left 영역에 위치하는지
+    - 행간이 3.5~4.5mm 범위인지
+    - wrap 폭이 180mm 이내인지
+    반환: violation count (감점 = min(count, 3))
+    """
+```
+
+### 점수 체계
+
+```
+기존: score = max(0, 100 - 감점)  ← 9개 지표
+신규: 동일 구조 (100점 만점, 14개 지표)
+plan 없으면 Q10/Q13은 0점 감점 (하위 호환 보장)
+```
+
+### 검증
+
+```bash
+# 6종 전체 QA (신규 지표 포함)
+for f in configs/examples/ks_*.toml; do fcad draw "$f"; done
+# 신규 지표 값 확인
+python3 scripts/qa_scorer.py output/ks_flange_drawing.svg --json /dev/stdout | python3 -m json.tool
+```
+
+---
+
+## M4: 심화 연동 (Phase 19 이후)
+
+M1~M3 안정화 후:
+
+1. **dim_intents → 치수 생성 연동**: plan feature 목록 기반 치수 on/off
+2. **자동 단면 뷰**: plan.sections → make_section() 호출
+3. **datum → GD&T 연동**: plan.datums로 auto-GD&T datum 선정 제어
+4. **추가 템플릿**: shaft.toml, bracket.toml, housing.toml, assembly.toml
+5. **인터랙티브 편집**: 웹 뷰어에서 치수 클릭→수정 (사람 20%)
+
+---
+
+## fcad.js 통합
+
+```javascript
+// cmdDraw() 내부, runScript('generate_drawing.py') 호출 전에 추가:
+if (!flags.includes('--no-plan')) {
+  const compilerScript = join(PROJECT_ROOT, 'scripts', 'intent_compiler.py');
+  try {
+    const enriched = execSync(
+      `python3 "${compilerScript}"`,
+      { input: JSON.stringify(config), encoding: 'utf-8', timeout: 15_000 }
+    );
+    const enrichedConfig = JSON.parse(enriched);
+    Object.assign(config, enrichedConfig);
+    console.log(`  Plan: ${enrichedConfig.drawing_plan?.part_type || 'unknown'} template applied`);
+  } catch (e) {
+    console.error(`  Plan warning: ${e.message} (falling back to default)`);
   }
 }
 ```
 
----
-
-## S3. fcad CLI 통합
-
-### 변경 파일
-
-- `bin/fcad.js` — `draw` 명령에 후처리/QA 단계 추가
-
-### 파이프라인
-
-```
-fcad draw config.toml
-  ├─ Step 1: generate_drawing.py → output/{name}_drawing.svg (기존)
-  ├─ Step 2: postprocess_svg.py → output/{name}_drawing.svg (덮어쓰기)
-  └─ Step 3: qa_scorer.py → output/{name}_qa.json + stdout 점수
-```
-
-### CLI 옵션 추가
-
-```bash
-fcad draw config.toml                    # 기본: generate + postprocess + score
-fcad draw config.toml --raw              # postprocess 스킵 (디버깅용)
-fcad draw config.toml --fail-under 85    # 점수 미달 시 exit 1
-fcad draw config.toml --no-score         # QA 스킵
-```
-
-### fcad.js 수정 범위
-
-```javascript
-// bin/fcad.js draw 핸들러 (기존 ~line 123-176)
-// generate 완료 후 추가:
-
-if (!opts.raw) {
-  // Step 2: Post-process
-  const ppResult = execSync(
-    `python3 scripts/postprocess_svg.py "${svgPath}" -o "${svgPath}" --report "${qaDir}/${name}_pp.json"`,
-    { cwd: projectRoot }
-  );
-}
-
-if (!opts.noScore) {
-  // Step 3: QA Score
-  const qaResult = execSync(
-    `python3 scripts/qa_scorer.py "${svgPath}" --json "${qaDir}/${name}_qa.json"` +
-    (opts.failUnder ? ` --fail-under ${opts.failUnder}` : ''),
-    { cwd: projectRoot }
-  );
-  console.log(qaResult.toString());
-}
-```
+CLI 플래그:
+- `--no-plan`: intent plan 스킵 (기존 동작 100%)
+- 기본: plan 적용 (template 없으면 자동 fallback)
 
 ---
 
-## 구현 순서
+## 회귀 방지
 
-| 순서 | 작업 | 산출물 | 의존성 |
-|------|------|--------|--------|
-| 1 | `scripts/svg_common.py` | 공용 유틸 | 없음 |
-| 2a | `scripts/postprocess_svg.py` P0 룰 4종 | 후처리 스크립트 | svg_common |
-| 2b | `scripts/qa_scorer.py` P0 지표 5종 | QA 스코어러 | svg_common |
-| 3 | P1 룰/지표 추가 | 확장 | 2a, 2b |
-| 4 | `bin/fcad.js` 통합 | CLI 파이프라인 | 2a, 2b |
-| 5 | 6종 SVG 일괄 실행 + 점수 기록 | 베이스라인 | 4 |
-
-**2a, 2b는 병렬 구현 가능** (svg_common만 먼저 완성)
-
----
-
-## 검증 방법
-
-### 단위 검증
-
-```bash
-# Post-processor 단독 실행
-python scripts/postprocess_svg.py output/ks_flange_drawing.svg -o /tmp/clean.svg --report /tmp/pp.json
-
-# QA 스코어러 단독 실행
-python scripts/qa_scorer.py output/ks_flange_drawing.svg --json /tmp/qa.json
-
-# Dry-run (변경 없이 리포트만)
-python scripts/postprocess_svg.py output/ks_flange_drawing.svg --dry-run --report /tmp/pp.json
-```
-
-### 일괄 검증
-
-```bash
-# 6종 전체 후처리 + QA
-for svg in output/ks_*_drawing.svg; do
-  name=$(basename "$svg" _drawing.svg)
-  python scripts/postprocess_svg.py "$svg" -o "output/${name}_clean.svg" --report "output/${name}_pp.json"
-  python scripts/qa_scorer.py "output/${name}_clean.svg" --json "output/${name}_qa.json"
-done
-```
-
-### 성공 기준
-
-- 후처리 후 ISO 뷰에 hidden line 0개
-- 후처리 전/후 QA 점수 비교: **최소 10점 이상 개선**
-- `--fail-under 80` 통과하는 SVG가 4종 이상 (6종 중)
+- 6종 ks_*.toml: `--no-plan` vs plan 적용 QA 비교
+- plan 적용 시 QA 점수 ≥ `--no-plan` (하락 시 FAIL)
+- M1 완료 시점 스냅샷: `tests/snapshots/phase19_m1_scores.json`
 - 기존 테스트 (`node tests/test-runner.js`) 통과 유지
 
 ---
 
-## 미래 확장 (이번 범위 밖)
+## 마일스톤 순서 + 검증
 
-- TechDraw 하이브리드 (투영을 TechDraw View 객체로 전환)
-- 제조 패키지 생성기 (critical dims list + inspection checklist)
-- CI 자동 비교 (PR마다 점수 diff)
+| # | 작업 | 검증 기준 | 변경 파일 |
+|---|------|-----------|-----------|
+| M1 | intent_compiler.py + flange.toml + validator | stdin→enriched config 출력, validator PASS | 신규 4파일 |
+| M2 | generate_drawing.py plan read-only | plan 반영 확인 + --no-plan 회귀 없음 | generate_drawing.py (~20줄) |
+| M3 | qa_scorer.py 5개 지표 추가 | 6종 QA 실행, 14개 지표 값 확인 | qa_scorer.py |
+| M4 | fcad.js 통합 + E2E | `fcad draw` 전체 파이프라인 정상 | fcad.js |
+
+순서: M1 → 검증 → M2 → 검증 → M3 → 검증 → M4 → 6종 회귀 (50줄 단위, 단위별 검증)

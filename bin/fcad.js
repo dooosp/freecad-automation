@@ -152,6 +152,23 @@ async function cmdDraw(configPath, flags = []) {
     config.drawing.views = ['front', 'top', 'right', 'iso'];
   }
 
+  // Intent Plan (Phase 19) — enrich config with drawing_plan
+  if (!flags.includes('--no-plan')) {
+    const compilerScript = join(PROJECT_ROOT, 'scripts', 'intent_compiler.py');
+    try {
+      const enriched = execSync(
+        `python3 "${compilerScript}"`,
+        { input: JSON.stringify(config), encoding: 'utf-8', timeout: 15_000 }
+      );
+      const enrichedConfig = JSON.parse(enriched);
+      Object.assign(config, enrichedConfig);
+      console.log(`  Plan: ${config.drawing_plan?.part_type || 'unknown'} template applied`);
+    } catch (e) {
+      const msg = e.stderr ? e.stderr.toString().trim() : e.message;
+      console.error(`  Plan warning: ${msg} (falling back to default)`);
+    }
+  }
+
   const modelName = config.name || 'unnamed';
   console.log(`Generating drawing: ${modelName}`);
   console.log(`  Views: ${config.drawing.views.join(', ')}`);
@@ -185,6 +202,14 @@ async function cmdDraw(configPath, flags = []) {
     const failIdx = flags.indexOf('--fail-under');
     const failUnder = failIdx >= 0 && flags[failIdx + 1] ? ` --fail-under ${flags[failIdx + 1]}` : '';
 
+    // Save plan for QA intent metrics
+    let planArg = '';
+    if (config.drawing_plan) {
+      const planPath = join(PROJECT_ROOT, 'output', `${config.name || 'unnamed'}_plan.json`);
+      writeFileSync(planPath, JSON.stringify({ drawing_plan: config.drawing_plan }));
+      planArg = ` --plan "${planPath}"`;
+    }
+
     for (const svgPath of svgPaths) {
       const reportJson = svgPath.replace('.svg', '_repair_report.json');
       const qaJson = svgPath.replace('.svg', '_qa.json');
@@ -195,7 +220,7 @@ async function cmdDraw(configPath, flags = []) {
         try {
           const qaBeforeJson = svgPath.replace('.svg', '_qa_before.json');
           execSync(
-            `python3 "${qaScript}" "${svgPath}" --json "${qaBeforeJson}"`,
+            `python3 "${qaScript}" "${svgPath}" --json "${qaBeforeJson}"${planArg}`,
             { cwd: PROJECT_ROOT, encoding: 'utf-8', timeout: 30_000 }
           );
           qaBefore = JSON.parse(readFileSync(qaBeforeJson, 'utf-8'));
@@ -223,7 +248,7 @@ async function cmdDraw(configPath, flags = []) {
         console.log('\nQA Scoring...');
         try {
           const qaOut = execSync(
-            `python3 "${qaScript}" "${svgPath}" --json "${qaJson}"${failUnder}`,
+            `python3 "${qaScript}" "${svgPath}" --json "${qaJson}"${planArg}${failUnder}`,
             { cwd: PROJECT_ROOT, encoding: 'utf-8', timeout: 30_000 }
           );
           if (qaOut.trim()) console.log(qaOut.trim());

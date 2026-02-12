@@ -2431,10 +2431,13 @@ try:
     except Exception as e:
         log(f"  Feature inference skipped: {e}")
 
-    # Determine dimension strategy
+    # Determine dimension strategy (plan > config > auto)
     dim_strategy = "chain"
+    plan_dim = config.get("drawing_plan", {}).get("dimensioning", {})
     dim_style_cfg = drawing_cfg.get("dimension_style", {})
-    if dim_style_cfg.get("type"):
+    if plan_dim.get("scheme"):
+        dim_strategy = plan_dim["scheme"]
+    elif dim_style_cfg.get("type"):
         dim_strategy = dim_style_cfg["type"]
     elif feature_graph:
         dim_strategy = select_dimension_strategy(feature_graph)
@@ -2526,16 +2529,20 @@ try:
     show_cl = drawing_cfg.get("style", {}).get("show_centerlines", True)
     show_dims = drawing_cfg.get("style", {}).get("show_dimensions", True)
     tol_cfg = drawing_cfg.get("tolerances", {})
+    # Plan-aware view options (Phase 19)
+    plan_view_opts = config.get("drawing_plan", {}).get("views", {}).get("options", {})
 
     for vname, vd in view_data.items():
-        vh = show_hidden
+        vplan = plan_view_opts.get(vname, {})
+        vh = vplan.get("show_hidden", show_hidden)
+        vcl = vplan.get("show_centerlines", show_cl)
         # P0-1: ISO view — always hide hidden lines (KS/industrial practice)
         if vname == "iso":
-            vh = False
+            vh = vplan.get("show_hidden", False)
         is_iso = (vname == "iso")
         svg = render_view_svg(vname, vd["groups"], vd["bounds"], vd["circles"],
                               vd["cx"], vd["cy"], scale,
-                              show_hidden=vh, show_centerlines=show_cl,
+                              show_hidden=vh, show_centerlines=vcl,
                               simplify_iso=is_iso)
         # Append dimension lines (front/top/right only)
         if show_dims and vname != "iso":
@@ -2742,9 +2749,12 @@ try:
         if gdt_entries:
             log(f"  Auto GD&T: {len(gdt_entries)} tolerances assigned")
 
-    # -- Build Enhanced Notes --
+    # -- Build Enhanced Notes (plan > auto) --
+    plan_notes = config.get("drawing_plan", {}).get("notes", {})
     notes_list = None
-    if feature_graph:
+    if plan_notes.get("general"):
+        notes_list = list(plan_notes["general"])
+    elif feature_graph:
         notes_list = build_general_notes(drawing_cfg, feature_graph, ks=True)
 
     # -- Compose Drawing --

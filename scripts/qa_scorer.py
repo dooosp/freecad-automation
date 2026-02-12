@@ -34,6 +34,12 @@ WEIGHTS = {
     "dense_iso":            5,   # boolean
     "stroke_violations":    1,   # per group
     "float_precision":      1,   # per 10 occurrences, max 5
+    # Phase 19 intent metrics
+    "dim_completeness":     5,   # per missing required dim
+    "dim_redundancy":       2,   # per duplicate across views
+    "datum_coherence":      3,   # boolean (incoherent)
+    "view_coverage":        5,   # boolean (uncovered features)
+    "note_convention":      1,   # per violation, max 3
 }
 
 
@@ -279,9 +285,228 @@ def count_float_precision(tree, min_decimals=4):
     return total
 
 
+# -- Phase 19 Intent Metrics ---------------------------------------------------
+
+import re as _re
+
+def _extract_dim_numbers(tree):
+    """Extract dimension numbers from text elements, grouped by view cell."""
+    view_nums = {}  # {view_name: [numbers]}
+    for elem in tree.iter():
+        tag = local_tag(elem)
+        if tag != "text":
+            continue
+        text = (elem.text or "").strip()
+        if not text:
+            continue
+        # Skip non-dimension text (labels, notes headers, etc.)
+        if text in ("FRONT", "TOP", "RIGHT", "ISO", "NOTES:", "A", "B", "C"):
+            continue
+        # Extract numbers (including Ø prefix)
+        nums = _re.findall(r'[\d]+(?:\.[\d]+)?', text)
+        if not nums:
+            continue
+        bbox = elem_bbox_approx(elem)
+        if not bbox:
+            continue
+        view = classify_by_position(bbox.x + bbox.w / 2, bbox.y + bbox.h / 2)
+        if not view:
+            continue
+        view_nums.setdefault(view, []).extend(float(n) for n in nums)
+    return view_nums
+
+
+def check_dim_completeness(tree, plan):
+    """Count missing required dim_intents from plan.
+    Returns 0 if no plan (backward compatible).
+    """
+    if not plan:
+        return 0
+    dim_intents = plan.get("dim_intents", [])
+    required = [d for d in dim_intents if d.get("required")]
+    if not required:
+        return 0
+
+    # Collect all text content from SVG
+    all_texts = []
+    for elem in tree.iter():
+        if local_tag(elem) == "text":
+            t = (elem.text or "").strip()
+            if t:
+                all_texts.append(t)
+    all_text_joined = " ".join(all_texts)
+
+    missing = 0
+    for dim in required:
+        style = dim.get("style", "")
+        feature = dim.get("feature", "")
+        found = False
+
+        if style == "diameter":
+            # Look for Ø symbol + any number
+            found = "Ø" in all_text_joined or "⌀" in all_text_joined
+        elif style == "linear":
+            # At least some numeric dimension exists
+            found = bool(_re.search(r'\d+\.?\d*', all_text_joined))
+        elif style == "note":
+            # Bolt count: look for "Nx" or "N holes" pattern
+            if "count" in feature:
+                found = bool(_re.search(r'\d+[\-x×]', all_text_joined))
+            else:
+                found = True  # generic notes assumed present
+        elif style == "callout":
+            # Chamfer callout: "C" + number
+            found = bool(_re.search(r'C\s*\d', all_text_joined))
+        elif style == "radius":
+            # R + number
+            found = bool(_re.search(r'R\s*\d', all_text_joined))
+        else:
+            found = True  # unknown style, assume present
+
+        if not found:
+            missing += 1
+
+    return missing
+
+
+def check_dim_redundancy(tree):
+    """Count duplicate dimension values across different views."""
+    view_nums = _extract_dim_numbers(tree)
+    if len(view_nums) < 2:
+        return 0
+
+    # Round to 0.5mm precision for matching
+    view_rounded = {}
+    for view, nums in view_nums.items():
+        view_rounded[view] = {round(n * 2) / 2 for n in nums}
+
+    # Count values appearing in multiple views
+    all_values = {}  # {rounded_val: set of views}
+    for view, vals in view_rounded.items():
+        for v in vals:
+            all_values.setdefault(v, set()).add(view)
+
+    duplicates = sum(1 for v, views in all_values.items() if len(views) > 1)
+    return duplicates
+
+
+def check_datum_coherence(tree):
+    """Check if dimension extension lines originate from consistent baselines.
+    Returns True if incoherent (too many origins), False if coherent.
+    """
+    # Collect x-starts of horizontal dimension lines and y-starts of vertical ones
+    h_origins = []
+    v_origins = []
+
+    for elem in tree.iter():
+        tag = local_tag(elem)
+        cls = elem.get("class", "")
+        if not cls.startswith("dimensions-"):
+            continue
+
+        if tag == "line":
+            x1 = float(elem.get("x1", 0))
+            y1 = float(elem.get("y1", 0))
+            x2 = float(elem.get("x2", 0))
+            y2 = float(elem.get("y2", 0))
+            dx = abs(x2 - x1)
+            dy = abs(y2 - y1)
+            # Extension line (short, mostly vertical or horizontal)
+            if dx < 2 and dy > 3:
+                v_origins.append(round(x1, 0))
+            elif dy < 2 and dx > 3:
+                h_origins.append(round(y1, 0))
+
+    # Cluster origins: count distinct clusters with tolerance
+    def count_clusters(values, tol=3):
+        if not values:
+            return 0
+        sorted_vals = sorted(set(values))
+        clusters = 1
+        for i in range(1, len(sorted_vals)):
+            if sorted_vals[i] - sorted_vals[i - 1] > tol:
+                clusters += 1
+        return clusters
+
+    h_clusters = count_clusters(h_origins)
+    v_clusters = count_clusters(v_origins)
+
+    # Incoherent if more than 3 distinct baselines in either direction
+    return (h_clusters > 3) or (v_clusters > 3)
+
+
+def check_view_coverage(tree, plan):
+    """Check if required dim_intents have dimensions in their target view.
+    Returns True if uncovered features exist, False otherwise.
+    Returns False if no plan (backward compatible).
+    """
+    if not plan:
+        return False
+    dim_intents = plan.get("dim_intents", [])
+    required = [d for d in dim_intents if d.get("required") and d.get("view") != "notes"]
+    if not required:
+        return False
+
+    view_nums = _extract_dim_numbers(tree)
+
+    for dim in required:
+        target_view = dim.get("view", "")
+        if target_view not in view_nums or not view_nums[target_view]:
+            return True  # uncovered
+
+    return False
+
+
+def check_note_convention(tree):
+    """Check general-notes compliance: position, line spacing, wrap width.
+    Returns violation count (max 3).
+    """
+    violations = 0
+    notes_group = None
+
+    for elem in tree.iter():
+        cls = elem.get("class", "")
+        if "general-notes" in cls:
+            notes_group = elem
+            break
+
+    if notes_group is None:
+        return 0  # no notes to check
+
+    texts = list(notes_group.iter())
+    text_elems = [e for e in texts if local_tag(e) == "text"]
+    if not text_elems:
+        return 0
+
+    # Check 1: notes should be in bottom-left region (x < 200, y > 200)
+    first_y = float(text_elems[0].get("y", 0))
+    first_x = float(text_elems[0].get("x", 0))
+    if first_x > 200 or first_y < 200:
+        violations += 1
+
+    # Check 2: line spacing consistency (should be ~3.5-5.0mm)
+    if len(text_elems) >= 2:
+        y_values = [float(e.get("y", 0)) for e in text_elems]
+        spacings = [y_values[i + 1] - y_values[i] for i in range(len(y_values) - 1)]
+        spacings = [s for s in spacings if s > 0]
+        if spacings:
+            avg_spacing = sum(spacings) / len(spacings)
+            if avg_spacing < 3.0 or avg_spacing > 6.0:
+                violations += 1
+
+    # Check 3: text should not extend beyond x=200 (wrap width)
+    for te in text_elems:
+        bbox = elem_bbox_approx(te)
+        if bbox and bbox.x + bbox.w > 200:
+            violations += 1
+            break
+
+    return min(violations, 3)
+
+
 # -- Score computation ---------------------------------------------------------
 
-def collect_metrics(tree):
+def collect_metrics(tree, plan=None):
     """Run all checks and return metrics dict."""
     overflows = detect_overflow(tree)
     text_overlaps = detect_text_overlaps(tree)
@@ -296,6 +521,12 @@ def collect_metrics(tree):
         "dense_iso": check_dense_iso(tree),
         "stroke_violations": count_stroke_violations(tree),
         "float_precision_count": count_float_precision(tree),
+        # Phase 19 intent metrics
+        "dim_completeness": check_dim_completeness(tree, plan),
+        "dim_redundancy": check_dim_redundancy(tree),
+        "datum_coherence": check_datum_coherence(tree),
+        "view_coverage": check_view_coverage(tree, plan),
+        "note_convention": check_note_convention(tree),
         "_details": {
             "overflows": overflows,
             "text_overlaps": text_overlaps[:10],  # limit detail output
@@ -332,6 +563,17 @@ def compute_score(metrics):
            metrics["stroke_violations"] * WEIGHTS["stroke_violations"])
     deduct("float_precision",
            min(metrics["float_precision_count"] // 10, 5) * WEIGHTS["float_precision"])
+    # Phase 19 intent metrics
+    deduct("dim_completeness",
+           metrics.get("dim_completeness", 0) * WEIGHTS["dim_completeness"])
+    deduct("dim_redundancy",
+           metrics.get("dim_redundancy", 0) * WEIGHTS["dim_redundancy"])
+    if metrics.get("datum_coherence"):
+        deduct("datum_coherence", WEIGHTS["datum_coherence"])
+    if metrics.get("view_coverage"):
+        deduct("view_coverage", WEIGHTS["view_coverage"])
+    deduct("note_convention",
+           min(metrics.get("note_convention", 0), 3) * WEIGHTS["note_convention"])
 
     return max(score, 0), deductions
 
@@ -343,12 +585,24 @@ def main():
         description="Drawing QA Scorer — measure SVG quality")
     parser.add_argument("input", help="Input SVG file")
     parser.add_argument("--json", dest="json_out", help="Save JSON report")
+    parser.add_argument("--plan", dest="plan_json", help="Drawing plan JSON for intent metrics")
     parser.add_argument("--fail-under", type=int, default=0,
                         help="Exit with error if score < threshold")
     args = parser.parse_args()
 
     tree = load_svg(args.input)
-    metrics = collect_metrics(tree)
+
+    # Load plan if provided (for intent-aware metrics)
+    plan = None
+    if args.plan_json and os.path.exists(args.plan_json):
+        try:
+            with open(args.plan_json) as pf:
+                plan_data = json.load(pf)
+                plan = plan_data.get("drawing_plan", plan_data)
+        except Exception:
+            pass  # plan is optional
+
+    metrics = collect_metrics(tree, plan)
     score, deductions = compute_score(metrics)
 
     # Print summary

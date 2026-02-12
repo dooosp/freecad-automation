@@ -1,0 +1,112 @@
+# Flange drawing template — KS standard
+# Used by intent_compiler.py to generate drawing_plan
+
+[template]
+part_type = "flange"
+schema_version = "0.1"
+description = "KS flange standard drawing template"
+
+# --- Views ---
+[views]
+enabled = ["front", "top", "right", "iso"]
+layout = "third_angle"
+
+[views.options]
+front = { show_hidden = true, show_centerlines = true }
+top   = { show_hidden = true, show_centerlines = true }
+right = { show_hidden = true, show_centerlines = true }
+iso   = { show_hidden = false, show_centerlines = false }
+
+# --- Datums ---
+[[datums]]
+name = "A"
+kind = "plane"
+selector = "largest_planar"
+reason = "primary mounting face"
+
+[[datums]]
+name = "B"
+kind = "axis"
+selector = "largest_cyl_axis"
+reason = "bore center axis"
+
+# --- Dimensioning Style ---
+[dimensioning]
+scheme = "baseline"
+baseline_datum = "A"
+avoid_redundant = true
+
+# --- Required Dimensions (Flange DNA) ---
+[[dim_intents]]
+id = "OD"
+feature = "outer_diameter"
+view = "front"
+style = "diameter"
+required = true
+priority = 100
+
+[[dim_intents]]
+id = "ID"
+feature = "inner_diameter"
+view = "front"
+style = "diameter"
+required = true
+priority = 95
+
+[[dim_intents]]
+id = "PCD"
+feature = "bolt_circle_diameter"
+view = "front"
+style = "diameter"
+required = true
+priority = 90
+
+[[dim_intents]]
+id = "BOLT_DIA"
+feature = "bolt_hole_diameter"
+view = "front"
+style = "diameter"
+required = true
+priority = 85
+
+[[dim_intents]]
+id = "BOLT_COUNT"
+feature = "bolt_hole_count"
+view = "notes"
+style = "note"
+required = true
+priority = 80
+
+[[dim_intents]]
+id = "THK"
+feature = "thickness"
+view = "right"
+style = "linear"
+required = true
+priority = 75
+
+[[dim_intents]]
+id = "FILLET"
+feature = "fillet_radius"
+view = "right"
+style = "radius"
+required = false
+priority = 40
+
+[[dim_intents]]
+id = "CHAMFER"
+feature = "chamfer"
+view = "right"
+style = "callout"
+required = false
+priority = 35
+
+# --- Notes ---
+[notes]
+general = [
+  "UNLESS OTHERWISE SPECIFIED:",
+  "  TOLERANCES PER KS B 0401 CLASS m",
+  "  SURFACE FINISH Ra 3.2",
+  "REMOVE ALL BURRS AND SHARP EDGES.",
+]
+placement = "bottom_left"
