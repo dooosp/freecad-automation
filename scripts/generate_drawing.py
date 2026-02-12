@@ -102,10 +102,11 @@ def _extract_fn(view_name, sample_pts=None):
 
 def project_view(shape, direction, view_name):
     """Project shape with TechDraw.projectEx() and classify edges.
-    Returns: (groups, bounds, circles)
+    Returns: (groups, bounds, circles, arcs)
       groups: {group_idx: [{"pts": [(u,v),...], "circ": (cu,cv,r)|None}, ...]}
       bounds: (u_min, v_min, u_max, v_max)
       circles: [(u, v, radius), ...]  — full circles with center and radius
+      arcs: [(cu, cv, radius, mid_u, mid_v, group_idx), ...]  — partial arcs
     """
     import TechDraw
     from FreeCAD import Vector
@@ -127,6 +128,7 @@ def project_view(shape, direction, view_name):
             center = None
             is_circ = False
             radius = 0.0
+            arc_mid = None
 
             if ctype in ('Line', 'LineSegment'):
                 pts = [edge.Vertexes[0].Point, edge.Vertexes[1].Point]
@@ -135,6 +137,9 @@ def project_view(shape, direction, view_name):
                 radius = edge.Curve.Radius
                 is_circ = abs(edge.LastParameter - edge.FirstParameter - 2 * math.pi) < 0.01
                 pts = list(edge.discretize(30))
+                if not is_circ:
+                    mid_param = (edge.FirstParameter + edge.LastParameter) / 2
+                    arc_mid = edge.Curve.value(mid_param)
             else:
                 try:
                     pts = list(edge.discretize(30))
@@ -143,10 +148,10 @@ def project_view(shape, direction, view_name):
 
             if pts:
                 all_pts.extend(pts)
-                raw.append((gi, pts, center, is_circ, radius))
+                raw.append((gi, pts, center, is_circ, radius, arc_mid))
 
     if not raw:
-        return {}, (0, 0, 1, 1), []
+        return {}, (0, 0, 1, 1), [], []
 
     # Determine 2D extraction
     ext = _extract_fn(view_name, all_pts)
@@ -155,8 +160,9 @@ def project_view(shape, direction, view_name):
     groups = {}
     all_2d = []
     circles = []
+    arcs = []
 
-    for gi, pts_3d, center_3d, is_circ, radius in raw:
+    for gi, pts_3d, center_3d, is_circ, radius, arc_mid_3d in raw:
         pts_2d = [ext(p) for p in pts_3d]
         all_2d.extend(pts_2d)
         entry = {"pts": pts_2d}
@@ -164,11 +170,15 @@ def project_view(shape, direction, view_name):
             c = ext(center_3d)
             entry["circ"] = (c[0], c[1], radius)
             circles.append((c[0], c[1], radius))
+        elif arc_mid_3d and center_3d and radius > 0:
+            c = ext(center_3d)
+            m = ext(arc_mid_3d)
+            arcs.append((c[0], c[1], radius, m[0], m[1], gi))
         groups.setdefault(gi, []).append(entry)
 
     us, vs = zip(*all_2d)
     bounds = (min(us), min(vs), max(us), max(vs))
-    return groups, bounds, circles
+    return groups, bounds, circles, arcs
 
 
 # -- SVG Rendering -------------------------------------------------------------
@@ -319,6 +329,7 @@ DIM_ARROW_W = 0.7            # arrow half-width mm
 DIM_GAP = 2.0                # gap between shape edge and extension line start
 DIM_OFFSET = 8.0             # distance from shape edge to dimension line
 DIM_EXT_OVERSHOOT = 1.5      # extension line past dimension line
+FEAT_DIM_STACK = 7.0         # spacing between stacked dimension rows
 
 
 def _arrow_head(x, y, angle):
@@ -416,11 +427,52 @@ def _dim_diameter(px, py, radius_scaled, radius_mm, angle_deg=45):
     return out
 
 
-def render_dimensions_svg(vname, bounds, circles, cx, cy, scale):
+def _dim_radius(cx_pg, cy_pg, mx_pg, my_pg, radius_scaled, radius_mm):
+    """Radius dimension: leader from arc surface outward + 'R{value}' text."""
+    out = []
+    # Direction from center to midpoint (radially outward) in page coords
+    dx = mx_pg - cx_pg
+    dy = my_pg - cy_pg
+    dist = math.hypot(dx, dy)
+    if dist < 0.1:
+        return out
+    ndx, ndy = dx / dist, dy / dist
+
+    # Point on arc surface (page coords)
+    ax = cx_pg + ndx * radius_scaled
+    ay = cy_pg + ndy * radius_scaled
+
+    # Leader end (outside arc)
+    leader_len = max(radius_scaled * 0.6, 5)
+    ex = ax + ndx * leader_len
+    ey = ay + ndy * leader_len
+
+    # Leader line
+    out.append(f'<line x1="{ax:.2f}" y1="{ay:.2f}" '
+               f'x2="{ex:.2f}" y2="{ey:.2f}"/>')
+
+    # Arrow at arc surface (pointing toward center)
+    arr_angle = math.atan2(-ndy, -ndx)
+    out.append(_arrow_head(ax, ay, arr_angle))
+
+    # Text
+    text = f"R{radius_mm:.1f}" if radius_mm != int(radius_mm) else f"R{int(radius_mm)}"
+    anchor = "start" if ndx >= 0 else "end"
+    tx = ex + 1.5 * ndx
+    ty = ey + 1.5 * ndy + 1.0
+    out.append(f'<text x="{tx:.2f}" y="{ty:.2f}" text-anchor="{anchor}" '
+               f'font-family="{DIM_FONT}" font-size="{DIM_FONT_SIZE}" '
+               f'fill="{DIM_COLOR}">{text}</text>')
+    return out
+
+
+def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None):
     """Generate ISO 129 dimension lines for a view.
 
     - Bounding dimensions (overall width + height) for front/top/right
     - Hole diameter callouts for circular features
+    - Feature chain dimensions (hole-to-hole and hole-to-edge positions)
+    - Radius dimensions for fillet/round arcs
     - ISO view is skipped (no dimensions on pictorial views)
     """
     if vname == "iso":
@@ -441,17 +493,22 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale):
                f'stroke-width="{DIM_LINE_W}" fill="none" '
                f'stroke-linecap="{LINE_CAP}">')
 
+    h_stack = 0  # horizontal dimension rows stacked below shape
+    v_stack = 0  # vertical dimension columns stacked right of shape
+
     # Overall width (horizontal, below shape)
     width_mm = (u1 - u0)
     if width_mm > 0.5:
-        y_dim = bottom + DIM_OFFSET
+        y_dim = bottom + DIM_OFFSET + FEAT_DIM_STACK * h_stack
         out.extend(_dim_horizontal(left, right, bottom, y_dim, width_mm))
+        h_stack += 1
 
     # Overall height (vertical, right of shape)
     height_mm = (v1 - v0)
     if height_mm > 0.5:
-        x_dim = right + DIM_OFFSET
+        x_dim = right + DIM_OFFSET + FEAT_DIM_STACK * v_stack
         out.extend(_dim_vertical(top, bottom, right, x_dim, height_mm))
+        v_stack += 1
 
     # Hole diameters (deduplicated by radius within tolerance)
     seen_radii = []
@@ -469,6 +526,168 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale):
             continue  # too small to dimension
         out.extend(_dim_diameter(px, py, r_scaled, cr, angle_deg=leader_angle))
         leader_angle += 30  # stagger angles for multiple holes
+
+    # -- Feature chain dimensions (hole positions from edges) --
+    if circles:
+        # Deduplicate circle u-positions (tolerance 1mm model space)
+        unique_cu = []
+        for c in sorted(circles, key=lambda c: c[0]):
+            if not unique_cu or abs(c[0] - unique_cu[-1]) > 1.0:
+                unique_cu.append(c[0])
+
+        # Deduplicate circle v-positions
+        unique_cv = []
+        for c in sorted(circles, key=lambda c: c[1]):
+            if not unique_cv or abs(c[1] - unique_cv[-1]) > 1.0:
+                unique_cv.append(c[1])
+
+        # Horizontal chain: left_edge → hole1 → hole2 → ... → right_edge
+        chain_u = [u0] + unique_cu + [u1]
+        h_segments = []
+        for k in range(len(chain_u) - 1):
+            dist = chain_u[k + 1] - chain_u[k]
+            if dist > 2.0 and abs(dist - width_mm) > 1.0:
+                px1, _ = pg(chain_u[k], v0)
+                px2, _ = pg(chain_u[k + 1], v0)
+                if abs(px2 - px1) >= 8.0:  # min page width for readable text
+                    h_segments.append((px1, px2, dist))
+
+        if h_segments:
+            y_feat = bottom + DIM_OFFSET + FEAT_DIM_STACK * h_stack
+            for px1, px2, dist in h_segments:
+                out.extend(_dim_horizontal(px1, px2, bottom, y_feat, dist))
+            h_stack += 1
+
+        # Vertical chain: bottom_edge → hole1 → hole2 → ... → top_edge
+        chain_v = [v0] + unique_cv + [v1]
+        v_segments = []
+        for k in range(len(chain_v) - 1):
+            dist = chain_v[k + 1] - chain_v[k]
+            if dist > 2.0 and abs(dist - height_mm) > 1.0:
+                _, py_top = pg(u0, chain_v[k + 1])  # higher v → smaller page y
+                _, py_bot = pg(u0, chain_v[k])       # lower v → larger page y
+                if abs(py_bot - py_top) >= 8.0:
+                    v_segments.append((py_top, py_bot, dist))
+
+        if v_segments:
+            x_feat = right + DIM_OFFSET + FEAT_DIM_STACK * v_stack
+            for py_top, py_bot, dist in v_segments:
+                out.extend(_dim_vertical(py_top, py_bot, right, x_feat, dist))
+            v_stack += 1
+
+    # -- Radius dimensions (fillet/round arcs) --
+    if arcs:
+        hidden_groups = {1, 3, 6, 9}
+        seen_r = []
+        for c_u, c_v, r, m_u, m_v, gi in arcs:
+            if gi in hidden_groups:
+                continue
+            is_dup = any(abs(r - sr) < 0.1 for sr in seen_r)
+            if is_dup:
+                continue
+            seen_r.append(r)
+            r_scaled = r * scale
+            if r_scaled < 1.0:
+                continue
+            cx_pg, cy_pg = pg(c_u, c_v)
+            mx_pg, my_pg = pg(m_u, m_v)
+            out.extend(_dim_radius(cx_pg, cy_pg, mx_pg, my_pg, r_scaled, r))
+
+    out.append('</g>')
+    return '\n'.join(out)
+
+
+# -- Datum Indicators (ISO 5459) -----------------------------------------------
+
+DATUM_TRI_H = 2.5            # triangle height (perpendicular to edge)
+DATUM_TRI_BASE = 3.0         # triangle base width
+DATUM_FRAME_S = 4.5          # frame size (square)
+DATUM_LEADER_L = 3.0         # leader line length
+
+# Datum assignment per view: (letter, edge, fraction_along_edge)
+# A = bottom face (Z=min), B = left face (X=min), C = back face (Y=max)
+DATUM_VIEW_MAP = {
+    "front": [("A", "bottom", 0.25), ("B", "left", 0.3)],
+    "top":   [("B", "left", 0.3),    ("C", "top", 0.25)],
+    "right": [("A", "bottom", 0.25), ("C", "left", 0.3)],
+}
+
+
+def render_datums_svg(vname, bounds, cx, cy, scale):
+    """Render ISO 5459 datum feature indicators on view edges.
+
+    Places filled triangles with datum letter frames (A, B, C) on
+    the primary reference surfaces visible in each orthographic view.
+    """
+    if vname not in DATUM_VIEW_MAP:
+        return ""
+
+    out = []
+    u0, v0, u1, v1 = bounds
+    bcx, bcy = (u0 + u1) / 2, (v0 + v1) / 2
+
+    def pg(u, v):
+        return cx + (u - bcx) * scale, cy - (v - bcy) * scale
+
+    out.append(f'<g class="datums-{vname}">')
+
+    for letter, edge, frac in DATUM_VIEW_MAP[vname]:
+        if edge == "bottom":
+            px, py = pg(u0 + (u1 - u0) * frac, v0)
+            t1 = (px - DATUM_TRI_BASE / 2, py)
+            t2 = (px + DATUM_TRI_BASE / 2, py)
+            t3 = (px, py + DATUM_TRI_H)
+            fx = px - DATUM_FRAME_S / 2
+            fy = py + DATUM_TRI_H + DATUM_LEADER_L
+            lx2, ly2 = px, fy  # leader target: top-center of frame
+        elif edge == "top":
+            px, py = pg(u0 + (u1 - u0) * frac, v1)
+            t1 = (px - DATUM_TRI_BASE / 2, py)
+            t2 = (px + DATUM_TRI_BASE / 2, py)
+            t3 = (px, py - DATUM_TRI_H)
+            fx = px - DATUM_FRAME_S / 2
+            fy = py - DATUM_TRI_H - DATUM_LEADER_L - DATUM_FRAME_S
+            lx2, ly2 = px, fy + DATUM_FRAME_S  # leader target: bottom-center of frame
+        elif edge == "left":
+            px, py = pg(u0, v0 + (v1 - v0) * frac)
+            t1 = (px, py - DATUM_TRI_BASE / 2)
+            t2 = (px, py + DATUM_TRI_BASE / 2)
+            t3 = (px - DATUM_TRI_H, py)
+            fx = px - DATUM_TRI_H - DATUM_LEADER_L - DATUM_FRAME_S
+            fy = py - DATUM_FRAME_S / 2
+            lx2, ly2 = fx + DATUM_FRAME_S, py  # leader target: right-center of frame
+        elif edge == "right":
+            px, py = pg(u1, v0 + (v1 - v0) * frac)
+            t1 = (px, py - DATUM_TRI_BASE / 2)
+            t2 = (px, py + DATUM_TRI_BASE / 2)
+            t3 = (px + DATUM_TRI_H, py)
+            fx = px + DATUM_TRI_H + DATUM_LEADER_L
+            fy = py - DATUM_FRAME_S / 2
+            lx2, ly2 = fx, py  # leader target: left-center of frame
+        else:
+            continue
+
+        # Filled triangle
+        out.append(f'  <polygon points="{t1[0]:.2f},{t1[1]:.2f} '
+                   f'{t2[0]:.2f},{t2[1]:.2f} {t3[0]:.2f},{t3[1]:.2f}" '
+                   f'fill="#000" stroke="#000" stroke-width="0.25"/>')
+
+        # Leader line (triangle apex → frame edge)
+        out.append(f'  <line x1="{t3[0]:.2f}" y1="{t3[1]:.2f}" '
+                   f'x2="{lx2:.2f}" y2="{ly2:.2f}" '
+                   f'stroke="#000" stroke-width="0.3"/>')
+
+        # Frame (square with white fill)
+        out.append(f'  <rect x="{fx:.2f}" y="{fy:.2f}" '
+                   f'width="{DATUM_FRAME_S}" height="{DATUM_FRAME_S}" '
+                   f'fill="white" stroke="#000" stroke-width="0.35"/>')
+
+        # Datum letter
+        tx = fx + DATUM_FRAME_S / 2
+        ty = fy + DATUM_FRAME_S * 0.72
+        out.append(f'  <text x="{tx:.2f}" y="{ty:.2f}" text-anchor="middle" '
+                   f'font-family="sans-serif" font-size="3.5" '
+                   f'font-weight="bold" fill="#000">{letter}</text>')
 
     out.append('</g>')
     return '\n'.join(out)
@@ -1136,21 +1355,22 @@ try:
             log(f"  Skipping unknown view: {vname}")
             continue
 
-        groups, bounds, circles = project_view(
+        groups, bounds, circles, arcs = project_view(
             compound, VIEW_DIRECTIONS[vname], vname)
 
         if not groups:
             # Fallback: project individual solids
             if hasattr(compound, 'Solids') and compound.Solids:
                 log(f"  View '{vname}': empty compound, trying per-solid")
-                all_groups, all_circles = {}, []
+                all_groups, all_circles, all_arcs = {}, [], []
                 all_bounds = [1e9, 1e9, -1e9, -1e9]
                 for solid in compound.Solids:
-                    sg, sb, sc = project_view(
+                    sg, sb, sc, sa = project_view(
                         solid, VIEW_DIRECTIONS[vname], vname)
                     for gi, edges in sg.items():
                         all_groups.setdefault(gi, []).extend(edges)
                     all_circles.extend(sc)
+                    all_arcs.extend(sa)
                     all_bounds[0] = min(all_bounds[0], sb[0])
                     all_bounds[1] = min(all_bounds[1], sb[1])
                     all_bounds[2] = max(all_bounds[2], sb[2])
@@ -1159,6 +1379,7 @@ try:
                     groups = all_groups
                     bounds = tuple(all_bounds)
                     circles = all_circles
+                    arcs = all_arcs
 
         if not groups:
             log(f"  View '{vname}': no edges projected")
@@ -1176,9 +1397,13 @@ try:
                               show_hidden=show_hidden, show_centerlines=show_cl)
         # Append dimension lines (front/top/right only)
         if show_dims and vname != "iso":
-            dim_svg = render_dimensions_svg(vname, bounds, circles, cx, cy, scale)
+            dim_svg = render_dimensions_svg(vname, bounds, circles, cx, cy, scale,
+                                           arcs=arcs)
             if dim_svg:
                 svg += '\n' + dim_svg
+            datum_svg = render_datums_svg(vname, bounds, cx, cy, scale)
+            if datum_svg:
+                svg += '\n' + datum_svg
         views_svg[vname] = svg
 
     if not views_svg:
@@ -1192,7 +1417,7 @@ try:
         sec_result = make_section(compound, sec_plane, sec_offset)
         if sec_result:
             sec_shape, sec_dir, sec_label = sec_result
-            sec_groups, sec_bounds, sec_circles = project_view(
+            sec_groups, sec_bounds, sec_circles, _sec_arcs = project_view(
                 sec_shape, sec_dir, "front")
             if sec_groups:
                 # Place section in ISO cell (top-right), replacing ISO if present
