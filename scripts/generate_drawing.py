@@ -173,6 +173,47 @@ def project_view(shape, direction, view_name):
 
 # -- SVG Rendering -------------------------------------------------------------
 
+def _detect_symmetry(groups, bounds):
+    """Detect horizontal and vertical symmetry of projected view edges.
+
+    Samples visible edge points onto a tolerance grid, mirrors about the
+    view center, and checks match ratio.
+
+    Returns: (h_symmetric, v_symmetric)
+    """
+    u0, v0, u1, v1 = bounds
+    u_mid = (u0 + u1) / 2
+    v_mid = (v0 + v1) / 2
+    max_dim = max(u1 - u0, v1 - v0, 1)
+    tol = max_dim * 0.01  # 1% of largest dimension
+
+    # Collect visible edge sample points (skip hidden groups)
+    hidden_groups = {1, 3, 6, 9}
+    pts = set()
+    for gi, edges in groups.items():
+        if gi in hidden_groups:
+            continue
+        for e in edges:
+            for u, v in e["pts"]:
+                pts.add((round(u / tol), round(v / tol)))
+
+    n = len(pts)
+    if n < 10:
+        return False, False
+
+    # Horizontal symmetry (mirror about v_mid)
+    v_mid_g = v_mid / tol
+    h_match = sum(1 for ug, vg in pts if (ug, round(2 * v_mid_g - vg)) in pts)
+    h_sym = h_match / n > 0.80
+
+    # Vertical symmetry (mirror about u_mid)
+    u_mid_g = u_mid / tol
+    v_match = sum(1 for ug, vg in pts if (round(2 * u_mid_g - ug), vg) in pts)
+    v_sym = v_match / n > 0.80
+
+    return h_sym, v_sym
+
+
 def render_view_svg(vname, groups, bounds, circles, cx, cy, scale,
                     show_hidden=True, show_centerlines=True):
     """Render one view's edges as SVG, centered at (cx, cy) on the page."""
@@ -234,26 +275,28 @@ def render_view_svg(vname, groups, bounds, circles, cx, cy, scale,
                        f'x2="{px:.2f}" y2="{py+arm:.2f}"/>')
         out.append('</g>')
 
-    # Symmetry axis center lines (if view bounds suggest symmetric shape)
+    # Symmetry axis center lines (only where actual symmetry is detected)
     bw = (u1 - u0) * scale
     bh = (v1 - v0) * scale
-    sym_margin = min(CELL_W, CELL_H) * 0.04  # extend beyond shape
-    if show_centerlines and bw > 5 and bh > 5:  # only for non-trivial shapes
-        mid_u = (u0 + u1) / 2
-        mid_v = (v0 + v1) / 2
-        px_mid, py_mid = pg(mid_u, mid_v)
-        half_w = bw / 2 + sym_margin
-        half_h = bh / 2 + sym_margin
-        out.append('<g class="symmetry-axes" stroke="#000" stroke-width="0.13" '
-                   'fill="none" stroke-dasharray="8,2,1.5,2" '
-                   f'stroke-linecap="{LINE_CAP}" opacity="0.5">')
-        # Horizontal symmetry axis
-        out.append(f'  <line x1="{px_mid-half_w:.2f}" y1="{py_mid:.2f}" '
-                   f'x2="{px_mid+half_w:.2f}" y2="{py_mid:.2f}"/>')
-        # Vertical symmetry axis
-        out.append(f'  <line x1="{px_mid:.2f}" y1="{py_mid-half_h:.2f}" '
-                   f'x2="{px_mid:.2f}" y2="{py_mid+half_h:.2f}"/>')
-        out.append('</g>')
+    sym_margin = min(CELL_W, CELL_H) * 0.04
+    if show_centerlines and bw > 5 and bh > 5 and vname != "iso":
+        h_sym, v_sym = _detect_symmetry(groups, bounds)
+        if h_sym or v_sym:
+            mid_u = (u0 + u1) / 2
+            mid_v = (v0 + v1) / 2
+            px_mid, py_mid = pg(mid_u, mid_v)
+            half_w = bw / 2 + sym_margin
+            half_h = bh / 2 + sym_margin
+            out.append('<g class="symmetry-axes" stroke="#000" stroke-width="0.13" '
+                       'fill="none" stroke-dasharray="8,2,1.5,2" '
+                       f'stroke-linecap="{LINE_CAP}" opacity="0.5">')
+            if h_sym:
+                out.append(f'  <line x1="{px_mid-half_w:.2f}" y1="{py_mid:.2f}" '
+                           f'x2="{px_mid+half_w:.2f}" y2="{py_mid:.2f}"/>')
+            if v_sym:
+                out.append(f'  <line x1="{px_mid:.2f}" y1="{py_mid-half_h:.2f}" '
+                           f'x2="{px_mid:.2f}" y2="{py_mid+half_h:.2f}"/>')
+            out.append('</g>')
 
     # View label
     lx = cx - CELL_W / 2 + 3
