@@ -73,6 +73,10 @@ material = "SS304"
 tolerance = "ISO 2768-m"
 designed_by = "TH Jang"
 
+[drawing.section]
+plane = "XZ"
+offset = 30.0
+
 [drawing.style]
 show_hidden = true
 show_centerlines = true

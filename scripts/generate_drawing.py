@@ -676,17 +676,33 @@ def make_section(shape, plane="XZ", offset=0.0):
     normal, base_pt, view_dir, label = plane_map[plane]
 
     try:
-        # Create large cutting box
-        half = max(bbox.DiagonalLength, 500)
-        cut_plane = Part.makePlane(half * 2, half * 2, base_pt - Vector(half, half, half))
-        # Use slice to get cross-section wires
-        wires = shape.slice(normal, base_pt.dot(normal))
-        if not wires:
+        d = base_pt.dot(normal)
+
+        # Try slice on individual solids (filleted shapes may fail as compound)
+        all_wires = []
+        targets = shape.Solids if hasattr(shape, 'Solids') and shape.Solids else [shape]
+        for solid in targets:
+            try:
+                wires = solid.slice(normal, d)
+                if wires:
+                    all_wires.extend(wires)
+            except Exception:
+                # Fallback: use section with a plane face
+                try:
+                    half = max(bbox.DiagonalLength, 500)
+                    plane_face = Part.makePlane(half * 2, half * 2, base_pt, normal)
+                    sec = solid.section(plane_face)
+                    if sec and sec.Edges:
+                        all_wires.append(sec)
+                except Exception:
+                    pass
+
+        if not all_wires:
             return None
-        # Build compound from wires
-        section_compound = Part.Compound(wires)
+        section_compound = Part.Compound(all_wires)
         return (section_compound, view_dir, label)
-    except Exception:
+    except Exception as exc:
+        log(f"  Section: exception: {exc}")
         return None
 
 
@@ -749,6 +765,113 @@ def render_section_svg(label, groups, bounds, circles, cx, cy, scale, shape_boun
                f'font-size="4" font-weight="bold" text-anchor="middle" '
                f'fill="#333">SECTION {label}</text>')
 
+    return '\n'.join(out)
+
+
+# -- Section Cutting Line (ISO 128) -------------------------------------------
+
+# Section plane → parent view for cutting line display
+SECTION_PARENT_MAP = {
+    "XZ": "top",     # XZ section: cutting line on top view (horizontal)
+    "YZ": "front",   # YZ section: cutting line on front view (vertical)
+    "XY": "front",   # XY section: cutting line on front view (horizontal)
+}
+
+
+def render_cutting_line_svg(sec_plane, sec_offset, sec_label,
+                            parent_bounds, parent_cx, parent_cy,
+                            scale, shape_bbox):
+    """Render ISO 128 section cutting line on parent view.
+
+    Draws a chain-thick line across the parent view at the section offset,
+    with perpendicular arrows and label letters (A, B, ...) at both ends.
+    """
+    out = []
+    u0, v0, u1, v1 = parent_bounds
+    bcx, bcy = (u0 + u1) / 2, (v0 + v1) / 2
+
+    def pg(u, v):
+        return parent_cx + (u - bcx) * scale, parent_cy - (v - bcy) * scale
+
+    overshoot = 3.0 / scale  # extend beyond shape bounds (model coords)
+
+    if sec_plane == "XZ":
+        # TOP view: horizontal line at v = y_cut
+        cut_pos = sec_offset or shape_bbox.Center.y
+        start = pg(u0 - overshoot, cut_pos)
+        end = pg(u1 + overshoot, cut_pos)
+        arr_angle = math.pi / 2   # arrows point downward (toward front view)
+    elif sec_plane == "YZ":
+        # FRONT view: vertical line at u = x_cut
+        cut_pos = sec_offset or shape_bbox.Center.x
+        start = pg(cut_pos, v0 - overshoot)
+        end = pg(cut_pos, v1 + overshoot)
+        arr_angle = 0              # arrows point rightward
+    elif sec_plane == "XY":
+        # FRONT view: horizontal line at v = z_cut
+        cut_pos = sec_offset or shape_bbox.Center.z
+        start = pg(u0 - overshoot, cut_pos)
+        end = pg(u1 + overshoot, cut_pos)
+        arr_angle = math.pi / 2
+    else:
+        return ""
+
+    letter = sec_label.split("-")[0] if sec_label else "A"
+    sx, sy = start
+    ex, ey = end
+
+    # Line direction (normalized)
+    dx, dy = ex - sx, ey - sy
+    ln = math.hypot(dx, dy)
+    if ln < 1:
+        return ""
+    ndx, ndy = dx / ln, dy / ln
+
+    out.append('<g class="cutting-line">')
+
+    # Main chain-thick line (ISO 128 type G: long-dash-dot)
+    out.append(f'  <line x1="{sx:.2f}" y1="{sy:.2f}" '
+               f'x2="{ex:.2f}" y2="{ey:.2f}" '
+               f'stroke="#000" stroke-width="0.5" '
+               f'stroke-dasharray="12,3,2,3" '
+               f'stroke-linecap="{LINE_CAP}" fill="none"/>')
+
+    # Thick solid end segments (overwrite chain pattern at line ends)
+    end_len = min(4.0, ln * 0.15)
+    out.append(f'  <line x1="{sx:.2f}" y1="{sy:.2f}" '
+               f'x2="{sx + ndx * end_len:.2f}" y2="{sy + ndy * end_len:.2f}" '
+               f'stroke="#000" stroke-width="0.7" fill="none"/>')
+    out.append(f'  <line x1="{ex:.2f}" y1="{ey:.2f}" '
+               f'x2="{ex - ndx * end_len:.2f}" y2="{ey - ndy * end_len:.2f}" '
+               f'stroke="#000" stroke-width="0.7" fill="none"/>')
+
+    # Arrows and labels at both endpoints
+    arr_dx = math.cos(arr_angle)
+    arr_dy = math.sin(arr_angle)
+    arr_len = 5.0
+    for px, py in [(sx, sy), (ex, ey)]:
+        # Arrow shaft (perpendicular to cutting line)
+        ax = px + arr_dx * arr_len
+        ay = py + arr_dy * arr_len
+        out.append(f'  <line x1="{px:.2f}" y1="{py:.2f}" '
+                   f'x2="{ax:.2f}" y2="{ay:.2f}" '
+                   f'stroke="#000" stroke-width="0.5" fill="none"/>')
+        # Arrowhead at tip
+        out.append('  ' + _arrow_head(ax, ay, arr_angle))
+        # Label letter beyond arrow
+        label_gap = 3.5
+        lx = ax + arr_dx * label_gap
+        ly = ay + arr_dy * label_gap
+        if abs(arr_dy) > 0.5:
+            ly += 2.0   # baseline shift for vertical arrows
+        else:
+            ly += 1.5   # baseline shift for horizontal arrows
+        out.append(f'  <text x="{lx:.2f}" y="{ly:.2f}" '
+                   f'text-anchor="middle" font-family="sans-serif" '
+                   f'font-size="5" font-weight="bold" fill="#000">'
+                   f'{letter}</text>')
+
+    out.append('</g>')
     return '\n'.join(out)
 
 
@@ -886,6 +1009,7 @@ try:
 
     # -- Project Views --
     views_svg = {}
+    view_data = {}  # bounds/cx/cy per view for cutting line rendering
     for vname in views_requested:
         if vname not in VIEW_DIRECTIONS:
             log(f"  Skipping unknown view: {vname}")
@@ -920,6 +1044,7 @@ try:
             continue
 
         cx, cy = VIEW_CELLS.get(vname, VIEW_CELLS["front"])
+        view_data[vname] = {"bounds": bounds, "cx": cx, "cy": cy}
         n_edges = sum(len(v) for v in groups.values())
         log(f"  View '{vname}': {n_edges} edges")
 
@@ -957,6 +1082,16 @@ try:
                 views_svg["section"] = sec_svg
                 if "iso" in views_svg:
                     del views_svg["iso"]
+                # Render cutting line on parent view
+                parent_vn = SECTION_PARENT_MAP.get(sec_plane)
+                if parent_vn and parent_vn in view_data and parent_vn in views_svg:
+                    vd = view_data[parent_vn]
+                    cut_svg = render_cutting_line_svg(
+                        sec_plane, sec_offset, sec_label,
+                        vd["bounds"], vd["cx"], vd["cy"],
+                        scale, bbox)
+                    if cut_svg:
+                        views_svg[parent_vn] += '\n' + cut_svg
                 log(f"  Section '{sec_label}': {sum(len(v) for v in sec_groups.values())} edges")
             else:
                 log(f"  Section '{sec_label}': no edges (empty cross-section)")
