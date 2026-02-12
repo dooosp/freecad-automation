@@ -1,0 +1,126 @@
+# Housing drawing template — KS standard
+# Bearing housing with bore, bearing seat, and mounting holes
+#
+# === Template checklist ===
+# 1. part_type = "housing" matches intent_compiler classification
+# 2. 6 required + 2 optional dim_intents
+# 3. 2 datums (bottom plane + primary bore axis)
+# 4. Baseline dimensioning from datum A
+# 5. Notes: KS B 0401 class m + Ra 6.3
+# 6. Run: python3 scripts/intent_compiler.py < config.json → verify PASS
+
+[template]
+part_type = "housing"
+schema_version = "0.1"
+description = "KS bearing housing drawing template"
+
+# --- Views ---
+[views]
+enabled = ["front", "top", "right", "iso"]
+layout = "third_angle"
+
+[views.options]
+front = { show_hidden = true, show_centerlines = true }
+top   = { show_hidden = true, show_centerlines = true }
+right = { show_hidden = true, show_centerlines = true }
+iso   = { show_hidden = false, show_centerlines = false }
+
+# --- Datums ---
+[[datums]]
+name = "A"
+kind = "plane"
+selector = "bottom_plane"
+reason = "primary mounting face — housing bottom"
+
+[[datums]]
+name = "B"
+kind = "axis"
+selector = "primary_bore_axis"
+reason = "primary bore center axis"
+
+# --- Dimensioning Style ---
+[dimensioning]
+scheme = "baseline"
+baseline_datum = "A"
+avoid_redundant = true
+
+# --- Required Dimensions (Housing DNA) ---
+[[dim_intents]]
+id = "WIDTH"
+feature = "overall_width"
+view = "front"
+style = "linear"
+required = true
+priority = 100
+reason = "Overall width — installation envelope"
+
+[[dim_intents]]
+id = "HEIGHT"
+feature = "overall_height"
+view = "front"
+style = "linear"
+required = true
+priority = 95
+reason = "Overall height — clearance / stacking"
+
+[[dim_intents]]
+id = "DEPTH"
+feature = "overall_depth"
+view = "right"
+style = "linear"
+required = true
+priority = 90
+reason = "Overall depth — installation envelope"
+
+[[dim_intents]]
+id = "BORE_ID"
+feature = "primary_bore_diameter"
+view = "front"
+style = "diameter"
+required = true
+priority = 85
+reason = "Primary bore ID — bearing / shaft fit"
+
+[[dim_intents]]
+id = "BEARING_SEAT"
+feature = "bearing_seat_diameter"
+view = "front"
+style = "diameter"
+required = true
+priority = 80
+reason = "Bearing seat diameter — bearing outer race fit"
+
+[[dim_intents]]
+id = "WALL_THK"
+feature = "wall_thickness"
+view = "front"
+style = "linear"
+required = true
+priority = 75
+reason = "Wall thickness — structural integrity"
+
+[[dim_intents]]
+id = "CENTER_DIST"
+feature = "bore_center_distance"
+view = "front"
+style = "linear"
+required = false
+priority = 40
+
+[[dim_intents]]
+id = "MOUNT_HOLE_DIA"
+feature = "mount_hole_diameter"
+view = "top"
+style = "diameter"
+required = false
+priority = 35
+
+# --- Notes ---
+[notes]
+general = [
+  "UNLESS OTHERWISE SPECIFIED:",
+  "  TOLERANCES PER KS B 0401 CLASS m",
+  "  SURFACE FINISH Ra 6.3",
+  "REMOVE ALL BURRS AND SHARP EDGES.",
+]
+placement = "bottom_left"

@@ -1,0 +1,126 @@
+# Bracket drawing template — KS standard
+# L-bracket with base plate, web, and mounting holes
+#
+# === Template checklist ===
+# 1. part_type = "bracket" matches intent_compiler classification
+# 2. 6 required + 2 optional dim_intents
+# 3. 2 datums (base bottom plane + primary hole axis)
+# 4. Baseline dimensioning from datum A
+# 5. Notes: KS B 0401 class m + Ra 6.3
+# 6. Run: python3 scripts/intent_compiler.py < config.json → verify PASS
+
+[template]
+part_type = "bracket"
+schema_version = "0.1"
+description = "KS L-bracket drawing template"
+
+# --- Views ---
+[views]
+enabled = ["front", "top", "right", "iso"]
+layout = "third_angle"
+
+[views.options]
+front = { show_hidden = true, show_centerlines = true }
+top   = { show_hidden = true, show_centerlines = true }
+right = { show_hidden = true, show_centerlines = true }
+iso   = { show_hidden = false, show_centerlines = false }
+
+# --- Datums ---
+[[datums]]
+name = "A"
+kind = "plane"
+selector = "base_bottom_plane"
+reason = "primary mounting face — base bottom"
+
+[[datums]]
+name = "B"
+kind = "axis"
+selector = "primary_hole_axis"
+reason = "primary hole center axis"
+
+# --- Dimensioning Style ---
+[dimensioning]
+scheme = "baseline"
+baseline_datum = "A"
+avoid_redundant = true
+
+# --- Required Dimensions (Bracket DNA) ---
+[[dim_intents]]
+id = "WIDTH"
+feature = "base_length"
+view = "front"
+style = "linear"
+required = true
+priority = 100
+reason = "Base plate length — overall footprint"
+
+[[dim_intents]]
+id = "HEIGHT"
+feature = "overall_height"
+view = "front"
+style = "linear"
+required = true
+priority = 95
+reason = "Overall height (base + web) — clearance / installation"
+
+[[dim_intents]]
+id = "THK"
+feature = "base_thickness"
+view = "right"
+style = "linear"
+required = true
+priority = 90
+reason = "Base plate thickness — structural strength"
+
+[[dim_intents]]
+id = "WEB_H"
+feature = "web_height"
+view = "front"
+style = "linear"
+required = true
+priority = 85
+reason = "Web height — load bearing capacity"
+
+[[dim_intents]]
+id = "HOLE_DIA"
+feature = "mounting_hole_diameter"
+view = "front"
+style = "diameter"
+required = true
+priority = 80
+reason = "Mounting hole diameter — fastener selection"
+
+[[dim_intents]]
+id = "BASE_W"
+feature = "base_width"
+view = "top"
+style = "linear"
+required = true
+priority = 75
+reason = "Base plate width — mounting footprint"
+
+[[dim_intents]]
+id = "FILLET"
+feature = "fillet_radius"
+view = "right"
+style = "radius"
+required = false
+priority = 40
+
+[[dim_intents]]
+id = "HOLE_SPACING"
+feature = "hole_spacing"
+view = "top"
+style = "linear"
+required = false
+priority = 35
+
+# --- Notes ---
+[notes]
+general = [
+  "UNLESS OTHERWISE SPECIFIED:",
+  "  TOLERANCES PER KS B 0401 CLASS m",
+  "  SURFACE FINISH Ra 6.3",
+  "REMOVE ALL BURRS AND SHARP EDGES.",
+]
+placement = "bottom_left"

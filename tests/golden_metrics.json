@@ -40,6 +40,18 @@
     "flange": {
       "dim_completeness": { "min": 0, "target": 100 },
       "dim_redundancy":   { "max": 7, "target": 0 }
+    },
+    "shaft": {
+      "dim_completeness": { "min": 0, "target": 100 },
+      "dim_redundancy":   { "max": 7, "target": 0 }
+    },
+    "bracket": {
+      "dim_completeness": { "min": 0, "target": 100 },
+      "dim_redundancy":   { "max": 8, "target": 0 }
+    },
+    "housing": {
+      "dim_completeness": { "min": 0, "target": 100 },
+      "dim_redundancy":   { "max": 9, "target": 0 }
     }
   }
 }

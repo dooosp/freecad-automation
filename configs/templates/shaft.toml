@@ -1,0 +1,126 @@
+# Shaft drawing template — KS standard
+# Stepped shaft with keyway, chamfer, fillet
+#
+# === Template checklist ===
+# 1. part_type = "shaft" matches intent_compiler classification
+# 2. 6 required + 2 optional dim_intents
+# 3. 2 datums (shoulder plane + center axis)
+# 4. Baseline dimensioning from datum A
+# 5. Notes: KS B 0401 class m + Ra 3.2
+# 6. Run: python3 scripts/intent_compiler.py < config.json → verify PASS
+
+[template]
+part_type = "shaft"
+schema_version = "0.1"
+description = "KS stepped shaft drawing template"
+
+# --- Views ---
+[views]
+enabled = ["front", "top", "right", "iso"]
+layout = "third_angle"
+
+[views.options]
+front = { show_hidden = true, show_centerlines = true }
+top   = { show_hidden = true, show_centerlines = true }
+right = { show_hidden = true, show_centerlines = true }
+iso   = { show_hidden = false, show_centerlines = false }
+
+# --- Datums ---
+[[datums]]
+name = "A"
+kind = "plane"
+selector = "shoulder_plane"
+reason = "primary shoulder reference plane"
+
+[[datums]]
+name = "B"
+kind = "axis"
+selector = "largest_cyl_axis"
+reason = "center axis of rotation"
+
+# --- Dimensioning Style ---
+[dimensioning]
+scheme = "baseline"
+baseline_datum = "A"
+avoid_redundant = true
+
+# --- Required Dimensions (Shaft DNA) ---
+[[dim_intents]]
+id = "TOTAL_LENGTH"
+feature = "total_length"
+view = "right"
+style = "linear"
+required = true
+priority = 100
+reason = "Overall shaft length — stock / machining reference"
+
+[[dim_intents]]
+id = "STEP_DIAMETERS"
+feature = "step_diameters"
+view = "front"
+style = "diameter"
+required = true
+priority = 95
+reason = "Each step outer diameter — bearing / coupling fit"
+
+[[dim_intents]]
+id = "OD1"
+feature = "outer_diameter_step1"
+view = "front"
+style = "diameter"
+required = true
+priority = 90
+reason = "Step 1 outer diameter — primary bearing seat"
+
+[[dim_intents]]
+id = "OD2"
+feature = "outer_diameter_step2"
+view = "front"
+style = "diameter"
+required = true
+priority = 85
+reason = "Step 2 outer diameter — secondary fit / coupling"
+
+[[dim_intents]]
+id = "KEYWAY_W"
+feature = "keyway_width"
+view = "front"
+style = "linear"
+required = true
+priority = 80
+reason = "Keyway width — key fitment per KS B 1311"
+
+[[dim_intents]]
+id = "CHAMFER"
+feature = "chamfer"
+view = "right"
+style = "callout"
+required = true
+priority = 75
+reason = "End chamfer — assembly insertion / deburr"
+
+[[dim_intents]]
+id = "FILLET"
+feature = "fillet_radius"
+view = "right"
+style = "radius"
+required = false
+priority = 40
+
+[[dim_intents]]
+id = "SHOULDER_LENGTH"
+feature = "shoulder_length"
+view = "right"
+style = "linear"
+required = false
+priority = 35
+
+# --- Notes ---
+[notes]
+general = [
+  "UNLESS OTHERWISE SPECIFIED:",
+  "  TOLERANCES PER KS B 0401 CLASS m",
+  "  SURFACE FINISH Ra 3.2",
+  "REMOVE ALL BURRS AND SHARP EDGES.",
+]
+placement = "bottom_left"

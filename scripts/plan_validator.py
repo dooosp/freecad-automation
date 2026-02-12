@@ -22,9 +22,9 @@ VALID_LAYOUTS = {"third_angle", "first_angle"}
 # Required dim_intents per part type (minimum set)
 REQUIRED_INTENTS = {
     "flange": {"OD", "ID", "PCD", "BOLT_DIA", "THK"},
-    "shaft": {"TOTAL_LENGTH", "STEP_DIAMETERS"},
-    "bracket": {"WIDTH", "HEIGHT", "THK", "HOLE_DIA"},
-    "housing": {"WIDTH", "HEIGHT", "DEPTH"},
+    "shaft": {"TOTAL_LENGTH", "STEP_DIAMETERS", "OD1", "OD2", "KEYWAY_W", "CHAMFER"},
+    "bracket": {"WIDTH", "HEIGHT", "THK", "WEB_H", "HOLE_DIA", "BASE_W"},
+    "housing": {"WIDTH", "HEIGHT", "DEPTH", "BORE_ID", "BEARING_SEAT", "WALL_THK"},
     "bushing_plate": {"WIDTH", "HEIGHT", "THK", "BUSHING_DIA"},
     "assembly": set(),  # assembly has no fixed required dims
     "generic": set(),
