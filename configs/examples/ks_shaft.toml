@@ -1,0 +1,126 @@
+# ============================================================
+# KS Shaft — 3-step shaft with keyway, chamfers, fit tolerances
+# Demonstrates: H7/g6 fit callout, baseline dimensions, SF Ra 1.6
+# ============================================================
+
+name = "ks_shaft"
+
+# --- Shapes ---
+
+# Main shaft body: 3 stepped segments via revolution
+[[shapes]]
+id = "shaft_step1"
+type = "cylinder"
+radius = 15
+height = 25
+position = [0, 0, 0]
+
+[[shapes]]
+id = "shaft_step2"
+type = "cylinder"
+radius = 20
+height = 40
+position = [0, 0, 25]
+
+[[shapes]]
+id = "shaft_step3"
+type = "cylinder"
+radius = 15
+height = 25
+position = [0, 0, 65]
+
+# Keyway on step2 (4mm wide × 25mm long × 4mm deep)
+[[shapes]]
+id = "keyway"
+type = "box"
+length = 4
+width = 25
+height = 8
+position = [-2, 17, 37]
+
+# --- Operations ---
+
+[[operations]]
+op = "fuse"
+base = "shaft_step1"
+tool = "shaft_step2"
+result = "body"
+
+[[operations]]
+op = "fuse"
+base = "body"
+tool = "shaft_step3"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "keyway"
+result = "body"
+
+[[operations]]
+op = "chamfer"
+target = "body"
+size = 1.0
+result = "final"
+
+# --- Drawing ---
+
+[drawing]
+views = ["front", "top", "right", "iso"]
+
+[drawing.meta]
+part_name = "Stepped Shaft"
+drawing_no = "KS-SH-001"
+material = "S45C"
+tolerance = "KS B 0401 m"
+designed_by = "TH Jang"
+
+[drawing.style]
+show_hidden = true
+show_centerlines = true
+show_dimensions = true
+
+[drawing.dimension_style]
+type = "baseline"
+
+[drawing.ks_standard]
+fit_class = "H7/g6"
+general_tolerance = "KS-m"
+
+[drawing.surface_finish]
+default = "Ra 3.2"
+machining = "required"
+faces = [
+  {location = [0, 45], value = "Ra 1.6", view = "front", a = "Ra 1.6", c = "Grinding", d = "C"},
+  {location = [0, 10], value = "Ra 1.6", view = "front", a = "Ra 1.6", c = "Turning", d = "C"}
+]
+
+[drawing.chamfer]
+format = "C"
+show = true
+
+[drawing.tolerances]
+general = "±0.1"
+shafts = "g6"
+
+[[drawing.feature_tolerances]]
+feature_id = "shaft_step2"
+fit = "g6"
+surface_finish = "Ra 1.6"
+
+[[drawing.revisions]]
+rev = "A"
+date = "2026-02-12"
+description = "Initial release"
+by = "TH"
+
+[drawing.notes]
+material_spec = "S45C (KS D 3752)"
+heat_treatment = "Quench & Temper HRC 28-32"
+
+# --- Export ---
+
+[export]
+formats = ["step", "stl"]
+directory = "output"

@@ -29,7 +29,7 @@ function assert(condition, msg) {
 async function testCreateModel() {
   console.log('\n--- Test: Create bracket model ---');
 
-  const config = await loadConfig(resolve(ROOT, 'configs/examples/bracket.toml'));
+  const config = await loadConfig(resolve(ROOT, 'configs/examples/ks_bracket.toml'));
   // Override output directory to use absolute path
   config.export.directory = resolve(OUTPUT_DIR);
 
@@ -38,7 +38,7 @@ async function testCreateModel() {
   });
 
   assert(result.success === true, 'Model creation succeeded');
-  assert(result.model.name === 'bracket_v1', 'Model name matches');
+  assert(result.model.name === 'ks_bracket', 'Model name matches');
   assert(result.model.volume > 0, `Volume is positive (${result.model.volume})`);
   assert(result.model.faces > 0, `Has faces (${result.model.faces})`);
   assert(result.model.edges > 0, `Has edges (${result.model.edges})`);
@@ -50,7 +50,7 @@ async function testCreateModel() {
 async function testInspectSTEP() {
   console.log('\n--- Test: Inspect STEP file ---');
 
-  const stepFile = resolve(OUTPUT_DIR, 'bracket_v1.step');
+  const stepFile = resolve(OUTPUT_DIR, 'ks_bracket.step');
   assert(existsSync(stepFile), 'STEP file exists');
 
   const result = await runScript('inspect_model.py', { file: stepFile }, {
@@ -691,7 +691,7 @@ async function testAssemblyWithLibraryParts() {
 async function testPTUAssembly() {
   console.log('\n--- Test: PTU assembly (full integration) ---');
 
-  const config = await loadConfig(resolve(ROOT, 'configs/examples/ptu_assembly.toml'));
+  const config = await loadConfig(resolve(ROOT, 'configs/examples/ks_assembly.toml'));
   config.export.directory = resolve(OUTPUT_DIR);
 
   const result = await runScript('create_model.py', config, {
@@ -699,16 +699,16 @@ async function testPTUAssembly() {
     onStderr: (t) => process.stderr.write(`    ${t}`),
   });
 
-  assert(result.success === true, 'PTU assembly creation succeeded');
-  assert(result.model.name === 'ptu_assembly', 'PTU assembly name matches');
+  assert(result.success === true, 'KS assembly creation succeeded');
+  assert(result.model.name === 'ks_assembly', 'KS assembly name matches');
   assert(result.assembly !== undefined, 'Assembly metadata present');
-  assert(result.assembly.part_count === 7, `Part count is 7 (got ${result.assembly.part_count})`);
+  assert(result.assembly.part_count === 4, `Part count is 4 (got ${result.assembly.part_count})`);
   assert(result.model.volume > 0, `Volume is positive (${result.model.volume})`);
-  assert(result.exports.length === 2, `Exported 2 formats`);
+  assert(result.exports.length === 1, `Exported 1 format`);
 
   // Check STEP file exists
-  const stepFile = resolve(OUTPUT_DIR, 'ptu_assembly.step');
-  assert(existsSync(stepFile), 'PTU assembly STEP file exists');
+  const stepFile = resolve(OUTPUT_DIR, 'ks_assembly.step');
+  assert(existsSync(stepFile), 'KS assembly STEP file exists');
 }
 
 // ---------------------------------------------------------------------------
@@ -1123,7 +1123,7 @@ async function testMotionBackwardCompat() {
   console.log('\n--- Test: Motion backward compat (no motion config) ---');
 
   // Use existing bracket.toml which has no motion
-  const config = await loadConfig(resolve(ROOT, 'configs/examples/bracket.toml'));
+  const config = await loadConfig(resolve(ROOT, 'configs/examples/ks_bracket.toml'));
   config.export.directory = resolve(OUTPUT_DIR);
 
   const result = await runScript('create_model.py', config, {

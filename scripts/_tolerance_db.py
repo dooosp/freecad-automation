@@ -239,3 +239,63 @@ def recommend_fit(purpose="rotating_shaft"):
         return None
     preset = FIT_PRESETS.get(fit_name, {})
     return {"name": fit_name, **preset}
+
+
+# --- KS ↔ ISO cross-reference ---
+KS_ISO_MAP = {
+    # KS B 0401 general tolerance grades → ISO 2768
+    "KS-f": "ISO 2768-f",
+    "KS-m": "ISO 2768-m",
+    "KS-c": "ISO 2768-c",
+    "KS-v": "ISO 2768-v",
+    # KS B 0401 fit system → ISO 286
+    "KS B 0401": "ISO 286-1",
+    # KS B 0412 surface finish → ISO 1302
+    "KS B 0412": "ISO 1302",
+    # KS B 0608 GD&T → ISO 1101
+    "KS B 0608": "ISO 1101",
+    # KS B 1012 bolt holes → ISO 273
+    "KS B 1012": "ISO 273",
+    # KS B 0211 threads → ISO 261
+    "KS B 0211": "ISO 261",
+}
+
+ISO_KS_MAP = {v: k for k, v in KS_ISO_MAP.items()}
+
+
+def ks_to_iso(ks_code):
+    """Convert KS standard code to ISO equivalent."""
+    return KS_ISO_MAP.get(ks_code, ks_code)
+
+
+def iso_to_ks(iso_code):
+    """Convert ISO standard code to KS equivalent."""
+    return ISO_KS_MAP.get(iso_code, iso_code)
+
+
+def resolve_general_tolerance_note(spec):
+    """Parse general tolerance spec and return both KS and ISO designations.
+
+    Args:
+        spec: "KS-m", "ISO 2768-m", "KS B 0401 m", etc.
+
+    Returns:
+        dict: {ks, iso, grade}
+    """
+    spec = str(spec).strip()
+    grade = None
+
+    # Extract grade letter
+    for g in ("f", "m", "c", "v"):
+        if g in spec.lower().split("-")[-1] or spec.lower().endswith(g):
+            grade = g
+            break
+
+    if not grade:
+        grade = "m"  # default
+
+    return {
+        "ks": f"KS B 0401 Grade {grade}",
+        "iso": f"ISO 2768-{grade}",
+        "grade": grade,
+    }

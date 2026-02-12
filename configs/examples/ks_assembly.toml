@@ -1,0 +1,197 @@
+# ============================================================
+# KS Assembly — Housing + Shaft + Bearing assembly
+# Demonstrates: BOM, balloons, auto GD&T, section view
+# ============================================================
+
+name = "ks_assembly"
+
+# ── Drawing ──────────────────────────────────────────────
+[drawing]
+views = ["front", "top", "right", "iso"]
+bom = true
+bom_csv = true
+
+[drawing.meta]
+part_name = "Bearing Housing Assembly"
+drawing_no = "KS-ASM-001"
+material = "Various"
+tolerance = "KS B 0401 m"
+designed_by = "TH Jang"
+
+[drawing.style]
+show_hidden = true
+show_centerlines = true
+show_dimensions = true
+
+[drawing.section]
+plane = "XZ"
+offset = 0.0
+
+[drawing.gdt]
+mode = "auto"
+
+[[drawing.revisions]]
+rev = "A"
+date = "2026-02-12"
+description = "Initial release"
+by = "TH"
+
+[drawing.notes]
+material_spec = "See BOM"
+
+# ── Export ───────────────────────────────────────────────
+[export]
+formats = ["step"]
+directory = "output"
+
+# ═════════════════════════════════════════════════════════════
+# PART DEFINITIONS
+# ═════════════════════════════════════════════════════════════
+
+# ── 1. Housing (box with bore) ──────────────────
+[[parts]]
+id = "housing"
+final = "body"
+
+  [[parts.shapes]]
+  id = "block"
+  type = "box"
+  length = 100
+  width = 80
+  height = 60
+  material = "FC250"
+
+  [[parts.shapes]]
+  id = "bore"
+  type = "cylinder"
+  radius = 25
+  height = 90
+  position = [50, 40, -5]
+
+  [[parts.shapes]]
+  id = "mount_h1"
+  type = "cylinder"
+  radius = 5.5
+  height = 70
+  position = [15, 15, -5]
+
+  [[parts.shapes]]
+  id = "mount_h2"
+  type = "cylinder"
+  radius = 5.5
+  height = 70
+  position = [85, 15, -5]
+
+  [[parts.shapes]]
+  id = "mount_h3"
+  type = "cylinder"
+  radius = 5.5
+  height = 70
+  position = [15, 65, -5]
+
+  [[parts.shapes]]
+  id = "mount_h4"
+  type = "cylinder"
+  radius = 5.5
+  height = 70
+  position = [85, 65, -5]
+
+  [[parts.operations]]
+  op = "cut"
+  base = "block"
+  tool = "bore"
+  result = "body"
+
+  [[parts.operations]]
+  op = "cut"
+  base = "body"
+  tool = "mount_h1"
+  result = "body"
+
+  [[parts.operations]]
+  op = "cut"
+  base = "body"
+  tool = "mount_h2"
+  result = "body"
+
+  [[parts.operations]]
+  op = "cut"
+  base = "body"
+  tool = "mount_h3"
+  result = "body"
+
+  [[parts.operations]]
+  op = "cut"
+  base = "body"
+  tool = "mount_h4"
+  result = "body"
+
+# ── 2. Shaft ────────────────────────────────────────
+[[parts]]
+id = "shaft"
+
+  [[parts.shapes]]
+  id = "shaft_body"
+  type = "library/stepped_shaft"
+  bore_d = 0
+  material = "S45C"
+
+    [[parts.shapes.segments]]
+    diameter = 24
+    length = 20
+
+    [[parts.shapes.segments]]
+    diameter = 30
+    length = 50
+
+    [[parts.shapes.segments]]
+    diameter = 24
+    length = 20
+
+# ── 3. Front Bearing ───────────────────────────────────
+[[parts]]
+id = "bearing_front"
+
+  [[parts.shapes]]
+  id = "brg"
+  type = "library/ball_bearing"
+  inner_d = 24
+  outer_d = 50
+  width = 14
+  num_balls = 8
+  material = "SUJ2"
+
+# ── 4. Rear Bearing ────────────────────────────────────
+[[parts]]
+id = "bearing_rear"
+
+  [[parts.shapes]]
+  id = "brg"
+  type = "library/ball_bearing"
+  inner_d = 24
+  outer_d = 50
+  width = 14
+  num_balls = 8
+  material = "SUJ2"
+
+# ═════════════════════════════════════════════════════════════
+# ASSEMBLY
+# ═════════════════════════════════════════════════════════════
+
+[assembly]
+
+  [[assembly.parts]]
+  ref = "housing"
+  position = [0, 0, 0]
+
+  [[assembly.parts]]
+  ref = "shaft"
+  position = [50, 40, -5]
+
+  [[assembly.parts]]
+  ref = "bearing_front"
+  position = [50, 40, 0]
+
+  [[assembly.parts]]
+  ref = "bearing_rear"
+  position = [50, 40, 46]

@@ -1,0 +1,214 @@
+{
+  "_meta": {
+    "description": "KS B 0401 fit tables, IT tolerances, bolt hole specs, surface finish by process",
+    "units": "μm for tolerances, mm for dimensions",
+    "version": "2026-02-12"
+  },
+
+  "diameter_ranges": [
+    [1, 3], [3, 6], [6, 10], [10, 18], [18, 30],
+    [30, 50], [50, 80], [80, 120], [120, 180],
+    [180, 250], [250, 315], [315, 400], [400, 500]
+  ],
+
+  "it_grades": {
+    "5":  [4, 5, 6, 8, 9, 11, 13, 15, 18, 20, 23, 25, 27],
+    "6":  [6, 8, 9, 11, 13, 16, 19, 22, 25, 29, 32, 36, 40],
+    "7":  [10, 12, 15, 18, 21, 25, 30, 35, 40, 46, 52, 57, 63],
+    "8":  [14, 18, 22, 27, 33, 39, 46, 54, 63, 72, 81, 89, 97],
+    "9":  [25, 30, 36, 43, 52, 62, 74, 87, 100, 115, 130, 140, 155],
+    "10": [40, 48, 58, 70, 84, 100, 120, 140, 160, 185, 210, 230, 250],
+    "11": [60, 75, 90, 110, 130, 160, 190, 220, 250, 290, 320, 360, 400]
+  },
+
+  "hole_fits": {
+    "_doc": "Hole-basis system: EI (lower deviation) in μm. ES = EI + IT.",
+    "H": {
+      "6":  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "7":  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "8":  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "9":  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "10": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "11": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    },
+    "G": {
+      "6": [2, 4, 5, 6, 7, 9, 10, 12, 14, 15, 17, 18, 20],
+      "7": [2, 4, 5, 6, 7, 9, 10, 12, 14, 15, 17, 18, 20]
+    },
+    "F": {
+      "7": [6, 10, 13, 16, 20, 25, 30, 36, 43, 50, 56, 62, 68],
+      "8": [6, 10, 13, 16, 20, 25, 30, 36, 43, 50, 56, 62, 68]
+    },
+    "K": {
+      "_doc": "Transition: ES (upper deviation) in μm. EI = ES - IT.",
+      "6": [0, -1, -1, -1, -2, -2, -2, -3, -3, -4, -4, -4, -5],
+      "7": [0, -1, -1, -1, -2, -2, -2, -3, -3, -4, -4, -4, -5]
+    },
+    "N": {
+      "_doc": "Light interference: ES in μm.",
+      "6": [-4, -8, -10, -12, -15, -17, -20, -23, -27, -31, -34, -37, -40],
+      "7": [-4, -8, -10, -12, -15, -17, -20, -23, -27, -31, -34, -37, -40]
+    },
+    "P": {
+      "_doc": "Interference: ES in μm.",
+      "6": [-6, -12, -15, -18, -22, -26, -32, -37, -43, -50, -56, -62, -68],
+      "7": [-6, -12, -15, -18, -22, -26, -32, -37, -43, -50, -56, -62, -68]
+    }
+  },
+
+  "shaft_fits": {
+    "_doc": "Shaft-basis: letters d-h have es (upper dev), k-s have ei (lower dev). All μm.",
+    "h": {
+      "_type": "upper",
+      "5": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "6": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "7": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "9": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "11": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    },
+    "g": {
+      "_type": "upper",
+      "5": [-2, -4, -5, -6, -7, -9, -10, -12, -14, -15, -17, -18, -20],
+      "6": [-2, -4, -5, -6, -7, -9, -10, -12, -14, -15, -17, -18, -20]
+    },
+    "f": {
+      "_type": "upper",
+      "6": [-6, -10, -13, -16, -20, -25, -30, -36, -43, -50, -56, -62, -68],
+      "7": [-6, -10, -13, -16, -20, -25, -30, -36, -43, -50, -56, -62, -68]
+    },
+    "e": {
+      "_type": "upper",
+      "7": [-14, -20, -25, -32, -40, -50, -60, -72, -85, -100, -110, -125, -135],
+      "8": [-14, -20, -25, -32, -40, -50, -60, -72, -85, -100, -110, -125, -135]
+    },
+    "d": {
+      "_type": "upper",
+      "9":  [-20, -30, -40, -50, -65, -80, -100, -120, -145, -170, -190, -210, -230],
+      "10": [-20, -30, -40, -50, -65, -80, -100, -120, -145, -170, -190, -210, -230],
+      "11": [-20, -30, -40, -50, -65, -80, -100, -120, -145, -170, -190, -210, -230]
+    },
+    "k": {
+      "_type": "lower",
+      "5": [0, 1, 1, 1, 2, 2, 2, 3, 3, 4, 4, 4, 5],
+      "6": [0, 1, 1, 1, 2, 2, 2, 3, 3, 4, 4, 4, 5]
+    },
+    "m": {
+      "_type": "lower",
+      "5": [2, 4, 6, 7, 8, 9, 11, 13, 15, 17, 20, 21, 23],
+      "6": [2, 4, 6, 7, 8, 9, 11, 13, 15, 17, 20, 21, 23]
+    },
+    "n": {
+      "_type": "lower",
+      "6": [4, 8, 10, 12, 15, 17, 20, 23, 27, 31, 34, 37, 40]
+    },
+    "p": {
+      "_type": "lower",
+      "6": [6, 12, 15, 18, 22, 26, 32, 37, 43, 50, 56, 62, 68],
+      "7": [6, 12, 15, 18, 22, 26, 32, 37, 43, 50, 56, 62, 68]
+    },
+    "s": {
+      "_type": "lower",
+      "6": [14, 19, 23, 28, 35, 43, 53, 59, 68, 79, 88, 98, 108]
+    }
+  },
+
+  "center_distance_tolerance": {
+    "_doc": "Center distance tolerance by distance range (mm) and grade. Values in μm.",
+    "ranges": [
+      [0, 30], [30, 80], [80, 120], [120, 180], [180, 250],
+      [250, 315], [315, 400], [400, 500]
+    ],
+    "grades": {
+      "js7": [10, 15, 18, 25, 30, 35, 40, 45],
+      "js8": [14, 22, 27, 33, 39, 46, 54, 63],
+      "js9": [25, 36, 43, 52, 62, 74, 87, 100],
+      "js10": [40, 58, 70, 84, 100, 120, 140, 160]
+    }
+  },
+
+  "bolt_holes": {
+    "_doc": "Bolt clearance holes per KS B 1012 / ISO 273. Dimensions in mm.",
+    "M3":   {"close": 3.2, "medium": 3.4, "coarse": 3.6, "cb_d": 6.5,  "cb_depth": 3.3,  "pitch": 0.5},
+    "M4":   {"close": 4.3, "medium": 4.5, "coarse": 4.8, "cb_d": 8.0,  "cb_depth": 4.4,  "pitch": 0.7},
+    "M5":   {"close": 5.3, "medium": 5.5, "coarse": 5.8, "cb_d": 9.5,  "cb_depth": 5.4,  "pitch": 0.8},
+    "M6":   {"close": 6.4, "medium": 6.6, "coarse": 7.0, "cb_d": 11.0, "cb_depth": 6.5,  "pitch": 1.0},
+    "M8":   {"close": 8.4, "medium": 9.0, "coarse": 10.0,"cb_d": 14.5, "cb_depth": 8.6,  "pitch": 1.25},
+    "M10":  {"close": 10.5,"medium": 11.0,"coarse": 12.0,"cb_d": 18.0, "cb_depth": 10.8, "pitch": 1.5},
+    "M12":  {"close": 13.0,"medium": 13.5,"coarse": 14.5,"cb_d": 20.0, "cb_depth": 13.0, "pitch": 1.75},
+    "M14":  {"close": 15.0,"medium": 15.5,"coarse": 16.5,"cb_d": 23.0, "cb_depth": 15.0, "pitch": 2.0},
+    "M16":  {"close": 17.0,"medium": 17.5,"coarse": 18.5,"cb_d": 26.0, "cb_depth": 17.0, "pitch": 2.0},
+    "M18":  {"close": 19.0,"medium": 20.0,"coarse": 21.0,"cb_d": 29.0, "cb_depth": 19.0, "pitch": 2.5},
+    "M20":  {"close": 21.0,"medium": 22.0,"coarse": 24.0,"cb_d": 33.0, "cb_depth": 21.0, "pitch": 2.5},
+    "M22":  {"close": 23.0,"medium": 24.0,"coarse": 26.0,"cb_d": 35.0, "cb_depth": 23.0, "pitch": 2.5},
+    "M24":  {"close": 25.0,"medium": 26.0,"coarse": 28.0,"cb_d": 39.0, "cb_depth": 24.0, "pitch": 3.0}
+  },
+
+  "surface_finish_by_process": {
+    "_doc": "Typical Ra (μm) and lay symbol per machining process.",
+    "turning":      {"typical_ra": 3.2,  "achievable_ra": 0.8,  "lay": "C"},
+    "grinding":     {"typical_ra": 0.4,  "achievable_ra": 0.1,  "lay": "="},
+    "milling":      {"typical_ra": 3.2,  "achievable_ra": 1.6,  "lay": "="},
+    "drilling":     {"typical_ra": 6.3,  "achievable_ra": 3.2,  "lay": "C"},
+    "reaming":      {"typical_ra": 1.6,  "achievable_ra": 0.4,  "lay": "C"},
+    "boring":       {"typical_ra": 1.6,  "achievable_ra": 0.4,  "lay": "C"},
+    "honing":       {"typical_ra": 0.2,  "achievable_ra": 0.05, "lay": "C"},
+    "lapping":      {"typical_ra": 0.05, "achievable_ra": 0.012,"lay": "M"},
+    "broaching":    {"typical_ra": 1.6,  "achievable_ra": 0.8,  "lay": "="},
+    "EDM":          {"typical_ra": 3.2,  "achievable_ra": 0.8,  "lay": "M"},
+    "casting":      {"typical_ra": 12.5, "achievable_ra": 6.3,  "lay": "M"},
+    "forging":      {"typical_ra": 12.5, "achievable_ra": 6.3,  "lay": "M"},
+    "sand_blasting": {"typical_ra": 6.3, "achievable_ra": 3.2,  "lay": "M"}
+  },
+
+  "general_tolerance_grades": {
+    "_doc": "KS B 0401 / ISO 2768 general tolerance grades",
+    "f": {
+      "linear": {
+        "0.5-3": 0.05, "3-6": 0.05, "6-30": 0.1, "30-120": 0.15,
+        "120-400": 0.2, "400-1000": 0.3, "1000-2000": 0.5
+      },
+      "angular_deg": {"0-10": 1.0, "10-50": 0.5, "50-120": 0.333, "120-400": 0.167}
+    },
+    "m": {
+      "linear": {
+        "0.5-3": 0.1, "3-6": 0.1, "6-30": 0.2, "30-120": 0.3,
+        "120-400": 0.5, "400-1000": 0.8, "1000-2000": 1.2
+      },
+      "angular_deg": {"0-10": 1.0, "10-50": 0.5, "50-120": 0.333, "120-400": 0.167}
+    },
+    "c": {
+      "linear": {
+        "0.5-3": 0.2, "3-6": 0.3, "6-30": 0.5, "30-120": 0.8,
+        "120-400": 1.2, "400-1000": 2.0, "1000-2000": 3.0
+      },
+      "angular_deg": {"0-10": 1.5, "10-50": 1.0, "50-120": 0.5, "120-400": 0.333}
+    },
+    "v": {
+      "linear": {
+        "0.5-3": 0.5, "3-6": 0.5, "6-30": 1.0, "30-120": 1.5,
+        "120-400": 2.5, "400-1000": 4.0, "1000-2000": 6.0
+      },
+      "angular_deg": {"0-10": 3.0, "10-50": 2.0, "50-120": 1.0, "120-400": 0.5}
+    }
+  },
+
+  "common_fits": {
+    "_doc": "KS B 0401 common fit pairs with descriptions",
+    "clearance": {
+      "H11/d11": "Free running — large clearance, dirt tolerance",
+      "H9/d9":   "Loose running — general clearance",
+      "H8/f7":   "Close running — bearings, no appreciable play",
+      "H7/g6":   "Sliding — precision rotation under load",
+      "H7/h6":   "Location clearance — easy assembly"
+    },
+    "transition": {
+      "H7/k6": "Location transition — light press by hand",
+      "H7/m6": "Location transition — light press by rubber mallet",
+      "H7/n6": "Location transition — press fit, easily disassembled"
+    },
+    "interference": {
+      "H7/p6": "Light press — semi-permanent assembly",
+      "H7/s6": "Medium press — permanent (gear on shaft)"
+    }
+  }
+}

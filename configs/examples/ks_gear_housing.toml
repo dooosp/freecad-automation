@@ -1,0 +1,209 @@
+# ============================================================
+# KS Gear Housing — Box with bearing seats, internal bores,
+# bolt pattern, section view for internal geometry
+# Demonstrates: auto section, center distance tolerance, hidden line policy
+# ============================================================
+
+name = "ks_gear_housing"
+
+# --- Shapes ---
+
+# Outer housing box
+[[shapes]]
+id = "housing"
+type = "box"
+length = 160
+width = 120
+height = 80
+
+# Main bore (bearing seat 1 — input side)
+[[shapes]]
+id = "bore1"
+type = "cylinder"
+radius = 30
+height = 130
+position = [50, 60, -5]
+
+# Secondary bore (bearing seat 2 — output side)
+[[shapes]]
+id = "bore2"
+type = "cylinder"
+radius = 25
+height = 130
+position = [110, 60, -5]
+
+# Input shaft through-hole
+[[shapes]]
+id = "shaft_hole1"
+type = "cylinder"
+radius = 15
+height = 90
+position = [50, 60, -5]
+
+# Output shaft through-hole
+[[shapes]]
+id = "shaft_hole2"
+type = "cylinder"
+radius = 12
+height = 90
+position = [110, 60, -5]
+
+# 4x Mounting bolt holes (M10)
+[[shapes]]
+id = "mount1"
+type = "cylinder"
+radius = 5.5
+height = 90
+position = [20, 20, -5]
+
+[[shapes]]
+id = "mount2"
+type = "cylinder"
+radius = 5.5
+height = 90
+position = [140, 20, -5]
+
+[[shapes]]
+id = "mount3"
+type = "cylinder"
+radius = 5.5
+height = 90
+position = [20, 100, -5]
+
+[[shapes]]
+id = "mount4"
+type = "cylinder"
+radius = 5.5
+height = 90
+position = [140, 100, -5]
+
+# Oil drain hole (bottom)
+[[shapes]]
+id = "drain"
+type = "cylinder"
+radius = 5
+height = 90
+position = [80, 10, -5]
+
+# --- Operations ---
+
+[[operations]]
+op = "cut"
+base = "housing"
+tool = "bore1"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "bore2"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "shaft_hole1"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "shaft_hole2"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mount1"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mount2"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mount3"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mount4"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "drain"
+result = "body"
+
+[[operations]]
+op = "fillet"
+target = "body"
+radius = 3
+result = "final"
+
+# --- Drawing ---
+
+[drawing]
+views = ["front", "top", "right", "iso"]
+
+[drawing.meta]
+part_name = "Gear Housing"
+drawing_no = "KS-GH-001"
+material = "FC250 (Cast Iron)"
+tolerance = "KS B 0401 m"
+designed_by = "TH Jang"
+
+[drawing.style]
+show_hidden = true
+show_centerlines = true
+show_dimensions = true
+
+[drawing.section]
+plane = "XZ"
+offset = 60.0
+
+[drawing.ks_standard]
+general_tolerance = "KS-m"
+
+[drawing.surface_finish]
+default = "Ra 6.3"
+machining = "required"
+faces = [
+  {location = [50, 40], value = "Ra 1.6", view = "front", a = "Ra 1.6", c = "Boring", d = "C"},
+  {location = [110, 40], value = "Ra 1.6", view = "front", a = "Ra 1.6", c = "Boring", d = "C"}
+]
+
+[drawing.tolerances]
+general = "±0.2"
+holes = "H7"
+
+[drawing.gdt]
+mode = "auto"
+
+[[drawing.revisions]]
+rev = "A"
+date = "2026-02-12"
+description = "Initial release"
+by = "TH"
+
+[drawing.notes]
+material_spec = "FC250 (KS D 4301)"
+heat_treatment = "Stress relief anneal"
+
+# Center distance between bores: 60mm ± tolerance
+[[drawing.feature_tolerances]]
+feature_id = "center_distance"
+value = 60
+tolerance_grade = "js7"
+
+# --- Export ---
+
+[export]
+formats = ["step", "stl"]
+directory = "output"

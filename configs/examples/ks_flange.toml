@@ -1,0 +1,292 @@
+# ============================================================
+# KS Flange — Bolt flange with 6 holes on PCD, counterbores,
+# dowel pins, surface finish a~e slots, thread callouts, revision table
+# ============================================================
+
+name = "ks_flange"
+
+# --- Shapes ---
+
+# Base disc (r=70, h=15)
+[[shapes]]
+id = "disc"
+type = "cylinder"
+radius = 70
+height = 15
+
+# Central bore (r=20, through)
+[[shapes]]
+id = "bore"
+type = "cylinder"
+radius = 20
+height = 20
+position = [0, 0, -2]
+
+# 6x Bolt holes on PCD 100 (r=6.6mm = M12 medium clearance)
+[[shapes]]
+id = "bolt_h1"
+type = "cylinder"
+radius = 6.75
+height = 20
+position = [50, 0, -2]
+
+[[shapes]]
+id = "bolt_h2"
+type = "cylinder"
+radius = 6.75
+height = 20
+position = [25, 43.3, -2]
+
+[[shapes]]
+id = "bolt_h3"
+type = "cylinder"
+radius = 6.75
+height = 20
+position = [-25, 43.3, -2]
+
+[[shapes]]
+id = "bolt_h4"
+type = "cylinder"
+radius = 6.75
+height = 20
+position = [-50, 0, -2]
+
+[[shapes]]
+id = "bolt_h5"
+type = "cylinder"
+radius = 6.75
+height = 20
+position = [-25, -43.3, -2]
+
+[[shapes]]
+id = "bolt_h6"
+type = "cylinder"
+radius = 6.75
+height = 20
+position = [25, -43.3, -2]
+
+# 6x Counterbores (r=10, depth=5) at bolt positions
+[[shapes]]
+id = "cb1"
+type = "cylinder"
+radius = 10
+height = 7
+position = [50, 0, 10]
+
+[[shapes]]
+id = "cb2"
+type = "cylinder"
+radius = 10
+height = 7
+position = [25, 43.3, 10]
+
+[[shapes]]
+id = "cb3"
+type = "cylinder"
+radius = 10
+height = 7
+position = [-25, 43.3, 10]
+
+[[shapes]]
+id = "cb4"
+type = "cylinder"
+radius = 10
+height = 7
+position = [-50, 0, 10]
+
+[[shapes]]
+id = "cb5"
+type = "cylinder"
+radius = 10
+height = 7
+position = [-25, -43.3, 10]
+
+[[shapes]]
+id = "cb6"
+type = "cylinder"
+radius = 10
+height = 7
+position = [25, -43.3, 10]
+
+# 2x Dowel holes (r=4) at 45° and 225°
+[[shapes]]
+id = "dowel1"
+type = "cylinder"
+radius = 4
+height = 20
+position = [35.36, 35.36, -2]
+
+[[shapes]]
+id = "dowel2"
+type = "cylinder"
+radius = 4
+height = 20
+position = [-35.36, -35.36, -2]
+
+# --- Operations ---
+
+[[operations]]
+op = "cut"
+base = "disc"
+tool = "bore"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "bolt_h1"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "bolt_h2"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "bolt_h3"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "bolt_h4"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "bolt_h5"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "bolt_h6"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "cb1"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "cb2"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "cb3"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "cb4"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "cb5"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "cb6"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "dowel1"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "dowel2"
+result = "body"
+
+[[operations]]
+op = "chamfer"
+target = "body"
+size = 1.5
+result = "final"
+
+# --- Drawing ---
+
+[drawing]
+views = ["front", "top", "right", "iso"]
+
+[drawing.meta]
+part_name = "Bolt Flange"
+drawing_no = "KS-FL-001"
+material = "AL6061-T6"
+tolerance = "KS B 0401 m"
+designed_by = "TH Jang"
+
+[drawing.style]
+show_hidden = true
+show_centerlines = true
+show_dimensions = true
+
+[drawing.ks_standard]
+fit_class = "H7/g6"
+general_tolerance = "KS-m"
+
+[drawing.surface_finish]
+default = "Ra 3.2"
+machining = "required"
+faces = [
+  {location = [50, 12], value = "Ra 1.6", view = "front", a = "Ra 1.6", c = "Boring", d = "C", e = "0.3"},
+  {location = [0, 7], value = "Ra 0.8", view = "front", a = "Ra 0.8", c = "Grinding", d = "="},
+  {location = [0, 15], value = "Ra 3.2", view = "top", a = "Ra 3.2", c = "Milling", d = "="}
+]
+
+[drawing.chamfer]
+format = "C"
+show = true
+
+[[drawing.threads]]
+diameter = 12
+pitch = 1.75
+label = "M12x1.75"
+hole_id = "bolt_h1"
+
+[drawing.tolerances]
+general = "±0.1"
+holes = "H7"
+
+[drawing.gdt]
+mode = "auto"
+
+[[drawing.revisions]]
+rev = "A"
+date = "2026-02-12"
+description = "Initial release"
+by = "TH"
+
+[[drawing.revisions]]
+rev = "B"
+date = "2026-02-12"
+description = "Added dowel holes"
+by = "TH"
+
+[drawing.notes]
+material_spec = "AL6061-T6 (KS D 6759)"
+heat_treatment = "T6 temper"
+coating = "Hard anodize 0.05mm"
+
+# --- Export ---
+
+[export]
+formats = ["step", "stl"]
+directory = "output"

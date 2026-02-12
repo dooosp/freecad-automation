@@ -1,7 +1,7 @@
 import { runScript } from './lib/runner.js';
 import { loadConfig } from './lib/config-loader.js';
 
-const config = await loadConfig('./configs/examples/bracket.toml');
+const config = await loadConfig('./configs/examples/ks_bracket.toml');
 
 console.log('=== TechDraw API Headless Test ===\n');
 

@@ -1,0 +1,224 @@
+# ============================================================
+# KS Bushing Plate — Rectangular plate with 2 bushing holes
+# and 8 mounting holes, ordinate dimensions, tolerance stack-up
+# Demonstrates: coordinate dimensions, center distance tolerance
+# ============================================================
+
+name = "ks_bushing_plate"
+
+# --- Shapes ---
+
+# Base plate (200 x 150 x 15)
+[[shapes]]
+id = "plate"
+type = "box"
+length = 200
+width = 150
+height = 15
+
+# Bushing hole 1 (⌀30 H7)
+[[shapes]]
+id = "bushing1"
+type = "cylinder"
+radius = 15
+height = 20
+position = [60, 75, -2]
+
+# Bushing hole 2 (⌀25 H7)
+[[shapes]]
+id = "bushing2"
+type = "cylinder"
+radius = 12.5
+height = 20
+position = [140, 75, -2]
+
+# 8x Mounting holes (M8) — 4 per bushing, on 50mm PCD
+# Bushing 1 pattern
+[[shapes]]
+id = "mh1"
+type = "cylinder"
+radius = 4.5
+height = 20
+position = [35, 75, -2]
+
+[[shapes]]
+id = "mh2"
+type = "cylinder"
+radius = 4.5
+height = 20
+position = [85, 75, -2]
+
+[[shapes]]
+id = "mh3"
+type = "cylinder"
+radius = 4.5
+height = 20
+position = [60, 50, -2]
+
+[[shapes]]
+id = "mh4"
+type = "cylinder"
+radius = 4.5
+height = 20
+position = [60, 100, -2]
+
+# Bushing 2 pattern
+[[shapes]]
+id = "mh5"
+type = "cylinder"
+radius = 4.5
+height = 20
+position = [115, 75, -2]
+
+[[shapes]]
+id = "mh6"
+type = "cylinder"
+radius = 4.5
+height = 20
+position = [165, 75, -2]
+
+[[shapes]]
+id = "mh7"
+type = "cylinder"
+radius = 4.5
+height = 20
+position = [140, 50, -2]
+
+[[shapes]]
+id = "mh8"
+type = "cylinder"
+radius = 4.5
+height = 20
+position = [140, 100, -2]
+
+# --- Operations ---
+
+[[operations]]
+op = "cut"
+base = "plate"
+tool = "bushing1"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "bushing2"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mh1"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mh2"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mh3"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mh4"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mh5"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mh6"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mh7"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mh8"
+result = "body"
+
+[[operations]]
+op = "chamfer"
+target = "body"
+size = 1.0
+result = "final"
+
+# --- Drawing ---
+
+[drawing]
+views = ["front", "top", "right", "iso"]
+
+[drawing.meta]
+part_name = "Bushing Plate"
+drawing_no = "KS-BP-001"
+material = "S45C"
+tolerance = "KS B 0401 m"
+designed_by = "TH Jang"
+
+[drawing.style]
+show_hidden = true
+show_centerlines = true
+show_dimensions = true
+
+[drawing.dimension_style]
+type = "ordinate"
+
+[drawing.ks_standard]
+general_tolerance = "KS-m"
+
+[drawing.surface_finish]
+default = "Ra 3.2"
+machining = "required"
+faces = [
+  {location = [60, 7], value = "Ra 0.8", view = "front", a = "Ra 0.8", c = "Grinding", d = "="},
+  {location = [140, 7], value = "Ra 0.8", view = "front", a = "Ra 0.8", c = "Grinding", d = "="}
+]
+
+[drawing.chamfer]
+format = "C"
+show = true
+
+[drawing.tolerances]
+general = "±0.1"
+holes = "H7"
+
+[drawing.gdt]
+mode = "auto"
+
+[[drawing.revisions]]
+rev = "A"
+date = "2026-02-12"
+description = "Initial release"
+by = "TH"
+
+[drawing.notes]
+material_spec = "S45C (KS D 3752)"
+heat_treatment = "Quench & Temper HRC 25-30"
+
+# Center distance between bushings: 80mm ± tolerance
+[[drawing.feature_tolerances]]
+feature_id = "center_distance"
+value = 80
+tolerance_grade = "js7"
+
+# --- Export ---
+
+[export]
+formats = ["step", "stl"]
+directory = "output"

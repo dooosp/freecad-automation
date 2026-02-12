@@ -1,0 +1,177 @@
+# ============================================================
+# KS Bracket — V-block bracket with baseline dimensions,
+# datum A/B/C, GD&T perpendicularity, 4 mounting holes, fillets
+# ============================================================
+
+name = "ks_bracket"
+
+# --- Shapes ---
+
+# Base plate (120 x 80 x 8)
+[[shapes]]
+id = "base_plate"
+type = "box"
+length = 120
+width = 80
+height = 8
+
+# Vertical web (8 x 80 x 60)
+[[shapes]]
+id = "web"
+type = "box"
+length = 8
+width = 80
+height = 60
+position = [0, 0, 8]
+
+# Gusset (triangular support) — approximated as wedge box
+[[shapes]]
+id = "gusset"
+type = "box"
+length = 30
+width = 80
+height = 30
+position = [8, 0, 8]
+
+# 4x Mounting holes in base (M8 medium = 9mm clearance)
+[[shapes]]
+id = "hole1"
+type = "cylinder"
+radius = 4.5
+height = 12
+position = [30, 20, -2]
+
+[[shapes]]
+id = "hole2"
+type = "cylinder"
+radius = 4.5
+height = 12
+position = [90, 20, -2]
+
+[[shapes]]
+id = "hole3"
+type = "cylinder"
+radius = 4.5
+height = 12
+position = [30, 60, -2]
+
+[[shapes]]
+id = "hole4"
+type = "cylinder"
+radius = 4.5
+height = 12
+position = [90, 60, -2]
+
+# V-groove in web (for part clamping)
+[[shapes]]
+id = "v_groove"
+type = "box"
+length = 4
+width = 40
+height = 25
+position = [-2, 20, 30]
+
+# --- Operations ---
+
+[[operations]]
+op = "fuse"
+base = "base_plate"
+tool = "web"
+result = "body"
+
+[[operations]]
+op = "fuse"
+base = "body"
+tool = "gusset"
+result = "body"
+
+# Cut mounting holes
+[[operations]]
+op = "cut"
+base = "body"
+tool = "hole1"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "hole2"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "hole3"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "hole4"
+result = "body"
+
+# Cut V-groove
+[[operations]]
+op = "cut"
+base = "body"
+tool = "v_groove"
+result = "body"
+
+# Fillet web-to-base junction
+[[operations]]
+op = "fillet"
+target = "body"
+radius = 3
+result = "final"
+
+# --- Drawing ---
+
+[drawing]
+views = ["front", "top", "right", "iso"]
+
+[drawing.meta]
+part_name = "V-Block Bracket"
+drawing_no = "KS-BR-001"
+material = "SS304"
+tolerance = "KS B 0401 m"
+designed_by = "TH Jang"
+
+[drawing.style]
+show_hidden = true
+show_centerlines = true
+show_dimensions = true
+
+[drawing.dimension_style]
+type = "baseline"
+
+[drawing.ks_standard]
+general_tolerance = "KS-m"
+
+[drawing.surface_finish]
+default = "Ra 6.3"
+machining = "required"
+faces = [
+  {location = [0, 40], value = "Ra 1.6", view = "front", a = "Ra 1.6", c = "Milling", d = "="}
+]
+
+[drawing.tolerances]
+general = "±0.2"
+holes = "H8"
+
+[drawing.gdt]
+mode = "auto"
+
+[[drawing.revisions]]
+rev = "A"
+date = "2026-02-12"
+description = "Initial release"
+by = "TH"
+
+[drawing.notes]
+material_spec = "SS304 (KS D 3698)"
+
+# --- Export ---
+
+[export]
+formats = ["step", "stl"]
+directory = "output"

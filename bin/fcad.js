@@ -28,11 +28,11 @@ Options:
   --tolerance                     Include tolerance analysis in report (default)
 
 Examples:
-  fcad create configs/examples/bracket.toml
-  fcad draw configs/examples/robot_arm_drawing.toml
-  fcad draw configs/examples/bracket.toml --bom
+  fcad create configs/examples/ks_bracket.toml
+  fcad draw configs/examples/ks_flange.toml
+  fcad draw configs/examples/ks_bracket.toml --bom
   fcad fem configs/examples/bracket_fem.toml
-  fcad inspect output/bracket_v1.step
+  fcad inspect output/ks_bracket.step
   fcad serve 8080
 `.trim();
 
@@ -123,7 +123,7 @@ async function cmdDesign(description) {
 async function cmdDraw(configPath, flags = []) {
   if (!configPath) {
     console.error('Error: config file path required');
-    console.error('  fcad draw configs/examples/bracket.toml');
+    console.error('  fcad draw configs/examples/ks_flange.toml');
     process.exit(1);
   }
 

@@ -14,6 +14,14 @@ from datetime import date as _date
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from _bootstrap import log, read_input, respond, respond_error, init_freecad
+from _feature_inference import infer_features_from_config
+from _view_planner import plan_views
+from _general_notes import (build_general_notes, build_revision_table,
+                            render_revision_table_svg, render_general_notes_svg)
+from _dim_baseline import (render_baseline_dimensions_svg,
+                           render_ordinate_dimensions_svg,
+                           select_dimension_strategy)
+from _gdt_automation import auto_select_datums, auto_assign_gdt, render_gdt_frame_svg
 
 # -- A3 Landscape Layout (mm) ------------------------------------------------
 PAGE_W, PAGE_H = 420, 297
@@ -96,6 +104,57 @@ def _extract_fn(view_name, sample_pts=None):
             _s1 * getattr(p, _a1), _s2 * getattr(p, _a2))
     # Iso and other views: use projection XY directly (Z is always 0)
     return lambda p: (p.x, p.y)
+
+
+# -- Annotation Layout Planner ------------------------------------------------
+
+class AnnotationPlanner:
+    """AABB-based collision avoidance for annotation placement.
+
+    Collects bounding boxes of placed annotations (dimensions, datums, labels)
+    and helps find positions that minimise overlap.
+    """
+
+    def __init__(self):
+        self._boxes = []  # [(x_min, y_min, x_max, y_max), ...]
+
+    def register(self, x_min, y_min, x_max, y_max):
+        """Register an already-placed annotation bounding box."""
+        self._boxes.append((min(x_min, x_max), min(y_min, y_max),
+                            max(x_min, x_max), max(y_min, y_max)))
+
+    def overlap_score(self, x_min, y_min, x_max, y_max):
+        """Return total overlap area with all registered boxes."""
+        bx0, by0 = min(x_min, x_max), min(y_min, y_max)
+        bx1, by1 = max(x_min, x_max), max(y_min, y_max)
+        total = 0.0
+        for ax0, ay0, ax1, ay1 in self._boxes:
+            dx = max(0, min(bx1, ax1) - max(bx0, ax0))
+            dy = max(0, min(by1, ay1) - max(by0, ay0))
+            total += dx * dy
+        return total
+
+    def find_best_position(self, candidates, box_w, box_h):
+        """Pick candidate (x, y) with least overlap.
+
+        candidates: [(x, y), ...]  — top-left corner of the annotation box
+        Returns: (best_x, best_y)
+        """
+        best, best_score = candidates[0], float('inf')
+        for cx, cy in candidates:
+            score = self.overlap_score(cx, cy, cx + box_w, cy + box_h)
+            if score < best_score:
+                best_score = score
+                best = (cx, cy)
+                if score == 0:
+                    break
+        return best
+
+    def register_and_pick(self, candidates, box_w, box_h):
+        """find_best_position + register the winner. Returns (x, y)."""
+        x, y = self.find_best_position(candidates, box_w, box_h)
+        self.register(x, y, x + box_w, y + box_h)
+        return x, y
 
 
 # -- Edge Projection -----------------------------------------------------------
@@ -269,20 +328,36 @@ def render_view_svg(vname, groups, bounds, circles, cx, cy, scale,
 
     # Center lines for circular features (ISO chain line: long-dash-dot)
     # circles = [(cu, cv, radius), ...]
+    # Clamp arms to cell boundary and deduplicate by center position.
     if circles and show_centerlines:
+        cell_x0 = cx - CELL_W / 2 + 3   # inset slightly from cell edge
+        cell_x1 = cx + CELL_W / 2 - 3
+        cell_y0 = cy - CELL_H / 2 + 3
+        cell_y1 = cy + CELL_H / 2 - 3
         max_r_scaled = max(r * scale for _, _, r in circles) if circles else 0
         arm_base = max(max_r_scaled * 1.3, min(CELL_W, CELL_H) * 0.06)
 
         out.append('<g class="centerlines" stroke="#000" stroke-width="0.18" '
                    'fill="none" stroke-dasharray="8,2,1.5,2" '
                    f'stroke-linecap="{LINE_CAP}">')
+        seen_centers = set()
         for cu, cv, cr in circles:
+            # Deduplicate: skip circles with same center (within 0.5mm page)
+            key = (round(cu * 2), round(cv * 2))
+            if key in seen_centers:
+                continue
+            seen_centers.add(key)
             px, py = pg(cu, cv)
             arm = max(cr * scale * 1.3, arm_base)
-            out.append(f'  <line x1="{px-arm:.2f}" y1="{py:.2f}" '
-                       f'x2="{px+arm:.2f}" y2="{py:.2f}"/>')
-            out.append(f'  <line x1="{px:.2f}" y1="{py-arm:.2f}" '
-                       f'x2="{px:.2f}" y2="{py+arm:.2f}"/>')
+            # Clamp horizontal arm to cell boundary
+            x_lo = max(px - arm, cell_x0)
+            x_hi = min(px + arm, cell_x1)
+            y_lo = max(py - arm, cell_y0)
+            y_hi = min(py + arm, cell_y1)
+            out.append(f'  <line x1="{x_lo:.2f}" y1="{py:.2f}" '
+                       f'x2="{x_hi:.2f}" y2="{py:.2f}"/>')
+            out.append(f'  <line x1="{px:.2f}" y1="{y_lo:.2f}" '
+                       f'x2="{px:.2f}" y2="{y_hi:.2f}"/>')
         out.append('</g>')
 
     # Symmetry axis center lines (only where actual symmetry is detected)
@@ -330,6 +405,22 @@ DIM_GAP = 2.0                # gap between shape edge and extension line start
 DIM_OFFSET = 8.0             # distance from shape edge to dimension line
 DIM_EXT_OVERSHOOT = 1.5      # extension line past dimension line
 FEAT_DIM_STACK = 7.0         # spacing between stacked dimension rows
+
+# -- Surface Finish (ISO 1302) -------------------------------------------------
+SF_V_HEIGHT = 3.0            # checkmark V height mm
+SF_BAR_W = 12.0              # horizontal bar width
+SF_FONT_SIZE = "2.5"         # value text size
+SF_LINE_W = "0.25"           # symbol stroke
+SF_LEADER_W = "0.20"         # leader line stroke
+
+# -- Chamfer Callout -----------------------------------------------------------
+CHAMFER_FONT_SIZE = "2.8"
+CHAMFER_LINE_W = "0.20"
+
+# -- Thread Callout -------------------------------------------------------------
+THREAD_FONT_SIZE = "2.8"
+THREAD_LINE_W = "0.20"
+THREAD_DASH_CIRCLE_RATIO = 0.85  # inner dashed circle at 85% of nominal diameter
 
 
 def _arrow_head(x, y, angle):
@@ -407,14 +498,49 @@ def _dim_vertical(y1, y2, x_base, x_dim, value_mm, tol_text=""):
     return out
 
 
-def _dim_diameter(px, py, radius_scaled, radius_mm, angle_deg=45, tol_text=""):
-    """Diameter dimension: leader line from circle + diameter text."""
+def _dim_diameter(px, py, radius_scaled, radius_mm, angle_deg=45, tol_text="",
+                  cell_bounds=None):
+    """Diameter dimension: leader line from circle + diameter text.
+
+    cell_bounds: (x_min, y_min, x_max, y_max) — if provided, selects best
+    angle that keeps leader fully inside the cell.
+    """
     out = []
-    angle = math.radians(angle_deg)
-    # Leader line start (on circle edge) and end (outside)
+    leader_len = max(min(radius_scaled * 0.8, 20), 6)
+    shelf_len = 8
+
+    # If cell bounds given, pick the best angle that stays in bounds
+    if cell_bounds:
+        bx0, by0, bx1, by1 = cell_bounds
+        margin = shelf_len + 4  # text space
+        best_angle = math.radians(angle_deg)
+        best_score = float('inf')
+        for a_deg in range(0, 360, 15):
+            a = math.radians(a_deg)
+            sx_c = px + radius_scaled * math.cos(a)
+            sy_c = py - radius_scaled * math.sin(a)
+            ex_c = sx_c + leader_len * math.cos(a)
+            ey_c = sy_c - leader_len * math.sin(a)
+            s_dir = 1 if math.cos(a) >= 0 else -1
+            shx_c = ex_c + s_dir * shelf_len
+            # Penalty: how far outside the cell
+            overshoot = 0
+            for xx in (sx_c, ex_c, shx_c):
+                overshoot += max(0, bx0 - xx) + max(0, xx - bx1)
+            for yy in (sy_c, ey_c):
+                overshoot += max(0, by0 - yy) + max(0, yy - by1)
+            # Small bonus for being close to the requested angle
+            angle_diff = abs(((a_deg - angle_deg + 180) % 360) - 180)
+            score = overshoot * 100 + angle_diff * 0.1
+            if score < best_score:
+                best_score = score
+                best_angle = a
+        angle = best_angle
+    else:
+        angle = math.radians(angle_deg)
+
     sx = px + radius_scaled * math.cos(angle)
     sy = py - radius_scaled * math.sin(angle)
-    leader_len = max(radius_scaled * 0.8, 6)
     ex = sx + leader_len * math.cos(angle)
     ey = sy - leader_len * math.sin(angle)
     # Leader line
@@ -422,7 +548,6 @@ def _dim_diameter(px, py, radius_scaled, radius_mm, angle_deg=45, tol_text=""):
                f'x2="{ex:.2f}" y2="{ey:.2f}"/>')
     # Horizontal shelf
     shelf_dir = 1 if math.cos(angle) >= 0 else -1
-    shelf_len = 8
     shx = ex + shelf_dir * shelf_len
     out.append(f'<line x1="{ex:.2f}" y1="{ey:.2f}" '
                f'x2="{shx:.2f}" y2="{ey:.2f}"/>')
@@ -514,6 +639,13 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
     h_stack = 0  # horizontal dimension rows stacked below shape
     v_stack = 0  # vertical dimension columns stacked right of shape
 
+    # Cell boundary limits — keep dimensions within view cell
+    cell_bottom = cy + CELL_H / 2 - 2
+    cell_right = cx + CELL_W / 2 - 2
+    # Max stacking rows/cols that fit within the cell
+    max_h_stacks = max(1, int((cell_bottom - bottom - DIM_OFFSET) / FEAT_DIM_STACK))
+    max_v_stacks = max(1, int((cell_right - right - DIM_OFFSET) / FEAT_DIM_STACK))
+
     gen_tol = tolerances.get("general", "")
     hole_tol = tolerances.get("holes", "")
 
@@ -521,19 +653,24 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
     width_mm = (u1 - u0)
     if width_mm > 0.5:
         y_dim = bottom + DIM_OFFSET + FEAT_DIM_STACK * h_stack
-        out.extend(_dim_horizontal(left, right, bottom, y_dim, width_mm,
-                                   tol_text=gen_tol))
-        h_stack += 1
+        if y_dim < cell_bottom:
+            out.extend(_dim_horizontal(left, right, bottom, y_dim, width_mm,
+                                       tol_text=gen_tol))
+            h_stack += 1
 
     # Overall height (vertical, right of shape)
     height_mm = (v1 - v0)
     if height_mm > 0.5:
         x_dim = right + DIM_OFFSET + FEAT_DIM_STACK * v_stack
-        out.extend(_dim_vertical(top, bottom, right, x_dim, height_mm,
-                                 tol_text=gen_tol))
-        v_stack += 1
+        if x_dim < cell_right:
+            out.extend(_dim_vertical(top, bottom, right, x_dim, height_mm,
+                                     tol_text=gen_tol))
+            v_stack += 1
 
     # Hole diameters (deduplicated by radius within tolerance)
+    # Clamp leader endpoints within cell boundaries
+    cell_x0 = cx - CELL_W / 2 + 2
+    cell_y0 = cy - CELL_H / 2 + 2
     seen_radii = []
     leader_angle = 45
     for cu, cv, cr in circles:
@@ -548,7 +685,8 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
         if r_scaled < 1.5:
             continue  # too small to dimension
         out.extend(_dim_diameter(px, py, r_scaled, cr, angle_deg=leader_angle,
-                                 tol_text=hole_tol))
+                                 tol_text=hole_tol,
+                                 cell_bounds=(cell_x0, cell_y0, cell_right, cell_bottom)))
         leader_angle += 30  # stagger angles for multiple holes
 
     # -- Feature chain dimensions (hole positions from edges) --
@@ -576,11 +714,12 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
                 if abs(px2 - px1) >= 8.0:  # min page width for readable text
                     h_segments.append((px1, px2, dist))
 
-        if h_segments:
+        if h_segments and h_stack < max_h_stacks:
             y_feat = bottom + DIM_OFFSET + FEAT_DIM_STACK * h_stack
-            for px1, px2, dist in h_segments:
-                out.extend(_dim_horizontal(px1, px2, bottom, y_feat, dist))
-            h_stack += 1
+            if y_feat < cell_bottom:
+                for px1, px2, dist in h_segments:
+                    out.extend(_dim_horizontal(px1, px2, bottom, y_feat, dist))
+                h_stack += 1
 
         # Vertical chain: bottom_edge → hole1 → hole2 → ... → top_edge
         chain_v = [v0] + unique_cv + [v1]
@@ -593,11 +732,12 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
                 if abs(py_bot - py_top) >= 8.0:
                     v_segments.append((py_top, py_bot, dist))
 
-        if v_segments:
+        if v_segments and v_stack < max_v_stacks:
             x_feat = right + DIM_OFFSET + FEAT_DIM_STACK * v_stack
-            for py_top, py_bot, dist in v_segments:
-                out.extend(_dim_vertical(py_top, py_bot, right, x_feat, dist))
-            v_stack += 1
+            if x_feat < cell_right:
+                for py_top, py_bot, dist in v_segments:
+                    out.extend(_dim_vertical(py_top, py_bot, right, x_feat, dist))
+                v_stack += 1
 
     # -- Radius dimensions (fillet/round arcs) --
     if arcs:
@@ -717,6 +857,397 @@ def render_datums_svg(vname, bounds, cx, cy, scale):
     return '\n'.join(out)
 
 
+# -- Surface Finish Symbols (ISO 1302) ----------------------------------------
+
+def _render_sf_symbol(x, y, value, machining="required", slots=None):
+    """Render ISO 1302 surface finish symbol at (x, y).
+
+    machining: 'required' (double bar), 'prohibited' (circle), 'any' (plain V)
+    slots: dict with ISO 1302 fields {a, c, d, e} for extended symbol
+      a = Ra value (rendered above bar — overrides 'value' param)
+      c = production method (above bar, right of a)
+      d = lay direction symbol (below bar, left)
+      e = machining allowance (below bar, right)
+    Returns list of SVG elements.
+    """
+    out = []
+    slots = slots or {}
+    # V-shape: ISO 1302 checkmark with exactly 60° at vertex.
+    h = SF_V_HEIGHT
+    half_a = math.pi / 6  # 30°
+    sin30, cos30 = math.sin(half_a), math.cos(half_a)
+    l_left = h * 0.7
+    l_right = h * 1.2
+    vx1 = x                                       # left tip
+    vy1 = y
+    vx2 = x + l_left * sin30                      # vertex (bottom of V)
+    vy2 = y + l_left * cos30
+    vx3 = vx2 + l_right * sin30                   # right tip (top)
+    vy3 = vy2 - l_right * cos30
+
+    out.append(f'<polyline points="{vx1:.2f},{vy1:.2f} {vx2:.2f},{vy2:.2f} '
+               f'{vx3:.2f},{vy3:.2f}" fill="none" stroke="#000" '
+               f'stroke-width="{SF_LINE_W}"/>')
+
+    # Horizontal bar from top of V
+    bar_x1 = vx3
+    bar_y1 = vy3
+    bar_x2 = bar_x1 + SF_BAR_W
+    out.append(f'<line x1="{bar_x1:.2f}" y1="{bar_y1:.2f}" '
+               f'x2="{bar_x2:.2f}" y2="{bar_y1:.2f}" '
+               f'stroke="#000" stroke-width="{SF_LINE_W}"/>')
+
+    if machining == "required":
+        out.append(f'<line x1="{bar_x1:.2f}" y1="{bar_y1 - 1.2:.2f}" '
+                   f'x2="{bar_x2:.2f}" y2="{bar_y1 - 1.2:.2f}" '
+                   f'stroke="#000" stroke-width="{SF_LINE_W}"/>')
+    elif machining == "prohibited":
+        out.append(f'<circle cx="{vx3:.2f}" cy="{vy3:.2f}" r="1.5" '
+                   f'fill="none" stroke="#000" stroke-width="{SF_LINE_W}"/>')
+
+    # Slot a: Ra value (above bar, left)
+    a_val = slots.get("a", value)
+    tx = bar_x1 + 2
+    ty = bar_y1 - 2.0
+    out.append(f'<text x="{tx:.2f}" y="{ty:.2f}" text-anchor="start" '
+               f'font-family="sans-serif" font-size="{SF_FONT_SIZE}" '
+               f'fill="#000">{_escape(a_val)}</text>')
+
+    # Slot c: production method (above bar, right)
+    c_val = slots.get("c", "")
+    if c_val:
+        tx_c = bar_x2 - 1
+        out.append(f'<text x="{tx_c:.2f}" y="{ty:.2f}" text-anchor="end" '
+                   f'font-family="sans-serif" font-size="2" '
+                   f'fill="#000">{_escape(c_val)}</text>')
+
+    # Slot d: lay direction (below bar, left)
+    d_val = slots.get("d", "")
+    if d_val:
+        ty_d = bar_y1 + 3.0
+        out.append(f'<text x="{bar_x1 + 2:.2f}" y="{ty_d:.2f}" '
+                   f'text-anchor="start" font-family="sans-serif" '
+                   f'font-size="2.2" fill="#000">{_escape(d_val)}</text>')
+
+    # Slot e: machining allowance (below bar, right)
+    e_val = slots.get("e", "")
+    if e_val:
+        ty_e = bar_y1 + 3.0
+        out.append(f'<text x="{bar_x2 - 1:.2f}" y="{ty_e:.2f}" '
+                   f'text-anchor="end" font-family="sans-serif" '
+                   f'font-size="2.2" fill="#000">{_escape(e_val)}</text>')
+
+    return out
+
+
+def render_surface_finish_svg(sf_cfg, view_data, scale, planner=None):
+    """Render surface finish annotations: default symbol + face-specific leaders.
+
+    sf_cfg: {default, machining, faces: [{location, value, view}]}
+    view_data: {vname: {bounds, cx, cy, ...}}
+    planner: AnnotationPlanner for collision-free placement
+    """
+    if not sf_cfg:
+        return ""
+
+    planner = planner or AnnotationPlanner()
+    out = ['<g class="surface-finish">']
+
+    default_val = sf_cfg.get("default", "Ra 3.2")
+    machining = sf_cfg.get("machining", "any")
+
+    # Default symbol: placed in general note area (above title block, right side)
+    tb_y = PAGE_H - MARGIN - TITLE_H
+    def_x = PAGE_W - MARGIN - 60
+    def_y = tb_y - 8
+    out.extend(_render_sf_symbol(def_x, def_y, default_val, machining))
+    planner.register(def_x, def_y - 5, def_x + SF_BAR_W + SF_V_HEIGHT, def_y + SF_V_HEIGHT + 2)
+
+    # Face-specific annotations with leader lines
+    # Symbol bounding box size (approximate)
+    sym_w = SF_V_HEIGHT + SF_BAR_W + 4
+    sym_h = SF_V_HEIGHT * 1.5 + 4
+
+    faces = sf_cfg.get("faces", [])
+    for face in faces:
+        loc = face.get("location", [0, 0])
+        value = face.get("value", default_val)
+        view = face.get("view", "front")
+
+        if view not in view_data:
+            continue
+
+        vd = view_data[view]
+        bounds = vd["bounds"]
+        cx, cy = vd["cx"], vd["cy"]
+        u0, v0, u1, v1 = bounds
+        bcx, bcy = (u0 + u1) / 2, (v0 + v1) / 2
+
+        # Convert location [u, v] to page coords
+        target_x = cx + (loc[0] - bcx) * scale
+        target_y = cy - (loc[1] - bcy) * scale
+
+        # Generate 4-direction candidates for symbol placement
+        d = 15  # leader length
+        candidates = [
+            (target_x + d,  target_y - d),       # top-right
+            (target_x + d,  target_y + d * 0.5),  # bottom-right
+            (target_x - d - sym_w, target_y - d),  # top-left
+            (target_x - d - sym_w, target_y + d * 0.5),  # bottom-left
+        ]
+        sym_x, sym_y = planner.register_and_pick(candidates, sym_w, sym_h)
+
+        # Leader line from target to symbol
+        out.append(f'<line x1="{target_x:.2f}" y1="{target_y:.2f}" '
+                   f'x2="{sym_x:.2f}" y2="{sym_y:.2f}" '
+                   f'stroke="#000" stroke-width="{SF_LEADER_W}"/>')
+        # Arrow at target
+        angle = math.atan2(sym_y - target_y, sym_x - target_x) + math.pi
+        out.append(_arrow_head(target_x, target_y, angle))
+
+        # Build ISO 1302 slots dict if extended fields present
+        face_slots = {}
+        if face.get("a"):
+            face_slots["a"] = face["a"]
+        if face.get("c"):
+            face_slots["c"] = face["c"]
+        if face.get("d"):
+            face_slots["d"] = face["d"]
+        if face.get("e"):
+            face_slots["e"] = face["e"]
+
+        out.extend(_render_sf_symbol(sym_x, sym_y, value, machining,
+                                     slots=face_slots if face_slots else None))
+
+    out.append('</g>')
+    return '\n'.join(out)
+
+
+# -- Chamfer Callouts ----------------------------------------------------------
+
+def _find_chamfer_ops(config):
+    """Scan operations for chamfer ops. Returns [(target, size)]."""
+    results = []
+    for op in config.get("operations", []):
+        if op.get("op") == "chamfer":
+            results.append((op.get("target", ""), op.get("size", 1.0)))
+    return results
+
+
+def render_chamfer_callouts_svg(config, chamfer_cfg, bounds, cx, cy, scale,
+                                groups=None, planner=None):
+    """Render chamfer callouts on the front view.
+
+    chamfer_cfg: {format: 'C'|'angle', show: true}
+    Uses chamfer size to estimate actual chamfer edge midpoint instead of
+    bounding-box corners.  Falls back to bbox corner if groups are unavailable.
+    """
+    if not chamfer_cfg or not chamfer_cfg.get("show", True):
+        return ""
+
+    chamfer_ops = _find_chamfer_ops(config)
+    if not chamfer_ops:
+        return ""
+
+    planner = planner or AnnotationPlanner()
+    fmt = chamfer_cfg.get("format", "C")
+    u0, v0, u1, v1 = bounds
+    bcx, bcy = (u0 + u1) / 2, (v0 + v1) / 2
+
+    def pg(u, v):
+        return cx + (u - bcx) * scale, cy - (v - bcy) * scale
+
+    # Pre-compute chamfer edge anchor candidates (4 corners, inward by size)
+    def _chamfer_anchors(size):
+        """Return page-coord anchors at the midpoint of 45-deg chamfer edges
+        at each bbox corner."""
+        hs = size / 2.0
+        return [
+            pg(u1 - hs, v1 - hs),  # top-right
+            pg(u0 + hs, v1 - hs),  # top-left
+            pg(u1 - hs, v0 + hs),  # bottom-right
+            pg(u0 + hs, v0 + hs),  # bottom-left
+        ]
+
+    out = ['<g class="chamfer-callouts">']
+    shelf_len = 10
+    label_box_w = shelf_len + 4
+    label_box_h = 6
+
+    for i, (target, size) in enumerate(chamfer_ops):
+        if fmt == "C":
+            label = f"C{size}"
+        else:
+            label = f"{size}\u00d745\u00b0"
+
+        # Pick the top-right chamfer edge midpoint as anchor (most conventional)
+        anchors = _chamfer_anchors(size)
+        anchor_x, anchor_y = anchors[0]  # top-right
+
+        # Generate placement candidates (4 directions from anchor)
+        d = 12
+        candidates = [
+            (anchor_x + d, anchor_y - d - label_box_h),       # top-right of anchor
+            (anchor_x + d, anchor_y + 2),                      # bottom-right
+            (anchor_x - d - label_box_w, anchor_y - d - label_box_h),  # top-left
+            (anchor_x - d - label_box_w, anchor_y + 2),        # bottom-left
+        ]
+        sym_x, sym_y = planner.register_and_pick(candidates, label_box_w, label_box_h)
+
+        # Leader line from chamfer edge to shelf start
+        out.append(f'<line x1="{anchor_x:.2f}" y1="{anchor_y:.2f}" '
+                   f'x2="{sym_x:.2f}" y2="{sym_y:.2f}" '
+                   f'stroke="#000" stroke-width="{CHAMFER_LINE_W}"/>')
+        # Arrow at chamfer edge
+        angle = math.atan2(sym_y - anchor_y, sym_x - anchor_x) + math.pi
+        out.append(_arrow_head(anchor_x, anchor_y, angle))
+        # Horizontal shelf
+        shelf_x = sym_x + shelf_len
+        out.append(f'<line x1="{sym_x:.2f}" y1="{sym_y:.2f}" '
+                   f'x2="{shelf_x:.2f}" y2="{sym_y:.2f}" '
+                   f'stroke="#000" stroke-width="{CHAMFER_LINE_W}"/>')
+        # Label text
+        tx = (sym_x + shelf_x) / 2
+        ty = sym_y - 1.2
+        out.append(f'<text x="{tx:.2f}" y="{ty:.2f}" text-anchor="middle" '
+                   f'font-family="sans-serif" font-size="{CHAMFER_FONT_SIZE}" '
+                   f'fill="#000">{_escape(label)}</text>')
+
+    out.append('</g>')
+    return '\n'.join(out)
+
+
+# -- Thread Callouts -----------------------------------------------------------
+
+def render_thread_callouts_svg(threads_cfg, shapes_cfg, bounds, circles,
+                                cx, cy, scale, planner=None):
+    """Render thread callouts with dashed inner circle + leader + label.
+
+    threads_cfg: [{diameter, pitch, label, hole_id}]
+    shapes_cfg: list of shape dicts from config
+    planner: AnnotationPlanner for collision-free placement
+    """
+    if not threads_cfg:
+        return ""
+
+    planner = planner or AnnotationPlanner()
+    u0, v0, u1, v1 = bounds
+    bcx, bcy = (u0 + u1) / 2, (v0 + v1) / 2
+
+    def pg(u, v):
+        return cx + (u - bcx) * scale, cy - (v - bcy) * scale
+
+    # Build shape position lookup by id
+    shape_map = {}
+    for s in (shapes_cfg or []):
+        if "id" in s:
+            shape_map[s["id"]] = s
+
+    out = ['<g class="thread-callouts">']
+
+    for ti, tcfg in enumerate(threads_cfg):
+        label = tcfg.get("label", f"M{tcfg.get('diameter', 0)}")
+        hole_id = tcfg.get("hole_id", "")
+        nominal_d = tcfg.get("diameter", 10)
+        nominal_r = nominal_d / 2.0
+
+        # Find matching circle by hole_id position+radius, or by radius alone
+        target_circle = None
+        shape_r = nominal_r
+        if hole_id and hole_id in shape_map:
+            s = shape_map[hole_id]
+            pos = s.get("position", [0, 0, 0])
+            shape_r = s.get("radius", nominal_r)
+            # Match by radius first (must be close), then nearest position
+            candidates = [(cu, cv, cr) for cu, cv, cr in circles
+                          if abs(cr - shape_r) < 1.5]
+            if candidates:
+                # Pick nearest to shape XY position (top view) or XZ (front)
+                best_dist = 1e9
+                for cu, cv, cr in candidates:
+                    # Try all position combos since we don't know the view mapping
+                    d = min(math.hypot(cu - pos[0], cv - pos[1]),
+                            math.hypot(cu - pos[0], cv - pos[2]),
+                            math.hypot(cu + pos[0], cv - pos[1]),
+                            math.hypot(cu + pos[0], cv + pos[1]))
+                    if d < best_dist:
+                        best_dist = d
+                        target_circle = (cu, cv, cr)
+        if not target_circle:
+            # Fallback: match by radius (within tolerance)
+            for cu, cv, cr in circles:
+                if abs(cr - shape_r) < 1.5:
+                    target_circle = (cu, cv, cr)
+                    break
+
+        if not target_circle:
+            continue
+
+        cu, cv, cr = target_circle
+        px, py = pg(cu, cv)
+        r_scaled = cr * scale
+
+        # Thin dashed circle at 85% of nominal diameter (thread convention)
+        inner_r = r_scaled * THREAD_DASH_CIRCLE_RATIO
+        out.append(f'<circle cx="{px:.2f}" cy="{py:.2f}" r="{inner_r:.2f}" '
+                   f'fill="none" stroke="#000" stroke-width="0.18" '
+                   f'stroke-dasharray="1.5,1"/>')
+
+        # Leader: try multiple angles, pick the one with least collision
+        leader_len = max(r_scaled * 1.2, 10)
+        shelf_len_t = 12
+        box_w_t = shelf_len_t + 4
+        box_h_t = 5
+
+        angle_candidates = [math.radians(a) for a in range(20, 340, 30)]
+        cands = []
+        for a in angle_candidates:
+            sx_c = px + r_scaled * math.cos(a)
+            sy_c = py - r_scaled * math.sin(a)
+            ex_c = sx_c + leader_len * math.cos(a)
+            ey_c = sy_c - leader_len * math.sin(a)
+            s_dir = 1 if math.cos(a) >= 0 else -1
+            bx = ex_c if s_dir > 0 else ex_c - box_w_t
+            cands.append((bx, ey_c - box_h_t, a, sx_c, sy_c, ex_c, ey_c, s_dir))
+
+        best_idx = 0
+        best_score = float('inf')
+        for idx, (bx, by, *_rest) in enumerate(cands):
+            sc = planner.overlap_score(bx, by, bx + box_w_t, by + box_h_t)
+            if sc < best_score:
+                best_score = sc
+                best_idx = idx
+                if sc == 0:
+                    break
+
+        bx, by, angle, sx, sy, ex, ey, shelf_dir = cands[best_idx]
+        planner.register(bx, by, bx + box_w_t, by + box_h_t)
+
+        out.append(f'<line x1="{sx:.2f}" y1="{sy:.2f}" '
+                   f'x2="{ex:.2f}" y2="{ey:.2f}" '
+                   f'stroke="#000" stroke-width="{THREAD_LINE_W}"/>')
+
+        # Arrow at circle edge
+        arr_angle = angle + math.pi
+        out.append(_arrow_head(sx, sy, arr_angle))
+
+        # Horizontal shelf
+        shelf_x = ex + shelf_dir * shelf_len_t
+        out.append(f'<line x1="{ex:.2f}" y1="{ey:.2f}" '
+                   f'x2="{shelf_x:.2f}" y2="{ey:.2f}" '
+                   f'stroke="#000" stroke-width="{THREAD_LINE_W}"/>')
+
+        # Label text
+        tx = (ex + shelf_x) / 2
+        ty = ey - 1.2
+        out.append(f'<text x="{tx:.2f}" y="{ty:.2f}" text-anchor="middle" '
+                   f'font-family="sans-serif" font-size="{THREAD_FONT_SIZE}" '
+                   f'fill="#000">{_escape(label)}</text>')
+
+    out.append('</g>')
+    return '\n'.join(out)
+
+
 # -- A3 Drawing Composition ---------------------------------------------------
 
 def _render_3rd_angle_symbol(x, y, size=10):
@@ -763,8 +1294,139 @@ def _render_hatch_pattern():
     )
 
 
+# -- GD&T Anchor Placement + Leader ----------------------------------------
+
+def _feature_to_page_xy(position, vname, bounds, cx, cy, scale):
+    """Convert 3D feature position to 2D page coordinates on a given view.
+
+    Uses VIEW_UV_MAP for front/top/right; returns None for iso.
+    """
+    if vname not in VIEW_UV_MAP:
+        return None
+    ax1, s1, ax2, s2 = VIEW_UV_MAP[vname]
+    # Map 3D position to projection (u, v) using same logic as _extract_fn
+    pos_map = {"x": position[0], "y": position[1], "z": position[2] if len(position) > 2 else 0}
+    u = s1 * pos_map[ax1]
+    v = s2 * pos_map[ax2]
+    # Convert projection coords to page coords (same as render_view_svg pg())
+    u0, v0, u1, v1 = bounds
+    bcx_v, bcy_v = (u0 + u1) / 2, (v0 + v1) / 2
+    px = cx + (u - bcx_v) * scale
+    py = cy - (v - bcy_v) * scale
+    return px, py
+
+
+def _render_leader_svg(anchor_x, anchor_y, frame_x, frame_y, frame_w, frame_h):
+    """Render a 2-segment orthogonal leader from feature anchor to GD&T frame.
+
+    Leader: anchor → elbow → frame attachment point.
+    Frame attachment is at the left-center of the frame.
+    """
+    # Attachment point: left edge, vertical center of frame
+    attach_x = frame_x
+    attach_y = frame_y + frame_h / 2
+
+    # Determine elbow position (orthogonal routing)
+    # If anchor is to the left of frame, elbow goes horizontal then vertical
+    # Otherwise vertical then horizontal
+    dx = attach_x - anchor_x
+    dy = attach_y - anchor_y
+
+    if abs(dx) > abs(dy):
+        # Horizontal-first: anchor → (attach_x, anchor_y) → attach
+        elbow_x, elbow_y = attach_x, anchor_y
+    else:
+        # Vertical-first: anchor → (anchor_x, attach_y) → attach
+        elbow_x, elbow_y = anchor_x, attach_y
+
+    out = []
+    out.append(f'<g class="gdt-leader" stroke="#000" stroke-width="0.25" fill="none">')
+    # Leader line segments
+    out.append(f'  <polyline points="{anchor_x:.2f},{anchor_y:.2f} '
+               f'{elbow_x:.2f},{elbow_y:.2f} {attach_x:.2f},{attach_y:.2f}"/>')
+    # Small filled circle at anchor point (feature indicator)
+    out.append(f'  <circle cx="{anchor_x:.2f}" cy="{anchor_y:.2f}" r="0.6" '
+               f'fill="#000" stroke="none"/>')
+    out.append('</g>')
+    return '\n'.join(out)
+
+
+def place_gdt_on_view(gdt_entries, view_data, scale, planner=None):
+    """Place GD&T frames near their target features with leaders.
+
+    Returns list of (gdt_entry, frame_x, frame_y, anchor_x, anchor_y, frame_w, frame_h).
+    Uses AnnotationPlanner for collision avoidance.
+    """
+    if not gdt_entries:
+        return []
+
+    vname = "front"  # GD&T is placed on front view
+    if vname not in view_data:
+        return []
+
+    vd = view_data[vname]
+    bounds = vd["bounds"]
+    cx, cy = vd["cx"], vd["cy"]
+    cell_x0 = cx - CELL_W / 2 + 3
+    cell_x1 = cx + CELL_W / 2 - 3
+    cell_y0 = cy - CELL_H / 2 + 3
+    cell_y1 = cy + CELL_H / 2 - 3
+
+    if planner is None:
+        planner = AnnotationPlanner()
+
+    placements = []
+    for gdt in gdt_entries[:6]:
+        target = gdt.get("target")
+        frame_h = 6
+        cell_w_f = 12
+        n_cells = 2 + len(gdt.get("datum_refs", []))
+        frame_w = n_cells * cell_w_f
+
+        # Compute anchor (2D page coordinate of target feature)
+        anchor = None
+        if target and target.get("position"):
+            anchor = _feature_to_page_xy(
+                target["position"], vname, bounds, cx, cy, scale)
+
+        if anchor is None:
+            # Fallback: center of view
+            anchor = (cx, cy)
+
+        ax, ay = anchor
+
+        # Generate 4 candidate positions around anchor (right/left/below/above)
+        offset = 8  # mm gap between anchor and frame
+        candidates = [
+            (ax + offset, ay - frame_h / 2),          # right
+            (ax - offset - frame_w, ay - frame_h / 2), # left
+            (ax - frame_w / 2, ay + offset),            # below
+            (ax - frame_w / 2, ay - offset - frame_h),  # above
+        ]
+
+        # Filter candidates that are within cell bounds
+        valid = []
+        for fx, fy in candidates:
+            if (fx >= cell_x0 and fx + frame_w <= cell_x1 and
+                    fy >= cell_y0 and fy + frame_h <= cell_y1):
+                valid.append((fx, fy))
+
+        if not valid:
+            # All outside cell — use closest to cell center
+            valid = candidates
+
+        # Pick best position (least overlap with existing annotations)
+        fx, fy = planner.register_and_pick(valid, frame_w, frame_h)
+        placements.append((gdt, fx, fy, ax, ay, frame_w, frame_h))
+
+    return placements
+
+
 def compose_drawing(views_svg, name, bom, scale, bbox,
-                    mates=None, tol_specs=None, meta=None, style_cfg=None):
+                    mates=None, tol_specs=None, meta=None, style_cfg=None,
+                    extra_svg="", revisions=None, notes_list=None,
+                    gdt_entries=None, feature_graph=None,
+                    view_data=None):
     """Assemble full A3 landscape SVG with views, ISO 7200 title block, BOM, legend, GD&T."""
     meta = meta or {}
     style_cfg = style_cfg or {}
@@ -914,24 +1576,131 @@ def compose_drawing(views_svg, name, bom, scale, bbox,
             p.append(f'<text x="{bx}" y="{ry}" font-family="monospace" '
                      f'font-size="2" fill="#999">... +{len(bom)-5} more items</text>')
 
-    # GD&T symbols
+    # ── General Notes (above legend, in left zone) ──
+    # Use enhanced notes if provided, else fallback to basic notes
+    if notes_list:
+        notes = notes_list
+    else:
+        notes = []
+        tol_note = meta.get("tolerance", "")
+        if tol_note:
+            notes.append(f"GENERAL TOLERANCES PER {tol_note}")
+        notes.append("BREAK ALL SHARP EDGES")
+        notes.append("DEBURR ALL EDGES")
+        sf_default = meta.get("_sf_default", "")
+        if sf_default:
+            notes.append(f"UNLESS OTHERWISE SPECIFIED: {sf_default}")
+
+    if notes:
+        note_x = tb_x + 4
+        note_y = tb_bottom - 12 - len(notes) * 3.5
+        note_svg = render_general_notes_svg(notes, note_x, note_y, max_width=lz_w - 8)
+        if note_svg:
+            p.append(note_svg)
+
+    # ── Revision Table (above title block, right side) ──
+    if revisions:
+        rev_table = build_revision_table(revisions)
+        if rev_table:
+            rev_h = 5 + len(rev_table) * 5
+            rev_x = rz_x
+            rev_y = tb_y - rev_h - 2
+            rev_svg = render_revision_table_svg(rev_table, rev_x, rev_y, width=rz_w)
+            if rev_svg:
+                p.append(rev_svg)
+
+    # GD&T symbols — P0-3: feature-anchored placement with leaders
+    if gdt_entries and view_data:
+        gdt_planner = AnnotationPlanner()
+        placements = place_gdt_on_view(gdt_entries, view_data, scale, planner=gdt_planner)
+        if placements:
+            p.append('<!-- GD&T Auto (anchored) -->')
+            for gdt, fx, fy, ax, ay, fw, fh in placements:
+                # Render leader line from anchor to frame
+                leader_svg = _render_leader_svg(ax, ay, fx, fy, fw, fh)
+                p.append(leader_svg)
+                # Render GD&T frame
+                frame_svg, _ = render_gdt_frame_svg(gdt, fx, fy)
+                if frame_svg:
+                    p.append(frame_svg)
+    elif gdt_entries:
+        # Fallback: fixed stack (when view_data not available)
+        fcx, fcy = VIEW_CELLS["front"]
+        gx = fcx + CELL_W / 2 - 35
+        gy = fcy - CELL_H / 2 + 20
+        p.append('<!-- GD&T Auto (stack fallback) -->')
+        for gi, gdt in enumerate(gdt_entries[:6]):
+            frame_svg, (fw, fh) = render_gdt_frame_svg(gdt, gx, gy + gi * 10)
+            if frame_svg:
+                p.append(frame_svg)
+
     if mates:
         try:
             from _gdt_symbols import generate_gdt_for_mates
             fcx, fcy = VIEW_CELLS["front"]
             gx = fcx + CELL_W / 2 - 35
             gy = fcy - CELL_H / 2 + 20
+            n_auto = len(gdt_entries) if gdt_entries else 0
             frags = generate_gdt_for_mates(
                 mates, tolerance_specs=tol_specs or {},
-                start_x=gx, start_y=gy, spacing=12)
+                start_x=gx, start_y=gy + n_auto * 10, spacing=12)
             if frags:
-                p.append('<!-- GD&T -->')
+                p.append('<!-- GD&T Mates -->')
                 p.extend(frags)
         except Exception:
             pass
 
+    # Extra SVG content (surface finish, chamfer callouts, thread callouts, etc.)
+    if extra_svg:
+        p.append(extra_svg)
+
     p.append('</svg>')
-    return '\n'.join(p)
+    raw_svg = '\n'.join(p)
+
+    # P0-4: Stroke normalizer — enforce consistent line styles per class
+    raw_svg = _normalize_strokes(raw_svg)
+    return raw_svg
+
+
+def _normalize_strokes(svg_text):
+    """P0-4: Post-processing pass to enforce consistent stroke widths per class.
+
+    Fixes cases where center lines render with wrong thickness (e.g., shaft
+    right view center line appearing as thick solid instead of thin chain line).
+
+    Rules enforced:
+    - class="centerlines" → stroke-width="0.18", dasharray="8,2,1.5,2"
+    - class="symmetry-axes" → stroke-width="0.13", dasharray="8,2,1.5,2"
+    - class="hard_hidden"/"outer_hidden"/"smooth_hidden" → stroke-width ≤ 0.30
+    """
+    import re
+
+    # Centerlines: ensure thin chain line style
+    svg_text = re.sub(
+        r'(<g\s+class="centerlines"[^>]*?)stroke-width="[^"]*"',
+        r'\1stroke-width="0.18"',
+        svg_text)
+
+    # Symmetry axes: ensure extra-thin chain line
+    svg_text = re.sub(
+        r'(<g\s+class="symmetry-axes"[^>]*?)stroke-width="[^"]*"',
+        r'\1stroke-width="0.13"',
+        svg_text)
+
+    # Hidden lines: cap stroke-width at 0.30 (prevent rendering bugs)
+    def _clamp_hidden_width(m):
+        prefix = m.group(1)
+        width = float(m.group(2))
+        clamped = min(width, 0.30)
+        return f'{prefix}stroke-width="{clamped}"'
+
+    for cls in ("hard_hidden", "outer_hidden", "smooth_hidden", "iso_hidden"):
+        svg_text = re.sub(
+            rf'(<g\s+class="{cls}"[^>]*?)stroke-width="([^"]*)"',
+            _clamp_hidden_width,
+            svg_text)
+
+    return svg_text
 
 
 # -- Helpers -------------------------------------------------------------------
@@ -1600,6 +2369,27 @@ try:
 
     log(f"  Scale: {scale}")
 
+    # -- Feature Inference & View Planning --
+    feature_graph = None
+    view_plan = None
+    try:
+        feature_graph = infer_features_from_config(config)
+        view_plan = plan_views(feature_graph, drawing_cfg)
+        n_feat = len(feature_graph.features)
+        n_grp = len(feature_graph.groups)
+        log(f"  Features: {n_feat} detected, {n_grp} groups")
+    except Exception as e:
+        log(f"  Feature inference skipped: {e}")
+
+    # Determine dimension strategy
+    dim_strategy = "chain"
+    dim_style_cfg = drawing_cfg.get("dimension_style", {})
+    if dim_style_cfg.get("type"):
+        dim_strategy = dim_style_cfg["type"]
+    elif feature_graph:
+        dim_strategy = select_dimension_strategy(feature_graph)
+    log(f"  Dimension strategy: {dim_strategy}")
+
     # -- Project Views --
     views_svg = {}
     view_data = {}  # bounds/cx/cy per view for cutting line rendering
@@ -1644,19 +2434,49 @@ try:
         n_edges = sum(len(v) for v in groups.values())
         log(f"  View '{vname}': {n_edges} edges")
 
-        show_hidden = drawing_cfg.get("style", {}).get("show_hidden", True)
-        show_cl = drawing_cfg.get("style", {}).get("show_centerlines", True)
-        show_dims = drawing_cfg.get("style", {}).get("show_dimensions", True)
-        svg = render_view_svg(vname, groups, bounds, circles, cx, cy, scale,
-                              show_hidden=show_hidden, show_centerlines=show_cl)
+    if not view_data:
+        respond_error("No views could be projected. Shape may be empty.")
+
+    # -- P0-2: View Fit Hard Clamp --
+    # After all views are projected, check if any view overflows its cell.
+    # If so, reduce scale to the tightest fit (safety margin 0.90).
+    VIEW_FIT_MARGIN = 0.90  # 90% of cell = 5% padding each side
+    DIM_RESERVE = 12  # mm reserved for dimensions/datums outside shape
+    for vn, vd in view_data.items():
+        u0, v0, u1, v1 = vd["bounds"]
+        proj_w = (u1 - u0) * scale
+        proj_h = (v1 - v0) * scale
+        avail_w = CELL_W * VIEW_FIT_MARGIN - DIM_RESERVE
+        avail_h = CELL_H * VIEW_FIT_MARGIN - DIM_RESERVE
+        if proj_w > avail_w or proj_h > avail_h:
+            clamp = min(avail_w / max(u1 - u0, 1e-6),
+                        avail_h / max(v1 - v0, 1e-6))
+            if clamp < scale:
+                log(f"  View fit clamp: {vn} overflow → scale {scale:.3f} → {clamp:.3f}")
+                scale = clamp
+
+    # -- Render Views (2nd pass) --
+    show_hidden = drawing_cfg.get("style", {}).get("show_hidden", True)
+    show_cl = drawing_cfg.get("style", {}).get("show_centerlines", True)
+    show_dims = drawing_cfg.get("style", {}).get("show_dimensions", True)
+    tol_cfg = drawing_cfg.get("tolerances", {})
+
+    for vname, vd in view_data.items():
+        vh = show_hidden
+        # P0-1: ISO view — always hide hidden lines (KS/industrial practice)
+        if vname == "iso":
+            vh = False
+        svg = render_view_svg(vname, vd["groups"], vd["bounds"], vd["circles"],
+                              vd["cx"], vd["cy"], scale,
+                              show_hidden=vh, show_centerlines=show_cl)
         # Append dimension lines (front/top/right only)
-        tol_cfg = drawing_cfg.get("tolerances", {})
         if show_dims and vname != "iso":
-            dim_svg = render_dimensions_svg(vname, bounds, circles, cx, cy, scale,
-                                           arcs=arcs, tolerances=tol_cfg)
+            dim_svg = render_dimensions_svg(vname, vd["bounds"], vd["circles"],
+                                           vd["cx"], vd["cy"], scale,
+                                           arcs=vd.get("arcs"), tolerances=tol_cfg)
             if dim_svg:
                 svg += '\n' + dim_svg
-            datum_svg = render_datums_svg(vname, bounds, cx, cy, scale)
+            datum_svg = render_datums_svg(vname, vd["bounds"], vd["cx"], vd["cy"], scale)
             if datum_svg:
                 svg += '\n' + datum_svg
         views_svg[vname] = svg
@@ -1743,16 +2563,140 @@ try:
             views_svg["front"] += '\n' + balloon_svg
             log(f"  Balloons: {len(bom)} items on front view")
 
+    # -- Annotation Planner (collision-free placement for callouts) --
+    planner = AnnotationPlanner()
+    # Pre-register dimension/datum regions as obstacles for each view
+    for vn, vd in view_data.items():
+        if vn == "iso":
+            continue
+        vb = vd["bounds"]
+        vcx, vcy = vd["cx"], vd["cy"]
+        bu0, bv0, bu1, bv1 = vb
+        vbcx, vbcy = (bu0 + bu1) / 2, (bv0 + bv1) / 2
+        # View edge region in page coords
+        vl = vcx + (bu0 - vbcx) * scale
+        vt = vcy - (bv1 - vbcy) * scale
+        vr = vcx + (bu1 - vbcx) * scale
+        vbot = vcy - (bv0 - vbcy) * scale
+        # Register shape region (avoid placing annotations on top of geometry)
+        planner.register(vl, vt, vr, vbot)
+        # Register dimension zone below/right (DIM_OFFSET + 2 stacks)
+        planner.register(vl, vbot + DIM_GAP, vr, vbot + DIM_OFFSET + FEAT_DIM_STACK * 2)
+        planner.register(vr + DIM_GAP, vt, vr + DIM_OFFSET + FEAT_DIM_STACK * 2, vbot)
+
+    # -- Surface Finish (ISO 1302) --
+    extra_svg_parts = []
+    sf_cfg = drawing_cfg.get("surface_finish")
+    if sf_cfg:
+        sf_svg = render_surface_finish_svg(sf_cfg, view_data, scale, planner=planner)
+        if sf_svg:
+            extra_svg_parts.append(sf_svg)
+            log("  Surface finish: annotations added")
+
+    # -- Chamfer Callouts --
+    chamfer_cfg = drawing_cfg.get("chamfer")
+    if chamfer_cfg and chamfer_cfg.get("show", True) and "front" in view_data:
+        vd = view_data["front"]
+        ch_svg = render_chamfer_callouts_svg(
+            config, chamfer_cfg, vd["bounds"], vd["cx"], vd["cy"], scale,
+            groups=vd.get("groups"), planner=planner)
+        if ch_svg:
+            views_svg["front"] += '\n' + ch_svg
+            log("  Chamfer callouts: added to front view")
+
+    # -- Thread Callouts --
+    # Threads are visible as circles in the view perpendicular to the hole axis.
+    # For Z-axis holes, that's the top view; try top first, then front.
+    threads_cfg = drawing_cfg.get("threads")
+    if threads_cfg:
+        thread_placed = False
+        for tv in ("top", "front", "right"):
+            if tv not in view_data:
+                continue
+            vd = view_data[tv]
+            if not vd["circles"]:
+                continue
+            th_svg = render_thread_callouts_svg(
+                threads_cfg, config.get("shapes", []),
+                vd["bounds"], vd["circles"], vd["cx"], vd["cy"], scale,
+                planner=planner)
+            if th_svg and th_svg.strip() != '<g class="thread-callouts">\n</g>':
+                views_svg[tv] += '\n' + th_svg
+                log(f"  Thread callouts: {len(threads_cfg)} threads on {tv} view")
+                thread_placed = True
+                break
+        if not thread_placed:
+            log("  Thread callouts: no matching circles found in any view")
+
+    # -- Baseline/Ordinate Dimensions (if configured) --
+    if dim_strategy in ("baseline", "ordinate") and feature_graph:
+        for bv in ("front", "top", "right"):
+            if bv not in view_data:
+                continue
+            vd = view_data[bv]
+            # Build feature positions for baseline dims
+            dim_features = []
+            for f in feature_graph.by_type("hole") + feature_graph.by_type("bore"):
+                pos = f.position
+                if bv == "front":
+                    dim_features.append({"position": (pos[0], pos[2] if len(pos) > 2 else 0),
+                                         "label": f.id})
+                elif bv == "top":
+                    dim_features.append({"position": (pos[0], pos[1]),
+                                         "label": f.id})
+            if not dim_features:
+                continue
+
+            origin = (0, 0)
+            if dim_strategy == "baseline":
+                bl_svg = render_baseline_dimensions_svg(
+                    dim_features, origin, "horizontal",
+                    vd["bounds"], vd["cx"], vd["cy"], scale)
+                if bl_svg:
+                    views_svg[bv] += '\n' + bl_svg
+                    log(f"  Baseline dimensions: added to {bv}")
+            elif dim_strategy == "ordinate":
+                ord_svg = render_ordinate_dimensions_svg(
+                    dim_features, origin, "horizontal",
+                    vd["bounds"], vd["cx"], vd["cy"], scale)
+                if ord_svg:
+                    views_svg[bv] += '\n' + ord_svg
+                    log(f"  Ordinate dimensions: added to {bv}")
+            break  # Only add to one view
+
+    # -- Auto GD&T --
+    gdt_entries = []
+    gdt_mode = drawing_cfg.get("gdt", {}).get("mode", "")
+    if gdt_mode == "auto" and feature_graph:
+        shape_dims = (bbox.XLength, bbox.YLength, bbox.ZLength)
+        datums = auto_select_datums(feature_graph, shape_bbox=shape_dims)
+        gdt_entries = auto_assign_gdt(feature_graph, datums)
+        if gdt_entries:
+            log(f"  Auto GD&T: {len(gdt_entries)} tolerances assigned")
+
+    # -- Build Enhanced Notes --
+    notes_list = None
+    if feature_graph:
+        notes_list = build_general_notes(drawing_cfg, feature_graph, ks=True)
+
     # -- Compose Drawing --
+    extra_svg = '\n'.join(extra_svg_parts)
     mates = (config.get("assembly", {}).get("mates", [])
              if is_assembly else [])
     tol_specs = config.get("tolerance", {}).get("specs", {})
-    drawing_meta = drawing_cfg.get("meta", {})
+    drawing_meta = dict(drawing_cfg.get("meta", {}))
+    if sf_cfg:
+        drawing_meta["_sf_default"] = sf_cfg.get("default", "")
     drawing_style = drawing_cfg.get("style", {})
+    revisions = drawing_cfg.get("revisions", [])
     svg_content = compose_drawing(
         views_svg, model_name, bom, scale, bbox,
         mates=mates, tol_specs=tol_specs,
-        meta=drawing_meta, style_cfg=drawing_style)
+        meta=drawing_meta, style_cfg=drawing_style,
+        extra_svg=extra_svg,
+        revisions=revisions, notes_list=notes_list,
+        gdt_entries=gdt_entries, feature_graph=feature_graph,
+        view_data=view_data)
 
     # -- Save SVG --
     export_dir = config.get("export", {}).get("directory", ".")

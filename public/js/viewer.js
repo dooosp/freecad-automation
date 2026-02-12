@@ -21,6 +21,25 @@ const btnDesign = document.getElementById('btn-design');
 const reviewPanel = document.getElementById('review-panel');
 const streamPreview = document.getElementById('stream-preview');
 
+// --- Drawing DOM ---
+const btnDraw = document.getElementById('btn-draw');
+const drawingOverlay = document.getElementById('drawing-overlay');
+const drawingContainer = document.getElementById('drawing-container');
+const drawingBom = document.getElementById('drawing-bom');
+const btnDrawClose = document.getElementById('btn-draw-close');
+const btnDrawZin = document.getElementById('btn-draw-zin');
+const btnDrawZout = document.getElementById('btn-draw-zout');
+const btnDrawFit = document.getElementById('btn-draw-fit');
+const drawZoomLabel = document.getElementById('draw-zoom-label');
+
+// --- Drawing State ---
+let drawZoom = 1;
+let drawPanX = 0;
+let drawPanY = 0;
+let drawDragging = false;
+let drawDragStart = { x: 0, y: 0 };
+let drawPanStart = { x: 0, y: 0 };
+
 // --- Animation DOM ---
 const btnPlay = document.getElementById('btn-play');
 const btnPause = document.getElementById('btn-pause');
@@ -452,6 +471,13 @@ function connectWS() {
         captureInitialStates();
         showAnimationControls();
         setStatus('Motion data loaded — press Play', 'success');
+        break;
+
+      case 'drawing_result':
+        showDrawing(msg.svg, msg.bom, msg.scale);
+        setStatus(`Drawing ready (${msg.scale})`, 'success');
+        btnBuild.disabled = false;
+        btnDesign.disabled = false;
         break;
 
       case 'design_result':
@@ -960,6 +986,135 @@ document.querySelectorAll('.speed-btn').forEach(btn => {
     btn.classList.add('selected');
   });
 });
+
+// --- Drawing Functions ---
+
+function requestDrawing() {
+  const toml = editor.value.trim();
+  if (!toml) return setStatus('Config is empty', 'error');
+  if (!ws || ws.readyState !== WebSocket.OPEN) return setStatus('Not connected', 'error');
+
+  btnBuild.disabled = true;
+  setStatus('Generating drawing...', 'progress');
+  ws.send(JSON.stringify({ action: 'draw', config: toml }));
+}
+
+function showDrawing(svg, bom, scale) {
+  if (!svg) return setStatus('No SVG in drawing result', 'error');
+
+  drawingContainer.innerHTML = svg;
+  drawZoom = 1;
+  drawPanX = 0;
+  drawPanY = 0;
+  updateDrawingTransform();
+  drawingOverlay.classList.add('open');
+
+  // BOM table
+  if (bom && bom.length > 0) {
+    let html = '<h4>Bill of Materials</h4><table><tr><th>#</th><th>Part</th><th>Material</th><th>Qty</th></tr>';
+    bom.forEach((item, i) => {
+      html += `<tr><td>${i + 1}</td><td>${item.id || '?'}</td><td>${item.material || '-'}</td><td>${item.count || 1}</td></tr>`;
+    });
+    html += '</table>';
+    drawingBom.innerHTML = html;
+    drawingBom.classList.add('open');
+  } else {
+    drawingBom.classList.remove('open');
+  }
+}
+
+function closeDrawing() {
+  drawingOverlay.classList.remove('open');
+  drawingBom.classList.remove('open');
+}
+
+function fitDrawing() {
+  const svgEl = drawingContainer.querySelector('svg');
+  if (!svgEl) return;
+
+  const cw = drawingContainer.clientWidth;
+  const ch = drawingContainer.clientHeight;
+  const sw = svgEl.viewBox.baseVal.width || svgEl.clientWidth;
+  const sh = svgEl.viewBox.baseVal.height || svgEl.clientHeight;
+
+  if (sw === 0 || sh === 0) return;
+  drawZoom = Math.min(cw / sw, ch / sh) * 0.95;
+  drawPanX = (cw - sw * drawZoom) / 2;
+  drawPanY = (ch - sh * drawZoom) / 2;
+  updateDrawingTransform();
+}
+
+function updateDrawingTransform() {
+  const svgEl = drawingContainer.querySelector('svg');
+  if (!svgEl) return;
+
+  // Remove fixed width/height to allow CSS transform to control size
+  const vb = svgEl.getAttribute('viewBox');
+  if (vb) {
+    const [, , vw, vh] = vb.split(/\s+/).map(Number);
+    svgEl.style.width = vw + 'px';
+    svgEl.style.height = vh + 'px';
+  }
+
+  svgEl.style.transform = `translate(${drawPanX}px, ${drawPanY}px) scale(${drawZoom})`;
+  if (drawZoomLabel) drawZoomLabel.textContent = Math.round(drawZoom * 100) + '%';
+}
+
+// Drawing event listeners
+if (btnDraw) btnDraw.addEventListener('click', requestDrawing);
+if (btnDrawClose) btnDrawClose.addEventListener('click', closeDrawing);
+if (btnDrawFit) btnDrawFit.addEventListener('click', fitDrawing);
+
+if (btnDrawZin) btnDrawZin.addEventListener('click', () => {
+  drawZoom = Math.min(drawZoom * 1.25, 10);
+  updateDrawingTransform();
+});
+
+if (btnDrawZout) btnDrawZout.addEventListener('click', () => {
+  drawZoom = Math.max(drawZoom / 1.25, 0.1);
+  updateDrawingTransform();
+});
+
+// Pan with mouse drag
+if (drawingContainer) {
+  drawingContainer.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    drawDragging = true;
+    drawDragStart = { x: e.clientX, y: e.clientY };
+    drawPanStart = { x: drawPanX, y: drawPanY };
+    drawingContainer.classList.add('grabbing');
+    e.preventDefault();
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!drawDragging) return;
+    drawPanX = drawPanStart.x + (e.clientX - drawDragStart.x);
+    drawPanY = drawPanStart.y + (e.clientY - drawDragStart.y);
+    updateDrawingTransform();
+  });
+
+  window.addEventListener('mouseup', () => {
+    drawDragging = false;
+    if (drawingContainer) drawingContainer.classList.remove('grabbing');
+  });
+
+  // Zoom with mouse wheel
+  drawingContainer.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const rect = drawingContainer.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    const oldZoom = drawZoom;
+    const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+    drawZoom = Math.max(0.1, Math.min(10, drawZoom * factor));
+
+    // Zoom towards cursor
+    drawPanX = mx - (mx - drawPanX) * (drawZoom / oldZoom);
+    drawPanY = my - (my - drawPanY) * (drawZoom / oldZoom);
+    updateDrawingTransform();
+  }, { passive: false });
+}
 
 // --- Init ---
 initScene();
