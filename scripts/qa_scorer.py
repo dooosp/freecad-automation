@@ -289,9 +289,40 @@ def count_float_precision(tree, min_decimals=4):
 
 import re as _re
 
-def _extract_dim_numbers(tree):
-    """Extract dimension numbers from text elements, grouped by view cell."""
-    view_nums = {}  # {view_name: [numbers]}
+def _classify_dim_style(text):
+    """Classify dimension style from text content.
+
+    Returns one of: "diameter", "radius", "callout", "linear".
+    """
+    t = text.strip()
+    if t.startswith("Ø") or t.startswith("⌀"):
+        return "diameter"
+    if _re.match(r'^R\s*\d', t):
+        return "radius"
+    if _re.match(r'^C\s*\d', t):
+        return "callout"
+    return "linear"
+
+
+def _extract_tolerance(text):
+    """Extract tolerance annotation from dimension text, or None."""
+    m = _re.search(r'[±]\s*([\d.]+)', text)
+    if m:
+        return float(m.group(1))
+    # Upper/lower tolerance: +0.1/-0.05
+    m = _re.search(r'[+]([\d.]+)\s*/\s*[\-]([\d.]+)', text)
+    if m:
+        return (float(m.group(1)), float(m.group(2)))
+    return None
+
+
+def _extract_dim_entries(tree):
+    """Extract structured dimension entries from text elements, grouped by view.
+
+    Returns: {view_name: [DimEntry, ...]}
+    where DimEntry = {"value": float, "style": str, "text": str, "tol": ...}
+    """
+    view_entries = {}
     for elem in tree.iter():
         tag = local_tag(elem)
         if tag != "text":
@@ -299,10 +330,8 @@ def _extract_dim_numbers(tree):
         text = (elem.text or "").strip()
         if not text:
             continue
-        # Skip non-dimension text (labels, notes headers, etc.)
         if text in ("FRONT", "TOP", "RIGHT", "ISO", "NOTES:", "A", "B", "C"):
             continue
-        # Extract numbers (including Ø prefix)
         nums = _re.findall(r'[\d]+(?:\.[\d]+)?', text)
         if not nums:
             continue
@@ -312,8 +341,21 @@ def _extract_dim_numbers(tree):
         view = classify_by_position(bbox.x + bbox.w / 2, bbox.y + bbox.h / 2)
         if not view:
             continue
-        view_nums.setdefault(view, []).extend(float(n) for n in nums)
-    return view_nums
+        style = _classify_dim_style(text)
+        tol = _extract_tolerance(text)
+        for n in nums:
+            entry = {"value": float(n), "style": style, "text": text, "tol": tol}
+            view_entries.setdefault(view, []).append(entry)
+    return view_entries
+
+
+def _extract_dim_numbers(tree):
+    """Extract dimension numbers from text elements, grouped by view cell.
+
+    Thin wrapper over _extract_dim_entries for backward compatibility.
+    """
+    entries = _extract_dim_entries(tree)
+    return {view: [e["value"] for e in elist] for view, elist in entries.items()}
 
 
 def check_dim_completeness(tree, plan):
@@ -369,24 +411,49 @@ def check_dim_completeness(tree, plan):
     return missing
 
 
-def check_dim_redundancy(tree):
-    """Count duplicate dimension values across different views."""
-    view_nums = _extract_dim_numbers(tree)
-    if len(view_nums) < 2:
+def check_dim_redundancy(tree, plan=None):
+    """Count duplicate dimension values across different views.
+
+    Redundancy rules (Phase 19.1):
+      A dimension is redundant when it appears in multiple views with:
+        - Same value within tolerance: max(tol_mm, 0.2% of value)
+        - Same style (diameter/linear/radius/callout)
+      Exceptions (NOT counted as redundant):
+        - Different tolerance annotations (inspection dimension)
+        - inspection_redundancy_allowed flag in dim_intents (future)
+      Parameters:
+        - plan.dimensioning.redundancy_tol_mm overrides base tolerance (default 0.5)
+    """
+    view_entries = _extract_dim_entries(tree)
+    if len(view_entries) < 2:
         return 0
 
-    # Round to 0.5mm precision for matching
-    view_rounded = {}
-    for view, nums in view_nums.items():
-        view_rounded[view] = {round(n * 2) / 2 for n in nums}
+    # Read tolerance from plan or use default
+    base_tol = 0.5
+    if plan:
+        base_tol = plan.get("dimensioning", {}).get("redundancy_tol_mm", 0.5)
 
-    # Count values appearing in multiple views
-    all_values = {}  # {rounded_val: set of views}
-    for view, vals in view_rounded.items():
-        for v in vals:
-            all_values.setdefault(v, set()).add(view)
+    # Build per-view sets of (rounded_value, style, tol_signature)
+    # tol_signature distinguishes dimensions with different tolerance annotations
+    view_dim_keys = {}  # {view: set of (rounded_val, style, tol_sig)}
+    for view, entries in view_entries.items():
+        keys = set()
+        for e in entries:
+            val = e["value"]
+            tol = max(base_tol, 0.002 * val)
+            rounded = round(val / tol) * tol
+            tol_sig = str(e["tol"]) if e["tol"] is not None else ""
+            keys.add((rounded, e["style"], tol_sig))
+        view_dim_keys[view] = keys
 
-    duplicates = sum(1 for v, views in all_values.items() if len(views) > 1)
+    # Count (value, style, tol_sig) appearing in multiple views
+    all_keys = {}  # {key: set of views}
+    for view, keys in view_dim_keys.items():
+        for k in keys:
+            all_keys.setdefault(k, set()).add(view)
+
+    # Only count as redundant if same style AND same tolerance annotation
+    duplicates = sum(1 for k, views in all_keys.items() if len(views) > 1)
     return duplicates
 
 
@@ -523,7 +590,7 @@ def collect_metrics(tree, plan=None):
         "float_precision_count": count_float_precision(tree),
         # Phase 19 intent metrics
         "dim_completeness": check_dim_completeness(tree, plan),
-        "dim_redundancy": check_dim_redundancy(tree),
+        "dim_redundancy": check_dim_redundancy(tree, plan),
         "datum_coherence": check_datum_coherence(tree),
         "view_coverage": check_view_coverage(tree, plan),
         "note_convention": check_note_convention(tree),

@@ -238,6 +238,14 @@ async function cmdDraw(configPath, flags = []) {
             { cwd: PROJECT_ROOT, encoding: 'utf-8', timeout: 30_000 }
           );
           if (ppOut.trim()) console.log(ppOut.trim());
+          // S3a: Inject plan metadata into repair report
+          try {
+            const rr = JSON.parse(readFileSync(reportJson, 'utf-8'));
+            rr.plan = config.drawing_plan
+              ? { used: true, template: config.drawing_plan.part_type || 'unknown', part_type: config.drawing_plan.part_type || 'unknown' }
+              : { used: false };
+            writeFileSync(reportJson, JSON.stringify(rr, null, 2));
+          } catch (_) { /* report may not exist yet */ }
         } catch (e) {
           console.error(`  Post-process warning: ${e.message}`);
         }

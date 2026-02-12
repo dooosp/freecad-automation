@@ -1,0 +1,26 @@
+{
+  "profile_version": "1.0",
+  "description": "Phase 19.1 baseline — 14 metrics, flange template only",
+  "defaults": {
+    "overflow_count":      { "max": 0 },
+    "text_overlap_pairs":  { "max": 4, "target": 0 },
+    "notes_overflow":      { "max": 0 },
+    "dim_redundancy":      { "max": 10, "target": 0 },
+    "dim_completeness":    { "min": 0 },
+    "datum_coherence":     { "max": 0 },
+    "stroke_violations":   { "max": 3 },
+    "gdt_unanchored":      { "max": 2 },
+    "iso_hidden_count":    { "max": 3 },
+    "dense_iso":           { "max": 0 },
+    "dim_overlap_pairs":   { "max": 3 },
+    "float_precision_count": { "max": 80 },
+    "note_convention":     { "max": 2 },
+    "view_coverage":       { "max": 0 }
+  },
+  "by_part_type": {
+    "flange": {
+      "dim_completeness":  { "min": 0, "target": 100 },
+      "dim_redundancy":    { "max": 7, "target": 0 }
+    }
+  }
+}

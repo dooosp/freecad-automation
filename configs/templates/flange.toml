@@ -44,6 +44,7 @@ view = "front"
 style = "diameter"
 required = true
 priority = 100
+reason = "Largest cylinder OD — assembly fit / inspection primary datum"
 
 [[dim_intents]]
 id = "ID"
@@ -52,6 +53,7 @@ view = "front"
 style = "diameter"
 required = true
 priority = 95
+reason = "Bore ID — shaft fit / seal groove reference"
 
 [[dim_intents]]
 id = "PCD"
@@ -60,6 +62,7 @@ view = "front"
 style = "diameter"
 required = true
 priority = 90
+reason = "Bolt circle — mating hole pattern alignment"
 
 [[dim_intents]]
 id = "BOLT_DIA"
@@ -68,6 +71,7 @@ view = "front"
 style = "diameter"
 required = true
 priority = 85
+reason = "Bolt hole size — fastener selection / clearance"
 
 [[dim_intents]]
 id = "BOLT_COUNT"
@@ -76,6 +80,7 @@ view = "notes"
 style = "note"
 required = true
 priority = 80
+reason = "Hole quantity — manufacturing count verification"
 
 [[dim_intents]]
 id = "THK"
@@ -84,6 +89,7 @@ view = "right"
 style = "linear"
 required = true
 priority = 75
+reason = "Flange thickness — structural strength / weight"
 
 [[dim_intents]]
 id = "FILLET"
