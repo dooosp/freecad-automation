@@ -329,13 +329,75 @@ def merge_plan(config, template):
     return plan
 
 
-def _deep_merge(base, override):
-    """Recursively merge override into base. Override wins for leaf values."""
+def _deep_merge(base, override, _parent_key=""):
+    """Recursively merge override into base. Override wins for leaf values.
+
+    Special: lists of dicts with 'id' keys use id-based patch merge by default.
+    - Same id → deep-merge fields (override wins)
+    - New id  → append at end
+    - remove=true → delete from result
+    Set ``<key>_merge = "replace"`` in parent dict to force full replacement.
+    """
     for key, val in override.items():
+        # Skip merge-mode directives (consumed below)
+        if key.endswith("_merge"):
+            base[key] = val
+            continue
+
         if key in base and isinstance(base[key], dict) and isinstance(val, dict):
-            _deep_merge(base[key], val)
+            _deep_merge(base[key], val, _parent_key=key)
+        elif (key in base
+              and isinstance(base[key], list) and isinstance(val, list)
+              and _is_id_list(base[key]) and _is_id_list(val)):
+            mode = override.get(f"{key}_merge", "patch")
+            if mode == "replace":
+                base[key] = val
+            else:
+                base[key] = _merge_id_list(base[key], val)
         else:
             base[key] = val
+
+
+def _is_id_list(lst):
+    """True if list contains dicts that all have an 'id' key."""
+    return len(lst) > 0 and all(isinstance(x, dict) and "id" in x for x in lst)
+
+
+def _merge_id_list(base_list, override_list):
+    """Patch-merge two lists of id-bearing dicts.
+
+    - Template order preserved
+    - Override items with matching id → field-level merge
+    - Override items with remove=true → removed from result
+    - New ids → appended at end
+    """
+    removed = {x["id"] for x in override_list if x.get("remove") is True}
+    ov_map = {x["id"]: x for x in override_list if not x.get("remove")}
+    base_ids = set()
+    out = []
+
+    for item in base_list:
+        iid = item["id"]
+        if iid in removed:
+            continue
+        base_ids.add(iid)
+        if iid in ov_map:
+            merged = {**item}
+            for k, v in ov_map[iid].items():
+                if k == "remove":
+                    continue
+                merged[k] = v
+            out.append(merged)
+        else:
+            out.append(item)
+
+    # Append new ids from override
+    for iid, item in ov_map.items():
+        if iid not in base_ids:
+            clean = {k: v for k, v in item.items() if k != "remove"}
+            out.append(clean)
+
+    return out
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,11 @@
+# Flange AA override — ordinate dimensioning with PCD emphasis
+
+[drawing_plan.dimensioning]
+scheme = "ordinate"
+baseline_datum = "A"
+avoid_redundant = true
+
+[[drawing_plan.dim_intents]]
+id = "PCD"
+required = true
+priority = 120

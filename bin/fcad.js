@@ -5,7 +5,7 @@ import { mkdirSync, writeFileSync, readFileSync, existsSync, unlinkSync } from '
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { stringify as tomlStringify } from 'smol-toml';
-import { loadConfig } from '../lib/config-loader.js';
+import { loadConfig, deepMerge } from '../lib/config-loader.js';
 import { runScript } from '../lib/runner.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -26,6 +26,7 @@ Usage:
   fcad help                       Show this help
 
 Options:
+  --override <path>               Merge override TOML/JSON on top of base config (with draw)
   --bom                           Export BOM as separate CSV file (with draw)
   --raw                           Skip SVG post-processing (with draw)
   --no-score                      Skip QA scoring (with draw)
@@ -58,9 +59,7 @@ async function main() {
   } else if (command === 'design') {
     await cmdDesign(args.join(' '));
   } else if (command === 'draw') {
-    const flags = args.filter(a => a.startsWith('--'));
-    const configArg = args.find(a => !a.startsWith('--'));
-    await cmdDraw(configArg, flags);
+    await cmdDraw(args);
   } else if (command === 'fem') {
     await cmdFem(args[0]);
   } else if (command === 'tolerance') {
@@ -129,7 +128,22 @@ async function cmdDesign(description) {
   console.log(`\nView: fcad serve → http://localhost:3000 → select ${fileName}`);
 }
 
-async function cmdDraw(configPath, flags = []) {
+async function cmdDraw(rawArgs = []) {
+  // Parse: fcad draw <config> [--override <path>] [--flags...]
+  const flags = [];
+  const positional = [];
+  let overridePath = null;
+  for (let i = 0; i < rawArgs.length; i++) {
+    if (rawArgs[i] === '--override' && rawArgs[i + 1]) {
+      overridePath = rawArgs[++i];
+    } else if (rawArgs[i].startsWith('--')) {
+      flags.push(rawArgs[i]);
+    } else {
+      positional.push(rawArgs[i]);
+    }
+  }
+  const configPath = positional[0];
+
   if (!configPath) {
     console.error('Error: config file path required');
     console.error('  fcad draw configs/examples/ks_flange.toml');
@@ -140,6 +154,14 @@ async function cmdDraw(configPath, flags = []) {
   console.log(`Loading config: ${absPath}`);
 
   const config = await loadConfig(absPath);
+
+  // --override <path>: merge override TOML/JSON on top of base config
+  if (overridePath) {
+    const absOvPath = resolve(overridePath);
+    const overrideCfg = await loadConfig(absOvPath);
+    deepMerge(config, overrideCfg);
+    console.log(`  Override: ${absOvPath}`);
+  }
 
   // Inject --bom flag into drawing config
   if (flags.includes('--bom')) {
