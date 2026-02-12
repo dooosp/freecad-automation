@@ -399,6 +399,55 @@ function buildQaIssueReport(qaReport = {}, repairReport = null) {
   };
 }
 
+function buildDedupeDiagnostics(dimensionMap = {}, dimConflicts = {}) {
+  const autoDims = Array.isArray(dimensionMap.auto_dimensions) ? dimensionMap.auto_dimensions : [];
+  const planDims = Array.isArray(dimensionMap.plan_dimensions) ? dimensionMap.plan_dimensions : [];
+  const conflicts = Array.isArray(dimConflicts.conflicts) ? dimConflicts.conflicts : [];
+
+  const skipped = planDims.filter(d => d.status === 'skipped_duplicate');
+  const rendered = planDims.filter(d => d.rendered);
+  const byReason = {};
+  const byBucket = {};
+  const byAutoCategory = {};
+  for (const d of skipped) {
+    const reason = d.reason || 'unknown';
+    byReason[reason] = (byReason[reason] || 0) + 1;
+    const bucket = d.dedupe_match?.bucket || 'unknown';
+    byBucket[bucket] = (byBucket[bucket] || 0) + 1;
+    const cat = d.dedupe_match?.auto_category || 'unknown';
+    byAutoCategory[cat] = (byAutoCategory[cat] || 0) + 1;
+  }
+
+  const crossView = conflicts.filter(c => c.reason === 'cross_view_redundant');
+  const planVsAuto = conflicts.filter(c => c.reason === 'plan_dim_skipped_due_to_auto_match');
+
+  return {
+    schema_version: '0.1',
+    generated_at: nowIso(),
+    summary: {
+      auto_dimension_count: autoDims.length,
+      plan_dimension_count: planDims.length,
+      plan_rendered_count: rendered.length,
+      plan_skipped_duplicate_count: skipped.length,
+      cross_view_redundant_count: crossView.length,
+      plan_vs_auto_duplicate_count: planVsAuto.length,
+      by_reason: byReason,
+      by_bucket: byBucket,
+      by_auto_category: byAutoCategory,
+    },
+    plan_skipped_duplicates: skipped.map(d => ({
+      dim_id: d.dim_id,
+      feature: d.feature || null,
+      view: d.view || null,
+      value_mm: d.value_mm ?? null,
+      reason: d.reason || null,
+      dedupe_match: d.dedupe_match || null,
+    })),
+    cross_view_redundant_conflicts: crossView,
+    plan_vs_auto_conflicts: planVsAuto,
+  };
+}
+
 async function cmdDraw(rawArgs = []) {
   // Parse: fcad draw <config> [--override <path>] [--flags...]
   const flags = [];
@@ -537,17 +586,20 @@ async function cmdDraw(rawArgs = []) {
       const layoutPath = join(artifactDir, `${artifactStem}_layout_report.json`);
       const dimMapPath = join(artifactDir, `${artifactStem}_dimension_map.json`);
       const conflictPath = join(artifactDir, `${artifactStem}_dim_conflicts.json`);
+      const dedupePath = join(artifactDir, `${artifactStem}_dedupe_diagnostics.json`);
 
       writeJson(traceabilityPath, traceability);
       writeJson(layoutPath, layoutReport);
       writeJson(dimMapPath, dimensionMap);
       writeJson(conflictPath, dimConflicts);
+      writeJson(dedupePath, buildDedupeDiagnostics(dimensionMap, dimConflicts));
 
       runLog.artifacts.traceability = traceabilityPath;
       runLog.artifacts.layout_report = layoutPath;
       runLog.artifacts.dimension_map = dimMapPath;
       runLog.artifacts.dim_conflicts = conflictPath;
-      endStage(persistStage, 'ok', { count: 4 });
+      runLog.artifacts.dedupe_diagnostics = dedupePath;
+      endStage(persistStage, 'ok', { count: 5 });
     } catch (err) {
       endStage(persistStage, 'warning', { warning: err.message });
     }

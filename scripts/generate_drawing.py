@@ -639,7 +639,7 @@ def _collect_auto_dim_values(vd):
 
 def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
                           tolerances=None, return_stacks=False,
-                          style_cfg=None, telemetry=None):
+                          style_cfg=None, telemetry=None, dedupe_state=None):
     """Generate ISO 129 dimension lines for a view.
 
     - Bounding dimensions (overall width + height) for front/top/right
@@ -690,6 +690,22 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
             rec.update(detail)
         telemetry.setdefault("conflicts", []).append(rec)
 
+    def _is_redundant_across_views(family, value_mm):
+        if not dedupe_state or not dedupe_state.get("enabled", False):
+            return False
+        if not isinstance(value_mm, (int, float)):
+            return False
+        base_tol = dedupe_state.get("tol_mm", 0.5)
+        tol = max(base_tol, 0.002 * abs(value_mm))
+        seen = dedupe_state.setdefault("seen", [])
+        for it in seen:
+            if it.get("family") != family:
+                continue
+            if abs(it.get("value_mm", 0.0) - value_mm) <= tol:
+                return True
+        seen.append({"family": family, "value_mm": value_mm, "view": vname})
+        return False
+
     def pg(u, v):
         return cx + (u - bcx) * scale, cy - (v - bcy) * scale
 
@@ -723,7 +739,10 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
     width_mm = (u1 - u0)
     if width_mm > 0.5:
         y_dim = bottom + eff_dim_offset + eff_feat_stack * h_stack
-        if y_dim < cell_bottom:
+        if _is_redundant_across_views("linear_h", width_mm):
+            _record_conflict("overall_width", "cross_view_redundant",
+                             severity="info", detail={"value_mm": round(width_mm, 3)})
+        elif y_dim < cell_bottom:
             out.extend(_dim_horizontal(left, right, bottom, y_dim, width_mm,
                                        tol_text=gen_tol))
             _record_dim("overall_width", width_mm)
@@ -736,7 +755,10 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
     height_mm = (v1 - v0)
     if height_mm > 0.5:
         x_dim = right + eff_dim_offset + eff_feat_stack * v_stack
-        if x_dim < cell_right:
+        if _is_redundant_across_views("linear_v", height_mm):
+            _record_conflict("overall_height", "cross_view_redundant",
+                             severity="info", detail={"value_mm": round(height_mm, 3)})
+        elif x_dim < cell_right:
             out.extend(_dim_vertical(top, bottom, right, x_dim, height_mm,
                                      tol_text=gen_tol))
             _record_dim("overall_height", height_mm)
@@ -762,10 +784,15 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
         r_scaled = cr * scale
         if r_scaled < 1.5:
             continue  # too small to dimension
+        dia_mm = cr * 2
+        if _is_redundant_across_views("diameter", dia_mm):
+            _record_conflict("hole_diameter", "cross_view_redundant",
+                             severity="info", detail={"value_mm": round(dia_mm, 3)})
+            continue
         out.extend(_dim_diameter(px, py, r_scaled, cr, angle_deg=leader_angle,
                                  tol_text=hole_tol,
                                  cell_bounds=(cell_x0, cell_y0, cell_right, cell_bottom)))
-        _record_dim("hole_diameter", cr * 2, detail={"center_uv": [round(cu, 3), round(cv, 3)]})
+        _record_dim("hole_diameter", dia_mm, detail={"center_uv": [round(cu, 3), round(cv, 3)]})
         leader_angle += 30  # stagger angles for multiple holes
 
     # -- Feature chain dimensions (hole positions from edges) --
@@ -797,6 +824,10 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
             y_feat = bottom + eff_dim_offset + eff_feat_stack * h_stack
             if y_feat < cell_bottom:
                 for px1, px2, dist in h_segments:
+                    if _is_redundant_across_views("linear_h", dist):
+                        _record_conflict("chain_horizontal", "cross_view_redundant",
+                                         severity="info", detail={"value_mm": round(dist, 3)})
+                        continue
                     out.extend(_dim_horizontal(px1, px2, bottom, y_feat, dist))
                     _record_dim("chain_horizontal", dist)
                 h_stack += 1
@@ -822,6 +853,10 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
             x_feat = right + eff_dim_offset + eff_feat_stack * v_stack
             if x_feat < cell_right:
                 for py_top, py_bot, dist in v_segments:
+                    if _is_redundant_across_views("linear_v", dist):
+                        _record_conflict("chain_vertical", "cross_view_redundant",
+                                         severity="info", detail={"value_mm": round(dist, 3)})
+                        continue
                     out.extend(_dim_vertical(py_top, py_bot, right, x_feat, dist))
                     _record_dim("chain_vertical", dist)
                 v_stack += 1
@@ -845,6 +880,10 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
             seen_r.append(r)
             r_scaled = r * scale
             if r_scaled < 1.0:
+                continue
+            if _is_redundant_across_views("radius", r):
+                _record_conflict("radius", "cross_view_redundant",
+                                 severity="info", detail={"value_mm": round(r, 3)})
                 continue
             cx_pg, cy_pg = pg(c_u, c_v)
             mx_pg, my_pg = pg(m_u, m_v)
@@ -2761,6 +2800,15 @@ try:
     show_dims = drawing_cfg.get("style", {}).get("show_dimensions", True)
     tol_cfg = drawing_cfg.get("tolerances", {})
     dim_telemetry = {"auto_dimensions": [], "plan_dimensions": [], "conflicts": []}
+    try:
+        dedupe_tol_mm = float(plan_dim.get("redundancy_tol_mm", 0.5))
+    except Exception:
+        dedupe_tol_mm = 0.5
+    auto_dedupe_state = {
+        "enabled": bool(plan_dim.get("avoid_redundant", False)),
+        "tol_mm": dedupe_tol_mm,
+        "seen": [],
+    }
     # Plan-aware view options (Phase 19)
     plan_view_opts = config.get("drawing_plan", {}).get("views", {}).get("options", {})
 
@@ -2784,7 +2832,7 @@ try:
                 vd["cx"], vd["cy"], scale,
                 arcs=vd.get("arcs"), tolerances=tol_cfg,
                 return_stacks=True, style_cfg=dim_style_cfg,
-                telemetry=dim_telemetry)
+                telemetry=dim_telemetry, dedupe_state=auto_dedupe_state)
             dim_svg, h_stk, v_stk = dim_result
             if dim_svg:
                 svg += '\n' + dim_svg
@@ -2794,7 +2842,13 @@ try:
                 try:
                     from _dim_plan import render_plan_dimensions_svg
                     auto_vals = _collect_auto_dim_values(vd)
+                    auto_dims_for_view = [
+                        d for d in dim_telemetry.get("auto_dimensions", [])
+                        if d.get("view") == vname
+                    ]
                     req_only = plan_dim.get("required_only", False)
+                    plan_dedupe_policy = plan_dim.get("auto_plan_dedupe", "smart")
+                    plan_dedupe_tol = dedupe_tol_mm
                     plan_svg, h_stk, v_stk = render_plan_dimensions_svg(
                         plan_intents, vname,
                         vd["bounds"], vd["circles"], vd.get("arcs", []),
@@ -2802,7 +2856,10 @@ try:
                         existing_dim_values=auto_vals,
                         required_only=req_only,
                         style_cfg=dim_style_cfg,
-                        telemetry=dim_telemetry)
+                        telemetry=dim_telemetry,
+                        existing_auto_dims=auto_dims_for_view,
+                        dedupe_policy=plan_dedupe_policy,
+                        dedupe_tol_mm=plan_dedupe_tol)
                     if plan_svg:
                         svg += '\n' + plan_svg
                 except Exception as e:
@@ -3075,6 +3132,8 @@ try:
     auto_dims = dim_telemetry.get("auto_dimensions", [])
     plan_dims = dim_telemetry.get("plan_dimensions", [])
     dim_conflicts = dim_telemetry.get("conflicts", [])
+    skipped_dup = [d for d in plan_dims if d.get("status") == "skipped_duplicate"]
+    dedupe_conf = [c for c in dim_conflicts if c.get("category") == "dedupe" or c.get("reason") == "cross_view_redundant"]
     dimension_map = {
         "auto_dimensions": auto_dims,
         "plan_dimensions": plan_dims,
@@ -3083,6 +3142,8 @@ try:
             "plan_count": len(plan_dims),
             "rendered_plan_count": len([d for d in plan_dims if d.get("rendered")]),
             "conflict_count": len(dim_conflicts),
+            "skipped_duplicate_count": len(skipped_dup),
+            "dedupe_conflict_count": len(dedupe_conf),
         },
     }
     traceability = build_traceability_payload(model_name, feature_graph, dim_telemetry)

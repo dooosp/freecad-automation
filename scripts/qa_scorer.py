@@ -48,6 +48,60 @@ WEIGHTS = {
     "note_semantic_mismatch": 3,   # per mismatch in bolt count note
 }
 
+WEIGHT_PRESETS = {
+    # Preserve current behaviour.
+    "default": {},
+    # Flange: PCD/bolt semantics and note conformity are critical.
+    "flange": {
+        "virtual_pcd_missing": 10,
+        "note_semantic_mismatch": 4,
+        "note_convention": 2,
+    },
+    # Shaft: baseline coherence/value consistency are more important.
+    "shaft": {
+        "datum_coherence": 5,
+        "value_inconsistency": 4,
+        "view_coverage": 6,
+    },
+    "bracket": {
+        "view_coverage": 6,
+        "dim_completeness": 6,
+    },
+    "housing": {
+        "dim_completeness": 6,
+        "datum_coherence": 4,
+    },
+    "assembly": {
+        "note_convention": 2,
+        "view_coverage": 6,
+    },
+}
+
+
+def resolve_weights(plan=None, preset=None):
+    """Resolve QA deduction weights with optional part-type presets.
+
+    Priority:
+      explicit CLI preset > plan.dimensioning.qa_weight_preset > default
+    Special value:
+      auto -> use plan.part_type when available
+    """
+    requested = preset
+    if not requested and plan:
+        requested = plan.get("dimensioning", {}).get("qa_weight_preset")
+    if not requested:
+        requested = "default"
+
+    profile = str(requested).lower()
+    if profile == "auto":
+        profile = str((plan or {}).get("part_type", "default")).lower()
+    if profile not in WEIGHT_PRESETS:
+        profile = "default"
+
+    weights = dict(WEIGHTS)
+    weights.update(WEIGHT_PRESETS.get(profile, {}))
+    return weights, profile
+
 
 # -- P0 Metrics ----------------------------------------------------------------
 
@@ -790,7 +844,7 @@ def collect_metrics(tree, plan=None):
     }
 
 
-def compute_score(metrics):
+def compute_score(metrics, weights=WEIGHTS):
     """Compute 100-point score with itemized deductions."""
     score = 100
     deductions = {}
@@ -802,50 +856,50 @@ def compute_score(metrics):
             score -= amount
 
     deduct("iso_hidden_count",
-           metrics["iso_hidden_count"] * WEIGHTS["iso_hidden_count"])
+           metrics["iso_hidden_count"] * weights["iso_hidden_count"])
     deduct("overflow_count",
-           metrics["overflow_count"] * WEIGHTS["overflow_count"])
+           metrics["overflow_count"] * weights["overflow_count"])
     deduct("text_overlap_pairs",
-           metrics["text_overlap_pairs"] * WEIGHTS["text_overlap_pairs"])
+           metrics["text_overlap_pairs"] * weights["text_overlap_pairs"])
     deduct("dim_overlap_pairs",
-           metrics["dim_overlap_pairs"] * WEIGHTS["dim_overlap_pairs"])
+           metrics["dim_overlap_pairs"] * weights["dim_overlap_pairs"])
     if metrics["notes_overflow"]:
-        deduct("notes_overflow", WEIGHTS["notes_overflow"])
+        deduct("notes_overflow", weights["notes_overflow"])
     deduct("gdt_unanchored",
-           metrics["gdt_unanchored"] * WEIGHTS["gdt_unanchored"])
+           metrics["gdt_unanchored"] * weights["gdt_unanchored"])
     if metrics["dense_iso"]:
-        deduct("dense_iso", WEIGHTS["dense_iso"])
+        deduct("dense_iso", weights["dense_iso"])
     deduct("stroke_violations",
-           metrics["stroke_violations"] * WEIGHTS["stroke_violations"])
+           metrics["stroke_violations"] * weights["stroke_violations"])
     deduct("float_precision",
-           min(metrics["float_precision_count"] // 10, 5) * WEIGHTS["float_precision"])
+           min(metrics["float_precision_count"] // 10, 5) * weights["float_precision"])
     # Phase 19 intent metrics (skip None = not applicable)
     if metrics.get("dim_completeness") is not None:
         deduct("dim_completeness",
-               metrics["dim_completeness"] * WEIGHTS["dim_completeness"])
+               metrics["dim_completeness"] * weights["dim_completeness"])
     if metrics.get("dim_redundancy") is not None:
         deduct("dim_redundancy",
-               metrics["dim_redundancy"] * WEIGHTS["dim_redundancy"])
+               metrics["dim_redundancy"] * weights["dim_redundancy"])
     if metrics.get("datum_coherence"):
-        deduct("datum_coherence", WEIGHTS["datum_coherence"])
+        deduct("datum_coherence", weights["datum_coherence"])
     if metrics.get("view_coverage") is not None and metrics["view_coverage"]:
-        deduct("view_coverage", WEIGHTS["view_coverage"])
+        deduct("view_coverage", weights["view_coverage"])
     if metrics.get("note_convention") is not None:
         deduct("note_convention",
-               min(metrics["note_convention"], 3) * WEIGHTS["note_convention"])
+               min(metrics["note_convention"], 3) * weights["note_convention"])
     # Phase 20-A presence enforcement
     if metrics.get("required_presence_miss") is not None:
         deduct("required_presence_miss",
-               metrics["required_presence_miss"] * WEIGHTS["required_presence_miss"])
+               metrics["required_presence_miss"] * weights["required_presence_miss"])
     if metrics.get("value_inconsistency") is not None:
         deduct("value_inconsistency",
-               metrics["value_inconsistency"] * WEIGHTS["value_inconsistency"])
+               metrics["value_inconsistency"] * weights["value_inconsistency"])
     # Phase 20-B
     if metrics.get("virtual_pcd_present") is not None and not metrics["virtual_pcd_present"]:
-        deduct("virtual_pcd_missing", WEIGHTS["virtual_pcd_missing"])
+        deduct("virtual_pcd_missing", weights["virtual_pcd_missing"])
     if metrics.get("note_semantic_mismatch") is not None:
         deduct("note_semantic_mismatch",
-               metrics["note_semantic_mismatch"] * WEIGHTS["note_semantic_mismatch"])
+               metrics["note_semantic_mismatch"] * weights["note_semantic_mismatch"])
 
     return max(score, 0), deductions
 
@@ -858,6 +912,8 @@ def main():
     parser.add_argument("input", help="Input SVG file")
     parser.add_argument("--json", dest="json_out", help="Save JSON report")
     parser.add_argument("--plan", dest="plan_file", help="Drawing plan file (TOML or JSON) for intent metrics")
+    parser.add_argument("--weights-preset", dest="weights_preset",
+                        help="QA weights preset: default|auto|flange|shaft|bracket|housing|assembly")
     parser.add_argument("--fail-under", type=int, default=0,
                         help="Exit with error if score < threshold")
     args = parser.parse_args()
@@ -880,11 +936,14 @@ def main():
             pass  # plan is optional
 
     metrics = collect_metrics(tree, plan)
-    score, deductions = compute_score(metrics)
+    active_weights, weight_profile = resolve_weights(plan, args.weights_preset)
+    score, deductions = compute_score(metrics, active_weights)
 
     # Print summary
     filename = os.path.basename(args.input)
     print(f"QA Score: {score}/100  [{filename}]")
+    if weight_profile != "default":
+        print(f"  weight_profile: {weight_profile}")
     for key in sorted(metrics):
         if key.startswith("_"):
             continue
@@ -901,6 +960,7 @@ def main():
         report = {
             "file": filename,
             "score": score,
+            "weight_profile": weight_profile,
             "timestamp": datetime.now().isoformat(timespec="seconds"),
             "metrics": {k: v for k, v in metrics.items() if not k.startswith("_")},
             "deductions": deductions,

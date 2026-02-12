@@ -32,14 +32,96 @@ def _arrow_head(x, y, angle):
             f'{rx:.2f},{ry:.2f}" fill="{DIM_COLOR}"/>')
 
 
-def _is_already_placed(value_mm, existing_values, tol=0.5):
-    """Check if a dimension value is already rendered by auto-dims."""
-    if value_mm is None or existing_values is None:
-        return False
-    for ev in existing_values:
-        if abs(ev - value_mm) <= max(tol, 0.002 * value_mm):
-            return True
-    return False
+def _style_bucket(di):
+    """Map plan dim_intent to a coarse style bucket for dedupe matching."""
+    style = (di.get("style") or "linear").lower()
+    fid = (di.get("id") or "").upper()
+    if style == "diameter" or fid in DIA_FEATURES:
+        return "diameter"
+    if style == "linear" and fid in V_FEATURES:
+        return "linear_v"
+    if style == "linear":
+        return "linear_h"
+    if style in ("radius", "callout", "note"):
+        return style
+    return "other"
+
+
+def _auto_categories_for_bucket(bucket):
+    if bucket == "diameter":
+        return {"hole_diameter"}
+    if bucket == "linear_h":
+        return {"overall_width", "chain_horizontal"}
+    if bucket == "linear_v":
+        return {"overall_height", "chain_vertical"}
+    if bucket == "radius":
+        return {"radius"}
+    return set()
+
+
+def _find_auto_dedupe_match(di, existing_auto_dims, existing_values=None,
+                            dedupe_policy="smart", tol=0.5):
+    """Return dedupe match details if this plan dim duplicates auto dims.
+
+    dedupe_policy:
+      - off: never dedupe
+      - value_only: value tolerance only
+      - smart(default): value + style/category compatibility
+    """
+    value_mm = di.get("value_mm")
+    if value_mm is None:
+        return None
+
+    policy = (dedupe_policy or "smart").lower()
+    if policy == "off":
+        return None
+
+    dyn_tol = max(tol, 0.002 * abs(value_mm))
+
+    # Legacy numeric dedupe fallback (for backward compatibility)
+    if not existing_auto_dims and existing_values:
+        for ev in existing_values:
+            delta = abs(ev - value_mm)
+            if delta <= dyn_tol:
+                return {
+                    "auto_dim_id": None,
+                    "auto_category": None,
+                    "auto_value_mm": ev,
+                    "delta_mm": round(delta, 4),
+                    "bucket": _style_bucket(di),
+                    "policy": policy,
+                    "source": "legacy_values",
+                }
+
+    if not existing_auto_dims:
+        return None
+
+    bucket = _style_bucket(di)
+    allowed = _auto_categories_for_bucket(bucket)
+
+    best = None
+    for ad in existing_auto_dims:
+        av = ad.get("value_mm")
+        if not isinstance(av, (int, float)):
+            continue
+        cat = ad.get("category")
+        if policy == "smart" and allowed and cat not in allowed:
+            continue
+        delta = abs(av - value_mm)
+        if delta <= dyn_tol:
+            cand = {
+                "auto_dim_id": ad.get("dim_id"),
+                "auto_category": cat,
+                "auto_value_mm": av,
+                "delta_mm": round(delta, 4),
+                "bucket": bucket,
+                "policy": policy,
+                "source": "auto_dimensions",
+            }
+            if best is None or delta < best["delta_mm"]:
+                best = cand
+
+    return best
 
 
 def _format_value(value_mm):
@@ -68,6 +150,40 @@ def _find_closest_circle(value_mm, circles, scale):
     return None
 
 
+# ---- Placement hints ----
+
+_SIDE_TO_ANGLE = {
+    "right": 20.0,
+    "top_right": 45.0,
+    "top": 70.0,
+    "top_left": 120.0,
+    "left": 160.0,
+    "bottom_left": 230.0,
+    "bottom": 290.0,
+    "bottom_right": 330.0,
+}
+
+
+def _placement_cfg(di):
+    """Extract optional placement hints from dim_intent.
+
+    Supports:
+      placement = { side = "...", offset_mm = N, angle_deg = N }
+      placement_side / placement_offset_mm / placement_angle_deg
+    """
+    p = di.get("placement")
+    if not isinstance(p, dict):
+        p = {}
+    side = p.get("side", di.get("placement_side"))
+    offset_mm = p.get("offset_mm", di.get("placement_offset_mm"))
+    angle_deg = p.get("angle_deg", di.get("placement_angle_deg"))
+    return {
+        "side": str(side).lower() if isinstance(side, str) else None,
+        "offset_mm": offset_mm if isinstance(offset_mm, (int, float)) else None,
+        "angle_deg": angle_deg if isinstance(angle_deg, (int, float)) else None,
+    }
+
+
 # ---- Dimension renderers ----
 
 def _render_diameter(di, circles, cx, cy, scale, bcx, bcy):
@@ -86,8 +202,16 @@ def _render_diameter(di, circles, cx, cy, scale, bcx, bcy):
     r_scaled = cr * scale
 
     out = []
-    angle = math.radians(45)
+    plc = _placement_cfg(di)
+    angle_deg = plc.get("angle_deg")
+    if angle_deg is None and plc.get("side") in _SIDE_TO_ANGLE:
+        angle_deg = _SIDE_TO_ANGLE[plc["side"]]
+    if angle_deg is None:
+        angle_deg = 45.0
+    angle = math.radians(angle_deg)
     leader_len = max(min(r_scaled * 0.8, 20), 6)
+    if plc.get("offset_mm") is not None:
+        leader_len = max(4.0, leader_len + plc["offset_mm"])
     shelf_len = 8
 
     sx = px + r_scaled * math.cos(angle)
@@ -119,7 +243,7 @@ def _render_diameter(di, circles, cx, cy, scale, bcx, bcy):
 
 def _render_linear_h(di, bounds, cx, cy, scale, bcx, bcy, h_stack,
                      gap=None, offset=None, overshoot=None):
-    """Render a horizontal linear dimension below the shape."""
+    """Render a horizontal linear dimension (bottom by default, top optional)."""
     value_mm = di.get("value_mm")
     if value_mm is None:
         return [], h_stack
@@ -131,16 +255,30 @@ def _render_linear_h(di, bounds, cx, cy, scale, bcx, bcy, h_stack,
     u0, v0, u1, v1 = bounds
     left = cx + (u0 - bcx) * scale
     right = cx + (u1 - bcx) * scale
+    top = cy - (v1 - bcy) * scale
     bottom = cy - (v0 - bcy) * scale
 
-    y_dim = bottom + _gap + _offset + h_stack * _offset
+    plc = _placement_cfg(di)
+    side = plc.get("side")
+    side_top = side in ("top", "top_left", "top_right")
+    extra = plc.get("offset_mm") or 0.0
+    if side_top:
+        y_dim = top - (_gap + _offset + h_stack * _offset + extra)
+    else:
+        y_dim = bottom + _gap + _offset + h_stack * _offset + extra
 
     out = []
     # Extension lines
-    out.append(f'<line x1="{left:.2f}" y1="{bottom+_gap:.2f}" '
-               f'x2="{left:.2f}" y2="{y_dim-_overshoot:.2f}"/>')
-    out.append(f'<line x1="{right:.2f}" y1="{bottom+_gap:.2f}" '
-               f'x2="{right:.2f}" y2="{y_dim-_overshoot:.2f}"/>')
+    if side_top:
+        out.append(f'<line x1="{left:.2f}" y1="{top-_gap:.2f}" '
+                   f'x2="{left:.2f}" y2="{y_dim+_overshoot:.2f}"/>')
+        out.append(f'<line x1="{right:.2f}" y1="{top-_gap:.2f}" '
+                   f'x2="{right:.2f}" y2="{y_dim+_overshoot:.2f}"/>')
+    else:
+        out.append(f'<line x1="{left:.2f}" y1="{bottom+_gap:.2f}" '
+                   f'x2="{left:.2f}" y2="{y_dim-_overshoot:.2f}"/>')
+        out.append(f'<line x1="{right:.2f}" y1="{bottom+_gap:.2f}" '
+                   f'x2="{right:.2f}" y2="{y_dim-_overshoot:.2f}"/>')
     # Dimension line
     out.append(f'<line x1="{left:.2f}" y1="{y_dim:.2f}" '
                f'x2="{right:.2f}" y2="{y_dim:.2f}"/>')
@@ -149,7 +287,7 @@ def _render_linear_h(di, bounds, cx, cy, scale, bcx, bcy, h_stack,
     out.append(_arrow_head(right, y_dim, math.pi))
     # Text
     tx = (left + right) / 2
-    ty = y_dim - 1.0
+    ty = y_dim - 1.0 if not side_top else y_dim + 3.2
     text = _format_value(value_mm)
     out.append(f'<text x="{tx:.2f}" y="{ty:.2f}" text-anchor="middle" '
                f'font-family="{DIM_FONT}" font-size="{DIM_FONT_SIZE}" '
@@ -160,7 +298,7 @@ def _render_linear_h(di, bounds, cx, cy, scale, bcx, bcy, h_stack,
 
 def _render_linear_v(di, bounds, cx, cy, scale, bcx, bcy, v_stack,
                      gap=None, offset=None, overshoot=None):
-    """Render a vertical linear dimension to the right of the shape."""
+    """Render a vertical linear dimension (right by default, left optional)."""
     value_mm = di.get("value_mm")
     if value_mm is None:
         return [], v_stack
@@ -170,26 +308,44 @@ def _render_linear_v(di, bounds, cx, cy, scale, bcx, bcy, v_stack,
     _overshoot = overshoot if overshoot is not None else DIM_EXT_OVERSHOOT
 
     u0, v0, u1, v1 = bounds
+    left = cx + (u0 - bcx) * scale
     right = cx + (u1 - bcx) * scale
     top = cy - (v1 - bcy) * scale
     bottom = cy - (v0 - bcy) * scale
 
-    x_dim = right + _gap + _offset + v_stack * _offset
+    plc = _placement_cfg(di)
+    side = plc.get("side")
+    side_left = side in ("left", "top_left", "bottom_left")
+    extra = plc.get("offset_mm") or 0.0
+    if side_left:
+        x_dim = left - (_gap + _offset + v_stack * _offset + extra)
+    else:
+        x_dim = right + _gap + _offset + v_stack * _offset + extra
 
     out = []
     # Extension lines
-    out.append(f'<line x1="{right-_gap:.2f}" y1="{top:.2f}" '
-               f'x2="{x_dim+_overshoot:.2f}" y2="{top:.2f}"/>')
-    out.append(f'<line x1="{right-_gap:.2f}" y1="{bottom:.2f}" '
-               f'x2="{x_dim+_overshoot:.2f}" y2="{bottom:.2f}"/>')
+    if side_left:
+        out.append(f'<line x1="{left+_gap:.2f}" y1="{top:.2f}" '
+                   f'x2="{x_dim-_overshoot:.2f}" y2="{top:.2f}"/>')
+        out.append(f'<line x1="{left+_gap:.2f}" y1="{bottom:.2f}" '
+                   f'x2="{x_dim-_overshoot:.2f}" y2="{bottom:.2f}"/>')
+    else:
+        out.append(f'<line x1="{right-_gap:.2f}" y1="{top:.2f}" '
+                   f'x2="{x_dim+_overshoot:.2f}" y2="{top:.2f}"/>')
+        out.append(f'<line x1="{right-_gap:.2f}" y1="{bottom:.2f}" '
+                   f'x2="{x_dim+_overshoot:.2f}" y2="{bottom:.2f}"/>')
     # Dimension line
     out.append(f'<line x1="{x_dim:.2f}" y1="{top:.2f}" '
                f'x2="{x_dim:.2f}" y2="{bottom:.2f}"/>')
     # Arrows
-    out.append(_arrow_head(x_dim, top, math.pi / 2))
-    out.append(_arrow_head(x_dim, bottom, -math.pi / 2))
+    if side_left:
+        out.append(_arrow_head(x_dim, top, math.pi / 2))
+        out.append(_arrow_head(x_dim, bottom, -math.pi / 2))
+    else:
+        out.append(_arrow_head(x_dim, top, math.pi / 2))
+        out.append(_arrow_head(x_dim, bottom, -math.pi / 2))
     # Text
-    tx = x_dim - 1.5
+    tx = x_dim - 1.5 if not side_left else x_dim + 1.5
     ty = (top + bottom) / 2
     text = _format_value(value_mm)
     out.append(f'<text x="{tx:.2f}" y="{ty:.2f}" text-anchor="middle" '
@@ -235,7 +391,8 @@ def render_plan_dimensions_svg(
     dim_intents, vname, bounds, circles, arcs,
     cx, cy, scale, h_stack, v_stack,
     existing_dim_values=None, required_only=False,
-    style_cfg=None, telemetry=None
+    style_cfg=None, telemetry=None,
+    existing_auto_dims=None, dedupe_policy="smart", dedupe_tol_mm=0.5
 ):
     """Render plan-driven dimensions for a specific view.
 
@@ -263,7 +420,7 @@ def render_plan_dimensions_svg(
     out.append(f'<g class="plan-dimensions-{vname}" stroke="{DIM_COLOR}" '
                f'stroke-width="{DIM_LINE_W}" fill="none">')
 
-    def _record(di, status, *, reason=None, rendered=False):
+    def _record(di, status, *, reason=None, rendered=False, extra=None):
         if telemetry is None:
             return
         rec = {
@@ -283,6 +440,8 @@ def render_plan_dimensions_svg(
         }
         if reason:
             rec["reason"] = reason
+        if extra and isinstance(extra, dict):
+            rec.update(extra)
         telemetry.setdefault("plan_dimensions", []).append(rec)
 
     for di in dim_intents:
@@ -298,9 +457,29 @@ def render_plan_dimensions_svg(
         value_mm = di.get("value_mm")
         fid = di.get("id", "")
 
-        # Skip if already placed by auto-dims
-        if _is_already_placed(value_mm, existing_dim_values):
-            _record(di, "skipped_duplicate", reason="already_in_auto_dims")
+        # Skip if already placed by auto-dims (policy-driven)
+        dedupe_match = _find_auto_dedupe_match(
+            di,
+            existing_auto_dims=existing_auto_dims,
+            existing_values=existing_dim_values,
+            dedupe_policy=dedupe_policy,
+            tol=dedupe_tol_mm if isinstance(dedupe_tol_mm, (int, float)) else 0.5,
+        )
+        if dedupe_match:
+            _record(
+                di, "skipped_duplicate", reason="already_in_auto_dims",
+                extra={"dedupe_match": dedupe_match}
+            )
+            if telemetry is not None:
+                telemetry.setdefault("conflicts", []).append({
+                    "view": vname,
+                    "category": "dedupe",
+                    "reason": "plan_dim_skipped_due_to_auto_match",
+                    "severity": "info",
+                    "dim_id": di.get("id", ""),
+                    "auto_dim_id": dedupe_match.get("auto_dim_id"),
+                    "delta_mm": dedupe_match.get("delta_mm"),
+                })
             continue
 
         # No value → review marker
