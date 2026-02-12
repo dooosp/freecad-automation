@@ -1,0 +1,8 @@
+# V1_D3: Standard 4-view + Required-Only dimensions
+# Filters out dim_intents with required=false, showing only essential dimensions.
+
+[drawing_plan.views]
+enabled = ["front", "top", "right", "iso"]
+
+[drawing_plan.dimensioning]
+required_only = true

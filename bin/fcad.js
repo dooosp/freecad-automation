@@ -268,8 +268,9 @@ async function cmdDraw(rawArgs = []) {
       if (!flags.includes('--raw')) {
         console.log('\nPost-processing SVG...');
         try {
+          const strokeProfile = (config.drawing_plan?.style?.stroke_profile) || 'ks';
           const ppOut = execSync(
-            `python3 "${ppScript}" "${svgPath}" -o "${svgPath}" --report "${reportJson}"${planArg}`,
+            `python3 "${ppScript}" "${svgPath}" -o "${svgPath}" --report "${reportJson}" --profile ${strokeProfile}${planArg}`,
             { cwd: PROJECT_ROOT, encoding: 'utf-8', timeout: 30_000 }
           );
           if (ppOut.trim()) console.log(ppOut.trim());

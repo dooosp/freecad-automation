@@ -117,25 +117,30 @@ def _render_diameter(di, circles, cx, cy, scale, bcx, bcy):
     return out
 
 
-def _render_linear_h(di, bounds, cx, cy, scale, bcx, bcy, h_stack):
+def _render_linear_h(di, bounds, cx, cy, scale, bcx, bcy, h_stack,
+                     gap=None, offset=None, overshoot=None):
     """Render a horizontal linear dimension below the shape."""
     value_mm = di.get("value_mm")
     if value_mm is None:
         return [], h_stack
+
+    _gap = gap if gap is not None else DIM_GAP
+    _offset = offset if offset is not None else DIM_OFFSET
+    _overshoot = overshoot if overshoot is not None else DIM_EXT_OVERSHOOT
 
     u0, v0, u1, v1 = bounds
     left = cx + (u0 - bcx) * scale
     right = cx + (u1 - bcx) * scale
     bottom = cy - (v0 - bcy) * scale
 
-    y_dim = bottom + DIM_GAP + DIM_OFFSET + h_stack * DIM_OFFSET
+    y_dim = bottom + _gap + _offset + h_stack * _offset
 
     out = []
     # Extension lines
-    out.append(f'<line x1="{left:.2f}" y1="{bottom+DIM_GAP:.2f}" '
-               f'x2="{left:.2f}" y2="{y_dim-DIM_EXT_OVERSHOOT:.2f}"/>')
-    out.append(f'<line x1="{right:.2f}" y1="{bottom+DIM_GAP:.2f}" '
-               f'x2="{right:.2f}" y2="{y_dim-DIM_EXT_OVERSHOOT:.2f}"/>')
+    out.append(f'<line x1="{left:.2f}" y1="{bottom+_gap:.2f}" '
+               f'x2="{left:.2f}" y2="{y_dim-_overshoot:.2f}"/>')
+    out.append(f'<line x1="{right:.2f}" y1="{bottom+_gap:.2f}" '
+               f'x2="{right:.2f}" y2="{y_dim-_overshoot:.2f}"/>')
     # Dimension line
     out.append(f'<line x1="{left:.2f}" y1="{y_dim:.2f}" '
                f'x2="{right:.2f}" y2="{y_dim:.2f}"/>')
@@ -153,25 +158,30 @@ def _render_linear_h(di, bounds, cx, cy, scale, bcx, bcy, h_stack):
     return out, h_stack + 1
 
 
-def _render_linear_v(di, bounds, cx, cy, scale, bcx, bcy, v_stack):
+def _render_linear_v(di, bounds, cx, cy, scale, bcx, bcy, v_stack,
+                     gap=None, offset=None, overshoot=None):
     """Render a vertical linear dimension to the right of the shape."""
     value_mm = di.get("value_mm")
     if value_mm is None:
         return [], v_stack
+
+    _gap = gap if gap is not None else DIM_GAP
+    _offset = offset if offset is not None else DIM_OFFSET
+    _overshoot = overshoot if overshoot is not None else DIM_EXT_OVERSHOOT
 
     u0, v0, u1, v1 = bounds
     right = cx + (u1 - bcx) * scale
     top = cy - (v1 - bcy) * scale
     bottom = cy - (v0 - bcy) * scale
 
-    x_dim = right + DIM_GAP + DIM_OFFSET + v_stack * DIM_OFFSET
+    x_dim = right + _gap + _offset + v_stack * _offset
 
     out = []
     # Extension lines
-    out.append(f'<line x1="{right-DIM_GAP:.2f}" y1="{top:.2f}" '
-               f'x2="{x_dim+DIM_EXT_OVERSHOOT:.2f}" y2="{top:.2f}"/>')
-    out.append(f'<line x1="{right-DIM_GAP:.2f}" y1="{bottom:.2f}" '
-               f'x2="{x_dim+DIM_EXT_OVERSHOOT:.2f}" y2="{bottom:.2f}"/>')
+    out.append(f'<line x1="{right-_gap:.2f}" y1="{top:.2f}" '
+               f'x2="{x_dim+_overshoot:.2f}" y2="{top:.2f}"/>')
+    out.append(f'<line x1="{right-_gap:.2f}" y1="{bottom:.2f}" '
+               f'x2="{x_dim+_overshoot:.2f}" y2="{bottom:.2f}"/>')
     # Dimension line
     out.append(f'<line x1="{x_dim:.2f}" y1="{top:.2f}" '
                f'x2="{x_dim:.2f}" y2="{bottom:.2f}"/>')
@@ -224,17 +234,25 @@ def _intent_matches_view(di, vname):
 def render_plan_dimensions_svg(
     dim_intents, vname, bounds, circles, arcs,
     cx, cy, scale, h_stack, v_stack,
-    existing_dim_values=None
+    existing_dim_values=None, required_only=False,
+    style_cfg=None
 ):
     """Render plan-driven dimensions for a specific view.
 
     Only renders dimensions whose value_mm is NOT already placed by auto-dims.
     Missing value_mm → red REVIEW marker if required.
+    style_cfg: optional dict with dim_offset/dim_gap/dim_ext_overshoot overrides.
 
     Returns: (svg_string, new_h_stack, new_v_stack)
     """
     if not dim_intents or vname == "iso":
         return "", h_stack, v_stack
+
+    # Effective spacing from style_cfg or module defaults
+    _sc = style_cfg or {}
+    eff_gap = _sc.get("dim_gap", DIM_GAP)
+    eff_offset = _sc.get("dim_offset", DIM_OFFSET)
+    eff_overshoot = _sc.get("dim_ext_overshoot", DIM_EXT_OVERSHOOT)
 
     u0, v0, u1, v1 = bounds
     bcx, bcy = (u0 + u1) / 2, (v0 + v1) / 2
@@ -245,6 +263,10 @@ def render_plan_dimensions_svg(
 
     for di in dim_intents:
         if not _intent_matches_view(di, vname):
+            continue
+
+        # D3: skip non-required intents when required_only mode is active
+        if required_only and not di.get("required", True):
             continue
 
         style = di.get("style", "linear")
@@ -269,11 +291,13 @@ def render_plan_dimensions_svg(
         elif style == "linear":
             if fid in V_FEATURES:
                 elems, v_stack = _render_linear_v(
-                    di, bounds, cx, cy, scale, bcx, bcy, v_stack)
+                    di, bounds, cx, cy, scale, bcx, bcy, v_stack,
+                    gap=eff_gap, offset=eff_offset, overshoot=eff_overshoot)
                 out.extend(elems)
             else:
                 elems, h_stack = _render_linear_h(
-                    di, bounds, cx, cy, scale, bcx, bcy, h_stack)
+                    di, bounds, cx, cy, scale, bcx, bcy, h_stack,
+                    gap=eff_gap, offset=eff_offset, overshoot=eff_overshoot)
                 out.extend(elems)
         elif style == "radius":
             pass  # radius auto-dims already handle arcs

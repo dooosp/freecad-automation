@@ -1,0 +1,13 @@
+# V4_D1_S2: No-ISO 3-view + Baseline + KS Exam stroke profile
+# Emphasizes hard visible lines, suppresses hidden lines — exam-ready appearance.
+
+[drawing_plan.views]
+enabled = ["front", "top", "right"]
+
+[drawing_plan.dimensioning]
+scheme = "baseline"
+baseline_datum = "A"
+avoid_redundant = true
+
+[drawing_plan.style]
+stroke_profile = "exam"

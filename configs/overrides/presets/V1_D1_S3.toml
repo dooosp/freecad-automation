@@ -1,0 +1,14 @@
+# V1_D1_S3: Standard 4-view + Baseline + Dense spacing (tight margins)
+# Compact dimension spacing to fit more information in smaller drawings.
+
+[drawing_plan.views]
+enabled = ["front", "top", "right", "iso"]
+
+[drawing_plan.dimensioning]
+scheme = "baseline"
+baseline_datum = "A"
+avoid_redundant = true
+
+[drawing_plan.style]
+dim_offset = 5.0
+feat_dim_stack = 5.0

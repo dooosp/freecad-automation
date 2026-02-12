@@ -53,6 +53,30 @@ STROKE_PROFILE_KS = {
     "gdt-leader":     {"stroke-width": "0.25"},
 }
 
+STROKE_PROFILE_EXAM = {
+    "hard_visible":   {"stroke-width": "0.9",  "stroke": "#000"},
+    "outer_visible":  {"stroke-width": "0.60", "stroke": "#000"},
+    "smooth_visible": {"stroke-width": "0.25", "stroke": "#000"},
+    "outer_hidden":   {"stroke-width": "0.15", "stroke": "#444",
+                       "stroke-dasharray": "3,1.5"},
+    "hard_hidden":    {"stroke-width": "0.15", "stroke": "#444",
+                       "stroke-dasharray": "3,1.5"},
+    "smooth_hidden":  {"stroke-width": "0.15", "stroke": "#555",
+                       "stroke-dasharray": "3,1.5"},
+    "centerlines":    {"stroke-width": "0.10",
+                       "stroke-dasharray": "8,2,1.5,2",
+                       "vector-effect": "non-scaling-stroke"},
+    "symmetry-axes":  {"stroke-width": "0.10",
+                       "stroke-dasharray": "8,2,1.5,2",
+                       "vector-effect": "non-scaling-stroke"},
+    "gdt-leader":     {"stroke-width": "0.25"},
+}
+
+PROFILES = {
+    "ks": STROKE_PROFILE_KS,
+    "exam": STROKE_PROFILE_EXAM,
+}
+
 # Wildcard: dimensions-front, dimensions-top, etc.
 _DIM_PROFILE = {"stroke-width": "0.18", "vector-effect": "non-scaling-stroke"}
 
@@ -87,9 +111,14 @@ def remove_iso_hidden(tree):
 # -- P0 Rule 2: Stroke normalization -------------------------------------------
 
 def normalize_strokes(tree, profile=None):
-    """Enforce stroke attributes per class according to profile."""
+    """Enforce stroke attributes per class according to profile.
+
+    profile can be a dict (direct profile) or a string key ('ks', 'exam').
+    """
     if profile is None:
         profile = STROKE_PROFILE_KS
+    elif isinstance(profile, str):
+        profile = PROFILES.get(profile, STROKE_PROFILE_KS)
 
     root = tree.getroot()
     modified = 0
@@ -528,7 +557,7 @@ def postprocess(input_path, output_path, profile="ks", dry_run=False,
     # Define pass pipeline
     pass_defs = [
         ("remove_iso_hidden", lambda: remove_iso_hidden(tree)),
-        ("normalize_strokes", lambda: normalize_strokes(tree)),
+        ("normalize_strokes", lambda: normalize_strokes(tree, profile=profile)),
         ("rebuild_notes", lambda: rebuild_notes(tree)),
         ("deoverlap_text", lambda: repair_text_overlaps(tree)),
         ("repair_overflow_scale", lambda: repair_overflow(tree)),

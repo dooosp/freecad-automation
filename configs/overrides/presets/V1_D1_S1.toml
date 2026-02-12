@@ -1,0 +1,14 @@
+# V1_D1_S1: Standard 4-view + Baseline + Clean spacing (wide margins)
+# Generous spacing between dimension lines for readability.
+
+[drawing_plan.views]
+enabled = ["front", "top", "right", "iso"]
+
+[drawing_plan.dimensioning]
+scheme = "baseline"
+baseline_datum = "A"
+avoid_redundant = true
+
+[drawing_plan.style]
+dim_offset = 12.0
+feat_dim_stack = 9.0

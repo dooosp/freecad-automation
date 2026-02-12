@@ -18,7 +18,7 @@ BASELINE_ROW_SPACING = 5.0  # spacing between baseline dimension rows
 
 
 def render_baseline_dimensions_svg(features, origin, axis, bounds,
-                                   cx, cy, scale):
+                                   cx, cy, scale, style_cfg=None):
     """Render baseline (datum-referenced) dimensions.
 
     All dimensions reference a single datum origin, eliminating cumulative
@@ -31,12 +31,18 @@ def render_baseline_dimensions_svg(features, origin, axis, bounds,
         bounds: (u0, v0, u1, v1) view bounds
         cx, cy: view center on page
         scale: drawing scale factor
+        style_cfg: optional dict with baseline_row_spacing/dim_gap overrides.
 
     Returns:
         SVG string
     """
     if not features:
         return ""
+
+    _sc = style_cfg or {}
+    eff_gap = _sc.get("dim_gap", DIM_GAP)
+    eff_row_spacing = _sc.get("baseline_row_spacing",
+                              _sc.get("feat_dim_stack", BASELINE_ROW_SPACING))
 
     u0, v0, u1, v1 = bounds
     bcx, bcy = (u0 + u1) / 2, (v0 + v1) / 2
@@ -51,7 +57,7 @@ def render_baseline_dimensions_svg(features, origin, axis, bounds,
         # Sort features by distance from origin along u-axis
         sorted_feats = sorted(features, key=lambda f: abs(f["position"][0] - origin[0]))
 
-        base_y = oy + DIM_GAP * scale + 10  # start below geometry
+        base_y = oy + eff_gap * scale + 10  # start below geometry
 
         for i, feat in enumerate(sorted_feats):
             fu, fv = feat["position"]
@@ -61,7 +67,7 @@ def render_baseline_dimensions_svg(features, origin, axis, bounds,
             if dist < 0.1:
                 continue  # skip datum itself
 
-            dim_y = base_y + i * BASELINE_ROW_SPACING
+            dim_y = base_y + i * eff_row_spacing
             value = f"{dist:.1f}" if dist != int(dist) else f"{int(dist)}"
 
             # Extension lines (from geometry to dimension line)
@@ -91,7 +97,7 @@ def render_baseline_dimensions_svg(features, origin, axis, bounds,
     elif axis == "vertical":
         sorted_feats = sorted(features, key=lambda f: abs(f["position"][1] - origin[1]))
 
-        base_x = ox + DIM_GAP * scale + 10
+        base_x = ox + eff_gap * scale + 10
 
         for i, feat in enumerate(sorted_feats):
             fu, fv = feat["position"]
@@ -101,7 +107,7 @@ def render_baseline_dimensions_svg(features, origin, axis, bounds,
             if dist < 0.1:
                 continue
 
-            dim_x = base_x + i * BASELINE_ROW_SPACING
+            dim_x = base_x + i * eff_row_spacing
             value = f"{dist:.1f}" if dist != int(dist) else f"{int(dist)}"
 
             out.append(_ext_line_h(ox, oy, dim_x + 2))

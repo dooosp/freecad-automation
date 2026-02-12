@@ -638,7 +638,8 @@ def _collect_auto_dim_values(vd):
 
 
 def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
-                          tolerances=None, return_stacks=False):
+                          tolerances=None, return_stacks=False,
+                          style_cfg=None):
     """Generate ISO 129 dimension lines for a view.
 
     - Bounding dimensions (overall width + height) for front/top/right
@@ -648,6 +649,7 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
     - ISO view is skipped (no dimensions on pictorial views)
 
     tolerances: dict with keys 'general', 'holes', 'shafts' (optional)
+    style_cfg: optional dict with dim_offset/feat_dim_stack/dim_gap overrides.
     """
     tolerances = tolerances or {}
     if vname == "iso":
@@ -671,12 +673,17 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
     h_stack = 0  # horizontal dimension rows stacked below shape
     v_stack = 0  # vertical dimension columns stacked right of shape
 
+    # Effective spacing from style_cfg or module defaults
+    _sc = style_cfg or {}
+    eff_dim_offset = _sc.get("dim_offset", DIM_OFFSET)
+    eff_feat_stack = _sc.get("feat_dim_stack", FEAT_DIM_STACK)
+
     # Cell boundary limits — keep dimensions within view cell
     cell_bottom = cy + CELL_H / 2 - 2
     cell_right = cx + CELL_W / 2 - 2
     # Max stacking rows/cols that fit within the cell
-    max_h_stacks = max(1, int((cell_bottom - bottom - DIM_OFFSET) / FEAT_DIM_STACK))
-    max_v_stacks = max(1, int((cell_right - right - DIM_OFFSET) / FEAT_DIM_STACK))
+    max_h_stacks = max(1, int((cell_bottom - bottom - eff_dim_offset) / eff_feat_stack))
+    max_v_stacks = max(1, int((cell_right - right - eff_dim_offset) / eff_feat_stack))
 
     gen_tol = tolerances.get("general", "")
     hole_tol = tolerances.get("holes", "")
@@ -684,7 +691,7 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
     # Overall width (horizontal, below shape)
     width_mm = (u1 - u0)
     if width_mm > 0.5:
-        y_dim = bottom + DIM_OFFSET + FEAT_DIM_STACK * h_stack
+        y_dim = bottom + eff_dim_offset + eff_feat_stack * h_stack
         if y_dim < cell_bottom:
             out.extend(_dim_horizontal(left, right, bottom, y_dim, width_mm,
                                        tol_text=gen_tol))
@@ -693,7 +700,7 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
     # Overall height (vertical, right of shape)
     height_mm = (v1 - v0)
     if height_mm > 0.5:
-        x_dim = right + DIM_OFFSET + FEAT_DIM_STACK * v_stack
+        x_dim = right + eff_dim_offset + eff_feat_stack * v_stack
         if x_dim < cell_right:
             out.extend(_dim_vertical(top, bottom, right, x_dim, height_mm,
                                      tol_text=gen_tol))
@@ -747,7 +754,7 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
                     h_segments.append((px1, px2, dist))
 
         if h_segments and h_stack < max_h_stacks:
-            y_feat = bottom + DIM_OFFSET + FEAT_DIM_STACK * h_stack
+            y_feat = bottom + eff_dim_offset + eff_feat_stack * h_stack
             if y_feat < cell_bottom:
                 for px1, px2, dist in h_segments:
                     out.extend(_dim_horizontal(px1, px2, bottom, y_feat, dist))
@@ -765,7 +772,7 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
                     v_segments.append((py_top, py_bot, dist))
 
         if v_segments and v_stack < max_v_stacks:
-            x_feat = right + DIM_OFFSET + FEAT_DIM_STACK * v_stack
+            x_feat = right + eff_dim_offset + eff_feat_stack * v_stack
             if x_feat < cell_right:
                 for py_top, py_bot, dist in v_segments:
                     out.extend(_dim_vertical(py_top, py_bot, right, x_feat, dist))
@@ -2566,11 +2573,12 @@ try:
                               simplify_iso=is_iso)
         # Append dimension lines (front/top/right only)
         if show_dims and vname != "iso":
+            dim_style_cfg = config.get("drawing_plan", {}).get("style", {})
             dim_result = render_dimensions_svg(
                 vname, vd["bounds"], vd["circles"],
                 vd["cx"], vd["cy"], scale,
                 arcs=vd.get("arcs"), tolerances=tol_cfg,
-                return_stacks=True)
+                return_stacks=True, style_cfg=dim_style_cfg)
             dim_svg, h_stk, v_stk = dim_result
             if dim_svg:
                 svg += '\n' + dim_svg
@@ -2580,11 +2588,14 @@ try:
                 try:
                     from _dim_plan import render_plan_dimensions_svg
                     auto_vals = _collect_auto_dim_values(vd)
+                    req_only = plan_dim.get("required_only", False)
                     plan_svg, h_stk, v_stk = render_plan_dimensions_svg(
                         plan_intents, vname,
                         vd["bounds"], vd["circles"], vd.get("arcs", []),
                         vd["cx"], vd["cy"], scale, h_stk, v_stk,
-                        existing_dim_values=auto_vals)
+                        existing_dim_values=auto_vals,
+                        required_only=req_only,
+                        style_cfg=dim_style_cfg)
                     if plan_svg:
                         svg += '\n' + plan_svg
                 except Exception as e:
@@ -2762,9 +2773,11 @@ try:
 
             origin = (0, 0)
             if dim_strategy == "baseline":
+                bl_style = config.get("drawing_plan", {}).get("style", {})
                 bl_svg = render_baseline_dimensions_svg(
                     dim_features, origin, "horizontal",
-                    vd["bounds"], vd["cx"], vd["cy"], scale)
+                    vd["bounds"], vd["cx"], vd["cy"], scale,
+                    style_cfg=bl_style)
                 if bl_svg:
                     views_svg[bv] += '\n' + bl_svg
                     log(f"  Baseline dimensions: added to {bv}")
