@@ -5,6 +5,23 @@
 name = "ptu_assembly"
 
 # ── Export ───────────────────────────────────────────────────
+# ── Drawing ──────────────────────────────────────────────
+[drawing]
+views = ["front", "top", "right", "iso"]
+
+[drawing.meta]
+part_name = "Power Transfer Unit"
+drawing_no = "PTU-001"
+material = "Various"
+tolerance = "ISO 2768-m"
+designed_by = "TH Jang"
+
+[drawing.style]
+show_hidden = true
+show_centerlines = true
+show_dimensions = true
+
+# ── Export ───────────────────────────────────────────────
 [export]
 formats = ["step", "stl"]
 directory = "./output"

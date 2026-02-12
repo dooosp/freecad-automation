@@ -346,7 +346,7 @@ def _arrow_head(x, y, angle):
             f'{rx:.2f},{ry:.2f}" fill="{DIM_COLOR}"/>')
 
 
-def _dim_horizontal(x1, x2, y_base, y_dim, value_mm):
+def _dim_horizontal(x1, x2, y_base, y_dim, value_mm, tol_text=""):
     """Horizontal dimension: extension lines + dim line + arrows + text."""
     out = []
     # Extension lines (vertical, from shape to dimension line)
@@ -367,10 +367,15 @@ def _dim_horizontal(x1, x2, y_base, y_dim, value_mm):
     out.append(f'<text x="{tx:.2f}" y="{ty:.2f}" text-anchor="middle" '
                f'font-family="{DIM_FONT}" font-size="{DIM_FONT_SIZE}" '
                f'fill="{DIM_COLOR}">{text}</text>')
+    # Tolerance annotation (smaller, below dimension text)
+    if tol_text:
+        out.append(f'<text x="{tx:.2f}" y="{ty+3.2:.2f}" text-anchor="middle" '
+                   f'font-family="{DIM_FONT}" font-size="2" '
+                   f'fill="{DIM_COLOR}">{tol_text}</text>')
     return out
 
 
-def _dim_vertical(y1, y2, x_base, x_dim, value_mm):
+def _dim_vertical(y1, y2, x_base, x_dim, value_mm, tol_text=""):
     """Vertical dimension: extension lines + dim line + arrows + text."""
     out = []
     # Extension lines (horizontal, from shape to dimension line)
@@ -392,10 +397,17 @@ def _dim_vertical(y1, y2, x_base, x_dim, value_mm):
                f'font-family="{DIM_FONT}" font-size="{DIM_FONT_SIZE}" '
                f'fill="{DIM_COLOR}" '
                f'transform="rotate(-90,{tx:.2f},{ty:.2f})">{text}</text>')
+    # Tolerance annotation (smaller, offset along dimension line)
+    if tol_text:
+        ttx = x_dim - 4.5
+        out.append(f'<text x="{ttx:.2f}" y="{ty:.2f}" text-anchor="middle" '
+                   f'font-family="{DIM_FONT}" font-size="2" '
+                   f'fill="{DIM_COLOR}" '
+                   f'transform="rotate(-90,{ttx:.2f},{ty:.2f})">{tol_text}</text>')
     return out
 
 
-def _dim_diameter(px, py, radius_scaled, radius_mm, angle_deg=45):
+def _dim_diameter(px, py, radius_scaled, radius_mm, angle_deg=45, tol_text=""):
     """Diameter dimension: leader line from circle + diameter text."""
     out = []
     angle = math.radians(angle_deg)
@@ -416,9 +428,11 @@ def _dim_diameter(px, py, radius_scaled, radius_mm, angle_deg=45):
                f'x2="{shx:.2f}" y2="{ey:.2f}"/>')
     # Arrow at circle edge
     out.append(_arrow_head(sx, sy, angle + math.pi))
-    # Text
+    # Text (with optional tolerance grade)
     d_mm = radius_mm * 2
     text = f"\u2300{d_mm:.1f}" if d_mm != int(d_mm) else f"\u2300{int(d_mm)}"
+    if tol_text:
+        text += f" {tol_text}"
     tx = (ex + shx) / 2
     ty = ey - 1.2
     out.append(f'<text x="{tx:.2f}" y="{ty:.2f}" text-anchor="middle" '
@@ -466,7 +480,8 @@ def _dim_radius(cx_pg, cy_pg, mx_pg, my_pg, radius_scaled, radius_mm):
     return out
 
 
-def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None):
+def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
+                          tolerances=None):
     """Generate ISO 129 dimension lines for a view.
 
     - Bounding dimensions (overall width + height) for front/top/right
@@ -474,7 +489,10 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None):
     - Feature chain dimensions (hole-to-hole and hole-to-edge positions)
     - Radius dimensions for fillet/round arcs
     - ISO view is skipped (no dimensions on pictorial views)
+
+    tolerances: dict with keys 'general', 'holes', 'shafts' (optional)
     """
+    tolerances = tolerances or {}
     if vname == "iso":
         return ""
 
@@ -496,18 +514,23 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None):
     h_stack = 0  # horizontal dimension rows stacked below shape
     v_stack = 0  # vertical dimension columns stacked right of shape
 
+    gen_tol = tolerances.get("general", "")
+    hole_tol = tolerances.get("holes", "")
+
     # Overall width (horizontal, below shape)
     width_mm = (u1 - u0)
     if width_mm > 0.5:
         y_dim = bottom + DIM_OFFSET + FEAT_DIM_STACK * h_stack
-        out.extend(_dim_horizontal(left, right, bottom, y_dim, width_mm))
+        out.extend(_dim_horizontal(left, right, bottom, y_dim, width_mm,
+                                   tol_text=gen_tol))
         h_stack += 1
 
     # Overall height (vertical, right of shape)
     height_mm = (v1 - v0)
     if height_mm > 0.5:
         x_dim = right + DIM_OFFSET + FEAT_DIM_STACK * v_stack
-        out.extend(_dim_vertical(top, bottom, right, x_dim, height_mm))
+        out.extend(_dim_vertical(top, bottom, right, x_dim, height_mm,
+                                 tol_text=gen_tol))
         v_stack += 1
 
     # Hole diameters (deduplicated by radius within tolerance)
@@ -524,7 +547,8 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None):
         r_scaled = cr * scale
         if r_scaled < 1.5:
             continue  # too small to dimension
-        out.extend(_dim_diameter(px, py, r_scaled, cr, angle_deg=leader_angle))
+        out.extend(_dim_diameter(px, py, r_scaled, cr, angle_deg=leader_angle,
+                                 tol_text=hole_tol))
         leader_angle += 30  # stagger angles for multiple holes
 
     # -- Feature chain dimensions (hole positions from edges) --
@@ -1108,6 +1132,235 @@ def render_section_svg(label, groups, bounds, circles, cx, cy, scale, shape_boun
     return '\n'.join(out)
 
 
+# -- Detail View (ISO enlarged view) ------------------------------------------
+
+def render_detail_svg(label, groups, circles, arcs,
+                      detail_center, detail_radius,
+                      cx, cy, main_scale, scale_factor,
+                      show_hidden=True):
+    """Render enlarged detail view within a circular clip boundary.
+
+    Filters edges from the source view that fall within the detail region,
+    then renders them at enlarged scale inside a circular clip-path.
+
+    Args:
+        label: detail label letter (e.g., "Z")
+        groups/circles/arcs: projected edge data from source view
+        detail_center: (u, v) center in projected model coordinates
+        detail_radius: capture radius in model units
+        cx, cy: page center for the detail cell
+        main_scale: main drawing scale
+        scale_factor: enlargement factor relative to main scale
+    """
+    out = []
+    du, dv = detail_center
+    dr = detail_radius
+    detail_scale = main_scale * scale_factor
+
+    # Clip radius on page (80% of cell to leave room for label)
+    clip_r = min(dr * detail_scale, min(CELL_W, CELL_H) * 0.40)
+
+    # Filter edges within detail region (with 30% margin for partial edges)
+    capture_r2 = (dr * 1.3) ** 2
+
+    def in_region(u, v):
+        return (u - du) ** 2 + (v - dv) ** 2 <= capture_r2
+
+    filtered_groups = {}
+    for gi, edges in groups.items():
+        if not show_hidden and gi in {1, 3, 6, 9}:
+            continue
+        filtered = []
+        for e in edges:
+            if "circ" in e:
+                cu, cv, _r = e["circ"]
+                if in_region(cu, cv):
+                    filtered.append(e)
+            else:
+                if any(in_region(u, v) for u, v in e["pts"]):
+                    filtered.append(e)
+        if filtered:
+            filtered_groups[gi] = filtered
+
+    if not filtered_groups:
+        return ""
+
+    # Circular clip-path
+    clip_id = f"detail-clip-{label.lower()}"
+    out.append(f'<defs><clipPath id="{clip_id}">')
+    out.append(f'  <circle cx="{cx:.2f}" cy="{cy:.2f}" r="{clip_r:.2f}"/>')
+    out.append(f'</clipPath></defs>')
+
+    # Coordinate transform: model (u,v) → page (px,py) centered on detail
+    def pg(u, v):
+        return cx + (u - du) * detail_scale, cy - (v - dv) * detail_scale
+
+    out.append(f'<g clip-path="url(#{clip_id})">')
+
+    for gi in RENDER_ORDER:
+        if gi not in filtered_groups:
+            continue
+        w, color, dash = LINE_STYLES[gi]
+        attr = (f'stroke="{color}" stroke-width="{w}" fill="none" '
+                f'stroke-linecap="{LINE_CAP}" stroke-linejoin="{LINE_JOIN}"')
+        if dash:
+            attr += f' stroke-dasharray="{dash}"'
+        gn = EDGE_NAMES[gi] if gi < len(EDGE_NAMES) else f"g{gi}"
+        out.append(f'<g class="detail-{gn}" {attr}>')
+
+        for e in filtered_groups[gi]:
+            if "circ" in e:
+                cu, cv, r = e["circ"]
+                px, py = pg(cu, cv)
+                out.append(f'  <circle cx="{px:.2f}" cy="{py:.2f}" '
+                           f'r="{r * detail_scale:.2f}"/>')
+            else:
+                pts = e["pts"]
+                if len(pts) < 2:
+                    continue
+                pp = [pg(u, v) for u, v in pts]
+                d = f'M{pp[0][0]:.2f},{pp[0][1]:.2f}'
+                for x, y in pp[1:]:
+                    d += f'L{x:.2f},{y:.2f}'
+                out.append(f'  <path d="{d}"/>')
+
+        out.append('</g>')
+
+    out.append('</g>')
+
+    # Circle border (thick)
+    out.append(f'<circle cx="{cx:.2f}" cy="{cy:.2f}" r="{clip_r:.2f}" '
+               f'fill="none" stroke="#000" stroke-width="0.5"/>')
+
+    # Label: "DETAIL Z (3:1)"
+    sl = f"{scale_factor}:1" if scale_factor >= 1 else f"1:{round(1/scale_factor)}"
+    lx = cx
+    ly = cy + clip_r + 6
+    out.append(f'<text x="{lx:.1f}" y="{ly:.1f}" font-family="sans-serif" '
+               f'font-size="4" font-weight="bold" text-anchor="middle" '
+               f'fill="#333">DETAIL {label} ({sl})</text>')
+
+    return '\n'.join(out)
+
+
+def render_detail_indicator_svg(detail_center, detail_radius, label,
+                                parent_bounds, parent_cx, parent_cy, scale):
+    """Draw detail circle indicator + leader on the parent view."""
+    out = []
+    u0, v0, u1, v1 = parent_bounds
+    bcx, bcy = (u0 + u1) / 2, (v0 + v1) / 2
+
+    du, dv = detail_center
+    px = parent_cx + (du - bcx) * scale
+    py = parent_cy - (dv - bcy) * scale
+    pr = detail_radius * scale
+
+    out.append('<g class="detail-indicator">')
+    # Thin dashed circle on parent view
+    out.append(f'  <circle cx="{px:.2f}" cy="{py:.2f}" r="{pr:.2f}" '
+               f'fill="none" stroke="#000" stroke-width="0.35" '
+               f'stroke-dasharray="4,2"/>')
+    # Leader line (45 degrees from circle to label)
+    lx = px + pr * 0.707 + 5
+    ly = py - pr * 0.707 - 5
+    out.append(f'  <line x1="{px + pr * 0.707:.2f}" y1="{py - pr * 0.707:.2f}" '
+               f'x2="{lx:.2f}" y2="{ly:.2f}" '
+               f'stroke="#000" stroke-width="0.3"/>')
+    # Label letter
+    out.append(f'  <text x="{lx + 1:.2f}" y="{ly:.2f}" '
+               f'font-family="sans-serif" font-size="3.5" '
+               f'font-weight="bold" fill="#000">{label}</text>')
+    out.append('</g>')
+
+    return '\n'.join(out)
+
+
+# -- Balloon Numbers (Assembly BOM) -------------------------------------------
+
+BALLOON_R = 3.0            # balloon circle radius (mm on page)
+BALLOON_LEADER_LEN = 18.0  # leader line length (mm on page)
+
+
+def _project_point_to_view(pos_3d, view_name):
+    """Project a 3D point to (u, v) in the given orthographic view."""
+    x, y, z = pos_3d
+    if view_name == "front":
+        return (x, z)
+    elif view_name == "top":
+        return (x, y)
+    elif view_name == "right":
+        return (-y, z)
+    return (x, z)
+
+
+def render_balloons_svg(bom, assembly_parts, parts_metadata,
+                        view_bounds, view_cx, view_cy, scale,
+                        view_name="front"):
+    """Render BOM item balloons (circle + number + leader) on assembly view.
+
+    Each BOM item gets a filled dot at its projected location, a leader line,
+    and a numbered circle (balloon) offset at a staggered angle.
+    """
+    if not bom or not assembly_parts:
+        return ""
+
+    out = []
+    u0, v0, u1, v1 = view_bounds
+    bcx, bcy = (u0 + u1) / 2, (v0 + v1) / 2
+
+    def pg(u, v):
+        return view_cx + (u - bcx) * scale, view_cy - (v - bcy) * scale
+
+    # Build 3D center for each part (assembly_position + local_bbox_center)
+    part_centers = {}
+    for ap in assembly_parts:
+        ref = ap["ref"]
+        pos = ap.get("position", [0, 0, 0])
+        meta = parts_metadata.get(ref)
+        if meta and "bounding_box" in meta:
+            bb = meta["bounding_box"]
+            lc = [(bb["min"][j] + bb["max"][j]) / 2 for j in range(3)]
+        else:
+            lc = [0, 0, 0]
+        part_centers[ref] = [pos[j] + lc[j] for j in range(3)]
+
+    out.append('<g class="balloons">')
+
+    n = len(bom)
+    angle_step = 360 / max(n, 1)
+
+    for i, item in enumerate(bom):
+        ref = item["id"]
+        if ref not in part_centers:
+            continue
+
+        center_3d = part_centers[ref]
+        u, v = _project_point_to_view(center_3d, view_name)
+        px, py = pg(u, v)
+
+        # Balloon offset angle (staggered around the part)
+        angle = math.radians(30 + i * angle_step)
+        bx = px + BALLOON_LEADER_LEN * math.cos(angle)
+        by = py - BALLOON_LEADER_LEN * math.sin(angle)
+
+        # Leader line
+        out.append(f'  <line x1="{px:.2f}" y1="{py:.2f}" '
+                   f'x2="{bx:.2f}" y2="{by:.2f}" '
+                   f'stroke="#000" stroke-width="0.3" fill="none"/>')
+        # Dot at part location
+        out.append(f'  <circle cx="{px:.2f}" cy="{py:.2f}" r="0.8" fill="#000"/>')
+        # Balloon circle (white fill)
+        out.append(f'  <circle cx="{bx:.2f}" cy="{by:.2f}" r="{BALLOON_R}" '
+                   f'stroke="#000" stroke-width="0.35" fill="white"/>')
+        # Item number
+        out.append(f'  <text x="{bx:.2f}" y="{by + 1.2:.2f}" text-anchor="middle" '
+                   f'font-family="sans-serif" font-size="3.5" '
+                   f'font-weight="bold" fill="#000">{i + 1}</text>')
+
+    out.append('</g>')
+    return '\n'.join(out)
+
+
 # -- Section Cutting Line (ISO 128) -------------------------------------------
 
 # Section plane → parent view for cutting line display
@@ -1386,7 +1639,8 @@ try:
             continue
 
         cx, cy = VIEW_CELLS.get(vname, VIEW_CELLS["front"])
-        view_data[vname] = {"bounds": bounds, "cx": cx, "cy": cy}
+        view_data[vname] = {"bounds": bounds, "cx": cx, "cy": cy,
+                           "groups": groups, "circles": circles, "arcs": arcs}
         n_edges = sum(len(v) for v in groups.values())
         log(f"  View '{vname}': {n_edges} edges")
 
@@ -1396,9 +1650,10 @@ try:
         svg = render_view_svg(vname, groups, bounds, circles, cx, cy, scale,
                               show_hidden=show_hidden, show_centerlines=show_cl)
         # Append dimension lines (front/top/right only)
+        tol_cfg = drawing_cfg.get("tolerances", {})
         if show_dims and vname != "iso":
             dim_svg = render_dimensions_svg(vname, bounds, circles, cx, cy, scale,
-                                           arcs=arcs)
+                                           arcs=arcs, tolerances=tol_cfg)
             if dim_svg:
                 svg += '\n' + dim_svg
             datum_svg = render_datums_svg(vname, bounds, cx, cy, scale)
@@ -1444,8 +1699,49 @@ try:
         else:
             log(f"  Section: failed to create section on plane {sec_plane}")
 
+    # -- Detail View (optional, ISO cell when no section) --
+    detail_cfg = drawing_cfg.get("detail")
+    if detail_cfg and "section" not in views_svg:
+        source_vn = detail_cfg.get("source_view", "front")
+        if source_vn in view_data:
+            vd = view_data[source_vn]
+            det_center = detail_cfg.get("center", [0, 0])
+            det_radius = detail_cfg.get("radius", 10)
+            det_sf = detail_cfg.get("scale_factor", 3)
+            det_label = detail_cfg.get("label", "Z")
+
+            det_cx, det_cy = VIEW_CELLS.get("iso", VIEW_CELLS["right"])
+            det_svg = render_detail_svg(
+                det_label, vd["groups"], vd["circles"], vd.get("arcs", []),
+                det_center, det_radius,
+                det_cx, det_cy, scale, det_sf,
+                show_hidden=drawing_cfg.get("style", {}).get("show_hidden", True))
+            if det_svg:
+                views_svg["detail"] = det_svg
+                if "iso" in views_svg:
+                    del views_svg["iso"]
+                # Add indicator circle on parent view
+                ind_svg = render_detail_indicator_svg(
+                    det_center, det_radius, det_label,
+                    vd["bounds"], vd["cx"], vd["cy"], scale)
+                if ind_svg and source_vn in views_svg:
+                    views_svg[source_vn] += '\n' + ind_svg
+                log(f"  Detail '{det_label}': scale {det_sf}x in {source_vn} view")
+
     # -- Extract BOM --
     bom = extract_bom(config, parts_metadata) if is_assembly else []
+
+    # -- Balloon Numbers (assembly only) --
+    if is_assembly and bom and "front" in view_data and "front" in views_svg:
+        assembly_parts = config.get("assembly", {}).get("parts", [])
+        vd = view_data["front"]
+        balloon_svg = render_balloons_svg(
+            bom, assembly_parts, parts_metadata,
+            vd["bounds"], vd["cx"], vd["cy"], scale,
+            view_name="front")
+        if balloon_svg:
+            views_svg["front"] += '\n' + balloon_svg
+            log(f"  Balloons: {len(bom)} items on front view")
 
     # -- Compose Drawing --
     mates = (config.get("assembly", {}).get("mates", [])
