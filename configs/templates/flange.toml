@@ -1,5 +1,13 @@
 # Flange drawing template — KS standard
 # Used by intent_compiler.py to generate drawing_plan
+#
+# === New template checklist ===
+# 1. Set [template] part_type to match intent_compiler classification
+# 2. Define 3~8 [[dim_intents]] with required=true for critical dims
+# 3. Add at least 1 [[datums]] (primary reference)
+# 4. Set [dimensioning] scheme + baseline_datum
+# 5. Add [notes] general (min 2 lines)
+# 6. Run: python3 scripts/intent_compiler.py < config.json → verify PASS
 
 [template]
 part_type = "flange"

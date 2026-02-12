@@ -4,6 +4,7 @@ import { resolve, join, dirname } from 'node:path';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, unlinkSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { stringify as tomlStringify } from 'smol-toml';
 import { loadConfig } from '../lib/config-loader.js';
 import { runScript } from '../lib/runner.js';
 
@@ -202,11 +203,17 @@ async function cmdDraw(configPath, flags = []) {
     const failIdx = flags.indexOf('--fail-under');
     const failUnder = failIdx >= 0 && flags[failIdx + 1] ? ` --fail-under ${flags[failIdx + 1]}` : '';
 
-    // Save plan for QA intent metrics
+    // Save plan as TOML for debugging/QA (project convention: TOML for configs)
     let planArg = '';
     if (config.drawing_plan) {
-      const planPath = join(PROJECT_ROOT, 'output', `${config.name || 'unnamed'}_plan.json`);
-      writeFileSync(planPath, JSON.stringify({ drawing_plan: config.drawing_plan }));
+      const planPath = join(PROJECT_ROOT, 'output', `${config.name || 'unnamed'}_plan.toml`);
+      try {
+        writeFileSync(planPath, tomlStringify({ drawing_plan: config.drawing_plan }));
+      } catch (_) {
+        // Fallback to JSON if TOML stringify fails on complex structures
+        const jsonPath = planPath.replace('.toml', '.json');
+        writeFileSync(jsonPath, JSON.stringify({ drawing_plan: config.drawing_plan }, null, 2));
+      }
       planArg = ` --plan "${planPath}"`;
     }
 

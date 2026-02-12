@@ -574,11 +574,17 @@ def check_note_convention(tree):
 # -- Score computation ---------------------------------------------------------
 
 def collect_metrics(tree, plan=None):
-    """Run all checks and return metrics dict."""
+    """Run all checks and return metrics dict.
+
+    Plan-dependent metrics return None when no plan is provided,
+    signaling "not applicable" rather than "zero issues found".
+    """
     overflows = detect_overflow(tree)
     text_overlaps = detect_text_overlaps(tree)
+    has_plan = plan is not None
 
     return {
+        "intent_metrics_applicable": has_plan,
         "iso_hidden_count": count_iso_hidden(tree),
         "overflow_count": len(overflows),
         "text_overlap_pairs": len(text_overlaps),
@@ -588,11 +594,11 @@ def collect_metrics(tree, plan=None):
         "dense_iso": check_dense_iso(tree),
         "stroke_violations": count_stroke_violations(tree),
         "float_precision_count": count_float_precision(tree),
-        # Phase 19 intent metrics
-        "dim_completeness": check_dim_completeness(tree, plan),
+        # Phase 19 intent metrics (None = not applicable without plan)
+        "dim_completeness": check_dim_completeness(tree, plan) if has_plan else None,
         "dim_redundancy": check_dim_redundancy(tree, plan),
         "datum_coherence": check_datum_coherence(tree),
-        "view_coverage": check_view_coverage(tree, plan),
+        "view_coverage": check_view_coverage(tree, plan) if has_plan else None,
         "note_convention": check_note_convention(tree),
         "_details": {
             "overflows": overflows,
@@ -630,17 +636,20 @@ def compute_score(metrics):
            metrics["stroke_violations"] * WEIGHTS["stroke_violations"])
     deduct("float_precision",
            min(metrics["float_precision_count"] // 10, 5) * WEIGHTS["float_precision"])
-    # Phase 19 intent metrics
-    deduct("dim_completeness",
-           metrics.get("dim_completeness", 0) * WEIGHTS["dim_completeness"])
-    deduct("dim_redundancy",
-           metrics.get("dim_redundancy", 0) * WEIGHTS["dim_redundancy"])
+    # Phase 19 intent metrics (skip None = not applicable)
+    if metrics.get("dim_completeness") is not None:
+        deduct("dim_completeness",
+               metrics["dim_completeness"] * WEIGHTS["dim_completeness"])
+    if metrics.get("dim_redundancy") is not None:
+        deduct("dim_redundancy",
+               metrics["dim_redundancy"] * WEIGHTS["dim_redundancy"])
     if metrics.get("datum_coherence"):
         deduct("datum_coherence", WEIGHTS["datum_coherence"])
-    if metrics.get("view_coverage"):
+    if metrics.get("view_coverage") is not None and metrics["view_coverage"]:
         deduct("view_coverage", WEIGHTS["view_coverage"])
-    deduct("note_convention",
-           min(metrics.get("note_convention", 0), 3) * WEIGHTS["note_convention"])
+    if metrics.get("note_convention") is not None:
+        deduct("note_convention",
+               min(metrics["note_convention"], 3) * WEIGHTS["note_convention"])
 
     return max(score, 0), deductions
 
@@ -652,20 +661,25 @@ def main():
         description="Drawing QA Scorer — measure SVG quality")
     parser.add_argument("input", help="Input SVG file")
     parser.add_argument("--json", dest="json_out", help="Save JSON report")
-    parser.add_argument("--plan", dest="plan_json", help="Drawing plan JSON for intent metrics")
+    parser.add_argument("--plan", dest="plan_file", help="Drawing plan file (TOML or JSON) for intent metrics")
     parser.add_argument("--fail-under", type=int, default=0,
                         help="Exit with error if score < threshold")
     args = parser.parse_args()
 
     tree = load_svg(args.input)
 
-    # Load plan if provided (for intent-aware metrics)
+    # Load plan if provided (TOML or JSON, for intent-aware metrics)
     plan = None
-    if args.plan_json and os.path.exists(args.plan_json):
+    if args.plan_file and os.path.exists(args.plan_file):
         try:
-            with open(args.plan_json) as pf:
-                plan_data = json.load(pf)
-                plan = plan_data.get("drawing_plan", plan_data)
+            if args.plan_file.endswith(".toml"):
+                import tomllib
+                with open(args.plan_file, "rb") as pf:
+                    plan_data = tomllib.load(pf)
+            else:
+                with open(args.plan_file) as pf:
+                    plan_data = json.load(pf)
+            plan = plan_data.get("drawing_plan", plan_data)
         except Exception:
             pass  # plan is optional
 
@@ -679,6 +693,9 @@ def main():
         if key.startswith("_"):
             continue
         val = metrics[key]
+        if val is None:
+            print(f"  {key}: N/A")
+            continue
         ded = deductions.get(key, 0)
         ded_str = f" ({ded})" if ded else ""
         print(f"  {key}: {val}{ded_str}")

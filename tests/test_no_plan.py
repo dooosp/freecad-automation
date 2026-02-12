@@ -43,10 +43,14 @@ def test_no_plan():
 
     assert score > 0, f"Score must be > 0 without plan, got {score}"
 
-    # Without --plan, intent metrics that need plan should be 0
+    # Without --plan, plan-dependent intent metrics must be None (N/A)
     for m in ["dim_completeness", "view_coverage"]:
-        val = metrics.get(m, 0)
-        assert val == 0, f"{m} must be 0 without plan, got {val}"
+        val = metrics.get(m)
+        assert val is None, f"{m} must be null/N/A without plan, got {val}"
+
+    # intent_metrics_applicable flag must be false
+    assert metrics.get("intent_metrics_applicable") is False, \
+        f"intent_metrics_applicable must be false without plan"
 
     # Clean up
     try:

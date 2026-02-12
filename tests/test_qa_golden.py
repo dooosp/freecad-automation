@@ -2,7 +2,13 @@
 """Golden metrics regression test — compare QA results against expected ranges.
 
 Reads tests/golden_metrics.json for max/min/target bounds.
-Runs QA scorer on each SVG in output/ and checks metric-level gates.
+Checks each *_qa.json in output/ against golden gates.
+
+Pipeline output files and their producers:
+  *_drawing.svg          ← generate_drawing.py (raw) → postprocess_svg.py (final)
+  *_plan.toml            ← intent_compiler.py (drawing plan for debugging/QA)
+  *_repair_report.json   ← postprocess_svg.py (repair log) + fcad.js (plan meta)
+  *_qa.json              ← qa_scorer.py (14 metrics + score + deductions)
 
 Usage:
     python3 tests/test_qa_golden.py [--verbose]
@@ -42,11 +48,19 @@ def detect_part_type(qa_path):
     base = os.path.basename(qa_path).replace("_qa.json", "")
     # Plan files use config name (without _drawing suffix)
     config_name = base.replace("_drawing", "")
-    plan_path = os.path.join(OUTPUT_DIR, f"{config_name}_plan.json")
+    # Try TOML first (Phase 19.1+), fall back to JSON (legacy)
+    plan_path = os.path.join(OUTPUT_DIR, f"{config_name}_plan.toml")
+    if not os.path.exists(plan_path):
+        plan_path = os.path.join(OUTPUT_DIR, f"{config_name}_plan.json")
     if os.path.exists(plan_path):
         try:
-            with open(plan_path) as f:
-                plan = json.load(f)
+            if plan_path.endswith(".toml"):
+                import tomllib
+                with open(plan_path, "rb") as f:
+                    plan = tomllib.load(f)
+            else:
+                with open(plan_path) as f:
+                    plan = json.load(f)
             return plan.get("drawing_plan", {}).get("part_type", "unknown")
         except Exception:
             pass
@@ -121,7 +135,7 @@ def main():
         for metric_name, bounds in effective.items():
             val = metrics.get(metric_name)
             if val is None:
-                continue
+                continue  # N/A metrics (no plan) — skip gate check
             status, msg = check_metric(metric_name, val, bounds, part_type, verbose)
             if status == "FAIL":
                 fails.append(msg)
