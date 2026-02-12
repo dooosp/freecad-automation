@@ -184,6 +184,24 @@ def _wrap_text(text, max_chars):
     return lines
 
 
+def estimate_notes_height(notes, max_width=200):
+    """Pre-calculate total height of rendered notes block (mm).
+
+    Accounts for word wrapping so caller can position the block accurately.
+    """
+    if not notes:
+        return 0.0
+    LINE_H = 4.0
+    INDENT = 4.0
+    CHAR_W = 1.2
+    max_chars = max(int((max_width - INDENT) / CHAR_W), 20)
+    total_lines = 1  # "NOTES:" title
+    for note in notes:
+        wrapped = _wrap_text(note, max_chars)
+        total_lines += len(wrapped)
+    return total_lines * LINE_H
+
+
 def render_general_notes_svg(notes, x, y, max_width=200):
     """Render general notes as SVG text block with word wrapping.
 
@@ -193,17 +211,17 @@ def render_general_notes_svg(notes, x, y, max_width=200):
         max_width: maximum text width in mm
 
     Returns:
-        SVG string
+        (SVG string, total_height_mm) tuple
     """
     if not notes:
-        return ""
+        return "", 0.0
 
-    FONT_SIZE = 2.2
-    LINE_H = 3.5        # line spacing (leading)
+    FONT_SIZE = 2.0
+    LINE_H = 4.0        # line spacing (leading) — increased for readability
     INDENT = 4.0         # indent for bullet number
     WRAP_INDENT = 6.5    # indent for wrapped continuation lines
-    # Approximate characters per line (sans-serif at 2.2pt ≈ 1.3mm per char)
-    CHAR_W = 1.3
+    # Approximate characters per line (sans-serif at 2.0pt ≈ 1.2mm per char)
+    CHAR_W = 1.2
     max_chars = int((max_width - INDENT) / CHAR_W)
     max_chars = max(max_chars, 20)  # floor
 
@@ -230,7 +248,8 @@ def render_general_notes_svg(notes, x, y, max_width=200):
             cur_y += LINE_H
 
     out.append('</g>')
-    return '\n'.join(out)
+    total_height = cur_y - y
+    return '\n'.join(out), total_height
 
 
 def _escape(text):

@@ -17,7 +17,8 @@ from _bootstrap import log, read_input, respond, respond_error, init_freecad
 from _feature_inference import infer_features_from_config
 from _view_planner import plan_views
 from _general_notes import (build_general_notes, build_revision_table,
-                            render_revision_table_svg, render_general_notes_svg)
+                            render_revision_table_svg, render_general_notes_svg,
+                            estimate_notes_height)
 from _dim_baseline import (render_baseline_dimensions_svg,
                            render_ordinate_dimensions_svg,
                            select_dimension_strategy)
@@ -284,7 +285,8 @@ def _detect_symmetry(groups, bounds):
 
 
 def render_view_svg(vname, groups, bounds, circles, cx, cy, scale,
-                    show_hidden=True, show_centerlines=True):
+                    show_hidden=True, show_centerlines=True,
+                    simplify_iso=False):
     """Render one view's edges as SVG, centered at (cx, cy) on the page."""
     out = []
     u0, v0, u1, v1 = bounds
@@ -296,10 +298,21 @@ def render_view_svg(vname, groups, bounds, circles, cx, cy, scale,
     # Hidden line groups: 1, 3, 6, 9
     hidden_groups = {1, 3, 6, 9}
 
+    # ISO simplification: limit visible groups to hard+outer only,
+    # conditionally include smooth (skip if too many edges)
+    ISO_SMOOTH_EDGE_LIMIT = 50
+    if simplify_iso:
+        iso_skip = {8, 9}  # always skip iso_visible/iso_hidden
+        smooth_count = len(groups.get(5, []))
+        if smooth_count > ISO_SMOOTH_EDGE_LIMIT:
+            iso_skip.add(5)  # skip smooth_visible too for complex parts
+
     for gi in RENDER_ORDER:
         if gi not in groups:
             continue
         if not show_hidden and gi in hidden_groups:
+            continue
+        if simplify_iso and gi in iso_skip:
             continue
         w, color, dash = LINE_STYLES[gi]
         attr = (f'stroke="{color}" stroke-width="{w}" fill="none" '
@@ -339,7 +352,8 @@ def render_view_svg(vname, groups, bounds, circles, cx, cy, scale,
 
         out.append('<g class="centerlines" stroke="#000" stroke-width="0.18" '
                    'fill="none" stroke-dasharray="8,2,1.5,2" '
-                   f'stroke-linecap="{LINE_CAP}">')
+                   f'stroke-linecap="{LINE_CAP}" '
+                   f'vector-effect="non-scaling-stroke">')
         seen_centers = set()
         for cu, cv, cr in circles:
             # Deduplicate: skip circles with same center (within 0.5mm page)
@@ -374,7 +388,8 @@ def render_view_svg(vname, groups, bounds, circles, cx, cy, scale,
             half_h = bh / 2 + sym_margin
             out.append('<g class="symmetry-axes" stroke="#000" stroke-width="0.13" '
                        'fill="none" stroke-dasharray="8,2,1.5,2" '
-                       f'stroke-linecap="{LINE_CAP}" opacity="0.5">')
+                       f'stroke-linecap="{LINE_CAP}" opacity="0.5" '
+                       f'vector-effect="non-scaling-stroke">')
             if h_sym:
                 out.append(f'  <line x1="{px_mid-half_w:.2f}" y1="{py_mid:.2f}" '
                            f'x2="{px_mid+half_w:.2f}" y2="{py_mid:.2f}"/>')
@@ -1351,8 +1366,20 @@ def _render_leader_svg(anchor_x, anchor_y, frame_x, frame_y, frame_w, frame_h):
     return '\n'.join(out)
 
 
+def _has_valid_anchor(target):
+    """Check if target has a meaningful anchor position (not origin fallback)."""
+    if not target or not target.get("position"):
+        return False
+    pos = target["position"]
+    # [0,0,0] is the default fallback — not a real feature anchor
+    return not (pos[0] == 0 and pos[1] == 0 and (len(pos) < 3 or pos[2] == 0))
+
+
 def place_gdt_on_view(gdt_entries, view_data, scale, planner=None):
     """Place GD&T frames near their target features with leaders.
+
+    Entries with valid anchors get 8-direction placement near the feature.
+    Entries without anchors get stacked in cell bottom-right as fallback.
 
     Returns list of (gdt_entry, frame_x, frame_y, anchor_x, anchor_y, frame_w, frame_h).
     Uses AnnotationPlanner for collision avoidance.
@@ -1375,49 +1402,71 @@ def place_gdt_on_view(gdt_entries, view_data, scale, planner=None):
     if planner is None:
         planner = AnnotationPlanner()
 
-    placements = []
+    # Separate anchored vs unanchored entries
+    anchored = []
+    unanchored = []
     for gdt in gdt_entries[:6]:
-        target = gdt.get("target")
+        if _has_valid_anchor(gdt.get("target")):
+            anchored.append(gdt)
+        else:
+            unanchored.append(gdt)
+
+    placements = []
+
+    # --- Anchored entries: 8-direction placement near feature ---
+    for gdt in anchored:
+        target = gdt["target"]
         frame_h = 6
         cell_w_f = 12
         n_cells = 2 + len(gdt.get("datum_refs", []))
         frame_w = n_cells * cell_w_f
 
-        # Compute anchor (2D page coordinate of target feature)
-        anchor = None
-        if target and target.get("position"):
-            anchor = _feature_to_page_xy(
-                target["position"], vname, bounds, cx, cy, scale)
-
+        anchor = _feature_to_page_xy(
+            target["position"], vname, bounds, cx, cy, scale)
         if anchor is None:
-            # Fallback: center of view
             anchor = (cx, cy)
-
         ax, ay = anchor
 
-        # Generate 4 candidate positions around anchor (right/left/below/above)
-        offset = 8  # mm gap between anchor and frame
+        # 8 candidate positions around anchor
+        offset = 12  # mm gap between anchor and frame
+        diag = offset * 0.7  # diagonal offset
         candidates = [
-            (ax + offset, ay - frame_h / 2),          # right
-            (ax - offset - frame_w, ay - frame_h / 2), # left
-            (ax - frame_w / 2, ay + offset),            # below
-            (ax - frame_w / 2, ay - offset - frame_h),  # above
+            (ax + offset, ay - frame_h / 2),              # right
+            (ax - offset - frame_w, ay - frame_h / 2),    # left
+            (ax - frame_w / 2, ay + offset),               # below
+            (ax - frame_w / 2, ay - offset - frame_h),    # above
+            (ax + diag, ay + diag),                         # bottom-right
+            (ax - diag - frame_w, ay + diag),               # bottom-left
+            (ax + diag, ay - diag - frame_h),               # top-right
+            (ax - diag - frame_w, ay - diag - frame_h),    # top-left
         ]
 
-        # Filter candidates that are within cell bounds
-        valid = []
-        for fx, fy in candidates:
+        # Filter candidates within cell bounds
+        valid = [
+            (fx, fy) for fx, fy in candidates
             if (fx >= cell_x0 and fx + frame_w <= cell_x1 and
-                    fy >= cell_y0 and fy + frame_h <= cell_y1):
-                valid.append((fx, fy))
-
+                fy >= cell_y0 and fy + frame_h <= cell_y1)
+        ]
         if not valid:
-            # All outside cell — use closest to cell center
             valid = candidates
 
-        # Pick best position (least overlap with existing annotations)
         fx, fy = planner.register_and_pick(valid, frame_w, frame_h)
         placements.append((gdt, fx, fy, ax, ay, frame_w, frame_h))
+
+    # --- Unanchored entries: stack in cell bottom-right ---
+    stack_x = cell_x1 - 60  # right side of cell
+    stack_y = cell_y1 - 10  # near bottom
+    for gi, gdt in enumerate(unanchored):
+        frame_h = 6
+        cell_w_f = 12
+        n_cells = 2 + len(gdt.get("datum_refs", []))
+        frame_w = n_cells * cell_w_f
+
+        fx = stack_x
+        fy = stack_y - gi * (frame_h + 3)
+        # Anchor at cell center (no real feature reference)
+        placements.append((gdt, fx, fy, cx, cy, frame_w, frame_h))
+        planner.register(fx, fy, fx + frame_w, fy + frame_h)
 
     return placements
 
@@ -1593,8 +1642,9 @@ def compose_drawing(views_svg, name, bom, scale, bbox,
 
     if notes:
         note_x = tb_x + 4
-        note_y = tb_bottom - 12 - len(notes) * 3.5
-        note_svg = render_general_notes_svg(notes, note_x, note_y, max_width=lz_w - 8)
+        notes_h = estimate_notes_height(notes, max_width=lz_w - 8)
+        note_y = tb_bottom - 10 - notes_h
+        note_svg, _nh = render_general_notes_svg(notes, note_x, note_y, max_width=lz_w - 8)
         if note_svg:
             p.append(note_svg)
 
@@ -2437,23 +2487,39 @@ try:
     if not view_data:
         respond_error("No views could be projected. Shape may be empty.")
 
-    # -- P0-2: View Fit Hard Clamp --
-    # After all views are projected, check if any view overflows its cell.
-    # If so, reduce scale to the tightest fit (safety margin 0.90).
-    VIEW_FIT_MARGIN = 0.90  # 90% of cell = 5% padding each side
+    # -- P0-2: View Fit Hard Clamp (2-pass) --
+    # Pass 1: check if any view overflows its cell, reduce scale to tightest fit.
+    # Pass 2: verify with reduced scale; apply safety factor if still overflowing.
+    VIEW_FIT_MARGIN = 0.88  # 88% of cell = 6% padding each side
     DIM_RESERVE = 12  # mm reserved for dimensions/datums outside shape
+    original_scale = scale
     for vn, vd in view_data.items():
         u0, v0, u1, v1 = vd["bounds"]
-        proj_w = (u1 - u0) * scale
-        proj_h = (v1 - v0) * scale
         avail_w = CELL_W * VIEW_FIT_MARGIN - DIM_RESERVE
         avail_h = CELL_H * VIEW_FIT_MARGIN - DIM_RESERVE
+        proj_w = (u1 - u0) * scale
+        proj_h = (v1 - v0) * scale
         if proj_w > avail_w or proj_h > avail_h:
             clamp = min(avail_w / max(u1 - u0, 1e-6),
                         avail_h / max(v1 - v0, 1e-6))
             if clamp < scale:
-                log(f"  View fit clamp: {vn} overflow → scale {scale:.3f} → {clamp:.3f}")
+                log(f"  View fit clamp pass-1: {vn} overflow → scale {scale:.3f} → {clamp:.3f}")
                 scale = clamp
+
+    # Pass 2: re-verify all views after global scale reduction
+    for vn, vd in view_data.items():
+        u0, v0, u1, v1 = vd["bounds"]
+        avail_w = CELL_W * VIEW_FIT_MARGIN - DIM_RESERVE
+        avail_h = CELL_H * VIEW_FIT_MARGIN - DIM_RESERVE
+        proj_w = (u1 - u0) * scale
+        proj_h = (v1 - v0) * scale
+        if proj_w > avail_w or proj_h > avail_h:
+            scale *= 0.92
+            log(f"  View fit clamp pass-2: {vn} still overflows → scale * 0.92 = {scale:.3f}")
+            break  # one additional reduction is enough
+
+    if scale < original_scale * 0.50:
+        log(f"  WARNING: scale reduced >50% ({original_scale:.3f} → {scale:.3f}), drawing may look small")
 
     # -- Render Views (2nd pass) --
     show_hidden = drawing_cfg.get("style", {}).get("show_hidden", True)
@@ -2466,9 +2532,11 @@ try:
         # P0-1: ISO view — always hide hidden lines (KS/industrial practice)
         if vname == "iso":
             vh = False
+        is_iso = (vname == "iso")
         svg = render_view_svg(vname, vd["groups"], vd["bounds"], vd["circles"],
                               vd["cx"], vd["cy"], scale,
-                              show_hidden=vh, show_centerlines=show_cl)
+                              show_hidden=vh, show_centerlines=show_cl,
+                              simplify_iso=is_iso)
         # Append dimension lines (front/top/right only)
         if show_dims and vname != "iso":
             dim_svg = render_dimensions_svg(vname, vd["bounds"], vd["circles"],
