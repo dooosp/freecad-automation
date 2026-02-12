@@ -241,7 +241,7 @@ async function cmdDraw(configPath, flags = []) {
         console.log('\nPost-processing SVG...');
         try {
           const ppOut = execSync(
-            `python3 "${ppScript}" "${svgPath}" -o "${svgPath}" --report "${reportJson}"`,
+            `python3 "${ppScript}" "${svgPath}" -o "${svgPath}" --report "${reportJson}"${planArg}`,
             { cwd: PROJECT_ROOT, encoding: 'utf-8', timeout: 30_000 }
           );
           if (ppOut.trim()) console.log(ppOut.trim());

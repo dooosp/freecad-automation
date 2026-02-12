@@ -1,6 +1,6 @@
 {
-  "profile_version": "1.1",
-  "description": "Phase 20-A — 17 metrics, presence enforcement added",
+  "profile_version": "1.2",
+  "description": "Phase 20-B — 19 metrics, virtual PCD + bolt note added",
 
   "_update_rules": {
     "when": "Template change, QA rule change, or render engine change",
@@ -36,7 +36,9 @@
     "view_coverage":         { "max": 0 },
     "required_presence_rate":  { "min": 50, "target": 100 },
     "required_presence_miss":  { "max": 4, "target": 0 },
-    "value_inconsistency":     { "max": 2, "target": 0 }
+    "value_inconsistency":     { "max": 2, "target": 0 },
+    "virtual_pcd_present":     { "min": 0 },
+    "note_semantic_mismatch":  { "max": 1, "target": 0 }
   },
 
   "by_part_type": {
@@ -44,7 +46,9 @@
       "dim_completeness": { "min": 0, "target": 100 },
       "dim_redundancy":   { "max": 7, "target": 0 },
       "required_presence_rate": { "min": 60, "target": 100 },
-      "required_presence_miss": { "max": 3, "target": 0 }
+      "required_presence_miss": { "max": 3, "target": 0 },
+      "virtual_pcd_present": { "min": 1 },
+      "note_semantic_mismatch": { "max": 0, "target": 0 }
     },
     "shaft": {
       "dim_completeness": { "min": 0, "target": 100 },

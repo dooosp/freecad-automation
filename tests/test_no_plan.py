@@ -45,7 +45,8 @@ def test_no_plan():
 
     # Without --plan, plan-dependent intent metrics must be None (N/A)
     for m in ["dim_completeness", "view_coverage",
-              "required_presence_rate", "required_presence_miss", "value_inconsistency"]:
+              "required_presence_rate", "required_presence_miss", "value_inconsistency",
+              "virtual_pcd_present", "note_semantic_mismatch"]:
         val = metrics.get(m)
         assert val is None, f"{m} must be null/N/A without plan, got {val}"
 

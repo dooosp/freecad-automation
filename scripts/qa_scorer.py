@@ -43,6 +43,9 @@ WEIGHTS = {
     # Phase 20-A presence enforcement metrics
     "required_presence_miss": 10,  # per missing required dim
     "value_inconsistency":    3,   # per inconsistent value
+    # Phase 20-B virtual geometry + note metrics
+    "virtual_pcd_missing":    5,   # boolean (PCD required but no virtual circle)
+    "note_semantic_mismatch": 3,   # per mismatch in bolt count note
 }
 
 
@@ -665,6 +668,78 @@ def check_value_consistency(tree, plan):
     return inconsistencies
 
 
+# -- Phase 20-B: Virtual Geometry + Note Semantic Metrics ----------------------
+
+def check_virtual_pcd_present(tree, plan):
+    """Check if virtual-pcd group exists when PCD is required.
+
+    Returns: True if present (or not applicable), False if missing.
+    None if no plan or no PCD intent.
+    """
+    if not plan:
+        return None
+    dim_intents = plan.get("dim_intents", [])
+    pcd_intent = next((d for d in dim_intents
+                       if d.get("id") == "PCD" and d.get("required")), None)
+    if not pcd_intent:
+        return None  # PCD not required → not applicable
+
+    for elem in tree.iter():
+        if local_tag(elem) == "g" and elem.get("class") == "virtual-pcd":
+            return True
+    return False
+
+
+def check_note_semantic_consistency(tree, plan):
+    """Check bolt count note matches plan values.
+
+    Looks for "{N}x" or "{N}×" patterns in general-notes and verifies
+    against BOLT_COUNT and BOLT_DIA from plan.
+    Returns: 0 (consistent), 1+ (mismatches). None if not applicable.
+    """
+    if not plan:
+        return None
+    dim_intents = plan.get("dim_intents", [])
+    count_intent = next((d for d in dim_intents if d.get("id") == "BOLT_COUNT"), None)
+    bolt_intent = next((d for d in dim_intents if d.get("id") == "BOLT_DIA"), None)
+
+    if not count_intent or count_intent.get("value_mm") is None:
+        return None
+    if not bolt_intent or bolt_intent.get("value_mm") is None:
+        return None
+
+    expected_count = int(count_intent["value_mm"])
+    expected_dia = bolt_intent["value_mm"]
+
+    # Find general-notes text
+    notes_texts = []
+    for elem in tree.iter():
+        if local_tag(elem) == "g" and elem.get("class") == "general-notes":
+            for child in elem:
+                if local_tag(child) == "text" and child.text:
+                    notes_texts.append(child.text.strip())
+
+    if not notes_texts:
+        return 1  # no notes at all → mismatch
+
+    # Look for bolt count pattern: "6x" or "6×"
+    joined = " ".join(notes_texts)
+    pattern = _re.search(r'(\d+)\s*[x\u00d7]\s*[\u00d8\u2300]?\s*([\d.]+)', joined)
+    if not pattern:
+        return 1  # no bolt count note found
+
+    found_count = int(pattern.group(1))
+    found_dia = float(pattern.group(2))
+
+    mismatches = 0
+    if found_count != expected_count:
+        mismatches += 1
+    if abs(found_dia - expected_dia) > max(0.5, 0.01 * expected_dia):
+        mismatches += 1
+
+    return mismatches
+
+
 # -- Score computation ---------------------------------------------------------
 
 def collect_metrics(tree, plan=None):
@@ -704,6 +779,9 @@ def collect_metrics(tree, plan=None):
         "required_presence_rate": _pres_rate if has_plan else None,
         "required_presence_miss": len(_pres_missing) if has_plan else None,
         "value_inconsistency": check_value_consistency(tree, plan) if has_plan else None,
+        # Phase 20-B virtual geometry + note metrics
+        "virtual_pcd_present": check_virtual_pcd_present(tree, plan),
+        "note_semantic_mismatch": check_note_semantic_consistency(tree, plan),
         "_details": {
             "overflows": overflows,
             "text_overlaps": text_overlaps[:10],  # limit detail output
@@ -762,6 +840,12 @@ def compute_score(metrics):
     if metrics.get("value_inconsistency") is not None:
         deduct("value_inconsistency",
                metrics["value_inconsistency"] * WEIGHTS["value_inconsistency"])
+    # Phase 20-B
+    if metrics.get("virtual_pcd_present") is not None and not metrics["virtual_pcd_present"]:
+        deduct("virtual_pcd_missing", WEIGHTS["virtual_pcd_missing"])
+    if metrics.get("note_semantic_mismatch") is not None:
+        deduct("note_semantic_mismatch",
+               metrics["note_semantic_mismatch"] * WEIGHTS["note_semantic_mismatch"])
 
     return max(score, 0), deductions
 

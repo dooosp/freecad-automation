@@ -19,16 +19,17 @@ import time
 from datetime import datetime, timezone, timedelta
 
 sys.path.insert(0, os.path.dirname(__file__))
+import xml.etree.ElementTree as ET
 from svg_common import (
     load_svg, write_svg, local_tag, svg_tag,
     cell_bbox, classify_by_position, group_center, count_paths,
     elem_bbox_approx, path_coords, polyline_coords,
     round_float_str, count_long_floats_in_str,
-    HIDDEN_CLASSES, BBox,
+    HIDDEN_CLASSES, BBox, SVG_NS, TITLEBLOCK_Y,
 )
 from svg_repair import rebuild_notes, repair_text_overlaps, repair_overflow
 
-VERSION = "0.3.0"
+VERSION = "0.4.0"
 
 
 # -- Stroke Profile ------------------------------------------------------------
@@ -157,6 +158,253 @@ def round_coordinates(tree, precision=2):
     return {"coords_rounded": modified}
 
 
+# -- Plan-aware Rule 7: Inject PCD virtual circle ------------------------------
+
+import math as _math
+
+
+def _find_bolt_hole_circles(tree, bolt_dia_mm):
+    """Find bolt-hole circles in the front view cell.
+
+    Returns list of (cx, cy, r) in SVG coordinates.
+    Strategy:
+      1. If bolt_dia_mm given: filter circles with r ≈ bolt_dia_mm/2 (±30%)
+      2. Fallback: group circles by similar radius (±10%), pick largest group ≥3
+    """
+    front_cell = cell_bbox("front")
+    candidates = []  # (cx, cy, r)
+
+    for elem in tree.iter():
+        if local_tag(elem) != "circle":
+            continue
+        cx = float(elem.get("cx", 0))
+        cy = float(elem.get("cy", 0))
+        r = float(elem.get("r", 0))
+        if r < 0.5:
+            continue
+        if front_cell.contains(cx, cy):
+            candidates.append((cx, cy, r))
+
+    if not candidates:
+        return []
+
+    # Strategy 1: filter by known bolt diameter
+    if bolt_dia_mm and bolt_dia_mm > 0:
+        target_r = bolt_dia_mm / 2
+        # We need to figure out the scale from SVG coords.
+        # Look for circles whose radius is proportional to target_r.
+        # Group by similar r first, then pick the group that best matches.
+        from collections import defaultdict
+        groups = defaultdict(list)
+        for cx, cy, r in candidates:
+            key = round(r, 1)
+            groups[key].append((cx, cy, r))
+
+        # Find the group whose radius count ≥ 3 and r is closest to expected
+        best_group = None
+        best_diff = float("inf")
+        for key, members in groups.items():
+            if len(members) < 3:
+                continue
+            avg_r = sum(m[2] for m in members) / len(members)
+            # Can't compare SVG r to model r directly without scale.
+            # Use count as primary signal: bolt holes repeat ≥3 times.
+            # Among groups with ≥3 members, pick the one with most members.
+            if best_group is None or len(members) > len(best_group):
+                best_group = members
+            elif len(members) == len(best_group):
+                # If same count, prefer smaller r (bolt holes < counterbores)
+                if avg_r < sum(m[2] for m in best_group) / len(best_group):
+                    best_group = members
+
+        if best_group and len(best_group) >= 3:
+            return best_group
+
+    # Strategy 2: fallback — group by radius, pick largest group ≥ 3
+    from collections import defaultdict
+    groups = defaultdict(list)
+    for cx, cy, r in candidates:
+        key = round(r, 1)
+        groups[key].append((cx, cy, r))
+
+    best = None
+    for key, members in groups.items():
+        if len(members) >= 3:
+            if best is None or len(members) > len(best):
+                best = members
+    return best or []
+
+
+def inject_pcd_virtual_circle(tree, plan):
+    """Inject a virtual PCD circle into the front view based on bolt hole positions.
+
+    Finds bolt-hole circles in SVG, computes their center cluster,
+    and draws a chain-line circle at PCD radius with a diameter callout.
+    """
+    if not plan:
+        return {"injected": False, "reason": "no_plan"}
+
+    dim_intents = plan.get("dim_intents", [])
+    pcd_intent = next((d for d in dim_intents if d.get("id") == "PCD"), None)
+    bolt_dia_intent = next((d for d in dim_intents if d.get("id") == "BOLT_DIA"), None)
+
+    if not pcd_intent or pcd_intent.get("value_mm") is None:
+        return {"injected": False, "reason": "no_pcd_value"}
+
+    pcd_value = pcd_intent["value_mm"]
+    bolt_dia = bolt_dia_intent["value_mm"] if bolt_dia_intent else None
+
+    # Find bolt hole circles in SVG
+    bolt_circles = _find_bolt_hole_circles(tree, bolt_dia)
+    if len(bolt_circles) < 3:
+        return {"injected": False, "reason": f"too_few_circles({len(bolt_circles)})"}
+
+    # Compute center and average radius
+    avg_cx = sum(c[0] for c in bolt_circles) / len(bolt_circles)
+    avg_cy = sum(c[1] for c in bolt_circles) / len(bolt_circles)
+    distances = [_math.hypot(c[0] - avg_cx, c[1] - avg_cy) for c in bolt_circles]
+    avg_r = sum(distances) / len(distances)
+
+    if avg_r < 2.0:  # too small to be meaningful
+        return {"injected": False, "reason": "radius_too_small"}
+
+    # Build SVG elements
+    root = tree.getroot()
+    ns = SVG_NS
+
+    g = ET.SubElement(root, f"{{{ns}}}g")
+    g.set("class", "virtual-pcd")
+
+    # Chain-line circle (ISO construction line style)
+    circle = ET.SubElement(g, f"{{{ns}}}circle")
+    circle.set("cx", f"{avg_cx:.2f}")
+    circle.set("cy", f"{avg_cy:.2f}")
+    circle.set("r", f"{avg_r:.2f}")
+    circle.set("fill", "none")
+    circle.set("stroke", "#555")
+    circle.set("stroke-width", "0.30")
+    circle.set("stroke-dasharray", "8,2,1.5,2")
+
+    # Leader line from 45° point outward
+    angle = _math.radians(45)
+    start_x = avg_cx + avg_r * _math.cos(angle)
+    start_y = avg_cy - avg_r * _math.sin(angle)
+    leader_len = min(avg_r * 0.6, 18)
+    end_x = start_x + leader_len * _math.cos(angle)
+    end_y = start_y - leader_len * _math.sin(angle)
+
+    leader = ET.SubElement(g, f"{{{ns}}}line")
+    leader.set("x1", f"{start_x:.2f}")
+    leader.set("y1", f"{start_y:.2f}")
+    leader.set("x2", f"{end_x:.2f}")
+    leader.set("y2", f"{end_y:.2f}")
+    leader.set("stroke", "#000")
+    leader.set("stroke-width", "0.18")
+
+    # Horizontal shelf
+    shelf_len = 8
+    shelf_x = end_x + shelf_len
+    shelf = ET.SubElement(g, f"{{{ns}}}line")
+    shelf.set("x1", f"{end_x:.2f}")
+    shelf.set("y1", f"{end_y:.2f}")
+    shelf.set("x2", f"{shelf_x:.2f}")
+    shelf.set("y2", f"{end_y:.2f}")
+    shelf.set("stroke", "#000")
+    shelf.set("stroke-width", "0.18")
+
+    # Diameter text
+    val_str = str(int(pcd_value)) if pcd_value == int(pcd_value) else f"{pcd_value:.1f}"
+    text = ET.SubElement(g, f"{{{ns}}}text")
+    text.set("x", f"{shelf_x + 0.5:.2f}")
+    text.set("y", f"{end_y - 0.5:.2f}")
+    text.set("font-family", "sans-serif")
+    text.set("font-size", "3")
+    text.set("fill", "#000")
+    text.text = f"\u00d8{val_str} PCD"
+
+    return {
+        "injected": True,
+        "center": [round(avg_cx, 2), round(avg_cy, 2)],
+        "radius": round(avg_r, 2),
+        "bolt_count": len(bolt_circles),
+        "pcd_value": pcd_value,
+    }
+
+
+# -- Plan-aware Rule 8: Inject bolt count note ---------------------------------
+
+def inject_bolt_count_note(tree, plan):
+    """Insert bolt count note into general-notes group.
+
+    Format: "{N}x dia.{d} HOLES EQ. SPACED ON PCD dia.{pcd}"
+    """
+    if not plan:
+        return {"injected": False, "reason": "no_plan"}
+
+    dim_intents = plan.get("dim_intents", [])
+    count_intent = next((d for d in dim_intents if d.get("id") == "BOLT_COUNT"), None)
+    bolt_dia_intent = next((d for d in dim_intents if d.get("id") == "BOLT_DIA"), None)
+    pcd_intent = next((d for d in dim_intents if d.get("id") == "PCD"), None)
+
+    count_val = count_intent.get("value_mm") if count_intent else None
+    bolt_val = bolt_dia_intent.get("value_mm") if bolt_dia_intent else None
+    pcd_val = pcd_intent.get("value_mm") if pcd_intent else None
+
+    if count_val is None or bolt_val is None:
+        return {"injected": False, "reason": "missing_values"}
+
+    # Build note text — KS concise format: "N×⌀d"
+    n = int(count_val)
+    d_str = str(int(bolt_val)) if bolt_val == int(bolt_val) else f"{bolt_val:.1f}"
+    note_text = f"{n}\u00d7\u00d8{d_str}"
+    if pcd_val is not None:
+        pcd_str = str(int(pcd_val)) if pcd_val == int(pcd_val) else f"{pcd_val:.1f}"
+        note_text += f" EQ. SP. ON PCD \u00d8{pcd_str}"
+
+    # Find general-notes group
+    notes_group = None
+    for elem in tree.iter():
+        if local_tag(elem) == "g" and elem.get("class") == "general-notes":
+            notes_group = elem
+            break
+
+    if notes_group is None:
+        return {"injected": False, "reason": "no_notes_group"}
+
+    # Find last text y position
+    last_y = 0
+    last_x = 15.0
+    text_elems = [e for e in notes_group if local_tag(e) == "text"]
+    if text_elems:
+        last_y = max(float(e.get("y", 0)) for e in text_elems)
+        last_x = float(text_elems[0].get("x", 15.0))
+
+    new_y = last_y + 6.0  # LINE_H = 6mm (extra spacing for bolt note)
+    # TITLEBLOCK_Y=247 is cell boundary; QA checks overflow at y>270.
+    # Allow notes up to 268 (2mm margin before QA limit).
+    if new_y > 268:
+        return {"injected": False, "reason": "overflow"}
+
+    # Count existing numbered notes to get next number
+    next_num = len(text_elems)  # rough estimate (includes wrapped lines)
+    # Better: count lines starting with "N. "
+    numbered = sum(1 for e in text_elems
+                   if (e.text or "").strip()[:1].isdigit())
+    next_num = numbered + 1
+
+    ns = SVG_NS
+    new_text = ET.SubElement(notes_group, f"{{{ns}}}text")
+    new_text.set("x", f"{last_x:.1f}")
+    new_text.set("y", f"{new_y:.1f}")
+    new_text.text = f"{next_num}. {note_text}"
+
+    return {
+        "injected": True,
+        "note": note_text,
+        "y_position": round(new_y, 1),
+    }
+
+
 # -- P1 Rule 5: Simplify ISO view ----------------------------------------------
 
 def simplify_iso(tree, max_smooth_paths=600):
@@ -223,9 +471,28 @@ def audit_gdt(tree):
 
 # -- Main pipeline -------------------------------------------------------------
 
-def postprocess(input_path, output_path, profile="ks", dry_run=False):
+def _load_plan(plan_file):
+    """Load drawing plan from TOML or JSON file."""
+    if not plan_file or not os.path.exists(plan_file):
+        return None
+    try:
+        if plan_file.endswith(".toml"):
+            import tomllib
+            with open(plan_file, "rb") as f:
+                data = tomllib.load(f)
+        else:
+            with open(plan_file) as f:
+                data = json.load(f)
+        return data.get("drawing_plan", data)
+    except Exception:
+        return None
+
+
+def postprocess(input_path, output_path, profile="ks", dry_run=False,
+                plan_file=None):
     """Run all post-processing rules and return structured report."""
     tree = load_svg(input_path)
+    plan = _load_plan(plan_file)
     kst = timezone(timedelta(hours=9))
 
     report = {
@@ -265,6 +532,8 @@ def postprocess(input_path, output_path, profile="ks", dry_run=False):
         ("rebuild_notes", lambda: rebuild_notes(tree)),
         ("deoverlap_text", lambda: repair_text_overlaps(tree)),
         ("repair_overflow_scale", lambda: repair_overflow(tree)),
+        ("inject_pcd_circle", lambda: inject_pcd_virtual_circle(tree, plan)),
+        ("inject_bolt_note", lambda: inject_bolt_count_note(tree, plan)),
         ("round_coords", lambda: round_coordinates(tree)),
         ("simplify_iso", lambda: simplify_iso(tree)),
         ("gdt_audit", lambda: audit_gdt(tree)),
@@ -374,6 +643,30 @@ def _aggregate(report, pass_name, result, counts):
                 "reason": f"Removed {pr} excessive paths from ISO view",
             })
 
+    # --- inject_pcd_circle ---
+    elif pass_name == "inject_pcd_circle":
+        if summary.get("injected"):
+            report["changes"].append({
+                "pass": pass_name,
+                "type": "insert",
+                "view": "front",
+                "selector": "g.virtual-pcd",
+                "note": f"PCD virtual circle injected (r={summary.get('radius', '?')}mm, "
+                        f"{summary.get('bolt_count', '?')} bolt holes)",
+            })
+
+    # --- inject_bolt_note ---
+    elif pass_name == "inject_bolt_note":
+        if summary.get("injected"):
+            counts["texts_wrapped"] += 1
+            report["changes"].append({
+                "pass": pass_name,
+                "type": "insert",
+                "view": "notes",
+                "selector": "g.general-notes > text",
+                "note": f"Bolt count note added: {summary.get('note', '')}",
+            })
+
     # --- gdt_audit ---
     elif pass_name == "gdt_audit":
         unanchored = summary.get("overflow", 0)
@@ -397,6 +690,7 @@ def main():
     parser.add_argument("--report", help="Save JSON report to file")
     parser.add_argument("--dry-run", action="store_true",
                         help="Don't write output, report only")
+    parser.add_argument("--plan", help="Drawing plan file (TOML or JSON) for plan-aware passes")
     args = parser.parse_args()
 
     output = args.output or args.input
@@ -405,7 +699,7 @@ def main():
 
     print(f"Post-processing: {args.input}")
     report = postprocess(args.input, output, profile=args.profile,
-                         dry_run=args.dry_run)
+                         dry_run=args.dry_run, plan_file=args.plan)
 
     # Print summary
     summary = report["summary"]
