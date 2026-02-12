@@ -370,6 +370,16 @@ def main():
     plan = merge_plan(config, template)
     plan["part_type"] = part_type
 
+    # Step 3.5: Enrich dim_intents with value_mm from config/features
+    if plan.get("dim_intents"):
+        try:
+            from _feature_inference import infer_features_from_config
+            from feature_extractor import extract_values
+            fg = infer_features_from_config(config)
+            plan["dim_intents"] = extract_values(config, fg, plan["dim_intents"])
+        except Exception as e:
+            print(f"Feature extraction warning: {e}", file=sys.stderr)
+
     # Step 4: Validate (inline, lightweight)
     # If no template was found, validate as "generic" (no required intents)
     from plan_validator import validate_plan

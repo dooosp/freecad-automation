@@ -38,7 +38,8 @@ KNOWN_PLAN_KEYS = {
 }
 KNOWN_VIEW_KEYS = {"enabled", "layout", "options"}
 KNOWN_DIM_KEYS = {"scheme", "baseline_datum", "avoid_redundant"}
-KNOWN_INTENT_KEYS = {"id", "feature", "view", "style", "required", "priority"}
+KNOWN_INTENT_KEYS = {"id", "feature", "view", "style", "required", "priority",
+                      "reason", "value_mm", "confidence", "source", "review"}
 KNOWN_NOTE_KEYS = {"general", "placement"}
 
 

@@ -40,6 +40,9 @@ WEIGHTS = {
     "datum_coherence":      3,   # boolean (incoherent)
     "view_coverage":        5,   # boolean (uncovered features)
     "note_convention":      1,   # per violation, max 3
+    # Phase 20-A presence enforcement metrics
+    "required_presence_miss": 10,  # per missing required dim
+    "value_inconsistency":    3,   # per inconsistent value
 }
 
 
@@ -571,6 +574,97 @@ def check_note_convention(tree):
     return min(violations, 3)
 
 
+# -- Phase 20-A: Presence Enforcement Metrics ----------------------------------
+
+def check_required_presence(tree, plan):
+    """Check required dim_intents presence in SVG.
+
+    For each required intent with value_mm, verify the value appears in SVG text.
+    Returns: (rate_pct, total_required, missing_ids)
+    """
+    if not plan:
+        return 100, 0, []
+
+    dim_intents = plan.get("dim_intents", [])
+    required = [d for d in dim_intents
+                if d.get("required") and d.get("value_mm") is not None]
+    if not required:
+        return 100, 0, []
+
+    # Collect all numeric values from SVG text
+    svg_values = []
+    for elem in tree.iter():
+        if local_tag(elem) == "text":
+            t = (elem.text or "").strip()
+            if not t:
+                continue
+            # Extract numbers (including after Ø, R, C prefixes)
+            for m in _re.finditer(r'[\d]+\.?\d*', t):
+                try:
+                    svg_values.append(float(m.group()))
+                except ValueError:
+                    pass
+
+    missing = []
+    for di in required:
+        val = di["value_mm"]
+        found = False
+        for sv in svg_values:
+            if abs(sv - val) <= max(0.5, 0.002 * val):
+                found = True
+                break
+        if not found:
+            missing.append(di.get("id", "?"))
+
+    total = len(required)
+    present = total - len(missing)
+    rate = round(present / total * 100) if total > 0 else 100
+    return rate, total, missing
+
+
+def check_value_consistency(tree, plan):
+    """Check plan value_mm vs actual SVG dimension values.
+
+    For each intent with value_mm that IS found in SVG, verify the closest
+    match is within tolerance (max(1.0, 1% of value)).
+    Returns: number of inconsistencies.
+    """
+    if not plan:
+        return 0
+
+    dim_intents = plan.get("dim_intents", [])
+    with_values = [d for d in dim_intents if d.get("value_mm") is not None]
+    if not with_values:
+        return 0
+
+    # Collect all numeric values from SVG text
+    svg_values = []
+    for elem in tree.iter():
+        if local_tag(elem) == "text":
+            t = (elem.text or "").strip()
+            for m in _re.finditer(r'[\d]+\.?\d*', t):
+                try:
+                    svg_values.append(float(m.group()))
+                except ValueError:
+                    pass
+
+    inconsistencies = 0
+    for di in with_values:
+        val = di["value_mm"]
+        tol = max(1.0, 0.01 * val)
+        # Find closest SVG value
+        best_diff = float("inf")
+        for sv in svg_values:
+            diff = abs(sv - val)
+            if diff < best_diff:
+                best_diff = diff
+        # Only flag if a close value exists but deviates beyond tolerance
+        if best_diff < val * 0.3 and best_diff > tol:
+            inconsistencies += 1
+
+    return inconsistencies
+
+
 # -- Score computation ---------------------------------------------------------
 
 def collect_metrics(tree, plan=None):
@@ -582,6 +676,12 @@ def collect_metrics(tree, plan=None):
     overflows = detect_overflow(tree)
     text_overlaps = detect_text_overlaps(tree)
     has_plan = plan is not None
+
+    # Phase 20-A: required presence check
+    if has_plan:
+        _pres_rate, _pres_total, _pres_missing = check_required_presence(tree, plan)
+    else:
+        _pres_rate, _pres_total, _pres_missing = 100, 0, []
 
     return {
         "intent_metrics_applicable": has_plan,
@@ -600,9 +700,14 @@ def collect_metrics(tree, plan=None):
         "datum_coherence": check_datum_coherence(tree),
         "view_coverage": check_view_coverage(tree, plan) if has_plan else None,
         "note_convention": check_note_convention(tree),
+        # Phase 20-A presence enforcement metrics
+        "required_presence_rate": _pres_rate if has_plan else None,
+        "required_presence_miss": len(_pres_missing) if has_plan else None,
+        "value_inconsistency": check_value_consistency(tree, plan) if has_plan else None,
         "_details": {
             "overflows": overflows,
             "text_overlaps": text_overlaps[:10],  # limit detail output
+            "required_presence_missing_ids": _pres_missing if has_plan else [],
         },
     }
 
@@ -650,6 +755,13 @@ def compute_score(metrics):
     if metrics.get("note_convention") is not None:
         deduct("note_convention",
                min(metrics["note_convention"], 3) * WEIGHTS["note_convention"])
+    # Phase 20-A presence enforcement
+    if metrics.get("required_presence_miss") is not None:
+        deduct("required_presence_miss",
+               metrics["required_presence_miss"] * WEIGHTS["required_presence_miss"])
+    if metrics.get("value_inconsistency") is not None:
+        deduct("value_inconsistency",
+               metrics["value_inconsistency"] * WEIGHTS["value_inconsistency"])
 
     return max(score, 0), deductions
 

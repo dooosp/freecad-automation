@@ -620,8 +620,25 @@ def _dim_radius(cx_pg, cy_pg, mx_pg, my_pg, radius_scaled, radius_mm):
     return out
 
 
+def _collect_auto_dim_values(vd):
+    """Collect dimension values auto-dims would produce for a view.
+
+    Used to prevent plan-driven dims from duplicating auto-dims.
+    """
+    u0, v0, u1, v1 = vd["bounds"]
+    vals = []
+    w, h = u1 - u0, v1 - v0
+    if w > 0.5:
+        vals.append(w)
+    if h > 0.5:
+        vals.append(h)
+    for cu, cv, cr in vd.get("circles", []):
+        vals.append(cr * 2)
+    return vals
+
+
 def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
-                          tolerances=None):
+                          tolerances=None, return_stacks=False):
     """Generate ISO 129 dimension lines for a view.
 
     - Bounding dimensions (overall width + height) for front/top/right
@@ -634,7 +651,7 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
     """
     tolerances = tolerances or {}
     if vname == "iso":
-        return ""
+        return ("", 0, 0) if return_stacks else ""
 
     out = []
     u0, v0, u1, v1 = bounds
@@ -773,7 +790,10 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
             out.extend(_dim_radius(cx_pg, cy_pg, mx_pg, my_pg, r_scaled, r))
 
     out.append('</g>')
-    return '\n'.join(out)
+    result = '\n'.join(out)
+    if return_stacks:
+        return result, h_stack, v_stack
+    return result
 
 
 # -- Datum Indicators (ISO 5459) -----------------------------------------------
@@ -2546,11 +2566,29 @@ try:
                               simplify_iso=is_iso)
         # Append dimension lines (front/top/right only)
         if show_dims and vname != "iso":
-            dim_svg = render_dimensions_svg(vname, vd["bounds"], vd["circles"],
-                                           vd["cx"], vd["cy"], scale,
-                                           arcs=vd.get("arcs"), tolerances=tol_cfg)
+            dim_result = render_dimensions_svg(
+                vname, vd["bounds"], vd["circles"],
+                vd["cx"], vd["cy"], scale,
+                arcs=vd.get("arcs"), tolerances=tol_cfg,
+                return_stacks=True)
+            dim_svg, h_stk, v_stk = dim_result
             if dim_svg:
                 svg += '\n' + dim_svg
+            # Phase 20-A: plan-driven dimensions
+            plan_intents = config.get("drawing_plan", {}).get("dim_intents", [])
+            if plan_intents:
+                try:
+                    from _dim_plan import render_plan_dimensions_svg
+                    auto_vals = _collect_auto_dim_values(vd)
+                    plan_svg, h_stk, v_stk = render_plan_dimensions_svg(
+                        plan_intents, vname,
+                        vd["bounds"], vd["circles"], vd.get("arcs", []),
+                        vd["cx"], vd["cy"], scale, h_stk, v_stk,
+                        existing_dim_values=auto_vals)
+                    if plan_svg:
+                        svg += '\n' + plan_svg
+                except Exception as e:
+                    log(f"  Plan dims skipped ({vname}): {e}")
             datum_svg = render_datums_svg(vname, vd["bounds"], vd["cx"], vd["cy"], scale)
             if datum_svg:
                 svg += '\n' + datum_svg

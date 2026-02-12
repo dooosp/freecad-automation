@@ -44,7 +44,8 @@ def test_no_plan():
     assert score > 0, f"Score must be > 0 without plan, got {score}"
 
     # Without --plan, plan-dependent intent metrics must be None (N/A)
-    for m in ["dim_completeness", "view_coverage"]:
+    for m in ["dim_completeness", "view_coverage",
+              "required_presence_rate", "required_presence_miss", "value_inconsistency"]:
         val = metrics.get(m)
         assert val is None, f"{m} must be null/N/A without plan, got {val}"
 

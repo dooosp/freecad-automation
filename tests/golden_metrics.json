@@ -1,6 +1,6 @@
 {
-  "profile_version": "1.0",
-  "description": "Phase 19.1 baseline — 14 metrics, flange template only",
+  "profile_version": "1.1",
+  "description": "Phase 20-A — 17 metrics, presence enforcement added",
 
   "_update_rules": {
     "when": "Template change, QA rule change, or render engine change",
@@ -33,13 +33,18 @@
     "dim_overlap_pairs":     { "max": 3 },
     "float_precision_count": { "max": 80 },
     "note_convention":       { "max": 2 },
-    "view_coverage":         { "max": 0 }
+    "view_coverage":         { "max": 0 },
+    "required_presence_rate":  { "min": 50, "target": 100 },
+    "required_presence_miss":  { "max": 4, "target": 0 },
+    "value_inconsistency":     { "max": 2, "target": 0 }
   },
 
   "by_part_type": {
     "flange": {
       "dim_completeness": { "min": 0, "target": 100 },
-      "dim_redundancy":   { "max": 7, "target": 0 }
+      "dim_redundancy":   { "max": 7, "target": 0 },
+      "required_presence_rate": { "min": 60, "target": 100 },
+      "required_presence_miss": { "max": 3, "target": 0 }
     },
     "shaft": {
       "dim_completeness": { "min": 0, "target": 100 },
