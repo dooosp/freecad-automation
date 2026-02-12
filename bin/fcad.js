@@ -1,9 +1,14 @@
 #!/usr/bin/env node
 
-import { resolve, join } from 'node:path';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { resolve, join, dirname } from 'node:path';
+import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { loadConfig } from '../lib/config-loader.js';
 import { runScript } from '../lib/runner.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = resolve(__dirname, '..');
 
 const USAGE = `
 fcad - FreeCAD automation CLI
@@ -21,6 +26,9 @@ Usage:
 
 Options:
   --bom                           Export BOM as separate CSV file (with draw)
+  --raw                           Skip SVG post-processing (with draw)
+  --no-score                      Skip QA scoring (with draw)
+  --fail-under N                  Fail if QA score < N (with draw)
   --recommend                     Auto-recommend fit specs (with tolerance)
   --csv                           Export tolerance report as CSV (with tolerance)
   --monte-carlo                   Include Monte Carlo simulation (with tolerance/report)
@@ -165,6 +173,52 @@ async function cmdDraw(configPath, flags = []) {
       for (const item of result.bom) {
         const joint = item.joint ? ` [${item.joint.type}: ${item.joint.id}]` : '';
         console.log(`    ${item.id}: ${item.material} ${item.dimensions}${joint}`);
+      }
+    }
+
+    // Step 2: SVG Post-Processing
+    const svgPaths = (result.drawing_paths || [])
+      .filter(dp => dp.format === 'svg')
+      .map(dp => dp.path);
+
+    if (svgPaths.length > 0 && !flags.includes('--raw')) {
+      console.log('\nPost-processing SVG...');
+      for (const svgPath of svgPaths) {
+        try {
+          const ppScript = join(PROJECT_ROOT, 'scripts', 'postprocess_svg.py');
+          const ppOut = execSync(
+            `python3 "${ppScript}" "${svgPath}" -o "${svgPath}"`,
+            { cwd: PROJECT_ROOT, encoding: 'utf-8', timeout: 30_000 }
+          );
+          if (ppOut.trim()) console.log(ppOut.trim());
+        } catch (e) {
+          console.error(`  Post-process warning: ${e.message}`);
+        }
+      }
+    }
+
+    // Step 3: QA Scoring
+    if (svgPaths.length > 0 && !flags.includes('--no-score')) {
+      console.log('\nQA Scoring...');
+      for (const svgPath of svgPaths) {
+        try {
+          const qaScript = join(PROJECT_ROOT, 'scripts', 'qa_scorer.py');
+          const qaJson = svgPath.replace('.svg', '_qa.json');
+          const failIdx = args.indexOf('--fail-under');
+          const failUnder = failIdx >= 0 && args[failIdx + 1] ? ` --fail-under ${args[failIdx + 1]}` : '';
+          const qaOut = execSync(
+            `python3 "${qaScript}" "${svgPath}" --json "${qaJson}"${failUnder}`,
+            { cwd: PROJECT_ROOT, encoding: 'utf-8', timeout: 30_000 }
+          );
+          if (qaOut.trim()) console.log(qaOut.trim());
+        } catch (e) {
+          if (e.status) {
+            // --fail-under triggered
+            console.error(e.stdout || e.message);
+            process.exit(1);
+          }
+          console.error(`  QA warning: ${e.message}`);
+        }
       }
     }
   } else {
