@@ -128,6 +128,277 @@ async function cmdDesign(description) {
   console.log(`\nView: fcad serve → http://localhost:3000 → select ${fileName}`);
 }
 
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function initRunLog(command, configPath, modelName = 'unnamed') {
+  return {
+    schema_version: '0.1',
+    command,
+    config_path: configPath,
+    model_name: modelName,
+    started_at: nowIso(),
+    started_ms: Date.now(),
+    finished_at: null,
+    duration_ms: null,
+    status: 'running',
+    stages: [],
+    artifacts: {},
+  };
+}
+
+function beginStage(runLog, name, meta = {}) {
+  const stage = {
+    name,
+    status: 'running',
+    started_at: nowIso(),
+    started_ms: Date.now(),
+    ...meta,
+  };
+  runLog.stages.push(stage);
+  return stage;
+}
+
+function endStage(stage, status = 'ok', meta = {}) {
+  if (!stage) return;
+  stage.status = status;
+  stage.finished_at = nowIso();
+  stage.duration_ms = Math.max(0, Date.now() - (stage.started_ms || Date.now()));
+  delete stage.started_ms;
+  Object.assign(stage, meta);
+}
+
+function addSkippedStage(runLog, name, reason) {
+  runLog.stages.push({
+    name,
+    status: 'skipped',
+    reason,
+    started_at: nowIso(),
+    finished_at: nowIso(),
+    duration_ms: 0,
+  });
+}
+
+function finalizeRunLog(runLog) {
+  for (const stage of runLog.stages || []) {
+    if (typeof stage.started_ms === 'number') {
+      stage.finished_at = stage.finished_at || nowIso();
+      stage.duration_ms = stage.duration_ms ?? Math.max(0, Date.now() - stage.started_ms);
+      delete stage.started_ms;
+      if (stage.status === 'running') {
+        stage.status = runLog.status === 'failed' ? 'failed' : 'aborted';
+      }
+    }
+  }
+  runLog.finished_at = runLog.finished_at || nowIso();
+  runLog.duration_ms = runLog.duration_ms ?? Math.max(0, Date.now() - (runLog.started_ms || Date.now()));
+  delete runLog.started_ms;
+}
+
+function writeJson(filepath, payload) {
+  writeFileSync(filepath, JSON.stringify(payload, null, 2));
+}
+
+function resolveArtifactStem(config, result) {
+  const svgPath = (result?.drawing_paths || []).find(dp => dp.format === 'svg')?.path;
+  if (svgPath) {
+    const normalized = svgPath.replace(/\\/g, '/');
+    const name = normalized.split('/').pop() || '';
+    return name.replace(/_drawing\.svg$/i, '').replace(/\.svg$/i, '') || (config.name || 'unnamed');
+  }
+  return config.name || 'unnamed';
+}
+
+function resolveArtifactDir(config, result) {
+  const svgPath = (result?.drawing_paths || []).find(dp => dp.format === 'svg')?.path;
+  if (svgPath) {
+    const normalized = svgPath.replace(/\\/g, '/');
+    return resolve(dirname(normalized));
+  }
+  return resolve(config?.export?.directory || join(PROJECT_ROOT, 'output'));
+}
+
+function ensureDrawSchema(config) {
+  config.drawing = config.drawing || {};
+  config.drawing.units = config.drawing.units || 'mm';
+  config.drawing.meta = config.drawing.meta || {};
+  const meta = config.drawing.meta;
+  meta.part_name = meta.part_name || config.name || 'unnamed';
+  meta.material = meta.material || config.material || 'UNKNOWN';
+  meta.units = meta.units || config.drawing.units;
+  meta.tolerance_grade = meta.tolerance_grade || meta.tolerance || '';
+  meta.surface_roughness_default = meta.surface_roughness_default
+    || config.drawing.surface_finish?.default
+    || '';
+  config.drawing.datums = config.drawing.datums || [];
+  config.drawing.key_dims = config.drawing.key_dims || [];
+  config.drawing.thread_specs = config.drawing.thread_specs || config.drawing.threads || [];
+  if (!config.exceptions || typeof config.exceptions !== 'object') {
+    config.exceptions = { rules: [] };
+  } else if (!Array.isArray(config.exceptions.rules)) {
+    config.exceptions.rules = [];
+  }
+}
+
+function buildTraceabilityFallback(config) {
+  const intents = config?.drawing_plan?.dim_intents || [];
+  const dimensions = intents.map((di) => ({
+    dim_id: di.id || '',
+    source: 'plan',
+    view: di.view || null,
+    feature: di.feature || null,
+    status: di.value_mm == null ? 'missing_value' : 'planned',
+    rendered: false,
+    value_mm: di.value_mm ?? null,
+    drawing_object_id: null,
+  }));
+  const links = dimensions
+    .filter(d => d.feature)
+    .map(d => ({
+      dim_id: d.dim_id,
+      feature_key: d.feature,
+      feature_id: null,
+      status: d.status,
+      rendered: d.rendered,
+    }));
+  return {
+    schema_version: '0.1',
+    model_name: config?.name || 'unnamed',
+    features: [],
+    dimensions,
+    links,
+    summary: {
+      feature_count: 0,
+      dimension_count: dimensions.length,
+      linked_dimensions: 0,
+      unresolved_dimensions: links.map(l => l.dim_id),
+    },
+  };
+}
+
+function normalizeSeverity(raw) {
+  const sev = (raw || '').toLowerCase();
+  if (sev === 'error' || sev === 'high') return 'high';
+  if (sev === 'warning' || sev === 'medium') return 'medium';
+  return 'low';
+}
+
+function buildQaIssueReport(qaReport = {}, repairReport = null) {
+  const metrics = qaReport.metrics || {};
+  const details = qaReport.details || {};
+  const issues = [];
+  let seq = 1;
+
+  const pushIssue = ({
+    category,
+    severity = 'medium',
+    rule_id,
+    suggestion,
+    location = {},
+    related_dim_ids = [],
+    evidence = {},
+  }) => {
+    issues.push({
+      id: `ISSUE_${String(seq++).padStart(3, '0')}`,
+      category,
+      severity,
+      location,
+      related_dim_ids,
+      rule_id,
+      suggestion,
+      evidence,
+    });
+  };
+
+  for (const ov of details.overflows || []) {
+    pushIssue({
+      category: 'layout',
+      severity: 'medium',
+      rule_id: 'layout_overflow',
+      suggestion: 'Reduce scale or trigger layout/overflow repair.',
+      location: { view: ov.view || 'unknown' },
+      evidence: ov,
+    });
+  }
+
+  for (const ol of details.text_overlaps || []) {
+    pushIssue({
+      category: 'readability',
+      severity: 'medium',
+      rule_id: 'text_overlap',
+      suggestion: 'Move dimension text/notes or reroute leaders.',
+      location: { view: ol.view || 'unknown' },
+      evidence: ol,
+    });
+  }
+
+  const missingIds = details.required_presence_missing_ids || [];
+  if (missingIds.length > 0) {
+    pushIssue({
+      category: 'completeness',
+      severity: 'high',
+      rule_id: 'required_dim_missing',
+      suggestion: 'Add missing required dimensions from drawing_plan.',
+      location: { view: 'page' },
+      related_dim_ids: missingIds,
+      evidence: { missing_count: missingIds.length },
+    });
+  }
+
+  if (metrics.virtual_pcd_present === false) {
+    pushIssue({
+      category: 'standards',
+      severity: 'medium',
+      rule_id: 'virtual_pcd_missing',
+      suggestion: 'Inject virtual PCD circle or add explicit PCD callout.',
+      location: { view: 'front' },
+    });
+  }
+
+  if (typeof metrics.note_semantic_mismatch === 'number' && metrics.note_semantic_mismatch > 0) {
+    pushIssue({
+      category: 'standards',
+      severity: 'medium',
+      rule_id: 'note_semantic_mismatch',
+      suggestion: 'Align note text with dimensional intent/part type.',
+      location: { view: 'notes' },
+      evidence: { mismatch_count: metrics.note_semantic_mismatch },
+    });
+  }
+
+  for (const risk of repairReport?.risks || []) {
+    pushIssue({
+      category: 'repair',
+      severity: normalizeSeverity(risk.severity),
+      rule_id: risk.code || 'repair_risk',
+      suggestion: 'Review residual risk after auto-repair pass.',
+      location: { view: risk.view || 'page' },
+      evidence: risk,
+    });
+  }
+
+  const byCategory = {};
+  const bySeverity = {};
+  for (const it of issues) {
+    byCategory[it.category] = (byCategory[it.category] || 0) + 1;
+    bySeverity[it.severity] = (bySeverity[it.severity] || 0) + 1;
+  }
+
+  return {
+    schema_version: '0.1',
+    file: qaReport.file || null,
+    score: qaReport.score ?? null,
+    generated_at: nowIso(),
+    issues,
+    summary: {
+      count: issues.length,
+      by_category: byCategory,
+      by_severity: bySeverity,
+    },
+  };
+}
+
 async function cmdDraw(rawArgs = []) {
   // Parse: fcad draw <config> [--override <path>] [--flags...]
   const flags = [];
@@ -153,61 +424,94 @@ async function cmdDraw(rawArgs = []) {
   const absPath = resolve(configPath);
   console.log(`Loading config: ${absPath}`);
 
-  const config = await loadConfig(absPath);
+  const runLog = initRunLog('draw', absPath);
+  let artifactDir = join(PROJECT_ROOT, 'output');
+  let artifactStem = 'unnamed';
 
-  // --override <path>: merge override TOML/JSON on top of base config
-  if (overridePath) {
-    const absOvPath = resolve(overridePath);
-    const overrideCfg = await loadConfig(absOvPath);
-    deepMerge(config, overrideCfg);
-    console.log(`  Override: ${absOvPath}`);
-  }
+  try {
+    const loadStage = beginStage(runLog, 'load_config');
+    const config = await loadConfig(absPath);
+    ensureDrawSchema(config);
+    artifactStem = config.name || artifactStem;
+    endStage(loadStage, 'ok', { model_name: artifactStem });
 
-  // Inject --bom flag into drawing config
-  if (flags.includes('--bom')) {
-    config.drawing = config.drawing || {};
-    config.drawing.bom_csv = true;
-  }
-
-  // Ensure drawing section exists with defaults
-  config.drawing = config.drawing || {};
-  if (!config.drawing.views) {
-    config.drawing.views = ['front', 'top', 'right', 'iso'];
-  }
-
-  // Intent Plan (Phase 19) — enrich config with drawing_plan
-  if (!flags.includes('--no-plan')) {
-    const compilerScript = join(PROJECT_ROOT, 'scripts', 'intent_compiler.py');
-    try {
-      const enriched = execSync(
-        `python3 "${compilerScript}"`,
-        { input: JSON.stringify(config), encoding: 'utf-8', timeout: 15_000 }
-      );
-      const enrichedConfig = JSON.parse(enriched);
-      Object.assign(config, enrichedConfig);
-      console.log(`  Plan: ${config.drawing_plan?.part_type || 'unknown'} template applied`);
-
-      // Sync plan views → drawing.views (plan is authoritative after compilation)
-      const planViews = config.drawing_plan?.views?.enabled;
-      if (planViews && planViews.length > 0) {
-        config.drawing.views = planViews;
-      }
-    } catch (e) {
-      const msg = e.stderr ? e.stderr.toString().trim() : e.message;
-      console.error(`  Plan warning: ${msg} (falling back to default)`);
+    // --override <path>: merge override TOML/JSON on top of base config
+    if (overridePath) {
+      const overrideStage = beginStage(runLog, 'apply_override', { path: resolve(overridePath) });
+      const absOvPath = resolve(overridePath);
+      const overrideCfg = await loadConfig(absOvPath);
+      deepMerge(config, overrideCfg);
+      console.log(`  Override: ${absOvPath}`);
+      endStage(overrideStage, 'ok');
     }
-  }
 
-  const modelName = config.name || 'unnamed';
-  console.log(`Generating drawing: ${modelName}`);
-  console.log(`  Views: ${config.drawing.views.join(', ')}`);
+    // Inject --bom flag into drawing config
+    if (flags.includes('--bom')) {
+      config.drawing.bom_csv = true;
+    }
 
-  const result = await runScript('generate_drawing.py', config, {
-    timeout: 180_000,
-    onStderr: (text) => process.stderr.write(text),
-  });
+    // Ensure drawing section exists with defaults
+    if (!config.drawing.views) {
+      config.drawing.views = ['front', 'top', 'right', 'iso'];
+    }
 
-  if (result.success) {
+    // Intent Plan (Phase 19) — enrich config with drawing_plan
+    if (!flags.includes('--no-plan')) {
+      const planStage = beginStage(runLog, 'intent_compile');
+      const compilerScript = join(PROJECT_ROOT, 'scripts', 'intent_compiler.py');
+      try {
+        const enriched = execSync(
+          `python3 "${compilerScript}"`,
+          { input: JSON.stringify(config), encoding: 'utf-8', timeout: 15_000 }
+        );
+        const enrichedConfig = JSON.parse(enriched);
+        Object.assign(config, enrichedConfig);
+        console.log(`  Plan: ${config.drawing_plan?.part_type || 'unknown'} template applied`);
+
+        // Sync plan views → drawing.views (plan is authoritative after compilation)
+        const planViews = config.drawing_plan?.views?.enabled;
+        if (planViews && planViews.length > 0) {
+          config.drawing.views = planViews;
+        }
+        endStage(planStage, 'ok', { part_type: config.drawing_plan?.part_type || 'unknown' });
+      } catch (e) {
+        const msg = e.stderr ? e.stderr.toString().trim() : e.message;
+        console.error(`  Plan warning: ${msg} (falling back to default)`);
+        endStage(planStage, 'warning', { warning: msg });
+      }
+    } else {
+      addSkippedStage(runLog, 'intent_compile', '--no-plan');
+    }
+
+    const modelName = config.name || 'unnamed';
+    artifactStem = modelName;
+    console.log(`Generating drawing: ${modelName}`);
+    console.log(`  Views: ${config.drawing.views.join(', ')}`);
+
+    const drawStage = beginStage(runLog, 'generate_drawing', { views: config.drawing.views });
+    let result;
+    try {
+      result = await runScript('generate_drawing.py', config, {
+        timeout: 180_000,
+        onStderr: (text) => process.stderr.write(text),
+      });
+      endStage(drawStage, 'ok', {
+        scale: result.scale,
+        views_generated: result.views?.length || 0,
+      });
+    } catch (err) {
+      endStage(drawStage, 'failed', { error: err.message });
+      throw err;
+    }
+
+    if (!result.success) {
+      throw new Error(result.error || 'generate_drawing.py returned success=false');
+    }
+
+    artifactDir = resolveArtifactDir(config, result);
+    artifactStem = resolveArtifactStem(config, result);
+    mkdirSync(artifactDir, { recursive: true });
+
     console.log(`\nDrawing generated!`);
     console.log(`  Scale: ${result.scale}`);
     console.log(`  Views: ${result.views.join(', ')}`);
@@ -222,6 +526,32 @@ async function cmdDraw(rawArgs = []) {
       }
     }
 
+    const persistStage = beginStage(runLog, 'persist_draw_artifacts');
+    try {
+      const traceability = result.traceability || buildTraceabilityFallback(config);
+      const layoutReport = result.layout_report || { summary: { view_count: result.views?.length || 0 } };
+      const dimensionMap = result.dimension_map || { auto_dimensions: [], plan_dimensions: [], summary: {} };
+      const dimConflicts = result.dim_conflicts || { conflicts: [], summary: { count: 0 } };
+
+      const traceabilityPath = join(artifactDir, `${artifactStem}_traceability.json`);
+      const layoutPath = join(artifactDir, `${artifactStem}_layout_report.json`);
+      const dimMapPath = join(artifactDir, `${artifactStem}_dimension_map.json`);
+      const conflictPath = join(artifactDir, `${artifactStem}_dim_conflicts.json`);
+
+      writeJson(traceabilityPath, traceability);
+      writeJson(layoutPath, layoutReport);
+      writeJson(dimMapPath, dimensionMap);
+      writeJson(conflictPath, dimConflicts);
+
+      runLog.artifacts.traceability = traceabilityPath;
+      runLog.artifacts.layout_report = layoutPath;
+      runLog.artifacts.dimension_map = dimMapPath;
+      runLog.artifacts.dim_conflicts = conflictPath;
+      endStage(persistStage, 'ok', { count: 4 });
+    } catch (err) {
+      endStage(persistStage, 'warning', { warning: err.message });
+    }
+
     // Step 2-3: Post-process + QA (with before/after merge)
     const svgPaths = (result.drawing_paths || [])
       .filter(dp => dp.format === 'svg')
@@ -234,24 +564,33 @@ async function cmdDraw(rawArgs = []) {
     // Save plan as TOML for debugging/QA (project convention: TOML for configs)
     let planArg = '';
     if (config.drawing_plan) {
-      const planPath = join(PROJECT_ROOT, 'output', `${config.name || 'unnamed'}_plan.toml`);
+      const planStage = beginStage(runLog, 'save_plan');
+      const planPath = join(artifactDir, `${artifactStem}_plan.toml`);
       try {
         writeFileSync(planPath, tomlStringify({ drawing_plan: config.drawing_plan }));
+        planArg = ` --plan "${planPath}"`;
+        runLog.artifacts.plan = planPath;
+        endStage(planStage, 'ok');
       } catch (_) {
-        // Fallback to JSON if TOML stringify fails on complex structures
         const jsonPath = planPath.replace('.toml', '.json');
-        writeFileSync(jsonPath, JSON.stringify({ drawing_plan: config.drawing_plan }, null, 2));
+        writeJson(jsonPath, { drawing_plan: config.drawing_plan });
+        planArg = ` --plan "${jsonPath}"`;
+        runLog.artifacts.plan = jsonPath;
+        endStage(planStage, 'ok', { format: 'json_fallback' });
       }
-      planArg = ` --plan "${planPath}"`;
+    } else {
+      addSkippedStage(runLog, 'save_plan', 'no drawing_plan');
     }
 
     for (const svgPath of svgPaths) {
       const reportJson = svgPath.replace('.svg', '_repair_report.json');
       const qaJson = svgPath.replace('.svg', '_qa.json');
+      const qaIssuesJson = svgPath.replace('.svg', '_qa_issues.json');
 
       // Step 2a: QA before (on raw SVG)
       let qaBefore = null;
       if (!flags.includes('--no-score') && !flags.includes('--raw')) {
+        const qaBeforeStage = beginStage(runLog, 'qa_before', { svg: svgPath });
         try {
           const qaBeforeJson = svgPath.replace('.svg', '_qa_before.json');
           execSync(
@@ -259,13 +598,16 @@ async function cmdDraw(rawArgs = []) {
             { cwd: PROJECT_ROOT, encoding: 'utf-8', timeout: 30_000 }
           );
           qaBefore = JSON.parse(readFileSync(qaBeforeJson, 'utf-8'));
+          endStage(qaBeforeStage, 'ok', { score: qaBefore.score ?? null });
         } catch (e) {
           console.error(`  QA before warning: ${e.message}`);
+          endStage(qaBeforeStage, 'warning', { warning: e.message });
         }
       }
 
       // Step 2b: SVG Post-Processing
       if (!flags.includes('--raw')) {
+        const postStage = beginStage(runLog, 'postprocess_svg', { svg: svgPath });
         console.log('\nPost-processing SVG...');
         try {
           const strokeProfile = (config.drawing_plan?.style?.stroke_profile) || 'ks';
@@ -280,15 +622,20 @@ async function cmdDraw(rawArgs = []) {
             rr.plan = config.drawing_plan
               ? { used: true, template: config.drawing_plan.part_type || 'unknown', part_type: config.drawing_plan.part_type || 'unknown' }
               : { used: false };
-            writeFileSync(reportJson, JSON.stringify(rr, null, 2));
+            writeJson(reportJson, rr);
           } catch (_) { /* report may not exist yet */ }
+          endStage(postStage, 'ok');
         } catch (e) {
           console.error(`  Post-process warning: ${e.message}`);
+          endStage(postStage, 'warning', { warning: e.message });
         }
+      } else {
+        addSkippedStage(runLog, 'postprocess_svg', '--raw');
       }
 
       // Step 3: QA after + merge into repair report
       if (!flags.includes('--no-score')) {
+        const qaStage = beginStage(runLog, 'qa_after', { svg: svgPath });
         console.log('\nQA Scoring...');
         try {
           const qaOut = execSync(
@@ -297,11 +644,15 @@ async function cmdDraw(rawArgs = []) {
           );
           if (qaOut.trim()) console.log(qaOut.trim());
 
+          const qaAfter = JSON.parse(readFileSync(qaJson, 'utf-8'));
+          let repairReport = null;
+          if (existsSync(reportJson)) {
+            repairReport = JSON.parse(readFileSync(reportJson, 'utf-8'));
+          }
+
           // Merge qa_diff into repair report
-          if (!flags.includes('--raw') && qaBefore) {
+          if (!flags.includes('--raw') && qaBefore && repairReport) {
             try {
-              const qaAfter = JSON.parse(readFileSync(qaJson, 'utf-8'));
-              const repairReport = JSON.parse(readFileSync(reportJson, 'utf-8'));
               const beforeMetrics = qaBefore.metrics || {};
               const afterMetrics = qaAfter.metrics || {};
               const delta = {};
@@ -319,7 +670,7 @@ async function cmdDraw(rawArgs = []) {
                   passed: !failUnder || (qaAfter.score || 0) >= parseInt(flags[failIdx + 1]),
                 },
               };
-              writeFileSync(reportJson, JSON.stringify(repairReport, null, 2));
+              writeJson(reportJson, repairReport);
               console.log(`  QA diff: ${qaBefore.score} → ${qaAfter.score} (${qaAfter.score - qaBefore.score >= 0 ? '+' : ''}${qaAfter.score - qaBefore.score})`);
               // Clean up temporary before file
               try { unlinkSync(svgPath.replace('.svg', '_qa_before.json')); } catch {}
@@ -327,21 +678,53 @@ async function cmdDraw(rawArgs = []) {
               console.error(`  QA merge warning: ${mergeErr.message}`);
             }
           }
+
+          // Emit normalized issue model for QA findings
+          try {
+            const issueReport = buildQaIssueReport(qaAfter, repairReport);
+            writeJson(qaIssuesJson, issueReport);
+            runLog.artifacts.qa_issues = runLog.artifacts.qa_issues || [];
+            runLog.artifacts.qa_issues.push(qaIssuesJson);
+            console.log(`  QA issues: ${qaIssuesJson}`);
+          } catch (issueErr) {
+            console.error(`  QA issue report warning: ${issueErr.message}`);
+          }
+
+          endStage(qaStage, 'ok', { score: qaAfter.score ?? null });
         } catch (e) {
           if (e.status) {
-            console.error(e.stdout || e.message);
-            process.exit(1);
+            const msg = (e.stdout || e.message || '').toString().trim();
+            console.error(msg);
+            endStage(qaStage, 'failed', { error: msg });
+            throw new Error(msg || 'QA scoring failed');
           }
           console.error(`  QA warning: ${e.message}`);
+          endStage(qaStage, 'warning', { warning: e.message });
         }
+      } else {
+        addSkippedStage(runLog, 'qa_after', '--no-score');
       }
     }
-  } else {
-    console.error(`\nError: ${result.error}`);
-    process.exit(1);
-  }
 
-  return result;
+    runLog.status = 'success';
+    return result;
+  } catch (err) {
+    runLog.status = 'failed';
+    runLog.error = err.message;
+    throw err;
+  } finally {
+    try {
+      mkdirSync(artifactDir, { recursive: true });
+      const runLogPath = join(artifactDir, `${artifactStem}_run_log.json`);
+      runLog.artifacts = runLog.artifacts || {};
+      runLog.artifacts.run_log = runLogPath;
+      finalizeRunLog(runLog);
+      writeJson(runLogPath, runLog);
+      console.log(`  Run log: ${runLogPath}`);
+    } catch {
+      // Keep draw outcome intact even if log write fails.
+    }
+  }
 }
 
 async function cmdCreate(configPath) {

@@ -235,13 +235,15 @@ def render_plan_dimensions_svg(
     dim_intents, vname, bounds, circles, arcs,
     cx, cy, scale, h_stack, v_stack,
     existing_dim_values=None, required_only=False,
-    style_cfg=None
+    style_cfg=None, telemetry=None
 ):
     """Render plan-driven dimensions for a specific view.
 
     Only renders dimensions whose value_mm is NOT already placed by auto-dims.
     Missing value_mm → red REVIEW marker if required.
     style_cfg: optional dict with dim_offset/dim_gap/dim_ext_overshoot overrides.
+
+    telemetry: optional dict sink to collect traceability records.
 
     Returns: (svg_string, new_h_stack, new_v_stack)
     """
@@ -261,12 +263,35 @@ def render_plan_dimensions_svg(
     out.append(f'<g class="plan-dimensions-{vname}" stroke="{DIM_COLOR}" '
                f'stroke-width="{DIM_LINE_W}" fill="none">')
 
+    def _record(di, status, *, reason=None, rendered=False):
+        if telemetry is None:
+            return
+        rec = {
+            "dim_id": di.get("id", ""),
+            "feature": di.get("feature", ""),
+            "view": vname,
+            "style": di.get("style", "linear"),
+            "required": bool(di.get("required", False)),
+            "value_mm": di.get("value_mm"),
+            "source": "plan",
+            "status": status,
+            "rendered": bool(rendered),
+            "drawing_object_id": (
+                f"svg:plan-dimensions-{vname}:{di.get('id', '')}"
+                if rendered else None
+            ),
+        }
+        if reason:
+            rec["reason"] = reason
+        telemetry.setdefault("plan_dimensions", []).append(rec)
+
     for di in dim_intents:
         if not _intent_matches_view(di, vname):
             continue
 
         # D3: skip non-required intents when required_only mode is active
         if required_only and not di.get("required", True):
+            _record(di, "skipped_required_only", reason="required_only_mode")
             continue
 
         style = di.get("style", "linear")
@@ -275,12 +300,16 @@ def render_plan_dimensions_svg(
 
         # Skip if already placed by auto-dims
         if _is_already_placed(value_mm, existing_dim_values):
+            _record(di, "skipped_duplicate", reason="already_in_auto_dims")
             continue
 
         # No value → review marker
         if value_mm is None:
             if di.get("required"):
                 out.extend(_render_review_marker(di, cx, cy, h_stack))
+                _record(di, "missing_value", reason="required_dim_missing_value")
+            else:
+                _record(di, "missing_value_optional", reason="optional_dim_missing_value")
             continue
 
         # Route by style
@@ -288,24 +317,40 @@ def render_plan_dimensions_svg(
             if vname == "front":
                 elems = _render_diameter(di, circles, cx, cy, scale, bcx, bcy)
                 out.extend(elems)
+                if elems:
+                    _record(di, "rendered", rendered=True)
+                else:
+                    _record(di, "skipped_no_anchor", reason="no_matching_circle")
+            else:
+                _record(di, "skipped_view", reason="diameter_intent_front_only")
         elif style == "linear":
             if fid in V_FEATURES:
                 elems, v_stack = _render_linear_v(
                     di, bounds, cx, cy, scale, bcx, bcy, v_stack,
                     gap=eff_gap, offset=eff_offset, overshoot=eff_overshoot)
                 out.extend(elems)
+                if elems:
+                    _record(di, "rendered", rendered=True)
+                else:
+                    _record(di, "skipped_layout", reason="vertical_linear_layout_failed")
             else:
                 elems, h_stack = _render_linear_h(
                     di, bounds, cx, cy, scale, bcx, bcy, h_stack,
                     gap=eff_gap, offset=eff_offset, overshoot=eff_overshoot)
                 out.extend(elems)
+                if elems:
+                    _record(di, "rendered", rendered=True)
+                else:
+                    _record(di, "skipped_layout", reason="horizontal_linear_layout_failed")
         elif style == "radius":
-            pass  # radius auto-dims already handle arcs
+            _record(di, "delegated", reason="radius_auto_dim")
         elif style == "callout":
-            pass  # callouts handled by chamfer/thread renderers
+            _record(di, "delegated", reason="callout_renderer")
         elif style == "note":
-            pass  # notes handled by general-notes
+            _record(di, "delegated", reason="notes_renderer")
         # angular, unknown → skip
+        else:
+            _record(di, "skipped_style", reason=f"unsupported_style:{style}")
 
     out.append('</g>')
     result = '\n'.join(out)

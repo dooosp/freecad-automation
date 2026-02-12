@@ -639,7 +639,7 @@ def _collect_auto_dim_values(vd):
 
 def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
                           tolerances=None, return_stacks=False,
-                          style_cfg=None):
+                          style_cfg=None, telemetry=None):
     """Generate ISO 129 dimension lines for a view.
 
     - Bounding dimensions (overall width + height) for front/top/right
@@ -658,6 +658,37 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
     out = []
     u0, v0, u1, v1 = bounds
     bcx, bcy = (u0 + u1) / 2, (v0 + v1) / 2
+
+    def _record_dim(kind, value_mm, *, detail=None):
+        if telemetry is None:
+            return
+        idx = len(telemetry.setdefault("auto_dimensions", [])) + 1
+        dim_id = f"auto_{vname}_{idx:03d}"
+        rec = {
+            "dim_id": dim_id,
+            "source": "auto",
+            "view": vname,
+            "category": kind,
+            "value_mm": round(float(value_mm), 3) if isinstance(value_mm, (int, float)) else value_mm,
+            "status": "rendered",
+            "drawing_object_id": f"svg:dimensions-{vname}:{dim_id}",
+        }
+        if detail:
+            rec.update(detail)
+        telemetry["auto_dimensions"].append(rec)
+
+    def _record_conflict(kind, reason, *, severity="warning", detail=None):
+        if telemetry is None:
+            return
+        rec = {
+            "view": vname,
+            "category": kind,
+            "reason": reason,
+            "severity": severity,
+        }
+        if detail:
+            rec.update(detail)
+        telemetry.setdefault("conflicts", []).append(rec)
 
     def pg(u, v):
         return cx + (u - bcx) * scale, cy - (v - bcy) * scale
@@ -695,7 +726,11 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
         if y_dim < cell_bottom:
             out.extend(_dim_horizontal(left, right, bottom, y_dim, width_mm,
                                        tol_text=gen_tol))
+            _record_dim("overall_width", width_mm)
             h_stack += 1
+        else:
+            _record_conflict("overall_width", "cell_bottom_limit",
+                             detail={"value_mm": round(width_mm, 3)})
 
     # Overall height (vertical, right of shape)
     height_mm = (v1 - v0)
@@ -704,7 +739,11 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
         if x_dim < cell_right:
             out.extend(_dim_vertical(top, bottom, right, x_dim, height_mm,
                                      tol_text=gen_tol))
+            _record_dim("overall_height", height_mm)
             v_stack += 1
+        else:
+            _record_conflict("overall_height", "cell_right_limit",
+                             detail={"value_mm": round(height_mm, 3)})
 
     # Hole diameters (deduplicated by radius within tolerance)
     # Clamp leader endpoints within cell boundaries
@@ -726,6 +765,7 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
         out.extend(_dim_diameter(px, py, r_scaled, cr, angle_deg=leader_angle,
                                  tol_text=hole_tol,
                                  cell_bounds=(cell_x0, cell_y0, cell_right, cell_bottom)))
+        _record_dim("hole_diameter", cr * 2, detail={"center_uv": [round(cu, 3), round(cv, 3)]})
         leader_angle += 30  # stagger angles for multiple holes
 
     # -- Feature chain dimensions (hole positions from edges) --
@@ -758,7 +798,14 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
             if y_feat < cell_bottom:
                 for px1, px2, dist in h_segments:
                     out.extend(_dim_horizontal(px1, px2, bottom, y_feat, dist))
+                    _record_dim("chain_horizontal", dist)
                 h_stack += 1
+            else:
+                _record_conflict("chain_horizontal", "cell_bottom_limit",
+                                 detail={"segments": len(h_segments)})
+        elif h_segments:
+            _record_conflict("chain_horizontal", "stack_limit",
+                             detail={"segments": len(h_segments), "max_stacks": max_h_stacks})
 
         # Vertical chain: bottom_edge → hole1 → hole2 → ... → top_edge
         chain_v = [v0] + unique_cv + [v1]
@@ -776,7 +823,14 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
             if x_feat < cell_right:
                 for py_top, py_bot, dist in v_segments:
                     out.extend(_dim_vertical(py_top, py_bot, right, x_feat, dist))
+                    _record_dim("chain_vertical", dist)
                 v_stack += 1
+            else:
+                _record_conflict("chain_vertical", "cell_right_limit",
+                                 detail={"segments": len(v_segments)})
+        elif v_segments:
+            _record_conflict("chain_vertical", "stack_limit",
+                             detail={"segments": len(v_segments), "max_stacks": max_v_stacks})
 
     # -- Radius dimensions (fillet/round arcs) --
     if arcs:
@@ -795,6 +849,7 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
             cx_pg, cy_pg = pg(c_u, c_v)
             mx_pg, my_pg = pg(m_u, m_v)
             out.extend(_dim_radius(cx_pg, cy_pg, mx_pg, my_pg, r_scaled, r))
+            _record_dim("radius", r, detail={"center_uv": [round(c_u, 3), round(c_v, 3)]})
 
     out.append('</g>')
     result = '\n'.join(out)
@@ -2372,6 +2427,155 @@ def _escape(text):
     return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def _cell_bounds(vname):
+    """Return page-space view cell bounds (x0, y0, x1, y1)."""
+    if vname not in VIEW_CELLS:
+        return None
+    cx, cy = VIEW_CELLS[vname]
+    return (cx - CELL_W / 2, cy - CELL_H / 2, cx + CELL_W / 2, cy + CELL_H / 2)
+
+
+def build_layout_report(view_data, scale):
+    """Build per-view layout diagnostics for demo/reporting."""
+    view_fit_margin = 0.88
+    dim_reserve = 12
+    avail_w = CELL_W * view_fit_margin - dim_reserve
+    avail_h = CELL_H * view_fit_margin - dim_reserve
+
+    views = {}
+    overflow_views = []
+    for vname, vd in view_data.items():
+        u0, v0, u1, v1 = vd["bounds"]
+        proj_w = (u1 - u0) * scale
+        proj_h = (v1 - v0) * scale
+        overflow = proj_w > avail_w or proj_h > avail_h
+        if overflow:
+            overflow_views.append(vname)
+
+        cb = _cell_bounds(vname)
+        if cb:
+            cell_bounds = {
+                "x_min": round(cb[0], 2), "y_min": round(cb[1], 2),
+                "x_max": round(cb[2], 2), "y_max": round(cb[3], 2),
+            }
+        else:
+            cell_bounds = None
+
+        views[vname] = {
+            "cell_center_mm": [round(vd["cx"], 2), round(vd["cy"], 2)],
+            "cell_bounds_mm": cell_bounds,
+            "model_bounds_uv": {
+                "u_min": round(u0, 3), "v_min": round(v0, 3),
+                "u_max": round(u1, 3), "v_max": round(v1, 3),
+            },
+            "projected_size_mm": {
+                "width": round(proj_w, 2),
+                "height": round(proj_h, 2),
+            },
+            "fit": {
+                "available_width_mm": round(avail_w, 2),
+                "available_height_mm": round(avail_h, 2),
+                "overflow": overflow,
+            },
+        }
+
+    return {
+        "page": {
+            "width_mm": PAGE_W,
+            "height_mm": PAGE_H,
+            "margin_mm": MARGIN,
+            "drawing_region_mm": {"width": DRAW_W, "height": DRAW_H},
+            "cell_mm": {"width": CELL_W, "height": CELL_H},
+        },
+        "scale_factor": round(scale, 6),
+        "views": views,
+        "summary": {
+            "view_count": len(views),
+            "overflow_views": overflow_views,
+            "all_within_limits": len(overflow_views) == 0,
+        },
+    }
+
+
+def build_traceability_payload(model_name, feature_graph, dim_telemetry):
+    """Build feature ↔ dimension traceability map."""
+    auto_dims = list(dim_telemetry.get("auto_dimensions", []))
+    plan_dims = list(dim_telemetry.get("plan_dimensions", []))
+    features = []
+    feature_lookup = {}
+
+    if feature_graph:
+        for f in feature_graph.features:
+            feat = {
+                "feature_id": f.id,
+                "type": f.type,
+                "diameter": f.diameter,
+                "size": f.size,
+                "position": list(f.position) if f.position is not None else None,
+                "axis": list(f.axis) if f.axis is not None else None,
+                "parent_id": f.parent_id,
+            }
+            features.append(feat)
+            feature_lookup[f.id.lower()] = f.id
+
+    dimensions = []
+    links = []
+    unresolved = []
+
+    for d in auto_dims + plan_dims:
+        rec = {
+            "dim_id": d.get("dim_id"),
+            "source": d.get("source", "auto"),
+            "view": d.get("view"),
+            "status": d.get("status", "rendered"),
+            "rendered": bool(d.get("rendered", d.get("status") == "rendered")),
+            "value_mm": d.get("value_mm"),
+            "drawing_object_id": d.get("drawing_object_id"),
+        }
+        if d.get("feature"):
+            rec["feature"] = d.get("feature")
+        dimensions.append(rec)
+
+    for d in plan_dims:
+        fkey = d.get("feature")
+        if not fkey:
+            continue
+        fk = str(fkey).lower()
+        resolved = feature_lookup.get(fk)
+        if resolved is None:
+            for lk, lv in feature_lookup.items():
+                if lk in fk or fk in lk:
+                    resolved = lv
+                    break
+
+        link = {
+            "dim_id": d.get("dim_id"),
+            "feature_key": fkey,
+            "feature_id": resolved,
+            "status": d.get("status"),
+            "rendered": bool(d.get("rendered")),
+        }
+        if d.get("drawing_object_id"):
+            link["drawing_object_id"] = d.get("drawing_object_id")
+        links.append(link)
+        if resolved is None:
+            unresolved.append(d.get("dim_id"))
+
+    return {
+        "schema_version": "0.1",
+        "model_name": model_name,
+        "features": features,
+        "dimensions": dimensions,
+        "links": links,
+        "summary": {
+            "feature_count": len(features),
+            "dimension_count": len(dimensions),
+            "linked_dimensions": len([l for l in links if l.get("feature_id")]),
+            "unresolved_dimensions": unresolved,
+        },
+    }
+
+
 # -- Main Pipeline -------------------------------------------------------------
 
 try:
@@ -2556,6 +2760,7 @@ try:
     show_cl = drawing_cfg.get("style", {}).get("show_centerlines", True)
     show_dims = drawing_cfg.get("style", {}).get("show_dimensions", True)
     tol_cfg = drawing_cfg.get("tolerances", {})
+    dim_telemetry = {"auto_dimensions": [], "plan_dimensions": [], "conflicts": []}
     # Plan-aware view options (Phase 19)
     plan_view_opts = config.get("drawing_plan", {}).get("views", {}).get("options", {})
 
@@ -2578,7 +2783,8 @@ try:
                 vname, vd["bounds"], vd["circles"],
                 vd["cx"], vd["cy"], scale,
                 arcs=vd.get("arcs"), tolerances=tol_cfg,
-                return_stacks=True, style_cfg=dim_style_cfg)
+                return_stacks=True, style_cfg=dim_style_cfg,
+                telemetry=dim_telemetry)
             dim_svg, h_stk, v_stk = dim_result
             if dim_svg:
                 svg += '\n' + dim_svg
@@ -2595,7 +2801,8 @@ try:
                         vd["cx"], vd["cy"], scale, h_stk, v_stk,
                         existing_dim_values=auto_vals,
                         required_only=req_only,
-                        style_cfg=dim_style_cfg)
+                        style_cfg=dim_style_cfg,
+                        telemetry=dim_telemetry)
                     if plan_svg:
                         svg += '\n' + plan_svg
                 except Exception as e:
@@ -2863,6 +3070,23 @@ try:
                         f"{joint.get('type','')},{joint.get('id','')}\n")
         log(f"  BOM CSV: {bom_csv_path}")
 
+    # -- Telemetry Artifacts (M1/M2/M3 skeleton) --
+    layout_report = build_layout_report(view_data, scale)
+    auto_dims = dim_telemetry.get("auto_dimensions", [])
+    plan_dims = dim_telemetry.get("plan_dimensions", [])
+    dim_conflicts = dim_telemetry.get("conflicts", [])
+    dimension_map = {
+        "auto_dimensions": auto_dims,
+        "plan_dimensions": plan_dims,
+        "summary": {
+            "auto_count": len(auto_dims),
+            "plan_count": len(plan_dims),
+            "rendered_plan_count": len([d for d in plan_dims if d.get("rendered")]),
+            "conflict_count": len(dim_conflicts),
+        },
+    }
+    traceability = build_traceability_payload(model_name, feature_graph, dim_telemetry)
+
     # -- Response --
     scale_label = f"1:{round(1/scale)}" if scale < 1 else f"{round(scale)}:1"
     response = {
@@ -2873,6 +3097,13 @@ try:
         "bom": bom,
         "views": list(views_svg.keys()),
         "scale": scale_label,
+        "layout_report": layout_report,
+        "dimension_map": dimension_map,
+        "dim_conflicts": {
+            "conflicts": dim_conflicts,
+            "summary": {"count": len(dim_conflicts)},
+        },
+        "traceability": traceability,
     }
     if dxf_path:
         response["drawing_paths"].append({
