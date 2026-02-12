@@ -1,0 +1,9 @@
+# V1_D1: Standard 4-view + Baseline (reference baseline)
+
+[drawing_plan.views]
+enabled = ["front", "top", "right", "iso"]
+
+[drawing_plan.dimensioning]
+scheme = "baseline"
+baseline_datum = "A"
+avoid_redundant = true

@@ -1,0 +1,9 @@
+# V4_D2: No-ISO 3-view + Ordinate (pattern-heavy parts, clean)
+
+[drawing_plan.views]
+enabled = ["front", "top", "right"]
+
+[drawing_plan.dimensioning]
+scheme = "ordinate"
+baseline_datum = "A"
+avoid_redundant = true

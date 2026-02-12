@@ -1,0 +1,9 @@
+# V4_D1: No-ISO 3-view + Baseline (KS exam clean feel)
+
+[drawing_plan.views]
+enabled = ["front", "top", "right"]
+
+[drawing_plan.dimensioning]
+scheme = "baseline"
+baseline_datum = "A"
+avoid_redundant = true

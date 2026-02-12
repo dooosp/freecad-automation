@@ -1,0 +1,14 @@
+# V2_D1: 3-view + Section (internal features) + Baseline
+
+[drawing_plan.views]
+enabled = ["front", "top", "right", "iso"]
+
+[drawing_plan.dimensioning]
+scheme = "baseline"
+baseline_datum = "A"
+avoid_redundant = true
+
+# Section replaces ISO cell in 2x2 grid
+[drawing.section]
+plane = "XZ"
+offset = 0.0

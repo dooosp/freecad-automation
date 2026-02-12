@@ -1,0 +1,25 @@
+# V1_D1_S4: Standard 4-view + Baseline + Quiet ISO
+
+[drawing_plan.views]
+enabled = ["front", "top", "right", "iso"]
+
+[drawing_plan.views.options.front]
+show_hidden = true
+show_centerlines = true
+
+[drawing_plan.views.options.top]
+show_hidden = true
+show_centerlines = true
+
+[drawing_plan.views.options.right]
+show_hidden = true
+show_centerlines = true
+
+[drawing_plan.views.options.iso]
+show_hidden = false
+show_centerlines = false
+
+[drawing_plan.dimensioning]
+scheme = "baseline"
+baseline_datum = "A"
+avoid_redundant = true

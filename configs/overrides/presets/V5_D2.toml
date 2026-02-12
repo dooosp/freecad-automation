@@ -1,0 +1,9 @@
+# V5_D2: Minimal 2-view + ISO + Ordinate (simple parts, low density)
+
+[drawing_plan.views]
+enabled = ["front", "right", "iso"]
+
+[drawing_plan.dimensioning]
+scheme = "ordinate"
+baseline_datum = "A"
+avoid_redundant = true

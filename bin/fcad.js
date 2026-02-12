@@ -186,6 +186,12 @@ async function cmdDraw(rawArgs = []) {
       const enrichedConfig = JSON.parse(enriched);
       Object.assign(config, enrichedConfig);
       console.log(`  Plan: ${config.drawing_plan?.part_type || 'unknown'} template applied`);
+
+      // Sync plan views → drawing.views (plan is authoritative after compilation)
+      const planViews = config.drawing_plan?.views?.enabled;
+      if (planViews && planViews.length > 0) {
+        config.drawing.views = planViews;
+      }
     } catch (e) {
       const msg = e.stderr ? e.stderr.toString().trim() : e.message;
       console.error(`  Plan warning: ${msg} (falling back to default)`);

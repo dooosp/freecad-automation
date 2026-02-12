@@ -1,0 +1,9 @@
+# V1_D2: Standard 4-view + Ordinate (hole pattern redundancy reduction)
+
+[drawing_plan.views]
+enabled = ["front", "top", "right", "iso"]
+
+[drawing_plan.dimensioning]
+scheme = "ordinate"
+baseline_datum = "A"
+avoid_redundant = true
