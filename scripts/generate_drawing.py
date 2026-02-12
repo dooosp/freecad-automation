@@ -749,11 +749,70 @@ def make_section(shape, plane="XZ", offset=0.0):
         return None
 
 
+def _chain_to_closed_paths(segments, tol=0.5):
+    """Chain edge segments into closed SVG path strings.
+
+    segments: list of [(x,y), ...] in page coordinates
+    Returns: list of closed SVG path data strings (ending with 'Z')
+    """
+    if not segments:
+        return []
+
+    n = len(segments)
+    used = [False] * n
+    paths = []
+
+    for start in range(n):
+        if used[start]:
+            continue
+        used[start] = True
+        chain = list(segments[start])
+
+        for _ in range(n):
+            tail = chain[-1]
+            head = chain[0]
+
+            # Check if chain is closed
+            if len(chain) > 3 and math.hypot(tail[0]-head[0], tail[1]-head[1]) < tol:
+                break
+
+            # Find next segment to append
+            found = False
+            for j in range(n):
+                if used[j]:
+                    continue
+                seg = segments[j]
+                s0, s1 = seg[0], seg[-1]
+
+                if math.hypot(tail[0]-s0[0], tail[1]-s0[1]) < tol:
+                    chain.extend(seg[1:])
+                    used[j] = True
+                    found = True
+                    break
+                elif math.hypot(tail[0]-s1[0], tail[1]-s1[1]) < tol:
+                    chain.extend(list(reversed(seg))[1:])
+                    used[j] = True
+                    found = True
+                    break
+
+            if not found:
+                break
+
+        if len(chain) >= 3:
+            d = f'M{chain[0][0]:.2f},{chain[0][1]:.2f}'
+            for x, y in chain[1:]:
+                d += f'L{x:.2f},{y:.2f}'
+            d += 'Z'
+            paths.append(d)
+
+    return paths
+
+
 def render_section_svg(label, groups, bounds, circles, cx, cy, scale, shape_bounds):
     """Render section view with hatching and section label.
 
     Like render_view_svg but adds:
-    - 45-degree hatching fill for the sectioned area
+    - 45-degree hatching fill clipped to the actual cross-section boundary
     - Section label (e.g., "SECTION A-A")
     """
     out = []
@@ -762,6 +821,9 @@ def render_section_svg(label, groups, bounds, circles, cx, cy, scale, shape_boun
 
     def pg(u, v):
         return cx + (u - bcx) * scale, cy - (v - bcy) * scale
+
+    # Collect page-coordinate segments for clip-path while rendering edges
+    clip_segments = []
 
     # Render edges (visible only — sections show cut face outline)
     for gi in [0, 2, 5]:  # visible groups only
@@ -778,6 +840,12 @@ def render_section_svg(label, groups, bounds, circles, cx, cy, scale, shape_boun
                 cu, cv, r = e["circ"]
                 px, py = pg(cu, cv)
                 out.append(f'  <circle cx="{px:.2f}" cy="{py:.2f}" r="{r*scale:.2f}"/>')
+                # Approximate circle as polygon for clipping
+                rs = r * scale
+                seg = [(px + rs * math.cos(2 * math.pi * a / 32),
+                        py + rs * math.sin(2 * math.pi * a / 32))
+                       for a in range(32)]
+                clip_segments.append(seg)
             else:
                 pts = e["pts"]
                 if len(pts) < 2:
@@ -787,17 +855,27 @@ def render_section_svg(label, groups, bounds, circles, cx, cy, scale, shape_boun
                 for x, y in pp[1:]:
                     d += f'L{x:.2f},{y:.2f}'
                 out.append(f'  <path d="{d}"/>')
+                clip_segments.append(pp)
 
         out.append('</g>')
 
-    # Hatching overlay: bounding rectangle with hatch pattern
-    # (simplified: fills the view area with 45-deg hatch; real section
-    #  would clip to the cross-section boundary)
-    hw = (u1 - u0) * scale
-    hh = (v1 - v0) * scale
+    # Hatching: chain edges into closed paths, then clip hatch to section boundary
+    closed_paths = _chain_to_closed_paths(clip_segments)
+    hw = (u1 - u0) * scale + 10
+    hh = (v1 - v0) * scale + 10
     hx = cx - hw / 2
     hy = cy - hh / 2
-    if hw > 0 and hh > 0:
+
+    if closed_paths and hw > 0 and hh > 0:
+        clip_id = f'sec-clip-{label.replace("-", "").lower()}'
+        out.append(f'<defs><clipPath id="{clip_id}">')
+        out.append(f'  <path d="{" ".join(closed_paths)}" clip-rule="evenodd"/>')
+        out.append(f'</clipPath></defs>')
+        out.append(f'<rect x="{hx:.2f}" y="{hy:.2f}" width="{hw:.2f}" height="{hh:.2f}" '
+                   f'fill="url(#hatch45)" stroke="none" opacity="0.4" '
+                   f'clip-path="url(#{clip_id})"/>')
+    elif hw > 0 and hh > 0:
+        # Fallback: bounding rect (if chaining fails)
         out.append(f'<rect x="{hx:.2f}" y="{hy:.2f}" width="{hw:.2f}" height="{hh:.2f}" '
                    f'fill="url(#hatch45)" stroke="none" opacity="0.4"/>')
 
