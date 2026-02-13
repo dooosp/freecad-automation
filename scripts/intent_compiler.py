@@ -30,11 +30,18 @@ SCHEMA_VERSION = "0.1"
 # ---------------------------------------------------------------------------
 
 PROCESS_FEATURE_MAP = {
-    "face":        ["thickness", "height"],
-    "rough_turn":  ["outer_diameter"],
-    "bore":        ["inner_diameter"],
-    "drill":       ["bolt_hole_diameter", "bolt_circle_diameter", "bolt_hole_count"],
+    "face":        ["thickness", "height", "total_length"],
+    "rough_turn":  ["outer_diameter", "outer_diameter_step1", "outer_diameter_step2",
+                    "step_diameters"],
+    "bore":        ["inner_diameter", "primary_bore_diameter", "bearing_seat_diameter"],
+    "drill":       ["bolt_hole_diameter", "bolt_circle_diameter", "bolt_hole_count",
+                    "mounting_hole_diameter", "mount_hole_diameter"],
     "finish_turn": ["fillet_radius", "chamfer"],
+    "rough_mill":  ["base_length", "overall_width", "overall_height", "overall_depth",
+                    "base_thickness", "web_height", "wall_thickness", "base_width"],
+    "finish_mill": ["surface_finish", "flatness"],
+    "deburr":      ["edge_break", "keyway_width"],
+    "general":     [],  # fallback for unmapped features
 }
 
 # Tolerance grade mapping by process roughness
@@ -44,6 +51,10 @@ TOLERANCE_GRADE_MAP = {
     "bore":        "IT7",
     "drill":       "IT10",
     "finish_turn": "IT7",
+    "rough_mill":  "IT11",
+    "finish_mill": "IT8",
+    "deburr":      "IT12",
+    "general":     "IT12",
 }
 
 DEFAULT_PROCESS_SEQUENCE = ["face", "rough_turn", "bore", "drill", "finish_turn"]
@@ -381,7 +392,7 @@ def _apply_d4_manufacturing(plan, dim_cfg):
         for f in features:
             feature_to_process[f] = step
 
-    fallback_step = process_seq[-1]
+    fallback_step = "general"
 
     intents = plan.get("dim_intents", [])
     for di in intents:

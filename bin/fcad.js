@@ -1169,6 +1169,7 @@ async function cmdReport(configPath, flags = []) {
   const includeTolerance = !flags.includes('--no-tolerance');
   const includeFem = flags.includes('--fem');
   const includeMC = flags.includes('--monte-carlo');
+  const includeDfm = flags.includes('--dfm');
 
   const reportInput = { ...config };
 
@@ -1191,6 +1192,20 @@ async function cmdReport(configPath, flags = []) {
         reportInput.monte_carlo_results = tolResult.monte_carlo;
       }
       console.log(`  ${tolResult.pairs?.length || 0} tolerance pair(s) analyzed`);
+    }
+  }
+
+  // Step 1.5: Run DFM analysis if requested
+  if (includeDfm) {
+    console.log('Running DFM analysis...');
+    reportInput.manufacturing = reportInput.manufacturing || {};
+    const dfmResult = await runScript('dfm_checker.py', reportInput, {
+      timeout: 30_000,
+      onStderr: (text) => process.stderr.write(text),
+    });
+    if (dfmResult.success) {
+      reportInput.dfm_results = dfmResult;
+      console.log(`  DFM score: ${dfmResult.score}/100 (${dfmResult.summary?.errors || 0} errors, ${dfmResult.summary?.warnings || 0} warnings)`);
     }
   }
 

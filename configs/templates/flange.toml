@@ -129,6 +129,7 @@ process = "machining"
 material = "AL6061-T6"
 batch_size = 1
 min_wall_override = 0    # 0 = use process default
+process_sequence = ["face", "rough_turn", "bore", "drill", "finish_turn"]
 
 # --- Notes ---
 [notes]

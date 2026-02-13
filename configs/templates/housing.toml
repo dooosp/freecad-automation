@@ -123,6 +123,14 @@ required = false
 priority = 35
 placement = { side = "top_left", angle_deg = 130, offset_mm = 2 }
 
+# --- Manufacturing defaults (for DFM + D4 strategy) ---
+[manufacturing]
+process = "machining"
+material = "AL6061-T6"
+batch_size = 1
+min_wall_override = 0
+process_sequence = ["face", "rough_mill", "bore", "drill", "finish_mill"]
+
 # --- Notes ---
 [notes]
 general = [

@@ -134,6 +134,95 @@ def _extract_bodies(config):
     return bodies
 
 
+def _extract_cut_boxes(config):
+    """Return list of cut boxes (cavities/slots)."""
+    cut_tools = _get_cut_tool_ids(config)
+    boxes = []
+    for s in config.get("shapes", []):
+        if s.get("type") == "box" and s.get("id") in cut_tools:
+            pos = s.get("position", [0, 0, 0])
+            boxes.append({
+                "id": s.get("id", ""),
+                "width": s.get("width", 0),
+                "depth": s.get("depth", 0),
+                "height": s.get("height", 0),
+                "x": pos[0] if len(pos) > 0 else 0,
+                "y": pos[1] if len(pos) > 1 else 0,
+                "z": pos[2] if len(pos) > 2 else 0,
+            })
+    return boxes
+
+
+def _analyze_box_walls(bodies, holes, cut_boxes):
+    """Analyze wall thickness for box bodies.
+
+    Returns list of (wall_mm, feature_desc, feature_type) tuples.
+    Checks:
+      - Box outer wall to nearest hole edge
+      - Box-to-cut-box cavity wall thickness
+      - L-bracket intersection (two orthogonal boxes sharing an edge)
+    """
+    results = []
+    box_bodies = [b for b in bodies if b["type"] == "box"]
+
+    for body in box_bodies:
+        bx, by, bz = body["x"], body["y"], body["z"]
+        bw, bd, bh = body["width"], body["depth"], body["height"]
+
+        # Box wall to nearest hole edge (XY plane projection)
+        for hole in holes:
+            hx, hy = hole["x"], hole["y"]
+            hr = hole["radius"]
+            # Distance from hole center to nearest box face (XY)
+            dx = max(hx - (bx + bw), bx - hx, 0)
+            dy = max(hy - (by + bd), by - hy, 0)
+            if dx == 0 and dy == 0:
+                # Hole is inside box bounds — check distance to each face
+                walls = [
+                    hx - bx - hr,           # left face
+                    (bx + bw) - hx - hr,    # right face
+                    hy - by - hr,           # front face
+                    (by + bd) - hy - hr,    # back face
+                ]
+                for w in walls:
+                    if w >= 0:
+                        results.append((w, f"box '{body['id']}' wall near hole '{hole['id']}'", "box_wall"))
+
+        # Box-to-cavity wall thickness (cut boxes inside this body)
+        for cavity in cut_boxes:
+            cx, cy, cz = cavity["x"], cavity["y"], cavity["z"]
+            cw, cd, ch = cavity["width"], cavity["depth"], cavity["height"]
+            # Check if cavity overlaps with body in Z
+            if cz + ch <= bz or cz >= bz + bh:
+                continue
+            # Check wall between body face and cavity face
+            walls = [
+                cx - bx,                          # left wall
+                (bx + bw) - (cx + cw),            # right wall
+                cy - by,                          # front wall
+                (by + bd) - (cy + cd),            # back wall
+            ]
+            for w in walls:
+                if 0 < w < 1000:  # positive and reasonable
+                    results.append((w, f"box '{body['id']}' cavity wall near '{cavity['id']}'", "box_wall"))
+
+    # L-bracket intersection: two boxes sharing a face
+    for i, b1 in enumerate(box_bodies):
+        for j, b2 in enumerate(box_bodies):
+            if i >= j:
+                continue
+            # Check if boxes are adjacent (share a face boundary)
+            # Vertical stacking: b2 sits on top of b1
+            z1_top = b1["z"] + b1["height"]
+            z2_bot = b2["z"]
+            if abs(z1_top - z2_bot) < 0.1:
+                # Intersection wall = min thickness at junction
+                min_thk = min(b1["width"], b2["width"], b1["depth"], b2["depth"])
+                results.append((min_thk, f"intersection '{b1['id']}'/'{b2['id']}'", "intersection_wall"))
+
+    return results
+
+
 def _has_operation(config, op_type):
     """Check if any operation of given type exists."""
     return any(op.get("op") == op_type for op in config.get("operations", []))
@@ -180,41 +269,57 @@ def _find_counterbore_ids(config):
 # ---------------------------------------------------------------------------
 
 def check_wall_thickness(config, constraints):
-    """Check wall thickness between holes and body edges."""
+    """Check wall thickness between holes and body edges (cylinder + box)."""
     checks = []
     min_wall = constraints["min_wall"]
     holes = _extract_holes(config)
     bodies = _extract_bodies(config)
 
-    # Find the largest cylindrical body (outer boundary)
+    # --- Cylinder wall analysis (existing) ---
     outer_cyl = None
     for b in bodies:
         if b["type"] == "cylinder":
             if outer_cyl is None or b["radius"] > outer_cyl["radius"]:
                 outer_cyl = b
 
-    if not outer_cyl:
-        return checks
+    if outer_cyl:
+        outer_r = outer_cyl["radius"]
+        for hole in holes:
+            dist_from_center = _dist_2d(hole["x"], hole["y"], outer_cyl["x"], outer_cyl["y"])
+            wall = outer_r - dist_from_center - hole["radius"]
 
-    outer_r = outer_cyl["radius"]
+            if wall < min_wall and wall >= 0:
+                checks.append(DFMCheck(
+                    "DFM-01", "error",
+                    f"Wall thickness {wall:.1f}mm < min {min_wall}mm at hole '{hole['id']}'",
+                    feature=hole["id"],
+                    recommendation=f"Increase wall to >= {min_wall}mm or reduce hole diameter",
+                ))
+            elif wall < min_wall * 1.5 and wall >= min_wall:
+                checks.append(DFMCheck(
+                    "DFM-01", "warning",
+                    f"Wall thickness {wall:.1f}mm is marginal (min {min_wall}mm) at hole '{hole['id']}'",
+                    feature=hole["id"],
+                    recommendation="Consider increasing wall thickness for safety margin",
+                ))
 
-    for hole in holes:
-        # Wall = distance from hole edge to outer edge
-        dist_from_center = _dist_2d(hole["x"], hole["y"], outer_cyl["x"], outer_cyl["y"])
-        wall = outer_r - dist_from_center - hole["radius"]
+    # --- Box wall analysis (Phase 24) ---
+    cut_boxes = _extract_cut_boxes(config)
+    box_walls = _analyze_box_walls(bodies, holes, cut_boxes)
 
-        if wall < min_wall and wall >= 0:
+    for wall_mm, desc, feat_type in box_walls:
+        if wall_mm < min_wall:
             checks.append(DFMCheck(
                 "DFM-01", "error",
-                f"Wall thickness {wall:.1f}mm < min {min_wall}mm at hole '{hole['id']}'",
-                feature=hole["id"],
-                recommendation=f"Increase wall to >= {min_wall}mm or reduce hole diameter",
+                f"Wall thickness {wall_mm:.1f}mm < min {min_wall}mm at {desc}",
+                feature=feat_type,
+                recommendation=f"Increase wall to >= {min_wall}mm",
             ))
-        elif wall < min_wall * 1.5 and wall >= min_wall:
+        elif wall_mm < min_wall * 1.5:
             checks.append(DFMCheck(
                 "DFM-01", "warning",
-                f"Wall thickness {wall:.1f}mm is marginal (min {min_wall}mm) at hole '{hole['id']}'",
-                feature=hole["id"],
+                f"Wall thickness {wall_mm:.1f}mm is marginal (min {min_wall}mm) at {desc}",
+                feature=feat_type,
                 recommendation="Consider increasing wall thickness for safety margin",
             ))
 
@@ -395,52 +500,108 @@ def check_drill_ratio(config, constraints):
 # ---------------------------------------------------------------------------
 
 def check_undercut(config, constraints):
-    """Detect potential undercuts (internal step-downs in cylindrical features)."""
+    """Detect potential undercuts (internal step-downs + T-slot patterns)."""
     checks = []
     cut_tools = _get_cut_tool_ids(config)
-    shapes = {s.get("id", ""): s for s in config.get("shapes", [])}
 
-    # Find coaxial cut cylinders with step-down (larger bore above smaller bore)
+    # --- Coaxial cylinder undercuts ---
     cut_cyls = [s for s in config.get("shapes", [])
                 if s.get("type") == "cylinder" and s.get("id") in cut_tools]
 
-    for i, c1 in enumerate(cut_cyls):
-        pos1 = c1.get("position", [0, 0, 0])
-        for j, c2 in enumerate(cut_cyls):
+    # Build coaxial groups to detect multi-step bores
+    coaxial_groups = {}  # key: (x, y) rounded → list of cylinders
+    for c in cut_cyls:
+        pos = c.get("position", [0, 0, 0])
+        cx = round(pos[0] if len(pos) > 0 else 0, 1)
+        cy = round(pos[1] if len(pos) > 1 else 0, 1)
+        key = (cx, cy)
+        coaxial_groups.setdefault(key, []).append(c)
+
+    for key, group in coaxial_groups.items():
+        if len(group) < 2:
+            continue
+        # Sort by radius descending
+        group.sort(key=lambda c: c.get("radius", 0), reverse=True)
+        radii = [c.get("radius", 0) for c in group]
+        unique_radii = list(dict.fromkeys(radii))  # dedupe preserving order
+
+        # Count distinct step-downs (radius decreases)
+        step_count = len(unique_radii) - 1 if len(unique_radii) > 1 else 0
+
+        for i in range(len(group)):
+            for j in range(i + 1, len(group)):
+                c1, c2 = group[i], group[j]
+                r1, r2 = c1.get("radius", 0), c2.get("radius", 0)
+                if r1 == r2:
+                    continue
+                larger = c1 if r1 > r2 else c2
+                smaller = c1 if r1 < r2 else c2
+                is_counterbore = larger.get("height", 0) < smaller.get("height", 0)
+
+                if is_counterbore:
+                    severity = "info"
+                    msg_prefix = "Counterbore"
+                    tool_approach = "axial"
+                elif step_count >= 3:
+                    severity = "error"
+                    msg_prefix = "Multi-step bore undercut"
+                    tool_approach = "axial"
+                else:
+                    severity = "warning"
+                    msg_prefix = "Potential undercut"
+                    tool_approach = "axial"
+
+                checks.append(DFMCheck(
+                    "DFM-06", severity,
+                    f"{msg_prefix}: coaxial holes '{larger.get('id')}' "
+                    f"(R={larger.get('radius')}mm) and '{smaller.get('id')}' "
+                    f"(R={smaller.get('radius')}mm) form internal step"
+                    f" (tool_approach={tool_approach})",
+                    feature=f"{larger.get('id')},{smaller.get('id')}",
+                    recommendation="Verify tool access for internal step — "
+                                   "consider through-hole or relief groove"
+                                   if not is_counterbore else
+                                   "Counterbore depth and clearance are adequate",
+                ))
+
+    # --- T-slot detection (cut boxes forming T-profile) ---
+    cut_boxes = _extract_cut_boxes(config)
+    checks.extend(_detect_t_slot(cut_boxes))
+
+    return checks
+
+
+def _detect_t_slot(cut_boxes):
+    """Detect T-slot patterns: two intersecting cut boxes where one is narrower."""
+    checks = []
+    for i, b1 in enumerate(cut_boxes):
+        for j, b2 in enumerate(cut_boxes):
             if i >= j:
                 continue
-            pos2 = c2.get("position", [0, 0, 0])
-            # Check if coaxial (same XY, different Z)
-            xy_dist = _dist_2d(
-                pos1[0] if len(pos1) > 0 else 0,
-                pos1[1] if len(pos1) > 1 else 0,
-                pos2[0] if len(pos2) > 0 else 0,
-                pos2[1] if len(pos2) > 1 else 0,
-            )
-            if xy_dist < 0.1:  # coaxial within tolerance
-                r1, r2 = c1.get("radius", 0), c2.get("radius", 0)
-                if r1 != r2:
-                    larger = c1 if r1 > r2 else c2
-                    smaller = c1 if r1 < r2 else c2
-                    # Counterbore pattern: larger & shallower on top of smaller
-                    # (standard bolt counterbore) — downgrade to info
-                    is_counterbore = (
-                        larger.get("height", 0) < smaller.get("height", 0)
-                    )
-                    severity = "info" if is_counterbore else "warning"
-                    msg_prefix = "Counterbore" if is_counterbore else "Potential undercut"
-                    checks.append(DFMCheck(
-                        "DFM-06", severity,
-                        f"{msg_prefix}: coaxial holes '{larger.get('id')}' "
-                        f"(R={larger.get('radius')}mm) and '{smaller.get('id')}' "
-                        f"(R={smaller.get('radius')}mm) form internal step",
-                        feature=f"{larger.get('id')},{smaller.get('id')}",
-                        recommendation="Verify tool access for internal step — "
-                                       "consider through-hole or relief groove"
-                                       if not is_counterbore else
-                                       "Counterbore depth and clearance are adequate",
-                    ))
+            # Check XY overlap (boxes intersect)
+            x_overlap = (b1["x"] < b2["x"] + b2["width"] and
+                         b2["x"] < b1["x"] + b1["width"])
+            y_overlap = (b1["y"] < b2["y"] + b2["depth"] and
+                         b2["y"] < b1["y"] + b1["depth"])
+            z_adjacent = abs((b1["z"] + b1["height"]) - b2["z"]) < 0.5 or \
+                         abs((b2["z"] + b2["height"]) - b1["z"]) < 0.5
 
+            if x_overlap and y_overlap and z_adjacent:
+                # T-slot: one box significantly narrower than the other
+                w1 = min(b1["width"], b1["depth"])
+                w2 = min(b2["width"], b2["depth"])
+                wider = max(w1, w2)
+                narrower = min(w1, w2)
+                if wider > 0 and narrower / wider < 0.6:
+                    checks.append(DFMCheck(
+                        "DFM-06", "warning",
+                        f"T-slot pattern: '{b1['id']}' and '{b2['id']}' form "
+                        f"undercut profile (width ratio {narrower/wider:.2f})"
+                        f" (tool_approach=radial)",
+                        feature="t_slot",
+                        recommendation="T-slot requires special tooling — "
+                                       "verify tool access or use open-side design",
+                    ))
     return checks
 
 

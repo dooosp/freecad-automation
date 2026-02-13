@@ -1,338 +1,246 @@
-# Phase 23: DFM 체크 + D4 Manufacturing 치수
+# Phase 24: DFM 고도화 + D4 확장 + 포트폴리오
 
-**베이스**: `master` 3b50889 (Phase 22 완료)
-**총 예상 변경량**: ~800줄 (7개 파일)
+**베이스**: `master` 66c86f9 (Phase 23 완료)
+**총 예상 변경량**: ~520줄 (7개 파일)
+
+---
+
+## 현재 상태 요약
+
+| 영역 | 상태 | 한계 |
+|------|------|------|
+| DFM 체커 (`dfm_checker.py`, 496줄) | 6개 검사, 4공정 | **실린더 중심** — 박스 벽두께 미지원 |
+| DFM-06 언더컷 | 동축 스텝다운 탐지 | 다단 보어 severity 미분화, T-슬롯 미지원 |
+| D4 (`intent_compiler.py`) | 5공정 맵 (선반 중심) | milling 공정 없음, 미매핑 feature는 skip |
+| 템플릿 4종 | `[manufacturing]` 기본값만 | dim_intents에 `process_step` 미할당 |
+| 리포트 (`engineering_report.py`) | 공차/MC/FEM/BOM | **DFM 섹션 없음** |
+| 테스트 | 21개 PASS | — |
 
 ---
 
 ## 구현 단위 (50줄 단위, 순차 검증)
 
-### Unit 1: TOML 스키마 확장 + D4 프리셋 (~50줄)
+### Unit 1: 박스 형상 벽두께 분석 — 헬퍼 (~50줄)
 
-**파일 1**: `configs/templates/flange.toml` (+8줄)
-- `[manufacturing]` 섹션 추가 (process/material/batch_size 기본값)
-- dim_intents에 `process_step` 필드 예시 1건 추가
+**파일**: `scripts/dfm_checker.py`
 
-**파일 2**: `configs/overrides/presets/V1_D4.toml` (신규, ~20줄)
-```toml
-[drawing_plan.dimensioning]
-scheme = "manufacturing"
-process_sequence = ["face", "rough_turn", "bore", "drill", "finish_turn"]
-functional_surface_priority = true
-datum_axis_radial = true
-
-[drawing_plan.manufacturing]
-process = "machining"
-material = "SS304"
-batch_size = 100
-```
-
-**파일 3**: `configs/examples/ks_flange.toml` (+10줄)
-- `[manufacturing]` 섹션 추가 (예시 config에 DFM 입력 제공)
-
-**검증**: TOML 파싱 확인 (`node -e "..."`)
-
----
-
-### Unit 2: DFM 체커 — 코어 프레임워크 (~50줄)
-
-**파일**: `scripts/dfm_checker.py` (신규, L1~50)
-
-```python
-#!/usr/bin/env python3
-"""DFM (Design for Manufacturability) Checker.
-
-Reads enriched config JSON from stdin, analyzes features
-against manufacturing constraints, outputs DFM report JSON.
-
-Usage:
-    cat enriched_config.json | python3 scripts/dfm_checker.py
-"""
-import json, sys, os, math
-sys.path.insert(0, os.path.dirname(__file__))
-
-# Manufacturing constraint tables by process type
-PROCESS_CONSTRAINTS = {
-    "machining":    {"min_wall": 1.5, "hole_edge_factor": 2.0, "hole_spacing_factor": 1.5, "max_drill_ratio": 5.0},
-    "casting":      {"min_wall": 3.0, "hole_edge_factor": 2.5, "hole_spacing_factor": 2.0, "max_drill_ratio": 3.0},
-    "sheet_metal":  {"min_wall": 0.5, "hole_edge_factor": 1.5, "hole_spacing_factor": 1.0, "max_drill_ratio": 10.0},
-    "3d_printing":  {"min_wall": 0.8, "hole_edge_factor": 1.0, "hole_spacing_factor": 1.0, "max_drill_ratio": 20.0},
-}
-
-class DFMCheck:
-    """Single DFM check result."""
-    def __init__(self, code, severity, message, feature=None, recommendation=None):
-        self.code = code
-        self.severity = severity  # "error" | "warning" | "info"
-        self.message = message
-        self.feature = feature
-        self.recommendation = recommendation
-    def to_dict(self):
-        return {k: v for k, v in self.__dict__.items() if v is not None}
-```
-
-**검증**: `python3 -c "import scripts.dfm_checker"` 구문 확인
-
----
-
-### Unit 3: DFM 체커 — 형상 분석 유틸 (~50줄)
-
-**파일**: `scripts/dfm_checker.py` (L51~100)
-
-- `_extract_cylinders(config)`: 모든 실린더 + cut/non-cut 분류
-- `_extract_boxes(config)`: 박스 형상 추출
-- `_calc_wall_thickness(shapes)`: 인접 형상 간 최소 벽 두께 계산
-- `_calc_hole_edge_distance(holes, bodies)`: 홀 중심~외곽 거리
-- `_calc_hole_spacing(holes)`: 홀 간 최소 간격
+`_extract_bodies()` 확장 + 새 헬퍼 추가:
+- `_analyze_box_walls(boxes, holes, outer_ref)`:
+  - box 외벽 ↔ 가장 가까운 hole edge 간 최소 거리
+  - 2개 box가 직교 교차 시 (L-bracket) 교차부 벽두께 계산
+  - housing 패턴: box 내 cavity(cut box)가 있으면 cavity 벽두께
+- `_box_face_pairs(box)`: 대향 면 쌍 추출 (width/height/depth 축별)
+- 반환: `[(wall_mm, feature_desc), ...]`
 
 **검증**: 단위 함수 독립 테스트
 
 ---
 
-### Unit 4: DFM 체커 — DFM-01/02/03 검사 (~60줄)
+### Unit 2: 박스 벽두께 — DFM-01 통합 (~50줄)
 
-**파일**: `scripts/dfm_checker.py` (L101~160)
+**파일**: `scripts/dfm_checker.py`
 
-- `check_wall_thickness(config, constraints)` → DFM-01
-  - non-cut 실린더/박스의 벽 두께 vs min_wall
-  - 인접 cut 실린더와의 거리 계산
-- `check_hole_edge_distance(config, constraints)` → DFM-02
-  - 각 홀의 중심~외곽 거리 ≥ factor × 홀직경
-- `check_hole_spacing(config, constraints)` → DFM-03
-  - 홀 쌍 간 중심거리 ≥ factor × max(직경1, 직경2)
+`check_wall_thickness()` 수정:
+- 기존 실린더 로직 유지 (`feature_type: "cylinder_wall"`)
+- `_analyze_box_walls()` 결과를 DFM-01 체크에 병합
+- 결과에 `feature_type: "box_wall"` 태그 추가
+- L-bracket 교차부: `feature_type: "intersection_wall"`
+- 임계값은 동일 `PROCESS_CONSTRAINTS.min_wall` 사용
 
-**검증**: ks_flange config로 각 체크 실행
-
----
-
-### Unit 5: DFM 체커 — DFM-04/05/06 검사 (~60줄)
-
-**파일**: `scripts/dfm_checker.py` (L161~220)
-
-- `check_fillet_chamfer(config, constraints)` → DFM-04
-  - operations에 chamfer/fillet 없는 cut → 내부 코너 경고
-- `check_drill_ratio(config, constraints)` → DFM-05
-  - cut 실린더의 height/diameter ≥ max_drill_ratio → 경고
-- `check_undercut(config, constraints)` → DFM-06
-  - 내부 단차 (큰 실린더 위 작은 실린더 cut) 감지
-
-**검증**: 각 체크 함수 독립 실행
+**검증**: ks_flange (기존 통과) + 신규 box config 테스트
 
 ---
 
-### Unit 6: DFM 체커 — 메인 엔트리 + 점수 계산 (~60줄)
+### Unit 3: 복합 형상 언더컷 개선 (~50줄)
 
-**파일**: `scripts/dfm_checker.py` (L221~280)
+**파일**: `scripts/dfm_checker.py`
 
-```python
-def run_dfm_check(config):
-    """Run all DFM checks and return report."""
-    mfg = config.get("manufacturing", {})
-    process = mfg.get("process", "machining")
-    constraints = PROCESS_CONSTRAINTS.get(process, PROCESS_CONSTRAINTS["machining"])
+`check_undercut()` 확장:
+- **다단 보어**: 3단계+ 동축 감소 시 severity `warning` → `error` 상향
+  - 기존 2단 = warning 유지, 3단+ = error
+- **T-슬롯 탐지**: `_detect_t_slot(boxes)` 신규
+  - 두 box 교차 여부: 위치 + 크기로 겹침 판단
+  - 한쪽 폭 < 다른쪽 폭의 60% → T-슬롯 패턴
+  - `DFM-06` 코드, severity=warning, feature="t_slot"
+- **도구 접근성**: 기존 undercut에 `tool_approach: "axial"|"radial"` 추가
 
-    checks = []
-    checks.extend(check_wall_thickness(config, constraints))
-    checks.extend(check_hole_edge_distance(config, constraints))
-    checks.extend(check_hole_spacing(config, constraints))
-    checks.extend(check_fillet_chamfer(config, constraints))
-    checks.extend(check_drill_ratio(config, constraints))
-    checks.extend(check_undercut(config, constraints))
+**검증**: 다단 보어 config + T-슬롯 config 테스트
 
-    # Score: 100 - deductions
-    errors = sum(1 for c in checks if c.severity == "error")
-    warnings = sum(1 for c in checks if c.severity == "warning")
-    score = max(0, 100 - errors * 15 - warnings * 5)
+---
 
-    return {
-        "success": True,
-        "process": process,
-        "material": mfg.get("material", "unknown"),
-        "checks": [c.to_dict() for c in checks],
-        "summary": {"errors": errors, "warnings": warnings, "info": ...},
-        "score": score,
-    }
+### Unit 4: 템플릿 [manufacturing] 확장 (~40줄)
 
-if __name__ == "__main__":
-    config = json.load(sys.stdin)
-    result = run_dfm_check(config)
-    json.dump(result, sys.stdout, indent=2)
+**파일**: `configs/templates/{shaft,bracket,housing,flange}.toml`
+
+각 템플릿의 `[manufacturing]` 섹션에 `process_sequence` 추가 + dim_intents에 `process_step` 매핑:
+
+**shaft.toml** (+10줄):
+```toml
+[manufacturing]
+process_sequence = ["face", "rough_turn", "finish_turn", "drill", "bore"]
+# dim_intents 매핑: TOTAL_LENGTH→face, OD1/OD2→rough_turn, KEYWAY_W→finish_turn
 ```
 
-**검증**: `fcad create ... | python3 scripts/dfm_checker.py`
+**bracket.toml** (+10줄):
+```toml
+[manufacturing]
+process_sequence = ["face", "rough_mill", "drill", "deburr"]
+# dim_intents 매핑: WIDTH/HEIGHT→face, THK/WEB_H→rough_mill, HOLE_DIA→drill
+```
+
+**housing.toml** (+10줄):
+```toml
+[manufacturing]
+process_sequence = ["face", "rough_mill", "bore", "drill", "finish_mill"]
+# dim_intents 매핑: WIDTH/HEIGHT/DEPTH→face, WALL_THK→rough_mill, BORE_ID→bore
+```
+
+**flange.toml** (+10줄): 기존 확인 + `process_sequence` 보강
+
+**검증**: TOML 파싱 확인 (`node -e "..."`)
 
 ---
 
-### Unit 7: CLI — fcad dfm 명령 (~50줄)
+### Unit 5: D4 공정 맵 확장 (~50줄)
+
+**파일**: `scripts/intent_compiler.py`
+
+`PROCESS_FEATURE_MAP` + `TOLERANCE_GRADE_MAP` 확장:
+```python
+# 밀링 공정 추가
+PROCESS_FEATURE_MAP["rough_mill"] = ["width", "height", "depth", "wall_thickness"]
+PROCESS_FEATURE_MAP["finish_mill"] = ["surface_finish", "flatness"]
+PROCESS_FEATURE_MAP["deburr"] = ["edge_break"]
+
+TOLERANCE_GRADE_MAP["rough_mill"] = "IT11"
+TOLERANCE_GRADE_MAP["finish_mill"] = "IT8"
+TOLERANCE_GRADE_MAP["deburr"] = "IT12"
+```
+
+`_apply_d4_manufacturing()` 수정:
+- 미매핑 feature → `"general"` 공정으로 폴백 (현재 skip)
+- `TOLERANCE_GRADE_MAP["general"] = "IT12"` 추가
+- 폴백 시 info 로그 출력
+
+**검증**: bracket config + D4 프리셋 → rough_mill 할당 확인
+
+---
+
+### Unit 6: DFM 리포트 — engineering_report 확장 (~50줄)
+
+**파일**: `scripts/engineering_report.py`
+
+`_render_dfm_section(ax, dfm_results)` 신규:
+- DFM 스코어 바 차트 (0~100, 색상: 80+=초록, 50+=노랑, <50=빨강)
+- 체크 결과 요약 테이블: 코드 | 심각도 | 건수
+- 공정 시퀀스 시각화 (process_step별 그룹)
+
+레이아웃 변경:
+- 기존 2×2 그리드 → 3×2 (DFM 스코어 + DFM 테이블 추가)
+- DFM 결과 없으면 기존 2×2 유지 (하위 호환)
+
+**검증**: DFM 결과 포함 리포트 생성 확인
+
+---
+
+### Unit 7: DFM 리포트 — CLI 통합 (~30줄)
 
 **파일**: `bin/fcad.js`
 
-- USAGE에 `fcad dfm <config.toml|json>` 추가 (+2줄)
-- `main()`에 `command === 'dfm'` 분기 (+5줄)
-- `cmdDfm(configPath, flags)` 함수 (+40줄):
-  - `loadConfig(absPath)` → manufacturing 섹션 주입
-  - `--process machining|casting|...` 플래그 지원
-  - `runScript('dfm_checker.py', config)` 호출
-  - 결과 포맷팅: 체크별 색상 출력 (error=빨강, warning=노랑, info=초록)
-  - DFM 점수 표시, exit code: 0=pass, 1=fail(≥1 error)
+`cmdReport()` 수정:
+- `--dfm` 플래그 추가
+- `--dfm` 시: DFM 체커 먼저 실행 → 결과를 report config에 `dfm_results`로 주입
+- USAGE 문자열 업데이트
 
-**검증**: `fcad dfm configs/examples/ks_flange.toml`
+**검증**: `fcad report config.toml --dfm` 실행
 
 ---
 
-### Unit 8: D4 Manufacturing 치수 — intent_compiler 확장 (~50줄)
+### Unit 8: 테스트 보강 — DFM (~50줄)
 
-**파일**: `scripts/intent_compiler.py`
+**파일**: `tests/test_dfm.py`
 
-- `KNOWN_PART_TYPES`에 변경 없음 (D4는 part_type 아닌 dimensioning scheme)
-- `merge_plan()` (L263~329)에 D4 처리 로직 추가:
-  - `scheme == "manufacturing"` 감지
-  - `process_sequence` 배열에 따라 dim_intents 정렬
-  - 각 dim_intent에 `process_step` 자동 추론 (feature → 공정 매핑)
-  - 기능면 우선순위 부스트 (`functional_surface_priority`)
+| 테스트 클래스 | 신규 케이스 | 내용 |
+|-------------|-----------|------|
+| TestDFM01WallThickness | +2 | `box_thin_wall_error`, `bracket_intersection_wall` |
+| TestDFM06Undercut | +2 | `multi_step_bore_error`, `t_slot_detection` |
+| TestD4ManufacturingStrategy | +2 | `milling_process_assignment`, `unmapped_feature_fallback` |
 
-공정→피처 매핑 테이블:
-```python
-PROCESS_FEATURE_MAP = {
-    "face":        ["thickness", "height"],
-    "rough_turn":  ["outer_diameter"],
-    "bore":        ["inner_diameter"],
-    "drill":       ["bolt_hole_diameter", "bolt_circle_diameter"],
-    "finish_turn": ["fillet_radius", "chamfer"],
-}
-```
+총 테스트: 21 → 27개
 
-**검증**: `--classify-only` 모드로 D4 적용 확인
+**검증**: `python3 tests/test_dfm.py --verbose` 전체 통과
 
 ---
 
-### Unit 9: D4 Manufacturing 치수 — _dim_plan 그루핑 (~50줄)
+### Unit 9: 테스트 보강 — DFM 리포트 (~30줄)
 
-**파일**: `scripts/_dim_plan.py`
+**파일**: `tests/test_dfm.py`
 
-- `render_plan_dimensions_svg()` (L398)에 `process_group` 파라미터 추가
-- D4 모드일 때 dim_intents를 `process_step` 기준으로 그루핑
-- 같은 공정 그룹의 치수는 인접 배치 (offset 연속)
-- 그룹 간 시각적 분리 (gap 2배)
-- 공정 그룹 레이블 옵션 (dim_intents 위에 작은 텍스트)
+| 테스트 클래스 | 신규 케이스 | 내용 |
+|-------------|-----------|------|
+| TestDFMReport (신규) | +2 | `dfm_section_rendered`, `no_dfm_fallback_layout` |
 
-**검증**: D4 프리셋으로 draw 실행 → SVG 치수 그루핑 육안 확인
+총 테스트: 27 → 29개
 
----
-
-### Unit 10: D4 Manufacturing 치수 — intent_compiler 피처 매핑 확장 (~50줄)
-
-**파일**: `scripts/intent_compiler.py`
-
-- `_infer_process_step(dim_intent, process_seq)`: 피처 ID에서 공정 단계 추론
-- `_sort_by_process(dim_intents, process_seq)`: 공정 순서대로 정렬
-- 공차 등급 매핑: `tolerance_grade_mapping = true`일 때
-  - 황삭(rough): IT11~IT14
-  - 정삭(finish): IT6~IT9
-  - dim_intent에 `tolerance_grade` 자동 삽입
-- 기준축 방사형 치수: `datum_axis_radial = true`일 때
-  - 회전체 피처의 치수를 중심축 기준으로 배치
-
-**검증**: flange config + D4 프리셋 → enriched plan의 process_step/tolerance_grade 확인
+**검증**: 전체 테스트 실행
 
 ---
 
-### Unit 11: QA Scorer — DFM 메트릭 통합 (~50줄)
+### Unit 10: 포트폴리오 반영 (~40줄)
 
-**파일**: `scripts/qa_scorer.py`
+**파일**: `~/portfolio/PORTFOLIO.md`
 
-- `WEIGHTS` dict에 DFM 메트릭 추가 (L49 이후):
-  ```python
-  "dfm_error_count":   10,  # per error
-  "dfm_warning_count":  3,  # per warning
-  ```
-- `WEIGHT_PRESETS`에 DFM 가중치 추가 (제조 중요 파트에 높은 가중)
-- `collect_dfm_metrics(config)` 함수 신규:
-  - `dfm_checker.run_dfm_check(config)` 호출
-  - error/warning 카운트 반환
-- `compute_score()`에 DFM 메트릭 통합 (기존 패턴 따름)
+Phase 12~24 성과 추가 (문제→해결→결과 프레임):
+- **TechDraw 자동 도면**: KS 규격 GD&T + SVG 후처리 + 프리셋 12종
+- **DFM 체커**: 8개 검사 (박스+실린더), 4공정, 제조성 점수
+- **D4 치수 전략**: 공정 시퀀스 그루핑, IT 등급 자동매핑, 밀링 확장
+- 수치 업데이트: "~21,500줄", "테스트 29개", "Phase 24"
 
-**검증**: `python3 scripts/qa_scorer.py output.svg --json /tmp/qa.json` → DFM 필드 확인
-
----
-
-### Unit 12: 테스트 — DFM 체커 단위 테스트 (~60줄)
-
-**파일**: `tests/test_dfm.py` (신규)
-
-```python
-# Test cases:
-# 1. 정상 config → 0 errors, score 100
-# 2. 얇은 벽 (1mm, machining) → DFM-01 error
-# 3. 홀이 엣지 가까이 → DFM-02 error
-# 4. 홀 간격 좁음 → DFM-03 error
-# 5. chamfer 없음 → DFM-04 warning
-# 6. 깊은 드릴 (10:1) → DFM-05 warning
-# 7. 언더컷 존재 → DFM-06 warning
-# 8. 공정별 기준 차이 (casting vs machining)
-# 9. D4 프리셋 적용 → dim_intents에 process_step 존재
-```
-
-**검증**: `python3 tests/test_dfm.py --verbose`
-
----
-
-### Unit 13: 테스트 — D4 통합 + 프리셋 테스트 (~40줄)
-
-**파일**: `tests/test_presets.py` (+40줄)
-
-- V1_D4 프리셋 파싱 + 기대값 검증 추가
-- D4 프리셋 draw 실행 → QA 점수 범위 검증 (≥ 70)
-- process_step 필드 존재 확인
-- 공차 등급 매핑 확인
-
-**검증**: `python3 tests/test_presets.py --verbose`
+**빌드**: `bash ~/portfolio/build.sh` → PDF 재생성
 
 ---
 
 ## 수정 파일 요약
 
-| 파일 | 변경 | 줄 수 |
-|------|------|-------|
-| `scripts/dfm_checker.py` (신규) | DFM 6개 검사 + 점수 | ~280 |
-| `scripts/intent_compiler.py` | D4 공정 매핑 + 정렬 + 공차 | +100 |
-| `scripts/_dim_plan.py` | D4 공정 그루핑 렌더링 | +50 |
-| `scripts/qa_scorer.py` | DFM 메트릭 통합 | +50 |
-| `bin/fcad.js` | dfm 명령 추가 | +50 |
-| `configs/overrides/presets/V1_D4.toml` (신규) | D4 프리셋 | ~20 |
-| `configs/templates/flange.toml` | manufacturing 섹션 | +8 |
-| `configs/examples/ks_flange.toml` | manufacturing 예시 | +10 |
-| `tests/test_dfm.py` (신규) | DFM 단위 테스트 | ~60 |
-| `tests/test_presets.py` | D4 프리셋 테스트 | +40 |
-| **합계** | | **~670** |
+| 파일 | 변경 유형 | 예상 줄수 | Unit |
+|------|----------|----------|------|
+| `scripts/dfm_checker.py` | 수정 | +150 | 1,2,3 |
+| `scripts/intent_compiler.py` | 수정 | +50 | 5 |
+| `scripts/engineering_report.py` | 수정 | +80 | 6 |
+| `configs/templates/*.toml` (4파일) | 수정 | +40 | 4 |
+| `bin/fcad.js` | 수정 | +30 | 7 |
+| `tests/test_dfm.py` | 수정 | +80 | 8,9 |
+| `~/portfolio/PORTFOLIO.md` | 수정 | +40 | 10 |
+| **합계** | | **~470** | |
 
 ---
 
 ## 구현 순서 (의존성 기반)
 
 ```
-Unit 1  : TOML 스키마 + D4 프리셋      ← 독립
-Unit 2-6: DFM 체커 (순차)              ← 독립
-Unit 7  : CLI dfm 명령                 ← Unit 6 이후
-Unit 8  : D4 intent_compiler 확장      ← Unit 1 이후
-Unit 9  : D4 _dim_plan 그루핑          ← Unit 8 이후
-Unit 10 : D4 피처 매핑 확장            ← Unit 8 이후 (Unit 9와 병렬 가능)
-Unit 11 : QA Scorer DFM 통합           ← Unit 6 이후
-Unit 12 : DFM 테스트                   ← Unit 6, 7 이후
-Unit 13 : D4 통합 테스트               ← Unit 8, 9, 10 이후
+Unit 1-2 (박스 벽두께)  ──┐
+Unit 3   (언더컷 개선)  ──┤
+Unit 4   (템플릿 확장)  ──┼── Unit 8 (테스트-DFM)
+Unit 5   (D4 공정 맵)  ──┤
+Unit 6-7 (DFM 리포트)  ──┴── Unit 9 (테스트-리포트)
+                                  └── Unit 10 (포트폴리오)
 ```
+
+Unit 1~7: 병렬 가능 (의존성 없음)
+Unit 8~9: Unit 1~7 완료 후
+Unit 10: 최후
 
 ---
 
 ## 커밋 전략
 
-| 커밋 | 내용 | 단위 |
+| 커밋 | 내용 | Unit |
 |------|------|------|
-| `P23-1` | feat: DFM checker with 6 manufacturing checks | Unit 2~6 |
-| `P23-2` | feat: fcad dfm CLI command | Unit 7 |
-| `P23-3` | feat: D4 manufacturing dimension strategy | Unit 1, 8~10 |
-| `P23-4` | feat: QA scorer DFM metrics integration | Unit 11 |
-| `P23-5` | test: DFM + D4 test suite | Unit 12~13 |
+| `P24-1` | feat: box wall thickness + composite undercut DFM checks | 1,2,3 |
+| `P24-2` | feat: D4 milling process map + template manufacturing sections | 4,5 |
+| `P24-3` | feat: DFM report integration in engineering report | 6,7 |
+| `P24-4` | test: Phase 24 DFM + D4 test suite (29 cases) | 8,9 |
+| `P24-5` | docs: portfolio Phase 12-24 achievements | 10 |
 
 ---
 
@@ -340,7 +248,7 @@ Unit 13 : D4 통합 테스트               ← Unit 8, 9, 10 이후
 
 | 리스크 | 대응 |
 |--------|------|
-| 벽 두께 계산이 복잡한 형상에서 부정확 | 인접 실린더/박스 기반 근사치 사용, 정확도 한계 문서화 |
-| 공정→피처 매핑이 파트 유형마다 다름 | 기본 매핑 테이블 + 사용자 오버라이드 지원 |
-| D4 치수 그루핑이 기존 레이아웃과 충돌 | 그룹 간 gap 확대 + overflow 감지 |
-| DFM 점수와 QA 점수 이중 감점 | DFM은 별도 카테고리, QA 감점은 경미하게 (3~10점) |
+| L-bracket 교차부 벽두께 계산 부정확 | 직교 박스 교차만 지원, 비직교는 Phase 25로 |
+| T-슬롯 탐지가 TOML 형상에서 어려움 | boolean subtract 패턴 (box cut 교차)으로 간접 탐지 |
+| 리포트 레이아웃 3×2에서 DFM 테이블 overflow | 체크 5건 초과 시 상위 5건만 표시 + 요약 |
+| 밀링 공정 맵이 실제 가공과 불일치 | 기본 매핑 + `process_step` 수동 오버라이드 유지 |

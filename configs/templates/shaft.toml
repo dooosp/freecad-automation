@@ -123,6 +123,14 @@ style = "linear"
 required = false
 priority = 35
 
+# --- Manufacturing defaults (for DFM + D4 strategy) ---
+[manufacturing]
+process = "machining"
+material = "SS304"
+batch_size = 1
+min_wall_override = 0
+process_sequence = ["face", "rough_turn", "finish_turn", "drill", "bore"]
+
 # --- Notes ---
 [notes]
 general = [

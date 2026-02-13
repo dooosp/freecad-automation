@@ -122,6 +122,14 @@ style = "linear"
 required = false
 priority = 35
 
+# --- Manufacturing defaults (for DFM + D4 strategy) ---
+[manufacturing]
+process = "machining"
+material = "AL6061-T6"
+batch_size = 1
+min_wall_override = 0
+process_sequence = ["face", "rough_mill", "drill", "deburr"]
+
 # --- Notes ---
 [notes]
 general = [

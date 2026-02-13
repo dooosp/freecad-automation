@@ -32,8 +32,12 @@ try:
     mc = config.get("monte_carlo_results", None)
     fem = config.get("fem_results", None)
     bom = config.get("bom", [])
+    dfm = config.get("dfm_results", None)
     pairs = tolerance.get("pairs", [])
     stack = tolerance.get("stack_up", {})
+
+    # Choose layout based on DFM data presence
+    has_dfm = dfm and dfm.get("checks") is not None
 
     with PdfPages(pdf_path) as pdf:
         fig = plt.figure(figsize=(11.69, 8.27))  # A4 landscape (inches)
@@ -43,9 +47,10 @@ try:
         fig.text(0.5, 0.94, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
                  ha='center', fontsize=8, color='#666')
 
-        # Layout: 2x2 grid
+        # Layout: 2x2 (no DFM) or 3x2 (with DFM)
         # Top-left: Tolerance table | Top-right: MC histogram
         # Bottom-left: FEM summary  | Bottom-right: BOM table
+        # (DFM page 2: DFM Score + DFM Details)
 
         # --- Section 1: Tolerance Analysis Table (top-left) ---
         ax1 = fig.add_axes([0.05, 0.52, 0.43, 0.38])
@@ -185,6 +190,96 @@ try:
 
         pdf.savefig(fig)
         plt.close(fig)
+
+        # --- DFM Page (page 2, only if dfm_results present) ---
+        if has_dfm:
+            fig2 = plt.figure(figsize=(11.69, 8.27))
+            fig2.suptitle(f"DFM Analysis: {model_name}", fontsize=14, fontweight='bold', y=0.97)
+            fig2.text(0.5, 0.94,
+                      f"Process: {dfm.get('process', '?')} | Material: {dfm.get('material', '?')}",
+                      ha='center', fontsize=9, color='#666')
+
+            # Left: DFM Score gauge
+            ax_score = fig2.add_axes([0.05, 0.52, 0.40, 0.38])
+            score = dfm.get("score", 0)
+            score_color = '#2ecc71' if score >= 80 else '#f39c12' if score >= 50 else '#e74c3c'
+            ax_score.barh([0], [score], color=score_color, height=0.5, edgecolor='white')
+            ax_score.barh([0], [100], color='#ecf0f1', height=0.5, edgecolor='#ccc', zorder=0)
+            ax_score.set_xlim(0, 100)
+            ax_score.set_yticks([])
+            ax_score.set_title("DFM Score", fontsize=10, fontweight='bold', loc='left')
+            ax_score.text(score / 2, 0, f"{score}/100", ha='center', va='center',
+                          fontsize=14, fontweight='bold', color='white')
+
+            # Summary counts below score
+            summary = dfm.get("summary", {})
+            summary_text = (f"Errors: {summary.get('errors', 0)}  |  "
+                            f"Warnings: {summary.get('warnings', 0)}  |  "
+                            f"Info: {summary.get('info', 0)}")
+            ax_score.text(0, -0.15, summary_text, fontsize=9, color='#333',
+                          transform=ax_score.transAxes)
+
+            # Right: DFM Check details table
+            ax_detail = fig2.add_axes([0.50, 0.52, 0.46, 0.38])
+            ax_detail.set_title("DFM Checks", fontsize=10, fontweight='bold', loc='left')
+            ax_detail.axis('off')
+
+            checks = dfm.get("checks", [])
+            if checks:
+                # Show top 8 checks max
+                display_checks = checks[:8]
+                col_labels = ["Code", "Severity", "Message"]
+                table_data = []
+                for c in display_checks:
+                    msg = c.get("message", "")
+                    if len(msg) > 60:
+                        msg = msg[:57] + "..."
+                    table_data.append([
+                        c.get("code", "?"),
+                        c.get("severity", "?"),
+                        msg,
+                    ])
+                tbl = ax_detail.table(cellText=table_data, colLabels=col_labels,
+                                      loc='upper left', cellLoc='left',
+                                      colWidths=[0.12, 0.12, 0.76])
+                tbl.auto_set_font_size(False)
+                tbl.set_fontsize(7)
+                tbl.scale(1, 1.3)
+                for (r, c_idx), cell in tbl.get_celld().items():
+                    if r == 0:
+                        cell.set_facecolor('#2c3e50')
+                        cell.set_text_props(color='white', fontweight='bold')
+                    elif c_idx == 1:
+                        sev = table_data[r - 1][1]
+                        color = '#e74c3c' if sev == 'error' else '#f39c12' if sev == 'warning' else '#3498db'
+                        cell.set_text_props(color=color, fontweight='bold')
+                if len(checks) > 8:
+                    ax_detail.text(0, -0.05, f"... +{len(checks) - 8} more checks",
+                                   fontsize=7, color='#999', transform=ax_detail.transAxes)
+            else:
+                ax_detail.text(0.5, 0.5, "No DFM issues found",
+                               ha='center', va='center', fontsize=10, color='#2ecc71')
+
+            # Bottom: Recommendations
+            ax_rec = fig2.add_axes([0.05, 0.08, 0.90, 0.38])
+            ax_rec.set_title("Recommendations", fontsize=10, fontweight='bold', loc='left')
+            ax_rec.axis('off')
+
+            recs = [c.get("recommendation", "") for c in checks if c.get("recommendation")]
+            if recs:
+                rec_text = "\n".join(f"  {i+1}. {r}" for i, r in enumerate(recs[:6]))
+                ax_rec.text(0, 0.95, rec_text, fontsize=8, va='top', color='#333',
+                            transform=ax_rec.transAxes, family='monospace')
+            else:
+                ax_rec.text(0.5, 0.5, "Design is manufacturing-ready",
+                            ha='center', va='center', fontsize=11, color='#2ecc71')
+
+            fig2.text(0.5, 0.02,
+                      f"Generated by fcad | {model_name} | {datetime.now().strftime('%Y-%m-%d')}",
+                      ha='center', fontsize=7, color='#999')
+
+            pdf.savefig(fig2)
+            plt.close(fig2)
 
     file_size = os.path.getsize(pdf_path)
     log(f"  PDF exported: {pdf_path} ({file_size} bytes)")
