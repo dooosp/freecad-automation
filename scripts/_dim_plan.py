@@ -175,11 +175,13 @@ def _placement_cfg(di):
     if not isinstance(p, dict):
         p = {}
     side = p.get("side", di.get("placement_side"))
-    offset_mm = p.get("offset_mm", di.get("placement_offset_mm"))
+    offset_mm = p.get("offset_mm", di.get("placement_offset_mm", 0.0))
     angle_deg = p.get("angle_deg", di.get("placement_angle_deg"))
+    if not isinstance(offset_mm, (int, float)):
+        offset_mm = 0.0
     return {
         "side": str(side).lower() if isinstance(side, str) else None,
-        "offset_mm": offset_mm if isinstance(offset_mm, (int, float)) else None,
+        "offset_mm": float(offset_mm),
         "angle_deg": angle_deg if isinstance(angle_deg, (int, float)) else None,
     }
 

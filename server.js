@@ -1,14 +1,13 @@
 import express from 'express';
 import { WebSocketServer } from 'ws';
 import { createServer } from 'node:http';
-import { readdir, readFile, mkdtemp, rm } from 'node:fs/promises';
-import { join } from 'node:path';
+import { readdir, readFile, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { join, resolve as resolvePath, sep as pathSep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { parse as parseTOML } from 'smol-toml';
 import { runScript } from './lib/runner.js';
 import { designFromTextStreaming } from './scripts/design-reviewer.js';
 import { updateDimIntent, readDimIntents } from './lib/toml-writer.js';
-import { writeFile } from 'node:fs/promises';
 import { execSync } from 'node:child_process';
 import { stringify as tomlStringify } from 'smol-toml';
 
@@ -16,6 +15,17 @@ const PUBLIC_DIR = join(import.meta.dirname, 'public');
 const EXAMPLES_DIR = join(import.meta.dirname, 'configs', 'examples');
 const OUTPUT_DIR = join(import.meta.dirname, 'output');
 const SCRIPTS_DIR = join(import.meta.dirname, 'scripts');
+const OUTPUT_DIR_ABS = resolvePath(OUTPUT_DIR);
+
+function isSafePlanPath(absPath) {
+  if (typeof absPath !== 'string' || !absPath) return false;
+  const normalized = resolvePath(absPath);
+  const outputPrefix = `${OUTPUT_DIR_ABS}${pathSep}`;
+  if (!(normalized === OUTPUT_DIR_ABS || normalized.startsWith(outputPrefix))) {
+    return false;
+  }
+  return normalized.endsWith('_plan.toml');
+}
 
 export function startServer(port = 3000) {
   const app = express();
@@ -41,6 +51,7 @@ export function startServer(port = 3000) {
 
   wss.on('connection', (ws) => {
     ws._building = false;
+    ws._lastPlanPath = null;
 
     ws.on('message', async (raw) => {
       let msg;
@@ -107,7 +118,7 @@ export function startServer(port = 3000) {
     }
   }
 
-  async function handleDraw(ws, tomlStr) {
+  async function handleDraw(ws, tomlStr, opts = {}) {
     if (!tomlStr) {
       return sendJSON(ws, { type: 'error', message: 'TOML config is required for drawing' });
     }
@@ -138,8 +149,35 @@ export function startServer(port = 3000) {
       }
       config.drawing.bom_csv = true;
 
-      // Intent compiler: enrich config with drawing_plan
+      // Reuse edited plan when explicitly requested (interactive dim editing)
       let planPath = '';
+      const forcedPlanPath = opts.planPath ? resolvePath(opts.planPath) : '';
+      if (forcedPlanPath) {
+        if (!isSafePlanPath(forcedPlanPath)) {
+          return sendJSON(ws, { type: 'error', message: 'Unsafe plan path rejected' });
+        }
+        if (ws._lastPlanPath && forcedPlanPath !== ws._lastPlanPath) {
+          return sendJSON(ws, { type: 'error', message: 'Plan path does not match active drawing session' });
+        }
+        try {
+          const planRaw = await readFile(forcedPlanPath, 'utf8');
+          const planData = parseTOML(planRaw);
+          if (!planData.drawing_plan) {
+            return sendJSON(ws, { type: 'error', message: 'Edited plan is missing drawing_plan section' });
+          }
+          config.drawing_plan = planData.drawing_plan;
+          const planViews = config.drawing_plan?.views?.enabled;
+          if (planViews && planViews.length > 0) {
+            config.drawing.views = planViews;
+          }
+          planPath = forcedPlanPath;
+          sendJSON(ws, { type: 'progress', text: 'Applying edited plan...' });
+        } catch (e) {
+          return sendJSON(ws, { type: 'error', message: `Failed to load edited plan: ${e.message}` });
+        }
+      }
+
+      // Intent compiler: enrich config with drawing_plan (only when no forced plan)
       if (!config.drawing_plan) {
         try {
           sendJSON(ws, { type: 'progress', text: 'Running intent compiler...' });
@@ -164,12 +202,17 @@ export function startServer(port = 3000) {
       // Save plan for interactive editing
       if (config.drawing_plan) {
         const modelName = config.name || 'unnamed';
-        planPath = join(OUTPUT_DIR, `${modelName}_plan.toml`);
+        const targetPlanPath = planPath || join(OUTPUT_DIR, `${modelName}_plan.toml`);
         try {
-          await writeFile(planPath, tomlStringify({ drawing_plan: config.drawing_plan }), 'utf8');
+          await writeFile(targetPlanPath, tomlStringify({ drawing_plan: config.drawing_plan }), 'utf8');
+          planPath = resolvePath(targetPlanPath);
+          ws._lastPlanPath = isSafePlanPath(planPath) ? planPath : null;
         } catch (_) {
           planPath = '';
+          ws._lastPlanPath = null;
         }
+      } else {
+        ws._lastPlanPath = null;
       }
 
       sendJSON(ws, { type: 'progress', text: 'Generating engineering drawing...' });
@@ -201,7 +244,7 @@ export function startServer(port = 3000) {
         bom: result.bom || [],
         views: result.views || [],
         scale: result.scale || '1:1',
-        plan_path: planPath,
+        plan_path: ws._lastPlanPath || planPath,
       });
 
       sendJSON(ws, { type: 'complete' });
@@ -221,12 +264,14 @@ export function startServer(port = 3000) {
   // { tomlStr, planPath }
 
   async function handleGetDimensions(ws, msg) {
-    const planPath = msg.plan_path;
-    if (!planPath) {
-      return sendJSON(ws, { type: 'error', message: 'plan_path is required' });
+    if (!ws._lastPlanPath) {
+      return sendJSON(ws, { type: 'error', message: 'No active plan. Generate a drawing first.' });
+    }
+    if (msg.plan_path && resolvePath(msg.plan_path) !== ws._lastPlanPath) {
+      return sendJSON(ws, { type: 'error', message: 'plan_path mismatch for this session' });
     }
     try {
-      const dims = await readDimIntents(planPath);
+      const dims = await readDimIntents(ws._lastPlanPath);
       sendJSON(ws, { type: 'dimensions_list', dimensions: dims });
     } catch (err) {
       sendJSON(ws, { type: 'error', message: `Failed to read dimensions: ${err.message}` });
@@ -234,21 +279,27 @@ export function startServer(port = 3000) {
   }
 
   async function handleUpdateDimension(ws, msg) {
-    const { dim_id, value_mm, plan_path, config_toml } = msg;
+    const { dim_id, value_mm, plan_path, config_toml, history_op } = msg;
 
-    if (!dim_id || value_mm === undefined || !plan_path) {
-      return sendJSON(ws, { type: 'error', message: 'dim_id, value_mm, and plan_path are required' });
+    if (!dim_id || value_mm === undefined) {
+      return sendJSON(ws, { type: 'error', message: 'dim_id and value_mm are required' });
     }
 
     if (ws._building) {
       return sendJSON(ws, { type: 'error', message: 'Build in progress — wait before editing' });
+    }
+    if (!ws._lastPlanPath) {
+      return sendJSON(ws, { type: 'error', message: 'No active plan. Generate a drawing first.' });
+    }
+    if (plan_path && resolvePath(plan_path) !== ws._lastPlanPath) {
+      return sendJSON(ws, { type: 'error', message: 'plan_path mismatch for this session' });
     }
 
     try {
       sendJSON(ws, { type: 'progress', text: `Updating ${dim_id} to ${value_mm}...` });
 
       // Update TOML plan file
-      const result = await updateDimIntent(plan_path, dim_id, value_mm);
+      const result = await updateDimIntent(ws._lastPlanPath, dim_id, value_mm);
       if (!result.ok) {
         return sendJSON(ws, { type: 'error', message: result.error });
       }
@@ -258,12 +309,13 @@ export function startServer(port = 3000) {
         dim_id,
         old_value: result.oldValue,
         new_value: value_mm,
+        history_op: history_op || 'edit',
       });
 
       // If config TOML is provided, re-draw with updated plan
       if (config_toml) {
         sendJSON(ws, { type: 'progress', text: 'Regenerating drawing...' });
-        await handleDraw(ws, config_toml);
+        await handleDraw(ws, config_toml, { planPath: ws._lastPlanPath });
       }
     } catch (err) {
       sendJSON(ws, { type: 'error', message: `Dimension update failed: ${err.message}` });

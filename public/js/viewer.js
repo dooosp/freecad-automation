@@ -483,7 +483,16 @@ function connectWS() {
         break;
 
       case 'dimension_updated':
-        addEditHistory(msg.dim_id, msg.old_value, msg.new_value);
+        if ((msg.history_op || 'edit') === 'edit') {
+          addEditHistory(msg.dim_id, msg.old_value, msg.new_value);
+        } else if (msg.history_op === 'undo') {
+          if (dimEditIndex >= 0) dimEditIndex--;
+          updateEditPanel();
+        } else if (msg.history_op === 'redo') {
+          if (dimEditIndex < dimEditHistory.length - 1) dimEditIndex++;
+          updateEditPanel();
+        }
+        dimEditPending = null;
         break;
 
       case 'dimensions_list':
@@ -504,6 +513,7 @@ function connectWS() {
 
       case 'error':
         setStatus(msg.message, 'error');
+        dimEditPending = null;
         btnBuild.disabled = false;
         btnDesign.disabled = false;
         break;
@@ -1132,10 +1142,12 @@ let dimEditHistory = [];       // [{dim_id, oldValue, newValue}]
 let dimEditIndex = -1;         // current position in history
 let dimEditInput = null;       // active <input> element
 let dimEditing = false;        // true while editing
+let dimEditPending = null;     // {op: 'edit'|'undo'|'redo', dimId}
 
 function initDimEditing() {
   dimEditHistory = [];
   dimEditIndex = -1;
+  dimEditPending = null;
   closeDimEdit();
 
   const svgEl = drawingContainer.querySelector('svg');
@@ -1239,12 +1251,19 @@ function submitDimEdit(input) {
 
   // Send update to server
   if (ws && ws.readyState === WebSocket.OPEN) {
+    if (dimEditPending) {
+      setStatus('Please wait for current edit to finish', 'progress');
+      closeDimEdit();
+      return;
+    }
+    dimEditPending = { op: 'edit', dimId };
     ws.send(JSON.stringify({
       action: 'update_dimension',
       dim_id: dimId,
       value_mm: newValue,
       plan_path: lastDrawPlanPath || '',
       config_toml: editor.value,
+      history_op: 'edit',
     }));
     setStatus(`Updating ${dimId}: ${origValue} → ${newValue}...`, 'progress');
   }
@@ -1271,34 +1290,36 @@ function addEditHistory(dimId, oldValue, newValue) {
 }
 
 function undoDimEdit() {
-  if (dimEditIndex < 0) return;
+  if (dimEditIndex < 0 || dimEditPending) return;
   const entry = dimEditHistory[dimEditIndex];
-  dimEditIndex--;
 
   if (ws && ws.readyState === WebSocket.OPEN) {
+    dimEditPending = { op: 'undo', dimId: entry.dimId };
     ws.send(JSON.stringify({
       action: 'update_dimension',
       dim_id: entry.dimId,
       value_mm: entry.oldValue,
       plan_path: lastDrawPlanPath || '',
       config_toml: editor.value,
+      history_op: 'undo',
     }));
     setStatus(`Undo: ${entry.dimId} → ${entry.oldValue}`, 'progress');
   }
 }
 
 function redoDimEdit() {
-  if (dimEditIndex >= dimEditHistory.length - 1) return;
-  dimEditIndex++;
-  const entry = dimEditHistory[dimEditIndex];
+  if (dimEditIndex >= dimEditHistory.length - 1 || dimEditPending) return;
+  const entry = dimEditHistory[dimEditIndex + 1];
 
   if (ws && ws.readyState === WebSocket.OPEN) {
+    dimEditPending = { op: 'redo', dimId: entry.dimId };
     ws.send(JSON.stringify({
       action: 'update_dimension',
       dim_id: entry.dimId,
       value_mm: entry.newValue,
       plan_path: lastDrawPlanPath || '',
       config_toml: editor.value,
+      history_op: 'redo',
     }));
     setStatus(`Redo: ${entry.dimId} → ${entry.newValue}`, 'progress');
   }
