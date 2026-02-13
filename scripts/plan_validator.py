@@ -37,9 +37,14 @@ KNOWN_PLAN_KEYS = {
     "sections",
 }
 KNOWN_VIEW_KEYS = {"enabled", "layout", "options"}
-KNOWN_DIM_KEYS = {"scheme", "baseline_datum", "avoid_redundant"}
+KNOWN_DIM_KEYS = {
+    "scheme", "baseline_datum", "avoid_redundant",
+    "auto_plan_dedupe", "redundancy_tol_mm", "qa_weight_preset",
+}
 KNOWN_INTENT_KEYS = {"id", "feature", "view", "style", "required", "priority",
-                      "reason", "value_mm", "confidence", "source", "review"}
+                      "reason", "value_mm", "confidence", "source", "review",
+                      "placement", "placement_side", "placement_offset_mm",
+                      "placement_angle_deg", "dedupe"}
 KNOWN_NOTE_KEYS = {"general", "placement"}
 
 
@@ -148,11 +153,19 @@ def validate_plan(plan, part_type=None):
         s = di.get("style", "")
         if s and s not in VALID_DIM_STYLES:
             warnings.append(f"dim_intent '{di.get('id')}' has unknown style '{s}'")
+        p = di.get("placement")
+        if p is not None and not isinstance(p, dict):
+            warnings.append(f"dim_intent '{di.get('id')}' placement should be a table/object")
 
     # Layout validity
     layout = views.get("layout", "")
     if layout and layout not in VALID_LAYOUTS:
         warnings.append(f"unknown layout '{layout}' (valid: {VALID_LAYOUTS})")
+
+    # Dedupe policy validity
+    dedupe = dimensioning.get("auto_plan_dedupe")
+    if dedupe and dedupe not in {"smart", "value_only", "off"}:
+        warnings.append("dimensioning.auto_plan_dedupe should be one of: smart|value_only|off")
 
     valid = len(errors) == 0
     return {"valid": valid, "errors": errors, "warnings": warnings}

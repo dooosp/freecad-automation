@@ -43,6 +43,9 @@ reason = "center axis of rotation"
 scheme = "baseline"
 baseline_datum = "A"
 avoid_redundant = true
+auto_plan_dedupe = "smart"
+redundancy_tol_mm = 0.5
+qa_weight_preset = "auto"
 
 # --- Required Dimensions (Shaft DNA) ---
 [[dim_intents]]
@@ -52,6 +55,7 @@ view = "right"
 style = "linear"
 required = true
 priority = 100
+placement = { side = "bottom" }
 reason = "Overall shaft length — stock / machining reference"
 
 [[dim_intents]]
@@ -61,6 +65,7 @@ view = "front"
 style = "diameter"
 required = true
 priority = 95
+placement = { side = "right", offset_mm = 2 }
 reason = "Each step outer diameter — bearing / coupling fit"
 
 [[dim_intents]]
@@ -70,6 +75,7 @@ view = "front"
 style = "diameter"
 required = true
 priority = 90
+placement = { side = "right", offset_mm = 3 }
 reason = "Step 1 outer diameter — primary bearing seat"
 
 [[dim_intents]]
@@ -79,6 +85,7 @@ view = "front"
 style = "diameter"
 required = true
 priority = 85
+placement = { side = "right", offset_mm = 4 }
 reason = "Step 2 outer diameter — secondary fit / coupling"
 
 [[dim_intents]]
@@ -88,6 +95,7 @@ view = "front"
 style = "linear"
 required = true
 priority = 80
+placement = { side = "top" }
 reason = "Keyway width — key fitment per KS B 1311"
 
 [[dim_intents]]

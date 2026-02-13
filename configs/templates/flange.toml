@@ -43,6 +43,9 @@ reason = "bore center axis"
 scheme = "baseline"
 baseline_datum = "A"
 avoid_redundant = true
+auto_plan_dedupe = "smart"
+redundancy_tol_mm = 0.5
+qa_weight_preset = "auto"
 
 # --- Required Dimensions (Flange DNA) ---
 [[dim_intents]]
@@ -52,6 +55,7 @@ view = "front"
 style = "diameter"
 required = true
 priority = 100
+placement = { side = "right", offset_mm = 2 }
 reason = "Largest cylinder OD — assembly fit / inspection primary datum"
 
 [[dim_intents]]
@@ -61,6 +65,7 @@ view = "front"
 style = "diameter"
 required = true
 priority = 95
+placement = { side = "right", offset_mm = 3 }
 reason = "Bore ID — shaft fit / seal groove reference"
 
 [[dim_intents]]
@@ -70,6 +75,7 @@ view = "front"
 style = "diameter"
 required = true
 priority = 90
+placement = { side = "right", offset_mm = 4 }
 reason = "Bolt circle — mating hole pattern alignment"
 
 [[dim_intents]]
@@ -79,6 +85,7 @@ view = "front"
 style = "diameter"
 required = true
 priority = 85
+placement = { side = "top_right", angle_deg = 30, offset_mm = 2 }
 reason = "Bolt hole size — fastener selection / clearance"
 
 [[dim_intents]]
@@ -97,6 +104,7 @@ view = "right"
 style = "linear"
 required = true
 priority = 75
+placement = { side = "right" }
 reason = "Flange thickness — structural strength / weight"
 
 [[dim_intents]]

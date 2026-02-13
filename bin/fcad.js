@@ -31,6 +31,7 @@ Options:
   --raw                           Skip SVG post-processing (with draw)
   --no-score                      Skip QA scoring (with draw)
   --fail-under N                  Fail if QA score < N (with draw)
+  --weights-preset P              QA weight profile: default|auto|flange|shaft|...
   --recommend                     Auto-recommend fit specs (with tolerance)
   --csv                           Export tolerance report as CSV (with tolerance)
   --monte-carlo                   Include Monte Carlo simulation (with tolerance/report)
@@ -453,13 +454,28 @@ async function cmdDraw(rawArgs = []) {
   const flags = [];
   const positional = [];
   let overridePath = null;
+  let failUnderValue = null;
+  let weightsPresetValue = null;
   for (let i = 0; i < rawArgs.length; i++) {
-    if (rawArgs[i] === '--override' && rawArgs[i + 1]) {
+    const arg = rawArgs[i];
+    if (arg === '--override' && rawArgs[i + 1]) {
       overridePath = rawArgs[++i];
-    } else if (rawArgs[i].startsWith('--')) {
-      flags.push(rawArgs[i]);
+    } else if (arg === '--fail-under' && rawArgs[i + 1]) {
+      failUnderValue = rawArgs[++i];
+      flags.push('--fail-under');
+    } else if (arg.startsWith('--fail-under=')) {
+      failUnderValue = arg.split('=')[1];
+      flags.push('--fail-under');
+    } else if (arg === '--weights-preset' && rawArgs[i + 1]) {
+      weightsPresetValue = rawArgs[++i];
+      flags.push('--weights-preset');
+    } else if (arg.startsWith('--weights-preset=')) {
+      weightsPresetValue = arg.split('=')[1];
+      flags.push('--weights-preset');
+    } else if (arg.startsWith('--')) {
+      flags.push(arg);
     } else {
-      positional.push(rawArgs[i]);
+      positional.push(arg);
     }
   }
   const configPath = positional[0];
@@ -610,8 +626,12 @@ async function cmdDraw(rawArgs = []) {
       .map(dp => dp.path.replace(/\\/g, '/'));
     const qaScript = join(PROJECT_ROOT, 'scripts', 'qa_scorer.py');
     const ppScript = join(PROJECT_ROOT, 'scripts', 'postprocess_svg.py');
-    const failIdx = flags.indexOf('--fail-under');
-    const failUnder = failIdx >= 0 && flags[failIdx + 1] ? ` --fail-under ${flags[failIdx + 1]}` : '';
+    const failUnder = failUnderValue ? ` --fail-under ${failUnderValue}` : '';
+    const qaWeightPreset =
+      weightsPresetValue
+      || config.drawing_plan?.dimensioning?.qa_weight_preset
+      || '';
+    const qaWeightArg = qaWeightPreset ? ` --weights-preset ${qaWeightPreset}` : '';
 
     // Save plan as TOML for debugging/QA (project convention: TOML for configs)
     let planArg = '';
@@ -691,7 +711,7 @@ async function cmdDraw(rawArgs = []) {
         console.log('\nQA Scoring...');
         try {
           const qaOut = execSync(
-            `python3 "${qaScript}" "${svgPath}" --json "${qaJson}"${planArg}${failUnder}`,
+            `python3 "${qaScript}" "${svgPath}" --json "${qaJson}"${planArg}${qaWeightArg}${failUnder}`,
             { cwd: PROJECT_ROOT, encoding: 'utf-8', timeout: 30_000 }
           );
           if (qaOut.trim()) console.log(qaOut.trim());
@@ -718,8 +738,8 @@ async function cmdDraw(rawArgs = []) {
                 after: { score: qaAfter.score, metrics: afterMetrics },
                 delta: { score: (qaAfter.score || 0) - (qaBefore.score || 0), metrics: delta },
                 gate: {
-                  fail_under: failUnder ? parseInt(flags[failIdx + 1]) : null,
-                  passed: !failUnder || (qaAfter.score || 0) >= parseInt(flags[failIdx + 1]),
+                  fail_under: failUnderValue ? parseInt(failUnderValue) : null,
+                  passed: !failUnderValue || (qaAfter.score || 0) >= parseInt(failUnderValue),
                 },
               };
               writeJson(reportJson, repairReport);

@@ -43,6 +43,9 @@ reason = "primary bore center axis"
 scheme = "baseline"
 baseline_datum = "A"
 avoid_redundant = true
+auto_plan_dedupe = "smart"
+redundancy_tol_mm = 0.5
+qa_weight_preset = "auto"
 
 # --- Required Dimensions (Housing DNA) ---
 [[dim_intents]]
@@ -61,6 +64,7 @@ view = "front"
 style = "linear"
 required = true
 priority = 95
+placement = { side = "top" }
 reason = "Overall height — clearance / stacking"
 
 [[dim_intents]]
@@ -79,6 +83,7 @@ view = "front"
 style = "diameter"
 required = true
 priority = 85
+placement = { side = "right", offset_mm = 2 }
 reason = "Primary bore ID — bearing / shaft fit"
 
 [[dim_intents]]
@@ -88,6 +93,7 @@ view = "front"
 style = "diameter"
 required = true
 priority = 80
+placement = { side = "right", offset_mm = 3 }
 reason = "Bearing seat diameter — bearing outer race fit"
 
 [[dim_intents]]
@@ -97,6 +103,7 @@ view = "front"
 style = "linear"
 required = true
 priority = 75
+placement = { side = "top" }
 reason = "Wall thickness — structural integrity"
 
 [[dim_intents]]
@@ -114,6 +121,7 @@ view = "top"
 style = "diameter"
 required = false
 priority = 35
+placement = { side = "top_left", angle_deg = 130, offset_mm = 2 }
 
 # --- Notes ---
 [notes]
