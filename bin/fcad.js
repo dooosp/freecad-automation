@@ -23,6 +23,7 @@ Usage:
   fcad report <config.toml>      Generate engineering PDF report
   fcad inspect <model.step|fcstd> Inspect model metadata
   fcad validate <config.toml|json> Validate drawing plan schema
+  fcad dfm <config.toml|json>     Run DFM (Design for Manufacturability) analysis
   fcad serve [port]               Start 3D viewer server (default: 3000)
   fcad help                       Show this help
 
@@ -33,7 +34,8 @@ Options:
   --no-score                      Skip QA scoring (with draw)
   --fail-under N                  Fail if QA score < N (with draw)
   --weights-preset P              QA weight profile: default|auto|flange|shaft|...
-  --strict                        Treat warnings as errors (with validate)
+  --strict                        Treat warnings as errors (with validate/dfm)
+  --process P                      Override manufacturing process (with dfm): machining|casting|sheet_metal|3d_printing
   --recommend                     Auto-recommend fit specs (with tolerance)
   --csv                           Export tolerance report as CSV (with tolerance)
   --monte-carlo                   Include Monte Carlo simulation (with tolerance/report)
@@ -77,6 +79,10 @@ async function main() {
     const flags = args.filter(a => a.startsWith('--'));
     const configArg = args.find(a => !a.startsWith('--'));
     await cmdValidate(configArg, flags);
+  } else if (command === 'dfm') {
+    const flags = args.filter(a => a.startsWith('--'));
+    const configArg = args.find(a => !a.startsWith('--'));
+    await cmdDfm(configArg, flags);
   } else if (command === 'inspect') {
     await cmdInspect(args[0]);
   } else if (command === 'serve') {
@@ -1045,6 +1051,76 @@ async function cmdTolerance(configPath, flags = []) {
       for (const exp of result.exports) {
         console.log(`  ${exp.format.toUpperCase()}: ${exp.path} (${exp.size_bytes} bytes)`);
       }
+    }
+  } else {
+    console.error(`\nError: ${result.error}`);
+    process.exit(1);
+  }
+
+  return result;
+}
+
+async function cmdDfm(configPath, flags = []) {
+  if (!configPath) {
+    console.error('Error: config file path required');
+    console.error('  fcad dfm configs/examples/ks_flange.toml');
+    process.exit(1);
+  }
+
+  const absPath = resolve(configPath);
+  console.log(`Loading config: ${absPath}`);
+
+  const config = await loadConfig(absPath);
+
+  // Inject flags into manufacturing config
+  config.manufacturing = config.manufacturing || {};
+  const processFlag = flags.find(f => f.startsWith('--process'));
+  if (processFlag) {
+    const idx = flags.indexOf(processFlag);
+    const val = processFlag.includes('=')
+      ? processFlag.split('=')[1]
+      : flags[idx + 1];
+    if (val) config.manufacturing.process = val;
+  }
+
+  const strict = flags.includes('--strict');
+  const modelName = config.name || 'unnamed';
+  console.log(`DFM Analysis: ${modelName} (process: ${config.manufacturing.process || 'machining'})\n`);
+
+  const result = await runScript('dfm_checker.py', config, {
+    timeout: 30_000,
+    onStderr: (text) => process.stderr.write(text),
+  });
+
+  if (result.success) {
+    const { checks, summary, score } = result;
+
+    console.log(`=== DFM Report (${result.process}) ===\n`);
+
+    if (checks.length === 0) {
+      console.log('  No issues found — design is manufacturing-ready.\n');
+    } else {
+      for (const c of checks) {
+        const icon = c.severity === 'error' ? '\x1b[31mERROR\x1b[0m'
+          : c.severity === 'warning' ? '\x1b[33mWARN \x1b[0m'
+          : '\x1b[36mINFO \x1b[0m';
+        console.log(`  [${icon}] ${c.code}: ${c.message}`);
+        if (c.recommendation) {
+          console.log(`         → ${c.recommendation}`);
+        }
+      }
+      console.log('');
+    }
+
+    console.log(`Summary: ${summary.errors} errors, ${summary.warnings} warnings, ${summary.info} info`);
+    console.log(`DFM Score: ${score}/100`);
+
+    if (strict && summary.warnings > 0) {
+      console.error('\n--strict: warnings treated as errors');
+      process.exit(1);
+    }
+    if (summary.errors > 0) {
+      process.exit(1);
     }
   } else {
     console.error(`\nError: ${result.error}`);

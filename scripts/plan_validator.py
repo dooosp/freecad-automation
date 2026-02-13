@@ -34,17 +34,21 @@ REQUIRED_INTENTS = {
 KNOWN_PLAN_KEYS = {
     "schema_version", "part_type", "profile",
     "views", "scale", "datums", "dimensioning", "dim_intents", "notes",
-    "sections",
+    "sections", "manufacturing",
 }
 KNOWN_VIEW_KEYS = {"enabled", "layout", "options"}
 KNOWN_DIM_KEYS = {
     "scheme", "baseline_datum", "avoid_redundant",
     "auto_plan_dedupe", "redundancy_tol_mm", "qa_weight_preset",
+    "process_sequence", "functional_surface_priority",
+    "datum_axis_radial", "tolerance_grade_mapping",
+    "_process_groups", "required_only",
 }
 KNOWN_INTENT_KEYS = {"id", "feature", "view", "style", "required", "priority",
                       "reason", "value_mm", "confidence", "source", "review",
                       "placement", "placement_side", "placement_offset_mm",
-                      "placement_angle_deg", "dedupe"}
+                      "placement_angle_deg", "dedupe",
+                      "process_step", "tolerance_grade"}
 KNOWN_NOTE_KEYS = {"general", "placement"}
 
 

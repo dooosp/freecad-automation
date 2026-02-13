@@ -2849,6 +2849,8 @@ try:
                     req_only = plan_dim.get("required_only", False)
                     plan_dedupe_policy = plan_dim.get("auto_plan_dedupe", "smart")
                     plan_dedupe_tol = dedupe_tol_mm
+                    # D4: pass process groups if manufacturing scheme
+                    _pgroups = plan_dim.get("_process_groups")
                     plan_svg, h_stk, v_stk = render_plan_dimensions_svg(
                         plan_intents, vname,
                         vd["bounds"], vd["circles"], vd.get("arcs", []),
@@ -2859,7 +2861,8 @@ try:
                         telemetry=dim_telemetry,
                         existing_auto_dims=auto_dims_for_view,
                         dedupe_policy=plan_dedupe_policy,
-                        dedupe_tol_mm=plan_dedupe_tol)
+                        dedupe_tol_mm=plan_dedupe_tol,
+                        process_groups=_pgroups)
                     if plan_svg:
                         svg += '\n' + plan_svg
                 except Exception as e:

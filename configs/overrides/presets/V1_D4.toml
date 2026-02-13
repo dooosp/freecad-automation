@@ -1,0 +1,17 @@
+# V1_D4: Standard 4-view + Manufacturing (process-sequence dimension grouping)
+
+[drawing_plan.views]
+enabled = ["front", "top", "right", "iso"]
+
+[drawing_plan.dimensioning]
+scheme = "manufacturing"
+process_sequence = ["face", "rough_turn", "bore", "drill", "finish_turn"]
+functional_surface_priority = true
+datum_axis_radial = true
+tolerance_grade_mapping = true
+avoid_redundant = true
+
+[drawing_plan.manufacturing]
+process = "machining"
+material = "SS304"
+batch_size = 100

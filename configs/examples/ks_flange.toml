@@ -285,6 +285,13 @@ material_spec = "AL6061-T6 (KS D 6759)"
 heat_treatment = "T6 temper"
 coating = "Hard anodize 0.05mm"
 
+# --- Manufacturing (DFM analysis input) ---
+
+[manufacturing]
+process = "machining"
+material = "AL6061-T6"
+batch_size = 100
+
 # --- Export ---
 
 [export]

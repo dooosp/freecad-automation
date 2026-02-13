@@ -400,7 +400,8 @@ def render_plan_dimensions_svg(
     cx, cy, scale, h_stack, v_stack,
     existing_dim_values=None, required_only=False,
     style_cfg=None, telemetry=None,
-    existing_auto_dims=None, dedupe_policy="smart", dedupe_tol_mm=0.5
+    existing_auto_dims=None, dedupe_policy="smart", dedupe_tol_mm=0.5,
+    process_groups=None,
 ):
     """Render plan-driven dimensions for a specific view.
 
@@ -452,6 +453,9 @@ def render_plan_dimensions_svg(
             rec.update(extra)
         telemetry.setdefault("plan_dimensions", []).append(rec)
 
+    # D4 manufacturing: track process group for inter-group gap
+    _prev_process_step = None
+
     for di in dim_intents:
         if not _intent_matches_view(di, vname):
             continue
@@ -460,6 +464,15 @@ def render_plan_dimensions_svg(
         if required_only and not di.get("required", True):
             _record(di, "skipped_required_only", reason="required_only_mode")
             continue
+
+        # D4: apply extra gap between process groups
+        if process_groups and di.get("process_step"):
+            cur_step = di["process_step"]
+            if _prev_process_step and cur_step != _prev_process_step:
+                # Double gap between process groups
+                h_stack += eff_gap
+                v_stack += eff_gap
+            _prev_process_step = cur_step
 
         style = di.get("style", "linear")
         value_mm = di.get("value_mm")

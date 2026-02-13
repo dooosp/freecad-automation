@@ -25,6 +25,29 @@ KNOWN_PART_TYPES = {"flange", "shaft", "bracket", "housing", "bushing_plate", "a
 VALID_VIEWS = {"front", "top", "right", "iso", "back", "bottom", "left"}
 SCHEMA_VERSION = "0.1"
 
+# ---------------------------------------------------------------------------
+# D4 Manufacturing dimension strategy: process → feature mapping
+# ---------------------------------------------------------------------------
+
+PROCESS_FEATURE_MAP = {
+    "face":        ["thickness", "height"],
+    "rough_turn":  ["outer_diameter"],
+    "bore":        ["inner_diameter"],
+    "drill":       ["bolt_hole_diameter", "bolt_circle_diameter", "bolt_hole_count"],
+    "finish_turn": ["fillet_radius", "chamfer"],
+}
+
+# Tolerance grade mapping by process roughness
+TOLERANCE_GRADE_MAP = {
+    "face":        "IT11",
+    "rough_turn":  "IT11",
+    "bore":        "IT7",
+    "drill":       "IT10",
+    "finish_turn": "IT7",
+}
+
+DEFAULT_PROCESS_SEQUENCE = ["face", "rough_turn", "bore", "drill", "finish_turn"]
+
 
 # ---------------------------------------------------------------------------
 # Part type classification (rule-based, no LLM)
@@ -326,7 +349,59 @@ def merge_plan(config, template):
     if existing_plan.get("part_type"):
         plan["part_type"] = existing_plan["part_type"]
 
+    # D4 Manufacturing strategy: enrich dim_intents with process_step
+    dim_cfg = plan.get("dimensioning", {})
+    if dim_cfg.get("scheme") == "manufacturing":
+        _apply_d4_manufacturing(plan, dim_cfg)
+
     return plan
+
+
+def _apply_d4_manufacturing(plan, dim_cfg):
+    """Apply D4 manufacturing dimension strategy.
+
+    - Infer process_step for each dim_intent from feature → process mapping
+    - Sort dim_intents by process sequence order
+    - Optionally assign tolerance_grade per process step
+    - Boost priority for functional surfaces
+    """
+    process_seq = dim_cfg.get("process_sequence", DEFAULT_PROCESS_SEQUENCE)
+    map_tolerance = dim_cfg.get("tolerance_grade_mapping", False)
+    func_priority = dim_cfg.get("functional_surface_priority", False)
+
+    # Build reverse map: feature → process_step
+    feature_to_process = {}
+    for step, features in PROCESS_FEATURE_MAP.items():
+        for f in features:
+            feature_to_process[f] = step
+
+    intents = plan.get("dim_intents", [])
+    for di in intents:
+        # Only infer if not already set
+        if not di.get("process_step"):
+            feature = di.get("feature", "")
+            di["process_step"] = feature_to_process.get(feature, process_seq[-1])
+
+        # Tolerance grade mapping
+        if map_tolerance and not di.get("tolerance_grade"):
+            di["tolerance_grade"] = TOLERANCE_GRADE_MAP.get(
+                di["process_step"], "IT11"
+            )
+
+        # Functional surface priority boost
+        if func_priority and di.get("required") and di.get("style") == "diameter":
+            di["priority"] = max(di.get("priority", 50), 95)
+
+    # Sort by process sequence order
+    step_order = {step: i for i, step in enumerate(process_seq)}
+    intents.sort(key=lambda d: (
+        step_order.get(d.get("process_step", ""), 999),
+        -d.get("priority", 0),
+    ))
+
+    # Tag dim_intents with process group index for _dim_plan grouping
+    plan["dim_intents"] = intents
+    plan["dimensioning"]["_process_groups"] = process_seq
 
 
 def _deep_merge(base, override, _parent_key=""):

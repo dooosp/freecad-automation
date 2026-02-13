@@ -123,6 +123,13 @@ style = "callout"
 required = false
 priority = 35
 
+# --- Manufacturing defaults (for DFM + D4 strategy) ---
+[manufacturing]
+process = "machining"
+material = "AL6061-T6"
+batch_size = 1
+min_wall_override = 0    # 0 = use process default
+
 # --- Notes ---
 [notes]
 general = [

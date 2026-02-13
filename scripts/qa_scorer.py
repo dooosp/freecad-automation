@@ -46,6 +46,9 @@ WEIGHTS = {
     # Phase 20-B virtual geometry + note metrics
     "virtual_pcd_missing":    5,   # boolean (PCD required but no virtual circle)
     "note_semantic_mismatch": 3,   # per mismatch in bolt count note
+    # Phase 23 DFM metrics
+    "dfm_error_count":       10,   # per DFM error
+    "dfm_warning_count":      3,   # per DFM warning
 }
 
 WEIGHT_PRESETS = {
@@ -794,6 +797,28 @@ def check_note_semantic_consistency(tree, plan):
     return mismatches
 
 
+# -- DFM metrics (Phase 23) ----------------------------------------------------
+
+def collect_dfm_metrics(config):
+    """Run DFM checker on config and return metrics dict for QA integration.
+
+    Returns None values if no manufacturing section is present (not applicable).
+    """
+    if not config or not config.get("manufacturing"):
+        return {"dfm_error_count": None, "dfm_warning_count": None}
+
+    try:
+        from dfm_checker import run_dfm_check
+        result = run_dfm_check(config)
+        return {
+            "dfm_error_count": result["summary"]["errors"],
+            "dfm_warning_count": result["summary"]["warnings"],
+            "dfm_score": result["score"],
+        }
+    except Exception:
+        return {"dfm_error_count": None, "dfm_warning_count": None}
+
+
 # -- Score computation ---------------------------------------------------------
 
 def collect_metrics(tree, plan=None):
@@ -900,6 +925,13 @@ def compute_score(metrics, weights=WEIGHTS):
     if metrics.get("note_semantic_mismatch") is not None:
         deduct("note_semantic_mismatch",
                metrics["note_semantic_mismatch"] * weights["note_semantic_mismatch"])
+    # Phase 23 DFM
+    if metrics.get("dfm_error_count") is not None:
+        deduct("dfm_error_count",
+               metrics["dfm_error_count"] * weights.get("dfm_error_count", 10))
+    if metrics.get("dfm_warning_count") is not None:
+        deduct("dfm_warning_count",
+               metrics["dfm_warning_count"] * weights.get("dfm_warning_count", 3))
 
     return max(score, 0), deductions
 
@@ -914,6 +946,8 @@ def main():
     parser.add_argument("--plan", dest="plan_file", help="Drawing plan file (TOML or JSON) for intent metrics")
     parser.add_argument("--weights-preset", dest="weights_preset",
                         help="QA weights preset: default|auto|flange|shaft|bracket|housing|assembly")
+    parser.add_argument("--config", dest="config_file",
+                        help="Config file (TOML/JSON) for DFM metrics integration")
     parser.add_argument("--fail-under", type=int, default=0,
                         help="Exit with error if score < threshold")
     args = parser.parse_args()
@@ -936,6 +970,22 @@ def main():
             pass  # plan is optional
 
     metrics = collect_metrics(tree, plan)
+
+    # DFM metrics integration (Phase 23)
+    if args.config_file and os.path.exists(args.config_file):
+        try:
+            if args.config_file.endswith(".toml"):
+                import tomllib
+                with open(args.config_file, "rb") as cf:
+                    cfg_data = tomllib.load(cf)
+            else:
+                with open(args.config_file) as cf:
+                    cfg_data = json.load(cf)
+            dfm_m = collect_dfm_metrics(cfg_data)
+            metrics.update(dfm_m)
+        except Exception:
+            pass
+
     active_weights, weight_profile = resolve_weights(plan, args.weights_preset)
     score, deductions = compute_score(metrics, active_weights)
 
