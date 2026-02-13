@@ -178,6 +178,10 @@ def main():
                         help="JSON file path or - for stdin")
     parser.add_argument("--part-type", type=str, default=None,
                         help="Override part type for validation")
+    parser.add_argument("--json", action="store_true",
+                        help="Output result as JSON")
+    parser.add_argument("--strict", action="store_true",
+                        help="Treat warnings as errors")
     args = parser.parse_args()
 
     if args.input == "-":
@@ -191,16 +195,24 @@ def main():
 
     result = validate_plan(plan, pt)
 
-    if result["errors"]:
-        print(f"FAIL ({len(result['errors'])} error(s))")
-        for e in result["errors"]:
-            print(f"  ERROR: {e}")
-    else:
-        print("PASS")
+    if args.strict and result["warnings"]:
+        result["errors"].extend(f"STRICT: {w}" for w in result["warnings"])
+        result["warnings"] = []
+        result["valid"] = len(result["errors"]) == 0
 
-    if result["warnings"]:
-        for w in result["warnings"]:
-            print(f"  WARN: {w}")
+    if args.json:
+        print(json.dumps(result))
+    else:
+        if result["errors"]:
+            print(f"FAIL ({len(result['errors'])} error(s))")
+            for e in result["errors"]:
+                print(f"  ERROR: {e}")
+        else:
+            print("PASS")
+
+        if result["warnings"]:
+            for w in result["warnings"]:
+                print(f"  WARN: {w}")
 
     sys.exit(0 if result["valid"] else 1)
 

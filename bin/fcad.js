@@ -22,6 +22,7 @@ Usage:
   fcad tolerance <config.toml>    Tolerance analysis (fit + stack-up)
   fcad report <config.toml>      Generate engineering PDF report
   fcad inspect <model.step|fcstd> Inspect model metadata
+  fcad validate <config.toml|json> Validate drawing plan schema
   fcad serve [port]               Start 3D viewer server (default: 3000)
   fcad help                       Show this help
 
@@ -32,6 +33,7 @@ Options:
   --no-score                      Skip QA scoring (with draw)
   --fail-under N                  Fail if QA score < N (with draw)
   --weights-preset P              QA weight profile: default|auto|flange|shaft|...
+  --strict                        Treat warnings as errors (with validate)
   --recommend                     Auto-recommend fit specs (with tolerance)
   --csv                           Export tolerance report as CSV (with tolerance)
   --monte-carlo                   Include Monte Carlo simulation (with tolerance/report)
@@ -71,6 +73,10 @@ async function main() {
     const flags = args.filter(a => a.startsWith('--'));
     const configArg = args.find(a => !a.startsWith('--'));
     await cmdReport(configArg, flags);
+  } else if (command === 'validate') {
+    const flags = args.filter(a => a.startsWith('--'));
+    const configArg = args.find(a => !a.startsWith('--'));
+    await cmdValidate(configArg, flags);
   } else if (command === 'inspect') {
     await cmdInspect(args[0]);
   } else if (command === 'serve') {
@@ -80,6 +86,70 @@ async function main() {
     console.log(USAGE);
     process.exit(1);
   }
+}
+
+async function cmdValidate(configPath, flags = []) {
+  if (!configPath) {
+    console.error('Error: config file path required');
+    console.error('  fcad validate configs/examples/ks_flange.toml');
+    process.exit(1);
+  }
+
+  const absPath = resolve(configPath);
+  const config = await loadConfig(absPath);
+  const plan = config.drawing_plan;
+
+  if (!plan || Object.keys(plan).length === 0) {
+    console.error('Error: no drawing_plan found in config');
+    console.error('Hint: validate expects a plan file (output/*_plan.toml), not a raw config.');
+    console.error('  Generate one first: fcad draw configs/examples/ks_flange.toml');
+    process.exit(1);
+  }
+
+  const { spawn } = await import('node:child_process');
+
+  const pyArgs = [
+    join(PROJECT_ROOT, 'scripts', 'plan_validator.py'),
+    '-',
+    '--json',
+  ];
+  if (flags.includes('--strict')) pyArgs.push('--strict');
+
+  const proc = spawn('python3', pyArgs, { stdio: ['pipe', 'pipe', 'pipe'] });
+
+  let stdout = '';
+  let stderr = '';
+  proc.stdout.on('data', (c) => { stdout += c; });
+  proc.stderr.on('data', (c) => { stderr += c; });
+
+  proc.stdin.write(JSON.stringify({ drawing_plan: plan }));
+  proc.stdin.end();
+
+  const code = await new Promise((res) => proc.on('close', res));
+
+  let result;
+  try {
+    result = JSON.parse(stdout.trim());
+  } catch {
+    console.error('Failed to parse validator output:', stdout);
+    if (stderr) console.error(stderr);
+    process.exit(1);
+  }
+
+  // Pretty output
+  if (result.valid) {
+    console.log(`VALID (0 errors, ${result.warnings.length} warning(s))`);
+  } else {
+    console.log(`INVALID (${result.errors.length} error(s), ${result.warnings.length} warning(s))`);
+  }
+  for (const e of result.errors) {
+    console.log(`  ERROR: ${e}`);
+  }
+  for (const w of result.warnings) {
+    console.log(`  WARN:  ${w}`);
+  }
+
+  process.exit(code);
 }
 
 async function cmdServe(portArg) {

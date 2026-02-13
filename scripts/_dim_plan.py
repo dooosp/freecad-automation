@@ -235,9 +235,11 @@ def _render_diameter(di, circles, cx, cy, scale, bcx, bcy):
     anchor = "start" if shelf_dir >= 0 else "end"
     tx = shx + 0.5 * shelf_dir
     ty = ey - 0.5
+    dim_id = di.get("id", "")
     out.append(f'<text x="{tx:.2f}" y="{ty:.2f}" text-anchor="{anchor}" '
                f'font-family="{DIM_FONT}" font-size="{DIM_FONT_SIZE}" '
-               f'fill="{DIM_COLOR}">{text}</text>')
+               f'fill="{DIM_COLOR}" data-dim-id="{dim_id}" '
+               f'data-value-mm="{value_mm}">{text}</text>')
     return out
 
 
@@ -261,7 +263,7 @@ def _render_linear_h(di, bounds, cx, cy, scale, bcx, bcy, h_stack,
     plc = _placement_cfg(di)
     side = plc.get("side")
     side_top = side in ("top", "top_left", "top_right")
-    extra = plc.get("offset_mm") or 0.0
+    extra = plc.get("offset_mm", 0.0)
     if side_top:
         y_dim = top - (_gap + _offset + h_stack * _offset + extra)
     else:
@@ -289,9 +291,11 @@ def _render_linear_h(di, bounds, cx, cy, scale, bcx, bcy, h_stack,
     tx = (left + right) / 2
     ty = y_dim - 1.0 if not side_top else y_dim + 3.2
     text = _format_value(value_mm)
+    dim_id = di.get("id", "")
     out.append(f'<text x="{tx:.2f}" y="{ty:.2f}" text-anchor="middle" '
                f'font-family="{DIM_FONT}" font-size="{DIM_FONT_SIZE}" '
-               f'fill="{DIM_COLOR}">{text}</text>')
+               f'fill="{DIM_COLOR}" data-dim-id="{dim_id}" '
+               f'data-value-mm="{value_mm}">{text}</text>')
 
     return out, h_stack + 1
 
@@ -316,7 +320,7 @@ def _render_linear_v(di, bounds, cx, cy, scale, bcx, bcy, v_stack,
     plc = _placement_cfg(di)
     side = plc.get("side")
     side_left = side in ("left", "top_left", "bottom_left")
-    extra = plc.get("offset_mm") or 0.0
+    extra = plc.get("offset_mm", 0.0)
     if side_left:
         x_dim = left - (_gap + _offset + v_stack * _offset + extra)
     else:
@@ -342,15 +346,17 @@ def _render_linear_v(di, bounds, cx, cy, scale, bcx, bcy, v_stack,
         out.append(_arrow_head(x_dim, top, math.pi / 2))
         out.append(_arrow_head(x_dim, bottom, -math.pi / 2))
     else:
-        out.append(_arrow_head(x_dim, top, math.pi / 2))
-        out.append(_arrow_head(x_dim, bottom, -math.pi / 2))
+        out.append(_arrow_head(x_dim, top, -math.pi / 2))
+        out.append(_arrow_head(x_dim, bottom, math.pi / 2))
     # Text
     tx = x_dim - 1.5 if not side_left else x_dim + 1.5
     ty = (top + bottom) / 2
     text = _format_value(value_mm)
+    dim_id = di.get("id", "")
     out.append(f'<text x="{tx:.2f}" y="{ty:.2f}" text-anchor="middle" '
                f'font-family="{DIM_FONT}" font-size="{DIM_FONT_SIZE}" '
-               f'fill="{DIM_COLOR}" '
+               f'fill="{DIM_COLOR}" data-dim-id="{dim_id}" '
+               f'data-value-mm="{value_mm}" '
                f'transform="rotate(-90,{tx:.2f},{ty:.2f})">{text}</text>')
 
     return out, v_stack + 1

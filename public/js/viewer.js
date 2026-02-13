@@ -475,9 +475,19 @@ function connectWS() {
 
       case 'drawing_result':
         showDrawing(msg.svg, msg.bom, msg.scale);
+        lastDrawPlanPath = msg.plan_path || '';
+        initDimEditing();
         setStatus(`Drawing ready (${msg.scale})`, 'success');
         btnBuild.disabled = false;
         btnDesign.disabled = false;
+        break;
+
+      case 'dimension_updated':
+        addEditHistory(msg.dim_id, msg.old_value, msg.new_value);
+        break;
+
+      case 'dimensions_list':
+        // Could be used for a dimension panel
         break;
 
       case 'design_result':
@@ -1115,6 +1125,217 @@ if (drawingContainer) {
     updateDrawingTransform();
   }, { passive: false });
 }
+
+// --- Dimension Editing ---
+
+let dimEditHistory = [];       // [{dim_id, oldValue, newValue}]
+let dimEditIndex = -1;         // current position in history
+let dimEditInput = null;       // active <input> element
+let dimEditing = false;        // true while editing
+
+function initDimEditing() {
+  dimEditHistory = [];
+  dimEditIndex = -1;
+  closeDimEdit();
+
+  const svgEl = drawingContainer.querySelector('svg');
+  if (!svgEl) return;
+
+  // Find all dimension text elements with data-dim-id
+  const dimTexts = svgEl.querySelectorAll('text[data-dim-id]');
+  dimTexts.forEach(el => {
+    el.style.cursor = 'pointer';
+
+    el.addEventListener('mouseenter', () => {
+      if (dimEditing) return;
+      el.setAttribute('data-orig-fill', el.getAttribute('fill') || '#000');
+      el.setAttribute('fill', '#0066cc');
+      el.style.fontWeight = 'bold';
+    });
+
+    el.addEventListener('mouseleave', () => {
+      if (dimEditing) return;
+      el.setAttribute('fill', el.getAttribute('data-orig-fill') || '#000');
+      el.style.fontWeight = '';
+    });
+
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      openDimEdit(el);
+    });
+  });
+}
+
+function openDimEdit(textEl) {
+  closeDimEdit();
+  dimEditing = true;
+
+  const dimId = textEl.getAttribute('data-dim-id');
+  const valueMm = parseFloat(textEl.getAttribute('data-value-mm'));
+  if (!dimId || isNaN(valueMm)) return;
+
+  // Get position of text element relative to container
+  const svgEl = drawingContainer.querySelector('svg');
+  const containerRect = drawingContainer.getBoundingClientRect();
+  const textRect = textEl.getBoundingClientRect();
+
+  // Create input overlay
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.step = '0.1';
+  input.min = '0.01';
+  input.value = valueMm;
+  input.className = 'dim-edit-input';
+  input.style.position = 'absolute';
+  input.style.left = (textRect.left - containerRect.left - 5) + 'px';
+  input.style.top = (textRect.top - containerRect.top - 5) + 'px';
+  input.style.width = Math.max(60, textRect.width + 20) + 'px';
+  input.style.zIndex = '1000';
+  input.style.fontSize = '14px';
+  input.style.padding = '2px 4px';
+  input.style.border = '2px solid #0066cc';
+  input.style.borderRadius = '3px';
+  input.style.background = '#fff';
+  input.style.color = '#000';
+  input.dataset.dimId = dimId;
+  input.dataset.origValue = valueMm;
+
+  drawingContainer.style.position = 'relative';
+  drawingContainer.appendChild(input);
+  dimEditInput = input;
+  input.focus();
+  input.select();
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      submitDimEdit(input);
+    } else if (e.key === 'Escape') {
+      closeDimEdit();
+    }
+  });
+
+  input.addEventListener('blur', () => {
+    // Small delay to allow click on other dim
+    setTimeout(() => closeDimEdit(), 150);
+  });
+}
+
+function submitDimEdit(input) {
+  const dimId = input.dataset.dimId;
+  const origValue = parseFloat(input.dataset.origValue);
+  const newValue = parseFloat(input.value);
+
+  if (isNaN(newValue) || newValue <= 0) {
+    setStatus(`Invalid value: ${input.value}`, 'error');
+    closeDimEdit();
+    return;
+  }
+
+  if (newValue === origValue) {
+    closeDimEdit();
+    return;
+  }
+
+  // Send update to server
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({
+      action: 'update_dimension',
+      dim_id: dimId,
+      value_mm: newValue,
+      plan_path: lastDrawPlanPath || '',
+      config_toml: editor.value,
+    }));
+    setStatus(`Updating ${dimId}: ${origValue} → ${newValue}...`, 'progress');
+  }
+
+  closeDimEdit();
+}
+
+function closeDimEdit() {
+  if (dimEditInput && dimEditInput.parentNode) {
+    dimEditInput.parentNode.removeChild(dimEditInput);
+  }
+  dimEditInput = null;
+  dimEditing = false;
+}
+
+function addEditHistory(dimId, oldValue, newValue) {
+  // Truncate future entries if we've undone
+  if (dimEditIndex < dimEditHistory.length - 1) {
+    dimEditHistory = dimEditHistory.slice(0, dimEditIndex + 1);
+  }
+  dimEditHistory.push({ dimId, oldValue, newValue });
+  dimEditIndex = dimEditHistory.length - 1;
+  updateEditPanel();
+}
+
+function undoDimEdit() {
+  if (dimEditIndex < 0) return;
+  const entry = dimEditHistory[dimEditIndex];
+  dimEditIndex--;
+
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({
+      action: 'update_dimension',
+      dim_id: entry.dimId,
+      value_mm: entry.oldValue,
+      plan_path: lastDrawPlanPath || '',
+      config_toml: editor.value,
+    }));
+    setStatus(`Undo: ${entry.dimId} → ${entry.oldValue}`, 'progress');
+  }
+}
+
+function redoDimEdit() {
+  if (dimEditIndex >= dimEditHistory.length - 1) return;
+  dimEditIndex++;
+  const entry = dimEditHistory[dimEditIndex];
+
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({
+      action: 'update_dimension',
+      dim_id: entry.dimId,
+      value_mm: entry.newValue,
+      plan_path: lastDrawPlanPath || '',
+      config_toml: editor.value,
+    }));
+    setStatus(`Redo: ${entry.dimId} → ${entry.newValue}`, 'progress');
+  }
+}
+
+function updateEditPanel() {
+  // Show edit count in toolbar
+  const count = dimEditHistory.length;
+  if (count > 0 && drawZoomLabel) {
+    drawZoomLabel.textContent = `${Math.round(drawZoom * 100)}% | ${count} edit(s)`;
+  }
+}
+
+// Keyboard shortcuts for undo/redo in drawing mode
+document.addEventListener('keydown', (e) => {
+  if (!drawingOverlay || !drawingOverlay.classList.contains('open')) return;
+
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+    e.preventDefault();
+    undoDimEdit();
+  } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+    e.preventDefault();
+    redoDimEdit();
+  }
+});
+
+// Prevent pan from starting when clicking on a dimension text
+if (drawingContainer) {
+  drawingContainer.addEventListener('mousedown', (e) => {
+    if (e.target.closest('text[data-dim-id]')) {
+      e.stopPropagation();
+    }
+  }, true);
+}
+
+// Track last plan path for dimension updates
+let lastDrawPlanPath = '';
 
 // --- Init ---
 initScene();

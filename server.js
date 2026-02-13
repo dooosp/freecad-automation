@@ -7,9 +7,15 @@ import { tmpdir } from 'node:os';
 import { parse as parseTOML } from 'smol-toml';
 import { runScript } from './lib/runner.js';
 import { designFromTextStreaming } from './scripts/design-reviewer.js';
+import { updateDimIntent, readDimIntents } from './lib/toml-writer.js';
+import { writeFile } from 'node:fs/promises';
+import { execSync } from 'node:child_process';
+import { stringify as tomlStringify } from 'smol-toml';
 
 const PUBLIC_DIR = join(import.meta.dirname, 'public');
 const EXAMPLES_DIR = join(import.meta.dirname, 'configs', 'examples');
+const OUTPUT_DIR = join(import.meta.dirname, 'output');
+const SCRIPTS_DIR = join(import.meta.dirname, 'scripts');
 
 export function startServer(port = 3000) {
   const app = express();
@@ -50,6 +56,10 @@ export function startServer(port = 3000) {
         await handleDesign(ws, msg.description);
       } else if (msg.action === 'draw') {
         await handleDraw(ws, msg.config);
+      } else if (msg.action === 'update_dimension') {
+        await handleUpdateDimension(ws, msg);
+      } else if (msg.action === 'get_dimensions') {
+        await handleGetDimensions(ws, msg);
       }
     });
   });
@@ -128,6 +138,40 @@ export function startServer(port = 3000) {
       }
       config.drawing.bom_csv = true;
 
+      // Intent compiler: enrich config with drawing_plan
+      let planPath = '';
+      if (!config.drawing_plan) {
+        try {
+          sendJSON(ws, { type: 'progress', text: 'Running intent compiler...' });
+          const compilerScript = join(SCRIPTS_DIR, 'intent_compiler.py');
+          const enriched = execSync(
+            `python3 "${compilerScript}"`,
+            { input: JSON.stringify(config), encoding: 'utf-8', timeout: 15_000 }
+          );
+          const enrichedConfig = JSON.parse(enriched);
+          Object.assign(config, enrichedConfig);
+
+          // Sync plan views
+          const planViews = config.drawing_plan?.views?.enabled;
+          if (planViews && planViews.length > 0) {
+            config.drawing.views = planViews;
+          }
+        } catch (e) {
+          // Non-fatal: proceed without plan
+        }
+      }
+
+      // Save plan for interactive editing
+      if (config.drawing_plan) {
+        const modelName = config.name || 'unnamed';
+        planPath = join(OUTPUT_DIR, `${modelName}_plan.toml`);
+        try {
+          await writeFile(planPath, tomlStringify({ drawing_plan: config.drawing_plan }), 'utf8');
+        } catch (_) {
+          planPath = '';
+        }
+      }
+
       sendJSON(ws, { type: 'progress', text: 'Generating engineering drawing...' });
 
       const result = await runScript('generate_drawing.py', config, {
@@ -157,6 +201,7 @@ export function startServer(port = 3000) {
         bom: result.bom || [],
         views: result.views || [],
         scale: result.scale || '1:1',
+        plan_path: planPath,
       });
 
       sendJSON(ws, { type: 'complete' });
@@ -167,6 +212,61 @@ export function startServer(port = 3000) {
       if (tmpDir) {
         rm(tmpDir, { recursive: true, force: true }).catch(() => {});
       }
+    }
+  }
+
+  // --- Dimension editing ---
+
+  // Store last draw context per connection for re-draw after edits
+  // { tomlStr, planPath }
+
+  async function handleGetDimensions(ws, msg) {
+    const planPath = msg.plan_path;
+    if (!planPath) {
+      return sendJSON(ws, { type: 'error', message: 'plan_path is required' });
+    }
+    try {
+      const dims = await readDimIntents(planPath);
+      sendJSON(ws, { type: 'dimensions_list', dimensions: dims });
+    } catch (err) {
+      sendJSON(ws, { type: 'error', message: `Failed to read dimensions: ${err.message}` });
+    }
+  }
+
+  async function handleUpdateDimension(ws, msg) {
+    const { dim_id, value_mm, plan_path, config_toml } = msg;
+
+    if (!dim_id || value_mm === undefined || !plan_path) {
+      return sendJSON(ws, { type: 'error', message: 'dim_id, value_mm, and plan_path are required' });
+    }
+
+    if (ws._building) {
+      return sendJSON(ws, { type: 'error', message: 'Build in progress — wait before editing' });
+    }
+
+    try {
+      sendJSON(ws, { type: 'progress', text: `Updating ${dim_id} to ${value_mm}...` });
+
+      // Update TOML plan file
+      const result = await updateDimIntent(plan_path, dim_id, value_mm);
+      if (!result.ok) {
+        return sendJSON(ws, { type: 'error', message: result.error });
+      }
+
+      sendJSON(ws, {
+        type: 'dimension_updated',
+        dim_id,
+        old_value: result.oldValue,
+        new_value: value_mm,
+      });
+
+      // If config TOML is provided, re-draw with updated plan
+      if (config_toml) {
+        sendJSON(ws, { type: 'progress', text: 'Regenerating drawing...' });
+        await handleDraw(ws, config_toml);
+      }
+    } catch (err) {
+      sendJSON(ws, { type: 'error', message: `Dimension update failed: ${err.message}` });
     }
   }
 
