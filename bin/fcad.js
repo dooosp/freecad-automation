@@ -10,6 +10,7 @@ import { runScript } from '../lib/runner.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(__dirname, '..');
+const VALID_DFM_PROCESSES = new Set(['machining', 'casting', 'sheet_metal', '3d_printing']);
 
 const USAGE = `
 fcad - FreeCAD automation CLI
@@ -80,9 +81,7 @@ async function main() {
     const configArg = args.find(a => !a.startsWith('--'));
     await cmdValidate(configArg, flags);
   } else if (command === 'dfm') {
-    const flags = args.filter(a => a.startsWith('--'));
-    const configArg = args.find(a => !a.startsWith('--'));
-    await cmdDfm(configArg, flags);
+    await cmdDfm(args);
   } else if (command === 'inspect') {
     await cmdInspect(args[0]);
   } else if (command === 'serve') {
@@ -1060,7 +1059,32 @@ async function cmdTolerance(configPath, flags = []) {
   return result;
 }
 
-async function cmdDfm(configPath, flags = []) {
+async function cmdDfm(rawArgs = []) {
+  const flags = [];
+  const positional = [];
+  let processValue = null;
+
+  for (let i = 0; i < rawArgs.length; i++) {
+    const arg = rawArgs[i];
+    if (arg === '--process') {
+      const val = rawArgs[i + 1];
+      if (!val || val.startsWith('--')) {
+        console.error('Error: --process requires a value');
+        console.error('  Allowed: machining|casting|sheet_metal|3d_printing');
+        process.exit(1);
+      }
+      processValue = val;
+      i++;
+    } else if (arg.startsWith('--process=')) {
+      processValue = arg.split('=')[1];
+    } else if (arg.startsWith('--')) {
+      flags.push(arg);
+    } else {
+      positional.push(arg);
+    }
+  }
+
+  const configPath = positional[0];
   if (!configPath) {
     console.error('Error: config file path required');
     console.error('  fcad dfm configs/examples/ks_flange.toml');
@@ -1074,13 +1098,13 @@ async function cmdDfm(configPath, flags = []) {
 
   // Inject flags into manufacturing config
   config.manufacturing = config.manufacturing || {};
-  const processFlag = flags.find(f => f.startsWith('--process'));
-  if (processFlag) {
-    const idx = flags.indexOf(processFlag);
-    const val = processFlag.includes('=')
-      ? processFlag.split('=')[1]
-      : flags[idx + 1];
-    if (val) config.manufacturing.process = val;
+  if (processValue) {
+    if (!VALID_DFM_PROCESSES.has(processValue)) {
+      console.error(`Error: invalid --process '${processValue}'`);
+      console.error('  Allowed: machining|casting|sheet_metal|3d_printing');
+      process.exit(1);
+    }
+    config.manufacturing.process = processValue;
   }
 
   const strict = flags.includes('--strict');

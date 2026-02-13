@@ -365,7 +365,13 @@ def _apply_d4_manufacturing(plan, dim_cfg):
     - Optionally assign tolerance_grade per process step
     - Boost priority for functional surfaces
     """
-    process_seq = dim_cfg.get("process_sequence", DEFAULT_PROCESS_SEQUENCE)
+    process_seq_raw = dim_cfg.get("process_sequence", DEFAULT_PROCESS_SEQUENCE)
+    if isinstance(process_seq_raw, list):
+        process_seq = [s for s in process_seq_raw if isinstance(s, str) and s]
+    else:
+        process_seq = []
+    if not process_seq:
+        process_seq = list(DEFAULT_PROCESS_SEQUENCE)
     map_tolerance = dim_cfg.get("tolerance_grade_mapping", False)
     func_priority = dim_cfg.get("functional_surface_priority", False)
 
@@ -375,12 +381,14 @@ def _apply_d4_manufacturing(plan, dim_cfg):
         for f in features:
             feature_to_process[f] = step
 
+    fallback_step = process_seq[-1]
+
     intents = plan.get("dim_intents", [])
     for di in intents:
         # Only infer if not already set
         if not di.get("process_step"):
             feature = di.get("feature", "")
-            di["process_step"] = feature_to_process.get(feature, process_seq[-1])
+            di["process_step"] = feature_to_process.get(feature, fallback_step)
 
         # Tolerance grade mapping
         if map_tolerance and not di.get("tolerance_grade"):

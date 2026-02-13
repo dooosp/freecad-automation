@@ -356,6 +356,30 @@ class TestD4ManufacturingStrategy(unittest.TestCase):
         plan = merge_plan(config, None)
         self.assertIn("_process_groups", plan["dimensioning"])
 
+    def test_d4_empty_process_sequence_fallback(self):
+        """Empty process_sequence must not crash and should fall back to defaults."""
+        from intent_compiler import merge_plan
+
+        config = {
+            "drawing_plan": {
+                "dimensioning": {
+                    "scheme": "manufacturing",
+                    "process_sequence": [],
+                },
+                "dim_intents": [
+                    {"id": "UNK", "feature": "unknown_feature", "view": "right",
+                     "style": "linear", "required": True, "priority": 10},
+                ],
+            }
+        }
+        plan = merge_plan(config, None)
+        intents = plan["dim_intents"]
+        self.assertEqual(intents[0].get("process_step"), "finish_turn")
+        self.assertEqual(
+            plan["dimensioning"].get("_process_groups"),
+            ["face", "rough_turn", "bore", "drill", "finish_turn"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
