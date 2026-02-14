@@ -24,7 +24,7 @@ def _std_ref(standard, key):
     if entry:
         return f"{entry['code']}:{entry['version']}"
     # Fallback for unknown standard
-    fallbacks = {"general_tolerance": "KS B 0401" if standard == "KS" else "ISO 2768"}
+    fallbacks = {"general_tolerance": "KS B 0401:2014" if standard == "KS" else "ISO 2768:1989"}
     return fallbacks.get(key, "")
 
 

@@ -18,7 +18,7 @@ from _feature_inference import infer_features_from_config
 from _view_planner import plan_views
 from _general_notes import (build_general_notes, build_revision_table,
                             render_revision_table_svg, render_general_notes_svg,
-                            estimate_notes_height)
+                            estimate_notes_height, _std_ref)
 from _dim_baseline import (render_baseline_dimensions_svg,
                            render_ordinate_dimensions_svg,
                            select_dimension_strategy)
@@ -1657,7 +1657,7 @@ def compose_drawing(views_svg, name, bom, scale, bbox,
         (0, 1, "DRAWING NO.",  meta.get("drawing_no", "-")),
         (1, 0, "MATERIAL",     meta.get("material", "-")),
         (1, 1, "SCALE",        sl),
-        (2, 0, "TOLERANCE",    meta.get("tolerance", "ISO 2768-m")),
+        (2, 0, "TOLERANCE",    meta.get("tolerance", _std_ref(meta.get("_standard", "KS"), "general_tolerance") + "-m")),
         (2, 1, "DATE",         dt),
         (3, 0, "DESIGNED BY",  meta.get("designed_by", "-")),
         (3, 1, "SIZE / SHEET", "A3"),
@@ -3081,6 +3081,7 @@ try:
              if is_assembly else [])
     tol_specs = config.get("tolerance", {}).get("specs", {})
     drawing_meta = dict(drawing_cfg.get("meta", {}))
+    drawing_meta["_standard"] = config.get("standard", "KS")
     if sf_cfg:
         drawing_meta["_sf_default"] = sf_cfg.get("default", "")
     drawing_style = drawing_cfg.get("style", {})
