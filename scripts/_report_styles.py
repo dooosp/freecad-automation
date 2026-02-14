@@ -6,6 +6,18 @@ import matplotlib.pyplot as plt
 from matplotlib import font_manager
 import os
 
+# Register user-installed fonts (Windows user fonts dir is not scanned by default)
+_USER_FONT_DIR = os.path.join(os.path.expanduser('~'), 'AppData', 'Local',
+                              'Microsoft', 'Windows', 'Fonts')
+if os.path.isdir(_USER_FONT_DIR):
+    for fname in os.listdir(_USER_FONT_DIR):
+        if fname.lower().endswith(('.ttf', '.otf')):
+            fpath = os.path.join(_USER_FONT_DIR, fname)
+            try:
+                font_manager.fontManager.addfont(fpath)
+            except Exception:
+                pass
+
 # Professional color schemes
 STYLE_PROFESSIONAL = {
     'header_bg': '#2c3e50',
