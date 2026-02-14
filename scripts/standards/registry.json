@@ -1,0 +1,18 @@
+{
+  "KS": {
+    "general_tolerance": { "code": "KS B 0401", "version": "2014", "title": "일반 공차" },
+    "fits": { "code": "KS B 0401", "version": "2014", "title": "끼워맞춤 공차" },
+    "surface_finish": { "code": "KS B 0412", "version": "2020", "title": "표면 거칠기" },
+    "gdt": { "code": "KS B 0608", "version": "2017", "title": "기하 공차" },
+    "thread": { "code": "KS B 0211", "version": "2014", "title": "나사 규격" },
+    "bolt_hole": { "code": "KS B 1012", "version": "2014", "title": "볼트 구멍" }
+  },
+  "ISO": {
+    "general_tolerance": { "code": "ISO 2768", "version": "1989", "title": "General tolerances" },
+    "fits": { "code": "ISO 286", "version": "2010", "title": "Limits and fits" },
+    "surface_finish": { "code": "ISO 1302", "version": "2002", "title": "Surface texture" },
+    "gdt": { "code": "ISO 1101", "version": "2017", "title": "Geometrical tolerancing" },
+    "thread": { "code": "ISO 261", "version": "1998", "title": "Thread specifications" },
+    "bolt_hole": { "code": "ISO 273", "version": "1979", "title": "Bolt holes" }
+  }
+}

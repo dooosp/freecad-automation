@@ -117,7 +117,7 @@ def render_report(config, template, data, output_path):
         if standards.get('enabled'):
             page_num += 1
             fig = _new_page()
-            render_standards(fig, template, style)
+            render_standards(fig, template, style, config=config)
             _render_footer(fig, page_num, total_pages_estimate, style)
             pdf.savefig(fig)
             plt.close(fig)
@@ -517,7 +517,9 @@ def render_assumptions(fig, template, config, style):
     if 'batch_size' in show_fields or assumptions.get('show_batch_size', True):
         items.append(['Batch Size', str(config.get('batch_size', 100))])
     if 'standard_version' in show_fields or assumptions.get('show_standard_version', True):
-        items.append(['Standard', 'KS (Korean Standards)'])
+        std = config.get('standard', 'KS')
+        std_labels = {'KS': 'KS (Korean Standards)', 'ISO': 'ISO (International)', 'ANSI': 'ANSI (American)'}
+        items.append(['Standard', std_labels.get(std, std)])
 
     # Shop profile info
     profile = config.get('shop_profile')
@@ -532,7 +534,7 @@ def render_assumptions(fig, template, config, style):
         _style_table(table, style)
 
 
-def render_standards(fig, template, style):
+def render_standards(fig, template, style, config=None):
     """Render standards references section."""
     _render_section_header(fig, '참조 표준 / Standards References', style)
 
@@ -542,6 +544,22 @@ def render_standards(fig, template, style):
     # Handle tags format (simple array of strings)
     if not standards and 'tags' in standards_cfg:
         standards = [{'code': tag, 'version': '', 'title': ''} for tag in standards_cfg['tags']]
+
+    # Auto-populate from registry when no standards are provided
+    if not standards and config:
+        std = config.get('standard', 'KS')
+        try:
+            registry_path = os.path.join(os.path.dirname(__file__), 'standards', 'registry.json')
+            with open(registry_path, 'r', encoding='utf-8') as f:
+                registry = json.load(f)
+            for entry in registry.get(std, {}).values():
+                standards.append({
+                    'code': f"{entry['code']}:{entry['version']}",
+                    'version': entry['version'],
+                    'title': entry['title'],
+                })
+        except Exception:
+            pass
 
     if standards:
         ax = fig.add_axes([MARGIN_LEFT/PAGE_WIDTH, 0.2, CONTENT_WIDTH/PAGE_WIDTH, 0.55])

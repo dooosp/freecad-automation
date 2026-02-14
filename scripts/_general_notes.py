@@ -3,21 +3,43 @@ General notes and revision table for engineering drawings.
 Builds standard note lists and renders SVG for the title block area.
 """
 
+import json
 import math
+import os
 from datetime import date as _date
 
+# Load standards registry once at module level
+_REGISTRY_PATH = os.path.join(os.path.dirname(__file__), "standards", "registry.json")
+_REGISTRY = {}
+try:
+    with open(_REGISTRY_PATH, "r", encoding="utf-8") as _f:
+        _REGISTRY = json.load(_f)
+except Exception:
+    pass
 
-def build_general_notes(drawing_cfg, feature_graph=None, ks=True):
+
+def _std_ref(standard, key):
+    """Get versioned standard reference string (e.g. 'KS B 0401:2014')."""
+    entry = _REGISTRY.get(standard, {}).get(key, {})
+    if entry:
+        return f"{entry['code']}:{entry['version']}"
+    # Fallback for unknown standard
+    fallbacks = {"general_tolerance": "KS B 0401" if standard == "KS" else "ISO 2768"}
+    return fallbacks.get(key, "")
+
+
+def build_general_notes(drawing_cfg, feature_graph=None, standard="KS"):
     """Build a list of general notes for the drawing.
 
     Args:
         drawing_cfg: drawing section of TOML config
         feature_graph: FeatureGraph for feature-aware notes
-        ks: Use KS standard references (True) or ISO (False)
+        standard: Standard system to use ('KS', 'ISO', etc.)
 
     Returns:
         list of note strings
     """
+    ks = standard == "KS"
     notes = []
     meta = drawing_cfg.get("meta", {})
     sf_cfg = drawing_cfg.get("surface_finish", {})
@@ -25,19 +47,16 @@ def build_general_notes(drawing_cfg, feature_graph=None, ks=True):
     tol_cfg = drawing_cfg.get("tolerances", {})
     ks_cfg = drawing_cfg.get("ks_standard", {})
 
-    # 1. General tolerance
+    # 1. General tolerance (with versioned standard reference)
     gen_tol = ks_cfg.get("general_tolerance") or tol_cfg.get("general") or meta.get("tolerance", "")
+    std_ref = _std_ref(standard, "general_tolerance")
     if gen_tol:
-        if ks and "KS" in gen_tol.upper():
-            notes.append(f"GENERAL TOLERANCES PER {gen_tol}")
-        elif "ISO" in gen_tol.upper():
+        if "KS" in gen_tol.upper() or "ISO" in gen_tol.upper():
             notes.append(f"GENERAL TOLERANCES PER {gen_tol}")
         else:
-            std = "KS B 0401" if ks else "ISO 2768"
-            notes.append(f"GENERAL TOLERANCES PER {std} {gen_tol}")
+            notes.append(f"GENERAL TOLERANCES PER {std_ref} {gen_tol}")
     else:
-        std = "KS B 0401" if ks else "ISO 2768"
-        notes.append(f"GENERAL TOLERANCES PER {std}-m")
+        notes.append(f"GENERAL TOLERANCES PER {std_ref}-m")
 
     # 2. Default surface finish
     sf_default = sf_cfg.get("default", "")
