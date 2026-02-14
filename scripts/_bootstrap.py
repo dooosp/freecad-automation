@@ -15,9 +15,11 @@ def log(msg):
 
 def read_input():
     """Read JSON config from stdin."""
-    raw = sys.stdin.read()
-    if not raw.strip():
+    raw_bytes = sys.stdin.buffer.read()
+    if not raw_bytes.strip():
         raise ValueError("No input received on stdin")
+    # Always decode stdin as UTF-8 to avoid locale-dependent surrogate escapes.
+    raw = raw_bytes.decode("utf-8")
     return json.loads(raw)
 
 

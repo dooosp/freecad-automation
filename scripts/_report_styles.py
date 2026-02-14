@@ -45,10 +45,20 @@ SEVERITY_COLORS = {
 
 def get_font(language='en'):
     """Return appropriate font family for language."""
+    available = {f.name for f in font_manager.fontManager.ttflist}
     if language == 'ko':
         # Try NanumGothic first
-        ko_fonts = ['NanumGothic', 'NanumBarunGothic', 'Malgun Gothic', 'UnDotum']
-        available = {f.name for f in font_manager.fontManager.ttflist}
+        ko_fonts = [
+            'NanumGothic',
+            'Nanum Gothic',
+            'NanumBarunGothic',
+            'Noto Sans KR',
+            'Noto Sans CJK KR',
+            'Malgun Gothic',
+            'UnDotum',
+            'AppleGothic',
+            'IPAGothic',
+        ]
         for font in ko_fonts:
             if font in available:
                 return font
@@ -59,8 +69,10 @@ def get_font(language='en'):
 def apply_style(template=None):
     """Apply report style from template or defaults."""
     style = template.get('style', {}) if template else {}
+    available = {f.name for f in font_manager.fontManager.ttflist}
+    preferred_font = style.get('font')
 
-    font_family = get_font(template.get('language', 'en') if template else 'en')
+    font_family = preferred_font if preferred_font in available else get_font(template.get('language', 'en') if template else 'en')
 
     plt.rcParams.update({
         'font.family': font_family,

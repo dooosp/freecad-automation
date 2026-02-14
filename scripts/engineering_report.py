@@ -44,7 +44,7 @@ def generate_template_report(config, template_config):
     if template_config.get('template_path'):
         template_path = template_config['template_path']
         if os.path.exists(template_path):
-            with open(template_path) as f:
+            with open(template_path, encoding='utf-8') as f:
                 template = json.load(f)
 
     # Inject metadata into template for renderer

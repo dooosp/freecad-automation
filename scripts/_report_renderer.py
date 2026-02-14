@@ -3,6 +3,7 @@
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 from matplotlib.backends.backend_pdf import PdfPages
 import numpy as np
 import os
@@ -602,8 +603,14 @@ def render_signature_area(fig, template, style, y_start=0.45):
                 ha='center', va='bottom', color=style['header_color'])
 
         # Signature line
-        fig.plot([x + 0.02, x + box_width - 0.02], [y_start - 0.04, y_start - 0.04],
-                color='#333333', linewidth=0.8, transform=fig.transFigure, clip_on=False)
+        fig.add_artist(Line2D(
+            [x + 0.02, x + box_width - 0.02],
+            [y_start - 0.04, y_start - 0.04],
+            color='#333333',
+            linewidth=0.8,
+            transform=fig.transFigure,
+            clip_on=False,
+        ))
 
         # Date field
         if sig.get('show_date', sig.get('show_date_field', True)):
