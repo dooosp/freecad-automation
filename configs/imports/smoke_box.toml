@@ -1,0 +1,19 @@
+name = "imported_block"
+
+[import]
+source_step = "/home/taeho/freecad-automation/output/smoke_box.step"
+template_only = true
+
+# NOTE: This imported config is a template.
+# Add [[shapes]] / [[operations]] or [[parts]] before running Analyze.
+
+[export]
+step = true
+stl = true
+
+[drawing]
+scale = "auto"
+title = "Imported Block"
+
+[manufacturing]
+process = "machining"
