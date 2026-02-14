@@ -1,0 +1,126 @@
+{
+  "$schema": "shop-profile-v1",
+  "version": 1,
+  "name": "_default",
+  "description": "Default profile (built-in values)",
+  "created": "2026-02-14T09:00:00Z",
+  "updated": "2026-02-14T09:00:00Z",
+  "equipment": [],
+  "tool_constraints": {
+    "min_tool_diameter_mm": 1.0,
+    "max_tool_diameter_mm": 50.0,
+    "max_drill_depth_mm": 200,
+    "min_internal_radius_mm": 0.5
+  },
+  "achievable_tolerances": {
+    "general_it_grade": "IT8",
+    "best_it_grade": "IT6",
+    "surface_finish_range": {
+      "min_ra": 0.4,
+      "max_ra": 12.5
+    }
+  },
+  "process_capabilities": {
+    "machining": {
+      "available": true,
+      "rate_krw_per_min": 1500,
+      "setup_cost_per_op_krw": 20000,
+      "min_wall_thickness_mm": 1.5,
+      "max_drill_ratio": 5.0,
+      "hole_edge_factor": 1.0,
+      "hole_spacing_factor": 1.0
+    },
+    "casting": {
+      "available": true,
+      "rate_krw_per_min": 800,
+      "setup_cost_per_op_krw": 30000,
+      "min_wall_thickness_mm": 3.0,
+      "max_drill_ratio": 3.0,
+      "hole_edge_factor": 2.0,
+      "hole_spacing_factor": 1.5
+    },
+    "sheet_metal": {
+      "available": true,
+      "rate_krw_per_min": 700,
+      "setup_cost_per_op_krw": 10000,
+      "min_wall_thickness_mm": 0.5,
+      "max_drill_ratio": 10.0,
+      "hole_edge_factor": 1.0,
+      "hole_spacing_factor": 1.0
+    },
+    "3d_printing": {
+      "available": true,
+      "rate_krw_per_min": 2000,
+      "setup_cost_per_op_krw": 5000,
+      "min_wall_thickness_mm": 0.8,
+      "max_drill_ratio": 20.0,
+      "hole_edge_factor": 0.5,
+      "hole_spacing_factor": 0.5
+    }
+  },
+  "material_rates": {
+    "SS304": {
+      "cost_krw_per_kg": 5500,
+      "available": true
+    },
+    "SS316": {
+      "cost_krw_per_kg": 7000,
+      "available": true
+    },
+    "AL6061": {
+      "cost_krw_per_kg": 4200,
+      "available": true
+    },
+    "AL7075": {
+      "cost_krw_per_kg": 5500,
+      "available": true
+    },
+    "S45C": {
+      "cost_krw_per_kg": 2800,
+      "available": true
+    },
+    "SCM440": {
+      "cost_krw_per_kg": 3500,
+      "available": true
+    },
+    "Brass": {
+      "cost_krw_per_kg": 8000,
+      "available": true
+    },
+    "Titanium": {
+      "cost_krw_per_kg": 45000,
+      "available": true
+    }
+  },
+  "inspection": {
+    "cost_per_tolerance_pair_krw": 10000,
+    "cmm_available": true,
+    "max_part_size_mm": {
+      "x": 1000,
+      "y": 600,
+      "z": 500
+    }
+  },
+  "batch_discounts": [
+    {
+      "min_qty": 1,
+      "discount_pct": 0
+    },
+    {
+      "min_qty": 10,
+      "discount_pct": 5
+    },
+    {
+      "min_qty": 50,
+      "discount_pct": 12
+    },
+    {
+      "min_qty": 100,
+      "discount_pct": 20
+    },
+    {
+      "min_qty": 500,
+      "discount_pct": 30
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "$schema": "report-template-v1",
+  "version": 1,
+  "name": "internal_review",
+  "label": "Internal Review",
+  "label_ko": "내부 검토용",
+  "description": "Minimal template for internal review, Korean language",
+  "created": "2026-02-14T09:00:00Z",
+  "updated": "2026-02-14T09:00:00Z",
+  "language": "ko",
+  "title_block": {
+    "show_logo": false,
+    "fields": [
+      "part_name",
+      "date",
+      "author"
+    ]
+  },
+  "revision_history": {
+    "enabled": false,
+    "max_rows": 5
+  },
+  "toc": {
+    "enabled": true
+  },
+  "sections": {
+    "model_summary": {
+      "enabled": true,
+      "order": 1
+    },
+    "drawing": {
+      "enabled": true,
+      "order": 2
+    },
+    "dfm": {
+      "enabled": true,
+      "order": 3
+    },
+    "tolerance": {
+      "enabled": true,
+      "order": 4
+    },
+    "cost": {
+      "enabled": true,
+      "order": 5
+    },
+    "bom": {
+      "enabled": true,
+      "order": 6
+    },
+    "appendix": {
+      "enabled": true,
+      "order": 7
+    }
+  },
+  "assumptions": {
+    "enabled": true,
+    "show": [
+      "process",
+      "material",
+      "batch_size",
+      "standard_version"
+    ]
+  },
+  "standards": {
+    "enabled": false,
+    "tags": []
+  },
+  "disclaimer": {
+    "enabled": true,
+    "text": "내부 검토용 자동 분석 보고서입니다."
+  },
+  "signature": {
+    "enabled": false,
+    "roles": [],
+    "show_date": false
+  },
+  "style": {
+    "page_format": "A4",
+    "orientation": "landscape",
+    "header_color": "#2c3e50",
+    "accent_color": "#3498db",
+    "font": "NanumGothic"
+  }
+}

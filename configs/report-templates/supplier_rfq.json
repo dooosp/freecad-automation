@@ -1,0 +1,86 @@
+{
+  "$schema": "report-template-v1",
+  "version": 1,
+  "name": "supplier_rfq",
+  "label": "Supplier RFQ",
+  "label_ko": "협력사 견적요청용",
+  "description": "Template for supplier RFQ - emphasizes cost and BOM, minimal tolerance detail",
+  "created": "2026-02-14T09:00:00Z",
+  "updated": "2026-02-14T09:00:00Z",
+  "language": "ko",
+  "title_block": {
+    "show_logo": true,
+    "fields": [
+      "part_name",
+      "drawing_number",
+      "revision",
+      "date"
+    ]
+  },
+  "revision_history": {
+    "enabled": false,
+    "max_rows": 5
+  },
+  "toc": {
+    "enabled": true
+  },
+  "sections": {
+    "model_summary": {
+      "enabled": true,
+      "order": 1
+    },
+    "drawing": {
+      "enabled": true,
+      "order": 2
+    },
+    "dfm": {
+      "enabled": true,
+      "order": 3
+    },
+    "tolerance": {
+      "enabled": false,
+      "order": 4
+    },
+    "cost": {
+      "enabled": true,
+      "order": 5,
+      "emphasized": true
+    },
+    "bom": {
+      "enabled": true,
+      "order": 6
+    },
+    "appendix": {
+      "enabled": false,
+      "order": 7
+    }
+  },
+  "assumptions": {
+    "enabled": true,
+    "show": [
+      "process",
+      "material",
+      "batch_size"
+    ]
+  },
+  "standards": {
+    "enabled": false,
+    "tags": []
+  },
+  "disclaimer": {
+    "enabled": true,
+    "text": "본 견적 요청서의 수량 및 사양은 변경될 수 있습니다."
+  },
+  "signature": {
+    "enabled": false,
+    "roles": [],
+    "show_date": false
+  },
+  "style": {
+    "page_format": "A4",
+    "orientation": "landscape",
+    "header_color": "#1a5276",
+    "accent_color": "#2ecc71",
+    "font": "NanumGothic"
+  }
+}

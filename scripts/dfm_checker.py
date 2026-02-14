@@ -496,6 +496,61 @@ def check_drill_ratio(config, constraints):
 
 
 # ---------------------------------------------------------------------------
+# Tool constraint checks (shop_profile support)
+# ---------------------------------------------------------------------------
+
+def check_tool_constraints(config, constraints):
+    """Check holes against tool constraints from shop_profile."""
+    checks = []
+    holes = _extract_holes(config)
+
+    # Min tool diameter check
+    min_tool_dia = constraints.get("min_tool_diameter")
+    if min_tool_dia:
+        for hole in holes:
+            if hole["diameter"] > 0 and hole["diameter"] < min_tool_dia:
+                checks.append(DFMCheck(
+                    "DFM-07", "error",
+                    f"Hole '{hole['id']}' diameter {hole['diameter']:.1f}mm "
+                    f"< minimum tool diameter {min_tool_dia:.1f}mm",
+                    feature=hole["id"],
+                    recommendation=f"Increase hole diameter to >= {min_tool_dia:.1f}mm or use different shop",
+                ))
+
+    # Max drill depth check
+    max_drill_depth = constraints.get("max_drill_depth")
+    if max_drill_depth:
+        for hole in holes:
+            if hole["height"] > max_drill_depth:
+                checks.append(DFMCheck(
+                    "DFM-08", "error",
+                    f"Hole '{hole['id']}' depth {hole['height']:.1f}mm "
+                    f"exceeds maximum drill depth {max_drill_depth:.1f}mm",
+                    feature=hole["id"],
+                    recommendation=f"Reduce depth to <= {max_drill_depth:.1f}mm or use different shop",
+                ))
+
+    # Min internal radius check (fillets/chamfers)
+    min_internal_radius = constraints.get("min_internal_radius")
+    if min_internal_radius:
+        # Check fillet/chamfer operations
+        for op in config.get("operations", []):
+            op_type = op.get("op", op.get("type", ""))
+            if op_type in ["fillet", "chamfer"]:
+                radius = op.get("radius", 0)
+                if radius > 0 and radius < min_internal_radius:
+                    checks.append(DFMCheck(
+                        "DFM-09", "warning",
+                        f"{op_type.capitalize()} '{op.get('id', 'unknown')}' radius {radius:.1f}mm "
+                        f"< minimum internal radius {min_internal_radius:.1f}mm",
+                        feature=op.get("id", "unknown"),
+                        recommendation=f"Increase {op_type} radius to >= {min_internal_radius:.1f}mm",
+                    ))
+
+    return checks
+
+
+# ---------------------------------------------------------------------------
 # DFM-06: Undercut detection
 # ---------------------------------------------------------------------------
 
@@ -614,8 +669,33 @@ def run_dfm_check(config):
     mfg = config.get("manufacturing", {})
     process = mfg.get("process", "machining")
     constraints = PROCESS_CONSTRAINTS.get(process, PROCESS_CONSTRAINTS["machining"])
+    profile = config.get("shop_profile")
 
-    # Apply user overrides
+    # Apply shop_profile overrides
+    if profile:
+        constraints = dict(constraints)  # Make a copy to avoid modifying global
+        proc_caps = profile.get("process_capabilities", {}).get(process, {})
+
+        # Override process-specific constraints
+        if proc_caps.get("min_wall_thickness_mm"):
+            constraints["min_wall"] = proc_caps["min_wall_thickness_mm"]
+        if proc_caps.get("max_drill_ratio"):
+            constraints["max_drill_ratio"] = proc_caps["max_drill_ratio"]
+        if proc_caps.get("hole_edge_factor"):
+            constraints["hole_edge_factor"] = proc_caps["hole_edge_factor"]
+        if proc_caps.get("hole_spacing_factor"):
+            constraints["hole_spacing_factor"] = proc_caps["hole_spacing_factor"]
+
+        # Apply tool constraints (additional checks will be added below)
+        tool_constraints = profile.get("tool_constraints", {})
+        if tool_constraints.get("min_tool_diameter_mm"):
+            constraints["min_tool_diameter"] = tool_constraints["min_tool_diameter_mm"]
+        if tool_constraints.get("max_drill_depth_mm"):
+            constraints["max_drill_depth"] = tool_constraints["max_drill_depth_mm"]
+        if tool_constraints.get("min_internal_radius_mm"):
+            constraints["min_internal_radius"] = tool_constraints["min_internal_radius_mm"]
+
+    # Apply user overrides (legacy support - takes precedence over profile)
     min_wall_override = mfg.get("min_wall_override", 0)
     if min_wall_override and min_wall_override > 0:
         constraints = dict(constraints)
@@ -628,6 +708,10 @@ def run_dfm_check(config):
     all_checks.extend(check_fillet_chamfer(config, constraints))
     all_checks.extend(check_drill_ratio(config, constraints))
     all_checks.extend(check_undercut(config, constraints))
+
+    # Add tool constraint checks if shop_profile is present
+    if profile:
+        all_checks.extend(check_tool_constraints(config, constraints))
 
     errors = sum(1 for c in all_checks if c.severity == "error")
     warnings = sum(1 for c in all_checks if c.severity == "warning")

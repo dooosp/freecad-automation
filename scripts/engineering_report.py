@@ -1,20 +1,79 @@
-"""
-Engineering PDF report generator.
-Combines tolerance analysis, Monte Carlo simulation, FEM results, and BOM
-into a single-page A4 landscape PDF using matplotlib.
+#!/usr/bin/env python3
+"""Engineering report generator for FreeCAD Studio.
+
+Supports two modes:
+1. Legacy mode (no template): 2-page matplotlib report (existing behavior)
+2. Template mode (_report_template key): Multi-page professional report
 """
 
 import sys
-import os
 import json
+import os
 from datetime import datetime
 
+# Add scripts directory to path for local imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from _bootstrap import log, read_input, respond, respond_error
 
-try:
-    config = read_input()
+def main():
+    try:
+        config = read_input()
+
+        template_config = config.get('_report_template')
+
+        if template_config:
+            # Template mode: multi-page professional report
+            result = generate_template_report(config, template_config)
+        else:
+            # Legacy mode: existing 2-page report
+            result = generate_legacy_report(config)
+
+        respond(result)
+
+    except Exception as e:
+        import traceback
+        respond_error(str(e), traceback.format_exc())
+
+def generate_template_report(config, template_config):
+    """Generate multi-page report using template."""
+    from _report_renderer import render_report
+
+    # Load template
+    template = template_config.get('template', {})
+    if template_config.get('template_path'):
+        template_path = template_config['template_path']
+        if os.path.exists(template_path):
+            with open(template_path) as f:
+                template = json.load(f)
+
+    # Inject metadata into template for renderer
+    template['_metadata'] = template_config.get('metadata', {})
+
+    # Collect analysis data
+    data = {
+        'model': config.get('model_result', {}),
+        'qa': config.get('qa_result', {}),
+        'dfm': config.get('dfm_results') or config.get('dfm_result', {}),
+        'tolerance': config.get('tolerance_results', {}),
+        'cost': config.get('cost_result', {}),
+    }
+
+    # Determine output path
+    name = config.get('name', 'report')
+    output_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'output')
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, f'{name}_report.pdf')
+
+    render_report(config, template, data, output_path)
+
+    file_size = os.path.getsize(output_path)
+    log(f"  PDF exported: {output_path} ({file_size} bytes)")
+
+    return {'success': True, 'pdf_path': output_path, 'path': output_path, 'size_bytes': file_size}
+
+def generate_legacy_report(config):
+    """Generate legacy 2-page report (existing behavior)."""
     model_name = config.get("name", "unnamed")
     log(f"Engineering Report: {model_name}")
 
@@ -284,12 +343,11 @@ try:
     file_size = os.path.getsize(pdf_path)
     log(f"  PDF exported: {pdf_path} ({file_size} bytes)")
 
-    respond({
+    return {
         "success": True,
         "path": pdf_path,
         "size_bytes": file_size,
-    })
+    }
 
-except Exception as e:
-    import traceback
-    respond_error(str(e), traceback.format_exc())
+if __name__ == '__main__':
+    main()

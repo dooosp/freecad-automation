@@ -183,10 +183,12 @@ def calculate_complexity(faces, holes, fillets):
     return (faces * 0.3 + holes * 2.0 + fillets * 1.0) / 10.0
 
 
-def get_batch_discount(quantity):
+def get_batch_discount(quantity, batch_discounts=None):
     """Get batch discount rate for given quantity."""
+    if batch_discounts is None:
+        batch_discounts = BATCH_DISCOUNTS
     discount = 0.0
-    for threshold, rate in BATCH_DISCOUNTS:
+    for threshold, rate in batch_discounts:
         if quantity >= threshold:
             discount = rate
     return discount
@@ -197,29 +199,63 @@ def estimate_cost(config):
     process = config.get("process", config.get("manufacturing", {}).get("process", "machining"))
     batch_size = config.get("batch_size", 1)
     dfm_result = config.get("dfm_result")
+    profile = config.get("shop_profile")
 
-    # Material cost
+    # Material cost - start with defaults, override with profile
+    mat_costs = dict(MATERIAL_COST)
+    if profile:
+        for mat_key, mat_info in profile.get("material_rates", {}).items():
+            if mat_info.get("available", True):
+                mat_costs[mat_key] = mat_info.get("cost_krw_per_kg", mat_costs.get(mat_key, 5000))
+
+    # Process rates - override with profile if present
+    process_rates = dict(PROCESS_RATE)
+    setup_cost_per_op = SETUP_COST_PER_OP
+    if profile:
+        proc_caps = profile.get("process_capabilities", {}).get(process, {})
+        if proc_caps.get("rate_krw_per_min"):
+            process_rates[process] = proc_caps["rate_krw_per_min"]
+        if proc_caps.get("setup_cost_per_op_krw"):
+            setup_cost_per_op = proc_caps["setup_cost_per_op_krw"]
+
+    # Inspection cost - override with profile if present
+    inspection_cost_per_pair = INSPECTION_COST_PER_PAIR
+    if profile:
+        insp = profile.get("inspection", {})
+        if insp.get("cost_per_tolerance_pair_krw"):
+            inspection_cost_per_pair = insp["cost_per_tolerance_pair_krw"]
+
+    # Batch discounts - override with profile if present
+    batch_discounts = list(BATCH_DISCOUNTS)
+    if profile:
+        batch_discount_list = profile.get("batch_discounts", [])
+        if batch_discount_list:
+            # Convert from list of {min_qty, discount_pct} to tuples
+            batch_discounts = [(bd["min_qty"], bd["discount_pct"] / 100.0)
+                              for bd in batch_discount_list]
+
+    # Material cost calculation
     volume = estimate_bounding_volume(config)
     density = MATERIAL_DENSITY.get(material_key, 7.85e-6)
     mass_kg = volume * density
-    mat_cost_per_kg = MATERIAL_COST.get(material_key, 5000)
+    mat_cost_per_kg = mat_costs.get(material_key, 5000)
     material_cost = mass_kg * mat_cost_per_kg
 
     # Machining cost
     faces, holes, fillets = count_features(config)
     complexity = calculate_complexity(faces, holes, fillets)
-    process_rate = PROCESS_RATE.get(process, 1200)
+    process_rate = process_rates.get(process, 1200)
     process_coeff = PROCESS_COEFF.get(process, 1.0)
     machining_time = complexity * (volume ** 0.33) * process_coeff  # minutes
     machining_cost = machining_time * process_rate
 
     # Setup cost
     num_ops = len(config.get("operations", [])) + 1  # at least 1
-    setup_cost = num_ops * SETUP_COST_PER_OP
+    setup_cost = num_ops * setup_cost_per_op
 
     # Inspection cost
     tol_pairs = len(config.get("tolerance", {}).get("pairs", []))
-    inspection_cost = tol_pairs * INSPECTION_COST_PER_PAIR
+    inspection_cost = tol_pairs * inspection_cost_per_pair
 
     # Defect rate correction
     dfm_score = 100
@@ -229,14 +265,14 @@ def estimate_cost(config):
 
     # Total per unit
     base_cost = (material_cost + machining_cost + setup_cost + inspection_cost) * defect_factor
-    discount = get_batch_discount(batch_size)
+    discount = get_batch_discount(batch_size, batch_discounts)
     unit_cost = base_cost * (1 - discount)
     total_cost = unit_cost * batch_size
 
     # Batch curve
     batch_curve = []
     for qty in [1, 5, 10, 25, 50, 100, 250, 500, 1000]:
-        disc = get_batch_discount(qty)
+        disc = get_batch_discount(qty, batch_discounts)
         uc = base_cost * (1 - disc)
         batch_curve.append({"quantity": qty, "unit_cost": round(uc)})
 
@@ -251,20 +287,29 @@ def estimate_cost(config):
                 "percent": round((savings / base_cost) * 100, 1),
             }
 
-    # Process comparison
+    # Process comparison - use profile rates if available
     process_comparison = []
     for proc in ["machining", "casting", "sheet_metal", "3d_printing"]:
+        # Check profile for this process
         p_rate = PROCESS_RATE.get(proc, 1200)
+        p_setup = SETUP_COST_PER_OP
+        if profile:
+            proc_caps = profile.get("process_capabilities", {}).get(proc, {})
+            if proc_caps.get("rate_krw_per_min"):
+                p_rate = proc_caps["rate_krw_per_min"]
+            if proc_caps.get("setup_cost_per_op_krw"):
+                p_setup = proc_caps["setup_cost_per_op_krw"]
+
         p_coeff = PROCESS_COEFF.get(proc, 1.0)
         p_time = complexity * (volume ** 0.33) * p_coeff
         p_machining = p_time * p_rate
-        p_setup = num_ops * SETUP_COST_PER_OP
-        p_total = (material_cost + p_machining + p_setup + inspection_cost) * defect_factor
+        p_setup_cost = num_ops * p_setup
+        p_total = (material_cost + p_machining + p_setup_cost + inspection_cost) * defect_factor
         process_comparison.append({
             "process": proc,
             "material": round(material_cost),
             "machining": round(p_machining),
-            "setup": round(p_setup),
+            "setup": round(p_setup_cost),
             "total": round(p_total),
             "current": proc == process,
         })

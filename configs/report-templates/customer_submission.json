@@ -1,0 +1,96 @@
+{
+  "$schema": "report-template-v1",
+  "version": 1,
+  "name": "customer_submission",
+  "label": "Customer Submission",
+  "label_ko": "고객 제출용",
+  "description": "Full formal template for customer submission with signatures and standards",
+  "created": "2026-02-14T09:00:00Z",
+  "updated": "2026-02-14T09:00:00Z",
+  "language": "ko",
+  "title_block": {
+    "show_logo": true,
+    "fields": [
+      "part_name",
+      "drawing_number",
+      "revision",
+      "date",
+      "author",
+      "reviewer",
+      "approver"
+    ]
+  },
+  "revision_history": {
+    "enabled": true,
+    "max_rows": 10
+  },
+  "toc": {
+    "enabled": true
+  },
+  "sections": {
+    "model_summary": {
+      "enabled": true,
+      "order": 1
+    },
+    "drawing": {
+      "enabled": true,
+      "order": 2
+    },
+    "dfm": {
+      "enabled": true,
+      "order": 3
+    },
+    "tolerance": {
+      "enabled": true,
+      "order": 4
+    },
+    "cost": {
+      "enabled": true,
+      "order": 5
+    },
+    "bom": {
+      "enabled": true,
+      "order": 6
+    },
+    "appendix": {
+      "enabled": true,
+      "order": 7
+    }
+  },
+  "assumptions": {
+    "enabled": true,
+    "show": [
+      "process",
+      "material",
+      "batch_size",
+      "standard_version"
+    ]
+  },
+  "standards": {
+    "enabled": true,
+    "tags": [
+      "KS B 0401",
+      "KS B ISO 2768-1"
+    ]
+  },
+  "disclaimer": {
+    "enabled": true,
+    "text": "본 보고서는 자동 분석 결과이며, 최종 판단은 담당 엔지니어의 검토를 거쳐야 합니다."
+  },
+  "signature": {
+    "enabled": true,
+    "roles": [
+      "author",
+      "reviewer",
+      "approver"
+    ],
+    "show_date": true
+  },
+  "style": {
+    "page_format": "A4",
+    "orientation": "landscape",
+    "header_color": "#2c3e50",
+    "accent_color": "#3498db",
+    "font": "NanumGothic"
+  }
+}

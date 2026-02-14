@@ -1,0 +1,136 @@
+{
+  "$schema": "shop-profile-v1",
+  "version": 1,
+  "name": "sample_precision",
+  "description": "정밀 CNC 가공 전문 업체",
+  "created": "2026-02-14T09:00:00Z",
+  "updated": "2026-02-14T09:00:00Z",
+  "equipment": [
+    {
+      "type": "5-axis CNC",
+      "model": "DMU 50",
+      "work_envelope_mm": {
+        "x": 500,
+        "y": 450,
+        "z": 400
+      }
+    }
+  ],
+  "tool_constraints": {
+    "min_tool_diameter_mm": 0.5,
+    "max_tool_diameter_mm": 50.0,
+    "max_drill_depth_mm": 250,
+    "min_internal_radius_mm": 0.25
+  },
+  "achievable_tolerances": {
+    "general_it_grade": "IT7",
+    "best_it_grade": "IT5",
+    "surface_finish_range": {
+      "min_ra": 0.2,
+      "max_ra": 6.3
+    }
+  },
+  "process_capabilities": {
+    "machining": {
+      "available": true,
+      "rate_krw_per_min": 2500,
+      "setup_cost_per_op_krw": 35000,
+      "min_wall_thickness_mm": 0.8,
+      "max_drill_ratio": 6.0,
+      "hole_edge_factor": 0.8,
+      "hole_spacing_factor": 0.8
+    },
+    "casting": {
+      "available": false,
+      "rate_krw_per_min": 0,
+      "setup_cost_per_op_krw": 0,
+      "min_wall_thickness_mm": 3.0,
+      "max_drill_ratio": 3.0,
+      "hole_edge_factor": 2.0,
+      "hole_spacing_factor": 1.5
+    },
+    "sheet_metal": {
+      "available": true,
+      "rate_krw_per_min": 900,
+      "setup_cost_per_op_krw": 15000,
+      "min_wall_thickness_mm": 0.5,
+      "max_drill_ratio": 10.0,
+      "hole_edge_factor": 1.0,
+      "hole_spacing_factor": 1.0
+    },
+    "3d_printing": {
+      "available": false,
+      "rate_krw_per_min": 0,
+      "setup_cost_per_op_krw": 0,
+      "min_wall_thickness_mm": 0.8,
+      "max_drill_ratio": 20.0,
+      "hole_edge_factor": 0.5,
+      "hole_spacing_factor": 0.5
+    }
+  },
+  "material_rates": {
+    "SS304": {
+      "cost_krw_per_kg": 6000,
+      "available": true
+    },
+    "SS316": {
+      "cost_krw_per_kg": 7700,
+      "available": true
+    },
+    "AL6061": {
+      "cost_krw_per_kg": 4600,
+      "available": true
+    },
+    "AL7075": {
+      "cost_krw_per_kg": 6300,
+      "available": true
+    },
+    "S45C": {
+      "cost_krw_per_kg": 3100,
+      "available": true
+    },
+    "SCM440": {
+      "cost_krw_per_kg": 3900,
+      "available": true
+    },
+    "Brass": {
+      "cost_krw_per_kg": 8800,
+      "available": true
+    },
+    "Titanium": {
+      "cost_krw_per_kg": 50000,
+      "available": true
+    }
+  },
+  "inspection": {
+    "cost_per_tolerance_pair_krw": 15000,
+    "cmm_available": true,
+    "max_part_size_mm": {
+      "x": 800,
+      "y": 600,
+      "z": 500
+    }
+  },
+  "batch_discounts": [
+    {
+      "min_qty": 1,
+      "discount_pct": 0
+    },
+    {
+      "min_qty": 10,
+      "discount_pct": 4
+    },
+    {
+      "min_qty": 50,
+      "discount_pct": 10
+    },
+    {
+      "min_qty": 100,
+      "discount_pct": 18
+    },
+    {
+      "min_qty": 500,
+      "discount_pct": 25
+    }
+  ]
+}
