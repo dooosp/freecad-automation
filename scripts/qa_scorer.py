@@ -869,6 +869,29 @@ def collect_metrics(tree, plan=None):
     }
 
 
+def extract_issue_signals(metrics):
+    """Normalize raw metrics into issue-level boolean QA signals.
+
+    Returns a dict where:
+      - True means "issue detected"
+      - False means "no issue"
+      - None means "not applicable / insufficient context"
+    """
+    required_presence_miss = metrics.get("required_presence_miss")
+    note_semantic_mismatch = metrics.get("note_semantic_mismatch")
+    virtual_pcd_present = metrics.get("virtual_pcd_present")
+    view_coverage = metrics.get("view_coverage")
+
+    return {
+        "notes_overflow": bool(metrics.get("notes_overflow")),
+        "datum_incoherent": bool(metrics.get("datum_coherence")),
+        "view_coverage_missing": None if view_coverage is None else bool(view_coverage),
+        "required_presence_missing": None if required_presence_miss is None else required_presence_miss > 0,
+        "note_semantic_mismatch": None if note_semantic_mismatch is None else note_semantic_mismatch > 0,
+        "virtual_pcd_missing": None if virtual_pcd_present is None else (not bool(virtual_pcd_present)),
+    }
+
+
 def compute_score(metrics, weights=WEIGHTS):
     """Compute 100-point score with itemized deductions."""
     score = 100
