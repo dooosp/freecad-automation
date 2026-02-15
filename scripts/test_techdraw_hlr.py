@@ -11,12 +11,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from _bootstrap import log, read_input, respond, respond_error, init_freecad
 
-try:
-    config = read_input()
+
+def run(config):
+    """Run headless TechDraw HLR probing strategies and return result payload."""
     FreeCAD = init_freecad()
     import Part
 
-    # --- Build bracket ---
+    # Build bracket
     from _shapes import make_shape, boolean_op, apply_fillet
 
     shapes = {}
@@ -33,6 +34,9 @@ try:
                 shapes[op_spec["target"]], op_spec["radius"]
             )
 
+    if not shapes:
+        raise ValueError("No shapes configured for TechDraw HLR test")
+
     final_shape = shapes[list(shapes.keys())[-1]]
     log(f"Bracket: {len(final_shape.Faces)} faces, {len(final_shape.Edges)} edges")
 
@@ -42,6 +46,7 @@ try:
     doc.recompute()
 
     tests = []
+
     def run_test(name, fn):
         try:
             val = fn()
@@ -91,66 +96,79 @@ try:
             "visible_vertices": len(vis_vtx),
         }
 
-    # --- Strategy 1: Basic (baseline) ---
+    # Strategy 1: Basic (baseline)
     def s1():
         return make_view_and_count("basic")
+
     run_test("S1: Basic recompute", s1)
 
-    # --- Strategy 2: Multiple recomputes ---
+    # Strategy 2: Multiple recomputes
     def s2():
         def post(doc, page, view, feat):
             doc.recompute()
             doc.recompute()
             doc.recompute()
+
         return make_view_and_count("multi_recompute", post_fn=post)
+
     run_test("S2: Triple recompute", s2)
 
-    # --- Strategy 3: Touch + recompute ---
+    # Strategy 3: Touch + recompute
     def s3():
         def post(doc, page, view, feat):
             feat.touch()
             doc.recompute()
             view.touch()
             doc.recompute()
+
         return make_view_and_count("touch", post_fn=post)
+
     run_test("S3: Touch + recompute", s3)
 
-    # --- Strategy 4: purgeTouched ---
+    # Strategy 4: purgeTouched
     def s4():
         def post(doc, page, view, feat):
             doc.recompute()
             view.purgeTouched()
             doc.recompute()
+
         return make_view_and_count("purge", post_fn=post)
+
     run_test("S4: purgeTouched", s4)
 
-    # --- Strategy 5: Check execute() method ---
+    # Strategy 5: Check execute() method
     def s5():
         def post(doc, page, view, feat):
-            if hasattr(view, 'execute'):
+            if hasattr(view, "execute"):
                 view.execute()
-            if hasattr(view, 'recompute'):
+            if hasattr(view, "recompute"):
                 view.recompute()
             doc.recompute()
+
         return make_view_and_count("execute", post_fn=post)
+
     run_test("S5: view.execute()", s5)
 
-    # --- Strategy 6: CoarseView mode ---
+    # Strategy 6: CoarseView mode
     def s6():
         def pre(doc, page, view, feat):
             view.CoarseView = True
+
         return make_view_and_count("coarse", pre_fn=pre)
+
     run_test("S6: CoarseView=True", s6)
 
-    # --- Strategy 7: Sleep then recompute ---
+    # Strategy 7: Sleep then recompute
     def s7():
         def post(doc, page, view, feat):
             time.sleep(2)
             doc.recompute()
+
         return make_view_and_count("sleep", post_fn=post)
+
     run_test("S7: Sleep 2s + recompute", s7)
 
-    # --- Strategy 8: Check getEdgeByIndex ---
+    # Strategy 8: Check getEdgeByIndex
     def s8():
         page = doc.addObject("TechDraw::DrawPage", "Page_idx")
         view = doc.addObject("TechDraw::DrawViewPart", "View_idx")
@@ -170,9 +188,10 @@ try:
                 info[f"edge_{i}"] = f"error: {e}"
                 break
         return info
+
     run_test("S8: getEdgeByIndex()", s8)
 
-    # --- Strategy 9: Inspect view internal state ---
+    # Strategy 9: Inspect view internal state
     def s9():
         page = doc.addObject("TechDraw::DrawPage", "Page_state")
         view = doc.addObject("TechDraw::DrawViewPart", "View_state")
@@ -184,12 +203,11 @@ try:
 
         info = {
             "State": view.State,
-            "StatusTip": getattr(view, 'StatusTip', 'N/A'),
+            "StatusTip": getattr(view, "StatusTip", "N/A"),
             "Label": view.Label,
-            "isValid": view.isValid() if hasattr(view, 'isValid') else 'N/A',
+            "isValid": view.isValid() if hasattr(view, "isValid") else "N/A",
         }
 
-        # List ALL view properties
         for prop in sorted(view.PropertiesList):
             try:
                 val = getattr(view, prop)
@@ -203,24 +221,25 @@ try:
                 pass
 
         return info
+
     run_test("S9: View internal state", s9)
 
-    # --- Strategy 10: Direct TechDraw projection as alternative ---
+    # Strategy 10: Direct TechDraw projection as alternative
     def s10():
         import TechDraw
         from FreeCAD import Vector
 
-        # Standard projectToSVG
         front = TechDraw.projectToSVG(final_shape, Vector(0, -1, 0))
 
-        # Try projectEx for more detailed output
         info = {"projectToSVG_len": len(front)}
-        if hasattr(TechDraw, 'projectEx'):
+        if hasattr(TechDraw, "projectEx"):
             try:
                 result = TechDraw.projectEx(final_shape, Vector(0, -1, 0))
-                info["projectEx_result"] = f"tuple of {len(result)}: {[type(r).__name__ for r in result]}"
+                info["projectEx_result"] = (
+                    f"tuple of {len(result)}: {[type(r).__name__ for r in result]}"
+                )
                 for i, r in enumerate(result):
-                    if hasattr(r, 'Edges'):
+                    if hasattr(r, "Edges"):
                         info[f"projectEx[{i}]_edges"] = len(r.Edges)
                     elif isinstance(r, str):
                         info[f"projectEx[{i}]_str_len"] = len(r)
@@ -229,28 +248,36 @@ try:
             except Exception as e:
                 info["projectEx_error"] = str(e)
 
-        # Try project function
-        if hasattr(TechDraw, 'project'):
+        if hasattr(TechDraw, "project"):
             try:
                 result = TechDraw.project(final_shape, Vector(0, -1, 0))
                 info["project_result"] = f"type={type(result).__name__}"
             except Exception as e:
                 info["project_error"] = str(e)
 
-        # List all TechDraw module functions
-        td_fns = [a for a in dir(TechDraw) if not a.startswith('_')]
+        td_fns = [a for a in dir(TechDraw) if not a.startswith("_")]
         info["TechDraw_functions"] = td_fns
 
         return info
+
     run_test("S10: TechDraw module functions", s10)
 
-    # --- Summary ---
     passed = sum(1 for t in tests if t["pass"])
     summary = f"{passed}/{len(tests)} passed"
     log(f"\n=== {summary} ===")
 
-    respond({"success": True, "summary": summary, "tests": tests})
+    return {"success": True, "summary": summary, "tests": tests}
 
-except Exception as e:
-    import traceback
-    respond_error(str(e), traceback.format_exc())
+
+def main():
+    try:
+        config = read_input()
+        respond(run(config))
+    except Exception as e:
+        import traceback
+
+        respond_error(str(e), traceback.format_exc())
+
+
+if __name__ == "__main__":
+    main()
