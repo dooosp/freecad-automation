@@ -1967,105 +1967,105 @@ async function testToleranceMonteCarlo() {
   assert(total === 10000, `Histogram sum = 10000 (got ${total})`);
 }
 
+function parseProfileArg() {
+  const raw = process.argv.find((arg) => arg.startsWith('--profile='));
+  const profile = raw ? raw.split('=')[1] : (process.env.FCAD_TEST_PROFILE || 'core');
+  if (profile === 'core' || profile === 'full') return profile;
+  console.warn(`Unknown profile '${profile}', falling back to 'core'`);
+  return 'core';
+}
+
+async function runCase(name, fn) {
+  try {
+    await fn();
+  } catch (err) {
+    failed++;
+    console.error(`\nFATAL [${name}]: ${err.message}`);
+    if (err.stack) console.error(err.stack);
+  }
+}
+
+function coreCases() {
+  return [
+    ['Simple box', testSimpleBox],
+    ['Create bracket model', testCreateModel],
+    ['Inspect STEP', testInspectSTEP],
+    ['FEM analysis', testFemAnalysis],
+    ['Revolution simple', testRevolutionSimple],
+    ['Revolution partial', testRevolutionPartial],
+    ['Revolution with arc', testRevolutionWithArc],
+    ['Extrusion simple', testExtrusionSimple],
+    ['Extrusion with position', testExtrusionWithPosition],
+    ['Circular pattern', testCircularPattern],
+    ['Revolution+boolean combo', testRevolutionBooleanCombo],
+    ['PTU full integration', testPTU],
+    ['Library: ball bearing', testBallBearing],
+    ['Library: spur gear', testSpurGear],
+    ['Library: stepped shaft', testSteppedShaft],
+    ['Library: position offset', testLibraryPartWithPosition],
+    ['Assembly: simple', testSimpleAssembly],
+    ['Assembly: boolean', testAssemblyWithBoolean],
+    ['Assembly: library', testAssemblyWithLibraryParts],
+    ['Assembly: PTU', testPTUAssembly],
+    ['Assembly: legacy compatibility', testAssemblyLegacyCompat],
+    ['Mates: coaxial', testMateCoaxial],
+    ['Mates: coincident', testMateCoincidentOnly],
+    ['Mates: distance', testMateDistance],
+    ['Mates: mixed placement', testMateMixedPlacement],
+    ['Mates: chain', testMateChain],
+    ['Mates: error no anchor', testMateErrorNoAnchor],
+    ['Tolerance DB', testToleranceDB],
+    ['Tolerance pair detection', testTolerancePairDetection],
+    ['Tolerance fit analysis', testToleranceFitAnalysis],
+    ['Tolerance stack-up', testToleranceStackUp],
+    ['Tolerance Monte Carlo', testToleranceMonteCarlo],
+    ['Engineering report', testEngineeringReport],
+    ['GD&T symbols', testGDTSymbols],
+  ];
+}
+
+function fullOnlyCases() {
+  return [
+    ['Motion keyframes', testMotionKeyframes],
+    ['Gear ratio', testGearRatio],
+    ['Motion backward compat', testMotionBackwardCompat],
+    ['Motion mates assembly', testMotionMatesAssembly],
+    ['Library: helical gear', testHelicalGear],
+    ['Library: disc cam', testDiscCam],
+    ['Library: pulley', testPulley],
+    ['Library: coil spring', testCoilSpring],
+    ['Kinematics: belt drive', testBeltDrive],
+    ['Kinematics: cam follower', testCamFollower],
+    ['Kinematics: four-bar linkage', testFourBarLinkage],
+    ['Kinematics: piston engine', testPistonEngine],
+    ['Retractor build', testRetractorBuild],
+    ['Retractor motion data', testRetractorMotionData],
+    ['Retractor cam lock', testRetractorCamLock],
+    ['Retractor spool-cam sync', testRetractorSpoolCamSync],
+    ['Retractor pawl profile', testRetractorPawlProfile],
+    ['MJCF conversion', testMjcfConversion],
+    ['MJCF validation', testMjcfValidation],
+    ['Design review', testDesignReview],
+    ['Design generate', testDesignGenerate],
+  ];
+}
+
 async function main() {
   console.log('FreeCAD Automation - Integration Tests');
   console.log('=' .repeat(40));
+  const profile = parseProfileArg();
+  console.log(`Profile: ${profile}`);
 
   // Clean output directory
   if (existsSync(OUTPUT_DIR)) rmSync(OUTPUT_DIR, { recursive: true });
   mkdirSync(OUTPUT_DIR, { recursive: true });
 
-  try {
-    // Phase 1 tests
-    await testSimpleBox();
-    await testCreateModel();
-    await testInspectSTEP();
+  const cases = profile === 'full'
+    ? [...coreCases(), ...fullOnlyCases()]
+    : coreCases();
 
-    // Phase 2 test
-    await testFemAnalysis();
-
-    // Phase 3 tests: Revolution
-    await testRevolutionSimple();
-    await testRevolutionPartial();
-    await testRevolutionWithArc();
-
-    // Phase 3 tests: Extrusion
-    await testExtrusionSimple();
-    await testExtrusionWithPosition();
-
-    // Phase 3 tests: Circular Pattern
-    await testCircularPattern();
-
-    // Phase 3 tests: Combined
-    await testRevolutionBooleanCombo();
-
-    // Phase 3 tests: PTU full integration
-    await testPTU();
-
-    // Phase 5 tests: Parts Library
-    await testBallBearing();
-    await testSpurGear();
-    await testSteppedShaft();
-    await testLibraryPartWithPosition();
-
-    // Phase 5 tests: Assembly
-    await testSimpleAssembly();
-    await testAssemblyWithBoolean();
-    await testAssemblyWithLibraryParts();
-    await testPTUAssembly();
-    await testAssemblyLegacyCompat();
-
-    // Phase 6 tests: Mate Constraints
-    await testMateCoaxial();
-    await testMateCoincidentOnly();
-    await testMateDistance();
-    await testMateMixedPlacement();
-    await testMateChain();
-    await testMateErrorNoAnchor();
-
-    // Phase 7 tests: Kinematic Motion
-    await testMotionKeyframes();
-    await testGearRatio();
-    await testMotionBackwardCompat();
-    await testMotionMatesAssembly();
-
-    // Phase 8 tests: Extended Parts Library
-    await testHelicalGear();
-    await testDiscCam();
-    await testPulley();
-    await testCoilSpring();
-
-    // Phase 8 tests: Extended Kinematics
-    await testBeltDrive();
-    await testCamFollower();
-    await testFourBarLinkage();
-    await testPistonEngine();
-
-    // Seatbelt Retractor Demo tests
-    await testRetractorBuild();
-    await testRetractorMotionData();
-    await testRetractorCamLock();
-    await testRetractorSpoolCamSync();
-    await testRetractorPawlProfile();
-    await testMjcfConversion();
-    await testMjcfValidation();
-
-    // Design Reviewer tests (require GEMINI_API_KEY — skipped if not set)
-    await testDesignReview();
-    await testDesignGenerate();
-
-    // Phase 13: Tolerance Analysis tests
-    await testToleranceDB();
-    await testTolerancePairDetection();
-    await testToleranceFitAnalysis();
-    await testToleranceStackUp();
-    await testToleranceMonteCarlo();
-    await testEngineeringReport();
-    await testGDTSymbols();
-  } catch (err) {
-    failed++;
-    console.error(`\nFATAL: ${err.message}`);
-    if (err.stack) console.error(err.stack);
+  for (const [name, fn] of cases) {
+    await runCase(name, fn);
   }
 
   console.log(`\n${'='.repeat(40)}`);
