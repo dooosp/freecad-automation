@@ -9,11 +9,19 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from _bootstrap import log, read_input, respond, respond_error, init_freecad
+from _bootstrap import (
+    log,
+    read_input,
+    respond,
+    respond_error,
+    init_freecad,
+    safe_filename_component,
+)
 
 try:
     config = read_input()
     model_name = config.get("name", "unnamed")
+    output_stem = safe_filename_component(model_name, default="unnamed")
     log(f"FEM Analysis: {model_name}")
 
     # Guard: assembly configs are not supported for FEM
@@ -70,6 +78,9 @@ try:
             )
             shapes[op_spec.get("result", op_spec["target"])] = result
 
+    if not shapes:
+        respond_error("No shapes defined for FEM analysis")
+
     # Get final shape
     final_name = config.get("final", list(shapes.keys())[-1])
     final_shape = shapes[final_name]
@@ -98,7 +109,7 @@ try:
     export_config = config.get("export", {})
     export_dir = export_config.get("directory", ".")
     os.makedirs(export_dir, exist_ok=True)
-    fcstd_path = os.path.join(export_dir, f"{model_name}.FCStd")
+    fcstd_path = os.path.join(export_dir, f"{output_stem}.FCStd")
     doc.saveAs(fcstd_path)
     log(f"  Saved: {fcstd_path}")
 
@@ -135,7 +146,7 @@ try:
         formats = export_config.get("formats", [])
         if formats:
             directory = export_config.get("directory", ".")
-            exports = export_multi(final_shape, model_name, formats, directory)
+            exports = export_multi(final_shape, output_stem, formats, directory)
             log(f"  Exported {len(exports)} format(s)")
 
     # Build material info for response

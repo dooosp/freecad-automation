@@ -485,6 +485,51 @@ class TestDFM06MultiStep(unittest.TestCase):
                         f"Expected DFM-06 T-slot warning, got: {result['checks']}")
 
 
+class TestDFMToolConstraints(unittest.TestCase):
+    """DFM-07/08/09 checks from shop_profile tool constraints."""
+
+    def test_min_internal_radius_fillet(self):
+        cfg = _base_config(
+            extra_shapes=[
+                {"id": "h1", "type": "cylinder", "radius": 5, "height": 20, "position": [50, 0, -2]},
+            ],
+            extra_ops=[
+                {"op": "cut", "base": "disc", "tool": "h1"},
+                {"op": "fillet", "target": "disc", "radius": 0.2},
+            ],
+            manufacturing={"process": "machining"},
+        )
+        cfg["shop_profile"] = {
+            "tool_constraints": {"min_internal_radius_mm": 1.0},
+            "process_capabilities": {},
+        }
+
+        result = run_dfm_check(cfg)
+        dfm09 = [c for c in result["checks"] if c["code"] == "DFM-09"]
+        self.assertTrue(len(dfm09) > 0, f"Expected DFM-09 warning, got: {dfm09}")
+
+    def test_min_internal_radius_chamfer_size(self):
+        """Chamfer uses `size` key, not `radius`; DFM-09 must still trigger."""
+        cfg = _base_config(
+            extra_shapes=[
+                {"id": "h1", "type": "cylinder", "radius": 5, "height": 20, "position": [50, 0, -2]},
+            ],
+            extra_ops=[
+                {"op": "cut", "base": "disc", "tool": "h1"},
+                {"op": "chamfer", "target": "disc", "size": 0.2},
+            ],
+            manufacturing={"process": "machining"},
+        )
+        cfg["shop_profile"] = {
+            "tool_constraints": {"min_internal_radius_mm": 1.0},
+            "process_capabilities": {},
+        }
+
+        result = run_dfm_check(cfg)
+        dfm09 = [c for c in result["checks"] if c["code"] == "DFM-09"]
+        self.assertTrue(len(dfm09) > 0, f"Expected DFM-09 warning for chamfer, got: {dfm09}")
+
+
 class TestD4MillingProcess(unittest.TestCase):
     """D4 milling process assignment (Phase 24)."""
 

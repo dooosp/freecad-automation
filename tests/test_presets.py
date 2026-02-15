@@ -59,7 +59,7 @@ def deep_merge(base, override):
     return result
 
 
-def test_preset_parse():
+def _run_preset_parse():
     """All preset TOML files must parse without errors."""
     passed = 0
     failed = 0
@@ -78,7 +78,13 @@ def test_preset_parse():
     return passed, failed
 
 
-def test_preset_expectations():
+def test_preset_parse():
+    """All preset TOML files must parse without errors."""
+    _, failed = _run_preset_parse()
+    assert failed == 0, f"{failed} preset parse failure(s)"
+
+
+def _run_preset_expectations():
     """Key presets have expected characteristic values."""
     passed = 0
     failed = 0
@@ -110,7 +116,13 @@ def test_preset_expectations():
     return passed, failed
 
 
-def test_preset_merge_valid():
+def test_preset_expectations():
+    """Key presets must match expected characteristic values."""
+    _, failed = _run_preset_expectations()
+    assert failed == 0, f"{failed} preset expectation failure(s)"
+
+
+def _run_preset_merge_valid():
     """Presets merged with a base plan must pass plan validation."""
     # Find a base plan to merge with
     base_plan_path = os.path.join(OUTPUT_DIR, "ks_flange_plan.toml")
@@ -140,25 +152,31 @@ def test_preset_merge_valid():
     return passed, failed
 
 
+def test_preset_merge_valid():
+    """Presets merged with base plans must pass plan validation."""
+    _, failed = _run_preset_merge_valid()
+    assert failed == 0, f"{failed} preset merge validation failure(s)"
+
+
 def main():
     verbose = "--verbose" in sys.argv or "-v" in sys.argv
     total_pass = 0
     total_fail = 0
 
     print("=== Preset Parse Test ===")
-    p, f = test_preset_parse()
+    p, f = _run_preset_parse()
     total_pass += p
     total_fail += f
     print(f"  {p} parsed OK, {f} failed\n")
 
     print("=== Preset Expectations Test ===")
-    p, f = test_preset_expectations()
+    p, f = _run_preset_expectations()
     total_pass += p
     total_fail += f
     print(f"  {p} expectations OK, {f} failed\n")
 
     print("=== Preset Merge Validation Test ===")
-    p, f = test_preset_merge_valid()
+    p, f = _run_preset_merge_valid()
     total_pass += p
     total_fail += f
     print(f"  {p} merges valid, {f} failed\n")

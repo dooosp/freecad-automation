@@ -7,6 +7,16 @@ import os
 import FreeCAD
 import Part
 import Mesh
+from _bootstrap import safe_filename_component
+
+
+def _safe_output_path(directory, filename):
+    """Build a normalized output path that cannot escape the directory."""
+    base_dir = os.path.abspath(directory or ".")
+    target = os.path.abspath(os.path.join(base_dir, filename))
+    if os.path.commonpath([base_dir, target]) != base_dir:
+        raise ValueError(f"Unsafe output path: {filename}")
+    return target
 
 
 def export_shape(shape, filepath, fmt=None):
@@ -54,9 +64,10 @@ def export_multi(shape, name, formats, directory):
     Returns list of export result dicts.
     """
     results = []
+    safe_name = safe_filename_component(name, default="unnamed")
     for fmt in formats:
         ext = fmt if fmt != "step" else "step"
-        filepath = os.path.join(directory, f"{name}.{ext}")
+        filepath = _safe_output_path(directory, f"{safe_name}.{ext}")
         results.append(export_shape(shape, filepath, fmt))
     return results
 
@@ -73,10 +84,11 @@ def export_assembly(features, compound, name, formats, directory):
     """
     results = []
     os.makedirs(directory, exist_ok=True)
+    safe_name = safe_filename_component(name, default="unnamed")
 
     for fmt in formats:
         fmt = fmt.lower()
-        filepath = os.path.join(directory, f"{name}.{fmt}")
+        filepath = _safe_output_path(directory, f"{safe_name}.{fmt}")
 
         if fmt in ("step", "stp"):
             # Export features to preserve part names in STEP tree
@@ -102,9 +114,11 @@ def export_assembly_parts(features, name, directory):
     """
     os.makedirs(directory, exist_ok=True)
     results = []
+    safe_name = safe_filename_component(name, default="unnamed")
     for feat in features:
         label = feat.Label
-        filepath = os.path.join(directory, f"{name}__{label}.stl")
+        safe_label = safe_filename_component(label, default="part")
+        filepath = _safe_output_path(directory, f"{safe_name}__{safe_label}.stl")
         mesh = Mesh.Mesh(feat.Shape.tessellate(0.05))
         mesh.write(filepath)
         size = os.path.getsize(filepath) if os.path.exists(filepath) else 0

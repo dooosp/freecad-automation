@@ -13,7 +13,14 @@ from datetime import date as _date
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from _bootstrap import log, read_input, respond, respond_error, init_freecad
+from _bootstrap import (
+    log,
+    read_input,
+    respond,
+    respond_error,
+    init_freecad,
+    safe_filename_component,
+)
 from _feature_inference import infer_features_from_config
 from _view_planner import plan_views
 from _general_notes import (build_general_notes, build_revision_table,
@@ -2620,6 +2627,7 @@ def build_traceability_payload(model_name, feature_graph, dim_telemetry):
 try:
     config = read_input()
     model_name = config.get("name", "unnamed")
+    output_stem = safe_filename_component(model_name, default="unnamed")
     drawing_cfg = config.get("drawing", {})
     views_requested = drawing_cfg.get("views", ["front", "top", "right", "iso"])
     scale_hint = drawing_cfg.get("scale")
@@ -2668,6 +2676,8 @@ try:
                 shapes[op_spec.get("result", op_spec["target"])] = apply_shell(
                     shapes[op_spec["target"]], op_spec["thickness"],
                     op_spec.get("faces"))
+        if not shapes:
+            raise ValueError("No shapes defined for single-part drawing generation")
         final_name = config.get("final", list(shapes.keys())[-1])
         compound = shapes[final_name]
         parts_metadata = {final_name: get_metadata(compound)}
@@ -3098,7 +3108,7 @@ try:
     # -- Save SVG --
     export_dir = config.get("export", {}).get("directory", ".")
     os.makedirs(export_dir, exist_ok=True)
-    svg_path = os.path.join(export_dir, f"{model_name}_drawing.svg")
+    svg_path = os.path.join(export_dir, f"{output_stem}_drawing.svg")
     with open(svg_path, 'w', encoding='utf-8') as f:
         f.write(svg_content)
     svg_size = os.path.getsize(svg_path)
@@ -3111,7 +3121,7 @@ try:
             import TechDraw
             from FreeCAD import Vector
             dxf_str = TechDraw.projectToDXF(compound, Vector(0, -1, 0))
-            dxf_path = os.path.join(export_dir, f"{model_name}_front.dxf")
+            dxf_path = os.path.join(export_dir, f"{output_stem}_front.dxf")
             with open(dxf_path, 'w', encoding='utf-8') as f:
                 f.write(dxf_str)
             log(f"  DXF: {dxf_path}")
@@ -3121,7 +3131,7 @@ try:
     # -- BOM CSV (optional) --
     bom_csv_path = None
     if drawing_cfg.get("bom_csv") and bom:
-        bom_csv_path = os.path.join(export_dir, f"{model_name}_bom.csv")
+        bom_csv_path = os.path.join(export_dir, f"{output_stem}_bom.csv")
         with open(bom_csv_path, 'w', encoding='utf-8') as f:
             f.write("Item,Part ID,Material,Dimensions,Count,Joint Type,Joint ID\n")
             for i, item in enumerate(bom):

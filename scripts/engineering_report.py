@@ -14,7 +14,7 @@ from datetime import datetime
 # Add scripts directory to path for local imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from _bootstrap import log, read_input, respond, respond_error
+from _bootstrap import log, read_input, respond, respond_error, safe_filename_component
 
 def main():
     try:
@@ -61,9 +61,10 @@ def generate_template_report(config, template_config):
 
     # Determine output path
     name = config.get('name', 'report')
+    output_stem = safe_filename_component(name, default="report")
     output_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'output')
     os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, f'{name}_report.pdf')
+    output_path = os.path.join(output_dir, f'{output_stem}_report.pdf')
 
     render_report(config, template, data, output_path)
 
@@ -75,6 +76,7 @@ def generate_template_report(config, template_config):
 def generate_legacy_report(config):
     """Generate legacy 2-page report (existing behavior)."""
     model_name = config.get("name", "unnamed")
+    output_stem = safe_filename_component(model_name, default="unnamed")
     log(f"Engineering Report: {model_name}")
 
     import matplotlib
@@ -85,7 +87,7 @@ def generate_legacy_report(config):
 
     export_dir = config.get("export", {}).get("directory", ".")
     os.makedirs(export_dir, exist_ok=True)
-    pdf_path = os.path.join(export_dir, f"{model_name}_report.pdf")
+    pdf_path = os.path.join(export_dir, f"{output_stem}_report.pdf")
 
     tolerance = config.get("tolerance_results", {})
     mc = config.get("monte_carlo_results", None)

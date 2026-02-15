@@ -149,6 +149,9 @@ try:
             else:
                 raise ValueError(f"Unknown operation: {op}")
 
+        if not shapes:
+            raise ValueError("No shapes defined for single-part model")
+
         # Get final shape (last result or explicitly named)
         final_name = config.get("final", list(shapes.keys())[-1])
         final_shape = shapes[final_name]

@@ -13,6 +13,15 @@ def log(msg):
     print(f"[freecad] {msg}", file=sys.stderr, flush=True)
 
 
+def safe_filename_component(value, default="unnamed"):
+    """Return a single safe filename component (strip path traversal segments)."""
+    text = str(value or "").strip().replace("\\", "/").replace("\x00", "")
+    text = text.split("/")[-1]
+    if text in {"", ".", ".."}:
+        return default
+    return text
+
+
 def read_input():
     """Read JSON config from stdin."""
     raw_bytes = sys.stdin.buffer.read()

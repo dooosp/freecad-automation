@@ -537,7 +537,8 @@ def check_tool_constraints(config, constraints):
         for op in config.get("operations", []):
             op_type = op.get("op", op.get("type", ""))
             if op_type in ["fillet", "chamfer"]:
-                radius = op.get("radius", 0)
+                size_key = "radius" if op_type == "fillet" else "size"
+                radius = op.get(size_key, 0)
                 if radius > 0 and radius < min_internal_radius:
                     checks.append(DFMCheck(
                         "DFM-09", "warning",

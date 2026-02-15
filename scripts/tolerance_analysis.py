@@ -9,11 +9,19 @@ import csv
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from _bootstrap import log, read_input, respond, respond_error, init_freecad
+from _bootstrap import (
+    log,
+    read_input,
+    respond,
+    respond_error,
+    init_freecad,
+    safe_filename_component,
+)
 
 try:
     config = read_input()
     model_name = config.get("name", "unnamed")
+    output_stem = safe_filename_component(model_name, default="unnamed")
     log(f"Tolerance Analysis: {model_name}")
 
     # Guard: need assembly with parts
@@ -93,7 +101,7 @@ try:
     os.makedirs(export_dir, exist_ok=True)
 
     if tolerance_config.get("csv", False):
-        csv_path = os.path.join(export_dir, f"{model_name}_tolerance.csv")
+        csv_path = os.path.join(export_dir, f"{output_stem}_tolerance.csv")
         with open(csv_path, "w", newline="") as f:
             writer = csv.writer(f)
             writer.writerow([

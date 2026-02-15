@@ -66,6 +66,11 @@ def _build_single_part(part_config):
         else:
             raise ValueError(f"Unknown operation: {op}")
 
+    if not shapes:
+        raise ValueError(
+            f"Part '{part_config.get('id', 'unknown')}' has no shapes defined"
+        )
+
     # Determine final shape
     final_name = part_config.get("final", list(shapes.keys())[-1])
     return shapes[final_name]
