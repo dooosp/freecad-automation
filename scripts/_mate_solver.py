@@ -10,12 +10,12 @@ Algorithm:
 """
 
 import math
-import sys
 from collections import defaultdict, deque
 
 import FreeCAD
 from FreeCAD import Vector, Rotation, Placement
 
+from _bootstrap import log
 from _face_selector import select_face
 
 
@@ -26,10 +26,6 @@ def _center_of_mass(shape):
     except AttributeError:
         bb = shape.BoundBox
         return Vector(bb.Center.x, bb.Center.y, bb.Center.z)
-
-
-def _log(msg):
-    print(f"[freecad]   [mate] {msg}", file=sys.stderr, flush=True)
 
 
 def _rotation_align(vec_from, vec_to):
@@ -157,7 +153,7 @@ def _check_overconstraint(moving_shape, original_com, label):
     new_com = _center_of_mass(moving_shape)
     displacement = (new_com - original_com).Length
     if displacement < 0.001:
-        _log(f"Warning: '{label}' barely moved ({displacement:.4f}mm) — may be over-constrained")
+        log(f"[MATE] Warning: '{label}' barely moved ({displacement:.4f}mm) — may be over-constrained")
 
 
 def solve_mates(part_shapes, mates, explicit_placements):
@@ -193,7 +189,7 @@ def solve_mates(part_shapes, mates, explicit_placements):
             axis = Vector(rot[0], rot[1], rot[2])
             shape.rotate(center, axis, rot[3])
         placed[pid] = shape
-        _log(f"Anchor '{pid}' placed at {pos}")
+        log(f"[MATE] Anchor '{pid}' placed at {pos}")
 
     # Phase 2: BFS to place remaining parts
     adj = _build_adjacency(mates, part_ids)
@@ -255,28 +251,28 @@ def solve_mates(part_shapes, mates, explicit_placements):
                 _, fixed_info = select_face(fixed_shape, fixed_ref)
                 _, moving_info = select_face(shape, moving_ref)
             except Exception as e:
-                _log(f"Warning: face selection failed for mate {mate_idx} ({mtype}): {e}")
+                log(f"[MATE] Warning: face selection failed for mate {mate_idx} ({mtype}): {e}")
                 continue
 
             if mtype == "coaxial":
                 _apply_coaxial(shape, fixed_info, moving_info)
-                _log(f"Applied coaxial: {other_pid} ↔ {pid}")
+                log(f"[MATE] Applied coaxial: {other_pid} ↔ {pid}")
 
             elif mtype == "coincident":
                 _apply_coincident(shape, fixed_info, moving_info)
-                _log(f"Applied coincident: {other_pid} ↔ {pid}")
+                log(f"[MATE] Applied coincident: {other_pid} ↔ {pid}")
 
             elif mtype == "distance":
                 dist_val = float(mate.get("value", 0))
                 _apply_distance(shape, fixed_info, moving_info, dist_val)
-                _log(f"Applied distance({dist_val}): {other_pid} ↔ {pid}")
+                log(f"[MATE] Applied distance({dist_val}): {other_pid} ↔ {pid}")
 
             else:
-                _log(f"Warning: unknown mate type '{mtype}', skipping")
+                log(f"[MATE] Warning: unknown mate type '{mtype}', skipping")
 
         _check_overconstraint(shape, original_com, pid)
         placed[pid] = shape
-        _log(f"Placed '{pid}' via mates")
+        log(f"[MATE] Placed '{pid}' via mates")
 
         # Enqueue newly reachable parts
         for mate_idx, other_pid in adj[pid]:
@@ -291,6 +287,6 @@ def solve_mates(part_shapes, mates, explicit_placements):
 
     unplaced = mate_parts - set(placed.keys())
     if unplaced:
-        _log(f"Warning: could not place parts: {unplaced} (disconnected from anchors)")
+        log(f"[MATE] Warning: could not place parts: {unplaced} (disconnected from anchors)")
 
     return placed

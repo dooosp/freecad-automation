@@ -5,6 +5,7 @@ cumulative tolerance stack-up.
 """
 
 import math
+from _svg_utils import escape as _escape
 
 
 # Rendering constants (consistent with generate_drawing.py)
@@ -283,7 +284,3 @@ def _ext_line_h(x_start, y, x_end):
             f'x2="{x_end:.2f}" y2="{y:.2f}" '
             f'stroke="#000" stroke-width="{DIM_LINE_W}"/>')
 
-
-def _escape(text):
-    """Escape XML special characters."""
-    return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")

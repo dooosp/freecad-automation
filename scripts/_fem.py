@@ -7,6 +7,7 @@ import sys
 import FreeCAD
 import Part
 import ObjectsFem
+from _bootstrap import log
 
 # --- Material Presets ---
 
@@ -42,10 +43,6 @@ MATERIALS = {
 }
 
 
-def _log(msg):
-    print(f"[fem] {msg}", file=sys.stderr, flush=True)
-
-
 def wrap_shape_as_feature(doc, shape, name="Body"):
     """Wrap a TopoShape into a Part::Feature so FEM can reference its faces."""
     feat = doc.addObject("Part::Feature", name)
@@ -75,7 +72,7 @@ def setup_material(doc, analysis, material_config):
             "Density": preset["Density"],
         }
         yield_strength = preset["YieldStrength"]
-        _log(f"Material: {preset['Name']} (preset)")
+        log(f"[FEM] Material: {preset['Name']} (preset)")
     else:
         mat.Material = {
             "Name": material_config.get("Name", "Custom"),
@@ -84,7 +81,7 @@ def setup_material(doc, analysis, material_config):
             "Density": material_config.get("Density", "7850 kg/m^3"),
         }
         yield_strength = material_config.get("YieldStrength", 235)
-        _log(f"Material: {material_config.get('Name', 'Custom')} (custom)")
+        log(f"[FEM] Material: {material_config.get('Name', 'Custom')} (custom)")
 
     return mat, yield_strength
 
@@ -120,7 +117,7 @@ def setup_mesh(doc, analysis, geom_obj, mesh_config):
 
     nodes = mesh_obj.FemMesh.NodeCount
     elements = mesh_obj.FemMesh.VolumeCount
-    _log(f"Mesh: {nodes} nodes, {elements} elements ({mesh_obj.ElementOrder} order)")
+    log(f"[FEM] Mesh: {nodes} nodes, {elements} elements ({mesh_obj.ElementOrder} order)")
 
     return mesh_obj
 
@@ -138,7 +135,7 @@ def add_constraint(doc, analysis, geom_obj, constraint_config):
         con = ObjectsFem.makeConstraintFixed(doc, "Fixed")
         con.References = refs
         analysis.addObject(con)
-        _log(f"Constraint: Fixed on {faces}")
+        log(f"[FEM] Constraint: Fixed on {faces}")
 
     elif ctype == "force":
         con = ObjectsFem.makeConstraintForce(doc, "Force")
@@ -152,7 +149,7 @@ def add_constraint(doc, analysis, geom_obj, constraint_config):
         con.DirectionVector = FreeCAD.Vector(*direction)
         # Reverse if needed (FreeCAD uses reference direction, flip if opposite)
         analysis.addObject(con)
-        _log(f"Constraint: Force {con.Force}N dir={direction} on {faces}")
+        log(f"[FEM] Constraint: Force {con.Force}N dir={direction} on {faces}")
 
     elif ctype == "pressure":
         con = ObjectsFem.makeConstraintPressure(doc, "Pressure")
@@ -160,7 +157,7 @@ def add_constraint(doc, analysis, geom_obj, constraint_config):
         con.Pressure = constraint_config.get("magnitude", 1.0)  # MPa
         con.Reversed = constraint_config.get("reversed", False)
         analysis.addObject(con)
-        _log(f"Constraint: Pressure {con.Pressure} MPa on {faces}")
+        log(f"[FEM] Constraint: Pressure {con.Pressure} MPa on {faces}")
 
     elif ctype == "displacement":
         con = ObjectsFem.makeConstraintDisplacement(doc, "Displacement")
@@ -170,7 +167,7 @@ def add_constraint(doc, analysis, geom_obj, constraint_config):
                 setattr(con, axis, constraint_config[axis])
                 setattr(con, axis.replace("Displacement", "Free"), False)
         analysis.addObject(con)
-        _log(f"Constraint: Displacement on {faces}")
+        log(f"[FEM] Constraint: Displacement on {faces}")
 
     else:
         raise ValueError(f"Unknown constraint type: {ctype}")
@@ -199,7 +196,7 @@ def setup_solver(doc, analysis, solver_config):
     solver.IterationsControlParameterTimeUse = False
 
     doc.recompute()
-    _log(f"Solver: CalculiX ({analysis_type})")
+    log(f"[FEM] Solver: CalculiX ({analysis_type})")
     return solver
 
 
@@ -221,14 +218,14 @@ def run_solver(doc, analysis, solver):
         fea.setup_working_dir()
         fea.setup_ccx()
 
-        _log("Writing input file...")
+        log("[FEM] Writing input file...")
         message = fea.write_inp_file()
         if message:
-            _log(f"Input file note: {message}")
+            log(f"[FEM] Input file note: {message}")
 
-        _log("Running CalculiX solver...")
+        log("[FEM] Running CalculiX solver...")
         fea.ccx_run()
-        _log("Solver finished, loading results...")
+        log("[FEM] Solver finished, loading results...")
         fea.load_results()
     finally:
         sys.stdout = real_stdout
@@ -266,7 +263,7 @@ def extract_results(analysis, yield_strength=235):
     # Safety factor (yield / max von Mises)
     safety_factor = round(yield_strength / max_vm, 2) if max_vm > 0 else float('inf')
 
-    _log(f"Results: max disp={max_disp:.4f}mm, max VM={max_vm:.2f}MPa, SF={safety_factor}")
+    log(f"[FEM] Results: max disp={max_disp:.4f}mm, max VM={max_vm:.2f}MPa, SF={safety_factor}")
 
     return {
         "displacement": {

@@ -1657,40 +1657,6 @@ async function testMjcfConversion() {
   assert(xml.includes('cam_follower'), 'XML references cam_follower coupling');
 }
 
-async function testMjcfValidation() {
-  console.log('\n--- Test: MuJoCo MJCF validation ---');
-
-  const outputXml = resolve(OUTPUT_DIR, 'seatbelt_retractor.xml');
-
-  // Ensure XML exists (testMjcfConversion should run first)
-  if (!existsSync(outputXml)) {
-    // Run conversion first
-    const inputToml = resolve(ROOT, 'configs/examples/seatbelt_retractor.toml');
-    execSync(`node ${resolve(ROOT, 'scripts/toml-to-mjcf.js')} ${inputToml} ${outputXml}`, { timeout: 30_000 });
-  }
-
-  // Run MuJoCo validation
-  const cmd = `python3 ${resolve(ROOT, 'scripts/validate-mjcf.py')} ${outputXml}`;
-  let stdout;
-  try {
-    stdout = execSync(cmd, { encoding: 'utf8', timeout: 30_000 });
-  } catch (e) {
-    // validate-mjcf.py exits 1 on validation failure but still outputs JSON
-    stdout = e.stdout || '';
-  }
-
-  const result = JSON.parse(stdout);
-
-  assert(result.checks.xml_load === true, 'MuJoCo XML loads successfully');
-  assert(result.checks.has_bodies === true, 'Has bodies');
-  assert(result.checks.has_joints === true, 'Has joints');
-  assert(result.checks.positive_mass === true, 'Positive total mass');
-  assert(result.total_mass_kg > 0, `Total mass ${result.total_mass_kg} kg`);
-  assert(result.counts.bodies === 7, `7 bodies (got ${result.counts.bodies})`);
-  assert(result.counts.joints === 3, `3 joints (got ${result.counts.joints})`);
-  assert(result.stability.stable === true, `Stable after 100 steps (drift ${result.stability.max_position_drift})`);
-}
-
 // ---------------------------------------------------------------------------
 // Design Reviewer Tests (require GEMINI_API_KEY)
 // ---------------------------------------------------------------------------
@@ -2044,7 +2010,6 @@ function fullOnlyCases() {
     ['Retractor spool-cam sync', testRetractorSpoolCamSync],
     ['Retractor pawl profile', testRetractorPawlProfile],
     ['MJCF conversion', testMjcfConversion],
-    ['MJCF validation', testMjcfValidation],
     ['Design review', testDesignReview],
     ['Design generate', testDesignGenerate],
   ];

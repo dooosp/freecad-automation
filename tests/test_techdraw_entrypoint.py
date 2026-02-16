@@ -7,7 +7,7 @@ import importlib.util
 
 def _load_script_module(script_name):
     root = Path(__file__).resolve().parents[1]
-    script_path = root / "scripts" / script_name
+    script_path = root / "tests" / script_name
 
     spec = importlib.util.spec_from_file_location(f"fcad_{script_name}", script_path)
     module = importlib.util.module_from_spec(spec)

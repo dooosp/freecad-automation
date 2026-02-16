@@ -7,6 +7,7 @@ import json
 import math
 import os
 from datetime import date as _date
+from _svg_utils import escape as _escape
 
 # Load standards registry once at module level
 _REGISTRY_PATH = os.path.join(os.path.dirname(__file__), "standards", "registry.json")
@@ -270,7 +271,3 @@ def render_general_notes_svg(notes, x, y, max_width=200):
     total_height = cur_y - y
     return '\n'.join(out), total_height
 
-
-def _escape(text):
-    """Escape XML special characters."""
-    return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")

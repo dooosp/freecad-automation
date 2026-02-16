@@ -5,6 +5,7 @@ KS B 0608 (ISO 1101) rules.
 """
 
 import math
+from _svg_utils import escape as _escape
 
 
 # GD&T tolerance symbols (Unicode)
@@ -309,7 +310,3 @@ def _modifier_symbol(mod):
     mods = {"M": "\u24C2", "L": "\u24C1", "F": "\u24BB"}  # Ⓜ Ⓛ Ⓕ
     return mods.get(mod, mod)
 
-
-def _escape(text):
-    """Escape XML special characters."""
-    return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")

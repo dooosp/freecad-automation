@@ -32,7 +32,7 @@ try:
     import Part
     from _assembly import _build_single_part
     from _tolerance import (
-        extract_cylinders, detect_tolerance_pairs,
+        extract_cylinders_from_shape, detect_tolerance_pairs,
         analyze_pair, stack_up_analysis, stack_up_monte_carlo,
     )
 
@@ -47,7 +47,7 @@ try:
     # Phase 2: Extract cylinder features for each part
     part_cylinders = {}
     for pid, shape in part_shapes.items():
-        cyls = extract_cylinders(shape)
+        cyls = extract_cylinders_from_shape(shape)
         part_cylinders[pid] = cyls
         if cyls:
             diameters = sorted(set(c["diameter"] for c in cyls))

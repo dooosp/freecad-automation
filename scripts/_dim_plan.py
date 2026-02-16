@@ -5,6 +5,7 @@ Can be unit-tested independently.
 """
 
 import math
+from _svg_utils import arrow_head as _arrow_head
 
 # ---- Constants (duplicated from generate_drawing.py to avoid FreeCAD import) ----
 DIM_LINE_W = "0.18"
@@ -17,19 +18,6 @@ DIM_GAP = 2.0
 DIM_OFFSET = 8.0
 DIM_EXT_OVERSHOOT = 1.5
 REVIEW_COLOR = "#D00"  # red for review markers
-
-
-def _arrow_head(x, y, angle):
-    """SVG polygon for a filled arrowhead pointing in `angle` radians."""
-    ca, sa = math.cos(angle), math.sin(angle)
-    bx = x - DIM_ARROW_L * ca
-    by = y - DIM_ARROW_L * sa
-    lx = bx + DIM_ARROW_W * sa
-    ly = by - DIM_ARROW_W * ca
-    rx = bx - DIM_ARROW_W * sa
-    ry = by + DIM_ARROW_W * ca
-    return (f'<polygon points="{x:.2f},{y:.2f} {lx:.2f},{ly:.2f} '
-            f'{rx:.2f},{ry:.2f}" fill="{DIM_COLOR}"/>')
 
 
 def _style_bucket(di):

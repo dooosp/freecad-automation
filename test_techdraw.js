@@ -6,7 +6,7 @@ const config = await loadConfig('./configs/examples/ks_bracket.toml');
 console.log('=== TechDraw API Headless Test ===\n');
 
 try {
-  const result = await runScript('test_techdraw_projectex.py', config, {
+  const result = await runScript('../tests/test_techdraw_projectex.py', config, {
     timeout: 60_000,
     onStderr: (line) => process.stderr.write(line),
   });

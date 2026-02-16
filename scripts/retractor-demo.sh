@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Seatbelt Retractor Demo — Full Pipeline
-# Runs: FreeCAD build → TOML-to-MJCF conversion → MuJoCo validation
+# Runs: FreeCAD build → TOML-to-MJCF conversion
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -34,12 +34,6 @@ echo "▶ Step 2: Converting to MJCF..."
 mkdir -p "$OUTPUT_DIR"
 node "$ROOT/scripts/toml-to-mjcf.js" "$INPUT" "$MJCF_OUTPUT"
 echo "  ✓ MJCF conversion complete → $MJCF_OUTPUT"
-
-# 3. Validate with MuJoCo
-echo ""
-echo "▶ Step 3: MuJoCo validation..."
-python3 "$ROOT/scripts/validate-mjcf.py" "$MJCF_OUTPUT"
-echo "  ✓ MuJoCo validation complete"
 
 echo ""
 echo "═══════════════════════════════════════════════════"

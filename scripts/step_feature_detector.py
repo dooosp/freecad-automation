@@ -49,8 +49,8 @@ def respond_error(msg, details=""):
     respond({"success": False, "error": msg, "details": details})
 
 
-def extract_cylinders(shape):
-    """Extract all cylindrical faces with radius and axis info."""
+def extract_cylinders_from_step(shape):
+    """Extract all cylindrical faces from a STEP-loaded shape."""
     cylinders = []
     for i, face in enumerate(shape.Faces):
         surf = face.Surface
@@ -226,7 +226,7 @@ def analyze_step(filepath):
     bbox = shape.BoundBox
 
     # Extract features
-    cylinders = extract_cylinders(shape)
+    cylinders = extract_cylinders_from_step(shape)
     bolt_circles = detect_bolt_patterns(cylinders)
     central_bore = find_central_bore(cylinders, bbox)
     fillets, chamfers = detect_fillets_chamfers(shape)

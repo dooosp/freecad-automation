@@ -5,23 +5,19 @@ computes fit characteristics, and performs tolerance stack-up analysis.
 """
 
 import math
-import sys
 
+from _bootstrap import log
 from _tolerance_db import (
     get_tolerance, get_fit, fuzzy_match_diameter,
     FIT_PRESETS, FIT_RECOMMENDATIONS, recommend_fit,
 )
 
 
-def _log(msg):
-    print(f"[tolerance] {msg}", file=sys.stderr, flush=True)
-
-
 # ---------------------------------------------------------------------------
 # Step A: Extract cylindrical features from built shapes
 # ---------------------------------------------------------------------------
 
-def extract_cylinders(shape):
+def extract_cylinders_from_shape(shape):
     """
     Find all cylindrical faces in a shape and extract geometry info.
 
@@ -123,14 +119,14 @@ def detect_tolerance_pairs(assembly_config, part_shapes):
         p2 = mate["part2"]
 
         if p1 not in part_shapes or p2 not in part_shapes:
-            _log(f"Warning: mate parts {p1}/{p2} not found in shapes")
+            log(f"[TOL] Warning: mate parts {p1}/{p2} not found in shapes")
             continue
 
-        cyls1 = extract_cylinders(part_shapes[p1])
-        cyls2 = extract_cylinders(part_shapes[p2])
+        cyls1 = extract_cylinders_from_shape(part_shapes[p1])
+        cyls2 = extract_cylinders_from_shape(part_shapes[p2])
 
         if not cyls1 or not cyls2:
-            _log(f"Warning: no cylinders found in {p1} or {p2}")
+            log(f"[TOL] Warning: no cylinders found in {p1} or {p2}")
             continue
 
         # Find matching diameter pairs (same nominal diameter = mating pair)
@@ -200,7 +196,7 @@ def detect_tolerance_pairs(assembly_config, part_shapes):
             "nominal_d": mp.get("nominal_d", mp.get("bore_d", 0)),
         })
 
-    _log(f"Detected {len(pairs)} tolerance pair(s)")
+    log(f"[TOL] Detected {len(pairs)} tolerance pair(s)")
     return pairs
 
 

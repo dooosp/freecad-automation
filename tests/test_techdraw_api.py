@@ -6,7 +6,10 @@ Probes what TechDraw features work without GUI.
 import sys
 import os
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(THIS_DIR)
+sys.path.insert(0, THIS_DIR)
+sys.path.insert(0, os.path.join(ROOT_DIR, "scripts"))
 
 from _bootstrap import log, read_input, respond, respond_error, init_freecad
 
