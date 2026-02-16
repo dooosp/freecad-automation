@@ -104,7 +104,7 @@ async function cmdValidate(configPath, flags = []) {
   const config = await loadConfig(absPath);
   const plan = config.drawing_plan;
 
-  if (!plan || Object.keys(plan).length === 0) {
+  if (!plan || typeof plan !== 'object' || Object.keys(plan).length === 0) {
     console.error('Error: no drawing_plan found in config');
     console.error('Hint: validate expects a plan file (output/*_plan.toml), not a raw config.');
     console.error('  Generate one first: fcad draw configs/examples/ks_flange.toml');
@@ -723,7 +723,8 @@ async function cmdDraw(rawArgs = []) {
         planArg = ` --plan "${planPath}"`;
         runLog.artifacts.plan = planPath;
         endStage(planStage, 'ok');
-      } catch (_) {
+      } catch (tomlErr) {
+        console.error(`  TOML stringify failed, falling back to JSON: ${tomlErr.message}`);
         const jsonPath = planPath.replace('.toml', '.json');
         writeJson(jsonPath, { drawing_plan: config.drawing_plan });
         planArg = ` --plan "${jsonPath}"`;

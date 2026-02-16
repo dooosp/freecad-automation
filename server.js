@@ -66,6 +66,10 @@ export function startServer(port = 3000) {
         return sendJSON(ws, { type: 'error', message: 'Invalid JSON' });
       }
 
+      if (ws._building) {
+        return sendJSON(ws, { type: 'error', message: 'A build is already in progress' });
+      }
+
       if (msg.action === 'build') {
         await handleBuild(ws, msg.config);
       } else if (msg.action === 'design') {
@@ -208,7 +212,9 @@ export function startServer(port = 3000) {
       if (config.drawing_plan) {
         const modelName = config.name || 'unnamed';
         const targetPlanPath = planPath || join(OUTPUT_DIR, `${modelName}_plan.toml`);
-        try {
+        if (!isSafePlanPath(resolvePath(targetPlanPath))) {
+          sendJSON(ws, { type: 'warning', message: 'Plan path rejected — skipping plan save' });
+        } else try {
           await writeFile(targetPlanPath, tomlStringify({ drawing_plan: config.drawing_plan }), 'utf8');
           planPath = resolvePath(targetPlanPath);
           ws._lastPlanPath = isSafePlanPath(planPath) ? planPath : null;
