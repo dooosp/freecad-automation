@@ -53,6 +53,11 @@ export function startServer(port = 3000) {
     ws._building = false;
     ws._lastPlanPath = null;
 
+    ws.on('close', () => {
+      ws._building = false;
+      ws._lastPlanPath = null;
+    });
+
     ws.on('message', async (raw) => {
       let msg;
       try {
@@ -253,7 +258,9 @@ export function startServer(port = 3000) {
     } finally {
       ws._building = false;
       if (tmpDir) {
-        rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+        rm(tmpDir, { recursive: true, force: true }).catch((err) => {
+          console.error('[temp-cleanup]', err);
+        });
       }
     }
   }
@@ -421,7 +428,9 @@ export function startServer(port = 3000) {
     } finally {
       ws._building = false;
       if (tmpDir) {
-        rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+        rm(tmpDir, { recursive: true, force: true }).catch((err) => {
+          console.error('[temp-cleanup]', err);
+        });
       }
     }
   }

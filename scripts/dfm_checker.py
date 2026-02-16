@@ -87,21 +87,33 @@ def _get_cut_tool_ids(config):
     return cut_tools
 
 
+def _safe_pos(shape):
+    """Return normalized [x, y, z] from shape position."""
+    pos = shape.get("position") or [0, 0, 0]
+    if not isinstance(pos, (list, tuple)):
+        return [0, 0, 0]
+    return [
+        pos[0] if len(pos) > 0 else 0,
+        pos[1] if len(pos) > 1 else 0,
+        pos[2] if len(pos) > 2 else 0,
+    ]
+
+
 def _extract_holes(config):
     """Return list of cut cylinders (holes/bores) with position info."""
     cut_tools = _get_cut_tool_ids(config)
     holes = []
     for s in config.get("shapes", []):
         if s.get("type") == "cylinder" and s.get("id") in cut_tools:
-            pos = s.get("position", [0, 0, 0])
+            pos = _safe_pos(s)
             holes.append({
                 "id": s.get("id", ""),
                 "radius": s.get("radius", 0),
                 "diameter": s.get("radius", 0) * 2,
                 "height": s.get("height", 0),
-                "x": pos[0] if len(pos) > 0 else 0,
-                "y": pos[1] if len(pos) > 1 else 0,
-                "z": pos[2] if len(pos) > 2 else 0,
+                "x": pos[0],
+                "y": pos[1],
+                "z": pos[2],
             })
     return holes
 
@@ -115,13 +127,13 @@ def _extract_bodies(config):
         if sid in cut_tools:
             continue
         stype = s.get("type", "")
-        pos = s.get("position", [0, 0, 0])
+        pos = _safe_pos(s)
         entry = {
             "id": sid,
             "type": stype,
-            "x": pos[0] if len(pos) > 0 else 0,
-            "y": pos[1] if len(pos) > 1 else 0,
-            "z": pos[2] if len(pos) > 2 else 0,
+            "x": pos[0],
+            "y": pos[1],
+            "z": pos[2],
         }
         if stype == "cylinder":
             entry["radius"] = s.get("radius", 0)
@@ -140,15 +152,15 @@ def _extract_cut_boxes(config):
     boxes = []
     for s in config.get("shapes", []):
         if s.get("type") == "box" and s.get("id") in cut_tools:
-            pos = s.get("position", [0, 0, 0])
+            pos = _safe_pos(s)
             boxes.append({
                 "id": s.get("id", ""),
                 "width": s.get("width", 0),
                 "depth": s.get("depth", 0),
                 "height": s.get("height", 0),
-                "x": pos[0] if len(pos) > 0 else 0,
-                "y": pos[1] if len(pos) > 1 else 0,
-                "z": pos[2] if len(pos) > 2 else 0,
+                "x": pos[0],
+                "y": pos[1],
+                "z": pos[2],
             })
     return boxes
 
@@ -244,14 +256,14 @@ def _find_counterbore_ids(config):
                 if s.get("type") == "cylinder" and s.get("id") in cut_tools]
     cb_ids = set()
     for i, c1 in enumerate(cut_cyls):
-        p1 = c1.get("position", [0, 0, 0])
+        p1 = _safe_pos(c1)
         for j, c2 in enumerate(cut_cyls):
             if i >= j:
                 continue
-            p2 = c2.get("position", [0, 0, 0])
+            p2 = _safe_pos(c2)
             xy = _dist_2d(
-                p1[0] if len(p1) > 0 else 0, p1[1] if len(p1) > 1 else 0,
-                p2[0] if len(p2) > 0 else 0, p2[1] if len(p2) > 1 else 0,
+                p1[0], p1[1],
+                p2[0], p2[1],
             )
             if xy < 0.1:  # coaxial
                 r1, r2 = c1.get("radius", 0), c2.get("radius", 0)
@@ -567,9 +579,9 @@ def check_undercut(config, constraints):
     # Build coaxial groups to detect multi-step bores
     coaxial_groups = {}  # key: (x, y) rounded → list of cylinders
     for c in cut_cyls:
-        pos = c.get("position", [0, 0, 0])
-        cx = round(pos[0] if len(pos) > 0 else 0, 1)
-        cy = round(pos[1] if len(pos) > 1 else 0, 1)
+        pos = _safe_pos(c)
+        cx = round(pos[0], 1)
+        cy = round(pos[1], 1)
         key = (cx, cy)
         coaxial_groups.setdefault(key, []).append(c)
 
@@ -646,13 +658,14 @@ def _detect_t_slot(cut_boxes):
                 # T-slot: one box significantly narrower than the other
                 w1 = min(b1["width"], b1["depth"])
                 w2 = min(b2["width"], b2["depth"])
-                wider = max(w1, w2)
+                wider = max(max(w1, w2), 0.001)
                 narrower = min(w1, w2)
-                if wider > 0 and narrower / wider < 0.6:
+                ratio = narrower / wider
+                if ratio < 0.6:
                     checks.append(DFMCheck(
                         "DFM-06", "warning",
                         f"T-slot pattern: '{b1['id']}' and '{b2['id']}' form "
-                        f"undercut profile (width ratio {narrower/wider:.2f})"
+                        f"undercut profile (width ratio {ratio:.2f})"
                         f" (tool_approach=radial)",
                         feature="t_slot",
                         recommendation="T-slot requires special tooling — "

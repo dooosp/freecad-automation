@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { resolve, join, dirname } from 'node:path';
+import { resolve, join, dirname, sep } from 'node:path';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, unlinkSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -158,7 +158,7 @@ async function cmdValidate(configPath, flags = []) {
 }
 
 async function cmdServe(portArg) {
-  const port = parseInt(portArg) || 3000;
+  const port = parseInt(portArg, 10) || 3000;
   const { startServer } = await import('../server.js');
   startServer(port);
 }
@@ -182,11 +182,16 @@ async function cmdDesign(description) {
   // Derive filename from mechanism_type or description
   const rawName = result.report?.mechanism_type || description;
   const fileName = rawName.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 60);
+  const safeFileName = fileName || 'generated_design';
 
   // Save to configs/generated/
   const generatedDir = resolve(import.meta.dirname, '..', 'configs', 'generated');
   mkdirSync(generatedDir, { recursive: true });
-  const tomlPath = join(generatedDir, `${fileName}.toml`);
+  const tomlPath = resolve(generatedDir, `${safeFileName}.toml`);
+  if (!tomlPath.startsWith(`${generatedDir}${sep}`)) {
+    console.error('Error: invalid output path');
+    process.exit(1);
+  }
   writeFileSync(tomlPath, result.toml, 'utf8');
   console.log(`TOML saved: ${tomlPath}`);
 
@@ -813,14 +818,20 @@ async function cmdDraw(rawArgs = []) {
                 after: { score: qaAfter.score, metrics: afterMetrics },
                 delta: { score: (qaAfter.score || 0) - (qaBefore.score || 0), metrics: delta },
                 gate: {
-                  fail_under: failUnderValue ? parseInt(failUnderValue) : null,
-                  passed: !failUnderValue || (qaAfter.score || 0) >= parseInt(failUnderValue),
+                  fail_under: failUnderValue ? parseInt(failUnderValue, 10) : null,
+                  passed: !failUnderValue || (qaAfter.score || 0) >= parseInt(failUnderValue, 10),
                 },
               };
               writeJson(reportJson, repairReport);
               console.log(`  QA diff: ${qaBefore.score} → ${qaAfter.score} (${qaAfter.score - qaBefore.score >= 0 ? '+' : ''}${qaAfter.score - qaBefore.score})`);
               // Clean up temporary before file
-              try { unlinkSync(svgPath.replace('.svg', '_qa_before.json')); } catch {}
+              try {
+                unlinkSync(svgPath.replace('.svg', '_qa_before.json'));
+              } catch (err) {
+                if (err?.code !== 'ENOENT') {
+                  throw err;
+                }
+              }
             } catch (mergeErr) {
               console.error(`  QA merge warning: ${mergeErr.message}`);
             }

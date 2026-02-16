@@ -7,6 +7,8 @@ All debug output goes to stderr to keep stdout clean for JSON.
 import sys
 import json
 
+MAX_STDIN_BYTES = 10 * 1024 * 1024
+
 
 def log(msg):
     """Print debug message to stderr (captured by Node.js for logging)."""
@@ -24,7 +26,9 @@ def safe_filename_component(value, default="unnamed"):
 
 def read_input():
     """Read JSON config from stdin."""
-    raw_bytes = sys.stdin.buffer.read()
+    raw_bytes = sys.stdin.buffer.read(MAX_STDIN_BYTES + 1)
+    if len(raw_bytes) > MAX_STDIN_BYTES:
+        respond_error("Input too large", details=f"stdin exceeds {MAX_STDIN_BYTES} bytes")
     if not raw_bytes.strip():
         raise ValueError("No input received on stdin")
     # Always decode stdin as UTF-8 to avoid locale-dependent surrogate escapes.

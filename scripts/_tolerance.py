@@ -402,12 +402,12 @@ def stack_up_monte_carlo(pair_results, num_samples=10000, distribution='normal')
     # USL = worst-case max gap, LSL = 0 (no interference)
     usl = float(np.max(gap_samples)) * 1.1  # slightly above observed max
     lsl = 0.0
-    if std_gap > 0:
+    if std_gap > 0 and math.isfinite(std_gap):
         cpu = (usl - mean_gap) / (3 * std_gap)
         cpl = (mean_gap - lsl) / (3 * std_gap)
         cpk = round(min(cpu, cpl), 3)
     else:
-        cpk = 99.0
+        cpk = 0.0
 
     # Histogram (20 bins)
     counts, edges = np.histogram(gap_samples, bins=20)
