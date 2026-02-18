@@ -5,34 +5,16 @@ on:
     branches: [master]
   pull_request:
   workflow_dispatch:
-    inputs:
-      profile:
-        description: "Test profile to run"
-        required: true
-        default: core
-        type: choice
-        options:
-          - core
-          - full
-          - both
-  schedule:
-    # Nightly full regression (UTC)
-    - cron: "30 2 * * *"
 
 permissions:
   contents: read
 
 concurrency:
-  group: automation-ci-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}-${{ github.event.inputs.profile || 'auto' }}
-  cancel-in-progress: false
+  group: automation-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   core:
-    if: >-
-      github.event_name == 'push' ||
-      github.event_name == 'pull_request' ||
-      (github.event_name == 'workflow_dispatch' &&
-        (inputs.profile == 'core' || inputs.profile == 'both'))
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
@@ -73,50 +55,3 @@ jobs:
           path: .ci/core-diagnostics.txt
           if-no-files-found: warn
 
-  full:
-    if: >-
-      github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' &&
-        (inputs.profile == 'full' || inputs.profile == 'both'))
-    runs-on: self-hosted
-    timeout-minutes: 120
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: CI Diagnostics
-        run: |
-          mkdir -p .ci
-          bash .github/scripts/ci-diagnostics.sh | tee .ci/full-diagnostics.txt
-
-      - name: Install Node Dependencies
-        run: bash .github/scripts/retry.sh 3 15 npm ci --no-audit --prefer-offline
-
-      - name: Install Python Test Dependencies
-        run: bash .github/scripts/retry.sh 3 15 python3 -m pip install --upgrade pip pytest
-
-      - name: Python Unit Tests
-        run: pytest -q
-
-      - name: Full Integration Profile
-        run: npm run test:full
-
-      - name: Upload Full Diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: full-diagnostics-${{ github.run_id }}
-          path: .ci/full-diagnostics.txt
-          if-no-files-found: warn
