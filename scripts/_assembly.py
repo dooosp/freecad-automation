@@ -9,7 +9,15 @@ import FreeCAD
 import Part
 from FreeCAD import Vector
 
+from _config_utils import normalize_operation_spec
 from _shapes import make_shape, boolean_op, apply_fillet, apply_chamfer, circular_pattern, get_metadata
+
+
+def _copy_shape_spec(spec, default_id):
+    """Copy a shape spec so part assembly never mutates the caller's config."""
+    local_spec = dict(spec)
+    local_spec.setdefault("id", default_id)
+    return local_spec
 
 
 def _build_single_part(part_config):
@@ -21,20 +29,23 @@ def _build_single_part(part_config):
     shapes = {}
 
     for i, spec in enumerate(part_config.get("shapes", [])):
-        sid = spec.get("id", f"shape_{i}")
-        spec["id"] = sid  # ensure id exists for downstream
-        shapes[sid] = make_shape(spec)
+        local_spec = _copy_shape_spec(spec, f"shape_{i}")
+        sid = local_spec["id"]
+        shapes[sid] = make_shape(local_spec)
 
-    for op_spec in part_config.get("operations", []):
-        op = op_spec["op"]
+    for raw_op_spec in part_config.get("operations", []):
+        op_spec = normalize_operation_spec(raw_op_spec)
+        op = op_spec.get("op")
+        if not op:
+            raise ValueError(f"Operation in part '{part_config.get('id', 'unknown')}' is missing 'op'")
 
         if op in ("fuse", "cut", "common"):
-            base = shapes[op_spec["base"]]
+            base = shapes[op_spec["base"]].copy()
             tool_ref = op_spec["tool"]
             if isinstance(tool_ref, str):
-                tool = shapes[tool_ref]
+                tool = shapes[tool_ref].copy()
             elif isinstance(tool_ref, dict):
-                tool = make_shape(tool_ref)
+                tool = make_shape(dict(tool_ref))
             else:
                 raise ValueError(f"Invalid tool reference: {tool_ref}")
             result = boolean_op(op, base, tool)
@@ -42,17 +53,17 @@ def _build_single_part(part_config):
             shapes[result_id] = result
 
         elif op == "fillet":
-            target = shapes[op_spec["target"]]
+            target = shapes[op_spec["target"]].copy()
             result = apply_fillet(target, op_spec["radius"], op_spec.get("edges"))
             shapes[op_spec.get("result", op_spec["target"])] = result
 
         elif op == "chamfer":
-            target = shapes[op_spec["target"]]
+            target = shapes[op_spec["target"]].copy()
             result = apply_chamfer(target, op_spec["size"], op_spec.get("edges"))
             shapes[op_spec.get("result", op_spec["target"])] = result
 
         elif op == "circular_pattern":
-            target = shapes[op_spec["target"]]
+            target = shapes[op_spec["target"]].copy()
             result = circular_pattern(
                 target,
                 op_spec.get("axis", [0, 0, 1]),
@@ -73,7 +84,7 @@ def _build_single_part(part_config):
 
     # Determine final shape
     final_name = part_config.get("final", list(shapes.keys())[-1])
-    return shapes[final_name]
+    return shapes[final_name].copy()
 
 
 def _apply_placement(shape, placement):
@@ -157,7 +168,7 @@ def build_assembly(config, doc):
 
         if solved_shapes and ref in solved_shapes:
             # Already transformed by mate solver
-            shape = solved_shapes[ref]
+            shape = solved_shapes[ref].copy()
         else:
             shape = part_shapes[ref].copy()
             _apply_placement(shape, entry)
@@ -165,11 +176,12 @@ def build_assembly(config, doc):
         # Add as Part::Feature to doc (preserves name in STEP)
         label = entry.get("label", ref)
         feat = doc.addObject("Part::Feature", label)
-        feat.Shape = shape
+        feature_shape = shape.copy()
+        feat.Shape = feature_shape
         features.append(feat)
-        placed_shapes.append(shape)
+        placed_shapes.append(feature_shape)
 
-        parts_metadata[label] = get_metadata(shape)
+        parts_metadata[label] = get_metadata(feature_shape)
         print(f"[freecad]   Placed '{label}'", file=sys.stderr, flush=True)
 
     # Include mate-solved parts not listed in assembly.parts
@@ -178,10 +190,11 @@ def build_assembly(config, doc):
         for pid, shape in solved_shapes.items():
             if pid not in listed_refs:
                 feat = doc.addObject("Part::Feature", pid)
-                feat.Shape = shape
+                feature_shape = shape.copy()
+                feat.Shape = feature_shape
                 features.append(feat)
-                placed_shapes.append(shape)
-                parts_metadata[pid] = get_metadata(shape)
+                placed_shapes.append(feature_shape)
+                parts_metadata[pid] = get_metadata(feature_shape)
                 print(f"[freecad]   Placed '{pid}' (mate-only)", file=sys.stderr, flush=True)
 
     doc.recompute()

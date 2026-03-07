@@ -127,13 +127,14 @@ height = 60
 position = [0, 0, 8]
 
 [[operations]]
-type = "fuse"
+op = "fuse"
 base = "base_plate"
 tool = "web"
+result = "body"
 
 [[operations]]
-type = "fillet"
-target = "fuse_1"
+op = "fillet"
+target = "body"
 radius = 3
 
 [drawing]
@@ -144,6 +145,8 @@ scale = "1:2"
 process = "machining"
 material = "SS304"
 ```
+
+`[[operations]]` uses `op` as the canonical field. Legacy configs that still use `type` are accepted and normalized internally for backward compatibility.
 
 19 example configs are included in `configs/examples/`, covering brackets, shafts, flanges, gear housings, assemblies, and mechanisms.
 

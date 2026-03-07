@@ -6,6 +6,7 @@ All debug output goes to stderr to keep stdout clean for JSON.
 
 import sys
 import json
+from _config_utils import normalize_config
 
 MAX_STDIN_BYTES = 10 * 1024 * 1024
 
@@ -33,7 +34,7 @@ def read_input():
         raise ValueError("No input received on stdin")
     # Always decode stdin as UTF-8 to avoid locale-dependent surrogate escapes.
     raw = raw_bytes.decode("utf-8")
-    return json.loads(raw)
+    return normalize_config(json.loads(raw))
 
 
 def respond(data):
@@ -43,7 +44,7 @@ def respond(data):
 
 
 def respond_error(msg, details=None):
-    """Write error JSON to stdout and exit with code 0 (so Node can parse it)."""
+    """Write error JSON to stdout and exit non-zero while keeping stdout parseable."""
     result = {"success": False, "error": str(msg)}
     if details:
         result["details"] = details

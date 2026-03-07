@@ -6,6 +6,7 @@ import { join, resolve as resolvePath, sep as pathSep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { parse as parseTOML } from 'smol-toml';
 import { runScript } from './lib/runner.js';
+import { normalizeConfig } from './lib/config-normalizer.js';
 import { designFromTextStreaming } from './scripts/design-reviewer.js';
 import { updateDimIntent, readDimIntents } from './lib/toml-writer.js';
 import { execSync } from 'node:child_process';
@@ -142,7 +143,7 @@ export function startServer(port = 3000) {
 
       let config;
       try {
-        config = parseTOML(tomlStr);
+        config = normalizeConfig(parseTOML(tomlStr));
       } catch (e) {
         return sendJSON(ws, { type: 'error', message: `TOML parse error: ${e.message}` });
       }
@@ -170,7 +171,7 @@ export function startServer(port = 3000) {
         }
         try {
           const planRaw = await readFile(forcedPlanPath, 'utf8');
-          const planData = parseTOML(planRaw);
+          const planData = normalizeConfig(parseTOML(planRaw));
           if (!planData.drawing_plan) {
             return sendJSON(ws, { type: 'error', message: 'Edited plan is missing drawing_plan section' });
           }
@@ -347,7 +348,7 @@ export function startServer(port = 3000) {
 
       let config;
       try {
-        config = parseTOML(tomlStr);
+        config = normalizeConfig(parseTOML(tomlStr));
       } catch (e) {
         return sendJSON(ws, { type: 'error', message: `TOML parse error: ${e.message}` });
       }

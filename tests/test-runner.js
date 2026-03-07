@@ -4,11 +4,12 @@
  */
 
 import { resolve } from 'node:path';
-import { existsSync, rmSync, mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, rmSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { parse as parseTOML } from 'smol-toml';
 import { runScript } from '../lib/runner.js';
 import { loadConfig } from '../lib/config-loader.js';
+import { normalizeConfig } from '../lib/config-normalizer.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const OUTPUT_DIR = resolve(ROOT, 'output');
@@ -83,6 +84,48 @@ async function testSimpleBox() {
   assert(result.model.faces === 6, `Has 6 faces (got ${result.model.faces})`);
 
   return result;
+}
+
+async function testOperationSchemaNormalization() {
+  console.log('\n--- Test: Operation schema normalization ---');
+
+  const compatPath = resolve(OUTPUT_DIR, 'compat-op-type.toml');
+  const compatToml = `
+name = "compat-op"
+
+[[shapes]]
+id = "body"
+type = "box"
+length = 10
+width = 10
+height = 4
+
+[[operations]]
+type = "fillet"
+target = "body"
+radius = 1
+`;
+  mkdirSync(OUTPUT_DIR, { recursive: true });
+  writeFileSync(compatPath, compatToml, 'utf8');
+
+  const loaded = await loadConfig(compatPath);
+  assert(loaded.operations[0].op === 'fillet', 'TOML loader normalizes operations.type -> op');
+  assert(loaded.operations[0].type === 'fillet', 'Original type field is preserved for compatibility');
+
+  const raw = {
+    operations: [{ type: 'cut', base: 'a', tool: 'b' }],
+    parts: [{ id: 'p1', operations: [{ type: 'fuse', base: 'a', tool: 'b' }] }],
+  };
+  const normalized = normalizeConfig(raw);
+  assert(raw.operations[0].op === undefined, 'Source config is not mutated during normalization checks');
+  assert(normalized.operations[0].op === 'cut', 'JS config normalizer populates top-level op');
+  assert(normalized.parts[0].operations[0].op === 'fuse', 'JS config normalizer handles nested part operations');
+
+  const pyOut = execSync('python3 tests/test_config_utils.py', {
+    cwd: ROOT,
+    encoding: 'utf8',
+  });
+  assert(pyOut.includes('ok'), 'Python config normalization helper test passed');
 }
 
 async function testFemAnalysis() {
@@ -1953,6 +1996,7 @@ async function runCase(name, fn) {
 
 function coreCases() {
   return [
+    ['Operation schema normalization', testOperationSchemaNormalization],
     ['Simple box', testSimpleBox],
     ['Create bracket model', testCreateModel],
     ['Inspect STEP', testInspectSTEP],

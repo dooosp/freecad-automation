@@ -15,6 +15,7 @@ import json
 import sys
 import os
 from pathlib import Path
+from _config_utils import normalize_config
 
 # Resolve templates directory relative to this script
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -507,7 +508,7 @@ def main():
                         help="Override templates directory")
     args = parser.parse_args()
 
-    config = json.load(sys.stdin)
+    config = normalize_config(json.load(sys.stdin))
 
     # Step 1: Classify part type
     explicit_type = config.get("drawing_plan", {}).get("part_type")
