@@ -38,8 +38,10 @@ TOML Config ──> 3D Model ──> Drawing ──> DFM Check ──> Cost ─�
 ### Prerequisites
 
 - **Node.js** 18+
-- **FreeCAD** 0.21+ installed on Windows
-- **WSL** (the CLI runs in WSL and bridges to Windows FreeCAD)
+- **FreeCAD** 0.21+
+- One supported runtime:
+  macOS: native FreeCAD app install, optionally with `FREECAD_PYTHON` or `FREECAD_CMD`
+  WSL: Windows FreeCAD install, optionally with `FREECAD_DIR`
 
 ### Install
 
@@ -48,6 +50,21 @@ git clone https://github.com/dooosp/freecad-automation.git
 cd freecad-automation
 npm install
 npm link  # makes 'fcad' available globally
+```
+
+### Runtime Setup
+
+macOS native setup:
+
+```bash
+export FREECAD_PYTHON="/Applications/FreeCAD.app/Contents/Resources/bin/FreeCADCmd"
+# or point to the bundled python/python3 inside the app bundle
+```
+
+WSL -> Windows setup:
+
+```bash
+export FREECAD_DIR="C:\\Program Files\\FreeCAD 1.0"
 ```
 
 ### 3-Step Demo
@@ -163,7 +180,7 @@ scripts/*.py ── FreeCAD Python engine (46 modules, ~17,000 lines)
     │
     │  FreeCAD Python API
     ▼
-FreeCAD 0.21+ ─ CAD kernel (WSL → Windows bridge)
+FreeCAD 0.21+ ─ CAD kernel (native macOS or WSL → Windows bridge)
 ```
 
 ### Module Overview
@@ -182,7 +199,7 @@ FreeCAD 0.21+ ─ CAD kernel (WSL → Windows bridge)
 | File | Purpose |
 |---|---|
 | `bin/fcad.js` | CLI dispatcher and command handlers |
-| `lib/runner.js` | FreeCAD script executor (WSL to Windows bridge) |
+| `lib/runner.js` | FreeCAD script executor (native macOS or WSL to Windows bridge) |
 | `lib/config-loader.js` | TOML/JSON config loading and merging |
 | `lib/toml-writer.js` | Programmatic TOML modification |
 | `server.js` | Express + WebSocket 3D viewer server |
@@ -208,7 +225,9 @@ freecad-automation/
 ## Testing
 
 ```bash
-# Core tests (fast, no FreeCAD required for schema/config tests)
+# Core tests
+# If FreeCAD is installed, runs integration coverage.
+# If FreeCAD is not installed, runs runtime-independent schema/config checks only.
 npm test
 
 # Full test suite (requires FreeCAD)

@@ -1,7 +1,7 @@
 {
   "name": "freecad-automation",
   "version": "1.0.0",
-  "description": "FreeCAD automation framework - parametric 3D modeling via WSL→Windows bridge",
+  "description": "FreeCAD automation framework - parametric 3D modeling with macOS native and WSL/Windows runtimes",
   "type": "module",
   "bin": {
     "fcad": "./bin/fcad.js"

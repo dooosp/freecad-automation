@@ -10,6 +10,7 @@ import { parse as parseTOML } from 'smol-toml';
 import { runScript } from '../lib/runner.js';
 import { loadConfig } from '../lib/config-loader.js';
 import { normalizeConfig } from '../lib/config-normalizer.js';
+import { describeFreeCADRuntime, hasFreeCADRuntime } from '../lib/paths.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const OUTPUT_DIR = resolve(ROOT, 'output');
@@ -126,6 +127,13 @@ radius = 1
     encoding: 'utf8',
   });
   assert(pyOut.includes('ok'), 'Python config normalization helper test passed');
+}
+
+async function testRuntimeDetection() {
+  console.log('\n--- Test: Runtime detection ---');
+  const description = describeFreeCADRuntime();
+  assert(typeof description === 'string' && description.length > 0, 'Runtime description is available');
+  assert(typeof hasFreeCADRuntime() === 'boolean', 'Runtime availability is boolean');
 }
 
 async function testFemAnalysis() {
@@ -1995,7 +2003,8 @@ async function runCase(name, fn) {
 }
 
 function coreCases() {
-  return [
+  const cases = [
+    ['Runtime detection', testRuntimeDetection],
     ['Operation schema normalization', testOperationSchemaNormalization],
     ['Simple box', testSimpleBox],
     ['Create bracket model', testCreateModel],
@@ -2032,6 +2041,14 @@ function coreCases() {
     ['Engineering report', testEngineeringReport],
     ['GD&T symbols', testGDTSymbols],
   ];
+
+  if (hasFreeCADRuntime()) {
+    return cases;
+  }
+
+  return cases.filter(([name]) => (
+    name === 'Runtime detection' || name === 'Operation schema normalization'
+  ));
 }
 
 function fullOnlyCases() {
@@ -2064,13 +2081,19 @@ async function main() {
   console.log('=' .repeat(40));
   const profile = parseProfileArg();
   console.log(`Profile: ${profile}`);
+  console.log(`Runtime: ${describeFreeCADRuntime()}`);
 
   // Clean output directory
   if (existsSync(OUTPUT_DIR)) rmSync(OUTPUT_DIR, { recursive: true });
   mkdirSync(OUTPUT_DIR, { recursive: true });
 
+  if (!hasFreeCADRuntime()) {
+    console.warn('FreeCAD runtime not available; running runtime-independent checks only.');
+  }
+
+  const runtimeReady = hasFreeCADRuntime();
   const cases = profile === 'full'
-    ? [...coreCases(), ...fullOnlyCases()]
+    ? (runtimeReady ? [...coreCases(), ...fullOnlyCases()] : coreCases())
     : coreCases();
 
   for (const [name, fn] of cases) {
