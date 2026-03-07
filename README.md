@@ -59,13 +59,35 @@ macOS native setup:
 ```bash
 export FREECAD_PYTHON="/Applications/FreeCAD.app/Contents/Resources/bin/FreeCADCmd"
 # or point to the bundled python/python3 inside the app bundle
+npm run check:runtime
 ```
 
 WSL -> Windows setup:
 
 ```bash
 export FREECAD_DIR="C:\\Program Files\\FreeCAD 1.0"
+npm run check:runtime
 ```
+
+### macOS Verification
+
+Recommended first-run sequence on macOS:
+
+```bash
+# 1. Verify the runtime path the CLI will use
+npm run check:runtime
+
+# 2. Run runtime-independent checks
+npm test
+
+# 3. Run one real FreeCAD-backed command
+fcad create configs/examples/ks_bracket.toml
+
+# 4. Verify outputs exist
+ls -lh output/ks_bracket.step output/ks_bracket.fcstd
+```
+
+If `check:runtime` reports no runtime, set `FREECAD_PYTHON` explicitly and rerun it before using `fcad create` or `fcad draw`.
 
 ### 3-Step Demo
 
