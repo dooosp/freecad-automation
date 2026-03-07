@@ -1,8 +1,13 @@
 # freecad-automation
 
-**Design-to-manufacturing automation pipeline for FreeCAD.**
+**Core automation engine for FreeCAD-based design-to-manufacturing workflows.**
 
-One TOML config in, 3D model + engineering drawing + DFM analysis + cost estimate + PDF report out.
+Programmatic CAD automation engine for FreeCAD.
+
+Generate parametric 3D models, engineering drawings, DFM checks, tolerance analysis, cost estimates, and PDF reports from structured configuration files.
+
+This repository contains the core CAD automation engine.
+For the end-user desktop interface, see [freecad-desktop](https://github.com/dooosp/freecad-desktop).
 
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
