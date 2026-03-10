@@ -10,12 +10,16 @@ Checked-in draft standard-document set for an automotive infotainment controller
 
 Files:
 
-- [process_flow.md](./standard-docs/process_flow.md)
-- [control_plan_draft.csv](./standard-docs/control_plan_draft.csv)
-- [inspection_checksheet_draft.csv](./standard-docs/inspection_checksheet_draft.csv)
-- [work_instruction_draft.md](./standard-docs/work_instruction_draft.md)
-- [pfmea_seed.csv](./standard-docs/pfmea_seed.csv)
-- [standard_docs_manifest.json](./standard-docs/standard_docs_manifest.json)
+- Default generated set:
+  - [process_flow.md](./standard-docs/process_flow.md)
+  - [control_plan_draft.csv](./standard-docs/control_plan_draft.csv)
+  - [inspection_checksheet_draft.csv](./standard-docs/inspection_checksheet_draft.csv)
+  - [work_instruction_draft.md](./standard-docs/work_instruction_draft.md)
+  - [pfmea_seed.csv](./standard-docs/pfmea_seed.csv)
+  - [standard_docs_manifest.json](./standard-docs/standard_docs_manifest.json)
+- Site-aware preset examples:
+  - [Korea preset docs](./standard-docs-korea/process_flow.md)
+  - [Mexico preset docs](./standard-docs-mexico/process_flow.md)
 
 Source config:
 

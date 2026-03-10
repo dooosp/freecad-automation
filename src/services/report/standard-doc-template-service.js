@@ -23,7 +23,63 @@ function findStationIdByText(stations = [], text = '') {
   return stations.find((station) => /inspection/i.test(station.station_name))?.station_id || stations[0]?.station_id || '';
 }
 
-function deriveControlPlanRows(report) {
+function getProfileStandardDocPresets(siteProfile = {}) {
+  const presets = siteProfile.standard_docs || {};
+  return {
+    profile_name: siteProfile.label || siteProfile.name || siteProfile.site?.name || 'default profile preset',
+    owners: {
+      process_owner: presets.owners?.process_owner || 'Production engineering',
+      quality_owner: presets.owners?.quality_owner || 'Quality engineering',
+      maintenance_owner: presets.owners?.maintenance_owner || 'Maintenance engineering',
+      traceability_owner: presets.owners?.traceability_owner || 'Production engineering + MES',
+      pfmea_owner: presets.owners?.pfmea_owner || 'Production engineering',
+      work_instruction_owner: presets.owners?.work_instruction_owner || 'Production engineering',
+    },
+    frequencies: {
+      default_control: presets.frequencies?.default_control || 'Launch + periodic audit',
+      launch_control: presets.frequencies?.launch_control || 'Launch 100% + periodic audit',
+      critical_dimension: presets.frequencies?.critical_dimension || 'Launch 100% then per control plan',
+      torque_trace: presets.frequencies?.torque_trace || 'Every unit',
+      barcode_pairing: presets.frequencies?.barcode_pairing || 'Every unit',
+      eol_test: presets.frequencies?.eol_test || 'Every unit',
+      visual_confirmation: presets.frequencies?.visual_confirmation || 'Per launch audit plan',
+      checksheet_default: presets.frequencies?.checksheet_default || 'Launch 100% then per control plan',
+    },
+    responsibility_hints: {
+      operator: presets.responsibility_hints?.operator || 'Operator confirms work sequence and abnormality escalation.',
+      technician: presets.responsibility_hints?.technician || 'Technician restores station condition after downtime or setup change.',
+      quality_engineer: presets.responsibility_hints?.quality_engineer || 'QE validates sampling relaxation and containment closure.',
+      production_engineer: presets.responsibility_hints?.production_engineer || 'PE owns line-balance updates and launch countermeasures.',
+    },
+  };
+}
+
+function frequencyForCheckpoint(point = {}, profilePresets) {
+  const text = `${point.control_method || ''} ${point.checkpoint || ''}`.toLowerCase();
+  if (/launch_control|first_article/.test(text)) return profilePresets.frequencies.launch_control;
+  if (/torque/.test(text)) return profilePresets.frequencies.torque_trace;
+  if (/barcode|serial/.test(text)) return profilePresets.frequencies.barcode_pairing;
+  if (/functional|electrical|eol/.test(text)) return profilePresets.frequencies.eol_test;
+  if (/vision/.test(text)) return profilePresets.frequencies.visual_confirmation;
+  if (/critical|dimension/.test(text)) return profilePresets.frequencies.critical_dimension;
+  return profilePresets.frequencies.default_control;
+}
+
+function ownerForCheckpoint(point = {}, profilePresets) {
+  const text = `${point.control_method || ''} ${point.checkpoint || ''}`.toLowerCase();
+  if (/barcode|serial/.test(text)) return profilePresets.owners.traceability_owner;
+  if (/torque|functional|electrical|eol/.test(text)) return `${profilePresets.owners.process_owner} + ${profilePresets.owners.quality_owner}`;
+  return profilePresets.owners.quality_owner;
+}
+
+function ownerForRisk(risk = {}, profilePresets) {
+  const text = `${risk.title || ''} ${risk.category || ''}`.toLowerCase();
+  if (/traceability|barcode|serial/.test(text)) return profilePresets.owners.traceability_owner;
+  if (/fixture|downtime|maintenance|test/.test(text)) return profilePresets.owners.maintenance_owner;
+  return profilePresets.owners.pfmea_owner;
+}
+
+function deriveControlPlanRows(report, profilePresets) {
   const stations = report.line_plan?.station_concept || [];
   const criticalDimensions = report.quality_risk?.critical_dimensions || [];
   const keyInspectionPoints = report.process_plan?.key_inspection_points || [];
@@ -39,29 +95,29 @@ function deriveControlPlanRows(report) {
         ? `${matchedDimension.target_mm} ${matchedDimension.tolerance || ''}`.trim()
         : matchedDimension?.tolerance || 'See engineering specification',
       control_method: point.control_method || 'operator confirmation',
-      frequency: /every_unit|barcode|torque|functional/i.test(point.control_method || point.checkpoint) ? 'Every unit' : 'Launch + periodic audit',
+      frequency: frequencyForCheckpoint(point, profilePresets),
       reaction_plan: 'Hold suspect parts, notify production engineering / quality, and update the launch issue tracker.',
-      owner: /torque|barcode|functional/i.test(point.checkpoint) ? 'Production engineering + quality' : 'Quality engineering',
+      owner: ownerForCheckpoint(point, profilePresets),
     });
   }
 
-  if ((report.quality_risk?.traceability_summary?.barcode_pairing_required)) {
+  if (report.quality_risk?.traceability_summary?.barcode_pairing_required) {
     rows.push({
       process_step: 'barcode / serial pairing',
       station_id: findStationIdByText(stations, 'barcode'),
       characteristic: 'housing / PCB / label serialization match',
       spec_or_target: '100% match with no manual override',
       control_method: 'scanner validation + MES pairing rule',
-      frequency: 'Every unit',
+      frequency: profilePresets.frequencies.barcode_pairing,
       reaction_plan: 'Block release, quarantine the unit, and resolve pairing exception before EOL.',
-      owner: 'Production engineering + IT/MES',
+      owner: profilePresets.owners.traceability_owner,
     });
   }
 
   return rows;
 }
 
-function deriveInspectionChecksheetRows(report) {
+function deriveInspectionChecksheetRows(report, profilePresets) {
   const criticalDimensions = report.quality_risk?.critical_dimensions || [];
   const checkpoints = report.process_plan?.key_inspection_points || [];
 
@@ -70,9 +126,9 @@ function deriveInspectionChecksheetRows(report) {
     target: dimension.target_mm ?? '',
     tolerance: dimension.tolerance || 'See drawing',
     method: 'Gauge / caliper / fixture check',
-    sample_size: 'Launch 100% then per control plan',
+    sample_size: profilePresets.frequencies.critical_dimension,
     judgement_rule: 'Accept only when inside target and tolerance band',
-    remarks: 'Draft generated planning aid. Engineering review required.',
+    remarks: `Draft generated planning aid. Profile preset: ${profilePresets.profile_name}.`,
   }));
 
   for (const checkpoint of checkpoints) {
@@ -82,16 +138,16 @@ function deriveInspectionChecksheetRows(report) {
       target: 'See specification / test criterion',
       tolerance: 'No deviation allowed',
       method: checkpoint.control_method || 'operator confirmation',
-      sample_size: /every_unit|barcode|torque|functional/i.test(checkpoint.control_method || checkpoint.checkpoint) ? 'Every unit' : 'Per launch audit plan',
+      sample_size: frequencyForCheckpoint(checkpoint, profilePresets),
       judgement_rule: 'Accept only when confirmation record is complete',
-      remarks: 'Draft generated planning aid. Engineering review required.',
+      remarks: `Draft generated planning aid. Responsibility follows ${profilePresets.profile_name} preset.`,
     });
   }
 
   return rows;
 }
 
-function derivePfmeaRows(report) {
+function derivePfmeaRows(report, profilePresets) {
   const gates = report.quality_risk?.quality_gates || [];
   const controls = report.process_plan?.key_inspection_points || [];
   const bottlenecks = report.line_plan?.station_concept || [];
@@ -115,7 +171,8 @@ function derivePfmeaRows(report) {
       effect: risk.effect || 'Launch disruption, defect escape, or traceability loss',
       likely_cause: risk.source || risk.category || 'To be confirmed during PFMEA workshop',
       current_control: controls[0]?.control_method || gates[0]?.name || 'Generated seed only; current control requires engineering review',
-      recommended_action: risk.recommendation || 'Confirm containment and standard work before release',
+      recommended_action: `[Owner: ${ownerForRisk(risk, profilePresets)}] ${risk.recommendation || 'Confirm containment and standard work before release'}`,
+      follow_up_role: ownerForRisk(risk, profilePresets),
     }))
     .filter((row) => {
       if (seen.has(row.failure_mode)) return false;
@@ -125,7 +182,7 @@ function derivePfmeaRows(report) {
     .slice(0, 24);
 }
 
-function renderProcessFlowMarkdown(report) {
+function renderProcessFlowMarkdown(report, profilePresets) {
   const steps = report.process_plan?.process_flow || [];
   const stations = report.line_plan?.station_concept || [];
   const lines = [
@@ -134,6 +191,7 @@ function renderProcessFlowMarkdown(report) {
     '> Draft / generated planning aid. Requires production-engineering review before controlled use.',
     '',
     `Part: ${report.part?.name || 'unknown'}`,
+    `Profile preset: ${profilePresets.profile_name}`,
     '',
     '| Step | Process Step | Station Purpose | Key Output | Manual/Auto Mode |',
     '| --- | --- | --- | --- | --- |',
@@ -147,7 +205,7 @@ function renderProcessFlowMarkdown(report) {
   return `${lines.join('\n')}\n`;
 }
 
-function renderWorkInstructionMarkdown(report) {
+function renderWorkInstructionMarkdown(report, profilePresets) {
   const stations = report.line_plan?.station_concept || [];
   const traceabilityPoints = report.line_plan?.traceability_capture_points || [];
   const checkpoints = report.process_plan?.key_inspection_points || [];
@@ -161,6 +219,15 @@ function renderWorkInstructionMarkdown(report) {
     '> Draft / generated planning aid. Requires production-engineering review before release to operators.',
     '',
     `Part: ${report.part?.name || 'unknown'}`,
+    `Profile preset: ${profilePresets.profile_name}`,
+    '',
+    '## Responsibility Assumptions',
+    '',
+    `- Work instruction owner: ${profilePresets.owners.work_instruction_owner}`,
+    `- Operator hint: ${profilePresets.responsibility_hints.operator}`,
+    `- Technician hint: ${profilePresets.responsibility_hints.technician}`,
+    `- Quality engineer hint: ${profilePresets.responsibility_hints.quality_engineer}`,
+    `- Production engineer hint: ${profilePresets.responsibility_hints.production_engineer}`,
     '',
   ];
 
@@ -170,7 +237,7 @@ function renderWorkInstructionMarkdown(report) {
     const relatedRisks = risks
       .filter((risk) => {
         const title = (risk.title || '').toLowerCase();
-        return title.includes(station.station_name.toLowerCase().split(' ')[0]) || title.includes('connector') && /connector/i.test(station.station_name);
+        return title.includes(station.station_name.toLowerCase().split(' ')[0]) || (title.includes('connector') && /connector/i.test(station.station_name));
       })
       .slice(0, 3);
 
@@ -182,6 +249,7 @@ function renderWorkInstructionMarkdown(report) {
     lines.push(`- Caution points: ${relatedRisks.map((risk) => risk.title).join('; ') || 'Confirm standard work, ergonomics, and change-point control.'}`);
     lines.push(`- Quality checkpoints: ${relatedCheckpoints.map((checkpoint) => checkpoint.checkpoint).join('; ') || 'Follow line-plan inspection strategy for this station.'}`);
     lines.push(`- Traceability capture items: ${relatedTraceability.map((point) => point.data_capture).join('; ') || 'No dedicated traceability capture beyond normal lot control.'}`);
+    lines.push(`- Responsibility note: ${/barcode|serial/i.test(station.station_name) ? profilePresets.owners.traceability_owner : profilePresets.owners.process_owner} supports this station under the current site preset.`);
     lines.push('');
   }
 
@@ -189,7 +257,8 @@ function renderWorkInstructionMarkdown(report) {
 }
 
 export function createStandardDocTemplateService() {
-  return function generateStandardDocs(report) {
+  return function generateStandardDocs(report, options = {}) {
+    const profilePresets = getProfileStandardDocPresets(options.siteProfile || {});
     const controlPlanColumns = [
       'process_step',
       'station_id',
@@ -216,14 +285,15 @@ export function createStandardDocTemplateService() {
       'likely_cause',
       'current_control',
       'recommended_action',
+      'follow_up_role',
     ];
 
     return {
-      'process_flow.md': renderProcessFlowMarkdown(report),
-      'control_plan_draft.csv': renderCsv(controlPlanColumns, deriveControlPlanRows(report)),
-      'inspection_checksheet_draft.csv': renderCsv(inspectionColumns, deriveInspectionChecksheetRows(report)),
-      'work_instruction_draft.md': renderWorkInstructionMarkdown(report),
-      'pfmea_seed.csv': renderCsv(pfmeaColumns, derivePfmeaRows(report)),
+      'process_flow.md': renderProcessFlowMarkdown(report, profilePresets),
+      'control_plan_draft.csv': renderCsv(controlPlanColumns, deriveControlPlanRows(report, profilePresets)),
+      'inspection_checksheet_draft.csv': renderCsv(inspectionColumns, deriveInspectionChecksheetRows(report, profilePresets)),
+      'work_instruction_draft.md': renderWorkInstructionMarkdown(report, profilePresets),
+      'pfmea_seed.csv': renderCsv(pfmeaColumns, derivePfmeaRows(report, profilePresets)),
     };
   };
 }

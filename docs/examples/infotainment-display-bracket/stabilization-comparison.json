@@ -1,0 +1,91 @@
+{
+  "schema_version": "0.1",
+  "comparison_type": "cross_site_stabilization_example",
+  "comparison_basis": "Runtime-informed cross-site launch planning support example. Not a claim of plant truth.",
+  "part": "infotainment_display_bracket",
+  "sites": [
+    {
+      "site": "Korea-Ulsan",
+      "profile": "site_korea_ulsan",
+      "runtime_file": "data/runtime_examples/display_bracket_runtime.json",
+      "average_fpy": 0.975,
+      "average_downtime_pct": 5.7,
+      "stations_over_target_ct": [
+        "ST20",
+        "ST30",
+        "ST40",
+        "ST60",
+        "ST70"
+      ],
+      "highest_gap_station_id": "ST60",
+      "highest_gap_sec": 8.2
+    },
+    {
+      "site": "Mexico-MTY",
+      "profile": "site_mexico_mty",
+      "runtime_file": "data/runtime_examples/display_bracket_runtime_mexico.json",
+      "average_fpy": 0.961,
+      "average_downtime_pct": 8.47,
+      "stations_over_target_ct": [
+        "ST20",
+        "ST30",
+        "ST40",
+        "ST50",
+        "ST60",
+        "ST70"
+      ],
+      "highest_gap_station_id": "ST60",
+      "highest_gap_sec": 11.7
+    }
+  ],
+  "station_gap_delta_sec": [
+    {
+      "station_id": "ST20",
+      "korea_gap_sec": 0.6,
+      "mexico_gap_sec": 3.3,
+      "delta_sec": 2.7,
+      "note": "Laser / blanking flow shows more restart and setup loss at the mirrored launch site."
+    },
+    {
+      "station_id": "ST30",
+      "korea_gap_sec": 3.6,
+      "mexico_gap_sec": 6.8,
+      "delta_sec": 3.2,
+      "note": "Forming / bending standard work remains less stable in the Mexico ramp-up example."
+    },
+    {
+      "station_id": "ST40",
+      "korea_gap_sec": 1.8,
+      "mexico_gap_sec": 4.5,
+      "delta_sec": 2.7,
+      "note": "Feature preparation and handling are more exposed to launch rework at the overseas site."
+    },
+    {
+      "station_id": "ST60",
+      "korea_gap_sec": 8.2,
+      "mexico_gap_sec": 11.7,
+      "delta_sec": 3.5,
+      "note": "Dimensional inspection remains the main shared bottleneck, with worse launch loss in Mexico."
+    },
+    {
+      "station_id": "ST70",
+      "korea_gap_sec": 4.1,
+      "mexico_gap_sec": 8.2,
+      "delta_sec": 4.1,
+      "note": "Packaging / handoff / traceability burden is materially higher in the Mexico example."
+    }
+  ],
+  "summary": {
+    "higher_risk_site": "Mexico-MTY",
+    "key_differences": [
+      "Mexico example has lower average FPY and higher average downtime.",
+      "Mexico example shows one additional station above target CT.",
+      "Inspection and packaging gaps are materially larger in the Mexico example."
+    ],
+    "recommended_actions": [
+      "Tighten launch layered audits at ST30, ST60, and ST70 before relaxing staffing assumptions.",
+      "Mirror proven Korea standard work and issue-response logic into the Mexico ramp-up package.",
+      "Keep the comparison framed as runtime-informed early production-engineering support, not plant truth."
+    ]
+  }
+}

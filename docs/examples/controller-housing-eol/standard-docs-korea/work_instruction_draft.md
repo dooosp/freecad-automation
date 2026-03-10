@@ -3,15 +3,15 @@
 > Draft / generated planning aid. Requires production-engineering review before release to operators.
 
 Part: controller_housing_eol
-Profile preset: default profile preset
+Profile preset: Korea-Ulsan launch profile
 
 ## Responsibility Assumptions
 
 - Work instruction owner: Production engineering
-- Operator hint: Operator confirms work sequence and abnormality escalation.
-- Technician hint: Technician restores station condition after downtime or setup change.
-- Quality engineer hint: QE validates sampling relaxation and containment closure.
-- Production engineer hint: PE owns line-balance updates and launch countermeasures.
+- Operator hint: Operator confirms part orientation, scan completeness, and stop-call escalation.
+- Technician hint: Technician restores fixture/test station after downtime and confirms recipe recovery.
+- Quality engineer hint: QE owns launch containment, sampling relaxation, and defect escalation.
+- Production engineer hint: PE owns cycle-time stabilization, standard work updates, and fixture/debug closure.
 
 ## ST10 incoming casting
 

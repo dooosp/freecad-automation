@@ -1,0 +1,84 @@
+{
+  "site": "Mexico-MTY",
+  "period": "ramp-up-week-2",
+  "line_name": "display_bracket_launch_line",
+  "stations": [
+    {
+      "station_id": "ST10",
+      "actual_ct_sec": 36.9,
+      "target_ct_sec": 38.0,
+      "fpy": 0.989,
+      "rework_rate": 0.008,
+      "scrap_rate": 0.002,
+      "downtime_pct": 3.8,
+      "operator_count": 1,
+      "changeover_time_sec": 230
+    },
+    {
+      "station_id": "ST20",
+      "actual_ct_sec": 35.6,
+      "target_ct_sec": 32.3,
+      "fpy": 0.971,
+      "rework_rate": 0.021,
+      "scrap_rate": 0.004,
+      "downtime_pct": 7.2,
+      "operator_count": 1,
+      "changeover_time_sec": 340
+    },
+    {
+      "station_id": "ST30",
+      "actual_ct_sec": 44.8,
+      "target_ct_sec": 38.0,
+      "fpy": 0.952,
+      "rework_rate": 0.036,
+      "scrap_rate": 0.007,
+      "downtime_pct": 10.4,
+      "operator_count": 2,
+      "changeover_time_sec": 620
+    },
+    {
+      "station_id": "ST40",
+      "actual_ct_sec": 42.5,
+      "target_ct_sec": 38.0,
+      "fpy": 0.958,
+      "rework_rate": 0.032,
+      "scrap_rate": 0.006,
+      "downtime_pct": 8.9,
+      "operator_count": 2,
+      "changeover_time_sec": 510
+    },
+    {
+      "station_id": "ST50",
+      "actual_ct_sec": 39.4,
+      "target_ct_sec": 38.0,
+      "fpy": 0.978,
+      "rework_rate": 0.016,
+      "scrap_rate": 0.004,
+      "downtime_pct": 6.6,
+      "operator_count": 1,
+      "changeover_time_sec": 290
+    },
+    {
+      "station_id": "ST60",
+      "actual_ct_sec": 49.7,
+      "target_ct_sec": 38.0,
+      "fpy": 0.934,
+      "rework_rate": 0.051,
+      "scrap_rate": 0.010,
+      "downtime_pct": 12.6,
+      "operator_count": 2,
+      "changeover_time_sec": 570
+    },
+    {
+      "station_id": "ST70",
+      "actual_ct_sec": 46.2,
+      "target_ct_sec": 38.0,
+      "fpy": 0.944,
+      "rework_rate": 0.043,
+      "scrap_rate": 0.009,
+      "downtime_pct": 9.8,
+      "operator_count": 2,
+      "changeover_time_sec": 410
+    }
+  ]
+}

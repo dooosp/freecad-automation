@@ -1,0 +1,415 @@
+{
+  "schema_version": "0.1",
+  "agent": "stabilization_review",
+  "part": {
+    "name": "infotainment_display_bracket",
+    "revision": "A",
+    "material": "AL6061",
+    "process": "sheet_metal",
+    "product_family": "display_module",
+    "module_type": "AVN display bracket",
+    "vehicle_program": "SDV cockpit platform",
+    "production_sites": [
+      "Korea-Ulsan",
+      "Mexico-MTY"
+    ]
+  },
+  "summary": {
+    "overall_risk_level": "high",
+    "runtime_basis": "runtime_informed",
+    "site": "Mexico-MTY",
+    "top_bottlenecks": [
+      "ST30 forming  /  bending: Actual CT is 6.8s above target.",
+      "ST40 pierce  /  tapping  /  hardware insertion: Actual CT is 4.5s above target.",
+      "ST60 dimensional inspection: Actual CT is 11.7s above target.",
+      "ST70 subassembly  /  packaging: Actual CT is 8.2s above target."
+    ],
+    "recommended_actions": [
+      "Rebalance manual content or split the work across launch staffing until the cycle stabilizes.",
+      "Review fixture debug, barcode / probe retry logic, and changeover recovery checklist.",
+      "Focus line-balancing effort on stations still above target CT before adding broader automation scope.",
+      "Treat this review as launch-stabilization support, then confirm with real plant issue logs and engineering ownership."
+    ],
+    "heuristics_notice": "This review mixes supplied runtime indicators with heuristic root-cause suggestions and still requires engineering validation."
+  },
+  "analysis_basis": {
+    "runtime_station_count": 7,
+    "stations_over_target": [
+      "ST20",
+      "ST30",
+      "ST40",
+      "ST50",
+      "ST60",
+      "ST70"
+    ],
+    "site_profile": {
+      "name": "site_mexico_mty",
+      "line": {
+        "target_ct_sec": 38,
+        "target_fpy": 0.975,
+        "max_rework_rate": 0.025,
+        "max_scrap_rate": 0.007,
+        "max_downtime_pct": 7.5,
+        "changeover_guardrail_sec": 480
+      }
+    },
+    "runtime_summary": {
+      "runtime_informed": true,
+      "runtime_station_count": 7,
+      "line_target_ct_sec": 38,
+      "stations_over_target": [
+        "ST20",
+        "ST30",
+        "ST40",
+        "ST50",
+        "ST60",
+        "ST70"
+      ],
+      "highest_gap_station_id": "ST60",
+      "highest_gap_sec": 11.7,
+      "average_fpy": 0.961,
+      "average_downtime_pct": 8.47
+    }
+  },
+  "station_runtime_review": [
+    {
+      "station_id": "ST30",
+      "station_name": "forming  /  bending",
+      "actual_vs_target_ct": 1.18,
+      "actual_ct_gap_sec": 6.8,
+      "bottleneck_confidence": {
+        "level": "high",
+        "score": 0.95,
+        "basis": "runtime_informed"
+      },
+      "launch_instability_signals": [
+        "Actual CT is 6.8s above target.",
+        "Downtime 10.4% is above the site guardrail.",
+        "FPY 0.952 is below the site target 0.975.",
+        "Rework rate 0.036 exceeds the launch target.",
+        "Changeover time 620s is above the site guardrail."
+      ],
+      "likely_root_causes": [
+        "Fixture readiness, equipment debug, or scan/test retries are likely affecting availability.",
+        "Launch escapes or unstable standard work are still driving first-pass loss.",
+        "Operator retraining or station-level error proofing is likely still incomplete.",
+        "Tool preset, recipe swap, or material presentation is slowing restart."
+      ],
+      "improvement_candidates": [
+        "Rebalance manual content or split the work across launch staffing until the cycle stabilizes.",
+        "Review fixture debug, barcode / probe retry logic, and changeover recovery checklist.",
+        "Tighten containment, confirm standard work, and review top defect pareto before the next ramp lot.",
+        "Add layered audit checks and review poka-yoke coverage for the repeated defect mode."
+      ],
+      "runtime_indicators": {
+        "actual_ct_sec": 44.8,
+        "target_ct_sec": 38,
+        "fpy": 0.952,
+        "rework_rate": 0.036,
+        "scrap_rate": 0.007,
+        "downtime_pct": 10.4,
+        "operator_count": 2,
+        "changeover_time_sec": 620
+      },
+      "evidence_basis": "runtime_informed"
+    },
+    {
+      "station_id": "ST40",
+      "station_name": "pierce  /  tapping  /  hardware insertion",
+      "actual_vs_target_ct": 1.12,
+      "actual_ct_gap_sec": 4.5,
+      "bottleneck_confidence": {
+        "level": "high",
+        "score": 0.95,
+        "basis": "runtime_informed"
+      },
+      "launch_instability_signals": [
+        "Actual CT is 4.5s above target.",
+        "Downtime 8.9% is above the site guardrail.",
+        "FPY 0.958 is below the site target 0.975.",
+        "Rework rate 0.032 exceeds the launch target.",
+        "Changeover time 510s is above the site guardrail."
+      ],
+      "likely_root_causes": [
+        "Fixture readiness, equipment debug, or scan/test retries are likely affecting availability.",
+        "Launch escapes or unstable standard work are still driving first-pass loss.",
+        "Operator retraining or station-level error proofing is likely still incomplete.",
+        "Tool preset, recipe swap, or material presentation is slowing restart."
+      ],
+      "improvement_candidates": [
+        "Rebalance manual content or split the work across launch staffing until the cycle stabilizes.",
+        "Review fixture debug, barcode / probe retry logic, and changeover recovery checklist.",
+        "Tighten containment, confirm standard work, and review top defect pareto before the next ramp lot.",
+        "Add layered audit checks and review poka-yoke coverage for the repeated defect mode."
+      ],
+      "runtime_indicators": {
+        "actual_ct_sec": 42.5,
+        "target_ct_sec": 38,
+        "fpy": 0.958,
+        "rework_rate": 0.032,
+        "scrap_rate": 0.006,
+        "downtime_pct": 8.9,
+        "operator_count": 2,
+        "changeover_time_sec": 510
+      },
+      "evidence_basis": "runtime_informed"
+    },
+    {
+      "station_id": "ST60",
+      "station_name": "dimensional inspection",
+      "actual_vs_target_ct": 1.31,
+      "actual_ct_gap_sec": 11.7,
+      "bottleneck_confidence": {
+        "level": "high",
+        "score": 0.95,
+        "basis": "runtime_informed"
+      },
+      "launch_instability_signals": [
+        "Actual CT is 11.7s above target.",
+        "Downtime 12.6% is above the site guardrail.",
+        "FPY 0.934 is below the site target 0.975.",
+        "Rework rate 0.051 exceeds the launch target.",
+        "Scrap rate 0.010 is above the guardrail.",
+        "Changeover time 570s is above the site guardrail."
+      ],
+      "likely_root_causes": [
+        "Fixture readiness, equipment debug, or scan/test retries are likely affecting availability.",
+        "Launch escapes or unstable standard work are still driving first-pass loss.",
+        "Operator retraining or station-level error proofing is likely still incomplete.",
+        "Containment boundary may be late or fixture damage is creating irreversible defects."
+      ],
+      "improvement_candidates": [
+        "Rebalance manual content or split the work across launch staffing until the cycle stabilizes.",
+        "Review fixture debug, barcode / probe retry logic, and changeover recovery checklist.",
+        "Tighten containment, confirm standard work, and review top defect pareto before the next ramp lot.",
+        "Add layered audit checks and review poka-yoke coverage for the repeated defect mode."
+      ],
+      "runtime_indicators": {
+        "actual_ct_sec": 49.7,
+        "target_ct_sec": 38,
+        "fpy": 0.934,
+        "rework_rate": 0.051,
+        "scrap_rate": 0.01,
+        "downtime_pct": 12.6,
+        "operator_count": 2,
+        "changeover_time_sec": 570
+      },
+      "evidence_basis": "runtime_informed"
+    },
+    {
+      "station_id": "ST70",
+      "station_name": "subassembly  /  packaging",
+      "actual_vs_target_ct": 1.22,
+      "actual_ct_gap_sec": 8.2,
+      "bottleneck_confidence": {
+        "level": "high",
+        "score": 0.95,
+        "basis": "runtime_informed"
+      },
+      "launch_instability_signals": [
+        "Actual CT is 8.2s above target.",
+        "Downtime 9.8% is above the site guardrail.",
+        "FPY 0.944 is below the site target 0.975.",
+        "Rework rate 0.043 exceeds the launch target.",
+        "Scrap rate 0.009 is above the guardrail."
+      ],
+      "likely_root_causes": [
+        "Fixture readiness, equipment debug, or scan/test retries are likely affecting availability.",
+        "Launch escapes or unstable standard work are still driving first-pass loss.",
+        "Operator retraining or station-level error proofing is likely still incomplete.",
+        "Containment boundary may be late or fixture damage is creating irreversible defects."
+      ],
+      "improvement_candidates": [
+        "Rebalance manual content or split the work across launch staffing until the cycle stabilizes.",
+        "Review fixture debug, barcode / probe retry logic, and changeover recovery checklist.",
+        "Tighten containment, confirm standard work, and review top defect pareto before the next ramp lot.",
+        "Add layered audit checks and review poka-yoke coverage for the repeated defect mode."
+      ],
+      "runtime_indicators": {
+        "actual_ct_sec": 46.2,
+        "target_ct_sec": 38,
+        "fpy": 0.944,
+        "rework_rate": 0.043,
+        "scrap_rate": 0.009,
+        "downtime_pct": 9.8,
+        "operator_count": 2,
+        "changeover_time_sec": 410
+      },
+      "evidence_basis": "runtime_informed"
+    },
+    {
+      "station_id": "ST20",
+      "station_name": "blanking  /  laser cut",
+      "actual_vs_target_ct": 1.1,
+      "actual_ct_gap_sec": 3.3,
+      "bottleneck_confidence": {
+        "level": "medium",
+        "score": 0.62,
+        "basis": "runtime_informed"
+      },
+      "launch_instability_signals": [
+        "Actual CT is 3.3s above target.",
+        "FPY 0.971 is below the site target 0.975."
+      ],
+      "likely_root_causes": [
+        "Launch escapes or unstable standard work are still driving first-pass loss."
+      ],
+      "improvement_candidates": [
+        "Rebalance manual content or split the work across launch staffing until the cycle stabilizes.",
+        "Tighten containment, confirm standard work, and review top defect pareto before the next ramp lot."
+      ],
+      "runtime_indicators": {
+        "actual_ct_sec": 35.6,
+        "target_ct_sec": 32.3,
+        "fpy": 0.971,
+        "rework_rate": 0.021,
+        "scrap_rate": 0.004,
+        "downtime_pct": 7.2,
+        "operator_count": 1,
+        "changeover_time_sec": 340
+      },
+      "evidence_basis": "runtime_informed"
+    },
+    {
+      "station_id": "ST80",
+      "station_name": "fixture load  /  unload consideration",
+      "actual_vs_target_ct": null,
+      "actual_ct_gap_sec": null,
+      "bottleneck_confidence": {
+        "level": "medium",
+        "score": 0.35,
+        "basis": "heuristic_only"
+      },
+      "launch_instability_signals": [],
+      "likely_root_causes": [],
+      "improvement_candidates": [],
+      "runtime_indicators": null,
+      "evidence_basis": "heuristic_only"
+    },
+    {
+      "station_id": "ST90",
+      "station_name": "EOL electrical test",
+      "actual_vs_target_ct": null,
+      "actual_ct_gap_sec": null,
+      "bottleneck_confidence": {
+        "level": "medium",
+        "score": 0.35,
+        "basis": "heuristic_only"
+      },
+      "launch_instability_signals": [],
+      "likely_root_causes": [],
+      "improvement_candidates": [],
+      "runtime_indicators": null,
+      "evidence_basis": "heuristic_only"
+    },
+    {
+      "station_id": "ST100",
+      "station_name": "EOL electrical test station",
+      "actual_vs_target_ct": null,
+      "actual_ct_gap_sec": null,
+      "bottleneck_confidence": {
+        "level": "medium",
+        "score": 0.35,
+        "basis": "heuristic_only"
+      },
+      "launch_instability_signals": [],
+      "likely_root_causes": [],
+      "improvement_candidates": [],
+      "runtime_indicators": null,
+      "evidence_basis": "heuristic_only"
+    },
+    {
+      "station_id": "ST110",
+      "station_name": "functional fit confirmation",
+      "actual_vs_target_ct": null,
+      "actual_ct_gap_sec": null,
+      "bottleneck_confidence": {
+        "level": "medium",
+        "score": 0.35,
+        "basis": "heuristic_only"
+      },
+      "launch_instability_signals": [],
+      "likely_root_causes": [],
+      "improvement_candidates": [],
+      "runtime_indicators": null,
+      "evidence_basis": "heuristic_only"
+    },
+    {
+      "station_id": "ST10",
+      "station_name": "incoming material",
+      "actual_vs_target_ct": 0.97,
+      "actual_ct_gap_sec": -1.1,
+      "bottleneck_confidence": {
+        "level": "low",
+        "score": 0.2,
+        "basis": "runtime_informed"
+      },
+      "launch_instability_signals": [],
+      "likely_root_causes": [],
+      "improvement_candidates": [],
+      "runtime_indicators": {
+        "actual_ct_sec": 36.9,
+        "target_ct_sec": 38,
+        "fpy": 0.989,
+        "rework_rate": 0.008,
+        "scrap_rate": 0.002,
+        "downtime_pct": 3.8,
+        "operator_count": 1,
+        "changeover_time_sec": 230
+      },
+      "evidence_basis": "runtime_informed"
+    },
+    {
+      "station_id": "ST50",
+      "station_name": "deburr  /  clean",
+      "actual_vs_target_ct": 1.04,
+      "actual_ct_gap_sec": 1.4,
+      "bottleneck_confidence": {
+        "level": "low",
+        "score": 0.2,
+        "basis": "runtime_informed"
+      },
+      "launch_instability_signals": [],
+      "likely_root_causes": [],
+      "improvement_candidates": [],
+      "runtime_indicators": {
+        "actual_ct_sec": 39.4,
+        "target_ct_sec": 38,
+        "fpy": 0.978,
+        "rework_rate": 0.016,
+        "scrap_rate": 0.004,
+        "downtime_pct": 6.6,
+        "operator_count": 1,
+        "changeover_time_sec": 290
+      },
+      "evidence_basis": "runtime_informed"
+    }
+  ],
+  "launch_instability_signals": [
+    "Actual CT is 6.8s above target.",
+    "Downtime 10.4% is above the site guardrail.",
+    "FPY 0.952 is below the site target 0.975.",
+    "Rework rate 0.036 exceeds the launch target.",
+    "Changeover time 620s is above the site guardrail.",
+    "Actual CT is 4.5s above target."
+  ],
+  "likely_root_causes": [
+    "Fixture readiness, equipment debug, or scan/test retries are likely affecting availability.",
+    "Launch escapes or unstable standard work are still driving first-pass loss.",
+    "Operator retraining or station-level error proofing is likely still incomplete.",
+    "Tool preset, recipe swap, or material presentation is slowing restart.",
+    "Containment boundary may be late or fixture damage is creating irreversible defects."
+  ],
+  "improvement_candidates": [
+    "Rebalance manual content or split the work across launch staffing until the cycle stabilizes.",
+    "Review fixture debug, barcode / probe retry logic, and changeover recovery checklist.",
+    "Tighten containment, confirm standard work, and review top defect pareto before the next ramp lot.",
+    "Add layered audit checks and review poka-yoke coverage for the repeated defect mode."
+  ],
+  "quality_traceability_watchpoints": [
+    "tray_and_lot",
+    "revision + supplier lot + operator",
+    "mounting hole pitch",
+    "bend height"
+  ]
+}

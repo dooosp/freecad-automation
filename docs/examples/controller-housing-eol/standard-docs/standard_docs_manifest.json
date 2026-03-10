@@ -1,7 +1,7 @@
 {
   "schema_version": "0.1",
   "workflow": "standard_docs_generation",
-  "generated_at": "2026-03-10T11:17:53.374Z",
+  "generated_at": "2026-03-10T11:38:35.398Z",
   "draft_notice": "Generated planning aid only. Engineering review required before controlled-document use.",
   "part": {
     "name": "controller_housing_eol",
@@ -16,6 +16,7 @@
       "Mexico-MTY"
     ]
   },
+  "site_profile": null,
   "documents": [
     {
       "filename": "process_flow.md",

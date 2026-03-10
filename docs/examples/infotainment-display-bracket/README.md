@@ -12,6 +12,12 @@ Files:
 - `readiness-report.json`: consolidated production-readiness artifact
 - `readiness-report.md`: human-readable summary
 - `stabilization-review.json`: runtime-informed launch stabilization review using checked-in runtime data
+- `stabilization-review-mexico.json`: Mexico-MTY ramp-up counterpart for cross-site comparison
+- `stabilization-comparison.md`: Korea vs Mexico stabilization comparison summary
+- `stabilization-comparison.json`: comparison metrics and recommended actions
+- `before-readiness-report.json`: baseline readiness example before improvement
+- `after-readiness-report.json`: improved readiness example after design changes
+- `before-after-summary.md`: concise before-vs-after improvement summary
 
 Case-study narrative:
 

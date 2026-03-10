@@ -3,7 +3,7 @@
 > Draft / generated planning aid. Requires production-engineering review before controlled use.
 
 Part: controller_housing_eol
-Profile preset: default profile preset
+Profile preset: Mexico-MTY launch profile
 
 | Step | Process Step | Station Purpose | Key Output | Manual/Auto Mode |
 | --- | --- | --- | --- | --- |

@@ -1,0 +1,1387 @@
+{
+  "schema_version": "0.1",
+  "workflow": "production_readiness",
+  "part": {
+    "name": "infotainment_display_bracket_after",
+    "revision": "B",
+    "material": "AL6061",
+    "process": "sheet_metal",
+    "product_family": "display_module",
+    "module_type": "AVN display bracket",
+    "vehicle_program": "SDV cockpit platform",
+    "production_sites": [
+      "Korea-Ulsan",
+      "Mexico-MTY"
+    ]
+  },
+  "generated_at": "2026-03-10T11:35:43.355Z",
+  "readiness_summary": {
+    "status": "pilot_line_planning_ready",
+    "score": 71,
+    "gate_decision": "candidate_for_pilot_line_review"
+  },
+  "product_review": {
+    "schema_version": "0.1",
+    "agent": "product_review",
+    "part": {
+      "name": "infotainment_display_bracket_after",
+      "revision": "B",
+      "material": "AL6061",
+      "process": "sheet_metal",
+      "product_family": "display_module",
+      "module_type": "AVN display bracket",
+      "vehicle_program": "SDV cockpit platform",
+      "production_sites": [
+        "Korea-Ulsan",
+        "Mexico-MTY"
+      ]
+    },
+    "summary": {
+      "positioning": "preliminary_manufacturing_structure_review",
+      "part_type": "bracket",
+      "dfm_score": 70,
+      "review_scope": "design-phase manufacturability and structure review",
+      "overall_risk_level": "high",
+      "primary_risks": [
+        "Wall thickness 0.0mm < min 0.5mm at intersection 'base_plate'/'vertical_leg'",
+        "Wall thickness 0.0mm < min 0.5mm at intersection 'base_plate'/'side_tab'",
+        "Cross-site launch requires stronger process standardization and document control"
+      ],
+      "top_issues": [
+        "Wall thickness 0.0mm < min 0.5mm at intersection 'base_plate'/'vertical_leg'",
+        "Wall thickness 0.0mm < min 0.5mm at intersection 'base_plate'/'side_tab'",
+        "Cross-site launch requires stronger process standardization and document control"
+      ],
+      "recommended_actions": [
+        "Increase wall to >= 0.5mm",
+        "Package PFMEA, control plan, work instruction, and gauge concept in one rollout set.",
+        "Evaluate semi-auto torque assist.",
+        "Evaluate vision-assisted bend-angle check."
+      ],
+      "likely_automation_candidates": [
+        "semi-auto torque assist",
+        "vision-assisted bend-angle check",
+        "inline barcode traceability"
+      ],
+      "heuristics_notice": "Rule-based manufacturing review intended for early design-stage decision support."
+    },
+    "structure_signals": {
+      "envelope_mm": {
+        "length": 180,
+        "width": 95,
+        "height": 40.6
+      },
+      "feature_counts": {
+        "shapes": 8,
+        "boxes": 4,
+        "cylinders": 4,
+        "holes": 4,
+        "cut_ops": 5,
+        "fuse_ops": 2,
+        "fillet_ops": 1,
+        "chamfer_ops": 1
+      },
+      "thin_wall_candidates": [
+        {
+          "id": "base_plate",
+          "thickness_mm": 2.6
+        },
+        {
+          "id": "vertical_leg",
+          "thickness_mm": 24
+        },
+        {
+          "id": "side_tab",
+          "thickness_mm": 18
+        },
+        {
+          "id": "connector_window",
+          "thickness_mm": 6
+        }
+      ],
+      "drawing_strategy": []
+    },
+    "risk_items": [
+      {
+        "id": "DFM-01-1",
+        "category": "dfm",
+        "severity": "high",
+        "title": "Wall thickness 0.0mm < min 0.5mm at intersection 'base_plate'/'vertical_leg'",
+        "recommendation": "Increase wall to >= 0.5mm",
+        "source": "DFM-01"
+      },
+      {
+        "id": "DFM-01-2",
+        "category": "dfm",
+        "severity": "high",
+        "title": "Wall thickness 0.0mm < min 0.5mm at intersection 'base_plate'/'side_tab'",
+        "recommendation": "Increase wall to >= 0.5mm",
+        "source": "DFM-01"
+      },
+      {
+        "id": "heuristic-cross-site",
+        "category": "standardization",
+        "severity": "medium",
+        "title": "Cross-site launch requires stronger process standardization and document control",
+        "recommendation": "Package PFMEA, control plan, work instruction, and gauge concept in one rollout set.",
+        "source": "production_scope"
+      }
+    ],
+    "recommendations": [
+      "Increase wall to >= 0.5mm",
+      "Package PFMEA, control plan, work instruction, and gauge concept in one rollout set.",
+      "Evaluate semi-auto torque assist.",
+      "Evaluate vision-assisted bend-angle check.",
+      "Evaluate inline barcode traceability."
+    ],
+    "evidence": {
+      "assumptions": [
+        "Program context: SDV cockpit platform",
+        "Cross-site rollout scope: Korea-Ulsan, Mexico-MTY",
+        "Annual volume assumption: 180000",
+        "Target cycle time assumption: 36s",
+        "Decision scope: improved design review after launch-risk reduction"
+      ],
+      "automation_candidates": [
+        "semi-auto torque assist",
+        "vision-assisted bend-angle check",
+        "inline barcode traceability"
+      ],
+      "drawing_plan": {
+        "schema_version": "0.1",
+        "part_type": "bracket",
+        "profile": "KS",
+        "views": {
+          "enabled": [
+            "front",
+            "top",
+            "right",
+            "iso"
+          ],
+          "layout": "third_angle",
+          "options": {
+            "front": {
+              "show_hidden": true,
+              "show_centerlines": true
+            },
+            "top": {
+              "show_hidden": true,
+              "show_centerlines": true
+            },
+            "right": {
+              "show_hidden": true,
+              "show_centerlines": true
+            },
+            "iso": {
+              "show_hidden": false,
+              "show_centerlines": false
+            }
+          }
+        },
+        "datums": [
+          {
+            "name": "A",
+            "kind": "plane",
+            "selector": "base_bottom_plane",
+            "reason": "primary mounting face — base bottom"
+          },
+          {
+            "name": "B",
+            "kind": "axis",
+            "selector": "primary_hole_axis",
+            "reason": "primary hole center axis"
+          }
+        ],
+        "dimensioning": {
+          "scheme": "baseline",
+          "baseline_datum": "A",
+          "avoid_redundant": true,
+          "auto_plan_dedupe": "smart",
+          "redundancy_tol_mm": 0.5,
+          "qa_weight_preset": "auto"
+        },
+        "dim_intents": [
+          {
+            "id": "WIDTH",
+            "feature": "base_length",
+            "view": "front",
+            "style": "linear",
+            "required": true,
+            "priority": 100,
+            "reason": "Base plate length — overall footprint",
+            "value_mm": 95,
+            "confidence": "high",
+            "source": "shapes.vertical_leg.width",
+            "review": false
+          },
+          {
+            "id": "HEIGHT",
+            "feature": "overall_height",
+            "view": "front",
+            "style": "linear",
+            "required": true,
+            "priority": 95,
+            "placement": {
+              "side": "left"
+            },
+            "reason": "Overall height (base + web) — clearance / installation",
+            "value_mm": 38,
+            "confidence": "high",
+            "source": "shapes.vertical_leg.height",
+            "review": false
+          },
+          {
+            "id": "THK",
+            "feature": "base_thickness",
+            "view": "right",
+            "style": "linear",
+            "required": true,
+            "priority": 90,
+            "placement": {
+              "side": "left"
+            },
+            "reason": "Base plate thickness — structural strength",
+            "value_mm": 2.6,
+            "confidence": "high",
+            "source": "shapes.base_plate.height",
+            "review": false
+          },
+          {
+            "id": "WEB_H",
+            "feature": "web_height",
+            "view": "front",
+            "style": "linear",
+            "required": true,
+            "priority": 85,
+            "placement": {
+              "side": "left"
+            },
+            "reason": "Web height — load bearing capacity",
+            "value_mm": 38,
+            "confidence": "high",
+            "source": "shapes.vertical_leg.height",
+            "review": false
+          },
+          {
+            "id": "HOLE_DIA",
+            "feature": "mounting_hole_diameter",
+            "view": "front",
+            "style": "diameter",
+            "required": true,
+            "priority": 80,
+            "placement": {
+              "side": "top_right",
+              "angle_deg": 30,
+              "offset_mm": 2
+            },
+            "reason": "Mounting hole diameter — fastener selection",
+            "value_mm": 5,
+            "confidence": "medium",
+            "source": "fg.hole.hole1.diameter",
+            "review": false
+          },
+          {
+            "id": "BASE_W",
+            "feature": "base_width",
+            "view": "top",
+            "style": "linear",
+            "required": true,
+            "priority": 75,
+            "reason": "Base plate width — mounting footprint",
+            "value_mm": 95,
+            "confidence": "high",
+            "source": "shapes.vertical_leg.width",
+            "review": false
+          },
+          {
+            "id": "FILLET",
+            "feature": "fillet_radius",
+            "view": "right",
+            "style": "radius",
+            "required": false,
+            "priority": 40,
+            "value_mm": null,
+            "confidence": "none",
+            "source": "no_rule",
+            "review": false
+          },
+          {
+            "id": "HOLE_SPACING",
+            "feature": "hole_spacing",
+            "view": "top",
+            "style": "linear",
+            "required": false,
+            "priority": 35,
+            "value_mm": null,
+            "confidence": "none",
+            "source": "no_rule",
+            "review": false
+          }
+        ],
+        "notes": {
+          "general": [],
+          "placement": "bottom_left"
+        },
+        "scale": {
+          "mode": "auto",
+          "min": 0.4,
+          "max": 2.5
+        }
+      }
+    }
+  },
+  "process_plan": {
+    "schema_version": "0.1",
+    "agent": "process_planning",
+    "part": {
+      "name": "infotainment_display_bracket_after",
+      "revision": "B",
+      "material": "AL6061",
+      "process": "sheet_metal",
+      "product_family": "display_module",
+      "module_type": "AVN display bracket",
+      "vehicle_program": "SDV cockpit platform",
+      "production_sites": [
+        "Korea-Ulsan",
+        "Mexico-MTY"
+      ]
+    },
+    "summary": {
+      "overall_risk_level": "low",
+      "top_issues": [
+        "EOL electrical test can dominate ramp-up CT if fixture access and retest routing are not stabilized early."
+      ],
+      "recommended_actions": [
+        "Confirm inspection ownership for connector access, mounting pattern, and critical dimensions.",
+        "Review automation candidates: semi-auto torque assist, vision-assisted bend-angle check, inline barcode traceability",
+        "Validate PCB loading, connector seating, torque traceability, and EOL test fixture assumptions with manufacturing engineering.",
+        "Use the process sequence as a preliminary launch planning aid, then validate with site-specific PFMEA and layout data."
+      ],
+      "likely_inspection_critical_features": [
+        "mounting hole pitch",
+        "bend height",
+        "EOL electrical / functional release"
+      ],
+      "likely_bottleneck_candidates": [
+        "EOL electrical test can dominate ramp-up CT if fixture access and retest routing are not stabilized early."
+      ],
+      "heuristics_notice": "Process plan is generated from part/process heuristics and requires site-specific validation."
+    },
+    "planning_basis": {
+      "part_type": "bracket",
+      "production_targets": {
+        "batch_size": 120,
+        "annual_volume": 180000,
+        "target_ct_sec": 36,
+        "automation_mode": "hybrid",
+        "launch_sites": [
+          "Korea-Ulsan",
+          "Mexico-MTY"
+        ]
+      },
+      "assembly_metadata": {
+        "connector_mating_force_n": null,
+        "screw_count": null,
+        "torque_spec_nm": null,
+        "requires_gasket": false,
+        "requires_eol_electrical_test": true,
+        "requires_barcode_pairing": false,
+        "requires_vision_confirmation": false,
+        "requires_connector_seating_confirmation": false,
+        "requires_torque_control": false,
+        "fixture_load_sensitivity": "medium",
+        "is_electronics_assembly": true
+      },
+      "assumptions": [
+        "Program context: SDV cockpit platform",
+        "Cross-site rollout scope: Korea-Ulsan, Mexico-MTY",
+        "Annual volume assumption: 180000",
+        "Target cycle time assumption: 36s",
+        "Decision scope: improved design review after launch-risk reduction"
+      ]
+    },
+    "process_flow": [
+      {
+        "step": 10,
+        "operation": "incoming material",
+        "purpose": "Receive coil or blank and confirm surface condition.",
+        "mode": "manual",
+        "key_output": "part progression"
+      },
+      {
+        "step": 20,
+        "operation": "blanking / laser cut",
+        "purpose": "Create primary outline and connector cut-outs.",
+        "mode": "auto_capable",
+        "key_output": "part progression"
+      },
+      {
+        "step": 30,
+        "operation": "forming / bending",
+        "purpose": "Generate bracket geometry and maintain datum stability.",
+        "mode": "manual",
+        "key_output": "part progression"
+      },
+      {
+        "step": 40,
+        "operation": "pierce / tapping / hardware insertion",
+        "purpose": "Complete mounting features and hardware prep.",
+        "mode": "manual",
+        "key_output": "part progression"
+      },
+      {
+        "step": 50,
+        "operation": "deburr / clean",
+        "purpose": "Remove sharp edges and contamination before assembly.",
+        "mode": "manual",
+        "key_output": "part progression"
+      },
+      {
+        "step": 60,
+        "operation": "dimensional inspection",
+        "purpose": "Verify bend angle, hole pattern, and mounting stack-up.",
+        "mode": "semi_auto",
+        "key_output": "quality evidence"
+      },
+      {
+        "step": 70,
+        "operation": "subassembly / packaging",
+        "purpose": "Protect cosmetic faces and release to downstream build.",
+        "mode": "manual",
+        "key_output": "part progression"
+      },
+      {
+        "step": 80,
+        "operation": "fixture load / unload consideration",
+        "purpose": "Load the part into a guided nest and verify support / reach posture before assembly.",
+        "mode": "semi_auto",
+        "key_output": "part progression"
+      },
+      {
+        "step": 90,
+        "operation": "EOL electrical test",
+        "purpose": "Run electrical / functional confirmation using the defined test fixture.",
+        "mode": "semi_auto",
+        "key_output": "part progression"
+      },
+      {
+        "step": 100,
+        "operation": "EOL electrical test station",
+        "purpose": "Protect probe access, fixture loading time, and retest containment routing.",
+        "mode": "semi_auto",
+        "key_output": "part progression"
+      },
+      {
+        "step": 110,
+        "operation": "functional fit confirmation",
+        "purpose": "Confirm final fit, cosmetic readiness, and downstream module install compatibility.",
+        "mode": "semi_auto",
+        "key_output": "part progression"
+      }
+    ],
+    "key_inspection_points": [
+      {
+        "id": "cd-01",
+        "checkpoint": "mounting hole pitch",
+        "rationale": "display module alignment",
+        "control_method": "first_article_and_launch_control"
+      },
+      {
+        "id": "cd-02",
+        "checkpoint": "bend height",
+        "rationale": "cockpit stack-up and gap/flush",
+        "control_method": "periodic_or_inline_check"
+      },
+      {
+        "id": "assembly-eol-test",
+        "checkpoint": "EOL electrical / functional release",
+        "rationale": "contain latent assembly and probing issues before shipment",
+        "control_method": "end_of_line_functional_test"
+      }
+    ],
+    "automation_candidates": [
+      "semi-auto torque assist",
+      "vision-assisted bend-angle check",
+      "inline barcode traceability"
+    ],
+    "bottleneck_risks": [
+      "EOL electrical test can dominate ramp-up CT if fixture access and retest routing are not stabilized early."
+    ],
+    "planning_notes": [
+      "Sequence is heuristic and intended for early production-engineering review.",
+      "Drawing-plan process sequence reference: not defined"
+    ]
+  },
+  "line_plan": {
+    "schema_version": "0.1",
+    "agent": "line_layout_support",
+    "part": {
+      "name": "infotainment_display_bracket_after",
+      "revision": "B",
+      "material": "AL6061",
+      "process": "sheet_metal",
+      "product_family": "display_module",
+      "module_type": "AVN display bracket",
+      "vehicle_program": "SDV cockpit platform",
+      "production_sites": [
+        "Korea-Ulsan",
+        "Mexico-MTY"
+      ]
+    },
+    "summary": {
+      "overall_risk_level": "high",
+      "top_issues": [
+        "ST60 dimensional inspection: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+        "ST80 fixture load  /  unload consideration: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+        "ST90 EOL electrical test: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time."
+      ],
+      "recommended_actions": [
+        "Separate in-line dimensional checks from end-of-line release logic.",
+        "Review staffing and fixture loading at bottleneck-candidate stations.",
+        "Define traceability label area and scan point near front flange label pad away from connector opening.",
+        "Protect EOL fixture load/unload time and retest routing as explicit launch controls."
+      ],
+      "likely_bottleneck_candidates": [
+        "ST60 dimensional inspection: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+        "ST80 fixture load  /  unload consideration: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+        "ST90 EOL electrical test: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+        "ST100 EOL electrical test station: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time."
+      ],
+      "likely_traceability_capture_points": [
+        "ST10",
+        "ST60",
+        "ST70",
+        "ST90",
+        "ST100"
+      ],
+      "heuristics_notice": "Line support output is assumption-based and intended for preliminary production-engineering review."
+    },
+    "station_concept": [
+      {
+        "station_id": "ST10",
+        "station_name": "incoming material",
+        "station_purpose": "Receive material, confirm lot/revision, and prepare kits.",
+        "mode": "manual",
+        "manual_automatic_classification": "manual",
+        "grouped_processes": [
+          "incoming material"
+        ],
+        "inspection_strategy": "not_primary",
+        "cycle_time_placeholder_sec": 41.4,
+        "traceability_capture": true,
+        "bottleneck_candidate_note": "No immediate bottleneck signal from the current rule set.",
+        "operator_skill_sensitivity": "low",
+        "rework_repair_path": "Upstream correction before release to next station.",
+        "heuristic_basis": "Rule-based preliminary line-support output, not a detailed time study.",
+        "actual_vs_target_ct": null,
+        "actual_ct_gap_sec": null,
+        "bottleneck_confidence": {
+          "level": "low",
+          "score": 0.15,
+          "basis": "heuristic_only"
+        },
+        "launch_instability_signals": [],
+        "likely_root_causes": [],
+        "improvement_candidates": [],
+        "runtime_indicators": null,
+        "evidence_basis": "heuristic_only"
+      },
+      {
+        "station_id": "ST20",
+        "station_name": "blanking  /  laser cut",
+        "station_purpose": "Create or stabilize the manufacturable geometry.",
+        "mode": "auto_capable",
+        "manual_automatic_classification": "auto_capable",
+        "grouped_processes": [
+          "blanking / laser cut"
+        ],
+        "inspection_strategy": "not_primary",
+        "cycle_time_placeholder_sec": 30.6,
+        "traceability_capture": false,
+        "bottleneck_candidate_note": "No immediate bottleneck signal from the current rule set.",
+        "operator_skill_sensitivity": "medium",
+        "rework_repair_path": "Upstream correction before release to next station.",
+        "heuristic_basis": "Rule-based preliminary line-support output, not a detailed time study.",
+        "actual_vs_target_ct": null,
+        "actual_ct_gap_sec": null,
+        "bottleneck_confidence": {
+          "level": "low",
+          "score": 0.15,
+          "basis": "heuristic_only"
+        },
+        "launch_instability_signals": [],
+        "likely_root_causes": [],
+        "improvement_candidates": [],
+        "runtime_indicators": null,
+        "evidence_basis": "heuristic_only"
+      },
+      {
+        "station_id": "ST30",
+        "station_name": "forming  /  bending",
+        "station_purpose": "Create or stabilize the manufacturable geometry.",
+        "mode": "manual",
+        "manual_automatic_classification": "manual",
+        "grouped_processes": [
+          "forming / bending"
+        ],
+        "inspection_strategy": "not_primary",
+        "cycle_time_placeholder_sec": 41.4,
+        "traceability_capture": false,
+        "bottleneck_candidate_note": "No immediate bottleneck signal from the current rule set.",
+        "operator_skill_sensitivity": "medium",
+        "rework_repair_path": "Upstream correction before release to next station.",
+        "heuristic_basis": "Rule-based preliminary line-support output, not a detailed time study.",
+        "actual_vs_target_ct": null,
+        "actual_ct_gap_sec": null,
+        "bottleneck_confidence": {
+          "level": "low",
+          "score": 0.15,
+          "basis": "heuristic_only"
+        },
+        "launch_instability_signals": [],
+        "likely_root_causes": [],
+        "improvement_candidates": [],
+        "runtime_indicators": null,
+        "evidence_basis": "heuristic_only"
+      },
+      {
+        "station_id": "ST40",
+        "station_name": "pierce  /  tapping  /  hardware insertion",
+        "station_purpose": "Complete mounting features and hardware prep.",
+        "mode": "manual",
+        "manual_automatic_classification": "manual",
+        "grouped_processes": [
+          "pierce / tapping / hardware insertion"
+        ],
+        "inspection_strategy": "not_primary",
+        "cycle_time_placeholder_sec": 41.4,
+        "traceability_capture": false,
+        "bottleneck_candidate_note": "No immediate bottleneck signal from the current rule set.",
+        "operator_skill_sensitivity": "medium",
+        "rework_repair_path": "Upstream correction before release to next station.",
+        "heuristic_basis": "Rule-based preliminary line-support output, not a detailed time study.",
+        "actual_vs_target_ct": null,
+        "actual_ct_gap_sec": null,
+        "bottleneck_confidence": {
+          "level": "low",
+          "score": 0.15,
+          "basis": "heuristic_only"
+        },
+        "launch_instability_signals": [],
+        "likely_root_causes": [],
+        "improvement_candidates": [],
+        "runtime_indicators": null,
+        "evidence_basis": "heuristic_only"
+      },
+      {
+        "station_id": "ST50",
+        "station_name": "deburr  /  clean",
+        "station_purpose": "Remove sharp edges and contamination before assembly.",
+        "mode": "manual",
+        "manual_automatic_classification": "manual",
+        "grouped_processes": [
+          "deburr / clean"
+        ],
+        "inspection_strategy": "not_primary",
+        "cycle_time_placeholder_sec": 41.4,
+        "traceability_capture": false,
+        "bottleneck_candidate_note": "No immediate bottleneck signal from the current rule set.",
+        "operator_skill_sensitivity": "medium",
+        "rework_repair_path": "Upstream correction before release to next station.",
+        "heuristic_basis": "Rule-based preliminary line-support output, not a detailed time study.",
+        "actual_vs_target_ct": null,
+        "actual_ct_gap_sec": null,
+        "bottleneck_confidence": {
+          "level": "low",
+          "score": 0.15,
+          "basis": "heuristic_only"
+        },
+        "launch_instability_signals": [],
+        "likely_root_causes": [],
+        "improvement_candidates": [],
+        "runtime_indicators": null,
+        "evidence_basis": "heuristic_only"
+      },
+      {
+        "station_id": "ST60",
+        "station_name": "dimensional inspection",
+        "station_purpose": "Capture dimensional evidence and launch quality data.",
+        "mode": "semi_auto",
+        "manual_automatic_classification": "semi_auto",
+        "grouped_processes": [
+          "dimensional inspection"
+        ],
+        "inspection_strategy": "in_line",
+        "cycle_time_placeholder_sec": 36,
+        "traceability_capture": true,
+        "bottleneck_candidate_note": "Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+        "operator_skill_sensitivity": "medium",
+        "rework_repair_path": "Escalate failures to offline repair / containment review.",
+        "heuristic_basis": "Rule-based preliminary line-support output, not a detailed time study.",
+        "actual_vs_target_ct": null,
+        "actual_ct_gap_sec": null,
+        "bottleneck_confidence": {
+          "level": "medium",
+          "score": 0.35,
+          "basis": "heuristic_only"
+        },
+        "launch_instability_signals": [],
+        "likely_root_causes": [],
+        "improvement_candidates": [],
+        "runtime_indicators": null,
+        "evidence_basis": "heuristic_only"
+      },
+      {
+        "station_id": "ST70",
+        "station_name": "subassembly  /  packaging",
+        "station_purpose": "Protect the part and preserve traceability for downstream flow.",
+        "mode": "manual",
+        "manual_automatic_classification": "manual",
+        "grouped_processes": [
+          "subassembly / packaging"
+        ],
+        "inspection_strategy": "not_primary",
+        "cycle_time_placeholder_sec": 41.4,
+        "traceability_capture": true,
+        "bottleneck_candidate_note": "No immediate bottleneck signal from the current rule set.",
+        "operator_skill_sensitivity": "low",
+        "rework_repair_path": "Upstream correction before release to next station.",
+        "heuristic_basis": "Rule-based preliminary line-support output, not a detailed time study.",
+        "actual_vs_target_ct": null,
+        "actual_ct_gap_sec": null,
+        "bottleneck_confidence": {
+          "level": "low",
+          "score": 0.15,
+          "basis": "heuristic_only"
+        },
+        "launch_instability_signals": [],
+        "likely_root_causes": [],
+        "improvement_candidates": [],
+        "runtime_indicators": null,
+        "evidence_basis": "heuristic_only"
+      },
+      {
+        "station_id": "ST80",
+        "station_name": "fixture load  /  unload consideration",
+        "station_purpose": "Stabilize nest loading, unload sequence, and operator posture.",
+        "mode": "semi_auto",
+        "manual_automatic_classification": "semi_auto",
+        "grouped_processes": [
+          "fixture load / unload consideration"
+        ],
+        "inspection_strategy": "not_primary",
+        "cycle_time_placeholder_sec": 36,
+        "traceability_capture": false,
+        "bottleneck_candidate_note": "Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+        "operator_skill_sensitivity": "high",
+        "rework_repair_path": "Upstream correction before release to next station.",
+        "heuristic_basis": "Rule-based preliminary line-support output, not a detailed time study.",
+        "actual_vs_target_ct": null,
+        "actual_ct_gap_sec": null,
+        "bottleneck_confidence": {
+          "level": "medium",
+          "score": 0.35,
+          "basis": "heuristic_only"
+        },
+        "launch_instability_signals": [],
+        "likely_root_causes": [],
+        "improvement_candidates": [],
+        "runtime_indicators": null,
+        "evidence_basis": "heuristic_only"
+      },
+      {
+        "station_id": "ST90",
+        "station_name": "EOL electrical test",
+        "station_purpose": "Confirm functional release and protect fixture / probe access.",
+        "mode": "semi_auto",
+        "manual_automatic_classification": "semi_auto",
+        "grouped_processes": [
+          "EOL electrical test"
+        ],
+        "inspection_strategy": "end_of_line",
+        "cycle_time_placeholder_sec": 36,
+        "traceability_capture": true,
+        "bottleneck_candidate_note": "Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+        "operator_skill_sensitivity": "high",
+        "rework_repair_path": "Escalate failures to offline repair / containment review.",
+        "heuristic_basis": "Rule-based preliminary line-support output, not a detailed time study.",
+        "actual_vs_target_ct": null,
+        "actual_ct_gap_sec": null,
+        "bottleneck_confidence": {
+          "level": "medium",
+          "score": 0.35,
+          "basis": "heuristic_only"
+        },
+        "launch_instability_signals": [],
+        "likely_root_causes": [],
+        "improvement_candidates": [],
+        "runtime_indicators": null,
+        "evidence_basis": "heuristic_only"
+      },
+      {
+        "station_id": "ST100",
+        "station_name": "EOL electrical test station",
+        "station_purpose": "Confirm functional release and protect fixture / probe access.",
+        "mode": "semi_auto",
+        "manual_automatic_classification": "semi_auto",
+        "grouped_processes": [
+          "EOL electrical test station"
+        ],
+        "inspection_strategy": "end_of_line",
+        "cycle_time_placeholder_sec": 36,
+        "traceability_capture": true,
+        "bottleneck_candidate_note": "Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+        "operator_skill_sensitivity": "high",
+        "rework_repair_path": "Escalate failures to offline repair / containment review.",
+        "heuristic_basis": "Rule-based preliminary line-support output, not a detailed time study.",
+        "actual_vs_target_ct": null,
+        "actual_ct_gap_sec": null,
+        "bottleneck_confidence": {
+          "level": "medium",
+          "score": 0.35,
+          "basis": "heuristic_only"
+        },
+        "launch_instability_signals": [],
+        "likely_root_causes": [],
+        "improvement_candidates": [],
+        "runtime_indicators": null,
+        "evidence_basis": "heuristic_only"
+      },
+      {
+        "station_id": "ST110",
+        "station_name": "functional fit confirmation",
+        "station_purpose": "Verify downstream install fit and cosmetic / handling release.",
+        "mode": "semi_auto",
+        "manual_automatic_classification": "semi_auto",
+        "grouped_processes": [
+          "functional fit confirmation"
+        ],
+        "inspection_strategy": "end_of_line",
+        "cycle_time_placeholder_sec": 36,
+        "traceability_capture": true,
+        "bottleneck_candidate_note": "No immediate bottleneck signal from the current rule set.",
+        "operator_skill_sensitivity": "medium",
+        "rework_repair_path": "Upstream correction before release to next station.",
+        "heuristic_basis": "Rule-based preliminary line-support output, not a detailed time study.",
+        "actual_vs_target_ct": null,
+        "actual_ct_gap_sec": null,
+        "bottleneck_confidence": {
+          "level": "low",
+          "score": 0.15,
+          "basis": "heuristic_only"
+        },
+        "launch_instability_signals": [],
+        "likely_root_causes": [],
+        "improvement_candidates": [],
+        "runtime_indicators": null,
+        "evidence_basis": "heuristic_only"
+      }
+    ],
+    "station_list": [
+      {
+        "station_id": "ST10",
+        "station_name": "incoming material",
+        "station_purpose": "Receive material, confirm lot/revision, and prepare kits.",
+        "manual_automatic_classification": "manual"
+      },
+      {
+        "station_id": "ST20",
+        "station_name": "blanking  /  laser cut",
+        "station_purpose": "Create or stabilize the manufacturable geometry.",
+        "manual_automatic_classification": "auto_capable"
+      },
+      {
+        "station_id": "ST30",
+        "station_name": "forming  /  bending",
+        "station_purpose": "Create or stabilize the manufacturable geometry.",
+        "manual_automatic_classification": "manual"
+      },
+      {
+        "station_id": "ST40",
+        "station_name": "pierce  /  tapping  /  hardware insertion",
+        "station_purpose": "Complete mounting features and hardware prep.",
+        "manual_automatic_classification": "manual"
+      },
+      {
+        "station_id": "ST50",
+        "station_name": "deburr  /  clean",
+        "station_purpose": "Remove sharp edges and contamination before assembly.",
+        "manual_automatic_classification": "manual"
+      },
+      {
+        "station_id": "ST60",
+        "station_name": "dimensional inspection",
+        "station_purpose": "Capture dimensional evidence and launch quality data.",
+        "manual_automatic_classification": "semi_auto"
+      },
+      {
+        "station_id": "ST70",
+        "station_name": "subassembly  /  packaging",
+        "station_purpose": "Protect the part and preserve traceability for downstream flow.",
+        "manual_automatic_classification": "manual"
+      },
+      {
+        "station_id": "ST80",
+        "station_name": "fixture load  /  unload consideration",
+        "station_purpose": "Stabilize nest loading, unload sequence, and operator posture.",
+        "manual_automatic_classification": "semi_auto"
+      },
+      {
+        "station_id": "ST90",
+        "station_name": "EOL electrical test",
+        "station_purpose": "Confirm functional release and protect fixture / probe access.",
+        "manual_automatic_classification": "semi_auto"
+      },
+      {
+        "station_id": "ST100",
+        "station_name": "EOL electrical test station",
+        "station_purpose": "Confirm functional release and protect fixture / probe access.",
+        "manual_automatic_classification": "semi_auto"
+      },
+      {
+        "station_id": "ST110",
+        "station_name": "functional fit confirmation",
+        "station_purpose": "Verify downstream install fit and cosmetic / handling release.",
+        "manual_automatic_classification": "semi_auto"
+      }
+    ],
+    "manual_automatic_split": {
+      "manual_ratio": 0.45,
+      "semi_auto_ratio": 0.45,
+      "auto_capable_ratio": 0.09
+    },
+    "cycle_time_assumptions": {
+      "target_ct_sec": 36,
+      "estimated_balance_loss_pct": 12,
+      "bottleneck_station_ct_sec": 41.4,
+      "actual_line_ct_sec": null,
+      "note": "Cycle-time values are placeholders for planning discussion, not simulation outputs."
+    },
+    "inspection_station_suggestions": [
+      {
+        "station_id": "ST60",
+        "suggestion": "Use this station for in-line dimensional evidence and traceability capture."
+      },
+      {
+        "station_id": "ST90",
+        "suggestion": "Reserve this point for end-of-line confirmation or functional release."
+      },
+      {
+        "station_id": "ST100",
+        "suggestion": "Reserve this point for end-of-line confirmation or functional release."
+      },
+      {
+        "station_id": "ST110",
+        "suggestion": "Reserve this point for end-of-line confirmation or functional release."
+      }
+    ],
+    "inspection_split": {
+      "in_line_inspection_stations": [
+        "ST60"
+      ],
+      "end_of_line_inspection_stations": [
+        "ST90",
+        "ST100",
+        "ST110"
+      ]
+    },
+    "bottleneck_candidate_notes": [
+      "ST60 dimensional inspection: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+      "ST80 fixture load  /  unload consideration: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+      "ST90 EOL electrical test: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+      "ST100 EOL electrical test station: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time."
+    ],
+    "traceability_capture_points": [
+      {
+        "station_id": "ST10",
+        "station_name": "incoming material",
+        "data_capture": "lot/revision handoff"
+      },
+      {
+        "station_id": "ST60",
+        "station_name": "dimensional inspection",
+        "data_capture": "inspection + revision + operator result"
+      },
+      {
+        "station_id": "ST70",
+        "station_name": "subassembly  /  packaging",
+        "data_capture": "lot/revision handoff"
+      },
+      {
+        "station_id": "ST90",
+        "station_name": "EOL electrical test",
+        "data_capture": "inspection + revision + operator result"
+      },
+      {
+        "station_id": "ST100",
+        "station_name": "EOL electrical test station",
+        "data_capture": "inspection + revision + operator result"
+      },
+      {
+        "station_id": "ST110",
+        "station_name": "functional fit confirmation",
+        "data_capture": "inspection + revision + operator result"
+      }
+    ],
+    "rework_repair_station": {
+      "suggested": true,
+      "station_name": "Offline containment / rework review",
+      "rationale": "Provides a controlled path for launch-phase defects without stopping the main flow."
+    },
+    "operator_skill_sensitivity_notes": [
+      "ST20 blanking  /  laser cut is medium-sensitivity due to access, inspection, or setup dependence.",
+      "ST30 forming  /  bending is medium-sensitivity due to access, inspection, or setup dependence.",
+      "ST40 pierce  /  tapping  /  hardware insertion is medium-sensitivity due to access, inspection, or setup dependence.",
+      "ST50 deburr  /  clean is medium-sensitivity due to access, inspection, or setup dependence.",
+      "ST60 dimensional inspection is medium-sensitivity due to access, inspection, or setup dependence.",
+      "ST80 fixture load  /  unload consideration is high-sensitivity due to access, inspection, or setup dependence.",
+      "ST90 EOL electrical test is high-sensitivity due to access, inspection, or setup dependence.",
+      "ST100 EOL electrical test station is high-sensitivity due to access, inspection, or setup dependence.",
+      "ST110 functional fit confirmation is medium-sensitivity due to access, inspection, or setup dependence."
+    ],
+    "runtime_summary": {
+      "runtime_informed": false,
+      "runtime_station_count": 0,
+      "line_target_ct_sec": 36,
+      "stations_over_target": [],
+      "highest_gap_station_id": null,
+      "highest_gap_sec": null,
+      "average_fpy": null,
+      "average_downtime_pct": null
+    },
+    "line_engineering_assumptions": {
+      "target_ct_sec": 36,
+      "connector_side_clearance_mm": 7.2,
+      "fastening_strategy": "semi-auto torque screwdriver with open access window",
+      "critical_dimension_count": 2,
+      "feature_counts": {
+        "shapes": 8,
+        "boxes": 4,
+        "cylinders": 4,
+        "holes": 4,
+        "cut_ops": 5,
+        "fuse_ops": 2,
+        "fillet_ops": 1,
+        "chamfer_ops": 1
+      },
+      "assembly_metadata": {
+        "connector_mating_force_n": null,
+        "screw_count": null,
+        "torque_spec_nm": null,
+        "requires_gasket": false,
+        "requires_eol_electrical_test": true,
+        "requires_barcode_pairing": false,
+        "requires_vision_confirmation": false,
+        "requires_connector_seating_confirmation": false,
+        "requires_torque_control": false,
+        "fixture_load_sensitivity": "medium",
+        "is_electronics_assembly": true
+      },
+      "site_profile": null
+    },
+    "layout_review_notes": [
+      "Separate incoming/kitting from dimensional verification to simplify launch ownership.",
+      "Prepare mirrored station standards for overseas rollout.",
+      "Use station grouping as an initial line concept before detailed PFEP and manpower balancing.",
+      "Treat traceability capture, repair flow, and functional confirmation as explicit line-design decisions for infotainment launch readiness."
+    ]
+  },
+  "quality_risk": {
+    "schema_version": "0.1",
+    "agent": "quality_traceability",
+    "part": {
+      "name": "infotainment_display_bracket_after",
+      "revision": "B",
+      "material": "AL6061",
+      "process": "sheet_metal",
+      "product_family": "display_module",
+      "module_type": "AVN display bracket",
+      "vehicle_program": "SDV cockpit platform",
+      "production_sites": [
+        "Korea-Ulsan",
+        "Mexico-MTY"
+      ]
+    },
+    "summary": {
+      "overall_risk_level": "high",
+      "top_issues": [
+        "Wall thickness 0.0mm < min 0.5mm at intersection 'base_plate'/'vertical_leg'",
+        "Wall thickness 0.0mm < min 0.5mm at intersection 'base_plate'/'side_tab'",
+        "Fixture loading sensitivity can extend CT and create false EOL failures"
+      ],
+      "recommended_actions": [
+        "Lock critical dimensions into the launch control plan and reaction plan.",
+        "Define operator / lot / revision linkage at the first in-line quality capture point.",
+        "Treat EOL fixture access and retest disposition as quality-system decisions, not only test-engineering details.",
+        "Use the traceability scheme as a production-stabilization aid, not only as a reporting artifact."
+      ],
+      "likely_inspection_critical_features": [
+        "mounting hole pitch",
+        "bend height"
+      ],
+      "traceability_focus": [
+        "tray_and_lot",
+        "revision + supplier lot + operator"
+      ],
+      "heuristics_notice": "Quality-risk pack is a rule-based readiness aid and should be validated against plant quality systems."
+    },
+    "critical_dimensions": [
+      {
+        "id": "cd-01",
+        "name": "mounting hole pitch",
+        "target_mm": 140,
+        "tolerance": "±0.15",
+        "rationale": "display module alignment"
+      },
+      {
+        "id": "cd-02",
+        "name": "bend height",
+        "target_mm": 38,
+        "tolerance": "±0.20",
+        "rationale": "cockpit stack-up and gap/flush"
+      }
+    ],
+    "inspection_required_points": [
+      {
+        "checkpoint": "mounting hole pitch",
+        "control_reason": "display module alignment"
+      },
+      {
+        "checkpoint": "bend height",
+        "control_reason": "cockpit stack-up and gap/flush"
+      }
+    ],
+    "traceability_summary": {
+      "serial_level": "tray_and_lot",
+      "record_linkage": "revision + supplier lot + operator",
+      "retention_note": "Keep launch trace records until cross-site rollout is stable.",
+      "label_strategy": "tray label with dedicated front-flange label pad",
+      "barcode_pairing_required": false,
+      "functional_test_fixture_type": null
+    },
+    "quality_risks": [
+      {
+        "id": "DFM-01-1",
+        "category": "dfm",
+        "severity": "high",
+        "title": "Wall thickness 0.0mm < min 0.5mm at intersection 'base_plate'/'vertical_leg'",
+        "recommendation": "Increase wall to >= 0.5mm",
+        "source": "DFM-01"
+      },
+      {
+        "id": "DFM-01-2",
+        "category": "dfm",
+        "severity": "high",
+        "title": "Wall thickness 0.0mm < min 0.5mm at intersection 'base_plate'/'side_tab'",
+        "recommendation": "Increase wall to >= 0.5mm",
+        "source": "DFM-01"
+      },
+      {
+        "id": "assembly-fixture-loading",
+        "category": "electronics_assembly",
+        "severity": "medium",
+        "title": "Fixture loading sensitivity can extend CT and create false EOL failures",
+        "recommendation": "Review nest support, probe access, and load/unload ergonomics with launch samples."
+      },
+      {
+        "id": "assembly-eol-access",
+        "category": "electronics_assembly",
+        "severity": "medium",
+        "title": "EOL access / probing constraint can delay release and complicate containment",
+        "recommendation": "Confirm probing access, communication retry logic, and retest flow before SOP."
+      }
+    ],
+    "quality_gates": [
+      {
+        "gate_id": "QG-1",
+        "name": "Incoming blank verification",
+        "objective": "Check thickness, alloy, and coating condition.",
+        "evidence": [
+          "material cert",
+          "incoming check sheet"
+        ]
+      },
+      {
+        "gate_id": "QG-2",
+        "name": "Bend and hole pattern verification",
+        "objective": "Control bend angle and mounting pattern before downstream assembly.",
+        "evidence": [
+          "first article",
+          "inline gauge"
+        ]
+      }
+    ],
+    "evidence_pack": {
+      "recommended_artifacts": [
+        "control_plan",
+        "work_instruction",
+        "inspection_checksheet",
+        "launch_issue_log"
+      ],
+      "assembly_specific_controls": [
+        "EOL electrical test record"
+      ]
+    }
+  },
+  "investment_review": {
+    "schema_version": "0.1",
+    "agent": "cost_investment_review",
+    "part": {
+      "name": "infotainment_display_bracket_after",
+      "revision": "B",
+      "material": "AL6061",
+      "process": "sheet_metal",
+      "product_family": "display_module",
+      "module_type": "AVN display bracket",
+      "vehicle_program": "SDV cockpit platform",
+      "production_sites": [
+        "Korea-Ulsan",
+        "Mexico-MTY"
+      ]
+    },
+    "summary": {
+      "investment_pressure": "high",
+      "manual_labor_sensitivity": "high",
+      "top_cost_drivers": [
+        "process cost",
+        "setup cost",
+        "DFM penalty exposure"
+      ],
+      "likely_equipment_needs": [
+        "blanking / laser fixture set",
+        "bend-angle control tooling",
+        "vision or gauging interface for automation-candidate stations"
+      ],
+      "recommended_actions": [
+        "Screen automation candidates: semi-auto torque assist, vision-assisted bend-angle check, inline barcode traceability",
+        "Treat this output as heuristic investment screening, then validate with site-specific volume, labor, and capex data."
+      ],
+      "heuristics_notice": "Investment review is rule-based and does not represent a real capex quotation."
+    },
+    "cost_breakdown": {
+      "material": 7369,
+      "process": 21471,
+      "setup": 150000,
+      "inspection": 0,
+      "dfm_penalty": 3219115,
+      "total_cost": 18509912,
+      "unit_cost": 154249,
+      "batch_size": 120
+    },
+    "process_comparison": [
+      {
+        "process": "sheet_metal",
+        "material": 7369,
+        "machining": 21471,
+        "setup": 150000,
+        "total": 205666,
+        "current": true
+      },
+      {
+        "process": "casting",
+        "material": 7369,
+        "machining": 42942,
+        "setup": 150000,
+        "total": 230357,
+        "current": false
+      },
+      {
+        "process": "machining",
+        "material": 7369,
+        "machining": 107355,
+        "setup": 150000,
+        "total": 304432,
+        "current": false
+      },
+      {
+        "process": "3d_printing",
+        "material": 7369,
+        "machining": 268388,
+        "setup": 150000,
+        "total": 489620,
+        "current": false
+      }
+    ],
+    "equipment_need_hints": [
+      "blanking / laser fixture set",
+      "bend-angle control tooling",
+      "vision or gauging interface for automation-candidate stations"
+    ],
+    "inspection_fixture_tooling_hints": [
+      "Inspection fixture should control mounting hole pitch, bend height.",
+      "Connector-side access appears manageable with standard launch inspection planning.",
+      "Traceability label area should be protected during inspection and packaging flow."
+    ],
+    "setup_complexity_notes": [
+      "Multiple feature operations suggest additional setup confirmation and fixture repeatability review.",
+      "Fastening approach may be compatible with semi-automatic tool support."
+    ],
+    "manual_labor_sensitivity": {
+      "level": "high",
+      "rationale": "Based on volume assumption, connector-side access, fastening approach, and automation gap."
+    },
+    "investment_pressure": {
+      "level": "high",
+      "rationale": "Derived from annual volume, critical dimensions, connector access, and automation / labor sensitivity."
+    },
+    "investment_review_notes": [
+      "Volume assumption justifies review of dedicated fixtures and inline quality capture.",
+      "DFM score indicates that capex decisions should wait until design risks are reduced.",
+      "Automation candidates exist, but outputs remain early-phase decision-support only."
+    ],
+    "automation_candidate_notes": [
+      "semi-auto torque assist",
+      "vision-assisted bend-angle check",
+      "inline barcode traceability"
+    ],
+    "assumptions": [
+      "Cost outputs are heuristic and suitable for screening-level production engineering decisions.",
+      "Process family under review: sheet_metal"
+    ]
+  },
+  "decision_summary": {
+    "go_signals": [
+      "Critical dimensions and quality gates are explicitly identified.",
+      "Cost and process comparison data is available for screening-level investment review."
+    ],
+    "hold_points": [
+      "DFM score remains below the preferred pilot-line threshold."
+    ],
+    "next_actions": [
+      "Confirm PFMEA/control-plan ownership for launch site rollout.",
+      "Review line-side inspection concept against connector access and fastening assumptions.",
+      "Use this output as an early decision-support artifact, then refine with real line data."
+    ]
+  },
+  "summary": {
+    "overall_risk_level": "medium",
+    "top_issues": [
+      "Wall thickness 0.0mm < min 0.5mm at intersection 'base_plate'/'vertical_leg'",
+      "Wall thickness 0.0mm < min 0.5mm at intersection 'base_plate'/'side_tab'",
+      "Cross-site launch requires stronger process standardization and document control",
+      "ST60 dimensional inspection: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+      "ST80 fixture load  /  unload consideration: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time."
+    ],
+    "recommended_actions": [
+      "Increase wall to >= 0.5mm",
+      "Package PFMEA, control plan, work instruction, and gauge concept in one rollout set.",
+      "Evaluate semi-auto torque assist.",
+      "Evaluate vision-assisted bend-angle check.",
+      "Separate in-line dimensional checks from end-of-line release logic."
+    ],
+    "likely_bottleneck_candidates": [
+      "ST60 dimensional inspection: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+      "ST80 fixture load  /  unload consideration: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+      "ST90 EOL electrical test: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+      "ST100 EOL electrical test station: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time."
+    ],
+    "likely_automation_candidates": [
+      "semi-auto torque assist",
+      "vision-assisted bend-angle check",
+      "inline barcode traceability"
+    ],
+    "launch_stabilization_focus": [],
+    "interview_explainer": "This report packages design-stage manufacturing risk review, process flow thinking, line-support assumptions, quality gates, and screening-level investment logic into one early production-engineering artifact."
+  },
+  "markdown": "# Production Readiness Report: infotainment_display_bracket_after\n\n- Status: pilot_line_planning_ready\n- Composite score: 71\n- Gate decision: candidate_for_pilot_line_review\n\n## Executive Summary\n\n- Overall risk level: medium\n- Top issues: Wall thickness 0.0mm < min 0.5mm at intersection 'base_plate'/'vertical_leg'; Wall thickness 0.0mm < min 0.5mm at intersection 'base_plate'/'side_tab'; Cross-site launch requires stronger process standardization and document control; ST60 dimensional inspection: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.; ST80 fixture load  /  unload consideration: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.\n- Recommended actions: Increase wall to >= 0.5mm; Package PFMEA, control plan, work instruction, and gauge concept in one rollout set.; Evaluate semi-auto torque assist.; Evaluate vision-assisted bend-angle check.; Separate in-line dimensional checks from end-of-line release logic.\n- Likely bottlenecks: ST60 dimensional inspection: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.; ST80 fixture load  /  unload consideration: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.; ST90 EOL electrical test: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.; ST100 EOL electrical test station: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.\n\n## Product Review\n\n- Part type: bracket\n- DFM score: 70\n- Primary risks: Wall thickness 0.0mm < min 0.5mm at intersection 'base_plate'/'vertical_leg'; Wall thickness 0.0mm < min 0.5mm at intersection 'base_plate'/'side_tab'; Cross-site launch requires stronger process standardization and document control\n\n## Process Planning\n\n- Flow steps: 11\n- Automation candidates: semi-auto torque assist, vision-assisted bend-angle check, inline barcode traceability\n\n## Line Layout\n\n- Stations: 11\n- Target cycle time: 36 s\n- Inline inspection stations: ST60\n- End-of-line inspection stations: ST90, ST100, ST110\n\n\n## Quality / Traceability\n\n- Critical dimensions: 2\n- Quality gates: 2\n\n\n\n## Cost / Investment\n\n- Unit cost: 154249\n- Total cost: 18509912\n\n## Decision Summary\n\n- Go signals: Critical dimensions and quality gates are explicitly identified.; Cost and process comparison data is available for screening-level investment review.\n- Hold points: DFM score remains below the preferred pilot-line threshold.\n- Next actions: Confirm PFMEA/control-plan ownership for launch site rollout.; Review line-side inspection concept against connector access and fastening assumptions.; Use this output as an early decision-support artifact, then refine with real line data.\n"
+}

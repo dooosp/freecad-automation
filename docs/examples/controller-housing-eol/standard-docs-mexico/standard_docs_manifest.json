@@ -1,0 +1,45 @@
+{
+  "schema_version": "0.1",
+  "workflow": "standard_docs_generation",
+  "generated_at": "2026-03-10T11:35:43.367Z",
+  "draft_notice": "Generated planning aid only. Engineering review required before controlled-document use.",
+  "part": {
+    "name": "controller_housing_eol",
+    "revision": "C",
+    "material": "AL6061",
+    "process": "casting",
+    "product_family": "controller",
+    "module_type": "Infotainment controller housing + PCB assembly",
+    "vehicle_program": "SDV cockpit domain controller",
+    "production_sites": [
+      "Korea-Ulsan",
+      "Mexico-MTY"
+    ]
+  },
+  "site_profile": {
+    "name": "site_mexico_mty",
+    "label": "Mexico-MTY launch profile"
+  },
+  "documents": [
+    {
+      "filename": "process_flow.md",
+      "path": "/Users/jangtaeho/Documents/New/freecad-automation/docs/examples/controller-housing-eol/standard-docs-mexico/process_flow.md"
+    },
+    {
+      "filename": "control_plan_draft.csv",
+      "path": "/Users/jangtaeho/Documents/New/freecad-automation/docs/examples/controller-housing-eol/standard-docs-mexico/control_plan_draft.csv"
+    },
+    {
+      "filename": "inspection_checksheet_draft.csv",
+      "path": "/Users/jangtaeho/Documents/New/freecad-automation/docs/examples/controller-housing-eol/standard-docs-mexico/inspection_checksheet_draft.csv"
+    },
+    {
+      "filename": "work_instruction_draft.md",
+      "path": "/Users/jangtaeho/Documents/New/freecad-automation/docs/examples/controller-housing-eol/standard-docs-mexico/work_instruction_draft.md"
+    },
+    {
+      "filename": "pfmea_seed.csv",
+      "path": "/Users/jangtaeho/Documents/New/freecad-automation/docs/examples/controller-housing-eol/standard-docs-mexico/pfmea_seed.csv"
+    }
+  ]
+}

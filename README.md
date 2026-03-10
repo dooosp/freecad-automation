@@ -29,8 +29,10 @@ If you are reviewing this repository on GitHub:
 
 1. Read the [infotainment production readiness case study](./docs/portfolio/infotainment-production-readiness-case.md).
 2. Open the [checked-in example artifact set](./docs/examples/infotainment-display-bracket/README.md).
-3. Skim the [readiness report markdown](./docs/examples/infotainment-display-bracket/readiness-report.md).
-4. Then inspect the [example config](./configs/examples/infotainment_display_bracket.toml) and the command flow below.
+3. Compare the [Korea vs Mexico stabilization example](./docs/examples/infotainment-display-bracket/stabilization-comparison.md).
+4. Read the [before-vs-after improvement case](./docs/portfolio/before-after-improvement-case.md).
+5. Skim the [readiness report markdown](./docs/examples/infotainment-display-bracket/readiness-report.md).
+6. Then inspect the [example config](./configs/examples/infotainment_display_bracket.toml) and the command flow below.
 
 ## Target Use Cases
 
@@ -139,6 +141,8 @@ For a checked-in example that can be reviewed without running the CLI, see:
 
 - [Infotainment production readiness case](./docs/portfolio/infotainment-production-readiness-case.md)
 - [Checked-in example artifact set](./docs/examples/infotainment-display-bracket/README.md)
+- [Korea vs Mexico stabilization comparison](./docs/examples/infotainment-display-bracket/stabilization-comparison.md)
+- [Before-vs-after improvement case](./docs/portfolio/before-after-improvement-case.md)
 - [Checked-in electronics assembly + standard docs example](./docs/examples/controller-housing-eol/README.md)
 
 This case shows `config -> review -> process-plan -> line-plan -> quality-risk -> investment-review -> readiness-report -> stabilization-review -> standard-doc drafts` for infotainment-oriented scenarios.
@@ -146,6 +150,8 @@ This case shows `config -> review -> process-plan -> line-plan -> quality-risk -
 ## Automotive Infotainment Example Configs
 
 - `configs/examples/infotainment_display_bracket.toml`
+- `configs/examples/infotainment_display_bracket_before.toml`
+- `configs/examples/infotainment_display_bracket_after.toml`
 - `configs/examples/controller_housing.toml`
 - `configs/examples/controller_housing_eol.toml`
 - `configs/examples/pcb_mount_plate.toml`
@@ -164,6 +170,7 @@ These examples include manufacturing metadata such as:
 Runtime/profile examples:
 
 - `data/runtime_examples/display_bracket_runtime.json`
+- `data/runtime_examples/display_bracket_runtime_mexico.json`
 - `configs/profiles/site_korea_ulsan.toml`
 - `configs/profiles/site_mexico_mty.toml`
 
