@@ -32,6 +32,7 @@ def test_ingest_context_full_inputs():
     assert result["success"] is True
     assert result["context"]["part"]["name"] == "sample_part"
     assert result["context"]["geometry_source"]["file_type"] == "step"
+    assert result["context"]["geometry_source"]["validated"] is True
     assert len(result["context"]["bom"]) == 2
     assert len(result["context"]["inspection_results"]) == 2
     assert len(result["context"]["quality_issues"]) == 2
@@ -51,3 +52,22 @@ def test_ingest_context_supports_partial_inputs():
     assert result["context"]["bom"] == []
     assert result["context"]["quality_issues"] == []
     assert len(result["context"]["inspection_results"]) == 2
+
+
+def test_ingest_context_rejects_missing_model():
+    payload = {
+        "model": str(FIXTURES / "missing_part.step"),
+        "inspection": str(FIXTURES / "sample_inspection.csv"),
+    }
+
+    completed = subprocess.run(
+        ["python3", str(ROOT / "scripts" / "ingest_context.py")],
+        input=json.dumps(payload),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert completed.returncode != 0
+    result = json.loads(completed.stdout)
+    assert "Model file not found" in result["error"]

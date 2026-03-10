@@ -8,7 +8,7 @@
     "process": "machining"
   },
   "geometry_source": {
-    "path": "fixtures/sample_part.step",
+    "path": "tests/fixtures/sample_part.step",
     "file_type": "step",
     "revision": "A",
     "model_metadata": {
@@ -142,7 +142,7 @@
   "metadata": {
     "created_at": "2026-03-10T00:00:00+00:00",
     "source_files": [
-      "fixtures/sample_part.step",
+      "tests/fixtures/sample_part.step",
       "tests/fixtures/sample_bom.csv",
       "tests/fixtures/sample_inspection.csv",
       "tests/fixtures/sample_quality.csv"

@@ -10,7 +10,7 @@ if PARENT_DIR not in sys.path:
     sys.path.insert(0, PARENT_DIR)
 
 from _bootstrap import read_input, respond, respond_error, safe_filename_component
-from reporting.review_templates import build_markdown_sections
+from reporting.review_templates import build_markdown_sections, build_review_pack_data
 
 
 def _write_pdf(path, title, markdown_text):
@@ -86,17 +86,14 @@ def main():
         part = context.get("part") or {}
         stem = safe_filename_component(payload.get("output_stem") or part.get("name") or "review_pack", default="review_pack")
 
+        summary = build_review_pack_data(payload)
         markdown_text = build_markdown_sections(payload)
-        summary = {
-            "part": part,
-            "geometry_summary": (payload.get("geometry_intelligence") or {}).get("metrics") or {},
-            "review_priorities": (payload.get("review_priorities") or {}).get("records") or [],
-            "recommended_actions": (payload.get("review_priorities") or {}).get("recommended_actions") or [],
-        }
-
-        json_path = os.path.join(output_dir, f"{stem}_review_pack.json")
-        markdown_path = os.path.join(output_dir, f"{stem}_review_pack.md")
-        pdf_path = os.path.join(output_dir, f"{stem}_review_pack.pdf")
+        json_path = payload.get("output_json_path") or os.path.join(output_dir, f"{stem}_review_pack.json")
+        markdown_path = payload.get("output_markdown_path") or os.path.join(output_dir, f"{stem}_review_pack.md")
+        pdf_path = payload.get("output_pdf_path") or os.path.join(output_dir, f"{stem}_review_pack.pdf")
+        os.makedirs(os.path.dirname(json_path), exist_ok=True)
+        os.makedirs(os.path.dirname(markdown_path), exist_ok=True)
+        os.makedirs(os.path.dirname(pdf_path), exist_ok=True)
 
         with open(json_path, "w", encoding="utf-8") as handle:
             json.dump(summary, handle, ensure_ascii=False, indent=2)

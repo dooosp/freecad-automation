@@ -50,4 +50,14 @@ def test_review_pack_generates_artifacts(tmp_path):
     assert Path(result["artifacts"]["json"]).exists()
     assert Path(result["artifacts"]["markdown"]).exists()
     assert Path(result["artifacts"]["pdf"]).exists()
-    assert result["summary"]["part"]["name"] == "sample_part"
+    summary = result["summary"]
+    assert summary["part"]["name"] == "sample_part"
+    assert summary["geometry_hotspots"]
+    assert summary["inspection_anomalies"]
+    assert summary["quality_linkage"]["records"]
+    assert summary["review_priorities"]
+    assert summary["recommended_actions"]
+    assert summary["evidence_appendix"]["source_files"]
+    markdown = Path(result["artifacts"]["markdown"]).read_text(encoding="utf-8")
+    assert "## Geometry Hotspots" in markdown
+    assert "## Evidence Appendix" in markdown

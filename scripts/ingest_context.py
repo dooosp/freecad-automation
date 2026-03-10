@@ -23,6 +23,9 @@ def main():
         inspection_path = payload.get("inspection")
         quality_path = payload.get("quality")
 
+        if model_path and not os.path.isfile(model_path):
+            respond_error(f"Model file not found: {model_path}")
+
         bom_entries, bom_warnings = _load_optional(bom_path, load_bom_entries)
         inspection_results, inspection_warnings = _load_optional(inspection_path, load_inspection_results)
         quality_issues, quality_warnings = _load_optional(quality_path, load_quality_issues)
@@ -53,6 +56,7 @@ def main():
                 "path": model_path,
                 "file_type": os.path.splitext(model_path)[1].lstrip(".").lower() if model_path else None,
                 "revision": revision,
+                "validated": bool(model_path),
                 "model_metadata": payload.get("model_metadata"),
                 "feature_hints": payload.get("feature_hints"),
             },
@@ -71,6 +75,7 @@ def main():
                 "provenance": {
                     "ingest_command": "fcad ingest",
                     "model_supplied": bool(model_path),
+                    "model_validated": bool(model_path),
                     "bom_supplied": bool(bom_path),
                     "inspection_supplied": bool(inspection_path),
                     "quality_supplied": bool(quality_path),

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { resolve, join, dirname, sep } from 'node:path';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { resolve, join, dirname, parse, sep } from 'node:path';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { loadConfig, deepMerge } from '../lib/config-loader.js';
 import {
@@ -70,8 +70,8 @@ Options:
     --context <path>              Engineering context JSON
     --geometry <path>             Geometry intelligence JSON
     --hotspots <path>             Manufacturing hotspot JSON
-    --out <path>                  Primary output file path
-    --out-dir <dir>               Output directory for artifact groups
+    --out <path>                  Primary output JSON path; sibling artifacts share its stem
+    --out-dir <dir>               Output directory when using default artifact names
 
   Legacy options:
     --override <path>             Merge override TOML/JSON on top of base config (with draw)
@@ -146,6 +146,18 @@ function createArtifactPaths(basePathOrDir, stem, suffixes) {
     result[key] = artifactPathFor(basePathOrDir, stem, suffix);
   }
   return result;
+}
+
+function normalizeJsonOutputPath(pathValue) {
+  if (!pathValue) return null;
+  const absPath = resolve(pathValue);
+  return absPath.toLowerCase().endsWith('.json') ? absPath : `${absPath}.json`;
+}
+
+function siblingArtifactPath(primaryJsonPath, suffix) {
+  const parsed = parse(primaryJsonPath);
+  const stem = deriveArtifactStem(parsed.name, parsed.name);
+  return resolve(parsed.dir, `${stem}${suffix}`);
 }
 
 async function inspectModelIfAvailable(modelPath) {
@@ -237,8 +249,13 @@ async function cmdIngest(rawArgs = []) {
     process.exit(1);
   }
 
+  if (modelPath && !existsSync(modelPath)) {
+    console.error(`Error: model file not found: ${modelPath}`);
+    process.exit(1);
+  }
+
   const baseStem = deriveArtifactStem(options.out || modelPath || bomPath || inspectionPath || qualityPath, 'engineering_part');
-  const outputPath = resolve(options.out || join(PROJECT_ROOT, 'output', `${baseStem}_context.json`));
+  const outputPath = normalizeJsonOutputPath(options.out) || resolve(join(PROJECT_ROOT, 'output', `${baseStem}_context.json`));
   const paths = createArtifactPaths(outputPath, deriveArtifactStem(outputPath, baseStem), {
     context: '',
     ingestLog: '_ingest_log.json',
@@ -295,6 +312,7 @@ async function cmdAnalyzePart(rawArgs = []) {
     process.exit(1);
   }
 
+  const primaryOutputPath = normalizeJsonOutputPath(options.out);
   const result = await runPythonJsonScript(PROJECT_ROOT, 'scripts/analyze_part.py', {
     context,
     model_metadata: modelMetadata,
@@ -305,12 +323,15 @@ async function cmdAnalyzePart(rawArgs = []) {
     onStderr: (text) => process.stderr.write(text),
   });
 
-  const stem = deriveArtifactStem(contextPath || modelPath || stemFromContext(context, 'part'));
-  const outputDir = buildDefaultOutputDir(options['out-dir']);
-  const paths = createArtifactPaths(outputDir, stem, {
+  const stem = deriveArtifactStem(primaryOutputPath || contextPath || modelPath || stemFromContext(context, 'part'));
+  const outputBase = primaryOutputPath || buildDefaultOutputDir(options['out-dir']);
+  const paths = createArtifactPaths(outputBase, stem, {
     geometry: '_geometry_intelligence.json',
     hotspots: '_manufacturing_hotspots.json',
   });
+  if (primaryOutputPath) {
+    paths.geometry = primaryOutputPath;
+  }
 
   await writeJsonFile(paths.geometry, result.geometry_intelligence);
   await writeJsonFile(paths.hotspots, result.manufacturing_hotspots);
@@ -334,7 +355,8 @@ async function cmdQualityLink(rawArgs = []) {
 
   const context = await readJsonFile(contextPath);
   const geometryIntelligence = await readJsonFile(geometryPath);
-  const stem = deriveArtifactStem(contextPath || geometryPath, stemFromContext(context, 'part'));
+  const primaryOutputPath = normalizeJsonOutputPath(options.out);
+  const stem = deriveArtifactStem(primaryOutputPath || contextPath || geometryPath, stemFromContext(context, 'part'));
   const hotspotsPath = resolveMaybe(options.hotspots) || artifactPathFor(buildDefaultOutputDir(options['out-dir'] || dirname(geometryPath)), stem, '_manufacturing_hotspots.json');
   const manufacturingHotspots = await readJsonIfExists(hotspotsPath) || { hotspots: [] };
 
@@ -346,14 +368,17 @@ async function cmdQualityLink(rawArgs = []) {
     onStderr: (text) => process.stderr.write(text),
   });
 
-  const outputDir = buildDefaultOutputDir(options['out-dir'] || dirname(geometryPath));
-  const paths = createArtifactPaths(outputDir, stem, {
+  const outputBase = primaryOutputPath || buildDefaultOutputDir(options['out-dir'] || dirname(geometryPath));
+  const paths = createArtifactPaths(outputBase, stem, {
     inspectionLinkage: '_inspection_linkage.json',
     inspectionOutliers: '_inspection_outliers.json',
     qualityLinkage: '_quality_linkage.json',
     qualityHotspots: '_quality_hotspots.json',
     reviewPriorities: '_review_priorities.json',
   });
+  if (primaryOutputPath) {
+    paths.reviewPriorities = primaryOutputPath;
+  }
 
   await writeJsonFile(paths.inspectionLinkage, result.inspection_linkage);
   await writeJsonFile(paths.inspectionOutliers, result.inspection_outliers);
@@ -372,6 +397,7 @@ async function cmdReviewPack(rawArgs = []) {
   const { positional, options } = parseCliArgs(rawArgs);
   const contextPath = resolveMaybe(options.context || positional[0]);
   const geometryPath = resolveMaybe(options.geometry);
+  const reviewPath = resolveMaybe(options.review);
 
   if (!contextPath || !geometryPath) {
     console.error('Error: review-pack requires --context and --geometry');
@@ -380,15 +406,24 @@ async function cmdReviewPack(rawArgs = []) {
 
   const context = await readJsonFile(contextPath);
   const geometryIntelligence = await readJsonFile(geometryPath);
-  const stem = deriveArtifactStem(contextPath || geometryPath, stemFromContext(context, 'part'));
-  const outputDir = buildDefaultOutputDir(options['out-dir'] || dirname(geometryPath));
+  const primaryOutputPath = normalizeJsonOutputPath(options.out);
+  const stem = deriveArtifactStem(primaryOutputPath || contextPath || geometryPath, stemFromContext(context, 'part'));
+  const outputDir = buildDefaultOutputDir(primaryOutputPath || options['out-dir'] || dirname(geometryPath));
+  const geometryStem = deriveArtifactStem(geometryPath, stemFromContext(context, 'part'));
+  const reviewStem = deriveArtifactStem(reviewPath || geometryPath, geometryStem);
+  const sourceDir = dirname(reviewPath || geometryPath);
 
-  const manufacturingHotspots = await readJsonIfExists(resolveMaybe(options.hotspots) || artifactPathFor(outputDir, stem, '_manufacturing_hotspots.json')) || { hotspots: [] };
-  const inspectionLinkage = await readJsonIfExists(resolveMaybe(options['inspection-linkage']) || artifactPathFor(outputDir, stem, '_inspection_linkage.json')) || { records: [] };
-  const inspectionOutliers = await readJsonIfExists(resolveMaybe(options['inspection-outliers']) || artifactPathFor(outputDir, stem, '_inspection_outliers.json')) || { records: [] };
-  const qualityLinkage = await readJsonIfExists(resolveMaybe(options['quality-linkage']) || artifactPathFor(outputDir, stem, '_quality_linkage.json')) || { records: [] };
-  const qualityHotspots = await readJsonIfExists(resolveMaybe(options['quality-hotspots']) || artifactPathFor(outputDir, stem, '_quality_hotspots.json')) || { records: [] };
-  const reviewPriorities = await readJsonIfExists(resolveMaybe(options.review) || artifactPathFor(outputDir, stem, '_review_priorities.json')) || { records: [], recommended_actions: [] };
+  const manufacturingHotspots = await readJsonIfExists(resolveMaybe(options.hotspots) || artifactPathFor(sourceDir, geometryStem, '_manufacturing_hotspots.json')) || { hotspots: [] };
+  const inspectionLinkage = await readJsonIfExists(resolveMaybe(options['inspection-linkage']) || artifactPathFor(sourceDir, reviewStem, '_inspection_linkage.json')) || { records: [] };
+  const inspectionOutliers = await readJsonIfExists(resolveMaybe(options['inspection-outliers']) || artifactPathFor(sourceDir, reviewStem, '_inspection_outliers.json')) || { records: [] };
+  const qualityLinkage = await readJsonIfExists(resolveMaybe(options['quality-linkage']) || artifactPathFor(sourceDir, reviewStem, '_quality_linkage.json')) || { records: [] };
+  const qualityHotspots = await readJsonIfExists(resolveMaybe(options['quality-hotspots']) || artifactPathFor(sourceDir, reviewStem, '_quality_hotspots.json')) || { records: [] };
+  const reviewPriorities = await readJsonIfExists(reviewPath || artifactPathFor(sourceDir, reviewStem, '_review_priorities.json')) || { records: [], recommended_actions: [] };
+
+  const outputJsonPath = primaryOutputPath || artifactPathFor(outputDir, stem, '_review_pack.json');
+  const outputStem = deriveArtifactStem(outputJsonPath, stem);
+  const outputMarkdownPath = siblingArtifactPath(outputJsonPath, '_review_pack.md');
+  const outputPdfPath = siblingArtifactPath(outputJsonPath, '_review_pack.pdf');
 
   const result = await runPythonJsonScript(PROJECT_ROOT, 'scripts/reporting/review_pack.py', {
     context,
@@ -400,7 +435,10 @@ async function cmdReviewPack(rawArgs = []) {
     quality_hotspots: qualityHotspots,
     review_priorities: reviewPriorities,
     output_dir: outputDir,
-    output_stem: stem,
+    output_stem: outputStem,
+    output_json_path: outputJsonPath,
+    output_markdown_path: outputMarkdownPath,
+    output_pdf_path: outputPdfPath,
   }, {
     timeout: 180_000,
     onStderr: (text) => process.stderr.write(text),
@@ -420,6 +458,46 @@ function diffNumbers(before, after) {
   };
 }
 
+function extractCategories(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => item?.category || item?.linked_hotspot_category || null)
+    .filter(Boolean);
+}
+
+function uniqueSorted(values) {
+  return [...new Set(values)].sort();
+}
+
+function extractReviewDocumentData(document) {
+  const summary = document.summary || document;
+  const geometrySummary = summary.geometry_summary || document.geometry_summary || document.metrics || document.geometry_intelligence?.metrics || document.geometry_source?.model_metadata || {};
+  const reviewPriorities = summary.review_priorities || document.review_priorities?.records || document.records || [];
+  const geometryHotspots = summary.geometry_hotspots || document.manufacturing_hotspots?.hotspots || document.hotspots || [];
+  const qualityHotspots = summary.quality_hotspots || document.quality_hotspots?.records || [];
+  const evidence = summary.evidence_appendix || document.evidence_appendix || {};
+
+  return {
+    part: summary.part || document.part || {},
+    geometrySummary,
+    reviewPriorities,
+    geometryHotspots,
+    qualityHotspots,
+    evidence,
+  };
+}
+
+function compareCategorySets(baselineValues, candidateValues) {
+  const baseline = uniqueSorted(baselineValues);
+  const candidate = uniqueSorted(candidateValues);
+  return {
+    baseline,
+    candidate,
+    added: candidate.filter((value) => !baseline.includes(value)),
+    removed: baseline.filter((value) => !candidate.includes(value)),
+  };
+}
+
 async function cmdCompareRev(rawArgs = []) {
   const { positional, options } = parseCliArgs(rawArgs);
   const baselinePath = resolveMaybe(positional[0]);
@@ -433,25 +511,46 @@ async function cmdCompareRev(rawArgs = []) {
 
   const baseline = await readJsonFile(baselinePath);
   const candidate = await readJsonFile(candidatePath);
-
-  const baselineMetrics = baseline.metrics || baseline.geometry_summary || baseline.geometry_intelligence?.metrics || baseline.geometry_source?.model_metadata || {};
-  const candidateMetrics = candidate.metrics || candidate.geometry_summary || candidate.geometry_intelligence?.metrics || candidate.geometry_source?.model_metadata || {};
+  const baselineData = extractReviewDocumentData(baseline);
+  const candidateData = extractReviewDocumentData(candidate);
+  const baselineMetrics = baselineData.geometrySummary;
+  const candidateMetrics = candidateData.geometrySummary;
+  const hotspotCategories = compareCategorySets(
+    extractCategories(baselineData.geometryHotspots).concat(extractCategories(baselineData.qualityHotspots)),
+    extractCategories(candidateData.geometryHotspots).concat(extractCategories(candidateData.qualityHotspots)),
+  );
+  const priorityCategories = compareCategorySets(
+    extractCategories(baselineData.reviewPriorities),
+    extractCategories(candidateData.reviewPriorities),
+  );
 
   const comparison = {
     baseline: baselinePath,
     candidate: candidatePath,
     part: {
-      baseline: baseline.part?.name || baseline.summary?.part?.name || deriveArtifactStem(baselinePath),
-      candidate: candidate.part?.name || candidate.summary?.part?.name || deriveArtifactStem(candidatePath),
+      baseline: baselineData.part?.name || deriveArtifactStem(baselinePath),
+      candidate: candidateData.part?.name || deriveArtifactStem(candidatePath),
     },
     revision: {
-      baseline: baseline.part?.revision || baseline.summary?.part?.revision || null,
-      candidate: candidate.part?.revision || candidate.summary?.part?.revision || null,
+      baseline: baselineData.part?.revision || null,
+      candidate: candidateData.part?.revision || null,
     },
+    comparison_type: "heuristic_artifact_diff",
     metrics: {
       volume_mm3: diffNumbers(baselineMetrics.volume_mm3 || baselineMetrics.volume, candidateMetrics.volume_mm3 || candidateMetrics.volume),
       face_count: diffNumbers(baselineMetrics.face_count || baselineMetrics.faces, candidateMetrics.face_count || candidateMetrics.faces),
       edge_count: diffNumbers(baselineMetrics.edge_count || baselineMetrics.edges, candidateMetrics.edge_count || candidateMetrics.edges),
+    },
+    risk_signals: {
+      hotspot_categories: hotspotCategories,
+      review_priority_categories: priorityCategories,
+    },
+    evidence_summary: {
+      baseline_sources: baselineData.evidence?.source_files || [],
+      candidate_sources: candidateData.evidence?.source_files || [],
+      baseline_priority_count: baselineData.reviewPriorities.length,
+      candidate_priority_count: candidateData.reviewPriorities.length,
+      note: "Heuristic diff based on available artifact content; not exact CAD feature differencing.",
     },
   };
 

@@ -25,6 +25,7 @@
         "path": { "type": ["string", "null"] },
         "file_type": { "type": ["string", "null"] },
         "revision": { "type": ["string", "null"] },
+        "validated": { "type": ["boolean", "null"] },
         "model_metadata": { "type": ["object", "null"] },
         "feature_hints": { "type": ["object", "null"] }
       },
