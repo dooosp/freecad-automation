@@ -1,0 +1,133 @@
+{
+  "schema_version": "0.1",
+  "agent": "quality_traceability",
+  "part": {
+    "name": "infotainment_display_bracket",
+    "revision": "A",
+    "material": "AL6061",
+    "process": "sheet_metal",
+    "product_family": "display_module",
+    "module_type": "AVN display bracket",
+    "vehicle_program": "SDV cockpit platform",
+    "production_sites": [
+      "Korea-Ulsan",
+      "Mexico-MTY"
+    ]
+  },
+  "summary": {
+    "overall_risk_level": "high",
+    "top_issues": [
+      "Wall thickness 0.0mm < min 0.5mm at intersection 'base_plate'/'vertical_leg'",
+      "Wall thickness 0.0mm < min 0.5mm at intersection 'base_plate'/'side_tab'",
+      "Connector keep-out assumption is tight for line-side assembly and inspection"
+    ],
+    "recommended_actions": [
+      "Lock critical dimensions into the launch control plan and reaction plan.",
+      "Define operator / lot / revision linkage at the first in-line quality capture point.",
+      "Use the traceability scheme as a production-stabilization aid, not only as a reporting artifact."
+    ],
+    "likely_inspection_critical_features": [
+      "mounting hole pitch",
+      "bend height"
+    ],
+    "traceability_focus": [
+      "tray_and_lot",
+      "revision + supplier lot + operator"
+    ],
+    "heuristics_notice": "Quality-risk pack is a rule-based readiness aid and should be validated against plant quality systems."
+  },
+  "critical_dimensions": [
+    {
+      "id": "cd-01",
+      "name": "mounting hole pitch",
+      "target_mm": 140,
+      "tolerance": "±0.15",
+      "rationale": "display module alignment"
+    },
+    {
+      "id": "cd-02",
+      "name": "bend height",
+      "target_mm": 38,
+      "tolerance": "±0.20",
+      "rationale": "cockpit stack-up and gap/flush"
+    }
+  ],
+  "inspection_required_points": [
+    {
+      "checkpoint": "mounting hole pitch",
+      "control_reason": "display module alignment"
+    },
+    {
+      "checkpoint": "bend height",
+      "control_reason": "cockpit stack-up and gap/flush"
+    }
+  ],
+  "traceability_summary": {
+    "serial_level": "tray_and_lot",
+    "record_linkage": "revision + supplier lot + operator",
+    "retention_note": "Keep launch trace records for domestic and overseas stabilization.",
+    "label_strategy": "tray label with program, rev, lot"
+  },
+  "quality_risks": [
+    {
+      "id": "DFM-01-1",
+      "category": "dfm",
+      "severity": "high",
+      "title": "Wall thickness 0.0mm < min 0.5mm at intersection 'base_plate'/'vertical_leg'",
+      "recommendation": "Increase wall to >= 0.5mm",
+      "source": "DFM-01"
+    },
+    {
+      "id": "DFM-01-2",
+      "category": "dfm",
+      "severity": "high",
+      "title": "Wall thickness 0.0mm < min 0.5mm at intersection 'base_plate'/'side_tab'",
+      "recommendation": "Increase wall to >= 0.5mm",
+      "source": "DFM-01"
+    },
+    {
+      "id": "DFM-04-3",
+      "category": "dfm",
+      "severity": "medium",
+      "title": "No fillet or chamfer operations found — internal corners may cause stress concentration",
+      "recommendation": "Add fillet (R >= 0.5mm) or chamfer to internal corners",
+      "source": "DFM-04"
+    },
+    {
+      "id": "heuristic-connector-clearance",
+      "category": "service_clearance",
+      "severity": "high",
+      "title": "Connector keep-out assumption is tight for line-side assembly and inspection",
+      "recommendation": "Reserve additional probe and hand-tool clearance or define dedicated access tooling.",
+      "source": "product_metadata"
+    }
+  ],
+  "quality_gates": [
+    {
+      "gate_id": "QG-1",
+      "name": "Incoming blank verification",
+      "objective": "Check thickness, alloy, and coating condition.",
+      "evidence": [
+        "material cert",
+        "incoming check sheet"
+      ]
+    },
+    {
+      "gate_id": "QG-2",
+      "name": "Bend and hole pattern verification",
+      "objective": "Control bend angle and mounting pattern before downstream assembly.",
+      "evidence": [
+        "first article",
+        "inline gauge"
+      ]
+    }
+  ],
+  "evidence_pack": {
+    "recommended_artifacts": [
+      "control_plan",
+      "work_instruction",
+      "inspection_checksheet",
+      "launch_issue_log"
+    ]
+  }
+}

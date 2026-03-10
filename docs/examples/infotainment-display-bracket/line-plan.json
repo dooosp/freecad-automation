@@ -1,0 +1,285 @@
+{
+  "schema_version": "0.1",
+  "agent": "line_layout_support",
+  "part": {
+    "name": "infotainment_display_bracket",
+    "revision": "A",
+    "material": "AL6061",
+    "process": "sheet_metal",
+    "product_family": "display_module",
+    "module_type": "AVN display bracket",
+    "vehicle_program": "SDV cockpit platform",
+    "production_sites": [
+      "Korea-Ulsan",
+      "Mexico-MTY"
+    ]
+  },
+  "summary": {
+    "overall_risk_level": "medium",
+    "top_issues": [
+      "ST60 dimensional inspection: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+      "ST70 subassembly  /  packaging: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time."
+    ],
+    "recommended_actions": [
+      "Separate in-line dimensional checks from end-of-line release logic.",
+      "Review staffing and fixture loading at bottleneck-candidate stations.",
+      "Define traceability label area and scan point near side tab near connector window.",
+      "Reserve an end-of-line functional confirmation point for electronics-related checks."
+    ],
+    "likely_bottleneck_candidates": [
+      "ST60 dimensional inspection: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+      "ST70 subassembly  /  packaging: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time."
+    ],
+    "likely_traceability_capture_points": [
+      "ST10",
+      "ST60",
+      "ST70"
+    ],
+    "heuristics_notice": "Line support output is assumption-based and intended for preliminary production-engineering review."
+  },
+  "station_concept": [
+    {
+      "station_id": "ST10",
+      "station_name": "incoming material",
+      "station_purpose": "Receive material, confirm lot/revision, and prepare kits.",
+      "mode": "manual",
+      "manual_automatic_classification": "manual",
+      "grouped_processes": [
+        "incoming material"
+      ],
+      "inspection_strategy": "not_primary",
+      "cycle_time_placeholder_sec": 41.4,
+      "traceability_capture": true,
+      "bottleneck_candidate_note": "No immediate bottleneck signal from the current rule set.",
+      "operator_skill_sensitivity": "low",
+      "rework_repair_path": "Upstream correction before release to next station.",
+      "heuristic_basis": "Rule-based preliminary line-support output, not a detailed time study."
+    },
+    {
+      "station_id": "ST20",
+      "station_name": "blanking  /  laser cut",
+      "station_purpose": "Create or stabilize the manufacturable geometry.",
+      "mode": "auto_capable",
+      "manual_automatic_classification": "auto_capable",
+      "grouped_processes": [
+        "blanking / laser cut"
+      ],
+      "inspection_strategy": "not_primary",
+      "cycle_time_placeholder_sec": 30.6,
+      "traceability_capture": false,
+      "bottleneck_candidate_note": "No immediate bottleneck signal from the current rule set.",
+      "operator_skill_sensitivity": "high",
+      "rework_repair_path": "Upstream correction before release to next station.",
+      "heuristic_basis": "Rule-based preliminary line-support output, not a detailed time study."
+    },
+    {
+      "station_id": "ST30",
+      "station_name": "forming  /  bending",
+      "station_purpose": "Create or stabilize the manufacturable geometry.",
+      "mode": "manual",
+      "manual_automatic_classification": "manual",
+      "grouped_processes": [
+        "forming / bending"
+      ],
+      "inspection_strategy": "not_primary",
+      "cycle_time_placeholder_sec": 41.4,
+      "traceability_capture": false,
+      "bottleneck_candidate_note": "No immediate bottleneck signal from the current rule set.",
+      "operator_skill_sensitivity": "high",
+      "rework_repair_path": "Upstream correction before release to next station.",
+      "heuristic_basis": "Rule-based preliminary line-support output, not a detailed time study."
+    },
+    {
+      "station_id": "ST40",
+      "station_name": "pierce  /  tapping  /  hardware insertion",
+      "station_purpose": "Complete mounting features and hardware prep.",
+      "mode": "manual",
+      "manual_automatic_classification": "manual",
+      "grouped_processes": [
+        "pierce / tapping / hardware insertion"
+      ],
+      "inspection_strategy": "not_primary",
+      "cycle_time_placeholder_sec": 41.4,
+      "traceability_capture": false,
+      "bottleneck_candidate_note": "No immediate bottleneck signal from the current rule set.",
+      "operator_skill_sensitivity": "high",
+      "rework_repair_path": "Upstream correction before release to next station.",
+      "heuristic_basis": "Rule-based preliminary line-support output, not a detailed time study."
+    },
+    {
+      "station_id": "ST50",
+      "station_name": "deburr  /  clean",
+      "station_purpose": "Remove sharp edges and contamination before assembly.",
+      "mode": "manual",
+      "manual_automatic_classification": "manual",
+      "grouped_processes": [
+        "deburr / clean"
+      ],
+      "inspection_strategy": "not_primary",
+      "cycle_time_placeholder_sec": 41.4,
+      "traceability_capture": false,
+      "bottleneck_candidate_note": "No immediate bottleneck signal from the current rule set.",
+      "operator_skill_sensitivity": "high",
+      "rework_repair_path": "Upstream correction before release to next station.",
+      "heuristic_basis": "Rule-based preliminary line-support output, not a detailed time study."
+    },
+    {
+      "station_id": "ST60",
+      "station_name": "dimensional inspection",
+      "station_purpose": "Capture dimensional evidence and launch quality data.",
+      "mode": "semi_auto",
+      "manual_automatic_classification": "semi_auto",
+      "grouped_processes": [
+        "dimensional inspection"
+      ],
+      "inspection_strategy": "in_line",
+      "cycle_time_placeholder_sec": 36,
+      "traceability_capture": true,
+      "bottleneck_candidate_note": "Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+      "operator_skill_sensitivity": "medium",
+      "rework_repair_path": "Escalate failures to offline repair / containment review.",
+      "heuristic_basis": "Rule-based preliminary line-support output, not a detailed time study."
+    },
+    {
+      "station_id": "ST70",
+      "station_name": "subassembly  /  packaging",
+      "station_purpose": "Protect the part and preserve traceability for downstream flow.",
+      "mode": "manual",
+      "manual_automatic_classification": "manual",
+      "grouped_processes": [
+        "subassembly / packaging"
+      ],
+      "inspection_strategy": "not_primary",
+      "cycle_time_placeholder_sec": 41.4,
+      "traceability_capture": true,
+      "bottleneck_candidate_note": "Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+      "operator_skill_sensitivity": "low",
+      "rework_repair_path": "Upstream correction before release to next station.",
+      "heuristic_basis": "Rule-based preliminary line-support output, not a detailed time study."
+    }
+  ],
+  "station_list": [
+    {
+      "station_id": "ST10",
+      "station_name": "incoming material",
+      "station_purpose": "Receive material, confirm lot/revision, and prepare kits.",
+      "manual_automatic_classification": "manual"
+    },
+    {
+      "station_id": "ST20",
+      "station_name": "blanking  /  laser cut",
+      "station_purpose": "Create or stabilize the manufacturable geometry.",
+      "manual_automatic_classification": "auto_capable"
+    },
+    {
+      "station_id": "ST30",
+      "station_name": "forming  /  bending",
+      "station_purpose": "Create or stabilize the manufacturable geometry.",
+      "manual_automatic_classification": "manual"
+    },
+    {
+      "station_id": "ST40",
+      "station_name": "pierce  /  tapping  /  hardware insertion",
+      "station_purpose": "Complete mounting features and hardware prep.",
+      "manual_automatic_classification": "manual"
+    },
+    {
+      "station_id": "ST50",
+      "station_name": "deburr  /  clean",
+      "station_purpose": "Remove sharp edges and contamination before assembly.",
+      "manual_automatic_classification": "manual"
+    },
+    {
+      "station_id": "ST60",
+      "station_name": "dimensional inspection",
+      "station_purpose": "Capture dimensional evidence and launch quality data.",
+      "manual_automatic_classification": "semi_auto"
+    },
+    {
+      "station_id": "ST70",
+      "station_name": "subassembly  /  packaging",
+      "station_purpose": "Protect the part and preserve traceability for downstream flow.",
+      "manual_automatic_classification": "manual"
+    }
+  ],
+  "manual_automatic_split": {
+    "manual_ratio": 0.71,
+    "semi_auto_ratio": 0.14,
+    "auto_capable_ratio": 0.14
+  },
+  "cycle_time_assumptions": {
+    "target_ct_sec": 36,
+    "estimated_balance_loss_pct": 12,
+    "bottleneck_station_ct_sec": 41.4,
+    "note": "Cycle-time values are placeholders for planning discussion, not simulation outputs."
+  },
+  "inspection_station_suggestions": [
+    {
+      "station_id": "ST60",
+      "suggestion": "Use this station for in-line dimensional evidence and traceability capture."
+    }
+  ],
+  "inspection_split": {
+    "in_line_inspection_stations": [
+      "ST60"
+    ],
+    "end_of_line_inspection_stations": [
+      "EOL-FT"
+    ]
+  },
+  "bottleneck_candidate_notes": [
+    "ST60 dimensional inspection: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+    "ST70 subassembly  /  packaging: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time."
+  ],
+  "traceability_capture_points": [
+    {
+      "station_id": "ST10",
+      "station_name": "incoming material",
+      "data_capture": "lot/revision handoff"
+    },
+    {
+      "station_id": "ST60",
+      "station_name": "dimensional inspection",
+      "data_capture": "inspection + revision + operator result"
+    },
+    {
+      "station_id": "ST70",
+      "station_name": "subassembly  /  packaging",
+      "data_capture": "lot/revision handoff"
+    }
+  ],
+  "rework_repair_station": {
+    "suggested": true,
+    "station_name": "Offline containment / rework review",
+    "rationale": "Provides a controlled path for launch-phase defects without stopping the main flow."
+  },
+  "operator_skill_sensitivity_notes": [
+    "ST20 blanking  /  laser cut is high-sensitivity due to access, inspection, or setup dependence.",
+    "ST30 forming  /  bending is high-sensitivity due to access, inspection, or setup dependence.",
+    "ST40 pierce  /  tapping  /  hardware insertion is high-sensitivity due to access, inspection, or setup dependence.",
+    "ST50 deburr  /  clean is high-sensitivity due to access, inspection, or setup dependence.",
+    "ST60 dimensional inspection is medium-sensitivity due to access, inspection, or setup dependence."
+  ],
+  "line_engineering_assumptions": {
+    "target_ct_sec": 36,
+    "connector_side_clearance_mm": 4,
+    "fastening_strategy": "manual M5 screw fastening to display module",
+    "critical_dimension_count": 2,
+    "feature_counts": {
+      "shapes": 8,
+      "boxes": 4,
+      "cylinders": 4,
+      "holes": 4,
+      "cut_ops": 5,
+      "fuse_ops": 2,
+      "fillet_ops": 0,
+      "chamfer_ops": 0
+    }
+  },
+  "layout_review_notes": [
+    "Separate incoming/kitting from dimensional verification to simplify launch ownership.",
+    "Prepare mirrored station standards for overseas rollout.",
+    "Use station grouping as an initial line concept before detailed PFEP and manpower balancing.",
+    "Treat traceability capture, repair flow, and functional confirmation as explicit line-design decisions for infotainment launch readiness."
+  ]
+}

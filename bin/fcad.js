@@ -22,6 +22,10 @@ import {
 } from '../src/api/analysis.js';
 import { runDesignTask } from '../src/api/design.js';
 import { createDrawingService, runDrawPipeline } from '../src/api/drawing.js';
+import {
+  runReadinessReportWorkflow,
+  writeReadinessArtifacts,
+} from '../src/api/manufacturing.js';
 import { createModel, inspectModel } from '../src/api/model.js';
 import { createReportService } from '../src/api/report.js';
 
@@ -42,10 +46,18 @@ const generateDrawing = createDrawingService();
 const generateReport = createReportService();
 
 const USAGE = `
-fcad - Engineering decision-support CLI for CAD + inspection + quality review
+fcad | mfg-agent - Manufacturing engineering decision-support CLI
 
 Usage:
-  Primary workflows:
+  Production-readiness workflows:
+    fcad review <config.toml|json>
+    fcad process-plan <config.toml|json>
+    fcad line-plan <config.toml|json>
+    fcad quality-risk <config.toml|json>
+    fcad investment-review <config.toml|json>
+    fcad readiness-report <config.toml|json>
+
+  Review-pack workflows:
     fcad ingest --model <file> [--bom bom.csv] [--inspection insp.csv] [--quality ncr.csv] --out <context.json>
     fcad analyze-part <context.json|model.step>
     fcad quality-link --context <context.json> --geometry <geometry.json>
@@ -67,6 +79,11 @@ Usage:
 
 Options:
   Shared new-workflow options:
+    --profile <name>             Shop profile under configs/profiles
+    --batch <n>                  Batch size assumption for cost/readiness workflow
+    --site <name>                Site label override for summaries
+    --process <name>             Override manufacturing process when supported
+    --material <name>            Override material for cost/readiness workflow
     --context <path>              Engineering context JSON
     --geometry <path>             Geometry intelligence JSON
     --hotspots <path>             Manufacturing hotspot JSON
@@ -89,6 +106,9 @@ Options:
     --tolerance                   Include tolerance analysis in report (default)
 
 Examples:
+  fcad review configs/examples/infotainment_display_bracket.toml
+  fcad process-plan configs/examples/controller_housing.toml
+  fcad readiness-report configs/examples/pcb_mount_plate.toml --out output/pcb_mount_plate_readiness.json
   fcad ingest --model fixtures/part.step --inspection fixtures/inspection.csv --out output/part_context.json
   fcad analyze-part output/part_context.json
   fcad quality-link --context output/part_context.json --geometry output/part_geometry_intelligence.json
@@ -195,6 +215,18 @@ async function main() {
 
   if (command === 'create') {
     await cmdCreate(args[0]);
+  } else if (command === 'review') {
+    await cmdProductionReview(args);
+  } else if (command === 'process-plan') {
+    await cmdProcessPlan(args);
+  } else if (command === 'line-plan') {
+    await cmdLinePlan(args);
+  } else if (command === 'quality-risk') {
+    await cmdQualityRisk(args);
+  } else if (command === 'investment-review') {
+    await cmdInvestmentReview(args);
+  } else if (command === 'readiness-report') {
+    await cmdReadinessReport(args);
   } else if (command === 'ingest') {
     await cmdIngest(args);
   } else if (command === 'analyze-part') {
@@ -234,6 +266,101 @@ async function main() {
     console.log(USAGE);
     process.exit(1);
   }
+}
+
+function resolveConfigCommandInput(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  const configPath = positional[0] ? resolve(positional[0]) : null;
+  const outputPath = normalizeJsonOutputPath(options.out);
+  const outDir = buildDefaultOutputDir(outputPath || options['out-dir']);
+  const stem = deriveArtifactStem(outputPath || configPath || 'manufacturing_output', 'manufacturing_output');
+  return { configPath, options, outputPath, outDir, stem };
+}
+
+async function runProductionReadiness(rawArgs = [], { persistArtifacts = true } = {}) {
+  const { configPath, options, outputPath, outDir, stem } = resolveConfigCommandInput(rawArgs);
+  if (!configPath) {
+    console.error('Error: config file path required');
+    process.exit(1);
+  }
+
+  const config = await loadConfig(configPath);
+  const report = await runReadinessReportWorkflow({
+    freecadRoot: PROJECT_ROOT,
+    runScript: runWithCliStderr,
+    loadConfig,
+    configPath,
+    config,
+    options: {
+      batchSize: options.batch ? Number(options.batch) : undefined,
+      profileName: options.profile || null,
+      process: options.process || config.manufacturing?.process || config.process || null,
+      material: options.material || config.manufacturing?.material || config.material || null,
+      site: options.site || null,
+      onStderr: (text) => process.stderr.write(text),
+    },
+  });
+
+  const resolvedOutputPath = outputPath || artifactPathFor(outDir, stem, '_readiness_report.json');
+  const artifacts = persistArtifacts
+    ? await writeReadinessArtifacts(resolvedOutputPath, report)
+    : null;
+  return { report, artifacts };
+}
+
+async function writeAgentArtifact(outputPath, fallbackDir, stem, suffix, payload) {
+  const targetPath = outputPath || artifactPathFor(fallbackDir, stem, suffix);
+  const jsonPath = await writeJsonFile(targetPath, payload);
+  return { json: jsonPath };
+}
+
+async function cmdProductionReview(rawArgs = []) {
+  const { outputPath, outDir, stem } = resolveConfigCommandInput(rawArgs);
+  const { report } = await runProductionReadiness(rawArgs, { persistArtifacts: false });
+  const artifacts = await writeAgentArtifact(outputPath, outDir, stem, '_product_review.json', report.product_review);
+  console.log(`Product review: ${artifacts.json}`);
+  console.log(`  Part type: ${report.product_review.summary.part_type}`);
+  console.log(`  DFM score: ${report.product_review.summary.dfm_score ?? 'n/a'}`);
+}
+
+async function cmdProcessPlan(rawArgs = []) {
+  const { outputPath, outDir, stem } = resolveConfigCommandInput(rawArgs);
+  const { report } = await runProductionReadiness(rawArgs, { persistArtifacts: false });
+  const artifacts = await writeAgentArtifact(outputPath, outDir, stem, '_process_plan.json', report.process_plan);
+  console.log(`Process plan: ${artifacts.json}`);
+  console.log(`  Steps: ${report.process_plan.process_flow.length}`);
+}
+
+async function cmdLinePlan(rawArgs = []) {
+  const { outputPath, outDir, stem } = resolveConfigCommandInput(rawArgs);
+  const { report } = await runProductionReadiness(rawArgs, { persistArtifacts: false });
+  const artifacts = await writeAgentArtifact(outputPath, outDir, stem, '_line_plan.json', report.line_plan);
+  console.log(`Line layout support: ${artifacts.json}`);
+  console.log(`  Stations: ${report.line_plan.station_concept.length}`);
+}
+
+async function cmdQualityRisk(rawArgs = []) {
+  const { outputPath, outDir, stem } = resolveConfigCommandInput(rawArgs);
+  const { report } = await runProductionReadiness(rawArgs, { persistArtifacts: false });
+  const artifacts = await writeAgentArtifact(outputPath, outDir, stem, '_quality_risk.json', report.quality_risk);
+  console.log(`Quality / traceability pack: ${artifacts.json}`);
+  console.log(`  Critical dimensions: ${report.quality_risk.critical_dimensions.length}`);
+}
+
+async function cmdInvestmentReview(rawArgs = []) {
+  const { outputPath, outDir, stem } = resolveConfigCommandInput(rawArgs);
+  const { report } = await runProductionReadiness(rawArgs, { persistArtifacts: false });
+  const artifacts = await writeAgentArtifact(outputPath, outDir, stem, '_investment_review.json', report.investment_review);
+  console.log(`Cost / investment review: ${artifacts.json}`);
+  console.log(`  Unit cost: ${report.investment_review.cost_breakdown.unit_cost ?? 'n/a'}`);
+}
+
+async function cmdReadinessReport(rawArgs = []) {
+  const { report, artifacts } = await runProductionReadiness(rawArgs);
+  console.log(`Readiness report JSON: ${artifacts.json}`);
+  console.log(`Readiness report Markdown: ${artifacts.markdown}`);
+  console.log(`  Status: ${report.readiness_summary.status}`);
+  console.log(`  Score: ${report.readiness_summary.score}`);
 }
 
 async function cmdIngest(rawArgs = []) {

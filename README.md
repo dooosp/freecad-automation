@@ -1,91 +1,174 @@
 # freecad-automation
 
-**Engineering decision-support tooling for existing CAD/STEP files, inspection data, BOMs, and quality records.**
+Manufacturing-engineering-focused automation agent system for production-readiness review, manufacturability screening, process planning support, line-layout discussion, quality-risk framing, and cost/investment review.
 
-This repository now centers on a review workflow:
+The repository still preserves its original strengths:
 
-```text
-CAD/STEP/FCStd + BOM + Inspection + Quality
-                |
-                v
-         normalized engineering context
-                |
-                v
-      FreeCAD-backed geometry intelligence
-                |
-                v
-   inspection / quality linkage + review priorities
-                |
-                v
-   JSON artifacts + PDF/Markdown review pack
+- parametric 3D model generation
+- engineering drawing generation
+- DFM checks
+- cost estimation
+- PDF report generation
+- config-driven workflow through Node.js CLI + Python scripts
+
+The difference is the product framing. This repo is now positioned as a production engineering decision-support tool for automotive infotainment control units, display devices, brackets, housings, mount plates, and related subassemblies.
+
+## Why This Matters For Production Engineering
+
+This project is aimed at the gap between design data and production-engineering decisions.
+
+- It helps with design-stage structure review before problems become line-stabilization issues.
+- It translates geometry and manufacturing assumptions into process-plan and station-flow thinking.
+- It surfaces quality gates, inspection-critical dimensions, and traceability capture points early.
+- It gives a screening-level view of setup, tooling, automation candidates, and investment pressure.
+- It supports discussion for domestic and overseas launch readiness without pretending to be a full factory simulation.
+
+## Target Use Cases
+
+- design-stage structure review for AVN, HUD, cluster, ICC, and controller/display subassemblies
+- preliminary manufacturability and DFM review
+- process planning support for launch and stabilization
+- line-layout and station-concept discussion
+- quality gate and traceability planning support
+- cost/setup/investment-oriented review for production engineering decisions
+
+## Production Engineering Use Cases
+
+- Structure review: check housing wall thickness, connector-side clearance, fastening accessibility, mounting-boss layout, and display bracket manufacturability before tooling freeze.
+- Process design support: infer a rough process sequence, key inspection points, and likely bottleneck candidates from part type and manufacturing assumptions.
+- Line setup and stabilization support: review where in-line inspection, end-of-line confirmation, traceability capture, and repair containment may belong.
+- Quality-risk visibility: highlight critical dimensions, quality gates, traceability label area concerns, and likely inspection-sensitive features.
+- Productivity improvement support: use the review and line-plan outputs to discuss manual-labor sensitivity, automation candidates, and setup-complexity exposure.
+
+Outputs are heuristic planning aids. They are not full production-line simulations.
+
+## Command Surface
+
+### Production-readiness commands
+
+```bash
+fcad review <config.toml|json>
+fcad process-plan <config.toml|json>
+fcad line-plan <config.toml|json>
+fcad quality-risk <config.toml|json>
+fcad investment-review <config.toml|json>
+fcad readiness-report <config.toml|json>
 ```
 
-The legacy TOML-driven generation flow is still available, but it is no longer the primary product story. The maintained direction is to help engineering teams read real part data, connect it to inspection and quality evidence, and produce review-ready artifacts.
+`mfg-agent` is also installed as an alias for the same CLI.
 
-For background on the earlier design-family portfolio framing, see [docs/portfolio/sensor_mount_bracket_portfolio.md](docs/portfolio/sensor_mount_bracket_portfolio.md).
+### Review-pack commands
 
-![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)
-![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
-![FreeCAD](https://img.shields.io/badge/FreeCAD-0.21%2B-1565C0)
-![License](https://img.shields.io/badge/License-MIT-green)
+```bash
+fcad ingest --model <file> [--bom bom.csv] [--inspection inspection.csv] [--quality quality.csv] --out <context.json>
+fcad analyze-part <context.json|model.step>
+fcad quality-link --context <context.json> --geometry <geometry.json>
+fcad review-pack --context <context.json> --geometry <geometry.json>
+fcad compare-rev <baseline.json> <candidate.json>
+```
 
-## Primary Workflows
+### Backward-compatible legacy commands
 
-| Workflow | Purpose | Main Output |
-|---|---|---|
-| `fcad ingest` | Normalize CAD + BOM + inspection + quality inputs into one engineering context | `*_context.json`, `*_ingest_log.json` |
-| `fcad analyze-part` | Turn an existing part into geometry intelligence and review hotspots | `*_geometry_intelligence.json`, `*_manufacturing_hotspots.json` |
-| `fcad quality-link` | Connect inspection/quality evidence to geometry-derived risk areas | linkage, outlier, hotspot, and priority JSON artifacts |
-| `fcad review-pack` | Assemble a review-ready summary for engineering discussion | PDF, Markdown, and JSON review pack |
-| `fcad compare-rev` | Compare two revision artifacts or engineering contexts | revision comparison JSON |
+```bash
+fcad create <config.toml|json>
+fcad draw <config.toml|json>
+fcad dfm <config.toml|json>
+fcad report <config.toml|json>
+fcad inspect <model.step|fcstd>
+fcad validate <config.toml|json>
+fcad fem <config.toml|json>
+fcad tolerance <config.toml|json>
+```
 
 ## Example Flow
 
 ```bash
-# 1. Normalize source data into one context
-fcad ingest \
-  --model fixtures/part.step \
-  --bom fixtures/bom.csv \
-  --inspection fixtures/inspection.csv \
-  --quality fixtures/ncr.csv \
-  --out output/part_context.json
+# 1. Design-stage production engineering review
+fcad review configs/examples/infotainment_display_bracket.toml \
+  --out output/infotainment_display_bracket_product_review.json
 
-# 2. Generate geometry intelligence
-fcad analyze-part output/part_context.json
+# 2. Rough process planning support
+fcad process-plan configs/examples/infotainment_display_bracket.toml \
+  --out output/infotainment_display_bracket_process_plan.json
 
-# 3. Link inspection and quality evidence to geometry risk
-fcad quality-link --context output/part_context.json \
-  --geometry output/part_geometry_intelligence.json
-
-# 4. Build an engineering review pack
-fcad review-pack \
-  --context output/part_context.json \
-  --geometry output/part_geometry_intelligence.json \
-  --review output/part_review_priorities.json
+# 3. Consolidated production-readiness report
+fcad readiness-report configs/examples/infotainment_display_bracket.toml \
+  --batch 120 \
+  --out output/infotainment_display_bracket_readiness_report.json
 ```
 
-## Legacy Workflows
+The readiness workflow produces a JSON report and a Markdown summary that bundle:
 
-The following commands remain supported for existing users and generated-design workflows:
+- product review
+- process plan
+- line-layout support pack
+- quality / traceability pack
+- cost / investment review
+- decision summary for production engineering discussion
 
-- `fcad create`
-- `fcad design`
-- `fcad draw`
-- `fcad fem`
-- `fcad tolerance`
-- `fcad report`
-- `fcad inspect`
-- `fcad dfm`
+## Portfolio Case Study
 
-These commands are now treated as legacy or specialized capabilities. They remain useful, but they are not the primary entry point for new users.
+For a checked-in example that can be reviewed without running the CLI, see:
+
+- [infotainment-production-readiness-case.md](/Users/jangtaeho/Documents/New/freecad-automation/docs/portfolio/infotainment-production-readiness-case.md)
+- [docs/examples/infotainment-display-bracket](/Users/jangtaeho/Documents/New/freecad-automation/docs/examples/infotainment-display-bracket)
+
+This case shows `config -> review -> process-plan -> line-plan -> quality-risk -> investment-review -> readiness-report` for an infotainment display bracket scenario.
+
+## Automotive Infotainment Example Configs
+
+- `configs/examples/infotainment_display_bracket.toml`
+- `configs/examples/controller_housing.toml`
+- `configs/examples/pcb_mount_plate.toml`
+- `configs/examples/display_module_support.toml`
+
+These examples include manufacturing metadata such as:
+
+- material and process assumptions
+- cross-site launch scope
+- annual volume and target cycle time placeholders
+- connector clearance assumptions
+- critical dimensions and quality gates
+- automation-candidate notes
+
+## Architecture
+
+```text
+CLI (fcad / mfg-agent)
+  |
+  +-- legacy CAD / drawing / report commands
+  +-- review-pack workflow
+  +-- production-readiness workflow
+          |
+          +-- intent compiler
+          +-- DFM checker
+          +-- cost estimator
+          +-- product review agent
+          +-- process planning agent
+          +-- line layout support agent
+          +-- quality / traceability agent
+          +-- cost / investment review agent
+```
+
+### Main code areas
+
+- `bin/fcad.js`: unified CLI entrypoint
+- `src/agents/`: manufacturing-engineering agent modules
+- `src/workflows/readiness-report-workflow.js`: orchestrated readiness flow
+- `scripts/dfm_checker.py`: DFM manufacturability logic
+- `scripts/cost_estimator.py`: cost breakdown and comparison logic
+- `scripts/intent_compiler.py`: part-type inference and drawing-plan strategy
+- `schemas/`: output contracts for review, process-plan, line-plan, quality-risk, investment-review, readiness-report
+
+See [production-readiness-refactor.md](/Users/jangtaeho/Documents/New/freecad-automation/docs/production-readiness-refactor.md) for the codebase refactoring map.
 
 ## Installation
 
 ### Prerequisites
 
 - Node.js 18+
-- Python 3.10+ recommended
-- FreeCAD 0.21+ for model inspection and CAD-backed analysis
+- Python 3.10+
+- FreeCAD 0.21+ only when using CAD-backed generation/inspection workflows
 
 ### Setup
 
@@ -96,7 +179,7 @@ npm install
 npm link
 ```
 
-### FreeCAD Runtime Setup
+### FreeCAD runtime
 
 macOS:
 
@@ -112,109 +195,24 @@ export FREECAD_DIR="C:\\Program Files\\FreeCAD 1.0"
 npm run check:runtime
 ```
 
-## CLI Reference
+## Output Contracts
 
-```text
-fcad <command> [options]
-```
-
-### Primary commands
-
-| Command | Description |
-|---|---|
-| `ingest` | Build normalized engineering context from model, BOM, inspection, and quality data |
-| `analyze-part` | Analyze an existing CAD file or engineering context for geometry intelligence |
-| `quality-link` | Link inspection and quality evidence to geometry-derived hotspots and priorities |
-| `review-pack` | Generate engineering review pack artifacts |
-| `compare-rev` | Compare two revision artifacts or contexts |
-
-### Legacy / specialized commands
-
-| Command | Description |
-|---|---|
-| `create <config>` | Legacy parametric model creation from TOML/JSON |
-| `design "text"` | Experimental natural-language-to-TOML generation |
-| `draw <config>` | Drawing generation from config |
-| `fem <config>` | Structural analysis from config |
-| `tolerance <config>` | Tolerance analysis |
-| `report <config>` | Legacy multi-page report generation |
-| `inspect <model>` | Inspect STEP/FCStd metadata |
-| `validate <config>` | Validate drawing plan schema |
-| `dfm <config>` | DFM manufacturability analysis |
-| `serve [port]` | Legacy viewer/dev server |
-
-## Engineering Context Model
-
-New workflows use a shared engineering context so downstream stages can consume the same normalized inputs.
-
-```json
-{
-  "part": {},
-  "geometry_source": {},
-  "bom": [],
-  "inspection_results": [],
-  "quality_issues": [],
-  "manufacturing_context": {},
-  "metadata": {}
-}
-```
-
-Schemas live under [`schemas/`](schemas/).
-
-## Architecture
-
-The runtime architecture remains `Node CLI + Python runner + FreeCAD`. The main change is the product boundary and module layering.
-
-```text
-CLI / desktop / MCP adapters
-            |
-            v
-     engineering context layer
-            |
-            v
-  adapters -> geometry -> linkage -> decision -> reporting
-            |
-            v
-         JSON artifacts
-```
-
-### Layer responsibilities
-
-| Layer | Responsibility |
-|---|---|
-| `adapters` | CSV/JSON normalization for BOM, inspection, quality, and source metadata |
-| `geometry` | FreeCAD-backed or metadata-backed geometry intelligence and hotspot detection |
-| `linkage` | Match inspection and quality evidence to features, regions, or review signals |
-| `decision` | Score risk, prioritize review focus areas, recommend next actions |
-| `reporting` | Generate review packs and other review-facing artifacts |
-
-Detailed direction is in [docs/vision.md](docs/vision.md), [docs/architecture-v2.md](docs/architecture-v2.md), and [docs/migration-plan.md](docs/migration-plan.md).
-
-## Project Structure
-
-```text
-freecad-automation/
-  bin/fcad.js
-  lib/
-  schemas/
-  scripts/adapters/
-  scripts/geometry/
-  scripts/linkage/
-  scripts/decision/
-  scripts/reporting/
-  src/
-  tests/
-```
+- [product_review.schema.json](/Users/jangtaeho/Documents/New/freecad-automation/schemas/product_review.schema.json)
+- [process_plan.schema.json](/Users/jangtaeho/Documents/New/freecad-automation/schemas/process_plan.schema.json)
+- [line_plan.schema.json](/Users/jangtaeho/Documents/New/freecad-automation/schemas/line_plan.schema.json)
+- [quality_risk_pack.schema.json](/Users/jangtaeho/Documents/New/freecad-automation/schemas/quality_risk_pack.schema.json)
+- [investment_review.schema.json](/Users/jangtaeho/Documents/New/freecad-automation/schemas/investment_review.schema.json)
+- [readiness_report.schema.json](/Users/jangtaeho/Documents/New/freecad-automation/schemas/readiness_report.schema.json)
 
 ## Testing
 
-Runtime-independent tests for the new workflow can be run with:
+Lightweight workflow checks:
 
 ```bash
-python3 -m pytest tests/test_ingest.py tests/test_analyze_part.py tests/test_linkage.py tests/test_review_pack.py
+python3 -m pytest tests/test_cli_workflow.py tests/test_manufacturing_agent_cli.py
 ```
 
-Legacy integration coverage remains available via:
+Legacy coverage:
 
 ```bash
 npm test

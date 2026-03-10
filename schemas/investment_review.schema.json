@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dooosp.github.io/freecad-automation/schemas/investment_review.schema.json",
+  "title": "Cost and Investment Review",
+  "type": "object",
+  "required": ["schema_version", "agent", "part", "summary", "cost_breakdown"],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "agent": { "const": "cost_investment_review" },
+    "part": { "type": "object" },
+    "summary": { "type": "object" },
+    "cost_breakdown": { "type": "object" },
+    "process_comparison": { "type": "array", "items": { "type": "object" } },
+    "equipment_need_hints": { "type": "array", "items": { "type": "string" } },
+    "inspection_fixture_tooling_hints": { "type": "array", "items": { "type": "string" } },
+    "setup_complexity_notes": { "type": "array", "items": { "type": "string" } },
+    "manual_labor_sensitivity": { "type": "object" },
+    "investment_pressure": { "type": "object" },
+    "investment_review_notes": { "type": "array", "items": { "type": "string" } },
+    "automation_candidate_notes": { "type": "array", "items": { "type": "string" } },
+    "assumptions": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

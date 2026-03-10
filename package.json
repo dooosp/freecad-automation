@@ -1,16 +1,18 @@
 {
   "name": "freecad-automation",
   "version": "1.0.0",
-  "description": "FreeCAD automation framework - parametric 3D modeling with macOS native and WSL/Windows runtimes",
+  "description": "Manufacturing engineering agent system for production-readiness review, process planning, and CAD-backed manufacturability support",
   "type": "module",
   "bin": {
-    "fcad": "./bin/fcad.js"
+    "fcad": "./bin/fcad.js",
+    "mfg-agent": "./bin/fcad.js"
   },
   "scripts": {
     "check:runtime": "node scripts/check-runtime.js",
     "test": "FCAD_TEST_PROFILE=core node tests/test-runner.js",
     "test:full": "FCAD_TEST_PROFILE=full node tests/test-runner.js",
-    "serve": "node server.js"
+    "serve": "node server.js",
+    "serve:legacy": "node server.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",

@@ -1,0 +1,116 @@
+{
+  "schema_version": "0.1",
+  "agent": "cost_investment_review",
+  "part": {
+    "name": "infotainment_display_bracket",
+    "revision": "A",
+    "material": "AL6061",
+    "process": "sheet_metal",
+    "product_family": "display_module",
+    "module_type": "AVN display bracket",
+    "vehicle_program": "SDV cockpit platform",
+    "production_sites": [
+      "Korea-Ulsan",
+      "Mexico-MTY"
+    ]
+  },
+  "summary": {
+    "investment_pressure": "high",
+    "manual_labor_sensitivity": "high",
+    "top_cost_drivers": [
+      "process cost",
+      "setup cost",
+      "DFM penalty exposure"
+    ],
+    "likely_equipment_needs": [
+      "blanking / laser fixture set",
+      "bend-angle control tooling",
+      "vision or gauging interface for automation-candidate stations"
+    ],
+    "recommended_actions": [
+      "Screen automation candidates: auto screw presentation, vision-assisted bend-angle check, inline barcode traceability",
+      "Treat this output as heuristic investment screening, then validate with site-specific volume, labor, and capex data."
+    ],
+    "heuristics_notice": "Investment review is rule-based and does not represent a real capex quotation."
+  },
+  "cost_breakdown": {
+    "material": 7369,
+    "process": 21471,
+    "setup": 120000,
+    "inspection": 0,
+    "dfm_penalty": 3125634,
+    "total_cost": 15739802,
+    "unit_cost": 131165,
+    "batch_size": 120
+  },
+  "process_comparison": [
+    {
+      "process": "sheet_metal",
+      "material": 7369,
+      "machining": 21471,
+      "setup": 120000,
+      "total": 174887,
+      "current": true
+    },
+    {
+      "process": "casting",
+      "material": 7369,
+      "machining": 42942,
+      "setup": 120000,
+      "total": 200115,
+      "current": false
+    },
+    {
+      "process": "machining",
+      "material": 7369,
+      "machining": 107355,
+      "setup": 120000,
+      "total": 275800,
+      "current": false
+    },
+    {
+      "process": "3d_printing",
+      "material": 7369,
+      "machining": 268388,
+      "setup": 120000,
+      "total": 465014,
+      "current": false
+    }
+  ],
+  "equipment_need_hints": [
+    "blanking / laser fixture set",
+    "bend-angle control tooling",
+    "vision or gauging interface for automation-candidate stations"
+  ],
+  "inspection_fixture_tooling_hints": [
+    "Inspection fixture should control mounting hole pitch, bend height.",
+    "Connector-side clearance is tight; consider probe-access fixture or go/no-go check.",
+    "Traceability label area should be protected during inspection and packaging flow."
+  ],
+  "setup_complexity_notes": [
+    "Multiple feature operations suggest additional setup confirmation and fixture repeatability review.",
+    "Manual fastening strategy increases line-side setup and operator training sensitivity."
+  ],
+  "manual_labor_sensitivity": {
+    "level": "high",
+    "rationale": "Based on volume assumption, connector-side access, fastening approach, and automation gap."
+  },
+  "investment_pressure": {
+    "level": "high",
+    "rationale": "Derived from annual volume, critical dimensions, connector access, and automation / labor sensitivity."
+  },
+  "investment_review_notes": [
+    "Volume assumption justifies review of dedicated fixtures and inline quality capture.",
+    "DFM score indicates that capex decisions should wait until design risks are reduced.",
+    "Automation candidates exist, but outputs remain early-phase decision-support only."
+  ],
+  "automation_candidate_notes": [
+    "auto screw presentation",
+    "vision-assisted bend-angle check",
+    "inline barcode traceability"
+  ],
+  "assumptions": [
+    "Cost outputs are heuristic and suitable for screening-level production engineering decisions.",
+    "Process family under review: sheet_metal"
+  ]
+}

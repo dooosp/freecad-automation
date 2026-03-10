@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dooosp.github.io/freecad-automation/schemas/line_plan.schema.json",
+  "title": "Line Layout Support Pack",
+  "type": "object",
+  "required": ["schema_version", "agent", "part", "summary", "station_concept"],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "agent": { "const": "line_layout_support" },
+    "part": { "type": "object" },
+    "summary": { "type": "object" },
+    "station_concept": { "type": "array", "items": { "type": "object" } },
+    "station_list": { "type": "array", "items": { "type": "object" } },
+    "manual_automatic_split": { "type": "object" },
+    "cycle_time_assumptions": { "type": "object" },
+    "inspection_station_suggestions": { "type": "array", "items": { "type": "object" } },
+    "inspection_split": { "type": "object" },
+    "bottleneck_candidate_notes": { "type": "array", "items": { "type": "string" } },
+    "traceability_capture_points": { "type": "array", "items": { "type": "object" } },
+    "rework_repair_station": { "type": "object" },
+    "operator_skill_sensitivity_notes": { "type": "array", "items": { "type": "string" } },
+    "line_engineering_assumptions": { "type": "object" },
+    "layout_review_notes": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}
