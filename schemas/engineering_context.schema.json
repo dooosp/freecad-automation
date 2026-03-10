@@ -1,0 +1,74 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dooosp.github.io/freecad-automation/schemas/engineering_context.schema.json",
+  "title": "Engineering Context",
+  "type": "object",
+  "required": ["part", "geometry_source", "bom", "inspection_results", "quality_issues", "manufacturing_context", "metadata"],
+  "properties": {
+    "part": {
+      "type": "object",
+      "required": ["part_id", "name"],
+      "properties": {
+        "part_id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "revision": { "type": ["string", "null"] },
+        "material": { "type": ["string", "null"] },
+        "process": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "geometry_source": {
+      "type": "object",
+      "required": ["path", "file_type"],
+      "properties": {
+        "path": { "type": ["string", "null"] },
+        "file_type": { "type": ["string", "null"] },
+        "revision": { "type": ["string", "null"] },
+        "model_metadata": { "type": ["object", "null"] },
+        "feature_hints": { "type": ["object", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "bom": {
+      "type": "array",
+      "items": { "$ref": "bom.schema.json" }
+    },
+    "inspection_results": {
+      "type": "array",
+      "items": { "$ref": "inspection.schema.json" }
+    },
+    "quality_issues": {
+      "type": "array",
+      "items": { "$ref": "quality_issue.schema.json" }
+    },
+    "manufacturing_context": {
+      "type": "object",
+      "properties": {
+        "facility": { "type": ["string", "null"] },
+        "supplier": { "type": ["string", "null"] },
+        "process_family": { "type": ["string", "null"] },
+        "notes": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["created_at", "source_files"],
+      "properties": {
+        "created_at": { "type": "string" },
+        "source_files": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "provenance": { "type": "object" },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

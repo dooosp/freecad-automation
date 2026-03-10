@@ -1,0 +1,155 @@
+{
+  "part": {
+    "part_id": "BRKT-100",
+    "name": "sample_part",
+    "description": "Fixture bracket for analysis tests",
+    "revision": "A",
+    "material": "AL6061",
+    "process": "machining"
+  },
+  "geometry_source": {
+    "path": "fixtures/sample_part.step",
+    "file_type": "step",
+    "revision": "A",
+    "model_metadata": {
+      "volume": 18250.0,
+      "area": 6430.0,
+      "faces": 26,
+      "edges": 58,
+      "vertices": 44,
+      "bounding_box": {
+        "min": [0, 0, 0],
+        "max": [120, 80, 6],
+        "size": [120, 80, 6]
+      }
+    },
+    "feature_hints": {
+      "cylinders": [
+        {
+          "diameter": 10.0,
+          "is_hole": true
+        },
+        {
+          "diameter": 10.0,
+          "is_hole": true
+        },
+        {
+          "diameter": 10.0,
+          "is_hole": true
+        },
+        {
+          "diameter": 10.0,
+          "is_hole": true
+        }
+      ],
+      "bolt_circles": [
+        {
+          "count": 4,
+          "hole_diameter": 10.0,
+          "pcd": 60.0
+        }
+      ],
+      "fillets": [],
+      "chamfers": []
+    }
+  },
+  "bom": [
+    {
+      "entry_id": "bom-001",
+      "line_number": 1,
+      "part_number": "BRKT-100",
+      "description": "Sensor mounting bracket",
+      "quantity": 1,
+      "unit": "ea",
+      "material": "AL6061",
+      "revision": "A",
+      "supplier": null,
+      "process": "machining",
+      "notes": null,
+      "source_row": 1
+    }
+  ],
+  "inspection_results": [
+    {
+      "record_id": "INSP-001",
+      "characteristic_id": null,
+      "dimension_name": "Hole diameter A",
+      "nominal": 10.0,
+      "actual": 10.18,
+      "tolerance_plus": 0.1,
+      "tolerance_minus": -0.1,
+      "deviation": 0.18,
+      "status": "out_of_tolerance",
+      "units": "mm",
+      "feature_hint": "hole",
+      "location_hint": "pattern_a",
+      "sample_size": 1,
+      "source_row": 1
+    },
+    {
+      "record_id": "INSP-002",
+      "characteristic_id": null,
+      "dimension_name": "Wall thickness left",
+      "nominal": 3.0,
+      "actual": 2.72,
+      "tolerance_plus": 0.1,
+      "tolerance_minus": -0.1,
+      "deviation": -0.28,
+      "status": "out_of_tolerance",
+      "units": "mm",
+      "feature_hint": "wall",
+      "location_hint": "left_web",
+      "sample_size": 1,
+      "source_row": 2
+    }
+  ],
+  "quality_issues": [
+    {
+      "issue_id": "NCR-001",
+      "defect_code": "WARP-01",
+      "defect_class": "distortion",
+      "description": "Wall warp near thin section",
+      "severity": "high",
+      "status": "open",
+      "location_hint": "left_web",
+      "feature_hint": "wall",
+      "process_step": "heat_treat",
+      "occurrence_count": 3,
+      "quantity": null,
+      "source_row": 1
+    },
+    {
+      "issue_id": "NCR-002",
+      "defect_code": "HOLE-02",
+      "defect_class": "drill",
+      "description": "Diameter mismatch on mounting hole",
+      "severity": "medium",
+      "status": "open",
+      "location_hint": "pattern_a",
+      "feature_hint": "hole",
+      "process_step": "drill",
+      "occurrence_count": 2,
+      "quantity": null,
+      "source_row": 2
+    }
+  ],
+  "manufacturing_context": {
+    "facility": "fixture_shop",
+    "supplier": "internal",
+    "process_family": "machining",
+    "notes": "Fixture data for automated workflow tests"
+  },
+  "metadata": {
+    "created_at": "2026-03-10T00:00:00+00:00",
+    "source_files": [
+      "fixtures/sample_part.step",
+      "tests/fixtures/sample_bom.csv",
+      "tests/fixtures/sample_inspection.csv",
+      "tests/fixtures/sample_quality.csv"
+    ],
+    "provenance": {
+      "ingest_command": "fcad ingest"
+    },
+    "warnings": []
+  }
+}

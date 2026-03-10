@@ -1,0 +1,3 @@
+measurement_id,dimension_name,nominal,actual,tolerance_plus,tolerance_minus,feature_hint,location
+INSP-001,Hole diameter A,10.0,10.18,0.10,-0.10,hole,pattern_a
+INSP-002,Wall thickness left,3.00,2.72,0.10,-0.10,wall,left_web

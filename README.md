@@ -1,276 +1,221 @@
 # freecad-automation
 
-**Core automation engine for FreeCAD-based design-to-manufacturing workflows.**
+**Engineering decision-support tooling for existing CAD/STEP files, inspection data, BOMs, and quality records.**
 
-Programmatic CAD automation engine for FreeCAD.
+This repository now centers on a review workflow:
 
-Generate parametric 3D models, engineering drawings, DFM checks, tolerance analysis, cost estimates, and PDF reports from structured configuration files.
+```text
+CAD/STEP/FCStd + BOM + Inspection + Quality
+                |
+                v
+         normalized engineering context
+                |
+                v
+      FreeCAD-backed geometry intelligence
+                |
+                v
+   inspection / quality linkage + review priorities
+                |
+                v
+   JSON artifacts + PDF/Markdown review pack
+```
 
-This repository contains the core CAD automation engine.
-For the end-user desktop interface, see [freecad-desktop](https://github.com/dooosp/freecad-desktop).
+The legacy TOML-driven generation flow is still available, but it is no longer the primary product story. The maintained direction is to help engineering teams read real part data, connect it to inspection and quality evidence, and produce review-ready artifacts.
+
+For background on the earlier design-family portfolio framing, see [docs/portfolio/sensor_mount_bracket_portfolio.md](docs/portfolio/sensor_mount_bracket_portfolio.md).
 
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![FreeCAD](https://img.shields.io/badge/FreeCAD-0.21%2B-1565C0)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
----
+## Primary Workflows
 
-## What It Does
+| Workflow | Purpose | Main Output |
+|---|---|---|
+| `fcad ingest` | Normalize CAD + BOM + inspection + quality inputs into one engineering context | `*_context.json`, `*_ingest_log.json` |
+| `fcad analyze-part` | Turn an existing part into geometry intelligence and review hotspots | `*_geometry_intelligence.json`, `*_manufacturing_hotspots.json` |
+| `fcad quality-link` | Connect inspection/quality evidence to geometry-derived risk areas | linkage, outlier, hotspot, and priority JSON artifacts |
+| `fcad review-pack` | Assemble a review-ready summary for engineering discussion | PDF, Markdown, and JSON review pack |
+| `fcad compare-rev` | Compare two revision artifacts or engineering contexts | revision comparison JSON |
 
+## Example Flow
+
+```bash
+# 1. Normalize source data into one context
+fcad ingest \
+  --model fixtures/part.step \
+  --bom fixtures/bom.csv \
+  --inspection fixtures/inspection.csv \
+  --quality fixtures/ncr.csv \
+  --out output/part_context.json
+
+# 2. Generate geometry intelligence
+fcad analyze-part output/part_context.json
+
+# 3. Link inspection and quality evidence to geometry risk
+fcad quality-link --context output/part_context.json \
+  --geometry output/part_geometry_intelligence.json
+
+# 4. Build an engineering review pack
+fcad review-pack \
+  --context output/part_context.json \
+  --geometry output/part_geometry_intelligence.json \
+  --review output/part_review_priorities.json
 ```
-TOML Config ──> 3D Model ──> Drawing ──> DFM Check ──> Cost ──> PDF Report
-   .toml         .step       4-view      6 checks     BOM      multi-page
-                  .fcstd      SVG+GD&T    per-process  breakdown technical
-```
 
-| Capability | Description |
-|---|---|
-| Parametric Modeling | 7 shape primitives + boolean ops + fillet/chamfer + circular pattern |
-| Engineering Drawing | 4-view projection, ISO 128 line types, GD&T automation, QA scoring |
-| AI Design | Natural language description via Gemini to TOML to 3D model |
-| DFM Analysis | 6 manufacturability checks across 4 process types |
-| Tolerance Analysis | Fit recommendation + stack-up + Monte Carlo simulation |
-| Cost Estimation | Material + machining + setup + inspection + batch discounts |
-| FEM Analysis | Structural analysis with load/constraint definition |
-| PDF Reports | Multi-page technical reports with drawings and analysis |
-| 3D Web Viewer | Three.js viewer with WebSocket live reload |
+## Legacy Workflows
 
----
+The following commands remain supported for existing users and generated-design workflows:
 
-## Quick Start
+- `fcad create`
+- `fcad design`
+- `fcad draw`
+- `fcad fem`
+- `fcad tolerance`
+- `fcad report`
+- `fcad inspect`
+- `fcad dfm`
+
+These commands are now treated as legacy or specialized capabilities. They remain useful, but they are not the primary entry point for new users.
+
+## Installation
 
 ### Prerequisites
 
-- **Node.js** 18+
-- **FreeCAD** 0.21+
-- One supported runtime:
-  macOS: native FreeCAD app install, optionally with `FREECAD_PYTHON` or `FREECAD_CMD`
-  WSL: Windows FreeCAD install, optionally with `FREECAD_DIR`
+- Node.js 18+
+- Python 3.10+ recommended
+- FreeCAD 0.21+ for model inspection and CAD-backed analysis
 
-### Install
+### Setup
 
 ```bash
 git clone https://github.com/dooosp/freecad-automation.git
 cd freecad-automation
 npm install
-npm link  # makes 'fcad' available globally
+npm link
 ```
 
-### Runtime Setup
+### FreeCAD Runtime Setup
 
-macOS native setup:
+macOS:
 
 ```bash
 export FREECAD_PYTHON="/Applications/FreeCAD.app/Contents/Resources/bin/FreeCADCmd"
-# or point to the bundled python/python3 inside the app bundle
 npm run check:runtime
 ```
 
-WSL -> Windows setup:
+WSL -> Windows:
 
 ```bash
 export FREECAD_DIR="C:\\Program Files\\FreeCAD 1.0"
 npm run check:runtime
 ```
 
-### macOS Verification
-
-Recommended first-run sequence on macOS:
-
-```bash
-# 1. Verify the runtime path the CLI will use
-npm run check:runtime
-
-# 2. Run runtime-independent checks
-npm test
-
-# 3. Run one real FreeCAD-backed command
-fcad create configs/examples/ks_bracket.toml
-
-# 4. Verify outputs exist
-ls -lh output/ks_bracket.step output/ks_bracket.fcstd
-```
-
-If `check:runtime` reports no runtime, set `FREECAD_PYTHON` explicitly and rerun it before using `fcad create` or `fcad draw`.
-
-### 3-Step Demo
-
-```bash
-# 1. Create a 3D model from a parametric config
-fcad create configs/examples/ks_bracket.toml
-# -> output/ks_bracket.step, output/ks_bracket.fcstd
-
-# 2. Generate a 4-view engineering drawing with GD&T
-fcad draw configs/examples/ks_bracket.toml
-# -> output/ks_bracket_drawing.svg
-
-# 3. Run DFM analysis against machining constraints
-fcad dfm configs/examples/ks_bracket.toml
-# -> DFM report with pass/fail per check
-```
-
----
-
 ## CLI Reference
 
-```
+```text
 fcad <command> [options]
 ```
 
-| Command | Description | Example |
-|---|---|---|
-| `create <config>` | Create 3D model (STEP + FCStd) | `fcad create configs/examples/ks_bracket.toml` |
-| `design "text"` | AI-generate TOML from description, then build | `fcad design "M8 mounting bracket 120x80mm"` |
-| `draw <config>` | Generate 4-view SVG drawing + BOM | `fcad draw configs/examples/ks_flange.toml` |
-| `fem <config>` | Run FEM structural analysis | `fcad fem configs/examples/bracket_fem.toml` |
-| `tolerance <config>` | Tolerance analysis (fit + stack-up) | `fcad tolerance configs/examples/ks_shaft.toml` |
-| `report <config>` | Generate multi-page PDF report | `fcad report configs/examples/ks_bracket.toml` |
-| `inspect <model>` | Inspect STEP/FCStd metadata | `fcad inspect output/ks_bracket.step` |
-| `validate <config>` | Validate drawing plan schema | `fcad validate configs/examples/ks_bracket.toml` |
-| `dfm <config>` | DFM manufacturability analysis | `fcad dfm configs/examples/ks_bracket.toml` |
-| `serve [port]` | Start 3D viewer (default: 3000) | `fcad serve 8080` |
+### Primary commands
 
-### Key Options
+| Command | Description |
+|---|---|
+| `ingest` | Build normalized engineering context from model, BOM, inspection, and quality data |
+| `analyze-part` | Analyze an existing CAD file or engineering context for geometry intelligence |
+| `quality-link` | Link inspection and quality evidence to geometry-derived hotspots and priorities |
+| `review-pack` | Generate engineering review pack artifacts |
+| `compare-rev` | Compare two revision artifacts or contexts |
 
-| Option | Used With | Description |
-|---|---|---|
-| `--override <path>` | `draw` | Merge override TOML/JSON on top of base config |
-| `--bom` | `draw` | Export BOM as separate CSV file |
-| `--no-score` | `draw` | Skip QA scoring |
-| `--fail-under N` | `draw` | Fail if QA score < N |
-| `--weights-preset P` | `draw` | QA weight profile: default, auto, flange, shaft |
-| `--strict` | `validate`, `dfm` | Treat warnings as errors |
-| `--process P` | `dfm` | Override process: machining, casting, sheet_metal, 3d_printing |
-| `--recommend` | `tolerance` | Auto-recommend fit specifications |
-| `--monte-carlo` | `tolerance`, `report` | Include Monte Carlo simulation |
-| `--fem` | `report` | Include FEM analysis in report |
+### Legacy / specialized commands
 
----
+| Command | Description |
+|---|---|
+| `create <config>` | Legacy parametric model creation from TOML/JSON |
+| `design "text"` | Experimental natural-language-to-TOML generation |
+| `draw <config>` | Drawing generation from config |
+| `fem <config>` | Structural analysis from config |
+| `tolerance <config>` | Tolerance analysis |
+| `report <config>` | Legacy multi-page report generation |
+| `inspect <model>` | Inspect STEP/FCStd metadata |
+| `validate <config>` | Validate drawing plan schema |
+| `dfm <config>` | DFM manufacturability analysis |
+| `serve [port]` | Legacy viewer/dev server |
 
-## Configuration
+## Engineering Context Model
 
-Parts are defined in TOML. A minimal example:
+New workflows use a shared engineering context so downstream stages can consume the same normalized inputs.
 
-```toml
-name = "ks_bracket"
-
-[[shapes]]
-id = "base_plate"
-type = "box"
-length = 120
-width = 80
-height = 8
-
-[[shapes]]
-id = "web"
-type = "box"
-length = 8
-width = 80
-height = 60
-position = [0, 0, 8]
-
-[[operations]]
-op = "fuse"
-base = "base_plate"
-tool = "web"
-result = "body"
-
-[[operations]]
-op = "fillet"
-target = "body"
-radius = 3
-
-[drawing]
-title = "KS Bracket"
-scale = "1:2"
-
-[manufacturing]
-process = "machining"
-material = "SS304"
+```json
+{
+  "part": {},
+  "geometry_source": {},
+  "bom": [],
+  "inspection_results": [],
+  "quality_issues": [],
+  "manufacturing_context": {},
+  "metadata": {}
+}
 ```
 
-`[[operations]]` uses `op` as the canonical field. Legacy configs that still use `type` are accepted and normalized internally for backward compatibility.
-
-19 example configs are included in `configs/examples/`, covering brackets, shafts, flanges, gear housings, assemblies, and mechanisms.
-
----
+Schemas live under [`schemas/`](schemas/).
 
 ## Architecture
 
+The runtime architecture remains `Node CLI + Python runner + FreeCAD`. The main change is the product boundary and module layering.
+
+```text
+CLI / desktop / MCP adapters
+            |
+            v
+     engineering context layer
+            |
+            v
+  adapters -> geometry -> linkage -> decision -> reporting
+            |
+            v
+         JSON artifacts
 ```
-bin/fcad.js ─── CLI entry point (Node.js)
-    │
-    │  JSON via stdin/stdout
-    ▼
-scripts/*.py ── FreeCAD Python engine (46 modules, ~17,000 lines)
-    │
-    │  FreeCAD Python API
-    ▼
-FreeCAD 0.21+ ─ CAD kernel (native macOS or WSL → Windows bridge)
-```
 
-### Module Overview
+### Layer responsibilities
 
-| Category | Modules | Purpose |
-|---|---|---|
-| Core | `create_model`, `_shapes`, `_bootstrap`, `_export` | Shape creation, boolean ops, model export |
-| Drawing | `generate_drawing`, `_drawing_svg`, `_view_planner`, `_dim_plan`, `_annotation_planner`, `_gdt_automation`, `_gdt_symbols`, `_ks_callouts`, `postprocess_svg`, `qa_scorer` | 4-view projection, dimensioning, GD&T, QA |
-| Analysis | `dfm_checker`, `fem_analysis`, `tolerance_analysis`, `_tolerance`, `_tolerance_db`, `cost_estimator` | DFM, FEM, tolerance stack-up, cost |
-| AI | `intent_compiler`, `_feature_inference` | NL-to-TOML via Gemini, feature detection |
-| Report | `engineering_report`, `_report_renderer`, `_report_styles` | Multi-page PDF generation |
-| Utility | `svg_common`, `svg_repair`, `_svg_utils`, `inspect_model`, `plan_validator`, `step_feature_detector` | SVG processing, validation, inspection |
-
-### JS Layer
-
-| File | Purpose |
+| Layer | Responsibility |
 |---|---|
-| `bin/fcad.js` | CLI dispatcher and command handlers |
-| `lib/runner.js` | FreeCAD script executor (native macOS or WSL to Windows bridge) |
-| `lib/config-loader.js` | TOML/JSON config loading and merging |
-| `lib/toml-writer.js` | Programmatic TOML modification |
-| `server.js` | Express + WebSocket 3D viewer server |
+| `adapters` | CSV/JSON normalization for BOM, inspection, quality, and source metadata |
+| `geometry` | FreeCAD-backed or metadata-backed geometry intelligence and hotspot detection |
+| `linkage` | Match inspection and quality evidence to features, regions, or review signals |
+| `decision` | Score risk, prioritize review focus areas, recommend next actions |
+| `reporting` | Generate review packs and other review-facing artifacts |
 
----
+Detailed direction is in [docs/vision.md](docs/vision.md), [docs/architecture-v2.md](docs/architecture-v2.md), and [docs/migration-plan.md](docs/migration-plan.md).
 
 ## Project Structure
 
-```
+```text
 freecad-automation/
-  bin/fcad.js            # CLI entry point
-  lib/                   # Node.js utilities (config, runner, paths)
-  scripts/               # 46 Python modules (FreeCAD engine)
-  configs/examples/      # 19 example TOML configs
-  public/                # 3D web viewer (HTML/CSS/JS)
-  server.js              # Express + WebSocket server
-  tests/                 # Test suite (core + full profiles)
-  output/                # Generated models, drawings, reports
+  bin/fcad.js
+  lib/
+  schemas/
+  scripts/adapters/
+  scripts/geometry/
+  scripts/linkage/
+  scripts/decision/
+  scripts/reporting/
+  src/
+  tests/
 ```
-
----
 
 ## Testing
 
-```bash
-# Core tests
-# If FreeCAD is installed, runs integration coverage.
-# If FreeCAD is not installed, runs runtime-independent schema/config checks only.
-npm test
+Runtime-independent tests for the new workflow can be run with:
 
-# Full test suite (requires FreeCAD)
-npm run test:full
+```bash
+python3 -m pytest tests/test_ingest.py tests/test_analyze_part.py tests/test_linkage.py tests/test_review_pack.py
 ```
 
-CI runs via GitHub Actions (`automation-ci.yml`).
+Legacy integration coverage remains available via:
 
----
-
-## Related: FreeCAD Studio
-
-[freecad-desktop](https://github.com/dooosp/freecad-desktop) wraps this engine in a desktop GUI built with Tauri + React, providing a visual interface for config editing, live 3D preview, and one-click report generation.
-
----
-
-## License
-
-[MIT](LICENSE)
+```bash
+npm test
+```

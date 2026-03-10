@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dooosp.github.io/freecad-automation/schemas/inspection.schema.json",
+  "title": "Inspection Result",
+  "type": "object",
+  "required": ["record_id", "dimension_name"],
+  "properties": {
+    "record_id": { "type": "string" },
+    "characteristic_id": { "type": ["string", "null"] },
+    "dimension_name": { "type": "string" },
+    "nominal": { "type": ["number", "null"] },
+    "actual": { "type": ["number", "null"] },
+    "tolerance_plus": { "type": ["number", "null"] },
+    "tolerance_minus": { "type": ["number", "null"] },
+    "deviation": { "type": ["number", "null"] },
+    "status": { "type": ["string", "null"] },
+    "units": { "type": ["string", "null"] },
+    "feature_hint": { "type": ["string", "null"] },
+    "location_hint": { "type": ["string", "null"] },
+    "sample_size": { "type": ["integer", "null"] },
+    "source_row": { "type": ["integer", "null"] }
+  },
+  "additionalProperties": true
+}

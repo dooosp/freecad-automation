@@ -1,56 +1,177 @@
 #!/usr/bin/env node
 
 import { resolve, join, dirname, sep } from 'node:path';
-import { mkdirSync, writeFileSync, readFileSync, existsSync, unlinkSync } from 'node:fs';
-import { execSync } from 'node:child_process';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { stringify as tomlStringify } from 'smol-toml';
 import { loadConfig, deepMerge } from '../lib/config-loader.js';
+import {
+  artifactPathFor,
+  deriveArtifactStem,
+  readJsonFile,
+  readJsonIfExists,
+  runPythonJsonScript,
+  writeJsonFile,
+} from '../lib/context-loader.js';
 import { runScript } from '../lib/runner.js';
+import { hasFreeCADRuntime } from '../lib/paths.js';
+import {
+  createDfmService,
+  createCostService,
+  runFem as runFemService,
+  runTolerance as runToleranceService,
+} from '../src/api/analysis.js';
+import { runDesignTask } from '../src/api/design.js';
+import { createDrawingService, runDrawPipeline } from '../src/api/drawing.js';
+import { createModel, inspectModel } from '../src/api/model.js';
+import { createReportService } from '../src/api/report.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(__dirname, '..');
 const VALID_DFM_PROCESSES = new Set(['machining', 'casting', 'sheet_metal', '3d_printing']);
 
+function runWithCliStderr(script, input, opts = {}) {
+  return runScript(script, input, {
+    ...opts,
+    onStderr: (text) => process.stderr.write(text),
+  });
+}
+
+const runDfm = createDfmService();
+const runCost = createCostService();
+const generateDrawing = createDrawingService();
+const generateReport = createReportService();
+
 const USAGE = `
-fcad - FreeCAD automation CLI
+fcad - Engineering decision-support CLI for CAD + inspection + quality review
 
 Usage:
-  fcad create <config.toml|json>  Create model from config
-  fcad design "description"       AI-generate TOML from natural language, then build
-  fcad draw <config.toml|json>    Generate engineering drawing (4-view SVG + BOM)
-  fcad fem <config.toml|json>     Run FEM structural analysis
-  fcad tolerance <config.toml>    Tolerance analysis (fit + stack-up)
-  fcad report <config.toml>      Generate engineering PDF report
-  fcad inspect <model.step|fcstd> Inspect model metadata
-  fcad validate <config.toml|json> Validate drawing plan schema
-  fcad dfm <config.toml|json>     Run DFM (Design for Manufacturability) analysis
-  fcad serve [port]               Start 3D viewer server (default: 3000)
-  fcad help                       Show this help
+  Primary workflows:
+    fcad ingest --model <file> [--bom bom.csv] [--inspection insp.csv] [--quality ncr.csv] --out <context.json>
+    fcad analyze-part <context.json|model.step>
+    fcad quality-link --context <context.json> --geometry <geometry.json>
+    fcad review-pack --context <context.json> --geometry <geometry.json>
+    fcad compare-rev <baseline.json> <candidate.json>
+
+  Legacy / specialized workflows:
+    fcad create <config.toml|json>    Legacy model creation from config
+    fcad design "description"         Experimental NL-to-TOML generation
+    fcad draw <config.toml|json>      Generate engineering drawing (4-view SVG + BOM)
+    fcad fem <config.toml|json>       Run FEM structural analysis
+    fcad tolerance <config.toml>      Tolerance analysis (fit + stack-up)
+    fcad report <config.toml>         Generate engineering PDF report
+    fcad inspect <model.step|fcstd>   Inspect model metadata
+    fcad validate <config.toml|json>  Validate drawing plan schema
+    fcad dfm <config.toml|json>       Run DFM manufacturability analysis
+    fcad serve [port]                 Start legacy 3D viewer/dev server
+    fcad help                         Show this help
 
 Options:
-  --override <path>               Merge override TOML/JSON on top of base config (with draw)
-  --bom                           Export BOM as separate CSV file (with draw)
-  --raw                           Skip SVG post-processing (with draw)
-  --no-score                      Skip QA scoring (with draw)
-  --fail-under N                  Fail if QA score < N (with draw)
-  --weights-preset P              QA weight profile: default|auto|flange|shaft|...
-  --strict                        Treat warnings as errors (with validate/dfm)
-  --process P                      Override manufacturing process (with dfm): machining|casting|sheet_metal|3d_printing
-  --recommend                     Auto-recommend fit specs (with tolerance)
-  --csv                           Export tolerance report as CSV (with tolerance)
-  --monte-carlo                   Include Monte Carlo simulation (with tolerance/report)
-  --fem                           Include FEM analysis in report
-  --tolerance                     Include tolerance analysis in report (default)
+  Shared new-workflow options:
+    --context <path>              Engineering context JSON
+    --geometry <path>             Geometry intelligence JSON
+    --hotspots <path>             Manufacturing hotspot JSON
+    --out <path>                  Primary output file path
+    --out-dir <dir>               Output directory for artifact groups
+
+  Legacy options:
+    --override <path>             Merge override TOML/JSON on top of base config (with draw)
+    --bom                         Export BOM as separate CSV file (with draw)
+    --raw                         Skip SVG post-processing (with draw)
+    --no-score                    Skip QA scoring (with draw)
+    --fail-under N                Fail if QA score < N (with draw)
+    --weights-preset P            QA weight profile: default|auto|flange|shaft|...
+    --strict                      Treat warnings as errors (with validate/dfm)
+    --process P                   Override manufacturing process (with dfm)
+    --recommend                   Auto-recommend fit specs (with tolerance)
+    --csv                         Export tolerance report as CSV (with tolerance)
+    --monte-carlo                 Include Monte Carlo simulation (with tolerance/report)
+    --fem                         Include FEM analysis in report
+    --tolerance                   Include tolerance analysis in report (default)
 
 Examples:
+  fcad ingest --model fixtures/part.step --inspection fixtures/inspection.csv --out output/part_context.json
+  fcad analyze-part output/part_context.json
+  fcad quality-link --context output/part_context.json --geometry output/part_geometry_intelligence.json
+  fcad review-pack --context output/part_context.json --geometry output/part_geometry_intelligence.json
   fcad create configs/examples/ks_bracket.toml
-  fcad draw configs/examples/ks_flange.toml
-  fcad draw configs/examples/ks_bracket.toml --bom
-  fcad fem configs/examples/bracket_fem.toml
-  fcad inspect output/ks_bracket.step
-  fcad serve 8080
 `.trim();
+
+function parseCliArgs(rawArgs = []) {
+  const positional = [];
+  const options = {};
+
+  for (let i = 0; i < rawArgs.length; i += 1) {
+    const arg = rawArgs[i];
+    if (!arg.startsWith('--')) {
+      positional.push(arg);
+      continue;
+    }
+
+    const withoutPrefix = arg.slice(2);
+    if (withoutPrefix.includes('=')) {
+      const [key, value] = withoutPrefix.split(/=(.*)/s, 2);
+      options[key] = value;
+      continue;
+    }
+
+    const nextArg = rawArgs[i + 1];
+    if (nextArg && !nextArg.startsWith('--')) {
+      options[withoutPrefix] = nextArg;
+      i += 1;
+    } else {
+      options[withoutPrefix] = true;
+    }
+  }
+
+  return { positional, options };
+}
+
+function resolveMaybe(value) {
+  return value ? resolve(value) : null;
+}
+
+function stemFromContext(context, fallback = 'artifact') {
+  return context?.part?.name || context?.part?.part_id || fallback;
+}
+
+function buildDefaultOutputDir(preferredPath) {
+  if (!preferredPath) return resolve(PROJECT_ROOT, 'output');
+  const resolved = resolve(preferredPath);
+  return resolved.endsWith('.json') ? dirname(resolved) : resolved;
+}
+
+function createArtifactPaths(basePathOrDir, stem, suffixes) {
+  const result = {};
+  for (const [key, suffix] of Object.entries(suffixes)) {
+    result[key] = artifactPathFor(basePathOrDir, stem, suffix);
+  }
+  return result;
+}
+
+async function inspectModelIfAvailable(modelPath) {
+  if (!modelPath || !hasFreeCADRuntime()) return null;
+  try {
+    return await inspectModel({
+      runScript: runWithCliStderr,
+      filePath: modelPath,
+    });
+  } catch (error) {
+    console.warn(`Warning: model inspection skipped: ${error.message}`);
+    return null;
+  }
+}
+
+async function detectStepFeaturesIfAvailable(modelPath) {
+  if (!modelPath || !hasFreeCADRuntime()) return null;
+  const ext = modelPath.toLowerCase().split('.').pop();
+  if (!['step', 'stp'].includes(ext)) return null;
+  try {
+    return await runWithCliStderr('step_feature_detector.py', { file: modelPath });
+  } catch (error) {
+    console.warn(`Warning: STEP feature detection skipped: ${error.message}`);
+    return null;
+  }
+}
 
 async function main() {
   const [command, ...args] = process.argv.slice(2);
@@ -62,6 +183,16 @@ async function main() {
 
   if (command === 'create') {
     await cmdCreate(args[0]);
+  } else if (command === 'ingest') {
+    await cmdIngest(args);
+  } else if (command === 'analyze-part') {
+    await cmdAnalyzePart(args);
+  } else if (command === 'quality-link') {
+    await cmdQualityLink(args);
+  } else if (command === 'review-pack') {
+    await cmdReviewPack(args);
+  } else if (command === 'compare-rev') {
+    await cmdCompareRev(args);
   } else if (command === 'design') {
     await cmdDesign(args.join(' '));
   } else if (command === 'draw') {
@@ -91,6 +222,242 @@ async function main() {
     console.log(USAGE);
     process.exit(1);
   }
+}
+
+async function cmdIngest(rawArgs = []) {
+  const { options } = parseCliArgs(rawArgs);
+  const modelPath = resolveMaybe(options.model);
+  const bomPath = resolveMaybe(options.bom);
+  const inspectionPath = resolveMaybe(options.inspection);
+  const qualityPath = resolveMaybe(options.quality);
+
+  if (!modelPath && !bomPath && !inspectionPath && !qualityPath) {
+    console.error('Error: ingest requires at least one engineering input');
+    console.error('  fcad ingest --model part.step --inspection inspection.csv --out output/part_context.json');
+    process.exit(1);
+  }
+
+  const baseStem = deriveArtifactStem(options.out || modelPath || bomPath || inspectionPath || qualityPath, 'engineering_part');
+  const outputPath = resolve(options.out || join(PROJECT_ROOT, 'output', `${baseStem}_context.json`));
+  const paths = createArtifactPaths(outputPath, deriveArtifactStem(outputPath, baseStem), {
+    context: '',
+    ingestLog: '_ingest_log.json',
+  });
+  if (!paths.context.endsWith('.json')) {
+    paths.context = `${paths.context}.json`;
+  }
+
+  const result = await runPythonJsonScript(PROJECT_ROOT, 'scripts/ingest_context.py', {
+    model: modelPath,
+    bom: bomPath,
+    inspection: inspectionPath,
+    quality: qualityPath,
+    part_name: options['part-name'],
+    part_id: options['part-id'],
+    revision: options.revision,
+    material: options.material,
+    process: options.process,
+    facility: options.facility,
+    supplier: options.supplier,
+    manufacturing_notes: options['manufacturing-notes'],
+  }, {
+    onStderr: (text) => process.stderr.write(text),
+  });
+
+  await writeJsonFile(paths.context, result.context);
+  await writeJsonFile(paths.ingestLog, result.ingest_log);
+
+  console.log(`Context JSON: ${paths.context}`);
+  console.log(`Ingest log:   ${paths.ingestLog}`);
+  console.log(`  BOM entries: ${result.ingest_log.summary?.bom_entries || 0}`);
+  console.log(`  Inspection results: ${result.ingest_log.summary?.inspection_results || 0}`);
+  console.log(`  Quality issues: ${result.ingest_log.summary?.quality_issues || 0}`);
+}
+
+async function cmdAnalyzePart(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  const contextPath = resolveMaybe(options.context || (positional[0]?.toLowerCase().endsWith('.json') ? positional[0] : null));
+  const directModelPath = resolveMaybe(options.model || (!contextPath ? positional[0] : null));
+  const context = contextPath ? await readJsonFile(contextPath) : null;
+  const modelPath = directModelPath || resolveMaybe(context?.geometry_source?.path);
+
+  let modelMetadata = context?.geometry_source?.model_metadata || null;
+  let featureHints = context?.geometry_source?.feature_hints || null;
+
+  const inspectionResult = await inspectModelIfAvailable(modelPath);
+  if (inspectionResult?.success) modelMetadata = inspectionResult.model;
+
+  const stepFeatures = await detectStepFeaturesIfAvailable(modelPath);
+  if (stepFeatures?.success) featureHints = stepFeatures.features;
+
+  if (!modelMetadata) {
+    console.error('Error: analyze-part requires either a context with geometry_source.model_metadata or an inspectable CAD model path.');
+    process.exit(1);
+  }
+
+  const result = await runPythonJsonScript(PROJECT_ROOT, 'scripts/analyze_part.py', {
+    context,
+    model_metadata: modelMetadata,
+    feature_hints: featureHints,
+    geometry_source: context?.geometry_source || (modelPath ? { path: modelPath } : {}),
+    part: context?.part || { name: deriveArtifactStem(modelPath || contextPath, 'part') },
+  }, {
+    onStderr: (text) => process.stderr.write(text),
+  });
+
+  const stem = deriveArtifactStem(contextPath || modelPath || stemFromContext(context, 'part'));
+  const outputDir = buildDefaultOutputDir(options['out-dir']);
+  const paths = createArtifactPaths(outputDir, stem, {
+    geometry: '_geometry_intelligence.json',
+    hotspots: '_manufacturing_hotspots.json',
+  });
+
+  await writeJsonFile(paths.geometry, result.geometry_intelligence);
+  await writeJsonFile(paths.hotspots, result.manufacturing_hotspots);
+
+  console.log(`Geometry intelligence: ${paths.geometry}`);
+  console.log(`Manufacturing hotspots: ${paths.hotspots}`);
+  console.log(`  Complexity score: ${result.geometry_intelligence.features?.complexity_score ?? 'n/a'}`);
+  console.log(`  Hotspots: ${result.manufacturing_hotspots.hotspots?.length || 0}`);
+}
+
+async function cmdQualityLink(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  const contextPath = resolveMaybe(options.context || positional[0]);
+  const geometryPath = resolveMaybe(options.geometry);
+
+  if (!contextPath || !geometryPath) {
+    console.error('Error: quality-link requires --context and --geometry');
+    console.error('  fcad quality-link --context output/part_context.json --geometry output/part_geometry_intelligence.json');
+    process.exit(1);
+  }
+
+  const context = await readJsonFile(contextPath);
+  const geometryIntelligence = await readJsonFile(geometryPath);
+  const stem = deriveArtifactStem(contextPath || geometryPath, stemFromContext(context, 'part'));
+  const hotspotsPath = resolveMaybe(options.hotspots) || artifactPathFor(buildDefaultOutputDir(options['out-dir'] || dirname(geometryPath)), stem, '_manufacturing_hotspots.json');
+  const manufacturingHotspots = await readJsonIfExists(hotspotsPath) || { hotspots: [] };
+
+  const result = await runPythonJsonScript(PROJECT_ROOT, 'scripts/quality_link.py', {
+    context,
+    geometry_intelligence: geometryIntelligence,
+    manufacturing_hotspots: manufacturingHotspots,
+  }, {
+    onStderr: (text) => process.stderr.write(text),
+  });
+
+  const outputDir = buildDefaultOutputDir(options['out-dir'] || dirname(geometryPath));
+  const paths = createArtifactPaths(outputDir, stem, {
+    inspectionLinkage: '_inspection_linkage.json',
+    inspectionOutliers: '_inspection_outliers.json',
+    qualityLinkage: '_quality_linkage.json',
+    qualityHotspots: '_quality_hotspots.json',
+    reviewPriorities: '_review_priorities.json',
+  });
+
+  await writeJsonFile(paths.inspectionLinkage, result.inspection_linkage);
+  await writeJsonFile(paths.inspectionOutliers, result.inspection_outliers);
+  await writeJsonFile(paths.qualityLinkage, result.quality_linkage);
+  await writeJsonFile(paths.qualityHotspots, result.quality_hotspots);
+  await writeJsonFile(paths.reviewPriorities, result.review_priorities);
+
+  console.log(`Inspection linkage: ${paths.inspectionLinkage}`);
+  console.log(`Inspection outliers: ${paths.inspectionOutliers}`);
+  console.log(`Quality linkage: ${paths.qualityLinkage}`);
+  console.log(`Quality hotspots: ${paths.qualityHotspots}`);
+  console.log(`Review priorities: ${paths.reviewPriorities}`);
+}
+
+async function cmdReviewPack(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  const contextPath = resolveMaybe(options.context || positional[0]);
+  const geometryPath = resolveMaybe(options.geometry);
+
+  if (!contextPath || !geometryPath) {
+    console.error('Error: review-pack requires --context and --geometry');
+    process.exit(1);
+  }
+
+  const context = await readJsonFile(contextPath);
+  const geometryIntelligence = await readJsonFile(geometryPath);
+  const stem = deriveArtifactStem(contextPath || geometryPath, stemFromContext(context, 'part'));
+  const outputDir = buildDefaultOutputDir(options['out-dir'] || dirname(geometryPath));
+
+  const manufacturingHotspots = await readJsonIfExists(resolveMaybe(options.hotspots) || artifactPathFor(outputDir, stem, '_manufacturing_hotspots.json')) || { hotspots: [] };
+  const inspectionLinkage = await readJsonIfExists(resolveMaybe(options['inspection-linkage']) || artifactPathFor(outputDir, stem, '_inspection_linkage.json')) || { records: [] };
+  const inspectionOutliers = await readJsonIfExists(resolveMaybe(options['inspection-outliers']) || artifactPathFor(outputDir, stem, '_inspection_outliers.json')) || { records: [] };
+  const qualityLinkage = await readJsonIfExists(resolveMaybe(options['quality-linkage']) || artifactPathFor(outputDir, stem, '_quality_linkage.json')) || { records: [] };
+  const qualityHotspots = await readJsonIfExists(resolveMaybe(options['quality-hotspots']) || artifactPathFor(outputDir, stem, '_quality_hotspots.json')) || { records: [] };
+  const reviewPriorities = await readJsonIfExists(resolveMaybe(options.review) || artifactPathFor(outputDir, stem, '_review_priorities.json')) || { records: [], recommended_actions: [] };
+
+  const result = await runPythonJsonScript(PROJECT_ROOT, 'scripts/reporting/review_pack.py', {
+    context,
+    geometry_intelligence: geometryIntelligence,
+    manufacturing_hotspots: manufacturingHotspots,
+    inspection_linkage: inspectionLinkage,
+    inspection_outliers: inspectionOutliers,
+    quality_linkage: qualityLinkage,
+    quality_hotspots: qualityHotspots,
+    review_priorities: reviewPriorities,
+    output_dir: outputDir,
+    output_stem: stem,
+  }, {
+    timeout: 180_000,
+    onStderr: (text) => process.stderr.write(text),
+  });
+
+  console.log(`Review pack JSON: ${result.artifacts.json}`);
+  console.log(`Review pack Markdown: ${result.artifacts.markdown}`);
+  console.log(`Review pack PDF: ${result.artifacts.pdf}`);
+}
+
+function diffNumbers(before, after) {
+  if (typeof before !== 'number' || typeof after !== 'number') return null;
+  return {
+    before,
+    after,
+    delta: Number((after - before).toFixed(6)),
+  };
+}
+
+async function cmdCompareRev(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  const baselinePath = resolveMaybe(positional[0]);
+  const candidatePath = resolveMaybe(positional[1]);
+
+  if (!baselinePath || !candidatePath) {
+    console.error('Error: compare-rev requires two JSON artifacts');
+    console.error('  fcad compare-rev output/rev_a_context.json output/rev_b_context.json');
+    process.exit(1);
+  }
+
+  const baseline = await readJsonFile(baselinePath);
+  const candidate = await readJsonFile(candidatePath);
+
+  const baselineMetrics = baseline.metrics || baseline.geometry_summary || baseline.geometry_intelligence?.metrics || baseline.geometry_source?.model_metadata || {};
+  const candidateMetrics = candidate.metrics || candidate.geometry_summary || candidate.geometry_intelligence?.metrics || candidate.geometry_source?.model_metadata || {};
+
+  const comparison = {
+    baseline: baselinePath,
+    candidate: candidatePath,
+    part: {
+      baseline: baseline.part?.name || baseline.summary?.part?.name || deriveArtifactStem(baselinePath),
+      candidate: candidate.part?.name || candidate.summary?.part?.name || deriveArtifactStem(candidatePath),
+    },
+    revision: {
+      baseline: baseline.part?.revision || baseline.summary?.part?.revision || null,
+      candidate: candidate.part?.revision || candidate.summary?.part?.revision || null,
+    },
+    metrics: {
+      volume_mm3: diffNumbers(baselineMetrics.volume_mm3 || baselineMetrics.volume, candidateMetrics.volume_mm3 || candidateMetrics.volume),
+      face_count: diffNumbers(baselineMetrics.face_count || baselineMetrics.faces, candidateMetrics.face_count || candidateMetrics.faces),
+      edge_count: diffNumbers(baselineMetrics.edge_count || baselineMetrics.edges, candidateMetrics.edge_count || candidateMetrics.edges),
+    },
+  };
+
+  const outputPath = resolve(options.out || artifactPathFor(buildDefaultOutputDir(options['out-dir']), deriveArtifactStem(candidatePath, 'revision'), '_revision_comparison.json'));
+  await writeJsonFile(outputPath, comparison);
+  console.log(`Revision comparison: ${outputPath}`);
 }
 
 async function cmdValidate(configPath, flags = []) {
@@ -159,6 +526,7 @@ async function cmdValidate(configPath, flags = []) {
 
 async function cmdServe(portArg) {
   const port = parseInt(portArg, 10) || 3000;
+  console.warn('Warning: fcad serve starts the legacy viewer/dev server. Prefer desktop or MCP automation flows for maintained workflows.');
   const { startServer } = await import('../server.js');
   startServer(port);
 }
@@ -171,8 +539,13 @@ async function cmdDesign(description) {
   }
 
   console.log(`Generating design from: "${description}"`);
-  const { designFromText } = await import('../scripts/design-reviewer.js');
-  const result = await designFromText(description.trim());
+  const result = await runDesignTask({
+    freecadRoot: PROJECT_ROOT,
+    runScript,
+    loadConfig,
+    mode: 'design',
+    description: description.trim(),
+  });
 
   if (!result.toml) {
     console.error('Error: Failed to generate valid TOML');
@@ -207,326 +580,6 @@ async function cmdDesign(description) {
   console.log('\nBuilding model...');
   await cmdCreate(tomlPath);
   console.log(`\nView: fcad serve → http://localhost:3000 → select ${fileName}`);
-}
-
-function nowIso() {
-  return new Date().toISOString();
-}
-
-function initRunLog(command, configPath, modelName = 'unnamed') {
-  return {
-    schema_version: '0.1',
-    command,
-    config_path: configPath,
-    model_name: modelName,
-    started_at: nowIso(),
-    started_ms: Date.now(),
-    finished_at: null,
-    duration_ms: null,
-    status: 'running',
-    stages: [],
-    artifacts: {},
-  };
-}
-
-function beginStage(runLog, name, meta = {}) {
-  const stage = {
-    name,
-    status: 'running',
-    started_at: nowIso(),
-    started_ms: Date.now(),
-    ...meta,
-  };
-  runLog.stages.push(stage);
-  return stage;
-}
-
-function endStage(stage, status = 'ok', meta = {}) {
-  if (!stage) return;
-  stage.status = status;
-  stage.finished_at = nowIso();
-  stage.duration_ms = Math.max(0, Date.now() - (stage.started_ms || Date.now()));
-  delete stage.started_ms;
-  Object.assign(stage, meta);
-}
-
-function addSkippedStage(runLog, name, reason) {
-  runLog.stages.push({
-    name,
-    status: 'skipped',
-    reason,
-    started_at: nowIso(),
-    finished_at: nowIso(),
-    duration_ms: 0,
-  });
-}
-
-function finalizeRunLog(runLog) {
-  for (const stage of runLog.stages || []) {
-    if (typeof stage.started_ms === 'number') {
-      stage.finished_at = stage.finished_at || nowIso();
-      stage.duration_ms = stage.duration_ms ?? Math.max(0, Date.now() - stage.started_ms);
-      delete stage.started_ms;
-      if (stage.status === 'running') {
-        stage.status = runLog.status === 'failed' ? 'failed' : 'aborted';
-      }
-    }
-  }
-  runLog.finished_at = runLog.finished_at || nowIso();
-  runLog.duration_ms = runLog.duration_ms ?? Math.max(0, Date.now() - (runLog.started_ms || Date.now()));
-  delete runLog.started_ms;
-}
-
-function writeJson(filepath, payload) {
-  writeFileSync(filepath, JSON.stringify(payload, null, 2));
-}
-
-function resolveArtifactStem(config, result) {
-  const svgPath = (result?.drawing_paths || []).find(dp => dp.format === 'svg')?.path;
-  if (svgPath) {
-    const normalized = svgPath.replace(/\\/g, '/');
-    const name = normalized.split('/').pop() || '';
-    return name.replace(/_drawing\.svg$/i, '').replace(/\.svg$/i, '') || (config.name || 'unnamed');
-  }
-  return config.name || 'unnamed';
-}
-
-function resolveArtifactDir(config, result) {
-  const svgPath = (result?.drawing_paths || []).find(dp => dp.format === 'svg')?.path;
-  if (svgPath) {
-    const normalized = svgPath.replace(/\\/g, '/');
-    return resolve(dirname(normalized));
-  }
-  return resolve(config?.export?.directory || join(PROJECT_ROOT, 'output'));
-}
-
-function ensureDrawSchema(config) {
-  config.drawing = config.drawing || {};
-  config.drawing.units = config.drawing.units || 'mm';
-  config.drawing.meta = config.drawing.meta || {};
-  const meta = config.drawing.meta;
-  meta.part_name = meta.part_name || config.name || 'unnamed';
-  meta.material = meta.material || config.material || 'UNKNOWN';
-  meta.units = meta.units || config.drawing.units;
-  meta.tolerance_grade = meta.tolerance_grade || meta.tolerance || '';
-  meta.surface_roughness_default = meta.surface_roughness_default
-    || config.drawing.surface_finish?.default
-    || '';
-  config.drawing.datums = config.drawing.datums || [];
-  config.drawing.key_dims = config.drawing.key_dims || [];
-  config.drawing.thread_specs = config.drawing.thread_specs || config.drawing.threads || [];
-  if (!config.exceptions || typeof config.exceptions !== 'object') {
-    config.exceptions = { rules: [] };
-  } else if (!Array.isArray(config.exceptions.rules)) {
-    config.exceptions.rules = [];
-  }
-}
-
-function buildTraceabilityFallback(config) {
-  const intents = config?.drawing_plan?.dim_intents || [];
-  const dimensions = intents.map((di) => ({
-    dim_id: di.id || '',
-    source: 'plan',
-    view: di.view || null,
-    feature: di.feature || null,
-    status: di.value_mm == null ? 'missing_value' : 'planned',
-    rendered: false,
-    value_mm: di.value_mm ?? null,
-    drawing_object_id: null,
-  }));
-  const links = dimensions
-    .filter(d => d.feature)
-    .map(d => ({
-      dim_id: d.dim_id,
-      feature_key: d.feature,
-      feature_id: null,
-      status: d.status,
-      rendered: d.rendered,
-    }));
-  return {
-    schema_version: '0.1',
-    model_name: config?.name || 'unnamed',
-    features: [],
-    dimensions,
-    links,
-    summary: {
-      feature_count: 0,
-      dimension_count: dimensions.length,
-      linked_dimensions: 0,
-      unresolved_dimensions: links.map(l => l.dim_id),
-    },
-  };
-}
-
-function normalizeSeverity(raw) {
-  const sev = (raw || '').toLowerCase();
-  if (sev === 'error' || sev === 'high') return 'high';
-  if (sev === 'warning' || sev === 'medium') return 'medium';
-  return 'low';
-}
-
-function buildQaIssueReport(qaReport = {}, repairReport = null) {
-  const metrics = qaReport.metrics || {};
-  const details = qaReport.details || {};
-  const issues = [];
-  let seq = 1;
-
-  const pushIssue = ({
-    category,
-    severity = 'medium',
-    rule_id,
-    suggestion,
-    location = {},
-    related_dim_ids = [],
-    evidence = {},
-  }) => {
-    issues.push({
-      id: `ISSUE_${String(seq++).padStart(3, '0')}`,
-      category,
-      severity,
-      location,
-      related_dim_ids,
-      rule_id,
-      suggestion,
-      evidence,
-    });
-  };
-
-  for (const ov of details.overflows || []) {
-    pushIssue({
-      category: 'layout',
-      severity: 'medium',
-      rule_id: 'layout_overflow',
-      suggestion: 'Reduce scale or trigger layout/overflow repair.',
-      location: { view: ov.view || 'unknown' },
-      evidence: ov,
-    });
-  }
-
-  for (const ol of details.text_overlaps || []) {
-    pushIssue({
-      category: 'readability',
-      severity: 'medium',
-      rule_id: 'text_overlap',
-      suggestion: 'Move dimension text/notes or reroute leaders.',
-      location: { view: ol.view || 'unknown' },
-      evidence: ol,
-    });
-  }
-
-  const missingIds = details.required_presence_missing_ids || [];
-  if (missingIds.length > 0) {
-    pushIssue({
-      category: 'completeness',
-      severity: 'high',
-      rule_id: 'required_dim_missing',
-      suggestion: 'Add missing required dimensions from drawing_plan.',
-      location: { view: 'page' },
-      related_dim_ids: missingIds,
-      evidence: { missing_count: missingIds.length },
-    });
-  }
-
-  if (metrics.virtual_pcd_present === false) {
-    pushIssue({
-      category: 'standards',
-      severity: 'medium',
-      rule_id: 'virtual_pcd_missing',
-      suggestion: 'Inject virtual PCD circle or add explicit PCD callout.',
-      location: { view: 'front' },
-    });
-  }
-
-  if (typeof metrics.note_semantic_mismatch === 'number' && metrics.note_semantic_mismatch > 0) {
-    pushIssue({
-      category: 'standards',
-      severity: 'medium',
-      rule_id: 'note_semantic_mismatch',
-      suggestion: 'Align note text with dimensional intent/part type.',
-      location: { view: 'notes' },
-      evidence: { mismatch_count: metrics.note_semantic_mismatch },
-    });
-  }
-
-  for (const risk of repairReport?.risks || []) {
-    pushIssue({
-      category: 'repair',
-      severity: normalizeSeverity(risk.severity),
-      rule_id: risk.code || 'repair_risk',
-      suggestion: 'Review residual risk after auto-repair pass.',
-      location: { view: risk.view || 'page' },
-      evidence: risk,
-    });
-  }
-
-  const byCategory = {};
-  const bySeverity = {};
-  for (const it of issues) {
-    byCategory[it.category] = (byCategory[it.category] || 0) + 1;
-    bySeverity[it.severity] = (bySeverity[it.severity] || 0) + 1;
-  }
-
-  return {
-    schema_version: '0.1',
-    file: qaReport.file || null,
-    score: qaReport.score ?? null,
-    generated_at: nowIso(),
-    issues,
-    summary: {
-      count: issues.length,
-      by_category: byCategory,
-      by_severity: bySeverity,
-    },
-  };
-}
-
-function buildDedupeDiagnostics(dimensionMap = {}, dimConflicts = {}) {
-  const autoDims = Array.isArray(dimensionMap.auto_dimensions) ? dimensionMap.auto_dimensions : [];
-  const planDims = Array.isArray(dimensionMap.plan_dimensions) ? dimensionMap.plan_dimensions : [];
-  const conflicts = Array.isArray(dimConflicts.conflicts) ? dimConflicts.conflicts : [];
-
-  const skipped = planDims.filter(d => d.status === 'skipped_duplicate');
-  const rendered = planDims.filter(d => d.rendered);
-  const byReason = {};
-  const byBucket = {};
-  const byAutoCategory = {};
-  for (const d of skipped) {
-    const reason = d.reason || 'unknown';
-    byReason[reason] = (byReason[reason] || 0) + 1;
-    const bucket = d.dedupe_match?.bucket || 'unknown';
-    byBucket[bucket] = (byBucket[bucket] || 0) + 1;
-    const cat = d.dedupe_match?.auto_category || 'unknown';
-    byAutoCategory[cat] = (byAutoCategory[cat] || 0) + 1;
-  }
-
-  const crossView = conflicts.filter(c => c.reason === 'cross_view_redundant');
-  const planVsAuto = conflicts.filter(c => c.reason === 'plan_dim_skipped_due_to_auto_match');
-
-  return {
-    schema_version: '0.1',
-    generated_at: nowIso(),
-    summary: {
-      auto_dimension_count: autoDims.length,
-      plan_dimension_count: planDims.length,
-      plan_rendered_count: rendered.length,
-      plan_skipped_duplicate_count: skipped.length,
-      cross_view_redundant_count: crossView.length,
-      plan_vs_auto_duplicate_count: planVsAuto.length,
-      by_reason: byReason,
-      by_bucket: byBucket,
-      by_auto_category: byAutoCategory,
-    },
-    plan_skipped_duplicates: skipped.map(d => ({
-      dim_id: d.dim_id,
-      feature: d.feature || null,
-      view: d.view || null,
-      value_mm: d.value_mm ?? null,
-      reason: d.reason || null,
-      dedupe_match: d.dedupe_match || null,
-    })),
-    cross_view_redundant_conflicts: crossView,
-    plan_vs_auto_conflicts: planVsAuto,
-  };
 }
 
 async function cmdDraw(rawArgs = []) {
@@ -565,325 +618,20 @@ async function cmdDraw(rawArgs = []) {
     console.error('  fcad draw configs/examples/ks_flange.toml');
     process.exit(1);
   }
-
-  const absPath = resolve(configPath);
-  console.log(`Loading config: ${absPath}`);
-
-  const runLog = initRunLog('draw', absPath);
-  let artifactDir = join(PROJECT_ROOT, 'output');
-  let artifactStem = 'unnamed';
-
-  try {
-    const loadStage = beginStage(runLog, 'load_config');
-    const config = await loadConfig(absPath);
-    ensureDrawSchema(config);
-    artifactStem = config.name || artifactStem;
-    endStage(loadStage, 'ok', { model_name: artifactStem });
-
-    // --override <path>: merge override TOML/JSON on top of base config
-    if (overridePath) {
-      const overrideStage = beginStage(runLog, 'apply_override', { path: resolve(overridePath) });
-      const absOvPath = resolve(overridePath);
-      const overrideCfg = await loadConfig(absOvPath);
-      deepMerge(config, overrideCfg);
-      console.log(`  Override: ${absOvPath}`);
-      endStage(overrideStage, 'ok');
-    }
-
-    // Inject --bom flag into drawing config
-    if (flags.includes('--bom')) {
-      config.drawing.bom_csv = true;
-    }
-
-    // Ensure drawing section exists with defaults
-    if (!config.drawing.views) {
-      config.drawing.views = ['front', 'top', 'right', 'iso'];
-    }
-
-    // Intent Plan (Phase 19) — enrich config with drawing_plan
-    if (!flags.includes('--no-plan')) {
-      const planStage = beginStage(runLog, 'intent_compile');
-      const compilerScript = join(PROJECT_ROOT, 'scripts', 'intent_compiler.py');
-      try {
-        const enriched = execSync(
-          `python3 "${compilerScript}"`,
-          { input: JSON.stringify(config), encoding: 'utf-8', timeout: 15_000 }
-        );
-        const enrichedConfig = JSON.parse(enriched);
-        Object.assign(config, enrichedConfig);
-        console.log(`  Plan: ${config.drawing_plan?.part_type || 'unknown'} template applied`);
-
-        // Sync plan views → drawing.views (plan is authoritative after compilation)
-        const planViews = config.drawing_plan?.views?.enabled;
-        if (planViews && planViews.length > 0) {
-          config.drawing.views = planViews;
-        }
-        endStage(planStage, 'ok', { part_type: config.drawing_plan?.part_type || 'unknown' });
-      } catch (e) {
-        const msg = e.stderr ? e.stderr.toString().trim() : e.message;
-        console.error(`  Plan warning: ${msg} (falling back to default)`);
-        endStage(planStage, 'warning', { warning: msg });
-      }
-    } else {
-      addSkippedStage(runLog, 'intent_compile', '--no-plan');
-    }
-
-    const modelName = config.name || 'unnamed';
-    artifactStem = modelName;
-    console.log(`Generating drawing: ${modelName}`);
-    console.log(`  Views: ${config.drawing.views.join(', ')}`);
-
-    const drawStage = beginStage(runLog, 'generate_drawing', { views: config.drawing.views });
-    let result;
-    try {
-      result = await runScript('generate_drawing.py', config, {
-        timeout: 180_000,
-        onStderr: (text) => process.stderr.write(text),
-      });
-      endStage(drawStage, 'ok', {
-        scale: result.scale,
-        views_generated: result.views?.length || 0,
-      });
-    } catch (err) {
-      endStage(drawStage, 'failed', { error: err.message });
-      throw err;
-    }
-
-    if (!result.success) {
-      throw new Error(result.error || 'generate_drawing.py returned success=false');
-    }
-
-    artifactDir = resolveArtifactDir(config, result);
-    artifactStem = resolveArtifactStem(config, result);
-    mkdirSync(artifactDir, { recursive: true });
-
-    console.log(`\nDrawing generated!`);
-    console.log(`  Scale: ${result.scale}`);
-    console.log(`  Views: ${result.views.join(', ')}`);
-    for (const dp of result.drawing_paths) {
-      console.log(`  ${dp.format.toUpperCase()}: ${dp.path} (${dp.size_bytes} bytes)`);
-    }
-    if (result.bom?.length > 0) {
-      console.log(`\n  BOM (${result.bom.length} items):`);
-      for (const item of result.bom) {
-        const joint = item.joint ? ` [${item.joint.type}: ${item.joint.id}]` : '';
-        console.log(`    ${item.id}: ${item.material} ${item.dimensions}${joint}`);
-      }
-    }
-
-    const persistStage = beginStage(runLog, 'persist_draw_artifacts');
-    try {
-      const traceability = result.traceability || buildTraceabilityFallback(config);
-      const layoutReport = result.layout_report || { summary: { view_count: result.views?.length || 0 } };
-      const dimensionMap = result.dimension_map || { auto_dimensions: [], plan_dimensions: [], summary: {} };
-      const dimConflicts = result.dim_conflicts || { conflicts: [], summary: { count: 0 } };
-
-      const traceabilityPath = join(artifactDir, `${artifactStem}_traceability.json`);
-      const layoutPath = join(artifactDir, `${artifactStem}_layout_report.json`);
-      const dimMapPath = join(artifactDir, `${artifactStem}_dimension_map.json`);
-      const conflictPath = join(artifactDir, `${artifactStem}_dim_conflicts.json`);
-      const dedupePath = join(artifactDir, `${artifactStem}_dedupe_diagnostics.json`);
-
-      writeJson(traceabilityPath, traceability);
-      writeJson(layoutPath, layoutReport);
-      writeJson(dimMapPath, dimensionMap);
-      writeJson(conflictPath, dimConflicts);
-      writeJson(dedupePath, buildDedupeDiagnostics(dimensionMap, dimConflicts));
-
-      runLog.artifacts.traceability = traceabilityPath;
-      runLog.artifacts.layout_report = layoutPath;
-      runLog.artifacts.dimension_map = dimMapPath;
-      runLog.artifacts.dim_conflicts = conflictPath;
-      runLog.artifacts.dedupe_diagnostics = dedupePath;
-      endStage(persistStage, 'ok', { count: 5 });
-    } catch (err) {
-      endStage(persistStage, 'warning', { warning: err.message });
-    }
-
-    // Step 2-3: Post-process + QA (with before/after merge)
-    const svgPaths = (result.drawing_paths || [])
-      .filter(dp => dp.format === 'svg')
-      .map(dp => dp.path.replace(/\\/g, '/'));
-    const qaScript = join(PROJECT_ROOT, 'scripts', 'qa_scorer.py');
-    const ppScript = join(PROJECT_ROOT, 'scripts', 'postprocess_svg.py');
-    const failUnder = failUnderValue ? ` --fail-under ${failUnderValue}` : '';
-    const qaWeightPreset =
-      weightsPresetValue
-      || config.drawing_plan?.dimensioning?.qa_weight_preset
-      || '';
-    const qaWeightArg = qaWeightPreset ? ` --weights-preset ${qaWeightPreset}` : '';
-
-    // Save plan as TOML for debugging/QA (project convention: TOML for configs)
-    let planArg = '';
-    if (config.drawing_plan) {
-      const planStage = beginStage(runLog, 'save_plan');
-      const planPath = join(artifactDir, `${artifactStem}_plan.toml`);
-      try {
-        writeFileSync(planPath, tomlStringify({ drawing_plan: config.drawing_plan }));
-        planArg = ` --plan "${planPath}"`;
-        runLog.artifacts.plan = planPath;
-        endStage(planStage, 'ok');
-      } catch (tomlErr) {
-        console.error(`  TOML stringify failed, falling back to JSON: ${tomlErr.message}`);
-        const jsonPath = planPath.replace('.toml', '.json');
-        writeJson(jsonPath, { drawing_plan: config.drawing_plan });
-        planArg = ` --plan "${jsonPath}"`;
-        runLog.artifacts.plan = jsonPath;
-        endStage(planStage, 'ok', { format: 'json_fallback' });
-      }
-    } else {
-      addSkippedStage(runLog, 'save_plan', 'no drawing_plan');
-    }
-
-    for (const svgPath of svgPaths) {
-      const reportJson = svgPath.replace('.svg', '_repair_report.json');
-      const qaJson = svgPath.replace('.svg', '_qa.json');
-      const qaIssuesJson = svgPath.replace('.svg', '_qa_issues.json');
-
-      // Step 2a: QA before (on raw SVG)
-      let qaBefore = null;
-      if (!flags.includes('--no-score') && !flags.includes('--raw')) {
-        const qaBeforeStage = beginStage(runLog, 'qa_before', { svg: svgPath });
-        try {
-          const qaBeforeJson = svgPath.replace('.svg', '_qa_before.json');
-          execSync(
-            `python3 "${qaScript}" "${svgPath}" --json "${qaBeforeJson}"${planArg}`,
-            { cwd: PROJECT_ROOT, encoding: 'utf-8', timeout: 30_000 }
-          );
-          qaBefore = JSON.parse(readFileSync(qaBeforeJson, 'utf-8'));
-          endStage(qaBeforeStage, 'ok', { score: qaBefore.score ?? null });
-        } catch (e) {
-          console.error(`  QA before warning: ${e.message}`);
-          endStage(qaBeforeStage, 'warning', { warning: e.message });
-        }
-      }
-
-      // Step 2b: SVG Post-Processing
-      if (!flags.includes('--raw')) {
-        const postStage = beginStage(runLog, 'postprocess_svg', { svg: svgPath });
-        console.log('\nPost-processing SVG...');
-        try {
-          const strokeProfile = (config.drawing_plan?.style?.stroke_profile) || 'ks';
-          const ppOut = execSync(
-            `python3 "${ppScript}" "${svgPath}" -o "${svgPath}" --report "${reportJson}" --profile ${strokeProfile}${planArg}`,
-            { cwd: PROJECT_ROOT, encoding: 'utf-8', timeout: 30_000 }
-          );
-          if (ppOut.trim()) console.log(ppOut.trim());
-          // S3a: Inject plan metadata into repair report
-          try {
-            const rr = JSON.parse(readFileSync(reportJson, 'utf-8'));
-            rr.plan = config.drawing_plan
-              ? { used: true, template: config.drawing_plan.part_type || 'unknown', part_type: config.drawing_plan.part_type || 'unknown' }
-              : { used: false };
-            writeJson(reportJson, rr);
-          } catch (_) { /* report may not exist yet */ }
-          endStage(postStage, 'ok');
-        } catch (e) {
-          console.error(`  Post-process warning: ${e.message}`);
-          endStage(postStage, 'warning', { warning: e.message });
-        }
-      } else {
-        addSkippedStage(runLog, 'postprocess_svg', '--raw');
-      }
-
-      // Step 3: QA after + merge into repair report
-      if (!flags.includes('--no-score')) {
-        const qaStage = beginStage(runLog, 'qa_after', { svg: svgPath });
-        console.log('\nQA Scoring...');
-        try {
-          const qaOut = execSync(
-            `python3 "${qaScript}" "${svgPath}" --json "${qaJson}"${planArg}${qaWeightArg}${failUnder}`,
-            { cwd: PROJECT_ROOT, encoding: 'utf-8', timeout: 30_000 }
-          );
-          if (qaOut.trim()) console.log(qaOut.trim());
-
-          const qaAfter = JSON.parse(readFileSync(qaJson, 'utf-8'));
-          let repairReport = null;
-          if (existsSync(reportJson)) {
-            repairReport = JSON.parse(readFileSync(reportJson, 'utf-8'));
-          }
-
-          // Merge qa_diff into repair report
-          if (!flags.includes('--raw') && qaBefore && repairReport) {
-            try {
-              const beforeMetrics = qaBefore.metrics || {};
-              const afterMetrics = qaAfter.metrics || {};
-              const delta = {};
-              for (const key of Object.keys(beforeMetrics)) {
-                const bv = typeof beforeMetrics[key] === 'number' ? beforeMetrics[key] : 0;
-                const av = typeof afterMetrics[key] === 'number' ? afterMetrics[key] : 0;
-                delta[key] = av - bv;
-              }
-              repairReport.qa_diff = {
-                before: { score: qaBefore.score, metrics: beforeMetrics },
-                after: { score: qaAfter.score, metrics: afterMetrics },
-                delta: { score: (qaAfter.score || 0) - (qaBefore.score || 0), metrics: delta },
-                gate: {
-                  fail_under: failUnderValue ? parseInt(failUnderValue, 10) : null,
-                  passed: !failUnderValue || (qaAfter.score || 0) >= parseInt(failUnderValue, 10),
-                },
-              };
-              writeJson(reportJson, repairReport);
-              console.log(`  QA diff: ${qaBefore.score} → ${qaAfter.score} (${qaAfter.score - qaBefore.score >= 0 ? '+' : ''}${qaAfter.score - qaBefore.score})`);
-              // Clean up temporary before file
-              try {
-                unlinkSync(svgPath.replace('.svg', '_qa_before.json'));
-              } catch (err) {
-                if (err?.code !== 'ENOENT') {
-                  throw err;
-                }
-              }
-            } catch (mergeErr) {
-              console.error(`  QA merge warning: ${mergeErr.message}`);
-            }
-          }
-
-          // Emit normalized issue model for QA findings
-          try {
-            const issueReport = buildQaIssueReport(qaAfter, repairReport);
-            writeJson(qaIssuesJson, issueReport);
-            runLog.artifacts.qa_issues = runLog.artifacts.qa_issues || [];
-            runLog.artifacts.qa_issues.push(qaIssuesJson);
-            console.log(`  QA issues: ${qaIssuesJson}`);
-          } catch (issueErr) {
-            console.error(`  QA issue report warning: ${issueErr.message}`);
-          }
-
-          endStage(qaStage, 'ok', { score: qaAfter.score ?? null });
-        } catch (e) {
-          if (e.status) {
-            const msg = (e.stdout || e.message || '').toString().trim();
-            console.error(msg);
-            endStage(qaStage, 'failed', { error: msg });
-            throw new Error(msg || 'QA scoring failed');
-          }
-          console.error(`  QA warning: ${e.message}`);
-          endStage(qaStage, 'warning', { warning: e.message });
-        }
-      } else {
-        addSkippedStage(runLog, 'qa_after', '--no-score');
-      }
-    }
-
-    runLog.status = 'success';
-    return result;
-  } catch (err) {
-    runLog.status = 'failed';
-    runLog.error = err.message;
-    throw err;
-  } finally {
-    try {
-      mkdirSync(artifactDir, { recursive: true });
-      const runLogPath = join(artifactDir, `${artifactStem}_run_log.json`);
-      runLog.artifacts = runLog.artifacts || {};
-      runLog.artifacts.run_log = runLogPath;
-      finalizeRunLog(runLog);
-      writeJson(runLogPath, runLog);
-      console.log(`  Run log: ${runLogPath}`);
-    } catch {
-      // Keep draw outcome intact even if log write fails.
-    }
-  }
+  return runDrawPipeline({
+    projectRoot: PROJECT_ROOT,
+    configPath,
+    flags,
+    overridePath,
+    failUnderValue,
+    weightsPresetValue,
+    loadConfig,
+    deepMerge,
+    generateDrawing,
+    runScript: runWithCliStderr,
+    onInfo: (message) => console.log(message),
+    onError: (message) => console.error(message),
+  });
 }
 
 async function cmdCreate(configPath) {
@@ -900,8 +648,14 @@ async function cmdCreate(configPath) {
   console.log(`  Shapes: ${config.shapes?.length || 0}`);
   console.log(`  Operations: ${config.operations?.length || 0}`);
 
-  const result = await runScript('create_model.py', config, {
-    onStderr: (text) => process.stderr.write(text),
+  const result = await createModel({
+    freecadRoot: PROJECT_ROOT,
+    runScript: (script, input, opts = {}) => runScript(script, input, {
+      ...opts,
+      onStderr: (text) => process.stderr.write(text),
+    }),
+    loadConfig,
+    config,
   });
 
   if (result.success) {
@@ -945,9 +699,13 @@ async function cmdFem(configPath) {
   console.log(`  Shapes: ${config.shapes?.length || 0}`);
   console.log(`  Constraints: ${config.fem?.constraints?.length || 0}`);
 
-  const result = await runScript('fem_analysis.py', config, {
-    timeout: 300_000,
-    onStderr: (text) => process.stderr.write(text),
+  const result = await runFemService({
+    freecadRoot: PROJECT_ROOT,
+    runScript: runWithCliStderr,
+    loadConfig,
+    configPath: absPath,
+    config,
+    fem: config.fem || {},
   });
 
   if (result.success) {
@@ -991,22 +749,20 @@ async function cmdTolerance(configPath, flags = []) {
 
   // Inject flags into tolerance config
   config.tolerance = config.tolerance || {};
-  if (flags.includes('--recommend')) {
-    config.tolerance.recommend = true;
-  }
-  if (flags.includes('--csv')) {
-    config.tolerance.csv = true;
-  }
-  if (flags.includes('--monte-carlo')) {
-    config.tolerance.monte_carlo = true;
-  }
+  if (flags.includes('--recommend')) config.tolerance.recommend = true;
+  if (flags.includes('--csv')) config.tolerance.csv = true;
+  if (flags.includes('--monte-carlo')) config.tolerance.monte_carlo = true;
 
   const modelName = config.name || 'unnamed';
   console.log(`Tolerance Analysis: ${modelName}`);
 
-  const result = await runScript('tolerance_analysis.py', config, {
-    timeout: 120_000,
-    onStderr: (text) => process.stderr.write(text),
+  const result = await runToleranceService({
+    freecadRoot: PROJECT_ROOT,
+    runScript: runWithCliStderr,
+    loadConfig,
+    config,
+    standard: config.standard || 'KS',
+    monteCarlo: flags.includes('--monte-carlo') ? true : undefined,
   });
 
   if (result.success) {
@@ -1123,9 +879,13 @@ async function cmdDfm(rawArgs = []) {
   const modelName = config.name || 'unnamed';
   console.log(`DFM Analysis: ${modelName} (process: ${config.manufacturing.process || 'machining'})\n`);
 
-  const result = await runScript('dfm_checker.py', config, {
-    timeout: 30_000,
-    onStderr: (text) => process.stderr.write(text),
+  const result = await runDfm({
+    freecadRoot: PROJECT_ROOT,
+    runScript: runWithCliStderr,
+    loadConfig,
+    config,
+    process: config.manufacturing.process || 'machining',
+    standard: config.standard || 'KS',
   });
 
   if (result.success) {
@@ -1176,14 +936,11 @@ async function cmdReport(configPath, flags = []) {
   const absPath = resolve(configPath);
   console.log(`Loading config: ${absPath}`);
   const config = await loadConfig(absPath);
-  const modelName = config.name || 'unnamed';
-
   const includeTolerance = !flags.includes('--no-tolerance');
   const includeFem = flags.includes('--fem');
   const includeMC = flags.includes('--monte-carlo');
   const includeDfm = flags.includes('--dfm');
-
-  const reportInput = { ...config };
+  const analysisResults = {};
 
   // Step 1: Run tolerance analysis if needed
   if (includeTolerance && config.assembly) {
@@ -1191,18 +948,16 @@ async function cmdReport(configPath, flags = []) {
     config.tolerance = config.tolerance || {};
     if (includeMC) config.tolerance.monte_carlo = true;
 
-    const tolResult = await runScript('tolerance_analysis.py', config, {
-      timeout: 120_000,
-      onStderr: (text) => process.stderr.write(text),
+    const tolResult = await runToleranceService({
+      freecadRoot: PROJECT_ROOT,
+      runScript: runWithCliStderr,
+      loadConfig,
+      config,
+      standard: config.standard || 'KS',
+      monteCarlo: includeMC ? true : undefined,
     });
     if (tolResult.success) {
-      reportInput.tolerance_results = {
-        pairs: tolResult.pairs,
-        stack_up: tolResult.stack_up,
-      };
-      if (tolResult.monte_carlo) {
-        reportInput.monte_carlo_results = tolResult.monte_carlo;
-      }
+      analysisResults.tolerance = tolResult;
       console.log(`  ${tolResult.pairs?.length || 0} tolerance pair(s) analyzed`);
     }
   }
@@ -1210,13 +965,16 @@ async function cmdReport(configPath, flags = []) {
   // Step 1.5: Run DFM analysis if requested
   if (includeDfm) {
     console.log('Running DFM analysis...');
-    reportInput.manufacturing = reportInput.manufacturing || {};
-    const dfmResult = await runScript('dfm_checker.py', reportInput, {
-      timeout: 30_000,
-      onStderr: (text) => process.stderr.write(text),
+    const dfmResult = await runDfm({
+      freecadRoot: PROJECT_ROOT,
+      runScript: runWithCliStderr,
+      loadConfig,
+      config,
+      process: config.manufacturing?.process || 'machining',
+      standard: config.standard || 'KS',
     });
     if (dfmResult.success) {
-      reportInput.dfm_results = dfmResult;
+      analysisResults.dfm = dfmResult;
       console.log(`  DFM score: ${dfmResult.score}/100 (${dfmResult.summary?.errors || 0} errors, ${dfmResult.summary?.warnings || 0} warnings)`);
     }
   }
@@ -1224,21 +982,33 @@ async function cmdReport(configPath, flags = []) {
   // Step 2: Run FEM analysis if requested
   if (includeFem) {
     console.log('Running FEM analysis...');
-    const femResult = await runScript('fem_analysis.py', config, {
-      timeout: 300_000,
-      onStderr: (text) => process.stderr.write(text),
+    const femResult = await runFemService({
+      freecadRoot: PROJECT_ROOT,
+      runScript: runWithCliStderr,
+      loadConfig,
+      configPath: absPath,
+      config,
+      fem: config.fem || {},
     });
     if (femResult.success) {
-      reportInput.fem_results = femResult.results;
+      analysisResults.fem = femResult;
       console.log(`  FEM complete: safety factor = ${femResult.results?.safety_factor || '?'}`);
     }
   }
 
   // Step 3: Generate PDF report
   console.log('Generating PDF report...');
-  const result = await runScript('engineering_report.py', reportInput, {
-    timeout: 60_000,
-    onStderr: (text) => process.stderr.write(text),
+  const result = await generateReport({
+    freecadRoot: PROJECT_ROOT,
+    runScript: runWithCliStderr,
+    loadConfig,
+    configPath: absPath,
+    config,
+    includeDrawing: false,
+    includeDfm,
+    includeTolerance,
+    includeCost: false,
+    analysisResults,
   });
 
   if (result.success) {
@@ -1261,8 +1031,12 @@ async function cmdInspect(filePath) {
   const absPath = resolve(filePath);
   console.log(`Inspecting: ${absPath}`);
 
-  const result = await runScript('inspect_model.py', { file: absPath }, {
-    onStderr: (text) => process.stderr.write(text),
+  const result = await inspectModel({
+    runScript: (script, input, opts = {}) => runScript(script, input, {
+      ...opts,
+      onStderr: (text) => process.stderr.write(text),
+    }),
+    filePath: absPath,
   });
 
   if (result.success) {
