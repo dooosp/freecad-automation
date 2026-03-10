@@ -39,7 +39,7 @@ Scenario:
 
 Source config:
 
-- [infotainment_display_bracket.toml](/Users/jangtaeho/Documents/New/freecad-automation/configs/examples/infotainment_display_bracket.toml)
+- [infotainment_display_bracket.toml](../../configs/examples/infotainment_display_bracket.toml)
 
 ## Command Sequence
 
@@ -65,13 +65,13 @@ fcad readiness-report configs/examples/infotainment_display_bracket.toml \
 
 ## Checked-In Artifact Set
 
-- [review.json](/Users/jangtaeho/Documents/New/freecad-automation/docs/examples/infotainment-display-bracket/review.json)
-- [process-plan.json](/Users/jangtaeho/Documents/New/freecad-automation/docs/examples/infotainment-display-bracket/process-plan.json)
-- [line-plan.json](/Users/jangtaeho/Documents/New/freecad-automation/docs/examples/infotainment-display-bracket/line-plan.json)
-- [quality-risk.json](/Users/jangtaeho/Documents/New/freecad-automation/docs/examples/infotainment-display-bracket/quality-risk.json)
-- [investment-review.json](/Users/jangtaeho/Documents/New/freecad-automation/docs/examples/infotainment-display-bracket/investment-review.json)
-- [readiness-report.json](/Users/jangtaeho/Documents/New/freecad-automation/docs/examples/infotainment-display-bracket/readiness-report.json)
-- [readiness-report.md](/Users/jangtaeho/Documents/New/freecad-automation/docs/examples/infotainment-display-bracket/readiness-report.md)
+- [review.json](../examples/infotainment-display-bracket/review.json)
+- [process-plan.json](../examples/infotainment-display-bracket/process-plan.json)
+- [line-plan.json](../examples/infotainment-display-bracket/line-plan.json)
+- [quality-risk.json](../examples/infotainment-display-bracket/quality-risk.json)
+- [investment-review.json](../examples/infotainment-display-bracket/investment-review.json)
+- [readiness-report.json](../examples/infotainment-display-bracket/readiness-report.json)
+- [readiness-report.md](../examples/infotainment-display-bracket/readiness-report.md)
 
 ## Key Findings
 
@@ -178,4 +178,3 @@ This workflow is still heuristic.
 - It does not replace time study, PFMEA, control-plan ownership, or detailed site validation.
 
 Its value is earlier than that: it helps surface production-engineering concerns while the design and planning conversation is still flexible.
-

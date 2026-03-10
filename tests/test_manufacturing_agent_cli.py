@@ -1,4 +1,5 @@
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -138,3 +139,20 @@ def test_checked_in_case_study_artifacts_exist_and_are_consistent():
     readiness = json.loads((DOC_EXAMPLE / "readiness-report.json").read_text(encoding="utf-8"))
     assert review["part"]["name"] == readiness["part"]["name"]
     assert readiness["summary"]["top_issues"]
+
+
+def test_markdown_docs_do_not_contain_local_paths_and_links_resolve():
+    markdown_files = [ROOT / "README.md", *sorted((ROOT / "docs").rglob("*.md"))]
+    link_pattern = re.compile(r"\]\(([^)]+)\)")
+
+    for markdown_file in markdown_files:
+        content = markdown_file.read_text(encoding="utf-8")
+        assert "/Users/" not in content, f"machine-local path found in {markdown_file}"
+
+        for raw_target in link_pattern.findall(content):
+            target = raw_target.split("#", 1)[0].strip()
+            if not target or target.startswith(("http://", "https://", "mailto:", "#")):
+                continue
+
+            resolved = (markdown_file.parent / target).resolve()
+            assert resolved.exists(), f"broken markdown link in {markdown_file}: {raw_target}"

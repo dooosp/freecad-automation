@@ -23,6 +23,15 @@ This project is aimed at the gap between design data and production-engineering 
 - It gives a screening-level view of setup, tooling, automation candidates, and investment pressure.
 - It supports discussion for domestic and overseas launch readiness without pretending to be a full factory simulation.
 
+## Start Here
+
+If you are reviewing this repository on GitHub:
+
+1. Read the [infotainment production readiness case study](./docs/portfolio/infotainment-production-readiness-case.md).
+2. Open the [checked-in example artifact set](./docs/examples/infotainment-display-bracket/README.md).
+3. Skim the [readiness report markdown](./docs/examples/infotainment-display-bracket/readiness-report.md).
+4. Then inspect the [example config](./configs/examples/infotainment_display_bracket.toml) and the command flow below.
+
 ## Target Use Cases
 
 - design-stage structure review for AVN, HUD, cluster, ICC, and controller/display subassemblies
@@ -110,8 +119,8 @@ The readiness workflow produces a JSON report and a Markdown summary that bundle
 
 For a checked-in example that can be reviewed without running the CLI, see:
 
-- [infotainment-production-readiness-case.md](/Users/jangtaeho/Documents/New/freecad-automation/docs/portfolio/infotainment-production-readiness-case.md)
-- [docs/examples/infotainment-display-bracket](/Users/jangtaeho/Documents/New/freecad-automation/docs/examples/infotainment-display-bracket)
+- [Infotainment production readiness case](./docs/portfolio/infotainment-production-readiness-case.md)
+- [Checked-in example artifact set](./docs/examples/infotainment-display-bracket/README.md)
 
 This case shows `config -> review -> process-plan -> line-plan -> quality-risk -> investment-review -> readiness-report` for an infotainment display bracket scenario.
 
@@ -160,7 +169,7 @@ CLI (fcad / mfg-agent)
 - `scripts/intent_compiler.py`: part-type inference and drawing-plan strategy
 - `schemas/`: output contracts for review, process-plan, line-plan, quality-risk, investment-review, readiness-report
 
-See [production-readiness-refactor.md](/Users/jangtaeho/Documents/New/freecad-automation/docs/production-readiness-refactor.md) for the codebase refactoring map.
+See [production-readiness-refactor.md](./docs/production-readiness-refactor.md) for the codebase refactoring map.
 
 ## Installation
 
@@ -197,12 +206,12 @@ npm run check:runtime
 
 ## Output Contracts
 
-- [product_review.schema.json](/Users/jangtaeho/Documents/New/freecad-automation/schemas/product_review.schema.json)
-- [process_plan.schema.json](/Users/jangtaeho/Documents/New/freecad-automation/schemas/process_plan.schema.json)
-- [line_plan.schema.json](/Users/jangtaeho/Documents/New/freecad-automation/schemas/line_plan.schema.json)
-- [quality_risk_pack.schema.json](/Users/jangtaeho/Documents/New/freecad-automation/schemas/quality_risk_pack.schema.json)
-- [investment_review.schema.json](/Users/jangtaeho/Documents/New/freecad-automation/schemas/investment_review.schema.json)
-- [readiness_report.schema.json](/Users/jangtaeho/Documents/New/freecad-automation/schemas/readiness_report.schema.json)
+- [product_review.schema.json](./schemas/product_review.schema.json)
+- [process_plan.schema.json](./schemas/process_plan.schema.json)
+- [line_plan.schema.json](./schemas/line_plan.schema.json)
+- [quality_risk_pack.schema.json](./schemas/quality_risk_pack.schema.json)
+- [investment_review.schema.json](./schemas/investment_review.schema.json)
+- [readiness_report.schema.json](./schemas/readiness_report.schema.json)
 
 ## Testing
 

@@ -50,16 +50,15 @@ These commands are heuristic planning aids. They are intended for design review,
 
 ## Output Contracts
 
-- [product_review.schema.json](/Users/jangtaeho/Documents/New/freecad-automation/schemas/product_review.schema.json)
-- [process_plan.schema.json](/Users/jangtaeho/Documents/New/freecad-automation/schemas/process_plan.schema.json)
-- [line_plan.schema.json](/Users/jangtaeho/Documents/New/freecad-automation/schemas/line_plan.schema.json)
-- [quality_risk_pack.schema.json](/Users/jangtaeho/Documents/New/freecad-automation/schemas/quality_risk_pack.schema.json)
-- [investment_review.schema.json](/Users/jangtaeho/Documents/New/freecad-automation/schemas/investment_review.schema.json)
-- [readiness_report.schema.json](/Users/jangtaeho/Documents/New/freecad-automation/schemas/readiness_report.schema.json)
+- [product_review.schema.json](../schemas/product_review.schema.json)
+- [process_plan.schema.json](../schemas/process_plan.schema.json)
+- [line_plan.schema.json](../schemas/line_plan.schema.json)
+- [quality_risk_pack.schema.json](../schemas/quality_risk_pack.schema.json)
+- [investment_review.schema.json](../schemas/investment_review.schema.json)
+- [readiness_report.schema.json](../schemas/readiness_report.schema.json)
 
 ## Constraints
 
 - The workflow remains rule-based.
 - Process, line, and investment outputs are preliminary decision-support artifacts.
 - Existing CAD generation/drawing/report features remain intact rather than being rewritten.
-

@@ -14,9 +14,8 @@ Files:
 
 Case-study narrative:
 
-- [infotainment-production-readiness-case.md](/Users/jangtaeho/Documents/New/freecad-automation/docs/portfolio/infotainment-production-readiness-case.md)
+- [infotainment-production-readiness-case.md](../../portfolio/infotainment-production-readiness-case.md)
 
 These files are generated from:
 
-- [infotainment_display_bracket.toml](/Users/jangtaeho/Documents/New/freecad-automation/configs/examples/infotainment_display_bracket.toml)
-
+- [infotainment_display_bracket.toml](../../../configs/examples/infotainment_display_bracket.toml)
