@@ -1,0 +1,84 @@
+{
+  "site": "Korea-Ulsan",
+  "period": "pilot-week-3",
+  "line_name": "display_bracket_launch_line",
+  "stations": [
+    {
+      "station_id": "ST10",
+      "actual_ct_sec": 34.8,
+      "target_ct_sec": 36.0,
+      "fpy": 0.993,
+      "rework_rate": 0.004,
+      "scrap_rate": 0.001,
+      "downtime_pct": 2.4,
+      "operator_count": 1,
+      "changeover_time_sec": 180
+    },
+    {
+      "station_id": "ST20",
+      "actual_ct_sec": 31.2,
+      "target_ct_sec": 30.6,
+      "fpy": 0.987,
+      "rework_rate": 0.010,
+      "scrap_rate": 0.002,
+      "downtime_pct": 4.8,
+      "operator_count": 1,
+      "changeover_time_sec": 260
+    },
+    {
+      "station_id": "ST30",
+      "actual_ct_sec": 39.6,
+      "target_ct_sec": 36.0,
+      "fpy": 0.968,
+      "rework_rate": 0.023,
+      "scrap_rate": 0.004,
+      "downtime_pct": 7.4,
+      "operator_count": 2,
+      "changeover_time_sec": 510
+    },
+    {
+      "station_id": "ST40",
+      "actual_ct_sec": 37.8,
+      "target_ct_sec": 36.0,
+      "fpy": 0.972,
+      "rework_rate": 0.020,
+      "scrap_rate": 0.005,
+      "downtime_pct": 5.9,
+      "operator_count": 2,
+      "changeover_time_sec": 390
+    },
+    {
+      "station_id": "ST50",
+      "actual_ct_sec": 35.9,
+      "target_ct_sec": 36.0,
+      "fpy": 0.989,
+      "rework_rate": 0.008,
+      "scrap_rate": 0.002,
+      "downtime_pct": 3.5,
+      "operator_count": 1,
+      "changeover_time_sec": 220
+    },
+    {
+      "station_id": "ST60",
+      "actual_ct_sec": 44.2,
+      "target_ct_sec": 36.0,
+      "fpy": 0.951,
+      "rework_rate": 0.038,
+      "scrap_rate": 0.007,
+      "downtime_pct": 9.1,
+      "operator_count": 2,
+      "changeover_time_sec": 430
+    },
+    {
+      "station_id": "ST70",
+      "actual_ct_sec": 40.1,
+      "target_ct_sec": 36.0,
+      "fpy": 0.962,
+      "rework_rate": 0.027,
+      "scrap_rate": 0.005,
+      "downtime_pct": 6.8,
+      "operator_count": 2,
+      "changeover_time_sec": 340
+    }
+  ]
+}

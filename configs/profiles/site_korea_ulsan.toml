@@ -1,0 +1,17 @@
+name = "site_korea_ulsan"
+label = "Korea-Ulsan launch profile"
+description = "Pilot-line assumptions for the Korea-Ulsan infotainment assembly launch."
+
+[site]
+name = "Korea-Ulsan"
+region = "KR"
+shift_pattern = "2-shift"
+ramp_phase = "pilot"
+
+[line]
+target_ct_sec = 36
+target_fpy = 0.980
+max_rework_rate = 0.020
+max_scrap_rate = 0.005
+max_downtime_pct = 6.0
+changeover_guardrail_sec = 420

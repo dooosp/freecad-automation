@@ -1,0 +1,8 @@
+checkpoint,target,tolerance,method,sample_size,judgement_rule,remarks
+connector boss datum to PCB mount face,64,±0.10,Gauge / caliper / fixture check,Launch 100% then per control plan,Accept only when inside target and tolerance band,Draft generated planning aid. Engineering review required.
+cover sealing groove depth,2.4,±0.05,Gauge / caliper / fixture check,Launch 100% then per control plan,Accept only when inside target and tolerance band,Draft generated planning aid. Engineering review required.
+seal_groove_depth,2.4,±0.05,Gauge / caliper / fixture check,Launch 100% then per control plan,Accept only when inside target and tolerance band,Draft generated planning aid. Engineering review required.
+connector seating depth and alignment,See specification / test criterion,No deviation allowed,vision_or_go_no_go_confirmation,Per launch audit plan,Accept only when confirmation record is complete,Draft generated planning aid. Engineering review required.
+fastener torque trace result,See specification / test criterion,No deviation allowed,every_unit_digital_trace,Every unit,Accept only when confirmation record is complete,Draft generated planning aid. Engineering review required.
+barcode / serial pairing completeness,See specification / test criterion,No deviation allowed,every_unit_scan_and_match,Every unit,Accept only when confirmation record is complete,Draft generated planning aid. Engineering review required.
+EOL electrical / functional release,See specification / test criterion,No deviation allowed,end_of_line_functional_test,Every unit,Accept only when confirmation record is complete,Draft generated planning aid. Engineering review required.

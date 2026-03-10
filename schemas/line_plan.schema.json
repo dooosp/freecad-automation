@@ -19,6 +19,7 @@
     "traceability_capture_points": { "type": "array", "items": { "type": "object" } },
     "rework_repair_station": { "type": "object" },
     "operator_skill_sensitivity_notes": { "type": "array", "items": { "type": "string" } },
+    "runtime_summary": { "type": "object" },
     "line_engineering_assumptions": { "type": "object" },
     "layout_review_notes": { "type": "array", "items": { "type": "string" } }
   },

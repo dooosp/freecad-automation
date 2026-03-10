@@ -1,4 +1,5 @@
 import {
+  extractAssemblyMetadata,
   buildAssumptionNotes,
   buildDefaultAutomationCandidates,
   deriveOverallRiskLevel,
@@ -54,8 +55,56 @@ function buildBaseFlow(process, partType) {
   ];
 }
 
+function buildElectronicsAssemblyFlow(assemblyMeta = {}) {
+  if (!assemblyMeta.is_electronics_assembly) return [];
+
+  const steps = [
+    ['fixture load / unload consideration', 'Load the part into a guided nest and verify support / reach posture before assembly.'],
+  ];
+
+  if (assemblyMeta.pcb_insert_direction) {
+    steps.push(['PCB loading', `Insert PCB using the planned ${assemblyMeta.pcb_insert_direction} direction and protect solder-side contact surfaces.`]);
+  }
+
+  if (assemblyMeta.requires_connector_seating_confirmation) {
+    steps.push(['connector seating confirmation', 'Confirm connector alignment, seating depth, and harness mating stability before fastening release.']);
+    steps.push(['connector fit confirmation station', 'Verify connector fit, side access, and hand-tool / probe clearance under launch conditions.']);
+  }
+
+  if (assemblyMeta.requires_gasket) {
+    steps.push(['gasket application', 'Install gasket or seal element and prevent twist / pinch before closing the unit.']);
+    steps.push(['sealing confirmation', 'Verify gasket presence, compression path, and sealing-face cleanliness.']);
+  }
+
+  if (assemblyMeta.requires_torque_control) {
+    steps.push(['torque-controlled fastening', 'Complete fastening with torque trace capture and sequence control.']);
+    steps.push(['torque verification station', 'Review torque result, screw count completion, and fastening trace record.']);
+  }
+
+  if (assemblyMeta.requires_barcode_pairing) {
+    steps.push(['barcode / serial pairing', 'Capture housing / PCB / label pairing before the product leaves the controlled fixture.']);
+    steps.push(['barcode pairing station', 'Verify serialization linkage against the build record and traceability rule.']);
+  }
+
+  if (assemblyMeta.requires_vision_confirmation) {
+    steps.push(['vision inspection', 'Use vision confirmation for connector seating, label presence, or assembly completeness.']);
+    steps.push(['vision confirmation station', 'Hold vision recipe confirmation and launch tuning for cosmetics / connector / label checks.']);
+  }
+
+  if (assemblyMeta.requires_eol_electrical_test) {
+    steps.push(['EOL electrical test', `Run electrical / functional confirmation using ${assemblyMeta.functional_test_fixture_type || 'the defined'} test fixture.`]);
+    steps.push(['EOL electrical test station', 'Protect probe access, fixture loading time, and retest containment routing.']);
+  }
+
+  steps.push(['functional fit confirmation', 'Confirm final fit, cosmetic readiness, and downstream module install compatibility.']);
+  return steps;
+}
+
 function operationMode(stepName, automationMode) {
   if (/inspection/i.test(stepName)) return 'semi_auto';
+  if (/torque|barcode|vision|connector|eol|functional fit|fixture load/i.test(stepName)) {
+    return automationMode === 'manual' ? 'manual' : 'semi_auto';
+  }
   if (/incoming|packaging/i.test(stepName)) return 'manual';
   if (/laser|machining|casting|build/i.test(stepName)) return automationMode === 'manual' ? 'manual' : 'auto_capable';
   return automationMode === 'auto' ? 'auto_capable' : 'manual';
@@ -72,7 +121,11 @@ export function createProcessPlanningAgent() {
     const partType = enrichedConfig?.drawing_plan?.part_type || 'generic';
     const featureCounts = extractFeatureCounts(config);
     const criticalDimensions = extractCriticalDimensions(config);
-    const baseFlow = buildBaseFlow(part.process, partType);
+    const assemblyMeta = extractAssemblyMetadata(config);
+    const baseFlow = [
+      ...buildBaseFlow(part.process, partType),
+      ...buildElectronicsAssemblyFlow(assemblyMeta),
+    ];
     const automationCandidates = buildDefaultAutomationCandidates(config, featureCounts);
 
     const processFlow = baseFlow.map(([operation, purpose], index) => ({
@@ -99,6 +152,41 @@ export function createProcessPlanningAgent() {
           },
         ];
 
+    if (assemblyMeta.is_electronics_assembly) {
+      if (assemblyMeta.requires_connector_seating_confirmation) {
+        keyInspectionPoints.push({
+          id: 'assembly-connector-seat',
+          checkpoint: 'connector seating depth and alignment',
+          rationale: 'prevent connector misalignment and functional-test escapes',
+          control_method: 'vision_or_go_no_go_confirmation',
+        });
+      }
+      if (assemblyMeta.requires_torque_control) {
+        keyInspectionPoints.push({
+          id: 'assembly-torque-trace',
+          checkpoint: 'fastener torque trace result',
+          rationale: 'prevent under-torque / over-torque escapes',
+          control_method: 'every_unit_digital_trace',
+        });
+      }
+      if (assemblyMeta.requires_barcode_pairing) {
+        keyInspectionPoints.push({
+          id: 'assembly-serial-pairing',
+          checkpoint: 'barcode / serial pairing completeness',
+          rationale: 'protect traceability linkage across housing and PCB',
+          control_method: 'every_unit_scan_and_match',
+        });
+      }
+      if (assemblyMeta.requires_eol_electrical_test) {
+        keyInspectionPoints.push({
+          id: 'assembly-eol-test',
+          checkpoint: 'EOL electrical / functional release',
+          rationale: 'contain latent assembly and probing issues before shipment',
+          control_method: 'end_of_line_functional_test',
+        });
+      }
+    }
+
     const bottleneckRisks = [];
     if (featureCounts.holes >= 8) {
       bottleneckRisks.push('Hole-intensive design can increase handling and verification time.');
@@ -108,6 +196,18 @@ export function createProcessPlanningAgent() {
     }
     if (targets.annual_volume >= 150000 && targets.automation_mode === 'manual') {
       bottleneckRisks.push('Manual bias is aggressive relative to assumed volume; review automation split.');
+    }
+    if (assemblyMeta.connector_mating_force_n !== null && assemblyMeta.connector_mating_force_n >= 40) {
+      bottleneckRisks.push('Connector mating force is high enough to expose alignment, fixture support, and operator fatigue risk.');
+    }
+    if (assemblyMeta.requires_torque_control) {
+      bottleneckRisks.push('Torque-controlled fastening adds traceability, tool calibration, and launch debug time to the assembly flow.');
+    }
+    if (assemblyMeta.requires_gasket) {
+      bottleneckRisks.push('Gasket handling introduces sealing risk and visual confirmation burden during launch stabilization.');
+    }
+    if (assemblyMeta.requires_eol_electrical_test) {
+      bottleneckRisks.push('EOL electrical test can dominate ramp-up CT if fixture access and retest routing are not stabilized early.');
     }
 
     return {
@@ -125,6 +225,9 @@ export function createProcessPlanningAgent() {
         recommended_actions: summarizeActions([
           'Confirm inspection ownership for connector access, mounting pattern, and critical dimensions.',
           automationCandidates.length > 0 ? `Review automation candidates: ${automationCandidates.join(', ')}` : null,
+          assemblyMeta.is_electronics_assembly
+            ? 'Validate PCB loading, connector seating, torque traceability, and EOL test fixture assumptions with manufacturing engineering.'
+            : null,
           'Use the process sequence as a preliminary launch planning aid, then validate with site-specific PFMEA and layout data.',
         ]),
         likely_inspection_critical_features: keyInspectionPoints.map((point) => point.checkpoint).slice(0, 4),
@@ -134,6 +237,7 @@ export function createProcessPlanningAgent() {
       planning_basis: {
         part_type: partType,
         production_targets: targets,
+        assembly_metadata: assemblyMeta.is_electronics_assembly ? assemblyMeta : null,
         assumptions: buildAssumptionNotes(config),
       },
       process_flow: processFlow,

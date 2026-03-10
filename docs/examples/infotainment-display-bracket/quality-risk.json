@@ -24,6 +24,7 @@
     "recommended_actions": [
       "Lock critical dimensions into the launch control plan and reaction plan.",
       "Define operator / lot / revision linkage at the first in-line quality capture point.",
+      "Treat EOL fixture access and retest disposition as quality-system decisions, not only test-engineering details.",
       "Use the traceability scheme as a production-stabilization aid, not only as a reporting artifact."
     ],
     "likely_inspection_critical_features": [
@@ -66,7 +67,9 @@
     "serial_level": "tray_and_lot",
     "record_linkage": "revision + supplier lot + operator",
     "retention_note": "Keep launch trace records for domestic and overseas stabilization.",
-    "label_strategy": "tray label with program, rev, lot"
+    "label_strategy": "tray label with program, rev, lot",
+    "barcode_pairing_required": false,
+    "functional_test_fixture_type": null
   },
   "quality_risks": [
     {
@@ -92,6 +95,20 @@
       "title": "No fillet or chamfer operations found — internal corners may cause stress concentration",
       "recommendation": "Add fillet (R >= 0.5mm) or chamfer to internal corners",
       "source": "DFM-04"
+    },
+    {
+      "id": "assembly-fixture-loading",
+      "category": "electronics_assembly",
+      "severity": "medium",
+      "title": "Fixture loading sensitivity can extend CT and create false EOL failures",
+      "recommendation": "Review nest support, probe access, and load/unload ergonomics with launch samples."
+    },
+    {
+      "id": "assembly-eol-access",
+      "category": "electronics_assembly",
+      "severity": "medium",
+      "title": "EOL access / probing constraint can delay release and complicate containment",
+      "recommendation": "Confirm probing access, communication retry logic, and retest flow before SOP."
     },
     {
       "id": "heuristic-connector-clearance",
@@ -128,6 +145,9 @@
       "work_instruction",
       "inspection_checksheet",
       "launch_issue_log"
+    ],
+    "assembly_specific_controls": [
+      "EOL electrical test record"
     ]
   }
 }

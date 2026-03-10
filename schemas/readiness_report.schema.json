@@ -29,6 +29,7 @@
     "line_plan": { "$ref": "line_plan.schema.json" },
     "quality_risk": { "$ref": "quality_risk_pack.schema.json" },
     "investment_review": { "$ref": "investment_review.schema.json" },
+    "stabilization_review": { "$ref": "stabilization_review.schema.json" },
     "decision_summary": { "type": "object" },
     "markdown": { "type": "string" }
   },

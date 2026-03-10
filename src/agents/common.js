@@ -6,6 +6,23 @@ function firstDefined(...values) {
   return values.find((value) => value !== undefined && value !== null && value !== '');
 }
 
+function toNumberOrNull(value) {
+  if (value === undefined || value === null || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function toBoolean(value) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['true', 'yes', 'y', '1', 'required'].includes(normalized)) return true;
+    if (['false', 'no', 'n', '0', 'none', 'na', 'n/a'].includes(normalized)) return false;
+  }
+  return Boolean(value);
+}
+
 export function getPartIdentity(config = {}) {
   const product = config.product || {};
   const drawingMeta = config.drawing?.meta || {};
@@ -202,9 +219,14 @@ export function buildDefaultAutomationCandidates(config = {}, featureCounts = ex
   }
 
   const candidates = [];
+  const assembly = extractAssemblyMetadata(config);
   if (featureCounts.holes >= 4) candidates.push('vision-assisted hole pattern verification');
   if (featureCounts.cut_ops >= 3) candidates.push('automated deburr / cleaning transfer');
   if (extractCriticalDimensions(config).length >= 2) candidates.push('inline critical-dimension gauging');
+  if (assembly.requires_torque_control) candidates.push('digital torque trace capture');
+  if (assembly.requires_barcode_pairing) candidates.push('barcode / serial pairing');
+  if (assembly.requires_vision_confirmation) candidates.push('vision confirmation');
+  if (assembly.requires_eol_electrical_test) candidates.push('EOL electrical test data capture');
   return candidates;
 }
 
@@ -288,4 +310,62 @@ export function fasteningStrategy(config = {}) {
     config.assembly?.fastening_strategy,
     'manual fastening review required'
   );
+}
+
+export function extractAssemblyMetadata(config = {}) {
+  const assembly = config.assembly || {};
+  const functionalTestPoints = extractFunctionalTestPoints(config);
+  const pcbInsertDirection = firstDefined(
+    assembly.pcb_insert_direction,
+    config.product?.pcb_insert_direction,
+    null
+  );
+  const connectorMatingForce = toNumberOrNull(
+    firstDefined(assembly.connector_mating_force_n, config.product?.connector_mating_force_n, null)
+  );
+  const screwCount = toNumberOrNull(firstDefined(assembly.screw_count, config.product?.screw_count, null));
+  const torqueSpec = toNumberOrNull(firstDefined(assembly.torque_spec_nm, config.product?.torque_spec_nm, null));
+  const requiresGasket = toBoolean(assembly.requires_gasket);
+  const requiresEolElectricalTest = toBoolean(
+    firstDefined(assembly.requires_eol_electrical_test, functionalTestPoints.length > 0 ? true : null, false)
+  );
+  const requiresBarcodePairing = toBoolean(
+    firstDefined(assembly.requires_barcode_pairing, config.quality?.traceability?.serial_level === 'unit_serial_pairing', false)
+  );
+  const requiresVisionConfirmation = toBoolean(assembly.requires_vision_confirmation);
+  const functionalTestFixtureType = firstDefined(assembly.functional_test_fixture_type, null);
+  const requiresConnectorSeatingConfirmation = connectorMatingForce !== null || Boolean(pcbInsertDirection);
+  const requiresTorqueControl = torqueSpec !== null || (screwCount !== null && screwCount > 0);
+  const electronicsAssemblySignals = [
+    pcbInsertDirection,
+    connectorMatingForce !== null,
+    screwCount !== null,
+    torqueSpec !== null,
+    requiresGasket,
+    requiresEolElectricalTest,
+    requiresBarcodePairing,
+    requiresVisionConfirmation,
+    functionalTestFixtureType,
+    functionalTestPoints.length > 0,
+  ];
+
+  return {
+    pcb_insert_direction: pcbInsertDirection,
+    connector_mating_force_n: connectorMatingForce,
+    screw_count: screwCount,
+    torque_spec_nm: torqueSpec,
+    requires_gasket: requiresGasket,
+    requires_eol_electrical_test: requiresEolElectricalTest,
+    requires_barcode_pairing: requiresBarcodePairing,
+    requires_vision_confirmation: requiresVisionConfirmation,
+    functional_test_fixture_type: functionalTestFixtureType,
+    requires_connector_seating_confirmation: requiresConnectorSeatingConfirmation,
+    requires_torque_control: requiresTorqueControl,
+    fixture_load_sensitivity: functionalTestFixtureType
+      ? 'high'
+      : requiresEolElectricalTest
+        ? 'medium'
+        : 'low',
+    is_electronics_assembly: electronicsAssemblySignals.some(Boolean),
+  };
 }

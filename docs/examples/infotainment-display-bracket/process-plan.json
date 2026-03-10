@@ -15,21 +15,25 @@
     ]
   },
   "summary": {
-    "overall_risk_level": "low",
+    "overall_risk_level": "medium",
     "top_issues": [
-      "DFM warnings indicate likely setup tuning during early line stabilization."
+      "DFM warnings indicate likely setup tuning during early line stabilization.",
+      "EOL electrical test can dominate ramp-up CT if fixture access and retest routing are not stabilized early."
     ],
     "recommended_actions": [
       "Confirm inspection ownership for connector access, mounting pattern, and critical dimensions.",
       "Review automation candidates: auto screw presentation, vision-assisted bend-angle check, inline barcode traceability",
+      "Validate PCB loading, connector seating, torque traceability, and EOL test fixture assumptions with manufacturing engineering.",
       "Use the process sequence as a preliminary launch planning aid, then validate with site-specific PFMEA and layout data."
     ],
     "likely_inspection_critical_features": [
       "mounting hole pitch",
-      "bend height"
+      "bend height",
+      "EOL electrical / functional release"
     ],
     "likely_bottleneck_candidates": [
-      "DFM warnings indicate likely setup tuning during early line stabilization."
+      "DFM warnings indicate likely setup tuning during early line stabilization.",
+      "EOL electrical test can dominate ramp-up CT if fixture access and retest routing are not stabilized early."
     ],
     "heuristics_notice": "Process plan is generated from part/process heuristics and requires site-specific validation."
   },
@@ -44,6 +48,19 @@
         "Korea-Ulsan",
         "Mexico-MTY"
       ]
+    },
+    "assembly_metadata": {
+      "connector_mating_force_n": null,
+      "screw_count": null,
+      "torque_spec_nm": null,
+      "requires_gasket": false,
+      "requires_eol_electrical_test": true,
+      "requires_barcode_pairing": false,
+      "requires_vision_confirmation": false,
+      "requires_connector_seating_confirmation": false,
+      "requires_torque_control": false,
+      "fixture_load_sensitivity": "medium",
+      "is_electronics_assembly": true
     },
     "assumptions": [
       "Program context: SDV cockpit platform",
@@ -102,6 +119,34 @@
       "purpose": "Protect cosmetic faces and release to downstream build.",
       "mode": "manual",
       "key_output": "part progression"
+    },
+    {
+      "step": 80,
+      "operation": "fixture load / unload consideration",
+      "purpose": "Load the part into a guided nest and verify support / reach posture before assembly.",
+      "mode": "semi_auto",
+      "key_output": "part progression"
+    },
+    {
+      "step": 90,
+      "operation": "EOL electrical test",
+      "purpose": "Run electrical / functional confirmation using the defined test fixture.",
+      "mode": "semi_auto",
+      "key_output": "part progression"
+    },
+    {
+      "step": 100,
+      "operation": "EOL electrical test station",
+      "purpose": "Protect probe access, fixture loading time, and retest containment routing.",
+      "mode": "semi_auto",
+      "key_output": "part progression"
+    },
+    {
+      "step": 110,
+      "operation": "functional fit confirmation",
+      "purpose": "Confirm final fit, cosmetic readiness, and downstream module install compatibility.",
+      "mode": "semi_auto",
+      "key_output": "part progression"
     }
   ],
   "key_inspection_points": [
@@ -116,6 +161,12 @@
       "checkpoint": "bend height",
       "rationale": "cockpit stack-up and gap/flush",
       "control_method": "periodic_or_inline_check"
+    },
+    {
+      "id": "assembly-eol-test",
+      "checkpoint": "EOL electrical / functional release",
+      "rationale": "contain latent assembly and probing issues before shipment",
+      "control_method": "end_of_line_functional_test"
     }
   ],
   "automation_candidates": [
@@ -124,7 +175,8 @@
     "inline barcode traceability"
   ],
   "bottleneck_risks": [
-    "DFM warnings indicate likely setup tuning during early line stabilization."
+    "DFM warnings indicate likely setup tuning during early line stabilization.",
+    "EOL electrical test can dominate ramp-up CT if fixture access and retest routing are not stabilized early."
   ],
   "planning_notes": [
     "Sequence is heuristic and intended for early production-engineering review.",

@@ -3,5 +3,6 @@ export { runProcessPlanningAgent, createProcessPlanningAgent } from '../agents/p
 export { runLineLayoutAgent, createLineLayoutAgent } from '../agents/line-layout-agent.js';
 export { runQualityTraceabilityAgent, createQualityTraceabilityAgent } from '../agents/quality-traceability-agent.js';
 export { runCostInvestmentAgent, createCostInvestmentAgent } from '../agents/cost-investment-agent.js';
+export { runStabilizationReviewAgent, createStabilizationReviewAgent } from '../agents/stabilization-review-agent.js';
 export { runReadinessReportWorkflow, createReadinessReportWorkflow, writeReadinessArtifacts } from '../workflows/readiness-report-workflow.js';
-
+export { runStandardDocsWorkflow, createStandardDocsWorkflow } from '../workflows/standard-docs-workflow.js';

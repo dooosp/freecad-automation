@@ -51,6 +51,8 @@ fcad process-plan configs/examples/infotainment_display_bracket.toml \
   --out docs/examples/infotainment-display-bracket/process-plan.json
 
 fcad line-plan configs/examples/infotainment_display_bracket.toml \
+  --runtime data/runtime_examples/display_bracket_runtime.json \
+  --profile configs/profiles/site_korea_ulsan.toml \
   --out docs/examples/infotainment-display-bracket/line-plan.json
 
 fcad quality-risk configs/examples/infotainment_display_bracket.toml \
@@ -61,6 +63,11 @@ fcad investment-review configs/examples/infotainment_display_bracket.toml \
 
 fcad readiness-report configs/examples/infotainment_display_bracket.toml \
   --out docs/examples/infotainment-display-bracket/readiness-report.json
+
+fcad stabilization-review configs/examples/infotainment_display_bracket.toml \
+  --runtime data/runtime_examples/display_bracket_runtime.json \
+  --profile configs/profiles/site_korea_ulsan.toml \
+  --out docs/examples/infotainment-display-bracket/stabilization-review.json
 ```
 
 ## Checked-In Artifact Set
@@ -72,6 +79,7 @@ fcad readiness-report configs/examples/infotainment_display_bracket.toml \
 - [investment-review.json](../examples/infotainment-display-bracket/investment-review.json)
 - [readiness-report.json](../examples/infotainment-display-bracket/readiness-report.json)
 - [readiness-report.md](../examples/infotainment-display-bracket/readiness-report.md)
+- [stabilization-review.json](../examples/infotainment-display-bracket/stabilization-review.json)
 
 ## Key Findings
 
@@ -89,7 +97,7 @@ This is exactly the kind of early structure-review output a production engineer 
 
 ### 2. Process Plan
 
-- Heuristic flow: incoming material -> blanking / laser cut -> forming / bending -> pierce / hardware prep -> deburr / clean -> dimensional inspection -> subassembly / packaging
+- Heuristic flow: incoming material -> blanking / laser cut -> forming / bending -> pierce / hardware prep -> deburr / clean -> dimensional inspection -> subassembly / packaging -> fixture load / unload consideration -> EOL electrical test -> functional fit confirmation
 - Critical inspection features:
   - mounting hole pitch
   - bend height
@@ -104,13 +112,14 @@ The process-plan output is not pretending to be a formal routing. It is useful b
 ### 3. Line Plan
 
 - Suggested in-line inspection station: `ST60`
-- Suggested end-of-line functional confirmation: `EOL-FT`
+- Suggested end-of-line functional confirmation: `ST90` / `ST100`
 - Suggested traceability capture points:
   - incoming material handoff
   - dimensional inspection
   - subassembly / packaging
 - Bottleneck candidates:
-  - dimensional inspection
+  - forming / bending under launch conditions
+  - dimensional inspection under launch conditions
   - subassembly / packaging under launch conditions
 - Recommended offline containment / rework station
 
@@ -148,15 +157,32 @@ This connects the design review to line stabilization and SDV-style traceability
 Interpretation:
 The output does not claim a real capex estimate. It does something more honest and useful at this stage: it signals where fixture, gauge, and automation attention is likely to be needed.
 
+### 6. Launch Stabilization Review
+
+- Runtime input: actual CT, FPY, rework, scrap, downtime, and changeover indicators from the Korea-Ulsan pilot line profile
+- Highest CT gap station: `ST60`
+- Stations above target CT: `ST20`, `ST30`, `ST40`, `ST60`, `ST70`
+- Main launch-instability signals:
+  - in-line dimensional inspection overload
+  - forming / bending instability
+  - packaging handoff and traceability burden
+- Improvement direction:
+  - rebalance manual work
+  - tighten launch issue containment
+  - reduce downtime from fixture/debug/retry loss
+
+Interpretation:
+This moves the workflow beyond concept-level line planning. It becomes something a candidate can credibly describe as launch stabilization support rather than only heuristic station brainstorming.
+
 ## Final Readiness Conclusion
 
-- Readiness status: `pilot_line_planning_ready`
-- Readiness score: `67`
+- Readiness status: `needs_risk_reduction`
+- Readiness score: `62`
 
 Meaning:
 
-- The part is far enough along for pilot-line planning discussion.
-- It is not yet a "no-action-needed" design.
+- The part remains useful for pilot-line planning discussion, but runtime-informed launch data now shows enough instability to keep risk-reduction work open.
+- Runtime-informed review still shows CT instability at several launch stations.
 - The main pre-launch challenges are structure robustness, connector-side access, inspection loading, and line-side standardization.
 
 ## What This Demonstrates About The Candidate
@@ -166,6 +192,7 @@ This case is useful in a portfolio because it demonstrates that the candidate ca
 - translate design data into production-engineering questions
 - think beyond CAD generation toward line setup and launch risk
 - connect manufacturability, inspection, traceability, and line support
+- extend the same workflow into runtime-informed launch stabilization review
 - discuss automation and investment pressure without overclaiming precision
 - produce decision-support artifacts that are readable by design, quality, and manufacturing stakeholders
 

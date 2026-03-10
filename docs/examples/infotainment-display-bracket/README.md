@@ -11,6 +11,7 @@ Files:
 - `investment-review.json`: cost/investment screening with tooling and automation hints
 - `readiness-report.json`: consolidated production-readiness artifact
 - `readiness-report.md`: human-readable summary
+- `stabilization-review.json`: runtime-informed launch stabilization review using checked-in runtime data
 
 Case-study narrative:
 

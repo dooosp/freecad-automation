@@ -3,11 +3,13 @@ import { writeFile } from 'node:fs/promises';
 import { runPythonJsonScript, writeJsonFile } from '../../lib/context-loader.js';
 import { createDfmService } from '../services/analysis/dfm-service.js';
 import { createCostService } from '../services/cost/cost-service.js';
+import { loadShopProfile } from '../services/config/profile-service.js';
 import { runProductReviewAgent } from '../agents/product-review-agent.js';
 import { runProcessPlanningAgent } from '../agents/process-planning-agent.js';
 import { runLineLayoutAgent } from '../agents/line-layout-agent.js';
 import { runQualityTraceabilityAgent } from '../agents/quality-traceability-agent.js';
 import { runCostInvestmentAgent } from '../agents/cost-investment-agent.js';
+import { runStabilizationReviewAgent } from '../agents/stabilization-review-agent.js';
 import {
   severityWeight,
   toReadinessStatus,
@@ -34,6 +36,17 @@ function computeInvestmentScore(investmentReview = {}) {
   return Math.max(45, 85 - notePenalty);
 }
 
+function computeStabilizationScore(stabilizationReview = {}) {
+  const runtimeSummary = stabilizationReview?.analysis_basis?.runtime_summary || {};
+  if (!runtimeSummary.runtime_informed) return null;
+
+  let score = 86;
+  score -= (runtimeSummary.stations_over_target || []).length * 6;
+  score -= Math.max(0, (runtimeSummary.average_downtime_pct || 0) - 6) * 1.5;
+  score -= Math.max(0, 0.98 - (runtimeSummary.average_fpy || 0.98)) * 200;
+  return Math.max(40, Math.round(score));
+}
+
 function buildDecisionSummary(report) {
   const goSignals = [];
   const holdPoints = [];
@@ -56,11 +69,20 @@ function buildDecisionSummary(report) {
     holdPoints.push('Investment review lacks process comparison evidence.');
   }
 
+  if (report.stabilization_review?.analysis_basis?.runtime_summary?.runtime_informed) {
+    if ((report.stabilization_review.analysis_basis.runtime_summary.stations_over_target || []).length === 0) {
+      goSignals.push('Runtime-informed line review shows no stations above the current target CT guardrail.');
+    } else {
+      holdPoints.push('Runtime-informed review still shows CT instability at one or more launch stations.');
+    }
+  }
+
   const nextActions = [
     'Confirm PFMEA/control-plan ownership for launch site rollout.',
     'Review line-side inspection concept against connector access and fastening assumptions.',
+    report.stabilization_review?.summary?.recommended_actions?.[0] || null,
     'Use this output as an early decision-support artifact, then refine with real line data.',
-  ];
+  ].filter(Boolean);
 
   return { go_signals: goSignals, hold_points: holdPoints, next_actions: nextActions };
 }
@@ -86,10 +108,12 @@ function buildExecutiveSummary(report) {
     recommended_actions: summarizeActions([
       ...(report.product_review.summary?.recommended_actions || []),
       ...(report.line_plan.summary?.recommended_actions || []),
+      ...(report.stabilization_review?.summary?.recommended_actions || []),
       ...(report.investment_review.summary?.recommended_actions || []),
     ], 5),
     likely_bottleneck_candidates: report.line_plan.summary?.likely_bottleneck_candidates || [],
     likely_automation_candidates: likelyAutomationCandidates,
+    launch_stabilization_focus: report.stabilization_review?.summary?.top_bottlenecks || [],
     interview_explainer: 'This report packages design-stage manufacturing risk review, process flow thinking, line-support assumptions, quality gates, and screening-level investment logic into one early production-engineering artifact.',
   };
 }
@@ -127,11 +151,19 @@ function renderMarkdown(report) {
 - Target cycle time: ${report.line_plan.cycle_time_assumptions?.target_ct_sec ?? 'n/a'} s
 - Inline inspection stations: ${(report.line_plan.inspection_split?.in_line_inspection_stations || []).join(', ') || 'none'}
 - End-of-line inspection stations: ${(report.line_plan.inspection_split?.end_of_line_inspection_stations || []).join(', ') || 'none'}
+${report.line_plan.runtime_summary?.runtime_informed ? `- Runtime-informed stations above target: ${(report.line_plan.runtime_summary.stations_over_target || []).join(', ') || 'none'}` : ''}
 
 ## Quality / Traceability
 
 - Critical dimensions: ${(report.quality_risk.critical_dimensions || []).length}
 - Quality gates: ${(report.quality_risk.quality_gates || []).length}
+
+${report.stabilization_review ? `## Launch Stabilization
+
+- Runtime basis: ${report.stabilization_review.summary.runtime_basis}
+- Top bottlenecks: ${(report.stabilization_review.summary.top_bottlenecks || []).join('; ') || 'none'}
+- Launch instability signals: ${(report.stabilization_review.launch_instability_signals || []).join('; ') || 'none'}
+` : ''}
 
 ## Cost / Investment
 
@@ -159,6 +191,7 @@ export function createReadinessReportWorkflow() {
     options = {},
   }) {
     const loadedConfig = config ?? await loadConfig(configPath);
+    const siteProfile = options.siteProfile || await loadShopProfile(freecadRoot, options.profileName || null, { silent: true });
     const enrichedConfig = await runPythonJsonScript(
       freecadRoot,
       'scripts/intent_compiler.py',
@@ -191,18 +224,39 @@ export function createReadinessReportWorkflow() {
 
     const productReview = await runProductReviewAgent({ config: loadedConfig, enrichedConfig, dfmResult });
     const processPlan = await runProcessPlanningAgent({ config: loadedConfig, enrichedConfig, dfmResult });
-    const linePlan = await runLineLayoutAgent({ config: loadedConfig, processPlan });
+    const linePlan = await runLineLayoutAgent({
+      config: loadedConfig,
+      processPlan,
+      runtimeData: options.runtimeData || null,
+      siteProfile,
+    });
     const qualityRisk = await runQualityTraceabilityAgent({ config: loadedConfig, dfmResult, productReview });
     const investmentReview = await runCostInvestmentAgent({ config: loadedConfig, costResult, dfmResult });
+    const stabilizationReview = (options.runtimeData || linePlan.runtime_summary?.runtime_informed)
+      ? await runStabilizationReviewAgent({
+          config: loadedConfig,
+          linePlan,
+          qualityRisk,
+          runtimeData: options.runtimeData || null,
+          siteProfile,
+        })
+      : null;
 
     const qualityScore = computeQualityScore(qualityRisk);
     const planningScore = computePlanningScore(processPlan, linePlan);
     const investmentScore = computeInvestmentScore(investmentReview);
+    const stabilizationScore = computeStabilizationScore(stabilizationReview);
     const overallScore = Math.round(
-      (productReview.summary.dfm_score ?? 70) * 0.35
-      + qualityScore * 0.25
-      + planningScore * 0.2
-      + investmentScore * 0.2
+      stabilizationScore === null
+        ? (productReview.summary.dfm_score ?? 70) * 0.35
+          + qualityScore * 0.25
+          + planningScore * 0.2
+          + investmentScore * 0.2
+        : (productReview.summary.dfm_score ?? 70) * 0.3
+          + qualityScore * 0.2
+          + planningScore * 0.15
+          + investmentScore * 0.15
+          + stabilizationScore * 0.2
     );
 
     const report = {
@@ -220,6 +274,7 @@ export function createReadinessReportWorkflow() {
       line_plan: linePlan,
       quality_risk: qualityRisk,
       investment_review: investmentReview,
+      ...(stabilizationReview ? { stabilization_review: stabilizationReview } : {}),
     };
 
     report.decision_summary = buildDecisionSummary(report);

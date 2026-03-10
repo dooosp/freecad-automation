@@ -24,6 +24,7 @@ import { runDesignTask } from '../src/api/design.js';
 import { createDrawingService, runDrawPipeline } from '../src/api/drawing.js';
 import {
   runReadinessReportWorkflow,
+  runStandardDocsWorkflow,
   writeReadinessArtifacts,
 } from '../src/api/manufacturing.js';
 import { createModel, inspectModel } from '../src/api/model.js';
@@ -56,6 +57,8 @@ Usage:
     fcad quality-risk <config.toml|json>
     fcad investment-review <config.toml|json>
     fcad readiness-report <config.toml|json>
+    fcad stabilization-review <config.toml|json> --runtime <runtime.json>
+    fcad generate-standard-docs <config.toml|json> [--out-dir <dir>]
 
   Review-pack workflows:
     fcad ingest --model <file> [--bom bom.csv] [--inspection insp.csv] [--quality ncr.csv] --out <context.json>
@@ -80,6 +83,7 @@ Usage:
 Options:
   Shared new-workflow options:
     --profile <name>             Shop profile under configs/profiles
+    --runtime <path>             Runtime JSON for line stabilization / launch review
     --batch <n>                  Batch size assumption for cost/readiness workflow
     --site <name>                Site label override for summaries
     --process <name>             Override manufacturing process when supported
@@ -109,6 +113,8 @@ Examples:
   fcad review configs/examples/infotainment_display_bracket.toml
   fcad process-plan configs/examples/controller_housing.toml
   fcad readiness-report configs/examples/pcb_mount_plate.toml --out output/pcb_mount_plate_readiness.json
+  fcad stabilization-review configs/examples/infotainment_display_bracket.toml --runtime data/runtime_examples/display_bracket_runtime.json --profile configs/profiles/site_korea_ulsan.toml
+  fcad generate-standard-docs configs/examples/controller_housing_eol.toml --out-dir output/controller_housing_standard_docs
   fcad ingest --model fixtures/part.step --inspection fixtures/inspection.csv --out output/part_context.json
   fcad analyze-part output/part_context.json
   fcad quality-link --context output/part_context.json --geometry output/part_geometry_intelligence.json
@@ -227,6 +233,10 @@ async function main() {
     await cmdInvestmentReview(args);
   } else if (command === 'readiness-report') {
     await cmdReadinessReport(args);
+  } else if (command === 'stabilization-review') {
+    await cmdStabilizationReview(args);
+  } else if (command === 'generate-standard-docs') {
+    await cmdGenerateStandardDocs(args);
   } else if (command === 'ingest') {
     await cmdIngest(args);
   } else if (command === 'analyze-part') {
@@ -277,6 +287,12 @@ function resolveConfigCommandInput(rawArgs = []) {
   return { configPath, options, outputPath, outDir, stem };
 }
 
+async function loadRuntimeData(options = {}) {
+  const runtimePath = resolveMaybe(options.runtime);
+  if (!runtimePath) return null;
+  return readJsonFile(runtimePath);
+}
+
 async function runProductionReadiness(rawArgs = [], { persistArtifacts = true } = {}) {
   const { configPath, options, outputPath, outDir, stem } = resolveConfigCommandInput(rawArgs);
   if (!configPath) {
@@ -285,6 +301,7 @@ async function runProductionReadiness(rawArgs = [], { persistArtifacts = true } 
   }
 
   const config = await loadConfig(configPath);
+  const runtimeData = await loadRuntimeData(options);
   const report = await runReadinessReportWorkflow({
     freecadRoot: PROJECT_ROOT,
     runScript: runWithCliStderr,
@@ -297,6 +314,7 @@ async function runProductionReadiness(rawArgs = [], { persistArtifacts = true } 
       process: options.process || config.manufacturing?.process || config.process || null,
       material: options.material || config.manufacturing?.material || config.material || null,
       site: options.site || null,
+      runtimeData,
       onStderr: (text) => process.stderr.write(text),
     },
   });
@@ -361,6 +379,58 @@ async function cmdReadinessReport(rawArgs = []) {
   console.log(`Readiness report Markdown: ${artifacts.markdown}`);
   console.log(`  Status: ${report.readiness_summary.status}`);
   console.log(`  Score: ${report.readiness_summary.score}`);
+}
+
+async function cmdStabilizationReview(rawArgs = []) {
+  const { options, outputPath, outDir, stem } = resolveConfigCommandInput(rawArgs);
+  if (!options.runtime) {
+    console.error('Error: stabilization-review requires --runtime <runtime.json>');
+    process.exit(1);
+  }
+
+  const { report } = await runProductionReadiness(rawArgs, { persistArtifacts: false });
+  if (!report.stabilization_review) {
+    console.error('Error: stabilization review was not generated from the supplied inputs.');
+    process.exit(1);
+  }
+
+  const artifacts = await writeAgentArtifact(outputPath, outDir, stem, '_stabilization_review.json', report.stabilization_review);
+  console.log(`Stabilization review: ${artifacts.json}`);
+  console.log(`  Runtime basis: ${report.stabilization_review.summary.runtime_basis}`);
+  console.log(`  Top bottlenecks: ${(report.stabilization_review.summary.top_bottlenecks || []).length}`);
+}
+
+async function cmdGenerateStandardDocs(rawArgs = []) {
+  const { configPath, options } = resolveConfigCommandInput(rawArgs);
+  if (!configPath) {
+    console.error('Error: config file path required');
+    process.exit(1);
+  }
+
+  const config = await loadConfig(configPath);
+  const runtimeData = await loadRuntimeData(options);
+  const result = await runStandardDocsWorkflow({
+    freecadRoot: PROJECT_ROOT,
+    runScript: runWithCliStderr,
+    loadConfig,
+    configPath,
+    config,
+    options: {
+      batchSize: options.batch ? Number(options.batch) : undefined,
+      profileName: options.profile || null,
+      process: options.process || config.manufacturing?.process || config.process || null,
+      material: options.material || config.manufacturing?.material || config.material || null,
+      site: options.site || null,
+      runtimeData,
+      outDir: options['out-dir'] ? resolve(options['out-dir']) : null,
+      onStderr: (text) => process.stderr.write(text),
+    },
+  });
+
+  console.log(`Standard docs output: ${result.out_dir}`);
+  console.log(`  Process flow: ${result.artifacts['process_flow.md']}`);
+  console.log(`  Control plan: ${result.artifacts['control_plan_draft.csv']}`);
+  console.log(`  Work instruction: ${result.artifacts['work_instruction_draft.md']}`);
 }
 
 async function cmdIngest(rawArgs = []) {

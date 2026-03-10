@@ -1,0 +1,17 @@
+name = "site_mexico_mty"
+label = "Mexico-MTY launch profile"
+description = "Ramp-up assumptions for the Monterrey infotainment line transfer / mirrored launch."
+
+[site]
+name = "Mexico-MTY"
+region = "MX"
+shift_pattern = "2-shift"
+ramp_phase = "ramp_up"
+
+[line]
+target_ct_sec = 38
+target_fpy = 0.975
+max_rework_rate = 0.025
+max_scrap_rate = 0.007
+max_downtime_pct = 7.5
+changeover_guardrail_sec = 480

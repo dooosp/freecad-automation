@@ -1,0 +1,181 @@
+name = "controller_housing_eol"
+material = "AL6061"
+batch_size = 96
+
+[product]
+family = "controller"
+module_type = "Infotainment controller housing + PCB assembly"
+vehicle_program = "SDV cockpit domain controller"
+revision = "C"
+decision_scope = "electronics assembly and launch stabilization review"
+connector_clearance_mm = 4.5
+connector_side = "rear I/O connector opening"
+fastening_strategy = "manual torque-controlled screw fastening with digital trace"
+traceability_label_area = "outer wall next to rear connector opening"
+
+[manufacturing]
+process = "casting"
+material = "AL6061"
+
+[production]
+sites = ["Korea-Ulsan", "Mexico-MTY"]
+annual_volume = 165000
+target_ct_sec = 48
+automation_mode = "hybrid"
+pilot_lot = 96
+
+[assembly]
+pcb_insert_direction = "top-down guided insertion"
+connector_mating_force_n = 46
+screw_count = 6
+torque_spec_nm = 0.85
+requires_gasket = true
+requires_eol_electrical_test = true
+requires_barcode_pairing = true
+requires_vision_confirmation = true
+functional_test_fixture_type = "nest fixture with side-probe access"
+
+[quality.traceability]
+serial_level = "unit_serial_pairing"
+record_linkage = "housing serial + PCB serial + operator + torque trace"
+label_strategy = "laser mark housing + scan PCB serial before closure"
+retention_note = "Retain launch serialization, torque, and EOL records for cross-site issue containment."
+
+[[quality.critical_dimensions]]
+id = "cd-01"
+name = "connector boss datum to PCB mount face"
+target_mm = 64.0
+tolerance = "±0.10"
+rationale = "connector fit and PCB stack-up alignment"
+
+[[quality.critical_dimensions]]
+id = "cd-02"
+name = "cover sealing groove depth"
+target_mm = 2.4
+tolerance = "±0.05"
+rationale = "gasket compression and sealing durability"
+
+[[quality.gates]]
+name = "Machined housing release"
+objective = "Confirm connector datum, sealing face, and cavity cleanliness before electronics loading."
+evidence = ["first article", "fixture check", "cleanliness confirmation"]
+
+[[quality.gates]]
+name = "Assembly closeout gate"
+objective = "Verify torque trace, gasket confirmation, serialization pairing, and EOL pass status."
+evidence = ["torque record", "barcode pairing log", "EOL electrical test result"]
+
+[[quality.functional_test_points]]
+id = "ftp-01"
+name = "CAN/LVDS power-up and communication test"
+location = "end_of_line"
+rationale = "confirm electrical readiness before pack-out"
+
+[[quality.functional_test_points]]
+id = "ftp-02"
+name = "Connector-side fit confirmation"
+location = "end_of_line"
+rationale = "protect downstream vehicle install and probe access"
+
+[[shapes]]
+id = "housing"
+type = "box"
+length = 172
+width = 126
+height = 50
+
+[[shapes]]
+id = "cavity"
+type = "box"
+length = 142
+width = 96
+height = 34
+position = [15, 15, 8]
+
+[[shapes]]
+id = "connector_port"
+type = "box"
+length = 42
+width = 30
+height = 18
+position = [118, 46, 10]
+
+[[shapes]]
+id = "mount1"
+type = "cylinder"
+radius = 3
+height = 56
+position = [20, 20, -4]
+
+[[shapes]]
+id = "mount2"
+type = "cylinder"
+radius = 3
+height = 56
+position = [152, 20, -4]
+
+[[shapes]]
+id = "mount3"
+type = "cylinder"
+radius = 3
+height = 56
+position = [20, 106, -4]
+
+[[shapes]]
+id = "mount4"
+type = "cylinder"
+radius = 3
+height = 56
+position = [152, 106, -4]
+
+[[operations]]
+op = "cut"
+base = "housing"
+tool = "cavity"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "connector_port"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mount1"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mount2"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mount3"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mount4"
+result = "final"
+
+[drawing]
+views = ["front", "top", "right", "iso"]
+
+[drawing.meta]
+part_name = "Controller Housing EOL"
+material = "AL6061"
+
+[[drawing.feature_tolerances]]
+feature_id = "seal_groove_depth"
+value = 2.4
+tolerance_grade = "±0.05"
+
+[export]
+formats = ["step"]
+directory = "output"

@@ -38,16 +38,21 @@ If you are reviewing this repository on GitHub:
 - preliminary manufacturability and DFM review
 - process planning support for launch and stabilization
 - line-layout and station-concept discussion
+- runtime-informed launch stabilization review
 - quality gate and traceability planning support
 - cost/setup/investment-oriented review for production engineering decisions
+- draft generation of production-engineering standard docs
 
 ## Production Engineering Use Cases
 
 - Structure review: check housing wall thickness, connector-side clearance, fastening accessibility, mounting-boss layout, and display bracket manufacturability before tooling freeze.
 - Process design support: infer a rough process sequence, key inspection points, and likely bottleneck candidates from part type and manufacturing assumptions.
 - Line setup and stabilization support: review where in-line inspection, end-of-line confirmation, traceability capture, and repair containment may belong.
+- Runtime-informed launch review: compare actual CT, FPY, rework, scrap, downtime, and changeover signals against planning assumptions.
+- Electronics assembly support: cover PCB loading, connector seating, torque traceability, gasket confirmation, barcode pairing, and EOL electrical test logic.
 - Quality-risk visibility: highlight critical dimensions, quality gates, traceability label area concerns, and likely inspection-sensitive features.
 - Productivity improvement support: use the review and line-plan outputs to discuss manual-labor sensitivity, automation candidates, and setup-complexity exposure.
+- Standard-document support: generate draft process flow, control plan, checksheet, work instruction, and PFMEA seed artifacts from the readiness workflow.
 
 Outputs are heuristic planning aids. They are not full production-line simulations.
 
@@ -62,6 +67,8 @@ fcad line-plan <config.toml|json>
 fcad quality-risk <config.toml|json>
 fcad investment-review <config.toml|json>
 fcad readiness-report <config.toml|json>
+fcad stabilization-review <config.toml|json> --runtime <runtime.json>
+fcad generate-standard-docs <config.toml|json> [--out-dir <dir>]
 ```
 
 `mfg-agent` is also installed as an alias for the same CLI.
@@ -104,6 +111,16 @@ fcad process-plan configs/examples/infotainment_display_bracket.toml \
 fcad readiness-report configs/examples/infotainment_display_bracket.toml \
   --batch 120 \
   --out output/infotainment_display_bracket_readiness_report.json
+
+# 4. Runtime-informed launch stabilization review
+fcad stabilization-review configs/examples/infotainment_display_bracket.toml \
+  --runtime data/runtime_examples/display_bracket_runtime.json \
+  --profile configs/profiles/site_korea_ulsan.toml \
+  --out output/infotainment_display_bracket_stabilization_review.json
+
+# 5. Draft production-engineering standard docs
+fcad generate-standard-docs configs/examples/controller_housing_eol.toml \
+  --out-dir output/controller_housing_standard_docs
 ```
 
 The readiness workflow produces a JSON report and a Markdown summary that bundle:
@@ -113,6 +130,7 @@ The readiness workflow produces a JSON report and a Markdown summary that bundle
 - line-layout support pack
 - quality / traceability pack
 - cost / investment review
+- optional runtime-informed stabilization review
 - decision summary for production engineering discussion
 
 ## Portfolio Case Study
@@ -121,13 +139,15 @@ For a checked-in example that can be reviewed without running the CLI, see:
 
 - [Infotainment production readiness case](./docs/portfolio/infotainment-production-readiness-case.md)
 - [Checked-in example artifact set](./docs/examples/infotainment-display-bracket/README.md)
+- [Checked-in electronics assembly + standard docs example](./docs/examples/controller-housing-eol/README.md)
 
-This case shows `config -> review -> process-plan -> line-plan -> quality-risk -> investment-review -> readiness-report` for an infotainment display bracket scenario.
+This case shows `config -> review -> process-plan -> line-plan -> quality-risk -> investment-review -> readiness-report -> stabilization-review -> standard-doc drafts` for infotainment-oriented scenarios.
 
 ## Automotive Infotainment Example Configs
 
 - `configs/examples/infotainment_display_bracket.toml`
 - `configs/examples/controller_housing.toml`
+- `configs/examples/controller_housing_eol.toml`
 - `configs/examples/pcb_mount_plate.toml`
 - `configs/examples/display_module_support.toml`
 
@@ -139,6 +159,13 @@ These examples include manufacturing metadata such as:
 - connector clearance assumptions
 - critical dimensions and quality gates
 - automation-candidate notes
+- electronics assembly metadata and EOL test assumptions
+
+Runtime/profile examples:
+
+- `data/runtime_examples/display_bracket_runtime.json`
+- `configs/profiles/site_korea_ulsan.toml`
+- `configs/profiles/site_mexico_mty.toml`
 
 ## Architecture
 
@@ -164,10 +191,11 @@ CLI (fcad / mfg-agent)
 - `bin/fcad.js`: unified CLI entrypoint
 - `src/agents/`: manufacturing-engineering agent modules
 - `src/workflows/readiness-report-workflow.js`: orchestrated readiness flow
+- `src/workflows/standard-docs-workflow.js`: draft standard-document generation
 - `scripts/dfm_checker.py`: DFM manufacturability logic
 - `scripts/cost_estimator.py`: cost breakdown and comparison logic
 - `scripts/intent_compiler.py`: part-type inference and drawing-plan strategy
-- `schemas/`: output contracts for review, process-plan, line-plan, quality-risk, investment-review, readiness-report
+- `schemas/`: output contracts for review, process-plan, line-plan, quality-risk, investment-review, readiness-report, stabilization-review, and standard-doc manifests
 
 See [production-readiness-refactor.md](./docs/production-readiness-refactor.md) for the codebase refactoring map.
 
@@ -212,6 +240,8 @@ npm run check:runtime
 - [quality_risk_pack.schema.json](./schemas/quality_risk_pack.schema.json)
 - [investment_review.schema.json](./schemas/investment_review.schema.json)
 - [readiness_report.schema.json](./schemas/readiness_report.schema.json)
+- [stabilization_review.schema.json](./schemas/stabilization_review.schema.json)
+- [standard_docs_manifest.schema.json](./schemas/standard_docs_manifest.schema.json)
 
 ## Testing
 
