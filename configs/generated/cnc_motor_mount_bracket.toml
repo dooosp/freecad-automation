@@ -1,0 +1,134 @@
+# Generated starter config for the Codex multi-agent workflow.
+# Conservative defaults are used so the first iteration stays easy to review.
+
+name = "cnc_motor_mount_bracket"
+material = "AL6061-T6"
+batch_size = 20
+
+[manufacturing]
+process = "machining"
+material = "AL6061-T6"
+batch_size = 20
+
+[[shapes]]
+id = "base_plate"
+type = "box"
+length = 120
+width = 80
+height = 10
+
+[[shapes]]
+id = "support_web"
+type = "box"
+length = 12
+width = 80
+height = 60
+position = [0, 0, 8]
+
+[[shapes]]
+id = "support_rib"
+type = "box"
+length = 36
+width = 80
+height = 36
+position = [12, 0, 8]
+
+[[shapes]]
+id = "mount_hole_1"
+type = "cylinder"
+radius = 4.5
+height = 16
+position = [20, 15, -3]
+
+[[shapes]]
+id = "mount_hole_2"
+type = "cylinder"
+radius = 4.5
+height = 16
+position = [100, 15, -3]
+
+[[shapes]]
+id = "mount_hole_3"
+type = "cylinder"
+radius = 4.5
+height = 16
+position = [20, 65, -3]
+
+[[shapes]]
+id = "mount_hole_4"
+type = "cylinder"
+radius = 4.5
+height = 16
+position = [100, 65, -3]
+
+[[operations]]
+op = "fuse"
+base = "base_plate"
+tool = "support_web"
+result = "body"
+
+[[operations]]
+op = "fuse"
+base = "body"
+tool = "support_rib"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mount_hole_1"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mount_hole_2"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mount_hole_3"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mount_hole_4"
+result = "body"
+
+[[operations]]
+op = "fillet"
+target = "body"
+radius = 4
+result = "final"
+
+[drawing]
+views = ["front", "top", "right", "iso"]
+
+[drawing.meta]
+part_name = "CNC Motor Mount Bracket"
+drawing_no = "GEN-BRK-001"
+material = "AL6061-T6"
+tolerance = "ISO 2768-m"
+designed_by = "Codex"
+
+[drawing.style]
+show_hidden = true
+show_centerlines = true
+show_dimensions = true
+
+[drawing.dimension_style]
+type = "baseline"
+
+[notes]
+general = [
+  "UNLESS OTHERWISE SPECIFIED:",
+  "MATERIAL: AL6061-T6",
+  "REMOVE BURRS AND SHARP EDGES.",
+]
+placement = "bottom_left"
+
+[export]
+formats = ["step"]
+directory = "output"

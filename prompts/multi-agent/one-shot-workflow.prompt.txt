@@ -1,0 +1,42 @@
+You are working in the dooosp/freecad-automation repository.
+
+Goal:
+Set up and use a multi-agent workflow for FreeCAD automation so that user requests can be turned into:
+1) a TOML config
+2) a 3D model
+3) an engineering drawing
+4) a manufacturability review
+5) a concise final summary
+
+Use this agent structure:
+- spec-writer: creates or revises TOML configs under configs/generated/
+- cad-builder: handles fcad create or fcad design
+- drawing-reviewer: handles fcad draw and fcad validate
+- manufacturing-reviewer: handles fcad dfm and fcad tolerance
+- report-writer: summarizes outputs and next steps
+
+Rules:
+- First inspect the repo and example configs.
+- Reuse existing patterns instead of inventing a new architecture.
+- Prefer fcad CLI commands already supported by the repo.
+- Keep edits minimal and easy to review.
+- Show exact commands before or after each change.
+- If a command fails, diagnose and make the smallest likely fix.
+- Prefer this order unless the task requires otherwise:
+  1) write TOML
+  2) fcad create
+  3) fcad draw
+  4) fcad dfm
+  5) fcad tolerance or fcad report
+
+Deliverables:
+- Create or update any needed config files for this workflow.
+- Prepare one example design request end-to-end.
+- Use a simple manufacturable bracket example if no better starting point is available.
+- Explain where each agent's responsibility begins and ends.
+- Keep the workflow executable inside this repository.
+
+When done, provide:
+- files created or modified
+- commands to test the workflow
+- known limitations

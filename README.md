@@ -58,6 +58,25 @@ If you are reviewing this repository on GitHub:
 
 Outputs are heuristic planning aids. They are not full production-line simulations.
 
+## Codex Multi-Agent Prompt Workflow
+
+If you want Codex to drive the legacy CAD and drawing pipeline as a small orchestrated agent team, use:
+
+- [Workflow guide](./docs/codex-multi-agent-workflow.md)
+- [Prompt pack](./prompts/multi-agent/)
+- [Starter generated config](./configs/generated/cnc_motor_mount_bracket.toml)
+
+Recommended stable starting flow:
+
+```bash
+fcad create configs/generated/cnc_motor_mount_bracket.toml
+fcad draw configs/generated/cnc_motor_mount_bracket.toml --bom
+fcad dfm configs/generated/cnc_motor_mount_bracket.toml --strict
+fcad tolerance configs/generated/cnc_motor_mount_bracket.toml --recommend
+```
+
+This keeps Codex focused on the existing `config -> create -> draw -> dfm -> tolerance/report` loop without changing the repository runtime model.
+
 ## Command Surface
 
 ### Production-readiness commands
