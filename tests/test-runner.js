@@ -136,6 +136,16 @@ async function testRuntimeDetection() {
   assert(typeof hasFreeCADRuntime() === 'boolean', 'Runtime availability is boolean');
 }
 
+async function testReviewedExampleGuards() {
+  console.log('\n--- Test: Reviewed example schema guards ---');
+
+  const reviewedPath = resolve(ROOT, 'configs/examples/seatbelt_retractor.reviewed.toml');
+  const raw = readFileSync(reviewedPath, 'utf8');
+
+  assert(!raw.includes('type = "library/gear"'), 'Reviewed example no longer uses library/gear');
+  assert(!raw.includes('[[assembly.parts.children]]'), 'Reviewed example does not rely on assembly.parts.children');
+}
+
 async function testFemAnalysis() {
   console.log('\n--- Test: FEM static analysis ---');
 
@@ -165,6 +175,36 @@ async function testFemAnalysis() {
   assert(existsSync(fcstdPath), 'FCStd file saved with results');
 
   return result;
+}
+
+async function testAssemblyShellBoundary() {
+  console.log('\n--- Test: Assembly shell boundary ---');
+
+  const config = {
+    name: 'test_assembly_shell_boundary',
+    parts: [
+      {
+        id: 'shell_part',
+        shapes: [{ id: 'body', type: 'box', length: 20, width: 20, height: 20 }],
+        operations: [{ op: 'shell', target: 'body', thickness: 2, result: 'shell_body' }],
+        final: 'shell_body',
+      },
+    ],
+    assembly: {
+      parts: [{ ref: 'shell_part', position: [0, 0, 0] }],
+    },
+    export: { formats: ['brep'], directory: resolve(OUTPUT_DIR) },
+  };
+
+  try {
+    await runScript('create_model.py', config, {
+      onStderr: (t) => process.stderr.write(`    ${t}`),
+    });
+    assert(false, 'Assembly shell operation should be rejected');
+  } catch (err) {
+    assert(err.message.includes('Unknown operation: shell'), 'Assembly shell boundary is explicit');
+    assert(true, 'Assembly shell boundary correctly rejected');
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1617,6 +1657,22 @@ async function testRetractorCamLock() {
   assert(d135 > 5.5, `Pawl at 135° in dwell zone (got ${d135.toFixed(3)}mm)`);
 }
 
+async function testReviewedRetractorBuild() {
+  console.log('\n--- Test: Reviewed retractor example build ---');
+
+  const config = await loadConfig(resolve(ROOT, 'configs/examples/seatbelt_retractor.reviewed.toml'));
+  config.export.directory = resolve(OUTPUT_DIR);
+
+  const result = await runScript('create_model.py', config, {
+    timeout: 300_000,
+    onStderr: (t) => process.stderr.write(`    ${t}`),
+  });
+
+  assert(result.success === true, 'Reviewed retractor build succeeded');
+  assert(result.assembly !== undefined, 'Reviewed retractor returns assembly metadata');
+  assert(result.model.volume > 0, `Reviewed retractor volume is positive (${result.model.volume})`);
+}
+
 async function testRetractorSpoolCamSync() {
   console.log('\n--- Test: Retractor spool-cam sync (1:1 gear) ---');
 
@@ -2005,6 +2061,7 @@ async function runCase(name, fn) {
 function coreCases() {
   const cases = [
     ['Runtime detection', testRuntimeDetection],
+    ['Reviewed example schema guards', testReviewedExampleGuards],
     ['Operation schema normalization', testOperationSchemaNormalization],
     ['Simple box', testSimpleBox],
     ['Create bracket model', testCreateModel],
@@ -2027,6 +2084,7 @@ function coreCases() {
     ['Assembly: library', testAssemblyWithLibraryParts],
     ['Assembly: PTU', testPTUAssembly],
     ['Assembly: legacy compatibility', testAssemblyLegacyCompat],
+    ['Assembly: shell boundary', testAssemblyShellBoundary],
     ['Mates: coaxial', testMateCoaxial],
     ['Mates: coincident', testMateCoincidentOnly],
     ['Mates: distance', testMateDistance],
@@ -2047,7 +2105,9 @@ function coreCases() {
   }
 
   return cases.filter(([name]) => (
-    name === 'Runtime detection' || name === 'Operation schema normalization'
+    name === 'Runtime detection'
+    || name === 'Reviewed example schema guards'
+    || name === 'Operation schema normalization'
   ));
 }
 
@@ -2066,6 +2126,7 @@ function fullOnlyCases() {
     ['Kinematics: four-bar linkage', testFourBarLinkage],
     ['Kinematics: piston engine', testPistonEngine],
     ['Retractor build', testRetractorBuild],
+    ['Reviewed retractor build', testReviewedRetractorBuild],
     ['Retractor motion data', testRetractorMotionData],
     ['Retractor cam lock', testRetractorCamLock],
     ['Retractor spool-cam sync', testRetractorSpoolCamSync],

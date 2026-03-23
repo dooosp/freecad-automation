@@ -1,6 +1,13 @@
 """
 Create a parametric model from JSON config received via stdin.
 Pipeline: shapes → boolean operations → modifications → export → metadata
+
+Canonical create input supports two modes:
+  - single-part mode: top-level shapes/operations/final/export
+  - assembly mode: top-level parts + assembly (+ optional export)
+
+Assembly mode only activates when both "parts" and "assembly" are present.
+Export is optional in both modes.
 """
 
 import sys
@@ -21,7 +28,9 @@ try:
     from _shapes import make_shape, boolean_op, apply_fillet, apply_chamfer, apply_shell, circular_pattern, get_metadata
     from _export import export_multi, export_assembly, export_assembly_parts
 
-    # Detect assembly mode: "parts" key + "assembly" key present
+    # Detect assembly mode only when BOTH "parts" and "assembly" keys exist.
+    # A config with only one of those keys still follows the legacy single-part
+    # path below.
     is_assembly = "parts" in config and "assembly" in config
 
     if is_assembly:
@@ -152,11 +161,13 @@ try:
         if not shapes:
             raise ValueError("No shapes defined for single-part model")
 
-        # Get final shape (last result or explicitly named)
+        # Get final shape.
+        # Canonical style should set config["final"], but for backward
+        # compatibility the last created shape/result is used when omitted.
         final_name = config.get("final", list(shapes.keys())[-1])
         final_shape = shapes[final_name]
 
-        # Phase 3: Export
+        # Phase 3: Export (optional)
         exports = []
         export_config = config.get("export", {})
         if export_config:

@@ -2,6 +2,16 @@
 Assembly pipeline for FreeCAD automation.
 Builds multi-part assemblies from TOML config with per-part shapes/operations
 and assembly-level placement (position + rotation).
+
+Assembly-mode part operations currently support:
+  - fuse / cut / common
+  - fillet / chamfer
+  - circular_pattern
+
+Notably, shell is currently supported in single-part create_model.py but not in
+assembly part operations here. Hierarchy-style input such as
+assembly.parts.children is also not consumed by this builder; canonical
+assembly input should place each part explicitly in assembly.parts.
 """
 
 import math
@@ -24,7 +34,8 @@ def _build_single_part(part_config):
     """
     Build one part from its shapes + operations config.
     Returns the final Part.Shape.
-    Reuses the same pipeline as create_model.py Phase 1+2.
+    Reuses the same pipeline as create_model.py Phase 1+2, but only for the
+    assembly-mode operation subset documented above.
     """
     shapes = {}
 
@@ -122,6 +133,12 @@ def build_assembly(config, doc):
     Config structure:
         parts: list of part definitions (each with id, shapes, operations)
         assembly.parts: list of {ref, position, rotation} placements
+
+    Notes:
+        - At least one explicit placement is required when mate solving is used.
+        - Canonical input places each part explicitly in assembly.parts.
+        - Hierarchy/children semantics are not guaranteed by the current
+          consumer surface.
 
     Returns dict with:
         features: list of Part::Feature objects in the document

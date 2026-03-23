@@ -117,6 +117,81 @@ fcad fem <config.toml|json>
 fcad tolerance <config.toml|json>
 ```
 
+### Create canonical schema
+
+`fcad create` accepts two canonical config styles.
+
+- Single-part mode: top-level `shapes` plus optional top-level `operations`
+- Assembly mode: top-level `parts` and `assembly` must both be present
+- The operation canonical key is `op`
+- `type -> op` is backward compatibility only
+- Shape aliases are not supported
+- Assembly part operations are not identical to single-part operations
+
+Minimal single-part example:
+
+```toml
+name = "minimal_block"
+final = "body"
+
+[[shapes]]
+id = "body"
+type = "box"
+length = 40
+width = 20
+height = 10
+
+[export]
+formats = ["step"]
+directory = "output"
+```
+
+Minimal assembly example:
+
+```toml
+name = "minimal_assembly"
+
+[[parts]]
+id = "base"
+final = "base_body"
+  [[parts.shapes]]
+  id = "base_body"
+  type = "box"
+  length = 40
+  width = 20
+  height = 10
+
+[[parts]]
+id = "pin"
+final = "pin_body"
+  [[parts.shapes]]
+  id = "pin_body"
+  type = "cylinder"
+  radius = 4
+  height = 20
+
+[assembly]
+  [[assembly.parts]]
+  ref = "base"
+  position = [0, 0, 0]
+
+  [[assembly.parts]]
+  ref = "pin"
+  position = [20, 10, 0]
+
+[export]
+formats = ["step"]
+directory = "output"
+per_part_stl = true
+```
+
+Notes:
+
+- In single-part mode, the final shape defaults to the last created result unless `final` is set.
+- In assembly mode, each part can define its own `final`.
+- Assembly mode currently expects top-level `parts` and `assembly`; `parts` alone does not activate assembly handling.
+- Assembly part operations currently follow the assembly builder's supported set and are not a drop-in match for every single-part operation.
+
 ## Example Flow
 
 ```bash
