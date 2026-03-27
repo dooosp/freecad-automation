@@ -1,18 +1,12 @@
 import { spawn } from 'node:child_process';
 import { join, parse, resolve } from 'node:path';
 
-function isWindowsAbsolutePath(path) {
-  return /^[A-Za-z]:[\\/]/.test(path) || path.startsWith('\\\\');
+function toLocalPath(path) {
+  return resolve(String(path));
 }
 
-function toCanonicalWslPath(path, toWSL) {
-  if (path.startsWith('/')) return resolve(path);
-  if (isWindowsAbsolutePath(path)) return toWSL(path);
-  return resolve(process.cwd(), path.replaceAll('\\', '/'));
-}
-
-function getRepairReportPath(svgWslPath) {
-  const parsed = parse(svgWslPath);
+function getRepairReportPath(svgPath) {
+  const parsed = parse(svgPath);
   return join(parsed.dir, `${parsed.name}_repair_report.json`);
 }
 
@@ -21,33 +15,29 @@ export async function postprocessSvg(freecadRoot, svgPath, opts = {}) {
     throw new Error('svgPath is required for postprocess_svg');
   }
 
-  const { toWindows, toWSL, PYTHON_EXE_WSL } = await import(`${freecadRoot}/lib/paths.js`);
-  const scriptWin = toWindows(join(freecadRoot, 'scripts', 'postprocess_svg.py'));
-  const svgWslPath = toCanonicalWslPath(svgPath, toWSL);
-  const svgWin = toWindows(svgWslPath);
-  const reportWslPath = opts.reportPath
-    ? toCanonicalWslPath(opts.reportPath, toWSL)
-    : getRepairReportPath(svgWslPath);
-  const reportWin = toWindows(reportWslPath);
+  const scriptPath = join(freecadRoot, 'scripts', 'postprocess_svg.py');
+  const localSvgPath = toLocalPath(svgPath);
+  const reportPath = opts.reportPath
+    ? toLocalPath(opts.reportPath)
+    : getRepairReportPath(localSvgPath);
 
   const args = [
-    scriptWin,
-    svgWin,
+    scriptPath,
+    localSvgPath,
     '-o',
-    svgWin,
+    localSvgPath,
     '--report',
-    reportWin,
+    reportPath,
     '--profile',
     String(opts.profile || 'ks'),
   ];
 
   if (opts.planPath) {
-    const planWsl = toCanonicalWslPath(opts.planPath, toWSL);
-    args.push('--plan', toWindows(planWsl));
+    args.push('--plan', toLocalPath(opts.planPath));
   }
 
   const stdout = await new Promise((resolveStdout, reject) => {
-    const proc = spawn(PYTHON_EXE_WSL, args, {
+    const proc = spawn('python3', args, {
       stdio: ['pipe', 'pipe', 'pipe'],
       timeout: 60_000,
     });
@@ -69,6 +59,6 @@ export async function postprocessSvg(freecadRoot, svgPath, opts = {}) {
 
   return {
     output: stdout.trim(),
-    reportPath: reportWslPath,
+    reportPath,
   };
 }

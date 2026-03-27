@@ -1,18 +1,23 @@
-import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { readFile, writeFile } from 'node:fs/promises';
+import { parse, resolve } from 'node:path';
+import { convertPathFromRuntime } from '../../../lib/paths.js';
 import { runQaScorer } from './qa-runner.js';
 import { postprocessSvg } from './svg-postprocess.js';
 
-async function toWSLPath(freecadRoot, path) {
-  const { toWSL } = await import(`${freecadRoot}/lib/paths.js`);
-  return toWSL(path);
+function buildDrawingContextPaths(svgPath) {
+  const parsed = parse(svgPath);
+  const stem = parsed.name.replace(/_drawing$/i, '') || parsed.name;
+  return {
+    configPath: resolve(parsed.dir, `${stem}_effective_config.json`),
+    planPath: resolve(parsed.dir, `${stem}_plan.json`),
+  };
 }
 
 export function createDrawingService({
   readFileFn = readFile,
   runQaScorerFn = runQaScorer,
   postprocessSvgFn = postprocessSvg,
-  toWSLPathFn = toWSLPath,
+  toLocalPathFn = convertPathFromRuntime,
 } = {}) {
   return async function generateDrawing({
     freecadRoot,
@@ -61,10 +66,28 @@ export function createDrawingService({
     const svgPath = result.svg_path || result.drawing_path || svgEntry?.path;
 
     if (svgPath) {
+      const localSvgPath = toLocalPathFn(svgPath);
+      let contextPaths = {};
+      try {
+        contextPaths = buildDrawingContextPaths(localSvgPath);
+        await writeFile(contextPaths.configPath, JSON.stringify(drawConfig, null, 2));
+        if (drawConfig.drawing_plan) {
+          await writeFile(
+            contextPaths.planPath,
+            JSON.stringify({ drawing_plan: drawConfig.drawing_plan }, null, 2)
+          );
+        } else {
+          contextPaths.planPath = undefined;
+        }
+      } catch {
+        contextPaths = {};
+      }
+
       if (postprocess) {
         try {
-          await postprocessSvgFn(freecadRoot, svgPath, {
+          await postprocessSvgFn(freecadRoot, localSvgPath, {
             profile: drawConfig.drawing_plan?.style?.stroke_profile || 'ks',
+            planPath: contextPaths.planPath,
           });
         } catch {
           // Optional post-processing.
@@ -72,15 +95,18 @@ export function createDrawingService({
       }
 
       try {
-        const svgWSLPath = await toWSLPathFn(freecadRoot, svgPath);
-        result.svgContent = await readFileFn(svgWSLPath, 'utf8');
+        result.svgContent = await readFileFn(localSvgPath, 'utf8');
       } catch {
         // Optional SVG read-back.
       }
 
       if (qa) {
         try {
-          result.qa = await runQaScorerFn(freecadRoot, svgPath, { weightsPreset });
+          result.qa = await runQaScorerFn(freecadRoot, localSvgPath, {
+            planPath: contextPaths.planPath,
+            configPath: contextPaths.configPath,
+            weightsPreset: weightsPreset || drawConfig.drawing_plan?.dimensioning?.qa_weight_preset,
+          });
         } catch {
           // Optional QA scoring.
         }

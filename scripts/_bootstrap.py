@@ -55,5 +55,6 @@ def respond_error(msg, details=None):
 def init_freecad():
     """Initialize FreeCAD environment. Must be called before any FreeCAD imports."""
     import FreeCAD
-    log(f"FreeCAD {FreeCAD.Version()[0]}.{FreeCAD.Version()[1]} initialized")
+    version = ".".join(str(part) for part in FreeCAD.Version()[:3])
+    log(f"FreeCAD {version} initialized via {sys.executable} on {sys.platform}")
     return FreeCAD

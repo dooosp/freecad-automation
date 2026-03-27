@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { resolve, join, dirname, parse, sep } from 'node:path';
+import { resolve, join, dirname, parse, sep, isAbsolute } from 'node:path';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { loadConfig, deepMerge } from '../lib/config-loader.js';
@@ -13,7 +13,8 @@ import {
   writeJsonFile,
 } from '../lib/context-loader.js';
 import { runScript } from '../lib/runner.js';
-import { hasFreeCADRuntime } from '../lib/paths.js';
+import { hasFreeCADRuntime, isWindowsAbsolutePath, normalizeLocalPath } from '../lib/paths.js';
+import { printRuntimeDiagnostics } from '../scripts/check-runtime.js';
 import {
   createDfmService,
   createCostService,
@@ -33,6 +34,7 @@ import { createReportService } from '../src/api/report.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(__dirname, '..');
 const VALID_DFM_PROCESSES = new Set(['machining', 'casting', 'sheet_metal', '3d_printing']);
+const VALIDATE_TIMEOUT_MS = 30_000;
 
 function runWithCliStderr(script, input, opts = {}) {
   return runScript(script, input, {
@@ -47,10 +49,25 @@ const generateDrawing = createDrawingService();
 const generateReport = createReportService();
 
 const USAGE = `
-fcad | mfg-agent - Manufacturing engineering decision-support CLI
+fcad | mfg-agent - FreeCAD-backed automation pipeline
+
+Run this first on a new machine:
+  fcad check-runtime
 
 Usage:
-  Production-readiness workflows:
+  Diagnostics:
+    fcad check-runtime             Show runtime detection, env precedence, and setup hints
+
+  FreeCAD-backed commands:
+    fcad create <config.toml|json>    Generate parametric model output
+    fcad draw <config.toml|json>      Generate drawing SVG output
+    fcad inspect <model.step|fcstd>   Inspect model metadata
+    fcad fem <config.toml|json>       Run FEM structural analysis
+    fcad tolerance <config.toml>      Tolerance analysis for assembly configs
+    fcad report <config.toml>         Generate engineering PDF report
+
+  Plain-Python / non-FreeCAD commands:
+    fcad dfm <config.toml|json>       Run DFM manufacturability analysis
     fcad review <config.toml|json>
     fcad process-plan <config.toml|json>
     fcad line-plan <config.toml|json>
@@ -59,26 +76,17 @@ Usage:
     fcad readiness-report <config.toml|json>
     fcad stabilization-review <config.toml|json> --runtime <runtime.json>
     fcad generate-standard-docs <config.toml|json> [--out-dir <dir>]
-
-  Review-pack workflows:
     fcad ingest --model <file> [--bom bom.csv] [--inspection insp.csv] [--quality ncr.csv] --out <context.json>
-    fcad analyze-part <context.json|model.step>
     fcad quality-link --context <context.json> --geometry <geometry.json>
     fcad review-pack --context <context.json> --geometry <geometry.json>
     fcad compare-rev <baseline.json> <candidate.json>
+    fcad validate <config.toml|json>
+    fcad serve [port]
 
-  Legacy / specialized workflows:
-    fcad create <config.toml|json>    Legacy model creation from config
-    fcad design "description"         Experimental NL-to-TOML generation
-    fcad draw <config.toml|json>      Generate engineering drawing (4-view SVG + BOM)
-    fcad fem <config.toml|json>       Run FEM structural analysis
-    fcad tolerance <config.toml>      Tolerance analysis (fit + stack-up)
-    fcad report <config.toml>         Generate engineering PDF report
-    fcad inspect <model.step|fcstd>   Inspect model metadata
-    fcad validate <config.toml|json>  Validate drawing plan schema
-    fcad dfm <config.toml|json>       Run DFM manufacturability analysis
-    fcad serve [port]                 Start legacy 3D viewer/dev server
-    fcad help                         Show this help
+  Mixed / conditional commands:
+    fcad analyze-part <context.json|model.step>
+    fcad design "description"
+    fcad help
 
 Options:
   Shared new-workflow options:
@@ -88,38 +96,44 @@ Options:
     --site <name>                Site label override for summaries
     --process <name>             Override manufacturing process when supported
     --material <name>            Override material for cost/readiness workflow
-    --context <path>              Engineering context JSON
-    --geometry <path>             Geometry intelligence JSON
-    --hotspots <path>             Manufacturing hotspot JSON
-    --out <path>                  Primary output JSON path; sibling artifacts share its stem
-    --out-dir <dir>               Output directory when using default artifact names
+    --context <path>             Engineering context JSON
+    --geometry <path>            Geometry intelligence JSON
+    --hotspots <path>            Manufacturing hotspot JSON
+    --out <path>                 Primary output JSON path; sibling artifacts share its stem
+    --out-dir <dir>              Output directory when using default artifact names
 
-  Legacy options:
-    --override <path>             Merge override TOML/JSON on top of base config (with draw)
-    --bom                         Export BOM as separate CSV file (with draw)
-    --raw                         Skip SVG post-processing (with draw)
-    --no-score                    Skip QA scoring (with draw)
-    --fail-under N                Fail if QA score < N (with draw)
-    --weights-preset P            QA weight profile: default|auto|flange|shaft|...
-    --strict                      Treat warnings as errors (with validate/dfm)
-    --process P                   Override manufacturing process (with dfm)
-    --recommend                   Auto-recommend fit specs (with tolerance)
-    --csv                         Export tolerance report as CSV (with tolerance)
-    --monte-carlo                 Include Monte Carlo simulation (with tolerance/report)
-    --fem                         Include FEM analysis in report
-    --tolerance                   Include tolerance analysis in report (default)
+  Workflow-specific options:
+    --override <path>            Merge override TOML/JSON on top of base config (with draw)
+    --bom                        Export BOM as separate CSV file (with draw)
+    --raw                        Skip SVG post-processing (with draw)
+    --no-score                   Skip QA scoring (with draw)
+    --fail-under N               Fail if QA score < N (with draw)
+    --weights-preset P           QA weight profile: default|auto|flange|shaft|...
+    --strict                     Treat warnings as errors (with validate/dfm)
+    --process P                  Override manufacturing process (with dfm)
+    --recommend                  Auto-recommend fit specs (with tolerance)
+    --csv                        Export tolerance report as CSV (with tolerance)
+    --monte-carlo                Include Monte Carlo simulation (with tolerance/report)
+    --dfm                        Include DFM analysis in report
+    --fem                        Include FEM analysis in report
+    --no-tolerance               Skip tolerance analysis in report
+    --tolerance                  Include tolerance analysis in report (default)
 
 Examples:
+  fcad check-runtime
+  fcad create configs/examples/ks_bracket.toml
+  fcad draw configs/examples/ks_bracket.toml --bom
+  fcad inspect output/ks_bracket.step
   fcad review configs/examples/infotainment_display_bracket.toml
-  fcad process-plan configs/examples/controller_housing.toml
   fcad readiness-report configs/examples/pcb_mount_plate.toml --out output/pcb_mount_plate_readiness.json
   fcad stabilization-review configs/examples/infotainment_display_bracket.toml --runtime data/runtime_examples/display_bracket_runtime.json --profile configs/profiles/site_korea_ulsan.toml
   fcad generate-standard-docs configs/examples/controller_housing_eol.toml --out-dir output/controller_housing_standard_docs
-  fcad ingest --model fixtures/part.step --inspection fixtures/inspection.csv --out output/part_context.json
-  fcad analyze-part output/part_context.json
-  fcad quality-link --context output/part_context.json --geometry output/part_geometry_intelligence.json
-  fcad review-pack --context output/part_context.json --geometry output/part_geometry_intelligence.json
-  fcad create configs/examples/ks_bracket.toml
+
+Notes:
+  check-runtime is the primary troubleshooting entrypoint for runtime-backed commands.
+  analyze-part can run without FreeCAD when the supplied context already includes model metadata.
+  report remains FreeCAD-backed today, even when macOS falls back from freecadcmd to the bundled FreeCAD Python.
+  Windows native, WSL -> Windows FreeCAD, and Linux runtime execution are compatibility paths, not equal-maturity claims.
 `.trim();
 
 function parseCliArgs(rawArgs = []) {
@@ -152,8 +166,41 @@ function parseCliArgs(rawArgs = []) {
   return { positional, options };
 }
 
+function ensureNumericOption(optionName, rawValue) {
+  if (rawValue === undefined || rawValue === null || rawValue === '') return undefined;
+  const numericValue = Number(rawValue);
+  if (!Number.isFinite(numericValue)) {
+    console.error(`Error: ${optionName} must be a finite number`);
+    process.exit(1);
+  }
+  return numericValue;
+}
+
+function requireOptionValue(optionName, value, usageHint = null) {
+  if (value && !value.startsWith('--')) {
+    return value;
+  }
+  console.error(`Error: ${optionName} requires a value`);
+  if (usageHint) console.error(`  ${usageHint}`);
+  process.exit(1);
+}
+
+function requireExistingInputFile(label, filePath) {
+  if (!filePath) return;
+  if (!existsSync(filePath)) {
+    console.error(`Error: ${label} file not found: ${filePath}`);
+    process.exit(1);
+  }
+}
+
 function resolveMaybe(value) {
-  return value ? resolve(value) : null;
+  if (!value) return null;
+  const normalized = normalizeLocalPath(value);
+  if (typeof normalized !== 'string' || !normalized.trim()) return null;
+  if (isAbsolute(normalized) || isWindowsAbsolutePath(normalized)) {
+    return normalized;
+  }
+  return resolve(normalized);
 }
 
 function stemFromContext(context, fallback = 'artifact') {
@@ -162,7 +209,7 @@ function stemFromContext(context, fallback = 'artifact') {
 
 function buildDefaultOutputDir(preferredPath) {
   if (!preferredPath) return resolve(PROJECT_ROOT, 'output');
-  const resolved = resolve(preferredPath);
+  const resolved = resolveMaybe(preferredPath);
   return resolved.endsWith('.json') ? dirname(resolved) : resolved;
 }
 
@@ -176,7 +223,7 @@ function createArtifactPaths(basePathOrDir, stem, suffixes) {
 
 function normalizeJsonOutputPath(pathValue) {
   if (!pathValue) return null;
-  const absPath = resolve(pathValue);
+  const absPath = resolveMaybe(pathValue);
   return absPath.toLowerCase().endsWith('.json') ? absPath : `${absPath}.json`;
 }
 
@@ -219,7 +266,9 @@ async function main() {
     process.exit(0);
   }
 
-  if (command === 'create') {
+  if (command === 'check-runtime') {
+    process.exit(printRuntimeDiagnostics());
+  } else if (command === 'create') {
     await cmdCreate(args[0]);
   } else if (command === 'review') {
     await cmdProductionReview(args);
@@ -280,7 +329,7 @@ async function main() {
 
 function resolveConfigCommandInput(rawArgs = []) {
   const { positional, options } = parseCliArgs(rawArgs);
-  const configPath = positional[0] ? resolve(positional[0]) : null;
+  const configPath = resolveMaybe(positional[0]);
   const outputPath = normalizeJsonOutputPath(options.out);
   const outDir = buildDefaultOutputDir(outputPath || options['out-dir']);
   const stem = deriveArtifactStem(outputPath || configPath || 'manufacturing_output', 'manufacturing_output');
@@ -309,7 +358,7 @@ async function runProductionReadiness(rawArgs = [], { persistArtifacts = true } 
     configPath,
     config,
     options: {
-      batchSize: options.batch ? Number(options.batch) : undefined,
+      batchSize: ensureNumericOption('--batch', options.batch),
       profileName: options.profile || null,
       process: options.process || config.manufacturing?.process || config.process || null,
       material: options.material || config.manufacturing?.material || config.material || null,
@@ -416,13 +465,13 @@ async function cmdGenerateStandardDocs(rawArgs = []) {
     configPath,
     config,
     options: {
-      batchSize: options.batch ? Number(options.batch) : undefined,
+      batchSize: ensureNumericOption('--batch', options.batch),
       profileName: options.profile || null,
       process: options.process || config.manufacturing?.process || config.process || null,
       material: options.material || config.manufacturing?.material || config.material || null,
       site: options.site || null,
       runtimeData,
-      outDir: options['out-dir'] ? resolve(options['out-dir']) : null,
+      outDir: resolveMaybe(options['out-dir']),
       onStderr: (text) => process.stderr.write(text),
     },
   });
@@ -446,10 +495,10 @@ async function cmdIngest(rawArgs = []) {
     process.exit(1);
   }
 
-  if (modelPath && !existsSync(modelPath)) {
-    console.error(`Error: model file not found: ${modelPath}`);
-    process.exit(1);
-  }
+  requireExistingInputFile('model', modelPath);
+  requireExistingInputFile('bom', bomPath);
+  requireExistingInputFile('inspection', inspectionPath);
+  requireExistingInputFile('quality', qualityPath);
 
   const baseStem = deriveArtifactStem(options.out || modelPath || bomPath || inspectionPath || qualityPath, 'engineering_part');
   const outputPath = normalizeJsonOutputPath(options.out) || resolve(join(PROJECT_ROOT, 'output', `${baseStem}_context.json`));
@@ -490,8 +539,9 @@ async function cmdIngest(rawArgs = []) {
 
 async function cmdAnalyzePart(rawArgs = []) {
   const { positional, options } = parseCliArgs(rawArgs);
-  const contextPath = resolveMaybe(options.context || (positional[0]?.toLowerCase().endsWith('.json') ? positional[0] : null));
-  const directModelPath = resolveMaybe(options.model || (!contextPath ? positional[0] : null));
+  const firstPositional = typeof positional[0] === 'string' ? positional[0] : null;
+  const contextPath = resolveMaybe(options.context || (firstPositional?.toLowerCase()?.endsWith('.json') ? firstPositional : null));
+  const directModelPath = resolveMaybe(options.model || (!contextPath ? firstPositional : null));
   const context = contextPath ? await readJsonFile(contextPath) : null;
   const modelPath = directModelPath || resolveMaybe(context?.geometry_source?.path);
 
@@ -751,7 +801,8 @@ async function cmdCompareRev(rawArgs = []) {
     },
   };
 
-  const outputPath = resolve(options.out || artifactPathFor(buildDefaultOutputDir(options['out-dir']), deriveArtifactStem(candidatePath, 'revision'), '_revision_comparison.json'));
+  const outputPath = normalizeJsonOutputPath(options.out)
+    || artifactPathFor(buildDefaultOutputDir(options['out-dir']), deriveArtifactStem(candidatePath, 'revision'), '_revision_comparison.json');
   await writeJsonFile(outputPath, comparison);
   console.log(`Revision comparison: ${outputPath}`);
 }
@@ -763,7 +814,7 @@ async function cmdValidate(configPath, flags = []) {
     process.exit(1);
   }
 
-  const absPath = resolve(configPath);
+  const absPath = resolveMaybe(configPath);
   const config = await loadConfig(absPath);
   const plan = config.drawing_plan;
 
@@ -783,17 +834,63 @@ async function cmdValidate(configPath, flags = []) {
   ];
   if (flags.includes('--strict')) pyArgs.push('--strict');
 
-  const proc = spawn('python3', pyArgs, { stdio: ['pipe', 'pipe', 'pipe'] });
+  const proc = spawn('python3', pyArgs, {
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env: {
+      ...process.env,
+      PYTHONUTF8: '1',
+      PYTHONIOENCODING: 'utf-8',
+    },
+  });
 
   let stdout = '';
   let stderr = '';
+  let timeoutError = null;
+  let hardKillTimer = null;
   proc.stdout.on('data', (c) => { stdout += c; });
   proc.stderr.on('data', (c) => { stderr += c; });
+
+  const timer = setTimeout(() => {
+    timeoutError = new Error(`plan_validator.py timed out after ${VALIDATE_TIMEOUT_MS}ms`);
+    try {
+      proc.kill('SIGTERM');
+    } catch {
+      // Ignore kill race; close/error handlers will finalize.
+    }
+    hardKillTimer = setTimeout(() => {
+      if (proc.exitCode === null && proc.signalCode === null) {
+        try {
+          proc.kill('SIGKILL');
+        } catch {
+          // Process already exited.
+        }
+      }
+    }, 5000);
+    hardKillTimer.unref?.();
+  }, VALIDATE_TIMEOUT_MS);
 
   proc.stdin.write(JSON.stringify({ drawing_plan: plan }));
   proc.stdin.end();
 
-  const code = await new Promise((res) => proc.on('close', res));
+  let code;
+  try {
+    code = await new Promise((resolveCode, rejectCode) => {
+      proc.on('close', resolveCode);
+      proc.on('error', rejectCode);
+    });
+  } catch (error) {
+    clearTimeout(timer);
+    if (hardKillTimer) clearTimeout(hardKillTimer);
+    console.error(`Failed to start validator: ${error.message}`);
+    process.exit(1);
+  }
+
+  clearTimeout(timer);
+  if (hardKillTimer) clearTimeout(hardKillTimer);
+  if (timeoutError) {
+    console.error(timeoutError.message);
+    process.exit(1);
+  }
 
   let result;
   try {
@@ -817,7 +914,7 @@ async function cmdValidate(configPath, flags = []) {
     console.log(`  WARN:  ${w}`);
   }
 
-  process.exit(code);
+  process.exit(Number.isInteger(code) ? code : 1);
 }
 
 async function cmdServe(portArg) {
@@ -887,19 +984,22 @@ async function cmdDraw(rawArgs = []) {
   let weightsPresetValue = null;
   for (let i = 0; i < rawArgs.length; i++) {
     const arg = rawArgs[i];
-    if (arg === '--override' && rawArgs[i + 1]) {
-      overridePath = rawArgs[++i];
-    } else if (arg === '--fail-under' && rawArgs[i + 1]) {
-      failUnderValue = rawArgs[++i];
+    if (arg === '--override') {
+      overridePath = requireOptionValue('--override', rawArgs[i + 1], 'fcad draw <config> --override <path>');
+      i += 1;
+    } else if (arg === '--fail-under') {
+      failUnderValue = requireOptionValue('--fail-under', rawArgs[i + 1], 'fcad draw <config> --fail-under <number>');
+      i += 1;
       flags.push('--fail-under');
     } else if (arg.startsWith('--fail-under=')) {
-      failUnderValue = arg.split('=')[1];
+      failUnderValue = requireOptionValue('--fail-under', arg.split('=')[1], 'fcad draw <config> --fail-under <number>');
       flags.push('--fail-under');
-    } else if (arg === '--weights-preset' && rawArgs[i + 1]) {
-      weightsPresetValue = rawArgs[++i];
+    } else if (arg === '--weights-preset') {
+      weightsPresetValue = requireOptionValue('--weights-preset', rawArgs[i + 1], 'fcad draw <config> --weights-preset <preset>');
+      i += 1;
       flags.push('--weights-preset');
     } else if (arg.startsWith('--weights-preset=')) {
-      weightsPresetValue = arg.split('=')[1];
+      weightsPresetValue = requireOptionValue('--weights-preset', arg.split('=')[1], 'fcad draw <config> --weights-preset <preset>');
       flags.push('--weights-preset');
     } else if (arg.startsWith('--')) {
       flags.push(arg);
@@ -936,7 +1036,7 @@ async function cmdCreate(configPath) {
     process.exit(1);
   }
 
-  const absPath = resolve(configPath);
+  const absPath = resolveMaybe(configPath);
   console.log(`Loading config: ${absPath}`);
 
   const config = await loadConfig(absPath);
@@ -986,7 +1086,7 @@ async function cmdFem(configPath) {
     process.exit(1);
   }
 
-  const absPath = resolve(configPath);
+  const absPath = resolveMaybe(configPath);
   console.log(`Loading config: ${absPath}`);
 
   const config = await loadConfig(absPath);
@@ -1038,7 +1138,7 @@ async function cmdTolerance(configPath, flags = []) {
     process.exit(1);
   }
 
-  const absPath = resolve(configPath);
+  const absPath = resolveMaybe(configPath);
   console.log(`Loading config: ${absPath}`);
 
   const config = await loadConfig(absPath);
@@ -1155,7 +1255,7 @@ async function cmdDfm(rawArgs = []) {
     process.exit(1);
   }
 
-  const absPath = resolve(configPath);
+  const absPath = resolveMaybe(configPath);
   console.log(`Loading config: ${absPath}`);
 
   const config = await loadConfig(absPath);
@@ -1229,7 +1329,7 @@ async function cmdReport(configPath, flags = []) {
     process.exit(1);
   }
 
-  const absPath = resolve(configPath);
+  const absPath = resolveMaybe(configPath);
   console.log(`Loading config: ${absPath}`);
   const config = await loadConfig(absPath);
   const includeTolerance = !flags.includes('--no-tolerance');
@@ -1324,7 +1424,7 @@ async function cmdInspect(filePath) {
     process.exit(1);
   }
 
-  const absPath = resolve(filePath);
+  const absPath = resolveMaybe(filePath);
   console.log(`Inspecting: ${absPath}`);
 
   const result = await inspectModel({

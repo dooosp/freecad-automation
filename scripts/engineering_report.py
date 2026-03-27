@@ -16,6 +16,73 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from _bootstrap import log, read_input, respond, respond_error, safe_filename_component
 
+
+def _resolve_model_result(config):
+    """Return the best available model summary payload."""
+    model = config.get("model_result")
+    if isinstance(model, dict) and model:
+        return model
+    geometry = config.get("geometry_intelligence")
+    if isinstance(geometry, dict):
+        return geometry
+    fallback = config.get("model")
+    return fallback if isinstance(fallback, dict) else {}
+
+
+def _resolve_tolerance_result(config):
+    """Normalize tolerance analysis payload across legacy/current layouts."""
+    tolerance = config.get("tolerance_results")
+    if not isinstance(tolerance, dict):
+        tolerance = {}
+
+    monte_carlo = config.get("monte_carlo_results")
+    if not isinstance(monte_carlo, dict):
+        monte_carlo = tolerance.get("monte_carlo")
+    if isinstance(monte_carlo, dict) and "monte_carlo" not in tolerance:
+        tolerance = dict(tolerance)
+        tolerance["monte_carlo"] = monte_carlo
+
+    return tolerance
+
+
+def _resolve_dfm_result(config):
+    """Return the best available DFM payload."""
+    dfm = config.get("dfm_results")
+    if isinstance(dfm, dict):
+        return dfm
+    dfm = config.get("dfm_result")
+    return dfm if isinstance(dfm, dict) else {}
+
+
+def _resolve_fem_result(config):
+    """Normalize FEM payload for report consumers."""
+    fem = config.get("fem_results")
+    if not isinstance(fem, dict):
+        fem = config.get("fem_result")
+    if not isinstance(fem, dict):
+        fem = config.get("fem")
+    if not isinstance(fem, dict):
+        return {}
+
+    fem_payload = fem.get("fem") if isinstance(fem.get("fem"), dict) else fem
+    results = fem_payload.get("results") if isinstance(fem_payload.get("results"), dict) else {}
+    if results:
+        normalized = dict(fem_payload)
+        normalized.setdefault("von_mises", results.get("von_mises", {}))
+        normalized.setdefault("displacement", results.get("displacement", {}))
+        normalized.setdefault("safety_factor", results.get("safety_factor"))
+        return normalized
+    return fem_payload
+
+
+def _resolve_cost_result(config):
+    """Return the best available cost analysis payload."""
+    cost = config.get("cost_result")
+    if isinstance(cost, dict):
+        return cost
+    cost = config.get("cost_results")
+    return cost if isinstance(cost, dict) else {}
+
 def main():
     try:
         config = read_input()
@@ -52,11 +119,12 @@ def generate_template_report(config, template_config):
 
     # Collect analysis data
     data = {
-        'model': config.get('model_result', {}),
+        'model': _resolve_model_result(config),
         'qa': config.get('qa_result', {}),
-        'dfm': config.get('dfm_results') or config.get('dfm_result', {}),
-        'tolerance': config.get('tolerance_results', {}),
-        'cost': config.get('cost_result', {}),
+        'dfm': _resolve_dfm_result(config),
+        'tolerance': _resolve_tolerance_result(config),
+        'fem': _resolve_fem_result(config),
+        'cost': _resolve_cost_result(config),
     }
 
     # Determine output path
@@ -89,11 +157,11 @@ def generate_legacy_report(config):
     os.makedirs(export_dir, exist_ok=True)
     pdf_path = os.path.join(export_dir, f"{output_stem}_report.pdf")
 
-    tolerance = config.get("tolerance_results", {})
-    mc = config.get("monte_carlo_results", None)
-    fem = config.get("fem_results", None)
+    tolerance = _resolve_tolerance_result(config)
+    mc = tolerance.get("monte_carlo")
+    fem = _resolve_fem_result(config)
     bom = config.get("bom", [])
-    dfm = config.get("dfm_results", None)
+    dfm = _resolve_dfm_result(config)
     pairs = tolerance.get("pairs", [])
     stack = tolerance.get("stack_up", {})
 

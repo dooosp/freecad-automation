@@ -99,6 +99,17 @@ def _safe_pos(shape):
     ]
 
 
+def _box_plan_dims(shape):
+    """Return normalized (x_size, y_size) for box-like specs.
+
+    Supports both the canonical FreeCAD `length/width/height` shape schema and
+    the legacy DFM `width/depth/height` schema used in some tests/configs.
+    """
+    x_size = shape.get("length", shape.get("width", 0))
+    y_size = shape.get("depth", shape.get("width", 0))
+    return x_size, y_size
+
+
 def _extract_holes(config):
     """Return list of cut cylinders (holes/bores) with position info."""
     cut_tools = _get_cut_tool_ids(config)
@@ -139,8 +150,9 @@ def _extract_bodies(config):
             entry["radius"] = s.get("radius", 0)
             entry["height"] = s.get("height", 0)
         elif stype == "box":
-            entry["width"] = s.get("width", 0)
-            entry["depth"] = s.get("depth", 0)
+            width, depth = _box_plan_dims(s)
+            entry["width"] = width
+            entry["depth"] = depth
             entry["height"] = s.get("height", 0)
         bodies.append(entry)
     return bodies
@@ -153,10 +165,11 @@ def _extract_cut_boxes(config):
     for s in config.get("shapes", []):
         if s.get("type") == "box" and s.get("id") in cut_tools:
             pos = _safe_pos(s)
+            width, depth = _box_plan_dims(s)
             boxes.append({
                 "id": s.get("id", ""),
-                "width": s.get("width", 0),
-                "depth": s.get("depth", 0),
+                "width": width,
+                "depth": depth,
                 "height": s.get("height", 0),
                 "x": pos[0],
                 "y": pos[1],
@@ -364,30 +377,50 @@ def check_hole_edge_distance(config, constraints):
             if outer_cyl is None or b["radius"] > outer_cyl["radius"]:
                 outer_cyl = b
 
-    if not outer_cyl:
-        return checks
-
-    outer_r = outer_cyl["radius"]
+    box_bodies = [b for b in bodies if b["type"] == "box"]
+    outer_r = outer_cyl["radius"] if outer_cyl else None
 
     for hole in holes:
         # Skip central bores and counterbores
-        if _is_central_bore(hole, outer_cyl):
+        if outer_cyl and _is_central_bore(hole, outer_cyl):
             continue
         if hole["id"] in cb_ids:
             continue
 
         min_dist = factor * hole["diameter"]
-        dist_from_center = _dist_2d(hole["x"], hole["y"], outer_cyl["x"], outer_cyl["y"])
-        edge_dist = outer_r - dist_from_center - hole["radius"]
+        if outer_cyl:
+            dist_from_center = _dist_2d(hole["x"], hole["y"], outer_cyl["x"], outer_cyl["y"])
+            edge_dist = outer_r - dist_from_center - hole["radius"]
 
-        if edge_dist < min_dist and edge_dist >= 0:
-            checks.append(DFMCheck(
-                "DFM-02", "error",
-                f"Hole '{hole['id']}' edge distance {edge_dist:.1f}mm "
-                f"< required {min_dist:.1f}mm ({factor}x dia {hole['diameter']:.1f}mm)",
-                feature=hole["id"],
-                recommendation=f"Move hole at least {min_dist:.1f}mm from edge",
-            ))
+            if edge_dist < min_dist and edge_dist >= 0:
+                checks.append(DFMCheck(
+                    "DFM-02", "error",
+                    f"Hole '{hole['id']}' edge distance {edge_dist:.1f}mm "
+                    f"< required {min_dist:.1f}mm ({factor}x dia {hole['diameter']:.1f}mm)",
+                    feature=hole["id"],
+                    recommendation=f"Move hole at least {min_dist:.1f}mm from edge",
+                ))
+
+        for body in box_bodies:
+            if not (body["x"] <= hole["x"] <= body["x"] + body["width"]):
+                continue
+            if not (body["y"] <= hole["y"] <= body["y"] + body["depth"]):
+                continue
+
+            edge_dist = min(
+                hole["x"] - body["x"] - hole["radius"],
+                (body["x"] + body["width"]) - hole["x"] - hole["radius"],
+                hole["y"] - body["y"] - hole["radius"],
+                (body["y"] + body["depth"]) - hole["y"] - hole["radius"],
+            )
+            if edge_dist < min_dist and edge_dist >= 0:
+                checks.append(DFMCheck(
+                    "DFM-02", "error",
+                    f"Hole '{hole['id']}' edge distance {edge_dist:.1f}mm "
+                    f"< required {min_dist:.1f}mm ({factor}x dia {hole['diameter']:.1f}mm) in box '{body['id']}'",
+                    feature=hole["id"],
+                    recommendation=f"Move hole at least {min_dist:.1f}mm from edge",
+                ))
 
     return checks
 

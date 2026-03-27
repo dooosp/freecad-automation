@@ -263,6 +263,10 @@ def analyze_pair(pair, spec=None, purpose=None):
         "fit_type": fit["fit_type"],
         "clearance_min": fit["clearance_min"],
         "clearance_max": fit["clearance_max"],
+        "hole_upper_dev": fit["hole_upper"],
+        "hole_lower_dev": fit["hole_lower"],
+        "shaft_upper_dev": fit["shaft_upper"],
+        "shaft_lower_dev": fit["shaft_lower"],
         "hole_tolerance": round(h_upper - h_lower, 4),
         "shaft_tolerance": round(s_upper - s_lower, 4),
         "status": "OK",
@@ -362,14 +366,24 @@ def stack_up_monte_carlo(pair_results, num_samples=10000, distribution='normal')
         h_tol = pr["hole_tolerance"]
         s_tol = pr["shaft_tolerance"]
 
-        # Hole: nominal + lower_dev to nominal + upper_dev
-        # From bore_range string: "20.0+0.000 / 20.0+0.021"
-        h_min = nominal + (pr["clearance_min"] + pr["clearance_max"]) / 2 - h_tol / 2
-        h_max = h_min + h_tol
-        # Shaft: use clearance to derive bounds
-        s_mean = nominal - (pr["clearance_min"] + pr["clearance_max"]) / 2 + h_tol / 2
-        s_min = s_mean - s_tol / 2
-        s_max = s_mean + s_tol / 2
+        hole_lower = pr.get("hole_lower_dev")
+        hole_upper = pr.get("hole_upper_dev")
+        shaft_lower = pr.get("shaft_lower_dev")
+        shaft_upper = pr.get("shaft_upper_dev")
+
+        if None not in (hole_lower, hole_upper, shaft_lower, shaft_upper):
+            h_min = nominal + hole_lower
+            h_max = nominal + hole_upper
+            s_min = nominal + shaft_lower
+            s_max = nominal + shaft_upper
+        else:
+            # Backward-compatible fallback for legacy payloads that only expose
+            # aggregate clearances and tolerance bands.
+            h_min = nominal + (pr["clearance_min"] + pr["clearance_max"]) / 2 - h_tol / 2
+            h_max = h_min + h_tol
+            s_mean = nominal - (pr["clearance_min"] + pr["clearance_max"]) / 2 + h_tol / 2
+            s_min = s_mean - s_tol / 2
+            s_max = s_mean + s_tol / 2
 
         # Simplify: sample hole and shaft sizes, gap = hole - shaft
         h_center = (h_min + h_max) / 2

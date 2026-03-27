@@ -1,16 +1,12 @@
 import { basename, extname, join, resolve } from 'node:path';
 import { readFile, copyFile, mkdir } from 'node:fs/promises';
+import { convertPathFromRuntime } from '../../lib/paths.js';
 import { AnalysisCache } from './analysis-cache.js';
 import { loadShopProfile } from '../services/config/profile-service.js';
 import { generateDrawing } from '../services/drawing/drawing-service.js';
 import { createDfmService } from '../services/analysis/dfm-service.js';
 import { runTolerance } from '../services/analysis/tolerance-service.js';
 import { createCostService } from '../services/cost/cost-service.js';
-
-async function toWSLPath(freecadRoot, path) {
-  const { toWSL } = await import(`${freecadRoot}/lib/paths.js`);
-  return toWSL(path);
-}
 
 export function createAnalyzePipeline({
   readFileFn = readFile,
@@ -22,7 +18,7 @@ export function createAnalyzePipeline({
   runDfmFn,
   runToleranceFn = runTolerance,
   runCostFn,
-  toWSLPathFn = toWSLPath,
+  toLocalPathFn = convertPathFromRuntime,
 } = {}) {
   const executeDfm = runDfmFn || createDfmService({ loadShopProfileFn });
   const executeCost = runCostFn || createCostService({ loadShopProfileFn });
@@ -63,7 +59,7 @@ export function createAnalyzePipeline({
 
         let resolvedSrc = srcStep;
         if (srcStep.includes('\\') || /^[A-Z]:/i.test(srcStep)) {
-          resolvedSrc = await toWSLPathFn(freecadRoot, srcStep);
+          resolvedSrc = toLocalPathFn(srcStep);
         }
 
         const destStep = join(outputDir, `${name}.step`);

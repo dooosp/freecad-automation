@@ -1,14 +1,8 @@
 import { spawn } from 'node:child_process';
 import { basename, join, resolve } from 'node:path';
 
-function isWindowsAbsolutePath(path) {
-  return /^[A-Za-z]:[\\/]/.test(path) || path.startsWith('\\\\');
-}
-
-function toCanonicalWslPath(path, toWSL) {
-  if (path.startsWith('/')) return resolve(path);
-  if (isWindowsAbsolutePath(path)) return toWSL(path);
-  return resolve(process.cwd(), path.replaceAll('\\', '/'));
+function toLocalPath(path) {
+  return resolve(String(path));
 }
 
 export async function runQaScorer(freecadRoot, svgPath, opts = {}) {
@@ -16,26 +10,22 @@ export async function runQaScorer(freecadRoot, svgPath, opts = {}) {
     throw new Error('svgPath is required for qa_scorer');
   }
 
-  const { toWindows, toWSL, PYTHON_EXE_WSL } = await import(`${freecadRoot}/lib/paths.js`);
-  const scriptWin = toWindows(join(freecadRoot, 'scripts', 'qa_scorer.py'));
-  const svgWslPath = toCanonicalWslPath(svgPath, toWSL);
-  const svgWin = toWindows(svgWslPath);
-  const args = [scriptWin, svgWin];
+  const scriptPath = join(freecadRoot, 'scripts', 'qa_scorer.py');
+  const localSvgPath = toLocalPath(svgPath);
+  const args = [scriptPath, localSvgPath];
 
   if (opts.planPath) {
-    const planWsl = toCanonicalWslPath(opts.planPath, toWSL);
-    args.push('--plan', toWindows(planWsl));
+    args.push('--plan', toLocalPath(opts.planPath));
   }
   if (opts.configPath) {
-    const configWsl = toCanonicalWslPath(opts.configPath, toWSL);
-    args.push('--config', toWindows(configWsl));
+    args.push('--config', toLocalPath(opts.configPath));
   }
   if (opts.weightsPreset) {
     args.push('--weights-preset', String(opts.weightsPreset));
   }
 
   const stdout = await new Promise((resolveStdout, reject) => {
-    const proc = spawn(PYTHON_EXE_WSL, args, {
+    const proc = spawn('python3', args, {
       stdio: ['pipe', 'pipe', 'pipe'],
       timeout: 60_000,
     });
@@ -61,7 +51,7 @@ export async function runQaScorer(freecadRoot, svgPath, opts = {}) {
   const profileMatch = stdout.match(/weight_profile:\s*([a-z0-9_-]+)/i);
   return {
     score: Number(scoreMatch[1]),
-    file: basename(svgWslPath),
+    file: basename(localSvgPath),
     weightProfile: profileMatch ? profileMatch[1] : undefined,
   };
 }

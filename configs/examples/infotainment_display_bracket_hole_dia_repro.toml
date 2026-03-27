@@ -1,0 +1,124 @@
+name = "infotainment_display_bracket_hole_dia_repro"
+material = "AL6061"
+batch_size = 120
+
+[product]
+family = "display_module"
+module_type = "AVN display bracket"
+vehicle_program = "SDV cockpit platform"
+revision = "R1"
+decision_scope = "minimum repro for HOLE_DIA presence regression"
+connector_clearance_mm = 4.0
+connector_side = "rear connector-side clearance"
+fastening_strategy = "manual M5 screw fastening to display module"
+traceability_label_area = "side tab near connector window"
+
+[manufacturing]
+process = "sheet_metal"
+material = "AL6061"
+
+[production]
+sites = ["Korea-Ulsan"]
+annual_volume = 120000
+target_ct_sec = 36
+automation_mode = "hybrid"
+pilot_lot = 120
+automation_candidates = [
+  "auto screw presentation",
+  "vision-assisted bend-angle check",
+  "inline barcode traceability",
+]
+
+[[shapes]]
+id = "base_plate"
+type = "box"
+length = 180
+width = 95
+height = 2.0
+
+[[shapes]]
+id = "vertical_leg"
+type = "box"
+length = 20
+width = 95
+height = 38
+position = [0, 0, 2.0]
+
+[[shapes]]
+id = "side_tab"
+type = "box"
+length = 24
+width = 24
+height = 18
+position = [156, 36, 2.0]
+
+[[shapes]]
+id = "hole1"
+type = "cylinder"
+radius = 2.5
+height = 6
+position = [18, 18, -2]
+
+[[shapes]]
+id = "hole2"
+type = "cylinder"
+radius = 2.5
+height = 6
+position = [162, 18, -2]
+
+[[shapes]]
+id = "hole3"
+type = "cylinder"
+radius = 2.5
+height = 6
+position = [18, 77, -2]
+
+[[shapes]]
+id = "hole4"
+type = "cylinder"
+radius = 2.5
+height = 6
+position = [162, 77, -2]
+
+[[operations]]
+op = "fuse"
+base = "base_plate"
+tool = "vertical_leg"
+result = "body"
+
+[[operations]]
+op = "fuse"
+base = "body"
+tool = "side_tab"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "hole1"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "hole2"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "hole3"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "hole4"
+result = "body"
+
+[drawing]
+views = ["front", "top", "right", "iso"]
+
+[export]
+formats = ["svg"]
+directory = "output"

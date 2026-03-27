@@ -61,7 +61,7 @@ try:
                 # Inject material from parts config into part_files for viewer PBR
                 parts_config = {p["id"]: p for p in config.get("parts", [])}
                 for pf in part_files:
-                    pid = pf["id"]
+                    pid = pf.get("ref") or pf["id"]
                     if pid in parts_config:
                         shapes = parts_config[pid].get("shapes", [])
                         pf["material"] = shapes[0].get("material") if shapes else None

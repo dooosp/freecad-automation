@@ -193,12 +193,19 @@ def build_assembly(config, doc):
         # Add as Part::Feature to doc (preserves name in STEP)
         label = entry.get("label", ref)
         feat = doc.addObject("Part::Feature", label)
+        feat.addProperty("App::PropertyString", "SourcePartId", "Assembly", "Canonical part id")
+        feat.addProperty("App::PropertyString", "DisplayLabel", "Assembly", "User-facing label")
+        feat.SourcePartId = ref
+        feat.DisplayLabel = label
         feature_shape = shape.copy()
         feat.Shape = feature_shape
         features.append(feat)
         placed_shapes.append(feature_shape)
 
-        parts_metadata[label] = get_metadata(feature_shape)
+        meta = get_metadata(feature_shape)
+        meta["label"] = label
+        meta["ref"] = ref
+        parts_metadata[ref] = meta
         print(f"[freecad]   Placed '{label}'", file=sys.stderr, flush=True)
 
     # Include mate-solved parts not listed in assembly.parts
@@ -207,11 +214,18 @@ def build_assembly(config, doc):
         for pid, shape in solved_shapes.items():
             if pid not in listed_refs:
                 feat = doc.addObject("Part::Feature", pid)
+                feat.addProperty("App::PropertyString", "SourcePartId", "Assembly", "Canonical part id")
+                feat.addProperty("App::PropertyString", "DisplayLabel", "Assembly", "User-facing label")
+                feat.SourcePartId = pid
+                feat.DisplayLabel = pid
                 feature_shape = shape.copy()
                 feat.Shape = feature_shape
                 features.append(feat)
                 placed_shapes.append(feature_shape)
-                parts_metadata[pid] = get_metadata(feature_shape)
+                meta = get_metadata(feature_shape)
+                meta["label"] = pid
+                meta["ref"] = pid
+                parts_metadata[pid] = meta
                 print(f"[freecad]   Placed '{pid}' (mate-only)", file=sys.stderr, flush=True)
 
     doc.recompute()

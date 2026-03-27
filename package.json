@@ -1,7 +1,7 @@
 {
   "name": "freecad-automation",
-  "version": "1.0.0",
-  "description": "Manufacturing engineering agent system for production-readiness review, process planning, and CAD-backed manufacturability support",
+  "version": "1.1.0",
+  "description": "FreeCAD-backed automation pipeline for CAD, drawings, inspection, FEM, reports, and manufacturing-review artifacts",
   "type": "module",
   "bin": {
     "fcad": "./bin/fcad.js",
@@ -9,8 +9,14 @@
   },
   "scripts": {
     "check:runtime": "node scripts/check-runtime.js",
-    "test": "FCAD_TEST_PROFILE=core node tests/test-runner.js",
-    "test:full": "FCAD_TEST_PROFILE=full node tests/test-runner.js",
+    "smoke:runtime": "node tests/runtime-smoke-cli.js",
+    "test:node:runtime": "node tests/paths-runtime.test.js && node tests/freecad-invocation.test.js",
+    "test:node:lite": "node tests/config-normalizer.test.js && npm run test:node:runtime && node tests/draw-pipeline-qa-config.test.js && node tests/report-fem-normalization.test.js && node tests/report-runtime-fallback.test.js && node tests/design-reviewer-validation.test.js",
+    "test:py": "python3 -c \"import sys; sys.exit('Python 3.11+ is required for npm run test:py' if sys.version_info < (3, 11) else 0)\" && python3 -m pytest -q",
+    "test:integration": "FCAD_TEST_PROFILE=core node tests/test-runner.js",
+    "test:integration:full": "FCAD_TEST_PROFILE=full node tests/test-runner.js",
+    "test": "npm run test:integration",
+    "test:full": "npm run test:integration:full",
     "serve": "node server.js",
     "serve:legacy": "node server.js"
   },

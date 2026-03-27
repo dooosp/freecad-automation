@@ -1,0 +1,54 @@
+name: FreeCAD Runtime Smoke (self-hosted macOS)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: freecad-runtime-smoke-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  macos-runtime-smoke:
+    name: Self-hosted macOS FreeCAD 1.1 smoke
+    runs-on: [self-hosted, macOS, freecad]
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: CI Diagnostics
+        run: |
+          mkdir -p .ci
+          bash .github/scripts/ci-diagnostics.sh | tee .ci/freecad-runtime-diagnostics.txt
+
+      - name: Install Node Dependencies
+        run: bash .github/scripts/retry.sh 3 15 npm ci --no-audit --prefer-offline
+
+      - name: Verify FreeCAD runtime
+        run: node bin/fcad.js check-runtime
+
+      - name: Run runtime smoke
+        run: npm run smoke:runtime
+
+      - name: Upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: freecad-runtime-smoke-${{ github.run_id }}
+          path: |
+            .ci/freecad-runtime-diagnostics.txt
+            output/runtime-smoke
+            output/*runtime_smoke*
+          if-no-files-found: warn

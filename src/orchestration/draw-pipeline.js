@@ -462,6 +462,19 @@ export async function runDrawPipeline({
     const failUnder = failUnderValue ? ` --fail-under ${failUnderValue}` : '';
     const qaWeightPreset = weightsPresetValue || config.drawing_plan?.dimensioning?.qa_weight_preset || '';
     const qaWeightArg = qaWeightPreset ? ` --weights-preset ${qaWeightPreset}` : '';
+    let configArg = '';
+
+    const configStage = beginStage(runLog, 'persist_effective_config');
+    try {
+      const effectiveConfigPath = join(artifactDir, `${artifactStem}_effective_config.json`);
+      writeJson(effectiveConfigPath, config);
+      runLog.artifacts.effective_config = effectiveConfigPath;
+      configArg = ` --config "${effectiveConfigPath}"`;
+      endStage(configStage, 'ok');
+    } catch (error) {
+      onError(`  Effective config artifact warning: ${error.message}`);
+      endStage(configStage, 'warning', { warning: error.message });
+    }
 
     let planArg = '';
     if (config.drawing_plan) {
@@ -495,7 +508,7 @@ export async function runDrawPipeline({
         try {
           const qaBeforeJson = svgPath.replace('.svg', '_qa_before.json');
           execSync(
-            `python3 "${qaScript}" "${svgPath}" --json "${qaBeforeJson}"${planArg}`,
+            `python3 "${qaScript}" "${svgPath}" --json "${qaBeforeJson}"${planArg}${configArg}`,
             { cwd: projectRoot, encoding: 'utf-8', timeout: 30_000 }
           );
           qaBefore = JSON.parse(readFileSync(qaBeforeJson, 'utf-8'));
@@ -543,7 +556,7 @@ export async function runDrawPipeline({
         onInfo('\nQA Scoring...');
         try {
           const qaOutput = execSync(
-            `python3 "${qaScript}" "${svgPath}" --json "${qaJson}"${planArg}${qaWeightArg}${failUnder}`,
+            `python3 "${qaScript}" "${svgPath}" --json "${qaJson}"${planArg}${configArg}${qaWeightArg}${failUnder}`,
             { cwd: projectRoot, encoding: 'utf-8', timeout: 30_000 }
           );
           if (qaOutput.trim()) onInfo(qaOutput.trim());

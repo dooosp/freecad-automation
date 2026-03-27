@@ -81,6 +81,34 @@ WEIGHT_PRESETS = {
 }
 
 
+def _load_toml_file(path):
+    try:
+        import tomllib
+    except ImportError:
+        import tomli as tomllib
+    with open(path, "rb") as f:
+        return tomllib.load(f)
+
+
+def _is_dimension_group_class(cls):
+    return cls.startswith("dimensions-") or cls.startswith("plan-dimensions-")
+
+
+def _iter_dimension_lines(tree):
+    """Yield dimension line elements, whether grouped or directly tagged."""
+    for elem in tree.iter():
+        if local_tag(elem) == "line" and _is_dimension_group_class(elem.get("class", "")):
+            yield elem
+            continue
+        if local_tag(elem) != "g":
+            continue
+        if not _is_dimension_group_class(elem.get("class", "")):
+            continue
+        for child in elem.iter():
+            if local_tag(child) == "line":
+                yield child
+
+
 def resolve_weights(plan=None, preset=None):
     """Resolve QA deduction weights with optional part-type presets.
 
@@ -104,6 +132,18 @@ def resolve_weights(plan=None, preset=None):
     weights = dict(WEIGHTS)
     weights.update(WEIGHT_PRESETS.get(profile, {}))
     return weights, profile
+
+
+def resolve_stroke_profile(plan=None, config=None):
+    """Resolve expected stroke profile from plan/config, defaulting to KS."""
+    profile = None
+    if config:
+        profile = (((config.get("drawing_plan") or {}).get("style") or {})
+                   .get("stroke_profile"))
+    if not profile and plan:
+        profile = ((plan.get("style") or {}).get("stroke_profile"))
+    profile = str(profile or "ks").lower()
+    return profile if profile in {"ks", "exam"} else "ks"
 
 
 # -- P0 Metrics ----------------------------------------------------------------
@@ -222,7 +262,7 @@ def detect_dim_overlaps(tree):
 
     for elem in root:
         cls = elem.get("class", "")
-        if cls.startswith("dimensions-"):
+        if _is_dimension_group_class(cls):
             for child in elem.iter():
                 if local_tag(child) == "text":
                     bb = elem_bbox_approx(child)
@@ -298,10 +338,12 @@ def check_dense_iso(tree, threshold=800):
     return total_paths > threshold
 
 
-def count_stroke_violations(tree):
-    """Count groups whose stroke attributes don't match KS profile."""
-    from postprocess_svg import STROKE_PROFILE_KS, _DIM_PROFILE
+def count_stroke_violations(tree, profile_name="ks"):
+    """Count groups whose stroke attributes don't match the active profile."""
+    from postprocess_svg import PROFILES, _DIM_PROFILE
 
+    profile_name = str(profile_name or "ks").lower()
+    active_profile = PROFILES.get(profile_name, PROFILES["ks"])
     violations = 0
     for elem in tree.iter():
         if local_tag(elem) != "g":
@@ -310,13 +352,13 @@ def count_stroke_violations(tree):
         if not cls:
             continue
 
-        profile = STROKE_PROFILE_KS.get(cls)
-        if profile is None and cls.startswith("dimensions-"):
-            profile = _DIM_PROFILE
-        if profile is None:
+        expected_profile = active_profile.get(cls)
+        if expected_profile is None and _is_dimension_group_class(cls):
+            expected_profile = _DIM_PROFILE
+        if expected_profile is None:
             continue
 
-        for attr, expected in profile.items():
+        for attr, expected in expected_profile.items():
             actual = elem.get(attr)
             if actual is not None and actual != expected:
                 violations += 1
@@ -406,6 +448,14 @@ def _extract_dim_entries(tree):
             continue
         style = _classify_dim_style(text)
         tol = _extract_tolerance(text)
+        value_attr = elem.get("data-value-mm")
+        if value_attr is not None:
+            try:
+                entry = {"value": float(value_attr), "style": style, "text": text, "tol": tol}
+                view_entries.setdefault(view, []).append(entry)
+                continue
+            except ValueError:
+                pass
         for n in nums:
             entry = {"value": float(n), "style": style, "text": text, "tol": tol}
             view_entries.setdefault(view, []).append(entry)
@@ -419,6 +469,24 @@ def _extract_dim_numbers(tree):
     """
     entries = _extract_dim_entries(tree)
     return {view: [e["value"] for e in elist] for view, elist in entries.items()}
+
+
+def _has_matching_pcd_callout(tree, pcd_value):
+    tol = max(0.5, 0.002 * abs(float(pcd_value)))
+    for elem in tree.iter():
+        if local_tag(elem) != "text" or not elem.text:
+            continue
+        text = (elem.text or "").strip()
+        if "PCD" not in text.upper():
+            continue
+        for match in _re.finditer(r'[\d]+(?:\.[\d]+)?', text):
+            try:
+                value = float(match.group())
+            except ValueError:
+                continue
+            if abs(value - float(pcd_value)) <= tol:
+                return True
+    return False
 
 
 def check_dim_completeness(tree, plan):
@@ -528,24 +596,18 @@ def check_datum_coherence(tree):
     h_origins = []
     v_origins = []
 
-    for elem in tree.iter():
-        tag = local_tag(elem)
-        cls = elem.get("class", "")
-        if not cls.startswith("dimensions-"):
-            continue
-
-        if tag == "line":
-            x1 = float(elem.get("x1", 0))
-            y1 = float(elem.get("y1", 0))
-            x2 = float(elem.get("x2", 0))
-            y2 = float(elem.get("y2", 0))
-            dx = abs(x2 - x1)
-            dy = abs(y2 - y1)
-            # Extension line (short, mostly vertical or horizontal)
-            if dx < 2 and dy > 3:
-                v_origins.append(round(x1, 0))
-            elif dy < 2 and dx > 3:
-                h_origins.append(round(y1, 0))
+    for line in _iter_dimension_lines(tree):
+        x1 = float(line.get("x1", 0))
+        y1 = float(line.get("y1", 0))
+        x2 = float(line.get("x2", 0))
+        y2 = float(line.get("y2", 0))
+        dx = abs(x2 - x1)
+        dy = abs(y2 - y1)
+        # Extension line (short, mostly vertical or horizontal)
+        if dx < 2 and dy > 3:
+            v_origins.append(round(x1, 0))
+        elif dy < 2 and dx > 3:
+            h_origins.append(round(y1, 0))
 
     # Cluster origins: count distinct clusters with tolerance
     def count_clusters(values, tol=3):
@@ -581,6 +643,8 @@ def check_view_coverage(tree, plan):
 
     for dim in required:
         target_view = dim.get("view", "")
+        if not target_view:
+            continue
         if target_view not in view_nums or not view_nums[target_view]:
             return True  # uncovered
 
@@ -651,19 +715,30 @@ def check_required_presence(tree, plan):
     if not required:
         return 100, 0, []
 
-    # Collect all numeric values from SVG text
+    # Collect all numeric values from SVG text, preferring explicit dim metadata.
     svg_values = []
+    seen_value_attrs = False
     for elem in tree.iter():
-        if local_tag(elem) == "text":
-            t = (elem.text or "").strip()
-            if not t:
-                continue
-            # Extract numbers (including after Ø, R, C prefixes)
-            for m in _re.finditer(r'[\d]+\.?\d*', t):
-                try:
-                    svg_values.append(float(m.group()))
-                except ValueError:
-                    pass
+        if local_tag(elem) != "text":
+            continue
+        value_attr = elem.get("data-value-mm")
+        if value_attr is not None:
+            try:
+                svg_values.append(float(value_attr))
+                seen_value_attrs = True
+            except ValueError:
+                pass
+            continue
+        if seen_value_attrs:
+            continue
+        t = (elem.text or "").strip()
+        if not t:
+            continue
+        for m in _re.finditer(r'[\d]+\.?\d*', t):
+            try:
+                svg_values.append(float(m.group()))
+            except ValueError:
+                pass
 
     missing = []
     for di in required:
@@ -697,16 +772,28 @@ def check_value_consistency(tree, plan):
     if not with_values:
         return 0
 
-    # Collect all numeric values from SVG text
+    # Collect all numeric values from SVG text, preferring explicit dim metadata.
     svg_values = []
+    seen_value_attrs = False
     for elem in tree.iter():
-        if local_tag(elem) == "text":
-            t = (elem.text or "").strip()
-            for m in _re.finditer(r'[\d]+\.?\d*', t):
-                try:
-                    svg_values.append(float(m.group()))
-                except ValueError:
-                    pass
+        if local_tag(elem) != "text":
+            continue
+        value_attr = elem.get("data-value-mm")
+        if value_attr is not None:
+            try:
+                svg_values.append(float(value_attr))
+                seen_value_attrs = True
+            except ValueError:
+                pass
+            continue
+        if seen_value_attrs:
+            continue
+        t = (elem.text or "").strip()
+        for m in _re.finditer(r'[\d]+\.?\d*', t):
+            try:
+                svg_values.append(float(m.group()))
+            except ValueError:
+                pass
 
     inconsistencies = 0
     for di in with_values:
@@ -744,6 +831,8 @@ def check_virtual_pcd_present(tree, plan):
     for elem in tree.iter():
         if local_tag(elem) == "g" and elem.get("class") == "virtual-pcd":
             return True
+    if pcd_intent.get("value_mm") is not None and _has_matching_pcd_callout(tree, pcd_intent["value_mm"]):
+        return True
     return False
 
 
@@ -821,7 +910,7 @@ def collect_dfm_metrics(config):
 
 # -- Score computation ---------------------------------------------------------
 
-def collect_metrics(tree, plan=None):
+def collect_metrics(tree, plan=None, stroke_profile="ks"):
     """Run all checks and return metrics dict.
 
     Plan-dependent metrics return None when no plan is provided,
@@ -846,7 +935,7 @@ def collect_metrics(tree, plan=None):
         "notes_overflow": check_notes_overflow(tree),
         "gdt_unanchored": count_gdt_unanchored(tree),
         "dense_iso": check_dense_iso(tree),
-        "stroke_violations": count_stroke_violations(tree),
+        "stroke_violations": count_stroke_violations(tree, profile_name=stroke_profile),
         "float_precision_count": count_float_precision(tree),
         # Phase 19 intent metrics (None = not applicable without plan)
         "dim_completeness": check_dim_completeness(tree, plan) if has_plan else None,
@@ -982,9 +1071,7 @@ def main():
     if args.plan_file and os.path.exists(args.plan_file):
         try:
             if args.plan_file.endswith(".toml"):
-                import tomllib
-                with open(args.plan_file, "rb") as pf:
-                    plan_data = tomllib.load(pf)
+                plan_data = _load_toml_file(args.plan_file)
             else:
                 with open(args.plan_file) as pf:
                     plan_data = json.load(pf)
@@ -992,19 +1079,24 @@ def main():
         except Exception:
             pass  # plan is optional
 
-    metrics = collect_metrics(tree, plan)
-
-    # DFM metrics integration (Phase 23)
+    config_data = None
     if args.config_file and os.path.exists(args.config_file):
         try:
             if args.config_file.endswith(".toml"):
-                import tomllib
-                with open(args.config_file, "rb") as cf:
-                    cfg_data = tomllib.load(cf)
+                config_data = _load_toml_file(args.config_file)
             else:
                 with open(args.config_file) as cf:
-                    cfg_data = json.load(cf)
-            dfm_m = collect_dfm_metrics(cfg_data)
+                    config_data = json.load(cf)
+        except Exception:
+            config_data = None
+
+    stroke_profile = resolve_stroke_profile(plan, config_data)
+    metrics = collect_metrics(tree, plan, stroke_profile=stroke_profile)
+
+    # DFM metrics integration (Phase 23)
+    if config_data is not None:
+        try:
+            dfm_m = collect_dfm_metrics(config_data)
             metrics.update(dfm_m)
         except Exception:
             pass

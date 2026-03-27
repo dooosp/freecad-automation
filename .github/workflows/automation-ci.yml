@@ -1,4 +1,4 @@
-name: Automation CI
+name: Automation CI (hosted contract checks)
 
 on:
   push:
@@ -14,7 +14,46 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  core:
+  node-runtime-contract:
+    name: Hosted Node runtime contracts (no FreeCAD install)
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: CI Diagnostics
+        run: |
+          mkdir -p .ci
+          bash .github/scripts/ci-diagnostics.sh | tee .ci/node-runtime-diagnostics.txt
+
+      - name: Install Node Dependencies
+        run: bash .github/scripts/retry.sh 3 15 npm ci --no-audit --prefer-offline
+
+      - name: Node runtime contract tests (no FreeCAD install)
+        run: npm run test:node:lite
+
+      - name: Upload Core Diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: node-runtime-diagnostics-${{ matrix.os }}-${{ github.run_id }}
+          path: .ci/node-runtime-diagnostics.txt
+          if-no-files-found: warn
+
+  python-unit:
+    name: Hosted Python unit tests
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
@@ -31,12 +70,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-
-      - name: CI Diagnostics
-        run: |
-          mkdir -p .ci
-          bash .github/scripts/ci-diagnostics.sh | tee .ci/core-diagnostics.txt
+          python-version: "3.11"
 
       - name: Install Node Dependencies
         run: bash .github/scripts/retry.sh 3 15 npm ci --no-audit --prefer-offline
@@ -45,13 +79,12 @@ jobs:
         run: bash .github/scripts/retry.sh 3 15 python3 -m pip install --upgrade pip pytest
 
       - name: Python Unit Tests
-        run: pytest -q
+        run: npm run test:py
 
-      - name: Upload Core Diagnostics
+      - name: Upload Python Diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: core-diagnostics-${{ github.run_id }}
-          path: .ci/core-diagnostics.txt
+          name: python-unit-${{ github.run_id }}
+          path: .pytest_cache
           if-no-files-found: warn
-

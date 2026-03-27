@@ -107,6 +107,49 @@ def respond_error(msg, details=""):
     respond({"success": False, "error": msg, "details": details})
 
 
+def _op_name(op):
+    """Return canonical operation name with legacy compatibility."""
+    return op.get("op", op.get("type", ""))
+
+
+def _resolve_tolerance_pairs(config):
+    """Return analyzed tolerance pairs from either source config or analysis results."""
+    tolerance_results = config.get("tolerance_results")
+    if isinstance(tolerance_results, dict):
+        pairs = tolerance_results.get("pairs")
+        if isinstance(pairs, list):
+            return pairs
+
+    tolerance = config.get("tolerance")
+    if isinstance(tolerance, dict):
+        pairs = tolerance.get("pairs")
+        if isinstance(pairs, list):
+            return pairs
+
+    return []
+
+
+def _resolve_dfm_result(config):
+    """Return DFM analysis payload from preferred result fields."""
+    dfm_result = config.get("dfm_result")
+    if isinstance(dfm_result, dict):
+        return dfm_result
+
+    dfm_results = config.get("dfm_results")
+    if isinstance(dfm_results, dict):
+        return dfm_results
+
+    return None
+
+
+def _box_dims(shape):
+    """Return normalized box dimensions for mixed config schemas."""
+    x_dim = shape.get("length", shape.get("width", 100))
+    y_dim = shape.get("depth", shape.get("width", 50))
+    z_dim = shape.get("height", 30)
+    return x_dim, y_dim, z_dim
+
+
 def count_features(config):
     """Count faces, holes, fillets from config shapes/operations."""
     faces = 0
@@ -129,7 +172,7 @@ def count_features(config):
             faces += 4
 
     for op in config.get("operations", []):
-        op_type = op.get("type", "")
+        op_type = _op_name(op)
         if op_type == "cut":
             holes += 1
             faces += 2
@@ -156,9 +199,10 @@ def estimate_bounding_volume(config):
             max_dims[1] = max(max_dims[1], r * 2)
             max_dims[2] = max(max_dims[2], h)
         elif stype == "box":
-            max_dims[0] = max(max_dims[0], shape.get("length", 100))
-            max_dims[1] = max(max_dims[1], shape.get("width", 50))
-            max_dims[2] = max(max_dims[2], shape.get("height", 30))
+            x_dim, y_dim, z_dim = _box_dims(shape)
+            max_dims[0] = max(max_dims[0], x_dim)
+            max_dims[1] = max(max_dims[1], y_dim)
+            max_dims[2] = max(max_dims[2], z_dim)
         elif stype == "revolution":
             profile = shape.get("profile", [])
             if profile:
@@ -198,7 +242,7 @@ def estimate_cost(config):
     material_key = config.get("material", config.get("manufacturing", {}).get("material", "SS304"))
     process = config.get("process", config.get("manufacturing", {}).get("process", "machining"))
     batch_size = config.get("batch_size", 1)
-    dfm_result = config.get("dfm_result")
+    dfm_result = _resolve_dfm_result(config)
     profile = config.get("shop_profile")
 
     # Material cost - start with defaults, override with profile
@@ -231,8 +275,10 @@ def estimate_cost(config):
         batch_discount_list = profile.get("batch_discounts", [])
         if batch_discount_list:
             # Convert from list of {min_qty, discount_pct} to tuples
-            batch_discounts = [(bd["min_qty"], bd["discount_pct"] / 100.0)
-                              for bd in batch_discount_list]
+            batch_discounts = sorted(
+                ((bd["min_qty"], bd["discount_pct"] / 100.0) for bd in batch_discount_list),
+                key=lambda item: item[0],
+            )
 
     # Material cost calculation
     volume = estimate_bounding_volume(config)
@@ -254,7 +300,7 @@ def estimate_cost(config):
     setup_cost = num_ops * setup_cost_per_op
 
     # Inspection cost
-    tol_pairs = len(config.get("tolerance", {}).get("pairs", []))
+    tol_pairs = len(_resolve_tolerance_pairs(config))
     inspection_cost = tol_pairs * inspection_cost_per_pair
 
     # Defect rate correction

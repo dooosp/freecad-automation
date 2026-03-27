@@ -1,5 +1,7 @@
 import { resolve, join } from 'node:path';
 import { readFile } from 'node:fs/promises';
+import { runPythonJsonScript } from '../../../lib/context-loader.js';
+import { convertPathFromRuntime, getFreeCADRuntime } from '../../../lib/paths.js';
 import { loadShopProfile } from '../config/profile-service.js';
 
 function toBool(value, fallback) {
@@ -64,9 +66,36 @@ export function sanitizeObject(value) {
   return value;
 }
 
+export function normalizeFemResults(femResult = {}) {
+  if (!femResult || typeof femResult !== 'object') return {};
+
+  const results = femResult.results && typeof femResult.results === 'object'
+    ? femResult.results
+    : {};
+  const material = femResult.material && typeof femResult.material === 'object'
+    ? femResult.material
+    : {};
+
+  const normalized = {
+    ...femResult,
+    ...results,
+  };
+
+  if (normalized.yield_strength === undefined && material.yield_strength !== undefined) {
+    normalized.yield_strength = material.yield_strength;
+  }
+  if (normalized.solver === undefined && femResult.analysis_type) {
+    normalized.solver = 'CalculiX';
+  }
+
+  return normalized;
+}
+
 export function createReportService({
   readFileFn = readFile,
   loadShopProfileFn = loadShopProfile,
+  runPythonJsonScriptFn = runPythonJsonScript,
+  getFreeCADRuntimeFn = getFreeCADRuntime,
 } = {}) {
   return async function generateReport({
     freecadRoot,
@@ -124,7 +153,7 @@ export function createReportService({
       }));
     }
 
-    const femInput = normalizedResults.fem?.results || normalizedResults.fem || {};
+    const femInput = normalizeFemResults(normalizedResults.fem);
 
     const reportInput = {
       ...loadedConfig,
@@ -152,12 +181,33 @@ export function createReportService({
       reportInput._report_template = reportTemplate;
     }
 
-    const result = await runScript('engineering_report.py', reportInput, { timeout: 180_000 });
+    let result;
+    try {
+      result = await runScript('engineering_report.py', reportInput, { timeout: 180_000 });
+    } catch (error) {
+      const runtime = getFreeCADRuntimeFn();
+      const canFallbackToBundledPython = runtime.mode === 'macos-bundle' && runtime.pythonExecutable;
+      const looksLikeFreecadCmdBannerOnly = /No JSON found in stdout of engineering_report\.py/.test(error.message || '');
+
+      if (!canFallbackToBundledPython || !looksLikeFreecadCmdBannerOnly) {
+        throw error;
+      }
+
+      result = await runPythonJsonScriptFn(
+        freecadRoot,
+        'scripts/engineering_report.py',
+        reportInput,
+        {
+          timeout: 180_000,
+          pythonCommand: runtime.pythonExecutable,
+        }
+      );
+    }
+
     const pdfRelPath = result.pdf_path || result.path;
     if (pdfRelPath) {
       try {
-        const { toWSL } = await import(`${freecadRoot}/lib/paths.js`);
-        const pdfBuffer = await readFileFn(toWSL(pdfRelPath));
+        const pdfBuffer = await readFileFn(convertPathFromRuntime(pdfRelPath));
         result.pdfBase64 = pdfBuffer.toString('base64');
       } catch {
         // Optional PDF read-back.

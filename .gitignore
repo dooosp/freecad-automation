@@ -3,3 +3,6 @@ output/
 scripts/__pycache__/
 *.pyc
 .cache/
+.DS_Store
+.codex/
+logs/

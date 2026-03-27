@@ -2,7 +2,7 @@
 
 ## Positioning
 
-This repository is no longer framed as only a FreeCAD automation utility. The primary product story is a manufacturing-engineering decision-support system for automotive infotainment production engineering, with CAD/DFM/reporting as enabling subsystems.
+This repository should still be presented publicly as a FreeCAD-backed automation pipeline. The manufacturing-engineering decision-support workflows are a second public layer built on top of the same CAD/DFM/reporting core, not a replacement for that positioning.
 
 ## Reuse Map
 

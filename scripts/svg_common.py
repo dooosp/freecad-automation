@@ -35,7 +35,7 @@ GEOMETRY_CLASSES = frozenset({
 })
 
 ANNOTATION_PREFIXES = (
-    "dimensions-", "datums-", "gdt-", "chamfer-callouts",
+    "dimensions-", "plan-dimensions-", "datums-", "gdt-", "chamfer-callouts",
     "surface-finish", "thread-callouts", "ordinate-dimensions",
     "baseline-dimensions",
 )
