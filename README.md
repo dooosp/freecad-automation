@@ -5,7 +5,15 @@ FreeCAD Automation is a FreeCAD-backed automation pipeline for CAD generation, T
 The repository has two public layers:
 
 - a runtime-backed CLI for CAD, TechDraw, FEM, tolerance, inspection, and reporting
-- a plain-Python/Node manufacturing-review layer for DFM, process planning, readiness review, stabilization review, and review-pack artifacts
+- a plain-Python/Node manufacturing-review layer for DFM, process planning, readiness review, stabilization review, review-pack artifacts, and standard-document drafts
+
+## Release Surface
+
+- [Support matrix](./docs/support-matrix.md)
+- [Testing and verification](./docs/testing.md)
+- [Config schema](./docs/config-schema.md)
+- [Output contract](./docs/output-contract.md)
+- [v1.1.0 release notes draft](./docs/releases/v1.1.0-draft.md)
 
 Validation snapshot:
 
@@ -652,28 +660,22 @@ This repository does not assume a default WSL -> Windows bridge anymore. If you 
 
 ## Output Contracts
 
-- [product_review.schema.json](./schemas/product_review.schema.json)
-- [process_plan.schema.json](./schemas/process_plan.schema.json)
-- [line_plan.schema.json](./schemas/line_plan.schema.json)
-- [quality_risk_pack.schema.json](./schemas/quality_risk_pack.schema.json)
-- [investment_review.schema.json](./schemas/investment_review.schema.json)
-- [readiness_report.schema.json](./schemas/readiness_report.schema.json)
-- [stabilization_review.schema.json](./schemas/stabilization_review.schema.json)
-- [standard_docs_manifest.schema.json](./schemas/standard_docs_manifest.schema.json)
+Use [docs/output-contract.md](./docs/output-contract.md) as the source of truth for the artifact-manifest contract, stable vs best-effort artifact types, and CLI/API/sweep provenance behavior.
+
+The schema files for review, readiness, stabilization, quality-risk, investment-review, process-plan, line-plan, and standard-document outputs live under [schemas/](./schemas/).
 
 ## Testing
 
-Fast hosted-safe Node lanes:
+Use [docs/testing.md](./docs/testing.md) as the source of truth for lane scope, workflow mapping, and what each check does or does not prove.
+
+Fast local verification:
 
 ```bash
 npm test
-# or run the lanes separately
 npm run test:node:contract
 npm run test:node:integration
 npm run test:snapshots
 ```
-
-`npm test` runs the three hosted-safe Node lanes defined in `package.json`: runtime/config contracts, non-runtime integration coverage, and normalized SVG/report snapshots. These lanes do not install or launch FreeCAD.
 
 Python lane:
 
@@ -681,32 +683,17 @@ Python lane:
 npm run test:py
 ```
 
-`npm run test:py` requires Python 3.11 or newer and matches the hosted `Automation CI (hosted fast lanes)` workflow's Python step.
-
 Real runtime smoke:
 
 ```bash
 fcad check-runtime
 npm run test:runtime-smoke
-# alias: npm run smoke:runtime
 ```
 
-`npm run test:runtime-smoke` is the real FreeCAD-backed smoke lane for `check-runtime`, `create`, `draw --bom`, `inspect`, and `report`. The repository-owned CI version runs through the `FreeCAD Runtime Smoke (self-hosted macOS)` workflow. Full lane mapping and deeper runtime suites live in [docs/testing.md](./docs/testing.md).
+`npm run test:runtime-smoke` is the repository's real FreeCAD-backed smoke lane for `check-runtime`, `create`, `draw --bom`, `inspect`, and `report`.
 
 ## Release Prep
 
-Draft release notes for the first public release surface live at [docs/releases/v1.1.0-draft.md](./docs/releases/v1.1.0-draft.md).
-
-If you want to run the smoke steps manually instead of the script, use:
-
-```bash
-cd /path/to/freecad-automation
-export FREECAD_APP="/Applications/FreeCAD.app"
-fcad check-runtime
-npm run test:node:contract
-node bin/fcad.js create configs/examples/ks_bracket.toml
-node bin/fcad.js draw configs/examples/ks_bracket.toml --bom
-node bin/fcad.js inspect output/ks_bracket.step
-node bin/fcad.js fem configs/examples/bracket_fem.toml
-node bin/fcad.js report configs/examples/ks_bracket.toml
-```
+- Publish-ready release notes draft: [docs/releases/v1.1.0-draft.md](./docs/releases/v1.1.0-draft.md)
+- Release checklist: [docs/releases/v1.1.0-checklist.md](./docs/releases/v1.1.0-checklist.md)
+- PR-ready summary snippet: [docs/releases/v1.1.0-pr-summary.md](./docs/releases/v1.1.0-pr-summary.md)

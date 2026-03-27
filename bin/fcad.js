@@ -65,6 +65,9 @@ const generateReport = createReportService();
 const USAGE = `
 fcad | mfg-agent - FreeCAD-backed automation pipeline
 
+FreeCAD-backed CLI for CAD, TechDraw, inspection, FEM, tolerance, and reporting,
+plus a plain-Python/Node manufacturing-review layer.
+
 Run this first on a new machine or before troubleshooting runtime-backed commands:
   fcad check-runtime
 
@@ -74,7 +77,7 @@ Usage:
 
   FreeCAD-backed commands:
     fcad create <config.toml|json>    Generate parametric model output
-    fcad draw <config.toml|json>      Generate drawing SVG output
+    fcad draw <config.toml|json>      Generate TechDraw SVG output
     fcad inspect <model.step|fcstd>   Inspect model metadata
     fcad fem <config.toml|json>       Run FEM structural analysis
     fcad tolerance <config.toml>      Tolerance analysis for assembly configs
@@ -106,7 +109,7 @@ Usage:
     fcad help
 
 Options:
-  Shared new-workflow options:
+  Shared workflow options:
     --profile <name>             Shop profile under configs/profiles
     --runtime <path>             Runtime JSON for line stabilization / launch review
     --batch <n>                  Batch size assumption for cost/readiness workflow
