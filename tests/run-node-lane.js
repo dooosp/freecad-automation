@@ -8,6 +8,7 @@ const LANE_STEPS = {
     { label: 'Config normalizer', args: ['tests/config-normalizer.test.js'] },
     { label: 'Config schema CLI', args: ['tests/config-schema-cli.test.js'] },
     { label: 'Config example parity', args: ['tests/config-example-parity.test.js'] },
+    { label: 'Pytest runner selection', args: ['tests/run-pytest-selection.test.js'] },
     { label: 'Runtime path contracts', args: ['tests/paths-runtime.test.js'] },
     { label: 'FreeCAD invocation contracts', args: ['tests/freecad-invocation.test.js'] },
     { label: 'Design reviewer validation', args: ['tests/design-reviewer-validation.test.js'] },
