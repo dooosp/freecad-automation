@@ -1,0 +1,104 @@
+workflow: production_readiness
+part.name: pcb_mount_plate
+part.revision: B
+part.material: AL5052
+part.process: sheet_metal
+generated_at: __TIMESTAMP__
+artifact_path: __ABS_PATH__
+run_id: run-__VOLATILE__
+status: candidate_for_pilot_line_review
+score: 78
+gate_decision: candidate_for_pilot_line_review
+dfm_score: 82
+part_type: bracket
+target_ct_sec: 42
+critical_dimensions: 1
+quality_gates: 2
+unit_cost: 8.4
+total_cost: 1260
+
+summary.top_issues:
+- Hole diameter drift risk
+- Probe reach can slow inline verification
+
+summary.recommended_actions:
+- Prototype poka-yoke nest
+- Price inline camera option
+
+process.operations:
+- blanking
+- forming
+- deburr
+- inline inspection
+- final pack
+
+line.stations:
+- Blank and form
+- Inspection and pack
+
+quality.gates:
+- Hole diameter verification
+- Final visual check
+
+quality.risks:
+- Hole diameter drift risk
+- Connector datum mix-up risk
+
+decision.go_signals:
+- DFM score supports pilot-line planning with standard launch controls.
+
+decision.hold_points:
+- Runtime-informed review still shows CT instability at one or more launch stations.
+
+decision.next_actions:
+- Prototype poka-yoke nest
+- Use this output as an early decision-support artifact, then refine with real line data.
+
+markdown:
+# Production Readiness Report: pcb_mount_plate
+
+- Status: candidate_for_pilot_line_review
+- Composite score: 78
+- Gate decision: candidate_for_pilot_line_review
+
+## Executive Summary
+
+- Overall risk level: medium
+- Top issues: Hole diameter drift risk; Probe reach can slow inline verification
+- Recommended actions: Prototype poka-yoke nest; Price inline camera option
+- Likely bottlenecks: Inspection and pack
+
+## Product Review
+
+- Part type: bracket
+- DFM score: 82
+- Primary risks: Fastener access at lower flange; Tight connector probe clearance
+
+## Process Planning
+
+- Flow steps: 5
+- Automation candidates: none
+
+## Line Layout
+
+- Stations: 2
+- Target cycle time: 42 s
+- Inline inspection stations: Inspection and pack
+- End-of-line inspection stations: Inspection and pack
+- Runtime-informed stations above target: Inspection and pack
+
+## Quality / Traceability
+
+- Critical dimensions: 1
+- Quality gates: 2
+
+## Cost / Investment
+
+- Unit cost: 8.4
+- Total cost: 1260
+
+## Decision Summary
+
+- Go signals: DFM score supports pilot-line planning with standard launch controls.
+- Hold points: Runtime-informed review still shows CT instability at one or more launch stations.
+- Next actions: Prototype poka-yoke nest; Use this output as an early decision-support artifact, then refine with real line data.

@@ -118,7 +118,7 @@ function buildExecutiveSummary(report) {
   };
 }
 
-function renderMarkdown(report) {
+export function renderMarkdown(report) {
   const decision = report.decision_summary;
   const summary = report.summary || {};
   return `# Production Readiness Report: ${report.part.name}

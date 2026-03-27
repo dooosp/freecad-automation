@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420mm" height="297mm" viewBox="0 0 420 297" data-generated-at="__TIMESTAMP__" data-source-path="__ABS_PATH__">
+<defs>
+<clipPath id="__ID_1__">
+<rect x="18" y="18" width="160" height="96" />
+</clipPath>
+</defs>
+<rect width="420" height="297" fill="white" />
+<g id="__ID_2__" data-build-id="__VOLATILE__">
+<path clip-path="url(#__ID_1__)" d="M20 30 L120 30 L120 70 L20 70 Z" fill="none" stroke="black" stroke-width="0.35" />
+<path d="M32 44 L52 44" fill="none" stroke="#000" stroke-width="0.18" />
+<text x="130" y="54" font-size="3.5">100</text>
+<text x="130" y="62" font-size="3.5">THK 8</text>
+</g>
+</svg>
