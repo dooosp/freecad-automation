@@ -1,0 +1,442 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freecad-automation.local/schemas/artifact-manifest.schema.json",
+  "title": "FreeCAD Automation Artifact Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "manifest_version",
+    "manifest_type",
+    "interface",
+    "command",
+    "job_type",
+    "status",
+    "config_version",
+    "migrated_from",
+    "migration_applied",
+    "rule_profile",
+    "rule_packs",
+    "runtime",
+    "warnings",
+    "deprecations",
+    "artifacts",
+    "timestamps",
+    "app_version",
+    "git_commit"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "manifest_version": {
+      "const": "1.0"
+    },
+    "manifest_type": {
+      "const": "fcad.artifact-manifest"
+    },
+    "interface": {
+      "enum": [
+        "cli",
+        "api",
+        "sweep"
+      ]
+    },
+    "command": {
+      "type": "string",
+      "minLength": 1
+    },
+    "job_type": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "enum": [
+        "queued",
+        "running",
+        "succeeded",
+        "failed",
+        "partial"
+      ]
+    },
+    "request_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "config_path": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "config_format": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "enum": [
+            "json",
+            "toml"
+          ]
+        }
+      ]
+    },
+    "config_version": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "migrated_from": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "migration_applied": {
+      "type": "boolean"
+    },
+    "selected_profile": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "rule_profile": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "label",
+            "description",
+            "standards_pack",
+            "material_pack",
+            "process_pack",
+            "selection"
+          ],
+          "properties": {
+            "id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "label": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "description": {
+              "type": "string"
+            },
+            "standards_pack": {
+              "$ref": "#/$defs/packSummary"
+            },
+            "material_pack": {
+              "$ref": "#/$defs/packSummary"
+            },
+            "process_pack": {
+              "$ref": "#/$defs/packSummary"
+            },
+            "selection": {
+              "type": [
+                "object",
+                "null"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "rule_packs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "standards",
+        "materials",
+        "processes"
+      ],
+      "properties": {
+        "standards": {
+          "$ref": "#/$defs/packSummary"
+        },
+        "materials": {
+          "$ref": "#/$defs/packSummary"
+        },
+        "processes": {
+          "$ref": "#/$defs/packSummary"
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform",
+        "release",
+        "arch",
+        "node_version",
+        "node_path",
+        "python_path",
+        "freecad"
+      ],
+      "properties": {
+        "platform": {
+          "type": "string",
+          "minLength": 1
+        },
+        "release": {
+          "type": "string",
+          "minLength": 1
+        },
+        "arch": {
+          "type": "string",
+          "minLength": 1
+        },
+        "node_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "node_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "python_path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "freecad": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "available",
+                "mode",
+                "source",
+                "executable",
+                "python_executable",
+                "runtime_executable",
+                "gui_executable",
+                "description",
+                "version",
+                "checked_candidates"
+              ],
+              "properties": {
+                "available": {
+                  "type": "boolean"
+                },
+                "mode": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string"
+                },
+                "executable": {
+                  "type": "string"
+                },
+                "python_executable": {
+                  "type": "string"
+                },
+                "runtime_executable": {
+                  "type": "string"
+                },
+                "gui_executable": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "checked_candidates": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "deprecations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/artifact"
+      }
+    },
+    "timestamps": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "created_at",
+        "started_at",
+        "finished_at"
+      ],
+      "properties": {
+        "created_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "started_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "finished_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "app_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "git_commit": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "details": {
+      "type": "object"
+    },
+    "related": {
+      "type": "object"
+    }
+  },
+  "$defs": {
+    "packSummary": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "label"
+          ],
+          "properties": {
+            "id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "label": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "path",
+        "scope",
+        "stability",
+        "exists",
+        "size_bytes",
+        "sha256"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "scope": {
+          "enum": [
+            "user-facing",
+            "internal"
+          ]
+        },
+        "stability": {
+          "enum": [
+            "stable",
+            "best-effort",
+            "internal"
+          ]
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "size_bytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "sha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "metadata": {
+          "type": "object"
+        }
+      }
+    }
+  }
+}

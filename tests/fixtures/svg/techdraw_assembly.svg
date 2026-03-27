@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420mm" height="297mm" viewBox="0 0 420 297" inkscape:export-filename="C:\\Users\\tester\\Documents\\ptu_assembly_mates_drawing.svg">
+  <!-- Assembly snapshot generated 2026-03-27 10:31:00 -->
+  <defs>
+    <mask id="mask554433">
+      <rect x="0" y="0" width="420" height="297" fill="white" />
+    </mask>
+  </defs>
+  <rect width="420" height="297" fill="white" />
+  <g id="group-7c0a4f59-8f31-4d19-bd8e-85c9dd9fbc2f">
+    <rect x="40" y="28" width="140" height="82" fill="none" stroke="black" stroke-width="0.35" />
+    <circle cx="78" cy="69" r="8" fill="none" stroke="black" stroke-width="0.35" />
+    <circle cx="142" cy="69" r="8" fill="none" stroke="black" stroke-width="0.35" />
+    <path mask="url(#mask554433)" d="M40 122 L180 122" fill="none" stroke="#000" stroke-width="0.18" />
+    <text x="92" y="136" font-size="3.5">2X Ø16</text>
+  </g>
+</svg>

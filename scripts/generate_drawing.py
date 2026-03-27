@@ -37,6 +37,7 @@ from _drawing_svg import (
     render_view_svg,
     render_dimensions_svg,
     render_surface_finish_svg,
+    _collect_auto_dim_values,
     _render_3rd_angle_symbol,
     _render_hatch_pattern,
     _normalize_strokes,
@@ -1492,6 +1493,46 @@ def build_traceability_payload(model_name, feature_graph, dim_telemetry):
     }
 
 
+def _resolve_plan_intent_views(dim_intents, view_data, view_order):
+    """Reroute diameter intents only when their target view has no circular anchor."""
+    if not dim_intents:
+        return dim_intents, []
+
+    resolved = []
+    reroutes = []
+    for di in dim_intents:
+        style = str(di.get("style", "")).lower()
+        target_view = di.get("view")
+        if style != "diameter" or not target_view:
+            resolved.append(di)
+            continue
+
+        target_has_circles = bool(view_data.get(target_view, {}).get("circles"))
+        if target_has_circles:
+            resolved.append(di)
+            continue
+
+        fallback_view = next(
+            (
+                vname for vname in view_order
+                if vname != "iso"
+                and vname != target_view
+                and bool(view_data.get(vname, {}).get("circles"))
+            ),
+            None,
+        )
+        if not fallback_view:
+            resolved.append(di)
+            continue
+
+        di_rerouted = dict(di)
+        di_rerouted["view"] = fallback_view
+        resolved.append(di_rerouted)
+        reroutes.append((di.get("id", "?"), target_view, fallback_view))
+
+    return resolved, reroutes
+
+
 # -- Main Pipeline -------------------------------------------------------------
 
 try:
@@ -1581,6 +1622,14 @@ try:
     except Exception as e:
         log(f"  Feature inference skipped: {e}")
 
+    derived_section_cfg = None
+    derived_detail_cfg = None
+    if view_plan:
+        if not drawing_cfg.get("section") and view_plan.section_planes:
+            derived_section_cfg = dict(view_plan.section_planes[0])
+        if not drawing_cfg.get("detail") and view_plan.detail_regions:
+            derived_detail_cfg = dict(view_plan.detail_regions[0])
+
     # Determine dimension strategy (plan > config > auto)
     dim_strategy = "chain"
     plan_dim = config.get("drawing_plan", {}).get("dimensioning", {})
@@ -1640,6 +1689,14 @@ try:
     if not view_data:
         respond_error("No views could be projected. Shape may be empty.")
 
+    resolved_plan_intents, plan_view_reroutes = _resolve_plan_intent_views(
+        config.get("drawing_plan", {}).get("dim_intents", []),
+        view_data,
+        views_requested,
+    )
+    for dim_id, src_view, dst_view in plan_view_reroutes:
+        log(f"  Plan intent '{dim_id}': rerouted {src_view} -> {dst_view} for circular anchor")
+
     # -- P0-2: View Fit Hard Clamp (2-pass) --
     # Pass 1: check if any view overflows its cell, reduce scale to tightest fit.
     # Pass 2: verify with reduced scale; apply safety factor if still overflowing.
@@ -1693,12 +1750,15 @@ try:
     plan_view_opts = config.get("drawing_plan", {}).get("views", {}).get("options", {})
 
     for vname, vd in view_data.items():
-        vplan = plan_view_opts.get(vname, {})
-        vh = vplan.get("show_hidden", show_hidden)
-        vcl = vplan.get("show_centerlines", show_cl)
+        planned_view_cfg = (view_plan.views.get(vname, {})
+                            if view_plan and view_plan.views else {})
+        view_override_cfg = plan_view_opts.get(vname, {})
+        vh = planned_view_cfg.get("show_hidden", show_hidden)
+        vh = view_override_cfg.get("show_hidden", vh)
+        vcl = view_override_cfg.get("show_centerlines", show_cl)
         # P0-1: ISO view — always hide hidden lines (KS/industrial practice)
         if vname == "iso":
-            vh = vplan.get("show_hidden", False)
+            vh = view_override_cfg.get("show_hidden", False)
         is_iso = (vname == "iso")
         svg = render_view_svg(vname, vd["groups"], vd["bounds"], vd["circles"],
                               vd["cx"], vd["cy"], scale,
@@ -1717,7 +1777,7 @@ try:
             if dim_svg:
                 svg += '\n' + dim_svg
             # Phase 20-A: plan-driven dimensions
-            plan_intents = config.get("drawing_plan", {}).get("dim_intents", [])
+            plan_intents = resolved_plan_intents
             if plan_intents:
                 try:
                     from _dim_plan import render_plan_dimensions_svg
@@ -1756,7 +1816,7 @@ try:
         respond_error("No views could be projected. Shape may be empty.")
 
     # -- Section View (optional) --
-    section_cfg = drawing_cfg.get("section")
+    section_cfg = drawing_cfg.get("section") or derived_section_cfg
     if section_cfg:
         sec_plane = section_cfg.get("plane", "XZ")
         sec_offset = section_cfg.get("offset", 0.0)
@@ -1785,13 +1845,15 @@ try:
                     if cut_svg:
                         views_svg[parent_vn] += '\n' + cut_svg
                 log(f"  Section '{sec_label}': {sum(len(v) for v in sec_groups.values())} edges")
+                if derived_section_cfg and not drawing_cfg.get("section"):
+                    log("  Section source: auto-suggested by view planner")
             else:
                 log(f"  Section '{sec_label}': no edges (empty cross-section)")
         else:
             log(f"  Section: failed to create section on plane {sec_plane}")
 
     # -- Detail View (optional, ISO cell when no section) --
-    detail_cfg = drawing_cfg.get("detail")
+    detail_cfg = drawing_cfg.get("detail") or derived_detail_cfg
     if detail_cfg and "section" not in views_svg:
         source_vn = detail_cfg.get("source_view", "front")
         if source_vn in view_data:
@@ -1818,6 +1880,8 @@ try:
                 if ind_svg and source_vn in views_svg:
                     views_svg[source_vn] += '\n' + ind_svg
                 log(f"  Detail '{det_label}': scale {det_sf}x in {source_vn} view")
+                if derived_detail_cfg and not drawing_cfg.get("detail"):
+                    log("  Detail source: auto-suggested by view planner")
 
     # -- Extract BOM --
     bom = extract_bom(config, parts_metadata) if is_assembly else []

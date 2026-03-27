@@ -2,32 +2,32 @@ import express from 'express';
 import { WebSocketServer } from 'ws';
 import { createServer } from 'node:http';
 import { readdir, readFile, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { join, resolve as resolvePath, sep as pathSep } from 'node:path';
+import { join, resolve as resolvePath } from 'node:path';
 import { tmpdir } from 'node:os';
 import { parse as parseTOML } from 'smol-toml';
 import { runScript } from './lib/runner.js';
+import { normalizeConfig } from './lib/config-normalizer.js';
 import { designFromTextStreaming } from './scripts/design-reviewer.js';
 import { updateDimIntent, readDimIntents } from './lib/toml-writer.js';
-import { execSync } from 'node:child_process';
-import { stringify as tomlStringify } from 'smol-toml';
+import {
+  compileDrawingPlan,
+  createDrawingService,
+  ensureDrawingViews,
+  ensureDrawSchema,
+  isSafePlanPath,
+  loadDrawingPlan,
+  saveDrawingPlan,
+} from './src/api/drawing.js';
+import { runFem } from './src/api/analysis.js';
+import { createModel } from './src/api/model.js';
 
 const PUBLIC_DIR = join(import.meta.dirname, 'public');
 const EXAMPLES_DIR = join(import.meta.dirname, 'configs', 'examples');
 const OUTPUT_DIR = join(import.meta.dirname, 'output');
-const SCRIPTS_DIR = join(import.meta.dirname, 'scripts');
-const OUTPUT_DIR_ABS = resolvePath(OUTPUT_DIR);
-
-function isSafePlanPath(absPath) {
-  if (typeof absPath !== 'string' || !absPath) return false;
-  const normalized = resolvePath(absPath);
-  const outputPrefix = `${OUTPUT_DIR_ABS}${pathSep}`;
-  if (!(normalized === OUTPUT_DIR_ABS || normalized.startsWith(outputPrefix))) {
-    return false;
-  }
-  return normalized.endsWith('_plan.toml');
-}
+const generateDrawing = createDrawingService();
 
 export function startServer(port = 3000) {
+  console.warn('[legacy-viewer] freecad-automation/server.js is a legacy dev/demo viewer shell. Prefer freecad-desktop or mcp-freecad automation flows.');
   const app = express();
   const server = createServer(app);
   const wss = new WebSocketServer({ server });
@@ -142,7 +142,7 @@ export function startServer(port = 3000) {
 
       let config;
       try {
-        config = parseTOML(tomlStr);
+        config = normalizeConfig(parseTOML(tomlStr));
       } catch (e) {
         return sendJSON(ws, { type: 'error', message: `TOML parse error: ${e.message}` });
       }
@@ -152,34 +152,22 @@ export function startServer(port = 3000) {
       config.export = { formats: [], directory: tmpDir };
 
       // Ensure drawing config defaults
-      config.drawing = config.drawing || {};
-      if (!config.drawing.views) {
-        config.drawing.views = ['front', 'top', 'right', 'iso'];
-      }
+      ensureDrawSchema(config);
+      ensureDrawingViews(config);
       config.drawing.bom_csv = true;
 
       // Reuse edited plan when explicitly requested (interactive dim editing)
       let planPath = '';
       const forcedPlanPath = opts.planPath ? resolvePath(opts.planPath) : '';
       if (forcedPlanPath) {
-        if (!isSafePlanPath(forcedPlanPath)) {
+        if (!isSafePlanPath(forcedPlanPath, OUTPUT_DIR)) {
           return sendJSON(ws, { type: 'error', message: 'Unsafe plan path rejected' });
         }
         if (ws._lastPlanPath && forcedPlanPath !== ws._lastPlanPath) {
           return sendJSON(ws, { type: 'error', message: 'Plan path does not match active drawing session' });
         }
         try {
-          const planRaw = await readFile(forcedPlanPath, 'utf8');
-          const planData = parseTOML(planRaw);
-          if (!planData.drawing_plan) {
-            return sendJSON(ws, { type: 'error', message: 'Edited plan is missing drawing_plan section' });
-          }
-          config.drawing_plan = planData.drawing_plan;
-          const planViews = config.drawing_plan?.views?.enabled;
-          if (planViews && planViews.length > 0) {
-            config.drawing.views = planViews;
-          }
-          planPath = forcedPlanPath;
+          planPath = await loadDrawingPlan({ config, planPath: forcedPlanPath });
           sendJSON(ws, { type: 'progress', text: 'Applying edited plan...' });
         } catch (e) {
           return sendJSON(ws, { type: 'error', message: `Failed to load edited plan: ${e.message}` });
@@ -190,19 +178,10 @@ export function startServer(port = 3000) {
       if (!config.drawing_plan) {
         try {
           sendJSON(ws, { type: 'progress', text: 'Running intent compiler...' });
-          const compilerScript = join(SCRIPTS_DIR, 'intent_compiler.py');
-          const enriched = execSync(
-            `python3 "${compilerScript}"`,
-            { input: JSON.stringify(config), encoding: 'utf-8', timeout: 15_000 }
-          );
-          const enrichedConfig = JSON.parse(enriched);
-          Object.assign(config, enrichedConfig);
-
-          // Sync plan views
-          const planViews = config.drawing_plan?.views?.enabled;
-          if (planViews && planViews.length > 0) {
-            config.drawing.views = planViews;
-          }
+          compileDrawingPlan({
+            projectRoot: import.meta.dirname,
+            config,
+          });
         } catch (e) {
           // Non-fatal: proceed without plan
         }
@@ -211,14 +190,17 @@ export function startServer(port = 3000) {
       // Save plan for interactive editing
       if (config.drawing_plan) {
         const modelName = config.name || 'unnamed';
-        const targetPlanPath = planPath || join(OUTPUT_DIR, `${modelName}_plan.toml`);
-        if (!isSafePlanPath(resolvePath(targetPlanPath))) {
-          sendJSON(ws, { type: 'warning', message: 'Plan path rejected — skipping plan save' });
-        } else try {
-          await writeFile(targetPlanPath, tomlStringify({ drawing_plan: config.drawing_plan }), 'utf8');
-          planPath = resolvePath(targetPlanPath);
-          ws._lastPlanPath = isSafePlanPath(planPath) ? planPath : null;
+        try {
+          planPath = await saveDrawingPlan({
+            drawingPlan: config.drawing_plan,
+            planPath,
+            outputDir: OUTPUT_DIR,
+            modelName,
+            writeFileFn: writeFile,
+          });
+          ws._lastPlanPath = isSafePlanPath(planPath, OUTPUT_DIR) ? planPath : null;
         } catch (_) {
+          sendJSON(ws, { type: 'warning', message: 'Plan path rejected — skipping plan save' });
           planPath = '';
           ws._lastPlanPath = null;
         }
@@ -228,13 +210,21 @@ export function startServer(port = 3000) {
 
       sendJSON(ws, { type: 'progress', text: 'Generating engineering drawing...' });
 
-      const result = await runScript('generate_drawing.py', config, {
-        timeout: 180_000,
-        onStderr: (text) => {
-          if (ws.readyState === ws.OPEN) {
-            sendJSON(ws, { type: 'progress', text: text.trim() });
-          }
-        },
+      const result = await generateDrawing({
+        freecadRoot: import.meta.dirname,
+        runScript: (script, input, opts = {}) => runScript(script, input, {
+          ...opts,
+          onStderr: (text) => {
+            if (ws.readyState === ws.OPEN) {
+              sendJSON(ws, { type: 'progress', text: text.trim() });
+            }
+          },
+        }),
+        loadConfig: async () => config,
+        deepMerge: (target, source) => Object.assign(target, source),
+        config,
+        postprocess: false,
+        qa: false,
       });
 
       if (!result.success) {
@@ -242,12 +232,7 @@ export function startServer(port = 3000) {
       }
 
       // Read SVG content and send to client
-      let svgContent = null;
-      const svgExport = (result.drawing_paths || []).find(p => p.format === 'svg');
-      if (svgExport) {
-        const svgFilename = svgExport.path.replace(/\\/g, '/').split('/').pop();
-        svgContent = await readFile(join(tmpDir, svgFilename), 'utf8');
-      }
+      const svgContent = result.svgContent || null;
 
       sendJSON(ws, {
         type: 'drawing_result',
@@ -347,7 +332,7 @@ export function startServer(port = 3000) {
 
       let config;
       try {
-        config = parseTOML(tomlStr);
+        config = normalizeConfig(parseTOML(tomlStr));
       } catch (e) {
         return sendJSON(ws, { type: 'error', message: `TOML parse error: ${e.message}` });
       }
@@ -362,18 +347,32 @@ export function startServer(port = 3000) {
       };
 
       const hasFem = !!config.fem;
-      const script = hasFem ? 'fem_analysis.py' : 'create_model.py';
+      const buildLabel = hasFem ? 'fem_analysis.py' : 'create_model.py';
 
-      sendJSON(ws, { type: 'progress', text: `Running ${script}...` });
+      sendJSON(ws, { type: 'progress', text: `Running ${buildLabel}...` });
 
-      const result = await runScript(script, config, {
-        timeout: 300_000,
+      const runWithProgress = (script, input, opts = {}) => runScript(script, input, {
+        ...opts,
         onStderr: (text) => {
           if (ws.readyState === ws.OPEN) {
             sendJSON(ws, { type: 'progress', text: text.trim() });
           }
         },
       });
+      const result = hasFem
+        ? await runFem({
+          freecadRoot: import.meta.dirname,
+          runScript: runWithProgress,
+          loadConfig: async () => config,
+          config,
+          fem: config.fem,
+        })
+        : await createModel({
+          freecadRoot: import.meta.dirname,
+          runScript: runWithProgress,
+          loadConfig: async () => config,
+          config,
+        });
 
       if (!result.success) {
         return sendJSON(ws, { type: 'error', message: result.error || 'Build failed' });
@@ -448,7 +447,7 @@ export function startServer(port = 3000) {
   }
 
   server.listen(port, () => {
-    console.log(`FreeCAD Viewer: http://localhost:${port}`);
+    console.log(`FreeCAD Legacy Viewer: http://localhost:${port}`);
   });
 
   return server;

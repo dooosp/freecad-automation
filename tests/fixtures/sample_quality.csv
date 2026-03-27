@@ -1,0 +1,3 @@
+ncr_id,defect_code,defect_class,description,severity,feature_hint,occurrence_count,process_step
+NCR-001,WARP-01,distortion,Wall warp near thin section,high,wall,3,heat_treat
+NCR-002,HOLE-02,drill,Diameter mismatch on mounting hole,medium,hole,2,drill

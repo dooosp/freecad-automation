@@ -157,7 +157,7 @@ id = "cam_shaft"
 id = "cam_gear"
   [[parts.shapes]]
   id = "gear_body"
-  type = "library/gear"
+  type = "library/spur_gear"
   module = 1 # FIX: Chosen module for pitch_d=40 (spool) and 40 teeth for 1:1 ratio
   teeth = 40 # FIX: Chosen teeth count for 1:1 ratio
   width = 10 # FIX: Matches lock_cam width
@@ -194,9 +194,13 @@ position = [60, 40, 35]
 [[assembly.parts]]
 ref = "lock_cam"
 position = [60, 70, 20]
-  [[assembly.parts.children]] # FIX: Added cam_gear as a child of lock_cam
-  ref = "cam_gear"
-  position = [0, 0, 0] # FIX: Positioned at lock_cam's origin, making them coaxial and rigid
+
+# Child hierarchy is intentionally not used here.
+# The current create path places each assembly part explicitly and does not
+# guarantee assembly.parts.children semantics in the canonical schema.
+[[assembly.parts]]
+ref = "cam_gear"
+position = [60, 70, 20]
 
 [[assembly.parts]]
 ref = "pawl"
@@ -229,11 +233,10 @@ part = "pawl"
 axis = [0, 1, 0]            # pawl slides along Y (radial)
 anchor = [60, 86, 25]       # FIX: Adjusted Y-anchor to 86mm to match new pawl position
 
-[[assembly.joints]] # FIX: Added fixed joint for cam_shaft
-id = "cam_shaft_fixed"
-type = "fixed"
-part = "cam_shaft"
-parent = "base_plate" # FIX: Fixed the cam_shaft to the base plate as a supporting structure
+# Note:
+# The current create path does not guarantee fixed/parent joint semantics as a
+# canonical input style, so the reviewed example keeps cam_shaft anchored only
+# through explicit assembly placement above.
 
 # ── Couplings ─────────────────────────────────────
 

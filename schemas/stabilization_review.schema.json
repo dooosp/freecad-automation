@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dooosp.github.io/freecad-automation/schemas/stabilization_review.schema.json",
+  "title": "Launch Stabilization Review",
+  "type": "object",
+  "required": ["schema_version", "agent", "part", "summary", "station_runtime_review"],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "agent": { "const": "stabilization_review" },
+    "part": { "type": "object" },
+    "summary": { "type": "object" },
+    "analysis_basis": { "type": "object" },
+    "station_runtime_review": { "type": "array", "items": { "type": "object" } },
+    "launch_instability_signals": { "type": "array", "items": { "type": "string" } },
+    "likely_root_causes": { "type": "array", "items": { "type": "string" } },
+    "improvement_candidates": { "type": "array", "items": { "type": "string" } },
+    "quality_traceability_watchpoints": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

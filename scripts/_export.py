@@ -37,7 +37,7 @@ def export_shape(shape, filepath, fmt=None):
         os.makedirs(dirpath, exist_ok=True)
 
     if fmt in ("step", "stp"):
-        Part.export([shape_to_feature(shape)], filepath)
+        export_step_shape(shape, filepath)
     elif fmt == "stl":
         mesh = Mesh.Mesh(shape.tessellate(0.05))
         mesh.write(filepath)
@@ -110,26 +110,33 @@ def export_assembly(features, compound, name, formats, directory):
 def export_assembly_parts(features, name, directory):
     """
     Export each assembly part as a separate STL file.
-    Returns list of {id, label, path, size_bytes}.
+    Returns list of {id, ref, label, path, size_bytes}.
     """
     os.makedirs(directory, exist_ok=True)
     results = []
     safe_name = safe_filename_component(name, default="unnamed")
     for feat in features:
-        label = feat.Label
+        label = getattr(feat, "DisplayLabel", "") or feat.Label
+        ref = getattr(feat, "SourcePartId", "") or label
         safe_label = safe_filename_component(label, default="part")
         filepath = _safe_output_path(directory, f"{safe_name}__{safe_label}.stl")
         mesh = Mesh.Mesh(feat.Shape.tessellate(0.05))
         mesh.write(filepath)
         size = os.path.getsize(filepath) if os.path.exists(filepath) else 0
-        results.append({"id": label, "label": label, "path": filepath, "size_bytes": size})
+        results.append({"id": ref, "ref": ref, "label": label, "path": filepath, "size_bytes": size})
     return results
 
 
-def shape_to_feature(shape):
-    """Wrap a TopoShape in a Part::Feature for export compatibility."""
+def export_step_shape(shape, filepath):
+    """Export a single shape to STEP using a short-lived temp document."""
     doc = FreeCAD.newDocument("ExportTemp")
-    feature = doc.addObject("Part::Feature", "ExportShape")
-    feature.Shape = shape
-    doc.recompute()
-    return feature
+    try:
+        feature = doc.addObject("Part::Feature", "ExportShape")
+        feature.Shape = shape
+        doc.recompute()
+        Part.export([feature], filepath)
+    finally:
+        try:
+            FreeCAD.closeDocument(doc.Name)
+        except Exception:
+            pass

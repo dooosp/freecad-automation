@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dooosp.github.io/freecad-automation/schemas/product_review.schema.json",
+  "title": "Product Review Pack",
+  "type": "object",
+  "required": ["schema_version", "agent", "part", "summary", "risk_items", "recommendations"],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "agent": { "const": "product_review" },
+    "part": { "type": "object" },
+    "summary": { "type": "object" },
+    "structure_signals": { "type": "object" },
+    "risk_items": { "type": "array", "items": { "type": "object" } },
+    "recommendations": { "type": "array", "items": { "type": "string" } },
+    "evidence": { "type": "object" }
+  },
+  "additionalProperties": true
+}
+

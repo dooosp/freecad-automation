@@ -1,0 +1,3 @@
+item,part_number,description,quantity,material,revision,process
+1,BRKT-100,Sensor mounting bracket,1,AL6061,A,machining
+2,SCREW-M6,Socket cap screw,4,SS304,A,purchased

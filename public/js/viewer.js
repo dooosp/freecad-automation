@@ -86,6 +86,143 @@ function createPartMaterial(materialName, index) {
   });
 }
 
+const SVG_ALLOWED_TAGS = new Set([
+  'svg', 'g', 'defs', 'pattern', 'clipPath',
+  'line', 'polyline', 'polygon', 'path', 'rect', 'circle', 'ellipse',
+  'text', 'tspan', 'title', 'desc',
+]);
+
+const SVG_ALLOWED_ATTRS = new Set([
+  'class', 'id', 'viewbox', 'xmlns', 'xmlns:xlink',
+  'x', 'y', 'x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r', 'rx', 'ry',
+  'width', 'height', 'points', 'd', 'transform',
+  'fill', 'fill-opacity', 'stroke', 'stroke-opacity', 'stroke-width',
+  'stroke-linecap', 'stroke-linejoin', 'stroke-dasharray', 'stroke-dashoffset',
+  'opacity', 'font-family', 'font-size', 'font-weight', 'text-anchor',
+  'dominant-baseline', 'preserveaspectratio',
+  'vector-effect',
+  'marker-start', 'marker-mid', 'marker-end',
+  'patternunits', 'patterncontentunits',
+]);
+
+const SVG_ALLOWED_STYLE_PROPS = new Set([
+  'fill', 'fill-opacity', 'stroke', 'stroke-opacity', 'stroke-width',
+  'stroke-linecap', 'stroke-linejoin', 'stroke-dasharray', 'stroke-dashoffset',
+  'opacity', 'font-family', 'font-size', 'font-weight', 'text-anchor',
+  'dominant-baseline', 'display', 'visibility',
+]);
+
+function makeElement(tag, { className, text } = {}) {
+  const el = document.createElement(tag);
+  if (className) el.className = className;
+  if (text !== undefined) el.textContent = text;
+  return el;
+}
+
+function clearElement(el) {
+  el?.replaceChildren();
+}
+
+function appendLabeledValue(parent, label, value, valueOptions = {}) {
+  const row = makeElement('div');
+  const labelEl = makeElement('span', { className: 'label', text: label });
+  const valueEl = makeElement('span', { className: valueOptions.className || 'value', text: value });
+  if (valueOptions.color) valueEl.style.color = valueOptions.color;
+  row.append(labelEl, document.createTextNode(' '), valueEl);
+  parent.appendChild(row);
+  return row;
+}
+
+function appendReviewValue(parent, label, value) {
+  const row = makeElement('div');
+  row.append(
+    makeElement('span', { className: 'review-label', text: label }),
+    document.createTextNode(' '),
+    makeElement('span', { className: 'review-value', text: value }),
+  );
+  parent.appendChild(row);
+}
+
+function sanitizeInlineStyle(styleText) {
+  return String(styleText)
+    .split(';')
+    .map((rule) => rule.trim())
+    .filter(Boolean)
+    .map((rule) => {
+      const idx = rule.indexOf(':');
+      if (idx === -1) return null;
+      const prop = rule.slice(0, idx).trim().toLowerCase();
+      const value = rule.slice(idx + 1).trim();
+      if (!SVG_ALLOWED_STYLE_PROPS.has(prop)) return null;
+      if (/(?:url\s*\(|expression|javascript:|data:)/i.test(value)) return null;
+      return `${prop}: ${value}`;
+    })
+    .filter(Boolean)
+    .join('; ');
+}
+
+function isSafeSvgReference(value) {
+  return typeof value === 'string' && value.startsWith('#');
+}
+
+function sanitizeSvgElement(root) {
+  if (!root || root.tagName.toLowerCase() !== 'svg') return null;
+
+  const nodes = [root];
+  while (nodes.length > 0) {
+    const node = nodes.pop();
+    const tag = node.tagName.toLowerCase();
+    if (!SVG_ALLOWED_TAGS.has(tag)) {
+      node.remove();
+      continue;
+    }
+
+    for (const attr of [...node.attributes]) {
+      const name = attr.name.toLowerCase();
+      const value = attr.value;
+      const isDataAttr = name.startsWith('data-') || name.startsWith('aria-');
+      if (name.startsWith('on')) {
+        node.removeAttribute(attr.name);
+        continue;
+      }
+      if ((name === 'href' || name === 'xlink:href') && !isSafeSvgReference(value)) {
+        node.removeAttribute(attr.name);
+        continue;
+      }
+      if (name === 'style') {
+        const safeStyle = sanitizeInlineStyle(value);
+        if (safeStyle) node.setAttribute('style', safeStyle);
+        else node.removeAttribute(attr.name);
+        continue;
+      }
+      if (!isDataAttr && !SVG_ALLOWED_ATTRS.has(name)) {
+        node.removeAttribute(attr.name);
+        continue;
+      }
+      if (/(?:javascript:|data:text\/html|vbscript:)/i.test(value)) {
+        node.removeAttribute(attr.name);
+      }
+    }
+
+    nodes.push(...[...node.children]);
+  }
+
+  return root;
+}
+
+function buildSafeSvg(svgMarkup) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(svgMarkup, 'image/svg+xml');
+  if (doc.getElementsByTagName('parsererror').length > 0) {
+    return null;
+  }
+
+  // Viewer SVG comes from the backend renderer; sanitize before insertion
+  // so labels/BOM text cannot introduce scripts or active HTML.
+  const safeRoot = sanitizeSvgElement(doc.documentElement);
+  return safeRoot ? document.importNode(safeRoot, true) : null;
+}
+
 // --- Edge Rendering ---
 const EDGE_THRESHOLD = 30;
 const EDGE_COLOR = 0x1a1a2e;
@@ -248,7 +385,7 @@ function loadSTL(arrayBuffer) {
   currentMesh.userData.edgeLines = edgeLines;
   currentMesh.userData.edgeMat = edgeMat;
 
-  partsListEl.innerHTML = '';
+  clearElement(partsListEl);
   fitCamera(currentMesh);
 }
 
@@ -303,17 +440,23 @@ function addPartMesh(arrayBuffer) {
 }
 
 function buildPartsList() {
-  let html = '<h3>Parts</h3>';
+  clearElement(partsListEl);
+  partsListEl.appendChild(makeElement('h3', { text: 'Parts' }));
+
   for (let i = 0; i < partMeshes.length; i++) {
     const p = partMeshes[i];
     const color = '#' + p.material.color.getHexString();
-    const cls = i === selectedPartIndex ? 'part-item selected' : 'part-item';
-    html += `<div class="${cls}" data-index="${i}">`;
-    html += `<span class="part-swatch" style="background:${color}"></span>`;
-    html += `<span class="part-label">${p.label}</span>`;
-    html += '</div>';
+    const item = makeElement('div', {
+      className: i === selectedPartIndex ? 'part-item selected' : 'part-item',
+    });
+    item.dataset.index = String(i);
+
+    const swatch = makeElement('span', { className: 'part-swatch' });
+    swatch.style.background = color;
+    item.appendChild(swatch);
+    item.appendChild(makeElement('span', { className: 'part-label', text: p.label || p.id || `Part ${i + 1}` }));
+    partsListEl.appendChild(item);
   }
-  partsListEl.innerHTML = html;
 
   // Click events on part items
   partsListEl.querySelectorAll('.part-item').forEach(el => {
@@ -547,43 +690,49 @@ function setStatus(text, type = '') {
 function showModelInfo(model, fem) {
   if (!model) return;
 
-  let html = '<h3>Model</h3>';
-  html += `<div><span class="label">Name:</span> <span class="value">${model.name || '\u2014'}</span></div>`;
+  clearElement(modelInfoEl);
+  modelInfoEl.appendChild(makeElement('h3', { text: 'Model' }));
+  appendLabeledValue(modelInfoEl, 'Name:', model.name || '\u2014');
   if (model.volume !== undefined) {
-    html += `<div><span class="label">Volume:</span> <span class="value">${Number(model.volume).toLocaleString()} mm\u00b3</span></div>`;
+    appendLabeledValue(modelInfoEl, 'Volume:', `${Number(model.volume).toLocaleString()} mm\u00b3`);
   }
   if (model.faces !== undefined) {
-    html += `<div><span class="label">Faces:</span> <span class="value">${model.faces}</span> &nbsp; <span class="label">Edges:</span> <span class="value">${model.edges}</span></div>`;
+    appendLabeledValue(modelInfoEl, 'Faces:', String(model.faces));
+    appendLabeledValue(modelInfoEl, 'Edges:', String(model.edges ?? '\u2014'));
   }
   if (model.bounding_box) {
     const s = model.bounding_box.size;
-    html += `<div><span class="label">Size:</span> <span class="value">${s[0].toFixed(1)} \u00d7 ${s[1].toFixed(1)} \u00d7 ${s[2].toFixed(1)} mm</span></div>`;
+    appendLabeledValue(modelInfoEl, 'Size:', `${s[0].toFixed(1)} \u00d7 ${s[1].toFixed(1)} \u00d7 ${s[2].toFixed(1)} mm`);
   }
 
   if (fem) {
-    html += '<div class="fem-section"><h3>FEM Results</h3>';
-    html += `<div><span class="label">Material:</span> <span class="value">${fem.material?.name || '\u2014'}</span></div>`;
+    const section = makeElement('div', { className: 'fem-section' });
+    section.appendChild(makeElement('h3', { text: 'FEM Results' }));
+    appendLabeledValue(section, 'Material:', fem.material?.name || '\u2014');
     if (fem.mesh) {
-      html += `<div><span class="label">Mesh:</span> <span class="value">${fem.mesh.nodes?.toLocaleString()} nodes, ${fem.mesh.elements?.toLocaleString()} elements</span></div>`;
+      appendLabeledValue(
+        section,
+        'Mesh:',
+        `${fem.mesh.nodes?.toLocaleString() ?? '\u2014'} nodes, ${fem.mesh.elements?.toLocaleString() ?? '\u2014'} elements`,
+      );
     }
     if (fem.results) {
       const r = fem.results;
       if (r.displacement) {
-        html += `<div><span class="label">Max disp:</span> <span class="value">${r.displacement.max.toFixed(4)} mm</span></div>`;
+        appendLabeledValue(section, 'Max disp:', `${r.displacement.max.toFixed(4)} mm`);
       }
       if (r.von_mises) {
-        html += `<div><span class="label">Max stress:</span> <span class="value">${r.von_mises.max.toFixed(2)} MPa</span></div>`;
+        appendLabeledValue(section, 'Max stress:', `${r.von_mises.max.toFixed(2)} MPa`);
       }
       if (r.safety_factor !== undefined) {
         const sf = r.safety_factor;
         const color = sf >= 2 ? 'var(--success)' : sf >= 1 ? 'var(--warning)' : 'var(--error)';
-        html += `<div><span class="label">Safety factor:</span> <span class="value" style="color:${color}">${sf}</span></div>`;
+        appendLabeledValue(section, 'Safety factor:', String(sf), { color });
       }
     }
-    html += '</div>';
+    modelInfoEl.appendChild(section);
   }
 
-  modelInfoEl.innerHTML = html;
   modelInfoEl.classList.add('open');
 }
 
@@ -618,7 +767,7 @@ function clearAssembly() {
   }
   pendingManifest = null;
   receivedPartCount = 0;
-  partsListEl.innerHTML = '';
+  clearElement(partsListEl);
   // Reset motion state
   motionData = null;
   motionPlaying = false;
@@ -681,15 +830,22 @@ function designModel() {
 function showStreamPreview(chars) {
   if (!streamPreview) return;
   const elapsed = ((Date.now() - streamStartTime) / 1000).toFixed(0);
-  const bar = buildProgressBar(chars);
-  streamPreview.innerHTML = `${bar}<span class="stream-stats">${chars.toLocaleString()} chars &middot; ${elapsed}s elapsed</span>`;
+  clearElement(streamPreview);
+  streamPreview.append(
+    buildProgressBar(chars),
+    makeElement('span', { className: 'stream-stats', text: `${chars.toLocaleString()} chars · ${elapsed}s elapsed` }),
+  );
   streamPreview.classList.add('open');
 }
 
 function buildProgressBar(chars) {
   // Estimate ~8k chars for a typical design, cap at 100%
   const pct = Math.min(100, Math.round((chars / 8000) * 100));
-  return `<div class="stream-bar"><div class="stream-bar-fill" style="width:${pct}%"></div></div>`;
+  const bar = makeElement('div', { className: 'stream-bar' });
+  const fill = makeElement('div', { className: 'stream-bar-fill' });
+  fill.style.width = `${pct}%`;
+  bar.appendChild(fill);
+  return bar;
 }
 
 function hideStreamPreview() {
@@ -699,38 +855,50 @@ function hideStreamPreview() {
 function showReviewPanel(report) {
   if (!report || !reviewPanel) return;
 
-  let html = '<h3>Design Review</h3>';
+  clearElement(reviewPanel);
+  reviewPanel.appendChild(makeElement('h3', { text: 'Design Review' }));
 
   if (report.mechanism_type) {
-    html += `<div><span class="review-label">Type:</span> <span class="review-value">${report.mechanism_type}</span></div>`;
+    appendReviewValue(reviewPanel, 'Type:', report.mechanism_type);
   }
   if (report.dof !== undefined) {
-    html += `<div><span class="review-label">DOF:</span> <span class="review-value">${report.dof}</span></div>`;
+    appendReviewValue(reviewPanel, 'DOF:', String(report.dof));
   }
 
   if (report.motion_chain && report.motion_chain.length > 0) {
-    html += '<div><span class="review-label">Motion Chain:</span></div>';
-    html += '<ul class="review-chain">';
+    const labelRow = makeElement('div');
+    labelRow.appendChild(makeElement('span', { className: 'review-label', text: 'Motion Chain:' }));
+    reviewPanel.appendChild(labelRow);
+    const list = makeElement('ul', { className: 'review-chain' });
     for (const step of report.motion_chain) {
-      html += `<li>${step}</li>`;
+      list.appendChild(makeElement('li', { text: step }));
     }
-    html += '</ul>';
+    reviewPanel.appendChild(list);
   }
 
   if (report.materials_assigned && Object.keys(report.materials_assigned).length > 0) {
-    html += '<div><span class="review-label">Materials:</span></div>';
-    html += '<table class="review-materials">';
+    const labelRow = makeElement('div');
+    labelRow.appendChild(makeElement('span', { className: 'review-label', text: 'Materials:' }));
+    reviewPanel.appendChild(labelRow);
+    const table = makeElement('table', { className: 'review-materials' });
     for (const [part, mat] of Object.entries(report.materials_assigned)) {
-      html += `<tr><td>${part}</td><td>${mat}</td></tr>`;
+      const tr = document.createElement('tr');
+      tr.append(
+        makeElement('td', { text: part }),
+        makeElement('td', { text: mat }),
+      );
+      table.appendChild(tr);
     }
-    html += '</table>';
+    reviewPanel.appendChild(table);
   }
 
   if (report.recommendation) {
-    html += `<div class="review-recommendation">${report.recommendation}</div>`;
+    reviewPanel.appendChild(makeElement('div', {
+      className: 'review-recommendation',
+      text: report.recommendation,
+    }));
   }
 
-  reviewPanel.innerHTML = html;
   reviewPanel.classList.add('open');
 }
 
@@ -1022,7 +1190,10 @@ function requestDrawing() {
 function showDrawing(svg, bom, scale) {
   if (!svg) return setStatus('No SVG in drawing result', 'error');
 
-  drawingContainer.innerHTML = svg;
+  clearElement(drawingContainer);
+  const safeSvg = buildSafeSvg(svg);
+  if (!safeSvg) return setStatus('Drawing SVG could not be rendered safely', 'error');
+  drawingContainer.appendChild(safeSvg);
   drawZoom = 1;
   drawPanX = 0;
   drawPanY = 0;
@@ -1031,14 +1202,28 @@ function showDrawing(svg, bom, scale) {
 
   // BOM table
   if (bom && bom.length > 0) {
-    let html = '<h4>Bill of Materials</h4><table><tr><th>#</th><th>Part</th><th>Material</th><th>Qty</th></tr>';
+    clearElement(drawingBom);
+    drawingBom.appendChild(makeElement('h4', { text: 'Bill of Materials' }));
+    const table = document.createElement('table');
+    const headerRow = document.createElement('tr');
+    for (const title of ['#', 'Part', 'Material', 'Qty']) {
+      headerRow.appendChild(makeElement('th', { text: title }));
+    }
+    table.appendChild(headerRow);
     bom.forEach((item, i) => {
-      html += `<tr><td>${i + 1}</td><td>${item.id || '?'}</td><td>${item.material || '-'}</td><td>${item.count || 1}</td></tr>`;
+      const row = document.createElement('tr');
+      row.append(
+        makeElement('td', { text: String(i + 1) }),
+        makeElement('td', { text: item.id || '?' }),
+        makeElement('td', { text: item.material || '-' }),
+        makeElement('td', { text: String(item.count || 1) }),
+      );
+      table.appendChild(row);
     });
-    html += '</table>';
-    drawingBom.innerHTML = html;
+    drawingBom.appendChild(table);
     drawingBom.classList.add('open');
   } else {
+    clearElement(drawingBom);
     drawingBom.classList.remove('open');
   }
 }

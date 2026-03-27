@@ -1,0 +1,95 @@
+name: FreeCAD Runtime Smoke (self-hosted macOS)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: freecad-runtime-smoke-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  macos-runtime-smoke:
+    name: Self-hosted macOS FreeCAD smoke
+    runs-on: [self-hosted, macOS, freecad]
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: CI Diagnostics
+        run: |
+          mkdir -p .ci
+          bash .github/scripts/ci-diagnostics.sh | tee .ci/freecad-runtime-diagnostics.txt
+
+      - name: Install Node Dependencies
+        run: bash .github/scripts/retry.sh 3 15 npm ci --no-audit --prefer-offline
+
+      - name: Verify FreeCAD runtime
+        run: node bin/fcad.js check-runtime
+
+      - name: Capture runtime contract
+        run: node bin/fcad.js check-runtime --json > .ci/freecad-runtime.json
+
+      - name: Run CLI runtime smoke lane
+        run: npm run test:runtime-smoke
+
+      - name: Run runtime-backed Python smoke regressions
+        run: node scripts/run-pytest.js -q tests/test_cli_runtime.py tests/test_infotainment_draw_qa_regression.py tests/test_infotainment_hole_dia_regression.py
+
+      - name: Index runtime smoke outputs
+        if: always()
+        run: |
+          mkdir -p .ci
+          {
+            echo "# output/runtime-smoke"
+            if [ -d output/runtime-smoke ]; then
+              find output/runtime-smoke -maxdepth 2 -type f | sort
+            else
+              echo "output/runtime-smoke missing"
+            fi
+            echo
+            echo "# runtime-smoke root artifacts"
+            find output -maxdepth 1 -type f \( -name '*runtime_smoke*' -o -name '*runtime-smoke*' \) | sort
+          } | tee .ci/freecad-runtime-artifacts.txt
+
+      - name: Upload runtime diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: freecad-runtime-smoke-diagnostics-${{ github.run_id }}
+          path: |
+            .ci/freecad-runtime-diagnostics.txt
+            .ci/freecad-runtime.json
+            .ci/freecad-runtime-artifacts.txt
+            .pytest_cache
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload runtime smoke outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: freecad-runtime-smoke-artifacts-${{ github.run_id }}
+          path: |
+            output/runtime-smoke
+            output/runtime-smoke-configs
+            output/*runtime_smoke*
+          if-no-files-found: warn
+          retention-days: 14

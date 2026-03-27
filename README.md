@@ -1,227 +1,705 @@
-# freecad-automation
+# FreeCAD Automation
 
-**Design-to-manufacturing automation pipeline for FreeCAD.**
+FreeCAD Automation is a FreeCAD-backed automation pipeline for CAD generation, TechDraw drawings, inspection, FEM, reporting, and manufacturing-review artifacts.
 
-One TOML config in, 3D model + engineering drawing + DFM analysis + cost estimate + PDF report out.
+The repository has two public layers:
 
-![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)
-![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
-![FreeCAD](https://img.shields.io/badge/FreeCAD-0.21%2B-1565C0)
-![License](https://img.shields.io/badge/License-MIT-green)
+- a runtime-backed CLI for CAD, TechDraw, FEM, tolerance, inspection, and reporting
+- a plain-Python/Node manufacturing-review layer for DFM, process planning, readiness review, stabilization review, review-pack artifacts, and standard-document drafts
 
----
+## Release Surface
 
-## What It Does
+- [Support matrix](./docs/support-matrix.md)
+- [Testing and verification](./docs/testing.md)
+- [Config schema](./docs/config-schema.md)
+- [Output contract](./docs/output-contract.md)
+- [v1.1.0 release notes draft](./docs/releases/v1.1.0-draft.md)
 
+Validation snapshot:
+
+- verified locally by maintainers on macOS with FreeCAD 1.1.x for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, and `report`
+- verified in hosted CI through explicit fast lanes: `test:node:contract`, `test:node:integration`, `test:snapshots`, and `test:py`; hosted CI does not install or launch FreeCAD
+- verified in repository-owned runtime CI through the `FreeCAD Runtime Smoke (self-hosted macOS)` workflow for real `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, and `report`
+- experimental or not yet automated for live FreeCAD execution on Windows native, WSL -> Windows FreeCAD, and Linux; those paths remain compatibility paths, not equal-maturity claims
+
+Run `fcad check-runtime` first on any new machine and before troubleshooting a FreeCAD-backed failure.
+
+Execution model: `bin/fcad.js -> lib/runner.js -> scripts/*.py -> scripts/_bootstrap.py -> import FreeCAD` for the runtime-backed commands. The manufacturing-review layer uses the same configs and artifacts but often runs under plain `python3` without launching FreeCAD.
+
+Config lifecycle:
+
+- user-facing configs are now treated as `config_version = 1`
+- unversioned configs still load, but `fcad` emits deprecation warnings when legacy fields are detected
+- new checked-in examples should be explicit canonical v1 unless they intentionally exist as compatibility fixtures
+- `fcad validate-config <path>` validates user-facing config shape and migration state
+- `fcad migrate-config <path> [--out <file>]` writes a versioned config plus a change summary
+- supported config fields, compatibility aliases, and real example references are documented in [docs/config-schema.md](./docs/config-schema.md)
+
+## Start Here
+
+For a first local verification:
+
+```bash
+npm install
+npm link
+fcad check-runtime
+npm run test:node:contract
+npm run test:node:integration
+npm run test:snapshots
+npm run test:runtime-smoke
 ```
-TOML Config ──> 3D Model ──> Drawing ──> DFM Check ──> Cost ──> PDF Report
-   .toml         .step       4-view      6 checks     BOM      multi-page
-                  .fcstd      SVG+GD&T    per-process  breakdown technical
+
+If you are reviewing the repository on GitHub:
+
+1. Read the [infotainment production readiness case study](./docs/portfolio/infotainment-production-readiness-case.md).
+2. Open the [checked-in example artifact set](./docs/examples/infotainment-display-bracket/README.md).
+3. Review the [parameter sweep gallery](./docs/examples/parameter-sweep-gallery.md).
+4. Compare the [Korea vs Mexico stabilization example](./docs/examples/infotainment-display-bracket/stabilization-comparison.md).
+5. Read the [before-vs-after improvement case](./docs/portfolio/before-after-improvement-case.md).
+6. Skim the [readiness report markdown](./docs/examples/infotainment-display-bracket/readiness-report.md).
+7. Inspect the [example config](./configs/examples/infotainment_display_bracket.toml) and the command classification below.
+
+## Test Lanes
+
+- `npm run test:node:contract`: fast hosted-safe Node contracts for config/runtime path/invocation boundaries
+- `npm run test:node:integration`: fast hosted-safe Node integration checks for API, sweep, draw/report service wiring, and rule profiles
+- `npm run test:snapshots`: normalized SVG/report snapshot regressions
+- `npm run test:py`: Python 3.11+ lane for non-runtime Python and CLI-adjacent regressions
+- `npm run test:runtime-smoke`: real FreeCAD-backed smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, and `report`
+
+Deeper runtime-backed suites are available as `npm run test:runtime:model`, `test:runtime:drawing`, `test:runtime:analysis`, `test:runtime:report`, `test:runtime:integration`, and `test:runtime:full`.
+
+Full details, workflow mapping, and local commands live in [docs/testing.md](./docs/testing.md).
+
+## Supported And Verified Platform Scope
+
+- verified maintainer path: macOS + `FreeCAD.app` 1.1.x for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, and `report`
+- verified repository-owned runtime CI path: self-hosted macOS smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, and `report`
+- verified hosted CI path: Node contract, Node integration, snapshots, and Python lanes without installing or launching FreeCAD
+- compatibility paths only today: Windows native, WSL -> Windows FreeCAD, and Linux runtime execution
+
+## Target Use Cases
+
+- parametric 3D model generation from TOML configs
+- engineering drawing generation through TechDraw
+- model inspection, FEM, tolerance, and PDF report generation
+- manufacturability screening, process-plan support, and readiness reporting
+- runtime-informed launch stabilization review from supplied runtime JSON
+- draft generation of production-engineering standard documents
+
+## Production Engineering Layer
+
+The repository also includes production-engineering workflows and infotainment-oriented examples, but those should be read as decision-support tooling layered on top of the core automation pipeline.
+
+- Structure review: check wall thickness, connector-side clearance, fastening accessibility, and mounting-boss layout before tooling freeze.
+- Process design support: infer rough process sequence, inspection points, and likely bottleneck candidates from geometry and manufacturing assumptions.
+- Launch/stabilization support: compare supplied CT, FPY, rework, scrap, downtime, and changeover signals against planning assumptions.
+- Quality-risk visibility: surface critical dimensions, quality gates, traceability capture points, and inspection-sensitive features.
+- Standard-document support: generate draft process flow, control plan, checksheet, work instruction, and PFMEA seed artifacts.
+
+Outputs are heuristic engineering aids. They are not full production-line simulations or a substitute for engineering sign-off.
+
+## Codex Multi-Agent Prompt Workflow
+
+If you want Codex to drive the legacy CAD and drawing pipeline as a small orchestrated agent team, use:
+
+- [Workflow guide](./docs/codex-multi-agent-workflow.md)
+- [Prompt pack](./prompts/multi-agent/)
+- [Starter generated config](./configs/generated/cnc_motor_mount_bracket.toml)
+
+Recommended stable starting flow:
+
+```bash
+fcad create configs/generated/cnc_motor_mount_bracket.toml
+fcad draw configs/generated/cnc_motor_mount_bracket.toml --bom
+fcad dfm configs/generated/cnc_motor_mount_bracket.toml --strict
+fcad tolerance configs/generated/cnc_motor_mount_bracket.toml --recommend
 ```
 
-| Capability | Description |
-|---|---|
-| Parametric Modeling | 7 shape primitives + boolean ops + fillet/chamfer + circular pattern |
-| Engineering Drawing | 4-view projection, ISO 128 line types, GD&T automation, QA scoring |
-| AI Design | Natural language description via Gemini to TOML to 3D model |
-| DFM Analysis | 6 manufacturability checks across 4 process types |
-| Tolerance Analysis | Fit recommendation + stack-up + Monte Carlo simulation |
-| Cost Estimation | Material + machining + setup + inspection + batch discounts |
-| FEM Analysis | Structural analysis with load/constraint definition |
-| PDF Reports | Multi-page technical reports with drawings and analysis |
-| 3D Web Viewer | Three.js viewer with WebSocket live reload |
+This keeps Codex focused on the existing `config -> create -> draw -> dfm -> tolerance/report` loop without changing the repository runtime model.
 
----
+## Command Surface
 
-## Quick Start
+Run `fcad check-runtime` before any FreeCAD-backed command on a new machine and as the first troubleshooting step for runtime-backed failures. It prints searched candidate paths, the selected runtime, active env overrides, detected FreeCAD/Python details, command classes, and remediation guidance. Add `--json` when a tool needs the same machine-readable runtime contract that the local API exposes from `GET /health`.
+
+### Command Classification
+
+| Class | Commands | Runtime boundary |
+| --- | --- | --- |
+| Diagnostics | `check-runtime` | does not require FreeCAD to be present |
+| FreeCAD-backed | `create`, `draw`, `inspect`, `fem`, `tolerance`, `report` | requires a working FreeCAD runtime |
+| Plain-Python / non-FreeCAD | `dfm`, `review`, `process-plan`, `line-plan`, `quality-risk`, `investment-review`, `readiness-report`, `stabilization-review`, `generate-standard-docs`, `ingest`, `quality-link`, `review-pack`, `compare-rev`, `validate`, `validate-config`, `migrate-config`, `serve` | runs without launching FreeCAD |
+| Mixed / conditional | `analyze-part`, `design`, `sweep` | `analyze-part` can inspect CAD through FreeCAD when needed; `design` ends by calling `create`; `sweep` stays inside the existing `create` / `cost` / `fem` / `report` service wrappers selected by the matrix file |
+
+### Production-Readiness Commands
+
+```bash
+fcad review <config.toml|json>
+fcad process-plan <config.toml|json>
+fcad line-plan <config.toml|json>
+fcad quality-risk <config.toml|json>
+fcad investment-review <config.toml|json>
+fcad readiness-report <config.toml|json>
+fcad stabilization-review <config.toml|json> --runtime <runtime.json>
+fcad generate-standard-docs <config.toml|json> [--out-dir <dir>]
+```
+
+`mfg-agent` is also installed as an alias for the same CLI.
+
+### Review-Pack Commands
+
+```bash
+fcad ingest --model <file> [--bom bom.csv] [--inspection inspection.csv] [--quality quality.csv] --out <context.json>
+fcad analyze-part <context.json|model.step>
+fcad quality-link --context <context.json> --geometry <geometry.json>
+fcad review-pack --context <context.json> --geometry <geometry.json>
+fcad compare-rev <baseline.json> <candidate.json>
+```
+
+### Diagnostics And Runtime-Backed Commands
+
+```bash
+fcad check-runtime
+fcad check-runtime --json
+fcad create <config.toml|json>
+fcad draw <config.toml|json>
+fcad report <config.toml|json>
+fcad inspect <model.step|fcstd> [--manifest-out <path>]
+fcad fem <config.toml|json> [--manifest-out <path>]
+fcad tolerance <config.toml|json> [--manifest-out <path>]
+fcad dfm <config.toml|json> [--manifest-out <path>]
+fcad sweep <config.toml|json> --matrix <matrix.toml|json> [--out-dir <dir>]
+```
+
+`report` is still classified as runtime-backed because it runs inside the FreeCAD bundle on macOS even when it falls back from `freecadcmd` to the bundled FreeCAD Python executable.
+
+`--manifest-out <path>` is the provenance escape hatch for stdout-heavy commands. It keeps the default human-readable stdout intact while letting tooling capture a stable manifest alongside `inspect`, `fem`, `tolerance`, or `dfm`.
+
+### Parameter Sweep
+
+`fcad sweep` is the initial design-space exploration workflow. It does not create a separate optimization path. Instead, it expands deterministic numeric overrides and executes each variant through the existing service wrappers already used by the CLI.
+
+Current sweep scope:
+
+- numeric leaf overrides only, addressed by paths like `shapes[0].height` or `fem.constraints[1].magnitude`
+- discrete `values = [...]` lists or inclusive `range = { start, stop, step }`
+- sequential execution with per-variant `effective-config.*` and `result.json`
+- aggregate `summary.json` and `summary.csv`
+- objective summary for min mass, min cost, and FEM stress-threshold pass/fail when those metrics exist
+
+Worked examples:
+
+- [docs/examples/parameter-sweep-gallery.md](./docs/examples/parameter-sweep-gallery.md)
+- [configs/examples/sweeps/ks_bracket_geometry_sweep.toml](./configs/examples/sweeps/ks_bracket_geometry_sweep.toml)
+- [configs/examples/sweeps/bracket_fem_load_sweep.toml](./configs/examples/sweeps/bracket_fem_load_sweep.toml)
+
+Example:
+
+```bash
+fcad sweep configs/examples/ks_bracket.toml \
+  --matrix configs/examples/sweeps/ks_bracket_geometry_sweep.toml \
+  --out-dir output/sweeps/ks_bracket_geometry
+```
+
+The summary files capture exact per-variant runtime. Treat any time estimates in docs as planning guidance, not repository-verified benchmark claims.
+
+### Config Validation And Migration
+
+```bash
+fcad validate-config configs/examples/ks_bracket.toml
+fcad validate-config configs/examples/ks_bracket.toml --strict
+fcad validate-config configs/examples/ks_bracket.toml --json
+fcad migrate-config configs/examples/ks_bracket.toml
+fcad migrate-config configs/examples/ks_bracket.toml --out output/ks_bracket.v1.toml
+```
+
+`validate-config` checks the user-facing config, reports deprecated fields, and exits non-zero on schema errors. `--strict` also fails when warnings remain.
+
+`migrate-config` writes a versioned config file and prints:
+
+- changed fields applied automatically
+- deprecated fields still present for compatibility
+- manual follow-up when the migration intentionally keeps a legacy field to avoid breaking older flows
+
+Legacy compatibility warnings currently cover:
+
+- missing `config_version`
+- top-level `material` and `process`
+- `[[operations]].type` instead of `op`
+- legacy `[export] step = true` / `stl = true` flags instead of `formats = [...]`
+
+Upgrade notes:
+
+- canonical v1 keeps `manufacturing.process` and `manufacturing.material` as the preferred home for manufacturing metadata
+- legacy top-level `process` and `material` still load today, but migration intentionally keeps them only as compatibility fields
+- existing sample configs remain valid inputs because `fcad` auto-migrates them before command execution
+- new checked-in examples should default to explicit `config_version = 1` plus canonical fields; use legacy-compatible examples only when they are intentionally covering migration/regression behavior
+- use `fcad migrate-config` if you want to check in an explicit v1 config file after reviewing the reported manual follow-up items
+
+The older `fcad validate <plan-file>` command is unchanged and still validates `drawing_plan` artifacts rather than user configs.
+
+### Local API
+
+`fcad serve` now starts a local/dev-first HTTP API backed by the real Node CLI service layer and the existing Python/FreeCAD runtime path.
+
+```bash
+fcad serve
+fcad serve 3100
+fcad serve 3100 --jobs-dir output/jobs-dev
+```
+
+Startup behavior:
+
+- binds to `127.0.0.1` only
+- defaults to port `3000`
+- stores jobs under `output/jobs` unless `--jobs-dir` is provided
+- keeps the existing CLI/runtime execution path: `POST /jobs` schedules work through the same service layer used by `fcad create`, `fcad draw`, `fcad inspect`, and `fcad report`
+
+Endpoints:
+
+- `GET /health`
+- `POST /jobs`
+- `GET /jobs/:id`
+- `GET /jobs/:id/artifacts`
+
+Supported job types:
+
+- `create`
+- `draw`
+- `inspect`
+- `report`
+
+Endpoint usage:
+
+- `GET /health` returns API liveness plus the same shared runtime diagnostics contract used by `fcad check-runtime --json`
+- `POST /jobs` accepts a JSON job request and returns `202 Accepted` with the queued job record
+- `GET /jobs/:id` returns the latest status, request, diagnostics, result, status history, and storage metadata
+- `GET /jobs/:id/artifacts` returns the flattened known artifact list plus persisted storage file metadata
+
+Request examples:
+
+```bash
+curl http://127.0.0.1:3000/health
+
+curl -X POST http://127.0.0.1:3000/jobs \
+  -H 'content-type: application/json' \
+  -d '{
+    "type": "create",
+    "config_path": "configs/examples/ks_bracket.toml"
+  }'
+
+curl -X POST http://127.0.0.1:3000/jobs \
+  -H 'content-type: application/json' \
+  -d '{
+    "type": "draw",
+    "config": {
+      "config_version": 1,
+      "name": "api_bracket",
+      "shapes": [
+        { "id": "body", "type": "box", "length": 40, "width": 20, "height": 8 }
+      ],
+      "drawing": { "views": ["front", "top", "right", "iso"] },
+      "export": { "formats": ["step"], "directory": "output" }
+    }
+  }'
+
+curl http://127.0.0.1:3000/jobs/<job-id>
+
+curl http://127.0.0.1:3000/jobs/<job-id>/artifacts
+```
+
+The job store is filesystem-backed under `output/jobs` by default. Each job directory persists:
+
+- request payload
+- status transitions
+- log output
+- effective config when applicable
+- artifact paths surfaced through `GET /jobs/:id/artifacts`
+
+Response notes:
+
+- all endpoints return JSON
+- success responses always include `ok: true`
+- error responses always include `ok: false` and `error.code` plus `error.messages`
+- job responses include a `storage` block with absolute paths and file existence/size for `job.json`, `request.json`, and `job.log`
+
+Current limitations:
+
+- this API is local/dev-first and does not add authentication
+- jobs run in-process; there is no distributed queue, retry worker, or database
+- `job.log` is best-effort and primarily captures orchestration events and stderr surfaced from underlying scripts
+- `GET /jobs/:id/artifacts` reports known output paths; it does not stream artifact contents
+- `POST /jobs` currently exposes only the execution paths for `create`, `draw`, `inspect`, and `report`
+
+Legacy note:
+
+- `fcad serve --legacy-viewer` still starts the older browser demo shell from `server.js`
+- `npm run serve:legacy` continues to point at that older shell
+
+### Create Canonical Schema
+
+`fcad create` accepts two canonical config styles.
+
+- Single-part mode: top-level `shapes` plus optional top-level `operations`
+- Assembly mode: top-level `parts` and `assembly` must both be present
+- The operation canonical key is `op`
+- `type -> op` is backward compatibility only
+- Shape aliases are not supported
+- Assembly part operations are not identical to single-part operations
+
+Minimal single-part example:
+
+```toml
+config_version = 1
+name = "minimal_block"
+final = "body_fillet"
+
+[[shapes]]
+id = "body"
+type = "box"
+length = 40
+width = 20
+height = 10
+
+[[operations]]
+op = "fillet"
+target = "body"
+radius = 1
+result = "body_fillet"
+
+[export]
+formats = ["step"]
+directory = "output"
+```
+
+Minimal assembly example:
+
+```toml
+config_version = 1
+name = "minimal_assembly"
+
+[[parts]]
+id = "base"
+final = "base_body"
+  [[parts.shapes]]
+  id = "base_body"
+  type = "box"
+  length = 40
+  width = 20
+  height = 10
+
+[[parts]]
+id = "pin"
+final = "pin_body"
+  [[parts.shapes]]
+  id = "pin_body"
+  type = "cylinder"
+  radius = 4
+  height = 20
+
+[assembly]
+  [[assembly.parts]]
+  ref = "base"
+  position = [0, 0, 0]
+
+  [[assembly.parts]]
+  ref = "pin"
+  position = [20, 10, 0]
+
+[export]
+formats = ["step"]
+directory = "output"
+per_part_stl = true
+```
+
+Notes:
+
+- In single-part mode, the final shape defaults to the last created result unless `final` is set.
+- In assembly mode, each part can define its own `final`.
+- Assembly mode currently expects top-level `parts` and `assembly`; `parts` alone does not activate assembly handling.
+- Assembly part operations currently follow the assembly builder's supported set and are not a drop-in match for every single-part operation.
+
+Legacy / compatibility note:
+
+- Existing configs that use `type` inside `[[operations]]` may still load because the normalizer maps `type -> op`.
+- New configs should use `op` directly and should treat `type -> op` as compatibility-only behavior.
+
+Real example configs:
+
+- [controller_housing.toml](./configs/examples/controller_housing.toml): production-readiness single-part model with manufacturing, quality, drawing, and export sections
+- [bracket_fem.toml](./configs/examples/bracket_fem.toml): compact FEM-oriented single-part config
+- [ptu_assembly_mates.toml](./configs/examples/ptu_assembly_mates.toml): assembly config for mates/tolerance-style workflows
+
+## Snapshot Regression
+
+Normalized snapshot baselines now live under:
+
+- `tests/fixtures/snapshots/svg/` for TechDraw SVG outputs
+- `tests/fixtures/snapshots/report/` for lightweight readiness-report preview snapshots
+
+Use the standard test:
+
+```bash
+npm run test:snapshots
+```
+
+Update baselines intentionally:
+
+```bash
+UPDATE_SNAPSHOTS=1 npm run test:snapshots
+# or
+npm run test:snapshots:update
+```
+
+Snapshot updates are expected when you intentionally change drawing geometry, annotations, report wording, section order, or the representative fixtures themselves.
+
+Snapshot updates are not expected for timestamp churn, runtime-specific absolute paths, UUID-like run IDs, or generated metadata that should normalize away. If a test fails only because of that kind of volatility, fix the normalizer instead of refreshing the baseline.
+
+Review workflow:
+
+1. Run `npm run test:snapshots`.
+2. Inspect diffs under `tests/fixtures/snapshots/svg/` and `tests/fixtures/snapshots/report/`.
+3. Compare the changed baseline against the source fixture under `tests/fixtures/svg/` or `tests/fixtures/report/`.
+4. Regenerate with `npm run test:snapshots:update` only after confirming the change is intentional.
+
+The snapshot normalizers strip volatile timestamps, random SVG IDs, absolute paths, UUID-like run IDs, and similar generated metadata while preserving meaningful geometry and structural content changes.
+
+Follow-on design notes for standards/material rule packs and parameter sweep live in [docs/standards-and-sweep-roadmap.md](./docs/standards-and-sweep-roadmap.md).
+
+## Example Flow
+
+```bash
+# 1. Design-stage production engineering review
+fcad review configs/examples/infotainment_display_bracket.toml \
+  --out output/infotainment_display_bracket_product_review.json
+
+# 2. Rough process planning support
+fcad process-plan configs/examples/infotainment_display_bracket.toml \
+  --out output/infotainment_display_bracket_process_plan.json
+
+# 3. Consolidated production-readiness report
+fcad readiness-report configs/examples/infotainment_display_bracket.toml \
+  --batch 120 \
+  --out output/infotainment_display_bracket_readiness_report.json
+
+# 4. Runtime-informed launch stabilization review
+fcad stabilization-review configs/examples/infotainment_display_bracket.toml \
+  --runtime data/runtime_examples/display_bracket_runtime.json \
+  --profile configs/profiles/site_korea_ulsan.toml \
+  --out output/infotainment_display_bracket_stabilization_review.json
+
+# 5. Draft production-engineering standard docs
+fcad generate-standard-docs configs/examples/controller_housing_eol.toml \
+  --out-dir output/controller_housing_standard_docs
+```
+
+The readiness workflow produces a JSON report and a Markdown summary that bundle:
+
+- product review
+- process plan
+- line-layout support pack
+- quality / traceability pack
+- cost / investment review
+- optional runtime-informed stabilization review
+- decision summary for production engineering discussion
+
+## Portfolio Case Study
+
+For a checked-in example that can be reviewed without running the CLI, see:
+
+- [Infotainment production readiness case](./docs/portfolio/infotainment-production-readiness-case.md)
+- [Checked-in example artifact set](./docs/examples/infotainment-display-bracket/README.md)
+- [Korea vs Mexico stabilization comparison](./docs/examples/infotainment-display-bracket/stabilization-comparison.md)
+- [Before-vs-after improvement case](./docs/portfolio/before-after-improvement-case.md)
+- [Checked-in electronics assembly + standard docs example](./docs/examples/controller-housing-eol/README.md)
+
+This case shows `config -> review -> process-plan -> line-plan -> quality-risk -> investment-review -> readiness-report -> stabilization-review -> standard-doc drafts` for infotainment-oriented scenarios.
+
+## Automotive Infotainment Example Configs
+
+- `configs/examples/infotainment_display_bracket.toml`
+- `configs/examples/infotainment_display_bracket_before.toml`
+- `configs/examples/infotainment_display_bracket_after.toml`
+- `configs/examples/controller_housing.toml`
+- `configs/examples/controller_housing_eol.toml`
+- `configs/examples/pcb_mount_plate.toml`
+- `configs/examples/display_module_support.toml`
+
+These examples include manufacturing metadata such as:
+
+- material and process assumptions
+- cross-site launch scope
+- annual volume and target cycle time placeholders
+- connector clearance assumptions
+- critical dimensions and quality gates
+- automation-candidate notes
+- electronics assembly metadata and EOL test assumptions
+
+Runtime/profile examples:
+
+- `data/runtime_examples/display_bracket_runtime.json`
+- `data/runtime_examples/display_bracket_runtime_mexico.json`
+- `configs/profiles/site_korea_ulsan.toml`
+- `configs/profiles/site_mexico_mty.toml`
+
+## Architecture
+
+```text
+CLI (fcad / mfg-agent)
+  |
+  +-- legacy CAD / drawing / report commands
+  +-- review-pack workflow
+  +-- production-readiness workflow
+          |
+          +-- intent compiler
+          +-- DFM checker
+          +-- cost estimator
+          +-- product review agent
+          +-- process planning agent
+          +-- line layout support agent
+          +-- quality / traceability agent
+          +-- cost / investment review agent
+```
+
+### Main code areas
+
+- `bin/fcad.js`: unified CLI entrypoint
+- `src/agents/`: manufacturing-engineering agent modules
+- `src/workflows/readiness-report-workflow.js`: orchestrated readiness flow
+- `src/workflows/standard-docs-workflow.js`: draft standard-document generation
+- `scripts/dfm_checker.py`: DFM manufacturability logic
+- `scripts/cost_estimator.py`: cost breakdown and comparison logic
+- `scripts/intent_compiler.py`: part-type inference and drawing-plan strategy
+- `schemas/`: output contracts for review, process-plan, line-plan, quality-risk, investment-review, readiness-report, stabilization-review, and standard-doc manifests
+
+See [production-readiness-refactor.md](./docs/production-readiness-refactor.md) for the codebase refactoring map.
+
+## Installation
 
 ### Prerequisites
 
-- **Node.js** 18+
-- **FreeCAD** 0.21+ installed on Windows
-- **WSL** (the CLI runs in WSL and bridges to Windows FreeCAD)
+- Node.js 18+
+- Python 3.11+
+- FreeCAD 1.1.x for the FreeCAD-backed commands
 
-### Install
+### Setup
 
 ```bash
 git clone https://github.com/dooosp/freecad-automation.git
 cd freecad-automation
 npm install
-npm link  # makes 'fcad' available globally
+npm link
+fcad check-runtime
 ```
 
-### 3-Step Demo
+### Runtime Detection And Precedence
+
+Resolution order for runtime-backed commands:
+
+1. `FREECAD_PYTHON`
+2. `FREECAD_BIN`
+3. `FREECAD_CMD`
+4. `FREECAD_APP`
+5. `FREECAD_DIR` (backward-compatible install-root fallback)
+
+If none of those overrides are set, the resolver falls back to platform detection:
+
+- macOS: prefer `FreeCAD.app` bundle discovery from `/Applications/FreeCAD.app`, `~/Applications/FreeCAD.app`, and PATH-visible bundle/runtime executables
+- Windows native: look for PATH-visible `FreeCADCmd.exe`, `freecadcmd.exe`, or `FreeCAD.exe`
+- WSL: no default bridge guess is assumed; explicit Windows paths are converted with `wslpath` when available
+- Linux / other POSIX: look for PATH-visible `FreeCADCmd`, `freecadcmd`, `FreeCAD`, or `freecad`
+
+Use `fcad check-runtime` or `npm run check:runtime` as the first troubleshooting step. It shows the resolved runtime, where it came from, which candidates were checked, and which commands are blocked if no runtime is available.
+
+Commands that directly depend on the resolved FreeCAD runtime:
+
+- `create`
+- `draw`
+- `inspect`
+- `fem`
+- `tolerance`
+- `report`
+
+Conditional runtime usage:
+
+- `analyze-part`: can run from existing context/model metadata without FreeCAD, but uses FreeCAD when it needs live model inspection or STEP feature detection
+- `design`: generates TOML, then calls `create`
+
+Supported inputs for `FREECAD_APP`, `FREECAD_BIN`, `FREECAD_PYTHON`, `FREECAD_CMD`, and backward-compatible `FREECAD_DIR` include:
+
+- `/Applications/FreeCAD.app`
+- `~/Applications/FreeCAD.app`
+- `.../FreeCAD.app/Contents`
+- `.../FreeCAD.app/Contents/Resources`
+- `.../FreeCAD.app/Contents/Resources/bin`
+- explicit bundle-internal executables such as `.../Contents/MacOS/FreeCAD` or `.../Contents/Resources/bin/python`
+
+The resolver canonicalizes those forms back to one `FreeCAD.app` bundle root, then derives:
+
+- GUI launcher: `Contents/MacOS/FreeCAD`
+- headless/script runtime: bundled `freecadcmd`/`freecad` first, then bundled Python
+- bundled Python: `Contents/Resources/bin/python`
+
+Recommended macOS setup:
 
 ```bash
-# 1. Create a 3D model from a parametric config
-fcad create configs/examples/ks_bracket.toml
-# -> output/ks_bracket.step, output/ks_bracket.fcstd
-
-# 2. Generate a 4-view engineering drawing with GD&T
-fcad draw configs/examples/ks_bracket.toml
-# -> output/ks_bracket_drawing.svg
-
-# 3. Run DFM analysis against machining constraints
-fcad dfm configs/examples/ks_bracket.toml
-# -> DFM report with pass/fail per check
+export FREECAD_APP="/Applications/FreeCAD.app"
+fcad check-runtime
 ```
 
----
+Explicit runtime overrides:
 
-## CLI Reference
-
-```
-fcad <command> [options]
-```
-
-| Command | Description | Example |
-|---|---|---|
-| `create <config>` | Create 3D model (STEP + FCStd) | `fcad create configs/examples/ks_bracket.toml` |
-| `design "text"` | AI-generate TOML from description, then build | `fcad design "M8 mounting bracket 120x80mm"` |
-| `draw <config>` | Generate 4-view SVG drawing + BOM | `fcad draw configs/examples/ks_flange.toml` |
-| `fem <config>` | Run FEM structural analysis | `fcad fem configs/examples/bracket_fem.toml` |
-| `tolerance <config>` | Tolerance analysis (fit + stack-up) | `fcad tolerance configs/examples/ks_shaft.toml` |
-| `report <config>` | Generate multi-page PDF report | `fcad report configs/examples/ks_bracket.toml` |
-| `inspect <model>` | Inspect STEP/FCStd metadata | `fcad inspect output/ks_bracket.step` |
-| `validate <config>` | Validate drawing plan schema | `fcad validate configs/examples/ks_bracket.toml` |
-| `dfm <config>` | DFM manufacturability analysis | `fcad dfm configs/examples/ks_bracket.toml` |
-| `serve [port]` | Start 3D viewer (default: 3000) | `fcad serve 8080` |
-
-### Key Options
-
-| Option | Used With | Description |
-|---|---|---|
-| `--override <path>` | `draw` | Merge override TOML/JSON on top of base config |
-| `--bom` | `draw` | Export BOM as separate CSV file |
-| `--no-score` | `draw` | Skip QA scoring |
-| `--fail-under N` | `draw` | Fail if QA score < N |
-| `--weights-preset P` | `draw` | QA weight profile: default, auto, flange, shaft |
-| `--strict` | `validate`, `dfm` | Treat warnings as errors |
-| `--process P` | `dfm` | Override process: machining, casting, sheet_metal, 3d_printing |
-| `--recommend` | `tolerance` | Auto-recommend fit specifications |
-| `--monte-carlo` | `tolerance`, `report` | Include Monte Carlo simulation |
-| `--fem` | `report` | Include FEM analysis in report |
-
----
-
-## Configuration
-
-Parts are defined in TOML. A minimal example:
-
-```toml
-name = "ks_bracket"
-
-[[shapes]]
-id = "base_plate"
-type = "box"
-length = 120
-width = 80
-height = 8
-
-[[shapes]]
-id = "web"
-type = "box"
-length = 8
-width = 80
-height = 60
-position = [0, 0, 8]
-
-[[operations]]
-type = "fuse"
-base = "base_plate"
-tool = "web"
-
-[[operations]]
-type = "fillet"
-target = "fuse_1"
-radius = 3
-
-[drawing]
-title = "KS Bracket"
-scale = "1:2"
-
-[manufacturing]
-process = "machining"
-material = "SS304"
+```bash
+export FREECAD_PYTHON="/Applications/FreeCAD.app/Contents/Resources/bin/python"
+export FREECAD_BIN="/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd"
+fcad check-runtime
 ```
 
-19 example configs are included in `configs/examples/`, covering brackets, shafts, flanges, gear housings, assemblies, and mechanisms.
+Windows compatibility remains available, but only through explicit configuration. `FREECAD_DIR` is still accepted for backward compatibility:
 
----
-
-## Architecture
-
-```
-bin/fcad.js ─── CLI entry point (Node.js)
-    │
-    │  JSON via stdin/stdout
-    ▼
-scripts/*.py ── FreeCAD Python engine (46 modules, ~17,000 lines)
-    │
-    │  FreeCAD Python API
-    ▼
-FreeCAD 0.21+ ─ CAD kernel (WSL → Windows bridge)
+```bash
+export FREECAD_DIR="C:\\Program Files\\FreeCAD 1.1"
+fcad check-runtime
 ```
 
-### Module Overview
+This repository does not assume a default WSL -> Windows bridge anymore. If you do use WSL with a Windows FreeCAD install, set the Windows path explicitly as above.
 
-| Category | Modules | Purpose |
-|---|---|---|
-| Core | `create_model`, `_shapes`, `_bootstrap`, `_export` | Shape creation, boolean ops, model export |
-| Drawing | `generate_drawing`, `_drawing_svg`, `_view_planner`, `_dim_plan`, `_annotation_planner`, `_gdt_automation`, `_gdt_symbols`, `_ks_callouts`, `postprocess_svg`, `qa_scorer` | 4-view projection, dimensioning, GD&T, QA |
-| Analysis | `dfm_checker`, `fem_analysis`, `tolerance_analysis`, `_tolerance`, `_tolerance_db`, `cost_estimator` | DFM, FEM, tolerance stack-up, cost |
-| AI | `intent_compiler`, `_feature_inference` | NL-to-TOML via Gemini, feature detection |
-| Report | `engineering_report`, `_report_renderer`, `_report_styles` | Multi-page PDF generation |
-| Utility | `svg_common`, `svg_repair`, `_svg_utils`, `inspect_model`, `plan_validator`, `step_feature_detector` | SVG processing, validation, inspection |
+## Output Contracts
 
-### JS Layer
+Use [docs/output-contract.md](./docs/output-contract.md) as the source of truth for the artifact-manifest contract, stable vs best-effort artifact types, and CLI/API/sweep provenance behavior.
 
-| File | Purpose |
-|---|---|
-| `bin/fcad.js` | CLI dispatcher and command handlers |
-| `lib/runner.js` | FreeCAD script executor (WSL to Windows bridge) |
-| `lib/config-loader.js` | TOML/JSON config loading and merging |
-| `lib/toml-writer.js` | Programmatic TOML modification |
-| `server.js` | Express + WebSocket 3D viewer server |
-
----
-
-## Project Structure
-
-```
-freecad-automation/
-  bin/fcad.js            # CLI entry point
-  lib/                   # Node.js utilities (config, runner, paths)
-  scripts/               # 46 Python modules (FreeCAD engine)
-  configs/examples/      # 19 example TOML configs
-  public/                # 3D web viewer (HTML/CSS/JS)
-  server.js              # Express + WebSocket server
-  tests/                 # Test suite (core + full profiles)
-  output/                # Generated models, drawings, reports
-```
-
----
+The schema files for review, readiness, stabilization, quality-risk, investment-review, process-plan, line-plan, and standard-document outputs live under [schemas/](./schemas/).
 
 ## Testing
 
-```bash
-# Core tests (fast, no FreeCAD required for schema/config tests)
-npm test
+Use [docs/testing.md](./docs/testing.md) as the source of truth for lane scope, workflow mapping, and what each check does or does not prove.
 
-# Full test suite (requires FreeCAD)
-npm run test:full
+Fast local verification:
+
+```bash
+npm test
+npm run test:node:contract
+npm run test:node:integration
+npm run test:snapshots
 ```
 
-CI runs via GitHub Actions (`automation-ci.yml`).
+Python lane:
 
----
+```bash
+npm run test:py
+```
 
-## Related: FreeCAD Studio
+Real runtime smoke:
 
-[freecad-desktop](https://github.com/dooosp/freecad-desktop) wraps this engine in a desktop GUI built with Tauri + React, providing a visual interface for config editing, live 3D preview, and one-click report generation.
+```bash
+fcad check-runtime
+npm run test:runtime-smoke
+```
 
----
+`npm run test:runtime-smoke` is the repository's real FreeCAD-backed smoke lane for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, and `report`.
 
-## License
+## Release Prep
 
-[MIT](LICENSE)
+- Publish-ready release notes draft: [docs/releases/v1.1.0-draft.md](./docs/releases/v1.1.0-draft.md)
+- Release checklist: [docs/releases/v1.1.0-checklist.md](./docs/releases/v1.1.0-checklist.md)
+- PR-ready summary snippet: [docs/releases/v1.1.0-pr-summary.md](./docs/releases/v1.1.0-pr-summary.md)

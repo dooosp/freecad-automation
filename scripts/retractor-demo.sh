@@ -22,7 +22,7 @@ else
   echo "▶ Step 0: Design review skipped (no GEMINI_API_KEY)"
 fi
 
-# 1. Build CAD model (FreeCAD via WSL→Windows bridge)
+# 1. Build CAD model (FreeCAD runtime-backed path)
 echo ""
 echo "▶ Step 1: Building CAD model..."
 node "$ROOT/bin/fcad.js" create "$INPUT" 2>&1 | tail -5

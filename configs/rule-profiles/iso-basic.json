@@ -1,0 +1,8 @@
+{
+  "id": "iso-basic",
+  "label": "ISO basic rule profile",
+  "description": "ISO-oriented standards metadata with a stricter default machining edge-distance rule pack.",
+  "standards_pack": "iso-basic",
+  "material_pack": "common-metals-basic",
+  "process_pack": "iso-basic"
+}

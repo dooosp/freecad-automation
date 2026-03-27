@@ -1,18 +1,55 @@
 {
   "name": "freecad-automation",
-  "version": "1.0.0",
-  "description": "FreeCAD automation framework - parametric 3D modeling via WSL→Windows bridge",
+  "version": "1.1.0",
+  "description": "FreeCAD-backed automation pipeline for CAD, TechDraw, inspection, FEM, reports, and manufacturing-review artifacts",
+  "homepage": "https://github.com/dooosp/freecad-automation#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dooosp/freecad-automation.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dooosp/freecad-automation/issues"
+  },
+  "keywords": [
+    "freecad",
+    "cad",
+    "techdraw",
+    "fem",
+    "manufacturing",
+    "automation"
+  ],
   "type": "module",
   "bin": {
-    "fcad": "./bin/fcad.js"
+    "fcad": "./bin/fcad.js",
+    "mfg-agent": "./bin/fcad.js"
   },
   "scripts": {
-    "test": "FCAD_TEST_PROFILE=core node tests/test-runner.js",
-    "test:full": "FCAD_TEST_PROFILE=full node tests/test-runner.js",
-    "serve": "node server.js"
+    "check:runtime": "node scripts/check-runtime.js",
+    "smoke:runtime": "npm run test:runtime-smoke",
+    "test:node:contract": "node tests/run-node-lane.js contract",
+    "test:node:integration": "node tests/run-node-lane.js integration",
+    "test:snapshots": "node tests/run-node-lane.js snapshots",
+    "test:snapshots:update": "UPDATE_SNAPSHOTS=1 npm run test:snapshots",
+    "test:runtime-smoke": "node tests/run-node-lane.js runtime-smoke",
+    "test:py": "node scripts/run-pytest.js -q tests --ignore=tests/test_cli_runtime.py --ignore=tests/test_infotainment_draw_qa_regression.py --ignore=tests/test_infotainment_hole_dia_regression.py",
+    "test:runtime:model": "node tests/test-runner.js --layers=model",
+    "test:runtime:drawing": "node tests/test-runner.js --layers=drawing",
+    "test:runtime:analysis": "node tests/test-runner.js --layers=analysis",
+    "test:runtime:report": "node tests/test-runner.js --layers=report",
+    "test:runtime:integration": "node tests/test-runner.js --layers=integration",
+    "test:runtime:full": "node tests/test-runner.js --profile=full",
+    "test:integration": "node tests/test-runner.js --layers=model,drawing,analysis,report,integration",
+    "test:integration:full": "npm run test:runtime:full",
+    "test:ci:hosted": "npm run test:node:contract && npm run test:node:integration && npm run test:snapshots && npm run test:py",
+    "test:node:lite": "npm run test:node:contract && npm run test:node:integration && npm run test:snapshots",
+    "test": "npm run test:node:contract && npm run test:node:integration && npm run test:snapshots",
+    "test:full": "npm run test:integration:full",
+    "serve": "node bin/fcad.js serve",
+    "serve:legacy": "node server.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
+    "ajv": "^8.18.0",
     "express": "^5.2.1",
     "smol-toml": "^1.3.1",
     "ws": "^8.19.0"

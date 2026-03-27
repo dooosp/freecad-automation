@@ -1,0 +1,153 @@
+config_version = 1
+name = "controller_housing"
+batch_size = 80
+
+[product]
+family = "controller"
+module_type = "IVI controller housing"
+vehicle_program = "Connected cockpit domain controller"
+revision = "B"
+decision_scope = "casting and machining readiness review"
+connector_clearance_mm = 6.0
+connector_side = "side I/O connector opening"
+fastening_strategy = "cover fastening with manual torque-controlled screws"
+traceability_label_area = "outer wall next to connector-side opening"
+
+[manufacturing]
+process = "casting"
+material = "AL6061"
+
+[production]
+sites = ["Korea-Asan", "India-Chennai"]
+annual_volume = 95000
+target_ct_sec = 52
+automation_mode = "hybrid"
+pilot_lot = 80
+
+[quality.traceability]
+serial_level = "housing_serial"
+record_linkage = "serial + cavity + revision"
+label_strategy = "laser mark after machining"
+
+[[quality.critical_dimensions]]
+id = "cd-01"
+name = "connector boss datum to mount face"
+target_mm = 64.0
+tolerance = "±0.10"
+rationale = "connector fit and PCB stack-up"
+
+[[quality.critical_dimensions]]
+id = "cd-02"
+name = "cover sealing groove depth"
+target_mm = 2.4
+tolerance = "±0.05"
+rationale = "sealing and durability"
+
+[[quality.functional_test_points]]
+id = "ftp-01"
+name = "Housing connector-side fit confirmation"
+location = "end_of_line"
+rationale = "support downstream controller assembly and functional test fixture loading"
+
+[[shapes]]
+id = "housing"
+type = "box"
+length = 170
+width = 125
+height = 48
+
+[[shapes]]
+id = "cavity"
+type = "box"
+length = 140
+width = 95
+height = 34
+position = [15, 15, 8]
+
+[[shapes]]
+id = "connector_port"
+type = "box"
+length = 38
+width = 28
+height = 18
+position = [120, 48, 10]
+
+[[shapes]]
+id = "mount1"
+type = "cylinder"
+radius = 3
+height = 56
+position = [20, 20, -4]
+
+[[shapes]]
+id = "mount2"
+type = "cylinder"
+radius = 3
+height = 56
+position = [150, 20, -4]
+
+[[shapes]]
+id = "mount3"
+type = "cylinder"
+radius = 3
+height = 56
+position = [20, 105, -4]
+
+[[shapes]]
+id = "mount4"
+type = "cylinder"
+radius = 3
+height = 56
+position = [150, 105, -4]
+
+[[operations]]
+op = "cut"
+base = "housing"
+tool = "cavity"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "connector_port"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mount1"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mount2"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mount3"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mount4"
+result = "final"
+
+[drawing]
+views = ["front", "top", "right", "iso"]
+
+[drawing.meta]
+part_name = "Controller Housing"
+material = "AL6061"
+
+[[drawing.feature_tolerances]]
+feature_id = "seal_groove_depth"
+value = 2.4
+tolerance_grade = "±0.05"
+
+[export]
+formats = ["step"]
+directory = "output"

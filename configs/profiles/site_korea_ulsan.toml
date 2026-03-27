@@ -1,0 +1,41 @@
+name = "site_korea_ulsan"
+label = "Korea-Ulsan launch profile"
+description = "Pilot-line assumptions for the Korea-Ulsan infotainment assembly launch."
+
+[site]
+name = "Korea-Ulsan"
+region = "KR"
+shift_pattern = "2-shift"
+ramp_phase = "pilot"
+
+[line]
+target_ct_sec = 36
+target_fpy = 0.980
+max_rework_rate = 0.020
+max_scrap_rate = 0.005
+max_downtime_pct = 6.0
+changeover_guardrail_sec = 420
+
+[standard_docs.owners]
+process_owner = "Production engineering"
+quality_owner = "Quality engineering"
+maintenance_owner = "Maintenance engineering"
+traceability_owner = "Production engineering + MES"
+pfmea_owner = "Production engineering"
+work_instruction_owner = "Production engineering"
+
+[standard_docs.frequencies]
+default_control = "Launch lot 100% then every 2 hours"
+launch_control = "Pilot lot 100% + hourly layered audit"
+critical_dimension = "Launch 100% then every 2 hours"
+torque_trace = "Every unit"
+barcode_pairing = "Every unit"
+eol_test = "Every unit"
+visual_confirmation = "First 10 units + hourly audit"
+checksheet_default = "Launch 100% then per control plan"
+
+[standard_docs.responsibility_hints]
+operator = "Operator confirms part orientation, scan completeness, and stop-call escalation."
+technician = "Technician restores fixture/test station after downtime and confirms recipe recovery."
+quality_engineer = "QE owns launch containment, sampling relaxation, and defect escalation."
+production_engineer = "PE owns cycle-time stabilization, standard work updates, and fixture/debug closure."

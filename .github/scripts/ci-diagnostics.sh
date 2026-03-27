@@ -45,9 +45,29 @@ else
   echo "wslpath=missing"
 fi
 
-freecad_python="/mnt/c/Program Files/FreeCAD 1.0/bin/python.exe"
-if [ -e "$freecad_python" ]; then
-  echo "freecad_python_wsl_path=present"
+for var in FREECAD_APP FREECAD_BIN FREECAD_CMD FREECAD_PYTHON FREECAD_DIR; do
+  eval "value=\${$var:-}"
+  if [ -n "${value}" ]; then
+    echo "${var}=${value}"
+  else
+    echo "${var}=unset"
+  fi
+done
+
+if [ -d "/Applications/FreeCAD.app" ]; then
+  echo "freecad_macos_bundle=present"
 else
-  echo "freecad_python_wsl_path=missing"
+  echo "freecad_macos_bundle=missing"
+fi
+
+if command -v FreeCADCmd >/dev/null 2>&1; then
+  echo "freecadcmd_upper=$(command -v FreeCADCmd)"
+else
+  echo "freecadcmd_upper=missing"
+fi
+
+if command -v freecadcmd >/dev/null 2>&1; then
+  echo "freecadcmd_lower=$(command -v freecadcmd)"
+else
+  echo "freecadcmd_lower=missing"
 fi

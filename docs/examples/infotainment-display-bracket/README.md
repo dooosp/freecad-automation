@@ -1,0 +1,28 @@
+# Infotainment Display Bracket Example
+
+Checked-in artifact set for a portfolio-facing automotive infotainment production-readiness example.
+
+Files:
+
+- `review.json`: design-stage structure and manufacturability review
+- `process-plan.json`: heuristic process sequence and inspection points
+- `line-plan.json`: station concept, inspection split, bottleneck, traceability, and repair-flow hints
+- `quality-risk.json`: critical dimensions, quality gates, and traceability focus
+- `investment-review.json`: cost/investment screening with tooling and automation hints
+- `readiness-report.json`: consolidated production-readiness artifact
+- `readiness-report.md`: human-readable summary
+- `stabilization-review.json`: runtime-informed launch stabilization review using checked-in runtime data
+- `stabilization-review-mexico.json`: Mexico-MTY ramp-up counterpart for cross-site comparison
+- `stabilization-comparison.md`: Korea vs Mexico stabilization comparison summary
+- `stabilization-comparison.json`: comparison metrics and recommended actions
+- `before-readiness-report.json`: baseline readiness example before improvement
+- `after-readiness-report.json`: improved readiness example after design changes
+- `before-after-summary.md`: concise before-vs-after improvement summary
+
+Case-study narrative:
+
+- [infotainment-production-readiness-case.md](../../portfolio/infotainment-production-readiness-case.md)
+
+These files are generated from:
+
+- [infotainment_display_bracket.toml](../../../configs/examples/infotainment_display_bracket.toml)

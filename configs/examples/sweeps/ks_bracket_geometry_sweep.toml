@@ -1,0 +1,15 @@
+name = "ks_bracket_geometry_sweep"
+description = "Small geometry and cost comparison for the KS bracket baseline."
+jobs = ["create", "cost"]
+
+[[parameters]]
+path = "shapes[0].height"
+values = [6, 8, 10]
+
+[[parameters]]
+path = "operations[7].radius"
+values = [2, 4]
+
+[execution]
+batch_size = 10
+

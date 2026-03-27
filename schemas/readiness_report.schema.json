@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dooosp.github.io/freecad-automation/schemas/readiness_report.schema.json",
+  "title": "Production Readiness Report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "workflow",
+    "part",
+    "generated_at",
+    "readiness_summary",
+    "summary",
+    "product_review",
+    "process_plan",
+    "line_plan",
+    "quality_risk",
+    "investment_review",
+    "decision_summary"
+  ],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "workflow": { "const": "production_readiness" },
+    "part": { "type": "object" },
+    "generated_at": { "type": "string" },
+    "readiness_summary": { "type": "object" },
+    "summary": { "type": "object" },
+    "product_review": { "$ref": "product_review.schema.json" },
+    "process_plan": { "$ref": "process_plan.schema.json" },
+    "line_plan": { "$ref": "line_plan.schema.json" },
+    "quality_risk": { "$ref": "quality_risk_pack.schema.json" },
+    "investment_review": { "$ref": "investment_review.schema.json" },
+    "stabilization_review": { "$ref": "stabilization_review.schema.json" },
+    "decision_summary": { "type": "object" },
+    "markdown": { "type": "string" }
+  },
+  "additionalProperties": true
+}

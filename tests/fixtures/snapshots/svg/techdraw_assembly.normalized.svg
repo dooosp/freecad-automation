@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420mm" height="297mm" viewBox="0 0 420 297" inkscape:export-filename="__ABS_PATH__">
+<defs>
+<mask id="__ID_1__">
+<rect x="0" y="0" width="420" height="297" fill="white" />
+</mask>
+</defs>
+<rect width="420" height="297" fill="white" />
+<g id="__ID_2__">
+<rect x="40" y="28" width="140" height="82" fill="none" stroke="black" stroke-width="0.35" />
+<circle cx="78" cy="69" r="8" fill="none" stroke="black" stroke-width="0.35" />
+<circle cx="142" cy="69" r="8" fill="none" stroke="black" stroke-width="0.35" />
+<path mask="url(#__ID_1__)" d="M40 122 L180 122" fill="none" stroke="#000" stroke-width="0.18" />
+<text x="92" y="136" font-size="3.5">2X Ø16</text>
+</g>
+</svg>

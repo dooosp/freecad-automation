@@ -32,6 +32,15 @@ from svg_repair import rebuild_notes, repair_text_overlaps, repair_overflow
 VERSION = "0.4.0"
 
 
+def _load_toml_file(path):
+    try:
+        import tomllib
+    except ImportError:
+        import tomli as tomllib
+    with open(path, "rb") as f:
+        return tomllib.load(f)
+
+
 # -- Stroke Profile ------------------------------------------------------------
 
 STROKE_PROFILE_KS = {
@@ -131,7 +140,8 @@ def normalize_strokes(tree, profile=None):
             continue
 
         attrs = profile.get(cls)
-        if attrs is None and cls.startswith("dimensions-"):
+        if attrs is None and (cls.startswith("dimensions-") or
+                              cls.startswith("plan-dimensions-")):
             attrs = _DIM_PROFILE
         if attrs is None:
             continue
@@ -264,6 +274,67 @@ def _find_bolt_hole_circles(tree, bolt_dia_mm):
     return best or []
 
 
+def _has_group_with_class(tree, class_name):
+    for elem in tree.iter():
+        if local_tag(elem) == "g" and elem.get("class") == class_name:
+            return True
+    return False
+
+
+def _find_text_nodes(tree):
+    for elem in tree.iter():
+        if local_tag(elem) == "text" and elem.text:
+            yield elem
+
+
+def _has_matching_pcd_callout(tree, pcd_value):
+    tol = max(0.5, 0.002 * abs(float(pcd_value)))
+    for elem in _find_text_nodes(tree):
+        text = (elem.text or "").strip()
+        if "PCD" not in text.upper():
+            continue
+        for match in re.finditer(r'[\d]+(?:\.[\d]+)?', text):
+            try:
+                value = float(match.group())
+            except ValueError:
+                continue
+            if abs(value - float(pcd_value)) <= tol:
+                return True
+    return False
+
+
+def _has_matching_bolt_note(tree, count_value, bolt_dia, pcd_value=None):
+    count_pat = re.compile(r'(\d+)\s*[x\u00d7]\s*[\u00d8\u2300]?\s*([\d.]+)')
+    tol_dia = max(0.5, 0.002 * abs(float(bolt_dia)))
+    tol_pcd = None if pcd_value is None else max(0.5, 0.002 * abs(float(pcd_value)))
+
+    for elem in _find_text_nodes(tree):
+        text = (elem.text or "").strip()
+        match = count_pat.search(text)
+        if not match:
+            continue
+        try:
+            found_count = int(match.group(1))
+            found_dia = float(match.group(2))
+        except ValueError:
+            continue
+        if found_count != int(count_value):
+            continue
+        if abs(found_dia - float(bolt_dia)) > tol_dia:
+            continue
+        if pcd_value is not None and "PCD" in text.upper():
+            pcd_match = re.search(r'PCD\s*[\u00d8\u2300]?\s*([\d.]+)', text, re.IGNORECASE)
+            if pcd_match:
+                try:
+                    if abs(float(pcd_match.group(1)) - float(pcd_value)) <= tol_pcd:
+                        return True
+                except ValueError:
+                    pass
+        if pcd_value is None:
+            return True
+    return False
+
+
 def inject_pcd_virtual_circle(tree, plan):
     """Inject a virtual PCD circle into the front view based on bolt hole positions.
 
@@ -282,6 +353,11 @@ def inject_pcd_virtual_circle(tree, plan):
 
     pcd_value = pcd_intent["value_mm"]
     bolt_dia = bolt_dia_intent["value_mm"] if bolt_dia_intent else None
+
+    if _has_group_with_class(tree, "virtual-pcd"):
+        return {"injected": False, "reason": "already_present"}
+    if _has_matching_pcd_callout(tree, pcd_value):
+        return {"injected": False, "reason": "pcd_callout_already_present"}
 
     # Find bolt hole circles in SVG
     bolt_circles = _find_bolt_hole_circles(tree, bolt_dia)
@@ -381,6 +457,9 @@ def inject_bolt_count_note(tree, plan):
 
     if count_val is None or bolt_val is None:
         return {"injected": False, "reason": "missing_values"}
+
+    if _has_matching_bolt_note(tree, count_val, bolt_val, pcd_val):
+        return {"injected": False, "reason": "bolt_note_already_present"}
 
     # Build note text — KS concise format: "N×⌀d"
     n = int(count_val)
@@ -506,9 +585,7 @@ def _load_plan(plan_file):
         return None
     try:
         if plan_file.endswith(".toml"):
-            import tomllib
-            with open(plan_file, "rb") as f:
-                data = tomllib.load(f)
+            data = _load_toml_file(plan_file)
         else:
             with open(plan_file) as f:
                 data = json.load(f)
@@ -558,11 +635,11 @@ def postprocess(input_path, output_path, profile="ks", dry_run=False,
     pass_defs = [
         ("remove_iso_hidden", lambda: remove_iso_hidden(tree)),
         ("normalize_strokes", lambda: normalize_strokes(tree, profile=profile)),
+        ("inject_bolt_note", lambda: inject_bolt_count_note(tree, plan)),
         ("rebuild_notes", lambda: rebuild_notes(tree)),
         ("deoverlap_text", lambda: repair_text_overlaps(tree)),
         ("repair_overflow_scale", lambda: repair_overflow(tree)),
         ("inject_pcd_circle", lambda: inject_pcd_virtual_circle(tree, plan)),
-        ("inject_bolt_note", lambda: inject_bolt_count_note(tree, plan)),
         ("round_coords", lambda: round_coordinates(tree)),
         ("simplify_iso", lambda: simplify_iso(tree)),
         ("gdt_audit", lambda: audit_gdt(tree)),

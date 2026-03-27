@@ -162,6 +162,8 @@ try:
         "model": model_meta,
         "fem": {
             "analysis_type": fem_config.get("analysis_type", "static"),
+            "solver": "CalculiX",
+            "yield_strength": yield_strength,
             "material": mat_info,
             "mesh": {
                 "nodes": mesh_obj.FemMesh.NodeCount,

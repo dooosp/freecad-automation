@@ -1,0 +1,104 @@
+{
+  "workflow": "production_readiness",
+  "part": {
+    "name": "pcb_mount_plate",
+    "revision": "B",
+    "material": "AL5052",
+    "process": "sheet_metal"
+  },
+  "generated_at": "2026-03-27T13:00:00Z",
+  "artifact_path": "/Users/tester/Documents/freecad-automation/output/pcb_mount_plate_readiness_report.json",
+  "run_id": "run-7d8c1c88-c547-47f0-a078-d0eb36ff0a9f",
+  "readiness_summary": {
+    "status": "candidate_for_pilot_line_review",
+    "score": 78,
+    "gate_decision": "candidate_for_pilot_line_review"
+  },
+  "product_review": {
+    "summary": {
+      "part_type": "bracket",
+      "dfm_score": 82,
+      "primary_risks": [
+        "Fastener access at lower flange",
+        "Tight connector probe clearance"
+      ]
+    }
+  },
+  "process_plan": {
+    "process_flow": [
+      { "operation": "blanking" },
+      { "operation": "forming" },
+      { "operation": "deburr" },
+      { "operation": "inline inspection" },
+      { "operation": "final pack" }
+    ]
+  },
+  "line_plan": {
+    "station_concept": [
+      { "station_name": "Blank and form" },
+      { "station_name": "Inspection and pack" }
+    ],
+    "cycle_time_assumptions": {
+      "target_ct_sec": 42
+    },
+    "inspection_split": {
+      "in_line_inspection_stations": ["Inspection and pack"],
+      "end_of_line_inspection_stations": ["Inspection and pack"]
+    },
+    "runtime_summary": {
+      "runtime_informed": true,
+      "stations_over_target": ["Inspection and pack"]
+    }
+  },
+  "quality_risk": {
+    "critical_dimensions": [
+      { "id": "HOLE_DIA_1" }
+    ],
+    "quality_gates": [
+      { "title": "Hole diameter verification" },
+      { "title": "Final visual check" }
+    ],
+    "quality_risks": [
+      { "title": "Hole diameter drift risk" },
+      { "title": "Connector datum mix-up risk" }
+    ]
+  },
+  "investment_review": {
+    "cost_breakdown": {
+      "unit_cost": 8.4,
+      "total_cost": 1260
+    },
+    "process_comparison": [
+      { "name": "manual fixture vs semi-auto nest" }
+    ]
+  },
+  "decision_summary": {
+    "go_signals": [
+      "DFM score supports pilot-line planning with standard launch controls."
+    ],
+    "hold_points": [
+      "Runtime-informed review still shows CT instability at one or more launch stations."
+    ],
+    "next_actions": [
+      "Prototype poka-yoke nest",
+      "Use this output as an early decision-support artifact, then refine with real line data."
+    ]
+  },
+  "summary": {
+    "overall_risk_level": "medium",
+    "top_issues": [
+      "Hole diameter drift risk",
+      "Probe reach can slow inline verification"
+    ],
+    "recommended_actions": [
+      "Prototype poka-yoke nest",
+      "Price inline camera option"
+    ],
+    "likely_bottleneck_candidates": [
+      "Inspection and pack"
+    ],
+    "launch_stabilization_focus": [
+      "Inspection and pack"
+    ]
+  }
+}

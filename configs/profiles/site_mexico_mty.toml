@@ -1,0 +1,41 @@
+name = "site_mexico_mty"
+label = "Mexico-MTY launch profile"
+description = "Ramp-up assumptions for the Monterrey infotainment line transfer / mirrored launch."
+
+[site]
+name = "Mexico-MTY"
+region = "MX"
+shift_pattern = "2-shift"
+ramp_phase = "ramp_up"
+
+[line]
+target_ct_sec = 38
+target_fpy = 0.975
+max_rework_rate = 0.025
+max_scrap_rate = 0.007
+max_downtime_pct = 7.5
+changeover_guardrail_sec = 480
+
+[standard_docs.owners]
+process_owner = "Production engineering + launch coordinator"
+quality_owner = "Resident quality engineering"
+maintenance_owner = "Maintenance + test technician"
+traceability_owner = "Production engineering + IT/MES"
+pfmea_owner = "Launch production engineering"
+work_instruction_owner = "Production engineering + training lead"
+
+[standard_docs.frequencies]
+default_control = "Launch lot 100% then hourly audit"
+launch_control = "First 3 lots 100% + hourly layered audit"
+critical_dimension = "Launch 100% then hourly audit"
+torque_trace = "Every unit"
+barcode_pairing = "Every unit"
+eol_test = "Every unit"
+visual_confirmation = "First 20 units + every 30 minutes"
+checksheet_default = "Launch tightened audit every hour"
+
+[standard_docs.responsibility_hints]
+operator = "Operator confirms orientation, serialization scan, and abnormality call escalation."
+technician = "Technician owns fixture recovery, recipe reset, and startup verification after downtime."
+quality_engineer = "Resident QE keeps tightened sampling in place until launch loss stabilizes."
+production_engineer = "Launch PE owns CT recovery actions, cross-site standard updates, and escalation closure."

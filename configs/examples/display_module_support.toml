@@ -1,0 +1,142 @@
+name = "display_module_support"
+material = "SS304"
+batch_size = 60
+
+[product]
+family = "display_module"
+module_type = "HUD / cluster support member"
+vehicle_program = "Digital cockpit"
+revision = "A"
+decision_scope = "support structure review for overseas launch"
+connector_clearance_mm = 3.5
+
+[manufacturing]
+process = "sheet_metal"
+material = "SS304"
+
+[production]
+sites = ["Korea-Ulsan", "Czech-Ostrava"]
+annual_volume = 140000
+target_ct_sec = 33
+automation_mode = "hybrid"
+pilot_lot = 60
+
+[quality.traceability]
+serial_level = "lot_and_tray"
+record_linkage = "lot + bend tool + operator"
+
+[[quality.critical_dimensions]]
+id = "cd-01"
+name = "mount face flatness surrogate"
+target_mm = 0.3
+tolerance = "max"
+rationale = "display vibration stability"
+
+[[shapes]]
+id = "base"
+type = "box"
+length = 132
+width = 72
+height = 1.8
+
+[[shapes]]
+id = "leg_left"
+type = "box"
+length = 12
+width = 72
+height = 42
+position = [0, 0, 1.8]
+
+[[shapes]]
+id = "leg_right"
+type = "box"
+length = 12
+width = 72
+height = 42
+position = [120, 0, 1.8]
+
+[[shapes]]
+id = "center_window"
+type = "box"
+length = 64
+width = 26
+height = 6
+position = [34, 23, -2]
+
+[[shapes]]
+id = "hole1"
+type = "cylinder"
+radius = 2.2
+height = 8
+position = [16, 16, -2]
+
+[[shapes]]
+id = "hole2"
+type = "cylinder"
+radius = 2.2
+height = 8
+position = [116, 16, -2]
+
+[[shapes]]
+id = "hole3"
+type = "cylinder"
+radius = 2.2
+height = 8
+position = [16, 56, -2]
+
+[[shapes]]
+id = "hole4"
+type = "cylinder"
+radius = 2.2
+height = 8
+position = [116, 56, -2]
+
+[[operations]]
+op = "fuse"
+base = "base"
+tool = "leg_left"
+result = "body"
+
+[[operations]]
+op = "fuse"
+base = "body"
+tool = "leg_right"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "center_window"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "hole1"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "hole2"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "hole3"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "hole4"
+result = "final"
+
+[drawing]
+views = ["front", "top", "right", "iso"]
+
+[export]
+formats = ["step"]
+directory = "output"
+

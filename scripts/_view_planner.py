@@ -242,7 +242,7 @@ def _project_to_view(position, axis, view_name):
     elif view_name == "front":
         return (x, z)
     elif view_name == "right":
-        return (y, z)
+        return (-y, z)
     return None
 
 
@@ -256,7 +256,7 @@ def _project_center_to_view(center, view_name):
     elif view_name == "front":
         return (x, z)
     elif view_name == "right":
-        return (y, z)
+        return (-y, z)
     return None
 
 

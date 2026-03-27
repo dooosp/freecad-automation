@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dooosp.github.io/freecad-automation/schemas/bom.schema.json",
+  "title": "BOM Entry",
+  "type": "object",
+  "required": ["entry_id", "part_number", "quantity"],
+  "properties": {
+    "entry_id": { "type": "string" },
+    "line_number": { "type": ["integer", "null"] },
+    "part_number": { "type": "string" },
+    "description": { "type": ["string", "null"] },
+    "quantity": { "type": "number" },
+    "unit": { "type": ["string", "null"] },
+    "material": { "type": ["string", "null"] },
+    "revision": { "type": ["string", "null"] },
+    "supplier": { "type": ["string", "null"] },
+    "process": { "type": ["string", "null"] },
+    "notes": { "type": ["string", "null"] },
+    "source_row": { "type": ["integer", "null"] }
+  },
+  "additionalProperties": true
+}

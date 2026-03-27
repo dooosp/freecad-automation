@@ -414,7 +414,7 @@ def render_plan_dimensions_svg(
     bcx, bcy = (u0 + u1) / 2, (v0 + v1) / 2
 
     out = []
-    out.append(f'<g class="plan-dimensions-{vname}" stroke="{DIM_COLOR}" '
+    out.append(f'<g class="dimensions-{vname} plan-dimensions-{vname}" stroke="{DIM_COLOR}" '
                f'stroke-width="{DIM_LINE_W}" fill="none">')
 
     def _record(di, status, *, reason=None, rendered=False, extra=None):
@@ -457,9 +457,9 @@ def render_plan_dimensions_svg(
         if process_groups and di.get("process_step"):
             cur_step = di["process_step"]
             if _prev_process_step and cur_step != _prev_process_step:
-                # Double gap between process groups
-                h_stack += eff_gap
-                v_stack += eff_gap
+                # Add one extra stack slot between process groups.
+                h_stack += 1
+                v_stack += 1
             _prev_process_step = cur_step
 
         style = di.get("style", "linear")
@@ -502,7 +502,7 @@ def render_plan_dimensions_svg(
 
         # Route by style
         if style == "diameter" or (style == "linear" and fid in DIA_FEATURES):
-            if vname == "front":
+            if circles:
                 elems = _render_diameter(di, circles, cx, cy, scale, bcx, bcy)
                 out.extend(elems)
                 if elems:
@@ -510,7 +510,7 @@ def render_plan_dimensions_svg(
                 else:
                     _record(di, "skipped_no_anchor", reason="no_matching_circle")
             else:
-                _record(di, "skipped_view", reason="diameter_intent_front_only")
+                _record(di, "skipped_view", reason="diameter_intent_requires_circular_view")
         elif style == "linear":
             if fid in V_FEATURES:
                 elems, v_stack = _render_linear_v(

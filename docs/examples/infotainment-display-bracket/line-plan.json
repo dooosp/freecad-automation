@@ -1,0 +1,714 @@
+{
+  "schema_version": "0.1",
+  "agent": "line_layout_support",
+  "part": {
+    "name": "infotainment_display_bracket",
+    "revision": "A",
+    "material": "AL6061",
+    "process": "sheet_metal",
+    "product_family": "display_module",
+    "module_type": "AVN display bracket",
+    "vehicle_program": "SDV cockpit platform",
+    "production_sites": [
+      "Korea-Ulsan",
+      "Mexico-MTY"
+    ]
+  },
+  "summary": {
+    "overall_risk_level": "high",
+    "top_issues": [
+      "ST30 forming  /  bending: Actual CT is 3.6s above target.",
+      "ST60 dimensional inspection: Actual CT is 8.2s above target.",
+      "ST70 subassembly  /  packaging: Actual CT is 4.1s above target."
+    ],
+    "recommended_actions": [
+      "Separate in-line dimensional checks from end-of-line release logic.",
+      "Review staffing and fixture loading at bottleneck-candidate stations.",
+      "Define traceability label area and scan point near side tab near connector window.",
+      "Protect EOL fixture load/unload time and retest routing as explicit launch controls."
+    ],
+    "likely_bottleneck_candidates": [
+      "ST30 forming  /  bending: actual CT gap 3.6s, confidence high.",
+      "ST60 dimensional inspection: actual CT gap 8.2s, confidence high.",
+      "ST70 subassembly  /  packaging: actual CT gap 4.1s, confidence high.",
+      "ST40 pierce  /  tapping  /  hardware insertion: actual CT gap 1.8s, confidence medium."
+    ],
+    "likely_traceability_capture_points": [
+      "ST10",
+      "ST60",
+      "ST70",
+      "ST90",
+      "ST100"
+    ],
+    "heuristics_notice": "Line support output combines heuristic station design with supplied runtime indicators; validate before committing plant standards."
+  },
+  "station_concept": [
+    {
+      "station_id": "ST10",
+      "station_name": "incoming material",
+      "station_purpose": "Receive material, confirm lot/revision, and prepare kits.",
+      "mode": "manual",
+      "manual_automatic_classification": "manual",
+      "grouped_processes": [
+        "incoming material"
+      ],
+      "inspection_strategy": "not_primary",
+      "cycle_time_placeholder_sec": 41.4,
+      "traceability_capture": true,
+      "bottleneck_candidate_note": "No immediate bottleneck signal from the current rule set.",
+      "operator_skill_sensitivity": "low",
+      "rework_repair_path": "Upstream correction before release to next station.",
+      "heuristic_basis": "Rule-based preliminary line-support output, not a detailed time study.",
+      "actual_vs_target_ct": 0.97,
+      "actual_ct_gap_sec": -1.2,
+      "bottleneck_confidence": {
+        "level": "low",
+        "score": 0.2,
+        "basis": "runtime_informed"
+      },
+      "launch_instability_signals": [],
+      "likely_root_causes": [],
+      "improvement_candidates": [],
+      "runtime_indicators": {
+        "actual_ct_sec": 34.8,
+        "target_ct_sec": 36,
+        "fpy": 0.993,
+        "rework_rate": 0.004,
+        "scrap_rate": 0.001,
+        "downtime_pct": 2.4,
+        "operator_count": 1,
+        "changeover_time_sec": 180
+      },
+      "evidence_basis": "runtime_informed"
+    },
+    {
+      "station_id": "ST20",
+      "station_name": "blanking  /  laser cut",
+      "station_purpose": "Create or stabilize the manufacturable geometry.",
+      "mode": "auto_capable",
+      "manual_automatic_classification": "auto_capable",
+      "grouped_processes": [
+        "blanking / laser cut"
+      ],
+      "inspection_strategy": "not_primary",
+      "cycle_time_placeholder_sec": 30.6,
+      "traceability_capture": false,
+      "bottleneck_candidate_note": "No immediate bottleneck signal from the current rule set.",
+      "operator_skill_sensitivity": "high",
+      "rework_repair_path": "Upstream correction before release to next station.",
+      "heuristic_basis": "Rule-based preliminary line-support output, not a detailed time study.",
+      "actual_vs_target_ct": 1.02,
+      "actual_ct_gap_sec": 0.6,
+      "bottleneck_confidence": {
+        "level": "low",
+        "score": 0.2,
+        "basis": "runtime_informed"
+      },
+      "launch_instability_signals": [],
+      "likely_root_causes": [],
+      "improvement_candidates": [],
+      "runtime_indicators": {
+        "actual_ct_sec": 31.2,
+        "target_ct_sec": 30.6,
+        "fpy": 0.987,
+        "rework_rate": 0.01,
+        "scrap_rate": 0.002,
+        "downtime_pct": 4.8,
+        "operator_count": 1,
+        "changeover_time_sec": 260
+      },
+      "evidence_basis": "runtime_informed"
+    },
+    {
+      "station_id": "ST30",
+      "station_name": "forming  /  bending",
+      "station_purpose": "Create or stabilize the manufacturable geometry.",
+      "mode": "manual",
+      "manual_automatic_classification": "manual",
+      "grouped_processes": [
+        "forming / bending"
+      ],
+      "inspection_strategy": "not_primary",
+      "cycle_time_placeholder_sec": 41.4,
+      "traceability_capture": false,
+      "bottleneck_candidate_note": "No immediate bottleneck signal from the current rule set.",
+      "operator_skill_sensitivity": "high",
+      "rework_repair_path": "Upstream correction before release to next station.",
+      "heuristic_basis": "Rule-based preliminary line-support output, not a detailed time study.",
+      "actual_vs_target_ct": 1.1,
+      "actual_ct_gap_sec": 3.6,
+      "bottleneck_confidence": {
+        "level": "high",
+        "score": 0.95,
+        "basis": "runtime_informed"
+      },
+      "launch_instability_signals": [
+        "Actual CT is 3.6s above target.",
+        "Downtime 7.4% is above the site guardrail.",
+        "FPY 0.968 is below the site target 0.980.",
+        "Rework rate 0.023 exceeds the launch target.",
+        "Changeover time 510s is above the site guardrail."
+      ],
+      "likely_root_causes": [
+        "Fixture readiness, equipment debug, or scan/test retries are likely affecting availability.",
+        "Launch escapes or unstable standard work are still driving first-pass loss.",
+        "Operator retraining or station-level error proofing is likely still incomplete.",
+        "Tool preset, recipe swap, or material presentation is slowing restart."
+      ],
+      "improvement_candidates": [
+        "Rebalance manual content or split the work across launch staffing until the cycle stabilizes.",
+        "Review fixture debug, barcode / probe retry logic, and changeover recovery checklist.",
+        "Tighten containment, confirm standard work, and review top defect pareto before the next ramp lot.",
+        "Add layered audit checks and review poka-yoke coverage for the repeated defect mode."
+      ],
+      "runtime_indicators": {
+        "actual_ct_sec": 39.6,
+        "target_ct_sec": 36,
+        "fpy": 0.968,
+        "rework_rate": 0.023,
+        "scrap_rate": 0.004,
+        "downtime_pct": 7.4,
+        "operator_count": 2,
+        "changeover_time_sec": 510
+      },
+      "evidence_basis": "runtime_informed"
+    },
+    {
+      "station_id": "ST40",
+      "station_name": "pierce  /  tapping  /  hardware insertion",
+      "station_purpose": "Complete mounting features and hardware prep.",
+      "mode": "manual",
+      "manual_automatic_classification": "manual",
+      "grouped_processes": [
+        "pierce / tapping / hardware insertion"
+      ],
+      "inspection_strategy": "not_primary",
+      "cycle_time_placeholder_sec": 41.4,
+      "traceability_capture": false,
+      "bottleneck_candidate_note": "No immediate bottleneck signal from the current rule set.",
+      "operator_skill_sensitivity": "high",
+      "rework_repair_path": "Upstream correction before release to next station.",
+      "heuristic_basis": "Rule-based preliminary line-support output, not a detailed time study.",
+      "actual_vs_target_ct": 1.05,
+      "actual_ct_gap_sec": 1.8,
+      "bottleneck_confidence": {
+        "level": "medium",
+        "score": 0.62,
+        "basis": "runtime_informed"
+      },
+      "launch_instability_signals": [
+        "Actual CT is 1.8s above target.",
+        "FPY 0.972 is below the site target 0.980."
+      ],
+      "likely_root_causes": [
+        "Launch escapes or unstable standard work are still driving first-pass loss.",
+        "Additional operators are not yet offsetting the manual content and station interference."
+      ],
+      "improvement_candidates": [
+        "Rebalance manual content or split the work across launch staffing until the cycle stabilizes.",
+        "Tighten containment, confirm standard work, and review top defect pareto before the next ramp lot."
+      ],
+      "runtime_indicators": {
+        "actual_ct_sec": 37.8,
+        "target_ct_sec": 36,
+        "fpy": 0.972,
+        "rework_rate": 0.02,
+        "scrap_rate": 0.005,
+        "downtime_pct": 5.9,
+        "operator_count": 2,
+        "changeover_time_sec": 390
+      },
+      "evidence_basis": "runtime_informed"
+    },
+    {
+      "station_id": "ST50",
+      "station_name": "deburr  /  clean",
+      "station_purpose": "Remove sharp edges and contamination before assembly.",
+      "mode": "manual",
+      "manual_automatic_classification": "manual",
+      "grouped_processes": [
+        "deburr / clean"
+      ],
+      "inspection_strategy": "not_primary",
+      "cycle_time_placeholder_sec": 41.4,
+      "traceability_capture": false,
+      "bottleneck_candidate_note": "No immediate bottleneck signal from the current rule set.",
+      "operator_skill_sensitivity": "high",
+      "rework_repair_path": "Upstream correction before release to next station.",
+      "heuristic_basis": "Rule-based preliminary line-support output, not a detailed time study.",
+      "actual_vs_target_ct": 1,
+      "actual_ct_gap_sec": -0.1,
+      "bottleneck_confidence": {
+        "level": "low",
+        "score": 0.2,
+        "basis": "runtime_informed"
+      },
+      "launch_instability_signals": [],
+      "likely_root_causes": [],
+      "improvement_candidates": [],
+      "runtime_indicators": {
+        "actual_ct_sec": 35.9,
+        "target_ct_sec": 36,
+        "fpy": 0.989,
+        "rework_rate": 0.008,
+        "scrap_rate": 0.002,
+        "downtime_pct": 3.5,
+        "operator_count": 1,
+        "changeover_time_sec": 220
+      },
+      "evidence_basis": "runtime_informed"
+    },
+    {
+      "station_id": "ST60",
+      "station_name": "dimensional inspection",
+      "station_purpose": "Capture dimensional evidence and launch quality data.",
+      "mode": "semi_auto",
+      "manual_automatic_classification": "semi_auto",
+      "grouped_processes": [
+        "dimensional inspection"
+      ],
+      "inspection_strategy": "in_line",
+      "cycle_time_placeholder_sec": 36,
+      "traceability_capture": true,
+      "bottleneck_candidate_note": "Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+      "operator_skill_sensitivity": "medium",
+      "rework_repair_path": "Escalate failures to offline repair / containment review.",
+      "heuristic_basis": "Rule-based preliminary line-support output, not a detailed time study.",
+      "actual_vs_target_ct": 1.23,
+      "actual_ct_gap_sec": 8.2,
+      "bottleneck_confidence": {
+        "level": "high",
+        "score": 0.95,
+        "basis": "runtime_informed"
+      },
+      "launch_instability_signals": [
+        "Actual CT is 8.2s above target.",
+        "Downtime 9.1% is above the site guardrail.",
+        "FPY 0.951 is below the site target 0.980.",
+        "Rework rate 0.038 exceeds the launch target.",
+        "Scrap rate 0.007 is above the guardrail.",
+        "Changeover time 430s is above the site guardrail."
+      ],
+      "likely_root_causes": [
+        "Fixture readiness, equipment debug, or scan/test retries are likely affecting availability.",
+        "Launch escapes or unstable standard work are still driving first-pass loss.",
+        "Operator retraining or station-level error proofing is likely still incomplete.",
+        "Containment boundary may be late or fixture damage is creating irreversible defects."
+      ],
+      "improvement_candidates": [
+        "Rebalance manual content or split the work across launch staffing until the cycle stabilizes.",
+        "Review fixture debug, barcode / probe retry logic, and changeover recovery checklist.",
+        "Tighten containment, confirm standard work, and review top defect pareto before the next ramp lot.",
+        "Add layered audit checks and review poka-yoke coverage for the repeated defect mode."
+      ],
+      "runtime_indicators": {
+        "actual_ct_sec": 44.2,
+        "target_ct_sec": 36,
+        "fpy": 0.951,
+        "rework_rate": 0.038,
+        "scrap_rate": 0.007,
+        "downtime_pct": 9.1,
+        "operator_count": 2,
+        "changeover_time_sec": 430
+      },
+      "evidence_basis": "runtime_informed"
+    },
+    {
+      "station_id": "ST70",
+      "station_name": "subassembly  /  packaging",
+      "station_purpose": "Protect the part and preserve traceability for downstream flow.",
+      "mode": "manual",
+      "manual_automatic_classification": "manual",
+      "grouped_processes": [
+        "subassembly / packaging"
+      ],
+      "inspection_strategy": "not_primary",
+      "cycle_time_placeholder_sec": 41.4,
+      "traceability_capture": true,
+      "bottleneck_candidate_note": "Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+      "operator_skill_sensitivity": "low",
+      "rework_repair_path": "Upstream correction before release to next station.",
+      "heuristic_basis": "Rule-based preliminary line-support output, not a detailed time study.",
+      "actual_vs_target_ct": 1.11,
+      "actual_ct_gap_sec": 4.1,
+      "bottleneck_confidence": {
+        "level": "high",
+        "score": 0.95,
+        "basis": "runtime_informed"
+      },
+      "launch_instability_signals": [
+        "Actual CT is 4.1s above target.",
+        "Downtime 6.8% is above the site guardrail.",
+        "FPY 0.962 is below the site target 0.980.",
+        "Rework rate 0.027 exceeds the launch target."
+      ],
+      "likely_root_causes": [
+        "Fixture readiness, equipment debug, or scan/test retries are likely affecting availability.",
+        "Launch escapes or unstable standard work are still driving first-pass loss.",
+        "Operator retraining or station-level error proofing is likely still incomplete.",
+        "Additional operators are not yet offsetting the manual content and station interference."
+      ],
+      "improvement_candidates": [
+        "Rebalance manual content or split the work across launch staffing until the cycle stabilizes.",
+        "Review fixture debug, barcode / probe retry logic, and changeover recovery checklist.",
+        "Tighten containment, confirm standard work, and review top defect pareto before the next ramp lot.",
+        "Add layered audit checks and review poka-yoke coverage for the repeated defect mode."
+      ],
+      "runtime_indicators": {
+        "actual_ct_sec": 40.1,
+        "target_ct_sec": 36,
+        "fpy": 0.962,
+        "rework_rate": 0.027,
+        "scrap_rate": 0.005,
+        "downtime_pct": 6.8,
+        "operator_count": 2,
+        "changeover_time_sec": 340
+      },
+      "evidence_basis": "runtime_informed"
+    },
+    {
+      "station_id": "ST80",
+      "station_name": "fixture load  /  unload consideration",
+      "station_purpose": "Stabilize nest loading, unload sequence, and operator posture.",
+      "mode": "semi_auto",
+      "manual_automatic_classification": "semi_auto",
+      "grouped_processes": [
+        "fixture load / unload consideration"
+      ],
+      "inspection_strategy": "not_primary",
+      "cycle_time_placeholder_sec": 36,
+      "traceability_capture": false,
+      "bottleneck_candidate_note": "Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+      "operator_skill_sensitivity": "high",
+      "rework_repair_path": "Upstream correction before release to next station.",
+      "heuristic_basis": "Rule-based preliminary line-support output, not a detailed time study.",
+      "actual_vs_target_ct": null,
+      "actual_ct_gap_sec": null,
+      "bottleneck_confidence": {
+        "level": "medium",
+        "score": 0.35,
+        "basis": "heuristic_only"
+      },
+      "launch_instability_signals": [],
+      "likely_root_causes": [],
+      "improvement_candidates": [],
+      "runtime_indicators": null,
+      "evidence_basis": "heuristic_only"
+    },
+    {
+      "station_id": "ST90",
+      "station_name": "EOL electrical test",
+      "station_purpose": "Confirm functional release and protect fixture / probe access.",
+      "mode": "semi_auto",
+      "manual_automatic_classification": "semi_auto",
+      "grouped_processes": [
+        "EOL electrical test"
+      ],
+      "inspection_strategy": "end_of_line",
+      "cycle_time_placeholder_sec": 36,
+      "traceability_capture": true,
+      "bottleneck_candidate_note": "Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+      "operator_skill_sensitivity": "high",
+      "rework_repair_path": "Escalate failures to offline repair / containment review.",
+      "heuristic_basis": "Rule-based preliminary line-support output, not a detailed time study.",
+      "actual_vs_target_ct": null,
+      "actual_ct_gap_sec": null,
+      "bottleneck_confidence": {
+        "level": "medium",
+        "score": 0.35,
+        "basis": "heuristic_only"
+      },
+      "launch_instability_signals": [],
+      "likely_root_causes": [],
+      "improvement_candidates": [],
+      "runtime_indicators": null,
+      "evidence_basis": "heuristic_only"
+    },
+    {
+      "station_id": "ST100",
+      "station_name": "EOL electrical test station",
+      "station_purpose": "Confirm functional release and protect fixture / probe access.",
+      "mode": "semi_auto",
+      "manual_automatic_classification": "semi_auto",
+      "grouped_processes": [
+        "EOL electrical test station"
+      ],
+      "inspection_strategy": "end_of_line",
+      "cycle_time_placeholder_sec": 36,
+      "traceability_capture": true,
+      "bottleneck_candidate_note": "Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+      "operator_skill_sensitivity": "high",
+      "rework_repair_path": "Escalate failures to offline repair / containment review.",
+      "heuristic_basis": "Rule-based preliminary line-support output, not a detailed time study.",
+      "actual_vs_target_ct": null,
+      "actual_ct_gap_sec": null,
+      "bottleneck_confidence": {
+        "level": "medium",
+        "score": 0.35,
+        "basis": "heuristic_only"
+      },
+      "launch_instability_signals": [],
+      "likely_root_causes": [],
+      "improvement_candidates": [],
+      "runtime_indicators": null,
+      "evidence_basis": "heuristic_only"
+    },
+    {
+      "station_id": "ST110",
+      "station_name": "functional fit confirmation",
+      "station_purpose": "Verify downstream install fit and cosmetic / handling release.",
+      "mode": "semi_auto",
+      "manual_automatic_classification": "semi_auto",
+      "grouped_processes": [
+        "functional fit confirmation"
+      ],
+      "inspection_strategy": "end_of_line",
+      "cycle_time_placeholder_sec": 36,
+      "traceability_capture": true,
+      "bottleneck_candidate_note": "Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+      "operator_skill_sensitivity": "high",
+      "rework_repair_path": "Upstream correction before release to next station.",
+      "heuristic_basis": "Rule-based preliminary line-support output, not a detailed time study.",
+      "actual_vs_target_ct": null,
+      "actual_ct_gap_sec": null,
+      "bottleneck_confidence": {
+        "level": "medium",
+        "score": 0.35,
+        "basis": "heuristic_only"
+      },
+      "launch_instability_signals": [],
+      "likely_root_causes": [],
+      "improvement_candidates": [],
+      "runtime_indicators": null,
+      "evidence_basis": "heuristic_only"
+    }
+  ],
+  "station_list": [
+    {
+      "station_id": "ST10",
+      "station_name": "incoming material",
+      "station_purpose": "Receive material, confirm lot/revision, and prepare kits.",
+      "manual_automatic_classification": "manual"
+    },
+    {
+      "station_id": "ST20",
+      "station_name": "blanking  /  laser cut",
+      "station_purpose": "Create or stabilize the manufacturable geometry.",
+      "manual_automatic_classification": "auto_capable"
+    },
+    {
+      "station_id": "ST30",
+      "station_name": "forming  /  bending",
+      "station_purpose": "Create or stabilize the manufacturable geometry.",
+      "manual_automatic_classification": "manual"
+    },
+    {
+      "station_id": "ST40",
+      "station_name": "pierce  /  tapping  /  hardware insertion",
+      "station_purpose": "Complete mounting features and hardware prep.",
+      "manual_automatic_classification": "manual"
+    },
+    {
+      "station_id": "ST50",
+      "station_name": "deburr  /  clean",
+      "station_purpose": "Remove sharp edges and contamination before assembly.",
+      "manual_automatic_classification": "manual"
+    },
+    {
+      "station_id": "ST60",
+      "station_name": "dimensional inspection",
+      "station_purpose": "Capture dimensional evidence and launch quality data.",
+      "manual_automatic_classification": "semi_auto"
+    },
+    {
+      "station_id": "ST70",
+      "station_name": "subassembly  /  packaging",
+      "station_purpose": "Protect the part and preserve traceability for downstream flow.",
+      "manual_automatic_classification": "manual"
+    },
+    {
+      "station_id": "ST80",
+      "station_name": "fixture load  /  unload consideration",
+      "station_purpose": "Stabilize nest loading, unload sequence, and operator posture.",
+      "manual_automatic_classification": "semi_auto"
+    },
+    {
+      "station_id": "ST90",
+      "station_name": "EOL electrical test",
+      "station_purpose": "Confirm functional release and protect fixture / probe access.",
+      "manual_automatic_classification": "semi_auto"
+    },
+    {
+      "station_id": "ST100",
+      "station_name": "EOL electrical test station",
+      "station_purpose": "Confirm functional release and protect fixture / probe access.",
+      "manual_automatic_classification": "semi_auto"
+    },
+    {
+      "station_id": "ST110",
+      "station_name": "functional fit confirmation",
+      "station_purpose": "Verify downstream install fit and cosmetic / handling release.",
+      "manual_automatic_classification": "semi_auto"
+    }
+  ],
+  "manual_automatic_split": {
+    "manual_ratio": 0.45,
+    "semi_auto_ratio": 0.45,
+    "auto_capable_ratio": 0.09
+  },
+  "cycle_time_assumptions": {
+    "target_ct_sec": 36,
+    "estimated_balance_loss_pct": 12,
+    "bottleneck_station_ct_sec": 44.2,
+    "actual_line_ct_sec": 44.2,
+    "note": "Target values remain planning placeholders; actual comparisons reflect the supplied runtime file."
+  },
+  "inspection_station_suggestions": [
+    {
+      "station_id": "ST60",
+      "suggestion": "Use this station for in-line dimensional evidence and traceability capture."
+    },
+    {
+      "station_id": "ST90",
+      "suggestion": "Reserve this point for end-of-line confirmation or functional release."
+    },
+    {
+      "station_id": "ST100",
+      "suggestion": "Reserve this point for end-of-line confirmation or functional release."
+    },
+    {
+      "station_id": "ST110",
+      "suggestion": "Reserve this point for end-of-line confirmation or functional release."
+    }
+  ],
+  "inspection_split": {
+    "in_line_inspection_stations": [
+      "ST60"
+    ],
+    "end_of_line_inspection_stations": [
+      "ST90",
+      "ST100",
+      "ST110"
+    ]
+  },
+  "bottleneck_candidate_notes": [
+    "ST30 forming  /  bending: actual CT gap 3.6s, confidence high.",
+    "ST60 dimensional inspection: actual CT gap 8.2s, confidence high.",
+    "ST70 subassembly  /  packaging: actual CT gap 4.1s, confidence high.",
+    "ST40 pierce  /  tapping  /  hardware insertion: actual CT gap 1.8s, confidence medium.",
+    "ST80 fixture load  /  unload consideration: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+    "ST90 EOL electrical test: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+    "ST100 EOL electrical test station: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time.",
+    "ST110 functional fit confirmation: Candidate bottleneck under launch conditions; verify staffing, fixture loading, and data capture time."
+  ],
+  "traceability_capture_points": [
+    {
+      "station_id": "ST10",
+      "station_name": "incoming material",
+      "data_capture": "lot/revision handoff"
+    },
+    {
+      "station_id": "ST60",
+      "station_name": "dimensional inspection",
+      "data_capture": "inspection + revision + operator result"
+    },
+    {
+      "station_id": "ST70",
+      "station_name": "subassembly  /  packaging",
+      "data_capture": "lot/revision handoff"
+    },
+    {
+      "station_id": "ST90",
+      "station_name": "EOL electrical test",
+      "data_capture": "inspection + revision + operator result"
+    },
+    {
+      "station_id": "ST100",
+      "station_name": "EOL electrical test station",
+      "data_capture": "inspection + revision + operator result"
+    },
+    {
+      "station_id": "ST110",
+      "station_name": "functional fit confirmation",
+      "data_capture": "inspection + revision + operator result"
+    }
+  ],
+  "rework_repair_station": {
+    "suggested": true,
+    "station_name": "Offline containment / rework review",
+    "rationale": "Provides a controlled path for launch-phase defects without stopping the main flow."
+  },
+  "operator_skill_sensitivity_notes": [
+    "ST20 blanking  /  laser cut is high-sensitivity due to access, inspection, or setup dependence.",
+    "ST30 forming  /  bending is high-sensitivity due to access, inspection, or setup dependence.",
+    "ST40 pierce  /  tapping  /  hardware insertion is high-sensitivity due to access, inspection, or setup dependence.",
+    "ST50 deburr  /  clean is high-sensitivity due to access, inspection, or setup dependence.",
+    "ST60 dimensional inspection is medium-sensitivity due to access, inspection, or setup dependence.",
+    "ST80 fixture load  /  unload consideration is high-sensitivity due to access, inspection, or setup dependence.",
+    "ST90 EOL electrical test is high-sensitivity due to access, inspection, or setup dependence.",
+    "ST100 EOL electrical test station is high-sensitivity due to access, inspection, or setup dependence.",
+    "ST110 functional fit confirmation is high-sensitivity due to access, inspection, or setup dependence."
+  ],
+  "runtime_summary": {
+    "runtime_informed": true,
+    "runtime_station_count": 7,
+    "line_target_ct_sec": 36,
+    "stations_over_target": [
+      "ST20",
+      "ST30",
+      "ST40",
+      "ST60",
+      "ST70"
+    ],
+    "highest_gap_station_id": "ST60",
+    "highest_gap_sec": 8.2,
+    "average_fpy": 0.975,
+    "average_downtime_pct": 5.7
+  },
+  "line_engineering_assumptions": {
+    "target_ct_sec": 36,
+    "connector_side_clearance_mm": 4,
+    "fastening_strategy": "manual M5 screw fastening to display module",
+    "critical_dimension_count": 2,
+    "feature_counts": {
+      "shapes": 8,
+      "boxes": 4,
+      "cylinders": 4,
+      "holes": 4,
+      "cut_ops": 5,
+      "fuse_ops": 2,
+      "fillet_ops": 0,
+      "chamfer_ops": 0
+    },
+    "assembly_metadata": {
+      "connector_mating_force_n": null,
+      "screw_count": null,
+      "torque_spec_nm": null,
+      "requires_gasket": false,
+      "requires_eol_electrical_test": true,
+      "requires_barcode_pairing": false,
+      "requires_vision_confirmation": false,
+      "requires_connector_seating_confirmation": false,
+      "requires_torque_control": false,
+      "fixture_load_sensitivity": "medium",
+      "is_electronics_assembly": true
+    },
+    "site_profile": {
+      "name": "site_korea_ulsan",
+      "line": {
+        "target_ct_sec": 36,
+        "target_fpy": 0.98,
+        "max_rework_rate": 0.02,
+        "max_scrap_rate": 0.005,
+        "max_downtime_pct": 6,
+        "changeover_guardrail_sec": 420
+      }
+    }
+  },
+  "layout_review_notes": [
+    "Separate incoming/kitting from dimensional verification to simplify launch ownership.",
+    "Prepare mirrored station standards for overseas rollout.",
+    "Use station grouping as an initial line concept before detailed PFEP and manpower balancing.",
+    "Treat traceability capture, repair flow, and functional confirmation as explicit line-design decisions for infotainment launch readiness."
+  ]
+}

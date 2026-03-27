@@ -1,0 +1,178 @@
+name = "infotainment_display_bracket_before"
+material = "AL6061"
+batch_size = 120
+
+[product]
+family = "display_module"
+module_type = "AVN display bracket"
+vehicle_program = "SDV cockpit platform"
+revision = "A"
+decision_scope = "baseline design review before launch-risk reduction"
+connector_clearance_mm = 2.8
+connector_side = "rear connector-side clearance"
+fastening_strategy = "manual M5 screw fastening with tight hand-tool access"
+traceability_label_area = "small side tab near connector cut edge"
+
+[manufacturing]
+process = "sheet_metal"
+material = "AL6061"
+
+[production]
+sites = ["Korea-Ulsan", "Mexico-MTY"]
+annual_volume = 180000
+target_ct_sec = 36
+automation_mode = "hybrid"
+pilot_lot = 120
+automation_candidates = [
+  "auto screw presentation",
+  "vision-assisted bend-angle check",
+  "inline barcode traceability",
+]
+
+[quality.traceability]
+serial_level = "tray_and_lot"
+record_linkage = "revision + supplier lot + operator"
+label_strategy = "tray label with program, rev, lot"
+retention_note = "Keep launch trace records until both sites stabilize."
+
+[[quality.critical_dimensions]]
+id = "cd-01"
+name = "mounting hole pitch"
+target_mm = 140.0
+tolerance = "±0.15"
+rationale = "display module alignment"
+
+[[quality.critical_dimensions]]
+id = "cd-02"
+name = "bend height"
+target_mm = 38.0
+tolerance = "±0.20"
+rationale = "cockpit stack-up and gap/flush"
+
+[[quality.gates]]
+name = "Incoming blank verification"
+objective = "Check thickness, alloy, and coating condition."
+evidence = ["material cert", "incoming check sheet"]
+
+[[quality.gates]]
+name = "Bend and hole pattern verification"
+objective = "Control bend angle and mounting pattern before downstream assembly."
+evidence = ["first article", "inline gauge"]
+
+[[quality.functional_test_points]]
+id = "ftp-01"
+name = "Display-module support alignment confirmation"
+location = "end_of_line"
+rationale = "confirm assembly alignment before cockpit module release"
+
+[[shapes]]
+id = "base_plate"
+type = "box"
+length = 180
+width = 95
+height = 1.4
+
+[[shapes]]
+id = "vertical_leg"
+type = "box"
+length = 18
+width = 95
+height = 38
+position = [0, 0, 1.4]
+
+[[shapes]]
+id = "side_tab"
+type = "box"
+length = 18
+width = 22
+height = 18
+position = [158, 36, 1.4]
+
+[[shapes]]
+id = "hole1"
+type = "cylinder"
+radius = 2.5
+height = 6
+position = [18, 18, -2]
+
+[[shapes]]
+id = "hole2"
+type = "cylinder"
+radius = 2.5
+height = 6
+position = [162, 18, -2]
+
+[[shapes]]
+id = "hole3"
+type = "cylinder"
+radius = 2.5
+height = 6
+position = [18, 77, -2]
+
+[[shapes]]
+id = "hole4"
+type = "cylinder"
+radius = 2.5
+height = 6
+position = [162, 77, -2]
+
+[[shapes]]
+id = "connector_window"
+type = "box"
+length = 28
+width = 18
+height = 6
+position = [122, 38, -2]
+
+[[operations]]
+op = "fuse"
+base = "base_plate"
+tool = "vertical_leg"
+result = "body"
+
+[[operations]]
+op = "fuse"
+base = "body"
+tool = "side_tab"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "hole1"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "hole2"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "hole3"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "hole4"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "connector_window"
+result = "body"
+
+[drawing]
+views = ["front", "top", "right", "iso"]
+
+[drawing.meta]
+part_name = "Infotainment Display Bracket Before"
+material = "AL6061"
+
+[export]
+formats = ["step"]
+directory = "output"

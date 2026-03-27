@@ -1,0 +1,30 @@
+{
+  "id": "iso-basic",
+  "label": "ISO basic DFM process pack",
+  "dfm_constraints": {
+    "machining": {
+      "min_wall": 1.5,
+      "hole_edge_factor": 1.5,
+      "hole_spacing_factor": 1.0,
+      "max_drill_ratio": 5.0
+    },
+    "casting": {
+      "min_wall": 3.0,
+      "hole_edge_factor": 2.0,
+      "hole_spacing_factor": 1.5,
+      "max_drill_ratio": 3.0
+    },
+    "sheet_metal": {
+      "min_wall": 0.5,
+      "hole_edge_factor": 1.5,
+      "hole_spacing_factor": 1.0,
+      "max_drill_ratio": 10.0
+    },
+    "3d_printing": {
+      "min_wall": 0.8,
+      "hole_edge_factor": 0.5,
+      "hole_spacing_factor": 0.5,
+      "max_drill_ratio": 20.0
+    }
+  }
+}

@@ -1,0 +1,186 @@
+config_version = 1
+name = "pcb_mount_plate"
+batch_size = 150
+
+[product]
+family = "controller_subassembly"
+module_type = "PCB mount plate"
+vehicle_program = "Cluster / ICC electronics carrier"
+revision = "A"
+decision_scope = "machining readiness and line-support review"
+connector_clearance_mm = 5.0
+connector_side = "PCB connector-side slot"
+fastening_strategy = "manual PCB screw fastening to mounting bosses"
+traceability_label_area = "plate edge opposite connector slot"
+
+[manufacturing]
+process = "machining"
+material = "AL6061"
+
+[production]
+sites = ["Korea-Gwangju"]
+annual_volume = 220000
+target_ct_sec = 28
+automation_mode = "manual"
+pilot_lot = 150
+automation_candidates = [
+  "vision check for connector boss location",
+  "inline flatness measurement",
+]
+
+[quality.traceability]
+serial_level = "lot"
+record_linkage = "lot + revision + inspection record"
+label_area = "plate edge opposite connector slot"
+
+[[quality.critical_dimensions]]
+id = "cd-01"
+name = "PCB stand-off height"
+target_mm = 8.0
+tolerance = "±0.05"
+rationale = "board coplanarity"
+
+[[quality.critical_dimensions]]
+id = "cd-02"
+name = "connector slot position"
+target_mm = 42.0
+tolerance = "±0.10"
+rationale = "electrical mating"
+
+[[quality.functional_test_points]]
+id = "ftp-01"
+name = "PCB connector-side clearance confirmation"
+location = "end_of_line"
+rationale = "prevent interference during controller subassembly build"
+
+[[shapes]]
+id = "plate"
+type = "box"
+length = 145
+width = 98
+height = 4
+
+[[shapes]]
+id = "standoff1"
+type = "cylinder"
+radius = 3.5
+height = 8
+position = [18, 18, 4]
+
+[[shapes]]
+id = "standoff2"
+type = "cylinder"
+radius = 3.5
+height = 8
+position = [127, 18, 4]
+
+[[shapes]]
+id = "standoff3"
+type = "cylinder"
+radius = 3.5
+height = 8
+position = [18, 80, 4]
+
+[[shapes]]
+id = "standoff4"
+type = "cylinder"
+radius = 3.5
+height = 8
+position = [127, 80, 4]
+
+[[shapes]]
+id = "slot"
+type = "box"
+length = 18
+width = 10
+height = 8
+position = [60, 42, -2]
+
+[[shapes]]
+id = "hole1"
+type = "cylinder"
+radius = 2
+height = 8
+position = [22, 22, -2]
+
+[[shapes]]
+id = "hole2"
+type = "cylinder"
+radius = 2
+height = 8
+position = [123, 22, -2]
+
+[[shapes]]
+id = "hole3"
+type = "cylinder"
+radius = 2
+height = 8
+position = [22, 76, -2]
+
+[[shapes]]
+id = "hole4"
+type = "cylinder"
+radius = 2
+height = 8
+position = [123, 76, -2]
+
+[[operations]]
+op = "fuse"
+base = "plate"
+tool = "standoff1"
+result = "body"
+
+[[operations]]
+op = "fuse"
+base = "body"
+tool = "standoff2"
+result = "body"
+
+[[operations]]
+op = "fuse"
+base = "body"
+tool = "standoff3"
+result = "body"
+
+[[operations]]
+op = "fuse"
+base = "body"
+tool = "standoff4"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "slot"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "hole1"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "hole2"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "hole3"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "hole4"
+result = "final"
+
+[drawing]
+views = ["front", "top", "right", "iso"]
+
+[export]
+formats = ["step"]
+directory = "output"

@@ -1,0 +1,185 @@
+{
+  "schema_version": "0.1",
+  "agent": "process_planning",
+  "part": {
+    "name": "infotainment_display_bracket",
+    "revision": "A",
+    "material": "AL6061",
+    "process": "sheet_metal",
+    "product_family": "display_module",
+    "module_type": "AVN display bracket",
+    "vehicle_program": "SDV cockpit platform",
+    "production_sites": [
+      "Korea-Ulsan",
+      "Mexico-MTY"
+    ]
+  },
+  "summary": {
+    "overall_risk_level": "medium",
+    "top_issues": [
+      "DFM warnings indicate likely setup tuning during early line stabilization.",
+      "EOL electrical test can dominate ramp-up CT if fixture access and retest routing are not stabilized early."
+    ],
+    "recommended_actions": [
+      "Confirm inspection ownership for connector access, mounting pattern, and critical dimensions.",
+      "Review automation candidates: auto screw presentation, vision-assisted bend-angle check, inline barcode traceability",
+      "Validate PCB loading, connector seating, torque traceability, and EOL test fixture assumptions with manufacturing engineering.",
+      "Use the process sequence as a preliminary launch planning aid, then validate with site-specific PFMEA and layout data."
+    ],
+    "likely_inspection_critical_features": [
+      "mounting hole pitch",
+      "bend height",
+      "EOL electrical / functional release"
+    ],
+    "likely_bottleneck_candidates": [
+      "DFM warnings indicate likely setup tuning during early line stabilization.",
+      "EOL electrical test can dominate ramp-up CT if fixture access and retest routing are not stabilized early."
+    ],
+    "heuristics_notice": "Process plan is generated from part/process heuristics and requires site-specific validation."
+  },
+  "planning_basis": {
+    "part_type": "bracket",
+    "production_targets": {
+      "batch_size": 120,
+      "annual_volume": 180000,
+      "target_ct_sec": 36,
+      "automation_mode": "hybrid",
+      "launch_sites": [
+        "Korea-Ulsan",
+        "Mexico-MTY"
+      ]
+    },
+    "assembly_metadata": {
+      "connector_mating_force_n": null,
+      "screw_count": null,
+      "torque_spec_nm": null,
+      "requires_gasket": false,
+      "requires_eol_electrical_test": true,
+      "requires_barcode_pairing": false,
+      "requires_vision_confirmation": false,
+      "requires_connector_seating_confirmation": false,
+      "requires_torque_control": false,
+      "fixture_load_sensitivity": "medium",
+      "is_electronics_assembly": true
+    },
+    "assumptions": [
+      "Program context: SDV cockpit platform",
+      "Cross-site rollout scope: Korea-Ulsan, Mexico-MTY",
+      "Annual volume assumption: 180000",
+      "Target cycle time assumption: 36s",
+      "Decision scope: design review and pilot-line planning"
+    ]
+  },
+  "process_flow": [
+    {
+      "step": 10,
+      "operation": "incoming material",
+      "purpose": "Receive coil or blank and confirm surface condition.",
+      "mode": "manual",
+      "key_output": "part progression"
+    },
+    {
+      "step": 20,
+      "operation": "blanking / laser cut",
+      "purpose": "Create primary outline and connector cut-outs.",
+      "mode": "auto_capable",
+      "key_output": "part progression"
+    },
+    {
+      "step": 30,
+      "operation": "forming / bending",
+      "purpose": "Generate bracket geometry and maintain datum stability.",
+      "mode": "manual",
+      "key_output": "part progression"
+    },
+    {
+      "step": 40,
+      "operation": "pierce / tapping / hardware insertion",
+      "purpose": "Complete mounting features and hardware prep.",
+      "mode": "manual",
+      "key_output": "part progression"
+    },
+    {
+      "step": 50,
+      "operation": "deburr / clean",
+      "purpose": "Remove sharp edges and contamination before assembly.",
+      "mode": "manual",
+      "key_output": "part progression"
+    },
+    {
+      "step": 60,
+      "operation": "dimensional inspection",
+      "purpose": "Verify bend angle, hole pattern, and mounting stack-up.",
+      "mode": "semi_auto",
+      "key_output": "quality evidence"
+    },
+    {
+      "step": 70,
+      "operation": "subassembly / packaging",
+      "purpose": "Protect cosmetic faces and release to downstream build.",
+      "mode": "manual",
+      "key_output": "part progression"
+    },
+    {
+      "step": 80,
+      "operation": "fixture load / unload consideration",
+      "purpose": "Load the part into a guided nest and verify support / reach posture before assembly.",
+      "mode": "semi_auto",
+      "key_output": "part progression"
+    },
+    {
+      "step": 90,
+      "operation": "EOL electrical test",
+      "purpose": "Run electrical / functional confirmation using the defined test fixture.",
+      "mode": "semi_auto",
+      "key_output": "part progression"
+    },
+    {
+      "step": 100,
+      "operation": "EOL electrical test station",
+      "purpose": "Protect probe access, fixture loading time, and retest containment routing.",
+      "mode": "semi_auto",
+      "key_output": "part progression"
+    },
+    {
+      "step": 110,
+      "operation": "functional fit confirmation",
+      "purpose": "Confirm final fit, cosmetic readiness, and downstream module install compatibility.",
+      "mode": "semi_auto",
+      "key_output": "part progression"
+    }
+  ],
+  "key_inspection_points": [
+    {
+      "id": "cd-01",
+      "checkpoint": "mounting hole pitch",
+      "rationale": "display module alignment",
+      "control_method": "first_article_and_launch_control"
+    },
+    {
+      "id": "cd-02",
+      "checkpoint": "bend height",
+      "rationale": "cockpit stack-up and gap/flush",
+      "control_method": "periodic_or_inline_check"
+    },
+    {
+      "id": "assembly-eol-test",
+      "checkpoint": "EOL electrical / functional release",
+      "rationale": "contain latent assembly and probing issues before shipment",
+      "control_method": "end_of_line_functional_test"
+    }
+  ],
+  "automation_candidates": [
+    "auto screw presentation",
+    "vision-assisted bend-angle check",
+    "inline barcode traceability"
+  ],
+  "bottleneck_risks": [
+    "DFM warnings indicate likely setup tuning during early line stabilization.",
+    "EOL electrical test can dominate ramp-up CT if fixture access and retest routing are not stabilized early."
+  ],
+  "planning_notes": [
+    "Sequence is heuristic and intended for early production-engineering review.",
+    "Drawing-plan process sequence reference: not defined"
+  ]
+}

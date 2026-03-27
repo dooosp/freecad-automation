@@ -33,7 +33,7 @@ REQUIRED_INTENTS = {
 # Known plan keys for typo detection
 KNOWN_PLAN_KEYS = {
     "schema_version", "part_type", "profile",
-    "views", "scale", "datums", "dimensioning", "dim_intents", "notes",
+    "views", "scale", "style", "datums", "dimensioning", "dim_intents", "notes",
     "sections", "manufacturing",
 }
 KNOWN_VIEW_KEYS = {"enabled", "layout", "options"}

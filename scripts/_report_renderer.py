@@ -33,7 +33,7 @@ def render_report(config, template, data, output_path):
 
     with PdfPages(output_path) as pdf:
         page_num = 0
-        total_pages_estimate = _count_enabled_sections(template) + 2  # title + toc + sections
+        total_pages_estimate = _count_total_pages(template)
 
         # Title Block page
         if template.get('title_block'):
@@ -163,6 +163,23 @@ def _count_enabled_sections(template):
         count += 1
     return count
 
+
+def _count_pre_section_pages(template):
+    """Count enabled pages before the first content section."""
+    count = 0
+    if template.get('title_block'):
+        count += 1
+    if template.get('revision_history', {}).get('enabled'):
+        count += 1
+    if template.get('toc', template.get('table_of_contents', {})).get('enabled'):
+        count += 1
+    return count
+
+
+def _count_total_pages(template):
+    """Count the total number of rendered pages for footer pagination."""
+    return _count_pre_section_pages(template) + _count_enabled_sections(template)
+
 def _render_section_header(fig, title, style):
     """Render section header bar at top of page."""
     # Header bar background
@@ -279,7 +296,7 @@ def render_toc(fig, template, style):
     lang = template.get('language', 'en')
 
     y = 0.75
-    page_offset = 2  # title + toc pages
+    page_offset = _count_pre_section_pages(template)
     for section in sections:
         if not section.get('enabled', True):
             continue
@@ -398,6 +415,16 @@ def render_section_tolerance(fig, config, data, style):
         return
 
     fits = tol.get('fits', [])
+    if not fits and isinstance(tol.get('pairs'), list):
+        fits = [{
+            'bore': pair.get('bore_part', ''),
+            'shaft': pair.get('shaft_part', ''),
+            'spec': pair.get('spec', ''),
+            'fit_type': pair.get('fit_type', ''),
+            'min_clearance': pair.get('clearance_min', 0),
+            'max_clearance': pair.get('clearance_max', 0),
+        } for pair in tol.get('pairs', [])]
+
     if fits:
         ax = fig.add_axes([MARGIN_LEFT/PAGE_WIDTH, 0.45, CONTENT_WIDTH/PAGE_WIDTH, 0.35])
         ax.axis('off')
@@ -413,14 +440,36 @@ def render_section_tolerance(fig, config, data, style):
                         colWidths=[0.15, 0.15, 0.15, 0.15, 0.15, 0.15])
         _style_table(table, style)
 
+    stack_up = tol.get('stack_up', {})
+    if stack_up.get('chain_length', 0) > 0:
+        fig.text(
+            0.08,
+            0.41,
+            (
+                f"Stack-up: worst={stack_up.get('worst_case_mm', 0):.4f} mm  |  "
+                f"RSS(3σ)={stack_up.get('rss_3sigma_mm', 0):.4f} mm  |  "
+                f"success={stack_up.get('success_rate_pct', 0):.1f}%"
+            ),
+            fontsize=9,
+            color='#666666',
+        )
+
     # Monte Carlo histogram
     mc = tol.get('monte_carlo', {})
     if mc and mc.get('histogram'):
         ax2 = fig.add_axes([MARGIN_LEFT/PAGE_WIDTH + 0.05, 0.08, 0.4, 0.32])
         hist_data = mc['histogram']
-        ax2.bar(range(len(hist_data)), hist_data, color=style['accent_color'], alpha=0.7)
+        edges = hist_data.get('edges', []) if isinstance(hist_data, dict) else []
+        counts = hist_data.get('counts', []) if isinstance(hist_data, dict) else hist_data
+        if edges and len(edges) == len(counts) + 1:
+            centers = [(edges[i] + edges[i + 1]) / 2 for i in range(len(counts))]
+            widths = [edges[i + 1] - edges[i] for i in range(len(counts))]
+            ax2.bar(centers, counts, width=widths, color=style['accent_color'], alpha=0.7)
+            ax2.set_xlabel('Gap (mm)', fontsize=8)
+        else:
+            ax2.bar(range(len(counts)), counts, color=style['accent_color'], alpha=0.7)
+            ax2.set_xlabel('Dimension Bin', fontsize=8)
         ax2.set_title('Monte Carlo Distribution', fontsize=9)
-        ax2.set_xlabel('Dimension Bin', fontsize=8)
         ax2.set_ylabel('Frequency', fontsize=8)
 
         if mc.get('cpk') is not None:
@@ -487,7 +536,11 @@ def render_section_bom(fig, config, data, style):
             if shape.get('type') == 'cylinder':
                 dims = f"R{shape.get('radius', '?')} × H{shape.get('height', '?')}"
             elif shape.get('type') == 'box':
-                dims = f"{shape.get('width', '?')} × {shape.get('depth', '?')} × {shape.get('height', '?')}"
+                dims = (
+                    f"{shape.get('length', shape.get('width', '?'))} × "
+                    f"{shape.get('depth', shape.get('width', '?'))} × "
+                    f"{shape.get('height', '?')}"
+                )
             table_data.append([str(i), shape.get('id', f'part_{i}'), shape.get('type', 'N/A'),
                               material, dims, '1'])
 

@@ -1,0 +1,16 @@
+{
+  "id": "iso-basic",
+  "label": "ISO basic standards pack",
+  "default_standard": "ISO",
+  "report_metadata": {
+    "profile_label": "ISO basic",
+    "document_note": "Uses ISO-first general tolerance and surface-finish references for draft manufacturing artifacts.",
+    "standards_reference": [
+      "ISO 2768-1",
+      "ISO 1302"
+    ]
+  },
+  "tolerance_defaults": {
+    "general_grade": "m"
+  }
+}
