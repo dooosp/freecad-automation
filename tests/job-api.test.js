@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 
 import { buildArtifactManifest } from '../lib/artifact-manifest.js';
 import { createJobStore } from '../src/services/jobs/job-store.js';
+import { LOCAL_API_VERSION } from '../src/server/local-api-contract.js';
 import { validateJobRequest } from '../src/services/jobs/job-executor.js';
 import { validateLocalApiResponse } from '../src/server/local-api-schemas.js';
 
@@ -76,6 +77,7 @@ try {
   const persistedJob = await store.getJob(job.id);
   assert.equal(persistedJob.status, 'succeeded');
   assert.equal(persistedJob.result.success, true);
+  assert.equal(persistedJob.manifest.manifest_version, '1.0');
   assert.equal(persistedJob.manifest.command, 'report');
   assert.match(readFileSync(persistedJob.paths.log, 'utf8'), /queued/);
 
@@ -93,6 +95,7 @@ try {
   assert.equal(storage.files.manifest.exists, true);
 
   const responseValidation = validateLocalApiResponse('job', {
+    api_version: LOCAL_API_VERSION,
     ok: true,
     job: {
       id: job.id,
@@ -119,6 +122,7 @@ try {
   assert.equal(responseValidation.ok, true, responseValidation.errors.join('\n'));
 
   const artifactsResponseValidation = validateLocalApiResponse('artifacts', {
+    api_version: LOCAL_API_VERSION,
     ok: true,
     job_id: job.id,
     artifacts,

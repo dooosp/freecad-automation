@@ -5,7 +5,15 @@ FreeCAD Automation is a FreeCAD-backed automation pipeline for CAD generation, T
 The repository has two public layers:
 
 - a runtime-backed CLI for CAD, TechDraw, FEM, tolerance, inspection, and reporting
-- a plain-Python/Node manufacturing-review layer for DFM, process planning, readiness review, stabilization review, and review-pack artifacts
+- a plain-Python/Node manufacturing-review layer for DFM, process planning, readiness review, stabilization review, review-pack artifacts, and standard-document drafts
+
+## Release Surface
+
+- [Support matrix](./docs/support-matrix.md)
+- [Testing and verification](./docs/testing.md)
+- [Config schema](./docs/config-schema.md)
+- [Output contract](./docs/output-contract.md)
+- [v1.1.0 release notes draft](./docs/releases/v1.1.0-draft.md)
 
 Validation snapshot:
 
@@ -22,6 +30,7 @@ Config lifecycle:
 
 - user-facing configs are now treated as `config_version = 1`
 - unversioned configs still load, but `fcad` emits deprecation warnings when legacy fields are detected
+- new checked-in examples should be explicit canonical v1 unless they intentionally exist as compatibility fixtures
 - `fcad validate-config <path>` validates user-facing config shape and migration state
 - `fcad migrate-config <path> [--out <file>]` writes a versioned config plus a change summary
 - supported config fields, compatibility aliases, and real example references are documented in [docs/config-schema.md](./docs/config-schema.md)
@@ -111,7 +120,7 @@ This keeps Codex focused on the existing `config -> create -> draw -> dfm -> tol
 
 ## Command Surface
 
-Run `fcad check-runtime` before any FreeCAD-backed command on a new machine and as the first troubleshooting step for runtime-backed failures. It prints searched candidate paths, the selected runtime, active env overrides, detected FreeCAD/Python details, command classes, and remediation guidance.
+Run `fcad check-runtime` before any FreeCAD-backed command on a new machine and as the first troubleshooting step for runtime-backed failures. It prints searched candidate paths, the selected runtime, active env overrides, detected FreeCAD/Python details, command classes, and remediation guidance. Add `--json` when a tool needs the same machine-readable runtime contract that the local API exposes from `GET /health`.
 
 ### Command Classification
 
@@ -151,16 +160,20 @@ fcad compare-rev <baseline.json> <candidate.json>
 
 ```bash
 fcad check-runtime
+fcad check-runtime --json
 fcad create <config.toml|json>
 fcad draw <config.toml|json>
 fcad report <config.toml|json>
-fcad inspect <model.step|fcstd>
-fcad fem <config.toml|json>
-fcad tolerance <config.toml|json>
+fcad inspect <model.step|fcstd> [--manifest-out <path>]
+fcad fem <config.toml|json> [--manifest-out <path>]
+fcad tolerance <config.toml|json> [--manifest-out <path>]
+fcad dfm <config.toml|json> [--manifest-out <path>]
 fcad sweep <config.toml|json> --matrix <matrix.toml|json> [--out-dir <dir>]
 ```
 
 `report` is still classified as runtime-backed because it runs inside the FreeCAD bundle on macOS even when it falls back from `freecadcmd` to the bundled FreeCAD Python executable.
+
+`--manifest-out <path>` is the provenance escape hatch for stdout-heavy commands. It keeps the default human-readable stdout intact while letting tooling capture a stable manifest alongside `inspect`, `fem`, `tolerance`, or `dfm`.
 
 ### Parameter Sweep
 
@@ -220,6 +233,7 @@ Upgrade notes:
 - canonical v1 keeps `manufacturing.process` and `manufacturing.material` as the preferred home for manufacturing metadata
 - legacy top-level `process` and `material` still load today, but migration intentionally keeps them only as compatibility fields
 - existing sample configs remain valid inputs because `fcad` auto-migrates them before command execution
+- new checked-in examples should default to explicit `config_version = 1` plus canonical fields; use legacy-compatible examples only when they are intentionally covering migration/regression behavior
 - use `fcad migrate-config` if you want to check in an explicit v1 config file after reviewing the reported manual follow-up items
 
 The older `fcad validate <plan-file>` command is unchanged and still validates `drawing_plan` artifacts rather than user configs.
@@ -257,7 +271,7 @@ Supported job types:
 
 Endpoint usage:
 
-- `GET /health` returns API liveness plus detected FreeCAD runtime details
+- `GET /health` returns API liveness plus the same shared runtime diagnostics contract used by `fcad check-runtime --json`
 - `POST /jobs` accepts a JSON job request and returns `202 Accepted` with the queued job record
 - `GET /jobs/:id` returns the latest status, request, diagnostics, result, status history, and storage metadata
 - `GET /jobs/:id/artifacts` returns the flattened known artifact list plus persisted storage file metadata
@@ -652,28 +666,22 @@ This repository does not assume a default WSL -> Windows bridge anymore. If you 
 
 ## Output Contracts
 
-- [product_review.schema.json](./schemas/product_review.schema.json)
-- [process_plan.schema.json](./schemas/process_plan.schema.json)
-- [line_plan.schema.json](./schemas/line_plan.schema.json)
-- [quality_risk_pack.schema.json](./schemas/quality_risk_pack.schema.json)
-- [investment_review.schema.json](./schemas/investment_review.schema.json)
-- [readiness_report.schema.json](./schemas/readiness_report.schema.json)
-- [stabilization_review.schema.json](./schemas/stabilization_review.schema.json)
-- [standard_docs_manifest.schema.json](./schemas/standard_docs_manifest.schema.json)
+Use [docs/output-contract.md](./docs/output-contract.md) as the source of truth for the artifact-manifest contract, stable vs best-effort artifact types, and CLI/API/sweep provenance behavior.
+
+The schema files for review, readiness, stabilization, quality-risk, investment-review, process-plan, line-plan, and standard-document outputs live under [schemas/](./schemas/).
 
 ## Testing
 
-Fast hosted-safe Node lanes:
+Use [docs/testing.md](./docs/testing.md) as the source of truth for lane scope, workflow mapping, and what each check does or does not prove.
+
+Fast local verification:
 
 ```bash
 npm test
-# or run the lanes separately
 npm run test:node:contract
 npm run test:node:integration
 npm run test:snapshots
 ```
-
-`npm test` runs the three hosted-safe Node lanes defined in `package.json`: runtime/config contracts, non-runtime integration coverage, and normalized SVG/report snapshots. These lanes do not install or launch FreeCAD.
 
 Python lane:
 
@@ -681,32 +689,17 @@ Python lane:
 npm run test:py
 ```
 
-`npm run test:py` requires Python 3.11 or newer and matches the hosted `Automation CI (hosted fast lanes)` workflow's Python step.
-
 Real runtime smoke:
 
 ```bash
 fcad check-runtime
 npm run test:runtime-smoke
-# alias: npm run smoke:runtime
 ```
 
-`npm run test:runtime-smoke` is the real FreeCAD-backed smoke lane for `check-runtime`, `create`, `draw --bom`, `inspect`, and `report`. The repository-owned CI version runs through the `FreeCAD Runtime Smoke (self-hosted macOS)` workflow. Full lane mapping and deeper runtime suites live in [docs/testing.md](./docs/testing.md).
+`npm run test:runtime-smoke` is the repository's real FreeCAD-backed smoke lane for `check-runtime`, `create`, `draw --bom`, `inspect`, and `report`.
 
 ## Release Prep
 
-Draft release notes for the first public release surface live at [docs/releases/v1.1.0-draft.md](./docs/releases/v1.1.0-draft.md).
-
-If you want to run the smoke steps manually instead of the script, use:
-
-```bash
-cd /path/to/freecad-automation
-export FREECAD_APP="/Applications/FreeCAD.app"
-fcad check-runtime
-npm run test:node:contract
-node bin/fcad.js create configs/examples/ks_bracket.toml
-node bin/fcad.js draw configs/examples/ks_bracket.toml --bom
-node bin/fcad.js inspect output/ks_bracket.step
-node bin/fcad.js fem configs/examples/bracket_fem.toml
-node bin/fcad.js report configs/examples/ks_bracket.toml
-```
+- Publish-ready release notes draft: [docs/releases/v1.1.0-draft.md](./docs/releases/v1.1.0-draft.md)
+- Release checklist: [docs/releases/v1.1.0-checklist.md](./docs/releases/v1.1.0-checklist.md)
+- PR-ready summary snippet: [docs/releases/v1.1.0-pr-summary.md](./docs/releases/v1.1.0-pr-summary.md)

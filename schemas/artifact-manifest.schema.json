@@ -6,6 +6,7 @@
   "additionalProperties": false,
   "required": [
     "schema_version",
+    "manifest_version",
     "manifest_type",
     "interface",
     "command",
@@ -26,6 +27,9 @@
   ],
   "properties": {
     "schema_version": {
+      "const": "1.0"
+    },
+    "manifest_version": {
       "const": "1.0"
     },
     "manifest_type": {
