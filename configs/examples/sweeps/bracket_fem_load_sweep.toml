@@ -1,0 +1,18 @@
+name = "bracket_fem_load_sweep"
+description = "FEM and report comparison across load and mesh settings for the bracket_fem example."
+jobs = ["create", "cost", "fem", "report"]
+
+[[parameters]]
+path = "fem.constraints[1].magnitude"
+values = [800, 1000, 1200]
+
+[[parameters]]
+path = "fem.mesh.max_element_size"
+values = [8, 10]
+
+[execution]
+batch_size = 1
+
+[objectives]
+stress_threshold_mpa = 180
+
