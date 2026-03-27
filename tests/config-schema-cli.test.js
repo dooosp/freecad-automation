@@ -18,6 +18,7 @@ function runCli(args) {
 }
 
 try {
+  const checkedInStrictPath = resolve(ROOT, 'configs', 'examples', 'controller_housing_eol.toml');
   const validConfigPath = join(TMP_DIR, 'valid-config.toml');
   writeFileSync(validConfigPath, `
 config_version = 1
@@ -53,6 +54,40 @@ directory = "output"
     operations: [{ radius: 1 }],
     export: { formats: ['step', 5] },
   }, null, 2), 'utf8');
+
+  const invalidNestedPath = join(TMP_DIR, 'invalid-nested.toml');
+  writeFileSync(invalidNestedPath, `
+config_version = 1
+name = "invalid_nested"
+
+[[shapes]]
+id = "body"
+type = "box"
+length = 20
+width = 10
+height = 4
+
+[production]
+sites = "Korea-Ulsan"
+target_ct_sec = "36"
+
+[quality.traceability]
+serial_level = 42
+
+[[quality.critical_dimensions]]
+id = "cd-01"
+target_mm = "140"
+tolerance = "±0.10"
+
+[drawing]
+views = "front"
+
+[standards]
+profile = 3
+
+[export]
+formats = ["step"]
+`, 'utf8');
 
   const legacyConfigPath = join(TMP_DIR, 'legacy-config.toml');
   writeFileSync(legacyConfigPath, `
@@ -103,6 +138,34 @@ directory = "output"
     'missing operation op/type should be called out'
   );
 
+  const invalidNested = runCli(['validate-config', invalidNestedPath, '--json']);
+  assert.notEqual(invalidNested.status, 0, 'invalid nested config should fail validation');
+  const invalidNestedParsed = JSON.parse(invalidNested.stdout);
+  assert(
+    invalidNestedParsed.errors.some((entry) => entry.includes('root.production.sites')),
+    'production.sites type mismatch should be surfaced'
+  );
+  assert(
+    invalidNestedParsed.errors.some((entry) => entry.includes('root.production.target_ct_sec')),
+    'production.target_ct_sec type mismatch should be surfaced'
+  );
+  assert(
+    invalidNestedParsed.errors.some((entry) => entry.includes('root.quality.traceability.serial_level')),
+    'quality.traceability.serial_level type mismatch should be surfaced'
+  );
+  assert(
+    invalidNestedParsed.errors.some((entry) => entry.includes('root.quality.critical_dimensions[0].target_mm')),
+    'quality.critical_dimensions target_mm type mismatch should be surfaced'
+  );
+  assert(
+    invalidNestedParsed.errors.some((entry) => entry.includes('root.drawing.views')),
+    'drawing.views type mismatch should be surfaced'
+  );
+  assert(
+    invalidNestedParsed.errors.some((entry) => entry.includes('root.standards.profile')),
+    'standards.profile type mismatch should be surfaced'
+  );
+
   const validateLegacy = runCli(['validate-config', legacyConfigPath]);
   assert.equal(validateLegacy.status, 0, validateLegacy.stderr || validateLegacy.stdout);
   assert.match(validateLegacy.stdout, /VALID:/);
@@ -113,6 +176,13 @@ directory = "output"
 
   const strictLegacy = runCli(['validate-config', legacyConfigPath, '--strict']);
   assert.notEqual(strictLegacy.status, 0, 'strict validation should fail when warnings are present');
+
+  const strictCheckedIn = runCli(['validate-config', checkedInStrictPath, '--strict']);
+  assert.equal(
+    strictCheckedIn.status,
+    0,
+    `checked-in canonical example should pass strict validation: ${strictCheckedIn.stderr || strictCheckedIn.stdout}`
+  );
 
   const migrationWarnings = [];
   const loadedLegacy = await loadConfigWithDiagnostics(legacyConfigPath, {

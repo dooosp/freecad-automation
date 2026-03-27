@@ -3,6 +3,7 @@
 # datum A/B/C, GD&T perpendicularity, 4 mounting holes, fillets
 # ============================================================
 
+config_version = 1
 name = "ks_bracket"
 
 # --- Shapes ---

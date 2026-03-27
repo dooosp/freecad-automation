@@ -22,6 +22,7 @@ Config lifecycle:
 
 - user-facing configs are now treated as `config_version = 1`
 - unversioned configs still load, but `fcad` emits deprecation warnings when legacy fields are detected
+- new checked-in examples should be explicit canonical v1 unless they intentionally exist as compatibility fixtures
 - `fcad validate-config <path>` validates user-facing config shape and migration state
 - `fcad migrate-config <path> [--out <file>]` writes a versioned config plus a change summary
 - supported config fields, compatibility aliases, and real example references are documented in [docs/config-schema.md](./docs/config-schema.md)
@@ -220,6 +221,7 @@ Upgrade notes:
 - canonical v1 keeps `manufacturing.process` and `manufacturing.material` as the preferred home for manufacturing metadata
 - legacy top-level `process` and `material` still load today, but migration intentionally keeps them only as compatibility fields
 - existing sample configs remain valid inputs because `fcad` auto-migrates them before command execution
+- new checked-in examples should default to explicit `config_version = 1` plus canonical fields; use legacy-compatible examples only when they are intentionally covering migration/regression behavior
 - use `fcad migrate-config` if you want to check in an explicit v1 config file after reviewing the reported manual follow-up items
 
 The older `fcad validate <plan-file>` command is unchanged and still validates `drawing_plan` artifacts rather than user configs.

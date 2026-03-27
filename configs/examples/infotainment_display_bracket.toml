@@ -1,5 +1,5 @@
+config_version = 1
 name = "infotainment_display_bracket"
-material = "AL6061"
 batch_size = 120
 
 [product]

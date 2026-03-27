@@ -1,5 +1,5 @@
+config_version = 1
 name = "pcb_mount_plate"
-material = "AL6061"
 batch_size = 150
 
 [product]
