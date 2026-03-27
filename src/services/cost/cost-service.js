@@ -1,9 +1,11 @@
 import { resolve } from 'node:path';
 import { loadShopProfile } from '../config/profile-service.js';
+import { loadRuleProfile } from '../config/rule-profile-service.js';
 import { runPythonJsonScript } from '../../../lib/context-loader.js';
 
 export function createCostService({
   loadShopProfileFn = loadShopProfile,
+  loadRuleProfileFn = loadRuleProfile,
   runPythonJsonScriptFn = runPythonJsonScript,
 } = {}) {
   return async function runCost({
@@ -17,17 +19,21 @@ export function createCostService({
     batchSize = 1,
     dfmResult = null,
     profileName = null,
-    standard = 'KS',
+    standard,
   }) {
     const loadedConfig = config ?? await loadConfig(resolve(freecadRoot, configPath));
+    const ruleProfile = await loadRuleProfileFn(freecadRoot, loadedConfig, { silent: true });
     const costInput = {
       ...structuredClone(loadedConfig),
       dfm_result: dfmResult,
       material,
       process,
       batch_size: batchSize,
-      standard,
+      standard: loadedConfig.standard || standard || ruleProfile?.standards?.default_standard || 'KS',
     };
+    if (ruleProfile) {
+      costInput.rule_profile = ruleProfile;
+    }
 
     const shopProfile = await loadShopProfileFn(freecadRoot, profileName);
     if (shopProfile) {

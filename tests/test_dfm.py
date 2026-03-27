@@ -253,6 +253,36 @@ class TestProcessConstraints(unittest.TestCase):
         result = run_dfm_check(cfg)
         self.assertEqual(result["process"], "3d_printing")
 
+    def test_rule_profile_can_make_machining_edge_rule_stricter(self):
+        """A resolved rule profile should change DFM behavior without touching core logic."""
+        cfg = _base_config(
+            extra_shapes=[
+                {"id": "h1", "type": "cylinder", "radius": 5,
+                 "height": 25, "position": [83, 0, -2]},
+            ],
+            extra_ops=[{"op": "cut", "base": "disc", "tool": "h1"}],
+            manufacturing={"process": "machining"},
+        )
+
+        baseline = run_dfm_check(cfg)
+        baseline_dfm02 = [c for c in baseline["checks"] if c["code"] == "DFM-02"]
+        self.assertEqual(len(baseline_dfm02), 0, f"Legacy KS-equivalent defaults should pass, got: {baseline_dfm02}")
+
+        cfg["rule_profile"] = {
+            "id": "iso-basic",
+            "label": "ISO basic rule profile",
+            "processes": {
+                "dfm_constraints": {
+                    "machining": {
+                        "hole_edge_factor": 1.5,
+                    }
+                }
+            },
+        }
+        iso_result = run_dfm_check(cfg)
+        iso_dfm02 = [c for c in iso_result["checks"] if c["code"] == "DFM-02"]
+        self.assertTrue(len(iso_dfm02) > 0, f"ISO basic profile should tighten the edge rule, got: {iso_dfm02}")
+
 
 class TestDFMScore(unittest.TestCase):
     """Score calculation."""

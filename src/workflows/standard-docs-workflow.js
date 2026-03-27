@@ -3,6 +3,7 @@ import { join, resolve } from 'node:path';
 
 import { createStandardDocTemplateService } from '../services/report/standard-doc-template-service.js';
 import { loadShopProfile } from '../services/config/profile-service.js';
+import { loadRuleProfile, summarizeRuleProfile } from '../services/config/rule-profile-service.js';
 import { runReadinessReportWorkflow } from './readiness-report-workflow.js';
 
 async function writeTextFile(filePath, content) {
@@ -23,6 +24,7 @@ export function createStandardDocsWorkflow() {
   }) {
     const loadedConfig = config ?? await loadConfig(configPath);
     const siteProfile = options.siteProfile || await loadShopProfile(freecadRoot, options.profileName || null, { silent: true });
+    const ruleProfile = options.ruleProfile || await loadRuleProfile(freecadRoot, loadedConfig, { silent: true });
     const report = options.report || await runReadinessReportWorkflow({
       freecadRoot,
       runScript,
@@ -36,7 +38,7 @@ export function createStandardDocsWorkflow() {
     const outDir = resolve(options.outDir || defaultDir);
     await mkdir(outDir, { recursive: true });
 
-    const documents = generateStandardDocs(report, { siteProfile });
+    const documents = generateStandardDocs(report, { siteProfile, ruleProfile });
     const artifacts = {};
     for (const [filename, content] of Object.entries(documents)) {
       artifacts[filename] = await writeTextFile(join(outDir, filename), content);
@@ -54,6 +56,7 @@ export function createStandardDocsWorkflow() {
             label: siteProfile.label || null,
           }
         : null,
+      rule_profile: summarizeRuleProfile(ruleProfile),
       documents: Object.entries(artifacts).map(([filename, path]) => ({ filename, path })),
     };
 

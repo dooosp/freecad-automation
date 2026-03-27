@@ -3,6 +3,11 @@ import { readFile } from 'node:fs/promises';
 import { runPythonJsonScript } from '../../../lib/context-loader.js';
 import { convertPathFromRuntime, getFreeCADRuntime } from '../../../lib/paths.js';
 import { loadShopProfile } from '../config/profile-service.js';
+import {
+  loadRuleProfile,
+  resolveMaterialProfile,
+  summarizeRuleProfile,
+} from '../config/rule-profile-service.js';
 
 function toBool(value, fallback) {
   if (typeof value === 'boolean') return value;
@@ -94,6 +99,7 @@ export function normalizeFemResults(femResult = {}) {
 export function createReportService({
   readFileFn = readFile,
   loadShopProfileFn = loadShopProfile,
+  loadRuleProfileFn = loadRuleProfile,
   runPythonJsonScriptFn = runPythonJsonScript,
   getFreeCADRuntimeFn = getFreeCADRuntime,
 } = {}) {
@@ -120,6 +126,13 @@ export function createReportService({
       : {};
 
     const shopProfile = await loadShopProfileFn(freecadRoot, profileName);
+    const ruleProfile = await loadRuleProfileFn(freecadRoot, loadedConfig, { silent: true });
+    const ruleProfileSummary = summarizeRuleProfile(ruleProfile);
+    const materialProfile = resolveMaterialProfile(
+      ruleProfile,
+      loadedConfig.manufacturing?.material || loadedConfig.material || ''
+    );
+    const resolvedStandard = options?.standard || loadedConfig.standard || ruleProfile?.standards?.default_standard || 'KS';
 
     let reportTemplate = null;
     if (templateName) {
@@ -134,6 +147,7 @@ export function createReportService({
             ...(metadata || {}),
             profile_name: profileName || '',
             template_name: templateName,
+            rule_profile: ruleProfileSummary,
           },
         };
       } catch {
@@ -157,8 +171,9 @@ export function createReportService({
 
     const reportInput = {
       ...loadedConfig,
-      standard: (analysisResults && analysisResults.standard) || loadedConfig.standard || options?.standard || 'KS',
+      standard: (analysisResults && analysisResults.standard) || resolvedStandard,
       ...(shopProfile ? { shop_profile: shopProfile } : {}),
+      ...(ruleProfile ? { rule_profile: ruleProfile } : {}),
       export: { ...loadedConfig.export, directory: resolve(freecadRoot, 'output') },
       _report_options: {
         include_drawing: toBool(sections?.drawing, includeDrawing),
@@ -175,6 +190,8 @@ export function createReportService({
       fem_results: femInput,
       cost_result: toBool(sections?.cost, includeCost) ? (normalizedResults.cost || {}) : {},
       bom: normalizedResults.drawing?.bom || loadedConfig.bom || [],
+      material_profile: materialProfile,
+      rule_profile_summary: ruleProfileSummary,
     };
 
     if (reportTemplate) {

@@ -1,0 +1,43 @@
+{
+  "id": "common-metals-basic",
+  "label": "Common metals basic material pack",
+  "aliases": {
+    "al6061": "AL6061",
+    "al6061-t6": "AL6061-T6",
+    "ss304": "SS304",
+    "steel": "steel",
+    "aluminum": "aluminum"
+  },
+  "materials": {
+    "AL6061": {
+      "family": "aluminum",
+      "density_g_cm3": 2.7,
+      "yield_strength_mpa": 240,
+      "default_finish": "Deburr and protect bare machined faces."
+    },
+    "AL6061-T6": {
+      "family": "aluminum",
+      "density_g_cm3": 2.7,
+      "yield_strength_mpa": 276,
+      "default_finish": "Deburr and anodize when corrosion or cosmetic control matters."
+    },
+    "SS304": {
+      "family": "stainless_steel",
+      "density_g_cm3": 8.0,
+      "yield_strength_mpa": 215,
+      "default_finish": "Deburr and passivate when required by the release route."
+    },
+    "steel": {
+      "family": "carbon_steel",
+      "density_g_cm3": 7.85,
+      "yield_strength_mpa": 250,
+      "default_finish": "Deburr, protect exposed edges, and confirm corrosion-control path."
+    },
+    "aluminum": {
+      "family": "aluminum",
+      "density_g_cm3": 2.7,
+      "yield_strength_mpa": 240,
+      "default_finish": "Deburr and protect cosmetic faces."
+    }
+  }
+}

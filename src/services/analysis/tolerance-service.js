@@ -1,4 +1,5 @@
 import { resolve } from 'node:path';
+import { loadRuleProfile } from '../config/rule-profile-service.js';
 
 export async function runTolerance({
   freecadRoot,
@@ -8,11 +9,16 @@ export async function runTolerance({
   config,
   monteCarlo = true,
   mcSamples,
-  standard = 'KS',
+  standard,
+  loadRuleProfileFn = loadRuleProfile,
 }) {
   const loadedConfig = config ?? await loadConfig(resolve(freecadRoot, configPath));
   const tolConfig = structuredClone(loadedConfig);
-  tolConfig.standard = standard;
+  const ruleProfile = await loadRuleProfileFn(freecadRoot, loadedConfig, { silent: true });
+  tolConfig.standard = loadedConfig.standard || standard || ruleProfile?.standards?.default_standard || 'KS';
+  if (ruleProfile) {
+    tolConfig.rule_profile = ruleProfile;
+  }
 
   const hasAssembly = Boolean(tolConfig.assembly);
   const hasParts = Array.isArray(tolConfig.parts) && tolConfig.parts.length > 0;

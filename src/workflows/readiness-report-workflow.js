@@ -206,7 +206,7 @@ export function createReadinessReportWorkflow() {
       config: enrichedConfig,
       process: options.process || enrichedConfig.manufacturing?.process || 'machining',
       profileName: options.profileName || null,
-      standard: options.standard || 'KS',
+      standard: options.standard || enrichedConfig.standard || loadedConfig.standard,
     });
 
     const costResult = await runCost({
@@ -219,7 +219,7 @@ export function createReadinessReportWorkflow() {
       batchSize: options.batchSize || enrichedConfig.batch_size || 1,
       dfmResult,
       profileName: options.profileName || null,
-      standard: options.standard || 'KS',
+      standard: options.standard || enrichedConfig.standard || loadedConfig.standard,
     });
 
     const productReview = await runProductReviewAgent({ config: loadedConfig, enrichedConfig, dfmResult });

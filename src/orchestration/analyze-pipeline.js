@@ -39,7 +39,9 @@ export function createAnalyzePipeline({
 
     const emit = (event, data) => onEvent(event, data);
     const config = await loadConfig(fullPath);
-    config.standard = options.standard || 'KS';
+    if (options.standard) {
+      config.standard = options.standard;
+    }
     const hasShapes = Array.isArray(config.shapes) && config.shapes.length > 0;
     const hasAssemblyParts = Array.isArray(config.parts) && config.parts.length > 0;
     const hasAssembly = Boolean(config.assembly);
@@ -110,7 +112,7 @@ export function createAnalyzePipeline({
             loadConfig,
             deepMerge,
             config,
-            standard: options.standard || 'KS',
+            standard: options.standard || config.standard,
             dxfExport: options.dxfExport,
             weightsPreset: options.weightsPreset,
           });
@@ -148,7 +150,7 @@ export function createAnalyzePipeline({
             config,
             process: options.process || config.manufacturing?.process || 'machining',
             profileName,
-            standard: options.standard || 'KS',
+            standard: options.standard || config.standard,
           });
           results.dfm = dfmResult;
           await cache.storeCache(dfmKey, dfmResult, 'dfm');
@@ -175,7 +177,7 @@ export function createAnalyzePipeline({
             runScript,
             loadConfig,
             config,
-            standard: options.standard || 'KS',
+            standard: options.standard || config.standard,
             monteCarlo: options.monteCarlo,
             mcSamples: options.mcSamples,
           });
@@ -214,7 +216,7 @@ export function createAnalyzePipeline({
             batchSize: options.batch || 1,
             dfmResult: results.dfm || null,
             profileName,
-            standard: options.standard || 'KS',
+            standard: options.standard || config.standard,
           });
           results.cost = costResult;
           await cache.storeCache(costKey, costResult, 'cost');

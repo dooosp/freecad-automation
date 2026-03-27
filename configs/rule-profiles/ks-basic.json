@@ -1,0 +1,8 @@
+{
+  "id": "ks-basic",
+  "label": "KS basic rule profile",
+  "description": "Backward-compatible KS-oriented standards metadata with the legacy DFM process assumptions.",
+  "standards_pack": "ks-basic",
+  "material_pack": "common-metals-basic",
+  "process_pack": "ks-basic"
+}

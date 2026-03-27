@@ -7,9 +7,9 @@ const MAX_CACHE_BYTES = 500 * 1024 * 1024;
 const STAGE_FIELDS = {
   create: (cfg) => pick(cfg, ['shapes', 'operations', 'parts', 'assembly', 'export']),
   drawing: (cfg) => pick(cfg, ['shapes', 'operations', 'parts', 'assembly', 'export', 'drawing', 'drawing_plan', 'tolerance', 'dxfExport']),
-  dfm: (cfg) => pick(cfg, ['shapes', 'operations', 'manufacturing', 'shop_profile']),
-  cost: (cfg) => pick(cfg, ['shapes', 'operations', 'material', 'process', 'batch_size', 'shop_profile', 'dfm_score']),
-  tolerance: (cfg) => pick(cfg, ['parts', 'assembly', 'tolerance']),
+  dfm: (cfg) => pick(cfg, ['shapes', 'operations', 'manufacturing', 'standards', 'shop_profile']),
+  cost: (cfg) => pick(cfg, ['shapes', 'operations', 'material', 'process', 'batch_size', 'standards', 'shop_profile', 'dfm_score']),
+  tolerance: (cfg) => pick(cfg, ['parts', 'assembly', 'tolerance', 'standards']),
 };
 
 function pick(obj, keys) {

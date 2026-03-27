@@ -1,0 +1,16 @@
+{
+  "id": "ks-basic",
+  "label": "KS basic standards pack",
+  "default_standard": "KS",
+  "report_metadata": {
+    "profile_label": "KS basic",
+    "document_note": "Uses KS-first general tolerance and surface-finish references for draft manufacturing artifacts.",
+    "standards_reference": [
+      "KS B 0401",
+      "KS B 0412"
+    ]
+  },
+  "tolerance_defaults": {
+    "general_grade": "m"
+  }
+}

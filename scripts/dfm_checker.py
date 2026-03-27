@@ -56,6 +56,17 @@ PROCESS_CONSTRAINTS = {
 }
 
 
+def _profile_process_constraints(config, process):
+    """Return DFM constraints from a resolved rule profile, if present."""
+    profile = config.get("rule_profile") or {}
+    process_pack = profile.get("processes") or {}
+    dfm_constraints = process_pack.get("dfm_constraints") or {}
+    process_constraints = dfm_constraints.get(process)
+    if isinstance(process_constraints, dict):
+        return process_constraints
+    return None
+
+
 # ---------------------------------------------------------------------------
 # DFMCheck result class
 # ---------------------------------------------------------------------------
@@ -716,6 +727,10 @@ def run_dfm_check(config):
     mfg = config.get("manufacturing", {})
     process = mfg.get("process", "machining")
     constraints = PROCESS_CONSTRAINTS.get(process, PROCESS_CONSTRAINTS["machining"])
+    profile_constraints = _profile_process_constraints(config, process)
+    if profile_constraints:
+        constraints = dict(constraints)
+        constraints.update(profile_constraints)
     profile = config.get("shop_profile")
 
     # Apply shop_profile overrides
@@ -769,6 +784,10 @@ def run_dfm_check(config):
         "success": True,
         "process": process,
         "material": mfg.get("material", "unknown"),
+        "rule_profile": {
+            "id": (config.get("rule_profile") or {}).get("id"),
+            "label": (config.get("rule_profile") or {}).get("label"),
+        } if config.get("rule_profile") else None,
         "checks": [c.to_dict() for c in all_checks],
         "summary": {
             "errors": errors,

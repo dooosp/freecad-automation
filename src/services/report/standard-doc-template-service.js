@@ -3,6 +3,16 @@ function csvEscape(value) {
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
+function getRuleProfileDocContext(ruleProfile = null) {
+  const pack = ruleProfile?.standards || {};
+  const metadata = pack.report_metadata || {};
+  return {
+    label: metadata.profile_label || ruleProfile?.label || ruleProfile?.id || 'KS basic',
+    document_note: metadata.document_note || 'Uses the default release standards metadata.',
+    standards_reference: Array.isArray(metadata.standards_reference) ? metadata.standards_reference : [],
+  };
+}
+
 function renderCsv(columns, rows) {
   const header = columns.join(',');
   const body = rows.map((row) => columns.map((column) => csvEscape(row[column])).join(','));
@@ -117,7 +127,7 @@ function deriveControlPlanRows(report, profilePresets) {
   return rows;
 }
 
-function deriveInspectionChecksheetRows(report, profilePresets) {
+function deriveInspectionChecksheetRows(report, profilePresets, ruleProfileDoc) {
   const criticalDimensions = report.quality_risk?.critical_dimensions || [];
   const checkpoints = report.process_plan?.key_inspection_points || [];
 
@@ -128,7 +138,7 @@ function deriveInspectionChecksheetRows(report, profilePresets) {
     method: 'Gauge / caliper / fixture check',
     sample_size: profilePresets.frequencies.critical_dimension,
     judgement_rule: 'Accept only when inside target and tolerance band',
-    remarks: `Draft generated planning aid. Profile preset: ${profilePresets.profile_name}.`,
+    remarks: `Draft generated planning aid. Profile preset: ${profilePresets.profile_name}. Rule profile: ${ruleProfileDoc.label}.`,
   }));
 
   for (const checkpoint of checkpoints) {
@@ -140,7 +150,7 @@ function deriveInspectionChecksheetRows(report, profilePresets) {
       method: checkpoint.control_method || 'operator confirmation',
       sample_size: frequencyForCheckpoint(checkpoint, profilePresets),
       judgement_rule: 'Accept only when confirmation record is complete',
-      remarks: `Draft generated planning aid. Responsibility follows ${profilePresets.profile_name} preset.`,
+      remarks: `Draft generated planning aid. Responsibility follows ${profilePresets.profile_name} preset. Standards: ${ruleProfileDoc.standards_reference.join(', ') || ruleProfileDoc.label}.`,
     });
   }
 
@@ -182,7 +192,7 @@ function derivePfmeaRows(report, profilePresets) {
     .slice(0, 24);
 }
 
-function renderProcessFlowMarkdown(report, profilePresets) {
+function renderProcessFlowMarkdown(report, profilePresets, ruleProfileDoc) {
   const steps = report.process_plan?.process_flow || [];
   const stations = report.line_plan?.station_concept || [];
   const lines = [
@@ -192,6 +202,8 @@ function renderProcessFlowMarkdown(report, profilePresets) {
     '',
     `Part: ${report.part?.name || 'unknown'}`,
     `Profile preset: ${profilePresets.profile_name}`,
+    `Rule profile: ${ruleProfileDoc.label}`,
+    `Standards reference: ${ruleProfileDoc.standards_reference.join(', ') || 'Project default'}`,
     '',
     '| Step | Process Step | Station Purpose | Key Output | Manual/Auto Mode |',
     '| --- | --- | --- | --- | --- |',
@@ -205,7 +217,7 @@ function renderProcessFlowMarkdown(report, profilePresets) {
   return `${lines.join('\n')}\n`;
 }
 
-function renderWorkInstructionMarkdown(report, profilePresets) {
+function renderWorkInstructionMarkdown(report, profilePresets, ruleProfileDoc) {
   const stations = report.line_plan?.station_concept || [];
   const traceabilityPoints = report.line_plan?.traceability_capture_points || [];
   const checkpoints = report.process_plan?.key_inspection_points || [];
@@ -220,6 +232,9 @@ function renderWorkInstructionMarkdown(report, profilePresets) {
     '',
     `Part: ${report.part?.name || 'unknown'}`,
     `Profile preset: ${profilePresets.profile_name}`,
+    `Rule profile: ${ruleProfileDoc.label}`,
+    `Standards reference: ${ruleProfileDoc.standards_reference.join(', ') || 'Project default'}`,
+    `Rule note: ${ruleProfileDoc.document_note}`,
     '',
     '## Responsibility Assumptions',
     '',
@@ -259,6 +274,7 @@ function renderWorkInstructionMarkdown(report, profilePresets) {
 export function createStandardDocTemplateService() {
   return function generateStandardDocs(report, options = {}) {
     const profilePresets = getProfileStandardDocPresets(options.siteProfile || {});
+    const ruleProfileDoc = getRuleProfileDocContext(options.ruleProfile || null);
     const controlPlanColumns = [
       'process_step',
       'station_id',
@@ -289,10 +305,10 @@ export function createStandardDocTemplateService() {
     ];
 
     return {
-      'process_flow.md': renderProcessFlowMarkdown(report, profilePresets),
+      'process_flow.md': renderProcessFlowMarkdown(report, profilePresets, ruleProfileDoc),
       'control_plan_draft.csv': renderCsv(controlPlanColumns, deriveControlPlanRows(report, profilePresets)),
-      'inspection_checksheet_draft.csv': renderCsv(inspectionColumns, deriveInspectionChecksheetRows(report, profilePresets)),
-      'work_instruction_draft.md': renderWorkInstructionMarkdown(report, profilePresets),
+      'inspection_checksheet_draft.csv': renderCsv(inspectionColumns, deriveInspectionChecksheetRows(report, profilePresets, ruleProfileDoc)),
+      'work_instruction_draft.md': renderWorkInstructionMarkdown(report, profilePresets, ruleProfileDoc),
       'pfmea_seed.csv': renderCsv(pfmeaColumns, derivePfmeaRows(report, profilePresets)),
     };
   };
