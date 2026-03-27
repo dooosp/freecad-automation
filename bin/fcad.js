@@ -65,12 +65,12 @@ const generateReport = createReportService();
 const USAGE = `
 fcad | mfg-agent - FreeCAD-backed automation pipeline
 
-Run this first on a new machine:
+Run this first on a new machine or before troubleshooting runtime-backed commands:
   fcad check-runtime
 
 Usage:
   Diagnostics:
-    fcad check-runtime             Show runtime detection, env precedence, and setup hints
+    fcad check-runtime             Show searched paths, selected runtime, detected versions, command coverage, and remediation
 
   FreeCAD-backed commands:
     fcad create <config.toml|json>    Generate parametric model output
@@ -149,7 +149,7 @@ Examples:
   fcad sweep configs/examples/ks_bracket.toml --matrix configs/examples/sweeps/ks_bracket_geometry_sweep.toml
 
   Notes:
-  check-runtime is the primary troubleshooting entrypoint for runtime-backed commands.
+  check-runtime is the central installation and troubleshooting entrypoint for runtime-backed commands.
   analyze-part can run without FreeCAD when the supplied context already includes model metadata.
   sweep stays within the existing create/cost/fem/report service wrappers; it does not perform optimization.
   report remains FreeCAD-backed today, even when macOS falls back from freecadcmd to the bundled FreeCAD Python.
