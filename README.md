@@ -17,6 +17,14 @@ Run `fcad check-runtime` first on any new machine and before troubleshooting a F
 
 Execution model: `bin/fcad.js -> lib/runner.js -> scripts/*.py -> scripts/_bootstrap.py -> import FreeCAD` for the runtime-backed commands. The manufacturing-review layer uses the same configs and artifacts but often runs under plain `python3` without launching FreeCAD.
 
+Config lifecycle:
+
+- user-facing configs are now treated as `config_version = 1`
+- unversioned configs still load, but `fcad` emits deprecation warnings when legacy fields are detected
+- `fcad validate-config <path>` validates user-facing config shape and migration state
+- `fcad migrate-config <path> [--out <file>]` writes a versioned config plus a change summary
+- supported config fields, compatibility aliases, and real example references are documented in [docs/config-schema.md](./docs/config-schema.md)
+
 ## Start Here
 
 For a first local verification:
@@ -34,10 +42,11 @@ If you are reviewing the repository on GitHub:
 
 1. Read the [infotainment production readiness case study](./docs/portfolio/infotainment-production-readiness-case.md).
 2. Open the [checked-in example artifact set](./docs/examples/infotainment-display-bracket/README.md).
-3. Compare the [Korea vs Mexico stabilization example](./docs/examples/infotainment-display-bracket/stabilization-comparison.md).
-4. Read the [before-vs-after improvement case](./docs/portfolio/before-after-improvement-case.md).
-5. Skim the [readiness report markdown](./docs/examples/infotainment-display-bracket/readiness-report.md).
-6. Inspect the [example config](./configs/examples/infotainment_display_bracket.toml) and the command classification below.
+3. Review the [parameter sweep gallery](./docs/examples/parameter-sweep-gallery.md).
+4. Compare the [Korea vs Mexico stabilization example](./docs/examples/infotainment-display-bracket/stabilization-comparison.md).
+5. Read the [before-vs-after improvement case](./docs/portfolio/before-after-improvement-case.md).
+6. Skim the [readiness report markdown](./docs/examples/infotainment-display-bracket/readiness-report.md).
+7. Inspect the [example config](./configs/examples/infotainment_display_bracket.toml) and the command classification below.
 
 ## Supported And Verified Platform Scope
 
@@ -107,8 +116,8 @@ Run `fcad check-runtime` before any FreeCAD-backed command on a new machine and 
 | --- | --- | --- |
 | Diagnostics | `check-runtime` | does not require FreeCAD to be present |
 | FreeCAD-backed | `create`, `draw`, `inspect`, `fem`, `tolerance`, `report` | requires a working FreeCAD runtime |
-| Plain-Python / non-FreeCAD | `dfm`, `review`, `process-plan`, `line-plan`, `quality-risk`, `investment-review`, `readiness-report`, `stabilization-review`, `generate-standard-docs`, `ingest`, `quality-link`, `review-pack`, `compare-rev`, `validate`, `serve` | runs without launching FreeCAD |
-| Mixed / conditional | `analyze-part`, `design` | `analyze-part` can inspect CAD through FreeCAD when needed; `design` ends by calling `create` |
+| Plain-Python / non-FreeCAD | `dfm`, `review`, `process-plan`, `line-plan`, `quality-risk`, `investment-review`, `readiness-report`, `stabilization-review`, `generate-standard-docs`, `ingest`, `quality-link`, `review-pack`, `compare-rev`, `validate`, `validate-config`, `migrate-config`, `serve` | runs without launching FreeCAD |
+| Mixed / conditional | `analyze-part`, `design`, `sweep` | `analyze-part` can inspect CAD through FreeCAD when needed; `design` ends by calling `create`; `sweep` stays inside the existing `create` / `cost` / `fem` / `report` service wrappers selected by the matrix file |
 
 ### Production-Readiness Commands
 
@@ -145,9 +154,170 @@ fcad report <config.toml|json>
 fcad inspect <model.step|fcstd>
 fcad fem <config.toml|json>
 fcad tolerance <config.toml|json>
+fcad sweep <config.toml|json> --matrix <matrix.toml|json> [--out-dir <dir>]
 ```
 
 `report` is still classified as runtime-backed because it runs inside the FreeCAD bundle on macOS even when it falls back from `freecadcmd` to the bundled FreeCAD Python executable.
+
+### Parameter Sweep
+
+`fcad sweep` is the initial design-space exploration workflow. It does not create a separate optimization path. Instead, it expands deterministic numeric overrides and executes each variant through the existing service wrappers already used by the CLI.
+
+Current sweep scope:
+
+- numeric leaf overrides only, addressed by paths like `shapes[0].height` or `fem.constraints[1].magnitude`
+- discrete `values = [...]` lists or inclusive `range = { start, stop, step }`
+- sequential execution with per-variant `effective-config.*` and `result.json`
+- aggregate `summary.json` and `summary.csv`
+- objective summary for min mass, min cost, and FEM stress-threshold pass/fail when those metrics exist
+
+Worked examples:
+
+- [docs/examples/parameter-sweep-gallery.md](./docs/examples/parameter-sweep-gallery.md)
+- [configs/examples/sweeps/ks_bracket_geometry_sweep.toml](./configs/examples/sweeps/ks_bracket_geometry_sweep.toml)
+- [configs/examples/sweeps/bracket_fem_load_sweep.toml](./configs/examples/sweeps/bracket_fem_load_sweep.toml)
+
+Example:
+
+```bash
+fcad sweep configs/examples/ks_bracket.toml \
+  --matrix configs/examples/sweeps/ks_bracket_geometry_sweep.toml \
+  --out-dir output/sweeps/ks_bracket_geometry
+```
+
+The summary files capture exact per-variant runtime. Treat any time estimates in docs as planning guidance, not repository-verified benchmark claims.
+
+### Config Validation And Migration
+
+```bash
+fcad validate-config configs/examples/ks_bracket.toml
+fcad validate-config configs/examples/ks_bracket.toml --strict
+fcad validate-config configs/examples/ks_bracket.toml --json
+fcad migrate-config configs/examples/ks_bracket.toml
+fcad migrate-config configs/examples/ks_bracket.toml --out output/ks_bracket.v1.toml
+```
+
+`validate-config` checks the user-facing config, reports deprecated fields, and exits non-zero on schema errors. `--strict` also fails when warnings remain.
+
+`migrate-config` writes a versioned config file and prints:
+
+- changed fields applied automatically
+- deprecated fields still present for compatibility
+- manual follow-up when the migration intentionally keeps a legacy field to avoid breaking older flows
+
+Legacy compatibility warnings currently cover:
+
+- missing `config_version`
+- top-level `material` and `process`
+- `[[operations]].type` instead of `op`
+- legacy `[export] step = true` / `stl = true` flags instead of `formats = [...]`
+
+Upgrade notes:
+
+- canonical v1 keeps `manufacturing.process` and `manufacturing.material` as the preferred home for manufacturing metadata
+- legacy top-level `process` and `material` still load today, but migration intentionally keeps them only as compatibility fields
+- existing sample configs remain valid inputs because `fcad` auto-migrates them before command execution
+- use `fcad migrate-config` if you want to check in an explicit v1 config file after reviewing the reported manual follow-up items
+
+The older `fcad validate <plan-file>` command is unchanged and still validates `drawing_plan` artifacts rather than user configs.
+
+### Local API
+
+`fcad serve` now starts a local/dev-first HTTP API backed by the real Node CLI service layer and the existing Python/FreeCAD runtime path.
+
+```bash
+fcad serve
+fcad serve 3100
+fcad serve 3100 --jobs-dir output/jobs-dev
+```
+
+Startup behavior:
+
+- binds to `127.0.0.1` only
+- defaults to port `3000`
+- stores jobs under `output/jobs` unless `--jobs-dir` is provided
+- keeps the existing CLI/runtime execution path: `POST /jobs` schedules work through the same service layer used by `fcad create`, `fcad draw`, `fcad inspect`, and `fcad report`
+
+Endpoints:
+
+- `GET /health`
+- `POST /jobs`
+- `GET /jobs/:id`
+- `GET /jobs/:id/artifacts`
+
+Supported job types:
+
+- `create`
+- `draw`
+- `inspect`
+- `report`
+
+Endpoint usage:
+
+- `GET /health` returns API liveness plus detected FreeCAD runtime details
+- `POST /jobs` accepts a JSON job request and returns `202 Accepted` with the queued job record
+- `GET /jobs/:id` returns the latest status, request, diagnostics, result, status history, and storage metadata
+- `GET /jobs/:id/artifacts` returns the flattened known artifact list plus persisted storage file metadata
+
+Request examples:
+
+```bash
+curl http://127.0.0.1:3000/health
+
+curl -X POST http://127.0.0.1:3000/jobs \
+  -H 'content-type: application/json' \
+  -d '{
+    "type": "create",
+    "config_path": "configs/examples/ks_bracket.toml"
+  }'
+
+curl -X POST http://127.0.0.1:3000/jobs \
+  -H 'content-type: application/json' \
+  -d '{
+    "type": "draw",
+    "config": {
+      "config_version": 1,
+      "name": "api_bracket",
+      "shapes": [
+        { "id": "body", "type": "box", "length": 40, "width": 20, "height": 8 }
+      ],
+      "drawing": { "views": ["front", "top", "right", "iso"] },
+      "export": { "formats": ["step"], "directory": "output" }
+    }
+  }'
+
+curl http://127.0.0.1:3000/jobs/<job-id>
+
+curl http://127.0.0.1:3000/jobs/<job-id>/artifacts
+```
+
+The job store is filesystem-backed under `output/jobs` by default. Each job directory persists:
+
+- request payload
+- status transitions
+- log output
+- effective config when applicable
+- artifact paths surfaced through `GET /jobs/:id/artifacts`
+
+Response notes:
+
+- all endpoints return JSON
+- success responses always include `ok: true`
+- error responses always include `ok: false` and `error.code` plus `error.messages`
+- job responses include a `storage` block with absolute paths and file existence/size for `job.json`, `request.json`, and `job.log`
+
+Current limitations:
+
+- this API is local/dev-first and does not add authentication
+- jobs run in-process; there is no distributed queue, retry worker, or database
+- `job.log` is best-effort and primarily captures orchestration events and stderr surfaced from underlying scripts
+- `GET /jobs/:id/artifacts` reports known output paths; it does not stream artifact contents
+- `POST /jobs` currently exposes only the execution paths for `create`, `draw`, `inspect`, and `report`
+
+Legacy note:
+
+- `fcad serve --legacy-viewer` still starts the older browser demo shell from `server.js`
+- `npm run serve:legacy` continues to point at that older shell
 
 ### Create Canonical Schema
 
@@ -163,6 +333,7 @@ fcad tolerance <config.toml|json>
 Minimal single-part example:
 
 ```toml
+config_version = 1
 name = "minimal_block"
 final = "body_fillet"
 
@@ -187,6 +358,7 @@ directory = "output"
 Minimal assembly example:
 
 ```toml
+config_version = 1
 name = "minimal_assembly"
 
 [[parts]]
@@ -234,6 +406,48 @@ Legacy / compatibility note:
 
 - Existing configs that use `type` inside `[[operations]]` may still load because the normalizer maps `type -> op`.
 - New configs should use `op` directly and should treat `type -> op` as compatibility-only behavior.
+
+Real example configs:
+
+- [controller_housing.toml](./configs/examples/controller_housing.toml): production-readiness single-part model with manufacturing, quality, drawing, and export sections
+- [bracket_fem.toml](./configs/examples/bracket_fem.toml): compact FEM-oriented single-part config
+- [ptu_assembly_mates.toml](./configs/examples/ptu_assembly_mates.toml): assembly config for mates/tolerance-style workflows
+
+## Snapshot Regression
+
+Normalized snapshot baselines now live under:
+
+- `tests/fixtures/snapshots/svg/` for TechDraw SVG outputs
+- `tests/fixtures/snapshots/report/` for lightweight readiness-report preview snapshots
+
+Use the standard test:
+
+```bash
+npm run test:snapshots
+```
+
+Update baselines intentionally:
+
+```bash
+UPDATE_SNAPSHOTS=1 npm run test:snapshots
+# or
+npm run test:snapshots:update
+```
+
+Snapshot updates are expected when you intentionally change drawing geometry, annotations, report wording, section order, or the representative fixtures themselves.
+
+Snapshot updates are not expected for timestamp churn, runtime-specific absolute paths, UUID-like run IDs, or generated metadata that should normalize away. If a test fails only because of that kind of volatility, fix the normalizer instead of refreshing the baseline.
+
+Review workflow:
+
+1. Run `npm run test:snapshots`.
+2. Inspect diffs under `tests/fixtures/snapshots/svg/` and `tests/fixtures/snapshots/report/`.
+3. Compare the changed baseline against the source fixture under `tests/fixtures/svg/` or `tests/fixtures/report/`.
+4. Regenerate with `npm run test:snapshots:update` only after confirming the change is intentional.
+
+The snapshot normalizers strip volatile timestamps, random SVG IDs, absolute paths, UUID-like run IDs, and similar generated metadata while preserving meaningful geometry and structural content changes.
+
+Follow-on design notes for standards/material rule packs and parameter sweep live in [docs/standards-and-sweep-roadmap.md](./docs/standards-and-sweep-roadmap.md).
 
 ## Example Flow
 

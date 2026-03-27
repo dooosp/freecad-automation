@@ -1,9 +1,16 @@
 #!/usr/bin/env node
 
-import { resolve, join, dirname, parse, sep, isAbsolute } from 'node:path';
+import { resolve, join, dirname, extname, parse, sep, isAbsolute } from 'node:path';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { loadConfig, deepMerge } from '../lib/config-loader.js';
+import { deepMerge } from '../lib/config-loader.js';
+import {
+  loadConfigWithDiagnostics,
+  migrateConfigDocument,
+  readRawConfigFile,
+  serializeConfig,
+  validateConfigDocument,
+} from '../lib/config-schema.js';
 import {
   artifactPathFor,
   deriveArtifactStem,
@@ -30,6 +37,7 @@ import {
 } from '../src/api/manufacturing.js';
 import { createModel, inspectModel } from '../src/api/model.js';
 import { createReportService } from '../src/api/report.js';
+import { runSweep } from '../src/services/sweep/sweep-service.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(__dirname, '..');
@@ -80,12 +88,15 @@ Usage:
     fcad quality-link --context <context.json> --geometry <geometry.json>
     fcad review-pack --context <context.json> --geometry <geometry.json>
     fcad compare-rev <baseline.json> <candidate.json>
-    fcad validate <config.toml|json>
-    fcad serve [port]
+    fcad validate <plan.toml|json>   Validate drawing_plan artifacts
+    fcad validate-config <config.toml|json>
+    fcad migrate-config <config.toml|json> [--out <file>]
+    fcad serve [port] [--jobs-dir <dir>] [--legacy-viewer]
 
   Mixed / conditional commands:
     fcad analyze-part <context.json|model.step>
     fcad design "description"
+    fcad sweep <config.toml|json> --matrix <file> [--out-dir <dir>]
     fcad help
 
 Options:
@@ -103,6 +114,7 @@ Options:
     --out-dir <dir>              Output directory when using default artifact names
 
   Workflow-specific options:
+    --matrix <path>              Sweep definition TOML/JSON for fcad sweep
     --override <path>            Merge override TOML/JSON on top of base config (with draw)
     --bom                        Export BOM as separate CSV file (with draw)
     --raw                        Skip SVG post-processing (with draw)
@@ -128,10 +140,12 @@ Examples:
   fcad readiness-report configs/examples/pcb_mount_plate.toml --out output/pcb_mount_plate_readiness.json
   fcad stabilization-review configs/examples/infotainment_display_bracket.toml --runtime data/runtime_examples/display_bracket_runtime.json --profile configs/profiles/site_korea_ulsan.toml
   fcad generate-standard-docs configs/examples/controller_housing_eol.toml --out-dir output/controller_housing_standard_docs
+  fcad sweep configs/examples/ks_bracket.toml --matrix configs/examples/sweeps/ks_bracket_geometry_sweep.toml
 
-Notes:
+  Notes:
   check-runtime is the primary troubleshooting entrypoint for runtime-backed commands.
   analyze-part can run without FreeCAD when the supplied context already includes model metadata.
+  sweep stays within the existing create/cost/fem/report service wrappers; it does not perform optimization.
   report remains FreeCAD-backed today, even when macOS falls back from freecadcmd to the bundled FreeCAD Python.
   Windows native, WSL -> Windows FreeCAD, and Linux runtime execution are compatibility paths, not equal-maturity claims.
 `.trim();
@@ -298,6 +312,8 @@ async function main() {
     await cmdCompareRev(args);
   } else if (command === 'design') {
     await cmdDesign(args.join(' '));
+  } else if (command === 'sweep') {
+    await cmdSweep(args);
   } else if (command === 'draw') {
     await cmdDraw(args);
   } else if (command === 'fem') {
@@ -314,12 +330,16 @@ async function main() {
     const flags = args.filter(a => a.startsWith('--'));
     const configArg = args.find(a => !a.startsWith('--'));
     await cmdValidate(configArg, flags);
+  } else if (command === 'validate-config') {
+    await cmdValidateConfig(args);
+  } else if (command === 'migrate-config') {
+    await cmdMigrateConfig(args);
   } else if (command === 'dfm') {
     await cmdDfm(args);
   } else if (command === 'inspect') {
     await cmdInspect(args[0]);
   } else if (command === 'serve') {
-    await cmdServe(args[0]);
+    await cmdServe(args);
   } else {
     console.error(`Unknown command: ${command}`);
     console.log(USAGE);
@@ -336,6 +356,51 @@ function resolveConfigCommandInput(rawArgs = []) {
   return { configPath, options, outputPath, outDir, stem };
 }
 
+function emitConfigWarnings(summary) {
+  for (const warning of summary?.warnings || []) {
+    console.warn(`Warning: ${warning}`);
+  }
+}
+
+async function loadConfigForCli(filepath) {
+  const result = await loadConfigWithDiagnostics(filepath);
+  emitConfigWarnings(result.summary);
+  return result.config;
+}
+
+function defaultMigratedConfigPath(configPath, format) {
+  const parsed = parse(configPath);
+  return resolve(parsed.dir, `${parsed.name}.migrated.${format === 'json' ? 'json' : 'toml'}`);
+}
+
+function summarizeConfigValidation(label, validation, { strict = false } = {}) {
+  const { summary } = validation;
+  const effectiveValid = validation.valid && (!strict || summary.warnings.length === 0);
+  console.log(`${effectiveValid ? 'VALID' : 'INVALID'}: ${label}`);
+  console.log(`  Errors: ${summary.errors.length}`);
+  console.log(`  Warnings: ${summary.warnings.length}${strict ? ' (strict mode)' : ''}`);
+  console.log(`  Config version: ${summary.input_version ?? 'legacy'} -> ${summary.target_version}`);
+
+  if (summary.changed_fields.length > 0) {
+    console.log('  Changed fields:');
+    for (const entry of summary.changed_fields) console.log(`    - ${entry}`);
+  }
+  if (summary.deprecated_fields.length > 0) {
+    console.log('  Deprecated fields:');
+    for (const entry of summary.deprecated_fields) console.log(`    - ${entry}`);
+  }
+  if (summary.errors.length > 0) {
+    console.log('  Errors:');
+    for (const entry of summary.errors) console.log(`    - ${entry}`);
+  }
+  if (summary.manual_follow_up.length > 0) {
+    console.log('  Manual follow-up:');
+    for (const entry of summary.manual_follow_up) console.log(`    - ${entry}`);
+  }
+
+  return effectiveValid;
+}
+
 async function loadRuntimeData(options = {}) {
   const runtimePath = resolveMaybe(options.runtime);
   if (!runtimePath) return null;
@@ -349,12 +414,12 @@ async function runProductionReadiness(rawArgs = [], { persistArtifacts = true } 
     process.exit(1);
   }
 
-  const config = await loadConfig(configPath);
+  const config = await loadConfigForCli(configPath);
   const runtimeData = await loadRuntimeData(options);
   const report = await runReadinessReportWorkflow({
     freecadRoot: PROJECT_ROOT,
     runScript: runWithCliStderr,
-    loadConfig,
+    loadConfig: loadConfigForCli,
     configPath,
     config,
     options: {
@@ -456,12 +521,12 @@ async function cmdGenerateStandardDocs(rawArgs = []) {
     process.exit(1);
   }
 
-  const config = await loadConfig(configPath);
+  const config = await loadConfigForCli(configPath);
   const runtimeData = await loadRuntimeData(options);
   const result = await runStandardDocsWorkflow({
     freecadRoot: PROJECT_ROOT,
     runScript: runWithCliStderr,
-    loadConfig,
+    loadConfig: loadConfigForCli,
     configPath,
     config,
     options: {
@@ -815,7 +880,7 @@ async function cmdValidate(configPath, flags = []) {
   }
 
   const absPath = resolveMaybe(configPath);
-  const config = await loadConfig(absPath);
+  const config = await loadConfigForCli(absPath);
   const plan = config.drawing_plan;
 
   if (!plan || typeof plan !== 'object' || Object.keys(plan).length === 0) {
@@ -917,11 +982,85 @@ async function cmdValidate(configPath, flags = []) {
   process.exit(Number.isInteger(code) ? code : 1);
 }
 
-async function cmdServe(portArg) {
-  const port = parseInt(portArg, 10) || 3000;
-  console.warn('Warning: fcad serve starts the legacy viewer/dev server. Prefer desktop or MCP automation flows for maintained workflows.');
-  const { startServer } = await import('../server.js');
-  startServer(port);
+async function cmdValidateConfig(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  const configPath = resolveMaybe(positional[0]);
+
+  if (!configPath) {
+    console.error('Error: config file path required');
+    console.error('  fcad validate-config configs/examples/ks_bracket.toml');
+    process.exit(1);
+  }
+
+  const { parsed } = await readRawConfigFile(configPath);
+  const validation = validateConfigDocument(parsed, { filepath: configPath });
+  const strict = options.strict === true;
+  const effectiveValid = validation.valid && (!strict || validation.summary.warnings.length === 0);
+
+  if (options.json === true) {
+    console.log(JSON.stringify({
+      valid: effectiveValid,
+      strict,
+      counts: {
+        errors: validation.summary.errors.length,
+        warnings: validation.summary.warnings.length,
+        changed_fields: validation.summary.changed_fields.length,
+        deprecated_fields: validation.summary.deprecated_fields.length,
+        manual_follow_up: validation.summary.manual_follow_up.length,
+      },
+      ...validation.summary,
+    }, null, 2));
+  } else {
+    summarizeConfigValidation(configPath, validation, { strict });
+  }
+
+  process.exit(effectiveValid ? 0 : 1);
+}
+
+async function cmdMigrateConfig(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  const configPath = resolveMaybe(positional[0]);
+
+  if (!configPath) {
+    console.error('Error: config file path required');
+    console.error('  fcad migrate-config configs/examples/ks_bracket.toml --out output/ks_bracket.migrated.toml');
+    process.exit(1);
+  }
+
+  const { parsed, format } = await readRawConfigFile(configPath);
+  const migration = migrateConfigDocument(parsed, { filepath: configPath });
+  if (migration.summary.errors.length > 0) {
+    summarizeConfigValidation(configPath, { valid: false, summary: migration.summary });
+    process.exit(1);
+  }
+
+  const outputPath = resolveMaybe(options.out) || defaultMigratedConfigPath(configPath, format);
+  const outputFormat = extname(outputPath).toLowerCase() === '.json' ? 'json' : 'toml';
+  mkdirSync(dirname(outputPath), { recursive: true });
+  writeFileSync(outputPath, serializeConfig(migration.config, outputFormat), 'utf8');
+
+  console.log(`Migrated config written to: ${outputPath}`);
+  summarizeConfigValidation(configPath, { valid: true, summary: migration.summary });
+}
+
+async function cmdServe(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  const port = parseInt(positional[0], 10) || 3000;
+
+  if (options.legacy === true || options['legacy-viewer'] === true) {
+    console.warn('Warning: fcad serve --legacy-viewer starts the legacy viewer shell.');
+    const { startServer } = await import('../server.js');
+    startServer(port);
+    return;
+  }
+
+  const jobsDir = resolveMaybe(options['jobs-dir']) || resolve(PROJECT_ROOT, 'output', 'jobs');
+  const { startLocalApiServer } = await import('../src/server/local-api-server.js');
+  await startLocalApiServer({
+    port,
+    jobsDir,
+    projectRoot: PROJECT_ROOT,
+  });
 }
 
 async function cmdDesign(description) {
@@ -935,7 +1074,7 @@ async function cmdDesign(description) {
   const result = await runDesignTask({
     freecadRoot: PROJECT_ROOT,
     runScript,
-    loadConfig,
+    loadConfig: loadConfigForCli,
     mode: 'design',
     description: description.trim(),
   });
@@ -972,7 +1111,7 @@ async function cmdDesign(description) {
   // Build the generated TOML
   console.log('\nBuilding model...');
   await cmdCreate(tomlPath);
-  console.log(`\nView: fcad serve → http://localhost:3000 → select ${fileName}`);
+  console.log('\nLegacy viewer: fcad serve --legacy-viewer → http://localhost:3000');
 }
 
 async function cmdDraw(rawArgs = []) {
@@ -1021,13 +1160,63 @@ async function cmdDraw(rawArgs = []) {
     overridePath,
     failUnderValue,
     weightsPresetValue,
-    loadConfig,
+    loadConfig: loadConfigForCli,
     deepMerge,
     generateDrawing,
     runScript: runWithCliStderr,
     onInfo: (message) => console.log(message),
     onError: (message) => console.error(message),
   });
+}
+
+async function cmdSweep(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  const configPath = resolveMaybe(positional[0]);
+  const matrixPath = resolveMaybe(options.matrix);
+  const outputDir = resolveMaybe(options['out-dir']);
+
+  if (!configPath) {
+    console.error('Error: config file path required');
+    console.error('  fcad sweep configs/examples/ks_bracket.toml --matrix configs/examples/sweeps/ks_bracket_geometry_sweep.toml');
+    process.exit(1);
+  }
+
+  if (!matrixPath) {
+    console.error('Error: sweep requires --matrix <file>');
+    console.error('  fcad sweep configs/examples/ks_bracket.toml --matrix configs/examples/sweeps/ks_bracket_geometry_sweep.toml');
+    process.exit(1);
+  }
+
+  requireExistingInputFile('config', configPath);
+  requireExistingInputFile('matrix', matrixPath);
+
+  const result = await runSweep({
+    projectRoot: PROJECT_ROOT,
+    configPath,
+    matrixPath,
+    outputDir,
+    loadConfig: loadConfigForCli,
+    onInfo: (message) => console.log(message),
+    onStderr: (text) => process.stderr.write(text),
+  });
+
+  console.log(`Sweep output directory: ${result.output_dir}`);
+  console.log(`Sweep summary JSON: ${result.summary_json}`);
+  console.log(`Sweep summary CSV: ${result.summary_csv}`);
+  console.log(`  Successful variants: ${result.summary.successful_variants}`);
+  console.log(`  Failed variants: ${result.summary.failed_variants}`);
+  if (result.summary.best_by_min_mass) {
+    console.log(`  Min mass: ${result.summary.best_by_min_mass.variant_id} (${result.summary.best_by_min_mass.value} kg)`);
+  }
+  if (result.summary.best_by_min_cost) {
+    console.log(`  Min cost: ${result.summary.best_by_min_cost.variant_id} (${result.summary.best_by_min_cost.value})`);
+  }
+  if (result.summary.stress_threshold) {
+    console.log(
+      `  Stress threshold ${result.summary.stress_threshold.threshold_mpa} MPa: `
+      + `${result.summary.stress_threshold.pass_count} pass / ${result.summary.stress_threshold.fail_count} fail`
+    );
+  }
 }
 
 async function cmdCreate(configPath) {
@@ -1039,7 +1228,7 @@ async function cmdCreate(configPath) {
   const absPath = resolveMaybe(configPath);
   console.log(`Loading config: ${absPath}`);
 
-  const config = await loadConfig(absPath);
+  const config = await loadConfigForCli(absPath);
   console.log(`Creating model: ${config.name || 'unnamed'}`);
   console.log(`  Shapes: ${config.shapes?.length || 0}`);
   console.log(`  Operations: ${config.operations?.length || 0}`);
@@ -1050,7 +1239,7 @@ async function cmdCreate(configPath) {
       ...opts,
       onStderr: (text) => process.stderr.write(text),
     }),
-    loadConfig,
+    loadConfig: loadConfigForCli,
     config,
   });
 
@@ -1089,7 +1278,7 @@ async function cmdFem(configPath) {
   const absPath = resolveMaybe(configPath);
   console.log(`Loading config: ${absPath}`);
 
-  const config = await loadConfig(absPath);
+  const config = await loadConfigForCli(absPath);
   const analysisType = config.fem?.analysis_type || 'static';
   console.log(`FEM Analysis: ${config.name || 'unnamed'} (${analysisType})`);
   console.log(`  Shapes: ${config.shapes?.length || 0}`);
@@ -1098,7 +1287,7 @@ async function cmdFem(configPath) {
   const result = await runFemService({
     freecadRoot: PROJECT_ROOT,
     runScript: runWithCliStderr,
-    loadConfig,
+    loadConfig: loadConfigForCli,
     configPath: absPath,
     config,
     fem: config.fem || {},
@@ -1141,7 +1330,7 @@ async function cmdTolerance(configPath, flags = []) {
   const absPath = resolveMaybe(configPath);
   console.log(`Loading config: ${absPath}`);
 
-  const config = await loadConfig(absPath);
+  const config = await loadConfigForCli(absPath);
 
   // Inject flags into tolerance config
   config.tolerance = config.tolerance || {};
@@ -1155,9 +1344,9 @@ async function cmdTolerance(configPath, flags = []) {
   const result = await runToleranceService({
     freecadRoot: PROJECT_ROOT,
     runScript: runWithCliStderr,
-    loadConfig,
+    loadConfig: loadConfigForCli,
     config,
-    standard: config.standard || 'KS',
+    standard: config.standard,
     monteCarlo: flags.includes('--monte-carlo') ? true : undefined,
   });
 
@@ -1258,7 +1447,7 @@ async function cmdDfm(rawArgs = []) {
   const absPath = resolveMaybe(configPath);
   console.log(`Loading config: ${absPath}`);
 
-  const config = await loadConfig(absPath);
+  const config = await loadConfigForCli(absPath);
 
   // Inject flags into manufacturing config
   config.manufacturing = config.manufacturing || {};
@@ -1278,10 +1467,10 @@ async function cmdDfm(rawArgs = []) {
   const result = await runDfm({
     freecadRoot: PROJECT_ROOT,
     runScript: runWithCliStderr,
-    loadConfig,
+    loadConfig: loadConfigForCli,
     config,
     process: config.manufacturing.process || 'machining',
-    standard: config.standard || 'KS',
+    standard: config.standard,
   });
 
   if (result.success) {
@@ -1331,7 +1520,7 @@ async function cmdReport(configPath, flags = []) {
 
   const absPath = resolveMaybe(configPath);
   console.log(`Loading config: ${absPath}`);
-  const config = await loadConfig(absPath);
+  const config = await loadConfigForCli(absPath);
   const includeTolerance = !flags.includes('--no-tolerance');
   const includeFem = flags.includes('--fem');
   const includeMC = flags.includes('--monte-carlo');
@@ -1347,9 +1536,9 @@ async function cmdReport(configPath, flags = []) {
     const tolResult = await runToleranceService({
       freecadRoot: PROJECT_ROOT,
       runScript: runWithCliStderr,
-      loadConfig,
+      loadConfig: loadConfigForCli,
       config,
-      standard: config.standard || 'KS',
+      standard: config.standard,
       monteCarlo: includeMC ? true : undefined,
     });
     if (tolResult.success) {
@@ -1364,10 +1553,10 @@ async function cmdReport(configPath, flags = []) {
     const dfmResult = await runDfm({
       freecadRoot: PROJECT_ROOT,
       runScript: runWithCliStderr,
-      loadConfig,
+      loadConfig: loadConfigForCli,
       config,
       process: config.manufacturing?.process || 'machining',
-      standard: config.standard || 'KS',
+      standard: config.standard,
     });
     if (dfmResult.success) {
       analysisResults.dfm = dfmResult;
@@ -1381,7 +1570,7 @@ async function cmdReport(configPath, flags = []) {
     const femResult = await runFemService({
       freecadRoot: PROJECT_ROOT,
       runScript: runWithCliStderr,
-      loadConfig,
+      loadConfig: loadConfigForCli,
       configPath: absPath,
       config,
       fem: config.fem || {},
@@ -1397,7 +1586,7 @@ async function cmdReport(configPath, flags = []) {
   const result = await generateReport({
     freecadRoot: PROJECT_ROOT,
     runScript: runWithCliStderr,
-    loadConfig,
+    loadConfig: loadConfigForCli,
     configPath: absPath,
     config,
     includeDrawing: false,
