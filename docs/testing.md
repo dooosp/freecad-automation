@@ -10,7 +10,7 @@ This repository now separates fast hosted checks from real FreeCAD-backed smoke 
 | Node integration | `npm run test:node:integration` | local API/job contracts, rule profiles, sweep logic, draw/report service integration | No |
 | Snapshots | `npm run test:snapshots` | normalized SVG and report preview regression baselines | No |
 | Python | `npm run test:py` | plain-Python and CLI-adjacent regression coverage that does not require a live FreeCAD launch | No |
-| Runtime smoke | `npm run test:runtime-smoke` | real `fcad` smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, and `report` using checked-in example configs | Yes |
+| Runtime smoke | `npm run test:runtime-smoke` | real `fcad` smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, and `report` using checked-in example configs | Yes |
 
 Runtime domain checks remain available for deeper local verification:
 
@@ -28,13 +28,13 @@ The runtime domain runner uses the same FreeCAD-backed script path as the CLI an
 | Workflow | What it runs | What it does not claim |
 | --- | --- | --- |
 | `Automation CI (hosted fast lanes)` | `test:node:contract`, `test:node:integration`, `test:snapshots`, `test:py` | No hosted FreeCAD install or launch |
-| `FreeCAD Runtime Smoke (self-hosted macOS)` | `test:runtime-smoke` plus runtime-backed Python smoke regressions | No Linux or Windows runtime ownership claims |
+| `FreeCAD Runtime Smoke (self-hosted macOS)` | `test:runtime-smoke` plus runtime-backed Python smoke regressions | No Linux or Windows runtime ownership claims, and no repository-owned tolerance smoke claim yet |
 
 The hosted workflow is the fast PR lane. The self-hosted workflow is scheduled/manual and is the repository-owned runtime smoke source of truth.
 
 ## Runtime Smoke Contents
 
-`npm run test:runtime-smoke` uses the checked-in `configs/examples/ks_bracket.toml` example and rewrites it into a throwaway output directory under `output/runtime-smoke/`.
+`npm run test:runtime-smoke` uses the checked-in `configs/examples/ks_bracket.toml` and `configs/examples/bracket_fem.toml` examples, rewrites them into throwaway configs, and writes runtime outputs under `output/runtime-smoke/`.
 
 The smoke lane verifies:
 
@@ -42,9 +42,12 @@ The smoke lane verifies:
 - `fcad create`
 - `fcad draw --bom`
 - `fcad inspect`
+- `fcad fem`
 - `fcad report`
 
-Artifacts are written under `output/runtime-smoke/` plus the generated report PDF in `output/`. The smoke script also writes `output/runtime-smoke/smoke-manifest.json` to make artifact uploads easier to inspect.
+The smoke harness validates the generated artifact manifests for `create`, `draw`, `fem`, and `report`, asserting that required artifact types exist, the recorded output files are non-empty, and key manifest fields stay populated. It also writes `output/runtime-smoke/smoke-manifest.json` so workflow uploads can be inspected without replaying the run.
+
+`fcad tolerance` is still intentionally outside the repository-owned smoke lane. It succeeds locally on the checked-in assembly example, but it remains a heavier assembly-plus-Monte-Carlo runtime path and is left to deeper local validation until we can harden it for CI without destabilizing the smoke lane.
 
 ## Support Matrix
 
@@ -96,3 +99,4 @@ npm run test:runtime:integration
 - Hosted CI does not prove that FreeCAD launches successfully on Linux or macOS.
 - Windows and WSL support are still contract-tested compatibility paths, not runtime-smoke-covered platforms.
 - The Python lane intentionally excludes runtime-backed smoke regressions so the default hosted lane stays fast and honest.
+- The tolerance flow remains local/deeper-runtime coverage only; it is not part of the repository-owned smoke lane yet.

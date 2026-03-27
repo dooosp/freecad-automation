@@ -326,7 +326,7 @@ async function main() {
   } else if (command === 'draw') {
     await cmdDraw(args);
   } else if (command === 'fem') {
-    await cmdFem(args[0]);
+    await cmdFem(args);
   } else if (command === 'tolerance') {
     const flags = args.filter(a => a.startsWith('--'));
     const configArg = args.find(a => !a.startsWith('--'));
@@ -1680,16 +1680,22 @@ async function cmdCreate(configPath) {
   return result;
 }
 
-async function cmdFem(configPath) {
+async function cmdFem(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  const configPath = positional[0];
   if (!configPath) {
     console.error('Error: config file path required');
     process.exit(1);
   }
 
   const absPath = resolveMaybe(configPath);
+  const manifestPath = options['manifest-out']
+    ? resolveMaybe(requireOptionValue('--manifest-out', options['manifest-out']))
+    : null;
   console.log(`Loading config: ${absPath}`);
 
-  const config = await loadConfigForCli(absPath);
+  const configDocument = await loadConfigDocumentForCli(absPath);
+  const config = configDocument.config;
   const analysisType = config.fem?.analysis_type || 'static';
   console.log(`FEM Analysis: ${config.name || 'unnamed'} (${analysisType})`);
   console.log(`  Shapes: ${config.shapes?.length || 0}`);
@@ -1722,6 +1728,34 @@ async function cmdFem(configPath) {
       for (const exp of result.exports) {
         console.log(`    ${exp.format}: ${exp.path} (${exp.size_bytes} bytes)`);
       }
+    }
+
+    if (manifestPath) {
+      const ruleProfile = await loadRuleProfile(PROJECT_ROOT, config, { silent: true });
+      const manifest = await buildArtifactManifest({
+        projectRoot: PROJECT_ROOT,
+        interface: 'cli',
+        command: 'fem',
+        jobType: 'fem',
+        status: 'succeeded',
+        configPath: absPath,
+        configSummary: configDocument.summary,
+        selectedProfile: null,
+        ruleProfile: summarizeRuleProfile(ruleProfile),
+        artifacts: createExportArtifactEntries(result.exports, 'analysis.fem'),
+        timestamps: {
+          created_at: nowIso(),
+          started_at: nowIso(),
+          finished_at: nowIso(),
+        },
+        details: {
+          analysis_type: fem.analysis_type || null,
+          export_count: result.exports?.length || 0,
+          safety_factor: fem.results?.safety_factor ?? null,
+        },
+      });
+      const emittedManifestPath = await writeArtifactManifest(manifestPath, manifest);
+      console.log(`  Manifest: ${emittedManifestPath}`);
     }
   } else {
     console.error(`\nError: ${result.error}`);
