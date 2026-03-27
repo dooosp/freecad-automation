@@ -19,7 +19,7 @@ Validation snapshot:
 
 - verified locally by maintainers on macOS with FreeCAD 1.1.x for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, and `report`
 - verified in hosted CI through explicit fast lanes: `test:node:contract`, `test:node:integration`, `test:snapshots`, and `test:py`; hosted CI does not install or launch FreeCAD
-- verified in repository-owned runtime CI through the `FreeCAD Runtime Smoke (self-hosted macOS)` workflow for real `check-runtime`, `create`, `draw --bom`, `inspect`, and `report`
+- verified in repository-owned runtime CI through the `FreeCAD Runtime Smoke (self-hosted macOS)` workflow for real `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, and `report`
 - experimental or not yet automated for live FreeCAD execution on Windows native, WSL -> Windows FreeCAD, and Linux; those paths remain compatibility paths, not equal-maturity claims
 
 Run `fcad check-runtime` first on any new machine and before troubleshooting a FreeCAD-backed failure.
@@ -65,7 +65,7 @@ If you are reviewing the repository on GitHub:
 - `npm run test:node:integration`: fast hosted-safe Node integration checks for API, sweep, draw/report service wiring, and rule profiles
 - `npm run test:snapshots`: normalized SVG/report snapshot regressions
 - `npm run test:py`: Python 3.11+ lane for non-runtime Python and CLI-adjacent regressions
-- `npm run test:runtime-smoke`: real FreeCAD-backed smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, and `report`
+- `npm run test:runtime-smoke`: real FreeCAD-backed smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, and `report`
 
 Deeper runtime-backed suites are available as `npm run test:runtime:model`, `test:runtime:drawing`, `test:runtime:analysis`, `test:runtime:report`, `test:runtime:integration`, and `test:runtime:full`.
 
@@ -74,7 +74,7 @@ Full details, workflow mapping, and local commands live in [docs/testing.md](./d
 ## Supported And Verified Platform Scope
 
 - verified maintainer path: macOS + `FreeCAD.app` 1.1.x for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, and `report`
-- verified repository-owned runtime CI path: self-hosted macOS smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, and `report`
+- verified repository-owned runtime CI path: self-hosted macOS smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, and `report`
 - verified hosted CI path: Node contract, Node integration, snapshots, and Python lanes without installing or launching FreeCAD
 - compatibility paths only today: Windows native, WSL -> Windows FreeCAD, and Linux runtime execution
 
@@ -696,7 +696,7 @@ fcad check-runtime
 npm run test:runtime-smoke
 ```
 
-`npm run test:runtime-smoke` is the repository's real FreeCAD-backed smoke lane for `check-runtime`, `create`, `draw --bom`, `inspect`, and `report`.
+`npm run test:runtime-smoke` is the repository's real FreeCAD-backed smoke lane for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, and `report`.
 
 ## Release Prep
 
