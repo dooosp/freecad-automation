@@ -12,6 +12,17 @@ export function parseProfileArg(argv = process.argv, env = process.env) {
   return 'core';
 }
 
+export function parseLayerIdsArg(argv = process.argv, env = process.env) {
+  const raw = argv.find((arg) => arg.startsWith('--layers='));
+  const layerValue = raw ? raw.slice('--layers='.length) : env.FCAD_TEST_LAYERS;
+  if (!layerValue) return null;
+  const layerIds = layerValue
+    .split(',')
+    .map((layerId) => layerId.trim())
+    .filter(Boolean);
+  return layerIds.length > 0 ? layerIds : null;
+}
+
 export function materializeLayers(layerDefs, caseRegistry) {
   return layerDefs.map((layer) => ({
     ...layer,
@@ -45,10 +56,26 @@ export async function main({ argv = process.argv, env = process.env } = {}) {
   }
 
   const runtimeReady = hasFreeCADRuntime();
+  const requestedLayerIds = parseLayerIdsArg(argv, env);
   const selectedLayers = profile === 'full' && runtimeReady
     ? [...CORE_CASE_LAYERS, ...FULL_ONLY_CASE_LAYERS]
     : CORE_CASE_LAYERS;
-  const layers = materializeLayers(selectedLayers, caseRegistry);
+  const availableLayerIds = new Set(selectedLayers.map((layer) => layer.id));
+
+  if (requestedLayerIds) {
+    const unknownLayerIds = requestedLayerIds.filter((layerId) => !availableLayerIds.has(layerId));
+    if (unknownLayerIds.length > 0) {
+      throw new Error(`Unknown runtime test layer(s): ${unknownLayerIds.join(', ')}`);
+    }
+    if (!runtimeReady && requestedLayerIds.some((layerId) => layerId !== 'runtime')) {
+      throw new Error(`Requested runtime-backed layer(s) require a FreeCAD runtime: ${requestedLayerIds.join(', ')}`);
+    }
+  }
+
+  const filteredLayers = requestedLayerIds
+    ? selectedLayers.filter((layer) => requestedLayerIds.includes(layer.id))
+    : selectedLayers;
+  const layers = materializeLayers(filteredLayers, caseRegistry);
 
   for (const layer of layers) {
     if (!runtimeReady && layer.id !== 'runtime') continue;

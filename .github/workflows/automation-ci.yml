@@ -1,4 +1,4 @@
-name: Automation CI (hosted contract checks)
+name: Automation CI (hosted fast lanes)
 
 on:
   push:
@@ -14,8 +14,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  node-runtime-contract:
-    name: Hosted Node runtime contracts (no FreeCAD install)
+  node-contract:
+    name: Node contract lane (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
@@ -36,24 +36,66 @@ jobs:
       - name: CI Diagnostics
         run: |
           mkdir -p .ci
-          bash .github/scripts/ci-diagnostics.sh | tee .ci/node-runtime-diagnostics.txt
+          bash .github/scripts/ci-diagnostics.sh | tee .ci/node-contract-diagnostics.txt
 
       - name: Install Node Dependencies
         run: bash .github/scripts/retry.sh 3 15 npm ci --no-audit --prefer-offline
 
-      - name: Node runtime contract tests (no FreeCAD install)
-        run: npm run test:node:lite
+      - name: Run Node contract lane
+        run: npm run test:node:contract
 
       - name: Upload Core Diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: node-runtime-diagnostics-${{ matrix.os }}-${{ github.run_id }}
-          path: .ci/node-runtime-diagnostics.txt
+          name: node-contract-${{ matrix.os }}-${{ github.run_id }}
+          path: .ci/node-contract-diagnostics.txt
           if-no-files-found: warn
 
-  python-unit:
-    name: Hosted Python unit tests
+  node-integration:
+    name: Node integration lane
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install Node Dependencies
+        run: bash .github/scripts/retry.sh 3 15 npm ci --no-audit --prefer-offline
+
+      - name: Run Node integration lane
+        run: npm run test:node:integration
+
+  snapshots:
+    name: Snapshot lane
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install Node Dependencies
+        run: bash .github/scripts/retry.sh 3 15 npm ci --no-audit --prefer-offline
+
+      - name: Run snapshot lane
+        run: npm run test:snapshots
+
+  python:
+    name: Python lane
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
@@ -78,13 +120,13 @@ jobs:
       - name: Install Python Test Dependencies
         run: bash .github/scripts/retry.sh 3 15 python3 -m pip install --upgrade pip pytest
 
-      - name: Python Unit Tests
+      - name: Run Python lane
         run: npm run test:py
 
       - name: Upload Python Diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: python-unit-${{ github.run_id }}
+          name: python-lane-${{ github.run_id }}
           path: .pytest_cache
           if-no-files-found: warn

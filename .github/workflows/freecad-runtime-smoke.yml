@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   macos-runtime-smoke:
-    name: Self-hosted macOS FreeCAD 1.1 smoke
+    name: Self-hosted macOS FreeCAD smoke
     runs-on: [self-hosted, macOS, freecad]
     timeout-minutes: 45
     steps:
@@ -28,6 +28,11 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: CI Diagnostics
         run: |
           mkdir -p .ci
@@ -39,8 +44,11 @@ jobs:
       - name: Verify FreeCAD runtime
         run: node bin/fcad.js check-runtime
 
-      - name: Run runtime smoke
-        run: npm run smoke:runtime
+      - name: Run CLI runtime smoke lane
+        run: npm run test:runtime-smoke
+
+      - name: Run runtime-backed Python smoke regressions
+        run: node scripts/run-pytest.js -q tests/test_cli_runtime.py tests/test_infotainment_draw_qa_regression.py tests/test_infotainment_hole_dia_regression.py
 
       - name: Upload smoke artifacts
         if: always()
@@ -51,4 +59,5 @@ jobs:
             .ci/freecad-runtime-diagnostics.txt
             output/runtime-smoke
             output/*runtime_smoke*
+            .pytest_cache
           if-no-files-found: warn

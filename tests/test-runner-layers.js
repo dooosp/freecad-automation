@@ -37,8 +37,8 @@ export const CORE_CASE_LAYERS = [
     ],
   },
   {
-    id: 'analysis-report',
-    label: 'Analysis / Report',
+    id: 'analysis',
+    label: 'Analysis',
     caseNames: [
       'FEM analysis',
       'Tolerance DB',
@@ -46,6 +46,12 @@ export const CORE_CASE_LAYERS = [
       'Tolerance fit analysis',
       'Tolerance stack-up',
       'Tolerance Monte Carlo',
+    ],
+  },
+  {
+    id: 'report',
+    label: 'Report',
+    caseNames: [
       'Engineering report',
     ],
   },

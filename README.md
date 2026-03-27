@@ -10,7 +10,8 @@ The repository has two public layers:
 Validation snapshot:
 
 - verified locally by maintainers on macOS with FreeCAD 1.1.x for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, and `report`
-- verified in CI for runtime detection/path contracts on `ubuntu-24.04` and `macos-14`, plus Python unit/CLI coverage on `ubuntu-24.04`; hosted CI does not install or launch FreeCAD
+- verified in hosted CI through explicit fast lanes: `test:node:contract`, `test:node:integration`, `test:snapshots`, and `test:py`; hosted CI does not install or launch FreeCAD
+- verified in repository-owned runtime CI through the `FreeCAD Runtime Smoke (self-hosted macOS)` workflow for real `check-runtime`, `create`, `draw --bom`, `inspect`, and `report`
 - experimental or not yet automated for live FreeCAD execution on Windows native, WSL -> Windows FreeCAD, and Linux; those paths remain compatibility paths, not equal-maturity claims
 
 Run `fcad check-runtime` first on any new machine and before troubleshooting a FreeCAD-backed failure.
@@ -33,9 +34,10 @@ For a first local verification:
 npm install
 npm link
 fcad check-runtime
-fcad create configs/examples/ks_bracket.toml
-fcad draw configs/examples/ks_bracket.toml --bom
-fcad inspect output/ks_bracket.step
+npm run test:node:contract
+npm run test:node:integration
+npm run test:snapshots
+npm run test:runtime-smoke
 ```
 
 If you are reviewing the repository on GitHub:
@@ -48,23 +50,24 @@ If you are reviewing the repository on GitHub:
 6. Skim the [readiness report markdown](./docs/examples/infotainment-display-bracket/readiness-report.md).
 7. Inspect the [example config](./configs/examples/infotainment_display_bracket.toml) and the command classification below.
 
+## Test Lanes
+
+- `npm run test:node:contract`: fast hosted-safe Node contracts for config/runtime path/invocation boundaries
+- `npm run test:node:integration`: fast hosted-safe Node integration checks for API, sweep, draw/report service wiring, and rule profiles
+- `npm run test:snapshots`: normalized SVG/report snapshot regressions
+- `npm run test:py`: Python 3.11+ lane for non-runtime Python and CLI-adjacent regressions
+- `npm run test:runtime-smoke`: real FreeCAD-backed smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, and `report`
+
+Deeper runtime-backed suites are available as `npm run test:runtime:model`, `test:runtime:drawing`, `test:runtime:analysis`, `test:runtime:report`, `test:runtime:integration`, and `test:runtime:full`.
+
+Full details, workflow mapping, and local commands live in [docs/testing.md](./docs/testing.md).
+
 ## Supported And Verified Platform Scope
 
-### Verified locally
-
-- macOS + `FreeCAD.app` 1.1.x: `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, `report`
-
-### Verified in CI
-
-- Node runtime detection, path conversion, and invocation contract tests on `ubuntu-24.04` and `macos-14`
-- Python unit and CLI tests on `ubuntu-24.04`
-- Hosted CI does not install or launch FreeCAD
-
-### Experimental / not yet automated
-
-- Windows native: explicit `FREECAD_*` overrides and invocation logic are covered, but there is no repository-owned FreeCAD runtime smoke execution
-- WSL -> Windows FreeCAD: explicit bridge/path conversion logic is covered, but there is no default bridge assumption and no repository-owned runtime smoke execution
-- Linux: path discovery and command assembly are covered, but there is no repository-owned FreeCAD runtime smoke execution yet
+- verified maintainer path: macOS + `FreeCAD.app` 1.1.x for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, and `report`
+- verified repository-owned runtime CI path: self-hosted macOS smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, and `report`
+- verified hosted CI path: Node contract, Node integration, snapshots, and Python lanes without installing or launching FreeCAD
+- compatibility paths only today: Windows native, WSL -> Windows FreeCAD, and Linux runtime execution
 
 ## Target Use Cases
 
@@ -108,7 +111,7 @@ This keeps Codex focused on the existing `config -> create -> draw -> dfm -> tol
 
 ## Command Surface
 
-Run `fcad check-runtime` before any FreeCAD-backed command on a new machine and as the first troubleshooting step for runtime-backed failures. It prints the resolved runtime, the candidate paths that were checked, and the env-var precedence order.
+Run `fcad check-runtime` before any FreeCAD-backed command on a new machine and as the first troubleshooting step for runtime-backed failures. It prints searched candidate paths, the selected runtime, active env overrides, detected FreeCAD/Python details, command classes, and remediation guidance.
 
 ### Command Classification
 
@@ -663,7 +666,7 @@ This repository does not assume a default WSL -> Windows bridge anymore. If you 
 Hosted contract checks:
 
 ```bash
-npm run test:node:runtime
+npm run test:node:contract
 ```
 
 These checks cover runtime discovery, command assembly, and path conversion logic. They do not install or execute FreeCAD.
@@ -706,7 +709,6 @@ The smoke script currently exercises:
 - `fcad create`
 - `fcad draw --bom`
 - `fcad inspect`
-- `fcad fem`
 - `fcad report`
 
 For CI, the repository also includes a self-hosted macOS workflow that uses the same smoke script and requires a runner labeled for FreeCAD with FreeCAD 1.1 installed.
@@ -721,7 +723,7 @@ If you want to run the smoke steps manually instead of the script, use:
 cd /path/to/freecad-automation
 export FREECAD_APP="/Applications/FreeCAD.app"
 fcad check-runtime
-npm run test:node:runtime
+npm run test:node:contract
 node bin/fcad.js create configs/examples/ks_bracket.toml
 node bin/fcad.js draw configs/examples/ks_bracket.toml --bom
 node bin/fcad.js inspect output/ks_bracket.step

@@ -1,8 +1,9 @@
 import { createAdvancedMotionCases } from './advanced-motion-cases.js';
-import { createAnalysisReportCases } from './analysis-report-cases.js';
+import { createAnalysisCases } from './analysis-cases.js';
 import { createDrawingCases } from './drawing-cases.js';
 import { createIntegrationCases } from './integration-cases.js';
 import { createModelCases } from './model-cases.js';
+import { createReportCases } from './report-cases.js';
 import { createRuntimeCases } from './runtime-cases.js';
 
 export function createCaseRegistry(assert) {
@@ -10,7 +11,8 @@ export function createCaseRegistry(assert) {
     ...createRuntimeCases(assert),
     ...createModelCases(assert),
     ...createDrawingCases(assert),
-    ...createAnalysisReportCases(assert),
+    ...createAnalysisCases(assert),
+    ...createReportCases(assert),
     ...createIntegrationCases(assert),
     ...createAdvancedMotionCases(assert),
   ]);
