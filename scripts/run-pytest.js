@@ -4,7 +4,7 @@ const MIN_MAJOR = 3;
 const MIN_MINOR = 11;
 
 function parseVersion(stdout) {
-  const match = String(stdout).trim().match(/^(\d+)\.(\d+)\.(\d+)/);
+  const match = String(stdout).trim().match(/^(?:Python\s+)?(\d+)\.(\d+)\.(\d+)/);
   if (!match) return null;
   return {
     major: Number(match[1]),

@@ -111,7 +111,7 @@ Options:
     --runtime <path>             Runtime JSON for line stabilization / launch review
     --batch <n>                  Batch size assumption for cost/readiness workflow
     --site <name>                Site label override for summaries
-    --process <name>             Override manufacturing process when supported
+    --process <name>             Override manufacturing process when supported, including dfm
     --material <name>            Override material for cost/readiness workflow
     --context <path>             Engineering context JSON
     --geometry <path>            Geometry intelligence JSON
@@ -128,7 +128,6 @@ Options:
     --fail-under N               Fail if QA score < N (with draw)
     --weights-preset P           QA weight profile: default|auto|flange|shaft|...
     --strict                     Treat warnings as errors (with validate/dfm)
-    --process P                  Override manufacturing process (with dfm)
     --recommend                  Auto-recommend fit specs (with tolerance)
     --csv                        Export tolerance report as CSV (with tolerance)
     --monte-carlo                Include Monte Carlo simulation (with tolerance/report)

@@ -10,7 +10,7 @@ This matrix is the public support boundary for the current release. It separates
 | --- | --- | --- | --- | --- |
 | macOS + `FreeCAD.app` 1.1.x | Yes | Yes | Verified | Maintainer-local verification covers `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, and `report`. Repository-owned runtime smoke covers `check-runtime`, `create`, `draw --bom`, `inspect`, and `report` on self-hosted macOS. |
 | macOS hosted CI (`macos-14`) | N/A for live FreeCAD | No | Hosted-safe only | Hosted CI runs Node runtime-contract tests only. It does not install or launch FreeCAD. |
-| Ubuntu hosted CI (`ubuntu-24.04`) | N/A for live FreeCAD | No | Hosted-safe only | Hosted CI runs Node contract, Node integration, snapshot, and Python lanes without installing FreeCAD. |
+| Ubuntu hosted CI (`ubuntu-24.04`) | N/A for live FreeCAD | No | Hosted-safe only | Hosted CI runs Node contract, Node integration, snapshots, and Python lanes without installing FreeCAD. |
 | Linux local with FreeCAD installed | Yes | No | Compatibility path | Runtime discovery and command assembly exist, but there is no repository-owned live runtime smoke on Linux yet. Validate locally with `fcad check-runtime` and your own smoke runs. |
 | Windows native + FreeCAD 1.1 | Yes | No | Compatibility path | Use explicit `FREECAD_*` overrides if PATH discovery is insufficient. Runtime ownership is not yet backed by repository-owned live smoke. |
 | WSL -> Windows FreeCAD | Yes, with explicit override | No | Compatibility path | No default bridge is assumed. Point `FREECAD_DIR`, `FREECAD_BIN`, or `FREECAD_PYTHON` at the Windows install explicitly. |

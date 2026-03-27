@@ -663,55 +663,35 @@ This repository does not assume a default WSL -> Windows bridge anymore. If you 
 
 ## Testing
 
-Hosted contract checks:
+Fast hosted-safe Node lanes:
 
 ```bash
+npm test
+# or run the lanes separately
 npm run test:node:contract
+npm run test:node:integration
+npm run test:snapshots
 ```
 
-These checks cover runtime discovery, command assembly, and path conversion logic. They do not install or execute FreeCAD.
+`npm test` runs the three hosted-safe Node lanes defined in `package.json`: runtime/config contracts, non-runtime integration coverage, and normalized SVG/report snapshots. These lanes do not install or launch FreeCAD.
 
-Python and CLI checks:
+Python lane:
 
 ```bash
 npm run test:py
 ```
 
-`npm run test:py` shells out to `python3 -m pytest -q`, so `python3` should resolve to Python 3.11 or newer. Hosted CI currently pins Python 3.11 to match the documented minimum.
+`npm run test:py` requires Python 3.11 or newer and matches the hosted `Automation CI (hosted fast lanes)` workflow's Python step.
 
-Layered integration runner:
-
-```bash
-npm test
-npm run test:full
-```
-
-`npm test` now runs the staged integration runner through the existing `tests/test-runner.js` compatibility shim. Internally the cases are split into runtime, model, drawing, analysis/report, and integration modules, while `npm run test:full` adds the advanced motion/design layer on top.
-
-## Runtime Smoke Coverage
-
-GitHub-hosted CI currently covers:
-
-- Node runtime-contract tests on `ubuntu-24.04` and `macos-14`
-- Python unit and CLI tests on `ubuntu-24.04`
-
-GitHub-hosted CI does not currently install or launch FreeCAD.
-
-For a real runtime-backed smoke pass on a FreeCAD-capable machine:
+Real runtime smoke:
 
 ```bash
-npm run smoke:runtime
+fcad check-runtime
+npm run test:runtime-smoke
+# alias: npm run smoke:runtime
 ```
 
-The smoke script currently exercises:
-
-- `fcad check-runtime`
-- `fcad create`
-- `fcad draw --bom`
-- `fcad inspect`
-- `fcad report`
-
-For CI, the repository also includes a self-hosted macOS workflow that uses the same smoke script and requires a runner labeled for FreeCAD with FreeCAD 1.1 installed.
+`npm run test:runtime-smoke` is the real FreeCAD-backed smoke lane for `check-runtime`, `create`, `draw --bom`, `inspect`, and `report`. The repository-owned CI version runs through the `FreeCAD Runtime Smoke (self-hosted macOS)` workflow. Full lane mapping and deeper runtime suites live in [docs/testing.md](./docs/testing.md).
 
 ## Release Prep
 
