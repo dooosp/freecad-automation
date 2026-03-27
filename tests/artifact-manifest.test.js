@@ -59,6 +59,7 @@ try {
 
   const validation = validateArtifactManifest(manifest);
   assert.equal(validation.ok, true, validation.errors.join('\n'));
+  assert.equal(manifest.manifest_version, '1.0');
   assert.equal(manifest.command, 'readiness-report');
   assert.equal(manifest.selected_profile, 'site_korea_ulsan');
   assert.equal(manifest.rule_packs.standards.id, 'ks-basic');

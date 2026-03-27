@@ -111,7 +111,7 @@ This keeps Codex focused on the existing `config -> create -> draw -> dfm -> tol
 
 ## Command Surface
 
-Run `fcad check-runtime` before any FreeCAD-backed command on a new machine and as the first troubleshooting step for runtime-backed failures. It prints searched candidate paths, the selected runtime, active env overrides, detected FreeCAD/Python details, command classes, and remediation guidance.
+Run `fcad check-runtime` before any FreeCAD-backed command on a new machine and as the first troubleshooting step for runtime-backed failures. It prints searched candidate paths, the selected runtime, active env overrides, detected FreeCAD/Python details, command classes, and remediation guidance. Add `--json` when a tool needs the same machine-readable runtime contract that the local API exposes from `GET /health`.
 
 ### Command Classification
 
@@ -151,16 +151,20 @@ fcad compare-rev <baseline.json> <candidate.json>
 
 ```bash
 fcad check-runtime
+fcad check-runtime --json
 fcad create <config.toml|json>
 fcad draw <config.toml|json>
 fcad report <config.toml|json>
-fcad inspect <model.step|fcstd>
-fcad fem <config.toml|json>
-fcad tolerance <config.toml|json>
+fcad inspect <model.step|fcstd> [--manifest-out <path>]
+fcad fem <config.toml|json> [--manifest-out <path>]
+fcad tolerance <config.toml|json> [--manifest-out <path>]
+fcad dfm <config.toml|json> [--manifest-out <path>]
 fcad sweep <config.toml|json> --matrix <matrix.toml|json> [--out-dir <dir>]
 ```
 
 `report` is still classified as runtime-backed because it runs inside the FreeCAD bundle on macOS even when it falls back from `freecadcmd` to the bundled FreeCAD Python executable.
+
+`--manifest-out <path>` is the provenance escape hatch for stdout-heavy commands. It keeps the default human-readable stdout intact while letting tooling capture a stable manifest alongside `inspect`, `fem`, `tolerance`, or `dfm`.
 
 ### Parameter Sweep
 
@@ -257,7 +261,7 @@ Supported job types:
 
 Endpoint usage:
 
-- `GET /health` returns API liveness plus detected FreeCAD runtime details
+- `GET /health` returns API liveness plus the same shared runtime diagnostics contract used by `fcad check-runtime --json`
 - `POST /jobs` accepts a JSON job request and returns `202 Accepted` with the queued job record
 - `GET /jobs/:id` returns the latest status, request, diagnostics, result, status history, and storage metadata
 - `GET /jobs/:id/artifacts` returns the flattened known artifact list plus persisted storage file metadata

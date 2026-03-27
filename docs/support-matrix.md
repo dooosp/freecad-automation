@@ -1,6 +1,6 @@
 # Support Matrix
 
-`fcad check-runtime` is the central installation and runtime-diagnostic tool for this repository. Run it first on any new machine and before troubleshooting a FreeCAD-backed command.
+`fcad check-runtime` is the central installation and runtime-diagnostic tool for this repository. Run it first on any new machine and before troubleshooting a FreeCAD-backed command. Use `fcad check-runtime --json` when tooling needs the same machine-readable runtime contract that `GET /health` returns.
 
 This matrix is the public support boundary for the current release. It separates repository-owned verification from compatibility paths that still depend on user-local validation.
 

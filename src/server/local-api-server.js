@@ -1,14 +1,16 @@
 import express from 'express';
 import { createServer } from 'node:http';
-import { describeFreeCADRuntime, getFreeCADRuntime } from '../../lib/paths.js';
+import { buildRuntimeDiagnostics } from '../../lib/runtime-diagnostics.js';
 import { createJobStore } from '../services/jobs/job-store.js';
 import { createJobExecutor, validateJobRequest } from '../services/jobs/job-executor.js';
+import { LOCAL_API_SERVICE, LOCAL_API_VERSION } from './local-api-contract.js';
 import { validateLocalApiResponse } from './local-api-schemas.js';
 
 function createErrorResponse(code, messages, status = 400) {
   return {
     status,
     body: {
+      api_version: LOCAL_API_VERSION,
       ok: false,
       error: {
         code,
@@ -26,19 +28,17 @@ function assertResponse(kind, payload) {
   return payload;
 }
 
-function buildRuntimeStatus() {
-  const runtime = getFreeCADRuntime();
+export function buildHealthPayload({
+  jobsDir,
+  runtimeDiagnostics = buildRuntimeDiagnostics(),
+}) {
   return {
-    available: runtime.available,
-    mode: runtime.mode || '',
-    source: runtime.source || '',
-    path_style: runtime.pathStyle || '',
-    executable: runtime.executable || '',
-    python_executable: runtime.pythonExecutable || '',
-    runtime_executable: runtime.runtimeExecutable || '',
-    gui_executable: runtime.guiExecutable || '',
-    checked_candidates: runtime.checkedCandidates || [],
-    description: describeFreeCADRuntime(runtime),
+    api_version: LOCAL_API_VERSION,
+    ok: true,
+    status: 'ok',
+    service: LOCAL_API_SERVICE,
+    jobs_dir: jobsDir,
+    runtime: runtimeDiagnostics,
   };
 }
 
@@ -70,6 +70,7 @@ async function toJobResponse(jobStore, job) {
 export function createLocalApiServer({
   projectRoot,
   jobsDir,
+  runtimeDiagnosticsFactory = buildRuntimeDiagnostics,
 }) {
   const app = express();
   const server = createServer(app);
@@ -91,13 +92,10 @@ export function createLocalApiServer({
   });
 
   app.get('/health', (_req, res) => {
-    const payload = {
-      ok: true,
-      status: 'ok',
-      service: 'fcad-local-api',
-      jobs_dir: jobStore.jobsDir,
-      runtime: buildRuntimeStatus(),
-    };
+    const payload = buildHealthPayload({
+      jobsDir: jobStore.jobsDir,
+      runtimeDiagnostics: runtimeDiagnosticsFactory(),
+    });
     res.json(assertResponse('health', payload));
   });
 
@@ -111,6 +109,7 @@ export function createLocalApiServer({
 
     const job = await jobStore.createJob(validation.request);
     const payload = {
+      api_version: LOCAL_API_VERSION,
       ok: true,
       job: await toJobResponse(jobStore, job),
     };
@@ -127,6 +126,7 @@ export function createLocalApiServer({
     try {
       const job = await jobStore.getJob(req.params.id);
       const payload = {
+        api_version: LOCAL_API_VERSION,
         ok: true,
         job: await toJobResponse(jobStore, job),
       };
@@ -143,6 +143,7 @@ export function createLocalApiServer({
       const artifacts = await jobStore.listArtifacts(req.params.id);
       const storage = await jobStore.describeStorage(req.params.id);
       const payload = {
+        api_version: LOCAL_API_VERSION,
         ok: true,
         job_id: req.params.id,
         artifacts,

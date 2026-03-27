@@ -40,6 +40,7 @@ batch_size = 10
   const aggregateManifest = JSON.parse(readFileSync(result.manifest_path, 'utf8'));
   const aggregateValidation = validateArtifactManifest(aggregateManifest);
   assert.equal(aggregateValidation.ok, true, aggregateValidation.errors.join('\n'));
+  assert.equal(aggregateManifest.manifest_version, '1.0');
   assert.equal(aggregateManifest.status, 'succeeded');
   assert.equal(
     aggregateManifest.artifacts.some((artifact) => artifact.type === 'sweep.summary.json'),
@@ -52,6 +53,7 @@ batch_size = 10
     const variantManifest = JSON.parse(readFileSync(variant.manifest_path, 'utf8'));
     const variantValidation = validateArtifactManifest(variantManifest);
     assert.equal(variantValidation.ok, true, variantValidation.errors.join('\n'));
+    assert.equal(variantManifest.manifest_version, '1.0');
     assert.equal(variantManifest.job_type, 'sweep_variant');
     assert.equal(
       variantManifest.artifacts.some((artifact) => artifact.type === 'sweep.variant.result'),

@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { createLocalApiServer } from '../src/server/local-api-server.js';
+import { LOCAL_API_VERSION } from '../src/server/local-api-contract.js';
 import { validateLocalApiResponse } from '../src/server/local-api-schemas.js';
 import { hasFreeCADRuntime } from '../lib/paths.js';
 
@@ -60,10 +61,13 @@ if (!hasFreeCADRuntime()) {
 
     const healthResponse = await fetch(`${baseUrl}/health`);
     const health = await healthResponse.json();
+    assert.equal(health.api_version, LOCAL_API_VERSION);
     assert.equal(health.ok, true);
     assert.equal(health.status, 'ok');
     assert.equal(typeof health.runtime.available, 'boolean');
     assert.equal(typeof health.runtime.description, 'string');
+    assert.equal(typeof health.runtime.diagnostics_version, 'string');
+    assert.equal(Array.isArray(health.runtime.command_classes.freecad_backed), true);
     assert.equal(validateLocalApiResponse('health', health).ok, true);
 
     const createResponse = await fetch(`${baseUrl}/jobs`, {
@@ -76,6 +80,7 @@ if (!hasFreeCADRuntime()) {
     });
     assert.equal(createResponse.status, 202);
     const created = await createResponse.json();
+    assert.equal(created.api_version, LOCAL_API_VERSION);
     assert.equal(created.ok, true);
     assert.equal(validateLocalApiResponse('job', created).ok, true);
     assert.equal(created.job.storage.files.request.exists, true);
@@ -94,6 +99,7 @@ if (!hasFreeCADRuntime()) {
 
     const artifactResponse = await fetch(`${baseUrl}/jobs/${created.job.id}/artifacts`);
     const artifactsPayload = await artifactResponse.json();
+    assert.equal(artifactsPayload.api_version, LOCAL_API_VERSION);
     assert.equal(artifactsPayload.ok, true);
     assert.equal(validateLocalApiResponse('artifacts', artifactsPayload).ok, true);
     assert.equal(artifactsPayload.manifest.command, 'create');

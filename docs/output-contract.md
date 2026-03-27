@@ -1,6 +1,6 @@
 # Output Contract
 
-FreeCAD Automation now emits a first-class artifact manifest for artifact-producing CLI runs, local API jobs, and parameter sweeps.
+FreeCAD Automation now emits a first-class artifact manifest for artifact-producing CLI runs, local API jobs, parameter sweeps, and stdout-oriented commands when `--manifest-out <path>` is supplied.
 
 The canonical schema lives at [schemas/artifact-manifest.schema.json](../schemas/artifact-manifest.schema.json).
 
@@ -22,6 +22,7 @@ The canonical schema lives at [schemas/artifact-manifest.schema.json](../schemas
 
 Every manifest uses the same core top-level fields:
 
+- `manifest_version` and `schema_version`: explicit stability/version markers for the manifest contract
 - `interface`: `cli`, `api`, or `sweep`
 - `command` and `job_type`
 - `status`
@@ -33,6 +34,8 @@ Every manifest uses the same core top-level fields:
 - `artifacts`: typed artifact records with `path`, `scope`, `stability`, and optional file metadata
 - `timestamps`
 - `app_version`, `git_commit`
+
+`schema_version` remains for backward compatibility with earlier tooling. New tooling should key on `manifest_version`.
 
 ## Artifact Stability
 
@@ -48,6 +51,7 @@ Stable user-facing types currently include:
 
 - `config.input`
 - `config.effective`
+- `model.input`
 - `model.<format>`
 - `drawing.svg`
 - `report.pdf`
@@ -85,6 +89,7 @@ Internal types include:
 ## CLI vs API vs Sweep
 
 - CLI writes the manifest next to the artifact set it just produced.
+- Stdout-oriented CLI commands such as `inspect`, `fem`, `tolerance`, and `dfm` keep their current stdout output by default, but can emit a manifest explicitly with `--manifest-out <path>`.
 - Local API stores the same manifest shape on the job record and persists it as `jobs/<job-id>/artifact-manifest.json`.
 - `GET /jobs/:id` returns `job.manifest`.
 - `GET /jobs/:id/artifacts` returns the flattened artifact list derived from `job.manifest.artifacts` plus the same `manifest` object.
@@ -102,3 +107,21 @@ Local API job-store files are different:
 - `artifact-manifest.json`
 
 `artifact-manifest.json` is the stable provenance contract. The other job-store files are internal persistence and should not be treated as user-facing output artifacts.
+
+## Runtime Diagnostics Contract
+
+`fcad check-runtime --json` and `GET /health` share the same runtime diagnostics story. The local API returns that shared payload as `runtime`.
+
+Version markers:
+
+- `diagnostics_version`: version of the shared runtime diagnostics payload
+- `api_version`: version of the local API response envelope
+
+Shared runtime fields include:
+
+- selected runtime details and searched candidate paths
+- environment override resolution order and active values
+- Python and FreeCAD version/probe details when available
+- command classes and a per-command capability map
+- warnings, errors, remediation, and next steps
+- `support_boundary_note` when the detected path is outside the repository-owned verified macOS runtime path
