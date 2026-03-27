@@ -1,8 +1,12 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { extname, join, resolve } from 'node:path';
 
+import {
+  buildArtifactManifest,
+  writeArtifactManifest,
+} from '../../../lib/artifact-manifest.js';
 import { deriveArtifactStem, writeJsonFile } from '../../../lib/context-loader.js';
-import { readRawConfigFile, serializeConfig } from '../../../lib/config-schema.js';
+import { loadConfigWithDiagnostics, readRawConfigFile, serializeConfig, validateConfigDocument } from '../../../lib/config-schema.js';
 import {
   buildSweepCsv,
   buildSweepSummary,
@@ -11,6 +15,7 @@ import {
 } from '../../../lib/sweep.js';
 import { runScript } from '../../../lib/runner.js';
 import { runFem } from '../analysis/fem-service.js';
+import { loadRuleProfile, summarizeRuleProfile } from '../config/rule-profile-service.js';
 import { runCost } from '../cost/cost-service.js';
 import { createModel } from '../model/create-service.js';
 import { createReportService } from '../report/report-service.js';
@@ -45,6 +50,18 @@ function flattenExports(exports = [], prefix) {
     result[`${prefix}_${String(artifact.format).toLowerCase()}`] = artifact.path;
   }
   return result;
+}
+
+function collectExportArtifacts(exports = [], prefix, scope = 'user-facing', stability = 'stable') {
+  return (exports || [])
+    .filter((artifact) => artifact?.format && artifact?.path)
+    .map((artifact) => ({
+      type: `${prefix}.${String(artifact.format).toLowerCase()}`,
+      path: artifact.path,
+      label: artifact.format.toUpperCase(),
+      scope,
+      stability,
+    }));
 }
 
 function extractMetrics({ costResult, createResult, femResult, stressThreshold }) {
@@ -105,19 +122,28 @@ export async function runSweep({
 }) {
   const resolvedConfigPath = resolve(configPath);
   const resolvedMatrixPath = resolve(matrixPath);
+  const loadedConfigDocument = await loadConfigWithDiagnostics(resolvedConfigPath);
   const baseConfigDocument = await readRawConfigFile(resolvedConfigPath);
   const matrixDocument = await readRawConfigFile(resolvedMatrixPath);
   const sweepSpec = normalizeSweepSpec(matrixDocument.parsed);
-  const baseConfig = await loadConfig(resolvedConfigPath);
+  const baseConfig = loadedConfigDocument.config ?? await loadConfig(resolvedConfigPath);
   const variants = expandSweepVariants(baseConfig, sweepSpec);
   const resolvedOutputDir = buildDefaultOutputDir(projectRoot, sweepSpec.name || deriveArtifactStem(resolvedConfigPath, 'parameter_sweep'), outputDir);
   const runScriptWithCli = createRunScript(onStderr);
   const stressThreshold = sweepSpec.objectives?.stress_threshold_mpa;
+  const copiedMatrixPath = join(resolvedOutputDir, `matrix${extname(resolvedMatrixPath) || '.json'}`);
+  const selectedProfile = sweepSpec.execution.profile || null;
+  const ruleProfile = await loadRuleProfile(projectRoot, baseConfig, {
+    profileName: selectedProfile,
+    silent: true,
+  });
+  const ruleProfileSummary = summarizeRuleProfile(ruleProfile);
 
   await mkdir(resolvedOutputDir, { recursive: true });
-  await writeFile(join(resolvedOutputDir, `matrix${extname(resolvedMatrixPath) || '.json'}`), matrixDocument.text, 'utf8');
+  await writeFile(copiedMatrixPath, matrixDocument.text, 'utf8');
 
   const variantResults = [];
+  const variantManifestRecords = [];
   for (const variant of variants) {
     const variantDir = join(resolvedOutputDir, variant.variant_id);
     const effectiveConfig = structuredClone(variant.config);
@@ -129,6 +155,9 @@ export async function runSweep({
     await mkdir(variantDir, { recursive: true });
     const effectiveConfigPath = join(variantDir, `effective-config.${baseConfigDocument.format === 'json' ? 'json' : 'toml'}`);
     await writeFile(effectiveConfigPath, serializeConfig(effectiveConfig, baseConfigDocument.format), 'utf8');
+    const effectiveConfigValidation = validateConfigDocument(effectiveConfig, {
+      filepath: effectiveConfigPath,
+    });
 
     onInfo(`Running ${variant.variant_id} with overrides ${JSON.stringify(variant.overrides)}`);
 
@@ -242,10 +271,76 @@ export async function runSweep({
       artifacts,
       errors,
       result_path: null,
+      manifest_path: null,
     };
 
     const resultPath = join(variantDir, 'result.json');
     variantResult.result_path = await writeJsonFile(resultPath, variantResult);
+    const variantManifest = await buildArtifactManifest({
+      projectRoot,
+      interface: 'sweep',
+      command: 'sweep',
+      jobType: 'sweep_variant',
+      status: errors.length === 0 ? 'succeeded' : 'failed',
+      configPath: effectiveConfigPath,
+      configSummary: effectiveConfigValidation.summary,
+      selectedProfile,
+      ruleProfile: ruleProfileSummary,
+      artifacts: [
+        {
+          type: 'config.effective',
+          path: effectiveConfigPath,
+          label: 'Effective config',
+          scope: 'user-facing',
+          stability: 'stable',
+        },
+        {
+          type: 'sweep.variant.result',
+          path: resultPath,
+          label: 'Variant result',
+          scope: 'user-facing',
+          stability: 'stable',
+        },
+        ...collectExportArtifacts(createResult?.exports, 'model'),
+        ...collectExportArtifacts(femResult?.exports, 'fem'),
+        ...(reportResult?.pdf_path || reportResult?.path
+          ? [{
+              type: 'report.pdf',
+              path: reportResult.pdf_path || reportResult.path,
+              label: 'PDF report',
+              scope: 'user-facing',
+              stability: 'stable',
+            }]
+          : []),
+      ],
+      warnings: errors.map((error) => `${error.job}: ${error.message}`),
+      timestamps: {
+        created_at: new Date(startedAt).toISOString(),
+        started_at: new Date(startedAt).toISOString(),
+        finished_at: new Date().toISOString(),
+      },
+      details: {
+        variant_id: variant.variant_id,
+        ordinal: variant.ordinal,
+        overrides: variant.overrides,
+        jobs: sweepSpec.jobs,
+        metrics,
+      },
+      related: {
+        aggregate_manifest_path: join(resolvedOutputDir, 'artifact-manifest.json'),
+      },
+    });
+    const variantManifestPath = await writeArtifactManifest(
+      join(variantDir, 'artifact-manifest.json'),
+      variantManifest
+    );
+    variantResult.manifest_path = variantManifestPath;
+    await writeJsonFile(resultPath, variantResult);
+    variantManifestRecords.push({
+      variant_id: variant.variant_id,
+      path: variantManifestPath,
+      status: errors.length === 0 ? 'succeeded' : 'failed',
+    });
     variantResults.push(variantResult);
   }
 
@@ -264,11 +359,84 @@ export async function runSweep({
   const summaryJsonPath = await writeJsonFile(join(resolvedOutputDir, 'summary.json'), summaryDocument);
   const summaryCsvPath = join(resolvedOutputDir, 'summary.csv');
   await writeFile(summaryCsvPath, buildSweepCsv(summaryDocument), 'utf8');
+  const aggregateManifest = await buildArtifactManifest({
+    projectRoot,
+    interface: 'sweep',
+    command: 'sweep',
+    jobType: 'sweep',
+    status: summaryDocument.summary.failed_variants > 0 ? 'partial' : 'succeeded',
+    configPath: resolvedConfigPath,
+    configSummary: loadedConfigDocument.summary,
+    selectedProfile,
+    ruleProfile: ruleProfileSummary,
+    artifacts: [
+      {
+        type: 'config.input',
+        path: resolvedConfigPath,
+        label: 'Base config',
+        scope: 'user-facing',
+        stability: 'stable',
+      },
+      {
+        type: 'sweep.matrix',
+        path: copiedMatrixPath,
+        label: 'Matrix copy',
+        scope: 'user-facing',
+        stability: 'stable',
+      },
+      {
+        type: 'sweep.summary.json',
+        path: summaryJsonPath,
+        label: 'Sweep summary JSON',
+        scope: 'user-facing',
+        stability: 'stable',
+      },
+      {
+        type: 'sweep.summary.csv',
+        path: summaryCsvPath,
+        label: 'Sweep summary CSV',
+        scope: 'user-facing',
+        stability: 'stable',
+      },
+      ...variantManifestRecords.map((entry) => ({
+        type: 'sweep.variant.manifest',
+        path: entry.path,
+        label: entry.variant_id,
+        scope: 'user-facing',
+        stability: 'stable',
+        metadata: {
+          variant_id: entry.variant_id,
+          status: entry.status,
+        },
+      })),
+    ],
+    timestamps: {
+      created_at: summaryDocument.generated_at,
+      started_at: summaryDocument.generated_at,
+      finished_at: new Date().toISOString(),
+    },
+    details: {
+      name: sweepSpec.name,
+      description: sweepSpec.description,
+      jobs: sweepSpec.jobs,
+      parameters: sweepSpec.parameters,
+      objectives: sweepSpec.objectives,
+      summary: summaryDocument.summary,
+      variants: variantManifestRecords,
+    },
+  });
+  const aggregateManifestPath = await writeArtifactManifest(
+    join(resolvedOutputDir, 'artifact-manifest.json'),
+    aggregateManifest
+  );
+  summaryDocument.manifest_path = aggregateManifestPath;
+  await writeJsonFile(summaryJsonPath, summaryDocument);
 
   return {
     output_dir: resolvedOutputDir,
     summary_json: summaryJsonPath,
     summary_csv: summaryCsvPath,
+    manifest_path: aggregateManifestPath,
     summary: summaryDocument.summary,
     variants: variantResults,
   };

@@ -6,15 +6,17 @@ Current v1 scope:
 
 - numeric leaf overrides only, addressed by config paths such as `shapes[0].height` or `fem.constraints[1].magnitude`
 - discrete `values = [...]` lists or inclusive `range = { start, stop, step }`
-- sequential execution with structured `summary.json`, `summary.csv`, per-variant `effective-config.*`, and per-variant `result.json`
+- sequential execution with structured `summary.json`, `summary.csv`, aggregate `artifact-manifest.json`, per-variant `effective-config.*`, per-variant `result.json`, and per-variant `artifact-manifest.json`
 - comparative summaries for min mass, min cost, and FEM stress-threshold pass/fail when those metrics are available
 
 Output contract:
 
-- `summary.json`: full manifest-like result set, objective summary, per-variant metrics, artifact paths, and runtime
+- `artifact-manifest.json`: aggregate run provenance, selected profile, config migration state, runtime info, and the artifact inventory for the sweep output directory
+- `summary.json`: aggregate result set, objective summary, per-variant metrics, artifact paths, runtime, and `manifest_path`
 - `summary.csv`: spreadsheet-friendly comparison table
 - `<variant>/effective-config.toml|json`: the exact config used for that run
-- `<variant>/result.json`: compact per-variant metrics, artifacts, runtime, and errors
+- `<variant>/result.json`: compact per-variant metrics, artifacts, runtime, errors, and `manifest_path`
+- `<variant>/artifact-manifest.json`: per-variant provenance and artifact inventory
 
 Approximate runtime guidance:
 
@@ -49,8 +51,10 @@ Expected outputs:
 
 - `output/sweeps/ks_bracket_geometry/summary.json`
 - `output/sweeps/ks_bracket_geometry/summary.csv`
+- `output/sweeps/ks_bracket_geometry/artifact-manifest.json`
 - `output/sweeps/ks_bracket_geometry/variant-001/effective-config.toml`
 - `output/sweeps/ks_bracket_geometry/variant-001/result.json`
+- `output/sweeps/ks_bracket_geometry/variant-001/artifact-manifest.json`
 - per-variant CAD exports under each variant directory because `create` runs with a variant-local `export.directory`
 
 What to compare:
@@ -91,8 +95,10 @@ Expected outputs:
 
 - `output/sweeps/bracket_fem_load/summary.json`
 - `output/sweeps/bracket_fem_load/summary.csv`
+- `output/sweeps/bracket_fem_load/artifact-manifest.json`
 - `output/sweeps/bracket_fem_load/variant-001/effective-config.toml`
 - `output/sweeps/bracket_fem_load/variant-001/result.json`
+- `output/sweeps/bracket_fem_load/variant-001/artifact-manifest.json`
 - per-variant FEM exports from the existing FEM path
 - per-variant report PDF paths captured under `report_pdf` in each result file
 
@@ -112,6 +118,6 @@ Approximate runtime:
 
 - `fcad sweep` is a parameter sweep, not an optimizer. It evaluates the combinations you declare; it does not search continuously, fit surrogate models, or claim Pareto-optimality.
 - If you want stable output paths for scripts or CI docs, always pass `--out-dir`.
+- If you are consuming sweep outputs programmatically, read `artifact-manifest.json` first and treat the files marked `scope = "user-facing"` and `stability = "stable"` as the contract surface.
 - If your matrix includes `fem` or `report`, run `fcad check-runtime` first on that machine.
 - Start with small matrices. The first version is intentionally sequential and deterministic.
-

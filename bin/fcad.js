@@ -3,6 +3,11 @@
 import { resolve, join, dirname, extname, parse, sep, isAbsolute } from 'node:path';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import {
+  buildArtifactManifest,
+  createManifestPath,
+  writeArtifactManifest,
+} from '../lib/artifact-manifest.js';
 import { deepMerge } from '../lib/config-loader.js';
 import {
   loadConfigWithDiagnostics,
@@ -38,6 +43,7 @@ import {
 import { createModel, inspectModel } from '../src/api/model.js';
 import { createReportService } from '../src/api/report.js';
 import { runSweep } from '../src/services/sweep/sweep-service.js';
+import { loadRuleProfile, summarizeRuleProfile } from '../src/services/config/rule-profile-service.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(__dirname, '..');
@@ -227,6 +233,10 @@ function buildDefaultOutputDir(preferredPath) {
   return resolved.endsWith('.json') ? dirname(resolved) : resolved;
 }
 
+function nowIso() {
+  return new Date().toISOString();
+}
+
 function createArtifactPaths(basePathOrDir, stem, suffixes) {
   const result = {};
   for (const [key, suffix] of Object.entries(suffixes)) {
@@ -362,10 +372,161 @@ function emitConfigWarnings(summary) {
   }
 }
 
-async function loadConfigForCli(filepath) {
+async function loadConfigDocumentForCli(filepath) {
   const result = await loadConfigWithDiagnostics(filepath);
   emitConfigWarnings(result.summary);
+  return result;
+}
+
+async function loadConfigForCli(filepath) {
+  const result = await loadConfigDocumentForCli(filepath);
   return result.config;
+}
+
+async function writeCliManifest({
+  command,
+  configPath = null,
+  configSummary = null,
+  config = null,
+  profileName = null,
+  artifacts = [],
+  primaryOutputPath = null,
+  outputDir = null,
+  warnings = [],
+  deprecations = [],
+  details = undefined,
+  related = undefined,
+  timestamps = null,
+}) {
+  const ruleProfile = config
+    ? await loadRuleProfile(PROJECT_ROOT, config, {
+        profileName,
+        silent: true,
+      })
+    : null;
+
+  const manifest = await buildArtifactManifest({
+    projectRoot: PROJECT_ROOT,
+    interface: 'cli',
+    command,
+    jobType: command,
+    status: 'succeeded',
+    configPath,
+    configSummary,
+    selectedProfile: profileName,
+    ruleProfile: summarizeRuleProfile(ruleProfile),
+    artifacts,
+    warnings,
+    deprecations,
+    timestamps: timestamps || {
+      created_at: nowIso(),
+      started_at: nowIso(),
+      finished_at: nowIso(),
+    },
+    details,
+    related,
+  });
+  const manifestPath = createManifestPath({
+    primaryOutputPath,
+    outputDir,
+  });
+  return writeArtifactManifest(manifestPath, manifest);
+}
+
+function createExportArtifactEntries(exports = [], prefix = 'model') {
+  return (exports || [])
+    .filter((entry) => entry?.format && entry?.path)
+    .map((entry) => ({
+      type: `${prefix}.${String(entry.format).toLowerCase()}`,
+      path: entry.path,
+      label: entry.format.toUpperCase(),
+      scope: 'user-facing',
+      stability: 'stable',
+    }));
+}
+
+function createArtifactEntry(type, path, {
+  label = null,
+  scope = 'user-facing',
+  stability = 'stable',
+  metadata = undefined,
+} = {}) {
+  return {
+    type,
+    path,
+    label,
+    scope,
+    stability,
+    ...(metadata ? { metadata } : {}),
+  };
+}
+
+function collectDrawManifestArtifacts(result) {
+  const svgPath = result?.drawing_paths?.find((entry) => entry.format === 'svg')?.path
+    || result?.svg_path
+    || result?.drawing_path;
+  if (!svgPath) return [];
+
+  const normalizedPath = svgPath.replace(/\\/g, '/');
+  const stem = parse(normalizedPath).name.replace(/_drawing$/i, '');
+  const dir = dirname(normalizedPath);
+  const candidates = [
+    createArtifactEntry('drawing.svg', normalizedPath, { label: 'SVG drawing' }),
+    createArtifactEntry('drawing.qa-report', normalizedPath.replace(/\.svg$/i, '_qa.json'), {
+      label: 'Drawing QA',
+      stability: 'best-effort',
+    }),
+    createArtifactEntry('drawing.qa-issues', normalizedPath.replace(/\.svg$/i, '_qa_issues.json'), {
+      label: 'Drawing QA issues',
+      stability: 'best-effort',
+    }),
+    createArtifactEntry('drawing.repair-report', normalizedPath.replace(/\.svg$/i, '_repair_report.json'), {
+      label: 'Repair report',
+      stability: 'best-effort',
+    }),
+    createArtifactEntry('draw.run-log', join(dir, `${stem}_run_log.json`), {
+      label: 'Draw run log',
+      scope: 'internal',
+      stability: 'internal',
+    }),
+    createArtifactEntry('config.effective', join(dir, `${stem}_effective_config.json`), {
+      label: 'Effective config',
+      scope: 'internal',
+      stability: 'internal',
+    }),
+    createArtifactEntry('draw.plan.toml', join(dir, `${stem}_plan.toml`), {
+      label: 'Drawing plan TOML',
+      stability: 'best-effort',
+    }),
+    createArtifactEntry('draw.plan.json', join(dir, `${stem}_plan.json`), {
+      label: 'Drawing plan JSON',
+      stability: 'best-effort',
+    }),
+    createArtifactEntry('draw.traceability', join(dir, `${stem}_traceability.json`), {
+      label: 'Traceability map',
+      stability: 'best-effort',
+    }),
+    createArtifactEntry('draw.layout-report', join(dir, `${stem}_layout_report.json`), {
+      label: 'Layout report',
+      stability: 'best-effort',
+    }),
+    createArtifactEntry('draw.dimension-map', join(dir, `${stem}_dimension_map.json`), {
+      label: 'Dimension map',
+      scope: 'internal',
+      stability: 'internal',
+    }),
+    createArtifactEntry('draw.dimension-conflicts', join(dir, `${stem}_dim_conflicts.json`), {
+      label: 'Dimension conflicts',
+      scope: 'internal',
+      stability: 'internal',
+    }),
+    createArtifactEntry('draw.dedupe-diagnostics', join(dir, `${stem}_dedupe_diagnostics.json`), {
+      label: 'Dedupe diagnostics',
+      scope: 'internal',
+      stability: 'internal',
+    }),
+  ];
+  return candidates;
 }
 
 function defaultMigratedConfigPath(configPath, format) {
@@ -414,7 +575,8 @@ async function runProductionReadiness(rawArgs = [], { persistArtifacts = true } 
     process.exit(1);
   }
 
-  const config = await loadConfigForCli(configPath);
+  const configDocument = await loadConfigDocumentForCli(configPath);
+  const config = configDocument.config;
   const runtimeData = await loadRuntimeData(options);
   const report = await runReadinessReportWorkflow({
     freecadRoot: PROJECT_ROOT,
@@ -437,7 +599,17 @@ async function runProductionReadiness(rawArgs = [], { persistArtifacts = true } 
   const artifacts = persistArtifacts
     ? await writeReadinessArtifacts(resolvedOutputPath, report)
     : null;
-  return { report, artifacts };
+  return {
+    report,
+    artifacts,
+    config,
+    configPath,
+    configSummary: configDocument.summary,
+    profileName: options.profile || null,
+    outputPath,
+    outDir,
+    stem,
+  };
 }
 
 async function writeAgentArtifact(outputPath, fallbackDir, stem, suffix, payload) {
@@ -448,49 +620,159 @@ async function writeAgentArtifact(outputPath, fallbackDir, stem, suffix, payload
 
 async function cmdProductionReview(rawArgs = []) {
   const { outputPath, outDir, stem } = resolveConfigCommandInput(rawArgs);
-  const { report } = await runProductionReadiness(rawArgs, { persistArtifacts: false });
+  const {
+    report,
+    config,
+    configPath,
+    configSummary,
+    profileName,
+  } = await runProductionReadiness(rawArgs, { persistArtifacts: false });
   const artifacts = await writeAgentArtifact(outputPath, outDir, stem, '_product_review.json', report.product_review);
+  const manifestPath = await writeCliManifest({
+    command: 'review',
+    configPath,
+    configSummary,
+    config,
+    profileName,
+    primaryOutputPath: artifacts.json,
+    artifacts: [
+      createArtifactEntry('review.product.json', artifacts.json, { label: 'Product review JSON' }),
+    ],
+  });
   console.log(`Product review: ${artifacts.json}`);
+  console.log(`Manifest: ${manifestPath}`);
   console.log(`  Part type: ${report.product_review.summary.part_type}`);
   console.log(`  DFM score: ${report.product_review.summary.dfm_score ?? 'n/a'}`);
 }
 
 async function cmdProcessPlan(rawArgs = []) {
   const { outputPath, outDir, stem } = resolveConfigCommandInput(rawArgs);
-  const { report } = await runProductionReadiness(rawArgs, { persistArtifacts: false });
+  const {
+    report,
+    config,
+    configPath,
+    configSummary,
+    profileName,
+  } = await runProductionReadiness(rawArgs, { persistArtifacts: false });
   const artifacts = await writeAgentArtifact(outputPath, outDir, stem, '_process_plan.json', report.process_plan);
+  const manifestPath = await writeCliManifest({
+    command: 'process-plan',
+    configPath,
+    configSummary,
+    config,
+    profileName,
+    primaryOutputPath: artifacts.json,
+    artifacts: [
+      createArtifactEntry('review.process-plan.json', artifacts.json, { label: 'Process plan JSON' }),
+    ],
+  });
   console.log(`Process plan: ${artifacts.json}`);
+  console.log(`Manifest: ${manifestPath}`);
   console.log(`  Steps: ${report.process_plan.process_flow.length}`);
 }
 
 async function cmdLinePlan(rawArgs = []) {
   const { outputPath, outDir, stem } = resolveConfigCommandInput(rawArgs);
-  const { report } = await runProductionReadiness(rawArgs, { persistArtifacts: false });
+  const {
+    report,
+    config,
+    configPath,
+    configSummary,
+    profileName,
+  } = await runProductionReadiness(rawArgs, { persistArtifacts: false });
   const artifacts = await writeAgentArtifact(outputPath, outDir, stem, '_line_plan.json', report.line_plan);
+  const manifestPath = await writeCliManifest({
+    command: 'line-plan',
+    configPath,
+    configSummary,
+    config,
+    profileName,
+    primaryOutputPath: artifacts.json,
+    artifacts: [
+      createArtifactEntry('review.line-plan.json', artifacts.json, { label: 'Line plan JSON' }),
+    ],
+  });
   console.log(`Line layout support: ${artifacts.json}`);
+  console.log(`Manifest: ${manifestPath}`);
   console.log(`  Stations: ${report.line_plan.station_concept.length}`);
 }
 
 async function cmdQualityRisk(rawArgs = []) {
   const { outputPath, outDir, stem } = resolveConfigCommandInput(rawArgs);
-  const { report } = await runProductionReadiness(rawArgs, { persistArtifacts: false });
+  const {
+    report,
+    config,
+    configPath,
+    configSummary,
+    profileName,
+  } = await runProductionReadiness(rawArgs, { persistArtifacts: false });
   const artifacts = await writeAgentArtifact(outputPath, outDir, stem, '_quality_risk.json', report.quality_risk);
+  const manifestPath = await writeCliManifest({
+    command: 'quality-risk',
+    configPath,
+    configSummary,
+    config,
+    profileName,
+    primaryOutputPath: artifacts.json,
+    artifacts: [
+      createArtifactEntry('review.quality-risk.json', artifacts.json, { label: 'Quality risk JSON' }),
+    ],
+  });
   console.log(`Quality / traceability pack: ${artifacts.json}`);
+  console.log(`Manifest: ${manifestPath}`);
   console.log(`  Critical dimensions: ${report.quality_risk.critical_dimensions.length}`);
 }
 
 async function cmdInvestmentReview(rawArgs = []) {
   const { outputPath, outDir, stem } = resolveConfigCommandInput(rawArgs);
-  const { report } = await runProductionReadiness(rawArgs, { persistArtifacts: false });
+  const {
+    report,
+    config,
+    configPath,
+    configSummary,
+    profileName,
+  } = await runProductionReadiness(rawArgs, { persistArtifacts: false });
   const artifacts = await writeAgentArtifact(outputPath, outDir, stem, '_investment_review.json', report.investment_review);
+  const manifestPath = await writeCliManifest({
+    command: 'investment-review',
+    configPath,
+    configSummary,
+    config,
+    profileName,
+    primaryOutputPath: artifacts.json,
+    artifacts: [
+      createArtifactEntry('review.investment-review.json', artifacts.json, { label: 'Investment review JSON' }),
+    ],
+  });
   console.log(`Cost / investment review: ${artifacts.json}`);
+  console.log(`Manifest: ${manifestPath}`);
   console.log(`  Unit cost: ${report.investment_review.cost_breakdown.unit_cost ?? 'n/a'}`);
 }
 
 async function cmdReadinessReport(rawArgs = []) {
-  const { report, artifacts } = await runProductionReadiness(rawArgs);
+  const {
+    report,
+    artifacts,
+    config,
+    configPath,
+    configSummary,
+    profileName,
+  } = await runProductionReadiness(rawArgs);
+  const manifestPath = await writeCliManifest({
+    command: 'readiness-report',
+    configPath,
+    configSummary,
+    config,
+    profileName,
+    primaryOutputPath: artifacts.json,
+    artifacts: [
+      createArtifactEntry('review.readiness.json', artifacts.json, { label: 'Readiness report JSON' }),
+      createArtifactEntry('review.readiness.markdown', artifacts.markdown, { label: 'Readiness report Markdown' }),
+    ],
+  });
   console.log(`Readiness report JSON: ${artifacts.json}`);
   console.log(`Readiness report Markdown: ${artifacts.markdown}`);
+  console.log(`Manifest: ${manifestPath}`);
   console.log(`  Status: ${report.readiness_summary.status}`);
   console.log(`  Score: ${report.readiness_summary.score}`);
 }
@@ -502,14 +784,35 @@ async function cmdStabilizationReview(rawArgs = []) {
     process.exit(1);
   }
 
-  const { report } = await runProductionReadiness(rawArgs, { persistArtifacts: false });
+  const {
+    report,
+    config,
+    configPath,
+    configSummary,
+    profileName,
+  } = await runProductionReadiness(rawArgs, { persistArtifacts: false });
   if (!report.stabilization_review) {
     console.error('Error: stabilization review was not generated from the supplied inputs.');
     process.exit(1);
   }
 
   const artifacts = await writeAgentArtifact(outputPath, outDir, stem, '_stabilization_review.json', report.stabilization_review);
+  const manifestPath = await writeCliManifest({
+    command: 'stabilization-review',
+    configPath,
+    configSummary,
+    config,
+    profileName,
+    primaryOutputPath: artifacts.json,
+    artifacts: [
+      createArtifactEntry('review.stabilization.json', artifacts.json, { label: 'Stabilization review JSON' }),
+      createArtifactEntry('input.runtime', resolveMaybe(options.runtime), {
+        label: 'Runtime JSON',
+      }),
+    ],
+  });
   console.log(`Stabilization review: ${artifacts.json}`);
+  console.log(`Manifest: ${manifestPath}`);
   console.log(`  Runtime basis: ${report.stabilization_review.summary.runtime_basis}`);
   console.log(`  Top bottlenecks: ${(report.stabilization_review.summary.top_bottlenecks || []).length}`);
 }
@@ -521,7 +824,8 @@ async function cmdGenerateStandardDocs(rawArgs = []) {
     process.exit(1);
   }
 
-  const config = await loadConfigForCli(configPath);
+  const configDocument = await loadConfigDocumentForCli(configPath);
+  const config = configDocument.config;
   const runtimeData = await loadRuntimeData(options);
   const result = await runStandardDocsWorkflow({
     freecadRoot: PROJECT_ROOT,
@@ -545,6 +849,23 @@ async function cmdGenerateStandardDocs(rawArgs = []) {
   console.log(`  Process flow: ${result.artifacts['process_flow.md']}`);
   console.log(`  Control plan: ${result.artifacts['control_plan_draft.csv']}`);
   console.log(`  Work instruction: ${result.artifacts['work_instruction_draft.md']}`);
+  const manifestPath = await writeCliManifest({
+    command: 'generate-standard-docs',
+    configPath,
+    configSummary: configDocument.summary,
+    config,
+    profileName: options.profile || null,
+    outputDir: result.out_dir,
+    artifacts: Object.entries(result.artifacts).map(([filename, filePath]) => createArtifactEntry(
+      filename === 'manifest' ? 'standard-docs.summary' : `standard-docs.${filename}`,
+      filePath,
+      {
+        label: filename,
+        stability: filename === 'manifest' ? 'best-effort' : 'stable',
+      }
+    )),
+  });
+  console.log(`Manifest: ${manifestPath}`);
 }
 
 async function cmdIngest(rawArgs = []) {
@@ -594,9 +915,22 @@ async function cmdIngest(rawArgs = []) {
 
   await writeJsonFile(paths.context, result.context);
   await writeJsonFile(paths.ingestLog, result.ingest_log);
+  const manifestPath = await writeCliManifest({
+    command: 'ingest',
+    primaryOutputPath: paths.context,
+    artifacts: [
+      createArtifactEntry('context.json', paths.context, { label: 'Engineering context JSON' }),
+      createArtifactEntry('ingest.log.json', paths.ingestLog, { label: 'Ingest log JSON' }),
+      ...(modelPath ? [createArtifactEntry('input.model', modelPath, { label: 'Input model' })] : []),
+      ...(bomPath ? [createArtifactEntry('input.bom', bomPath, { label: 'Input BOM CSV' })] : []),
+      ...(inspectionPath ? [createArtifactEntry('input.inspection', inspectionPath, { label: 'Input inspection CSV' })] : []),
+      ...(qualityPath ? [createArtifactEntry('input.quality', qualityPath, { label: 'Input quality CSV' })] : []),
+    ],
+  });
 
   console.log(`Context JSON: ${paths.context}`);
   console.log(`Ingest log:   ${paths.ingestLog}`);
+  console.log(`Manifest:     ${manifestPath}`);
   console.log(`  BOM entries: ${result.ingest_log.summary?.bom_entries || 0}`);
   console.log(`  Inspection results: ${result.ingest_log.summary?.inspection_results || 0}`);
   console.log(`  Quality issues: ${result.ingest_log.summary?.quality_issues || 0}`);
@@ -647,9 +981,20 @@ async function cmdAnalyzePart(rawArgs = []) {
 
   await writeJsonFile(paths.geometry, result.geometry_intelligence);
   await writeJsonFile(paths.hotspots, result.manufacturing_hotspots);
+  const manifestPath = await writeCliManifest({
+    command: 'analyze-part',
+    primaryOutputPath: paths.geometry,
+    artifacts: [
+      createArtifactEntry('analysis.geometry.json', paths.geometry, { label: 'Geometry intelligence JSON' }),
+      createArtifactEntry('analysis.hotspots.json', paths.hotspots, { label: 'Manufacturing hotspots JSON' }),
+      ...(contextPath ? [createArtifactEntry('input.context', contextPath, { label: 'Input context JSON' })] : []),
+      ...(modelPath ? [createArtifactEntry('input.model', modelPath, { label: 'Input model' })] : []),
+    ],
+  });
 
   console.log(`Geometry intelligence: ${paths.geometry}`);
   console.log(`Manufacturing hotspots: ${paths.hotspots}`);
+  console.log(`Manifest: ${manifestPath}`);
   console.log(`  Complexity score: ${result.geometry_intelligence.features?.complexity_score ?? 'n/a'}`);
   console.log(`  Hotspots: ${result.manufacturing_hotspots.hotspots?.length || 0}`);
 }
@@ -697,12 +1042,26 @@ async function cmdQualityLink(rawArgs = []) {
   await writeJsonFile(paths.qualityLinkage, result.quality_linkage);
   await writeJsonFile(paths.qualityHotspots, result.quality_hotspots);
   await writeJsonFile(paths.reviewPriorities, result.review_priorities);
+  const manifestPath = await writeCliManifest({
+    command: 'quality-link',
+    primaryOutputPath: paths.reviewPriorities,
+    artifacts: [
+      createArtifactEntry('quality-link.inspection-linkage.json', paths.inspectionLinkage, { label: 'Inspection linkage JSON' }),
+      createArtifactEntry('quality-link.inspection-outliers.json', paths.inspectionOutliers, { label: 'Inspection outliers JSON' }),
+      createArtifactEntry('quality-link.quality-linkage.json', paths.qualityLinkage, { label: 'Quality linkage JSON' }),
+      createArtifactEntry('quality-link.quality-hotspots.json', paths.qualityHotspots, { label: 'Quality hotspots JSON' }),
+      createArtifactEntry('quality-link.review-priorities.json', paths.reviewPriorities, { label: 'Review priorities JSON' }),
+      createArtifactEntry('input.context', contextPath, { label: 'Input context JSON' }),
+      createArtifactEntry('input.geometry', geometryPath, { label: 'Input geometry JSON' }),
+    ],
+  });
 
   console.log(`Inspection linkage: ${paths.inspectionLinkage}`);
   console.log(`Inspection outliers: ${paths.inspectionOutliers}`);
   console.log(`Quality linkage: ${paths.qualityLinkage}`);
   console.log(`Quality hotspots: ${paths.qualityHotspots}`);
   console.log(`Review priorities: ${paths.reviewPriorities}`);
+  console.log(`Manifest: ${manifestPath}`);
 }
 
 async function cmdReviewPack(rawArgs = []) {
@@ -759,6 +1118,18 @@ async function cmdReviewPack(rawArgs = []) {
   console.log(`Review pack JSON: ${result.artifacts.json}`);
   console.log(`Review pack Markdown: ${result.artifacts.markdown}`);
   console.log(`Review pack PDF: ${result.artifacts.pdf}`);
+  const manifestPath = await writeCliManifest({
+    command: 'review-pack',
+    primaryOutputPath: result.artifacts.json,
+    artifacts: [
+      createArtifactEntry('review-pack.json', result.artifacts.json, { label: 'Review pack JSON' }),
+      createArtifactEntry('review-pack.markdown', result.artifacts.markdown, { label: 'Review pack Markdown' }),
+      createArtifactEntry('review-pack.pdf', result.artifacts.pdf, { label: 'Review pack PDF' }),
+      createArtifactEntry('input.context', contextPath, { label: 'Input context JSON' }),
+      createArtifactEntry('input.geometry', geometryPath, { label: 'Input geometry JSON' }),
+    ],
+  });
+  console.log(`Manifest: ${manifestPath}`);
 }
 
 function diffNumbers(before, after) {
@@ -869,7 +1240,17 @@ async function cmdCompareRev(rawArgs = []) {
   const outputPath = normalizeJsonOutputPath(options.out)
     || artifactPathFor(buildDefaultOutputDir(options['out-dir']), deriveArtifactStem(candidatePath, 'revision'), '_revision_comparison.json');
   await writeJsonFile(outputPath, comparison);
+  const manifestPath = await writeCliManifest({
+    command: 'compare-rev',
+    primaryOutputPath: outputPath,
+    artifacts: [
+      createArtifactEntry('revision-comparison.json', outputPath, { label: 'Revision comparison JSON' }),
+      createArtifactEntry('input.baseline', baselinePath, { label: 'Baseline JSON' }),
+      createArtifactEntry('input.candidate', candidatePath, { label: 'Candidate JSON' }),
+    ],
+  });
   console.log(`Revision comparison: ${outputPath}`);
+  console.log(`Manifest: ${manifestPath}`);
 }
 
 async function cmdValidate(configPath, flags = []) {
@@ -1153,9 +1534,11 @@ async function cmdDraw(rawArgs = []) {
     console.error('  fcad draw configs/examples/ks_flange.toml');
     process.exit(1);
   }
-  return runDrawPipeline({
+  const absPath = resolveMaybe(configPath);
+  const configDocument = await loadConfigDocumentForCli(absPath);
+  const result = await runDrawPipeline({
     projectRoot: PROJECT_ROOT,
-    configPath,
+    configPath: absPath,
     flags,
     overridePath,
     failUnderValue,
@@ -1167,6 +1550,22 @@ async function cmdDraw(rawArgs = []) {
     onInfo: (message) => console.log(message),
     onError: (message) => console.error(message),
   });
+  const svgPath = result?.drawing_paths?.find((entry) => entry.format === 'svg')?.path
+    || result?.svg_path
+    || result?.drawing_path
+    || configDocument.config.export?.directory
+    || null;
+  const manifestPath = await writeCliManifest({
+    command: 'draw',
+    configPath: absPath,
+    configSummary: configDocument.summary,
+    config: configDocument.config,
+    primaryOutputPath: svgPath,
+    outputDir: configDocument.config.export?.directory || null,
+    artifacts: collectDrawManifestArtifacts(result),
+  });
+  console.log(`Manifest: ${manifestPath}`);
+  return result;
 }
 
 async function cmdSweep(rawArgs = []) {
@@ -1203,6 +1602,7 @@ async function cmdSweep(rawArgs = []) {
   console.log(`Sweep output directory: ${result.output_dir}`);
   console.log(`Sweep summary JSON: ${result.summary_json}`);
   console.log(`Sweep summary CSV: ${result.summary_csv}`);
+  console.log(`Sweep manifest: ${result.manifest_path}`);
   console.log(`  Successful variants: ${result.summary.successful_variants}`);
   console.log(`  Failed variants: ${result.summary.failed_variants}`);
   if (result.summary.best_by_min_mass) {
@@ -1228,7 +1628,8 @@ async function cmdCreate(configPath) {
   const absPath = resolveMaybe(configPath);
   console.log(`Loading config: ${absPath}`);
 
-  const config = await loadConfigForCli(absPath);
+  const configDocument = await loadConfigDocumentForCli(absPath);
+  const config = configDocument.config;
   console.log(`Creating model: ${config.name || 'unnamed'}`);
   console.log(`  Shapes: ${config.shapes?.length || 0}`);
   console.log(`  Operations: ${config.operations?.length || 0}`);
@@ -1244,6 +1645,16 @@ async function cmdCreate(configPath) {
   });
 
   if (result.success) {
+    const firstExportPath = result.exports?.[0]?.path || config.export?.directory || null;
+    const manifestPath = await writeCliManifest({
+      command: 'create',
+      configPath: absPath,
+      configSummary: configDocument.summary,
+      config,
+      primaryOutputPath: firstExportPath,
+      outputDir: config.export?.directory || null,
+      artifacts: createExportArtifactEntries(result.exports, 'model'),
+    });
     console.log('\nModel created successfully!');
     console.log(`  Volume: ${result.model.volume} mm³`);
     console.log(`  Faces: ${result.model.faces}, Edges: ${result.model.edges}`);
@@ -1261,6 +1672,7 @@ async function cmdCreate(configPath) {
         console.log(`    ${exp.format}: ${exp.path} (${exp.size_bytes} bytes)`);
       }
     }
+    console.log(`  Manifest: ${manifestPath}`);
   } else {
     console.error(`\nError: ${result.error}`);
     process.exit(1);
@@ -1520,7 +1932,8 @@ async function cmdReport(configPath, flags = []) {
 
   const absPath = resolveMaybe(configPath);
   console.log(`Loading config: ${absPath}`);
-  const config = await loadConfigForCli(absPath);
+  const configDocument = await loadConfigDocumentForCli(absPath);
+  const config = configDocument.config;
   const includeTolerance = !flags.includes('--no-tolerance');
   const includeFem = flags.includes('--fem');
   const includeMC = flags.includes('--monte-carlo');
@@ -1597,8 +2010,25 @@ async function cmdReport(configPath, flags = []) {
   });
 
   if (result.success) {
+    const manifestPath = await writeCliManifest({
+      command: 'report',
+      configPath: absPath,
+      configSummary: configDocument.summary,
+      config,
+      primaryOutputPath: result.path,
+      artifacts: [
+        createArtifactEntry('report.pdf', result.path, { label: 'Engineering report PDF' }),
+      ],
+      details: {
+        include_tolerance: includeTolerance,
+        include_fem: includeFem,
+        include_dfm: includeDfm,
+        include_monte_carlo: includeMC,
+      },
+    });
     console.log(`\n=== Engineering Report Generated ===`);
     console.log(`  PDF: ${result.path} (${result.size_bytes} bytes)`);
+    console.log(`  Manifest: ${manifestPath}`);
   } else {
     console.error(`\nError: ${result.error}`);
     process.exit(1);
