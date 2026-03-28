@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -75,6 +75,23 @@ try {
   assert.equal(examples.length > 0, true);
   assert.equal(typeof examples[0].name, 'string');
   assert.equal(typeof examples[0].content, 'string');
+
+  const validateResponse = await fetch(`${baseUrl}/api/studio/validate-config`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      config_toml: readFileSync(join(ROOT, 'configs', 'examples', 'ks_bracket.toml'), 'utf8'),
+    }),
+  });
+  assert.equal(validateResponse.status, 200);
+  const validationPayload = await validateResponse.json();
+  assert.equal(validationPayload.ok, true);
+  assert.equal(validationPayload.overview.mode, 'part');
+  assert.equal(typeof validationPayload.overview.shape_count, 'number');
+  assert.equal(Array.isArray(validationPayload.validation.warnings), true);
 
   const jobsResponse = await fetch(`${baseUrl}/jobs?limit=5`, {
     headers: {

@@ -1,4 +1,5 @@
 import { createLogEntry } from './studio/renderers.js';
+import { mountModelWorkspace } from './studio/model-workspace.js';
 import { workspaceDefinitions } from './studio/workspaces.js';
 
 const workspaceRoot = document.getElementById('workspace-root');
@@ -12,6 +13,7 @@ const logClose = document.getElementById('log-close');
 const logDrawer = document.getElementById('log-drawer');
 const logFeed = document.getElementById('log-feed');
 const navLinks = [...document.querySelectorAll('.nav-link')];
+let activeWorkspaceController = null;
 
 const state = {
   route: normalizeRoute(window.location.hash),
@@ -56,6 +58,32 @@ const state = {
       promptText: '',
       promptMode: false,
       editingEnabled: false,
+      buildState: 'idle',
+      buildSummary: '',
+      errorMessage: '',
+      buildLog: [],
+      validation: {
+        warnings: [],
+        changed_fields: [],
+        deprecated_fields: [],
+      },
+      overview: null,
+      preview: null,
+      assistant: {
+        busy: false,
+        error: '',
+        report: null,
+      },
+      buildSettings: {
+        include_step: true,
+        include_stl: true,
+        per_part_stl: true,
+      },
+      controls: {
+        wireframe: false,
+        edges: true,
+        opacity: 100,
+      },
     },
     activeJob: {
       status: 'idle',
@@ -161,7 +189,16 @@ function syncChrome() {
 }
 
 function renderWorkspace() {
+  activeWorkspaceController?.destroy?.();
+  activeWorkspaceController = null;
   workspaceRoot.replaceChildren(workspaceDefinitions[state.route].render(state));
+  if (state.route === 'model') {
+    activeWorkspaceController = mountModelWorkspace({
+      root: workspaceRoot,
+      state,
+      addLog,
+    });
+  }
   applyPendingFocus();
 }
 

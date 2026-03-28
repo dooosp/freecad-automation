@@ -7,6 +7,7 @@ import { createJobStore } from '../services/jobs/job-store.js';
 import { createJobExecutor, validateJobRequest } from '../services/jobs/job-executor.js';
 import { LOCAL_API_SERVICE, LOCAL_API_VERSION } from './local-api-contract.js';
 import { validateLocalApiResponse } from './local-api-schemas.js';
+import { createStudioModelService } from './studio-model-service.js';
 
 const PUBLIC_DIR = join(import.meta.dirname, '..', '..', 'public');
 const EXAMPLES_DIR = join(import.meta.dirname, '..', '..', 'configs', 'examples');
@@ -256,6 +257,7 @@ export function createLocalApiServer({
     projectRoot,
     jobStore,
   });
+  const studioModelService = createStudioModelService({ projectRoot });
 
   app.use(express.json({ limit: '5mb' }));
   app.use('/js/app', express.static(APP_JS_DIR, { index: false }));
@@ -326,6 +328,85 @@ export function createLocalApiServer({
 
   app.get('/js/studio-shell.js', (_req, res) => {
     res.sendFile(STUDIO_SHELL_JS);
+  });
+
+  app.post('/api/studio/validate-config', async (req, res) => {
+    try {
+      const payload = await studioModelService.validateConfigToml(req.body?.config_toml);
+      res.json({
+        ok: true,
+        validation: payload.summary,
+        overview: payload.overview,
+      });
+    } catch (error) {
+      const response = createErrorResponse(
+        'invalid_config',
+        [error instanceof Error ? error.message : String(error)]
+      );
+      res.status(response.status).json(assertResponse('error', response.body));
+    }
+  });
+
+  app.post('/api/studio/design', async (req, res) => {
+    try {
+      const payload = await studioModelService.designFromPrompt(req.body?.description);
+      res.json({
+        ok: true,
+        ...payload,
+      });
+    } catch (error) {
+      const response = createErrorResponse(
+        'design_failed',
+        [error instanceof Error ? error.message : String(error)]
+      );
+      res.status(response.status).json(assertResponse('error', response.body));
+    }
+  });
+
+  app.post('/api/studio/model-preview', async (req, res) => {
+    try {
+      const payload = await studioModelService.buildPreview({
+        configToml: req.body?.config_toml,
+        buildSettings: req.body?.build_settings || {},
+      });
+      res.json({
+        ok: true,
+        ...payload,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const status = /TOML parse error|Config TOML is required|must include|invalid/i.test(message) ? 400 : 500;
+      const response = createErrorResponse(
+        'model_preview_failed',
+        [message],
+        status
+      );
+      res.status(response.status).json(assertResponse('error', response.body));
+    }
+  });
+
+  app.get('/api/studio/model-previews/:id/model', (req, res) => {
+    const modelPath = studioModelService.getPreviewModelPath(req.params.id);
+    if (!modelPath) {
+      const response = createErrorResponse('preview_not_found', [`No model preview found for id ${req.params.id}.`], 404);
+      res.status(response.status).json(assertResponse('error', response.body));
+      return;
+    }
+    res.type('model/stl').sendFile(modelPath);
+  });
+
+  app.get('/api/studio/model-previews/:id/parts/:index', (req, res) => {
+    const partPath = studioModelService.getPreviewPartPath(req.params.id, Number.parseInt(req.params.index, 10));
+    if (!partPath) {
+      const response = createErrorResponse(
+        'preview_part_not_found',
+        [`No preview part ${req.params.index} found for id ${req.params.id}.`],
+        404
+      );
+      res.status(response.status).json(assertResponse('error', response.body));
+      return;
+    }
+    res.type('model/stl').sendFile(partPath);
   });
 
   app.get('/jobs', async (req, res, next) => {
@@ -413,11 +494,16 @@ export function createLocalApiServer({
     res.status(response.status).json(assertResponse('error', response.body));
   });
 
+  server.on('close', () => {
+    studioModelService.dispose().catch(() => {});
+  });
+
   return {
     app,
     server,
     jobStore,
     executor,
+    studioModelService,
   };
 }
 

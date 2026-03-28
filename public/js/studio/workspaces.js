@@ -479,75 +479,413 @@ function createModelSourceSummary(state) {
   ]);
 }
 
+function createModelExampleSelect(state) {
+  const { examples } = state.data;
+  return el('select', {
+    className: 'studio-select',
+    attrs: {
+      disabled: examples.items.length === 0,
+    },
+    dataset: {
+      hook: 'example-select',
+    },
+    children: examples.items.length > 0
+      ? examples.items.map((example) =>
+          el('option', {
+            text: example.name,
+            attrs: {
+              value: example.name,
+              selected: example.name === state.data.examples.selectedName,
+            },
+          })
+        )
+      : [
+          el('option', {
+            text: examples.status === 'loading' ? 'Loading examples...' : 'Examples unavailable',
+            attrs: { value: '' },
+          }),
+        ],
+  });
+}
+
 function createModelWorkspace(state) {
   const model = state.data.model;
   const promptReady = Boolean(model.promptMode || model.promptText);
+  const buildTone = model.buildState === 'success' ? 'ok' : model.buildState === 'error' ? 'bad' : model.buildState === 'building' ? 'warn' : 'info';
 
-  return workspaceShell({
-    kicker: 'Model workspace',
-    title: model.configText ? 'Model authoring is ready' : 'Model authoring is staged',
-    description: 'Prompt drafting and config editing live here so Start can stay focused on runtime posture and launch decisions.',
-    badges: [
-      { label: model.configText ? 'Config loaded' : 'Config pending', tone: model.configText ? 'ok' : 'warn' },
-      { label: promptReady ? 'Prompt lane open' : 'Prompt lane ready', tone: 'info' },
-      { label: 'Runtime-backed build later', tone: 'warn' },
-    ],
-    controls: [
-      createCard({
-        kicker: 'Prompt flow',
-        title: 'Draft the model request',
-        copy: 'Use prompt drafting for geometry intent, but keep it as one entry point rather than the whole identity of the product.',
-        body: [
-          el('textarea', {
-            className: 'studio-textarea studio-textarea-compact',
-            text: model.promptText || '',
-            dataset: { field: 'prompt-text' },
-            attrs: {
-              placeholder: 'Describe geometry intent, manufacturing assumptions, and the artifact outcome you want.',
-              rows: 6,
-            },
+  return el('section', {
+    className: 'workspace-shell model-workbench',
+    children: [
+      createSectionHeader({
+        kicker: 'Model workspace',
+        title: 'Choose input, build, then inspect the model result',
+        description: 'The model workbench keeps input, build posture, viewport inspection, metadata, parts, and motion in one place without leading with the TOML editor.',
+        badges: [
+          { label: model.configText ? 'Input loaded' : 'Input pending', tone: model.configText ? 'ok' : 'warn' },
+          { label: promptReady ? 'Assistant ready' : 'Assistant available', tone: 'info' },
+          { label: `Build ${model.buildState || 'idle'}`, tone: buildTone },
+        ],
+      }),
+      el('div', {
+        className: 'model-status-grid',
+        children: [
+          el('article', {
+            className: 'model-status-surface',
+            dataset: { hook: 'runtime-surface', tone: 'info' },
+            children: [
+              el('h3', { className: 'model-status-title', text: 'Runtime pending' }),
+              el('p', { className: 'model-status-copy', text: 'Runtime posture will resolve from the local API health check.' }),
+            ],
           }),
-          el('p', {
-            className: 'inline-note',
-            text: 'Prompt execution still depends on later API work. This workspace already keeps the draft and config context separate.',
+          el('article', {
+            className: 'model-status-surface',
+            dataset: { hook: 'connection-surface', tone: 'info' },
+            children: [
+              el('h3', { className: 'model-status-title', text: 'API pending' }),
+              el('p', { className: 'model-status-copy', text: 'Connection state will reflect whether the future-facing studio path is reachable.' }),
+            ],
+          }),
+          el('article', {
+            className: 'model-status-surface',
+            dataset: { hook: 'build-surface', tone: 'info' },
+            children: [
+              el('h3', { className: 'model-status-title', text: 'Idle' }),
+              el('p', { className: 'model-status-copy', text: 'Build remains the primary CTA in this workspace.' }),
+            ],
+          }),
+          el('article', {
+            className: 'model-status-surface',
+            dataset: { hook: 'result-surface', tone: 'info' },
+            children: [
+              el('h3', { className: 'model-status-title', text: 'Result pending' }),
+              el('p', { className: 'model-status-copy', text: 'The latest preview outcome will stay visible here.' }),
+            ],
           }),
         ],
       }),
-      createCard({
-        kicker: 'Config posture',
-        title: 'Loaded source',
-        copy: 'Config editing is enabled here, not on the Start launchpad.',
-        body: [createModelSourceSummary(state)],
-      }),
-    ],
-    canvas: [
-      createCard({
-        kicker: 'Config editor',
-        title: model.sourceName || 'Editable config',
-        copy: 'The TOML surface belongs in the Model workspace once you have decided how to start.',
-        surface: 'canvas',
-        body: [
-          el('textarea', {
-            className: 'studio-textarea studio-textarea-code',
-            text: model.configText || '',
-            dataset: { field: 'config-text' },
-            attrs: {
-              placeholder: 'Load an example or open a local config to start editing here.',
-              spellcheck: 'false',
-              rows: 22,
-            },
+      el('div', {
+        className: 'model-grid',
+        children: [
+          el('div', {
+            className: 'model-column model-column-left',
+            children: [
+              createCard({
+                kicker: 'Input',
+                title: 'Choose the model source',
+                copy: 'Examples and local configs stay close to Build, while editing remains available but no longer defines the whole screen.',
+                body: [
+                  el('div', {
+                    className: 'action-controls',
+                    children: [
+                      createModelExampleSelect(state),
+                      el('div', {
+                        className: 'model-action-row',
+                        children: [
+                          createButton({
+                            label: 'Load example',
+                            action: 'model-load-example',
+                            tone: 'primary',
+                            dataset: { hook: 'load-example' },
+                          }),
+                          createButton({
+                            label: 'Open config file',
+                            action: 'model-open-config',
+                            tone: 'ghost',
+                            dataset: { hook: 'open-config' },
+                          }),
+                          el('input', {
+                            className: 'visually-hidden',
+                            dataset: { hook: 'config-file' },
+                            attrs: {
+                              type: 'file',
+                              accept: '.toml,.json,text/plain',
+                            },
+                          }),
+                        ],
+                      }),
+                    ],
+                  }),
+                  el('div', { dataset: { hook: 'source-summary' }, children: [createModelSourceSummary(state)] }),
+                ],
+              }),
+              createCard({
+                kicker: 'Config and parameters',
+                title: 'Review the working config',
+                copy: 'Parameters are summarized first, while the full TOML stays available in a collapsible editor instead of dominating the page.',
+                body: [
+                  el('div', { className: 'studio-mini-grid', dataset: { hook: 'validation-summary' } }),
+                  el('details', {
+                    className: 'disclosure',
+                    attrs: { open: true },
+                    children: [
+                      el('summary', { className: 'disclosure-summary', text: 'Edit TOML' }),
+                      el('div', {
+                        className: 'disclosure-body',
+                        children: [
+                          el('textarea', {
+                            className: 'studio-textarea studio-textarea-code studio-textarea-model',
+                            text: model.configText || '',
+                            dataset: {
+                              hook: 'config-textarea',
+                              field: 'config-text',
+                            },
+                            attrs: {
+                              placeholder: 'Load an example or open a local config to start editing here.',
+                              spellcheck: 'false',
+                              rows: 18,
+                            },
+                          }),
+                        ],
+                      }),
+                    ],
+                  }),
+                  el('div', { className: 'studio-note-stack', dataset: { hook: 'validation-warnings' } }),
+                ],
+              }),
+              createCard({
+                kicker: 'Build settings',
+                title: 'Set preview outputs',
+                copy: 'Preview builds stay scratch-safe and viewport-first. Artifact publication remains a later workspace concern.',
+                body: [
+                  el('label', {
+                    className: 'studio-check-row',
+                    children: [
+                      el('input', {
+                        dataset: { hook: 'include-step' },
+                        attrs: { type: 'checkbox', checked: true },
+                      }),
+                      el('span', { text: 'Keep STEP export alongside the viewport preview' }),
+                    ],
+                  }),
+                  el('label', {
+                    className: 'studio-check-row',
+                    children: [
+                      el('input', {
+                        dataset: { hook: 'include-stl' },
+                        attrs: { type: 'checkbox', checked: true, disabled: true },
+                      }),
+                      el('span', { text: 'Generate STL preview assets for the viewport (required)' }),
+                    ],
+                  }),
+                  el('label', {
+                    className: 'studio-check-row',
+                    children: [
+                      el('input', {
+                        dataset: { hook: 'per-part-stl' },
+                        attrs: { type: 'checkbox', checked: true },
+                      }),
+                      el('span', { text: 'Keep per-part STL loading for assembly inspection' }),
+                    ],
+                  }),
+                  el('p', {
+                    className: 'inline-note',
+                    dataset: { hook: 'build-summary' },
+                    text: model.buildSummary || 'Choose input, then build to inspect the preview.',
+                  }),
+                  el('div', {
+                    className: 'model-action-row',
+                    children: [
+                      createButton({
+                        label: 'Validate',
+                        action: 'model-validate',
+                        tone: 'ghost',
+                        dataset: { hook: 'validate-button' },
+                      }),
+                      createButton({
+                        label: 'Build',
+                        action: 'model-build',
+                        tone: 'primary',
+                        dataset: { hook: 'build-button' },
+                      }),
+                      createButton({
+                        label: 'Clear result',
+                        action: 'model-clear-result',
+                        tone: 'ghost',
+                        dataset: { hook: 'clear-result' },
+                      }),
+                    ],
+                  }),
+                ],
+              }),
+              createCard({
+                kicker: 'Assistant',
+                title: 'Prompt-based design stays secondary',
+                copy: 'Use the assistant to draft or revise TOML, but keep the build-and-inspect loop in the foreground.',
+                body: [
+                  createDisclosure({
+                    summary: 'Prompt-assisted design',
+                    open: promptReady,
+                    body: [
+                      el('textarea', {
+                        className: 'studio-textarea studio-textarea-compact',
+                        text: model.promptText || '',
+                        dataset: {
+                          hook: 'assistant-textarea',
+                          field: 'prompt-text',
+                        },
+                        attrs: {
+                          placeholder: 'Describe geometry intent, manufacturing assumptions, and what should be generated.',
+                          rows: 6,
+                        },
+                      }),
+                      el('div', {
+                        className: 'model-action-row',
+                        children: [
+                          createButton({
+                            label: 'Draft TOML',
+                            action: 'model-draft-prompt',
+                            tone: 'ghost',
+                            dataset: { hook: 'draft-prompt' },
+                          }),
+                        ],
+                      }),
+                      el('div', { className: 'studio-note-stack', dataset: { hook: 'assistant-report' } }),
+                    ],
+                  }),
+                ],
+              }),
+            ],
+          }),
+          el('div', {
+            className: 'model-column model-column-center',
+            children: [
+              createCard({
+                kicker: 'Viewport',
+                title: 'Inspect the latest build result',
+                copy: 'The model canvas now leads the workspace so the user can see the outcome immediately after build.',
+                surface: 'canvas',
+                body: [
+                  el('div', {
+                    className: 'viewport-toolbar',
+                    children: [
+                      el('label', {
+                        className: 'studio-toggle',
+                        children: [
+                          el('input', {
+                            dataset: { hook: 'wireframe' },
+                            attrs: { type: 'checkbox' },
+                          }),
+                          el('span', { text: 'Wireframe' }),
+                        ],
+                      }),
+                      el('label', {
+                        className: 'studio-toggle',
+                        children: [
+                          el('input', {
+                            dataset: { hook: 'edges' },
+                            attrs: { type: 'checkbox', checked: true },
+                          }),
+                          el('span', { text: 'Edges' }),
+                        ],
+                      }),
+                      el('label', {
+                        className: 'studio-range-row',
+                        children: [
+                          el('span', { text: 'Opacity' }),
+                          el('input', {
+                            dataset: { hook: 'opacity' },
+                            attrs: { type: 'range', min: 10, max: 100, value: 100 },
+                          }),
+                        ],
+                      }),
+                      createButton({
+                        label: 'Screenshot',
+                        action: 'model-screenshot',
+                        tone: 'ghost',
+                        dataset: { hook: 'screenshot' },
+                      }),
+                    ],
+                  }),
+                  el('div', {
+                    className: 'studio-viewport-shell',
+                    children: [
+                      el('div', { className: 'studio-viewport', dataset: { hook: 'viewport' } }),
+                    ],
+                  }),
+                  el('p', {
+                    className: 'inline-note',
+                    dataset: { hook: 'viewport-caption' },
+                    text: 'The viewport stays dominant so the workflow reads as choose input, build, then inspect the result.',
+                  }),
+                ],
+              }),
+            ],
+          }),
+          el('div', {
+            className: 'model-column model-column-right',
+            children: [
+              createCard({
+                kicker: 'Model metadata',
+                title: 'Operational model facts',
+                copy: 'Metadata is presented as build feedback, not a random textbox dump.',
+                body: [
+                  el('div', { className: 'model-info studio-side-panel', dataset: { hook: 'model-info' } }),
+                ],
+              }),
+              createCard({
+                kicker: 'Parts',
+                title: 'Assembly structure',
+                copy: 'Part selection, material swatches, and per-part inspection stay next to the viewport rather than inside the input stack.',
+                body: [
+                  el('div', { className: 'parts-list studio-side-panel', dataset: { hook: 'parts-list' } }),
+                ],
+              }),
+              createCard({
+                kicker: 'Build log',
+                title: 'Build pipeline output',
+                copy: 'Logs are framed as operational feedback from the pipeline instead of generic console noise.',
+                body: [
+                  el('div', { className: 'build-log studio-side-panel', dataset: { hook: 'build-log' } }),
+                ],
+              }),
+              createCard({
+                kicker: 'Motion controls',
+                title: 'Preserve animation when motion data exists',
+                copy: 'If the model carries motion data, the same playback behavior remains available here.',
+                body: [
+                  el('div', {
+                    className: 'animation-controls studio-side-panel',
+                    dataset: { hook: 'animation-controls' },
+                    children: [
+                      el('div', {
+                        className: 'anim-btn-row',
+                        children: [
+                          createButton({ label: 'Play', action: 'play', tone: 'ghost', dataset: { hook: 'play' } }),
+                          createButton({ label: 'Pause', action: 'pause', tone: 'ghost', dataset: { hook: 'pause' } }),
+                          createButton({ label: 'Reset', action: 'reset-motion', tone: 'ghost', dataset: { hook: 'reset-motion' } }),
+                        ],
+                      }),
+                      el('div', {
+                        className: 'anim-slider-row',
+                        children: [
+                          el('input', {
+                            dataset: { hook: 'timeline' },
+                            attrs: { type: 'range', min: 0, max: 1000, value: 0 },
+                          }),
+                          el('span', { className: 'time-display', dataset: { hook: 'time-display' }, text: '0.0s' }),
+                        ],
+                      }),
+                      el('div', {
+                        className: 'speed-row',
+                        children: ['0.25', '0.5', '1', '2'].map((speed, index) =>
+                          el('button', {
+                            className: `action-button action-button-ghost${index === 2 ? ' selected' : ''}`,
+                            text: `${speed}x`,
+                            dataset: {
+                              hook: 'speed-button',
+                              speed,
+                            },
+                            attrs: { type: 'button' },
+                          })
+                        ),
+                      }),
+                    ],
+                  }),
+                ],
+              }),
+            ],
           }),
         ],
-      }),
-      createCanvasCard({
-        kicker: 'Model canvas',
-        title: '3D viewport migration target',
-        copy: 'The legacy 3D viewport, parts list, wireframe controls, screenshots, and animation controls can move here next without reshaping navigation again.',
-        emptyState: createEmptyState({
-          icon: '3D',
-          title: 'Model canvas reserved',
-          copy: 'This lane is now ready to receive the runtime-backed model viewport in a later pass.',
-        }),
       }),
     ],
   });
@@ -804,7 +1142,7 @@ export const workspaceDefinitions = {
   },
   model: {
     label: 'Model',
-    summary: 'Prompt drafting, config editing, and model workspace handoff.',
+    summary: 'Choose input, build the preview, and inspect model results with metadata, parts, logs, and motion.',
     render(state) {
       return createModelWorkspace(state);
     },

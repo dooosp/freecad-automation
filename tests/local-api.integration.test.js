@@ -114,6 +114,41 @@ if (!hasFreeCADRuntime()) {
     assert.equal(recentJobsPayload.jobs.length, 1);
     assert.equal(recentJobsPayload.jobs[0].id, created.job.id);
 
+    const validatePreviewResponse = await fetch(`${baseUrl}/api/studio/validate-config`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        config_toml: configText,
+      }),
+    });
+    assert.equal(validatePreviewResponse.status, 200);
+    const validatePreviewPayload = await validatePreviewResponse.json();
+    assert.equal(validatePreviewPayload.ok, true);
+    assert.equal(validatePreviewPayload.overview.name, 'api_create_integration');
+
+    const previewResponse = await fetch(`${baseUrl}/api/studio/model-preview`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        config_toml: configText,
+        build_settings: {
+          include_step: true,
+        },
+      }),
+    });
+    assert.equal(previewResponse.status, 200);
+    const previewPayload = await previewResponse.json();
+    assert.equal(previewPayload.ok, true);
+    assert.equal(typeof previewPayload.preview.id, 'string');
+    assert.equal(previewPayload.preview.model.name, 'api_create_integration');
+    assert.equal(Array.isArray(previewPayload.preview.logs), true);
+    assert.equal(typeof previewPayload.preview.model_asset_url, 'string');
+
+    const previewAssetResponse = await fetch(`${baseUrl}${previewPayload.preview.model_asset_url}`);
+    assert.equal(previewAssetResponse.status, 200);
+    const previewAssetBytes = await previewAssetResponse.arrayBuffer();
+    assert(previewAssetBytes.byteLength > 0);
+
     console.log('local-api.integration.test.js: ok');
   } finally {
     await new Promise((resolveClose) => server.close(resolveClose));

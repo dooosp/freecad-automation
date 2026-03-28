@@ -51,6 +51,7 @@ export function initScene({
   let rimLight;
   let groundPlane;
   let defaultMaterial;
+  let frameHandle = 0;
 
   function createPartMaterial(materialName, index) {
     const def = MATERIAL_DEFS[materialName]
@@ -179,6 +180,22 @@ export function initScene({
   function clearScene() {
     disposeCurrentMesh();
     clearAssembly();
+  }
+
+  function destroy() {
+    window.removeEventListener('resize', onResize);
+    if (renderer?.domElement) {
+      renderer.domElement.removeEventListener('click', onViewportClick);
+      renderer.domElement.removeEventListener('mousemove', onViewportHover);
+    }
+    if (frameHandle) {
+      cancelAnimationFrame(frameHandle);
+      frameHandle = 0;
+    }
+    clearScene();
+    controls?.dispose();
+    renderer?.dispose();
+    viewport.replaceChildren();
   }
 
   function loadStl(arrayBuffer) {
@@ -343,7 +360,7 @@ export function initScene({
   }
 
   function animate() {
-    requestAnimationFrame(animate);
+    frameHandle = requestAnimationFrame(animate);
     onFrame();
     controls.update();
     renderer.render(scene, camera);
@@ -433,5 +450,6 @@ export function initScene({
     setWireframe,
     takeScreenshot,
     updateOpacity,
+    destroy,
   };
 }
