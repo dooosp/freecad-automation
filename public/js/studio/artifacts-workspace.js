@@ -158,6 +158,14 @@ function renderArtifactCard(artifact, selected = false) {
   });
 }
 
+function summarizeStorage(storage = null) {
+  const files = storage?.files || {};
+  const entries = Object.entries(files);
+  if (entries.length === 0) return 'Unavailable';
+  const available = entries.filter(([, record]) => record?.exists).length;
+  return `${available}/${entries.length} indexed`;
+}
+
 function diffArtifacts(current = [], baseline = []) {
   const currentTypes = new Set(current.map((artifact) => artifact.type || artifact.file_name));
   const baselineTypes = new Set(baseline.map((artifact) => artifact.type || artifact.file_name));
@@ -297,7 +305,7 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
         { label: 'Updated', value: formatDateTime(activeJob.summary.updated_at) },
         { label: 'Manifest command', value: activeJob.manifest?.command || 'Unknown' },
         { label: 'Artifact count', value: String((activeJob.artifacts || []).length) },
-        { label: 'Job storage', value: activeJob.storage?.root || 'Unavailable' },
+        { label: 'Job storage', value: summarizeStorage(activeJob.storage) },
       ])
     );
   }
@@ -544,7 +552,7 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
     detailNotesElement.replaceChildren(
       el('div', {
         className: 'support-note',
-        text: `Path: ${artifact.path}`,
+        text: `Artifact ID: ${artifact.id}`,
       }),
       el('div', {
         className: 'support-note',

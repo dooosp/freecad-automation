@@ -1445,7 +1445,7 @@ function createArtifactsWorkspace(state) {
         activeJob.artifacts.map((artifact) => ({
           title: artifact.key,
           meta: `${artifact.exists ? 'Available' : 'Missing'}${artifact.type ? ` • ${artifact.type}` : ''}`,
-          path: artifact.path,
+          path: artifact.file_name || artifact.id,
         }))
       ),
     ];

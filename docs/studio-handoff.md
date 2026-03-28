@@ -48,11 +48,11 @@ Practical rules:
 
 | Surface | What it contains | What it hides |
 | --- | --- | --- |
-| `GET /jobs` and `GET /jobs/:id` | sanitized request metadata, status history, diagnostics, result, storage metadata, and artifact-manifest summary | raw `file_path`, `config_path`, and `source_artifact_path` values |
+| `GET /jobs` and `GET /jobs/:id` | sanitized request metadata, status history, diagnostics, redacted result/manifest summaries, and logical storage metadata | raw `file_path`, `config_path`, `source_artifact_path`, and local storage filesystem paths |
 | `request.json` inside the job directory | the internal executor request exactly as persisted for execution or retry | nothing; this is the internal source of truth |
 | Artifact re-entry metadata | `artifact_ref`, `source_job_id`, `source_artifact_id`, `source_artifact_type`, `source_label` | the raw artifact filesystem path used internally |
 
-Absolute paths that still appear in browser-visible payloads are limited to storage metadata and artifact metadata, where the path itself is part of the operational/debug surface.
+Browser-visible payloads no longer expose raw local filesystem paths. Internal job-store files and executor inputs still retain full paths server-side for execution, artifact serving, and retry support.
 
 ## Queue controls by state
 
@@ -133,6 +133,7 @@ When a job settles while other tracked jobs are still active, the shell prefers 
 - `GET /artifacts/:jobId/:artifactId`: open a browser-safe artifact inline when the file type allows it.
 - `GET /artifacts/:jobId/:artifactId/download`: force download for the same artifact.
 - `GET /jobs/:id/artifacts/:artifactId/content`: compatibility alias for the older API-shaped artifact content route.
+- Artifact payloads expose `id`, `file_name`, `extension`, `content_type`, `exists`, `size_bytes`, `scope`, `stability`, `capabilities`, and `links` instead of raw filesystem paths.
 
 ## Studio Route Surface
 

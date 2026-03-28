@@ -10,6 +10,13 @@ import { hasFreeCADRuntime } from '../lib/paths.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
 
+function assertNoLeakedPathStrings(payload, blocked = []) {
+  const serialized = JSON.stringify(payload);
+  blocked.filter(Boolean).forEach((value) => {
+    assert.equal(serialized.includes(String(value)), false, `Payload leaked path-like value: ${value}`);
+  });
+}
+
 function rewriteConfigForOutput(sourcePath, outputDir, nextName) {
   const source = readFileSync(sourcePath, 'utf8');
   return source
@@ -85,21 +92,28 @@ if (!hasFreeCADRuntime()) {
     assert.equal(validateLocalApiResponse('job', created).ok, true);
     assert.equal('config_path' in created.job.request, false);
     assert.equal(JSON.stringify(created.job.request).includes(configPath), false);
+    assert.equal('root' in created.job.storage, false);
+    assert.equal('path' in created.job.storage.files.request, false);
     assert.equal(created.job.storage.files.request.exists, true);
     assert.equal(created.job.storage.files.log.exists, true);
+    assertNoLeakedPathStrings(created, [configPath, jobsDir, tmpRoot]);
 
     const completedJob = await waitForJob(baseUrl, created.job.id);
     assert.equal(completedJob.status, 'succeeded', JSON.stringify(completedJob.error));
     assert.equal(Array.isArray(completedJob.artifacts.exports), true);
+    assert.equal(completedJob.artifacts.exports.includes('api_create_integration.step'), true);
     assert.equal(completedJob.manifest.command, 'create');
     assert.equal(completedJob.manifest.artifacts.some((artifact) => artifact.type === 'model.step'), true);
     assert.equal('config_path' in completedJob.request, false);
     assert.equal(JSON.stringify(completedJob.request).includes(configPath), false);
     assert.equal(existsSync(join(outputDir, 'api_create_integration.step')), true);
+    assert.equal('root' in completedJob.storage, false);
+    assert.equal('path' in completedJob.storage.files.job, false);
     assert.equal(completedJob.storage.files.job.exists, true);
     assert.equal(completedJob.storage.files.request.exists, true);
     assert.equal(completedJob.storage.files.log.exists, true);
     assert.equal(completedJob.storage.files.manifest.exists, true);
+    assertNoLeakedPathStrings(completedJob, [configPath, outputDir, jobsDir, tmpRoot]);
 
     const artifactResponse = await fetch(`${baseUrl}/jobs/${created.job.id}/artifacts`);
     const artifactsPayload = await artifactResponse.json();
@@ -108,12 +122,16 @@ if (!hasFreeCADRuntime()) {
     assert.equal(validateLocalApiResponse('artifacts', artifactsPayload).ok, true);
     assert.equal(artifactsPayload.manifest.command, 'create');
     assert.equal(artifactsPayload.storage.files.log.exists, true);
-    assert(artifactsPayload.artifacts.some((artifact) => artifact.exists && artifact.path.endsWith('.step')));
-    const stepArtifact = artifactsPayload.artifacts.find((artifact) => artifact.exists && artifact.path.endsWith('.step'));
+    assert.equal('root' in artifactsPayload.storage, false);
+    assert.equal('path' in artifactsPayload.storage.files.log, false);
+    assert(artifactsPayload.artifacts.some((artifact) => artifact.exists && artifact.file_name.endsWith('.step')));
+    const stepArtifact = artifactsPayload.artifacts.find((artifact) => artifact.exists && artifact.file_name.endsWith('.step'));
+    assert.equal('path' in stepArtifact, false);
     assert.equal(typeof stepArtifact.id, 'string');
     assert.equal(typeof stepArtifact.file_name, 'string');
     assert.equal(typeof stepArtifact.links.open, 'string');
     assert.equal(stepArtifact.capabilities.can_download, true);
+    assertNoLeakedPathStrings(artifactsPayload, [configPath, outputDir, jobsDir, tmpRoot]);
 
     const artifactContentResponse = await fetch(`${baseUrl}${stepArtifact.links.open}`);
     assert.equal(artifactContentResponse.status, 200);
@@ -127,6 +145,9 @@ if (!hasFreeCADRuntime()) {
     assert.equal(validateLocalApiResponse('jobs', recentJobsPayload).ok, true);
     assert.equal(recentJobsPayload.jobs.length, 1);
     assert.equal(recentJobsPayload.jobs[0].id, created.job.id);
+    assert.equal('root' in recentJobsPayload.jobs[0].storage, false);
+    assert.equal('path' in recentJobsPayload.jobs[0].storage.files.job, false);
+    assertNoLeakedPathStrings(recentJobsPayload, [configPath, outputDir, jobsDir, tmpRoot]);
 
     const validatePreviewResponse = await fetch(`${baseUrl}/api/studio/validate-config`, {
       method: 'POST',

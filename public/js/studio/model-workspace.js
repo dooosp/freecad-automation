@@ -871,7 +871,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
 
     model.sourceType = 'example';
     model.sourceName = example.name;
-    model.sourcePath = example.path || state.data.examples.sourceLabel;
+    model.sourcePath = example.name || state.data.examples.sourceLabel;
     model.configText = example.content || '';
     model.editingEnabled = true;
     model.buildSummary = `Loaded ${example.name}. Validate or build when ready.`;

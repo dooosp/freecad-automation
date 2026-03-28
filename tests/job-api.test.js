@@ -148,7 +148,15 @@ try {
   assert.equal(artifacts[0].file_name, 'sample.json');
   assert.equal(artifacts[0].extension, '.json');
   const apiArtifacts = artifacts.map((artifact) => ({
-    ...artifact,
+    id: artifact.id,
+    key: artifact.key,
+    type: artifact.type,
+    scope: artifact.scope,
+    stability: artifact.stability,
+    file_name: artifact.file_name,
+    extension: artifact.extension,
+    exists: artifact.exists,
+    size_bytes: artifact.size_bytes,
     content_type: 'application/json; charset=utf-8',
     capabilities: {
       can_open: true,
@@ -158,15 +166,27 @@ try {
     links: {
       open: `/jobs/${job.id}/artifacts/${artifact.id}/content`,
       download: `/jobs/${job.id}/artifacts/${artifact.id}/content?download=1`,
+      api: `/jobs/${job.id}/artifacts/${artifact.id}/content`,
     },
   }));
 
-  const storage = await store.describeStorage(job.id);
-  assert.equal(storage.root.endsWith(job.id), true);
-  assert.equal(storage.files.job.exists, true);
-  assert.equal(storage.files.request.exists, true);
-  assert.equal(storage.files.log.exists, true);
-  assert.equal(storage.files.manifest.exists, true);
+  const internalStorage = await store.describeStorage(job.id);
+  assert.equal(internalStorage.root.endsWith(job.id), true);
+  assert.equal(internalStorage.files.job.exists, true);
+  assert.equal(internalStorage.files.request.exists, true);
+  assert.equal(internalStorage.files.log.exists, true);
+  assert.equal(internalStorage.files.manifest.exists, true);
+  const storage = {
+    files: Object.fromEntries(
+      Object.entries(internalStorage.files).map(([key, entry]) => [
+        key,
+        {
+          exists: entry.exists,
+          size_bytes: entry.size_bytes,
+        },
+      ])
+    ),
+  };
 
   const responseValidation = validateLocalApiResponse('job', {
     api_version: LOCAL_API_VERSION,
@@ -183,9 +203,11 @@ try {
       retried_from_job_id: persistedJob.retried_from_job_id,
       request: toPublicJobRequest(persistedJob.request),
       diagnostics: persistedJob.diagnostics,
-      artifacts: persistedJob.artifacts,
+      artifacts: {
+        sample: 'sample.json',
+      },
       manifest: persistedJob.manifest,
-      result: persistedJob.result,
+      result: { success: true },
       status_history: persistedJob.status_history,
       storage,
       capabilities: {

@@ -11,6 +11,13 @@ const ROOT = resolve(import.meta.dirname, '..');
 const tmpRoot = mkdtempSync(join(tmpdir(), 'fcad-local-api-root-'));
 const jobsDir = join(tmpRoot, 'jobs');
 
+function assertNoLeakedPathStrings(payload, blocked = []) {
+  const serialized = JSON.stringify(payload);
+  blocked.filter(Boolean).forEach((value) => {
+    assert.equal(serialized.includes(String(value)), false, `Payload leaked path-like value: ${value}`);
+  });
+}
+
 async function listen(server) {
   await new Promise((resolveListen) => server.listen(0, '127.0.0.1', resolveListen));
   const address = server.address();
@@ -111,6 +118,7 @@ try {
   const jobsIndexPayload = await jobsIndexResponse.json();
   assert.equal(jobsIndexPayload.ok, true);
   assert.equal(Array.isArray(jobsIndexPayload.jobs), true);
+  assertNoLeakedPathStrings(jobsIndexPayload, [jobsDir, tmpRoot]);
 
   const queuedSmokeJob = await jobStore.createJob({
     type: 'create',
@@ -190,8 +198,11 @@ try {
   const examples = await examplesResponse.json();
   assert.equal(Array.isArray(examples), true);
   assert.equal(examples.length > 0, true);
+  assert.equal(typeof examples[0].id, 'string');
   assert.equal(typeof examples[0].name, 'string');
   assert.equal(typeof examples[0].content, 'string');
+  assert.equal('path' in examples[0], false);
+  assertNoLeakedPathStrings(examples, [join(ROOT, 'configs', 'examples')]);
 
   const profilesResponse = await fetch(`${baseUrl}/api/config/profiles`, {
     headers: {
@@ -253,6 +264,9 @@ try {
   assert.deepEqual(studioJobPayload.job.request.config.drawing.views, ['front', 'iso']);
   assert.equal(studioJobPayload.job.request.config.drawing.scale, '1:2');
   assert.equal(studioJobPayload.job.request.options.qa, true);
+  assert.equal('root' in studioJobPayload.job.storage, false);
+  assert.equal('path' in studioJobPayload.job.storage.files.request, false);
+  assertNoLeakedPathStrings(studioJobPayload, [jobsDir, tmpRoot, ROOT]);
 
   await waitFor(async () => {
     const jobsResponse = await fetch(`${baseUrl}/jobs?limit=5`, {
@@ -265,6 +279,9 @@ try {
     assert.equal(jobsPayload.ok, true);
     assert.equal(jobsPayload.jobs.length >= 1, true);
     assert.equal(jobsPayload.jobs[0].id, studioJobPayload.job.id);
+    assert.equal('root' in jobsPayload.jobs[0].storage, false);
+    assert.equal('path' in jobsPayload.jobs[0].storage.files.job, false);
+    assertNoLeakedPathStrings(jobsPayload, [jobsDir, tmpRoot]);
   });
 
   const job = await jobStore.createJob({
@@ -308,9 +325,13 @@ try {
   assert.equal(artifactListPayload.artifacts[0].content_type, 'application/json; charset=utf-8');
   assert.equal(artifactListPayload.artifacts[0].capabilities.can_open, true);
   assert.equal(artifactListPayload.artifacts[0].capabilities.can_download, true);
+  assert.equal('path' in artifactListPayload.artifacts[0], false);
+  assert.equal('root' in artifactListPayload.storage, false);
+  assert.equal('path' in artifactListPayload.storage.files.job, false);
   assert.match(artifactListPayload.artifacts[0].links.open, new RegExp(`/artifacts/${job.id}/.+`));
   assert.match(artifactListPayload.artifacts[0].links.download, new RegExp(`/artifacts/${job.id}/.+/download$`));
   assert.match(artifactListPayload.artifacts[0].links.api, new RegExp(`/jobs/${job.id}/artifacts/.+/content$`));
+  assertNoLeakedPathStrings(artifactListPayload, [artifactPath, jobsDir, tmpRoot]);
 
   const artifactOpenResponse = await fetch(`${baseUrl}${artifactListPayload.artifacts[0].links.open}`);
   assert.equal(artifactOpenResponse.status, 200);

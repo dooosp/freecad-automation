@@ -1,7 +1,7 @@
 import express from 'express';
 import { createServer } from 'node:http';
 import { readFile, readdir } from 'node:fs/promises';
-import { extname, join, resolve } from 'node:path';
+import { basename, extname, join, posix, resolve, win32 } from 'node:path';
 import { buildRuntimeDiagnostics } from '../../lib/runtime-diagnostics.js';
 import { listShopProfiles } from '../api/config.js';
 import { createJobStore } from '../services/jobs/job-store.js';
@@ -95,12 +95,69 @@ function buildArtifactLinks(jobId, artifactId) {
   };
 }
 
+function isAbsoluteFilesystemPath(value) {
+  return typeof value === 'string'
+    && value.length > 0
+    && (posix.isAbsolute(value) || win32.isAbsolute(value));
+}
+
+function basenameFromAnyPath(value) {
+  if (typeof value !== 'string' || value.length === 0) return value;
+  if (win32.isAbsolute(value)) return win32.basename(value);
+  return basename(value);
+}
+
+function redactPublicPathValues(value) {
+  if (Array.isArray(value)) {
+    return value.map((entry) => redactPublicPathValues(entry));
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, redactPublicPathValues(entry)])
+    );
+  }
+
+  if (isAbsoluteFilesystemPath(value)) {
+    return basenameFromAnyPath(value);
+  }
+
+  return value;
+}
+
+function toPublicStorage(storage = null) {
+  if (!storage?.files || typeof storage.files !== 'object') {
+    return {
+      files: {},
+    };
+  }
+
+  return {
+    files: Object.fromEntries(
+      Object.entries(storage.files).map(([key, entry]) => [
+        key,
+        {
+          exists: Boolean(entry?.exists),
+          size_bytes: Number.isInteger(entry?.size_bytes) ? entry.size_bytes : null,
+        },
+      ])
+    ),
+  };
+}
+
 function toArtifactResponse(jobId, artifact) {
   const contentType = inferArtifactContentType(artifact.path);
   return {
-    ...artifact,
-    path: resolve(artifact.path),
+    id: artifact.id,
+    key: artifact.key,
+    type: artifact.type || null,
+    scope: artifact.scope || null,
+    stability: artifact.stability || null,
+    file_name: artifact.file_name,
+    extension: artifact.extension,
     content_type: contentType,
+    exists: Boolean(artifact.exists),
+    size_bytes: Number.isInteger(artifact.size_bytes) ? artifact.size_bytes : null,
     capabilities: buildArtifactCapabilities(artifact.path, artifact.exists),
     links: buildArtifactLinks(jobId, artifact.id),
   };
@@ -114,8 +171,8 @@ async function loadExampleConfigs() {
     const fullPath = join(EXAMPLES_DIR, fileName);
     const content = await readFile(fullPath, 'utf8');
     examples.push({
+      id: fileName.replace(/\.toml$/i, ''),
       name: fileName,
-      path: fullPath,
       content,
     });
   }
@@ -391,7 +448,7 @@ export function buildHealthPayload({
 }
 
 async function toJobResponse(jobStore, job, { executor = null } = {}) {
-  const storage = await jobStore.describeStorage(job.id);
+  const storage = toPublicStorage(await jobStore.describeStorage(job.id));
   const status = String(job.status || '').toLowerCase();
   const cancellationSupported = status === 'queued'
     || (status === 'running' && typeof executor?.cancelRunningJob === 'function');
@@ -407,9 +464,9 @@ async function toJobResponse(jobStore, job, { executor = null } = {}) {
     retried_from_job_id: job.retried_from_job_id || null,
     request: toPublicJobRequest(job.request),
     diagnostics: job.diagnostics,
-    artifacts: job.artifacts,
-    manifest: job.manifest,
-    result: job.result,
+    artifacts: redactPublicPathValues(job.artifacts),
+    manifest: redactPublicPathValues(job.manifest),
+    result: redactPublicPathValues(job.result),
     status_history: job.status_history,
     storage,
     capabilities: {
@@ -930,13 +987,13 @@ export function createLocalApiServer({
       const artifacts = (await jobStore.listArtifacts(req.params.id)).map((artifact) =>
         toArtifactResponse(req.params.id, artifact)
       );
-      const storage = await jobStore.describeStorage(req.params.id);
+      const storage = toPublicStorage(await jobStore.describeStorage(req.params.id));
       const payload = {
         api_version: LOCAL_API_VERSION,
         ok: true,
         job_id: req.params.id,
         artifacts,
-        manifest: job.manifest,
+        manifest: redactPublicPathValues(job.manifest),
         storage,
       };
       res.json(assertResponse('artifacts', payload));

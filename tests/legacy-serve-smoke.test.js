@@ -56,7 +56,9 @@ try {
   const examplesPayload = await examplesResponse.json();
   assert.equal(Array.isArray(examplesPayload), true);
   assert.equal(examplesPayload.length > 0, true);
+  assert.equal(typeof examplesPayload[0].id, 'string');
   assert.equal(typeof examplesPayload[0].name, 'string');
+  assert.equal('path' in examplesPayload[0], false);
 
   const cssResponse = await waitForFetch(`${baseUrl}/css/style.css`);
   const cssText = await cssResponse.text();

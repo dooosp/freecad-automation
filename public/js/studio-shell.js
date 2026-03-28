@@ -977,7 +977,7 @@ function applyExampleToSharedModel(example) {
   applyConfigToSharedModel({
     sourceType: 'example',
     sourceName: example.name,
-    sourcePath: example.path || state.data.examples.sourceLabel,
+    sourcePath: example.name || state.data.examples.sourceLabel,
     configText: example.content || '',
   });
 }
@@ -1040,7 +1040,7 @@ async function openConfigArtifactInModel(job, artifact) {
   applyConfigToSharedModel({
     sourceType: 'artifact',
     sourceName: artifact.file_name || artifact.key || 'Config artifact',
-    sourcePath: artifact.path || `${job?.type || 'job'} ${job?.id?.slice(0, 8) || 'unknown'}`,
+    sourcePath: artifact.file_name || artifact.id || `${job?.type || 'job'} ${job?.id?.slice(0, 8) || 'unknown'}`,
     configText,
   });
   addLog({

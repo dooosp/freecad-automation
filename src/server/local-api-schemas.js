@@ -140,9 +140,8 @@ const jobCapabilitiesSchema = {
 const storageFileSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['path', 'exists', 'size_bytes'],
+  required: ['exists', 'size_bytes'],
   properties: {
-    path: { type: 'string', minLength: 1 },
     exists: { type: 'boolean' },
     size_bytes: nullableInteger,
   },
@@ -154,7 +153,6 @@ const artifactEntrySchema = {
   required: [
     'id',
     'key',
-    'path',
     'type',
     'scope',
     'stability',
@@ -169,7 +167,6 @@ const artifactEntrySchema = {
   properties: {
     id: { type: 'string', minLength: 1 },
     key: { type: 'string', minLength: 1 },
-    path: { type: 'string', minLength: 1 },
     type: nullableString,
     scope: nullableString,
     stability: nullableString,
@@ -474,9 +471,8 @@ const jobSchema = {
     storage: {
       type: 'object',
       additionalProperties: false,
-      required: ['root', 'files'],
+      required: ['files'],
       properties: {
-        root: { type: 'string', minLength: 1 },
         files: {
           type: 'object',
           additionalProperties: false,

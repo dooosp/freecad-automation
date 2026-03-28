@@ -16,7 +16,7 @@ function toSearchString(artifact = {}) {
     artifact.type,
     artifact.key,
     artifact.file_name,
-    artifact.path,
+    artifact.id,
     artifact.extension,
   ]
     .filter(Boolean)
