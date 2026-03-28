@@ -17,6 +17,7 @@ import {
   deriveModelTrackedRunPresentation,
   ensureModelTrackedRunState,
 } from './model-tracked-runs.js';
+import { getStudioExampleValue } from './examples.js';
 import { renderReviewWorkspace } from './review-workspace.js';
 import { renderArtifactsWorkspace } from './artifacts-workspace.js';
 
@@ -203,8 +204,8 @@ function createExamplesSelect(state) {
           el('option', {
             text: example.name,
             attrs: {
-              value: example.name,
-              selected: example.name === state.data.examples.selectedName,
+              value: getStudioExampleValue(example),
+              selected: getStudioExampleValue(example) === state.data.examples.selectedId,
             },
           })
         )
@@ -502,7 +503,7 @@ function createModelSourceSummary(state) {
   return createInfoGrid([
     { label: 'Source', value: model.sourceType || 'manual' },
     { label: 'Name', value: model.sourceName || 'Untitled config' },
-    { label: 'Path', value: model.sourcePath || 'In-memory draft' },
+    { label: 'Reference', value: model.sourcePath || 'In-memory draft' },
     { label: 'Editing', value: model.editingEnabled ? 'Enabled' : 'Disabled' },
   ]);
 }
@@ -522,8 +523,8 @@ function createModelExampleSelect(state) {
           el('option', {
             text: example.name,
             attrs: {
-              value: example.name,
-              selected: example.name === state.data.examples.selectedName,
+              value: getStudioExampleValue(example),
+              selected: getStudioExampleValue(example) === state.data.examples.selectedId,
             },
           })
         )

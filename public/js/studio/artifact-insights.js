@@ -54,6 +54,33 @@ export function formatBytes(sizeBytes) {
   return `${(sizeBytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
+function formatArtifactAvailability(artifact = {}) {
+  const size = Number.isFinite(artifact.size_bytes) ? formatBytes(artifact.size_bytes) : 'Size unavailable';
+  return `${artifact.exists ? 'Available' : 'Missing'} • ${size}`;
+}
+
+function formatArtifactContract(artifact = {}) {
+  return `${artifact.scope || 'unknown'} • ${artifact.stability || 'unknown'}`;
+}
+
+function formatRouteAvailability(enabled, copy) {
+  return {
+    value: enabled ? 'Available' : 'Unavailable',
+    note: copy,
+  };
+}
+
+export function getTrackedJobSourceLabel(activeJob = null) {
+  const request = activeJob?.summary?.request;
+  if (typeof request?.source_label === 'string' && request.source_label.trim()) {
+    return request.source_label.trim();
+  }
+  if (typeof request?.options?.studio?.source_label === 'string' && request.options.studio.source_label.trim()) {
+    return request.options.studio.source_label.trim();
+  }
+  return '';
+}
+
 export function classifyArtifact(artifact = {}) {
   const search = toSearchString(artifact);
   const extension = String(artifact.extension || '').toLowerCase();
@@ -113,6 +140,53 @@ export function findArtifact(artifacts = [], matchers = []) {
     const search = toSearchString(artifact);
     return matchers.some((matcher) => search.includes(String(matcher).toLowerCase()));
   }) || null;
+}
+
+export function buildArtifactDetailItems(artifact = {}, activeJob = null) {
+  const classification = classifyArtifact(artifact);
+  const sourceLabel = getTrackedJobSourceLabel(activeJob);
+  const openRoute = formatRouteAvailability(
+    artifact.capabilities?.can_open,
+    artifact.capabilities?.can_open
+      ? 'Opens through the tracked artifact route.'
+      : 'No browser-open route is published for this artifact.'
+  );
+  const downloadRoute = formatRouteAvailability(
+    artifact.capabilities?.can_download,
+    artifact.capabilities?.can_download
+      ? 'Downloads through the tracked artifact route.'
+      : 'No download route is published for this artifact.'
+  );
+
+  return [
+    { label: 'Artifact', value: artifact.key || artifact.id || 'Unknown artifact' },
+    { label: 'Badge', value: classification.badge },
+    { label: 'Type', value: artifact.type || 'Unknown' },
+    { label: 'File name', value: artifact.file_name || 'Unknown' },
+    { label: 'Content type', value: artifact.content_type || 'Unknown' },
+    { label: 'Exists / size', value: formatArtifactAvailability(artifact) },
+    { label: 'Scope / stability', value: formatArtifactContract(artifact) },
+    { label: 'Open route', value: openRoute.value, note: openRoute.note },
+    { label: 'Download route', value: downloadRoute.value, note: downloadRoute.note },
+    ...(sourceLabel ? [{ label: 'Tracked source', value: sourceLabel }] : []),
+  ];
+}
+
+export function buildArtifactDetailNotes(artifact = {}, activeJob = null) {
+  const notes = [
+    `Artifact ID: ${artifact.id || 'unknown'}`,
+  ];
+
+  const sourceLabel = getTrackedJobSourceLabel(activeJob);
+  if (sourceLabel) {
+    notes.push(`Tracked source label: ${sourceLabel}`);
+  }
+
+  if (Array.isArray(activeJob?.manifest?.warnings) && activeJob.manifest.warnings.length > 0) {
+    notes.push(...activeJob.manifest.warnings.slice(0, 2));
+  }
+
+  return notes;
 }
 
 function scoreTone(score, { good = 80, warn = 60 } = {}) {

@@ -7,6 +7,8 @@ import {
   el,
 } from './renderers.js';
 import {
+  buildArtifactDetailItems,
+  buildArtifactDetailNotes,
   canPreviewAsText,
   classifyArtifact,
   fetchArtifactText,
@@ -457,17 +459,9 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
       return;
     }
 
-    const classification = classifyArtifact(artifact);
     const reentry = deriveArtifactReentryCapabilities(artifact);
     detailSummaryElement.replaceChildren(
-      createInfoGrid([
-        { label: 'Artifact', value: artifact.key },
-        { label: 'Badge', value: classification.badge },
-        { label: 'Type', value: artifact.type || 'Unknown' },
-        { label: 'File', value: artifact.file_name },
-        { label: 'Status', value: artifact.exists ? 'Available' : 'Missing' },
-        { label: 'Content type', value: artifact.content_type },
-      ])
+      createInfoGrid(buildArtifactDetailItems(artifact, state.data.activeJob))
     );
 
     detailActionsElement.replaceChildren(
@@ -501,7 +495,7 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
       ...(state.data.activeJob.summary && reentry.canOpenInModel
         ? [
             createButton({
-              label: 'Re-open in Model',
+              label: 'Open in Model',
               action: 'open-config-artifact-in-model',
               tone: 'ghost',
               dataset: {
@@ -510,7 +504,7 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
               },
             }),
             createButton({
-              label: 'Run tracked report',
+              label: 'Tracked report',
               action: 'run-artifact-report',
               tone: 'ghost',
               dataset: {
@@ -523,7 +517,7 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
       ...(state.data.activeJob.summary && reentry.canRunTrackedInspect
         ? [
             createButton({
-              label: 'Run tracked inspect',
+              label: 'Tracked inspect',
               action: 'run-artifact-inspect',
               tone: 'ghost',
               dataset: {
@@ -550,18 +544,12 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
     }
 
     detailNotesElement.replaceChildren(
-      el('div', {
-        className: 'support-note',
-        text: `Artifact ID: ${artifact.id}`,
-      }),
-      el('div', {
-        className: 'support-note',
-        text: `Scope: ${artifact.scope || 'unknown'} • Stability: ${artifact.stability || 'unknown'}`,
-      }),
-      ...(state.data.activeJob.manifest?.warnings || []).slice(0, 2).map((warning) =>
+      ...buildArtifactDetailNotes(artifact, state.data.activeJob).map((note) =>
         el('div', {
-          className: 'support-note support-note-warn',
-          text: warning,
+          className: state.data.activeJob.manifest?.warnings?.includes(note)
+            ? 'support-note support-note-warn'
+            : 'support-note',
+          text: note,
         })
       )
     );

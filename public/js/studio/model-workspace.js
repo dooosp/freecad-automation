@@ -5,6 +5,7 @@ import {
   renderModelInfo,
 } from '../app/index.js';
 import { listStudioConfigProfiles } from './config-client.js';
+import { getSelectedStudioExample } from './examples.js';
 import {
   buildTrackedReportJobOptions,
   collectValidationNotes,
@@ -364,7 +365,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
       assistantTextarea.value = model.promptText || '';
     }
     if (exampleSelect) {
-      exampleSelect.value = state.data.examples.selectedName || exampleSelect.value;
+      exampleSelect.value = state.data.examples.selectedId || exampleSelect.value;
     }
     if (wireframeInput) wireframeInput.checked = Boolean(model.controls.wireframe);
     if (edgesInput) edgesInput.checked = model.controls.edges !== false;
@@ -386,7 +387,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     renderInfoRows(sourceSummaryElement, [
       ['Source', model.sourceType || 'Not loaded'],
       ['Name', model.sourceName || 'Untitled config'],
-      ['Path', model.sourcePath || 'In-memory draft'],
+      ['Reference', model.sourcePath || 'In-memory draft'],
       ['Editing', model.editingEnabled ? 'Enabled' : 'Disabled'],
     ]);
   }
@@ -865,13 +866,12 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
   }
 
   function loadSelectedExample() {
-    const example = state.data.examples.items.find((item) => item.name === state.data.examples.selectedName)
-      || state.data.examples.items[0];
+    const example = getSelectedStudioExample(state.data.examples);
     if (!example) return;
 
     model.sourceType = 'example';
     model.sourceName = example.name;
-    model.sourcePath = example.name || state.data.examples.sourceLabel;
+    model.sourcePath = example.id || example.name || state.data.examples.sourceLabel;
     model.configText = example.content || '';
     model.editingEnabled = true;
     model.buildSummary = `Loaded ${example.name}. Validate or build when ready.`;
@@ -937,7 +937,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
   });
 
   exampleSelect?.addEventListener('change', () => {
-    state.data.examples.selectedName = exampleSelect.value;
+    state.data.examples.selectedId = exampleSelect.value;
   });
 
   exampleButton?.addEventListener('click', loadSelectedExample);

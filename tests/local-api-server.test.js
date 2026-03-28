@@ -383,6 +383,8 @@ try {
   assert.equal(configArtifactsResponse.status, 200);
   const configArtifactsPayload = await configArtifactsResponse.json();
   const configArtifact = configArtifactsPayload.artifacts[0];
+  assert.equal('path' in configArtifact, false);
+  assert.equal(JSON.stringify(configArtifactsPayload).includes(configArtifactPath), false);
 
   const rerunReportResponse = await fetch(`${baseUrl}/api/studio/jobs`, {
     method: 'POST',
@@ -460,6 +462,8 @@ try {
   assert.equal(modelArtifactsResponse.status, 200);
   const modelArtifactsPayload = await modelArtifactsResponse.json();
   const modelArtifact = modelArtifactsPayload.artifacts[0];
+  assert.equal('path' in modelArtifact, false);
+  assert.equal(JSON.stringify(modelArtifactsPayload).includes(modelArtifactPath), false);
 
   const inspectResponse = await fetch(`${baseUrl}/api/studio/jobs`, {
     method: 'POST',

@@ -3,6 +3,7 @@ import { fetchArtifactText } from './studio/artifact-insights.js';
 import { buildStudioArtifactRef, deriveStudioArtifactFamily } from './studio/artifact-actions.js';
 import { mountArtifactsWorkspace } from './studio/artifacts-workspace.js';
 import { mountDrawingWorkspace } from './studio/drawing-workspace.js';
+import { getSelectedStudioExample, resolveSelectedStudioExampleId } from './studio/examples.js';
 import {
   describeJobMonitorTransition,
   ensureStudioJobMonitorState,
@@ -84,7 +85,7 @@ const state = {
     examples: {
       status: 'loading',
       items: [],
-      selectedName: '',
+      selectedId: '',
       sourceLabel: 'configs/examples',
       message: '',
     },
@@ -884,7 +885,7 @@ async function loadExamples() {
     const items = Array.isArray(examples) ? examples : [];
     state.data.examples.items = items;
     state.data.examples.status = items.length > 0 ? 'ready' : 'empty';
-    state.data.examples.selectedName = state.data.examples.selectedName || items[0]?.name || '';
+    state.data.examples.selectedId = resolveSelectedStudioExampleId(items, state.data.examples.selectedId);
     state.data.examples.message = items.length > 0 ? '' : 'The examples source returned no TOML files.';
     if (items.length > 0 && state.data.health.status === 'unavailable') {
       state.data.health.fallbackMessage = 'Legacy shell detected. Examples still load, but runtime health and tracked jobs require the local API path from `fcad serve`.';
@@ -900,7 +901,7 @@ async function loadExamples() {
   } catch {
     state.data.examples.status = 'unavailable';
     state.data.examples.items = [];
-    state.data.examples.selectedName = '';
+    state.data.examples.selectedId = '';
     state.data.examples.message = 'Examples are not available on this serve path.';
   } finally {
     commitRender();
@@ -908,9 +909,7 @@ async function loadExamples() {
 }
 
 function getSelectedExample() {
-  return state.data.examples.items.find((example) => example.name === state.data.examples.selectedName)
-    || state.data.examples.items[0]
-    || null;
+  return getSelectedStudioExample(state.data.examples);
 }
 
 function resetDrawingWorkspaceState() {
@@ -977,7 +976,7 @@ function applyExampleToSharedModel(example) {
   applyConfigToSharedModel({
     sourceType: 'example',
     sourceName: example.name,
-    sourcePath: example.name || state.data.examples.sourceLabel,
+    sourcePath: example.id || example.name || state.data.examples.sourceLabel,
     configText: example.content || '',
   });
 }
@@ -1331,7 +1330,7 @@ workspaceRoot.addEventListener('change', async (event) => {
   if (!(target instanceof HTMLElement)) return;
 
   if (target.matches('[data-action="select-example"]')) {
-    state.data.examples.selectedName = target.value;
+    state.data.examples.selectedId = target.value;
     commitRender();
     return;
   }

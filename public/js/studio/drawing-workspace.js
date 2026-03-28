@@ -229,7 +229,7 @@ export function mountDrawingWorkspace({
     renderInfoRows(sourceSummaryElement, [
       ['Source', state.data.model.sourceType || 'Not loaded'],
       ['Name', state.data.model.sourceName || 'Untitled config'],
-      ['Path', state.data.model.sourcePath || 'In-memory draft'],
+      ['Reference', state.data.model.sourcePath || 'In-memory draft'],
       ['Config', state.data.model.configText?.trim() ? 'Ready for drawing' : 'Load or create a config first'],
     ]);
   }
