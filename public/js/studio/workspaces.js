@@ -1,13 +1,16 @@
 import {
   createArtifactList,
+  createButton,
   createCard,
+  createDisclosure,
   createEmptyState,
   createFlowRail,
+  createInfoGrid,
   createList,
-  createMetricGrid,
   createSectionHeader,
   createSplitPane,
   createStatusStrip,
+  createActionGrid,
   el,
 } from './renderers.js';
 
@@ -38,8 +41,738 @@ function createCanvasCard({ kicker, title, copy, emptyState }) {
 
 function connectionTone(connectionState) {
   if (connectionState === 'connected') return 'ok';
+  if (connectionState === 'legacy') return 'warn';
   if (connectionState === 'degraded') return 'warn';
   return 'info';
+}
+
+function formatDateTime(value) {
+  if (!value) return 'Not checked yet';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date);
+}
+
+function formatJobStatus(status) {
+  return String(status || 'unknown')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function shortJobId(id = '') {
+  if (!id) return 'Unknown job';
+  return id.length > 8 ? id.slice(0, 8) : id;
+}
+
+function exampleCountLabel(examplesState) {
+  if (examplesState.status === 'ready') return `${examplesState.items.length} examples ready`;
+  if (examplesState.status === 'empty') return 'No examples found';
+  if (examplesState.status === 'unavailable') return 'Examples unavailable';
+  return 'Loading examples';
+}
+
+function recentJobActionLabel(recentJobsState) {
+  if (recentJobsState.status !== 'ready' || recentJobsState.items.length === 0) return 'No recent job';
+  const [job] = recentJobsState.items;
+  return `Open ${job.type} ${shortJobId(job.id)}`;
+}
+
+function createRuntimeHealthCard(state) {
+  const { health } = state.data;
+  const runtimeAvailable = health.status === 'ready' && health.available;
+  const pathValue = health.runtimePath || 'Unavailable on this serve path';
+  const healthTone = runtimeAvailable ? 'ok' : (health.status === 'ready' ? 'warn' : 'info');
+  const notes = [];
+
+  if (health.status === 'unavailable' && health.fallbackMessage) {
+    notes.push(
+      el('p', {
+        className: 'support-note',
+        text: health.fallbackMessage,
+      })
+    );
+  }
+
+  if (health.warnings.length > 0) {
+    notes.push(
+      el('div', {
+        className: 'note-stack',
+        children: health.warnings.slice(0, 2).map((warning) =>
+          el('p', {
+            className: 'support-note',
+            text: warning,
+          })
+        ),
+      })
+    );
+  }
+
+  if (health.errors.length > 0) {
+    notes.push(
+      el('div', {
+        className: 'note-stack',
+        children: health.errors.slice(0, 2).map((error) =>
+          el('p', {
+            className: 'support-note support-note-warn',
+            text: error,
+          })
+        ),
+      })
+    );
+  }
+
+  return createCard({
+    kicker: 'Runtime health',
+    title: 'Runtime posture',
+    copy: 'Check API reachability first, then verify the FreeCAD runtime details that back model and drawing work.',
+    badges: [
+      { label: runtimeAvailable ? 'Runtime detected' : 'Runtime unavailable', tone: healthTone },
+      { label: health.reachable ? 'API reachable' : 'API unavailable', tone: health.reachable ? 'ok' : 'warn' },
+    ],
+    surface: 'canvas',
+    body: [
+      el('div', {
+        className: 'card-toolbar',
+        children: [
+          el('p', {
+            className: 'inline-note',
+            text: health.runtimeSummary || 'Runtime details will appear here when /health is available.',
+          }),
+          createButton({
+            label: 'Refresh status',
+            action: 'refresh-health',
+            tone: 'ghost',
+          }),
+        ],
+      }),
+      createInfoGrid([
+        {
+          label: 'API reachability',
+          value: health.reachable ? 'Reachable' : 'Unavailable',
+          note: health.reachable ? 'GET /health responded successfully.' : 'Falling back to shell-safe defaults.',
+        },
+        {
+          label: 'Runtime',
+          value: runtimeAvailable ? 'Detected' : 'Unavailable',
+          note: health.status === 'ready' ? (health.runtimeSummary || 'Runtime payload received.') : 'No runtime diagnostics payload available.',
+        },
+        {
+          label: 'Selected runtime path',
+          value: pathValue,
+        },
+        {
+          label: 'Python / FreeCAD',
+          value: [health.pythonVersion, health.freecadVersion].filter(Boolean).join(' / ') || 'Version details unavailable',
+        },
+        {
+          label: 'Project root',
+          value: health.projectRoot || 'Unavailable on this serve path',
+        },
+        {
+          label: 'Last check',
+          value: formatDateTime(health.checkedAt),
+        },
+      ]),
+      ...notes,
+    ],
+  });
+}
+
+function createExamplesSelect(state) {
+  const { examples } = state.data;
+  return el('select', {
+    className: 'studio-select',
+    dataset: { action: 'select-example' },
+    attrs: {
+      'aria-label': 'Select example',
+      disabled: examples.status !== 'ready' || examples.items.length === 0,
+    },
+    children: examples.status === 'ready'
+      ? examples.items.map((example) =>
+          el('option', {
+            text: example.name,
+            attrs: {
+              value: example.name,
+              selected: example.name === state.data.examples.selectedName,
+            },
+          })
+        )
+      : [
+          el('option', {
+            text: examples.status === 'loading' ? 'Loading examples...' : 'Examples unavailable',
+            attrs: { value: '' },
+          }),
+        ],
+  });
+}
+
+function createStartActionsCard(state) {
+  const { examples, recentJobs } = state.data;
+  const canTryExample = examples.status === 'ready' && examples.items.length > 0;
+  const canOpenRecent = recentJobs.status === 'ready' && recentJobs.items.length > 0;
+
+  return createCard({
+    kicker: 'Primary actions',
+    title: 'What can you do next?',
+    copy: 'Pick the lane that gets you moving without dropping into the full editing surface first.',
+    body: [
+      createActionGrid([
+        {
+          kicker: 'Example-first',
+          title: 'Try Example',
+          copy: 'Load a repository example and move straight into the Model workspace with editable config state.',
+          meta: exampleCountLabel(examples),
+          controls: [
+            createExamplesSelect(state),
+            createButton({
+              label: 'Load example',
+              action: 'try-example',
+              tone: 'primary',
+              disabled: !canTryExample,
+            }),
+          ],
+        },
+        {
+          kicker: 'Source-backed',
+          title: 'Open Existing Config',
+          copy: 'Bring a local TOML or JSON config into the Model workspace and keep editing there.',
+          meta: 'Local file only. Start stays focused on launch decisions, not full editing.',
+          controls: [
+            createButton({
+              label: 'Choose config file',
+              action: 'open-config',
+              tone: 'primary',
+            }),
+            el('input', {
+              className: 'visually-hidden',
+              attrs: {
+                id: 'start-config-file',
+                type: 'file',
+                accept: '.toml,.json,text/plain',
+              },
+            }),
+          ],
+        },
+        {
+          kicker: 'Prompt-assisted',
+          title: 'Generate From Prompt',
+          copy: 'Route into the model-building flow with prompt drafting ready, without making prompting the whole product.',
+          meta: 'Prompt execution still depends on later API wiring.',
+          controls: [
+            createButton({
+              label: 'Open prompt flow',
+              action: 'open-prompt-flow',
+              tone: 'primary',
+            }),
+          ],
+        },
+        {
+          kicker: 'Job trail',
+          title: 'Open Recent Job',
+          copy: 'Jump into the most recent tracked run and continue from the artifact trail instead of starting over.',
+          meta: recentJobs.status === 'unavailable'
+            ? 'Recent jobs require the local API path from `fcad serve`.'
+            : `${recentJobs.items.length || 0} recent jobs visible`,
+          controls: [
+            createButton({
+              label: recentJobActionLabel(recentJobs),
+              action: 'open-recent-job',
+              tone: 'primary',
+              disabled: !canOpenRecent,
+            }),
+          ],
+        },
+      ]),
+    ],
+  });
+}
+
+function createRecentJobsCard(state) {
+  const { recentJobs } = state.data;
+
+  if (recentJobs.status === 'loading') {
+    return createCard({
+      kicker: 'Recent jobs',
+      title: 'Job history',
+      copy: 'Loading the most recent tracked runs from the local API.',
+      surface: 'canvas',
+      body: [
+        createEmptyState({
+          icon: '...',
+          title: 'Checking recent runs',
+          copy: 'The Start workspace will use recent jobs as the fastest path back into artifacts and review.',
+        }),
+      ],
+    });
+  }
+
+  if (recentJobs.status === 'unavailable') {
+    return createCard({
+      kicker: 'Recent jobs',
+      title: 'No job history on this path',
+      copy: 'The legacy shell does not expose tracked job history, so this space stays honest instead of showing broken controls.',
+      surface: 'canvas',
+      body: [
+        createEmptyState({
+          icon: '[]',
+          title: 'Recent jobs need the local API',
+          copy: recentJobs.message || 'Run `fcad serve` to expose `/jobs` and artifact history for the new studio shell.',
+        }),
+      ],
+    });
+  }
+
+  if (recentJobs.items.length === 0) {
+    return createCard({
+      kicker: 'Recent jobs',
+      title: 'Nothing has been tracked yet',
+      copy: 'Use an example or open a config first. As soon as jobs are created, this list becomes the fastest return path.',
+      surface: 'canvas',
+      body: [
+        createEmptyState({
+          icon: '+',
+          title: 'No recent jobs yet',
+          copy: recentJobs.message || 'Start with a model or drawing run to build an artifact trail here.',
+        }),
+      ],
+    });
+  }
+
+  return createCard({
+    kicker: 'Recent jobs',
+    title: 'Resume from tracked work',
+    copy: 'Recent runs stay visible so the launchpad answers what to do next even after a partial workflow.',
+    surface: 'canvas',
+    body: [
+      el('div', {
+        className: 'job-list',
+        children: recentJobs.items.map((job) =>
+          el('article', {
+            className: 'job-item',
+            children: [
+              el('div', {
+                children: [
+                  el('div', {
+                    className: 'job-title-row',
+                    children: [
+                      el('p', {
+                        className: 'job-title',
+                        text: `${job.type} ${shortJobId(job.id)}`,
+                      }),
+                      el('span', {
+                        className: 'pill',
+                        text: formatJobStatus(job.status),
+                      }),
+                    ],
+                  }),
+                  el('p', {
+                    className: 'job-copy',
+                    text: `Updated ${formatDateTime(job.updated_at)}${job.error?.message ? ` • ${job.error.message}` : ''}`,
+                  }),
+                ],
+              }),
+              createButton({
+                label: 'Open',
+                action: 'open-job',
+                tone: 'ghost',
+                dataset: { jobId: job.id },
+              }),
+            ],
+          })
+        ),
+      }),
+    ],
+  });
+}
+
+function createQuickLinksCard(state) {
+  const links = [
+    el('div', {
+      className: 'quick-link-row',
+      children: [
+        el('span', { className: 'quick-link-label', text: 'Studio API' }),
+        el('code', { className: 'code-chip', text: 'fcad serve' }),
+      ],
+    }),
+    el('div', {
+      className: 'quick-link-row',
+      children: [
+        el('span', { className: 'quick-link-label', text: 'Legacy viewer' }),
+        el('code', { className: 'code-chip', text: 'fcad serve --legacy-viewer' }),
+      ],
+    }),
+    el('div', {
+      className: 'quick-link-row',
+      children: [
+        el('span', { className: 'quick-link-label', text: 'Legacy npm script' }),
+        el('code', { className: 'code-chip', text: 'npm run serve:legacy' }),
+      ],
+    }),
+    state.data.health.reachable
+      ? el('div', {
+          className: 'quick-link-row',
+          children: [
+            el('span', { className: 'quick-link-label', text: 'Health' }),
+            el('a', {
+              className: 'quick-link-anchor',
+              text: '/health',
+              attrs: { href: '/health' },
+            }),
+          ],
+        })
+      : null,
+    state.connectionState === 'connected'
+      ? el('div', {
+          className: 'quick-link-row',
+          children: [
+            el('span', { className: 'quick-link-label', text: 'Jobs' }),
+            el('a', {
+              className: 'quick-link-anchor',
+              text: '/jobs?limit=8',
+              attrs: { href: '/jobs?limit=8' },
+            }),
+          ],
+        })
+      : null,
+    el('div', {
+      className: 'quick-link-row',
+      children: [
+        el('span', { className: 'quick-link-label', text: 'Examples source' }),
+        el('code', { className: 'code-chip', text: state.data.examples.sourceLabel }),
+      ],
+    }),
+  ].filter(Boolean);
+
+  return createCard({
+    kicker: 'Quick links',
+    title: 'CLI and API shortcuts',
+    copy: 'Keep the lightweight commands and endpoints close without letting them dominate the landing workspace.',
+    body: [
+      createDisclosure({
+        summary: 'Show quick links',
+        body: links,
+      }),
+    ],
+  });
+}
+
+function createModelSourceSummary(state) {
+  const model = state.data.model;
+  if (!model.configText) {
+    return createEmptyState({
+      icon: 'M',
+      title: 'No config loaded yet',
+      copy: 'Start with Try Example or Open Existing Config from the Start workspace to bring editable config state here.',
+    });
+  }
+
+  return createInfoGrid([
+    { label: 'Source', value: model.sourceType || 'manual' },
+    { label: 'Name', value: model.sourceName || 'Untitled config' },
+    { label: 'Path', value: model.sourcePath || 'In-memory draft' },
+    { label: 'Editing', value: model.editingEnabled ? 'Enabled' : 'Disabled' },
+  ]);
+}
+
+function createModelWorkspace(state) {
+  const model = state.data.model;
+  const promptReady = Boolean(model.promptMode || model.promptText);
+
+  return workspaceShell({
+    kicker: 'Model workspace',
+    title: model.configText ? 'Model authoring is ready' : 'Model authoring is staged',
+    description: 'Prompt drafting and config editing live here so Start can stay focused on runtime posture and launch decisions.',
+    badges: [
+      { label: model.configText ? 'Config loaded' : 'Config pending', tone: model.configText ? 'ok' : 'warn' },
+      { label: promptReady ? 'Prompt lane open' : 'Prompt lane ready', tone: 'info' },
+      { label: 'Runtime-backed build later', tone: 'warn' },
+    ],
+    controls: [
+      createCard({
+        kicker: 'Prompt flow',
+        title: 'Draft the model request',
+        copy: 'Use prompt drafting for geometry intent, but keep it as one entry point rather than the whole identity of the product.',
+        body: [
+          el('textarea', {
+            className: 'studio-textarea studio-textarea-compact',
+            text: model.promptText || '',
+            dataset: { field: 'prompt-text' },
+            attrs: {
+              placeholder: 'Describe geometry intent, manufacturing assumptions, and the artifact outcome you want.',
+              rows: 6,
+            },
+          }),
+          el('p', {
+            className: 'inline-note',
+            text: 'Prompt execution still depends on later API work. This workspace already keeps the draft and config context separate.',
+          }),
+        ],
+      }),
+      createCard({
+        kicker: 'Config posture',
+        title: 'Loaded source',
+        copy: 'Config editing is enabled here, not on the Start launchpad.',
+        body: [createModelSourceSummary(state)],
+      }),
+    ],
+    canvas: [
+      createCard({
+        kicker: 'Config editor',
+        title: model.sourceName || 'Editable config',
+        copy: 'The TOML surface belongs in the Model workspace once you have decided how to start.',
+        surface: 'canvas',
+        body: [
+          el('textarea', {
+            className: 'studio-textarea studio-textarea-code',
+            text: model.configText || '',
+            dataset: { field: 'config-text' },
+            attrs: {
+              placeholder: 'Load an example or open a local config to start editing here.',
+              spellcheck: 'false',
+              rows: 22,
+            },
+          }),
+        ],
+      }),
+      createCanvasCard({
+        kicker: 'Model canvas',
+        title: '3D viewport migration target',
+        copy: 'The legacy 3D viewport, parts list, wireframe controls, screenshots, and animation controls can move here next without reshaping navigation again.',
+        emptyState: createEmptyState({
+          icon: '3D',
+          title: 'Model canvas reserved',
+          copy: 'This lane is now ready to receive the runtime-backed model viewport in a later pass.',
+        }),
+      }),
+    ],
+  });
+}
+
+function createDrawingWorkspace() {
+  return workspaceShell({
+    kicker: 'Drawing workspace',
+    title: 'Drawing planning stays separate from model authoring',
+    description: 'This workspace still reserves the SVG canvas, BOM controls, and dimension loop without changing the launchpad again.',
+    badges: [
+      { label: 'Drawing BOM retained', tone: 'ok' },
+      { label: 'Dimension loop reserved', tone: 'warn' },
+      { label: 'Canvas migration pending', tone: 'info' },
+    ],
+    controls: [
+      createCard({
+        kicker: 'Drawing controls',
+        title: 'Plan before render',
+        copy: 'Keep drawing-specific intent close to the SVG output instead of mixing it with Start or model-entry decisions.',
+        body: [
+          createList([
+            { label: 'View set', copy: 'Front, top, right, iso, and future drawing-plan orchestration.', meta: 'Reserved' },
+            { label: 'BOM output', copy: 'CSV and drawing BOM staging belong here.', meta: 'Reserved' },
+            { label: 'Dimension edits', copy: 'Round-trip intent updates stay next to the drawing context.', meta: 'Reserved' },
+          ]),
+        ],
+      }),
+    ],
+    canvas: [
+      createCanvasCard({
+        kicker: 'Drawing canvas',
+        title: 'SVG and BOM stage',
+        copy: 'The current drawing overlay can migrate here when the runtime-backed canvas is moved out of the legacy shell.',
+        emptyState: createEmptyState({
+          icon: '2D',
+          title: 'Drawing surface reserved',
+          copy: 'The Start workspace now routes clearly into drawing work without putting these controls on the landing page.',
+        }),
+      }),
+    ],
+  });
+}
+
+function createReviewWorkspace() {
+  return workspaceShell({
+    kicker: 'Review workspace',
+    title: 'Review remains decision-first',
+    description: 'Design review, DFM, readiness, and stabilization outputs still belong in a dedicated decision surface.',
+    badges: [
+      { label: 'DFM and readiness preserved', tone: 'ok' },
+      { label: 'Decision console pending', tone: 'warn' },
+      { label: 'Status-first layout', tone: 'info' },
+    ],
+    controls: [
+      createCard({
+        kicker: 'Review lanes',
+        title: 'Signals this workspace will carry',
+        copy: 'The product identity stays aligned with an automation pipeline, not only a viewer.',
+        body: [
+          createStatusStrip([
+            { label: 'Design review', copy: 'Issue summaries, geometry observations, and next actions.' },
+            { label: 'Manufacturing review', copy: 'DFM, quality risk, and process planning outputs.' },
+            { label: 'Readiness and stabilization', copy: 'Runtime-informed hold points and launch guidance.' },
+          ]),
+        ],
+      }),
+    ],
+    canvas: [
+      createCard({
+        kicker: 'Decision board',
+        title: 'Review flow',
+        copy: 'This reserved board keeps status colors and next actions in the foreground when review wiring lands.',
+        surface: 'canvas',
+        body: [
+          createFlowRail([
+            { kicker: 'Signal', title: 'Geometry and model facts', copy: 'Pull facts from model creation and inspection outputs.' },
+            { kicker: 'Assessment', title: 'Manufacturing and launch review', copy: 'Surface the review outputs that matter for go/hold decisions.', tone: 'warn' },
+            { kicker: 'Decision', title: 'Actionable next step', copy: 'Keep the recommended action explicit and traceable.', tone: 'ok' },
+          ]),
+        ],
+      }),
+    ],
+  });
+}
+
+function createArtifactsWorkspace(state) {
+  const { activeJob, recentJobs } = state.data;
+  const hasActiveJob = Boolean(activeJob.summary);
+
+  let artifactBody;
+  if (!hasActiveJob) {
+    artifactBody = [
+      createEmptyState({
+        icon: '[]',
+        title: 'No job selected',
+        copy: 'Open a recent job from Start to inspect artifacts, manifests, and output storage here.',
+      }),
+    ];
+  } else if (activeJob.status === 'loading') {
+    artifactBody = [
+      createEmptyState({
+        icon: '...',
+        title: `Loading ${activeJob.summary.type} ${shortJobId(activeJob.summary.id)}`,
+        copy: 'Fetching artifact metadata from the local API.',
+      }),
+    ];
+  } else if (activeJob.status === 'unavailable') {
+    artifactBody = [
+      createEmptyState({
+        icon: '!',
+        title: 'Artifacts unavailable',
+        copy: activeJob.errorMessage || 'Artifact details could not be loaded for this job.',
+      }),
+    ];
+  } else if (activeJob.artifacts.length === 0) {
+    artifactBody = [
+      createEmptyState({
+        icon: '0',
+        title: 'This job has no exposed artifacts yet',
+        copy: 'The job record exists, but no artifact entries were returned for it.',
+      }),
+    ];
+  } else {
+    artifactBody = [
+      createArtifactList(
+        activeJob.artifacts.map((artifact) => ({
+          title: artifact.key,
+          meta: `${artifact.exists ? 'Available' : 'Missing'}${artifact.type ? ` • ${artifact.type}` : ''}`,
+          path: artifact.path,
+        }))
+      ),
+    ];
+  }
+
+  return workspaceShell({
+    kicker: 'Artifacts workspace',
+    title: hasActiveJob ? `Artifacts for ${activeJob.summary.type} ${shortJobId(activeJob.summary.id)}` : 'Artifact trail and manifests',
+    description: 'Tracked outputs need a dedicated surface so job history and artifact provenance do not get buried under entry controls.',
+    badges: [
+      { label: hasActiveJob ? 'Job selected' : 'No job selected', tone: hasActiveJob ? 'ok' : 'warn' },
+      { label: `${recentJobs.items.length || 0} recent jobs`, tone: recentJobs.items.length ? 'info' : 'warn' },
+      { label: 'Manifest-first layout', tone: 'info' },
+    ],
+    controls: [
+      createCard({
+        kicker: 'Active job',
+        title: hasActiveJob ? `${activeJob.summary.type} ${shortJobId(activeJob.summary.id)}` : 'Select a recent job',
+        copy: hasActiveJob
+          ? 'Job status, timing, and storage stay visible while you inspect artifacts.'
+          : 'Use Start to choose a recent job and route here.',
+        body: [
+          hasActiveJob
+            ? createInfoGrid([
+                { label: 'Status', value: formatJobStatus(activeJob.summary.status) },
+                { label: 'Created', value: formatDateTime(activeJob.summary.created_at) },
+                { label: 'Updated', value: formatDateTime(activeJob.summary.updated_at) },
+                { label: 'Artifacts', value: String(activeJob.artifacts.length) },
+              ])
+            : createEmptyState({
+                icon: 'J',
+                title: 'No active job',
+                copy: 'The Start workspace recent-jobs list is the intended entry point into artifacts.',
+              }),
+        ],
+      }),
+      createCard({
+        kicker: 'Recent job shortcuts',
+        title: 'Jump between runs',
+        copy: 'Keep the most recent jobs close so the artifact trail stays fast to navigate.',
+        body: [
+          recentJobs.items.length > 0
+            ? el('div', {
+                className: 'job-list job-list-compact',
+                children: recentJobs.items.slice(0, 4).map((job) =>
+                  el('article', {
+                    className: 'job-item',
+                    children: [
+                      el('div', {
+                        children: [
+                          el('p', { className: 'job-title', text: `${job.type} ${shortJobId(job.id)}` }),
+                          el('p', { className: 'job-copy', text: formatDateTime(job.updated_at) }),
+                        ],
+                      }),
+                      createButton({
+                        label: 'Open',
+                        action: 'open-job',
+                        tone: 'ghost',
+                        dataset: { jobId: job.id },
+                      }),
+                    ],
+                  })
+                ),
+              })
+            : createEmptyState({
+                icon: '+',
+                title: 'No tracked jobs yet',
+                copy: 'Once jobs exist on the local API path, they will appear here automatically.',
+              }),
+        ],
+      }),
+    ],
+    canvas: [
+      createCard({
+        kicker: 'Artifact board',
+        title: 'Tracked outputs',
+        copy: 'Artifacts, manifests, and storage details are grouped here instead of being scattered through the workflow.',
+        surface: 'canvas',
+        body: artifactBody,
+      }),
+      createCard({
+        kicker: 'Manifest posture',
+        title: 'Why this workspace exists',
+        copy: 'Artifact and manifest views can deepen later without changing how Start routes users back into work.',
+        surface: 'canvas',
+        body: [
+          createList([
+            { label: 'No silent downloads', copy: 'Artifact actions stay explicit and traceable.', meta: 'Intentional' },
+            { label: 'Manifest-first spine', copy: 'Artifact metadata stays central for previews and follow-up actions.', meta: 'Structural' },
+            { label: 'Recent-job routing', copy: 'Start can reopen tracked work without reintroducing a monolithic viewer panel.', meta: 'Implemented' },
+          ]),
+        ],
+      }),
+    ],
+  });
 }
 
 export const workspaceOrder = ['start', 'model', 'drawing', 'review', 'artifacts'];
@@ -47,375 +780,54 @@ export const workspaceOrder = ['start', 'model', 'drawing', 'review', 'artifacts
 export const workspaceDefinitions = {
   start: {
     label: 'Start',
-    summary: 'Guided launch point for the automation pipeline.',
+    summary: 'Launchpad for runtime posture, examples, and recent jobs.',
     render(state) {
       return workspaceShell({
         kicker: 'Start workspace',
-        title: 'Start With System Posture, Not Buttons',
-        description: 'Frame the job, confirm the runtime posture, and choose the workspace that matches the next engineering decision.',
+        title: 'Start with runtime posture and the next best move',
+        description: 'The launchpad answers what can I do next first, then exposes the runtime and artifact context that makes the answer trustworthy.',
         badges: [
           { label: `Connection ${state.connectionLabel}`, tone: connectionTone(state.connectionState) },
           { label: `Runtime ${state.runtimeToneLabel}`, tone: state.runtimeTone },
-          { label: 'Migration in parallel', tone: 'info' },
+          { label: `${state.data.recentJobs.items.length || 0} recent jobs`, tone: state.data.recentJobs.items.length ? 'info' : 'warn' },
         ],
         controls: [
-          createCard({
-            kicker: 'Entry points',
-            title: 'Workspace lanes',
-            copy: 'The studio breaks the legacy one-panel viewer into task-shaped surfaces.',
-            body: [
-              createList([
-                { label: 'Model', copy: 'Prompt design, examples, TOML editing, model metadata, parts, animation.', meta: 'Next migration lane' },
-                { label: 'Drawing', copy: 'Drawing plan review, SVG canvas, BOM, and dimension-edit loop.', meta: 'Canvas-first' },
-                { label: 'Review', copy: 'DFM, readiness, stabilization, design review, and release decisions.', meta: 'Status-heavy' },
-                { label: 'Artifacts', copy: 'Exports, manifests, reports, and job outputs with traceability.', meta: 'Audit trail' },
-              ]),
-            ],
-          }),
-          createCard({
-            kicker: 'Current posture',
-            title: 'What is stubbed in this shell',
-            copy: 'This pass establishes structure and navigation, not execution wiring.',
-            body: [
-              createStatusStrip([
-                { label: 'Runtime checks', copy: 'Read-only surface placeholders; full launch actions land later.' },
-                { label: 'Job control', copy: 'No enqueue, cancel, or watch actions yet.' },
-                { label: 'Editors and canvas', copy: 'Panels are scaffolded so later threads can move features without reshaping the shell.' },
-              ]),
-            ],
-          }),
+          createStartActionsCard(state),
+          createQuickLinksCard(state),
         ],
         canvas: [
-          createCard({
-            kicker: 'Pipeline map',
-            title: 'Automation flow',
-            copy: 'Status carries the visual weight so the workspace reads like an engineering control room, not a generic dashboard.',
-            surface: 'canvas',
-            body: [
-              createFlowRail([
-                { kicker: '1. Shape the job', title: 'Prompt or load a config', copy: 'Choose an example, write a prompt, or open a TOML source of truth.' },
-                { kicker: '2. Build outputs', title: 'Generate model and drawing artifacts', copy: 'Run model creation and TechDraw generation through the shared pipeline.', tone: 'ok' },
-                { kicker: '3. Review evidence', title: 'Check metadata, BOM, and review signals', copy: 'Surface model facts, manufacturing review results, and dimension follow-up.', tone: 'warn' },
-                { kicker: '4. Collect artifacts', title: 'Publish traceable outputs', copy: 'Gather manifests, reports, exports, and ready-to-share review packages.' },
-              ]),
-            ],
-          }),
-          createCard({
-            kicker: 'Operator notes',
-            title: 'Parallel rollout guardrails',
-            copy: 'Legacy behavior remains available while the new shell absorbs features workspace by workspace.',
-            surface: 'canvas',
-            body: [
-              createList([
-                { label: 'Legacy viewer', copy: 'Still owns the working all-in-one interactions for this handoff.', meta: 'Preserved' },
-                { label: 'Studio shell', copy: 'Owns navigation, layout tokens, status rails, and migration targets.', meta: 'New' },
-                { label: 'Future move', copy: 'Each capability can migrate into a dedicated workspace without changing the serve model again.', meta: 'Planned' },
-              ]),
-            ],
-          }),
+          createRuntimeHealthCard(state),
+          createRecentJobsCard(state),
         ],
       });
     },
   },
   model: {
     label: 'Model',
-    summary: 'Prompt design, config input, model status, and assembly context.',
+    summary: 'Prompt drafting, config editing, and model workspace handoff.',
     render(state) {
-      return workspaceShell({
-        kicker: 'Model workspace',
-        title: 'Model Authoring And Inspection Surface',
-        description: 'Separate control space for prompts and config from the future model canvas and inspection results.',
-        badges: [
-          { label: 'Examples retained', tone: 'ok' },
-          { label: 'TOML editor pending', tone: 'warn' },
-          { label: 'Parts and animation planned', tone: 'info' },
-        ],
-        controls: [
-          createCard({
-            kicker: 'Prompt design',
-            title: 'Shape the request',
-            copy: 'This lane will absorb AI prompt design and config generation from the legacy shell.',
-            body: [
-              createList([
-                { label: 'Prompt brief', copy: 'Describe geometry intent, manufacturing assumptions, and output expectations.', meta: 'Stub' },
-                { label: 'Example configs', copy: 'Load repository examples and compare canonical v1 patterns.', meta: 'Stub' },
-                { label: 'TOML editor', copy: 'Keep config edits source-backed and visible before build.', meta: 'Stub' },
-              ]),
-            ],
-          }),
-          createCard({
-            kicker: 'Inspection lane',
-            title: 'Model facts that belong here',
-            copy: 'Later threads can move runtime-backed facts into a stable layout without rebuilding the shell.',
-            body: [
-              createMetricGrid([
-                { label: 'Build state', value: state.jobLabel, copy: 'Current placeholder for create execution status.' },
-                { label: 'Parts list', value: 'Pending', copy: 'Assembly members and materials can dock here.' },
-                { label: 'Animation', value: 'Pending', copy: 'Motion timelines and playback controls stay separate from config entry.' },
-              ]),
-            ],
-          }),
-        ],
-        canvas: [
-          createCanvasCard({
-            kicker: 'Model canvas',
-            title: '3D viewport zone',
-            copy: 'Canvas space stays visually separate from authoring controls so geometry remains readable.',
-            emptyState: createEmptyState({
-              icon: '3D',
-              title: 'Model canvas placeholder',
-              copy: 'The future 3D viewport, part selection, wireframe toggles, opacity, and screenshot actions can migrate here without reworking navigation.',
-            }),
-          }),
-          createCard({
-            kicker: 'Reserved rails',
-            title: 'Metadata and motion sidecars',
-            copy: 'The legacy shell combines these concerns. Studio keeps them modular.',
-            surface: 'canvas',
-            body: [
-              el('div', {
-                className: 'split-subgrid',
-                children: [
-                  createEmptyState({
-                    icon: 'i',
-                    title: 'Model metadata rail',
-                    copy: 'Mass, bounds, material, and inspection facts.',
-                  }),
-                  createEmptyState({
-                    icon: '>>',
-                    title: 'Animation rail',
-                    copy: 'Playback, time scrub, and speed controls.',
-                  }),
-                ],
-              }),
-            ],
-          }),
-        ],
-      });
+      return createModelWorkspace(state);
     },
   },
   drawing: {
     label: 'Drawing',
-    summary: 'Drawing plan controls, BOM, dimension loop, and SVG canvas staging.',
+    summary: 'Drawing plan, SVG canvas, BOM, and dimension loop staging.',
     render() {
-      return workspaceShell({
-        kicker: 'Drawing workspace',
-        title: 'Drawing Planning, Canvas, And Dimension Feedback',
-        description: 'Keep drawing intent, BOM controls, and the SVG canvas in related but separate zones.',
-        badges: [
-          { label: 'Drawing BOM retained', tone: 'ok' },
-          { label: 'Dimension loop reserved', tone: 'warn' },
-          { label: 'SVG canvas placeholder', tone: 'info' },
-        ],
-        controls: [
-          createCard({
-            kicker: 'Drawing controls',
-            title: 'Plan before render',
-            copy: 'This lane is designed for drawing plan authoring instead of burying it behind a single button.',
-            body: [
-              createList([
-                { label: 'View set', copy: 'Front, top, right, iso, and future custom view orchestration.', meta: 'Stub' },
-                { label: 'BOM output', copy: 'CSV and drawing BOM placement controls belong here.', meta: 'Stub' },
-                { label: 'Dimension edits', copy: 'Round-trip dimension intent updates stay near the drawing context.', meta: 'Stub' },
-              ]),
-            ],
-          }),
-          createCard({
-            kicker: 'Review loop',
-            title: 'Expected handoff signals',
-            copy: 'The drawing workspace will carry the practical feedback loop between rendered output and editable intent.',
-            body: [
-              createStatusStrip([
-                { label: 'Plan compile', copy: 'Expose compile status and saved plan paths.' },
-                { label: 'SVG review', copy: 'Render and zoom the drawing without mixing it with config entry.' },
-                { label: 'BOM and dimensions', copy: 'Keep bill-of-materials and dimension corrections close to the drawing.' },
-              ]),
-            ],
-          }),
-        ],
-        canvas: [
-          createCanvasCard({
-            kicker: 'Drawing canvas',
-            title: 'SVG and annotation stage',
-            copy: 'This reserved canvas keeps drawing output centered and readable.',
-            emptyState: createEmptyState({
-              icon: '2D',
-              title: 'Drawing canvas placeholder',
-              copy: 'The current SVG overlay, zoom, fit, and pan interactions can migrate here once the drawing lane is wired.',
-            }),
-          }),
-          createCard({
-            kicker: 'Adjacent surfaces',
-            title: 'BOM and dimension sidecars',
-            copy: 'Artifacts and editing loops stay visible without crowding the canvas.',
-            surface: 'canvas',
-            body: [
-              el('div', {
-                className: 'split-subgrid',
-                children: [
-                  createEmptyState({
-                    icon: 'B',
-                    title: 'Drawing BOM panel',
-                    copy: 'Parts, quantities, materials, and callout links.',
-                  }),
-                  createEmptyState({
-                    icon: 'D',
-                    title: 'Dimension feedback rail',
-                    copy: 'Intent changes, review notes, and redraw requests.',
-                  }),
-                ],
-              }),
-            ],
-          }),
-        ],
-      });
+      return createDrawingWorkspace();
     },
   },
   review: {
     label: 'Review',
-    summary: 'Decision-focused space for design, DFM, readiness, and stabilization signals.',
+    summary: 'Design, DFM, readiness, and stabilization decisions.',
     render() {
-      return workspaceShell({
-        kicker: 'Review workspace',
-        title: 'Review Is A First-Class Workspace',
-        description: 'Manufacturing review, readiness, and design-review evidence should read like decisions in progress, not an afterthought below the viewport.',
-        badges: [
-          { label: 'Design review planned', tone: 'warn' },
-          { label: 'DFM and readiness preserved', tone: 'ok' },
-          { label: 'Decision console placeholder', tone: 'info' },
-        ],
-        controls: [
-          createCard({
-            kicker: 'Review lanes',
-            title: 'Signals this workspace will carry',
-            copy: 'The browser shell should match the repository identity as an automation pipeline, not only a viewer.',
-            body: [
-              createList([
-                { label: 'Design review', copy: 'Issue summaries, geometry observations, and next actions.', meta: 'Planned' },
-                { label: 'DFM and process review', copy: 'Manufacturability, quality risk, and process planning outputs.', meta: 'Planned' },
-                { label: 'Readiness and stabilization', copy: 'Runtime-informed hold points, launch risk, and go/no-go framing.', meta: 'Planned' },
-              ]),
-            ],
-          }),
-          createCard({
-            kicker: 'Status posture',
-            title: 'Decision framing',
-            copy: 'This space gives status colors more weight than decorative actions.',
-            body: [
-              createMetricGrid([
-                { label: 'Gate state', value: 'Unknown', copy: 'Later threads can bind go/hold decisions to real job output.' },
-                { label: 'Top risk', value: 'Pending', copy: 'Prominent slot for the leading blocker or review concern.' },
-                { label: 'Next action', value: 'Pending', copy: 'Short operator-facing follow-up instruction.' },
-              ]),
-            ],
-          }),
-        ],
-        canvas: [
-          createCard({
-            kicker: 'Decision canvas',
-            title: 'Review board',
-            copy: 'A calmer review surface makes evidence, status, and action items easy to scan.',
-            surface: 'canvas',
-            body: [
-              createFlowRail([
-                { kicker: 'Signal', title: 'Geometry and model facts', copy: 'Collect inspection or metadata facts from the model lane.' },
-                { kicker: 'Assessment', title: 'Manufacturing and launch review', copy: 'Surface DFM, readiness, and risk summaries.', tone: 'warn' },
-                { kicker: 'Decision', title: 'Actionable recommendation', copy: 'Capture go, hold, or revise guidance with traceable outputs.', tone: 'ok' },
-              ]),
-            ],
-          }),
-          createCard({
-            kicker: 'Stubbed surfaces',
-            title: 'Review details',
-            copy: 'Reserved zones for artifact-backed review rather than generic dashboard cards.',
-            surface: 'canvas',
-            body: [
-              el('div', {
-                className: 'split-subgrid',
-                children: [
-                  createEmptyState({
-                    icon: '!',
-                    title: 'Risk panel',
-                    copy: 'Top issues, blockers, and likely bottlenecks.',
-                  }),
-                  createEmptyState({
-                    icon: 'OK',
-                    title: 'Decision notes',
-                    copy: 'Recommended actions and release notes.',
-                  }),
-                ],
-              }),
-            ],
-          }),
-        ],
-      });
+      return createReviewWorkspace();
     },
   },
   artifacts: {
     label: 'Artifacts',
-    summary: 'Traceable outputs, manifests, reports, and export collection.',
+    summary: 'Recent-job artifact trail, manifests, and output storage.',
     render(state) {
-      return workspaceShell({
-        kicker: 'Artifacts workspace',
-        title: 'Outputs Need Their Own Operational Surface',
-        description: 'Exports, manifests, and reports deserve a traceability-oriented layout rather than a small appendix under the main tool panel.',
-        badges: [
-          { label: 'Manifest-ready layout', tone: 'ok' },
-          { label: 'Job history pending', tone: 'warn' },
-          { label: 'Export board placeholder', tone: 'info' },
-        ],
-        controls: [
-          createCard({
-            kicker: 'Artifact classes',
-            title: 'What this workspace will collect',
-            copy: 'The repository already emits many outputs. This shell gives them a place to land.',
-            body: [
-              createArtifactList([
-                { title: 'Model exports', meta: 'STEP, STL, generated geometry', path: 'output/<job>/model.*' },
-                { title: 'Drawing outputs', meta: 'SVG, BOM CSV, plan artifacts', path: 'output/<job>/drawing.*' },
-                { title: 'Review and report artifacts', meta: 'PDF, JSON, review pack, readiness bundles', path: 'output/<job>/reports/*' },
-              ]),
-            ],
-          }),
-          createCard({
-            kicker: 'Traceability',
-            title: 'Job and manifest posture',
-            copy: 'Artifact provenance can remain visible even before deep wiring lands.',
-            body: [
-              createMetricGrid([
-                { label: 'Current job', value: state.jobLabel, copy: 'Top-bar job placeholder is mirrored here.' },
-                { label: 'Manifest view', value: 'Reserved', copy: 'Job manifest and artifact metadata can dock here.' },
-                { label: 'Publish state', value: 'Reserved', copy: 'Future share/export actions belong here, not the canvas.' },
-              ]),
-            ],
-          }),
-        ],
-        canvas: [
-          createCanvasCard({
-            kicker: 'Artifact board',
-            title: 'Output gallery placeholder',
-            copy: 'A traceable artifact wall is easier to scan than mixed inline download links.',
-            emptyState: createEmptyState({
-              icon: '[]',
-              title: 'Artifact board placeholder',
-              copy: 'Future threads can mount job manifests, previews, and export actions here using the existing local API jobs model.',
-            }),
-          }),
-          createCard({
-            kicker: 'Handoff notes',
-            title: 'Why this structure matters later',
-            copy: 'A dedicated artifact workspace lets later threads add previews and provenance without changing the studio frame again.',
-            surface: 'canvas',
-            body: [
-              createList([
-                { label: 'No silent downloads', copy: 'Artifact actions can stay explicit and source-backed.', meta: 'Intentional' },
-                { label: 'Manifest-first view', copy: 'Use artifact metadata as the organizing spine for previews and actions.', meta: 'Structural' },
-                { label: 'Job history', copy: 'Historical runs can fit here without contaminating workspace-specific control surfaces.', meta: 'Planned' },
-              ]),
-            ],
-          }),
-        ],
-      });
+      return createArtifactsWorkspace(state);
     },
   },
 };

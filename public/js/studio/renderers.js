@@ -104,6 +104,74 @@ export function createMetricGrid(metrics = []) {
   });
 }
 
+export function createInfoGrid(items = []) {
+  return el('dl', {
+    className: 'info-grid',
+    children: items.map((item) =>
+      el('div', {
+        className: 'info-row',
+        children: [
+          el('dt', { className: 'info-label', text: item.label }),
+          el('dd', {
+            className: 'info-value-wrap',
+            children: [
+              el('div', { className: 'info-value', text: item.value ?? 'Unavailable' }),
+              item.note ? el('p', { className: 'info-note', text: item.note }) : null,
+            ],
+          }),
+        ],
+      })
+    ),
+  });
+}
+
+export function createButton({
+  label,
+  action,
+  tone = 'default',
+  disabled = false,
+  attrs = {},
+  dataset = {},
+}) {
+  return el('button', {
+    className: `action-button${tone !== 'default' ? ` action-button-${tone}` : ''}`,
+    text: label,
+    attrs: {
+      type: 'button',
+      ...attrs,
+      ...(disabled ? { disabled: true } : {}),
+    },
+    dataset: {
+      action,
+      ...dataset,
+    },
+  });
+}
+
+export function createActionGrid(cards = []) {
+  return el('div', {
+    className: 'action-grid',
+    children: cards.map((card) =>
+      el('article', {
+        className: 'action-card',
+        dataset: { tone: card.tone || 'info' },
+        children: [
+          el('div', {
+            className: 'action-card-header',
+            children: [
+              card.kicker ? el('p', { className: 'eyebrow', text: card.kicker }) : null,
+              el('h4', { className: 'action-title', text: card.title }),
+              card.copy ? el('p', { className: 'action-copy', text: card.copy }) : null,
+            ],
+          }),
+          card.meta ? el('p', { className: 'action-meta', text: card.meta }) : null,
+          card.controls ? el('div', { className: 'action-controls', children: card.controls }) : null,
+        ],
+      })
+    ),
+  });
+}
+
 export function createArtifactList(items = []) {
   return el('div', {
     className: 'artifact-list',
@@ -203,6 +271,17 @@ export function createStatusStrip(items = []) {
         ],
       })
     ),
+  });
+}
+
+export function createDisclosure({ summary, body = [], open = false }) {
+  return el('details', {
+    className: 'disclosure',
+    attrs: open ? { open: true } : {},
+    children: [
+      el('summary', { className: 'disclosure-summary', text: summary }),
+      el('div', { className: 'disclosure-body', children: Array.isArray(body) ? body : [body] }),
+    ],
   });
 }
 

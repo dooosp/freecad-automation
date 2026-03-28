@@ -433,6 +433,21 @@ const jobResponseSchema = {
   },
 };
 
+const jobsResponseSchema = {
+  $id: 'fcad.jobsResponse',
+  type: 'object',
+  additionalProperties: false,
+  required: ['api_version', 'ok', 'jobs'],
+  properties: {
+    api_version: { const: LOCAL_API_VERSION },
+    ok: { const: true },
+    jobs: {
+      type: 'array',
+      items: jobSchema,
+    },
+  },
+};
+
 const artifactsResponseSchema = {
   $id: 'fcad.artifactsResponse',
   type: 'object',
@@ -467,6 +482,7 @@ const validateJobRequestSchema = ajv.compile(jobRequestSchema);
 const responseValidators = {
   health: ajv.compile(healthResponseSchema),
   job: ajv.compile(jobResponseSchema),
+  jobs: ajv.compile(jobsResponseSchema),
   artifacts: ajv.compile(artifactsResponseSchema),
   error: ajv.compile(errorResponseSchema),
 };

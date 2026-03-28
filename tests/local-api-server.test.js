@@ -62,6 +62,29 @@ try {
   assert.equal(studioCssResponse.status, 200);
   const studioCss = await studioCssResponse.text();
   assert.match(studioCss, /--canvas-0/);
+  assert.match(studioCss, /\.action-grid/);
+
+  const examplesResponse = await fetch(`${baseUrl}/api/examples`, {
+    headers: {
+      accept: 'application/json',
+    },
+  });
+  assert.equal(examplesResponse.status, 200);
+  const examples = await examplesResponse.json();
+  assert.equal(Array.isArray(examples), true);
+  assert.equal(examples.length > 0, true);
+  assert.equal(typeof examples[0].name, 'string');
+  assert.equal(typeof examples[0].content, 'string');
+
+  const jobsResponse = await fetch(`${baseUrl}/jobs?limit=5`, {
+    headers: {
+      accept: 'application/json',
+    },
+  });
+  assert.equal(jobsResponse.status, 200);
+  const jobsPayload = await jobsResponse.json();
+  assert.equal(jobsPayload.ok, true);
+  assert.deepEqual(jobsPayload.jobs, []);
 
   console.log('local-api-server.test.js: ok');
 } finally {

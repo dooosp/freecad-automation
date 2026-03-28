@@ -1,5 +1,6 @@
 import express from 'express';
 import { createServer } from 'node:http';
+import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { buildRuntimeDiagnostics } from '../../lib/runtime-diagnostics.js';
 import { createJobStore } from '../services/jobs/job-store.js';
@@ -8,11 +9,29 @@ import { LOCAL_API_SERVICE, LOCAL_API_VERSION } from './local-api-contract.js';
 import { validateLocalApiResponse } from './local-api-schemas.js';
 
 const PUBLIC_DIR = join(import.meta.dirname, '..', '..', 'public');
+const EXAMPLES_DIR = join(import.meta.dirname, '..', '..', 'configs', 'examples');
 const STUDIO_HTML = join(PUBLIC_DIR, 'studio.html');
 const STUDIO_CSS = join(PUBLIC_DIR, 'css', 'studio.css');
 const STUDIO_SHELL_JS = join(PUBLIC_DIR, 'js', 'studio-shell.js');
 const APP_JS_DIR = join(PUBLIC_DIR, 'js', 'app');
 const STUDIO_JS_DIR = join(PUBLIC_DIR, 'js', 'studio');
+
+async function loadExampleConfigs() {
+  const files = await readdir(EXAMPLES_DIR);
+  const examples = [];
+
+  for (const fileName of files.filter((entry) => entry.endsWith('.toml')).sort()) {
+    const fullPath = join(EXAMPLES_DIR, fileName);
+    const content = await readFile(fullPath, 'utf8');
+    examples.push({
+      name: fileName,
+      path: fullPath,
+      content,
+    });
+  }
+
+  return examples;
+}
 
 function escapeHtml(value) {
   return String(value)
@@ -259,6 +278,14 @@ export function createLocalApiServer({
     res.json(assertResponse('health', payload));
   });
 
+  app.get('/api/examples', async (_req, res, next) => {
+    try {
+      res.json(await loadExampleConfigs());
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.get('/', (req, res) => {
     const payload = buildLandingPayload({
       projectRoot,
@@ -299,6 +326,24 @@ export function createLocalApiServer({
 
   app.get('/js/studio-shell.js', (_req, res) => {
     res.sendFile(STUDIO_SHELL_JS);
+  });
+
+  app.get('/jobs', async (req, res, next) => {
+    try {
+      const parsedLimit = Number(req.query.limit);
+      const limit = Number.isFinite(parsedLimit)
+        ? Math.min(20, Math.max(1, Math.trunc(parsedLimit)))
+        : 8;
+      const jobs = await jobStore.listJobs({ limit });
+      const payload = {
+        api_version: LOCAL_API_VERSION,
+        ok: true,
+        jobs: await Promise.all(jobs.map((job) => toJobResponse(jobStore, job))),
+      };
+      res.json(assertResponse('jobs', payload));
+    } catch (error) {
+      next(error);
+    }
   });
 
   app.post('/jobs', async (req, res) => {

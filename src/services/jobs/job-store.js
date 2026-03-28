@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, stat, writeFile, appendFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, stat, writeFile, appendFile } from 'node:fs/promises';
 import { dirname, resolve, join } from 'node:path';
 
 import { writeArtifactManifest } from '../../../lib/artifact-manifest.js';
@@ -154,6 +154,29 @@ export function createJobStore({ jobsDir }) {
     async getJob(id) {
       const raw = await readFile(getJobPaths(id).job, 'utf8');
       return JSON.parse(raw);
+    },
+    async listJobs({ limit = 10 } = {}) {
+      await ensureRoot();
+      const entries = await readdir(rootDir, { withFileTypes: true });
+      const jobs = [];
+
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        try {
+          const job = await this.getJob(entry.name);
+          jobs.push(job);
+        } catch {
+          // Ignore incomplete or non-job directories.
+        }
+      }
+
+      jobs.sort((left, right) => {
+        const rightTime = Date.parse(right.updated_at || right.created_at || 0);
+        const leftTime = Date.parse(left.updated_at || left.created_at || 0);
+        return rightTime - leftTime;
+      });
+
+      return jobs.slice(0, Math.max(0, Number(limit) || 0));
     },
     async updateJob(id, mutate) {
       const current = await this.getJob(id);
