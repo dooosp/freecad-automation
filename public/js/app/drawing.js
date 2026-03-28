@@ -46,15 +46,25 @@ export function createDrawingRenderer({
   onStatus = () => {},
   sendDimensionUpdate = () => {},
   getConfigToml = () => '',
+  onDrawingStateChange = () => {},
 }) {
   const drawingState = state.drawing;
   const dimensionState = state.dimensions;
 
+  function syncDrawingState() {
+    onDrawingStateChange({
+      drawing: drawingState,
+      dimensions: dimensionState,
+    });
+  }
+
   function updateEditPanel() {
+    if (!drawZoomLabelElement) return;
     const count = dimensionState.history.length;
-    if (count > 0 && drawZoomLabelElement) {
-      drawZoomLabelElement.textContent = `${Math.round(drawingState.zoom * 100)}% | ${count} edit(s)`;
-    }
+    drawZoomLabelElement.textContent = count > 0
+      ? `${Math.round(drawingState.zoom * 100)}% | ${count} edit(s)`
+      : `${Math.round(drawingState.zoom * 100)}%`;
+    syncDrawingState();
   }
 
   function updateDrawingTransform() {
@@ -69,9 +79,7 @@ export function createDrawingRenderer({
     }
 
     svgElement.style.transform = `translate(${drawingState.panX}px, ${drawingState.panY}px) scale(${drawingState.zoom})`;
-    if (drawZoomLabelElement) {
-      drawZoomLabelElement.textContent = `${Math.round(drawingState.zoom * 100)}%`;
-    }
+    updateEditPanel();
   }
 
   function fitDrawing() {
@@ -93,6 +101,7 @@ export function createDrawingRenderer({
   function closeDrawing() {
     drawingOverlayElement.classList.remove('open');
     drawingBomElement.classList.remove('open');
+    syncDrawingState();
   }
 
   function closeDimEdit() {
@@ -101,6 +110,7 @@ export function createDrawingRenderer({
     }
     dimensionState.input = null;
     dimensionState.editing = false;
+    syncDrawingState();
   }
 
   function addEditHistory(dimId, oldValue, newValue) {
@@ -227,9 +237,11 @@ export function createDrawingRenderer({
     });
   }
 
-  function initDimensionEditing() {
-    dimensionState.history = [];
-    dimensionState.index = -1;
+  function initDimensionEditing({ preserveHistory = false } = {}) {
+    if (!preserveHistory) {
+      dimensionState.history = [];
+      dimensionState.index = -1;
+    }
     dimensionState.pending = null;
     closeDimEdit();
 
@@ -259,6 +271,7 @@ export function createDrawingRenderer({
         openDimEdit(element);
       });
     });
+    syncDrawingState();
   }
 
   function showDrawing(svg, bom, scale, planPath = '') {
@@ -275,6 +288,9 @@ export function createDrawingRenderer({
     }
 
     drawingContainerElement.appendChild(safeSvg);
+    const preserveHistory = Boolean(planPath)
+      && planPath === drawingState.lastPlanPath
+      && dimensionState.history.length > 0;
     drawingState.zoom = 1;
     drawingState.panX = 0;
     drawingState.panY = 0;
@@ -282,7 +298,8 @@ export function createDrawingRenderer({
     updateDrawingTransform();
     drawingOverlayElement.classList.add('open');
     renderBom(drawingBomElement, bom);
-    initDimensionEditing();
+    initDimensionEditing({ preserveHistory });
+    syncDrawingState();
   }
 
   function handleDimensionUpdated(message) {
@@ -296,51 +313,52 @@ export function createDrawingRenderer({
       updateEditPanel();
     }
     dimensionState.pending = null;
+    syncDrawingState();
   }
 
   function clearPendingEdit() {
     dimensionState.pending = null;
+    syncDrawingState();
   }
 
-  closeButton?.addEventListener('click', closeDrawing);
-  fitButton?.addEventListener('click', fitDrawing);
-  zoomInButton?.addEventListener('click', () => {
+  function handleZoomInClick() {
     drawingState.zoom = Math.min(drawingState.zoom * 1.25, 10);
     updateDrawingTransform();
-  });
-  zoomOutButton?.addEventListener('click', () => {
+  }
+
+  function handleZoomOutClick() {
     drawingState.zoom = Math.max(drawingState.zoom / 1.25, 0.1);
     updateDrawingTransform();
-  });
+  }
 
-  drawingContainerElement?.addEventListener('mousedown', (event) => {
+  function handleContainerMouseDown(event) {
     if (event.button !== 0) return;
     drawingState.dragging = true;
     drawingState.dragStart = { x: event.clientX, y: event.clientY };
     drawingState.panStart = { x: drawingState.panX, y: drawingState.panY };
     drawingContainerElement.classList.add('grabbing');
     event.preventDefault();
-  });
+  }
 
-  drawingContainerElement?.addEventListener('mousedown', (event) => {
+  function handleDimensionMouseDown(event) {
     if (event.target.closest('text[data-dim-id]')) {
       event.stopPropagation();
     }
-  }, true);
+  }
 
-  window.addEventListener('mousemove', (event) => {
+  function handleWindowMouseMove(event) {
     if (!drawingState.dragging) return;
     drawingState.panX = drawingState.panStart.x + (event.clientX - drawingState.dragStart.x);
     drawingState.panY = drawingState.panStart.y + (event.clientY - drawingState.dragStart.y);
     updateDrawingTransform();
-  });
+  }
 
-  window.addEventListener('mouseup', () => {
+  function handleWindowMouseUp() {
     drawingState.dragging = false;
     drawingContainerElement?.classList.remove('grabbing');
-  });
+  }
 
-  drawingContainerElement?.addEventListener('wheel', (event) => {
+  function handleContainerWheel(event) {
     event.preventDefault();
     const rect = drawingContainerElement.getBoundingClientRect();
     const mouseX = event.clientX - rect.left;
@@ -353,9 +371,9 @@ export function createDrawingRenderer({
     drawingState.panX = mouseX - (mouseX - drawingState.panX) * (drawingState.zoom / oldZoom);
     drawingState.panY = mouseY - (mouseY - drawingState.panY) * (drawingState.zoom / oldZoom);
     updateDrawingTransform();
-  }, { passive: false });
+  }
 
-  document.addEventListener('keydown', (event) => {
+  function handleDocumentKeydown(event) {
     if (!drawingOverlayElement.classList.contains('open')) return;
 
     if ((event.ctrlKey || event.metaKey) && event.key === 'z' && !event.shiftKey) {
@@ -365,11 +383,34 @@ export function createDrawingRenderer({
       event.preventDefault();
       redoDimEdit();
     }
-  });
+  }
+
+  closeButton?.addEventListener('click', closeDrawing);
+  fitButton?.addEventListener('click', fitDrawing);
+  zoomInButton?.addEventListener('click', handleZoomInClick);
+  zoomOutButton?.addEventListener('click', handleZoomOutClick);
+  drawingContainerElement?.addEventListener('mousedown', handleContainerMouseDown);
+  drawingContainerElement?.addEventListener('mousedown', handleDimensionMouseDown, true);
+  window.addEventListener('mousemove', handleWindowMouseMove);
+  window.addEventListener('mouseup', handleWindowMouseUp);
+  drawingContainerElement?.addEventListener('wheel', handleContainerWheel, { passive: false });
+  document.addEventListener('keydown', handleDocumentKeydown);
 
   return {
     clearPendingEdit,
     closeDrawing,
+    destroy() {
+      closeButton?.removeEventListener('click', closeDrawing);
+      fitButton?.removeEventListener('click', fitDrawing);
+      zoomInButton?.removeEventListener('click', handleZoomInClick);
+      zoomOutButton?.removeEventListener('click', handleZoomOutClick);
+      drawingContainerElement?.removeEventListener('mousedown', handleContainerMouseDown);
+      drawingContainerElement?.removeEventListener('mousedown', handleDimensionMouseDown, true);
+      window.removeEventListener('mousemove', handleWindowMouseMove);
+      window.removeEventListener('mouseup', handleWindowMouseUp);
+      drawingContainerElement?.removeEventListener('wheel', handleContainerWheel, { passive: false });
+      document.removeEventListener('keydown', handleDocumentKeydown);
+    },
     fitDrawing,
     getPlanPath() {
       return drawingState.lastPlanPath;

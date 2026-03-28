@@ -13,6 +13,8 @@ const LANE_STEPS = {
   ],
   integration: [
     { label: 'Job API contracts', args: ['tests/job-api.test.js'] },
+    { label: 'Studio drawing API', args: ['tests/local-api-studio-drawing.test.js'] },
+    { label: 'Studio drawing service', args: ['tests/studio-drawing-service.test.js'] },
     { label: 'Rule profile service', args: ['tests/rule-profile-service.test.js'] },
     { label: 'Parameter sweep', args: ['tests/sweep.test.js'] },
     { label: 'Draw pipeline QA bridge', args: ['tests/draw-pipeline-qa-config.test.js'] },

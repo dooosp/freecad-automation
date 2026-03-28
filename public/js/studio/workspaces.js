@@ -891,40 +891,319 @@ function createModelWorkspace(state) {
   });
 }
 
-function createDrawingWorkspace() {
-  return workspaceShell({
-    kicker: 'Drawing workspace',
-    title: 'Drawing planning stays separate from model authoring',
-    description: 'This workspace still reserves the SVG canvas, BOM controls, and dimension loop without changing the launchpad again.',
-    badges: [
-      { label: 'Drawing BOM retained', tone: 'ok' },
-      { label: 'Dimension loop reserved', tone: 'warn' },
-      { label: 'Canvas migration pending', tone: 'info' },
-    ],
-    controls: [
-      createCard({
-        kicker: 'Drawing controls',
-        title: 'Plan before render',
-        copy: 'Keep drawing-specific intent close to the SVG output instead of mixing it with Start or model-entry decisions.',
-        body: [
-          createList([
-            { label: 'View set', copy: 'Front, top, right, iso, and future drawing-plan orchestration.', meta: 'Reserved' },
-            { label: 'BOM output', copy: 'CSV and drawing BOM staging belong here.', meta: 'Reserved' },
-            { label: 'Dimension edits', copy: 'Round-trip intent updates stay next to the drawing context.', meta: 'Reserved' },
-          ]),
+function createDrawingWorkspace(state) {
+  const hasConfig = Boolean(state.data.model?.configText?.trim());
+  const drawingStatus = state.data.drawing?.status || 'idle';
+  const tone = drawingStatus === 'ready' ? 'ok' : drawingStatus === 'error' ? 'bad' : drawingStatus === 'generating' ? 'warn' : 'info';
+
+  return el('section', {
+    className: 'workspace-shell',
+    children: [
+      createSectionHeader({
+        kicker: 'Drawing workspace',
+        title: 'FreeCAD drawing stays sheet-first',
+        description: 'Generate, inspect, and revise manufacturing-facing sheets in a dedicated workbench instead of dropping into the old overlay flow.',
+        badges: [
+          { label: hasConfig ? 'Config loaded' : 'Config needed', tone: hasConfig ? 'ok' : 'warn' },
+          { label: `Drawing ${drawingStatus}`, tone },
+          { label: 'BOM and QA sidecars', tone: 'info' },
         ],
       }),
-    ],
-    canvas: [
-      createCanvasCard({
-        kicker: 'Drawing canvas',
-        title: 'SVG and BOM stage',
-        copy: 'The current drawing overlay can migrate here when the runtime-backed canvas is moved out of the legacy shell.',
-        emptyState: createEmptyState({
-          icon: '2D',
-          title: 'Drawing surface reserved',
-          copy: 'The Start workspace now routes clearly into drawing work without putting these controls on the landing page.',
-        }),
+      el('div', {
+        className: 'drawing-status-grid',
+        children: [
+          el('article', {
+            className: 'model-status-surface',
+            dataset: { hook: 'drawing-source-surface', tone: hasConfig ? 'ok' : 'warn' },
+            children: [
+              el('h3', { className: 'model-status-title', text: hasConfig ? 'Config ready' : 'Config pending' }),
+              el('p', { className: 'model-status-copy', text: hasConfig ? 'This workspace can generate a sheet from the shared config state.' : 'Load an example or open a config here before generating a sheet.' }),
+            ],
+          }),
+          el('article', {
+            className: 'model-status-surface',
+            dataset: { hook: 'drawing-runtime-surface', tone: 'info' },
+            children: [
+              el('h3', { className: 'model-status-title', text: 'Runtime pending' }),
+              el('p', { className: 'model-status-copy', text: 'Drawing generation follows the same FreeCAD-backed pipeline posture as the rest of the studio.' }),
+            ],
+          }),
+          el('article', {
+            className: 'model-status-surface',
+            dataset: { hook: 'drawing-job-surface', tone },
+            children: [
+              el('h3', { className: 'model-status-title', text: drawingStatus === 'generating' ? 'Generating' : 'No drawing yet' }),
+              el('p', { className: 'model-status-copy', text: 'Generate drawing is the primary action in this workspace.' }),
+            ],
+          }),
+          el('article', {
+            className: 'model-status-surface',
+            dataset: { hook: 'drawing-result-surface', tone: 'info' },
+            children: [
+              el('h3', { className: 'model-status-title', text: 'Sheet pending' }),
+              el('p', { className: 'model-status-copy', text: 'BOM, annotations, QA, and dimension state will summarize here after the first render.' }),
+            ],
+          }),
+        ],
+      }),
+      el('div', {
+        className: 'drawing-grid',
+        children: [
+          el('div', {
+            className: 'drawing-column drawing-column-left',
+            children: [
+              createCard({
+                kicker: 'Source',
+                title: 'Choose what feeds the sheet',
+                copy: 'Stay in Drawing to load an example or config, then jump to Model only when you actually want to revise geometry or full TOML.',
+                body: [
+                  el('div', {
+                    className: 'action-controls',
+                    children: [
+                      createModelExampleSelect(state),
+                      el('div', {
+                        className: 'model-action-row',
+                        children: [
+                          createButton({
+                            label: 'Load example',
+                            action: 'drawing-load-example',
+                            tone: 'primary',
+                          }),
+                          createButton({
+                            label: 'Open config file',
+                            action: 'drawing-open-config',
+                            tone: 'ghost',
+                          }),
+                          createButton({
+                            label: 'Edit in model',
+                            action: 'drawing-open-model',
+                            tone: 'ghost',
+                          }),
+                          el('input', {
+                            className: 'visually-hidden',
+                            dataset: { hook: 'drawing-config-file' },
+                            attrs: {
+                              type: 'file',
+                              accept: '.toml,.json,text/plain',
+                            },
+                          }),
+                        ],
+                      }),
+                    ],
+                  }),
+                  el('div', { className: 'studio-mini-grid', dataset: { hook: 'drawing-source-summary' } }),
+                ],
+              }),
+              createCard({
+                kicker: 'Sheet setup',
+                title: 'View presets, scale, and drawing assists',
+                copy: 'Keep drawing-specific decisions close to the sheet and away from 3D viewport controls.',
+                body: [
+                  el('div', {
+                    className: 'drawing-preset-group',
+                    children: [
+                      el('p', { className: 'info-label', text: 'View presets' }),
+                      el('div', {
+                        className: 'drawing-view-grid',
+                        children: ['front', 'top', 'right', 'iso'].map((view) =>
+                          el('label', {
+                            className: 'studio-check-row',
+                            children: [
+                              el('input', {
+                                dataset: { hook: 'drawing-view', view },
+                                attrs: { type: 'checkbox', checked: true },
+                              }),
+                              el('span', { text: view }),
+                            ],
+                          })
+                        ),
+                      }),
+                    ],
+                  }),
+                  el('div', {
+                    className: 'drawing-controls-grid',
+                    children: [
+                      el('label', {
+                        className: 'drawing-select-field',
+                        children: [
+                          el('span', { className: 'info-label', text: 'Sheet scale' }),
+                          el('select', {
+                            className: 'studio-select',
+                            dataset: { hook: 'drawing-scale' },
+                            children: ['auto', '1:1', '1:2', '1:5', '2:1'].map((value, index) =>
+                              el('option', {
+                                text: value.toUpperCase(),
+                                attrs: {
+                                  value,
+                                  selected: index === 0,
+                                },
+                              })
+                            ),
+                          }),
+                        ],
+                      }),
+                      el('label', {
+                        className: 'studio-check-row',
+                        children: [
+                          el('input', {
+                            dataset: { hook: 'drawing-section-assist' },
+                            attrs: { type: 'checkbox' },
+                          }),
+                          el('span', { text: 'Section assist' }),
+                        ],
+                      }),
+                      el('label', {
+                        className: 'studio-check-row',
+                        children: [
+                          el('input', {
+                            dataset: { hook: 'drawing-detail-assist' },
+                            attrs: { type: 'checkbox' },
+                          }),
+                          el('span', { text: 'Detail assist' }),
+                        ],
+                      }),
+                    ],
+                  }),
+                  el('p', {
+                    className: 'inline-note',
+                    dataset: { hook: 'drawing-summary' },
+                    text: 'Generate drawing to open a dedicated sheet-first workspace with BOM, QA, and dimension context.',
+                  }),
+                  el('div', {
+                    className: 'model-action-row',
+                    children: [
+                      createButton({
+                        label: 'Generate drawing',
+                        action: 'drawing-generate',
+                        tone: 'primary',
+                        dataset: { hook: 'drawing-generate' },
+                      }),
+                      createButton({
+                        label: 'Fit sheet',
+                        action: 'drawing-fit',
+                        tone: 'ghost',
+                        dataset: { hook: 'drawing-fit-side' },
+                      }),
+                    ],
+                  }),
+                ],
+              }),
+            ],
+          }),
+          el('div', {
+            className: 'drawing-column drawing-column-center',
+            children: [
+              createCard({
+                kicker: 'Drawing canvas',
+                title: 'Sheet view',
+                copy: 'The sheet is the primary surface here, with just the controls that matter for drawing inspection.',
+                surface: 'canvas',
+                body: [
+                  el('div', {
+                    className: 'drawing-toolbar',
+                    children: [
+                      createButton({
+                        label: '+',
+                        action: 'drawing-zoom-in',
+                        tone: 'ghost',
+                        dataset: { hook: 'drawing-zoom-in' },
+                      }),
+                      createButton({
+                        label: '-',
+                        action: 'drawing-zoom-out',
+                        tone: 'ghost',
+                        dataset: { hook: 'drawing-zoom-out' },
+                      }),
+                      createButton({
+                        label: 'Fit',
+                        action: 'drawing-fit',
+                        tone: 'ghost',
+                        dataset: { hook: 'drawing-fit' },
+                      }),
+                      el('span', { className: 'drawing-zoom-label', dataset: { hook: 'drawing-zoom-label' }, text: '100%' }),
+                    ],
+                  }),
+                  el('div', {
+                    className: 'drawing-stage-shell',
+                    dataset: { hook: 'drawing-stage' },
+                    children: [
+                      el('div', {
+                        className: 'drawing-empty-state',
+                        dataset: { hook: 'drawing-empty' },
+                        children: [
+                          createEmptyState({
+                            icon: '2D',
+                            title: 'No drawing yet',
+                            copy: 'Use the drawing-specific CTA in this workspace to generate the first documentation sheet.',
+                          }),
+                        ],
+                      }),
+                      el('div', {
+                        className: 'drawing-canvas',
+                        dataset: { hook: 'drawing-canvas' },
+                      }),
+                    ],
+                  }),
+                  el('p', {
+                    className: 'inline-note',
+                    dataset: { hook: 'drawing-canvas-caption' },
+                    text: 'Pan with drag, zoom with the mouse wheel, and click dimension text to keep the edit loop attached to the sheet.',
+                  }),
+                ],
+              }),
+            ],
+          }),
+          el('div', {
+            className: 'drawing-column drawing-column-right',
+            children: [
+              createCard({
+                kicker: 'BOM',
+                title: 'Bill of materials',
+                copy: 'Manufacturing-facing part structure stays beside the sheet instead of below it.',
+                body: [
+                  el('div', { className: 'drawing-side-panel', dataset: { hook: 'drawing-bom' } }),
+                ],
+              }),
+              createCard({
+                kicker: 'Annotations',
+                title: 'Notes and callouts',
+                copy: 'General notes and drawing-plan callouts stay visible as documentation sidecars.',
+                body: [
+                  el('div', { className: 'drawing-side-panel', dataset: { hook: 'drawing-annotations' } }),
+                ],
+              }),
+              createCard({
+                kicker: 'QA summary',
+                title: 'Sheet readiness',
+                copy: 'Keep the drawing score and dimension posture visible while you iterate.',
+                body: [
+                  el('div', { className: 'drawing-side-panel', dataset: { hook: 'drawing-qa' } }),
+                ],
+              }),
+              createCard({
+                kicker: 'Dimension loop',
+                title: 'Editable dimensions and history',
+                copy: 'The existing edit loop stays attached to the sheet, with a right-side register for current values and change history.',
+                body: [
+                  createDisclosure({
+                    summary: 'Current editable dimensions',
+                    open: true,
+                    body: [
+                      el('div', { className: 'drawing-side-panel', dataset: { hook: 'drawing-dimensions' } }),
+                    ],
+                  }),
+                  createDisclosure({
+                    summary: 'Edit history',
+                    open: true,
+                    body: [
+                      el('div', { className: 'drawing-side-panel', dataset: { hook: 'drawing-history' } }),
+                    ],
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
       }),
     ],
   });
@@ -1150,8 +1429,8 @@ export const workspaceDefinitions = {
   drawing: {
     label: 'Drawing',
     summary: 'Drawing plan, SVG canvas, BOM, and dimension loop staging.',
-    render() {
-      return createDrawingWorkspace();
+    render(state) {
+      return createDrawingWorkspace(state);
     },
   },
   review: {

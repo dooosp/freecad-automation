@@ -8,6 +8,7 @@ import { createJobExecutor, validateJobRequest } from '../services/jobs/job-exec
 import { LOCAL_API_SERVICE, LOCAL_API_VERSION } from './local-api-contract.js';
 import { validateLocalApiResponse } from './local-api-schemas.js';
 import { createStudioModelService } from './studio-model-service.js';
+import { createStudioDrawingService } from './studio-drawing-service.js';
 
 const PUBLIC_DIR = join(import.meta.dirname, '..', '..', 'public');
 const EXAMPLES_DIR = join(import.meta.dirname, '..', '..', 'configs', 'examples');
@@ -249,6 +250,8 @@ export function createLocalApiServer({
   projectRoot,
   jobsDir,
   runtimeDiagnosticsFactory = buildRuntimeDiagnostics,
+  studioModelServiceFactory = createStudioModelService,
+  studioDrawingServiceFactory = createStudioDrawingService,
 }) {
   const app = express();
   const server = createServer(app);
@@ -257,7 +260,8 @@ export function createLocalApiServer({
     projectRoot,
     jobStore,
   });
-  const studioModelService = createStudioModelService({ projectRoot });
+  const studioModelService = studioModelServiceFactory({ projectRoot });
+  const studioDrawingService = studioDrawingServiceFactory({ projectRoot });
 
   app.use(express.json({ limit: '5mb' }));
   app.use('/js/app', express.static(APP_JS_DIR, { index: false }));
@@ -385,6 +389,52 @@ export function createLocalApiServer({
     }
   });
 
+  app.post('/api/studio/drawing-preview', async (req, res) => {
+    try {
+      const payload = await studioDrawingService.buildPreview({
+        configToml: req.body?.config_toml,
+        drawingSettings: req.body?.drawing_settings || {},
+      });
+      res.json({
+        ok: true,
+        ...payload,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const status = /TOML parse error|Config TOML is required|must include|invalid/i.test(message) ? 400 : 500;
+      const response = createErrorResponse(
+        'drawing_preview_failed',
+        [message],
+        status
+      );
+      res.status(response.status).json(assertResponse('error', response.body));
+    }
+  });
+
+  app.post('/api/studio/drawing-previews/:id/dimensions', async (req, res) => {
+    try {
+      const payload = await studioDrawingService.updateDimension({
+        previewId: req.params.id,
+        dimId: req.body?.dim_id,
+        valueMm: req.body?.value_mm,
+        historyOp: req.body?.history_op,
+      });
+      res.json({
+        ok: true,
+        ...payload,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const status = /No drawing preview found|editable plan path|Could not update|dim_intent|Invalid value|positive/i.test(message) ? 400 : 500;
+      const response = createErrorResponse(
+        'drawing_dimension_update_failed',
+        [message],
+        status
+      );
+      res.status(response.status).json(assertResponse('error', response.body));
+    }
+  });
+
   app.get('/api/studio/model-previews/:id/model', (req, res) => {
     const modelPath = studioModelService.getPreviewModelPath(req.params.id);
     if (!modelPath) {
@@ -496,6 +546,7 @@ export function createLocalApiServer({
 
   server.on('close', () => {
     studioModelService.dispose().catch(() => {});
+    studioDrawingService.dispose().catch(() => {});
   });
 
   return {
@@ -504,6 +555,7 @@ export function createLocalApiServer({
     jobStore,
     executor,
     studioModelService,
+    studioDrawingService,
   };
 }
 

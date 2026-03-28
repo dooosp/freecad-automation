@@ -1,4 +1,5 @@
 import { createLogEntry } from './studio/renderers.js';
+import { mountDrawingWorkspace } from './studio/drawing-workspace.js';
 import { mountModelWorkspace } from './studio/model-workspace.js';
 import { workspaceDefinitions } from './studio/workspaces.js';
 
@@ -84,6 +85,20 @@ const state = {
         edges: true,
         opacity: 100,
       },
+    },
+    drawing: {
+      status: 'idle',
+      summary: 'Generate drawing to open the sheet-first workbench.',
+      errorMessage: '',
+      preview: null,
+      settings: {
+        views: ['front', 'top', 'right', 'iso'],
+        scale: 'auto',
+        section_assist: false,
+        detail_assist: false,
+      },
+      history: [],
+      historyIndex: -1,
     },
     activeJob: {
       status: 'idle',
@@ -197,6 +212,15 @@ function renderWorkspace() {
       root: workspaceRoot,
       state,
       addLog,
+    });
+  } else if (state.route === 'drawing') {
+    activeWorkspaceController = mountDrawingWorkspace({
+      root: workspaceRoot,
+      state,
+      addLog,
+      navigateTo,
+      loadSelectedExampleIntoSharedModel,
+      loadConfigFileIntoSharedModel,
     });
   }
   applyPendingFocus();
@@ -410,8 +434,19 @@ function getSelectedExample() {
     || null;
 }
 
-function openExample() {
-  const example = getSelectedExample();
+function resetDrawingWorkspaceState() {
+  state.data.drawing = {
+    ...state.data.drawing,
+    status: 'idle',
+    summary: 'Generate drawing to open the sheet-first workbench.',
+    errorMessage: '',
+    preview: null,
+    history: [],
+    historyIndex: -1,
+  };
+}
+
+function applyExampleToSharedModel(example) {
   if (!example) return;
 
   state.data.model = {
@@ -423,12 +458,27 @@ function openExample() {
     promptMode: false,
     editingEnabled: true,
   };
+  resetDrawingWorkspaceState();
+}
+
+function loadSelectedExampleIntoSharedModel() {
+  const example = getSelectedExample();
+  if (!example) return;
+
+  applyExampleToSharedModel(example);
   addLog({
     status: 'Launchpad',
-    message: `Loaded example ${example.name} and moved into the Model workspace.`,
+    message: `Loaded example ${example.name} into the shared studio config state.`,
     tone: 'ok',
     time: 'start',
   });
+}
+
+function openExample() {
+  const example = getSelectedExample();
+  if (!example) return;
+
+  loadSelectedExampleIntoSharedModel();
   navigateTo('model', { pendingFocus: 'config' });
 }
 
@@ -443,7 +493,7 @@ function openPromptFlow() {
   navigateTo('model', { pendingFocus: 'prompt' });
 }
 
-async function openConfigFile(file) {
+async function loadConfigFileIntoSharedModel(file) {
   if (!file) return;
   const text = await file.text();
   state.data.model = {
@@ -455,12 +505,18 @@ async function openConfigFile(file) {
     promptMode: false,
     editingEnabled: true,
   };
+  resetDrawingWorkspaceState();
   addLog({
     status: 'Launchpad',
-    message: `Loaded ${file.name} into the Model workspace with editing enabled.`,
+    message: `Loaded ${file.name} into the shared studio config state.`,
     tone: 'ok',
     time: 'file',
   });
+}
+
+async function openConfigFile(file) {
+  if (!file) return;
+  await loadConfigFileIntoSharedModel(file);
   navigateTo('model', { pendingFocus: 'config' });
 }
 
