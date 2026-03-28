@@ -323,10 +323,10 @@ Endpoint usage:
 - `POST /api/studio/jobs` is the studio bridge route: Model and Drawing submit tracked jobs here, and artifact-driven inspect/report re-entry also resolves through it
 - `POST /jobs` accepts a JSON job request and returns `202 Accepted` with the queued job record
 - `GET /jobs` returns recent tracked jobs for shell resume and artifact timeline views
-- `GET /jobs/:id` returns the latest status, sanitized browser-visible request metadata, diagnostics, result, status history, and storage metadata
+- `GET /jobs/:id` returns the latest status, sanitized browser-visible request metadata, redacted result/manifest summaries, status history, and logical storage metadata
 - `POST /jobs/:id/cancel` deterministically cancels a queued job before the executor claims it; running-job cancellation returns a clear conflict unless the active executor explicitly supports safe cooperative stop
 - `POST /jobs/:id/retry` creates a new queued tracked job from the original persisted internal request, but only when the source job is already `failed` or `cancelled`
-- `GET /jobs/:id/artifacts` returns the flattened known artifact list plus persisted storage file metadata
+- `GET /jobs/:id/artifacts` returns the flattened public artifact list plus redacted manifest data and logical storage file metadata
 - `GET /jobs/:id/artifacts/:artifactId/content` is the compatibility alias for older API-shaped artifact opens
 - `GET /artifacts/:jobId/:artifactId` opens browser-safe artifact content inline when supported
 - `GET /artifacts/:jobId/:artifactId/download` forces a download for the same artifact
@@ -395,7 +395,7 @@ The job store is filesystem-backed under `output/jobs` by default. Each job dire
 - status transitions
 - log output
 - effective config when applicable
-- artifact paths surfaced through `GET /jobs/:id/artifacts`
+- artifact files and the manifest used by the executor/job store internally
 
 Response notes:
 
@@ -405,9 +405,30 @@ Response notes:
 - job responses sanitize `request` before returning it to the browser: tracked artifact re-entry exposes safe metadata such as `artifact_ref`, `source_job_id`, `source_artifact_id`, `source_artifact_type`, and `source_label` instead of raw `file_path`, `config_path`, or `source_artifact_path`
 - the raw execution request still persists internally in `request.json` for the executor and job-store flows; public job responses are intentionally not a byte-for-byte echo of that internal file
 - job responses include `retried_from_job_id`, `capabilities.cancellation_supported`, `capabilities.retry_supported`, and `links.cancel` / `links.retry` so the studio can surface narrow queue controls without guessing
-- job responses include a `storage` block with absolute paths and file existence/size for `job.json`, `request.json`, and `job.log`
+- job responses include a `storage` block with logical file metadata only: `storage.files.<name>.exists` and `storage.files.<name>.size_bytes`. Browser-visible responses do not include `storage.root` or per-file `path` fields.
 - artifact list responses include browser-facing `links.open` and `links.download` routes, plus the compatibility alias in `links.api`
+- public manifest/result/artifact summaries keep stable browser-facing labels only. When internal values were absolute paths, the browser-visible payload reduces them to file names such as `effective-config.json` or `job.log`.
+- `/api/examples` returns checked-in example records as `{ id, name, content }` and intentionally does not expose repository checkout paths
 - successful cancel/retry actions return `ok: true`, an `action` block that names the operation and outcome, and the current job record for the cancelled or newly retried job
+
+Browser-visible local API payload shape:
+
+- `GET /jobs` and `GET /jobs/:id`
+  - `request`: sanitized public metadata only
+  - `artifacts`: flattened artifact summary with file-name-style values instead of raw filesystem paths
+  - `manifest` and `result`: browser-safe summaries; any absolute path-like values are redacted to safe labels/file names
+  - `storage`: `{ files: { job, request, log, manifest } }` records with `exists` and `size_bytes` only
+- `GET /jobs/:id/artifacts`
+  - `artifacts[*]`: `id`, `key`, `type`, `scope`, `stability`, `file_name`, `extension`, `content_type`, `exists`, `size_bytes`, `capabilities`, and `links`
+  - `manifest`: the same redacted browser-safe manifest view used on the job detail route
+  - `storage`: logical file metadata only; no public filesystem paths
+- `GET /api/examples`
+  - `{ id, name, content }` for each checked-in example TOML
+
+Internal executor/job-store payload shape:
+
+- `request.json`, `job.json`, `job.log`, and `artifact-manifest.json` remain path-bearing on disk where the executor and retry flow need them
+- artifact open/download routes still resolve against those internal paths server-side; the routes are public, the paths are not
 
 Current limitations:
 
@@ -416,7 +437,7 @@ Current limitations:
 - queued-job cancellation is supported; running-job cancellation is intentionally rejected unless the active executor can stop work cooperatively and report that honestly
 - retry is intentionally narrow and only supported from `failed` or `cancelled` jobs
 - `job.log` is best-effort and primarily captures orchestration events and stderr surfaced from underlying scripts
-- `GET /jobs/:id/artifacts` reports known output paths and links, but it does not inline artifact contents inside the listing response
+- `GET /jobs/:id/artifacts` reports public artifact metadata and links, but it does not inline artifact contents inside the listing response
 - `POST /jobs` currently exposes only the execution paths for `create`, `draw`, `inspect`, and `report`
 - preview smoke and legacy serve smoke are browserless HTTP checks only; they do not claim real browser automation or websocket interaction
 

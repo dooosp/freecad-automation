@@ -10,6 +10,8 @@ import { validateLocalApiResponse } from '../src/server/local-api-schemas.js';
 const ROOT = resolve(import.meta.dirname, '..');
 const tmpRoot = mkdtempSync(join(tmpdir(), 'fcad-local-api-root-'));
 const jobsDir = join(tmpRoot, 'jobs');
+const PRIVATE_CONFIG_PATH = join(tmpRoot, 'private-source-config.toml');
+const PRIVATE_RESULT_PATH = join(tmpRoot, 'nested', 'private-report.json');
 
 function assertNoLeakedPathStrings(payload, blocked = []) {
   const serialized = JSON.stringify(payload);
@@ -120,6 +122,87 @@ try {
   assert.equal(Array.isArray(jobsIndexPayload.jobs), true);
   assertNoLeakedPathStrings(jobsIndexPayload, [jobsDir, tmpRoot]);
 
+  const redactionSourceJob = await jobStore.createJob({
+    type: 'report',
+    config_path: PRIVATE_CONFIG_PATH,
+    options: {
+      studio: {
+        source: 'artifact-reference',
+        source_job_id: 'job-upstream',
+        source_artifact_id: 'effective-config',
+        source_artifact_type: 'config.effective',
+        source_label: 'Effective config copy',
+        source_artifact_path: PRIVATE_RESULT_PATH,
+      },
+      export_path: PRIVATE_RESULT_PATH,
+    },
+  });
+  const redactionArtifactPath = await jobStore.writeJobFile(redactionSourceJob.id, 'artifacts/private-report.json', '{"ok":true}\n');
+  const redactionManifest = await buildArtifactManifest({
+    projectRoot: ROOT,
+    interface: 'api',
+    command: 'report',
+    jobType: 'report',
+    status: 'succeeded',
+    requestId: redactionSourceJob.id,
+    configPath: PRIVATE_CONFIG_PATH,
+    artifacts: [
+      {
+        id: 'report-json',
+        type: 'report.sample',
+        path: redactionArtifactPath,
+        label: 'Private report',
+        scope: 'user-facing',
+        stability: 'stable',
+      },
+    ],
+    timestamps: {
+      created_at: redactionSourceJob.created_at,
+      finished_at: new Date().toISOString(),
+    },
+  });
+  await jobStore.completeJob(
+    redactionSourceJob.id,
+    {
+      report_path: PRIVATE_RESULT_PATH,
+      nested: {
+        support_file: 'C:\\private\\report\\support.md',
+      },
+    },
+    {
+      report_json: PRIVATE_RESULT_PATH,
+      report_files: [PRIVATE_RESULT_PATH, 'C:\\private\\report\\support.md'],
+    },
+    {},
+    redactionManifest
+  );
+
+  const redactedJobResponse = await fetch(`${baseUrl}/jobs/${redactionSourceJob.id}`, {
+    headers: {
+      accept: 'application/json',
+    },
+  });
+  assert.equal(redactedJobResponse.status, 200);
+  const redactedJobPayload = await redactedJobResponse.json();
+  assert.equal(redactedJobPayload.ok, true);
+  assert.equal('config_path' in redactedJobPayload.job.request, false);
+  assert.deepEqual(redactedJobPayload.job.request.artifact_ref, {
+    job_id: 'job-upstream',
+    artifact_id: 'effective-config',
+  });
+  assert.equal(redactedJobPayload.job.request.options.export_path, 'private-report.json');
+  assert.equal('source_artifact_path' in redactedJobPayload.job.request.options.studio, false);
+  assert.equal(redactedJobPayload.job.result.report_path, 'private-report.json');
+  assert.equal(redactedJobPayload.job.result.nested.support_file, 'support.md');
+  assert.equal(redactedJobPayload.job.artifacts.report_json, 'private-report.json');
+  assert.deepEqual(redactedJobPayload.job.artifacts.report_files, ['private-report.json', 'support.md']);
+  assert.equal(redactedJobPayload.job.manifest.config_path, 'private-source-config.toml');
+  assert.equal(redactedJobPayload.job.manifest.artifacts[0].path, 'private-report.json');
+  assert.equal('root' in redactedJobPayload.job.storage, false);
+  assert.equal('path' in redactedJobPayload.job.storage.files.job, false);
+  assertNoLeakedPathStrings(redactedJobPayload, [PRIVATE_CONFIG_PATH, PRIVATE_RESULT_PATH, redactionArtifactPath, jobsDir, tmpRoot]);
+  assert.equal(JSON.stringify(redactedJobPayload).includes('C:\\\\private\\\\report'), false);
+
   const queuedSmokeJob = await jobStore.createJob({
     type: 'create',
     config: {
@@ -198,6 +281,7 @@ try {
   const examples = await examplesResponse.json();
   assert.equal(Array.isArray(examples), true);
   assert.equal(examples.length > 0, true);
+  assert.deepEqual(Object.keys(examples[0]).sort(), ['content', 'id', 'name']);
   assert.equal(typeof examples[0].id, 'string');
   assert.equal(typeof examples[0].name, 'string');
   assert.equal(typeof examples[0].content, 'string');
@@ -281,7 +365,15 @@ try {
     assert.equal(jobsPayload.jobs[0].id, studioJobPayload.job.id);
     assert.equal('root' in jobsPayload.jobs[0].storage, false);
     assert.equal('path' in jobsPayload.jobs[0].storage.files.job, false);
+    const redactedRecentJob = jobsPayload.jobs.find((job) => job.id === redactionSourceJob.id);
+    assert.equal(Boolean(redactedRecentJob), true);
+    assert.equal('config_path' in redactedRecentJob.request, false);
+    assert.equal(redactedRecentJob.request.options.export_path, 'private-report.json');
+    assert.equal(redactedRecentJob.result.report_path, 'private-report.json');
+    assert.equal(redactedRecentJob.manifest.config_path, 'private-source-config.toml');
     assertNoLeakedPathStrings(jobsPayload, [jobsDir, tmpRoot]);
+    assert.equal(JSON.stringify(jobsPayload).includes(PRIVATE_CONFIG_PATH), false);
+    assert.equal(JSON.stringify(jobsPayload).includes(PRIVATE_RESULT_PATH), false);
   });
 
   const job = await jobStore.createJob({
@@ -332,6 +424,19 @@ try {
   assert.match(artifactListPayload.artifacts[0].links.download, new RegExp(`/artifacts/${job.id}/.+/download$`));
   assert.match(artifactListPayload.artifacts[0].links.api, new RegExp(`/jobs/${job.id}/artifacts/.+/content$`));
   assertNoLeakedPathStrings(artifactListPayload, [artifactPath, jobsDir, tmpRoot]);
+
+  const redactedArtifactsResponse = await fetch(`${baseUrl}/jobs/${redactionSourceJob.id}/artifacts`);
+  assert.equal(redactedArtifactsResponse.status, 200);
+  const redactedArtifactsPayload = await redactedArtifactsResponse.json();
+  assert.equal(redactedArtifactsPayload.ok, true);
+  assert.equal(redactedArtifactsPayload.manifest.config_path, 'private-source-config.toml');
+  assert.equal(redactedArtifactsPayload.manifest.artifacts[0].path, 'private-report.json');
+  assert.equal(redactedArtifactsPayload.artifacts[0].file_name, 'private-report.json');
+  assert.equal('path' in redactedArtifactsPayload.artifacts[0], false);
+  assert.equal('root' in redactedArtifactsPayload.storage, false);
+  assert.equal('path' in redactedArtifactsPayload.storage.files.manifest, false);
+  assertNoLeakedPathStrings(redactedArtifactsPayload, [PRIVATE_CONFIG_PATH, PRIVATE_RESULT_PATH, redactionArtifactPath, jobsDir, tmpRoot]);
+  assert.equal(JSON.stringify(redactedArtifactsPayload).includes('C:\\\\private\\\\report'), false);
 
   const artifactOpenResponse = await fetch(`${baseUrl}${artifactListPayload.artifacts[0].links.open}`);
   assert.equal(artifactOpenResponse.status, 200);

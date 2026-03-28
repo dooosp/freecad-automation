@@ -15,11 +15,13 @@ const examples = [
     id: 'ks_bracket',
     name: 'ks_bracket.toml',
     content: 'name = "ks_bracket"',
+    path: '/Users/tester/Documents/freecad-automation/configs/examples/ks_bracket.toml',
   },
   {
     id: 'controller_housing',
     name: 'controller_housing.toml',
     content: 'name = "controller_housing"',
+    path: '/Users/tester/Documents/freecad-automation/configs/examples/controller_housing.toml',
   },
 ];
 
@@ -33,6 +35,7 @@ assert.equal(
   })?.name,
   'controller_housing.toml'
 );
+assert.equal(resolveSelectedStudioExampleId(examples, '/Users/tester/Documents/freecad-automation/configs/examples/controller_housing.toml'), 'ks_bracket');
 
 const activeJob = {
   summary: {
@@ -68,6 +71,7 @@ const artifact = {
     open: '/artifacts/job-1/artifact-effective-config',
     download: '/artifacts/job-1/artifact-effective-config/download',
   },
+  path: '/Users/tester/Documents/freecad-automation/output/jobs/job-1/artifacts/effective-config.json',
 };
 
 const detailItems = buildArtifactDetailItems(artifact, activeJob);
@@ -82,6 +86,7 @@ assert.equal(detailMap['Download route'].value, 'Available');
 assert.equal(detailMap['Tracked source'].value, 'Effective config copy');
 assert.equal(detailItems.some((item) => item.label === 'Path'), false);
 assert.equal(JSON.stringify(detailItems).includes('/Users/'), false);
+assert.equal(JSON.stringify(detailItems).includes('effective-config.json'), true);
 
 const detailNotes = buildArtifactDetailNotes(artifact, activeJob);
 assert.deepEqual(detailNotes, [
@@ -90,5 +95,6 @@ assert.deepEqual(detailNotes, [
   'Manifest warning one',
   'Manifest warning two',
 ]);
+assert.equal(JSON.stringify(detailNotes).includes('/Users/'), false);
 
 console.log('studio-public-contract.test.js: ok');

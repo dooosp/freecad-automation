@@ -86,8 +86,8 @@ Internal types include:
 
 - CLI writes the manifest next to the artifact set it just produced.
 - Local API stores the same manifest shape on the job record and persists it as `jobs/<job-id>/artifact-manifest.json`.
-- `GET /jobs/:id` returns `job.manifest`.
-- `GET /jobs/:id/artifacts` returns the flattened artifact list derived from `job.manifest.artifacts` plus the same `manifest` object.
+- `GET /jobs/:id` returns a browser-safe manifest view with local filesystem paths redacted to safe labels.
+- `GET /jobs/:id/artifacts` returns the flattened artifact list derived from `job.manifest.artifacts` plus the same browser-safe manifest view.
 - Sweeps emit both aggregate provenance and per-variant provenance. `summary.json` and each variant `result.json` point to their companion manifest paths.
 
 ## User-Facing Artifacts vs Job-Store Files
@@ -102,3 +102,32 @@ Local API job-store files are different:
 - `artifact-manifest.json`
 
 `artifact-manifest.json` is the stable provenance contract. The other job-store files are internal persistence and should not be treated as user-facing output artifacts.
+
+Browser-visible local API payloads intentionally avoid raw local filesystem paths:
+
+- `/jobs` and `/jobs/:id` keep logical job metadata plus redacted artifact/result/manifest data.
+- `/jobs/:id/artifacts` exposes artifact identity, file name, MIME type, capabilities, and public links, but not raw artifact paths.
+- `/api/examples` returns `id`, `name`, and `content` for checked-in examples without exposing checked-out file locations.
+
+Current browser-visible contract:
+
+- `/jobs` and `/jobs/:id`
+  - `request` is sanitized public metadata only
+  - `artifacts` is a flattened summary where path-bearing values are reduced to file-name-style labels
+  - `manifest` and `result` are browser-safe views; absolute paths are redacted to safe labels/file names
+  - `storage.files.<name>` exposes only `exists` and `size_bytes`
+- `/jobs/:id/artifacts`
+  - `artifacts[*]` exposes `id`, `key`, `type`, `scope`, `stability`, `file_name`, `extension`, `content_type`, `exists`, `size_bytes`, `capabilities`, and `links`
+  - `manifest` is the same redacted browser-safe manifest view used on `/jobs/:id`
+  - `storage` stays logical and path-free
+- `/api/examples`
+  - each record is exactly `{ id, name, content }`
+
+Internal executor/job-store files remain path-bearing on disk where needed:
+
+- `request.json`
+- `job.json`
+- `job.log`
+- `artifact-manifest.json`
+
+Those internal files remain the source of truth for execution, retry, and artifact serving. The public API exposes routes and redacted labels, not those raw filesystem paths.

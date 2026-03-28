@@ -48,11 +48,27 @@ Practical rules:
 
 | Surface | What it contains | What it hides |
 | --- | --- | --- |
-| `GET /jobs` and `GET /jobs/:id` | sanitized request metadata, status history, diagnostics, redacted result/manifest summaries, and logical storage metadata | raw `file_path`, `config_path`, `source_artifact_path`, and local storage filesystem paths |
+| `GET /jobs` and `GET /jobs/:id` | sanitized request metadata, status history, diagnostics, redacted result/manifest summaries, flattened artifact summaries, and logical storage metadata | raw `file_path`, `config_path`, `source_artifact_path`, `storage.root`, per-file storage paths, and any other browser-visible absolute filesystem path |
+| `GET /jobs/:id/artifacts` | public artifact records with `file_name`, `content_type`, `exists`, `size_bytes`, `capabilities`, `links`, the redacted manifest view, and logical storage metadata | raw artifact `path` values and local storage filesystem paths |
+| `GET /api/examples` | checked-in example records shaped as `id`, `name`, and `content` | checked-out repository paths or filesystem locations |
 | `request.json` inside the job directory | the internal executor request exactly as persisted for execution or retry | nothing; this is the internal source of truth |
+| `job.json`, `job.log`, and `artifact-manifest.json` inside the job directory | internal persisted job-store records used by executor, artifact serving, and retry flows | nothing; these remain path-bearing where the server needs them |
 | Artifact re-entry metadata | `artifact_ref`, `source_job_id`, `source_artifact_id`, `source_artifact_type`, `source_label` | the raw artifact filesystem path used internally |
 
 Browser-visible payloads no longer expose raw local filesystem paths. Internal job-store files and executor inputs still retain full paths server-side for execution, artifact serving, and retry support.
+
+Current browser-visible shapes:
+
+- `GET /jobs` and `GET /jobs/:id`
+  - `request` is sanitized public metadata only
+  - `artifacts`, `manifest`, and `result` stay browser-safe; if an internal value was an absolute path it is reduced to a safe file-name-style label
+  - `storage.files.<name>` exposes only `exists` and `size_bytes`
+- `GET /jobs/:id/artifacts`
+  - `artifacts[*]` exposes `id`, `key`, `type`, `scope`, `stability`, `file_name`, `extension`, `content_type`, `exists`, `size_bytes`, `capabilities`, and `links`
+  - `manifest` stays redacted in the same way as the job detail route
+  - `storage` stays logical and path-free
+- `GET /api/examples`
+  - each example is `{ id, name, content }`
 
 ## Queue controls by state
 
@@ -134,6 +150,7 @@ When a job settles while other tracked jobs are still active, the shell prefers 
 - `GET /artifacts/:jobId/:artifactId/download`: force download for the same artifact.
 - `GET /jobs/:id/artifacts/:artifactId/content`: compatibility alias for the older API-shaped artifact content route.
 - Artifact payloads expose `id`, `file_name`, `extension`, `content_type`, `exists`, `size_bytes`, `scope`, `stability`, `capabilities`, and `links` instead of raw filesystem paths.
+- Storage metadata on browser-visible job and artifact routes exposes only per-file `exists` and `size_bytes`; the underlying file paths remain internal to the job store.
 
 ## Studio Route Surface
 
