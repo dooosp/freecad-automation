@@ -328,6 +328,29 @@ export function createStudioDrawingService({
     async dispose() {
       await Promise.allSettled([...previews.keys()].map((id) => cleanupPreview(id)));
     },
+    async getTrackedDrawPlan({ previewId, configToml }) {
+      const previewRecord = previews.get(previewId);
+      if (!previewRecord) {
+        return { drawingPlan: null, reason: 'preview_not_found' };
+      }
+      if (!previewRecord.planPath) {
+        return { drawingPlan: null, reason: 'preview_not_editable' };
+      }
+      if (String(configToml || '').trim() !== String(previewRecord.configToml || '').trim()) {
+        return { drawingPlan: null, reason: 'config_changed' };
+      }
+
+      const config = {};
+      await loadDrawingPlanFn({
+        config,
+        planPath: previewRecord.planPath,
+      });
+
+      return {
+        drawingPlan: config.drawing_plan ? structuredClone(config.drawing_plan) : null,
+        reason: config.drawing_plan ? 'preserved' : 'preview_not_editable',
+      };
+    },
     async buildPreview({ configToml, drawingSettings = {} }) {
       return renderPreview({
         configToml,

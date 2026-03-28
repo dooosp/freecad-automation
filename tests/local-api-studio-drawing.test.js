@@ -15,6 +15,8 @@ async function listen(server) {
   return typeof address === 'object' && address ? address.port : 0;
 }
 
+const configToml = 'name = "demo"\n[[shapes]]\nid = "body"\ntype = "box"\nlength = 10\nwidth = 10\nheight = 10\n';
+
 const fakeDrawingService = {
   async buildPreview() {
     return {
@@ -62,6 +64,27 @@ const fakeDrawingService = {
       },
     };
   },
+  async getTrackedDrawPlan({ previewId, configToml: requestedConfigToml }) {
+    if (previewId !== 'preview-1') {
+      return { drawingPlan: null, reason: 'preview_not_found' };
+    }
+    if (requestedConfigToml !== configToml) {
+      return { drawingPlan: null, reason: 'config_changed' };
+    }
+    return {
+      drawingPlan: {
+        dim_intents: [
+          {
+            id: 'WIDTH',
+            value_mm: 45,
+            feature: 'body_width',
+            required: true,
+          },
+        ],
+      },
+      reason: 'preserved',
+    };
+  },
   async dispose() {},
 };
 
@@ -84,7 +107,7 @@ try {
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      config_toml: 'name = "demo"\n[[shapes]]\nid = "body"\ntype = "box"\nlength = 10\nwidth = 10\nheight = 10\n',
+      config_toml: configToml,
       drawing_settings: {
         views: ['front', 'top'],
         scale: '1:2',
@@ -113,6 +136,31 @@ try {
   assert.equal(updatePayload.ok, true);
   assert.equal(updatePayload.update.dim_id, 'WIDTH');
   assert.equal(updatePayload.update.new_value, 45);
+
+  const trackedResponse = await fetch(`${baseUrl}/api/studio/jobs`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      type: 'draw',
+      config_toml: configToml,
+      drawing_preview_id: 'preview-1',
+      drawing_settings: {
+        views: ['front', 'top'],
+        scale: '1:2',
+      },
+    }),
+  });
+  assert.equal(trackedResponse.status, 202);
+  const trackedPayload = await trackedResponse.json();
+  assert.equal(trackedPayload.ok, true);
+  assert.equal(trackedPayload.job.type, 'draw');
+  assert.equal(trackedPayload.job.request.config.drawing_plan.dim_intents[0].value_mm, 45);
+  assert.equal(trackedPayload.job.request.options.studio.drawing_settings.scale, '1:2');
+  assert.equal(trackedPayload.job.request.options.studio.preview_plan.preserved, true);
+  assert.equal(trackedPayload.job.request.options.studio.preview_plan.reason, 'preserved');
 
   console.log('local-api-studio-drawing.test.js: ok');
 } finally {

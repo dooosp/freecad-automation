@@ -390,6 +390,65 @@ export function createLocalApiServer({
   const studioModelService = studioModelServiceFactory({ projectRoot });
   const studioDrawingService = studioDrawingServiceFactory({ projectRoot });
 
+  function isPlainObject(value) {
+    return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+  }
+
+  function mergeStudioOptions(options = {}, studio = {}) {
+    if (options !== undefined && !isPlainObject(options)) {
+      return options;
+    }
+
+    const nextOptions = isPlainObject(options)
+      ? structuredClone(options)
+      : {};
+    nextOptions.studio = {
+      ...(isPlainObject(nextOptions.studio)
+        ? nextOptions.studio
+        : {}),
+      ...studio,
+    };
+    return nextOptions;
+  }
+
+  async function prepareStudioJobBody(body = {}) {
+    if (body?.type !== 'draw') return body;
+
+    let drawingPlan = null;
+    let previewPlanReason = 'not_requested';
+    const previewId = typeof body.drawing_preview_id === 'string' ? body.drawing_preview_id.trim() : '';
+
+    if (previewId) {
+      try {
+        const resolved = typeof studioDrawingService.getTrackedDrawPlan === 'function'
+          ? await studioDrawingService.getTrackedDrawPlan({
+              previewId,
+              configToml: body.config_toml,
+            })
+          : { drawingPlan: null, reason: 'preview_not_supported' };
+        drawingPlan = resolved.drawingPlan;
+        previewPlanReason = resolved.reason || 'not_requested';
+      } catch {
+        drawingPlan = null;
+        previewPlanReason = 'preview_unavailable';
+      }
+    }
+
+    return {
+      ...body,
+      ...(drawingPlan ? { drawing_plan: drawingPlan } : {}),
+      options: mergeStudioOptions(body.options, {
+        source: 'drawing-workspace',
+        drawing_settings: structuredClone(body.drawing_settings || {}),
+        preview_plan: {
+          requested: Boolean(previewId),
+          preserved: Boolean(drawingPlan),
+          reason: previewPlanReason,
+        },
+      }),
+    };
+  }
+
   async function enqueueJob(request, res) {
     const validation = validateJobRequest(request);
     if (!validation.ok) {
@@ -570,7 +629,8 @@ export function createLocalApiServer({
   });
 
   app.post('/api/studio/jobs', async (req, res) => {
-    const translated = translateStudioJobSubmission(req.body);
+    const preparedBody = await prepareStudioJobBody(req.body);
+    const translated = translateStudioJobSubmission(preparedBody);
     if (!translated.ok) {
       const response = createErrorResponse('invalid_request', translated.errors);
       res.status(response.status).json(assertResponse('error', response.body));

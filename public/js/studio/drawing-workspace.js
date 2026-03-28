@@ -2,10 +2,15 @@ import {
   createDrawingRenderer,
   createViewerStore,
 } from '../app/index.js';
+import {
+  deriveDrawingTrackedRunPresentation,
+  ensureDrawingTrackedRunState,
+  updateDrawingTrackedRunFromJob,
+} from './drawing-tracked-runs.js';
 
 function ensureDrawingState(drawing = {}) {
   drawing.status = drawing.status || 'idle';
-  drawing.summary = drawing.summary || 'Preview drawing to work sheet-first, or queue a tracked draw to publish the run.';
+  drawing.summary = drawing.summary || 'Preview Drawing keeps the sheet-first loop fast, or Run Tracked Draw Job to publish the run.';
   drawing.errorMessage = drawing.errorMessage || '';
   drawing.preview = drawing.preview || null;
   drawing.settings = drawing.settings || {
@@ -16,6 +21,7 @@ function ensureDrawingState(drawing = {}) {
   };
   drawing.history = Array.isArray(drawing.history) ? drawing.history : [];
   drawing.historyIndex = Number.isInteger(drawing.historyIndex) ? drawing.historyIndex : drawing.history.length - 1;
+  ensureDrawingTrackedRunState(drawing);
   return drawing;
 }
 
@@ -141,7 +147,7 @@ function emptyStateFor(status, errorMessage = '') {
   }
   return {
     title: 'No drawing yet',
-    copy: 'Use Preview drawing for the fast loop or Run tracked draw to queue the current TOML and sheet settings.',
+    copy: 'Use Preview Drawing for the fast loop or Run Tracked Draw Job to queue the current TOML and sheet settings.',
   };
 }
 
@@ -150,6 +156,7 @@ export function mountDrawingWorkspace({
   state,
   addLog,
   navigateTo,
+  openJob,
   loadSelectedExampleIntoSharedModel,
   loadConfigFileIntoSharedModel,
   submitTrackedJob,
@@ -180,6 +187,7 @@ export function mountDrawingWorkspace({
   const detailAssistInput = root.querySelector('[data-hook="drawing-detail-assist"]');
   const generateButton = root.querySelector('[data-hook="drawing-generate"]');
   const trackedRunButton = root.querySelector('[data-hook="drawing-tracked-run"]');
+  const trackedStatusElement = root.querySelector('[data-hook="drawing-tracked-status"]');
   const configFileInput = root.querySelector('[data-hook="drawing-config-file"]');
 
   let destroyed = false;
@@ -203,7 +211,8 @@ export function mountDrawingWorkspace({
     const apiReady = state.connectionState === 'connected';
     const runtimeReady = state.data.health.available === true;
     const hasConfig = Boolean(String(state.data.model.configText || '').trim());
-    const canRun = apiReady && runtimeReady && hasConfig && drawing.status !== 'generating';
+    const canPreview = apiReady && runtimeReady && hasConfig && drawing.status !== 'generating';
+    const canRunTracked = canPreview && drawing.trackedRun.submitting !== true;
 
     const views = new Set(drawing.settings.views || []);
     viewInputs.forEach((input) => {
@@ -212,8 +221,8 @@ export function mountDrawingWorkspace({
     if (scaleSelect) scaleSelect.value = drawing.settings.scale || 'auto';
     if (sectionAssistInput) sectionAssistInput.checked = drawing.settings.section_assist === true;
     if (detailAssistInput) detailAssistInput.checked = drawing.settings.detail_assist === true;
-    if (generateButton) generateButton.disabled = !canRun;
-    if (trackedRunButton) trackedRunButton.disabled = !canRun;
+    if (generateButton) generateButton.disabled = !canPreview;
+    if (trackedRunButton) trackedRunButton.disabled = !canRunTracked;
   }
 
   function syncSourceSummary() {
@@ -250,7 +259,7 @@ export function mountDrawingWorkspace({
     setSurface(
       jobSurface,
       drawing.status === 'generating' ? 'Generating' : ready ? 'Drawing ready' : drawing.status === 'error' ? 'Drawing failed' : 'No drawing yet',
-      drawing.summary || 'Preview drawing stays local and fast; tracked draw uses the shell monitor and recent jobs.',
+      drawing.summary || 'Preview Drawing stays local and fast; tracked draw uses the shell monitor and recent jobs.',
       tone,
     );
     setSurface(
@@ -454,7 +463,66 @@ export function mountDrawingWorkspace({
   }
 
   function syncSummary() {
-    summaryElement.textContent = drawing.summary || 'Preview drawing to work sheet-first, or queue a tracked draw to publish the run.';
+    summaryElement.textContent = drawing.summary || 'Preview Drawing keeps the sheet-first loop fast, or Run Tracked Draw Job to publish the run.';
+  }
+
+  function syncTrackedStatus() {
+    if (!trackedStatusElement) return;
+
+    const presentation = deriveDrawingTrackedRunPresentation({
+      drawing,
+      recentJobs: state.data.recentJobs.items || [],
+      jobMonitor: state.data.jobMonitor || {},
+    });
+    const trackedSettings = drawing.trackedRun.submittedDrawingSettings || drawing.settings;
+
+    const rows = [
+      ['Tracked status', presentation.title],
+      ['Execution', presentation.copy],
+      ['Tracked settings', `${(trackedSettings.views || []).join(', ') || 'front, top, right, iso'} • scale ${trackedSettings.scale || 'auto'} • section ${trackedSettings.section_assist ? 'on' : 'off'} • detail ${trackedSettings.detail_assist ? 'on' : 'off'}`],
+      ['Edited preview plan', presentation.previewPlanCopy],
+    ];
+
+    if (presentation.meta) {
+      rows.splice(1, 0, ['Tracked job', presentation.meta]);
+    }
+
+    trackedStatusElement.replaceChildren(
+      ...rows.map(([label, value]) => {
+        const row = document.createElement('div');
+        row.className = 'info-row';
+
+        const title = document.createElement('div');
+        title.className = 'info-label';
+        title.textContent = label;
+
+        const wrap = document.createElement('div');
+        wrap.className = 'info-value-wrap';
+
+        const content = document.createElement('div');
+        content.className = 'info-value';
+        content.textContent = value;
+
+        wrap.append(content);
+        row.append(title, wrap);
+        return row;
+      })
+    );
+
+    if (presentation.canOpenArtifacts && presentation.job?.id) {
+      const actions = document.createElement('div');
+      actions.className = 'model-action-row';
+
+      const button = document.createElement('button');
+      button.className = 'action-button action-button-ghost';
+      button.type = 'button';
+      button.textContent = 'Open artifacts';
+      button.dataset.action = 'drawing-open-tracked-artifacts';
+      button.dataset.jobId = presentation.job.id;
+
+      actions.append(button);
+      trackedStatusElement.append(actions);
+    }
   }
 
   function syncAll() {
@@ -469,6 +537,7 @@ export function mountDrawingWorkspace({
     syncQa();
     syncDimensions();
     syncHistory();
+    syncTrackedStatus();
   }
 
   async function generateDrawing() {
@@ -526,23 +595,39 @@ export function mountDrawingWorkspace({
     }
 
     syncSettingsFromControls();
+    drawing.trackedRun.submitting = true;
+    drawing.trackedRun.error = '';
+    drawing.summary = 'Submitting tracked draw while keeping the preview sheet available.';
+    syncAll();
 
     try {
       const job = await submitTrackedJob({
         type: 'draw',
         configToml,
         drawingSettings: drawing.settings,
+        drawingPreviewId: drawing.preview?.id || '',
+        completionAction: {
+          type: 'open-artifacts-on-success',
+          route: 'artifacts',
+        },
       });
+      updateDrawingTrackedRunFromJob(drawing, job);
       drawing.errorMessage = '';
-      drawing.summary = `Tracked draw ${job.status}. Preview sheet stays available while the job runs.`;
+      drawing.summary = drawing.trackedRun.preservedEditedPreview
+        ? 'Tracked draw queued with the edited preview plan preserved. Preview sheet stays available while the job runs.'
+        : 'Tracked draw queued with the current TOML and drawing settings. Preview sheet stays available while the job runs.';
       addLog({
         status: 'Drawing',
-        message: `Queued tracked draw for ${state.data.model.sourceName || 'the active config'} with the current sheet settings.`,
+        message: drawing.trackedRun.preservedEditedPreview
+          ? `Queued tracked draw for ${state.data.model.sourceName || 'the active config'} with edited preview intent preserved.`
+          : `Queued tracked draw for ${state.data.model.sourceName || 'the active config'} with the current sheet settings.`,
         tone: 'info',
         time: 'job',
       });
       syncAll();
     } catch (error) {
+      drawing.trackedRun.submitting = false;
+      drawing.trackedRun.error = error instanceof Error ? error.message : String(error);
       drawing.errorMessage = error instanceof Error ? error.message : String(error);
       drawing.summary = `Tracked draw could not be queued: ${drawing.errorMessage}`;
       addLog({
@@ -566,6 +651,11 @@ export function mountDrawingWorkspace({
 
     if (target.dataset.action === 'drawing-run-tracked') {
       runTrackedDraw();
+      return;
+    }
+
+    if (target.dataset.action === 'drawing-open-tracked-artifacts' && target.dataset.jobId) {
+      openJob(target.dataset.jobId, { route: 'artifacts' });
       return;
     }
 

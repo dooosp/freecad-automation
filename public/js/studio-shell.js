@@ -71,6 +71,7 @@ const state = {
       activeRunStatus: 'idle',
       lastPollTime: null,
       enabled: false,
+      completionAction: null,
     },
     model: {
       sourceType: '',
@@ -140,6 +141,16 @@ const state = {
       },
       history: [],
       historyIndex: -1,
+      trackedRun: {
+        lastJobId: '',
+        status: 'idle',
+        submitting: false,
+        error: '',
+        preservedEditedPreview: false,
+        previewPlanRequested: false,
+        preserveReason: '',
+        submittedDrawingSettings: null,
+      },
     },
     activeJob: {
       status: 'idle',
@@ -230,6 +241,7 @@ function renderWorkspace() {
       state,
       addLog,
       navigateTo,
+      openJob,
       loadSelectedExampleIntoSharedModel,
       loadConfigFileIntoSharedModel,
       submitTrackedJob: submitTrackedStudioRun,
@@ -368,12 +380,19 @@ function clearJobMonitorTimer() {
   }
 }
 
-function setJobMonitorState({ jobId = '', status = 'idle', enabled = false, lastPollTime = null }) {
+function setJobMonitorState({
+  jobId = '',
+  status = 'idle',
+  enabled = false,
+  lastPollTime = null,
+  completionAction = null,
+}) {
   state.data.jobMonitor = {
     activeRunId: jobId,
     activeRunStatus: status,
     lastPollTime,
     enabled,
+    completionAction,
   };
   refreshShellChrome();
 }
@@ -389,6 +408,12 @@ function logJobTransition(job, previousStatus, nextStatus, origin = 'monitor') {
     tone: studioJobTone(nextStatus),
     time: 'job',
   });
+}
+
+async function runMonitoredJobCompletionAction(job, completionAction = null) {
+  if (!completionAction || completionAction.type !== 'open-artifacts-on-success') return;
+  if (job?.status !== 'succeeded') return;
+  await openJob(job.id, { route: completionAction.route || 'artifacts' });
 }
 
 async function refreshRecentJobs({ silent = false } = {}) {
@@ -423,7 +448,12 @@ async function refreshRecentJobs({ silent = false } = {}) {
 }
 
 async function pollActiveRun() {
-  const { activeRunId, activeRunStatus, enabled } = state.data.jobMonitor;
+  const {
+    activeRunId,
+    activeRunStatus,
+    enabled,
+    completionAction,
+  } = state.data.jobMonitor;
   if (!enabled || !activeRunId) return;
 
   try {
@@ -439,6 +469,7 @@ async function pollActiveRun() {
       status: job.status,
       enabled: isActiveStudioJobStatus(job.status),
       lastPollTime: new Date().toISOString(),
+      completionAction,
     });
 
     if (activeRunStatus !== job.status) {
@@ -448,6 +479,14 @@ async function pollActiveRun() {
     if (!isActiveStudioJobStatus(job.status)) {
       clearJobMonitorTimer();
       await refreshRecentJobs({ silent: true });
+      await runMonitoredJobCompletionAction(job, completionAction);
+      setJobMonitorState({
+        jobId: job.id,
+        status: job.status,
+        enabled: false,
+        lastPollTime: new Date().toISOString(),
+        completionAction: null,
+      });
       return;
     }
   } catch (error) {
@@ -473,7 +512,7 @@ async function pollActiveRun() {
   }
 }
 
-function beginJobMonitoring(job, { origin = 'submit' } = {}) {
+function beginJobMonitoring(job, { origin = 'submit', completionAction = null } = {}) {
   if (!job?.id) return;
   clearJobMonitorTimer();
   jobMonitorError = '';
@@ -483,6 +522,7 @@ function beginJobMonitoring(job, { origin = 'submit' } = {}) {
     status: job.status,
     enabled: isActiveStudioJobStatus(job.status),
     lastPollTime: new Date().toISOString(),
+    completionAction,
   });
   logJobTransition(job, '', job.status, origin);
 
@@ -490,6 +530,15 @@ function beginJobMonitoring(job, { origin = 'submit' } = {}) {
     jobMonitorTimer = window.setTimeout(() => {
       pollActiveRun().catch(() => {});
     }, JOB_MONITOR_POLL_MS);
+  } else {
+    runMonitoredJobCompletionAction(job, completionAction).catch(() => {});
+    setJobMonitorState({
+      jobId: job.id,
+      status: job.status,
+      enabled: false,
+      lastPollTime: new Date().toISOString(),
+      completionAction: null,
+    });
   }
 }
 
@@ -504,17 +553,20 @@ async function submitTrackedStudioRun({
   type,
   configToml,
   drawingSettings,
+  drawingPreviewId,
   reportOptions,
   options,
+  completionAction,
 }) {
   const job = await submitStudioTrackedJob({
     type,
     configToml,
     drawingSettings,
+    drawingPreviewId,
     reportOptions,
     options,
   });
-  beginJobMonitoring(job, { origin: 'submit' });
+  beginJobMonitoring(job, { origin: 'submit', completionAction });
   return job;
 }
 
@@ -637,6 +689,16 @@ function resetDrawingWorkspaceState() {
     preview: null,
     history: [],
     historyIndex: -1,
+    trackedRun: {
+      lastJobId: '',
+      status: 'idle',
+      submitting: false,
+      error: '',
+      preservedEditedPreview: false,
+      previewPlanRequested: false,
+      preserveReason: '',
+      submittedDrawingSettings: null,
+    },
   };
 }
 

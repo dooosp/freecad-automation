@@ -30,6 +30,7 @@ export async function submitStudioTrackedJob({
   type,
   configToml,
   drawingSettings,
+  drawingPreviewId,
   reportOptions,
   options,
 }) {
@@ -42,6 +43,7 @@ export async function submitStudioTrackedJob({
       type,
       config_toml: configToml,
       ...(drawingSettings ? { drawing_settings: drawingSettings } : {}),
+      ...(drawingPreviewId ? { drawing_preview_id: drawingPreviewId } : {}),
       ...(reportOptions ? { report_options: reportOptions } : {}),
       ...(options ? { options } : {}),
     }),

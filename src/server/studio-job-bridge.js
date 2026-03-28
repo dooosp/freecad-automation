@@ -40,7 +40,7 @@ export function validateStudioJobSubmission(body) {
 
   const request = structuredClone(body);
   const errors = [];
-  const supportedFields = new Set(['type', 'config_toml', 'drawing_settings', 'report_options', 'options']);
+  const supportedFields = new Set(['type', 'config_toml', 'drawing_settings', 'drawing_preview_id', 'drawing_plan', 'report_options', 'options']);
 
   Object.keys(request).forEach((key) => {
     if (!supportedFields.has(key)) {
@@ -57,11 +57,23 @@ export function validateStudioJobSubmission(body) {
   }
 
   validateOptionalObject(request.drawing_settings, 'drawing_settings', errors);
+  if (request.drawing_preview_id !== undefined && (typeof request.drawing_preview_id !== 'string' || request.drawing_preview_id.trim().length === 0)) {
+    errors.push('drawing_preview_id must be a non-empty string when provided.');
+  }
+  validateOptionalObject(request.drawing_plan, 'drawing_plan', errors);
   validateOptionalObject(request.report_options, 'report_options', errors);
   validateOptionalObject(request.options, 'options', errors);
 
   if (request.type !== 'draw' && request.drawing_settings !== undefined) {
     errors.push('drawing_settings is only supported for type "draw".');
+  }
+
+  if (request.type !== 'draw' && request.drawing_preview_id !== undefined) {
+    errors.push('drawing_preview_id is only supported for type "draw".');
+  }
+
+  if (request.type !== 'draw' && request.drawing_plan !== undefined) {
+    errors.push('drawing_plan is only supported for type "draw".');
   }
 
   if (request.type !== 'report' && request.report_options !== undefined) {
@@ -94,6 +106,9 @@ export function translateStudioJobSubmission(body) {
 
   const translatedConfig = structuredClone(config);
   if (request.type === 'draw') {
+    if (isPlainObject(request.drawing_plan)) {
+      translatedConfig.drawing_plan = structuredClone(request.drawing_plan);
+    }
     const drawingSettings = normalizeStudioDrawingSettings(request.drawing_settings || {}, translatedConfig);
     applyStudioDrawingSettings(translatedConfig, drawingSettings);
   }

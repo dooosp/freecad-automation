@@ -41,6 +41,28 @@ assert.equal(drawSubmission.request.config.drawing.scale, '1:2');
 assert.equal(drawSubmission.request.config.drawing.bom_csv, true);
 assert.deepEqual(drawSubmission.request.options, { qa: true });
 
+const drawSubmissionWithPlan = translateStudioJobSubmission({
+  type: 'draw',
+  config_toml: baseToml,
+  drawing_settings: {
+    views: ['top'],
+    scale: '1:5',
+  },
+  drawing_plan: {
+    dim_intents: [
+      {
+        id: 'WIDTH',
+        value_mm: 45,
+        feature: 'body_width',
+      },
+    ],
+  },
+});
+
+assert.equal(drawSubmissionWithPlan.ok, true, drawSubmissionWithPlan.errors?.join('\n'));
+assert.equal(drawSubmissionWithPlan.request.config.drawing_plan.dim_intents[0].value_mm, 45);
+assert.equal(drawSubmissionWithPlan.request.config.drawing.scale, '1:5');
+
 const reportSubmission = translateStudioJobSubmission({
   type: 'report',
   config_toml: baseToml,
@@ -77,5 +99,16 @@ const invalidDrawingSettings = translateStudioJobSubmission({
 
 assert.equal(invalidDrawingSettings.ok, false);
 assert.match(invalidDrawingSettings.errors.join('\n'), /drawing_settings is only supported/);
+
+const invalidDrawingPlan = translateStudioJobSubmission({
+  type: 'report',
+  config_toml: baseToml,
+  drawing_plan: {
+    dim_intents: [],
+  },
+});
+
+assert.equal(invalidDrawingPlan.ok, false);
+assert.match(invalidDrawingPlan.errors.join('\n'), /drawing_plan is only supported/);
 
 console.log('studio-job-bridge.test.js: ok');
