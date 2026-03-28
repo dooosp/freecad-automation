@@ -10,11 +10,13 @@ assert.equal(isActiveStudioJobStatus('queued'), true);
 assert.equal(isActiveStudioJobStatus('running'), true);
 assert.equal(isActiveStudioJobStatus('succeeded'), false);
 assert.equal(isActiveStudioJobStatus('failed'), false);
+assert.equal(isActiveStudioJobStatus('cancelled'), false);
 
 assert.equal(studioJobTone('queued'), 'info');
 assert.equal(studioJobTone('running'), 'warn');
 assert.equal(studioJobTone('succeeded'), 'ok');
 assert.equal(studioJobTone('failed'), 'bad');
+assert.equal(studioJobTone('cancelled'), 'bad');
 
 const resumable = findResumableStudioJob([
   { id: 'done', status: 'succeeded' },

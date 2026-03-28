@@ -33,7 +33,7 @@ npm run serve:legacy
 | Mode | What it is for | Backing route(s) | Persistence |
 | --- | --- | --- | --- |
 | Preview | Fast local iteration inside the current workspace | `POST /api/studio/model-preview`, `POST /api/studio/drawing-preview`, `POST /api/studio/drawing-previews/:id/dimensions` | Preview assets only. No `/jobs` entry. |
-| Tracked run | Operational execution that should remain visible, pollable, and reopenable | `POST /api/studio/jobs` plus `GET /jobs`, `GET /jobs/:id`, `GET /jobs/:id/artifacts` | Persisted under `/jobs` with manifest, logs, and artifact routes. |
+| Tracked run | Operational execution that should remain visible, pollable, and reopenable | `POST /api/studio/jobs` plus `GET /jobs`, `GET /jobs/:id`, `POST /jobs/:id/cancel`, `POST /jobs/:id/retry`, and `GET /jobs/:id/artifacts` | Persisted under `/jobs` with manifest, logs, and artifact routes. |
 
 Practical rules:
 
@@ -41,6 +41,7 @@ Practical rules:
 - Use tracked runs when the output should appear in the job timeline, feed `Review`, or support artifact-driven re-entry later.
 - Model preview and drawing preview stay available even while a tracked run is queued or running.
 - The shell monitor polls `GET /jobs/:id` and can reopen `Artifacts` or `Review` automatically after a tracked run succeeds.
+- Queue controls stay narrow on purpose: queued jobs can be cancelled, failed/cancelled jobs can be retried, and running-job cancellation is only available when the executor can stop cleanly.
 
 ## Round-2 Execution Flow
 
@@ -93,6 +94,8 @@ Practical rules:
 - `POST /api/studio/jobs`: studio-to-job bridge for tracked `create`, `draw`, `inspect`, and `report`
 - `GET /jobs`: recent tracked jobs for shell resume and artifact timeline views
 - `GET /jobs/:id`: live job status
+- `POST /jobs/:id/cancel`: cancel a queued tracked job before execution starts
+- `POST /jobs/:id/retry`: retry a failed or cancelled tracked job into a new queued run
 - `GET /jobs/:id/artifacts`: manifest-backed artifact list
 - `GET /artifacts/:jobId/:artifactId`: browser-safe inline artifact open
 - `GET /artifacts/:jobId/:artifactId/download`: forced artifact download
@@ -110,6 +113,6 @@ The studio shell is now the preferred browser surface for `fcad serve`, but it d
 ## Remaining gaps
 
 - Prompt-design flow: the studio supports prompt-to-TOML drafting, but not the legacy streaming UX or richer assistant iteration controls.
-- Runtime-only features: the studio directly covers validate, model preview, drawing preview, tracked jobs, artifact browsing, and artifact-driven inspect/report re-entry. It does not yet expose dedicated workspace controls for FEM, tolerance, cancellation, retries, or broader queue orchestration.
+- Runtime-only features: the studio directly covers validate, model preview, drawing preview, tracked jobs, queued cancel, terminal retry, artifact browsing, and artifact-driven inspect/report re-entry. It does not yet expose dedicated workspace controls for FEM, tolerance, richer jobs-center queue orchestration, or any unsafe forced kill path for running commands.
 - Deferred review workflows: Review is still read-only and depends on tracked artifacts rather than live inline authoring.
 - Still-legacy drawing/edit flows: the studio supports HTTP dimension edits, but the original websocket-driven all-in-one drawing flow remains the fallback for contributors who still depend on that shell.

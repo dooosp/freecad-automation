@@ -267,6 +267,8 @@ Endpoints:
 - `POST /jobs`
 - `GET /jobs`
 - `GET /jobs/:id`
+- `POST /jobs/:id/cancel`
+- `POST /jobs/:id/retry`
 - `GET /jobs/:id/artifacts`
 - `GET /jobs/:id/artifacts/:artifactId/content`
 - `GET /artifacts/:jobId/:artifactId`
@@ -289,7 +291,9 @@ Endpoint usage:
 - `POST /api/studio/jobs` is the studio bridge route: Model and Drawing submit tracked jobs here, and artifact-driven inspect/report re-entry also resolves through it
 - `POST /jobs` accepts a JSON job request and returns `202 Accepted` with the queued job record
 - `GET /jobs` returns recent tracked jobs for shell resume and artifact timeline views
-- `GET /jobs/:id` returns the latest status, request, diagnostics, result, status history, and storage metadata
+- `GET /jobs/:id` returns the latest status, sanitized browser-visible request metadata, diagnostics, result, status history, and storage metadata
+- `POST /jobs/:id/cancel` deterministically cancels a queued job before the executor claims it; running-job cancellation returns a clear conflict unless the active executor explicitly supports safe cooperative stop
+- `POST /jobs/:id/retry` creates a new queued tracked job from the original persisted internal request, but only when the source job is already `failed` or `cancelled`
 - `GET /jobs/:id/artifacts` returns the flattened known artifact list plus persisted storage file metadata
 - `GET /jobs/:id/artifacts/:artifactId/content` is the compatibility alias for older API-shaped artifact opens
 - `GET /artifacts/:jobId/:artifactId` opens browser-safe artifact content inline when supported
@@ -323,6 +327,10 @@ curl -X POST http://127.0.0.1:3000/jobs \
   }'
 
 curl http://127.0.0.1:3000/jobs/<job-id>
+
+curl -X POST http://127.0.0.1:3000/jobs/<job-id>/cancel
+
+curl -X POST http://127.0.0.1:3000/jobs/<job-id>/retry
 
 curl http://127.0.0.1:3000/jobs/<job-id>/artifacts
 
@@ -362,13 +370,19 @@ Response notes:
 - JSON API endpoints return JSON; browser-facing routes may return HTML, plain text, redirects, or artifact bytes depending on the route and `Accept`
 - success responses always include `ok: true`
 - error responses always include `ok: false` and `error.code` plus `error.messages`
+- job responses sanitize `request` before returning it to the browser: tracked artifact re-entry exposes safe metadata such as `artifact_ref`, `source_job_id`, `source_artifact_id`, `source_artifact_type`, and `source_label` instead of raw `file_path`, `config_path`, or `source_artifact_path`
+- the raw execution request still persists internally in `request.json` for the executor and job-store flows
+- job responses include `retried_from_job_id`, `capabilities.cancellation_supported`, `capabilities.retry_supported`, and `links.cancel` / `links.retry` so the studio can surface narrow queue controls without guessing
 - job responses include a `storage` block with absolute paths and file existence/size for `job.json`, `request.json`, and `job.log`
 - artifact list responses include browser-facing `links.open` and `links.download` routes, plus the compatibility alias in `links.api`
+- successful cancel/retry actions return `ok: true`, an `action` block that names the operation and outcome, and the current job record for the cancelled or newly retried job
 
 Current limitations:
 
 - this API is local/dev-first and does not add authentication
 - jobs run in-process; there is no distributed queue, retry worker, or database
+- queued-job cancellation is supported; running-job cancellation is intentionally rejected unless the active executor can stop work cooperatively and report that honestly
+- retry is intentionally narrow and only supported from `failed` or `cancelled` jobs
 - `job.log` is best-effort and primarily captures orchestration events and stderr surfaced from underlying scripts
 - `GET /jobs/:id/artifacts` reports known output paths and links, but it does not inline artifact contents inside the listing response
 - `POST /jobs` currently exposes only the execution paths for `create`, `draw`, `inspect`, and `report`

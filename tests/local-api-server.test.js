@@ -79,6 +79,8 @@ try {
   assert.equal(payload.project_root, ROOT);
   assert.equal(payload.endpoints.health, '/health');
   assert.equal(payload.endpoints.job, '/jobs/:id');
+  assert.equal(payload.endpoints.cancel_job, '/jobs/:id/cancel');
+  assert.equal(payload.endpoints.retry_job, '/jobs/:id/retry');
   assert.equal(payload.endpoints.artifact_open, '/artifacts/:jobId/:artifactId');
   assert.equal(payload.api_info.path, '/api');
   assert.equal(payload.studio.preferred_path, '/');
@@ -87,6 +89,8 @@ try {
   assert.equal(payload.studio.preview_routes.model_preview, '/api/studio/model-preview');
   assert.equal(payload.studio.preview_routes.drawing_dimensions, '/api/studio/drawing-previews/:id/dimensions');
   assert.equal(payload.studio.tracked_routes.submit, '/api/studio/jobs');
+  assert.equal(payload.studio.tracked_routes.cancel, '/jobs/:id/cancel');
+  assert.equal(payload.studio.tracked_routes.retry, '/jobs/:id/retry');
 
   const apiJsonResponse = await fetch(`${baseUrl}/api`, {
     headers: {
@@ -184,6 +188,11 @@ try {
   assert.equal(studioJobPayload.ok, true);
   assert.equal(validateLocalApiResponse('job', studioJobPayload).ok, true);
   assert.equal(studioJobPayload.job.type, 'draw');
+  assert.equal(studioJobPayload.job.retried_from_job_id, null);
+  assert.equal(studioJobPayload.job.capabilities.cancellation_supported, true);
+  assert.equal(studioJobPayload.job.capabilities.retry_supported, false);
+  assert.match(studioJobPayload.job.links.cancel, new RegExp(`/jobs/${studioJobPayload.job.id}/cancel$`));
+  assert.match(studioJobPayload.job.links.retry, new RegExp(`/jobs/${studioJobPayload.job.id}/retry$`));
   assert.deepEqual(studioJobPayload.job.request.config.drawing.views, ['front', 'iso']);
   assert.equal(studioJobPayload.job.request.config.drawing.scale, '1:2');
   assert.equal(studioJobPayload.job.request.options.qa, true);

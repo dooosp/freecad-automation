@@ -162,6 +162,8 @@ function buildLandingPayload({
       health: '/health',
       jobs: '/jobs',
       job: '/jobs/:id',
+      cancel_job: '/jobs/:id/cancel',
+      retry_job: '/jobs/:id/retry',
       artifacts: '/jobs/:id/artifacts',
       artifact_open: '/artifacts/:jobId/:artifactId',
       artifact_download: '/artifacts/:jobId/:artifactId/download',
@@ -184,10 +186,12 @@ function buildLandingPayload({
       tracked_routes: {
         submit: '/api/studio/jobs',
         status: '/jobs/:id',
+        cancel: '/jobs/:id/cancel',
+        retry: '/jobs/:id/retry',
         artifacts: '/jobs/:id/artifacts',
         artifact_open: '/artifacts/:jobId/:artifactId',
       },
-      note: 'Preview routes stay scratch-safe and request/response. Tracked routes enqueue jobs, expose live status through /jobs, and support artifact-driven re-entry for inspect/report.',
+      note: 'Preview routes stay scratch-safe and request/response. Tracked routes enqueue jobs, expose live status through /jobs, support queued cancel plus terminal retry controls, and preserve artifact-driven re-entry for inspect/report.',
     },
     api_info: {
       available: true,
@@ -294,6 +298,8 @@ function renderLandingPage(payload) {
         <li><a href="/api"><code>POST /api/studio/jobs</code></a> to enqueue tracked jobs directly from studio-native TOML or artifact references</li>
         <li><a href="/jobs"><code>/jobs</code></a> for job creation targets and route discovery</li>
         <li><a href="/jobs/example-job"><code>/jobs/:id</code></a> to inspect a job status response shape</li>
+        <li><a href="/api"><code>POST /jobs/:id/cancel</code></a> to cancel a queued tracked job before execution starts</li>
+        <li><a href="/api"><code>POST /jobs/:id/retry</code></a> to retry a failed or cancelled tracked job into a new queued run</li>
         <li><a href="/jobs/example-job/artifacts"><code>/jobs/:id/artifacts</code></a> to inspect artifact response shape</li>
       </ul>
     </div>
@@ -356,6 +362,8 @@ function sendLandingResponse(req, res, payload) {
       'Studio tracked jobs: POST /api/studio/jobs',
       'Jobs: POST /jobs',
       'Job status shape: /jobs/example-job',
+      'Queue cancel: POST /jobs/:id/cancel',
+      'Queue retry: POST /jobs/:id/retry',
       'Artifact shape: /jobs/example-job/artifacts',
       'Artifact open route: /artifacts/:jobId/:artifactId',
       'Artifact download route: /artifacts/:jobId/:artifactId/download',
@@ -382,8 +390,11 @@ export function buildHealthPayload({
   };
 }
 
-async function toJobResponse(jobStore, job) {
+async function toJobResponse(jobStore, job, { executor = null } = {}) {
   const storage = await jobStore.describeStorage(job.id);
+  const status = String(job.status || '').toLowerCase();
+  const cancellationSupported = status === 'queued'
+    || (status === 'running' && typeof executor?.cancelRunningJob === 'function');
   return {
     id: job.id,
     type: job.type,
@@ -393,6 +404,7 @@ async function toJobResponse(jobStore, job) {
     started_at: job.started_at,
     finished_at: job.finished_at,
     error: job.error,
+    retried_from_job_id: job.retried_from_job_id || null,
     request: toPublicJobRequest(job.request),
     diagnostics: job.diagnostics,
     artifacts: job.artifacts,
@@ -400,9 +412,15 @@ async function toJobResponse(jobStore, job) {
     result: job.result,
     status_history: job.status_history,
     storage,
+    capabilities: {
+      cancellation_supported: cancellationSupported,
+      retry_supported: status === 'failed' || status === 'cancelled',
+    },
     links: {
       self: `/jobs/${job.id}`,
       artifacts: `/jobs/${job.id}/artifacts`,
+      cancel: `/jobs/${job.id}/cancel`,
+      retry: `/jobs/${job.id}/retry`,
     },
   };
 }
@@ -413,14 +431,22 @@ export function createLocalApiServer({
   runtimeDiagnosticsFactory = buildRuntimeDiagnostics,
   studioModelServiceFactory = createStudioModelService,
   studioDrawingServiceFactory = createStudioDrawingService,
+  executorFactory = null,
 }) {
   const app = express();
   const server = createServer(app);
   const jobStore = createJobStore({ jobsDir });
-  const executor = createJobExecutor({
+  const baseExecutor = createJobExecutor({
     projectRoot,
     jobStore,
   });
+  const executor = typeof executorFactory === 'function'
+    ? executorFactory({
+        projectRoot,
+        jobStore,
+        baseExecutor,
+      })
+    : baseExecutor;
   const studioModelService = studioModelServiceFactory({ projectRoot });
   const studioDrawingService = studioDrawingServiceFactory({ projectRoot });
 
@@ -495,7 +521,7 @@ export function createLocalApiServer({
     const payload = {
       api_version: LOCAL_API_VERSION,
       ok: true,
-      job: await toJobResponse(jobStore, job),
+      job: await toJobResponse(jobStore, job, { executor }),
     };
     res.status(202).json(assertResponse('job', payload));
 
@@ -503,6 +529,28 @@ export function createLocalApiServer({
       executor.execute(job.id).catch(() => {
         // The executor persists failures in the job store.
       });
+    });
+  }
+
+  async function buildJobActionResponse({
+    type,
+    status,
+    message,
+    sourceJobId,
+    retryJobId = null,
+    job,
+  }) {
+    return assertResponse('job_action', {
+      api_version: LOCAL_API_VERSION,
+      ok: true,
+      action: {
+        type,
+        status,
+        message,
+        source_job_id: sourceJobId,
+        retry_job_id: retryJobId,
+      },
+      job: await toJobResponse(jobStore, job, { executor }),
     });
   }
 
@@ -747,7 +795,7 @@ export function createLocalApiServer({
       const payload = {
         api_version: LOCAL_API_VERSION,
         ok: true,
-        jobs: await Promise.all(jobs.map((job) => toJobResponse(jobStore, job))),
+        jobs: await Promise.all(jobs.map((job) => toJobResponse(jobStore, job, { executor }))),
       };
       res.json(assertResponse('jobs', payload));
     } catch (error) {
@@ -759,13 +807,115 @@ export function createLocalApiServer({
     await enqueueJob(req.body, res);
   });
 
+  app.post('/jobs/:id/cancel', async (req, res) => {
+    try {
+      const cancelled = await jobStore.cancelJob(req.params.id, {
+        message: 'Queued job cancelled before execution started.',
+      });
+
+      if (cancelled.ok) {
+        await jobStore.appendLog(req.params.id, 'Job cancelled before execution started.');
+        res.json(await buildJobActionResponse({
+          type: 'cancel',
+          status: 'cancelled',
+          message: 'Queued job cancelled before execution started.',
+          sourceJobId: req.params.id,
+          job: cancelled.job,
+        }));
+        return;
+      }
+
+      if (cancelled.job?.status === 'running') {
+        if (typeof executor.cancelRunningJob === 'function') {
+          const outcome = await executor.cancelRunningJob(req.params.id, cancelled.job);
+          if (outcome?.ok && outcome.job) {
+            await jobStore.appendLog(req.params.id, outcome.message || 'Running job cancellation completed.');
+            res.json(await buildJobActionResponse({
+              type: 'cancel',
+              status: 'cancelled',
+              message: outcome.message || 'Running job cancelled through executor support.',
+              sourceJobId: req.params.id,
+              job: outcome.job,
+            }));
+            return;
+          }
+
+          const response = createErrorResponse(
+            outcome?.code || 'job_cancel_not_supported',
+            outcome?.messages || [`Job ${req.params.id} is already running. This executor does not support safe mid-command cancellation.`],
+            outcome?.status || 409
+          );
+          res.status(response.status).json(assertResponse('error', response.body));
+          return;
+        }
+
+        const response = createErrorResponse(
+          'job_cancel_not_supported',
+          [`Job ${req.params.id} is already running. This executor does not support safe mid-command cancellation.`],
+          409
+        );
+        res.status(response.status).json(assertResponse('error', response.body));
+        return;
+      }
+
+      const response = createErrorResponse(
+        'job_cancel_not_supported',
+        [`Job ${req.params.id} is already ${cancelled.job?.status || 'finished'}. Only queued jobs can be cancelled on this runtime.`],
+        409
+      );
+      res.status(response.status).json(assertResponse('error', response.body));
+    } catch {
+      const response = createErrorResponse('job_not_found', [`No job found for id ${req.params.id}.`], 404);
+      res.status(response.status).json(assertResponse('error', response.body));
+    }
+  });
+
+  app.post('/jobs/:id/retry', async (req, res) => {
+    try {
+      const sourceJob = await jobStore.getJob(req.params.id);
+      const sourceStatus = String(sourceJob.status || '').toLowerCase();
+      if (sourceStatus !== 'failed' && sourceStatus !== 'cancelled') {
+        const response = createErrorResponse(
+          'job_retry_not_supported',
+          [`Job ${req.params.id} is ${sourceJob.status}. Only failed or cancelled jobs can be retried.`],
+          409
+        );
+        res.status(response.status).json(assertResponse('error', response.body));
+        return;
+      }
+
+      const retriedJob = await jobStore.createJob(structuredClone(sourceJob.request), {
+        retriedFromJobId: sourceJob.id,
+      });
+      await jobStore.appendLog(retriedJob.id, `Retry queued from job ${sourceJob.id}.`);
+
+      res.status(202).json(await buildJobActionResponse({
+        type: 'retry',
+        status: 'queued',
+        message: `Retry queued from ${sourceStatus} job ${sourceJob.id}.`,
+        sourceJobId: sourceJob.id,
+        retryJobId: retriedJob.id,
+        job: retriedJob,
+      }));
+
+      setImmediate(() => {
+        executor.execute(retriedJob.id).catch(() => {
+          // The executor persists failures in the job store.
+        });
+      });
+    } catch {
+      const response = createErrorResponse('job_not_found', [`No job found for id ${req.params.id}.`], 404);
+      res.status(response.status).json(assertResponse('error', response.body));
+    }
+  });
+
   app.get('/jobs/:id', async (req, res) => {
     try {
       const job = await jobStore.getJob(req.params.id);
       const payload = {
         api_version: LOCAL_API_VERSION,
         ok: true,
-        job: await toJobResponse(jobStore, job),
+        job: await toJobResponse(jobStore, job, { executor }),
       };
       res.json(assertResponse('job', payload));
     } catch {

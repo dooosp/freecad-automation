@@ -289,8 +289,15 @@ export function createJobExecutor({
 
   return {
     async execute(jobId) {
-      await jobStore.setStatus(jobId, 'running', 'executor_started');
-      const job = await jobStore.getJob(jobId);
+      const claim = await jobStore.claimJobForExecution(jobId, 'executor_started');
+      if (!claim.ok) {
+        if (claim.reason === 'cancelled_before_start') {
+          await appendLog(jobId, 'Job execution skipped because the queued job was cancelled before start.');
+        }
+        return;
+      }
+
+      const job = claim.job;
       await appendLog(jobId, `Job ${job.type} started`);
 
       let artifacts = {};

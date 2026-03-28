@@ -75,7 +75,7 @@ export function findResumableStudioJob(jobs = []) {
 export function studioJobTone(status) {
   const normalized = String(status || '').toLowerCase();
   if (normalized === 'succeeded') return 'ok';
-  if (normalized === 'failed') return 'bad';
+  if (normalized === 'failed' || normalized === 'cancelled') return 'bad';
   if (normalized === 'running') return 'warn';
   if (normalized === 'queued') return 'info';
   return 'info';

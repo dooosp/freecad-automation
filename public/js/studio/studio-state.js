@@ -28,7 +28,7 @@ function shortJobId(id = '') {
 
 function jobTone(status = '') {
   if (status === 'succeeded') return 'ok';
-  if (status === 'failed') return 'bad';
+  if (status === 'failed' || status === 'cancelled') return 'bad';
   if (status === 'running') return 'warn';
   return 'info';
 }

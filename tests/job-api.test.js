@@ -154,6 +154,7 @@ try {
       started_at: persistedJob.started_at,
       finished_at: persistedJob.finished_at,
       error: persistedJob.error,
+      retried_from_job_id: persistedJob.retried_from_job_id,
       request: toPublicJobRequest(persistedJob.request),
       diagnostics: persistedJob.diagnostics,
       artifacts: persistedJob.artifacts,
@@ -161,9 +162,15 @@ try {
       result: persistedJob.result,
       status_history: persistedJob.status_history,
       storage,
+      capabilities: {
+        cancellation_supported: false,
+        retry_supported: false,
+      },
       links: {
         self: `/jobs/${job.id}`,
         artifacts: `/jobs/${job.id}/artifacts`,
+        cancel: `/jobs/${job.id}/cancel`,
+        retry: `/jobs/${job.id}/retry`,
       },
     },
   });

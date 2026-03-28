@@ -46,7 +46,7 @@ This thread adds a parallel browser shell called `FreeCAD Automation Studio` wit
 - preview and tracked paths are intentionally separated in `Model` and `Drawing`
 - tracked jobs are monitored through `/jobs` instead of websocket-only progress
 - artifact-driven re-entry is available for config-like and model-like artifacts
-- no cancellation or retry controls yet
+- narrow queue controls now exist on the local API for queued cancel and terminal retry, but the broader jobs-center UI is still pending
 - no goal to replicate the legacy all-in-one websocket UX inside the studio shell
 
 ## Structural decisions for later threads
