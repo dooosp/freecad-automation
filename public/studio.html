@@ -73,6 +73,9 @@
         </div>
 
         <div class="app-bar-actions">
+          <button id="jobs-toggle" class="toolbar-button" type="button" aria-expanded="false" aria-controls="jobs-drawer">
+            Jobs center
+          </button>
           <button id="log-toggle" class="toolbar-button" type="button" aria-expanded="false" aria-controls="log-drawer">
             Log drawer
           </button>
@@ -80,6 +83,19 @@
       </header>
 
       <main id="workspace-root" class="workspace-root" tabindex="-1" aria-live="polite"></main>
+
+      <aside id="jobs-drawer" class="jobs-drawer" aria-label="Tracked jobs center">
+        <div class="jobs-drawer-header">
+          <div>
+            <p class="drawer-kicker">Operations</p>
+            <h2 id="jobs-drawer-title">Jobs center</h2>
+          </div>
+          <button id="jobs-close" class="toolbar-button toolbar-button-subtle" type="button">
+            Close
+          </button>
+        </div>
+        <div id="jobs-center-content"></div>
+      </aside>
 
       <aside id="log-drawer" class="log-drawer" aria-label="Studio activity log">
         <div class="log-drawer-header">

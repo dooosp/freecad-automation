@@ -1,10 +1,15 @@
 import assert from 'node:assert/strict';
 
 import {
+  countActiveStudioMonitoredJobs,
   describeJobMonitorTransition,
+  findStudioMonitoredJob,
+  listActiveStudioMonitoredJobs,
   mergeTrackedJobIntoRecentJobs,
   resolveMonitoredJobCompletionRoute,
+  syncActiveJobsIntoMonitor,
   sortStudioJobsByUpdatedAt,
+  upsertStudioMonitoredJob,
 } from '../public/js/studio/job-monitor.js';
 
 const sorted = sortStudioJobsByUpdatedAt([
@@ -26,6 +31,28 @@ const merged = mergeTrackedJobIntoRecentJobs(
 );
 
 assert.deepEqual(merged.map((job) => job.id), ['job-2', 'job-3']);
+
+const monitor = syncActiveJobsIntoMonitor({}, [
+  { id: 'job-queued', type: 'draw', status: 'queued', updated_at: '2026-03-28T05:00:00.000Z' },
+  { id: 'job-terminal', type: 'create', status: 'succeeded', updated_at: '2026-03-28T06:00:00.000Z' },
+  { id: 'job-running', type: 'report', status: 'running', updated_at: '2026-03-28T07:00:00.000Z' },
+]);
+
+assert.equal(countActiveStudioMonitoredJobs(monitor), 2);
+assert.deepEqual(listActiveStudioMonitoredJobs(monitor).map((job) => job.id), ['job-running', 'job-queued']);
+
+const updatedMonitor = upsertStudioMonitoredJob(monitor, {
+  id: 'job-queued',
+  type: 'draw',
+  status: 'cancelled',
+  updated_at: '2026-03-28T08:00:00.000Z',
+}, {
+  completionAction: { type: 'open-artifacts-on-success' },
+});
+
+assert.equal(findStudioMonitoredJob(updatedMonitor, 'job-queued').enabled, false);
+assert.equal(findStudioMonitoredJob(updatedMonitor, 'job-queued').completionAction.type, 'open-artifacts-on-success');
+assert.equal(countActiveStudioMonitoredJobs(updatedMonitor), 1);
 
 const started = describeJobMonitorTransition(
   { id: 'job-123456789', type: 'draw' },

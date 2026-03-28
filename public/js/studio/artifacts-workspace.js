@@ -642,6 +642,9 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
   syncAll();
 
   return {
+    syncFromShell() {
+      syncAll();
+    },
     destroy() {
       destroyed = true;
       root.removeEventListener('click', handleClick);

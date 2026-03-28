@@ -1,4 +1,5 @@
 import { studioJobTone } from './jobs-client.js';
+import { findStudioMonitoredJob } from './job-monitor.js';
 
 function normalizeString(value, fallback = '') {
   return typeof value === 'string' ? value : fallback;
@@ -75,11 +76,13 @@ function resolveTrackedDrawJob(drawing = {}, recentJobs = [], jobMonitor = {}) {
   const knownJob = recentJobs.find((job) => job.id === trackedRun.lastJobId);
   if (knownJob) return knownJob;
 
-  if (jobMonitor.activeRunId === trackedRun.lastJobId) {
+  const monitoredJob = findStudioMonitoredJob(jobMonitor, trackedRun.lastJobId);
+  if (monitoredJob) {
     return {
+      ...monitoredJob,
       id: trackedRun.lastJobId,
-      type: 'draw',
-      status: jobMonitor.activeRunStatus || trackedRun.status || 'queued',
+      type: monitoredJob.type || 'draw',
+      status: monitoredJob.status || trackedRun.status || 'queued',
     };
   }
 

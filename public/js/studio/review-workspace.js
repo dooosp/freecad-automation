@@ -518,6 +518,9 @@ export function mountReviewWorkspace({ root, state, addLog, openJob }) {
   loadReviewState();
 
   return {
+    syncFromShell() {
+      loadReviewState();
+    },
     destroy() {
       destroyed = true;
       root.removeEventListener('click', handleClick);

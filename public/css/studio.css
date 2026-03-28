@@ -1550,6 +1550,111 @@ textarea {
   display: grid;
 }
 
+.jobs-drawer {
+  display: none;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6);
+  border-top: 1px solid var(--border-subtle);
+  background:
+    linear-gradient(180deg, rgba(14, 21, 28, 0.92), rgba(11, 16, 22, 0.96)),
+    var(--surface-overlay);
+  backdrop-filter: blur(16px);
+}
+
+.jobs-drawer.is-open {
+  display: grid;
+}
+
+.jobs-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+#jobs-drawer-title {
+  margin: 0;
+  color: var(--text-strong);
+}
+
+.jobs-center,
+.jobs-center-list,
+.jobs-center-meta {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.jobs-center-item {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-2);
+  border: 1px solid rgba(148, 170, 190, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.jobs-center-item[data-active="true"] {
+  border-color: rgba(104, 181, 255, 0.34);
+  box-shadow: inset 0 0 0 1px rgba(104, 181, 255, 0.08);
+}
+
+.jobs-center-item[data-tone="ok"] {
+  border-color: rgba(118, 200, 147, 0.2);
+}
+
+.jobs-center-item[data-tone="warn"] {
+  border-color: rgba(244, 184, 96, 0.24);
+}
+
+.jobs-center-item[data-tone="bad"] {
+  border-color: rgba(241, 123, 123, 0.24);
+}
+
+.jobs-center-item-header,
+.jobs-center-meta-row,
+.jobs-center-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.jobs-center-title-stack {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.jobs-center-title,
+.jobs-center-meta-value {
+  margin: 0;
+  color: var(--text-strong);
+  font-family: var(--font-mono);
+}
+
+.jobs-center-subtitle,
+.jobs-center-meta-label {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+.jobs-center-meta {
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+}
+
+.jobs-center-meta-row {
+  align-items: start;
+  padding: var(--space-3);
+  border-radius: var(--radius-1);
+  border: 1px solid rgba(148, 170, 190, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.jobs-center-actions {
+  justify-content: flex-start;
+}
+
 .log-drawer-header {
   display: flex;
   align-items: center;
@@ -1707,6 +1812,7 @@ textarea {
 @media (max-width: 640px) {
   .workspace-root,
   .app-bar,
+  .jobs-drawer,
   .log-drawer {
     padding-left: var(--space-4);
     padding-right: var(--space-4);

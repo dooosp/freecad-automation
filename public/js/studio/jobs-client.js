@@ -1,4 +1,5 @@
 const ACTIVE_JOB_STATUSES = new Set(['queued', 'running']);
+const TERMINAL_JOB_STATUSES = new Set(['succeeded', 'failed', 'cancelled']);
 
 async function parseError(response) {
   try {
@@ -64,12 +65,46 @@ export async function refreshStudioJobs(limit = 6) {
   return Array.isArray(payload?.jobs) ? payload.jobs : [];
 }
 
+export async function cancelStudioJob(jobId) {
+  return fetchJobJson(`/jobs/${encodeURIComponent(jobId)}/cancel`, {
+    method: 'POST',
+  });
+}
+
+export async function retryStudioJob(jobId) {
+  return fetchJobJson(`/jobs/${encodeURIComponent(jobId)}/retry`, {
+    method: 'POST',
+  });
+}
+
 export function isActiveStudioJobStatus(status) {
   return ACTIVE_JOB_STATUSES.has(String(status || '').toLowerCase());
 }
 
+export function isTerminalStudioJobStatus(status) {
+  return TERMINAL_JOB_STATUSES.has(String(status || '').toLowerCase());
+}
+
 export function findResumableStudioJob(jobs = []) {
   return jobs.find((job) => isActiveStudioJobStatus(job?.status)) || null;
+}
+
+export function findResumableStudioJobs(jobs = []) {
+  return jobs.filter((job) => isActiveStudioJobStatus(job?.status));
+}
+
+export function supportsStudioJobCancellation(job = {}) {
+  return job?.capabilities?.cancellation_supported === true;
+}
+
+export function supportsStudioJobRetry(job = {}) {
+  return job?.capabilities?.retry_supported === true;
+}
+
+export function isReviewableStudioJob(job = {}) {
+  const type = String(job?.type || '').toLowerCase();
+  return (type === 'inspect' || type === 'report')
+    && String(job?.status || '').toLowerCase() === 'succeeded';
 }
 
 export function studioJobTone(status) {

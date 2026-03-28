@@ -5,17 +5,24 @@ import { mountArtifactsWorkspace } from './studio/artifacts-workspace.js';
 import { mountDrawingWorkspace } from './studio/drawing-workspace.js';
 import {
   describeJobMonitorTransition,
+  ensureStudioJobMonitorState,
+  findStudioMonitoredJob,
+  listActiveStudioMonitoredJobs,
   mergeTrackedJobIntoRecentJobs,
   resolveMonitoredJobCompletionRoute,
+  syncActiveJobsIntoMonitor,
+  upsertStudioMonitoredJob,
 } from './studio/job-monitor.js';
 import {
-  findResumableStudioJob,
+  cancelStudioJob,
+  findResumableStudioJobs,
   isActiveStudioJobStatus,
   pollStudioJob,
   refreshStudioJobs,
-  studioJobTone,
+  retryStudioJob,
   submitStudioTrackedJob,
 } from './studio/jobs-client.js';
+import { renderJobsCenter, shortJobId } from './studio/jobs-center.js';
 import { mountModelWorkspace } from './studio/model-workspace.js';
 import { mountReviewWorkspace } from './studio/review-workspace.js';
 import { deriveStudioChromeState, normalizeRoute } from './studio/studio-state.js';
@@ -27,16 +34,20 @@ const runtimeBadge = document.getElementById('runtime-badge');
 const projectBadge = document.getElementById('project-badge');
 const connectionBadge = document.getElementById('connection-badge');
 const jobBadge = document.getElementById('job-badge');
+const jobsToggle = document.getElementById('jobs-toggle');
+const jobsClose = document.getElementById('jobs-close');
+const jobsDrawer = document.getElementById('jobs-drawer');
+const jobsCenterContent = document.getElementById('jobs-center-content');
 const logToggle = document.getElementById('log-toggle');
 const logClose = document.getElementById('log-close');
 const logDrawer = document.getElementById('log-drawer');
 const logFeed = document.getElementById('log-feed');
 const navLinks = [...document.querySelectorAll('.nav-link')];
-const RECENT_JOBS_LIMIT = 6;
+const RECENT_JOBS_LIMIT = 12;
 const JOB_MONITOR_POLL_MS = 2000;
 let activeWorkspaceController = null;
 let jobMonitorTimer = null;
-let jobMonitorError = '';
+const jobMonitorErrors = new Map();
 
 const state = {
   route: normalizeRoute(window.location.hash),
@@ -74,11 +85,8 @@ const state = {
       message: '',
     },
     jobMonitor: {
-      activeRunId: '',
-      activeRunStatus: 'idle',
+      items: [],
       lastPollTime: null,
-      enabled: false,
-      completionAction: null,
     },
     model: {
       sourceType: '',
@@ -231,6 +239,17 @@ function syncChrome() {
   });
 }
 
+function renderJobsDrawer() {
+  jobsCenterContent.replaceChildren(
+    renderJobsCenter({
+      recentJobs: state.data.recentJobs.items || [],
+      jobMonitor: state.data.jobMonitor || {},
+      activeJobId: state.data.activeJob.summary?.id || '',
+      limit: RECENT_JOBS_LIMIT,
+    })
+  );
+}
+
 function renderWorkspace() {
   activeWorkspaceController?.destroy?.();
   activeWorkspaceController = null;
@@ -280,12 +299,17 @@ function commitRender() {
   syncDerivedState();
   syncChrome();
   renderWorkspace();
+  renderJobsDrawer();
   renderLogs();
 }
 
-function refreshShellChrome() {
+function refreshShellChrome({ syncWorkspace = false } = {}) {
   syncDerivedState();
   syncChrome();
+  renderJobsDrawer();
+  if (syncWorkspace) {
+    activeWorkspaceController?.syncFromShell?.();
+  }
 }
 
 function addLog(entry) {
@@ -315,6 +339,11 @@ function navigateTo(route, options = {}) {
 function setLogDrawer(open) {
   logDrawer.classList.toggle('is-open', open);
   logToggle.setAttribute('aria-expanded', String(open));
+}
+
+function setJobsDrawer(open) {
+  jobsDrawer.classList.toggle('is-open', open);
+  jobsToggle.setAttribute('aria-expanded', String(open));
 }
 
 function applyPendingFocus() {
@@ -350,6 +379,7 @@ async function fetchJson(url, options = {}) {
 function findKnownJob(jobId) {
   return state.data.recentJobs.items.find((job) => job.id === jobId)
     || (state.data.activeJob.summary?.id === jobId ? state.data.activeJob.summary : null)
+    || findStudioMonitoredJob(state.data.jobMonitor, jobId)
     || null;
 }
 
@@ -376,21 +406,12 @@ function clearJobMonitorTimer() {
   }
 }
 
-function setJobMonitorState({
-  jobId = '',
-  status = 'idle',
-  enabled = false,
-  lastPollTime = null,
-  completionAction = null,
-}) {
-  state.data.jobMonitor = {
-    activeRunId: jobId,
-    activeRunStatus: status,
-    lastPollTime,
-    enabled,
-    completionAction,
-  };
-  refreshShellChrome();
+function scheduleJobMonitoring() {
+  clearJobMonitorTimer();
+  if (listActiveStudioMonitoredJobs(state.data.jobMonitor).length === 0) return;
+  jobMonitorTimer = window.setTimeout(() => {
+    pollActiveJobs().catch(() => {});
+  }, JOB_MONITOR_POLL_MS);
 }
 
 function logJobTransition(job, previousStatus, nextStatus, origin = 'monitor') {
@@ -409,7 +430,7 @@ async function runMonitoredJobCompletionAction(job, completionAction = null) {
   await openJob(job.id, { route });
 }
 
-async function refreshRecentJobs({ silent = false } = {}) {
+async function refreshRecentJobs({ silent = false, preserveRender = false } = {}) {
   try {
     const items = await refreshStudioJobs(RECENT_JOBS_LIMIT);
     state.data.recentJobs = {
@@ -417,6 +438,7 @@ async function refreshRecentJobs({ silent = false } = {}) {
       items,
       message: items.length > 0 ? '' : 'No jobs have been tracked yet on this local API instance.',
     };
+    state.data.jobMonitor = syncActiveJobsIntoMonitor(state.data.jobMonitor, items);
     if (!silent) {
       addLog({
         status: 'Recent jobs',
@@ -436,110 +458,124 @@ async function refreshRecentJobs({ silent = false } = {}) {
     };
     return [];
   } finally {
-    commitRender();
+    if (preserveRender) {
+      refreshShellChrome({ syncWorkspace: true });
+    } else {
+      commitRender();
+    }
   }
 }
 
-async function pollActiveRun() {
-  const {
-    activeRunId,
-    activeRunStatus,
-    enabled,
-    completionAction,
-  } = state.data.jobMonitor;
-  if (!enabled || !activeRunId) return;
+async function pollActiveJobs() {
+  const activeJobs = listActiveStudioMonitoredJobs(state.data.jobMonitor);
+  if (activeJobs.length === 0) {
+    clearJobMonitorTimer();
+    refreshShellChrome({ syncWorkspace: true });
+    return;
+  }
 
-  try {
-    const job = await pollStudioJob(activeRunId);
-    if (!job) {
-      throw new Error(`Tracked job ${activeRunId} did not return a status payload.`);
-    }
+  const polledAt = new Date().toISOString();
+  const completedJobs = [];
 
-    jobMonitorError = '';
-    syncJobIntoState(job);
-    setJobMonitorState({
-      jobId: job.id,
-      status: job.status,
-      enabled: isActiveStudioJobStatus(job.status),
-      lastPollTime: new Date().toISOString(),
-      completionAction,
-    });
+  await Promise.all(activeJobs.map(async (entry) => {
+    try {
+      const job = await pollStudioJob(entry.id);
+      if (!job) {
+        throw new Error(`Tracked job ${entry.id} did not return a status payload.`);
+      }
 
-    if (activeRunStatus !== job.status) {
-      logJobTransition(job, activeRunStatus, job.status);
-    }
-
-    if (!isActiveStudioJobStatus(job.status)) {
-      clearJobMonitorTimer();
-      await refreshRecentJobs({ silent: true });
-      await runMonitoredJobCompletionAction(job, completionAction);
-      setJobMonitorState({
-        jobId: job.id,
-        status: job.status,
-        enabled: false,
-        lastPollTime: new Date().toISOString(),
-        completionAction: null,
+      jobMonitorErrors.delete(entry.id);
+      syncJobIntoState(job);
+      state.data.jobMonitor = upsertStudioMonitoredJob(state.data.jobMonitor, job, {
+        lastPollTime: polledAt,
+        completionAction: entry.completionAction,
       });
-      return;
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    state.data.jobMonitor.lastPollTime = new Date().toISOString();
-    refreshShellChrome();
-    if (jobMonitorError !== message) {
-      jobMonitorError = message;
-      addLog({
-        status: 'Tracked run',
-        message: `Polling ${activeRunId.slice(0, 8)} hit an error: ${message}`,
-        tone: 'warn',
-        time: 'job',
+
+      if (entry.status !== job.status) {
+        logJobTransition(job, entry.status, job.status);
+      }
+
+      if (!isActiveStudioJobStatus(job.status)) {
+        completedJobs.push({ job, completionAction: entry.completionAction });
+        state.data.jobMonitor = upsertStudioMonitoredJob(state.data.jobMonitor, job, {
+          lastPollTime: polledAt,
+          completionAction: null,
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      state.data.jobMonitor = upsertStudioMonitoredJob(state.data.jobMonitor, entry, {
+        lastPollTime: polledAt,
+        completionAction: entry.completionAction,
       });
+      if (jobMonitorErrors.get(entry.id) !== message) {
+        jobMonitorErrors.set(entry.id, message);
+        addLog({
+          status: 'Tracked run',
+          message: `Polling ${shortJobId(entry.id)} hit an error: ${message}`,
+          tone: 'warn',
+          time: 'job',
+        });
+      }
+    }
+  }));
+
+  state.data.jobMonitor = ensureStudioJobMonitorState({
+    ...state.data.jobMonitor,
+    lastPollTime: polledAt,
+  });
+  refreshShellChrome({ syncWorkspace: true });
+
+  if (completedJobs.length > 0) {
+    await refreshRecentJobs({ silent: true, preserveRender: true });
+    for (const entry of completedJobs) {
+      await runMonitoredJobCompletionAction(entry.job, entry.completionAction);
     }
   }
 
-  clearJobMonitorTimer();
-  if (state.data.jobMonitor.enabled) {
-    jobMonitorTimer = window.setTimeout(() => {
-      pollActiveRun().catch(() => {});
-    }, JOB_MONITOR_POLL_MS);
-  }
+  scheduleJobMonitoring();
 }
 
-function beginJobMonitoring(job, { origin = 'submit', completionAction = null } = {}) {
+function beginJobMonitoring(job, { origin = 'submit', completionAction = null, announce = true } = {}) {
   if (!job?.id) return;
-  clearJobMonitorTimer();
-  jobMonitorError = '';
   syncJobIntoState(job);
-  setJobMonitorState({
-    jobId: job.id,
-    status: job.status,
-    enabled: isActiveStudioJobStatus(job.status),
+  const previous = findStudioMonitoredJob(state.data.jobMonitor, job.id);
+  jobMonitorErrors.delete(job.id);
+  state.data.jobMonitor = upsertStudioMonitoredJob(state.data.jobMonitor, job, {
     lastPollTime: new Date().toISOString(),
     completionAction,
   });
-  logJobTransition(job, '', job.status, origin);
+  if (announce) {
+    logJobTransition(job, previous?.status || '', job.status, origin);
+  }
+  refreshShellChrome({ syncWorkspace: true });
 
-  if (state.data.jobMonitor.enabled) {
-    jobMonitorTimer = window.setTimeout(() => {
-      pollActiveRun().catch(() => {});
-    }, JOB_MONITOR_POLL_MS);
-  } else {
+  if (!isActiveStudioJobStatus(job.status)) {
     runMonitoredJobCompletionAction(job, completionAction).catch(() => {});
-    setJobMonitorState({
-      jobId: job.id,
-      status: job.status,
-      enabled: false,
+    state.data.jobMonitor = upsertStudioMonitoredJob(state.data.jobMonitor, job, {
       lastPollTime: new Date().toISOString(),
       completionAction: null,
     });
+    refreshShellChrome({ syncWorkspace: true });
+    return;
   }
+
+  scheduleJobMonitoring();
 }
 
 function resumeJobMonitoring() {
-  if (state.data.jobMonitor.enabled && state.data.jobMonitor.activeRunId) return;
-  const resumableJob = findResumableStudioJob(state.data.recentJobs.items);
-  if (!resumableJob) return;
-  beginJobMonitoring(resumableJob, { origin: 'resume' });
+  const knownMonitorIds = new Set(ensureStudioJobMonitorState(state.data.jobMonitor).items.map((job) => job.id));
+  const resumableJobs = findResumableStudioJobs(state.data.recentJobs.items);
+  if (resumableJobs.length === 0) return;
+
+  state.data.jobMonitor = syncActiveJobsIntoMonitor(state.data.jobMonitor, resumableJobs);
+  resumableJobs.forEach((job) => {
+    if (!knownMonitorIds.has(job.id)) {
+      logJobTransition(job, '', job.status, 'resume');
+    }
+  });
+  refreshShellChrome({ syncWorkspace: true });
+  scheduleJobMonitoring();
 }
 
 async function submitTrackedStudioRun({
@@ -562,6 +598,49 @@ async function submitTrackedStudioRun({
     options,
   });
   beginJobMonitoring(job, { origin: 'submit', completionAction });
+  return job;
+}
+
+async function cancelTrackedJobById(jobId) {
+  const payload = await cancelStudioJob(jobId);
+  const job = payload?.job || null;
+  if (!job?.id) {
+    throw new Error(`Cancel for ${jobId} did not return a job payload.`);
+  }
+
+  syncJobIntoState(job);
+  jobMonitorErrors.delete(job.id);
+  state.data.jobMonitor = upsertStudioMonitoredJob(state.data.jobMonitor, job, {
+    lastPollTime: new Date().toISOString(),
+    completionAction: null,
+  });
+  addLog({
+    status: 'Tracked run',
+    message: `Cancelled queued ${job.type} ${shortJobId(job.id)}.`,
+    tone: 'warn',
+    time: 'job',
+  });
+  await refreshRecentJobs({ silent: true, preserveRender: true });
+  scheduleJobMonitoring();
+  return job;
+}
+
+async function retryTrackedJobById(jobId) {
+  const payload = await retryStudioJob(jobId);
+  const job = payload?.job || null;
+  if (!job?.id) {
+    throw new Error(`Retry for ${jobId} did not return a new job payload.`);
+  }
+
+  syncJobIntoState(job);
+  addLog({
+    status: 'Tracked run',
+    message: `Retried ${shortJobId(jobId)} as ${job.type} ${shortJobId(job.id)}.`,
+    tone: 'info',
+    time: 'job',
+  });
+  beginJobMonitoring(job, { origin: 'submit', announce: false });
+  await refreshRecentJobs({ silent: true, preserveRender: true });
   return job;
 }
 
@@ -925,10 +1004,7 @@ function findActionTarget(target) {
   return target instanceof Element ? target.closest('[data-action]') : null;
 }
 
-workspaceRoot.addEventListener('click', async (event) => {
-  const actionTarget = findActionTarget(event.target);
-  if (!actionTarget) return;
-
+async function handleShellAction(actionTarget) {
   const { action, jobId } = actionTarget.dataset;
   if (action === 'refresh-health') {
     await refreshHealth();
@@ -942,11 +1018,33 @@ workspaceRoot.addEventListener('click', async (event) => {
     const firstJob = state.data.recentJobs.items[0];
     if (firstJob) await openJob(firstJob.id);
   } else if (action === 'open-job' && jobId) {
-    await openJob(jobId);
+    await openJob(jobId, { route: actionTarget.dataset.route || 'artifacts' });
   } else if (action === 'open-review' && state.data.activeJob.summary) {
     navigateTo('review');
   } else if (action === 'open-artifacts' && state.data.activeJob.summary) {
     navigateTo('artifacts');
+  } else if (action === 'cancel-job' && jobId) {
+    try {
+      await cancelTrackedJobById(jobId);
+    } catch (error) {
+      addLog({
+        status: 'Tracked run',
+        message: error instanceof Error ? error.message : String(error),
+        tone: 'warn',
+        time: 'job',
+      });
+    }
+  } else if (action === 'retry-job' && jobId) {
+    try {
+      await retryTrackedJobById(jobId);
+    } catch (error) {
+      addLog({
+        status: 'Tracked run',
+        message: error instanceof Error ? error.message : String(error),
+        tone: 'warn',
+        time: 'job',
+      });
+    }
   } else if (action === 'open-config-artifact-in-model' && jobId) {
     const job = findKnownJob(jobId);
     const artifact = state.data.activeJob.artifacts.find((entry) => entry.id === actionTarget.dataset.artifactId);
@@ -980,6 +1078,18 @@ workspaceRoot.addEventListener('click', async (event) => {
       });
     }
   }
+}
+
+workspaceRoot.addEventListener('click', async (event) => {
+  const actionTarget = findActionTarget(event.target);
+  if (!actionTarget) return;
+  await handleShellAction(actionTarget);
+});
+
+jobsDrawer.addEventListener('click', async (event) => {
+  const actionTarget = findActionTarget(event.target);
+  if (!actionTarget) return;
+  await handleShellAction(actionTarget);
 });
 
 workspaceRoot.addEventListener('change', async (event) => {
@@ -1014,10 +1124,15 @@ workspaceRoot.addEventListener('input', (event) => {
 
 window.addEventListener('hashchange', handleHashChange);
 document.getElementById('workspace-nav').addEventListener('keydown', handleNavKeydown);
+jobsToggle.addEventListener('click', () => setJobsDrawer(!jobsDrawer.classList.contains('is-open')));
+jobsClose.addEventListener('click', () => setJobsDrawer(false));
 logToggle.addEventListener('click', () => setLogDrawer(!logDrawer.classList.contains('is-open')));
 logClose.addEventListener('click', () => setLogDrawer(false));
 window.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && logDrawer.classList.contains('is-open')) {
+  if (event.key === 'Escape' && jobsDrawer.classList.contains('is-open')) {
+    setJobsDrawer(false);
+    jobsToggle.focus();
+  } else if (event.key === 'Escape' && logDrawer.classList.contains('is-open')) {
     setLogDrawer(false);
     logToggle.focus();
   }

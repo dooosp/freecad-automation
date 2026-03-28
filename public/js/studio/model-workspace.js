@@ -1016,6 +1016,9 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
   }
 
   return {
+    syncFromShell() {
+      syncUi();
+    },
     destroy() {
       destroyed = true;
       loadToken += 1;

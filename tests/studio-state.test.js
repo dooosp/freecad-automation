@@ -63,23 +63,26 @@ const monitored = deriveStudioChromeState({
     status: 'ready',
     items: [
       { id: 'job-running-123456', type: 'draw', status: 'running' },
+      { id: 'job-queued-654321', type: 'report', status: 'queued' },
       { id: 'job-old-abcdef', type: 'create', status: 'succeeded' },
     ],
   },
   jobMonitor: {
-    activeRunId: 'job-running-123456',
-    activeRunStatus: 'running',
+    items: [
+      { id: 'job-running-123456', type: 'draw', status: 'running', updated_at: '2026-03-28T04:05:06.000Z', enabled: true },
+      { id: 'job-queued-654321', type: 'report', status: 'queued', updated_at: '2026-03-28T04:04:06.000Z', enabled: true },
+    ],
     lastPollTime: '2026-03-28T04:05:06.000Z',
-    enabled: true,
   },
   activeJob: {
     summary: null,
   },
 });
 
-assert.equal(monitored.jobBadgeText, 'Tracking draw running');
+assert.equal(monitored.jobBadgeText, '2 active jobs');
 assert.equal(monitored.jobBadgeTone, 'warn');
-assert.match(monitored.jobBadgeTitle, /draw job-runn/i);
+assert.match(monitored.jobBadgeTitle, /1 running/);
+assert.match(monitored.jobBadgeTitle, /1 queued/);
 
 const legacy = deriveStudioChromeState({
   landing: null,

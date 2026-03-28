@@ -754,6 +754,9 @@ export function mountDrawingWorkspace({
   syncAll();
 
   return {
+    syncFromShell() {
+      syncAll();
+    },
     destroy() {
       destroyed = true;
       drawingRenderer?.destroy?.();

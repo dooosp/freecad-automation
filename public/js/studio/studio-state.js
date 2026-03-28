@@ -37,6 +37,24 @@ function isActiveJobStatus(status = '') {
   return ACTIVE_JOB_STATUSES.has(String(status).toLowerCase());
 }
 
+function sortJobsByUpdatedAt(jobs = []) {
+  return [...jobs].sort((left, right) => {
+    const leftTime = Date.parse(left?.updated_at || left?.created_at || left?.lastPollTime || 0);
+    const rightTime = Date.parse(right?.updated_at || right?.created_at || right?.lastPollTime || 0);
+    return rightTime - leftTime;
+  });
+}
+
+function collectActiveJobs(recentJobs = [], activeJob = {}, jobMonitor = {}) {
+  const monitorItems = Array.isArray(jobMonitor.items) ? jobMonitor.items : [];
+  const merged = sortJobsByUpdatedAt([
+    ...recentJobs,
+    ...monitorItems.filter((entry) => !recentJobs.some((job) => job.id === entry.id)),
+    ...(activeJob?.summary && !recentJobs.some((job) => job.id === activeJob.summary.id) ? [activeJob.summary] : []),
+  ]);
+  return merged.filter((job) => isActiveJobStatus(job?.status));
+}
+
 function formatJobBadgeTime(value) {
   if (!value) return 'not yet';
   const date = new Date(value);
@@ -57,18 +75,8 @@ export function deriveStudioChromeState(data = {}) {
   const recentJobs = data.recentJobs || {};
   const activeJob = data.activeJob || {};
   const jobMonitor = data.jobMonitor || {};
+  const activeJobs = collectActiveJobs(recentJobs.items || [], activeJob, jobMonitor);
   const latestJob = activeJob.summary || recentJobs.items?.[0] || null;
-  const monitorJob = jobMonitor.activeRunId
-    ? (
-        recentJobs.items?.find((job) => job.id === jobMonitor.activeRunId)
-        || (activeJob.summary?.id === jobMonitor.activeRunId ? activeJob.summary : null)
-        || {
-          id: jobMonitor.activeRunId,
-          type: 'job',
-          status: jobMonitor.activeRunStatus || 'unknown',
-        }
-      )
-    : null;
 
   let connectionState = 'placeholder';
   let connectionLabel = 'shell only';
@@ -110,15 +118,17 @@ export function deriveStudioChromeState(data = {}) {
     : 'No tracked job is selected or monitored.';
   let jobBadgeTone = latestJob ? jobTone(latestJob.status) : 'info';
 
-  if (monitorJob) {
-    const prefix = isActiveJobStatus(jobMonitor.activeRunStatus) && jobMonitor.enabled ? 'Tracking' : 'Last run';
-    jobBadgeText = `${prefix} ${monitorJob.type} ${monitorJob.status}`;
+  if (activeJobs.length > 0) {
+    const runningCount = activeJobs.filter((job) => String(job.status).toLowerCase() === 'running').length;
+    const queuedCount = activeJobs.filter((job) => String(job.status).toLowerCase() === 'queued').length;
+    jobBadgeText = `${activeJobs.length} active job${activeJobs.length === 1 ? '' : 's'}`;
     jobBadgeTitle = [
-      `${monitorJob.type} ${shortJobId(monitorJob.id)} is ${monitorJob.status}.`,
-      `Monitor ${jobMonitor.enabled ? 'active' : 'idle'}.`,
+      runningCount > 0 ? `${runningCount} running` : null,
+      queuedCount > 0 ? `${queuedCount} queued` : null,
       `Last poll ${formatJobBadgeTime(jobMonitor.lastPollTime)}.`,
-    ].join(' ');
-    jobBadgeTone = jobTone(monitorJob.status);
+      ...activeJobs.slice(0, 4).map((job) => `${job.type} ${shortJobId(job.id)} is ${job.status}.`),
+    ].filter(Boolean).join(' ');
+    jobBadgeTone = runningCount > 0 ? 'warn' : 'info';
   }
 
   return {
