@@ -630,7 +630,22 @@ export function createLocalApiServer({
 
   app.post('/api/studio/jobs', async (req, res) => {
     const preparedBody = await prepareStudioJobBody(req.body);
-    const translated = translateStudioJobSubmission(preparedBody);
+    const translated = await translateStudioJobSubmission(preparedBody, {
+      async resolveArtifactRef({ job_id: jobId, artifact_id: artifactId }) {
+        await jobStore.getJob(jobId);
+        const artifact = await jobStore.getArtifact(jobId, artifactId);
+        if (!artifact) {
+          throw new Error(`No artifact ${artifactId} found for job ${jobId}.`);
+        }
+        if (!artifact.exists) {
+          throw new Error(`Artifact ${artifact.file_name} is registered for job ${jobId}, but the file is missing.`);
+        }
+        return {
+          jobId,
+          artifact,
+        };
+      },
+    });
     if (!translated.ok) {
       const response = createErrorResponse('invalid_request', translated.errors);
       res.status(response.status).json(assertResponse('error', response.body));

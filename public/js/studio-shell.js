@@ -1,4 +1,6 @@
 import { createLogEntry } from './studio/renderers.js';
+import { fetchArtifactText } from './studio/artifact-insights.js';
+import { buildStudioArtifactRef } from './studio/artifact-actions.js';
 import { mountArtifactsWorkspace } from './studio/artifacts-workspace.js';
 import { mountDrawingWorkspace } from './studio/drawing-workspace.js';
 import {
@@ -552,6 +554,7 @@ function resumeJobMonitoring() {
 async function submitTrackedStudioRun({
   type,
   configToml,
+  artifactRef,
   drawingSettings,
   drawingPreviewId,
   reportOptions,
@@ -561,6 +564,7 @@ async function submitTrackedStudioRun({
   const job = await submitStudioTrackedJob({
     type,
     configToml,
+    artifactRef,
     drawingSettings,
     drawingPreviewId,
     reportOptions,
@@ -702,19 +706,51 @@ function resetDrawingWorkspaceState() {
   };
 }
 
+function applyConfigToSharedModel({
+  sourceType,
+  sourceName,
+  sourcePath,
+  configText,
+}) {
+  state.data.model = {
+    ...state.data.model,
+    sourceType,
+    sourceName,
+    sourcePath,
+    configText,
+    promptMode: false,
+    editingEnabled: true,
+    buildState: 'idle',
+    buildSummary: 'Config source loaded into Model. Validate or preview it, or queue a tracked run.',
+    errorMessage: '',
+    buildLog: [],
+    validation: {
+      warnings: [],
+      changed_fields: [],
+      deprecated_fields: [],
+    },
+    overview: null,
+    preview: null,
+    trackedRun: {
+      type: '',
+      lastJobId: '',
+      status: 'idle',
+      submitting: false,
+      error: '',
+    },
+  };
+  resetDrawingWorkspaceState();
+}
+
 function applyExampleToSharedModel(example) {
   if (!example) return;
 
-  state.data.model = {
-    ...state.data.model,
+  applyConfigToSharedModel({
     sourceType: 'example',
     sourceName: example.name,
     sourcePath: example.path || state.data.examples.sourceLabel,
     configText: example.content || '',
-    promptMode: false,
-    editingEnabled: true,
-  };
-  resetDrawingWorkspaceState();
+  });
 }
 
 function loadSelectedExampleIntoSharedModel() {
@@ -752,22 +788,39 @@ function openPromptFlow() {
 async function loadConfigFileIntoSharedModel(file) {
   if (!file) return;
   const text = await file.text();
-  state.data.model = {
-    ...state.data.model,
+  applyConfigToSharedModel({
     sourceType: 'local file',
     sourceName: file.name,
     sourcePath: file.name,
     configText: text,
-    promptMode: false,
-    editingEnabled: true,
-  };
-  resetDrawingWorkspaceState();
+  });
   addLog({
     status: 'Launchpad',
     message: `Loaded ${file.name} into the shared studio config state.`,
     tone: 'ok',
     time: 'file',
   });
+}
+
+async function openConfigArtifactInModel(job, artifact) {
+  const configText = await fetchArtifactText(artifact, 250_000);
+  if (!configText) {
+    throw new Error(`Could not load config text from ${artifact.file_name || artifact.id}.`);
+  }
+
+  applyConfigToSharedModel({
+    sourceType: 'artifact',
+    sourceName: artifact.file_name || artifact.key || 'Config artifact',
+    sourcePath: artifact.path || `${job?.type || 'job'} ${job?.id?.slice(0, 8) || 'unknown'}`,
+    configText,
+  });
+  addLog({
+    status: 'Artifacts',
+    message: `Loaded ${artifact.file_name || artifact.key} from ${job?.type || 'job'} ${job?.id?.slice(0, 8) || 'unknown'} into Model.`,
+    tone: 'ok',
+    time: 'artifact',
+  });
+  navigateTo('model', { pendingFocus: 'config' });
 }
 
 async function openConfigFile(file) {
@@ -899,6 +952,42 @@ workspaceRoot.addEventListener('click', async (event) => {
     if (firstJob) await openJob(firstJob.id);
   } else if (action === 'open-job' && jobId) {
     await openJob(jobId);
+  } else if (action === 'open-review' && state.data.activeJob.summary) {
+    navigateTo('review');
+  } else if (action === 'open-artifacts' && state.data.activeJob.summary) {
+    navigateTo('artifacts');
+  } else if (action === 'open-config-artifact-in-model' && jobId) {
+    const job = findKnownJob(jobId);
+    const artifact = state.data.activeJob.artifacts.find((entry) => entry.id === actionTarget.dataset.artifactId);
+    if (!job || !artifact) return;
+    try {
+      await openConfigArtifactInModel(job, artifact);
+    } catch (error) {
+      addLog({
+        status: 'Artifacts',
+        message: error instanceof Error ? error.message : String(error),
+        tone: 'warn',
+        time: 'artifact',
+      });
+    }
+  } else if ((action === 'run-artifact-inspect' || action === 'run-artifact-report') && jobId) {
+    try {
+      await submitTrackedStudioRun({
+        type: action === 'run-artifact-inspect' ? 'inspect' : 'report',
+        artifactRef: buildStudioArtifactRef(jobId, actionTarget.dataset.artifactId),
+        completionAction: {
+          type: 'open-artifacts-on-success',
+          route: action === 'run-artifact-report' ? 'review' : 'artifacts',
+        },
+      });
+    } catch (error) {
+      addLog({
+        status: 'Tracked run',
+        message: error instanceof Error ? error.message : String(error),
+        tone: 'warn',
+        time: 'job',
+      });
+    }
   }
 });
 

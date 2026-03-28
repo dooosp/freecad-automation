@@ -29,6 +29,7 @@ async function fetchJobJson(url, options = {}) {
 export async function submitStudioTrackedJob({
   type,
   configToml,
+  artifactRef,
   drawingSettings,
   drawingPreviewId,
   reportOptions,
@@ -41,7 +42,8 @@ export async function submitStudioTrackedJob({
     },
     body: JSON.stringify({
       type,
-      config_toml: configToml,
+      ...(configToml ? { config_toml: configToml } : {}),
+      ...(artifactRef ? { artifact_ref: artifactRef } : {}),
       ...(drawingSettings ? { drawing_settings: drawingSettings } : {}),
       ...(drawingPreviewId ? { drawing_preview_id: drawingPreviewId } : {}),
       ...(reportOptions ? { report_options: reportOptions } : {}),

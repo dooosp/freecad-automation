@@ -15,6 +15,10 @@ import {
   formatJobStatus,
   shortJobId,
 } from './artifact-insights.js';
+import {
+  isConfigLikeArtifact,
+  isInspectableModelArtifact,
+} from './artifact-actions.js';
 
 function ensureArtifactsWorkspaceState(store = {}) {
   store.selectedArtifactId = store.selectedArtifactId || '';
@@ -474,6 +478,50 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
               className: 'action-button action-button-ghost',
               text: 'Download',
               attrs: { href: artifact.links.download, rel: 'noreferrer' },
+            }),
+          ]
+        : []),
+      ...(state.data.activeJob.summary
+        ? [
+            createButton({
+              label: 'Open Review',
+              action: 'open-review',
+              tone: 'ghost',
+            }),
+          ]
+        : []),
+      ...(state.data.activeJob.summary && isConfigLikeArtifact(artifact)
+        ? [
+            createButton({
+              label: 'Open in Model',
+              action: 'open-config-artifact-in-model',
+              tone: 'ghost',
+              dataset: {
+                jobId: state.data.activeJob.summary.id,
+                artifactId: artifact.id,
+              },
+            }),
+            createButton({
+              label: 'Tracked report',
+              action: 'run-artifact-report',
+              tone: 'ghost',
+              dataset: {
+                jobId: state.data.activeJob.summary.id,
+                artifactId: artifact.id,
+              },
+            }),
+          ]
+        : []),
+      ...(state.data.activeJob.summary && isInspectableModelArtifact(artifact)
+        ? [
+            createButton({
+              label: 'Tracked inspect',
+              action: 'run-artifact-inspect',
+              tone: 'ghost',
+              dataset: {
+                jobId: state.data.activeJob.summary.id,
+                artifactId: artifact.id,
+              },
             }),
           ]
         : [])

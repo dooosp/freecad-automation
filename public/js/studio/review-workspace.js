@@ -14,6 +14,7 @@ import {
   parseArtifactPayload,
   shortJobId,
 } from './artifact-insights.js';
+import { findPreferredConfigArtifact } from './artifact-actions.js';
 
 function ensureReviewState(review = {}) {
   review.status = review.status || 'idle';
@@ -315,6 +316,7 @@ export function mountReviewWorkspace({ root, state, addLog, openJob }) {
 
   function syncDetail() {
     const card = getSelectedCard();
+    const sourceConfigArtifact = findPreferredConfigArtifact(state.data.activeJob.artifacts || []);
     if (!card) {
       detailSummaryElement.replaceChildren(
         createEmptyState({
@@ -337,7 +339,7 @@ export function mountReviewWorkspace({ root, state, addLog, openJob }) {
             card.artifact.capabilities?.can_open
               ? el('a', {
                   className: 'action-button action-button-primary',
-                  text: 'Open artifact',
+                  text: 'Open source artifact',
                   attrs: { href: card.artifact.links.open, target: '_blank', rel: 'noreferrer noopener' },
                 })
               : null,
@@ -349,6 +351,37 @@ export function mountReviewWorkspace({ root, state, addLog, openJob }) {
                 })
               : null,
           ].filter(Boolean)
+        : []),
+      ...(state.data.activeJob.summary
+        ? [
+            createButton({
+              label: 'Open Artifacts',
+              action: 'open-artifacts',
+              tone: 'ghost',
+            }),
+          ]
+        : []),
+      ...(state.data.activeJob.summary && sourceConfigArtifact
+        ? [
+            createButton({
+              label: 'Open in Model',
+              action: 'open-config-artifact-in-model',
+              tone: 'ghost',
+              dataset: {
+                jobId: state.data.activeJob.summary.id,
+                artifactId: sourceConfigArtifact.id,
+              },
+            }),
+            createButton({
+              label: 'Tracked report',
+              action: 'run-artifact-report',
+              tone: 'ghost',
+              dataset: {
+                jobId: state.data.activeJob.summary.id,
+                artifactId: sourceConfigArtifact.id,
+              },
+            }),
+          ]
         : [])
     );
 

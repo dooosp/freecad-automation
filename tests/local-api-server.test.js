@@ -242,6 +242,126 @@ try {
   assert.equal(artifactApiResponse.status, 200);
   assert.match(artifactApiResponse.headers.get('content-disposition') || '', /^inline;/);
 
+  const configSourceJob = await jobStore.createJob({
+    type: 'create',
+    config: {
+      name: 'config_source_job',
+      shapes: [{ id: 'body', type: 'box', length: 12, width: 8, height: 4 }],
+      export: { formats: ['step'], directory: 'output' },
+    },
+  });
+  const configArtifactPath = await jobStore.writeJobFile(configSourceJob.id, 'inputs/effective-config.json', '{"name":"config_source_job"}\n');
+  const configManifest = await buildArtifactManifest({
+    projectRoot: ROOT,
+    interface: 'api',
+    command: 'create',
+    jobType: 'create',
+    status: 'succeeded',
+    requestId: configSourceJob.id,
+    artifacts: [
+      {
+        id: 'effective-config',
+        type: 'config.effective',
+        path: configArtifactPath,
+        label: 'Effective config copy',
+        scope: 'internal',
+        stability: 'stable',
+      },
+    ],
+    timestamps: {
+      created_at: configSourceJob.created_at,
+      finished_at: new Date().toISOString(),
+    },
+  });
+  await jobStore.completeJob(configSourceJob.id, { success: true }, { effective_config: configArtifactPath }, {}, configManifest);
+
+  const configArtifactsResponse = await fetch(`${baseUrl}/jobs/${configSourceJob.id}/artifacts`);
+  assert.equal(configArtifactsResponse.status, 200);
+  const configArtifactsPayload = await configArtifactsResponse.json();
+  const configArtifact = configArtifactsPayload.artifacts[0];
+
+  const rerunReportResponse = await fetch(`${baseUrl}/api/studio/jobs`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      type: 'report',
+      artifact_ref: {
+        job_id: configSourceJob.id,
+        artifact_id: configArtifact.id,
+      },
+      report_options: {
+        style: 'summary',
+      },
+    }),
+  });
+  assert.equal(rerunReportResponse.status, 202);
+  const rerunReportPayload = await rerunReportResponse.json();
+  assert.equal(rerunReportPayload.job.type, 'report');
+  assert.equal(rerunReportPayload.job.request.config_path, configArtifactPath);
+  assert.equal(rerunReportPayload.job.request.options.studio.source_artifact_id, configArtifact.id);
+  assert.deepEqual(rerunReportPayload.job.request.options.report_options, { style: 'summary' });
+
+  const modelSourceJob = await jobStore.createJob({
+    type: 'create',
+    config: {
+      name: 'model_source_job',
+      shapes: [{ id: 'body', type: 'box', length: 9, width: 6, height: 3 }],
+      export: { formats: ['step'], directory: 'output' },
+    },
+  });
+  const modelArtifactPath = await jobStore.writeJobFile(modelSourceJob.id, 'artifacts/source.step', 'ISO-10303-21;\n');
+  const modelManifest = await buildArtifactManifest({
+    projectRoot: ROOT,
+    interface: 'api',
+    command: 'create',
+    jobType: 'create',
+    status: 'succeeded',
+    requestId: modelSourceJob.id,
+    artifacts: [
+      {
+        id: 'model-step',
+        type: 'model.step',
+        path: modelArtifactPath,
+        label: 'STEP export',
+        scope: 'user-facing',
+        stability: 'stable',
+      },
+    ],
+    timestamps: {
+      created_at: modelSourceJob.created_at,
+      finished_at: new Date().toISOString(),
+    },
+  });
+  await jobStore.completeJob(modelSourceJob.id, { success: true }, { exports: [modelArtifactPath] }, {}, modelManifest);
+
+  const modelArtifactsResponse = await fetch(`${baseUrl}/jobs/${modelSourceJob.id}/artifacts`);
+  assert.equal(modelArtifactsResponse.status, 200);
+  const modelArtifactsPayload = await modelArtifactsResponse.json();
+  const modelArtifact = modelArtifactsPayload.artifacts[0];
+
+  const inspectResponse = await fetch(`${baseUrl}/api/studio/jobs`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      type: 'inspect',
+      artifact_ref: {
+        job_id: modelSourceJob.id,
+        artifact_id: modelArtifact.id,
+      },
+    }),
+  });
+  assert.equal(inspectResponse.status, 202);
+  const inspectPayload = await inspectResponse.json();
+  assert.equal(inspectPayload.job.type, 'inspect');
+  assert.equal(inspectPayload.job.request.file_path, modelArtifactPath);
+  assert.equal(inspectPayload.job.request.options.studio.source_artifact_type, 'model.step');
+
   console.log('local-api-server.test.js: ok');
 } finally {
   await new Promise((resolveClose) => server.close(resolveClose));
