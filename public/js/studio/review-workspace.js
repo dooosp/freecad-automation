@@ -14,7 +14,10 @@ import {
   parseArtifactPayload,
   shortJobId,
 } from './artifact-insights.js';
-import { findPreferredConfigArtifact } from './artifact-actions.js';
+import {
+  deriveArtifactReentryCapabilities,
+  findPreferredConfigArtifact,
+} from './artifact-actions.js';
 
 function ensureReviewState(review = {}) {
   review.status = review.status || 'idle';
@@ -317,6 +320,7 @@ export function mountReviewWorkspace({ root, state, addLog, openJob }) {
   function syncDetail() {
     const card = getSelectedCard();
     const sourceConfigArtifact = findPreferredConfigArtifact(state.data.activeJob.artifacts || []);
+    const sourceConfigReentry = deriveArtifactReentryCapabilities(sourceConfigArtifact || {});
     if (!card) {
       detailSummaryElement.replaceChildren(
         createEmptyState({
@@ -361,10 +365,10 @@ export function mountReviewWorkspace({ root, state, addLog, openJob }) {
             }),
           ]
         : []),
-      ...(state.data.activeJob.summary && sourceConfigArtifact
+      ...(state.data.activeJob.summary && sourceConfigReentry.canOpenInModel
         ? [
             createButton({
-              label: 'Open in Model',
+              label: 'Re-open in Model',
               action: 'open-config-artifact-in-model',
               tone: 'ghost',
               dataset: {
@@ -373,7 +377,7 @@ export function mountReviewWorkspace({ root, state, addLog, openJob }) {
               },
             }),
             createButton({
-              label: 'Tracked report',
+              label: 'Run tracked report',
               action: 'run-artifact-report',
               tone: 'ghost',
               dataset: {

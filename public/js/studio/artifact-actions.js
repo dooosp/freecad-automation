@@ -86,6 +86,25 @@ export function isReviewSourceArtifact(artifact = {}) {
   return includesAny(artifactSearchText(artifact), REVIEW_SOURCE_MATCHERS);
 }
 
+export function canReenterModelWorkspace(artifact = {}) {
+  return artifact.exists !== false && isConfigLikeArtifact(artifact);
+}
+
+export function canStartTrackedArtifactRun(artifact = {}, type = 'report') {
+  if (type === 'report') return canReenterModelWorkspace(artifact);
+  if (type === 'inspect') return isInspectableModelArtifact(artifact);
+  return false;
+}
+
+export function deriveArtifactReentryCapabilities(artifact = {}) {
+  return {
+    canOpenInModel: canReenterModelWorkspace(artifact),
+    canRunTrackedReport: canStartTrackedArtifactRun(artifact, 'report'),
+    canRunTrackedInspect: canStartTrackedArtifactRun(artifact, 'inspect'),
+    canSeedReview: artifact.exists !== false && isReviewSourceArtifact(artifact),
+  };
+}
+
 export function findPreferredConfigArtifact(artifacts = []) {
   return [...artifacts]
     .filter((artifact) => isConfigLikeArtifact(artifact) && artifact.exists !== false)

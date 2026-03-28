@@ -7,7 +7,7 @@ This repository now separates fast hosted checks from real FreeCAD-backed smoke 
 | Lane | Command | Scope | FreeCAD required |
 | --- | --- | --- | --- |
 | Node contract | `npm run test:node:contract` | config migration/validation, runtime path resolution, invocation assembly, structural validation | No |
-| Node integration | `npm run test:node:integration` | local API/job contracts, rule profiles, sweep logic, draw/report service integration | No |
+| Node integration | `npm run test:node:integration` | local API/job contracts, studio bridge routes, browserless studio and legacy serve smoke, rule profiles, sweep logic, draw/report service integration | No |
 | Snapshots | `npm run test:snapshots` | normalized SVG and report preview regression baselines | No |
 | Python | `npm run test:py` | plain-Python and CLI-adjacent regression coverage that does not require a live FreeCAD launch | No |
 | Runtime smoke | `npm run test:runtime-smoke` | real `fcad` smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, and `report` using checked-in example configs | Yes |
@@ -31,6 +31,15 @@ The runtime domain runner uses the same FreeCAD-backed script path as the CLI an
 | `FreeCAD Runtime Smoke (self-hosted macOS)` | `test:runtime-smoke` plus runtime-backed Python smoke regressions | No Linux or Windows runtime ownership claims |
 
 The hosted workflow is the fast PR lane. The self-hosted workflow is scheduled/manual and is the repository-owned runtime smoke source of truth.
+
+## Verification Wording
+
+Use the following terms consistently in contributor notes and PR verification blocks:
+
+- `hosted-safe` or `browserless`: route, contract, or service checks that do not claim a live browser session and do not claim a live FreeCAD launch
+- `legacy HTTP smoke`: `serve:legacy` answered over HTTP and served static assets, but no websocket interaction or browser UI behavior was exercised
+- `runtime-backed`: only use this wording when a real FreeCAD-backed command or runtime smoke lane actually ran
+- `artifact re-entry`: a studio flow that starts from an existing tracked artifact reference rather than from a fresh pasted config
 
 ## Runtime Smoke Contents
 
@@ -94,5 +103,6 @@ npm run test:runtime:integration
 ## Known Limitations
 
 - Hosted CI does not prove that FreeCAD launches successfully on Linux or macOS.
+- Browserless studio and legacy serve smoke do not prove client-side rendering or websocket behavior.
 - Windows and WSL support are still contract-tested compatibility paths, not runtime-smoke-covered platforms.
 - The Python lane intentionally excludes runtime-backed smoke regressions so the default hosted lane stays fast and honest.

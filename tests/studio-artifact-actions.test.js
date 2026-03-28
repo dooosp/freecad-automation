@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 
 import {
   buildStudioArtifactRef,
+  canReenterModelWorkspace,
+  canStartTrackedArtifactRun,
+  deriveArtifactReentryCapabilities,
   findPreferredConfigArtifact,
   isConfigLikeArtifact,
   isInspectableModelArtifact,
@@ -56,5 +59,38 @@ const preferredConfig = findPreferredConfigArtifact([
 ]);
 
 assert.equal(preferredConfig?.id, 'effective');
+
+assert.equal(canReenterModelWorkspace({
+  type: 'config.effective',
+  file_name: 'effective-config.json',
+  extension: '.json',
+  exists: true,
+}), true);
+
+assert.equal(canStartTrackedArtifactRun({
+  type: 'model.step',
+  file_name: 'part.step',
+  extension: '.step',
+  exists: true,
+}, 'inspect'), true);
+
+assert.equal(canStartTrackedArtifactRun({
+  type: 'model.step',
+  file_name: 'part.step',
+  extension: '.step',
+  exists: true,
+}, 'report'), false);
+
+assert.deepEqual(deriveArtifactReentryCapabilities({
+  type: 'drawing.qa-report',
+  file_name: 'sheet_qa.json',
+  extension: '.json',
+  exists: true,
+}), {
+  canOpenInModel: false,
+  canRunTrackedReport: false,
+  canRunTrackedInspect: false,
+  canSeedReview: true,
+});
 
 console.log('studio-artifact-actions.test.js: ok');

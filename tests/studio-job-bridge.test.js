@@ -111,11 +111,22 @@ const invalidDrawingPlan = await translateStudioJobSubmission({
 assert.equal(invalidDrawingPlan.ok, false);
 assert.match(invalidDrawingPlan.errors.join('\n'), /drawing_plan is only supported/);
 
-const inspectFromArtifact = await translateStudioJobSubmission({
+const missingArtifactResolver = await translateStudioJobSubmission({
   type: 'inspect',
   artifact_ref: {
     job_id: 'job-model',
     artifact_id: 'model-step',
+  },
+});
+
+assert.equal(missingArtifactResolver.ok, false);
+assert.match(missingArtifactResolver.errors.join('\n'), /requires a resolver/);
+
+const inspectFromArtifact = await translateStudioJobSubmission({
+  type: 'inspect',
+  artifact_ref: {
+    job_id: '  job-model  ',
+    artifact_id: '  model-step  ',
   },
 }, {
   async resolveArtifactRef(ref) {
@@ -194,5 +205,30 @@ const invalidInspectArtifact = await translateStudioJobSubmission({
 
 assert.equal(invalidInspectArtifact.ok, false);
 assert.match(invalidInspectArtifact.errors.join('\n'), /supported model artifact/i);
+
+const invalidReportArtifact = await translateStudioJobSubmission({
+  type: 'report',
+  artifact_ref: {
+    job_id: 'job-model',
+    artifact_id: 'model-step',
+  },
+}, {
+  async resolveArtifactRef(ref) {
+    return {
+      jobId: ref.job_id,
+      artifact: {
+        id: ref.artifact_id,
+        path: '/tmp/example.step',
+        type: 'model.step',
+        file_name: 'example.step',
+        extension: '.step',
+        exists: true,
+      },
+    };
+  },
+});
+
+assert.equal(invalidReportArtifact.ok, false);
+assert.match(invalidReportArtifact.errors.join('\n'), /config-like artifact/i);
 
 console.log('studio-job-bridge.test.js: ok');

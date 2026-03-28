@@ -16,8 +16,7 @@ import {
   shortJobId,
 } from './artifact-insights.js';
 import {
-  isConfigLikeArtifact,
-  isInspectableModelArtifact,
+  deriveArtifactReentryCapabilities,
 } from './artifact-actions.js';
 
 function ensureArtifactsWorkspaceState(store = {}) {
@@ -451,6 +450,7 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
     }
 
     const classification = classifyArtifact(artifact);
+    const reentry = deriveArtifactReentryCapabilities(artifact);
     detailSummaryElement.replaceChildren(
       createInfoGrid([
         { label: 'Artifact', value: artifact.key },
@@ -490,10 +490,10 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
             }),
           ]
         : []),
-      ...(state.data.activeJob.summary && isConfigLikeArtifact(artifact)
+      ...(state.data.activeJob.summary && reentry.canOpenInModel
         ? [
             createButton({
-              label: 'Open in Model',
+              label: 'Re-open in Model',
               action: 'open-config-artifact-in-model',
               tone: 'ghost',
               dataset: {
@@ -502,7 +502,7 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
               },
             }),
             createButton({
-              label: 'Tracked report',
+              label: 'Run tracked report',
               action: 'run-artifact-report',
               tone: 'ghost',
               dataset: {
@@ -512,10 +512,10 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
             }),
           ]
         : []),
-      ...(state.data.activeJob.summary && isInspectableModelArtifact(artifact)
+      ...(state.data.activeJob.summary && reentry.canRunTrackedInspect
         ? [
             createButton({
-              label: 'Tracked inspect',
+              label: 'Run tracked inspect',
               action: 'run-artifact-inspect',
               tone: 'ghost',
               dataset: {

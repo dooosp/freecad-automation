@@ -4,6 +4,11 @@ import { buildStudioArtifactRef } from './studio/artifact-actions.js';
 import { mountArtifactsWorkspace } from './studio/artifacts-workspace.js';
 import { mountDrawingWorkspace } from './studio/drawing-workspace.js';
 import {
+  describeJobMonitorTransition,
+  mergeTrackedJobIntoRecentJobs,
+  resolveMonitoredJobCompletionRoute,
+} from './studio/job-monitor.js';
+import {
   findResumableStudioJob,
   isActiveStudioJobStatus,
   pollStudioJob,
@@ -342,14 +347,6 @@ async function fetchJson(url, options = {}) {
   return response.json();
 }
 
-function sortJobsByUpdatedAt(jobs = []) {
-  return [...jobs].sort((left, right) => {
-    const rightTime = Date.parse(right.updated_at || right.created_at || 0);
-    const leftTime = Date.parse(left.updated_at || left.created_at || 0);
-    return rightTime - leftTime;
-  });
-}
-
 function findKnownJob(jobId) {
   return state.data.recentJobs.items.find((job) => job.id === jobId)
     || (state.data.activeJob.summary?.id === jobId ? state.data.activeJob.summary : null)
@@ -359,10 +356,7 @@ function findKnownJob(jobId) {
 function syncJobIntoState(job) {
   if (!job?.id) return;
 
-  const nextItems = sortJobsByUpdatedAt([
-    job,
-    ...state.data.recentJobs.items.filter((entry) => entry.id !== job.id),
-  ]).slice(0, RECENT_JOBS_LIMIT);
+  const nextItems = mergeTrackedJobIntoRecentJobs(job, state.data.recentJobs.items, RECENT_JOBS_LIMIT);
 
   state.data.recentJobs = {
     status: nextItems.length > 0 ? 'ready' : 'empty',
@@ -400,22 +394,19 @@ function setJobMonitorState({
 }
 
 function logJobTransition(job, previousStatus, nextStatus, origin = 'monitor') {
-  const shortId = job.id?.slice(0, 8) || 'unknown';
-  const message = previousStatus && previousStatus !== nextStatus
-    ? `${job.type} ${shortId} moved from ${previousStatus} to ${nextStatus}.`
-    : `${origin === 'resume' ? 'Resumed' : 'Started'} monitoring ${job.type} ${shortId} in ${nextStatus}.`;
+  const transition = describeJobMonitorTransition(job, previousStatus, nextStatus, origin);
   addLog({
     status: 'Tracked run',
-    message,
-    tone: studioJobTone(nextStatus),
+    message: transition.message,
+    tone: transition.tone,
     time: 'job',
   });
 }
 
 async function runMonitoredJobCompletionAction(job, completionAction = null) {
-  if (!completionAction || completionAction.type !== 'open-artifacts-on-success') return;
-  if (job?.status !== 'succeeded') return;
-  await openJob(job.id, { route: completionAction.route || 'artifacts' });
+  const route = resolveMonitoredJobCompletionRoute(job, completionAction);
+  if (!route) return;
+  await openJob(job.id, { route });
 }
 
 async function refreshRecentJobs({ silent = false } = {}) {

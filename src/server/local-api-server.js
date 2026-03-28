@@ -160,13 +160,33 @@ function buildLandingPayload({
     endpoints: {
       health: '/health',
       jobs: '/jobs',
+      job: '/jobs/:id',
+      artifacts: '/jobs/:id/artifacts',
+      artifact_open: '/artifacts/:jobId/:artifactId',
+      artifact_download: '/artifacts/:jobId/:artifactId/download',
+      artifact_content: '/jobs/:id/artifacts/:artifactId/content',
     },
     studio: {
       available: true,
       preferred_path: '/',
       path: '/studio',
       tracked_jobs_path: '/api/studio/jobs',
-      note: 'Future-facing browser shell served by default for browser requests while the local API remains available in parallel.',
+      preview_routes: {
+        validate_config: '/api/studio/validate-config',
+        design: '/api/studio/design',
+        model_preview: '/api/studio/model-preview',
+        model_asset: '/api/studio/model-previews/:id/model',
+        model_part: '/api/studio/model-previews/:id/parts/:index',
+        drawing_preview: '/api/studio/drawing-preview',
+        drawing_dimensions: '/api/studio/drawing-previews/:id/dimensions',
+      },
+      tracked_routes: {
+        submit: '/api/studio/jobs',
+        status: '/jobs/:id',
+        artifacts: '/jobs/:id/artifacts',
+        artifact_open: '/artifacts/:jobId/:artifactId',
+      },
+      note: 'Preview routes stay scratch-safe and request/response. Tracked routes enqueue jobs, expose live status through /jobs, and support artifact-driven re-entry for inspect/report.',
     },
     api_info: {
       available: true,
@@ -268,10 +288,20 @@ function renderLandingPage(payload) {
         <li><a href="/studio"><code>GET /studio</code></a> opens the direct studio route</li>
         <li><a href="/api"><code>GET /api</code></a> returns this API info page</li>
         <li><a href="/health"><code>GET /health</code></a> for runtime diagnostics</li>
-        <li><a href="/api"><code>POST /api/studio/jobs</code></a> to enqueue tracked jobs directly from studio-native TOML payloads</li>
+        <li><a href="/api"><code>POST /api/studio/model-preview</code></a> to run fast model preview builds</li>
+        <li><a href="/api"><code>POST /api/studio/drawing-preview</code></a> to run fast drawing preview builds</li>
+        <li><a href="/api"><code>POST /api/studio/jobs</code></a> to enqueue tracked jobs directly from studio-native TOML or artifact references</li>
         <li><a href="/jobs"><code>/jobs</code></a> for job creation targets and route discovery</li>
         <li><a href="/jobs/example-job"><code>/jobs/:id</code></a> to inspect a job status response shape</li>
         <li><a href="/jobs/example-job/artifacts"><code>/jobs/:id/artifacts</code></a> to inspect artifact response shape</li>
+      </ul>
+    </div>
+    <div class="card">
+      <strong>Studio execution model</strong>
+      <ul>
+        <li><code>Preview</code>: use <code>${escapeHtml(payload.studio.preview_routes.model_preview)}</code> and <code>${escapeHtml(payload.studio.preview_routes.drawing_preview)}</code> for fast scratch-safe model and drawing iteration</li>
+        <li><code>Tracked run</code>: use <code>${escapeHtml(payload.studio.tracked_jobs_path)}</code> to enqueue work that persists under <code>${escapeHtml(payload.endpoints.jobs)}</code> and <code>${escapeHtml(payload.endpoints.artifacts)}</code></li>
+        <li><code>Artifact re-entry</code>: tracked <code>report</code> accepts config-like <code>artifact_ref</code>; tracked <code>inspect</code> accepts model-like <code>artifact_ref</code></li>
       </ul>
     </div>
     <div class="card">
@@ -319,6 +349,9 @@ function sendLandingResponse(req, res, payload) {
       'Direct studio route: /studio',
       'API info: /api',
       'Health: /health',
+      'Model preview: POST /api/studio/model-preview',
+      'Drawing preview: POST /api/studio/drawing-preview',
+      'Drawing dimension edits: POST /api/studio/drawing-previews/:id/dimensions',
       'Studio tracked jobs: POST /api/studio/jobs',
       'Jobs: POST /jobs',
       'Job status shape: /jobs/example-job',

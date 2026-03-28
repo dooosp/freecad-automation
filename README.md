@@ -53,7 +53,7 @@ If you are reviewing the repository on GitHub:
 ## Test Lanes
 
 - `npm run test:node:contract`: fast hosted-safe Node contracts for config/runtime path/invocation boundaries
-- `npm run test:node:integration`: fast hosted-safe Node integration checks for API, sweep, draw/report service wiring, and rule profiles
+- `npm run test:node:integration`: fast hosted-safe Node integration checks for local API/studio bridge routes, browserless studio and legacy serve smoke, sweep, draw/report service wiring, and rule profiles
 - `npm run test:snapshots`: normalized SVG/report snapshot regressions
 - `npm run test:py`: Python 3.11+ lane for non-runtime Python and CLI-adjacent regressions
 - `npm run test:runtime-smoke`: real FreeCAD-backed smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, and `report`
@@ -245,15 +245,30 @@ Startup behavior:
 - `GET /studio` remains the direct `FreeCAD Automation Studio` route
 - if `localhost` resolves to a different listener on your machine, use `http://127.0.0.1:<port>` explicitly
 
+Studio execution model:
+
+- `Preview`: fast request/response work for Model and Drawing. Preview routes are scratch-safe, keep the current workspace state local, and do not create `/jobs` history.
+- `Tracked run`: queues `create`, `draw`, `inspect`, or `report` into `/jobs`, persists artifacts, and keeps the run visible to the shell monitor plus the `Artifacts` and `Review` workspaces.
+- `Artifact re-entry`: `Artifacts` and `Review` can reopen config artifacts in `Model`, rerun tracked `report` from config-like artifacts, or rerun tracked `inspect` from model artifacts without copying raw filesystem paths back into the UI.
+
 Endpoints:
 
 - `GET /`
 - `GET /api`
 - `GET /health`
 - `GET /studio`
+- `POST /api/studio/validate-config`
+- `POST /api/studio/model-preview`
+- `GET /api/studio/model-previews/:id/model`
+- `GET /api/studio/model-previews/:id/parts/:index`
+- `POST /api/studio/drawing-preview`
+- `POST /api/studio/drawing-previews/:id/dimensions`
+- `POST /api/studio/jobs`
 - `POST /jobs`
+- `GET /jobs`
 - `GET /jobs/:id`
 - `GET /jobs/:id/artifacts`
+- `GET /jobs/:id/artifacts/:artifactId/content`
 - `GET /artifacts/:jobId/:artifactId`
 - `GET /artifacts/:jobId/:artifactId/download`
 
@@ -269,9 +284,14 @@ Endpoint usage:
 - `GET /` is the preferred browser entrypoint for the studio shell; JSON and text callers can still use `/` directly
 - `GET /api` returns the local API info page and route discovery payload
 - `GET /health` returns API liveness plus the same shared runtime diagnostics contract used by `fcad check-runtime --json`
+- `POST /api/studio/model-preview` validates the current TOML and returns preview-only model assets for the Model workspace
+- `POST /api/studio/drawing-preview` returns the fast sheet-first drawing preview; `POST /api/studio/drawing-previews/:id/dimensions` preserves the HTTP edit loop for dimension changes
+- `POST /api/studio/jobs` is the studio bridge route: Model and Drawing submit tracked jobs here, and artifact-driven inspect/report re-entry also resolves through it
 - `POST /jobs` accepts a JSON job request and returns `202 Accepted` with the queued job record
+- `GET /jobs` returns recent tracked jobs for shell resume and artifact timeline views
 - `GET /jobs/:id` returns the latest status, request, diagnostics, result, status history, and storage metadata
 - `GET /jobs/:id/artifacts` returns the flattened known artifact list plus persisted storage file metadata
+- `GET /jobs/:id/artifacts/:artifactId/content` is the compatibility alias for older API-shaped artifact opens
 - `GET /artifacts/:jobId/:artifactId` opens browser-safe artifact content inline when supported
 - `GET /artifacts/:jobId/:artifactId/download` forces a download for the same artifact
 
@@ -309,6 +329,26 @@ curl http://127.0.0.1:3000/jobs/<job-id>/artifacts
 curl http://127.0.0.1:3000/artifacts/<job-id>/<artifact-id>
 ```
 
+Studio bridge examples:
+
+```bash
+curl -X POST http://127.0.0.1:3000/api/studio/model-preview \
+  -H 'content-type: application/json' \
+  -d '{
+    "config_toml": "name = \"preview_bracket\"\n[[shapes]]\nid = \"body\"\ntype = \"box\"\nlength = 40\nwidth = 20\nheight = 8\n"
+  }'
+
+curl -X POST http://127.0.0.1:3000/api/studio/jobs \
+  -H 'content-type: application/json' \
+  -d '{
+    "type": "report",
+    "artifact_ref": {
+      "job_id": "<job-id>",
+      "artifact_id": "<config-artifact-id>"
+    }
+  }'
+```
+
 The job store is filesystem-backed under `output/jobs` by default. Each job directory persists:
 
 - request payload
@@ -332,6 +372,7 @@ Current limitations:
 - `job.log` is best-effort and primarily captures orchestration events and stderr surfaced from underlying scripts
 - `GET /jobs/:id/artifacts` reports known output paths and links, but it does not inline artifact contents inside the listing response
 - `POST /jobs` currently exposes only the execution paths for `create`, `draw`, `inspect`, and `report`
+- preview smoke and legacy serve smoke are browserless HTTP checks only; they do not claim real browser automation or websocket interaction
 
 Studio and legacy shell guide:
 

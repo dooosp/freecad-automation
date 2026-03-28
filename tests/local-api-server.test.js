@@ -60,6 +60,8 @@ try {
   assert.match(html, /fcad Local API/);
   assert.match(html, /Browser requests to <code>\/<\/code> now land in the studio shell/);
   assert.match(html, /GET \/health/);
+  assert.match(html, /POST \/api\/studio\/model-preview/);
+  assert.match(html, /POST \/api\/studio\/drawing-preview/);
   assert.match(html, /\/studio/);
   assert.match(html, /GET \/api/);
   assert.match(html, /fcad serve --legacy-viewer/);
@@ -76,10 +78,15 @@ try {
   assert.equal(payload.mode, 'local_api');
   assert.equal(payload.project_root, ROOT);
   assert.equal(payload.endpoints.health, '/health');
+  assert.equal(payload.endpoints.job, '/jobs/:id');
+  assert.equal(payload.endpoints.artifact_open, '/artifacts/:jobId/:artifactId');
   assert.equal(payload.api_info.path, '/api');
   assert.equal(payload.studio.preferred_path, '/');
   assert.equal(payload.studio.path, '/studio');
   assert.equal(payload.viewer.command, 'fcad serve --legacy-viewer');
+  assert.equal(payload.studio.preview_routes.model_preview, '/api/studio/model-preview');
+  assert.equal(payload.studio.preview_routes.drawing_dimensions, '/api/studio/drawing-previews/:id/dimensions');
+  assert.equal(payload.studio.tracked_routes.submit, '/api/studio/jobs');
 
   const apiJsonResponse = await fetch(`${baseUrl}/api`, {
     headers: {
@@ -90,6 +97,16 @@ try {
   const apiPayload = await apiJsonResponse.json();
   assert.equal(apiPayload.ok, true);
   assert.equal(apiPayload.mode, 'local_api');
+
+  const jobsIndexResponse = await fetch(`${baseUrl}/jobs`, {
+    headers: {
+      accept: 'application/json',
+    },
+  });
+  assert.equal(jobsIndexResponse.status, 200);
+  const jobsIndexPayload = await jobsIndexResponse.json();
+  assert.equal(jobsIndexPayload.ok, true);
+  assert.equal(Array.isArray(jobsIndexPayload.jobs), true);
 
   const studioResponse = await fetch(`${baseUrl}/studio`);
   assert.equal(studioResponse.status, 200);
