@@ -11,6 +11,7 @@ const PUBLIC_DIR = join(import.meta.dirname, '..', '..', 'public');
 const STUDIO_HTML = join(PUBLIC_DIR, 'studio.html');
 const STUDIO_CSS = join(PUBLIC_DIR, 'css', 'studio.css');
 const STUDIO_SHELL_JS = join(PUBLIC_DIR, 'js', 'studio-shell.js');
+const APP_JS_DIR = join(PUBLIC_DIR, 'js', 'app');
 const STUDIO_JS_DIR = join(PUBLIC_DIR, 'js', 'studio');
 
 function escapeHtml(value) {
@@ -238,6 +239,7 @@ export function createLocalApiServer({
   });
 
   app.use(express.json({ limit: '5mb' }));
+  app.use('/js/app', express.static(APP_JS_DIR, { index: false }));
   app.use('/js/studio', express.static(STUDIO_JS_DIR, { index: false }));
 
   app.use((error, _req, res, next) => {
