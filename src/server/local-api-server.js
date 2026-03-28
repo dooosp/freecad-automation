@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import { readFile, readdir } from 'node:fs/promises';
 import { extname, join, resolve } from 'node:path';
 import { buildRuntimeDiagnostics } from '../../lib/runtime-diagnostics.js';
+import { listShopProfiles } from '../api/config.js';
 import { createJobStore } from '../services/jobs/job-store.js';
 import { createJobExecutor, validateJobRequest } from '../services/jobs/job-executor.js';
 import { LOCAL_API_SERVICE, LOCAL_API_VERSION } from './local-api-contract.js';
@@ -438,6 +439,23 @@ export function createLocalApiServer({
       res.json(await loadExampleConfigs());
     } catch (error) {
       next(error);
+    }
+  });
+
+  app.get('/api/config/profiles', async (_req, res) => {
+    try {
+      res.json({
+        api_version: LOCAL_API_VERSION,
+        ok: true,
+        profiles: await listShopProfiles(projectRoot),
+      });
+    } catch (error) {
+      const response = createErrorResponse(
+        'config_profiles_unavailable',
+        [error instanceof Error ? error.message : String(error)],
+        500
+      );
+      res.status(response.status).json(assertResponse('error', response.body));
     }
   });
 

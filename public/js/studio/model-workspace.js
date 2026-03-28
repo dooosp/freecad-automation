@@ -4,6 +4,14 @@ import {
   initScene,
   renderModelInfo,
 } from '../app/index.js';
+import { listStudioConfigProfiles } from './config-client.js';
+import {
+  buildTrackedReportJobOptions,
+  collectValidationNotes,
+  deriveModelTrackedRunPresentation,
+  ensureModelTrackedRunState,
+  resetModelTrackedRunState,
+} from './model-tracked-runs.js';
 
 function ensureModelState(model = {}) {
   model.validation = model.validation || {
@@ -22,6 +30,7 @@ function ensureModelState(model = {}) {
     error: '',
     report: null,
   };
+  ensureModelTrackedRunState(model);
   model.buildSettings = model.buildSettings || {
     include_step: true,
     include_stl: true,
@@ -148,6 +157,34 @@ function renderList(container, items, emptyCopy) {
   }));
 }
 
+function renderValidationNotes(container, notes, emptyCopy, summaryCopy = '') {
+  if (!container) return;
+  if (!notes || notes.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'support-note';
+    empty.textContent = emptyCopy;
+    container.replaceChildren(empty);
+    return;
+  }
+
+  const children = [];
+  if (summaryCopy) {
+    const summary = document.createElement('p');
+    summary.className = 'support-note';
+    summary.textContent = summaryCopy;
+    children.push(summary);
+  }
+
+  notes.forEach((note) => {
+    const row = document.createElement('p');
+    row.className = `support-note${note.tone === 'warn' ? ' support-note-warn' : ''}`;
+    row.textContent = `${note.category}: ${note.message}`;
+    children.push(row);
+  });
+
+  container.replaceChildren(...children);
+}
+
 function renderBuildLog(container, buildLog = []) {
   if (buildLog.length === 0) {
     const empty = document.createElement('div');
@@ -216,6 +253,9 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
   const validateButton = root.querySelector('[data-hook="validate-button"]');
   const buildButton = root.querySelector('[data-hook="build-button"]');
   const trackedCreateButton = root.querySelector('[data-hook="tracked-create-button"]');
+  const trackedReportButton = root.querySelector('[data-hook="tracked-report-button"]');
+  const trackedValidationNotesElement = root.querySelector('[data-hook="tracked-validation-notes"]');
+  const trackedStatusElement = root.querySelector('[data-hook="tracked-status"]');
   const clearButton = root.querySelector('[data-hook="clear-result"]');
   const designButton = root.querySelector('[data-hook="draft-prompt"]');
   const wireframeInput = root.querySelector('[data-hook="wireframe"]');
@@ -225,6 +265,14 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
   const includeStepInput = root.querySelector('[data-hook="include-step"]');
   const includeStlInput = root.querySelector('[data-hook="include-stl"]');
   const perPartInput = root.querySelector('[data-hook="per-part-stl"]');
+  const reportOptionsDisclosure = root.querySelector('.execution-lane-tracked .disclosure');
+  const reportIncludeDrawingInput = root.querySelector('[data-hook="report-include-drawing"]');
+  const reportIncludeToleranceInput = root.querySelector('[data-hook="report-include-tolerance"]');
+  const reportIncludeDfmInput = root.querySelector('[data-hook="report-include-dfm"]');
+  const reportIncludeCostInput = root.querySelector('[data-hook="report-include-cost"]');
+  const reportProfileInput = root.querySelector('[data-hook="report-profile-name"]');
+  const reportProfileList = root.querySelector('[data-hook="report-profile-list"]');
+  const reportProfileHint = root.querySelector('[data-hook="report-profile-hint"]');
   const runtimeSurface = root.querySelector('[data-hook="runtime-surface"]');
   const connectionSurface = root.querySelector('[data-hook="connection-surface"]');
   const buildSurface = root.querySelector('[data-hook="build-surface"]');
@@ -239,6 +287,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
 
   let loadToken = 0;
   let destroyed = false;
+  let profileCatalogRequest = null;
 
   const sceneController = initScene({
     viewport,
@@ -274,11 +323,11 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     const runtime = runtimeTone(state.data.health);
     const connection = connectionTone(state.connectionState);
     const buildState = textForState(model.buildState);
-    const resultCopy = model.buildState === 'error'
-      ? (model.errorMessage || 'Build did not complete successfully.')
-      : model.buildState === 'success'
-        ? (model.buildSummary || 'Preview assets are ready in the workbench.')
-        : 'Choose input, validate, then build to inspect the result.';
+    const trackedRun = deriveModelTrackedRunPresentation({
+      model,
+      recentJobs: state.data.recentJobs.items || [],
+      jobMonitor: state.data.jobMonitor || {},
+    });
 
     setSurface(runtimeSurface, runtime.label, runtime.copy, runtime.tone);
     setSurface(
@@ -291,19 +340,19 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     );
     setSurface(
       buildSurface,
-      buildState.label,
+      model.buildState === 'success' ? 'Preview ready' : buildState.label,
       model.buildState === 'building'
         ? 'Preview export is running with FreeCAD-backed model creation.'
         : model.buildState === 'validating'
           ? 'Checking TOML shape, migration state, and readiness before build.'
-          : 'Preview stays the fast loop here while tracked create uses the same TOML through the job queue.',
+          : 'Preview stays the fast loop here. Use it for rapid model iteration without creating tracked job history.',
       buildState.tone,
     );
     setSurface(
       resultSurface,
-      model.buildState === 'success' ? 'Build succeeded' : model.buildState === 'error' ? 'Build failed' : 'Result pending',
-      resultCopy,
-      model.buildState === 'success' ? 'ok' : model.buildState === 'error' ? 'bad' : 'info',
+      trackedRun.title,
+      trackedRun.copy,
+      trackedRun.tone,
     );
   }
 
@@ -323,6 +372,14 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     if (includeStepInput) includeStepInput.checked = model.buildSettings.include_step !== false;
     if (includeStlInput) includeStlInput.checked = model.buildSettings.include_stl !== false;
     if (perPartInput) perPartInput.checked = model.buildSettings.per_part_stl !== false;
+    if (reportIncludeDrawingInput) reportIncludeDrawingInput.checked = model.reportOptions.includeDrawing !== false;
+    if (reportIncludeToleranceInput) reportIncludeToleranceInput.checked = model.reportOptions.includeTolerance !== false;
+    if (reportIncludeDfmInput) reportIncludeDfmInput.checked = model.reportOptions.includeDfm === true;
+    if (reportIncludeCostInput) reportIncludeCostInput.checked = model.reportOptions.includeCost === true;
+    if (reportProfileInput && reportProfileInput.value !== model.reportOptions.profileName) {
+      reportProfileInput.value = model.reportOptions.profileName || '';
+    }
+    if (reportOptionsDisclosure) reportOptionsDisclosure.open = model.reportOptions.open === true;
   }
 
   function syncSourceSummary() {
@@ -336,14 +393,23 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
 
   function syncValidationSummary() {
     renderInfoRows(validationSummaryElement, collectConfigOverview(model));
-    renderList(
+    renderValidationNotes(
       validationWarningsElement,
-      [
-        ...(model.validation?.warnings || []),
-        ...(model.validation?.changed_fields || []),
-        ...(model.validation?.deprecated_fields || []),
-      ],
+      collectValidationNotes(model.validation),
       'Validation notes and migration warnings will show here after the first check.',
+    );
+  }
+
+  function syncTrackedValidationNotes() {
+    const validationNotes = collectValidationNotes(model.validation);
+    const summaryCopy = validationNotes.length > 0
+      ? `Tracked runs will use the current TOML with ${validationNotes.length} validation note${validationNotes.length === 1 ? '' : 's'} visible before queueing.`
+      : '';
+    renderValidationNotes(
+      trackedValidationNotesElement,
+      validationNotes,
+      'Tracked create and report will queue the current TOML after validation. Warnings or deprecated fields will be called out here before submission.',
+      summaryCopy,
     );
   }
 
@@ -372,24 +438,95 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
   function syncSummaryText() {
     statusSummaryElement.textContent = model.buildSummary;
     viewportCaptionElement.textContent = model.preview
-      ? 'Inspect the latest preview directly in the viewport. Use parts and motion on the right rail for deeper inspection.'
-      : 'The viewport stays dominant so the workflow reads as choose input, build, then inspect the result.';
+      ? 'Inspect the latest preview directly in the viewport. Tracked create and report remain available in parallel for provenance and downstream artifacts.'
+      : 'The viewport stays dominant so the workflow reads as choose input, preview, then inspect the result.';
   }
 
   function syncButtons() {
     const apiReady = state.connectionState === 'connected';
     const runtimeReady = state.data.health.available === true;
     const canBuild = apiReady && runtimeReady && Boolean((model.configText || '').trim()) && model.buildState !== 'building';
-    const canTrack = apiReady && runtimeReady && Boolean((model.configText || '').trim()) && model.buildState !== 'building';
+    const canTrack = apiReady
+      && runtimeReady
+      && Boolean((model.configText || '').trim())
+      && model.buildState !== 'building'
+      && !model.trackedRun.submitting;
 
     if (validateButton) validateButton.disabled = !apiReady || !Boolean((model.configText || '').trim()) || model.buildState === 'building';
     if (buildButton) buildButton.disabled = !canBuild;
     if (trackedCreateButton) trackedCreateButton.disabled = !canTrack;
+    if (trackedReportButton) trackedReportButton.disabled = !canTrack;
     if (designButton) designButton.disabled = !apiReady || model.assistant.busy;
     if (exampleButton) exampleButton.disabled = state.data.examples.items.length === 0;
     if (configFileButton) configFileButton.disabled = false;
     if (clearButton) clearButton.disabled = !model.preview && model.buildLog.length === 0;
     if (perPartInput) perPartInput.disabled = model.overview?.mode !== 'assembly';
+  }
+
+  function syncTrackedStatus() {
+    if (!trackedStatusElement) return;
+    const trackedRun = deriveModelTrackedRunPresentation({
+      model,
+      recentJobs: state.data.recentJobs.items || [],
+      jobMonitor: state.data.jobMonitor || {},
+    });
+
+    const header = document.createElement('p');
+    header.className = `support-note${trackedRun.tone === 'warn' || trackedRun.tone === 'bad' ? ' support-note-warn' : ''}`;
+    header.textContent = trackedRun.copy;
+
+    const nodes = [header];
+    if (trackedRun.meta) {
+      const meta = document.createElement('p');
+      meta.className = 'inline-note';
+      meta.textContent = trackedRun.meta;
+      nodes.push(meta);
+    }
+
+    if (trackedRun.canOpenArtifacts && trackedRun.job?.id) {
+      const openButton = document.createElement('button');
+      openButton.className = 'action-button action-button-primary';
+      openButton.type = 'button';
+      openButton.textContent = 'Open artifact trail';
+      openButton.dataset.action = 'open-job';
+      openButton.dataset.jobId = trackedRun.job.id;
+      nodes.push(openButton);
+    }
+
+    trackedStatusElement.replaceChildren(...nodes);
+  }
+
+  function syncProfileCatalog() {
+    if (!reportProfileList || !reportProfileHint) return;
+
+    reportProfileList.replaceChildren(...model.profileCatalog.items.map((profile) => {
+      const option = document.createElement('option');
+      option.value = profile.name;
+      option.label = profile.label || profile.name;
+      return option;
+    }));
+
+    if (model.profileCatalog.status === 'loading') {
+      reportProfileHint.textContent = 'Loading backend-supported profile suggestions from configs/profiles...';
+      return;
+    }
+
+    if (model.profileCatalog.status === 'ready' && model.profileCatalog.items.length > 0) {
+      reportProfileHint.textContent = `Suggested profile names: ${model.profileCatalog.items.map((profile) => profile.name).join(', ')}.`;
+      return;
+    }
+
+    if (model.profileCatalog.status === 'ready') {
+      reportProfileHint.textContent = 'No named profiles were found. Leave blank for default profile handling.';
+      return;
+    }
+
+    if (model.profileCatalog.status === 'unavailable') {
+      reportProfileHint.textContent = model.profileCatalog.message || 'Profile suggestions are unavailable on this serve path. Enter a profile name manually only if you already know it is supported.';
+      return;
+    }
+
+    reportProfileHint.textContent = 'Existing backend-supported profile names can be supplied here when needed.';
   }
 
   function syncControls() {
@@ -408,6 +545,9 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     syncAssistant();
     syncSummaryText();
     syncStatusSurfaces();
+    syncTrackedValidationNotes();
+    syncTrackedStatus();
+    syncProfileCatalog();
     syncButtons();
     syncControls();
   }
@@ -565,24 +705,107 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     if (!valid) return;
 
     try {
+      model.trackedRun.submitting = true;
+      model.trackedRun.type = 'create';
+      model.trackedRun.error = '';
+      syncUi();
       const job = await submitTrackedJob({
         type: 'create',
         configToml: model.configText,
       });
-      model.errorMessage = '';
-      model.buildSummary = `Tracked create ${job.status}. Use the top badge or Start to follow the run.`;
-      syncUi();
-    } catch (error) {
-      model.errorMessage = error instanceof Error ? error.message : String(error);
-      model.buildSummary = `Tracked create could not be queued: ${model.errorMessage}`;
+      model.trackedRun = {
+        type: 'create',
+        lastJobId: job.id,
+        status: job.status,
+        submitting: false,
+        error: '',
+      };
       syncUi();
       addLog({
         status: 'Tracked run',
-        message: model.errorMessage,
+        message: `Queued tracked create for ${model.sourceName || 'the active config'}.`,
+        tone: 'info',
+        time: 'job',
+      });
+    } catch (error) {
+      model.trackedRun.submitting = false;
+      model.trackedRun.error = error instanceof Error ? error.message : String(error);
+      syncUi();
+      addLog({
+        status: 'Tracked run',
+        message: model.trackedRun.error,
         tone: 'warn',
         time: 'job',
       });
     }
+  }
+
+  async function runTrackedReport() {
+    const valid = await validateConfig();
+    if (!valid) return;
+
+    try {
+      model.trackedRun.submitting = true;
+      model.trackedRun.type = 'report';
+      model.trackedRun.error = '';
+      syncUi();
+      const job = await submitTrackedJob({
+        type: 'report',
+        configToml: model.configText,
+        options: buildTrackedReportJobOptions(model.reportOptions),
+      });
+      model.trackedRun = {
+        type: 'report',
+        lastJobId: job.id,
+        status: job.status,
+        submitting: false,
+        error: '',
+      };
+      syncUi();
+      addLog({
+        status: 'Tracked run',
+        message: `Queued tracked report for ${model.sourceName || 'the active config'} with the current report options.`,
+        tone: 'info',
+        time: 'job',
+      });
+    } catch (error) {
+      model.trackedRun.submitting = false;
+      model.trackedRun.error = error instanceof Error ? error.message : String(error);
+      syncUi();
+      addLog({
+        status: 'Tracked run',
+        message: model.trackedRun.error,
+        tone: 'warn',
+        time: 'job',
+      });
+    }
+  }
+
+  async function loadProfileCatalog() {
+    if (destroyed || state.connectionState !== 'connected' || model.profileCatalog.status === 'loading') return;
+    profileCatalogRequest = profileCatalogRequest || (async () => {
+      model.profileCatalog.status = 'loading';
+      model.profileCatalog.message = '';
+      syncUi();
+      try {
+        const items = await listStudioConfigProfiles();
+        model.profileCatalog = {
+          status: 'ready',
+          items,
+          message: '',
+        };
+      } catch (error) {
+        model.profileCatalog = {
+          status: 'unavailable',
+          items: [],
+          message: error instanceof Error ? error.message : String(error),
+        };
+      } finally {
+        profileCatalogRequest = null;
+        syncUi();
+      }
+    })();
+    await profileCatalogRequest;
   }
 
   async function draftFromPrompt() {
@@ -655,6 +878,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     model.errorMessage = '';
     model.preview = null;
     model.buildState = 'idle';
+    resetModelTrackedRunState(model);
     model.validation = {
       warnings: [],
       changed_fields: [],
@@ -678,6 +902,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     model.errorMessage = '';
     model.preview = null;
     model.buildState = 'idle';
+    resetModelTrackedRunState(model);
     model.validation = {
       warnings: [],
       changed_fields: [],
@@ -731,6 +956,9 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
   trackedCreateButton?.addEventListener('click', () => {
     runTrackedCreate().catch(() => {});
   });
+  trackedReportButton?.addEventListener('click', () => {
+    runTrackedReport().catch(() => {});
+  });
   clearButton?.addEventListener('click', clearResult);
   designButton?.addEventListener('click', () => {
     draftFromPrompt().catch(() => {});
@@ -759,9 +987,33 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
   perPartInput?.addEventListener('change', () => {
     model.buildSettings.per_part_stl = perPartInput.checked;
   });
+  reportOptionsDisclosure?.addEventListener('toggle', () => {
+    model.reportOptions.open = reportOptionsDisclosure.open;
+    if (reportOptionsDisclosure.open && model.profileCatalog.status === 'idle') {
+      loadProfileCatalog().catch(() => {});
+    }
+  });
+  reportIncludeDrawingInput?.addEventListener('change', () => {
+    model.reportOptions.includeDrawing = reportIncludeDrawingInput.checked;
+  });
+  reportIncludeToleranceInput?.addEventListener('change', () => {
+    model.reportOptions.includeTolerance = reportIncludeToleranceInput.checked;
+  });
+  reportIncludeDfmInput?.addEventListener('change', () => {
+    model.reportOptions.includeDfm = reportIncludeDfmInput.checked;
+  });
+  reportIncludeCostInput?.addEventListener('change', () => {
+    model.reportOptions.includeCost = reportIncludeCostInput.checked;
+  });
+  reportProfileInput?.addEventListener('input', () => {
+    model.reportOptions.profileName = reportProfileInput.value.trim();
+  });
 
   syncUi();
   loadPreviewIntoScene().catch(() => {});
+  if (state.connectionState === 'connected' && model.profileCatalog.status === 'idle') {
+    loadProfileCatalog().catch(() => {});
+  }
 
   return {
     destroy() {

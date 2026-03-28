@@ -96,6 +96,26 @@ const state = {
         error: '',
         report: null,
       },
+      reportOptions: {
+        includeDrawing: true,
+        includeTolerance: true,
+        includeDfm: false,
+        includeCost: false,
+        profileName: '',
+        open: false,
+      },
+      trackedRun: {
+        type: '',
+        lastJobId: '',
+        status: 'idle',
+        submitting: false,
+        error: '',
+      },
+      profileCatalog: {
+        status: 'idle',
+        items: [],
+        message: '',
+      },
       buildSettings: {
         include_step: true,
         include_stl: true,

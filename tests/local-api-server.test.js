@@ -17,6 +17,21 @@ async function listen(server) {
   return typeof address === 'object' && address ? address.port : 0;
 }
 
+async function waitFor(assertion, { attempts = 10, delayMs = 50 } = {}) {
+  let lastError;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      return await assertion();
+    } catch (error) {
+      lastError = error;
+      if (attempt < attempts - 1) {
+        await new Promise((resolveDelay) => setTimeout(resolveDelay, delayMs));
+      }
+    }
+  }
+  throw lastError;
+}
+
 const { server, jobStore } = createLocalApiServer({
   projectRoot: ROOT,
   jobsDir,
@@ -100,6 +115,18 @@ try {
   assert.equal(typeof examples[0].name, 'string');
   assert.equal(typeof examples[0].content, 'string');
 
+  const profilesResponse = await fetch(`${baseUrl}/api/config/profiles`, {
+    headers: {
+      accept: 'application/json',
+    },
+  });
+  assert.equal(profilesResponse.status, 200);
+  const profilesPayload = await profilesResponse.json();
+  assert.equal(profilesPayload.ok, true);
+  assert.equal(Array.isArray(profilesPayload.profiles), true);
+  assert.equal(profilesPayload.profiles.length > 0, true);
+  assert.equal(typeof profilesPayload.profiles[0].name, 'string');
+
   const validateResponse = await fetch(`${baseUrl}/api/studio/validate-config`, {
     method: 'POST',
     headers: {
@@ -144,16 +171,18 @@ try {
   assert.equal(studioJobPayload.job.request.config.drawing.scale, '1:2');
   assert.equal(studioJobPayload.job.request.options.qa, true);
 
-  const jobsResponse = await fetch(`${baseUrl}/jobs?limit=5`, {
-    headers: {
-      accept: 'application/json',
-    },
+  await waitFor(async () => {
+    const jobsResponse = await fetch(`${baseUrl}/jobs?limit=5`, {
+      headers: {
+        accept: 'application/json',
+      },
+    });
+    assert.equal(jobsResponse.status, 200);
+    const jobsPayload = await jobsResponse.json();
+    assert.equal(jobsPayload.ok, true);
+    assert.equal(jobsPayload.jobs.length >= 1, true);
+    assert.equal(jobsPayload.jobs[0].id, studioJobPayload.job.id);
   });
-  assert.equal(jobsResponse.status, 200);
-  const jobsPayload = await jobsResponse.json();
-  assert.equal(jobsPayload.ok, true);
-  assert.equal(jobsPayload.jobs.length >= 1, true);
-  assert.equal(jobsPayload.jobs[0].id, studioJobPayload.job.id);
 
   const job = await jobStore.createJob({
     type: 'report',

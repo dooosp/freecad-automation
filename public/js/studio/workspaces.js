@@ -13,6 +13,10 @@ import {
   createActionGrid,
   el,
 } from './renderers.js';
+import {
+  deriveModelTrackedRunPresentation,
+  ensureModelTrackedRunState,
+} from './model-tracked-runs.js';
 import { renderReviewWorkspace } from './review-workspace.js';
 import { renderArtifactsWorkspace } from './artifacts-workspace.js';
 
@@ -533,9 +537,14 @@ function createModelExampleSelect(state) {
 }
 
 function createModelWorkspace(state) {
-  const model = state.data.model;
+  const model = ensureModelTrackedRunState(state.data.model);
   const promptReady = Boolean(model.promptMode || model.promptText);
   const buildTone = model.buildState === 'success' ? 'ok' : model.buildState === 'error' ? 'bad' : model.buildState === 'building' ? 'warn' : 'info';
+  const trackedRun = deriveModelTrackedRunPresentation({
+    model,
+    recentJobs: state.data.recentJobs.items || [],
+    jobMonitor: state.data.jobMonitor || {},
+  });
 
   return el('section', {
     className: 'workspace-shell model-workbench',
@@ -547,7 +556,8 @@ function createModelWorkspace(state) {
         badges: [
           { label: model.configText ? 'Input loaded' : 'Input pending', tone: model.configText ? 'ok' : 'warn' },
           { label: promptReady ? 'Assistant ready' : 'Assistant available', tone: 'info' },
-          { label: `Build ${model.buildState || 'idle'}`, tone: buildTone },
+          { label: `Preview ${model.buildState || 'idle'}`, tone: buildTone },
+          { label: trackedRun.badgeLabel, tone: trackedRun.tone },
         ],
       }),
       el('div', {
@@ -669,70 +679,174 @@ function createModelWorkspace(state) {
               createCard({
                 kicker: 'Preview vs tracked run',
                 title: 'Choose scratch preview or tracked execution',
-                copy: 'Preview stays scratch-safe and viewport-first. Tracked create submits the current TOML into the normal job pipeline for artifact history and re-entry.',
+                copy: 'Preview stays scratch-safe and viewport-first. Tracked create and report send the current TOML into the job timeline for provenance, downstream artifacts, and re-entry.',
                 body: [
-                  el('label', {
-                    className: 'studio-check-row',
+                  el('section', {
+                    className: 'execution-lane',
                     children: [
-                      el('input', {
-                        dataset: { hook: 'include-step' },
-                        attrs: { type: 'checkbox', checked: true },
+                      el('p', { className: 'execution-lane-label', text: 'Preview path' }),
+                      el('p', {
+                        className: 'inline-note',
+                        text: 'Use Validate and Preview Build for the fast local loop. This path stays viewport-first and does not create tracked job history.',
                       }),
-                      el('span', { text: 'Keep STEP export alongside the viewport preview' }),
+                      el('label', {
+                        className: 'studio-check-row',
+                        children: [
+                          el('input', {
+                            dataset: { hook: 'include-step' },
+                            attrs: { type: 'checkbox', checked: true },
+                          }),
+                          el('span', { text: 'Keep STEP export alongside the viewport preview' }),
+                        ],
+                      }),
+                      el('label', {
+                        className: 'studio-check-row',
+                        children: [
+                          el('input', {
+                            dataset: { hook: 'include-stl' },
+                            attrs: { type: 'checkbox', checked: true, disabled: true },
+                          }),
+                          el('span', { text: 'Generate STL preview assets for the viewport (required)' }),
+                        ],
+                      }),
+                      el('label', {
+                        className: 'studio-check-row',
+                        children: [
+                          el('input', {
+                            dataset: { hook: 'per-part-stl' },
+                            attrs: { type: 'checkbox', checked: true },
+                          }),
+                          el('span', { text: 'Keep per-part STL loading for assembly inspection' }),
+                        ],
+                      }),
+                      el('p', {
+                        className: 'inline-note',
+                        dataset: { hook: 'build-summary' },
+                        text: model.buildSummary || 'Choose input, then build to inspect the preview.',
+                      }),
+                      el('div', {
+                        className: 'model-action-row',
+                        children: [
+                          createButton({
+                            label: 'Validate',
+                            action: 'model-validate',
+                            tone: 'ghost',
+                            dataset: { hook: 'validate-button' },
+                          }),
+                          createButton({
+                            label: 'Preview Build',
+                            action: 'model-build',
+                            tone: 'primary',
+                            dataset: { hook: 'build-button' },
+                          }),
+                          createButton({
+                            label: 'Clear preview',
+                            action: 'model-clear-result',
+                            tone: 'ghost',
+                            dataset: { hook: 'clear-result' },
+                          }),
+                        ],
+                      }),
                     ],
                   }),
-                  el('label', {
-                    className: 'studio-check-row',
+                  el('section', {
+                    className: 'execution-lane execution-lane-tracked',
                     children: [
-                      el('input', {
-                        dataset: { hook: 'include-stl' },
-                        attrs: { type: 'checkbox', checked: true, disabled: true },
+                      el('p', { className: 'execution-lane-label', text: 'Tracked path' }),
+                      el('p', {
+                        className: 'inline-note',
+                        text: 'Use tracked runs when you want provenance, job history, and artifact-driven re-entry. Validation notes stay visible here before the run is queued.',
                       }),
-                      el('span', { text: 'Generate STL preview assets for the viewport (required)' }),
-                    ],
-                  }),
-                  el('label', {
-                    className: 'studio-check-row',
-                    children: [
-                      el('input', {
-                        dataset: { hook: 'per-part-stl' },
-                        attrs: { type: 'checkbox', checked: true },
+                      el('div', { className: 'studio-note-stack', dataset: { hook: 'tracked-validation-notes' } }),
+                      createDisclosure({
+                        summary: 'Tracked report options',
+                        open: model.reportOptions.open,
+                        body: [
+                          el('label', {
+                            className: 'studio-check-row',
+                            children: [
+                              el('input', {
+                                dataset: { hook: 'report-include-drawing' },
+                                attrs: { type: 'checkbox', checked: model.reportOptions.includeDrawing },
+                              }),
+                              el('span', { text: 'Include drawing in the tracked report run' }),
+                            ],
+                          }),
+                          el('label', {
+                            className: 'studio-check-row',
+                            children: [
+                              el('input', {
+                                dataset: { hook: 'report-include-tolerance' },
+                                attrs: { type: 'checkbox', checked: model.reportOptions.includeTolerance },
+                              }),
+                              el('span', { text: 'Include tolerance analysis when available' }),
+                            ],
+                          }),
+                          el('label', {
+                            className: 'studio-check-row',
+                            children: [
+                              el('input', {
+                                dataset: { hook: 'report-include-dfm' },
+                                attrs: { type: 'checkbox', checked: model.reportOptions.includeDfm },
+                              }),
+                              el('span', { text: 'Include DFM analysis in the tracked report' }),
+                            ],
+                          }),
+                          el('label', {
+                            className: 'studio-check-row',
+                            children: [
+                              el('input', {
+                                dataset: { hook: 'report-include-cost' },
+                                attrs: { type: 'checkbox', checked: model.reportOptions.includeCost },
+                              }),
+                              el('span', { text: 'Include cost analysis in the tracked report' }),
+                            ],
+                          }),
+                          el('label', {
+                            className: 'studio-field',
+                            children: [
+                              el('span', { className: 'studio-field-label', text: 'Optional profile name' }),
+                              el('input', {
+                                className: 'studio-input',
+                                dataset: { hook: 'report-profile-name' },
+                                attrs: {
+                                  type: 'text',
+                                  list: 'model-report-profile-list',
+                                  placeholder: 'Leave blank for default profile handling',
+                                  value: model.reportOptions.profileName || '',
+                                },
+                              }),
+                              el('datalist', {
+                                attrs: { id: 'model-report-profile-list' },
+                                dataset: { hook: 'report-profile-list' },
+                              }),
+                              el('p', {
+                                className: 'inline-note',
+                                dataset: { hook: 'report-profile-hint' },
+                                text: 'Existing backend-supported profile names can be supplied here when needed.',
+                              }),
+                            ],
+                          }),
+                        ],
                       }),
-                      el('span', { text: 'Keep per-part STL loading for assembly inspection' }),
-                    ],
-                  }),
-                  el('p', {
-                    className: 'inline-note',
-                    dataset: { hook: 'build-summary' },
-                    text: model.buildSummary || 'Choose input, then build to inspect the preview.',
-                  }),
-                  el('div', {
-                    className: 'model-action-row',
-                    children: [
-                      createButton({
-                        label: 'Validate',
-                        action: 'model-validate',
-                        tone: 'ghost',
-                        dataset: { hook: 'validate-button' },
+                      el('div', {
+                        className: 'model-action-row',
+                        children: [
+                          createButton({
+                            label: 'Run Tracked Create Job',
+                            action: 'model-run-tracked-create',
+                            tone: 'ghost',
+                            dataset: { hook: 'tracked-create-button' },
+                          }),
+                          createButton({
+                            label: 'Run Tracked Report Job',
+                            action: 'model-run-tracked-report',
+                            tone: 'ghost',
+                            dataset: { hook: 'tracked-report-button' },
+                          }),
+                        ],
                       }),
-                      createButton({
-                        label: 'Preview build',
-                        action: 'model-build',
-                        tone: 'primary',
-                        dataset: { hook: 'build-button' },
-                      }),
-                      createButton({
-                        label: 'Run tracked create',
-                        action: 'model-run-tracked-create',
-                        tone: 'ghost',
-                        dataset: { hook: 'tracked-create-button' },
-                      }),
-                      createButton({
-                        label: 'Clear result',
-                        action: 'model-clear-result',
-                        tone: 'ghost',
-                        dataset: { hook: 'clear-result' },
-                      }),
+                      el('div', { className: 'studio-note-stack', dataset: { hook: 'tracked-status' } }),
                     ],
                   }),
                 ],
