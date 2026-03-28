@@ -16,9 +16,11 @@ import {
   loadDrawingPlan,
   saveDrawingPlan,
 } from '../orchestration/drawing-prep.js';
-
-const DEFAULT_VIEWS = ['front', 'top', 'right', 'iso'];
-const DEFAULT_SCALE = 'auto';
+import {
+  applyStudioDrawingSettings,
+  DEFAULT_STUDIO_DRAWING_SCALE,
+  normalizeStudioDrawingSettings,
+} from './studio-drawing-config.js';
 
 function readJsonIfExists(path) {
   if (!path) return Promise.resolve(null);
@@ -47,50 +49,8 @@ function buildConfigOverview(config = {}) {
     part_count: partCount,
     shape_count: shapeCount,
     views: Array.isArray(config.drawing?.views) ? config.drawing.views : [],
-    scale: config.drawing?.scale || DEFAULT_SCALE,
+    scale: config.drawing?.scale || DEFAULT_STUDIO_DRAWING_SCALE,
   };
-}
-
-function normalizeDrawingSettings(settings = {}, config = {}) {
-  const configViews = Array.isArray(config.drawing?.views) && config.drawing.views.length > 0
-    ? config.drawing.views
-    : DEFAULT_VIEWS;
-  const requestedViews = Array.isArray(settings.views) && settings.views.length > 0
-    ? settings.views
-    : configViews;
-  const views = [...new Set(requestedViews.map((entry) => String(entry || '').trim()).filter(Boolean))];
-  return {
-    views: views.length > 0 ? views : [...DEFAULT_VIEWS],
-    scale: String(settings.scale || config.drawing?.scale || DEFAULT_SCALE).trim() || DEFAULT_SCALE,
-    section_assist: settings.section_assist === true,
-    detail_assist: settings.detail_assist === true,
-  };
-}
-
-function applyDrawingSettings(config, settings) {
-  ensureDrawSchema(config);
-  config.drawing.views = [...settings.views];
-  config.drawing.scale = settings.scale;
-  config.drawing.bom_csv = true;
-
-  if (settings.section_assist && !config.drawing.section) {
-    config.drawing.section = {
-      plane: 'XZ',
-      offset: 0,
-    };
-  }
-
-  if (settings.detail_assist && !config.drawing.detail) {
-    config.drawing.detail = {
-      center: [0, 0],
-      radius: 10,
-      source_view: 'front',
-      scale_factor: 3,
-      label: 'Z',
-    };
-  }
-
-  ensureDrawingViews(config, settings.views);
 }
 
 function inferArtifactPaths(svgPath, planPath = '') {
@@ -265,8 +225,8 @@ export function createStudioDrawingService({
         }
       }
 
-      const settings = normalizeDrawingSettings(drawingSettings, config);
-      applyDrawingSettings(config, settings);
+      const settings = normalizeStudioDrawingSettings(drawingSettings, config);
+      applyStudioDrawingSettings(config, settings);
 
       const stablePlanPath = config.drawing_plan
         ? await saveDrawingPlanFn({

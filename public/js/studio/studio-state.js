@@ -1,4 +1,5 @@
 const STUDIO_ROUTES = new Set(['start', 'model', 'drawing', 'review', 'artifacts']);
+const ACTIVE_JOB_STATUSES = new Set(['queued', 'running']);
 
 export function normalizeRoute(hashValue) {
   const cleaned = String(hashValue || '')
@@ -20,13 +21,54 @@ export function shortJobLabel(job) {
   return `${job.type} ${job.status}`;
 }
 
+function shortJobId(id = '') {
+  if (!id) return 'unknown';
+  return id.length > 8 ? id.slice(0, 8) : id;
+}
+
+function jobTone(status = '') {
+  if (status === 'succeeded') return 'ok';
+  if (status === 'failed') return 'bad';
+  if (status === 'running') return 'warn';
+  return 'info';
+}
+
+function isActiveJobStatus(status = '') {
+  return ACTIVE_JOB_STATUSES.has(String(status).toLowerCase());
+}
+
+function formatJobBadgeTime(value) {
+  if (!value) return 'not yet';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+  }).format(date);
+}
+
 export function deriveStudioChromeState(data = {}) {
   const landing = data.landing || null;
   const health = data.health || {};
   const examples = data.examples || {};
   const recentJobs = data.recentJobs || {};
   const activeJob = data.activeJob || {};
+  const jobMonitor = data.jobMonitor || {};
   const latestJob = activeJob.summary || recentJobs.items?.[0] || null;
+  const monitorJob = jobMonitor.activeRunId
+    ? (
+        recentJobs.items?.find((job) => job.id === jobMonitor.activeRunId)
+        || (activeJob.summary?.id === jobMonitor.activeRunId ? activeJob.summary : null)
+        || {
+          id: jobMonitor.activeRunId,
+          type: 'job',
+          status: jobMonitor.activeRunStatus || 'unknown',
+        }
+      )
+    : null;
 
   let connectionState = 'placeholder';
   let connectionLabel = 'shell only';
@@ -60,9 +102,24 @@ export function deriveStudioChromeState(data = {}) {
       : connectionState === 'legacy'
         ? 'Legacy shell fallback'
         : 'Shell-only mode';
-  const jobBadgeText = latestJob
+  let jobBadgeText = latestJob
     ? `Recent ${shortJobLabel(latestJob)}`
     : (recentJobs.status === 'loading' ? 'Recent jobs loading' : 'No recent job');
+  let jobBadgeTitle = latestJob
+    ? `Latest tracked job ${latestJob.type} ${latestJob.status}.`
+    : 'No tracked job is selected or monitored.';
+  let jobBadgeTone = latestJob ? jobTone(latestJob.status) : 'info';
+
+  if (monitorJob) {
+    const prefix = isActiveJobStatus(jobMonitor.activeRunStatus) && jobMonitor.enabled ? 'Tracking' : 'Last run';
+    jobBadgeText = `${prefix} ${monitorJob.type} ${monitorJob.status}`;
+    jobBadgeTitle = [
+      `${monitorJob.type} ${shortJobId(monitorJob.id)} is ${monitorJob.status}.`,
+      `Monitor ${jobMonitor.enabled ? 'active' : 'idle'}.`,
+      `Last poll ${formatJobBadgeTime(jobMonitor.lastPollTime)}.`,
+    ].join(' ');
+    jobBadgeTone = jobTone(monitorJob.status);
+  }
 
   return {
     connectionState,
@@ -74,6 +131,8 @@ export function deriveStudioChromeState(data = {}) {
     projectBadgeText,
     connectionBadgeText,
     jobBadgeText,
+    jobBadgeTitle,
+    jobBadgeTone,
     jobLabel: latestJob ? shortJobLabel(latestJob) : 'Idle',
   };
 }

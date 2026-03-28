@@ -296,6 +296,22 @@ textarea {
   color: var(--text-muted);
 }
 
+.badge-job[data-tone="info"] {
+  color: var(--status-info);
+}
+
+.badge-job[data-tone="warn"] {
+  color: var(--status-warn);
+}
+
+.badge-job[data-tone="ok"] {
+  color: var(--status-ok);
+}
+
+.badge-job[data-tone="bad"] {
+  color: var(--status-bad);
+}
+
 .toolbar-button {
   min-height: 2.25rem;
   padding: 0.5rem 0.9rem;

@@ -1,6 +1,14 @@
 import { createLogEntry } from './studio/renderers.js';
 import { mountArtifactsWorkspace } from './studio/artifacts-workspace.js';
 import { mountDrawingWorkspace } from './studio/drawing-workspace.js';
+import {
+  findResumableStudioJob,
+  isActiveStudioJobStatus,
+  pollStudioJob,
+  refreshStudioJobs,
+  studioJobTone,
+  submitStudioTrackedJob,
+} from './studio/jobs-client.js';
 import { mountModelWorkspace } from './studio/model-workspace.js';
 import { mountReviewWorkspace } from './studio/review-workspace.js';
 import { deriveStudioChromeState, normalizeRoute } from './studio/studio-state.js';
@@ -17,7 +25,11 @@ const logClose = document.getElementById('log-close');
 const logDrawer = document.getElementById('log-drawer');
 const logFeed = document.getElementById('log-feed');
 const navLinks = [...document.querySelectorAll('.nav-link')];
+const RECENT_JOBS_LIMIT = 6;
+const JOB_MONITOR_POLL_MS = 2000;
 let activeWorkspaceController = null;
+let jobMonitorTimer = null;
+let jobMonitorError = '';
 
 const state = {
   route: normalizeRoute(window.location.hash),
@@ -53,6 +65,12 @@ const state = {
       status: 'loading',
       items: [],
       message: '',
+    },
+    jobMonitor: {
+      activeRunId: '',
+      activeRunStatus: 'idle',
+      lastPollTime: null,
+      enabled: false,
     },
     model: {
       sourceType: '',
@@ -150,6 +168,10 @@ function setBadgeText(element, text, title = text) {
   element.title = title;
 }
 
+function setBadgeTone(element, tone = 'info') {
+  element.dataset.tone = tone;
+}
+
 function syncDerivedState() {
   Object.assign(state, deriveStudioChromeState(state.data));
 }
@@ -161,7 +183,8 @@ function syncChrome() {
   setBadgeText(runtimeBadge, state.runtimeBadgeText);
   setBadgeText(projectBadge, state.projectBadgeText, state.projectBadgeTitle);
   setBadgeText(connectionBadge, state.connectionBadgeText);
-  setBadgeText(jobBadge, state.jobBadgeText);
+  setBadgeText(jobBadge, state.jobBadgeText, state.jobBadgeTitle || state.jobBadgeText);
+  setBadgeTone(jobBadge, state.jobBadgeTone || 'info');
 
   navLinks.forEach((link) => {
     const isActive = link.dataset.route === state.route;
@@ -179,6 +202,7 @@ function renderWorkspace() {
       root: workspaceRoot,
       state,
       addLog,
+      submitTrackedJob: submitTrackedStudioRun,
     });
   } else if (state.route === 'drawing') {
     activeWorkspaceController = mountDrawingWorkspace({
@@ -188,6 +212,7 @@ function renderWorkspace() {
       navigateTo,
       loadSelectedExampleIntoSharedModel,
       loadConfigFileIntoSharedModel,
+      submitTrackedJob: submitTrackedStudioRun,
     });
   } else if (state.route === 'review') {
     activeWorkspaceController = mountReviewWorkspace({
@@ -217,6 +242,11 @@ function commitRender() {
   syncChrome();
   renderWorkspace();
   renderLogs();
+}
+
+function refreshShellChrome() {
+  syncDerivedState();
+  syncChrome();
 }
 
 function addLog(entry) {
@@ -276,6 +306,196 @@ async function fetchJson(url, options = {}) {
     throw new Error(`${url} returned ${response.status}`);
   }
   return response.json();
+}
+
+function sortJobsByUpdatedAt(jobs = []) {
+  return [...jobs].sort((left, right) => {
+    const rightTime = Date.parse(right.updated_at || right.created_at || 0);
+    const leftTime = Date.parse(left.updated_at || left.created_at || 0);
+    return rightTime - leftTime;
+  });
+}
+
+function findKnownJob(jobId) {
+  return state.data.recentJobs.items.find((job) => job.id === jobId)
+    || (state.data.activeJob.summary?.id === jobId ? state.data.activeJob.summary : null)
+    || null;
+}
+
+function syncJobIntoState(job) {
+  if (!job?.id) return;
+
+  const nextItems = sortJobsByUpdatedAt([
+    job,
+    ...state.data.recentJobs.items.filter((entry) => entry.id !== job.id),
+  ]).slice(0, RECENT_JOBS_LIMIT);
+
+  state.data.recentJobs = {
+    status: nextItems.length > 0 ? 'ready' : 'empty',
+    items: nextItems,
+    message: nextItems.length > 0 ? '' : 'No jobs have been tracked yet on this local API instance.',
+  };
+
+  if (state.data.activeJob.summary?.id === job.id) {
+    state.data.activeJob.summary = job;
+  }
+}
+
+function clearJobMonitorTimer() {
+  if (jobMonitorTimer) {
+    window.clearTimeout(jobMonitorTimer);
+    jobMonitorTimer = null;
+  }
+}
+
+function setJobMonitorState({ jobId = '', status = 'idle', enabled = false, lastPollTime = null }) {
+  state.data.jobMonitor = {
+    activeRunId: jobId,
+    activeRunStatus: status,
+    lastPollTime,
+    enabled,
+  };
+  refreshShellChrome();
+}
+
+function logJobTransition(job, previousStatus, nextStatus, origin = 'monitor') {
+  const shortId = job.id?.slice(0, 8) || 'unknown';
+  const message = previousStatus && previousStatus !== nextStatus
+    ? `${job.type} ${shortId} moved from ${previousStatus} to ${nextStatus}.`
+    : `${origin === 'resume' ? 'Resumed' : 'Started'} monitoring ${job.type} ${shortId} in ${nextStatus}.`;
+  addLog({
+    status: 'Tracked run',
+    message,
+    tone: studioJobTone(nextStatus),
+    time: 'job',
+  });
+}
+
+async function refreshRecentJobs({ silent = false } = {}) {
+  try {
+    const items = await refreshStudioJobs(RECENT_JOBS_LIMIT);
+    state.data.recentJobs = {
+      status: items.length > 0 ? 'ready' : 'empty',
+      items,
+      message: items.length > 0 ? '' : 'No jobs have been tracked yet on this local API instance.',
+    };
+    if (!silent) {
+      addLog({
+        status: 'Recent jobs',
+        message: items.length > 0
+          ? `Loaded ${items.length} tracked jobs for quick re-entry into artifacts.`
+          : 'Local API is reachable, but no tracked jobs exist yet.',
+        tone: items.length > 0 ? 'ok' : 'info',
+        time: 'jobs',
+      });
+    }
+    return items;
+  } catch {
+    state.data.recentJobs = {
+      status: 'unavailable',
+      items: [],
+      message: 'Recent job history requires the local API path from `fcad serve`.',
+    };
+    return [];
+  } finally {
+    commitRender();
+  }
+}
+
+async function pollActiveRun() {
+  const { activeRunId, activeRunStatus, enabled } = state.data.jobMonitor;
+  if (!enabled || !activeRunId) return;
+
+  try {
+    const job = await pollStudioJob(activeRunId);
+    if (!job) {
+      throw new Error(`Tracked job ${activeRunId} did not return a status payload.`);
+    }
+
+    jobMonitorError = '';
+    syncJobIntoState(job);
+    setJobMonitorState({
+      jobId: job.id,
+      status: job.status,
+      enabled: isActiveStudioJobStatus(job.status),
+      lastPollTime: new Date().toISOString(),
+    });
+
+    if (activeRunStatus !== job.status) {
+      logJobTransition(job, activeRunStatus, job.status);
+    }
+
+    if (!isActiveStudioJobStatus(job.status)) {
+      clearJobMonitorTimer();
+      await refreshRecentJobs({ silent: true });
+      return;
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    state.data.jobMonitor.lastPollTime = new Date().toISOString();
+    refreshShellChrome();
+    if (jobMonitorError !== message) {
+      jobMonitorError = message;
+      addLog({
+        status: 'Tracked run',
+        message: `Polling ${activeRunId.slice(0, 8)} hit an error: ${message}`,
+        tone: 'warn',
+        time: 'job',
+      });
+    }
+  }
+
+  clearJobMonitorTimer();
+  if (state.data.jobMonitor.enabled) {
+    jobMonitorTimer = window.setTimeout(() => {
+      pollActiveRun().catch(() => {});
+    }, JOB_MONITOR_POLL_MS);
+  }
+}
+
+function beginJobMonitoring(job, { origin = 'submit' } = {}) {
+  if (!job?.id) return;
+  clearJobMonitorTimer();
+  jobMonitorError = '';
+  syncJobIntoState(job);
+  setJobMonitorState({
+    jobId: job.id,
+    status: job.status,
+    enabled: isActiveStudioJobStatus(job.status),
+    lastPollTime: new Date().toISOString(),
+  });
+  logJobTransition(job, '', job.status, origin);
+
+  if (state.data.jobMonitor.enabled) {
+    jobMonitorTimer = window.setTimeout(() => {
+      pollActiveRun().catch(() => {});
+    }, JOB_MONITOR_POLL_MS);
+  }
+}
+
+function resumeJobMonitoring() {
+  if (state.data.jobMonitor.enabled && state.data.jobMonitor.activeRunId) return;
+  const resumableJob = findResumableStudioJob(state.data.recentJobs.items);
+  if (!resumableJob) return;
+  beginJobMonitoring(resumableJob, { origin: 'resume' });
+}
+
+async function submitTrackedStudioRun({
+  type,
+  configToml,
+  drawingSettings,
+  reportOptions,
+  options,
+}) {
+  const job = await submitStudioTrackedJob({
+    type,
+    configToml,
+    drawingSettings,
+    reportOptions,
+    options,
+  });
+  beginJobMonitoring(job, { origin: 'submit' });
+  return job;
 }
 
 async function loadLandingPayload() {
@@ -382,34 +602,6 @@ async function loadExamples() {
   }
 }
 
-async function loadRecentJobs() {
-  try {
-    const payload = await fetchJson('/jobs?limit=6');
-    const items = Array.isArray(payload?.jobs) ? payload.jobs : [];
-    state.data.recentJobs = {
-      status: items.length > 0 ? 'ready' : 'empty',
-      items,
-      message: items.length > 0 ? '' : 'No jobs have been tracked yet on this local API instance.',
-    };
-    addLog({
-      status: 'Recent jobs',
-      message: items.length > 0
-        ? `Loaded ${items.length} tracked jobs for quick re-entry into artifacts.`
-        : 'Local API is reachable, but no tracked jobs exist yet.',
-      tone: items.length > 0 ? 'ok' : 'info',
-      time: 'jobs',
-    });
-  } catch {
-    state.data.recentJobs = {
-      status: 'unavailable',
-      items: [],
-      message: 'Recent job history requires the local API path from `fcad serve`.',
-    };
-  } finally {
-    commitRender();
-  }
-}
-
 function getSelectedExample() {
   return state.data.examples.items.find((example) => example.name === state.data.examples.selectedName)
     || state.data.examples.items[0]
@@ -503,7 +695,7 @@ async function openConfigFile(file) {
 }
 
 async function openJob(jobId, { route = 'artifacts' } = {}) {
-  const summary = state.data.recentJobs.items.find((job) => job.id === jobId);
+  const summary = findKnownJob(jobId);
   if (!summary) return;
 
   state.data.activeJob = {
@@ -581,8 +773,9 @@ async function hydrateShell() {
   await Promise.allSettled([
     refreshHealth(),
     loadExamples(),
-    loadRecentJobs(),
+    refreshRecentJobs(),
   ]);
+  resumeJobMonitoring();
 }
 
 function handleHashChange() {

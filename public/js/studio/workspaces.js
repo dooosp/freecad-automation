@@ -667,9 +667,9 @@ function createModelWorkspace(state) {
                 ],
               }),
               createCard({
-                kicker: 'Build settings',
-                title: 'Set preview outputs',
-                copy: 'Preview builds stay scratch-safe and viewport-first. Artifact publication remains a later workspace concern.',
+                kicker: 'Preview vs tracked run',
+                title: 'Choose scratch preview or tracked execution',
+                copy: 'Preview stays scratch-safe and viewport-first. Tracked create submits the current TOML into the normal job pipeline for artifact history and re-entry.',
                 body: [
                   el('label', {
                     className: 'studio-check-row',
@@ -716,10 +716,16 @@ function createModelWorkspace(state) {
                         dataset: { hook: 'validate-button' },
                       }),
                       createButton({
-                        label: 'Build',
+                        label: 'Preview build',
                         action: 'model-build',
                         tone: 'primary',
                         dataset: { hook: 'build-button' },
+                      }),
+                      createButton({
+                        label: 'Run tracked create',
+                        action: 'model-run-tracked-create',
+                        tone: 'ghost',
+                        dataset: { hook: 'tracked-create-button' },
                       }),
                       createButton({
                         label: 'Clear result',
@@ -957,7 +963,7 @@ function createDrawingWorkspace(state) {
             dataset: { hook: 'drawing-job-surface', tone },
             children: [
               el('h3', { className: 'model-status-title', text: drawingStatus === 'generating' ? 'Generating' : 'No drawing yet' }),
-              el('p', { className: 'model-status-copy', text: 'Generate drawing is the primary action in this workspace.' }),
+              el('p', { className: 'model-status-copy', text: 'Preview drawing stays local and fast; tracked draw routes into monitored jobs.' }),
             ],
           }),
           el('article', {
@@ -1019,9 +1025,9 @@ function createDrawingWorkspace(state) {
                 ],
               }),
               createCard({
-                kicker: 'Sheet setup',
-                title: 'View presets, scale, and drawing assists',
-                copy: 'Keep drawing-specific decisions close to the sheet and away from 3D viewport controls.',
+                kicker: 'Preview vs tracked run',
+                title: 'Set up the sheet, then choose the execution lane',
+                copy: 'Preview drawing keeps the fast sheet-first loop in place. Tracked draw submits the current TOML plus drawing settings into the normal job pipeline.',
                 body: [
                   el('div', {
                     className: 'drawing-preset-group',
@@ -1091,16 +1097,22 @@ function createDrawingWorkspace(state) {
                   el('p', {
                     className: 'inline-note',
                     dataset: { hook: 'drawing-summary' },
-                    text: 'Generate drawing to open a dedicated sheet-first workspace with BOM, QA, and dimension context.',
+                    text: 'Preview drawing keeps the sheet-first loop tight. Run tracked draw to queue the same TOML and settings for artifact history.',
                   }),
                   el('div', {
                     className: 'model-action-row',
                     children: [
                       createButton({
-                        label: 'Generate drawing',
+                        label: 'Preview drawing',
                         action: 'drawing-generate',
                         tone: 'primary',
                         dataset: { hook: 'drawing-generate' },
+                      }),
+                      createButton({
+                        label: 'Run tracked draw',
+                        action: 'drawing-run-tracked',
+                        tone: 'ghost',
+                        dataset: { hook: 'drawing-tracked-run' },
                       }),
                       createButton({
                         label: 'Fit sheet',
@@ -1158,7 +1170,7 @@ function createDrawingWorkspace(state) {
                           createEmptyState({
                             icon: '2D',
                             title: 'No drawing yet',
-                            copy: 'Use the drawing-specific CTA in this workspace to generate the first documentation sheet.',
+                            copy: 'Use Preview drawing for the fast loop or Run tracked draw to queue the current TOML and sheet settings.',
                           }),
                         ],
                       }),

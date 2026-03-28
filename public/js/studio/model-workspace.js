@@ -194,7 +194,7 @@ function renderAssistantReport(container, assistantState) {
   renderList(container, entries, 'The assistant returned TOML, but no review summary was attached.');
 }
 
-export function mountModelWorkspace({ root, state, addLog }) {
+export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
   const model = ensureModelState(state.data.model);
   const viewerStore = createViewerStore();
   const viewport = root.querySelector('[data-hook="viewport"]');
@@ -215,6 +215,7 @@ export function mountModelWorkspace({ root, state, addLog }) {
   const configFileButton = root.querySelector('[data-hook="open-config"]');
   const validateButton = root.querySelector('[data-hook="validate-button"]');
   const buildButton = root.querySelector('[data-hook="build-button"]');
+  const trackedCreateButton = root.querySelector('[data-hook="tracked-create-button"]');
   const clearButton = root.querySelector('[data-hook="clear-result"]');
   const designButton = root.querySelector('[data-hook="draft-prompt"]');
   const wireframeInput = root.querySelector('[data-hook="wireframe"]');
@@ -295,7 +296,7 @@ export function mountModelWorkspace({ root, state, addLog }) {
         ? 'Preview export is running with FreeCAD-backed model creation.'
         : model.buildState === 'validating'
           ? 'Checking TOML shape, migration state, and readiness before build.'
-          : 'Build stays the primary action in this workspace.',
+          : 'Preview stays the fast loop here while tracked create uses the same TOML through the job queue.',
       buildState.tone,
     );
     setSurface(
@@ -379,9 +380,11 @@ export function mountModelWorkspace({ root, state, addLog }) {
     const apiReady = state.connectionState === 'connected';
     const runtimeReady = state.data.health.available === true;
     const canBuild = apiReady && runtimeReady && Boolean((model.configText || '').trim()) && model.buildState !== 'building';
+    const canTrack = apiReady && runtimeReady && Boolean((model.configText || '').trim()) && model.buildState !== 'building';
 
     if (validateButton) validateButton.disabled = !apiReady || !Boolean((model.configText || '').trim()) || model.buildState === 'building';
     if (buildButton) buildButton.disabled = !canBuild;
+    if (trackedCreateButton) trackedCreateButton.disabled = !canTrack;
     if (designButton) designButton.disabled = !apiReady || model.assistant.busy;
     if (exampleButton) exampleButton.disabled = state.data.examples.items.length === 0;
     if (configFileButton) configFileButton.disabled = false;
@@ -557,6 +560,31 @@ export function mountModelWorkspace({ root, state, addLog }) {
     }
   }
 
+  async function runTrackedCreate() {
+    const valid = await validateConfig();
+    if (!valid) return;
+
+    try {
+      const job = await submitTrackedJob({
+        type: 'create',
+        configToml: model.configText,
+      });
+      model.errorMessage = '';
+      model.buildSummary = `Tracked create ${job.status}. Use the top badge or Start to follow the run.`;
+      syncUi();
+    } catch (error) {
+      model.errorMessage = error instanceof Error ? error.message : String(error);
+      model.buildSummary = `Tracked create could not be queued: ${model.errorMessage}`;
+      syncUi();
+      addLog({
+        status: 'Tracked run',
+        message: model.errorMessage,
+        tone: 'warn',
+        time: 'job',
+      });
+    }
+  }
+
   async function draftFromPrompt() {
     const description = String(model.promptText || '').trim();
     if (!description) {
@@ -699,6 +727,9 @@ export function mountModelWorkspace({ root, state, addLog }) {
   });
   buildButton?.addEventListener('click', () => {
     buildPreview().catch(() => {});
+  });
+  trackedCreateButton?.addEventListener('click', () => {
+    runTrackedCreate().catch(() => {});
   });
   clearButton?.addEventListener('click', clearResult);
   designButton?.addEventListener('click', () => {

@@ -45,6 +45,42 @@ assert.equal(connected.connectionBadgeText, 'Local API connected');
 assert.equal(connected.jobBadgeText, 'Recent draw succeeded');
 assert.equal(connected.projectBadgeText, 'Project New/freecad-automation');
 
+const monitored = deriveStudioChromeState({
+  landing: {
+    mode: 'local_api',
+    project_root: '/Users/jangtaeho/Documents/New/freecad-automation',
+  },
+  health: {
+    status: 'ready',
+    reachable: true,
+    available: true,
+    projectRoot: '/Users/jangtaeho/Documents/New/freecad-automation',
+  },
+  examples: {
+    status: 'ready',
+  },
+  recentJobs: {
+    status: 'ready',
+    items: [
+      { id: 'job-running-123456', type: 'draw', status: 'running' },
+      { id: 'job-old-abcdef', type: 'create', status: 'succeeded' },
+    ],
+  },
+  jobMonitor: {
+    activeRunId: 'job-running-123456',
+    activeRunStatus: 'running',
+    lastPollTime: '2026-03-28T04:05:06.000Z',
+    enabled: true,
+  },
+  activeJob: {
+    summary: null,
+  },
+});
+
+assert.equal(monitored.jobBadgeText, 'Tracking draw running');
+assert.equal(monitored.jobBadgeTone, 'warn');
+assert.match(monitored.jobBadgeTitle, /draw job-runn/i);
+
 const legacy = deriveStudioChromeState({
   landing: null,
   health: {

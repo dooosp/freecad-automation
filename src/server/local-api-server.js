@@ -9,6 +9,7 @@ import { LOCAL_API_SERVICE, LOCAL_API_VERSION } from './local-api-contract.js';
 import { validateLocalApiResponse } from './local-api-schemas.js';
 import { createStudioModelService } from './studio-model-service.js';
 import { createStudioDrawingService } from './studio-drawing-service.js';
+import { translateStudioJobSubmission } from './studio-job-bridge.js';
 
 const PUBLIC_DIR = join(import.meta.dirname, '..', '..', 'public');
 const EXAMPLES_DIR = join(import.meta.dirname, '..', '..', 'configs', 'examples');
@@ -163,6 +164,7 @@ function buildLandingPayload({
       available: true,
       preferred_path: '/',
       path: '/studio',
+      tracked_jobs_path: '/api/studio/jobs',
       note: 'Future-facing browser shell served by default for browser requests while the local API remains available in parallel.',
     },
     api_info: {
@@ -265,6 +267,7 @@ function renderLandingPage(payload) {
         <li><a href="/studio"><code>GET /studio</code></a> opens the direct studio route</li>
         <li><a href="/api"><code>GET /api</code></a> returns this API info page</li>
         <li><a href="/health"><code>GET /health</code></a> for runtime diagnostics</li>
+        <li><a href="/api"><code>POST /api/studio/jobs</code></a> to enqueue tracked jobs directly from studio-native TOML payloads</li>
         <li><a href="/jobs"><code>/jobs</code></a> for job creation targets and route discovery</li>
         <li><a href="/jobs/example-job"><code>/jobs/:id</code></a> to inspect a job status response shape</li>
         <li><a href="/jobs/example-job/artifacts"><code>/jobs/:id/artifacts</code></a> to inspect artifact response shape</li>
@@ -315,6 +318,7 @@ function sendLandingResponse(req, res, payload) {
       'Direct studio route: /studio',
       'API info: /api',
       'Health: /health',
+      'Studio tracked jobs: POST /api/studio/jobs',
       'Jobs: POST /jobs',
       'Job status shape: /jobs/example-job',
       'Artifact shape: /jobs/example-job/artifacts',
@@ -384,6 +388,29 @@ export function createLocalApiServer({
   });
   const studioModelService = studioModelServiceFactory({ projectRoot });
   const studioDrawingService = studioDrawingServiceFactory({ projectRoot });
+
+  async function enqueueJob(request, res) {
+    const validation = validateJobRequest(request);
+    if (!validation.ok) {
+      const response = createErrorResponse('invalid_request', validation.errors);
+      res.status(response.status).json(assertResponse('error', response.body));
+      return;
+    }
+
+    const job = await jobStore.createJob(validation.request);
+    const payload = {
+      api_version: LOCAL_API_VERSION,
+      ok: true,
+      job: await toJobResponse(jobStore, job),
+    };
+    res.status(202).json(assertResponse('job', payload));
+
+    setImmediate(() => {
+      executor.execute(job.id).catch(() => {
+        // The executor persists failures in the job store.
+      });
+    });
+  }
 
   app.use(express.json({ limit: '5mb' }));
   app.use('/js/app', express.static(APP_JS_DIR, { index: false }));
@@ -524,6 +551,17 @@ export function createLocalApiServer({
     }
   });
 
+  app.post('/api/studio/jobs', async (req, res) => {
+    const translated = translateStudioJobSubmission(req.body);
+    if (!translated.ok) {
+      const response = createErrorResponse('invalid_request', translated.errors);
+      res.status(response.status).json(assertResponse('error', response.body));
+      return;
+    }
+
+    await enqueueJob(translated.request, res);
+  });
+
   app.post('/api/studio/drawing-previews/:id/dimensions', async (req, res) => {
     try {
       const payload = await studioDrawingService.updateDimension({
@@ -591,26 +629,7 @@ export function createLocalApiServer({
   });
 
   app.post('/jobs', async (req, res) => {
-    const validation = validateJobRequest(req.body);
-    if (!validation.ok) {
-      const response = createErrorResponse('invalid_request', validation.errors);
-      res.status(response.status).json(assertResponse('error', response.body));
-      return;
-    }
-
-    const job = await jobStore.createJob(validation.request);
-    const payload = {
-      api_version: LOCAL_API_VERSION,
-      ok: true,
-      job: await toJobResponse(jobStore, job),
-    };
-    res.status(202).json(assertResponse('job', payload));
-
-    setImmediate(() => {
-      executor.execute(job.id).catch(() => {
-        // The executor persists failures in the job store.
-      });
-    });
+    await enqueueJob(req.body, res);
   });
 
   app.get('/jobs/:id', async (req, res) => {

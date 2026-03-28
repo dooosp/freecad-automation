@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 
 import { buildArtifactManifest } from '../lib/artifact-manifest.js';
 import { createLocalApiServer } from '../src/server/local-api-server.js';
+import { validateLocalApiResponse } from '../src/server/local-api-schemas.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const tmpRoot = mkdtempSync(join(tmpdir(), 'fcad-local-api-root-'));
@@ -116,6 +117,33 @@ try {
   assert.equal(typeof validationPayload.overview.shape_count, 'number');
   assert.equal(Array.isArray(validationPayload.validation.warnings), true);
 
+  const studioJobResponse = await fetch(`${baseUrl}/api/studio/jobs`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      type: 'draw',
+      config_toml: readFileSync(join(ROOT, 'configs', 'examples', 'ks_bracket.toml'), 'utf8'),
+      drawing_settings: {
+        views: ['front', 'iso'],
+        scale: '1:2',
+      },
+      options: {
+        qa: true,
+      },
+    }),
+  });
+  assert.equal(studioJobResponse.status, 202);
+  const studioJobPayload = await studioJobResponse.json();
+  assert.equal(studioJobPayload.ok, true);
+  assert.equal(validateLocalApiResponse('job', studioJobPayload).ok, true);
+  assert.equal(studioJobPayload.job.type, 'draw');
+  assert.deepEqual(studioJobPayload.job.request.config.drawing.views, ['front', 'iso']);
+  assert.equal(studioJobPayload.job.request.config.drawing.scale, '1:2');
+  assert.equal(studioJobPayload.job.request.options.qa, true);
+
   const jobsResponse = await fetch(`${baseUrl}/jobs?limit=5`, {
     headers: {
       accept: 'application/json',
@@ -124,7 +152,8 @@ try {
   assert.equal(jobsResponse.status, 200);
   const jobsPayload = await jobsResponse.json();
   assert.equal(jobsPayload.ok, true);
-  assert.deepEqual(jobsPayload.jobs, []);
+  assert.equal(jobsPayload.jobs.length >= 1, true);
+  assert.equal(jobsPayload.jobs[0].id, studioJobPayload.job.id);
 
   const job = await jobStore.createJob({
     type: 'report',

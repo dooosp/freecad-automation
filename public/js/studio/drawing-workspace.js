@@ -5,7 +5,7 @@ import {
 
 function ensureDrawingState(drawing = {}) {
   drawing.status = drawing.status || 'idle';
-  drawing.summary = drawing.summary || 'Generate drawing to open the sheet-first workbench.';
+  drawing.summary = drawing.summary || 'Preview drawing to work sheet-first, or queue a tracked draw to publish the run.';
   drawing.errorMessage = drawing.errorMessage || '';
   drawing.preview = drawing.preview || null;
   drawing.settings = drawing.settings || {
@@ -129,7 +129,7 @@ function formatNumber(value) {
 function emptyStateFor(status, errorMessage = '') {
   if (status === 'generating') {
     return {
-      title: 'Generating drawing',
+      title: 'Generating preview drawing',
       copy: 'The studio is running the draw pipeline and preparing the sheet, BOM, and QA sidecars.',
     };
   }
@@ -141,7 +141,7 @@ function emptyStateFor(status, errorMessage = '') {
   }
   return {
     title: 'No drawing yet',
-    copy: 'Use the drawing-specific CTA in this workspace to generate the first documentation sheet.',
+    copy: 'Use Preview drawing for the fast loop or Run tracked draw to queue the current TOML and sheet settings.',
   };
 }
 
@@ -152,6 +152,7 @@ export function mountDrawingWorkspace({
   navigateTo,
   loadSelectedExampleIntoSharedModel,
   loadConfigFileIntoSharedModel,
+  submitTrackedJob,
 }) {
   const drawing = ensureDrawingState(state.data.drawing);
   const viewerStore = createViewerStore();
@@ -178,6 +179,7 @@ export function mountDrawingWorkspace({
   const sectionAssistInput = root.querySelector('[data-hook="drawing-section-assist"]');
   const detailAssistInput = root.querySelector('[data-hook="drawing-detail-assist"]');
   const generateButton = root.querySelector('[data-hook="drawing-generate"]');
+  const trackedRunButton = root.querySelector('[data-hook="drawing-tracked-run"]');
   const configFileInput = root.querySelector('[data-hook="drawing-config-file"]');
 
   let destroyed = false;
@@ -198,6 +200,11 @@ export function mountDrawingWorkspace({
   }
 
   function syncControls() {
+    const apiReady = state.connectionState === 'connected';
+    const runtimeReady = state.data.health.available === true;
+    const hasConfig = Boolean(String(state.data.model.configText || '').trim());
+    const canRun = apiReady && runtimeReady && hasConfig && drawing.status !== 'generating';
+
     const views = new Set(drawing.settings.views || []);
     viewInputs.forEach((input) => {
       input.checked = views.has(input.dataset.view);
@@ -205,7 +212,8 @@ export function mountDrawingWorkspace({
     if (scaleSelect) scaleSelect.value = drawing.settings.scale || 'auto';
     if (sectionAssistInput) sectionAssistInput.checked = drawing.settings.section_assist === true;
     if (detailAssistInput) detailAssistInput.checked = drawing.settings.detail_assist === true;
-    if (generateButton) generateButton.disabled = drawing.status === 'generating';
+    if (generateButton) generateButton.disabled = !canRun;
+    if (trackedRunButton) trackedRunButton.disabled = !canRun;
   }
 
   function syncSourceSummary() {
@@ -242,7 +250,7 @@ export function mountDrawingWorkspace({
     setSurface(
       jobSurface,
       drawing.status === 'generating' ? 'Generating' : ready ? 'Drawing ready' : drawing.status === 'error' ? 'Drawing failed' : 'No drawing yet',
-      drawing.summary || 'Generate drawing is the primary action in this workspace.',
+      drawing.summary || 'Preview drawing stays local and fast; tracked draw uses the shell monitor and recent jobs.',
       tone,
     );
     setSurface(
@@ -446,7 +454,7 @@ export function mountDrawingWorkspace({
   }
 
   function syncSummary() {
-    summaryElement.textContent = drawing.summary || 'Generate drawing to open the sheet-first workbench.';
+    summaryElement.textContent = drawing.summary || 'Preview drawing to work sheet-first, or queue a tracked draw to publish the run.';
   }
 
   function syncAll() {
@@ -508,12 +516,56 @@ export function mountDrawingWorkspace({
     }
   }
 
+  async function runTrackedDraw() {
+    const configToml = String(state.data.model.configText || '').trim();
+    if (!configToml) {
+      drawing.errorMessage = 'Load an example or open a config before starting a tracked draw.';
+      drawing.summary = drawing.errorMessage;
+      syncAll();
+      return;
+    }
+
+    syncSettingsFromControls();
+
+    try {
+      const job = await submitTrackedJob({
+        type: 'draw',
+        configToml,
+        drawingSettings: drawing.settings,
+      });
+      drawing.errorMessage = '';
+      drawing.summary = `Tracked draw ${job.status}. Preview sheet stays available while the job runs.`;
+      addLog({
+        status: 'Drawing',
+        message: `Queued tracked draw for ${state.data.model.sourceName || 'the active config'} with the current sheet settings.`,
+        tone: 'info',
+        time: 'job',
+      });
+      syncAll();
+    } catch (error) {
+      drawing.errorMessage = error instanceof Error ? error.message : String(error);
+      drawing.summary = `Tracked draw could not be queued: ${drawing.errorMessage}`;
+      addLog({
+        status: 'Drawing',
+        message: drawing.summary,
+        tone: 'warn',
+        time: 'job',
+      });
+      syncAll();
+    }
+  }
+
   function handleClick(event) {
     const target = event.target instanceof Element ? event.target.closest('[data-action]') : null;
     if (!target) return;
 
     if (target.dataset.action === 'drawing-generate') {
       generateDrawing();
+      return;
+    }
+
+    if (target.dataset.action === 'drawing-run-tracked') {
+      runTrackedDraw();
       return;
     }
 
