@@ -1,5 +1,6 @@
 import Ajv2020 from 'ajv/dist/2020.js';
 import { readFileSync } from 'node:fs';
+import { LOCAL_API_SERVICE, LOCAL_API_VERSION } from './local-api-contract.js';
 
 const ajv = new Ajv2020({
   allErrors: true,
@@ -16,6 +17,10 @@ const nullableString = {
 const nullableInteger = {
   type: ['integer', 'null'],
   minimum: 0,
+};
+
+const nullableBoolean = {
+  type: ['boolean', 'null'],
 };
 
 const jobRequestSchema = {
@@ -100,6 +105,215 @@ const artifactEntrySchema = {
     stability: nullableString,
     exists: { type: 'boolean' },
     size_bytes: nullableInteger,
+  },
+};
+
+const runtimeDiagnosticsSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'diagnostics_version',
+    'status',
+    'available',
+    'platform',
+    'description',
+    'source',
+    'mode',
+    'path_style',
+    'executable',
+    'python_executable',
+    'runtime_executable',
+    'gui_executable',
+    'checked_candidates',
+    'selected_runtime',
+    'detected_runtime_paths',
+    'env_overrides',
+    'version_details',
+    'command_classes',
+    'capability_map',
+    'warnings',
+    'errors',
+    'support_boundary_note',
+    'next_steps',
+    'remediation',
+  ],
+  properties: {
+    diagnostics_version: { type: 'string', minLength: 1 },
+    status: { enum: ['ready', 'runtime_not_detected'] },
+    available: { type: 'boolean' },
+    platform: { type: 'string', minLength: 1 },
+    description: { type: 'string', minLength: 1 },
+    source: { type: 'string' },
+    mode: { type: 'string' },
+    path_style: { type: 'string' },
+    executable: { type: 'string' },
+    python_executable: { type: 'string' },
+    runtime_executable: { type: 'string' },
+    gui_executable: { type: 'string' },
+    checked_candidates: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+    selected_runtime: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'summary',
+        'source',
+        'mode',
+        'path_style',
+        'executable',
+        'bundle_root',
+        'install_root',
+        'runtime_executable',
+        'python_executable',
+        'gui_executable',
+      ],
+      properties: {
+        summary: { type: 'string', minLength: 1 },
+        source: { type: 'string' },
+        mode: { type: 'string' },
+        path_style: { type: 'string' },
+        executable: { type: 'string' },
+        bundle_root: { type: 'string' },
+        install_root: { type: 'string' },
+        runtime_executable: { type: 'string' },
+        python_executable: { type: 'string' },
+        gui_executable: { type: 'string' },
+      },
+    },
+    detected_runtime_paths: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['checked_candidates', 'selected_candidates'],
+      properties: {
+        checked_candidates: {
+          type: 'array',
+          items: { type: 'string' },
+        },
+        selected_candidates: {
+          type: 'array',
+          items: { type: 'string' },
+        },
+      },
+    },
+    env_overrides: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['resolution_order', 'values'],
+      properties: {
+        resolution_order: {
+          type: 'array',
+          items: { type: 'string', minLength: 1 },
+        },
+        values: {
+          type: 'array',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['name', 'value', 'selected'],
+            properties: {
+              name: { type: 'string', minLength: 1 },
+              value: nullableString,
+              selected: { type: 'boolean' },
+            },
+          },
+        },
+      },
+    },
+    version_details: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['python', 'freecad'],
+      properties: {
+        python: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['executable', 'version', 'platform', 'source', 'error'],
+          properties: {
+            executable: { type: 'string' },
+            version: nullableString,
+            platform: nullableString,
+            source: nullableString,
+            error: nullableString,
+          },
+        },
+        freecad: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['executable', 'version', 'home_path', 'module_path', 'source', 'error'],
+          properties: {
+            executable: { type: 'string' },
+            version: nullableString,
+            home_path: nullableString,
+            module_path: nullableString,
+            source: nullableString,
+            error: nullableString,
+          },
+        },
+      },
+    },
+    command_classes: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['diagnostics', 'freecad_backed', 'plain_python_or_node', 'mixed_or_conditional'],
+      properties: {
+        diagnostics: {
+          type: 'array',
+          items: { type: 'string', minLength: 1 },
+        },
+        freecad_backed: {
+          type: 'array',
+          items: { type: 'string', minLength: 1 },
+        },
+        plain_python_or_node: {
+          type: 'array',
+          items: { type: 'string', minLength: 1 },
+        },
+        mixed_or_conditional: {
+          type: 'array',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['name', 'note'],
+            properties: {
+              name: { type: 'string', minLength: 1 },
+              note: { type: 'string', minLength: 1 },
+            },
+          },
+        },
+      },
+    },
+    capability_map: {
+      type: 'object',
+      additionalProperties: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['classification', 'requires_freecad_runtime', 'note'],
+        properties: {
+          classification: { type: 'string', minLength: 1 },
+          requires_freecad_runtime: nullableBoolean,
+          note: nullableString,
+        },
+      },
+    },
+    warnings: {
+      type: 'array',
+      items: { type: 'string', minLength: 1 },
+    },
+    errors: {
+      type: 'array',
+      items: { type: 'string', minLength: 1 },
+    },
+    support_boundary_note: nullableString,
+    next_steps: {
+      type: 'array',
+      items: { type: 'string', minLength: 1 },
+    },
+    remediation: {
+      type: 'array',
+      items: { type: 'string', minLength: 1 },
+    },
   },
 };
 
@@ -196,43 +410,14 @@ const healthResponseSchema = {
   $id: 'fcad.healthResponse',
   type: 'object',
   additionalProperties: false,
-  required: ['ok', 'status', 'service', 'jobs_dir', 'runtime'],
+  required: ['api_version', 'ok', 'status', 'service', 'jobs_dir', 'runtime'],
   properties: {
+    api_version: { const: LOCAL_API_VERSION },
     ok: { const: true },
     status: { const: 'ok' },
-    service: { const: 'fcad-local-api' },
+    service: { const: LOCAL_API_SERVICE },
     jobs_dir: { type: 'string', minLength: 1 },
-    runtime: {
-      type: 'object',
-      additionalProperties: false,
-      required: [
-        'available',
-        'mode',
-        'source',
-        'path_style',
-        'executable',
-        'python_executable',
-        'runtime_executable',
-        'gui_executable',
-        'checked_candidates',
-        'description',
-      ],
-      properties: {
-        available: { type: 'boolean' },
-        mode: { type: 'string' },
-        source: { type: 'string' },
-        path_style: { type: 'string' },
-        executable: { type: 'string' },
-        python_executable: { type: 'string' },
-        runtime_executable: { type: 'string' },
-        gui_executable: { type: 'string' },
-        checked_candidates: {
-          type: 'array',
-          items: { type: 'string' },
-        },
-        description: { type: 'string', minLength: 1 },
-      },
-    },
+    runtime: runtimeDiagnosticsSchema,
   },
 };
 
@@ -240,8 +425,9 @@ const jobResponseSchema = {
   $id: 'fcad.jobResponse',
   type: 'object',
   additionalProperties: false,
-  required: ['ok', 'job'],
+  required: ['api_version', 'ok', 'job'],
   properties: {
+    api_version: { const: LOCAL_API_VERSION },
     ok: { const: true },
     job: jobSchema,
   },
@@ -251,8 +437,9 @@ const artifactsResponseSchema = {
   $id: 'fcad.artifactsResponse',
   type: 'object',
   additionalProperties: false,
-  required: ['ok', 'job_id', 'artifacts', 'manifest', 'storage'],
+  required: ['api_version', 'ok', 'job_id', 'artifacts', 'manifest', 'storage'],
   properties: {
+    api_version: { const: LOCAL_API_VERSION },
     ok: { const: true },
     job_id: { type: 'string', minLength: 1 },
     artifacts: {
@@ -268,8 +455,9 @@ const errorResponseSchema = {
   $id: 'fcad.errorResponse',
   type: 'object',
   additionalProperties: false,
-  required: ['ok', 'error'],
+  required: ['api_version', 'ok', 'error'],
   properties: {
+    api_version: { const: LOCAL_API_VERSION },
     ok: { const: false },
     error: errorSchema,
   },
