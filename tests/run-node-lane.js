@@ -9,6 +9,7 @@ const LANE_STEPS = {
     { label: 'Config schema CLI', args: ['tests/config-schema-cli.test.js'] },
     { label: 'Runtime path contracts', args: ['tests/paths-runtime.test.js'] },
     { label: 'FreeCAD invocation contracts', args: ['tests/freecad-invocation.test.js'] },
+    { label: 'Studio shell state', args: ['tests/studio-state.test.js'] },
     { label: 'Design reviewer validation', args: ['tests/design-reviewer-validation.test.js'] },
   ],
   integration: [

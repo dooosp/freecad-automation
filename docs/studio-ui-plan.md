@@ -1,5 +1,7 @@
 # Studio UI Plan
 
+This planning note is now complemented by the contributor handoff in [docs/studio-handoff.md](./studio-handoff.md).
+
 This thread adds a parallel browser shell called `FreeCAD Automation Studio` without deleting the legacy viewer.
 
 ## File map

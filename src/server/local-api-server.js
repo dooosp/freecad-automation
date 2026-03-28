@@ -82,11 +82,13 @@ function buildArtifactCapabilities(filePath = '', exists = false) {
 }
 
 function buildArtifactLinks(jobId, artifactId) {
+  const encodedJobId = encodeURIComponent(jobId);
   const encodedId = encodeURIComponent(artifactId);
-  const base = `/jobs/${jobId}/artifacts/${encodedId}/content`;
+  const base = `/artifacts/${encodedJobId}/${encodedId}`;
   return {
     open: base,
-    download: `${base}?download=1`,
+    download: `${base}/download`,
+    api: `/jobs/${encodedJobId}/artifacts/${encodedId}/content`,
   };
 }
 
@@ -159,8 +161,13 @@ function buildLandingPayload({
     },
     studio: {
       available: true,
+      preferred_path: '/',
       path: '/studio',
-      note: 'Future-facing browser shell served in parallel with the local API.',
+      note: 'Future-facing browser shell served by default for browser requests while the local API remains available in parallel.',
+    },
+    api_info: {
+      available: true,
+      path: '/api',
     },
     viewer: {
       available: true,
@@ -171,8 +178,8 @@ function buildLandingPayload({
       health_curl: 'curl http://127.0.0.1:3000/health',
     },
     notes: [
-      'This server is the local API, not the legacy browser viewer.',
-      'Open /studio for the parallel browser shell foundation.',
+      'Browser requests to / open the studio shell by default.',
+      'Open /api for the local API info page and /studio for the direct studio shell route.',
       'Open /health for the runtime diagnostics payload and POST /jobs to enqueue work.',
       'If localhost resolves to another listener on your machine, use 127.0.0.1 explicitly.',
     ],
@@ -246,7 +253,7 @@ function renderLandingPage(payload) {
 <body>
   <main>
     <h1>fcad Local API</h1>
-    <p>This server is the local API for job orchestration. It does not serve the legacy browser viewer UI.</p>
+    <p>This page documents the local API for job orchestration. Browser requests to <code>/</code> now land in the studio shell.</p>
     <div class="card">
       <strong>Project root</strong>
       <div><code>${escapeHtml(payload.project_root)}</code></div>
@@ -254,6 +261,9 @@ function renderLandingPage(payload) {
     <div class="card">
       <strong>API endpoints</strong>
       <ul>
+        <li><a href="/studio"><code>GET /</code></a> redirects browser requests to the preferred studio shell</li>
+        <li><a href="/studio"><code>GET /studio</code></a> opens the direct studio route</li>
+        <li><a href="/api"><code>GET /api</code></a> returns this API info page</li>
         <li><a href="/health"><code>GET /health</code></a> for runtime diagnostics</li>
         <li><a href="/jobs"><code>/jobs</code></a> for job creation targets and route discovery</li>
         <li><a href="/jobs/example-job"><code>/jobs/:id</code></a> to inspect a job status response shape</li>
@@ -262,7 +272,7 @@ function renderLandingPage(payload) {
     </div>
     <div class="card">
       <strong>Parallel studio shell</strong>
-      <p><a href="${escapeHtml(payload.studio.path)}"><code>${escapeHtml(payload.studio.path)}</code></a> hosts the new workspace-style browser shell while the legacy viewer remains available separately.</p>
+      <p>Browser requests to <code>/</code> redirect into <a href="${escapeHtml(payload.studio.path)}"><code>${escapeHtml(payload.studio.path)}</code></a> while the legacy viewer remains available separately.</p>
     </div>
     <div class="card">
       <strong>Quick check</strong>
@@ -288,6 +298,35 @@ function assertResponse(kind, payload) {
     throw new Error(`Invalid ${kind} response: ${validation.errors.join(' | ')}`);
   }
   return payload;
+}
+
+function sendLandingResponse(req, res, payload) {
+  const accepted = req.accepts(['html', 'json', 'text']);
+  if (accepted === 'json') {
+    res.json(payload);
+    return;
+  }
+  if (accepted === 'text') {
+    res.type('text/plain').send([
+      'fcad local API',
+      'Browser requests to / open the FreeCAD Automation Studio shell.',
+      `Project root: ${payload.project_root}`,
+      'Studio shell: /',
+      'Direct studio route: /studio',
+      'API info: /api',
+      'Health: /health',
+      'Jobs: POST /jobs',
+      'Job status shape: /jobs/example-job',
+      'Artifact shape: /jobs/example-job/artifacts',
+      'Artifact open route: /artifacts/:jobId/:artifactId',
+      'Artifact download route: /artifacts/:jobId/:artifactId/download',
+      'Quick check: curl http://127.0.0.1:3000/health',
+      'Browser demo: fcad serve --legacy-viewer',
+      'Fallback browser demo: npm run serve:legacy',
+    ].join('\n'));
+    return;
+  }
+  res.type('html').send(renderLandingPage(payload));
 }
 
 export function buildHealthPayload({
@@ -375,34 +414,25 @@ export function createLocalApiServer({
     }
   });
 
+  app.get(['/api', '/api/'], (req, res) => {
+    const payload = buildLandingPayload({
+      projectRoot,
+      jobsDir: jobStore.jobsDir,
+    });
+    sendLandingResponse(req, res, payload);
+  });
+
   app.get('/', (req, res) => {
     const payload = buildLandingPayload({
       projectRoot,
       jobsDir: jobStore.jobsDir,
     });
     const accepted = req.accepts(['html', 'json', 'text']);
-    if (accepted === 'json') {
-      res.json(payload);
+    if (accepted === 'html') {
+      res.redirect(302, '/studio/');
       return;
     }
-    if (accepted === 'text') {
-      res.type('text/plain').send([
-        'fcad local API',
-        'This server is the local API, not the legacy browser viewer.',
-        `Project root: ${projectRoot}`,
-        'Health: /health',
-        'Studio shell: /studio',
-        'Jobs: POST /jobs',
-        'Job status shape: /jobs/example-job',
-        'Artifact shape: /jobs/example-job/artifacts',
-        'Quick check: curl http://127.0.0.1:3000/health',
-        'Parallel browser shell: /studio',
-        'Browser demo: fcad serve --legacy-viewer',
-        'Fallback browser demo: npm run serve:legacy',
-      ].join('\n'));
-      return;
-    }
-    res.type('html').send(renderLandingPage(payload));
+    sendLandingResponse(req, res, payload);
   });
 
   app.get(['/studio', '/studio/'], (_req, res) => {
@@ -620,14 +650,14 @@ export function createLocalApiServer({
     }
   });
 
-  app.get('/jobs/:id/artifacts/:artifactId/content', async (req, res) => {
+  async function sendArtifactContent({ jobId, artifactId, download = false }, res) {
     try {
-      await jobStore.getJob(req.params.id);
-      const artifact = await jobStore.getArtifact(req.params.id, req.params.artifactId);
+      await jobStore.getJob(jobId);
+      const artifact = await jobStore.getArtifact(jobId, artifactId);
       if (!artifact) {
         const response = createErrorResponse(
           'artifact_not_found',
-          [`No artifact ${req.params.artifactId} found for job ${req.params.id}.`],
+          [`No artifact ${artifactId} found for job ${jobId}.`],
           404
         );
         res.status(response.status).json(assertResponse('error', response.body));
@@ -636,14 +666,13 @@ export function createLocalApiServer({
       if (!artifact.exists) {
         const response = createErrorResponse(
           'artifact_missing',
-          [`Artifact ${artifact.file_name} is registered for job ${req.params.id}, but the file is missing.`],
+          [`Artifact ${artifact.file_name} is registered for job ${jobId}, but the file is missing.`],
           404
         );
         res.status(response.status).json(assertResponse('error', response.body));
         return;
       }
 
-      const download = req.query.download === '1';
       res.type(inferArtifactContentType(artifact.path));
       res.setHeader(
         'Content-Disposition',
@@ -651,9 +680,33 @@ export function createLocalApiServer({
       );
       res.sendFile(resolve(artifact.path));
     } catch {
-      const response = createErrorResponse('job_not_found', [`No job found for id ${req.params.id}.`], 404);
+      const response = createErrorResponse('job_not_found', [`No job found for id ${jobId}.`], 404);
       res.status(response.status).json(assertResponse('error', response.body));
     }
+  }
+
+  app.get('/jobs/:id/artifacts/:artifactId/content', async (req, res) => {
+    await sendArtifactContent({
+      jobId: req.params.id,
+      artifactId: req.params.artifactId,
+      download: req.query.download === '1',
+    }, res);
+  });
+
+  app.get('/artifacts/:jobId/:artifactId', async (req, res) => {
+    await sendArtifactContent({
+      jobId: req.params.jobId,
+      artifactId: req.params.artifactId,
+      download: false,
+    }, res);
+  });
+
+  app.get('/artifacts/:jobId/:artifactId/download', async (req, res) => {
+    await sendArtifactContent({
+      jobId: req.params.jobId,
+      artifactId: req.params.artifactId,
+      download: true,
+    }, res);
   });
 
   app.use((error, _req, res, _next) => {
@@ -698,10 +751,11 @@ export async function startLocalApiServer({
   const actualPort = typeof address === 'object' && address ? address.port : port;
   console.log(`Project root: ${projectRoot}`);
   console.log(`fcad local API listening on http://127.0.0.1:${actualPort}`);
-  console.log(`Open http://127.0.0.1:${actualPort}/ for API info page`);
-  console.log(`Studio shell: http://127.0.0.1:${actualPort}/studio`);
+  console.log(`Studio shell: http://127.0.0.1:${actualPort}/`);
+  console.log(`Direct studio route: http://127.0.0.1:${actualPort}/studio`);
+  console.log(`API info page: http://127.0.0.1:${actualPort}/api`);
   console.log(`Health endpoint: http://127.0.0.1:${actualPort}/health`);
-  console.log('This is the local API, not the legacy browser viewer.');
+  console.log('Browser requests open the studio shell by default; JSON/text callers still reach the local API on /.');
   console.log(`Legacy viewer: fcad serve ${actualPort} --legacy-viewer`);
   console.log('If localhost resolves to another process on your machine, use 127.0.0.1 explicitly.');
   console.log(`Job store: ${jobStore.jobsDir}`);

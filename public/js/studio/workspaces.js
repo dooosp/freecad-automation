@@ -397,8 +397,30 @@ function createQuickLinksCard(state) {
     el('div', {
       className: 'quick-link-row',
       children: [
-        el('span', { className: 'quick-link-label', text: 'Studio API' }),
+        el('span', { className: 'quick-link-label', text: 'Studio shell' }),
         el('code', { className: 'code-chip', text: 'fcad serve' }),
+      ],
+    }),
+    el('div', {
+      className: 'quick-link-row',
+      children: [
+        el('span', { className: 'quick-link-label', text: 'Studio route' }),
+        el('a', {
+          className: 'quick-link-anchor',
+          text: '/',
+          attrs: { href: '/' },
+        }),
+      ],
+    }),
+    el('div', {
+      className: 'quick-link-row',
+      children: [
+        el('span', { className: 'quick-link-label', text: 'API info' }),
+        el('a', {
+          className: 'quick-link-anchor',
+          text: '/api',
+          attrs: { href: '/api' },
+        }),
       ],
     }),
     el('div', {

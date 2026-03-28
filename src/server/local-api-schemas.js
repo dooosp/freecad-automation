@@ -140,6 +140,7 @@ const artifactEntrySchema = {
       properties: {
         open: { type: 'string', minLength: 1 },
         download: { type: 'string', minLength: 1 },
+        api: { type: 'string', minLength: 1 },
       },
     },
   },

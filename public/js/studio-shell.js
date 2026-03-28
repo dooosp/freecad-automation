@@ -3,6 +3,7 @@ import { mountArtifactsWorkspace } from './studio/artifacts-workspace.js';
 import { mountDrawingWorkspace } from './studio/drawing-workspace.js';
 import { mountModelWorkspace } from './studio/model-workspace.js';
 import { mountReviewWorkspace } from './studio/review-workspace.js';
+import { deriveStudioChromeState, normalizeRoute } from './studio/studio-state.js';
 import { workspaceDefinitions } from './studio/workspaces.js';
 
 const workspaceRoot = document.getElementById('workspace-root');
@@ -144,72 +145,13 @@ const state = {
   ],
 };
 
-function normalizeRoute(hashValue) {
-  const cleaned = String(hashValue || '')
-    .replace(/^#/, '')
-    .trim()
-    .toLowerCase();
-  return workspaceDefinitions[cleaned] ? cleaned : 'start';
-}
-
 function setBadgeText(element, text, title = text) {
   element.textContent = text;
   element.title = title;
 }
 
-function summarizePath(rawPath) {
-  if (!rawPath) return 'Project root unavailable';
-  const segments = String(rawPath).split('/').filter(Boolean);
-  if (segments.length <= 2) return rawPath;
-  return `Project ${segments.slice(-2).join('/')}`;
-}
-
-function shortJobLabel(job) {
-  if (!job) return 'No active job';
-  return `${job.type} ${job.status}`;
-}
-
 function syncDerivedState() {
-  const latestJob = state.data.activeJob.summary || state.data.recentJobs.items[0] || null;
-
-  if (state.data.landing?.mode === 'local_api' || state.data.health.reachable) {
-    state.connectionState = state.data.health.status === 'unavailable' ? 'degraded' : 'connected';
-    state.connectionLabel = state.connectionState === 'degraded' ? 'degraded' : 'local api';
-  } else if (state.data.examples.status === 'ready') {
-    state.connectionState = 'legacy';
-    state.connectionLabel = 'legacy shell';
-  } else {
-    state.connectionState = 'placeholder';
-    state.connectionLabel = 'shell only';
-  }
-
-  if (state.data.health.status === 'ready') {
-    state.runtimeTone = state.data.health.available ? 'ok' : 'warn';
-    state.runtimeToneLabel = state.data.health.available ? 'ready' : 'unavailable';
-  } else if (state.connectionState === 'legacy') {
-    state.runtimeTone = 'warn';
-    state.runtimeToneLabel = 'legacy-only';
-  } else {
-    state.runtimeTone = 'info';
-    state.runtimeToneLabel = 'checking';
-  }
-
-  state.runtimeBadgeText = state.data.health.status === 'ready'
-    ? (state.data.health.available ? 'Runtime ready' : 'Runtime check required')
-    : (state.connectionState === 'legacy' ? 'Runtime unavailable on legacy path' : 'Runtime status pending');
-  state.projectBadgeTitle = state.data.health.projectRoot || state.data.landing?.project_root || 'Project root unavailable';
-  state.projectBadgeText = summarizePath(state.projectBadgeTitle);
-  state.connectionBadgeText = state.connectionState === 'connected'
-    ? 'Local API connected'
-    : state.connectionState === 'degraded'
-      ? 'Local API degraded'
-      : state.connectionState === 'legacy'
-        ? 'Legacy shell fallback'
-        : 'Shell-only mode';
-  state.jobBadgeText = latestJob
-    ? `Recent ${shortJobLabel(latestJob)}`
-    : (state.data.recentJobs.status === 'loading' ? 'Recent jobs loading' : 'No recent job');
-  state.jobLabel = latestJob ? shortJobLabel(latestJob) : 'Idle';
+  Object.assign(state, deriveStudioChromeState(state.data));
 }
 
 function syncChrome() {

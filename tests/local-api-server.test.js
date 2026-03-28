@@ -29,13 +29,23 @@ try {
     headers: {
       accept: 'text/html',
     },
+    redirect: 'manual',
   });
-  assert.equal(htmlResponse.status, 200);
-  const html = await htmlResponse.text();
+  assert.equal(htmlResponse.status, 302);
+  assert.equal(htmlResponse.headers.get('location'), '/studio/');
+
+  const apiHtmlResponse = await fetch(`${baseUrl}/api`, {
+    headers: {
+      accept: 'text/html',
+    },
+  });
+  assert.equal(apiHtmlResponse.status, 200);
+  const html = await apiHtmlResponse.text();
   assert.match(html, /fcad Local API/);
-  assert.match(html, /It does not serve the legacy browser viewer UI/);
+  assert.match(html, /Browser requests to <code>\/<\/code> now land in the studio shell/);
   assert.match(html, /GET \/health/);
   assert.match(html, /\/studio/);
+  assert.match(html, /GET \/api/);
   assert.match(html, /fcad serve --legacy-viewer/);
   assert.match(html, new RegExp(ROOT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
 
@@ -50,8 +60,20 @@ try {
   assert.equal(payload.mode, 'local_api');
   assert.equal(payload.project_root, ROOT);
   assert.equal(payload.endpoints.health, '/health');
+  assert.equal(payload.api_info.path, '/api');
+  assert.equal(payload.studio.preferred_path, '/');
   assert.equal(payload.studio.path, '/studio');
   assert.equal(payload.viewer.command, 'fcad serve --legacy-viewer');
+
+  const apiJsonResponse = await fetch(`${baseUrl}/api`, {
+    headers: {
+      accept: 'application/json',
+    },
+  });
+  assert.equal(apiJsonResponse.status, 200);
+  const apiPayload = await apiJsonResponse.json();
+  assert.equal(apiPayload.ok, true);
+  assert.equal(apiPayload.mode, 'local_api');
 
   const studioResponse = await fetch(`${baseUrl}/studio`);
   assert.equal(studioResponse.status, 200);
@@ -145,8 +167,9 @@ try {
   assert.equal(artifactListPayload.artifacts[0].content_type, 'application/json; charset=utf-8');
   assert.equal(artifactListPayload.artifacts[0].capabilities.can_open, true);
   assert.equal(artifactListPayload.artifacts[0].capabilities.can_download, true);
-  assert.match(artifactListPayload.artifacts[0].links.open, new RegExp(`/jobs/${job.id}/artifacts/.+/content`));
-  assert.match(artifactListPayload.artifacts[0].links.download, /\?download=1$/);
+  assert.match(artifactListPayload.artifacts[0].links.open, new RegExp(`/artifacts/${job.id}/.+`));
+  assert.match(artifactListPayload.artifacts[0].links.download, new RegExp(`/artifacts/${job.id}/.+/download$`));
+  assert.match(artifactListPayload.artifacts[0].links.api, new RegExp(`/jobs/${job.id}/artifacts/.+/content$`));
 
   const artifactOpenResponse = await fetch(`${baseUrl}${artifactListPayload.artifacts[0].links.open}`);
   assert.equal(artifactOpenResponse.status, 200);
@@ -156,6 +179,10 @@ try {
   const artifactDownloadResponse = await fetch(`${baseUrl}${artifactListPayload.artifacts[0].links.download}`);
   assert.equal(artifactDownloadResponse.status, 200);
   assert.match(artifactDownloadResponse.headers.get('content-disposition') || '', /^attachment;/);
+
+  const artifactApiResponse = await fetch(`${baseUrl}${artifactListPayload.artifacts[0].links.api}`);
+  assert.equal(artifactApiResponse.status, 200);
+  assert.match(artifactApiResponse.headers.get('content-disposition') || '', /^inline;/);
 
   console.log('local-api-server.test.js: ok');
 } finally {

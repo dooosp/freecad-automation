@@ -226,7 +226,7 @@ The older `fcad validate <plan-file>` command is unchanged and still validates `
 
 ### Local API
 
-`fcad serve` now starts a local/dev-first HTTP API backed by the real Node CLI service layer and the existing Python/FreeCAD runtime path.
+`fcad serve` now starts a local/dev-first HTTP API backed by the real Node CLI service layer and the existing Python/FreeCAD runtime path. It also makes `FreeCAD Automation Studio` the preferred browser UI on `/`, keeps the direct studio route at `/studio`, and exposes the API info page at `/api`.
 
 ```bash
 fcad serve
@@ -240,13 +240,22 @@ Startup behavior:
 - defaults to port `3000`
 - stores jobs under `output/jobs` unless `--jobs-dir` is provided
 - keeps the existing CLI/runtime execution path: `POST /jobs` schedules work through the same service layer used by `fcad create`, `fcad draw`, `fcad inspect`, and `fcad report`
+- browser requests to `GET /` now land in `FreeCAD Automation Studio`
+- `GET /api` returns the local API info page in HTML, JSON, or plain text depending on `Accept`
+- `GET /studio` remains the direct `FreeCAD Automation Studio` route
+- if `localhost` resolves to a different listener on your machine, use `http://127.0.0.1:<port>` explicitly
 
 Endpoints:
 
+- `GET /`
+- `GET /api`
 - `GET /health`
+- `GET /studio`
 - `POST /jobs`
 - `GET /jobs/:id`
 - `GET /jobs/:id/artifacts`
+- `GET /artifacts/:jobId/:artifactId`
+- `GET /artifacts/:jobId/:artifactId/download`
 
 Supported job types:
 
@@ -257,10 +266,14 @@ Supported job types:
 
 Endpoint usage:
 
-- `GET /health` returns API liveness plus detected FreeCAD runtime details
+- `GET /` is the preferred browser entrypoint for the studio shell; JSON and text callers can still use `/` directly
+- `GET /api` returns the local API info page and route discovery payload
+- `GET /health` returns API liveness plus the same shared runtime diagnostics contract used by `fcad check-runtime --json`
 - `POST /jobs` accepts a JSON job request and returns `202 Accepted` with the queued job record
 - `GET /jobs/:id` returns the latest status, request, diagnostics, result, status history, and storage metadata
 - `GET /jobs/:id/artifacts` returns the flattened known artifact list plus persisted storage file metadata
+- `GET /artifacts/:jobId/:artifactId` opens browser-safe artifact content inline when supported
+- `GET /artifacts/:jobId/:artifactId/download` forces a download for the same artifact
 
 Request examples:
 
@@ -292,6 +305,8 @@ curl -X POST http://127.0.0.1:3000/jobs \
 curl http://127.0.0.1:3000/jobs/<job-id>
 
 curl http://127.0.0.1:3000/jobs/<job-id>/artifacts
+
+curl http://127.0.0.1:3000/artifacts/<job-id>/<artifact-id>
 ```
 
 The job store is filesystem-backed under `output/jobs` by default. Each job directory persists:
@@ -304,23 +319,36 @@ The job store is filesystem-backed under `output/jobs` by default. Each job dire
 
 Response notes:
 
-- all endpoints return JSON
+- JSON API endpoints return JSON; browser-facing routes may return HTML, plain text, redirects, or artifact bytes depending on the route and `Accept`
 - success responses always include `ok: true`
 - error responses always include `ok: false` and `error.code` plus `error.messages`
 - job responses include a `storage` block with absolute paths and file existence/size for `job.json`, `request.json`, and `job.log`
+- artifact list responses include browser-facing `links.open` and `links.download` routes, plus the compatibility alias in `links.api`
 
 Current limitations:
 
 - this API is local/dev-first and does not add authentication
 - jobs run in-process; there is no distributed queue, retry worker, or database
 - `job.log` is best-effort and primarily captures orchestration events and stderr surfaced from underlying scripts
-- `GET /jobs/:id/artifacts` reports known output paths; it does not stream artifact contents
+- `GET /jobs/:id/artifacts` reports known output paths and links, but it does not inline artifact contents inside the listing response
 - `POST /jobs` currently exposes only the execution paths for `create`, `draw`, `inspect`, and `report`
+
+Studio and legacy shell guide:
+
+- [Studio UI handoff](./docs/studio-handoff.md)
+- [Studio UI redesign draft](./docs/releases/studio-ui-redesign-draft.md)
 
 Legacy note:
 
 - `fcad serve --legacy-viewer` still starts the older browser demo shell from `server.js`
 - `npm run serve:legacy` continues to point at that older shell
+- `fcad serve` now opens the studio shell at `/`, keeps `/studio` as the direct studio route, and moves the API landing page to `/api`
+- prompt streaming and the original all-in-one websocket viewer loop still live on the legacy path
+- if you need the working all-in-one browser demo, use the legacy viewer commands above until the remaining websocket-only flows are migrated
+
+FAQ:
+
+- If the browser opens `/`, that is now the preferred studio shell. Open `/api` for the API info page or use `fcad serve --legacy-viewer` for the older browser demo UI.
 
 ### Create Canonical Schema
 
