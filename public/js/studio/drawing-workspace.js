@@ -7,6 +7,12 @@ import {
   ensureDrawingTrackedRunState,
   updateDrawingTrackedRunFromJob,
 } from './drawing-tracked-runs.js';
+import {
+  buildDrawingCanvasCaption,
+  buildDrawingPreviewReadySummary,
+  buildDrawingPreviewResultSummary,
+  previewReference,
+} from './drawing-preview-copy.js';
 
 function ensureDrawingState(drawing = {}) {
   drawing.status = drawing.status || 'idle';
@@ -83,10 +89,6 @@ function renderInfoRows(container, rows = []) {
       return row;
     })
   );
-}
-
-function previewReference(preview = {}) {
-  return preview.preview_reference || preview.id || '';
 }
 
 function renderNoteList(container, items = [], emptyCopy) {
@@ -270,7 +272,7 @@ export function mountDrawingWorkspace({
       resultSurface,
       ready ? 'Sheet ready' : drawing.status === 'error' ? 'Last run failed' : 'Sheet pending',
       ready
-        ? `Scale ${drawing.preview.scale || drawing.settings.scale} with ${drawing.preview.bom?.length || 0} BOM line(s) and ${drawing.preview.dimensions?.length || 0} editable dimension(s).`
+        ? buildDrawingPreviewResultSummary(drawing.preview, drawing.settings)
         : (drawing.errorMessage || 'BOM, annotations, QA, and dimension state will summarize here after the first render.'),
       tone,
     );
@@ -307,9 +309,7 @@ export function mountDrawingWorkspace({
     }
 
     if (canvasCaptionElement) {
-      canvasCaptionElement.textContent = preview.editable_plan_available
-        ? `Pan with drag, zoom with the mouse wheel, and click dimension text to keep the edit loop attached to ${previewReference(preview)}.`
-        : 'Pan with drag, zoom with the mouse wheel, and inspect the sheet from the dedicated Drawing workspace.';
+      canvasCaptionElement.textContent = buildDrawingCanvasCaption(preview);
     }
 
     if (drawingRenderer && renderedSignature !== nextSignature) {
@@ -363,8 +363,8 @@ export function mountDrawingWorkspace({
       drawingRenderer?.handleDimensionUpdated(payload.update);
       drawing.status = 'ready';
       drawing.errorMessage = '';
-      drawing.summary = `Updated ${payload.update.dim_id} and regenerated the sheet.`;
       drawing.preview = payload.preview;
+      drawing.summary = `Updated ${payload.update.dim_id}. ${buildDrawingPreviewReadySummary(payload.preview, drawing.settings)}`;
       addLog({
         status: 'Drawing',
         message: `${payload.update.history_op === 'edit' ? 'Updated' : payload.update.history_op === 'undo' ? 'Undid' : 'Redid'} ${payload.update.dim_id} in the sheet-first workbench.`,
@@ -486,7 +486,7 @@ export function mountDrawingWorkspace({
       ['Tracked status', presentation.title],
       ['Execution', presentation.copy],
       ['Tracked settings', `${(trackedSettings.views || []).join(', ') || 'front, top, right, iso'} • scale ${trackedSettings.scale || 'auto'} • section ${trackedSettings.section_assist ? 'on' : 'off'} • detail ${trackedSettings.detail_assist ? 'on' : 'off'}`],
-      ['Edited preview plan', presentation.previewPlanCopy],
+      ['Tracked draw handoff', presentation.previewPlanCopy],
     ];
 
     if (presentation.meta) {
@@ -569,7 +569,7 @@ export function mountDrawingWorkspace({
       });
       drawing.status = 'ready';
       drawing.preview = payload.preview;
-      drawing.summary = `Drawing ready at ${payload.preview.scale || drawing.settings.scale}.`;
+      drawing.summary = buildDrawingPreviewReadySummary(payload.preview, drawing.settings);
       addLog({
         status: 'Drawing',
         message: `Generated a sheet for ${payload.preview.overview?.name || state.data.model.sourceName || 'the active config'} inside the dedicated Drawing workspace.`,

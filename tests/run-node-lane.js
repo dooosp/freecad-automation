@@ -13,6 +13,7 @@ const LANE_STEPS = {
     { label: 'Serve CLI', args: ['tests/serve-cli.test.js'] },
     { label: 'Studio artifact re-entry', args: ['tests/studio-artifact-actions.test.js'] },
     { label: 'Studio public contract helpers', args: ['tests/studio-public-contract.test.js'] },
+    { label: 'Studio drawing workspace helpers', args: ['tests/studio-drawing-workspace.test.js'] },
     { label: 'Studio jobs client', args: ['tests/studio-jobs-client.test.js'] },
     { label: 'Studio model tracked state', args: ['tests/model-tracked-runs.test.js'] },
     { label: 'Studio shell state', args: ['tests/studio-state.test.js'] },
