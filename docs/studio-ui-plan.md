@@ -1,6 +1,6 @@
 # Studio UI Plan
 
-This planning note is now complemented by the contributor handoff in [docs/studio-handoff.md](./studio-handoff.md). Treat the handoff as the source of truth for the current round-2 execution model and route surface.
+This planning note is now complemented by the contributor handoff in [docs/studio-handoff.md](./studio-handoff.md). Treat the handoff as the source of truth for the current phase-3 execution model and route surface.
 
 This thread adds a parallel browser shell called `FreeCAD Automation Studio` without deleting the legacy viewer.
 
@@ -41,12 +41,14 @@ This thread adds a parallel browser shell called `FreeCAD Automation Studio` wit
 - `Artifacts`
   - exports, manifests, reports, job output traceability, and artifact-driven re-entry into other workspaces
 
-## Current round-2 posture
+## Current phase-3 posture
 
 - preview and tracked paths are intentionally separated in `Model` and `Drawing`
-- tracked jobs are monitored through `/jobs` instead of websocket-only progress
+- tracked jobs are monitored through `/jobs` instead of websocket-only progress, and the shell can resume multiple active jobs at once
 - artifact-driven re-entry is available for config-like and model-like artifacts
-- narrow queue controls now exist on the local API for queued cancel and terminal retry, but the broader jobs-center UI is still pending
+- narrow queue controls now exist on the local API for queued cancel and terminal retry, and the jobs center exposes those controls only when the job payload advertises support
+- selected-job deep links now scope `Artifacts` and `Review` directly through `#artifacts?job=<job-id>` and `#review?job=<job-id>`
+- completion handoff now prefers a notice-based handoff when other tracked jobs are still active, instead of assuming a single active-run monitor
 - no goal to replicate the legacy all-in-one websocket UX inside the studio shell
 
 ## Structural decisions for later threads

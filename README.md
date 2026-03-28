@@ -22,6 +22,7 @@ Config lifecycle:
 
 - user-facing configs are now treated as `config_version = 1`
 - unversioned configs still load, but `fcad` emits deprecation warnings when legacy fields are detected
+- new checked-in examples should be explicit canonical v1 unless they intentionally exist as compatibility fixtures
 - `fcad validate-config <path>` validates user-facing config shape and migration state
 - `fcad migrate-config <path> [--out <file>]` writes a versioned config plus a change summary
 - supported config fields, compatibility aliases, and real example references are documented in [docs/config-schema.md](./docs/config-schema.md)
@@ -111,7 +112,7 @@ This keeps Codex focused on the existing `config -> create -> draw -> dfm -> tol
 
 ## Command Surface
 
-Run `fcad check-runtime` before any FreeCAD-backed command on a new machine and as the first troubleshooting step for runtime-backed failures. It prints searched candidate paths, the selected runtime, active env overrides, detected FreeCAD/Python details, command classes, and remediation guidance.
+Run `fcad check-runtime` before any FreeCAD-backed command on a new machine and as the first troubleshooting step for runtime-backed failures. It prints searched candidate paths, the selected runtime, active env overrides, detected FreeCAD/Python details, command classes, and remediation guidance. Add `--json` when a tool needs the same machine-readable runtime contract that the local API exposes from `GET /health`.
 
 ### Command Classification
 
@@ -151,16 +152,20 @@ fcad compare-rev <baseline.json> <candidate.json>
 
 ```bash
 fcad check-runtime
+fcad check-runtime --json
 fcad create <config.toml|json>
 fcad draw <config.toml|json>
 fcad report <config.toml|json>
-fcad inspect <model.step|fcstd>
-fcad fem <config.toml|json>
-fcad tolerance <config.toml|json>
+fcad inspect <model.step|fcstd> [--manifest-out <path>]
+fcad fem <config.toml|json> [--manifest-out <path>]
+fcad tolerance <config.toml|json> [--manifest-out <path>]
+fcad dfm <config.toml|json> [--manifest-out <path>]
 fcad sweep <config.toml|json> --matrix <matrix.toml|json> [--out-dir <dir>]
 ```
 
 `report` is still classified as runtime-backed because it runs inside the FreeCAD bundle on macOS even when it falls back from `freecadcmd` to the bundled FreeCAD Python executable.
+
+`--manifest-out <path>` is the provenance escape hatch for stdout-heavy commands. It keeps the default human-readable stdout intact while letting tooling capture a stable manifest alongside `inspect`, `fem`, `tolerance`, or `dfm`.
 
 ### Parameter Sweep
 
@@ -220,6 +225,7 @@ Upgrade notes:
 - canonical v1 keeps `manufacturing.process` and `manufacturing.material` as the preferred home for manufacturing metadata
 - legacy top-level `process` and `material` still load today, but migration intentionally keeps them only as compatibility fields
 - existing sample configs remain valid inputs because `fcad` auto-migrates them before command execution
+- new checked-in examples should default to explicit `config_version = 1` plus canonical fields; use legacy-compatible examples only when they are intentionally covering migration/regression behavior
 - use `fcad migrate-config` if you want to check in an explicit v1 config file after reviewing the reported manual follow-up items
 
 The older `fcad validate <plan-file>` command is unchanged and still validates `drawing_plan` artifacts rather than user configs.
@@ -250,6 +256,32 @@ Studio execution model:
 - `Preview`: fast request/response work for Model and Drawing. Preview routes are scratch-safe, keep the current workspace state local, and do not create `/jobs` history.
 - `Tracked run`: queues `create`, `draw`, `inspect`, or `report` into `/jobs`, persists artifacts, and keeps the run visible to the shell monitor plus the `Artifacts` and `Review` workspaces.
 - `Artifact re-entry`: `Artifacts` and `Review` can reopen config artifacts in `Model`, rerun tracked `report` from config-like artifacts, or rerun tracked `inspect` from model artifacts without copying raw filesystem paths back into the UI.
+
+Phase-3 tracked execution model:
+
+| Concern | Public/browser-facing contract | Internal execution contract |
+| --- | --- | --- |
+| Job request metadata | `GET /jobs` and `GET /jobs/:id` return sanitized request metadata only. Artifact-driven runs expose safe fields such as `artifact_ref`, `source_job_id`, `source_artifact_id`, `source_artifact_type`, and `source_label`. Absolute execution paths are stripped or reduced before they reach the browser. | The raw executor request still persists in each job directory as `request.json` and remains available to the executor, retry flow, and job-store internals. |
+| Queue controls | `capabilities.cancellation_supported`, `capabilities.retry_supported`, `links.cancel`, and `links.retry` tell the studio when to show queue actions. | The queue stays in-process and dev-local. There is no distributed worker, forced kill path, or hidden retry daemon. |
+| Monitor scope | The shell resumes and polls every queued/running job it knows about, not just a single active run. The jobs badge summarizes active counts, and the jobs center merges monitored jobs with recent history. | Polling still happens one job at a time through `GET /jobs/:id`, and completion routing is derived from persisted artifacts plus the tracked completion action. |
+
+Queue control behavior:
+
+| Job state | `POST /jobs/:id/cancel` | `POST /jobs/:id/retry` |
+| --- | --- | --- |
+| `queued` | Cancels deterministically before execution starts. Returns `200` with the cancelled job record. | Rejected with `409`. Queued jobs are not retry sources. |
+| `running` | Rejected with `409` unless the active executor explicitly reports safe cooperative cancellation support. This phase does not add a forced kill path. | Rejected with `409`. Running jobs are not retry sources. |
+| `succeeded` | Rejected with `409`. Terminal successful jobs are immutable history. | Rejected with `409`. Successful jobs are not retry sources. |
+| `failed` | Rejected with `409`. Failed jobs stay inspectable as-is. | Accepted. Returns `202` with a new queued job cloned from the original persisted request and `retried_from_job_id` pointing at the source job. |
+| `cancelled` | Rejected with `409`. Cancelled jobs stay inspectable as-is. | Accepted. Returns `202` with a new queued job cloned from the original persisted request and `retried_from_job_id` pointing at the source job. |
+
+Jobs center and completion behavior:
+
+- The shell resumes all queued/running jobs returned by `GET /jobs`, then keeps them in a multi-job monitor backed by `GET /jobs/:id`.
+- The jobs center surfaces narrow quick actions only: `Open Artifacts`, `Open Review` when the job is reviewable, `Cancel` when `capabilities.cancellation_supported` is true, and `Retry` when `capabilities.retry_supported` is true.
+- Completion routing is artifact-aware: `create` and `draw` finish into `Artifacts`; `report` prefers `Review` only when review-ready outputs exist; `inspect` prefers `Review` only when review-family results exist or the completion source family is already review-oriented.
+- If a job settles while other jobs are still active, the shell stays on the current workspace and shows a completion notice with deep-link actions instead of forcing a route jump.
+- Selected-job deep links are `#artifacts?job=<job-id>` and `#review?job=<job-id>`. Search-param fallback `?job=<job-id>` is accepted when those workspaces reopen directly, but unsupported routes ignore selected-job scope.
 
 Endpoints:
 
@@ -371,7 +403,7 @@ Response notes:
 - success responses always include `ok: true`
 - error responses always include `ok: false` and `error.code` plus `error.messages`
 - job responses sanitize `request` before returning it to the browser: tracked artifact re-entry exposes safe metadata such as `artifact_ref`, `source_job_id`, `source_artifact_id`, `source_artifact_type`, and `source_label` instead of raw `file_path`, `config_path`, or `source_artifact_path`
-- the raw execution request still persists internally in `request.json` for the executor and job-store flows
+- the raw execution request still persists internally in `request.json` for the executor and job-store flows; public job responses are intentionally not a byte-for-byte echo of that internal file
 - job responses include `retried_from_job_id`, `capabilities.cancellation_supported`, `capabilities.retry_supported`, and `links.cancel` / `links.retry` so the studio can surface narrow queue controls without guessing
 - job responses include a `storage` block with absolute paths and file existence/size for `job.json`, `request.json`, and `job.log`
 - artifact list responses include browser-facing `links.open` and `links.download` routes, plus the compatibility alias in `links.api`

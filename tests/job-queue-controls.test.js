@@ -160,6 +160,46 @@ try {
   assert.equal(runningCancelPayload.error.code, 'job_cancel_not_supported');
   assert.match(runningCancelPayload.error.messages.join('\n'), /does not support safe mid-command cancellation/i);
 
+  const succeededCancelJob = await jobStore.createJob({
+    type: 'create',
+    config: buildConfig(),
+  });
+  await jobStore.completeJob(succeededCancelJob.id, { success: true });
+
+  const succeededCancelResponse = await fetch(`${baseUrl}/jobs/${succeededCancelJob.id}/cancel`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+    },
+  });
+  assert.equal(succeededCancelResponse.status, 409);
+  const succeededCancelPayload = await succeededCancelResponse.json();
+  assert.equal(succeededCancelPayload.ok, false);
+  assert.equal(succeededCancelPayload.error.code, 'job_cancel_not_supported');
+  assert.match(succeededCancelPayload.error.messages.join('\n'), /already succeeded/i);
+
+  const cancelledSourceJob = await jobStore.createJob({
+    type: 'inspect',
+    file_path: join(ROOT, 'tests', 'fixtures', 'sample_part.step'),
+  });
+  await jobStore.cancelJob(cancelledSourceJob.id, {
+    message: 'Cancelled before execution started.',
+  });
+
+  const cancelledRetryResponse = await fetch(`${baseUrl}/jobs/${cancelledSourceJob.id}/retry`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+    },
+  });
+  assert.equal(cancelledRetryResponse.status, 202);
+  const cancelledRetryPayload = await cancelledRetryResponse.json();
+  assert.equal(validateLocalApiResponse('job_action', cancelledRetryPayload).ok, true);
+  assert.equal(cancelledRetryPayload.action.type, 'retry');
+  assert.equal(cancelledRetryPayload.action.source_job_id, cancelledSourceJob.id);
+  assert.equal(cancelledRetryPayload.job.retried_from_job_id, cancelledSourceJob.id);
+  assert.equal(cancelledRetryPayload.job.status, 'queued');
+
   console.log('job-queue-controls.test.js: ok');
 } finally {
   await new Promise((resolveClose) => server.close(resolveClose));

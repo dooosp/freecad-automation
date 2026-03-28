@@ -112,6 +112,63 @@ try {
   assert.equal(jobsIndexPayload.ok, true);
   assert.equal(Array.isArray(jobsIndexPayload.jobs), true);
 
+  const queuedSmokeJob = await jobStore.createJob({
+    type: 'create',
+    config: {
+      name: 'queued_smoke_job',
+      shapes: [{ id: 'body', type: 'box', length: 10, width: 10, height: 10 }],
+      export: { formats: ['step'], directory: 'output' },
+    },
+  });
+  const queuedStatusResponse = await fetch(`${baseUrl}/jobs/${queuedSmokeJob.id}`, {
+    headers: {
+      accept: 'application/json',
+    },
+  });
+  assert.equal(queuedStatusResponse.status, 200);
+  const queuedStatusPayload = await queuedStatusResponse.json();
+  assert.equal(queuedStatusPayload.ok, true);
+  assert.equal(queuedStatusPayload.job.id, queuedSmokeJob.id);
+  assert.equal(queuedStatusPayload.job.status, 'queued');
+  assert.equal(queuedStatusPayload.job.capabilities.cancellation_supported, true);
+  assert.equal(queuedStatusPayload.job.capabilities.retry_supported, false);
+
+  const queuedCancelResponse = await fetch(`${baseUrl}/jobs/${queuedSmokeJob.id}/cancel`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+    },
+  });
+  assert.equal(queuedCancelResponse.status, 200);
+  const queuedCancelPayload = await queuedCancelResponse.json();
+  assert.equal(queuedCancelPayload.ok, true);
+  assert.equal(queuedCancelPayload.action.type, 'cancel');
+  assert.equal(queuedCancelPayload.job.status, 'cancelled');
+
+  const failedRetrySource = await jobStore.createJob({
+    type: 'report',
+    config: {
+      name: 'retry_smoke_job',
+      shapes: [{ id: 'body', type: 'box', length: 12, width: 10, height: 8 }],
+      export: { formats: ['step'], directory: 'output' },
+    },
+  });
+  await jobStore.failJob(failedRetrySource.id, new Error('synthetic retry smoke failure'));
+
+  const failedRetryResponse = await fetch(`${baseUrl}/jobs/${failedRetrySource.id}/retry`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+    },
+  });
+  assert.equal(failedRetryResponse.status, 202);
+  const failedRetryPayload = await failedRetryResponse.json();
+  assert.equal(failedRetryPayload.ok, true);
+  assert.equal(failedRetryPayload.action.type, 'retry');
+  assert.equal(failedRetryPayload.action.source_job_id, failedRetrySource.id);
+  assert.equal(failedRetryPayload.job.retried_from_job_id, failedRetrySource.id);
+  assert.equal(failedRetryPayload.job.status, 'queued');
+
   const studioResponse = await fetch(`${baseUrl}/studio`);
   assert.equal(studioResponse.status, 200);
   const studioHtml = await studioResponse.text();

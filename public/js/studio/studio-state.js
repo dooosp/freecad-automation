@@ -29,17 +29,21 @@ export function routeSupportsSelectedJob(route = '') {
 
 export function parseStudioLocationState(locationLike = {}) {
   const hashValue = String(locationLike.hash || '');
+  const route = normalizeRoute(hashValue);
   const hashQuery = hashValue.includes('?') ? hashValue.split('?').slice(1).join('?') : '';
   const hashParams = toSearchParams(hashQuery);
   const searchParams = toSearchParams(locationLike.search || '');
+  const selectedJobId = routeSupportsSelectedJob(route)
+    ? normalizeSelectedJobId(
+        hashParams.get('job')
+        || searchParams.get('job')
+        || ''
+      )
+    : '';
 
   return {
-    route: normalizeRoute(hashValue),
-    selectedJobId: normalizeSelectedJobId(
-      hashParams.get('job')
-      || searchParams.get('job')
-      || ''
-    ),
+    route,
+    selectedJobId,
   };
 }
 

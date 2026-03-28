@@ -36,6 +36,17 @@ assert.deepEqual(
   }
 );
 
+assert.deepEqual(
+  parseStudioLocationState({
+    hash: '#model?job=job-123',
+    search: '?job=job-999',
+  }),
+  {
+    route: 'model',
+    selectedJobId: '',
+  }
+);
+
 assert.equal(
   serializeStudioLocationState({
     route: 'review',
@@ -81,6 +92,17 @@ assert.deepEqual(
   ),
   {
     route: 'model',
+    selectedJobId: '',
+  }
+);
+
+assert.deepEqual(
+  deriveStudioWorkspaceSelection(
+    { route: 'review', selectedJobId: 'job-123' },
+    { route: 'review', selectedJobId: '' }
+  ),
+  {
+    route: 'review',
     selectedJobId: '',
   }
 );

@@ -77,9 +77,35 @@ try {
   assert.equal(JSON.stringify(publicArtifactRequest).includes('/tmp/private'), false);
   assert.equal(JSON.stringify(publicArtifactRequest).includes('C:\\\\temp\\\\private'), false);
 
+  const publicInspectRequest = toPublicJobRequest({
+    type: 'inspect',
+    file_path: 'C:\\private\\secret\\source.fcstd',
+    options: {
+      labels: [
+        '/tmp/private/model.step',
+        {
+          source_artifact_path: '/tmp/private/ignored.step',
+          raw_path: '/tmp/private/raw.step',
+        },
+      ],
+    },
+  });
+  assert.equal(publicInspectRequest.type, 'inspect');
+  assert.equal('file_path' in publicInspectRequest, false);
+  assert.equal(publicInspectRequest.options.labels[0], 'model.step');
+  assert.equal('source_artifact_path' in publicInspectRequest.options.labels[1], false);
+  assert.equal(publicInspectRequest.options.labels[1].raw_path, 'raw.step');
+  assert.equal('artifact_ref' in publicInspectRequest, false);
+  assert.equal(JSON.stringify(publicInspectRequest).includes('/tmp/private'), false);
+  assert.equal(JSON.stringify(publicInspectRequest).includes('C:\\\\private\\\\secret'), false);
+
   const store = createJobStore({ jobsDir: join(tmpRoot, 'jobs') });
   const job = await store.createJob(valid.request);
   await store.appendLog(job.id, 'queued');
+  assert.deepEqual(
+    JSON.parse(readFileSync(job.paths.request, 'utf8')),
+    valid.request
+  );
 
   const artifactPath = await store.writeJobFile(job.id, 'artifacts/sample.json', '{"ok":true}\n');
   const manifest = await buildArtifactManifest({

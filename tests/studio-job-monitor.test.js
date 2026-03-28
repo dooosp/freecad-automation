@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   countActiveStudioMonitoredJobs,
   describeJobMonitorTransition,
+  ensureStudioJobMonitorState,
   findStudioMonitoredJob,
   listActiveStudioMonitoredJobs,
   mergeTrackedJobIntoRecentJobs,
@@ -54,6 +55,20 @@ const updatedMonitor = upsertStudioMonitoredJob(monitor, {
 assert.equal(findStudioMonitoredJob(updatedMonitor, 'job-queued').enabled, false);
 assert.equal(findStudioMonitoredJob(updatedMonitor, 'job-queued').completionAction.type, 'open-artifacts-on-success');
 assert.equal(countActiveStudioMonitoredJobs(updatedMonitor), 1);
+
+const preservedMonitor = syncActiveJobsIntoMonitor(ensureStudioJobMonitorState({
+  items: [
+    { id: 'job-failed', type: 'create', status: 'failed', updated_at: '2026-03-28T02:00:00.000Z', enabled: false },
+  ],
+}), [
+  { id: 'job-running', type: 'draw', status: 'running', updated_at: '2026-03-28T09:00:00.000Z' },
+  { id: 'job-failed', type: 'create', status: 'failed', updated_at: '2026-03-28T02:00:00.000Z' },
+]);
+
+assert.deepEqual(preservedMonitor.items.map((job) => [job.id, job.enabled]), [
+  ['job-running', true],
+  ['job-failed', false],
+]);
 
 const started = describeJobMonitorTransition(
   { id: 'job-123456789', type: 'draw' },

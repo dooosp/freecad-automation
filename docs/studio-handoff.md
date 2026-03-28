@@ -40,9 +40,31 @@ Practical rules:
 - Use preview while iterating on TOML, geometry, sheet layout, or dimensions and you do not need provenance yet.
 - Use tracked runs when the output should appear in the job timeline, feed `Review`, or support artifact-driven re-entry later.
 - Model preview and drawing preview stay available even while a tracked run is queued or running.
-- The shell monitor polls `GET /jobs/:id` and can reopen `Artifacts` or `Review` automatically after a tracked run succeeds.
+- The shell monitor resumes and polls every queued/running job it knows about through `GET /jobs/:id`; it is no longer a single-active-run indicator.
 - Artifacts and Review deep links can carry a selected tracked job as `#artifacts?job=<job-id>` or `#review?job=<job-id>`. Search-param fallback `?job=<job-id>` is also accepted when reopening a shared URL.
 - Queue controls stay narrow on purpose: queued jobs can be cancelled, failed/cancelled jobs can be retried, and running-job cancellation is only available when the executor can stop cleanly.
+
+## Public vs internal job data
+
+| Surface | What it contains | What it hides |
+| --- | --- | --- |
+| `GET /jobs` and `GET /jobs/:id` | sanitized request metadata, status history, diagnostics, result, storage metadata, and artifact-manifest summary | raw `file_path`, `config_path`, and `source_artifact_path` values |
+| `request.json` inside the job directory | the internal executor request exactly as persisted for execution or retry | nothing; this is the internal source of truth |
+| Artifact re-entry metadata | `artifact_ref`, `source_job_id`, `source_artifact_id`, `source_artifact_type`, `source_label` | the raw artifact filesystem path used internally |
+
+Absolute paths that still appear in browser-visible payloads are limited to storage metadata and artifact metadata, where the path itself is part of the operational/debug surface.
+
+## Queue controls by state
+
+| Job state | Cancel | Retry |
+| --- | --- | --- |
+| `queued` | Supported. Returns the cancelled job and keeps `started_at = null`. | Not supported. |
+| `running` | Rejected unless the active executor explicitly supports safe cooperative cancellation. This phase does not add forced kill behavior. | Not supported. |
+| `succeeded` | Not supported. Completed history stays immutable. | Not supported. |
+| `failed` | Not supported. Inspect the failure as persisted. | Supported. Creates a new queued job from the original internal request. |
+| `cancelled` | Not supported. Inspect the cancellation as persisted. | Supported. Creates a new queued job from the original internal request. |
+
+Every queue action is capability-driven in the UI. The jobs center and workspace cards do not guess; they read `capabilities.cancellation_supported` and `capabilities.retry_supported` from the job payload.
 
 ## Selected-job deep links
 
@@ -50,6 +72,19 @@ Practical rules:
 - `#review?job=<job-id>` opens the Review workspace and loads that tracked job into the review console. If review-ready artifacts are missing, the workspace stays honest and shows the gap instead of redirecting elsewhere.
 - Navigation between `Artifacts` and `Review` preserves the selected job in the hash so shared or reopened URLs stay operational instead of landing on an unscoped panel.
 - Existing workspace routing still works without a selected job. The route fragment remains the source of truth for workspace choice; the optional `job` value only scopes the active tracked-job context inside `Artifacts` and `Review`.
+- Hash-scoped `job` wins when both hash and search params are present. Search-param fallback is only used when the selected workspace is already `Artifacts` or `Review`.
+- Unsupported routes such as `#start?job=<id>` or `#model?job=<id>` ignore selected-job scope instead of carrying it forward invisibly.
+
+## Multi-job monitor and jobs center
+
+- The top-bar jobs badge summarizes all queued/running jobs currently monitored by the shell, not just the last submitted job.
+- The jobs center merges active monitored jobs with recent terminal jobs from `GET /jobs`, dedupes by job id, and sorts by `updated_at`.
+- Quick actions are intentionally narrow:
+  - `Open Artifacts` for any tracked job with an id.
+  - `Open Review` only for succeeded `inspect` or `report` jobs.
+  - `Cancel` only when the job payload advertises `capabilities.cancellation_supported = true`.
+  - `Retry` only when the job payload advertises `capabilities.retry_supported = true`.
+- The jobs center is intentionally local/dev-first. It does not add bulk actions, queue priority, forced kill, or cross-machine orchestration in this phase.
 
 ## Completion handoff defaults
 
@@ -60,9 +95,9 @@ Practical rules:
 | `report` | `Review` when review-ready outputs exist, otherwise `Artifacts` | Review gets priority only when normalized review/readiness artifacts are actually present. |
 | `inspect` | `Review` for review-family results, otherwise `Artifacts` | Inspect stays artifact-first unless the completed run clearly produced review-oriented output. |
 
-When a job settles while other tracked jobs are still active, the shell prefers a completion notice with explicit `Open Review` / `Open Artifacts` actions over an automatic route jump.
+When a job settles while other tracked jobs are still active, the shell prefers a completion notice with explicit `Open Review` / `Open Artifacts` actions over an automatic route jump. If no other jobs remain active, the shell can deep-link directly into the resolved target workspace for that completed job.
 
-## Round-2 Execution Flow
+## Phase-3 Execution Flow
 
 `Model`
 
@@ -132,6 +167,6 @@ The studio shell is now the preferred browser surface for `fcad serve`, but it d
 ## Remaining gaps
 
 - Prompt-design flow: the studio supports prompt-to-TOML drafting, but not the legacy streaming UX or richer assistant iteration controls.
-- Runtime-only features: the studio directly covers validate, model preview, drawing preview, tracked jobs, queued cancel, terminal retry, artifact browsing, and artifact-driven inspect/report re-entry. It does not yet expose dedicated workspace controls for FEM, tolerance, richer jobs-center queue orchestration, or any unsafe forced kill path for running commands.
+- Runtime-only features: the studio directly covers validate, model preview, drawing preview, tracked jobs, queued cancel, terminal retry, multi-job monitoring, jobs-center quick actions, artifact browsing, and artifact-driven inspect/report re-entry. It does not yet expose dedicated workspace controls for FEM, tolerance, bulk queue actions, or any unsafe forced kill path for running commands.
 - Deferred review workflows: Review is still read-only and depends on tracked artifacts rather than live inline authoring.
 - Still-legacy drawing/edit flows: the studio supports HTTP dimension edits, but the original websocket-driven all-in-one drawing flow remains the fallback for contributors who still depend on that shell.
