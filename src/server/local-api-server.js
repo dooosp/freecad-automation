@@ -1,7 +1,7 @@
 import express from 'express';
 import { createServer } from 'node:http';
 import { readFile, readdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { extname, join, resolve } from 'node:path';
 import { buildRuntimeDiagnostics } from '../../lib/runtime-diagnostics.js';
 import { createJobStore } from '../services/jobs/job-store.js';
 import { createJobExecutor, validateJobRequest } from '../services/jobs/job-executor.js';
@@ -17,6 +17,89 @@ const STUDIO_CSS = join(PUBLIC_DIR, 'css', 'studio.css');
 const STUDIO_SHELL_JS = join(PUBLIC_DIR, 'js', 'studio-shell.js');
 const APP_JS_DIR = join(PUBLIC_DIR, 'js', 'app');
 const STUDIO_JS_DIR = join(PUBLIC_DIR, 'js', 'studio');
+const INLINE_ARTIFACT_EXTENSIONS = new Set([
+  '.csv',
+  '.dxf',
+  '.html',
+  '.json',
+  '.log',
+  '.md',
+  '.markdown',
+  '.pdf',
+  '.svg',
+  '.text',
+  '.toml',
+  '.txt',
+  '.xml',
+  '.yaml',
+  '.yml',
+  '.step',
+]);
+
+function inferArtifactContentType(filePath = '') {
+  const extension = extname(filePath).toLowerCase();
+  switch (extension) {
+    case '.csv':
+      return 'text/csv; charset=utf-8';
+    case '.dxf':
+      return 'image/vnd.dxf';
+    case '.html':
+      return 'text/html; charset=utf-8';
+    case '.json':
+      return 'application/json; charset=utf-8';
+    case '.log':
+    case '.txt':
+    case '.text':
+    case '.step':
+      return 'text/plain; charset=utf-8';
+    case '.md':
+    case '.markdown':
+      return 'text/markdown; charset=utf-8';
+    case '.pdf':
+      return 'application/pdf';
+    case '.svg':
+      return 'image/svg+xml';
+    case '.toml':
+      return 'application/toml; charset=utf-8';
+    case '.xml':
+      return 'application/xml; charset=utf-8';
+    case '.yaml':
+    case '.yml':
+      return 'application/yaml; charset=utf-8';
+    default:
+      return 'application/octet-stream';
+  }
+}
+
+function buildArtifactCapabilities(filePath = '', exists = false) {
+  const extension = extname(filePath).toLowerCase();
+  const browserSafe = INLINE_ARTIFACT_EXTENSIONS.has(extension);
+  return {
+    can_open: exists && browserSafe,
+    can_download: exists,
+    browser_safe: browserSafe,
+  };
+}
+
+function buildArtifactLinks(jobId, artifactId) {
+  const encodedId = encodeURIComponent(artifactId);
+  const base = `/jobs/${jobId}/artifacts/${encodedId}/content`;
+  return {
+    open: base,
+    download: `${base}?download=1`,
+  };
+}
+
+function toArtifactResponse(jobId, artifact) {
+  const contentType = inferArtifactContentType(artifact.path);
+  return {
+    ...artifact,
+    path: resolve(artifact.path),
+    content_type: contentType,
+    capabilities: buildArtifactCapabilities(artifact.path, artifact.exists),
+    links: buildArtifactLinks(jobId, artifact.id),
+  };
+}
 
 async function loadExampleConfigs() {
   const files = await readdir(EXAMPLES_DIR);
@@ -518,7 +601,9 @@ export function createLocalApiServer({
   app.get('/jobs/:id/artifacts', async (req, res) => {
     try {
       const job = await jobStore.getJob(req.params.id);
-      const artifacts = await jobStore.listArtifacts(req.params.id);
+      const artifacts = (await jobStore.listArtifacts(req.params.id)).map((artifact) =>
+        toArtifactResponse(req.params.id, artifact)
+      );
       const storage = await jobStore.describeStorage(req.params.id);
       const payload = {
         api_version: LOCAL_API_VERSION,
@@ -529,6 +614,42 @@ export function createLocalApiServer({
         storage,
       };
       res.json(assertResponse('artifacts', payload));
+    } catch {
+      const response = createErrorResponse('job_not_found', [`No job found for id ${req.params.id}.`], 404);
+      res.status(response.status).json(assertResponse('error', response.body));
+    }
+  });
+
+  app.get('/jobs/:id/artifacts/:artifactId/content', async (req, res) => {
+    try {
+      await jobStore.getJob(req.params.id);
+      const artifact = await jobStore.getArtifact(req.params.id, req.params.artifactId);
+      if (!artifact) {
+        const response = createErrorResponse(
+          'artifact_not_found',
+          [`No artifact ${req.params.artifactId} found for job ${req.params.id}.`],
+          404
+        );
+        res.status(response.status).json(assertResponse('error', response.body));
+        return;
+      }
+      if (!artifact.exists) {
+        const response = createErrorResponse(
+          'artifact_missing',
+          [`Artifact ${artifact.file_name} is registered for job ${req.params.id}, but the file is missing.`],
+          404
+        );
+        res.status(response.status).json(assertResponse('error', response.body));
+        return;
+      }
+
+      const download = req.query.download === '1';
+      res.type(inferArtifactContentType(artifact.path));
+      res.setHeader(
+        'Content-Disposition',
+        `${download ? 'attachment' : 'inline'}; filename="${artifact.file_name.replaceAll('"', '')}"`
+      );
+      res.sendFile(resolve(artifact.path));
     } catch {
       const response = createErrorResponse('job_not_found', [`No job found for id ${req.params.id}.`], 404);
       res.status(response.status).json(assertResponse('error', response.body));

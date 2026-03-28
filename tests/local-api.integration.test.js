@@ -105,6 +105,16 @@ if (!hasFreeCADRuntime()) {
     assert.equal(artifactsPayload.manifest.command, 'create');
     assert.equal(artifactsPayload.storage.files.log.exists, true);
     assert(artifactsPayload.artifacts.some((artifact) => artifact.exists && artifact.path.endsWith('.step')));
+    const stepArtifact = artifactsPayload.artifacts.find((artifact) => artifact.exists && artifact.path.endsWith('.step'));
+    assert.equal(typeof stepArtifact.id, 'string');
+    assert.equal(typeof stepArtifact.file_name, 'string');
+    assert.equal(typeof stepArtifact.links.open, 'string');
+    assert.equal(stepArtifact.capabilities.can_download, true);
+
+    const artifactContentResponse = await fetch(`${baseUrl}${stepArtifact.links.open}`);
+    assert.equal(artifactContentResponse.status, 200);
+    const artifactContentBytes = await artifactContentResponse.arrayBuffer();
+    assert(artifactContentBytes.byteLength > 0);
 
     const recentJobsResponse = await fetch(`${baseUrl}/jobs?limit=1`);
     const recentJobsPayload = await recentJobsResponse.json();

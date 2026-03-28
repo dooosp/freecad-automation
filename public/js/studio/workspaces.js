@@ -13,6 +13,8 @@ import {
   createActionGrid,
   el,
 } from './renderers.js';
+import { renderReviewWorkspace } from './review-workspace.js';
+import { renderArtifactsWorkspace } from './artifacts-workspace.js';
 
 function workspaceShell({ kicker, title, description, badges, controls, canvas }) {
   return el('section', {
@@ -1436,15 +1438,15 @@ export const workspaceDefinitions = {
   review: {
     label: 'Review',
     summary: 'Design, DFM, readiness, and stabilization decisions.',
-    render() {
-      return createReviewWorkspace();
+    render(state) {
+      return renderReviewWorkspace(state);
     },
   },
   artifacts: {
     label: 'Artifacts',
     summary: 'Recent-job artifact trail, manifests, and output storage.',
     render(state) {
-      return createArtifactsWorkspace(state);
+      return renderArtifactsWorkspace(state);
     },
   },
 };

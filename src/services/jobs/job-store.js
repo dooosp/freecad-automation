@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, readdir, stat, writeFile, appendFile } from 'node:fs/promises';
-import { dirname, resolve, join } from 'node:path';
+import { basename, dirname, extname, resolve, join } from 'node:path';
 
 import { writeArtifactManifest } from '../../../lib/artifact-manifest.js';
 
@@ -38,12 +38,47 @@ function flattenManifestArtifacts(artifacts = []) {
   return artifacts
     .filter((artifact) => artifact && typeof artifact === 'object' && typeof artifact.path === 'string')
     .map((artifact, index) => ({
+      id: artifact.id || `${artifact.type || 'artifact'}-${index}`,
       key: artifact.label || artifact.type || `artifact[${index}]`,
       path: artifact.path,
       type: artifact.type || 'artifact',
       scope: artifact.scope || 'user-facing',
       stability: artifact.stability || 'stable',
     }));
+}
+
+function slugify(value) {
+  return String(value || 'artifact')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    || 'artifact';
+}
+
+function normalizeArtifactEntries(job) {
+  const rawEntries = job.manifest?.artifacts?.length
+    ? flattenManifestArtifacts(job.manifest.artifacts)
+    : flattenArtifacts(job.artifacts);
+
+  return rawEntries.map((artifact, index) => {
+    const fileName = basename(artifact.path);
+    const extension = extname(fileName).toLowerCase();
+    const id = artifact.id
+      ? slugify(artifact.id)
+      : `${slugify(artifact.type || artifact.key || fileName || 'artifact')}-${index}`;
+
+    return {
+      id,
+      key: artifact.key,
+      path: artifact.path,
+      type: artifact.type || null,
+      scope: artifact.scope || null,
+      stability: artifact.stability || null,
+      file_name: fileName,
+      extension,
+    };
+  });
 }
 
 export function createJobStore({ jobsDir }) {
@@ -240,17 +275,18 @@ export function createJobStore({ jobsDir }) {
     },
     async listArtifacts(id) {
       const job = await this.getJob(id);
-      const artifactEntries = job.manifest?.artifacts?.length
-        ? flattenManifestArtifacts(job.manifest.artifacts)
-        : flattenArtifacts(job.artifacts);
+      const artifactEntries = normalizeArtifactEntries(job);
       const results = [];
       for (const artifact of artifactEntries) {
         const record = {
+          id: artifact.id,
           key: artifact.key,
           path: artifact.path,
           type: artifact.type || null,
           scope: artifact.scope || null,
           stability: artifact.stability || null,
+          file_name: artifact.file_name,
+          extension: artifact.extension,
           exists: false,
           size_bytes: null,
         };
@@ -264,6 +300,10 @@ export function createJobStore({ jobsDir }) {
         results.push(record);
       }
       return results;
+    },
+    async getArtifact(id, artifactId) {
+      const artifacts = await this.listArtifacts(id);
+      return artifacts.find((artifact) => artifact.id === artifactId) || null;
     },
   };
 }

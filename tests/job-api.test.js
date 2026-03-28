@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 
 import { buildArtifactManifest } from '../lib/artifact-manifest.js';
 import { createJobStore } from '../src/services/jobs/job-store.js';
+import { LOCAL_API_VERSION } from '../src/server/local-api-contract.js';
 import { validateJobRequest } from '../src/services/jobs/job-executor.js';
 import { validateLocalApiResponse } from '../src/server/local-api-schemas.js';
 
@@ -76,14 +77,31 @@ try {
   const persistedJob = await store.getJob(job.id);
   assert.equal(persistedJob.status, 'succeeded');
   assert.equal(persistedJob.result.success, true);
+  assert.equal(persistedJob.manifest.manifest_version, '1.0');
   assert.equal(persistedJob.manifest.command, 'report');
   assert.match(readFileSync(persistedJob.paths.log, 'utf8'), /queued/);
 
   const artifacts = await store.listArtifacts(job.id);
   assert.equal(artifacts.length, 1);
   assert.equal(artifacts[0].exists, true);
+  assert.match(artifacts[0].id, /sample|report-sample|artifact/i);
   assert.equal(artifacts[0].key, 'Sample artifact');
   assert.equal(artifacts[0].type, 'report.sample');
+  assert.equal(artifacts[0].file_name, 'sample.json');
+  assert.equal(artifacts[0].extension, '.json');
+  const apiArtifacts = artifacts.map((artifact) => ({
+    ...artifact,
+    content_type: 'application/json; charset=utf-8',
+    capabilities: {
+      can_open: true,
+      can_download: true,
+      browser_safe: true,
+    },
+    links: {
+      open: `/jobs/${job.id}/artifacts/${artifact.id}/content`,
+      download: `/jobs/${job.id}/artifacts/${artifact.id}/content?download=1`,
+    },
+  }));
 
   const storage = await store.describeStorage(job.id);
   assert.equal(storage.root.endsWith(job.id), true);
@@ -93,6 +111,7 @@ try {
   assert.equal(storage.files.manifest.exists, true);
 
   const responseValidation = validateLocalApiResponse('job', {
+    api_version: LOCAL_API_VERSION,
     ok: true,
     job: {
       id: job.id,
@@ -119,9 +138,10 @@ try {
   assert.equal(responseValidation.ok, true, responseValidation.errors.join('\n'));
 
   const artifactsResponseValidation = validateLocalApiResponse('artifacts', {
+    api_version: LOCAL_API_VERSION,
     ok: true,
     job_id: job.id,
-    artifacts,
+    artifacts: apiArtifacts,
     manifest: persistedJob.manifest,
     storage,
   });

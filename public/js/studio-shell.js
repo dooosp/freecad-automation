@@ -1,6 +1,8 @@
 import { createLogEntry } from './studio/renderers.js';
+import { mountArtifactsWorkspace } from './studio/artifacts-workspace.js';
 import { mountDrawingWorkspace } from './studio/drawing-workspace.js';
 import { mountModelWorkspace } from './studio/model-workspace.js';
+import { mountReviewWorkspace } from './studio/review-workspace.js';
 import { workspaceDefinitions } from './studio/workspaces.js';
 
 const workspaceRoot = document.getElementById('workspace-root');
@@ -107,6 +109,29 @@ const state = {
       manifest: null,
       storage: null,
       errorMessage: '',
+    },
+    review: {
+      status: 'idle',
+      jobId: '',
+      cards: [],
+      selectedCardId: '',
+      errorMessage: '',
+      cache: {},
+    },
+    artifactsWorkspace: {
+      selectedArtifactId: '',
+      previewStatus: 'idle',
+      previewText: '',
+      previewArtifactId: '',
+      previewError: '',
+      compare: {
+        jobId: '',
+        status: 'idle',
+        errorMessage: '',
+        job: null,
+        artifacts: [],
+      },
+      cache: {},
     },
   },
   logs: [
@@ -221,6 +246,21 @@ function renderWorkspace() {
       navigateTo,
       loadSelectedExampleIntoSharedModel,
       loadConfigFileIntoSharedModel,
+    });
+  } else if (state.route === 'review') {
+    activeWorkspaceController = mountReviewWorkspace({
+      root: workspaceRoot,
+      state,
+      addLog,
+      openJob,
+    });
+  } else if (state.route === 'artifacts') {
+    activeWorkspaceController = mountArtifactsWorkspace({
+      root: workspaceRoot,
+      state,
+      addLog,
+      openJob,
+      fetchJson,
     });
   }
   applyPendingFocus();
@@ -520,7 +560,7 @@ async function openConfigFile(file) {
   navigateTo('model', { pendingFocus: 'config' });
 }
 
-async function openJob(jobId) {
+async function openJob(jobId, { route = 'artifacts' } = {}) {
   const summary = state.data.recentJobs.items.find((job) => job.id === jobId);
   if (!summary) return;
 
@@ -532,7 +572,30 @@ async function openJob(jobId) {
     storage: null,
     errorMessage: '',
   };
-  navigateTo('artifacts');
+  state.data.review = {
+    ...state.data.review,
+    status: 'idle',
+    jobId: '',
+    cards: [],
+    selectedCardId: '',
+    errorMessage: '',
+  };
+  state.data.artifactsWorkspace = {
+    ...state.data.artifactsWorkspace,
+    selectedArtifactId: '',
+    previewStatus: 'idle',
+    previewText: '',
+    previewArtifactId: '',
+    previewError: '',
+    compare: {
+      jobId: '',
+      status: 'idle',
+      errorMessage: '',
+      job: null,
+      artifacts: [],
+    },
+  };
+  navigateTo(route);
 
   try {
     const payload = await fetchJson(summary.links?.artifacts || `/jobs/${jobId}/artifacts`);
@@ -544,6 +607,7 @@ async function openJob(jobId) {
       storage: payload?.storage || null,
       errorMessage: '',
     };
+    state.data.artifactsWorkspace.selectedArtifactId = state.data.activeJob.artifacts[0]?.id || '';
     addLog({
       status: 'Artifacts',
       message: `Opened tracked artifacts for ${summary.type} ${jobId.slice(0, 8)}.`,

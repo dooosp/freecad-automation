@@ -96,15 +96,52 @@ const storageFileSchema = {
 const artifactEntrySchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['key', 'path', 'type', 'scope', 'stability', 'exists', 'size_bytes'],
+  required: [
+    'id',
+    'key',
+    'path',
+    'type',
+    'scope',
+    'stability',
+    'file_name',
+    'extension',
+    'content_type',
+    'exists',
+    'size_bytes',
+    'capabilities',
+    'links',
+  ],
   properties: {
+    id: { type: 'string', minLength: 1 },
     key: { type: 'string', minLength: 1 },
     path: { type: 'string', minLength: 1 },
     type: nullableString,
     scope: nullableString,
     stability: nullableString,
+    file_name: { type: 'string', minLength: 1 },
+    extension: { type: 'string' },
+    content_type: { type: 'string', minLength: 1 },
     exists: { type: 'boolean' },
     size_bytes: nullableInteger,
+    capabilities: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['can_open', 'can_download', 'browser_safe'],
+      properties: {
+        can_open: { type: 'boolean' },
+        can_download: { type: 'boolean' },
+        browser_safe: { type: 'boolean' },
+      },
+    },
+    links: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['open', 'download'],
+      properties: {
+        open: { type: 'string', minLength: 1 },
+        download: { type: 'string', minLength: 1 },
+      },
+    },
   },
 };
 
