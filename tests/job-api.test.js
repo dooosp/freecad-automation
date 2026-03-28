@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { buildArtifactManifest } from '../lib/artifact-manifest.js';
 import { createJobStore } from '../src/services/jobs/job-store.js';
 import { LOCAL_API_VERSION } from '../src/server/local-api-contract.js';
+import { toPublicJobRequest } from '../src/server/public-job-request.js';
 import { validateJobRequest } from '../src/services/jobs/job-executor.js';
 import { validateLocalApiResponse } from '../src/server/local-api-schemas.js';
 
@@ -44,6 +45,37 @@ try {
     },
   });
   assert.equal(valid.ok, true);
+
+  const publicArtifactRequest = toPublicJobRequest({
+    type: 'report',
+    config_path: '/tmp/private/effective-config.json',
+    options: {
+      override_path: '/tmp/private/override.toml',
+      studio: {
+        source: 'artifact-reference',
+        source_job_id: 'job-upstream',
+        source_artifact_id: 'effective-config',
+        source_artifact_type: 'config.effective',
+        source_label: 'Effective config copy',
+        source_artifact_path: '/tmp/private/effective-config.json',
+      },
+      metadata: {
+        nested_path: 'C:\\temp\\private\\source.fcstd',
+      },
+    },
+  });
+  assert.equal(publicArtifactRequest.type, 'report');
+  assert.deepEqual(publicArtifactRequest.artifact_ref, {
+    job_id: 'job-upstream',
+    artifact_id: 'effective-config',
+  });
+  assert.equal(publicArtifactRequest.source_label, 'Effective config copy');
+  assert.equal('config_path' in publicArtifactRequest, false);
+  assert.equal('source_artifact_path' in (publicArtifactRequest.options?.studio || {}), false);
+  assert.equal(publicArtifactRequest.options.override_path, 'override.toml');
+  assert.equal(publicArtifactRequest.options.metadata.nested_path, 'source.fcstd');
+  assert.equal(JSON.stringify(publicArtifactRequest).includes('/tmp/private'), false);
+  assert.equal(JSON.stringify(publicArtifactRequest).includes('C:\\\\temp\\\\private'), false);
 
   const store = createJobStore({ jobsDir: join(tmpRoot, 'jobs') });
   const job = await store.createJob(valid.request);
@@ -122,7 +154,7 @@ try {
       started_at: persistedJob.started_at,
       finished_at: persistedJob.finished_at,
       error: persistedJob.error,
-      request: persistedJob.request,
+      request: toPublicJobRequest(persistedJob.request),
       diagnostics: persistedJob.diagnostics,
       artifacts: persistedJob.artifacts,
       manifest: persistedJob.manifest,

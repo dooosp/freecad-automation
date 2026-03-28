@@ -53,6 +53,7 @@ function buildResolvedArtifactOptions(request, resolvedArtifact) {
     source_job_id: resolvedArtifact.jobId,
     source_artifact_id: resolvedArtifact.artifact.id,
     source_artifact_type: resolvedArtifact.artifact.type || '',
+    source_label: resolvedArtifact.artifact.key || resolvedArtifact.artifact.file_name || resolvedArtifact.artifact.type || resolvedArtifact.artifact.id,
     source_artifact_path: resolvedArtifact.artifact.path,
   };
   return options;

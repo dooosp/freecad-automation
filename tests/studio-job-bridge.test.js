@@ -150,6 +150,7 @@ assert.equal(inspectFromArtifact.ok, true, inspectFromArtifact.errors?.join('\n'
 assert.equal(inspectFromArtifact.request.type, 'inspect');
 assert.equal(inspectFromArtifact.request.file_path, '/tmp/example.step');
 assert.equal(inspectFromArtifact.request.options.studio.source_artifact_id, 'model-step');
+assert.equal(inspectFromArtifact.request.options.studio.source_label, 'example.step');
 
 const reportFromArtifact = await translateStudioJobSubmission({
   type: 'report',
@@ -180,6 +181,7 @@ assert.equal(reportFromArtifact.ok, true, reportFromArtifact.errors?.join('\n'))
 assert.equal(reportFromArtifact.request.type, 'report');
 assert.equal(reportFromArtifact.request.config_path, '/tmp/effective-config.json');
 assert.deepEqual(reportFromArtifact.request.options.report_options, { style: 'summary' });
+assert.equal(reportFromArtifact.request.options.studio.source_label, 'effective-config.json');
 
 const invalidInspectArtifact = await translateStudioJobSubmission({
   type: 'inspect',

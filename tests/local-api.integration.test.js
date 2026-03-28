@@ -83,6 +83,8 @@ if (!hasFreeCADRuntime()) {
     assert.equal(created.api_version, LOCAL_API_VERSION);
     assert.equal(created.ok, true);
     assert.equal(validateLocalApiResponse('job', created).ok, true);
+    assert.equal('config_path' in created.job.request, false);
+    assert.equal(JSON.stringify(created.job.request).includes(configPath), false);
     assert.equal(created.job.storage.files.request.exists, true);
     assert.equal(created.job.storage.files.log.exists, true);
 
@@ -91,6 +93,8 @@ if (!hasFreeCADRuntime()) {
     assert.equal(Array.isArray(completedJob.artifacts.exports), true);
     assert.equal(completedJob.manifest.command, 'create');
     assert.equal(completedJob.manifest.artifacts.some((artifact) => artifact.type === 'model.step'), true);
+    assert.equal('config_path' in completedJob.request, false);
+    assert.equal(JSON.stringify(completedJob.request).includes(configPath), false);
     assert.equal(existsSync(join(outputDir, 'api_create_integration.step')), true);
     assert.equal(completedJob.storage.files.job.exists, true);
     assert.equal(completedJob.storage.files.request.exists, true);

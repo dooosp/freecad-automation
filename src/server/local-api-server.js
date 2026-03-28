@@ -11,6 +11,7 @@ import { validateLocalApiResponse } from './local-api-schemas.js';
 import { createStudioModelService } from './studio-model-service.js';
 import { createStudioDrawingService } from './studio-drawing-service.js';
 import { translateStudioJobSubmission } from './studio-job-bridge.js';
+import { toPublicJobRequest } from './public-job-request.js';
 
 const PUBLIC_DIR = join(import.meta.dirname, '..', '..', 'public');
 const EXAMPLES_DIR = join(import.meta.dirname, '..', '..', 'configs', 'examples');
@@ -392,7 +393,7 @@ async function toJobResponse(jobStore, job) {
     started_at: job.started_at,
     finished_at: job.finished_at,
     error: job.error,
-    request: job.request,
+    request: toPublicJobRequest(job.request),
     diagnostics: job.diagnostics,
     artifacts: job.artifacts,
     manifest: job.manifest,

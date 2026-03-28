@@ -317,9 +317,24 @@ try {
   assert.equal(rerunReportResponse.status, 202);
   const rerunReportPayload = await rerunReportResponse.json();
   assert.equal(rerunReportPayload.job.type, 'report');
-  assert.equal(rerunReportPayload.job.request.config_path, configArtifactPath);
+  assert.equal('config_path' in rerunReportPayload.job.request, false);
+  assert.deepEqual(rerunReportPayload.job.request.artifact_ref, {
+    job_id: configSourceJob.id,
+    artifact_id: configArtifact.id,
+  });
+  assert.equal(rerunReportPayload.job.request.source_job_id, configSourceJob.id);
   assert.equal(rerunReportPayload.job.request.options.studio.source_artifact_id, configArtifact.id);
+  assert.equal(rerunReportPayload.job.request.source_artifact_type, 'config.effective');
+  assert.equal(rerunReportPayload.job.request.source_label, 'Effective config copy');
+  assert.equal('source_artifact_path' in rerunReportPayload.job.request.options.studio, false);
   assert.deepEqual(rerunReportPayload.job.request.options.report_options, { style: 'summary' });
+  assert.equal(JSON.stringify(rerunReportPayload.job.request).includes(configArtifactPath), false);
+
+  const rerunReportStatusResponse = await fetch(`${baseUrl}/jobs/${rerunReportPayload.job.id}`);
+  assert.equal(rerunReportStatusResponse.status, 200);
+  const rerunReportStatusPayload = await rerunReportStatusResponse.json();
+  assert.equal('config_path' in rerunReportStatusPayload.job.request, false);
+  assert.equal(JSON.stringify(rerunReportStatusPayload.job.request).includes(configArtifactPath), false);
 
   const modelSourceJob = await jobStore.createJob({
     type: 'create',
@@ -376,8 +391,28 @@ try {
   assert.equal(inspectResponse.status, 202);
   const inspectPayload = await inspectResponse.json();
   assert.equal(inspectPayload.job.type, 'inspect');
-  assert.equal(inspectPayload.job.request.file_path, modelArtifactPath);
+  assert.equal('file_path' in inspectPayload.job.request, false);
+  assert.deepEqual(inspectPayload.job.request.artifact_ref, {
+    job_id: modelSourceJob.id,
+    artifact_id: modelArtifact.id,
+  });
   assert.equal(inspectPayload.job.request.options.studio.source_artifact_type, 'model.step');
+  assert.equal(inspectPayload.job.request.source_artifact_type, 'model.step');
+  assert.equal(inspectPayload.job.request.source_label, 'STEP export');
+  assert.equal('source_artifact_path' in inspectPayload.job.request.options.studio, false);
+  assert.equal(JSON.stringify(inspectPayload.job.request).includes(modelArtifactPath), false);
+
+  const recentJobsResponse = await fetch(`${baseUrl}/jobs?limit=20`, {
+    headers: {
+      accept: 'application/json',
+    },
+  });
+  assert.equal(recentJobsResponse.status, 200);
+  const recentJobsPayload = await recentJobsResponse.json();
+  const recentInspectJob = recentJobsPayload.jobs.find((entry) => entry.id === inspectPayload.job.id);
+  assert.equal(Boolean(recentInspectJob), true);
+  assert.equal('file_path' in recentInspectJob.request, false);
+  assert.equal(JSON.stringify(recentInspectJob.request).includes(modelArtifactPath), false);
 
   console.log('local-api-server.test.js: ok');
 } finally {

@@ -69,7 +69,8 @@ Practical rules:
 - `POST /api/studio/jobs` accepts `artifact_ref` for tracked re-entry.
 - Tracked `inspect` requires a model-like artifact such as `.step`, `.stp`, `.stl`, `.fcstd`, or `.brep`.
 - Tracked `report` requires a config-like artifact such as the effective config copy or input config copy.
-- The translated tracked request records `request.options.studio.source_artifact_*` metadata so the resulting job still points back to the artifact that launched it.
+- The translated tracked request keeps internal execution paths for the executor, but browser-visible job responses only expose safe source metadata such as `artifact_ref`, `source_job_id`, `source_artifact_id`, `source_artifact_type`, and `source_label`.
+- `GET /jobs` and `GET /jobs/:id` do not echo raw `file_path`, `config_path`, or `source_artifact_path` values back into the studio shell.
 
 ## Browser-friendly artifact routes
 

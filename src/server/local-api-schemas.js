@@ -23,7 +23,17 @@ const nullableBoolean = {
   type: ['boolean', 'null'],
 };
 
-const jobRequestSchema = {
+const artifactRefSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['job_id', 'artifact_id'],
+  properties: {
+    job_id: { type: 'string', minLength: 1 },
+    artifact_id: { type: 'string', minLength: 1 },
+  },
+};
+
+const localApiJobRequestSchema = {
   $id: 'fcad.jobRequest',
   oneOf: [
     {
@@ -52,6 +62,41 @@ const jobRequestSchema = {
       ],
       not: {
         required: ['config_path', 'config'],
+      },
+    },
+  ],
+};
+
+const publicJobRequestSchema = {
+  $id: 'fcad.publicJobRequest',
+  oneOf: [
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['type'],
+      properties: {
+        type: { const: 'inspect' },
+        artifact_ref: artifactRefSchema,
+        source_job_id: { type: 'string', minLength: 1 },
+        source_artifact_id: { type: 'string', minLength: 1 },
+        source_artifact_type: { type: 'string', minLength: 1 },
+        source_label: { type: 'string', minLength: 1 },
+        options: { type: 'object' },
+      },
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['type'],
+      properties: {
+        type: { enum: ['create', 'draw', 'report'] },
+        config: { type: 'object' },
+        artifact_ref: artifactRefSchema,
+        source_job_id: { type: 'string', minLength: 1 },
+        source_artifact_id: { type: 'string', minLength: 1 },
+        source_artifact_type: { type: 'string', minLength: 1 },
+        source_label: { type: 'string', minLength: 1 },
+        options: { type: 'object' },
       },
     },
   ],
@@ -404,7 +449,7 @@ const jobSchema = {
         },
       ],
     },
-    request: { type: 'object' },
+    request: publicJobRequestSchema,
     diagnostics: { type: 'object' },
     artifacts: { type: 'object' },
     manifest: manifestSchema,
@@ -516,7 +561,7 @@ const errorResponseSchema = {
   },
 };
 
-const validateJobRequestSchema = ajv.compile(jobRequestSchema);
+const validateJobRequestSchema = ajv.compile(localApiJobRequestSchema);
 const responseValidators = {
   health: ajv.compile(healthResponseSchema),
   job: ajv.compile(jobResponseSchema),
