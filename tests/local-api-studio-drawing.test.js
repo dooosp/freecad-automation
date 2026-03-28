@@ -36,9 +36,9 @@ const fakeDrawingService = {
           views: ['front', 'top'],
         },
         scale: '1:2',
-        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"></svg>',
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><!-- /tmp/demo-sheet_plan.toml --></svg>',
         bom: [],
-        annotations: [],
+        annotations: ['Saved editable plan at /tmp/demo-sheet_plan.toml'],
         qa_summary: { score: 92 },
         dimensions: [
           {
@@ -78,9 +78,9 @@ const fakeDrawingService = {
           views: ['front', 'top'],
         },
         scale: '1:2',
-        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"></svg>',
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><!-- /tmp/demo-sheet_plan.toml --></svg>',
         bom: [],
-        annotations: [],
+        annotations: ['Saved editable plan at /tmp/demo-sheet_plan.toml'],
         qa_summary: { score: 92 },
         dimensions: [
           {
@@ -159,6 +159,7 @@ try {
   assert.equal(previewPayload.preview.id, 'preview-1');
   assert.equal(previewPayload.preview.scale, '1:2');
   assert.equal(previewPayload.preview.preview_reference, 'drawing-preview:preview-1');
+  assert.equal(previewPayload.preview.editable_plan_reference, 'preview-plan:preview-1');
   assert.equal(previewPayload.preview.editable_plan_available, true);
   assert.equal(previewPayload.preview.dimension_editing_available, true);
   assert.equal(previewPayload.preview.tracked_draw_bridge_available, true);
@@ -168,6 +169,8 @@ try {
   assert.equal('artifacts' in previewPayload.preview, false);
   assert.equal('logs' in previewPayload.preview, false);
   assert.equal('run_log' in previewPayload.preview, false);
+  assert.equal(previewPayload.preview.svg.includes('/tmp/demo-sheet_plan.toml'), false);
+  assert.equal(previewPayload.preview.annotations[0].includes('/tmp/demo-sheet_plan.toml'), false);
   assertNoLeakedPathStrings(previewPayload, [
     '/tmp/demo-sheet_plan.toml',
     '/tmp/demo-sheet_dimension_map.json',
@@ -192,11 +195,14 @@ try {
   assert.equal(updatePayload.update.dim_id, 'WIDTH');
   assert.equal(updatePayload.update.new_value, 45);
   assert.equal(updatePayload.preview.preview_reference, 'drawing-preview:preview-1');
+  assert.equal(updatePayload.preview.editable_plan_reference, 'preview-plan:preview-1');
   assert.equal(updatePayload.preview.editable_plan_available, true);
   assert.equal('plan_path' in updatePayload.preview, false);
   assert.equal('artifacts' in updatePayload.preview, false);
   assert.equal('logs' in updatePayload.preview, false);
   assert.equal('run_log' in updatePayload.preview, false);
+  assert.equal(updatePayload.preview.svg.includes('/tmp/demo-sheet_plan.toml'), false);
+  assert.equal(updatePayload.preview.annotations[0].includes('/tmp/demo-sheet_plan.toml'), false);
   assertNoLeakedPathStrings(updatePayload, [
     '/tmp/demo-sheet_plan.toml',
     '/tmp/demo-sheet_dimension_map.json',

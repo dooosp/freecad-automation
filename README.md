@@ -256,6 +256,7 @@ Studio execution model:
 - `Preview`: fast request/response work for Model and Drawing. Preview routes are scratch-safe, keep the current workspace state local, and do not create `/jobs` history.
 - `Tracked run`: queues `create`, `draw`, `inspect`, or `report` into `/jobs`, persists artifacts, and keeps the run visible to the shell monitor plus the `Artifacts` and `Review` workspaces.
 - `Artifact re-entry`: `Artifacts` and `Review` can reopen config artifacts in `Model`, rerun tracked `report` from config-like artifacts, or rerun tracked `inspect` from model artifacts without copying raw filesystem paths back into the UI.
+- Browser-visible preview payloads are path-redacted too: tracked job payloads, artifact payloads, example payloads, and drawing preview responses all avoid raw filesystem paths.
 
 Phase-3 tracked execution model:
 
@@ -319,7 +320,7 @@ Endpoint usage:
 - `GET /api` returns the local API info page and route discovery payload
 - `GET /health` returns API liveness plus the same shared runtime diagnostics contract used by `fcad check-runtime --json`
 - `POST /api/studio/model-preview` validates the current TOML and returns preview-only model assets for the Model workspace
-- `POST /api/studio/drawing-preview` returns the fast sheet-first drawing preview; `POST /api/studio/drawing-previews/:id/dimensions` preserves the HTTP edit loop for dimension changes
+- `POST /api/studio/drawing-preview` returns the fast sheet-first drawing preview; `POST /api/studio/drawing-previews/:id/dimensions` preserves the HTTP edit loop for dimension changes while keeping preview-plan files server-side only
 - `POST /api/studio/jobs` is the studio bridge route: Model and Drawing submit tracked jobs here, and artifact-driven inspect/report re-entry also resolves through it
 - `POST /jobs` accepts a JSON job request and returns `202 Accepted` with the queued job record
 - `GET /jobs` returns recent tracked jobs for shell resume and artifact timeline views
@@ -409,6 +410,7 @@ Response notes:
 - artifact list responses include browser-facing `links.open` and `links.download` routes, plus the compatibility alias in `links.api`
 - public manifest/result/artifact summaries keep stable browser-facing labels only. When internal values were absolute paths, the browser-visible payload reduces them to file names such as `effective-config.json` or `job.log`.
 - `/api/examples` returns checked-in example records as `{ id, name, content }` and intentionally does not expose repository checkout paths
+- drawing preview responses expose safe provenance fields such as `preview_reference` and `editable_plan_reference` plus availability booleans and artifact capabilities; they do not expose `plan_path`, preview working directories, or other raw preview sidecar paths
 - successful cancel/retry actions return `ok: true`, an `action` block that names the operation and outcome, and the current job record for the cancelled or newly retried job
 
 Browser-visible local API payload shape:
@@ -424,6 +426,10 @@ Browser-visible local API payload shape:
   - `storage`: logical file metadata only; no public filesystem paths
 - `GET /api/examples`
   - `{ id, name, content }` for each checked-in example TOML
+- `POST /api/studio/drawing-preview` and `POST /api/studio/drawing-previews/:id/dimensions`
+  - `preview`: browser-safe drawing preview data including `id`, `preview_reference`, `editable_plan_reference` when an editable plan exists, `settings`, `overview`, `validation`, `svg`, `bom`, `views`, `scale`, `qa_summary`, `annotations`, `dimensions`, `editable_plan_available`, `dimension_editing_available`, `tracked_draw_bridge_available`, and `artifact_capabilities`
+  - server-only preview sidecars such as `plan_path`, preview working directories, `run_log`, and other path-bearing preview files stay internal
+  - internal preview-plan files remain available server-side where the HTTP dimension-edit loop and tracked-draw preservation need them
 
 Internal executor/job-store payload shape:
 

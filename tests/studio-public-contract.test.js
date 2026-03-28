@@ -9,6 +9,7 @@ import {
   getStudioExampleValue,
   resolveSelectedStudioExampleId,
 } from '../public/js/studio/examples.js';
+import { toPublicDrawingPreviewPayload } from '../src/server/public-drawing-preview.js';
 
 const examples = [
   {
@@ -96,5 +97,55 @@ assert.deepEqual(detailNotes, [
   'Manifest warning two',
 ]);
 assert.equal(JSON.stringify(detailNotes).includes('/Users/'), false);
+
+const previewPayload = toPublicDrawingPreviewPayload({
+  preview: {
+    id: 'preview-1',
+    drawn_at: '2026-03-28T12:00:00.000Z',
+    overview: {
+      name: 'demo-sheet',
+      scale: '1:2',
+      notes: 'Generated from /tmp/demo-sheet_plan.toml',
+    },
+    scale: '1:2',
+    svg: '<svg xmlns="http://www.w3.org/2000/svg"><!-- /tmp/demo-sheet_plan.toml --><text x="10" y="10">/tmp/demo-sheet_plan.toml</text></svg>',
+    bom: [],
+    annotations: ['Edited from /tmp/demo-sheet_plan.toml'],
+    qa_summary: { score: 92 },
+    dimensions: [
+      {
+        id: 'WIDTH',
+        value_mm: 42,
+        feature: 'body_width',
+        required: true,
+      },
+    ],
+    logs: ['Saved editable plan to /tmp/demo-sheet_plan.toml before rendering.'],
+    plan_path: '/tmp/demo-sheet_plan.toml',
+    artifacts: {
+      plan_toml: '/tmp/demo-sheet_plan.toml',
+      dimension_map: '/tmp/demo-sheet_dimension_map.json',
+      working_dir: '/tmp/preview-workdir',
+    },
+    run_log: {
+      path: '/tmp/demo-sheet_run_log.json',
+    },
+  },
+});
+
+assert.equal(previewPayload.preview.preview_reference, 'drawing-preview:preview-1');
+assert.equal(previewPayload.preview.editable_plan_reference, 'preview-plan:preview-1');
+assert.equal(previewPayload.preview.editable_plan_available, true);
+assert.equal(previewPayload.preview.dimension_editing_available, true);
+assert.equal(previewPayload.preview.tracked_draw_bridge_available, true);
+assert.equal(previewPayload.preview.artifact_capabilities.editable_plan, true);
+assert.equal(previewPayload.preview.artifact_capabilities.dimension_map, true);
+assert.equal('plan_path' in previewPayload.preview, false);
+assert.equal('artifacts' in previewPayload.preview, false);
+assert.equal('logs' in previewPayload.preview, false);
+assert.equal('run_log' in previewPayload.preview, false);
+assert.equal(previewPayload.preview.svg.includes('/tmp/demo-sheet_plan.toml'), false);
+assert.equal(previewPayload.preview.overview.notes.includes('/tmp/demo-sheet_plan.toml'), false);
+assert.equal(previewPayload.preview.annotations[0].includes('/tmp/demo-sheet_plan.toml'), false);
 
 console.log('studio-public-contract.test.js: ok');

@@ -13,7 +13,7 @@ const SERVER_ONLY_DRAWING_FIELDS = new Set([
 ]);
 
 const WINDOWS_PATH_PATTERN = /[A-Za-z]:\\(?:[^\\/:*?"<>|\r\n]+\\)*[^\\/:*?"<>|\r\n]*/g;
-const POSIX_PATH_PATTERN = /(^|[\s([{"'`])((?:\/[^/\s)\]}>"'`]+)+\/?)/g;
+const POSIX_PATH_PATTERN = /(^|[\s>([{"'`])((?:\/[^/\s)\]}>"'`]+)+\/?)/g;
 
 function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -70,12 +70,21 @@ function hasData(value) {
   return value !== null && value !== undefined && value !== '';
 }
 
+function buildPreviewToken(preview = {}) {
+  if (typeof preview.id === 'string' && preview.id.trim()) {
+    return redactPathString(preview.id.trim());
+  }
+  return 'preview';
+}
+
 function buildPreviewReference(preview = {}) {
-  const fallback = typeof preview.id === 'string' && preview.id.trim()
-    ? redactPathString(preview.id.trim())
-    : 'preview';
+  const fallback = buildPreviewToken(preview);
   const existing = typeof preview.preview_reference === 'string' ? redactPathString(preview.preview_reference.trim()) : '';
   return existing || `drawing-preview:${fallback}`;
+}
+
+function buildEditablePlanReference(preview = {}) {
+  return preview.plan_path ? `preview-plan:${buildPreviewToken(preview)}` : '';
 }
 
 function buildArtifactCapabilities(preview = {}) {
@@ -107,7 +116,7 @@ export function toPublicDrawingPreview(preview = {}) {
     settings: sanitizePublicValue(structuredClone(isPlainObject(source.settings) ? source.settings : {})),
     overview: sanitizePublicValue(structuredClone(isPlainObject(source.overview) ? source.overview : {})),
     validation: sanitizePublicValue(structuredClone(isPlainObject(source.validation) ? source.validation : {})),
-    svg: typeof source.svg === 'string' ? source.svg : '',
+    svg: typeof source.svg === 'string' ? redactPathString(source.svg) : '',
     bom: sanitizePublicValue(structuredClone(Array.isArray(source.bom) ? source.bom : [])),
     views: sanitizePublicValue(structuredClone(Array.isArray(source.views) ? source.views : [])),
     scale: sanitizePublicValue(source.scale || source.overview?.scale || null),
@@ -115,6 +124,7 @@ export function toPublicDrawingPreview(preview = {}) {
     annotations: sanitizePublicValue(structuredClone(Array.isArray(source.annotations) ? source.annotations : [])),
     dimensions,
     preview_reference: buildPreviewReference(source),
+    editable_plan_reference: buildEditablePlanReference(source),
     editable_plan_available: editablePlanAvailable,
     dimension_editing_available: editablePlanAvailable && dimensions.length > 0,
     tracked_draw_bridge_available: editablePlanAvailable,

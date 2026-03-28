@@ -4,6 +4,7 @@ import { mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
+import { toPublicDrawingPreviewPayload } from '../src/server/public-drawing-preview.js';
 import { createStudioDrawingService } from '../src/server/studio-drawing-service.js';
 
 const tmpRoot = mkdtempSync(join(tmpdir(), 'fcad-studio-drawing-service-'));
@@ -15,6 +16,7 @@ function createFakeDrawingService() {
     const svgPath = join(outputDir, `${config.name}_drawing.svg`);
     const svg = [
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 297">',
+      `  <!-- ${svgPath} -->`,
       `  <text data-dim-id="WIDTH" data-value-mm="${currentValue}" x="40" y="40">${currentValue}</text>`,
       '</svg>',
     ].join('\n');
@@ -86,6 +88,13 @@ try {
   assert.equal(first.preview.dimensions[0].value_mm, 42);
   assert.equal(first.preview.annotations.includes('Machine all sharp edges before release.'), true);
   assert.match(first.preview.plan_path, /_plan\.toml$/);
+  const publicFirst = toPublicDrawingPreviewPayload(first);
+  assert.equal(publicFirst.preview.preview_reference, `drawing-preview:${first.preview.id}`);
+  assert.equal(publicFirst.preview.editable_plan_reference, `preview-plan:${first.preview.id}`);
+  assert.equal('plan_path' in publicFirst.preview, false);
+  assert.equal('artifacts' in publicFirst.preview, false);
+  assert.equal(publicFirst.preview.svg.includes(first.preview.plan_path), false);
+  assert.equal(publicFirst.preview.svg.includes(first.preview.artifacts.drawing), false);
 
   const trackedBeforeUpdate = await service.getTrackedDrawPlan({
     previewId: first.preview.id,
@@ -105,6 +114,10 @@ try {
   assert.equal(updated.update.new_value, 45);
   assert.equal(updated.preview.dimensions[0].value_mm, 45);
   assert.match(updated.preview.svg, /data-value-mm="45"/);
+  const publicUpdated = toPublicDrawingPreviewPayload(updated);
+  assert.equal(publicUpdated.preview.editable_plan_reference, `preview-plan:${updated.preview.id}`);
+  assert.equal('plan_path' in publicUpdated.preview, false);
+  assert.equal(publicUpdated.preview.svg.includes(updated.preview.plan_path), false);
 
   const trackedAfterUpdate = await service.getTrackedDrawPlan({
     previewId: first.preview.id,

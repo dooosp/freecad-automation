@@ -51,11 +51,12 @@ Practical rules:
 | `GET /jobs` and `GET /jobs/:id` | sanitized request metadata, status history, diagnostics, redacted result/manifest summaries, flattened artifact summaries, and logical storage metadata | raw `file_path`, `config_path`, `source_artifact_path`, `storage.root`, per-file storage paths, and any other browser-visible absolute filesystem path |
 | `GET /jobs/:id/artifacts` | public artifact records with `file_name`, `content_type`, `exists`, `size_bytes`, `capabilities`, `links`, the redacted manifest view, and logical storage metadata | raw artifact `path` values and local storage filesystem paths |
 | `GET /api/examples` | checked-in example records shaped as `id`, `name`, and `content` | checked-out repository paths or filesystem locations |
+| `POST /api/studio/drawing-preview` and `POST /api/studio/drawing-previews/:id/dimensions` | browser-safe preview metadata, SVG/BOM/QA/dimensions, `preview_reference`, `editable_plan_reference` when available, and capability booleans | raw `plan_path`, preview working directories, preview sidecar paths, `logs`, `run_log`, and other filesystem-backed preview details |
 | `request.json` inside the job directory | the internal executor request exactly as persisted for execution or retry | nothing; this is the internal source of truth |
 | `job.json`, `job.log`, and `artifact-manifest.json` inside the job directory | internal persisted job-store records used by executor, artifact serving, and retry flows | nothing; these remain path-bearing where the server needs them |
 | Artifact re-entry metadata | `artifact_ref`, `source_job_id`, `source_artifact_id`, `source_artifact_type`, `source_label` | the raw artifact filesystem path used internally |
 
-Browser-visible payloads no longer expose raw local filesystem paths. Internal job-store files and executor inputs still retain full paths server-side for execution, artifact serving, and retry support.
+Browser-visible payloads no longer expose raw local filesystem paths. Internal job-store files, preview-plan files, and executor inputs still retain full paths server-side for execution, artifact serving, preview dimension editing, and tracked-draw preservation.
 
 Current browser-visible shapes:
 
@@ -69,6 +70,9 @@ Current browser-visible shapes:
   - `storage` stays logical and path-free
 - `GET /api/examples`
   - each example is `{ id, name, content }`
+- `POST /api/studio/drawing-preview` and `POST /api/studio/drawing-previews/:id/dimensions`
+  - `preview` exposes `id`, `preview_reference`, `editable_plan_reference` when an editable preview plan exists, `settings`, `overview`, `validation`, `svg`, `bom`, `views`, `scale`, `qa_summary`, `annotations`, `dimensions`, `editable_plan_available`, `dimension_editing_available`, `tracked_draw_bridge_available`, and `artifact_capabilities`
+  - preview sidecars remain server-side only; the browser contract does not include `plan_path`, preview working directories, `logs`, or `run_log`
 
 ## Queue controls by state
 
@@ -125,6 +129,7 @@ When a job settles while other tracked jobs are still active, the shell prefers 
 
 - `Preview Drawing` posts the shared TOML plus drawing settings to `POST /api/studio/drawing-preview`.
 - Dimension edits stay on the preview route through `POST /api/studio/drawing-previews/:id/dimensions`.
+- Browser-visible preview responses use safe labels such as `preview_reference` and `editable_plan_reference`; the actual preview-plan file stays server-side.
 - `Run Tracked Draw Job` posts the shared TOML to `POST /api/studio/jobs` as type `draw`.
 - When the tracked draw is launched from an edited preview, the server tries to preserve that preview plan. If preservation is not safe, the tracked run falls back to the current TOML and drawing settings and records the reason in `request.options.studio.preview_plan`.
 

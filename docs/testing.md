@@ -50,11 +50,12 @@ The hosted-safe Node lanes now cover the phase-3 tracked execution model without
 - browser-visible manifest/result redaction where internal values would otherwise contain absolute paths
 - public artifact list shape on `/jobs/:id/artifacts`
 - example payload shape on `/api/examples`
+- drawing preview and dimension-update response shapes on `/api/studio/drawing-preview` and `/api/studio/drawing-previews/:id/dimensions`, including safe preview/edit-loop references instead of raw preview-plan paths
 - cancel/retry route behavior by job state
 - multi-job monitor helpers, completion routing helpers, and selected-job deep-link helpers
 - jobs center action eligibility and merged active/history ordering
 - browserless smoke for `/`, `/api`, `/studio`, `/jobs`, `/jobs/:id`, `/api/examples`, cancel/retry routes, and browser-safe artifact open/download paths
-- studio helper coverage that keeps artifact/example rendering path-free even if internal payloads remain path-bearing on disk
+- studio helper coverage that keeps artifact/example rendering and drawing preview copy path-free even if internal payloads remain path-bearing on disk
 
 This is intentionally API-and-helper coverage, not runtime-backed verification. Only `npm run test:runtime-smoke` proves a live FreeCAD-backed execution path, and it should be run only when `fcad check-runtime` reports an actually available runtime on the current machine.
 
