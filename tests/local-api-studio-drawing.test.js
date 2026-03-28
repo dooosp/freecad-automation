@@ -9,6 +9,13 @@ const ROOT = resolve(import.meta.dirname, '..');
 const tmpRoot = mkdtempSync(join(tmpdir(), 'fcad-local-api-drawing-'));
 const jobsDir = join(tmpRoot, 'jobs');
 
+function assertNoLeakedPathStrings(payload, blocked = []) {
+  const serialized = JSON.stringify(payload);
+  blocked.filter(Boolean).forEach((value) => {
+    assert.equal(serialized.includes(String(value)), false, `Payload leaked path-like value: ${value}`);
+  });
+}
+
 async function listen(server) {
   await new Promise((resolveListen) => server.listen(0, '127.0.0.1', resolveListen));
   const address = server.address();
@@ -33,8 +40,24 @@ const fakeDrawingService = {
         bom: [],
         annotations: [],
         qa_summary: { score: 92 },
-        dimensions: [],
+        dimensions: [
+          {
+            id: 'WIDTH',
+            value_mm: 42,
+            feature: 'body_width',
+            required: true,
+          },
+        ],
+        logs: ['Saved editable plan to /tmp/demo-sheet_plan.toml before rendering.'],
         plan_path: '/tmp/demo-sheet_plan.toml',
+        artifacts: {
+          plan_toml: '/tmp/demo-sheet_plan.toml',
+          dimension_map: '/tmp/demo-sheet_dimension_map.json',
+          working_dir: '/tmp/preview-workdir',
+        },
+        run_log: {
+          path: '/tmp/demo-sheet_run_log.json',
+        },
       },
     };
   },
@@ -59,8 +82,24 @@ const fakeDrawingService = {
         bom: [],
         annotations: [],
         qa_summary: { score: 92 },
-        dimensions: [],
+        dimensions: [
+          {
+            id: 'WIDTH',
+            value_mm: 45,
+            feature: 'body_width',
+            required: true,
+          },
+        ],
+        logs: ['Re-rendered from /tmp/demo-sheet_plan.toml after dimension update.'],
         plan_path: '/tmp/demo-sheet_plan.toml',
+        artifacts: {
+          plan_toml: '/tmp/demo-sheet_plan.toml',
+          dimension_map: '/tmp/demo-sheet_dimension_map.json',
+          working_dir: '/tmp/preview-workdir',
+        },
+        run_log: {
+          path: '/tmp/demo-sheet_run_log.json',
+        },
       },
     };
   },
@@ -119,6 +158,22 @@ try {
   assert.equal(previewPayload.ok, true);
   assert.equal(previewPayload.preview.id, 'preview-1');
   assert.equal(previewPayload.preview.scale, '1:2');
+  assert.equal(previewPayload.preview.preview_reference, 'drawing-preview:preview-1');
+  assert.equal(previewPayload.preview.editable_plan_available, true);
+  assert.equal(previewPayload.preview.dimension_editing_available, true);
+  assert.equal(previewPayload.preview.tracked_draw_bridge_available, true);
+  assert.equal(previewPayload.preview.artifact_capabilities.editable_plan, true);
+  assert.equal(previewPayload.preview.artifact_capabilities.dimension_map, true);
+  assert.equal('plan_path' in previewPayload.preview, false);
+  assert.equal('artifacts' in previewPayload.preview, false);
+  assert.equal('logs' in previewPayload.preview, false);
+  assert.equal('run_log' in previewPayload.preview, false);
+  assertNoLeakedPathStrings(previewPayload, [
+    '/tmp/demo-sheet_plan.toml',
+    '/tmp/demo-sheet_dimension_map.json',
+    '/tmp/demo-sheet_run_log.json',
+    '/tmp/preview-workdir',
+  ]);
 
   const updateResponse = await fetch(`${baseUrl}/api/studio/drawing-previews/preview-1/dimensions`, {
     method: 'POST',
@@ -136,6 +191,18 @@ try {
   assert.equal(updatePayload.ok, true);
   assert.equal(updatePayload.update.dim_id, 'WIDTH');
   assert.equal(updatePayload.update.new_value, 45);
+  assert.equal(updatePayload.preview.preview_reference, 'drawing-preview:preview-1');
+  assert.equal(updatePayload.preview.editable_plan_available, true);
+  assert.equal('plan_path' in updatePayload.preview, false);
+  assert.equal('artifacts' in updatePayload.preview, false);
+  assert.equal('logs' in updatePayload.preview, false);
+  assert.equal('run_log' in updatePayload.preview, false);
+  assertNoLeakedPathStrings(updatePayload, [
+    '/tmp/demo-sheet_plan.toml',
+    '/tmp/demo-sheet_dimension_map.json',
+    '/tmp/demo-sheet_run_log.json',
+    '/tmp/preview-workdir',
+  ]);
 
   const trackedResponse = await fetch(`${baseUrl}/api/studio/jobs`, {
     method: 'POST',

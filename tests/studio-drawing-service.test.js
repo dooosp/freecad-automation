@@ -87,6 +87,13 @@ try {
   assert.equal(first.preview.annotations.includes('Machine all sharp edges before release.'), true);
   assert.match(first.preview.plan_path, /_plan\.toml$/);
 
+  const trackedBeforeUpdate = await service.getTrackedDrawPlan({
+    previewId: first.preview.id,
+    configToml,
+  });
+  assert.equal(trackedBeforeUpdate.reason, 'preserved');
+  assert.equal(trackedBeforeUpdate.drawingPlan.dim_intents[0].value_mm, 42);
+
   const updated = await service.updateDimension({
     previewId: first.preview.id,
     dimId: 'WIDTH',
@@ -98,6 +105,13 @@ try {
   assert.equal(updated.update.new_value, 45);
   assert.equal(updated.preview.dimensions[0].value_mm, 45);
   assert.match(updated.preview.svg, /data-value-mm="45"/);
+
+  const trackedAfterUpdate = await service.getTrackedDrawPlan({
+    previewId: first.preview.id,
+    configToml,
+  });
+  assert.equal(trackedAfterUpdate.reason, 'preserved');
+  assert.equal(trackedAfterUpdate.drawingPlan.dim_intents[0].value_mm, 45);
 
   await service.dispose();
   console.log('studio-drawing-service.test.js: ok');

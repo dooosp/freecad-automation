@@ -11,6 +11,7 @@ import { validateLocalApiResponse } from './local-api-schemas.js';
 import { createStudioModelService } from './studio-model-service.js';
 import { createStudioDrawingService } from './studio-drawing-service.js';
 import { translateStudioJobSubmission } from './studio-job-bridge.js';
+import { toPublicDrawingPreviewPayload } from './public-drawing-preview.js';
 import { toPublicJobRequest } from './public-job-request.js';
 
 const PUBLIC_DIR = join(import.meta.dirname, '..', '..', 'public');
@@ -753,7 +754,7 @@ export function createLocalApiServer({
       });
       res.json({
         ok: true,
-        ...payload,
+        ...toPublicDrawingPreviewPayload(payload),
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -804,7 +805,7 @@ export function createLocalApiServer({
       });
       res.json({
         ok: true,
-        ...payload,
+        ...toPublicDrawingPreviewPayload(payload),
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

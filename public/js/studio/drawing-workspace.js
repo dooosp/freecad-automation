@@ -85,6 +85,10 @@ function renderInfoRows(container, rows = []) {
   );
 }
 
+function previewReference(preview = {}) {
+  return preview.preview_reference || preview.id || '';
+}
+
 function renderNoteList(container, items = [], emptyCopy) {
   if (!container) return;
 
@@ -303,13 +307,13 @@ export function mountDrawingWorkspace({
     }
 
     if (canvasCaptionElement) {
-      canvasCaptionElement.textContent = preview.plan_path
-        ? `Pan with drag, zoom with the mouse wheel, and click dimension text to keep the edit loop attached to ${preview.plan_path}.`
-        : 'Pan with drag, zoom with the mouse wheel, and click dimension text to revise the sheet.';
+      canvasCaptionElement.textContent = preview.editable_plan_available
+        ? `Pan with drag, zoom with the mouse wheel, and click dimension text to keep the edit loop attached to ${previewReference(preview)}.`
+        : 'Pan with drag, zoom with the mouse wheel, and inspect the sheet from the dedicated Drawing workspace.';
     }
 
     if (drawingRenderer && renderedSignature !== nextSignature) {
-      drawingRenderer.showDrawing(preview.svg, preview.bom || [], preview.scale || drawing.settings.scale, preview.plan_path || '');
+      drawingRenderer.showDrawing(preview.svg, preview.bom || [], preview.scale || drawing.settings.scale, previewReference(preview));
       renderedSignature = nextSignature;
     }
   }
@@ -388,7 +392,9 @@ export function mountDrawingWorkspace({
       const note = document.createElement('p');
       note.className = 'inline-note';
       note.textContent = drawing.preview
-        ? 'No editable dimension intents were found for this sheet.'
+        ? drawing.preview.editable_plan_available
+          ? 'No editable dimension intents were found for this sheet.'
+          : 'This sheet stays preview-only because no editable preview plan is available.'
         : 'Generate a drawing to populate the editable dimension register.';
       dimensionsElement.replaceChildren(note);
       return;
