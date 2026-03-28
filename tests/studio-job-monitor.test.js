@@ -6,6 +6,7 @@ import {
   findStudioMonitoredJob,
   listActiveStudioMonitoredJobs,
   mergeTrackedJobIntoRecentJobs,
+  resolveMonitoredJobCompletionTarget,
   resolveMonitoredJobCompletionRoute,
   syncActiveJobsIntoMonitor,
   sortStudioJobsByUpdatedAt,
@@ -71,6 +72,66 @@ const changed = describeJobMonitorTransition(
 assert.equal(changed.tone, 'warn');
 assert.match(changed.message, /moved from queued to running/);
 
+assert.deepEqual(
+  resolveMonitoredJobCompletionTarget(
+    { type: 'create', status: 'succeeded' }
+  ),
+  {
+    route: 'artifacts',
+    secondaryRoute: '',
+    hasReviewOutputs: false,
+  }
+);
+
+assert.deepEqual(
+  resolveMonitoredJobCompletionTarget(
+    { type: 'report', status: 'succeeded' },
+    {
+      artifacts: [
+        { type: 'review.readiness', file_name: 'readiness.json', exists: true },
+      ],
+    }
+  ),
+  {
+    route: 'review',
+    secondaryRoute: 'artifacts',
+    hasReviewOutputs: true,
+  }
+);
+
+assert.deepEqual(
+  resolveMonitoredJobCompletionTarget(
+    { type: 'report', status: 'succeeded' },
+    {
+      artifacts: [
+        { type: 'report.pdf', file_name: 'report.pdf', exists: true },
+      ],
+    }
+  ),
+  {
+    route: 'artifacts',
+    secondaryRoute: '',
+    hasReviewOutputs: false,
+  }
+);
+
+assert.deepEqual(
+  resolveMonitoredJobCompletionTarget(
+    { type: 'inspect', status: 'succeeded' },
+    {
+      completionAction: {
+        type: 'tracked-run-completion',
+        sourceArtifactFamily: 'review',
+      },
+    }
+  ),
+  {
+    route: 'review',
+    secondaryRoute: 'artifacts',
+    hasReviewOutputs: false,
+  }
+);
+
 assert.equal(
   resolveMonitoredJobCompletionRoute(
     { status: 'succeeded' },
@@ -80,7 +141,7 @@ assert.equal(
 );
 assert.equal(
   resolveMonitoredJobCompletionRoute(
-    { status: 'succeeded' },
+    { type: 'draw', status: 'succeeded' },
     { type: 'open-artifacts-on-success' }
   ),
   'artifacts'

@@ -41,7 +41,26 @@ Practical rules:
 - Use tracked runs when the output should appear in the job timeline, feed `Review`, or support artifact-driven re-entry later.
 - Model preview and drawing preview stay available even while a tracked run is queued or running.
 - The shell monitor polls `GET /jobs/:id` and can reopen `Artifacts` or `Review` automatically after a tracked run succeeds.
+- Artifacts and Review deep links can carry a selected tracked job as `#artifacts?job=<job-id>` or `#review?job=<job-id>`. Search-param fallback `?job=<job-id>` is also accepted when reopening a shared URL.
 - Queue controls stay narrow on purpose: queued jobs can be cancelled, failed/cancelled jobs can be retried, and running-job cancellation is only available when the executor can stop cleanly.
+
+## Selected-job deep links
+
+- `#artifacts?job=<job-id>` opens the Artifacts workspace and loads that tracked job into the active artifact context.
+- `#review?job=<job-id>` opens the Review workspace and loads that tracked job into the review console. If review-ready artifacts are missing, the workspace stays honest and shows the gap instead of redirecting elsewhere.
+- Navigation between `Artifacts` and `Review` preserves the selected job in the hash so shared or reopened URLs stay operational instead of landing on an unscoped panel.
+- Existing workspace routing still works without a selected job. The route fragment remains the source of truth for workspace choice; the optional `job` value only scopes the active tracked-job context inside `Artifacts` and `Review`.
+
+## Completion handoff defaults
+
+| Tracked job type | Default completion target | Notes |
+| --- | --- | --- |
+| `create` | `Artifacts` | Create remains artifact-first so manifests, exports, and re-entry actions stay visible. |
+| `draw` | `Artifacts` | Draw completion reopens the draw job in the artifact trail. |
+| `report` | `Review` when review-ready outputs exist, otherwise `Artifacts` | Review gets priority only when normalized review/readiness artifacts are actually present. |
+| `inspect` | `Review` for review-family results, otherwise `Artifacts` | Inspect stays artifact-first unless the completed run clearly produced review-oriented output. |
+
+When a job settles while other tracked jobs are still active, the shell prefers a completion notice with explicit `Open Review` / `Open Artifacts` actions over an automatic route jump.
 
 ## Round-2 Execution Flow
 

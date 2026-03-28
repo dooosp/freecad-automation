@@ -1,12 +1,70 @@
 const STUDIO_ROUTES = new Set(['start', 'model', 'drawing', 'review', 'artifacts']);
+const JOB_CONTEXT_ROUTES = new Set(['review', 'artifacts']);
 const ACTIVE_JOB_STATUSES = new Set(['queued', 'running']);
 
-export function normalizeRoute(hashValue) {
-  const cleaned = String(hashValue || '')
+function hashRouteValue(hashValue) {
+  return String(hashValue || '')
     .replace(/^#/, '')
+    .split('?')[0]
     .trim()
     .toLowerCase();
+}
+
+function toSearchParams(value = '') {
+  return new URLSearchParams(String(value || '').replace(/^[?#]/, ''));
+}
+
+export function normalizeRoute(hashValue) {
+  const cleaned = hashRouteValue(hashValue);
   return STUDIO_ROUTES.has(cleaned) ? cleaned : 'start';
+}
+
+export function normalizeSelectedJobId(value = '') {
+  return String(value || '').trim();
+}
+
+export function routeSupportsSelectedJob(route = '') {
+  return JOB_CONTEXT_ROUTES.has(normalizeRoute(route));
+}
+
+export function parseStudioLocationState(locationLike = {}) {
+  const hashValue = String(locationLike.hash || '');
+  const hashQuery = hashValue.includes('?') ? hashValue.split('?').slice(1).join('?') : '';
+  const hashParams = toSearchParams(hashQuery);
+  const searchParams = toSearchParams(locationLike.search || '');
+
+  return {
+    route: normalizeRoute(hashValue),
+    selectedJobId: normalizeSelectedJobId(
+      hashParams.get('job')
+      || searchParams.get('job')
+      || ''
+    ),
+  };
+}
+
+export function serializeStudioLocationState({ route = 'start', selectedJobId = '' } = {}) {
+  const normalizedRoute = normalizeRoute(route);
+  const normalizedJobId = normalizeSelectedJobId(selectedJobId);
+  if (!normalizedJobId || !routeSupportsSelectedJob(normalizedRoute)) {
+    return `#${normalizedRoute}`;
+  }
+
+  const params = new URLSearchParams();
+  params.set('job', normalizedJobId);
+  return `#${normalizedRoute}?${params.toString()}`;
+}
+
+export function deriveStudioWorkspaceSelection(current = {}, next = {}) {
+  const route = normalizeRoute(next.route ?? current.route);
+  const hasExplicitJobId = Object.prototype.hasOwnProperty.call(next, 'selectedJobId');
+
+  return {
+    route,
+    selectedJobId: hasExplicitJobId
+      ? normalizeSelectedJobId(next.selectedJobId)
+      : (routeSupportsSelectedJob(route) ? normalizeSelectedJobId(current.selectedJobId) : ''),
+  };
 }
 
 export function summarizeProjectPath(rawPath) {

@@ -1,4 +1,5 @@
 import { isActiveStudioJobStatus, studioJobTone } from './jobs-client.js';
+import { isReviewSourceArtifact } from './artifact-actions.js';
 
 function jobTimestamp(job = {}) {
   return Date.parse(job.updated_at || job.created_at || job.lastPollTime || 0);
@@ -100,8 +101,61 @@ export function describeJobMonitorTransition(job = {}, previousStatus = '', next
   };
 }
 
-export function resolveMonitoredJobCompletionRoute(job = {}, completionAction = null) {
-  if (!completionAction || completionAction.type !== 'open-artifacts-on-success') return '';
-  if (job?.status !== 'succeeded') return '';
-  return completionAction.route || 'artifacts';
+function normalizeCompletionAction(completionAction = null) {
+  if (!completionAction || typeof completionAction !== 'object') return {};
+  if (completionAction.type === 'open-artifacts-on-success') {
+    return {
+      preferredRoute: completionAction.route || 'artifacts',
+      sourceArtifactFamily: completionAction.sourceArtifactFamily || '',
+    };
+  }
+  return completionAction;
+}
+
+function hasReviewOutputs(artifacts = []) {
+  return artifacts.some((artifact) => artifact?.exists !== false && isReviewSourceArtifact(artifact));
+}
+
+export function resolveMonitoredJobCompletionTarget(job = {}, {
+  artifacts = [],
+  completionAction = null,
+} = {}) {
+  if (job?.status !== 'succeeded') {
+    return {
+      route: '',
+      secondaryRoute: '',
+      hasReviewOutputs: false,
+    };
+  }
+
+  const normalizedType = String(job?.type || '').toLowerCase();
+  const action = normalizeCompletionAction(completionAction);
+  const reviewOutputsPresent = hasReviewOutputs(artifacts);
+  const sourceArtifactFamily = String(action.sourceArtifactFamily || '').trim().toLowerCase();
+  let route = '';
+
+  if (normalizedType === 'create' || normalizedType === 'draw') {
+    route = 'artifacts';
+  } else if (normalizedType === 'report') {
+    route = reviewOutputsPresent ? 'review' : 'artifacts';
+  } else if (normalizedType === 'inspect') {
+    route = reviewOutputsPresent || sourceArtifactFamily === 'review' ? 'review' : 'artifacts';
+  } else if (reviewOutputsPresent) {
+    route = 'review';
+  } else {
+    route = action.preferredRoute || 'artifacts';
+  }
+
+  return {
+    route,
+    secondaryRoute: route === 'review' ? 'artifacts' : '',
+    hasReviewOutputs: reviewOutputsPresent,
+  };
+}
+
+export function resolveMonitoredJobCompletionRoute(job = {}, completionAction = null, artifacts = []) {
+  return resolveMonitoredJobCompletionTarget(job, {
+    artifacts,
+    completionAction,
+  }).route;
 }

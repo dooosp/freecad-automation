@@ -1,6 +1,6 @@
 import { createLogEntry } from './studio/renderers.js';
 import { fetchArtifactText } from './studio/artifact-insights.js';
-import { buildStudioArtifactRef } from './studio/artifact-actions.js';
+import { buildStudioArtifactRef, deriveStudioArtifactFamily } from './studio/artifact-actions.js';
 import { mountArtifactsWorkspace } from './studio/artifacts-workspace.js';
 import { mountDrawingWorkspace } from './studio/drawing-workspace.js';
 import {
@@ -9,7 +9,7 @@ import {
   findStudioMonitoredJob,
   listActiveStudioMonitoredJobs,
   mergeTrackedJobIntoRecentJobs,
-  resolveMonitoredJobCompletionRoute,
+  resolveMonitoredJobCompletionTarget,
   syncActiveJobsIntoMonitor,
   upsertStudioMonitoredJob,
 } from './studio/job-monitor.js';
@@ -25,10 +25,17 @@ import {
 import { renderJobsCenter, shortJobId } from './studio/jobs-center.js';
 import { mountModelWorkspace } from './studio/model-workspace.js';
 import { mountReviewWorkspace } from './studio/review-workspace.js';
-import { deriveStudioChromeState, normalizeRoute } from './studio/studio-state.js';
+import {
+  deriveStudioChromeState,
+  deriveStudioWorkspaceSelection,
+  parseStudioLocationState,
+  routeSupportsSelectedJob,
+  serializeStudioLocationState,
+} from './studio/studio-state.js';
 import { workspaceDefinitions } from './studio/workspaces.js';
 
 const workspaceRoot = document.getElementById('workspace-root');
+const completionNoticeHost = document.getElementById('completion-notice-host');
 const workspaceSummary = document.getElementById('workspace-summary');
 const runtimeBadge = document.getElementById('runtime-badge');
 const projectBadge = document.getElementById('project-badge');
@@ -48,9 +55,11 @@ const JOB_MONITOR_POLL_MS = 2000;
 let activeWorkspaceController = null;
 let jobMonitorTimer = null;
 const jobMonitorErrors = new Map();
+const initialLocationState = parseStudioLocationState(window.location);
 
 const state = {
-  route: normalizeRoute(window.location.hash),
+  route: initialLocationState.route,
+  selectedJobId: initialLocationState.selectedJobId,
   connectionState: 'placeholder',
   connectionLabel: 'checking',
   runtimeTone: 'info',
@@ -88,6 +97,7 @@ const state = {
       items: [],
       lastPollTime: null,
     },
+    completionNotice: null,
     model: {
       sourceType: '',
       sourceName: '',
@@ -233,10 +243,83 @@ function syncChrome() {
   setBadgeTone(jobBadge, state.jobBadgeTone || 'info');
 
   navLinks.forEach((link) => {
+    const linkRoute = link.dataset.route || 'start';
+    link.setAttribute(
+      'href',
+      serializeStudioLocationState({
+        route: linkRoute,
+        selectedJobId: routeSupportsSelectedJob(linkRoute) ? state.selectedJobId : '',
+      })
+    );
     const isActive = link.dataset.route === state.route;
     if (isActive) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
   });
+}
+
+function renderCompletionNotice() {
+  const notice = state.data.completionNotice;
+  if (!completionNoticeHost) return;
+
+  if (!notice) {
+    completionNoticeHost.hidden = true;
+    completionNoticeHost.replaceChildren();
+    return;
+  }
+
+  completionNoticeHost.hidden = false;
+  completionNoticeHost.replaceChildren(
+    document.createElement('div')
+  );
+  const container = completionNoticeHost.firstElementChild;
+  container.className = 'completion-notice';
+  container.dataset.tone = notice.tone || 'info';
+
+  const copy = document.createElement('div');
+  copy.className = 'completion-notice-copy';
+
+  const title = document.createElement('p');
+  title.className = 'completion-notice-title';
+  title.textContent = notice.title;
+  copy.append(title);
+
+  const message = document.createElement('p');
+  message.className = 'completion-notice-message';
+  message.textContent = notice.message;
+  copy.append(message);
+
+  const actions = document.createElement('div');
+  actions.className = 'completion-notice-actions';
+
+  const primaryButton = document.createElement('button');
+  primaryButton.className = 'action-button action-button-primary';
+  primaryButton.type = 'button';
+  primaryButton.dataset.action = 'open-job';
+  primaryButton.dataset.jobId = notice.jobId;
+  primaryButton.dataset.route = notice.primaryRoute;
+  primaryButton.textContent = notice.primaryLabel;
+  actions.append(primaryButton);
+
+  if (notice.secondaryRoute) {
+    const secondaryButton = document.createElement('button');
+    secondaryButton.className = 'action-button action-button-ghost';
+    secondaryButton.type = 'button';
+    secondaryButton.dataset.action = 'open-job';
+    secondaryButton.dataset.jobId = notice.jobId;
+    secondaryButton.dataset.route = notice.secondaryRoute;
+    secondaryButton.textContent = notice.secondaryLabel;
+    actions.append(secondaryButton);
+  }
+
+  const dismissButton = document.createElement('button');
+  dismissButton.className = 'action-button action-button-ghost';
+  dismissButton.type = 'button';
+  dismissButton.dataset.action = 'dismiss-completion-notice';
+  dismissButton.dataset.jobId = notice.jobId;
+  dismissButton.textContent = 'Dismiss';
+  actions.append(dismissButton);
+
+  container.append(copy, actions);
 }
 
 function renderJobsDrawer() {
@@ -298,6 +381,7 @@ function renderLogs() {
 function commitRender() {
   syncDerivedState();
   syncChrome();
+  renderCompletionNotice();
   renderWorkspace();
   renderJobsDrawer();
   renderLogs();
@@ -306,6 +390,7 @@ function commitRender() {
 function refreshShellChrome({ syncWorkspace = false } = {}) {
   syncDerivedState();
   syncChrome();
+  renderCompletionNotice();
   renderJobsDrawer();
   if (syncWorkspace) {
     activeWorkspaceController?.syncFromShell?.();
@@ -318,10 +403,21 @@ function addLog(entry) {
   renderLogs();
 }
 
-function setRoute(nextRoute, { focus = false, hash = false } = {}) {
-  state.route = workspaceDefinitions[nextRoute] ? nextRoute : 'start';
+function setRoute(nextRoute, { focus = false, hash = false, selectedJobId } = {}) {
+  const nextLocation = deriveStudioWorkspaceSelection(
+    {
+      route: state.route,
+      selectedJobId: state.selectedJobId,
+    },
+    {
+      route: nextRoute,
+      ...(selectedJobId !== undefined ? { selectedJobId } : {}),
+    }
+  );
+  state.route = nextLocation.route;
+  state.selectedJobId = nextLocation.selectedJobId;
   if (hash) {
-    const nextHash = `#${state.route}`;
+    const nextHash = serializeStudioLocationState(nextLocation);
     if (window.location.hash !== nextHash) {
       window.location.hash = nextHash;
       return;
@@ -333,7 +429,11 @@ function setRoute(nextRoute, { focus = false, hash = false } = {}) {
 
 function navigateTo(route, options = {}) {
   state.pendingFocus = options.pendingFocus || null;
-  setRoute(route, { focus: true, hash: true });
+  setRoute(route, {
+    focus: true,
+    hash: true,
+    ...(options.selectedJobId !== undefined ? { selectedJobId: options.selectedJobId } : {}),
+  });
 }
 
 function setLogDrawer(open) {
@@ -399,6 +499,36 @@ function syncJobIntoState(job) {
   }
 }
 
+function setCompletionNotice(notice = null) {
+  state.data.completionNotice = notice;
+  renderCompletionNotice();
+}
+
+function buildCompletionNotice(job, target, remainingActiveCount = 0) {
+  const shortId = shortJobId(job.id);
+  const primaryRoute = target.route || 'artifacts';
+  const primaryLabel = primaryRoute === 'review' ? 'Open Review' : 'Open Artifacts';
+  const secondaryRoute = target.secondaryRoute || '';
+  const secondaryLabel = secondaryRoute === 'review' ? 'Open Review' : secondaryRoute === 'artifacts' ? 'Open Artifacts' : '';
+  const completionCopy = primaryRoute === 'review'
+    ? 'Review-ready outputs are available for the completed run.'
+    : 'Tracked artifacts are ready for the completed run.';
+  const handoffCopy = remainingActiveCount > 0
+    ? ` Stayed on the current workspace while ${remainingActiveCount} other active job${remainingActiveCount === 1 ? '' : 's'} remain.`
+    : ` Routed ${job.type} ${shortId} into ${primaryRoute}.`;
+
+  return {
+    jobId: job.id,
+    tone: 'ok',
+    title: `${job.type} ${shortId} settled`,
+    message: `${completionCopy}${handoffCopy}`,
+    primaryRoute,
+    primaryLabel,
+    secondaryRoute,
+    secondaryLabel,
+  };
+}
+
 function clearJobMonitorTimer() {
   if (jobMonitorTimer) {
     window.clearTimeout(jobMonitorTimer);
@@ -425,9 +555,38 @@ function logJobTransition(job, previousStatus, nextStatus, origin = 'monitor') {
 }
 
 async function runMonitoredJobCompletionAction(job, completionAction = null) {
-  const route = resolveMonitoredJobCompletionRoute(job, completionAction);
-  if (!route) return;
-  await openJob(job.id, { route });
+  let artifacts = [];
+  try {
+    const payload = await fetchJson(`/jobs/${encodeURIComponent(job.id)}/artifacts`);
+    artifacts = Array.isArray(payload?.artifacts) ? payload.artifacts : [];
+  } catch {
+    artifacts = [];
+  }
+
+  const target = resolveMonitoredJobCompletionTarget(job, {
+    artifacts,
+    completionAction,
+  });
+  if (!target.route) return;
+
+  const remainingActiveCount = listActiveStudioMonitoredJobs(state.data.jobMonitor)
+    .filter((entry) => entry.id !== job.id)
+    .length;
+
+  setCompletionNotice(buildCompletionNotice(job, target, remainingActiveCount));
+
+  if (remainingActiveCount > 0) {
+    addLog({
+      status: 'Tracked run',
+      message: `${job.type} ${shortJobId(job.id)} finished. Completion handoff is ready in ${target.route} while other jobs continue.`,
+      tone: 'ok',
+      time: 'job',
+    });
+    refreshShellChrome({ syncWorkspace: true });
+    return;
+  }
+
+  await openJob(job.id, { route: target.route, summaryHint: job });
 }
 
 async function refreshRecentJobs({ silent = false, preserveRender = false } = {}) {
@@ -899,9 +1058,49 @@ async function openConfigFile(file) {
   navigateTo('model', { pendingFocus: 'config' });
 }
 
-async function openJob(jobId, { route = 'artifacts' } = {}) {
-  const summary = findKnownJob(jobId);
-  if (!summary) return;
+async function fetchJobSummary(jobId, summaryHint = null) {
+  if (!jobId) return null;
+
+  const knownSummary = summaryHint?.id === jobId ? summaryHint : findKnownJob(jobId);
+  if (knownSummary) return knownSummary;
+
+  const payload = await fetchJson(`/jobs/${encodeURIComponent(jobId)}`);
+  return payload?.job || null;
+}
+
+async function openJob(jobId, { route = 'artifacts', summaryHint = null } = {}) {
+  const normalizedJobId = String(jobId || '').trim();
+  if (!normalizedJobId) return;
+
+  const currentJobId = state.data.activeJob.summary?.id || '';
+  const sameJob = currentJobId === normalizedJobId;
+
+  if (sameJob && state.data.activeJob.status === 'ready') {
+    navigateTo(route, { selectedJobId: normalizedJobId });
+    if (state.data.completionNotice?.jobId === normalizedJobId) {
+      setCompletionNotice(null);
+    }
+    return;
+  }
+
+  let summary = null;
+  try {
+    summary = await fetchJobSummary(normalizedJobId, summaryHint);
+  } catch {
+    summary = null;
+  }
+
+  if (!summary) {
+    summary = {
+      id: normalizedJobId,
+      type: 'job',
+      status: 'unknown',
+      updated_at: null,
+      links: {},
+    };
+  }
+
+  syncJobIntoState(summary);
 
   state.data.activeJob = {
     status: 'loading',
@@ -911,33 +1110,35 @@ async function openJob(jobId, { route = 'artifacts' } = {}) {
     storage: null,
     errorMessage: '',
   };
-  state.data.review = {
-    ...state.data.review,
-    status: 'idle',
-    jobId: '',
-    cards: [],
-    selectedCardId: '',
-    errorMessage: '',
-  };
-  state.data.artifactsWorkspace = {
-    ...state.data.artifactsWorkspace,
-    selectedArtifactId: '',
-    previewStatus: 'idle',
-    previewText: '',
-    previewArtifactId: '',
-    previewError: '',
-    compare: {
-      jobId: '',
+  if (!sameJob) {
+    state.data.review = {
+      ...state.data.review,
       status: 'idle',
+      jobId: '',
+      cards: [],
+      selectedCardId: '',
       errorMessage: '',
-      job: null,
-      artifacts: [],
-    },
-  };
-  navigateTo(route);
+    };
+    state.data.artifactsWorkspace = {
+      ...state.data.artifactsWorkspace,
+      selectedArtifactId: '',
+      previewStatus: 'idle',
+      previewText: '',
+      previewArtifactId: '',
+      previewError: '',
+      compare: {
+        jobId: '',
+        status: 'idle',
+        errorMessage: '',
+        job: null,
+        artifacts: [],
+      },
+    };
+  }
+  navigateTo(route, { selectedJobId: normalizedJobId });
 
   try {
-    const payload = await fetchJson(summary.links?.artifacts || `/jobs/${jobId}/artifacts`);
+    const payload = await fetchJson(summary.links?.artifacts || `/jobs/${encodeURIComponent(normalizedJobId)}/artifacts`);
     state.data.activeJob = {
       status: 'ready',
       summary,
@@ -946,10 +1147,15 @@ async function openJob(jobId, { route = 'artifacts' } = {}) {
       storage: payload?.storage || null,
       errorMessage: '',
     };
-    state.data.artifactsWorkspace.selectedArtifactId = state.data.activeJob.artifacts[0]?.id || '';
+    if (
+      !state.data.artifactsWorkspace.selectedArtifactId
+      || !state.data.activeJob.artifacts.some((artifact) => artifact.id === state.data.artifactsWorkspace.selectedArtifactId)
+    ) {
+      state.data.artifactsWorkspace.selectedArtifactId = state.data.activeJob.artifacts[0]?.id || '';
+    }
     addLog({
       status: 'Artifacts',
-      message: `Opened tracked artifacts for ${summary.type} ${jobId.slice(0, 8)}.`,
+      message: `Opened tracked artifacts for ${summary.type} ${normalizedJobId.slice(0, 8)}.`,
       tone: 'ok',
       time: 'job',
     });
@@ -964,13 +1170,30 @@ async function openJob(jobId, { route = 'artifacts' } = {}) {
     };
     addLog({
       status: 'Artifacts',
-      message: `Could not load artifact details for ${summary.type} ${jobId.slice(0, 8)}.`,
+      message: `Could not load artifact details for ${summary.type} ${normalizedJobId.slice(0, 8)}.`,
       tone: 'warn',
       time: 'job',
     });
   } finally {
+    if (state.data.completionNotice?.jobId === normalizedJobId) {
+      setCompletionNotice(null);
+    }
     commitRender();
   }
+}
+
+async function syncSelectedJobFromLocation() {
+  if (!routeSupportsSelectedJob(state.route) || !state.selectedJobId) return;
+
+  if (state.data.activeJob.summary?.id === state.selectedJobId) {
+    return;
+  }
+
+  if (state.data.activeJob.status === 'loading' && state.data.activeJob.summary?.id === state.selectedJobId) {
+    return;
+  }
+
+  await openJob(state.selectedJobId, { route: state.route });
 }
 
 async function hydrateShell() {
@@ -981,10 +1204,16 @@ async function hydrateShell() {
     refreshRecentJobs(),
   ]);
   resumeJobMonitoring();
+  await syncSelectedJobFromLocation();
 }
 
 function handleHashChange() {
-  setRoute(normalizeRoute(window.location.hash), { focus: true });
+  const nextLocation = parseStudioLocationState(window.location);
+  state.route = nextLocation.route;
+  state.selectedJobId = nextLocation.selectedJobId;
+  commitRender();
+  syncSelectedJobFromLocation().catch(() => {});
+  workspaceRoot.focus();
 }
 
 function handleNavKeydown(event) {
@@ -1023,6 +1252,10 @@ async function handleShellAction(actionTarget) {
     navigateTo('review');
   } else if (action === 'open-artifacts' && state.data.activeJob.summary) {
     navigateTo('artifacts');
+  } else if (action === 'dismiss-completion-notice') {
+    if (!actionTarget.dataset.jobId || state.data.completionNotice?.jobId === actionTarget.dataset.jobId) {
+      setCompletionNotice(null);
+    }
   } else if (action === 'cancel-job' && jobId) {
     try {
       await cancelTrackedJobById(jobId);
@@ -1061,12 +1294,13 @@ async function handleShellAction(actionTarget) {
     }
   } else if ((action === 'run-artifact-inspect' || action === 'run-artifact-report') && jobId) {
     try {
+      const artifact = state.data.activeJob.artifacts.find((entry) => entry.id === actionTarget.dataset.artifactId);
       await submitTrackedStudioRun({
         type: action === 'run-artifact-inspect' ? 'inspect' : 'report',
         artifactRef: buildStudioArtifactRef(jobId, actionTarget.dataset.artifactId),
         completionAction: {
-          type: 'open-artifacts-on-success',
-          route: action === 'run-artifact-report' ? 'review' : 'artifacts',
+          type: 'tracked-run-completion',
+          sourceArtifactFamily: deriveStudioArtifactFamily(artifact),
         },
       });
     } catch (error) {

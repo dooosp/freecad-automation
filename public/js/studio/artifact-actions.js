@@ -55,6 +55,13 @@ export function buildStudioArtifactRef(jobId, artifactId) {
   };
 }
 
+export function deriveStudioArtifactFamily(artifact = {}) {
+  if (canReenterModelWorkspace(artifact)) return 'config';
+  if (isReviewSourceArtifact(artifact)) return 'review';
+  if (isInspectableModelArtifact(artifact)) return 'model';
+  return 'generic';
+}
+
 export function isConfigLikeArtifact(artifact = {}) {
   const extension = normalizeString(artifact.extension);
   const type = normalizeString(artifact.type);

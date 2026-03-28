@@ -2,13 +2,88 @@ import assert from 'node:assert/strict';
 
 import {
   deriveStudioChromeState,
+  deriveStudioWorkspaceSelection,
   normalizeRoute,
+  parseStudioLocationState,
+  serializeStudioLocationState,
   summarizeProjectPath,
 } from '../public/js/studio/studio-state.js';
 
 assert.equal(normalizeRoute('#drawing'), 'drawing');
 assert.equal(normalizeRoute(' review '), 'review');
 assert.equal(normalizeRoute('#unknown-route'), 'start');
+assert.equal(normalizeRoute('#review?job=job-123'), 'review');
+
+assert.deepEqual(
+  parseStudioLocationState({
+    hash: '#artifacts?job=job-123',
+    search: '',
+  }),
+  {
+    route: 'artifacts',
+    selectedJobId: 'job-123',
+  }
+);
+
+assert.deepEqual(
+  parseStudioLocationState({
+    hash: '#review',
+    search: '?job=job-999',
+  }),
+  {
+    route: 'review',
+    selectedJobId: 'job-999',
+  }
+);
+
+assert.equal(
+  serializeStudioLocationState({
+    route: 'review',
+    selectedJobId: 'job-123',
+  }),
+  '#review?job=job-123'
+);
+
+assert.equal(
+  serializeStudioLocationState({
+    route: 'model',
+    selectedJobId: 'job-123',
+  }),
+  '#model'
+);
+
+assert.deepEqual(
+  deriveStudioWorkspaceSelection(
+    { route: 'artifacts', selectedJobId: 'job-123' },
+    { route: 'review' }
+  ),
+  {
+    route: 'review',
+    selectedJobId: 'job-123',
+  }
+);
+
+assert.deepEqual(
+  deriveStudioWorkspaceSelection(
+    { route: 'review', selectedJobId: 'job-123' },
+    { route: 'artifacts', selectedJobId: 'job-456' }
+  ),
+  {
+    route: 'artifacts',
+    selectedJobId: 'job-456',
+  }
+);
+
+assert.deepEqual(
+  deriveStudioWorkspaceSelection(
+    { route: 'review', selectedJobId: 'job-123' },
+    { route: 'model' }
+  ),
+  {
+    route: 'model',
+    selectedJobId: '',
+  }
+);
 
 assert.equal(summarizeProjectPath('/Users/jangtaeho/Documents/New/freecad-automation'), 'Project New/freecad-automation');
 assert.equal(summarizeProjectPath(''), 'Project root unavailable');
