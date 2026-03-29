@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { buildArtifactManifest } from '../lib/artifact-manifest.js';
 import { createJobStore } from '../src/services/jobs/job-store.js';
 import { LOCAL_API_VERSION } from '../src/server/local-api-contract.js';
+import { toPublicJobRequest } from '../src/server/public-job-request.js';
 import { validateJobRequest } from '../src/services/jobs/job-executor.js';
 import { validateLocalApiResponse } from '../src/server/local-api-schemas.js';
 
@@ -45,9 +46,66 @@ try {
   });
   assert.equal(valid.ok, true);
 
+  const publicArtifactRequest = toPublicJobRequest({
+    type: 'report',
+    config_path: '/tmp/private/effective-config.json',
+    options: {
+      override_path: '/tmp/private/override.toml',
+      studio: {
+        source: 'artifact-reference',
+        source_job_id: 'job-upstream',
+        source_artifact_id: 'effective-config',
+        source_artifact_type: 'config.effective',
+        source_label: 'Effective config copy',
+        source_artifact_path: '/tmp/private/effective-config.json',
+      },
+      metadata: {
+        nested_path: 'C:\\temp\\private\\source.fcstd',
+      },
+    },
+  });
+  assert.equal(publicArtifactRequest.type, 'report');
+  assert.deepEqual(publicArtifactRequest.artifact_ref, {
+    job_id: 'job-upstream',
+    artifact_id: 'effective-config',
+  });
+  assert.equal(publicArtifactRequest.source_label, 'Effective config copy');
+  assert.equal('config_path' in publicArtifactRequest, false);
+  assert.equal('source_artifact_path' in (publicArtifactRequest.options?.studio || {}), false);
+  assert.equal(publicArtifactRequest.options.override_path, 'override.toml');
+  assert.equal(publicArtifactRequest.options.metadata.nested_path, 'source.fcstd');
+  assert.equal(JSON.stringify(publicArtifactRequest).includes('/tmp/private'), false);
+  assert.equal(JSON.stringify(publicArtifactRequest).includes('C:\\\\temp\\\\private'), false);
+
+  const publicInspectRequest = toPublicJobRequest({
+    type: 'inspect',
+    file_path: 'C:\\private\\secret\\source.fcstd',
+    options: {
+      labels: [
+        '/tmp/private/model.step',
+        {
+          source_artifact_path: '/tmp/private/ignored.step',
+          raw_path: '/tmp/private/raw.step',
+        },
+      ],
+    },
+  });
+  assert.equal(publicInspectRequest.type, 'inspect');
+  assert.equal('file_path' in publicInspectRequest, false);
+  assert.equal(publicInspectRequest.options.labels[0], 'model.step');
+  assert.equal('source_artifact_path' in publicInspectRequest.options.labels[1], false);
+  assert.equal(publicInspectRequest.options.labels[1].raw_path, 'raw.step');
+  assert.equal('artifact_ref' in publicInspectRequest, false);
+  assert.equal(JSON.stringify(publicInspectRequest).includes('/tmp/private'), false);
+  assert.equal(JSON.stringify(publicInspectRequest).includes('C:\\\\private\\\\secret'), false);
+
   const store = createJobStore({ jobsDir: join(tmpRoot, 'jobs') });
   const job = await store.createJob(valid.request);
   await store.appendLog(job.id, 'queued');
+  assert.deepEqual(
+    JSON.parse(readFileSync(job.paths.request, 'utf8')),
+    valid.request
+  );
 
   const artifactPath = await store.writeJobFile(job.id, 'artifacts/sample.json', '{"ok":true}\n');
   const manifest = await buildArtifactManifest({
@@ -84,15 +142,51 @@ try {
   const artifacts = await store.listArtifacts(job.id);
   assert.equal(artifacts.length, 1);
   assert.equal(artifacts[0].exists, true);
+  assert.match(artifacts[0].id, /sample|report-sample|artifact/i);
   assert.equal(artifacts[0].key, 'Sample artifact');
   assert.equal(artifacts[0].type, 'report.sample');
+  assert.equal(artifacts[0].file_name, 'sample.json');
+  assert.equal(artifacts[0].extension, '.json');
+  const apiArtifacts = artifacts.map((artifact) => ({
+    id: artifact.id,
+    key: artifact.key,
+    type: artifact.type,
+    scope: artifact.scope,
+    stability: artifact.stability,
+    file_name: artifact.file_name,
+    extension: artifact.extension,
+    exists: artifact.exists,
+    size_bytes: artifact.size_bytes,
+    content_type: 'application/json; charset=utf-8',
+    capabilities: {
+      can_open: true,
+      can_download: true,
+      browser_safe: true,
+    },
+    links: {
+      open: `/jobs/${job.id}/artifacts/${artifact.id}/content`,
+      download: `/jobs/${job.id}/artifacts/${artifact.id}/content?download=1`,
+      api: `/jobs/${job.id}/artifacts/${artifact.id}/content`,
+    },
+  }));
 
-  const storage = await store.describeStorage(job.id);
-  assert.equal(storage.root.endsWith(job.id), true);
-  assert.equal(storage.files.job.exists, true);
-  assert.equal(storage.files.request.exists, true);
-  assert.equal(storage.files.log.exists, true);
-  assert.equal(storage.files.manifest.exists, true);
+  const internalStorage = await store.describeStorage(job.id);
+  assert.equal(internalStorage.root.endsWith(job.id), true);
+  assert.equal(internalStorage.files.job.exists, true);
+  assert.equal(internalStorage.files.request.exists, true);
+  assert.equal(internalStorage.files.log.exists, true);
+  assert.equal(internalStorage.files.manifest.exists, true);
+  const storage = {
+    files: Object.fromEntries(
+      Object.entries(internalStorage.files).map(([key, entry]) => [
+        key,
+        {
+          exists: entry.exists,
+          size_bytes: entry.size_bytes,
+        },
+      ])
+    ),
+  };
 
   const responseValidation = validateLocalApiResponse('job', {
     api_version: LOCAL_API_VERSION,
@@ -106,16 +200,25 @@ try {
       started_at: persistedJob.started_at,
       finished_at: persistedJob.finished_at,
       error: persistedJob.error,
-      request: persistedJob.request,
+      retried_from_job_id: persistedJob.retried_from_job_id,
+      request: toPublicJobRequest(persistedJob.request),
       diagnostics: persistedJob.diagnostics,
-      artifacts: persistedJob.artifacts,
+      artifacts: {
+        sample: 'sample.json',
+      },
       manifest: persistedJob.manifest,
-      result: persistedJob.result,
+      result: { success: true },
       status_history: persistedJob.status_history,
       storage,
+      capabilities: {
+        cancellation_supported: false,
+        retry_supported: false,
+      },
       links: {
         self: `/jobs/${job.id}`,
         artifacts: `/jobs/${job.id}/artifacts`,
+        cancel: `/jobs/${job.id}/cancel`,
+        retry: `/jobs/${job.id}/retry`,
       },
     },
   });
@@ -125,7 +228,7 @@ try {
     api_version: LOCAL_API_VERSION,
     ok: true,
     job_id: job.id,
-    artifacts,
+    artifacts: apiArtifacts,
     manifest: persistedJob.manifest,
     storage,
   });

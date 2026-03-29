@@ -41,7 +41,11 @@ export function startServer(port = 3000) {
       const examples = [];
       for (const f of files.filter(f => f.endsWith('.toml'))) {
         const content = await readFile(join(EXAMPLES_DIR, f), 'utf8');
-        examples.push({ name: f, content });
+        examples.push({
+          id: f.replace(/\.toml$/i, ''),
+          name: f,
+          content,
+        });
       }
       res.json(examples);
     } catch (err) {

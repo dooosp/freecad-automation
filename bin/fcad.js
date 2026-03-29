@@ -160,6 +160,26 @@ Examples:
   Windows native, WSL -> Windows FreeCAD, and Linux runtime execution are compatibility paths, not equal-maturity claims.
 `.trim();
 
+const SERVE_USAGE = `
+fcad serve - local API, studio shell, and legacy viewer entrypoint
+
+Usage:
+  fcad serve [port] [--jobs-dir <dir>]
+  fcad serve [port] --legacy-viewer
+  fcad serve --help
+
+Modes:
+  default            Starts the local HTTP API for /health and /jobs and serves the studio shell at / and /studio
+  --legacy-viewer    Starts the older browser demo shell from server.js
+
+Notes:
+  Browser requests to http://127.0.0.1:<port>/ land in the future-facing studio shell.
+  Open http://127.0.0.1:<port>/api for the local API info page.
+  Open http://127.0.0.1:<port>/studio for the direct studio route.
+  Open http://127.0.0.1:<port>/health to verify the API.
+  Use fcad serve --legacy-viewer or npm run serve:legacy for the browser demo.
+`.trim();
+
 function parseCliArgs(rawArgs = []) {
   const positional = [];
   const options = {};
@@ -1496,7 +1516,26 @@ async function cmdMigrateConfig(rawArgs = []) {
 
 async function cmdServe(rawArgs = []) {
   const { positional, options } = parseCliArgs(rawArgs);
-  const port = parseInt(positional[0], 10) || 3000;
+  const requestedPort = positional[0];
+
+  if (requestedPort === 'help' || options.help === true || options.h === true) {
+    console.log(SERVE_USAGE);
+    return;
+  }
+
+  if (positional.length > 1) {
+    console.error(`Error: unexpected extra positional arguments for serve: ${positional.slice(1).join(' ')}`);
+    console.error(SERVE_USAGE);
+    process.exit(1);
+  }
+
+  if (requestedPort !== undefined && !/^\d+$/.test(requestedPort)) {
+    console.error(`Error: serve port must be a positive integer, received "${requestedPort}"`);
+    console.error(SERVE_USAGE);
+    process.exit(1);
+  }
+
+  const port = Number.parseInt(requestedPort || '3000', 10);
 
   if (options.legacy === true || options['legacy-viewer'] === true) {
     console.warn('Warning: fcad serve --legacy-viewer starts the legacy viewer shell.');

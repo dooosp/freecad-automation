@@ -7,7 +7,7 @@ This repository now separates fast hosted checks from real FreeCAD-backed smoke 
 | Lane | Command | Scope | FreeCAD required |
 | --- | --- | --- | --- |
 | Node contract | `npm run test:node:contract` | config migration/validation, runtime path resolution, invocation assembly, structural validation | No |
-| Node integration | `npm run test:node:integration` | local API/job contracts, rule profiles, sweep logic, draw/report service integration | No |
+| Node integration | `npm run test:node:integration` | local API/job contracts, studio bridge routes, browserless studio and legacy serve smoke, rule profiles, sweep logic, draw/report service integration | No |
 | Snapshots | `npm run test:snapshots` | normalized SVG and report preview regression baselines | No |
 | Python | `npm run test:py` | plain-Python and CLI-adjacent regression coverage that does not require a live FreeCAD launch | No |
 | Runtime smoke | `npm run test:runtime-smoke` | real `fcad` smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, and `report` using checked-in example configs | Yes |
@@ -31,6 +31,33 @@ The runtime domain runner uses the same FreeCAD-backed script path as the CLI an
 | `FreeCAD Runtime Smoke (self-hosted macOS)` | `test:runtime-smoke` plus runtime-backed Python smoke regressions | No Linux or Windows runtime ownership claims, and no repository-owned tolerance smoke claim yet |
 
 The hosted workflow is the fast PR lane. The self-hosted workflow is scheduled/manual and is the repository-owned runtime smoke source of truth.
+
+## Verification Wording
+
+Use the following terms consistently in contributor notes and PR verification blocks:
+
+- `hosted-safe` or `browserless`: route, contract, or service checks that do not claim a live browser session and do not claim a live FreeCAD launch
+- `legacy HTTP smoke`: `serve:legacy` answered over HTTP and served static assets, but no websocket interaction or browser UI behavior was exercised
+- `runtime-backed`: only use this wording when a real FreeCAD-backed command or runtime smoke lane actually ran
+- `artifact re-entry`: a studio flow that starts from an existing tracked artifact reference rather than from a fresh pasted config
+
+## Phase-3 tracked execution coverage
+
+The hosted-safe Node lanes now cover the phase-3 tracked execution model without claiming a real browser session:
+
+- request sanitization for public job payloads versus persisted internal executor requests
+- public storage metadata redaction on `/jobs`, `/jobs/:id`, and `/jobs/:id/artifacts`
+- browser-visible manifest/result redaction where internal values would otherwise contain absolute paths
+- public artifact list shape on `/jobs/:id/artifacts`
+- example payload shape on `/api/examples`
+- drawing preview and dimension-update response shapes on `/api/studio/drawing-preview` and `/api/studio/drawing-previews/:id/dimensions`, including safe preview/edit-loop references instead of raw preview-plan paths
+- cancel/retry route behavior by job state
+- multi-job monitor helpers, completion routing helpers, and selected-job deep-link helpers
+- jobs center action eligibility and merged active/history ordering
+- browserless smoke for `/`, `/api`, `/studio`, `/jobs`, `/jobs/:id`, `/api/examples`, cancel/retry routes, and browser-safe artifact open/download paths
+- studio helper coverage that keeps artifact/example rendering and drawing preview copy path-free even if internal payloads remain path-bearing on disk
+
+This is intentionally API-and-helper coverage, not runtime-backed verification. Only `npm run test:runtime-smoke` proves a live FreeCAD-backed execution path, and it should be run only when `fcad check-runtime` reports an actually available runtime on the current machine.
 
 ## Runtime Smoke Contents
 
@@ -97,6 +124,7 @@ npm run test:runtime:integration
 ## Known Limitations
 
 - Hosted CI does not prove that FreeCAD launches successfully on Linux or macOS.
+- Browserless studio and legacy serve smoke do not prove client-side rendering or websocket behavior.
 - Windows and WSL support are still contract-tested compatibility paths, not runtime-smoke-covered platforms.
 - The Python lane intentionally excludes runtime-backed smoke regressions so the default hosted lane stays fast and honest.
 - The tolerance flow remains local/deeper-runtime coverage only; it is not part of the repository-owned smoke lane yet.

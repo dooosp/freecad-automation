@@ -1,6 +1,6 @@
 # Output Contract
 
-FreeCAD Automation now emits a first-class artifact manifest for artifact-producing CLI runs, local API jobs, parameter sweeps, and stdout-oriented commands when `--manifest-out <path>` is supplied.
+FreeCAD Automation now emits a first-class artifact manifest for artifact-producing CLI runs, local API jobs, and parameter sweeps.
 
 The canonical schema lives at [schemas/artifact-manifest.schema.json](../schemas/artifact-manifest.schema.json).
 
@@ -22,7 +22,6 @@ The canonical schema lives at [schemas/artifact-manifest.schema.json](../schemas
 
 Every manifest uses the same core top-level fields:
 
-- `manifest_version` and `schema_version`: explicit stability/version markers for the manifest contract
 - `interface`: `cli`, `api`, or `sweep`
 - `command` and `job_type`
 - `status`
@@ -34,8 +33,6 @@ Every manifest uses the same core top-level fields:
 - `artifacts`: typed artifact records with `path`, `scope`, `stability`, and optional file metadata
 - `timestamps`
 - `app_version`, `git_commit`
-
-`schema_version` remains for backward compatibility with earlier tooling. New tooling should key on `manifest_version`.
 
 ## Artifact Stability
 
@@ -51,7 +48,6 @@ Stable user-facing types currently include:
 
 - `config.input`
 - `config.effective`
-- `model.input`
 - `model.<format>`
 - `drawing.svg`
 - `report.pdf`
@@ -89,10 +85,9 @@ Internal types include:
 ## CLI vs API vs Sweep
 
 - CLI writes the manifest next to the artifact set it just produced.
-- Stdout-oriented CLI commands such as `inspect`, `fem`, `tolerance`, and `dfm` keep their current stdout output by default, but can emit a manifest explicitly with `--manifest-out <path>`.
 - Local API stores the same manifest shape on the job record and persists it as `jobs/<job-id>/artifact-manifest.json`.
-- `GET /jobs/:id` returns `job.manifest`.
-- `GET /jobs/:id/artifacts` returns the flattened artifact list derived from `job.manifest.artifacts` plus the same `manifest` object.
+- `GET /jobs/:id` returns a browser-safe manifest view with local filesystem paths redacted to safe labels.
+- `GET /jobs/:id/artifacts` returns the flattened artifact list derived from `job.manifest.artifacts` plus the same browser-safe manifest view.
 - Sweeps emit both aggregate provenance and per-variant provenance. `summary.json` and each variant `result.json` point to their companion manifest paths.
 
 ## User-Facing Artifacts vs Job-Store Files
@@ -107,6 +102,41 @@ Local API job-store files are different:
 - `artifact-manifest.json`
 
 `artifact-manifest.json` is the stable provenance contract. The other job-store files are internal persistence and should not be treated as user-facing output artifacts.
+
+Browser-visible local API payloads intentionally avoid raw local filesystem paths:
+
+- `/jobs` and `/jobs/:id` keep logical job metadata plus redacted artifact/result/manifest data.
+- `/jobs/:id/artifacts` exposes artifact identity, file name, MIME type, capabilities, and public links, but not raw artifact paths.
+- `/api/examples` returns `id`, `name`, and `content` for checked-in examples without exposing checked-out file locations.
+- `/api/studio/drawing-preview` and `/api/studio/drawing-previews/:id/dimensions` expose browser-safe drawing preview data with safe preview references instead of raw preview-plan or sidecar paths.
+
+Current browser-visible contract:
+
+- `/jobs` and `/jobs/:id`
+  - `request` is sanitized public metadata only
+  - `artifacts` is a flattened summary where path-bearing values are reduced to file-name-style labels
+  - `manifest` and `result` are browser-safe views; absolute paths are redacted to safe labels/file names
+  - `storage.files.<name>` exposes only `exists` and `size_bytes`
+- `/jobs/:id/artifacts`
+  - `artifacts[*]` exposes `id`, `key`, `type`, `scope`, `stability`, `file_name`, `extension`, `content_type`, `exists`, `size_bytes`, `capabilities`, and `links`
+  - `manifest` is the same redacted browser-safe manifest view used on `/jobs/:id`
+  - `storage` stays logical and path-free
+- `/api/examples`
+  - each record is exactly `{ id, name, content }`
+- `/api/studio/drawing-preview` and `/api/studio/drawing-previews/:id/dimensions`
+  - `preview` exposes `id`, `preview_reference`, `editable_plan_reference` when an editable plan exists, `settings`, `overview`, `validation`, `svg`, `bom`, `views`, `scale`, `qa_summary`, `annotations`, `dimensions`, `editable_plan_available`, `dimension_editing_available`, `tracked_draw_bridge_available`, and `artifact_capabilities`
+  - preview-plan files, preview working directories, `logs`, `run_log`, and other path-bearing preview sidecars are not part of the browser contract
+
+Internal executor/job-store files remain path-bearing on disk where needed:
+
+- `request.json`
+- `job.json`
+- `job.log`
+- `artifact-manifest.json`
+
+Those internal files remain the source of truth for execution, retry, and artifact serving. The public API exposes routes and redacted labels, not those raw filesystem paths.
+
+Drawing preview follows the same split: the editable preview-plan file and related sidecars remain server-side only where the dimension-edit loop and tracked-draw bridge need them, while browser-visible responses expose safe labels and availability flags instead of those filesystem paths.
 
 ## Runtime Diagnostics Contract
 

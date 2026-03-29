@@ -23,7 +23,17 @@ const nullableBoolean = {
   type: ['boolean', 'null'],
 };
 
-const jobRequestSchema = {
+const artifactRefSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['job_id', 'artifact_id'],
+  properties: {
+    job_id: { type: 'string', minLength: 1 },
+    artifact_id: { type: 'string', minLength: 1 },
+  },
+};
+
+const localApiJobRequestSchema = {
   $id: 'fcad.jobRequest',
   oneOf: [
     {
@@ -57,6 +67,41 @@ const jobRequestSchema = {
   ],
 };
 
+const publicJobRequestSchema = {
+  $id: 'fcad.publicJobRequest',
+  oneOf: [
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['type'],
+      properties: {
+        type: { const: 'inspect' },
+        artifact_ref: artifactRefSchema,
+        source_job_id: { type: 'string', minLength: 1 },
+        source_artifact_id: { type: 'string', minLength: 1 },
+        source_artifact_type: { type: 'string', minLength: 1 },
+        source_label: { type: 'string', minLength: 1 },
+        options: { type: 'object' },
+      },
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['type'],
+      properties: {
+        type: { enum: ['create', 'draw', 'report'] },
+        config: { type: 'object' },
+        artifact_ref: artifactRefSchema,
+        source_job_id: { type: 'string', minLength: 1 },
+        source_artifact_id: { type: 'string', minLength: 1 },
+        source_artifact_type: { type: 'string', minLength: 1 },
+        source_label: { type: 'string', minLength: 1 },
+        options: { type: 'object' },
+      },
+    },
+  ],
+};
+
 const errorSchema = {
   type: 'object',
   additionalProperties: false,
@@ -82,12 +127,21 @@ const statusHistorySchema = {
   },
 };
 
+const jobCapabilitiesSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['cancellation_supported', 'retry_supported'],
+  properties: {
+    cancellation_supported: { type: 'boolean' },
+    retry_supported: { type: 'boolean' },
+  },
+};
+
 const storageFileSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['path', 'exists', 'size_bytes'],
+  required: ['exists', 'size_bytes'],
   properties: {
-    path: { type: 'string', minLength: 1 },
     exists: { type: 'boolean' },
     size_bytes: nullableInteger,
   },
@@ -96,15 +150,51 @@ const storageFileSchema = {
 const artifactEntrySchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['key', 'path', 'type', 'scope', 'stability', 'exists', 'size_bytes'],
+  required: [
+    'id',
+    'key',
+    'type',
+    'scope',
+    'stability',
+    'file_name',
+    'extension',
+    'content_type',
+    'exists',
+    'size_bytes',
+    'capabilities',
+    'links',
+  ],
   properties: {
+    id: { type: 'string', minLength: 1 },
     key: { type: 'string', minLength: 1 },
-    path: { type: 'string', minLength: 1 },
     type: nullableString,
     scope: nullableString,
     stability: nullableString,
+    file_name: { type: 'string', minLength: 1 },
+    extension: { type: 'string' },
+    content_type: { type: 'string', minLength: 1 },
     exists: { type: 'boolean' },
     size_bytes: nullableInteger,
+    capabilities: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['can_open', 'can_download', 'browser_safe'],
+      properties: {
+        can_open: { type: 'boolean' },
+        can_download: { type: 'boolean' },
+        browser_safe: { type: 'boolean' },
+      },
+    },
+    links: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['open', 'download'],
+      properties: {
+        open: { type: 'string', minLength: 1 },
+        download: { type: 'string', minLength: 1 },
+        api: { type: 'string', minLength: 1 },
+      },
+    },
   },
 };
 
@@ -336,6 +426,7 @@ const jobSchema = {
     'started_at',
     'finished_at',
     'error',
+    'retried_from_job_id',
     'request',
     'diagnostics',
     'artifacts',
@@ -343,12 +434,13 @@ const jobSchema = {
     'result',
     'status_history',
     'storage',
+    'capabilities',
     'links',
   ],
   properties: {
     id: { type: 'string', minLength: 1 },
     type: { enum: ['create', 'draw', 'inspect', 'report'] },
-    status: { enum: ['queued', 'running', 'succeeded', 'failed'] },
+    status: { enum: ['queued', 'running', 'succeeded', 'failed', 'cancelled'] },
     created_at: { type: 'string', minLength: 1 },
     updated_at: { type: 'string', minLength: 1 },
     started_at: nullableString,
@@ -366,7 +458,8 @@ const jobSchema = {
         },
       ],
     },
-    request: { type: 'object' },
+    retried_from_job_id: nullableString,
+    request: publicJobRequestSchema,
     diagnostics: { type: 'object' },
     artifacts: { type: 'object' },
     manifest: manifestSchema,
@@ -378,9 +471,8 @@ const jobSchema = {
     storage: {
       type: 'object',
       additionalProperties: false,
-      required: ['root', 'files'],
+      required: ['files'],
       properties: {
-        root: { type: 'string', minLength: 1 },
         files: {
           type: 'object',
           additionalProperties: false,
@@ -394,13 +486,16 @@ const jobSchema = {
         },
       },
     },
+    capabilities: jobCapabilitiesSchema,
     links: {
       type: 'object',
       additionalProperties: false,
-      required: ['self', 'artifacts'],
+      required: ['self', 'artifacts', 'cancel', 'retry'],
       properties: {
         self: { type: 'string', minLength: 1 },
         artifacts: { type: 'string', minLength: 1 },
+        cancel: { type: 'string', minLength: 1 },
+        retry: { type: 'string', minLength: 1 },
       },
     },
   },
@@ -433,6 +528,21 @@ const jobResponseSchema = {
   },
 };
 
+const jobsResponseSchema = {
+  $id: 'fcad.jobsResponse',
+  type: 'object',
+  additionalProperties: false,
+  required: ['api_version', 'ok', 'jobs'],
+  properties: {
+    api_version: { const: LOCAL_API_VERSION },
+    ok: { const: true },
+    jobs: {
+      type: 'array',
+      items: jobSchema,
+    },
+  },
+};
+
 const artifactsResponseSchema = {
   $id: 'fcad.artifactsResponse',
   type: 'object',
@@ -451,6 +561,30 @@ const artifactsResponseSchema = {
   },
 };
 
+const jobActionResponseSchema = {
+  $id: 'fcad.jobActionResponse',
+  type: 'object',
+  additionalProperties: false,
+  required: ['api_version', 'ok', 'action', 'job'],
+  properties: {
+    api_version: { const: LOCAL_API_VERSION },
+    ok: { const: true },
+    action: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['type', 'status', 'message', 'source_job_id', 'retry_job_id'],
+      properties: {
+        type: { enum: ['cancel', 'retry'] },
+        status: { enum: ['cancelled', 'queued'] },
+        message: { type: 'string', minLength: 1 },
+        source_job_id: { type: 'string', minLength: 1 },
+        retry_job_id: nullableString,
+      },
+    },
+    job: jobSchema,
+  },
+};
+
 const errorResponseSchema = {
   $id: 'fcad.errorResponse',
   type: 'object',
@@ -463,11 +597,13 @@ const errorResponseSchema = {
   },
 };
 
-const validateJobRequestSchema = ajv.compile(jobRequestSchema);
+const validateJobRequestSchema = ajv.compile(localApiJobRequestSchema);
 const responseValidators = {
   health: ajv.compile(healthResponseSchema),
   job: ajv.compile(jobResponseSchema),
+  jobs: ajv.compile(jobsResponseSchema),
   artifacts: ajv.compile(artifactsResponseSchema),
+  job_action: ajv.compile(jobActionResponseSchema),
   error: ajv.compile(errorResponseSchema),
 };
 

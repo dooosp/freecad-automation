@@ -45,6 +45,27 @@ html, body {
   overflow-y: auto;
 }
 
+.panel-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.locale-control-legacy {
+  display: grid;
+  gap: 4px;
+  min-width: 112px;
+}
+
+.locale-control-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .panel-title {
   font-size: 16px;
   font-weight: 600;

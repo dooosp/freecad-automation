@@ -5,21 +5,13 @@ FreeCAD Automation is a FreeCAD-backed automation pipeline for CAD generation, T
 The repository has two public layers:
 
 - a runtime-backed CLI for CAD, TechDraw, FEM, tolerance, inspection, and reporting
-- a plain-Python/Node manufacturing-review layer for DFM, process planning, readiness review, stabilization review, review-pack artifacts, and standard-document drafts
-
-## Release Surface
-
-- [Support matrix](./docs/support-matrix.md)
-- [Testing and verification](./docs/testing.md)
-- [Config schema](./docs/config-schema.md)
-- [Output contract](./docs/output-contract.md)
-- [v1.1.0 release notes draft](./docs/releases/v1.1.0-draft.md)
+- a plain-Python/Node manufacturing-review layer for DFM, process planning, readiness review, stabilization review, and review-pack artifacts
 
 Validation snapshot:
 
 - verified locally by maintainers on macOS with FreeCAD 1.1.x for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, and `report`
 - verified in hosted CI through explicit fast lanes: `test:node:contract`, `test:node:integration`, `test:snapshots`, and `test:py`; hosted CI does not install or launch FreeCAD
-- verified in repository-owned runtime CI through the `FreeCAD Runtime Smoke (self-hosted macOS)` workflow for real `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, and `report`
+- verified in repository-owned runtime CI through the `FreeCAD Runtime Smoke (self-hosted macOS)` workflow for real `check-runtime`, `create`, `draw --bom`, `inspect`, and `report`
 - experimental or not yet automated for live FreeCAD execution on Windows native, WSL -> Windows FreeCAD, and Linux; those paths remain compatibility paths, not equal-maturity claims
 
 Run `fcad check-runtime` first on any new machine and before troubleshooting a FreeCAD-backed failure.
@@ -62,10 +54,10 @@ If you are reviewing the repository on GitHub:
 ## Test Lanes
 
 - `npm run test:node:contract`: fast hosted-safe Node contracts for config/runtime path/invocation boundaries
-- `npm run test:node:integration`: fast hosted-safe Node integration checks for API, sweep, draw/report service wiring, and rule profiles
+- `npm run test:node:integration`: fast hosted-safe Node integration checks for local API/studio bridge routes, browserless studio and legacy serve smoke, sweep, draw/report service wiring, and rule profiles
 - `npm run test:snapshots`: normalized SVG/report snapshot regressions
 - `npm run test:py`: Python 3.11+ lane for non-runtime Python and CLI-adjacent regressions
-- `npm run test:runtime-smoke`: real FreeCAD-backed smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, and `report`
+- `npm run test:runtime-smoke`: real FreeCAD-backed smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, and `report`
 
 Deeper runtime-backed suites are available as `npm run test:runtime:model`, `test:runtime:drawing`, `test:runtime:analysis`, `test:runtime:report`, `test:runtime:integration`, and `test:runtime:full`.
 
@@ -74,7 +66,7 @@ Full details, workflow mapping, and local commands live in [docs/testing.md](./d
 ## Supported And Verified Platform Scope
 
 - verified maintainer path: macOS + `FreeCAD.app` 1.1.x for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, and `report`
-- verified repository-owned runtime CI path: self-hosted macOS smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, and `report`
+- verified repository-owned runtime CI path: self-hosted macOS smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, and `report`
 - verified hosted CI path: Node contract, Node integration, snapshots, and Python lanes without installing or launching FreeCAD
 - compatibility paths only today: Windows native, WSL -> Windows FreeCAD, and Linux runtime execution
 
@@ -240,7 +232,7 @@ The older `fcad validate <plan-file>` command is unchanged and still validates `
 
 ### Local API
 
-`fcad serve` now starts a local/dev-first HTTP API backed by the real Node CLI service layer and the existing Python/FreeCAD runtime path.
+`fcad serve` now starts a local/dev-first HTTP API backed by the real Node CLI service layer and the existing Python/FreeCAD runtime path. It also makes `FreeCAD Automation Studio` the preferred browser UI on `/`, keeps the direct studio route at `/studio`, and exposes the API info page at `/api`.
 
 ```bash
 fcad serve
@@ -254,13 +246,66 @@ Startup behavior:
 - defaults to port `3000`
 - stores jobs under `output/jobs` unless `--jobs-dir` is provided
 - keeps the existing CLI/runtime execution path: `POST /jobs` schedules work through the same service layer used by `fcad create`, `fcad draw`, `fcad inspect`, and `fcad report`
+- browser requests to `GET /` now land in `FreeCAD Automation Studio`
+- `GET /api` returns the local API info page in HTML, JSON, or plain text depending on `Accept`
+- `GET /studio` remains the direct `FreeCAD Automation Studio` route
+- if `localhost` resolves to a different listener on your machine, use `http://127.0.0.1:<port>` explicitly
+
+Studio execution model:
+
+- `Preview`: fast request/response work for Model and Drawing. Preview routes are scratch-safe, keep the current workspace state local, and do not create `/jobs` history.
+- `Tracked run`: queues `create`, `draw`, `inspect`, or `report` into `/jobs`, persists artifacts, and keeps the run visible to the shell monitor plus the `Artifacts` and `Review` workspaces.
+- `Artifact re-entry`: `Artifacts` and `Review` can reopen config artifacts in `Model`, rerun tracked `report` from config-like artifacts, or rerun tracked `inspect` from model artifacts without copying raw filesystem paths back into the UI.
+- Browser-visible preview payloads are path-redacted too: tracked job payloads, artifact payloads, example payloads, and drawing preview responses all avoid raw filesystem paths.
+
+Phase-3 tracked execution model:
+
+| Concern | Public/browser-facing contract | Internal execution contract |
+| --- | --- | --- |
+| Job request metadata | `GET /jobs` and `GET /jobs/:id` return sanitized request metadata only. Artifact-driven runs expose safe fields such as `artifact_ref`, `source_job_id`, `source_artifact_id`, `source_artifact_type`, and `source_label`. Absolute execution paths are stripped or reduced before they reach the browser. | The raw executor request still persists in each job directory as `request.json` and remains available to the executor, retry flow, and job-store internals. |
+| Queue controls | `capabilities.cancellation_supported`, `capabilities.retry_supported`, `links.cancel`, and `links.retry` tell the studio when to show queue actions. | The queue stays in-process and dev-local. There is no distributed worker, forced kill path, or hidden retry daemon. |
+| Monitor scope | The shell resumes and polls every queued/running job it knows about, not just a single active run. The jobs badge summarizes active counts, and the jobs center merges monitored jobs with recent history. | Polling still happens one job at a time through `GET /jobs/:id`, and completion routing is derived from persisted artifacts plus the tracked completion action. |
+
+Queue control behavior:
+
+| Job state | `POST /jobs/:id/cancel` | `POST /jobs/:id/retry` |
+| --- | --- | --- |
+| `queued` | Cancels deterministically before execution starts. Returns `200` with the cancelled job record. | Rejected with `409`. Queued jobs are not retry sources. |
+| `running` | Rejected with `409` unless the active executor explicitly reports safe cooperative cancellation support. This phase does not add a forced kill path. | Rejected with `409`. Running jobs are not retry sources. |
+| `succeeded` | Rejected with `409`. Terminal successful jobs are immutable history. | Rejected with `409`. Successful jobs are not retry sources. |
+| `failed` | Rejected with `409`. Failed jobs stay inspectable as-is. | Accepted. Returns `202` with a new queued job cloned from the original persisted request and `retried_from_job_id` pointing at the source job. |
+| `cancelled` | Rejected with `409`. Cancelled jobs stay inspectable as-is. | Accepted. Returns `202` with a new queued job cloned from the original persisted request and `retried_from_job_id` pointing at the source job. |
+
+Jobs center and completion behavior:
+
+- The shell resumes all queued/running jobs returned by `GET /jobs`, then keeps them in a multi-job monitor backed by `GET /jobs/:id`.
+- The jobs center surfaces narrow quick actions only: `Open Artifacts`, `Open Review` when the job is reviewable, `Cancel` when `capabilities.cancellation_supported` is true, and `Retry` when `capabilities.retry_supported` is true.
+- Completion routing is artifact-aware: `create` and `draw` finish into `Artifacts`; `report` prefers `Review` only when review-ready outputs exist; `inspect` prefers `Review` only when review-family results exist or the completion source family is already review-oriented.
+- If a job settles while other jobs are still active, the shell stays on the current workspace and shows a completion notice with deep-link actions instead of forcing a route jump.
+- Selected-job deep links are `#artifacts?job=<job-id>` and `#review?job=<job-id>`. Search-param fallback `?job=<job-id>` is accepted when those workspaces reopen directly, but unsupported routes ignore selected-job scope.
 
 Endpoints:
 
+- `GET /`
+- `GET /api`
 - `GET /health`
+- `GET /studio`
+- `POST /api/studio/validate-config`
+- `POST /api/studio/model-preview`
+- `GET /api/studio/model-previews/:id/model`
+- `GET /api/studio/model-previews/:id/parts/:index`
+- `POST /api/studio/drawing-preview`
+- `POST /api/studio/drawing-previews/:id/dimensions`
+- `POST /api/studio/jobs`
 - `POST /jobs`
+- `GET /jobs`
 - `GET /jobs/:id`
+- `POST /jobs/:id/cancel`
+- `POST /jobs/:id/retry`
 - `GET /jobs/:id/artifacts`
+- `GET /jobs/:id/artifacts/:artifactId/content`
+- `GET /artifacts/:jobId/:artifactId`
+- `GET /artifacts/:jobId/:artifactId/download`
 
 Supported job types:
 
@@ -271,10 +316,21 @@ Supported job types:
 
 Endpoint usage:
 
+- `GET /` is the preferred browser entrypoint for the studio shell; JSON and text callers can still use `/` directly
+- `GET /api` returns the local API info page and route discovery payload
 - `GET /health` returns API liveness plus the same shared runtime diagnostics contract used by `fcad check-runtime --json`
+- `POST /api/studio/model-preview` validates the current TOML and returns preview-only model assets for the Model workspace
+- `POST /api/studio/drawing-preview` returns the fast sheet-first drawing preview; `POST /api/studio/drawing-previews/:id/dimensions` preserves the HTTP edit loop for dimension changes while keeping preview-plan files server-side only
+- `POST /api/studio/jobs` is the studio bridge route: Model and Drawing submit tracked jobs here, and artifact-driven inspect/report re-entry also resolves through it
 - `POST /jobs` accepts a JSON job request and returns `202 Accepted` with the queued job record
-- `GET /jobs/:id` returns the latest status, request, diagnostics, result, status history, and storage metadata
-- `GET /jobs/:id/artifacts` returns the flattened known artifact list plus persisted storage file metadata
+- `GET /jobs` returns recent tracked jobs for shell resume and artifact timeline views
+- `GET /jobs/:id` returns the latest status, sanitized browser-visible request metadata, redacted result/manifest summaries, status history, and logical storage metadata
+- `POST /jobs/:id/cancel` deterministically cancels a queued job before the executor claims it; running-job cancellation returns a clear conflict unless the active executor explicitly supports safe cooperative stop
+- `POST /jobs/:id/retry` creates a new queued tracked job from the original persisted internal request, but only when the source job is already `failed` or `cancelled`
+- `GET /jobs/:id/artifacts` returns the flattened public artifact list plus redacted manifest data and logical storage file metadata
+- `GET /jobs/:id/artifacts/:artifactId/content` is the compatibility alias for older API-shaped artifact opens
+- `GET /artifacts/:jobId/:artifactId` opens browser-safe artifact content inline when supported
+- `GET /artifacts/:jobId/:artifactId/download` forces a download for the same artifact
 
 Request examples:
 
@@ -305,7 +361,33 @@ curl -X POST http://127.0.0.1:3000/jobs \
 
 curl http://127.0.0.1:3000/jobs/<job-id>
 
+curl -X POST http://127.0.0.1:3000/jobs/<job-id>/cancel
+
+curl -X POST http://127.0.0.1:3000/jobs/<job-id>/retry
+
 curl http://127.0.0.1:3000/jobs/<job-id>/artifacts
+
+curl http://127.0.0.1:3000/artifacts/<job-id>/<artifact-id>
+```
+
+Studio bridge examples:
+
+```bash
+curl -X POST http://127.0.0.1:3000/api/studio/model-preview \
+  -H 'content-type: application/json' \
+  -d '{
+    "config_toml": "name = \"preview_bracket\"\n[[shapes]]\nid = \"body\"\ntype = \"box\"\nlength = 40\nwidth = 20\nheight = 8\n"
+  }'
+
+curl -X POST http://127.0.0.1:3000/api/studio/jobs \
+  -H 'content-type: application/json' \
+  -d '{
+    "type": "report",
+    "artifact_ref": {
+      "job_id": "<job-id>",
+      "artifact_id": "<config-artifact-id>"
+    }
+  }'
 ```
 
 The job store is filesystem-backed under `output/jobs` by default. Each job directory persists:
@@ -314,27 +396,73 @@ The job store is filesystem-backed under `output/jobs` by default. Each job dire
 - status transitions
 - log output
 - effective config when applicable
-- artifact paths surfaced through `GET /jobs/:id/artifacts`
+- artifact files and the manifest used by the executor/job store internally
 
 Response notes:
 
-- all endpoints return JSON
+- JSON API endpoints return JSON; browser-facing routes may return HTML, plain text, redirects, or artifact bytes depending on the route and `Accept`
 - success responses always include `ok: true`
 - error responses always include `ok: false` and `error.code` plus `error.messages`
-- job responses include a `storage` block with absolute paths and file existence/size for `job.json`, `request.json`, and `job.log`
+- job responses sanitize `request` before returning it to the browser: tracked artifact re-entry exposes safe metadata such as `artifact_ref`, `source_job_id`, `source_artifact_id`, `source_artifact_type`, and `source_label` instead of raw `file_path`, `config_path`, or `source_artifact_path`
+- the raw execution request still persists internally in `request.json` for the executor and job-store flows; public job responses are intentionally not a byte-for-byte echo of that internal file
+- job responses include `retried_from_job_id`, `capabilities.cancellation_supported`, `capabilities.retry_supported`, and `links.cancel` / `links.retry` so the studio can surface narrow queue controls without guessing
+- job responses include a `storage` block with logical file metadata only: `storage.files.<name>.exists` and `storage.files.<name>.size_bytes`. Browser-visible responses do not include `storage.root` or per-file `path` fields.
+- artifact list responses include browser-facing `links.open` and `links.download` routes, plus the compatibility alias in `links.api`
+- public manifest/result/artifact summaries keep stable browser-facing labels only. When internal values were absolute paths, the browser-visible payload reduces them to file names such as `effective-config.json` or `job.log`.
+- `/api/examples` returns checked-in example records as `{ id, name, content }` and intentionally does not expose repository checkout paths
+- drawing preview responses expose safe provenance fields such as `preview_reference` and `editable_plan_reference` plus availability booleans and artifact capabilities; they do not expose `plan_path`, preview working directories, or other raw preview sidecar paths
+- successful cancel/retry actions return `ok: true`, an `action` block that names the operation and outcome, and the current job record for the cancelled or newly retried job
+
+Browser-visible local API payload shape:
+
+- `GET /jobs` and `GET /jobs/:id`
+  - `request`: sanitized public metadata only
+  - `artifacts`: flattened artifact summary with file-name-style values instead of raw filesystem paths
+  - `manifest` and `result`: browser-safe summaries; any absolute path-like values are redacted to safe labels/file names
+  - `storage`: `{ files: { job, request, log, manifest } }` records with `exists` and `size_bytes` only
+- `GET /jobs/:id/artifacts`
+  - `artifacts[*]`: `id`, `key`, `type`, `scope`, `stability`, `file_name`, `extension`, `content_type`, `exists`, `size_bytes`, `capabilities`, and `links`
+  - `manifest`: the same redacted browser-safe manifest view used on the job detail route
+  - `storage`: logical file metadata only; no public filesystem paths
+- `GET /api/examples`
+  - `{ id, name, content }` for each checked-in example TOML
+- `POST /api/studio/drawing-preview` and `POST /api/studio/drawing-previews/:id/dimensions`
+  - `preview`: browser-safe drawing preview data including `id`, `preview_reference`, `editable_plan_reference` when an editable plan exists, `settings`, `overview`, `validation`, `svg`, `bom`, `views`, `scale`, `qa_summary`, `annotations`, `dimensions`, `editable_plan_available`, `dimension_editing_available`, `tracked_draw_bridge_available`, and `artifact_capabilities`
+  - server-only preview sidecars such as `plan_path`, preview working directories, `run_log`, and other path-bearing preview files stay internal
+  - internal preview-plan files remain available server-side where the HTTP dimension-edit loop and tracked-draw preservation need them
+
+Internal executor/job-store payload shape:
+
+- `request.json`, `job.json`, `job.log`, and `artifact-manifest.json` remain path-bearing on disk where the executor and retry flow need them
+- artifact open/download routes still resolve against those internal paths server-side; the routes are public, the paths are not
 
 Current limitations:
 
 - this API is local/dev-first and does not add authentication
 - jobs run in-process; there is no distributed queue, retry worker, or database
+- queued-job cancellation is supported; running-job cancellation is intentionally rejected unless the active executor can stop work cooperatively and report that honestly
+- retry is intentionally narrow and only supported from `failed` or `cancelled` jobs
 - `job.log` is best-effort and primarily captures orchestration events and stderr surfaced from underlying scripts
-- `GET /jobs/:id/artifacts` reports known output paths; it does not stream artifact contents
+- `GET /jobs/:id/artifacts` reports public artifact metadata and links, but it does not inline artifact contents inside the listing response
 - `POST /jobs` currently exposes only the execution paths for `create`, `draw`, `inspect`, and `report`
+- preview smoke and legacy serve smoke are browserless HTTP checks only; they do not claim real browser automation or websocket interaction
+
+Studio and legacy shell guide:
+
+- [Studio UI handoff](./docs/studio-handoff.md)
+- [Studio UI redesign draft](./docs/releases/studio-ui-redesign-draft.md)
 
 Legacy note:
 
 - `fcad serve --legacy-viewer` still starts the older browser demo shell from `server.js`
 - `npm run serve:legacy` continues to point at that older shell
+- `fcad serve` now opens the studio shell at `/`, keeps `/studio` as the direct studio route, and moves the API landing page to `/api`
+- prompt streaming and the original all-in-one websocket viewer loop still live on the legacy path
+- if you need the working all-in-one browser demo, use the legacy viewer commands above until the remaining websocket-only flows are migrated
+
+FAQ:
+
+- If the browser opens `/`, that is now the preferred studio shell. Open `/api` for the API info page or use `fcad serve --legacy-viewer` for the older browser demo UI.
 
 ### Create Canonical Schema
 
@@ -666,40 +794,81 @@ This repository does not assume a default WSL -> Windows bridge anymore. If you 
 
 ## Output Contracts
 
-Use [docs/output-contract.md](./docs/output-contract.md) as the source of truth for the artifact-manifest contract, stable vs best-effort artifact types, and CLI/API/sweep provenance behavior.
-
-The schema files for review, readiness, stabilization, quality-risk, investment-review, process-plan, line-plan, and standard-document outputs live under [schemas/](./schemas/).
+- [product_review.schema.json](./schemas/product_review.schema.json)
+- [process_plan.schema.json](./schemas/process_plan.schema.json)
+- [line_plan.schema.json](./schemas/line_plan.schema.json)
+- [quality_risk_pack.schema.json](./schemas/quality_risk_pack.schema.json)
+- [investment_review.schema.json](./schemas/investment_review.schema.json)
+- [readiness_report.schema.json](./schemas/readiness_report.schema.json)
+- [stabilization_review.schema.json](./schemas/stabilization_review.schema.json)
+- [standard_docs_manifest.schema.json](./schemas/standard_docs_manifest.schema.json)
 
 ## Testing
 
-Use [docs/testing.md](./docs/testing.md) as the source of truth for lane scope, workflow mapping, and what each check does or does not prove.
-
-Fast local verification:
+Hosted contract checks:
 
 ```bash
-npm test
 npm run test:node:contract
-npm run test:node:integration
-npm run test:snapshots
 ```
 
-Python lane:
+These checks cover runtime discovery, command assembly, and path conversion logic. They do not install or execute FreeCAD.
+
+Python and CLI checks:
 
 ```bash
 npm run test:py
 ```
 
-Real runtime smoke:
+`npm run test:py` shells out to `python3 -m pytest -q`, so `python3` should resolve to Python 3.11 or newer. Hosted CI currently pins Python 3.11 to match the documented minimum.
+
+Layered integration runner:
 
 ```bash
-fcad check-runtime
-npm run test:runtime-smoke
+npm test
+npm run test:full
 ```
 
-`npm run test:runtime-smoke` is the repository's real FreeCAD-backed smoke lane for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, and `report`.
+`npm test` now runs the staged integration runner through the existing `tests/test-runner.js` compatibility shim. Internally the cases are split into runtime, model, drawing, analysis/report, and integration modules, while `npm run test:full` adds the advanced motion/design layer on top.
+
+## Runtime Smoke Coverage
+
+GitHub-hosted CI currently covers:
+
+- Node runtime-contract tests on `ubuntu-24.04` and `macos-14`
+- Python unit and CLI tests on `ubuntu-24.04`
+
+GitHub-hosted CI does not currently install or launch FreeCAD.
+
+For a real runtime-backed smoke pass on a FreeCAD-capable machine:
+
+```bash
+npm run smoke:runtime
+```
+
+The smoke script currently exercises:
+
+- `fcad check-runtime`
+- `fcad create`
+- `fcad draw --bom`
+- `fcad inspect`
+- `fcad report`
+
+For CI, the repository also includes a self-hosted macOS workflow that uses the same smoke script and requires a runner labeled for FreeCAD with FreeCAD 1.1 installed.
 
 ## Release Prep
 
-- Publish-ready release notes draft: [docs/releases/v1.1.0-draft.md](./docs/releases/v1.1.0-draft.md)
-- Release checklist: [docs/releases/v1.1.0-checklist.md](./docs/releases/v1.1.0-checklist.md)
-- PR-ready summary snippet: [docs/releases/v1.1.0-pr-summary.md](./docs/releases/v1.1.0-pr-summary.md)
+Draft release notes for the first public release surface live at [docs/releases/v1.1.0-draft.md](./docs/releases/v1.1.0-draft.md).
+
+If you want to run the smoke steps manually instead of the script, use:
+
+```bash
+cd /path/to/freecad-automation
+export FREECAD_APP="/Applications/FreeCAD.app"
+fcad check-runtime
+npm run test:node:contract
+node bin/fcad.js create configs/examples/ks_bracket.toml
+node bin/fcad.js draw configs/examples/ks_bracket.toml --bom
+node bin/fcad.js inspect output/ks_bracket.step
+node bin/fcad.js fem configs/examples/bracket_fem.toml
+node bin/fcad.js report configs/examples/ks_bracket.toml
+```

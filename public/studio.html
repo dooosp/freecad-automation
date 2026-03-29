@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
+  <title>FreeCAD Automation Studio</title>
+  <link rel="stylesheet" href="/css/studio.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#workspace-root" data-i18n="studio.skip-link">Skip to workspace</a>
+
+  <div class="studio-shell">
+    <nav class="studio-sidebar" aria-label="Primary" data-i18n-aria-label="studio.sidebar.aria-label">
+      <div class="sidebar-brand">
+        <p class="brand-kicker" data-i18n="studio.brand.kicker">FreeCAD-backed pipeline</p>
+        <h1 class="brand-title" data-i18n="studio.brand.title">Automation Studio</h1>
+        <p class="brand-summary" data-i18n="studio.brand.summary">Status-first control room for model, drawing, review, and artifact flows.</p>
+      </div>
+
+      <div id="workspace-nav" class="workspace-nav" role="list">
+        <a class="nav-link" href="#start" data-route="start">
+          <span class="nav-label" data-i18n="studio.nav.start.label">Start</span>
+          <span class="nav-copy" data-i18n="studio.nav.start.copy">Guided entry points and current system posture.</span>
+        </a>
+        <a class="nav-link" href="#model" data-route="model">
+          <span class="nav-label" data-i18n="studio.nav.model.label">Model</span>
+          <span class="nav-copy" data-i18n="studio.nav.model.copy">Prompt design, config editing, model state, parts, motion.</span>
+        </a>
+        <a class="nav-link" href="#drawing" data-route="drawing">
+          <span class="nav-label" data-i18n="studio.nav.drawing.label">Drawing</span>
+          <span class="nav-copy" data-i18n="studio.nav.drawing.copy">Drawing plans, SVG canvas, BOM, and dimension loop staging.</span>
+        </a>
+        <a class="nav-link" href="#review" data-route="review">
+          <span class="nav-label" data-i18n="studio.nav.review.label">Review</span>
+          <span class="nav-copy" data-i18n="studio.nav.review.copy">Design review, manufacturability, readiness, and decisions.</span>
+        </a>
+        <a class="nav-link" href="#artifacts" data-route="artifacts">
+          <span class="nav-label" data-i18n="studio.nav.artifacts.label">Artifacts</span>
+          <span class="nav-copy" data-i18n="studio.nav.artifacts.copy">Exports, manifests, reports, and job output collection.</span>
+        </a>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-note">
+          <span class="sidebar-note-label" data-i18n="studio.sidebar.note.label">Parallel rollout</span>
+          <p data-i18n="studio.sidebar.note.copy">The legacy browser shell remains available while these workspaces are migrated feature by feature.</p>
+        </div>
+      </div>
+    </nav>
+
+    <div class="studio-main">
+      <header class="app-bar">
+        <div class="app-bar-title">
+          <p class="app-kicker" data-i18n="studio.app.kicker">Workspace shell</p>
+          <h2 class="app-title" data-i18n="studio.app.title">FreeCAD Automation Studio</h2>
+          <p id="workspace-summary" class="workspace-summary">Workspace shell loading...</p>
+        </div>
+
+        <div class="app-bar-badges" role="status" aria-live="polite">
+          <span id="runtime-badge" class="badge badge-runtime">Runtime pending</span>
+          <span id="project-badge" class="badge badge-project">Project root placeholder</span>
+          <span id="connection-badge" class="badge badge-connection">Connection pending</span>
+          <span id="job-badge" class="badge badge-job">No active job</span>
+        </div>
+
+        <div class="app-bar-actions">
+          <label class="locale-control" for="studio-locale-select">
+            <span class="locale-control-label" data-i18n="locale.label">Language</span>
+            <select id="studio-locale-select" class="locale-select" data-locale-select>
+              <option value="en" data-i18n="locale.option.en">English</option>
+              <option value="ko" data-i18n="locale.option.ko">Korean</option>
+            </select>
+          </label>
+          <button id="jobs-toggle" class="toolbar-button" type="button" aria-expanded="false" aria-controls="jobs-drawer">
+            Jobs center
+          </button>
+          <button id="log-toggle" class="toolbar-button" type="button" aria-expanded="false" aria-controls="log-drawer">
+            Log drawer
+          </button>
+        </div>
+      </header>
+
+      <div id="completion-notice-host" class="completion-notice-host" hidden></div>
+
+      <main id="workspace-root" class="workspace-root" tabindex="-1" aria-live="polite"></main>
+
+      <aside id="jobs-drawer" class="jobs-drawer" aria-label="Tracked jobs center">
+        <div class="jobs-drawer-header">
+          <div>
+            <p class="drawer-kicker" data-i18n="studio.jobs.kicker">Operations</p>
+            <h2 id="jobs-drawer-title" data-i18n="studio.jobs.title">Jobs center</h2>
+          </div>
+          <button id="jobs-close" class="toolbar-button toolbar-button-subtle" type="button">
+            Close
+          </button>
+        </div>
+        <div id="jobs-center-content"></div>
+      </aside>
+
+      <aside id="log-drawer" class="log-drawer" aria-label="Studio activity log">
+        <div class="log-drawer-header">
+          <div>
+            <p class="drawer-kicker" data-i18n="studio.log.kicker">Activity</p>
+            <h2 id="log-drawer-title" data-i18n="studio.log.title">Studio log</h2>
+          </div>
+          <button id="log-close" class="toolbar-button toolbar-button-subtle" type="button">
+            Close
+          </button>
+        </div>
+        <div id="log-feed" class="log-feed"></div>
+      </aside>
+    </div>
+  </div>
+
+  <script type="module" src="/js/studio-shell.js"></script>
+</body>
+</html>
