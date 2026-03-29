@@ -1,5 +1,13 @@
 import { mountLegacyViewer } from './app/legacy-viewer-app.js';
+import {
+  applyTranslations,
+  bindLocaleControls,
+  initializeLocale,
+  subscribeLocale,
+} from './i18n/index.js';
 
+initializeLocale();
+bindLocaleControls(document.body);
 mountLegacyViewer({
   viewport: document.getElementById('viewport'),
   editor: document.getElementById('config-editor'),
@@ -33,4 +41,10 @@ mountLegacyViewer({
   timelineInput: document.getElementById('timeline'),
   timeDisplayElement: document.getElementById('time-display'),
   speedButtons: [...document.querySelectorAll('.speed-btn')],
+});
+
+applyTranslations(document.body);
+subscribeLocale(() => {
+  bindLocaleControls(document.body);
+  applyTranslations(document.body);
 });

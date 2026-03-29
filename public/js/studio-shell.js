@@ -34,6 +34,14 @@ import {
   serializeStudioLocationState,
 } from './studio/studio-state.js';
 import { workspaceDefinitions } from './studio/workspaces.js';
+import {
+  applyTranslations,
+  bindLocaleControls,
+  initializeLocale,
+  subscribeLocale,
+  t,
+  translateText,
+} from './i18n/index.js';
 
 const workspaceRoot = document.getElementById('workspace-root');
 const completionNoticeHost = document.getElementById('completion-notice-host');
@@ -235,12 +243,12 @@ function syncDerivedState() {
 
 function syncChrome() {
   const workspace = workspaceDefinitions[state.route];
-  document.title = `${workspace.label} | FreeCAD Automation Studio`;
-  workspaceSummary.textContent = workspace.summary;
-  setBadgeText(runtimeBadge, state.runtimeBadgeText);
-  setBadgeText(projectBadge, state.projectBadgeText, state.projectBadgeTitle);
-  setBadgeText(connectionBadge, state.connectionBadgeText);
-  setBadgeText(jobBadge, state.jobBadgeText, state.jobBadgeTitle || state.jobBadgeText);
+  document.title = `${translateText(workspace.label)} | ${t('studio.title')}`;
+  workspaceSummary.textContent = translateText(workspace.summary);
+  setBadgeText(runtimeBadge, translateText(state.runtimeBadgeText));
+  setBadgeText(projectBadge, translateText(state.projectBadgeText), translateText(state.projectBadgeTitle));
+  setBadgeText(connectionBadge, translateText(state.connectionBadgeText));
+  setBadgeText(jobBadge, translateText(state.jobBadgeText), translateText(state.jobBadgeTitle || state.jobBadgeText));
   setBadgeTone(jobBadge, state.jobBadgeTone || 'info');
 
   navLinks.forEach((link) => {
@@ -317,10 +325,11 @@ function renderCompletionNotice() {
   dismissButton.type = 'button';
   dismissButton.dataset.action = 'dismiss-completion-notice';
   dismissButton.dataset.jobId = notice.jobId;
-  dismissButton.textContent = 'Dismiss';
+  dismissButton.textContent = translateText('Dismiss');
   actions.append(dismissButton);
 
   container.append(copy, actions);
+  applyTranslations(completionNoticeHost);
 }
 
 function renderJobsDrawer() {
@@ -332,6 +341,7 @@ function renderJobsDrawer() {
       limit: RECENT_JOBS_LIMIT,
     })
   );
+  applyTranslations(jobsCenterContent);
 }
 
 function renderWorkspace() {
@@ -373,10 +383,12 @@ function renderWorkspace() {
     });
   }
   applyPendingFocus();
+  applyTranslations(workspaceRoot);
 }
 
 function renderLogs() {
   logFeed.replaceChildren(...state.logs.map((entry) => createLogEntry(entry)));
+  applyTranslations(logFeed);
 }
 
 function commitRender() {
@@ -386,6 +398,8 @@ function commitRender() {
   renderWorkspace();
   renderJobsDrawer();
   renderLogs();
+  bindLocaleControls(document.body);
+  applyTranslations(document.body);
 }
 
 function refreshShellChrome({ syncWorkspace = false } = {}) {
@@ -396,6 +410,8 @@ function refreshShellChrome({ syncWorkspace = false } = {}) {
   if (syncWorkspace) {
     activeWorkspaceController?.syncFromShell?.();
   }
+  bindLocaleControls(document.body);
+  applyTranslations(document.body);
 }
 
 function addLog(entry) {
@@ -1369,6 +1385,12 @@ window.addEventListener('keydown', (event) => {
     setLogDrawer(false);
     logToggle.focus();
   }
+});
+
+initializeLocale();
+bindLocaleControls(document.body);
+subscribeLocale(() => {
+  commitRender();
 });
 
 commitRender();

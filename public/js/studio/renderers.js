@@ -1,3 +1,5 @@
+import { translateAttributeValue, translateText } from '../i18n/index.js';
+
 function appendChildren(parent, children = []) {
   children.filter(Boolean).forEach((child) => parent.append(child));
   return parent;
@@ -15,10 +17,10 @@ export function el(tagName, options = {}) {
 
   const node = document.createElement(tagName);
   if (className) node.className = className;
-  if (text !== undefined) node.textContent = text;
+  if (text !== undefined) node.textContent = translateText(text);
   if (html !== undefined) node.innerHTML = html;
   Object.entries(attrs).forEach(([name, value]) => {
-    if (value !== undefined && value !== null) node.setAttribute(name, String(value));
+    if (value !== undefined && value !== null) node.setAttribute(name, translateAttributeValue(String(value)));
   });
   Object.entries(dataset).forEach(([name, value]) => {
     if (value !== undefined && value !== null) node.dataset[name] = String(value);

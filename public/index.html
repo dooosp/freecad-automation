@@ -18,12 +18,21 @@
   <div class="layout">
     <!-- Config Panel -->
     <aside class="panel">
-      <h1 class="panel-title">FreeCAD Viewer</h1>
+      <div class="panel-header">
+        <h1 class="panel-title" data-i18n="index.title">FreeCAD Viewer</h1>
+        <label class="locale-control-legacy" for="legacy-locale-select">
+          <span class="locale-control-label" data-i18n="locale.label">Language</span>
+          <select id="legacy-locale-select" data-locale-select>
+            <option value="en" data-i18n="locale.option.en">English</option>
+            <option value="ko" data-i18n="locale.option.ko">Korean</option>
+          </select>
+        </label>
+      </div>
 
       <label for="design-input">AI Design</label>
       <div class="design-row">
         <input type="text" id="design-input"
-               placeholder="Describe a mechanism..." spellcheck="false">
+               placeholder="Describe a mechanism..." spellcheck="false" data-i18n-placeholder="index.design.placeholder">
         <button id="btn-design" class="btn btn-accent">Generate</button>
       </div>
 

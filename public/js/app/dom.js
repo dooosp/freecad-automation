@@ -1,3 +1,5 @@
+import { translateText } from '../i18n/index.js';
+
 const SVG_ALLOWED_TAGS = new Set([
   'svg', 'g', 'defs', 'pattern', 'clipPath',
   'line', 'polyline', 'polygon', 'path', 'rect', 'circle', 'ellipse',
@@ -27,7 +29,7 @@ const SVG_ALLOWED_STYLE_PROPS = new Set([
 export function makeElement(tag, { className, text } = {}) {
   const element = document.createElement(tag);
   if (className) element.className = className;
-  if (text !== undefined) element.textContent = text;
+  if (text !== undefined) element.textContent = translateText(text);
   return element;
 }
 
@@ -58,7 +60,7 @@ export function appendReviewValue(parent, label, value) {
 
 export function showStatus(statusElement, text, type = '') {
   if (!statusElement) return;
-  statusElement.textContent = text;
+  statusElement.textContent = translateText(text);
   statusElement.className = `status ${type}`;
 }
 
