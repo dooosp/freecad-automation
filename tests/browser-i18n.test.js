@@ -55,5 +55,7 @@ assert.equal(translateText('1 queued', 'ko'), '대기 중 1개');
 assert.equal(translateText('Last poll Mar 29, 10:10:10.', 'ko'), '마지막 확인 Mar 29, 10:10:10.');
 assert.equal(translateText('Missing • Unknown size', 'ko'), '누락됨 • 크기 알 수 없음');
 assert.equal(translateText('unknown • stable', 'ko'), '알 수 없음 • 안정적');
+assert.equal(translateText('Not available', 'ko'), '사용할 수 없음');
+assert.equal(translateText('Size unavailable', 'ko'), '크기를 사용할 수 없음');
 
 console.log('browser-i18n.test.js: ok');
