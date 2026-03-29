@@ -21,12 +21,33 @@ const STATUS_LABELS = {
   degraded: '성능 저하',
 };
 
+const ARTIFACT_SCOPE_LABELS = {
+  'user-facing': '사용자용',
+  internal: '내부용',
+  unknown: '알 수 없음',
+};
+
+const ARTIFACT_STABILITY_LABELS = {
+  stable: '안정적',
+  'best-effort': '최선 지원',
+  internal: '내부용',
+  unknown: '알 수 없음',
+};
+
 function translateJobType(type = '') {
   return JOB_TYPE_LABELS[String(type || '').toLowerCase()] || type;
 }
 
 function translateStatus(status = '') {
   return STATUS_LABELS[String(status || '').toLowerCase()] || status;
+}
+
+function translateArtifactScope(scope = '') {
+  return ARTIFACT_SCOPE_LABELS[String(scope || '').toLowerCase()] || scope;
+}
+
+function translateArtifactStability(stability = '') {
+  return ARTIFACT_STABILITY_LABELS[String(stability || '').toLowerCase()] || stability;
 }
 
 const ko = {
@@ -132,12 +153,15 @@ const ko = {
     'Latest': '최신',
     'Recent': '최근',
     'Loading examples...': '예제 불러오는 중...',
+    'Select example': '예제 선택',
+    'No examples found': '예제를 찾을 수 없음',
     'Examples unavailable': '예제를 사용할 수 없음',
     'Loading preview...': '미리보기 불러오는 중...',
     'Available': '사용 가능',
     'Unavailable': '사용할 수 없음',
     'Missing': '누락됨',
     'Unknown': '알 수 없음',
+    'Unknown size': '크기 알 수 없음',
     'Queued': '대기 중',
     'Running': '실행 중',
     'Succeeded': '성공',
@@ -161,6 +185,9 @@ const ko = {
     'The launchpad answers what can I do next first, then exposes the runtime and artifact context that makes the answer trustworthy.': '이 시작 화면은 먼저 다음에 무엇을 할지 제안하고, 그 판단을 뒷받침하는 런타임과 산출물 맥락을 보여줍니다.',
     'Runtime health': '런타임 상태',
     'Runtime posture': '런타임 상태 요약',
+    'Runtime check required': '런타임 확인 필요',
+    'Runtime unavailable on legacy path': '레거시 경로에서는 런타임을 사용할 수 없음',
+    'Runtime status pending': '런타임 상태 확인 대기 중',
     'Check API reachability first, then verify the FreeCAD runtime details that back model and drawing work.': '먼저 API 도달 가능 여부를 확인하고, 모델과 도면 작업을 뒷받침하는 FreeCAD 런타임 세부 정보를 검증합니다.',
     'Runtime detected': '런타임 감지됨',
     'API reachable': 'API 연결됨',
@@ -179,6 +206,11 @@ const ko = {
     'Python / FreeCAD': 'Python / FreeCAD',
     'Version details unavailable': '버전 세부 정보를 사용할 수 없음',
     'Project root': '프로젝트 루트',
+    'Local API connected': '로컬 API 연결됨',
+    'Local API degraded': '로컬 API 성능 저하',
+    'Legacy shell fallback': '레거시 셸 대체 경로',
+    'Shell-only mode': '셸 전용 모드',
+    'No tracked job is selected or monitored.': '선택되거나 모니터링 중인 추적 작업이 없습니다.',
     'Last check': '마지막 확인',
     'Primary actions': '주요 작업',
     'What can you do next?': '다음에 무엇을 할 수 있나요?',
@@ -191,14 +223,17 @@ const ko = {
     'Open Existing Config': '기존 설정 열기',
     'Bring a local TOML or JSON config into the Model workspace and keep editing there.': '로컬 TOML 또는 JSON 설정을 모델 작업 영역으로 가져와 계속 편집합니다.',
     'Choose config file': '설정 파일 선택',
+    'Local file only. Start stays focused on launch decisions, not full editing.': '로컬 파일만 지원합니다. 시작 화면은 전체 편집보다 실행 경로 선택에 집중합니다.',
     'Prompt-assisted': '프롬프트 지원',
     'Generate From Prompt': '프롬프트로 생성',
     'Route into the model-building flow with prompt drafting ready, without making prompting the whole product.': '프롬프트 작성 준비 상태로 모델 생성 흐름으로 이동하되, 제품 전체를 프롬프트 중심으로 만들지는 않습니다.',
     'Open prompt flow': '프롬프트 흐름 열기',
+    'Prompt execution still depends on later API wiring.': '프롬프트 실행은 이후 API 연결 작업이 완료되어야 사용할 수 있습니다.',
     'Job trail': '작업 흐름',
     'Open Recent Job': '최근 작업 열기',
     'Jump into the most recent tracked run and continue from the artifact trail instead of starting over.': '가장 최근의 추적 실행으로 바로 이동해 처음부터 다시 시작하지 않고 산출물 흐름에서 이어서 작업합니다.',
     'Recent jobs': '최근 작업',
+    'Recent jobs loading': '최근 작업 불러오는 중',
     'Job history': '작업 기록',
     'Loading the most recent tracked runs from the local API.': '로컬 API에서 가장 최근의 추적 실행을 불러오는 중입니다.',
     'Checking recent runs': '최근 실행 확인 중',
@@ -209,6 +244,7 @@ const ko = {
     'Nothing has been tracked yet': '아직 추적된 항목이 없습니다',
     'Use an example or open a config first. As soon as jobs are created, this list becomes the fastest return path.': '먼저 예제를 사용하거나 설정을 여세요. 작업이 생성되면 이 목록이 가장 빠른 복귀 경로가 됩니다.',
     'No recent jobs yet': '아직 최근 작업이 없습니다',
+    'No recent job': '최근 작업 없음',
     'Start with a model or drawing run to build an artifact trail here.': '모델 또는 도면 실행부터 시작해 여기에서 산출물 흐름을 만드세요.',
     'Resume from tracked work': '추적 작업에서 이어서 시작',
     'Recent runs stay visible so the launchpad answers what to do next even after a partial workflow.': '부분적으로 작업한 뒤에도 최근 실행이 계속 보이므로 시작 화면이 다음에 할 일을 안내해 줍니다.',
@@ -242,6 +278,8 @@ const ko = {
     'Editing': '편집',
     'Enabled': '사용',
     'Disabled': '사용 안 함',
+    'Project root unavailable': '프로젝트 루트를 사용할 수 없음',
+    'Not checked yet': '아직 확인하지 않음',
     'Choose input, build, then inspect the model result': '입력을 고르고 빌드한 뒤 모델 결과를 검토하세요',
     'Input loaded': '입력 로드됨',
     'Input pending': '입력 대기 중',
@@ -300,6 +338,10 @@ const ko = {
     'Config loaded': '설정 로드됨',
     'Config needed': '설정 필요',
     'BOM and QA sidecars': 'BOM 및 QA 보조 정보',
+    'This workspace can generate a sheet from the shared config state.': '이 작업 영역은 공유 설정 상태를 바탕으로 시트를 생성할 수 있습니다.',
+    'Load an example or open a config here before generating a sheet.': '시트를 생성하기 전에 여기에서 예제를 불러오거나 설정을 여세요.',
+    'Sheet pending': '시트 준비 대기 중',
+    'BOM, annotations, QA, and dimension state will summarize here after the first render.': '첫 렌더링이 끝나면 BOM, 주석, QA, 치수 상태가 여기에 요약됩니다.',
     'Generating preview drawing': '미리보기 도면 생성 중',
     'The studio is running the draw pipeline and preparing the sheet, BOM, and QA sidecars.': '스튜디오가 도면 파이프라인을 실행하고 시트, BOM, QA 보조 정보를 준비하고 있습니다.',
     'Drawing failed': '도면 생성 실패',
@@ -517,6 +559,10 @@ const ko = {
       replace: (match, count) => `${count}개 예제 준비됨`,
     },
     {
+      regex: /^Recent jobs require the local API path from `(.+)`\.$/,
+      replace: (match, command) => `최근 작업을 보려면 로컬 API 경로의 \`${command}\`를 사용해야 합니다.`,
+    },
+    {
       regex: /^Open ([A-Za-z0-9_-]+) ([A-Za-z0-9_-]+)$/,
       replace: (match, type, id) => `${translateJobType(type)} ${id} 열기`,
     },
@@ -547,6 +593,22 @@ const ko = {
     {
       regex: /^(\d+) active job$/,
       replace: (match, count) => `활성 작업 ${count}개`,
+    },
+    {
+      regex: /^Latest tracked job ([A-Za-z0-9_-]+) ([A-Za-z0-9_-]+)\.$/,
+      replace: (match, type, status) => `최신 추적 작업: ${translateJobType(type)} ${translateStatus(status)}.`,
+    },
+    {
+      regex: /^(\d+) running$/,
+      replace: (match, count) => `실행 중 ${count}개`,
+    },
+    {
+      regex: /^(\d+) queued$/,
+      replace: (match, count) => `대기 중 ${count}개`,
+    },
+    {
+      regex: /^Last poll (.+)\.$/,
+      replace: (match, stamp) => `마지막 확인 ${stamp}.`,
     },
     {
       regex: /^([A-Za-z0-9_-]+) ([A-Za-z0-9_-]+) is (queued|running|succeeded|failed|cancelled)\.$/,
@@ -669,6 +731,14 @@ const ko = {
       replace: (match, label) => `추적 소스 레이블: ${label}`,
     },
     {
+      regex: /^(\d+) queued or running job currently monitored from this shell session\.$/,
+      replace: (match, count) => `이 셸 세션에서 현재 대기 또는 실행 상태로 모니터링 중인 작업은 ${count}개입니다.`,
+    },
+    {
+      regex: /^(\d+) queued or running jobs currently monitored from this shell session\.$/,
+      replace: (match, count) => `이 셸 세션에서 현재 대기 또는 실행 상태로 모니터링 중인 작업은 ${count}개입니다.`,
+    },
+    {
       regex: /^Warnings: (.+)$/,
       replace: (match, warnings) => `경고: ${warnings}`,
     },
@@ -701,12 +771,24 @@ const ko = {
       replace: (match, artifactId) => `산출물 ${artifactId} 기준`,
     },
     {
+      regex: /^Available • Unknown size$/,
+      replace: () => '사용 가능 • 크기 알 수 없음',
+    },
+    {
+      regex: /^Missing • Unknown size$/,
+      replace: () => '누락됨 • 크기 알 수 없음',
+    },
+    {
       regex: /^Available • (.+)$/,
       replace: (match, size) => `사용 가능 • ${size}`,
     },
     {
       regex: /^Missing • (.+)$/,
       replace: (match, size) => `누락됨 • ${size}`,
+    },
+    {
+      regex: /^(user-facing|internal|unknown) • (stable|best-effort|internal|unknown)$/,
+      replace: (match, scope, stability) => `${translateArtifactScope(scope)} • ${translateArtifactStability(stability)}`,
     },
   ],
 };
