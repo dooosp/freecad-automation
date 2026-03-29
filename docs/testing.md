@@ -102,7 +102,7 @@ Python lane:
 npm run test:py
 ```
 
-This lane requires Python 3.11+ and the helper script will prefer `python3.13`, `python3.12`, `python3.11`, then `python3`.
+This lane requires Python 3.11+ and the helper script will prefer an explicit `PYTHON` / `PYTHON3`, then the active `setup-python` interpreter when available, then `python3`, `python`, and finally versioned `python3.x` commands. It also requires that the selected interpreter can import `pytest`.
 
 Real runtime smoke:
 

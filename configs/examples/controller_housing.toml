@@ -1,5 +1,5 @@
+config_version = 1
 name = "controller_housing"
-material = "AL6061"
 batch_size = 80
 
 [product]

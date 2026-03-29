@@ -1,7 +1,23 @@
 {
   "name": "freecad-automation",
   "version": "1.1.0",
-  "description": "FreeCAD-backed automation pipeline for CAD, drawings, inspection, FEM, reports, and manufacturing-review artifacts",
+  "description": "FreeCAD-backed automation pipeline for CAD, TechDraw, inspection, FEM, reports, and manufacturing-review artifacts",
+  "homepage": "https://github.com/dooosp/freecad-automation#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dooosp/freecad-automation.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dooosp/freecad-automation/issues"
+  },
+  "keywords": [
+    "freecad",
+    "cad",
+    "techdraw",
+    "fem",
+    "manufacturing",
+    "automation"
+  ],
   "type": "module",
   "bin": {
     "fcad": "./bin/fcad.js",

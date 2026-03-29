@@ -56,6 +56,33 @@ assert.throws(
   'non-numeric leaves should be rejected'
 );
 
+assert.throws(
+  () => normalizeSweepSpec({
+    parameters: { 'shapes[0].height': { values: [6, 8] } },
+    jobs: ['create', 7],
+  }),
+  /Sweep spec jobs\[1\] must be a non-empty string/,
+  'jobs should reject non-string entries with a useful message'
+);
+
+assert.throws(
+  () => normalizeSweepSpec({
+    parameters: { 'shapes[0].height': { values: [6, 8] } },
+    execution: { profile: true },
+  }),
+  /execution\.profile must be a string/,
+  'execution profile should reject invalid nested types'
+);
+
+assert.throws(
+  () => normalizeSweepSpec({
+    parameters: { 'shapes[0].height': { values: [6, 8] } },
+    execution: [],
+  }),
+  /Sweep spec execution must be an object/,
+  'execution should reject non-object containers'
+);
+
 const variants = expandSweepVariants(baseConfig, normalized);
 assert.equal(variants.length, 9);
 assert.equal(variants[0].variant_id, 'variant-001');
@@ -128,4 +155,3 @@ assert.match(csv, /variant-003,error,1,40/);
 assert.match(csv, /report_pdf/);
 
 console.log('sweep.test.js: ok');
-

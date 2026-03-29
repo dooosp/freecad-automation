@@ -18,7 +18,7 @@ The loader applies this order:
 
 ## Supported Fields
 
-The schema is intentionally permissive in deep nested sections so existing workflows keep working, but the canonical v1 field groups are:
+The schema stays compatibility-first at the top level, but canonical v1 coverage is now stronger in the nested sections the repository actively depends on:
 
 | Field group | Purpose |
 | --- | --- |
@@ -27,10 +27,12 @@ The schema is intentionally permissive in deep nested sections so existing workf
 | `shapes`, `operations` | Single-part geometry definition for create/draw/report/FEM. |
 | `parts`, `assembly` | Multi-part geometry and placement for assembly/tolerance workflows. |
 | `manufacturing`, `standards`, `batch_size` | Manufacturing assumptions plus rule-profile selection used by DFM/cost/readiness flows. |
-| `product`, `production`, `quality` | Product/program context for production-engineering outputs. |
-| `drawing`, `drawing_plan` | Drawing metadata, views, notes, tolerances, and plan artifacts. |
+| `product`, `production`, `quality` | Product/program context for production-engineering outputs, including typed `production.sites`, automation candidates, traceability, critical dimensions, quality gates, and functional test points. |
+| `drawing`, `drawing_plan` | Drawing metadata, views, notes, tolerances, revisions, feature tolerances, datums, and compiled plan inputs used by draw/QA/report paths. |
 | `fem`, `tolerance` | Analysis-specific sections for FEM and tolerance workflows. |
 | `export`, `import` | Artifact output controls and STEP-import templates. |
+
+The checked-in sweep matrix examples are not `config_version` documents, but the same validation cleanup also tightens the typed matrix shape the runtime expects: `jobs`, `parameters`, `execution`, and `objectives`.
 
 ## Compatibility Aliases
 
@@ -73,14 +75,18 @@ If a named profile cannot be loaded, the runtime falls back to `ks-basic`.
 
 ## Real Examples
 
-These checked-in configs exercise the canonical schema surface:
+These checked-in configs are the main canonical v1 references:
 
-1. [controller_housing.toml](../configs/examples/controller_housing.toml)
-   Single-part production-readiness config with `product`, `manufacturing`, `production`, `quality`, `drawing`, and `export`.
+1. [ks_bracket.toml](../configs/examples/ks_bracket.toml)
+   Runtime-smoke-backed single-part example with drawing metadata, revisions, and export coverage.
 2. [bracket_fem.toml](../configs/examples/bracket_fem.toml)
-   Compact single-part config focused on `shapes`, `operations`, `fem`, and `export`.
-3. [ptu_assembly_mates.toml](../configs/examples/ptu_assembly_mates.toml)
-   Assembly config using `parts` plus `assembly` for placement/mates.
+   Compact FEM-oriented config used by the runtime smoke lane and the sweep gallery.
+3. [infotainment_display_bracket.toml](../configs/examples/infotainment_display_bracket.toml)
+   Production-readiness example with `product`, `manufacturing`, `production`, `quality`, and `drawing`.
+4. [controller_housing_eol.toml](../configs/examples/controller_housing_eol.toml)
+   Electronics assembly/readiness example with typed `assembly`, `quality`, drawing feature tolerances, and standard-doc workflows.
+5. [pcb_mount_plate.toml](../configs/examples/pcb_mount_plate.toml)
+   Production/readiness example used by the readiness-report test/doc path.
 
 ## Upgrade Notes
 
@@ -88,3 +94,5 @@ These checked-in configs exercise the canonical schema surface:
 - Use `fcad validate-config --json` in CI when you want machine-readable pass/fail output plus counts.
 - Use `fcad migrate-config` before checking in a rewritten config file; the command prints changed fields, deprecated fields, and manual follow-up items.
 - If a legacy and canonical field disagree, migration preserves the canonical field and reports the mismatch as manual follow-up instead of guessing silently.
+- New checked-in examples should be written as explicit canonical v1 by default: add `config_version = 1` and prefer canonical fields over compatibility aliases.
+- Keep an example legacy-compatible only when its purpose is migration, backward-compatibility, or regression coverage. In those cases, document that intent in the example or the test that relies on it.

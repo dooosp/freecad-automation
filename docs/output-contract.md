@@ -137,3 +137,21 @@ Internal executor/job-store files remain path-bearing on disk where needed:
 Those internal files remain the source of truth for execution, retry, and artifact serving. The public API exposes routes and redacted labels, not those raw filesystem paths.
 
 Drawing preview follows the same split: the editable preview-plan file and related sidecars remain server-side only where the dimension-edit loop and tracked-draw bridge need them, while browser-visible responses expose safe labels and availability flags instead of those filesystem paths.
+
+## Runtime Diagnostics Contract
+
+`fcad check-runtime --json` and `GET /health` share the same runtime diagnostics story. The local API returns that shared payload as `runtime`.
+
+Version markers:
+
+- `diagnostics_version`: version of the shared runtime diagnostics payload
+- `api_version`: version of the local API response envelope
+
+Shared runtime fields include:
+
+- selected runtime details and searched candidate paths
+- environment override resolution order and active values
+- Python and FreeCAD version/probe details when available
+- command classes and a per-command capability map
+- warnings, errors, remediation, and next steps
+- `support_boundary_note` when the detected path is outside the repository-owned verified macOS runtime path

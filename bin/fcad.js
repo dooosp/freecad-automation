@@ -65,23 +65,26 @@ const generateReport = createReportService();
 const USAGE = `
 fcad | mfg-agent - FreeCAD-backed automation pipeline
 
+FreeCAD-backed CLI for CAD, TechDraw, inspection, FEM, tolerance, and reporting,
+plus a plain-Python/Node manufacturing-review layer.
+
 Run this first on a new machine or before troubleshooting runtime-backed commands:
   fcad check-runtime
 
 Usage:
   Diagnostics:
-    fcad check-runtime             Show searched paths, selected runtime, detected versions, command coverage, and remediation
+    fcad check-runtime [--json]    Show searched paths, selected runtime, detected versions, command coverage, and remediation
 
   FreeCAD-backed commands:
-    fcad create <config.toml|json>    Generate parametric model output
-    fcad draw <config.toml|json>      Generate drawing SVG output
-    fcad inspect <model.step|fcstd>   Inspect model metadata
-    fcad fem <config.toml|json>       Run FEM structural analysis
-    fcad tolerance <config.toml>      Tolerance analysis for assembly configs
-    fcad report <config.toml>         Generate engineering PDF report
+    fcad create <config.toml|json>                              Generate parametric model output
+    fcad draw <config.toml|json>                                Generate TechDraw SVG output
+    fcad inspect <model.step|fcstd> [--manifest-out <path>]     Inspect model metadata
+    fcad fem <config.toml|json> [--manifest-out <path>]         Run FEM structural analysis
+    fcad tolerance <config.toml> [--manifest-out <path>]        Tolerance analysis for assembly configs
+    fcad report <config.toml>                                   Generate engineering PDF report
 
   Plain-Python / non-FreeCAD commands:
-    fcad dfm <config.toml|json>       Run DFM manufacturability analysis
+    fcad dfm <config.toml|json> [--manifest-out <path>]  Run DFM manufacturability analysis
     fcad review <config.toml|json>
     fcad process-plan <config.toml|json>
     fcad line-plan <config.toml|json>
@@ -106,12 +109,12 @@ Usage:
     fcad help
 
 Options:
-  Shared new-workflow options:
+  Shared workflow options:
     --profile <name>             Shop profile under configs/profiles
     --runtime <path>             Runtime JSON for line stabilization / launch review
     --batch <n>                  Batch size assumption for cost/readiness workflow
     --site <name>                Site label override for summaries
-    --process <name>             Override manufacturing process when supported
+    --process <name>             Override manufacturing process when supported, including dfm
     --material <name>            Override material for cost/readiness workflow
     --context <path>             Engineering context JSON
     --geometry <path>            Geometry intelligence JSON
@@ -128,7 +131,7 @@ Options:
     --fail-under N               Fail if QA score < N (with draw)
     --weights-preset P           QA weight profile: default|auto|flange|shaft|...
     --strict                     Treat warnings as errors (with validate/dfm)
-    --process P                  Override manufacturing process (with dfm)
+    --manifest-out <path>        Write a provenance manifest for stdout-oriented commands such as inspect/fem/tolerance/dfm
     --recommend                  Auto-recommend fit specs (with tolerance)
     --csv                        Export tolerance report as CSV (with tolerance)
     --monte-carlo                Include Monte Carlo simulation (with tolerance/report)
@@ -139,9 +142,10 @@ Options:
 
 Examples:
   fcad check-runtime
+  fcad check-runtime --json
   fcad create configs/examples/ks_bracket.toml
   fcad draw configs/examples/ks_bracket.toml --bom
-  fcad inspect output/ks_bracket.step
+  fcad inspect output/ks_bracket.step --manifest-out output/ks_bracket_inspect_manifest.json
   fcad review configs/examples/infotainment_display_bracket.toml
   fcad readiness-report configs/examples/pcb_mount_plate.toml --out output/pcb_mount_plate_readiness.json
   fcad stabilization-review configs/examples/infotainment_display_bracket.toml --runtime data/runtime_examples/display_bracket_runtime.json --profile configs/profiles/site_korea_ulsan.toml
@@ -217,7 +221,7 @@ function ensureNumericOption(optionName, rawValue) {
 }
 
 function requireOptionValue(optionName, value, usageHint = null) {
-  if (value && !value.startsWith('--')) {
+  if (typeof value === 'string' && value && !value.startsWith('--')) {
     return value;
   }
   console.error(`Error: ${optionName} requires a value`);
@@ -311,7 +315,14 @@ async function main() {
   }
 
   if (command === 'check-runtime') {
-    process.exit(printRuntimeDiagnostics());
+    const { positional, options } = parseCliArgs(args);
+    if (positional.length > 0) {
+      console.error('Error: check-runtime does not accept positional arguments');
+      process.exit(1);
+    }
+    process.exit(printRuntimeDiagnostics({
+      format: options.json ? 'json' : 'text',
+    }));
   } else if (command === 'create') {
     await cmdCreate(args[0]);
   } else if (command === 'review') {
@@ -347,11 +358,9 @@ async function main() {
   } else if (command === 'draw') {
     await cmdDraw(args);
   } else if (command === 'fem') {
-    await cmdFem(args[0]);
+    await cmdFem(args);
   } else if (command === 'tolerance') {
-    const flags = args.filter(a => a.startsWith('--'));
-    const configArg = args.find(a => !a.startsWith('--'));
-    await cmdTolerance(configArg, flags);
+    await cmdTolerance(args);
   } else if (command === 'report') {
     const flags = args.filter(a => a.startsWith('--'));
     const configArg = args.find(a => !a.startsWith('--'));
@@ -367,7 +376,7 @@ async function main() {
   } else if (command === 'dfm') {
     await cmdDfm(args);
   } else if (command === 'inspect') {
-    await cmdInspect(args[0]);
+    await cmdInspect(args);
   } else if (command === 'serve') {
     await cmdServe(args);
   } else {
@@ -405,6 +414,7 @@ async function loadConfigForCli(filepath) {
 
 async function writeCliManifest({
   command,
+  status = 'succeeded',
   configPath = null,
   configSummary = null,
   config = null,
@@ -417,6 +427,7 @@ async function writeCliManifest({
   details = undefined,
   related = undefined,
   timestamps = null,
+  manifestPath = null,
 }) {
   const ruleProfile = config
     ? await loadRuleProfile(PROJECT_ROOT, config, {
@@ -430,7 +441,7 @@ async function writeCliManifest({
     interface: 'cli',
     command,
     jobType: command,
-    status: 'succeeded',
+    status,
     configPath,
     configSummary,
     selectedProfile: profileName,
@@ -446,11 +457,11 @@ async function writeCliManifest({
     details,
     related,
   });
-  const manifestPath = createManifestPath({
+  const resolvedManifestPath = manifestPath || createManifestPath({
     primaryOutputPath,
     outputDir,
   });
-  return writeArtifactManifest(manifestPath, manifest);
+  return writeArtifactManifest(resolvedManifestPath, manifest);
 }
 
 function createExportArtifactEntries(exports = [], prefix = 'model') {
@@ -479,6 +490,65 @@ function createArtifactEntry(type, path, {
     stability,
     ...(metadata ? { metadata } : {}),
   };
+}
+
+function resolveManifestOutputPath(options = {}) {
+  const rawPath = options['manifest-out'];
+  if (rawPath === undefined) return null;
+  return resolveMaybe(requireOptionValue('--manifest-out', rawPath));
+}
+
+function createInputArtifactEntries({ configPath = null, inputPath = null, inputType = null, inputLabel = null } = {}) {
+  const artifacts = [];
+  if (configPath) {
+    artifacts.push(createArtifactEntry('config.input', configPath, {
+      label: 'Input config',
+      scope: 'internal',
+      stability: 'stable',
+    }));
+  }
+  if (inputPath && inputType) {
+    artifacts.push(createArtifactEntry(inputType, inputPath, {
+      label: inputLabel,
+      scope: 'internal',
+      stability: 'stable',
+    }));
+  }
+  return artifacts;
+}
+
+function createAnalysisExportEntries(result, prefix) {
+  return createExportArtifactEntries(result?.exports || [], prefix);
+}
+
+async function writeStdoutCommandManifest({
+  manifestPath = null,
+  command,
+  status = 'succeeded',
+  configPath = null,
+  configSummary = null,
+  config = null,
+  inputPath = null,
+  inputType = null,
+  inputLabel = null,
+  artifacts = [],
+  details = undefined,
+}) {
+  if (!manifestPath) return null;
+
+  return writeCliManifest({
+    command,
+    status,
+    configPath,
+    configSummary,
+    config,
+    manifestPath,
+    artifacts: [
+      ...createInputArtifactEntries({ configPath, inputPath, inputType, inputLabel }),
+      ...artifacts,
+    ],
+    details,
+  });
 }
 
 function collectDrawManifestArtifacts(result) {
@@ -1720,16 +1790,20 @@ async function cmdCreate(configPath) {
   return result;
 }
 
-async function cmdFem(configPath) {
+async function cmdFem(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  const configPath = positional[0];
   if (!configPath) {
     console.error('Error: config file path required');
     process.exit(1);
   }
 
   const absPath = resolveMaybe(configPath);
+  const manifestPath = resolveManifestOutputPath(options);
   console.log(`Loading config: ${absPath}`);
 
-  const config = await loadConfigForCli(absPath);
+  const configDocument = await loadConfigDocumentForCli(absPath);
+  const config = configDocument.config;
   const analysisType = config.fem?.analysis_type || 'static';
   console.log(`FEM Analysis: ${config.name || 'unnamed'} (${analysisType})`);
   console.log(`  Shapes: ${config.shapes?.length || 0}`);
@@ -1763,6 +1837,23 @@ async function cmdFem(configPath) {
         console.log(`    ${exp.format}: ${exp.path} (${exp.size_bytes} bytes)`);
       }
     }
+
+    const emittedManifestPath = await writeStdoutCommandManifest({
+      manifestPath,
+      command: 'fem',
+      configPath: absPath,
+      configSummary: configDocument.summary,
+      config,
+      artifacts: createAnalysisExportEntries(result, 'analysis.fem'),
+      details: {
+        analysis_type: fem.analysis_type || null,
+        export_count: result.exports?.length || 0,
+        safety_factor: fem.results?.safety_factor ?? null,
+      },
+    });
+    if (emittedManifestPath) {
+      console.log(`  Manifest: ${emittedManifestPath}`);
+    }
   } else {
     console.error(`\nError: ${result.error}`);
     process.exit(1);
@@ -1771,7 +1862,9 @@ async function cmdFem(configPath) {
   return result;
 }
 
-async function cmdTolerance(configPath, flags = []) {
+async function cmdTolerance(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  const configPath = positional[0];
   if (!configPath) {
     console.error('Error: config file path required');
     console.error('  fcad tolerance configs/examples/ptu_assembly_mates.toml');
@@ -1779,15 +1872,17 @@ async function cmdTolerance(configPath, flags = []) {
   }
 
   const absPath = resolveMaybe(configPath);
+  const manifestPath = resolveManifestOutputPath(options);
   console.log(`Loading config: ${absPath}`);
 
-  const config = await loadConfigForCli(absPath);
+  const configDocument = await loadConfigDocumentForCli(absPath);
+  const config = configDocument.config;
 
   // Inject flags into tolerance config
   config.tolerance = config.tolerance || {};
-  if (flags.includes('--recommend')) config.tolerance.recommend = true;
-  if (flags.includes('--csv')) config.tolerance.csv = true;
-  if (flags.includes('--monte-carlo')) config.tolerance.monte_carlo = true;
+  if (options.recommend) config.tolerance.recommend = true;
+  if (options.csv) config.tolerance.csv = true;
+  if (options['monte-carlo']) config.tolerance.monte_carlo = true;
 
   const modelName = config.name || 'unnamed';
   console.log(`Tolerance Analysis: ${modelName}`);
@@ -1798,7 +1893,7 @@ async function cmdTolerance(configPath, flags = []) {
     loadConfig: loadConfigForCli,
     config,
     standard: config.standard,
-    monteCarlo: flags.includes('--monte-carlo') ? true : undefined,
+    monteCarlo: options['monte-carlo'] ? true : undefined,
   });
 
   if (result.success) {
@@ -1855,6 +1950,24 @@ async function cmdTolerance(configPath, flags = []) {
         console.log(`  ${exp.format.toUpperCase()}: ${exp.path} (${exp.size_bytes} bytes)`);
       }
     }
+
+    const emittedManifestPath = await writeStdoutCommandManifest({
+      manifestPath,
+      command: 'tolerance',
+      configPath: absPath,
+      configSummary: configDocument.summary,
+      config,
+      artifacts: createAnalysisExportEntries(result, 'analysis.tolerance'),
+      details: {
+        pair_count: result.pairs?.length || 0,
+        stack_up_pairs: result.stack_up?.chain_length ?? 0,
+        includes_monte_carlo: Boolean(result.monte_carlo),
+        export_count: result.exports?.length || 0,
+      },
+    });
+    if (emittedManifestPath) {
+      console.log(`  Manifest: ${emittedManifestPath}`);
+    }
   } else {
     console.error(`\nError: ${result.error}`);
     process.exit(1);
@@ -1864,30 +1977,10 @@ async function cmdTolerance(configPath, flags = []) {
 }
 
 async function cmdDfm(rawArgs = []) {
-  const flags = [];
-  const positional = [];
-  let processValue = null;
-
-  for (let i = 0; i < rawArgs.length; i++) {
-    const arg = rawArgs[i];
-    if (arg === '--process') {
-      const val = rawArgs[i + 1];
-      if (!val || val.startsWith('--')) {
-        console.error('Error: --process requires a value');
-        console.error('  Allowed: machining|casting|sheet_metal|3d_printing');
-        process.exit(1);
-      }
-      processValue = val;
-      i++;
-    } else if (arg.startsWith('--process=')) {
-      processValue = arg.split('=')[1];
-    } else if (arg.startsWith('--')) {
-      flags.push(arg);
-    } else {
-      positional.push(arg);
-    }
-  }
-
+  const { positional, options } = parseCliArgs(rawArgs);
+  let processValue = options.process === true
+    ? requireOptionValue('--process', options.process, 'Allowed: machining|casting|sheet_metal|3d_printing')
+    : (options.process || null);
   const configPath = positional[0];
   if (!configPath) {
     console.error('Error: config file path required');
@@ -1896,9 +1989,11 @@ async function cmdDfm(rawArgs = []) {
   }
 
   const absPath = resolveMaybe(configPath);
+  const manifestPath = resolveManifestOutputPath(options);
   console.log(`Loading config: ${absPath}`);
 
-  const config = await loadConfigForCli(absPath);
+  const configDocument = await loadConfigDocumentForCli(absPath);
+  const config = configDocument.config;
 
   // Inject flags into manufacturing config
   config.manufacturing = config.manufacturing || {};
@@ -1911,7 +2006,7 @@ async function cmdDfm(rawArgs = []) {
     config.manufacturing.process = processValue;
   }
 
-  const strict = flags.includes('--strict');
+  const strict = Boolean(options.strict);
   const modelName = config.name || 'unnamed';
   console.log(`DFM Analysis: ${modelName} (process: ${config.manufacturing.process || 'machining'})\n`);
 
@@ -1946,6 +2041,29 @@ async function cmdDfm(rawArgs = []) {
 
     console.log(`Summary: ${summary.errors} errors, ${summary.warnings} warnings, ${summary.info} info`);
     console.log(`DFM Score: ${score}/100`);
+
+    const emittedManifestPath = await writeStdoutCommandManifest({
+      manifestPath,
+      command: 'dfm',
+      status: strict && summary.warnings > 0
+        ? 'failed'
+        : summary.errors > 0
+          ? 'failed'
+          : 'succeeded',
+      configPath: absPath,
+      configSummary: configDocument.summary,
+      config,
+      details: {
+        process: result.process,
+        score,
+        summary,
+        check_count: checks.length,
+        strict_mode: strict,
+      },
+    });
+    if (emittedManifestPath) {
+      console.log(`Manifest: ${emittedManifestPath}`);
+    }
 
     if (strict && summary.warnings > 0) {
       console.error('\n--strict: warnings treated as errors');
@@ -2076,13 +2194,16 @@ async function cmdReport(configPath, flags = []) {
   return result;
 }
 
-async function cmdInspect(filePath) {
+async function cmdInspect(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  const filePath = positional[0];
   if (!filePath) {
     console.error('Error: model file path required');
     process.exit(1);
   }
 
   const absPath = resolveMaybe(filePath);
+  const manifestPath = resolveManifestOutputPath(options);
   console.log(`Inspecting: ${absPath}`);
 
   const result = await inspectModel({
@@ -2103,6 +2224,28 @@ async function cmdInspect(filePath) {
     if (m.bounding_box) {
       const bb = m.bounding_box;
       console.log(`  Bounding box: ${JSON.stringify(bb.min)} → ${JSON.stringify(bb.max)}`);
+    }
+
+    const emittedManifestPath = await writeStdoutCommandManifest({
+      manifestPath,
+      command: 'inspect',
+      inputPath: absPath,
+      inputType: 'model.input',
+      inputLabel: 'Inspected model input',
+      details: {
+        format: result.format || null,
+        model: {
+          volume: m.volume ?? null,
+          area: m.area ?? null,
+          faces: m.faces ?? null,
+          edges: m.edges ?? null,
+          vertices: m.vertices ?? null,
+          bounding_box: m.bounding_box ?? null,
+        },
+      },
+    });
+    if (emittedManifestPath) {
+      console.log(`  Manifest: ${emittedManifestPath}`);
     }
   } else {
     console.error(`\nError: ${result.error}`);
