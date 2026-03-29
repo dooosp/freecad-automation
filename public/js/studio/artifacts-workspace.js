@@ -20,6 +20,7 @@ import {
 import {
   deriveArtifactReentryCapabilities,
 } from './artifact-actions.js';
+import { applyTranslations } from '../i18n/index.js';
 
 function ensureArtifactsWorkspaceState(store = {}) {
   store.selectedArtifactId = store.selectedArtifactId || '';
@@ -563,6 +564,7 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
     syncCards();
     await ensureArtifactPreview();
     syncDetail();
+    applyTranslations(root);
   }
 
   async function loadCompareJob(jobId) {

@@ -10,6 +10,11 @@
 | Local API info | `fcad serve` | `/api` | Human-readable API info page plus JSON/text discovery for the local API contract. |
 | Legacy viewer | `fcad serve --legacy-viewer` or `npm run serve:legacy` | `/` | Existing all-in-one websocket viewer shell. Escape hatch while migration finishes. |
 
+Browser-facing locale note:
+
+- The current browser-facing UI now supports English and Korean locale selection across the studio shell, the legacy viewer homepage, and the `/api` info page.
+- The shared `ui_locale` cookie is the canonical persisted locale source; browser surfaces update that cookie directly so reloads and server-rendered `/api` stay aligned.
+
 ## Startup commands
 
 ```bash

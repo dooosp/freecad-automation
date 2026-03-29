@@ -13,6 +13,7 @@ import {
   ensureModelTrackedRunState,
   resetModelTrackedRunState,
 } from './model-tracked-runs.js';
+import { applyTranslations } from '../i18n/index.js';
 
 function ensureModelState(model = {}) {
   model.validation = model.validation || {
@@ -551,6 +552,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     syncProfileCatalog();
     syncButtons();
     syncControls();
+    applyTranslations(root);
   }
 
   async function loadPreviewIntoScene() {

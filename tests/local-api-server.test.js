@@ -76,6 +76,18 @@ try {
   assert.match(html, /fcad serve --legacy-viewer/);
   assert.match(html, new RegExp(ROOT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
 
+  const apiKoHtmlResponse = await fetch(`${baseUrl}/api`, {
+    headers: {
+      accept: 'text/html',
+      cookie: 'ui_locale=ko',
+    },
+  });
+  assert.equal(apiKoHtmlResponse.status, 200);
+  const koHtml = await apiKoHtmlResponse.text();
+  assert.match(koHtml, /fcad 로컬 API/);
+  assert.match(koHtml, /언어/);
+  assert.match(koHtml, /브라우저에서 <code>\/<\/code>로 접근하면 이제 스튜디오 셸로 이동합니다/);
+
   const jsonResponse = await fetch(baseUrl, {
     headers: {
       accept: 'application/json',

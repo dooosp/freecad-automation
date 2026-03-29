@@ -13,6 +13,7 @@ import {
   buildDrawingPreviewResultSummary,
   previewReference,
 } from './drawing-preview-copy.js';
+import { applyTranslations } from '../i18n/index.js';
 
 function ensureDrawingState(drawing = {}) {
   drawing.status = drawing.status || 'idle';
@@ -544,6 +545,7 @@ export function mountDrawingWorkspace({
     syncDimensions();
     syncHistory();
     syncTrackedStatus();
+    applyTranslations(root);
   }
 
   async function generateDrawing() {

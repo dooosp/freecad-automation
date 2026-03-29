@@ -13,6 +13,7 @@ import { createStudioDrawingService } from './studio-drawing-service.js';
 import { translateStudioJobSubmission } from './studio-job-bridge.js';
 import { toPublicDrawingPreviewPayload } from './public-drawing-preview.js';
 import { toPublicJobRequest } from './public-job-request.js';
+import { LOCALE_COOKIE_NAME, resolveInitialLocale } from '../../public/js/i18n/index.js';
 
 const PUBLIC_DIR = join(import.meta.dirname, '..', '..', 'public');
 const EXAMPLES_DIR = join(import.meta.dirname, '..', '..', 'configs', 'examples');
@@ -272,13 +273,147 @@ function buildLandingPayload({
   };
 }
 
-function renderLandingPage(payload) {
+function resolveRequestLocale(req) {
+  return resolveInitialLocale({
+    cookieHeader: req?.headers?.cookie || '',
+    browserLanguage: req?.headers?.['accept-language'] || '',
+  });
+}
+
+function buildLandingCopy(locale = 'en') {
+  if (locale === 'ko') {
+    return {
+      title: 'fcad 로컬 API',
+      language: '언어',
+      intro: '이 페이지는 작업 오케스트레이션용 로컬 API를 설명합니다.',
+      browserLanding: '브라우저에서 <code>/</code>로 접근하면 이제 스튜디오 셸로 이동합니다.',
+      projectRoot: '프로젝트 루트',
+      apiEndpoints: 'API 엔드포인트',
+      browserRedirect: '브라우저 요청을 기본 스튜디오 셸로 보냅니다',
+      directStudio: '직접 스튜디오 경로를 엽니다',
+      apiInfo: '이 API 정보 페이지를 반환합니다',
+      runtimeDiagnostics: '런타임 진단용',
+      modelPreview: '빠른 모델 미리보기 빌드를 실행합니다',
+      drawingPreview: '빠른 도면 미리보기 빌드를 실행합니다',
+      trackedJobs: '스튜디오 TOML 또는 산출물 참조에서 직접 추적 작업을 대기열에 넣습니다',
+      jobsDiscovery: '작업 생성 대상과 경로를 확인합니다',
+      jobShape: '작업 상태 응답 형식을 확인합니다',
+      cancelQueued: '실행 전에 대기 중인 추적 작업을 취소합니다',
+      retryTracked: '실패하거나 취소된 추적 작업을 새 대기 실행으로 다시 시도합니다',
+      artifactShape: '산출물 응답 형식을 확인합니다',
+      executionModel: '스튜디오 실행 모델',
+      previewLabel: '미리보기',
+      previewCopy: '빠르고 임시 작업에 안전한 모델/도면 반복에는',
+      previewCopySuffix: '를 사용합니다.',
+      trackedLabel: '추적 실행',
+      trackedCopy: '지속되는 작업은',
+      trackedCopySuffix: '로 대기열에 넣고 상태와 산출물을 추적합니다.',
+      reentryLabel: '산출물 재진입',
+      reentryCopy: '추적된',
+      reentryCopyMiddle: '는 설정 형태의',
+      reentryCopyMiddleTwo: '를 받고, 추적된',
+      reentryCopySuffix: '는 모델 형태의',
+      parallelShell: '병행 스튜디오 셸',
+      parallelShellCopyStart: '브라우저에서 <code>/</code>로 접근하면',
+      parallelShellCopyMiddle: '로 리디렉션되며, 레거시 뷰어는 별도로 유지됩니다.',
+      quickCheck: '빠른 확인',
+      browserDemo: '브라우저 데모가 필요하신가요?',
+      tip: '팁',
+      tipCopy: '<code>http://localhost</code>가 다른 프로세스를 가리키면, 같은 포트의 <code>http://127.0.0.1</code>를 명시적으로 여세요.',
+      plainHeader: 'fcad 로컬 API',
+      plainBrowserLanding: '브라우저에서 /로 접근하면 FreeCAD 자동화 스튜디오 셸이 열립니다.',
+      plainProjectRoot: '프로젝트 루트',
+      plainStudioShell: '스튜디오 셸',
+      plainDirectStudio: '직접 스튜디오 경로',
+      plainApiInfo: 'API 정보',
+      plainHealth: '상태 확인',
+      plainModelPreview: '모델 미리보기',
+      plainDrawingPreview: '도면 미리보기',
+      plainDimensionEdits: '도면 치수 편집',
+      plainTrackedJobs: '스튜디오 추적 작업',
+      plainJobs: '작업',
+      plainJobStatus: '작업 상태 형식',
+      plainQueueCancel: '대기열 취소',
+      plainQueueRetry: '대기열 재시도',
+      plainArtifactShape: '산출물 형식',
+      plainArtifactOpen: '산출물 열기 경로',
+      plainArtifactDownload: '산출물 다운로드 경로',
+      plainQuickCheck: '빠른 확인',
+      plainBrowserDemo: '브라우저 데모',
+      plainBrowserFallback: '대체 브라우저 데모',
+    };
+  }
+
+  return {
+    title: 'fcad Local API',
+    language: 'Language',
+    intro: 'This page documents the local API for job orchestration.',
+    browserLanding: 'Browser requests to <code>/</code> now land in the studio shell.',
+    projectRoot: 'Project root',
+    apiEndpoints: 'API endpoints',
+    browserRedirect: 'redirects browser requests to the preferred studio shell',
+    directStudio: 'opens the direct studio route',
+    apiInfo: 'returns this API info page',
+    runtimeDiagnostics: 'for runtime diagnostics',
+    modelPreview: 'to run fast model preview builds',
+    drawingPreview: 'to run fast drawing preview builds',
+    trackedJobs: 'to enqueue tracked jobs directly from studio-native TOML or artifact references',
+    jobsDiscovery: 'for job creation targets and route discovery',
+    jobShape: 'to inspect a job status response shape',
+    cancelQueued: 'to cancel a queued tracked job before execution starts',
+    retryTracked: 'to retry a failed or cancelled tracked job into a new queued run',
+    artifactShape: 'to inspect artifact response shape',
+    executionModel: 'Studio execution model',
+    previewLabel: 'Preview',
+    previewCopy: 'use',
+    previewCopySuffix: 'for fast scratch-safe model and drawing iteration',
+    trackedLabel: 'Tracked run',
+    trackedCopy: 'use',
+    trackedCopySuffix: 'to enqueue work that persists under',
+    reentryLabel: 'Artifact re-entry',
+    reentryCopy: 'tracked',
+    reentryCopyMiddle: 'accepts config-like',
+    reentryCopyMiddleTwo: 'tracked',
+    reentryCopySuffix: 'accepts model-like',
+    parallelShell: 'Parallel studio shell',
+    parallelShellCopyStart: 'Browser requests to <code>/</code> redirect into',
+    parallelShellCopyMiddle: 'while the legacy viewer remains available separately.',
+    quickCheck: 'Quick check',
+    browserDemo: 'Need the browser demo instead?',
+    tip: 'Tip',
+    tipCopy: 'If <code>http://localhost</code> shows a different process on your machine, open <code>http://127.0.0.1</code> with the same port explicitly.',
+    plainHeader: 'fcad local API',
+    plainBrowserLanding: 'Browser requests to / open the FreeCAD Automation Studio shell.',
+    plainProjectRoot: 'Project root',
+    plainStudioShell: 'Studio shell',
+    plainDirectStudio: 'Direct studio route',
+    plainApiInfo: 'API info',
+    plainHealth: 'Health',
+    plainModelPreview: 'Model preview',
+    plainDrawingPreview: 'Drawing preview',
+    plainDimensionEdits: 'Drawing dimension edits',
+    plainTrackedJobs: 'Studio tracked jobs',
+    plainJobs: 'Jobs',
+    plainJobStatus: 'Job status shape',
+    plainQueueCancel: 'Queue cancel',
+    plainQueueRetry: 'Queue retry',
+    plainArtifactShape: 'Artifact shape',
+    plainArtifactOpen: 'Artifact open route',
+    plainArtifactDownload: 'Artifact download route',
+    plainQuickCheck: 'Quick check',
+    plainBrowserDemo: 'Browser demo',
+    plainBrowserFallback: 'Fallback browser demo',
+  };
+}
+
+function renderLandingPage(payload, locale = 'en') {
+  const copy = buildLandingCopy(locale);
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${escapeHtml(locale)}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>fcad Local API</title>
+  <title>${escapeHtml(copy.title)}</title>
   <style>
     :root {
       color-scheme: light;
@@ -334,59 +469,95 @@ function renderLandingPage(payload) {
     a {
       color: #0b57d0;
     }
+    .locale-bar {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 16px;
+    }
+    .locale-bar label {
+      display: grid;
+      gap: 6px;
+      font-size: 0.8rem;
+      color: #516173;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .locale-bar select {
+      min-width: 120px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(24, 33, 47, 0.12);
+      background: white;
+      color: #18212f;
+    }
   </style>
 </head>
 <body>
   <main>
-    <h1>fcad Local API</h1>
-    <p>This page documents the local API for job orchestration. Browser requests to <code>/</code> now land in the studio shell.</p>
+    <div class="locale-bar">
+      <label>
+        <span>${escapeHtml(copy.language)}</span>
+        <select id="locale-select">
+          <option value="en"${locale === 'en' ? ' selected' : ''}>English</option>
+          <option value="ko"${locale === 'ko' ? ' selected' : ''}>${locale === 'ko' ? '한국어' : 'Korean'}</option>
+        </select>
+      </label>
+    </div>
+    <h1>${escapeHtml(copy.title)}</h1>
+    <p>${escapeHtml(copy.intro)} ${copy.browserLanding}</p>
     <div class="card">
-      <strong>Project root</strong>
+      <strong>${escapeHtml(copy.projectRoot)}</strong>
       <div><code>${escapeHtml(payload.project_root)}</code></div>
     </div>
     <div class="card">
-      <strong>API endpoints</strong>
+      <strong>${escapeHtml(copy.apiEndpoints)}</strong>
       <ul>
-        <li><a href="/studio"><code>GET /</code></a> redirects browser requests to the preferred studio shell</li>
-        <li><a href="/studio"><code>GET /studio</code></a> opens the direct studio route</li>
-        <li><a href="/api"><code>GET /api</code></a> returns this API info page</li>
-        <li><a href="/health"><code>GET /health</code></a> for runtime diagnostics</li>
-        <li><a href="/api"><code>POST /api/studio/model-preview</code></a> to run fast model preview builds</li>
-        <li><a href="/api"><code>POST /api/studio/drawing-preview</code></a> to run fast drawing preview builds</li>
-        <li><a href="/api"><code>POST /api/studio/jobs</code></a> to enqueue tracked jobs directly from studio-native TOML or artifact references</li>
-        <li><a href="/jobs"><code>/jobs</code></a> for job creation targets and route discovery</li>
-        <li><a href="/jobs/example-job"><code>/jobs/:id</code></a> to inspect a job status response shape</li>
-        <li><a href="/api"><code>POST /jobs/:id/cancel</code></a> to cancel a queued tracked job before execution starts</li>
-        <li><a href="/api"><code>POST /jobs/:id/retry</code></a> to retry a failed or cancelled tracked job into a new queued run</li>
-        <li><a href="/jobs/example-job/artifacts"><code>/jobs/:id/artifacts</code></a> to inspect artifact response shape</li>
+        <li><a href="/studio"><code>GET /</code></a> ${escapeHtml(copy.browserRedirect)}</li>
+        <li><a href="/studio"><code>GET /studio</code></a> ${escapeHtml(copy.directStudio)}</li>
+        <li><a href="/api"><code>GET /api</code></a> ${escapeHtml(copy.apiInfo)}</li>
+        <li><a href="/health"><code>GET /health</code></a> ${escapeHtml(copy.runtimeDiagnostics)}</li>
+        <li><a href="/api"><code>POST /api/studio/model-preview</code></a> ${escapeHtml(copy.modelPreview)}</li>
+        <li><a href="/api"><code>POST /api/studio/drawing-preview</code></a> ${escapeHtml(copy.drawingPreview)}</li>
+        <li><a href="/api"><code>POST /api/studio/jobs</code></a> ${escapeHtml(copy.trackedJobs)}</li>
+        <li><a href="/jobs"><code>/jobs</code></a> ${escapeHtml(copy.jobsDiscovery)}</li>
+        <li><a href="/jobs/example-job"><code>/jobs/:id</code></a> ${escapeHtml(copy.jobShape)}</li>
+        <li><a href="/api"><code>POST /jobs/:id/cancel</code></a> ${escapeHtml(copy.cancelQueued)}</li>
+        <li><a href="/api"><code>POST /jobs/:id/retry</code></a> ${escapeHtml(copy.retryTracked)}</li>
+        <li><a href="/jobs/example-job/artifacts"><code>/jobs/:id/artifacts</code></a> ${escapeHtml(copy.artifactShape)}</li>
       </ul>
     </div>
     <div class="card">
-      <strong>Studio execution model</strong>
+      <strong>${escapeHtml(copy.executionModel)}</strong>
       <ul>
-        <li><code>Preview</code>: use <code>${escapeHtml(payload.studio.preview_routes.model_preview)}</code> and <code>${escapeHtml(payload.studio.preview_routes.drawing_preview)}</code> for fast scratch-safe model and drawing iteration</li>
-        <li><code>Tracked run</code>: use <code>${escapeHtml(payload.studio.tracked_jobs_path)}</code> to enqueue work that persists under <code>${escapeHtml(payload.endpoints.jobs)}</code> and <code>${escapeHtml(payload.endpoints.artifacts)}</code></li>
-        <li><code>Artifact re-entry</code>: tracked <code>report</code> accepts config-like <code>artifact_ref</code>; tracked <code>inspect</code> accepts model-like <code>artifact_ref</code></li>
+        <li><code>${escapeHtml(copy.previewLabel)}</code>: ${escapeHtml(copy.previewCopy)} <code>${escapeHtml(payload.studio.preview_routes.model_preview)}</code> and <code>${escapeHtml(payload.studio.preview_routes.drawing_preview)}</code> ${escapeHtml(copy.previewCopySuffix)}</li>
+        <li><code>${escapeHtml(copy.trackedLabel)}</code>: ${escapeHtml(copy.trackedCopy)} <code>${escapeHtml(payload.studio.tracked_jobs_path)}</code> ${escapeHtml(copy.trackedCopySuffix)} <code>${escapeHtml(payload.endpoints.jobs)}</code> and <code>${escapeHtml(payload.endpoints.artifacts)}</code></li>
+        <li><code>${escapeHtml(copy.reentryLabel)}</code>: ${escapeHtml(copy.reentryCopy)} <code>report</code> ${escapeHtml(copy.reentryCopyMiddle)} <code>artifact_ref</code>; ${escapeHtml(copy.reentryCopyMiddleTwo)} <code>inspect</code> ${escapeHtml(copy.reentryCopySuffix)} <code>artifact_ref</code></li>
       </ul>
     </div>
     <div class="card">
-      <strong>Parallel studio shell</strong>
-      <p>Browser requests to <code>/</code> redirect into <a href="${escapeHtml(payload.studio.path)}"><code>${escapeHtml(payload.studio.path)}</code></a> while the legacy viewer remains available separately.</p>
+      <strong>${escapeHtml(copy.parallelShell)}</strong>
+      <p>${copy.parallelShellCopyStart} <a href="${escapeHtml(payload.studio.path)}"><code>${escapeHtml(payload.studio.path)}</code></a> ${escapeHtml(copy.parallelShellCopyMiddle)}</p>
     </div>
     <div class="card">
-      <strong>Quick check</strong>
+      <strong>${escapeHtml(copy.quickCheck)}</strong>
       <pre>${escapeHtml(payload.examples.health_curl)}</pre>
     </div>
     <div class="card">
-      <strong>Need the browser demo instead?</strong>
+      <strong>${escapeHtml(copy.browserDemo)}</strong>
       <pre>${escapeHtml(payload.viewer.command)}
 ${escapeHtml(payload.viewer.npm_script)}</pre>
     </div>
     <div class="card">
-      <strong>Tip</strong>
-      <p>If <code>http://localhost</code> shows a different process on your machine, open <code>http://127.0.0.1</code> with the same port explicitly.</p>
+      <strong>${escapeHtml(copy.tip)}</strong>
+      <p>${copy.tipCopy}</p>
     </div>
   </main>
+  <script>
+    document.getElementById('locale-select')?.addEventListener('change', function(event) {
+      document.cookie = '${LOCALE_COOKIE_NAME}=' + encodeURIComponent(event.target.value) + '; Path=/; Max-Age=31536000; SameSite=Lax';
+      window.location.reload();
+    });
+  </script>
 </body>
 </html>`;
 }
@@ -400,6 +571,8 @@ function assertResponse(kind, payload) {
 }
 
 function sendLandingResponse(req, res, payload) {
+  const locale = resolveRequestLocale(req);
+  const copy = buildLandingCopy(locale);
   const accepted = req.accepts(['html', 'json', 'text']);
   if (accepted === 'json') {
     res.json(payload);
@@ -407,31 +580,31 @@ function sendLandingResponse(req, res, payload) {
   }
   if (accepted === 'text') {
     res.type('text/plain').send([
-      'fcad local API',
-      'Browser requests to / open the FreeCAD Automation Studio shell.',
-      `Project root: ${payload.project_root}`,
-      'Studio shell: /',
-      'Direct studio route: /studio',
-      'API info: /api',
-      'Health: /health',
-      'Model preview: POST /api/studio/model-preview',
-      'Drawing preview: POST /api/studio/drawing-preview',
-      'Drawing dimension edits: POST /api/studio/drawing-previews/:id/dimensions',
-      'Studio tracked jobs: POST /api/studio/jobs',
-      'Jobs: POST /jobs',
-      'Job status shape: /jobs/example-job',
-      'Queue cancel: POST /jobs/:id/cancel',
-      'Queue retry: POST /jobs/:id/retry',
-      'Artifact shape: /jobs/example-job/artifacts',
-      'Artifact open route: /artifacts/:jobId/:artifactId',
-      'Artifact download route: /artifacts/:jobId/:artifactId/download',
-      'Quick check: curl http://127.0.0.1:3000/health',
-      'Browser demo: fcad serve --legacy-viewer',
-      'Fallback browser demo: npm run serve:legacy',
+      copy.plainHeader,
+      copy.plainBrowserLanding,
+      `${copy.plainProjectRoot}: ${payload.project_root}`,
+      `${copy.plainStudioShell}: /`,
+      `${copy.plainDirectStudio}: /studio`,
+      `${copy.plainApiInfo}: /api`,
+      `${copy.plainHealth}: /health`,
+      `${copy.plainModelPreview}: POST /api/studio/model-preview`,
+      `${copy.plainDrawingPreview}: POST /api/studio/drawing-preview`,
+      `${copy.plainDimensionEdits}: POST /api/studio/drawing-previews/:id/dimensions`,
+      `${copy.plainTrackedJobs}: POST /api/studio/jobs`,
+      `${copy.plainJobs}: POST /jobs`,
+      `${copy.plainJobStatus}: /jobs/example-job`,
+      `${copy.plainQueueCancel}: POST /jobs/:id/cancel`,
+      `${copy.plainQueueRetry}: POST /jobs/:id/retry`,
+      `${copy.plainArtifactShape}: /jobs/example-job/artifacts`,
+      `${copy.plainArtifactOpen}: /artifacts/:jobId/:artifactId`,
+      `${copy.plainArtifactDownload}: /artifacts/:jobId/:artifactId/download`,
+      `${copy.plainQuickCheck}: curl http://127.0.0.1:3000/health`,
+      `${copy.plainBrowserDemo}: fcad serve --legacy-viewer`,
+      `${copy.plainBrowserFallback}: npm run serve:legacy`,
     ].join('\n'));
     return;
   }
-  res.type('html').send(renderLandingPage(payload));
+  res.type('html').send(renderLandingPage(payload, locale));
 }
 
 export function buildHealthPayload({

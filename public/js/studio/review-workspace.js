@@ -18,6 +18,7 @@ import {
   deriveArtifactReentryCapabilities,
   findPreferredConfigArtifact,
 } from './artifact-actions.js';
+import { applyTranslations } from '../i18n/index.js';
 
 function ensureReviewState(review = {}) {
   review.status = review.status || 'idle';
@@ -408,6 +409,7 @@ export function mountReviewWorkspace({ root, state, addLog, openJob }) {
     syncStatus();
     syncCards();
     syncDetail();
+    applyTranslations(root);
   }
 
   async function loadReviewState() {
