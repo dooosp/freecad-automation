@@ -48,7 +48,9 @@ child.stderr.on('data', (chunk) => {
 try {
   const homeResponse = await waitForFetch(`${baseUrl}/`);
   const homeHtml = await homeResponse.text();
-  assert.match(homeHtml, /FreeCAD Viewer/);
+  assert.match(homeHtml, /FreeCAD Classic Viewer/);
+  assert.match(homeHtml, /Classic compatibility mode/);
+  assert.match(homeHtml, /fcad serve/);
   assert.match(homeHtml, /id="config-editor"/);
   assert.match(homeHtml, /\/js\/viewer\.js/);
 

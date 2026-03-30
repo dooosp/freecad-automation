@@ -1,14 +1,14 @@
 # Studio UI Handoff
 
-`FreeCAD Automation Studio` is now the preferred browser UI on the non-legacy `fcad serve` path. The legacy viewer remains intentionally reachable for workflows that still depend on the old websocket shell.
+`FreeCAD Automation Studio` is the preferred browser UI on the non-legacy `fcad serve` path. The Start workspace now explains the supported first-run path in terms of examples, previews, tracked results, and artifact re-entry. The legacy viewer remains intentionally reachable only as a classic compatibility mode for workflows that still depend on the old websocket shell.
 
 ## Browser modes
 
 | Mode | How to start | Browser entry | Notes |
 | --- | --- | --- | --- |
-| Studio shell | `fcad serve` | `/` or `/studio` | Preferred browser UI. Root browser requests land in the studio shell. |
+| Studio shell | `fcad serve` | `/` or `/studio` | Preferred browser UI. Root browser requests land in the studio shell and the Start workspace leads with the supported first steps. |
 | Local API info | `fcad serve` | `/api` | Human-readable API info page plus JSON/text discovery for the local API contract. |
-| Legacy viewer | `fcad serve --legacy-viewer` or `npm run serve:legacy` | `/` | Existing all-in-one websocket viewer shell. Escape hatch while migration finishes. |
+| Legacy viewer | `fcad serve --legacy-viewer` or `npm run serve:legacy` | `/` | Classic compatibility mode for the older all-in-one websocket viewer shell. Use only when you specifically need that workflow. |
 
 Browser-facing locale note:
 
@@ -27,7 +27,7 @@ npm run serve:legacy
 
 ## Studio workspaces
 
-- `Start`: runtime posture, route shortcuts, example-first entry points, and recent-job re-entry.
+- `Start`: first-run guidance for examples/configs, preview-versus-tracked execution, advanced route disclosures, and recent-result re-entry.
 - `Model`: prompt-assisted TOML drafting, example/config loading, validation, preview build, 3D viewport, model metadata, parts list, animation when motion data exists, and tracked `create` plus tracked `report` launch points.
 - `Drawing`: sheet-first drawing preview, view and scale controls, BOM, QA summary, annotations, the HTTP-backed dimension-edit loop, and tracked `draw` launch with optional preview-plan preservation.
 - `Review`: read-only manufacturing and readiness console driven by tracked jobs and their artifacts.

@@ -224,15 +224,35 @@ function createStartActionsCard(state) {
   const canOpenRecent = recentJobs.status === 'ready' && recentJobs.items.length > 0;
 
   return createCard({
-    kicker: 'Primary actions',
-    title: 'What can you do next?',
-    copy: 'Pick the lane that gets you moving without dropping into the full editing surface first.',
+    kicker: 'First run',
+    title: 'Choose your first supported step',
+    copy: 'Studio turns configs into previews, drawings, and tracked results. Preview stays scratch-safe; tracked runs keep history, artifacts, and re-entry.',
     body: [
+      createFlowRail([
+        {
+          kicker: 'Bring input',
+          title: 'Start from an example or your config',
+          copy: 'Use a checked-in example for a fast first run, or open a local TOML/JSON file when you already have source data.',
+          tone: 'info',
+        },
+        {
+          kicker: 'Preview first',
+          title: 'Check geometry and drawings before queueing',
+          copy: 'Preview routes stay local to this workspace and do not create tracked `/jobs` history.',
+          tone: 'ok',
+        },
+        {
+          kicker: 'Track results',
+          title: 'Queue work when you need reopenable outputs',
+          copy: 'Tracked create, draw, inspect, and report runs preserve artifacts, manifests, status, and follow-up actions.',
+          tone: 'warn',
+        },
+      ]),
       createActionGrid([
         {
           kicker: 'Example-first',
-          title: 'Try Example',
-          copy: 'Load a repository example and move straight into the Model workspace with editable config state.',
+          title: 'Start with an example',
+          copy: 'Load a checked-in config and move straight into the Model workspace with editable state.',
           meta: exampleCountLabel(examples),
           controls: [
             createExamplesSelect(state),
@@ -246,9 +266,9 @@ function createStartActionsCard(state) {
         },
         {
           kicker: 'Source-backed',
-          title: 'Open Existing Config',
-          copy: 'Bring a local TOML or JSON config into the Model workspace and keep editing there.',
-          meta: 'Local file only. Start stays focused on launch decisions, not full editing.',
+          title: 'Bring your own config',
+          copy: 'Open a local TOML or JSON config and keep editing in Studio without dropping into the classic viewer.',
+          meta: 'Best when you already have a saved config to preview or queue.',
           controls: [
             createButton({
               label: 'Choose config file',
@@ -266,22 +286,9 @@ function createStartActionsCard(state) {
           ],
         },
         {
-          kicker: 'Prompt-assisted',
-          title: 'Generate From Prompt',
-          copy: 'Route into the model-building flow with prompt drafting ready, without making prompting the whole product.',
-          meta: 'Prompt execution still depends on later API wiring.',
-          controls: [
-            createButton({
-              label: 'Open prompt flow',
-              action: 'open-prompt-flow',
-              tone: 'primary',
-            }),
-          ],
-        },
-        {
           kicker: 'Job trail',
-          title: 'Open Recent Job',
-          copy: 'Jump into the most recent tracked run and continue from the artifact trail instead of starting over.',
+          title: 'Resume a tracked result',
+          copy: 'Jump back into the latest tracked run to reopen artifacts, review outputs, or retry from the existing trail.',
           meta: recentJobs.status === 'unavailable'
             ? 'Recent jobs require the local API path from `fcad serve`.'
             : `${recentJobs.items.length || 0} recent jobs visible`,
@@ -291,6 +298,18 @@ function createStartActionsCard(state) {
               action: 'open-recent-job',
               tone: 'primary',
               disabled: !canOpenRecent,
+            }),
+          ],
+        },
+        {
+          kicker: 'Prompt-assisted',
+          title: 'Draft from a prompt',
+          copy: 'Open the prompt-assisted model flow when you want help drafting TOML before previewing or queueing results.',
+          meta: 'Still secondary: prompt execution depends on API support on this serve path.',
+          controls: [
+            createButton({
+              label: 'Open prompt flow',
+              action: 'open-prompt-flow',
             }),
           ],
         },
@@ -305,14 +324,14 @@ function createRecentJobsCard(state) {
   if (recentJobs.status === 'loading') {
     return createCard({
       kicker: 'Recent jobs',
-      title: 'Job history',
-      copy: 'Loading the most recent tracked runs from the local API.',
+      title: 'Tracked results',
+      copy: 'Loading the latest tracked runs you can reopen for artifacts, review, or retry.',
       surface: 'canvas',
       body: [
         createEmptyState({
           icon: '...',
           title: 'Checking recent runs',
-          copy: 'The Start workspace will use recent jobs as the fastest path back into artifacts and review.',
+          copy: 'As tracked jobs appear, Start becomes the fastest path back into artifacts and review.',
         }),
       ],
     });
@@ -321,8 +340,8 @@ function createRecentJobsCard(state) {
   if (recentJobs.status === 'unavailable') {
     return createCard({
       kicker: 'Recent jobs',
-      title: 'No job history on this path',
-      copy: 'The legacy shell does not expose tracked job history, so this space stays honest instead of showing broken controls.',
+      title: 'Tracked results are unavailable on this path',
+      copy: 'Classic compatibility mode does not expose tracked job history, so Start avoids promising reopenable results here.',
       surface: 'canvas',
       body: [
         createEmptyState({
@@ -337,14 +356,14 @@ function createRecentJobsCard(state) {
   if (recentJobs.items.length === 0) {
     return createCard({
       kicker: 'Recent jobs',
-      title: 'Nothing has been tracked yet',
-      copy: 'Use an example or open a config first. As soon as jobs are created, this list becomes the fastest return path.',
+      title: 'No tracked results yet',
+      copy: 'Use an example or open a config first. As soon as tracked jobs exist, this list becomes the fastest return path.',
       surface: 'canvas',
       body: [
         createEmptyState({
           icon: '+',
           title: 'No recent jobs yet',
-          copy: recentJobs.message || 'Start with a model or drawing run to build an artifact trail here.',
+          copy: recentJobs.message || 'Run a tracked create, draw, inspect, or report job to build a reusable artifact trail here.',
         }),
       ],
     });
@@ -352,8 +371,8 @@ function createRecentJobsCard(state) {
 
   return createCard({
     kicker: 'Recent jobs',
-    title: 'Resume from tracked work',
-    copy: 'Recent runs stay visible so the launchpad answers what to do next even after a partial workflow.',
+    title: 'Resume from tracked results',
+    copy: 'Reopen artifacts, review-ready outputs, or queue follow-up work from the latest tracked runs.',
     surface: 'canvas',
     body: [
       el('div', {
@@ -402,14 +421,14 @@ function createQuickLinksCard(state) {
     el('div', {
       className: 'quick-link-row',
       children: [
-        el('span', { className: 'quick-link-label', text: 'Studio shell' }),
+        el('span', { className: 'quick-link-label', text: 'Studio command' }),
         el('code', { className: 'code-chip', text: 'fcad serve' }),
       ],
     }),
     el('div', {
       className: 'quick-link-row',
       children: [
-        el('span', { className: 'quick-link-label', text: 'Studio route' }),
+        el('span', { className: 'quick-link-label', text: 'Studio home' }),
         el('a', {
           className: 'quick-link-anchor',
           text: '/',
@@ -431,14 +450,14 @@ function createQuickLinksCard(state) {
     el('div', {
       className: 'quick-link-row',
       children: [
-        el('span', { className: 'quick-link-label', text: 'Legacy viewer' }),
+        el('span', { className: 'quick-link-label', text: 'Classic compatibility route' }),
         el('code', { className: 'code-chip', text: 'fcad serve --legacy-viewer' }),
       ],
     }),
     el('div', {
       className: 'quick-link-row',
       children: [
-        el('span', { className: 'quick-link-label', text: 'Legacy npm script' }),
+        el('span', { className: 'quick-link-label', text: 'Classic npm command' }),
         el('code', { className: 'code-chip', text: 'npm run serve:legacy' }),
       ],
     }),
@@ -478,12 +497,12 @@ function createQuickLinksCard(state) {
   ].filter(Boolean);
 
   return createCard({
-    kicker: 'Quick links',
-    title: 'CLI and API shortcuts',
-    copy: 'Keep the lightweight commands and endpoints close without letting them dominate the landing workspace.',
+    kicker: 'Advanced links',
+    title: 'API routes and compatibility tools',
+    copy: 'Keep API discovery, health checks, and classic viewer escape hatches nearby without making them the first step.',
     body: [
       createDisclosure({
-        summary: 'Show quick links',
+        summary: 'Show advanced links',
         body: links,
       }),
     ],
@@ -1070,7 +1089,7 @@ function createDrawingWorkspace(state) {
             dataset: { hook: 'drawing-runtime-surface', tone: 'info' },
             children: [
               el('h3', { className: 'model-status-title', text: 'Runtime pending' }),
-              el('p', { className: 'model-status-copy', text: 'Drawing generation follows the same FreeCAD-backed pipeline posture as the rest of the studio.' }),
+              el('p', { className: 'model-status-copy', text: 'Drawing previews and tracked sheet runs use the same runtime and job model as the rest of Studio.' }),
             ],
           }),
           el('article', {
@@ -1549,12 +1568,12 @@ export const workspaceOrder = ['start', 'model', 'drawing', 'review', 'artifacts
 export const workspaceDefinitions = {
   start: {
     label: 'Start',
-    summary: 'Launchpad for runtime posture, examples, and recent jobs.',
+    summary: 'First-run guide to configs, previews, and tracked results.',
     render(state) {
       return workspaceShell({
         kicker: 'Start workspace',
-        title: 'Start with runtime posture and the next best move',
-        description: 'The launchpad answers what can I do next first, then exposes the runtime and artifact context that makes the answer trustworthy.',
+        title: 'Start with a config, preview, or tracked result',
+        description: 'Studio explains the first supported step, keeps preview versus tracked execution honest, and points you back to results you can reopen later.',
         badges: [
           { label: `Connection ${state.connectionLabel}`, tone: connectionTone(state.connectionState) },
           { label: `Runtime ${state.runtimeToneLabel}`, tone: state.runtimeTone },

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FreeCAD Viewer</title>
+  <title>FreeCAD Classic Viewer</title>
   <link rel="stylesheet" href="/css/style.css">
   <script type="importmap">
   {
@@ -19,7 +19,7 @@
     <!-- Config Panel -->
     <aside class="panel">
       <div class="panel-header">
-        <h1 class="panel-title" data-i18n="index.title">FreeCAD Viewer</h1>
+        <h1 class="panel-title" data-i18n="index.title">FreeCAD Classic Viewer</h1>
         <label class="locale-control-legacy" for="legacy-locale-select">
           <span class="locale-control-label" data-i18n="locale.label">Language</span>
           <select id="legacy-locale-select" data-locale-select>
@@ -27,6 +27,16 @@
             <option value="ko" data-i18n="locale.option.ko">Korean</option>
           </select>
         </label>
+      </div>
+
+      <div class="legacy-mode-note">
+        <p class="legacy-mode-kicker" data-i18n="index.mode.label">Classic compatibility mode</p>
+        <p class="legacy-mode-summary" data-i18n="index.mode.summary">Legacy all-in-one websocket viewer for prompt, build, drawing, and streaming workflows.</p>
+        <p class="legacy-mode-copy">
+          <span data-i18n="index.mode.notice.prefix">Use</span>
+          <code>fcad serve</code>
+          <span data-i18n="index.mode.notice.suffix">for the preferred Studio workspace. Stay here only when you specifically need the classic single-page workflow.</span>
+        </p>
       </div>
 
       <label for="design-input">AI Design</label>
