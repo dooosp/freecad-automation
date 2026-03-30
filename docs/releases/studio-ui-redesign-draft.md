@@ -3,7 +3,8 @@
 ## Summary
 
 - `fcad serve` now opens `FreeCAD Automation Studio` as the preferred browser UI on the non-legacy path.
-- The older viewer remains available through `fcad serve --legacy-viewer` and `npm run serve:legacy`.
+- The Start workspace now explains the first supported path in terms of examples, previews, tracked results, and artifact re-entry.
+- The older viewer remains available through `fcad serve --legacy-viewer` and `npm run serve:legacy`, but it is now framed as classic compatibility mode instead of a peer-primary browser surface.
 - Studio navigation is now split into `Start`, `Model`, `Drawing`, `Review`, and `Artifacts` workspaces.
 - Preview routes stay separate from tracked runs: model and drawing previews are scratch-safe, while tracked jobs persist through `/jobs`.
 - Browser-safe artifact links now have dedicated open and download routes, and tracked `inspect` / `report` can start from artifact references.

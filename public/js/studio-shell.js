@@ -221,7 +221,7 @@ const state = {
   logs: [
     {
       status: 'Studio shell',
-      message: 'Start is now the default launchpad while legacy viewer behavior remains available in parallel.',
+      message: 'Studio is the preferred browser workspace. Start with an example, a config, or a recent tracked result.',
       tone: 'info',
       time: 'boot',
     },
