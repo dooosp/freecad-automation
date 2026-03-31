@@ -1,0 +1,9 @@
+[
+  {
+    "ncr_id": "NCR-900",
+    "description": "Surface scratch on edge break",
+    "severity": "major",
+    "status": "resolved",
+    "feature_hint": "edge"
+  }
+]

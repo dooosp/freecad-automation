@@ -11,7 +11,7 @@ from adapters.load_quality import load_quality_issues
 
 def _load_optional(path, loader):
     if not path:
-        return [], []
+        return [], [], []
     return loader(path)
 
 
@@ -26,9 +26,9 @@ def main():
         if model_path and not os.path.isfile(model_path):
             respond_error(f"Model file not found: {model_path}")
 
-        bom_entries, bom_warnings = _load_optional(bom_path, load_bom_entries)
-        inspection_results, inspection_warnings = _load_optional(inspection_path, load_inspection_results)
-        quality_issues, quality_warnings = _load_optional(quality_path, load_quality_issues)
+        bom_entries, bom_warnings, bom_diagnostics = _load_optional(bom_path, load_bom_entries)
+        inspection_results, inspection_warnings, inspection_diagnostics = _load_optional(inspection_path, load_inspection_results)
+        quality_issues, quality_warnings, quality_diagnostics = _load_optional(quality_path, load_quality_issues)
 
         part_name = payload.get("part_name") or basename_without_ext(model_path) or "engineering_part"
         revision = payload.get("revision") or infer_revision(model_path) or infer_revision(part_name)
@@ -41,6 +41,7 @@ def main():
             process = next((entry.get("process") for entry in bom_entries if entry.get("process")), None)
 
         warnings = [*bom_warnings, *inspection_warnings, *quality_warnings]
+        diagnostics = [*bom_diagnostics, *inspection_diagnostics, *quality_diagnostics]
         source_files = [path for path in [model_path, bom_path, inspection_path, quality_path] if path]
 
         context = {
@@ -72,6 +73,7 @@ def main():
             "metadata": {
                 "created_at": utc_now_iso(),
                 "source_files": source_files,
+                "ingest_diagnostics": diagnostics,
                 "provenance": {
                     "ingest_command": "fcad ingest",
                     "model_supplied": bool(model_path),
@@ -87,15 +89,17 @@ def main():
         ingest_log = {
             "created_at": context["metadata"]["created_at"],
             "sources": [
-                summarize_source(bom_path, len(bom_entries), bom_warnings) if bom_path else None,
-                summarize_source(inspection_path, len(inspection_results), inspection_warnings) if inspection_path else None,
-                summarize_source(quality_path, len(quality_issues), quality_warnings) if quality_path else None,
+                summarize_source(bom_path, len(bom_entries), bom_warnings, bom_diagnostics) if bom_path else None,
+                summarize_source(inspection_path, len(inspection_results), inspection_warnings, inspection_diagnostics) if inspection_path else None,
+                summarize_source(quality_path, len(quality_issues), quality_warnings, quality_diagnostics) if quality_path else None,
             ],
+            "diagnostics": diagnostics,
             "warnings": warnings,
             "summary": {
                 "bom_entries": len(bom_entries),
                 "inspection_results": len(inspection_results),
                 "quality_issues": len(quality_issues),
+                "diagnostics": len(diagnostics),
             },
         }
         ingest_log["sources"] = [item for item in ingest_log["sources"] if item]

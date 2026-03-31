@@ -106,9 +106,9 @@ The final response should include:
 - Prefer fixing small verified issues immediately rather than only reporting them.
 - If no code changes are needed after verification, do not create an empty commit.
 
-## Repo-local task family: D artifact contracts
+## Repo-local task family: D pipeline
 - For D-pipeline contract work, keep machine-readable JSON artifacts canonical and schema-backed.
-- Prefer narrow validation seams shared by CLI/reporting code over broad architectural rewrites.
+- Prefer narrow validation seams shared by CLI and reporting code over broad architectural rewrites.
 - Standardize common D artifact contract fields where applicable:
   - `schema_version`
   - `analysis_version`
@@ -119,5 +119,10 @@ The final response should include:
   - `coverage`
   - `confidence`
   - `source_artifact_refs`
+- For ingest normalization tasks, keep `scripts/ingest_context.py` orchestration-first and move normalization into adapter-layer helpers.
+- Preserve the additive architecture direction: adapters -> geometry -> linkage -> decision -> reporting.
+- Treat machine-readable JSON as canonical; keep markdown or PDF output concerns downstream.
+- Do not move decision logic into ingest and do not introduce LLM-based normalization.
 - Preserve metadata-only fallback behavior when FreeCAD runtime is unavailable.
-- Keep renderers such as Markdown/PDF downstream from canonical JSON contracts.
+- Keep downstream D1-facing fields backward compatible; additive normalized evidence fields and diagnostics are preferred over shape-breaking changes.
+- Maintain repo-local execution and verification plans under `docs/exec-plans/` and phase status files under `tmp/codex/` for the active task slug.
