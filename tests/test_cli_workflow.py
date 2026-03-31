@@ -192,6 +192,10 @@ def test_compare_rev_reports_risk_signal_changes(tmp_path):
     )
 
     comparison = json.loads(comparison_path.read_text(encoding="utf-8"))
+    assert comparison["artifact_type"] == "revision_comparison"
+    assert comparison["schema_version"] == "1.0"
+    assert comparison["analysis_version"] == "d1"
+    assert comparison["source_artifact_refs"]
     assert comparison["comparison_type"] == "heuristic_artifact_diff"
     assert comparison["metrics"]["face_count"]["delta"] != 0
     assert "patterning" in comparison["risk_signals"]["review_priority_categories"]["removed"]

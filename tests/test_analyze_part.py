@@ -26,6 +26,11 @@ def test_analyze_part_generates_geometry_intelligence():
     geometry = result["geometry_intelligence"]
     hotspots = result["manufacturing_hotspots"]["hotspots"]
 
+    assert geometry["artifact_type"] == "geometry_intelligence"
+    assert geometry["schema_version"] == "1.0"
+    assert geometry["analysis_version"] == "d1"
+    assert geometry["source_artifact_refs"]
+    assert geometry["coverage"]["source_artifact_count"] >= 1
     assert geometry["metrics"]["bounding_box_mm"]["x"] == 120.0
     assert geometry["features"]["hole_like_feature_count"] == 4
     assert geometry["features"]["complexity_score"] > 0
@@ -42,3 +47,4 @@ def test_analyze_part_supports_metadata_only_fallback():
     assert result["success"] is True
     assert result["geometry_intelligence"]["geometry_source"]["path"] is None
     assert result["geometry_intelligence"]["analysis_confidence"] == "heuristic"
+    assert result["geometry_intelligence"]["coverage"]["source_file_count"] == 4

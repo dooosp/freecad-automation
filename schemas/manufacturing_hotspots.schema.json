@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dooosp.github.io/freecad-automation/schemas/manufacturing_hotspots.schema.json",
+  "title": "Manufacturing Hotspots",
+  "allOf": [
+    {
+      "$ref": "d_artifact_common.schema.json#/$defs/rootArtifact"
+    }
+  ],
+  "type": "object",
+  "required": [
+    "artifact_type",
+    "schema_version",
+    "analysis_version",
+    "generated_at",
+    "part_id",
+    "revision",
+    "warnings",
+    "coverage",
+    "confidence",
+    "source_artifact_refs",
+    "part",
+    "hotspots"
+  ],
+  "properties": {
+    "artifact_type": {
+      "const": "manufacturing_hotspots"
+    },
+    "part": {
+      "$ref": "d_artifact_common.schema.json#/$defs/partSummary"
+    },
+    "hotspots": {
+      "type": "array",
+      "items": {
+        "$ref": "d_artifact_common.schema.json#/$defs/hotspotRecord"
+      }
+    }
+  },
+  "unevaluatedProperties": false
+}

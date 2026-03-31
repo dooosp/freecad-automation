@@ -1,0 +1,476 @@
+{
+  "artifact_type": "review_pack",
+  "schema_version": "1.0",
+  "analysis_version": "d1",
+  "generated_at": "2026-03-31T00:00:00Z",
+  "part_id": "BRKT-100",
+  "revision": "A",
+  "warnings": [],
+  "coverage": {
+    "source_artifact_count": 13,
+    "source_file_count": 4,
+    "hotspot_count": 5,
+    "inspection_record_count": 2,
+    "inspection_outlier_count": 2,
+    "quality_issue_count": 2,
+    "quality_hotspot_count": 2,
+    "review_priority_count": 5
+  },
+  "confidence": {
+    "level": "heuristic",
+    "score": 0.76,
+    "rationale": "Canonical review pack combines upstream D artifacts into a decision-oriented JSON contract."
+  },
+  "source_artifact_refs": [
+    {
+      "artifact_type": "engineering_context",
+      "path": "tests/fixtures/sample_part_context.json",
+      "role": "input",
+      "label": "Input context JSON"
+    },
+    {
+      "artifact_type": "geometry_intelligence",
+      "path": "tmp/canonical/sample_geometry.json",
+      "role": "input",
+      "label": "Input geometry JSON"
+    },
+    {
+      "artifact_type": "manufacturing_hotspots",
+      "path": "tmp/canonical/sample_geometry_manufacturing_hotspots.json",
+      "role": "input",
+      "label": "Input hotspots JSON"
+    },
+    {
+      "artifact_type": "inspection_linkage",
+      "path": "tmp/canonical/sample_priorities_inspection_linkage.json",
+      "role": "intermediate",
+      "label": "Inspection linkage JSON"
+    },
+    {
+      "artifact_type": "inspection_outliers",
+      "path": "tmp/canonical/sample_priorities_inspection_outliers.json",
+      "role": "intermediate",
+      "label": "Inspection outliers JSON"
+    },
+    {
+      "artifact_type": "quality_linkage",
+      "path": "tmp/canonical/sample_priorities_quality_linkage.json",
+      "role": "intermediate",
+      "label": "Quality linkage JSON"
+    },
+    {
+      "artifact_type": "quality_hotspots",
+      "path": "tmp/canonical/sample_priorities_quality_hotspots.json",
+      "role": "intermediate",
+      "label": "Quality hotspots JSON"
+    },
+    {
+      "artifact_type": "review_priorities",
+      "path": "tmp/canonical/sample_priorities.json",
+      "role": "input",
+      "label": "Review priorities JSON"
+    },
+    {
+      "artifact_type": "cad_model",
+      "path": "tests/fixtures/sample_part.step",
+      "role": "input",
+      "label": "Geometry source"
+    },
+    {
+      "artifact_type": "source_file",
+      "path": "tests/fixtures/sample_part.step",
+      "role": "evidence",
+      "label": "Context source file"
+    },
+    {
+      "artifact_type": "source_file",
+      "path": "tests/fixtures/sample_bom.csv",
+      "role": "evidence",
+      "label": "Context source file"
+    },
+    {
+      "artifact_type": "source_file",
+      "path": "tests/fixtures/sample_inspection.csv",
+      "role": "evidence",
+      "label": "Context source file"
+    },
+    {
+      "artifact_type": "source_file",
+      "path": "tests/fixtures/sample_quality.csv",
+      "role": "evidence",
+      "label": "Context source file"
+    }
+  ],
+  "canonical_artifact": true,
+  "part": {
+    "part_id": "BRKT-100",
+    "name": "sample_part",
+    "description": "Fixture bracket for analysis tests",
+    "revision": "A",
+    "material": "AL6061",
+    "process": "machining"
+  },
+  "geometry_summary": {
+    "bounding_box_mm": {
+      "x": 120,
+      "y": 80,
+      "z": 6,
+      "diagonal": 144.347
+    },
+    "size_band": "small",
+    "volume_mm3": 18250,
+    "surface_area_mm2": 6430,
+    "face_count": 26,
+    "edge_count": 58,
+    "vertex_count": 44,
+    "bbox_volume_mm3": 57600,
+    "compactness_ratio": 0.3168,
+    "surface_to_volume_ratio": 0.3523,
+    "max_aspect_ratio": 20,
+    "mid_to_min_ratio": 13.3333,
+    "planar_spread_ratio": 1.5,
+    "thinness_ratio": 0.05,
+    "face_density": 0.0005,
+    "edge_density": 0.001
+  },
+  "geometry_features": {
+    "hole_like_feature_count": 4,
+    "hole_pattern_count": 1,
+    "thin_wall_candidates": [
+      {
+        "feature_type": "thin_wall",
+        "confidence": 0.8,
+        "evidence": "thinness_ratio=0.05"
+      }
+    ],
+    "deep_pocket_candidates": [],
+    "inner_corner_risk_candidates": [
+      {
+        "feature_type": "inner_corner",
+        "confidence": 0.65,
+        "evidence": "complex shape without fillet evidence"
+      }
+    ],
+    "fillet_density": 0,
+    "chamfer_density": 0,
+    "feature_density": 0.1538,
+    "complexity_score": 100
+  },
+  "geometry_hotspots": [
+    {
+      "title": "Slender geometry review",
+      "category": "slenderness",
+      "severity": "high",
+      "score": 1,
+      "rationale": "Large aspect ratio can increase review focus on stiffness, handling, and fixture strategy.",
+      "evidence": {
+        "max_aspect_ratio": 20
+      }
+    },
+    {
+      "title": "High complexity review",
+      "category": "complexity",
+      "severity": "high",
+      "score": 1,
+      "rationale": "Geometry complexity is high enough to justify focused review sequencing.",
+      "evidence": {
+        "complexity_score": 100
+      }
+    },
+    {
+      "title": "Thin-wall candidate",
+      "category": "wall_thickness",
+      "severity": "high",
+      "score": 0.8,
+      "rationale": "Bounding-box thinness suggests regions that may be sensitive to distortion or manufacturing variation.",
+      "evidence": {
+        "feature_type": "thin_wall",
+        "confidence": 0.8,
+        "evidence": "thinness_ratio=0.05"
+      }
+    },
+    {
+      "title": "Inner corner risk",
+      "category": "stress_or_tooling",
+      "severity": "medium",
+      "score": 0.65,
+      "rationale": "Sharp internal transitions can drive stress concentration or tooling complexity.",
+      "evidence": {
+        "feature_type": "inner_corner",
+        "confidence": 0.65,
+        "evidence": "complex shape without fillet evidence"
+      }
+    },
+    {
+      "title": "Repeated hole pattern",
+      "category": "patterning",
+      "severity": "medium",
+      "score": 0.5,
+      "rationale": "Repeated hole patterns are good candidates for inspection and datum review.",
+      "evidence": {
+        "hole_pattern_count": 1
+      }
+    }
+  ],
+  "inspection_linkage": {
+    "summary": {
+      "count": 2,
+      "out_of_tolerance": 2,
+      "in_tolerance": 0,
+      "unknown": 0
+    },
+    "records": [
+      {
+        "record_id": "INSP-001",
+        "dimension_name": "Hole diameter A",
+        "matched_categories": [
+          "hole_pattern",
+          "patterning"
+        ],
+        "status": "out_of_tolerance",
+        "deviation": 0.18,
+        "rationale": "Matched by dimension/feature tokens.",
+        "confidence": 0.75
+      },
+      {
+        "record_id": "INSP-002",
+        "dimension_name": "Wall thickness left",
+        "matched_categories": [
+          "wall_thickness"
+        ],
+        "status": "out_of_tolerance",
+        "deviation": -0.28,
+        "rationale": "Matched by dimension/feature tokens.",
+        "confidence": 0.75
+      }
+    ]
+  },
+  "inspection_anomalies": [
+    {
+      "record_id": "INSP-002",
+      "dimension_name": "Wall thickness left",
+      "direction": "low",
+      "magnitude": 0.18,
+      "status": "out_of_tolerance"
+    },
+    {
+      "record_id": "INSP-001",
+      "dimension_name": "Hole diameter A",
+      "direction": "high",
+      "magnitude": 0.08,
+      "status": "out_of_tolerance"
+    }
+  ],
+  "quality_linkage": {
+    "summary": {
+      "issue_count": 2,
+      "matched_categories": 2
+    },
+    "records": [
+      {
+        "issue_id": "NCR-001",
+        "description": "Wall warp near thin section",
+        "defect_code": "WARP-01",
+        "likely_feature_class": "thin_wall",
+        "linked_hotspot_category": "wall_thickness",
+        "linked_to_geometry": true,
+        "occurrence_count": 3,
+        "severity_score": 2.55,
+        "rationale": "Matched quality token 'warp'."
+      },
+      {
+        "issue_id": "NCR-002",
+        "description": "Diameter mismatch on mounting hole",
+        "defect_code": "HOLE-02",
+        "likely_feature_class": "hole",
+        "linked_hotspot_category": "patterning",
+        "linked_to_geometry": true,
+        "occurrence_count": 2,
+        "severity_score": 1.3,
+        "rationale": "Matched quality token 'diameter'."
+      }
+    ]
+  },
+  "quality_hotspots": [
+    {
+      "category": "wall_thickness",
+      "score": 2.55
+    },
+    {
+      "category": "patterning",
+      "score": 1.3
+    }
+  ],
+  "review_priorities": [
+    {
+      "priority_rank": 1,
+      "category": "wall_thickness",
+      "score": 1.65,
+      "title": "Review wall thickness",
+      "evidence_count": 2,
+      "related_inspection_records": [
+        "INSP-002"
+      ],
+      "related_quality_issues": [
+        "NCR-001"
+      ],
+      "rationale": "Combined geometry, inspection, and quality evidence elevated wall_thickness."
+    },
+    {
+      "priority_rank": 2,
+      "category": "slenderness",
+      "score": 1,
+      "title": "Review slenderness",
+      "evidence_count": 1,
+      "related_inspection_records": [],
+      "related_quality_issues": [],
+      "rationale": "Combined geometry, inspection, and quality evidence elevated slenderness."
+    },
+    {
+      "priority_rank": 3,
+      "category": "complexity",
+      "score": 1,
+      "title": "Review complexity",
+      "evidence_count": 1,
+      "related_inspection_records": [],
+      "related_quality_issues": [],
+      "rationale": "Combined geometry, inspection, and quality evidence elevated complexity."
+    },
+    {
+      "priority_rank": 4,
+      "category": "patterning",
+      "score": 0.933,
+      "title": "Review patterning",
+      "evidence_count": 2,
+      "related_inspection_records": [
+        "INSP-001"
+      ],
+      "related_quality_issues": [
+        "NCR-002"
+      ],
+      "rationale": "Combined geometry, inspection, and quality evidence elevated patterning."
+    },
+    {
+      "priority_rank": 5,
+      "category": "inspection_variation",
+      "score": 0.66,
+      "title": "Review inspection variation",
+      "evidence_count": 2,
+      "related_inspection_records": [],
+      "related_quality_issues": [],
+      "rationale": "Combined geometry, inspection, and quality evidence elevated inspection_variation."
+    }
+  ],
+  "recommended_actions": [
+    {
+      "category": "wall_thickness",
+      "priority_rank": 1,
+      "recommended_action": "Review minimum wall thickness, process capability, and distortion controls.",
+      "based_on": "Review wall thickness"
+    },
+    {
+      "category": "slenderness",
+      "priority_rank": 2,
+      "recommended_action": "Review the linked evidence and confirm next engineering action.",
+      "based_on": "Review slenderness"
+    },
+    {
+      "category": "complexity",
+      "priority_rank": 3,
+      "recommended_action": "Prioritize manufacturability review before releasing the next revision.",
+      "based_on": "Review complexity"
+    }
+  ],
+  "evidence_appendix": {
+    "geometry_metrics": {
+      "bounding_box_mm": {
+        "x": 120,
+        "y": 80,
+        "z": 6,
+        "diagonal": 144.347
+      },
+      "size_band": "small",
+      "volume_mm3": 18250,
+      "surface_area_mm2": 6430,
+      "face_count": 26,
+      "edge_count": 58,
+      "vertex_count": 44,
+      "bbox_volume_mm3": 57600,
+      "compactness_ratio": 0.3168,
+      "surface_to_volume_ratio": 0.3523,
+      "max_aspect_ratio": 20,
+      "mid_to_min_ratio": 13.3333,
+      "planar_spread_ratio": 1.5,
+      "thinness_ratio": 0.05,
+      "face_density": 0.0005,
+      "edge_density": 0.001
+    },
+    "geometry_feature_summary": {
+      "hole_like_feature_count": 4,
+      "hole_pattern_count": 1,
+      "thin_wall_candidates": [
+        {
+          "feature_type": "thin_wall",
+          "confidence": 0.8,
+          "evidence": "thinness_ratio=0.05"
+        }
+      ],
+      "deep_pocket_candidates": [],
+      "inner_corner_risk_candidates": [
+        {
+          "feature_type": "inner_corner",
+          "confidence": 0.65,
+          "evidence": "complex shape without fillet evidence"
+        }
+      ],
+      "fillet_density": 0,
+      "chamfer_density": 0,
+      "feature_density": 0.1538,
+      "complexity_score": 100
+    },
+    "source_files": [
+      "tests/fixtures/sample_part.step",
+      "tests/fixtures/sample_bom.csv",
+      "tests/fixtures/sample_inspection.csv",
+      "tests/fixtures/sample_quality.csv"
+    ],
+    "warnings": [],
+    "inspection_record_count": 2,
+    "quality_issue_count": 2
+  },
+  "metadata": {
+    "analysis_confidence": "heuristic",
+    "artifact_provenance": {
+      "workflow": [
+        "ingest",
+        "analyze-part",
+        "quality-link",
+        "review-pack"
+      ],
+      "source_files": [
+        "tests/fixtures/sample_part.step",
+        "tests/fixtures/sample_bom.csv",
+        "tests/fixtures/sample_inspection.csv",
+        "tests/fixtures/sample_quality.csv"
+      ],
+      "context_created_at": "2026-03-10T00:00:00+00:00",
+      "warnings": []
+    },
+    "renderers": [
+      "markdown",
+      "pdf"
+    ],
+    "available_sections": [
+      "part",
+      "geometry_summary",
+      "geometry_hotspots",
+      "inspection_linkage",
+      "inspection_anomalies",
+      "quality_linkage",
+      "quality_hotspots",
+      "review_priorities",
+      "recommended_actions",
+      "evidence_appendix"
+    ]
+  }
+}

@@ -22,8 +22,15 @@ import {
   readJsonFile,
   readJsonIfExists,
   runPythonJsonScript,
+  writeValidatedJsonArtifact,
   writeJsonFile,
 } from '../lib/context-loader.js';
+import {
+  ArtifactSchemaValidationError,
+  buildSourceArtifactRef,
+  D_ANALYSIS_VERSION,
+  D_ARTIFACT_SCHEMA_VERSION,
+} from '../lib/d-artifact-schema.js';
 import { runScript } from '../lib/runner.js';
 import { hasFreeCADRuntime, isWindowsAbsolutePath, normalizeLocalPath } from '../lib/paths.js';
 import { printRuntimeDiagnostics } from '../scripts/check-runtime.js';
@@ -1049,12 +1056,19 @@ async function cmdAnalyzePart(rawArgs = []) {
   }
 
   const primaryOutputPath = normalizeJsonOutputPath(options.out);
+  const generatedAt = nowIso();
+  const sourceArtifactRefs = [
+    contextPath ? buildSourceArtifactRef('engineering_context', contextPath, 'input', 'Input context JSON') : null,
+    modelPath ? buildSourceArtifactRef('cad_model', modelPath, 'input', 'Input model') : null,
+  ].filter(Boolean);
   const result = await runPythonJsonScript(PROJECT_ROOT, 'scripts/analyze_part.py', {
     context,
     model_metadata: modelMetadata,
     feature_hints: featureHints,
     geometry_source: context?.geometry_source || (modelPath ? { path: modelPath } : {}),
     part: context?.part || { name: deriveArtifactStem(modelPath || contextPath, 'part') },
+    generated_at: generatedAt,
+    source_artifact_refs: sourceArtifactRefs,
   }, {
     onStderr: (text) => process.stderr.write(text),
   });
@@ -1069,8 +1083,12 @@ async function cmdAnalyzePart(rawArgs = []) {
     paths.geometry = primaryOutputPath;
   }
 
-  await writeJsonFile(paths.geometry, result.geometry_intelligence);
-  await writeJsonFile(paths.hotspots, result.manufacturing_hotspots);
+  await writeValidatedJsonArtifact(paths.geometry, 'geometry_intelligence', result.geometry_intelligence, {
+    command: 'analyze-part',
+  });
+  await writeValidatedJsonArtifact(paths.hotspots, 'manufacturing_hotspots', result.manufacturing_hotspots, {
+    command: 'analyze-part',
+  });
   const manifestPath = await writeCliManifest({
     command: 'analyze-part',
     primaryOutputPath: paths.geometry,
@@ -1106,11 +1124,19 @@ async function cmdQualityLink(rawArgs = []) {
   const stem = deriveArtifactStem(primaryOutputPath || contextPath || geometryPath, stemFromContext(context, 'part'));
   const hotspotsPath = resolveMaybe(options.hotspots) || artifactPathFor(buildDefaultOutputDir(options['out-dir'] || dirname(geometryPath)), stem, '_manufacturing_hotspots.json');
   const manufacturingHotspots = await readJsonIfExists(hotspotsPath) || { hotspots: [] };
+  const generatedAt = nowIso();
+  const sourceArtifactRefs = [
+    buildSourceArtifactRef('engineering_context', contextPath, 'input', 'Input context JSON'),
+    buildSourceArtifactRef('geometry_intelligence', geometryPath, 'input', 'Input geometry JSON'),
+    hotspotsPath ? buildSourceArtifactRef('manufacturing_hotspots', hotspotsPath, 'input', 'Input hotspots JSON') : null,
+  ].filter(Boolean);
 
   const result = await runPythonJsonScript(PROJECT_ROOT, 'scripts/quality_link.py', {
     context,
     geometry_intelligence: geometryIntelligence,
     manufacturing_hotspots: manufacturingHotspots,
+    generated_at: generatedAt,
+    source_artifact_refs: sourceArtifactRefs,
   }, {
     onStderr: (text) => process.stderr.write(text),
   });
@@ -1127,11 +1153,17 @@ async function cmdQualityLink(rawArgs = []) {
     paths.reviewPriorities = primaryOutputPath;
   }
 
-  await writeJsonFile(paths.inspectionLinkage, result.inspection_linkage);
+  await writeValidatedJsonArtifact(paths.inspectionLinkage, 'inspection_linkage', result.inspection_linkage, {
+    command: 'quality-link',
+  });
   await writeJsonFile(paths.inspectionOutliers, result.inspection_outliers);
-  await writeJsonFile(paths.qualityLinkage, result.quality_linkage);
+  await writeValidatedJsonArtifact(paths.qualityLinkage, 'quality_linkage', result.quality_linkage, {
+    command: 'quality-link',
+  });
   await writeJsonFile(paths.qualityHotspots, result.quality_hotspots);
-  await writeJsonFile(paths.reviewPriorities, result.review_priorities);
+  await writeValidatedJsonArtifact(paths.reviewPriorities, 'review_priorities', result.review_priorities, {
+    command: 'quality-link',
+  });
   const manifestPath = await writeCliManifest({
     command: 'quality-link',
     primaryOutputPath: paths.reviewPriorities,
@@ -1174,17 +1206,35 @@ async function cmdReviewPack(rawArgs = []) {
   const reviewStem = deriveArtifactStem(reviewPath || geometryPath, geometryStem);
   const sourceDir = dirname(reviewPath || geometryPath);
 
-  const manufacturingHotspots = await readJsonIfExists(resolveMaybe(options.hotspots) || artifactPathFor(sourceDir, geometryStem, '_manufacturing_hotspots.json')) || { hotspots: [] };
-  const inspectionLinkage = await readJsonIfExists(resolveMaybe(options['inspection-linkage']) || artifactPathFor(sourceDir, reviewStem, '_inspection_linkage.json')) || { records: [] };
-  const inspectionOutliers = await readJsonIfExists(resolveMaybe(options['inspection-outliers']) || artifactPathFor(sourceDir, reviewStem, '_inspection_outliers.json')) || { records: [] };
-  const qualityLinkage = await readJsonIfExists(resolveMaybe(options['quality-linkage']) || artifactPathFor(sourceDir, reviewStem, '_quality_linkage.json')) || { records: [] };
-  const qualityHotspots = await readJsonIfExists(resolveMaybe(options['quality-hotspots']) || artifactPathFor(sourceDir, reviewStem, '_quality_hotspots.json')) || { records: [] };
-  const reviewPriorities = await readJsonIfExists(reviewPath || artifactPathFor(sourceDir, reviewStem, '_review_priorities.json')) || { records: [], recommended_actions: [] };
+  const hotspotsPath = resolveMaybe(options.hotspots) || artifactPathFor(sourceDir, geometryStem, '_manufacturing_hotspots.json');
+  const inspectionLinkagePath = resolveMaybe(options['inspection-linkage']) || artifactPathFor(sourceDir, reviewStem, '_inspection_linkage.json');
+  const inspectionOutliersPath = resolveMaybe(options['inspection-outliers']) || artifactPathFor(sourceDir, reviewStem, '_inspection_outliers.json');
+  const qualityLinkagePath = resolveMaybe(options['quality-linkage']) || artifactPathFor(sourceDir, reviewStem, '_quality_linkage.json');
+  const qualityHotspotsPath = resolveMaybe(options['quality-hotspots']) || artifactPathFor(sourceDir, reviewStem, '_quality_hotspots.json');
+  const reviewPrioritiesPath = reviewPath || artifactPathFor(sourceDir, reviewStem, '_review_priorities.json');
+
+  const manufacturingHotspots = await readJsonIfExists(hotspotsPath) || { hotspots: [] };
+  const inspectionLinkage = await readJsonIfExists(inspectionLinkagePath) || { records: [] };
+  const inspectionOutliers = await readJsonIfExists(inspectionOutliersPath) || { records: [] };
+  const qualityLinkage = await readJsonIfExists(qualityLinkagePath) || { records: [] };
+  const qualityHotspots = await readJsonIfExists(qualityHotspotsPath) || { records: [] };
+  const reviewPriorities = await readJsonIfExists(reviewPrioritiesPath) || { records: [], recommended_actions: [] };
 
   const outputJsonPath = primaryOutputPath || artifactPathFor(outputDir, stem, '_review_pack.json');
   const outputStem = deriveArtifactStem(outputJsonPath, stem);
   const outputMarkdownPath = siblingArtifactPath(outputJsonPath, '_review_pack.md');
   const outputPdfPath = siblingArtifactPath(outputJsonPath, '_review_pack.pdf');
+  const generatedAt = nowIso();
+  const sourceArtifactRefs = [
+    buildSourceArtifactRef('engineering_context', contextPath, 'input', 'Input context JSON'),
+    buildSourceArtifactRef('geometry_intelligence', geometryPath, 'input', 'Input geometry JSON'),
+    hotspotsPath ? buildSourceArtifactRef('manufacturing_hotspots', hotspotsPath, 'input', 'Input hotspots JSON') : null,
+    inspectionLinkagePath ? buildSourceArtifactRef('inspection_linkage', inspectionLinkagePath, 'intermediate', 'Inspection linkage JSON') : null,
+    inspectionOutliersPath ? buildSourceArtifactRef('inspection_outliers', inspectionOutliersPath, 'intermediate', 'Inspection outliers JSON') : null,
+    qualityLinkagePath ? buildSourceArtifactRef('quality_linkage', qualityLinkagePath, 'intermediate', 'Quality linkage JSON') : null,
+    qualityHotspotsPath ? buildSourceArtifactRef('quality_hotspots', qualityHotspotsPath, 'intermediate', 'Quality hotspots JSON') : null,
+    reviewPrioritiesPath ? buildSourceArtifactRef('review_priorities', reviewPrioritiesPath, 'input', 'Review priorities JSON') : null,
+  ].filter(Boolean);
 
   const result = await runPythonJsonScript(PROJECT_ROOT, 'scripts/reporting/review_pack.py', {
     context,
@@ -1200,9 +1250,15 @@ async function cmdReviewPack(rawArgs = []) {
     output_json_path: outputJsonPath,
     output_markdown_path: outputMarkdownPath,
     output_pdf_path: outputPdfPath,
+    generated_at: generatedAt,
+    source_artifact_refs: sourceArtifactRefs,
   }, {
     timeout: 180_000,
     onStderr: (text) => process.stderr.write(text),
+  });
+
+  await writeValidatedJsonArtifact(outputJsonPath, 'review_pack', result.summary, {
+    command: 'review-pack',
   });
 
   console.log(`Review pack JSON: ${result.artifacts.json}`);
@@ -1298,6 +1354,28 @@ async function cmdCompareRev(rawArgs = []) {
   );
 
   const comparison = {
+    artifact_type: 'revision_comparison',
+    schema_version: D_ARTIFACT_SCHEMA_VERSION,
+    analysis_version: D_ANALYSIS_VERSION,
+    generated_at: nowIso(),
+    part_id: baselineData.part?.part_id && baselineData.part?.part_id === candidateData.part?.part_id
+      ? baselineData.part.part_id
+      : null,
+    warnings: [],
+    coverage: {
+      source_artifact_count: 2,
+      source_file_count: (baselineData.evidence?.source_files || []).length + (candidateData.evidence?.source_files || []).length,
+      review_priority_count: baselineData.reviewPriorities.length + candidateData.reviewPriorities.length,
+    },
+    confidence: {
+      level: 'heuristic',
+      score: 0.55,
+      rationale: 'Comparison is derived from canonical artifact content rather than exact CAD feature differencing.',
+    },
+    source_artifact_refs: [
+      buildSourceArtifactRef('review_pack', baselinePath, 'comparison_baseline', 'Baseline review pack JSON'),
+      buildSourceArtifactRef('review_pack', candidatePath, 'comparison_candidate', 'Candidate review pack JSON'),
+    ],
     baseline: baselinePath,
     candidate: candidatePath,
     part: {
@@ -1329,7 +1407,9 @@ async function cmdCompareRev(rawArgs = []) {
 
   const outputPath = normalizeJsonOutputPath(options.out)
     || artifactPathFor(buildDefaultOutputDir(options['out-dir']), deriveArtifactStem(candidatePath, 'revision'), '_revision_comparison.json');
-  await writeJsonFile(outputPath, comparison);
+  await writeValidatedJsonArtifact(outputPath, 'revision_comparison', comparison, {
+    command: 'compare-rev',
+  });
   const manifestPath = await writeCliManifest({
     command: 'compare-rev',
     primaryOutputPath: outputPath,
@@ -2256,6 +2336,10 @@ async function cmdInspect(rawArgs = []) {
 }
 
 main().catch((err) => {
+  if (err instanceof ArtifactSchemaValidationError) {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
+  }
   console.error(`Fatal: ${err.message}`);
   process.exit(1);
 });
