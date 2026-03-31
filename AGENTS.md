@@ -105,3 +105,12 @@ The final response should include:
 - Do not claim browser automation or manual browser QA unless it actually ran.
 - Prefer fixing small verified issues immediately rather than only reporting them.
 - If no code changes are needed after verification, do not create an empty commit.
+
+## Repo-local Task Family: D-stage ingest normalization
+- For ingest normalization tasks, keep `scripts/ingest_context.py` orchestration-first and move normalization into adapter-layer helpers.
+- Preserve the additive architecture direction: adapters -> geometry -> linkage -> decision -> reporting.
+- Treat machine-readable JSON as canonical; keep markdown or PDF output concerns downstream.
+- Do not move decision logic into ingest and do not introduce LLM-based normalization.
+- Preserve metadata-only fallback behavior when FreeCAD runtime is unavailable.
+- Keep downstream D1-facing fields backward compatible; additive normalized evidence fields and diagnostics are preferred over shape-breaking changes.
+- Maintain repo-local execution and verification plans under `docs/exec-plans/` and phase status files under `tmp/codex/` for the active task slug.
