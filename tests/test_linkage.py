@@ -31,6 +31,9 @@ def test_quality_link_builds_priorities():
     )
 
     assert result["success"] is True
+    assert result["inspection_linkage"]["artifact_type"] == "inspection_linkage"
+    assert result["quality_linkage"]["artifact_type"] == "quality_linkage"
+    assert result["review_priorities"]["artifact_type"] == "review_priorities"
     assert len(result["inspection_outliers"]["records"]) == 2
     assert len(result["quality_hotspots"]["records"]) >= 1
     priorities = result["review_priorities"]["records"]

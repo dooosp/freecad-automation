@@ -1,0 +1,610 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dooosp.github.io/freecad-automation/schemas/d_artifact_common.schema.json",
+  "title": "D Artifact Common Definitions",
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "warningList": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/nonEmptyString"
+      },
+      "default": []
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "source_artifact_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source_file_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "hotspot_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "inspection_record_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "inspection_outlier_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "quality_issue_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "quality_hotspot_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "review_priority_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "default": {}
+    },
+    "confidence": {
+      "type": "object",
+      "required": [
+        "level"
+      ],
+      "properties": {
+        "level": {
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "heuristic"
+          ]
+        },
+        "score": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "rationale": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "sourceArtifactRef": {
+      "type": "object",
+      "required": [
+        "artifact_type",
+        "role"
+      ],
+      "properties": {
+        "artifact_type": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "role": {
+          "enum": [
+            "input",
+            "intermediate",
+            "evidence",
+            "comparison_baseline",
+            "comparison_candidate"
+          ]
+        },
+        "label": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "sourceArtifactRefs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/sourceArtifactRef"
+      },
+      "default": []
+    },
+    "partSummary": {
+      "type": "object",
+      "required": [
+        "part_id",
+        "name"
+      ],
+      "properties": {
+        "part_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "revision": {
+          "type": [
+            "string",
+            "null",
+            "object"
+          ]
+        },
+        "material": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "process": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "boundingBoxMetrics": {
+      "type": "object",
+      "required": [
+        "x",
+        "y",
+        "z"
+      ],
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "z": {
+          "type": "number"
+        },
+        "diagonal": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "geometryMetrics": {
+      "type": "object",
+      "required": [
+        "bounding_box_mm",
+        "volume_mm3",
+        "face_count",
+        "edge_count"
+      ],
+      "properties": {
+        "bounding_box_mm": {
+          "$ref": "#/$defs/boundingBoxMetrics"
+        },
+        "size_band": {
+          "type": "string"
+        },
+        "volume_mm3": {
+          "type": "number"
+        },
+        "surface_area_mm2": {
+          "type": "number"
+        },
+        "face_count": {
+          "type": "number"
+        },
+        "edge_count": {
+          "type": "number"
+        },
+        "vertex_count": {
+          "type": "number"
+        },
+        "bbox_volume_mm3": {
+          "type": "number"
+        },
+        "compactness_ratio": {
+          "type": "number"
+        },
+        "surface_to_volume_ratio": {
+          "type": "number"
+        },
+        "max_aspect_ratio": {
+          "type": "number"
+        },
+        "mid_to_min_ratio": {
+          "type": "number"
+        },
+        "planar_spread_ratio": {
+          "type": "number"
+        },
+        "thinness_ratio": {
+          "type": "number"
+        },
+        "face_density": {
+          "type": "number"
+        },
+        "edge_density": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": true
+    },
+    "geometryFeatureCandidate": {
+      "type": "object",
+      "properties": {
+        "feature_type": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "number"
+        },
+        "evidence": {
+          "type": [
+            "string",
+            "object",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "geometryFeatures": {
+      "type": "object",
+      "required": [
+        "hole_like_feature_count",
+        "hole_pattern_count",
+        "complexity_score"
+      ],
+      "properties": {
+        "hole_like_feature_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "hole_pattern_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "thin_wall_candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/geometryFeatureCandidate"
+          }
+        },
+        "deep_pocket_candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/geometryFeatureCandidate"
+          }
+        },
+        "inner_corner_risk_candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/geometryFeatureCandidate"
+          }
+        },
+        "fillet_density": {
+          "type": "number"
+        },
+        "chamfer_density": {
+          "type": "number"
+        },
+        "feature_density": {
+          "type": "number"
+        },
+        "complexity_score": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": true
+    },
+    "hotspotRecord": {
+      "type": "object",
+      "required": [
+        "title",
+        "category",
+        "severity",
+        "score",
+        "rationale"
+      ],
+      "properties": {
+        "title": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "category": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "severity": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "score": {
+          "type": "number"
+        },
+        "rationale": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "evidence": {
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "inspectionLinkRecord": {
+      "type": "object",
+      "required": [
+        "record_id",
+        "dimension_name",
+        "matched_categories",
+        "rationale",
+        "confidence"
+      ],
+      "properties": {
+        "record_id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "dimension_name": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "matched_categories": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "deviation": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "rationale": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "confidence": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "inspectionAnomalyRecord": {
+      "type": "object",
+      "required": [
+        "record_id",
+        "dimension_name",
+        "direction",
+        "magnitude",
+        "status"
+      ],
+      "properties": {
+        "record_id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "dimension_name": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "direction": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "magnitude": {
+          "type": "number"
+        },
+        "status": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      },
+      "additionalProperties": false
+    },
+    "qualityLinkRecord": {
+      "type": "object",
+      "required": [
+        "issue_id",
+        "description",
+        "linked_hotspot_category",
+        "linked_to_geometry",
+        "severity_score",
+        "rationale"
+      ],
+      "properties": {
+        "issue_id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "description": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "defect_code": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "likely_feature_class": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "linked_hotspot_category": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "linked_to_geometry": {
+          "type": "boolean"
+        },
+        "occurrence_count": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "severity_score": {
+          "type": "number"
+        },
+        "rationale": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      },
+      "additionalProperties": false
+    },
+    "categoryScoreRecord": {
+      "type": "object",
+      "required": [
+        "category",
+        "score"
+      ],
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "score": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "reviewPriorityRecord": {
+      "type": "object",
+      "required": [
+        "priority_rank",
+        "category",
+        "score",
+        "title",
+        "evidence_count",
+        "related_inspection_records",
+        "related_quality_issues",
+        "rationale"
+      ],
+      "properties": {
+        "priority_rank": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "category": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "score": {
+          "type": "number"
+        },
+        "title": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "evidence_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "related_inspection_records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "related_quality_issues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "rationale": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      },
+      "additionalProperties": false
+    },
+    "recommendedAction": {
+      "type": "object",
+      "required": [
+        "category",
+        "priority_rank",
+        "recommended_action",
+        "based_on"
+      ],
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "priority_rank": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "recommended_action": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "based_on": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      },
+      "additionalProperties": false
+    },
+    "rootArtifact": {
+      "type": "object",
+      "properties": {
+        "artifact_type": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "schema_version": {
+          "const": "1.0"
+        },
+        "analysis_version": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "generated_at": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "part_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "revision": {
+          "type": [
+            "string",
+            "null",
+            "object"
+          ]
+        },
+        "warnings": {
+          "$ref": "#/$defs/warningList"
+        },
+        "coverage": {
+          "$ref": "#/$defs/coverage"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "source_artifact_refs": {
+          "$ref": "#/$defs/sourceArtifactRefs"
+        }
+      }
+    }
+  }
+}

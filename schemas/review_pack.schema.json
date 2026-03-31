@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dooosp.github.io/freecad-automation/schemas/review_pack.schema.json",
+  "title": "Review Pack",
+  "allOf": [
+    {
+      "$ref": "d_artifact_common.schema.json#/$defs/rootArtifact"
+    }
+  ],
+  "type": "object",
+  "required": [
+    "artifact_type",
+    "canonical_artifact",
+    "schema_version",
+    "analysis_version",
+    "generated_at",
+    "part_id",
+    "revision",
+    "warnings",
+    "coverage",
+    "confidence",
+    "source_artifact_refs",
+    "part",
+    "geometry_summary",
+    "geometry_features",
+    "geometry_hotspots",
+    "inspection_linkage",
+    "inspection_anomalies",
+    "quality_linkage",
+    "quality_hotspots",
+    "review_priorities",
+    "recommended_actions",
+    "evidence_appendix",
+    "metadata"
+  ],
+  "properties": {
+    "artifact_type": {
+      "const": "review_pack"
+    },
+    "canonical_artifact": {
+      "const": true
+    },
+    "part": {
+      "$ref": "d_artifact_common.schema.json#/$defs/partSummary"
+    },
+    "geometry_summary": {
+      "$ref": "d_artifact_common.schema.json#/$defs/geometryMetrics"
+    },
+    "geometry_features": {
+      "$ref": "d_artifact_common.schema.json#/$defs/geometryFeatures"
+    },
+    "geometry_hotspots": {
+      "type": "array",
+      "items": {
+        "$ref": "d_artifact_common.schema.json#/$defs/hotspotRecord"
+      }
+    },
+    "inspection_linkage": {
+      "type": "object",
+      "required": [
+        "summary",
+        "records"
+      ],
+      "properties": {
+        "summary": {
+          "type": "object"
+        },
+        "records": {
+          "type": "array",
+          "items": {
+            "$ref": "d_artifact_common.schema.json#/$defs/inspectionLinkRecord"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "inspection_anomalies": {
+      "type": "array",
+      "items": {
+        "$ref": "d_artifact_common.schema.json#/$defs/inspectionAnomalyRecord"
+      }
+    },
+    "quality_linkage": {
+      "type": "object",
+      "required": [
+        "summary",
+        "records"
+      ],
+      "properties": {
+        "summary": {
+          "type": "object"
+        },
+        "records": {
+          "type": "array",
+          "items": {
+            "$ref": "d_artifact_common.schema.json#/$defs/qualityLinkRecord"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "quality_hotspots": {
+      "type": "array",
+      "items": {
+        "$ref": "d_artifact_common.schema.json#/$defs/categoryScoreRecord"
+      }
+    },
+    "review_priorities": {
+      "type": "array",
+      "items": {
+        "$ref": "d_artifact_common.schema.json#/$defs/reviewPriorityRecord"
+      }
+    },
+    "recommended_actions": {
+      "type": "array",
+      "items": {
+        "$ref": "d_artifact_common.schema.json#/$defs/recommendedAction"
+      }
+    },
+    "evidence_appendix": {
+      "type": "object",
+      "required": [
+        "geometry_metrics",
+        "geometry_feature_summary",
+        "source_files",
+        "warnings",
+        "inspection_record_count",
+        "quality_issue_count"
+      ],
+      "properties": {
+        "geometry_metrics": {
+          "$ref": "d_artifact_common.schema.json#/$defs/geometryMetrics"
+        },
+        "geometry_feature_summary": {
+          "$ref": "d_artifact_common.schema.json#/$defs/geometryFeatures"
+        },
+        "source_files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "warnings": {
+          "$ref": "d_artifact_common.schema.json#/$defs/warningList"
+        },
+        "inspection_record_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "quality_issue_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "metadata": {
+      "type": "object",
+      "required": [
+        "analysis_confidence",
+        "artifact_provenance",
+        "available_sections"
+      ],
+      "properties": {
+        "analysis_confidence": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "artifact_provenance": {
+          "type": "object",
+          "required": [
+            "workflow",
+            "source_files",
+            "context_created_at",
+            "warnings"
+          ],
+          "properties": {
+            "workflow": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "source_files": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "context_created_at": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "warnings": {
+              "$ref": "d_artifact_common.schema.json#/$defs/warningList"
+            }
+          },
+          "additionalProperties": false
+        },
+        "available_sections": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "renderers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "unevaluatedProperties": false
+}

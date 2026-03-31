@@ -1,3 +1,6 @@
+from d_artifact_contract import build_confidence, build_contract_fields, build_coverage, summarize_part
+
+
 def _records(payload, key):
     return (payload.get(key) or {}).get("records") or []
 
@@ -6,7 +9,7 @@ def build_review_pack_data(payload):
     context = payload.get("context") or {}
     geometry = payload.get("geometry_intelligence") or {}
     hotspots = (payload.get("manufacturing_hotspots") or {}).get("hotspots") or []
-    part = context.get("part") or geometry.get("part") or {}
+    part = summarize_part(context.get("part") or geometry.get("part") or {})
     metrics = geometry.get("metrics") or {}
     features = geometry.get("features") or {}
     inspection_linkage = payload.get("inspection_linkage") or {"summary": {}, "records": []}
@@ -16,8 +19,31 @@ def build_review_pack_data(payload):
     review_priorities = payload.get("review_priorities") or {"records": [], "recommended_actions": []}
     actions = review_priorities.get("recommended_actions") or []
     metadata = context.get("metadata") or {}
+    source_refs = payload.get("source_artifact_refs") or []
 
     return {
+        **build_contract_fields(
+            payload,
+            "review_pack",
+            part=part,
+            coverage=build_coverage(
+                source_artifact_count=len(source_refs),
+                source_file_count=len(metadata.get("source_files") or []),
+                hotspot_count=len(hotspots),
+                inspection_record_count=len(_records(payload, "inspection_linkage")),
+                inspection_outlier_count=len(inspection_outliers.get("records") or []),
+                quality_issue_count=len(_records(payload, "quality_linkage")),
+                quality_hotspot_count=len(quality_hotspots.get("records") or []),
+                review_priority_count=len(review_priorities.get("records") or []),
+            ),
+            confidence=build_confidence(
+                "heuristic",
+                0.76,
+                "Canonical review pack combines upstream D artifacts into a decision-oriented JSON contract.",
+            ),
+            source_artifact_refs=source_refs,
+        ),
+        "canonical_artifact": True,
         "part": {
             "part_id": part.get("part_id"),
             "name": part.get("name"),
@@ -57,6 +83,7 @@ def build_review_pack_data(payload):
                 "context_created_at": metadata.get("created_at"),
                 "warnings": metadata.get("warnings") or [],
             },
+            "renderers": ["markdown", "pdf"],
             "available_sections": [
                 "part",
                 "geometry_summary",
@@ -73,8 +100,8 @@ def build_review_pack_data(payload):
     }
 
 
-def build_markdown_sections(payload):
-    report = build_review_pack_data(payload)
+def build_markdown_sections(payload_or_report):
+    report = payload_or_report if (payload_or_report or {}).get("artifact_type") == "review_pack" else build_review_pack_data(payload_or_report)
     part = report["part"]
     hotspots = report["geometry_hotspots"]
     inspection_outliers = report["inspection_anomalies"]

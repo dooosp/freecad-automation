@@ -105,3 +105,19 @@ The final response should include:
 - Do not claim browser automation or manual browser QA unless it actually ran.
 - Prefer fixing small verified issues immediately rather than only reporting them.
 - If no code changes are needed after verification, do not create an empty commit.
+
+## Repo-local task family: D artifact contracts
+- For D-pipeline contract work, keep machine-readable JSON artifacts canonical and schema-backed.
+- Prefer narrow validation seams shared by CLI/reporting code over broad architectural rewrites.
+- Standardize common D artifact contract fields where applicable:
+  - `schema_version`
+  - `analysis_version`
+  - `generated_at`
+  - `part_id`
+  - `revision`
+  - `warnings`
+  - `coverage`
+  - `confidence`
+  - `source_artifact_refs`
+- Preserve metadata-only fallback behavior when FreeCAD runtime is unavailable.
+- Keep renderers such as Markdown/PDF downstream from canonical JSON contracts.

@@ -51,6 +51,12 @@ def test_review_pack_generates_artifacts(tmp_path):
     assert Path(result["artifacts"]["markdown"]).exists()
     assert Path(result["artifacts"]["pdf"]).exists()
     summary = result["summary"]
+    assert summary["artifact_type"] == "review_pack"
+    assert summary["canonical_artifact"] is True
+    assert summary["schema_version"] == "1.0"
+    assert summary["analysis_version"] == "d1"
+    assert summary["coverage"]["review_priority_count"] == len(summary["review_priorities"])
+    assert summary["source_artifact_refs"]
     assert summary["part"]["name"] == "sample_part"
     assert summary["geometry_hotspots"]
     assert summary["inspection_anomalies"]

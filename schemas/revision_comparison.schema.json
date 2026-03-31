@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dooosp.github.io/freecad-automation/schemas/revision_comparison.schema.json",
+  "title": "Revision Comparison",
+  "allOf": [
+    {
+      "$ref": "d_artifact_common.schema.json#/$defs/rootArtifact"
+    }
+  ],
+  "type": "object",
+  "required": [
+    "artifact_type",
+    "schema_version",
+    "analysis_version",
+    "generated_at",
+    "warnings",
+    "coverage",
+    "confidence",
+    "source_artifact_refs",
+    "baseline",
+    "candidate",
+    "part",
+    "revision",
+    "comparison_type",
+    "metrics",
+    "risk_signals",
+    "evidence_summary"
+  ],
+  "properties": {
+    "artifact_type": {
+      "const": "revision_comparison"
+    },
+    "baseline": {
+      "type": "string"
+    },
+    "candidate": {
+      "type": "string"
+    },
+    "part": {
+      "type": "object",
+      "required": [
+        "baseline",
+        "candidate"
+      ],
+      "properties": {
+        "baseline": {
+          "type": "string"
+        },
+        "candidate": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "revision": {
+      "type": "object",
+      "required": [
+        "baseline",
+        "candidate"
+      ],
+      "properties": {
+        "baseline": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "candidate": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "comparison_type": {
+      "const": "heuristic_artifact_diff"
+    },
+    "metrics": {
+      "type": "object",
+      "required": [
+        "volume_mm3",
+        "face_count",
+        "edge_count"
+      ],
+      "properties": {
+        "volume_mm3": {
+          "$ref": "#/$defs/diffMetric"
+        },
+        "face_count": {
+          "$ref": "#/$defs/diffMetric"
+        },
+        "edge_count": {
+          "$ref": "#/$defs/diffMetric"
+        }
+      },
+      "additionalProperties": false
+    },
+    "risk_signals": {
+      "type": "object",
+      "required": [
+        "hotspot_categories",
+        "review_priority_categories"
+      ],
+      "properties": {
+        "hotspot_categories": {
+          "$ref": "#/$defs/categorySetDiff"
+        },
+        "review_priority_categories": {
+          "$ref": "#/$defs/categorySetDiff"
+        }
+      },
+      "additionalProperties": false
+    },
+    "evidence_summary": {
+      "type": "object",
+      "required": [
+        "baseline_sources",
+        "candidate_sources",
+        "baseline_priority_count",
+        "candidate_priority_count",
+        "note"
+      ],
+      "properties": {
+        "baseline_sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "candidate_sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "baseline_priority_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "candidate_priority_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "diffMetric": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "required": [
+        "before",
+        "after",
+        "delta"
+      ],
+      "properties": {
+        "before": {
+          "type": "number"
+        },
+        "after": {
+          "type": "number"
+        },
+        "delta": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "categorySetDiff": {
+      "type": "object",
+      "required": [
+        "baseline",
+        "candidate",
+        "added",
+        "removed"
+      ],
+      "properties": {
+        "baseline": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "candidate": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "added": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "removed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "unevaluatedProperties": false
+}

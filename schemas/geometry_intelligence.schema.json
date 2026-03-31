@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dooosp.github.io/freecad-automation/schemas/geometry_intelligence.schema.json",
+  "title": "Geometry Intelligence",
+  "allOf": [
+    {
+      "$ref": "d_artifact_common.schema.json#/$defs/rootArtifact"
+    }
+  ],
+  "type": "object",
+  "required": [
+    "artifact_type",
+    "schema_version",
+    "analysis_version",
+    "generated_at",
+    "part_id",
+    "revision",
+    "warnings",
+    "coverage",
+    "confidence",
+    "source_artifact_refs",
+    "part",
+    "geometry_source",
+    "metrics",
+    "features",
+    "analysis_confidence"
+  ],
+  "properties": {
+    "artifact_type": {
+      "const": "geometry_intelligence"
+    },
+    "part": {
+      "$ref": "d_artifact_common.schema.json#/$defs/partSummary"
+    },
+    "geometry_source": {
+      "type": "object",
+      "required": [
+        "path",
+        "file_type"
+      ],
+      "properties": {
+        "path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "file_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "revision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "validated": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "model_metadata": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "feature_hints": {
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "metrics": {
+      "$ref": "d_artifact_common.schema.json#/$defs/geometryMetrics"
+    },
+    "features": {
+      "$ref": "d_artifact_common.schema.json#/$defs/geometryFeatures"
+    },
+    "analysis_confidence": {
+      "type": "string"
+    }
+  },
+  "unevaluatedProperties": false
+}
