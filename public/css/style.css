@@ -73,6 +73,38 @@ html, body {
   margin-bottom: 4px;
 }
 
+.legacy-mode-note {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  border: 1px solid rgba(88, 166, 255, 0.22);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(88, 166, 255, 0.08), rgba(13, 17, 23, 0.35));
+}
+
+.legacy-mode-kicker {
+  font-size: 10px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.legacy-mode-summary,
+.legacy-mode-copy {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.legacy-mode-copy {
+  color: var(--text-dim);
+}
+
+.legacy-mode-copy code {
+  color: var(--text);
+}
+
 label {
   font-size: 11px;
   color: var(--text-dim);
