@@ -49,9 +49,11 @@ This matrix is the public support boundary for the current release. It separates
 - `migrate-config`
 - `serve`
 
+`review-context --context ...` stays fully plain Python / Node. `review-context --model ...` now degrades to a metadata-only review flow with low-confidence warnings when runtime-backed model inspection or STEP feature detection cannot extract usable shape metrics.
+
 ### Mixed / Conditional
 
-- `analyze-part`: runs in plain Python mode when the context already contains model metadata, but uses FreeCAD for live model inspection or STEP feature detection.
+- `analyze-part`: runs in plain Python mode when the context already contains model metadata, uses FreeCAD for live model inspection or STEP feature detection when available, and falls back to bounded metadata-only geometry artifacts when model inspection is unavailable or the shape is weak/invalid.
 - `design`: generates config content first, then calls `create`.
 - `sweep`: follows the matrix-selected service wrappers; cost-only variants can stay plain Python, while create/fem/report variants require FreeCAD.
 

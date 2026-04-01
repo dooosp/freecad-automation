@@ -6,6 +6,7 @@ import {
   readJsonFile,
   writeJsonFile,
 } from '../../lib/context-loader.js';
+import { resolveModelAnalysisInputs } from '../../lib/model-analysis.js';
 
 function normalizeJsonOutputPath(pathValue) {
   if (!pathValue) return null;
@@ -105,24 +106,65 @@ export async function runReviewContextPipeline({
     ingestLog = ingestResult.ingest_log;
   }
 
+  const resolvedModelPath = modelPath || context?.geometry_source?.path || null;
+  const analysisInputs = await resolveModelAnalysisInputs({
+    modelPath: resolvedModelPath,
+    modelMetadata: context?.geometry_source?.model_metadata || null,
+    featureHints: context?.geometry_source?.feature_hints || null,
+    inspectModelIfAvailable,
+    detectStepFeaturesIfAvailable,
+  });
+
+  context.geometry_source = {
+    ...(context?.geometry_source || {}),
+    ...(analysisInputs.geometrySourcePatch || {}),
+  };
+  context.metadata = {
+    ...(context?.metadata || {}),
+    warnings: [
+      ...new Set([
+        ...((context?.metadata?.warnings) || []),
+        ...analysisInputs.warningMessages,
+      ]),
+    ],
+    runtime_diagnostics: analysisInputs.runtimeDiagnostics,
+  };
+  ingestLog = {
+    ...(ingestLog || {}),
+    warnings: [
+      ...new Set([
+        ...((ingestLog?.warnings) || []),
+        ...analysisInputs.warningMessages,
+      ]),
+    ],
+    diagnostics: [
+      ...((ingestLog?.diagnostics) || []),
+      ...analysisInputs.runtimeDiagnostics.map((diagnostic) => ({
+        stage: diagnostic.stage,
+        message: diagnostic.message,
+        actionable_hint: diagnostic.actionable_hint,
+        fallback_mode: diagnostic.fallback_mode,
+      })),
+    ],
+    summary: {
+      ...((ingestLog?.summary) || {}),
+      diagnostics: (((ingestLog?.diagnostics) || []).length + analysisInputs.runtimeDiagnostics.length),
+    },
+  };
+
   await writeJsonFile(paths.context, context);
   await writeJsonFile(paths.ingestLog, ingestLog);
-  let modelMetadata = context?.geometry_source?.model_metadata || null;
-  let featureHints = context?.geometry_source?.feature_hints || null;
-  const resolvedModelPath = modelPath || context?.geometry_source?.path || null;
-
-  const inspectionResult = await inspectModelIfAvailable(resolvedModelPath);
-  if (inspectionResult?.success) modelMetadata = inspectionResult.model;
-
-  const stepFeatures = await detectStepFeaturesIfAvailable(resolvedModelPath);
-  if (stepFeatures?.success) featureHints = stepFeatures.features;
 
   const analysisResult = await runPythonJsonScript(projectRoot, 'scripts/analyze_part.py', {
     context,
-    model_metadata: modelMetadata,
-    feature_hints: featureHints,
+    model_metadata: analysisInputs.modelMetadata,
+    feature_hints: analysisInputs.featureHints,
     geometry_source: context?.geometry_source || (resolvedModelPath ? { path: resolvedModelPath } : {}),
     part: context?.part || { name: defaultStem },
+    warnings: analysisInputs.warningMessages,
+    runtime_diagnostics: analysisInputs.runtimeDiagnostics,
+    allow_metadata_only_fallback: true,
+    used_metadata_only_fallback: analysisInputs.usedMetadataOnlyFallback,
   }, {
     onStderr: (text) => process.stderr.write(text),
   });
