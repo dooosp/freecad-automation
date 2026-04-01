@@ -54,6 +54,7 @@ def recommend_actions(review_priorities):
             "priority_rank": item.get("priority_rank"),
             "target_hotspot_id": item.get("hotspot_id"),
             "category": category,
+            "based_on": category or item.get("hotspot_id"),
             "owner_role": rule.get("owner_role"),
             "recommended_action": rule.get("recommended_action"),
             "why": item.get("rationale"),

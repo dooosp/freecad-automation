@@ -23,8 +23,14 @@
     "revision",
     "comparison_type",
     "metrics",
-    "risk_signals",
-    "evidence_summary"
+    "new_hotspots",
+    "resolved_hotspots",
+    "shifted_hotspots",
+    "evidence_added",
+    "evidence_removed",
+    "action_changes",
+    "confidence_changes",
+    "revision_story"
   ],
   "properties": {
     "artifact_type": {
@@ -75,7 +81,7 @@
       "additionalProperties": false
     },
     "comparison_type": {
-      "const": "heuristic_artifact_diff"
+      "const": "evidence_driven_review_pack_diff"
     },
     "metrics": {
       "type": "object",
@@ -97,57 +103,49 @@
       },
       "additionalProperties": false
     },
-    "risk_signals": {
-      "type": "object",
-      "required": [
-        "hotspot_categories",
-        "review_priority_categories"
-      ],
-      "properties": {
-        "hotspot_categories": {
-          "$ref": "#/$defs/categorySetDiff"
-        },
-        "review_priority_categories": {
-          "$ref": "#/$defs/categorySetDiff"
-        }
-      },
-      "additionalProperties": false
+    "new_hotspots": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
     },
-    "evidence_summary": {
+    "resolved_hotspots": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "shifted_hotspots": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "evidence_added": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "evidence_removed": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "action_changes": {
       "type": "object",
-      "required": [
-        "baseline_sources",
-        "candidate_sources",
-        "baseline_priority_count",
-        "candidate_priority_count",
-        "note"
-      ],
-      "properties": {
-        "baseline_sources": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "candidate_sources": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "baseline_priority_count": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "candidate_priority_count": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "note": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false
+      "additionalProperties": true
+    },
+    "confidence_changes": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "revision_story": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     }
   },
   "$defs": {
@@ -176,40 +174,8 @@
     },
     "categorySetDiff": {
       "type": "object",
-      "required": [
-        "baseline",
-        "candidate",
-        "added",
-        "removed"
-      ],
-      "properties": {
-        "baseline": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "candidate": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "added": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "removed": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      },
-      "additionalProperties": false
+      "additionalProperties": true
     }
   },
-  "unevaluatedProperties": false
+  "unevaluatedProperties": true
 }

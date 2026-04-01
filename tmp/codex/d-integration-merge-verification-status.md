@@ -1,0 +1,31 @@
+# D Integration Merge Verification Status
+
+- current phase: complete
+- completed work:
+  - installed Node dependencies with `npm ci`
+  - reran the required Node contract validations after integration repairs
+  - ran Python compile checks across D scripts, adapters, geometry, linkage, and decision modules
+  - ran the required pytest subset for ingest, analyze-part, linkage, review-pack, and CLI workflow coverage
+- validations run:
+  - `npm ci`
+  - `node -e "import('./lib/d-artifact-schema.js').then(()=>console.log('schemas-reloaded: ok'))"`
+  - `node tests/d-artifact-schema.test.js`
+  - `node tests/artifact-manifest.test.js`
+  - `node tests/run-node-lane.js contract`
+  - `node tests/check-runtime.test.js`
+  - `node tests/runtime-health-parity.test.js`
+  - `python3 -m py_compile scripts/d_artifact_contract.py scripts/analyze_part.py scripts/quality_link.py scripts/reporting/review_templates.py scripts/reporting/review_pack.py scripts/reporting/revision_diff.py scripts/ingest_context.py scripts/adapters/*.py scripts/geometry/*.py scripts/linkage/*.py scripts/decision/*.py`
+  - `python3 -m pytest -q tests/test_ingest.py tests/test_analyze_part.py tests/test_linkage.py tests/test_review_pack.py tests/test_cli_workflow.py`
+- failures encountered:
+  - `node tests/d-artifact-schema.test.js` initially failed on D3 additive geometry fields, D4 linkage stats, D5 review-pack shape, and revision comparison contract gaps
+  - `python3 -m pytest -q ...` initially failed because `cmdQualityLink` defaulted to the wrong hotspot artifact path when `--out` was used
+- repairs made:
+  - extended canonical schemas and compatibility fields to match the integrated D artifact shapes
+  - updated `cmdCompareRev` to emit canonical revision comparison metadata around the D5 diff payload
+  - added legacy-compatible `based_on` to recommended actions
+  - fixed `cmdQualityLink` hotspot path derivation
+- open risks:
+  - no known failing validations remain in the required set
+- remaining work:
+  - include these status files in the final integration-fix commit
+  - push `feat/d-integration`

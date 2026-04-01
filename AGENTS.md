@@ -137,3 +137,14 @@ The final response should include:
   - keep ambiguity visible in output fields instead of silently collapsing to a single match
   - favor small, focused tests around linkage ambiguity, scoring breakdowns, and false-positive regressions
 - Maintain repo-local execution and verification plans under `docs/exec-plans/` and phase status files under `tmp/codex/` for the active task slug.
+
+## D Integration Task
+- Active branch for this task: `feat/d-integration`
+- Integration worktree for this task: `/Users/jangtaeho/Documents/New/freecad-automation-d-integration`
+- Preserve the D1 -> D5 evolution while integrating the five completed D phase commits in order.
+- Keep the Node CLI + Python runner + FreeCAD structure intact.
+- Keep canonical JSON artifacts, including `review_pack.json` as the source of truth.
+- Preserve `evidence_refs`, `reason_codes`, hotspot-oriented scoring, and metadata-only fallback behavior.
+- Do not widen scope into browser, i18n, or Studio tasks during this integration.
+- Track merge progress in `tmp/codex/d-integration-merge-status.md`.
+- Track verification and remediation in `tmp/codex/d-integration-merge-verification-status.md`.

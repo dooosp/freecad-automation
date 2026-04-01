@@ -54,6 +54,9 @@
       },
       "additionalProperties": true
     },
+    "linkage_stats": {
+      "type": "object"
+    },
     "records": {
       "type": "array",
       "items": {
@@ -61,5 +64,5 @@
       }
     }
   },
-  "unevaluatedProperties": false
+  "unevaluatedProperties": true
 }

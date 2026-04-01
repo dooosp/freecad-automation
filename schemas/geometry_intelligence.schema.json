@@ -84,6 +84,18 @@
     "features": {
       "$ref": "d_artifact_common.schema.json#/$defs/geometryFeatures"
     },
+    "geometry_facts": {
+      "type": "object"
+    },
+    "derived_features": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "entity_index": {
+      "type": "object"
+    },
     "analysis_confidence": {
       "type": "string"
     }

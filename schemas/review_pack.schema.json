@@ -38,7 +38,34 @@
       "const": "review_pack"
     },
     "canonical_artifact": {
-      "const": true
+      "type": "object",
+      "required": [
+        "json_is_source_of_truth"
+      ],
+      "properties": {
+        "type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "json_is_source_of_truth": {
+          "type": "boolean"
+        },
+        "derived_renderers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
     },
     "part": {
       "$ref": "d_artifact_common.schema.json#/$defs/partSummary"
@@ -111,6 +138,33 @@
         "$ref": "d_artifact_common.schema.json#/$defs/reviewPriorityRecord"
       }
     },
+    "executive_summary": {
+      "type": "object"
+    },
+    "prioritized_hotspots": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "inspection_anomaly_linkage": {
+      "type": "object"
+    },
+    "quality_pattern_linkage": {
+      "type": "object"
+    },
+    "evidence_ledger": {
+      "type": "object"
+    },
+    "uncertainty_coverage_report": {
+      "type": "object"
+    },
+    "data_quality_notes": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
     "recommended_actions": {
       "type": "array",
       "items": {
@@ -152,7 +206,7 @@
           "minimum": 0
         }
       },
-      "additionalProperties": false
+      "additionalProperties": true
     },
     "metadata": {
       "type": "object",
@@ -214,8 +268,8 @@
           }
         }
       },
-      "additionalProperties": false
+      "additionalProperties": true
     }
   },
-  "unevaluatedProperties": false
+  "unevaluatedProperties": true
 }

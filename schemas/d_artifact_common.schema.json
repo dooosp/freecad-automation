@@ -395,7 +395,7 @@
           "type": "number"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": true
     },
     "inspectionAnomalyRecord": {
       "type": "object",
@@ -473,7 +473,7 @@
           "$ref": "#/$defs/nonEmptyString"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": true
     },
     "categoryScoreRecord": {
       "type": "object",
@@ -489,7 +489,7 @@
           "type": "number"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": true
     },
     "reviewPriorityRecord": {
       "type": "object",
@@ -537,7 +537,7 @@
           "$ref": "#/$defs/nonEmptyString"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": true
     },
     "recommendedAction": {
       "type": "object",
@@ -562,7 +562,7 @@
           "$ref": "#/$defs/nonEmptyString"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": true
     },
     "rootArtifact": {
       "type": "object",

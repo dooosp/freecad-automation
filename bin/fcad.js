@@ -1128,7 +1128,8 @@ async function cmdQualityLink(rawArgs = []) {
   const geometryIntelligence = await readJsonFile(geometryPath);
   const primaryOutputPath = normalizeJsonOutputPath(options.out);
   const stem = deriveArtifactStem(primaryOutputPath || contextPath || geometryPath, stemFromContext(context, 'part'));
-  const hotspotsPath = resolveMaybe(options.hotspots) || artifactPathFor(buildDefaultOutputDir(options['out-dir'] || dirname(geometryPath)), stem, '_manufacturing_hotspots.json');
+  const geometryStem = deriveArtifactStem(geometryPath, stemFromContext(context, 'part'));
+  const hotspotsPath = resolveMaybe(options.hotspots) || artifactPathFor(dirname(geometryPath), geometryStem, '_manufacturing_hotspots.json');
   const manufacturingHotspots = await readJsonIfExists(hotspotsPath) || { hotspots: [] };
   const generatedAt = nowIso();
   const sourceArtifactRefs = [
@@ -1391,7 +1392,32 @@ async function cmdCompareRev(rawArgs = []) {
   }, {
     onStderr: (text) => process.stderr.write(text),
   });
-  const comparison = result.comparison;
+  const diff = result.comparison;
+  const comparison = {
+    artifact_type: 'revision_comparison',
+    schema_version: D_ARTIFACT_SCHEMA_VERSION,
+    analysis_version: D_ANALYSIS_VERSION,
+    generated_at: nowIso(),
+    part_id: baseline?.part?.part_id && baseline?.part?.part_id === candidate?.part?.part_id
+      ? baseline.part.part_id
+      : null,
+    warnings: [],
+    coverage: {
+      source_artifact_count: 2,
+      source_file_count: 2,
+      review_priority_count: (baseline?.review_priorities || []).length + (candidate?.review_priorities || []).length,
+    },
+    confidence: {
+      level: 'heuristic',
+      score: 0.58,
+      rationale: 'Revision comparison is derived from canonical review-pack evidence and summary deltas.',
+    },
+    source_artifact_refs: [
+      buildSourceArtifactRef('review_pack', baselinePath, 'comparison_baseline', 'Baseline review pack JSON'),
+      buildSourceArtifactRef('review_pack', candidatePath, 'comparison_candidate', 'Candidate review pack JSON'),
+    ],
+    ...diff,
+  };
 
   const outputPath = normalizeJsonOutputPath(options.out)
     || artifactPathFor(buildDefaultOutputDir(options['out-dir']), deriveArtifactStem(candidatePath, 'revision'), '_revision_comparison.json');
