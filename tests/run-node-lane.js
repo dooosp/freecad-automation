@@ -23,6 +23,7 @@ const LANE_STEPS = {
     { label: 'Studio job bridge', args: ['tests/studio-job-bridge.test.js'] },
     { label: 'Design reviewer validation', args: ['tests/design-reviewer-validation.test.js'] },
     { label: 'D artifact contracts', args: ['tests/d-artifact-schema.test.js'] },
+    { label: 'D model-analysis fallback', args: ['tests/model-analysis-runtime.test.js'] },
   ],
   integration: [
     { label: 'Job API contracts', args: ['tests/job-api.test.js'] },

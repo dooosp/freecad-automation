@@ -73,6 +73,41 @@ def test_analyze_part_supports_metadata_only_fallback():
     assert all(hotspot["hotspot_id"] for hotspot in result["manufacturing_hotspots"]["hotspots"])
 
 
+def test_analyze_part_builds_low_confidence_metadata_only_fallback_without_model_metadata():
+    result = run_json_script(
+        "scripts/analyze_part.py",
+        {
+            "part": {"name": "weak_step_part"},
+            "geometry_source": {
+                "path": "tests/fixtures/sample_part.step",
+                "file_type": "step",
+            },
+            "allow_metadata_only_fallback": True,
+            "warnings": ["Runtime-backed inspection failed for weak STEP input."],
+            "runtime_diagnostics": [
+                {
+                    "stage": "model-inspection",
+                    "message": "Runtime-backed model inspection failed: shape is invalid",
+                    "fallback_mode": "metadata-only",
+                }
+            ],
+        },
+    )
+
+    assert result["success"] is True
+    geometry = result["geometry_intelligence"]
+    hotspots = result["manufacturing_hotspots"]
+
+    assert geometry["analysis_confidence"] == "low"
+    assert geometry["confidence"]["level"] == "low"
+    assert geometry["metrics"]["bounding_box_mm"]["x"] == 0.0
+    assert geometry["geometry_source"]["analysis_mode"] == "metadata_only_fallback"
+    assert geometry["geometry_source"]["runtime_diagnostics"][0]["stage"] == "model-inspection"
+    assert "Runtime-backed inspection failed for weak STEP input." in geometry["warnings"]
+    assert any("metadata-only fallback" in warning for warning in geometry["warnings"])
+    assert hotspots["confidence"]["level"] == "low"
+
+
 def test_analyze_part_hotspot_ids_are_stable_for_equivalent_inputs():
     context = json.loads((FIXTURES / "sample_part_context.json").read_text(encoding="utf-8"))
 

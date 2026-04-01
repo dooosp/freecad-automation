@@ -28,25 +28,14 @@ Output (JSON via stdout):
 }
 """
 
+import os
 import sys
-import json
 import math
+import traceback
 
-try:
-    import FreeCAD
-    import Part
-    HAS_FREECAD = True
-except ImportError:
-    HAS_FREECAD = False
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-
-def respond(data):
-    print(json.dumps(data, ensure_ascii=False))
-    sys.exit(0)
-
-
-def respond_error(msg, details=""):
-    respond({"success": False, "error": msg, "details": details})
+from _bootstrap import init_freecad, read_input, respond, respond_error
 
 
 def extract_cylinders_from_step(shape):
@@ -212,7 +201,10 @@ def generate_config(part_type, bbox, features):
 
 def analyze_step(filepath):
     """Main analysis pipeline."""
-    if not HAS_FREECAD:
+    try:
+        FreeCAD = init_freecad()
+        import Part
+    except Exception:
         respond_error(
             "FreeCAD not available",
             "step_feature_detector.py requires FreeCAD Python bindings"
@@ -223,49 +215,65 @@ def analyze_step(filepath):
     except Exception as e:
         respond_error(f"Failed to read STEP file: {filepath}", str(e))
 
-    bbox = shape.BoundBox
+    try:
+        is_valid = shape.isValid()
+    except Exception:
+        is_valid = True
 
-    # Extract features
-    cylinders = extract_cylinders_from_step(shape)
-    bolt_circles = detect_bolt_patterns(cylinders)
-    central_bore = find_central_bore(cylinders, bbox)
-    fillets, chamfers = detect_fillets_chamfers(shape)
+    if not is_valid:
+        respond_error(
+            f"Loaded STEP shape is invalid: {filepath}",
+            "FreeCAD reported an invalid shape; repair the STEP or continue with metadata-only fallback."
+        )
 
-    # Estimate part type
-    part_type = estimate_part_type(bbox, central_bore, bolt_circles, cylinders)
+    try:
+        bbox = shape.BoundBox
 
-    features = {
-        "cylinders": cylinders,
-        "bolt_circles": bolt_circles,
-        "central_bore": central_bore,
-        "fillets": fillets,
-        "chamfers": chamfers,
-        "face_count": len(shape.Faces),
-        "edge_count": len(shape.Edges),
-    }
+        # Extract features
+        cylinders = extract_cylinders_from_step(shape)
+        bolt_circles = detect_bolt_patterns(cylinders)
+        central_bore = find_central_bore(cylinders, bbox)
+        fillets, chamfers = detect_fillets_chamfers(shape)
 
-    # Generate suggested config
-    suggested_config = generate_config(part_type, bbox, features)
+        # Estimate part type
+        part_type = estimate_part_type(bbox, central_bore, bolt_circles, cylinders)
 
-    return {
-        "success": True,
-        "part_type": part_type,
-        "bounding_box": {
-            "x": round(bbox.XLength, 2),
-            "y": round(bbox.YLength, 2),
-            "z": round(bbox.ZLength, 2),
-        },
-        "volume": round(shape.Volume, 2),
-        "area": round(shape.Area, 2),
-        "features": features,
-        "suggested_config": suggested_config,
-    }
+        features = {
+            "cylinders": cylinders,
+            "bolt_circles": bolt_circles,
+            "central_bore": central_bore,
+            "fillets": fillets,
+            "chamfers": chamfers,
+            "face_count": len(shape.Faces),
+            "edge_count": len(shape.Edges),
+        }
+
+        # Generate suggested config
+        suggested_config = generate_config(part_type, bbox, features)
+
+        return {
+            "success": True,
+            "part_type": part_type,
+            "bounding_box": {
+                "x": round(bbox.XLength, 2),
+                "y": round(bbox.YLength, 2),
+                "z": round(bbox.ZLength, 2),
+            },
+            "volume": round(shape.Volume, 2),
+            "area": round(shape.Area, 2),
+            "features": features,
+            "suggested_config": suggested_config,
+        }
+    except Exception as exc:
+        respond_error(
+            f"Failed to analyze STEP shape: {filepath}",
+            traceback.format_exc()[-4000:] or str(exc),
+        )
 
 
 def main():
     try:
-        raw = sys.stdin.read()
-        input_data = json.loads(raw)
+        input_data = read_input()
     except Exception as e:
         respond_error("Failed to parse input", str(e))
 

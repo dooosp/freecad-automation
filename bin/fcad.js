@@ -31,8 +31,14 @@ import {
   D_ANALYSIS_VERSION,
   D_ARTIFACT_SCHEMA_VERSION,
 } from '../lib/d-artifact-schema.js';
+import { resolveModelAnalysisInputs } from '../lib/model-analysis.js';
 import { runScript } from '../lib/runner.js';
 import { hasFreeCADRuntime, isWindowsAbsolutePath, normalizeLocalPath } from '../lib/paths.js';
+import {
+  buildModelRuntimeDiagnostic,
+  defaultMetadataFallbackHint,
+  runtimeDiagnosticsToWarnings,
+} from '../lib/runtime-diagnostics.js';
 import { printRuntimeDiagnostics } from '../scripts/check-runtime.js';
 import {
   createDfmService,
@@ -165,7 +171,7 @@ Examples:
 
   Notes:
   check-runtime is the central installation and troubleshooting entrypoint for runtime-backed commands.
-  analyze-part can run without FreeCAD when the supplied context already includes model metadata.
+  analyze-part can run without FreeCAD when the supplied context already includes model metadata, and it now falls back to bounded metadata-only geometry when live shape inspection is weak or unavailable.
   sweep stays within the existing create/cost/fem/report service wrappers; it does not perform optimization.
   report remains FreeCAD-backed today, even when macOS falls back from freecadcmd to the bundled FreeCAD Python.
   Windows native, WSL -> Windows FreeCAD, and Linux runtime execution are compatibility paths, not equal-maturity claims.
@@ -300,8 +306,17 @@ async function inspectModelIfAvailable(modelPath) {
       filePath: modelPath,
     });
   } catch (error) {
-    console.warn(`Warning: model inspection skipped: ${error.message}`);
-    return null;
+    return {
+      success: false,
+      diagnostic: buildModelRuntimeDiagnostic({
+        stage: 'model-inspection',
+        modelPath,
+        message: `Runtime-backed model inspection failed: ${error.message}`,
+        actionableHint: defaultMetadataFallbackHint(),
+        fallbackMode: 'metadata-only',
+        details: error.stack || error.message,
+      }),
+    };
   }
 }
 
@@ -312,8 +327,17 @@ async function detectStepFeaturesIfAvailable(modelPath) {
   try {
     return await runWithCliStderr('step_feature_detector.py', { file: modelPath });
   } catch (error) {
-    console.warn(`Warning: STEP feature detection skipped: ${error.message}`);
-    return null;
+    return {
+      success: false,
+      diagnostic: buildModelRuntimeDiagnostic({
+        stage: 'step-feature-detection',
+        modelPath,
+        message: `STEP feature detection failed: ${error.message}`,
+        actionableHint: 'Repair the STEP/shape if you need STEP-derived feature hints.',
+        fallbackMode: 'no-step-features',
+        details: error.stack || error.message,
+      }),
+    };
   }
 }
 
@@ -1046,15 +1070,19 @@ async function cmdAnalyzePart(rawArgs = []) {
   const directModelPath = resolveMaybe(options.model || (!contextPath ? firstPositional : null));
   const context = contextPath ? await readJsonFile(contextPath) : null;
   const modelPath = directModelPath || resolveMaybe(context?.geometry_source?.path);
+  const analysisInputs = await resolveModelAnalysisInputs({
+    modelPath,
+    modelMetadata: context?.geometry_source?.model_metadata || null,
+    featureHints: context?.geometry_source?.feature_hints || null,
+    inspectModelIfAvailable,
+    detectStepFeaturesIfAvailable,
+  });
 
-  let modelMetadata = context?.geometry_source?.model_metadata || null;
-  let featureHints = context?.geometry_source?.feature_hints || null;
-
-  const inspectionResult = await inspectModelIfAvailable(modelPath);
-  if (inspectionResult?.success) modelMetadata = inspectionResult.model;
-
-  const stepFeatures = await detectStepFeaturesIfAvailable(modelPath);
-  if (stepFeatures?.success) featureHints = stepFeatures.features;
+  let modelMetadata = analysisInputs.modelMetadata;
+  let featureHints = analysisInputs.featureHints;
+  for (const warning of analysisInputs.warningMessages) {
+    console.warn(`Warning: ${warning}`);
+  }
 
   if (!modelMetadata) {
     console.error('Error: analyze-part requires either a context with geometry_source.model_metadata or an inspectable CAD model path.');
@@ -1071,10 +1099,17 @@ async function cmdAnalyzePart(rawArgs = []) {
     context,
     model_metadata: modelMetadata,
     feature_hints: featureHints,
-    geometry_source: context?.geometry_source || (modelPath ? { path: modelPath } : {}),
+    geometry_source: {
+      ...(context?.geometry_source || (modelPath ? { path: modelPath } : {})),
+      ...(analysisInputs.geometrySourcePatch || {}),
+    },
     part: context?.part || { name: deriveArtifactStem(modelPath || contextPath, 'part') },
     generated_at: generatedAt,
     source_artifact_refs: sourceArtifactRefs,
+    warnings: analysisInputs.warningMessages,
+    runtime_diagnostics: analysisInputs.runtimeDiagnostics,
+    allow_metadata_only_fallback: true,
+    used_metadata_only_fallback: analysisInputs.usedMetadataOnlyFallback,
   }, {
     onStderr: (text) => process.stderr.write(text),
   });
@@ -1329,6 +1364,10 @@ async function cmdReviewContext(rawArgs = []) {
     inspectModelIfAvailable,
     detectStepFeaturesIfAvailable,
   });
+
+  for (const warning of runtimeDiagnosticsToWarnings(result.context?.metadata?.runtime_diagnostics || [])) {
+    console.warn(`Warning: ${warning}`);
+  }
 
   console.log(`Context JSON: ${result.artifacts.context}`);
   console.log(`Geometry intelligence: ${result.artifacts.geometry}`);

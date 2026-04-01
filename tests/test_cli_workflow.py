@@ -124,6 +124,34 @@ def test_cli_output_contract_and_end_to_end_review_flow(tmp_path):
     assert review_pack["metadata"]["artifact_provenance"]["source_files"]
 
 
+def test_cli_analyze_part_falls_back_to_metadata_only_for_weak_step(tmp_path):
+    geometry_path = tmp_path / "weak_step_geometry.json"
+
+    completed = run_cli(
+        [
+            "analyze-part",
+            str(FIXTURES / "sample_part.step"),
+            "--out",
+            str(geometry_path),
+        ]
+    )
+
+    hotspot_path = tmp_path / "weak_step_geometry_manufacturing_hotspots.json"
+    geometry = json.loads(geometry_path.read_text(encoding="utf-8"))
+    hotspots = json.loads(hotspot_path.read_text(encoding="utf-8"))
+
+    assert geometry_path.exists()
+    assert hotspot_path.exists()
+    assert geometry["analysis_confidence"] == "low"
+    assert geometry["confidence"]["level"] == "low"
+    assert geometry["geometry_source"]["analysis_mode"] == "metadata_only_fallback"
+    assert geometry["geometry_source"]["validated"] is False
+    assert geometry["geometry_source"]["runtime_diagnostics"]
+    assert any("metadata-only fallback" in warning for warning in geometry["warnings"])
+    assert hotspots["confidence"]["level"] == "low"
+    assert "metadata-only fallback" in (completed.stderr or completed.stdout).lower()
+
+
 def test_compare_rev_reports_risk_signal_changes(tmp_path):
     baseline_context = json.loads((FIXTURES / "sample_part_context.json").read_text(encoding="utf-8"))
     candidate_context = json.loads((FIXTURES / "sample_part_context.json").read_text(encoding="utf-8"))
@@ -264,3 +292,45 @@ def test_review_context_runs_flagship_pipeline_with_revision_compare(tmp_path):
     assert comparison["comparison_type"] == "evidence_driven_review_pack_diff"
     assert any(item["category"] == "patterning" for item in comparison["resolved_hotspots"])
     assert "missing-input coverage changed" in comparison["confidence_changes"]["reasons"]
+
+
+def test_review_context_model_path_falls_back_cleanly_for_weak_step(tmp_path):
+    review_pack_path = tmp_path / "weak_step_review.json"
+
+    completed = run_cli(
+        [
+            "review-context",
+            "--model",
+            str(FIXTURES / "sample_part.step"),
+            "--bom",
+            str(FIXTURES / "sample_bom.csv"),
+            "--inspection",
+            str(FIXTURES / "sample_inspection.csv"),
+            "--quality",
+            str(FIXTURES / "sample_quality.csv"),
+            "--out",
+            str(review_pack_path),
+        ]
+    )
+
+    context_path = tmp_path / "weak_step_review_context.json"
+    geometry_path = tmp_path / "weak_step_review_geometry_intelligence.json"
+
+    assert review_pack_path.exists()
+    assert context_path.exists()
+    assert geometry_path.exists()
+    assert (tmp_path / "weak_step_review_review_pack.md").exists()
+    assert (tmp_path / "weak_step_review_review_pack.pdf").exists()
+
+    context = json.loads(context_path.read_text(encoding="utf-8"))
+    geometry = json.loads(geometry_path.read_text(encoding="utf-8"))
+    review_pack = json.loads(review_pack_path.read_text(encoding="utf-8"))
+
+    assert context["geometry_source"]["analysis_mode"] == "metadata_only_fallback"
+    assert context["geometry_source"]["validated"] is False
+    assert context["geometry_source"]["runtime_diagnostics"]
+    assert any("metadata-only fallback" in warning for warning in context["metadata"]["warnings"])
+    assert geometry["analysis_confidence"] == "low"
+    assert any("metadata-only fallback" in warning for warning in review_pack["warnings"])
+    assert review_pack["canonical_artifact"]["json_is_source_of_truth"] is True
+    assert "metadata-only fallback" in (completed.stderr or completed.stdout).lower()

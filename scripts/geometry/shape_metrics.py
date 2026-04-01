@@ -6,7 +6,7 @@ from adapters.id_resolver import canonical_ref
 
 def _safe_ratio(a, b):
     if not b:
-        return None
+        return 0.0
     return round(a / b, 4)
 
 
