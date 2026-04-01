@@ -1,0 +1,69 @@
+# D Integration Merge Status
+
+- current phase: integration complete, ready to commit and push
+- completed work:
+  - verified repo identity, branch, and clean pre-integration worktree
+  - confirmed D1 through D5 commits were available locally
+  - cherry-picked D1 through D5 in order onto `feat/d-integration`
+  - resolved cherry-pick conflicts in `AGENTS.md`, `scripts/analyze_part.py`, `tests/test_analyze_part.py`, `scripts/linkage/map_inspection.py`, `scripts/quality_link.py`, `bin/fcad.js`, `scripts/reporting/review_templates.py`, `tests/test_cli_workflow.py`, and `tests/test_review_pack.py`
+  - restored D integration control files into this worktree
+  - repaired integration issues in schema validation, review-pack/revision comparison contracts, recommended action backward compatibility, and CLI hotspot artifact lookup
+- integration-fix files changed:
+  - AGENTS.md
+  - bin/fcad.js
+  - docs/exec-plans/d1-artifact-contract-verification.md
+  - docs/exec-plans/d1-artifact-contract.md
+  - docs/exec-plans/d2-ingest-normalization-verification.md
+  - docs/exec-plans/d2-ingest-normalization.md
+  - docs/exec-plans/d3-geometry-hotspots-verification.md
+  - docs/exec-plans/d3-geometry-hotspots.md
+  - docs/exec-plans/d4-linkage-decision-verification.md
+  - docs/exec-plans/d4-linkage-decision.md
+  - docs/exec-plans/d5-review-orchestration-verification.md
+  - docs/exec-plans/d5-review-orchestration.md
+  - docs/exec-plans/d-integration-merge.md
+  - docs/exec-plans/d-integration-merge-verification.md
+  - schemas/d_artifact_common.schema.json
+  - schemas/geometry_intelligence.schema.json
+  - schemas/inspection_linkage.schema.json
+  - schemas/review_pack.schema.json
+  - schemas/revision_comparison.schema.json
+  - scripts/analyze_part.py
+  - scripts/decision/recommend_actions.py
+  - scripts/linkage/map_inspection.py
+  - scripts/quality_link.py
+  - scripts/reporting/review_templates.py
+  - src/orchestration/review-context-pipeline.js
+  - tmp/codex/d-integration-merge-status.md
+  - tmp/codex/d-integration-merge-verification-status.md
+  - tests/d-artifact-schema.test.js
+  - tests/test_analyze_part.py
+  - tests/test_cli_workflow.py
+  - tests/test_review_pack.py
+- validations run:
+  - `node -e "import('./lib/d-artifact-schema.js').then(()=>console.log('schemas-reloaded: ok'))"`
+  - `node tests/d-artifact-schema.test.js`
+  - `node tests/artifact-manifest.test.js`
+  - `node tests/run-node-lane.js contract`
+  - `node tests/check-runtime.test.js`
+  - `node tests/runtime-health-parity.test.js`
+  - `python3 -m py_compile scripts/d_artifact_contract.py scripts/analyze_part.py scripts/quality_link.py scripts/reporting/review_templates.py scripts/reporting/review_pack.py scripts/reporting/revision_diff.py scripts/ingest_context.py scripts/adapters/*.py scripts/geometry/*.py scripts/linkage/*.py scripts/decision/*.py`
+  - `python3 -m pytest -q tests/test_ingest.py tests/test_analyze_part.py tests/test_linkage.py tests/test_review_pack.py tests/test_cli_workflow.py`
+- failures encountered:
+  - `geometry_intelligence` schema rejected D3 additive fields
+  - `inspection_linkage` schema rejected D4 linkage stats
+  - `review_priorities` schema required legacy `based_on` in recommended actions
+  - `review_pack` schema rejected D5 additive sections and metadata
+  - CLI `quality-link` default hotspot path incorrectly followed the output stem instead of the geometry stem
+- repairs made:
+  - broadened D schemas and common record defs for D3/D4/D5 additive fields
+  - wrapped D5 revision diff output in canonical revision comparison metadata in `cmdCompareRev`
+  - restored `based_on` in `scripts/decision/recommend_actions.py`
+  - fixed `cmdQualityLink` default hotspot lookup to read the geometry-side hotspot artifact
+  - updated D artifact contract test expectations to match the integrated review-pack contract
+- open risks:
+  - D schemas are intentionally more permissive after integration to accommodate additive phase evolution; follow-up tightening is possible once the merged artifact shapes are stabilized
+- remaining work:
+  - stage integration changes
+  - create one integration-fix commit
+  - push `feat/d-integration`

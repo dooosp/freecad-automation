@@ -1,0 +1,15 @@
+[
+  {
+    "measurement_id": "INSP-A-001",
+    "characteristic": "Hole position",
+    "nominal": "10 mm",
+    "actual": "10.1 mm",
+    "tolerance_plus": "0.05 mm",
+    "tolerance_minus": "-0.05 mm",
+    "feature_hint": "hole",
+    "feature_class": "slot",
+    "location_hint": "left_flange",
+    "location": "right_flange",
+    "result": "FAIL"
+  }
+]

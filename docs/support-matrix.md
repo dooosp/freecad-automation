@@ -42,6 +42,7 @@ This matrix is the public support boundary for the current release. It separates
 - `ingest`
 - `quality-link`
 - `review-pack`
+- `review-context`
 - `compare-rev`
 - `validate`
 - `validate-config`

@@ -22,8 +22,15 @@ import {
   readJsonFile,
   readJsonIfExists,
   runPythonJsonScript,
+  writeValidatedJsonArtifact,
   writeJsonFile,
 } from '../lib/context-loader.js';
+import {
+  ArtifactSchemaValidationError,
+  buildSourceArtifactRef,
+  D_ANALYSIS_VERSION,
+  D_ARTIFACT_SCHEMA_VERSION,
+} from '../lib/d-artifact-schema.js';
 import { runScript } from '../lib/runner.js';
 import { hasFreeCADRuntime, isWindowsAbsolutePath, normalizeLocalPath } from '../lib/paths.js';
 import { printRuntimeDiagnostics } from '../scripts/check-runtime.js';
@@ -42,6 +49,7 @@ import {
 } from '../src/api/manufacturing.js';
 import { createModel, inspectModel } from '../src/api/model.js';
 import { createReportService } from '../src/api/report.js';
+import { runReviewContextPipeline } from '../src/orchestration/review-context-pipeline.js';
 import { runSweep } from '../src/services/sweep/sweep-service.js';
 import { loadRuleProfile, summarizeRuleProfile } from '../src/services/config/rule-profile-service.js';
 
@@ -96,6 +104,7 @@ Usage:
     fcad ingest --model <file> [--bom bom.csv] [--inspection insp.csv] [--quality ncr.csv] --out <context.json>
     fcad quality-link --context <context.json> --geometry <geometry.json>
     fcad review-pack --context <context.json> --geometry <geometry.json>
+    fcad review-context --model <file> [--bom bom.csv] [--inspection insp.csv] [--quality ncr.csv] --out <review_pack.json> [--compare-to baseline_review_pack.json]
     fcad compare-rev <baseline.json> <candidate.json>
     fcad validate <plan.toml|json>   Validate drawing_plan artifacts
     fcad validate-config <config.toml|json>
@@ -121,6 +130,7 @@ Options:
     --hotspots <path>            Manufacturing hotspot JSON
     --out <path>                 Primary output JSON path; sibling artifacts share its stem
     --out-dir <dir>              Output directory when using default artifact names
+    --compare-to <path>          Baseline review-pack JSON for optional revision comparison with review-context
 
   Workflow-specific options:
     --matrix <path>              Sweep definition TOML/JSON for fcad sweep
@@ -150,6 +160,7 @@ Examples:
   fcad readiness-report configs/examples/pcb_mount_plate.toml --out output/pcb_mount_plate_readiness.json
   fcad stabilization-review configs/examples/infotainment_display_bracket.toml --runtime data/runtime_examples/display_bracket_runtime.json --profile configs/profiles/site_korea_ulsan.toml
   fcad generate-standard-docs configs/examples/controller_housing_eol.toml --out-dir output/controller_housing_standard_docs
+  fcad review-context --model tests/fixtures/sample_part.step --bom tests/fixtures/sample_bom.csv --inspection tests/fixtures/sample_inspection.csv --quality tests/fixtures/sample_quality.csv --out output/sample_review_pack.json
   fcad sweep configs/examples/ks_bracket.toml --matrix configs/examples/sweeps/ks_bracket_geometry_sweep.toml
 
   Notes:
@@ -349,6 +360,8 @@ async function main() {
     await cmdQualityLink(args);
   } else if (command === 'review-pack') {
     await cmdReviewPack(args);
+  } else if (command === 'review-context') {
+    await cmdReviewContext(args);
   } else if (command === 'compare-rev') {
     await cmdCompareRev(args);
   } else if (command === 'design') {
@@ -1049,12 +1062,19 @@ async function cmdAnalyzePart(rawArgs = []) {
   }
 
   const primaryOutputPath = normalizeJsonOutputPath(options.out);
+  const generatedAt = nowIso();
+  const sourceArtifactRefs = [
+    contextPath ? buildSourceArtifactRef('engineering_context', contextPath, 'input', 'Input context JSON') : null,
+    modelPath ? buildSourceArtifactRef('cad_model', modelPath, 'input', 'Input model') : null,
+  ].filter(Boolean);
   const result = await runPythonJsonScript(PROJECT_ROOT, 'scripts/analyze_part.py', {
     context,
     model_metadata: modelMetadata,
     feature_hints: featureHints,
     geometry_source: context?.geometry_source || (modelPath ? { path: modelPath } : {}),
     part: context?.part || { name: deriveArtifactStem(modelPath || contextPath, 'part') },
+    generated_at: generatedAt,
+    source_artifact_refs: sourceArtifactRefs,
   }, {
     onStderr: (text) => process.stderr.write(text),
   });
@@ -1069,8 +1089,12 @@ async function cmdAnalyzePart(rawArgs = []) {
     paths.geometry = primaryOutputPath;
   }
 
-  await writeJsonFile(paths.geometry, result.geometry_intelligence);
-  await writeJsonFile(paths.hotspots, result.manufacturing_hotspots);
+  await writeValidatedJsonArtifact(paths.geometry, 'geometry_intelligence', result.geometry_intelligence, {
+    command: 'analyze-part',
+  });
+  await writeValidatedJsonArtifact(paths.hotspots, 'manufacturing_hotspots', result.manufacturing_hotspots, {
+    command: 'analyze-part',
+  });
   const manifestPath = await writeCliManifest({
     command: 'analyze-part',
     primaryOutputPath: paths.geometry,
@@ -1104,13 +1128,22 @@ async function cmdQualityLink(rawArgs = []) {
   const geometryIntelligence = await readJsonFile(geometryPath);
   const primaryOutputPath = normalizeJsonOutputPath(options.out);
   const stem = deriveArtifactStem(primaryOutputPath || contextPath || geometryPath, stemFromContext(context, 'part'));
-  const hotspotsPath = resolveMaybe(options.hotspots) || artifactPathFor(buildDefaultOutputDir(options['out-dir'] || dirname(geometryPath)), stem, '_manufacturing_hotspots.json');
+  const geometryStem = deriveArtifactStem(geometryPath, stemFromContext(context, 'part'));
+  const hotspotsPath = resolveMaybe(options.hotspots) || artifactPathFor(dirname(geometryPath), geometryStem, '_manufacturing_hotspots.json');
   const manufacturingHotspots = await readJsonIfExists(hotspotsPath) || { hotspots: [] };
+  const generatedAt = nowIso();
+  const sourceArtifactRefs = [
+    buildSourceArtifactRef('engineering_context', contextPath, 'input', 'Input context JSON'),
+    buildSourceArtifactRef('geometry_intelligence', geometryPath, 'input', 'Input geometry JSON'),
+    hotspotsPath ? buildSourceArtifactRef('manufacturing_hotspots', hotspotsPath, 'input', 'Input hotspots JSON') : null,
+  ].filter(Boolean);
 
   const result = await runPythonJsonScript(PROJECT_ROOT, 'scripts/quality_link.py', {
     context,
     geometry_intelligence: geometryIntelligence,
     manufacturing_hotspots: manufacturingHotspots,
+    generated_at: generatedAt,
+    source_artifact_refs: sourceArtifactRefs,
   }, {
     onStderr: (text) => process.stderr.write(text),
   });
@@ -1127,11 +1160,17 @@ async function cmdQualityLink(rawArgs = []) {
     paths.reviewPriorities = primaryOutputPath;
   }
 
-  await writeJsonFile(paths.inspectionLinkage, result.inspection_linkage);
+  await writeValidatedJsonArtifact(paths.inspectionLinkage, 'inspection_linkage', result.inspection_linkage, {
+    command: 'quality-link',
+  });
   await writeJsonFile(paths.inspectionOutliers, result.inspection_outliers);
-  await writeJsonFile(paths.qualityLinkage, result.quality_linkage);
+  await writeValidatedJsonArtifact(paths.qualityLinkage, 'quality_linkage', result.quality_linkage, {
+    command: 'quality-link',
+  });
   await writeJsonFile(paths.qualityHotspots, result.quality_hotspots);
-  await writeJsonFile(paths.reviewPriorities, result.review_priorities);
+  await writeValidatedJsonArtifact(paths.reviewPriorities, 'review_priorities', result.review_priorities, {
+    command: 'quality-link',
+  });
   const manifestPath = await writeCliManifest({
     command: 'quality-link',
     primaryOutputPath: paths.reviewPriorities,
@@ -1174,17 +1213,35 @@ async function cmdReviewPack(rawArgs = []) {
   const reviewStem = deriveArtifactStem(reviewPath || geometryPath, geometryStem);
   const sourceDir = dirname(reviewPath || geometryPath);
 
-  const manufacturingHotspots = await readJsonIfExists(resolveMaybe(options.hotspots) || artifactPathFor(sourceDir, geometryStem, '_manufacturing_hotspots.json')) || { hotspots: [] };
-  const inspectionLinkage = await readJsonIfExists(resolveMaybe(options['inspection-linkage']) || artifactPathFor(sourceDir, reviewStem, '_inspection_linkage.json')) || { records: [] };
-  const inspectionOutliers = await readJsonIfExists(resolveMaybe(options['inspection-outliers']) || artifactPathFor(sourceDir, reviewStem, '_inspection_outliers.json')) || { records: [] };
-  const qualityLinkage = await readJsonIfExists(resolveMaybe(options['quality-linkage']) || artifactPathFor(sourceDir, reviewStem, '_quality_linkage.json')) || { records: [] };
-  const qualityHotspots = await readJsonIfExists(resolveMaybe(options['quality-hotspots']) || artifactPathFor(sourceDir, reviewStem, '_quality_hotspots.json')) || { records: [] };
-  const reviewPriorities = await readJsonIfExists(reviewPath || artifactPathFor(sourceDir, reviewStem, '_review_priorities.json')) || { records: [], recommended_actions: [] };
+  const hotspotsPath = resolveMaybe(options.hotspots) || artifactPathFor(sourceDir, geometryStem, '_manufacturing_hotspots.json');
+  const inspectionLinkagePath = resolveMaybe(options['inspection-linkage']) || artifactPathFor(sourceDir, reviewStem, '_inspection_linkage.json');
+  const inspectionOutliersPath = resolveMaybe(options['inspection-outliers']) || artifactPathFor(sourceDir, reviewStem, '_inspection_outliers.json');
+  const qualityLinkagePath = resolveMaybe(options['quality-linkage']) || artifactPathFor(sourceDir, reviewStem, '_quality_linkage.json');
+  const qualityHotspotsPath = resolveMaybe(options['quality-hotspots']) || artifactPathFor(sourceDir, reviewStem, '_quality_hotspots.json');
+  const reviewPrioritiesPath = reviewPath || artifactPathFor(sourceDir, reviewStem, '_review_priorities.json');
+
+  const manufacturingHotspots = await readJsonIfExists(hotspotsPath) || { hotspots: [] };
+  const inspectionLinkage = await readJsonIfExists(inspectionLinkagePath) || { records: [] };
+  const inspectionOutliers = await readJsonIfExists(inspectionOutliersPath) || { records: [] };
+  const qualityLinkage = await readJsonIfExists(qualityLinkagePath) || { records: [] };
+  const qualityHotspots = await readJsonIfExists(qualityHotspotsPath) || { records: [] };
+  const reviewPriorities = await readJsonIfExists(reviewPrioritiesPath) || { records: [], recommended_actions: [] };
 
   const outputJsonPath = primaryOutputPath || artifactPathFor(outputDir, stem, '_review_pack.json');
   const outputStem = deriveArtifactStem(outputJsonPath, stem);
   const outputMarkdownPath = siblingArtifactPath(outputJsonPath, '_review_pack.md');
   const outputPdfPath = siblingArtifactPath(outputJsonPath, '_review_pack.pdf');
+  const generatedAt = nowIso();
+  const sourceArtifactRefs = [
+    buildSourceArtifactRef('engineering_context', contextPath, 'input', 'Input context JSON'),
+    buildSourceArtifactRef('geometry_intelligence', geometryPath, 'input', 'Input geometry JSON'),
+    hotspotsPath ? buildSourceArtifactRef('manufacturing_hotspots', hotspotsPath, 'input', 'Input hotspots JSON') : null,
+    inspectionLinkagePath ? buildSourceArtifactRef('inspection_linkage', inspectionLinkagePath, 'intermediate', 'Inspection linkage JSON') : null,
+    inspectionOutliersPath ? buildSourceArtifactRef('inspection_outliers', inspectionOutliersPath, 'intermediate', 'Inspection outliers JSON') : null,
+    qualityLinkagePath ? buildSourceArtifactRef('quality_linkage', qualityLinkagePath, 'intermediate', 'Quality linkage JSON') : null,
+    qualityHotspotsPath ? buildSourceArtifactRef('quality_hotspots', qualityHotspotsPath, 'intermediate', 'Quality hotspots JSON') : null,
+    reviewPrioritiesPath ? buildSourceArtifactRef('review_priorities', reviewPrioritiesPath, 'input', 'Review priorities JSON') : null,
+  ].filter(Boolean);
 
   const result = await runPythonJsonScript(PROJECT_ROOT, 'scripts/reporting/review_pack.py', {
     context,
@@ -1200,9 +1257,15 @@ async function cmdReviewPack(rawArgs = []) {
     output_json_path: outputJsonPath,
     output_markdown_path: outputMarkdownPath,
     output_pdf_path: outputPdfPath,
+    generated_at: generatedAt,
+    source_artifact_refs: sourceArtifactRefs,
   }, {
     timeout: 180_000,
     onStderr: (text) => process.stderr.write(text),
+  });
+
+  await writeValidatedJsonArtifact(outputJsonPath, 'review_pack', result.summary, {
+    command: 'review-pack',
   });
 
   console.log(`Review pack JSON: ${result.artifacts.json}`);
@@ -1222,53 +1285,90 @@ async function cmdReviewPack(rawArgs = []) {
   console.log(`Manifest: ${manifestPath}`);
 }
 
-function diffNumbers(before, after) {
-  if (typeof before !== 'number' || typeof after !== 'number') return null;
-  return {
-    before,
-    after,
-    delta: Number((after - before).toFixed(6)),
-  };
-}
+async function cmdReviewContext(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  const contextPath = resolveMaybe(options.context);
+  const modelPath = resolveMaybe(options.model || (!contextPath ? positional[0] : null));
+  const bomPath = resolveMaybe(options.bom);
+  const inspectionPath = resolveMaybe(options.inspection);
+  const qualityPath = resolveMaybe(options.quality);
+  const compareToPath = resolveMaybe(options['compare-to']);
 
-function extractCategories(value) {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => item?.category || item?.linked_hotspot_category || null)
-    .filter(Boolean);
-}
+  if (!modelPath && !contextPath) {
+    console.error('Error: review-context requires --model <file> or --context <context.json>');
+    console.error('  fcad review-context --model part.step [--bom bom.csv] [--inspection insp.csv] [--quality ncr.csv] --out output/review_pack.json');
+    process.exit(1);
+  }
 
-function uniqueSorted(values) {
-  return [...new Set(values)].sort();
-}
+  requireExistingInputFile('context', contextPath);
+  requireExistingInputFile('model', modelPath);
+  requireExistingInputFile('bom', bomPath);
+  requireExistingInputFile('inspection', inspectionPath);
+  requireExistingInputFile('quality', qualityPath);
+  requireExistingInputFile('compare-to', compareToPath);
 
-function extractReviewDocumentData(document) {
-  const summary = document.summary || document;
-  const geometrySummary = summary.geometry_summary || document.geometry_summary || document.metrics || document.geometry_intelligence?.metrics || document.geometry_source?.model_metadata || {};
-  const reviewPriorities = summary.review_priorities || document.review_priorities?.records || document.records || [];
-  const geometryHotspots = summary.geometry_hotspots || document.manufacturing_hotspots?.hotspots || document.hotspots || [];
-  const qualityHotspots = summary.quality_hotspots || document.quality_hotspots?.records || [];
-  const evidence = summary.evidence_appendix || document.evidence_appendix || {};
+  const result = await runReviewContextPipeline({
+    projectRoot: PROJECT_ROOT,
+    contextPath,
+    modelPath,
+    bomPath,
+    inspectionPath,
+    qualityPath,
+    compareToPath,
+    outputPath: options.out || null,
+    outDir: resolveMaybe(options['out-dir']) || null,
+    partName: options['part-name'] || null,
+    partId: options['part-id'] || null,
+    revision: options.revision || null,
+    material: options.material || null,
+    manufacturingProcess: options.process || null,
+    facility: options.facility || null,
+    supplier: options.supplier || null,
+    manufacturingNotes: options['manufacturing-notes'] || null,
+    runPythonJsonScript,
+    inspectModelIfAvailable,
+    detectStepFeaturesIfAvailable,
+  });
 
-  return {
-    part: summary.part || document.part || {},
-    geometrySummary,
-    reviewPriorities,
-    geometryHotspots,
-    qualityHotspots,
-    evidence,
-  };
-}
+  console.log(`Context JSON: ${result.artifacts.context}`);
+  console.log(`Geometry intelligence: ${result.artifacts.geometry}`);
+  console.log(`Review priorities: ${result.artifacts.reviewPriorities}`);
+  console.log(`Review pack JSON: ${result.artifacts.reviewPackJson}`);
+  console.log(`Review pack Markdown: ${result.artifacts.reviewPackMarkdown}`);
+  console.log(`Review pack PDF: ${result.artifacts.reviewPackPdf}`);
+  if (result.artifacts.revisionComparison) {
+    console.log(`Revision comparison: ${result.artifacts.revisionComparison}`);
+  }
 
-function compareCategorySets(baselineValues, candidateValues) {
-  const baseline = uniqueSorted(baselineValues);
-  const candidate = uniqueSorted(candidateValues);
-  return {
-    baseline,
-    candidate,
-    added: candidate.filter((value) => !baseline.includes(value)),
-    removed: baseline.filter((value) => !candidate.includes(value)),
-  };
+  const manifestPath = await writeCliManifest({
+    command: 'review-context',
+    primaryOutputPath: result.artifacts.reviewPackJson,
+    artifacts: [
+      createArtifactEntry('context.json', result.artifacts.context, { label: 'Engineering context JSON' }),
+      createArtifactEntry('ingest.log.json', result.artifacts.ingestLog, { label: 'Ingest log JSON' }),
+      createArtifactEntry('analysis.geometry.json', result.artifacts.geometry, { label: 'Geometry intelligence JSON' }),
+      createArtifactEntry('analysis.hotspots.json', result.artifacts.hotspots, { label: 'Manufacturing hotspots JSON' }),
+      createArtifactEntry('quality-link.inspection-linkage.json', result.artifacts.inspectionLinkage, { label: 'Inspection linkage JSON' }),
+      createArtifactEntry('quality-link.inspection-outliers.json', result.artifacts.inspectionOutliers, { label: 'Inspection outliers JSON' }),
+      createArtifactEntry('quality-link.quality-linkage.json', result.artifacts.qualityLinkage, { label: 'Quality linkage JSON' }),
+      createArtifactEntry('quality-link.quality-hotspots.json', result.artifacts.qualityHotspots, { label: 'Quality hotspots JSON' }),
+      createArtifactEntry('quality-link.review-priorities.json', result.artifacts.reviewPriorities, { label: 'Review priorities JSON' }),
+      createArtifactEntry('review-pack.json', result.artifacts.reviewPackJson, { label: 'Review pack JSON' }),
+      createArtifactEntry('review-pack.markdown', result.artifacts.reviewPackMarkdown, { label: 'Review pack Markdown' }),
+      createArtifactEntry('review-pack.pdf', result.artifacts.reviewPackPdf, { label: 'Review pack PDF' }),
+      ...(result.artifacts.revisionComparison ? [createArtifactEntry('revision-comparison.json', result.artifacts.revisionComparison, { label: 'Revision comparison JSON' })] : []),
+      ...(contextPath ? [createArtifactEntry('input.context', contextPath, { label: 'Input context JSON' })] : []),
+      ...(modelPath ? [createArtifactEntry('input.model', modelPath, { label: 'Input model' })] : []),
+      ...(bomPath ? [createArtifactEntry('input.bom', bomPath, { label: 'Input BOM CSV' })] : []),
+      ...(inspectionPath ? [createArtifactEntry('input.inspection', inspectionPath, { label: 'Input inspection CSV' })] : []),
+      ...(qualityPath ? [createArtifactEntry('input.quality', qualityPath, { label: 'Input quality CSV' })] : []),
+      ...(compareToPath ? [createArtifactEntry('input.baseline', compareToPath, { label: 'Baseline review-pack JSON' })] : []),
+    ],
+    details: {
+      workflow: [contextPath ? 'context-input' : 'ingest', 'analyze-part', 'quality-link', 'review-pack', ...(compareToPath ? ['compare-rev'] : [])],
+    },
+  });
+  console.log(`Manifest: ${manifestPath}`);
 }
 
 async function cmdCompareRev(rawArgs = []) {
@@ -1278,58 +1378,52 @@ async function cmdCompareRev(rawArgs = []) {
 
   if (!baselinePath || !candidatePath) {
     console.error('Error: compare-rev requires two JSON artifacts');
-    console.error('  fcad compare-rev output/rev_a_context.json output/rev_b_context.json');
+    console.error('  fcad compare-rev output/rev_a_review_pack.json output/rev_b_review_pack.json');
     process.exit(1);
   }
 
   const baseline = await readJsonFile(baselinePath);
   const candidate = await readJsonFile(candidatePath);
-  const baselineData = extractReviewDocumentData(baseline);
-  const candidateData = extractReviewDocumentData(candidate);
-  const baselineMetrics = baselineData.geometrySummary;
-  const candidateMetrics = candidateData.geometrySummary;
-  const hotspotCategories = compareCategorySets(
-    extractCategories(baselineData.geometryHotspots).concat(extractCategories(baselineData.qualityHotspots)),
-    extractCategories(candidateData.geometryHotspots).concat(extractCategories(candidateData.qualityHotspots)),
-  );
-  const priorityCategories = compareCategorySets(
-    extractCategories(baselineData.reviewPriorities),
-    extractCategories(candidateData.reviewPriorities),
-  );
-
+  const result = await runPythonJsonScript(PROJECT_ROOT, 'scripts/reporting/revision_diff.py', {
+    baseline,
+    candidate,
+    baseline_path: baselinePath,
+    candidate_path: candidatePath,
+  }, {
+    onStderr: (text) => process.stderr.write(text),
+  });
+  const diff = result.comparison;
   const comparison = {
-    baseline: baselinePath,
-    candidate: candidatePath,
-    part: {
-      baseline: baselineData.part?.name || deriveArtifactStem(baselinePath),
-      candidate: candidateData.part?.name || deriveArtifactStem(candidatePath),
+    artifact_type: 'revision_comparison',
+    schema_version: D_ARTIFACT_SCHEMA_VERSION,
+    analysis_version: D_ANALYSIS_VERSION,
+    generated_at: nowIso(),
+    part_id: baseline?.part?.part_id && baseline?.part?.part_id === candidate?.part?.part_id
+      ? baseline.part.part_id
+      : null,
+    warnings: [],
+    coverage: {
+      source_artifact_count: 2,
+      source_file_count: 2,
+      review_priority_count: (baseline?.review_priorities || []).length + (candidate?.review_priorities || []).length,
     },
-    revision: {
-      baseline: baselineData.part?.revision || null,
-      candidate: candidateData.part?.revision || null,
+    confidence: {
+      level: 'heuristic',
+      score: 0.58,
+      rationale: 'Revision comparison is derived from canonical review-pack evidence and summary deltas.',
     },
-    comparison_type: "heuristic_artifact_diff",
-    metrics: {
-      volume_mm3: diffNumbers(baselineMetrics.volume_mm3 || baselineMetrics.volume, candidateMetrics.volume_mm3 || candidateMetrics.volume),
-      face_count: diffNumbers(baselineMetrics.face_count || baselineMetrics.faces, candidateMetrics.face_count || candidateMetrics.faces),
-      edge_count: diffNumbers(baselineMetrics.edge_count || baselineMetrics.edges, candidateMetrics.edge_count || candidateMetrics.edges),
-    },
-    risk_signals: {
-      hotspot_categories: hotspotCategories,
-      review_priority_categories: priorityCategories,
-    },
-    evidence_summary: {
-      baseline_sources: baselineData.evidence?.source_files || [],
-      candidate_sources: candidateData.evidence?.source_files || [],
-      baseline_priority_count: baselineData.reviewPriorities.length,
-      candidate_priority_count: candidateData.reviewPriorities.length,
-      note: "Heuristic diff based on available artifact content; not exact CAD feature differencing.",
-    },
+    source_artifact_refs: [
+      buildSourceArtifactRef('review_pack', baselinePath, 'comparison_baseline', 'Baseline review pack JSON'),
+      buildSourceArtifactRef('review_pack', candidatePath, 'comparison_candidate', 'Candidate review pack JSON'),
+    ],
+    ...diff,
   };
 
   const outputPath = normalizeJsonOutputPath(options.out)
     || artifactPathFor(buildDefaultOutputDir(options['out-dir']), deriveArtifactStem(candidatePath, 'revision'), '_revision_comparison.json');
-  await writeJsonFile(outputPath, comparison);
+  await writeValidatedJsonArtifact(outputPath, 'revision_comparison', comparison, {
+    command: 'compare-rev',
+  });
   const manifestPath = await writeCliManifest({
     command: 'compare-rev',
     primaryOutputPath: outputPath,
@@ -2256,6 +2350,10 @@ async function cmdInspect(rawArgs = []) {
 }
 
 main().catch((err) => {
+  if (err instanceof ArtifactSchemaValidationError) {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
+  }
   console.error(`Fatal: ${err.message}`);
   process.exit(1);
 });

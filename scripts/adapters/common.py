@@ -19,6 +19,14 @@ def normalize_row(row):
     return {normalize_header(key): value for key, value in (row or {}).items()}
 
 
+def is_blank(value):
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return not value.strip()
+    return False
+
+
 def read_records(path):
     if not path:
         return []
@@ -106,9 +114,27 @@ def tokenize(text):
     return [token for token in re.split(r"[^a-z0-9]+", str(text or "").lower()) if token]
 
 
-def summarize_source(path, count, warnings=None):
-    return {
+def slugify(value):
+    text = str(value or "").strip().lower()
+    text = re.sub(r"[^a-z0-9]+", "_", text)
+    return text.strip("_")
+
+
+def unique_list(values):
+    unique = []
+    for value in values or []:
+        if value not in unique:
+            unique.append(value)
+    return unique
+
+
+def summarize_source(path, count, warnings=None, diagnostics=None):
+    summary = {
         "path": path,
         "record_count": count,
         "warnings": list(warnings or []),
     }
+    if diagnostics is not None:
+        summary["diagnostic_count"] = len(diagnostics)
+        summary["diagnostics"] = list(diagnostics)
+    return summary

@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dooosp.github.io/freecad-automation/schemas/inspection_linkage.schema.json",
+  "title": "Inspection Linkage",
+  "allOf": [
+    {
+      "$ref": "d_artifact_common.schema.json#/$defs/rootArtifact"
+    }
+  ],
+  "type": "object",
+  "required": [
+    "artifact_type",
+    "schema_version",
+    "analysis_version",
+    "generated_at",
+    "part_id",
+    "revision",
+    "warnings",
+    "coverage",
+    "confidence",
+    "source_artifact_refs",
+    "summary",
+    "records"
+  ],
+  "properties": {
+    "artifact_type": {
+      "const": "inspection_linkage"
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "count",
+        "out_of_tolerance",
+        "in_tolerance",
+        "unknown"
+      ],
+      "properties": {
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "out_of_tolerance": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "in_tolerance": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unknown": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": true
+    },
+    "linkage_stats": {
+      "type": "object"
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "$ref": "d_artifact_common.schema.json#/$defs/inspectionLinkRecord"
+      }
+    }
+  },
+  "unevaluatedProperties": true
+}

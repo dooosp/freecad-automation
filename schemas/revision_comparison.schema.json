@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dooosp.github.io/freecad-automation/schemas/revision_comparison.schema.json",
+  "title": "Revision Comparison",
+  "allOf": [
+    {
+      "$ref": "d_artifact_common.schema.json#/$defs/rootArtifact"
+    }
+  ],
+  "type": "object",
+  "required": [
+    "artifact_type",
+    "schema_version",
+    "analysis_version",
+    "generated_at",
+    "warnings",
+    "coverage",
+    "confidence",
+    "source_artifact_refs",
+    "baseline",
+    "candidate",
+    "part",
+    "revision",
+    "comparison_type",
+    "metrics",
+    "new_hotspots",
+    "resolved_hotspots",
+    "shifted_hotspots",
+    "evidence_added",
+    "evidence_removed",
+    "action_changes",
+    "confidence_changes",
+    "revision_story"
+  ],
+  "properties": {
+    "artifact_type": {
+      "const": "revision_comparison"
+    },
+    "baseline": {
+      "type": "string"
+    },
+    "candidate": {
+      "type": "string"
+    },
+    "part": {
+      "type": "object",
+      "required": [
+        "baseline",
+        "candidate"
+      ],
+      "properties": {
+        "baseline": {
+          "type": "string"
+        },
+        "candidate": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "revision": {
+      "type": "object",
+      "required": [
+        "baseline",
+        "candidate"
+      ],
+      "properties": {
+        "baseline": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "candidate": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "comparison_type": {
+      "const": "evidence_driven_review_pack_diff"
+    },
+    "metrics": {
+      "type": "object",
+      "required": [
+        "volume_mm3",
+        "face_count",
+        "edge_count"
+      ],
+      "properties": {
+        "volume_mm3": {
+          "$ref": "#/$defs/diffMetric"
+        },
+        "face_count": {
+          "$ref": "#/$defs/diffMetric"
+        },
+        "edge_count": {
+          "$ref": "#/$defs/diffMetric"
+        }
+      },
+      "additionalProperties": false
+    },
+    "new_hotspots": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "resolved_hotspots": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "shifted_hotspots": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "evidence_added": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "evidence_removed": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "action_changes": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "confidence_changes": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "revision_story": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "$defs": {
+    "diffMetric": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "required": [
+        "before",
+        "after",
+        "delta"
+      ],
+      "properties": {
+        "before": {
+          "type": "number"
+        },
+        "after": {
+          "type": "number"
+        },
+        "delta": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "categorySetDiff": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "unevaluatedProperties": true
+}

@@ -105,3 +105,46 @@ The final response should include:
 - Do not claim browser automation or manual browser QA unless it actually ran.
 - Prefer fixing small verified issues immediately rather than only reporting them.
 - If no code changes are needed after verification, do not create an empty commit.
+
+## Repo-local task family: D pipeline
+- For D-pipeline contract work, keep machine-readable JSON artifacts canonical and schema-backed.
+- Prefer narrow validation seams shared by CLI and reporting code over broad architectural rewrites.
+- Standardize common D artifact contract fields where applicable:
+  - `schema_version`
+  - `analysis_version`
+  - `generated_at`
+  - `part_id`
+  - `revision`
+  - `warnings`
+  - `coverage`
+  - `confidence`
+  - `source_artifact_refs`
+- For ingest normalization tasks, keep `scripts/ingest_context.py` orchestration-first and move normalization into adapter-layer helpers.
+- Preserve the additive architecture direction: adapters -> geometry -> linkage -> decision -> reporting.
+- Treat machine-readable JSON as canonical; keep markdown or PDF output concerns downstream.
+- Do not move decision logic into ingest and do not introduce LLM-based normalization.
+- Preserve metadata-only fallback behavior when FreeCAD runtime is unavailable.
+- Keep downstream D1-facing fields backward compatible; additive normalized evidence fields and diagnostics are preferred over shape-breaking changes.
+- Preserve the additive architecture direction: adapters -> geometry -> linkage -> decision -> reporting.
+- Keep `scripts/analyze_part.py` orchestration-first; move geometry facts, entity indexing, and reason code logic into focused helpers.
+- Treat machine-readable JSON geometry artifacts as canonical; keep markdown/PDF review output downstream.
+- Prefer additive output expansion over contract-breaking renames. Keep legacy `metrics`, `features`, and hotspot category compatibility where safe while introducing richer geometry-facts and stable hotspot fields.
+- Do not introduce LLM-based decision logic. Use explicit reason codes, stable refs, evidence refs, and auditable heuristics.
+- Preserve metadata-only fallback behavior when FreeCAD runtime or STEP-derived helpers are unavailable.
+- For linkage and decision tasks:
+  - keep linkage and decision logic separate
+  - prefer hotspot-level evidence mapping over category-only aggregation when auditable traceability is required
+  - keep ambiguity visible in output fields instead of silently collapsing to a single match
+  - favor small, focused tests around linkage ambiguity, scoring breakdowns, and false-positive regressions
+- Maintain repo-local execution and verification plans under `docs/exec-plans/` and phase status files under `tmp/codex/` for the active task slug.
+
+## D Integration Task
+- Active branch for this task: `feat/d-integration`
+- Integration worktree for this task: `/Users/jangtaeho/Documents/New/freecad-automation-d-integration`
+- Preserve the D1 -> D5 evolution while integrating the five completed D phase commits in order.
+- Keep the Node CLI + Python runner + FreeCAD structure intact.
+- Keep canonical JSON artifacts, including `review_pack.json` as the source of truth.
+- Preserve `evidence_refs`, `reason_codes`, hotspot-oriented scoring, and metadata-only fallback behavior.
+- Do not widen scope into browser, i18n, or Studio tasks during this integration.
+- Track merge progress in `tmp/codex/d-integration-merge-status.md`.
+- Track verification and remediation in `tmp/codex/d-integration-merge-verification-status.md`.

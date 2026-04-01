@@ -112,6 +112,11 @@ def test_cli_output_contract_and_end_to_end_review_flow(tmp_path):
     assert (tmp_path / "custom_review_review_pack.pdf").exists()
 
     review_pack = json.loads(review_pack_path.read_text(encoding="utf-8"))
+    assert review_pack["canonical_artifact"]["json_is_source_of_truth"] is True
+    assert review_pack["executive_summary"]["headline"]
+    assert review_pack["prioritized_hotspots"]
+    assert review_pack["evidence_ledger"]["records"]
+    assert review_pack["uncertainty_coverage_report"]["numeric_score"] >= 0
     assert review_pack["geometry_hotspots"]
     assert review_pack["inspection_anomalies"]
     assert review_pack["quality_hotspots"]
@@ -192,7 +197,70 @@ def test_compare_rev_reports_risk_signal_changes(tmp_path):
     )
 
     comparison = json.loads(comparison_path.read_text(encoding="utf-8"))
-    assert comparison["comparison_type"] == "heuristic_artifact_diff"
+    assert comparison["artifact_type"] == "revision_comparison"
+    assert comparison["schema_version"] == "1.0"
+    assert comparison["analysis_version"] == "d1"
+    assert comparison["source_artifact_refs"]
+    assert comparison["comparison_type"] == "evidence_driven_review_pack_diff"
     assert comparison["metrics"]["face_count"]["delta"] != 0
-    assert "patterning" in comparison["risk_signals"]["review_priority_categories"]["removed"]
-    assert "wall_thickness" in comparison["risk_signals"]["review_priority_categories"]["removed"]
+    assert any(item["category"] == "patterning" for item in comparison["resolved_hotspots"])
+    assert any(item["category"] == "wall_thickness" for item in comparison["resolved_hotspots"])
+    assert comparison["evidence_removed"]
+    assert "numeric confidence score changed" in comparison["confidence_changes"]["reasons"]
+
+
+def test_review_context_runs_flagship_pipeline_with_revision_compare(tmp_path):
+    baseline_review_pack = tmp_path / "baseline_review.json"
+    candidate_review_pack = tmp_path / "candidate_review.json"
+    candidate_context_path = tmp_path / "candidate_context.json"
+
+    baseline_context = json.loads((FIXTURES / "sample_part_context.json").read_text(encoding="utf-8"))
+    candidate_context = json.loads((FIXTURES / "sample_part_context.json").read_text(encoding="utf-8"))
+    candidate_context["part"]["revision"] = "B"
+    candidate_context["geometry_source"]["model_metadata"]["faces"] = 12
+    candidate_context["geometry_source"]["model_metadata"]["bounding_box"]["size"] = [120, 80, 20]
+    candidate_context["geometry_source"]["feature_hints"]["bolt_circles"] = []
+    candidate_context["geometry_source"]["feature_hints"]["cylinders"] = []
+    candidate_context["inspection_results"] = []
+    candidate_context["quality_issues"] = []
+    candidate_context_path.write_text(json.dumps(candidate_context, indent=2), encoding="utf-8")
+
+    run_cli(
+        [
+            "review-context",
+            "--context",
+            str(FIXTURES / "sample_part_context.json"),
+            "--out",
+            str(baseline_review_pack),
+        ]
+    )
+    assert baseline_review_pack.exists()
+
+    run_cli(
+        [
+            "review-context",
+            "--context",
+            str(candidate_context_path),
+            "--out",
+            str(candidate_review_pack),
+            "--compare-to",
+            str(baseline_review_pack),
+        ]
+    )
+
+    assert candidate_review_pack.exists()
+    assert (tmp_path / "candidate_review_context.json").exists()
+    assert (tmp_path / "candidate_review_geometry_intelligence.json").exists()
+    assert (tmp_path / "candidate_review_review_priorities.json").exists()
+    assert (tmp_path / "candidate_review_review_pack.md").exists()
+    assert (tmp_path / "candidate_review_review_pack.pdf").exists()
+    comparison_path = tmp_path / "candidate_review_revision_comparison.json"
+    assert comparison_path.exists()
+
+    review_pack = json.loads(candidate_review_pack.read_text(encoding="utf-8"))
+    comparison = json.loads(comparison_path.read_text(encoding="utf-8"))
+    assert review_pack["canonical_artifact"]["json_is_source_of_truth"] is True
+    assert review_pack["metadata"]["artifact_provenance"]["workflow"][0] == "context-input"
+    assert comparison["comparison_type"] == "evidence_driven_review_pack_diff"
+    assert any(item["category"] == "patterning" for item in comparison["resolved_hotspots"])
+    assert "missing-input coverage changed" in comparison["confidence_changes"]["reasons"]

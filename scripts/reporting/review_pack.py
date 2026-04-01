@@ -87,7 +87,7 @@ def main():
         stem = safe_filename_component(payload.get("output_stem") or part.get("name") or "review_pack", default="review_pack")
 
         summary = build_review_pack_data(payload)
-        markdown_text = build_markdown_sections(payload)
+        markdown_text = build_markdown_sections(summary)
         json_path = payload.get("output_json_path") or os.path.join(output_dir, f"{stem}_review_pack.json")
         markdown_path = payload.get("output_markdown_path") or os.path.join(output_dir, f"{stem}_review_pack.md")
         pdf_path = payload.get("output_pdf_path") or os.path.join(output_dir, f"{stem}_review_pack.pdf")
