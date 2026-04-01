@@ -5,6 +5,7 @@ from linkage.inspection_metrics import summarize_inspection
 def _build_feature_index(geometry_intelligence, hotspots):
     index = []
     features = (geometry_intelligence or {}).get("features") or {}
+    derived_features = (geometry_intelligence or {}).get("derived_features") or features.get("records") or []
     if (features.get("hole_like_feature_count") or 0) > 0:
         index.append(("hole", "hole_pattern"))
         index.append(("bore", "hole_pattern"))
@@ -16,6 +17,18 @@ def _build_feature_index(geometry_intelligence, hotspots):
     if features.get("inner_corner_risk_candidates"):
         index.append(("corner", "stress_or_tooling"))
         index.append(("fillet", "stress_or_tooling"))
+
+    for feature in derived_features:
+        category = {
+            "thin_wall_candidate": "wall_thickness",
+            "deep_pocket_candidate": "tool_access",
+            "inner_corner_risk": "stress_or_tooling",
+            "hole_pattern": "patterning",
+        }.get(feature.get("feature_type"))
+        if not category:
+            continue
+        for token in feature.get("match_tokens") or []:
+            index.append((token, category))
 
     for hotspot in hotspots or []:
         category = hotspot.get("category")

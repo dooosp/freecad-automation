@@ -126,3 +126,12 @@ The final response should include:
 - Preserve metadata-only fallback behavior when FreeCAD runtime is unavailable.
 - Keep downstream D1-facing fields backward compatible; additive normalized evidence fields and diagnostics are preferred over shape-breaking changes.
 - Maintain repo-local execution and verification plans under `docs/exec-plans/` and phase status files under `tmp/codex/` for the active task slug.
+
+## Repo-local Task Family: D3 geometry hotspots
+- Preserve the additive architecture direction: adapters -> geometry -> linkage -> decision -> reporting.
+- Keep `scripts/analyze_part.py` orchestration-first; move geometry facts, entity indexing, and reason code logic into focused helpers.
+- Treat machine-readable JSON geometry artifacts as canonical; keep markdown/PDF review output downstream.
+- Prefer additive output expansion over contract-breaking renames. Keep legacy `metrics`, `features`, and hotspot category compatibility where safe while introducing richer geometry-facts and stable hotspot fields.
+- Do not introduce LLM-based decision logic. Use explicit reason codes, stable refs, evidence refs, and auditable heuristics.
+- Preserve metadata-only fallback behavior when FreeCAD runtime or STEP-derived helpers are unavailable.
+- Maintain repo-local execution and verification plans under `docs/exec-plans/` and phase status files under `tmp/codex/` for the active task slug.
