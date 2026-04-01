@@ -6,7 +6,7 @@
 - Add the smallest shared validation seam needed for CLI and reporting workflows.
 
 ## Repo identity
-- Expected git root: `/Users/jangtaeho/Documents/New/freecad-automation-d1`
+- Expected git root: the repository root for the D1 worktree
 - Task branch: `feat/d1-artifact-contract`
 - Key files:
   - `bin/fcad.js`

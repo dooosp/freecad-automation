@@ -8,7 +8,7 @@
   - resolved cherry-pick conflicts in `AGENTS.md`, `scripts/analyze_part.py`, `tests/test_analyze_part.py`, `scripts/linkage/map_inspection.py`, `scripts/quality_link.py`, `bin/fcad.js`, `scripts/reporting/review_templates.py`, `tests/test_cli_workflow.py`, and `tests/test_review_pack.py`
   - restored D integration control files into this worktree
   - repaired integration issues in schema validation, review-pack/revision comparison contracts, recommended action backward compatibility, and CLI hotspot artifact lookup
-- files changed:
+- integration-fix files changed:
   - AGENTS.md
   - bin/fcad.js
   - docs/exec-plans/d1-artifact-contract-verification.md
