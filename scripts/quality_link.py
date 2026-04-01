@@ -5,6 +5,7 @@ from d_artifact_contract import build_confidence, build_contract_fields, build_c
 from decision.recommend_actions import recommend_actions
 from decision.review_prioritizer import build_review_priorities
 from decision.risk_scorer import score_review_risks
+from linkage.hotspot_catalog import build_hotspot_catalog
 from linkage.map_inspection import map_inspection_results
 from linkage.map_quality import map_quality_issues
 
@@ -15,12 +16,15 @@ def main():
         context = payload.get("context") or {}
         geometry_intelligence = payload.get("geometry_intelligence") or {}
         hotspot_payload = payload.get("manufacturing_hotspots") or {}
+        hotspots = build_hotspot_catalog(hotspot_payload, context=context)
 
-        inspection_linkage, inspection_outliers = map_inspection_results(context, geometry_intelligence, hotspot_payload)
-        quality_linkage, quality_hotspots = map_quality_issues(context, hotspot_payload)
+        inspection_linkage, inspection_outliers = map_inspection_results(context, geometry_intelligence, hotspots)
+        quality_linkage, quality_hotspots = map_quality_issues(context, hotspots)
         ranked_scores = score_review_risks(
-            hotspot_payload.get("hotspots") or [],
+            hotspots,
+            inspection_linkage,
             inspection_outliers,
+            quality_linkage,
             quality_hotspots,
         )
         review_priorities = build_review_priorities(ranked_scores, inspection_linkage, quality_linkage)
@@ -40,7 +44,7 @@ def main():
                     coverage=build_coverage(
                         source_artifact_count=len(source_refs),
                         source_file_count=len(metadata.get("source_files") or []),
-                        hotspot_count=len(hotspot_payload.get("hotspots") or []),
+                        hotspot_count=len(hotspots),
                         inspection_record_count=len(inspection_linkage.get("records") or []),
                         inspection_outlier_count=len(inspection_outliers),
                     ),
@@ -65,9 +69,9 @@ def main():
                     coverage=build_coverage(
                         source_artifact_count=len(source_refs),
                         source_file_count=len(metadata.get("source_files") or []),
-                        hotspot_count=len(hotspot_payload.get("hotspots") or []),
+                        hotspot_count=len(hotspots),
                         quality_issue_count=len(quality_linkage.get("records") or []),
-                        quality_hotspot_count=len(quality_hotspots),
+                        quality_hotspot_count=len((quality_hotspots.get("records") or [])),
                     ),
                     confidence=build_confidence(
                         "heuristic",
@@ -79,9 +83,7 @@ def main():
                 ),
                 **quality_linkage,
             },
-            "quality_hotspots": {
-                "records": quality_hotspots,
-            },
+            "quality_hotspots": quality_hotspots,
             "review_priorities": {
                 **build_contract_fields(
                     payload,
@@ -90,7 +92,7 @@ def main():
                     coverage=build_coverage(
                         source_artifact_count=len(source_refs),
                         source_file_count=len(metadata.get("source_files") or []),
-                        hotspot_count=len(hotspot_payload.get("hotspots") or []),
+                        hotspot_count=len(hotspots),
                         inspection_record_count=len(inspection_linkage.get("records") or []),
                         quality_issue_count=len(quality_linkage.get("records") or []),
                         review_priority_count=len(review_priorities),

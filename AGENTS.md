@@ -125,13 +125,15 @@ The final response should include:
 - Do not move decision logic into ingest and do not introduce LLM-based normalization.
 - Preserve metadata-only fallback behavior when FreeCAD runtime is unavailable.
 - Keep downstream D1-facing fields backward compatible; additive normalized evidence fields and diagnostics are preferred over shape-breaking changes.
-- Maintain repo-local execution and verification plans under `docs/exec-plans/` and phase status files under `tmp/codex/` for the active task slug.
-
-## Repo-local Task Family: D3 geometry hotspots
 - Preserve the additive architecture direction: adapters -> geometry -> linkage -> decision -> reporting.
 - Keep `scripts/analyze_part.py` orchestration-first; move geometry facts, entity indexing, and reason code logic into focused helpers.
 - Treat machine-readable JSON geometry artifacts as canonical; keep markdown/PDF review output downstream.
 - Prefer additive output expansion over contract-breaking renames. Keep legacy `metrics`, `features`, and hotspot category compatibility where safe while introducing richer geometry-facts and stable hotspot fields.
 - Do not introduce LLM-based decision logic. Use explicit reason codes, stable refs, evidence refs, and auditable heuristics.
 - Preserve metadata-only fallback behavior when FreeCAD runtime or STEP-derived helpers are unavailable.
+- For linkage and decision tasks:
+  - keep linkage and decision logic separate
+  - prefer hotspot-level evidence mapping over category-only aggregation when auditable traceability is required
+  - keep ambiguity visible in output fields instead of silently collapsing to a single match
+  - favor small, focused tests around linkage ambiguity, scoring breakdowns, and false-positive regressions
 - Maintain repo-local execution and verification plans under `docs/exec-plans/` and phase status files under `tmp/codex/` for the active task slug.
