@@ -1,0 +1,128 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dooosp.github.io/freecad-automation/schemas/c_artifact_common.schema.json",
+  "title": "Canonical C Artifact Common Types",
+  "definitions": {
+    "warningList": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "coverageSummary": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "confidenceSummary": {
+      "type": "object",
+      "required": ["level", "score", "rationale"],
+      "properties": {
+        "level": {
+          "enum": ["heuristic", "low", "medium", "high"]
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "rationale": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "sourceArtifactRef": {
+      "type": "object",
+      "required": ["artifact_type", "role"],
+      "properties": {
+        "artifact_type": { "type": "string" },
+        "path": { "type": ["string", "null"] },
+        "role": { "type": "string" },
+        "label": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "sourceArtifactRefs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/sourceArtifactRef"
+      }
+    },
+    "partIdentity": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "part_id": { "type": ["string", "null"] },
+        "name": { "type": "string" },
+        "description": { "type": ["string", "null"] },
+        "revision": { "type": ["string", "null"] },
+        "material": { "type": ["string", "null"] },
+        "process": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "canonicalArtifact": {
+      "type": "object",
+      "required": ["json_is_source_of_truth"],
+      "properties": {
+        "json_is_source_of_truth": { "const": true },
+        "artifact_type": { "type": "string" },
+        "artifact_filename": { "type": ["string", "null"] },
+        "derived_outputs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "rationale": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "commandContract": {
+      "type": "object",
+      "required": ["layer", "command", "contract_version", "canonical_artifact_kind"],
+      "properties": {
+        "layer": { "const": "C" },
+        "command": { "type": "string" },
+        "contract_version": { "type": "string" },
+        "canonical_artifact_kind": { "type": "string" },
+        "primary_output": { "type": ["string", "null"] },
+        "required_inputs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "optional_inputs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "derived_outputs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "notes": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "documentEntry": {
+      "type": "object",
+      "required": ["filename", "path"],
+      "properties": {
+        "filename": { "type": "string" },
+        "path": { "type": "string" },
+        "document_type": { "type": ["string", "null"] },
+        "label": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "bundleArtifactEntry": {
+      "type": "object",
+      "required": ["artifact_type", "role"],
+      "properties": {
+        "artifact_type": { "type": "string" },
+        "path": { "type": ["string", "null"] },
+        "role": { "type": "string" },
+        "label": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    }
+  }
+}

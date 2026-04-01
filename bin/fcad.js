@@ -17,11 +17,16 @@ import {
   validateConfigDocument,
 } from '../lib/config-schema.js';
 import {
+  C_ARTIFACT_SCHEMA_VERSION,
+  getCCommandContract,
+} from '../lib/c-artifact-schema.js';
+import {
   artifactPathFor,
   deriveArtifactStem,
   readJsonFile,
   readJsonIfExists,
   runPythonJsonScript,
+  writeValidatedCArtifact,
   writeValidatedJsonArtifact,
   writeJsonFile,
 } from '../lib/context-loader.js';
@@ -695,6 +700,202 @@ async function loadRuntimeData(options = {}) {
   return readJsonFile(runtimePath);
 }
 
+function uniqueStrings(values = []) {
+  return [...new Set(
+    values
+      .filter((value) => typeof value === 'string' && value.trim())
+      .map((value) => value.trim())
+  )];
+}
+
+function mergeSourceArtifactRefs(primary = [], secondary = []) {
+  const merged = [];
+  const seen = new Set();
+  for (const ref of [...primary, ...secondary]) {
+    if (!ref?.artifact_type || !ref?.role) continue;
+    const key = `${ref.artifact_type}|${ref.path || ''}|${ref.role}|${ref.label || ''}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push({
+      artifact_type: ref.artifact_type,
+      path: ref.path || null,
+      role: ref.role,
+      label: ref.label || null,
+    });
+  }
+  return merged;
+}
+
+function buildCSourceArtifactRefs({ configPath = null, runtimePath = null } = {}) {
+  return [
+    configPath ? buildSourceArtifactRef('config', configPath, 'input', 'Input config') : null,
+    runtimePath ? buildSourceArtifactRef('runtime', runtimePath, 'input', 'Runtime JSON') : null,
+  ].filter(Boolean);
+}
+
+function buildCanonicalArtifactDescriptor(kind, contract = null) {
+  return {
+    json_is_source_of_truth: true,
+    artifact_type: kind,
+    artifact_filename: contract?.primary_output || `${kind}.json`,
+    derived_outputs: contract?.derived_outputs || [],
+    rationale: kind === 'readiness_report'
+      ? 'readiness_report.json is the canonical C artifact; downstream docs and bundles derive from it.'
+      : 'This JSON artifact is the canonical machine-readable source for the downstream C output.',
+  };
+}
+
+function buildProcessPlanCoverage(processPlan = {}, sourceArtifactCount = 0) {
+  return {
+    process_step_count: (processPlan.process_flow || []).length,
+    key_inspection_point_count: (processPlan.key_inspection_points || []).length,
+    automation_candidate_count: (processPlan.automation_candidates || []).length,
+    source_artifact_count: sourceArtifactCount,
+  };
+}
+
+function buildQualityRiskCoverage(qualityRisk = {}, sourceArtifactCount = 0) {
+  return {
+    critical_dimension_count: (qualityRisk.critical_dimensions || []).length,
+    quality_risk_count: (qualityRisk.quality_risks || []).length,
+    quality_gate_count: (qualityRisk.quality_gates || []).length,
+    source_artifact_count: sourceArtifactCount,
+  };
+}
+
+function buildStabilizationCoverage(stabilizationReview = {}, sourceArtifactCount = 0) {
+  const runtimeSummary = stabilizationReview.analysis_basis?.runtime_summary || {};
+  return {
+    station_runtime_review_count: (stabilizationReview.station_runtime_review || []).length,
+    runtime_station_count: runtimeSummary.runtime_station_count || 0,
+    stations_over_target_count: (runtimeSummary.stations_over_target || []).length,
+    runtime_informed: Boolean(runtimeSummary.runtime_informed),
+    source_artifact_count: sourceArtifactCount,
+  };
+}
+
+function buildReadinessCoverage(report = {}, sourceArtifactCount = 0) {
+  return {
+    required_section_count: 7,
+    available_section_count: [
+      report.product_review,
+      report.process_plan,
+      report.line_plan,
+      report.quality_risk,
+      report.investment_review,
+      report.summary,
+      report.decision_summary,
+    ].filter(Boolean).length,
+    optional_stabilization_review: Boolean(report.stabilization_review),
+    process_step_count: (report.process_plan?.process_flow || []).length,
+    quality_gate_count: (report.quality_risk?.quality_gates || []).length,
+    source_artifact_count: sourceArtifactCount,
+  };
+}
+
+function withCArtifactEnvelope(payload, {
+  kind,
+  command,
+  generatedAt,
+  warnings = [],
+  coverage = {},
+  confidence,
+  sourceArtifactRefs = [],
+}) {
+  const contract = getCCommandContract(command);
+  return {
+    ...payload,
+    schema_version: C_ARTIFACT_SCHEMA_VERSION,
+    artifact_type: kind,
+    generated_at: payload.generated_at || generatedAt,
+    warnings: uniqueStrings([...(payload.warnings || []), ...warnings]),
+    coverage: payload.coverage || coverage,
+    confidence: payload.confidence || confidence,
+    source_artifact_refs: mergeSourceArtifactRefs(payload.source_artifact_refs || [], sourceArtifactRefs),
+    canonical_artifact: payload.canonical_artifact || buildCanonicalArtifactDescriptor(kind, contract),
+    contract: payload.contract || contract,
+  };
+}
+
+function annotateReadinessArtifacts(report, {
+  configPath = null,
+  runtimePath = null,
+  configWarnings = [],
+} = {}) {
+  const sourceArtifactRefs = buildCSourceArtifactRefs({ configPath, runtimePath });
+  const generatedAt = report.generated_at || nowIso();
+  const sharedWarnings = uniqueStrings(configWarnings);
+  const sourceArtifactCount = sourceArtifactRefs.length;
+
+  report.process_plan = withCArtifactEnvelope(report.process_plan, {
+    kind: 'process_plan',
+    command: 'process-plan',
+    generatedAt,
+    warnings: sharedWarnings,
+    coverage: buildProcessPlanCoverage(report.process_plan, sourceArtifactCount),
+    confidence: {
+      level: 'heuristic',
+      score: 0.56,
+      rationale: 'Process plan is derived from config, DFM, and heuristics and still requires site-specific engineering validation.',
+    },
+    sourceArtifactRefs,
+  });
+
+  report.quality_risk = withCArtifactEnvelope(report.quality_risk, {
+    kind: 'quality_risk',
+    command: 'quality-risk',
+    generatedAt,
+    warnings: sharedWarnings,
+    coverage: buildQualityRiskCoverage(report.quality_risk, sourceArtifactCount),
+    confidence: {
+      level: 'heuristic',
+      score: 0.58,
+      rationale: 'Quality-risk output packages rule-based readiness signals and should be validated against plant quality systems.',
+    },
+    sourceArtifactRefs,
+  });
+
+  if (report.stabilization_review) {
+    const runtimeInformed = Boolean(report.stabilization_review.analysis_basis?.runtime_summary?.runtime_informed);
+    report.stabilization_review = withCArtifactEnvelope(report.stabilization_review, {
+      kind: 'stabilization_review',
+      command: 'stabilization-review',
+      generatedAt,
+      warnings: sharedWarnings,
+      coverage: buildStabilizationCoverage(report.stabilization_review, sourceArtifactCount),
+      confidence: {
+        level: runtimeInformed ? 'medium' : 'heuristic',
+        score: runtimeInformed ? 0.7 : 0.46,
+        rationale: runtimeInformed
+          ? 'Stabilization review combines supplied runtime data with heuristic bottleneck interpretation.'
+          : 'Without runtime data, stabilization review remains a heuristic-only readiness aid.',
+      },
+      sourceArtifactRefs,
+    });
+  }
+
+  return withCArtifactEnvelope(report, {
+    kind: 'readiness_report',
+    command: 'readiness-report',
+    generatedAt,
+    warnings: uniqueStrings([
+      ...sharedWarnings,
+      ...(report.process_plan?.warnings || []),
+      ...(report.quality_risk?.warnings || []),
+      ...(report.stabilization_review?.warnings || []),
+    ]),
+    coverage: buildReadinessCoverage(report, sourceArtifactCount),
+    confidence: {
+      level: report.stabilization_review?.analysis_basis?.runtime_summary?.runtime_informed ? 'medium' : 'heuristic',
+      score: report.stabilization_review?.analysis_basis?.runtime_summary?.runtime_informed ? 0.68 : 0.52,
+      rationale: report.stabilization_review?.analysis_basis?.runtime_summary?.runtime_informed
+        ? 'Readiness report packages heuristic planning outputs with supplied runtime-informed stabilization signals.'
+        : 'Readiness report is derived from heuristic planning agents and should be refined with runtime evidence and plant review.',
+    },
+    sourceArtifactRefs,
+  });
+}
+
 async function runProductionReadiness(rawArgs = [], { persistArtifacts = true } = {}) {
   const { configPath, options, outputPath, outDir, stem } = resolveConfigCommandInput(rawArgs);
   if (!configPath) {
@@ -705,7 +906,7 @@ async function runProductionReadiness(rawArgs = [], { persistArtifacts = true } 
   const configDocument = await loadConfigDocumentForCli(configPath);
   const config = configDocument.config;
   const runtimeData = await loadRuntimeData(options);
-  const report = await runReadinessReportWorkflow({
+  let report = await runReadinessReportWorkflow({
     freecadRoot: PROJECT_ROOT,
     runScript: runWithCliStderr,
     loadConfig: loadConfigForCli,
@@ -720,6 +921,11 @@ async function runProductionReadiness(rawArgs = [], { persistArtifacts = true } 
       runtimeData,
       onStderr: (text) => process.stderr.write(text),
     },
+  });
+  report = annotateReadinessArtifacts(report, {
+    configPath,
+    runtimePath: resolveMaybe(options.runtime),
+    configWarnings: configDocument.summary?.warnings || [],
   });
 
   const resolvedOutputPath = outputPath || artifactPathFor(outDir, stem, '_readiness_report.json');
@@ -741,7 +947,10 @@ async function runProductionReadiness(rawArgs = [], { persistArtifacts = true } 
 
 async function writeAgentArtifact(outputPath, fallbackDir, stem, suffix, payload) {
   const targetPath = outputPath || artifactPathFor(fallbackDir, stem, suffix);
-  const jsonPath = await writeJsonFile(targetPath, payload);
+  const kind = payload?.artifact_type || null;
+  const jsonPath = kind
+    ? await writeValidatedCArtifact(targetPath, kind, payload, { command: payload.contract?.command || undefined })
+    : await writeJsonFile(targetPath, payload);
   return { json: jsonPath };
 }
 

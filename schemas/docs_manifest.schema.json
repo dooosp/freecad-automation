@@ -1,16 +1,16 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://dooosp.github.io/freecad-automation/schemas/stabilization_review.schema.json",
-  "title": "Canonical Launch Stabilization Review",
+  "$id": "https://dooosp.github.io/freecad-automation/schemas/docs_manifest.schema.json",
+  "title": "Canonical Standard Docs Manifest",
   "type": "object",
   "required": [
     "schema_version",
     "artifact_type",
+    "workflow",
     "generated_at",
-    "agent",
+    "draft_notice",
     "part",
-    "summary",
-    "station_runtime_review",
+    "documents",
     "warnings",
     "coverage",
     "confidence",
@@ -20,23 +20,25 @@
   ],
   "properties": {
     "schema_version": { "const": "1.0" },
-    "artifact_type": { "const": "stabilization_review" },
+    "artifact_type": { "const": "docs_manifest" },
+    "workflow": { "const": "standard_docs_generation" },
     "generated_at": { "type": "string" },
-    "agent": { "const": "stabilization_review" },
+    "draft_notice": { "type": "string" },
     "part": { "$ref": "c_artifact_common.schema.json#/definitions/partIdentity" },
-    "summary": { "type": "object" },
     "warnings": { "$ref": "c_artifact_common.schema.json#/definitions/warningList" },
     "coverage": { "$ref": "c_artifact_common.schema.json#/definitions/coverageSummary" },
     "confidence": { "$ref": "c_artifact_common.schema.json#/definitions/confidenceSummary" },
     "source_artifact_refs": { "$ref": "c_artifact_common.schema.json#/definitions/sourceArtifactRefs" },
     "canonical_artifact": { "$ref": "c_artifact_common.schema.json#/definitions/canonicalArtifact" },
     "contract": { "$ref": "c_artifact_common.schema.json#/definitions/commandContract" },
-    "analysis_basis": { "type": "object" },
-    "station_runtime_review": { "type": "array", "items": { "type": "object" } },
-    "launch_instability_signals": { "type": "array", "items": { "type": "string" } },
-    "likely_root_causes": { "type": "array", "items": { "type": "string" } },
-    "improvement_candidates": { "type": "array", "items": { "type": "string" } },
-    "quality_traceability_watchpoints": { "type": "array", "items": { "type": "string" } }
+    "site_profile": { "type": ["object", "null"] },
+    "rule_profile": { "type": ["object", "null"] },
+    "documents": {
+      "type": "array",
+      "items": {
+        "$ref": "c_artifact_common.schema.json#/definitions/documentEntry"
+      }
+    }
   },
   "additionalProperties": true
 }

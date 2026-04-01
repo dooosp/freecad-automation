@@ -1,0 +1,325 @@
+{
+  "schema_version": "1.0",
+  "artifact_type": "readiness_report",
+  "workflow": "production_readiness",
+  "generated_at": "2026-04-01T00:00:00Z",
+  "part": {
+    "part_id": "PCB-MOUNT-01",
+    "name": "pcb_mount_plate",
+    "revision": "B",
+    "material": "AL5052",
+    "process": "sheet_metal"
+  },
+  "readiness_summary": {
+    "status": "candidate_for_pilot_line_review",
+    "score": 78,
+    "gate_decision": "candidate_for_pilot_line_review"
+  },
+  "summary": {
+    "overall_risk_level": "medium",
+    "top_issues": [
+      "Hole diameter drift risk",
+      "Probe reach can slow inline verification"
+    ],
+    "recommended_actions": [
+      "Prototype poka-yoke nest",
+      "Price inline camera option"
+    ],
+    "likely_bottleneck_candidates": [
+      "Inspection and pack"
+    ],
+    "likely_automation_candidates": [
+      "Inline camera option"
+    ],
+    "launch_stabilization_focus": []
+  },
+  "product_review": {
+    "schema_version": "0.1",
+    "agent": "product_review",
+    "part": {
+      "name": "pcb_mount_plate"
+    },
+    "summary": {
+      "part_type": "bracket",
+      "dfm_score": 82,
+      "primary_risks": [
+        "Fastener access at lower flange"
+      ]
+    },
+    "risk_items": [
+      {
+        "severity": "medium",
+        "title": "Fastener access at lower flange"
+      }
+    ],
+    "recommendations": [
+      "Open tool access for lower flange fastener."
+    ]
+  },
+  "process_plan": {
+    "schema_version": "1.0",
+    "artifact_type": "process_plan",
+    "generated_at": "2026-04-01T00:00:00Z",
+    "agent": "process_planning",
+    "part": {
+      "name": "pcb_mount_plate",
+      "revision": "B"
+    },
+    "summary": {
+      "overall_risk_level": "medium"
+    },
+    "planning_basis": {
+      "part_type": "bracket"
+    },
+    "process_flow": [
+      { "step": 10, "operation": "blanking" },
+      { "step": 20, "operation": "forming" },
+      { "step": 30, "operation": "deburr" },
+      { "step": 40, "operation": "inline inspection" },
+      { "step": 50, "operation": "final pack" }
+    ],
+    "key_inspection_points": [
+      { "id": "hole-dia", "checkpoint": "Hole diameter" }
+    ],
+    "automation_candidates": [
+      "Inline camera option"
+    ],
+    "bottleneck_risks": [
+      "Inline inspection can dominate CT"
+    ],
+    "planning_notes": [],
+    "warnings": [],
+    "coverage": {
+      "process_step_count": 5,
+      "key_inspection_point_count": 1,
+      "automation_candidate_count": 1,
+      "source_artifact_count": 2
+    },
+    "confidence": {
+      "level": "heuristic",
+      "score": 0.56,
+      "rationale": "Process plan is a downstream planning contract pending site validation."
+    },
+    "source_artifact_refs": [
+      {
+        "artifact_type": "config",
+        "path": "configs/examples/pcb_mount_plate.toml",
+        "role": "input",
+        "label": "Input config"
+      },
+      {
+        "artifact_type": "review_pack",
+        "path": "output/pcb_mount_plate_review_pack.json",
+        "role": "optional_input",
+        "label": "Upstream D review pack"
+      }
+    ],
+    "canonical_artifact": {
+      "json_is_source_of_truth": true,
+      "artifact_type": "process_plan",
+      "artifact_filename": "process_plan.json",
+      "derived_outputs": [],
+      "rationale": "Process-plan JSON is canonical for downstream use."
+    },
+    "contract": {
+      "layer": "C",
+      "command": "process-plan",
+      "contract_version": "c1",
+      "canonical_artifact_kind": "process_plan",
+      "primary_output": "process_plan.json",
+      "required_inputs": ["config"],
+      "optional_inputs": ["review_pack"],
+      "derived_outputs": [],
+      "notes": [
+        "Process-plan JSON is the machine-readable source of truth for this downstream C output."
+      ]
+    }
+  },
+  "line_plan": {
+    "schema_version": "0.1",
+    "agent": "line_layout_support",
+    "part": {
+      "name": "pcb_mount_plate"
+    },
+    "summary": {
+      "overall_risk_level": "medium"
+    },
+    "station_concept": [
+      { "station_name": "Blank and form" },
+      { "station_name": "Inspection and pack" }
+    ],
+    "cycle_time_assumptions": {
+      "target_ct_sec": 42
+    },
+    "inspection_split": {
+      "in_line_inspection_stations": ["Inspection and pack"],
+      "end_of_line_inspection_stations": ["Inspection and pack"]
+    }
+  },
+  "quality_risk": {
+    "schema_version": "1.0",
+    "artifact_type": "quality_risk",
+    "generated_at": "2026-04-01T00:00:00Z",
+    "agent": "quality_traceability",
+    "part": {
+      "name": "pcb_mount_plate",
+      "revision": "B"
+    },
+    "summary": {
+      "overall_risk_level": "medium"
+    },
+    "critical_dimensions": [
+      { "id": "HOLE_DIA_1", "name": "Hole diameter" }
+    ],
+    "inspection_required_points": [
+      { "checkpoint": "Hole diameter" }
+    ],
+    "traceability_summary": {
+      "serial_level": "lot_and_revision"
+    },
+    "quality_risks": [
+      { "title": "Hole diameter drift risk" },
+      { "title": "Connector datum mix-up risk" }
+    ],
+    "quality_gates": [
+      { "title": "Hole diameter verification" },
+      { "title": "Final visual check" }
+    ],
+    "evidence_pack": {
+      "recommended_artifacts": ["control_plan"]
+    },
+    "warnings": [],
+    "coverage": {
+      "critical_dimension_count": 1,
+      "quality_risk_count": 2,
+      "quality_gate_count": 2,
+      "source_artifact_count": 2
+    },
+    "confidence": {
+      "level": "heuristic",
+      "score": 0.58,
+      "rationale": "Quality-risk output packages rule-based readiness signals for downstream review."
+    },
+    "source_artifact_refs": [
+      {
+        "artifact_type": "config",
+        "path": "configs/examples/pcb_mount_plate.toml",
+        "role": "input",
+        "label": "Input config"
+      },
+      {
+        "artifact_type": "review_pack",
+        "path": "output/pcb_mount_plate_review_pack.json",
+        "role": "optional_input",
+        "label": "Upstream D review pack"
+      }
+    ],
+    "canonical_artifact": {
+      "json_is_source_of_truth": true,
+      "artifact_type": "quality_risk",
+      "artifact_filename": "quality_risk.json",
+      "derived_outputs": [],
+      "rationale": "Quality-risk JSON is canonical for downstream use."
+    },
+    "contract": {
+      "layer": "C",
+      "command": "quality-risk",
+      "contract_version": "c1",
+      "canonical_artifact_kind": "quality_risk",
+      "primary_output": "quality_risk.json",
+      "required_inputs": ["config"],
+      "optional_inputs": ["review_pack"],
+      "derived_outputs": [],
+      "notes": [
+        "Quality-risk JSON remains a downstream readiness artifact and should propagate upstream evidence metadata when available."
+      ]
+    }
+  },
+  "investment_review": {
+    "schema_version": "0.1",
+    "agent": "cost_investment_review",
+    "part": {
+      "name": "pcb_mount_plate"
+    },
+    "summary": {
+      "investment_pressure": "medium"
+    },
+    "cost_breakdown": {
+      "unit_cost": 8.4,
+      "total_cost": 1260
+    },
+    "process_comparison": [
+      { "name": "manual fixture vs semi-auto nest" }
+    ]
+  },
+  "decision_summary": {
+    "go_signals": [
+      "DFM score supports pilot-line planning with standard launch controls."
+    ],
+    "hold_points": [
+      "Runtime-informed review still shows CT instability at one or more launch stations."
+    ],
+    "next_actions": [
+      "Prototype poka-yoke nest",
+      "Use this output as an early decision-support artifact, then refine with real line data."
+    ]
+  },
+  "warnings": [],
+  "coverage": {
+    "required_section_count": 7,
+    "available_section_count": 7,
+    "optional_stabilization_review": false,
+    "process_step_count": 5,
+    "quality_gate_count": 2,
+    "source_artifact_count": 2
+  },
+  "confidence": {
+    "level": "heuristic",
+    "score": 0.52,
+    "rationale": "Readiness report is derived from heuristic planning agents and should be refined with runtime evidence and plant review."
+  },
+  "source_artifact_refs": [
+    {
+      "artifact_type": "config",
+      "path": "configs/examples/pcb_mount_plate.toml",
+      "role": "input",
+      "label": "Input config"
+    },
+    {
+      "artifact_type": "review_pack",
+      "path": "output/pcb_mount_plate_review_pack.json",
+      "role": "optional_input",
+      "label": "Upstream D review pack"
+    }
+  ],
+  "canonical_artifact": {
+    "json_is_source_of_truth": true,
+    "artifact_type": "readiness_report",
+    "artifact_filename": "readiness_report.json",
+    "derived_outputs": [
+      "readiness_markdown",
+      "docs_manifest",
+      "release_bundle_manifest"
+    ],
+    "rationale": "readiness_report.json is the canonical C artifact; downstream docs and bundles derive from it."
+  },
+  "contract": {
+    "layer": "C",
+    "command": "readiness-report",
+    "contract_version": "c1",
+    "canonical_artifact_kind": "readiness_report",
+    "primary_output": "readiness_report.json",
+    "required_inputs": ["config"],
+    "optional_inputs": ["runtime", "review_pack"],
+    "derived_outputs": [
+      "readiness_markdown",
+      "docs_manifest",
+      "release_bundle_manifest"
+    ],
+    "notes": [
+      "readiness_report.json is the canonical C artifact.",
+      "Markdown, checklists, and release packaging must derive from canonical JSON rather than becoming the source of truth."
+    ]
+  },
+  "markdown": "# Production Readiness Report: pcb_mount_plate\n\n- Status: candidate_for_pilot_line_review\n- Composite score: 78\n- Gate decision: candidate_for_pilot_line_review\n"
+}

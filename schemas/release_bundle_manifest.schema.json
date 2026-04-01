@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dooosp.github.io/freecad-automation/schemas/release_bundle_manifest.schema.json",
+  "title": "Canonical Release Bundle Manifest",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "workflow",
+    "generated_at",
+    "warnings",
+    "coverage",
+    "confidence",
+    "source_artifact_refs",
+    "canonical_artifact",
+    "contract",
+    "readiness_report_ref",
+    "bundle_artifacts"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "artifact_type": { "const": "release_bundle_manifest" },
+    "workflow": { "const": "readiness_release_bundle" },
+    "generated_at": { "type": "string" },
+    "warnings": { "$ref": "c_artifact_common.schema.json#/definitions/warningList" },
+    "coverage": { "$ref": "c_artifact_common.schema.json#/definitions/coverageSummary" },
+    "confidence": { "$ref": "c_artifact_common.schema.json#/definitions/confidenceSummary" },
+    "source_artifact_refs": { "$ref": "c_artifact_common.schema.json#/definitions/sourceArtifactRefs" },
+    "canonical_artifact": { "$ref": "c_artifact_common.schema.json#/definitions/canonicalArtifact" },
+    "contract": { "$ref": "c_artifact_common.schema.json#/definitions/commandContract" },
+    "readiness_report_ref": {
+      "allOf": [
+        { "$ref": "c_artifact_common.schema.json#/definitions/sourceArtifactRef" },
+        {
+          "properties": {
+            "artifact_type": { "const": "readiness_report" }
+          }
+        }
+      ]
+    },
+    "docs_manifest_ref": {
+      "allOf": [
+        { "$ref": "c_artifact_common.schema.json#/definitions/sourceArtifactRef" },
+        {
+          "properties": {
+            "artifact_type": { "const": "docs_manifest" }
+          }
+        }
+      ]
+    },
+    "bundle_artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "c_artifact_common.schema.json#/definitions/bundleArtifactEntry"
+      }
+    },
+    "release_notes": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": true
+}

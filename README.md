@@ -632,6 +632,8 @@ The readiness workflow produces a JSON report and a Markdown summary that bundle
 - optional runtime-informed stabilization review
 - decision summary for production engineering discussion
 
+`readiness_report.json` is the canonical C artifact for this flow. Markdown, standard-doc manifests, and any future release-bundle packaging should derive from that JSON contract instead of becoming the primary source of truth.
+
 ## Portfolio Case Study
 
 For a checked-in example that can be reviewed without running the CLI, see:
@@ -798,11 +800,14 @@ This repository does not assume a default WSL -> Windows bridge anymore. If you 
 - [product_review.schema.json](./schemas/product_review.schema.json)
 - [process_plan.schema.json](./schemas/process_plan.schema.json)
 - [line_plan.schema.json](./schemas/line_plan.schema.json)
-- [quality_risk_pack.schema.json](./schemas/quality_risk_pack.schema.json)
+- [quality_risk.schema.json](./schemas/quality_risk.schema.json)
 - [investment_review.schema.json](./schemas/investment_review.schema.json)
 - [readiness_report.schema.json](./schemas/readiness_report.schema.json)
 - [stabilization_review.schema.json](./schemas/stabilization_review.schema.json)
-- [standard_docs_manifest.schema.json](./schemas/standard_docs_manifest.schema.json)
+- [docs_manifest.schema.json](./schemas/docs_manifest.schema.json)
+- [release_bundle_manifest.schema.json](./schemas/release_bundle_manifest.schema.json)
+
+Legacy compatibility aliases remain available at `quality_risk_pack.schema.json` and `standard_docs_manifest.schema.json`.
 
 ## Testing
 
