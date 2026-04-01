@@ -117,7 +117,8 @@ def build_markdown_sections(payload):
     ])
     if quality_hotspots:
         for item in quality_hotspots[:5]:
-            lines.append(f"- {item.get('category')}: score {item.get('score')}")
+            title = item.get("title") or item.get("category")
+            lines.append(f"- {title}: score {item.get('score')}")
     else:
         lines.append("- No recurring quality hotspots captured.")
 
@@ -127,7 +128,13 @@ def build_markdown_sections(payload):
     ])
     if review_priorities:
         for priority in review_priorities[:5]:
-            lines.append(f"- P{priority.get('priority_rank')}: {priority.get('title')} ({priority.get('score')})")
+            breakdown = priority.get("score_breakdown") or {}
+            lines.append(
+                f"- P{priority.get('priority_rank')}: {priority.get('title')} "
+                f"({priority.get('score')}; geometry={breakdown.get('geometry_evidence_score', 0)}, "
+                f"inspection={breakdown.get('inspection_anomaly_score', 0)}, "
+                f"quality={breakdown.get('quality_recurrence_score', 0)})"
+            )
     else:
         lines.append("- No review priorities were generated.")
 
@@ -137,7 +144,8 @@ def build_markdown_sections(payload):
     ])
     if actions:
         for action in actions:
-            lines.append(f"- {action.get('recommended_action')}")
+            target = action.get("target_hotspot_id") or "unassigned hotspot"
+            lines.append(f"- [{target}] {action.get('recommended_action')}")
     else:
         lines.append("- No actions generated.")
 

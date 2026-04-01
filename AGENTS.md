@@ -105,3 +105,12 @@ The final response should include:
 - Do not claim browser automation or manual browser QA unless it actually ran.
 - Prefer fixing small verified issues immediately rather than only reporting them.
 - If no code changes are needed after verification, do not create an empty commit.
+
+## Repo-Local Task Family: D Evidence Linkage
+- For D-series linkage/decision tasks, preserve the additive architecture:
+  - adapters -> geometry -> linkage -> decision -> reporting
+- Keep linkage and decision logic separate.
+- Prefer hotspot-level evidence mapping over category-only aggregation when the task brief requires auditable traceability.
+- Preserve machine-readable JSON artifacts as canonical outputs.
+- Keep ambiguity visible in output fields instead of silently collapsing to a single match.
+- Favor small, focused tests around linkage ambiguity, scoring breakdowns, and false-positive regressions.
