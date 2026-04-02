@@ -120,7 +120,7 @@ Run `fcad check-runtime` before any FreeCAD-backed command on a new machine and 
 | --- | --- | --- |
 | Diagnostics | `check-runtime` | does not require FreeCAD to be present |
 | FreeCAD-backed | `create`, `draw`, `inspect`, `fem`, `tolerance`, `report` | requires a working FreeCAD runtime |
-| Plain-Python / non-FreeCAD | `dfm`, `review`, `process-plan`, `line-plan`, `quality-risk`, `investment-review`, `readiness-report`, `stabilization-review`, `generate-standard-docs`, `ingest`, `quality-link`, `review-pack`, `review-context`, `compare-rev`, `validate`, `validate-config`, `migrate-config`, `serve` | runs without launching FreeCAD |
+| Plain-Python / non-FreeCAD | `dfm`, `review`, `process-plan`, `line-plan`, `quality-risk`, `investment-review`, `readiness-report`, `stabilization-review`, `generate-standard-docs`, `ingest`, `quality-link`, `review-pack`, `review-context`, `compare-rev`, `validate`, `validate-config`, `migrate-config`, `serve` | runs without launching FreeCAD; canonical C2 readiness assembly consumes `review_pack.json` when provided |
 | Mixed / conditional | `analyze-part`, `design`, `sweep` | `analyze-part` can inspect CAD through FreeCAD when needed; `design` ends by calling `create`; `sweep` stays inside the existing `create` / `cost` / `fem` / `report` service wrappers selected by the matrix file |
 
 ### Production-Readiness Commands
@@ -128,12 +128,16 @@ Run `fcad check-runtime` before any FreeCAD-backed command on a new machine and 
 ```bash
 fcad review <config.toml|json>
 fcad process-plan <config.toml|json>
+fcad process-plan --review-pack <review_pack.json>
 fcad line-plan <config.toml|json>
 fcad quality-risk <config.toml|json>
+fcad quality-risk --review-pack <review_pack.json>
 fcad investment-review <config.toml|json>
 fcad readiness-report <config.toml|json>
+fcad readiness-report --review-pack <review_pack.json>
 fcad stabilization-review <config.toml|json> --runtime <runtime.json>
-fcad generate-standard-docs <config.toml|json> [--out-dir <dir>]
+fcad stabilization-review <baseline_readiness_report.json> <candidate_readiness_report.json>
+fcad generate-standard-docs <config.toml|json> [--readiness-report <readiness_report.json>] [--out-dir <dir>]
 ```
 
 `mfg-agent` is also installed as an alias for the same CLI.
@@ -620,6 +624,11 @@ fcad stabilization-review configs/examples/infotainment_display_bracket.toml \
 # 5. Draft production-engineering standard docs
 fcad generate-standard-docs configs/examples/controller_housing_eol.toml \
   --out-dir output/controller_housing_standard_docs
+
+# 6. Draft production-engineering standard docs from a canonical readiness artifact
+fcad generate-standard-docs configs/examples/controller_housing_eol.toml \
+  --readiness-report output/controller_housing_readiness_report.json \
+  --out-dir output/controller_housing_standard_docs
 ```
 
 The readiness workflow produces a JSON report and a Markdown summary that bundle:
@@ -631,6 +640,8 @@ The readiness workflow produces a JSON report and a Markdown summary that bundle
 - cost / investment review
 - optional runtime-informed stabilization review
 - decision summary for production engineering discussion
+
+`readiness_report.json` is the canonical C artifact for this flow. Markdown, standard-doc manifests, and any future release-bundle packaging should derive from that JSON contract instead of becoming the primary source of truth.
 
 ## Portfolio Case Study
 
@@ -798,11 +809,14 @@ This repository does not assume a default WSL -> Windows bridge anymore. If you 
 - [product_review.schema.json](./schemas/product_review.schema.json)
 - [process_plan.schema.json](./schemas/process_plan.schema.json)
 - [line_plan.schema.json](./schemas/line_plan.schema.json)
-- [quality_risk_pack.schema.json](./schemas/quality_risk_pack.schema.json)
+- [quality_risk.schema.json](./schemas/quality_risk.schema.json)
 - [investment_review.schema.json](./schemas/investment_review.schema.json)
 - [readiness_report.schema.json](./schemas/readiness_report.schema.json)
 - [stabilization_review.schema.json](./schemas/stabilization_review.schema.json)
-- [standard_docs_manifest.schema.json](./schemas/standard_docs_manifest.schema.json)
+- [docs_manifest.schema.json](./schemas/docs_manifest.schema.json)
+- [release_bundle_manifest.schema.json](./schemas/release_bundle_manifest.schema.json)
+
+Legacy compatibility aliases remain available at `quality_risk_pack.schema.json` and `standard_docs_manifest.schema.json`.
 
 ## Testing
 

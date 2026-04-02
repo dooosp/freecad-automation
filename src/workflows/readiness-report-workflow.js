@@ -1,6 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 
-import { runPythonJsonScript, writeJsonFile } from '../../lib/context-loader.js';
+import { runPythonJsonScript, writeValidatedCArtifact } from '../../lib/context-loader.js';
 import { createDfmService } from '../services/analysis/dfm-service.js';
 import { createCostService } from '../services/cost/cost-service.js';
 import { loadShopProfile } from '../services/config/profile-service.js';
@@ -287,7 +287,9 @@ export function createReadinessReportWorkflow() {
 export const runReadinessReportWorkflow = createReadinessReportWorkflow();
 
 export async function writeReadinessArtifacts(outputJsonPath, report) {
-  const jsonPath = await writeJsonFile(outputJsonPath, report);
+  const jsonPath = await writeValidatedCArtifact(outputJsonPath, 'readiness_report', report, {
+    command: 'readiness-report',
+  });
   const markdownPath = jsonPath.replace(/\.json$/i, '.md');
   await writeFile(markdownPath, `${report.markdown.trim()}\n`, 'utf8');
   return { json: jsonPath, markdown: markdownPath };

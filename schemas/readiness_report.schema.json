@@ -1,36 +1,80 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://dooosp.github.io/freecad-automation/schemas/readiness_report.schema.json",
-  "title": "Production Readiness Report",
+  "title": "Canonical Production Readiness Report",
   "type": "object",
   "required": [
     "schema_version",
+    "artifact_type",
     "workflow",
     "part",
     "generated_at",
     "readiness_summary",
     "summary",
-    "product_review",
     "process_plan",
-    "line_plan",
     "quality_risk",
-    "investment_review",
-    "decision_summary"
+    "decision_summary",
+    "warnings",
+    "coverage",
+    "confidence",
+    "source_artifact_refs",
+    "canonical_artifact",
+    "contract"
   ],
   "properties": {
-    "schema_version": { "type": "string" },
+    "schema_version": { "const": "1.0" },
+    "artifact_type": { "const": "readiness_report" },
     "workflow": { "const": "production_readiness" },
-    "part": { "type": "object" },
+    "part": { "$ref": "c_artifact_common.schema.json#/definitions/partIdentity" },
     "generated_at": { "type": "string" },
-    "readiness_summary": { "type": "object" },
-    "summary": { "type": "object" },
+    "readiness_summary": {
+      "type": "object",
+      "required": ["status", "score", "gate_decision"],
+      "properties": {
+        "status": { "type": "string" },
+        "score": { "type": "number" },
+        "gate_decision": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "summary": {
+      "type": "object",
+      "required": ["overall_risk_level", "top_issues", "recommended_actions"],
+      "properties": {
+        "overall_risk_level": { "type": "string" },
+        "top_issues": { "type": "array", "items": { "type": "string" } },
+        "recommended_actions": { "type": "array", "items": { "type": "string" } },
+        "likely_bottleneck_candidates": { "type": "array", "items": { "type": "string" } },
+        "likely_automation_candidates": { "type": "array", "items": { "type": "string" } },
+        "launch_stabilization_focus": { "type": "array", "items": { "type": "string" } },
+        "interview_explainer": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "review_pack": { "type": "object" },
     "product_review": { "$ref": "product_review.schema.json" },
     "process_plan": { "$ref": "process_plan.schema.json" },
     "line_plan": { "$ref": "line_plan.schema.json" },
-    "quality_risk": { "$ref": "quality_risk_pack.schema.json" },
+    "quality_risk": { "$ref": "quality_risk.schema.json" },
     "investment_review": { "$ref": "investment_review.schema.json" },
     "stabilization_review": { "$ref": "stabilization_review.schema.json" },
-    "decision_summary": { "type": "object" },
+    "readiness_inputs": { "type": "object" },
+    "decision_summary": {
+      "type": "object",
+      "required": ["go_signals", "hold_points", "next_actions"],
+      "properties": {
+        "go_signals": { "type": "array", "items": { "type": "string" } },
+        "hold_points": { "type": "array", "items": { "type": "string" } },
+        "next_actions": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "warnings": { "$ref": "c_artifact_common.schema.json#/definitions/warningList" },
+    "coverage": { "$ref": "c_artifact_common.schema.json#/definitions/coverageSummary" },
+    "confidence": { "$ref": "c_artifact_common.schema.json#/definitions/confidenceSummary" },
+    "source_artifact_refs": { "$ref": "c_artifact_common.schema.json#/definitions/sourceArtifactRefs" },
+    "canonical_artifact": { "$ref": "c_artifact_common.schema.json#/definitions/canonicalArtifact" },
+    "contract": { "$ref": "c_artifact_common.schema.json#/definitions/commandContract" },
     "markdown": { "type": "string" }
   },
   "additionalProperties": true

@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://dooosp.github.io/freecad-automation/schemas/stabilization_review.schema.json",
-  "title": "Canonical Launch Stabilization Review",
+  "$id": "https://dooosp.github.io/freecad-automation/schemas/quality_risk.schema.json",
+  "title": "Canonical Quality Risk",
   "type": "object",
   "required": [
     "schema_version",
@@ -10,6 +10,8 @@
     "agent",
     "part",
     "summary",
+    "quality_risks",
+    "quality_gates",
     "warnings",
     "coverage",
     "confidence",
@@ -19,9 +21,9 @@
   ],
   "properties": {
     "schema_version": { "const": "1.0" },
-    "artifact_type": { "const": "stabilization_review" },
+    "artifact_type": { "const": "quality_risk" },
     "generated_at": { "type": "string" },
-    "agent": { "const": "stabilization_review" },
+    "agent": { "const": "quality_traceability" },
     "part": { "$ref": "c_artifact_common.schema.json#/definitions/partIdentity" },
     "summary": { "type": "object" },
     "warnings": { "$ref": "c_artifact_common.schema.json#/definitions/warningList" },
@@ -30,19 +32,12 @@
     "source_artifact_refs": { "$ref": "c_artifact_common.schema.json#/definitions/sourceArtifactRefs" },
     "canonical_artifact": { "$ref": "c_artifact_common.schema.json#/definitions/canonicalArtifact" },
     "contract": { "$ref": "c_artifact_common.schema.json#/definitions/commandContract" },
-    "analysis_basis": { "type": "object" },
-    "comparison_basis": { "type": "object" },
-    "baseline": { "type": "object" },
-    "candidate": { "type": "object" },
-    "readiness_deltas": { "type": "object" },
-    "change_reasons": { "type": "array", "items": { "type": "object" } },
-    "recommended_action_changes": { "type": "object" },
-    "warning_changes": { "type": "object" },
-    "station_runtime_review": { "type": "array", "items": { "type": "object" } },
-    "launch_instability_signals": { "type": "array", "items": { "type": "string" } },
-    "likely_root_causes": { "type": "array", "items": { "type": "string" } },
-    "improvement_candidates": { "type": "array", "items": { "type": "string" } },
-    "quality_traceability_watchpoints": { "type": "array", "items": { "type": "string" } }
+    "critical_dimensions": { "type": "array", "items": { "type": "object" } },
+    "inspection_required_points": { "type": "array", "items": { "type": "object" } },
+    "traceability_summary": { "type": "object" },
+    "quality_risks": { "type": "array", "items": { "type": "object" } },
+    "quality_gates": { "type": "array", "items": { "type": "object" } },
+    "evidence_pack": { "type": "object" }
   },
   "additionalProperties": true
 }

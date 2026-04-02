@@ -17,16 +17,23 @@ import {
   validateConfigDocument,
 } from '../lib/config-schema.js';
 import {
+  C_ARTIFACT_SCHEMA_VERSION,
+  assertValidCArtifact,
+  getCCommandContract,
+} from '../lib/c-artifact-schema.js';
+import {
   artifactPathFor,
   deriveArtifactStem,
   readJsonFile,
   readJsonIfExists,
   runPythonJsonScript,
+  writeValidatedCArtifact,
   writeValidatedJsonArtifact,
   writeJsonFile,
 } from '../lib/context-loader.js';
 import {
   ArtifactSchemaValidationError,
+  assertValidDArtifact,
   buildSourceArtifactRef,
   D_ANALYSIS_VERSION,
   D_ARTIFACT_SCHEMA_VERSION,
@@ -58,6 +65,13 @@ import { createReportService } from '../src/api/report.js';
 import { runReviewContextPipeline } from '../src/orchestration/review-context-pipeline.js';
 import { runSweep } from '../src/services/sweep/sweep-service.js';
 import { loadRuleProfile, summarizeRuleProfile } from '../src/services/config/rule-profile-service.js';
+import {
+  buildProcessPlanFromReviewPack,
+  buildQualityRiskFromReviewPack,
+  buildReadinessReportFromReviewPack,
+  buildStabilizationReviewFromReadinessReports,
+  writeCanonicalReadinessArtifacts,
+} from '../src/workflows/canonical-readiness-builders.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(__dirname, '..');
@@ -100,13 +114,14 @@ Usage:
   Plain-Python / non-FreeCAD commands:
     fcad dfm <config.toml|json> [--manifest-out <path>]  Run DFM manufacturability analysis
     fcad review <config.toml|json>
-    fcad process-plan <config.toml|json>
+    fcad process-plan <config.toml|json> [--review-pack <review_pack.json>]
     fcad line-plan <config.toml|json>
-    fcad quality-risk <config.toml|json>
+    fcad quality-risk <config.toml|json> [--review-pack <review_pack.json>]
     fcad investment-review <config.toml|json>
-    fcad readiness-report <config.toml|json>
+    fcad readiness-report <config.toml|json> [--review-pack <review_pack.json>] [--process-plan <process_plan.json>] [--quality-risk <quality_risk.json>]
     fcad stabilization-review <config.toml|json> --runtime <runtime.json>
-    fcad generate-standard-docs <config.toml|json> [--out-dir <dir>]
+    fcad stabilization-review <baseline_readiness_report.json> <candidate_readiness_report.json>
+    fcad generate-standard-docs <config.toml|json> [--readiness-report <readiness_report.json>] [--out-dir <dir>]
     fcad ingest --model <file> [--bom bom.csv] [--inspection insp.csv] [--quality ncr.csv] --out <context.json>
     fcad quality-link --context <context.json> --geometry <geometry.json>
     fcad review-pack --context <context.json> --geometry <geometry.json>
@@ -163,9 +178,10 @@ Examples:
   fcad draw configs/examples/ks_bracket.toml --bom
   fcad inspect output/ks_bracket.step --manifest-out output/ks_bracket_inspect_manifest.json
   fcad review configs/examples/infotainment_display_bracket.toml
-  fcad readiness-report configs/examples/pcb_mount_plate.toml --out output/pcb_mount_plate_readiness.json
-  fcad stabilization-review configs/examples/infotainment_display_bracket.toml --runtime data/runtime_examples/display_bracket_runtime.json --profile configs/profiles/site_korea_ulsan.toml
+  fcad readiness-report --review-pack tests/fixtures/d-artifacts/sample_review_pack.canonical.json --out output/sample_readiness_report.json
+  fcad stabilization-review output/rev_a_readiness_report.json output/rev_b_readiness_report.json --out output/readiness_delta.json
   fcad generate-standard-docs configs/examples/controller_housing_eol.toml --out-dir output/controller_housing_standard_docs
+  fcad generate-standard-docs configs/examples/controller_housing_eol.toml --readiness-report output/controller_housing_readiness_report.json --out-dir output/controller_housing_standard_docs
   fcad review-context --model tests/fixtures/sample_part.step --bom tests/fixtures/sample_bom.csv --inspection tests/fixtures/sample_inspection.csv --quality tests/fixtures/sample_quality.csv --out output/sample_review_pack.json
   fcad sweep configs/examples/ks_bracket.toml --matrix configs/examples/sweeps/ks_bracket_geometry_sweep.toml
 
@@ -432,6 +448,39 @@ function resolveConfigCommandInput(rawArgs = []) {
   return { configPath, options, outputPath, outDir, stem };
 }
 
+function resolveReadinessBuilderInput(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  const configPath = resolveMaybe(positional[0]);
+  const reviewPackPath = resolveMaybe(options['review-pack']);
+  const outputPath = normalizeJsonOutputPath(options.out);
+  const outDir = buildDefaultOutputDir(outputPath || options['out-dir']);
+  const stem = deriveArtifactStem(outputPath || reviewPackPath || configPath || 'readiness_output', 'readiness_output');
+  return { positional, options, configPath, reviewPackPath, outputPath, outDir, stem };
+}
+
+async function loadCanonicalReviewPackInput(rawArgs = [], command) {
+  const input = resolveReadinessBuilderInput(rawArgs);
+  if (!input.reviewPackPath) return null;
+
+  requireExistingInputFile('review-pack', input.reviewPackPath);
+  const reviewPack = await readJsonFile(input.reviewPackPath);
+  assertValidDArtifact('review_pack', reviewPack, {
+    command,
+    path: input.reviewPackPath,
+  });
+  return { ...input, reviewPack };
+}
+
+async function loadCanonicalCArtifact(kind, filePath, command, label) {
+  requireExistingInputFile(label, filePath);
+  const artifact = await readJsonFile(filePath);
+  assertValidCArtifact(kind, artifact, {
+    command,
+    path: filePath,
+  });
+  return artifact;
+}
+
 function emitConfigWarnings(summary) {
   for (const warning of summary?.warnings || []) {
     console.warn(`Warning: ${warning}`);
@@ -695,6 +744,202 @@ async function loadRuntimeData(options = {}) {
   return readJsonFile(runtimePath);
 }
 
+function uniqueStrings(values = []) {
+  return [...new Set(
+    values
+      .filter((value) => typeof value === 'string' && value.trim())
+      .map((value) => value.trim())
+  )];
+}
+
+function mergeSourceArtifactRefs(primary = [], secondary = []) {
+  const merged = [];
+  const seen = new Set();
+  for (const ref of [...primary, ...secondary]) {
+    if (!ref?.artifact_type || !ref?.role) continue;
+    const key = `${ref.artifact_type}|${ref.path || ''}|${ref.role}|${ref.label || ''}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push({
+      artifact_type: ref.artifact_type,
+      path: ref.path || null,
+      role: ref.role,
+      label: ref.label || null,
+    });
+  }
+  return merged;
+}
+
+function buildCSourceArtifactRefs({ configPath = null, runtimePath = null } = {}) {
+  return [
+    configPath ? buildSourceArtifactRef('config', configPath, 'input', 'Input config') : null,
+    runtimePath ? buildSourceArtifactRef('runtime', runtimePath, 'input', 'Runtime JSON') : null,
+  ].filter(Boolean);
+}
+
+function buildCanonicalArtifactDescriptor(kind, contract = null) {
+  return {
+    json_is_source_of_truth: true,
+    artifact_type: kind,
+    artifact_filename: contract?.primary_output || `${kind}.json`,
+    derived_outputs: contract?.derived_outputs || [],
+    rationale: kind === 'readiness_report'
+      ? 'readiness_report.json is the canonical C artifact; downstream docs and bundles derive from it.'
+      : 'This JSON artifact is the canonical machine-readable source for the downstream C output.',
+  };
+}
+
+function buildProcessPlanCoverage(processPlan = {}, sourceArtifactCount = 0) {
+  return {
+    process_step_count: (processPlan.process_flow || []).length,
+    key_inspection_point_count: (processPlan.key_inspection_points || []).length,
+    automation_candidate_count: (processPlan.automation_candidates || []).length,
+    source_artifact_count: sourceArtifactCount,
+  };
+}
+
+function buildQualityRiskCoverage(qualityRisk = {}, sourceArtifactCount = 0) {
+  return {
+    critical_dimension_count: (qualityRisk.critical_dimensions || []).length,
+    quality_risk_count: (qualityRisk.quality_risks || []).length,
+    quality_gate_count: (qualityRisk.quality_gates || []).length,
+    source_artifact_count: sourceArtifactCount,
+  };
+}
+
+function buildStabilizationCoverage(stabilizationReview = {}, sourceArtifactCount = 0) {
+  const runtimeSummary = stabilizationReview.analysis_basis?.runtime_summary || {};
+  return {
+    station_runtime_review_count: (stabilizationReview.station_runtime_review || []).length,
+    runtime_station_count: runtimeSummary.runtime_station_count || 0,
+    stations_over_target_count: (runtimeSummary.stations_over_target || []).length,
+    runtime_informed: Boolean(runtimeSummary.runtime_informed),
+    source_artifact_count: sourceArtifactCount,
+  };
+}
+
+function buildReadinessCoverage(report = {}, sourceArtifactCount = 0) {
+  return {
+    required_section_count: 7,
+    available_section_count: [
+      report.product_review,
+      report.process_plan,
+      report.line_plan,
+      report.quality_risk,
+      report.investment_review,
+      report.summary,
+      report.decision_summary,
+    ].filter(Boolean).length,
+    optional_stabilization_review: Boolean(report.stabilization_review),
+    process_step_count: (report.process_plan?.process_flow || []).length,
+    quality_gate_count: (report.quality_risk?.quality_gates || []).length,
+    source_artifact_count: sourceArtifactCount,
+  };
+}
+
+function withCArtifactEnvelope(payload, {
+  kind,
+  command,
+  generatedAt,
+  warnings = [],
+  coverage = {},
+  confidence,
+  sourceArtifactRefs = [],
+}) {
+  const contract = getCCommandContract(command);
+  return {
+    ...payload,
+    schema_version: C_ARTIFACT_SCHEMA_VERSION,
+    artifact_type: kind,
+    generated_at: payload.generated_at || generatedAt,
+    warnings: uniqueStrings([...(payload.warnings || []), ...warnings]),
+    coverage: payload.coverage || coverage,
+    confidence: payload.confidence || confidence,
+    source_artifact_refs: mergeSourceArtifactRefs(payload.source_artifact_refs || [], sourceArtifactRefs),
+    canonical_artifact: payload.canonical_artifact || buildCanonicalArtifactDescriptor(kind, contract),
+    contract: payload.contract || contract,
+  };
+}
+
+function annotateReadinessArtifacts(report, {
+  configPath = null,
+  runtimePath = null,
+  configWarnings = [],
+} = {}) {
+  const sourceArtifactRefs = buildCSourceArtifactRefs({ configPath, runtimePath });
+  const generatedAt = report.generated_at || nowIso();
+  const sharedWarnings = uniqueStrings(configWarnings);
+  const sourceArtifactCount = sourceArtifactRefs.length;
+
+  report.process_plan = withCArtifactEnvelope(report.process_plan, {
+    kind: 'process_plan',
+    command: 'process-plan',
+    generatedAt,
+    warnings: sharedWarnings,
+    coverage: buildProcessPlanCoverage(report.process_plan, sourceArtifactCount),
+    confidence: {
+      level: 'heuristic',
+      score: 0.56,
+      rationale: 'Process plan is derived from config, DFM, and heuristics and still requires site-specific engineering validation.',
+    },
+    sourceArtifactRefs,
+  });
+
+  report.quality_risk = withCArtifactEnvelope(report.quality_risk, {
+    kind: 'quality_risk',
+    command: 'quality-risk',
+    generatedAt,
+    warnings: sharedWarnings,
+    coverage: buildQualityRiskCoverage(report.quality_risk, sourceArtifactCount),
+    confidence: {
+      level: 'heuristic',
+      score: 0.58,
+      rationale: 'Quality-risk output packages rule-based readiness signals and should be validated against plant quality systems.',
+    },
+    sourceArtifactRefs,
+  });
+
+  if (report.stabilization_review) {
+    const runtimeInformed = Boolean(report.stabilization_review.analysis_basis?.runtime_summary?.runtime_informed);
+    report.stabilization_review = withCArtifactEnvelope(report.stabilization_review, {
+      kind: 'stabilization_review',
+      command: 'stabilization-review',
+      generatedAt,
+      warnings: sharedWarnings,
+      coverage: buildStabilizationCoverage(report.stabilization_review, sourceArtifactCount),
+      confidence: {
+        level: runtimeInformed ? 'medium' : 'heuristic',
+        score: runtimeInformed ? 0.7 : 0.46,
+        rationale: runtimeInformed
+          ? 'Stabilization review combines supplied runtime data with heuristic bottleneck interpretation.'
+          : 'Without runtime data, stabilization review remains a heuristic-only readiness aid.',
+      },
+      sourceArtifactRefs,
+    });
+  }
+
+  return withCArtifactEnvelope(report, {
+    kind: 'readiness_report',
+    command: 'readiness-report',
+    generatedAt,
+    warnings: uniqueStrings([
+      ...sharedWarnings,
+      ...(report.process_plan?.warnings || []),
+      ...(report.quality_risk?.warnings || []),
+      ...(report.stabilization_review?.warnings || []),
+    ]),
+    coverage: buildReadinessCoverage(report, sourceArtifactCount),
+    confidence: {
+      level: report.stabilization_review?.analysis_basis?.runtime_summary?.runtime_informed ? 'medium' : 'heuristic',
+      score: report.stabilization_review?.analysis_basis?.runtime_summary?.runtime_informed ? 0.68 : 0.52,
+      rationale: report.stabilization_review?.analysis_basis?.runtime_summary?.runtime_informed
+        ? 'Readiness report packages heuristic planning outputs with supplied runtime-informed stabilization signals.'
+        : 'Readiness report is derived from heuristic planning agents and should be refined with runtime evidence and plant review.',
+    },
+    sourceArtifactRefs,
+  });
+}
+
 async function runProductionReadiness(rawArgs = [], { persistArtifacts = true } = {}) {
   const { configPath, options, outputPath, outDir, stem } = resolveConfigCommandInput(rawArgs);
   if (!configPath) {
@@ -705,7 +950,7 @@ async function runProductionReadiness(rawArgs = [], { persistArtifacts = true } 
   const configDocument = await loadConfigDocumentForCli(configPath);
   const config = configDocument.config;
   const runtimeData = await loadRuntimeData(options);
-  const report = await runReadinessReportWorkflow({
+  let report = await runReadinessReportWorkflow({
     freecadRoot: PROJECT_ROOT,
     runScript: runWithCliStderr,
     loadConfig: loadConfigForCli,
@@ -720,6 +965,11 @@ async function runProductionReadiness(rawArgs = [], { persistArtifacts = true } 
       runtimeData,
       onStderr: (text) => process.stderr.write(text),
     },
+  });
+  report = annotateReadinessArtifacts(report, {
+    configPath,
+    runtimePath: resolveMaybe(options.runtime),
+    configWarnings: configDocument.summary?.warnings || [],
   });
 
   const resolvedOutputPath = outputPath || artifactPathFor(outDir, stem, '_readiness_report.json');
@@ -741,7 +991,10 @@ async function runProductionReadiness(rawArgs = [], { persistArtifacts = true } 
 
 async function writeAgentArtifact(outputPath, fallbackDir, stem, suffix, payload) {
   const targetPath = outputPath || artifactPathFor(fallbackDir, stem, suffix);
-  const jsonPath = await writeJsonFile(targetPath, payload);
+  const kind = payload?.artifact_type || null;
+  const jsonPath = kind
+    ? await writeValidatedCArtifact(targetPath, kind, payload, { command: payload.contract?.command || undefined })
+    : await writeJsonFile(targetPath, payload);
   return { json: jsonPath };
 }
 
@@ -773,6 +1026,37 @@ async function cmdProductionReview(rawArgs = []) {
 }
 
 async function cmdProcessPlan(rawArgs = []) {
+  const reviewPackInput = await loadCanonicalReviewPackInput(rawArgs, 'process-plan');
+  if (reviewPackInput) {
+    const payload = buildProcessPlanFromReviewPack({
+      reviewPack: reviewPackInput.reviewPack,
+      reviewPackPath: reviewPackInput.reviewPackPath,
+    });
+    const artifacts = await writeAgentArtifact(
+      reviewPackInput.outputPath,
+      reviewPackInput.outDir,
+      reviewPackInput.stem,
+      '_process_plan.json',
+      payload
+    );
+    const manifestPath = await writeCliManifest({
+      command: 'process-plan',
+      primaryOutputPath: artifacts.json,
+      artifacts: [
+        createArtifactEntry('review.process-plan.json', artifacts.json, { label: 'Process plan JSON' }),
+        createArtifactEntry('input.review-pack', reviewPackInput.reviewPackPath, {
+          label: 'Review pack JSON',
+          scope: 'internal',
+        }),
+      ],
+    });
+    console.log(`Process plan: ${artifacts.json}`);
+    console.log(`Manifest: ${manifestPath}`);
+    console.log(`  Steps: ${payload.process_flow.length}`);
+    console.log(`  Source: ${reviewPackInput.reviewPackPath}`);
+    return;
+  }
+
   const { outputPath, outDir, stem } = resolveConfigCommandInput(rawArgs);
   const {
     report,
@@ -825,6 +1109,37 @@ async function cmdLinePlan(rawArgs = []) {
 }
 
 async function cmdQualityRisk(rawArgs = []) {
+  const reviewPackInput = await loadCanonicalReviewPackInput(rawArgs, 'quality-risk');
+  if (reviewPackInput) {
+    const payload = buildQualityRiskFromReviewPack({
+      reviewPack: reviewPackInput.reviewPack,
+      reviewPackPath: reviewPackInput.reviewPackPath,
+    });
+    const artifacts = await writeAgentArtifact(
+      reviewPackInput.outputPath,
+      reviewPackInput.outDir,
+      reviewPackInput.stem,
+      '_quality_risk.json',
+      payload
+    );
+    const manifestPath = await writeCliManifest({
+      command: 'quality-risk',
+      primaryOutputPath: artifacts.json,
+      artifacts: [
+        createArtifactEntry('review.quality-risk.json', artifacts.json, { label: 'Quality risk JSON' }),
+        createArtifactEntry('input.review-pack', reviewPackInput.reviewPackPath, {
+          label: 'Review pack JSON',
+          scope: 'internal',
+        }),
+      ],
+    });
+    console.log(`Quality / traceability pack: ${artifacts.json}`);
+    console.log(`Manifest: ${manifestPath}`);
+    console.log(`  Critical dimensions: ${payload.critical_dimensions.length}`);
+    console.log(`  Source: ${reviewPackInput.reviewPackPath}`);
+    return;
+  }
+
   const { outputPath, outDir, stem } = resolveConfigCommandInput(rawArgs);
   const {
     report,
@@ -877,6 +1192,58 @@ async function cmdInvestmentReview(rawArgs = []) {
 }
 
 async function cmdReadinessReport(rawArgs = []) {
+  const reviewPackInput = await loadCanonicalReviewPackInput(rawArgs, 'readiness-report');
+  if (reviewPackInput) {
+    const processPlanPath = resolveMaybe(reviewPackInput.options['process-plan']);
+    const qualityRiskPath = resolveMaybe(reviewPackInput.options['quality-risk']);
+    const processPlan = processPlanPath
+      ? await loadCanonicalCArtifact('process_plan', processPlanPath, 'readiness-report', 'process-plan')
+      : null;
+    const qualityRisk = qualityRiskPath
+      ? await loadCanonicalCArtifact('quality_risk', qualityRiskPath, 'readiness-report', 'quality-risk')
+      : null;
+
+    const report = buildReadinessReportFromReviewPack({
+      reviewPack: reviewPackInput.reviewPack,
+      reviewPackPath: reviewPackInput.reviewPackPath,
+      processPlan,
+      qualityRisk,
+    });
+    const outputPath = reviewPackInput.outputPath || artifactPathFor(
+      reviewPackInput.outDir,
+      reviewPackInput.stem,
+      '_readiness_report.json'
+    );
+    const artifacts = await writeCanonicalReadinessArtifacts(outputPath, report);
+    const manifestPath = await writeCliManifest({
+      command: 'readiness-report',
+      primaryOutputPath: artifacts.json,
+      artifacts: [
+        createArtifactEntry('review.readiness.json', artifacts.json, { label: 'Readiness report JSON' }),
+        createArtifactEntry('review.readiness.markdown', artifacts.markdown, { label: 'Readiness report Markdown' }),
+        createArtifactEntry('input.review-pack', reviewPackInput.reviewPackPath, {
+          label: 'Review pack JSON',
+          scope: 'internal',
+        }),
+        ...(processPlanPath ? [createArtifactEntry('input.process-plan', processPlanPath, {
+          label: 'Process plan JSON',
+          scope: 'internal',
+        })] : []),
+        ...(qualityRiskPath ? [createArtifactEntry('input.quality-risk', qualityRiskPath, {
+          label: 'Quality risk JSON',
+          scope: 'internal',
+        })] : []),
+      ],
+    });
+    console.log(`Readiness report JSON: ${artifacts.json}`);
+    console.log(`Readiness report Markdown: ${artifacts.markdown}`);
+    console.log(`Manifest: ${manifestPath}`);
+    console.log(`  Status: ${report.readiness_summary.status}`);
+    console.log(`  Score: ${report.readiness_summary.score}`);
+    console.log(`  Source: ${reviewPackInput.reviewPackPath}`);
+    return;
+  }
+
   const {
     report,
     artifacts,
@@ -905,11 +1272,60 @@ async function cmdReadinessReport(rawArgs = []) {
 }
 
 async function cmdStabilizationReview(rawArgs = []) {
-  const { options, outputPath, outDir, stem } = resolveConfigCommandInput(rawArgs);
+  const { positional, options } = parseCliArgs(rawArgs);
   if (!options.runtime) {
-    console.error('Error: stabilization-review requires --runtime <runtime.json>');
-    process.exit(1);
+    const baselinePath = resolveMaybe(options.baseline || positional[0]);
+    const candidatePath = resolveMaybe(options.candidate || positional[1]);
+    if (!baselinePath || !candidatePath) {
+      console.error('Error: stabilization-review requires either --runtime <runtime.json> with a config input or two readiness-report JSON inputs.');
+      process.exit(1);
+    }
+
+    const baselineReport = await loadCanonicalCArtifact(
+      'readiness_report',
+      baselinePath,
+      'stabilization-review',
+      'baseline readiness report'
+    );
+    const candidateReport = await loadCanonicalCArtifact(
+      'readiness_report',
+      candidatePath,
+      'stabilization-review',
+      'candidate readiness report'
+    );
+    const outputPath = normalizeJsonOutputPath(options.out);
+    const outDir = buildDefaultOutputDir(outputPath || options['out-dir']);
+    const stem = deriveArtifactStem(outputPath || candidatePath || baselinePath || 'stabilization_review', 'stabilization_review');
+    const payload = buildStabilizationReviewFromReadinessReports({
+      baselineReport,
+      candidateReport,
+      baselinePath,
+      candidatePath,
+    });
+    const artifacts = await writeAgentArtifact(outputPath, outDir, stem, '_stabilization_review.json', payload);
+    const manifestPath = await writeCliManifest({
+      command: 'stabilization-review',
+      primaryOutputPath: artifacts.json,
+      artifacts: [
+        createArtifactEntry('review.stabilization.json', artifacts.json, { label: 'Stabilization review JSON' }),
+        createArtifactEntry('input.readiness.baseline', baselinePath, {
+          label: 'Baseline readiness report JSON',
+          scope: 'internal',
+        }),
+        createArtifactEntry('input.readiness.candidate', candidatePath, {
+          label: 'Candidate readiness report JSON',
+          scope: 'internal',
+        }),
+      ],
+    });
+    console.log(`Stabilization review: ${artifacts.json}`);
+    console.log(`Manifest: ${manifestPath}`);
+    console.log(`  Status change: ${payload.summary.status_change}`);
+    console.log(`  Score delta: ${payload.summary.readiness_score_delta}`);
+    return;
   }
+
+  const { outputPath, outDir, stem } = resolveConfigCommandInput(rawArgs);
 
   const {
     report,
@@ -954,6 +1370,18 @@ async function cmdGenerateStandardDocs(rawArgs = []) {
   const configDocument = await loadConfigDocumentForCli(configPath);
   const config = configDocument.config;
   const runtimeData = await loadRuntimeData(options);
+  const readinessReportPath = resolveMaybe(options['readiness-report']);
+  let readinessReport = readinessReportPath
+    ? await loadCanonicalCArtifact(
+        'readiness_report',
+        readinessReportPath,
+        'generate-standard-docs',
+        'readiness-report'
+      )
+    : null;
+  if (!readinessReport) {
+    ({ report: readinessReport } = await runProductionReadiness(rawArgs, { persistArtifacts: false }));
+  }
   const result = await runStandardDocsWorkflow({
     freecadRoot: PROJECT_ROOT,
     runScript: runWithCliStderr,
@@ -968,6 +1396,8 @@ async function cmdGenerateStandardDocs(rawArgs = []) {
       site: options.site || null,
       runtimeData,
       outDir: resolveMaybe(options['out-dir']),
+      report: readinessReport,
+      reportPath: readinessReportPath,
       onStderr: (text) => process.stderr.write(text),
     },
   });
@@ -983,14 +1413,24 @@ async function cmdGenerateStandardDocs(rawArgs = []) {
     config,
     profileName: options.profile || null,
     outputDir: result.out_dir,
-    artifacts: Object.entries(result.artifacts).map(([filename, filePath]) => createArtifactEntry(
-      filename === 'manifest' ? 'standard-docs.summary' : `standard-docs.${filename}`,
-      filePath,
-      {
-        label: filename,
-        stability: filename === 'manifest' ? 'best-effort' : 'stable',
-      }
-    )),
+    artifacts: [
+      ...Object.entries(result.artifacts).map(([filename, filePath]) => createArtifactEntry(
+        filename === 'manifest' ? 'standard-docs.summary' : `standard-docs.${filename}`,
+        filePath,
+        {
+          label: filename,
+          stability: filename === 'manifest' ? 'best-effort' : 'stable',
+        }
+      )),
+      ...(result.readiness_report_path ? [createArtifactEntry(
+        'input.readiness-report',
+        result.readiness_report_path,
+        {
+          label: 'Canonical readiness report JSON',
+          scope: 'internal',
+        }
+      )] : []),
+    ],
   });
   console.log(`Manifest: ${manifestPath}`);
 }
