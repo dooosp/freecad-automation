@@ -187,7 +187,7 @@ Examples:
   fcad readiness-report configs/examples/pcb_mount_plate.toml --out output/pcb_mount_plate_readiness_report.json
   fcad pack --readiness output/sample_readiness_report.json --out output/release_bundle.zip
   fcad stabilization-review output/rev_a_readiness_report.json output/rev_b_readiness_report.json --out output/readiness_delta.json
-  fcad generate-standard-docs configs/examples/controller_housing_eol.toml --review-pack tests/fixtures/d-artifacts/sample_review_pack.canonical.json --out-dir output/controller_housing_standard_docs
+  fcad generate-standard-docs configs/examples/pcb_mount_plate.toml --review-pack output/pcb_mount_plate_review_pack.json --out-dir output/pcb_mount_plate_standard_docs
   fcad generate-standard-docs configs/examples/controller_housing_eol.toml --readiness-report output/controller_housing_readiness_report.json --out-dir output/controller_housing_standard_docs
   fcad review-context --model tests/fixtures/sample_part.step --bom tests/fixtures/sample_bom.csv --inspection tests/fixtures/sample_inspection.csv --quality tests/fixtures/sample_quality.csv --out output/sample_review_pack.json
   fcad sweep configs/examples/ks_bracket.toml --matrix configs/examples/sweeps/ks_bracket_geometry_sweep.toml

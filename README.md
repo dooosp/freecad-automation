@@ -628,15 +628,15 @@ fcad stabilization-review configs/examples/infotainment_display_bracket.toml \
 fcad readiness-pack --review-pack output/infotainment_display_bracket_review_pack.json \
   --out output/infotainment_display_bracket_readiness_report.json
 
-# 6. Draft production-engineering standard docs from a canonical review-pack-backed route
-fcad generate-standard-docs configs/examples/controller_housing_eol.toml \
-  --review-pack output/infotainment_display_bracket_review_pack.json \
-  --out-dir output/controller_housing_standard_docs
-
-# 7. Draft production-engineering standard docs from an explicit readiness artifact
+# 6. Draft production-engineering standard docs from an explicit readiness artifact
 fcad generate-standard-docs configs/examples/controller_housing_eol.toml \
   --readiness-report output/controller_housing_readiness_report.json \
   --out-dir output/controller_housing_standard_docs
+
+# 7. Draft production-engineering standard docs from a matching canonical review-pack-backed route
+fcad generate-standard-docs <matching_config.toml|json> \
+  --review-pack <review_pack.json> \
+  --out-dir output/standard_docs
 
 # 8. Portable release bundle from canonical readiness JSON
 fcad pack --readiness output/controller_housing_readiness_report.json \
@@ -654,7 +654,7 @@ The canonical readiness workflow produces a JSON report and a Markdown summary t
 - optional runtime-informed stabilization review
 - decision summary for production engineering discussion
 
-`readiness_report.json` is the canonical C artifact for this flow. Markdown, standard-doc manifests, and release-bundle packaging derive from that JSON contract instead of becoming the primary source of truth. The older `readiness-report <config>` route remains in the CLI as legacy compatibility and should not be used to describe canonical D-backed provenance.
+`readiness_report.json` is the canonical C artifact for this flow. Markdown, standard-doc manifests, and release-bundle packaging derive from that JSON contract instead of becoming the primary source of truth. The older `readiness-report <config>` route remains in the CLI as legacy compatibility and should not be used to describe canonical D-backed provenance. `generate-standard-docs` also requires the supplied config and readiness lineage to describe the same part/revision before it will render downstream docs.
 
 ## Portfolio Case Study
 

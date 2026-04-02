@@ -213,13 +213,23 @@ def test_electronics_assembly_example_surfaces_process_line_and_quality_signals(
 
 def test_generate_standard_docs_creates_expected_files(tmp_path):
     out_dir = tmp_path / "standard_docs"
+    readiness_path = tmp_path / "controller_readiness.json"
+
+    run_cli(
+        [
+            "readiness-report",
+            str(EXAMPLES / "controller_housing_eol.toml"),
+            "--out",
+            str(readiness_path),
+        ]
+    )
 
     run_cli(
         [
             "generate-standard-docs",
             str(EXAMPLES / "controller_housing_eol.toml"),
-            "--review-pack",
-            str(REVIEW_PACK_FIXTURE),
+            "--readiness-report",
+            str(readiness_path),
             "--out-dir",
             str(out_dir),
         ]
@@ -231,7 +241,6 @@ def test_generate_standard_docs_creates_expected_files(tmp_path):
         "inspection_checksheet_draft.csv",
         "work_instruction_draft.md",
         "pfmea_seed.csv",
-        "readiness_report.json",
         "standard_docs_manifest.json",
     ]
     for filename in expected_files:
@@ -315,6 +324,26 @@ def test_generate_standard_docs_requires_explicit_canonical_readiness_input(tmp_
     combined_output = f"{completed.stdout}\n{completed.stderr}"
     assert "requires either --readiness-report" in combined_output
     assert "will not synthesize canonical readiness from config-only inputs" in combined_output
+
+
+def test_generate_standard_docs_rejects_mismatched_config_and_review_pack(tmp_path):
+    out_dir = tmp_path / "docs_mismatched_review_pack"
+
+    completed = run_cli(
+        [
+            "generate-standard-docs",
+            str(EXAMPLES / "controller_housing_eol.toml"),
+            "--review-pack",
+            str(REVIEW_PACK_FIXTURE),
+            "--out-dir",
+            str(out_dir),
+        ],
+        check=False,
+    )
+
+    assert completed.returncode != 0
+    combined_output = f"{completed.stdout}\n{completed.stderr}"
+    assert "does not match readiness report lineage" in combined_output
 
 
 def test_checked_in_case_study_artifacts_exist_and_are_consistent():

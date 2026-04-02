@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 import { getCCommandContract } from '../../lib/c-artifact-schema.js';
 import { writeValidatedCArtifact } from '../../lib/context-loader.js';
 import { buildSourceArtifactRef } from '../../lib/d-artifact-schema.js';
+import { getPartIdentity } from '../agents/common.js';
 import { createStandardDocTemplateService } from '../services/report/standard-doc-template-service.js';
 import { loadShopProfile } from '../services/config/profile-service.js';
 import { loadRuleProfile, summarizeRuleProfile } from '../services/config/rule-profile-service.js';
@@ -40,6 +41,72 @@ function mergeSourceArtifactRefs(primary = [], secondary = []) {
   return merged;
 }
 
+function firstDefined(...values) {
+  return values.find((value) => value !== undefined && value !== null && value !== '');
+}
+
+function deriveConfigLineageIdentity(config = {}) {
+  const part = getPartIdentity(config);
+  return {
+    part_id: firstDefined(config.part?.part_id, config.product?.part_id, config.product?.id, null),
+    name: part.name || null,
+    revision: part.revision || null,
+  };
+}
+
+function deriveReadinessLineageIdentity(report = {}) {
+  const part = report?.part || {};
+  return {
+    part_id: part.part_id || report?.part_id || null,
+    name: part.name || null,
+    revision: part.revision || report?.revision || null,
+  };
+}
+
+function describeLineageIdentity(identity = {}) {
+  const segments = [];
+  if (identity.part_id) segments.push(`part_id=${identity.part_id}`);
+  if (identity.name) segments.push(`name=${identity.name}`);
+  if (identity.revision) segments.push(`revision=${identity.revision}`);
+  return segments.join(', ') || 'unknown identity';
+}
+
+function collectLineageMismatches(configIdentity, readinessIdentity) {
+  const mismatches = [];
+  if (configIdentity.part_id && readinessIdentity.part_id && configIdentity.part_id !== readinessIdentity.part_id) {
+    mismatches.push(`part_id mismatch (${configIdentity.part_id} != ${readinessIdentity.part_id})`);
+  }
+  if (configIdentity.name && readinessIdentity.name && configIdentity.name !== readinessIdentity.name) {
+    mismatches.push(`name mismatch (${configIdentity.name} != ${readinessIdentity.name})`);
+  }
+  if (configIdentity.revision && readinessIdentity.revision && configIdentity.revision !== readinessIdentity.revision) {
+    mismatches.push(`revision mismatch (${configIdentity.revision} != ${readinessIdentity.revision})`);
+  }
+  return mismatches;
+}
+
+function summarizeConfigRefs(report = {}) {
+  const configRefs = (report.source_artifact_refs || [])
+    .filter((ref) => ref?.artifact_type === 'config' && typeof ref.path === 'string' && ref.path.trim())
+    .map((ref) => ref.path);
+  return uniqueStrings(configRefs);
+}
+
+function assertConfigMatchesReadinessLineage(config, report, { configPath = null } = {}) {
+  const configIdentity = deriveConfigLineageIdentity(config);
+  const readinessIdentity = deriveReadinessLineageIdentity(report);
+  const mismatches = collectLineageMismatches(configIdentity, readinessIdentity);
+  if (mismatches.length === 0) return;
+
+  const referencedConfigPaths = summarizeConfigRefs(report);
+  const reportConfigNote = referencedConfigPaths.length > 0
+    ? ` readiness_report source config refs: ${referencedConfigPaths.join(', ')}.`
+    : '';
+  throw new Error(
+    `generate-standard-docs config does not match readiness report lineage (${describeLineageIdentity(configIdentity)} vs ${describeLineageIdentity(readinessIdentity)}): ${mismatches.join('; ')}.${configPath ? ` input config: ${configPath}.` : ''}${reportConfigNote}`
+  );
+}
+
 export function createStandardDocsWorkflow() {
   const generateStandardDocs = createStandardDocTemplateService();
 
@@ -62,6 +129,7 @@ export function createStandardDocsWorkflow() {
       config: loadedConfig,
       options,
     });
+    assertConfigMatchesReadinessLineage(loadedConfig, report, { configPath });
     const defaultDir = resolve(freecadRoot, 'output', `${report.part?.name || 'part'}_standard_docs`);
     const outDir = resolve(options.outDir || defaultDir);
     await mkdir(outDir, { recursive: true });

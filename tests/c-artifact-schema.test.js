@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -20,6 +20,18 @@ function runCli(args) {
     cwd: ROOT,
     encoding: 'utf8',
   });
+}
+
+function writeAlignedConfig(filePath, {
+  templatePath = join(ROOT, 'configs', 'examples', 'controller_housing_eol.toml'),
+  name,
+  revision,
+} = {}) {
+  const template = readFileSync(templatePath, 'utf8');
+  const next = template
+    .replace(/^name = ".*"$/m, `name = "${name}"`)
+    .replace(/^revision = ".*"$/m, `revision = "${revision}"`);
+  writeFileSync(filePath, next, 'utf8');
 }
 
 function assertArtifact(kind, document) {
@@ -50,6 +62,11 @@ try {
 
   const docsContract = getCCommandContract('generate-standard-docs');
   assert.deepEqual(docsContract.required_inputs, ['config', 'readiness_report']);
+  const alignedConfigPath = join(TMP_DIR, 'sample_part_docs.toml');
+  writeAlignedConfig(alignedConfigPath, {
+    name: 'sample_part',
+    revision: 'A',
+  });
 
   const readinessOut = join(TMP_DIR, 'pcb_mount_plate_readiness_report.json');
   const readinessRun = runCli([
@@ -92,7 +109,7 @@ try {
   const docsFromReviewPackDir = join(TMP_DIR, 'standard-docs-from-review-pack');
   const docsFromReviewPackRun = runCli([
     'generate-standard-docs',
-    'configs/examples/controller_housing_eol.toml',
+    alignedConfigPath,
     '--review-pack',
     reviewPackFixture,
     '--out-dir',
@@ -122,7 +139,7 @@ try {
   const docsFromReadinessDir = join(TMP_DIR, 'standard-docs-from-readiness');
   const docsFromReadinessRun = runCli([
     'generate-standard-docs',
-    'configs/examples/controller_housing_eol.toml',
+    alignedConfigPath,
     '--readiness-report',
     readinessOut,
     '--out-dir',
@@ -134,6 +151,20 @@ try {
     docsFromReadinessManifest.source_artifact_refs.some((ref) => ref.artifact_type === 'readiness_report' && ref.path === readinessOut),
     true,
     'docs manifest should preserve the supplied canonical readiness report path'
+  );
+
+  const mismatchedDocsRun = runCli([
+    'generate-standard-docs',
+    'configs/examples/controller_housing_eol.toml',
+    '--review-pack',
+    reviewPackFixture,
+    '--out-dir',
+    join(TMP_DIR, 'mismatched-standard-docs'),
+  ]);
+  assert.notEqual(mismatchedDocsRun.status, 0, 'mismatched config and review-pack lineage should fail');
+  assert.match(
+    `${mismatchedDocsRun.stderr}\n${mismatchedDocsRun.stdout}`,
+    /does not match readiness report lineage/i
   );
 
   const helpRun = runCli(['help']);

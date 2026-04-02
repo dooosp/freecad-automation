@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { validateCArtifact } from '../lib/c-artifact-schema.js';
@@ -24,6 +24,19 @@ function runCli(args) {
     cwd: ROOT,
     encoding: 'utf8',
   });
+}
+
+function writeAlignedConfig(filePath, {
+  templatePath = CONFIG_EXAMPLE,
+  name,
+  revision,
+} = {}) {
+  mkdirSync(dirname(filePath), { recursive: true });
+  const template = readFileSync(templatePath, 'utf8');
+  const next = template
+    .replace(/^name = ".*"$/m, `name = "${name}"`)
+    .replace(/^revision = ".*"$/m, `revision = "${revision}"`);
+  writeFileSync(filePath, next, 'utf8');
 }
 
 function assertArtifact(kind, document) {
@@ -96,6 +109,11 @@ try {
   assert.equal(zipEntries.some((entry) => entry.name === 'release_bundle_manifest.json'), true);
 
   const docsDir = join(TMP_DIR, 'docs-flow');
+  const alignedConfigPath = join(docsDir, 'sample_part_docs.toml');
+  writeAlignedConfig(alignedConfigPath, {
+    name: 'sample_part',
+    revision: 'A',
+  });
   const docsReadinessOut = join(docsDir, 'controller_readiness_report.json');
   const docsReadinessRun = runCli([
     'readiness-pack',
@@ -109,7 +127,7 @@ try {
   const standardDocsDir = join(docsDir, 'standard-docs');
   const docsRun = runCli([
     'generate-standard-docs',
-    CONFIG_EXAMPLE,
+    alignedConfigPath,
     '--review-pack',
     REVIEW_PACK_FIXTURE,
     '--out-dir',
