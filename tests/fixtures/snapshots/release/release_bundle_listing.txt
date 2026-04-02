@@ -1,0 +1,11 @@
+canonical/readiness_report.json
+canonical/readiness_report.md
+canonical/review_pack.json
+inputs/sample_part_context.json
+references/sample_bom.csv
+references/sample_inspection.csv
+references/sample_part.step
+references/sample_quality.csv
+release_bundle_checksums.sha256
+release_bundle_log.json
+release_bundle_manifest.json

@@ -57,6 +57,7 @@ import { runDesignTask } from '../src/api/design.js';
 import { createDrawingService, runDrawPipeline } from '../src/api/drawing.js';
 import {
   runReadinessReportWorkflow,
+  runReleaseBundleWorkflow,
   runStandardDocsWorkflow,
   writeReadinessArtifacts,
 } from '../src/api/manufacturing.js';
@@ -118,7 +119,9 @@ Usage:
     fcad line-plan <config.toml|json>
     fcad quality-risk <config.toml|json> [--review-pack <review_pack.json>]
     fcad investment-review <config.toml|json>
+    fcad readiness-pack --review-pack <review_pack.json> [--out <readiness_report.json>] [--process-plan <process_plan.json>] [--quality-risk <quality_risk.json>]
     fcad readiness-report <config.toml|json> [--review-pack <review_pack.json>] [--process-plan <process_plan.json>] [--quality-risk <quality_risk.json>]
+    fcad pack --readiness <readiness_report.json> [--docs-manifest <standard_docs_manifest.json>] --out <release_bundle.zip>
     fcad stabilization-review <config.toml|json> --runtime <runtime.json>
     fcad stabilization-review <baseline_readiness_report.json> <candidate_readiness_report.json>
     fcad generate-standard-docs <config.toml|json> [--readiness-report <readiness_report.json>] [--out-dir <dir>]
@@ -178,7 +181,9 @@ Examples:
   fcad draw configs/examples/ks_bracket.toml --bom
   fcad inspect output/ks_bracket.step --manifest-out output/ks_bracket_inspect_manifest.json
   fcad review configs/examples/infotainment_display_bracket.toml
+  fcad readiness-pack --review-pack tests/fixtures/d-artifacts/sample_review_pack.canonical.json --out output/sample_readiness_report.json
   fcad readiness-report --review-pack tests/fixtures/d-artifacts/sample_review_pack.canonical.json --out output/sample_readiness_report.json
+  fcad pack --readiness output/sample_readiness_report.json --out output/release_bundle.zip
   fcad stabilization-review output/rev_a_readiness_report.json output/rev_b_readiness_report.json --out output/readiness_delta.json
   fcad generate-standard-docs configs/examples/controller_housing_eol.toml --out-dir output/controller_housing_standard_docs
   fcad generate-standard-docs configs/examples/controller_housing_eol.toml --readiness-report output/controller_housing_readiness_report.json --out-dir output/controller_housing_standard_docs
@@ -188,6 +193,7 @@ Examples:
   Notes:
   check-runtime is the central installation and troubleshooting entrypoint for runtime-backed commands.
   analyze-part can run without FreeCAD when the supplied context already includes model metadata, and it now falls back to bounded metadata-only geometry when live shape inspection is weak or unavailable.
+  readiness-pack is the flagship canonical C entrypoint when review_pack.json already exists.
   sweep stays within the existing create/cost/fem/report service wrappers; it does not perform optimization.
   report remains FreeCAD-backed today, even when macOS falls back from freecadcmd to the bundled FreeCAD Python.
   Windows native, WSL -> Windows FreeCAD, and Linux runtime execution are compatibility paths, not equal-maturity claims.
@@ -386,8 +392,12 @@ async function main() {
     await cmdQualityRisk(args);
   } else if (command === 'investment-review') {
     await cmdInvestmentReview(args);
+  } else if (command === 'readiness-pack') {
+    await cmdReadinessPack(args);
   } else if (command === 'readiness-report') {
     await cmdReadinessReport(args);
+  } else if (command === 'pack') {
+    await cmdPack(args);
   } else if (command === 'stabilization-review') {
     await cmdStabilizationReview(args);
   } else if (command === 'generate-standard-docs') {
@@ -458,6 +468,15 @@ function resolveReadinessBuilderInput(rawArgs = []) {
   return { positional, options, configPath, reviewPackPath, outputPath, outDir, stem };
 }
 
+function resolvePackInput(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  const readinessPath = resolveMaybe(options.readiness || positional[0]);
+  const outputPath = options.out ? resolveMaybe(requireOptionValue('--out', options.out)) : null;
+  const outDir = buildDefaultOutputDir(outputPath || options['out-dir']);
+  const stem = deriveArtifactStem(outputPath || readinessPath || 'release_bundle', 'release_bundle');
+  return { positional, options, readinessPath, outputPath, outDir, stem };
+}
+
 async function loadCanonicalReviewPackInput(rawArgs = [], command) {
   const input = resolveReadinessBuilderInput(rawArgs);
   if (!input.reviewPackPath) return null;
@@ -479,6 +498,43 @@ async function loadCanonicalCArtifact(kind, filePath, command, label) {
     path: filePath,
   });
   return artifact;
+}
+
+async function resolveOptionalDocsManifest({ explicitPath = null, readinessPath = null } = {}) {
+  const warnings = [];
+  const candidates = explicitPath
+    ? [resolve(explicitPath)]
+    : [
+        join(dirname(readinessPath), 'standard_docs_manifest.json'),
+        join(dirname(readinessPath), 'standard-docs', 'standard_docs_manifest.json'),
+        join(dirname(readinessPath), 'standard_docs', 'standard_docs_manifest.json'),
+      ];
+
+  for (const candidate of candidates) {
+    if (!existsSync(candidate)) continue;
+    try {
+      const manifest = await loadCanonicalCArtifact(
+        'docs_manifest',
+        candidate,
+        'pack',
+        explicitPath ? 'docs-manifest' : 'auto-discovered docs-manifest'
+      );
+      return {
+        docsManifestPath: candidate,
+        docsManifest: manifest,
+        warnings,
+      };
+    } catch (error) {
+      if (explicitPath) throw error;
+      warnings.push(`Skipped auto-discovered docs manifest at ${candidate}: ${error.message}`);
+    }
+  }
+
+  return {
+    docsManifestPath: null,
+    docsManifest: null,
+    warnings,
+  };
 }
 
 function emitConfigWarnings(summary) {
@@ -1191,56 +1247,74 @@ async function cmdInvestmentReview(rawArgs = []) {
   console.log(`  Unit cost: ${report.investment_review.cost_breakdown.unit_cost ?? 'n/a'}`);
 }
 
-async function cmdReadinessReport(rawArgs = []) {
-  const reviewPackInput = await loadCanonicalReviewPackInput(rawArgs, 'readiness-report');
-  if (reviewPackInput) {
-    const processPlanPath = resolveMaybe(reviewPackInput.options['process-plan']);
-    const qualityRiskPath = resolveMaybe(reviewPackInput.options['quality-risk']);
-    const processPlan = processPlanPath
-      ? await loadCanonicalCArtifact('process_plan', processPlanPath, 'readiness-report', 'process-plan')
-      : null;
-    const qualityRisk = qualityRiskPath
-      ? await loadCanonicalCArtifact('quality_risk', qualityRiskPath, 'readiness-report', 'quality-risk')
-      : null;
+async function cmdReadinessPack(rawArgs = [], {
+  manifestCommand = 'readiness-pack',
+  optionalReviewPack = false,
+  outputLabel = 'Readiness pack',
+} = {}) {
+  const reviewPackInput = await loadCanonicalReviewPackInput(rawArgs, manifestCommand);
+  if (!reviewPackInput) {
+    if (optionalReviewPack) return false;
+    console.error('Error: readiness-pack requires --review-pack <review_pack.json>');
+    process.exit(1);
+  }
 
-    const report = buildReadinessReportFromReviewPack({
-      reviewPack: reviewPackInput.reviewPack,
-      reviewPackPath: reviewPackInput.reviewPackPath,
-      processPlan,
-      qualityRisk,
-    });
-    const outputPath = reviewPackInput.outputPath || artifactPathFor(
-      reviewPackInput.outDir,
-      reviewPackInput.stem,
-      '_readiness_report.json'
-    );
-    const artifacts = await writeCanonicalReadinessArtifacts(outputPath, report);
-    const manifestPath = await writeCliManifest({
-      command: 'readiness-report',
-      primaryOutputPath: artifacts.json,
-      artifacts: [
-        createArtifactEntry('review.readiness.json', artifacts.json, { label: 'Readiness report JSON' }),
-        createArtifactEntry('review.readiness.markdown', artifacts.markdown, { label: 'Readiness report Markdown' }),
-        createArtifactEntry('input.review-pack', reviewPackInput.reviewPackPath, {
-          label: 'Review pack JSON',
-          scope: 'internal',
-        }),
-        ...(processPlanPath ? [createArtifactEntry('input.process-plan', processPlanPath, {
-          label: 'Process plan JSON',
-          scope: 'internal',
-        })] : []),
-        ...(qualityRiskPath ? [createArtifactEntry('input.quality-risk', qualityRiskPath, {
-          label: 'Quality risk JSON',
-          scope: 'internal',
-        })] : []),
-      ],
-    });
-    console.log(`Readiness report JSON: ${artifacts.json}`);
-    console.log(`Readiness report Markdown: ${artifacts.markdown}`);
-    console.log(`Manifest: ${manifestPath}`);
-    console.log(`  Status: ${report.readiness_summary.status}`);
-    console.log(`  Score: ${report.readiness_summary.score}`);
-    console.log(`  Source: ${reviewPackInput.reviewPackPath}`);
+  const processPlanPath = resolveMaybe(reviewPackInput.options['process-plan']);
+  const qualityRiskPath = resolveMaybe(reviewPackInput.options['quality-risk']);
+  const processPlan = processPlanPath
+    ? await loadCanonicalCArtifact('process_plan', processPlanPath, manifestCommand, 'process-plan')
+    : null;
+  const qualityRisk = qualityRiskPath
+    ? await loadCanonicalCArtifact('quality_risk', qualityRiskPath, manifestCommand, 'quality-risk')
+    : null;
+
+  const report = buildReadinessReportFromReviewPack({
+    reviewPack: reviewPackInput.reviewPack,
+    reviewPackPath: reviewPackInput.reviewPackPath,
+    processPlan,
+    qualityRisk,
+  });
+  const outputPath = reviewPackInput.outputPath || artifactPathFor(
+    reviewPackInput.outDir,
+    reviewPackInput.stem,
+    '_readiness_report.json'
+  );
+  const artifacts = await writeCanonicalReadinessArtifacts(outputPath, report);
+  const manifestPath = await writeCliManifest({
+    command: manifestCommand,
+    primaryOutputPath: artifacts.json,
+    artifacts: [
+      createArtifactEntry('review.readiness.json', artifacts.json, { label: 'Readiness report JSON' }),
+      createArtifactEntry('review.readiness.markdown', artifacts.markdown, { label: 'Readiness report Markdown' }),
+      createArtifactEntry('input.review-pack', reviewPackInput.reviewPackPath, {
+        label: 'Review pack JSON',
+        scope: 'internal',
+      }),
+      ...(processPlanPath ? [createArtifactEntry('input.process-plan', processPlanPath, {
+        label: 'Process plan JSON',
+        scope: 'internal',
+      })] : []),
+      ...(qualityRiskPath ? [createArtifactEntry('input.quality-risk', qualityRiskPath, {
+        label: 'Quality risk JSON',
+        scope: 'internal',
+      })] : []),
+    ],
+  });
+  console.log(`${outputLabel} JSON: ${artifacts.json}`);
+  console.log(`${outputLabel} Markdown: ${artifacts.markdown}`);
+  console.log(`Manifest: ${manifestPath}`);
+  console.log(`  Status: ${report.readiness_summary.status}`);
+  console.log(`  Score: ${report.readiness_summary.score}`);
+  console.log(`  Source: ${reviewPackInput.reviewPackPath}`);
+  return true;
+}
+
+async function cmdReadinessReport(rawArgs = []) {
+  if (await cmdReadinessPack(rawArgs, {
+    manifestCommand: 'readiness-report',
+    optionalReviewPack: true,
+    outputLabel: 'Readiness report',
+  })) {
     return;
   }
 
@@ -1269,6 +1343,66 @@ async function cmdReadinessReport(rawArgs = []) {
   console.log(`Manifest: ${manifestPath}`);
   console.log(`  Status: ${report.readiness_summary.status}`);
   console.log(`  Score: ${report.readiness_summary.score}`);
+}
+
+async function cmdPack(rawArgs = []) {
+  const { readinessPath, options, outputPath, outDir, stem } = resolvePackInput(rawArgs);
+  if (!readinessPath) {
+    console.error('Error: pack requires --readiness <readiness_report.json>');
+    process.exit(1);
+  }
+
+  const readinessReport = await loadCanonicalCArtifact(
+    'readiness_report',
+    readinessPath,
+    'pack',
+    'readiness report'
+  );
+  const docsInput = await resolveOptionalDocsManifest({
+    explicitPath: resolveMaybe(options['docs-manifest']),
+    readinessPath,
+  });
+  const resolvedOutputPath = outputPath || artifactPathFor(outDir, stem, '_release_bundle.zip');
+  const result = await runReleaseBundleWorkflow({
+    projectRoot: PROJECT_ROOT,
+    readinessPath,
+    readinessReport,
+    outputPath: resolvedOutputPath,
+    docsManifestPath: docsInput.docsManifestPath,
+    docsManifest: docsInput.docsManifest,
+    additionalWarnings: docsInput.warnings,
+  });
+
+  const manifestPath = await writeCliManifest({
+    command: 'pack',
+    primaryOutputPath: result.bundle_zip_path,
+    artifacts: [
+      createArtifactEntry('release-bundle.zip', result.bundle_zip_path, { label: 'Release bundle ZIP' }),
+      createArtifactEntry('release-bundle.manifest.json', result.manifest_path, { label: 'Release bundle manifest JSON' }),
+      createArtifactEntry('release-bundle.checksums', result.checksums_path, { label: 'Release bundle checksums' }),
+      createArtifactEntry('release-bundle.log.json', result.log_path, { label: 'Release bundle log JSON' }),
+      createArtifactEntry('input.readiness-report', readinessPath, {
+        label: 'Canonical readiness report JSON',
+        scope: 'internal',
+      }),
+      ...(docsInput.docsManifestPath ? [createArtifactEntry('input.docs-manifest', docsInput.docsManifestPath, {
+        label: 'Standard docs manifest JSON',
+        scope: 'internal',
+      })] : []),
+    ],
+    warnings: result.manifest.warnings || [],
+    related: {
+      release_bundle_manifest: result.manifest_path,
+    },
+  });
+
+  console.log(`Release bundle ZIP: ${result.bundle_zip_path}`);
+  console.log(`Release bundle manifest: ${result.manifest_path}`);
+  console.log(`Release bundle checksums: ${result.checksums_path}`);
+  console.log(`Release bundle log: ${result.log_path}`);
+  console.log(`Manifest: ${manifestPath}`);
+  console.log(`  Bundled artifacts: ${result.bundle_artifacts.length}`);
+  console.log(`  Docs included: ${Boolean(docsInput.docsManifestPath)}`);
 }
 
 async function cmdStabilizationReview(rawArgs = []) {

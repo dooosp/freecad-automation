@@ -120,7 +120,7 @@ Run `fcad check-runtime` before any FreeCAD-backed command on a new machine and 
 | --- | --- | --- |
 | Diagnostics | `check-runtime` | does not require FreeCAD to be present |
 | FreeCAD-backed | `create`, `draw`, `inspect`, `fem`, `tolerance`, `report` | requires a working FreeCAD runtime |
-| Plain-Python / non-FreeCAD | `dfm`, `review`, `process-plan`, `line-plan`, `quality-risk`, `investment-review`, `readiness-report`, `stabilization-review`, `generate-standard-docs`, `ingest`, `quality-link`, `review-pack`, `review-context`, `compare-rev`, `validate`, `validate-config`, `migrate-config`, `serve` | runs without launching FreeCAD; canonical C2 readiness assembly consumes `review_pack.json` when provided |
+| Plain-Python / non-FreeCAD | `dfm`, `review`, `process-plan`, `line-plan`, `quality-risk`, `investment-review`, `readiness-pack`, `readiness-report`, `pack`, `stabilization-review`, `generate-standard-docs`, `ingest`, `quality-link`, `review-pack`, `review-context`, `compare-rev`, `validate`, `validate-config`, `migrate-config`, `serve` | runs without launching FreeCAD; canonical readiness packaging consumes `review_pack.json` and keeps `readiness_report.json` as the source of truth |
 | Mixed / conditional | `analyze-part`, `design`, `sweep` | `analyze-part` can inspect CAD through FreeCAD when needed; `design` ends by calling `create`; `sweep` stays inside the existing `create` / `cost` / `fem` / `report` service wrappers selected by the matrix file |
 
 ### Production-Readiness Commands
@@ -133,8 +133,10 @@ fcad line-plan <config.toml|json>
 fcad quality-risk <config.toml|json>
 fcad quality-risk --review-pack <review_pack.json>
 fcad investment-review <config.toml|json>
+fcad readiness-pack --review-pack <review_pack.json> --out <readiness_report.json>
 fcad readiness-report <config.toml|json>
 fcad readiness-report --review-pack <review_pack.json>
+fcad pack --readiness <readiness_report.json> --out <release_bundle.zip>
 fcad stabilization-review <config.toml|json> --runtime <runtime.json>
 fcad stabilization-review <baseline_readiness_report.json> <candidate_readiness_report.json>
 fcad generate-standard-docs <config.toml|json> [--readiness-report <readiness_report.json>] [--out-dir <dir>]
@@ -621,14 +623,23 @@ fcad stabilization-review configs/examples/infotainment_display_bracket.toml \
   --profile configs/profiles/site_korea_ulsan.toml \
   --out output/infotainment_display_bracket_stabilization_review.json
 
-# 5. Draft production-engineering standard docs
+# 5. Canonical readiness packaging from review_pack.json
+fcad readiness-pack --review-pack output/infotainment_display_bracket_review_pack.json \
+  --out output/infotainment_display_bracket_readiness_report.json
+
+# 6. Draft production-engineering standard docs
 fcad generate-standard-docs configs/examples/controller_housing_eol.toml \
   --out-dir output/controller_housing_standard_docs
 
-# 6. Draft production-engineering standard docs from a canonical readiness artifact
+# 7. Draft production-engineering standard docs from a canonical readiness artifact
 fcad generate-standard-docs configs/examples/controller_housing_eol.toml \
   --readiness-report output/controller_housing_readiness_report.json \
   --out-dir output/controller_housing_standard_docs
+
+# 8. Portable release bundle from canonical readiness JSON
+fcad pack --readiness output/controller_housing_readiness_report.json \
+  --docs-manifest output/controller_housing_standard_docs/standard_docs_manifest.json \
+  --out output/controller_housing_release_bundle.zip
 ```
 
 The readiness workflow produces a JSON report and a Markdown summary that bundle:
@@ -641,7 +652,7 @@ The readiness workflow produces a JSON report and a Markdown summary that bundle
 - optional runtime-informed stabilization review
 - decision summary for production engineering discussion
 
-`readiness_report.json` is the canonical C artifact for this flow. Markdown, standard-doc manifests, and any future release-bundle packaging should derive from that JSON contract instead of becoming the primary source of truth.
+`readiness_report.json` is the canonical C artifact for this flow. Markdown, standard-doc manifests, and release-bundle packaging derive from that JSON contract instead of becoming the primary source of truth.
 
 ## Portfolio Case Study
 
