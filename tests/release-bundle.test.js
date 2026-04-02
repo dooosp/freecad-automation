@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { validateCArtifact } from '../lib/c-artifact-schema.js';
-import { listZipEntries } from '../lib/zip-archive.js';
+import { createZipArchive, listZipEntries } from '../lib/zip-archive.js';
 import { assertTextSnapshot } from './helpers/text-snapshot.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
@@ -130,11 +130,28 @@ try {
 
   const docsManifest = readJson(join(docsDir, 'release_bundle_manifest.json'));
   assert.equal(Boolean(docsManifest.docs_manifest_ref?.path), true, 'docs-aware bundle should record docs manifest provenance');
+  assert.equal(
+    docsManifest.coverage.source_artifact_count,
+    docsManifest.source_artifact_refs.length,
+    'docs-aware bundle coverage should match the actual source_artifact_refs length'
+  );
 
   const docsZipEntries = await listZipEntries(docsBundleZip);
   assert.equal(docsZipEntries.some((entry) => entry.name === 'docs/standard_docs_manifest.json'), true);
   assert.equal(docsZipEntries.some((entry) => entry.name === 'docs/process_flow.md'), true);
   assert.equal(docsZipEntries.some((entry) => entry.name === 'docs/work_instruction_draft.md'), true);
+
+  const utf8ZipPath = join(TMP_DIR, 'utf8-filenames.zip');
+  await createZipArchive(utf8ZipPath, [
+    {
+      name: '문서/요약.txt',
+      data: 'utf8 filename regression\n',
+    },
+  ]);
+  const utf8Entries = await listZipEntries(utf8ZipPath);
+  assert.equal(utf8Entries.length, 1);
+  assert.equal(utf8Entries[0].name, '문서/요약.txt');
+  assert.equal(utf8Entries[0].utf8, true, 'ZIP entries with UTF-8 filenames should set the UTF-8 flag');
 
   console.log('release-bundle.test.js: ok');
 } finally {

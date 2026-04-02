@@ -206,6 +206,15 @@ export async function runReleaseBundleWorkflow({
   const bundleEntries = [];
   const skippedArtifacts = [];
   const warnings = [...safeList(readinessReport.warnings), ...additionalWarnings];
+  const sourceArtifactRefs = mergeSourceArtifactRefs(
+    safeList(readinessReport.source_artifact_refs),
+    [
+      buildSourceArtifactRef('readiness_report', resolvedReadinessPath, 'input', 'Canonical readiness report JSON'),
+      ...(docsManifestPath && docsManifest
+        ? [buildSourceArtifactRef('docs_manifest', resolve(docsManifestPath), 'input', 'Standard docs manifest JSON')]
+        : []),
+    ]
+  );
 
   bundleEntries.push(await buildMetadataEntry({
     artifactType: 'readiness_report',
@@ -362,22 +371,14 @@ export async function runReleaseBundleWorkflow({
     coverage: {
       ...safeObject(readinessReport.coverage),
       bundled_artifact_count: bundleEntries.length + 3,
-      source_artifact_count: safeList(readinessReport.source_artifact_refs).length + 1,
+      source_artifact_count: sourceArtifactRefs.length,
       included_source_artifact_count: bundleEntries.filter((entry) => entry.role !== 'derived').length,
       skipped_optional_artifact_count: skippedArtifacts.length,
       docs_included: Boolean(docsManifestPath && docsManifest),
       document_count: safeList(docsManifest?.documents).length,
     },
     confidence: buildPropagatedConfidence(readinessReport),
-    source_artifact_refs: mergeSourceArtifactRefs(
-      safeList(readinessReport.source_artifact_refs),
-      [
-        buildSourceArtifactRef('readiness_report', resolvedReadinessPath, 'input', 'Canonical readiness report JSON'),
-        ...(docsManifestPath && docsManifest
-          ? [buildSourceArtifactRef('docs_manifest', resolve(docsManifestPath), 'input', 'Standard docs manifest JSON')]
-          : []),
-      ]
-    ),
+    source_artifact_refs: sourceArtifactRefs,
     canonical_artifact: buildCanonicalArtifactDescriptor(),
     contract: getCCommandContract('pack'),
     readiness_report_ref: buildSourceArtifactRef(
