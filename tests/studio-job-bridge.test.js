@@ -213,6 +213,74 @@ assert.equal(readinessFromArtifact.ok, true, readinessFromArtifact.errors?.join(
 assert.equal(readinessFromArtifact.request.type, 'readiness-pack');
 assert.equal(readinessFromArtifact.request.review_pack_path, '/tmp/review_pack.json');
 
+const compareFromArtifacts = await translateStudioJobSubmission({
+  type: 'compare-rev',
+  baseline_artifact_ref: {
+    job_id: 'job-baseline',
+    artifact_id: 'review-pack-a',
+  },
+  candidate_artifact_ref: {
+    job_id: 'job-candidate',
+    artifact_id: 'review-pack-b',
+  },
+}, {
+  async resolveArtifactRef(ref) {
+    return {
+      jobId: ref.job_id,
+      artifact: {
+        id: ref.artifact_id,
+        path: `/tmp/${ref.artifact_id}.json`,
+        type: 'review-pack.json',
+        file_name: `${ref.artifact_id}.json`,
+        extension: '.json',
+        exists: true,
+        contract: {
+          reentry_target: 'review_pack',
+        },
+      },
+    };
+  },
+});
+
+assert.equal(compareFromArtifacts.ok, true, compareFromArtifacts.errors?.join('\n'));
+assert.equal(compareFromArtifacts.request.type, 'compare-rev');
+assert.equal(compareFromArtifacts.request.baseline_path, '/tmp/review-pack-a.json');
+assert.equal(compareFromArtifacts.request.candidate_path, '/tmp/review-pack-b.json');
+
+const stabilizationFromArtifacts = await translateStudioJobSubmission({
+  type: 'stabilization-review',
+  baseline_artifact_ref: {
+    job_id: 'job-readiness-a',
+    artifact_id: 'readiness-a',
+  },
+  candidate_artifact_ref: {
+    job_id: 'job-readiness-b',
+    artifact_id: 'readiness-b',
+  },
+}, {
+  async resolveArtifactRef(ref) {
+    return {
+      jobId: ref.job_id,
+      artifact: {
+        id: ref.artifact_id,
+        path: `/tmp/${ref.artifact_id}.json`,
+        type: 'readiness-report.json',
+        file_name: `${ref.artifact_id}.json`,
+        extension: '.json',
+        exists: true,
+        contract: {
+          reentry_target: 'readiness_report',
+        },
+      },
+    };
+  },
+});
+
+assert.equal(stabilizationFromArtifacts.ok, true, stabilizationFromArtifacts.errors?.join('\n'));
+assert.equal(stabilizationFromArtifacts.request.type, 'stabilization-review');
+assert.equal(stabilizationFromArtifacts.request.baseline_path, '/tmp/readiness-a.json');
+assert.equal(stabilizationFromArtifacts.request.candidate_path, '/tmp/readiness-b.json');
+
 const docsFromArtifact = await translateStudioJobSubmission({
   type: 'generate-standard-docs',
   artifact_ref: {
@@ -401,5 +469,37 @@ const invalidDocsArtifact = await translateStudioJobSubmission({
 
 assert.equal(invalidDocsArtifact.ok, false);
 assert.match(invalidDocsArtifact.errors.join('\n'), /config-like artifact/i);
+
+const invalidCompareArtifacts = await translateStudioJobSubmission({
+  type: 'compare-rev',
+  baseline_artifact_ref: {
+    job_id: 'job-baseline',
+    artifact_id: 'baseline-readiness',
+  },
+  candidate_artifact_ref: {
+    job_id: 'job-candidate',
+    artifact_id: 'candidate-review',
+  },
+}, {
+  async resolveArtifactRef(ref) {
+    return {
+      jobId: ref.job_id,
+      artifact: {
+        id: ref.artifact_id,
+        path: `/tmp/${ref.artifact_id}.json`,
+        type: ref.artifact_id.includes('readiness') ? 'readiness-report.json' : 'review-pack.json',
+        file_name: `${ref.artifact_id}.json`,
+        extension: '.json',
+        exists: true,
+        contract: {
+          reentry_target: ref.artifact_id.includes('readiness') ? 'readiness_report' : 'review_pack',
+        },
+      },
+    };
+  },
+});
+
+assert.equal(invalidCompareArtifacts.ok, false);
+assert.match(invalidCompareArtifacts.errors.join('\n'), /canonical review-pack JSON/i);
 
 console.log('studio-job-bridge.test.js: ok');

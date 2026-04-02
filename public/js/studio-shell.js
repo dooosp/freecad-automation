@@ -221,7 +221,7 @@ const state = {
   logs: [
     {
       status: 'Studio shell',
-      message: 'Studio is the preferred browser workspace. Start with an example, a config, or a recent tracked result.',
+      message: 'Studio is the preferred browser review console. Start from context ingest, tracked artifacts, or a recent decision package.',
       tone: 'info',
       time: 'boot',
     },
@@ -758,6 +758,8 @@ async function submitTrackedStudioRun({
   type,
   configToml,
   artifactRef,
+  baselineArtifactRef,
+  candidateArtifactRef,
   drawingSettings,
   drawingPreviewId,
   reportOptions,
@@ -768,6 +770,8 @@ async function submitTrackedStudioRun({
     type,
     configToml,
     artifactRef,
+    baselineArtifactRef,
+    candidateArtifactRef,
     drawingSettings,
     drawingPreviewId,
     reportOptions,
@@ -830,7 +834,7 @@ async function loadLandingPayload() {
     state.data.health.projectRoot = landing.project_root || state.data.health.projectRoot;
     addLog({
       status: 'Connection',
-      message: 'Local API landing payload detected. Start can use runtime health and tracked jobs.',
+      message: 'Local API landing payload detected. The review console can use runtime health, tracked jobs, and canonical artifact routing.',
       tone: 'ok',
       time: 'api',
     });
@@ -1254,6 +1258,8 @@ async function handleShellAction(actionTarget) {
     await refreshHealth();
   } else if (action === 'try-example') {
     openExample();
+  } else if (action === 'go-artifacts') {
+    navigateTo('artifacts');
   } else if (action === 'open-config') {
     workspaceRoot.querySelector('#start-config-file')?.click();
   } else if (action === 'open-prompt-flow') {
@@ -1334,6 +1340,36 @@ async function handleShellAction(actionTarget) {
         completionAction: {
           type: 'tracked-run-completion',
           sourceArtifactFamily: deriveStudioArtifactFamily(artifact),
+        },
+      });
+    } catch (error) {
+      addLog({
+        status: 'Tracked run',
+        message: error instanceof Error ? error.message : String(error),
+        tone: 'warn',
+        time: 'job',
+      });
+    }
+  } else if (
+    (action === 'artifacts-run-compare' || action === 'artifacts-run-stabilization')
+    && actionTarget.dataset.baselineJobId
+    && actionTarget.dataset.baselineArtifactId
+    && actionTarget.dataset.candidateJobId
+    && actionTarget.dataset.candidateArtifactId
+  ) {
+    try {
+      await submitTrackedStudioRun({
+        type: action === 'artifacts-run-compare' ? 'compare-rev' : 'stabilization-review',
+        baselineArtifactRef: buildStudioArtifactRef(
+          actionTarget.dataset.baselineJobId,
+          actionTarget.dataset.baselineArtifactId
+        ),
+        candidateArtifactRef: buildStudioArtifactRef(
+          actionTarget.dataset.candidateJobId,
+          actionTarget.dataset.candidateArtifactId
+        ),
+        completionAction: {
+          preferredRoute: 'artifacts',
         },
       });
     } catch (error) {

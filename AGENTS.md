@@ -224,3 +224,27 @@ The final response should include:
   - schema mismatch
   - invalid canonical artifact handoff
 - Where the existing repository architecture already supports it, allow canonical artifact and bundle re-entry without shell-first operation.
+
+## AF3 Task: Studio Review-First Console
+- Active branch for this task: `feat/af3-studio-review-console`
+- Preferred clean worktree for this task: `/Users/jangtaeho/Documents/New/.worktrees/af3-studio-review-console/freecad-automation`
+- Execution plan source of truth:
+  - `docs/exec-plans/af3-studio-review-console.md`
+- Verification and remediation plan:
+  - `docs/exec-plans/af3-studio-review-console-verification.md`
+- Phase status files:
+  - `tmp/codex/af3-studio-review-console-status.md`
+  - `tmp/codex/af3-studio-review-console-verification-status.md`
+- Keep Studio preferred on `/` and `/studio`, but reposition it as a review/decision console instead of a modeling-first workspace.
+- Preserve the legacy viewer as a compatibility path without presenting it as a peer-primary browser surface.
+- Preserve route paths, tracked-job behavior, preview-versus-tracked separation, artifact links, queue controls, and lineage-safe artifact re-entry unless a narrow execution-plan change explicitly requires more.
+- Prefer information architecture, CTA order, navigation, disclosure, and orchestration updates over speculative visual rewrites.
+- Keep browser-visible English and Korean copy aligned through the existing lightweight locale layer with English fallback.
+- Wire to real tracked execution capabilities where available:
+  - `review-context`
+  - `compare-rev`
+  - `readiness-pack`
+  - `stabilization-review`
+  - `generate-standard-docs`
+  - `pack`
+- Do not recreate D/C scoring, linkage, or reasoning logic in the browser UI. Surface canonical artifacts, statuses, and follow-up actions instead.

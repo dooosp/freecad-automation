@@ -184,3 +184,21 @@ export function findPreferredDocsManifestArtifact(artifacts = []) {
     .filter((artifact) => artifact.exists !== false && includesAny(artifactSearchText(artifact), DOCS_MANIFEST_MATCHERS))
     .sort((left, right) => artifactSearchText(left).localeCompare(artifactSearchText(right)))[0] || null;
 }
+
+export function findPreferredReviewPackArtifact(artifacts = []) {
+  return [...artifacts]
+    .filter((artifact) => artifact.exists !== false && isReviewPackArtifact(artifact))
+    .sort((left, right) => artifactSearchText(left).localeCompare(artifactSearchText(right)))[0] || null;
+}
+
+export function findPreferredReadinessReportArtifact(artifacts = []) {
+  return [...artifacts]
+    .filter((artifact) => artifact.exists !== false && isReadinessReportArtifact(artifact))
+    .sort((left, right) => artifactSearchText(left).localeCompare(artifactSearchText(right)))[0] || null;
+}
+
+export function findPreferredReleaseBundleArtifact(artifacts = []) {
+  return [...artifacts]
+    .filter((artifact) => artifact.exists !== false && isReleaseBundleArtifact(artifact))
+    .sort((left, right) => artifactSearchText(left).localeCompare(artifactSearchText(right)))[0] || null;
+}

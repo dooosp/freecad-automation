@@ -20,6 +20,18 @@ assert.equal(ko.t('locale.label'), '언어');
 assert.equal(ko.t('index.title'), 'FreeCAD 클래식 뷰어');
 assert.equal(ko.t('index.mode.label'), '클래식 호환 모드');
 assert.equal(translateText('Jobs center', 'ko'), '작업 센터');
+assert.equal(translateText('Console', 'ko'), '콘솔');
+assert.equal(translateText('Packs', 'ko'), '패키지');
+assert.equal(translateText('Preferred browser review console', 'ko'), '기본 브라우저 검토 콘솔');
+assert.equal(
+  translateText('Review-first launchpad for ingest, packs, compare, and reopen actions.', 'ko'),
+  '입력, 패키지, 비교, 재열기 작업을 위한 검토 우선 시작 화면입니다.'
+);
+assert.equal(
+  translateText('Use the Packs workspace to reopen tracked review packs, readiness reports, and release bundles. Local file import is not available on this path yet.', 'ko'),
+  '패키지 작업 영역에서 추적된 검토 패키지, 준비 상태 보고서, 릴리스 번들을 다시 열 수 있습니다. 이 경로에서는 아직 로컬 파일 가져오기를 지원하지 않습니다.'
+);
+assert.equal(translateText('Open compare workspace', 'ko'), '비교 작업 영역 열기');
 assert.equal(translateText('3 recent jobs', 'ko'), '3개의 최근 작업');
 assert.equal(translateText('Select example', 'ko'), '예제 선택');
 assert.equal(translateText('Recent jobs loading', 'ko'), '최근 작업 불러오는 중');
@@ -123,6 +135,10 @@ assert.equal(
 assert.equal(
   translateText('2 queued or running jobs currently monitored from this shell session.', 'ko'),
   '이 셸 세션에서 현재 대기 또는 실행 상태로 모니터링 중인 작업은 2개입니다.'
+);
+assert.equal(
+  translateText('2 queued or running review-console jobs currently monitored from this shell session.', 'ko'),
+  '이 셸 세션에서 현재 대기 또는 실행 상태로 모니터링 중인 검토 콘솔 작업은 2개입니다.'
 );
 assert.equal(
   translateText('Latest tracked job create queued.', 'ko'),

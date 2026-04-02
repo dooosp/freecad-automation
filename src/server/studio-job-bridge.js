@@ -4,6 +4,8 @@ import { validateConfigDocument } from '../../lib/config-schema.js';
 import {
   findPreferredConfigArtifact,
   findPreferredDocsManifestArtifact,
+  findPreferredReadinessReportArtifact,
+  findPreferredReviewPackArtifact,
   isConfigLikeArtifact,
   isInspectableModelArtifact,
   isReadinessReportArtifact,
@@ -15,7 +17,17 @@ import {
   normalizeStudioDrawingSettings,
 } from './studio-drawing-config.js';
 
-const STUDIO_JOB_TYPES = new Set(['create', 'draw', 'inspect', 'report', 'readiness-pack', 'generate-standard-docs', 'pack']);
+const STUDIO_JOB_TYPES = new Set([
+  'create',
+  'draw',
+  'inspect',
+  'report',
+  'compare-rev',
+  'readiness-pack',
+  'stabilization-review',
+  'generate-standard-docs',
+  'pack',
+]);
 const STUDIO_AF_ARTIFACT_JOB_TYPES = new Set(['readiness-pack', 'generate-standard-docs', 'pack']);
 
 function isPlainObject(value) {
@@ -65,6 +77,23 @@ function buildResolvedArtifactOptions(request, resolvedArtifact) {
   return options;
 }
 
+function buildResolvedPairOptions(request, baselineArtifact, candidateArtifact) {
+  const options = isPlainObject(request.options) ? structuredClone(request.options) : {};
+  options.studio = {
+    ...(isPlainObject(options.studio) ? options.studio : {}),
+    source: 'artifact-comparison',
+    baseline_job_id: baselineArtifact.jobId,
+    baseline_artifact_id: baselineArtifact.artifact.id,
+    baseline_artifact_type: baselineArtifact.artifact.type || '',
+    baseline_label: baselineArtifact.artifact.key || baselineArtifact.artifact.file_name || baselineArtifact.artifact.type || baselineArtifact.artifact.id,
+    candidate_job_id: candidateArtifact.jobId,
+    candidate_artifact_id: candidateArtifact.artifact.id,
+    candidate_artifact_type: candidateArtifact.artifact.type || '',
+    candidate_label: candidateArtifact.artifact.key || candidateArtifact.artifact.file_name || candidateArtifact.artifact.type || candidateArtifact.artifact.id,
+  };
+  return options;
+}
+
 function parseStudioConfigToml(configToml) {
   let parsed;
   try {
@@ -90,6 +119,8 @@ export function validateStudioJobSubmission(body) {
     'type',
     'config_toml',
     'artifact_ref',
+    'baseline_artifact_ref',
+    'candidate_artifact_ref',
     'drawing_settings',
     'drawing_preview_id',
     'drawing_plan',
@@ -104,13 +135,17 @@ export function validateStudioJobSubmission(body) {
   });
 
   if (!STUDIO_JOB_TYPES.has(request.type)) {
-    errors.push('type must be one of create, draw, inspect, report, readiness-pack, generate-standard-docs, or pack.');
+    errors.push('type must be one of create, draw, inspect, report, compare-rev, readiness-pack, stabilization-review, generate-standard-docs, or pack.');
   }
 
   const hasConfigToml = typeof request.config_toml === 'string' && request.config_toml.trim().length > 0;
   const hasArtifactRef = request.artifact_ref !== undefined;
+  const hasBaselineArtifactRef = request.baseline_artifact_ref !== undefined;
+  const hasCandidateArtifactRef = request.candidate_artifact_ref !== undefined;
 
   validateArtifactRef(request.artifact_ref, 'artifact_ref', errors);
+  validateArtifactRef(request.baseline_artifact_ref, 'baseline_artifact_ref', errors);
+  validateArtifactRef(request.candidate_artifact_ref, 'candidate_artifact_ref', errors);
   validateOptionalObject(request.drawing_settings, 'drawing_settings', errors);
   if (request.drawing_preview_id !== undefined && (typeof request.drawing_preview_id !== 'string' || request.drawing_preview_id.trim().length === 0)) {
     errors.push('drawing_preview_id must be a non-empty string when provided.');
@@ -132,6 +167,13 @@ export function validateStudioJobSubmission(body) {
     }
     if (hasConfigToml) {
       errors.push(`config_toml is not supported for type "${request.type}".`);
+    }
+  } else if (request.type === 'compare-rev' || request.type === 'stabilization-review') {
+    if (!hasBaselineArtifactRef || !hasCandidateArtifactRef) {
+      errors.push(`${request.type} requires both baseline_artifact_ref and candidate_artifact_ref.`);
+    }
+    if (hasConfigToml || hasArtifactRef) {
+      errors.push(`${request.type} does not accept config_toml or artifact_ref.`);
     }
   } else if (!hasConfigToml && !hasArtifactRef) {
     errors.push('config_toml is required.');
@@ -159,9 +201,19 @@ export function validateStudioJobSubmission(body) {
     request.type !== 'inspect'
     && request.type !== 'report'
     && !STUDIO_AF_ARTIFACT_JOB_TYPES.has(request.type)
+    && request.type !== 'compare-rev'
+    && request.type !== 'stabilization-review'
     && request.artifact_ref !== undefined
   ) {
     errors.push('artifact_ref is only supported for type "inspect", "report", "readiness-pack", "generate-standard-docs", or "pack".');
+  }
+
+  if (
+    request.type !== 'compare-rev'
+    && request.type !== 'stabilization-review'
+    && (request.baseline_artifact_ref !== undefined || request.candidate_artifact_ref !== undefined)
+  ) {
+    errors.push('baseline_artifact_ref and candidate_artifact_ref are only supported for type "compare-rev" or "stabilization-review".');
   }
 
   return {
@@ -178,6 +230,71 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
   }
 
   const request = validation.request;
+  if (request.baseline_artifact_ref || request.candidate_artifact_ref) {
+    if (typeof resolveArtifactRef !== 'function') {
+      return {
+        ok: false,
+        errors: ['artifact_ref requires a resolver on this studio serve path.'],
+      };
+    }
+
+    let baselineArtifact;
+    let candidateArtifact;
+    try {
+      [baselineArtifact, candidateArtifact] = await Promise.all([
+        resolveArtifactRef(trimArtifactRef(request.baseline_artifact_ref)),
+        resolveArtifactRef(trimArtifactRef(request.candidate_artifact_ref)),
+      ]);
+    } catch (error) {
+      return {
+        ok: false,
+        errors: [error instanceof Error ? error.message : String(error)],
+      };
+    }
+
+    if (request.type === 'compare-rev') {
+      const baselineReviewPack = findPreferredReviewPackArtifact([baselineArtifact.artifact]);
+      const candidateReviewPack = findPreferredReviewPackArtifact([candidateArtifact.artifact]);
+      if (!baselineReviewPack || !candidateReviewPack) {
+        return {
+          ok: false,
+          errors: ['compare-rev needs canonical review-pack JSON artifacts for both baseline and candidate.'],
+        };
+      }
+
+      return {
+        ok: true,
+        request: {
+          type: 'compare-rev',
+          baseline_path: baselineReviewPack.path,
+          candidate_path: candidateReviewPack.path,
+          options: buildResolvedPairOptions(request, baselineArtifact, candidateArtifact),
+        },
+      };
+    }
+
+    if (request.type === 'stabilization-review') {
+      const baselineReadiness = findPreferredReadinessReportArtifact([baselineArtifact.artifact]);
+      const candidateReadiness = findPreferredReadinessReportArtifact([candidateArtifact.artifact]);
+      if (!baselineReadiness || !candidateReadiness) {
+        return {
+          ok: false,
+          errors: ['stabilization-review needs canonical readiness-report JSON artifacts for both baseline and candidate.'],
+        };
+      }
+
+      return {
+        ok: true,
+        request: {
+          type: 'stabilization-review',
+          baseline_path: baselineReadiness.path,
+          candidate_path: candidateReadiness.path,
+          options: buildResolvedPairOptions(request, baselineArtifact, candidateArtifact),
+        },
+      };
+    }
+  }
+
   if (request.artifact_ref) {
     if (typeof resolveArtifactRef !== 'function') {
       return {

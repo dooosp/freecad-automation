@@ -21,6 +21,8 @@ import {
   deriveArtifactReentryCapabilities,
   findPreferredConfigArtifact,
   findPreferredDocsManifestArtifact,
+  findPreferredReadinessReportArtifact,
+  findPreferredReviewPackArtifact,
   isReleaseBundleArtifact,
 } from './artifact-actions.js';
 import { applyTranslations } from '../i18n/index.js';
@@ -180,6 +182,10 @@ function diffArtifacts(current = [], baseline = []) {
   return { added, removed };
 }
 
+function compareAvailabilityLabel(isAvailable) {
+  return isAvailable ? 'Ready' : 'Missing';
+}
+
 export function renderArtifactsWorkspace(state) {
   ensureArtifactsWorkspaceState(state.data.artifactsWorkspace);
   const activeJob = state.data.activeJob;
@@ -189,10 +195,10 @@ export function renderArtifactsWorkspace(state) {
     className: 'workspace-shell',
     children: [
       createSectionHeader({
-        kicker: 'Artifacts workspace',
+        kicker: 'Packs workspace',
         title: activeJob?.summary
-          ? `Artifact trail for ${activeJob.summary.type} ${shortJobId(activeJob.summary.id)}`
-          : 'Artifact trail, manifests, and job history',
+          ? 'Active pack trail'
+          : 'Pack trail, manifests, and job history',
         description: 'Jobs stay visible as a timeline, artifacts become first-class product objects, and file-opening stays route-safe instead of relying on absolute paths.',
         badges: [
           { label: activeJob?.summary ? 'Tracked job selected' : 'No job selected', tone: activeJob?.summary ? 'ok' : 'warn' },
@@ -224,8 +230,8 @@ export function renderArtifactsWorkspace(state) {
               }),
               createCard({
                 kicker: 'Compare',
-                title: 'Latest vs older runs',
-                copy: 'Compare stays lightweight for now: artifact coverage and manifest shape instead of semantic CAD diffs.',
+                title: 'Active run vs baseline',
+                copy: 'Choose an older tracked run as the baseline. When canonical review-pack or readiness inputs exist on both sides, Studio can queue compare-rev or stabilization-review from here.',
                 body: [
                   el('div', { dataset: { hook: 'artifacts-compare' } }),
                 ],
@@ -328,12 +334,15 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
       return;
     }
 
+    const activeReviewPack = findPreferredReviewPackArtifact(state.data.activeJob.artifacts || []);
+    const activeReadiness = findPreferredReadinessReportArtifact(state.data.activeJob.artifacts || []);
+
     if (artifactsState.compare.status === 'loading') {
       compareElement.replaceChildren(
         createEmptyState({
           icon: '...',
           title: 'Loading baseline artifacts',
-          copy: 'Preparing a lightweight manifest and artifact-set comparison.',
+          copy: 'Preparing the selected baseline so compare-rev and stabilization readiness can be checked.',
         })
       );
       return;
@@ -355,20 +364,74 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
         createEmptyState({
           icon: '<>',
           title: 'No baseline selected',
-          copy: 'Choose Compare on an older timeline entry to see what artifact coverage changed.',
+          copy: 'Choose Compare on an older timeline entry to inspect coverage changes and unlock tracked compare actions when canonical artifacts are present.',
         })
       );
       return;
     }
 
+    const baselineReviewPack = findPreferredReviewPackArtifact(artifactsState.compare.artifacts || []);
+    const baselineReadiness = findPreferredReadinessReportArtifact(artifactsState.compare.artifacts || []);
     const diff = diffArtifacts(state.data.activeJob.artifacts || [], artifactsState.compare.artifacts || []);
+    const candidateJobId = state.data.activeJob.summary.id;
+    const baselineJobId = artifactsState.compare.job.id;
+    const compareActions = [
+      createButton({
+        label: 'Run compare-rev',
+        action: 'artifacts-run-compare',
+        tone: 'ghost',
+        disabled: !activeReviewPack || !baselineReviewPack,
+        dataset: {
+          baselineJobId,
+          baselineArtifactId: baselineReviewPack?.id || '',
+          candidateJobId,
+          candidateArtifactId: activeReviewPack?.id || '',
+        },
+      }),
+      createButton({
+        label: 'Run stabilization review',
+        action: 'artifacts-run-stabilization',
+        tone: 'ghost',
+        disabled: !activeReadiness || !baselineReadiness,
+        dataset: {
+          baselineJobId,
+          baselineArtifactId: baselineReadiness?.id || '',
+          candidateJobId,
+          candidateArtifactId: activeReadiness?.id || '',
+        },
+      }),
+      createButton({
+        label: 'Open baseline',
+        action: 'open-job',
+        tone: 'ghost',
+        dataset: {
+          jobId: baselineJobId,
+          route: 'artifacts',
+        },
+      }),
+    ];
+
     compareElement.replaceChildren(
-      createInfoGrid([
-        { label: 'Baseline', value: `${artifactsState.compare.job.type} ${shortJobId(artifactsState.compare.job.id)}` },
-        { label: 'Added artifact types', value: diff.added.join(', ') || 'None' },
-        { label: 'Missing vs baseline', value: diff.removed.join(', ') || 'None' },
-        { label: 'Baseline updated', value: formatDateTime(artifactsState.compare.job.updated_at) },
-      ])
+      el('div', {
+        children: [
+          createInfoGrid([
+            { label: 'Baseline', value: `${artifactsState.compare.job.type} ${shortJobId(artifactsState.compare.job.id)}` },
+            { label: 'Added artifact types', value: diff.added.join(', ') || 'None' },
+            { label: 'Missing vs baseline', value: diff.removed.join(', ') || 'None' },
+            { label: 'Review-pack handoff', value: compareAvailabilityLabel(Boolean(activeReviewPack && baselineReviewPack)) },
+            { label: 'Readiness handoff', value: compareAvailabilityLabel(Boolean(activeReadiness && baselineReadiness)) },
+            { label: 'Baseline updated', value: formatDateTime(artifactsState.compare.job.updated_at) },
+          ]),
+          el('p', {
+            className: 'support-note',
+            text: 'Tracked compare-rev needs canonical review-pack JSON on both runs. Tracked stabilization-review needs canonical readiness-report JSON on both runs.',
+          }),
+          el('div', {
+            className: 'review-detail-actions',
+            children: compareActions,
+          }),
+        ],
+      })
     );
   }
 
@@ -473,7 +536,7 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
       createInfoGrid(buildArtifactDetailItems(artifact, state.data.activeJob))
     );
 
-    detailActionsElement.replaceChildren(
+      detailActionsElement.replaceChildren(
       ...(artifact.capabilities?.can_open
         ? [
             el('a', {

@@ -31,6 +31,8 @@ export async function submitStudioTrackedJob({
   type,
   configToml,
   artifactRef,
+  baselineArtifactRef,
+  candidateArtifactRef,
   drawingSettings,
   drawingPreviewId,
   reportOptions,
@@ -45,6 +47,8 @@ export async function submitStudioTrackedJob({
       type,
       ...(configToml ? { config_toml: configToml } : {}),
       ...(artifactRef ? { artifact_ref: artifactRef } : {}),
+      ...(baselineArtifactRef ? { baseline_artifact_ref: baselineArtifactRef } : {}),
+      ...(candidateArtifactRef ? { candidate_artifact_ref: candidateArtifactRef } : {}),
       ...(drawingSettings ? { drawing_settings: drawingSettings } : {}),
       ...(drawingPreviewId ? { drawing_preview_id: drawingPreviewId } : {}),
       ...(reportOptions ? { report_options: reportOptions } : {}),
@@ -108,7 +112,6 @@ export function isReviewableStudioJob(job = {}) {
     || type === 'report'
     || type === 'review-context'
     || type === 'readiness-pack'
-    || type === 'stabilization-review'
     || type === 'generate-standard-docs'
     || type === 'pack'
   )

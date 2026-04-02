@@ -240,11 +240,11 @@ export function mountReviewWorkspace({ root, state, addLog, openJob }) {
   function syncJobSummary() {
     const activeJob = state.data.activeJob;
     if (!activeJob?.summary) {
-      jobSummaryElement.replaceChildren(
+          jobSummaryElement.replaceChildren(
         createEmptyState({
           icon: 'R',
           title: 'No tracked job selected',
-          copy: 'Start or Artifacts can open a tracked job first. Review then uses that job manifest and artifact list.',
+          copy: 'Console or Packs can open a tracked job first. Review then uses that job manifest and artifact list.',
         })
       );
       return;
@@ -360,7 +360,7 @@ export function mountReviewWorkspace({ root, state, addLog, openJob }) {
       ...(state.data.activeJob.summary
         ? [
             createButton({
-              label: 'Open Artifacts',
+              label: 'Open Packs',
               action: 'open-artifacts',
               tone: 'ghost',
             }),

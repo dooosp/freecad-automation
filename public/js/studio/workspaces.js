@@ -89,6 +89,18 @@ function recentJobActionLabel(recentJobsState) {
   return `Open ${job.type} ${shortJobId(job.id)}`;
 }
 
+const REVIEW_CONSOLE_JOB_TYPES = Object.freeze({
+  review: new Set(['review-context', 'report', 'inspect']),
+  readiness: new Set(['readiness-pack', 'generate-standard-docs']),
+  compare: new Set(['compare-rev', 'stabilization-review']),
+  pack: new Set(['pack']),
+});
+
+function findLatestTrackedJob(recentJobsState, types = new Set()) {
+  if (recentJobsState.status !== 'ready') return null;
+  return recentJobsState.items.find((job) => types.has(String(job.type || '').toLowerCase())) || null;
+}
+
 function createRuntimeHealthCard(state) {
   const { health } = state.data;
   const runtimeAvailable = health.status === 'ready' && health.available;
@@ -222,37 +234,53 @@ function createStartActionsCard(state) {
   const { examples, recentJobs } = state.data;
   const canTryExample = examples.status === 'ready' && examples.items.length > 0;
   const canOpenRecent = recentJobs.status === 'ready' && recentJobs.items.length > 0;
+  const latestReviewJob = findLatestTrackedJob(recentJobs, REVIEW_CONSOLE_JOB_TYPES.review);
+  const latestReadinessJob = findLatestTrackedJob(recentJobs, REVIEW_CONSOLE_JOB_TYPES.readiness);
+  const latestCompareJob = findLatestTrackedJob(recentJobs, REVIEW_CONSOLE_JOB_TYPES.compare);
+  const latestPackJob = findLatestTrackedJob(recentJobs, REVIEW_CONSOLE_JOB_TYPES.pack);
 
   return createCard({
-    kicker: 'First run',
-    title: 'Choose your first supported step',
-    copy: 'Studio turns configs into previews, drawings, and tracked results. Preview stays scratch-safe; tracked runs keep history, artifacts, and re-entry.',
+    kicker: 'Review console',
+    title: 'Open the next review decision',
+    copy: 'Start from context ingest, then move through review packs, readiness packages, compare baselines, and exportable packs without making Model or Drawing the default first stop.',
     body: [
       createFlowRail([
         {
-          kicker: 'Bring input',
-          title: 'Start from an example or your config',
-          copy: 'Use a checked-in example for a fast first run, or open a local TOML/JSON file when you already have source data.',
+          kicker: '1. Context ingest',
+          title: 'Bring source context into the console',
+          copy: 'Use an example, a config, or a tracked artifact trail to establish the review lineage.',
           tone: 'info',
         },
         {
-          kicker: 'Preview first',
-          title: 'Check geometry and drawings before queueing',
-          copy: 'Preview routes stay local to this workspace and do not create tracked `/jobs` history.',
+          kicker: '2-4. Review signal path',
+          title: 'Hotspots, linkage, and recommended actions stay upstream',
+          copy: 'Studio surfaces geometry, inspection, and quality outputs as tracked evidence instead of recreating D or C reasoning.',
           tone: 'ok',
         },
         {
-          kicker: 'Track results',
-          title: 'Queue work when you need reopenable outputs',
-          copy: 'Tracked create, draw, inspect, and report runs preserve artifacts, manifests, status, and follow-up actions.',
+          kicker: '5-6. Review to readiness',
+          title: 'Carry canonical packs forward',
+          copy: 'Review packs and readiness packages stay reopenable so downstream docs and export steps keep lineage intact.',
+          tone: 'warn',
+        },
+        {
+          kicker: '7. Compare and stabilize',
+          title: 'Use tracked baselines instead of ad hoc diffs',
+          copy: 'Packs can stage compare-rev and stabilization-review from canonical review and readiness artifacts.',
+          tone: 'info',
+        },
+        {
+          kicker: '8. Export and reopen',
+          title: 'Package the decision trail',
+          copy: 'Release bundles and related docs remain browser-safe to reopen, inspect, download, and continue.',
           tone: 'warn',
         },
       ]),
       createActionGrid([
         {
-          kicker: 'Example-first',
-          title: 'Start with an example',
-          copy: 'Load a checked-in config and move straight into the Model workspace with editable state.',
+          kicker: 'Start new review',
+          title: 'Ingest fresh review context',
+          copy: 'Use a checked-in example, your own config, or the prompt-assisted draft flow when you need new review evidence.',
           meta: exampleCountLabel(examples),
           controls: [
             createExamplesSelect(state),
@@ -265,15 +293,93 @@ function createStartActionsCard(state) {
           ],
         },
         {
-          kicker: 'Source-backed',
-          title: 'Bring your own config',
-          copy: 'Open a local TOML or JSON config and keep editing in Studio without dropping into the classic viewer.',
-          meta: 'Best when you already have a saved config to preview or queue.',
+          kicker: 'Import existing artifact / bundle',
+          title: 'Reopen tracked evidence',
+          copy: 'Use the Packs workspace to reopen tracked review packs, readiness reports, and release bundles. Local file import is not available on this path yet.',
+          meta: recentJobs.status === 'unavailable'
+            ? 'Tracked artifact import needs the local API path from `fcad serve`.'
+            : `${recentJobs.items.length || 0} recent jobs visible`,
+          controls: [
+            createButton({
+              label: 'Open Packs workspace',
+              action: 'go-artifacts',
+              tone: 'primary',
+            }),
+            createButton({
+              label: recentJobActionLabel(recentJobs),
+              action: 'open-recent-job',
+              tone: 'ghost',
+              disabled: !canOpenRecent,
+            }),
+          ],
+        },
+        {
+          kicker: 'Recent review packs',
+          title: 'Jump into the latest review-ready run',
+          copy: 'Open the newest tracked review-oriented run when you want hotspots, linked evidence, and recommended actions first.',
+          meta: latestReviewJob ? 'Review-ready tracked run available' : 'No tracked review-ready run yet',
+          controls: [
+            createButton({
+              label: latestReviewJob ? 'Open Review' : 'Review pending',
+              action: 'open-job',
+              tone: 'primary',
+              disabled: !latestReviewJob,
+              dataset: latestReviewJob ? { jobId: latestReviewJob.id, route: 'review' } : {},
+            }),
+          ],
+        },
+        {
+          kicker: 'Readiness packages',
+          title: 'Carry review packs into go/hold packaging',
+          copy: 'Move into readiness-backed output review before compare or export steps so the canonical report stays central.',
+          meta: latestReadinessJob ? 'Readiness package available' : 'No readiness package yet',
+          controls: [
+            createButton({
+              label: latestReadinessJob ? 'Open Readiness' : 'Readiness pending',
+              action: latestReadinessJob ? 'open-job' : 'go-artifacts',
+              tone: 'primary',
+              disabled: !latestReadinessJob && recentJobs.status === 'unavailable',
+              dataset: latestReadinessJob ? { jobId: latestReadinessJob.id, route: 'review' } : {},
+            }),
+          ],
+        },
+        {
+          kicker: 'Compare revisions',
+          title: 'Stage compare-rev and stabilization',
+          copy: 'Use the Packs workspace to choose the current run plus a baseline. When canonical inputs exist, Studio can queue tracked compare and stabilization jobs from there.',
+          meta: latestCompareJob ? 'Latest comparison run available' : 'Use active plus baseline tracked runs',
+          controls: [
+            createButton({
+              label: latestCompareJob ? 'Open latest comparison' : 'Open compare workspace',
+              action: latestCompareJob ? 'open-job' : 'go-artifacts',
+              tone: 'primary',
+              dataset: latestCompareJob ? { jobId: latestCompareJob.id, route: 'artifacts' } : {},
+            }),
+          ],
+        },
+        {
+          kicker: 'Export / pack',
+          title: 'Package release-ready outputs',
+          copy: 'Keep the final export step grounded in readiness-backed artifacts, docs manifests, and release bundles instead of ad hoc downloads.',
+          meta: latestPackJob ? 'Release pack available' : 'No release bundle yet',
+          controls: [
+            createButton({
+              label: latestPackJob ? 'Open Pack' : 'Open Packs workspace',
+              action: latestPackJob ? 'open-job' : 'go-artifacts',
+              dataset: latestPackJob ? { jobId: latestPackJob.id, route: 'artifacts' } : {},
+            }),
+          ],
+        },
+        {
+          kicker: 'Secondary authoring lanes',
+          title: 'Use Model and Drawing only when needed',
+          copy: 'Config authoring, geometry preview, and sheet prep stay available, but they now support the review console instead of defining it.',
+          meta: 'Prompt and config editing remain available without promoting Studio into a generic CAD modeler.',
           controls: [
             createButton({
               label: 'Choose config file',
               action: 'open-config',
-              tone: 'primary',
+              tone: 'ghost',
             }),
             el('input', {
               className: 'visually-hidden',
@@ -283,30 +389,6 @@ function createStartActionsCard(state) {
                 accept: '.toml,.json,text/plain',
               },
             }),
-          ],
-        },
-        {
-          kicker: 'Job trail',
-          title: 'Resume a tracked result',
-          copy: 'Jump back into the latest tracked run to reopen artifacts, review outputs, or retry from the existing trail.',
-          meta: recentJobs.status === 'unavailable'
-            ? 'Recent jobs require the local API path from `fcad serve`.'
-            : `${recentJobs.items.length || 0} recent jobs visible`,
-          controls: [
-            createButton({
-              label: recentJobActionLabel(recentJobs),
-              action: 'open-recent-job',
-              tone: 'primary',
-              disabled: !canOpenRecent,
-            }),
-          ],
-        },
-        {
-          kicker: 'Prompt-assisted',
-          title: 'Draft from a prompt',
-          copy: 'Open the prompt-assisted model flow when you want help drafting TOML before previewing or queueing results.',
-          meta: 'Still secondary: prompt execution depends on API support on this serve path.',
-          controls: [
             createButton({
               label: 'Open prompt flow',
               action: 'open-prompt-flow',
@@ -323,15 +405,15 @@ function createRecentJobsCard(state) {
 
   if (recentJobs.status === 'loading') {
     return createCard({
-      kicker: 'Recent jobs',
-      title: 'Tracked results',
-      copy: 'Loading the latest tracked runs you can reopen for artifacts, review, or retry.',
+      kicker: 'Recent review trail',
+      title: 'Tracked console runs',
+      copy: 'Loading the latest tracked runs you can reopen for review, compare staging, pack, or retry.',
       surface: 'canvas',
       body: [
         createEmptyState({
           icon: '...',
-          title: 'Checking recent runs',
-          copy: 'As tracked jobs appear, Start becomes the fastest path back into artifacts and review.',
+          title: 'Checking tracked decisions',
+          copy: 'As tracked runs appear, the console becomes the fastest path back into review packs, readiness, compare, and export.',
         }),
       ],
     });
@@ -339,14 +421,14 @@ function createRecentJobsCard(state) {
 
   if (recentJobs.status === 'unavailable') {
     return createCard({
-      kicker: 'Recent jobs',
-      title: 'Tracked results are unavailable on this path',
-      copy: 'Classic compatibility mode does not expose tracked job history, so Start avoids promising reopenable results here.',
+      kicker: 'Recent review trail',
+      title: 'Tracked console history is unavailable on this path',
+      copy: 'Classic compatibility mode does not expose tracked job history, so the review console avoids promising reopenable packs here.',
       surface: 'canvas',
       body: [
         createEmptyState({
           icon: '[]',
-          title: 'Recent jobs need the local API',
+          title: 'Tracked history needs the local API',
           copy: recentJobs.message || 'Run `fcad serve` to expose `/jobs` and artifact history for the new studio shell.',
         }),
       ],
@@ -355,24 +437,24 @@ function createRecentJobsCard(state) {
 
   if (recentJobs.items.length === 0) {
     return createCard({
-      kicker: 'Recent jobs',
-      title: 'No tracked results yet',
-      copy: 'Use an example or open a config first. As soon as tracked jobs exist, this list becomes the fastest return path.',
+      kicker: 'Recent review trail',
+      title: 'No tracked decision trail yet',
+      copy: 'Use the review-start actions above. As soon as tracked jobs exist, this list becomes the fastest return path into review and packaging.',
       surface: 'canvas',
       body: [
         createEmptyState({
           icon: '+',
-          title: 'No recent jobs yet',
-          copy: recentJobs.message || 'Run a tracked create, draw, inspect, or report job to build a reusable artifact trail here.',
+          title: 'No recent console runs yet',
+          copy: recentJobs.message || 'Run a tracked review, readiness, compare, or pack job to build a reusable decision trail here.',
         }),
       ],
     });
   }
 
   return createCard({
-    kicker: 'Recent jobs',
-    title: 'Resume from tracked results',
-    copy: 'Reopen artifacts, review-ready outputs, or queue follow-up work from the latest tracked runs.',
+    kicker: 'Recent review trail',
+    title: 'Resume from tracked decision runs',
+    copy: 'Reopen review outputs, readiness packages, compare staging, or export work from the latest tracked runs.',
     surface: 'canvas',
     body: [
       el('div', {
@@ -498,13 +580,52 @@ function createQuickLinksCard(state) {
 
   return createCard({
     kicker: 'Advanced links',
-    title: 'API routes and compatibility tools',
-    copy: 'Keep API discovery, health checks, and classic viewer escape hatches nearby without making them the first step.',
+    title: 'API routes and compatibility paths',
+    copy: 'Keep API discovery, health checks, and classic-viewer escape hatches nearby without letting them outrank the review console.',
     body: [
       createDisclosure({
-        summary: 'Show advanced links',
+        summary: 'Show advanced routes',
         body: links,
       }),
+    ],
+  });
+}
+
+function createDecisionPackagesCard(state) {
+  const recentJobs = state.data.recentJobs;
+  const latestReviewJob = findLatestTrackedJob(recentJobs, REVIEW_CONSOLE_JOB_TYPES.review);
+  const latestReadinessJob = findLatestTrackedJob(recentJobs, REVIEW_CONSOLE_JOB_TYPES.readiness);
+  const latestCompareJob = findLatestTrackedJob(recentJobs, REVIEW_CONSOLE_JOB_TYPES.compare);
+  const latestPackJob = findLatestTrackedJob(recentJobs, REVIEW_CONSOLE_JOB_TYPES.pack);
+
+  return createCard({
+    kicker: 'Decision packages',
+    title: 'Review-first tracked outputs',
+    copy: 'Keep the canonical review, readiness, compare, and export checkpoints visible on the default surface.',
+    surface: 'canvas',
+    body: [
+      createList([
+        {
+          label: 'Recent review packs',
+          copy: latestReviewJob ? 'A tracked review-ready run can reopen directly into the Review workspace.' : 'No tracked review-ready run exists yet.',
+          meta: latestReviewJob ? 'Available' : 'Pending',
+        },
+        {
+          label: 'Readiness packages',
+          copy: latestReadinessJob ? 'A readiness-backed run is available for go/hold review and downstream docs.' : 'No readiness-backed run exists yet.',
+          meta: latestReadinessJob ? 'Available' : 'Pending',
+        },
+        {
+          label: 'Compare and stabilization',
+          copy: latestCompareJob ? 'A comparison-oriented tracked run already exists in the trail.' : 'Use the Packs workspace to select active and baseline runs for compare or stabilization.',
+          meta: latestCompareJob ? 'Available' : 'Needs baseline',
+        },
+        {
+          label: 'Export and pack',
+          copy: latestPackJob ? 'A release bundle or pack-oriented tracked run is ready to reopen.' : 'Pack remains available once readiness-backed outputs exist.',
+          meta: latestPackJob ? 'Available' : 'Pending',
+        },
+      ]),
     ],
   });
 }
@@ -515,7 +636,7 @@ function createModelSourceSummary(state) {
     return createEmptyState({
       icon: 'M',
       title: 'No config loaded yet',
-      copy: 'Start with Try Example or Open Existing Config from the Start workspace to bring editable config state here.',
+      copy: 'Start with Load example or Choose config file from the Console to bring editable config state here.',
     });
   }
 
@@ -1563,17 +1684,17 @@ function createArtifactsWorkspace(state) {
   });
 }
 
-export const workspaceOrder = ['start', 'model', 'drawing', 'review', 'artifacts'];
+export const workspaceOrder = ['start', 'review', 'artifacts', 'model', 'drawing'];
 
 export const workspaceDefinitions = {
   start: {
-    label: 'Start',
-    summary: 'First-run guide to configs, previews, and tracked results.',
+    label: 'Console',
+    summary: 'Review-first launchpad for ingest, packs, compare, and reopen actions.',
     render(state) {
       return workspaceShell({
-        kicker: 'Start workspace',
-        title: 'Start with a config, preview, or tracked result',
-        description: 'Studio explains the first supported step, keeps preview versus tracked execution honest, and points you back to results you can reopen later.',
+        kicker: 'Review console',
+        title: 'Start from the next review decision',
+        description: 'Studio answers what to review, reopen, compare, and package next before it asks you to edit geometry or drawings.',
         badges: [
           { label: `Connection ${state.connectionLabel}`, tone: connectionTone(state.connectionState) },
           { label: `Runtime ${state.runtimeToneLabel}`, tone: state.runtimeTone },
@@ -1584,6 +1705,7 @@ export const workspaceDefinitions = {
           createQuickLinksCard(state),
         ],
         canvas: [
+          createDecisionPackagesCard(state),
           createRuntimeHealthCard(state),
           createRecentJobsCard(state),
         ],
@@ -1592,28 +1714,28 @@ export const workspaceDefinitions = {
   },
   model: {
     label: 'Model',
-    summary: 'Choose input, build the preview, and inspect model results with metadata, parts, logs, and motion.',
+    summary: 'Optional prep lane for configs and geometry previews before review.',
     render(state) {
       return createModelWorkspace(state);
     },
   },
   drawing: {
     label: 'Drawing',
-    summary: 'Drawing plan, SVG canvas, BOM, and dimension loop staging.',
+    summary: 'Optional sheet-prep lane when a review needs drawing evidence.',
     render(state) {
       return createDrawingWorkspace(state);
     },
   },
   review: {
     label: 'Review',
-    summary: 'Design, DFM, readiness, and stabilization decisions.',
+    summary: 'Hotspots, quality linkage, recommended actions, and readiness signals.',
     render(state) {
       return renderReviewWorkspace(state);
     },
   },
   artifacts: {
-    label: 'Artifacts',
-    summary: 'Recent-job artifact trail, manifests, and output storage.',
+    label: 'Packs',
+    summary: 'Review packs, readiness packages, compare baselines, exports, and reopen actions.',
     render(state) {
       return renderArtifactsWorkspace(state);
     },

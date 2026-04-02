@@ -67,7 +67,7 @@ try {
   assert.equal(apiHtmlResponse.status, 200);
   const html = await apiHtmlResponse.text();
   assert.match(html, /fcad Local API/);
-  assert.match(html, /Studio is the preferred browser workspace/);
+  assert.match(html, /Studio is the preferred browser review console/);
   assert.match(html, /Open <code>\/<\/code> or <code>\/studio<\/code> for Studio/);
   assert.match(html, /GET \/health/);
   assert.match(html, /POST \/api\/studio\/model-preview/);
@@ -76,6 +76,7 @@ try {
   assert.match(html, /GET \/api/);
   assert.match(html, /fcad serve --legacy-viewer/);
   assert.match(html, /Need classic compatibility mode instead\?/);
+  assert.match(html, /review, readiness, compare, docs, and pack jobs/i);
   assert.match(html, new RegExp(ROOT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
 
   const apiKoHtmlResponse = await fetch(`${baseUrl}/api`, {
@@ -88,7 +89,7 @@ try {
   const koHtml = await apiKoHtmlResponse.text();
   assert.match(koHtml, /fcad 로컬 API/);
   assert.match(koHtml, /언어/);
-  assert.match(koHtml, /Studio가 기본 브라우저 작업 영역/);
+  assert.match(koHtml, /Studio가 기본 브라우저 검토 콘솔/);
   assert.match(koHtml, /브라우저에서는 <code>\/<\/code> 또는 <code>\/studio<\/code>로 Studio를 여세요/);
 
   const jsonResponse = await fetch(baseUrl, {
@@ -613,7 +614,7 @@ try {
   assert.equal('source_artifact_path' in inspectPayload.job.request.options.studio, false);
   assert.equal(JSON.stringify(inspectPayload.job.request).includes(modelArtifactPath), false);
 
-  const recentJobsResponse = await fetch(`${baseUrl}/jobs?limit=20`, {
+  const recentJobsResponse = await fetch(`${baseUrl}/jobs?limit=50`, {
     headers: {
       accept: 'application/json',
     },

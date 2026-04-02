@@ -69,7 +69,7 @@ function createJobActions(job) {
     children: [
       actions.canOpenArtifacts
         ? createButton({
-            label: 'Open Artifacts',
+            label: 'Open Packs',
             action: 'open-job',
             tone: 'ghost',
             dataset: {
@@ -171,8 +171,8 @@ export function renderJobsCenter({
           el('p', {
             className: 'inline-note',
             text: activeCount > 0
-              ? `${activeCount} queued or running job${activeCount === 1 ? '' : 's'} currently monitored from this shell session.`
-              : 'No queued or running jobs are being monitored right now.',
+              ? `${activeCount} queued or running review-console job${activeCount === 1 ? '' : 's'} currently monitored from this shell session.`
+              : 'No queued or running review-console jobs are being monitored right now.',
           }),
         ],
       }),
@@ -184,7 +184,7 @@ export function renderJobsCenter({
         : createEmptyState({
             icon: '::',
             title: 'No tracked jobs yet',
-            copy: 'Tracked create, draw, inspect, and report runs will appear here as soon as the local API records them.',
+            copy: 'Tracked review, readiness, compare, and pack runs will appear here as soon as the local API records them.',
           }),
     ],
   });
