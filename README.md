@@ -630,7 +630,7 @@ fcad readiness-pack --review-pack output/infotainment_display_bracket_review_pac
 
 # 6. Draft production-engineering standard docs from an explicit readiness artifact
 fcad generate-standard-docs configs/examples/controller_housing_eol.toml \
-  --readiness-report output/controller_housing_readiness_report.json \
+  --readiness-report <canonical readiness_report.json from readiness-pack or readiness-report --review-pack> \
   --out-dir output/controller_housing_standard_docs
 
 # 7. Draft production-engineering standard docs from a matching canonical review-pack-backed route

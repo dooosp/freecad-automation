@@ -586,6 +586,19 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
             }),
           ]
         : []),
+      ...(state.data.activeJob.summary && reentry.canRunTrackedReviewContext
+        ? [
+            createButton({
+              label: 'Tracked review context',
+              action: 'run-artifact-review-context',
+              tone: 'ghost',
+              dataset: {
+                jobId: state.data.activeJob.summary.id,
+                artifactId: artifact.id,
+              },
+            }),
+          ]
+        : []),
       ...(state.data.activeJob.summary && reentry.canRunTrackedReadinessPack
         ? [
             createButton({

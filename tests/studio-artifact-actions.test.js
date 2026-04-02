@@ -9,6 +9,7 @@ import {
   findPreferredDocsManifestArtifact,
   isConfigLikeArtifact,
   isInspectableModelArtifact,
+  isReviewContextArtifact,
   isReadinessReportArtifact,
   isReleaseBundleArtifact,
   isReviewPackArtifact,
@@ -44,6 +45,13 @@ assert.equal(isInspectableModelArtifact({
   extension: '.pdf',
   exists: true,
 }), false);
+
+assert.equal(isReviewContextArtifact({
+  type: 'context.json',
+  file_name: 'sample_context.json',
+  extension: '.json',
+  exists: true,
+}), true);
 
 const preferredConfig = findPreferredConfigArtifact([
   {
@@ -89,6 +97,20 @@ assert.equal(canReenterModelWorkspace({
   extension: '.json',
   exists: true,
 }), true);
+
+assert.equal(canStartTrackedArtifactRun({
+  type: 'model.step',
+  file_name: 'part.step',
+  extension: '.step',
+  exists: true,
+}, 'review-context'), true);
+
+assert.equal(canStartTrackedArtifactRun({
+  type: 'context.json',
+  file_name: 'sample_context.json',
+  extension: '.json',
+  exists: true,
+}, 'review-context'), true);
 
 assert.equal(canStartTrackedArtifactRun({
   type: 'model.step',
@@ -162,6 +184,7 @@ assert.deepEqual(deriveArtifactReentryCapabilities({
   exists: true,
 }), {
   canOpenInModel: false,
+  canRunTrackedReviewContext: false,
   canRunTrackedReport: false,
   canRunTrackedInspect: false,
   canRunTrackedReadinessPack: false,
@@ -190,6 +213,7 @@ assert.deepEqual(deriveArtifactReentryCapabilities({
   },
 }), {
   canOpenInModel: false,
+  canRunTrackedReviewContext: false,
   canRunTrackedReport: false,
   canRunTrackedInspect: false,
   canRunTrackedReadinessPack: true,

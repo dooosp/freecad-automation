@@ -494,8 +494,9 @@ async function loadCanonicalReviewPackInput(rawArgs = [], command) {
 
   requireExistingInputFile('review-pack', input.reviewPackPath);
   const reviewPack = await readJsonFile(input.reviewPackPath);
+  const afJobType = command === 'readiness-report' ? 'readiness-pack' : command;
   buildAfArtifactContractFromDocument({
-    jobType: command,
+    jobType: afJobType,
     target: 'review_pack',
     document: reviewPack,
     path: input.reviewPackPath,

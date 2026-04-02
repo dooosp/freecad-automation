@@ -295,7 +295,7 @@ function createStartActionsCard(state) {
         {
           kicker: 'Import existing artifact / bundle',
           title: 'Reopen tracked evidence',
-          copy: 'Use the Packs workspace to reopen tracked review packs, readiness reports, and release bundles. Local file import is not available on this path yet.',
+          copy: 'Use the Packs workspace to reopen tracked review packs, queue review-context from tracked model or context artifacts, and continue into readiness reports or release bundles. Local file import is not available on this path yet.',
           meta: recentJobs.status === 'unavailable'
             ? 'Tracked artifact import needs the local API path from `fcad serve`.'
             : `${recentJobs.items.length || 0} recent jobs visible`,
@@ -316,7 +316,7 @@ function createStartActionsCard(state) {
         {
           kicker: 'Recent review packs',
           title: 'Jump into the latest review-ready run',
-          copy: 'Open the newest tracked review-oriented run when you want hotspots, linked evidence, and recommended actions first.',
+          copy: 'Open the newest tracked review-oriented run when you want hotspots, linked evidence, and recommended actions first. Use Packs to queue review-context directly from tracked model or context artifacts when you need a fresh run.',
           meta: latestReviewJob ? 'Review-ready tracked run available' : 'No tracked review-ready run yet',
           controls: [
             createButton({
