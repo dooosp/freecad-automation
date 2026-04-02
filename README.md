@@ -120,7 +120,7 @@ Run `fcad check-runtime` before any FreeCAD-backed command on a new machine and 
 | --- | --- | --- |
 | Diagnostics | `check-runtime` | does not require FreeCAD to be present |
 | FreeCAD-backed | `create`, `draw`, `inspect`, `fem`, `tolerance`, `report` | requires a working FreeCAD runtime |
-| Plain-Python / non-FreeCAD | `dfm`, `review`, `process-plan`, `line-plan`, `quality-risk`, `investment-review`, `readiness-report`, `stabilization-review`, `generate-standard-docs`, `ingest`, `quality-link`, `review-pack`, `review-context`, `compare-rev`, `validate`, `validate-config`, `migrate-config`, `serve` | runs without launching FreeCAD |
+| Plain-Python / non-FreeCAD | `dfm`, `review`, `process-plan`, `line-plan`, `quality-risk`, `investment-review`, `readiness-report`, `stabilization-review`, `generate-standard-docs`, `ingest`, `quality-link`, `review-pack`, `review-context`, `compare-rev`, `validate`, `validate-config`, `migrate-config`, `serve` | runs without launching FreeCAD; canonical C2 readiness assembly consumes `review_pack.json` when provided |
 | Mixed / conditional | `analyze-part`, `design`, `sweep` | `analyze-part` can inspect CAD through FreeCAD when needed; `design` ends by calling `create`; `sweep` stays inside the existing `create` / `cost` / `fem` / `report` service wrappers selected by the matrix file |
 
 ### Production-Readiness Commands
@@ -128,11 +128,15 @@ Run `fcad check-runtime` before any FreeCAD-backed command on a new machine and 
 ```bash
 fcad review <config.toml|json>
 fcad process-plan <config.toml|json>
+fcad process-plan --review-pack <review_pack.json>
 fcad line-plan <config.toml|json>
 fcad quality-risk <config.toml|json>
+fcad quality-risk --review-pack <review_pack.json>
 fcad investment-review <config.toml|json>
 fcad readiness-report <config.toml|json>
+fcad readiness-report --review-pack <review_pack.json>
 fcad stabilization-review <config.toml|json> --runtime <runtime.json>
+fcad stabilization-review <baseline_readiness_report.json> <candidate_readiness_report.json>
 fcad generate-standard-docs <config.toml|json> [--out-dir <dir>]
 ```
 

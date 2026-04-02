@@ -29,9 +29,11 @@ function assertArtifact(kind, document) {
 
 try {
   const readinessFixture = readJson(join(FIXTURE_DIR, 'sample_readiness_report.canonical.json'));
+  const reviewPackFixture = join(ROOT, 'tests', 'fixtures', 'd-artifacts', 'sample_review_pack.canonical.json');
   assertArtifact('readiness_report', readinessFixture);
   assert.equal(readinessFixture.canonical_artifact.json_is_source_of_truth, true);
   assert.equal(readinessFixture.contract.command, 'readiness-report');
+  assert.equal(readinessFixture.review_pack.artifact_type, 'review_pack');
 
   const readinessContract = getCCommandContract('readiness-report');
   assert.equal(readinessContract.canonical_artifact_kind, 'readiness_report');
@@ -44,9 +46,8 @@ try {
   const readinessOut = join(TMP_DIR, 'pcb_mount_plate_readiness_report.json');
   const readinessRun = runCli([
     'readiness-report',
-    'configs/examples/pcb_mount_plate.toml',
-    '--batch',
-    '150',
+    '--review-pack',
+    reviewPackFixture,
     '--out',
     readinessOut,
   ]);
@@ -58,12 +59,13 @@ try {
   assertArtifact('readiness_report', readinessReport);
   assert.equal(readinessReport.canonical_artifact.json_is_source_of_truth, true);
   assert.equal(readinessReport.contract.command, 'readiness-report');
+  assert.equal(readinessReport.review_pack.artifact_type, 'review_pack');
   assert.equal(readinessReport.process_plan.contract.command, 'process-plan');
   assert.equal(readinessReport.quality_risk.contract.command, 'quality-risk');
   assert.equal(
-    readinessReport.source_artifact_refs.some((ref) => ref.artifact_type === 'config'),
+    readinessReport.source_artifact_refs.some((ref) => ref.artifact_type === 'review_pack'),
     true,
-    'readiness report should record the input config as a source artifact'
+    'readiness report should record the input review-pack as a source artifact'
   );
 
   const docsOutDir = join(TMP_DIR, 'standard-docs');

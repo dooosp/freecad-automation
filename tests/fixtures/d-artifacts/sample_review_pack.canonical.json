@@ -101,7 +101,15 @@
       "label": "Context source file"
     }
   ],
-  "canonical_artifact": true,
+  "canonical_artifact": {
+    "type": "review_pack.json",
+    "version": "2.0",
+    "json_is_source_of_truth": true,
+    "derived_renderers": [
+      "markdown",
+      "pdf"
+    ]
+  },
   "part": {
     "part_id": "BRKT-100",
     "name": "sample_part",

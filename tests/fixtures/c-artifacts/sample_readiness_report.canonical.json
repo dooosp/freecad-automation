@@ -1,117 +1,810 @@
 {
-  "schema_version": "1.0",
-  "artifact_type": "readiness_report",
   "workflow": "production_readiness",
-  "generated_at": "2026-04-01T00:00:00Z",
   "part": {
-    "part_id": "PCB-MOUNT-01",
-    "name": "pcb_mount_plate",
-    "revision": "B",
-    "material": "AL5052",
-    "process": "sheet_metal"
+    "part_id": "BRKT-100",
+    "name": "sample_part",
+    "description": "Fixture bracket for analysis tests",
+    "revision": "A",
+    "material": "AL6061",
+    "process": "machining"
   },
-  "readiness_summary": {
-    "status": "candidate_for_pilot_line_review",
-    "score": 78,
-    "gate_decision": "candidate_for_pilot_line_review"
-  },
-  "summary": {
-    "overall_risk_level": "medium",
-    "top_issues": [
-      "Hole diameter drift risk",
-      "Probe reach can slow inline verification"
-    ],
-    "recommended_actions": [
-      "Prototype poka-yoke nest",
-      "Price inline camera option"
-    ],
-    "likely_bottleneck_candidates": [
-      "Inspection and pack"
-    ],
-    "likely_automation_candidates": [
-      "Inline camera option"
-    ],
-    "launch_stabilization_focus": []
-  },
-  "product_review": {
-    "schema_version": "0.1",
-    "agent": "product_review",
-    "part": {
-      "name": "pcb_mount_plate"
-    },
-    "summary": {
-      "part_type": "bracket",
-      "dfm_score": 82,
-      "primary_risks": [
-        "Fastener access at lower flange"
-      ]
-    },
-    "risk_items": [
-      {
-        "severity": "medium",
-        "title": "Fastener access at lower flange"
-      }
-    ],
-    "recommendations": [
-      "Open tool access for lower flange fastener."
-    ]
-  },
-  "process_plan": {
+  "review_pack": {
+    "artifact_type": "review_pack",
     "schema_version": "1.0",
-    "artifact_type": "process_plan",
-    "generated_at": "2026-04-01T00:00:00Z",
-    "agent": "process_planning",
-    "part": {
-      "name": "pcb_mount_plate",
-      "revision": "B"
-    },
-    "summary": {
-      "overall_risk_level": "medium"
-    },
-    "planning_basis": {
-      "part_type": "bracket"
-    },
-    "process_flow": [
-      { "step": 10, "operation": "blanking" },
-      { "step": 20, "operation": "forming" },
-      { "step": 30, "operation": "deburr" },
-      { "step": 40, "operation": "inline inspection" },
-      { "step": 50, "operation": "final pack" }
-    ],
-    "key_inspection_points": [
-      { "id": "hole-dia", "checkpoint": "Hole diameter" }
-    ],
-    "automation_candidates": [
-      "Inline camera option"
-    ],
-    "bottleneck_risks": [
-      "Inline inspection can dominate CT"
-    ],
-    "planning_notes": [],
+    "analysis_version": "d1",
+    "generated_at": "2026-03-31T00:00:00Z",
+    "part_id": "BRKT-100",
+    "revision": "A",
     "warnings": [],
     "coverage": {
-      "process_step_count": 5,
-      "key_inspection_point_count": 1,
-      "automation_candidate_count": 1,
-      "source_artifact_count": 2
+      "source_artifact_count": 13,
+      "source_file_count": 4,
+      "hotspot_count": 5,
+      "inspection_record_count": 2,
+      "inspection_outlier_count": 2,
+      "quality_issue_count": 2,
+      "quality_hotspot_count": 2,
+      "review_priority_count": 5
     },
     "confidence": {
       "level": "heuristic",
-      "score": 0.56,
-      "rationale": "Process plan is a downstream planning contract pending site validation."
+      "score": 0.76,
+      "rationale": "Canonical review pack combines upstream D artifacts into a decision-oriented JSON contract."
     },
     "source_artifact_refs": [
       {
-        "artifact_type": "config",
-        "path": "configs/examples/pcb_mount_plate.toml",
+        "artifact_type": "engineering_context",
+        "path": "tests/fixtures/sample_part_context.json",
         "role": "input",
-        "label": "Input config"
+        "label": "Input context JSON"
+      },
+      {
+        "artifact_type": "geometry_intelligence",
+        "path": "tmp/canonical/sample_geometry.json",
+        "role": "input",
+        "label": "Input geometry JSON"
+      },
+      {
+        "artifact_type": "manufacturing_hotspots",
+        "path": "tmp/canonical/sample_geometry_manufacturing_hotspots.json",
+        "role": "input",
+        "label": "Input hotspots JSON"
+      },
+      {
+        "artifact_type": "inspection_linkage",
+        "path": "tmp/canonical/sample_priorities_inspection_linkage.json",
+        "role": "intermediate",
+        "label": "Inspection linkage JSON"
+      },
+      {
+        "artifact_type": "inspection_outliers",
+        "path": "tmp/canonical/sample_priorities_inspection_outliers.json",
+        "role": "intermediate",
+        "label": "Inspection outliers JSON"
+      },
+      {
+        "artifact_type": "quality_linkage",
+        "path": "tmp/canonical/sample_priorities_quality_linkage.json",
+        "role": "intermediate",
+        "label": "Quality linkage JSON"
+      },
+      {
+        "artifact_type": "quality_hotspots",
+        "path": "tmp/canonical/sample_priorities_quality_hotspots.json",
+        "role": "intermediate",
+        "label": "Quality hotspots JSON"
+      },
+      {
+        "artifact_type": "review_priorities",
+        "path": "tmp/canonical/sample_priorities.json",
+        "role": "input",
+        "label": "Review priorities JSON"
+      },
+      {
+        "artifact_type": "cad_model",
+        "path": "tests/fixtures/sample_part.step",
+        "role": "input",
+        "label": "Geometry source"
+      },
+      {
+        "artifact_type": "source_file",
+        "path": "tests/fixtures/sample_part.step",
+        "role": "evidence",
+        "label": "Context source file"
+      },
+      {
+        "artifact_type": "source_file",
+        "path": "tests/fixtures/sample_bom.csv",
+        "role": "evidence",
+        "label": "Context source file"
+      },
+      {
+        "artifact_type": "source_file",
+        "path": "tests/fixtures/sample_inspection.csv",
+        "role": "evidence",
+        "label": "Context source file"
+      },
+      {
+        "artifact_type": "source_file",
+        "path": "tests/fixtures/sample_quality.csv",
+        "role": "evidence",
+        "label": "Context source file"
+      }
+    ],
+    "canonical_artifact": {
+      "type": "review_pack.json",
+      "version": "2.0",
+      "json_is_source_of_truth": true,
+      "derived_renderers": [
+        "markdown",
+        "pdf"
+      ]
+    },
+    "part": {
+      "part_id": "BRKT-100",
+      "name": "sample_part",
+      "description": "Fixture bracket for analysis tests",
+      "revision": "A",
+      "material": "AL6061",
+      "process": "machining"
+    },
+    "geometry_summary": {
+      "bounding_box_mm": {
+        "x": 120,
+        "y": 80,
+        "z": 6,
+        "diagonal": 144.347
+      },
+      "size_band": "small",
+      "volume_mm3": 18250,
+      "surface_area_mm2": 6430,
+      "face_count": 26,
+      "edge_count": 58,
+      "vertex_count": 44,
+      "bbox_volume_mm3": 57600,
+      "compactness_ratio": 0.3168,
+      "surface_to_volume_ratio": 0.3523,
+      "max_aspect_ratio": 20,
+      "mid_to_min_ratio": 13.3333,
+      "planar_spread_ratio": 1.5,
+      "thinness_ratio": 0.05,
+      "face_density": 0.0005,
+      "edge_density": 0.001
+    },
+    "geometry_features": {
+      "hole_like_feature_count": 4,
+      "hole_pattern_count": 1,
+      "thin_wall_candidates": [
+        {
+          "feature_type": "thin_wall",
+          "confidence": 0.8,
+          "evidence": "thinness_ratio=0.05"
+        }
+      ],
+      "deep_pocket_candidates": [],
+      "inner_corner_risk_candidates": [
+        {
+          "feature_type": "inner_corner",
+          "confidence": 0.65,
+          "evidence": "complex shape without fillet evidence"
+        }
+      ],
+      "fillet_density": 0,
+      "chamfer_density": 0,
+      "feature_density": 0.1538,
+      "complexity_score": 100
+    },
+    "geometry_hotspots": [
+      {
+        "title": "Slender geometry review",
+        "category": "slenderness",
+        "severity": "high",
+        "score": 1,
+        "rationale": "Large aspect ratio can increase review focus on stiffness, handling, and fixture strategy.",
+        "evidence": {
+          "max_aspect_ratio": 20
+        }
+      },
+      {
+        "title": "High complexity review",
+        "category": "complexity",
+        "severity": "high",
+        "score": 1,
+        "rationale": "Geometry complexity is high enough to justify focused review sequencing.",
+        "evidence": {
+          "complexity_score": 100
+        }
+      },
+      {
+        "title": "Thin-wall candidate",
+        "category": "wall_thickness",
+        "severity": "high",
+        "score": 0.8,
+        "rationale": "Bounding-box thinness suggests regions that may be sensitive to distortion or manufacturing variation.",
+        "evidence": {
+          "feature_type": "thin_wall",
+          "confidence": 0.8,
+          "evidence": "thinness_ratio=0.05"
+        }
+      },
+      {
+        "title": "Inner corner risk",
+        "category": "stress_or_tooling",
+        "severity": "medium",
+        "score": 0.65,
+        "rationale": "Sharp internal transitions can drive stress concentration or tooling complexity.",
+        "evidence": {
+          "feature_type": "inner_corner",
+          "confidence": 0.65,
+          "evidence": "complex shape without fillet evidence"
+        }
+      },
+      {
+        "title": "Repeated hole pattern",
+        "category": "patterning",
+        "severity": "medium",
+        "score": 0.5,
+        "rationale": "Repeated hole patterns are good candidates for inspection and datum review.",
+        "evidence": {
+          "hole_pattern_count": 1
+        }
+      }
+    ],
+    "inspection_linkage": {
+      "summary": {
+        "count": 2,
+        "out_of_tolerance": 2,
+        "in_tolerance": 0,
+        "unknown": 0
+      },
+      "records": [
+        {
+          "record_id": "INSP-001",
+          "dimension_name": "Hole diameter A",
+          "matched_categories": [
+            "hole_pattern",
+            "patterning"
+          ],
+          "status": "out_of_tolerance",
+          "deviation": 0.18,
+          "rationale": "Matched by dimension/feature tokens.",
+          "confidence": 0.75
+        },
+        {
+          "record_id": "INSP-002",
+          "dimension_name": "Wall thickness left",
+          "matched_categories": [
+            "wall_thickness"
+          ],
+          "status": "out_of_tolerance",
+          "deviation": -0.28,
+          "rationale": "Matched by dimension/feature tokens.",
+          "confidence": 0.75
+        }
+      ]
+    },
+    "inspection_anomalies": [
+      {
+        "record_id": "INSP-002",
+        "dimension_name": "Wall thickness left",
+        "direction": "low",
+        "magnitude": 0.18,
+        "status": "out_of_tolerance"
+      },
+      {
+        "record_id": "INSP-001",
+        "dimension_name": "Hole diameter A",
+        "direction": "high",
+        "magnitude": 0.08,
+        "status": "out_of_tolerance"
+      }
+    ],
+    "quality_linkage": {
+      "summary": {
+        "issue_count": 2,
+        "matched_categories": 2
+      },
+      "records": [
+        {
+          "issue_id": "NCR-001",
+          "description": "Wall warp near thin section",
+          "defect_code": "WARP-01",
+          "likely_feature_class": "thin_wall",
+          "linked_hotspot_category": "wall_thickness",
+          "linked_to_geometry": true,
+          "occurrence_count": 3,
+          "severity_score": 2.55,
+          "rationale": "Matched quality token 'warp'."
+        },
+        {
+          "issue_id": "NCR-002",
+          "description": "Diameter mismatch on mounting hole",
+          "defect_code": "HOLE-02",
+          "likely_feature_class": "hole",
+          "linked_hotspot_category": "patterning",
+          "linked_to_geometry": true,
+          "occurrence_count": 2,
+          "severity_score": 1.3,
+          "rationale": "Matched quality token 'diameter'."
+        }
+      ]
+    },
+    "quality_hotspots": [
+      {
+        "category": "wall_thickness",
+        "score": 2.55
+      },
+      {
+        "category": "patterning",
+        "score": 1.3
+      }
+    ],
+    "review_priorities": [
+      {
+        "priority_rank": 1,
+        "category": "wall_thickness",
+        "score": 1.65,
+        "title": "Review wall thickness",
+        "evidence_count": 2,
+        "related_inspection_records": [
+          "INSP-002"
+        ],
+        "related_quality_issues": [
+          "NCR-001"
+        ],
+        "rationale": "Combined geometry, inspection, and quality evidence elevated wall_thickness."
+      },
+      {
+        "priority_rank": 2,
+        "category": "slenderness",
+        "score": 1,
+        "title": "Review slenderness",
+        "evidence_count": 1,
+        "related_inspection_records": [],
+        "related_quality_issues": [],
+        "rationale": "Combined geometry, inspection, and quality evidence elevated slenderness."
+      },
+      {
+        "priority_rank": 3,
+        "category": "complexity",
+        "score": 1,
+        "title": "Review complexity",
+        "evidence_count": 1,
+        "related_inspection_records": [],
+        "related_quality_issues": [],
+        "rationale": "Combined geometry, inspection, and quality evidence elevated complexity."
+      },
+      {
+        "priority_rank": 4,
+        "category": "patterning",
+        "score": 0.933,
+        "title": "Review patterning",
+        "evidence_count": 2,
+        "related_inspection_records": [
+          "INSP-001"
+        ],
+        "related_quality_issues": [
+          "NCR-002"
+        ],
+        "rationale": "Combined geometry, inspection, and quality evidence elevated patterning."
+      },
+      {
+        "priority_rank": 5,
+        "category": "inspection_variation",
+        "score": 0.66,
+        "title": "Review inspection variation",
+        "evidence_count": 2,
+        "related_inspection_records": [],
+        "related_quality_issues": [],
+        "rationale": "Combined geometry, inspection, and quality evidence elevated inspection_variation."
+      }
+    ],
+    "recommended_actions": [
+      {
+        "category": "wall_thickness",
+        "priority_rank": 1,
+        "recommended_action": "Review minimum wall thickness, process capability, and distortion controls.",
+        "based_on": "Review wall thickness"
+      },
+      {
+        "category": "slenderness",
+        "priority_rank": 2,
+        "recommended_action": "Review the linked evidence and confirm next engineering action.",
+        "based_on": "Review slenderness"
+      },
+      {
+        "category": "complexity",
+        "priority_rank": 3,
+        "recommended_action": "Prioritize manufacturability review before releasing the next revision.",
+        "based_on": "Review complexity"
+      }
+    ],
+    "evidence_appendix": {
+      "geometry_metrics": {
+        "bounding_box_mm": {
+          "x": 120,
+          "y": 80,
+          "z": 6,
+          "diagonal": 144.347
+        },
+        "size_band": "small",
+        "volume_mm3": 18250,
+        "surface_area_mm2": 6430,
+        "face_count": 26,
+        "edge_count": 58,
+        "vertex_count": 44,
+        "bbox_volume_mm3": 57600,
+        "compactness_ratio": 0.3168,
+        "surface_to_volume_ratio": 0.3523,
+        "max_aspect_ratio": 20,
+        "mid_to_min_ratio": 13.3333,
+        "planar_spread_ratio": 1.5,
+        "thinness_ratio": 0.05,
+        "face_density": 0.0005,
+        "edge_density": 0.001
+      },
+      "geometry_feature_summary": {
+        "hole_like_feature_count": 4,
+        "hole_pattern_count": 1,
+        "thin_wall_candidates": [
+          {
+            "feature_type": "thin_wall",
+            "confidence": 0.8,
+            "evidence": "thinness_ratio=0.05"
+          }
+        ],
+        "deep_pocket_candidates": [],
+        "inner_corner_risk_candidates": [
+          {
+            "feature_type": "inner_corner",
+            "confidence": 0.65,
+            "evidence": "complex shape without fillet evidence"
+          }
+        ],
+        "fillet_density": 0,
+        "chamfer_density": 0,
+        "feature_density": 0.1538,
+        "complexity_score": 100
+      },
+      "source_files": [
+        "tests/fixtures/sample_part.step",
+        "tests/fixtures/sample_bom.csv",
+        "tests/fixtures/sample_inspection.csv",
+        "tests/fixtures/sample_quality.csv"
+      ],
+      "warnings": [],
+      "inspection_record_count": 2,
+      "quality_issue_count": 2
+    },
+    "metadata": {
+      "analysis_confidence": "heuristic",
+      "artifact_provenance": {
+        "workflow": [
+          "ingest",
+          "analyze-part",
+          "quality-link",
+          "review-pack"
+        ],
+        "source_files": [
+          "tests/fixtures/sample_part.step",
+          "tests/fixtures/sample_bom.csv",
+          "tests/fixtures/sample_inspection.csv",
+          "tests/fixtures/sample_quality.csv"
+        ],
+        "context_created_at": "2026-03-10T00:00:00+00:00",
+        "warnings": []
+      },
+      "renderers": [
+        "markdown",
+        "pdf"
+      ],
+      "available_sections": [
+        "part",
+        "geometry_summary",
+        "geometry_hotspots",
+        "inspection_linkage",
+        "inspection_anomalies",
+        "quality_linkage",
+        "quality_hotspots",
+        "review_priorities",
+        "recommended_actions",
+        "evidence_appendix"
+      ]
+    }
+  },
+  "process_plan": {
+    "agent": "process_planning",
+    "part": {
+      "part_id": "BRKT-100",
+      "name": "sample_part",
+      "description": "Fixture bracket for analysis tests",
+      "revision": "A",
+      "material": "AL6061",
+      "process": "machining"
+    },
+    "summary": {
+      "overall_risk_level": "medium",
+      "planning_mode": "review_pack_execution",
+      "priority_count": 5,
+      "recommended_action_count": 3,
+      "highest_priority_category": "wall_thickness",
+      "partial_evidence": false,
+      "missing_inputs": []
+    },
+    "planning_basis": {
+      "source_review_pack": {
+        "part_id": "BRKT-100",
+        "revision": "A",
+        "generated_at": "2026-03-31T00:00:00Z",
+        "path": "tests/fixtures/d-artifacts/sample_review_pack.canonical.json"
+      },
+      "review_pack_headline": "sample_part revision A packages 5 prioritized review topics.",
+      "top_risk_categories": [
+        "wall_thickness",
+        "slenderness",
+        "complexity"
+      ],
+      "uncertainty_coverage_report": {
+        "analysis_confidence": "heuristic",
+        "numeric_score": 0.76,
+        "partial_evidence": false,
+        "missing_inputs": [],
+        "coverage": {
+          "source_artifact_count": 13,
+          "source_file_count": 4,
+          "hotspot_count": 5,
+          "inspection_record_count": 2,
+          "inspection_outlier_count": 2,
+          "quality_issue_count": 2,
+          "quality_hotspot_count": 2,
+          "review_priority_count": 5
+        },
+        "warnings": []
+      },
+      "upstream_confidence": {
+        "level": "heuristic",
+        "score": 0.76,
+        "rationale": "Canonical review pack combines upstream D artifacts into a decision-oriented JSON contract."
+      }
+    },
+    "process_flow": [
+      {
+        "step": 10,
+        "operation": "Review wall thickness",
+        "execution_type": "evidence_closure",
+        "priority_rank": 1,
+        "category": "wall_thickness",
+        "score": 1.65,
+        "recommended_action": "Review minimum wall thickness, process capability, and distortion controls.",
+        "related_inspection_records": [
+          {
+            "record_id": "INSP-002",
+            "dimension_name": "Wall thickness left",
+            "status": "out_of_tolerance"
+          }
+        ],
+        "related_quality_issues": [
+          {
+            "issue_id": "NCR-001",
+            "description": "Wall warp near thin section",
+            "defect_code": "WARP-01"
+          }
+        ],
+        "completion_evidence": [
+          "Wall thickness left",
+          "Wall warp near thin section",
+          "Review minimum wall thickness, process capability, and distortion controls."
+        ],
+        "rationale": "Combined geometry, inspection, and quality evidence elevated wall_thickness."
+      },
+      {
+        "step": 20,
+        "operation": "Review slenderness",
+        "execution_type": "risk_review",
+        "priority_rank": 2,
+        "category": "slenderness",
+        "score": 1,
+        "recommended_action": "Review the linked evidence and confirm next engineering action.",
+        "related_inspection_records": [],
+        "related_quality_issues": [],
+        "completion_evidence": [
+          "Review the linked evidence and confirm next engineering action."
+        ],
+        "rationale": "Combined geometry, inspection, and quality evidence elevated slenderness."
+      },
+      {
+        "step": 30,
+        "operation": "Review complexity",
+        "execution_type": "risk_review",
+        "priority_rank": 3,
+        "category": "complexity",
+        "score": 1,
+        "recommended_action": "Prioritize manufacturability review before releasing the next revision.",
+        "related_inspection_records": [],
+        "related_quality_issues": [],
+        "completion_evidence": [
+          "Prioritize manufacturability review before releasing the next revision."
+        ],
+        "rationale": "Combined geometry, inspection, and quality evidence elevated complexity."
+      },
+      {
+        "step": 40,
+        "operation": "Review patterning",
+        "execution_type": "evidence_closure",
+        "priority_rank": 4,
+        "category": "patterning",
+        "score": 0.933,
+        "recommended_action": null,
+        "related_inspection_records": [
+          {
+            "record_id": "INSP-001",
+            "dimension_name": "Hole diameter A",
+            "status": "out_of_tolerance"
+          }
+        ],
+        "related_quality_issues": [
+          {
+            "issue_id": "NCR-002",
+            "description": "Diameter mismatch on mounting hole",
+            "defect_code": "HOLE-02"
+          }
+        ],
+        "completion_evidence": [
+          "Hole diameter A",
+          "Diameter mismatch on mounting hole"
+        ],
+        "rationale": "Combined geometry, inspection, and quality evidence elevated patterning."
+      },
+      {
+        "step": 50,
+        "operation": "Review inspection variation",
+        "execution_type": "risk_review",
+        "priority_rank": 5,
+        "category": "inspection_variation",
+        "score": 0.66,
+        "recommended_action": null,
+        "related_inspection_records": [],
+        "related_quality_issues": [],
+        "completion_evidence": [],
+        "rationale": "Combined geometry, inspection, and quality evidence elevated inspection_variation."
+      }
+    ],
+    "key_inspection_points": [
+      {
+        "id": "INSP-001",
+        "checkpoint": "Hole diameter A",
+        "status": "out_of_tolerance",
+        "deviation": 0.08,
+        "linked_categories": [
+          "hole_pattern",
+          "patterning"
+        ],
+        "priority_rank": null,
+        "rationale": "Matched by dimension/feature tokens."
+      },
+      {
+        "id": "INSP-002",
+        "checkpoint": "Wall thickness left",
+        "status": "out_of_tolerance",
+        "deviation": 0.18,
+        "linked_categories": [
+          "wall_thickness"
+        ],
+        "priority_rank": 1,
+        "rationale": "Matched by dimension/feature tokens."
+      }
+    ],
+    "automation_candidates": [],
+    "bottleneck_risks": [
+      "Review wall thickness",
+      "Review slenderness",
+      "Review complexity"
+    ],
+    "planning_notes": [],
+    "schema_version": "1.0",
+    "artifact_type": "process_plan",
+    "generated_at": "2026-04-01T00:00:00Z",
+    "warnings": [],
+    "coverage": {
+      "source_artifact_count": 14,
+      "source_file_count": 4,
+      "hotspot_count": 5,
+      "inspection_record_count": 2,
+      "inspection_outlier_count": 2,
+      "quality_issue_count": 2,
+      "quality_hotspot_count": 2,
+      "review_priority_count": 5,
+      "recommended_action_count": 3,
+      "process_step_count": 5,
+      "key_inspection_point_count": 2,
+      "automation_candidate_count": 0,
+      "missing_input_count": 0,
+      "upstream_review_pack_coverage": {
+        "source_artifact_count": 13,
+        "source_file_count": 4,
+        "hotspot_count": 5,
+        "inspection_record_count": 2,
+        "inspection_outlier_count": 2,
+        "quality_issue_count": 2,
+        "quality_hotspot_count": 2,
+        "review_priority_count": 5
+      }
+    },
+    "confidence": {
+      "level": "heuristic",
+      "score": 0.76,
+      "rationale": "Process plan is assembled from canonical review-pack priorities and recommended actions without recomputing D linkage or scoring.",
+      "upstream_confidence": {
+        "level": "heuristic",
+        "score": 0.76,
+        "rationale": "Canonical review pack combines upstream D artifacts into a decision-oriented JSON contract."
+      },
+      "uncertainty_numeric_score": 0.76
+    },
+    "source_artifact_refs": [
+      {
+        "artifact_type": "engineering_context",
+        "path": "tests/fixtures/sample_part_context.json",
+        "role": "input",
+        "label": "Input context JSON"
+      },
+      {
+        "artifact_type": "geometry_intelligence",
+        "path": "tmp/canonical/sample_geometry.json",
+        "role": "input",
+        "label": "Input geometry JSON"
+      },
+      {
+        "artifact_type": "manufacturing_hotspots",
+        "path": "tmp/canonical/sample_geometry_manufacturing_hotspots.json",
+        "role": "input",
+        "label": "Input hotspots JSON"
+      },
+      {
+        "artifact_type": "inspection_linkage",
+        "path": "tmp/canonical/sample_priorities_inspection_linkage.json",
+        "role": "intermediate",
+        "label": "Inspection linkage JSON"
+      },
+      {
+        "artifact_type": "inspection_outliers",
+        "path": "tmp/canonical/sample_priorities_inspection_outliers.json",
+        "role": "intermediate",
+        "label": "Inspection outliers JSON"
+      },
+      {
+        "artifact_type": "quality_linkage",
+        "path": "tmp/canonical/sample_priorities_quality_linkage.json",
+        "role": "intermediate",
+        "label": "Quality linkage JSON"
+      },
+      {
+        "artifact_type": "quality_hotspots",
+        "path": "tmp/canonical/sample_priorities_quality_hotspots.json",
+        "role": "intermediate",
+        "label": "Quality hotspots JSON"
+      },
+      {
+        "artifact_type": "review_priorities",
+        "path": "tmp/canonical/sample_priorities.json",
+        "role": "input",
+        "label": "Review priorities JSON"
+      },
+      {
+        "artifact_type": "cad_model",
+        "path": "tests/fixtures/sample_part.step",
+        "role": "input",
+        "label": "Geometry source"
+      },
+      {
+        "artifact_type": "source_file",
+        "path": "tests/fixtures/sample_part.step",
+        "role": "evidence",
+        "label": "Context source file"
+      },
+      {
+        "artifact_type": "source_file",
+        "path": "tests/fixtures/sample_bom.csv",
+        "role": "evidence",
+        "label": "Context source file"
+      },
+      {
+        "artifact_type": "source_file",
+        "path": "tests/fixtures/sample_inspection.csv",
+        "role": "evidence",
+        "label": "Context source file"
+      },
+      {
+        "artifact_type": "source_file",
+        "path": "tests/fixtures/sample_quality.csv",
+        "role": "evidence",
+        "label": "Context source file"
       },
       {
         "artifact_type": "review_pack",
-        "path": "output/pcb_mount_plate_review_pack.json",
-        "role": "optional_input",
-        "label": "Upstream D review pack"
+        "path": "tests/fixtures/d-artifacts/sample_review_pack.canonical.json",
+        "role": "input",
+        "label": "Canonical review-pack JSON"
       }
     ],
     "canonical_artifact": {
@@ -119,99 +812,412 @@
       "artifact_type": "process_plan",
       "artifact_filename": "process_plan.json",
       "derived_outputs": [],
-      "rationale": "Process-plan JSON is canonical for downstream use."
+      "rationale": "This JSON artifact is the canonical machine-readable source for the downstream C output."
     },
     "contract": {
       "layer": "C",
       "command": "process-plan",
-      "contract_version": "c1",
+      "contract_version": "c2",
       "canonical_artifact_kind": "process_plan",
       "primary_output": "process_plan.json",
-      "required_inputs": ["config"],
-      "optional_inputs": ["review_pack"],
+      "required_inputs": [
+        "review_pack"
+      ],
+      "optional_inputs": [
+        "config"
+      ],
       "derived_outputs": [],
       "notes": [
-        "Process-plan JSON is the machine-readable source of truth for this downstream C output."
+        "Process-plan JSON is the machine-readable source of truth for this downstream C output.",
+        "Canonical C2 process planning consumes review-pack priorities and recommended actions rather than re-implementing D scoring, linkage, or geometry logic."
       ]
     }
   },
-  "line_plan": {
-    "schema_version": "0.1",
-    "agent": "line_layout_support",
+  "quality_risk": {
+    "agent": "quality_traceability",
     "part": {
-      "name": "pcb_mount_plate"
+      "part_id": "BRKT-100",
+      "name": "sample_part",
+      "description": "Fixture bracket for analysis tests",
+      "revision": "A",
+      "material": "AL6061",
+      "process": "machining"
     },
     "summary": {
-      "overall_risk_level": "medium"
+      "overall_risk_level": "medium",
+      "quality_signal_count": 2,
+      "linked_priority_count": 5,
+      "partial_evidence": false,
+      "missing_inputs": []
     },
-    "station_concept": [
-      { "station_name": "Blank and form" },
-      { "station_name": "Inspection and pack" }
+    "critical_dimensions": [
+      {
+        "id": "INSP-001",
+        "name": "Hole diameter A",
+        "status": "out_of_tolerance",
+        "deviation": 0.08,
+        "linked_categories": [
+          "hole_pattern",
+          "patterning"
+        ]
+      },
+      {
+        "id": "INSP-002",
+        "name": "Wall thickness left",
+        "status": "out_of_tolerance",
+        "deviation": 0.18,
+        "linked_categories": [
+          "wall_thickness"
+        ]
+      }
     ],
-    "cycle_time_assumptions": {
-      "target_ct_sec": 42
+    "inspection_required_points": [
+      {
+        "id": "INSP-001",
+        "checkpoint": "Hole diameter A",
+        "status": "out_of_tolerance",
+        "deviation": 0.08,
+        "linked_categories": [
+          "hole_pattern",
+          "patterning"
+        ],
+        "priority_rank": null,
+        "rationale": "Matched by dimension/feature tokens."
+      },
+      {
+        "id": "INSP-002",
+        "checkpoint": "Wall thickness left",
+        "status": "out_of_tolerance",
+        "deviation": 0.18,
+        "linked_categories": [
+          "wall_thickness"
+        ],
+        "priority_rank": 1,
+        "rationale": "Matched by dimension/feature tokens."
+      }
+    ],
+    "traceability_summary": {
+      "source_file_count": 4,
+      "evidence_record_count": 0,
+      "inspection_record_count": 2,
+      "quality_issue_count": 2,
+      "partial_evidence": false,
+      "missing_inputs": []
     },
-    "inspection_split": {
-      "in_line_inspection_stations": ["Inspection and pack"],
-      "end_of_line_inspection_stations": ["Inspection and pack"]
-    }
-  },
-  "quality_risk": {
+    "quality_risks": [
+      {
+        "risk_id": "quality-risk-1",
+        "title": "Review wall thickness",
+        "category": "wall_thickness",
+        "severity": "high",
+        "priority_rank": 1,
+        "score": 1.65,
+        "evidence_count": 2,
+        "linked_inspection_records": [
+          "INSP-002"
+        ],
+        "linked_quality_issues": [
+          "NCR-001"
+        ],
+        "recommended_action": "Review minimum wall thickness, process capability, and distortion controls.",
+        "rationale": "Combined geometry, inspection, and quality evidence elevated wall_thickness.",
+        "source": "review_pack"
+      },
+      {
+        "risk_id": "quality-risk-2",
+        "title": "Review slenderness",
+        "category": "slenderness",
+        "severity": "medium",
+        "priority_rank": 2,
+        "score": 1,
+        "evidence_count": 1,
+        "linked_inspection_records": [],
+        "linked_quality_issues": [],
+        "recommended_action": "Review the linked evidence and confirm next engineering action.",
+        "rationale": "Combined geometry, inspection, and quality evidence elevated slenderness.",
+        "source": "review_pack"
+      },
+      {
+        "risk_id": "quality-risk-3",
+        "title": "Review complexity",
+        "category": "complexity",
+        "severity": "medium",
+        "priority_rank": 3,
+        "score": 1,
+        "evidence_count": 1,
+        "linked_inspection_records": [],
+        "linked_quality_issues": [],
+        "recommended_action": "Prioritize manufacturability review before releasing the next revision.",
+        "rationale": "Combined geometry, inspection, and quality evidence elevated complexity.",
+        "source": "review_pack"
+      },
+      {
+        "risk_id": "quality-risk-4",
+        "title": "Review patterning",
+        "category": "patterning",
+        "severity": "low",
+        "priority_rank": 4,
+        "score": 0.933,
+        "evidence_count": 2,
+        "linked_inspection_records": [
+          "INSP-001"
+        ],
+        "linked_quality_issues": [
+          "NCR-002"
+        ],
+        "recommended_action": null,
+        "rationale": "Combined geometry, inspection, and quality evidence elevated patterning.",
+        "source": "review_pack"
+      },
+      {
+        "risk_id": "quality-risk-5",
+        "title": "Review inspection variation",
+        "category": "inspection_variation",
+        "severity": "low",
+        "priority_rank": 5,
+        "score": 0.66,
+        "evidence_count": 2,
+        "linked_inspection_records": [],
+        "linked_quality_issues": [],
+        "recommended_action": null,
+        "rationale": "Combined geometry, inspection, and quality evidence elevated inspection_variation.",
+        "source": "review_pack"
+      }
+    ],
+    "quality_gates": [
+      {
+        "gate_id": "gate-INSP-001",
+        "title": "Verify Hole diameter A",
+        "gate_type": "inspection_confirmation",
+        "linked_categories": [
+          "hole_pattern",
+          "patterning"
+        ],
+        "status": "out_of_tolerance",
+        "deviation": 0.08
+      },
+      {
+        "gate_id": "gate-INSP-002",
+        "title": "Verify Wall thickness left",
+        "gate_type": "inspection_confirmation",
+        "linked_categories": [
+          "wall_thickness"
+        ],
+        "status": "out_of_tolerance",
+        "deviation": 0.18
+      },
+      {
+        "gate_id": "gate-priority-1",
+        "title": "Review wall thickness",
+        "gate_type": "quality_containment",
+        "linked_categories": [
+          "wall_thickness"
+        ],
+        "priority_rank": 1,
+        "recommended_action": "Review minimum wall thickness, process capability, and distortion controls."
+      },
+      {
+        "gate_id": "gate-priority-2",
+        "title": "Review slenderness",
+        "gate_type": "readiness_review",
+        "linked_categories": [
+          "slenderness"
+        ],
+        "priority_rank": 2,
+        "recommended_action": "Review the linked evidence and confirm next engineering action."
+      },
+      {
+        "gate_id": "gate-priority-3",
+        "title": "Review complexity",
+        "gate_type": "readiness_review",
+        "linked_categories": [
+          "complexity"
+        ],
+        "priority_rank": 3,
+        "recommended_action": "Prioritize manufacturability review before releasing the next revision."
+      },
+      {
+        "gate_id": "gate-priority-4",
+        "title": "Review patterning",
+        "gate_type": "quality_containment",
+        "linked_categories": [
+          "patterning"
+        ],
+        "priority_rank": 4,
+        "recommended_action": null
+      },
+      {
+        "gate_id": "gate-priority-5",
+        "title": "Review inspection variation",
+        "gate_type": "readiness_review",
+        "linked_categories": [
+          "inspection_variation"
+        ],
+        "priority_rank": 5,
+        "recommended_action": null
+      }
+    ],
+    "evidence_pack": {
+      "review_pack_headline": "sample_part revision A packages 5 prioritized review topics.",
+      "linkage_summary": {
+        "inspection": {
+          "count": 2,
+          "out_of_tolerance": 2,
+          "in_tolerance": 0,
+          "unknown": 0
+        },
+        "quality": {
+          "issue_count": 2,
+          "matched_categories": 2
+        }
+      },
+      "uncertainty_coverage_report": {
+        "analysis_confidence": "heuristic",
+        "numeric_score": 0.76,
+        "partial_evidence": false,
+        "missing_inputs": [],
+        "coverage": {
+          "source_artifact_count": 13,
+          "source_file_count": 4,
+          "hotspot_count": 5,
+          "inspection_record_count": 2,
+          "inspection_outlier_count": 2,
+          "quality_issue_count": 2,
+          "quality_hotspot_count": 2,
+          "review_priority_count": 5
+        },
+        "warnings": []
+      },
+      "data_quality_notes": [],
+      "upstream_confidence": {
+        "level": "heuristic",
+        "score": 0.76,
+        "rationale": "Canonical review pack combines upstream D artifacts into a decision-oriented JSON contract."
+      }
+    },
     "schema_version": "1.0",
     "artifact_type": "quality_risk",
     "generated_at": "2026-04-01T00:00:00Z",
-    "agent": "quality_traceability",
-    "part": {
-      "name": "pcb_mount_plate",
-      "revision": "B"
-    },
-    "summary": {
-      "overall_risk_level": "medium"
-    },
-    "critical_dimensions": [
-      { "id": "HOLE_DIA_1", "name": "Hole diameter" }
-    ],
-    "inspection_required_points": [
-      { "checkpoint": "Hole diameter" }
-    ],
-    "traceability_summary": {
-      "serial_level": "lot_and_revision"
-    },
-    "quality_risks": [
-      { "title": "Hole diameter drift risk" },
-      { "title": "Connector datum mix-up risk" }
-    ],
-    "quality_gates": [
-      { "title": "Hole diameter verification" },
-      { "title": "Final visual check" }
-    ],
-    "evidence_pack": {
-      "recommended_artifacts": ["control_plan"]
-    },
     "warnings": [],
     "coverage": {
-      "critical_dimension_count": 1,
-      "quality_risk_count": 2,
-      "quality_gate_count": 2,
-      "source_artifact_count": 2
+      "source_artifact_count": 14,
+      "source_file_count": 4,
+      "hotspot_count": 5,
+      "inspection_record_count": 2,
+      "inspection_outlier_count": 2,
+      "quality_issue_count": 2,
+      "quality_hotspot_count": 2,
+      "review_priority_count": 5,
+      "critical_dimension_count": 2,
+      "quality_risk_count": 5,
+      "quality_gate_count": 7,
+      "missing_input_count": 0,
+      "upstream_review_pack_coverage": {
+        "source_artifact_count": 13,
+        "source_file_count": 4,
+        "hotspot_count": 5,
+        "inspection_record_count": 2,
+        "inspection_outlier_count": 2,
+        "quality_issue_count": 2,
+        "quality_hotspot_count": 2,
+        "review_priority_count": 5
+      }
     },
     "confidence": {
       "level": "heuristic",
-      "score": 0.58,
-      "rationale": "Quality-risk output packages rule-based readiness signals for downstream review."
+      "score": 0.76,
+      "rationale": "Quality-risk pack is assembled from canonical D linkage, review priorities, and propagated evidence metadata.",
+      "upstream_confidence": {
+        "level": "heuristic",
+        "score": 0.76,
+        "rationale": "Canonical review pack combines upstream D artifacts into a decision-oriented JSON contract."
+      },
+      "uncertainty_numeric_score": 0.76
     },
     "source_artifact_refs": [
       {
-        "artifact_type": "config",
-        "path": "configs/examples/pcb_mount_plate.toml",
+        "artifact_type": "engineering_context",
+        "path": "tests/fixtures/sample_part_context.json",
         "role": "input",
-        "label": "Input config"
+        "label": "Input context JSON"
+      },
+      {
+        "artifact_type": "geometry_intelligence",
+        "path": "tmp/canonical/sample_geometry.json",
+        "role": "input",
+        "label": "Input geometry JSON"
+      },
+      {
+        "artifact_type": "manufacturing_hotspots",
+        "path": "tmp/canonical/sample_geometry_manufacturing_hotspots.json",
+        "role": "input",
+        "label": "Input hotspots JSON"
+      },
+      {
+        "artifact_type": "inspection_linkage",
+        "path": "tmp/canonical/sample_priorities_inspection_linkage.json",
+        "role": "intermediate",
+        "label": "Inspection linkage JSON"
+      },
+      {
+        "artifact_type": "inspection_outliers",
+        "path": "tmp/canonical/sample_priorities_inspection_outliers.json",
+        "role": "intermediate",
+        "label": "Inspection outliers JSON"
+      },
+      {
+        "artifact_type": "quality_linkage",
+        "path": "tmp/canonical/sample_priorities_quality_linkage.json",
+        "role": "intermediate",
+        "label": "Quality linkage JSON"
+      },
+      {
+        "artifact_type": "quality_hotspots",
+        "path": "tmp/canonical/sample_priorities_quality_hotspots.json",
+        "role": "intermediate",
+        "label": "Quality hotspots JSON"
+      },
+      {
+        "artifact_type": "review_priorities",
+        "path": "tmp/canonical/sample_priorities.json",
+        "role": "input",
+        "label": "Review priorities JSON"
+      },
+      {
+        "artifact_type": "cad_model",
+        "path": "tests/fixtures/sample_part.step",
+        "role": "input",
+        "label": "Geometry source"
+      },
+      {
+        "artifact_type": "source_file",
+        "path": "tests/fixtures/sample_part.step",
+        "role": "evidence",
+        "label": "Context source file"
+      },
+      {
+        "artifact_type": "source_file",
+        "path": "tests/fixtures/sample_bom.csv",
+        "role": "evidence",
+        "label": "Context source file"
+      },
+      {
+        "artifact_type": "source_file",
+        "path": "tests/fixtures/sample_inspection.csv",
+        "role": "evidence",
+        "label": "Context source file"
+      },
+      {
+        "artifact_type": "source_file",
+        "path": "tests/fixtures/sample_quality.csv",
+        "role": "evidence",
+        "label": "Context source file"
       },
       {
         "artifact_type": "review_pack",
-        "path": "output/pcb_mount_plate_review_pack.json",
-        "role": "optional_input",
-        "label": "Upstream D review pack"
+        "path": "tests/fixtures/d-artifacts/sample_review_pack.canonical.json",
+        "role": "input",
+        "label": "Canonical review-pack JSON"
       }
     ],
     "canonical_artifact": {
@@ -219,77 +1225,163 @@
       "artifact_type": "quality_risk",
       "artifact_filename": "quality_risk.json",
       "derived_outputs": [],
-      "rationale": "Quality-risk JSON is canonical for downstream use."
+      "rationale": "This JSON artifact is the canonical machine-readable source for the downstream C output."
     },
     "contract": {
       "layer": "C",
       "command": "quality-risk",
-      "contract_version": "c1",
+      "contract_version": "c2",
       "canonical_artifact_kind": "quality_risk",
       "primary_output": "quality_risk.json",
-      "required_inputs": ["config"],
-      "optional_inputs": ["review_pack"],
+      "required_inputs": [
+        "review_pack"
+      ],
+      "optional_inputs": [
+        "config"
+      ],
       "derived_outputs": [],
       "notes": [
-        "Quality-risk JSON remains a downstream readiness artifact and should propagate upstream evidence metadata when available."
+        "Quality-risk JSON remains a downstream readiness artifact and should propagate upstream evidence metadata when available.",
+        "Canonical C2 quality-risk assembly consumes D linkage and review-priority outputs instead of recreating them."
       ]
     }
   },
-  "investment_review": {
-    "schema_version": "0.1",
-    "agent": "cost_investment_review",
-    "part": {
-      "name": "pcb_mount_plate"
-    },
-    "summary": {
-      "investment_pressure": "medium"
-    },
-    "cost_breakdown": {
-      "unit_cost": 8.4,
-      "total_cost": 1260
-    },
-    "process_comparison": [
-      { "name": "manual fixture vs semi-auto nest" }
-    ]
-  },
-  "decision_summary": {
-    "go_signals": [
-      "DFM score supports pilot-line planning with standard launch controls."
-    ],
-    "hold_points": [
-      "Runtime-informed review still shows CT instability at one or more launch stations."
-    ],
-    "next_actions": [
-      "Prototype poka-yoke nest",
-      "Use this output as an early decision-support artifact, then refine with real line data."
-    ]
-  },
+  "schema_version": "1.0",
+  "artifact_type": "readiness_report",
+  "generated_at": "2026-04-01T00:00:00Z",
   "warnings": [],
   "coverage": {
-    "required_section_count": 7,
-    "available_section_count": 7,
-    "optional_stabilization_review": false,
+    "source_artifact_count": 14,
+    "source_file_count": 4,
+    "hotspot_count": 5,
+    "inspection_record_count": 2,
+    "inspection_outlier_count": 2,
+    "quality_issue_count": 2,
+    "quality_hotspot_count": 2,
+    "review_priority_count": 5,
+    "required_section_count": 4,
+    "available_section_count": 4,
     "process_step_count": 5,
-    "quality_gate_count": 2,
-    "source_artifact_count": 2
+    "quality_gate_count": 7,
+    "missing_input_count": 0,
+    "evidence_record_count": 9,
+    "upstream_review_pack_coverage": {
+      "source_artifact_count": 13,
+      "source_file_count": 4,
+      "hotspot_count": 5,
+      "inspection_record_count": 2,
+      "inspection_outlier_count": 2,
+      "quality_issue_count": 2,
+      "quality_hotspot_count": 2,
+      "review_priority_count": 5
+    }
   },
   "confidence": {
     "level": "heuristic",
-    "score": 0.52,
-    "rationale": "Readiness report is derived from heuristic planning agents and should be refined with runtime evidence and plant review."
+    "score": 0.76,
+    "rationale": "Readiness report packages canonical D review-pack evidence with downstream C execution and quality-risk builders.",
+    "contributors": [
+      {
+        "level": "heuristic",
+        "score": 0.76,
+        "rationale": "Canonical review pack combines upstream D artifacts into a decision-oriented JSON contract."
+      },
+      {
+        "level": "heuristic",
+        "score": 0.76,
+        "rationale": "Process plan is assembled from canonical review-pack priorities and recommended actions without recomputing D linkage or scoring."
+      },
+      {
+        "level": "heuristic",
+        "score": 0.76,
+        "rationale": "Quality-risk pack is assembled from canonical D linkage, review priorities, and propagated evidence metadata."
+      }
+    ]
   },
   "source_artifact_refs": [
     {
-      "artifact_type": "config",
-      "path": "configs/examples/pcb_mount_plate.toml",
+      "artifact_type": "engineering_context",
+      "path": "tests/fixtures/sample_part_context.json",
       "role": "input",
-      "label": "Input config"
+      "label": "Input context JSON"
+    },
+    {
+      "artifact_type": "geometry_intelligence",
+      "path": "tmp/canonical/sample_geometry.json",
+      "role": "input",
+      "label": "Input geometry JSON"
+    },
+    {
+      "artifact_type": "manufacturing_hotspots",
+      "path": "tmp/canonical/sample_geometry_manufacturing_hotspots.json",
+      "role": "input",
+      "label": "Input hotspots JSON"
+    },
+    {
+      "artifact_type": "inspection_linkage",
+      "path": "tmp/canonical/sample_priorities_inspection_linkage.json",
+      "role": "intermediate",
+      "label": "Inspection linkage JSON"
+    },
+    {
+      "artifact_type": "inspection_outliers",
+      "path": "tmp/canonical/sample_priorities_inspection_outliers.json",
+      "role": "intermediate",
+      "label": "Inspection outliers JSON"
+    },
+    {
+      "artifact_type": "quality_linkage",
+      "path": "tmp/canonical/sample_priorities_quality_linkage.json",
+      "role": "intermediate",
+      "label": "Quality linkage JSON"
+    },
+    {
+      "artifact_type": "quality_hotspots",
+      "path": "tmp/canonical/sample_priorities_quality_hotspots.json",
+      "role": "intermediate",
+      "label": "Quality hotspots JSON"
+    },
+    {
+      "artifact_type": "review_priorities",
+      "path": "tmp/canonical/sample_priorities.json",
+      "role": "input",
+      "label": "Review priorities JSON"
+    },
+    {
+      "artifact_type": "cad_model",
+      "path": "tests/fixtures/sample_part.step",
+      "role": "input",
+      "label": "Geometry source"
+    },
+    {
+      "artifact_type": "source_file",
+      "path": "tests/fixtures/sample_part.step",
+      "role": "evidence",
+      "label": "Context source file"
+    },
+    {
+      "artifact_type": "source_file",
+      "path": "tests/fixtures/sample_bom.csv",
+      "role": "evidence",
+      "label": "Context source file"
+    },
+    {
+      "artifact_type": "source_file",
+      "path": "tests/fixtures/sample_inspection.csv",
+      "role": "evidence",
+      "label": "Context source file"
+    },
+    {
+      "artifact_type": "source_file",
+      "path": "tests/fixtures/sample_quality.csv",
+      "role": "evidence",
+      "label": "Context source file"
     },
     {
       "artifact_type": "review_pack",
-      "path": "output/pcb_mount_plate_review_pack.json",
-      "role": "optional_input",
-      "label": "Upstream D review pack"
+      "path": "tests/fixtures/d-artifacts/sample_review_pack.canonical.json",
+      "role": "input",
+      "label": "Canonical review-pack JSON"
     }
   ],
   "canonical_artifact": {
@@ -301,16 +1393,22 @@
       "docs_manifest",
       "release_bundle_manifest"
     ],
-    "rationale": "readiness_report.json is the canonical C artifact; downstream docs and bundles derive from it."
+    "rationale": "readiness_report.json is the canonical C artifact; downstream markdown and release packaging derive from it."
   },
   "contract": {
     "layer": "C",
     "command": "readiness-report",
-    "contract_version": "c1",
+    "contract_version": "c2",
     "canonical_artifact_kind": "readiness_report",
     "primary_output": "readiness_report.json",
-    "required_inputs": ["config"],
-    "optional_inputs": ["runtime", "review_pack"],
+    "required_inputs": [
+      "review_pack"
+    ],
+    "optional_inputs": [
+      "config",
+      "process_plan",
+      "quality_risk"
+    ],
     "derived_outputs": [
       "readiness_markdown",
       "docs_manifest",
@@ -318,8 +1416,49 @@
     ],
     "notes": [
       "readiness_report.json is the canonical C artifact.",
-      "Markdown, checklists, and release packaging must derive from canonical JSON rather than becoming the source of truth."
+      "Markdown, checklists, and release packaging must derive from canonical JSON rather than becoming the source of truth.",
+      "Canonical C2 readiness assembly packages D review-pack evidence plus C outputs without recomputing D decision logic."
     ]
   },
-  "markdown": "# Production Readiness Report: pcb_mount_plate\n\n- Status: candidate_for_pilot_line_review\n- Composite score: 78\n- Gate decision: candidate_for_pilot_line_review\n"
+  "readiness_summary": {
+    "score": 85,
+    "status": "candidate_for_pilot_line_review",
+    "gate_decision": "candidate_for_pilot_line_review"
+  },
+  "summary": {
+    "overall_risk_level": "low",
+    "top_issues": [
+      "Review wall thickness",
+      "Review slenderness",
+      "Review complexity"
+    ],
+    "recommended_actions": [
+      "Review minimum wall thickness, process capability, and distortion controls.",
+      "Review the linked evidence and confirm next engineering action.",
+      "Prioritize manufacturability review before releasing the next revision."
+    ],
+    "likely_bottleneck_candidates": [
+      "Review wall thickness",
+      "Review slenderness",
+      "Review complexity"
+    ],
+    "likely_automation_candidates": [],
+    "launch_stabilization_focus": [],
+    "review_pack_headline": "sample_part revision A packages 5 prioritized review topics."
+  },
+  "decision_summary": {
+    "go_signals": [
+      "Canonical review-pack includes geometry, inspection, and quality evidence for downstream readiness packaging.",
+      "Manufacturing execution steps were derived directly from review priorities and recommended actions.",
+      "Quality gates and inspection-required points are explicitly listed for downstream follow-up.",
+      "Evidence completeness and propagated confidence are sufficient for pilot-line planning review."
+    ],
+    "hold_points": [],
+    "next_actions": [
+      "Review minimum wall thickness, process capability, and distortion controls.",
+      "Review the linked evidence and confirm next engineering action.",
+      "Prioritize manufacturability review before releasing the next revision."
+    ]
+  },
+  "markdown": "# Production Readiness Report: sample_part\n\n- Status: candidate_for_pilot_line_review\n- Composite score: 85\n- Gate decision: candidate_for_pilot_line_review\n- Review-pack headline: sample_part revision A packages 5 prioritized review topics.\n\n## Executive Summary\n\n- Overall risk level: low\n- Top issues: Review wall thickness; Review slenderness; Review complexity\n- Recommended actions: Review minimum wall thickness, process capability, and distortion controls.; Review the linked evidence and confirm next engineering action.; Prioritize manufacturability review before releasing the next revision.\n- Missing inputs: none\n\n## Process Plan\n\n- Flow steps: 5\n- Key inspection points: 2\n- Bottleneck risks: Review wall thickness; Review slenderness; Review complexity\n\n## Quality Risk\n\n- Critical dimensions: 2\n- Quality risks: 5\n- Quality gates: 7\n\n## Decision Summary\n\n- Go signals: Canonical review-pack includes geometry, inspection, and quality evidence for downstream readiness packaging.; Manufacturing execution steps were derived directly from review priorities and recommended actions.; Quality gates and inspection-required points are explicitly listed for downstream follow-up.; Evidence completeness and propagated confidence are sufficient for pilot-line planning review.\n- Hold points: none\n- Next actions: Review minimum wall thickness, process capability, and distortion controls.; Review the linked evidence and confirm next engineering action.; Prioritize manufacturability review before releasing the next revision.\n\n## Propagated Signals\n\n- Warnings: none\n- Confidence: heuristic (0.76)\n"
 }
