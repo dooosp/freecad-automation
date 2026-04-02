@@ -6,8 +6,12 @@ import {
   canStartTrackedArtifactRun,
   deriveArtifactReentryCapabilities,
   findPreferredConfigArtifact,
+  findPreferredDocsManifestArtifact,
   isConfigLikeArtifact,
   isInspectableModelArtifact,
+  isReadinessReportArtifact,
+  isReleaseBundleArtifact,
+  isReviewPackArtifact,
 } from '../public/js/studio/artifact-actions.js';
 
 assert.deepEqual(buildStudioArtifactRef('job-1', 'artifact-2'), {
@@ -60,6 +64,25 @@ const preferredConfig = findPreferredConfigArtifact([
 
 assert.equal(preferredConfig?.id, 'effective');
 
+const preferredDocsManifest = findPreferredDocsManifestArtifact([
+  {
+    id: 'work-instruction',
+    type: 'standard-docs.work_instruction_draft.md',
+    file_name: 'work_instruction_draft.md',
+    extension: '.md',
+    exists: true,
+  },
+  {
+    id: 'manifest',
+    type: 'standard-docs.summary',
+    file_name: 'standard_docs_manifest.json',
+    extension: '.json',
+    exists: true,
+  },
+]);
+
+assert.equal(preferredDocsManifest?.id, 'manifest');
+
 assert.equal(canReenterModelWorkspace({
   type: 'config.effective',
   file_name: 'effective-config.json',
@@ -81,6 +104,57 @@ assert.equal(canStartTrackedArtifactRun({
   exists: true,
 }, 'report'), false);
 
+assert.equal(isReviewPackArtifact({
+  type: 'review-pack.json',
+  file_name: 'review_pack.json',
+  extension: '.json',
+  exists: true,
+}), true);
+
+assert.equal(isReadinessReportArtifact({
+  type: 'readiness-report.json',
+  file_name: 'readiness_report.json',
+  extension: '.json',
+  exists: true,
+}), true);
+
+assert.equal(isReleaseBundleArtifact({
+  type: 'release-bundle.zip',
+  file_name: 'release_bundle.zip',
+  extension: '.zip',
+  exists: true,
+}), true);
+
+assert.equal(canStartTrackedArtifactRun({
+  type: 'review-pack.json',
+  file_name: 'review_pack.json',
+  extension: '.json',
+  exists: true,
+  contract: {
+    reentry_target: 'review_pack',
+  },
+}, 'readiness-pack'), true);
+
+assert.equal(canStartTrackedArtifactRun({
+  type: 'readiness-report.json',
+  file_name: 'readiness_report.json',
+  extension: '.json',
+  exists: true,
+  contract: {
+    reentry_target: 'readiness_report',
+  },
+}, 'pack'), true);
+
+assert.equal(canStartTrackedArtifactRun({
+  type: 'release-bundle.zip',
+  file_name: 'release_bundle.zip',
+  extension: '.zip',
+  exists: true,
+  contract: {
+    reentry_target: 'release_bundle',
+  },
+}, 'generate-standard-docs'), true);
+
 assert.deepEqual(deriveArtifactReentryCapabilities({
   type: 'drawing.qa-report',
   file_name: 'sheet_qa.json',
@@ -90,6 +164,9 @@ assert.deepEqual(deriveArtifactReentryCapabilities({
   canOpenInModel: false,
   canRunTrackedReport: false,
   canRunTrackedInspect: false,
+  canRunTrackedReadinessPack: false,
+  canRunTrackedStandardDocs: false,
+  canRunTrackedPack: false,
   canSeedReview: true,
 });
 
@@ -115,6 +192,9 @@ assert.deepEqual(deriveArtifactReentryCapabilities({
   canOpenInModel: false,
   canRunTrackedReport: false,
   canRunTrackedInspect: false,
+  canRunTrackedReadinessPack: true,
+  canRunTrackedStandardDocs: true,
+  canRunTrackedPack: true,
   canSeedReview: false,
 });
 

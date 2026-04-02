@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -7,6 +7,20 @@ import { createLocalApiServer } from '../src/server/local-api-server.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const REVIEW_PACK_FIXTURE = resolve(ROOT, 'tests/fixtures/d-artifacts/sample_review_pack.canonical.json');
+const READINESS_REPORT_FIXTURE = resolve(ROOT, 'tests/fixtures/c-artifacts/sample_readiness_report.canonical.json');
+const CONFIG_EXAMPLE = resolve(ROOT, 'configs/examples/controller_housing_eol.toml');
+
+function writeAlignedConfig(filePath, {
+  templatePath = CONFIG_EXAMPLE,
+  name = 'sample_part',
+  revision = 'A',
+} = {}) {
+  const template = readFileSync(templatePath, 'utf8');
+  const next = template
+    .replace(/^name = ".*"$/m, `name = "${name}"`)
+    .replace(/^revision = ".*"$/m, `revision = "${revision}"`);
+  writeFileSync(filePath, next, 'utf8');
+}
 
 async function listen(server) {
   await new Promise((resolveListen) => server.listen(0, '127.0.0.1', resolveListen));
@@ -34,9 +48,35 @@ async function waitForJob(baseUrl, jobId, expectedStatus = 'succeeded') {
   throw new Error(`Timed out waiting for job ${jobId}`);
 }
 
+async function postJson(url, body) {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      accept: 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  const payload = await response.json();
+  return { response, payload };
+}
+
+async function fetchArtifacts(baseUrl, jobId) {
+  const response = await fetch(`${baseUrl}/jobs/${jobId}/artifacts`, {
+    headers: {
+      accept: 'application/json',
+    },
+  });
+  assert.equal(response.status, 200);
+  return response.json();
+}
+
 const tmpRoot = mkdtempSync(join(tmpdir(), 'fcad-af-jobs-'));
 
 try {
+  const docsConfigPath = join(tmpRoot, 'sample_part_docs.toml');
+  writeAlignedConfig(docsConfigPath);
+
   const { server } = createLocalApiServer({
     projectRoot: ROOT,
     jobsDir: join(tmpRoot, 'jobs'),
@@ -44,19 +84,11 @@ try {
   const port = await listen(server);
   const baseUrl = `http://127.0.0.1:${port}`;
 
-  const readinessResponse = await fetch(`${baseUrl}/jobs`, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      accept: 'application/json',
-    },
-    body: JSON.stringify({
-      type: 'readiness-pack',
-      review_pack_path: REVIEW_PACK_FIXTURE,
-    }),
+  const { response: readinessResponse, payload: readinessPayload } = await postJson(`${baseUrl}/jobs`, {
+    type: 'readiness-pack',
+    review_pack_path: REVIEW_PACK_FIXTURE,
   });
   assert.equal(readinessResponse.status, 202);
-  const readinessPayload = await readinessResponse.json();
   assert.equal(readinessPayload.job.execution.command, 'readiness-pack');
   assert.equal(readinessPayload.job.execution.lifecycle_state, 'queued');
 
@@ -64,45 +96,90 @@ try {
   assert.equal(readinessJob.execution.command, 'readiness-pack');
   assert.equal(readinessJob.execution.lifecycle_state, 'succeeded');
 
-  const readinessArtifactsResponse = await fetch(`${baseUrl}/jobs/${readinessJob.id}/artifacts`, {
-    headers: {
-      accept: 'application/json',
-    },
-  });
-  assert.equal(readinessArtifactsResponse.status, 200);
-  const readinessArtifactsPayload = await readinessArtifactsResponse.json();
+  const readinessArtifactsPayload = await fetchArtifacts(baseUrl, readinessJob.id);
   const readinessArtifact = readinessArtifactsPayload.artifacts.find((artifact) => artifact.contract?.reentry_target === 'readiness_report');
   assert.equal(Boolean(readinessArtifact), true);
   assert.equal(readinessArtifact.contract.canonical_file_name, 'readiness_report.json');
 
-  const packResponse = await fetch(`${baseUrl}/jobs`, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      accept: 'application/json',
-    },
-    body: JSON.stringify({
-      type: 'pack',
-      readiness_report_path: join(tmpRoot, 'jobs', readinessJob.id, 'artifacts', 'readiness_report.json'),
-    }),
+  const { response: compareResponse, payload: comparePayload } = await postJson(`${baseUrl}/jobs`, {
+    type: 'compare-rev',
+    baseline_path: REVIEW_PACK_FIXTURE,
+    candidate_path: REVIEW_PACK_FIXTURE,
   });
-  assert.equal(packResponse.status, 202);
-  const packPayload = await packResponse.json();
-  assert.equal(packPayload.job.execution.command, 'pack');
+  assert.equal(compareResponse.status, 202);
+  assert.equal(comparePayload.job.execution.command, 'compare-rev');
+  const compareJob = await waitForJob(baseUrl, comparePayload.job.id);
+  assert.equal(compareJob.execution.lifecycle_state, 'succeeded');
 
-  const packJob = await waitForJob(baseUrl, packPayload.job.id);
+  const { response: stabilizationResponse, payload: stabilizationPayload } = await postJson(`${baseUrl}/jobs`, {
+    type: 'stabilization-review',
+    baseline_path: READINESS_REPORT_FIXTURE,
+    candidate_path: READINESS_REPORT_FIXTURE,
+  });
+  assert.equal(stabilizationResponse.status, 202);
+  assert.equal(stabilizationPayload.job.execution.command, 'stabilization-review');
+  const stabilizationJob = await waitForJob(baseUrl, stabilizationPayload.job.id);
+  assert.equal(stabilizationJob.execution.lifecycle_state, 'succeeded');
+
+  const readinessReportPath = join(tmpRoot, 'jobs', readinessJob.id, 'artifacts', 'readiness_report.json');
+  const { response: docsResponse, payload: docsPayload } = await postJson(`${baseUrl}/jobs`, {
+    type: 'generate-standard-docs',
+    config_path: docsConfigPath,
+    readiness_report_path: readinessReportPath,
+  });
+  assert.equal(docsResponse.status, 202);
+  assert.equal(docsPayload.job.execution.command, 'generate-standard-docs');
+  const docsJob = await waitForJob(baseUrl, docsPayload.job.id);
+  assert.equal(docsJob.execution.lifecycle_state, 'succeeded');
+
+  const docsArtifactsPayload = await fetchArtifacts(baseUrl, docsJob.id);
+  const docsReadinessArtifact = docsArtifactsPayload.artifacts.find((artifact) => artifact.contract?.reentry_target === 'readiness_report');
+  assert.equal(Boolean(docsReadinessArtifact), true);
+  const docsManifestArtifact = docsArtifactsPayload.artifacts.find((artifact) => artifact.type === 'standard-docs.summary');
+  assert.equal(Boolean(docsManifestArtifact), true);
+
+  const { response: packFromArtifactResponse, payload: packFromArtifactPayload } = await postJson(`${baseUrl}/api/studio/jobs`, {
+    type: 'pack',
+    artifact_ref: {
+      job_id: docsJob.id,
+      artifact_id: docsReadinessArtifact.id,
+    },
+  });
+  assert.equal(packFromArtifactResponse.status, 202);
+  assert.equal(packFromArtifactPayload.job.type, 'pack');
+  assert.deepEqual(packFromArtifactPayload.job.request.artifact_ref, {
+    job_id: docsJob.id,
+    artifact_id: docsReadinessArtifact.id,
+  });
+
+  const packJob = await waitForJob(baseUrl, packFromArtifactPayload.job.id);
   assert.equal(packJob.execution.lifecycle_state, 'succeeded');
-
-  const packArtifactsResponse = await fetch(`${baseUrl}/jobs/${packJob.id}/artifacts`, {
-    headers: {
-      accept: 'application/json',
-    },
-  });
-  assert.equal(packArtifactsResponse.status, 200);
-  const packArtifactsPayload = await packArtifactsResponse.json();
+  const packArtifactsPayload = await fetchArtifacts(baseUrl, packJob.id);
   const bundleArtifact = packArtifactsPayload.artifacts.find((artifact) => artifact.contract?.reentry_target === 'release_bundle');
   assert.equal(Boolean(bundleArtifact), true);
   assert.equal(bundleArtifact.contract.canonical_file_name, 'release_bundle.zip');
+  assert.equal(packArtifactsPayload.artifacts.some((artifact) => artifact.type === 'input.docs-manifest'), true);
+
+  const { response: repackResponse, payload: repackPayload } = await postJson(`${baseUrl}/api/studio/jobs`, {
+    type: 'pack',
+    artifact_ref: {
+      job_id: packJob.id,
+      artifact_id: bundleArtifact.id,
+    },
+  });
+  assert.equal(repackResponse.status, 202);
+  assert.equal(repackPayload.job.type, 'pack');
+  assert.deepEqual(repackPayload.job.request.artifact_ref, {
+    job_id: packJob.id,
+    artifact_id: bundleArtifact.id,
+  });
+
+  const repackJob = await waitForJob(baseUrl, repackPayload.job.id);
+  assert.equal(repackJob.execution.lifecycle_state, 'succeeded');
+  const repackArtifactsPayload = await fetchArtifacts(baseUrl, repackJob.id);
+  assert.equal(repackArtifactsPayload.artifacts.some((artifact) => artifact.type === 'input.release-bundle'), true);
+  assert.equal(repackArtifactsPayload.artifacts.some((artifact) => artifact.type === 'input.bundle.readiness-report'), true);
+  assert.equal(repackArtifactsPayload.artifacts.some((artifact) => artifact.type === 'input.bundle.docs-manifest'), true);
 
   await new Promise((resolveClose) => server.close(resolveClose));
   console.log('af-execution-jobs.test.js: ok');

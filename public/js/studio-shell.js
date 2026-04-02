@@ -1307,11 +1307,29 @@ async function handleShellAction(actionTarget) {
         time: 'artifact',
       });
     }
-  } else if ((action === 'run-artifact-inspect' || action === 'run-artifact-report') && jobId) {
+  } else if (
+    (
+      action === 'run-artifact-inspect'
+      || action === 'run-artifact-report'
+      || action === 'run-artifact-readiness-pack'
+      || action === 'run-artifact-standard-docs'
+      || action === 'run-artifact-pack'
+    )
+    && jobId
+  ) {
     try {
       const artifact = state.data.activeJob.artifacts.find((entry) => entry.id === actionTarget.dataset.artifactId);
+      const nextType = action === 'run-artifact-inspect'
+        ? 'inspect'
+        : action === 'run-artifact-report'
+          ? 'report'
+          : action === 'run-artifact-readiness-pack'
+            ? 'readiness-pack'
+            : action === 'run-artifact-standard-docs'
+              ? 'generate-standard-docs'
+              : 'pack';
       await submitTrackedStudioRun({
-        type: action === 'run-artifact-inspect' ? 'inspect' : 'report',
+        type: nextType,
         artifactRef: buildStudioArtifactRef(jobId, actionTarget.dataset.artifactId),
         completionAction: {
           type: 'tracked-run-completion',

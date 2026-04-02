@@ -2,15 +2,21 @@ import { parse as parseTOML } from 'smol-toml';
 
 import { validateConfigDocument } from '../../lib/config-schema.js';
 import {
+  findPreferredConfigArtifact,
+  findPreferredDocsManifestArtifact,
   isConfigLikeArtifact,
   isInspectableModelArtifact,
+  isReadinessReportArtifact,
+  isReleaseBundleArtifact,
+  isReviewPackArtifact,
 } from '../../public/js/studio/artifact-actions.js';
 import {
   applyStudioDrawingSettings,
   normalizeStudioDrawingSettings,
 } from './studio-drawing-config.js';
 
-const STUDIO_JOB_TYPES = new Set(['create', 'draw', 'inspect', 'report']);
+const STUDIO_JOB_TYPES = new Set(['create', 'draw', 'inspect', 'report', 'readiness-pack', 'generate-standard-docs', 'pack']);
+const STUDIO_AF_ARTIFACT_JOB_TYPES = new Set(['readiness-pack', 'generate-standard-docs', 'pack']);
 
 function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -98,7 +104,7 @@ export function validateStudioJobSubmission(body) {
   });
 
   if (!STUDIO_JOB_TYPES.has(request.type)) {
-    errors.push('type must be one of create, draw, inspect, or report.');
+    errors.push('type must be one of create, draw, inspect, report, readiness-pack, generate-standard-docs, or pack.');
   }
 
   const hasConfigToml = typeof request.config_toml === 'string' && request.config_toml.trim().length > 0;
@@ -119,6 +125,13 @@ export function validateStudioJobSubmission(body) {
     }
     if (hasConfigToml) {
       errors.push('config_toml is not supported for type "inspect".');
+    }
+  } else if (STUDIO_AF_ARTIFACT_JOB_TYPES.has(request.type)) {
+    if (!hasArtifactRef) {
+      errors.push(`artifact_ref is required for type "${request.type}".`);
+    }
+    if (hasConfigToml) {
+      errors.push(`config_toml is not supported for type "${request.type}".`);
     }
   } else if (!hasConfigToml && !hasArtifactRef) {
     errors.push('config_toml is required.');
@@ -142,8 +155,13 @@ export function validateStudioJobSubmission(body) {
     errors.push('report_options is only supported for type "report".');
   }
 
-  if (request.type !== 'inspect' && request.type !== 'report' && request.artifact_ref !== undefined) {
-    errors.push('artifact_ref is only supported for type "inspect" or "report".');
+  if (
+    request.type !== 'inspect'
+    && request.type !== 'report'
+    && !STUDIO_AF_ARTIFACT_JOB_TYPES.has(request.type)
+    && request.artifact_ref !== undefined
+  ) {
+    errors.push('artifact_ref is only supported for type "inspect", "report", "readiness-pack", "generate-standard-docs", or "pack".');
   }
 
   return {
@@ -191,6 +209,80 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
         request: {
           type: 'inspect',
           file_path: resolvedArtifact.artifact.path,
+          options: buildResolvedArtifactOptions(request, resolvedArtifact),
+        },
+      };
+    }
+
+    if (request.type === 'readiness-pack') {
+      if (!isReviewPackArtifact(resolvedArtifact.artifact) && !isReleaseBundleArtifact(resolvedArtifact.artifact)) {
+        return {
+          ok: false,
+          errors: ['artifact_ref must point to a canonical review-pack JSON or a release bundle for type "readiness-pack".'],
+        };
+      }
+
+      return {
+        ok: true,
+        request: {
+          type: 'readiness-pack',
+          review_pack_path: resolvedArtifact.artifact.path,
+          options: buildResolvedArtifactOptions(request, resolvedArtifact),
+        },
+      };
+    }
+
+    if (request.type === 'generate-standard-docs') {
+      const selectedArtifact = resolvedArtifact.artifact;
+      if (!isReviewPackArtifact(selectedArtifact) && !isReadinessReportArtifact(selectedArtifact) && !isReleaseBundleArtifact(selectedArtifact)) {
+        return {
+          ok: false,
+          errors: ['artifact_ref must point to a canonical review-pack JSON, readiness report JSON, or release bundle for type "generate-standard-docs".'],
+        };
+      }
+
+      const configArtifact = isReleaseBundleArtifact(selectedArtifact)
+        ? selectedArtifact
+        : findPreferredConfigArtifact(resolvedArtifact.jobArtifacts || []);
+      if (!configArtifact?.path) {
+        return {
+          ok: false,
+          errors: ['generate-standard-docs needs a config-like artifact in the same tracked job, or a release bundle that already carries canonical inputs.'],
+        };
+      }
+
+      return {
+        ok: true,
+        request: {
+          type: 'generate-standard-docs',
+          config_path: configArtifact.path,
+          ...(isReviewPackArtifact(selectedArtifact)
+            ? { review_pack_path: selectedArtifact.path }
+            : { readiness_report_path: selectedArtifact.path }),
+          options: buildResolvedArtifactOptions(request, resolvedArtifact),
+        },
+      };
+    }
+
+    if (request.type === 'pack') {
+      const selectedArtifact = resolvedArtifact.artifact;
+      if (!isReadinessReportArtifact(selectedArtifact) && !isReleaseBundleArtifact(selectedArtifact)) {
+        return {
+          ok: false,
+          errors: ['artifact_ref must point to a canonical readiness report JSON or a release bundle for type "pack".'],
+        };
+      }
+
+      const docsManifestArtifact = isReleaseBundleArtifact(selectedArtifact)
+        ? null
+        : findPreferredDocsManifestArtifact(resolvedArtifact.jobArtifacts || []);
+
+      return {
+        ok: true,
+        request: {
+          type: 'pack',
+          readiness_report_path: selectedArtifact.path,
+          ...(docsManifestArtifact?.path ? { docs_manifest_path: docsManifestArtifact.path } : {}),
           options: buildResolvedArtifactOptions(request, resolvedArtifact),
         },
       };

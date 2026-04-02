@@ -103,7 +103,15 @@ export function supportsStudioJobRetry(job = {}) {
 
 export function isReviewableStudioJob(job = {}) {
   const type = String(job?.type || '').toLowerCase();
-  return (type === 'inspect' || type === 'report')
+  return (
+    type === 'inspect'
+    || type === 'report'
+    || type === 'review-context'
+    || type === 'readiness-pack'
+    || type === 'stabilization-review'
+    || type === 'generate-standard-docs'
+    || type === 'pack'
+  )
     && String(job?.status || '').toLowerCase() === 'succeeded';
 }
 

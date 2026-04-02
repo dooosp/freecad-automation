@@ -193,3 +193,34 @@ The final response should include:
 - Do not recreate D or C scoring, reasoning, or linkage logic in A+F.
 - Fail closed on missing lineage, schema mismatch, or invalid artifact handoff.
 - Preserve intentionally supported legacy compatibility paths without promoting them over the canonical JSON-first flow.
+
+## AF2 Task: Job Platform For D/C Continuation
+- Active branch for this task: `feat/af2-job-platform`
+- Preferred clean worktree for this task: `/Users/jangtaeho/Documents/New/.worktrees/af2-job-platform/freecad-automation`
+- Execution plan source of truth:
+  - `docs/exec-plans/af2-job-platform.md`
+- Verification and remediation plan:
+  - `docs/exec-plans/af2-job-platform-verification.md`
+- Phase status files:
+  - `tmp/codex/af2-job-platform-status.md`
+  - `tmp/codex/af2-job-platform-verification-status.md`
+- Extend the shared jobs/API/run platform so these tracked job types execute, download, reopen, and continue through the same platform surface:
+  - `review-context`
+  - `compare-rev`
+  - `readiness-pack`
+  - `stabilization-review`
+  - `generate-standard-docs`
+  - `pack`
+- Preserve the canonical JSON-first path centered on:
+  - `review_pack.json`
+  - `readiness_report.json`
+- Keep A+F orchestration-first:
+  - do not reimplement D reasoning, scoring, or linkage
+  - do not reimplement C readiness synthesis inside API or jobs
+- Prefer thin adapters, durable metadata, and lineage-preserving artifact routing over duplicated business logic.
+- Preserve fail-closed behavior for:
+  - missing readiness input
+  - lineage mismatch
+  - schema mismatch
+  - invalid canonical artifact handoff
+- Where the existing repository architecture already supports it, allow canonical artifact and bundle re-entry without shell-first operation.

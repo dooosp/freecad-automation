@@ -982,9 +982,11 @@ export function createLocalApiServer({
         if (!artifact.exists) {
           throw new Error(`Artifact ${artifact.file_name} is registered for job ${jobId}, but the file is missing.`);
         }
+        const jobArtifacts = await jobStore.listArtifacts(jobId);
         return {
           jobId,
           artifact,
+          jobArtifacts,
         };
       },
     });

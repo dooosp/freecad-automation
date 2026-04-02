@@ -31,6 +31,12 @@ import {
   buildStabilizationReviewFromReadinessReports,
   writeCanonicalReadinessArtifacts,
 } from '../../workflows/canonical-readiness-builders.js';
+import {
+  resolveBundleBackedCanonicalPath,
+  resolveBundleBackedConfigPath,
+  resolveBundleBackedDocsManifestPath,
+  summarizeBundleImports,
+} from './af-reentry.js';
 import { loadRuleProfile, summarizeRuleProfile } from '../config/rule-profile-service.js';
 import { validateLocalApiJobRequest } from '../../server/local-api-schemas.js';
 
@@ -180,6 +186,55 @@ async function ensureJobArtifactDir(jobStore, jobId) {
   return directory;
 }
 
+function buildBundleImportManifestArtifacts(importRecords = []) {
+  const bundleEntries = [];
+  const extractedEntries = [];
+  const seenBundles = new Set();
+  const kindToType = {
+    review_pack: 'input.bundle.review-pack',
+    readiness_report: 'input.bundle.readiness-report',
+    docs_manifest: 'input.bundle.docs-manifest',
+    config: 'input.bundle.config',
+  };
+  const kindToLabel = {
+    review_pack: 'Imported review pack JSON',
+    readiness_report: 'Imported readiness report JSON',
+    docs_manifest: 'Imported standard docs manifest JSON',
+    config: 'Imported config input',
+  };
+
+  for (const record of importRecords) {
+    if (!record?.bundle_path || !record?.entry_name || !record?.extracted_path) continue;
+    if (!seenBundles.has(record.bundle_path)) {
+      seenBundles.add(record.bundle_path);
+      bundleEntries.push({
+        type: 'input.release-bundle',
+        path: record.bundle_path,
+        label: 'Source release bundle ZIP',
+        scope: 'internal',
+        stability: 'stable',
+      });
+    }
+    extractedEntries.push({
+      type: kindToType[record.kind] || 'input.bundle.artifact',
+      path: record.extracted_path,
+      label: kindToLabel[record.kind] || 'Imported bundle artifact',
+      scope: 'internal',
+      stability: record.auto_detected ? 'best-effort' : 'stable',
+    });
+  }
+
+  return [...bundleEntries, ...extractedEntries];
+}
+
+function formatBundleImportLog(record) {
+  const kindLabel = record?.kind ? String(record.kind).replace(/_/g, ' ') : 'artifact';
+  const entryName = record?.entry_name || 'unknown-entry';
+  const bundleName = record?.bundle_path ? basename(record.bundle_path) : 'bundle.zip';
+  const suffix = record?.auto_detected ? ' (auto-detected)' : '';
+  return `Imported ${kindLabel} from ${bundleName}:${entryName}${suffix}`;
+}
+
 function buildLineageIdentity(document = {}) {
   const part = document?.part && typeof document.part === 'object' ? document.part : {};
   return {
@@ -245,7 +300,7 @@ async function loadReadinessReportHandoff(pathValue, { command }) {
   return artifact;
 }
 
-async function loadDocsManifestHandoff(pathValue, { readinessReport, readinessPath }) {
+async function loadDocsManifestHandoff(pathValue, { readinessReport, readinessPath, allowBundledPair = false }) {
   const artifact = await readJsonFile(pathValue);
   assertValidCArtifact('docs_manifest', artifact, { command: 'pack', path: pathValue });
   validateDocsManifestAgainstReadiness({
@@ -253,6 +308,7 @@ async function loadDocsManifestHandoff(pathValue, { readinessReport, readinessPa
     readinessPath,
     docsManifest: artifact,
     docsManifestPath: pathValue,
+    allowBundledPair,
   });
   return artifact;
 }
@@ -452,8 +508,22 @@ export function createJobExecutor({
 
   async function executeCompareRev(job) {
     await ensureJobArtifactDir(jobStore, job.id);
-    const baselinePath = resolveMaybe(projectRoot, job.request.baseline_path);
-    const candidatePath = resolveMaybe(projectRoot, job.request.candidate_path);
+    const baselineImport = await resolveBundleBackedCanonicalPath({
+      jobStore,
+      jobId: job.id,
+      inputPath: resolveMaybe(projectRoot, job.request.baseline_path),
+      target: 'review_pack',
+      outputFileName: 'baseline_review_pack.json',
+    });
+    const candidateImport = await resolveBundleBackedCanonicalPath({
+      jobStore,
+      jobId: job.id,
+      inputPath: resolveMaybe(projectRoot, job.request.candidate_path),
+      target: 'review_pack',
+      outputFileName: 'candidate_review_pack.json',
+    });
+    const baselinePath = baselineImport.path;
+    const candidatePath = candidateImport.path;
     const baseline = await loadReviewPackHandoff(baselinePath, { command: 'compare-rev' });
     const candidate = await loadReviewPackHandoff(candidatePath, { command: 'compare-rev' });
     const outputPath = buildJobArtifactPath(jobStore, job.id, 'revision_comparison.json');
@@ -506,12 +576,20 @@ export function createJobExecutor({
       outputPath,
       baselinePath,
       candidatePath,
+      bundleImports: summarizeBundleImports([baselineImport.importRecord, candidateImport.importRecord]),
     };
   }
 
   async function executeReadinessPack(job) {
     await ensureJobArtifactDir(jobStore, job.id);
-    const reviewPackPath = resolveMaybe(projectRoot, job.request.review_pack_path);
+    const reviewPackImport = await resolveBundleBackedCanonicalPath({
+      jobStore,
+      jobId: job.id,
+      inputPath: resolveMaybe(projectRoot, job.request.review_pack_path),
+      target: 'review_pack',
+      outputFileName: 'review_pack.json',
+    });
+    const reviewPackPath = reviewPackImport.path;
     const processPlanPath = resolveMaybe(projectRoot, job.request.process_plan_path);
     const qualityRiskPath = resolveMaybe(projectRoot, job.request.quality_risk_path);
     const reviewPack = await loadReviewPackHandoff(reviewPackPath, { command: 'readiness-pack' });
@@ -532,13 +610,28 @@ export function createJobExecutor({
       reviewPackPath,
       processPlanPath,
       qualityRiskPath,
+      bundleImports: summarizeBundleImports([reviewPackImport.importRecord]),
     };
   }
 
   async function executeStabilizationReview(job) {
     await ensureJobArtifactDir(jobStore, job.id);
-    const baselinePath = resolveMaybe(projectRoot, job.request.baseline_path);
-    const candidatePath = resolveMaybe(projectRoot, job.request.candidate_path);
+    const baselineImport = await resolveBundleBackedCanonicalPath({
+      jobStore,
+      jobId: job.id,
+      inputPath: resolveMaybe(projectRoot, job.request.baseline_path),
+      target: 'readiness_report',
+      outputFileName: 'baseline_readiness_report.json',
+    });
+    const candidateImport = await resolveBundleBackedCanonicalPath({
+      jobStore,
+      jobId: job.id,
+      inputPath: resolveMaybe(projectRoot, job.request.candidate_path),
+      target: 'readiness_report',
+      outputFileName: 'candidate_readiness_report.json',
+    });
+    const baselinePath = baselineImport.path;
+    const candidatePath = candidateImport.path;
     const baselineReport = await loadReadinessReportHandoff(baselinePath, { command: 'stabilization-review' });
     const candidateReport = await loadReadinessReportHandoff(candidatePath, { command: 'stabilization-review' });
     const outputPath = buildJobArtifactPath(jobStore, job.id, 'stabilization_review.json');
@@ -554,16 +647,40 @@ export function createJobExecutor({
       outputPath,
       baselinePath,
       candidatePath,
+      bundleImports: summarizeBundleImports([baselineImport.importRecord, candidateImport.importRecord]),
     };
   }
 
   async function executeGenerateStandardDocs(job) {
     const outDir = buildJobArtifactPath(jobStore, job.id, 'standard-docs');
     await mkdir(outDir, { recursive: true });
-    const configPath = resolveMaybe(projectRoot, job.request.config_path);
+    const configImport = await resolveBundleBackedConfigPath({
+      jobStore,
+      jobId: job.id,
+      inputPath: resolveMaybe(projectRoot, job.request.config_path),
+    });
+    const configPath = configImport.path;
     const loaded = await loadConfigWithDiagnostics(configPath);
-    const readinessReportPath = resolveMaybe(projectRoot, job.request.readiness_report_path);
-    const reviewPackPath = resolveMaybe(projectRoot, job.request.review_pack_path);
+    const readinessImport = job.request.readiness_report_path
+      ? await resolveBundleBackedCanonicalPath({
+          jobStore,
+          jobId: job.id,
+          inputPath: resolveMaybe(projectRoot, job.request.readiness_report_path),
+          target: 'readiness_report',
+          outputFileName: 'readiness_report.json',
+        })
+      : { path: null, importRecord: null };
+    const reviewPackImport = job.request.review_pack_path
+      ? await resolveBundleBackedCanonicalPath({
+          jobStore,
+          jobId: job.id,
+          inputPath: resolveMaybe(projectRoot, job.request.review_pack_path),
+          target: 'review_pack',
+          outputFileName: 'review_pack.json',
+        })
+      : { path: null, importRecord: null };
+    const readinessReportPath = readinessImport.path;
+    const reviewPackPath = reviewPackImport.path;
     const processPlanPath = resolveMaybe(projectRoot, job.request.process_plan_path);
     const qualityRiskPath = resolveMaybe(projectRoot, job.request.quality_risk_path);
 
@@ -602,16 +719,42 @@ export function createJobExecutor({
       readinessReportPath,
       processPlanPath,
       qualityRiskPath,
+      bundleImports: summarizeBundleImports([
+        configImport.importRecord,
+        readinessImport.importRecord,
+        reviewPackImport.importRecord,
+      ]),
     };
   }
 
   async function executePack(job) {
     await ensureJobArtifactDir(jobStore, job.id);
-    const readinessPath = resolveMaybe(projectRoot, job.request.readiness_report_path);
-    const docsManifestPath = resolveMaybe(projectRoot, job.request.docs_manifest_path);
+    const rawReadinessPath = resolveMaybe(projectRoot, job.request.readiness_report_path);
+    const readinessImport = await resolveBundleBackedCanonicalPath({
+      jobStore,
+      jobId: job.id,
+      inputPath: rawReadinessPath,
+      target: 'readiness_report',
+      outputFileName: 'readiness_report.json',
+    });
+    const docsManifestImport = await resolveBundleBackedDocsManifestPath({
+      jobStore,
+      jobId: job.id,
+      explicitPath: resolveMaybe(projectRoot, job.request.docs_manifest_path),
+      fallbackBundlePath: rawReadinessPath,
+    });
+    const readinessPath = readinessImport.path;
+    const docsManifestPath = docsManifestImport.path;
     const readinessReport = await loadReadinessReportHandoff(readinessPath, { command: 'pack' });
     const docsManifest = docsManifestPath
-      ? await loadDocsManifestHandoff(docsManifestPath, { readinessReport, readinessPath })
+      ? await loadDocsManifestHandoff(docsManifestPath, {
+          readinessReport,
+          readinessPath,
+          allowBundledPair: Boolean(
+            readinessImport.importRecord?.bundle_path
+            && readinessImport.importRecord?.bundle_path === docsManifestImport.importRecord?.bundle_path
+          ),
+        })
       : null;
     const outputPath = buildJobArtifactPath(jobStore, job.id, 'release_bundle.zip');
     const result = await runReleaseBundleWorkflow({
@@ -621,12 +764,17 @@ export function createJobExecutor({
       outputPath,
       docsManifestPath,
       docsManifest,
+      allowBundledDocsManifestPair: Boolean(
+        readinessImport.importRecord?.bundle_path
+        && readinessImport.importRecord?.bundle_path === docsManifestImport.importRecord?.bundle_path
+      ),
     });
     return {
       ...result,
       readinessPath,
       docsManifestPath,
       readinessReport,
+      bundleImports: summarizeBundleImports([readinessImport.importRecord, docsManifestImport.importRecord]),
     };
   }
 
@@ -912,6 +1060,13 @@ export function createJobExecutor({
             scope: 'internal',
             stability: 'stable',
           });
+        }
+
+        if (Array.isArray(result?.bundleImports) && result.bundleImports.length > 0) {
+          for (const importRecord of result.bundleImports) {
+            await appendLog(jobId, formatBundleImportLog(importRecord));
+          }
+          manifestArtifacts.push(...buildBundleImportManifestArtifacts(result.bundleImports));
         }
 
         const ruleProfile = resolvedConfig?.config

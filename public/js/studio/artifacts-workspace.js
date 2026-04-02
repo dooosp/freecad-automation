@@ -19,6 +19,9 @@ import {
 } from './artifact-insights.js';
 import {
   deriveArtifactReentryCapabilities,
+  findPreferredConfigArtifact,
+  findPreferredDocsManifestArtifact,
+  isReleaseBundleArtifact,
 } from './artifact-actions.js';
 import { applyTranslations } from '../i18n/index.js';
 
@@ -460,7 +463,12 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
       return;
     }
 
+    const activeArtifacts = state.data.activeJob.artifacts || [];
+    const sourceConfigArtifact = findPreferredConfigArtifact(activeArtifacts);
+    const sourceDocsManifestArtifact = findPreferredDocsManifestArtifact(activeArtifacts);
     const reentry = deriveArtifactReentryCapabilities(artifact);
+    const supportsTrackedStandardDocs = reentry.canRunTrackedStandardDocs
+      && (Boolean(sourceConfigArtifact) || isReleaseBundleArtifact(artifact));
     detailSummaryElement.replaceChildren(
       createInfoGrid(buildArtifactDetailItems(artifact, state.data.activeJob))
     );
@@ -507,6 +515,45 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
             createButton({
               label: 'Tracked report',
               action: 'run-artifact-report',
+              tone: 'ghost',
+              dataset: {
+                jobId: state.data.activeJob.summary.id,
+                artifactId: artifact.id,
+              },
+            }),
+          ]
+        : []),
+      ...(state.data.activeJob.summary && reentry.canRunTrackedReadinessPack
+        ? [
+            createButton({
+              label: 'Tracked readiness pack',
+              action: 'run-artifact-readiness-pack',
+              tone: 'ghost',
+              dataset: {
+                jobId: state.data.activeJob.summary.id,
+                artifactId: artifact.id,
+              },
+            }),
+          ]
+        : []),
+      ...(state.data.activeJob.summary && supportsTrackedStandardDocs
+        ? [
+            createButton({
+              label: 'Tracked standard docs',
+              action: 'run-artifact-standard-docs',
+              tone: 'ghost',
+              dataset: {
+                jobId: state.data.activeJob.summary.id,
+                artifactId: artifact.id,
+              },
+            }),
+          ]
+        : []),
+      ...(state.data.activeJob.summary && reentry.canRunTrackedPack
+        ? [
+            createButton({
+              label: sourceDocsManifestArtifact ? 'Tracked pack (+ docs)' : 'Tracked pack',
+              action: 'run-artifact-pack',
               tone: 'ghost',
               dataset: {
                 jobId: state.data.activeJob.summary.id,

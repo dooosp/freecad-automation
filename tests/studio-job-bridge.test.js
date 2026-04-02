@@ -183,6 +183,146 @@ assert.equal(reportFromArtifact.request.config_path, '/tmp/effective-config.json
 assert.deepEqual(reportFromArtifact.request.options.report_options, { style: 'summary' });
 assert.equal(reportFromArtifact.request.options.studio.source_label, 'effective-config.json');
 
+const readinessFromArtifact = await translateStudioJobSubmission({
+  type: 'readiness-pack',
+  artifact_ref: {
+    job_id: 'job-review',
+    artifact_id: 'review-pack',
+  },
+}, {
+  async resolveArtifactRef(ref) {
+    return {
+      jobId: ref.job_id,
+      artifact: {
+        id: ref.artifact_id,
+        path: '/tmp/review_pack.json',
+        type: 'review-pack.json',
+        file_name: 'review_pack.json',
+        extension: '.json',
+        exists: true,
+        contract: {
+          reentry_target: 'review_pack',
+        },
+      },
+      jobArtifacts: [],
+    };
+  },
+});
+
+assert.equal(readinessFromArtifact.ok, true, readinessFromArtifact.errors?.join('\n'));
+assert.equal(readinessFromArtifact.request.type, 'readiness-pack');
+assert.equal(readinessFromArtifact.request.review_pack_path, '/tmp/review_pack.json');
+
+const docsFromArtifact = await translateStudioJobSubmission({
+  type: 'generate-standard-docs',
+  artifact_ref: {
+    job_id: 'job-readiness',
+    artifact_id: 'readiness-report',
+  },
+}, {
+  async resolveArtifactRef(ref) {
+    return {
+      jobId: ref.job_id,
+      artifact: {
+        id: ref.artifact_id,
+        path: '/tmp/readiness_report.json',
+        type: 'readiness-report.json',
+        file_name: 'readiness_report.json',
+        extension: '.json',
+        exists: true,
+        contract: {
+          reentry_target: 'readiness_report',
+        },
+      },
+      jobArtifacts: [
+        {
+          id: 'effective-config',
+          path: '/tmp/effective-config.json',
+          type: 'config.effective',
+          file_name: 'effective-config.json',
+          extension: '.json',
+          exists: true,
+        },
+      ],
+    };
+  },
+});
+
+assert.equal(docsFromArtifact.ok, true, docsFromArtifact.errors?.join('\n'));
+assert.equal(docsFromArtifact.request.type, 'generate-standard-docs');
+assert.equal(docsFromArtifact.request.config_path, '/tmp/effective-config.json');
+assert.equal(docsFromArtifact.request.readiness_report_path, '/tmp/readiness_report.json');
+
+const packFromArtifact = await translateStudioJobSubmission({
+  type: 'pack',
+  artifact_ref: {
+    job_id: 'job-docs',
+    artifact_id: 'readiness-report',
+  },
+}, {
+  async resolveArtifactRef(ref) {
+    return {
+      jobId: ref.job_id,
+      artifact: {
+        id: ref.artifact_id,
+        path: '/tmp/readiness_report.json',
+        type: 'readiness-report.json',
+        file_name: 'readiness_report.json',
+        extension: '.json',
+        exists: true,
+        contract: {
+          reentry_target: 'readiness_report',
+        },
+      },
+      jobArtifacts: [
+        {
+          id: 'docs-manifest',
+          path: '/tmp/standard_docs_manifest.json',
+          type: 'standard-docs.summary',
+          file_name: 'standard_docs_manifest.json',
+          extension: '.json',
+          exists: true,
+        },
+      ],
+    };
+  },
+});
+
+assert.equal(packFromArtifact.ok, true, packFromArtifact.errors?.join('\n'));
+assert.equal(packFromArtifact.request.type, 'pack');
+assert.equal(packFromArtifact.request.readiness_report_path, '/tmp/readiness_report.json');
+assert.equal(packFromArtifact.request.docs_manifest_path, '/tmp/standard_docs_manifest.json');
+
+const docsFromBundle = await translateStudioJobSubmission({
+  type: 'generate-standard-docs',
+  artifact_ref: {
+    job_id: 'job-bundle',
+    artifact_id: 'release-bundle',
+  },
+}, {
+  async resolveArtifactRef(ref) {
+    return {
+      jobId: ref.job_id,
+      artifact: {
+        id: ref.artifact_id,
+        path: '/tmp/release_bundle.zip',
+        type: 'release-bundle.zip',
+        file_name: 'release_bundle.zip',
+        extension: '.zip',
+        exists: true,
+        contract: {
+          reentry_target: 'release_bundle',
+        },
+      },
+      jobArtifacts: [],
+    };
+  },
+});
+
+assert.equal(docsFromBundle.ok, true, docsFromBundle.errors?.join('\n'));
+assert.equal(docsFromBundle.request.config_path, '/tmp/release_bundle.zip');
+assert.equal(docsFromBundle.request.readiness_report_path, '/tmp/release_bundle.zip');
+
 const invalidInspectArtifact = await translateStudioJobSubmission({
   type: 'inspect',
   artifact_ref: {
@@ -232,5 +372,34 @@ const invalidReportArtifact = await translateStudioJobSubmission({
 
 assert.equal(invalidReportArtifact.ok, false);
 assert.match(invalidReportArtifact.errors.join('\n'), /config-like artifact/i);
+
+const invalidDocsArtifact = await translateStudioJobSubmission({
+  type: 'generate-standard-docs',
+  artifact_ref: {
+    job_id: 'job-readiness',
+    artifact_id: 'readiness-report',
+  },
+}, {
+  async resolveArtifactRef(ref) {
+    return {
+      jobId: ref.job_id,
+      artifact: {
+        id: ref.artifact_id,
+        path: '/tmp/readiness_report.json',
+        type: 'readiness-report.json',
+        file_name: 'readiness_report.json',
+        extension: '.json',
+        exists: true,
+        contract: {
+          reentry_target: 'readiness_report',
+        },
+      },
+      jobArtifacts: [],
+    };
+  },
+});
+
+assert.equal(invalidDocsArtifact.ok, false);
+assert.match(invalidDocsArtifact.errors.join('\n'), /config-like artifact/i);
 
 console.log('studio-job-bridge.test.js: ok');

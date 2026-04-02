@@ -194,6 +194,7 @@ export async function runReleaseBundleWorkflow({
   docsManifestPath = null,
   docsManifest = null,
   additionalWarnings = [],
+  allowBundledDocsManifestPair = false,
 } = {}) {
   const resolvedReadinessPath = resolve(readinessPath);
   const resolvedOutputPath = resolve(outputPath);
@@ -223,6 +224,7 @@ export async function runReleaseBundleWorkflow({
       readinessPath: resolvedReadinessPath,
       docsManifest,
       docsManifestPath: resolve(docsManifestPath),
+      allowBundledPair: allowBundledDocsManifestPair,
     });
   }
 

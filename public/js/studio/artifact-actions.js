@@ -15,6 +15,11 @@ const REVIEW_SOURCE_MATCHERS = [
   'line_plan',
   'drawing.qa-report',
 ];
+const DOCS_MANIFEST_MATCHERS = [
+  'standard_docs_manifest',
+  'standard-docs.summary',
+  'docs_manifest',
+];
 
 function normalizeString(value) {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
@@ -102,11 +107,55 @@ export function isReviewSourceArtifact(artifact = {}) {
   return includesAny(artifactSearchText(artifact), REVIEW_SOURCE_MATCHERS);
 }
 
+export function isReviewPackArtifact(artifact = {}) {
+  const target = contractReentryTarget(artifact);
+  if (target === 'review_pack') return true;
+  return includesAny(artifactSearchText(artifact), [
+    'review_pack.json',
+    'review-pack.json',
+    'review_pack',
+    'review-pack',
+  ]);
+}
+
+export function isReadinessReportArtifact(artifact = {}) {
+  const target = contractReentryTarget(artifact);
+  if (target === 'readiness_report') return true;
+  return includesAny(artifactSearchText(artifact), [
+    'readiness_report.json',
+    'readiness-report.json',
+    'readiness_report',
+    'readiness-report',
+    'input.readiness-report',
+  ]);
+}
+
+export function isReleaseBundleArtifact(artifact = {}) {
+  const target = contractReentryTarget(artifact);
+  if (target === 'release_bundle') return true;
+  return includesAny(artifactSearchText(artifact), [
+    'release_bundle.zip',
+    'release-bundle.zip',
+    'release_bundle',
+    'release-bundle',
+  ]);
+}
+
 export function canReenterModelWorkspace(artifact = {}) {
   return artifact.exists !== false && isConfigLikeArtifact(artifact);
 }
 
 export function canStartTrackedArtifactRun(artifact = {}, type = 'report') {
+  if (artifact.exists === false) return false;
+  if (type === 'readiness-pack') {
+    return isReviewPackArtifact(artifact) || isReleaseBundleArtifact(artifact);
+  }
+  if (type === 'generate-standard-docs') {
+    return isReviewPackArtifact(artifact) || isReadinessReportArtifact(artifact) || isReleaseBundleArtifact(artifact);
+  }
+  if (type === 'pack') {
+    return isReadinessReportArtifact(artifact) || isReleaseBundleArtifact(artifact);
+  }
   if (type === 'report') return canReenterModelWorkspace(artifact);
   if (type === 'inspect') return isInspectableModelArtifact(artifact);
   return false;
@@ -117,6 +166,9 @@ export function deriveArtifactReentryCapabilities(artifact = {}) {
     canOpenInModel: canReenterModelWorkspace(artifact),
     canRunTrackedReport: canStartTrackedArtifactRun(artifact, 'report'),
     canRunTrackedInspect: canStartTrackedArtifactRun(artifact, 'inspect'),
+    canRunTrackedReadinessPack: canStartTrackedArtifactRun(artifact, 'readiness-pack'),
+    canRunTrackedStandardDocs: canStartTrackedArtifactRun(artifact, 'generate-standard-docs'),
+    canRunTrackedPack: canStartTrackedArtifactRun(artifact, 'pack'),
     canSeedReview: artifact.exists !== false && isReviewSourceArtifact(artifact),
   };
 }
@@ -125,4 +177,10 @@ export function findPreferredConfigArtifact(artifacts = []) {
   return [...artifacts]
     .filter((artifact) => isConfigLikeArtifact(artifact) && artifact.exists !== false)
     .sort((left, right) => configArtifactPriority(left) - configArtifactPriority(right))[0] || null;
+}
+
+export function findPreferredDocsManifestArtifact(artifacts = []) {
+  return [...artifacts]
+    .filter((artifact) => artifact.exists !== false && includesAny(artifactSearchText(artifact), DOCS_MANIFEST_MATCHERS))
+    .sort((left, right) => artifactSearchText(left).localeCompare(artifactSearchText(right)))[0] || null;
 }
