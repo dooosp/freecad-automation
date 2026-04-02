@@ -260,7 +260,7 @@ function buildLandingPayload({
         artifacts: '/jobs/:id/artifacts',
         artifact_open: '/artifacts/:jobId/:artifactId',
       },
-      note: 'Preview routes stay scratch-safe and request/response. Tracked routes enqueue review, readiness, compare, and pack jobs, expose live status through /jobs, support queued cancel plus terminal retry controls, and preserve artifact-driven re-entry.',
+      note: 'Preview routes stay scratch-safe and request/response. Studio tracked routes cover create/draw/inspect/report plus compare, readiness, docs, and pack follow-up, while direct POST /jobs also accepts review-context and the same AF continuation job types.',
     },
     api_info: {
       available: true,
@@ -277,7 +277,7 @@ function buildLandingPayload({
     notes: [
       'Browser requests to / open the Studio review console by default.',
       'Open /api for the local API info page and /studio for the direct Studio review-console route.',
-      'Open /health for the runtime diagnostics payload and POST /jobs to enqueue work.',
+      'Open /health for the runtime diagnostics payload; POST /jobs accepts direct tracked JSON requests including review-context, compare, readiness, docs, and pack work.',
       'If localhost resolves to another listener on your machine, use 127.0.0.1 explicitly.',
     ],
   };
@@ -305,8 +305,9 @@ function buildLandingCopy(locale = 'en') {
       runtimeDiagnostics: '런타임 진단용',
       modelPreview: '검토에 필요한 형상 확인용 빠른 모델 미리보기 빌드를 실행합니다',
       drawingPreview: '검토에 필요한 시트 확인용 빠른 도면 미리보기 빌드를 실행합니다',
-      trackedJobs: 'Studio TOML 또는 산출물 참조에서 검토, 준비 상태, 비교, 문서, 팩 작업을 대기열에 넣습니다',
-      jobsDiscovery: '작업 생성 대상과 경로를 확인합니다',
+      trackedJobs: 'Studio TOML 또는 산출물 참조에서 생성/도면/검사/리포트와 검토, 준비 상태, 비교, 문서, 팩 후속 작업을 대기열에 넣습니다',
+      directJobs: '직접 JSON 요청으로 review-context와 AF 추적 작업을 대기열에 넣습니다',
+      jobsDiscovery: '최근 작업 기록과 생성 대상 경로를 확인합니다',
       jobShape: '작업 상태 응답 형식을 확인합니다',
       cancelQueued: '실행 전에 대기 중인 추적 작업을 취소합니다',
       retryTracked: '실패하거나 취소된 추적 작업을 새 대기 실행으로 다시 시도합니다',
@@ -319,10 +320,7 @@ function buildLandingCopy(locale = 'en') {
       trackedCopy: '지속되는 검토/패키지 작업은',
       trackedCopySuffix: '로 대기열에 넣고 상태와 산출물을 추적합니다.',
       reentryLabel: '산출물 재진입',
-      reentryCopy: '추적된',
-      reentryCopyMiddle: '는 설정 형태의',
-      reentryCopyMiddleTwo: '를 받고, 추적된',
-      reentryCopySuffix: '는 모델 형태의',
+      reentryDetailsHtml: '추적 <code>report</code>는 설정 형태의 <code>artifact_ref</code>를 받고, 추적 <code>inspect</code>는 모델 형태의 <code>artifact_ref</code>를 받습니다. 추적 <code>readiness-pack</code>, <code>generate-standard-docs</code>, <code>pack</code>은 정식 review/readiness 산출물 또는 <code>release_bundle.zip</code>에서 이어갈 수 있고, <code>compare-rev</code>와 <code>stabilization-review</code>는 기준선/후보 정식 산출물 쌍이 모두 있을 때만 준비됩니다.',
       parallelShell: 'Studio 우선 검토 경로',
       parallelShellCopyStart: '',
       parallelShellCopyMiddle: '는 직접 Studio 작업 영역입니다. <code>/</code>는 이 경로를 기본 진입점으로 유지하고, 클래식 뷰어는 호환 전용 대체 경로로만 남겨둡니다.',
@@ -341,7 +339,8 @@ function buildLandingCopy(locale = 'en') {
       plainDrawingPreview: '도면 미리보기',
       plainDimensionEdits: '도면 치수 편집',
       plainTrackedJobs: '스튜디오 추적 작업',
-      plainJobs: '작업',
+      plainDirectJobs: '직접 JSON 작업 제출',
+      plainJobs: '작업 기록',
       plainJobStatus: '작업 상태 형식',
       plainQueueCancel: '대기열 취소',
       plainQueueRetry: '대기열 재시도',
@@ -367,8 +366,9 @@ function buildLandingCopy(locale = 'en') {
     runtimeDiagnostics: 'for runtime diagnostics',
     modelPreview: 'to run fast model preview builds for review support',
     drawingPreview: 'to run fast drawing preview builds for review support',
-    trackedJobs: 'to enqueue review, readiness, compare, docs, and pack jobs from studio-native TOML or artifact references',
-    jobsDiscovery: 'for job creation targets and route discovery',
+    trackedJobs: 'to enqueue tracked create/draw/inspect/report work plus compare, readiness, docs, and pack follow-up from studio-native TOML or artifact references',
+    directJobs: 'to enqueue direct JSON jobs for review-context plus the AF continuation job types',
+    jobsDiscovery: 'for recent tracked history and route discovery',
     jobShape: 'to inspect a job status response shape',
     cancelQueued: 'to cancel a queued tracked job before execution starts',
     retryTracked: 'to retry a failed or cancelled tracked job into a new queued run',
@@ -381,10 +381,7 @@ function buildLandingCopy(locale = 'en') {
     trackedCopy: 'use',
     trackedCopySuffix: 'to enqueue review and packaging work that persists under',
     reentryLabel: 'Artifact re-entry',
-    reentryCopy: 'tracked',
-    reentryCopyMiddle: 'accepts config-like',
-    reentryCopyMiddleTwo: 'tracked',
-    reentryCopySuffix: 'accepts model-like',
+    reentryDetailsHtml: 'tracked <code>report</code> accepts config-like <code>artifact_ref</code>, and tracked <code>inspect</code> accepts model-like <code>artifact_ref</code>. Tracked <code>readiness-pack</code>, <code>generate-standard-docs</code>, and <code>pack</code> continue from canonical review/readiness artifacts or <code>release_bundle.zip</code>, while <code>compare-rev</code> and <code>stabilization-review</code> require baseline/candidate canonical artifact pairs.',
     parallelShell: 'Studio-first review routing',
     parallelShellCopyStart: 'Open',
     parallelShellCopyMiddle: 'for the direct Studio workspace. Root <code>/</code> stays the preferred browser entrypoint, while the classic viewer remains a compatibility-only fallback.',
@@ -403,7 +400,8 @@ function buildLandingCopy(locale = 'en') {
     plainDrawingPreview: 'Drawing preview',
     plainDimensionEdits: 'Drawing dimension edits',
     plainTrackedJobs: 'Studio tracked jobs',
-    plainJobs: 'Jobs',
+    plainDirectJobs: 'Direct JSON job submit',
+    plainJobs: 'Job history',
     plainJobStatus: 'Job status shape',
     plainQueueCancel: 'Queue cancel',
     plainQueueRetry: 'Queue retry',
@@ -529,6 +527,7 @@ function renderLandingPage(payload, locale = 'en') {
         <li><a href="/api"><code>POST /api/studio/model-preview</code></a> ${escapeHtml(copy.modelPreview)}</li>
         <li><a href="/api"><code>POST /api/studio/drawing-preview</code></a> ${escapeHtml(copy.drawingPreview)}</li>
         <li><a href="/api"><code>POST /api/studio/jobs</code></a> ${escapeHtml(copy.trackedJobs)}</li>
+        <li><a href="/api"><code>POST /jobs</code></a> ${escapeHtml(copy.directJobs)}</li>
         <li><a href="/jobs"><code>/jobs</code></a> ${escapeHtml(copy.jobsDiscovery)}</li>
         <li><a href="/jobs/example-job"><code>/jobs/:id</code></a> ${escapeHtml(copy.jobShape)}</li>
         <li><a href="/api"><code>POST /jobs/:id/cancel</code></a> ${escapeHtml(copy.cancelQueued)}</li>
@@ -541,7 +540,7 @@ function renderLandingPage(payload, locale = 'en') {
       <ul>
         <li><code>${escapeHtml(copy.previewLabel)}</code>: ${escapeHtml(copy.previewCopy)} <code>${escapeHtml(payload.studio.preview_routes.model_preview)}</code> and <code>${escapeHtml(payload.studio.preview_routes.drawing_preview)}</code> ${escapeHtml(copy.previewCopySuffix)}</li>
         <li><code>${escapeHtml(copy.trackedLabel)}</code>: ${escapeHtml(copy.trackedCopy)} <code>${escapeHtml(payload.studio.tracked_jobs_path)}</code> ${escapeHtml(copy.trackedCopySuffix)} <code>${escapeHtml(payload.endpoints.jobs)}</code> and <code>${escapeHtml(payload.endpoints.artifacts)}</code></li>
-        <li><code>${escapeHtml(copy.reentryLabel)}</code>: ${escapeHtml(copy.reentryCopy)} <code>report</code> ${escapeHtml(copy.reentryCopyMiddle)} <code>artifact_ref</code>; ${escapeHtml(copy.reentryCopyMiddleTwo)} <code>inspect</code> ${escapeHtml(copy.reentryCopySuffix)} <code>artifact_ref</code></li>
+        <li><code>${escapeHtml(copy.reentryLabel)}</code>: ${copy.reentryDetailsHtml}</li>
       </ul>
     </div>
     <div class="card">
@@ -601,7 +600,8 @@ function sendLandingResponse(req, res, payload) {
       `${copy.plainDrawingPreview}: POST /api/studio/drawing-preview`,
       `${copy.plainDimensionEdits}: POST /api/studio/drawing-previews/:id/dimensions`,
       `${copy.plainTrackedJobs}: POST /api/studio/jobs`,
-      `${copy.plainJobs}: POST /jobs`,
+      `${copy.plainDirectJobs}: POST /jobs`,
+      `${copy.plainJobs}: GET /jobs`,
       `${copy.plainJobStatus}: /jobs/example-job`,
       `${copy.plainQueueCancel}: POST /jobs/:id/cancel`,
       `${copy.plainQueueRetry}: POST /jobs/:id/retry`,
