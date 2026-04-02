@@ -218,6 +218,32 @@ The final response should include:
   - do not reimplement D reasoning, scoring, or linkage
   - do not reimplement C readiness synthesis inside API or jobs
 - Prefer thin adapters, durable metadata, and lineage-preserving artifact routing over duplicated business logic.
+
+## AF4 Task: Artifact Viewers And Re-entry Continuation
+- Active branch for this task: `feat/af4-artifact-reentry`
+- Preferred clean worktree for this task: `/Users/jangtaeho/Documents/New/.worktrees/af4-artifact-reentry/freecad-automation`
+- Execution plan source of truth:
+  - `docs/exec-plans/af4-artifact-reentry.md`
+- Verification and remediation plan:
+  - `docs/exec-plans/af4-artifact-reentry-verification.md`
+- Phase status files:
+  - `tmp/codex/af4-artifact-reentry-status.md`
+  - `tmp/codex/af4-artifact-reentry-verification-status.md`
+- Make tracked results reopenable working state instead of download-only files.
+- Minimum viewer coverage must include:
+  - `review_pack.json`
+  - `readiness_report.json`
+  - `revision_comparison.json` and `stabilization_review.json`
+  - `release_bundle.zip` through manifest-aware or canonical-entry-aware inspection
+- Minimum action coverage from opened artifacts must include:
+  - open review pack
+  - open readiness report
+  - open release bundle
+  - tracked `generate-standard-docs`
+  - tracked `compare-rev`
+  - tracked `pack`
+- Do not build a detached fake viewer layer and do not recreate D or C reasoning in Studio/browser code.
+- Fail closed on unsupported artifact types, missing lineage, or mismatched canonical handoff.
 - Preserve fail-closed behavior for:
   - missing readiness input
   - lineage mismatch

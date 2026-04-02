@@ -20,6 +20,25 @@ const DOCS_MANIFEST_MATCHERS = [
   'standard-docs.summary',
   'docs_manifest',
 ];
+const RELEASE_BUNDLE_MANIFEST_MATCHERS = [
+  'release_bundle_manifest.json',
+  'release-bundle.manifest.json',
+  'release-bundle.manifest',
+  'release_bundle_manifest',
+];
+const REVISION_COMPARISON_MATCHERS = [
+  'revision_comparison.json',
+  'revision-comparison.json',
+  'revision_comparison',
+  'revision-comparison',
+];
+const STABILIZATION_REVIEW_MATCHERS = [
+  'stabilization_review.json',
+  'stabilization-review.json',
+  'stabilization_review',
+  'stabilization-review',
+  'review.stabilization.json',
+];
 
 function normalizeString(value) {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
@@ -141,6 +160,18 @@ export function isReleaseBundleArtifact(artifact = {}) {
   ]);
 }
 
+export function isReleaseBundleManifestArtifact(artifact = {}) {
+  return includesAny(artifactSearchText(artifact), RELEASE_BUNDLE_MANIFEST_MATCHERS);
+}
+
+export function isRevisionComparisonArtifact(artifact = {}) {
+  return includesAny(artifactSearchText(artifact), REVISION_COMPARISON_MATCHERS);
+}
+
+export function isStabilizationReviewArtifact(artifact = {}) {
+  return includesAny(artifactSearchText(artifact), STABILIZATION_REVIEW_MATCHERS);
+}
+
 export function canReenterModelWorkspace(artifact = {}) {
   return artifact.exists !== false && isConfigLikeArtifact(artifact);
 }
@@ -200,5 +231,11 @@ export function findPreferredReadinessReportArtifact(artifacts = []) {
 export function findPreferredReleaseBundleArtifact(artifacts = []) {
   return [...artifacts]
     .filter((artifact) => artifact.exists !== false && isReleaseBundleArtifact(artifact))
+    .sort((left, right) => artifactSearchText(left).localeCompare(artifactSearchText(right)))[0] || null;
+}
+
+export function findPreferredReleaseBundleManifestArtifact(artifacts = []) {
+  return [...artifacts]
+    .filter((artifact) => artifact.exists !== false && isReleaseBundleManifestArtifact(artifact))
     .sort((left, right) => artifactSearchText(left).localeCompare(artifactSearchText(right)))[0] || null;
 }

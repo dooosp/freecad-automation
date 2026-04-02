@@ -276,6 +276,33 @@ function buildReleaseBundleMetadata({
   });
 }
 
+function buildReleaseBundleManifestMetadata({
+  readinessReport,
+  releaseBundleManifest,
+}) {
+  const lineage = buildLineageIdentity(readinessReport);
+  return buildAfArtifactContractMetadata({
+    jobType: 'pack',
+    artifactIdentity: createAfArtifactIdentityRecord({
+      artifactType: releaseBundleManifest?.artifact_type || 'release_bundle_manifest',
+      schemaVersion: releaseBundleManifest?.schema_version || '1.0',
+      sourceArtifactRefs: releaseBundleManifest?.source_artifact_refs || [],
+      warnings: releaseBundleManifest?.warnings || [],
+      coverage: releaseBundleManifest?.coverage || {},
+      confidence: releaseBundleManifest?.confidence || {
+        level: 'heuristic',
+        score: 0.5,
+        rationale: 'Release bundle manifest metadata was derived from the release bundle manifest.',
+      },
+      lineage,
+      compatibility: buildCompatibilityMarkers(releaseBundleManifest),
+    }),
+    executionNotes: [
+      'Release bundle manifest preserves readiness lineage for reopenable packaging metadata.',
+    ],
+  });
+}
+
 async function loadReviewPackHandoff(pathValue, { command }) {
   const artifact = await readJsonFile(pathValue);
   buildAfArtifactContractFromDocument({
@@ -922,6 +949,9 @@ export function createJobExecutor({
             label: 'Revision comparison JSON',
             scope: 'user-facing',
             stability: 'stable',
+            metadata: buildGenericAfMetadata('compare-rev', result.comparison, [
+              'compare-rev compares canonical review-pack artifacts and preserves their lineage.',
+            ]),
           });
         } else if (job.type === 'readiness-pack') {
           result = await executeReadinessPack(job);
@@ -1031,6 +1061,10 @@ export function createJobExecutor({
               label: 'Release bundle manifest JSON',
               scope: 'user-facing',
               stability: 'stable',
+              metadata: buildReleaseBundleManifestMetadata({
+                readinessReport: result.readinessReport,
+                releaseBundleManifest: result.manifest,
+              }),
             },
             { type: 'release-bundle.checksums', path: result.checksums_path, label: 'Release bundle checksums', scope: 'user-facing', stability: 'stable' },
             { type: 'release-bundle.log.json', path: result.log_path, label: 'Release bundle log JSON', scope: 'user-facing', stability: 'stable' },
