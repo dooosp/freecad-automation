@@ -98,8 +98,9 @@ try {
   const docsDir = join(TMP_DIR, 'docs-flow');
   const docsReadinessOut = join(docsDir, 'controller_readiness_report.json');
   const docsReadinessRun = runCli([
-    'readiness-report',
-    CONFIG_EXAMPLE,
+    'readiness-pack',
+    '--review-pack',
+    REVIEW_PACK_FIXTURE,
     '--out',
     docsReadinessOut,
   ]);
@@ -109,12 +110,13 @@ try {
   const docsRun = runCli([
     'generate-standard-docs',
     CONFIG_EXAMPLE,
-    '--readiness-report',
-    docsReadinessOut,
+    '--review-pack',
+    REVIEW_PACK_FIXTURE,
     '--out-dir',
     standardDocsDir,
   ]);
   assert.equal(docsRun.status, 0, docsRun.stderr || docsRun.stdout);
+  assert.equal(existsSync(join(standardDocsDir, 'readiness_report.json')), true, 'review-pack-backed docs generation should persist canonical readiness JSON');
 
   const docsBundleZip = join(docsDir, 'release_bundle_with_docs.zip');
   const docsPackRun = runCli([

@@ -16,6 +16,8 @@ try {
     CLI,
     'generate-standard-docs',
     'configs/examples/controller_housing_eol.toml',
+    '--review-pack',
+    'tests/fixtures/d-artifacts/sample_review_pack.canonical.json',
     '--profile',
     'site_korea_ulsan',
     '--out-dir',
@@ -43,6 +45,11 @@ try {
   assert.equal(
     manifest.artifacts.some((artifact) => artifact.path.endsWith('standard_docs_manifest.json')),
     true
+  );
+  assert.equal(
+    manifest.artifacts.some((artifact) => artifact.type === 'input.review-pack'),
+    true,
+    'manifest should record review-pack provenance for review-pack-backed docs generation'
   );
 
   console.log('output-contract-cli.test.js: ok');

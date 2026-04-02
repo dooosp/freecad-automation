@@ -120,11 +120,12 @@ Usage:
     fcad quality-risk <config.toml|json> [--review-pack <review_pack.json>]
     fcad investment-review <config.toml|json>
     fcad readiness-pack --review-pack <review_pack.json> [--out <readiness_report.json>] [--process-plan <process_plan.json>] [--quality-risk <quality_risk.json>]
-    fcad readiness-report <config.toml|json> [--review-pack <review_pack.json>] [--process-plan <process_plan.json>] [--quality-risk <quality_risk.json>]
+    fcad readiness-report --review-pack <review_pack.json> [--out <readiness_report.json>] [--process-plan <process_plan.json>] [--quality-risk <quality_risk.json>]
+    fcad readiness-report <config.toml|json> [--out <readiness_report.json>]  legacy compatibility / non-canonical
     fcad pack --readiness <readiness_report.json> [--docs-manifest <standard_docs_manifest.json>] --out <release_bundle.zip>
     fcad stabilization-review <config.toml|json> --runtime <runtime.json>
     fcad stabilization-review <baseline_readiness_report.json> <candidate_readiness_report.json>
-    fcad generate-standard-docs <config.toml|json> [--readiness-report <readiness_report.json>] [--out-dir <dir>]
+    fcad generate-standard-docs <config.toml|json> (--readiness-report <readiness_report.json> | --review-pack <review_pack.json>) [--process-plan <process_plan.json>] [--quality-risk <quality_risk.json>] [--out-dir <dir>]
     fcad ingest --model <file> [--bom bom.csv] [--inspection insp.csv] [--quality ncr.csv] --out <context.json>
     fcad quality-link --context <context.json> --geometry <geometry.json>
     fcad review-pack --context <context.json> --geometry <geometry.json>
@@ -183,9 +184,10 @@ Examples:
   fcad review configs/examples/infotainment_display_bracket.toml
   fcad readiness-pack --review-pack tests/fixtures/d-artifacts/sample_review_pack.canonical.json --out output/sample_readiness_report.json
   fcad readiness-report --review-pack tests/fixtures/d-artifacts/sample_review_pack.canonical.json --out output/sample_readiness_report.json
+  fcad readiness-report configs/examples/pcb_mount_plate.toml --out output/pcb_mount_plate_readiness_report.json
   fcad pack --readiness output/sample_readiness_report.json --out output/release_bundle.zip
   fcad stabilization-review output/rev_a_readiness_report.json output/rev_b_readiness_report.json --out output/readiness_delta.json
-  fcad generate-standard-docs configs/examples/controller_housing_eol.toml --out-dir output/controller_housing_standard_docs
+  fcad generate-standard-docs configs/examples/controller_housing_eol.toml --review-pack tests/fixtures/d-artifacts/sample_review_pack.canonical.json --out-dir output/controller_housing_standard_docs
   fcad generate-standard-docs configs/examples/controller_housing_eol.toml --readiness-report output/controller_housing_readiness_report.json --out-dir output/controller_housing_standard_docs
   fcad review-context --model tests/fixtures/sample_part.step --bom tests/fixtures/sample_bom.csv --inspection tests/fixtures/sample_inspection.csv --quality tests/fixtures/sample_quality.csv --out output/sample_review_pack.json
   fcad sweep configs/examples/ks_bracket.toml --matrix configs/examples/sweeps/ks_bracket_geometry_sweep.toml
@@ -194,6 +196,8 @@ Examples:
   check-runtime is the central installation and troubleshooting entrypoint for runtime-backed commands.
   analyze-part can run without FreeCAD when the supplied context already includes model metadata, and it now falls back to bounded metadata-only geometry when live shape inspection is weak or unavailable.
   readiness-pack is the flagship canonical C entrypoint when review_pack.json already exists.
+  readiness-report <config> remains a legacy compatibility route; it is not the canonical D-backed readiness path.
+  generate-standard-docs requires canonical readiness input via --readiness-report or --review-pack and will not synthesize canonical-looking readiness from config alone.
   sweep stays within the existing create/cost/fem/report service wrappers; it does not perform optimization.
   report remains FreeCAD-backed today, even when macOS falls back from freecadcmd to the bundled FreeCAD Python.
   Windows native, WSL -> Windows FreeCAD, and Linux runtime execution are compatibility paths, not equal-maturity claims.
@@ -218,6 +222,9 @@ Notes:
   Open http://127.0.0.1:<port>/health to verify the API.
   Use fcad serve --legacy-viewer or npm run serve:legacy for the browser demo.
 `.trim();
+
+const LEGACY_READINESS_REPORT_MESSAGE = 'readiness-report <config> is a legacy compatibility route and does not emit canonical D-backed readiness provenance. Use readiness-pack --review-pack or readiness-report --review-pack for canonical C output.';
+const GENERATE_STANDARD_DOCS_INPUT_MESSAGE = 'generate-standard-docs requires either --readiness-report <readiness_report.json> or --review-pack <review_pack.json>; it will not synthesize canonical readiness from config-only inputs.';
 
 function parseCliArgs(rawArgs = []) {
   const positional = [];
@@ -488,6 +495,23 @@ async function loadCanonicalReviewPackInput(rawArgs = [], command) {
     path: input.reviewPackPath,
   });
   return { ...input, reviewPack };
+}
+
+async function loadCanonicalReadinessSupportArtifacts(options = {}, command) {
+  const processPlanPath = resolveMaybe(options['process-plan']);
+  const qualityRiskPath = resolveMaybe(options['quality-risk']);
+  const processPlan = processPlanPath
+    ? await loadCanonicalCArtifact('process_plan', processPlanPath, command, 'process-plan')
+    : null;
+  const qualityRisk = qualityRiskPath
+    ? await loadCanonicalCArtifact('quality_risk', qualityRiskPath, command, 'quality-risk')
+    : null;
+  return {
+    processPlanPath,
+    qualityRiskPath,
+    processPlan,
+    qualityRisk,
+  };
 }
 
 async function loadCanonicalCArtifact(kind, filePath, command, label) {
@@ -996,6 +1020,18 @@ function annotateReadinessArtifacts(report, {
   });
 }
 
+function markLegacyCompatibilityReadiness(report) {
+  return {
+    ...report,
+    warnings: uniqueStrings([...(report.warnings || []), LEGACY_READINESS_REPORT_MESSAGE]),
+    compatibility_mode: {
+      type: 'legacy_config_compatibility',
+      canonical_review_pack_backed: false,
+      guidance: 'Use readiness-pack --review-pack or readiness-report --review-pack for canonical C output.',
+    },
+  };
+}
+
 async function runProductionReadiness(rawArgs = [], { persistArtifacts = true } = {}) {
   const { configPath, options, outputPath, outDir, stem } = resolveConfigCommandInput(rawArgs);
   if (!configPath) {
@@ -1259,14 +1295,12 @@ async function cmdReadinessPack(rawArgs = [], {
     process.exit(1);
   }
 
-  const processPlanPath = resolveMaybe(reviewPackInput.options['process-plan']);
-  const qualityRiskPath = resolveMaybe(reviewPackInput.options['quality-risk']);
-  const processPlan = processPlanPath
-    ? await loadCanonicalCArtifact('process_plan', processPlanPath, manifestCommand, 'process-plan')
-    : null;
-  const qualityRisk = qualityRiskPath
-    ? await loadCanonicalCArtifact('quality_risk', qualityRiskPath, manifestCommand, 'quality-risk')
-    : null;
+  const {
+    processPlanPath,
+    qualityRiskPath,
+    processPlan,
+    qualityRisk,
+  } = await loadCanonicalReadinessSupportArtifacts(reviewPackInput.options, manifestCommand);
 
   const report = buildReadinessReportFromReviewPack({
     reviewPack: reviewPackInput.reviewPack,
@@ -1326,6 +1360,7 @@ async function cmdReadinessReport(rawArgs = []) {
     configSummary,
     profileName,
   } = await runProductionReadiness(rawArgs);
+  const legacyReport = markLegacyCompatibilityReadiness(report);
   const manifestPath = await writeCliManifest({
     command: 'readiness-report',
     configPath,
@@ -1337,12 +1372,20 @@ async function cmdReadinessReport(rawArgs = []) {
       createArtifactEntry('review.readiness.json', artifacts.json, { label: 'Readiness report JSON' }),
       createArtifactEntry('review.readiness.markdown', artifacts.markdown, { label: 'Readiness report Markdown' }),
     ],
+    warnings: legacyReport.warnings || [],
+    deprecations: [LEGACY_READINESS_REPORT_MESSAGE],
+    details: {
+      readiness_contract_mode: 'legacy_config_compatibility',
+      canonical_review_pack_backed: false,
+    },
   });
-  console.log(`Readiness report JSON: ${artifacts.json}`);
-  console.log(`Readiness report Markdown: ${artifacts.markdown}`);
+  await writeReadinessArtifacts(artifacts.json, legacyReport);
+  console.warn(`Warning: ${LEGACY_READINESS_REPORT_MESSAGE}`);
+  console.log(`Legacy readiness report JSON: ${artifacts.json}`);
+  console.log(`Legacy readiness report Markdown: ${artifacts.markdown}`);
   console.log(`Manifest: ${manifestPath}`);
-  console.log(`  Status: ${report.readiness_summary.status}`);
-  console.log(`  Score: ${report.readiness_summary.score}`);
+  console.log(`  Status: ${legacyReport.readiness_summary.status}`);
+  console.log(`  Score: ${legacyReport.readiness_summary.score}`);
 }
 
 async function cmdPack(rawArgs = []) {
@@ -1505,16 +1548,34 @@ async function cmdGenerateStandardDocs(rawArgs = []) {
   const config = configDocument.config;
   const runtimeData = await loadRuntimeData(options);
   const readinessReportPath = resolveMaybe(options['readiness-report']);
-  let readinessReport = readinessReportPath
-    ? await loadCanonicalCArtifact(
-        'readiness_report',
-        readinessReportPath,
-        'generate-standard-docs',
-        'readiness-report'
-      )
-    : null;
-  if (!readinessReport) {
-    ({ report: readinessReport } = await runProductionReadiness(rawArgs, { persistArtifacts: false }));
+  const reviewPackInput = await loadCanonicalReviewPackInput(rawArgs, 'generate-standard-docs');
+  if (readinessReportPath && reviewPackInput) {
+    console.error('Error: generate-standard-docs accepts either --readiness-report or --review-pack, not both.');
+    process.exit(1);
+  }
+
+  let readinessReport = null;
+  if (readinessReportPath) {
+    readinessReport = await loadCanonicalCArtifact(
+      'readiness_report',
+      readinessReportPath,
+      'generate-standard-docs',
+      'readiness-report'
+    );
+  } else if (reviewPackInput) {
+    const { processPlan, qualityRisk } = await loadCanonicalReadinessSupportArtifacts(
+      reviewPackInput.options,
+      'generate-standard-docs'
+    );
+    readinessReport = buildReadinessReportFromReviewPack({
+      reviewPack: reviewPackInput.reviewPack,
+      reviewPackPath: reviewPackInput.reviewPackPath,
+      processPlan,
+      qualityRisk,
+    });
+  } else {
+    console.error(`Error: ${GENERATE_STANDARD_DOCS_INPUT_MESSAGE}`);
+    process.exit(1);
   }
   const result = await runStandardDocsWorkflow({
     freecadRoot: PROJECT_ROOT,
@@ -1537,6 +1598,12 @@ async function cmdGenerateStandardDocs(rawArgs = []) {
   });
 
   console.log(`Standard docs output: ${result.out_dir}`);
+  if (reviewPackInput && result.readiness_report_path) {
+    console.log(`Canonical readiness report JSON: ${result.readiness_report_path}`);
+    console.log(`  Built from review-pack: ${reviewPackInput.reviewPackPath}`);
+  } else if (readinessReportPath) {
+    console.log(`Canonical readiness source: ${readinessReportPath}`);
+  }
   console.log(`  Process flow: ${result.artifacts['process_flow.md']}`);
   console.log(`  Control plan: ${result.artifacts['control_plan_draft.csv']}`);
   console.log(`  Work instruction: ${result.artifacts['work_instruction_draft.md']}`);
@@ -1564,7 +1631,19 @@ async function cmdGenerateStandardDocs(rawArgs = []) {
           scope: 'internal',
         }
       )] : []),
+      ...(reviewPackInput ? [createArtifactEntry(
+        'input.review-pack',
+        reviewPackInput.reviewPackPath,
+        {
+          label: 'Canonical review-pack JSON',
+          scope: 'internal',
+        }
+      )] : []),
     ],
+    details: {
+      readiness_contract_mode: reviewPackInput ? 'canonical_review_pack_wrapper' : 'explicit_readiness_report',
+      canonical_review_pack_backed: Boolean(reviewPackInput),
+    },
   });
   console.log(`Manifest: ${manifestPath}`);
 }

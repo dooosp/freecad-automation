@@ -6,6 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "configs" / "examples"
+REVIEW_PACK_FIXTURE = ROOT / "tests" / "fixtures" / "d-artifacts" / "sample_review_pack.canonical.json"
 DOC_EXAMPLE = ROOT / "docs" / "examples" / "infotainment-display-bracket"
 DOC_ELECTRONICS_EXAMPLE = ROOT / "docs" / "examples" / "controller-housing-eol"
 CASE_STUDY = ROOT / "docs" / "portfolio" / "infotainment-production-readiness-case.md"
@@ -48,7 +49,7 @@ def test_review_command_outputs_product_review_pack(tmp_path):
 def test_readiness_report_outputs_all_agent_sections(tmp_path):
     output_path = tmp_path / "pcb_mount_plate_readiness.json"
 
-    run_cli(
+    completed = run_cli(
         [
             "readiness-report",
             str(EXAMPLES / "pcb_mount_plate.toml"),
@@ -73,6 +74,9 @@ def test_readiness_report_outputs_all_agent_sections(tmp_path):
     assert "decision_summary" in report
     assert "summary" in report
     assert report["readiness_summary"]["score"] > 0
+    assert any("legacy compatibility route" in warning.lower() for warning in report["warnings"])
+    combined_output = f"{completed.stdout}\n{completed.stderr}"
+    assert "legacy compatibility route" in combined_output.lower()
 
 
 def test_line_plan_includes_production_engineering_summary_fields(tmp_path):
@@ -214,6 +218,8 @@ def test_generate_standard_docs_creates_expected_files(tmp_path):
         [
             "generate-standard-docs",
             str(EXAMPLES / "controller_housing_eol.toml"),
+            "--review-pack",
+            str(REVIEW_PACK_FIXTURE),
             "--out-dir",
             str(out_dir),
         ]
@@ -225,6 +231,7 @@ def test_generate_standard_docs_creates_expected_files(tmp_path):
         "inspection_checksheet_draft.csv",
         "work_instruction_draft.md",
         "pfmea_seed.csv",
+        "readiness_report.json",
         "standard_docs_manifest.json",
     ]
     for filename in expected_files:
@@ -242,11 +249,23 @@ def test_generate_standard_docs_creates_expected_files(tmp_path):
 def test_profile_aware_standard_doc_presets_change_owner_and_frequency(tmp_path):
     korea_dir = tmp_path / "docs_korea"
     mexico_dir = tmp_path / "docs_mexico"
+    readiness_path = tmp_path / "controller_readiness.json"
+
+    run_cli(
+        [
+            "readiness-report",
+            str(EXAMPLES / "controller_housing_eol.toml"),
+            "--out",
+            str(readiness_path),
+        ]
+    )
 
     run_cli(
         [
             "generate-standard-docs",
             str(EXAMPLES / "controller_housing_eol.toml"),
+            "--readiness-report",
+            str(readiness_path),
             "--profile",
             str(ROOT / "configs" / "profiles" / "site_korea_ulsan.toml"),
             "--out-dir",
@@ -257,6 +276,8 @@ def test_profile_aware_standard_doc_presets_change_owner_and_frequency(tmp_path)
         [
             "generate-standard-docs",
             str(EXAMPLES / "controller_housing_eol.toml"),
+            "--readiness-report",
+            str(readiness_path),
             "--profile",
             str(ROOT / "configs" / "profiles" / "site_mexico_mty.toml"),
             "--out-dir",
@@ -275,6 +296,25 @@ def test_profile_aware_standard_doc_presets_change_owner_and_frequency(tmp_path)
     assert "Resident quality engineering" in mexico_control_plan
     assert "Profile preset: Korea-Ulsan launch profile" in korea_work_instruction
     assert "Profile preset: Mexico-MTY launch profile" in mexico_work_instruction
+
+
+def test_generate_standard_docs_requires_explicit_canonical_readiness_input(tmp_path):
+    out_dir = tmp_path / "docs_without_readiness"
+
+    completed = run_cli(
+        [
+            "generate-standard-docs",
+            str(EXAMPLES / "controller_housing_eol.toml"),
+            "--out-dir",
+            str(out_dir),
+        ],
+        check=False,
+    )
+
+    assert completed.returncode != 0
+    combined_output = f"{completed.stdout}\n{completed.stderr}"
+    assert "requires either --readiness-report" in combined_output
+    assert "will not synthesize canonical readiness from config-only inputs" in combined_output
 
 
 def test_checked_in_case_study_artifacts_exist_and_are_consistent():
