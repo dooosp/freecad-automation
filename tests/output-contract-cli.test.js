@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -10,12 +10,31 @@ const ROOT = resolve(import.meta.dirname, '..');
 const CLI = join(ROOT, 'bin', 'fcad.js');
 const TMP_DIR = mkdtempSync(join(tmpdir(), 'fcad-output-contract-cli-'));
 
+function writeAlignedConfig(filePath, {
+  templatePath = join(ROOT, 'configs', 'examples', 'controller_housing_eol.toml'),
+  name,
+  revision,
+} = {}) {
+  const template = readFileSync(templatePath, 'utf8');
+  const next = template
+    .replace(/^name = ".*"$/m, `name = "${name}"`)
+    .replace(/^revision = ".*"$/m, `revision = "${revision}"`);
+  writeFileSync(filePath, next, 'utf8');
+}
+
 try {
   const outDir = join(TMP_DIR, 'standard-docs');
+  const alignedConfigPath = join(TMP_DIR, 'sample_part_docs.toml');
+  writeAlignedConfig(alignedConfigPath, {
+    name: 'sample_part',
+    revision: 'A',
+  });
   const result = spawnSync('node', [
     CLI,
     'generate-standard-docs',
-    'configs/examples/controller_housing_eol.toml',
+    alignedConfigPath,
+    '--review-pack',
+    'tests/fixtures/d-artifacts/sample_review_pack.canonical.json',
     '--profile',
     'site_korea_ulsan',
     '--out-dir',
@@ -43,6 +62,11 @@ try {
   assert.equal(
     manifest.artifacts.some((artifact) => artifact.path.endsWith('standard_docs_manifest.json')),
     true
+  );
+  assert.equal(
+    manifest.artifacts.some((artifact) => artifact.type === 'input.review-pack'),
+    true,
+    'manifest should record review-pack provenance for review-pack-backed docs generation'
   );
 
   console.log('output-contract-cli.test.js: ok');
