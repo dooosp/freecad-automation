@@ -79,10 +79,34 @@ try {
 
   const docsManifestPath = join(docsOutDir, 'standard_docs_manifest.json');
   assert.equal(existsSync(docsManifestPath), true, `Expected docs manifest at ${docsManifestPath}`);
+  const generatedReadinessPath = join(docsOutDir, 'readiness_report.json');
+  assert.equal(existsSync(generatedReadinessPath), true, `Expected generated readiness report at ${generatedReadinessPath}`);
   const docsManifest = readJson(docsManifestPath);
   assertArtifact('docs_manifest', docsManifest);
   assert.equal(docsManifest.canonical_artifact.json_is_source_of_truth, true);
   assert.equal(docsManifest.contract.command, 'generate-standard-docs');
+  assert.equal(
+    docsManifest.source_artifact_refs.some((ref) => ref.artifact_type === 'readiness_report' && ref.path === generatedReadinessPath),
+    true,
+    'docs manifest should record the canonical readiness report JSON source'
+  );
+
+  const docsFromReadinessDir = join(TMP_DIR, 'standard-docs-from-readiness');
+  const docsFromReadinessRun = runCli([
+    'generate-standard-docs',
+    'configs/examples/controller_housing_eol.toml',
+    '--readiness-report',
+    readinessOut,
+    '--out-dir',
+    docsFromReadinessDir,
+  ]);
+  assert.equal(docsFromReadinessRun.status, 0, docsFromReadinessRun.stderr || docsFromReadinessRun.stdout);
+  const docsFromReadinessManifest = readJson(join(docsFromReadinessDir, 'standard_docs_manifest.json'));
+  assert.equal(
+    docsFromReadinessManifest.source_artifact_refs.some((ref) => ref.artifact_type === 'readiness_report' && ref.path === readinessOut),
+    true,
+    'docs manifest should preserve the supplied canonical readiness report path'
+  );
 
   console.log('c-artifact-schema.test.js: ok');
 } finally {

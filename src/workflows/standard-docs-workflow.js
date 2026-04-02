@@ -62,10 +62,17 @@ export function createStandardDocsWorkflow() {
       config: loadedConfig,
       options,
     });
-
     const defaultDir = resolve(freecadRoot, 'output', `${report.part?.name || 'part'}_standard_docs`);
     const outDir = resolve(options.outDir || defaultDir);
     await mkdir(outDir, { recursive: true });
+    const readinessReportPath = options.reportPath
+      ? resolve(options.reportPath)
+      : await writeValidatedCArtifact(
+          join(outDir, 'readiness_report.json'),
+          'readiness_report',
+          report,
+          { command: 'readiness-report' }
+        );
 
     const documents = generateStandardDocs(report, { siteProfile, ruleProfile });
     const artifacts = {};
@@ -92,7 +99,7 @@ export function createStandardDocsWorkflow() {
       },
       source_artifact_refs: mergeSourceArtifactRefs(
         report.source_artifact_refs || [],
-        [buildSourceArtifactRef('readiness_report', null, 'input', 'In-memory readiness report JSON')]
+        [buildSourceArtifactRef('readiness_report', readinessReportPath, 'input', 'Canonical readiness report JSON')]
       ),
       canonical_artifact: {
         json_is_source_of_truth: true,
@@ -121,6 +128,7 @@ export function createStandardDocsWorkflow() {
 
     return {
       report,
+      readiness_report_path: readinessReportPath,
       out_dir: outDir,
       artifacts,
       manifest,

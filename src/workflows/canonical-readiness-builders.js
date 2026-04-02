@@ -187,6 +187,102 @@ function normalizePart(part = {}) {
   };
 }
 
+function extractReviewPackIdentity(reviewPack, { includeRevision = true } = {}) {
+  const part = safeObject(reviewPack?.part);
+  return {
+    part_id: part.part_id || reviewPack?.part_id || null,
+    name: part.name || null,
+    revision: includeRevision ? (part.revision || reviewPack?.revision || null) : null,
+  };
+}
+
+function extractArtifactIdentity(artifact, { includeRevision = true } = {}) {
+  const part = safeObject(artifact?.part);
+  return {
+    part_id: part.part_id || artifact?.part_id || null,
+    name: part.name || null,
+    revision: includeRevision ? (part.revision || artifact?.revision || null) : null,
+  };
+}
+
+function describeIdentity(identity = {}, { includeRevision = true } = {}) {
+  const parts = [];
+  if (identity.part_id) parts.push(`part_id=${identity.part_id}`);
+  if (identity.name) parts.push(`name=${identity.name}`);
+  if (includeRevision && identity.revision) parts.push(`revision=${identity.revision}`);
+  return parts.join(', ') || 'unknown identity';
+}
+
+function collectIdentityMismatches(expected, actual, { allowRevisionDifference = false } = {}) {
+  const mismatches = [];
+  if (expected.part_id && actual.part_id && expected.part_id !== actual.part_id) {
+    mismatches.push(`part_id mismatch (${expected.part_id} != ${actual.part_id})`);
+  }
+  if (expected.name && actual.name && expected.name !== actual.name) {
+    mismatches.push(`name mismatch (${expected.name} != ${actual.name})`);
+  }
+  if (!allowRevisionDifference && expected.revision && actual.revision && expected.revision !== actual.revision) {
+    mismatches.push(`revision mismatch (${expected.revision} != ${actual.revision})`);
+  }
+  return mismatches;
+}
+
+function findSourceArtifactRefs(artifact, artifactType) {
+  return safeList(artifact?.source_artifact_refs)
+    .filter((ref) => ref?.artifact_type === artifactType && typeof ref.path === 'string' && ref.path.trim());
+}
+
+function assertArtifactMatchesReviewPack(reviewPack, artifact, {
+  artifactKind,
+  reviewPackPath = null,
+} = {}) {
+  if (!artifact) return;
+
+  const reviewPackIdentity = extractReviewPackIdentity(reviewPack);
+  const artifactIdentity = extractArtifactIdentity(artifact);
+  const mismatches = collectIdentityMismatches(reviewPackIdentity, artifactIdentity);
+  if (mismatches.length > 0) {
+    throw new Error(
+      `${artifactKind} does not match the supplied review_pack identity (${describeIdentity(reviewPackIdentity)} vs ${describeIdentity(artifactIdentity)}): ${mismatches.join('; ')}`
+    );
+  }
+
+  const reviewPackRefs = findSourceArtifactRefs(artifact, 'review_pack');
+  if (reviewPackPath && reviewPackRefs.length > 0 && !reviewPackRefs.some((ref) => ref.path === reviewPackPath)) {
+    throw new Error(
+      `${artifactKind} does not reference the supplied review_pack path (${reviewPackPath}).`
+    );
+  }
+
+  if (artifactKind === 'process_plan') {
+    const basis = safeObject(artifact.planning_basis?.source_review_pack);
+    if (reviewPackPath && basis.path && basis.path !== reviewPackPath) {
+      throw new Error(
+        `${artifactKind} planning_basis.source_review_pack.path does not match the supplied review_pack path (${reviewPackPath}).`
+      );
+    }
+    if (reviewPackIdentity.revision && basis.revision && basis.revision !== reviewPackIdentity.revision) {
+      throw new Error(
+        `${artifactKind} planning_basis.source_review_pack.revision does not match the supplied review_pack revision (${reviewPackIdentity.revision}).`
+      );
+    }
+  }
+}
+
+function assertComparableReadinessReports(baselineReport, candidateReport) {
+  const baselineIdentity = extractArtifactIdentity(baselineReport, { includeRevision: false });
+  const candidateIdentity = extractArtifactIdentity(candidateReport, { includeRevision: false });
+  const mismatches = collectIdentityMismatches(baselineIdentity, candidateIdentity, {
+    allowRevisionDifference: true,
+  });
+
+  if (mismatches.length > 0) {
+    throw new Error(
+      `Baseline and candidate readiness reports do not describe the same part lineage (${describeIdentity(baselineIdentity, { includeRevision: false })} vs ${describeIdentity(candidateIdentity, { includeRevision: false })}): ${mismatches.join('; ')}`
+    );
+  }
+}
+
 function buildArtifactEnvelope(payload, {
   kind,
   command,
@@ -829,6 +925,14 @@ export function buildReadinessReportFromReviewPack({
   generatedAt = null,
 } = {}) {
   assertValidDArtifact('review_pack', reviewPack, { command: 'readiness-report' });
+  assertArtifactMatchesReviewPack(reviewPack, processPlan, {
+    artifactKind: 'process_plan',
+    reviewPackPath,
+  });
+  assertArtifactMatchesReviewPack(reviewPack, qualityRisk, {
+    artifactKind: 'quality_risk',
+    reviewPackPath,
+  });
 
   const resolvedProcessPlan = processPlan || buildProcessPlanFromReviewPack({
     reviewPack,
@@ -1046,6 +1150,7 @@ export function buildStabilizationReviewFromReadinessReports({
 } = {}) {
   assertValidCArtifact('readiness_report', baselineReport, { command: 'stabilization-review' });
   assertValidCArtifact('readiness_report', candidateReport, { command: 'stabilization-review' });
+  assertComparableReadinessReports(baselineReport, candidateReport);
 
   const sourceArtifactRefs = mergeSourceArtifactRefs(
     mergeSourceArtifactRefs(

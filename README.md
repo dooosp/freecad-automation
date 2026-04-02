@@ -137,7 +137,7 @@ fcad readiness-report <config.toml|json>
 fcad readiness-report --review-pack <review_pack.json>
 fcad stabilization-review <config.toml|json> --runtime <runtime.json>
 fcad stabilization-review <baseline_readiness_report.json> <candidate_readiness_report.json>
-fcad generate-standard-docs <config.toml|json> [--out-dir <dir>]
+fcad generate-standard-docs <config.toml|json> [--readiness-report <readiness_report.json>] [--out-dir <dir>]
 ```
 
 `mfg-agent` is also installed as an alias for the same CLI.
@@ -623,6 +623,11 @@ fcad stabilization-review configs/examples/infotainment_display_bracket.toml \
 
 # 5. Draft production-engineering standard docs
 fcad generate-standard-docs configs/examples/controller_housing_eol.toml \
+  --out-dir output/controller_housing_standard_docs
+
+# 6. Draft production-engineering standard docs from a canonical readiness artifact
+fcad generate-standard-docs configs/examples/controller_housing_eol.toml \
+  --readiness-report output/controller_housing_readiness_report.json \
   --out-dir output/controller_housing_standard_docs
 ```
 

@@ -66,6 +66,35 @@ try {
   assert.equal(readinessReport.quality_risk.contract.command, 'quality-risk');
   assert.equal(readinessReport.summary.review_pack_headline.includes('sample_part revision A'), true);
 
+  const unrelatedReviewPack = clone(baselineReviewPack);
+  unrelatedReviewPack.part = {
+    ...unrelatedReviewPack.part,
+    part_id: 'UNRELATED-999',
+    name: 'other_part',
+    revision: 'Z',
+  };
+  unrelatedReviewPack.revision = 'Z';
+
+  const unrelatedProcessPlan = buildProcessPlanFromReviewPack({
+    reviewPack: unrelatedReviewPack,
+    reviewPackPath: join(TMP_DIR, 'unrelated_review_pack.json'),
+  });
+  const unrelatedQualityRisk = buildQualityRiskFromReviewPack({
+    reviewPack: unrelatedReviewPack,
+    reviewPackPath: join(TMP_DIR, 'unrelated_review_pack.json'),
+  });
+
+  assert.throws(() => buildReadinessReportFromReviewPack({
+    reviewPack: baselineReviewPack,
+    reviewPackPath: REVIEW_PACK_FIXTURE_PATH,
+    processPlan: unrelatedProcessPlan,
+  }), /process_plan does not match the supplied review_pack identity/);
+  assert.throws(() => buildReadinessReportFromReviewPack({
+    reviewPack: baselineReviewPack,
+    reviewPackPath: REVIEW_PACK_FIXTURE_PATH,
+    qualityRisk: unrelatedQualityRisk,
+  }), /quality_risk does not match the supplied review_pack identity/);
+
   const missingEvidencePack = clone(baselineReviewPack);
   missingEvidencePack.quality_linkage.records = [];
   missingEvidencePack.quality_hotspots = [];
@@ -192,6 +221,52 @@ try {
   assertArtifact('stabilization_review', compareOutput);
   assert.equal(compareOutput.summary.readiness_score_delta > 0, true);
   assert.equal(compareOutput.change_reasons.some((reason) => reason.change_type === 'readiness_score'), true);
+
+  const unrelatedProcessPlanPath = join(TMP_DIR, 'unrelated_process_plan.json');
+  const unrelatedQualityRiskPath = join(TMP_DIR, 'unrelated_quality_risk.json');
+  writeFileSync(unrelatedProcessPlanPath, JSON.stringify(unrelatedProcessPlan, null, 2), 'utf8');
+  writeFileSync(unrelatedQualityRiskPath, JSON.stringify(unrelatedQualityRisk, null, 2), 'utf8');
+
+  const mismatchedReadinessRun = runCli([
+    'readiness-report',
+    '--review-pack',
+    REVIEW_PACK_FIXTURE_PATH,
+    '--process-plan',
+    unrelatedProcessPlanPath,
+    '--quality-risk',
+    unrelatedQualityRiskPath,
+    '--out',
+    join(TMP_DIR, 'mismatched_readiness_report.json'),
+  ]);
+  assert.notEqual(mismatchedReadinessRun.status, 0);
+  assert.match(
+    `${mismatchedReadinessRun.stderr}\n${mismatchedReadinessRun.stdout}`,
+    /does not match the supplied review_pack/
+  );
+
+  const unrelatedCandidateReport = buildReadinessReportFromReviewPack({
+    reviewPack: unrelatedReviewPack,
+    reviewPackPath: join(TMP_DIR, 'unrelated_review_pack.json'),
+  });
+  assert.throws(() => buildStabilizationReviewFromReadinessReports({
+    baselineReport,
+    candidateReport: unrelatedCandidateReport,
+  }), /do not describe the same part lineage/);
+
+  const unrelatedCandidatePath = join(TMP_DIR, 'unrelated_candidate_readiness_report.json');
+  writeFileSync(unrelatedCandidatePath, JSON.stringify(unrelatedCandidateReport, null, 2), 'utf8');
+  const mismatchedCompareRun = runCli([
+    'stabilization-review',
+    baselinePath,
+    unrelatedCandidatePath,
+    '--out',
+    join(TMP_DIR, 'mismatched_stabilization_review.json'),
+  ]);
+  assert.notEqual(mismatchedCompareRun.status, 0);
+  assert.match(
+    `${mismatchedCompareRun.stderr}\n${mismatchedCompareRun.stdout}`,
+    /do not describe the same part lineage/
+  );
 
   console.log('readiness-builders.test.js: ok');
 } finally {

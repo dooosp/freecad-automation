@@ -121,7 +121,7 @@ Usage:
     fcad readiness-report <config.toml|json> [--review-pack <review_pack.json>] [--process-plan <process_plan.json>] [--quality-risk <quality_risk.json>]
     fcad stabilization-review <config.toml|json> --runtime <runtime.json>
     fcad stabilization-review <baseline_readiness_report.json> <candidate_readiness_report.json>
-    fcad generate-standard-docs <config.toml|json> [--out-dir <dir>]
+    fcad generate-standard-docs <config.toml|json> [--readiness-report <readiness_report.json>] [--out-dir <dir>]
     fcad ingest --model <file> [--bom bom.csv] [--inspection insp.csv] [--quality ncr.csv] --out <context.json>
     fcad quality-link --context <context.json> --geometry <geometry.json>
     fcad review-pack --context <context.json> --geometry <geometry.json>
@@ -181,6 +181,7 @@ Examples:
   fcad readiness-report --review-pack tests/fixtures/d-artifacts/sample_review_pack.canonical.json --out output/sample_readiness_report.json
   fcad stabilization-review output/rev_a_readiness_report.json output/rev_b_readiness_report.json --out output/readiness_delta.json
   fcad generate-standard-docs configs/examples/controller_housing_eol.toml --out-dir output/controller_housing_standard_docs
+  fcad generate-standard-docs configs/examples/controller_housing_eol.toml --readiness-report output/controller_housing_readiness_report.json --out-dir output/controller_housing_standard_docs
   fcad review-context --model tests/fixtures/sample_part.step --bom tests/fixtures/sample_bom.csv --inspection tests/fixtures/sample_inspection.csv --quality tests/fixtures/sample_quality.csv --out output/sample_review_pack.json
   fcad sweep configs/examples/ks_bracket.toml --matrix configs/examples/sweeps/ks_bracket_geometry_sweep.toml
 
@@ -1369,6 +1370,18 @@ async function cmdGenerateStandardDocs(rawArgs = []) {
   const configDocument = await loadConfigDocumentForCli(configPath);
   const config = configDocument.config;
   const runtimeData = await loadRuntimeData(options);
+  const readinessReportPath = resolveMaybe(options['readiness-report']);
+  let readinessReport = readinessReportPath
+    ? await loadCanonicalCArtifact(
+        'readiness_report',
+        readinessReportPath,
+        'generate-standard-docs',
+        'readiness-report'
+      )
+    : null;
+  if (!readinessReport) {
+    ({ report: readinessReport } = await runProductionReadiness(rawArgs, { persistArtifacts: false }));
+  }
   const result = await runStandardDocsWorkflow({
     freecadRoot: PROJECT_ROOT,
     runScript: runWithCliStderr,
@@ -1383,6 +1396,8 @@ async function cmdGenerateStandardDocs(rawArgs = []) {
       site: options.site || null,
       runtimeData,
       outDir: resolveMaybe(options['out-dir']),
+      report: readinessReport,
+      reportPath: readinessReportPath,
       onStderr: (text) => process.stderr.write(text),
     },
   });
@@ -1398,14 +1413,24 @@ async function cmdGenerateStandardDocs(rawArgs = []) {
     config,
     profileName: options.profile || null,
     outputDir: result.out_dir,
-    artifacts: Object.entries(result.artifacts).map(([filename, filePath]) => createArtifactEntry(
-      filename === 'manifest' ? 'standard-docs.summary' : `standard-docs.${filename}`,
-      filePath,
-      {
-        label: filename,
-        stability: filename === 'manifest' ? 'best-effort' : 'stable',
-      }
-    )),
+    artifacts: [
+      ...Object.entries(result.artifacts).map(([filename, filePath]) => createArtifactEntry(
+        filename === 'manifest' ? 'standard-docs.summary' : `standard-docs.${filename}`,
+        filePath,
+        {
+          label: filename,
+          stability: filename === 'manifest' ? 'best-effort' : 'stable',
+        }
+      )),
+      ...(result.readiness_report_path ? [createArtifactEntry(
+        'input.readiness-report',
+        result.readiness_report_path,
+        {
+          label: 'Canonical readiness report JSON',
+          scope: 'internal',
+        }
+      )] : []),
+    ],
   });
   console.log(`Manifest: ${manifestPath}`);
 }
