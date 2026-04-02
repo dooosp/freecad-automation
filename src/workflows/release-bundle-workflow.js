@@ -2,6 +2,7 @@ import { basename, dirname, extname, join, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 
+import { validateDocsManifestAgainstReadiness } from '../../lib/af-execution-contract.js';
 import { collectArtifactMetadata } from '../../lib/artifact-manifest.js';
 import {
   C_ARTIFACT_SCHEMA_VERSION,
@@ -215,6 +216,15 @@ export async function runReleaseBundleWorkflow({
         : []),
     ]
   );
+
+  if (docsManifestPath && docsManifest) {
+    validateDocsManifestAgainstReadiness({
+      readinessReport,
+      readinessPath: resolvedReadinessPath,
+      docsManifest,
+      docsManifestPath: resolve(docsManifestPath),
+    });
+  }
 
   bundleEntries.push(await buildMetadataEntry({
     artifactType: 'readiness_report',

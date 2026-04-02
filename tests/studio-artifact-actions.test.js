@@ -93,4 +93,29 @@ assert.deepEqual(deriveArtifactReentryCapabilities({
   canSeedReview: true,
 });
 
+assert.equal(canStartTrackedArtifactRun({
+  type: 'review-pack.json',
+  file_name: 'review_pack.json',
+  extension: '.json',
+  exists: true,
+  contract: {
+    reentry_target: 'review_pack',
+  },
+}, 'report'), false);
+
+assert.deepEqual(deriveArtifactReentryCapabilities({
+  type: 'release-bundle.zip',
+  file_name: 'release_bundle.zip',
+  extension: '.zip',
+  exists: true,
+  contract: {
+    reentry_target: 'release_bundle',
+  },
+}), {
+  canOpenInModel: false,
+  canRunTrackedReport: false,
+  canRunTrackedInspect: false,
+  canSeedReview: false,
+});
+
 console.log('studio-artifact-actions.test.js: ok');

@@ -37,6 +37,11 @@ function includesAny(value, needles = []) {
   return needles.some((needle) => value.includes(needle));
 }
 
+function contractReentryTarget(artifact = {}) {
+  const target = artifact?.contract?.reentry_target;
+  return normalizeString(target);
+}
+
 function configArtifactPriority(artifact = {}) {
   const type = normalizeString(artifact.type);
   const extension = normalizeString(artifact.extension);
@@ -90,6 +95,10 @@ export function isInspectableModelArtifact(artifact = {}) {
 }
 
 export function isReviewSourceArtifact(artifact = {}) {
+  const target = contractReentryTarget(artifact);
+  if (target === 'review_pack' || target === 'readiness_report') {
+    return true;
+  }
   return includesAny(artifactSearchText(artifact), REVIEW_SOURCE_MATCHERS);
 }
 

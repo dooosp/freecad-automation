@@ -44,6 +44,7 @@ function flattenManifestArtifacts(artifacts = []) {
       type: artifact.type || 'artifact',
       scope: artifact.scope || 'user-facing',
       stability: artifact.stability || 'stable',
+      metadata: artifact.metadata || null,
     }));
 }
 
@@ -75,6 +76,7 @@ function normalizeArtifactEntries(job) {
       type: artifact.type || null,
       scope: artifact.scope || null,
       stability: artifact.stability || null,
+      metadata: artifact.metadata || null,
       file_name: fileName,
       extension,
     };
@@ -353,6 +355,7 @@ export function createJobStore({ jobsDir }) {
           type: artifact.type || null,
           scope: artifact.scope || null,
           stability: artifact.stability || null,
+          metadata: artifact.metadata || null,
           file_name: artifact.file_name,
           extension: artifact.extension,
           exists: false,

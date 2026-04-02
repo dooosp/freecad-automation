@@ -137,16 +137,32 @@ try {
   assert.equal(existsSync(join(standardDocsDir, 'readiness_report.json')), true, 'review-pack-backed docs generation should persist canonical readiness JSON');
 
   const docsBundleZip = join(docsDir, 'release_bundle_with_docs.zip');
+  const docsReadinessFromManifest = join(standardDocsDir, 'readiness_report.json');
   const docsPackRun = runCli([
     'pack',
     '--readiness',
-    docsReadinessOut,
+    docsReadinessFromManifest,
     '--docs-manifest',
     join(standardDocsDir, 'standard_docs_manifest.json'),
     '--out',
     docsBundleZip,
   ]);
   assert.equal(docsPackRun.status, 0, docsPackRun.stderr || docsPackRun.stdout);
+
+  const mismatchedPackRun = runCli([
+    'pack',
+    '--readiness',
+    docsReadinessOut,
+    '--docs-manifest',
+    join(standardDocsDir, 'standard_docs_manifest.json'),
+    '--out',
+    join(docsDir, 'release_bundle_mismatched.zip'),
+  ]);
+  assert.notEqual(mismatchedPackRun.status, 0);
+  assert.match(
+    `${mismatchedPackRun.stdout}\n${mismatchedPackRun.stderr}`,
+    /invalid docs manifest handoff/i
+  );
 
   const docsManifest = readJson(join(docsDir, 'release_bundle_manifest.json'));
   assert.equal(Boolean(docsManifest.docs_manifest_ref?.path), true, 'docs-aware bundle should record docs manifest provenance');

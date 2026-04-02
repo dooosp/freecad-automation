@@ -3,6 +3,10 @@ import { createServer } from 'node:http';
 import { readFile, readdir } from 'node:fs/promises';
 import { basename, extname, join, posix, resolve, win32 } from 'node:path';
 import { buildRuntimeDiagnostics } from '../../lib/runtime-diagnostics.js';
+import {
+  buildAfExecutionStateDescriptor,
+  getAfExecutionJobContract,
+} from '../../lib/af-execution-contract.js';
 import { listShopProfiles } from '../api/config.js';
 import { createJobStore } from '../services/jobs/job-store.js';
 import { createJobExecutor, validateJobRequest } from '../services/jobs/job-executor.js';
@@ -22,6 +26,9 @@ const STUDIO_CSS = join(PUBLIC_DIR, 'css', 'studio.css');
 const STUDIO_SHELL_JS = join(PUBLIC_DIR, 'js', 'studio-shell.js');
 const APP_JS_DIR = join(PUBLIC_DIR, 'js', 'app');
 const STUDIO_JS_DIR = join(PUBLIC_DIR, 'js', 'studio');
+const STATIC_FILE_OPTIONS = Object.freeze({
+  dotfiles: 'allow',
+});
 const INLINE_ARTIFACT_EXTENSIONS = new Set([
   '.csv',
   '.dxf',
@@ -162,6 +169,9 @@ function toArtifactResponse(jobId, artifact) {
     size_bytes: Number.isInteger(artifact.size_bytes) ? artifact.size_bytes : null,
     capabilities: buildArtifactCapabilities(artifact.path, artifact.exists),
     links: buildArtifactLinks(jobId, artifact.id),
+    contract: artifact.metadata?.af_contract
+      ? redactPublicPathValues(artifact.metadata.af_contract)
+      : null,
   };
 }
 
@@ -626,6 +636,7 @@ async function toJobResponse(jobStore, job, { executor = null } = {}) {
   const status = String(job.status || '').toLowerCase();
   const cancellationSupported = status === 'queued'
     || (status === 'running' && typeof executor?.cancelRunningJob === 'function');
+  const executionContract = getAfExecutionJobContract(job.type);
   return {
     id: job.id,
     type: job.type,
@@ -643,6 +654,12 @@ async function toJobResponse(jobStore, job, { executor = null } = {}) {
     result: redactPublicPathValues(job.result),
     status_history: job.status_history,
     storage,
+    execution: executionContract
+      ? {
+          ...executionContract,
+          ...buildAfExecutionStateDescriptor(job.status),
+        }
+      : null,
     capabilities: {
       cancellation_supported: cancellationSupported,
       retry_supported: status === 'failed' || status === 'cancelled',
@@ -786,8 +803,8 @@ export function createLocalApiServer({
   }
 
   app.use(express.json({ limit: '5mb' }));
-  app.use('/js/app', express.static(APP_JS_DIR, { index: false }));
-  app.use('/js/studio', express.static(STUDIO_JS_DIR, { index: false }));
+  app.use('/js/app', express.static(APP_JS_DIR, { index: false, ...STATIC_FILE_OPTIONS }));
+  app.use('/js/studio', express.static(STUDIO_JS_DIR, { index: false, ...STATIC_FILE_OPTIONS }));
 
   app.use((error, _req, res, next) => {
     if (error instanceof SyntaxError && 'body' in error) {
@@ -852,16 +869,28 @@ export function createLocalApiServer({
     sendLandingResponse(req, res, payload);
   });
 
-  app.get(['/studio', '/studio/'], (_req, res) => {
-    res.sendFile(STUDIO_HTML);
+  app.get(['/studio', '/studio/'], async (_req, res, next) => {
+    try {
+      res.type('html').send(await readFile(STUDIO_HTML));
+    } catch (error) {
+      next(error);
+    }
   });
 
-  app.get('/css/studio.css', (_req, res) => {
-    res.sendFile(STUDIO_CSS);
+  app.get('/css/studio.css', async (_req, res, next) => {
+    try {
+      res.type('text/css').send(await readFile(STUDIO_CSS));
+    } catch (error) {
+      next(error);
+    }
   });
 
-  app.get('/js/studio-shell.js', (_req, res) => {
-    res.sendFile(STUDIO_SHELL_JS);
+  app.get('/js/studio-shell.js', async (_req, res, next) => {
+    try {
+      res.type('application/javascript').send(await readFile(STUDIO_SHELL_JS));
+    } catch (error) {
+      next(error);
+    }
   });
 
   app.post('/api/studio/validate-config', async (req, res) => {
@@ -992,17 +1021,21 @@ export function createLocalApiServer({
     }
   });
 
-  app.get('/api/studio/model-previews/:id/model', (req, res) => {
+  app.get('/api/studio/model-previews/:id/model', async (req, res, next) => {
     const modelPath = studioModelService.getPreviewModelPath(req.params.id);
     if (!modelPath) {
       const response = createErrorResponse('preview_not_found', [`No model preview found for id ${req.params.id}.`], 404);
       res.status(response.status).json(assertResponse('error', response.body));
       return;
     }
-    res.type('model/stl').sendFile(modelPath);
+    try {
+      res.type('model/stl').send(await readFile(modelPath));
+    } catch (error) {
+      next(error);
+    }
   });
 
-  app.get('/api/studio/model-previews/:id/parts/:index', (req, res) => {
+  app.get('/api/studio/model-previews/:id/parts/:index', async (req, res, next) => {
     const partPath = studioModelService.getPreviewPartPath(req.params.id, Number.parseInt(req.params.index, 10));
     if (!partPath) {
       const response = createErrorResponse(
@@ -1013,7 +1046,11 @@ export function createLocalApiServer({
       res.status(response.status).json(assertResponse('error', response.body));
       return;
     }
-    res.type('model/stl').sendFile(partPath);
+    try {
+      res.type('model/stl').send(await readFile(partPath));
+    } catch (error) {
+      next(error);
+    }
   });
 
   app.get('/jobs', async (req, res, next) => {
@@ -1205,7 +1242,7 @@ export function createLocalApiServer({
         'Content-Disposition',
         `${download ? 'attachment' : 'inline'}; filename="${artifact.file_name.replaceAll('"', '')}"`
       );
-      res.sendFile(resolve(artifact.path));
+      res.send(await readFile(resolve(artifact.path)));
     } catch {
       const response = createErrorResponse('job_not_found', [`No job found for id ${jobId}.`], 404);
       res.status(response.status).json(assertResponse('error', response.body));

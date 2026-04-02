@@ -46,6 +46,18 @@ try {
   });
   assert.equal(valid.ok, true);
 
+  const reviewTracked = validateJobRequest({
+    type: 'readiness-pack',
+    review_pack_path: '/tmp/review_pack.json',
+  });
+  assert.equal(reviewTracked.ok, true, reviewTracked.errors?.join('\n'));
+
+  const invalidReviewTracked = validateJobRequest({
+    type: 'pack',
+  });
+  assert.equal(invalidReviewTracked.ok, false);
+  assert.match(invalidReviewTracked.errors.join('\n'), /readiness_report_path/);
+
   const publicArtifactRequest = toPublicJobRequest({
     type: 'report',
     config_path: '/tmp/private/effective-config.json',
@@ -168,6 +180,7 @@ try {
       download: `/jobs/${job.id}/artifacts/${artifact.id}/content?download=1`,
       api: `/jobs/${job.id}/artifacts/${artifact.id}/content`,
     },
+    contract: null,
   }));
 
   const internalStorage = await store.describeStorage(job.id);
@@ -210,6 +223,7 @@ try {
       result: { success: true },
       status_history: persistedJob.status_history,
       storage,
+      execution: null,
       capabilities: {
         cancellation_supported: false,
         retry_supported: false,

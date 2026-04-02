@@ -32,6 +32,10 @@ import {
   writeJsonFile,
 } from '../lib/context-loader.js';
 import {
+  buildAfArtifactContractFromDocument,
+  validateDocsManifestAgainstReadiness,
+} from '../lib/af-execution-contract.js';
+import {
   ArtifactSchemaValidationError,
   assertValidDArtifact,
   buildSourceArtifactRef,
@@ -490,11 +494,27 @@ async function loadCanonicalReviewPackInput(rawArgs = [], command) {
 
   requireExistingInputFile('review-pack', input.reviewPackPath);
   const reviewPack = await readJsonFile(input.reviewPackPath);
-  assertValidDArtifact('review_pack', reviewPack, {
-    command,
+  buildAfArtifactContractFromDocument({
+    jobType: command,
+    target: 'review_pack',
+    document: reviewPack,
     path: input.reviewPackPath,
+    strictReentry: true,
   });
   return { ...input, reviewPack };
+}
+
+async function loadCanonicalReadinessReportInput(filePath, command, label = 'readiness report') {
+  requireExistingInputFile(label, filePath);
+  const readinessReport = await readJsonFile(filePath);
+  buildAfArtifactContractFromDocument({
+    jobType: command,
+    target: 'readiness_report',
+    document: readinessReport,
+    path: filePath,
+    strictReentry: true,
+  });
+  return readinessReport;
 }
 
 async function loadCanonicalReadinessSupportArtifacts(options = {}, command) {
@@ -1395,16 +1415,19 @@ async function cmdPack(rawArgs = []) {
     process.exit(1);
   }
 
-  const readinessReport = await loadCanonicalCArtifact(
-    'readiness_report',
-    readinessPath,
-    'pack',
-    'readiness report'
-  );
+  const readinessReport = await loadCanonicalReadinessReportInput(readinessPath, 'pack', 'readiness report');
   const docsInput = await resolveOptionalDocsManifest({
     explicitPath: resolveMaybe(options['docs-manifest']),
     readinessPath,
   });
+  if (docsInput.docsManifestPath && docsInput.docsManifest) {
+    validateDocsManifestAgainstReadiness({
+      readinessReport,
+      readinessPath,
+      docsManifest: docsInput.docsManifest,
+      docsManifestPath: docsInput.docsManifestPath,
+    });
+  }
   const resolvedOutputPath = outputPath || artifactPathFor(outDir, stem, '_release_bundle.zip');
   const result = await runReleaseBundleWorkflow({
     projectRoot: PROJECT_ROOT,
@@ -1458,14 +1481,12 @@ async function cmdStabilizationReview(rawArgs = []) {
       process.exit(1);
     }
 
-    const baselineReport = await loadCanonicalCArtifact(
-      'readiness_report',
+    const baselineReport = await loadCanonicalReadinessReportInput(
       baselinePath,
       'stabilization-review',
       'baseline readiness report'
     );
-    const candidateReport = await loadCanonicalCArtifact(
-      'readiness_report',
+    const candidateReport = await loadCanonicalReadinessReportInput(
       candidatePath,
       'stabilization-review',
       'candidate readiness report'
@@ -1556,8 +1577,7 @@ async function cmdGenerateStandardDocs(rawArgs = []) {
 
   let readinessReport = null;
   if (readinessReportPath) {
-    readinessReport = await loadCanonicalCArtifact(
-      'readiness_report',
+    readinessReport = await loadCanonicalReadinessReportInput(
       readinessReportPath,
       'generate-standard-docs',
       'readiness-report'
@@ -2074,8 +2094,14 @@ async function cmdCompareRev(rawArgs = []) {
     process.exit(1);
   }
 
-  const baseline = await readJsonFile(baselinePath);
-  const candidate = await readJsonFile(candidatePath);
+  const baseline = await loadCanonicalReviewPackInput([
+    '--review-pack',
+    baselinePath,
+  ], 'compare-rev').then((input) => input.reviewPack);
+  const candidate = await loadCanonicalReviewPackInput([
+    '--review-pack',
+    candidatePath,
+  ], 'compare-rev').then((input) => input.reviewPack);
   const result = await runPythonJsonScript(PROJECT_ROOT, 'scripts/reporting/revision_diff.py', {
     baseline,
     candidate,

@@ -148,3 +148,48 @@ The final response should include:
 - Do not widen scope into browser, i18n, or Studio tasks during this integration.
 - Track merge progress in `tmp/codex/d-integration-merge-status.md`.
 - Track verification and remediation in `tmp/codex/d-integration-merge-verification-status.md`.
+
+## Repo Identity And Task Control
+- Before creating task control files or editing implementation files, print and record:
+  - `pwd`
+  - `git rev-parse --show-toplevel`
+  - `git branch --show-current`
+  - local vs worktree mode when available
+- Detect the default branch from git metadata instead of assuming it.
+- Verify the git root basename is `freecad-automation`.
+- Verify implementation files and task control files live under the same git repo root.
+- Capture and report:
+  - `git status --short`
+  - `git diff --name-only`
+- If the target repo checkout is dirty and worktrees are available, create a clean task worktree and continue there.
+- If repo identity or same-root verification fails, stop without editing implementation files.
+
+## Dirty-Tree Discipline
+- Prefer a clean task worktree over working in a dirty checkout.
+- Never create task control files outside the detected git repository root.
+- Keep temporary task status files under `tmp/codex/`.
+- Do not commit temp status files unless the active task or repo convention explicitly requires it.
+
+## Read-Only Review Diff Invariance
+- For final read-only review, capture `git diff --name-only` immediately before and after the review.
+- If the diff changes during the read-only review, report the review as invalid and do not claim merge readiness.
+
+## AF1 Task: Review Execution Contract
+- Active branch for this task: `feat/af1-execution-contract`
+- Preferred clean worktree for this task: `/Users/jangtaeho/Documents/New/.worktrees/af1-execution-contract/freecad-automation`
+- Execution plan source of truth:
+  - `docs/exec-plans/af1-execution-contract.md`
+- Verification and remediation plan:
+  - `docs/exec-plans/af1-execution-contract-verification.md`
+- Phase status files:
+  - `tmp/codex/af1-execution-contract-status.md`
+  - `tmp/codex/af1-execution-contract-verification-status.md`
+- Preserve the canonical JSON-first path centered on:
+  - `review_pack.json`
+  - `readiness-pack`
+  - `readiness-report --review-pack`
+  - `readiness_report.json`
+- Treat A+F as the execution, tracking, reopen, and artifact re-entry surface.
+- Do not recreate D or C scoring, reasoning, or linkage logic in A+F.
+- Fail closed on missing lineage, schema mismatch, or invalid artifact handoff.
+- Preserve intentionally supported legacy compatibility paths without promoting them over the canonical JSON-first flow.
