@@ -299,39 +299,43 @@ export function createJobStore({ jobsDir }) {
       });
     },
     async completeJob(id, result, artifacts = {}, diagnostics = {}, manifest = null) {
-      const nextJob = await this.updateJob(id, (job) => {
+      return withJobLock(id, async () => {
+        const current = await this.getJob(id);
+        const nextJob = clone(current);
         const at = nowIso();
-        job.status = 'succeeded';
-        job.finished_at = at;
-        job.error = null;
-        job.result = result;
-        job.artifacts = artifacts;
-        job.diagnostics = diagnostics;
-        job.manifest = manifest;
-        job.status_history.push({ status: 'succeeded', at, detail: 'completed' });
+        nextJob.status = 'succeeded';
+        nextJob.finished_at = at;
+        nextJob.error = null;
+        nextJob.result = result;
+        nextJob.artifacts = artifacts;
+        nextJob.diagnostics = diagnostics;
+        nextJob.manifest = manifest;
+        nextJob.status_history.push({ status: 'succeeded', at, detail: 'completed' });
+        if (nextJob.manifest) {
+          await writeArtifactManifest(nextJob.paths.manifest, nextJob.manifest);
+        }
+        return saveJob(nextJob);
       });
-      if (nextJob.manifest) {
-        await writeArtifactManifest(nextJob.paths.manifest, nextJob.manifest);
-      }
-      return nextJob;
     },
     async failJob(id, error, artifacts = {}, diagnostics = {}, manifest = null) {
-      const nextJob = await this.updateJob(id, (job) => {
+      return withJobLock(id, async () => {
+        const current = await this.getJob(id);
+        const nextJob = clone(current);
         const at = nowIso();
-        job.status = 'failed';
-        job.finished_at = at;
-        job.error = {
+        nextJob.status = 'failed';
+        nextJob.finished_at = at;
+        nextJob.error = {
           message: error instanceof Error ? error.message : String(error),
         };
-        job.artifacts = artifacts;
-        job.diagnostics = diagnostics;
-        job.manifest = manifest;
-        job.status_history.push({ status: 'failed', at, detail: job.error.message });
+        nextJob.artifacts = artifacts;
+        nextJob.diagnostics = diagnostics;
+        nextJob.manifest = manifest;
+        nextJob.status_history.push({ status: 'failed', at, detail: nextJob.error.message });
+        if (nextJob.manifest) {
+          await writeArtifactManifest(nextJob.paths.manifest, nextJob.manifest);
+        }
+        return saveJob(nextJob);
       });
-      if (nextJob.manifest) {
-        await writeArtifactManifest(nextJob.paths.manifest, nextJob.manifest);
-      }
-      return nextJob;
     },
     async appendLog(id, message) {
       const line = `[${nowIso()}] ${message}\n`;

@@ -1059,7 +1059,7 @@ export function createLocalApiServer({
     try {
       const parsedLimit = Number(req.query.limit);
       const limit = Number.isFinite(parsedLimit)
-        ? Math.min(20, Math.max(1, Math.trunc(parsedLimit)))
+        ? Math.min(100, Math.max(1, Math.trunc(parsedLimit)))
         : 8;
       const jobs = await jobStore.listJobs({ limit });
       const payload = {

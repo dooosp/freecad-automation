@@ -274,3 +274,29 @@ The final response should include:
   - `generate-standard-docs`
   - `pack`
 - Do not recreate D/C scoring, linkage, or reasoning logic in the browser UI. Surface canonical artifacts, statuses, and follow-up actions instead.
+
+## AF5 Task: A+F Integration Sweep And Publish Readiness
+- Active branch for this task: `feat/af5-integration-publish`
+- Preferred clean worktree for this task: `/Users/jangtaeho/Documents/New/.worktrees/af5-integration-publish/freecad-automation`
+- Execution plan source of truth:
+  - `docs/exec-plans/af5-integration-publish.md`
+- Verification and remediation plan:
+  - `docs/exec-plans/af5-integration-publish-verification.md`
+- Phase status files:
+  - `tmp/codex/af5-integration-publish-status.md`
+  - `tmp/codex/af5-integration-publish-verification-status.md`
+- Treat A+F as the execution, tracking, review-context, reopen, and publish layer over D/C:
+  - do not recreate D geometry/linkage/scoring
+  - do not recreate C readiness or packaging logic
+- If AF1 through AF4 are already merged into the detected default branch, audit the merged branch and fix only verified integration gaps.
+- Keep the representative story coherent across CLI, local API, Studio, and artifact reopen surfaces:
+  - existing STEP + BOM + inspection + quality
+  - `review-context`
+  - `review_pack.json`
+  - `readiness-pack`
+  - `generate-standard-docs`
+  - `release_bundle.zip`
+  - Studio reopen
+- Preserve canonical artifact names, lineage rules, bundle manifest truth, tracked-job history, retry/cancel behavior, preview-vs-tracked separation, and release-bundle reopen behavior.
+- Prefer small contract, persistence, recent-history, and re-entry fixes over broader refactors.
+- Run the strongest safe minimal checks already present in the repo, then execute the AF5 verification/remediation plan and a read-only final review before calling merge readiness.
