@@ -6,3 +6,4 @@ export { runCostInvestmentAgent, createCostInvestmentAgent } from '../agents/cos
 export { runStabilizationReviewAgent, createStabilizationReviewAgent } from '../agents/stabilization-review-agent.js';
 export { runReadinessReportWorkflow, createReadinessReportWorkflow, writeReadinessArtifacts } from '../workflows/readiness-report-workflow.js';
 export { runStandardDocsWorkflow, createStandardDocsWorkflow } from '../workflows/standard-docs-workflow.js';
+export { runReleaseBundleWorkflow } from '../workflows/release-bundle-workflow.js';

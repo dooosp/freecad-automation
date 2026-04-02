@@ -24,6 +24,7 @@ const LANE_STEPS = {
     { label: 'Design reviewer validation', args: ['tests/design-reviewer-validation.test.js'] },
     { label: 'D artifact contracts', args: ['tests/d-artifact-schema.test.js'] },
     { label: 'C artifact contracts', args: ['tests/c-artifact-schema.test.js'] },
+    { label: 'Release bundle packaging', args: ['tests/release-bundle.test.js'] },
     { label: 'D model-analysis fallback', args: ['tests/model-analysis-runtime.test.js'] },
   ],
   integration: [
