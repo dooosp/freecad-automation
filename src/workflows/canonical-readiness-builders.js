@@ -8,13 +8,6 @@ import {
 import { writeValidatedCArtifact } from '../../lib/context-loader.js';
 import { assertValidDArtifact, buildSourceArtifactRef } from '../../lib/d-artifact-schema.js';
 
-const CONFIDENCE_ORDER = {
-  low: 0,
-  heuristic: 1,
-  medium: 2,
-  high: 3,
-};
-
 function nowIso(explicitValue = null) {
   if (typeof explicitValue === 'string' && explicitValue.trim()) return explicitValue.trim();
   return new Date().toISOString();
@@ -84,65 +77,19 @@ function riskLevelFromSignals({ missingInputs = [], warnings = [], priorities = 
   return 'low';
 }
 
-function confidenceLevelForScore(score, fallback = 'heuristic') {
-  if (!Number.isFinite(score)) return fallback;
-  if (score < 0.45) return 'low';
-  if (score < 0.72) return 'medium';
-  return 'high';
-}
-
-function deriveDownstreamConfidence(reviewPack, rationale) {
-  const upstream = safeObject(reviewPack.confidence);
-  const uncertainty = getReviewPackUncertaintyReport(reviewPack);
-  const upstreamScore = Number.isFinite(upstream.score) ? upstream.score : 0.5;
-  const uncertaintyScore = Number.isFinite(uncertainty.numeric_score) ? uncertainty.numeric_score : upstreamScore;
-  const score = Number(Math.min(upstreamScore, uncertaintyScore).toFixed(3));
-  const propagatedLevel = upstream.level && Object.hasOwn(CONFIDENCE_ORDER, upstream.level)
-    ? upstream.level
-    : 'heuristic';
-  const derivedLevel = confidenceLevelForScore(score, propagatedLevel);
-  const level = CONFIDENCE_ORDER[propagatedLevel] < CONFIDENCE_ORDER[derivedLevel]
-    ? propagatedLevel
-    : derivedLevel;
-
+function buildPropagatedConfidence(sourceConfidence, {
+  propagatedFrom,
+  propagationNotes = [],
+  sourceConfidenceRefs = [],
+} = {}) {
+  const upstream = safeObject(sourceConfidence);
   return {
-    level,
-    score,
-    rationale,
-    upstream_confidence: cloneJson(upstream),
-    uncertainty_numeric_score: uncertainty.numeric_score ?? null,
-  };
-}
-
-function deriveAggregateConfidence(inputs, rationale) {
-  const normalized = safeList(inputs)
-    .map((item) => safeObject(item))
-    .filter((item) => item.level || Number.isFinite(item.score));
-
-  const scoreCandidates = normalized
-    .map((item) => (Number.isFinite(item.score) ? item.score : null))
-    .filter((item) => item !== null);
-  const score = scoreCandidates.length > 0
-    ? Number(Math.min(...scoreCandidates).toFixed(3))
-    : 0.5;
-
-  let level = 'heuristic';
-  for (const item of normalized) {
-    const candidate = item.level || confidenceLevelForScore(item.score, 'heuristic');
-    if (CONFIDENCE_ORDER[candidate] < CONFIDENCE_ORDER[level]) {
-      level = candidate;
-    }
-  }
-
-  return {
-    level,
-    score,
-    rationale,
-    contributors: normalized.map((item) => ({
-      level: item.level || null,
-      score: Number.isFinite(item.score) ? item.score : null,
-      rationale: item.rationale || null,
-    })),
+    level: upstream.level || 'heuristic',
+    score: Number.isFinite(upstream.score) ? upstream.score : 0.5,
+    rationale: upstream.rationale || 'Confidence propagated from source artifact.',
+    propagated_from: propagatedFrom || null,
+    propagation_notes: propagationNotes.filter(Boolean),
+    source_confidence_refs: sourceConfidenceRefs,
   };
 }
 
@@ -460,10 +407,16 @@ export function buildProcessPlanFromReviewPack({ reviewPack, reviewPackPath = nu
     automationCandidates,
     sourceArtifactRefs
   );
-  const confidence = deriveDownstreamConfidence(
-    reviewPack,
-    'Process plan is assembled from canonical review-pack priorities and recommended actions without recomputing D linkage or scoring.'
-  );
+  const confidence = buildPropagatedConfidence(reviewPack.confidence, {
+    propagatedFrom: 'review_pack',
+    propagationNotes: [
+      'C preserves D confidence from review_pack without recalculating score or level.',
+      'Process-plan-specific interpretation lives in planning_basis and summary fields instead of confidence.',
+    ],
+    sourceConfidenceRefs: reviewPackPath
+      ? [buildSourceArtifactRef('review_pack', reviewPackPath, 'confidence_source', 'Review-pack confidence source')]
+      : [],
+  });
 
   return buildArtifactEnvelope({
     agent: 'process_planning',
@@ -626,10 +579,16 @@ export function buildQualityRiskFromReviewPack({ reviewPack, reviewPackPath = nu
     qualityGates,
     sourceArtifactRefs
   );
-  const confidence = deriveDownstreamConfidence(
-    reviewPack,
-    'Quality-risk pack is assembled from canonical D linkage, review priorities, and propagated evidence metadata.'
-  );
+  const confidence = buildPropagatedConfidence(reviewPack.confidence, {
+    propagatedFrom: 'review_pack',
+    propagationNotes: [
+      'C preserves D confidence from review_pack without recalculating score or level.',
+      'Quality-risk-specific interpretation lives in evidence_pack and summary fields instead of confidence.',
+    ],
+    sourceConfidenceRefs: reviewPackPath
+      ? [buildSourceArtifactRef('review_pack', reviewPackPath, 'confidence_source', 'Review-pack confidence source')]
+      : [],
+  });
 
   return buildArtifactEnvelope({
     agent: 'quality_traceability',
@@ -893,10 +852,20 @@ export function buildReadinessReportFromReviewPack({
     ...safeList(resolvedProcessPlan.warnings),
     ...safeList(resolvedQualityRisk.warnings),
   ]);
-  const confidence = deriveAggregateConfidence(
-    [reviewPack.confidence, resolvedProcessPlan.confidence, resolvedQualityRisk.confidence],
-    'Readiness report packages canonical D review-pack evidence with downstream C execution and quality-risk builders.'
-  );
+  const confidence = buildPropagatedConfidence(reviewPack.confidence, {
+    propagatedFrom: 'review_pack',
+    propagationNotes: [
+      'C preserves D confidence from review_pack without recalculating score or level.',
+      'Readiness score, gate decision, and action synthesis remain downstream packaging fields, not confidence rewrites.',
+    ],
+    sourceConfidenceRefs: [
+      ...(reviewPackPath
+        ? [buildSourceArtifactRef('review_pack', reviewPackPath, 'confidence_source', 'Review-pack confidence source')]
+        : []),
+      ...safeList(resolvedProcessPlan.source_artifact_refs).filter((ref) => ref.artifact_type === 'review_pack'),
+      ...safeList(resolvedQualityRisk.source_artifact_refs).filter((ref) => ref.artifact_type === 'review_pack'),
+    ],
+  });
 
   const report = buildArtifactEnvelope({
     workflow: 'production_readiness',
@@ -1093,10 +1062,21 @@ export function buildStabilizationReviewFromReadinessReports({
     ...safeList(baselineReport.warnings),
     ...safeList(candidateReport.warnings),
   ]);
-  const confidence = deriveAggregateConfidence(
-    [baselineReport.confidence, candidateReport.confidence],
-    'Stabilization review compares canonical readiness artifacts and preserves propagated warnings, coverage, and confidence.'
-  );
+  const confidence = buildPropagatedConfidence(candidateReport.confidence, {
+    propagatedFrom: 'candidate_readiness_report',
+    propagationNotes: [
+      'Stabilization review preserves the candidate readiness confidence without recalculating score or level.',
+      'Baseline-versus-candidate confidence differences are reported under change_reasons instead of being folded into a new confidence value.',
+    ],
+    sourceConfidenceRefs: [
+      ...(candidatePath
+        ? [buildSourceArtifactRef('readiness_report', candidatePath, 'confidence_source', 'Candidate readiness confidence source')]
+        : []),
+      ...(baselinePath
+        ? [buildSourceArtifactRef('readiness_report', baselinePath, 'comparison_confidence_source', 'Baseline readiness confidence reference')]
+        : []),
+    ],
+  });
 
   return buildArtifactEnvelope({
     agent: 'stabilization_review',
