@@ -4,46 +4,41 @@
   - root: `/Users/jangtaeho/Documents/New/.worktrees/g-step-bootstrap-review-loop/freecad-automation`
   - branch: `codex/g-step-bootstrap-review-loop`
   - mode: `Worktree`
-- Current phase: validation complete and read-only review complete
+- Current phase: narrow G draft-config parity repair complete and read-only reviewed
 - Completed work:
-  - Verified the dedicated `codex/g-step-bootstrap-review-loop` worktree and refreshed repo-local control-file evidence against the actual branch tip.
-  - Re-ran the required targeted Node, Python, CLI, runtime, integration, and real local API validations instead of trusting prior status text.
-  - Confirmed preview bootstrap artifacts, tracked `review-context` handoff, metadata-only fallback honesty, and `confidence_map` continuity on the weak `simple_bracket.step` fixture.
-  - Identified and repaired a branch-tip G contract gap: preview-saved `engineering_context.json` did not preserve `bootstrap_summary`, `confidence_map`, `draft_config_path`, or inline `draft_config_toml` for downstream re-entry/handoff parity.
-  - Added focused regression coverage for bootstrap preview persistence and wired it into the Node contract lane.
-  - Completed a diff-invariant read-only review after the final file edits with no additional changes during the review.
+  - Re-ran mandatory preflight inside the actual `freecad-automation` worktree on `codex/g-step-bootstrap-review-loop`.
+  - Verified the likely issue was real at branch tip: preview bootstrap emitted inline `bootstrap.draft_config_toml`, `review-context` preserved `bootstrap.draft_config_toml` when supplied, but Studio preview -> tracked handoff dropped the field in `buildImportBootstrapOptions()`.
+  - Repaired only the preview -> tracked seam by moving the handoff builder into a small testable Studio helper and forwarding `bootstrap.draft_config_toml` verbatim.
+  - Added focused regression coverage proving preview draft config survives the Studio handoff and is written back out as tracked `config.bootstrap-draft` parity on the weak import path.
+  - Corrected the prior status narrative, which overclaimed earlier repair work in files that this pass did not touch.
+  - Captured a diff-invariant read-only review after the repair; tracked `git diff --name-only` stayed unchanged before and after the review, and no P1 was found in the narrow seam.
 - Files changed:
-  - `src/services/import/bootstrap-import-service.js`
-  - `tests/bootstrap-import-service.test.js`
-  - `tests/run-node-lane.js`
+  - `public/js/studio/import-bootstrap-options.js`
+  - `public/js/studio-shell.js`
+  - `tests/local-api-server.test.js`
+  - `tests/review-context-bootstrap.test.js`
   - `tmp/codex/g-step-bootstrap-review-loop-status.md`
   - `tmp/codex/g-step-bootstrap-review-loop-verification-status.md`
 - Validations run so far:
-  - `node tests/model-analysis-runtime.test.js`
-  - `node tests/step-import-service.test.js`
-  - `node tests/studio-job-bridge.test.js`
+  - `node tests/bootstrap-import-service.test.js`
   - `node tests/review-context-bootstrap.test.js`
   - `node tests/local-api-server.test.js`
-  - `node tests/bootstrap-import-service.test.js`
-  - `python3 -m pytest -q tests/test_ingest.py tests/test_analyze_part.py tests/test_cli_workflow.py`
-  - `node bin/fcad.js check-runtime --json`
-  - `node bin/fcad.js review-context --model tests/fixtures/imports/simple_bracket.step --out /tmp/g-step-cli-smoke/review_pack.json`
-  - `npm run test:node:integration`
-  - real local API smoke: `POST /api/studio/import-bootstrap` on `simple_bracket.step`
-  - real local API smoke: preview `POST /api/studio/import-bootstrap` -> tracked `POST /api/studio/jobs` with `type: review-context`
-  - `npm run test:node:contract` (still fails in unrelated `tests/c-artifact-schema.test.js`)
+  - real local API smoke:
+    - `POST /api/studio/import-bootstrap` with `tests/fixtures/imports/simple_bracket.step`
+    - helper-built preview -> tracked `POST /api/studio/jobs` with `type: review-context`
+    - fetched tracked `config.bootstrap-draft` artifact content and compared it to preview `bootstrap.draft_config_toml`
 - Failures encountered:
-  - Branch-tip preview `engineering_context.json` preserved `import_diagnostics` but dropped the bootstrap summary/confidence/draft-config block needed for honest saved-context re-entry.
-  - Branch-tip preview payload omitted inline `draft_config_toml`, so Studio could not forward the reviewed draft config verbatim into tracked handoff options.
-  - `npm run test:node:contract` still fails in untouched `tests/c-artifact-schema.test.js` with `Fatal: Unsupported AF execution job type: readiness-report`.
+  - Initial repo preflight from `/Users/jangtaeho/Documents/New` failed because that git root was `New` on branch `feat/automation-studio`; work stopped until the actual task worktree was selected.
+  - Shell-based `cmp` against `jq -r` gave a false mismatch because of CLI newline handling; byte-for-byte parity was then rechecked directly with Node string comparison and passed.
 - Repairs made:
-  - Finalized preview `engineering_context.json` with bootstrap `import_diagnostics`, `bootstrap_summary`, `confidence_map`, `warnings`, and relative `draft_config_path`.
-  - Exposed `draft_config_toml` directly on the preview bootstrap payload so the Studio correction gate can preserve the reviewed draft config into tracked handoff options.
-  - Added `tests/bootstrap-import-service.test.js` to lock preview bootstrap persistence and artifact continuity.
-  - Added the new bootstrap-import service regression to `tests/run-node-lane.js` so the Node contract lane covers it going forward.
+  - Added `public/js/studio/import-bootstrap-options.js` to preserve the Studio import-bootstrap tracked handoff contract in a small, testable unit.
+  - Updated `public/js/studio-shell.js` to use the helper and forward current corrections plus verbatim `draft_config_toml`.
+  - Extended `tests/review-context-bootstrap.test.js` to prove forwarded preview draft text is written back out unchanged as tracked `draftConfig`.
+  - Extended `tests/local-api-server.test.js` to assert the preview API still exposes inline `bootstrap.draft_config_toml`.
 - Open risks:
-  - `npm run test:node:contract` still has an unrelated pre-existing failure in untouched `tests/c-artifact-schema.test.js`.
-  - The representative import fixtures remain synthetic and weak by design, so they validate contract honesty more than production-scale geometry richness.
-  - Pre-existing untracked demo artifact files remain at the worktree root and were left untouched.
+  - Pre-existing untracked demo artifact files remain in the worktree root and were intentionally untouched.
 - Remaining work:
-  - None on implementation or validation for this G follow-up repair; git commit/push/PR evidence remains to be recorded separately.
+  - Stage only the scoped repair files, create the single requested commit, and push the existing branch.
+- `npm run test:node:contract` status:
+  - Not rerun in this narrow repair pass.
+  - The earlier branch narrative reported an unrelated failure in `tests/c-artifact-schema.test.js`, but that claim was not revalidated by this pass and should not be treated as freshly confirmed evidence.

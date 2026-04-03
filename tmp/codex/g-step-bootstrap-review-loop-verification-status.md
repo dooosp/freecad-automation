@@ -4,54 +4,63 @@
   - root: `/Users/jangtaeho/Documents/New/.worktrees/g-step-bootstrap-review-loop/freecad-automation`
   - branch: `codex/g-step-bootstrap-review-loop`
   - mode: `Worktree`
-- Verification phase: final validation and read-only review
+- Verification phase: targeted parity verification after narrow Studio handoff repair and read-only review
 - Verification focus:
-  - Preview bootstrap emits the required artifact set and keeps warnings/low confidence explicit.
-  - Saved preview `engineering_context.json` preserves bootstrap review evidence for re-entry.
-  - Tracked `review-context` handoff preserves draft config, diagnostics, warnings, and confidence evidence.
-  - Weak-import fallback still requires correction and does not silently promote guesses into facts.
-  - Unrelated failures are separated from G regressions with direct command evidence.
+  - Preview bootstrap must expose inline `bootstrap.draft_config_toml`.
+  - Studio preview -> tracked handoff must forward that exact value into tracked `review-context` options.
+  - `review-context` must preserve the supplied draft config as tracked `config.bootstrap-draft` on the weak import path.
+  - Control-plane status files must match what this pass actually changed and validated.
 - Evidence captured:
-  - `POST /api/studio/import-bootstrap` on `tests/fixtures/imports/simple_bracket.step` returned all required preview artifact keys: `import_diagnostics`, `bootstrap_summary`, `draft_config`, `engineering_context`, `geometry_intelligence`, `bootstrap_warnings`, and `confidence_map`.
-  - The same preview response now exposes inline `bootstrap.draft_config_toml` and the saved `engineering_context.json` now contains `bootstrap.bootstrap_summary.review_gate.ready_for_review_context`, `bootstrap.confidence_map.import_bootstrap.overall.level`, and a relative `bootstrap.draft_config_path`.
-  - Real local API preview -> tracked `review-context` smoke completed successfully and registered tracked artifacts including `bootstrap_summary.json`, `bootstrap_warnings.json`, `confidence_map.json`, `engineering_context.json`, and `config.bootstrap-draft`.
-  - The tracked `engineering_context.json` preserved explicit weak-import evidence (`partial_import: true`) and kept metadata-only fallback warnings visible.
-  - `node bin/fcad.js review-context --model tests/fixtures/imports/simple_bracket.step --out /tmp/g-step-cli-smoke/review_pack.json` succeeded with runtime warnings plus metadata-only fallback instead of failing the lane.
-  - `npm run test:node:contract` still fails in untouched `tests/c-artifact-schema.test.js` with `Unsupported AF execution job type: readiness-report`, matching the earlier branch narrative and remaining outside the edited G follow-up files.
-- Diff before review:
-  - `src/services/import/bootstrap-import-service.js`
-  - `tests/run-node-lane.js`
+  - `src/services/import/bootstrap-import-service.js` already emitted inline `bootstrap.draft_config_toml` at branch tip.
+  - `src/orchestration/review-context-pipeline.js` already preserved `bootstrap.draft_config_toml` into `draftConfig` when the option was supplied.
+  - `public/js/studio-shell.js` branch tip `buildImportBootstrapOptions()` dropped `draft_config_toml`, so the likely issue was real.
+  - `tests/review-context-bootstrap.test.js` now proves `buildImportBootstrapOptions(preview, {})` forwards the exact preview draft string and that the resulting tracked `draftConfig` artifact matches it verbatim.
+  - `tests/local-api-server.test.js` now proves the preview API still exposes inline `bootstrap.draft_config_toml`.
+  - Real local API smoke on `simple_bracket.step` produced a tracked `config.bootstrap-draft` artifact whose text matched preview `bootstrap.draft_config_toml` exactly when compared via Node string equality.
+- Exact files changed in this repair:
+  - `public/js/studio/import-bootstrap-options.js`
+  - `public/js/studio-shell.js`
+  - `tests/local-api-server.test.js`
+  - `tests/review-context-bootstrap.test.js`
   - `tmp/codex/g-step-bootstrap-review-loop-status.md`
   - `tmp/codex/g-step-bootstrap-review-loop-verification-status.md`
-- Diff after review:
-  - `src/services/import/bootstrap-import-service.js`
-  - `tests/run-node-lane.js`
+- Diff before read-only review:
+  - `public/js/studio-shell.js`
+  - `tests/local-api-server.test.js`
+  - `tests/review-context-bootstrap.test.js`
+  - `tmp/codex/g-step-bootstrap-review-loop-status.md`
+  - `tmp/codex/g-step-bootstrap-review-loop-verification-status.md`
+- Diff after read-only review:
+  - `public/js/studio-shell.js`
+  - `tests/local-api-server.test.js`
+  - `tests/review-context-bootstrap.test.js`
   - `tmp/codex/g-step-bootstrap-review-loop-status.md`
   - `tmp/codex/g-step-bootstrap-review-loop-verification-status.md`
 - Read-only validity:
-  - valid; `git diff --name-only` stayed unchanged during the final read-only review
-- Findings:
-  - One real branch-tip G regression was confirmed during verification: preview-saved engineering context did not preserve the bootstrap review block or reviewed draft config handoff state.
-  - That regression is repaired locally and covered by a new regression test plus real local API smoke.
-  - No new P0/P1 issues were found in the final read-only review of the follow-up diff after the repair.
+  - valid for tracked diff
+  - `git diff --name-only` stayed unchanged before and after the review
+  - `git status --short` continued to show the same untouched pre-existing demo untracked files plus the new scoped helper file
 - Validations:
-  - `node tests/model-analysis-runtime.test.js`
-  - `node tests/step-import-service.test.js`
-  - `node tests/studio-job-bridge.test.js`
-  - `node tests/review-context-bootstrap.test.js`
-  - `node tests/local-api-server.test.js`
-  - `node tests/bootstrap-import-service.test.js`
-  - `python3 -m pytest -q tests/test_ingest.py tests/test_analyze_part.py tests/test_cli_workflow.py`
-  - `node bin/fcad.js check-runtime --json`
-  - `node bin/fcad.js review-context --model tests/fixtures/imports/simple_bracket.step --out /tmp/g-step-cli-smoke/review_pack.json`
-  - `npm run test:node:integration`
-  - `npm run test:node:contract` (unrelated failure in `tests/c-artifact-schema.test.js`)
-  - real local API import-bootstrap smoke on `simple_bracket.step`
-  - real local API import-bootstrap -> tracked `review-context` smoke on `simple_bracket.step`
-- Repairs made:
-  - Added explicit preview bootstrap-state persistence into `engineering_context.json`.
-  - Added inline `draft_config_toml` to the preview payload for Studio-to-tracked handoff parity.
-  - Added `tests/bootstrap-import-service.test.js` and wired it into the Node contract lane.
+  - `node tests/bootstrap-import-service.test.js` -> passed
+  - `node tests/review-context-bootstrap.test.js` -> passed
+  - `node tests/local-api-server.test.js` -> passed
+  - real local API smoke:
+    - preview `POST /api/studio/import-bootstrap` -> passed
+    - tracked `POST /api/studio/jobs` with helper-built `review-context` request -> passed
+    - tracked `config.bootstrap-draft` artifact text equals preview `bootstrap.draft_config_toml` -> passed
+- Preview -> tracked `draft_config_toml` parity:
+  - passes
+  - preview draft length observed in real local API smoke: `457`
+  - tracked draft length observed in real local API smoke: `457`
+- Findings:
+  - The issue was real and limited to the Studio browser handoff seam.
+  - No implementation change was needed in `review-context` or bootstrap import service behavior for this repair.
+  - Prior status files overclaimed a different repair surface; that narrative is now corrected.
+- P1 status:
+  - none found in the narrow repair surface
+- `npm run test:node:contract` status:
+  - not rerun in this pass
+  - earlier branch notes describe an unrelated failure, but this verification pass does not freshly confirm it
 - Remaining risks:
-  - Repo-wide contract readiness still includes the unrelated `tests/c-artifact-schema.test.js` failure.
-  - The weak STEP fixtures do not substitute for production-scale CAD acceptance testing.
+  - The final read-only diff-invariance check still needs to be recorded.
+  - The weak STEP fixture proves parity and fallback honesty, not production-scale CAD richness.

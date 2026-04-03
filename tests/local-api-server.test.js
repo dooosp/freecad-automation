@@ -102,6 +102,7 @@ const { server, jobStore } = createLocalApiServer({
             },
           },
         },
+        draft_config_toml: 'name = "bootstrap_preview"\n[import]\nsource_step = "tests/fixtures/imports/simple_bracket.step"\n',
         geometry_intelligence: {},
       },
       tracked_review_seed: {
@@ -212,6 +213,7 @@ try {
   assert.equal(bootstrapPreviewPayload.source.model_path, 'output/imports/bootstrap-session-1/source/simple_bracket.step');
   assert.equal(bootstrapPreviewPayload.bootstrap.import_diagnostics.source_model_path, 'tests/fixtures/imports/simple_bracket.step');
   assert.equal(bootstrapPreviewPayload.bootstrap.bootstrap_summary.review_gate.correction_required, true);
+  assert.equal(bootstrapPreviewPayload.bootstrap.draft_config_toml, 'name = "bootstrap_preview"\n[import]\nsource_step = "tests/fixtures/imports/simple_bracket.step"\n');
   assert.equal(bootstrapPreviewPayload.tracked_review_seed.context_path, 'output/imports/bootstrap-session-1/artifacts/engineering_context.json');
 
   const importReviewJobResponse = await fetch(`${baseUrl}/api/studio/jobs`, {

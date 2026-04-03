@@ -3,6 +3,7 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
+import { buildImportBootstrapOptions } from '../public/js/studio/import-bootstrap-options.js';
 import { runReviewContextPipeline } from '../src/orchestration/review-context-pipeline.js';
 
 const tempRoot = mkdtempSync(join(tmpdir(), 'fcad-review-context-bootstrap-'));
@@ -144,6 +145,61 @@ try {
       rationale: 'Legacy overall-only confidence payload.',
     },
   });
+
+  const previewDraftConfigToml = [
+    'name = "fixture_import"',
+    '',
+    '[import]',
+    'source_step = "tests/fixtures/imports/simple_bracket.step"',
+    'template_only = true',
+    '',
+  ].join('\n');
+  const forwardedBootstrapOptions = buildImportBootstrapOptions({
+    session_id: 'bootstrap-session-1',
+    bootstrap: {
+      import_diagnostics: {
+        import_kind: 'part',
+        body_count: 1,
+        unit_assumption: {
+          unit: 'mm',
+          assumed: true,
+          rationale: 'Weak fixture import requires review confirmation.',
+        },
+      },
+      bootstrap_summary: {
+        review_gate: {
+          correction_required: true,
+        },
+      },
+      bootstrap_warnings: {
+        warnings: ['Fixture warning'],
+      },
+      confidence_map: {
+        import_bootstrap: {
+          overall: {
+            level: 'low',
+            score: 0.34,
+            rationale: 'Preview parity fixture confidence.',
+          },
+        },
+      },
+      draft_config_toml: previewDraftConfigToml,
+    },
+  }, {});
+
+  assert.equal(forwardedBootstrapOptions.bootstrap.draft_config_toml, previewDraftConfigToml);
+
+  const parityResult = await runReviewContextPipeline({
+    projectRoot: tempRoot,
+    contextPath,
+    outputPath: join(outputDir, 'review_pack_parity.json'),
+    bootstrap: forwardedBootstrapOptions.bootstrap,
+    runPythonJsonScript: buildStubRunPythonJsonScript(tempRoot),
+    inspectModelIfAvailable: async () => null,
+    detectStepFeaturesIfAvailable: async () => null,
+  });
+
+  assert.equal(readFileSync(parityResult.artifacts.draftConfig, 'utf8'), previewDraftConfigToml);
 } finally {
   rmSync(tempRoot, { recursive: true, force: true });
 }
