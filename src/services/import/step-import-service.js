@@ -15,6 +15,12 @@ function toNumber(value, fallback = 0) {
   return Number.isFinite(num) ? num : fallback;
 }
 
+function resolveBooleanFlag(value, fallback = false) {
+  if (value === true) return true;
+  if (value === false) return false;
+  return fallback;
+}
+
 function compactErrorMessage(message) {
   if (!message) return 'unknown error';
   const firstLine = String(message).split('\n')[0].trim();
@@ -111,12 +117,15 @@ function buildImportDiagnostics(raw = {}, modelFilePath, {
   const features = raw?.features || {};
   const bbox = raw?.bounding_box || {};
   const warnings = listifyWarnings(raw?.warnings, raw?.warning);
+  const rawConditions = raw?.import_diagnostics?.conditions || {};
+  const inferredEmptyImport = toNumber(raw?.volume) <= 0
+    && toNumber(features?.face_count) <= 0
+    && toNumber(features?.edge_count) <= 0;
   const conditions = {
-    empty_import: raw?.import_diagnostics?.conditions?.empty_import === true
-      || (toNumber(raw?.volume) <= 0 && toNumber(features?.face_count) <= 0 && toNumber(features?.edge_count) <= 0),
-    partial_import: raw?.import_diagnostics?.conditions?.partial_import === true || fallback,
-    unsupported_import: raw?.import_diagnostics?.conditions?.unsupported_import === true || !isSupportedImportPath(modelFilePath),
-    unstable_import: raw?.import_diagnostics?.conditions?.unstable_import === true || false,
+    empty_import: resolveBooleanFlag(rawConditions.empty_import, inferredEmptyImport),
+    partial_import: resolveBooleanFlag(rawConditions.partial_import, fallback),
+    unsupported_import: resolveBooleanFlag(rawConditions.unsupported_import, !isSupportedImportPath(modelFilePath)),
+    unstable_import: resolveBooleanFlag(rawConditions.unstable_import, false),
   };
   const bodyCount = Math.max(
     0,
@@ -243,6 +252,73 @@ function buildBootstrapSummary(raw = {}, diagnostics = {}, suggestedConfig = nul
   };
 }
 
+function buildWeakImportFallback(modelFilePath, {
+  format = null,
+  primaryError = null,
+  inspectError = null,
+} = {}) {
+  const formatLabel = format || normalizeImportExtension(modelFilePath).replace(/^\./, '') || 'unknown';
+  const warnings = [
+    primaryError ? `Primary import analysis failed: ${compactErrorMessage(primaryError.message || primaryError)}` : null,
+    inspectError ? `Inspect fallback failed: ${compactErrorMessage(inspectError.message || inspectError)}` : null,
+    'Bootstrap preview continued with metadata-only fallback because the imported CAD shape could not yield reliable geometry metrics.',
+  ].filter(Boolean);
+
+  return {
+    success: true,
+    fallback: true,
+    source_step: modelFilePath,
+    part_type: 'part',
+    bounding_box: { x: 0, y: 0, z: 0 },
+    volume: 0,
+    area: 0,
+    features: {
+      cylinders: [],
+      bolt_circles: [],
+      central_bore: null,
+      fillets: [],
+      chamfers: [],
+      face_count: 0,
+      edge_count: 0,
+    },
+    bootstrap_warnings: warnings,
+    import_diagnostics: {
+      conditions: {
+        empty_import: false,
+        partial_import: true,
+        unsupported_import: false,
+        unstable_import: false,
+      },
+      body_count: 0,
+      import_kind: 'part',
+      part_vs_assembly: {
+        source: 'metadata-only-fallback',
+        confidence: 0.34,
+      },
+      unit_assumption: {
+        unit: 'mm',
+        source: 'runtime-default',
+        assumed: true,
+        confidence: 0.35,
+        rationale: 'Units remain a review-required assumption because runtime-backed geometry inspection could not validate the imported shape.',
+      },
+    },
+    confidence_map: {
+      overall: {
+        level: 'low',
+        score: 0.34,
+        rationale: 'Imported CAD could not provide shape-derived evidence, so bootstrap fell back to low-confidence metadata-only assumptions.',
+      },
+      feature_extraction: {
+        level: 'low',
+        score: 0.2,
+        rationale: 'Neither direct STEP feature detection nor inspect-model fallback produced reliable geometry evidence.',
+      },
+    },
+    suggested_config: baseSuggestedConfig(modelFilePath, basename(modelFilePath)),
+  };
+}
+
 function normalizeAnalysis(raw, modelFilePath, { fallback = false, format = null } = {}) {
   const features = isPlainObject(raw?.features) ? raw.features : {};
   const diagnostics = buildImportDiagnostics(raw, modelFilePath, { fallback, format });
@@ -273,77 +349,100 @@ export async function analyzeStep(freecadRoot, runScript, modelFilePath) {
   }
 
   if (!isStepLikeImport(modelFilePath)) {
-    const inspected = await runScript('inspect_model.py', { file: modelFilePath }, { timeout: 60_000 });
-    const model = inspected?.model || {};
-    return normalizeAnalysis({
-      success: true,
-      fallback: true,
-      source_step: modelFilePath,
-      part_type: 'part',
-      bounding_box: extractBBox(model),
-      volume: toNumber(model.volume),
-      area: toNumber(model.area),
-      features: {
-        cylinders: [],
-        bolt_circles: [],
-        central_bore: null,
-        fillets: [],
-        chamfers: [],
-        face_count: toNumber(model.faces),
-        edge_count: toNumber(model.edges),
-      },
-      bootstrap_warnings: [
-        'FCStd bootstrap uses inspect-model metadata rather than STEP-specific feature detection.',
-        'Draft configuration remains a review template and may need manual cleanup before runtime-backed create or draw flows.',
-      ],
-      confidence_map: {
-        feature_extraction: {
-          level: 'low',
-          score: 0.42,
-          rationale: 'FCStd bootstrap fell back to inspect-model metadata and does not reconstruct parametric history.',
+    try {
+      const inspected = await runScript('inspect_model.py', { file: modelFilePath }, { timeout: 60_000 });
+      const model = inspected?.model || {};
+      return normalizeAnalysis({
+        success: true,
+        fallback: true,
+        source_step: modelFilePath,
+        part_type: 'part',
+        bounding_box: extractBBox(model),
+        volume: toNumber(model.volume),
+        area: toNumber(model.area),
+        features: {
+          cylinders: [],
+          bolt_circles: [],
+          central_bore: null,
+          fillets: [],
+          chamfers: [],
+          face_count: toNumber(model.faces),
+          edge_count: toNumber(model.edges),
         },
-      },
-      suggested_config: baseSuggestedConfig(modelFilePath, basename(modelFilePath)),
-    }, modelFilePath, { fallback: true, format: 'fcstd' });
+        bootstrap_warnings: [
+          'FCStd bootstrap uses inspect-model metadata rather than STEP-specific feature detection.',
+          'Draft configuration remains a review template and may need manual cleanup before runtime-backed create or draw flows.',
+        ],
+        confidence_map: {
+          feature_extraction: {
+            level: 'low',
+            score: 0.42,
+            rationale: 'FCStd bootstrap fell back to inspect-model metadata and does not reconstruct parametric history.',
+          },
+        },
+        suggested_config: baseSuggestedConfig(modelFilePath, basename(modelFilePath)),
+      }, modelFilePath, { fallback: true, format: 'fcstd' });
+    } catch (inspectErr) {
+      return normalizeAnalysis(
+        buildWeakImportFallback(modelFilePath, {
+          format: 'fcstd',
+          primaryError: inspectErr,
+        }),
+        modelFilePath,
+        { fallback: true, format: 'fcstd' }
+      );
+    }
   }
 
   try {
     const result = await runScript('step_feature_detector.py', { file: modelFilePath }, { timeout: 120_000 });
     return normalizeAnalysis(result, modelFilePath, { format: 'step' });
   } catch (primaryErr) {
-    const inspected = await runScript('inspect_model.py', { file: modelFilePath }, { timeout: 60_000 });
-    const model = inspected?.model || {};
-    const bbox = extractBBox(model);
-    return normalizeAnalysis({
-      success: true,
-      fallback: true,
-      warning: `Feature detector failed; using inspect fallback: ${compactErrorMessage(primaryErr.message)}`,
-      bootstrap_warnings: [
-        `Feature detector failed; using inspect fallback: ${compactErrorMessage(primaryErr.message)}`,
-      ],
-      source_step: modelFilePath,
-      part_type: 'part',
-      bounding_box: bbox,
-      volume: toNumber(model.volume),
-      area: toNumber(model.area),
-      features: {
-        cylinders: [],
-        bolt_circles: [],
-        central_bore: null,
-        fillets: [],
-        chamfers: [],
-        face_count: toNumber(model.faces),
-        edge_count: toNumber(model.edges),
-      },
-      confidence_map: {
-        feature_extraction: {
-          level: 'low',
-          score: 0.4,
-          rationale: 'STEP feature extraction failed, so bootstrap relied on inspect-model fallback signals only.',
+    try {
+      const inspected = await runScript('inspect_model.py', { file: modelFilePath }, { timeout: 60_000 });
+      const model = inspected?.model || {};
+      const bbox = extractBBox(model);
+      return normalizeAnalysis({
+        success: true,
+        fallback: true,
+        warning: `Feature detector failed; using inspect fallback: ${compactErrorMessage(primaryErr.message)}`,
+        bootstrap_warnings: [
+          `Feature detector failed; using inspect fallback: ${compactErrorMessage(primaryErr.message)}`,
+        ],
+        source_step: modelFilePath,
+        part_type: 'part',
+        bounding_box: bbox,
+        volume: toNumber(model.volume),
+        area: toNumber(model.area),
+        features: {
+          cylinders: [],
+          bolt_circles: [],
+          central_bore: null,
+          fillets: [],
+          chamfers: [],
+          face_count: toNumber(model.faces),
+          edge_count: toNumber(model.edges),
         },
-      },
-      suggested_config: baseSuggestedConfig(modelFilePath, basename(modelFilePath)),
-    }, modelFilePath, { fallback: true, format: 'step' });
+        confidence_map: {
+          feature_extraction: {
+            level: 'low',
+            score: 0.4,
+            rationale: 'STEP feature extraction failed, so bootstrap relied on inspect-model fallback signals only.',
+          },
+        },
+        suggested_config: baseSuggestedConfig(modelFilePath, basename(modelFilePath)),
+      }, modelFilePath, { fallback: true, format: 'step' });
+    } catch (inspectErr) {
+      return normalizeAnalysis(
+        buildWeakImportFallback(modelFilePath, {
+          format: 'step',
+          primaryError: primaryErr,
+          inspectError: inspectErr,
+        }),
+        modelFilePath,
+        { fallback: true, format: 'step' }
+      );
+    }
   }
 }
 

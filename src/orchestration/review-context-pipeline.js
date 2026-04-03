@@ -29,6 +29,45 @@ function safeList(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function normalizeBootstrapConfidenceMap(value) {
+  const confidenceMap = safeObject(value);
+  if (Object.keys(confidenceMap).length === 0) {
+    return {};
+  }
+
+  if (
+    Object.hasOwn(confidenceMap, 'import_bootstrap')
+    || Object.hasOwn(confidenceMap, 'geometry_intelligence')
+    || Object.hasOwn(confidenceMap, 'manufacturing_hotspots')
+    || Object.hasOwn(confidenceMap, 'review_pack')
+  ) {
+    return {
+      artifact_type: confidenceMap.artifact_type || 'confidence_map',
+      generated_at: confidenceMap.generated_at || null,
+      import_bootstrap: safeObject(confidenceMap.import_bootstrap),
+      geometry_intelligence: confidenceMap.geometry_intelligence || null,
+      manufacturing_hotspots: confidenceMap.manufacturing_hotspots || null,
+      review_pack: confidenceMap.review_pack || null,
+    };
+  }
+
+  return {
+    artifact_type: 'confidence_map',
+    generated_at: null,
+    import_bootstrap: (
+      Object.hasOwn(confidenceMap, 'overall')
+      || Object.hasOwn(confidenceMap, 'part_vs_assembly')
+      || Object.hasOwn(confidenceMap, 'unit_assumption')
+      || Object.hasOwn(confidenceMap, 'feature_extraction')
+    )
+      ? confidenceMap
+      : { overall: confidenceMap },
+    geometry_intelligence: null,
+    manufacturing_hotspots: null,
+    review_pack: null,
+  };
+}
+
 function normalizeBootstrapDiagnostics(value) {
   if (Array.isArray(value)) {
     return value.filter((entry) => entry && typeof entry === 'object' && !Array.isArray(entry));
@@ -48,6 +87,71 @@ function uniqueStrings(values = []) {
 
 function featureCollectionCount(value) {
   return Array.isArray(value) ? value.length : 0;
+}
+
+function shouldRequireBootstrapCorrection({ importDiagnostics = {}, usedMetadataOnlyFallback = false } = {}) {
+  const diagnostics = safeObject(importDiagnostics);
+  const conditions = safeObject(diagnostics.conditions);
+  const unitAssumption = safeObject(diagnostics.unit_assumption);
+  return Boolean(
+    diagnostics.partial_import === true
+    || conditions.partial_import === true
+    || unitAssumption.assumed !== false
+    || usedMetadataOnlyFallback
+    || diagnostics.fallback_used === true
+  );
+}
+
+function buildImportBootstrapConfidenceMap({
+  bootstrapConfidenceSeed = {},
+  analysisInputs,
+  importDiagnostics = {},
+}) {
+  if (Object.keys(bootstrapConfidenceSeed).length > 0) {
+    return bootstrapConfidenceSeed.import_bootstrap;
+  }
+
+  if (analysisInputs.stepFeatureResult?.confidence_map) {
+    return analysisInputs.stepFeatureResult.confidence_map;
+  }
+
+  const diagnostics = safeObject(importDiagnostics);
+  const unitAssumption = safeObject(diagnostics.unit_assumption);
+  const inferredOverall = {
+    level: analysisInputs.usedMetadataOnlyFallback ? 'low' : 'heuristic',
+    score: analysisInputs.usedMetadataOnlyFallback ? 0.3 : 0.64,
+    rationale: analysisInputs.usedMetadataOnlyFallback
+      ? 'Bootstrap relied on metadata-only fallback because runtime-backed geometry inspection could not produce stronger shape evidence.'
+      : 'Bootstrap confidence is derived from import diagnostics plus runtime-backed or STEP-derived geometry support when available.',
+  };
+
+  return {
+    overall: inferredOverall,
+    part_vs_assembly: {
+      level: analysisInputs.usedMetadataOnlyFallback ? 'low' : 'medium',
+      score: analysisInputs.usedMetadataOnlyFallback ? 0.34 : 0.64,
+      rationale: diagnostics.import_kind
+        ? `Classified import as ${diagnostics.import_kind} using the available import diagnostics.`
+        : 'Part-versus-assembly classification is bounded by the available import diagnostics.',
+    },
+    unit_assumption: {
+      level: unitAssumption.assumed === false ? 'high' : analysisInputs.usedMetadataOnlyFallback ? 'low' : 'medium',
+      score: unitAssumption.assumed === false ? 0.92 : analysisInputs.usedMetadataOnlyFallback ? 0.35 : 0.6,
+      rationale: unitAssumption.rationale
+        || 'Unit handling remains bounded by the available import diagnostics.',
+    },
+    feature_extraction: analysisInputs.usedMetadataOnlyFallback
+      ? {
+        level: 'low',
+        score: 0.2,
+        rationale: 'Feature extraction relied on metadata-only fallback rather than shape-derived STEP evidence.',
+      }
+      : {
+        level: 'heuristic',
+        score: 0.64,
+        rationale: 'Feature extraction confidence is inferred from the available bootstrap diagnostics.',
+      },
+  };
 }
 
 function buildOutputPaths({ outputPath, outDir, defaultStem }) {
@@ -291,7 +395,9 @@ export async function runReviewContextPipeline({
   const bootstrapDiagnostics = normalizeBootstrapDiagnostics(bootstrapState.import_diagnostics);
   const primaryBootstrapDiagnostics = bootstrapDiagnostics[0] || {};
   const bootstrapSummarySeed = safeObject(bootstrapState.bootstrap_summary);
-  const bootstrapConfidenceSeed = safeObject(bootstrapState.confidence);
+  const bootstrapConfidenceSeed = normalizeBootstrapConfidenceMap(
+    bootstrapState.confidence_map || bootstrapState.confidence
+  );
   const draftConfigToml = typeof bootstrapState.draft_config_toml === 'string' && bootstrapState.draft_config_toml.trim()
     ? bootstrapState.draft_config_toml
     : null;
@@ -453,17 +559,11 @@ export async function runReviewContextPipeline({
   const confidenceMap = {
     artifact_type: 'confidence_map',
     generated_at: importDiagnostics.generated_at,
-    import_bootstrap: Object.keys(bootstrapConfidenceSeed).length > 0
-      ? bootstrapConfidenceSeed
-      : analysisInputs.stepFeatureResult?.confidence_map?.overall
-        ? analysisInputs.stepFeatureResult.confidence_map.overall
-        : {
-          level: analysisInputs.usedMetadataOnlyFallback ? 'low' : 'heuristic',
-          score: analysisInputs.usedMetadataOnlyFallback ? 0.3 : 0.64,
-          rationale: analysisInputs.usedMetadataOnlyFallback
-            ? 'Bootstrap relied on metadata-only fallback because runtime-backed geometry inspection could not produce stronger shape evidence.'
-            : 'Bootstrap confidence is derived from import diagnostics plus runtime-backed or STEP-derived geometry support when available.',
-        },
+    import_bootstrap: buildImportBootstrapConfidenceMap({
+      bootstrapConfidenceSeed,
+      analysisInputs,
+      importDiagnostics: rawImportDiagnostics,
+    }),
     geometry_intelligence: analysisResult.geometry_intelligence.confidence || null,
     manufacturing_hotspots: analysisResult.manufacturing_hotspots.confidence || null,
     review_pack: reviewPackResult.summary?.confidence || null,
@@ -497,6 +597,14 @@ export async function runReviewContextPipeline({
     },
     warning_count: bootstrapWarningsDocument.warning_count,
     diagnostics_count: importDiagnostics.diagnostics.length,
+    review_gate: {
+      ready_for_review_context: true,
+      correction_required: shouldRequireBootstrapCorrection({
+        importDiagnostics: rawImportDiagnostics,
+        usedMetadataOnlyFallback: analysisInputs.usedMetadataOnlyFallback,
+      }),
+      optional_context_inputs: ['bom', 'inspection', 'quality'],
+    },
     review_ready: Boolean(resolvedModelPath || contextPath),
   };
   await writeJsonFile(paths.bootstrapSummary, bootstrapSummary);

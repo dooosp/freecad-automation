@@ -352,11 +352,16 @@ function buildImportBootstrapOptions(preview) {
   const correctionNote = sanitizeOptionalInput(corrections.note);
   const importDiagnostics = structuredClone(bootstrap.import_diagnostics || {});
   const bootstrapSummary = structuredClone(bootstrap.bootstrap_summary || {});
-  const confidence = structuredClone(
-    bootstrap.confidence_map?.import_bootstrap
-    || importDiagnostics.confidence
-    || {}
-  );
+  const confidenceMap = structuredClone(bootstrap.confidence_map || {});
+
+  if (!confidenceMap.import_bootstrap && importDiagnostics.confidence) {
+    confidenceMap.import_bootstrap = {
+      overall: structuredClone(importDiagnostics.confidence),
+    };
+  }
+  if (!confidenceMap.import_bootstrap || typeof confidenceMap.import_bootstrap !== 'object') {
+    confidenceMap.import_bootstrap = {};
+  }
 
   if (correctedKind) {
     importDiagnostics.import_kind = correctedKind;
@@ -367,6 +372,16 @@ function buildImportBootstrapOptions(preview) {
     };
     bootstrapSummary.import_kind = correctedKind;
     bootstrapSummary.model_kind = correctedKind;
+    confidenceMap.import_bootstrap.part_vs_assembly = {
+      ...(confidenceMap.import_bootstrap.part_vs_assembly || {}),
+      classification: correctedKind,
+      body_count: Number.isInteger(correctedBodyCount) && correctedBodyCount >= 0
+        ? correctedBodyCount
+        : importDiagnostics.body_count ?? null,
+      source: 'studio-correction',
+      rationale: correctionNote
+        || `Studio confirmed the import classification as ${correctedKind}.`,
+    };
   }
 
   if (Number.isInteger(correctedBodyCount) && correctedBodyCount >= 0) {
@@ -377,6 +392,14 @@ function buildImportBootstrapOptions(preview) {
       source: 'studio-correction',
     };
     bootstrapSummary.body_count = correctedBodyCount;
+    confidenceMap.import_bootstrap.part_vs_assembly = {
+      ...(confidenceMap.import_bootstrap.part_vs_assembly || {}),
+      classification: correctedKind || importDiagnostics.import_kind || null,
+      body_count: correctedBodyCount,
+      source: 'studio-correction',
+      rationale: correctionNote
+        || `Studio confirmed the import body count as ${correctedBodyCount}.`,
+    };
   }
 
   if (correctedUnit) {
@@ -388,6 +411,13 @@ function buildImportBootstrapOptions(preview) {
       rationale: correctionNote || 'Confirmed or corrected in the Studio bootstrap gate.',
     };
     bootstrapSummary.unit_system = correctedUnit;
+    confidenceMap.import_bootstrap.unit_assumption = {
+      ...(confidenceMap.import_bootstrap.unit_assumption || {}),
+      unit: correctedUnit,
+      assumed: false,
+      source: 'studio-correction',
+      rationale: correctionNote || 'Confirmed or corrected in the Studio bootstrap gate.',
+    };
   }
 
   bootstrapSummary.review_gate = {
@@ -416,7 +446,7 @@ function buildImportBootstrapOptions(preview) {
         ...(bootstrap.bootstrap_warnings?.warnings || []),
         ...correctionWarnings,
       ]),
-      confidence,
+      confidence_map: confidenceMap,
     },
   };
 }

@@ -32,6 +32,7 @@ const LANE_STEPS = {
     { label: 'Job API contracts', args: ['tests/job-api.test.js'] },
     { label: 'Job queue controls', args: ['tests/job-queue-controls.test.js'] },
     { label: 'Local API landing page', args: ['tests/local-api-server.test.js'] },
+    { label: 'Review-context bootstrap handoff', args: ['tests/review-context-bootstrap.test.js'] },
     { label: 'Studio model API', args: ['tests/local-api-studio-model.test.js'] },
     { label: 'Studio drawing API', args: ['tests/local-api-studio-drawing.test.js'] },
     { label: 'Legacy serve HTTP smoke', args: ['tests/legacy-serve-smoke.test.js'] },

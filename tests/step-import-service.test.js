@@ -36,6 +36,28 @@ try {
   assert.equal(fcstdAnalysis.bootstrap_warnings.length >= 2, true);
   assert.equal(fcstdAnalysis.confidence_map.feature_extraction.level, 'low');
 
+  const weakStepAnalysis = await analyzeStep(tempRoot, async (scriptName) => {
+    if (scriptName === 'step_feature_detector.py') {
+      throw new Error('feature detector exploded');
+    }
+    if (scriptName === 'inspect_model.py') {
+      throw new Error('shape is invalid');
+    }
+    throw new Error(`Unexpected script: ${scriptName}`);
+  }, join(FIXTURES, 'simple_bracket.step'));
+
+  assert.equal(weakStepAnalysis.success, true);
+  assert.equal(weakStepAnalysis.fallback, true);
+  assert.equal(weakStepAnalysis.import_diagnostics.fail_closed, false);
+  assert.equal(weakStepAnalysis.import_diagnostics.conditions.empty_import, false);
+  assert.equal(weakStepAnalysis.import_diagnostics.conditions.partial_import, true);
+  assert.equal(weakStepAnalysis.import_diagnostics.unit_assumption.assumed, true);
+  assert.equal(weakStepAnalysis.confidence_map.overall.level, 'low');
+  assert.match(
+    weakStepAnalysis.bootstrap_warnings.join('\n'),
+    /metadata-only fallback/i
+  );
+
   await assert.rejects(
     analyzeStep(tempRoot, async () => ({}), join(FIXTURES, 'unsupported.txt')),
     /Unsupported import file format/

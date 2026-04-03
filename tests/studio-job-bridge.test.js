@@ -128,9 +128,13 @@ const reviewContextSubmission = await translateStudioJobSubmission({
         },
       },
       warnings: ['unit assumption needs review'],
-      confidence: {
-        level: 'medium',
-        score: 0.6,
+      confidence_map: {
+        import_bootstrap: {
+          overall: {
+            level: 'medium',
+            score: 0.6,
+          },
+        },
       },
     },
   },
@@ -147,7 +151,7 @@ assert.deepEqual(reviewContextSubmission.request.options.bootstrap.import_diagno
 });
 assert.equal(reviewContextSubmission.request.options.bootstrap.bootstrap_summary.review_gate.status, 'review_required');
 assert.deepEqual(reviewContextSubmission.request.options.bootstrap.warnings, ['unit assumption needs review']);
-assert.equal(reviewContextSubmission.request.options.bootstrap.confidence.level, 'medium');
+assert.equal(reviewContextSubmission.request.options.bootstrap.confidence_map.import_bootstrap.overall.level, 'medium');
 
 const invalidReviewContextSubmission = validateStudioJobSubmission({
   type: 'review-context',

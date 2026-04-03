@@ -72,15 +72,16 @@ const { server, jobStore } = createLocalApiServer({
             rationale: 'Fixture confidence.',
           },
         },
-        bootstrap_summary: {
-          review_gate: {
-            status: 'review_required',
-            reason: 'human_confirmation_required',
-          },
-          dimensions_mm: {
-            x: 40,
-            y: 20,
-            z: 8,
+          bootstrap_summary: {
+            review_gate: {
+              status: 'review_required',
+              reason: 'human_confirmation_required',
+              correction_required: true,
+            },
+            dimensions_mm: {
+              x: 40,
+              y: 20,
+              z: 8,
           },
           feature_summary: {
             cylinder_count: 4,
@@ -210,6 +211,7 @@ try {
   assert.equal(bootstrapCalls[0].model.path, join(ROOT, 'tests', 'fixtures', 'imports', 'simple_bracket.step'));
   assert.equal(bootstrapPreviewPayload.source.model_path, 'output/imports/bootstrap-session-1/source/simple_bracket.step');
   assert.equal(bootstrapPreviewPayload.bootstrap.import_diagnostics.source_model_path, 'tests/fixtures/imports/simple_bracket.step');
+  assert.equal(bootstrapPreviewPayload.bootstrap.bootstrap_summary.review_gate.correction_required, true);
   assert.equal(bootstrapPreviewPayload.tracked_review_seed.context_path, 'output/imports/bootstrap-session-1/artifacts/engineering_context.json');
 
   const importReviewJobResponse = await fetch(`${baseUrl}/api/studio/jobs`, {
@@ -235,9 +237,13 @@ try {
             },
           },
           warnings: ['Studio correction note: verified as small assembly'],
-          confidence: {
-            level: 'medium',
-            score: 0.64,
+          confidence_map: {
+            import_bootstrap: {
+              overall: {
+                level: 'medium',
+                score: 0.64,
+              },
+            },
           },
         },
       },
@@ -253,6 +259,10 @@ try {
   });
   assert.equal(importReviewJobPayload.job.request.options.bootstrap.bootstrap_summary.review_gate.status, 'review_required');
   assert.deepEqual(importReviewJobPayload.job.request.options.bootstrap.warnings, ['Studio correction note: verified as small assembly']);
+  assert.equal(
+    importReviewJobPayload.job.request.options.bootstrap.confidence_map.import_bootstrap.overall.level,
+    'medium'
+  );
 
   const apiJsonResponse = await fetch(`${baseUrl}/api`, {
     headers: {

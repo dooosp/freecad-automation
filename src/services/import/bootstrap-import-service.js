@@ -44,6 +44,10 @@ function featureCollectionCount(value) {
   return Array.isArray(value) ? value.length : 0;
 }
 
+function safeObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
 function normalizeFeatureHints(analysis = {}) {
   return analysis.features && typeof analysis.features === 'object' ? analysis.features : {};
 }
@@ -99,26 +103,27 @@ async function writeUploadedFile(targetDir, file, { required = false, supportedE
 }
 
 function buildImportDiagnosticsDocument(analysis, { modelPath, generatedAt }) {
-  const conditions = analysis.import_diagnostics?.conditions || {};
+  const diagnostics = safeObject(analysis.import_diagnostics);
+  const conditions = safeObject(diagnostics.conditions);
   return {
     artifact_type: 'import_diagnostics',
     generated_at: generatedAt,
     source_model_path: modelPath,
     file_type: extname(modelPath).replace(/^\./, '').toLowerCase() || null,
-    import_kind: analysis.import_diagnostics?.import_kind || null,
-    model_kind: analysis.model_kind || analysis.import_diagnostics?.model_kind || null,
-    part_type: analysis.part_type || analysis.import_diagnostics?.part_type || null,
-    assembly_detected: analysis.import_diagnostics?.assembly_detected ?? null,
-    body_count: analysis.body_count ?? analysis.import_diagnostics?.body_count ?? null,
-    part_count: analysis.part_count ?? analysis.import_diagnostics?.part_count ?? null,
-    bounding_box: analysis.bounding_box || analysis.import_diagnostics?.bounding_box || null,
-    unit_system: analysis.unit_system || analysis.import_diagnostics?.unit_system || null,
-    unit_assumption: analysis.unit_assumption || analysis.import_diagnostics?.unit_assumption || null,
+    import_kind: diagnostics.import_kind || null,
+    model_kind: analysis.model_kind || diagnostics.model_kind || null,
+    part_type: analysis.part_type || diagnostics.part_type || null,
+    assembly_detected: diagnostics.assembly_detected ?? null,
+    body_count: analysis.body_count ?? diagnostics.body_count ?? null,
+    part_count: analysis.part_count ?? diagnostics.part_count ?? null,
+    bounding_box: analysis.bounding_box || diagnostics.bounding_box || null,
+    unit_system: analysis.unit_system || diagnostics.unit_system || null,
+    unit_assumption: analysis.unit_assumption || diagnostics.unit_assumption || null,
     empty_import: conditions.empty_import === true,
     partial_import: conditions.partial_import === true,
     unsupported_import: conditions.unsupported_import === true,
     unstable_import: conditions.unstable_import === true,
-    fail_closed: analysis.import_diagnostics?.fail_closed === true,
+    fail_closed: diagnostics.fail_closed === true,
     warnings: uniqueStrings(analysis.bootstrap_warnings || []),
   };
 }
@@ -181,7 +186,20 @@ function buildConfidenceMapDocument({
     import_bootstrap: analysis.confidence_map || null,
     geometry_intelligence: geometryIntelligence?.confidence || null,
     manufacturing_hotspots: manufacturingHotspots?.confidence || null,
+    review_pack: null,
   };
+}
+
+function shouldRequireBootstrapCorrection(analysis = {}) {
+  const diagnostics = safeObject(analysis.import_diagnostics);
+  const conditions = safeObject(diagnostics.conditions);
+  const unitAssumption = safeObject(diagnostics.unit_assumption);
+  return Boolean(
+    conditions.partial_import === true
+    || unitAssumption.assumed !== false
+    || analysis.fallback === true
+    || diagnostics.fallback_used === true
+  );
 }
 
 function buildBootstrapSummaryDocument({
@@ -222,11 +240,7 @@ function buildBootstrapSummaryDocument({
     diagnostics_count: diagnosticsCount,
     review_gate: {
       ready_for_review_context: true,
-      correction_required: Boolean(
-        analysis.import_diagnostics?.partial_import
-        || analysis.unit_assumption
-        || analysis.fallback
-      ),
+      correction_required: shouldRequireBootstrapCorrection(analysis),
       optional_context_inputs: ['bom', 'inspection', 'quality'],
     },
   };
