@@ -10,26 +10,29 @@
   - `correction_required` stays true for partial import, unit assumption, and fallback cases
   - `confidence_map` shape matches between preview and tracked `review-context` handoff
   - Runtime-backed `review-context` still succeeds on the representative weak import fixture
+  - Preview bootstrap and tracked `review-context` share the same degrade-to-diagnostics contract when runtime inspection throws
 - Evidence captured:
   - Direct bootstrap preview smoke now returns `ok: true`, `correction_required: true`, `partial_import: true`, and a document-shaped `confidence_map`.
   - Real local API `POST /api/studio/import-bootstrap` smoke now returns the same review gate and confidence-map shape for `simple_bracket.step`.
-  - Direct preview-to-handoff smoke preserves `import_bootstrap.{overall,part_vs_assembly,unit_assumption,feature_extraction}` in the generated `review_pack_confidence_map.json`.
+  - Direct preview-to-handoff smoke now succeeds through `/api/studio/jobs` and preserves `import_bootstrap.{overall,part_vs_assembly,unit_assumption,feature_extraction}` in the generated tracked artifacts.
   - `node bin/fcad.js review-context --model tests/fixtures/imports/simple_bracket.step ...` still succeeds with metadata-only fallback and now emits `bootstrap_summary.review_gate.correction_required: true`.
-  - Updated targeted JS tests cover weak import fallback and confidence-map handoff shape.
+  - Updated targeted JS tests cover weak import fallback, thrown runtime-inspection fallback, and confidence-map handoff shape.
   - Added `tests/review-context-bootstrap.test.js` to lock the legacy `bootstrap.confidence -> confidence_map.import_bootstrap.overall` compatibility path.
   - Updated Python tests still pass for ingest/analyze/review-context CLI behavior.
 - Remaining verification to run:
-  - none
+  - commit/push final fallback-alignment repair, then capture final diff invariance on the committed tip
 - Diff before review:
-  - `git diff --name-only` -> empty
+  - pending final committed-tip review
 - Diff after review:
-  - `git diff --name-only` -> empty
+  - pending final committed-tip review
 - Read-only validity:
-  - valid
+  - pending final committed-tip review
 - Findings:
-  - No additional branch-blocking findings were identified in the final read-only review.
+  - One branch-blocking regression was identified during validation: tracked `/api/studio/jobs` `review-context` failed on weak imported STEP because runtime inspection exceptions bypassed metadata-only fallback.
+  - That regression is repaired locally by normalizing thrown inspection/feature-detection errors into diagnostics/fallback at the shared model-analysis seam.
   - Pre-existing untracked demo artifact files remain in the worktree root and were not modified.
 - Validations:
+  - `node tests/model-analysis-runtime.test.js`
   - `node tests/step-import-service.test.js`
   - `node tests/review-context-bootstrap.test.js`
   - `node tests/studio-job-bridge.test.js`
@@ -38,9 +41,12 @@
   - `python3 -m pytest -q tests/test_cli_workflow.py -k 'review_context or weak_step or bootstrap'`
   - `node bin/fcad.js check-runtime --json`
   - `node bin/fcad.js review-context --model tests/fixtures/imports/simple_bracket.step --out /tmp/g-step-cli-smoke/review_pack.json`
+  - real local API import-bootstrap -> tracked `review-context` smoke via `createLocalApiServer(...)`
   - `npm run test:node:integration`
+  - `npm run test:node:contract` (unrelated failure in `tests/c-artifact-schema.test.js`)
 - Repairs made:
-  - None during the final read-only review pass.
+  - Shared model-analysis input resolution now degrades thrown inspection and STEP feature errors into runtime diagnostics plus metadata-only fallback.
+  - Added a throw-path regression assertion in `tests/model-analysis-runtime.test.js`.
 - Remaining risks:
   - Coverage still leans on small synthetic import fixtures rather than production-scale CAD.
-  - Repo-wide test lanes outside the G surface were not re-run in this final pass.
+  - Repo-wide contract lane still has an unrelated failure in untouched `tests/c-artifact-schema.test.js`.

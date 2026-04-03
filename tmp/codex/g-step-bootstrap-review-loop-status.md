@@ -11,8 +11,12 @@
   - Unified bootstrap `confidence_map` handoff shape with the tracked `review-context` contract.
   - Restored in-repo task status tracking after the earlier scratch-file cleanup commit removed it from branch tip.
   - Re-ran targeted Node, Python, local API, and CLI validation against the branch tip in the clean G task worktree.
+  - Repaired the tracked `review-context` handoff so runtime inspection/STEP feature exceptions now degrade to machine-readable diagnostics and metadata-only fallback instead of failing the imported-CAD review lane.
+  - Added a regression test that locks the thrown-exception fallback contract in `resolveModelAnalysisInputs(...)`.
   - Completed a diff-invariant read-only review with no additional code changes.
 - Files changed:
+  - `lib/model-analysis.js`
+  - `tests/model-analysis-runtime.test.js`
   - `src/services/import/step-import-service.js`
   - `src/services/import/bootstrap-import-service.js`
   - `src/orchestration/review-context-pipeline.js`
@@ -23,6 +27,7 @@
   - `tmp/codex/g-step-bootstrap-review-loop-status.md`
   - `tmp/codex/g-step-bootstrap-review-loop-verification-status.md`
 - Validations run so far:
+  - `node tests/model-analysis-runtime.test.js`
   - `node tests/step-import-service.test.js`
   - `node tests/studio-job-bridge.test.js`
   - `node tests/local-api-server.test.js`
@@ -31,21 +36,26 @@
   - `python3 -m pytest -q tests/test_cli_workflow.py -k 'review_context or weak_step or bootstrap'`
   - `node bin/fcad.js check-runtime --json`
   - `node bin/fcad.js review-context --model tests/fixtures/imports/simple_bracket.step --out /tmp/g-step-cli-smoke/review_pack.json`
+  - real local API import-bootstrap -> tracked `review-context` smoke via `createLocalApiServer(...)`
   - `npm run test:node:integration`
+  - `npm run test:node:contract` (fails in unrelated `tests/c-artifact-schema.test.js`)
 - Failures encountered:
   - Runtime-backed Studio bootstrap preview previously failed when both STEP feature detection and `inspect_model.py` failed on the weak `simple_bracket.step` fixture.
   - `correction_required` could miss partial-import cases because preview code looked at the wrong field shape.
   - Preview and handoff used different confidence payload shapes.
-  - During the latest verification pass, `review-context` emitted expected bounded warnings for invalid STEP shape inspection, but the command still completed successfully through metadata-only fallback.
+  - During the latest verification pass, preview bootstrap succeeded for weak STEP input, but the tracked `/api/studio/jobs` `review-context` handoff still failed because `inspectModelIfAvailable` exceptions were not degraded into diagnostics/fallback.
+  - `npm run test:node:contract` still fails in untouched `tests/c-artifact-schema.test.js` with `Fatal: Unsupported AF execution job type: readiness-report`.
 - Repairs made:
   - Added bounded weak-import fallback analysis instead of throwing on preview.
   - Switched correction logic to normalized diagnostics conditions and explicit unit-assumption/fallback checks.
   - Normalized confidence handoff to the document-shaped `confidence_map`.
   - Preserved legacy `bootstrap.confidence` compatibility by normalizing it to `confidence_map.import_bootstrap.overall`.
   - Updated Studio correction handoff so confidence subdocuments track corrected unit/classification/body-count evidence.
+  - Wrapped runtime inspection and STEP feature detection exceptions in `resolveModelAnalysisInputs(...)` so tracked review handoff now matches preview-side fallback semantics.
+  - Added a throw-path regression assertion in `tests/model-analysis-runtime.test.js`.
 - Open risks:
-  - Full repo-wide contract/python lanes still contain older unrelated failures outside this G scope.
+  - Full repo-wide contract/python lanes still contain an older unrelated failure outside this G scope (`tests/c-artifact-schema.test.js` / `readiness-report` AF job type).
   - The lightweight STEP fixtures still represent weak contract fixtures rather than production geometry.
   - The worktree still contains pre-existing untracked demo artifact files at repo root; they were left untouched and remain outside this task scope.
 - Remaining work:
-  - Decide whether to keep this branch at PR-review readiness or continue with broader runtime fixture hardening.
+  - Commit the final fallback-alignment repair, push the branch, and run one last diff-invariant read-only review on the committed tip.
