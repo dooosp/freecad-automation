@@ -100,6 +100,10 @@ try {
     geometry_source: {
       path: 'tests/fixtures/imports/simple_bracket.step',
       file_type: 'step',
+      bootstrap: {
+        draft_config_path: 'output/imports/bootstrap-session-seed/artifacts/bootstrap_draft_config.toml',
+        preview_source: 'import-bootstrap-preview',
+      },
       model_metadata: {
         bounding_box: {
           size: [10, 5, 2],
@@ -200,6 +204,12 @@ try {
   });
 
   assert.equal(readFileSync(parityResult.artifacts.draftConfig, 'utf8'), previewDraftConfigToml);
+  const engineeringContext = JSON.parse(readFileSync(parityResult.artifacts.engineeringContext, 'utf8'));
+  assert.deepEqual(engineeringContext.geometry_source.bootstrap, {
+    draft_config_path: 'output/imports/bootstrap-session-seed/artifacts/bootstrap_draft_config.toml',
+    preview_source: 'import-bootstrap-preview',
+    draft_config_available: true,
+  });
 } finally {
   rmSync(tempRoot, { recursive: true, force: true });
 }

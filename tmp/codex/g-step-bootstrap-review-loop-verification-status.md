@@ -1,66 +1,54 @@
 # G STEP Bootstrap Review Loop Verification Status
 
-- Repo identity:
+- Repo identity used:
   - root: `/Users/jangtaeho/Documents/New/.worktrees/g-step-bootstrap-review-loop/freecad-automation`
   - branch: `codex/g-step-bootstrap-review-loop`
-  - mode: `Worktree`
-- Verification phase: targeted parity verification after narrow Studio handoff repair and read-only review
+  - mode: `worktree`
+- Verification phase:
+  - targeted final verification after tracked bootstrap metadata merge repair
 - Verification focus:
-  - Preview bootstrap must expose inline `bootstrap.draft_config_toml`.
-  - Studio preview -> tracked handoff must forward that exact value into tracked `review-context` options.
-  - `review-context` must preserve the supplied draft config as tracked `config.bootstrap-draft` on the weak import path.
-  - Control-plane status files must match what this pass actually changed and validated.
-- Evidence captured:
-  - `src/services/import/bootstrap-import-service.js` already emitted inline `bootstrap.draft_config_toml` at branch tip.
-  - `src/orchestration/review-context-pipeline.js` already preserved `bootstrap.draft_config_toml` into `draftConfig` when the option was supplied.
-  - `public/js/studio-shell.js` branch tip `buildImportBootstrapOptions()` dropped `draft_config_toml`, so the likely issue was real.
-  - `tests/review-context-bootstrap.test.js` now proves `buildImportBootstrapOptions(preview, {})` forwards the exact preview draft string and that the resulting tracked `draftConfig` artifact matches it verbatim.
-  - `tests/local-api-server.test.js` now proves the preview API still exposes inline `bootstrap.draft_config_toml`.
-  - Real local API smoke on `simple_bracket.step` produced a tracked `config.bootstrap-draft` artifact whose text matched preview `bootstrap.draft_config_toml` exactly when compared via Node string equality.
+  - Prove whether tracked `review-context` still overwrote nested `context.geometry_source.bootstrap`.
+  - Prove preview `bootstrap.draft_config_toml` survives the real Studio/API bridge into tracked `config.bootstrap-draft` with exact string equality.
+  - Verify the tracked engineering-context artifact preserves nested preview bootstrap metadata such as `draft_config_path`.
 - Exact files changed in this repair:
-  - `public/js/studio/import-bootstrap-options.js`
-  - `public/js/studio-shell.js`
-  - `tests/local-api-server.test.js`
+  - `src/orchestration/review-context-pipeline.js`
   - `tests/review-context-bootstrap.test.js`
+  - `tests/local-api-server.test.js`
   - `tmp/codex/g-step-bootstrap-review-loop-status.md`
   - `tmp/codex/g-step-bootstrap-review-loop-verification-status.md`
-- Diff before read-only review:
-  - `public/js/studio-shell.js`
-  - `tests/local-api-server.test.js`
-  - `tests/review-context-bootstrap.test.js`
-  - `tmp/codex/g-step-bootstrap-review-loop-status.md`
-  - `tmp/codex/g-step-bootstrap-review-loop-verification-status.md`
-- Diff after read-only review:
-  - `public/js/studio-shell.js`
-  - `tests/local-api-server.test.js`
-  - `tests/review-context-bootstrap.test.js`
-  - `tmp/codex/g-step-bootstrap-review-loop-status.md`
-  - `tmp/codex/g-step-bootstrap-review-loop-verification-status.md`
-- Read-only validity:
-  - valid for tracked diff
-  - `git diff --name-only` stayed unchanged before and after the review
-  - `git status --short` continued to show the same untouched pre-existing demo untracked files plus the new scoped helper file
-- Validations:
+- Evidence captured:
+  - Branch-tip `src/orchestration/review-context-pipeline.js` previously set `context.geometry_source.bootstrap = { draft_config_available: true }` when tracked `bootstrap.draft_config_toml` was present, which dropped preview-seeded nested fields such as `draft_config_path`.
+  - Branch-tip preview bootstrap already exposed inline `bootstrap.draft_config_toml`.
+  - Branch-tip Studio handoff already forwarded `bootstrap.draft_config_toml`, but existing automated coverage did not prove the real preview response crossed the Studio/API bridge into the tracked artifact.
+  - The repair now merges the existing nested bootstrap object before adding `draft_config_available`.
+  - `tests/review-context-bootstrap.test.js` now proves tracked `engineeringContext.geometry_source.bootstrap` preserves preview metadata and adds `draft_config_available: true`.
+  - `tests/local-api-server.test.js` now proves the real preview payload is forwarded through `buildImportBootstrapOptions()`, the tracked `review-context` job succeeds, the tracked `config.bootstrap-draft` artifact content equals preview `bootstrap.draft_config_toml` exactly, and the tracked engineering-context artifact preserves nested bootstrap metadata.
+- Exact validations run:
   - `node tests/bootstrap-import-service.test.js` -> passed
   - `node tests/review-context-bootstrap.test.js` -> passed
   - `node tests/local-api-server.test.js` -> passed
-  - real local API smoke:
-    - preview `POST /api/studio/import-bootstrap` -> passed
-    - tracked `POST /api/studio/jobs` with helper-built `review-context` request -> passed
-    - tracked `config.bootstrap-draft` artifact text equals preview `bootstrap.draft_config_toml` -> passed
-- Preview -> tracked `draft_config_toml` parity:
+  - `node tests/studio-job-bridge.test.js` -> passed
+- Nested bootstrap metadata preservation:
   - passes
-  - preview draft length observed in real local API smoke: `457`
-  - tracked draft length observed in real local API smoke: `457`
-- Findings:
-  - The issue was real and limited to the Studio browser handoff seam.
-  - No implementation change was needed in `review-context` or bootstrap import service behavior for this repair.
-  - Prior status files overclaimed a different repair surface; that narrative is now corrected.
-- P1 status:
-  - none found in the narrow repair surface
-- `npm run test:node:contract` status:
-  - not rerun in this pass
-  - earlier branch notes describe an unrelated failure, but this verification pass does not freshly confirm it
+  - tracked engineering-context bootstrap now contains:
+    - preserved `draft_config_path`
+    - preserved preview metadata marker
+    - added `draft_config_available: true`
+- Preview -> tracked API-bridge draft-config parity:
+  - passes
+  - proof path:
+    - preview `POST /api/studio/import-bootstrap`
+    - Studio bridge via `buildImportBootstrapOptions(preview, {})`
+    - tracked `POST /api/studio/jobs` with `type: review-context`
+    - tracked artifact fetch for `config.bootstrap-draft`
+  - comparison:
+    - tracked artifact text equals preview `bootstrap.draft_config_toml` with exact string equality
+- Read-only review:
+  - diff reviewed after validation
+  - P1 found in the narrow repair surface: none
 - Remaining risks:
-  - The final read-only diff-invariance check still needs to be recorded.
-  - The weak STEP fixture proves parity and fallback honesty, not production-scale CAD richness.
+  - Pre-existing untracked demo artifact files remain outside this scoped change.
+  - No unrelated broad-lane reruns were performed in this pass.
+- Unrelated contract-lane status:
+  - `npm run test:node:contract` was not rerun in this verification pass.
+  - Any unrelated contract-lane failure remains outside this scope and was not revalidated here.
