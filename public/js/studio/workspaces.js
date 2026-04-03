@@ -144,6 +144,7 @@ function createImportBootstrapCard(state) {
   const confidence = bootstrap.confidence_map?.import_bootstrap?.overall || diagnostics.confidence || null;
   const featureSummary = summary.feature_summary || {};
   const source = preview?.source || {};
+  const corrections = importBootstrap.corrections || {};
 
   if (importBootstrap.status === 'loading') {
     return createCard({
@@ -216,6 +217,52 @@ function createImportBootstrapCard(state) {
         { label: 'Units', value: diagnostics.unit_assumption?.unit || 'Unknown', note: diagnostics.unit_assumption?.rationale || '' },
         { label: 'Tracked handoff', value: preview.tracked_review_seed?.context_path || 'Unavailable' },
       ]),
+      el('div', {
+        className: 'action-controls',
+        children: [
+          el('p', {
+            className: 'support-note',
+            text: 'Confirm or correct imported assumptions before tracked review.',
+          }),
+          el('input', {
+            className: 'studio-input',
+            attrs: {
+              type: 'text',
+              placeholder: 'Corrected part or assembly classification',
+              value: corrections.importKind || diagnostics.import_kind || '',
+            },
+            dataset: { field: 'import-correction-kind' },
+          }),
+          el('input', {
+            className: 'studio-input',
+            attrs: {
+              type: 'text',
+              placeholder: 'Confirmed unit system like mm or in',
+              value: corrections.unit || diagnostics.unit_assumption?.unit || '',
+            },
+            dataset: { field: 'import-correction-unit' },
+          }),
+          el('input', {
+            className: 'studio-input',
+            attrs: {
+              type: 'number',
+              min: '0',
+              step: '1',
+              placeholder: 'Confirmed body count',
+              value: corrections.bodyCount || `${diagnostics.body_count ?? ''}`,
+            },
+            dataset: { field: 'import-correction-body-count' },
+          }),
+          el('textarea', {
+            className: 'studio-textarea studio-textarea-compact',
+            text: corrections.note || '',
+            attrs: {
+              placeholder: 'Optional correction note for downstream review',
+            },
+            dataset: { field: 'import-correction-note' },
+          }),
+        ],
+      }),
       createMetricGrid([
         { label: 'X size', value: formatDimension(summary.dimensions_mm?.x), copy: 'Bounding-box estimate only; not design intent.' },
         { label: 'Y size', value: formatDimension(summary.dimensions_mm?.y), copy: 'Use review corrections when import assumptions look off.' },

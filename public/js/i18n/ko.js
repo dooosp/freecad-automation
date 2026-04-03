@@ -792,6 +792,11 @@ const ko = {
     'Review required': '검토 필요',
     'No bootstrap warnings recorded': '기록된 부트스트랩 경고가 없습니다',
     'Studio still requires a human review gate before the tracked review-context run begins.': 'Studio는 추적 review-context 실행이 시작되기 전에 여전히 사람의 검토 게이트를 요구합니다.',
+    'Confirm or correct imported assumptions before tracked review.': '추적 검토 전에 가져온 가정을 확인하거나 수정하세요.',
+    'Corrected part or assembly classification': '수정된 부품 또는 어셈블리 분류',
+    'Confirmed unit system like mm or in': 'mm 또는 in 같은 확인된 단위 체계',
+    'Confirmed body count': '확인된 바디 수',
+    'Optional correction note for downstream review': '후속 검토를 위한 선택 사항 수정 메모',
   },
   patterns: [
     {

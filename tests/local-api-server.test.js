@@ -212,6 +212,48 @@ try {
   assert.equal(bootstrapPreviewPayload.bootstrap.import_diagnostics.source_model_path, 'tests/fixtures/imports/simple_bracket.step');
   assert.equal(bootstrapPreviewPayload.tracked_review_seed.context_path, 'output/imports/bootstrap-session-1/artifacts/engineering_context.json');
 
+  const importReviewJobResponse = await fetch(`${baseUrl}/api/studio/jobs`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      type: 'review-context',
+      context_path: bootstrapPreviewPayload.tracked_review_seed.context_path,
+      model_path: bootstrapPreviewPayload.tracked_review_seed.model_path,
+      quality_path: 'tests/fixtures/sample_quality.csv',
+      options: {
+        bootstrap: {
+          import_diagnostics: {
+            import_kind: 'assembly',
+            body_count: 2,
+          },
+          bootstrap_summary: {
+            review_gate: {
+              status: 'review_required',
+            },
+          },
+          warnings: ['Studio correction note: verified as small assembly'],
+          confidence: {
+            level: 'medium',
+            score: 0.64,
+          },
+        },
+      },
+    }),
+  });
+  assert.equal(importReviewJobResponse.status, 202);
+  const importReviewJobPayload = await importReviewJobResponse.json();
+  assert.equal(importReviewJobPayload.ok, true);
+  assert.equal(importReviewJobPayload.job.type, 'review-context');
+  assert.deepEqual(importReviewJobPayload.job.request.options.bootstrap.import_diagnostics, {
+    import_kind: 'assembly',
+    body_count: 2,
+  });
+  assert.equal(importReviewJobPayload.job.request.options.bootstrap.bootstrap_summary.review_gate.status, 'review_required');
+  assert.deepEqual(importReviewJobPayload.job.request.options.bootstrap.warnings, ['Studio correction note: verified as small assembly']);
+
   const apiJsonResponse = await fetch(`${baseUrl}/api`, {
     headers: {
       accept: 'application/json',

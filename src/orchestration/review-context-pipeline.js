@@ -29,6 +29,14 @@ function safeList(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function normalizeBootstrapDiagnostics(value) {
+  if (Array.isArray(value)) {
+    return value.filter((entry) => entry && typeof entry === 'object' && !Array.isArray(entry));
+  }
+  const objectValue = safeObject(value);
+  return Object.keys(objectValue).length > 0 ? [objectValue] : [];
+}
+
 function uniqueStrings(values = []) {
   return [...new Set(
     values
@@ -280,7 +288,8 @@ export async function runReviewContextPipeline({
     ...safeList(bootstrapState.warnings),
     ...safeList(bootstrapState.warning_messages),
   ]);
-  const bootstrapDiagnostics = safeList(bootstrapState.import_diagnostics);
+  const bootstrapDiagnostics = normalizeBootstrapDiagnostics(bootstrapState.import_diagnostics);
+  const primaryBootstrapDiagnostics = bootstrapDiagnostics[0] || {};
   const bootstrapSummarySeed = safeObject(bootstrapState.bootstrap_summary);
   const bootstrapConfidenceSeed = safeObject(bootstrapState.confidence);
   const draftConfigToml = typeof bootstrapState.draft_config_toml === 'string' && bootstrapState.draft_config_toml.trim()
@@ -294,7 +303,7 @@ export async function runReviewContextPipeline({
     ...(bootstrapSummarySeed.part_count !== undefined ? { part_count: bootstrapSummarySeed.part_count } : {}),
     ...(bootstrapSummarySeed.body_count !== undefined ? { body_count: bootstrapSummarySeed.body_count } : {}),
     ...(bootstrapSummarySeed.unit_system ? { unit_system: bootstrapSummarySeed.unit_system } : {}),
-    ...(bootstrapDiagnostics.length > 0 ? { import_diagnostics: bootstrapDiagnostics } : {}),
+    ...(Object.keys(primaryBootstrapDiagnostics).length > 0 ? { import_diagnostics: primaryBootstrapDiagnostics } : {}),
     ...(draftConfigToml ? {
       bootstrap: {
         draft_config_available: true,

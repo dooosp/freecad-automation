@@ -118,7 +118,20 @@ const reviewContextSubmission = await translateStudioJobSubmission({
   quality_path: 'tests/fixtures/sample_quality.csv',
   options: {
     bootstrap: {
-      bootstrapWarnings: ['unit assumption needs review'],
+      import_diagnostics: {
+        import_kind: 'part',
+        body_count: 1,
+      },
+      bootstrap_summary: {
+        review_gate: {
+          status: 'review_required',
+        },
+      },
+      warnings: ['unit assumption needs review'],
+      confidence: {
+        level: 'medium',
+        score: 0.6,
+      },
     },
   },
 });
@@ -128,7 +141,13 @@ assert.equal(reviewContextSubmission.request.type, 'review-context');
 assert.equal(reviewContextSubmission.request.context_path, 'output/imports/bootstrap-123/artifacts/engineering_context.json');
 assert.equal(reviewContextSubmission.request.model_path, 'output/imports/bootstrap-123/source/simple_bracket.step');
 assert.equal(reviewContextSubmission.request.quality_path, 'tests/fixtures/sample_quality.csv');
-assert.deepEqual(reviewContextSubmission.request.options.bootstrap.bootstrapWarnings, ['unit assumption needs review']);
+assert.deepEqual(reviewContextSubmission.request.options.bootstrap.import_diagnostics, {
+  import_kind: 'part',
+  body_count: 1,
+});
+assert.equal(reviewContextSubmission.request.options.bootstrap.bootstrap_summary.review_gate.status, 'review_required');
+assert.deepEqual(reviewContextSubmission.request.options.bootstrap.warnings, ['unit assumption needs review']);
+assert.equal(reviewContextSubmission.request.options.bootstrap.confidence.level, 'medium');
 
 const invalidReviewContextSubmission = validateStudioJobSubmission({
   type: 'review-context',
