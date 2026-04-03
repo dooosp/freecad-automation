@@ -1,6 +1,10 @@
 # G STEP Bootstrap Review Loop Verification Status
 
-- Verification phase: post-remediation minimum gate
+- Repo identity:
+  - root: `/Users/jangtaeho/Documents/New/.worktrees/g-step-bootstrap-review-loop/freecad-automation`
+  - branch: `codex/g-step-bootstrap-review-loop`
+  - mode: `Worktree`
+- Verification phase: final validation and read-only review
 - Verification focus:
   - Real bootstrap preview success on `tests/fixtures/imports/simple_bracket.step`
   - `correction_required` stays true for partial import, unit assumption, and fallback cases
@@ -15,5 +19,28 @@
   - Added `tests/review-context-bootstrap.test.js` to lock the legacy `bootstrap.confidence -> confidence_map.import_bootstrap.overall` compatibility path.
   - Updated Python tests still pass for ingest/analyze/review-context CLI behavior.
 - Remaining verification to run:
-  - read-only diff-invariant review
-- Read-only review status: pending
+  - none
+- Diff before review:
+  - `git diff --name-only` -> empty
+- Diff after review:
+  - `git diff --name-only` -> empty
+- Read-only validity:
+  - valid
+- Findings:
+  - No additional branch-blocking findings were identified in the final read-only review.
+  - Pre-existing untracked demo artifact files remain in the worktree root and were not modified.
+- Validations:
+  - `node tests/step-import-service.test.js`
+  - `node tests/review-context-bootstrap.test.js`
+  - `node tests/studio-job-bridge.test.js`
+  - `node tests/local-api-server.test.js`
+  - `python3 -m pytest -q tests/test_ingest.py tests/test_analyze_part.py`
+  - `python3 -m pytest -q tests/test_cli_workflow.py -k 'review_context or weak_step or bootstrap'`
+  - `node bin/fcad.js check-runtime --json`
+  - `node bin/fcad.js review-context --model tests/fixtures/imports/simple_bracket.step --out /tmp/g-step-cli-smoke/review_pack.json`
+  - `npm run test:node:integration`
+- Repairs made:
+  - None during the final read-only review pass.
+- Remaining risks:
+  - Coverage still leans on small synthetic import fixtures rather than production-scale CAD.
+  - Repo-wide test lanes outside the G surface were not re-run in this final pass.

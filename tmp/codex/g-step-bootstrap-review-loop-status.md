@@ -1,11 +1,17 @@
 # G STEP Bootstrap Review Loop Status
 
-- Current phase: remediation and merge-readiness verification
+- Repo identity:
+  - root: `/Users/jangtaeho/Documents/New/.worktrees/g-step-bootstrap-review-loop/freecad-automation`
+  - branch: `codex/g-step-bootstrap-review-loop`
+  - mode: `Worktree`
+- Current phase: validation complete and read-only review complete
 - Completed work:
   - Restored metadata-only bootstrap fallback so weak/invalid STEP and FCStd imports no longer hard-fail the Studio bootstrap preview path.
   - Corrected `correction_required` logic so partial imports, unit assumptions, and metadata-only fallback remain review-required.
   - Unified bootstrap `confidence_map` handoff shape with the tracked `review-context` contract.
   - Restored in-repo task status tracking after the earlier scratch-file cleanup commit removed it from branch tip.
+  - Re-ran targeted Node, Python, local API, and CLI validation against the branch tip in the clean G task worktree.
+  - Completed a diff-invariant read-only review with no additional code changes.
 - Files changed:
   - `src/services/import/step-import-service.js`
   - `src/services/import/bootstrap-import-service.js`
@@ -17,25 +23,20 @@
   - `tmp/codex/g-step-bootstrap-review-loop-status.md`
   - `tmp/codex/g-step-bootstrap-review-loop-verification-status.md`
 - Validations run so far:
-  - `npm run test:node:integration`
-  - `node bin/fcad.js check-runtime --json`
-  - local API `POST /api/studio/import-bootstrap` smoke against the real server path
-  - `node bin/fcad.js review-context --model tests/fixtures/imports/simple_bracket.step --out /tmp/g-step-preview-check/review_pack.json`
-  - direct preview-to-handoff smoke via `runReviewContextPipeline(...)` using the preview-generated bootstrap payload
-  - `node --check src/services/import/step-import-service.js`
-  - `node --check src/services/import/bootstrap-import-service.js`
-  - `node --check src/orchestration/review-context-pipeline.js`
-  - `node --check public/js/studio-shell.js`
   - `node tests/step-import-service.test.js`
   - `node tests/studio-job-bridge.test.js`
   - `node tests/local-api-server.test.js`
   - `node tests/review-context-bootstrap.test.js`
-  - `python3 -m pytest -q tests/test_ingest.py tests/test_analyze_part.py tests/test_cli_workflow.py`
-  - direct runtime-backed bootstrap preview smoke with `tests/fixtures/imports/simple_bracket.step`
+  - `python3 -m pytest -q tests/test_ingest.py tests/test_analyze_part.py`
+  - `python3 -m pytest -q tests/test_cli_workflow.py -k 'review_context or weak_step or bootstrap'`
+  - `node bin/fcad.js check-runtime --json`
+  - `node bin/fcad.js review-context --model tests/fixtures/imports/simple_bracket.step --out /tmp/g-step-cli-smoke/review_pack.json`
+  - `npm run test:node:integration`
 - Failures encountered:
   - Runtime-backed Studio bootstrap preview previously failed when both STEP feature detection and `inspect_model.py` failed on the weak `simple_bracket.step` fixture.
   - `correction_required` could miss partial-import cases because preview code looked at the wrong field shape.
   - Preview and handoff used different confidence payload shapes.
+  - During the latest verification pass, `review-context` emitted expected bounded warnings for invalid STEP shape inspection, but the command still completed successfully through metadata-only fallback.
 - Repairs made:
   - Added bounded weak-import fallback analysis instead of throwing on preview.
   - Switched correction logic to normalized diagnostics conditions and explicit unit-assumption/fallback checks.
@@ -45,6 +46,6 @@
 - Open risks:
   - Full repo-wide contract/python lanes still contain older unrelated failures outside this G scope.
   - The lightweight STEP fixtures still represent weak contract fixtures rather than production geometry.
+  - The worktree still contains pre-existing untracked demo artifact files at repo root; they were left untouched and remain outside this task scope.
 - Remaining work:
-  - Complete read-only diff-invariant review.
-  - Commit and push the remediation if the branch stays clean after review.
+  - Decide whether to keep this branch at PR-review readiness or continue with broader runtime fixture hardening.
