@@ -5,24 +5,27 @@
   - branch: `codex/g-step-bootstrap-review-loop`
   - mode: `worktree`
 - Verification phase:
-  - targeted final verification after tracked bootstrap metadata merge repair
+  - final targeted truthfulness and review-readiness verification on the current branch tip
 - Verification focus:
-  - Prove whether tracked `review-context` still overwrote nested `context.geometry_source.bootstrap`.
-  - Prove preview `bootstrap.draft_config_toml` survives the real Studio/API bridge into tracked `config.bootstrap-draft` with exact string equality.
-  - Verify the tracked engineering-context artifact preserves nested preview bootstrap metadata such as `draft_config_path`.
-- Exact files changed in this repair:
-  - `src/orchestration/review-context-pipeline.js`
-  - `tests/review-context-bootstrap.test.js`
-  - `tests/local-api-server.test.js`
+  - Confirm tracked `review-context` still preserves nested `context.geometry_source.bootstrap` metadata.
+  - Confirm preview `bootstrap.draft_config_toml` still survives the Studio/API handoff into the tracked `config.bootstrap-draft` artifact with exact string equality.
+  - Confirm the status files describe helper/API evidence accurately and do not imply literal browser-click proof or merge-ready status.
+- Exact files changed in this final pass:
   - `tmp/codex/g-step-bootstrap-review-loop-status.md`
   - `tmp/codex/g-step-bootstrap-review-loop-verification-status.md`
-- Evidence captured:
-  - Branch-tip `src/orchestration/review-context-pipeline.js` previously set `context.geometry_source.bootstrap = { draft_config_available: true }` when tracked `bootstrap.draft_config_toml` was present, which dropped preview-seeded nested fields such as `draft_config_path`.
-  - Branch-tip preview bootstrap already exposed inline `bootstrap.draft_config_toml`.
-  - Branch-tip Studio handoff already forwarded `bootstrap.draft_config_toml`, but existing automated coverage did not prove the real preview response crossed the Studio/API bridge into the tracked artifact.
-  - The repair now merges the existing nested bootstrap object before adding `draft_config_available`.
-  - `tests/review-context-bootstrap.test.js` now proves tracked `engineeringContext.geometry_source.bootstrap` preserves preview metadata and adds `draft_config_available: true`.
-  - `tests/local-api-server.test.js` now proves the real preview payload is forwarded through `buildImportBootstrapOptions()`, the tracked `review-context` job succeeds, the tracked `config.bootstrap-draft` artifact content equals preview `bootstrap.draft_config_toml` exactly, and the tracked engineering-context artifact preserves nested bootstrap metadata.
+- Evidence captured from current branch tip:
+  - `src/orchestration/review-context-pipeline.js` now merges `context.geometry_source.bootstrap` before adding `draft_config_available: true`, so tracked review-context does not discard nested preview bootstrap metadata during draft-config handoff.
+  - `src/services/import/bootstrap-import-service.js` still emits preview `bootstrap.draft_config_toml` plus tracked-seed `engineering_context.json` bootstrap metadata.
+  - `tests/bootstrap-import-service.test.js` proves preview bootstrap emits `draft_config_toml` and bootstrap state into engineering context artifacts.
+  - `tests/review-context-bootstrap.test.js` proves helper/pipeline-level parity and verifies tracked `engineeringContext.geometry_source.bootstrap` preserves nested metadata such as `draft_config_path` while adding `draft_config_available: true`.
+  - `tests/local-api-server.test.js` proves the real local API flow:
+    - preview `POST /api/studio/import-bootstrap`
+    - Studio handoff via `buildImportBootstrapOptions(preview, {})`
+    - tracked `POST /api/studio/jobs` with `type: review-context`
+    - tracked artifact fetch for `config.bootstrap-draft`
+    - exact string equality between preview `bootstrap.draft_config_toml` and tracked artifact text
+    - preserved tracked `geometry_source.bootstrap` metadata in the engineering-context artifact
+  - `tests/studio-job-bridge.test.js` proves `review-context` submission translation preserves bootstrap options at the bridge layer.
 - Exact validations run:
   - `node tests/bootstrap-import-service.test.js` -> passed
   - `node tests/review-context-bootstrap.test.js` -> passed
@@ -30,25 +33,19 @@
   - `node tests/studio-job-bridge.test.js` -> passed
 - Nested bootstrap metadata preservation:
   - passes
-  - tracked engineering-context bootstrap now contains:
-    - preserved `draft_config_path`
-    - preserved preview metadata marker
-    - added `draft_config_available: true`
-- Preview -> tracked API-bridge draft-config parity:
+- Preview -> tracked `draft_config_toml` parity:
   - passes
-  - proof path:
-    - preview `POST /api/studio/import-bootstrap`
-    - Studio bridge via `buildImportBootstrapOptions(preview, {})`
-    - tracked `POST /api/studio/jobs` with `type: review-context`
-    - tracked artifact fetch for `config.bootstrap-draft`
-  - comparison:
-    - tracked artifact text equals preview `bootstrap.draft_config_toml` with exact string equality
-- Read-only review:
-  - diff reviewed after validation
-  - P1 found in the narrow repair surface: none
+- Browser-proof nuance:
+  - Evidence includes real API-path coverage and helper/bridge coverage.
+  - No literal browser-click interaction, browser automation, or manual browser QA was run in this pass.
+- Read-only narrow review outcome:
+  - No new branch-tip P1 found in the G close-out surface.
+- Review-readiness outcome:
+  - Branch is ready for human review.
+  - Merge-ready claim is intentionally not made from this verification thread alone.
 - Remaining risks:
   - Pre-existing untracked demo artifact files remain outside this scoped change.
   - No unrelated broad-lane reruns were performed in this pass.
 - Unrelated contract-lane status:
   - `npm run test:node:contract` was not rerun in this verification pass.
-  - Any unrelated contract-lane failure remains outside this scope and was not revalidated here.
+  - Any unrelated contract-lane failure remains outside this scope and was not revalidated or repaired here.

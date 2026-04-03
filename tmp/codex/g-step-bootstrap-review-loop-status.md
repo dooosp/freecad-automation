@@ -5,41 +5,44 @@
   - branch: `codex/g-step-bootstrap-review-loop`
   - mode: `worktree`
 - Current phase:
-  - final close-out repair complete
+  - final review-readiness truthfulness pass complete
 - Completed work:
   - Re-ran the mandatory preflight in the actual `freecad-automation` worktree on `codex/g-step-bootstrap-review-loop`.
-  - Verified the tracked overwrite issue was real at branch tip: `src/orchestration/review-context-pipeline.js` replaced `context.geometry_source.bootstrap` with `{ draft_config_available: true }` whenever tracked `bootstrap.draft_config_toml` was present.
-  - Verified the existing parity coverage was incomplete at branch tip: it proved helper and pipeline-local draft-config handling, but not true preview -> Studio/API bridge -> tracked artifact parity with exact string equality.
-  - Applied the smallest safe repair in `src/orchestration/review-context-pipeline.js` so tracked `review-context` merges existing nested bootstrap metadata before marking draft-config availability.
-  - Strengthened `tests/review-context-bootstrap.test.js` to prove tracked engineering context preserves nested preview bootstrap metadata such as `draft_config_path`.
-  - Strengthened `tests/local-api-server.test.js` to drive preview `POST /api/studio/import-bootstrap`, forward the real preview payload through `buildImportBootstrapOptions()`, start tracked `POST /api/studio/jobs` with `type: review-context`, fetch the tracked `config.bootstrap-draft` artifact, compare it to preview `bootstrap.draft_config_toml` with exact string equality, and verify the tracked engineering-context artifact preserved nested bootstrap metadata.
-  - Performed a final read-only diff review after the targeted validations and found no P1 in the narrow repair surface.
-- Files changed:
-  - `src/orchestration/review-context-pipeline.js`
-  - `tests/review-context-bootstrap.test.js`
-  - `tests/local-api-server.test.js`
+  - Inspected the narrow G close-out surface in `src/orchestration/review-context-pipeline.js`, `src/services/import/bootstrap-import-service.js`, `public/js/studio/import-bootstrap-options.js`, `public/js/studio-shell.js`, and the targeted tests/status files.
+  - Verified the current branch tip preserves nested tracked bootstrap metadata by merging existing `context.geometry_source.bootstrap` before adding `draft_config_available: true`.
+  - Verified preview -> tracked `draft_config_toml` parity remains proven by the current automated evidence:
+    - helper/pipeline proof in `tests/review-context-bootstrap.test.js`
+    - Studio/API bridge proof in `tests/local-api-server.test.js`
+  - Confirmed the status/reporting needed a wording-only truthfulness pass:
+    - remove stale wording implying more repair/commit work was still pending
+    - describe the branch as ready for human review, not merge-ready
+    - clarify that evidence is helper/API-path proof, not literal browser-click proof
+  - Found no new P1 in the narrow G close-out surface.
+- Exact files changed in this final pass:
   - `tmp/codex/g-step-bootstrap-review-loop-status.md`
   - `tmp/codex/g-step-bootstrap-review-loop-verification-status.md`
-- Validations run:
+- Validations run in this final pass:
   - `node tests/bootstrap-import-service.test.js` -> passed
   - `node tests/review-context-bootstrap.test.js` -> passed
   - `node tests/local-api-server.test.js` -> passed
   - `node tests/studio-job-bridge.test.js` -> passed
 - Failures encountered:
-  - Initial preflight from `/Users/jangtaeho/Documents/New` failed repo identity/branch checks because that git root was not the target worktree; work continued only after switching into `/Users/jangtaeho/Documents/New/.worktrees/g-step-bootstrap-review-loop/freecad-automation`.
+  - None in the targeted validation lane.
 - Repairs made:
-  - Merged, rather than overwrote, `context.geometry_source.bootstrap` during tracked draft-config handoff.
-  - Added pipeline-level regression coverage for nested bootstrap metadata preservation.
-  - Added server/API-level regression coverage for preview -> tracked `config.bootstrap-draft` parity and tracked engineering-context bootstrap metadata preservation.
+  - Reporting only: tightened the repo-local status wording so it matches current branch-tip code and test evidence exactly.
+  - No implementation files changed in this final pass.
 - Open risks:
+  - This pass did not perform literal browser clicking, browser automation, or manual browser QA. The strongest evidence here is Node/API/helper-path proof, including the real local API bridge.
   - Pre-existing untracked demo artifact files remain in the worktree root and were intentionally untouched.
-  - This pass did not rerun unrelated broad lanes.
+  - `npm run test:node:contract` remains outside this narrow scope.
 - Remaining work:
-  - Create the single scoped commit, push the existing branch, and leave PR `#13` ready for the next human review pass.
+  - Human review on PR `#13`.
 - Result summary:
-  - Nested bootstrap metadata preservation now passes.
-  - True preview -> tracked API-bridge draft-config parity now passes.
+  - Nested bootstrap metadata preservation: proven by current code and targeted tests.
+  - Preview -> tracked `draft_config_toml` parity: proven by current code and targeted tests.
   - P1 remaining in this narrow repair surface: none found.
+  - Branch state from this pass: ready for human review.
+  - Merge-ready claim: intentionally not made from this thread.
 - Unrelated contract-lane status:
-  - `npm run test:node:contract` was not rerun in this close-out pass.
-  - Any unrelated contract-lane failure remains outside this scope and was not revalidated here.
+  - `npm run test:node:contract` was not rerun in this final pass.
+  - Any unrelated contract-lane failure remains outside this scope and was not revalidated or repaired here.
