@@ -34,13 +34,17 @@ def main():
         revision = payload.get("revision") or infer_revision(model_path) or infer_revision(part_name)
         material = payload.get("material")
         process = payload.get("process")
+        import_diagnostics = payload.get("import_diagnostics") or {}
+        bootstrap_summary = payload.get("bootstrap_summary") or {}
+        confidence_map = payload.get("confidence_map") or {}
+        bootstrap_warnings = payload.get("bootstrap_warnings") or []
 
         if material is None and bom_entries:
             material = next((entry.get("material") for entry in bom_entries if entry.get("material")), None)
         if process is None and bom_entries:
             process = next((entry.get("process") for entry in bom_entries if entry.get("process")), None)
 
-        warnings = [*bom_warnings, *inspection_warnings, *quality_warnings]
+        warnings = [*bom_warnings, *inspection_warnings, *quality_warnings, *bootstrap_warnings]
         diagnostics = [*bom_diagnostics, *inspection_diagnostics, *quality_diagnostics]
         source_files = [path for path in [model_path, bom_path, inspection_path, quality_path] if path]
 
@@ -60,6 +64,17 @@ def main():
                 "validated": bool(model_path),
                 "model_metadata": payload.get("model_metadata"),
                 "feature_hints": payload.get("feature_hints"),
+                "import_diagnostics": import_diagnostics,
+                "bootstrap_summary": bootstrap_summary,
+                "confidence_map": confidence_map,
+                "bootstrap_warnings": bootstrap_warnings,
+            },
+            "bootstrap": {
+                "import_diagnostics": import_diagnostics,
+                "bootstrap_summary": bootstrap_summary,
+                "confidence_map": confidence_map,
+                "warnings": bootstrap_warnings,
+                "draft_config_path": payload.get("draft_config_path"),
             },
             "bom": bom_entries,
             "inspection_results": inspection_results,
@@ -100,6 +115,7 @@ def main():
                 "inspection_results": len(inspection_results),
                 "quality_issues": len(quality_issues),
                 "diagnostics": len(diagnostics),
+                "bootstrap_warnings": len([item for item in bootstrap_warnings if item]),
             },
         }
         ingest_log["sources"] = [item for item in ingest_log["sources"] if item]

@@ -65,6 +65,10 @@ function trimArtifactRef(value = {}) {
   };
 }
 
+function trimOptionalString(value) {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : '';
+}
+
 function buildResolvedArtifactOptions(request, resolvedArtifact) {
   const options = isPlainObject(request.options) ? structuredClone(request.options) : {};
   options.studio = {
@@ -123,6 +127,12 @@ export function validateStudioJobSubmission(body) {
     'artifact_ref',
     'baseline_artifact_ref',
     'candidate_artifact_ref',
+    'context_path',
+    'model_path',
+    'bom_path',
+    'inspection_path',
+    'quality_path',
+    'compare_to_path',
     'drawing_settings',
     'drawing_preview_id',
     'drawing_plan',
@@ -144,6 +154,9 @@ export function validateStudioJobSubmission(body) {
   const hasArtifactRef = request.artifact_ref !== undefined;
   const hasBaselineArtifactRef = request.baseline_artifact_ref !== undefined;
   const hasCandidateArtifactRef = request.candidate_artifact_ref !== undefined;
+  const hasContextPath = trimOptionalString(request.context_path).length > 0;
+  const hasModelPath = trimOptionalString(request.model_path).length > 0;
+  const hasCompareToPath = trimOptionalString(request.compare_to_path).length > 0;
 
   validateArtifactRef(request.artifact_ref, 'artifact_ref', errors);
   validateArtifactRef(request.baseline_artifact_ref, 'baseline_artifact_ref', errors);
@@ -155,8 +168,20 @@ export function validateStudioJobSubmission(body) {
   validateOptionalObject(request.drawing_plan, 'drawing_plan', errors);
   validateOptionalObject(request.report_options, 'report_options', errors);
   validateOptionalObject(request.options, 'options', errors);
+  ['context_path', 'model_path', 'bom_path', 'inspection_path', 'quality_path', 'compare_to_path'].forEach((fieldName) => {
+    if (request[fieldName] !== undefined && trimOptionalString(request[fieldName]).length === 0) {
+      errors.push(`${fieldName} must be a non-empty string when provided.`);
+    }
+  });
 
-  if (request.type === 'inspect') {
+  if (request.type === 'review-context') {
+    if (!hasContextPath && !hasModelPath) {
+      errors.push('review-context requires either context_path or model_path.');
+    }
+    if (hasConfigToml || hasArtifactRef || hasBaselineArtifactRef || hasCandidateArtifactRef) {
+      errors.push('review-context does not accept config_toml, artifact_ref, baseline_artifact_ref, or candidate_artifact_ref.');
+    }
+  } else if (request.type === 'inspect') {
     if (!hasArtifactRef) {
       errors.push('artifact_ref is required for type "inspect".');
     }
@@ -211,6 +236,7 @@ export function validateStudioJobSubmission(body) {
     && request.type !== 'review-context'
     && request.type !== 'report'
     && !STUDIO_AF_ARTIFACT_JOB_TYPES.has(request.type)
+    && request.type !== 'review-context'
     && request.type !== 'compare-rev'
     && request.type !== 'stabilization-review'
     && request.artifact_ref !== undefined
@@ -240,6 +266,23 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
   }
 
   const request = validation.request;
+  if (request.type === 'review-context') {
+    return {
+      ok: true,
+      errors: [],
+      request: {
+        type: 'review-context',
+        ...(trimOptionalString(request.context_path) ? { context_path: trimOptionalString(request.context_path) } : {}),
+        ...(trimOptionalString(request.model_path) ? { model_path: trimOptionalString(request.model_path) } : {}),
+        ...(trimOptionalString(request.bom_path) ? { bom_path: trimOptionalString(request.bom_path) } : {}),
+        ...(trimOptionalString(request.inspection_path) ? { inspection_path: trimOptionalString(request.inspection_path) } : {}),
+        ...(trimOptionalString(request.quality_path) ? { quality_path: trimOptionalString(request.quality_path) } : {}),
+        ...(trimOptionalString(request.compare_to_path) ? { compare_to_path: trimOptionalString(request.compare_to_path) } : {}),
+        ...(isPlainObject(request.options) ? { options: structuredClone(request.options) } : {}),
+      },
+    };
+  }
+
   if (request.baseline_artifact_ref || request.candidate_artifact_ref) {
     if (typeof resolveArtifactRef !== 'function') {
       return {

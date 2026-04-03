@@ -1,0 +1,9 @@
+ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION(('machined hole pattern STEP fixture'),'2;1');
+FILE_NAME('machined_hole_pattern.step','2026-04-03T00:00:00',('codex'),('codex'),'','Codex','');
+FILE_SCHEMA(('CONFIG_CONTROL_DESIGN'));
+ENDSEC;
+DATA;
+ENDSEC;
+END-ISO-10303-21;

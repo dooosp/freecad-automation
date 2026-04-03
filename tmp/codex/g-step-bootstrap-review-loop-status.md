@@ -1,0 +1,50 @@
+# G STEP Bootstrap Review Loop Status
+
+- Current phase: remediation and merge-readiness verification
+- Completed work:
+  - Restored metadata-only bootstrap fallback so weak/invalid STEP and FCStd imports no longer hard-fail the Studio bootstrap preview path.
+  - Corrected `correction_required` logic so partial imports, unit assumptions, and metadata-only fallback remain review-required.
+  - Unified bootstrap `confidence_map` handoff shape with the tracked `review-context` contract.
+  - Restored in-repo task status tracking after the earlier scratch-file cleanup commit removed it from branch tip.
+- Files changed:
+  - `src/services/import/step-import-service.js`
+  - `src/services/import/bootstrap-import-service.js`
+  - `src/orchestration/review-context-pipeline.js`
+  - `public/js/studio-shell.js`
+  - `tests/step-import-service.test.js`
+  - `tests/studio-job-bridge.test.js`
+  - `tests/local-api-server.test.js`
+  - `tmp/codex/g-step-bootstrap-review-loop-status.md`
+  - `tmp/codex/g-step-bootstrap-review-loop-verification-status.md`
+- Validations run so far:
+  - `npm run test:node:integration`
+  - `node bin/fcad.js check-runtime --json`
+  - local API `POST /api/studio/import-bootstrap` smoke against the real server path
+  - `node bin/fcad.js review-context --model tests/fixtures/imports/simple_bracket.step --out /tmp/g-step-preview-check/review_pack.json`
+  - direct preview-to-handoff smoke via `runReviewContextPipeline(...)` using the preview-generated bootstrap payload
+  - `node --check src/services/import/step-import-service.js`
+  - `node --check src/services/import/bootstrap-import-service.js`
+  - `node --check src/orchestration/review-context-pipeline.js`
+  - `node --check public/js/studio-shell.js`
+  - `node tests/step-import-service.test.js`
+  - `node tests/studio-job-bridge.test.js`
+  - `node tests/local-api-server.test.js`
+  - `node tests/review-context-bootstrap.test.js`
+  - `python3 -m pytest -q tests/test_ingest.py tests/test_analyze_part.py tests/test_cli_workflow.py`
+  - direct runtime-backed bootstrap preview smoke with `tests/fixtures/imports/simple_bracket.step`
+- Failures encountered:
+  - Runtime-backed Studio bootstrap preview previously failed when both STEP feature detection and `inspect_model.py` failed on the weak `simple_bracket.step` fixture.
+  - `correction_required` could miss partial-import cases because preview code looked at the wrong field shape.
+  - Preview and handoff used different confidence payload shapes.
+- Repairs made:
+  - Added bounded weak-import fallback analysis instead of throwing on preview.
+  - Switched correction logic to normalized diagnostics conditions and explicit unit-assumption/fallback checks.
+  - Normalized confidence handoff to the document-shaped `confidence_map`.
+  - Preserved legacy `bootstrap.confidence` compatibility by normalizing it to `confidence_map.import_bootstrap.overall`.
+  - Updated Studio correction handoff so confidence subdocuments track corrected unit/classification/body-count evidence.
+- Open risks:
+  - Full repo-wide contract/python lanes still contain older unrelated failures outside this G scope.
+  - The lightweight STEP fixtures still represent weak contract fixtures rather than production geometry.
+- Remaining work:
+  - Complete read-only diff-invariant review.
+  - Commit and push the remediation if the branch stays clean after review.

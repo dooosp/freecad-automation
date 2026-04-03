@@ -157,6 +157,18 @@ fcad review-context --model <file> [--bom bom.csv] [--inspection inspection.csv]
 fcad compare-rev <baseline.json> <candidate.json>
 ```
 
+### Imported CAD Bootstrap Lane
+
+Imported STEP / FCStd intake is a bootstrap lane, not reverse-CAD magic.
+
+- Preferred browser entry: Studio on `/` or `/studio`, using the Start workspace import bootstrap gate.
+- Local API preview route: `POST /api/studio/import-bootstrap`
+- Public goal: bring an existing STEP or FCStd into the review loop safely, quickly, and honestly
+- Draft bootstrap artifacts: `import_diagnostics.json`, `bootstrap_summary.json`, `draft_config.toml`, `engineering_context.json`, `geometry_intelligence.json`, `bootstrap_warnings.json`, and `confidence_map.json`
+- Canonical downstream lineage remains unchanged: `review-context -> review_pack.json -> readiness-pack/readiness-report --review-pack -> readiness_report.json -> generate-standard-docs / pack`
+
+Low-confidence import findings stay visible as warnings and review-needed evidence. The bootstrap gate is designed to capture assumptions, allow human correction, and then hand off into the existing canonical review/readiness flow without inventing a parallel product surface.
+
 ### Diagnostics And Runtime-Backed Commands
 
 ```bash
