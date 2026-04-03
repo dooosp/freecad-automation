@@ -238,6 +238,37 @@ The final response should include:
 - Keep Studio preferred on `/` and `/studio`, but reposition it as a review/decision console instead of a modeling-first workspace.
 - Preserve the legacy viewer as a compatibility path without presenting it as a peer-primary browser surface.
 - Preserve route paths, tracked-job behavior, preview-versus-tracked separation, artifact links, queue controls, and lineage-safe artifact re-entry unless a narrow execution-plan change explicitly requires more.
+
+## G Task: STEP Bootstrap Review Loop
+- Active branch for this task: `codex/g-step-bootstrap-review-loop`
+- Preferred clean worktree for this task: `/Users/jangtaeho/Documents/New/.worktrees/g-step-bootstrap-review-loop/freecad-automation`
+- Execution plan source of truth:
+  - `docs/exec-plans/g-step-bootstrap-review-loop.md`
+- Verification and remediation plan:
+  - `docs/exec-plans/g-step-bootstrap-review-loop-verification.md`
+- Phase status files:
+  - `tmp/codex/g-step-bootstrap-review-loop-status.md`
+  - `tmp/codex/g-step-bootstrap-review-loop-verification-status.md`
+- Position G as a review-first bootstrap lane for existing `STEP` and `FCStd` assets, not as a new modeling-first product.
+- Preserve the runtime-backed execution chain:
+  - `bin/fcad.js -> lib/runner.js -> scripts/*.py -> scripts/_bootstrap.py -> import FreeCAD`
+- Preserve the canonical downstream review/readiness path:
+  - `review-context -> review_pack.json -> readiness-pack/readiness-report --review-pack -> readiness_report.json -> generate-standard-docs / pack`
+- Preserve Studio as the preferred browser review console on `/` and `/studio`.
+- Preserve tracked job lineage, artifact re-entry, and fail-closed behavior.
+- Preserve the additive architecture direction:
+  - `adapters -> geometry -> linkage -> decision -> reporting`
+- Preserve metadata-only fallback behavior when runtime-backed geometry inspection is unavailable.
+- Required G bootstrap artifacts:
+  - `import_diagnostics.json`
+  - `bootstrap_summary.json`
+  - `draft_config.toml`
+  - `engineering_context.json`
+  - `geometry_intelligence.json`
+  - `bootstrap_warnings.json`
+  - `confidence_map.json`
+- Prefer extending the existing STEP import, `review-context`, and Studio tracked-artifact surfaces over adding a new top-level product surface.
+- Do not attempt full parametric history reconstruction, implied design-intent completion, or LLM-based geometry/decision inference.
 - Prefer information architecture, CTA order, navigation, disclosure, and orchestration updates over speculative visual rewrites.
 - Keep browser-visible English and Korean copy aligned through the existing lightweight locale layer with English fallback.
 - Wire to real tracked execution capabilities where available:

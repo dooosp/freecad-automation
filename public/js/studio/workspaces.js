@@ -7,6 +7,7 @@ import {
   createFlowRail,
   createInfoGrid,
   createList,
+  createMetricGrid,
   createSectionHeader,
   createSplitPane,
   createStatusStrip,
@@ -87,6 +88,162 @@ function recentJobActionLabel(recentJobsState) {
   if (recentJobsState.status !== 'ready' || recentJobsState.items.length === 0) return 'No recent job';
   const [job] = recentJobsState.items;
   return `Open ${job.type} ${shortJobId(job.id)}`;
+}
+
+function ensureImportBootstrapState(state) {
+  return {
+    status: 'idle',
+    modelPath: '',
+    modelFileName: '',
+    bomPath: '',
+    inspectionPath: '',
+    qualityPath: '',
+    preview: null,
+    errorMessage: '',
+    submitting: false,
+    ...(state.data.importBootstrap || {}),
+  };
+}
+
+function importBootstrapMeta(importBootstrap) {
+  if (importBootstrap.status === 'loading') return 'Generating diagnostics, warnings, and draft bootstrap artifacts...';
+  if (importBootstrap.status === 'ready') {
+    const warnings = importBootstrap.preview?.bootstrap?.bootstrap_warnings?.warning_count ?? 0;
+    return `${warnings} warning${warnings === 1 ? '' : 's'} visible before tracked review starts`;
+  }
+  if (importBootstrap.status === 'error') return importBootstrap.errorMessage || 'Bootstrap preview failed.';
+  if (importBootstrap.modelFileName) return `Local file selected: ${importBootstrap.modelFileName}`;
+  if (importBootstrap.modelPath) return `Project path selected: ${importBootstrap.modelPath}`;
+  return 'Use a checked-in path or a local file to bring existing CAD into the review loop.';
+}
+
+function importBootstrapPrimaryLabel(importBootstrap) {
+  return importBootstrap.qualityPath
+    ? 'Start review from imported STEP + quality context'
+    : 'Start review from imported STEP';
+}
+
+function formatConfidenceBadge(score) {
+  if (!Number.isFinite(score)) return 'Confidence pending';
+  return `Confidence ${Math.round(score * 100)}%`;
+}
+
+function formatDimension(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 'Unavailable';
+  return `${number.toFixed(2)} mm`;
+}
+
+function createImportBootstrapCard(state) {
+  const importBootstrap = ensureImportBootstrapState(state);
+  const preview = importBootstrap.preview;
+  const bootstrap = preview?.bootstrap || {};
+  const summary = bootstrap.bootstrap_summary || {};
+  const diagnostics = bootstrap.import_diagnostics || {};
+  const warnings = bootstrap.bootstrap_warnings?.warnings || [];
+  const confidence = bootstrap.confidence_map?.import_bootstrap?.overall || diagnostics.confidence || null;
+  const featureSummary = summary.feature_summary || {};
+  const source = preview?.source || {};
+
+  if (importBootstrap.status === 'loading') {
+    return createCard({
+      kicker: 'Imported CAD bootstrap',
+      title: 'Preparing the review gate',
+      copy: 'Studio is generating machine-readable diagnostics, draft bootstrap artifacts, warnings, and confidence before anything reaches tracked review.',
+      surface: 'canvas',
+      body: [
+        createEmptyState({
+          icon: '...',
+          title: 'Building bootstrap preview',
+          copy: 'This lane keeps imported STEP and FCStd honest: it records assumptions, preserves warnings, and stops before pretending design intent is known.',
+        }),
+      ],
+    });
+  }
+
+  if (importBootstrap.status === 'error') {
+    return createCard({
+      kicker: 'Imported CAD bootstrap',
+      title: 'Bootstrap preview needs correction',
+      copy: 'Unsupported, empty, or unstable imports fail closed here so Studio does not queue misleading downstream review work.',
+      surface: 'canvas',
+      body: [
+        el('p', {
+          className: 'support-note support-note-warn',
+          text: importBootstrap.errorMessage || 'Bootstrap preview failed.',
+        }),
+      ],
+    });
+  }
+
+  if (!preview) {
+    return createCard({
+      kicker: 'Imported CAD bootstrap',
+      title: 'Bring existing STEP or FCStd into review',
+      copy: 'Use the Start workspace to preview imported CAD through diagnostics, warnings, confidence, and a human correction gate before Studio queues tracked review-context work.',
+      surface: 'canvas',
+      body: [
+        createEmptyState({
+          icon: 'G',
+          title: 'Bootstrap lane is ready',
+          copy: 'Expected artifacts include import diagnostics, bootstrap summary, draft config, engineering context, geometry intelligence, warnings, and a confidence map.',
+        }),
+      ],
+    });
+  }
+
+  return createCard({
+    kicker: 'Imported CAD bootstrap',
+    title: 'Bootstrap review gate',
+    copy: 'Review the intake evidence first, then hand the corrected import state into the canonical review-pack and readiness flow.',
+    badges: [
+      {
+        label: summary.review_gate?.status === 'blocked' ? 'Review blocked' : 'Review gate ready',
+        tone: summary.review_gate?.status === 'blocked' ? 'warn' : 'ok',
+      },
+      {
+        label: formatConfidenceBadge(confidence?.score),
+        tone: confidence?.level === 'high' ? 'ok' : confidence?.level === 'medium' ? 'info' : 'warn',
+      },
+    ],
+    surface: 'canvas',
+    body: [
+      createInfoGrid([
+        { label: 'Imported model', value: source.model_path || diagnostics.source_model_path || importBootstrap.modelPath || importBootstrap.modelFileName || 'Unavailable' },
+        { label: 'File type', value: diagnostics.file_type || source.model_path?.split('.').pop()?.toUpperCase() || 'Unknown' },
+        { label: 'Part vs assembly', value: diagnostics.import_kind || 'Unknown' },
+        { label: 'Body count', value: diagnostics.body_count ?? 'Unavailable' },
+        { label: 'Units', value: diagnostics.unit_assumption?.unit || 'Unknown', note: diagnostics.unit_assumption?.rationale || '' },
+        { label: 'Tracked handoff', value: preview.tracked_review_seed?.context_path || 'Unavailable' },
+      ]),
+      createMetricGrid([
+        { label: 'X size', value: formatDimension(summary.dimensions_mm?.x), copy: 'Bounding-box estimate only; not design intent.' },
+        { label: 'Y size', value: formatDimension(summary.dimensions_mm?.y), copy: 'Use review corrections when import assumptions look off.' },
+        { label: 'Z size', value: formatDimension(summary.dimensions_mm?.z), copy: 'Large differences should be confirmed before readiness work.' },
+        { label: 'Cylinders', value: featureSummary.cylinder_count ?? 0, copy: 'Detected from geometry hints, not reconstructed history.' },
+        { label: 'Bolt circles', value: featureSummary.bolt_circle_count ?? 0, copy: 'Pattern clues stay review-needed when certainty is limited.' },
+        { label: 'Hotspots', value: featureSummary.hotspot_count ?? 0, copy: 'Manufacturing hotspots remain advisory evidence for review.' },
+      ]),
+      warnings.length > 0
+        ? createList(warnings.map((warning) => ({
+            label: warning,
+            copy: 'Visible warning',
+            meta: 'Review required',
+          })))
+        : createList([
+            {
+              label: 'No bootstrap warnings recorded',
+              copy: 'Studio still requires a human review gate before the tracked review-context run begins.',
+              meta: 'Review required',
+            },
+          ]),
+      createArtifactList((preview.artifacts || []).map((artifact) => ({
+        title: artifact.file_name || artifact.key,
+        meta: artifact.key,
+        path: artifact.path,
+      }))),
+    ],
+  });
 }
 
 const REVIEW_CONSOLE_JOB_TYPES = Object.freeze({
@@ -232,6 +389,7 @@ function createExamplesSelect(state) {
 
 function createStartActionsCard(state) {
   const { examples, recentJobs } = state.data;
+  const importBootstrap = ensureImportBootstrapState(state);
   const canTryExample = examples.status === 'ready' && examples.items.length > 0;
   const canOpenRecent = recentJobs.status === 'ready' && recentJobs.items.length > 0;
   const latestReviewJob = findLatestTrackedJob(recentJobs, REVIEW_CONSOLE_JOB_TYPES.review);
@@ -277,6 +435,75 @@ function createStartActionsCard(state) {
         },
       ]),
       createActionGrid([
+        {
+          kicker: 'Import existing STEP / FCStd',
+          title: 'Start review from imported STEP',
+          copy: 'Bootstrap imported CAD into the review loop with diagnostics, warnings, confidence, and a tracked handoff. This gate stays review-first and does not pretend to reverse-engineer design intent.',
+          meta: importBootstrapMeta(importBootstrap),
+          controls: [
+            el('input', {
+              className: 'studio-input',
+              attrs: {
+                type: 'text',
+                placeholder: 'Project-relative path like tests/fixtures/imports/simple_bracket.step',
+                value: importBootstrap.modelPath || '',
+              },
+              dataset: { field: 'import-model-path' },
+            }),
+            createButton({
+              label: importBootstrap.modelFileName ? `Use local file: ${importBootstrap.modelFileName}` : 'Choose local STEP / FCStd',
+              action: 'choose-import-model-file',
+              tone: 'ghost',
+            }),
+            el('input', {
+              className: 'visually-hidden',
+              attrs: {
+                id: 'start-import-model-file',
+                type: 'file',
+                accept: '.step,.stp,.fcstd',
+              },
+            }),
+            el('input', {
+              className: 'studio-input',
+              attrs: {
+                type: 'text',
+                placeholder: 'Optional BOM path (csv/json)',
+                value: importBootstrap.bomPath || '',
+              },
+              dataset: { field: 'import-bom-path' },
+            }),
+            el('input', {
+              className: 'studio-input',
+              attrs: {
+                type: 'text',
+                placeholder: 'Optional inspection path (csv/json)',
+                value: importBootstrap.inspectionPath || '',
+              },
+              dataset: { field: 'import-inspection-path' },
+            }),
+            el('input', {
+              className: 'studio-input',
+              attrs: {
+                type: 'text',
+                placeholder: 'Optional quality path (csv/json)',
+                value: importBootstrap.qualityPath || '',
+              },
+              dataset: { field: 'import-quality-path' },
+            }),
+            createButton({
+              label: importBootstrap.status === 'loading' ? 'Previewing bootstrap...' : 'Preview bootstrap gate',
+              action: 'preview-import-bootstrap',
+              tone: 'primary',
+              disabled: importBootstrap.status === 'loading' || importBootstrap.submitting,
+            }),
+            createButton({
+              label: importBootstrap.submitting ? 'Submitting tracked review...' : importBootstrapPrimaryLabel(importBootstrap),
+              action: 'submit-import-review',
+              tone: 'ghost',
+              disabled: !importBootstrap.preview || importBootstrap.status === 'loading' || importBootstrap.submitting,
+            }),
+          ],
+        },
         {
           kicker: 'Start new review',
           title: 'Ingest fresh review context',
@@ -1705,6 +1932,7 @@ export const workspaceDefinitions = {
           createQuickLinksCard(state),
         ],
         canvas: [
+          createImportBootstrapCard(state),
           createDecisionPackagesCard(state),
           createRuntimeHealthCard(state),
           createRecentJobsCard(state),

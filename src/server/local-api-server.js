@@ -1,8 +1,9 @@
 import express from 'express';
 import { createServer } from 'node:http';
 import { readFile, readdir } from 'node:fs/promises';
-import { basename, extname, join, posix, resolve, win32 } from 'node:path';
+import { basename, extname, join, posix, relative, resolve, sep, win32 } from 'node:path';
 import { buildRuntimeDiagnostics } from '../../lib/runtime-diagnostics.js';
+import { runScript } from '../../lib/runner.js';
 import {
   buildAfExecutionStateDescriptor,
   getAfExecutionJobContract,
@@ -10,6 +11,7 @@ import {
 import { listShopProfiles } from '../api/config.js';
 import { createJobStore } from '../services/jobs/job-store.js';
 import { createJobExecutor, validateJobRequest } from '../services/jobs/job-executor.js';
+import { createBootstrapImportService } from '../services/import/bootstrap-import-service.js';
 import { LOCAL_API_SERVICE, LOCAL_API_VERSION } from './local-api-contract.js';
 import { validateLocalApiResponse } from './local-api-schemas.js';
 import { createStudioModelService } from './studio-model-service.js';
@@ -110,10 +112,68 @@ function isAbsoluteFilesystemPath(value) {
     && (posix.isAbsolute(value) || win32.isAbsolute(value));
 }
 
+function isPathInside(baseDir, targetPath) {
+  const base = resolve(baseDir);
+  const target = resolve(targetPath);
+  return target === base || target.startsWith(`${base}${sep}`);
+}
+
 function basenameFromAnyPath(value) {
   if (typeof value !== 'string' || value.length === 0) return value;
   if (win32.isAbsolute(value)) return win32.basename(value);
   return basename(value);
+}
+
+function trimOptionalString(value) {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : '';
+}
+
+function toProjectDisplayPath(projectRoot, value) {
+  const trimmed = trimOptionalString(value);
+  if (!trimmed) return '';
+  const resolvedPath = resolve(trimmed);
+  if (isPathInside(projectRoot, resolvedPath)) {
+    const next = relative(projectRoot, resolvedPath);
+    return next || '.';
+  }
+  return basenameFromAnyPath(trimmed);
+}
+
+function toProjectAbsolutePath(projectRoot, value) {
+  const trimmed = trimOptionalString(value);
+  if (!trimmed) return '';
+  return resolve(projectRoot, trimmed);
+}
+
+function toBootstrapFileInput(body = {}, prefix, projectRoot) {
+  const upload = body?.[`${prefix}_upload`];
+  if (upload && typeof upload === 'object') {
+    return upload;
+  }
+
+  const filePath = trimOptionalString(body?.[`${prefix}_path`]);
+  if (!filePath) return null;
+  return {
+    path: toProjectAbsolutePath(projectRoot, filePath),
+  };
+}
+
+function redactBootstrapPreviewPaths(projectRoot, value) {
+  if (Array.isArray(value)) {
+    return value.map((entry) => redactBootstrapPreviewPaths(projectRoot, entry));
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, redactBootstrapPreviewPaths(projectRoot, entry)])
+    );
+  }
+
+  if (isAbsoluteFilesystemPath(value)) {
+    return toProjectDisplayPath(projectRoot, value);
+  }
+
+  return value;
 }
 
 function redactPublicPathValues(value) {
@@ -247,6 +307,7 @@ function buildLandingPayload({
         validate_config: '/api/studio/validate-config',
         design: '/api/studio/design',
         model_preview: '/api/studio/model-preview',
+        import_bootstrap: '/api/studio/import-bootstrap',
         model_asset: '/api/studio/model-previews/:id/model',
         model_part: '/api/studio/model-previews/:id/parts/:index',
         drawing_preview: '/api/studio/drawing-preview',
@@ -304,6 +365,7 @@ function buildLandingCopy(locale = 'en') {
       apiInfo: '이 Studio/API 안내 페이지를 반환합니다',
       runtimeDiagnostics: '런타임 진단용',
       modelPreview: '검토에 필요한 형상 확인용 빠른 모델 미리보기 빌드를 실행합니다',
+      importBootstrap: '기존 STEP 또는 FCStd를 검토 루프로 안전하게 가져오기 위한 부트스트랩 진단과 초안 산출물을 생성합니다',
       drawingPreview: '검토에 필요한 시트 확인용 빠른 도면 미리보기 빌드를 실행합니다',
       trackedJobs: 'Studio TOML 또는 산출물 참조에서 검토, 준비 상태, 비교, 문서, 팩 작업을 대기열에 넣습니다',
       jobsDiscovery: '작업 생성 대상과 경로를 확인합니다',
@@ -338,6 +400,7 @@ function buildLandingCopy(locale = 'en') {
       plainApiInfo: 'API 정보',
       plainHealth: '상태 확인',
       plainModelPreview: '모델 미리보기',
+      plainImportBootstrap: '가져온 CAD 부트스트랩',
       plainDrawingPreview: '도면 미리보기',
       plainDimensionEdits: '도면 치수 편집',
       plainTrackedJobs: '스튜디오 추적 작업',
@@ -366,6 +429,7 @@ function buildLandingCopy(locale = 'en') {
     apiInfo: 'returns this Studio/API info page',
     runtimeDiagnostics: 'for runtime diagnostics',
     modelPreview: 'to run fast model preview builds for review support',
+    importBootstrap: 'to bootstrap imported STEP or FCStd into the review loop with diagnostics, warnings, and draft artifacts',
     drawingPreview: 'to run fast drawing preview builds for review support',
     trackedJobs: 'to enqueue review, readiness, compare, docs, and pack jobs from studio-native TOML or artifact references',
     jobsDiscovery: 'for job creation targets and route discovery',
@@ -400,6 +464,7 @@ function buildLandingCopy(locale = 'en') {
     plainApiInfo: 'API info',
     plainHealth: 'Health',
     plainModelPreview: 'Model preview',
+    plainImportBootstrap: 'Imported CAD bootstrap',
     plainDrawingPreview: 'Drawing preview',
     plainDimensionEdits: 'Drawing dimension edits',
     plainTrackedJobs: 'Studio tracked jobs',
@@ -527,6 +592,7 @@ function renderLandingPage(payload, locale = 'en') {
         <li><a href="/api"><code>GET /api</code></a> ${escapeHtml(copy.apiInfo)}</li>
         <li><a href="/health"><code>GET /health</code></a> ${escapeHtml(copy.runtimeDiagnostics)}</li>
         <li><a href="/api"><code>POST /api/studio/model-preview</code></a> ${escapeHtml(copy.modelPreview)}</li>
+        <li><a href="/api"><code>POST /api/studio/import-bootstrap</code></a> ${escapeHtml(copy.importBootstrap)}</li>
         <li><a href="/api"><code>POST /api/studio/drawing-preview</code></a> ${escapeHtml(copy.drawingPreview)}</li>
         <li><a href="/api"><code>POST /api/studio/jobs</code></a> ${escapeHtml(copy.trackedJobs)}</li>
         <li><a href="/jobs"><code>/jobs</code></a> ${escapeHtml(copy.jobsDiscovery)}</li>
@@ -598,6 +664,7 @@ function sendLandingResponse(req, res, payload) {
       `${copy.plainApiInfo}: /api`,
       `${copy.plainHealth}: /health`,
       `${copy.plainModelPreview}: POST /api/studio/model-preview`,
+      `${copy.plainImportBootstrap}: POST /api/studio/import-bootstrap`,
       `${copy.plainDrawingPreview}: POST /api/studio/drawing-preview`,
       `${copy.plainDimensionEdits}: POST /api/studio/drawing-previews/:id/dimensions`,
       `${copy.plainTrackedJobs}: POST /api/studio/jobs`,
@@ -679,6 +746,7 @@ export function createLocalApiServer({
   runtimeDiagnosticsFactory = buildRuntimeDiagnostics,
   studioModelServiceFactory = createStudioModelService,
   studioDrawingServiceFactory = createStudioDrawingService,
+  bootstrapImportServiceFactory = createBootstrapImportService,
   executorFactory = null,
 }) {
   const app = express();
@@ -697,6 +765,7 @@ export function createLocalApiServer({
     : baseExecutor;
   const studioModelService = studioModelServiceFactory({ projectRoot });
   const studioDrawingService = studioDrawingServiceFactory({ projectRoot });
+  const studioBootstrapImportService = bootstrapImportServiceFactory();
 
   function isPlainObject(value) {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -941,6 +1010,33 @@ export function createLocalApiServer({
       const status = /TOML parse error|Config TOML is required|must include|invalid/i.test(message) ? 400 : 500;
       const response = createErrorResponse(
         'model_preview_failed',
+        [message],
+        status
+      );
+      res.status(response.status).json(assertResponse('error', response.body));
+    }
+  });
+
+  app.post('/api/studio/import-bootstrap', async (req, res) => {
+    try {
+      const payload = await studioBootstrapImportService({
+        projectRoot,
+        runScript,
+        model: toBootstrapFileInput(req.body, 'model', projectRoot),
+        bom: toBootstrapFileInput(req.body, 'bom', projectRoot),
+        inspection: toBootstrapFileInput(req.body, 'inspection', projectRoot),
+        quality: toBootstrapFileInput(req.body, 'quality', projectRoot),
+        metadata: isPlainObject(req.body?.metadata) ? req.body.metadata : {},
+      });
+      res.json({
+        ok: true,
+        ...redactBootstrapPreviewPaths(projectRoot, payload),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const status = /required|unsupported|must stay inside|must be inside|failed bootstrap intake/i.test(message) ? 400 : 500;
+      const response = createErrorResponse(
+        'import_bootstrap_failed',
         [message],
         status
       );

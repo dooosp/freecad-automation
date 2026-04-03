@@ -1,0 +1,95 @@
+# G STEP Bootstrap Review Loop Status
+
+- current phase: wave 3 integration complete, wave 4 verification pending
+- completed work:
+  - verified repo identity after rejecting the parent workspace root as the wrong git root
+  - recorded `pwd`, git root, branch, cleanliness, default branch, and worktree availability
+  - created and switched to the clean worktree `codex/g-step-bootstrap-review-loop`
+  - created the G execution plan, verification plan, and task-local status files
+  - appended task-specific G guidance to `AGENTS.md`
+  - created repo-local `.codex` task agent definitions for discovery, implementation, release, and verification roles
+  - completed Wave 1 discovery across import, review-context, Studio, tracked jobs, and test surfaces
+  - hardened STEP / FCStd intake so the shared import contract now emits additive diagnostics, warnings, confidence, and fail-closed markers
+  - added `src/services/import/bootstrap-import-service.js` and finished the `/api/studio/import-bootstrap` local API route
+  - extended the Studio Start workspace with a review-first import bootstrap lane that previews diagnostics, warnings, confidence, artifact outputs, and tracked review handoff
+  - extended the Studio tracked-job bridge and shell client so `review-context` can be launched from imported bootstrap state
+  - propagated bootstrap evidence through `scripts/ingest_context.py`, `scripts/analyze_part.py`, and the D-artifact schemas without breaking canonical `review_pack.json` / `readiness_report.json` lineage
+  - extended the review-context orchestration and tracked-job executor so bootstrap artifacts surface as tracked artifacts alongside canonical review outputs
+  - added representative import fixtures plus targeted JS and Python regression coverage for intake, Studio route translation, local API preview, ingest, and analyze-part bootstrap evidence
+  - updated `README.md` so the public repo narrative now describes G as a bootstrap lane into the review loop rather than a new modeling-first surface
+- files changed:
+  - `AGENTS.md`
+  - `README.md`
+  - `docs/exec-plans/g-step-bootstrap-review-loop.md`
+  - `docs/exec-plans/g-step-bootstrap-review-loop-verification.md`
+  - `tmp/codex/g-step-bootstrap-review-loop-status.md`
+  - `tmp/codex/g-step-bootstrap-review-loop-verification-status.md`
+  - `.codex/config.toml`
+  - `.codex/agents/repo-guardian.toml`
+  - `.codex/agents/g-contract-architect.toml`
+  - `.codex/agents/g-intake-hardening.toml`
+  - `.codex/agents/g-bootstrap-extraction.toml`
+  - `.codex/agents/g-studio-gate.toml`
+  - `.codex/agents/g-review-handoff.toml`
+  - `.codex/agents/g-regression-fixtures.toml`
+  - `.codex/agents/integrator-release-manager.toml`
+  - `.codex/agents/read-only-verifier.toml`
+  - `lib/model-analysis.js`
+  - `public/js/i18n/ko.js`
+  - `public/js/studio-shell.js`
+  - `public/js/studio/jobs-client.js`
+  - `public/js/studio/workspaces.js`
+  - `schemas/geometry_intelligence.schema.json`
+  - `schemas/manufacturing_hotspots.schema.json`
+  - `scripts/analyze_part.py`
+  - `scripts/ingest_context.py`
+  - `scripts/step_feature_detector.py`
+  - `src/orchestration/review-context-pipeline.js`
+  - `src/server/local-api-server.js`
+  - `src/server/studio-job-bridge.js`
+  - `src/services/import/bootstrap-import-service.js`
+  - `src/services/import/step-import-service.js`
+  - `src/services/jobs/job-executor.js`
+  - `tests/fixtures/imports/simple_bracket.step`
+  - `tests/fixtures/imports/machined_hole_pattern.step`
+  - `tests/fixtures/imports/small_assembly.step`
+  - `tests/fixtures/imports/small_assembly.fcstd`
+  - `tests/local-api-server.test.js`
+  - `tests/run-node-lane.js`
+  - `tests/step-import-service.test.js`
+  - `tests/studio-job-bridge.test.js`
+  - `tests/test_analyze_part.py`
+  - `tests/test_ingest.py`
+- validations run:
+  - preflight: `pwd`, `git rev-parse --show-toplevel`, `git branch --show-current`, `git remote show origin`, `git worktree list --porcelain`, `git status --short`, `git diff --name-only`
+  - syntax: `node --check public/js/studio-shell.js`, `node --check public/js/studio/workspaces.js`, `node --check src/server/local-api-server.js`
+  - targeted JS: `node tests/step-import-service.test.js`, `node tests/studio-job-bridge.test.js`, `node tests/local-api-server.test.js`
+  - targeted Python: `python3 -m pytest -q tests/test_ingest.py tests/test_analyze_part.py tests/test_cli_workflow.py`
+  - broad Node lanes: `npm run test:node:contract`, `npm run test:node:integration`
+  - Python lane wrapper attempted: `npm run test:py`
+  - Python lane rerun on supported interpreter: `PYTHON=python3.12 PYTHON3=python3.12 npm run test:py`
+  - runtime diagnostics: `node bin/fcad.js check-runtime --json`
+  - runtime-backed import smoke: `node bin/fcad.js review-context --model tests/fixtures/imports/simple_bracket.step --out <tmp>/review_pack.json`
+- failures encountered:
+  - the starting workspace root was `/Users/jangtaeho/Documents/New`, not the required `freecad-automation` repo root
+  - the primary checkout contained unrelated untracked files, so a clean worktree was required
+  - the bootstrap rollout initially broke D-artifact schema validation because new `bootstrap` fields were not yet allowed in `geometry_intelligence` and `manufacturing_hotspots`
+  - the worktree initially lacked `node_modules`, so JS contract tests could not resolve package dependencies
+  - `npm run test:py` initially selected interpreters without `pytest`, while the default `python3` was 3.9 and could not collect the full suite
+  - `npm run test:node:contract` still fails on a pre-existing unrelated `tests/c-artifact-schema.test.js` assertion for legacy `readiness-report` job typing
+  - `PYTHON=python3.12 PYTHON3=python3.12 npm run test:py` still fails on three unrelated pre-existing manufacturing/docs issues outside the G task surfaces
+- repairs made:
+  - switched execution to `/Users/jangtaeho/Documents/New/.worktrees/g-step-bootstrap-review-loop/freecad-automation`
+  - created a clean feature worktree from the detected default branch `master`
+  - updated the D-artifact schemas to accept additive bootstrap evidence fields
+  - installed repo Node dependencies with `npm install`
+  - installed `pytest` for `python3.12` with `python3.12 -m pip install --user --break-system-packages pytest`
+  - reran the Python lane under `python3.12` so the repo’s supported Python test surface could execute
+- open risks:
+  - browser/manual QA has not been run; the Studio gate is verified only through code inspection and automated route/contract coverage
+  - the new import fixtures are placeholder STEP / FCStd artifacts meant for contract coverage, not high-fidelity geometry fixtures
+  - broad repo validation still contains unrelated pre-existing failures in C-artifact and manufacturing/docs lanes that were not widened into this task
+- remaining work:
+  - run release-manager staging / commit / push flow
+  - perform diff-invariant read-only verification
+  - prepare final summary with validation caveats and remaining unrelated failures

@@ -12,6 +12,7 @@ const tmpRoot = mkdtempSync(join(tmpdir(), 'fcad-local-api-root-'));
 const jobsDir = join(tmpRoot, 'jobs');
 const PRIVATE_CONFIG_PATH = join(tmpRoot, 'private-source-config.toml');
 const PRIVATE_RESULT_PATH = join(tmpRoot, 'nested', 'private-report.json');
+const bootstrapCalls = [];
 
 function assertNoLeakedPathStrings(payload, blocked = []) {
   const serialized = JSON.stringify(payload);
@@ -44,6 +45,78 @@ async function waitFor(assertion, { attempts = 10, delayMs = 50 } = {}) {
 const { server, jobStore } = createLocalApiServer({
   projectRoot: ROOT,
   jobsDir,
+  bootstrapImportServiceFactory: () => async ({ model, bom, inspection, quality }) => {
+    bootstrapCalls.push({ model, bom, inspection, quality });
+    return {
+      ok: true,
+      session_id: 'bootstrap-session-1',
+      source: {
+        model_path: 'output/imports/bootstrap-session-1/source/simple_bracket.step',
+        bom_path: bom?.path || null,
+        inspection_path: inspection?.path || null,
+        quality_path: quality?.path || null,
+      },
+      bootstrap: {
+        import_diagnostics: {
+          source_model_path: model?.path || null,
+          file_type: 'step',
+          import_kind: 'part',
+          body_count: 1,
+          unit_assumption: {
+            unit: 'mm',
+            rationale: 'Fixture assumption.',
+          },
+          confidence: {
+            level: 'medium',
+            score: 0.61,
+            rationale: 'Fixture confidence.',
+          },
+        },
+        bootstrap_summary: {
+          review_gate: {
+            status: 'review_required',
+            reason: 'human_confirmation_required',
+          },
+          dimensions_mm: {
+            x: 40,
+            y: 20,
+            z: 8,
+          },
+          feature_summary: {
+            cylinder_count: 4,
+            bolt_circle_count: 1,
+            hotspot_count: 2,
+          },
+        },
+        bootstrap_warnings: {
+          warning_count: 1,
+          warnings: ['Fixture warning'],
+        },
+        confidence_map: {
+          import_bootstrap: {
+            overall: {
+              level: 'medium',
+              score: 0.61,
+              rationale: 'Fixture confidence.',
+            },
+          },
+        },
+        geometry_intelligence: {},
+      },
+      tracked_review_seed: {
+        context_path: 'output/imports/bootstrap-session-1/artifacts/engineering_context.json',
+        model_path: 'output/imports/bootstrap-session-1/source/simple_bracket.step',
+        quality_path: quality?.path || null,
+      },
+      artifacts: [
+        {
+          key: 'import_diagnostics',
+          path: 'output/imports/bootstrap-session-1/artifacts/import_diagnostics.json',
+          file_name: 'import_diagnostics.json',
+        },
+      ],
+    };
+  },
 });
 
 try {
@@ -71,6 +144,7 @@ try {
   assert.match(html, /Open <code>\/<\/code> or <code>\/studio<\/code> for Studio/);
   assert.match(html, /GET \/health/);
   assert.match(html, /POST \/api\/studio\/model-preview/);
+  assert.match(html, /POST \/api\/studio\/import-bootstrap/);
   assert.match(html, /POST \/api\/studio\/drawing-preview/);
   assert.match(html, /\/studio/);
   assert.match(html, /GET \/api/);
@@ -112,10 +186,31 @@ try {
   assert.equal(payload.studio.path, '/studio');
   assert.equal(payload.viewer.command, 'fcad serve --legacy-viewer');
   assert.equal(payload.studio.preview_routes.model_preview, '/api/studio/model-preview');
+  assert.equal(payload.studio.preview_routes.import_bootstrap, '/api/studio/import-bootstrap');
   assert.equal(payload.studio.preview_routes.drawing_dimensions, '/api/studio/drawing-previews/:id/dimensions');
   assert.equal(payload.studio.tracked_routes.submit, '/api/studio/jobs');
   assert.equal(payload.studio.tracked_routes.cancel, '/jobs/:id/cancel');
   assert.equal(payload.studio.tracked_routes.retry, '/jobs/:id/retry');
+
+  const bootstrapPreviewResponse = await fetch(`${baseUrl}/api/studio/import-bootstrap`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model_path: 'tests/fixtures/imports/simple_bracket.step',
+      quality_path: 'tests/fixtures/sample_quality.csv',
+    }),
+  });
+  assert.equal(bootstrapPreviewResponse.status, 200);
+  const bootstrapPreviewPayload = await bootstrapPreviewResponse.json();
+  assert.equal(bootstrapPreviewPayload.ok, true);
+  assert.equal(bootstrapCalls.length > 0, true);
+  assert.equal(bootstrapCalls[0].model.path, join(ROOT, 'tests', 'fixtures', 'imports', 'simple_bracket.step'));
+  assert.equal(bootstrapPreviewPayload.source.model_path, 'output/imports/bootstrap-session-1/source/simple_bracket.step');
+  assert.equal(bootstrapPreviewPayload.bootstrap.import_diagnostics.source_model_path, 'tests/fixtures/imports/simple_bracket.step');
+  assert.equal(bootstrapPreviewPayload.tracked_review_seed.context_path, 'output/imports/bootstrap-session-1/artifacts/engineering_context.json');
 
   const apiJsonResponse = await fetch(`${baseUrl}/api`, {
     headers: {

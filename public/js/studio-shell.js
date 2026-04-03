@@ -19,6 +19,7 @@ import {
   findResumableStudioJobs,
   isActiveStudioJobStatus,
   pollStudioJob,
+  previewStudioImportBootstrap,
   refreshStudioJobs,
   retryStudioJob,
   submitStudioTrackedJob,
@@ -217,6 +218,18 @@ const state = {
       },
       cache: {},
     },
+    importBootstrap: {
+      status: 'idle',
+      modelPath: '',
+      modelFile: null,
+      modelFileName: '',
+      bomPath: '',
+      inspectionPath: '',
+      qualityPath: '',
+      preview: null,
+      errorMessage: '',
+      submitting: false,
+    },
   },
   logs: [
     {
@@ -264,6 +277,141 @@ function syncChrome() {
     if (isActive) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
   });
+}
+
+function sanitizeOptionalInput(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+async function readFileAsBase64(file) {
+  return await new Promise((resolvePromise, rejectPromise) => {
+    const reader = new FileReader();
+    reader.onerror = () => rejectPromise(new Error(`Could not read ${file?.name || 'the selected file'}.`));
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      const marker = 'base64,';
+      const index = result.indexOf(marker);
+      if (index === -1) {
+        rejectPromise(new Error(`Could not encode ${file?.name || 'the selected file'} for bootstrap preview.`));
+        return;
+      }
+      resolvePromise(result.slice(index + marker.length));
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function buildImportBootstrapRequest() {
+  const importBootstrap = state.data.importBootstrap;
+  const payload = {
+    metadata: {},
+  };
+
+  const modelPath = sanitizeOptionalInput(importBootstrap.modelPath);
+  if (modelPath) {
+    payload.model_path = modelPath;
+  } else if (importBootstrap.modelFile) {
+    payload.model_upload = {
+      name: importBootstrap.modelFile.name,
+      content_base64: await readFileAsBase64(importBootstrap.modelFile),
+    };
+  } else {
+    throw new Error('Choose a STEP or FCStd file, or enter a project-relative model path.');
+  }
+
+  const bomPath = sanitizeOptionalInput(importBootstrap.bomPath);
+  const inspectionPath = sanitizeOptionalInput(importBootstrap.inspectionPath);
+  const qualityPath = sanitizeOptionalInput(importBootstrap.qualityPath);
+  if (bomPath) payload.bom_path = bomPath;
+  if (inspectionPath) payload.inspection_path = inspectionPath;
+  if (qualityPath) payload.quality_path = qualityPath;
+
+  return payload;
+}
+
+function buildImportBootstrapOptions(preview) {
+  const bootstrap = preview?.bootstrap || {};
+  return {
+    studio: {
+      source: 'import-bootstrap',
+      session_id: preview?.session_id || '',
+    },
+    bootstrap: {
+      bootstrapDiagnostics: bootstrap.import_diagnostics || null,
+      bootstrapSummarySeed: bootstrap.bootstrap_summary || null,
+      bootstrapWarnings: bootstrap.bootstrap_warnings?.warnings || [],
+      bootstrapConfidenceSeed: bootstrap.confidence_map || null,
+    },
+  };
+}
+
+async function previewImportBootstrap() {
+  state.data.importBootstrap.status = 'loading';
+  state.data.importBootstrap.errorMessage = '';
+  state.data.importBootstrap.preview = null;
+  commitRender();
+
+  try {
+    const payload = await buildImportBootstrapRequest();
+    const preview = await previewStudioImportBootstrap(payload);
+    state.data.importBootstrap.status = 'ready';
+    state.data.importBootstrap.preview = preview;
+    state.data.importBootstrap.errorMessage = '';
+    addLog({
+      status: 'Import bootstrap',
+      message: `Prepared bootstrap review gate for ${preview?.source?.model_path || state.data.importBootstrap.modelFileName || 'imported CAD'}.`,
+      tone: 'ok',
+      time: 'api',
+    });
+  } catch (error) {
+    state.data.importBootstrap.status = 'error';
+    state.data.importBootstrap.preview = null;
+    state.data.importBootstrap.errorMessage = error instanceof Error ? error.message : String(error);
+    addLog({
+      status: 'Import bootstrap',
+      message: state.data.importBootstrap.errorMessage,
+      tone: 'warn',
+      time: 'api',
+    });
+  } finally {
+    commitRender();
+  }
+}
+
+async function submitImportBootstrapReview() {
+  const preview = state.data.importBootstrap.preview;
+  const seed = preview?.tracked_review_seed;
+  if (!preview || !seed?.context_path) {
+    throw new Error('Preview the bootstrap gate before starting a tracked review run.');
+  }
+
+  state.data.importBootstrap.submitting = true;
+  commitRender();
+
+  try {
+    const job = await submitTrackedStudioRun({
+      type: 'review-context',
+      contextPath: seed.context_path,
+      modelPath: seed.model_path,
+      bomPath: seed.bom_path,
+      inspectionPath: seed.inspection_path,
+      qualityPath: seed.quality_path,
+      options: buildImportBootstrapOptions(preview),
+      completionAction: {
+        type: 'tracked-run-completion',
+        preferredRoute: 'review',
+      },
+    });
+    addLog({
+      status: 'Import bootstrap',
+      message: `Queued review-context ${shortJobId(job.id)} from imported CAD bootstrap.`,
+      tone: 'info',
+      time: 'job',
+    });
+  } finally {
+    state.data.importBootstrap.submitting = false;
+    commitRender();
+  }
 }
 
 function renderCompletionNotice() {
@@ -760,6 +908,12 @@ async function submitTrackedStudioRun({
   artifactRef,
   baselineArtifactRef,
   candidateArtifactRef,
+  contextPath,
+  modelPath,
+  bomPath,
+  inspectionPath,
+  qualityPath,
+  compareToPath,
   drawingSettings,
   drawingPreviewId,
   reportOptions,
@@ -772,6 +926,12 @@ async function submitTrackedStudioRun({
     artifactRef,
     baselineArtifactRef,
     candidateArtifactRef,
+    contextPath,
+    modelPath,
+    bomPath,
+    inspectionPath,
+    qualityPath,
+    compareToPath,
     drawingSettings,
     drawingPreviewId,
     reportOptions,
@@ -1258,6 +1418,21 @@ async function handleShellAction(actionTarget) {
     await refreshHealth();
   } else if (action === 'try-example') {
     openExample();
+  } else if (action === 'choose-import-model-file') {
+    workspaceRoot.querySelector('#start-import-model-file')?.click();
+  } else if (action === 'preview-import-bootstrap') {
+    await previewImportBootstrap();
+  } else if (action === 'submit-import-review') {
+    try {
+      await submitImportBootstrapReview();
+    } catch (error) {
+      addLog({
+        status: 'Import bootstrap',
+        message: error instanceof Error ? error.message : String(error),
+        tone: 'warn',
+        time: 'job',
+      });
+    }
   } else if (action === 'go-artifacts') {
     navigateTo('artifacts');
   } else if (action === 'open-config') {
@@ -1405,6 +1580,21 @@ workspaceRoot.addEventListener('change', async (event) => {
     return;
   }
 
+  if (target instanceof HTMLInputElement && target.id === 'start-import-model-file') {
+    const [file] = [...(target.files || [])];
+    state.data.importBootstrap.modelFile = file || null;
+    state.data.importBootstrap.modelFileName = file?.name || '';
+    if (file) {
+      state.data.importBootstrap.modelPath = '';
+    }
+    state.data.importBootstrap.status = 'idle';
+    state.data.importBootstrap.preview = null;
+    state.data.importBootstrap.errorMessage = '';
+    target.value = '';
+    commitRender();
+    return;
+  }
+
   if (target instanceof HTMLInputElement && target.id === 'start-config-file') {
     const [file] = [...(target.files || [])];
     await openConfigFile(file);
@@ -1422,6 +1612,30 @@ workspaceRoot.addEventListener('input', (event) => {
   } else if (target.matches('[data-field="config-text"]')) {
     state.data.model.configText = target.value;
     state.data.model.editingEnabled = true;
+  } else if (target.matches('[data-field="import-model-path"]')) {
+    state.data.importBootstrap.modelPath = target.value;
+    if (target.value.trim()) {
+      state.data.importBootstrap.modelFile = null;
+      state.data.importBootstrap.modelFileName = '';
+    }
+    state.data.importBootstrap.status = 'idle';
+    state.data.importBootstrap.preview = null;
+    state.data.importBootstrap.errorMessage = '';
+  } else if (target.matches('[data-field="import-bom-path"]')) {
+    state.data.importBootstrap.bomPath = target.value;
+    state.data.importBootstrap.status = 'idle';
+    state.data.importBootstrap.preview = null;
+    state.data.importBootstrap.errorMessage = '';
+  } else if (target.matches('[data-field="import-inspection-path"]')) {
+    state.data.importBootstrap.inspectionPath = target.value;
+    state.data.importBootstrap.status = 'idle';
+    state.data.importBootstrap.preview = null;
+    state.data.importBootstrap.errorMessage = '';
+  } else if (target.matches('[data-field="import-quality-path"]')) {
+    state.data.importBootstrap.qualityPath = target.value;
+    state.data.importBootstrap.status = 'idle';
+    state.data.importBootstrap.preview = null;
+    state.data.importBootstrap.errorMessage = '';
   }
 });
 

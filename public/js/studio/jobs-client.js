@@ -33,6 +33,12 @@ export async function submitStudioTrackedJob({
   artifactRef,
   baselineArtifactRef,
   candidateArtifactRef,
+  contextPath,
+  modelPath,
+  bomPath,
+  inspectionPath,
+  qualityPath,
+  compareToPath,
   drawingSettings,
   drawingPreviewId,
   reportOptions,
@@ -49,6 +55,12 @@ export async function submitStudioTrackedJob({
       ...(artifactRef ? { artifact_ref: artifactRef } : {}),
       ...(baselineArtifactRef ? { baseline_artifact_ref: baselineArtifactRef } : {}),
       ...(candidateArtifactRef ? { candidate_artifact_ref: candidateArtifactRef } : {}),
+      ...(contextPath ? { context_path: contextPath } : {}),
+      ...(modelPath ? { model_path: modelPath } : {}),
+      ...(bomPath ? { bom_path: bomPath } : {}),
+      ...(inspectionPath ? { inspection_path: inspectionPath } : {}),
+      ...(qualityPath ? { quality_path: qualityPath } : {}),
+      ...(compareToPath ? { compare_to_path: compareToPath } : {}),
       ...(drawingSettings ? { drawing_settings: drawingSettings } : {}),
       ...(drawingPreviewId ? { drawing_preview_id: drawingPreviewId } : {}),
       ...(reportOptions ? { report_options: reportOptions } : {}),
@@ -57,6 +69,16 @@ export async function submitStudioTrackedJob({
   });
 
   return payload.job || null;
+}
+
+export async function previewStudioImportBootstrap(payload = {}) {
+  return fetchJobJson('/api/studio/import-bootstrap', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function pollStudioJob(jobId) {

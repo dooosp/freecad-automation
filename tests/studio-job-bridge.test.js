@@ -111,6 +111,36 @@ const invalidDrawingPlan = await translateStudioJobSubmission({
 assert.equal(invalidDrawingPlan.ok, false);
 assert.match(invalidDrawingPlan.errors.join('\n'), /drawing_plan is only supported/);
 
+const reviewContextSubmission = await translateStudioJobSubmission({
+  type: 'review-context',
+  context_path: 'output/imports/bootstrap-123/artifacts/engineering_context.json',
+  model_path: 'output/imports/bootstrap-123/source/simple_bracket.step',
+  quality_path: 'tests/fixtures/sample_quality.csv',
+  options: {
+    bootstrap: {
+      bootstrapWarnings: ['unit assumption needs review'],
+    },
+  },
+});
+
+assert.equal(reviewContextSubmission.ok, true, reviewContextSubmission.errors?.join('\n'));
+assert.equal(reviewContextSubmission.request.type, 'review-context');
+assert.equal(reviewContextSubmission.request.context_path, 'output/imports/bootstrap-123/artifacts/engineering_context.json');
+assert.equal(reviewContextSubmission.request.model_path, 'output/imports/bootstrap-123/source/simple_bracket.step');
+assert.equal(reviewContextSubmission.request.quality_path, 'tests/fixtures/sample_quality.csv');
+assert.deepEqual(reviewContextSubmission.request.options.bootstrap.bootstrapWarnings, ['unit assumption needs review']);
+
+const invalidReviewContextSubmission = validateStudioJobSubmission({
+  type: 'review-context',
+  artifact_ref: {
+    job_id: 'job-review',
+    artifact_id: 'artifact-review',
+  },
+});
+
+assert.equal(invalidReviewContextSubmission.ok, false);
+assert.match(invalidReviewContextSubmission.errors.join('\n'), /review-context does not accept config_toml, artifact_ref/);
+
 const missingArtifactResolver = await translateStudioJobSubmission({
   type: 'inspect',
   artifact_ref: {
