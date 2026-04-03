@@ -6,47 +6,52 @@
   - mode: `Worktree`
 - Verification phase: final validation and read-only review
 - Verification focus:
-  - Real bootstrap preview success on `tests/fixtures/imports/simple_bracket.step`
-  - `correction_required` stays true for partial import, unit assumption, and fallback cases
-  - `confidence_map` shape matches between preview and tracked `review-context` handoff
-  - Runtime-backed `review-context` still succeeds on the representative weak import fixture
-  - Preview bootstrap and tracked `review-context` share the same degrade-to-diagnostics contract when runtime inspection throws
+  - Preview bootstrap emits the required artifact set and keeps warnings/low confidence explicit.
+  - Saved preview `engineering_context.json` preserves bootstrap review evidence for re-entry.
+  - Tracked `review-context` handoff preserves draft config, diagnostics, warnings, and confidence evidence.
+  - Weak-import fallback still requires correction and does not silently promote guesses into facts.
+  - Unrelated failures are separated from G regressions with direct command evidence.
 - Evidence captured:
-  - Direct bootstrap preview smoke now returns `ok: true`, `correction_required: true`, `partial_import: true`, and a document-shaped `confidence_map`.
-  - Real local API `POST /api/studio/import-bootstrap` smoke now returns the same review gate and confidence-map shape for `simple_bracket.step`.
-  - Direct preview-to-handoff smoke now succeeds through `/api/studio/jobs` and preserves `import_bootstrap.{overall,part_vs_assembly,unit_assumption,feature_extraction}` in the generated tracked artifacts.
-  - `node bin/fcad.js review-context --model tests/fixtures/imports/simple_bracket.step ...` still succeeds with metadata-only fallback and now emits `bootstrap_summary.review_gate.correction_required: true`.
-  - Updated targeted JS tests cover weak import fallback, thrown runtime-inspection fallback, and confidence-map handoff shape.
-  - Added `tests/review-context-bootstrap.test.js` to lock the legacy `bootstrap.confidence -> confidence_map.import_bootstrap.overall` compatibility path.
-  - Updated Python tests still pass for ingest/analyze/review-context CLI behavior.
-- Remaining verification to run:
-  - commit/push final fallback-alignment repair, then capture final diff invariance on the committed tip
+  - `POST /api/studio/import-bootstrap` on `tests/fixtures/imports/simple_bracket.step` returned all required preview artifact keys: `import_diagnostics`, `bootstrap_summary`, `draft_config`, `engineering_context`, `geometry_intelligence`, `bootstrap_warnings`, and `confidence_map`.
+  - The same preview response now exposes inline `bootstrap.draft_config_toml` and the saved `engineering_context.json` now contains `bootstrap.bootstrap_summary.review_gate.ready_for_review_context`, `bootstrap.confidence_map.import_bootstrap.overall.level`, and a relative `bootstrap.draft_config_path`.
+  - Real local API preview -> tracked `review-context` smoke completed successfully and registered tracked artifacts including `bootstrap_summary.json`, `bootstrap_warnings.json`, `confidence_map.json`, `engineering_context.json`, and `config.bootstrap-draft`.
+  - The tracked `engineering_context.json` preserved explicit weak-import evidence (`partial_import: true`) and kept metadata-only fallback warnings visible.
+  - `node bin/fcad.js review-context --model tests/fixtures/imports/simple_bracket.step --out /tmp/g-step-cli-smoke/review_pack.json` succeeded with runtime warnings plus metadata-only fallback instead of failing the lane.
+  - `npm run test:node:contract` still fails in untouched `tests/c-artifact-schema.test.js` with `Unsupported AF execution job type: readiness-report`, matching the earlier branch narrative and remaining outside the edited G follow-up files.
 - Diff before review:
-  - pending final committed-tip review
+  - `src/services/import/bootstrap-import-service.js`
+  - `tests/run-node-lane.js`
+  - `tmp/codex/g-step-bootstrap-review-loop-status.md`
+  - `tmp/codex/g-step-bootstrap-review-loop-verification-status.md`
 - Diff after review:
-  - pending final committed-tip review
+  - `src/services/import/bootstrap-import-service.js`
+  - `tests/run-node-lane.js`
+  - `tmp/codex/g-step-bootstrap-review-loop-status.md`
+  - `tmp/codex/g-step-bootstrap-review-loop-verification-status.md`
 - Read-only validity:
-  - pending final committed-tip review
+  - valid; `git diff --name-only` stayed unchanged during the final read-only review
 - Findings:
-  - One branch-blocking regression was identified during validation: tracked `/api/studio/jobs` `review-context` failed on weak imported STEP because runtime inspection exceptions bypassed metadata-only fallback.
-  - That regression is repaired locally by normalizing thrown inspection/feature-detection errors into diagnostics/fallback at the shared model-analysis seam.
-  - Pre-existing untracked demo artifact files remain in the worktree root and were not modified.
+  - One real branch-tip G regression was confirmed during verification: preview-saved engineering context did not preserve the bootstrap review block or reviewed draft config handoff state.
+  - That regression is repaired locally and covered by a new regression test plus real local API smoke.
+  - No new P0/P1 issues were found in the final read-only review of the follow-up diff after the repair.
 - Validations:
   - `node tests/model-analysis-runtime.test.js`
   - `node tests/step-import-service.test.js`
-  - `node tests/review-context-bootstrap.test.js`
   - `node tests/studio-job-bridge.test.js`
+  - `node tests/review-context-bootstrap.test.js`
   - `node tests/local-api-server.test.js`
-  - `python3 -m pytest -q tests/test_ingest.py tests/test_analyze_part.py`
-  - `python3 -m pytest -q tests/test_cli_workflow.py -k 'review_context or weak_step or bootstrap'`
+  - `node tests/bootstrap-import-service.test.js`
+  - `python3 -m pytest -q tests/test_ingest.py tests/test_analyze_part.py tests/test_cli_workflow.py`
   - `node bin/fcad.js check-runtime --json`
   - `node bin/fcad.js review-context --model tests/fixtures/imports/simple_bracket.step --out /tmp/g-step-cli-smoke/review_pack.json`
-  - real local API import-bootstrap -> tracked `review-context` smoke via `createLocalApiServer(...)`
   - `npm run test:node:integration`
   - `npm run test:node:contract` (unrelated failure in `tests/c-artifact-schema.test.js`)
+  - real local API import-bootstrap smoke on `simple_bracket.step`
+  - real local API import-bootstrap -> tracked `review-context` smoke on `simple_bracket.step`
 - Repairs made:
-  - Shared model-analysis input resolution now degrades thrown inspection and STEP feature errors into runtime diagnostics plus metadata-only fallback.
-  - Added a throw-path regression assertion in `tests/model-analysis-runtime.test.js`.
+  - Added explicit preview bootstrap-state persistence into `engineering_context.json`.
+  - Added inline `draft_config_toml` to the preview payload for Studio-to-tracked handoff parity.
+  - Added `tests/bootstrap-import-service.test.js` and wired it into the Node contract lane.
 - Remaining risks:
-  - Coverage still leans on small synthetic import fixtures rather than production-scale CAD.
-  - Repo-wide contract lane still has an unrelated failure in untouched `tests/c-artifact-schema.test.js`.
+  - Repo-wide contract readiness still includes the unrelated `tests/c-artifact-schema.test.js` failure.
+  - The weak STEP fixtures do not substitute for production-scale CAD acceptance testing.
