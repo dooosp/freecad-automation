@@ -21,6 +21,7 @@ const LANE_STEPS = {
     { label: 'Studio draw tracked state', args: ['tests/drawing-tracked-runs.test.js'] },
     { label: 'Studio job monitor', args: ['tests/studio-job-monitor.test.js'] },
     { label: 'Studio job bridge', args: ['tests/studio-job-bridge.test.js'] },
+    { label: 'STEP import bootstrap contracts', args: ['tests/step-import-service.test.js'] },
     { label: 'Design reviewer validation', args: ['tests/design-reviewer-validation.test.js'] },
     { label: 'D artifact contracts', args: ['tests/d-artifact-schema.test.js'] },
     { label: 'C artifact contracts', args: ['tests/c-artifact-schema.test.js'] },

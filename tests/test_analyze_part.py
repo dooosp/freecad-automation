@@ -147,3 +147,40 @@ def test_analyze_part_keeps_distinct_pattern_hotspots_per_entity():
     assert len(pattern_hotspots) == 2
     assert len({hotspot["hotspot_id"] for hotspot in pattern_hotspots}) == 2
     assert len({tuple(hotspot["entity_refs"]) for hotspot in pattern_hotspots}) == 2
+
+
+def test_analyze_part_preserves_bootstrap_contract_evidence():
+    context = json.loads((FIXTURES / "sample_part_context.json").read_text(encoding="utf-8"))
+    context["bootstrap"] = {
+        "import_diagnostics": {
+            "import_kind": "assembly",
+            "body_count": 3,
+        },
+        "bootstrap_summary": {
+            "review_gate": {
+                "status": "review_required",
+            }
+        },
+        "confidence_map": {
+            "overall": {
+                "level": "medium",
+                "score": 0.58,
+            }
+        },
+        "warnings": [
+            "Imported assembly classification needs confirmation.",
+        ],
+    }
+
+    result = run_json_script("scripts/analyze_part.py", {"context": context})
+
+    assert result["success"] is True
+    geometry = result["geometry_intelligence"]
+    hotspots = result["manufacturing_hotspots"]
+
+    assert geometry["bootstrap"]["import_diagnostics"]["import_kind"] == "assembly"
+    assert geometry["bootstrap"]["bootstrap_summary"]["review_gate"]["status"] == "review_required"
+    assert geometry["bootstrap"]["confidence_map"]["overall"]["level"] == "medium"
+    assert "Imported assembly classification needs confirmation." in geometry["warnings"]
+    assert hotspots["bootstrap"]["import_diagnostics"]["body_count"] == 3
+    assert hotspots["bootstrap"]["warnings"] == ["Imported assembly classification needs confirmation."]

@@ -33,6 +33,18 @@ def _resolve_feature_hints(payload):
     )
 
 
+def _resolve_bootstrap(payload):
+    context = payload.get("context") or {}
+    geometry_source = context.get("geometry_source") or {}
+    bootstrap = context.get("bootstrap") or {}
+    return {
+        "import_diagnostics": payload.get("import_diagnostics") or geometry_source.get("import_diagnostics") or bootstrap.get("import_diagnostics") or {},
+        "bootstrap_summary": payload.get("bootstrap_summary") or geometry_source.get("bootstrap_summary") or bootstrap.get("bootstrap_summary") or {},
+        "confidence_map": payload.get("confidence_map") or geometry_source.get("confidence_map") or bootstrap.get("confidence_map") or {},
+        "warnings": payload.get("bootstrap_warnings") or geometry_source.get("bootstrap_warnings") or bootstrap.get("warnings") or [],
+    }
+
+
 def _normalize_vector(values, fallback=None):
     fallback = list(fallback or [0, 0, 0])
     items = list(values or [])
@@ -64,8 +76,10 @@ def _build_metadata_only_fallback(payload):
 def _resolve_warnings(payload):
     context = payload.get("context") or {}
     metadata = context.get("metadata") or {}
+    bootstrap = _resolve_bootstrap(payload)
     warnings = list(metadata.get("warnings") or [])
     warnings.extend(payload.get("warnings") or [])
+    warnings.extend(bootstrap.get("warnings") or [])
 
     seen = set()
     result = []
@@ -86,6 +100,7 @@ def main():
         context = payload.get("context") or {}
         model_metadata = _resolve_model_metadata(payload)
         warnings = _resolve_warnings(payload)
+        bootstrap = _resolve_bootstrap(payload)
         runtime_diagnostics = payload.get("runtime_diagnostics") or []
         used_metadata_only_fallback = bool(payload.get("used_metadata_only_fallback"))
 
@@ -151,6 +166,12 @@ def main():
                 "runtime_diagnostics": runtime_diagnostics,
                 "analysis_mode": analysis_mode,
             },
+            "bootstrap": {
+                "import_diagnostics": bootstrap.get("import_diagnostics") or {},
+                "bootstrap_summary": bootstrap.get("bootstrap_summary") or {},
+                "confidence_map": bootstrap.get("confidence_map") or {},
+                "warnings": bootstrap.get("warnings") or [],
+            },
             "metrics": metrics,
             "features": features,
             "geometry_facts": geometry_facts,
@@ -184,6 +205,12 @@ def main():
                     generated_at=generated_at,
                 ),
                 "part": part,
+                "bootstrap": {
+                    "import_diagnostics": bootstrap.get("import_diagnostics") or {},
+                    "bootstrap_summary": bootstrap.get("bootstrap_summary") or {},
+                    "confidence_map": bootstrap.get("confidence_map") or {},
+                    "warnings": bootstrap.get("warnings") or [],
+                },
                 "hotspots": hotspots,
             },
         })
