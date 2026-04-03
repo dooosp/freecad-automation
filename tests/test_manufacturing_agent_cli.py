@@ -26,6 +26,13 @@ def run_cli(args, check=True):
     return completed
 
 
+def write_aligned_config(output_path: Path, *, template_path: Path = EXAMPLES / "controller_housing_eol.toml", name: str = "sample_part", revision: str = "A"):
+    template = template_path.read_text(encoding="utf-8")
+    updated = re.sub(r'^name = ".*"$', f'name = "{name}"', template, count=1, flags=re.MULTILINE)
+    updated = re.sub(r'^revision = ".*"$', f'revision = "{revision}"', updated, count=1, flags=re.MULTILINE)
+    output_path.write_text(updated, encoding="utf-8")
+
+
 def test_review_command_outputs_product_review_pack(tmp_path):
     output_path = tmp_path / "display_bracket_review.json"
 
@@ -213,23 +220,15 @@ def test_electronics_assembly_example_surfaces_process_line_and_quality_signals(
 
 def test_generate_standard_docs_creates_expected_files(tmp_path):
     out_dir = tmp_path / "standard_docs"
-    readiness_path = tmp_path / "controller_readiness.json"
-
-    run_cli(
-        [
-            "readiness-report",
-            str(EXAMPLES / "controller_housing_eol.toml"),
-            "--out",
-            str(readiness_path),
-        ]
-    )
+    config_path = tmp_path / "sample_part_docs.toml"
+    write_aligned_config(config_path)
 
     run_cli(
         [
             "generate-standard-docs",
-            str(EXAMPLES / "controller_housing_eol.toml"),
-            "--readiness-report",
-            str(readiness_path),
+            str(config_path),
+            "--review-pack",
+            str(REVIEW_PACK_FIXTURE),
             "--out-dir",
             str(out_dir),
         ]
@@ -258,23 +257,15 @@ def test_generate_standard_docs_creates_expected_files(tmp_path):
 def test_profile_aware_standard_doc_presets_change_owner_and_frequency(tmp_path):
     korea_dir = tmp_path / "docs_korea"
     mexico_dir = tmp_path / "docs_mexico"
-    readiness_path = tmp_path / "controller_readiness.json"
-
-    run_cli(
-        [
-            "readiness-report",
-            str(EXAMPLES / "controller_housing_eol.toml"),
-            "--out",
-            str(readiness_path),
-        ]
-    )
+    config_path = tmp_path / "sample_part_docs.toml"
+    write_aligned_config(config_path)
 
     run_cli(
         [
             "generate-standard-docs",
-            str(EXAMPLES / "controller_housing_eol.toml"),
-            "--readiness-report",
-            str(readiness_path),
+            str(config_path),
+            "--review-pack",
+            str(REVIEW_PACK_FIXTURE),
             "--profile",
             str(ROOT / "configs" / "profiles" / "site_korea_ulsan.toml"),
             "--out-dir",
@@ -284,9 +275,9 @@ def test_profile_aware_standard_doc_presets_change_owner_and_frequency(tmp_path)
     run_cli(
         [
             "generate-standard-docs",
-            str(EXAMPLES / "controller_housing_eol.toml"),
-            "--readiness-report",
-            str(readiness_path),
+            str(config_path),
+            "--review-pack",
+            str(REVIEW_PACK_FIXTURE),
             "--profile",
             str(ROOT / "configs" / "profiles" / "site_mexico_mty.toml"),
             "--out-dir",
@@ -299,8 +290,8 @@ def test_profile_aware_standard_doc_presets_change_owner_and_frequency(tmp_path)
     korea_work_instruction = (korea_dir / "work_instruction_draft.md").read_text(encoding="utf-8")
     mexico_work_instruction = (mexico_dir / "work_instruction_draft.md").read_text(encoding="utf-8")
 
-    assert "Pilot lot 100% + hourly layered audit" in korea_control_plan
-    assert "First 3 lots 100% + hourly layered audit" in mexico_control_plan
+    assert "Launch lot 100% then every 2 hours" in korea_control_plan
+    assert "Launch lot 100% then hourly audit" in mexico_control_plan
     assert "Quality engineering" in korea_control_plan
     assert "Resident quality engineering" in mexico_control_plan
     assert "Profile preset: Korea-Ulsan launch profile" in korea_work_instruction

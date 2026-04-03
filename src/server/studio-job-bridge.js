@@ -8,6 +8,7 @@ import {
   findPreferredReviewPackArtifact,
   isConfigLikeArtifact,
   isInspectableModelArtifact,
+  isReviewContextArtifact,
   isReadinessReportArtifact,
   isReleaseBundleArtifact,
   isReviewPackArtifact,
@@ -22,6 +23,7 @@ const STUDIO_JOB_TYPES = new Set([
   'draw',
   'inspect',
   'report',
+  'review-context',
   'compare-rev',
   'readiness-pack',
   'stabilization-review',
@@ -135,7 +137,7 @@ export function validateStudioJobSubmission(body) {
   });
 
   if (!STUDIO_JOB_TYPES.has(request.type)) {
-    errors.push('type must be one of create, draw, inspect, report, compare-rev, readiness-pack, stabilization-review, generate-standard-docs, or pack.');
+    errors.push('type must be one of create, draw, inspect, report, review-context, compare-rev, readiness-pack, stabilization-review, generate-standard-docs, or pack.');
   }
 
   const hasConfigToml = typeof request.config_toml === 'string' && request.config_toml.trim().length > 0;
@@ -160,6 +162,13 @@ export function validateStudioJobSubmission(body) {
     }
     if (hasConfigToml) {
       errors.push('config_toml is not supported for type "inspect".');
+    }
+  } else if (request.type === 'review-context') {
+    if (!hasArtifactRef) {
+      errors.push('artifact_ref is required for type "review-context".');
+    }
+    if (hasConfigToml) {
+      errors.push('config_toml is not supported for type "review-context".');
     }
   } else if (STUDIO_AF_ARTIFACT_JOB_TYPES.has(request.type)) {
     if (!hasArtifactRef) {
@@ -199,13 +208,14 @@ export function validateStudioJobSubmission(body) {
 
   if (
     request.type !== 'inspect'
+    && request.type !== 'review-context'
     && request.type !== 'report'
     && !STUDIO_AF_ARTIFACT_JOB_TYPES.has(request.type)
     && request.type !== 'compare-rev'
     && request.type !== 'stabilization-review'
     && request.artifact_ref !== undefined
   ) {
-    errors.push('artifact_ref is only supported for type "inspect", "report", "readiness-pack", "generate-standard-docs", or "pack".');
+    errors.push('artifact_ref is only supported for type "inspect", "report", "review-context", "readiness-pack", "generate-standard-docs", or "pack".');
   }
 
   if (
@@ -326,6 +336,35 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
         request: {
           type: 'inspect',
           file_path: resolvedArtifact.artifact.path,
+          options: buildResolvedArtifactOptions(request, resolvedArtifact),
+        },
+      };
+    }
+
+    if (request.type === 'review-context') {
+      if (isReviewContextArtifact(resolvedArtifact.artifact)) {
+        return {
+          ok: true,
+          request: {
+            type: 'review-context',
+            context_path: resolvedArtifact.artifact.path,
+            options: buildResolvedArtifactOptions(request, resolvedArtifact),
+          },
+        };
+      }
+
+      if (!isInspectableModelArtifact(resolvedArtifact.artifact)) {
+        return {
+          ok: false,
+          errors: ['artifact_ref must point to a supported model artifact or tracked context JSON for type "review-context".'],
+        };
+      }
+
+      return {
+        ok: true,
+        request: {
+          type: 'review-context',
+          model_path: resolvedArtifact.artifact.path,
           options: buildResolvedArtifactOptions(request, resolvedArtifact),
         },
       };

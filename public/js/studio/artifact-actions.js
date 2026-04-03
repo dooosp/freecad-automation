@@ -118,6 +118,18 @@ export function isInspectableModelArtifact(artifact = {}) {
   return INSPECT_MODEL_EXTENSIONS.has(extension);
 }
 
+export function isReviewContextArtifact(artifact = {}) {
+  if (artifact.exists === false) return false;
+  const extension = normalizeString(artifact.extension);
+  if (extension !== '.json') return false;
+  return includesAny(artifactSearchText(artifact), [
+    'context.json',
+    'input.context',
+    'engineering context',
+    '_context.json',
+  ]);
+}
+
 export function isReviewSourceArtifact(artifact = {}) {
   const target = contractReentryTarget(artifact);
   if (target === 'review_pack' || target === 'readiness_report') {
@@ -178,6 +190,9 @@ export function canReenterModelWorkspace(artifact = {}) {
 
 export function canStartTrackedArtifactRun(artifact = {}, type = 'report') {
   if (artifact.exists === false) return false;
+  if (type === 'review-context') {
+    return isInspectableModelArtifact(artifact) || isReviewContextArtifact(artifact);
+  }
   if (type === 'readiness-pack') {
     return isReviewPackArtifact(artifact) || isReleaseBundleArtifact(artifact);
   }
@@ -195,6 +210,7 @@ export function canStartTrackedArtifactRun(artifact = {}, type = 'report') {
 export function deriveArtifactReentryCapabilities(artifact = {}) {
   return {
     canOpenInModel: canReenterModelWorkspace(artifact),
+    canRunTrackedReviewContext: canStartTrackedArtifactRun(artifact, 'review-context'),
     canRunTrackedReport: canStartTrackedArtifactRun(artifact, 'report'),
     canRunTrackedInspect: canStartTrackedArtifactRun(artifact, 'inspect'),
     canRunTrackedReadinessPack: canStartTrackedArtifactRun(artifact, 'readiness-pack'),

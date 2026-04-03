@@ -9,6 +9,7 @@ const ROOT = resolve(import.meta.dirname, '..');
 const REVIEW_PACK_FIXTURE = resolve(ROOT, 'tests/fixtures/d-artifacts/sample_review_pack.canonical.json');
 const READINESS_REPORT_FIXTURE = resolve(ROOT, 'tests/fixtures/c-artifacts/sample_readiness_report.canonical.json');
 const CONFIG_EXAMPLE = resolve(ROOT, 'configs/examples/controller_housing_eol.toml');
+const REVIEW_CONTEXT_FIXTURE = resolve(ROOT, 'tests/fixtures/sample_part_context.json');
 
 function writeAlignedConfig(filePath, {
   templatePath = CONFIG_EXAMPLE,
@@ -76,6 +77,12 @@ const tmpRoot = mkdtempSync(join(tmpdir(), 'fcad-af-jobs-'));
 try {
   const docsConfigPath = join(tmpRoot, 'sample_part_docs.toml');
   writeAlignedConfig(docsConfigPath);
+  const reviewContextPath = join(tmpRoot, 'sample_part_context.runtime-safe.json');
+  const reviewContextFixture = JSON.parse(readFileSync(REVIEW_CONTEXT_FIXTURE, 'utf8'));
+  if (reviewContextFixture?.geometry_source && typeof reviewContextFixture.geometry_source === 'object') {
+    delete reviewContextFixture.geometry_source.path;
+  }
+  writeFileSync(reviewContextPath, JSON.stringify(reviewContextFixture, null, 2), 'utf8');
 
   const { server } = createLocalApiServer({
     projectRoot: ROOT,
@@ -100,6 +107,39 @@ try {
   const readinessArtifact = readinessArtifactsPayload.artifacts.find((artifact) => artifact.contract?.reentry_target === 'readiness_report');
   assert.equal(Boolean(readinessArtifact), true);
   assert.equal(readinessArtifact.contract.canonical_file_name, 'readiness_report.json');
+
+  const { response: initialReviewResponse, payload: initialReviewPayload } = await postJson(`${baseUrl}/jobs`, {
+    type: 'review-context',
+    context_path: reviewContextPath,
+  });
+  assert.equal(initialReviewResponse.status, 202);
+  assert.equal(initialReviewPayload.job.execution.command, 'review-context');
+  const initialReviewJob = await waitForJob(baseUrl, initialReviewPayload.job.id);
+  assert.equal(initialReviewJob.execution.lifecycle_state, 'succeeded');
+  const initialReviewArtifactsPayload = await fetchArtifacts(baseUrl, initialReviewJob.id);
+  const contextArtifact = initialReviewArtifactsPayload.artifacts.find((artifact) => artifact.type === 'context.json');
+  assert.equal(Boolean(contextArtifact), true);
+
+  const { response: bridgedReviewResponse, payload: bridgedReviewPayload } = await postJson(`${baseUrl}/api/studio/jobs`, {
+    type: 'review-context',
+    artifact_ref: {
+      job_id: initialReviewJob.id,
+      artifact_id: contextArtifact.id,
+    },
+  });
+  assert.equal(bridgedReviewResponse.status, 202);
+  assert.equal(bridgedReviewPayload.job.type, 'review-context');
+  assert.deepEqual(bridgedReviewPayload.job.request.artifact_ref, {
+    job_id: initialReviewJob.id,
+    artifact_id: contextArtifact.id,
+  });
+
+  const bridgedReviewJob = await waitForJob(baseUrl, bridgedReviewPayload.job.id);
+  assert.equal(bridgedReviewJob.execution.lifecycle_state, 'succeeded');
+  const bridgedReviewArtifactsPayload = await fetchArtifacts(baseUrl, bridgedReviewJob.id);
+  const bridgedReviewPack = bridgedReviewArtifactsPayload.artifacts.find((artifact) => artifact.contract?.reentry_target === 'review_pack');
+  assert.equal(Boolean(bridgedReviewPack), true);
+  assert.equal(bridgedReviewPack.contract.canonical_file_name, 'review_pack.json');
 
   const { response: compareResponse, payload: comparePayload } = await postJson(`${baseUrl}/jobs`, {
     type: 'compare-rev',

@@ -201,6 +201,7 @@ const ko = {
     'No tracked jobs': '추적된 작업이 없습니다',
     'No active job': '활성 작업이 없습니다',
     'Open in Model': '모델에서 열기',
+    'Tracked review context': '추적 review-context',
     'Tracked report': '추적 보고서',
     'Tracked inspect': '추적 검사',
     'Tracked compare-rev': '추적 compare-rev',
