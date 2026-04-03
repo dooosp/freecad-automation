@@ -76,7 +76,10 @@ try {
   assert.match(html, /GET \/api/);
   assert.match(html, /fcad serve --legacy-viewer/);
   assert.match(html, /Need classic compatibility mode instead\?/);
-  assert.match(html, /review, readiness, compare, docs, and pack jobs/i);
+  assert.match(html, /create\/draw\/inspect\/report work plus compare, readiness, docs, and pack follow-up/i);
+  assert.match(html, /POST \/jobs/);
+  assert.match(html, /review-context/i);
+  assert.match(html, /release_bundle\.zip|release bundle/i);
   assert.match(html, new RegExp(ROOT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
 
   const apiKoHtmlResponse = await fetch(`${baseUrl}/api`, {
