@@ -5,7 +5,7 @@
   - branch: `codex/g-step-bootstrap-review-loop`
   - mode: `worktree`
 - Verification phase:
-  - final targeted truthfulness and review-readiness verification on the current branch tip
+  - final branch-tip truthfulness and review-readiness verification
 - Verification focus:
   - Confirm tracked `review-context` still preserves nested `context.geometry_source.bootstrap` metadata.
   - Confirm preview `bootstrap.draft_config_toml` still survives the Studio/API handoff into the tracked `config.bootstrap-draft` artifact with exact string equality.
@@ -48,4 +48,4 @@
   - No unrelated broad-lane reruns were performed in this pass.
 - Unrelated contract-lane status:
   - `npm run test:node:contract` was not rerun in this verification pass.
-  - Any unrelated contract-lane failure remains outside this scope and was not revalidated or repaired here.
+  - Any previously reported unrelated contract-lane failure remains outside this scope and was not revalidated or repaired here.

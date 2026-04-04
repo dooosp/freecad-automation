@@ -5,19 +5,16 @@
   - branch: `codex/g-step-bootstrap-review-loop`
   - mode: `worktree`
 - Current phase:
-  - final review-readiness truthfulness pass complete
+  - final branch-tip review-readiness pass complete
 - Completed work:
-  - Re-ran the mandatory preflight in the actual `freecad-automation` worktree on `codex/g-step-bootstrap-review-loop`.
+  - Ran the mandatory preflight in the actual `freecad-automation` worktree on `codex/g-step-bootstrap-review-loop` and confirmed the repo-local control/status files live inside this repo root.
   - Inspected the narrow G close-out surface in `src/orchestration/review-context-pipeline.js`, `src/services/import/bootstrap-import-service.js`, `public/js/studio/import-bootstrap-options.js`, `public/js/studio-shell.js`, and the targeted tests/status files.
-  - Verified the current branch tip preserves nested tracked bootstrap metadata by merging existing `context.geometry_source.bootstrap` before adding `draft_config_available: true`.
-  - Verified preview -> tracked `draft_config_toml` parity remains proven by the current automated evidence:
+  - Verified the current branch tip still preserves nested tracked bootstrap metadata by merging existing `context.geometry_source.bootstrap` before adding `draft_config_available: true`.
+  - Verified preview -> tracked `draft_config_toml` parity is still proven by the current automated evidence:
     - helper/pipeline proof in `tests/review-context-bootstrap.test.js`
     - Studio/API bridge proof in `tests/local-api-server.test.js`
-  - Confirmed the status/reporting needed a wording-only truthfulness pass:
-    - remove stale wording implying more repair/commit work was still pending
-    - describe the branch as ready for human review, not merge-ready
-    - clarify that evidence is helper/API-path proof, not literal browser-click proof
-  - Found no new P1 in the narrow G close-out surface.
+  - Confirmed there is no new implementation defect to fix in the narrow G close-out surface.
+  - Refreshed this repo-local status/reporting so it truthfully reflects the current pass, the exact validations actually run, and the branch state as ready for human review rather than merge-ready.
 - Exact files changed in this final pass:
   - `tmp/codex/g-step-bootstrap-review-loop-status.md`
   - `tmp/codex/g-step-bootstrap-review-loop-verification-status.md`
@@ -29,12 +26,12 @@
 - Failures encountered:
   - None in the targeted validation lane.
 - Repairs made:
-  - Reporting only: tightened the repo-local status wording so it matches current branch-tip code and test evidence exactly.
+  - Reporting only: tightened the repo-local status wording so it matches the current branch-tip code, test evidence, and this pass's actual activity exactly.
   - No implementation files changed in this final pass.
 - Open risks:
   - This pass did not perform literal browser clicking, browser automation, or manual browser QA. The strongest evidence here is Node/API/helper-path proof, including the real local API bridge.
   - Pre-existing untracked demo artifact files remain in the worktree root and were intentionally untouched.
-  - `npm run test:node:contract` remains outside this narrow scope.
+  - A previously reported unrelated `npm run test:node:contract` failure, if still present, remains outside this narrow scope and was not rerun here.
 - Remaining work:
   - Human review on PR `#13`.
 - Result summary:
@@ -45,4 +42,4 @@
   - Merge-ready claim: intentionally not made from this thread.
 - Unrelated contract-lane status:
   - `npm run test:node:contract` was not rerun in this final pass.
-  - Any unrelated contract-lane failure remains outside this scope and was not revalidated or repaired here.
+  - Any previously reported unrelated contract-lane failure remains outside this scope and was not revalidated or repaired here.
