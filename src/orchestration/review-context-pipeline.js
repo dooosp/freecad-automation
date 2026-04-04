@@ -412,6 +412,7 @@ export async function runReviewContextPipeline({
     ...(Object.keys(primaryBootstrapDiagnostics).length > 0 ? { import_diagnostics: primaryBootstrapDiagnostics } : {}),
     ...(draftConfigToml ? {
       bootstrap: {
+        ...safeObject(context?.geometry_source?.bootstrap),
         draft_config_available: true,
       },
     } : {}),

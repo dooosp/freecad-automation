@@ -256,6 +256,45 @@ function buildArtifactList(projectRoot, artifactMap = {}) {
     }));
 }
 
+function attachBootstrapStateToContext(context, {
+  projectRoot,
+  importDiagnostics,
+  bootstrapSummary,
+  confidenceMap,
+  bootstrapWarnings,
+  draftConfigPath,
+} = {}) {
+  const normalizedDraftConfigPath = draftConfigPath
+    ? normalizeRelativePath(projectRoot, draftConfigPath)
+    : null;
+
+  return {
+    ...context,
+    geometry_source: {
+      ...(context?.geometry_source || {}),
+      import_diagnostics: importDiagnostics || context?.geometry_source?.import_diagnostics || {},
+      bootstrap_summary: bootstrapSummary || context?.geometry_source?.bootstrap_summary || {},
+      confidence_map: confidenceMap || context?.geometry_source?.confidence_map || {},
+      bootstrap_warnings: safeList(bootstrapWarnings).length > 0
+        ? bootstrapWarnings
+        : (context?.geometry_source?.bootstrap_warnings || []),
+      bootstrap: {
+        ...safeObject(context?.geometry_source?.bootstrap),
+        ...(normalizedDraftConfigPath ? { draft_config_path: normalizedDraftConfigPath } : {}),
+      },
+    },
+    bootstrap: {
+      import_diagnostics: importDiagnostics || context?.bootstrap?.import_diagnostics || {},
+      bootstrap_summary: bootstrapSummary || context?.bootstrap?.bootstrap_summary || {},
+      confidence_map: confidenceMap || context?.bootstrap?.confidence_map || {},
+      warnings: safeList(bootstrapWarnings).length > 0
+        ? bootstrapWarnings
+        : (context?.bootstrap?.warnings || []),
+      draft_config_path: normalizedDraftConfigPath,
+    },
+  };
+}
+
 export function createBootstrapImportService({
   analyzeModelFn = analyzeStep,
   runPythonJsonScriptFn = runPythonJsonScript,
@@ -365,14 +404,22 @@ export function createBootstrapImportService({
     const draftConfigToml = `${generateConfigFromAnalysis(analysis).trimEnd()}\n`;
 
     await mkdir(artifactsDir, { recursive: true });
-    const engineeringContextPath = await writeJsonFile(resolve(artifactsDir, 'engineering_context.json'), engineeringContext);
+    const draftConfigPath = resolve(artifactsDir, 'draft_config.toml');
+    await writeFile(draftConfigPath, draftConfigToml, 'utf8');
+    const finalizedEngineeringContext = attachBootstrapStateToContext(engineeringContext, {
+      projectRoot,
+      importDiagnostics: analysis.import_diagnostics || {},
+      bootstrapSummary,
+      confidenceMap,
+      bootstrapWarnings: bootstrapWarnings.warnings,
+      draftConfigPath,
+    });
+    const engineeringContextPath = await writeJsonFile(resolve(artifactsDir, 'engineering_context.json'), finalizedEngineeringContext);
     const geometryIntelligencePath = await writeJsonFile(resolve(artifactsDir, 'geometry_intelligence.json'), geometryResult.geometry_intelligence);
     const importDiagnosticsPath = await writeJsonFile(resolve(artifactsDir, 'import_diagnostics.json'), importDiagnostics);
     const bootstrapWarningsPath = await writeJsonFile(resolve(artifactsDir, 'bootstrap_warnings.json'), bootstrapWarnings);
     const confidenceMapPath = await writeJsonFile(resolve(artifactsDir, 'confidence_map.json'), confidenceMap);
     const bootstrapSummaryPath = await writeJsonFile(resolve(artifactsDir, 'bootstrap_summary.json'), bootstrapSummary);
-    const draftConfigPath = resolve(artifactsDir, 'draft_config.toml');
-    await writeFile(draftConfigPath, draftConfigToml, 'utf8');
 
     const artifactMap = {
       import_diagnostics: importDiagnosticsPath,
@@ -398,6 +445,7 @@ export function createBootstrapImportService({
         bootstrap_summary: bootstrapSummary,
         bootstrap_warnings: bootstrapWarnings,
         confidence_map: confidenceMap,
+        draft_config_toml: draftConfigToml,
         geometry_intelligence: geometryResult.geometry_intelligence,
       },
       tracked_review_seed: {

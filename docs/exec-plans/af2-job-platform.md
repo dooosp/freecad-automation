@@ -11,7 +11,7 @@
 - Expected git root basename: `freecad-automation`
 - Default branch: detect from git metadata
 - Task branch: `feat/af2-job-platform`
-- Preferred worktree: `/Users/jangtaeho/Documents/New/.worktrees/af2-job-platform/freecad-automation`
+- Preferred worktree: `../.worktrees/af2-job-platform/freecad-automation` relative to the parent workspace that contains this repo checkout
 
 ## Scope
 - Shared platform job coverage:

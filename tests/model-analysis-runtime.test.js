@@ -42,4 +42,26 @@ assert.equal(result.featureHints.bolt_circles, undefined);
 assert.equal(result.warningMessages.some((warning) => warning.includes('metadata-only fallback')), true);
 assert.equal(result.warningMessages.some((warning) => warning.includes('STEP-derived feature hints')), true);
 
+const thrownResult = await resolveModelAnalysisInputs({
+  modelPath,
+  inspectModelIfAvailable: async () => {
+    throw new Error('shape is invalid');
+  },
+  detectStepFeaturesIfAvailable: async () => {
+    throw new Error('missing feature json');
+  },
+});
+
+assert.equal(thrownResult.usedMetadataOnlyFallback, true);
+assert.equal(thrownResult.runtimeDiagnostics.some((diagnostic) => diagnostic.stage === 'model-inspection'), true);
+assert.equal(thrownResult.runtimeDiagnostics.some((diagnostic) => diagnostic.stage === 'step-feature-detection'), true);
+assert.equal(
+  thrownResult.warningMessages.some((warning) => warning.includes('Runtime-backed model inspection failed: shape is invalid')),
+  true
+);
+assert.equal(
+  thrownResult.warningMessages.some((warning) => warning.includes('STEP feature detection failed: missing feature json')),
+  true
+);
+
 console.log('model-analysis-runtime.test.js: ok');

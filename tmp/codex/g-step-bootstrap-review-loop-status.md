@@ -1,50 +1,45 @@
 # G STEP Bootstrap Review Loop Status
 
-- Current phase: remediation and merge-readiness verification
+- Repo identity used:
+  - root: `/Users/jangtaeho/Documents/New/.worktrees/g-step-bootstrap-review-loop/freecad-automation`
+  - branch: `codex/g-step-bootstrap-review-loop`
+  - mode: `worktree`
+- Current phase:
+  - final branch-tip review-readiness pass complete
 - Completed work:
-  - Restored metadata-only bootstrap fallback so weak/invalid STEP and FCStd imports no longer hard-fail the Studio bootstrap preview path.
-  - Corrected `correction_required` logic so partial imports, unit assumptions, and metadata-only fallback remain review-required.
-  - Unified bootstrap `confidence_map` handoff shape with the tracked `review-context` contract.
-  - Restored in-repo task status tracking after the earlier scratch-file cleanup commit removed it from branch tip.
-- Files changed:
-  - `src/services/import/step-import-service.js`
-  - `src/services/import/bootstrap-import-service.js`
-  - `src/orchestration/review-context-pipeline.js`
-  - `public/js/studio-shell.js`
-  - `tests/step-import-service.test.js`
-  - `tests/studio-job-bridge.test.js`
-  - `tests/local-api-server.test.js`
+  - Ran the mandatory preflight in the actual `freecad-automation` worktree on `codex/g-step-bootstrap-review-loop` and confirmed the repo-local control/status files live inside this repo root.
+  - Inspected the narrow G close-out surface in `src/orchestration/review-context-pipeline.js`, `src/services/import/bootstrap-import-service.js`, `public/js/studio/import-bootstrap-options.js`, `public/js/studio-shell.js`, and the targeted tests/status files.
+  - Verified the current branch tip still preserves nested tracked bootstrap metadata by merging existing `context.geometry_source.bootstrap` before adding `draft_config_available: true`.
+  - Verified preview -> tracked `draft_config_toml` parity is still proven by the current automated evidence:
+    - helper/pipeline proof in `tests/review-context-bootstrap.test.js`
+    - Studio/API bridge proof in `tests/local-api-server.test.js`
+  - Confirmed there is no new implementation defect to fix in the narrow G close-out surface.
+  - Refreshed this repo-local status/reporting so it truthfully reflects the current pass, the exact validations actually run, and the branch state as ready for human review rather than merge-ready.
+- Exact files changed in this final pass:
   - `tmp/codex/g-step-bootstrap-review-loop-status.md`
   - `tmp/codex/g-step-bootstrap-review-loop-verification-status.md`
-- Validations run so far:
-  - `npm run test:node:integration`
-  - `node bin/fcad.js check-runtime --json`
-  - local API `POST /api/studio/import-bootstrap` smoke against the real server path
-  - `node bin/fcad.js review-context --model tests/fixtures/imports/simple_bracket.step --out /tmp/g-step-preview-check/review_pack.json`
-  - direct preview-to-handoff smoke via `runReviewContextPipeline(...)` using the preview-generated bootstrap payload
-  - `node --check src/services/import/step-import-service.js`
-  - `node --check src/services/import/bootstrap-import-service.js`
-  - `node --check src/orchestration/review-context-pipeline.js`
-  - `node --check public/js/studio-shell.js`
-  - `node tests/step-import-service.test.js`
-  - `node tests/studio-job-bridge.test.js`
-  - `node tests/local-api-server.test.js`
-  - `node tests/review-context-bootstrap.test.js`
-  - `python3 -m pytest -q tests/test_ingest.py tests/test_analyze_part.py tests/test_cli_workflow.py`
-  - direct runtime-backed bootstrap preview smoke with `tests/fixtures/imports/simple_bracket.step`
+- Validations run in this final pass:
+  - `node tests/bootstrap-import-service.test.js` -> passed
+  - `node tests/review-context-bootstrap.test.js` -> passed
+  - `node tests/local-api-server.test.js` -> passed
+  - `node tests/studio-job-bridge.test.js` -> passed
 - Failures encountered:
-  - Runtime-backed Studio bootstrap preview previously failed when both STEP feature detection and `inspect_model.py` failed on the weak `simple_bracket.step` fixture.
-  - `correction_required` could miss partial-import cases because preview code looked at the wrong field shape.
-  - Preview and handoff used different confidence payload shapes.
+  - None in the targeted validation lane.
 - Repairs made:
-  - Added bounded weak-import fallback analysis instead of throwing on preview.
-  - Switched correction logic to normalized diagnostics conditions and explicit unit-assumption/fallback checks.
-  - Normalized confidence handoff to the document-shaped `confidence_map`.
-  - Preserved legacy `bootstrap.confidence` compatibility by normalizing it to `confidence_map.import_bootstrap.overall`.
-  - Updated Studio correction handoff so confidence subdocuments track corrected unit/classification/body-count evidence.
+  - Reporting only: tightened the repo-local status wording so it matches the current branch-tip code, test evidence, and this pass's actual activity exactly.
+  - No implementation files changed in this final pass.
 - Open risks:
-  - Full repo-wide contract/python lanes still contain older unrelated failures outside this G scope.
-  - The lightweight STEP fixtures still represent weak contract fixtures rather than production geometry.
+  - This pass did not perform literal browser clicking, browser automation, or manual browser QA. The strongest evidence here is Node/API/helper-path proof, including the real local API bridge.
+  - Pre-existing untracked demo artifact files remain in the worktree root and were intentionally untouched.
+  - A previously reported unrelated `npm run test:node:contract` failure, if still present, remains outside this narrow scope and was not rerun here.
 - Remaining work:
-  - Complete read-only diff-invariant review.
-  - Commit and push the remediation if the branch stays clean after review.
+  - Human review on PR `#13`.
+- Result summary:
+  - Nested bootstrap metadata preservation: proven by current code and targeted tests.
+  - Preview -> tracked `draft_config_toml` parity: proven by current code and targeted tests.
+  - P1 remaining in this narrow repair surface: none found.
+  - Branch state from this pass: ready for human review.
+  - Merge-ready claim: intentionally not made from this thread.
+- Unrelated contract-lane status:
+  - `npm run test:node:contract` was not rerun in this final pass.
+  - Any previously reported unrelated contract-lane failure remains outside this scope and was not revalidated or repaired here.
