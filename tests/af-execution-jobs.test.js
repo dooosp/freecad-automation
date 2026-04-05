@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -8,19 +8,6 @@ import { createLocalApiServer } from '../src/server/local-api-server.js';
 const ROOT = resolve(import.meta.dirname, '..');
 const REVIEW_PACK_FIXTURE = resolve(ROOT, 'tests/fixtures/d-artifacts/sample_review_pack.canonical.json');
 const READINESS_REPORT_FIXTURE = resolve(ROOT, 'tests/fixtures/c-artifacts/sample_readiness_report.canonical.json');
-const CONFIG_EXAMPLE = resolve(ROOT, 'configs/examples/controller_housing_eol.toml');
-
-function writeAlignedConfig(filePath, {
-  templatePath = CONFIG_EXAMPLE,
-  name = 'sample_part',
-  revision = 'A',
-} = {}) {
-  const template = readFileSync(templatePath, 'utf8');
-  const next = template
-    .replace(/^name = ".*"$/m, `name = "${name}"`)
-    .replace(/^revision = ".*"$/m, `revision = "${revision}"`);
-  writeFileSync(filePath, next, 'utf8');
-}
 
 async function listen(server) {
   await new Promise((resolveListen) => server.listen(0, '127.0.0.1', resolveListen));
@@ -74,9 +61,6 @@ async function fetchArtifacts(baseUrl, jobId) {
 const tmpRoot = mkdtempSync(join(tmpdir(), 'fcad-af-jobs-'));
 
 try {
-  const docsConfigPath = join(tmpRoot, 'sample_part_docs.toml');
-  writeAlignedConfig(docsConfigPath);
-
   const { server } = createLocalApiServer({
     projectRoot: ROOT,
     jobsDir: join(tmpRoot, 'jobs'),
@@ -121,14 +105,19 @@ try {
   const stabilizationJob = await waitForJob(baseUrl, stabilizationPayload.job.id);
   assert.equal(stabilizationJob.execution.lifecycle_state, 'succeeded');
 
-  const readinessReportPath = join(tmpRoot, 'jobs', readinessJob.id, 'artifacts', 'readiness_report.json');
-  const { response: docsResponse, payload: docsPayload } = await postJson(`${baseUrl}/jobs`, {
+  const { response: docsResponse, payload: docsPayload } = await postJson(`${baseUrl}/api/studio/jobs`, {
     type: 'generate-standard-docs',
-    config_path: docsConfigPath,
-    readiness_report_path: readinessReportPath,
+    artifact_ref: {
+      job_id: readinessJob.id,
+      artifact_id: readinessArtifact.id,
+    },
   });
   assert.equal(docsResponse.status, 202);
   assert.equal(docsPayload.job.execution.command, 'generate-standard-docs');
+  assert.deepEqual(docsPayload.job.request.artifact_ref, {
+    job_id: readinessJob.id,
+    artifact_id: readinessArtifact.id,
+  });
   const docsJob = await waitForJob(baseUrl, docsPayload.job.id);
   assert.equal(docsJob.execution.lifecycle_state, 'succeeded');
 
@@ -137,6 +126,8 @@ try {
   assert.equal(Boolean(docsReadinessArtifact), true);
   const docsManifestArtifact = docsArtifactsPayload.artifacts.find((artifact) => artifact.type === 'standard-docs.summary');
   assert.equal(Boolean(docsManifestArtifact), true);
+  assert.equal(docsArtifactsPayload.artifacts.some((artifact) => artifact.type === 'config.effective'), true);
+  assert.equal(docsArtifactsPayload.artifacts.some((artifact) => artifact.type === 'config.input'), true);
 
   const { response: packFromArtifactResponse, payload: packFromArtifactPayload } = await postJson(`${baseUrl}/api/studio/jobs`, {
     type: 'pack',

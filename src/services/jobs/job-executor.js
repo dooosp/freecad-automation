@@ -276,6 +276,52 @@ function buildReleaseBundleMetadata({
   });
 }
 
+function findSourceArtifactRef(document = {}, artifactType) {
+  return Array.isArray(document?.source_artifact_refs)
+    ? document.source_artifact_refs.find((ref) => ref?.artifact_type === artifactType && typeof ref.path === 'string' && ref.path.trim())
+    : null;
+}
+
+function buildReadinessRehydratedConfig(readinessReport = {}) {
+  const part = readinessReport?.part && typeof readinessReport.part === 'object' ? readinessReport.part : {};
+  const cadModelRef = findSourceArtifactRef(readinessReport, 'cad_model');
+  const name = part.name || part.part_id || 'derived_part';
+  const config = {
+    config_version: 1,
+    name,
+    export: {
+      formats: ['step'],
+      directory: 'output',
+    },
+  };
+
+  if (part.part_id || part.revision) {
+    config.product = {};
+    if (part.part_id) config.product.part_id = part.part_id;
+    if (part.revision) config.product.revision = part.revision;
+  }
+
+  if (part.material || part.process) {
+    config.manufacturing = {};
+    if (part.material) config.manufacturing.material = part.material;
+    if (part.process) config.manufacturing.process = part.process;
+  }
+
+  if (cadModelRef?.path) {
+    config.import = {
+      source_step: cadModelRef.path,
+    };
+  }
+
+  if (readinessReport?.rule_profile?.id) {
+    config.standards = {
+      profile: readinessReport.rule_profile.id,
+    };
+  }
+
+  return config;
+}
+
 async function loadReviewPackHandoff(pathValue, { command }) {
   const artifact = await readJsonFile(pathValue);
   buildAfArtifactContractFromDocument({
@@ -369,9 +415,74 @@ export function createJobExecutor({
     });
   }
 
+  async function persistValidatedConfig(job, {
+    config,
+    summary,
+    rawRelativePath = INLINE_CONFIG_RELATIVE_PATH,
+  }) {
+    const rawInputPath = await jobStore.writeJobFile(job.id, rawRelativePath, `${JSON.stringify(config, null, 2)}\n`);
+    const effectiveConfigPath = await jobStore.writeJobFile(
+      job.id,
+      EFFECTIVE_CONFIG_RELATIVE_PATH,
+      serializeConfig(config, 'json')
+    );
+
+    return {
+      config,
+      configPath: effectiveConfigPath,
+      rawConfigPath: rawInputPath,
+      summary,
+      diagnostics: {
+        config_warnings: summary.warnings,
+        config_changed_fields: summary.changed_fields,
+        config_deprecated_fields: summary.deprecated_fields,
+      },
+    };
+  }
+
+  async function resolveGenerateStandardDocsConfigFromReadiness(job) {
+    const readinessReportPath = resolveMaybe(projectRoot, job.request.readiness_report_path);
+    const readinessReport = await loadReadinessReportHandoff(readinessReportPath, { command: 'generate-standard-docs' });
+    const sourceConfigRef = findSourceArtifactRef(readinessReport, 'config');
+    if (sourceConfigRef?.path) {
+      try {
+        const sourceConfigPath = resolveMaybe(projectRoot, sourceConfigRef.path) || sourceConfigRef.path;
+        const loaded = await loadConfigWithDiagnostics(sourceConfigPath);
+        return persistValidatedConfig(job, {
+          config: loaded.config,
+          summary: loaded.summary,
+          rawRelativePath: 'inputs/rehydrated-config.json',
+        });
+      } catch {
+        // Fall through to a synthetic config when the referenced config is unavailable.
+      }
+    }
+
+    const derivedValidation = validateConfigDocument(
+      buildReadinessRehydratedConfig(readinessReport),
+      { filepath: `${job.id}:rehydrated-readiness-config` }
+    );
+    if (!derivedValidation.valid) {
+      throw new Error(derivedValidation.summary.errors.join(' | '));
+    }
+
+    return persistValidatedConfig(job, {
+      config: derivedValidation.config,
+      summary: derivedValidation.summary,
+      rawRelativePath: 'inputs/rehydrated-config.json',
+    });
+  }
+
   async function resolveConfigInput(job) {
     if (job.request.type === 'inspect') {
       return { filePath: resolveMaybe(projectRoot, job.request.file_path), diagnostics: {} };
+    }
+
+    if (
+      job.request.type === 'generate-standard-docs'
+      && job.request.options?.studio?.config_rehydration === 'readiness_report'
+    ) {
+      return resolveGenerateStandardDocsConfigFromReadiness(job);
     }
 
     if (job.request.config_path) {
@@ -394,24 +505,11 @@ export function createJobExecutor({
       throw new Error(validation.summary.errors.join(' | '));
     }
 
-    const rawInputPath = await jobStore.writeJobFile(job.id, INLINE_CONFIG_RELATIVE_PATH, `${JSON.stringify(job.request.config, null, 2)}\n`);
-    const effectiveConfigPath = await jobStore.writeJobFile(
-      job.id,
-      EFFECTIVE_CONFIG_RELATIVE_PATH,
-      serializeConfig(validation.config, 'json')
-    );
-
-    return {
+    return persistValidatedConfig(job, {
       config: validation.config,
-      configPath: effectiveConfigPath,
-      rawConfigPath: rawInputPath,
       summary: validation.summary,
-      diagnostics: {
-        config_warnings: validation.summary.warnings,
-        config_changed_fields: validation.summary.changed_fields,
-        config_deprecated_fields: validation.summary.deprecated_fields,
-      },
-    };
+      rawRelativePath: INLINE_CONFIG_RELATIVE_PATH,
+    });
   }
 
   async function executeCreate(job, resolvedConfig) {
@@ -651,16 +749,9 @@ export function createJobExecutor({
     };
   }
 
-  async function executeGenerateStandardDocs(job) {
+  async function executeGenerateStandardDocs(job, resolvedConfig = null) {
     const outDir = buildJobArtifactPath(jobStore, job.id, 'standard-docs');
     await mkdir(outDir, { recursive: true });
-    const configImport = await resolveBundleBackedConfigPath({
-      jobStore,
-      jobId: job.id,
-      inputPath: resolveMaybe(projectRoot, job.request.config_path),
-    });
-    const configPath = configImport.path;
-    const loaded = await loadConfigWithDiagnostics(configPath);
     const readinessImport = job.request.readiness_report_path
       ? await resolveBundleBackedCanonicalPath({
           jobStore,
@@ -672,6 +763,15 @@ export function createJobExecutor({
       : { path: null, importRecord: null };
     const readinessReportPath = readinessImport.path;
     const readinessReport = await loadReadinessReportHandoff(readinessReportPath, { command: 'generate-standard-docs' });
+    const configImport = resolvedConfig
+      ? { path: resolvedConfig.configPath, importRecord: null }
+      : await resolveBundleBackedConfigPath({
+          jobStore,
+          jobId: job.id,
+          inputPath: resolveMaybe(projectRoot, job.request.config_path),
+        });
+    const configPath = configImport.path;
+    const loaded = resolvedConfig || await loadConfigWithDiagnostics(configPath);
 
     const result = await runStandardDocsWorkflow({
       freecadRoot: projectRoot,
@@ -940,7 +1040,7 @@ export function createJobExecutor({
             { type: 'input.readiness.candidate', path: result.candidatePath, label: 'Candidate readiness report JSON', scope: 'internal', stability: 'stable' },
           );
         } else if (job.type === 'generate-standard-docs') {
-          result = await executeGenerateStandardDocs(job);
+          result = await executeGenerateStandardDocs(job, resolvedConfig);
           artifacts = {
             out_dir: result.out_dir,
             docs_manifest: result.artifacts.manifest,

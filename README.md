@@ -329,7 +329,7 @@ Endpoint usage:
 - `GET /health` returns API liveness plus the same shared runtime diagnostics contract used by `fcad check-runtime --json`
 - `POST /api/studio/model-preview` validates the current TOML and returns preview-only model assets for the Model workspace
 - `POST /api/studio/drawing-preview` returns the fast sheet-first drawing preview; `POST /api/studio/drawing-previews/:id/dimensions` preserves the HTTP edit loop for dimension changes while keeping preview-plan files server-side only
-- `POST /api/studio/jobs` is the studio bridge route: Model and Drawing submit tracked jobs here, and Studio-safe tracked continuation also covers inspect/report re-entry plus compare, readiness, stabilization, docs, and pack jobs from supported artifact references
+- `POST /api/studio/jobs` is the studio bridge route: Model and Drawing submit tracked jobs here, and Studio-safe tracked continuation also covers inspect/report re-entry plus compare, readiness, stabilization, docs, and pack jobs from supported artifact references; canonical readiness-backed `generate-standard-docs` can rehydrate a config-like input automatically when the tracked lineage no longer carries a config copy
 - `POST /jobs` accepts a JSON job request and returns `202 Accepted` with the queued job record
 - `GET /jobs` returns recent tracked jobs for shell resume and artifact timeline views
 - `GET /jobs/:id` returns the latest status, sanitized browser-visible request metadata, redacted result/manifest summaries, status history, and logical storage metadata

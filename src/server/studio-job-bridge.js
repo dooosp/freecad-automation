@@ -77,6 +77,15 @@ function buildResolvedArtifactOptions(request, resolvedArtifact) {
   return options;
 }
 
+function buildReadinessRehydrationOptions(request, resolvedArtifact) {
+  const options = buildResolvedArtifactOptions(request, resolvedArtifact);
+  options.studio = {
+    ...options.studio,
+    config_rehydration: 'readiness_report',
+  };
+  return options;
+}
+
 function buildResolvedPairOptions(request, baselineArtifact, candidateArtifact) {
   const options = isPlainObject(request.options) ? structuredClone(request.options) : {};
   options.studio = {
@@ -361,22 +370,36 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
       const configArtifact = isReleaseBundleArtifact(selectedArtifact)
         ? selectedArtifact
         : findPreferredConfigArtifact(resolvedArtifact.jobArtifacts || []);
+      if (configArtifact?.path) {
+        return {
+          ok: true,
+          request: {
+            type: 'generate-standard-docs',
+            config_path: configArtifact.path,
+            readiness_report_path: selectedArtifact.path,
+            options: buildResolvedArtifactOptions(request, resolvedArtifact),
+          },
+        };
+      }
+
+      if (isReadinessReportArtifact(selectedArtifact)) {
+        return {
+          ok: true,
+          request: {
+            type: 'generate-standard-docs',
+            config_path: selectedArtifact.path,
+            readiness_report_path: selectedArtifact.path,
+            options: buildReadinessRehydrationOptions(request, resolvedArtifact),
+          },
+        };
+      }
+
       if (!configArtifact?.path) {
         return {
           ok: false,
           errors: ['generate-standard-docs needs a config-like artifact in the same tracked job, or a release bundle that already carries canonical inputs.'],
         };
       }
-
-      return {
-        ok: true,
-        request: {
-          type: 'generate-standard-docs',
-          config_path: configArtifact.path,
-          readiness_report_path: selectedArtifact.path,
-          options: buildResolvedArtifactOptions(request, resolvedArtifact),
-        },
-      };
     }
 
     if (request.type === 'pack') {

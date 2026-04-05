@@ -329,6 +329,38 @@ assert.equal(docsFromArtifact.request.type, 'generate-standard-docs');
 assert.equal(docsFromArtifact.request.config_path, '/tmp/effective-config.json');
 assert.equal(docsFromArtifact.request.readiness_report_path, '/tmp/readiness_report.json');
 
+const docsFromReadinessOnly = await translateStudioJobSubmission({
+  type: 'generate-standard-docs',
+  artifact_ref: {
+    job_id: 'job-readiness-no-config',
+    artifact_id: 'readiness-report',
+  },
+}, {
+  async resolveArtifactRef(ref) {
+    return {
+      jobId: ref.job_id,
+      artifact: {
+        id: ref.artifact_id,
+        path: '/tmp/readiness_report.json',
+        type: 'readiness-report.json',
+        file_name: 'readiness_report.json',
+        extension: '.json',
+        exists: true,
+        contract: {
+          reentry_target: 'readiness_report',
+        },
+      },
+      jobArtifacts: [],
+    };
+  },
+});
+
+assert.equal(docsFromReadinessOnly.ok, true, docsFromReadinessOnly.errors?.join('\n'));
+assert.equal(docsFromReadinessOnly.request.type, 'generate-standard-docs');
+assert.equal(docsFromReadinessOnly.request.config_path, '/tmp/readiness_report.json');
+assert.equal(docsFromReadinessOnly.request.readiness_report_path, '/tmp/readiness_report.json');
+assert.equal(docsFromReadinessOnly.request.options.studio.config_rehydration, 'readiness_report');
+
 const packFromArtifact = await translateStudioJobSubmission({
   type: 'pack',
   artifact_ref: {
@@ -513,8 +545,8 @@ const invalidDocsArtifact = await translateStudioJobSubmission({
   },
 });
 
-assert.equal(invalidDocsArtifact.ok, false);
-assert.match(invalidDocsArtifact.errors.join('\n'), /config-like artifact/i);
+assert.equal(invalidDocsArtifact.ok, true, invalidDocsArtifact.errors?.join('\n'));
+assert.equal(invalidDocsArtifact.request.options.studio.config_rehydration, 'readiness_report');
 
 const invalidCompareArtifacts = await translateStudioJobSubmission({
   type: 'compare-rev',
