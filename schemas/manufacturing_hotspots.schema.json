@@ -29,6 +29,24 @@
     "part": {
       "$ref": "d_artifact_common.schema.json#/$defs/partSummary"
     },
+    "bootstrap": {
+      "type": "object",
+      "properties": {
+        "import_diagnostics": {
+          "type": "object"
+        },
+        "bootstrap_summary": {
+          "type": "object"
+        },
+        "confidence_map": {
+          "type": "object"
+        },
+        "warnings": {
+          "$ref": "d_artifact_common.schema.json#/$defs/warningList"
+        }
+      },
+      "additionalProperties": true
+    },
     "hotspots": {
       "type": "array",
       "items": {

@@ -139,3 +139,39 @@ def test_ingest_context_retains_quality_provenance_when_hints_are_missing():
     assert issue["source_provenance"]["field_map"]["issue_id"] == "ncr_id"
     assert issue["data_quality_flags"] == ["missing_location_hint"]
     assert result["ingest_log"]["summary"]["diagnostics"] == 1
+
+
+def test_ingest_context_carries_bootstrap_review_inputs():
+    payload = {
+        "model": str(FIXTURES / "imports" / "simple_bracket.step"),
+        "part_name": "bootstrap_part",
+        "import_diagnostics": {
+            "import_kind": "part",
+            "body_count": 1,
+        },
+        "bootstrap_summary": {
+            "review_gate": {
+                "status": "review_required",
+            }
+        },
+        "confidence_map": {
+            "overall": {
+                "level": "medium",
+                "score": 0.6,
+            }
+        },
+        "bootstrap_warnings": [
+            "Review unit assumption before releasing downstream docs.",
+        ],
+        "draft_config_path": "output/imports/bootstrap-123/artifacts/draft_config.toml",
+    }
+
+    result = run_json_script("scripts/ingest_context.py", payload)
+
+    assert result["success"] is True
+    assert result["context"]["geometry_source"]["import_diagnostics"]["import_kind"] == "part"
+    assert result["context"]["geometry_source"]["bootstrap_summary"]["review_gate"]["status"] == "review_required"
+    assert result["context"]["bootstrap"]["confidence_map"]["overall"]["level"] == "medium"
+    assert result["context"]["bootstrap"]["draft_config_path"] == "output/imports/bootstrap-123/artifacts/draft_config.toml"
+    assert "Review unit assumption before releasing downstream docs." in result["context"]["metadata"]["warnings"]
+    assert result["ingest_log"]["summary"]["bootstrap_warnings"] == 1

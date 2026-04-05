@@ -26,11 +26,11 @@ def run_cli(args, check=True):
     return completed
 
 
-def write_aligned_config(file_path, template_path=EXAMPLES / "controller_housing_eol.toml", name="sample_part", revision="A"):
+def write_aligned_config(output_path: Path, *, template_path: Path = EXAMPLES / "controller_housing_eol.toml", name: str = "sample_part", revision: str = "A"):
     template = template_path.read_text(encoding="utf-8")
-    next_text = re.sub(r'^name = ".*"$', f'name = "{name}"', template, flags=re.MULTILINE)
-    next_text = re.sub(r'^revision = ".*"$', f'revision = "{revision}"', next_text, flags=re.MULTILINE)
-    file_path.write_text(next_text, encoding="utf-8")
+    updated = re.sub(r'^name = ".*"$', f'name = "{name}"', template, count=1, flags=re.MULTILINE)
+    updated = re.sub(r'^revision = ".*"$', f'revision = "{revision}"', updated, count=1, flags=re.MULTILINE)
+    output_path.write_text(updated, encoding="utf-8")
 
 
 def test_review_command_outputs_product_review_pack(tmp_path):
@@ -221,8 +221,8 @@ def test_electronics_assembly_example_surfaces_process_line_and_quality_signals(
 def test_generate_standard_docs_creates_expected_files(tmp_path):
     out_dir = tmp_path / "standard_docs"
     readiness_path = tmp_path / "controller_readiness.json"
-    aligned_config = tmp_path / "sample_part_docs.toml"
-    write_aligned_config(aligned_config)
+    config_path = tmp_path / "sample_part_docs.toml"
+    write_aligned_config(config_path)
 
     run_cli(
         [
@@ -237,7 +237,7 @@ def test_generate_standard_docs_creates_expected_files(tmp_path):
     run_cli(
         [
             "generate-standard-docs",
-            str(aligned_config),
+            str(config_path),
             "--readiness-report",
             str(readiness_path),
             "--out-dir",
@@ -269,8 +269,8 @@ def test_profile_aware_standard_doc_presets_change_owner_and_frequency(tmp_path)
     korea_dir = tmp_path / "docs_korea"
     mexico_dir = tmp_path / "docs_mexico"
     readiness_path = tmp_path / "controller_readiness.json"
-    aligned_config = tmp_path / "sample_part_docs.toml"
-    write_aligned_config(aligned_config)
+    config_path = tmp_path / "sample_part_docs.toml"
+    write_aligned_config(config_path)
 
     run_cli(
         [
@@ -285,7 +285,7 @@ def test_profile_aware_standard_doc_presets_change_owner_and_frequency(tmp_path)
     run_cli(
         [
             "generate-standard-docs",
-            str(aligned_config),
+            str(config_path),
             "--readiness-report",
             str(readiness_path),
             "--profile",
@@ -297,7 +297,7 @@ def test_profile_aware_standard_doc_presets_change_owner_and_frequency(tmp_path)
     run_cli(
         [
             "generate-standard-docs",
-            str(aligned_config),
+            str(config_path),
             "--readiness-report",
             str(readiness_path),
             "--profile",

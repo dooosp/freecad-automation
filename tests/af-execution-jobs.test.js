@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -8,6 +8,20 @@ import { createLocalApiServer } from '../src/server/local-api-server.js';
 const ROOT = resolve(import.meta.dirname, '..');
 const REVIEW_PACK_FIXTURE = resolve(ROOT, 'tests/fixtures/d-artifacts/sample_review_pack.canonical.json');
 const READINESS_REPORT_FIXTURE = resolve(ROOT, 'tests/fixtures/c-artifacts/sample_readiness_report.canonical.json');
+const CONFIG_EXAMPLE = resolve(ROOT, 'configs/examples/controller_housing_eol.toml');
+const REVIEW_CONTEXT_FIXTURE = resolve(ROOT, 'tests/fixtures/sample_part_context.json');
+
+function writeAlignedConfig(filePath, {
+  templatePath = CONFIG_EXAMPLE,
+  name = 'sample_part',
+  revision = 'A',
+} = {}) {
+  const template = readFileSync(templatePath, 'utf8');
+  const next = template
+    .replace(/^name = ".*"$/m, `name = "${name}"`)
+    .replace(/^revision = ".*"$/m, `revision = "${revision}"`);
+  writeFileSync(filePath, next, 'utf8');
+}
 
 async function listen(server) {
   await new Promise((resolveListen) => server.listen(0, '127.0.0.1', resolveListen));
@@ -61,6 +75,14 @@ async function fetchArtifacts(baseUrl, jobId) {
 const tmpRoot = mkdtempSync(join(tmpdir(), 'fcad-af-jobs-'));
 
 try {
+  const docsConfigPath = join(tmpRoot, 'sample_part_docs.toml');
+  writeAlignedConfig(docsConfigPath);
+  const reviewContextPath = join(tmpRoot, 'sample_part_context.runtime-safe.json');
+  const reviewContextFixture = JSON.parse(readFileSync(REVIEW_CONTEXT_FIXTURE, 'utf8'));
+  if (reviewContextFixture?.geometry_source && typeof reviewContextFixture.geometry_source === 'object') {
+    delete reviewContextFixture.geometry_source.path;
+  }
+  writeFileSync(reviewContextPath, JSON.stringify(reviewContextFixture, null, 2), 'utf8');
   const { server } = createLocalApiServer({
     projectRoot: ROOT,
     jobsDir: join(tmpRoot, 'jobs'),
@@ -84,6 +106,21 @@ try {
   const readinessArtifact = readinessArtifactsPayload.artifacts.find((artifact) => artifact.contract?.reentry_target === 'readiness_report');
   assert.equal(Boolean(readinessArtifact), true);
   assert.equal(readinessArtifact.contract.canonical_file_name, 'readiness_report.json');
+
+  const { response: initialReviewResponse, payload: initialReviewPayload } = await postJson(`${baseUrl}/jobs`, {
+    type: 'review-context',
+    context_path: reviewContextPath,
+  });
+  assert.equal(initialReviewResponse.status, 202);
+  assert.equal(initialReviewPayload.job.execution.command, 'review-context');
+  const initialReviewJob = await waitForJob(baseUrl, initialReviewPayload.job.id);
+  assert.equal(initialReviewJob.execution.lifecycle_state, 'succeeded');
+  const initialReviewArtifactsPayload = await fetchArtifacts(baseUrl, initialReviewJob.id);
+  const engineeringContextArtifact = initialReviewArtifactsPayload.artifacts.find((artifact) => artifact.type === 'engineering_context.json');
+  assert.equal(Boolean(engineeringContextArtifact), true);
+  const directReviewPack = initialReviewArtifactsPayload.artifacts.find((artifact) => artifact.contract?.reentry_target === 'review_pack');
+  assert.equal(Boolean(directReviewPack), true);
+  assert.equal(directReviewPack.contract.canonical_file_name, 'review_pack.json');
 
   const { response: compareResponse, payload: comparePayload } = await postJson(`${baseUrl}/jobs`, {
     type: 'compare-rev',

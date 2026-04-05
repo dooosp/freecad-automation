@@ -1,0 +1,45 @@
+# G STEP Bootstrap Review Loop Status
+
+- Repo identity used:
+  - root: `/Users/jangtaeho/Documents/New/.worktrees/g-step-bootstrap-review-loop/freecad-automation`
+  - branch: `codex/g-step-bootstrap-review-loop`
+  - mode: `worktree`
+- Current phase:
+  - final branch-tip review-readiness pass complete
+- Completed work:
+  - Ran the mandatory preflight in the actual `freecad-automation` worktree on `codex/g-step-bootstrap-review-loop` and confirmed the repo-local control/status files live inside this repo root.
+  - Inspected the narrow G close-out surface in `src/orchestration/review-context-pipeline.js`, `src/services/import/bootstrap-import-service.js`, `public/js/studio/import-bootstrap-options.js`, `public/js/studio-shell.js`, and the targeted tests/status files.
+  - Verified the current branch tip still preserves nested tracked bootstrap metadata by merging existing `context.geometry_source.bootstrap` before adding `draft_config_available: true`.
+  - Verified preview -> tracked `draft_config_toml` parity is still proven by the current automated evidence:
+    - helper/pipeline proof in `tests/review-context-bootstrap.test.js`
+    - Studio/API bridge proof in `tests/local-api-server.test.js`
+  - Confirmed there is no new implementation defect to fix in the narrow G close-out surface.
+  - Refreshed this repo-local status/reporting so it truthfully reflects the current pass, the exact validations actually run, and the branch state as ready for human review rather than merge-ready.
+- Exact files changed in this final pass:
+  - `tmp/codex/g-step-bootstrap-review-loop-status.md`
+  - `tmp/codex/g-step-bootstrap-review-loop-verification-status.md`
+- Validations run in this final pass:
+  - `node tests/bootstrap-import-service.test.js` -> passed
+  - `node tests/review-context-bootstrap.test.js` -> passed
+  - `node tests/local-api-server.test.js` -> passed
+  - `node tests/studio-job-bridge.test.js` -> passed
+- Failures encountered:
+  - None in the targeted validation lane.
+- Repairs made:
+  - Reporting only: tightened the repo-local status wording so it matches the current branch-tip code, test evidence, and this pass's actual activity exactly.
+  - No implementation files changed in this final pass.
+- Open risks:
+  - This pass did not perform literal browser clicking, browser automation, or manual browser QA. The strongest evidence here is Node/API/helper-path proof, including the real local API bridge.
+  - Pre-existing untracked demo artifact files remain in the worktree root and were intentionally untouched.
+  - A previously reported unrelated `npm run test:node:contract` failure, if still present, remains outside this narrow scope and was not rerun here.
+- Remaining work:
+  - Human review on PR `#13`.
+- Result summary:
+  - Nested bootstrap metadata preservation: proven by current code and targeted tests.
+  - Preview -> tracked `draft_config_toml` parity: proven by current code and targeted tests.
+  - P1 remaining in this narrow repair surface: none found.
+  - Branch state from this pass: ready for human review.
+  - Merge-ready claim: intentionally not made from this thread.
+- Unrelated contract-lane status:
+  - `npm run test:node:contract` was not rerun in this final pass.
+  - Any previously reported unrelated contract-lane failure remains outside this scope and was not revalidated or repaired here.

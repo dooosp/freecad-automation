@@ -228,6 +228,11 @@ def analyze_step(filepath):
 
     try:
         bbox = shape.BoundBox
+        solids = list(getattr(shape, "Solids", []) or [])
+        shells = list(getattr(shape, "Shells", []) or [])
+        compounds = list(getattr(shape, "Compounds", []) or [])
+        body_count = len(solids) or (1 if getattr(shape, "Volume", 0) > 0 else 0)
+        import_kind = "assembly" if body_count > 1 or len(compounds) > 0 else "part"
 
         # Extract features
         cylinders = extract_cylinders_from_step(shape)
@@ -250,10 +255,23 @@ def analyze_step(filepath):
 
         # Generate suggested config
         suggested_config = generate_config(part_type, bbox, features)
+        warnings = []
+        if body_count > 1:
+            warnings.append("Multiple solid bodies were detected; review assembly assumptions before continuing.")
+        if len(compounds) > 0:
+            warnings.append("Compound geometry was detected; imported assembly structure may be partial.")
+
+        confidence_score = 0.82
+        if body_count > 1:
+            confidence_score = 0.7
+        if len(compounds) > 0:
+            confidence_score = min(confidence_score, 0.66)
 
         return {
             "success": True,
             "part_type": part_type,
+            "part_kind": import_kind,
+            "body_count": body_count,
             "bounding_box": {
                 "x": round(bbox.XLength, 2),
                 "y": round(bbox.YLength, 2),
@@ -262,6 +280,43 @@ def analyze_step(filepath):
             "volume": round(shape.Volume, 2),
             "area": round(shape.Area, 2),
             "features": features,
+            "bootstrap_warnings": warnings,
+            "confidence_map": {
+                "overall": {
+                    "level": "high" if confidence_score >= 0.75 else "medium",
+                    "score": confidence_score,
+                    "rationale": "STEP bootstrap confidence is derived from direct shape interrogation without reconstructing design intent.",
+                },
+                "feature_extraction": {
+                    "level": "high",
+                    "score": 0.86,
+                    "rationale": "Feature hints came from direct STEP surface interrogation heuristics.",
+                },
+            },
+            "import_diagnostics": {
+                "format": "step",
+                "import_kind": import_kind,
+                "body_count": body_count,
+                "conditions": {
+                    "empty_import": body_count == 0 and len(shape.Faces) == 0,
+                    "partial_import": False,
+                    "unsupported_import": False,
+                    "unstable_import": False,
+                },
+                "part_vs_assembly": {
+                    "classification": import_kind,
+                    "source": "solid-body-count",
+                    "confidence": 0.78 if import_kind == "part" else 0.68,
+                },
+                "unit_assumption": {
+                    "unit": "mm",
+                    "source": "step-default",
+                    "assumed": True,
+                    "confidence": 0.72,
+                    "rationale": "STEP imports default to millimeter assumptions unless stronger unit metadata is available.",
+                },
+                "warnings": warnings,
+            },
             "suggested_config": suggested_config,
         }
     except Exception as exc:

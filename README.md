@@ -157,6 +157,18 @@ fcad review-context --model <file> [--bom bom.csv] [--inspection inspection.csv]
 fcad compare-rev <baseline.json> <candidate.json>
 ```
 
+### Imported CAD Bootstrap Lane
+
+Imported STEP / FCStd intake is a bootstrap lane, not reverse-CAD magic.
+
+- Preferred browser entry: Studio on `/` or `/studio`, using the Start workspace import bootstrap gate.
+- Local API preview route: `POST /api/studio/import-bootstrap`
+- Public goal: bring an existing STEP or FCStd into the review loop safely, quickly, and honestly
+- Draft bootstrap artifacts: `import_diagnostics.json`, `bootstrap_summary.json`, `draft_config.toml`, `engineering_context.json`, `geometry_intelligence.json`, `bootstrap_warnings.json`, and `confidence_map.json`
+- Canonical downstream lineage remains unchanged: `review-context -> review_pack.json -> readiness-pack/readiness-report --review-pack -> readiness_report.json -> generate-standard-docs / pack`
+
+Low-confidence import findings stay visible as warnings and review-needed evidence. The bootstrap gate is designed to capture assumptions, allow human correction, and then hand off into the existing canonical review/readiness flow without inventing a parallel product surface.
+
 ### Diagnostics And Runtime-Backed Commands
 
 ```bash
@@ -254,7 +266,7 @@ Startup behavior:
 - binds to `127.0.0.1` only
 - defaults to port `3000`
 - stores jobs under `output/jobs` unless `--jobs-dir` is provided
-- keeps the existing CLI/runtime execution path: `POST /jobs` schedules work through the same service layer used by `fcad create`, `fcad draw`, `fcad inspect`, and `fcad report`
+- keeps the existing CLI/runtime execution path: `POST /jobs` schedules work through the same service layer used by the CLI, including `create`, `draw`, `inspect`, `report`, `review-context`, `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, and `pack`
 - browser requests to `GET /` now land in `FreeCAD Automation Studio`
 - `GET /api` returns the local API info page in HTML, JSON, or plain text depending on `Accept`
 - `GET /studio` remains the direct `FreeCAD Automation Studio` route
@@ -263,8 +275,8 @@ Startup behavior:
 Studio execution model:
 
 - `Preview`: fast request/response work for Model and Drawing. Preview routes are scratch-safe, keep the current workspace state local, and do not create `/jobs` history.
-- `Tracked run`: queues `create`, `draw`, `inspect`, or `report` into `/jobs`, persists artifacts, and keeps the run visible to the shell monitor plus the `Artifacts` and `Review` workspaces.
-- `Artifact re-entry`: `Artifacts` and `Review` can reopen config artifacts in `Model`, rerun tracked `report` from config-like artifacts, or rerun tracked `inspect` from model artifacts without copying raw filesystem paths back into the UI.
+- `Tracked run`: `POST /api/studio/jobs` queues `create`, `draw`, `inspect`, `report`, `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, and `pack` into `/jobs`, while direct `POST /jobs` JSON requests also cover `review-context`.
+- `Artifact re-entry`: `Artifacts` and `Review` can reopen config artifacts in `Model`, rerun tracked `report` from config-like artifacts, rerun tracked `inspect` from model artifacts, continue `readiness-pack` from canonical `review_pack.json` or `release_bundle.zip`, continue `generate-standard-docs` from canonical review/readiness inputs or release bundles, continue `pack` from canonical readiness inputs or release bundles, and stage `compare-rev` or `stabilization-review` from selected baseline/candidate canonical artifacts when both sides are present.
 - Browser-visible preview payloads are path-redacted too: tracked job payloads, artifact payloads, example payloads, and drawing preview responses all avoid raw filesystem paths.
 
 Phase-3 tracked execution model:
@@ -330,7 +342,7 @@ Endpoint usage:
 - `POST /api/studio/model-preview` validates the current TOML and returns preview-only model assets for the Model workspace
 - `POST /api/studio/drawing-preview` returns the fast sheet-first drawing preview; `POST /api/studio/drawing-previews/:id/dimensions` preserves the HTTP edit loop for dimension changes while keeping preview-plan files server-side only
 - `POST /api/studio/jobs` is the studio bridge route: Model and Drawing submit tracked jobs here, and Studio-safe tracked continuation also covers inspect/report re-entry plus compare, readiness, stabilization, docs, and pack jobs from supported artifact references; canonical readiness-backed `generate-standard-docs` can rehydrate a config-like input automatically when the tracked lineage no longer carries a config copy
-- `POST /jobs` accepts a JSON job request and returns `202 Accepted` with the queued job record
+- `POST /jobs` accepts a JSON job request and returns `202 Accepted` with the queued job record for `create`, `draw`, `inspect`, `report`, `review-context`, `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, and `pack`
 - `GET /jobs` returns recent tracked jobs for shell resume and artifact timeline views
 - `GET /jobs/:id` returns the latest status, sanitized browser-visible request metadata, redacted result/manifest summaries, status history, and logical storage metadata
 - `POST /jobs/:id/cancel` deterministically cancels a queued job before the executor claims it; running-job cancellation returns a clear conflict unless the active executor explicitly supports safe cooperative stop
@@ -367,6 +379,13 @@ curl -X POST http://127.0.0.1:3000/jobs \
     }
   }'
 
+curl -X POST http://127.0.0.1:3000/jobs \
+  -H 'content-type: application/json' \
+  -d '{
+    "type": "review-context",
+    "model_path": "output/example.step"
+  }'
+
 curl http://127.0.0.1:3000/jobs/<job-id>
 
 curl -X POST http://127.0.0.1:3000/jobs/<job-id>/cancel
@@ -394,6 +413,30 @@ curl -X POST http://127.0.0.1:3000/api/studio/jobs \
     "artifact_ref": {
       "job_id": "<job-id>",
       "artifact_id": "<config-artifact-id>"
+    }
+  }'
+
+curl -X POST http://127.0.0.1:3000/api/studio/jobs \
+  -H 'content-type: application/json' \
+  -d '{
+    "type": "pack",
+    "artifact_ref": {
+      "job_id": "<job-id>",
+      "artifact_id": "<readiness-or-release-bundle-artifact-id>"
+    }
+  }'
+
+curl -X POST http://127.0.0.1:3000/api/studio/jobs \
+  -H 'content-type: application/json' \
+  -d '{
+    "type": "compare-rev",
+    "baseline_artifact_ref": {
+      "job_id": "<baseline-job-id>",
+      "artifact_id": "<baseline-review-pack-artifact-id>"
+    },
+    "candidate_artifact_ref": {
+      "job_id": "<candidate-job-id>",
+      "artifact_id": "<candidate-review-pack-artifact-id>"
     }
   }'
 ```
@@ -452,7 +495,7 @@ Current limitations:
 - retry is intentionally narrow and only supported from `failed` or `cancelled` jobs
 - `job.log` is best-effort and primarily captures orchestration events and stderr surfaced from underlying scripts
 - `GET /jobs/:id/artifacts` reports public artifact metadata and links, but it does not inline artifact contents inside the listing response
-- `POST /jobs` currently exposes only the execution paths for `create`, `draw`, `inspect`, and `report`
+- `POST /jobs` and `POST /api/studio/jobs` do not expose every CLI path. `review-context` is direct-JSON only today, while browser-native submit flows stay scoped to the tracked review-first and continuation job surface instead of trying to mirror every shell workflow.
 - preview smoke and legacy serve smoke are browserless HTTP checks only; they do not claim real browser automation or websocket interaction
 
 Studio and legacy shell guide:

@@ -21,7 +21,7 @@ import { D_ANALYSIS_VERSION, D_ARTIFACT_SCHEMA_VERSION } from '../../../lib/d-ar
 import { isWindowsAbsolutePath, normalizeLocalPath } from '../../../lib/paths.js';
 import { runScript } from '../../../lib/runner.js';
 import { createDrawingService, runDrawPipeline } from '../../api/drawing.js';
-import { createModel, inspectModel } from '../../api/model.js';
+import { analyzeStep, createModel, inspectModel } from '../../api/model.js';
 import { createReportService } from '../../api/report.js';
 import { runReviewContextPipeline } from '../../orchestration/review-context-pipeline.js';
 import { runReleaseBundleWorkflow } from '../../workflows/release-bundle-workflow.js';
@@ -322,6 +322,33 @@ function buildReadinessRehydratedConfig(readinessReport = {}) {
   return config;
 }
 
+function buildReleaseBundleManifestMetadata({
+  readinessReport,
+  releaseBundleManifest,
+}) {
+  const lineage = buildLineageIdentity(readinessReport);
+  return buildAfArtifactContractMetadata({
+    jobType: 'pack',
+    artifactIdentity: createAfArtifactIdentityRecord({
+      artifactType: releaseBundleManifest?.artifact_type || 'release_bundle_manifest',
+      schemaVersion: releaseBundleManifest?.schema_version || '1.0',
+      sourceArtifactRefs: releaseBundleManifest?.source_artifact_refs || [],
+      warnings: releaseBundleManifest?.warnings || [],
+      coverage: releaseBundleManifest?.coverage || {},
+      confidence: releaseBundleManifest?.confidence || {
+        level: 'heuristic',
+        score: 0.5,
+        rationale: 'Release bundle manifest metadata was derived from the release bundle manifest.',
+      },
+      lineage,
+      compatibility: buildCompatibilityMarkers(releaseBundleManifest),
+    }),
+    executionNotes: [
+      'Release bundle manifest preserves readiness lineage for reopenable packaging metadata.',
+    ],
+  });
+}
+
 async function loadReviewPackHandoff(pathValue, { command }) {
   const artifact = await readJsonFile(pathValue);
   buildAfArtifactContractFromDocument({
@@ -589,12 +616,13 @@ export function createJobExecutor({
       facility: job.request.options?.facility || null,
       supplier: job.request.options?.supplier || null,
       manufacturingNotes: job.request.options?.manufacturing_notes || null,
+      bootstrap: job.request.options?.bootstrap || null,
       runPythonJsonScript,
       inspectModelIfAvailable: async (filePath) => inspectModel({
         runScript: createLoggedRunner(job.id),
         filePath,
       }),
-      detectStepFeaturesIfAvailable: null,
+      detectStepFeaturesIfAvailable: async (filePath) => analyzeStep(projectRoot, createLoggedRunner(job.id), filePath),
     });
 
     const reviewPackDocument = await readJsonFile(result.artifacts.reviewPackJson);
@@ -937,7 +965,13 @@ export function createJobExecutor({
           result = await executeReviewContext(job);
           artifacts = {
             context: result.artifacts.context,
+            engineering_context: result.artifacts.engineeringContext || result.artifacts.context,
             ingest_log: result.artifacts.ingestLog,
+            import_diagnostics: result.artifacts.importDiagnostics,
+            bootstrap_summary: result.artifacts.bootstrapSummary,
+            bootstrap_warnings: result.artifacts.bootstrapWarnings,
+            confidence_map: result.artifacts.confidenceMap,
+            ...(result.artifacts.draftConfig ? { draft_config: result.artifacts.draftConfig } : {}),
             geometry: result.artifacts.geometry,
             hotspots: result.artifacts.hotspots,
             inspection_linkage: result.artifacts.inspectionLinkage,
@@ -951,10 +985,15 @@ export function createJobExecutor({
             ...(result.artifacts.revisionComparison ? { revision_comparison: result.artifacts.revisionComparison } : {}),
           };
           manifestArtifacts.push(
-            { type: 'context.json', path: result.artifacts.context, label: 'Engineering context JSON', scope: 'user-facing', stability: 'stable' },
+            { type: 'engineering_context.json', path: result.artifacts.engineeringContext || result.artifacts.context, label: 'Engineering context JSON', scope: 'user-facing', stability: 'stable' },
             { type: 'ingest.log.json', path: result.artifacts.ingestLog, label: 'Ingest log JSON', scope: 'internal', stability: 'stable' },
-            { type: 'analysis.geometry.json', path: result.artifacts.geometry, label: 'Geometry intelligence JSON', scope: 'user-facing', stability: 'stable' },
-            { type: 'analysis.hotspots.json', path: result.artifacts.hotspots, label: 'Manufacturing hotspots JSON', scope: 'user-facing', stability: 'stable' },
+            { type: 'import_diagnostics.json', path: result.artifacts.importDiagnostics, label: 'Import diagnostics JSON', scope: 'user-facing', stability: 'stable' },
+            { type: 'bootstrap_summary.json', path: result.artifacts.bootstrapSummary, label: 'Bootstrap summary JSON', scope: 'user-facing', stability: 'stable' },
+            { type: 'bootstrap_warnings.json', path: result.artifacts.bootstrapWarnings, label: 'Bootstrap warnings JSON', scope: 'user-facing', stability: 'stable' },
+            { type: 'confidence_map.json', path: result.artifacts.confidenceMap, label: 'Confidence map JSON', scope: 'user-facing', stability: 'stable' },
+            ...(result.artifacts.draftConfig ? [{ type: 'config.bootstrap-draft', path: result.artifacts.draftConfig, label: 'Draft config TOML', scope: 'user-facing', stability: 'best-effort' }] : []),
+            { type: 'geometry_intelligence.json', path: result.artifacts.geometry, label: 'Geometry intelligence JSON', scope: 'user-facing', stability: 'stable' },
+            { type: 'manufacturing_hotspots.json', path: result.artifacts.hotspots, label: 'Manufacturing hotspots JSON', scope: 'user-facing', stability: 'stable' },
             { type: 'quality-link.inspection-linkage.json', path: result.artifacts.inspectionLinkage, label: 'Inspection linkage JSON', scope: 'user-facing', stability: 'stable' },
             { type: 'quality-link.inspection-outliers.json', path: result.artifacts.inspectionOutliers, label: 'Inspection outliers JSON', scope: 'user-facing', stability: 'stable' },
             { type: 'quality-link.quality-linkage.json', path: result.artifacts.qualityLinkage, label: 'Quality linkage JSON', scope: 'user-facing', stability: 'stable' },
@@ -994,6 +1033,9 @@ export function createJobExecutor({
             label: 'Revision comparison JSON',
             scope: 'user-facing',
             stability: 'stable',
+            metadata: buildGenericAfMetadata('compare-rev', result.comparison, [
+              'compare-rev compares canonical review-pack artifacts and preserves their lineage.',
+            ]),
           });
         } else if (job.type === 'readiness-pack') {
           result = await executeReadinessPack(job);
@@ -1102,6 +1144,10 @@ export function createJobExecutor({
               label: 'Release bundle manifest JSON',
               scope: 'user-facing',
               stability: 'stable',
+              metadata: buildReleaseBundleManifestMetadata({
+                readinessReport: result.readinessReport,
+                releaseBundleManifest: result.manifest,
+              }),
             },
             { type: 'release-bundle.checksums', path: result.checksums_path, label: 'Release bundle checksums', scope: 'user-facing', stability: 'stable' },
             { type: 'release-bundle.log.json', path: result.log_path, label: 'Release bundle log JSON', scope: 'user-facing', stability: 'stable' },

@@ -111,6 +111,59 @@ const invalidDrawingPlan = await translateStudioJobSubmission({
 assert.equal(invalidDrawingPlan.ok, false);
 assert.match(invalidDrawingPlan.errors.join('\n'), /drawing_plan is only supported/);
 
+const reviewContextSubmission = await translateStudioJobSubmission({
+  type: 'review-context',
+  context_path: 'output/imports/bootstrap-123/artifacts/engineering_context.json',
+  model_path: 'output/imports/bootstrap-123/source/simple_bracket.step',
+  quality_path: 'tests/fixtures/sample_quality.csv',
+  options: {
+    bootstrap: {
+      import_diagnostics: {
+        import_kind: 'part',
+        body_count: 1,
+      },
+      bootstrap_summary: {
+        review_gate: {
+          status: 'review_required',
+        },
+      },
+      warnings: ['unit assumption needs review'],
+      confidence_map: {
+        import_bootstrap: {
+          overall: {
+            level: 'medium',
+            score: 0.6,
+          },
+        },
+      },
+    },
+  },
+});
+
+assert.equal(reviewContextSubmission.ok, true, reviewContextSubmission.errors?.join('\n'));
+assert.equal(reviewContextSubmission.request.type, 'review-context');
+assert.equal(reviewContextSubmission.request.context_path, 'output/imports/bootstrap-123/artifacts/engineering_context.json');
+assert.equal(reviewContextSubmission.request.model_path, 'output/imports/bootstrap-123/source/simple_bracket.step');
+assert.equal(reviewContextSubmission.request.quality_path, 'tests/fixtures/sample_quality.csv');
+assert.deepEqual(reviewContextSubmission.request.options.bootstrap.import_diagnostics, {
+  import_kind: 'part',
+  body_count: 1,
+});
+assert.equal(reviewContextSubmission.request.options.bootstrap.bootstrap_summary.review_gate.status, 'review_required');
+assert.deepEqual(reviewContextSubmission.request.options.bootstrap.warnings, ['unit assumption needs review']);
+assert.equal(reviewContextSubmission.request.options.bootstrap.confidence_map.import_bootstrap.overall.level, 'medium');
+
+const invalidReviewContextSubmission = validateStudioJobSubmission({
+  type: 'review-context',
+  artifact_ref: {
+    job_id: 'job-review',
+    artifact_id: 'artifact-review',
+  },
+});
+
+assert.equal(invalidReviewContextSubmission.ok, false);
+assert.match(invalidReviewContextSubmission.errors.join('\n'), /review-context does not accept config_toml, artifact_ref/);
+
 const missingArtifactResolver = await translateStudioJobSubmission({
   type: 'inspect',
   artifact_ref: {
@@ -121,6 +174,15 @@ const missingArtifactResolver = await translateStudioJobSubmission({
 
 assert.equal(missingArtifactResolver.ok, false);
 assert.match(missingArtifactResolver.errors.join('\n'), /requires a resolver/);
+
+const invalidReviewContextSourceSubmission = await translateStudioJobSubmission({
+  type: 'review-context',
+  config_toml: baseToml,
+});
+
+assert.equal(invalidReviewContextSourceSubmission.ok, false);
+assert.match(invalidReviewContextSourceSubmission.errors.join('\n'), /requires either context_path or model_path/i);
+assert.match(invalidReviewContextSourceSubmission.errors.join('\n'), /does not accept config_toml, artifact_ref/i);
 
 const inspectFromArtifact = await translateStudioJobSubmission({
   type: 'inspect',
@@ -219,7 +281,8 @@ const unsupportedReviewContext = validateStudioJobSubmission({
 });
 
 assert.equal(unsupportedReviewContext.ok, false);
-assert.match(unsupportedReviewContext.errors.join('\n'), /type must be one of create, draw, inspect, report, compare-rev, readiness-pack, stabilization-review, generate-standard-docs, or pack/i);
+assert.match(unsupportedReviewContext.errors.join('\n'), /requires either context_path or model_path/i);
+assert.match(unsupportedReviewContext.errors.join('\n'), /does not accept config_toml, artifact_ref/i);
 
 const compareFromArtifacts = await translateStudioJobSubmission({
   type: 'compare-rev',
@@ -493,6 +556,32 @@ const invalidInspectArtifact = await translateStudioJobSubmission({
 
 assert.equal(invalidInspectArtifact.ok, false);
 assert.match(invalidInspectArtifact.errors.join('\n'), /supported model artifact/i);
+
+const invalidReviewContextArtifact = await translateStudioJobSubmission({
+  type: 'review-context',
+  artifact_ref: {
+    job_id: 'job-bad',
+    artifact_id: 'report-pdf',
+  },
+}, {
+  async resolveArtifactRef(ref) {
+    return {
+      jobId: ref.job_id,
+      artifact: {
+        id: ref.artifact_id,
+        path: '/tmp/report.pdf',
+        type: 'report.pdf',
+        file_name: 'report.pdf',
+        extension: '.pdf',
+        exists: true,
+      },
+    };
+  },
+});
+
+assert.equal(invalidReviewContextArtifact.ok, false);
+assert.match(invalidReviewContextArtifact.errors.join('\n'), /requires either context_path or model_path/i);
+assert.match(invalidReviewContextArtifact.errors.join('\n'), /does not accept config_toml, artifact_ref/i);
 
 const invalidReportArtifact = await translateStudioJobSubmission({
   type: 'report',

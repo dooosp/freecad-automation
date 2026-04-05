@@ -20,6 +20,25 @@ const DOCS_MANIFEST_MATCHERS = [
   'standard-docs.summary',
   'docs_manifest',
 ];
+const RELEASE_BUNDLE_MANIFEST_MATCHERS = [
+  'release_bundle_manifest.json',
+  'release-bundle.manifest.json',
+  'release-bundle.manifest',
+  'release_bundle_manifest',
+];
+const REVISION_COMPARISON_MATCHERS = [
+  'revision_comparison.json',
+  'revision-comparison.json',
+  'revision_comparison',
+  'revision-comparison',
+];
+const STABILIZATION_REVIEW_MATCHERS = [
+  'stabilization_review.json',
+  'stabilization-review.json',
+  'stabilization_review',
+  'stabilization-review',
+  'review.stabilization.json',
+];
 
 function normalizeString(value) {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
@@ -99,6 +118,18 @@ export function isInspectableModelArtifact(artifact = {}) {
   return INSPECT_MODEL_EXTENSIONS.has(extension);
 }
 
+export function isReviewContextArtifact(artifact = {}) {
+  if (artifact.exists === false) return false;
+  const extension = normalizeString(artifact.extension);
+  if (extension !== '.json') return false;
+  return includesAny(artifactSearchText(artifact), [
+    'context.json',
+    'input.context',
+    'engineering context',
+    '_context.json',
+  ]);
+}
+
 export function isReviewSourceArtifact(artifact = {}) {
   const target = contractReentryTarget(artifact);
   if (target === 'review_pack' || target === 'readiness_report') {
@@ -141,12 +172,27 @@ export function isReleaseBundleArtifact(artifact = {}) {
   ]);
 }
 
+export function isReleaseBundleManifestArtifact(artifact = {}) {
+  return includesAny(artifactSearchText(artifact), RELEASE_BUNDLE_MANIFEST_MATCHERS);
+}
+
+export function isRevisionComparisonArtifact(artifact = {}) {
+  return includesAny(artifactSearchText(artifact), REVISION_COMPARISON_MATCHERS);
+}
+
+export function isStabilizationReviewArtifact(artifact = {}) {
+  return includesAny(artifactSearchText(artifact), STABILIZATION_REVIEW_MATCHERS);
+}
+
 export function canReenterModelWorkspace(artifact = {}) {
   return artifact.exists !== false && isConfigLikeArtifact(artifact);
 }
 
 export function canStartTrackedArtifactRun(artifact = {}, type = 'report') {
   if (artifact.exists === false) return false;
+  if (type === 'review-context') {
+    return isInspectableModelArtifact(artifact) || isReviewContextArtifact(artifact);
+  }
   if (type === 'readiness-pack') {
     return isReviewPackArtifact(artifact) || isReleaseBundleArtifact(artifact);
   }
@@ -164,6 +210,7 @@ export function canStartTrackedArtifactRun(artifact = {}, type = 'report') {
 export function deriveArtifactReentryCapabilities(artifact = {}) {
   return {
     canOpenInModel: canReenterModelWorkspace(artifact),
+    canRunTrackedReviewContext: canStartTrackedArtifactRun(artifact, 'review-context'),
     canRunTrackedReport: canStartTrackedArtifactRun(artifact, 'report'),
     canRunTrackedInspect: canStartTrackedArtifactRun(artifact, 'inspect'),
     canRunTrackedReadinessPack: canStartTrackedArtifactRun(artifact, 'readiness-pack'),
@@ -200,5 +247,11 @@ export function findPreferredReadinessReportArtifact(artifacts = []) {
 export function findPreferredReleaseBundleArtifact(artifacts = []) {
   return [...artifacts]
     .filter((artifact) => artifact.exists !== false && isReleaseBundleArtifact(artifact))
+    .sort((left, right) => artifactSearchText(left).localeCompare(artifactSearchText(right)))[0] || null;
+}
+
+export function findPreferredReleaseBundleManifestArtifact(artifacts = []) {
+  return [...artifacts]
+    .filter((artifact) => artifact.exists !== false && isReleaseBundleManifestArtifact(artifact))
     .sort((left, right) => artifactSearchText(left).localeCompare(artifactSearchText(right)))[0] || null;
 }

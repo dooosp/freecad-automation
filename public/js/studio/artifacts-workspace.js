@@ -7,14 +7,17 @@ import {
   el,
 } from './renderers.js';
 import {
+  buildArtifactOpenLabel,
   buildArtifactDetailItems,
   buildArtifactDetailNotes,
+  buildArtifactViewer,
   canPreviewAsText,
   classifyArtifact,
   fetchArtifactText,
   formatBytes,
   formatDateTime,
   formatJobStatus,
+  parseArtifactPayload,
   shortJobId,
 } from './artifact-insights.js';
 import {
@@ -22,8 +25,12 @@ import {
   findPreferredConfigArtifact,
   findPreferredDocsManifestArtifact,
   findPreferredReadinessReportArtifact,
+  findPreferredReleaseBundleArtifact,
+  findPreferredReleaseBundleManifestArtifact,
   findPreferredReviewPackArtifact,
+  isReadinessReportArtifact,
   isReleaseBundleArtifact,
+  isReviewPackArtifact,
 } from './artifact-actions.js';
 import { applyTranslations } from '../i18n/index.js';
 
@@ -33,6 +40,10 @@ function ensureArtifactsWorkspaceState(store = {}) {
   store.previewText = store.previewText || '';
   store.previewArtifactId = store.previewArtifactId || '';
   store.previewError = store.previewError || '';
+  store.viewerStatus = store.viewerStatus || 'idle';
+  store.viewerArtifactId = store.viewerArtifactId || '';
+  store.viewerError = store.viewerError || '';
+  store.viewerData = store.viewerData || null;
   store.compare = store.compare && typeof store.compare === 'object'
     ? store.compare
     : {
@@ -43,7 +54,45 @@ function ensureArtifactsWorkspaceState(store = {}) {
         artifacts: [],
       };
   store.cache = store.cache && typeof store.cache === 'object' ? store.cache : {};
+  store.viewerCache = store.viewerCache && typeof store.viewerCache === 'object' ? store.viewerCache : {};
   return store;
+}
+
+function renderViewerBlock(viewer) {
+  if (!viewer) return [];
+
+  const blocks = [];
+  if (viewer.summary) {
+    blocks.push(
+      el('div', {
+        className: 'support-note',
+        text: viewer.summary,
+      })
+    );
+  }
+  if (Array.isArray(viewer.highlights) && viewer.highlights.length > 0) {
+    blocks.push(createInfoGrid(viewer.highlights));
+  }
+  for (const section of viewer.sections || []) {
+    blocks.push(
+      el('div', {
+        className: 'support-note',
+        text: section.title,
+      })
+    );
+    if (Array.isArray(section.items) && section.items.length > 0) {
+      blocks.push(createInfoGrid(section.items));
+    }
+    for (const entry of section.entries || []) {
+      blocks.push(
+        el('div', {
+          className: 'support-note',
+          text: `- ${entry}`,
+        })
+      );
+    }
+  }
+  return blocks;
 }
 
 function renderTimeline(recentJobs = [], activeJobId = '', compareJobId = '') {
@@ -509,6 +558,68 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
     }
   }
 
+  async function ensureArtifactViewer() {
+    const artifact = getSelectedArtifact();
+    if (!artifact) {
+      artifactsState.viewerStatus = 'idle';
+      artifactsState.viewerArtifactId = '';
+      artifactsState.viewerError = '';
+      artifactsState.viewerData = null;
+      return;
+    }
+
+    if (artifactsState.viewerCache[artifact.id]) {
+      artifactsState.viewerStatus = 'ready';
+      artifactsState.viewerArtifactId = artifact.id;
+      artifactsState.viewerError = '';
+      artifactsState.viewerData = artifactsState.viewerCache[artifact.id];
+      return;
+    }
+
+    artifactsState.viewerStatus = 'loading';
+    artifactsState.viewerArtifactId = artifact.id;
+    artifactsState.viewerError = '';
+    artifactsState.viewerData = null;
+    syncDetail();
+
+    try {
+      let parsedPayload = null;
+      if (canPreviewAsText(artifact)) {
+        const raw = await fetchArtifactText(artifact, 250000);
+        parsedPayload = raw ? parseArtifactPayload(artifact, raw) : null;
+      }
+
+      const relatedArtifacts = [];
+      const relatedPayloads = {};
+      if (isReleaseBundleArtifact(artifact)) {
+        const companionManifestArtifact = findPreferredReleaseBundleManifestArtifact(state.data.activeJob.artifacts || []);
+        if (companionManifestArtifact) {
+          relatedArtifacts.push(companionManifestArtifact);
+          const relatedRaw = await fetchArtifactText(companionManifestArtifact, 250000);
+          relatedPayloads[companionManifestArtifact.id] = relatedRaw
+            ? parseArtifactPayload(companionManifestArtifact, relatedRaw)
+            : null;
+        }
+      }
+
+      const viewer = buildArtifactViewer({
+        artifact,
+        parsedPayload,
+        relatedArtifacts,
+        relatedPayloads,
+      });
+      artifactsState.viewerCache[artifact.id] = viewer;
+      artifactsState.viewerStatus = 'ready';
+      artifactsState.viewerArtifactId = artifact.id;
+      artifactsState.viewerData = viewer;
+    } catch (error) {
+      artifactsState.viewerStatus = 'error';
+      artifactsState.viewerArtifactId = artifact.id;
+      artifactsState.viewerError = error instanceof Error ? error.message : String(error);
+      artifactsState.viewerData = buildArtifactViewer({ artifact });
+    }
+  }
+
   function syncDetail() {
     const artifact = getSelectedArtifact();
     if (!artifact) {
@@ -516,7 +627,7 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
         createEmptyState({
           icon: '>',
           title: 'Select an artifact',
-          copy: 'The detail panel will show metadata, manifest notes, and a raw preview when the artifact is browser-friendly.',
+          copy: 'The detail panel will show structured reopen state, manifest notes, and a raw preview when the artifact is browser-friendly.',
         })
       );
       detailActionsElement.replaceChildren();
@@ -529,19 +640,44 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
     const activeArtifacts = state.data.activeJob.artifacts || [];
     const sourceConfigArtifact = findPreferredConfigArtifact(activeArtifacts);
     const sourceDocsManifestArtifact = findPreferredDocsManifestArtifact(activeArtifacts);
+    const preferredReviewPackArtifact = findPreferredReviewPackArtifact(activeArtifacts);
+    const preferredReadinessArtifact = findPreferredReadinessReportArtifact(activeArtifacts);
+    const preferredReleaseBundleArtifact = findPreferredReleaseBundleArtifact(activeArtifacts);
+    const selectedOpenLabel = buildArtifactOpenLabel(artifact);
     const reentry = deriveArtifactReentryCapabilities(artifact);
     const supportsTrackedStandardDocs = reentry.canRunTrackedStandardDocs
       && (Boolean(sourceConfigArtifact) || isReleaseBundleArtifact(artifact));
+    const baselineReviewPack = findPreferredReviewPackArtifact(artifactsState.compare.artifacts || []);
+    const baselineReadiness = findPreferredReadinessReportArtifact(artifactsState.compare.artifacts || []);
+    const compareJobId = artifactsState.compare.job?.id || '';
+    const viewerBlocks = artifactsState.viewerStatus === 'loading' && artifactsState.viewerArtifactId === artifact.id
+      ? [
+          createEmptyState({
+            icon: '...',
+            title: 'Loading reopen state...',
+            copy: 'Preparing the structured reopen view for the selected artifact.',
+          }),
+        ]
+      : artifactsState.viewerStatus === 'error' && artifactsState.viewerArtifactId === artifact.id
+        ? [
+            createEmptyState({
+              icon: '!',
+              title: 'Failed to prepare reopen state',
+              copy: artifactsState.viewerError || 'Open the raw artifact or use the follow-up actions below.',
+            }),
+          ]
+        : renderViewerBlock(artifactsState.viewerData);
     detailSummaryElement.replaceChildren(
-      createInfoGrid(buildArtifactDetailItems(artifact, state.data.activeJob))
+      createInfoGrid(buildArtifactDetailItems(artifact, state.data.activeJob)),
+      ...viewerBlocks
     );
 
-      detailActionsElement.replaceChildren(
+    detailActionsElement.replaceChildren(
       ...(artifact.capabilities?.can_open
         ? [
             el('a', {
               className: 'action-button action-button-primary',
-              text: 'Open',
+              text: selectedOpenLabel,
               attrs: { href: artifact.links.open, target: '_blank', rel: 'noreferrer noopener' },
             }),
           ]
@@ -561,6 +697,36 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
               label: 'Open Review',
               action: 'open-review',
               tone: 'ghost',
+            }),
+          ]
+        : []),
+      ...(state.data.activeJob.summary && preferredReviewPackArtifact && preferredReviewPackArtifact.id !== artifact.id
+        ? [
+            createButton({
+              label: 'Open review pack',
+              action: 'artifacts-select-artifact',
+              tone: 'ghost',
+              dataset: { artifactId: preferredReviewPackArtifact.id },
+            }),
+          ]
+        : []),
+      ...(state.data.activeJob.summary && preferredReadinessArtifact && preferredReadinessArtifact.id !== artifact.id
+        ? [
+            createButton({
+              label: 'Open readiness report',
+              action: 'artifacts-select-artifact',
+              tone: 'ghost',
+              dataset: { artifactId: preferredReadinessArtifact.id },
+            }),
+          ]
+        : []),
+      ...(state.data.activeJob.summary && preferredReleaseBundleArtifact && preferredReleaseBundleArtifact.id !== artifact.id
+        ? [
+            createButton({
+              label: 'Open release bundle',
+              action: 'artifacts-select-artifact',
+              tone: 'ghost',
+              dataset: { artifactId: preferredReleaseBundleArtifact.id },
             }),
           ]
         : []),
@@ -586,6 +752,19 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
             }),
           ]
         : []),
+      ...(state.data.activeJob.summary && reentry.canRunTrackedReviewContext
+        ? [
+            createButton({
+              label: 'Tracked review context',
+              action: 'run-artifact-review-context',
+              tone: 'ghost',
+              dataset: {
+                jobId: state.data.activeJob.summary.id,
+                artifactId: artifact.id,
+              },
+            }),
+          ]
+        : []),
       ...(state.data.activeJob.summary && reentry.canRunTrackedReadinessPack
         ? [
             createButton({
@@ -595,6 +774,42 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
               dataset: {
                 jobId: state.data.activeJob.summary.id,
                 artifactId: artifact.id,
+              },
+            }),
+          ]
+        : []),
+      ...(state.data.activeJob.summary
+        && compareJobId
+        && isReviewPackArtifact(artifact)
+        && baselineReviewPack
+        ? [
+            createButton({
+              label: 'Tracked compare-rev',
+              action: 'artifacts-run-compare',
+              tone: 'ghost',
+              dataset: {
+                baselineJobId: compareJobId,
+                baselineArtifactId: baselineReviewPack.id,
+                candidateJobId: state.data.activeJob.summary.id,
+                candidateArtifactId: artifact.id,
+              },
+            }),
+          ]
+        : []),
+      ...(state.data.activeJob.summary
+        && compareJobId
+        && isReadinessReportArtifact(artifact)
+        && baselineReadiness
+        ? [
+            createButton({
+              label: 'Tracked stabilization review',
+              action: 'artifacts-run-stabilization',
+              tone: 'ghost',
+              dataset: {
+                baselineJobId: compareJobId,
+                baselineArtifactId: baselineReadiness.id,
+                candidateJobId: state.data.activeJob.summary.id,
+                candidateArtifactId: artifact.id,
               },
             }),
           ]
@@ -672,6 +887,7 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
     syncJobSummary();
     syncCompare();
     syncCards();
+    await ensureArtifactViewer();
     await ensureArtifactPreview();
     syncDetail();
     applyTranslations(root);

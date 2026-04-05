@@ -1,0 +1,51 @@
+# G STEP Bootstrap Review Loop Verification Status
+
+- Repo identity used:
+  - root: `/Users/jangtaeho/Documents/New/.worktrees/g-step-bootstrap-review-loop/freecad-automation`
+  - branch: `codex/g-step-bootstrap-review-loop`
+  - mode: `worktree`
+- Verification phase:
+  - final branch-tip truthfulness and review-readiness verification
+- Verification focus:
+  - Confirm tracked `review-context` still preserves nested `context.geometry_source.bootstrap` metadata.
+  - Confirm preview `bootstrap.draft_config_toml` still survives the Studio/API handoff into the tracked `config.bootstrap-draft` artifact with exact string equality.
+  - Confirm the status files describe helper/API evidence accurately and do not imply literal browser-click proof or merge-ready status.
+- Exact files changed in this final pass:
+  - `tmp/codex/g-step-bootstrap-review-loop-status.md`
+  - `tmp/codex/g-step-bootstrap-review-loop-verification-status.md`
+- Evidence captured from current branch tip:
+  - `src/orchestration/review-context-pipeline.js` now merges `context.geometry_source.bootstrap` before adding `draft_config_available: true`, so tracked review-context does not discard nested preview bootstrap metadata during draft-config handoff.
+  - `src/services/import/bootstrap-import-service.js` still emits preview `bootstrap.draft_config_toml` plus tracked-seed `engineering_context.json` bootstrap metadata.
+  - `tests/bootstrap-import-service.test.js` proves preview bootstrap emits `draft_config_toml` and bootstrap state into engineering context artifacts.
+  - `tests/review-context-bootstrap.test.js` proves helper/pipeline-level parity and verifies tracked `engineeringContext.geometry_source.bootstrap` preserves nested metadata such as `draft_config_path` while adding `draft_config_available: true`.
+  - `tests/local-api-server.test.js` proves the real local API flow:
+    - preview `POST /api/studio/import-bootstrap`
+    - Studio handoff via `buildImportBootstrapOptions(preview, {})`
+    - tracked `POST /api/studio/jobs` with `type: review-context`
+    - tracked artifact fetch for `config.bootstrap-draft`
+    - exact string equality between preview `bootstrap.draft_config_toml` and tracked artifact text
+    - preserved tracked `geometry_source.bootstrap` metadata in the engineering-context artifact
+  - `tests/studio-job-bridge.test.js` proves `review-context` submission translation preserves bootstrap options at the bridge layer.
+- Exact validations run:
+  - `node tests/bootstrap-import-service.test.js` -> passed
+  - `node tests/review-context-bootstrap.test.js` -> passed
+  - `node tests/local-api-server.test.js` -> passed
+  - `node tests/studio-job-bridge.test.js` -> passed
+- Nested bootstrap metadata preservation:
+  - passes
+- Preview -> tracked `draft_config_toml` parity:
+  - passes
+- Browser-proof nuance:
+  - Evidence includes real API-path coverage and helper/bridge coverage.
+  - No literal browser-click interaction, browser automation, or manual browser QA was run in this pass.
+- Read-only narrow review outcome:
+  - No new branch-tip P1 found in the G close-out surface.
+- Review-readiness outcome:
+  - Branch is ready for human review.
+  - Merge-ready claim is intentionally not made from this verification thread alone.
+- Remaining risks:
+  - Pre-existing untracked demo artifact files remain outside this scoped change.
+  - No unrelated broad-lane reruns were performed in this pass.
+- Unrelated contract-lane status:
+  - `npm run test:node:contract` was not rerun in this verification pass.
+  - Any previously reported unrelated contract-lane failure remains outside this scope and was not revalidated or repaired here.

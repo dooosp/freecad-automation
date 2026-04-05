@@ -35,6 +35,15 @@ const readinessContract = buildAfArtifactContractFromDocument({
 assert.equal(readinessContract.af_contract.reentry_target, 'readiness_report');
 assert.equal(readinessContract.af_contract.reentry_ready, true);
 
+const readinessCliBridgeContract = buildAfArtifactContractFromDocument({
+  jobType: 'readiness-report',
+  target: 'readiness_report',
+  document: readinessReport,
+  path: 'tests/fixtures/c-artifacts/sample_readiness_report.canonical.json',
+});
+assert.equal(readinessCliBridgeContract.af_contract.reentry_target, 'readiness_report');
+assert.equal(readinessCliBridgeContract.af_contract.job_type, 'readiness-report');
+
 assert.deepEqual(buildAfExecutionStateDescriptor('cancelled'), {
   contract_version: 'af1',
   lifecycle_state: 'canceled',

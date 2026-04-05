@@ -7,11 +7,16 @@ import {
   deriveArtifactReentryCapabilities,
   findPreferredConfigArtifact,
   findPreferredDocsManifestArtifact,
+  findPreferredReleaseBundleManifestArtifact,
   isConfigLikeArtifact,
   isInspectableModelArtifact,
+  isReviewContextArtifact,
   isReadinessReportArtifact,
   isReleaseBundleArtifact,
+  isReleaseBundleManifestArtifact,
   isReviewPackArtifact,
+  isRevisionComparisonArtifact,
+  isStabilizationReviewArtifact,
 } from '../public/js/studio/artifact-actions.js';
 
 assert.deepEqual(buildStudioArtifactRef('job-1', 'artifact-2'), {
@@ -44,6 +49,13 @@ assert.equal(isInspectableModelArtifact({
   extension: '.pdf',
   exists: true,
 }), false);
+
+assert.equal(isReviewContextArtifact({
+  type: 'context.json',
+  file_name: 'sample_context.json',
+  extension: '.json',
+  exists: true,
+}), true);
 
 const preferredConfig = findPreferredConfigArtifact([
   {
@@ -95,6 +107,20 @@ assert.equal(canStartTrackedArtifactRun({
   file_name: 'part.step',
   extension: '.step',
   exists: true,
+}, 'review-context'), true);
+
+assert.equal(canStartTrackedArtifactRun({
+  type: 'context.json',
+  file_name: 'sample_context.json',
+  extension: '.json',
+  exists: true,
+}, 'review-context'), true);
+
+assert.equal(canStartTrackedArtifactRun({
+  type: 'model.step',
+  file_name: 'part.step',
+  extension: '.step',
+  exists: true,
 }, 'inspect'), true);
 
 assert.equal(canStartTrackedArtifactRun({
@@ -124,6 +150,46 @@ assert.equal(isReleaseBundleArtifact({
   extension: '.zip',
   exists: true,
 }), true);
+
+assert.equal(isReleaseBundleManifestArtifact({
+  type: 'release-bundle.manifest.json',
+  file_name: 'release_bundle_manifest.json',
+  extension: '.json',
+  exists: true,
+}), true);
+
+assert.equal(isRevisionComparisonArtifact({
+  type: 'revision-comparison.json',
+  file_name: 'revision_comparison.json',
+  extension: '.json',
+  exists: true,
+}), true);
+
+assert.equal(isStabilizationReviewArtifact({
+  type: 'review.stabilization.json',
+  file_name: 'stabilization_review.json',
+  extension: '.json',
+  exists: true,
+}), true);
+
+const preferredBundleManifest = findPreferredReleaseBundleManifestArtifact([
+  {
+    id: 'bundle-log',
+    type: 'release-bundle.log.json',
+    file_name: 'release_bundle_log.json',
+    extension: '.json',
+    exists: true,
+  },
+  {
+    id: 'bundle-manifest',
+    type: 'release-bundle.manifest.json',
+    file_name: 'release_bundle_manifest.json',
+    extension: '.json',
+    exists: true,
+  },
+]);
+
+assert.equal(preferredBundleManifest?.id, 'bundle-manifest');
 
 assert.equal(canStartTrackedArtifactRun({
   type: 'review-pack.json',
@@ -172,6 +238,7 @@ assert.deepEqual(deriveArtifactReentryCapabilities({
   exists: true,
 }), {
   canOpenInModel: false,
+  canRunTrackedReviewContext: false,
   canRunTrackedReport: false,
   canRunTrackedInspect: false,
   canRunTrackedReadinessPack: false,
@@ -200,6 +267,7 @@ assert.deepEqual(deriveArtifactReentryCapabilities({
   },
 }), {
   canOpenInModel: false,
+  canRunTrackedReviewContext: false,
   canRunTrackedReport: false,
   canRunTrackedInspect: false,
   canRunTrackedReadinessPack: true,

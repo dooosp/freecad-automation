@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
+import { buildImportBootstrapOptions } from '../public/js/studio/import-bootstrap-options.js';
 import { buildArtifactManifest } from '../lib/artifact-manifest.js';
 import { createLocalApiServer } from '../src/server/local-api-server.js';
 import { validateLocalApiResponse } from '../src/server/local-api-schemas.js';
@@ -12,6 +13,13 @@ const tmpRoot = mkdtempSync(join(tmpdir(), 'fcad-local-api-root-'));
 const jobsDir = join(tmpRoot, 'jobs');
 const PRIVATE_CONFIG_PATH = join(tmpRoot, 'private-source-config.toml');
 const PRIVATE_RESULT_PATH = join(tmpRoot, 'nested', 'private-report.json');
+const BOOTSTRAP_SESSION_ID = 'bootstrap-session-bridge-test';
+const BOOTSTRAP_SESSION_DIR = join(ROOT, 'output', 'imports', BOOTSTRAP_SESSION_ID);
+const BOOTSTRAP_SOURCE_MODEL_PATH = join(BOOTSTRAP_SESSION_DIR, 'source', 'simple_bracket.step');
+const BOOTSTRAP_ENGINEERING_CONTEXT_PATH = join(BOOTSTRAP_SESSION_DIR, 'artifacts', 'engineering_context.json');
+const BOOTSTRAP_DRAFT_CONFIG_PATH = join(BOOTSTRAP_SESSION_DIR, 'artifacts', 'bootstrap_draft_config.toml');
+const PREVIEW_DRAFT_CONFIG_TOML = 'name = "bootstrap_preview"\n[import]\nsource_step = "tests/fixtures/imports/simple_bracket.step"\n';
+const bootstrapCalls = [];
 
 function assertNoLeakedPathStrings(payload, blocked = []) {
   const serialized = JSON.stringify(payload);
@@ -41,9 +49,124 @@ async function waitFor(assertion, { attempts = 10, delayMs = 50 } = {}) {
   throw lastError;
 }
 
+function seedBootstrapTrackedReviewContext() {
+  mkdirSync(join(BOOTSTRAP_SESSION_DIR, 'source'), { recursive: true });
+  mkdirSync(join(BOOTSTRAP_SESSION_DIR, 'artifacts'), { recursive: true });
+  writeFileSync(
+    BOOTSTRAP_SOURCE_MODEL_PATH,
+    readFileSync(join(ROOT, 'tests', 'fixtures', 'imports', 'simple_bracket.step'))
+  );
+  writeFileSync(BOOTSTRAP_DRAFT_CONFIG_PATH, PREVIEW_DRAFT_CONFIG_TOML);
+  writeFileSync(BOOTSTRAP_ENGINEERING_CONTEXT_PATH, JSON.stringify({
+    metadata: {
+      created_at: '2026-04-03T00:00:00Z',
+      warnings: [],
+    },
+    part: {
+      name: 'bootstrap-preview-part',
+    },
+    geometry_source: {
+      path: `output/imports/${BOOTSTRAP_SESSION_ID}/source/simple_bracket.step`,
+      file_type: 'step',
+      bootstrap: {
+        draft_config_path: `output/imports/${BOOTSTRAP_SESSION_ID}/artifacts/bootstrap_draft_config.toml`,
+        preview_source: 'import-bootstrap-preview',
+      },
+      import_diagnostics: {
+        import_kind: 'part',
+        body_count: 1,
+        unit_assumption: {
+          unit: 'mm',
+          assumed: true,
+          rationale: 'Fixture assumption.',
+        },
+      },
+    },
+    bootstrap: {
+      draft_config_path: `output/imports/${BOOTSTRAP_SESSION_ID}/artifacts/bootstrap_draft_config.toml`,
+      warnings: ['Fixture warning'],
+    },
+  }, null, 2));
+}
+
 const { server, jobStore } = createLocalApiServer({
   projectRoot: ROOT,
   jobsDir,
+  bootstrapImportServiceFactory: () => async ({ model, bom, inspection, quality }) => {
+    seedBootstrapTrackedReviewContext();
+    bootstrapCalls.push({ model, bom, inspection, quality });
+    return {
+      ok: true,
+      session_id: BOOTSTRAP_SESSION_ID,
+      source: {
+        model_path: `output/imports/${BOOTSTRAP_SESSION_ID}/source/simple_bracket.step`,
+        bom_path: bom?.path || null,
+        inspection_path: inspection?.path || null,
+        quality_path: quality?.path || null,
+      },
+      bootstrap: {
+        import_diagnostics: {
+          source_model_path: model?.path || null,
+          file_type: 'step',
+          import_kind: 'part',
+          body_count: 1,
+          unit_assumption: {
+            unit: 'mm',
+            rationale: 'Fixture assumption.',
+          },
+          confidence: {
+            level: 'medium',
+            score: 0.61,
+            rationale: 'Fixture confidence.',
+          },
+        },
+          bootstrap_summary: {
+            review_gate: {
+              status: 'review_required',
+              reason: 'human_confirmation_required',
+              correction_required: true,
+            },
+            dimensions_mm: {
+              x: 40,
+              y: 20,
+              z: 8,
+          },
+          feature_summary: {
+            cylinder_count: 4,
+            bolt_circle_count: 1,
+            hotspot_count: 2,
+          },
+        },
+        bootstrap_warnings: {
+          warning_count: 1,
+          warnings: ['Fixture warning'],
+        },
+        confidence_map: {
+          import_bootstrap: {
+            overall: {
+              level: 'medium',
+              score: 0.61,
+              rationale: 'Fixture confidence.',
+            },
+          },
+        },
+        draft_config_toml: PREVIEW_DRAFT_CONFIG_TOML,
+        geometry_intelligence: {},
+      },
+      tracked_review_seed: {
+        context_path: `output/imports/${BOOTSTRAP_SESSION_ID}/artifacts/engineering_context.json`,
+        model_path: `output/imports/${BOOTSTRAP_SESSION_ID}/source/simple_bracket.step`,
+        quality_path: quality?.path || null,
+      },
+      artifacts: [
+        {
+          key: 'import_diagnostics',
+          path: `output/imports/${BOOTSTRAP_SESSION_ID}/artifacts/import_diagnostics.json`,
+          file_name: 'import_diagnostics.json',
+        },
+      ],
+    };
+  },
 });
 
 try {
@@ -71,12 +194,16 @@ try {
   assert.match(html, /Open <code>\/<\/code> or <code>\/studio<\/code> for Studio/);
   assert.match(html, /GET \/health/);
   assert.match(html, /POST \/api\/studio\/model-preview/);
+  assert.match(html, /POST \/api\/studio\/import-bootstrap/);
   assert.match(html, /POST \/api\/studio\/drawing-preview/);
   assert.match(html, /\/studio/);
   assert.match(html, /GET \/api/);
   assert.match(html, /fcad serve --legacy-viewer/);
   assert.match(html, /Need classic compatibility mode instead\?/);
-  assert.match(html, /create\/draw\/inspect\/report runs plus compare, readiness, stabilization, docs, and pack jobs/i);
+  assert.match(html, /create\/draw\/inspect\/report work plus compare, readiness, stabilization, docs, and pack follow-up/i);
+  assert.match(html, /POST \/jobs/);
+  assert.match(html, /review-context/i);
+  assert.match(html, /release_bundle\.zip|release bundle/i);
   assert.match(html, new RegExp(ROOT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
 
   const apiKoHtmlResponse = await fetch(`${baseUrl}/api`, {
@@ -112,10 +239,118 @@ try {
   assert.equal(payload.studio.path, '/studio');
   assert.equal(payload.viewer.command, 'fcad serve --legacy-viewer');
   assert.equal(payload.studio.preview_routes.model_preview, '/api/studio/model-preview');
+  assert.equal(payload.studio.preview_routes.import_bootstrap, '/api/studio/import-bootstrap');
   assert.equal(payload.studio.preview_routes.drawing_dimensions, '/api/studio/drawing-previews/:id/dimensions');
   assert.equal(payload.studio.tracked_routes.submit, '/api/studio/jobs');
   assert.equal(payload.studio.tracked_routes.cancel, '/jobs/:id/cancel');
   assert.equal(payload.studio.tracked_routes.retry, '/jobs/:id/retry');
+
+  const bootstrapPreviewResponse = await fetch(`${baseUrl}/api/studio/import-bootstrap`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model_path: 'tests/fixtures/imports/simple_bracket.step',
+      quality_path: 'tests/fixtures/sample_quality.csv',
+    }),
+  });
+  assert.equal(bootstrapPreviewResponse.status, 200);
+  const bootstrapPreviewPayload = await bootstrapPreviewResponse.json();
+  assert.equal(bootstrapPreviewPayload.ok, true);
+  assert.equal(bootstrapCalls.length > 0, true);
+  assert.equal(bootstrapCalls[0].model.path, join(ROOT, 'tests', 'fixtures', 'imports', 'simple_bracket.step'));
+  assert.equal(bootstrapPreviewPayload.source.model_path, `output/imports/${BOOTSTRAP_SESSION_ID}/source/simple_bracket.step`);
+  assert.equal(bootstrapPreviewPayload.bootstrap.import_diagnostics.source_model_path, 'tests/fixtures/imports/simple_bracket.step');
+  assert.equal(bootstrapPreviewPayload.bootstrap.bootstrap_summary.review_gate.correction_required, true);
+  assert.equal(bootstrapPreviewPayload.bootstrap.draft_config_toml, PREVIEW_DRAFT_CONFIG_TOML);
+  assert.equal(bootstrapPreviewPayload.tracked_review_seed.context_path, `output/imports/${BOOTSTRAP_SESSION_ID}/artifacts/engineering_context.json`);
+
+  const forwardedBootstrapOptions = buildImportBootstrapOptions(bootstrapPreviewPayload, {});
+  assert.equal(forwardedBootstrapOptions.bootstrap.draft_config_toml, PREVIEW_DRAFT_CONFIG_TOML);
+
+  const importReviewJobResponse = await fetch(`${baseUrl}/api/studio/jobs`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      type: 'review-context',
+      context_path: bootstrapPreviewPayload.tracked_review_seed.context_path,
+      model_path: bootstrapPreviewPayload.tracked_review_seed.model_path,
+      quality_path: 'tests/fixtures/sample_quality.csv',
+      options: forwardedBootstrapOptions,
+    }),
+  });
+  assert.equal(importReviewJobResponse.status, 202);
+  const importReviewJobPayload = await importReviewJobResponse.json();
+  assert.equal(importReviewJobPayload.ok, true);
+  assert.equal(importReviewJobPayload.job.type, 'review-context');
+  assert.deepEqual(importReviewJobPayload.job.request.options.bootstrap.import_diagnostics, {
+    source_model_path: 'tests/fixtures/imports/simple_bracket.step',
+    file_type: 'step',
+    import_kind: 'part',
+    body_count: 1,
+    unit_assumption: {
+      unit: 'mm',
+      rationale: 'Fixture assumption.',
+    },
+    confidence: {
+      level: 'medium',
+      score: 0.61,
+      rationale: 'Fixture confidence.',
+    },
+  });
+  assert.equal(importReviewJobPayload.job.request.options.bootstrap.bootstrap_summary.review_gate.status, 'review_required');
+  assert.equal(importReviewJobPayload.job.request.options.bootstrap.draft_config_toml, PREVIEW_DRAFT_CONFIG_TOML);
+
+  const completedImportReviewPayload = await waitFor(async () => {
+    const statusResponse = await fetch(`${baseUrl}/jobs/${importReviewJobPayload.job.id}`, {
+      headers: {
+        accept: 'application/json',
+      },
+    });
+    assert.equal(statusResponse.status, 200);
+    const statusPayload = await statusResponse.json();
+    assert.equal(statusPayload.job.status, 'succeeded');
+    return statusPayload;
+  }, { attempts: 80, delayMs: 100 });
+  assert.equal(completedImportReviewPayload.job.status, 'succeeded');
+
+  const importReviewArtifactsResponse = await fetch(`${baseUrl}/jobs/${importReviewJobPayload.job.id}/artifacts`, {
+    headers: {
+      accept: 'application/json',
+    },
+  });
+  assert.equal(importReviewArtifactsResponse.status, 200);
+  const importReviewArtifactsPayload = await importReviewArtifactsResponse.json();
+  const bootstrapDraftArtifact = importReviewArtifactsPayload.artifacts.find((artifact) => artifact.type === 'config.bootstrap-draft');
+  assert.ok(bootstrapDraftArtifact);
+  const engineeringContextArtifact = importReviewArtifactsPayload.artifacts.find((artifact) => artifact.type === 'engineering_context.json');
+  assert.ok(engineeringContextArtifact);
+
+  const bootstrapDraftContentResponse = await fetch(`${baseUrl}${bootstrapDraftArtifact.links.api}`, {
+    headers: {
+      accept: 'application/toml',
+    },
+  });
+  assert.equal(bootstrapDraftContentResponse.status, 200);
+  assert.equal(await bootstrapDraftContentResponse.text(), bootstrapPreviewPayload.bootstrap.draft_config_toml);
+
+  const engineeringContextResponse = await fetch(`${baseUrl}${engineeringContextArtifact.links.api}`, {
+    headers: {
+      accept: 'application/json',
+    },
+  });
+  assert.equal(engineeringContextResponse.status, 200);
+  const trackedEngineeringContext = await engineeringContextResponse.json();
+  assert.deepEqual(trackedEngineeringContext.geometry_source.bootstrap, {
+    draft_config_path: `output/imports/${BOOTSTRAP_SESSION_ID}/artifacts/bootstrap_draft_config.toml`,
+    preview_source: 'import-bootstrap-preview',
+    draft_config_available: true,
+  });
 
   const apiJsonResponse = await fetch(`${baseUrl}/api`, {
     headers: {
@@ -629,5 +864,6 @@ try {
   console.log('local-api-server.test.js: ok');
 } finally {
   await new Promise((resolveClose) => server.close(resolveClose));
+  rmSync(BOOTSTRAP_SESSION_DIR, { recursive: true, force: true });
   rmSync(tmpRoot, { recursive: true, force: true });
 }

@@ -218,6 +218,32 @@ The final response should include:
   - do not reimplement D reasoning, scoring, or linkage
   - do not reimplement C readiness synthesis inside API or jobs
 - Prefer thin adapters, durable metadata, and lineage-preserving artifact routing over duplicated business logic.
+
+## AF4 Task: Artifact Viewers And Re-entry Continuation
+- Active branch for this task: `feat/af4-artifact-reentry`
+- Preferred clean worktree for this task: `/Users/jangtaeho/Documents/New/.worktrees/af4-artifact-reentry/freecad-automation`
+- Execution plan source of truth:
+  - `docs/exec-plans/af4-artifact-reentry.md`
+- Verification and remediation plan:
+  - `docs/exec-plans/af4-artifact-reentry-verification.md`
+- Phase status files:
+  - `tmp/codex/af4-artifact-reentry-status.md`
+  - `tmp/codex/af4-artifact-reentry-verification-status.md`
+- Make tracked results reopenable working state instead of download-only files.
+- Minimum viewer coverage must include:
+  - `review_pack.json`
+  - `readiness_report.json`
+  - `revision_comparison.json` and `stabilization_review.json`
+  - `release_bundle.zip` through manifest-aware or canonical-entry-aware inspection
+- Minimum action coverage from opened artifacts must include:
+  - open review pack
+  - open readiness report
+  - open release bundle
+  - tracked `generate-standard-docs`
+  - tracked `compare-rev`
+  - tracked `pack`
+- Do not build a detached fake viewer layer and do not recreate D or C reasoning in Studio/browser code.
+- Fail closed on unsupported artifact types, missing lineage, or mismatched canonical handoff.
 - Preserve fail-closed behavior for:
   - missing readiness input
   - lineage mismatch
@@ -238,6 +264,37 @@ The final response should include:
 - Keep Studio preferred on `/` and `/studio`, but reposition it as a review/decision console instead of a modeling-first workspace.
 - Preserve the legacy viewer as a compatibility path without presenting it as a peer-primary browser surface.
 - Preserve route paths, tracked-job behavior, preview-versus-tracked separation, artifact links, queue controls, and lineage-safe artifact re-entry unless a narrow execution-plan change explicitly requires more.
+
+## G Task: STEP Bootstrap Review Loop
+- Active branch for this task: `codex/g-step-bootstrap-review-loop`
+- Preferred clean worktree for this task: `/Users/jangtaeho/Documents/New/.worktrees/g-step-bootstrap-review-loop/freecad-automation`
+- Execution plan source of truth:
+  - `docs/exec-plans/g-step-bootstrap-review-loop.md`
+- Verification and remediation plan:
+  - `docs/exec-plans/g-step-bootstrap-review-loop-verification.md`
+- Phase status files:
+  - `tmp/codex/g-step-bootstrap-review-loop-status.md`
+  - `tmp/codex/g-step-bootstrap-review-loop-verification-status.md`
+- Position G as a review-first bootstrap lane for existing `STEP` and `FCStd` assets, not as a new modeling-first product.
+- Preserve the runtime-backed execution chain:
+  - `bin/fcad.js -> lib/runner.js -> scripts/*.py -> scripts/_bootstrap.py -> import FreeCAD`
+- Preserve the canonical downstream review/readiness path:
+  - `review-context -> review_pack.json -> readiness-pack/readiness-report --review-pack -> readiness_report.json -> generate-standard-docs / pack`
+- Preserve Studio as the preferred browser review console on `/` and `/studio`.
+- Preserve tracked job lineage, artifact re-entry, and fail-closed behavior.
+- Preserve the additive architecture direction:
+  - `adapters -> geometry -> linkage -> decision -> reporting`
+- Preserve metadata-only fallback behavior when runtime-backed geometry inspection is unavailable.
+- Required G bootstrap artifacts:
+  - `import_diagnostics.json`
+  - `bootstrap_summary.json`
+  - `draft_config.toml`
+  - `engineering_context.json`
+  - `geometry_intelligence.json`
+  - `bootstrap_warnings.json`
+  - `confidence_map.json`
+- Prefer extending the existing STEP import, `review-context`, and Studio tracked-artifact surfaces over adding a new top-level product surface.
+- Do not attempt full parametric history reconstruction, implied design-intent completion, or LLM-based geometry/decision inference.
 - Prefer information architecture, CTA order, navigation, disclosure, and orchestration updates over speculative visual rewrites.
 - Keep browser-visible English and Korean copy aligned through the existing lightweight locale layer with English fallback.
 - Wire to real tracked execution capabilities where available:
@@ -248,3 +305,29 @@ The final response should include:
   - `generate-standard-docs`
   - `pack`
 - Do not recreate D/C scoring, linkage, or reasoning logic in the browser UI. Surface canonical artifacts, statuses, and follow-up actions instead.
+
+## AF5 Task: A+F Integration Sweep And Publish Readiness
+- Active branch for this task: `feat/af5-integration-publish`
+- Preferred clean worktree for this task: `/Users/jangtaeho/Documents/New/.worktrees/af5-integration-publish/freecad-automation`
+- Execution plan source of truth:
+  - `docs/exec-plans/af5-integration-publish.md`
+- Verification and remediation plan:
+  - `docs/exec-plans/af5-integration-publish-verification.md`
+- Phase status files:
+  - `tmp/codex/af5-integration-publish-status.md`
+  - `tmp/codex/af5-integration-publish-verification-status.md`
+- Treat A+F as the execution, tracking, review-context, reopen, and publish layer over D/C:
+  - do not recreate D geometry/linkage/scoring
+  - do not recreate C readiness or packaging logic
+- If AF1 through AF4 are already merged into the detected default branch, audit the merged branch and fix only verified integration gaps.
+- Keep the representative story coherent across CLI, local API, Studio, and artifact reopen surfaces:
+  - existing STEP + BOM + inspection + quality
+  - `review-context`
+  - `review_pack.json`
+  - `readiness-pack`
+  - `generate-standard-docs`
+  - `release_bundle.zip`
+  - Studio reopen
+- Preserve canonical artifact names, lineage rules, bundle manifest truth, tracked-job history, retry/cancel behavior, preview-vs-tracked separation, and release-bundle reopen behavior.
+- Prefer small contract, persistence, recent-history, and re-entry fixes over broader refactors.
+- Run the strongest safe minimal checks already present in the repo, then execute the AF5 verification/remediation plan and a read-only final review before calling merge readiness.
