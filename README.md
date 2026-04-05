@@ -139,7 +139,7 @@ fcad readiness-report <config.toml|json>   # legacy compatibility / non-canonica
 fcad pack --readiness <readiness_report.json> --out <release_bundle.zip>
 fcad stabilization-review <config.toml|json> --runtime <runtime.json>
 fcad stabilization-review <baseline_readiness_report.json> <candidate_readiness_report.json>
-fcad generate-standard-docs <config.toml|json> (--readiness-report <readiness_report.json> | --review-pack <review_pack.json>) [--out-dir <dir>]
+fcad generate-standard-docs <config.toml|json> --readiness-report <readiness_report.json> [--out-dir <dir>]
 ```
 
 Use `readiness-pack --review-pack ...` or `readiness-report --review-pack ...` for canonical C output. `readiness-report <config>` remains available only as a legacy compatibility route and should not be treated as canonical D-backed readiness provenance.
@@ -332,6 +332,7 @@ Supported job types:
 
 - `POST /jobs`: `create`, `draw`, `inspect`, `report`, `review-context`, `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, `pack`
 - `POST /api/studio/jobs`: `create`, `draw`, `inspect`, `report`, `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, `pack`
+- `review-context` remains a direct `/jobs` or CLI path today; the Studio bridge does not yet accept raw review-context source-file submissions.
 
 Endpoint usage:
 
@@ -340,7 +341,7 @@ Endpoint usage:
 - `GET /health` returns API liveness plus the same shared runtime diagnostics contract used by `fcad check-runtime --json`
 - `POST /api/studio/model-preview` validates the current TOML and returns preview-only model assets for the Model workspace
 - `POST /api/studio/drawing-preview` returns the fast sheet-first drawing preview; `POST /api/studio/drawing-previews/:id/dimensions` preserves the HTTP edit loop for dimension changes while keeping preview-plan files server-side only
-- `POST /api/studio/jobs` is the studio bridge route: Model and Drawing submit tracked jobs here, and browser-safe artifact continuation also resolves through it for `inspect`, `report`, `readiness-pack`, `generate-standard-docs`, `pack`, plus paired `compare-rev` and `stabilization-review`
+- `POST /api/studio/jobs` is the studio bridge route: Model and Drawing submit tracked jobs here, and Studio-safe tracked continuation also covers inspect/report re-entry plus compare, readiness, stabilization, docs, and pack jobs from supported artifact references; canonical readiness-backed `generate-standard-docs` can rehydrate a config-like input automatically when the tracked lineage no longer carries a config copy
 - `POST /jobs` accepts a JSON job request and returns `202 Accepted` with the queued job record for `create`, `draw`, `inspect`, `report`, `review-context`, `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, and `pack`
 - `GET /jobs` returns recent tracked jobs for shell resume and artifact timeline views
 - `GET /jobs/:id` returns the latest status, sanitized browser-visible request metadata, redacted result/manifest summaries, status history, and logical storage metadata
@@ -674,9 +675,9 @@ fcad generate-standard-docs configs/examples/controller_housing_eol.toml \
   --readiness-report output/controller_housing_readiness_report.json \
   --out-dir output/controller_housing_standard_docs
 
-# 7. Draft production-engineering standard docs from a matching canonical review-pack-backed route
+# 7. Draft production-engineering standard docs from canonical readiness JSON
 fcad generate-standard-docs <matching_config.toml|json> \
-  --review-pack <review_pack.json> \
+  --readiness-report <readiness_report.json> \
   --out-dir output/standard_docs
 
 # 8. Portable release bundle from canonical readiness JSON
@@ -695,7 +696,7 @@ The canonical readiness workflow produces a JSON report and a Markdown summary t
 - optional runtime-informed stabilization review
 - decision summary for production engineering discussion
 
-`readiness_report.json` is the canonical C artifact for this flow. Markdown, standard-doc manifests, and release-bundle packaging derive from that JSON contract instead of becoming the primary source of truth. The older `readiness-report <config>` route remains in the CLI as legacy compatibility and should not be used to describe canonical D-backed provenance. `generate-standard-docs` also requires the supplied config and readiness lineage to describe the same part/revision before it will render downstream docs.
+`readiness_report.json` is the canonical C artifact for this flow. Markdown, standard-doc manifests, and release-bundle packaging derive from that JSON contract instead of becoming the primary source of truth. The older `readiness-report <config>` route remains in the CLI as legacy compatibility and should not be used to describe canonical D-backed provenance. `generate-standard-docs` must consume canonical readiness JSON directly and requires the supplied config and readiness lineage to describe the same part/revision before it will render downstream docs.
 
 ## Portfolio Case Study
 

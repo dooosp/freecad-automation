@@ -220,15 +220,26 @@ def test_electronics_assembly_example_surfaces_process_line_and_quality_signals(
 
 def test_generate_standard_docs_creates_expected_files(tmp_path):
     out_dir = tmp_path / "standard_docs"
+    readiness_path = tmp_path / "controller_readiness.json"
     config_path = tmp_path / "sample_part_docs.toml"
     write_aligned_config(config_path)
 
     run_cli(
         [
-            "generate-standard-docs",
-            str(config_path),
+            "readiness-report",
             "--review-pack",
             str(REVIEW_PACK_FIXTURE),
+            "--out",
+            str(readiness_path),
+        ]
+    )
+
+    run_cli(
+        [
+            "generate-standard-docs",
+            str(config_path),
+            "--readiness-report",
+            str(readiness_path),
             "--out-dir",
             str(out_dir),
         ]
@@ -257,15 +268,26 @@ def test_generate_standard_docs_creates_expected_files(tmp_path):
 def test_profile_aware_standard_doc_presets_change_owner_and_frequency(tmp_path):
     korea_dir = tmp_path / "docs_korea"
     mexico_dir = tmp_path / "docs_mexico"
+    readiness_path = tmp_path / "controller_readiness.json"
     config_path = tmp_path / "sample_part_docs.toml"
     write_aligned_config(config_path)
 
     run_cli(
         [
-            "generate-standard-docs",
-            str(config_path),
+            "readiness-report",
             "--review-pack",
             str(REVIEW_PACK_FIXTURE),
+            "--out",
+            str(readiness_path),
+        ]
+    )
+
+    run_cli(
+        [
+            "generate-standard-docs",
+            str(config_path),
+            "--readiness-report",
+            str(readiness_path),
             "--profile",
             str(ROOT / "configs" / "profiles" / "site_korea_ulsan.toml"),
             "--out-dir",
@@ -276,8 +298,8 @@ def test_profile_aware_standard_doc_presets_change_owner_and_frequency(tmp_path)
         [
             "generate-standard-docs",
             str(config_path),
-            "--review-pack",
-            str(REVIEW_PACK_FIXTURE),
+            "--readiness-report",
+            str(readiness_path),
             "--profile",
             str(ROOT / "configs" / "profiles" / "site_mexico_mty.toml"),
             "--out-dir",
@@ -313,19 +335,61 @@ def test_generate_standard_docs_requires_explicit_canonical_readiness_input(tmp_
 
     assert completed.returncode != 0
     combined_output = f"{completed.stdout}\n{completed.stderr}"
-    assert "requires either --readiness-report" in combined_output
+    assert "requires --readiness-report" in combined_output
     assert "will not synthesize canonical readiness from config-only inputs" in combined_output
 
 
-def test_generate_standard_docs_rejects_mismatched_config_and_review_pack(tmp_path):
-    out_dir = tmp_path / "docs_mismatched_review_pack"
+def test_generate_standard_docs_rejects_legacy_config_readiness_handoff(tmp_path):
+    out_dir = tmp_path / "docs_from_legacy_readiness"
+    readiness_path = tmp_path / "controller_readiness_legacy.json"
+
+    run_cli(
+        [
+            "readiness-report",
+            str(EXAMPLES / "controller_housing_eol.toml"),
+            "--out",
+            str(readiness_path),
+        ]
+    )
 
     completed = run_cli(
         [
             "generate-standard-docs",
             str(EXAMPLES / "controller_housing_eol.toml"),
+            "--readiness-report",
+            str(readiness_path),
+            "--out-dir",
+            str(out_dir),
+        ],
+        check=False,
+    )
+
+    assert completed.returncode != 0
+    combined_output = f"{completed.stdout}\n{completed.stderr}"
+    assert "must preserve review_pack lineage" in combined_output
+    assert "Legacy config-compatibility readiness artifacts are not valid A+F handoff inputs." in combined_output
+
+
+def test_generate_standard_docs_rejects_mismatched_config_and_readiness_report(tmp_path):
+    out_dir = tmp_path / "docs_mismatched_readiness_report"
+    readiness_path = tmp_path / "sample_readiness.json"
+
+    run_cli(
+        [
+            "readiness-report",
             "--review-pack",
             str(REVIEW_PACK_FIXTURE),
+            "--out",
+            str(readiness_path),
+        ]
+    )
+
+    completed = run_cli(
+        [
+            "generate-standard-docs",
+            str(EXAMPLES / "controller_housing_eol.toml"),
+            "--readiness-report",
+            str(readiness_path),
             "--out-dir",
             str(out_dir),
         ],

@@ -175,14 +175,14 @@ const missingArtifactResolver = await translateStudioJobSubmission({
 assert.equal(missingArtifactResolver.ok, false);
 assert.match(missingArtifactResolver.errors.join('\n'), /requires a resolver/);
 
-const invalidReviewContextSubmission = await translateStudioJobSubmission({
+const invalidReviewContextSourceSubmission = await translateStudioJobSubmission({
   type: 'review-context',
   config_toml: baseToml,
 });
 
-assert.equal(invalidReviewContextSubmission.ok, false);
-assert.match(invalidReviewContextSubmission.errors.join('\n'), /artifact_ref is required/i);
-assert.match(invalidReviewContextSubmission.errors.join('\n'), /config_toml is not supported/i);
+assert.equal(invalidReviewContextSourceSubmission.ok, false);
+assert.match(invalidReviewContextSourceSubmission.errors.join('\n'), /requires either context_path or model_path/i);
+assert.match(invalidReviewContextSourceSubmission.errors.join('\n'), /does not accept config_toml, artifact_ref/i);
 
 const inspectFromArtifact = await translateStudioJobSubmission({
   type: 'inspect',
@@ -245,58 +245,6 @@ assert.equal(reportFromArtifact.request.config_path, '/tmp/effective-config.json
 assert.deepEqual(reportFromArtifact.request.options.report_options, { style: 'summary' });
 assert.equal(reportFromArtifact.request.options.studio.source_label, 'effective-config.json');
 
-const reviewContextFromContextArtifact = await translateStudioJobSubmission({
-  type: 'review-context',
-  artifact_ref: {
-    job_id: 'job-review',
-    artifact_id: 'context-json',
-  },
-}, {
-  async resolveArtifactRef(ref) {
-    return {
-      jobId: ref.job_id,
-      artifact: {
-        id: ref.artifact_id,
-        path: '/tmp/sample_context.json',
-        type: 'context.json',
-        file_name: 'sample_context.json',
-        extension: '.json',
-        exists: true,
-      },
-    };
-  },
-});
-
-assert.equal(reviewContextFromContextArtifact.ok, true, reviewContextFromContextArtifact.errors?.join('\n'));
-assert.equal(reviewContextFromContextArtifact.request.type, 'review-context');
-assert.equal(reviewContextFromContextArtifact.request.context_path, '/tmp/sample_context.json');
-
-const reviewContextFromModelArtifact = await translateStudioJobSubmission({
-  type: 'review-context',
-  artifact_ref: {
-    job_id: 'job-model',
-    artifact_id: 'model-step',
-  },
-}, {
-  async resolveArtifactRef(ref) {
-    return {
-      jobId: ref.job_id,
-      artifact: {
-        id: ref.artifact_id,
-        path: '/tmp/example.step',
-        type: 'model.step',
-        file_name: 'example.step',
-        extension: '.step',
-        exists: true,
-      },
-    };
-  },
-});
-
-assert.equal(reviewContextFromModelArtifact.ok, true, reviewContextFromModelArtifact.errors?.join('\n'));
-assert.equal(reviewContextFromModelArtifact.request.type, 'review-context');
-assert.equal(reviewContextFromModelArtifact.request.model_path, '/tmp/example.step');
-
 const readinessFromArtifact = await translateStudioJobSubmission({
   type: 'readiness-pack',
   artifact_ref: {
@@ -326,6 +274,15 @@ const readinessFromArtifact = await translateStudioJobSubmission({
 assert.equal(readinessFromArtifact.ok, true, readinessFromArtifact.errors?.join('\n'));
 assert.equal(readinessFromArtifact.request.type, 'readiness-pack');
 assert.equal(readinessFromArtifact.request.review_pack_path, '/tmp/review_pack.json');
+
+const unsupportedReviewContext = validateStudioJobSubmission({
+  type: 'review-context',
+  config_toml: baseToml,
+});
+
+assert.equal(unsupportedReviewContext.ok, false);
+assert.match(unsupportedReviewContext.errors.join('\n'), /requires either context_path or model_path/i);
+assert.match(unsupportedReviewContext.errors.join('\n'), /does not accept config_toml, artifact_ref/i);
 
 const compareFromArtifacts = await translateStudioJobSubmission({
   type: 'compare-rev',
@@ -435,6 +392,38 @@ assert.equal(docsFromArtifact.request.type, 'generate-standard-docs');
 assert.equal(docsFromArtifact.request.config_path, '/tmp/effective-config.json');
 assert.equal(docsFromArtifact.request.readiness_report_path, '/tmp/readiness_report.json');
 
+const docsFromReadinessOnly = await translateStudioJobSubmission({
+  type: 'generate-standard-docs',
+  artifact_ref: {
+    job_id: 'job-readiness-no-config',
+    artifact_id: 'readiness-report',
+  },
+}, {
+  async resolveArtifactRef(ref) {
+    return {
+      jobId: ref.job_id,
+      artifact: {
+        id: ref.artifact_id,
+        path: '/tmp/readiness_report.json',
+        type: 'readiness-report.json',
+        file_name: 'readiness_report.json',
+        extension: '.json',
+        exists: true,
+        contract: {
+          reentry_target: 'readiness_report',
+        },
+      },
+      jobArtifacts: [],
+    };
+  },
+});
+
+assert.equal(docsFromReadinessOnly.ok, true, docsFromReadinessOnly.errors?.join('\n'));
+assert.equal(docsFromReadinessOnly.request.type, 'generate-standard-docs');
+assert.equal(docsFromReadinessOnly.request.config_path, '/tmp/readiness_report.json');
+assert.equal(docsFromReadinessOnly.request.readiness_report_path, '/tmp/readiness_report.json');
+assert.equal(docsFromReadinessOnly.request.options.studio.config_rehydration, 'readiness_report');
+
 const packFromArtifact = await translateStudioJobSubmission({
   type: 'pack',
   artifact_ref: {
@@ -505,6 +494,44 @@ assert.equal(docsFromBundle.ok, true, docsFromBundle.errors?.join('\n'));
 assert.equal(docsFromBundle.request.config_path, '/tmp/release_bundle.zip');
 assert.equal(docsFromBundle.request.readiness_report_path, '/tmp/release_bundle.zip');
 
+const invalidDocsFromReviewPack = await translateStudioJobSubmission({
+  type: 'generate-standard-docs',
+  artifact_ref: {
+    job_id: 'job-review',
+    artifact_id: 'review-pack',
+  },
+}, {
+  async resolveArtifactRef(ref) {
+    return {
+      jobId: ref.job_id,
+      artifact: {
+        id: ref.artifact_id,
+        path: '/tmp/review_pack.json',
+        type: 'review-pack.json',
+        file_name: 'review_pack.json',
+        extension: '.json',
+        exists: true,
+        contract: {
+          reentry_target: 'review_pack',
+        },
+      },
+      jobArtifacts: [
+        {
+          id: 'effective-config',
+          path: '/tmp/effective-config.json',
+          type: 'config.effective',
+          file_name: 'effective-config.json',
+          extension: '.json',
+          exists: true,
+        },
+      ],
+    };
+  },
+});
+
+assert.equal(invalidDocsFromReviewPack.ok, false);
+assert.match(invalidDocsFromReviewPack.errors.join('\n'), /canonical readiness report JSON or a release bundle/i);
+
 const invalidInspectArtifact = await translateStudioJobSubmission({
   type: 'inspect',
   artifact_ref: {
@@ -553,7 +580,8 @@ const invalidReviewContextArtifact = await translateStudioJobSubmission({
 });
 
 assert.equal(invalidReviewContextArtifact.ok, false);
-assert.match(invalidReviewContextArtifact.errors.join('\n'), /supported model artifact or tracked context json/i);
+assert.match(invalidReviewContextArtifact.errors.join('\n'), /requires either context_path or model_path/i);
+assert.match(invalidReviewContextArtifact.errors.join('\n'), /does not accept config_toml, artifact_ref/i);
 
 const invalidReportArtifact = await translateStudioJobSubmission({
   type: 'report',
@@ -606,8 +634,8 @@ const invalidDocsArtifact = await translateStudioJobSubmission({
   },
 });
 
-assert.equal(invalidDocsArtifact.ok, false);
-assert.match(invalidDocsArtifact.errors.join('\n'), /config-like artifact/i);
+assert.equal(invalidDocsArtifact.ok, true, invalidDocsArtifact.errors?.join('\n'));
+assert.equal(invalidDocsArtifact.request.options.studio.config_rehydration, 'readiness_report');
 
 const invalidCompareArtifacts = await translateStudioJobSubmission({
   type: 'compare-rev',

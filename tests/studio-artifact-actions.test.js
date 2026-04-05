@@ -221,6 +221,16 @@ assert.equal(canStartTrackedArtifactRun({
   },
 }, 'generate-standard-docs'), true);
 
+assert.equal(canStartTrackedArtifactRun({
+  type: 'review-pack.json',
+  file_name: 'review_pack.json',
+  extension: '.json',
+  exists: true,
+  contract: {
+    reentry_target: 'review_pack',
+  },
+}, 'generate-standard-docs'), false);
+
 assert.deepEqual(deriveArtifactReentryCapabilities({
   type: 'drawing.qa-report',
   file_name: 'sheet_qa.json',

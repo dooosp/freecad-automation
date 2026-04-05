@@ -25,16 +25,29 @@ function writeAlignedConfig(filePath, {
 try {
   const outDir = join(TMP_DIR, 'standard-docs');
   const alignedConfigPath = join(TMP_DIR, 'sample_part_docs.toml');
+  const readinessPath = join(TMP_DIR, 'sample_readiness_report.json');
   writeAlignedConfig(alignedConfigPath, {
     name: 'sample_part',
     revision: 'A',
   });
+  const readinessResult = spawnSync('node', [
+    CLI,
+    'readiness-report',
+    '--review-pack',
+    'tests/fixtures/d-artifacts/sample_review_pack.canonical.json',
+    '--out',
+    readinessPath,
+  ], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  });
+  assert.equal(readinessResult.status, 0, readinessResult.stderr || readinessResult.stdout);
   const result = spawnSync('node', [
     CLI,
     'generate-standard-docs',
     alignedConfigPath,
-    '--review-pack',
-    'tests/fixtures/d-artifacts/sample_review_pack.canonical.json',
+    '--readiness-report',
+    readinessPath,
     '--profile',
     'site_korea_ulsan',
     '--out-dir',
@@ -64,9 +77,9 @@ try {
     true
   );
   assert.equal(
-    manifest.artifacts.some((artifact) => artifact.type === 'input.review-pack'),
+    manifest.artifacts.some((artifact) => artifact.type === 'readiness-report.json'),
     true,
-    'manifest should record review-pack provenance for review-pack-backed docs generation'
+    'manifest should record readiness provenance for canonical docs generation'
   );
 
   console.log('output-contract-cli.test.js: ok');

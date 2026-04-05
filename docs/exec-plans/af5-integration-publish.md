@@ -9,7 +9,7 @@
 - Expected git root basename: `freecad-automation`
 - Default branch: detect from git metadata
 - Task branch: `feat/af5-integration-publish`
-- Preferred worktree: `/Users/jangtaeho/Documents/New/.worktrees/af5-integration-publish/freecad-automation`
+- Preferred worktree: `../.worktrees/af5-integration-publish/freecad-automation` relative to the parent workspace that contains this repo checkout
 
 ## Integration Intent
 - Representative story:

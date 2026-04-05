@@ -83,7 +83,6 @@ try {
     delete reviewContextFixture.geometry_source.path;
   }
   writeFileSync(reviewContextPath, JSON.stringify(reviewContextFixture, null, 2), 'utf8');
-
   const { server } = createLocalApiServer({
     projectRoot: ROOT,
     jobsDir: join(tmpRoot, 'jobs'),
@@ -117,29 +116,11 @@ try {
   const initialReviewJob = await waitForJob(baseUrl, initialReviewPayload.job.id);
   assert.equal(initialReviewJob.execution.lifecycle_state, 'succeeded');
   const initialReviewArtifactsPayload = await fetchArtifacts(baseUrl, initialReviewJob.id);
-  const contextArtifact = initialReviewArtifactsPayload.artifacts.find((artifact) => artifact.type === 'context.json');
-  assert.equal(Boolean(contextArtifact), true);
-
-  const { response: bridgedReviewResponse, payload: bridgedReviewPayload } = await postJson(`${baseUrl}/api/studio/jobs`, {
-    type: 'review-context',
-    artifact_ref: {
-      job_id: initialReviewJob.id,
-      artifact_id: contextArtifact.id,
-    },
-  });
-  assert.equal(bridgedReviewResponse.status, 202);
-  assert.equal(bridgedReviewPayload.job.type, 'review-context');
-  assert.deepEqual(bridgedReviewPayload.job.request.artifact_ref, {
-    job_id: initialReviewJob.id,
-    artifact_id: contextArtifact.id,
-  });
-
-  const bridgedReviewJob = await waitForJob(baseUrl, bridgedReviewPayload.job.id);
-  assert.equal(bridgedReviewJob.execution.lifecycle_state, 'succeeded');
-  const bridgedReviewArtifactsPayload = await fetchArtifacts(baseUrl, bridgedReviewJob.id);
-  const bridgedReviewPack = bridgedReviewArtifactsPayload.artifacts.find((artifact) => artifact.contract?.reentry_target === 'review_pack');
-  assert.equal(Boolean(bridgedReviewPack), true);
-  assert.equal(bridgedReviewPack.contract.canonical_file_name, 'review_pack.json');
+  const engineeringContextArtifact = initialReviewArtifactsPayload.artifacts.find((artifact) => artifact.type === 'engineering_context.json');
+  assert.equal(Boolean(engineeringContextArtifact), true);
+  const directReviewPack = initialReviewArtifactsPayload.artifacts.find((artifact) => artifact.contract?.reentry_target === 'review_pack');
+  assert.equal(Boolean(directReviewPack), true);
+  assert.equal(directReviewPack.contract.canonical_file_name, 'review_pack.json');
 
   const { response: compareResponse, payload: comparePayload } = await postJson(`${baseUrl}/jobs`, {
     type: 'compare-rev',
@@ -161,14 +142,19 @@ try {
   const stabilizationJob = await waitForJob(baseUrl, stabilizationPayload.job.id);
   assert.equal(stabilizationJob.execution.lifecycle_state, 'succeeded');
 
-  const readinessReportPath = join(tmpRoot, 'jobs', readinessJob.id, 'artifacts', 'readiness_report.json');
-  const { response: docsResponse, payload: docsPayload } = await postJson(`${baseUrl}/jobs`, {
+  const { response: docsResponse, payload: docsPayload } = await postJson(`${baseUrl}/api/studio/jobs`, {
     type: 'generate-standard-docs',
-    config_path: docsConfigPath,
-    readiness_report_path: readinessReportPath,
+    artifact_ref: {
+      job_id: readinessJob.id,
+      artifact_id: readinessArtifact.id,
+    },
   });
   assert.equal(docsResponse.status, 202);
   assert.equal(docsPayload.job.execution.command, 'generate-standard-docs');
+  assert.deepEqual(docsPayload.job.request.artifact_ref, {
+    job_id: readinessJob.id,
+    artifact_id: readinessArtifact.id,
+  });
   const docsJob = await waitForJob(baseUrl, docsPayload.job.id);
   assert.equal(docsJob.execution.lifecycle_state, 'succeeded');
 
@@ -177,6 +163,8 @@ try {
   assert.equal(Boolean(docsReadinessArtifact), true);
   const docsManifestArtifact = docsArtifactsPayload.artifacts.find((artifact) => artifact.type === 'standard-docs.summary');
   assert.equal(Boolean(docsManifestArtifact), true);
+  assert.equal(docsArtifactsPayload.artifacts.some((artifact) => artifact.type === 'config.effective'), true);
+  assert.equal(docsArtifactsPayload.artifacts.some((artifact) => artifact.type === 'config.input'), true);
 
   const { response: packFromArtifactResponse, payload: packFromArtifactPayload } = await postJson(`${baseUrl}/api/studio/jobs`, {
     type: 'pack',
