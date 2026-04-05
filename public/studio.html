@@ -14,9 +14,68 @@
     }
   }
   </script>
+  <script>
+  (() => {
+    const messages = {
+      en: {
+        title: 'Studio failed to finish loading.',
+        message: 'Studio assets failed to load. Try reload and check the server static routes.',
+      },
+      ko: {
+        title: 'Studio 로딩을 완료하지 못했습니다.',
+        message: 'Studio 자산을 불러오지 못했습니다. 새로고침하거나 서버 정적 라우트를 확인하세요.',
+      },
+    };
+
+    const normalizeLocale = (value = '') => String(value).trim().toLowerCase().startsWith('ko') ? 'ko' : 'en';
+    const cookieLocale = document.cookie
+      .split(';')
+      .map((entry) => entry.trim())
+      .find((entry) => entry.startsWith('ui_locale='))
+      ?.slice('ui_locale='.length) || '';
+
+    let savedLocale = '';
+    try {
+      savedLocale = localStorage.getItem('ui_locale') || '';
+    } catch {}
+
+    const locale = normalizeLocale(savedLocale || cookieLocale || navigator.language || '');
+    const copy = messages[locale] || messages.en;
+
+    window.__studioBooted = false;
+    window.__studioShowBootWarning = (reason = '') => {
+      const host = document.getElementById('studio-boot-warning');
+      if (!host) return;
+      host.hidden = false;
+      host.querySelector('[data-role="title"]').textContent = copy.title;
+      host.querySelector('[data-role="message"]').textContent = reason || copy.message;
+    };
+    window.__studioHideBootWarning = () => {
+      const host = document.getElementById('studio-boot-warning');
+      if (host) host.hidden = true;
+      if (window.__studioBootTimer) {
+        window.clearTimeout(window.__studioBootTimer);
+        window.__studioBootTimer = null;
+      }
+    };
+    window.__studioBootTimer = window.setTimeout(() => {
+      if (window.__studioBooted === true) return;
+      window.__studioShowBootWarning();
+    }, 4000);
+  })();
+  </script>
 </head>
 <body>
   <a class="skip-link" href="#workspace-root" data-i18n="studio.skip-link">Skip to workspace</a>
+  <div
+    id="studio-boot-warning"
+    role="alert"
+    hidden
+    style="margin:16px; padding:12px 16px; border:1px solid rgba(241,123,123,0.45); border-radius:12px; background:rgba(81,24,24,0.92); color:#f8d7d7;"
+  >
+    <strong data-role="title" style="display:block; margin-bottom:4px;"></strong>
+    <p data-role="message" style="margin:0; line-height:1.5;"></p>
+  </div>
 
   <div class="studio-shell">
     <nav class="studio-sidebar" aria-label="Primary" data-i18n-aria-label="studio.sidebar.aria-label">
