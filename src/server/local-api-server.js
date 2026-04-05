@@ -25,6 +25,7 @@ const STUDIO_HTML = join(PUBLIC_DIR, 'studio.html');
 const STUDIO_CSS = join(PUBLIC_DIR, 'css', 'studio.css');
 const STUDIO_SHELL_JS = join(PUBLIC_DIR, 'js', 'studio-shell.js');
 const APP_JS_DIR = join(PUBLIC_DIR, 'js', 'app');
+const I18N_JS_DIR = join(PUBLIC_DIR, 'js', 'i18n');
 const STUDIO_JS_DIR = join(PUBLIC_DIR, 'js', 'studio');
 const STATIC_FILE_OPTIONS = Object.freeze({
   dotfiles: 'allow',
@@ -804,6 +805,7 @@ export function createLocalApiServer({
 
   app.use(express.json({ limit: '5mb' }));
   app.use('/js/app', express.static(APP_JS_DIR, { index: false, ...STATIC_FILE_OPTIONS }));
+  app.use('/js/i18n', express.static(I18N_JS_DIR, { index: false, ...STATIC_FILE_OPTIONS }));
   app.use('/js/studio', express.static(STUDIO_JS_DIR, { index: false, ...STATIC_FILE_OPTIONS }));
 
   app.use((error, _req, res, next) => {
