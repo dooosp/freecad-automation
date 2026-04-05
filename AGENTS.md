@@ -248,3 +248,81 @@ The final response should include:
   - `generate-standard-docs`
   - `pack`
 - Do not recreate D/C scoring, linkage, or reasoning logic in the browser UI. Surface canonical artifacts, statuses, and follow-up actions instead.
+
+## Task: Local API Server Route Modularization
+This section augments the existing repo guidance above and preserves it. For this task, the execution plan in `docs/exec-plans/local-api-server-modularization.md` is the task-specific source of truth, while the standing repo safety and reviewability rules remain in force.
+
+### Purpose
+- Split `src/server/local-api-server.js` into route modules and focused helpers while keeping the public local-API contract stable and reviewable.
+
+### Repo Identity And Control-Plane Safety
+- Record `pwd`, `git rev-parse --show-toplevel`, `git branch --show-current`, and local versus worktree mode before creating task control files or editing implementation files.
+- Verify the git root basename is `freecad-automation`.
+- Keep all control files for this task inside the same detected repo root:
+  - `AGENTS.md`
+  - `docs/exec-plans/local-api-server-modularization.md`
+  - `docs/exec-plans/local-api-server-modularization-verification.md`
+  - `tmp/codex/local-api-server-modularization-status.md`
+  - `tmp/codex/local-api-server-modularization-verification-status.md`
+- If the target checkout is dirty, prefer a clean task worktree and continue there instead of editing the dirty checkout.
+
+### Working Style
+- Work autonomously and bias toward action after repo identity and diff discipline checks pass.
+- Prefer repo search and existing tests over assumptions.
+- Keep diffs small, scoped, and reviewable.
+- Debug and repair failures before moving to the next phase.
+
+### Scope Discipline
+- Keep `createLocalApiServer` as the stable entrypoint.
+- Preserve current route paths, payload shapes, status codes, and redaction behavior.
+- Extract route modules and focused helpers for jobs, artifacts, studio preview routes, landing/static delivery, shared response helpers, and server boot composition.
+- Extract static asset registry and landing payload helpers.
+- Do not widen into CLI runtime changes or unrelated refactors.
+
+### Existing Guidance Preservation
+- Preserve repo-specific guidance already present in this file.
+- Treat previously established browser and artifact-safety guidance as still applicable where those surfaces are touched.
+- Keep English fallback and lightweight mechanisms already in the repo where browser-facing copy is involved.
+
+### Verification Rules
+- Read the relevant server files and related tests before editing.
+- Use repo search to find contract-sensitive route strings and response helpers before changing code.
+- Run the smallest relevant validation after each milestone when it materially exercises the touched surface.
+- Run `npm run test:node:contract && npm run test:node:integration` before finalization.
+- Do not claim runtime-backed smoke checks or browser interaction unless they actually ran.
+
+### Dirty-Tree Discipline
+- Capture `git status --short` and `git diff --name-only` before implementation.
+- Stop on a dirty tree unless a clean worktree is created for the task.
+- Do not commit temp status files unless explicitly asked.
+
+### Progress Tracking
+- Maintain:
+  - `tmp/codex/local-api-server-modularization-status.md`
+  - `tmp/codex/local-api-server-modularization-verification-status.md`
+- Update the implementation status file after each execution-plan phase with repo identity, diff snapshot, current phase, completed work, files changed, validations run, failures or findings, repairs, and remaining risks.
+- Update the verification status file after each verification-plan phase with the same categories plus claim-audit findings.
+
+### Read-Only Review Discipline
+- Capture `git diff --name-only` immediately before and after the final read-only review.
+- Do not modify files during the read-only review.
+- If the before and after diff snapshots differ, report the read-only review as invalid and do not claim merge readiness.
+
+### Completion Criteria
+- The task execution phases and verification phases are completed.
+- `src/server/local-api-server.js` is reduced to stable entrypoint and server boot composition responsibilities plus any narrow compatibility glue that still belongs there.
+- Route paths, response shapes, status codes, artifact redaction, and landing payload behavior remain backward compatible.
+- Validation commands relevant to the touched surfaces pass or any remaining gaps are clearly reported.
+
+### Final Response Format
+- Include:
+  1. concise summary of what changed
+  2. repo identity used for the task
+  3. architecture and implementation decisions
+  4. changed files grouped by surface
+  5. tests and checks actually run
+  6. pre-existing diff or dirty-tree notes
+  7. remaining gaps and why they remain
+  8. commit hashes/messages if commits were made
+  9. whether the branch was pushed
+  10. remaining risks or recommended follow-ups
