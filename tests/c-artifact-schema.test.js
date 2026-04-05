@@ -103,37 +103,7 @@ try {
   assert.notEqual(docsRun.status, 0, 'config-only docs generation should fail without canonical readiness input');
   assert.match(
     `${docsRun.stderr}\n${docsRun.stdout}`,
-    /requires either --readiness-report <readiness_report\.json> or --review-pack <review_pack\.json>/i
-  );
-
-  const docsFromReviewPackDir = join(TMP_DIR, 'standard-docs-from-review-pack');
-  const docsFromReviewPackRun = runCli([
-    'generate-standard-docs',
-    alignedConfigPath,
-    '--review-pack',
-    reviewPackFixture,
-    '--out-dir',
-    docsFromReviewPackDir,
-  ]);
-  assert.equal(docsFromReviewPackRun.status, 0, docsFromReviewPackRun.stderr || docsFromReviewPackRun.stdout);
-
-  const docsManifestPath = join(docsFromReviewPackDir, 'standard_docs_manifest.json');
-  assert.equal(existsSync(docsManifestPath), true, `Expected docs manifest at ${docsManifestPath}`);
-  const generatedReadinessPath = join(docsFromReviewPackDir, 'readiness_report.json');
-  assert.equal(existsSync(generatedReadinessPath), true, `Expected generated readiness report at ${generatedReadinessPath}`);
-  const docsManifest = readJson(docsManifestPath);
-  assertArtifact('docs_manifest', docsManifest);
-  assert.equal(docsManifest.canonical_artifact.json_is_source_of_truth, true);
-  assert.equal(docsManifest.contract.command, 'generate-standard-docs');
-  assert.equal(
-    docsManifest.source_artifact_refs.some((ref) => ref.artifact_type === 'readiness_report' && ref.path === generatedReadinessPath),
-    true,
-    'docs manifest should record the canonical readiness report JSON source'
-  );
-  assert.equal(
-    docsManifest.source_artifact_refs.some((ref) => ref.artifact_type === 'review_pack' && ref.path === reviewPackFixture),
-    true,
-    'docs manifest should preserve review-pack provenance when canonical readiness is built from review_pack'
+    /requires --readiness-report <readiness_report\.json>/i
   );
 
   const docsFromReadinessDir = join(TMP_DIR, 'standard-docs-from-readiness');
@@ -152,16 +122,37 @@ try {
     true,
     'docs manifest should preserve the supplied canonical readiness report path'
   );
+  assert.equal(
+    docsFromReadinessManifest.source_artifact_refs.some((ref) => ref.artifact_type === 'review_pack' && ref.path === reviewPackFixture),
+    true,
+    'docs manifest should preserve upstream review-pack provenance through canonical readiness input'
+  );
+
+  const docsFromReviewPackRun = runCli([
+    'generate-standard-docs',
+    alignedConfigPath,
+    '--readiness-report',
+    readinessOut,
+    '--out-dir',
+    join(TMP_DIR, 'should-fail-review-pack-bypass'),
+    '--review-pack',
+    reviewPackFixture,
+  ]);
+  assert.notEqual(docsFromReviewPackRun.status, 0, 'review-pack bypass should fail');
+  assert.match(
+    `${docsFromReviewPackRun.stderr}\n${docsFromReviewPackRun.stdout}`,
+    /requires --readiness-report|unknown option|does not accept|no longer accepts --review-pack/i
+  );
 
   const mismatchedDocsRun = runCli([
     'generate-standard-docs',
     'configs/examples/controller_housing_eol.toml',
-    '--review-pack',
-    reviewPackFixture,
+    '--readiness-report',
+    readinessOut,
     '--out-dir',
     join(TMP_DIR, 'mismatched-standard-docs'),
   ]);
-  assert.notEqual(mismatchedDocsRun.status, 0, 'mismatched config and review-pack lineage should fail');
+  assert.notEqual(mismatchedDocsRun.status, 0, 'mismatched config and readiness lineage should fail');
   assert.match(
     `${mismatchedDocsRun.stderr}\n${mismatchedDocsRun.stdout}`,
     /does not match readiness report lineage/i
@@ -170,7 +161,7 @@ try {
   const helpRun = runCli(['help']);
   assert.equal(helpRun.status, 0, helpRun.stderr || helpRun.stdout);
   assert.match(helpRun.stdout, /readiness-report <config\.toml\|json> .*legacy compatibility/i);
-  assert.match(helpRun.stdout, /generate-standard-docs <config\.toml\|json> \(\-\-readiness-report <readiness_report\.json> \| \-\-review-pack <review_pack\.json>\)/i);
+  assert.match(helpRun.stdout, /generate-standard-docs <config\.toml\|json> \-\-readiness-report <readiness_report\.json>/i);
 
   console.log('c-artifact-schema.test.js: ok');
 } finally {

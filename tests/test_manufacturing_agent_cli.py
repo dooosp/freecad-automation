@@ -26,6 +26,13 @@ def run_cli(args, check=True):
     return completed
 
 
+def write_aligned_config(file_path, template_path=EXAMPLES / "controller_housing_eol.toml", name="sample_part", revision="A"):
+    template = template_path.read_text(encoding="utf-8")
+    next_text = re.sub(r'^name = ".*"$', f'name = "{name}"', template, flags=re.MULTILINE)
+    next_text = re.sub(r'^revision = ".*"$', f'revision = "{revision}"', next_text, flags=re.MULTILINE)
+    file_path.write_text(next_text, encoding="utf-8")
+
+
 def test_review_command_outputs_product_review_pack(tmp_path):
     output_path = tmp_path / "display_bracket_review.json"
 
@@ -214,11 +221,14 @@ def test_electronics_assembly_example_surfaces_process_line_and_quality_signals(
 def test_generate_standard_docs_creates_expected_files(tmp_path):
     out_dir = tmp_path / "standard_docs"
     readiness_path = tmp_path / "controller_readiness.json"
+    aligned_config = tmp_path / "sample_part_docs.toml"
+    write_aligned_config(aligned_config)
 
     run_cli(
         [
             "readiness-report",
-            str(EXAMPLES / "controller_housing_eol.toml"),
+            "--review-pack",
+            str(REVIEW_PACK_FIXTURE),
             "--out",
             str(readiness_path),
         ]
@@ -227,7 +237,7 @@ def test_generate_standard_docs_creates_expected_files(tmp_path):
     run_cli(
         [
             "generate-standard-docs",
-            str(EXAMPLES / "controller_housing_eol.toml"),
+            str(aligned_config),
             "--readiness-report",
             str(readiness_path),
             "--out-dir",
@@ -259,11 +269,14 @@ def test_profile_aware_standard_doc_presets_change_owner_and_frequency(tmp_path)
     korea_dir = tmp_path / "docs_korea"
     mexico_dir = tmp_path / "docs_mexico"
     readiness_path = tmp_path / "controller_readiness.json"
+    aligned_config = tmp_path / "sample_part_docs.toml"
+    write_aligned_config(aligned_config)
 
     run_cli(
         [
             "readiness-report",
-            str(EXAMPLES / "controller_housing_eol.toml"),
+            "--review-pack",
+            str(REVIEW_PACK_FIXTURE),
             "--out",
             str(readiness_path),
         ]
@@ -272,7 +285,7 @@ def test_profile_aware_standard_doc_presets_change_owner_and_frequency(tmp_path)
     run_cli(
         [
             "generate-standard-docs",
-            str(EXAMPLES / "controller_housing_eol.toml"),
+            str(aligned_config),
             "--readiness-report",
             str(readiness_path),
             "--profile",
@@ -284,7 +297,7 @@ def test_profile_aware_standard_doc_presets_change_owner_and_frequency(tmp_path)
     run_cli(
         [
             "generate-standard-docs",
-            str(EXAMPLES / "controller_housing_eol.toml"),
+            str(aligned_config),
             "--readiness-report",
             str(readiness_path),
             "--profile",
@@ -299,8 +312,8 @@ def test_profile_aware_standard_doc_presets_change_owner_and_frequency(tmp_path)
     korea_work_instruction = (korea_dir / "work_instruction_draft.md").read_text(encoding="utf-8")
     mexico_work_instruction = (mexico_dir / "work_instruction_draft.md").read_text(encoding="utf-8")
 
-    assert "Pilot lot 100% + hourly layered audit" in korea_control_plan
-    assert "First 3 lots 100% + hourly layered audit" in mexico_control_plan
+    assert "Launch lot 100% then every 2 hours" in korea_control_plan
+    assert "Launch lot 100% then hourly audit" in mexico_control_plan
     assert "Quality engineering" in korea_control_plan
     assert "Resident quality engineering" in mexico_control_plan
     assert "Profile preset: Korea-Ulsan launch profile" in korea_work_instruction
@@ -322,19 +335,61 @@ def test_generate_standard_docs_requires_explicit_canonical_readiness_input(tmp_
 
     assert completed.returncode != 0
     combined_output = f"{completed.stdout}\n{completed.stderr}"
-    assert "requires either --readiness-report" in combined_output
+    assert "requires --readiness-report" in combined_output
     assert "will not synthesize canonical readiness from config-only inputs" in combined_output
 
 
-def test_generate_standard_docs_rejects_mismatched_config_and_review_pack(tmp_path):
-    out_dir = tmp_path / "docs_mismatched_review_pack"
+def test_generate_standard_docs_rejects_legacy_config_readiness_handoff(tmp_path):
+    out_dir = tmp_path / "docs_from_legacy_readiness"
+    readiness_path = tmp_path / "controller_readiness_legacy.json"
+
+    run_cli(
+        [
+            "readiness-report",
+            str(EXAMPLES / "controller_housing_eol.toml"),
+            "--out",
+            str(readiness_path),
+        ]
+    )
 
     completed = run_cli(
         [
             "generate-standard-docs",
             str(EXAMPLES / "controller_housing_eol.toml"),
+            "--readiness-report",
+            str(readiness_path),
+            "--out-dir",
+            str(out_dir),
+        ],
+        check=False,
+    )
+
+    assert completed.returncode != 0
+    combined_output = f"{completed.stdout}\n{completed.stderr}"
+    assert "must preserve review_pack lineage" in combined_output
+    assert "Legacy config-compatibility readiness artifacts are not valid A+F handoff inputs." in combined_output
+
+
+def test_generate_standard_docs_rejects_mismatched_config_and_readiness_report(tmp_path):
+    out_dir = tmp_path / "docs_mismatched_readiness_report"
+    readiness_path = tmp_path / "sample_readiness.json"
+
+    run_cli(
+        [
+            "readiness-report",
             "--review-pack",
             str(REVIEW_PACK_FIXTURE),
+            "--out",
+            str(readiness_path),
+        ]
+    )
+
+    completed = run_cli(
+        [
+            "generate-standard-docs",
+            str(EXAMPLES / "controller_housing_eol.toml"),
+            "--readiness-report",
+            str(readiness_path),
             "--out-dir",
             str(out_dir),
         ],

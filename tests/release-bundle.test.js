@@ -128,16 +128,15 @@ try {
   const docsRun = runCli([
     'generate-standard-docs',
     alignedConfigPath,
-    '--review-pack',
-    REVIEW_PACK_FIXTURE,
+    '--readiness-report',
+    docsReadinessOut,
     '--out-dir',
     standardDocsDir,
   ]);
   assert.equal(docsRun.status, 0, docsRun.stderr || docsRun.stdout);
-  assert.equal(existsSync(join(standardDocsDir, 'readiness_report.json')), true, 'review-pack-backed docs generation should persist canonical readiness JSON');
 
   const docsBundleZip = join(docsDir, 'release_bundle_with_docs.zip');
-  const docsReadinessFromManifest = join(standardDocsDir, 'readiness_report.json');
+  const docsReadinessFromManifest = docsReadinessOut;
   const docsPackRun = runCli([
     'pack',
     '--readiness',
@@ -149,10 +148,21 @@ try {
   ]);
   assert.equal(docsPackRun.status, 0, docsPackRun.stderr || docsPackRun.stdout);
 
+  const mismatchedReadinessPath = join(docsDir, 'mismatched_readiness_report.json');
+  const mismatchedReadiness = {
+    ...readJson(docsReadinessOut),
+    revision: 'B',
+    part: {
+      ...readJson(docsReadinessOut).part,
+      revision: 'B',
+    },
+  };
+  writeFileSync(mismatchedReadinessPath, JSON.stringify(mismatchedReadiness, null, 2), 'utf8');
+
   const mismatchedPackRun = runCli([
     'pack',
     '--readiness',
-    docsReadinessOut,
+    mismatchedReadinessPath,
     '--docs-manifest',
     join(standardDocsDir, 'standard_docs_manifest.json'),
     '--out',

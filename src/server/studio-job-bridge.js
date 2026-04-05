@@ -351,10 +351,10 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
 
     if (request.type === 'generate-standard-docs') {
       const selectedArtifact = resolvedArtifact.artifact;
-      if (!isReviewPackArtifact(selectedArtifact) && !isReadinessReportArtifact(selectedArtifact) && !isReleaseBundleArtifact(selectedArtifact)) {
+      if (!isReadinessReportArtifact(selectedArtifact) && !isReleaseBundleArtifact(selectedArtifact)) {
         return {
           ok: false,
-          errors: ['artifact_ref must point to a canonical review-pack JSON, readiness report JSON, or release bundle for type "generate-standard-docs".'],
+          errors: ['artifact_ref must point to a canonical readiness report JSON or a release bundle for type "generate-standard-docs".'],
         };
       }
 
@@ -373,9 +373,7 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
         request: {
           type: 'generate-standard-docs',
           config_path: configArtifact.path,
-          ...(isReviewPackArtifact(selectedArtifact)
-            ? { review_pack_path: selectedArtifact.path }
-            : { readiness_report_path: selectedArtifact.path }),
+          readiness_report_path: selectedArtifact.path,
           options: buildResolvedArtifactOptions(request, resolvedArtifact),
         },
       };

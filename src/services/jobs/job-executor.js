@@ -670,32 +670,8 @@ export function createJobExecutor({
           outputFileName: 'readiness_report.json',
         })
       : { path: null, importRecord: null };
-    const reviewPackImport = job.request.review_pack_path
-      ? await resolveBundleBackedCanonicalPath({
-          jobStore,
-          jobId: job.id,
-          inputPath: resolveMaybe(projectRoot, job.request.review_pack_path),
-          target: 'review_pack',
-          outputFileName: 'review_pack.json',
-        })
-      : { path: null, importRecord: null };
     const readinessReportPath = readinessImport.path;
-    const reviewPackPath = reviewPackImport.path;
-    const processPlanPath = resolveMaybe(projectRoot, job.request.process_plan_path);
-    const qualityRiskPath = resolveMaybe(projectRoot, job.request.quality_risk_path);
-
-    let readinessReport = null;
-    if (readinessReportPath) {
-      readinessReport = await loadReadinessReportHandoff(readinessReportPath, { command: 'generate-standard-docs' });
-    } else {
-      const reviewPack = await loadReviewPackHandoff(reviewPackPath, { command: 'generate-standard-docs' });
-      readinessReport = buildReadinessReportFromReviewPack({
-        reviewPack,
-        reviewPackPath,
-        processPlan: processPlanPath ? await loadCanonicalSupportArtifact('process_plan', processPlanPath, 'generate-standard-docs') : null,
-        qualityRisk: qualityRiskPath ? await loadCanonicalSupportArtifact('quality_risk', qualityRiskPath, 'generate-standard-docs') : null,
-      });
-    }
+    const readinessReport = await loadReadinessReportHandoff(readinessReportPath, { command: 'generate-standard-docs' });
 
     const result = await runStandardDocsWorkflow({
       freecadRoot: projectRoot,
@@ -715,14 +691,10 @@ export function createJobExecutor({
     return {
       ...result,
       configPath,
-      reviewPackPath,
       readinessReportPath,
-      processPlanPath,
-      qualityRiskPath,
       bundleImports: summarizeBundleImports([
         configImport.importRecord,
         readinessImport.importRecord,
-        reviewPackImport.importRecord,
       ]),
     };
   }
@@ -1003,7 +975,6 @@ export function createJobExecutor({
                 strictReentry: true,
               }),
             }] : []),
-            ...(result.reviewPackPath ? [{ type: 'input.review-pack', path: result.reviewPackPath, label: 'Review pack JSON', scope: 'internal', stability: 'stable' }] : []),
           );
         } else if (job.type === 'pack') {
           result = await executePack(job);

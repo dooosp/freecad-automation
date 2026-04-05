@@ -213,6 +213,14 @@ assert.equal(readinessFromArtifact.ok, true, readinessFromArtifact.errors?.join(
 assert.equal(readinessFromArtifact.request.type, 'readiness-pack');
 assert.equal(readinessFromArtifact.request.review_pack_path, '/tmp/review_pack.json');
 
+const unsupportedReviewContext = validateStudioJobSubmission({
+  type: 'review-context',
+  config_toml: baseToml,
+});
+
+assert.equal(unsupportedReviewContext.ok, false);
+assert.match(unsupportedReviewContext.errors.join('\n'), /type must be one of create, draw, inspect, report, compare-rev, readiness-pack, stabilization-review, generate-standard-docs, or pack/i);
+
 const compareFromArtifacts = await translateStudioJobSubmission({
   type: 'compare-rev',
   baseline_artifact_ref: {
@@ -390,6 +398,44 @@ const docsFromBundle = await translateStudioJobSubmission({
 assert.equal(docsFromBundle.ok, true, docsFromBundle.errors?.join('\n'));
 assert.equal(docsFromBundle.request.config_path, '/tmp/release_bundle.zip');
 assert.equal(docsFromBundle.request.readiness_report_path, '/tmp/release_bundle.zip');
+
+const invalidDocsFromReviewPack = await translateStudioJobSubmission({
+  type: 'generate-standard-docs',
+  artifact_ref: {
+    job_id: 'job-review',
+    artifact_id: 'review-pack',
+  },
+}, {
+  async resolveArtifactRef(ref) {
+    return {
+      jobId: ref.job_id,
+      artifact: {
+        id: ref.artifact_id,
+        path: '/tmp/review_pack.json',
+        type: 'review-pack.json',
+        file_name: 'review_pack.json',
+        extension: '.json',
+        exists: true,
+        contract: {
+          reentry_target: 'review_pack',
+        },
+      },
+      jobArtifacts: [
+        {
+          id: 'effective-config',
+          path: '/tmp/effective-config.json',
+          type: 'config.effective',
+          file_name: 'effective-config.json',
+          extension: '.json',
+          exists: true,
+        },
+      ],
+    };
+  },
+});
+
+assert.equal(invalidDocsFromReviewPack.ok, false);
+assert.match(invalidDocsFromReviewPack.errors.join('\n'), /canonical readiness report JSON or a release bundle/i);
 
 const invalidInspectArtifact = await translateStudioJobSubmission({
   type: 'inspect',

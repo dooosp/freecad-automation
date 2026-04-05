@@ -151,7 +151,7 @@ export function canStartTrackedArtifactRun(artifact = {}, type = 'report') {
     return isReviewPackArtifact(artifact) || isReleaseBundleArtifact(artifact);
   }
   if (type === 'generate-standard-docs') {
-    return isReviewPackArtifact(artifact) || isReadinessReportArtifact(artifact) || isReleaseBundleArtifact(artifact);
+    return isReadinessReportArtifact(artifact) || isReleaseBundleArtifact(artifact);
   }
   if (type === 'pack') {
     return isReadinessReportArtifact(artifact) || isReleaseBundleArtifact(artifact);

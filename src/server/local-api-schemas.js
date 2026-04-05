@@ -120,22 +120,12 @@ const localApiJobRequestSchema = {
     {
       type: 'object',
       additionalProperties: false,
-      required: ['type', 'config_path'],
+      required: ['type', 'config_path', 'readiness_report_path'],
       properties: {
         type: { const: 'generate-standard-docs' },
         config_path: { type: 'string', minLength: 1 },
         readiness_report_path: { type: 'string', minLength: 1 },
-        review_pack_path: { type: 'string', minLength: 1 },
-        process_plan_path: { type: 'string', minLength: 1 },
-        quality_risk_path: { type: 'string', minLength: 1 },
         options: { type: 'object' },
-      },
-      oneOf: [
-        { required: ['readiness_report_path'] },
-        { required: ['review_pack_path'] },
-      ],
-      not: {
-        required: ['readiness_report_path', 'review_pack_path'],
       },
     },
     {

@@ -14,7 +14,7 @@
 - Expected git root basename: `freecad-automation`
 - Default branch: detect from git metadata
 - Task branch: `feat/af1-execution-contract`
-- Task worktree: `/Users/jangtaeho/Documents/New/.worktrees/af1-execution-contract/freecad-automation`
+- Task worktree: `.worktrees/af1-execution-contract/freecad-automation`
 
 ## Scope
 - Define a single shared execution and artifact contract for:
