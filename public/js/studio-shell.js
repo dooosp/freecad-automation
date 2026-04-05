@@ -2,7 +2,6 @@ import { createLogEntry } from './studio/renderers.js';
 import { fetchArtifactText } from './studio/artifact-insights.js';
 import { buildStudioArtifactRef, deriveStudioArtifactFamily } from './studio/artifact-actions.js';
 import { mountArtifactsWorkspace } from './studio/artifacts-workspace.js';
-import { mountDrawingWorkspace } from './studio/drawing-workspace.js';
 import { getSelectedStudioExample, resolveSelectedStudioExampleId } from './studio/examples.js';
 import {
   describeJobMonitorTransition,
@@ -25,7 +24,6 @@ import {
   submitStudioTrackedJob,
 } from './studio/jobs-client.js';
 import { renderJobsCenter, shortJobId } from './studio/jobs-center.js';
-import { mountModelWorkspace } from './studio/model-workspace.js';
 import { mountReviewWorkspace } from './studio/review-workspace.js';
 import { buildImportBootstrapOptions } from './studio/import-bootstrap-options.js';
 import {
@@ -61,10 +59,30 @@ const logClose = document.getElementById('log-close');
 const logDrawer = document.getElementById('log-drawer');
 const logFeed = document.getElementById('log-feed');
 const navLinks = [...document.querySelectorAll('.nav-link')];
+const REQUIRED_SHELL_ELEMENTS = Object.freeze([
+  ['workspace-root', workspaceRoot],
+  ['workspace-summary', workspaceSummary],
+  ['runtime-badge', runtimeBadge],
+  ['project-badge', projectBadge],
+  ['connection-badge', connectionBadge],
+  ['job-badge', jobBadge],
+  ['jobs-toggle', jobsToggle],
+  ['jobs-close', jobsClose],
+  ['jobs-drawer', jobsDrawer],
+  ['jobs-center-content', jobsCenterContent],
+  ['log-toggle', logToggle],
+  ['log-close', logClose],
+  ['log-drawer', logDrawer],
+  ['log-feed', logFeed],
+  ['workspace-nav', document.getElementById('workspace-nav')],
+]);
 const RECENT_JOBS_LIMIT = 12;
 const JOB_MONITOR_POLL_MS = 2000;
 let activeWorkspaceController = null;
 let jobMonitorTimer = null;
+let workspaceRenderEpoch = 0;
+let modelWorkspaceModulePromise = null;
+let drawingWorkspaceModulePromise = null;
 const jobMonitorErrors = new Map();
 const initialLocationState = parseStudioLocationState(window.location);
 
@@ -247,6 +265,59 @@ const state = {
     },
   ],
 };
+
+function localizedBootMessage(key = 'assets') {
+  const locale = String(document.documentElement.lang || navigator.language || '').trim().toLowerCase().startsWith('ko')
+    ? 'ko'
+    : 'en';
+  const messages = {
+    en: {
+      assets: 'Studio assets failed to load. Try reload and check the server static routes.',
+      contract: 'Studio shell markup did not match the expected browser contract. Reload and check the server static routes.',
+    },
+    ko: {
+      assets: 'Studio 자산을 불러오지 못했습니다. 새로고침하거나 서버 정적 라우트를 확인하세요.',
+      contract: 'Studio 셸 마크업이 예상한 브라우저 계약과 맞지 않습니다. 새로고침하거나 서버 정적 라우트를 확인하세요.',
+    },
+  };
+  return messages[locale]?.[key] || messages.en[key];
+}
+
+function showStudioBootWarning(message = localizedBootMessage('assets')) {
+  if (typeof window.__studioShowBootWarning === 'function') {
+    window.__studioShowBootWarning(message);
+  }
+}
+
+function hideStudioBootWarning() {
+  if (typeof window.__studioHideBootWarning === 'function') {
+    window.__studioHideBootWarning();
+  }
+}
+
+function markStudioBooted() {
+  window.__studioBooted = true;
+  hideStudioBootWarning();
+}
+
+function reportStudioBootFailure(message = localizedBootMessage('assets'), error = null) {
+  showStudioBootWarning(message);
+  if (error) {
+    console.error(error);
+  }
+}
+
+function ensureShellContract() {
+  const missing = REQUIRED_SHELL_ELEMENTS
+    .filter(([, element]) => !(element instanceof HTMLElement))
+    .map(([id]) => id);
+
+  if (missing.length === 0) return true;
+
+  reportStudioBootFailure(localizedBootMessage('contract'));
+  console.error(`Studio shell markup contract mismatch. Missing elements: ${missing.join(', ')}`);
+  return false;
+}
 
 function setBadgeText(element, text, title = text) {
   element.textContent = text;
@@ -498,28 +569,11 @@ function renderJobsDrawer() {
 }
 
 function renderWorkspace() {
+  const renderEpoch = ++workspaceRenderEpoch;
   activeWorkspaceController?.destroy?.();
   activeWorkspaceController = null;
   workspaceRoot.replaceChildren(workspaceDefinitions[state.route].render(state));
-  if (state.route === 'model') {
-    activeWorkspaceController = mountModelWorkspace({
-      root: workspaceRoot,
-      state,
-      addLog,
-      submitTrackedJob: submitTrackedStudioRun,
-    });
-  } else if (state.route === 'drawing') {
-    activeWorkspaceController = mountDrawingWorkspace({
-      root: workspaceRoot,
-      state,
-      addLog,
-      navigateTo,
-      openJob,
-      loadSelectedExampleIntoSharedModel,
-      loadConfigFileIntoSharedModel,
-      submitTrackedJob: submitTrackedStudioRun,
-    });
-  } else if (state.route === 'review') {
+  if (state.route === 'review') {
     activeWorkspaceController = mountReviewWorkspace({
       root: workspaceRoot,
       state,
@@ -537,6 +591,80 @@ function renderWorkspace() {
   }
   applyPendingFocus();
   applyTranslations(workspaceRoot);
+
+  if (state.route === 'model') {
+    mountDeferredWorkspace(renderEpoch, 'model', loadModelWorkspaceModule, ({ mountModelWorkspace }) =>
+      mountModelWorkspace({
+        root: workspaceRoot,
+        state,
+        addLog,
+        submitTrackedJob: submitTrackedStudioRun,
+      })
+    );
+  } else if (state.route === 'drawing') {
+    mountDeferredWorkspace(renderEpoch, 'drawing', loadDrawingWorkspaceModule, ({ mountDrawingWorkspace }) =>
+      mountDrawingWorkspace({
+        root: workspaceRoot,
+        state,
+        addLog,
+        navigateTo,
+        openJob,
+        loadSelectedExampleIntoSharedModel,
+        loadConfigFileIntoSharedModel,
+        submitTrackedJob: submitTrackedStudioRun,
+      })
+    );
+  }
+}
+
+function loadModelWorkspaceModule() {
+  if (!modelWorkspaceModulePromise) {
+    modelWorkspaceModulePromise = import('./studio/model-workspace.js');
+  }
+  return modelWorkspaceModulePromise;
+}
+
+function loadDrawingWorkspaceModule() {
+  if (!drawingWorkspaceModulePromise) {
+    drawingWorkspaceModulePromise = import('./studio/drawing-workspace.js');
+  }
+  return drawingWorkspaceModulePromise;
+}
+
+function renderWorkspaceMountFailure(route, error) {
+  const workspace = workspaceDefinitions[route];
+  const message = error instanceof Error ? error.message : String(error);
+  const notice = document.createElement('div');
+  notice.className = 'support-note support-note-warn';
+  notice.dataset.hook = 'workspace-load-error';
+  notice.textContent = `${workspace.label} workspace could not finish loading. ${message}`;
+
+  const shell = workspaceRoot.querySelector('.workspace-shell, .review-layout, .artifacts-layout');
+  if (shell instanceof HTMLElement) shell.prepend(notice);
+  else workspaceRoot.prepend(notice);
+
+  addLog({
+    status: `${workspace.label} workspace`,
+    message: `${workspace.label} workspace could not finish loading: ${message}`,
+    tone: 'warn',
+    time: 'ui',
+  });
+}
+
+async function mountDeferredWorkspace(renderEpoch, route, loadModule, mountWorkspace) {
+  try {
+    const module = await loadModule();
+    if (renderEpoch !== workspaceRenderEpoch || state.route !== route) return;
+    activeWorkspaceController = mountWorkspace(module);
+  } catch (error) {
+    if (renderEpoch !== workspaceRenderEpoch || state.route !== route) return;
+    renderWorkspaceMountFailure(route, error);
+  } finally {
+    if (renderEpoch === workspaceRenderEpoch && state.route === route) {
+      applyPendingFocus();
+      applyTranslations(workspaceRoot);
+    }
+  }
 }
 
 function renderLogs() {
@@ -1566,128 +1694,147 @@ async function handleShellAction(actionTarget) {
   }
 }
 
-workspaceRoot.addEventListener('click', async (event) => {
-  const actionTarget = findActionTarget(event.target);
-  if (!actionTarget) return;
-  await handleShellAction(actionTarget);
-});
+function bootStudioShell() {
+  if (!ensureShellContract()) return;
 
-jobsDrawer.addEventListener('click', async (event) => {
-  const actionTarget = findActionTarget(event.target);
-  if (!actionTarget) return;
-  await handleShellAction(actionTarget);
-});
+  workspaceRoot.addEventListener('click', async (event) => {
+    const actionTarget = findActionTarget(event.target);
+    if (!actionTarget) return;
+    await handleShellAction(actionTarget);
+  });
 
-workspaceRoot.addEventListener('change', async (event) => {
-  const target = event.target;
-  if (!(target instanceof HTMLElement)) return;
+  jobsDrawer.addEventListener('click', async (event) => {
+    const actionTarget = findActionTarget(event.target);
+    if (!actionTarget) return;
+    await handleShellAction(actionTarget);
+  });
 
-  if (target.matches('[data-action="select-example"]')) {
-    state.data.examples.selectedId = target.value;
-    commitRender();
-    return;
-  }
+  workspaceRoot.addEventListener('change', async (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
 
-  if (target instanceof HTMLInputElement && target.id === 'start-import-model-file') {
-    const [file] = [...(target.files || [])];
-    state.data.importBootstrap.modelFile = file || null;
-    state.data.importBootstrap.modelFileName = file?.name || '';
-    if (file) {
-      state.data.importBootstrap.modelPath = '';
+    if (target.matches('[data-action="select-example"]')) {
+      state.data.examples.selectedId = target.value;
+      commitRender();
+      return;
     }
-    state.data.importBootstrap.status = 'idle';
-    state.data.importBootstrap.preview = null;
-    state.data.importBootstrap.errorMessage = '';
-    state.data.importBootstrap.corrections = {
-      importKind: '',
-      unit: '',
-      bodyCount: '',
-      note: '',
-    };
-    target.value = '';
-    commitRender();
-    return;
-  }
 
-  if (target instanceof HTMLInputElement && target.id === 'start-config-file') {
-    const [file] = [...(target.files || [])];
-    await openConfigFile(file);
-    target.value = '';
-  }
-});
-
-workspaceRoot.addEventListener('input', (event) => {
-  const target = event.target;
-  if (!(target instanceof HTMLElement)) return;
-
-  if (target.matches('[data-field="prompt-text"]')) {
-    state.data.model.promptText = target.value;
-    state.data.model.promptMode = true;
-  } else if (target.matches('[data-field="config-text"]')) {
-    state.data.model.configText = target.value;
-    state.data.model.editingEnabled = true;
-  } else if (target.matches('[data-field="import-model-path"]')) {
-    state.data.importBootstrap.modelPath = target.value;
-    if (target.value.trim()) {
-      state.data.importBootstrap.modelFile = null;
-      state.data.importBootstrap.modelFileName = '';
+    if (target instanceof HTMLInputElement && target.id === 'start-import-model-file') {
+      const [file] = [...(target.files || [])];
+      state.data.importBootstrap.modelFile = file || null;
+      state.data.importBootstrap.modelFileName = file?.name || '';
+      if (file) {
+        state.data.importBootstrap.modelPath = '';
+      }
+      state.data.importBootstrap.status = 'idle';
+      state.data.importBootstrap.preview = null;
+      state.data.importBootstrap.errorMessage = '';
+      state.data.importBootstrap.corrections = {
+        importKind: '',
+        unit: '',
+        bodyCount: '',
+        note: '',
+      };
+      target.value = '';
+      commitRender();
+      return;
     }
-    state.data.importBootstrap.status = 'idle';
-    state.data.importBootstrap.preview = null;
-    state.data.importBootstrap.errorMessage = '';
-    state.data.importBootstrap.corrections = {
-      importKind: '',
-      unit: '',
-      bodyCount: '',
-      note: '',
-    };
-  } else if (target.matches('[data-field="import-bom-path"]')) {
-    state.data.importBootstrap.bomPath = target.value;
-    state.data.importBootstrap.status = 'idle';
-    state.data.importBootstrap.preview = null;
-    state.data.importBootstrap.errorMessage = '';
-  } else if (target.matches('[data-field="import-inspection-path"]')) {
-    state.data.importBootstrap.inspectionPath = target.value;
-    state.data.importBootstrap.status = 'idle';
-    state.data.importBootstrap.preview = null;
-    state.data.importBootstrap.errorMessage = '';
-  } else if (target.matches('[data-field="import-quality-path"]')) {
-    state.data.importBootstrap.qualityPath = target.value;
-    state.data.importBootstrap.status = 'idle';
-    state.data.importBootstrap.preview = null;
-    state.data.importBootstrap.errorMessage = '';
-  } else if (target.matches('[data-field="import-correction-kind"]')) {
-    state.data.importBootstrap.corrections.importKind = target.value;
-  } else if (target.matches('[data-field="import-correction-unit"]')) {
-    state.data.importBootstrap.corrections.unit = target.value;
-  } else if (target.matches('[data-field="import-correction-body-count"]')) {
-    state.data.importBootstrap.corrections.bodyCount = target.value;
-  } else if (target.matches('[data-field="import-correction-note"]')) {
-    state.data.importBootstrap.corrections.note = target.value;
-  }
-});
 
-window.addEventListener('hashchange', handleHashChange);
-document.getElementById('workspace-nav').addEventListener('keydown', handleNavKeydown);
-jobsToggle.addEventListener('click', () => setJobsDrawer(!jobsDrawer.classList.contains('is-open')));
-jobsClose.addEventListener('click', () => setJobsDrawer(false));
-logToggle.addEventListener('click', () => setLogDrawer(!logDrawer.classList.contains('is-open')));
-logClose.addEventListener('click', () => setLogDrawer(false));
-window.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && jobsDrawer.classList.contains('is-open')) {
-    setJobsDrawer(false);
-    jobsToggle.focus();
-  } else if (event.key === 'Escape' && logDrawer.classList.contains('is-open')) {
-    setLogDrawer(false);
-    logToggle.focus();
-  }
-});
+    if (target instanceof HTMLInputElement && target.id === 'start-config-file') {
+      const [file] = [...(target.files || [])];
+      await openConfigFile(file);
+      target.value = '';
+    }
+  });
 
-initializeLocale();
-bindLocaleControls(document.body);
-subscribeLocale(() => {
+  workspaceRoot.addEventListener('input', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+
+    if (target.matches('[data-field="prompt-text"]')) {
+      state.data.model.promptText = target.value;
+      state.data.model.promptMode = true;
+    } else if (target.matches('[data-field="config-text"]')) {
+      state.data.model.configText = target.value;
+      state.data.model.editingEnabled = true;
+    } else if (target.matches('[data-field="import-model-path"]')) {
+      state.data.importBootstrap.modelPath = target.value;
+      if (target.value.trim()) {
+        state.data.importBootstrap.modelFile = null;
+        state.data.importBootstrap.modelFileName = '';
+      }
+      state.data.importBootstrap.status = 'idle';
+      state.data.importBootstrap.preview = null;
+      state.data.importBootstrap.errorMessage = '';
+      state.data.importBootstrap.corrections = {
+        importKind: '',
+        unit: '',
+        bodyCount: '',
+        note: '',
+      };
+    } else if (target.matches('[data-field="import-bom-path"]')) {
+      state.data.importBootstrap.bomPath = target.value;
+      state.data.importBootstrap.status = 'idle';
+      state.data.importBootstrap.preview = null;
+      state.data.importBootstrap.errorMessage = '';
+    } else if (target.matches('[data-field="import-inspection-path"]')) {
+      state.data.importBootstrap.inspectionPath = target.value;
+      state.data.importBootstrap.status = 'idle';
+      state.data.importBootstrap.preview = null;
+      state.data.importBootstrap.errorMessage = '';
+    } else if (target.matches('[data-field="import-quality-path"]')) {
+      state.data.importBootstrap.qualityPath = target.value;
+      state.data.importBootstrap.status = 'idle';
+      state.data.importBootstrap.preview = null;
+      state.data.importBootstrap.errorMessage = '';
+    } else if (target.matches('[data-field="import-correction-kind"]')) {
+      state.data.importBootstrap.corrections.importKind = target.value;
+    } else if (target.matches('[data-field="import-correction-unit"]')) {
+      state.data.importBootstrap.corrections.unit = target.value;
+    } else if (target.matches('[data-field="import-correction-body-count"]')) {
+      state.data.importBootstrap.corrections.bodyCount = target.value;
+    } else if (target.matches('[data-field="import-correction-note"]')) {
+      state.data.importBootstrap.corrections.note = target.value;
+    }
+  });
+
+  window.addEventListener('hashchange', handleHashChange);
+  document.getElementById('workspace-nav').addEventListener('keydown', handleNavKeydown);
+  jobsToggle.addEventListener('click', () => setJobsDrawer(!jobsDrawer.classList.contains('is-open')));
+  jobsClose.addEventListener('click', () => setJobsDrawer(false));
+  logToggle.addEventListener('click', () => setLogDrawer(!logDrawer.classList.contains('is-open')));
+  logClose.addEventListener('click', () => setLogDrawer(false));
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && jobsDrawer.classList.contains('is-open')) {
+      setJobsDrawer(false);
+      jobsToggle.focus();
+    } else if (event.key === 'Escape' && logDrawer.classList.contains('is-open')) {
+      setLogDrawer(false);
+      logToggle.focus();
+    }
+  });
+
+  initializeLocale();
+  bindLocaleControls(document.body);
+  subscribeLocale(() => {
+    commitRender();
+  });
+
   commitRender();
-});
+  markStudioBooted();
+  hydrateShell().catch((error) => {
+    addLog({
+      status: 'Studio shell',
+      message: error instanceof Error ? error.message : String(error),
+      tone: 'warn',
+      time: 'boot',
+    });
+    console.error(error);
+  });
+}
 
-commitRender();
-hydrateShell();
+try {
+  bootStudioShell();
+} catch (error) {
+  reportStudioBootFailure(localizedBootMessage('assets'), error);
+}

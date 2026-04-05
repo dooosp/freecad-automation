@@ -206,6 +206,19 @@ try {
   assert.match(html, /release_bundle\.zip|release bundle/i);
   assert.match(html, new RegExp(ROOT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
 
+  const studioShellResponse = await fetch(`${baseUrl}/js/studio-shell.js`);
+  assert.equal(studioShellResponse.status, 200);
+  assert.match(studioShellResponse.headers.get('content-type') || '', /javascript/);
+
+  const studioWorkspaceResponse = await fetch(`${baseUrl}/js/studio/workspaces.js`);
+  assert.equal(studioWorkspaceResponse.status, 200);
+  assert.match(studioWorkspaceResponse.headers.get('content-type') || '', /javascript/);
+
+  const i18nModuleResponse = await fetch(`${baseUrl}/js/i18n/index.js`);
+  assert.equal(i18nModuleResponse.status, 200);
+  assert.match(i18nModuleResponse.headers.get('content-type') || '', /javascript/);
+  assert.match(await i18nModuleResponse.text(), /LOCALE_COOKIE_NAME/);
+
   const apiKoHtmlResponse = await fetch(`${baseUrl}/api`, {
     headers: {
       accept: 'text/html',
