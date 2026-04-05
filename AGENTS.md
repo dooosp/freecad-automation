@@ -369,6 +369,107 @@ This section augments the existing repo guidance above and preserves it. For thi
   - `confidence_map.json`
 - Prefer extending the existing STEP import, `review-context`, and Studio tracked-artifact surfaces over adding a new top-level product surface.
 - Do not attempt full parametric history reconstruction, implied design-intent completion, or LLM-based geometry/decision inference.
+
+## Task: Studio Shell Decomposition
+
+### Purpose
+- Use Codex for a scoped, reviewable shell hardening task that decomposes `public/js/studio-shell.js` without changing the browser entrypoint contract.
+- Treat `docs/exec-plans/studio-shell-decomposition.md` as the task-specific source of truth and this file as persistent repo guidance.
+
+### Repo identity and control-plane safety
+- Expected implementation repo basename: `freecad-automation`.
+- Preferred clean worktree for this task:
+  - `/Users/jangtaeho/Documents/New/worktrees/studio-shell-decomposition/freecad-automation`
+- Required branch for this task:
+  - `refactor/studio-shell-split`
+- Before creating task control files or editing implementation files, print and record:
+  - `pwd`
+  - `git rev-parse --show-toplevel`
+  - `git branch --show-current`
+  - local vs worktree mode when available
+- Verify the implementation files and task control files all live under the same detected repo root.
+- If repo identity fails, stop without creating or editing task files.
+
+### Working style
+- Work autonomously and bias toward action.
+- Prefer repo search over assumptions.
+- Keep diffs small, scoped, and reviewable.
+- Do not stop for interim approval unless truly blocked.
+- Final reply only after the assigned work is complete.
+
+### Scope discipline
+- Keep `public/js/studio-shell.js` as the browser entrypoint and narrow it into a stable facade.
+- Preserve existing route and deep-link shape, DOM ids, `data-action` hooks, API calls, tracked-job behavior, and current browser-visible behavior unless a compatibility wrapper is clearly safer.
+- Limit the implementation scope to:
+  - `/studio` boot flow
+  - route/hash sync
+  - chrome badges and drawers
+  - recent jobs
+  - tracked-job monitor
+  - workspace mounting
+  - completion notices
+  - locale-triggered rerender hooks
+- Do not widen scope into workspace feature rewrites.
+- Do not update snapshot baselines unless behavior intentionally changed and reviewed.
+
+### Existing guidance preservation
+- Preserve existing repo-specific guidance already present in this file.
+- Keep browser i18n guidance intact on touched browser-visible surfaces.
+- Preserve AF and D task-family constraints unless this task's execution plan explicitly narrows a Studio-shell concern.
+
+### Verification rules
+- Read the relevant files before editing.
+- Use repo search to find related browser-visible strings, route syncing code, monitor wiring, and shell helpers before changing code.
+- Run the smallest relevant validations after each phase.
+- Run the full task validation set before finalization:
+  - `npm run test:node:integration && npm run test:snapshots`
+- Repair failures before moving to the next phase.
+- Do not claim browser interaction, manual smoke checks, or runtime-backed verification unless they actually ran.
+
+### Dirty-tree discipline
+- Prefer a clean task worktree over working in a dirty checkout.
+- Capture and report `git status --short` and `git diff --name-only` before implementation work.
+- Separate task-specific changes from unrelated repo state.
+- Do not commit temp status files unless explicitly asked.
+
+### Progress tracking
+- Maintain:
+  - `tmp/codex/studio-shell-decomposition-status.md`
+  - `tmp/codex/studio-shell-decomposition-verification-status.md`
+- Update the appropriate status file after each phase with:
+  - repo identity
+  - diff snapshot
+  - current phase
+  - completed work
+  - files changed
+  - validations run
+  - failures or findings
+  - repairs made
+  - remaining risks
+
+### Read-only review discipline
+- For the final read-only review, capture `git diff --name-only` immediately before and after the review.
+- Do not modify files during that review.
+- If the diff changes during the read-only review, report the review as invalid and do not claim merge readiness.
+
+### Completion criteria
+- `public/js/studio-shell.js` remains the browser entrypoint but delegates into smaller focused modules.
+- Shell core, state/store, route synchronization, job-monitor control, workspace orchestration, and DOM binding responsibilities are split into narrower modules with stable compatibility behavior.
+- Relevant validations pass or any blocked gaps are clearly reported.
+- Any leftover large coupled logic in `public/js/studio-shell.js` is audited and explained if intentionally preserved.
+
+### Final response format
+- Include:
+  1. concise summary of what changed
+  2. repo identity used for the task
+  3. architecture and implementation decisions
+  4. changed files grouped by surface
+  5. tests and checks actually run
+  6. pre-existing diff or dirty-tree notes
+  7. remaining gaps and why they remain
+  8. commit hashes/messages if commits were made
+  9. whether the branch was pushed
+  10. remaining risks or recommended follow-ups
 - Prefer information architecture, CTA order, navigation, disclosure, and orchestration updates over speculative visual rewrites.
 - Keep browser-visible English and Korean copy aligned through the existing lightweight locale layer with English fallback.
 - Wire to real tracked execution capabilities where available:
