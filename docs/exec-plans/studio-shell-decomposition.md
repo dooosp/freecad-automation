@@ -34,7 +34,7 @@ Split `public/js/studio-shell.js` into a stable browser entry facade plus smalle
 - Expected repo basename: `freecad-automation`
 - Required branch: `refactor/studio-shell-split`
 - Preferred clean worktree:
-  - `/Users/jangtaeho/Documents/New/worktrees/studio-shell-decomposition/freecad-automation`
+  - `worktrees/studio-shell-decomposition/freecad-automation`
 - All task control files for this task must live inside the detected repo root.
 - Stop on repo identity mismatch, nested-repo ambiguity, or unexpected pre-existing dirty state.
 
