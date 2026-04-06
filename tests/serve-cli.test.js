@@ -15,7 +15,7 @@ function runCli(args) {
 
 const helpResult = runCli(['serve', '--help']);
 assert.equal(helpResult.status, 0, helpResult.stderr);
-assert.match(helpResult.stdout, /fcad serve - local API, studio shell, and legacy viewer entrypoint/);
+assert.match(helpResult.stdout, /fcad serve - local API, studio shell, and legacy compatibility viewer/);
 assert.match(helpResult.stdout, /fcad serve \[port\] \[--jobs-dir <dir>\]/);
 assert.match(helpResult.stdout, /fcad serve \[port\] --legacy-viewer/);
 assert.match(helpResult.stdout, /Browser requests to http:\/\/127\.0\.0\.1:<port>\/ land in the future-facing studio shell/);

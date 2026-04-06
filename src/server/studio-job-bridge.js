@@ -25,11 +25,15 @@ import {
   formatCommandNameList,
 } from '../shared/command-manifest.js';
 
-const STUDIO_JOB_TYPES = new Set(STUDIO_JOB_COMMANDS);
+const STUDIO_SUBMISSION_JOB_COMMANDS = Object.freeze([
+  ...STUDIO_JOB_COMMANDS,
+  'review-context',
+]);
+const STUDIO_JOB_TYPES = new Set(STUDIO_SUBMISSION_JOB_COMMANDS);
 const STUDIO_AF_ARTIFACT_JOB_TYPES = new Set(STUDIO_ARTIFACT_JOB_COMMANDS);
 const STUDIO_ARTIFACT_COMPATIBLE_JOB_TYPES = new Set(STUDIO_ARTIFACT_COMPATIBLE_JOB_COMMANDS);
 const STUDIO_PAIRED_ARTIFACT_JOB_TYPES = new Set(STUDIO_PAIRED_ARTIFACT_JOB_COMMANDS);
-const STUDIO_JOB_TYPE_SENTENCE = formatCommandNameList(STUDIO_JOB_COMMANDS, { conjunction: 'or' });
+const STUDIO_JOB_TYPE_SENTENCE = formatCommandNameList(STUDIO_SUBMISSION_JOB_COMMANDS, { conjunction: 'or' });
 const STUDIO_ARTIFACT_TYPE_SENTENCE = formatCommandNameList(STUDIO_ARTIFACT_COMPATIBLE_JOB_COMMANDS, { conjunction: 'or', quote: 'double' });
 const STUDIO_PAIRED_ARTIFACT_TYPE_SENTENCE = formatCommandNameList(STUDIO_PAIRED_ARTIFACT_JOB_COMMANDS, { conjunction: 'or', quote: 'double' });
 

@@ -48,7 +48,7 @@
     "test": "node scripts/run-test-suite.js default-node",
     "test:full": "npm run test:integration:full",
     "serve": "node bin/fcad.js serve",
-    "serve:legacy": "node server.js"
+    "serve:legacy": "node bin/serve-legacy.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
