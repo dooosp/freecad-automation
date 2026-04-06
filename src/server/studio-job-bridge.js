@@ -17,20 +17,25 @@ import {
   applyStudioDrawingSettings,
   normalizeStudioDrawingSettings,
 } from './studio-drawing-config.js';
+import {
+  STUDIO_ARTIFACT_COMPATIBLE_JOB_COMMANDS,
+  STUDIO_ARTIFACT_JOB_COMMANDS,
+  STUDIO_JOB_COMMANDS,
+  STUDIO_PAIRED_ARTIFACT_JOB_COMMANDS,
+  formatCommandNameList,
+} from '../shared/command-manifest.js';
 
-const STUDIO_JOB_TYPES = new Set([
-  'create',
-  'draw',
-  'inspect',
-  'report',
+const STUDIO_SUBMISSION_JOB_COMMANDS = Object.freeze([
+  ...STUDIO_JOB_COMMANDS,
   'review-context',
-  'compare-rev',
-  'readiness-pack',
-  'stabilization-review',
-  'generate-standard-docs',
-  'pack',
 ]);
-const STUDIO_AF_ARTIFACT_JOB_TYPES = new Set(['readiness-pack', 'generate-standard-docs', 'pack']);
+const STUDIO_JOB_TYPES = new Set(STUDIO_SUBMISSION_JOB_COMMANDS);
+const STUDIO_AF_ARTIFACT_JOB_TYPES = new Set(STUDIO_ARTIFACT_JOB_COMMANDS);
+const STUDIO_ARTIFACT_COMPATIBLE_JOB_TYPES = new Set(STUDIO_ARTIFACT_COMPATIBLE_JOB_COMMANDS);
+const STUDIO_PAIRED_ARTIFACT_JOB_TYPES = new Set(STUDIO_PAIRED_ARTIFACT_JOB_COMMANDS);
+const STUDIO_JOB_TYPE_SENTENCE = formatCommandNameList(STUDIO_SUBMISSION_JOB_COMMANDS, { conjunction: 'or' });
+const STUDIO_ARTIFACT_TYPE_SENTENCE = formatCommandNameList(STUDIO_ARTIFACT_COMPATIBLE_JOB_COMMANDS, { conjunction: 'or', quote: 'double' });
+const STUDIO_PAIRED_ARTIFACT_TYPE_SENTENCE = formatCommandNameList(STUDIO_PAIRED_ARTIFACT_JOB_COMMANDS, { conjunction: 'or', quote: 'double' });
 
 function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -156,7 +161,7 @@ export function validateStudioJobSubmission(body) {
   });
 
   if (!STUDIO_JOB_TYPES.has(request.type)) {
-    errors.push('type must be one of create, draw, inspect, report, review-context, compare-rev, readiness-pack, stabilization-review, generate-standard-docs, or pack.');
+    errors.push(`type must be one of ${STUDIO_JOB_TYPE_SENTENCE}.`);
   }
 
   const hasConfigToml = typeof request.config_toml === 'string' && request.config_toml.trim().length > 0;
@@ -234,24 +239,18 @@ export function validateStudioJobSubmission(body) {
   }
 
   if (
-    request.type !== 'inspect'
-    && request.type !== 'review-context'
-    && request.type !== 'report'
-    && !STUDIO_AF_ARTIFACT_JOB_TYPES.has(request.type)
-    && request.type !== 'review-context'
-    && request.type !== 'compare-rev'
-    && request.type !== 'stabilization-review'
+    !STUDIO_ARTIFACT_COMPATIBLE_JOB_TYPES.has(request.type)
+    && !STUDIO_PAIRED_ARTIFACT_JOB_TYPES.has(request.type)
     && request.artifact_ref !== undefined
   ) {
-    errors.push('artifact_ref is only supported for type "inspect", "report", "review-context", "readiness-pack", "generate-standard-docs", or "pack".');
+    errors.push(`artifact_ref is only supported for type ${STUDIO_ARTIFACT_TYPE_SENTENCE}.`);
   }
 
   if (
-    request.type !== 'compare-rev'
-    && request.type !== 'stabilization-review'
+    !STUDIO_PAIRED_ARTIFACT_JOB_TYPES.has(request.type)
     && (request.baseline_artifact_ref !== undefined || request.candidate_artifact_ref !== undefined)
   ) {
-    errors.push('baseline_artifact_ref and candidate_artifact_ref are only supported for type "compare-rev" or "stabilization-review".');
+    errors.push(`baseline_artifact_ref and candidate_artifact_ref are only supported for type ${STUDIO_PAIRED_ARTIFACT_TYPE_SENTENCE}.`);
   }
 
   return {

@@ -4,6 +4,7 @@ This repository now separates fast hosted checks from real FreeCAD-backed smoke 
 
 ## Test Lanes
 
+<!-- GENERATED:lane-table:start -->
 | Lane | Command | Scope | FreeCAD required |
 | --- | --- | --- | --- |
 | Node contract | `npm run test:node:contract` | config migration/validation, runtime path resolution, invocation assembly, structural validation | No |
@@ -11,6 +12,7 @@ This repository now separates fast hosted checks from real FreeCAD-backed smoke 
 | Snapshots | `npm run test:snapshots` | normalized SVG and report preview regression baselines | No |
 | Python | `npm run test:py` | plain-Python and CLI-adjacent regression coverage that does not require a live FreeCAD launch | No |
 | Runtime smoke | `npm run test:runtime-smoke` | real `fcad` smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, and `report` using checked-in example configs | Yes |
+<!-- GENERATED:lane-table:end -->
 
 Runtime domain checks remain available for deeper local verification:
 
@@ -25,10 +27,12 @@ The runtime domain runner uses the same FreeCAD-backed script path as the CLI an
 
 ## Workflow Mapping
 
+<!-- GENERATED:workflow-mapping:start -->
 | Workflow | What it runs | What it does not claim |
 | --- | --- | --- |
 | `Automation CI (hosted fast lanes)` | `test:node:contract`, `test:node:integration`, `test:snapshots`, `test:py` | No hosted FreeCAD install or launch |
 | `FreeCAD Runtime Smoke (self-hosted macOS)` | `test:runtime-smoke` plus runtime-backed Python smoke regressions | No Linux or Windows runtime ownership claims, and no repository-owned tolerance smoke claim yet |
+<!-- GENERATED:workflow-mapping:end -->
 
 The hosted workflow is the fast PR lane. The self-hosted workflow is scheduled/manual and is the repository-owned runtime smoke source of truth.
 
@@ -90,36 +94,45 @@ The smoke harness validates the generated artifact manifests for `create`, `draw
 
 Fast local verification:
 
+<!-- GENERATED:fast-local:start -->
 ```bash
 npm run test:node:contract
 npm run test:node:integration
 npm run test:snapshots
 ```
+<!-- GENERATED:fast-local:end -->
 
 Python lane:
 
+<!-- GENERATED:python-local:start -->
 ```bash
 npm run test:py
 ```
+<!-- GENERATED:python-local:end -->
 
 This lane requires Python 3.11+ and the helper script will prefer an explicit `PYTHON` / `PYTHON3`, then the active `setup-python` interpreter when available, then `python3`, `python`, and finally versioned `python3.x` commands. It also requires that the selected interpreter can import `pytest`.
 
 Real runtime smoke:
 
+<!-- GENERATED:runtime-smoke-local:start -->
 ```bash
 fcad check-runtime
 npm run test:runtime-smoke
 ```
+<!-- GENERATED:runtime-smoke-local:end -->
 
 Deeper runtime-backed suites:
 
+<!-- GENERATED:runtime-domain-local:start -->
 ```bash
 npm run test:runtime:model
 npm run test:runtime:drawing
 npm run test:runtime:analysis
 npm run test:runtime:report
 npm run test:runtime:integration
+npm run test:runtime:full
 ```
+<!-- GENERATED:runtime-domain-local:end -->
 
 ## Known Limitations
 

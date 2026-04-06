@@ -39,19 +39,9 @@ import {
 } from './af-reentry.js';
 import { loadRuleProfile, summarizeRuleProfile } from '../config/rule-profile-service.js';
 import { validateLocalApiJobRequest } from '../../server/local-api-schemas.js';
+import { JOB_EXECUTOR_COMMANDS } from '../../shared/command-manifest.js';
 
-const JOB_TYPES = new Set([
-  'create',
-  'draw',
-  'inspect',
-  'report',
-  'review-context',
-  'compare-rev',
-  'readiness-pack',
-  'stabilization-review',
-  'generate-standard-docs',
-  'pack',
-]);
+const JOB_TYPES = new Set(JOB_EXECUTOR_COMMANDS);
 const INLINE_CONFIG_RELATIVE_PATH = 'inputs/inline-config.json';
 const EFFECTIVE_CONFIG_RELATIVE_PATH = 'inputs/effective-config.json';
 

@@ -43,12 +43,12 @@
     "test:runtime:full": "node tests/test-runner.js --profile=full",
     "test:integration": "node tests/test-runner.js --layers=model,drawing,analysis,report,integration",
     "test:integration:full": "npm run test:runtime:full",
-    "test:ci:hosted": "npm run test:node:contract && npm run test:node:integration && npm run test:snapshots && npm run test:py",
-    "test:node:lite": "npm run test:node:contract && npm run test:node:integration && npm run test:snapshots",
-    "test": "npm run test:node:contract && npm run test:node:integration && npm run test:snapshots",
+    "test:ci:hosted": "node scripts/run-test-suite.js hosted",
+    "test:node:lite": "node scripts/run-test-suite.js node-lite",
+    "test": "node scripts/run-test-suite.js default-node",
     "test:full": "npm run test:integration:full",
     "serve": "node bin/fcad.js serve",
-    "serve:legacy": "node server.js"
+    "serve:legacy": "node bin/serve-legacy.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",

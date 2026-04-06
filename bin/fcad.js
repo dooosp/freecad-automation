@@ -77,6 +77,12 @@ import {
   buildStabilizationReviewFromReadinessReports,
   writeCanonicalReadinessArtifacts,
 } from '../src/workflows/canonical-readiness-builders.js';
+import {
+  GENERATE_STANDARD_DOCS_INPUT_MESSAGE,
+  LEGACY_READINESS_REPORT_MESSAGE,
+  renderCliUsage,
+  renderServeUsage,
+} from '../src/shared/command-manifest.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(__dirname, '..');
@@ -95,139 +101,8 @@ const runCost = createCostService();
 const generateDrawing = createDrawingService();
 const generateReport = createReportService();
 
-const USAGE = `
-fcad | mfg-agent - FreeCAD-backed automation pipeline
-
-FreeCAD-backed CLI for CAD, TechDraw, inspection, FEM, tolerance, and reporting,
-plus a plain-Python/Node manufacturing-review layer.
-
-Run this first on a new machine or before troubleshooting runtime-backed commands:
-  fcad check-runtime
-
-Usage:
-  Diagnostics:
-    fcad check-runtime [--json]    Show searched paths, selected runtime, detected versions, command coverage, and remediation
-
-  FreeCAD-backed commands:
-    fcad create <config.toml|json>                              Generate parametric model output
-    fcad draw <config.toml|json>                                Generate TechDraw SVG output
-    fcad inspect <model.step|fcstd> [--manifest-out <path>]     Inspect model metadata
-    fcad fem <config.toml|json> [--manifest-out <path>]         Run FEM structural analysis
-    fcad tolerance <config.toml> [--manifest-out <path>]        Tolerance analysis for assembly configs
-    fcad report <config.toml>                                   Generate engineering PDF report
-
-  Plain-Python / non-FreeCAD commands:
-    fcad dfm <config.toml|json> [--manifest-out <path>]  Run DFM manufacturability analysis
-    fcad review <config.toml|json>
-    fcad process-plan <config.toml|json> [--review-pack <review_pack.json>]
-    fcad line-plan <config.toml|json>
-    fcad quality-risk <config.toml|json> [--review-pack <review_pack.json>]
-    fcad investment-review <config.toml|json>
-    fcad readiness-pack --review-pack <review_pack.json> [--out <readiness_report.json>] [--process-plan <process_plan.json>] [--quality-risk <quality_risk.json>]
-    fcad readiness-report --review-pack <review_pack.json> [--out <readiness_report.json>] [--process-plan <process_plan.json>] [--quality-risk <quality_risk.json>]
-    fcad readiness-report <config.toml|json> [--out <readiness_report.json>]  legacy compatibility / non-canonical
-    fcad pack --readiness <readiness_report.json> [--docs-manifest <standard_docs_manifest.json>] --out <release_bundle.zip>
-    fcad stabilization-review <config.toml|json> --runtime <runtime.json>
-    fcad stabilization-review <baseline_readiness_report.json> <candidate_readiness_report.json>
-    fcad generate-standard-docs <config.toml|json> --readiness-report <readiness_report.json> [--out-dir <dir>]
-    fcad ingest --model <file> [--bom bom.csv] [--inspection insp.csv] [--quality ncr.csv] --out <context.json>
-    fcad quality-link --context <context.json> --geometry <geometry.json>
-    fcad review-pack --context <context.json> --geometry <geometry.json>
-    fcad review-context --model <file> [--bom bom.csv] [--inspection insp.csv] [--quality ncr.csv] --out <review_pack.json> [--compare-to baseline_review_pack.json]
-    fcad compare-rev <baseline.json> <candidate.json>
-    fcad validate <plan.toml|json>   Validate drawing_plan artifacts
-    fcad validate-config <config.toml|json>
-    fcad migrate-config <config.toml|json> [--out <file>]
-    fcad serve [port] [--jobs-dir <dir>] [--legacy-viewer]
-
-  Mixed / conditional commands:
-    fcad analyze-part <context.json|model.step>
-    fcad design "description"
-    fcad sweep <config.toml|json> --matrix <file> [--out-dir <dir>]
-    fcad help
-
-Options:
-  Shared workflow options:
-    --profile <name>             Shop profile under configs/profiles
-    --runtime <path>             Runtime JSON for line stabilization / launch review
-    --batch <n>                  Batch size assumption for cost/readiness workflow
-    --site <name>                Site label override for summaries
-    --process <name>             Override manufacturing process when supported, including dfm
-    --material <name>            Override material for cost/readiness workflow
-    --context <path>             Engineering context JSON
-    --geometry <path>            Geometry intelligence JSON
-    --hotspots <path>            Manufacturing hotspot JSON
-    --out <path>                 Primary output JSON path; sibling artifacts share its stem
-    --out-dir <dir>              Output directory when using default artifact names
-    --compare-to <path>          Baseline review-pack JSON for optional revision comparison with review-context
-
-  Workflow-specific options:
-    --matrix <path>              Sweep definition TOML/JSON for fcad sweep
-    --override <path>            Merge override TOML/JSON on top of base config (with draw)
-    --bom                        Export BOM as separate CSV file (with draw)
-    --raw                        Skip SVG post-processing (with draw)
-    --no-score                   Skip QA scoring (with draw)
-    --fail-under N               Fail if QA score < N (with draw)
-    --weights-preset P           QA weight profile: default|auto|flange|shaft|...
-    --strict                     Treat warnings as errors (with validate/dfm)
-    --manifest-out <path>        Write a provenance manifest for stdout-oriented commands such as inspect/fem/tolerance/dfm
-    --recommend                  Auto-recommend fit specs (with tolerance)
-    --csv                        Export tolerance report as CSV (with tolerance)
-    --monte-carlo                Include Monte Carlo simulation (with tolerance/report)
-    --dfm                        Include DFM analysis in report
-    --fem                        Include FEM analysis in report
-    --no-tolerance               Skip tolerance analysis in report
-    --tolerance                  Include tolerance analysis in report (default)
-
-Examples:
-  fcad check-runtime
-  fcad check-runtime --json
-  fcad create configs/examples/ks_bracket.toml
-  fcad draw configs/examples/ks_bracket.toml --bom
-  fcad inspect output/ks_bracket.step --manifest-out output/ks_bracket_inspect_manifest.json
-  fcad review configs/examples/infotainment_display_bracket.toml
-  fcad readiness-pack --review-pack tests/fixtures/d-artifacts/sample_review_pack.canonical.json --out output/sample_readiness_report.json
-  fcad readiness-report --review-pack tests/fixtures/d-artifacts/sample_review_pack.canonical.json --out output/sample_readiness_report.json
-  fcad readiness-report configs/examples/pcb_mount_plate.toml --out output/pcb_mount_plate_readiness_report.json
-  fcad pack --readiness output/sample_readiness_report.json --out output/release_bundle.zip
-  fcad stabilization-review output/rev_a_readiness_report.json output/rev_b_readiness_report.json --out output/readiness_delta.json
-  fcad generate-standard-docs configs/examples/controller_housing_eol.toml --readiness-report output/controller_housing_readiness_report.json --out-dir output/controller_housing_standard_docs
-  fcad review-context --model tests/fixtures/sample_part.step --bom tests/fixtures/sample_bom.csv --inspection tests/fixtures/sample_inspection.csv --quality tests/fixtures/sample_quality.csv --out output/sample_review_pack.json
-  fcad sweep configs/examples/ks_bracket.toml --matrix configs/examples/sweeps/ks_bracket_geometry_sweep.toml
-
-  Notes:
-  check-runtime is the central installation and troubleshooting entrypoint for runtime-backed commands.
-  analyze-part can run without FreeCAD when the supplied context already includes model metadata, and it now falls back to bounded metadata-only geometry when live shape inspection is weak or unavailable.
-  readiness-pack is the flagship canonical C entrypoint when review_pack.json already exists.
-  readiness-report <config> remains a legacy compatibility route; it is not the canonical D-backed readiness path.
-  generate-standard-docs requires canonical readiness input via --readiness-report and will not synthesize or rebuild readiness downstream.
-  sweep stays within the existing create/cost/fem/report service wrappers; it does not perform optimization.
-  report remains FreeCAD-backed today, even when macOS falls back from freecadcmd to the bundled FreeCAD Python.
-  Windows native, WSL -> Windows FreeCAD, and Linux runtime execution are compatibility paths, not equal-maturity claims.
-`.trim();
-
-const SERVE_USAGE = `
-fcad serve - local API, studio shell, and legacy viewer entrypoint
-
-Usage:
-  fcad serve [port] [--jobs-dir <dir>]
-  fcad serve [port] --legacy-viewer
-  fcad serve --help
-
-Modes:
-  default            Starts the local HTTP API for /health and /jobs and serves the studio shell at / and /studio
-  --legacy-viewer    Starts the older browser demo shell from server.js
-
-Notes:
-  Browser requests to http://127.0.0.1:<port>/ land in the future-facing studio shell.
-  Open http://127.0.0.1:<port>/api for the local API info page.
-  Open http://127.0.0.1:<port>/studio for the direct studio route.
-  Open http://127.0.0.1:<port>/health to verify the API.
-  Use fcad serve --legacy-viewer or npm run serve:legacy for the browser demo.
-`.trim();
-
-const LEGACY_READINESS_REPORT_MESSAGE = 'readiness-report <config> is a legacy compatibility route and does not emit canonical D-backed readiness provenance. Use readiness-pack --review-pack or readiness-report --review-pack for canonical C output.';
-const GENERATE_STANDARD_DOCS_INPUT_MESSAGE = 'generate-standard-docs requires --readiness-report <readiness_report.json>; it will not synthesize canonical readiness from config-only inputs or rebuild readiness from review_pack.json.';
+const USAGE = renderCliUsage();
+const SERVE_USAGE = renderServeUsage();
 
 function parseCliArgs(rawArgs = []) {
   const positional = [];

@@ -1,6 +1,11 @@
 import Ajv2020 from 'ajv/dist/2020.js';
 import { readFileSync } from 'node:fs';
 import { LOCAL_API_SERVICE, LOCAL_API_VERSION } from './local-api-contract.js';
+import {
+  LOCAL_API_CONFIG_JOB_COMMANDS,
+  LOCAL_API_JOB_COMMANDS,
+  LOCAL_API_OTHER_PUBLIC_JOB_COMMANDS,
+} from '../shared/command-manifest.js';
 
 const ajv = new Ajv2020({
   allErrors: true,
@@ -51,7 +56,7 @@ const localApiJobRequestSchema = {
       additionalProperties: false,
       required: ['type'],
       properties: {
-        type: { enum: ['create', 'draw', 'report'] },
+        type: { enum: LOCAL_API_CONFIG_JOB_COMMANDS },
         config_path: { type: 'string', minLength: 1 },
         config: { type: 'object' },
         options: { type: 'object' },
@@ -164,7 +169,7 @@ const publicJobRequestSchema = {
       additionalProperties: false,
       required: ['type'],
       properties: {
-        type: { enum: ['create', 'draw', 'report'] },
+        type: { enum: LOCAL_API_CONFIG_JOB_COMMANDS },
         config: { type: 'object' },
         artifact_ref: artifactRefSchema,
         source_job_id: { type: 'string', minLength: 1 },
@@ -179,16 +184,7 @@ const publicJobRequestSchema = {
       additionalProperties: false,
       required: ['type'],
       properties: {
-        type: {
-          enum: [
-            'review-context',
-            'compare-rev',
-            'readiness-pack',
-            'stabilization-review',
-            'generate-standard-docs',
-            'pack',
-          ],
-        },
+        type: { enum: LOCAL_API_OTHER_PUBLIC_JOB_COMMANDS },
         artifact_ref: artifactRefSchema,
         source_job_id: { type: 'string', minLength: 1 },
         source_artifact_id: { type: 'string', minLength: 1 },
@@ -559,20 +555,7 @@ const jobSchema = {
   ],
   properties: {
     id: { type: 'string', minLength: 1 },
-    type: {
-      enum: [
-        'create',
-        'draw',
-        'inspect',
-        'report',
-        'review-context',
-        'compare-rev',
-        'readiness-pack',
-        'stabilization-review',
-        'generate-standard-docs',
-        'pack',
-      ],
-    },
+    type: { enum: LOCAL_API_JOB_COMMANDS },
     status: { enum: ['queued', 'running', 'succeeded', 'failed', 'cancelled'] },
     created_at: { type: 'string', minLength: 1 },
     updated_at: { type: 'string', minLength: 1 },
