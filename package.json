@@ -10,6 +10,9 @@
   "bugs": {
     "url": "https://github.com/dooosp/freecad-automation/issues"
   },
+  "imports": {
+    "#i18n-contract": "./src/shared/i18n-contract.js"
+  },
   "keywords": [
     "freecad",
     "cad",

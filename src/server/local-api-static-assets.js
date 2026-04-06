@@ -12,5 +12,6 @@ export const LOCAL_API_STATIC_ASSET_REGISTRY = Object.freeze({
   studio_shell_js: join(PUBLIC_DIR, 'js', 'studio-shell.js'),
   app_js_dir: join(PUBLIC_DIR, 'js', 'app'),
   i18n_js_dir: join(PUBLIC_DIR, 'js', 'i18n'),
+  shared_js_dir: join(import.meta.dirname, '..', 'shared'),
   studio_js_dir: join(PUBLIC_DIR, 'js', 'studio'),
 });
