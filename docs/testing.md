@@ -37,7 +37,7 @@ The hosted workflow is the fast PR lane. The self-hosted workflow is scheduled/m
 Use the following terms consistently in contributor notes and PR verification blocks:
 
 - `hosted-safe` or `browserless`: route, contract, or service checks that do not claim a live browser session and do not claim a live FreeCAD launch
-- `legacy HTTP smoke`: `serve:legacy` answered over HTTP and served static assets, but no websocket interaction or browser UI behavior was exercised
+- `legacy HTTP smoke`: the compatibility wrapper behind `npm run serve:legacy` answered over HTTP and served static assets, but no websocket interaction or browser UI behavior was exercised
 - `runtime-backed`: only use this wording when a real FreeCAD-backed command or runtime smoke lane actually ran
 - `artifact re-entry`: a studio flow that starts from an existing tracked artifact reference rather than from a fresh pasted config
 
@@ -124,7 +124,7 @@ npm run test:runtime:integration
 ## Known Limitations
 
 - Hosted CI does not prove that FreeCAD launches successfully on Linux or macOS.
-- Browserless studio and legacy serve smoke do not prove client-side rendering or websocket behavior.
+- Browserless studio and legacy compatibility smoke do not prove client-side rendering or websocket behavior.
 - Windows and WSL support are still contract-tested compatibility paths, not runtime-smoke-covered platforms.
 - The Python lane intentionally excludes runtime-backed smoke regressions so the default hosted lane stays fast and honest.
 - The tolerance flow remains local/deeper-runtime coverage only; it is not part of the repository-owned smoke lane yet.

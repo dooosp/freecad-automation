@@ -15,7 +15,7 @@ function runCli(args) {
 
 const helpResult = runCli(['serve', '--help']);
 assert.equal(helpResult.status, 0, helpResult.stderr);
-assert.match(helpResult.stdout, /fcad serve - local API, studio shell, and legacy viewer entrypoint/);
+assert.match(helpResult.stdout, /fcad serve - local API, studio shell, and legacy compatibility viewer/);
 assert.match(helpResult.stdout, /fcad serve \[port\] \[--jobs-dir <dir>\]/);
 assert.match(helpResult.stdout, /fcad serve \[port\] --legacy-viewer/);
 assert.match(helpResult.stdout, /Browser requests to http:\/\/127\.0\.0\.1:<port>\/ land in the future-facing studio shell/);
@@ -25,7 +25,7 @@ assert.doesNotMatch(helpResult.stdout, /listening on http/i);
 
 const positionalHelpResult = runCli(['serve', 'help']);
 assert.equal(positionalHelpResult.status, 0, positionalHelpResult.stderr);
-assert.match(positionalHelpResult.stdout, /Use fcad serve --legacy-viewer or npm run serve:legacy/);
+assert.match(positionalHelpResult.stdout, /Use fcad serve --legacy-viewer or npm run serve:legacy only when you specifically need the legacy websocket shell/);
 
 const invalidPortResult = runCli(['serve', 'not-a-port']);
 assert.equal(invalidPortResult.status, 1);

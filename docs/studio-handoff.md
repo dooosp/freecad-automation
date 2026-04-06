@@ -8,7 +8,7 @@
 | --- | --- | --- | --- |
 | Studio shell | `fcad serve` | `/` or `/studio` | Preferred browser UI. Root browser requests land in the studio shell and the Start workspace leads with the supported first steps. |
 | Local API info | `fcad serve` | `/api` | Human-readable API info page plus JSON/text discovery for the local API contract. |
-| Legacy viewer | `fcad serve --legacy-viewer` or `npm run serve:legacy` | `/` | Classic compatibility mode for the older all-in-one websocket viewer shell. Use only when you specifically need that workflow. |
+| Legacy viewer | `fcad serve --legacy-viewer` or `npm run serve:legacy` | `/` | Classic compatibility mode for the older all-in-one websocket viewer shell. Use it only for the existing websocket workflow, not as the primary browser development surface. |
 
 Browser-facing locale note:
 
@@ -24,6 +24,13 @@ fcad serve 3100 --jobs-dir output/jobs-dev
 fcad serve 3100 --legacy-viewer
 npm run serve:legacy
 ```
+
+## Legacy compatibility fence
+
+- `server.js` remains compatibility-only for the legacy shell, static assets, `GET /api/examples`, and the existing websocket action names.
+- `fcad serve --legacy-viewer` and `npm run serve:legacy` are escape hatches for older websocket-driven workflows, not the preferred browser entrypoint.
+- New browser and local API work should target the Studio-first path documented here.
+- Maintenance notes for the fenced legacy path live in [docs/legacy-viewer-compatibility.md](./legacy-viewer-compatibility.md).
 
 ## Studio workspaces
 

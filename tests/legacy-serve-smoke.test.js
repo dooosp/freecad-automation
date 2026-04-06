@@ -30,7 +30,7 @@ async function waitForFetch(url, { attempts = 30, delayMs = 200 } = {}) {
   throw lastError;
 }
 
-const child = spawn(process.execPath, ['server.js', String(port)], {
+const child = spawn(process.execPath, ['bin/serve-legacy.js', String(port)], {
   cwd: ROOT,
   env: process.env,
   stdio: ['ignore', 'pipe', 'pipe'],
@@ -67,7 +67,8 @@ try {
   const cssResponse = await waitForFetch(`${baseUrl}/css/style.css`);
   const cssText = await cssResponse.text();
   assert.match(cssText, /\.layout/);
-  assert.match(stdout, /FreeCAD Legacy Viewer: http:\/\/localhost:/);
+  assert.match(stdout, /FreeCAD Legacy Viewer \(compatibility mode\): http:\/\/localhost:/);
+  assert.match(stderr, /compatibility-only legacy viewer shell/);
 
   console.log('legacy-serve-smoke.test.js: ok');
 } finally {

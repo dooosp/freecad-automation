@@ -207,7 +207,7 @@ Examples:
 `.trim();
 
 const SERVE_USAGE = `
-fcad serve - local API, studio shell, and legacy viewer entrypoint
+fcad serve - local API, studio shell, and legacy compatibility viewer
 
 Usage:
   fcad serve [port] [--jobs-dir <dir>]
@@ -216,14 +216,15 @@ Usage:
 
 Modes:
   default            Starts the local HTTP API for /health and /jobs and serves the studio shell at / and /studio
-  --legacy-viewer    Starts the older browser demo shell from server.js
+  --legacy-viewer    Starts the compatibility-only browser shell from server.js
 
 Notes:
   Browser requests to http://127.0.0.1:<port>/ land in the future-facing studio shell.
   Open http://127.0.0.1:<port>/api for the local API info page.
   Open http://127.0.0.1:<port>/studio for the direct studio route.
   Open http://127.0.0.1:<port>/health to verify the API.
-  Use fcad serve --legacy-viewer or npm run serve:legacy for the browser demo.
+  Use fcad serve --legacy-viewer or npm run serve:legacy only when you specifically need the legacy websocket shell.
+  New browser work should target the default Studio/API path instead of server.js.
 `.trim();
 
 const LEGACY_READINESS_REPORT_MESSAGE = 'readiness-report <config> is a legacy compatibility route and does not emit canonical D-backed readiness provenance. Use readiness-pack --review-pack or readiness-report --review-pack for canonical C output.';
@@ -2323,9 +2324,9 @@ async function cmdServe(rawArgs = []) {
   const port = Number.parseInt(requestedPort || '3000', 10);
 
   if (options.legacy === true || options['legacy-viewer'] === true) {
-    console.warn('Warning: fcad serve --legacy-viewer starts the legacy viewer shell.');
-    const { startServer } = await import('../server.js');
-    startServer(port);
+    console.warn('Warning: fcad serve --legacy-viewer starts the compatibility-only legacy viewer shell.');
+    const { startLegacyViewerServer } = await import('../server.js');
+    startLegacyViewerServer(port);
     return;
   }
 
@@ -2386,7 +2387,7 @@ async function cmdDesign(description) {
   // Build the generated TOML
   console.log('\nBuilding model...');
   await cmdCreate(tomlPath);
-  console.log('\nLegacy viewer: fcad serve --legacy-viewer → http://localhost:3000');
+  console.log('\nLegacy compatibility viewer: fcad serve --legacy-viewer → http://localhost:3000');
 }
 
 async function cmdDraw(rawArgs = []) {

@@ -45,7 +45,7 @@
     "test": "npm run test:node:contract && npm run test:node:integration && npm run test:snapshots",
     "test:full": "npm run test:integration:full",
     "serve": "node bin/fcad.js serve",
-    "serve:legacy": "node server.js"
+    "serve:legacy": "node bin/serve-legacy.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",

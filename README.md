@@ -460,17 +460,19 @@ Studio and legacy shell guide:
 - [Studio UI handoff](./docs/studio-handoff.md)
 - [Studio UI redesign draft](./docs/releases/studio-ui-redesign-draft.md)
 
-Legacy note:
+Legacy compatibility viewer:
 
-- `fcad serve --legacy-viewer` still starts the older browser demo shell from `server.js`
-- `npm run serve:legacy` continues to point at that older shell
-- `fcad serve` now opens the studio shell at `/`, keeps `/studio` as the direct studio route, and moves the API landing page to `/api`
-- prompt streaming and the original all-in-one websocket viewer loop still live on the legacy path
-- if you need the working all-in-one browser demo, use the legacy viewer commands above until the remaining websocket-only flows are migrated
+- `fcad serve --legacy-viewer` and `npm run serve:legacy` are compatibility-only entrypoints for the older websocket shell in `server.js`
+- `server.js` remains responsible only for the legacy viewer shell, static assets, `GET /api/examples`, and the existing websocket actions `build`, `design`, `draw`, `update_dimension`, and `get_dimensions`
+- `fcad serve` is the preferred browser path: it opens the Studio shell at `/`, keeps `/studio` as the direct studio route, and serves the local API info page at `/api`
+- new browser and local API features should target the Studio/local API path instead of `server.js`
+- prompt streaming and the original all-in-one websocket viewer loop still live on the legacy compatibility path
+- see [docs/legacy-viewer-compatibility.md](./docs/legacy-viewer-compatibility.md) for the compatibility fence and maintenance rules
+- if you need the working all-in-one websocket viewer, use the legacy commands above only for that compatibility workflow
 
 FAQ:
 
-- If the browser opens `/`, that is now the preferred studio shell. Open `/api` for the API info page or use `fcad serve --legacy-viewer` for the older browser demo UI.
+- If the browser opens `/`, that is now the preferred Studio shell. Open `/api` for the API info page. Use `fcad serve --legacy-viewer` only when you specifically need the older compatibility viewer.
 
 ### Create Canonical Schema
 

@@ -21,13 +21,24 @@ import {
 import { runFem } from './src/api/analysis.js';
 import { createModel } from './src/api/model.js';
 
+// Compatibility-only browser shell for the legacy websocket viewer.
+// Keep this entrypoint stable for `fcad serve --legacy-viewer` and
+// `npm run serve:legacy`, but route new browser work to the Studio/local API
+// path in `src/server/local-api-server.js` instead of extending this file.
+// Preserve the legacy websocket action names:
+//   - build
+//   - design
+//   - draw
+//   - update_dimension
+//   - get_dimensions
 const PUBLIC_DIR = join(import.meta.dirname, 'public');
 const EXAMPLES_DIR = join(import.meta.dirname, 'configs', 'examples');
 const OUTPUT_DIR = join(import.meta.dirname, 'output');
 const generateDrawing = createDrawingService();
+const LEGACY_VIEWER_NOTICE = '[legacy-viewer] server.js is a compatibility-only legacy viewer shell. Prefer `fcad serve` for Studio and the local API. Do not add new browser features here.';
 
-export function startServer(port = 3000) {
-  console.warn('[legacy-viewer] freecad-automation/server.js is a legacy dev/demo viewer shell. Prefer freecad-desktop or mcp-freecad automation flows.');
+export function startLegacyViewerServer(port = 3000) {
+  console.warn(LEGACY_VIEWER_NOTICE);
   const app = express();
   const server = createServer(app);
   const wss = new WebSocketServer({ server });
@@ -451,14 +462,16 @@ export function startServer(port = 3000) {
   }
 
   server.listen(port, () => {
-    console.log(`FreeCAD Legacy Viewer: http://localhost:${port}`);
+    console.log(`FreeCAD Legacy Viewer (compatibility mode): http://localhost:${port}`);
   });
 
   return server;
 }
 
+export const startServer = startLegacyViewerServer;
+
 // Direct execution
 if (process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/'))) {
   const port = parseInt(process.argv[2]) || 3000;
-  startServer(port);
+  startLegacyViewerServer(port);
 }

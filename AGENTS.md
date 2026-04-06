@@ -248,3 +248,60 @@ The final response should include:
   - `generate-standard-docs`
   - `pack`
 - Do not recreate D/C scoring, linkage, or reasoning logic in the browser UI. Surface canonical artifacts, statuses, and follow-up actions instead.
+
+## Existing Guidance Preservation
+- Preserve repo-specific guidance already present in this file when adding task-local control instructions.
+- Prefer merge-safe append updates over wholesale AGENTS rewrites.
+- Keep task control files, status files, and implementation edits scoped to the active task.
+- Do not relax existing repo identity, verification, or dirty-tree rules when adding new task guidance.
+
+## Scope Discipline
+- Keep changes narrowly scoped to the active execution plan and explicitly listed surfaces.
+- Avoid widening work into unrelated Studio, queueing, D-pipeline, or browser-i18n refactors unless a touched file requires a tiny safe adjustment.
+- Prefer user-visible intent, compatibility notices, wrappers, and docs changes over deeper behavior changes when isolating legacy surfaces.
+
+## Verification Rules
+- Read the execution plan and verification plan for the active task before implementation and remediation.
+- Update the active task status files after each completed phase with actual files changed, validations run, failures, repairs, and remaining risks.
+- Run the smallest relevant validation after each milestone and the full task validation set before finalization.
+- Record only checks that actually ran; do not claim browser, websocket, or runtime verification unless it was exercised.
+
+## Legacy Viewer Isolation Task
+- Active branch for this task: `refactor/legacy-viewer-fence`
+- Execution plan source of truth:
+  - `docs/exec-plans/legacy-viewer-isolation.md`
+- Verification and remediation plan:
+  - `docs/exec-plans/legacy-viewer-isolation-verification.md`
+- Phase status files:
+  - `tmp/codex/legacy-viewer-isolation-status.md`
+  - `tmp/codex/legacy-viewer-isolation-verification-status.md`
+- Task title:
+  - `Legacy viewer isolation and compatibility fence`
+- Task goal:
+  - isolate `server.js` as a compatibility-only legacy viewer surface
+  - make its legacy status explicit in code and docs
+  - reduce drift against the local-API entrypoint
+  - prevent new feature work from landing there accidentally
+- Scope surfaces:
+  - `server.js`
+  - `package.json` serve commands
+  - docs that mention legacy serve flows
+  - compatibility wrappers or documentation files needed to keep `serve:legacy` available without encouraging new development there
+- Global non-negotiables:
+  - preserve `npm run serve:legacy` startup behavior unless a compatibility wrapper is clearly safer
+  - do not break websocket message actions:
+    - `build`
+    - `design`
+    - `draw`
+    - `update_dimension`
+    - `get_dimensions`
+  - do not add new legacy features
+  - make compatibility-only intent obvious in code and docs
+- Read-only review discipline for this task:
+  - capture `git diff --name-only` before and after the final read-only review
+  - if the diff snapshots differ, report the read-only review as invalid and do not claim merge readiness
+- Completion criteria for this task:
+  - `server.js` is clearly framed as a compatibility-only legacy entrypoint
+  - `serve:legacy` remains available without encouraging new development on the legacy path
+  - docs point primary browser/local API guidance away from the legacy viewer
+  - touched validations pass or any remaining gaps are explicitly reported
