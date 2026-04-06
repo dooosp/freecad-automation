@@ -22,6 +22,7 @@ import { runFem } from './src/api/analysis.js';
 import { createModel } from './src/api/model.js';
 
 const PUBLIC_DIR = join(import.meta.dirname, 'public');
+const SHARED_JS_DIR = join(import.meta.dirname, 'src', 'shared');
 const EXAMPLES_DIR = join(import.meta.dirname, 'configs', 'examples');
 const OUTPUT_DIR = join(import.meta.dirname, 'output');
 const generateDrawing = createDrawingService();
@@ -32,6 +33,7 @@ export function startServer(port = 3000) {
   const server = createServer(app);
   const wss = new WebSocketServer({ server });
 
+  app.use('/js/shared', express.static(SHARED_JS_DIR));
   app.use(express.static(PUBLIC_DIR));
 
   // List example configs

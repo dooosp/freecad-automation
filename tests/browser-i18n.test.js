@@ -1,19 +1,32 @@
 import assert from 'node:assert/strict';
 
 import {
+  DEFAULT_LOCALE,
   LOCALE_COOKIE_NAME,
-  createTranslator,
+  SUPPORTED_LOCALES,
+  formatLocaleCookie,
   normalizeLocale,
   parseLocaleCookie,
   resolveInitialLocale,
+} from '#i18n-contract';
+import {
+  createTranslator,
   translateText,
 } from '../public/js/i18n/index.js';
 
+assert.equal(DEFAULT_LOCALE, 'en');
+assert.deepEqual(SUPPORTED_LOCALES, ['en', 'ko']);
 assert.equal(normalizeLocale('en-US'), 'en');
 assert.equal(normalizeLocale('ko-KR'), 'ko');
 assert.equal(parseLocaleCookie(`${LOCALE_COOKIE_NAME}=ko; Path=/`), 'ko');
 assert.equal(resolveInitialLocale({ browserLanguage: 'ko-KR' }), 'ko');
 assert.equal(resolveInitialLocale({ savedLocale: 'en' }), 'en');
+assert.equal(resolveInitialLocale({
+  savedLocale: 'ko',
+  cookieHeader: `${LOCALE_COOKIE_NAME}=en`,
+  browserLanguage: 'en-US',
+}), 'ko');
+assert.equal(formatLocaleCookie('ko-KR'), `${LOCALE_COOKIE_NAME}=ko; Path=/; Max-Age=31536000; SameSite=Lax`);
 
 const ko = createTranslator('ko');
 assert.equal(ko.t('locale.label'), '언어');

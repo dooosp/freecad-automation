@@ -25,6 +25,13 @@ export function registerLandingRoutes(app, {
     })
   );
   app.use(
+    '/js/shared',
+    express.static(LOCAL_API_STATIC_ASSET_REGISTRY.shared_js_dir, {
+      index: false,
+      ...LOCAL_API_STATIC_FILE_OPTIONS,
+    })
+  );
+  app.use(
     '/js/studio',
     express.static(LOCAL_API_STATIC_ASSET_REGISTRY.studio_js_dir, {
       index: false,

@@ -1,7 +1,11 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { LOCAL_API_SERVICE, LOCAL_API_VERSION } from './local-api-contract.js';
-import { LOCALE_COOKIE_NAME, resolveInitialLocale } from '../../public/js/i18n/index.js';
+import {
+  LOCALE_COOKIE_NAME,
+  formatLocaleCookie,
+  resolveInitialLocale,
+} from '../shared/i18n-contract.js';
 
 const EXAMPLES_DIR = join(import.meta.dirname, '..', '..', 'configs', 'examples');
 
@@ -385,7 +389,8 @@ ${escapeHtml(payload.viewer.npm_script)}</pre>
   </main>
   <script>
     document.getElementById('locale-select')?.addEventListener('change', function(event) {
-      document.cookie = '${LOCALE_COOKIE_NAME}=' + encodeURIComponent(event.target.value) + '; Path=/; Max-Age=31536000; SameSite=Lax';
+      document.cookie = '${formatLocaleCookie('en')}'
+        .replace('${LOCALE_COOKIE_NAME}=en', '${LOCALE_COOKIE_NAME}=' + encodeURIComponent(event.target.value));
       window.location.reload();
     });
   </script>
