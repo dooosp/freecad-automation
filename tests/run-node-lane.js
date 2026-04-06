@@ -1,65 +1,11 @@
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 
+import { getNodeLane, getNodeLaneIds } from './lane-manifest.js';
+
 const ROOT = resolve(import.meta.dirname, '..');
-
-const LANE_STEPS = {
-  contract: [
-    { label: 'Config normalizer', args: ['tests/config-normalizer.test.js'] },
-    { label: 'Config schema CLI', args: ['tests/config-schema-cli.test.js'] },
-    { label: 'Config example parity', args: ['tests/config-example-parity.test.js'] },
-    { label: 'Pytest runner selection', args: ['tests/run-pytest-selection.test.js'] },
-    { label: 'Runtime path contracts', args: ['tests/paths-runtime.test.js'] },
-    { label: 'FreeCAD invocation contracts', args: ['tests/freecad-invocation.test.js'] },
-    { label: 'Serve CLI', args: ['tests/serve-cli.test.js'] },
-    { label: 'Studio artifact re-entry', args: ['tests/studio-artifact-actions.test.js'] },
-    { label: 'Studio public contract helpers', args: ['tests/studio-public-contract.test.js'] },
-    { label: 'Studio drawing workspace helpers', args: ['tests/studio-drawing-workspace.test.js'] },
-    { label: 'Studio jobs client', args: ['tests/studio-jobs-client.test.js'] },
-    { label: 'Studio model tracked state', args: ['tests/model-tracked-runs.test.js'] },
-    { label: 'Studio shell state', args: ['tests/studio-state.test.js'] },
-    { label: 'Studio shell bootstrap', args: ['tests/studio-shell-bootstrap.test.js'] },
-    { label: 'Studio shell decomposition', args: ['tests/studio-shell-decomposition.test.js'] },
-    { label: 'Studio draw tracked state', args: ['tests/drawing-tracked-runs.test.js'] },
-    { label: 'Studio job monitor', args: ['tests/studio-job-monitor.test.js'] },
-    { label: 'Studio job bridge', args: ['tests/studio-job-bridge.test.js'] },
-    { label: 'STEP import bootstrap contracts', args: ['tests/step-import-service.test.js'] },
-    { label: 'Bootstrap import service contracts', args: ['tests/bootstrap-import-service.test.js'] },
-    { label: 'Design reviewer validation', args: ['tests/design-reviewer-validation.test.js'] },
-    { label: 'D artifact contracts', args: ['tests/d-artifact-schema.test.js'] },
-    { label: 'C artifact contracts', args: ['tests/c-artifact-schema.test.js'] },
-    { label: 'Release bundle packaging', args: ['tests/release-bundle.test.js'] },
-    { label: 'D model-analysis fallback', args: ['tests/model-analysis-runtime.test.js'] },
-  ],
-  integration: [
-    { label: 'Job API contracts', args: ['tests/job-api.test.js'] },
-    { label: 'Job queue controls', args: ['tests/job-queue-controls.test.js'] },
-    { label: 'Local API landing page', args: ['tests/local-api-server.test.js'] },
-    { label: 'Review-context bootstrap handoff', args: ['tests/review-context-bootstrap.test.js'] },
-    { label: 'Studio shell browser smoke', args: ['tests/studio-shell-browser-smoke.test.js'] },
-    { label: 'Studio model API', args: ['tests/local-api-studio-model.test.js'] },
-    { label: 'Studio drawing API', args: ['tests/local-api-studio-drawing.test.js'] },
-    { label: 'Legacy serve HTTP smoke', args: ['tests/legacy-serve-smoke.test.js'] },
-    { label: 'Studio drawing service', args: ['tests/studio-drawing-service.test.js'] },
-    { label: 'Rule profile service', args: ['tests/rule-profile-service.test.js'] },
-    { label: 'Parameter sweep', args: ['tests/sweep.test.js'] },
-    { label: 'Draw pipeline QA bridge', args: ['tests/draw-pipeline-qa-config.test.js'] },
-    { label: 'Report FEM normalization', args: ['tests/report-fem-normalization.test.js'] },
-    { label: 'Report runtime fallback', args: ['tests/report-runtime-fallback.test.js'] },
-  ],
-  snapshots: [
-    { label: 'SVG snapshots', args: ['tests/svg-snapshot.test.js'] },
-    { label: 'Report preview snapshots', args: ['tests/report-preview-snapshot.test.js'] },
-  ],
-  'runtime-smoke': [
-    { label: 'CLI runtime smoke', args: ['tests/runtime-smoke-cli.js'] },
-    { label: 'Local API runtime smoke', args: ['tests/local-api.integration.test.js'] },
-    { label: 'Repeat export runtime regression', args: ['tests/export-repeat.test.js'] },
-  ],
-};
-
 function printUsage() {
-  console.error(`Usage: node tests/run-node-lane.js <${Object.keys(LANE_STEPS).join('|')}>`);
+  console.error(`Usage: node tests/run-node-lane.js <${getNodeLaneIds().join('|')}>`);
 }
 
 function runLaneStep(step) {
@@ -76,7 +22,7 @@ function runLaneStep(step) {
 }
 
 const lane = process.argv[2];
-const steps = lane ? LANE_STEPS[lane] : undefined;
+const steps = lane ? getNodeLane(lane)?.steps : undefined;
 
 if (!steps) {
   printUsage();
