@@ -18,6 +18,7 @@ const LANE_STEPS = {
     { label: 'Studio jobs client', args: ['tests/studio-jobs-client.test.js'] },
     { label: 'Studio model tracked state', args: ['tests/model-tracked-runs.test.js'] },
     { label: 'Studio shell state', args: ['tests/studio-state.test.js'] },
+    { label: 'Browser i18n', args: ['tests/browser-i18n.test.js'] },
     { label: 'Studio draw tracked state', args: ['tests/drawing-tracked-runs.test.js'] },
     { label: 'Studio job monitor', args: ['tests/studio-job-monitor.test.js'] },
     { label: 'Studio job bridge', args: ['tests/studio-job-bridge.test.js'] },

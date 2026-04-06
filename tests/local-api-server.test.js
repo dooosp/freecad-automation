@@ -82,6 +82,25 @@ try {
   assert.match(html, /release_bundle\.zip|release bundle/i);
   assert.match(html, new RegExp(ROOT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
 
+  const studioShellResponse = await fetch(`${baseUrl}/studio/`, {
+    headers: {
+      accept: 'text/html',
+    },
+  });
+  assert.equal(studioShellResponse.status, 200);
+  const studioShellHtml = await studioShellResponse.text();
+  assert.match(studioShellHtml, /"#i18n-contract": "\/js\/shared\/i18n-contract\.js"/);
+
+  const browserI18nResponse = await fetch(`${baseUrl}/js/i18n/index.js`);
+  assert.equal(browserI18nResponse.status, 200);
+  const browserI18nSource = await browserI18nResponse.text();
+  assert.match(browserI18nSource, /#i18n-contract/);
+
+  const sharedContractResponse = await fetch(`${baseUrl}/js/shared/i18n-contract.js`);
+  assert.equal(sharedContractResponse.status, 200);
+  const sharedContractSource = await sharedContractResponse.text();
+  assert.match(sharedContractSource, /export const LOCALE_COOKIE_NAME = 'ui_locale'/);
+
   const apiKoHtmlResponse = await fetch(`${baseUrl}/api`, {
     headers: {
       accept: 'text/html',
@@ -617,17 +636,19 @@ try {
   assert.equal('source_artifact_path' in inspectPayload.job.request.options.studio, false);
   assert.equal(JSON.stringify(inspectPayload.job.request).includes(modelArtifactPath), false);
 
-  const recentJobsResponse = await fetch(`${baseUrl}/jobs?limit=50`, {
-    headers: {
-      accept: 'application/json',
-    },
+  await waitFor(async () => {
+    const recentJobsResponse = await fetch(`${baseUrl}/jobs?limit=100`, {
+      headers: {
+        accept: 'application/json',
+      },
+    });
+    assert.equal(recentJobsResponse.status, 200);
+    const recentJobsPayload = await recentJobsResponse.json();
+    const recentInspectJob = recentJobsPayload.jobs.find((entry) => entry.id === inspectPayload.job.id);
+    assert.equal(Boolean(recentInspectJob), true);
+    assert.equal('file_path' in recentInspectJob.request, false);
+    assert.equal(JSON.stringify(recentInspectJob.request).includes(modelArtifactPath), false);
   });
-  assert.equal(recentJobsResponse.status, 200);
-  const recentJobsPayload = await recentJobsResponse.json();
-  const recentInspectJob = recentJobsPayload.jobs.find((entry) => entry.id === inspectPayload.job.id);
-  assert.equal(Boolean(recentInspectJob), true);
-  assert.equal('file_path' in recentInspectJob.request, false);
-  assert.equal(JSON.stringify(recentInspectJob.request).includes(modelArtifactPath), false);
 
   console.log('local-api-server.test.js: ok');
 } finally {

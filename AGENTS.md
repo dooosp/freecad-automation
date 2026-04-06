@@ -300,3 +300,47 @@ The final response should include:
 - Preserve canonical artifact names, lineage rules, bundle manifest truth, tracked-job history, retry/cancel behavior, preview-vs-tracked separation, and release-bundle reopen behavior.
 - Prefer small contract, persistence, recent-history, and re-entry fixes over broader refactors.
 - Run the strongest safe minimal checks already present in the repo, then execute the AF5 verification/remediation plan and a read-only final review before calling merge readiness.
+
+## Active Task: Shared i18n Contract Extraction
+- Task slug: `shared-i18n-contract-extraction`
+- Task title: `Shared i18n contract extraction`
+- Active branch for this task: `refactor/shared-i18n-contract`
+- Preferred clean worktree for this task:
+  - `/Users/jangtaeho/Documents/New/.worktrees/shared-i18n-contract/freecad-automation`
+- Execution plan source of truth:
+  - `docs/exec-plans/shared-i18n-contract-extraction.md`
+- Verification and remediation plan:
+  - `docs/exec-plans/shared-i18n-contract-extraction-verification.md`
+- Phase status files:
+  - `tmp/codex/shared-i18n-contract-extraction-status.md`
+  - `tmp/codex/shared-i18n-contract-extraction-verification-status.md`
+- Mission:
+  - introduce a shared locale contract module for locale cookie name, initial locale resolution, and fallback policy
+  - migrate server and browser adapters to depend on that shared contract instead of server imports from `public/js`
+- Scope surfaces:
+  - locale cookie handling
+  - initial locale resolution
+  - fallback policy
+  - browser i18n adapter wiring
+  - local API landing page locale bootstrap
+  - tests covering locale resolution or persisted locale state
+- Non-negotiables:
+  - preserve the current locale cookie name and locale-selection behavior
+  - keep route paths and JSON keys unchanged
+  - do not place browser-only DOM code in the shared module
+  - the browser entry may wrap the shared contract, but the server must no longer import from `public/js`
+- Validation commands:
+  - `npm run test:node:contract`
+  - `npm run test:node:integration`
+- Dirty-tree discipline for this task:
+  - `ALLOW_DIRTY_TREE: no`
+  - if the primary checkout is dirty, use a clean worktree instead of modifying or stashing unrelated work
+- Read-only final review discipline:
+  - capture `git diff --name-only` before the review
+  - do not modify files during the review
+  - if the before/after diff snapshots differ, report the review as invalid and do not claim merge readiness
+- Final response additions for this task:
+  - repo identity used for the task
+  - architecture and implementation decisions
+  - pre-existing diff or dirty-tree notes
+  - remaining gaps and why they remain

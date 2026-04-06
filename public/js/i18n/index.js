@@ -1,9 +1,24 @@
 import en from './en.js';
 import ko from './ko.js';
+import {
+  DEFAULT_LOCALE,
+  formatLocaleCookie,
+  LOCALE_COOKIE_NAME,
+  normalizeLocale,
+  parseLocaleCookie,
+  resolveInitialLocale,
+  SUPPORTED_LOCALES,
+} from '#i18n-contract';
 
-export const DEFAULT_LOCALE = 'en';
-export const SUPPORTED_LOCALES = ['en', 'ko'];
-export const LOCALE_COOKIE_NAME = 'ui_locale';
+export {
+  DEFAULT_LOCALE,
+  formatLocaleCookie,
+  LOCALE_COOKIE_NAME,
+  normalizeLocale,
+  parseLocaleCookie,
+  resolveInitialLocale,
+  SUPPORTED_LOCALES,
+} from '#i18n-contract';
 
 const DICTIONARIES = {
   en,
@@ -34,13 +49,6 @@ function interpolate(template, params = {}) {
 
 function localeDictionary(locale = DEFAULT_LOCALE) {
   return DICTIONARIES[normalizeLocale(locale)] || en;
-}
-
-export function normalizeLocale(value) {
-  if (typeof value !== 'string') return DEFAULT_LOCALE;
-  const normalized = value.trim().toLowerCase();
-  if (normalized.startsWith('ko')) return 'ko';
-  return 'en';
 }
 
 export function localeLabel(locale) {
@@ -96,24 +104,6 @@ export function createTranslator(locale = currentLocale) {
   };
 }
 
-export function parseLocaleCookie(cookieHeader = '') {
-  if (typeof cookieHeader !== 'string' || cookieHeader.length === 0) return '';
-  const cookie = cookieHeader
-    .split(';')
-    .map((entry) => entry.trim())
-    .find((entry) => entry.startsWith(`${LOCALE_COOKIE_NAME}=`));
-  if (!cookie) return '';
-  return normalizeLocale(cookie.slice(LOCALE_COOKIE_NAME.length + 1));
-}
-
-export function resolveInitialLocale({
-  cookieHeader = '',
-  browserLanguage = '',
-  savedLocale = '',
-} = {}) {
-  return normalizeLocale(savedLocale || parseLocaleCookie(cookieHeader) || browserLanguage || DEFAULT_LOCALE);
-}
-
 function browserSavedLocale() {
   if (typeof document === 'undefined') return '';
   return parseLocaleCookie(document.cookie || '');
@@ -133,7 +123,7 @@ function mirrorLocaleToStorage(locale) {
 
 function writeLocaleCookie(locale) {
   if (typeof document === 'undefined') return;
-  document.cookie = `${LOCALE_COOKIE_NAME}=${locale}; Path=/; Max-Age=31536000; SameSite=Lax`;
+  document.cookie = formatLocaleCookie(locale);
 }
 
 function applyLocaleMetadata(locale) {

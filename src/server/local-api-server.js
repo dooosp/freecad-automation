@@ -17,7 +17,11 @@ import { createStudioDrawingService } from './studio-drawing-service.js';
 import { translateStudioJobSubmission } from './studio-job-bridge.js';
 import { toPublicDrawingPreviewPayload } from './public-drawing-preview.js';
 import { toPublicJobRequest } from './public-job-request.js';
-import { LOCALE_COOKIE_NAME, resolveInitialLocale } from '../../public/js/i18n/index.js';
+import {
+  LOCALE_COOKIE_NAME,
+  LOCALE_COOKIE_SUFFIX,
+  resolveInitialLocale,
+} from '../shared/i18n-contract.js';
 
 const PUBLIC_DIR = join(import.meta.dirname, '..', '..', 'public');
 const EXAMPLES_DIR = join(import.meta.dirname, '..', '..', 'configs', 'examples');
@@ -25,7 +29,9 @@ const STUDIO_HTML = join(PUBLIC_DIR, 'studio.html');
 const STUDIO_CSS = join(PUBLIC_DIR, 'css', 'studio.css');
 const STUDIO_SHELL_JS = join(PUBLIC_DIR, 'js', 'studio-shell.js');
 const APP_JS_DIR = join(PUBLIC_DIR, 'js', 'app');
+const I18N_JS_DIR = join(PUBLIC_DIR, 'js', 'i18n');
 const STUDIO_JS_DIR = join(PUBLIC_DIR, 'js', 'studio');
+const SHARED_JS_DIR = join(import.meta.dirname, '..', 'shared');
 const STATIC_FILE_OPTIONS = Object.freeze({
   dotfiles: 'allow',
 });
@@ -563,7 +569,7 @@ ${escapeHtml(payload.viewer.npm_script)}</pre>
   </main>
   <script>
     document.getElementById('locale-select')?.addEventListener('change', function(event) {
-      document.cookie = '${LOCALE_COOKIE_NAME}=' + encodeURIComponent(event.target.value) + '; Path=/; Max-Age=31536000; SameSite=Lax';
+      document.cookie = '${LOCALE_COOKIE_NAME}=' + encodeURIComponent(event.target.value) + '${LOCALE_COOKIE_SUFFIX}';
       window.location.reload();
     });
   </script>
@@ -804,6 +810,8 @@ export function createLocalApiServer({
 
   app.use(express.json({ limit: '5mb' }));
   app.use('/js/app', express.static(APP_JS_DIR, { index: false, ...STATIC_FILE_OPTIONS }));
+  app.use('/js/i18n', express.static(I18N_JS_DIR, { index: false, ...STATIC_FILE_OPTIONS }));
+  app.use('/js/shared', express.static(SHARED_JS_DIR, { index: false, ...STATIC_FILE_OPTIONS }));
   app.use('/js/studio', express.static(STUDIO_JS_DIR, { index: false, ...STATIC_FILE_OPTIONS }));
 
   app.use((error, _req, res, next) => {

@@ -19,6 +19,9 @@
     "automation"
   ],
   "type": "module",
+  "imports": {
+    "#i18n-contract": "./src/shared/i18n-contract.js"
+  },
   "bin": {
     "fcad": "./bin/fcad.js",
     "mfg-agent": "./bin/fcad.js"
