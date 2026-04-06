@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, readdir, stat, writeFile, appendFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rename, stat, writeFile, appendFile } from 'node:fs/promises';
 import { basename, dirname, extname, resolve, join } from 'node:path';
 
 import { writeArtifactManifest } from '../../../lib/artifact-manifest.js';
@@ -106,16 +106,22 @@ export function createJobStore({ jobsDir }) {
     await mkdir(rootDir, { recursive: true });
   }
 
-  async function writeJson(filePath, data) {
+  async function writeTextAtomically(filePath, text) {
     await mkdir(dirname(filePath), { recursive: true });
-    await writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
+    const tempPath = `${filePath}.${randomUUID()}.tmp`;
+    await writeFile(tempPath, text, 'utf8');
+    await rename(tempPath, filePath);
+  }
+
+  async function writeJson(filePath, data) {
+    await writeTextAtomically(filePath, `${JSON.stringify(data, null, 2)}\n`);
   }
 
   async function saveJob(job) {
     const nextJob = clone(job);
     nextJob.updated_at = nowIso();
     await mkdir(getJobDir(nextJob.id), { recursive: true });
-    await writeFile(getJobPaths(nextJob.id).job, `${JSON.stringify(nextJob, null, 2)}\n`, 'utf8');
+    await writeTextAtomically(getJobPaths(nextJob.id).job, `${JSON.stringify(nextJob, null, 2)}\n`);
     return nextJob;
   }
 
