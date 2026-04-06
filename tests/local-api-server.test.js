@@ -225,6 +225,14 @@ try {
   const sharedContractSource = await sharedContractResponse.text();
   assert.match(sharedContractSource, /export const LOCALE_COOKIE_NAME = 'ui_locale'/);
 
+  const studioEntrypointResponse = await fetch(`${baseUrl}/js/studio-shell.js`);
+  assert.equal(studioEntrypointResponse.status, 200);
+  assert.match(studioEntrypointResponse.headers.get('content-type') || '', /javascript/);
+
+  const studioWorkspaceResponse = await fetch(`${baseUrl}/js/studio/workspaces.js`);
+  assert.equal(studioWorkspaceResponse.status, 200);
+  assert.match(studioWorkspaceResponse.headers.get('content-type') || '', /javascript/);
+
   const apiKoHtmlResponse = await fetch(`${baseUrl}/api`, {
     headers: {
       accept: 'text/html',
