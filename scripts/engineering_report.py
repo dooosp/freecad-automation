@@ -83,6 +83,17 @@ def _resolve_cost_result(config):
     cost = config.get("cost_results")
     return cost if isinstance(cost, dict) else {}
 
+
+def _resolve_output_path(config, output_stem, default_dir):
+    """Resolve the PDF output location for tracked and non-tracked report runs."""
+    override_dir = config.get("_report_output_dir")
+    if isinstance(override_dir, str) and override_dir.strip():
+        output_dir = os.path.abspath(override_dir)
+    else:
+        output_dir = default_dir
+    os.makedirs(output_dir, exist_ok=True)
+    return os.path.join(output_dir, f"{output_stem}_report.pdf")
+
 def main():
     try:
         config = read_input()
@@ -130,9 +141,8 @@ def generate_template_report(config, template_config):
     # Determine output path
     name = config.get('name', 'report')
     output_stem = safe_filename_component(name, default="report")
-    output_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'output')
-    os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, f'{output_stem}_report.pdf')
+    default_output_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'output')
+    output_path = _resolve_output_path(config, output_stem, default_output_dir)
 
     render_report(config, template, data, output_path)
 
@@ -154,8 +164,7 @@ def generate_legacy_report(config):
     import numpy as np
 
     export_dir = config.get("export", {}).get("directory", ".")
-    os.makedirs(export_dir, exist_ok=True)
-    pdf_path = os.path.join(export_dir, f"{output_stem}_report.pdf")
+    pdf_path = _resolve_output_path(config, output_stem, export_dir)
 
     tolerance = _resolve_tolerance_result(config)
     mc = tolerance.get("monte_carlo")

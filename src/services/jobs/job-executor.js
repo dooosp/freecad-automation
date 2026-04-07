@@ -567,12 +567,14 @@ export function createJobExecutor({
   }
 
   async function executeReport(job, resolvedConfig) {
+    const outputDir = await ensureJobArtifactDir(jobStore, job.id);
     return generateReport({
       freecadRoot: projectRoot,
       runScript: createLoggedRunner(job.id),
       loadConfig: async (filepath) => (await loadConfigWithDiagnostics(filepath)).config,
       configPath: resolvedConfig.configPath,
       config: resolvedConfig.config,
+      outputDir,
       includeDrawing: job.request.options?.include_drawing === true,
       includeDfm: job.request.options?.include_dfm === true,
       includeTolerance: job.request.options?.include_tolerance !== false,

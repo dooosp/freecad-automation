@@ -109,6 +109,7 @@ export function createReportService({
     loadConfig,
     configPath,
     config,
+    outputDir = null,
     includeDrawing = true,
     includeDfm = true,
     includeTolerance = true,
@@ -121,6 +122,9 @@ export function createReportService({
     profileName = null,
   }) {
     const loadedConfig = config ?? await loadConfig(resolve(freecadRoot, configPath));
+    const resolvedOutputDir = outputDir
+      ? resolve(freecadRoot, outputDir)
+      : resolve(freecadRoot, 'output');
     const normalizedResults = (analysisResults && typeof analysisResults === 'object')
       ? sanitizeObject(analysisResults)
       : {};
@@ -174,7 +178,7 @@ export function createReportService({
       standard: (analysisResults && analysisResults.standard) || resolvedStandard,
       ...(shopProfile ? { shop_profile: shopProfile } : {}),
       ...(ruleProfile ? { rule_profile: ruleProfile } : {}),
-      export: { ...loadedConfig.export, directory: resolve(freecadRoot, 'output') },
+      export: { ...loadedConfig.export, directory: resolvedOutputDir },
       _report_options: {
         include_drawing: toBool(sections?.drawing, includeDrawing),
         include_dfm: toBool(sections?.dfm, includeDfm),
@@ -193,6 +197,10 @@ export function createReportService({
       material_profile: materialProfile,
       rule_profile_summary: ruleProfileSummary,
     };
+
+    if (outputDir) {
+      reportInput._report_output_dir = resolvedOutputDir;
+    }
 
     if (reportTemplate) {
       reportInput._report_template = reportTemplate;
