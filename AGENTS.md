@@ -29,12 +29,12 @@ Treat `create`, `design`, and broad generation-first demos as secondary unless t
 Fast lanes:
 
 - `npm run test:node:contract`
+- `npm run test:node:integration`
 - `npm run test:py`
 - `npm run test:snapshots`
 
 Runtime-backed lanes:
 
-- `npm run test:node:integration`
 - `npm run test:runtime-smoke`
 - `npm run test:full`
 

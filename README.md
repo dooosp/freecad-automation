@@ -116,6 +116,7 @@ Use the new split documented in [`docs/testing.md`](./docs/testing.md):
 
 ```bash
 npm run test:node:contract
+npm run test:node:integration
 npm run test:py
 npm run test:snapshots
 ```
@@ -123,7 +124,6 @@ npm run test:snapshots
 Only run runtime-backed smoke when `fcad check-runtime` says the bridge is available:
 
 ```bash
-npm run test:node:integration
 npm run test:runtime-smoke
 npm run test:full
 ```
