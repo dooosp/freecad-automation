@@ -24,7 +24,8 @@ These are the best starting points for:
 
 ## Legacy / Compatibility Demos
 
-These remain useful, but they are not the main front door for new contributors:
+These remain useful, but they are not the main front door for new
+contributors:
 
 - `belt_drive.toml`
 - `cam_follower.toml`
@@ -34,4 +35,5 @@ These remain useful, but they are not the main front door for new contributors:
 - `ptu*.toml`
 - `robot_arm_6axis.toml`
 
-Treat them as compatibility coverage for the older generation-first and kinematics-heavy story.
+Treat them as compatibility coverage for the older generation-first and
+kinematics-heavy story.

@@ -16,11 +16,13 @@ For new work, prefer:
 3. `fcad dfm ...`
 4. selective `draw` / `fem` / `tolerance` / `report`
 
-Treat `create`, `design`, and broad generation-first demos as secondary unless the task is explicitly about legacy compatibility.
+Treat `create`, `design`, and broad generation-first demos as secondary unless
+the task is explicitly about legacy compatibility.
 
 ## Runtime Truth
 
-- Do not claim FreeCAD-backed smoke passed unless `fcad check-runtime` proved the bridge is available and the command actually ran.
+- Do not claim FreeCAD-backed smoke passed unless `fcad check-runtime` proved
+  the bridge is available and the command actually ran.
 - `validate` is for generated `drawing_plan` contracts, not generic raw-config validation.
 - Prefer review/context/docs/contracts changes before widening runtime behavior.
 
@@ -42,6 +44,8 @@ Only run runtime-backed lanes when the environment is actually ready.
 
 ## Refactor Guardrails
 
-- Keep repo identity, workflow clarity, and command-surface clarity ahead of broad engine rewrites.
+- Keep repo identity, workflow clarity, and command-surface clarity ahead of
+  broad engine rewrites.
 - Preserve the existing stack and working legacy commands.
-- Prefer additive docs, contracts, aliases, and help improvements over file moves.
+- Prefer additive docs, contracts, aliases, and help improvements over file
+  moves.

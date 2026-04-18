@@ -11,11 +11,13 @@ bin/fcad.js
   -> FreeCAD bridge
 ```
 
-This refactor changes the product boundary and command taxonomy, not the underlying Node/Python/FreeCAD stack.
+This refactor changes the product boundary and command taxonomy, not the
+underlying Node/Python/FreeCAD stack.
 
 ## Product Boundary
 
-The primary boundary is now review and focused engineering follow-up for existing parts and assemblies.
+The primary boundary is now review and focused engineering follow-up for
+existing parts and assemblies.
 
 ```text
 existing CAD or TOML config
@@ -36,7 +38,9 @@ This branch adds schema-level contracts for the missing middle layer:
 - `fix_options.json`
 - `verification_plan.json`
 
-These are not a claim that the current runtime emits every artifact by default. They exist to make the intended review boundary legible and safe to build against incrementally.
+These are not a claim that the current runtime emits every artifact by default.
+They exist to make the intended review boundary legible and safe to build
+against incrementally.
 
 ## Command Roles
 
@@ -49,4 +53,5 @@ These are not a claim that the current runtime emits every artifact by default. 
 
 - `create` and `design` remain available.
 - No runtime-backed path is silently removed.
-- `validate` retains its existing behavior and is now documented more precisely as a drawing-plan validator.
+- `validate` retains its existing behavior and is now documented more precisely
+  as a drawing-plan validator.

@@ -1,6 +1,8 @@
 # Vision
 
-`freecad-automation` should read as a toolchain for reviewing existing engineering context around parts and assemblies, then guiding focused follow-up work.
+`freecad-automation` should read as a toolchain for reviewing existing
+engineering context around parts and assemblies, then guiding focused
+follow-up work.
 
 ## North Star
 

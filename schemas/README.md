@@ -1,6 +1,7 @@
 # Review Artifact Contracts
 
-These schemas define the missing middle layer between detection and final reporting.
+These schemas define the missing middle layer between detection and final
+reporting.
 
 They are first-wave contracts only:
 

@@ -1,6 +1,8 @@
 # Testing And Verification
 
-This repository now separates fast hosted checks from real FreeCAD-backed smoke verification. Run `fcad check-runtime` first on any machine that will execute the FreeCAD-backed paths.
+This repository now separates fast hosted checks from real FreeCAD-backed smoke
+verification. Run `fcad check-runtime` first on any machine that will execute
+the FreeCAD-backed paths.
 
 ## Test Lanes
 
@@ -23,7 +25,9 @@ Runtime domain checks remain available for deeper local verification:
 - `npm run test:runtime:integration`
 - `npm run test:runtime:full`
 
-The runtime domain runner uses the same FreeCAD-backed script path as the CLI and will fail early if you request runtime-backed layers without a detectable runtime.
+The runtime domain runner uses the same FreeCAD-backed script path as the CLI
+and will fail early if you request runtime-backed layers without a detectable
+runtime.
 
 ## Workflow Mapping
 
@@ -34,7 +38,8 @@ The runtime domain runner uses the same FreeCAD-backed script path as the CLI an
 | `FreeCAD Runtime Smoke (self-hosted macOS)` | `test:runtime-smoke` plus runtime-backed Python smoke regressions | No Linux or Windows runtime ownership claims, and no repository-owned tolerance smoke claim yet |
 <!-- GENERATED:workflow-mapping:end -->
 
-The hosted workflow is the fast PR lane. The self-hosted workflow is scheduled/manual and is the repository-owned runtime smoke source of truth.
+The hosted workflow is the fast PR lane. The self-hosted workflow is
+scheduled/manual and is the repository-owned runtime smoke source of truth.
 
 ## Verification Wording
 
@@ -47,25 +52,36 @@ Use the following terms consistently in contributor notes and PR verification bl
 
 ## Phase-3 tracked execution coverage
 
-The hosted-safe Node lanes now cover the phase-3 tracked execution model without claiming a real browser session:
+The hosted-safe Node lanes now cover the phase-3 tracked execution model
+without claiming a real browser session:
 
 - request sanitization for public job payloads versus persisted internal executor requests
 - public storage metadata redaction on `/jobs`, `/jobs/:id`, and `/jobs/:id/artifacts`
 - browser-visible manifest/result redaction where internal values would otherwise contain absolute paths
 - public artifact list shape on `/jobs/:id/artifacts`
 - example payload shape on `/api/examples`
-- drawing preview and dimension-update response shapes on `/api/studio/drawing-preview` and `/api/studio/drawing-previews/:id/dimensions`, including safe preview/edit-loop references instead of raw preview-plan paths
+- drawing preview and dimension-update response shapes on
+  `/api/studio/drawing-preview` and
+  `/api/studio/drawing-previews/:id/dimensions`, including safe
+  preview/edit-loop references instead of raw preview-plan paths
 - cancel/retry route behavior by job state
 - multi-job monitor helpers, completion routing helpers, and selected-job deep-link helpers
 - jobs center action eligibility and merged active/history ordering
 - browserless smoke for `/`, `/api`, `/studio`, `/jobs`, `/jobs/:id`, `/api/examples`, cancel/retry routes, and browser-safe artifact open/download paths
-- studio helper coverage that keeps artifact/example rendering and drawing preview copy path-free even if internal payloads remain path-bearing on disk
+- studio helper coverage that keeps artifact/example rendering and drawing
+  preview copy path-free even if internal payloads remain path-bearing on disk
 
-This is intentionally API-and-helper coverage, not runtime-backed verification. Only `npm run test:runtime-smoke` proves a live FreeCAD-backed execution path, and it should be run only when `fcad check-runtime` reports an actually available runtime on the current machine.
+This is intentionally API-and-helper coverage, not runtime-backed verification.
+Only `npm run test:runtime-smoke` proves a live FreeCAD-backed execution path,
+and it should be run only when `fcad check-runtime` reports an actually
+available runtime on the current machine.
 
 ## Runtime Smoke Contents
 
-`npm run test:runtime-smoke` uses the checked-in `configs/examples/ks_bracket.toml` and `configs/examples/bracket_fem.toml` examples, rewrites them into throwaway configs, and writes runtime outputs under `output/runtime-smoke/`.
+`npm run test:runtime-smoke` uses the checked-in
+`configs/examples/ks_bracket.toml` and
+`configs/examples/bracket_fem.toml` examples, rewrites them into throwaway
+configs, and writes runtime outputs under `output/runtime-smoke/`.
 
 The smoke lane verifies:
 
@@ -76,9 +92,16 @@ The smoke lane verifies:
 - `fcad fem`
 - `fcad report`
 
-The smoke harness validates the generated artifact manifests for `create`, `draw`, `fem`, and `report`, asserting that required artifact types exist, the recorded output files are non-empty, and key manifest fields stay populated. It also writes `output/runtime-smoke/smoke-manifest.json` so workflow uploads can be inspected without replaying the run.
+The smoke harness validates the generated artifact manifests for `create`,
+`draw`, `fem`, and `report`, asserting that required artifact types exist, the
+recorded output files are non-empty, and key manifest fields stay populated. It
+also writes `output/runtime-smoke/smoke-manifest.json` so workflow uploads can
+be inspected without replaying the run.
 
-`fcad tolerance` is still intentionally outside the repository-owned smoke lane. It succeeds locally on the checked-in assembly example, but it remains a heavier assembly-plus-Monte-Carlo runtime path and is left to deeper local validation until we can harden it for CI without destabilizing the smoke lane.
+`fcad tolerance` is still intentionally outside the repository-owned smoke
+lane. It succeeds locally on the checked-in assembly example, but it remains a
+heavier assembly-plus-Monte-Carlo runtime path and is left to deeper local
+validation until we can harden it for CI without destabilizing the smoke lane.
 
 ## Support Matrix
 
@@ -110,7 +133,10 @@ npm run test:py
 ```
 <!-- GENERATED:python-local:end -->
 
-This lane requires Python 3.11+ and the helper script will prefer an explicit `PYTHON` / `PYTHON3`, then the active `setup-python` interpreter when available, then `python3`, `python`, and finally versioned `python3.x` commands. It also requires that the selected interpreter can import `pytest`.
+This lane requires Python 3.11+ and the helper script will prefer an explicit
+`PYTHON` / `PYTHON3`, then the active `setup-python` interpreter when
+available, then `python3`, `python`, and finally versioned `python3.x`
+commands. It also requires that the selected interpreter can import `pytest`.
 
 Real runtime smoke:
 
@@ -136,8 +162,13 @@ npm run test:runtime:full
 
 ## Known Limitations
 
-- Hosted CI does not prove that FreeCAD launches successfully on Linux or macOS.
-- Browserless studio and legacy serve smoke do not prove client-side rendering or websocket behavior.
-- Windows and WSL support are still contract-tested compatibility paths, not runtime-smoke-covered platforms.
-- The Python lane intentionally excludes runtime-backed smoke regressions so the default hosted lane stays fast and honest.
-- The tolerance flow remains local/deeper-runtime coverage only; it is not part of the repository-owned smoke lane yet.
+- Hosted CI does not prove that FreeCAD launches successfully on Linux or
+  macOS.
+- Browserless studio and legacy serve smoke do not prove client-side rendering
+  or websocket behavior.
+- Windows and WSL support are still contract-tested compatibility paths, not
+  runtime-smoke-covered platforms.
+- The Python lane intentionally excludes runtime-backed smoke regressions so
+  the default hosted lane stays fast and honest.
+- The tolerance flow remains local/deeper-runtime coverage only; it is not part
+  of the repository-owned smoke lane yet.

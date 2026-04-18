@@ -1,6 +1,7 @@
 # Production Readiness Refactor
 
-This document records the first-wave bottleneck-CAD reframe in the current checkout.
+This document records the first-wave bottleneck-CAD reframe in the current
+checkout.
 
 ## Mismatch Matrix
 

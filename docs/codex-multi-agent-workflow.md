@@ -1,6 +1,7 @@
 # Codex Multi-Agent Workflow
 
-Use this repository as a review-first system unless a task explicitly targets legacy generation compatibility.
+Use this repository as a review-first system unless a task explicitly targets
+legacy generation compatibility.
 
 ## Canonical Workflow
 
@@ -34,6 +35,8 @@ That legacy path still exists, but it is not the front door for new work.
 
 ## Current-State Notes
 
-- `review` is now first-class in the CLI, but it is still backed by the existing Gemini review script.
+- `review` is now first-class in the CLI, but it is still backed by the
+  existing Gemini review script.
 - The new middle-layer artifacts are contract-first in this wave.
-- `validate` is useful after draw-plan generation, not as a general raw-config gate.
+- `validate` is useful after draw-plan generation, not as a general raw-config
+  gate.

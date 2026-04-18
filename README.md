@@ -1,12 +1,15 @@
 # freecad-automation
 
-**Bottleneck-first CAD review and selective verification for existing parts and assemblies.**
+**Bottleneck-first CAD review and selective verification for existing parts and
+assemblies.**
 
-This repository keeps the current Node CLI + Python runner + FreeCAD execution model, but the front door is now review-first:
+This repository keeps the current Node CLI + Python runner + FreeCAD execution
+model, but the front door is now review-first:
 
 `import/bootstrap -> review context -> geometry + DFM + linkage analysis -> bottleneck candidates -> fix options -> verification plan -> selective draw/FEM/tolerance/report`
 
-The older generation-first path still exists for compatibility, but it is no longer the primary product story.
+The older generation-first path still exists for compatibility, but it is no
+longer the primary product story.
 
 ## Start Here
 
@@ -22,7 +25,8 @@ npm link
 fcad --help
 ```
 
-`mfg-agent` remains installed as a compatibility alias for the same CLI, but `fcad` is the canonical command name in docs and examples.
+`mfg-agent` remains installed as a compatibility alias for the same CLI, but
+`fcad` is the canonical command name in docs and examples.
 
 ### Core Review Lane
 
@@ -33,9 +37,12 @@ fcad dfm configs/examples/ks_bracket.toml
 fcad review configs/examples/seatbelt_retractor.toml
 ```
 
-- `check-runtime` proves whether the WSL -> Windows FreeCAD bridge is actually available.
-- `inspect` and `dfm` are the main first-wave review surfaces for existing artifacts and configs.
-- `review` promotes the existing Gemini-backed assembly/config review flow that was previously only exposed via `scripts/design-reviewer.js --review`.
+- `check-runtime` proves whether the WSL -> Windows FreeCAD bridge is actually
+  available.
+- `inspect` and `dfm` are the main first-wave review surfaces for existing
+  artifacts and configs.
+- `review` promotes the existing Gemini-backed assembly/config review flow that
+  was previously only exposed via `scripts/design-reviewer.js --review`.
 
 ### Selective Verification Lane
 
@@ -50,7 +57,8 @@ fcad report configs/examples/ks_bracket.toml
 
 ### Legacy Compatibility Lane
 
-These commands remain available, but they are no longer the main product story for new contributors:
+These commands remain available, but they are no longer the main product story
+for new contributors:
 
 ```bash
 fcad create configs/examples/ks_bracket.toml
@@ -87,14 +95,16 @@ fcad serve 8080
 
 ## Middle-Layer Artifact Contracts
 
-First-wave refactoring adds contracts for the missing review middle layer in [`schemas/`](./schemas):
+First-wave refactoring adds contracts for the missing review middle layer in
+[`schemas/`](./schemas):
 
 - `feature_identity.schema.json`
 - `bottleneck_candidates.schema.json`
 - `fix_options.schema.json`
 - `verification_plan.schema.json`
 
-These are schema/docs contracts in this wave, not a claim that every artifact is emitted by the runtime today.
+These are schema/docs contracts in this wave, not a claim that every artifact
+is emitted by the runtime today.
 
 ## Repository Layout
 
