@@ -1,64 +1,31 @@
 # Production Readiness Refactor
 
-## Positioning
+This document records the first-wave bottleneck-CAD reframe in the current checkout.
 
-This repository should still be presented publicly as a FreeCAD-backed automation pipeline. The manufacturing-engineering decision-support workflows are a second public layer built on top of the same CAD/DFM/reporting core, not a replacement for that positioning.
+## Mismatch Matrix
 
-## Reuse Map
+| Surface | Current story | Desired story | Action | Rationale | Risk | Implementation now vs later |
+|---|---|---|---|---|---|---|
+| `README.md` | Design-to-manufacturing pipeline, generation-first | Review-first for existing parts and assemblies | Rewritten around review lanes, selective verification, and legacy compatibility | New contributors should understand repo purpose in under 2 minutes | Low | Now |
+| `bin/fcad.js --help` | Mixed broad pipeline and legacy-first examples | Explicit review-first taxonomy | Reordered help, added `check-runtime`, exposed `review`, clarified `validate` | Help is part of the product surface | Low | Now |
+| `lib/paths.js` / help path | Help crashed when `wslpath` was missing | Help must work without runtime | Deferred WSL resolution until command execution | Command discovery must not depend on FreeCAD availability | Low | Now |
+| `package.json` | Generic automation description, ambiguous test surface | Review-first description with split validation lanes | Updated description and script taxonomy | Command-surface clarity | Low | Now |
+| `AGENTS.md` | Missing | Repo-local contributor guidance | Added repo-level guidance | Reduce contributor ambiguity | Low | Now |
+| `docs/` tree | Missing | Vision, architecture, workflow, testing, refactor record | Added focused docs set | Requested repo-story alignment cannot live only in README | Low | Now |
+| `configs/examples/` | Mixed demos with no classification | Review fixtures vs legacy generation demos | Added example classification notes | Examples shape contributor expectations | Low | Now |
+| Middle-layer artifacts | Implicit or absent | Named contracts between detection and reporting | Added schema stubs in `schemas/` | Makes missing review layer legible without runtime rewrite | Low | Now |
+| `mfg-agent` package/bin surface | Compatibility alias already points to the same CLI | Keep `fcad` as the canonical command identity | Document alias status without promoting it in help/docs | Prevent command-name drift while preserving compatibility | Low | Now |
+| Import/bootstrap and downstream manufacturing lane | Not first-class in this checkout | Present as follow-up taxonomy only | Documented as deferred/not implemented | Avoid speculative runtime work | Medium | Later |
 
-| Existing module | Reused as | Notes |
-|---|---|---|
-| `scripts/dfm_checker.py` | manufacturability/risk signal core | Preserved and surfaced through `review` and `readiness-report` |
-| `scripts/cost_estimator.py` | cost/investment screening engine | Preserved and wrapped by `investment-review` |
-| `scripts/intent_compiler.py` | product-type + drawing-plan inference | Reused for early process-plan heuristics |
-| `fcad ingest/analyze-part/quality-link/review-pack` | detailed review-pack workflow | Preserved for evidence-driven geometry review |
-| `create/draw/report/inspect/validate` | legacy/specialized CAD capability | Preserved for backward compatibility |
+## Keep / Deprecate / Add / Reorder
 
-## Target Architecture
+- Keep: `inspect`, `dfm`, `draw`, `fem`, `tolerance`, `report`, existing Node/Python/FreeCAD stack
+- Deprecate: generation-first repo story as the default front door
+- Add: `check-runtime`, first-class `review`, schema contracts for middle-layer artifacts, repo-local guidance docs
+- Reorder: help text, README, and testing guidance so review comes first, selective verification second, legacy generation third
 
-```text
-bin/fcad.js
-  -> existing CAD / review-pack commands
-  -> production-readiness commands
+## Deferred Follow-Up
 
-src/agents/
-  product-review-agent.js
-  process-planning-agent.js
-  line-layout-agent.js
-  quality-traceability-agent.js
-  cost-investment-agent.js
-
-src/workflows/
-  readiness-report-workflow.js
-
-scripts/
-  dfm_checker.py
-  cost_estimator.py
-  intent_compiler.py
-```
-
-## New Command Surface
-
-- `fcad review <config>`
-- `fcad process-plan <config>`
-- `fcad line-plan <config>`
-- `fcad quality-risk <config>`
-- `fcad investment-review <config>`
-- `fcad readiness-report <config>`
-
-These commands are heuristic planning aids. They are intended for design review, process review, and portfolio storytelling, not full factory simulation.
-
-## Output Contracts
-
-- [product_review.schema.json](../schemas/product_review.schema.json)
-- [process_plan.schema.json](../schemas/process_plan.schema.json)
-- [line_plan.schema.json](../schemas/line_plan.schema.json)
-- [quality_risk_pack.schema.json](../schemas/quality_risk_pack.schema.json)
-- [investment_review.schema.json](../schemas/investment_review.schema.json)
-- [readiness_report.schema.json](../schemas/readiness_report.schema.json)
-
-## Constraints
-
-- The workflow remains rule-based.
-- Process, line, and investment outputs are preliminary decision-support artifacts.
-- Existing CAD generation/drawing/report features remain intact rather than being rewritten.
+- Runtime-backed emission of the new middle-layer artifacts
+- A true `import/bootstrap` command if the repo grows stronger existing-CAD ingest surfaces
+- Optional downstream manufacturing lanes beyond the current DFM/report features

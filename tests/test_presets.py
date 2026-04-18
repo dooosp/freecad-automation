@@ -9,7 +9,10 @@ Usage:
 import json
 import os
 import sys
-import tomllib
+try:
+    import tomllib
+except ImportError:  # pragma: no cover - Python < 3.11 fallback
+    import tomli as tomllib
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PRESETS_DIR = os.path.join(PROJECT_ROOT, "configs", "overrides", "presets")

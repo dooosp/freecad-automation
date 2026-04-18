@@ -1,42 +1,40 @@
-# Product Vision
+# Vision
 
-## Direction
+`freecad-automation` should read as a toolchain for reviewing existing engineering context around parts and assemblies, then guiding focused follow-up work.
 
-`freecad-automation` is moving from generation-first CAD automation toward engineering decision support for existing parts and assemblies.
+## North Star
 
-The primary user is no longer someone starting from a TOML part definition. The primary user is an engineer reviewing an existing CAD model together with BOM, inspection, and quality evidence.
+New contributors should understand the repository like this:
 
-## Primary Value
+`import/bootstrap -> review context -> geometry + DFM + linkage analysis -> bottleneck candidates -> fix options -> verification plan -> selective draw/FEM/tolerance/report`
 
-The system should help answer practical review questions such as:
+Not like this:
 
-- What geometry characteristics deserve engineering attention?
-- Which inspection failures align with likely geometry or process risk?
-- Which defect patterns recur around the same feature classes?
-- What should the next design, manufacturing, or inspection action be?
+`create -> draw -> dfm -> tolerance -> report`
 
-## Core Artifacts
+## What Stays Core
 
-The product should produce machine-readable artifacts first:
+- Reviewing existing CAD/config context
+- Inspecting geometry and exported artifacts
+- DFM and related engineering checks
+- Selective verification after a bottleneck is identified
+- The current Node/Python/FreeCAD runtime stack
 
-- normalized engineering context
-- geometry intelligence
-- manufacturing/review hotspots
-- inspection linkage
-- quality linkage
-- review priorities
-- recommended actions
+## What Becomes Secondary
 
-Human-readable review packs are downstream outputs, not the system of record.
+- Generation-first demos and prompt-driven creation
+- Broad sweep/orchestration as the top-level story
+- Viewer-led workflows
 
-## Scope Boundaries
+## What This First Wave Does
 
-- Preserve the existing Node CLI + Python runner + FreeCAD architecture.
-- Keep legacy generation flows working for existing users.
-- Prefer additive modules over large rewrites.
-- Treat linkage and decision outputs as review guidance, not engineering truth.
-- Favor auditable heuristics and evidence fields over opaque scoring.
+- Repositions the README, CLI help, and contributor guidance
+- Makes runtime truth explicit with `check-runtime`
+- Promotes review of existing configs to a first-class CLI path
+- Adds artifact contracts for the missing middle layer
 
-## Outcome
+## What This First Wave Does Not Do
 
-A new user should understand the repository as a toolchain for analyzing real engineering context around existing parts, not as a text-to-shape demo.
+- Rewrite the runtime architecture
+- Remove legacy commands
+- Claim all review-middle artifacts are fully runtime-backed already

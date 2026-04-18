@@ -1,9 +1,43 @@
 const HELP_SECTION_ORDER = Object.freeze([
-  Object.freeze({ key: 'diagnostics', title: 'Diagnostics' }),
-  Object.freeze({ key: 'freecad-backed', title: 'FreeCAD-backed commands' }),
-  Object.freeze({ key: 'plain-python-node', title: 'Plain-Python / non-FreeCAD commands' }),
-  Object.freeze({ key: 'mixed-conditional', title: 'Mixed / conditional commands' }),
+  Object.freeze({ key: 'review-core', title: 'Review-First Core Lane' }),
+  Object.freeze({ key: 'selective-verification', title: 'Selective Verification Lane' }),
+  Object.freeze({ key: 'optional-downstream', title: 'Optional Downstream Manufacturing Lane' }),
+  Object.freeze({ key: 'legacy-compatibility', title: 'Legacy / Compatibility Lane' }),
 ]);
+
+const HELP_SECTION_BY_COMMAND = Object.freeze(new Map([
+  ['check-runtime', 'review-core'],
+  ['inspect', 'review-core'],
+  ['dfm', 'review-core'],
+  ['review', 'review-core'],
+  ['validate', 'review-core'],
+  ['ingest', 'review-core'],
+  ['analyze-part', 'review-core'],
+  ['quality-link', 'review-core'],
+  ['review-pack', 'review-core'],
+  ['review-context', 'review-core'],
+  ['compare-rev', 'review-core'],
+  ['draw', 'selective-verification'],
+  ['fem', 'selective-verification'],
+  ['tolerance', 'selective-verification'],
+  ['report', 'selective-verification'],
+  ['process-plan', 'optional-downstream'],
+  ['line-plan', 'optional-downstream'],
+  ['quality-risk', 'optional-downstream'],
+  ['investment-review', 'optional-downstream'],
+  ['readiness-pack', 'optional-downstream'],
+  ['readiness-report', 'optional-downstream'],
+  ['pack', 'optional-downstream'],
+  ['stabilization-review', 'optional-downstream'],
+  ['generate-standard-docs', 'optional-downstream'],
+  ['create', 'legacy-compatibility'],
+  ['design', 'legacy-compatibility'],
+  ['sweep', 'legacy-compatibility'],
+  ['serve', 'legacy-compatibility'],
+  ['validate-config', 'legacy-compatibility'],
+  ['migrate-config', 'legacy-compatibility'],
+  ['help', 'legacy-compatibility'],
+]));
 
 const COMMAND_MANIFEST = Object.freeze([
   Object.freeze({
@@ -540,28 +574,31 @@ const WORKFLOW_SPECIFIC_OPTIONS = Object.freeze([
 const CLI_HELP_EXAMPLES = Object.freeze([
   'fcad check-runtime',
   'fcad check-runtime --json',
-  'fcad create configs/examples/ks_bracket.toml',
-  'fcad draw configs/examples/ks_bracket.toml --bom',
   'fcad inspect output/ks_bracket.step --manifest-out output/ks_bracket_inspect_manifest.json',
-  'fcad review configs/examples/infotainment_display_bracket.toml',
+  'fcad dfm configs/examples/ks_bracket.toml --manifest-out output/ks_bracket_dfm_manifest.json',
+  'fcad review configs/examples/seatbelt_retractor.toml',
+  'fcad review-context --model tests/fixtures/sample_part.step --bom tests/fixtures/sample_bom.csv --inspection tests/fixtures/sample_inspection.csv --quality tests/fixtures/sample_quality.csv --out output/sample_review_pack.json',
+  'fcad draw configs/examples/ks_bracket.toml --bom',
+  'fcad fem configs/examples/bracket_fem.toml',
+  'fcad tolerance configs/examples/ks_shaft.toml',
+  'fcad report configs/examples/ks_bracket.toml',
   'fcad readiness-pack --review-pack tests/fixtures/d-artifacts/sample_review_pack.canonical.json --out output/sample_readiness_report.json',
-  'fcad readiness-report --review-pack tests/fixtures/d-artifacts/sample_review_pack.canonical.json --out output/sample_readiness_report.json',
   'fcad readiness-report configs/examples/pcb_mount_plate.toml --out output/pcb_mount_plate_readiness_report.json',
   'fcad pack --readiness output/sample_readiness_report.json --out output/release_bundle.zip',
-  'fcad stabilization-review output/rev_a_readiness_report.json output/rev_b_readiness_report.json --out output/readiness_delta.json',
-  'fcad generate-standard-docs configs/examples/controller_housing_eol.toml --readiness-report output/controller_housing_readiness_report.json --out-dir output/controller_housing_standard_docs',
-  'fcad review-context --model tests/fixtures/sample_part.step --bom tests/fixtures/sample_bom.csv --inspection tests/fixtures/sample_inspection.csv --quality tests/fixtures/sample_quality.csv --out output/sample_review_pack.json',
-  'fcad sweep configs/examples/ks_bracket.toml --matrix configs/examples/sweeps/ks_bracket_geometry_sweep.toml',
+  'fcad create configs/examples/ks_bracket.toml',
+  'fcad design "M8 mounting bracket 120x80mm"',
+  'fcad serve --legacy-viewer',
 ]);
 
 const CLI_HELP_NOTES = Object.freeze([
-  'check-runtime is the central installation and troubleshooting entrypoint for runtime-backed commands.',
+  'check-runtime is the first command to run on a new machine and the central troubleshooting entrypoint for runtime-backed commands.',
+  'validate checks generated drawing_plan artifacts; use validate-config for raw config schema and migration checks.',
+  'mfg-agent remains a compatibility alias for the same CLI, but fcad is the canonical command identity.',
   'analyze-part can run without FreeCAD when the supplied context already includes model metadata, and it now falls back to bounded metadata-only geometry when live shape inspection is weak or unavailable.',
-  'readiness-pack is the flagship canonical C entrypoint when review_pack.json already exists.',
+  'readiness-pack and related readiness/reporting commands remain available as optional downstream layers, not the repo front door.',
   'readiness-report <config> remains a legacy compatibility route; it is not the canonical D-backed readiness path.',
   'generate-standard-docs requires canonical readiness input via --readiness-report and will not synthesize or rebuild readiness downstream.',
   'sweep stays within the existing create/cost/fem/report service wrappers; it does not perform optimization.',
-  'report remains FreeCAD-backed today, even when macOS falls back from freecadcmd to the bundled FreeCAD Python.',
   'Windows native, WSL -> Windows FreeCAD, and Linux runtime execution are compatibility paths, not equal-maturity claims.',
 ]);
 
@@ -611,7 +648,7 @@ function listCommandEntries() {
 
 function listHelpEntriesBySection(sectionKey) {
   return COMMAND_MANIFEST
-    .filter((entry) => entry.helpSection === sectionKey)
+    .filter((entry) => (HELP_SECTION_BY_COMMAND.get(entry.name) || entry.helpSection) === sectionKey)
     .flatMap((entry) => entry.helpEntries.map((helpEntry) => ({
       command: entry.name,
       usage: helpEntry.usage,
@@ -781,13 +818,19 @@ export const LOCAL_API_OTHER_PUBLIC_JOB_COMMANDS = orderedCommandNames(
 
 export function renderCliUsage() {
   const lines = [
-    'fcad | mfg-agent - FreeCAD-backed automation pipeline',
+    'fcad - bottleneck-first CAD review CLI for existing parts and assemblies',
     '',
-    'FreeCAD-backed CLI for CAD, TechDraw, inspection, FEM, tolerance, and reporting,',
-    'plus a plain-Python/Node manufacturing-review layer.',
+    'The current Node CLI + Python runner + FreeCAD stack is unchanged.',
+    'Start with review of existing parts and assemblies, then run only the follow-up verification that answers the current question.',
     '',
-    'Run this first on a new machine or before troubleshooting runtime-backed commands:',
+    'Start here:',
     '  fcad check-runtime',
+    '  fcad inspect <model.step|fcstd> [--manifest-out <path>]',
+    '  fcad dfm <config.toml|json> [--manifest-out <path>]',
+    '  fcad review <config.toml|json>',
+    '',
+    'Optional downstream manufacturing/readiness commands remain available, but they are not the repo front door.',
+    'mfg-agent remains a compatibility alias for the same CLI.',
     '',
     'Usage:',
   ];

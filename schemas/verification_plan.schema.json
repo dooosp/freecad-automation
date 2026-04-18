@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "verification-plan.schema.json",
+  "title": "Verification Plan",
+  "type": "object",
+  "required": ["schema_version", "steps"],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "command", "purpose"],
+        "properties": {
+          "id": { "type": "string" },
+          "command": { "type": "string" },
+          "purpose": { "type": "string" },
+          "expected_artifacts": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

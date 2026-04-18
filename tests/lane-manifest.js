@@ -14,6 +14,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'Config example parity', args: Object.freeze(['tests/config-example-parity.test.js']) }),
       Object.freeze({ label: 'Pytest runner selection', args: Object.freeze(['tests/run-pytest-selection.test.js']) }),
       Object.freeze({ label: 'Command manifest', args: Object.freeze(['tests/command-manifest.test.js']) }),
+      Object.freeze({ label: 'CLI contracts', args: Object.freeze(['tests/test-cli-contracts.js']) }),
       Object.freeze({ label: 'Lane manifest', args: Object.freeze(['tests/lane-manifest.test.js']) }),
       Object.freeze({ label: 'Runtime path contracts', args: Object.freeze(['tests/paths-runtime.test.js']) }),
       Object.freeze({ label: 'FreeCAD invocation contracts', args: Object.freeze(['tests/freecad-invocation.test.js']) }),

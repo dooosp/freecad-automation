@@ -21,10 +21,17 @@ const ROOT = resolve(import.meta.dirname, '..');
 const packageJson = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8'));
 
 const cliHelp = renderCliUsage();
+assert.match(cliHelp, /fcad - bottleneck-first CAD review CLI for existing parts and assemblies/i);
+assert.match(cliHelp, /Review-First Core Lane/);
+assert.match(cliHelp, /Selective Verification Lane/);
+assert.match(cliHelp, /Optional Downstream Manufacturing Lane/);
+assert.match(cliHelp, /Legacy \/ Compatibility Lane/);
 assert.match(cliHelp, /fcad check-runtime \[--json\]/);
 assert.match(cliHelp, /fcad readiness-report <config\.toml\|json> \[--out <readiness_report\.json>\]\s+legacy compatibility \/ non-canonical/i);
 assert.match(cliHelp, /fcad generate-standard-docs <config\.toml\|json> --readiness-report <readiness_report\.json>/i);
 assert.match(cliHelp, /fcad serve \[port\] \[--jobs-dir <dir>\] \[--legacy-viewer\]/);
+assert.match(cliHelp, /validate <plan\.toml\|json>\s+Validate drawing_plan artifacts/i);
+assert.match(cliHelp, /mfg-agent remains a compatibility alias/i);
 
 const serveHelp = renderServeUsage();
 assert.match(serveHelp, /fcad serve - local API, studio shell, and legacy compatibility viewer/);

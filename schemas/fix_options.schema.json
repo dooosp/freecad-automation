@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fix-options.schema.json",
+  "title": "Fix Options",
+  "type": "object",
+  "required": ["schema_version", "options"],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "options": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "candidate_ids", "summary"],
+        "properties": {
+          "id": { "type": "string" },
+          "candidate_ids": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "summary": { "type": "string" },
+          "tradeoffs": { "type": "string" },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

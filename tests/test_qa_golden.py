@@ -36,6 +36,8 @@ def load_golden():
 
 def find_qa_files():
     """Find *_qa.json files in output/."""
+    if not os.path.isdir(OUTPUT_DIR):
+        return []
     results = []
     for f in sorted(os.listdir(OUTPUT_DIR)):
         if f.endswith("_qa.json") and not f.endswith("_qa_before.json") and not f.endswith("_noplan_qa.json"):
@@ -55,7 +57,10 @@ def detect_part_type(qa_path):
     if os.path.exists(plan_path):
         try:
             if plan_path.endswith(".toml"):
-                import tomllib
+                try:
+                    import tomllib
+                except ImportError:  # pragma: no cover - Python < 3.11 fallback
+                    import tomli as tomllib
                 with open(plan_path, "rb") as f:
                     plan = tomllib.load(f)
             else:
