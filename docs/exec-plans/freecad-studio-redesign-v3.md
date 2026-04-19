@@ -6,7 +6,7 @@
 
 ## Repo identity
 - Repo basename: `freecad-automation`
-- Repo root: `/Users/jangtaeho/Documents/codex-worktrees/freecad-studio-redesign-v3/freecad-automation`
+- Repo root: `freecad-automation`
 - Branch: `feat/freecad-studio-redesign-v3`
 - Base ref: `origin/master`
 - Base SHA: `30dd13d50348d7eedf35d7a84b06295395326496`
@@ -22,8 +22,8 @@
 - `public/js/studio/drawing-workspace.js`
 - `public/js/i18n/en.js`
 - `public/js/i18n/ko.js`
-- `/Users/jangtaeho/Downloads/freecad_console_redesign.svg`
-- `/Users/jangtaeho/freecad-live/screenshots/studio-sections-20260419/*.png`
+- `freecad_console_redesign.svg` design reference asset
+- local Studio reference screenshots captured during implementation
 
 ## Implementation phases
 1. Preflight and tool routing
