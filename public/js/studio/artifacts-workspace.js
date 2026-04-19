@@ -99,8 +99,8 @@ function renderTimeline(recentJobs = [], activeJobId = '', compareJobId = '') {
   if (recentJobs.length === 0) {
     return createEmptyState({
       icon: '[]',
-      title: 'No tracked jobs',
-      copy: 'Tracked jobs created through `fcad serve` will appear here as the artifact timeline.',
+      title: '추적 작업이 없습니다',
+      copy: '`fcad serve`로 생성한 추적 작업이 여기에 산출물 타임라인으로 표시됩니다.',
     });
   }
 
@@ -120,8 +120,8 @@ function renderTimeline(recentJobs = [], activeJobId = '', compareJobId = '') {
                 className: 'job-title-row',
                 children: [
                   el('p', { className: 'job-title', text: `${job.type} ${shortJobId(job.id)}` }),
-                  el('span', { className: 'pill', text: index === 0 ? 'Latest' : isActive ? 'Active' : 'Older' }),
-                  isCompare ? el('span', { className: 'pill', text: 'Compare' }) : null,
+                  el('span', { className: 'pill', text: index === 0 ? '최신' : isActive ? '활성' : '이전' }),
+                  isCompare ? el('span', { className: 'pill', text: '비교' }) : null,
                 ],
               }),
               el('p', {
@@ -134,14 +134,14 @@ function renderTimeline(recentJobs = [], activeJobId = '', compareJobId = '') {
             className: 'timeline-actions',
             children: [
               createButton({
-                label: isActive ? 'Active' : 'Open',
+                label: isActive ? '활성' : '열기',
                 action: 'artifacts-open-job',
                 tone: isActive ? 'primary' : 'ghost',
                 dataset: { jobId: job.id },
                 disabled: isActive,
               }),
               createButton({
-                label: isCompare ? 'Compared' : 'Compare',
+                label: isCompare ? '비교 중' : '비교',
                 action: 'artifacts-compare-job',
                 tone: 'ghost',
                 dataset: { jobId: job.id },
@@ -175,7 +175,7 @@ function renderArtifactCard(artifact, selected = false) {
               }),
               el('p', {
                 className: 'artifact-meta',
-                text: `${artifact.file_name} • ${artifact.exists ? formatBytes(artifact.size_bytes) : 'Missing'}${artifact.type ? ` • ${artifact.type}` : ''}`,
+                text: `${artifact.file_name} • ${artifact.exists ? formatBytes(artifact.size_bytes) : '누락됨'}${artifact.type ? ` • ${artifact.type}` : ''}`,
               }),
             ],
           }),
@@ -183,7 +183,7 @@ function renderArtifactCard(artifact, selected = false) {
             className: 'artifact-card-actions',
             children: [
               createButton({
-                label: 'Inspect',
+                label: '검토',
                 action: 'artifacts-select-artifact',
                 tone: selected ? 'primary' : 'ghost',
                 dataset: { artifactId: artifact.id },
@@ -198,7 +198,7 @@ function renderArtifactCard(artifact, selected = false) {
           artifact.capabilities?.can_open
             ? el('a', {
                 className: 'action-button action-button-primary',
-                text: 'Open',
+                text: '열기',
                 attrs: { href: artifact.links.open, target: '_blank', rel: 'noreferrer noopener' },
               })
             : null,
@@ -218,9 +218,9 @@ function renderArtifactCard(artifact, selected = false) {
 function summarizeStorage(storage = null) {
   const files = storage?.files || {};
   const entries = Object.entries(files);
-  if (entries.length === 0) return 'Unavailable';
+  if (entries.length === 0) return '사용할 수 없음';
   const available = entries.filter(([, record]) => record?.exists).length;
-  return `${available}/${entries.length} indexed`;
+  return `${available}/${entries.length} 인덱싱됨`;
 }
 
 function diffArtifacts(current = [], baseline = []) {
@@ -232,7 +232,71 @@ function diffArtifacts(current = [], baseline = []) {
 }
 
 function compareAvailabilityLabel(isAvailable) {
-  return isAvailable ? 'Ready' : 'Missing';
+  return isAvailable ? '준비됨' : '누락됨';
+}
+
+function renderArtifactPipeline(activeJob) {
+  const artifacts = activeJob?.artifacts || [];
+  const hasArtifacts = artifacts.length > 0;
+  const hasReview = Boolean(findPreferredReviewPackArtifact(artifacts));
+  const hasManifest = Boolean(activeJob?.manifest?.command || hasArtifacts);
+  const hasPackage = Boolean(findPreferredReleaseBundleArtifact(artifacts) || findPreferredReleaseBundleManifestArtifact(artifacts));
+  const hasDownload = artifacts.some((artifact) => artifact.capabilities?.can_download);
+  const steps = [
+    { label: '검토', state: hasReview ? '준비됨' : '대기 중', tone: hasReview ? 'ok' : 'warn' },
+    { label: 'Manifest', state: hasManifest ? '인덱싱됨' : '대기 중', tone: hasManifest ? 'info' : 'warn' },
+    { label: '패키지', state: hasPackage ? '사용 가능' : '대기 중', tone: hasPackage ? 'ok' : 'warn' },
+    { label: '다운로드', state: hasDownload ? '준비됨' : '대기 중', tone: hasDownload ? 'ok' : 'info' },
+  ];
+
+  return el('div', {
+    className: 'artifact-pipeline',
+    children: steps.map((step, index) =>
+      el('div', {
+        className: 'artifact-pipeline-step',
+        dataset: { tone: step.tone },
+        children: [
+          el('span', { className: 'artifact-pipeline-index', text: `${index + 1}` }),
+          el('div', {
+            className: 'artifact-pipeline-copy',
+            children: [
+              el('p', { className: 'artifact-pipeline-label', text: step.label }),
+              el('p', { className: 'artifact-pipeline-state', text: step.state }),
+            ],
+          }),
+        ],
+      })
+    ),
+  });
+}
+
+function renderOutputQueue(recentJobs = []) {
+  if (recentJobs.length === 0) {
+    return createEmptyState({
+      icon: 'Q',
+      title: '아직 대기 중인 출력이 없습니다',
+      copy: '로컬 API가 기록하는 즉시 추적 검토, 패키지, 내보내기 실행이 여기에 표시됩니다.',
+    });
+  }
+
+  return el('div', {
+    className: 'output-queue',
+    children: recentJobs.slice(0, 4).map((job) =>
+      el('article', {
+        className: 'queue-row',
+        children: [
+          el('div', {
+            className: 'queue-row-copy',
+            children: [
+              el('p', { className: 'queue-row-title', text: `${job.type} ${shortJobId(job.id)}` }),
+              el('p', { className: 'queue-row-meta', text: formatDateTime(job.updated_at) }),
+            ],
+          }),
+          el('span', { className: 'pill', text: formatJobStatus(job.status) }),
+        ],
+      })
+    ),
+  });
 }
 
 export function renderArtifactsWorkspace(state) {
@@ -241,68 +305,88 @@ export function renderArtifactsWorkspace(state) {
   const recentJobs = state.data.recentJobs.items || [];
 
   return el('section', {
-    className: 'workspace-shell',
+    className: 'workspace-shell artifacts-dashboard',
     children: [
       createSectionHeader({
-        kicker: 'Packs workspace',
-        title: activeJob?.summary
-          ? 'Active pack trail'
-          : 'Pack trail, manifests, and job history',
-        description: 'Jobs stay visible as a timeline, artifacts become first-class product objects, and file-opening stays route-safe instead of relying on absolute paths.',
+        kicker: '패키지 작업 영역',
+        title: '산출물 관리 대시보드',
+        description: '최근 작업, 매니페스트 상태, 패키지 준비도, 안전한 다운로드 경로를 하나의 산출물 중심 작업 영역에서 확인합니다.',
         badges: [
-          { label: activeJob?.summary ? 'Tracked job selected' : 'No job selected', tone: activeJob?.summary ? 'ok' : 'warn' },
-          { label: `${recentJobs.length || 0} jobs in timeline`, tone: recentJobs.length ? 'info' : 'warn' },
-          { label: 'Browser-safe artifact links', tone: 'ok' },
+          { label: activeJob?.summary ? '추적 작업 선택됨' : '활성 패키지 없음', tone: activeJob?.summary ? 'ok' : 'warn' },
+          { label: `최근 실행 ${recentJobs.length || 0}개`, tone: recentJobs.length ? 'info' : 'warn' },
+          { label: '매니페스트 기반 다운로드 경로', tone: 'ok' },
+        ],
+      }),
+      createCard({
+        kicker: '산출물 파이프라인',
+        title: '검토에서 다운로드까지의 흐름',
+        copy: '활성 산출물 세트가 표준 검토 출력, 매니페스트 인덱싱, 패키지 조립, 명시적 다운로드 준비 상태에 기반하도록 유지합니다.',
+        surface: 'canvas',
+        body: [
+          renderArtifactPipeline(activeJob),
         ],
       }),
       el('div', {
-        className: 'artifacts-layout',
+        className: 'artifacts-dashboard-grid',
         children: [
           el('div', {
-            className: 'pane-stack',
+            className: 'artifacts-column artifacts-column-left',
             children: [
               createCard({
-                kicker: 'Recent jobs',
-                title: 'Job timeline',
-                copy: 'The newest job is called out explicitly, while older runs stay available for compare and reopen flows.',
+                kicker: '최근 작업',
+                title: '최근 작업 흐름',
+                copy: '최신 작업은 눈에 띄게 유지되고, 이전 실행은 비교 준비 상태와 재열기 가능 상태를 유지합니다.',
                 body: [
                   el('div', { dataset: { hook: 'artifacts-timeline' } }),
                 ],
               }),
               createCard({
-                kicker: 'Manifest summary',
-                title: activeJob?.summary ? `${activeJob.summary.type} ${shortJobId(activeJob.summary.id)}` : 'Select a tracked job',
-                copy: 'Manifest facts and storage metadata stay visible while you inspect output files.',
+                kicker: '패키지 상태',
+                title: activeJob?.summary ? `${activeJob.summary.type} ${shortJobId(activeJob.summary.id)}` : '추적 작업 선택',
+                copy: '출력 파일을 검토하는 동안 매니페스트 정보, 저장소 상태, 내보내기 준비 상태를 계속 볼 수 있습니다.',
                 body: [
                   el('div', { dataset: { hook: 'artifacts-job-summary' } }),
                 ],
               }),
               createCard({
-                kicker: 'Compare',
-                title: 'Active run vs baseline',
-                copy: 'Choose an older tracked run as the baseline. When canonical review-pack or readiness inputs exist on both sides, Studio can queue compare-rev or stabilization-review from here.',
+                kicker: '비교',
+                title: '현재 패키지와 기준선 비교',
+                copy: '이전 추적 실행을 기준선으로 선택하세요. 양쪽에 표준 review-pack 또는 readiness 입력이 있으면 Studio가 여기서 compare-rev 또는 stabilization-review를 대기열에 넣을 수 있습니다.',
                 body: [
                   el('div', { dataset: { hook: 'artifacts-compare' } }),
+                ],
+              }),
+              createCard({
+                kicker: '실시간 출력 대기열',
+                title: '최근 패키지 및 내보내기 활동',
+                copy: '산출물을 선택하지 않아도 패키지, 보고서, 내보내기 활동이 작은 대기열 행으로 계속 보입니다.',
+                body: [
+                  renderOutputQueue(recentJobs),
                 ],
               }),
             ],
           }),
           el('div', {
-            className: 'pane-stack',
+            className: 'artifacts-column artifacts-column-center',
             children: [
               createCard({
-                kicker: 'Artifact board',
-                title: 'Known outputs for the active job',
-                copy: 'Artifacts are grouped by job and carry type badges, open/download actions, and manifest-backed metadata.',
+                kicker: '활성 산출물',
+                title: '현재 작업의 출력 목록',
+                copy: '산출물은 작업별로 그룹화되고 유형 배지, 열기/다운로드 작업, 구조화된 메타데이터를 제공합니다.',
                 surface: 'canvas',
                 body: [
                   el('div', { className: 'artifact-card-grid', dataset: { hook: 'artifacts-cards' } }),
                 ],
               }),
+            ],
+          }),
+          el('div', {
+            className: 'artifacts-column artifacts-column-right',
+            children: [
               createCard({
-                kicker: 'Detail panel',
-                title: 'Artifact detail',
-                copy: 'Inspect the selected artifact, open it in the browser when safe, or download it without using raw filesystem paths.',
+                kicker: '구조화된 인스펙터',
+                title: '산출물 세부 정보',
+                copy: '선택한 산출물을 검토하고, 안전한 경우 미리본 뒤, 원시 파일 시스템 경로 없이 후속 작업으로 이어가세요.',
                 surface: 'canvas',
                 body: [
                   el('div', { dataset: { hook: 'artifacts-detail-summary' } }),
@@ -352,8 +436,8 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
       jobSummaryElement.replaceChildren(
         createEmptyState({
           icon: 'A',
-          title: 'No active job',
-          copy: 'Open a recent job from the timeline to make its artifact set inspectable here.',
+          title: '활성 작업이 없습니다',
+          copy: '타임라인에서 최근 작업을 열면 이곳에서 해당 산출물 세트를 검토할 수 있습니다.',
         })
       );
       return;
@@ -361,12 +445,12 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
 
     jobSummaryElement.replaceChildren(
       createInfoGrid([
-        { label: 'Job', value: `${activeJob.summary.type} ${shortJobId(activeJob.summary.id)}` },
-        { label: 'Status', value: formatJobStatus(activeJob.summary.status) },
-        { label: 'Updated', value: formatDateTime(activeJob.summary.updated_at) },
-        { label: 'Manifest command', value: activeJob.manifest?.command || 'Unknown' },
-        { label: 'Artifact count', value: String((activeJob.artifacts || []).length) },
-        { label: 'Job storage', value: summarizeStorage(activeJob.storage) },
+        { label: '작업', value: `${activeJob.summary.type} ${shortJobId(activeJob.summary.id)}` },
+        { label: '상태', value: formatJobStatus(activeJob.summary.status) },
+        { label: '업데이트', value: formatDateTime(activeJob.summary.updated_at) },
+        { label: '매니페스트 명령', value: activeJob.manifest?.command || '알 수 없음' },
+        { label: '산출물 수', value: String((activeJob.artifacts || []).length) },
+        { label: '작업 저장소', value: summarizeStorage(activeJob.storage) },
       ])
     );
   }
@@ -376,8 +460,8 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
       compareElement.replaceChildren(
         createEmptyState({
           icon: '=',
-          title: 'Compare needs an active job',
-          copy: 'Open a tracked job first, then choose an older run from the timeline as the baseline.',
+          title: '비교에는 활성 작업이 필요합니다',
+          copy: '먼저 추적 작업을 연 뒤 타임라인에서 이전 실행을 기준선으로 선택하세요.',
         })
       );
       return;
@@ -390,8 +474,8 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
       compareElement.replaceChildren(
         createEmptyState({
           icon: '...',
-          title: 'Loading baseline artifacts',
-          copy: 'Preparing the selected baseline so compare-rev and stabilization readiness can be checked.',
+          title: '기준선 산출물을 불러오는 중입니다',
+          copy: '선택한 기준선을 준비하여 compare-rev와 안정화 준비 상태를 확인하고 있습니다.',
         })
       );
       return;
@@ -401,8 +485,8 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
       compareElement.replaceChildren(
         createEmptyState({
           icon: '!',
-          title: 'Baseline compare failed',
-          copy: artifactsState.compare.errorMessage || 'The selected baseline job could not be loaded.',
+          title: '기준선 비교를 준비하지 못했습니다',
+          copy: artifactsState.compare.errorMessage || '선택한 기준선 작업을 불러오지 못했습니다.',
         })
       );
       return;
@@ -412,8 +496,8 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
       compareElement.replaceChildren(
         createEmptyState({
           icon: '<>',
-          title: 'No baseline selected',
-          copy: 'Choose Compare on an older timeline entry to inspect coverage changes and unlock tracked compare actions when canonical artifacts are present.',
+          title: '기준선이 선택되지 않았습니다',
+          copy: '이전 타임라인 항목에서 비교를 선택하면 커버리지 변화를 확인하고, 표준 산출물이 있을 때 추적 비교 작업을 실행할 수 있습니다.',
         })
       );
       return;

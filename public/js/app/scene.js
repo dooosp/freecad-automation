@@ -449,6 +449,15 @@ export function initScene({
     setEdgesVisible,
     setWireframe,
     takeScreenshot,
+    fitView() {
+      if (assemblyGroup && partMeshes.length > 0) {
+        fitCamera(assemblyGroup);
+        return;
+      }
+      if (currentMesh) {
+        fitCamera(currentMesh);
+      }
+    },
     updateOpacity,
     destroy,
   };

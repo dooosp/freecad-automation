@@ -17,6 +17,36 @@
 
 ## Working Style
 - Work autonomously and bias toward action after repo identity is confirmed.
+## Task addendum: freecad-studio-redesign-v3
+For this task, follow:
+- `docs/exec-plans/freecad-studio-redesign-v3.md`
+
+Treat that execution plan as the task-specific source of truth for the Studio redesign worktree.
+
+### Task-specific frontend constraints
+- Goal: redesign the five browser Studio surfaces to share one premium dark CAD/SaaS system modeled on the provided console SVG while preserving runtime behavior.
+- Scope surfaces:
+  - Console
+  - Review
+  - Package / Artifacts
+  - Model
+  - Drawing
+- Non-negotiables:
+  - preserve routes, data flow, local API connection logic, runtime checks, and state handling
+  - preserve Korean UI support through the existing shared locale mechanism
+  - keep diffs scoped to browser-facing Studio shell, styles, and workspace renderers
+  - prefer shared tokens and reusable rendering patterns over one-off page styling
+  - do not widen into backend rewrites unless a small UI compatibility fix is strictly required
+- Validation baseline:
+  - `npm test`
+  - `npm run serve`
+  - browser smoke checks for Console, Review, Package, Model, and Drawing
+- Progress tracking files for this task:
+  - `tmp/codex/freecad-studio-redesign-v3-status.md`
+  - `tmp/codex/freecad-studio-redesign-v3-tool-evidence.md`
+  - `tmp/codex/freecad-studio-redesign-v3-verification-status.md`
+- Verification/remediation plan for this task:
+  - `docs/exec-plans/freecad-studio-redesign-v3-verification.md`
 - Prefer repo search and existing tests over assumptions.
 - Keep diffs small, scoped, and reviewable.
 - Do not widen scope into unrelated refactors.

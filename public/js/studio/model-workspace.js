@@ -264,6 +264,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
   const edgesInput = root.querySelector('[data-hook="edges"]');
   const opacityInput = root.querySelector('[data-hook="opacity"]');
   const screenshotButton = root.querySelector('[data-hook="screenshot"]');
+  const fitViewButton = root.querySelector('[data-hook="fit-view"]');
   const includeStepInput = root.querySelector('[data-hook="include-step"]');
   const includeStlInput = root.querySelector('[data-hook="include-stl"]');
   const perPartInput = root.querySelector('[data-hook="per-part-stl"]');
@@ -290,6 +291,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
   let loadToken = 0;
   let destroyed = false;
   let profileCatalogRequest = null;
+  let animationController = null;
 
   const sceneController = initScene({
     viewport,
@@ -300,7 +302,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     onFrame: () => animationController?.tick(),
   });
 
-  const animationController = createAnimationController({
+  animationController = createAnimationController({
     state: viewerStore.state,
     getPartMeshes: () => sceneController.getPartMeshes(),
     animationControlsElement,
@@ -386,10 +388,10 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
 
   function syncSourceSummary() {
     renderInfoRows(sourceSummaryElement, [
-      ['Source', model.sourceType || 'Not loaded'],
-      ['Name', model.sourceName || 'Untitled config'],
-      ['Reference', model.sourcePath || 'In-memory draft'],
-      ['Editing', model.editingEnabled ? 'Enabled' : 'Disabled'],
+      ['소스', model.sourceType || '로드되지 않음'],
+      ['이름', model.sourceName || '제목 없는 설정'],
+      ['참조', model.sourcePath || '메모리 초안'],
+      ['편집', model.editingEnabled ? '사용' : '사용 안 함'],
     ]);
   }
 
@@ -398,19 +400,19 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     renderValidationNotes(
       validationWarningsElement,
       collectValidationNotes(model.validation),
-      'Validation notes and migration warnings will show here after the first check.',
+      '첫 검증 이후 검증 메모와 마이그레이션 경고가 여기에 표시됩니다.',
     );
   }
 
   function syncTrackedValidationNotes() {
     const validationNotes = collectValidationNotes(model.validation);
     const summaryCopy = validationNotes.length > 0
-      ? `Tracked runs will use the current TOML with ${validationNotes.length} validation note${validationNotes.length === 1 ? '' : 's'} visible before queueing.`
+      ? `추적 실행은 대기열에 넣기 전에 현재 TOML과 검증 메모 ${validationNotes.length}개를 함께 사용합니다.`
       : '';
     renderValidationNotes(
       trackedValidationNotesElement,
       validationNotes,
-      'Tracked create and report will queue the current TOML after validation. Warnings or deprecated fields will be called out here before submission.',
+      '추적 생성 및 보고 실행은 검증 후 현재 TOML을 대기열에 넣습니다. 경고나 사용 중단 필드는 제출 전에 여기 표시됩니다.',
       summaryCopy,
     );
   }
@@ -421,7 +423,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
       modelInfoElement.classList.remove('open');
       const empty = document.createElement('p');
       empty.className = 'inline-note';
-      empty.textContent = 'Build a model to inspect metadata, bounding box, and derived geometry facts.';
+      empty.textContent = '메타데이터, 바운딩 박스, 파생 형상 정보를 보려면 모델을 빌드하세요.';
       modelInfoElement.append(empty);
       return;
     }
@@ -440,8 +442,8 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
   function syncSummaryText() {
     statusSummaryElement.textContent = model.buildSummary;
     viewportCaptionElement.textContent = model.preview
-      ? 'Inspect the latest preview directly in the viewport. Tracked create and report remain available in parallel for provenance and downstream artifacts.'
-      : 'The viewport stays dominant so the workflow reads as choose input, preview, then inspect the result.';
+      ? '최신 미리보기를 뷰포트에서 바로 검토하세요. 생성 이력과 후속 산출물을 위한 추적 생성/보고는 계속 병행할 수 있습니다.'
+      : '뷰포트가 중심에 남아 있어서 워크플로우가 입력 선택 → 미리보기 → 결과 검토 순서로 읽힙니다.';
   }
 
   function syncButtons() {
@@ -966,6 +968,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     draftFromPrompt().catch(() => {});
   });
   screenshotButton?.addEventListener('click', () => sceneController.takeScreenshot());
+  fitViewButton?.addEventListener('click', () => sceneController.fitView());
 
   wireframeInput?.addEventListener('change', () => {
     model.controls.wireframe = wireframeInput.checked;
