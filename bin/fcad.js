@@ -43,6 +43,12 @@ import {
   D_ARTIFACT_SCHEMA_VERSION,
 } from '../lib/d-artifact-schema.js';
 import { resolveModelAnalysisInputs } from '../lib/model-analysis.js';
+import {
+  buildOutputManifest,
+  collectRepoContext,
+  createOutputManifestPath,
+  writeOutputManifest,
+} from '../lib/output-manifest.js';
 import { runScript } from '../lib/runner.js';
 import { hasFreeCADRuntime, isWindowsAbsolutePath, normalizeLocalPath } from '../lib/paths.js';
 import {
@@ -550,6 +556,151 @@ function createArtifactEntry(type, path, {
     stability,
     ...(metadata ? { metadata } : {}),
   };
+}
+
+function safeFilenameComponent(value, defaultValue = 'unnamed') {
+  const text = String(value || '').trim().replaceAll('\\', '/').replaceAll('\0', '');
+  const leaf = text.split('/').pop();
+  if (!leaf || leaf === '.' || leaf === '..') return defaultValue;
+  return leaf;
+}
+
+function createOutputEntry(kind, path) {
+  if (!kind || !path) return null;
+  return { kind, path };
+}
+
+function createOutputEntriesFromExports(exports = [], prefix = 'model') {
+  return (exports || [])
+    .filter((entry) => entry?.format && entry?.path)
+    .map((entry) => createOutputEntry(`${prefix}.${String(entry.format).toLowerCase()}`, entry.path))
+    .filter(Boolean);
+}
+
+function buildExpectedModelOutputs(config = {}) {
+  const exportConfig = config.export || {};
+  const formats = Array.isArray(exportConfig.formats) ? exportConfig.formats : [];
+  if (formats.length === 0) return [];
+  const outputDir = buildDefaultOutputDir(exportConfig.directory);
+  const stem = safeFilenameComponent(config.name, 'unnamed');
+  return formats.map((format) => createOutputEntry(`model.${String(format).toLowerCase()}`, join(outputDir, `${stem}.${format}`)));
+}
+
+function buildExpectedFemOutputs(config = {}) {
+  const outputDir = buildDefaultOutputDir(config.export?.directory);
+  const stem = safeFilenameComponent(config.name, 'unnamed');
+  return [
+    createOutputEntry('analysis.fem.fcstd', join(outputDir, `${stem}.FCStd`)),
+    ...buildExpectedModelOutputs(config).map((entry) => ({
+      ...entry,
+      kind: entry.kind.replace(/^model\./, 'analysis.fem.'),
+    })),
+  ].filter(Boolean);
+}
+
+function buildExpectedToleranceOutputs(config = {}) {
+  if (!config?.tolerance?.csv) return [];
+  const outputDir = buildDefaultOutputDir(config.export?.directory);
+  const stem = safeFilenameComponent(config.name, 'unnamed');
+  return [
+    createOutputEntry('analysis.tolerance.csv', join(outputDir, `${stem}_tolerance.csv`)),
+  ];
+}
+
+function buildExpectedReportOutputs(config = {}) {
+  const outputDir = config._report_output_dir
+    ? buildDefaultOutputDir(config._report_output_dir)
+    : resolve(PROJECT_ROOT, 'output');
+  const stem = safeFilenameComponent(config.name, 'unnamed');
+  return [
+    createOutputEntry('report.pdf', join(outputDir, `${stem}_report.pdf`)),
+  ];
+}
+
+function buildExpectedDrawArtifacts(config = {}) {
+  const outputDir = buildDefaultOutputDir(config.export?.directory);
+  const stem = safeFilenameComponent(config.name, 'unnamed');
+  const svgPath = join(outputDir, `${stem}_drawing.svg`);
+  return {
+    primaryOutputPath: svgPath,
+    outputs: [
+      createOutputEntry('drawing.svg', svgPath),
+      config?.drawing?.dxf ? createOutputEntry('drawing.dxf', join(outputDir, `${stem}_front.dxf`)) : null,
+      config?.drawing?.bom_csv ? createOutputEntry('drawing.csv', join(outputDir, `${stem}_bom.csv`)) : null,
+    ].filter(Boolean),
+    linkedArtifacts: {
+      qa_json: svgPath.replace(/\.svg$/i, '_qa.json'),
+      run_log_json: join(outputDir, `${stem}_run_log.json`),
+      traceability_json: join(outputDir, `${stem}_traceability.json`),
+      quality_json: svgPath.replace(/\.svg$/i, '_qa_issues.json'),
+    },
+  };
+}
+
+function buildDrawLinkedArtifactsFromSvg(svgPath) {
+  if (!svgPath) return {};
+  const normalizedPath = svgPath.replace(/\\/g, '/');
+  const stem = parse(normalizedPath).name.replace(/_drawing$/i, '');
+  const dir = dirname(normalizedPath);
+  return {
+    qa_json: normalizedPath.replace(/\.svg$/i, '_qa.json'),
+    run_log_json: join(dir, `${stem}_run_log.json`),
+    traceability_json: join(dir, `${stem}_traceability.json`),
+    quality_json: normalizedPath.replace(/\.svg$/i, '_qa_issues.json'),
+  };
+}
+
+function resolveOutputManifestStatus({ warnings = [], errors = [] } = {}) {
+  if (errors.length > 0) return 'fail';
+  if (warnings.length > 0) return 'warning';
+  return 'pass';
+}
+
+async function emitOutputManifestSafe({
+  command,
+  commandArgs = [],
+  repoContext,
+  startedAt,
+  inputPath = null,
+  primaryOutputPath = null,
+  outputDir = null,
+  baseName = null,
+  outputs = [],
+  linkedArtifacts = {},
+  warnings = [],
+  errors = [],
+  status = undefined,
+}) {
+  try {
+    const finishedAt = nowIso();
+    const manifest = await buildOutputManifest({
+      projectRoot: PROJECT_ROOT,
+      repoContext,
+      command,
+      commandArgs,
+      inputPath,
+      outputs,
+      linkedArtifacts,
+      warnings,
+      errors,
+      status: status || resolveOutputManifestStatus({ warnings, errors }),
+      timings: {
+        startedAt,
+        finishedAt,
+      },
+    });
+    const manifestPath = createOutputManifestPath({
+      primaryOutputPath,
+      outputDir,
+      inputPath,
+      baseName,
+      command,
+    });
+    return await writeOutputManifest(manifestPath, manifest);
+  } catch (error) {
+    console.error(`Output manifest warning: ${error.message}`);
+    return null;
+  }
 }
 
 function resolveManifestOutputPath(options = {}) {
@@ -2265,6 +2416,8 @@ async function cmdDesign(description) {
 }
 
 async function cmdDraw(rawArgs = []) {
+  const repoContext = collectRepoContext(PROJECT_ROOT);
+  const startedAt = nowIso();
   // Parse: fcad draw <config> [--override <path>] [--flags...]
   const flags = [];
   const positional = [];
@@ -2304,37 +2457,71 @@ async function cmdDraw(rawArgs = []) {
     process.exit(1);
   }
   const absPath = resolveMaybe(configPath);
-  const configDocument = await loadConfigDocumentForCli(absPath);
-  const result = await runDrawPipeline({
-    projectRoot: PROJECT_ROOT,
-    configPath: absPath,
-    flags,
-    overridePath,
-    failUnderValue,
-    weightsPresetValue,
-    loadConfig: loadConfigForCli,
-    deepMerge,
-    generateDrawing,
-    runScript: runWithCliStderr,
-    onInfo: (message) => console.log(message),
-    onError: (message) => console.error(message),
-  });
-  const svgPath = result?.drawing_paths?.find((entry) => entry.format === 'svg')?.path
-    || result?.svg_path
-    || result?.drawing_path
-    || configDocument.config.export?.directory
-    || null;
-  const manifestPath = await writeCliManifest({
-    command: 'draw',
-    configPath: absPath,
-    configSummary: configDocument.summary,
-    config: configDocument.config,
-    primaryOutputPath: svgPath,
-    outputDir: configDocument.config.export?.directory || null,
-    artifacts: collectDrawManifestArtifacts(result),
-  });
-  console.log(`Manifest: ${manifestPath}`);
-  return result;
+  let configDocument = null;
+  try {
+    configDocument = await loadConfigDocumentForCli(absPath);
+    const result = await runDrawPipeline({
+      projectRoot: PROJECT_ROOT,
+      configPath: absPath,
+      flags,
+      overridePath,
+      failUnderValue,
+      weightsPresetValue,
+      loadConfig: loadConfigForCli,
+      deepMerge,
+      generateDrawing,
+      runScript: runWithCliStderr,
+      onInfo: (message) => console.log(message),
+      onError: (message) => console.error(message),
+    });
+    const svgPath = result?.drawing_paths?.find((entry) => entry.format === 'svg')?.path
+      || result?.svg_path
+      || result?.drawing_path
+      || configDocument.config.export?.directory
+      || null;
+    const manifestPath = await writeCliManifest({
+      command: 'draw',
+      configPath: absPath,
+      configSummary: configDocument.summary,
+      config: configDocument.config,
+      primaryOutputPath: svgPath,
+      outputDir: configDocument.config.export?.directory || null,
+      artifacts: collectDrawManifestArtifacts(result),
+    });
+    await emitOutputManifestSafe({
+      command: 'draw',
+      commandArgs: rawArgs,
+      repoContext,
+      startedAt,
+      inputPath: absPath,
+      primaryOutputPath: svgPath,
+      outputDir: configDocument.config.export?.directory || null,
+      outputs: (result.drawing_paths || [])
+        .map((entry) => createOutputEntry(`drawing.${String(entry.format).toLowerCase()}`, entry.path))
+        .filter(Boolean),
+      linkedArtifacts: buildDrawLinkedArtifactsFromSvg(svgPath),
+      warnings: configDocument.summary?.warnings || [],
+    });
+    console.log(`Manifest: ${manifestPath}`);
+    return result;
+  } catch (error) {
+    const predicted = buildExpectedDrawArtifacts(configDocument?.config || {});
+    await emitOutputManifestSafe({
+      command: 'draw',
+      commandArgs: rawArgs,
+      repoContext,
+      startedAt,
+      inputPath: absPath,
+      primaryOutputPath: predicted.primaryOutputPath,
+      outputDir: configDocument?.config?.export?.directory || null,
+      outputs: predicted.outputs,
+      linkedArtifacts: predicted.linkedArtifacts,
+      warnings: configDocument?.summary?.warnings || [],
+      errors: [error.message],
+      status: 'fail',
+    });
+    throw error;
+  }
 }
 
 async function cmdSweep(rawArgs = []) {
@@ -2389,6 +2576,8 @@ async function cmdSweep(rawArgs = []) {
 }
 
 async function cmdCreate(configPath) {
+  const repoContext = collectRepoContext(PROJECT_ROOT);
+  const startedAt = nowIso();
   if (!configPath) {
     console.error('Error: config file path required');
     process.exit(1);
@@ -2397,23 +2586,29 @@ async function cmdCreate(configPath) {
   const absPath = resolveMaybe(configPath);
   console.log(`Loading config: ${absPath}`);
 
-  const configDocument = await loadConfigDocumentForCli(absPath);
-  const config = configDocument.config;
-  console.log(`Creating model: ${config.name || 'unnamed'}`);
-  console.log(`  Shapes: ${config.shapes?.length || 0}`);
-  console.log(`  Operations: ${config.operations?.length || 0}`);
+  let configDocument = null;
+  let config = null;
+  try {
+    configDocument = await loadConfigDocumentForCli(absPath);
+    config = configDocument.config;
+    console.log(`Creating model: ${config.name || 'unnamed'}`);
+    console.log(`  Shapes: ${config.shapes?.length || 0}`);
+    console.log(`  Operations: ${config.operations?.length || 0}`);
 
-  const result = await createModel({
-    freecadRoot: PROJECT_ROOT,
-    runScript: (script, input, opts = {}) => runScript(script, input, {
-      ...opts,
-      onStderr: (text) => process.stderr.write(text),
-    }),
-    loadConfig: loadConfigForCli,
-    config,
-  });
+    const result = await createModel({
+      freecadRoot: PROJECT_ROOT,
+      runScript: (script, input, opts = {}) => runScript(script, input, {
+        ...opts,
+        onStderr: (text) => process.stderr.write(text),
+      }),
+      loadConfig: loadConfigForCli,
+      config,
+    });
 
-  if (result.success) {
+    if (!result.success) {
+      throw new Error(result.error || 'Model creation failed');
+    }
+
     const firstExportPath = result.exports?.[0]?.path || config.export?.directory || null;
     const manifestPath = await writeCliManifest({
       command: 'create',
@@ -2423,6 +2618,21 @@ async function cmdCreate(configPath) {
       primaryOutputPath: firstExportPath,
       outputDir: config.export?.directory || null,
       artifacts: createExportArtifactEntries(result.exports, 'model'),
+    });
+    await emitOutputManifestSafe({
+      command: 'create',
+      commandArgs: [configPath],
+      repoContext,
+      startedAt,
+      inputPath: absPath,
+      primaryOutputPath: result.exports?.[0]?.path || null,
+      outputDir: config.export?.directory || null,
+      outputs: createOutputEntriesFromExports(result.exports, 'model'),
+      warnings: configDocument.summary?.warnings || [],
+      status: resolveOutputManifestStatus({
+        warnings: configDocument.summary?.warnings || [],
+        errors: [],
+      }),
     });
     console.log('\nModel created successfully!');
     console.log(`  Volume: ${result.model.volume} mm³`);
@@ -2442,15 +2652,28 @@ async function cmdCreate(configPath) {
       }
     }
     console.log(`  Manifest: ${manifestPath}`);
-  } else {
-    console.error(`\nError: ${result.error}`);
+    return result;
+  } catch (error) {
+    await emitOutputManifestSafe({
+      command: 'create',
+      commandArgs: [configPath],
+      repoContext,
+      startedAt,
+      inputPath: absPath,
+      outputDir: config?.export?.directory || null,
+      outputs: buildExpectedModelOutputs(config),
+      warnings: configDocument?.summary?.warnings || [],
+      errors: [error.message],
+      status: 'fail',
+    });
+    console.error(`\nError: ${error.message}`);
     process.exit(1);
   }
-
-  return result;
 }
 
 async function cmdFem(rawArgs = []) {
+  const repoContext = collectRepoContext(PROJECT_ROOT);
+  const startedAt = nowIso();
   const { positional, options } = parseCliArgs(rawArgs);
   const configPath = positional[0];
   if (!configPath) {
@@ -2462,23 +2685,29 @@ async function cmdFem(rawArgs = []) {
   const manifestPath = resolveManifestOutputPath(options);
   console.log(`Loading config: ${absPath}`);
 
-  const configDocument = await loadConfigDocumentForCli(absPath);
-  const config = configDocument.config;
-  const analysisType = config.fem?.analysis_type || 'static';
-  console.log(`FEM Analysis: ${config.name || 'unnamed'} (${analysisType})`);
-  console.log(`  Shapes: ${config.shapes?.length || 0}`);
-  console.log(`  Constraints: ${config.fem?.constraints?.length || 0}`);
+  let configDocument = null;
+  let config = null;
+  try {
+    configDocument = await loadConfigDocumentForCli(absPath);
+    config = configDocument.config;
+    const analysisType = config.fem?.analysis_type || 'static';
+    console.log(`FEM Analysis: ${config.name || 'unnamed'} (${analysisType})`);
+    console.log(`  Shapes: ${config.shapes?.length || 0}`);
+    console.log(`  Constraints: ${config.fem?.constraints?.length || 0}`);
 
-  const result = await runFemService({
-    freecadRoot: PROJECT_ROOT,
-    runScript: runWithCliStderr,
-    loadConfig: loadConfigForCli,
-    configPath: absPath,
-    config,
-    fem: config.fem || {},
-  });
+    const result = await runFemService({
+      freecadRoot: PROJECT_ROOT,
+      runScript: runWithCliStderr,
+      loadConfig: loadConfigForCli,
+      configPath: absPath,
+      config,
+      fem: config.fem || {},
+    });
 
-  if (result.success) {
+    if (!result.success) {
+      throw new Error(result.error || 'FEM analysis failed');
+    }
+
     const fem = result.fem;
     const mat = fem.material;
     console.log(`\nFEM Analysis: ${result.model.name} (${fem.analysis_type})`);
@@ -2511,18 +2740,45 @@ async function cmdFem(rawArgs = []) {
         safety_factor: fem.results?.safety_factor ?? null,
       },
     });
+    await emitOutputManifestSafe({
+      command: 'fem',
+      commandArgs: rawArgs,
+      repoContext,
+      startedAt,
+      inputPath: absPath,
+      primaryOutputPath: result.document_path || result.exports?.[0]?.path || null,
+      outputDir: config.export?.directory || null,
+      outputs: [
+        ...(result.document_path ? [createOutputEntry('analysis.fem.fcstd', result.document_path)] : []),
+        ...createOutputEntriesFromExports(result.exports, 'analysis.fem'),
+      ],
+      warnings: configDocument.summary?.warnings || [],
+    });
     if (emittedManifestPath) {
       console.log(`  Manifest: ${emittedManifestPath}`);
     }
-  } else {
-    console.error(`\nError: ${result.error}`);
+    return result;
+  } catch (error) {
+    await emitOutputManifestSafe({
+      command: 'fem',
+      commandArgs: rawArgs,
+      repoContext,
+      startedAt,
+      inputPath: absPath,
+      outputDir: config?.export?.directory || null,
+      outputs: buildExpectedFemOutputs(config),
+      warnings: configDocument?.summary?.warnings || [],
+      errors: [error.message],
+      status: 'fail',
+    });
+    console.error(`\nError: ${error.message}`);
     process.exit(1);
   }
-
-  return result;
 }
 
 async function cmdTolerance(rawArgs = []) {
+  const repoContext = collectRepoContext(PROJECT_ROOT);
+  const startedAt = nowIso();
   const { positional, options } = parseCliArgs(rawArgs);
   const configPath = positional[0];
   if (!configPath) {
@@ -2535,28 +2791,33 @@ async function cmdTolerance(rawArgs = []) {
   const manifestPath = resolveManifestOutputPath(options);
   console.log(`Loading config: ${absPath}`);
 
-  const configDocument = await loadConfigDocumentForCli(absPath);
-  const config = configDocument.config;
+  let configDocument = null;
+  let config = null;
+  try {
+    configDocument = await loadConfigDocumentForCli(absPath);
+    config = configDocument.config;
 
-  // Inject flags into tolerance config
-  config.tolerance = config.tolerance || {};
-  if (options.recommend) config.tolerance.recommend = true;
-  if (options.csv) config.tolerance.csv = true;
-  if (options['monte-carlo']) config.tolerance.monte_carlo = true;
+    config.tolerance = config.tolerance || {};
+    if (options.recommend) config.tolerance.recommend = true;
+    if (options.csv) config.tolerance.csv = true;
+    if (options['monte-carlo']) config.tolerance.monte_carlo = true;
 
-  const modelName = config.name || 'unnamed';
-  console.log(`Tolerance Analysis: ${modelName}`);
+    const modelName = config.name || 'unnamed';
+    console.log(`Tolerance Analysis: ${modelName}`);
 
-  const result = await runToleranceService({
-    freecadRoot: PROJECT_ROOT,
-    runScript: runWithCliStderr,
-    loadConfig: loadConfigForCli,
-    config,
-    standard: config.standard,
-    monteCarlo: options['monte-carlo'] ? true : undefined,
-  });
+    const result = await runToleranceService({
+      freecadRoot: PROJECT_ROOT,
+      runScript: runWithCliStderr,
+      loadConfig: loadConfigForCli,
+      config,
+      standard: config.standard,
+      monteCarlo: options['monte-carlo'] ? true : undefined,
+    });
 
-  if (result.success) {
+    if (!result.success) {
+      throw new Error(result.error || 'Tolerance analysis failed');
+    }
+
     const pairs = result.pairs || [];
     const stack = result.stack_up || {};
 
@@ -2582,7 +2843,6 @@ async function cmdTolerance(rawArgs = []) {
         console.log(`  Assembly success rate: ${stack.success_rate_pct}%`);
       }
 
-      // Monte Carlo results
       const mc = result.monte_carlo;
       if (mc) {
         console.log(`\n--- Monte Carlo Simulation (N=${mc.num_samples}, ${mc.distribution}) ---`);
@@ -2591,7 +2851,6 @@ async function cmdTolerance(rawArgs = []) {
         console.log(`  Fail rate:  ${mc.fail_rate_pct}%`);
         const p = mc.percentiles;
         console.log(`  Percentiles: P0.1=${p.p0_1.toFixed(4)} | P1=${p.p1.toFixed(4)} | P50=${p.p50.toFixed(4)} | P99=${p.p99.toFixed(4)} | P99.9=${p.p99_9.toFixed(4)}`);
-        // ASCII histogram
         const hist = mc.histogram;
         const maxCount = Math.max(...hist.counts);
         console.log(`  Histogram (gap mm):`);
@@ -2625,18 +2884,42 @@ async function cmdTolerance(rawArgs = []) {
         export_count: result.exports?.length || 0,
       },
     });
+    await emitOutputManifestSafe({
+      command: 'tolerance',
+      commandArgs: rawArgs,
+      repoContext,
+      startedAt,
+      inputPath: absPath,
+      primaryOutputPath: result.exports?.[0]?.path || null,
+      outputDir: config.export?.directory || null,
+      outputs: createOutputEntriesFromExports(result.exports, 'analysis.tolerance'),
+      warnings: configDocument.summary?.warnings || [],
+    });
     if (emittedManifestPath) {
       console.log(`  Manifest: ${emittedManifestPath}`);
     }
-  } else {
-    console.error(`\nError: ${result.error}`);
+    return result;
+  } catch (error) {
+    await emitOutputManifestSafe({
+      command: 'tolerance',
+      commandArgs: rawArgs,
+      repoContext,
+      startedAt,
+      inputPath: absPath,
+      outputDir: config?.export?.directory || null,
+      outputs: buildExpectedToleranceOutputs(config),
+      warnings: configDocument?.summary?.warnings || [],
+      errors: [error.message],
+      status: 'fail',
+    });
+    console.error(`\nError: ${error.message}`);
     process.exit(1);
   }
-
-  return result;
 }
 
 async function cmdDfm(rawArgs = []) {
+  const repoContext = collectRepoContext(PROJECT_ROOT);
+  const startedAt = nowIso();
   const { positional, options } = parseCliArgs(rawArgs);
   let processValue = options.process === true
     ? requireOptionValue('--process', options.process, 'Allowed: machining|casting|sheet_metal|3d_printing')
@@ -2652,34 +2935,39 @@ async function cmdDfm(rawArgs = []) {
   const manifestPath = resolveManifestOutputPath(options);
   console.log(`Loading config: ${absPath}`);
 
-  const configDocument = await loadConfigDocumentForCli(absPath);
-  const config = configDocument.config;
+  let configDocument = null;
+  let config = null;
+  try {
+    configDocument = await loadConfigDocumentForCli(absPath);
+    config = configDocument.config;
 
-  // Inject flags into manufacturing config
-  config.manufacturing = config.manufacturing || {};
-  if (processValue) {
-    if (!VALID_DFM_PROCESSES.has(processValue)) {
-      console.error(`Error: invalid --process '${processValue}'`);
-      console.error('  Allowed: machining|casting|sheet_metal|3d_printing');
-      process.exit(1);
+    config.manufacturing = config.manufacturing || {};
+    if (processValue) {
+      if (!VALID_DFM_PROCESSES.has(processValue)) {
+        console.error(`Error: invalid --process '${processValue}'`);
+        console.error('  Allowed: machining|casting|sheet_metal|3d_printing');
+        process.exit(1);
+      }
+      config.manufacturing.process = processValue;
     }
-    config.manufacturing.process = processValue;
-  }
 
-  const strict = Boolean(options.strict);
-  const modelName = config.name || 'unnamed';
-  console.log(`DFM Analysis: ${modelName} (process: ${config.manufacturing.process || 'machining'})\n`);
+    const strict = Boolean(options.strict);
+    const modelName = config.name || 'unnamed';
+    console.log(`DFM Analysis: ${modelName} (process: ${config.manufacturing.process || 'machining'})\n`);
 
-  const result = await runDfm({
-    freecadRoot: PROJECT_ROOT,
-    runScript: runWithCliStderr,
-    loadConfig: loadConfigForCli,
-    config,
-    process: config.manufacturing.process || 'machining',
-    standard: config.standard,
-  });
+    const result = await runDfm({
+      freecadRoot: PROJECT_ROOT,
+      runScript: runWithCliStderr,
+      loadConfig: loadConfigForCli,
+      config,
+      process: config.manufacturing.process || 'machining',
+      standard: config.standard,
+    });
 
-  if (result.success) {
+    if (!result.success) {
+      throw new Error(result.error || 'DFM analysis failed');
+    }
+
     const { checks, summary, score } = result;
 
     console.log(`=== DFM Report (${result.process}) ===\n`);
@@ -2721,6 +3009,32 @@ async function cmdDfm(rawArgs = []) {
         strict_mode: strict,
       },
     });
+    const outputWarnings = [
+      ...(configDocument.summary?.warnings || []),
+      ...(summary.warnings > 0 ? [`DFM produced ${summary.warnings} warning(s).`] : []),
+    ];
+    const outputErrors = [];
+    let outputStatus = 'pass';
+    if (strict && summary.warnings > 0) {
+      outputStatus = 'fail';
+      outputErrors.push('--strict: warnings treated as errors');
+    } else if (summary.errors > 0) {
+      outputStatus = 'fail';
+      outputErrors.push(`DFM reported ${summary.errors} error(s).`);
+    } else if (outputWarnings.length > 0) {
+      outputStatus = 'warning';
+    }
+    await emitOutputManifestSafe({
+      command: 'dfm',
+      commandArgs: rawArgs,
+      repoContext,
+      startedAt,
+      inputPath: absPath,
+      outputs: [],
+      warnings: outputWarnings,
+      errors: outputErrors,
+      status: outputStatus,
+    });
     if (emittedManifestPath) {
       console.log(`Manifest: ${emittedManifestPath}`);
     }
@@ -2732,15 +3046,27 @@ async function cmdDfm(rawArgs = []) {
     if (summary.errors > 0) {
       process.exit(1);
     }
-  } else {
-    console.error(`\nError: ${result.error}`);
+    return result;
+  } catch (error) {
+    await emitOutputManifestSafe({
+      command: 'dfm',
+      commandArgs: rawArgs,
+      repoContext,
+      startedAt,
+      inputPath: absPath,
+      outputs: [],
+      warnings: configDocument?.summary?.warnings || [],
+      errors: [error.message],
+      status: 'fail',
+    });
+    console.error(`\nError: ${error.message}`);
     process.exit(1);
   }
-
-  return result;
 }
 
 async function cmdReport(configPath, flags = []) {
+  const repoContext = collectRepoContext(PROJECT_ROOT);
+  const startedAt = nowIso();
   if (!configPath) {
     console.error('Error: config file path required');
     console.error('  fcad report configs/examples/ptu_assembly_mates.toml');
@@ -2749,84 +3075,86 @@ async function cmdReport(configPath, flags = []) {
 
   const absPath = resolveMaybe(configPath);
   console.log(`Loading config: ${absPath}`);
-  const configDocument = await loadConfigDocumentForCli(absPath);
-  const config = configDocument.config;
-  const includeTolerance = !flags.includes('--no-tolerance');
-  const includeFem = flags.includes('--fem');
-  const includeMC = flags.includes('--monte-carlo');
-  const includeDfm = flags.includes('--dfm');
-  const analysisResults = {};
+  let configDocument = null;
+  let config = null;
+  try {
+    configDocument = await loadConfigDocumentForCli(absPath);
+    config = configDocument.config;
+    const includeTolerance = !flags.includes('--no-tolerance');
+    const includeFem = flags.includes('--fem');
+    const includeMC = flags.includes('--monte-carlo');
+    const includeDfm = flags.includes('--dfm');
+    const analysisResults = {};
 
-  // Step 1: Run tolerance analysis if needed
-  if (includeTolerance && config.assembly) {
-    console.log('Running tolerance analysis...');
-    config.tolerance = config.tolerance || {};
-    if (includeMC) config.tolerance.monte_carlo = true;
+    if (includeTolerance && config.assembly) {
+      console.log('Running tolerance analysis...');
+      config.tolerance = config.tolerance || {};
+      if (includeMC) config.tolerance.monte_carlo = true;
 
-    const tolResult = await runToleranceService({
-      freecadRoot: PROJECT_ROOT,
-      runScript: runWithCliStderr,
-      loadConfig: loadConfigForCli,
-      config,
-      standard: config.standard,
-      monteCarlo: includeMC ? true : undefined,
-    });
-    if (tolResult.success) {
-      analysisResults.tolerance = tolResult;
-      console.log(`  ${tolResult.pairs?.length || 0} tolerance pair(s) analyzed`);
+      const tolResult = await runToleranceService({
+        freecadRoot: PROJECT_ROOT,
+        runScript: runWithCliStderr,
+        loadConfig: loadConfigForCli,
+        config,
+        standard: config.standard,
+        monteCarlo: includeMC ? true : undefined,
+      });
+      if (tolResult.success) {
+        analysisResults.tolerance = tolResult;
+        console.log(`  ${tolResult.pairs?.length || 0} tolerance pair(s) analyzed`);
+      }
     }
-  }
 
-  // Step 1.5: Run DFM analysis if requested
-  if (includeDfm) {
-    console.log('Running DFM analysis...');
-    const dfmResult = await runDfm({
-      freecadRoot: PROJECT_ROOT,
-      runScript: runWithCliStderr,
-      loadConfig: loadConfigForCli,
-      config,
-      process: config.manufacturing?.process || 'machining',
-      standard: config.standard,
-    });
-    if (dfmResult.success) {
-      analysisResults.dfm = dfmResult;
-      console.log(`  DFM score: ${dfmResult.score}/100 (${dfmResult.summary?.errors || 0} errors, ${dfmResult.summary?.warnings || 0} warnings)`);
+    if (includeDfm) {
+      console.log('Running DFM analysis...');
+      const dfmResult = await runDfm({
+        freecadRoot: PROJECT_ROOT,
+        runScript: runWithCliStderr,
+        loadConfig: loadConfigForCli,
+        config,
+        process: config.manufacturing?.process || 'machining',
+        standard: config.standard,
+      });
+      if (dfmResult.success) {
+        analysisResults.dfm = dfmResult;
+        console.log(`  DFM score: ${dfmResult.score}/100 (${dfmResult.summary?.errors || 0} errors, ${dfmResult.summary?.warnings || 0} warnings)`);
+      }
     }
-  }
 
-  // Step 2: Run FEM analysis if requested
-  if (includeFem) {
-    console.log('Running FEM analysis...');
-    const femResult = await runFemService({
+    if (includeFem) {
+      console.log('Running FEM analysis...');
+      const femResult = await runFemService({
+        freecadRoot: PROJECT_ROOT,
+        runScript: runWithCliStderr,
+        loadConfig: loadConfigForCli,
+        configPath: absPath,
+        config,
+        fem: config.fem || {},
+      });
+      if (femResult.success) {
+        analysisResults.fem = femResult;
+        console.log(`  FEM complete: safety factor = ${femResult.results?.safety_factor || '?'}`);
+      }
+    }
+
+    console.log('Generating PDF report...');
+    const result = await generateReport({
       freecadRoot: PROJECT_ROOT,
       runScript: runWithCliStderr,
       loadConfig: loadConfigForCli,
       configPath: absPath,
       config,
-      fem: config.fem || {},
+      includeDrawing: false,
+      includeDfm,
+      includeTolerance,
+      includeCost: false,
+      analysisResults,
     });
-    if (femResult.success) {
-      analysisResults.fem = femResult;
-      console.log(`  FEM complete: safety factor = ${femResult.results?.safety_factor || '?'}`);
+
+    if (!result.success) {
+      throw new Error(result.error || 'Engineering report generation failed');
     }
-  }
 
-  // Step 3: Generate PDF report
-  console.log('Generating PDF report...');
-  const result = await generateReport({
-    freecadRoot: PROJECT_ROOT,
-    runScript: runWithCliStderr,
-    loadConfig: loadConfigForCli,
-    configPath: absPath,
-    config,
-    includeDrawing: false,
-    includeDfm,
-    includeTolerance,
-    includeCost: false,
-    analysisResults,
-  });
-
-  if (result.success) {
     const manifestPath = await writeCliManifest({
       command: 'report',
       configPath: absPath,
@@ -2843,18 +3171,48 @@ async function cmdReport(configPath, flags = []) {
         include_monte_carlo: includeMC,
       },
     });
+    await emitOutputManifestSafe({
+      command: 'report',
+      commandArgs: [configPath, ...flags],
+      repoContext,
+      startedAt,
+      inputPath: absPath,
+      primaryOutputPath: result.path,
+      outputs: [
+        createOutputEntry('report.pdf', result.path),
+      ],
+      linkedArtifacts: {
+        report_pdf: result.path,
+      },
+      warnings: configDocument.summary?.warnings || [],
+    });
     console.log(`\n=== Engineering Report Generated ===`);
     console.log(`  PDF: ${result.path} (${result.size_bytes} bytes)`);
     console.log(`  Manifest: ${manifestPath}`);
-  } else {
-    console.error(`\nError: ${result.error}`);
+    return result;
+  } catch (error) {
+    await emitOutputManifestSafe({
+      command: 'report',
+      commandArgs: [configPath, ...flags],
+      repoContext,
+      startedAt,
+      inputPath: absPath,
+      outputs: buildExpectedReportOutputs(config || {}),
+      linkedArtifacts: {
+        report_pdf: buildExpectedReportOutputs(config || {})[0]?.path || null,
+      },
+      warnings: configDocument?.summary?.warnings || [],
+      errors: [error.message],
+      status: 'fail',
+    });
+    console.error(`\nError: ${error.message}`);
     process.exit(1);
   }
-
-  return result;
 }
 
 async function cmdInspect(rawArgs = []) {
+  const repoContext = collectRepoContext(PROJECT_ROOT);
+  const startedAt = nowIso();
   const { positional, options } = parseCliArgs(rawArgs);
   const filePath = positional[0];
   if (!filePath) {
@@ -2866,15 +3224,19 @@ async function cmdInspect(rawArgs = []) {
   const manifestPath = resolveManifestOutputPath(options);
   console.log(`Inspecting: ${absPath}`);
 
-  const result = await inspectModel({
-    runScript: (script, input, opts = {}) => runScript(script, input, {
-      ...opts,
-      onStderr: (text) => process.stderr.write(text),
-    }),
-    filePath: absPath,
-  });
+  try {
+    const result = await inspectModel({
+      runScript: (script, input, opts = {}) => runScript(script, input, {
+        ...opts,
+        onStderr: (text) => process.stderr.write(text),
+      }),
+      filePath: absPath,
+    });
 
-  if (result.success) {
+    if (!result.success) {
+      throw new Error(result.error || 'Model inspection failed');
+    }
+
     console.log('\nModel metadata:');
     const m = result.model;
     console.log(`  Format: ${result.format}`);
@@ -2904,15 +3266,34 @@ async function cmdInspect(rawArgs = []) {
         },
       },
     });
+    await emitOutputManifestSafe({
+      command: 'inspect',
+      commandArgs: rawArgs,
+      repoContext,
+      startedAt,
+      inputPath: absPath,
+      outputs: [],
+      warnings: [],
+      status: 'pass',
+    });
     if (emittedManifestPath) {
       console.log(`  Manifest: ${emittedManifestPath}`);
     }
-  } else {
-    console.error(`\nError: ${result.error}`);
+    return result;
+  } catch (error) {
+    await emitOutputManifestSafe({
+      command: 'inspect',
+      commandArgs: rawArgs,
+      repoContext,
+      startedAt,
+      inputPath: absPath,
+      outputs: [],
+      errors: [error.message],
+      status: 'fail',
+    });
+    console.error(`\nError: ${error.message}`);
     process.exit(1);
   }
-
-  return result;
 }
 
 main().catch((err) => {

@@ -203,6 +203,10 @@ fcad sweep <config.toml|json> --matrix <matrix.toml|json> [--out-dir <dir>]
 
 `--manifest-out <path>` is the provenance escape hatch for stdout-heavy commands. It keeps the default human-readable stdout intact while letting tooling capture a stable manifest alongside `inspect`, `fem`, `tolerance`, or `dfm`.
 
+Major runtime and analysis commands now also emit an additive output manifest named `<base>_manifest.json`. When a command writes a primary artifact, the output manifest is written beside it. When a command is stdout-first and has no primary artifact, the manifest is written beside the input file by default. The legacy `artifact-manifest` contract remains available where already documented, including `--manifest-out`.
+
+See [docs/output-manifest.md](./docs/output-manifest.md) for the unified output-manifest fields, naming rules, and example JSON.
+
 ### Parameter Sweep
 
 `fcad sweep` is the initial design-space exploration workflow. It does not create a separate optimization path. Instead, it expands deterministic numeric overrides and executes each variant through the existing service wrappers already used by the CLI.

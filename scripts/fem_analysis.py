@@ -160,6 +160,7 @@ try:
     respond({
         "success": True,
         "model": model_meta,
+        "document_path": fcstd_path,
         "fem": {
             "analysis_type": fem_config.get("analysis_type", "static"),
             "solver": "CalculiX",

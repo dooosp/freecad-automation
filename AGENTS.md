@@ -82,3 +82,29 @@ Treat that execution plan as the task-specific source of truth for the Studio re
 
 ## Final Reporting
 - Summarize what changed, what was validated, any remaining risks, and the commit/push/PR state.
+
+## Task addendum: output-manifest-foundation
+For this task, follow:
+- `docs/exec-plans/output-manifest-foundation.md`
+
+Treat that execution plan as the task-specific source of truth for this worktree.
+
+### Task-specific manifest constraints
+- Goal: add an additive `output-manifest` layer for major `fcad` commands without replacing the existing `artifact-manifest` contract.
+- Scope surfaces:
+  - CLI orchestration
+  - output file tracking
+  - run metadata
+  - manifest writer helper
+  - tests and docs
+- Non-negotiables:
+  - preserve existing output filenames unless additive manifest files are required by the new contract
+  - keep `artifact-manifest` behavior backward compatible
+  - do not claim FreeCAD-backed validation unless a real runtime command actually ran
+  - keep control files inside this repo root only
+- Progress tracking files for this task:
+  - `tmp/codex/output-manifest-foundation-status.md`
+  - `tmp/codex/output-manifest-foundation-tool-evidence.md`
+  - `tmp/codex/output-manifest-foundation-verification-status.md`
+- Verification/remediation plan for this task:
+  - `docs/exec-plans/output-manifest-foundation-verification.md`
