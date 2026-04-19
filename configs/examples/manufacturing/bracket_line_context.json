@@ -1,0 +1,376 @@
+{
+  "schema_version": "1.0",
+  "prototype_scope": {
+    "prototype_name": "Bracket Line DELMIA-Adjacent DX Demo",
+    "positioning": "Open-source digital manufacturing portfolio demo for learning MES, APS, SCM, quality, and virtual-twin review concepts.",
+    "not_official_dassault_or_delmia_integration": true,
+    "notes": [
+      "This sample uses deterministic heuristics and auditable assumptions.",
+      "It is not an official DELMIA or 3DEXPERIENCE integration."
+    ]
+  },
+  "plant": {
+    "plant_id": "PLT-KR-ULS",
+    "name": "Ulsan Bracket Pilot Plant",
+    "region": "APAC",
+    "country": "KR",
+    "site_type": "pilot_line",
+    "value_stream": "EV display and sensor brackets",
+    "erp_or_scm_note": "ERP demand is released weekly and material readiness is reviewed daily."
+  },
+  "product": {
+    "part_id": "KS-BR-001",
+    "name": "KS Bracket Demo",
+    "revision": "A",
+    "cad_reference": "configs/examples/ks_bracket.toml",
+    "bom_reference": "BOM-KS-BR-001",
+    "program": "display_mount_launch",
+    "make_vs_buy": "make"
+  },
+  "production_line": {
+    "line_id": "LINE-BRKT-01",
+    "name": "Bracket Machining and Inspection Line",
+    "description": "Low-volume mixed-model line for machined and deburred brackets with final CMM verification.",
+    "takt_time_sec": 150,
+    "shifts_per_day": 2,
+    "hours_per_shift": 8,
+    "mes_scope": "Track order dispatch, routing history, NC completion, and inspection sign-off.",
+    "aps_scope": "Sequence drilling and inspection around fixture availability and due-date adherence.",
+    "scm_scope": "Watch stainless blank lead time, insert kit readiness, and packaging supply.",
+    "active_order": {
+      "order_id": "MO-240419-01",
+      "quantity": 240,
+      "due_date": "2026-04-26"
+    }
+  },
+  "work_centers": [
+    {
+      "work_center_id": "WC10",
+      "name": "Laser Blank Prep",
+      "process_type": "cutting",
+      "parallel_units": 1,
+      "setup_time_min": 18,
+      "queue_buffer_units": 16,
+      "operators": 1,
+      "expected_oee": 0.9,
+      "utilization_target": 0.78,
+      "mes_tags": [
+        "dispatch",
+        "material_issue",
+        "operator_login"
+      ]
+    },
+    {
+      "work_center_id": "WC20",
+      "name": "CNC Mill Cell",
+      "process_type": "machining",
+      "parallel_units": 1,
+      "setup_time_min": 22,
+      "queue_buffer_units": 14,
+      "operators": 1,
+      "expected_oee": 0.86,
+      "utilization_target": 0.9,
+      "mes_tags": [
+        "nc_start",
+        "nc_complete",
+        "tool_life"
+      ]
+    },
+    {
+      "work_center_id": "WC30",
+      "name": "Drill and Tap Cell",
+      "process_type": "drilling",
+      "parallel_units": 1,
+      "setup_time_min": 16,
+      "queue_buffer_units": 12,
+      "operators": 1,
+      "expected_oee": 0.84,
+      "utilization_target": 0.93,
+      "mes_tags": [
+        "fixture_loaded",
+        "tool_offset",
+        "spindle_runtime"
+      ]
+    },
+    {
+      "work_center_id": "WC40",
+      "name": "Deburr and Clean",
+      "process_type": "finishing",
+      "parallel_units": 2,
+      "setup_time_min": 8,
+      "queue_buffer_units": 20,
+      "operators": 2,
+      "expected_oee": 0.92,
+      "utilization_target": 0.7,
+      "mes_tags": [
+        "rework_loop",
+        "wash_complete"
+      ]
+    },
+    {
+      "work_center_id": "WC50",
+      "name": "CMM Inspection",
+      "process_type": "inspection",
+      "parallel_units": 1,
+      "setup_time_min": 10,
+      "queue_buffer_units": 10,
+      "operators": 1,
+      "expected_oee": 0.88,
+      "utilization_target": 0.82,
+      "mes_tags": [
+        "sampling_plan",
+        "inspection_result",
+        "nonconformance_hold"
+      ]
+    },
+    {
+      "work_center_id": "WC60",
+      "name": "Pack and Ship Prep",
+      "process_type": "packaging",
+      "parallel_units": 1,
+      "setup_time_min": 6,
+      "queue_buffer_units": 18,
+      "operators": 1,
+      "expected_oee": 0.94,
+      "utilization_target": 0.68,
+      "mes_tags": [
+        "serial_label",
+        "asn_ready"
+      ]
+    }
+  ],
+  "routing": [
+    {
+      "operation_id": "OP10",
+      "sequence": 10,
+      "operation_name": "Prepare stainless blank",
+      "work_center_id": "WC10",
+      "description": "Laser cut and stage the base blank before machining.",
+      "machine_cycle_sec": 48,
+      "labor_cycle_sec": 20,
+      "transfer_batch_size": 12,
+      "quality_gate": "material_and_blank_check",
+      "cad_feature_refs": [
+        "base_plate"
+      ],
+      "input_bom_item_ids": [
+        "B10"
+      ]
+    },
+    {
+      "operation_id": "OP20",
+      "sequence": 20,
+      "operation_name": "Mill web and gusset datum surfaces",
+      "work_center_id": "WC20",
+      "description": "Create the web seat and stabilize the datum surfaces used downstream.",
+      "machine_cycle_sec": 88,
+      "labor_cycle_sec": 18,
+      "transfer_batch_size": 8,
+      "quality_gate": "datum_surface_verification",
+      "cad_feature_refs": [
+        "web",
+        "gusset"
+      ],
+      "input_bom_item_ids": [
+        "B10"
+      ]
+    },
+    {
+      "operation_id": "OP30",
+      "sequence": 30,
+      "operation_name": "Drill mounting pattern and V-groove",
+      "work_center_id": "WC30",
+      "description": "Drill the four mounting holes and machine the V-groove feature.",
+      "machine_cycle_sec": 96,
+      "labor_cycle_sec": 24,
+      "transfer_batch_size": 8,
+      "quality_gate": "hole_pattern_and_groove_check",
+      "cad_feature_refs": [
+        "hole1",
+        "hole2",
+        "hole3",
+        "hole4",
+        "v_groove"
+      ],
+      "input_bom_item_ids": [
+        "B10",
+        "B20"
+      ]
+    },
+    {
+      "operation_id": "OP40",
+      "sequence": 40,
+      "operation_name": "Deburr, clean, and visual inspect",
+      "work_center_id": "WC40",
+      "description": "Remove burrs, clean the part, and perform visual workmanship screening.",
+      "machine_cycle_sec": 44,
+      "labor_cycle_sec": 34,
+      "transfer_batch_size": 16,
+      "quality_gate": "visual_and_burr_check",
+      "cad_feature_refs": [
+        "hole1",
+        "hole2",
+        "hole3",
+        "hole4",
+        "v_groove"
+      ],
+      "input_bom_item_ids": [
+        "B30"
+      ]
+    },
+    {
+      "operation_id": "OP50",
+      "sequence": 50,
+      "operation_name": "CMM verification and release",
+      "work_center_id": "WC50",
+      "description": "Measure critical dimensions and release or hold the lot.",
+      "machine_cycle_sec": 52,
+      "labor_cycle_sec": 20,
+      "transfer_batch_size": 6,
+      "quality_gate": "final_dimensional_release",
+      "cad_feature_refs": [
+        "hole1",
+        "hole2",
+        "hole3",
+        "hole4",
+        "web",
+        "v_groove"
+      ],
+      "input_bom_item_ids": []
+    },
+    {
+      "operation_id": "OP60",
+      "sequence": 60,
+      "operation_name": "Pack, label, and stage shipment",
+      "work_center_id": "WC60",
+      "description": "Apply labels, pack, and move finished goods to outbound staging.",
+      "machine_cycle_sec": 24,
+      "labor_cycle_sec": 22,
+      "transfer_batch_size": 20,
+      "quality_gate": "label_and_pack_verification",
+      "cad_feature_refs": [
+        "final"
+      ],
+      "input_bom_item_ids": [
+        "B40"
+      ]
+    }
+  ],
+  "bom_references": [
+    {
+      "bom_item_id": "B10",
+      "description": "SS304 bracket blank",
+      "quantity_per": 1,
+      "supplier": "Korea Metals",
+      "lead_time_days": 6,
+      "planning_category": "raw_material",
+      "scm_risk": "medium"
+    },
+    {
+      "bom_item_id": "B20",
+      "description": "Drill and tap tooling set",
+      "quantity_per": 0.02,
+      "supplier": "ToolWorks",
+      "lead_time_days": 14,
+      "planning_category": "consumable",
+      "scm_risk": "high"
+    },
+    {
+      "bom_item_id": "B30",
+      "description": "Deburr brush and cleaning media",
+      "quantity_per": 0.05,
+      "supplier": "ShopSupplies",
+      "lead_time_days": 3,
+      "planning_category": "consumable",
+      "scm_risk": "low"
+    },
+    {
+      "bom_item_id": "B40",
+      "description": "Label and carton kit",
+      "quantity_per": 1,
+      "supplier": "PackRight",
+      "lead_time_days": 4,
+      "planning_category": "packaging",
+      "scm_risk": "low"
+    }
+  ],
+  "inspection_records": [
+    {
+      "record_id": "INSP-BRKT-001",
+      "operation_id": "OP30",
+      "feature_ref": "hole1",
+      "characteristic": "mounting_hole_diameter",
+      "status": "out_of_tolerance",
+      "measurement_method": "go_no_go_pin",
+      "actual_value": 9.28,
+      "nominal_value": 9.0,
+      "deviation": 0.28,
+      "units": "mm"
+    },
+    {
+      "record_id": "INSP-BRKT-002",
+      "operation_id": "OP20",
+      "feature_ref": "web",
+      "characteristic": "web_perpendicularity",
+      "status": "warning",
+      "measurement_method": "cmm",
+      "actual_value": 0.24,
+      "nominal_value": 0.2,
+      "deviation": 0.04,
+      "units": "mm"
+    },
+    {
+      "record_id": "INSP-BRKT-003",
+      "operation_id": "OP40",
+      "feature_ref": "v_groove",
+      "characteristic": "burr_height",
+      "status": "out_of_tolerance",
+      "measurement_method": "visual_plus_gauge",
+      "actual_value": 0.18,
+      "nominal_value": 0.1,
+      "deviation": 0.08,
+      "units": "mm"
+    }
+  ],
+  "quality_issues": [
+    {
+      "issue_id": "QI-001",
+      "title": "Hole size drift on first article lot",
+      "severity": "high",
+      "operation_id": "OP30",
+      "feature_ref": "hole1",
+      "suspected_cause": "Tool wear and fixture offset growth on drill cell.",
+      "containment_action": "Increase first-piece offset verification and swap drill sooner."
+    },
+    {
+      "issue_id": "QI-002",
+      "title": "Burr carryover after deburr",
+      "severity": "medium",
+      "operation_id": "OP40",
+      "feature_ref": "v_groove",
+      "suspected_cause": "Visual-only deburr confirmation misses groove edge coverage.",
+      "containment_action": "Add groove-specific confirmation step and brush life tracking."
+    }
+  ],
+  "planning_data": {
+    "schedule_snapshot_date": "2026-04-19",
+    "demand_units_per_week": 480,
+    "frozen_horizon_days": 5,
+    "available_shifts": 2,
+    "aps_constraints": {
+      "max_overtime_hours_per_week": 10,
+      "changeover_policy": "Minimize fixture swaps during OP30.",
+      "batching_note": "Prefer batches of 8 for machining and 6 for final inspection."
+    },
+    "material_readiness": {
+      "all_critical_items_available": false,
+      "constrained_item_ids": [
+        "B20"
+      ]
+    },
+    "supplier_watchlist": [
+      "B20 drill tooling set is on a 14-day lead time and drives APS caution.",
+      "B10 bracket blank supply is stable but needs daily scrap feedback."
+    ]
+  }
+}

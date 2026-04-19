@@ -91,6 +91,21 @@ The repository also includes production-engineering workflows and infotainment-o
 
 Outputs are heuristic engineering aids. They are not full production-line simulations or a substitute for engineering sign-off.
 
+## DELMIA-Adjacent Manufacturing DX Prototype
+
+This repository can also be presented as a DELMIA-adjacent manufacturing DX portfolio prototype for digital manufacturing, virtual twin review, MES/APS/SCM-aligned context modeling, and AI-assisted manufacturing review guidance.
+
+- It stays additive to the existing FreeCAD + manufacturing-review stack.
+- It does **not** claim official DELMIA or 3DEXPERIENCE API integration.
+- New portfolio-facing materials live under:
+  - [`docs/delmia-alignment/`](./docs/delmia-alignment/)
+  - [`docs/training/`](./docs/training/)
+  - [`docs/research/`](./docs/research/)
+  - [`docs/case-studies/`](./docs/case-studies/)
+  - [`configs/examples/manufacturing/`](./configs/examples/manufacturing/)
+
+The intent is to show how the repo's existing review, process-planning, line-planning, quality-linkage, and readiness artifacts can be reframed for manufacturing DX conversations without overclaiming product integration.
+
 ## Codex Multi-Agent Prompt Workflow
 
 If you want Codex to drive the legacy CAD and drawing pipeline as a small orchestrated agent team, use:
