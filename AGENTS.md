@@ -239,8 +239,7 @@ The final response should include:
   - open review pack
   - open readiness report
 
-## Task Control Plane: DELMIA Manufacturing DX Prototype
-- Active branch for this task: `feat/delmia-manufacturing-dx-prototype`
+## DELMIA Manufacturing DX Prototype Guidance
 - Execution plan source of truth:
   - `docs/exec-plans/delmia-manufacturing-dx-prototype.md`
 - Verification and remediation plan:

@@ -4,11 +4,11 @@ These materials package the repo as a beginner-friendly DELMIA-adjacent manufact
 
 ## Modules
 
-- [Module 01: Digital Manufacturing](/Users/jangtaeho/Documents/codex-worktrees/delmia-manufacturing-dx-prototype/freecad-automation/docs/training/module-01-digital-manufacturing.md)
-- [Module 02: Virtual Twin Basics](/Users/jangtaeho/Documents/codex-worktrees/delmia-manufacturing-dx-prototype/freecad-automation/docs/training/module-02-virtual-twin-basics.md)
-- [Module 03: MES, APS, and SCM Overview](/Users/jangtaeho/Documents/codex-worktrees/delmia-manufacturing-dx-prototype/freecad-automation/docs/training/module-03-mes-aps-scm-overview.md)
-- [Module 04: AI-Assisted Manufacturing Review](/Users/jangtaeho/Documents/codex-worktrees/delmia-manufacturing-dx-prototype/freecad-automation/docs/training/module-04-ai-assisted-manufacturing-review.md)
-- [Demo Script](/Users/jangtaeho/Documents/codex-worktrees/delmia-manufacturing-dx-prototype/freecad-automation/docs/training/demo-script-freecad-automation.md)
+- [Module 01: Digital Manufacturing](./module-01-digital-manufacturing.md)
+- [Module 02: Virtual Twin Basics](./module-02-virtual-twin-basics.md)
+- [Module 03: MES, APS, and SCM Overview](./module-03-mes-aps-scm-overview.md)
+- [Module 04: AI-Assisted Manufacturing Review](./module-04-ai-assisted-manufacturing-review.md)
+- [Demo Script](./demo-script-freecad-automation.md)
 
 ## Intended Audience
 

@@ -9,7 +9,7 @@ Use this talk track for a 10 to 15 minute customer-facing or enablement-facing w
    - The portfolio story now extends into manufacturing review, process planning, quality linkage, and readiness-style outputs.
 
 2. Show the manufacturing context
-   - Open [configs/examples/manufacturing/bracket_line_context.json](/Users/jangtaeho/Documents/codex-worktrees/delmia-manufacturing-dx-prototype/freecad-automation/configs/examples/manufacturing/bracket_line_context.json).
+   - Open [bracket_line_context.json](../../configs/examples/manufacturing/bracket_line_context.json).
    - Explain plant, line, work centers, routing, BOM, inspection, quality, and planning sections.
 
 3. Show production-flow review

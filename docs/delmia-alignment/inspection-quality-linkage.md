@@ -4,9 +4,9 @@ This demo links inspection findings to manufacturing operations and CAD feature 
 
 ## Files
 
-- Script: [scripts/link_inspection_to_manufacturing.py](/Users/jangtaeho/Documents/codex-worktrees/delmia-manufacturing-dx-prototype/freecad-automation/scripts/link_inspection_to_manufacturing.py)
-- Context: [configs/examples/manufacturing/bracket_line_context.json](/Users/jangtaeho/Documents/codex-worktrees/delmia-manufacturing-dx-prototype/freecad-automation/configs/examples/manufacturing/bracket_line_context.json)
-- Inspection set: [configs/examples/manufacturing/bracket_inspection_records.json](/Users/jangtaeho/Documents/codex-worktrees/delmia-manufacturing-dx-prototype/freecad-automation/configs/examples/manufacturing/bracket_inspection_records.json)
+- Script: [link_inspection_to_manufacturing.py](../../scripts/link_inspection_to_manufacturing.py)
+- Context: [bracket_line_context.json](../../configs/examples/manufacturing/bracket_line_context.json)
+- Inspection set: [bracket_inspection_records.json](../../configs/examples/manufacturing/bracket_inspection_records.json)
 - Output JSON: `output/delmia-demo/inspection_quality_linkage_report.json`
 - Output Markdown: `output/delmia-demo/inspection_quality_linkage_summary.md`
 

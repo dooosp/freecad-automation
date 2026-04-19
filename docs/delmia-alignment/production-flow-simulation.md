@@ -4,8 +4,8 @@ This demo adds a deterministic, auditable production-flow report that reads the 
 
 ## Files
 
-- Script: [scripts/simulate_production_flow.py](/Users/jangtaeho/Documents/codex-worktrees/delmia-manufacturing-dx-prototype/freecad-automation/scripts/simulate_production_flow.py)
-- Input: [configs/examples/manufacturing/bracket_line_context.json](/Users/jangtaeho/Documents/codex-worktrees/delmia-manufacturing-dx-prototype/freecad-automation/configs/examples/manufacturing/bracket_line_context.json)
+- Script: [simulate_production_flow.py](../../scripts/simulate_production_flow.py)
+- Input: [bracket_line_context.json](../../configs/examples/manufacturing/bracket_line_context.json)
 - Output JSON: `output/delmia-demo/flow_simulation_report.json`
 - Output Markdown: `output/delmia-demo/flow_simulation_summary.md`
 

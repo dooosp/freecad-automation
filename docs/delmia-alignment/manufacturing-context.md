@@ -4,9 +4,9 @@ This surface introduces a practical manufacturing context JSON contract for DELM
 
 ## Files
 
-- Schema: [schemas/manufacturing-context.schema.json](/Users/jangtaeho/Documents/codex-worktrees/delmia-manufacturing-dx-prototype/freecad-automation/schemas/manufacturing-context.schema.json)
-- Example context: [configs/examples/manufacturing/bracket_line_context.json](/Users/jangtaeho/Documents/codex-worktrees/delmia-manufacturing-dx-prototype/freecad-automation/configs/examples/manufacturing/bracket_line_context.json)
-- Example inspection set: [configs/examples/manufacturing/bracket_inspection_records.json](/Users/jangtaeho/Documents/codex-worktrees/delmia-manufacturing-dx-prototype/freecad-automation/configs/examples/manufacturing/bracket_inspection_records.json)
+- Schema: [manufacturing-context.schema.json](../../schemas/manufacturing-context.schema.json)
+- Example context: [bracket_line_context.json](../../configs/examples/manufacturing/bracket_line_context.json)
+- Example inspection set: [bracket_inspection_records.json](../../configs/examples/manufacturing/bracket_inspection_records.json)
 
 ## Why This Exists
 
