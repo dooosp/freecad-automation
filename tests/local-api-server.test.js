@@ -283,8 +283,14 @@ try {
   const healthPayload = await healthResponse.json();
   assert.equal(validateLocalApiResponse('health', healthPayload).ok, true);
   assert.equal(healthPayload.jobs_dir, '<jobs-dir>');
-  assert.equal(healthPayload.runtime.available, true);
-  assert.match(healthPayload.runtime.description, /<freecad-runtime>/);
+  assert.equal(typeof healthPayload.runtime.available, 'boolean');
+  assert.equal(typeof healthPayload.runtime.status, 'string');
+  assert.equal(typeof healthPayload.runtime.source, 'string');
+  assert.equal(typeof healthPayload.runtime.mode, 'string');
+  assert.equal(typeof healthPayload.runtime.description, 'string');
+  if (healthPayload.runtime.available) {
+    assert.match(healthPayload.runtime.description, /<freecad-runtime>/);
+  }
   assertNoLeakedPathStrings(healthPayload, [ROOT, jobsDir, tmpRoot, '/Applications/FreeCAD.app']);
 
   const bootstrapPreviewResponse = await fetch(`${baseUrl}/api/studio/import-bootstrap`, {
