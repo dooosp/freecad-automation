@@ -6,6 +6,7 @@ import {
   formatLocaleCookie,
   resolveInitialLocale,
 } from '../shared/i18n-contract.js';
+import { createPublicPathContext, sanitizePublicPayload } from './public-path-sanitizer.js';
 
 const EXAMPLES_DIR = join(import.meta.dirname, '..', '..', 'configs', 'examples');
 
@@ -39,7 +40,7 @@ export function buildLandingPayload({
   projectRoot,
   jobsDir,
 }) {
-  return {
+  return sanitizePublicPayload({
     api_version: LOCAL_API_VERSION,
     ok: true,
     status: 'ok',
@@ -101,7 +102,7 @@ export function buildLandingPayload({
       'Open /health for the runtime diagnostics payload; POST /jobs accepts direct tracked JSON requests including review-context, compare, readiness, docs, and pack work.',
       'If localhost resolves to another listener on your machine, use 127.0.0.1 explicitly.',
     ],
-  };
+  }, createPublicPathContext({ projectRoot, jobsDir }));
 }
 
 function resolveRequestLocale(req) {

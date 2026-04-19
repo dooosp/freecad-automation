@@ -11,6 +11,7 @@ export function registerOperationalRoutes(app, {
 }) {
   app.get('/health', (_req, res) => {
     const payload = buildHealthPayload({
+      projectRoot,
       jobsDir,
       runtimeDiagnostics: runtimeDiagnosticsFactory(),
     });

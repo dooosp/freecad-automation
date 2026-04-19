@@ -204,7 +204,8 @@ try {
   assert.match(html, /POST \/jobs/);
   assert.match(html, /review-context/i);
   assert.match(html, /release_bundle\.zip|release bundle/i);
-  assert.match(html, new RegExp(ROOT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.match(html, /&lt;project-root&gt;/);
+  assert.doesNotMatch(html, new RegExp(ROOT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
 
   const studioShellResponse = await fetch(`${baseUrl}/studio/`, {
     headers: {
@@ -255,7 +256,7 @@ try {
   const payload = await jsonResponse.json();
   assert.equal(payload.ok, true);
   assert.equal(payload.mode, 'local_api');
-  assert.equal(payload.project_root, ROOT);
+  assert.equal(payload.project_root, '<project-root>');
   assert.equal(payload.endpoints.health, '/health');
   assert.equal(payload.endpoints.job, '/jobs/:id');
   assert.equal(payload.endpoints.cancel_job, '/jobs/:id/cancel');
@@ -271,6 +272,26 @@ try {
   assert.equal(payload.studio.tracked_routes.submit, '/api/studio/jobs');
   assert.equal(payload.studio.tracked_routes.cancel, '/jobs/:id/cancel');
   assert.equal(payload.studio.tracked_routes.retry, '/jobs/:id/retry');
+  assertNoLeakedPathStrings(payload, [ROOT, jobsDir, tmpRoot]);
+
+  const healthResponse = await fetch(`${baseUrl}/health`, {
+    headers: {
+      accept: 'application/json',
+    },
+  });
+  assert.equal(healthResponse.status, 200);
+  const healthPayload = await healthResponse.json();
+  assert.equal(validateLocalApiResponse('health', healthPayload).ok, true);
+  assert.equal(healthPayload.jobs_dir, '<jobs-dir>');
+  assert.equal(typeof healthPayload.runtime.available, 'boolean');
+  assert.equal(typeof healthPayload.runtime.status, 'string');
+  assert.equal(typeof healthPayload.runtime.source, 'string');
+  assert.equal(typeof healthPayload.runtime.mode, 'string');
+  assert.equal(typeof healthPayload.runtime.description, 'string');
+  if (healthPayload.runtime.available) {
+    assert.match(healthPayload.runtime.description, /<freecad-runtime>/);
+  }
+  assertNoLeakedPathStrings(healthPayload, [ROOT, jobsDir, tmpRoot, '/Applications/FreeCAD.app']);
 
   const bootstrapPreviewResponse = await fetch(`${baseUrl}/api/studio/import-bootstrap`, {
     method: 'POST',

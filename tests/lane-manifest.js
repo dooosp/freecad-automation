@@ -46,6 +46,7 @@ export const TEST_LANES = Object.freeze([
     steps: Object.freeze([
       Object.freeze({ label: 'Job API contracts', args: Object.freeze(['tests/job-api.test.js']) }),
       Object.freeze({ label: 'Job queue controls', args: Object.freeze(['tests/job-queue-controls.test.js']) }),
+      Object.freeze({ label: 'Public path redaction', args: Object.freeze(['tests/public-path-redaction.test.js']) }),
       Object.freeze({ label: 'Local API landing page', args: Object.freeze(['tests/local-api-server.test.js']) }),
       Object.freeze({ label: 'Review-context bootstrap handoff', args: Object.freeze(['tests/review-context-bootstrap.test.js']) }),
       Object.freeze({ label: 'Studio model API', args: Object.freeze(['tests/local-api-studio-model.test.js']) }),
