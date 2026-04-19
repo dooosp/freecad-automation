@@ -234,10 +234,10 @@ export function mountDrawingWorkspace({
 
   function syncSourceSummary() {
     renderInfoRows(sourceSummaryElement, [
-      ['Source', state.data.model.sourceType || 'Not loaded'],
-      ['Name', state.data.model.sourceName || 'Untitled config'],
-      ['Reference', state.data.model.sourcePath || 'In-memory draft'],
-      ['Config', state.data.model.configText?.trim() ? 'Ready for drawing' : 'Load or create a config first'],
+      ['소스', state.data.model.sourceType || '로드되지 않음'],
+      ['이름', state.data.model.sourceName || '제목 없는 설정'],
+      ['참조', state.data.model.sourcePath || '메모리 초안'],
+      ['설정', state.data.model.configText?.trim() ? '도면 생성 준비됨' : '먼저 설정을 불러오거나 생성하세요'],
     ]);
   }
 
@@ -249,32 +249,32 @@ export function mountDrawingWorkspace({
 
     setSurface(
       sourceSurface,
-      hasConfig ? 'Config ready' : 'Config pending',
+      hasConfig ? '설정 준비됨' : '설정 대기 중',
       hasConfig
-        ? 'This workspace can generate a sheet from the shared config state.'
-        : 'Load an example or config here before generating a drawing.',
+        ? '이 작업 영역은 공유된 설정 상태에서 바로 시트를 생성할 수 있습니다.'
+        : '도면을 생성하기 전에 여기서 예제나 설정을 불러오세요.',
       hasConfig ? 'ok' : 'warn',
     );
     setSurface(
       runtimeSurface,
-      runtimeAvailable ? 'Runtime ready' : state.connectionState === 'legacy' ? 'Legacy-only path' : 'Runtime check required',
+      runtimeAvailable ? '런타임 준비됨' : state.connectionState === 'legacy' ? '레거시 전용 경로' : '런타임 확인 필요',
       runtimeAvailable
-        ? (state.data.health.runtimeSummary || 'FreeCAD-backed drawing runtime is available.')
-        : (state.data.health.fallbackMessage || 'Drawing generation needs the runtime-backed serve path.'),
+        ? (state.data.health.runtimeSummary || 'FreeCAD 기반 도면 런타임을 사용할 수 있습니다.')
+        : (state.data.health.fallbackMessage || '도면 생성에는 런타임이 연결된 serve 경로가 필요합니다.'),
       runtimeAvailable ? 'ok' : 'warn',
     );
     setSurface(
       jobSurface,
-      drawing.status === 'generating' ? 'Generating' : ready ? 'Drawing ready' : drawing.status === 'error' ? 'Drawing failed' : 'No drawing yet',
-      drawing.summary || 'Preview Drawing stays local and fast; tracked draw uses the shell monitor and recent jobs.',
+      drawing.status === 'generating' ? '생성 중' : ready ? '도면 준비됨' : drawing.status === 'error' ? '도면 생성 실패' : '아직 도면이 없습니다',
+      drawing.summary || 'Preview Drawing은 로컬에서 빠르게 동작하고, 추적 도면은 셸 모니터와 최근 작업 목록을 사용합니다.',
       tone,
     );
     setSurface(
       resultSurface,
-      ready ? 'Sheet ready' : drawing.status === 'error' ? 'Last run failed' : 'Sheet pending',
+      ready ? '시트 준비됨' : drawing.status === 'error' ? '마지막 실행 실패' : '시트 준비 대기',
       ready
         ? buildDrawingPreviewResultSummary(drawing.preview, drawing.settings)
-        : (drawing.errorMessage || 'BOM, annotations, QA, and dimension state will summarize here after the first render.'),
+        : (drawing.errorMessage || '첫 렌더링 이후 BOM, 주석, QA, 치수 상태가 여기에 요약됩니다.'),
       tone,
     );
   }
@@ -303,8 +303,8 @@ export function mountDrawingWorkspace({
       bomElement.replaceChildren();
       if (canvasCaptionElement) {
         canvasCaptionElement.textContent = drawing.status === 'error'
-          ? (drawing.errorMessage || 'The last drawing request failed before a sheet could be prepared.')
-          : 'Pan with drag, zoom with the mouse wheel, and click dimension text to keep the edit loop attached to the sheet.';
+          ? (drawing.errorMessage || '마지막 도면 요청이 시트를 준비하기 전에 실패했습니다.')
+          : '드래그로 이동하고, 마우스 휠로 확대/축소하고, 치수 텍스트를 클릭해 편집 루프를 시트에 붙여 두세요.';
       }
       return;
     }
@@ -332,7 +332,7 @@ export function mountDrawingWorkspace({
     if (!qaSummary) {
       const note = document.createElement('p');
       note.className = 'inline-note';
-      note.textContent = 'QA score and dimension posture will appear here after drawing generation.';
+      note.textContent = '도면 생성 후 QA 점수와 치수 상태가 여기에 표시됩니다.';
       qaElement.replaceChildren(note);
       return;
     }
@@ -394,9 +394,9 @@ export function mountDrawingWorkspace({
       note.className = 'inline-note';
       note.textContent = drawing.preview
         ? drawing.preview.editable_plan_available
-          ? 'No editable dimension intents were found for this sheet.'
-          : 'This sheet stays preview-only because no editable preview plan is available.'
-        : 'Generate a drawing to populate the editable dimension register.';
+          ? '이 시트에서는 편집 가능한 치수 의도를 찾지 못했습니다.'
+          : '편집 가능한 미리보기 계획이 없어 이 시트는 미리보기 전용으로 유지됩니다.'
+        : '도면을 생성하면 편집 가능한 치수 목록이 여기에 채워집니다.';
       dimensionsElement.replaceChildren(note);
       return;
     }
@@ -451,7 +451,7 @@ export function mountDrawingWorkspace({
     if (!drawing.history.length) {
       const note = document.createElement('p');
       note.className = 'inline-note';
-      note.textContent = 'Dimension changes made from the sheet or the register will be recorded here.';
+      note.textContent = '시트나 치수 목록에서 변경한 내용이 여기에 기록됩니다.';
       historyElement.replaceChildren(note);
       return;
     }
@@ -470,7 +470,7 @@ export function mountDrawingWorkspace({
   }
 
   function syncSummary() {
-    summaryElement.textContent = drawing.summary || 'Preview Drawing keeps the sheet-first loop fast, or Run Tracked Draw Job to publish the run.';
+    summaryElement.textContent = drawing.summary || 'Preview Drawing으로 빠르게 반복하거나, 추적 도면 실행으로 결과를 게시하세요.';
   }
 
   function syncTrackedStatus() {

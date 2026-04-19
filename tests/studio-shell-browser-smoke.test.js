@@ -116,6 +116,10 @@ function jobContextExpression(hook) {
   }))()`;
 }
 
+function routeLabelExpression(route) {
+  return `(() => document.querySelector('.nav-link[data-route="${route}"] .nav-label')?.textContent?.trim() || '')()`;
+}
+
 async function waitForRoute(
   cdp,
   route,
@@ -297,6 +301,56 @@ try {
     'artifacts/browser-smoke-seed.json',
     '{"ok":true,"source":"browser-smoke"}\n'
   );
+  const seededReadinessPath = await jobStore.writeJobFile(
+    seededJob.id,
+    'artifacts/browser-smoke-readiness.json',
+    `${JSON.stringify({
+      readiness_summary: {
+        score: 82,
+        status: 'hold',
+        gate_decision: 'hold_before_line_commitment',
+      },
+      summary: {
+        overall_risk_level: 'hold',
+        recommended_actions: [
+          'Inspect assembly fit before line commitment.',
+          'Review tolerance stack with QA.',
+        ],
+      },
+      decision_summary: {
+        hold_points: ['Assembly fit risk'],
+        next_actions: ['Update tolerance assumptions'],
+      },
+      product_review: {
+        summary: {
+          dfm_score: 74,
+          overall_risk_level: 'medium',
+          part_type: 'bracket',
+          top_issues: ['Wall thickness variance'],
+          recommended_actions: ['Normalize wall thickness'],
+        },
+      },
+      quality_risk: {
+        summary: {
+          overall_risk_level: 'medium',
+          top_issues: ['QA sampling needs review'],
+          traceability_focus: ['Lot tracking'],
+        },
+        critical_dimensions: [{ id: 'WIDTH' }],
+        quality_gates: [{ id: 'gate-1' }],
+      },
+      investment_review: {
+        summary: {
+          investment_pressure: 'medium',
+          top_cost_drivers: ['Fixture update'],
+        },
+        cost_breakdown: {
+          unit_cost: 18.4,
+          total_cost: 184,
+        },
+      },
+    }, null, 2)}\n`
+  );
   const seededManifest = await buildArtifactManifest({
     projectRoot: ROOT,
     interface: 'api',
@@ -309,6 +363,13 @@ try {
         type: 'report.sample',
         path: seededArtifactPath,
         label: 'Browser smoke artifact',
+        scope: 'user-facing',
+        stability: 'stable',
+      },
+      {
+        type: 'review.readiness',
+        path: seededReadinessPath,
+        label: 'Browser smoke readiness artifact',
         scope: 'user-facing',
         stability: 'stable',
       },
@@ -343,21 +404,6 @@ try {
   const initialShellShape = await cdp.evaluate(studioSnapshotExpression());
   assert.equal(initialShellShape.navCount, 5);
   assert.equal(initialShellShape.pathname, '/studio/');
-
-  const visitedRoutes = ['review', 'artifacts', 'model', 'drawing', 'start'];
-  for (const route of visitedRoutes) {
-    await cdp.evaluate(`document.querySelector('.nav-link[data-route="${route}"]')?.click()`);
-    const snapshot = await waitForRoute(cdp, route, {
-      attempts: route === 'model' || route === 'drawing' ? 50 : 30,
-      delayMs: route === 'model' || route === 'drawing' ? 200 : 120,
-    });
-
-    if (route === 'start') {
-      assert.equal(snapshot.summary, initial.summary);
-    } else {
-      assert.equal(snapshot.hash, `#${route}`);
-    }
-  }
 
   await cdp.evaluate(`document.getElementById('jobs-toggle')?.click()`);
   let drawerSnapshot = await waitFor(async () => {
@@ -454,6 +500,14 @@ try {
   assert.equal(initialLocale.selectedLocale, initialLocale.lang);
   assert.equal(initialLocale.activeRoute, 'start');
   const alternateLocale = initialLocale.lang === 'ko' ? 'en' : 'ko';
+  const forcedLocale = 'ko';
+  const forcedLocaleLabels = {
+    start: '콘솔',
+    review: '검토',
+    artifacts: '패키지',
+    model: '모델',
+    drawing: '도면',
+  };
 
   await cdp.evaluate(`(() => {
     const localeSelect = document.getElementById('studio-locale-select');
@@ -493,6 +547,49 @@ try {
   assert.equal(localeSnapshot.startLabel, initialLocale.startLabel);
   assert.equal(localeSnapshot.summary, initialLocale.summary);
 
+  await cdp.evaluate(`(() => {
+    const localeSelect = document.getElementById('studio-locale-select');
+    if (!localeSelect) return false;
+    localeSelect.value = '${forcedLocale}';
+    localeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`);
+  localeSnapshot = await waitFor(async () => {
+    const nextSnapshot = await cdp.evaluate(localeSnapshotExpression());
+    assert.equal(nextSnapshot.lang, forcedLocale);
+    assert.equal(nextSnapshot.selectedLocale, forcedLocale);
+    assert.equal(nextSnapshot.activeRoute, 'start');
+    assert.equal(nextSnapshot.cookie.includes(`ui_locale=${forcedLocale}`), true);
+    assert.equal(nextSnapshot.storedLocale, forcedLocale);
+    return nextSnapshot;
+  });
+  assert.equal(localeSnapshot.startLabel, forcedLocaleLabels.start);
+  assert.match(localeSnapshot.summary, /[가-힣]/);
+
+  const forcedLocaleRoutes = ['review', 'artifacts', 'model', 'drawing', 'start'];
+  for (const route of forcedLocaleRoutes) {
+    await cdp.evaluate(`document.querySelector('.nav-link[data-route="${route}"]')?.click()`);
+    const snapshot = await waitForRoute(cdp, route, {
+      attempts: route === 'model' || route === 'drawing' ? 50 : 30,
+      delayMs: route === 'model' || route === 'drawing' ? 200 : 120,
+    });
+    const nextLocaleSnapshot = await waitFor(async () => {
+      const nextSnapshot = await cdp.evaluate(localeSnapshotExpression());
+      assert.equal(nextSnapshot.lang, forcedLocale);
+      assert.equal(nextSnapshot.selectedLocale, forcedLocale);
+      assert.equal(nextSnapshot.cookie.includes(`ui_locale=${forcedLocale}`), true);
+      assert.equal(nextSnapshot.storedLocale, forcedLocale);
+      assert.equal(nextSnapshot.activeRoute, route);
+      return nextSnapshot;
+    }, {
+      attempts: 40,
+      delayMs: 150,
+    });
+    assert.equal(await cdp.evaluate(routeLabelExpression(route)), forcedLocaleLabels[route]);
+    assert.match(snapshot.summary, /[가-힣]/);
+    assert.match(nextLocaleSnapshot.summary, /[가-힣]/);
+  }
+
   await cdp.send('Page.navigate', { url: `${baseUrl}/studio/#review` });
   let deepLinkSnapshot = await waitForRoute(cdp, 'review', {
     attempts: 50,
@@ -502,15 +599,18 @@ try {
 
   let reloadedLocaleSnapshot = await waitFor(async () => {
     const nextSnapshot = await cdp.evaluate(localeSnapshotExpression());
-    assert.equal(nextSnapshot.lang, initialLocale.lang);
-    assert.equal(nextSnapshot.selectedLocale, initialLocale.lang);
+    assert.equal(nextSnapshot.lang, forcedLocale);
+    assert.equal(nextSnapshot.selectedLocale, forcedLocale);
     assert.equal(nextSnapshot.activeRoute, 'review');
+    assert.equal(nextSnapshot.cookie.includes(`ui_locale=${forcedLocale}`), true);
+    assert.equal(nextSnapshot.storedLocale, forcedLocale);
     return nextSnapshot;
   }, {
     attempts: 40,
     delayMs: 150,
   });
-  assert.match(reloadedLocaleSnapshot.startLabel, /Console|콘솔/);
+  assert.equal(reloadedLocaleSnapshot.startLabel, forcedLocaleLabels.start);
+  assert.match(reloadedLocaleSnapshot.summary, /[가-힣]/);
 
   await cdp.send('Page.navigate', { url: `${baseUrl}/studio/#review?job=${seededJob.id}` });
   deepLinkSnapshot = await waitForRoute(cdp, 'review', {
@@ -527,6 +627,51 @@ try {
     delayMs: 150,
   });
   assert.equal(jobContext.text.includes('No tracked job selected'), false);
+  const reviewCards = await waitFor(async () => {
+    const nextCards = await cdp.evaluate(jobContextExpression('review-cards'));
+    assert.equal(nextCards.text.length > 0, true);
+    return nextCards;
+  }, {
+    attempts: 50,
+    delayMs: 150,
+  });
+  assert.equal(reviewCards.text.includes('medium'), false);
+  assert.equal(reviewCards.text.includes('hold'), false);
+  assert.equal(reviewCards.text.includes('보통'), true);
+  assert.equal(reviewCards.text.includes('보류'), true);
+  let reviewSummary = await waitFor(async () => {
+    const nextSummary = await cdp.evaluate(jobContextExpression('review-detail-summary'));
+    assert.equal(nextSummary.text.length > 0, true);
+    return nextSummary;
+  }, {
+    attempts: 50,
+    delayMs: 150,
+  });
+  assert.equal(reviewSummary.text.includes('Part type'), false);
+  assert.equal(reviewSummary.text.includes('Overall risk'), false);
+  assert.equal(reviewSummary.text.includes('부품 유형'), true);
+  assert.equal(reviewSummary.text.includes('전체 위험도'), true);
+  await cdp.evaluate(`document.querySelector('[data-action="review-select-card"][data-card-id="readiness"]')?.click()`);
+  reviewSummary = await waitFor(async () => {
+    const nextSummary = await cdp.evaluate(jobContextExpression('review-detail-summary'));
+    assert.equal(nextSummary.text.includes('라인 커밋 전 보류'), true);
+    return nextSummary;
+  }, {
+    attempts: 50,
+    delayMs: 150,
+  });
+  assert.equal(reviewSummary.text.includes('hold_before_line_commitment'), false);
+  assert.equal(reviewSummary.text.includes('보류'), true);
+  const reviewActions = await waitFor(async () => {
+    const nextActions = await cdp.evaluate(jobContextExpression('review-detail-actions'));
+    assert.equal(nextActions.text.length > 0, true);
+    assert.equal(nextActions.text.includes('Download'), false);
+    return nextActions;
+  }, {
+    attempts: 50,
+    delayMs: 150,
+  });
+  assert.equal(/원본 산출물 열기|패키지 열기|모델에서 다시 열기/.test(reviewActions.text), true);
 
   await cdp.send('Page.navigate', { url: `${baseUrl}/studio/#artifacts` });
   deepLinkSnapshot = await waitForRoute(cdp, 'artifacts', {
@@ -550,6 +695,16 @@ try {
     delayMs: 150,
   });
   assert.equal(jobContext.text.includes('No active job'), false);
+  const artifactActions = await waitFor(async () => {
+    const nextActions = await cdp.evaluate(jobContextExpression('artifacts-detail-actions'));
+    assert.equal(nextActions.text.includes('다운로드'), true);
+    assert.equal(nextActions.text.includes('Download'), false);
+    return nextActions;
+  }, {
+    attempts: 50,
+    delayMs: 150,
+  });
+  assert.equal(artifactActions.text.includes('검토 열기'), true);
 
   const blockingLogs = cdp.logs.filter((entry) => (
     entry.source === 'network'
@@ -557,6 +712,16 @@ try {
       && /\/js\/(?:studio-shell\.js|studio\/workspaces\.js|i18n\/index\.js)/.test(`${entry.url || ''} ${entry.text || ''}`)
   ));
   assert.deepEqual(blockingLogs, [], blockingLogs.map(summarizeLog).join('\n'));
+
+  const consoleDiagnostics = cdp.logs.filter((entry) => (
+    ['warning', 'error'].includes(entry.level)
+      && entry.source !== 'network'
+      && (
+        String(entry.url || '').includes(baseUrl)
+        || /\/js\/(?:studio|i18n)\//.test(`${entry.url || ''} ${entry.text || ''}`)
+      )
+  ));
+  assert.deepEqual(consoleDiagnostics, [], consoleDiagnostics.map(summarizeLog).join('\n'));
 
   const localExceptions = cdp.exceptions.filter((details) => (
     String(details.url || '').includes(baseUrl)

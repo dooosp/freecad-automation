@@ -157,6 +157,7 @@ assert.equal(
   translateText('Latest tracked job create queued.', 'ko'),
   '최신 추적 작업: 생성 대기 중.'
 );
+assert.equal(translateText('Tracked idle', 'ko'), '추적 대기');
 assert.equal(translateText('1 running', 'ko'), '실행 중 1개');
 assert.equal(translateText('1 queued', 'ko'), '대기 중 1개');
 assert.equal(translateText('Last poll Mar 29, 10:10:10.', 'ko'), '마지막 확인 Mar 29, 10:10:10.');
@@ -164,5 +165,61 @@ assert.equal(translateText('Missing • Unknown size', 'ko'), '누락됨 • 크
 assert.equal(translateText('unknown • stable', 'ko'), '알 수 없음 • 안정적');
 assert.equal(translateText('Not available', 'ko'), '사용할 수 없음');
 assert.equal(translateText('Size unavailable', 'ko'), '크기를 사용할 수 없음');
+assert.equal(translateText('Validating', 'ko'), '검증 중');
+assert.equal(translateText('Building', 'ko'), '빌드 중');
+assert.equal(translateText('Needs attention', 'ko'), '확인 필요');
+assert.equal(
+  translateText('Build logs will appear here once validation or preview work runs.', 'ko'),
+  '검증 또는 미리보기 작업이 실행되면 빌드 로그가 여기에 표시됩니다.'
+);
+assert.equal(
+  translateText('Use the assistant to draft TOML from a prompt without making prompting the center of the workspace.', 'ko'),
+  '프롬프트를 작업 영역의 중심으로 만들지 않고도 도우미로 TOML 초안을 만들 수 있습니다.'
+);
+assert.equal(translateText('QA score', 'ko'), 'QA 점수');
+assert.equal(translateText('Weight profile', 'ko'), '가중치 프로필');
+assert.equal(translateText('Planned dimensions', 'ko'), '계획된 치수');
+assert.equal(translateText('Rendered dimensions', 'ko'), '렌더링된 치수');
+assert.equal(translateText('Conflicts', 'ko'), '충돌');
+assert.equal(translateText('Unnamed dimension', 'ko'), '이름 없는 치수');
+assert.equal(translateText('No feature tag', 'ko'), '피처 태그 없음');
+assert.equal(translateText('required', 'ko'), '필수');
+assert.equal(
+  translateText('Dimension history will appear here after the first change.', 'ko'),
+  '첫 변경 이후 치수 이력이 여기에 표시됩니다.'
+);
+assert.equal(translateText('Baseline', 'ko'), '기준선');
+assert.equal(translateText('Added artifact types', 'ko'), '추가된 산출물 유형');
+assert.equal(translateText('Missing vs baseline', 'ko'), '기준선 대비 누락');
+assert.equal(translateText('Baseline updated', 'ko'), '기준선 업데이트 시각');
+assert.equal(translateText('No active artifact set', 'ko'), '활성 산출물 세트 없음');
+assert.equal(translateText('This job exposes no artifacts', 'ko'), '이 작업은 산출물을 제공하지 않습니다');
+assert.equal(
+  translateText('The job record exists, but the artifact list is empty. The manifest may still explain why.', 'ko'),
+  '작업 기록은 존재하지만 산출물 목록이 비어 있습니다. 이유는 매니페스트에 남아 있을 수 있습니다.'
+);
+assert.equal(translateText('low', 'ko'), '낮음');
+assert.equal(translateText('medium', 'ko'), '보통');
+assert.equal(translateText('high', 'ko'), '높음');
+assert.equal(translateText('hold', 'ko'), '보류');
+assert.equal(translateText('pass', 'ko'), '통과');
+assert.equal(translateText('warning', 'ko'), '경고');
+assert.equal(translateText('fail', 'ko'), '실패');
+assert.equal(translateText('hold_before_line_commitment', 'ko'), '라인 커밋 전 보류');
+assert.equal(translateText('Part type', 'ko'), '부품 유형');
+assert.equal(translateText('Overall risk', 'ko'), '전체 위험도');
+assert.equal(translateText('Risk', 'ko'), '위험도');
+assert.equal(translateText('Severity', 'ko'), '심각도');
+assert.equal(translateText('Status', 'ko'), '상태');
+assert.equal(translateText('Recommendation', 'ko'), '권장 조치');
+assert.equal(translateText('Finding', 'ko'), '검토 항목');
+assert.equal(translateText('Findings', 'ko'), '검토 항목');
+assert.equal(translateText('Evidence', 'ko'), '근거');
+assert.equal(translateText('Summary', 'ko'), '요약');
+assert.equal(translateText('Source', 'ko'), '소스');
+assert.equal(translateText('Category', 'ko'), '분류');
+assert.equal(translateText('Item', 'ko'), '항목');
+assert.equal(translateText('Value', 'ko'), '값');
+assert.equal(translateText('Unknown', 'ko'), '알 수 없음');
 
 console.log('browser-i18n.test.js: ok');

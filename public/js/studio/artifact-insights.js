@@ -218,6 +218,22 @@ function formatValue(value) {
   return String(value);
 }
 
+// Keep payload-derived display tokens centralized so the browser i18n layer can
+// translate only rendered labels and enum values without mutating raw payloads.
+function formatReviewDisplayValue(value, fallback = 'Unknown') {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === 'string') return value.trim() || fallback;
+  const formatted = formatValue(value);
+  return formatted === 'Unavailable' ? fallback : formatted;
+}
+
+function buildReviewDisplayField(label, value, fallback = 'Unknown') {
+  return [
+    formatReviewDisplayValue(label, 'Unknown'),
+    formatReviewDisplayValue(value, fallback),
+  ];
+}
+
 function normalizeLineage(document = {}) {
   const part = safeObject(document.part);
   return {
@@ -678,13 +694,13 @@ export function buildReviewCards({ activeJob, artifacts = [], sourceMap = {} }) 
           title: 'DFM risk',
           tone: scoreTone(productReview.summary?.dfm_score, { good: 82, warn: 68 }),
           score: productReview.summary?.dfm_score ?? null,
-          status: productReview.summary?.overall_risk_level || 'Heuristic review available',
+          status: formatReviewDisplayValue(productReview.summary?.overall_risk_level, 'Heuristic review available'),
           summary: summarizeList(productReview.summary?.top_issues || productReview.summary?.primary_risks),
           artifact: productReviewArtifact,
           normalized: [
-            ['Part type', productReview.summary?.part_type || 'Unknown'],
-            ['Overall risk', productReview.summary?.overall_risk_level || 'Unknown'],
-            ['Recommended action', (productReview.summary?.recommended_actions || [])[0] || 'No explicit action listed'],
+            buildReviewDisplayField('Part type', productReview.summary?.part_type, 'Unknown'),
+            buildReviewDisplayField('Overall risk', productReview.summary?.overall_risk_level, 'Unknown'),
+            buildReviewDisplayField('Recommended action', (productReview.summary?.recommended_actions || [])[0], 'No explicit action listed'),
           ],
           raw: sourceMap.productReviewRaw || sourceMap.readinessRaw,
           provenance: manifestNotes(manifest, productReviewArtifact),
@@ -704,13 +720,13 @@ export function buildReviewCards({ activeJob, artifacts = [], sourceMap = {} }) 
           title: 'Quality risk',
           tone: levelTone(qualityRisk.summary?.overall_risk_level),
           score: Array.isArray(qualityRisk.critical_dimensions) ? qualityRisk.critical_dimensions.length : null,
-          status: qualityRisk.summary?.overall_risk_level || 'Quality review available',
+          status: formatReviewDisplayValue(qualityRisk.summary?.overall_risk_level, 'Quality review available'),
           summary: summarizeList(qualityRisk.summary?.top_issues),
           artifact: qualityArtifact,
           normalized: [
-            ['Critical dimensions', String((qualityRisk.critical_dimensions || []).length)],
-            ['Quality gates', String((qualityRisk.quality_gates || []).length)],
-            ['Traceability focus', summarizeList(qualityRisk.summary?.traceability_focus, 'Not provided')],
+            buildReviewDisplayField('Critical dimensions', String((qualityRisk.critical_dimensions || []).length)),
+            buildReviewDisplayField('Quality gates', String((qualityRisk.quality_gates || []).length)),
+            buildReviewDisplayField('Traceability focus', summarizeList(qualityRisk.summary?.traceability_focus, 'Not provided')),
           ],
           raw: sourceMap.qualityRiskRaw || sourceMap.readinessRaw,
           provenance: manifestNotes(manifest, qualityArtifact),
@@ -730,13 +746,13 @@ export function buildReviewCards({ activeJob, artifacts = [], sourceMap = {} }) 
           title: 'Investment / cost review',
           tone: levelTone(investmentReview.summary?.investment_pressure),
           score: investmentReview.cost_breakdown?.unit_cost ?? null,
-          status: investmentReview.summary?.investment_pressure || 'Cost screen available',
+          status: formatReviewDisplayValue(investmentReview.summary?.investment_pressure, 'Cost screen available'),
           summary: summarizeList(investmentReview.summary?.top_cost_drivers),
           artifact: investmentArtifact,
           normalized: [
-            ['Unit cost', investmentReview.cost_breakdown?.unit_cost ?? 'n/a'],
-            ['Total cost', investmentReview.cost_breakdown?.total_cost ?? 'n/a'],
-            ['Pressure', investmentReview.summary?.investment_pressure || 'Unknown'],
+            buildReviewDisplayField('Unit cost', investmentReview.cost_breakdown?.unit_cost, 'n/a'),
+            buildReviewDisplayField('Total cost', investmentReview.cost_breakdown?.total_cost, 'n/a'),
+            buildReviewDisplayField('Pressure', investmentReview.summary?.investment_pressure, 'Unknown'),
           ],
           raw: sourceMap.investmentReviewRaw || sourceMap.readinessRaw,
           provenance: manifestNotes(manifest, investmentArtifact),
@@ -756,13 +772,16 @@ export function buildReviewCards({ activeJob, artifacts = [], sourceMap = {} }) 
           title: 'Readiness summary',
           tone: scoreTone(readiness.readiness_summary?.score, { good: 78, warn: 65 }),
           score: readiness.readiness_summary?.score ?? null,
-          status: readiness.readiness_summary?.status || readiness.readiness_summary?.gate_decision || 'Readiness available',
+          status: formatReviewDisplayValue(
+            readiness.readiness_summary?.status || readiness.readiness_summary?.gate_decision,
+            'Readiness available'
+          ),
           summary: summarizeList(readiness.summary?.recommended_actions || readiness.decision_summary?.next_actions),
           artifact: readinessArtifact,
           normalized: [
-            ['Gate', readiness.readiness_summary?.gate_decision || 'Unknown'],
-            ['Risk level', readiness.summary?.overall_risk_level || 'Unknown'],
-            ['Hold points', String((readiness.decision_summary?.hold_points || []).length)],
+            buildReviewDisplayField('Gate', readiness.readiness_summary?.gate_decision, 'Unknown'),
+            buildReviewDisplayField('Risk level', readiness.summary?.overall_risk_level, 'Unknown'),
+            buildReviewDisplayField('Hold points', String((readiness.decision_summary?.hold_points || []).length)),
           ],
           raw: sourceMap.readinessRaw || sourceMap.readinessMarkdownRaw,
           provenance: manifestNotes(manifest, readinessArtifact),
@@ -786,9 +805,9 @@ export function buildReviewCards({ activeJob, artifacts = [], sourceMap = {} }) 
           summary: summarizeList((standardDocs.documents || []).map((doc) => doc.filename)),
           artifact: standardDocsArtifact,
           normalized: [
-            ['Generated at', standardDocs.generated_at || 'Unknown'],
-            ['Draft notice', standardDocs.draft_notice || 'Not provided'],
-            ['Docs', String((standardDocs.documents || []).length)],
+            buildReviewDisplayField('Generated at', standardDocs.generated_at, 'Unknown'),
+            buildReviewDisplayField('Draft notice', standardDocs.draft_notice, 'Not provided'),
+            buildReviewDisplayField('Docs', String((standardDocs.documents || []).length)),
           ],
           raw: sourceMap.standardDocsRaw,
           provenance: manifestNotes(manifest, standardDocsArtifact),
@@ -814,14 +833,14 @@ export function buildReviewCards({ activeJob, artifacts = [], sourceMap = {} }) 
           artifact: reviewPackArtifact,
           normalized: reviewPack
             ? [
-                ['Summary', reviewPack.summary?.overall_risk_level || 'Available'],
-                ['Open items', String((reviewPack.issues || []).length)],
-                ['Recommendation', (reviewPack.summary?.recommended_actions || [])[0] || 'No explicit recommendation listed'],
+                buildReviewDisplayField('Summary', reviewPack.summary?.overall_risk_level, 'Available'),
+                buildReviewDisplayField('Open items', String((reviewPack.issues || []).length)),
+                buildReviewDisplayField('Recommendation', (reviewPack.summary?.recommended_actions || [])[0], 'No explicit recommendation listed'),
               ]
             : [
-                ['Artifact', reviewPackArtifact.file_name || reviewPackArtifact.key],
-                ['Type', reviewPackArtifact.type || 'review output'],
-                ['Status', reviewPackArtifact.exists ? 'Available' : 'Missing'],
+                buildReviewDisplayField('Artifact', reviewPackArtifact.file_name || reviewPackArtifact.key),
+                buildReviewDisplayField('Type', reviewPackArtifact.type, 'review output'),
+                buildReviewDisplayField('Status', reviewPackArtifact.exists ? 'Available' : 'Missing'),
               ],
           raw: sourceMap.reviewPackRaw || null,
           provenance: manifestNotes(manifest, reviewPackArtifact),

@@ -25,6 +25,7 @@ function ensureReviewState(review = {}) {
   review.jobId = review.jobId || '';
   review.cards = Array.isArray(review.cards) ? review.cards : [];
   review.selectedCardId = review.selectedCardId || '';
+  review.activeTab = review.activeTab || 'summary';
   review.errorMessage = review.errorMessage || '';
   review.cache = review.cache && typeof review.cache === 'object' ? review.cache : {};
   return review;
@@ -48,37 +49,66 @@ function renderRecentJobs(recentJobs = []) {
   if (recentJobs.length === 0) {
     return createEmptyState({
       icon: '+',
-      title: 'No tracked jobs yet',
-      copy: 'Run work through `fcad serve` and tracked jobs will show up here for review routing.',
+      title: '아직 추적 작업이 없습니다',
+      copy: '`fcad serve`로 작업을 실행하면 검토 경로에 사용할 추적 작업이 여기에 표시됩니다.',
     });
   }
 
   return el('div', {
-    className: 'job-list job-list-compact',
+    className: 'review-job-table',
     children: recentJobs.slice(0, 5).map((job, index) =>
       el('article', {
-        className: 'job-item',
+        className: 'review-job-row',
         children: [
           el('div', {
+            className: 'review-job-source',
             children: [
-              el('div', {
-                className: 'job-title-row',
-                children: [
-                  el('p', { className: 'job-title', text: `${job.type} ${shortJobId(job.id)}` }),
-                  el('span', { className: 'pill', text: index === 0 ? 'Latest' : 'Recent' }),
-                ],
-              }),
-              el('p', {
-                className: 'job-copy',
-                text: `${formatJobStatus(job.status)} • ${formatDateTime(job.updated_at)}`,
-              }),
+              el('p', { className: 'job-title', text: `${job.type} ${shortJobId(job.id)}` }),
+              el('p', { className: 'job-copy', text: index === 0 ? '최신 추적 소스' : '추적 소스' }),
             ],
           }),
+          el('p', { className: 'review-job-time', text: formatDateTime(job.updated_at) }),
+          el('span', { className: 'pill', text: formatJobStatus(job.status) }),
           createButton({
-            label: 'Open',
+            label: '열기',
             action: 'review-open-job',
             tone: 'ghost',
             dataset: { jobId: job.id },
+          }),
+        ],
+      })
+    ),
+  });
+}
+
+function renderReviewActivity(recentJobs = []) {
+  if (recentJobs.length === 0) {
+    return createEmptyState({
+      icon: '~',
+      title: '최근 소스 변경이 없습니다',
+      copy: '추적 작업을 열면 이 피드가 최신 검토 준비 활동을 요약합니다.',
+    });
+  }
+
+  return el('div', {
+    className: 'activity-feed',
+    children: recentJobs.slice(0, 4).map((job, index) =>
+      el('article', {
+        className: 'activity-item',
+        children: [
+          el('div', { className: 'activity-dot' }),
+          el('div', {
+            className: 'activity-copy',
+            children: [
+              el('p', {
+                className: 'activity-title',
+                text: `${index === 0 ? '최신' : '최근'} ${job.type} ${shortJobId(job.id)}`,
+              }),
+              el('p', {
+                className: 'activity-meta',
+                text: `${formatJobStatus(job.status)} • ${formatDateTime(job.updated_at)}`,
+              }),
+            ],
           }),
         ],
       })
@@ -105,7 +135,7 @@ function renderReviewCard(card, selected = false) {
           }),
           el('span', {
             className: `pill pill-status-${card.tone || 'info'}`,
-            text: card.score !== null && card.score !== undefined ? `${card.score}` : 'status',
+            text: card.score !== null && card.score !== undefined ? `${card.score}` : '상태',
           }),
         ],
       }),
@@ -114,7 +144,7 @@ function renderReviewCard(card, selected = false) {
         className: 'review-card-actions',
         children: [
           createButton({
-            label: card.empty ? 'Show gap' : 'Open detail',
+            label: card.empty ? '빈 영역 보기' : '세부 보기',
             action: 'review-select-card',
             tone: cardButtonTone(card),
             dataset: { cardId: card.id },
@@ -129,7 +159,7 @@ function renderDetailSummary(card) {
   if (card.empty) {
     return createEmptyState({
       icon: '!',
-      title: `${card.title} is missing`,
+      title: `${card.title} 항목이 비어 있습니다`,
       copy: card.summary,
     });
   }
@@ -148,69 +178,98 @@ export function renderReviewWorkspace(state) {
   const recentJobs = state.data.recentJobs.items || [];
 
   return el('section', {
-    className: 'workspace-shell',
+    className: 'workspace-shell review-dashboard',
     children: [
       createSectionHeader({
-        kicker: 'Review workspace',
+        kicker: '검토 작업 영역',
         title: activeJob?.summary
-          ? `Decision console for ${activeJob.summary.type} ${shortJobId(activeJob.summary.id)}`
-          : 'Decision console for review, readiness, and launch signals',
-        description: 'Review is status-first: load a tracked job, scan normalized manufacturing signals, then open the raw evidence only when you need it.',
+          ? `${activeJob.summary.type} ${shortJobId(activeJob.summary.id)} 검토 대시보드`
+          : '신호, 준비 상태, 제조 게이트를 위한 검토 대시보드',
+        description: '추적 소스를 선택하고 품질 보드를 훑은 뒤, 더 깊게 읽어야 하는 근거 영역만 세부 검토하세요.',
         badges: [
-          { label: activeJob?.summary ? 'Tracked job selected' : 'No job selected', tone: activeJob?.summary ? 'ok' : 'warn' },
-          { label: `${recentJobs.length || 0} recent jobs`, tone: recentJobs.length ? 'info' : 'warn' },
-          { label: 'Raw evidence available when present', tone: 'info' },
+          { label: activeJob?.summary ? '추적 소스 선택됨' : '추적 소스 없음', tone: activeJob?.summary ? 'ok' : 'warn' },
+          { label: `최근 소스 ${recentJobs.length || 0}개`, tone: recentJobs.length ? 'info' : 'warn' },
+          { label: 'DFM · 품질 · 준비 상태 · 표준 문서', tone: 'info' },
         ],
       }),
       el('div', {
-        className: 'review-layout',
+        className: 'review-dashboard-grid',
         children: [
           el('div', {
-            className: 'pane-stack',
+            className: 'review-column review-column-left',
             children: [
               createCard({
-                kicker: 'Active review source',
-                title: activeJobTitle(activeJob),
+                kicker: '소스 선택',
+                title: '추적 작업 선택',
                 copy: activeJob?.summary
-                  ? 'The Review workspace reads from the selected tracked job and its artifact manifest.'
-                  : 'Open a tracked job to populate DFM, quality, readiness, and document-status cards.',
+                  ? '검토 보드는 선택한 추적 작업과 그 매니페스트 기반 산출물 세트를 기준으로 읽습니다.'
+                  : 'DFM, 품질, 준비 상태, 표준 문서 카드를 채우려면 추적 작업을 여세요.',
                 body: [
                   el('div', { dataset: { hook: 'review-job-summary' } }),
+                  el('div', { dataset: { hook: 'review-recent-jobs' } }),
                 ],
               }),
               createCard({
-                kicker: 'Recent jobs',
-                title: 'Switch review source',
-                copy: 'Use recent tracked jobs as the source of truth instead of pulling directly from filesystem paths.',
+                kicker: '최근 소스 변경',
+                title: '활동 피드',
+                copy: '대시보드를 벗어나지 않고 최신 추적 검토 활동을 계속 확인하세요.',
                 body: [
-                  el('div', { dataset: { hook: 'review-recent-jobs' } }),
+                  el('div', { dataset: { hook: 'review-activity' } }),
                 ],
               }),
             ],
           }),
           el('div', {
-            className: 'pane-stack',
+            className: 'review-column review-column-center',
             children: [
               createCard({
-                kicker: 'Review board',
-                title: 'Normalized manufacturing and readiness signals',
-                copy: 'Cards stay color-led and compact so the workspace answers go, hold, and what changed first.',
+                kicker: '검토 보드',
+                title: '검토 신호 보드',
+                copy: '카드는 작고 상태 중심으로 유지되어 무엇이 바뀌었는지, 무엇이 준비되었는지, 다음에 어디를 검토해야 하는지 먼저 보여줍니다.',
                 surface: 'canvas',
                 body: [
                   el('div', { dataset: { hook: 'review-status' } }),
                   el('div', { className: 'review-card-grid', dataset: { hook: 'review-cards' } }),
                 ],
               }),
+            ],
+          }),
+          el('div', {
+            className: 'review-column review-column-right',
+            children: [
               createCard({
-                kicker: 'Detail panel',
-                title: 'Normalized summary, raw output, and provenance',
-                copy: 'Select a review card to inspect the structured summary, attached raw JSON or Markdown, and manifest notes.',
+                kicker: '세부 인스펙터',
+                title: '정규화 요약, 원본 출력, 생성 이력',
+                copy: '선택한 신호는 먼저 구조화된 요약으로 보고, 필요할 때만 원본 출력이나 생성 이력으로 전환하세요.',
                 surface: 'canvas',
                 body: [
-                  el('div', { dataset: { hook: 'review-detail-summary' } }),
+                  el('div', {
+                    className: 'inspector-tabs',
+                    children: [
+                      createButton({
+                        label: '요약',
+                        action: 'review-set-tab',
+                        tone: 'ghost',
+                        dataset: { tab: 'summary', hook: 'review-tab-summary' },
+                      }),
+                      createButton({
+                        label: '원본 출력',
+                        action: 'review-set-tab',
+                        tone: 'ghost',
+                        dataset: { tab: 'raw', hook: 'review-tab-raw' },
+                      }),
+                      createButton({
+                        label: '생성 이력',
+                        action: 'review-set-tab',
+                        tone: 'ghost',
+                        dataset: { tab: 'provenance', hook: 'review-tab-provenance' },
+                      }),
+                    ],
+                  }),
                   el('div', { className: 'review-detail-actions', dataset: { hook: 'review-detail-actions' } }),
-                  el('pre', { className: 'artifact-raw-preview', dataset: { hook: 'review-detail-raw' } }),
-                  el('div', { className: 'review-provenance-list', dataset: { hook: 'review-detail-provenance' } }),
+                  el('section', { className: 'inspector-panel', dataset: { panel: 'summary' }, children: [el('div', { dataset: { hook: 'review-detail-summary' } })] }),
+                  el('section', { className: 'inspector-panel', dataset: { panel: 'raw' }, children: [el('pre', { className: 'artifact-raw-preview', dataset: { hook: 'review-detail-raw' } })] }),
+                  el('section', { className: 'inspector-panel', dataset: { panel: 'provenance' }, children: [el('div', { className: 'review-provenance-list', dataset: { hook: 'review-detail-provenance' } })] }),
                 ],
               }),
             ],
@@ -227,10 +286,13 @@ export function mountReviewWorkspace({ root, state, addLog, openJob }) {
   const recentJobsElement = root.querySelector('[data-hook="review-recent-jobs"]');
   const statusElement = root.querySelector('[data-hook="review-status"]');
   const cardsElement = root.querySelector('[data-hook="review-cards"]');
+  const activityElement = root.querySelector('[data-hook="review-activity"]');
   const detailSummaryElement = root.querySelector('[data-hook="review-detail-summary"]');
   const detailActionsElement = root.querySelector('[data-hook="review-detail-actions"]');
   const detailRawElement = root.querySelector('[data-hook="review-detail-raw"]');
   const detailProvenanceElement = root.querySelector('[data-hook="review-detail-provenance"]');
+  const detailPanels = [...root.querySelectorAll('[data-panel]')];
+  const tabButtons = [...root.querySelectorAll('[data-action="review-set-tab"]')];
   let destroyed = false;
 
   function getSelectedCard() {
@@ -240,11 +302,11 @@ export function mountReviewWorkspace({ root, state, addLog, openJob }) {
   function syncJobSummary() {
     const activeJob = state.data.activeJob;
     if (!activeJob?.summary) {
-          jobSummaryElement.replaceChildren(
+      jobSummaryElement.replaceChildren(
         createEmptyState({
           icon: 'R',
-          title: 'No tracked job selected',
-          copy: 'Console or Packs can open a tracked job first. Review then uses that job manifest and artifact list.',
+          title: '추적 작업이 선택되지 않았습니다',
+          copy: '먼저 콘솔이나 패키지에서 추적 작업을 여세요. 그러면 검토 작업 영역이 해당 작업의 매니페스트와 산출물 목록을 사용합니다.',
         })
       );
       return;
@@ -252,12 +314,12 @@ export function mountReviewWorkspace({ root, state, addLog, openJob }) {
 
     jobSummaryElement.replaceChildren(
       createInfoGrid([
-        { label: 'Job', value: `${activeJob.summary.type} ${shortJobId(activeJob.summary.id)}` },
-        { label: 'Status', value: formatJobStatus(activeJob.summary.status) },
-        { label: 'Updated', value: formatDateTime(activeJob.summary.updated_at) },
-        { label: 'Manifest command', value: activeJob.manifest?.command || 'Unknown' },
-        { label: 'Warnings', value: String((activeJob.manifest?.warnings || []).length) },
-        { label: 'Artifacts', value: String((activeJob.artifacts || []).length) },
+        { label: '작업', value: `${activeJob.summary.type} ${shortJobId(activeJob.summary.id)}` },
+        { label: '상태', value: formatJobStatus(activeJob.summary.status) },
+        { label: '업데이트', value: formatDateTime(activeJob.summary.updated_at) },
+        { label: '매니페스트 명령', value: activeJob.manifest?.command || '알 수 없음' },
+        { label: '경고', value: String((activeJob.manifest?.warnings || []).length) },
+        { label: '산출물', value: String((activeJob.artifacts || []).length) },
       ])
     );
   }
@@ -267,8 +329,8 @@ export function mountReviewWorkspace({ root, state, addLog, openJob }) {
       statusElement.replaceChildren(
         createEmptyState({
           icon: '...',
-          title: 'Loading review signals',
-          copy: 'The studio is normalizing available readiness and review artifacts for the selected job.',
+          title: '검토 신호를 불러오는 중입니다',
+          copy: '선택한 작업의 준비 상태 및 검토 산출물을 스튜디오 형식으로 정리하고 있습니다.',
         })
       );
       return;
@@ -278,8 +340,8 @@ export function mountReviewWorkspace({ root, state, addLog, openJob }) {
       statusElement.replaceChildren(
         createEmptyState({
           icon: '!',
-          title: 'Review signals could not be prepared',
-          copy: review.errorMessage || 'The selected job exists, but its review artifacts could not be parsed in the studio.',
+          title: '검토 신호를 준비하지 못했습니다',
+          copy: review.errorMessage || '선택한 작업은 존재하지만, 검토 산출물을 스튜디오에서 해석하지 못했습니다.',
         })
       );
       return;
@@ -290,8 +352,8 @@ export function mountReviewWorkspace({ root, state, addLog, openJob }) {
       statusElement.replaceChildren(
         createEmptyState({
           icon: '[]',
-          title: 'Review needs a tracked job',
-          copy: 'Open a recent job to populate DFM, quality, readiness, and standard-doc cards.',
+          title: '검토에는 추적 작업이 필요합니다',
+          copy: '최근 작업을 열어 DFM, 품질, 준비 상태, 표준 문서 카드를 채우세요.',
         })
       );
       return;
@@ -300,9 +362,9 @@ export function mountReviewWorkspace({ root, state, addLog, openJob }) {
     const coverage = reviewCoverage(review.cards);
     statusElement.replaceChildren(
       createInfoGrid([
-        { label: 'Selected job', value: `${activeJob.summary.type} ${shortJobId(activeJob.summary.id)}` },
-        { label: 'Review cards with data', value: `${coverage}/${review.cards.length || 6}` },
-        { label: 'Manifest warnings', value: String((activeJob.manifest?.warnings || []).length) },
+        { label: '선택된 작업', value: `${activeJob.summary.type} ${shortJobId(activeJob.summary.id)}` },
+        { label: '데이터가 있는 검토 카드', value: `${coverage}/${review.cards.length || 6}` },
+        { label: '매니페스트 경고', value: String((activeJob.manifest?.warnings || []).length) },
       ])
     );
   }
@@ -318,6 +380,15 @@ export function mountReviewWorkspace({ root, state, addLog, openJob }) {
     );
   }
 
+  function syncTabs() {
+    detailPanels.forEach((panel) => {
+      panel.hidden = panel.dataset.panel !== review.activeTab;
+    });
+    tabButtons.forEach((button) => {
+      button.dataset.selected = button.dataset.tab === review.activeTab ? 'true' : 'false';
+    });
+  }
+
   function syncDetail() {
     const card = getSelectedCard();
     const sourceConfigArtifact = findPreferredConfigArtifact(state.data.activeJob.artifacts || []);
@@ -326,14 +397,15 @@ export function mountReviewWorkspace({ root, state, addLog, openJob }) {
       detailSummaryElement.replaceChildren(
         createEmptyState({
           icon: '>',
-          title: 'Select a card',
-          copy: 'The detail panel will show normalized facts, raw text, and provenance for the selected review signal.',
+          title: '카드를 선택하세요',
+          copy: '세부 패널에 선택한 검토 신호의 정규화 정보, 원문, 생성 이력이 표시됩니다.',
         })
       );
       detailActionsElement.replaceChildren();
       detailRawElement.textContent = '';
       detailRawElement.hidden = true;
       detailProvenanceElement.replaceChildren();
+      syncTabs();
       return;
     }
 
@@ -344,7 +416,7 @@ export function mountReviewWorkspace({ root, state, addLog, openJob }) {
             card.artifact.capabilities?.can_open
               ? el('a', {
                   className: 'action-button action-button-primary',
-                  text: 'Open source artifact',
+                  text: '원본 산출물 열기',
                   attrs: { href: card.artifact.links.open, target: '_blank', rel: 'noreferrer noopener' },
                 })
               : null,
@@ -360,16 +432,16 @@ export function mountReviewWorkspace({ root, state, addLog, openJob }) {
       ...(state.data.activeJob.summary
         ? [
             createButton({
-              label: 'Open Packs',
-              action: 'open-artifacts',
-              tone: 'ghost',
-            }),
+                label: '패키지 열기',
+                action: 'open-artifacts',
+                tone: 'ghost',
+              }),
           ]
         : []),
       ...(state.data.activeJob.summary && sourceConfigReentry.canOpenInModel
         ? [
             createButton({
-              label: 'Re-open in Model',
+              label: '모델에서 다시 열기',
               action: 'open-config-artifact-in-model',
               tone: 'ghost',
               dataset: {
@@ -378,7 +450,7 @@ export function mountReviewWorkspace({ root, state, addLog, openJob }) {
               },
             }),
             createButton({
-              label: 'Run tracked report',
+              label: '추적 보고 실행',
               action: 'run-artifact-report',
               tone: 'ghost',
               dataset: {
@@ -400,12 +472,14 @@ export function mountReviewWorkspace({ root, state, addLog, openJob }) {
         })
       )
     );
+    syncTabs();
   }
 
   function syncAll() {
     if (destroyed) return;
     syncJobSummary();
     recentJobsElement.replaceChildren(renderRecentJobs(state.data.recentJobs.items || []));
+    activityElement.replaceChildren(renderReviewActivity(state.data.recentJobs.items || []));
     syncStatus();
     syncCards();
     syncDetail();
@@ -507,7 +581,14 @@ export function mountReviewWorkspace({ root, state, addLog, openJob }) {
 
     if (actionTarget.dataset.action === 'review-select-card') {
       review.selectedCardId = actionTarget.dataset.cardId || '';
+      review.activeTab = 'summary';
       syncDetail();
+      return;
+    }
+
+    if (actionTarget.dataset.action === 'review-set-tab') {
+      review.activeTab = actionTarget.dataset.tab || 'summary';
+      syncTabs();
       return;
     }
 
