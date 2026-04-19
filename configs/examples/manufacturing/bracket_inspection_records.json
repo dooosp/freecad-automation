@@ -1,0 +1,51 @@
+{
+  "record_set_id": "BRKT-LINE-INSPECTION-001",
+  "part_id": "KS-BR-001",
+  "revision": "A",
+  "positioning": "Demo inspection set for DELMIA-adjacent review guidance only.",
+  "not_official_dassault_or_delmia_integration": true,
+  "records": [
+    {
+      "record_id": "INSP-BRKT-001",
+      "operation_id": "OP30",
+      "feature_ref": "hole1",
+      "characteristic": "mounting_hole_diameter",
+      "status": "out_of_tolerance",
+      "measurement_method": "go_no_go_pin",
+      "actual_value": 9.28,
+      "nominal_value": 9.0,
+      "deviation": 0.28,
+      "units": "mm",
+      "inspection_station": "CMM-final",
+      "sample_size": 3
+    },
+    {
+      "record_id": "INSP-BRKT-002",
+      "operation_id": "OP20",
+      "feature_ref": "web",
+      "characteristic": "web_perpendicularity",
+      "status": "warning",
+      "measurement_method": "cmm",
+      "actual_value": 0.24,
+      "nominal_value": 0.2,
+      "deviation": 0.04,
+      "units": "mm",
+      "inspection_station": "CMM-final",
+      "sample_size": 3
+    },
+    {
+      "record_id": "INSP-BRKT-003",
+      "operation_id": "OP40",
+      "feature_ref": "v_groove",
+      "characteristic": "burr_height",
+      "status": "out_of_tolerance",
+      "measurement_method": "visual_plus_gauge",
+      "actual_value": 0.18,
+      "nominal_value": 0.1,
+      "deviation": 0.08,
+      "units": "mm",
+      "inspection_station": "de-burr-audit",
+      "sample_size": 5
+    }
+  ]
+}

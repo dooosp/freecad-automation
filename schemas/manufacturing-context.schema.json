@@ -1,0 +1,507 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dooosp.github.io/freecad-automation/schemas/manufacturing-context.schema.json",
+  "title": "Manufacturing Context Prototype",
+  "description": "Beginner-friendly manufacturing context for DELMIA-adjacent digital manufacturing demos.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "prototype_scope",
+    "plant",
+    "product",
+    "production_line",
+    "work_centers",
+    "routing",
+    "bom_references",
+    "inspection_records",
+    "quality_issues",
+    "planning_data"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "prototype_scope": {
+      "type": "object",
+      "required": [
+        "prototype_name",
+        "positioning",
+        "not_official_dassault_or_delmia_integration"
+      ],
+      "properties": {
+        "prototype_name": {
+          "type": "string"
+        },
+        "positioning": {
+          "type": "string"
+        },
+        "not_official_dassault_or_delmia_integration": {
+          "type": "boolean",
+          "const": true
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "plant": {
+      "type": "object",
+      "required": [
+        "plant_id",
+        "name",
+        "region",
+        "country",
+        "site_type"
+      ],
+      "properties": {
+        "plant_id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "country": {
+          "type": "string"
+        },
+        "site_type": {
+          "type": "string"
+        },
+        "value_stream": {
+          "type": "string"
+        },
+        "erp_or_scm_note": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "product": {
+      "type": "object",
+      "required": [
+        "part_id",
+        "name",
+        "revision",
+        "cad_reference",
+        "bom_reference"
+      ],
+      "properties": {
+        "part_id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "string"
+        },
+        "cad_reference": {
+          "type": "string"
+        },
+        "bom_reference": {
+          "type": "string"
+        },
+        "program": {
+          "type": "string"
+        },
+        "make_vs_buy": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "production_line": {
+      "type": "object",
+      "required": [
+        "line_id",
+        "name",
+        "takt_time_sec",
+        "shifts_per_day",
+        "hours_per_shift"
+      ],
+      "properties": {
+        "line_id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "takt_time_sec": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "shifts_per_day": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "hours_per_shift": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "mes_scope": {
+          "type": "string"
+        },
+        "aps_scope": {
+          "type": "string"
+        },
+        "scm_scope": {
+          "type": "string"
+        },
+        "active_order": {
+          "type": "object",
+          "properties": {
+            "order_id": {
+              "type": "string"
+            },
+            "quantity": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "due_date": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "work_centers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/workCenter"
+      }
+    },
+    "routing": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/routingOperation"
+      }
+    },
+    "bom_references": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/bomReference"
+      }
+    },
+    "inspection_records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/inspectionRecord"
+      }
+    },
+    "quality_issues": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/qualityIssue"
+      }
+    },
+    "planning_data": {
+      "type": "object",
+      "required": [
+        "schedule_snapshot_date",
+        "demand_units_per_week",
+        "aps_constraints",
+        "supplier_watchlist"
+      ],
+      "properties": {
+        "schedule_snapshot_date": {
+          "type": "string"
+        },
+        "demand_units_per_week": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "frozen_horizon_days": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "available_shifts": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "aps_constraints": {
+          "type": "object",
+          "properties": {
+            "max_overtime_hours_per_week": {
+              "type": "number",
+              "minimum": 0
+            },
+            "changeover_policy": {
+              "type": "string"
+            },
+            "batching_note": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "material_readiness": {
+          "type": "object",
+          "properties": {
+            "all_critical_items_available": {
+              "type": "boolean"
+            },
+            "constrained_item_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "supplier_watchlist": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "workCenter": {
+      "type": "object",
+      "required": [
+        "work_center_id",
+        "name",
+        "process_type",
+        "parallel_units",
+        "setup_time_min",
+        "queue_buffer_units",
+        "operators",
+        "expected_oee",
+        "utilization_target"
+      ],
+      "properties": {
+        "work_center_id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "process_type": {
+          "type": "string"
+        },
+        "parallel_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "setup_time_min": {
+          "type": "number",
+          "minimum": 0
+        },
+        "queue_buffer_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "operators": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "expected_oee": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 1.0
+        },
+        "utilization_target": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 1.0
+        },
+        "mes_tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "routingOperation": {
+      "type": "object",
+      "required": [
+        "operation_id",
+        "sequence",
+        "operation_name",
+        "work_center_id",
+        "machine_cycle_sec",
+        "labor_cycle_sec"
+      ],
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "operation_name": {
+          "type": "string"
+        },
+        "work_center_id": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "machine_cycle_sec": {
+          "type": "number",
+          "minimum": 0
+        },
+        "labor_cycle_sec": {
+          "type": "number",
+          "minimum": 0
+        },
+        "transfer_batch_size": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "quality_gate": {
+          "type": "string"
+        },
+        "cad_feature_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "input_bom_item_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "bomReference": {
+      "type": "object",
+      "required": [
+        "bom_item_id",
+        "description",
+        "quantity_per",
+        "supplier",
+        "lead_time_days"
+      ],
+      "properties": {
+        "bom_item_id": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "quantity_per": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "supplier": {
+          "type": "string"
+        },
+        "lead_time_days": {
+          "type": "number",
+          "minimum": 0
+        },
+        "planning_category": {
+          "type": "string"
+        },
+        "scm_risk": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "inspectionRecord": {
+      "type": "object",
+      "required": [
+        "record_id",
+        "operation_id",
+        "feature_ref",
+        "characteristic",
+        "status"
+      ],
+      "properties": {
+        "record_id": {
+          "type": "string"
+        },
+        "operation_id": {
+          "type": "string"
+        },
+        "feature_ref": {
+          "type": "string"
+        },
+        "characteristic": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "measurement_method": {
+          "type": "string"
+        },
+        "actual_value": {
+          "type": "number"
+        },
+        "nominal_value": {
+          "type": "number"
+        },
+        "deviation": {
+          "type": "number"
+        },
+        "units": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "qualityIssue": {
+      "type": "object",
+      "required": [
+        "issue_id",
+        "title",
+        "severity",
+        "operation_id",
+        "feature_ref"
+      ],
+      "properties": {
+        "issue_id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string"
+        },
+        "operation_id": {
+          "type": "string"
+        },
+        "feature_ref": {
+          "type": "string"
+        },
+        "suspected_cause": {
+          "type": "string"
+        },
+        "containment_action": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

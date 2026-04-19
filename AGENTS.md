@@ -239,6 +239,24 @@ The final response should include:
   - open review pack
   - open readiness report
 
+## Task Control Plane: DELMIA Manufacturing DX Prototype
+- Active branch for this task: `feat/delmia-manufacturing-dx-prototype`
+- Preferred clean worktree for this task:
+  - `/Users/jangtaeho/Documents/codex-worktrees/delmia-manufacturing-dx-prototype/freecad-automation`
+- Execution plan source of truth:
+  - `docs/exec-plans/delmia-manufacturing-dx-prototype.md`
+- Verification and remediation plan:
+  - `docs/exec-plans/delmia-manufacturing-dx-prototype-verification.md`
+- Phase status files:
+  - `tmp/codex/delmia-manufacturing-dx-prototype-status.md`
+  - `tmp/codex/delmia-manufacturing-dx-prototype-verification-status.md`
+  - `tmp/codex/delmia-manufacturing-dx-prototype-tool-evidence.md`
+- Keep this task additive and portfolio-oriented:
+  - position new materials as a DELMIA-adjacent learning prototype
+  - do not claim official DELMIA or 3DEXPERIENCE integration
+  - preserve the existing CLI, runtime model, and public command names
+  - prefer deterministic heuristics and auditable review guidance over AI truth claims
+
 ## Task: Local API Server Route Modularization
 This section augments the existing repo guidance above and preserves it. For this task, the execution plan in `docs/exec-plans/local-api-server-modularization.md` is the task-specific source of truth while the standing repo safety and reviewability rules remain in force.
 
