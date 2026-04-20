@@ -1,6 +1,7 @@
 name: FreeCAD Runtime Smoke (self-hosted macOS)
 
 on:
+  pull_request:
   workflow_dispatch:
   schedule:
     - cron: "0 3 * * 1"
@@ -27,11 +28,6 @@ jobs:
           node-version: "24"
           cache: npm
           cache-dependency-path: package-lock.json
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
 
       - name: CI Diagnostics
         run: |

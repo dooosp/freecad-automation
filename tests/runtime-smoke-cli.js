@@ -14,6 +14,11 @@ import { join, resolve } from 'node:path';
 import { validateArtifactManifest } from '../lib/artifact-manifest.js';
 import { validateCreateQualityReport } from '../lib/create-quality.js';
 import { validateOutputManifest } from '../lib/output-manifest.js';
+import {
+  createQualityFixtureSmokeMatrix,
+  getQualityFixtureExpectation,
+  getQualityFixtureSmokeRecord,
+} from './quality-fixture-matrix.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const OUTPUT_DIR = join(ROOT, 'output', 'runtime-smoke');
@@ -27,6 +32,7 @@ const smokeManifest = {
   commands: [],
   artifact_manifests: [],
   artifacts: [],
+  quality_fixture_matrix: createQualityFixtureSmokeMatrix(),
   excluded_commands: [
     {
       command: 'tolerance',
@@ -34,6 +40,11 @@ const smokeManifest = {
     },
   ],
 };
+
+const ksFixture = getQualityFixtureExpectation('ks_bracket');
+const qualityPassFixture = getQualityFixtureExpectation('quality_pass_bracket');
+const ksFixtureRecord = getQualityFixtureSmokeRecord(smokeManifest.quality_fixture_matrix, 'ks_bracket');
+const qualityPassFixtureRecord = getQualityFixtureSmokeRecord(smokeManifest.quality_fixture_matrix, 'quality_pass_bracket');
 
 function runCli(args) {
   const completed = spawnSync('node', [join(ROOT, 'bin', 'fcad.js'), ...args], {
@@ -111,6 +122,14 @@ function assertArtifact(path) {
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
+}
+
+function assertExpectedExitCode(status, expectedExit, label) {
+  if (expectedExit === 'nonzero') {
+    assert.notEqual(status, 0, `${label} should fail with a non-zero exit code`);
+    return;
+  }
+  assert.equal(status, expectedExit, `${label} exited unexpectedly`);
 }
 
 function syncArtifactsForReport(baseName) {
@@ -288,12 +307,15 @@ assertOutputManifest(
   }
 );
 assert.equal(createQuality.status, 'fail');
+ksFixtureRecord.observed.createQualityStatus = createQuality.status;
 
 const ksStrictCreate = runCliExpectFailure(['create', bracketConfig, '--strict-quality']);
+ksFixtureRecord.observed.strictCreateExit = ksStrictCreate.status;
 assert.match(
   `${ksStrictCreate.stdout}\n${ksStrictCreate.stderr}`,
   /strict-quality found blocking quality issues|Strict create quality gate failed/i
 );
+assertExpectedExitCode(ksStrictCreate.status, ksFixture.strictCreate.expectedExit, 'ks_bracket strict create');
 
 runCli(['draw', bracketConfig, '--bom']);
 assertArtifact(join(OUTPUT_DIR, 'ks_bracket_runtime_smoke_drawing.svg'));
@@ -314,12 +336,15 @@ const ksDrawingQualityPath = join(OUTPUT_DIR, 'ks_bracket_runtime_smoke_drawing_
 assertArtifact(ksDrawingQualityPath);
 const ksDrawingQuality = readJson(ksDrawingQualityPath);
 assert.equal(ksDrawingQuality.status, 'fail');
+ksFixtureRecord.observed.drawingQualityStatus = ksDrawingQuality.status;
 
 const ksStrictDraw = runCliExpectFailure(['draw', bracketConfig, '--bom', '--strict-quality']);
+ksFixtureRecord.observed.strictDrawExit = ksStrictDraw.status;
 assert.match(
   `${ksStrictDraw.stdout}\n${ksStrictDraw.stderr}`,
   /Strict drawing quality gate failed/i
 );
+assertExpectedExitCode(ksStrictDraw.status, ksFixture.strictDraw.expectedExit, 'ks_bracket strict draw');
 
 runCli(['inspect', join(OUTPUT_DIR, 'ks_bracket_runtime_smoke.step')]);
 runCli([
@@ -351,8 +376,10 @@ assertArtifact(join(REPORT_DIR, 'ks_bracket_runtime_smoke_report.pdf'));
 const ksReportSummaryPath = join(REPORT_DIR, 'ks_bracket_runtime_smoke_report_summary.json');
 assertArtifact(ksReportSummaryPath);
 const ksReportSummary = readJson(ksReportSummaryPath);
-assert.equal(ksReportSummary.ready_for_manufacturing_review, false);
-assert.equal(ksReportSummary.overall_status, 'fail');
+assert.equal(ksReportSummary.ready_for_manufacturing_review, ksFixture.report.readyForManufacturingReview);
+assert.equal(ksReportSummary.overall_status, ksFixture.report.overallStatus);
+ksFixtureRecord.observed.reportReadyForManufacturingReview = ksReportSummary.ready_for_manufacturing_review;
+ksFixtureRecord.observed.reportOverallStatus = ksReportSummary.overall_status;
 assertArtifactManifest(
   join(REPORT_DIR, 'ks_bracket_runtime_smoke_report_artifact-manifest.json'),
   {
@@ -366,13 +393,15 @@ assertArtifactManifest(
   }
 );
 
-runCli(['create', qualityPassConfig, '--strict-quality']);
+const qualityPassStrictCreate = runCli(['create', qualityPassConfig, '--strict-quality']);
 const qualityPassCreateQualityPath = join(OUTPUT_DIR, 'quality_pass_bracket_runtime_smoke_create_quality.json');
 assertArtifact(qualityPassCreateQualityPath);
 const qualityPassCreateQuality = readJson(qualityPassCreateQualityPath);
 const qualityPassCreateValidation = validateCreateQualityReport(qualityPassCreateQuality);
 assert.equal(qualityPassCreateValidation.ok, true, qualityPassCreateValidation.errors.join('\n'));
-assert.equal(qualityPassCreateQuality.status, 'pass');
+assert.equal(qualityPassCreateQuality.status, qualityPassFixture.strictCreate.qualityStatus);
+qualityPassFixtureRecord.observed.createQualityStatus = qualityPassCreateQuality.status;
+qualityPassFixtureRecord.observed.strictCreateExit = qualityPassStrictCreate.status;
 assertOutputManifest(
   join(OUTPUT_DIR, 'quality_pass_bracket_runtime_smoke_manifest.json'),
   {
@@ -381,16 +410,23 @@ assertOutputManifest(
   }
 );
 
-runCli(['draw', qualityPassConfig, '--bom', '--strict-quality']);
+const qualityPassStrictDraw = runCli(['draw', qualityPassConfig, '--bom', '--strict-quality']);
 const qualityPassDrawingQualityPath = join(OUTPUT_DIR, 'quality_pass_bracket_runtime_smoke_drawing_quality.json');
 assertArtifact(qualityPassDrawingQualityPath);
 const qualityPassDrawingQuality = readJson(qualityPassDrawingQualityPath);
-assert.equal(qualityPassDrawingQuality.status, 'pass');
+assert.equal(qualityPassDrawingQuality.status, qualityPassFixture.strictDraw.qualityStatus);
 assert.equal(qualityPassDrawingQuality.dimensions.coverage_percent, 100);
 assert.equal(qualityPassDrawingQuality.traceability.coverage_percent >= 95, true);
+qualityPassFixtureRecord.observed.drawingQualityStatus = qualityPassDrawingQuality.status;
+qualityPassFixtureRecord.observed.strictDrawExit = qualityPassStrictDraw.status;
 
 const qualityPassDfm = runCli(['dfm', qualityPassConfig]);
-assert.match(qualityPassDfm.stdout, /DFM Score: 100\/100|DFM Score: 9\d\/100|DFM Score: 8\d\/100/);
+const qualityPassDfmScoreMatch = `${qualityPassDfm.stdout}\n${qualityPassDfm.stderr}`.match(/DFM Score:\s*(\d+)\/100/i);
+assert(qualityPassDfmScoreMatch, 'quality_pass_bracket DFM output should include a score');
+const qualityPassDfmScore = Number.parseInt(qualityPassDfmScoreMatch[1], 10);
+assert.equal(qualityPassDfmScore, qualityPassFixture.dfm.expectedScore);
+qualityPassFixtureRecord.observed.dfmExit = qualityPassDfm.status;
+qualityPassFixtureRecord.observed.dfmScore = qualityPassDfmScore;
 
 syncArtifactsForReport('quality_pass_bracket_runtime_smoke');
 runCli(['report', qualityPassConfig, '--dfm']);
@@ -398,8 +434,14 @@ assertArtifact(join(REPORT_DIR, 'quality_pass_bracket_runtime_smoke_report.pdf')
 const qualityPassReportSummaryPath = join(REPORT_DIR, 'quality_pass_bracket_runtime_smoke_report_summary.json');
 assertArtifact(qualityPassReportSummaryPath);
 const qualityPassReportSummary = readJson(qualityPassReportSummaryPath);
-assert.equal(qualityPassReportSummary.ready_for_manufacturing_review, true);
-assert.equal(qualityPassReportSummary.overall_status, 'pass');
+assert.equal(
+  qualityPassReportSummary.ready_for_manufacturing_review,
+  qualityPassFixture.report.readyForManufacturingReview
+);
+assert.equal(qualityPassReportSummary.overall_status, qualityPassFixture.report.overallStatus);
+qualityPassFixtureRecord.observed.reportReadyForManufacturingReview =
+  qualityPassReportSummary.ready_for_manufacturing_review;
+qualityPassFixtureRecord.observed.reportOverallStatus = qualityPassReportSummary.overall_status;
 assertArtifactManifest(
   join(REPORT_DIR, 'quality_pass_bracket_runtime_smoke_report_artifact-manifest.json'),
   {
@@ -432,6 +474,15 @@ assert(
     (entry) => entry.command.includes('fcad create') && entry.command.includes('--strict-quality') && entry.expected_failure === true
   ),
   'Smoke manifest should record the expected-fail ks_bracket strict create check'
+);
+assert.equal(Array.isArray(persistedSmokeManifest.quality_fixture_matrix), true);
+assert.equal(
+  persistedSmokeManifest.quality_fixture_matrix.find((entry) => entry.id === 'quality_pass_bracket')?.observed?.reportReadyForManufacturingReview,
+  true
+);
+assert.equal(
+  persistedSmokeManifest.quality_fixture_matrix.find((entry) => entry.id === 'ks_bracket')?.observed?.reportReadyForManufacturingReview,
+  false
 );
 assert(
   persistedSmokeManifest.artifacts.some((artifact) => artifact.type === 'analysis.fem.step'),
