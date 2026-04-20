@@ -82,3 +82,121 @@ Treat that execution plan as the task-specific source of truth for the Studio re
 
 ## Final Reporting
 - Summarize what changed, what was validated, any remaining risks, and the commit/push/PR state.
+
+## Task addendum: output-manifest-foundation
+For this task, follow:
+- `docs/exec-plans/output-manifest-foundation.md`
+
+Treat that execution plan as the task-specific source of truth for this worktree.
+
+### Task-specific manifest constraints
+- Goal: add an additive `output-manifest` layer for major `fcad` commands without replacing the existing `artifact-manifest` contract.
+- Scope surfaces:
+  - CLI orchestration
+  - output file tracking
+  - run metadata
+  - manifest writer helper
+  - tests and docs
+- Non-negotiables:
+  - preserve existing output filenames unless additive manifest files are required by the new contract
+  - keep `artifact-manifest` behavior backward compatible
+  - do not claim FreeCAD-backed validation unless a real runtime command actually ran
+  - keep control files inside this repo root only
+- Progress tracking files for this task:
+  - `tmp/codex/output-manifest-foundation-status.md`
+  - `tmp/codex/output-manifest-foundation-tool-evidence.md`
+- `tmp/codex/output-manifest-foundation-verification-status.md`
+- Verification/remediation plan for this task:
+  - `docs/exec-plans/output-manifest-foundation-verification.md`
+
+## Task addendum: create-roundtrip-quality
+For this task, follow:
+- `docs/exec-plans/create-roundtrip-quality.md`
+
+Treat that execution plan as the task-specific source of truth for this worktree.
+
+### Task-specific create quality constraints
+- Goal: add additive STEP/STL/BREP round-trip quality checks after `fcad create` without replacing the shipped output-manifest helper.
+- Scope surfaces:
+  - `create` CLI orchestration
+  - model export validation
+  - inspect/runtime reuse
+  - create quality JSON output
+  - tests and docs
+- Non-negotiables:
+  - preserve existing create outputs and filenames
+  - keep default `create` behavior warning-oriented; only explicit strict quality mode may fail the command
+  - do not claim geometry validation passed unless the runtime actually re-imported or inspected the exported files
+  - reuse `lib/output-manifest.js` and `schemas/output-manifest.schema.json`; do not create a second manifest system
+  - keep control files inside this repo root only
+- Progress tracking files for this task:
+  - `tmp/codex/create-roundtrip-quality-status.md`
+  - `tmp/codex/create-roundtrip-quality-tool-evidence.md`
+  - `tmp/codex/create-roundtrip-quality-verification-status.md`
+- Verification/remediation plan for this task:
+  - `docs/exec-plans/create-roundtrip-quality-verification.md`
+
+## Task addendum: drawing-qa-gates
+For this task, follow:
+- `docs/exec-plans/drawing-qa-gates.md`
+
+Treat that execution plan as the task-specific source of truth for this worktree.
+
+### Task-specific drawing QA constraints
+- Goal: strengthen draw QA gates and add a unified additive drawing quality summary without replacing existing draw outputs or manifest contracts.
+- Scope surfaces:
+  - `fcad draw`
+  - draw QA aggregation
+  - plan validation integration
+  - generated JSON summaries
+  - tests and docs
+- Non-negotiables:
+  - preserve the existing TechDraw/SVG generation pipeline unless a narrow compatibility hook is required
+  - keep existing draw sidecars intact; add the unified drawing-quality JSON additively
+  - default draw behavior must remain warning-friendly; strict failure should only happen through explicit strict-quality behavior
+  - do not claim runtime-backed drawing validation unless a real draw command ran on this machine
+  - keep control files inside this repo root only
+- Known upstream issue:
+  - `configs/examples/ks_bracket.toml` currently yields a create-quality failure because the generated model shape is invalid even though STEP round-trip and STL checks pass; treat that as upstream unless this task needs a tiny compatibility hook
+- Known pre-existing failure:
+  - `tests/output-contract-cli.test.js` currently expects `readiness-report.json` while the code emits `input.readiness-report`; do not fix it here unless this task directly requires that contract
+- Progress tracking files for this task:
+  - `tmp/codex/drawing-qa-gates-status.md`
+  - `tmp/codex/drawing-qa-gates-tool-evidence.md`
+  - `tmp/codex/drawing-qa-gates-verification-status.md`
+- Verification/remediation plan for this task:
+  - `docs/exec-plans/drawing-qa-gates-verification.md`
+
+## Task addendum: dfm-actionable-suggestions
+For this task, follow:
+- `docs/exec-plans/dfm-actionable-suggestions.md`
+
+Treat that execution plan as the task-specific source of truth for this worktree.
+
+### Task-specific DFM constraints
+- Goal: make non-pass `fcad dfm` checks actionable by adding severity, measurable values, manufacturability impact, and concrete fix guidance without replacing the existing DFM `checks`, `summary`, or `score` surfaces.
+- Scope surfaces:
+  - `fcad dfm`
+  - Python DFM checker output
+  - Node CLI compatibility mapping
+  - DFM summary/reporting
+  - tests and docs
+- Non-negotiables:
+  - preserve existing DFM coverage and legacy top-level fields unless an additive compatibility wrapper is required
+  - do not invent exact part/feature locations when the checker cannot measure them
+  - use `null` or `unknown` for unavailable evidence instead of guessing
+  - keep default DFM exit-code behavior unchanged unless an existing strict path is explicitly used
+  - reuse the shipped output-manifest conventions; do not create a second manifest or quality-report system
+  - keep control files inside this repo root only
+- Known upstream issue:
+  - `configs/examples/ks_bracket.toml` currently yields a create-quality failure because the generated model shape is invalid even though STEP round-trip and STL checks pass; do not fix geometry generation or create-quality internals in this task
+- Known upstream issue:
+  - `configs/examples/ks_bracket.toml` currently yields a drawing-quality failure because of missing required intent `HOLE_DIA`, dimension conflicts, and low traceability coverage; do not fix drawing QA internals in this task
+- Known pre-existing failure:
+  - `tests/output-contract-cli.test.js` has a readiness provenance mismatch; do not fix it here unless this task directly requires that contract
+- Progress tracking files for this task:
+  - `tmp/codex/dfm-actionable-suggestions-status.md`
+  - `tmp/codex/dfm-actionable-suggestions-tool-evidence.md`
+  - `tmp/codex/dfm-actionable-suggestions-verification-status.md`
+- Verification/remediation plan for this task:
+  - `docs/exec-plans/dfm-actionable-suggestions-verification.md`

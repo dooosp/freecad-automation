@@ -76,7 +76,7 @@ The smoke lane verifies:
 - `fcad fem`
 - `fcad report`
 
-The smoke harness validates the generated artifact manifests for `create`, `draw`, `fem`, and `report`, asserting that required artifact types exist, the recorded output files are non-empty, and key manifest fields stay populated. It also writes `output/runtime-smoke/smoke-manifest.json` so workflow uploads can be inspected without replaying the run.
+The smoke harness validates the generated artifact manifests for `create`, `draw`, `fem`, and `report`, asserts that create also produced a valid `<base>_create_quality.json` plus linked output manifest entry, and checks that required artifact types exist and recorded output files are non-empty. It also writes `output/runtime-smoke/smoke-manifest.json` so workflow uploads can be inspected without replaying the run.
 
 `fcad tolerance` is still intentionally outside the repository-owned smoke lane. It succeeds locally on the checked-in assembly example, but it remains a heavier assembly-plus-Monte-Carlo runtime path and is left to deeper local validation until we can harden it for CI without destabilizing the smoke lane.
 
@@ -111,6 +111,16 @@ npm run test:py
 <!-- GENERATED:python-local:end -->
 
 This lane requires Python 3.11+ and the helper script will prefer an explicit `PYTHON` / `PYTHON3`, then the active `setup-python` interpreter when available, then `python3`, `python`, and finally versioned `python3.x` commands. It also requires that the selected interpreter can import `pytest`.
+
+The Python lane is also the main hosted-safe coverage source for DFM issue enrichment. `tests/test_dfm.py` verifies that actionable DFM findings keep legacy `checks` compatibility while adding `issues`, severity counts, measurable `actual/required/delta` fields, and null-safe handling when exact feature-location data is unavailable.
+
+The hosted-safe Node lanes now also cover the decision-ready report upgrade:
+
+- `tests/report-decision-summary.test.js` validates report readiness logic, summary schema compliance, and missing-artifact truthfulness
+- `tests/report-service-summary.test.js` validates that `createReportService()` writes `<base>_report_summary.json` and passes executive-summary payloads into the Python renderer input
+- `tests/report-decision-pdf.test.js` attempts a partial-data PDF smoke, but it exits early with a skip message when the local `python3` environment cannot import `matplotlib`
+
+Treat that PDF smoke exactly like runtime-backed verification: if the renderer dependency is unavailable, record it as environment-unavailable rather than claiming the PDF path was verified.
 
 Real runtime smoke:
 

@@ -1,0 +1,22 @@
+# output-manifest-foundation status
+
+- phase: implementation complete
+- repo root: `/Users/jangtaeho/worktrees/freecad-automation-output-manifest-foundation`
+- pinned base: `origin/master` @ `75acc9fd656f0462c5d3f80467da097a9fe04a77`
+- current branch: `feat/output-manifest-foundation`
+- summary:
+  - added `lib/output-manifest.js` and `schemas/output-manifest.schema.json`
+  - wired additive output-manifest emission into `create`, `draw`, `dfm`, `fem`, `tolerance`, `report`, and `inspect`
+  - preserved the existing `artifact-manifest` flow and `--manifest-out` behavior
+  - added non-FreeCAD helper and CLI integration tests
+  - documented the new manifest surface in `README.md` and `docs/output-manifest.md`
+- validations run:
+  - `node tests/output-manifest.test.js`
+  - `node tests/output-manifest-cli.test.js`
+  - `node tests/artifact-manifest.test.js`
+  - `node tests/stdout-manifest-cli.test.js`
+  - `node bin/fcad.js check-runtime`
+  - live `fcad create` smoke from `/tmp`
+  - `npm run test:node:contract`
+- open risks:
+  - `tests/output-contract-cli.test.js` still fails on the checked-in `generate-standard-docs` readiness provenance mismatch, which is outside this task surface

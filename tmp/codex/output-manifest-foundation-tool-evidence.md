@@ -1,0 +1,29 @@
+# output-manifest-foundation tool evidence
+
+- repo selection evidence:
+  - multiple `freecad-automation` clones existed on disk
+  - `/Users/jangtaeho/Documents/freecad-automation` matched the required files and docs but had pre-existing dirty `tmp/codex/*.md` task-state files
+  - created isolated worktree `/Users/jangtaeho/worktrees/freecad-automation-output-manifest-foundation` from `origin/master`
+- pinned base:
+  - `75acc9fd656f0462c5d3f80467da097a9fe04a77`
+- current worktree:
+  - clean baseline on `feat/output-manifest-foundation`
+- canonical commands discovered from repo:
+  - `npm run test:node:contract`
+  - `npm run test:node:integration`
+  - `npm run test:snapshots`
+  - `npm run test:py`
+  - `node tests/test-runner.js` via package scripts for runtime-backed lanes
+- dependency setup:
+  - ran `npm install` in the worktree to materialize `node_modules` for `ajv` and the existing Node test stack
+- runtime evidence:
+  - `node bin/fcad.js check-runtime` reported `Status: ready`
+  - selected runtime: `/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd`
+  - detected FreeCAD version: `FreeCAD 1.1.1 Revision: 20260414 (Git shallow)`
+- live smoke evidence:
+  - ran `node /Users/jangtaeho/worktrees/freecad-automation-output-manifest-foundation/bin/fcad.js create /Users/jangtaeho/worktrees/freecad-automation-output-manifest-foundation/configs/examples/ks_bracket.toml` from `/tmp`
+  - observed `/private/tmp/output/ks_bracket.step`
+  - observed `/private/tmp/output/ks_bracket.stl`
+  - observed `/private/tmp/output/ks_bracket_manifest.json`
+- validation evidence:
+  - `tests/output-contract-cli.test.js` failed on the untouched `generate-standard-docs` readiness artifact type expectation

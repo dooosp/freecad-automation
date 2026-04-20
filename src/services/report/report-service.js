@@ -1,13 +1,23 @@
 import { resolve, join } from 'node:path';
 import { readFile } from 'node:fs/promises';
-import { runPythonJsonScript } from '../../../lib/context-loader.js';
+import {
+  readJsonIfExists,
+  runPythonJsonScript,
+} from '../../../lib/context-loader.js';
 import { convertPathFromRuntime, getFreeCADRuntime } from '../../../lib/paths.js';
+import { collectRepoContext } from '../../../lib/output-manifest.js';
 import { loadShopProfile } from '../config/profile-service.js';
 import {
   loadRuleProfile,
   resolveMaterialProfile,
   summarizeRuleProfile,
 } from '../config/rule-profile-service.js';
+import {
+  buildDecisionReportSummary,
+  createReportSummaryPath,
+  deriveReportArtifactPaths,
+  writeDecisionReportSummary,
+} from './decision-report-summary.js';
 
 function toBool(value, fallback) {
   if (typeof value === 'boolean') return value;
@@ -57,6 +67,13 @@ function sanitizeString(value) {
   return value
     .replace(/\\u[dD][0-9a-fA-F]{4}/g, '')
     .replace(/[\uD800-\uDFFF]/g, '');
+}
+
+function safeFilenameComponent(value, defaultValue = 'report') {
+  const text = String(value || '').trim().replaceAll('\\', '/').replaceAll('\0', '');
+  const leaf = text.split('/').pop();
+  if (!leaf || leaf === '.' || leaf === '..') return defaultValue;
+  return leaf;
 }
 
 export function sanitizeObject(value) {
@@ -172,6 +189,37 @@ export function createReportService({
     }
 
     const femInput = normalizeFemResults(normalizedResults.fem);
+    const reportStem = safeFilenameComponent(loadedConfig.name, 'report');
+    const expectedPdfPath = join(resolvedOutputDir, `${reportStem}_report.pdf`);
+    const reportArtifacts = deriveReportArtifactPaths({
+      primaryOutputPath: expectedPdfPath,
+      configName: loadedConfig.name,
+    });
+    const [createQuality, drawingQuality, createManifest, drawingManifest] = await Promise.all([
+      readJsonIfExists(reportArtifacts.create_quality),
+      readJsonIfExists(reportArtifacts.drawing_quality),
+      readJsonIfExists(reportArtifacts.create_manifest),
+      readJsonIfExists(reportArtifacts.drawing_manifest),
+    ]);
+    const repoContext = collectRepoContext(freecadRoot);
+    const runtimeInfo = getFreeCADRuntimeFn();
+
+    const preliminarySummary = buildDecisionReportSummary({
+      configPath: resolve(freecadRoot, configPath || `${reportStem}.toml`),
+      config: loadedConfig,
+      reportPdfPath: expectedPdfPath,
+      reportGeneratedAt: new Date().toISOString(),
+      repoContext,
+      runtimeInfo,
+      artifactPaths: reportArtifacts,
+      createQuality,
+      drawingQuality,
+      createManifest,
+      drawingManifest,
+      dfm: normalizedResults.dfm || null,
+      fem: normalizedResults.fem ? femInput : null,
+      tolerance: tolInput || null,
+    });
 
     const reportInput = {
       ...loadedConfig,
@@ -196,6 +244,8 @@ export function createReportService({
       bom: normalizedResults.drawing?.bom || loadedConfig.bom || [],
       material_profile: materialProfile,
       rule_profile_summary: ruleProfileSummary,
+      _decision_summary: preliminarySummary,
+      _report_artifacts: preliminarySummary.artifacts_referenced,
     };
 
     if (outputDir) {
@@ -230,6 +280,43 @@ export function createReportService({
     }
 
     const pdfRelPath = result.pdf_path || result.path;
+    const resolvedPdfPath = pdfRelPath ? convertPathFromRuntime(pdfRelPath) : expectedPdfPath;
+    const finalArtifactPaths = deriveReportArtifactPaths({
+      primaryOutputPath: resolvedPdfPath,
+      configName: loadedConfig.name,
+    });
+    const [finalCreateQuality, finalDrawingQuality, finalCreateManifest, finalDrawingManifest] = await Promise.all([
+      readJsonIfExists(finalArtifactPaths.create_quality),
+      readJsonIfExists(finalArtifactPaths.drawing_quality),
+      readJsonIfExists(finalArtifactPaths.create_manifest),
+      readJsonIfExists(finalArtifactPaths.drawing_manifest),
+    ]);
+
+    const reportSummary = buildDecisionReportSummary({
+      configPath: resolve(freecadRoot, configPath || `${reportStem}.toml`),
+      config: loadedConfig,
+      reportPdfPath: resolvedPdfPath,
+      reportGeneratedAt: new Date().toISOString(),
+      repoContext,
+      runtimeInfo,
+      artifactPaths: finalArtifactPaths,
+      createQuality: finalCreateQuality || createQuality,
+      drawingQuality: finalDrawingQuality || drawingQuality,
+      createManifest: finalCreateManifest || createManifest,
+      drawingManifest: finalDrawingManifest || drawingManifest,
+      dfm: normalizedResults.dfm || null,
+      fem: normalizedResults.fem ? femInput : null,
+      tolerance: tolInput || null,
+    });
+    const summaryPath = createReportSummaryPath({
+      primaryOutputPath: resolvedPdfPath,
+      configName: loadedConfig.name,
+    });
+    await writeDecisionReportSummary(summaryPath, reportSummary);
+    result.summary_json = summaryPath;
+    result.report_summary = reportSummary;
+    result.decision_summary = reportSummary;
+
     if (pdfRelPath) {
       try {
         const pdfBuffer = await readFileFn(convertPathFromRuntime(pdfRelPath));

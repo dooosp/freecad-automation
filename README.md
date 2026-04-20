@@ -189,8 +189,8 @@ Low-confidence import findings stay visible as warnings and review-needed eviden
 ```bash
 fcad check-runtime
 fcad check-runtime --json
-fcad create <config.toml|json>
-fcad draw <config.toml|json>
+fcad create <config.toml|json> [--strict-quality]
+fcad draw <config.toml|json> [--bom] [--strict-quality] [--fail-under <number>]
 fcad report <config.toml|json>
 fcad inspect <model.step|fcstd> [--manifest-out <path>]
 fcad fem <config.toml|json> [--manifest-out <path>]
@@ -202,6 +202,89 @@ fcad sweep <config.toml|json> --matrix <matrix.toml|json> [--out-dir <dir>]
 `report` is still classified as runtime-backed because it runs inside the FreeCAD bundle on macOS even when it falls back from `freecadcmd` to the bundled FreeCAD Python executable.
 
 `--manifest-out <path>` is the provenance escape hatch for stdout-heavy commands. It keeps the default human-readable stdout intact while letting tooling capture a stable manifest alongside `inspect`, `fem`, `tolerance`, or `dfm`.
+
+Major runtime and analysis commands now also emit an additive output manifest named `<base>_manifest.json`. When a command writes a primary artifact, the output manifest is written beside it. When a command is stdout-first and has no primary artifact, the manifest is written beside the input file by default. The legacy `artifact-manifest` contract remains available where already documented, including `--manifest-out`.
+
+`fcad create` also emits an additive `<base>_create_quality.json` report when it exports model artifacts. The create output manifest links that report through `linked_artifacts.quality_json`, and `--strict-quality` exits non-zero only when the quality report finds blocking export issues.
+
+`fcad draw` also writes an additive `<base>_drawing_quality.json` summary beside the existing draw sidecars. It aggregates required-dimension coverage, conflict counts, layout overlap signals, BOM consistency, and traceability coverage into one status block. Default draw still completes with warnings, while `--strict-quality` exits non-zero when blocking draw-quality issues remain.
+
+`fcad report` now also writes an additive `<base>_report_summary.json` beside the PDF. The summary keeps the first-page executive decision fields machine-readable:
+
+- `overall_status`: `pass | warning | fail | incomplete`
+- `overall_score` when enough scored inputs exist
+- `ready_for_manufacturing_review`: `true | false | null`
+- `top_risks`
+- `recommended_actions`
+- `inputs_consumed`
+- `artifacts_referenced`
+- `blocking_issues`
+- `warnings`
+- `missing_optional_artifacts`
+
+The PDF first page now mirrors those fields as an executive decision summary. It is intentionally honest about partial data:
+
+- missing create/drawing/DFM decision inputs downgrade readiness to `unknown` / `incomplete`
+- missing optional FEM or tolerance artifacts stay visible as `not_run` / `not_available`, never pass
+- known upstream create-quality, drawing-quality, or DFM failures are surfaced as blockers instead of being silently repaired by the report step
+
+Representative first-page fields:
+
+```text
+Status: FAIL
+Score: 78.5
+Ready for manufacturing review: No
+Top risks: Generated model shape is invalid.; Missing required drawing dimensions: HOLE_DIA.; DFM critical findings: 1.
+Recommended actions: Repair the generated model geometry before proceeding to manufacturing review.; Add or map the missing required dimension intent(s): HOLE_DIA.; Increase wall thickness around the drilled feature.
+```
+
+`fcad dfm` now keeps the legacy `checks`, `summary`, and `score` fields while also emitting an additive `issues` array for actionable findings. Each non-pass issue can include:
+
+- `rule_id` / `rule_name`
+- `severity`: `critical | major | minor | info`
+- `status`: `fail | warning | skipped`
+- `part_id` / `part_name` and `feature_id` / `feature_type` when known
+- `actual_value`, `required_value`, `delta`, and matching units when measurable
+- `process`, `material`, `manufacturability_impact`, `suggested_fix`, `confidence`, and `evidence`
+
+Representative actionable DFM issue:
+
+```json
+{
+  "rule_id": "DFM-01",
+  "rule_name": "Minimum wall thickness",
+  "severity": "critical",
+  "status": "fail",
+  "part_name": "thin_wall_part",
+  "feature_id": "hole1",
+  "feature_type": "hole",
+  "actual_value": 0.5,
+  "actual_unit": "mm",
+  "required_value": 1.5,
+  "required_unit": "mm",
+  "delta": -1.0,
+  "process": "machining",
+  "material": "unknown",
+  "manufacturability_impact": "Thin walls can distort, chatter, or break during manufacturing and reduce part robustness.",
+  "suggested_fix": "Increase wall thickness by at least 1.0 mm by moving hole 'hole1' inward 1.0 mm, reducing its diameter by 2.0 mm, or switching to a process/material profile that supports the current 0.5 mm wall.",
+  "confidence": "high",
+  "evidence": {
+    "measurement": "wall_thickness",
+    "hole_id": "hole1",
+    "wall_mm": 0.5,
+    "threshold_mm": 1.5
+  }
+}
+```
+
+Severity guidance:
+
+- `critical`: likely blocker for the selected manufacturing path
+- `major`: manufacturable only with meaningful redesign, process change, or closer review
+- `minor`: quality-of-manufacture or robustness improvement recommended
+- `info`: context or confidence warning that should be reviewed but is not a direct blocker
+
+See [docs/output-manifest.md](./docs/output-manifest.md) for the unified output-manifest fields, naming rules, and example JSON.
 
 ### Parameter Sweep
 
@@ -612,6 +695,8 @@ Notes:
 - In assembly mode, each part can define its own `final`.
 - Assembly mode currently expects top-level `parts` and `assembly`; `parts` alone does not activate assembly handling.
 - Assembly part operations currently follow the assembly builder's supported set and are not a drop-in match for every single-part operation.
+- When `create` exports STEP/STL/BREP artifacts, it also writes `<base>_create_quality.json` with generated-model geometry, STEP/BREP re-import checks, STL mesh checks, thresholds, warnings, and blocking issues.
+- `--strict-quality` keeps the exported files but fails the command if the quality report status is `fail`.
 
 Legacy / compatibility note:
 

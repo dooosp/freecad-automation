@@ -50,6 +50,7 @@ Stable user-facing types currently include:
 - `config.effective`
 - `model.<format>`
 - `drawing.svg`
+- `drawing.quality-summary`
 - `report.pdf`
 - `review.*.json`
 - `context.json`
@@ -74,6 +75,10 @@ Best-effort user-facing types include most draw QA sidecars such as:
 - `draw.plan.json`
 - `draw.traceability`
 - `draw.layout-report`
+
+The additive unified draw-quality sidecar is:
+
+- `drawing.quality-summary` -> `<base>_drawing_quality.json`
 
 Internal types include:
 

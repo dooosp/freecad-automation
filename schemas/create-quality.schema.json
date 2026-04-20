@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freecad-automation.local/schemas/create-quality.schema.json",
+  "title": "FreeCAD Automation Create Quality Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "command",
+    "input_config",
+    "primary_outputs",
+    "geometry",
+    "step_roundtrip",
+    "brep_roundtrip",
+    "stl_quality",
+    "thresholds",
+    "status",
+    "blocking_issues",
+    "warnings"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "command": {
+      "const": "create"
+    },
+    "input_config": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "primary_outputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "step",
+        "stl",
+        "brep",
+        "fcstd",
+        "per_part_stl"
+      ],
+      "properties": {
+        "step": { "type": ["string", "null"] },
+        "stl": { "type": ["string", "null"] },
+        "brep": { "type": ["string", "null"] },
+        "fcstd": { "type": ["string", "null"] },
+        "per_part_stl": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "geometry": { "$ref": "#/$defs/geometry" },
+    "step_roundtrip": { "$ref": "#/$defs/roundtrip" },
+    "brep_roundtrip": { "$ref": "#/$defs/roundtrip" },
+    "stl_quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "exported",
+        "mesh_load_attempted",
+        "triangle_count",
+        "watertight_or_closed",
+        "non_manifold_count",
+        "warnings"
+      ],
+      "properties": {
+        "exported": { "type": "boolean" },
+        "mesh_load_attempted": { "type": "boolean" },
+        "triangle_count": { "type": ["integer", "null"], "minimum": 0 },
+        "watertight_or_closed": { "type": ["boolean", "null"] },
+        "non_manifold_count": { "type": ["integer", "null"], "minimum": 0 },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "thresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_step_volume_delta_percent",
+        "max_bbox_delta_mm"
+      ],
+      "properties": {
+        "max_step_volume_delta_percent": { "type": "number", "minimum": 0 },
+        "max_bbox_delta_mm": { "type": "number", "minimum": 0 }
+      }
+    },
+    "status": {
+      "enum": ["pass", "warning", "fail", "skipped"]
+    },
+    "blocking_issues": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "$defs": {
+    "vector3": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "type": "number" }
+    },
+    "bbox": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "max", "size"],
+      "properties": {
+        "min": { "$ref": "#/$defs/vector3" },
+        "max": { "$ref": "#/$defs/vector3" },
+        "size": { "$ref": "#/$defs/vector3" }
+      }
+    },
+    "bboxDelta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "max", "size", "max_abs_mm"],
+      "properties": {
+        "min": { "$ref": "#/$defs/vector3" },
+        "max": { "$ref": "#/$defs/vector3" },
+        "size": { "$ref": "#/$defs/vector3" },
+        "max_abs_mm": { "type": "number", "minimum": 0 }
+      }
+    },
+    "geometry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "valid_shape",
+        "volume",
+        "area",
+        "bbox",
+        "solid_count",
+        "face_count",
+        "edge_count"
+      ],
+      "properties": {
+        "valid_shape": { "type": ["boolean", "null"] },
+        "volume": { "type": ["number", "null"] },
+        "area": { "type": ["number", "null"] },
+        "bbox": {
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/bbox" }
+          ]
+        },
+        "solid_count": { "type": ["integer", "null"], "minimum": 0 },
+        "face_count": { "type": ["integer", "null"], "minimum": 0 },
+        "edge_count": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "roundtrip": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "exported",
+        "reimport_attempted",
+        "reimport_valid",
+        "volume_delta_percent",
+        "bbox_delta",
+        "warnings"
+      ],
+      "properties": {
+        "exported": { "type": "boolean" },
+        "reimport_attempted": { "type": "boolean" },
+        "reimport_valid": { "type": ["boolean", "null"] },
+        "volume_delta_percent": { "type": ["number", "null"], "minimum": 0 },
+        "bbox_delta": {
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/bboxDelta" }
+          ]
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

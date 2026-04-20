@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freecad-automation.local/schemas/report-summary.schema.json",
+  "title": "Engineering report decision summary",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "command",
+    "input_config",
+    "report_pdf",
+    "overall_status",
+    "overall_score",
+    "ready_for_manufacturing_review",
+    "config_name",
+    "generated_at",
+    "inputs_consumed",
+    "artifacts_referenced",
+    "blocking_issues",
+    "warnings",
+    "recommended_actions",
+    "missing_optional_artifacts",
+    "top_risks"
+  ],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "command": { "const": "report" },
+    "input_config": { "type": ["string", "null"] },
+    "report_pdf": { "type": ["string", "null"] },
+    "report_summary_json": { "type": ["string", "null"] },
+    "overall_status": {
+      "type": "string",
+      "enum": ["pass", "warning", "fail", "incomplete"]
+    },
+    "overall_score": { "type": ["number", "null"] },
+    "ready_for_manufacturing_review": { "type": ["boolean", "null"] },
+    "config_name": { "type": "string" },
+    "run_id": { "type": ["string", "null"] },
+    "git_commit": { "type": ["string", "null"] },
+    "git_branch": { "type": ["string", "null"] },
+    "generated_at": { "type": "string" },
+    "runtime_status": {
+      "type": "object",
+      "required": ["mode", "available"],
+      "properties": {
+        "mode": { "type": ["string", "null"] },
+        "available": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "inputs_consumed": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/artifactRef" }
+    },
+    "artifacts_referenced": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/artifactRef" }
+    },
+    "blocking_issues": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "recommended_actions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "missing_optional_artifacts": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "top_risks": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "surfaces": {
+      "type": "object",
+      "properties": {
+        "create_quality": { "$ref": "#/$defs/surfaceSummary" },
+        "drawing_quality": { "$ref": "#/$defs/surfaceSummary" },
+        "dfm": { "$ref": "#/$defs/surfaceSummary" },
+        "fem": { "$ref": "#/$defs/surfaceSummary" },
+        "tolerance": { "$ref": "#/$defs/surfaceSummary" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "artifactRef": {
+      "type": "object",
+      "required": ["key", "label", "status", "path"],
+      "properties": {
+        "key": { "type": "string" },
+        "label": { "type": "string" },
+        "path": { "type": ["string", "null"] },
+        "status": {
+          "type": "string",
+          "enum": ["available", "generated", "in_memory", "not_available", "not_run"]
+        },
+        "note": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "surfaceSummary": {
+      "type": "object",
+      "required": ["status", "available", "blocking_issues", "warnings"],
+      "properties": {
+        "status": { "type": "string" },
+        "available": { "type": "boolean" },
+        "score": { "type": ["number", "null"] },
+        "blocking_issues": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

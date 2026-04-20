@@ -9,6 +9,7 @@ Supports two modes:
 import sys
 import json
 import os
+import textwrap
 from datetime import datetime
 
 # Add scripts directory to path for local imports
@@ -94,6 +95,135 @@ def _resolve_output_path(config, output_stem, default_dir):
     os.makedirs(output_dir, exist_ok=True)
     return os.path.join(output_dir, f"{output_stem}_report.pdf")
 
+
+def _decision_status_color(status):
+    return {
+        "pass": "#2e8b57",
+        "warning": "#d68910",
+        "fail": "#c0392b",
+        "incomplete": "#6c757d",
+    }.get(str(status or "").lower(), "#6c757d")
+
+
+def _decision_ready_label(value):
+    if value is True:
+        return "Yes"
+    if value is False:
+        return "No"
+    return "Unknown"
+
+
+def _format_scalar(value, fallback="n/a"):
+    if value is None or value == "":
+        return fallback
+    return str(value)
+
+
+def _format_list(items, fallback="None", limit=5):
+    if not isinstance(items, list) or not items:
+        return [fallback]
+    lines = []
+    for item in items[:limit]:
+        wrapped = textwrap.wrap(str(item), width=52) or [str(item)]
+        lines.extend(wrapped)
+    return lines
+
+
+def _compact_path(value, max_length=56, tail_segments=2):
+    text = str(value or "n/a")
+    if len(text) <= max_length:
+        return text
+    normalized = text.replace("\\", "/")
+    parts = [part for part in normalized.split("/") if part]
+    if len(parts) >= tail_segments:
+        compact = ".../" + "/".join(parts[-tail_segments:])
+        if len(compact) <= max_length:
+            return compact
+    return "..." + text[-(max_length - 3):]
+
+
+def _render_key_value_rows(ax, rows, label_x=0.0, value_x=0.32, wrap_width=36):
+    y = 0.95
+    for label, value in rows:
+        rendered = _compact_path(value) if label in {"Input"} else _format_scalar(value)
+        wrapped_value = textwrap.wrap(rendered, width=wrap_width) or [rendered]
+        ax.text(label_x, y, label, fontsize=8, fontweight="bold", va="top", color="#2c3e50")
+        for index, line in enumerate(wrapped_value):
+            ax.text(value_x, y - (index * 0.09), line, fontsize=8, va="top", color="#333333", clip_on=True)
+        y -= max(0.12, 0.09 * len(wrapped_value) + 0.03)
+
+
+def _render_text_block(fig, title, lines, rect):
+    ax = fig.add_axes(rect)
+    ax.axis("off")
+    ax.set_title(title, fontsize=10, fontweight="bold", loc="left")
+    y = 0.95
+    wrap_width = 34 if rect[2] <= 0.22 else 48
+    for line in lines:
+        wrapped_lines = textwrap.wrap(str(line), width=wrap_width) or [str(line)]
+        for index, wrapped_line in enumerate(wrapped_lines):
+            prefix = "- " if index == 0 else "  "
+            ax.text(0.0, y, f"{prefix}{wrapped_line}", fontsize=8, va="top", color="#333333", clip_on=True)
+            y -= 0.09
+        y -= 0.03
+
+
+def _render_executive_summary_page(fig, model_name, summary, artifacts):
+    generated_at = summary.get("generated_at") or datetime.now().isoformat()
+    status = summary.get("overall_status", "incomplete")
+    score = summary.get("overall_score")
+    runtime_status = summary.get("runtime_status") or {}
+
+    fig.suptitle("Executive Decision Summary", fontsize=16, fontweight="bold", y=0.97)
+    fig.text(0.5, 0.94, f"Generated: {generated_at}", ha="center", fontsize=8, color="#666666")
+    fig.text(
+        0.08, 0.87, str(status).upper(), fontsize=14, fontweight="bold", color="white",
+        bbox=dict(boxstyle="round,pad=0.35", facecolor=_decision_status_color(status), edgecolor="none")
+    )
+    fig.text(0.22, 0.875, f"Score: {_format_scalar(score)}", fontsize=11, fontweight="bold", color="#333333")
+    fig.text(
+        0.38, 0.875,
+        f"Ready for manufacturing review: {_decision_ready_label(summary.get('ready_for_manufacturing_review'))}",
+        fontsize=11,
+        color="#333333",
+    )
+
+    info_ax = fig.add_axes([0.05, 0.55, 0.40, 0.25])
+    info_ax.axis("off")
+    info_ax.set_title("Run Context", fontsize=10, fontweight="bold", loc="left")
+    info_rows = [
+        ("Config", summary.get("config_name", model_name)),
+        ("Input", summary.get("input_config")),
+        ("Run ID", summary.get("run_id")),
+        ("Git commit", summary.get("git_commit")),
+        ("Git branch", summary.get("git_branch")),
+        ("Runtime", runtime_status.get("mode")),
+        ("Optional missing", ", ".join(summary.get("missing_optional_artifacts") or []) or "none"),
+    ]
+    _render_key_value_rows(info_ax, info_rows)
+
+    _render_text_block(fig, "Top Risks", _format_list((summary.get("top_risks") or [])[:4], limit=4), [0.50, 0.55, 0.20, 0.25])
+    _render_text_block(fig, "Recommended Actions", _format_list((summary.get("recommended_actions") or [])[:3], limit=3), [0.73, 0.55, 0.22, 0.25])
+    _render_text_block(fig, "Blocking Issues", _format_list((summary.get("blocking_issues") or [])[:4], limit=4), [0.05, 0.20, 0.40, 0.25])
+    _render_text_block(fig, "Warnings", _format_list((summary.get("warnings") or [])[:3], limit=3), [0.50, 0.20, 0.20, 0.25])
+
+    artifact_ax = fig.add_axes([0.73, 0.20, 0.22, 0.25])
+    artifact_ax.axis("off")
+    artifact_ax.set_title("Generated Outputs", fontsize=10, fontweight="bold", loc="left")
+    artifact_lines = []
+    for artifact in (artifacts or [])[:5]:
+        label = artifact.get("label") or artifact.get("key") or "artifact"
+        status_text = artifact.get("status") or "unknown"
+        path = artifact.get("path") or "n/a"
+        artifact_lines.append(f"{label} [{status_text}]")
+        artifact_lines.extend(textwrap.wrap(_compact_path(path, max_length=44), width=34) or ["n/a"])
+    if not artifact_lines:
+        artifact_lines = ["No artifact references available."]
+    y = 0.95
+    for line in artifact_lines[:10]:
+        artifact_ax.text(0.0, y, line, fontsize=7, va="top", color="#333333", wrap=True, clip_on=True)
+        y -= 0.08 if len(line) < 42 else 0.10
+
 def main():
     try:
         config = read_input()
@@ -144,7 +274,14 @@ def generate_template_report(config, template_config):
     default_output_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'output')
     output_path = _resolve_output_path(config, output_stem, default_output_dir)
 
-    render_report(config, template, data, output_path)
+    render_report(
+        config,
+        template,
+        data,
+        output_path,
+        decision_summary=config.get("_decision_summary"),
+        report_artifacts=config.get("_report_artifacts"),
+    )
 
     file_size = os.path.getsize(output_path)
     log(f"  PDF exported: {output_path} ({file_size} bytes)")
@@ -176,8 +313,21 @@ def generate_legacy_report(config):
 
     # Choose layout based on DFM data presence
     has_dfm = dfm and dfm.get("checks") is not None
+    decision_summary = config.get("_decision_summary") if isinstance(config.get("_decision_summary"), dict) else None
+    report_artifacts = config.get("_report_artifacts") if isinstance(config.get("_report_artifacts"), list) else []
 
     with PdfPages(pdf_path) as pdf:
+        if decision_summary:
+            fig0 = plt.figure(figsize=(11.69, 8.27))
+            _render_executive_summary_page(fig0, model_name, decision_summary, report_artifacts)
+            fig0.text(
+                0.5, 0.02,
+                f"Generated by fcad | {model_name} | {datetime.now().strftime('%Y-%m-%d')}",
+                ha='center', fontsize=7, color='#999'
+            )
+            pdf.savefig(fig0)
+            plt.close(fig0)
+
         fig = plt.figure(figsize=(11.69, 8.27))  # A4 landscape (inches)
         fig.suptitle(f"Engineering Report: {model_name}", fontsize=14, fontweight='bold', y=0.97)
 

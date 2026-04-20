@@ -55,6 +55,92 @@ PROCESS_CONSTRAINTS = {
     },
 }
 
+RULE_METADATA = {
+    "DFM-01": {
+        "rule_name": "Minimum wall thickness",
+        "severity_map": {"error": "critical", "warning": "major", "info": "info"},
+        "impact": "Thin walls can distort, chatter, or break during manufacturing and reduce part robustness.",
+        "default_feature_type": "feature",
+        "confidence": "high",
+    },
+    "DFM-02": {
+        "rule_name": "Hole-to-edge distance",
+        "severity_map": {"error": "critical", "warning": "major", "info": "info"},
+        "impact": "Holes too close to an edge can tear out, break through, or force special fixturing.",
+        "default_feature_type": "hole",
+        "confidence": "high",
+    },
+    "DFM-03": {
+        "rule_name": "Hole spacing",
+        "severity_map": {"error": "critical", "warning": "major", "info": "info"},
+        "impact": "Tight hole spacing can weaken the ligament between holes and complicate drilling stability.",
+        "default_feature_type": "hole_pair",
+        "confidence": "high",
+    },
+    "DFM-04": {
+        "rule_name": "Internal corner relief",
+        "severity_map": {"error": "major", "warning": "minor", "info": "info"},
+        "impact": "Sharp internal corners increase tool load and stress concentration and can shorten tool life.",
+        "default_feature_type": "internal_corner",
+        "confidence": "medium",
+    },
+    "DFM-05": {
+        "rule_name": "Drill depth ratio",
+        "severity_map": {"error": "critical", "warning": "major", "info": "info"},
+        "impact": "Excessive drill depth ratios raise drill wander, chip evacuation, and breakage risk.",
+        "default_feature_type": "hole",
+        "confidence": "high",
+    },
+    "DFM-06": {
+        "rule_name": "Undercut risk",
+        "severity_map": {"error": "critical", "warning": "major", "info": "info"},
+        "impact": "Undercut-like internal steps may require special tooling or a different process plan.",
+        "default_feature_type": "undercut",
+        "confidence": "medium",
+    },
+    "DFM-07": {
+        "rule_name": "Minimum tool diameter",
+        "severity_map": {"error": "critical", "warning": "major", "info": "info"},
+        "impact": "Features smaller than available tooling may be impossible without a different shop capability.",
+        "default_feature_type": "hole",
+        "confidence": "high",
+    },
+    "DFM-08": {
+        "rule_name": "Maximum drill depth",
+        "severity_map": {"error": "critical", "warning": "major", "info": "info"},
+        "impact": "Excess drill depth can exceed machine reach and create chip evacuation failures.",
+        "default_feature_type": "hole",
+        "confidence": "high",
+    },
+    "DFM-09": {
+        "rule_name": "Minimum internal corner radius",
+        "severity_map": {"error": "major", "warning": "minor", "info": "info"},
+        "impact": "Corner radii below shop capability may require smaller tooling, slower feeds, or manual rework.",
+        "default_feature_type": "internal_corner",
+        "confidence": "high",
+    },
+    "DFM-10": {
+        "rule_name": "Supported process profile",
+        "severity_map": {"error": "major", "warning": "major", "info": "info"},
+        "impact": "Unsupported process inputs force the checker to fall back to generic defaults, reducing accuracy.",
+        "default_feature_type": None,
+        "confidence": "low",
+    },
+    "DFM-11": {
+        "rule_name": "Known material context",
+        "severity_map": {"error": "major", "warning": "minor", "info": "info"},
+        "impact": "Unknown material context can make wall, corner, and tooling guidance incomplete or conservative.",
+        "default_feature_type": None,
+        "confidence": "low",
+    },
+}
+
+LEGACY_SCORE_IMPACT = {
+    "error": 15,
+    "warning": 5,
+    "info": 0,
+}
+
 
 def _profile_process_constraints(config, process):
     """Return DFM constraints from a resolved rule profile, if present."""
@@ -74,15 +160,184 @@ def _profile_process_constraints(config, process):
 class DFMCheck:
     """Single DFM check result."""
 
-    def __init__(self, code, severity, message, feature=None, recommendation=None):
+    def __init__(
+        self,
+        code,
+        severity,
+        message,
+        feature=None,
+        recommendation=None,
+        feature_type=None,
+        actual_value=None,
+        actual_unit=None,
+        required_value=None,
+        required_unit=None,
+        delta=None,
+        manufacturability_impact=None,
+        confidence=None,
+        evidence=None,
+        part_id=None,
+        part_name=None,
+    ):
         self.code = code
         self.severity = severity  # "error" | "warning" | "info"
         self.message = message
         self.feature = feature
         self.recommendation = recommendation
+        self.feature_type = feature_type
+        self.actual_value = actual_value
+        self.actual_unit = actual_unit
+        self.required_value = required_value
+        self.required_unit = required_unit
+        self.delta = delta
+        self.manufacturability_impact = manufacturability_impact
+        self.confidence = confidence
+        self.evidence = evidence
+        self.part_id = part_id
+        self.part_name = part_name
 
     def to_dict(self):
         return {k: v for k, v in self.__dict__.items() if v is not None}
+
+
+def _round_metric(value):
+    if isinstance(value, (int, float)):
+        return round(float(value), 3)
+    return value
+
+
+def _score_penalty(severity):
+    return LEGACY_SCORE_IMPACT.get(severity, 0)
+
+
+def _severity_to_status(severity):
+    if severity == "error":
+        return "fail"
+    if severity in ("warning", "info"):
+        return "warning"
+    return "skipped"
+
+
+def _actionable_severity(check):
+    meta = RULE_METADATA.get(check.code, {})
+    severity_map = meta.get("severity_map", {})
+    return severity_map.get(check.severity, "info")
+
+
+def _material_name(config):
+    manufacturing = config.get("manufacturing") or {}
+    material = manufacturing.get("material") or config.get("material")
+    if material is None or material == "":
+        return "unknown"
+    return material
+
+
+def _part_identity(config):
+    part = config.get("part") or {}
+    return {
+        "part_id": part.get("part_id") or part.get("id"),
+        "part_name": config.get("name") or part.get("name"),
+    }
+
+
+def _normalized_evidence(evidence):
+    if not isinstance(evidence, dict):
+        return evidence
+    return {key: _round_metric(value) for key, value in evidence.items()}
+
+
+def _build_issue(check, config, process):
+    meta = RULE_METADATA.get(check.code, {})
+    part = _part_identity(config)
+    feature_id = check.feature if check.feature not in ("", "unknown") else None
+    return {
+        "rule_id": check.code,
+        "rule_name": meta.get("rule_name", check.code),
+        "severity": _actionable_severity(check),
+        "status": _severity_to_status(check.severity),
+        "part_id": check.part_id if check.part_id is not None else part["part_id"],
+        "part_name": check.part_name if check.part_name is not None else part["part_name"],
+        "feature_id": feature_id,
+        "feature_type": check.feature_type if check.feature_type is not None else meta.get("default_feature_type"),
+        "actual_value": _round_metric(check.actual_value),
+        "actual_unit": check.actual_unit,
+        "required_value": _round_metric(check.required_value),
+        "required_unit": check.required_unit,
+        "delta": _round_metric(check.delta),
+        "process": process,
+        "material": _material_name(config),
+        "message": check.message,
+        "manufacturability_impact": check.manufacturability_impact or meta.get("impact"),
+        "suggested_fix": check.recommendation,
+        "confidence": check.confidence or meta.get("confidence", "medium"),
+        "evidence": _normalized_evidence(check.evidence),
+        "score_impact": _score_penalty(check.severity),
+    }
+
+
+def _build_legacy_check(check, issue):
+    merged = check.to_dict()
+    merged.update({
+        "rule_id": issue["rule_id"],
+        "rule_name": issue["rule_name"],
+        "status": issue["status"],
+        "actionable_severity": issue["severity"],
+        "part_id": issue["part_id"],
+        "part_name": issue["part_name"],
+        "feature_id": issue["feature_id"],
+        "feature_type": issue["feature_type"],
+        "actual_value": issue["actual_value"],
+        "actual_unit": issue["actual_unit"],
+        "required_value": issue["required_value"],
+        "required_unit": issue["required_unit"],
+        "delta": issue["delta"],
+        "process": issue["process"],
+        "material": issue["material"],
+        "manufacturability_impact": issue["manufacturability_impact"],
+        "suggested_fix": issue["suggested_fix"],
+        "confidence": issue["confidence"],
+        "evidence": issue["evidence"],
+        "score_impact": issue["score_impact"],
+    })
+    return {k: v for k, v in merged.items() if v is not None}
+
+
+def _sort_key_for_issue(issue):
+    severity_rank = {"critical": 0, "major": 1, "minor": 2, "info": 3}
+    rule_id = issue.get("rule_id", "")
+    try:
+        rule_order = int(rule_id.split("-")[1])
+    except (IndexError, ValueError):
+        rule_order = 999
+    return (
+        severity_rank.get(issue.get("severity"), 99),
+        -issue.get("score_impact", 0),
+        rule_order,
+        issue.get("feature_id") or "",
+    )
+
+
+def _summarize_top_fixes(issues):
+    top_fixes = []
+    seen = set()
+    for issue in sorted(issues, key=_sort_key_for_issue):
+        suggested_fix = issue.get("suggested_fix")
+        if not suggested_fix:
+            continue
+        dedupe_key = (issue.get("rule_id"), issue.get("feature_id"), suggested_fix)
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        top_fixes.append({
+            "rule_id": issue.get("rule_id"),
+            "severity": issue.get("severity"),
+            "feature_id": issue.get("feature_id"),
+            "suggested_fix": suggested_fix,
+            "score_impact": issue.get("score_impact", 0),
+        })
+        if len(top_fixes) == 3:
+            break
+    return top_fixes
 
 
 # ---------------------------------------------------------------------------
@@ -325,18 +580,52 @@ def check_wall_thickness(config, constraints):
             wall = outer_r - dist_from_center - hole["radius"]
 
             if wall < min_wall and wall >= 0:
+                deficit = min_wall - wall
                 checks.append(DFMCheck(
                     "DFM-01", "error",
                     f"Wall thickness {wall:.1f}mm < min {min_wall}mm at hole '{hole['id']}'",
                     feature=hole["id"],
-                    recommendation=f"Increase wall to >= {min_wall}mm or reduce hole diameter",
+                    recommendation=(
+                        f"Increase wall thickness by at least {deficit:.1f} mm by moving hole '{hole['id']}' "
+                        f"inward {deficit:.1f} mm, reducing its diameter by {deficit * 2:.1f} mm, "
+                        f"or switching to a process/material profile that supports the current {wall:.1f} mm wall."
+                    ),
+                    feature_type="hole",
+                    actual_value=wall,
+                    actual_unit="mm",
+                    required_value=min_wall,
+                    required_unit="mm",
+                    delta=wall - min_wall,
+                    evidence={
+                        "measurement": "wall_thickness",
+                        "hole_id": hole["id"],
+                        "wall_mm": wall,
+                        "threshold_mm": min_wall,
+                    },
                 ))
             elif wall < min_wall * 1.5 and wall >= min_wall:
+                preferred_wall = min_wall * 1.5
+                improvement = preferred_wall - wall
                 checks.append(DFMCheck(
                     "DFM-01", "warning",
                     f"Wall thickness {wall:.1f}mm is marginal (min {min_wall}mm) at hole '{hole['id']}'",
                     feature=hole["id"],
-                    recommendation="Consider increasing wall thickness for safety margin",
+                    recommendation=(
+                        f"Increase wall thickness by at least {improvement:.1f} mm to reach the preferred "
+                        f"{preferred_wall:.1f} mm margin, or relax the process/material profile if the current wall is intentional."
+                    ),
+                    feature_type="hole",
+                    actual_value=wall,
+                    actual_unit="mm",
+                    required_value=preferred_wall,
+                    required_unit="mm",
+                    delta=wall - preferred_wall,
+                    evidence={
+                        "measurement": "wall_thickness",
+                        "hole_id": hole["id"],
+                        "wall_mm": wall,
+                        "preferred_wall_mm": preferred_wall,
+                    },
                 ))
 
     # --- Box wall analysis (Phase 24) ---
@@ -345,18 +634,51 @@ def check_wall_thickness(config, constraints):
 
     for wall_mm, desc, feat_type in box_walls:
         if wall_mm < min_wall:
+            deficit = min_wall - wall_mm
             checks.append(DFMCheck(
                 "DFM-01", "error",
                 f"Wall thickness {wall_mm:.1f}mm < min {min_wall}mm at {desc}",
                 feature=feat_type,
-                recommendation=f"Increase wall to >= {min_wall}mm",
+                recommendation=(
+                    f"Increase wall thickness by at least {deficit:.1f} mm at {desc}, "
+                    f"or adjust the local cut geometry so the remaining wall meets {min_wall:.1f} mm."
+                ),
+                feature_type=feat_type,
+                actual_value=wall_mm,
+                actual_unit="mm",
+                required_value=min_wall,
+                required_unit="mm",
+                delta=wall_mm - min_wall,
+                evidence={
+                    "measurement": "wall_thickness",
+                    "wall_mm": wall_mm,
+                    "threshold_mm": min_wall,
+                    "location": desc,
+                },
             ))
         elif wall_mm < min_wall * 1.5:
+            preferred_wall = min_wall * 1.5
+            improvement = preferred_wall - wall_mm
             checks.append(DFMCheck(
                 "DFM-01", "warning",
                 f"Wall thickness {wall_mm:.1f}mm is marginal (min {min_wall}mm) at {desc}",
                 feature=feat_type,
-                recommendation="Consider increasing wall thickness for safety margin",
+                recommendation=(
+                    f"Increase wall thickness by at least {improvement:.1f} mm at {desc} "
+                    f"to reach the preferred {preferred_wall:.1f} mm safety margin."
+                ),
+                feature_type=feat_type,
+                actual_value=wall_mm,
+                actual_unit="mm",
+                required_value=preferred_wall,
+                required_unit="mm",
+                delta=wall_mm - preferred_wall,
+                evidence={
+                    "measurement": "wall_thickness",
+                    "wall_mm": wall_mm,
+                    "preferred_wall_mm": preferred_wall,
+                    "location": desc,
+                },
             ))
 
     return checks
@@ -404,12 +726,29 @@ def check_hole_edge_distance(config, constraints):
             edge_dist = outer_r - dist_from_center - hole["radius"]
 
             if edge_dist < min_dist and edge_dist >= 0:
+                deficit = min_dist - edge_dist
                 checks.append(DFMCheck(
                     "DFM-02", "error",
                     f"Hole '{hole['id']}' edge distance {edge_dist:.1f}mm "
                     f"< required {min_dist:.1f}mm ({factor}x dia {hole['diameter']:.1f}mm)",
                     feature=hole["id"],
-                    recommendation=f"Move hole at least {min_dist:.1f}mm from edge",
+                    recommendation=(
+                        f"Move hole '{hole['id']}' inward by at least {deficit:.1f} mm to reach the required "
+                        f"{min_dist:.1f} mm edge distance, or reduce the hole size and recheck the {factor:.1f}x-dia rule."
+                    ),
+                    feature_type="hole",
+                    actual_value=edge_dist,
+                    actual_unit="mm",
+                    required_value=min_dist,
+                    required_unit="mm",
+                    delta=edge_dist - min_dist,
+                    evidence={
+                        "measurement": "hole_edge_distance",
+                        "hole_id": hole["id"],
+                        "edge_distance_mm": edge_dist,
+                        "required_mm": min_dist,
+                        "diameter_mm": hole["diameter"],
+                    },
                 ))
 
         for body in box_bodies:
@@ -425,12 +764,30 @@ def check_hole_edge_distance(config, constraints):
                 (body["y"] + body["depth"]) - hole["y"] - hole["radius"],
             )
             if edge_dist < min_dist and edge_dist >= 0:
+                deficit = min_dist - edge_dist
                 checks.append(DFMCheck(
                     "DFM-02", "error",
                     f"Hole '{hole['id']}' edge distance {edge_dist:.1f}mm "
                     f"< required {min_dist:.1f}mm ({factor}x dia {hole['diameter']:.1f}mm) in box '{body['id']}'",
                     feature=hole["id"],
-                    recommendation=f"Move hole at least {min_dist:.1f}mm from edge",
+                    recommendation=(
+                        f"Move hole '{hole['id']}' at least {deficit:.1f} mm away from the nearest box edge in '{body['id']}', "
+                        f"or widen the local flange so the edge distance reaches {min_dist:.1f} mm."
+                    ),
+                    feature_type="hole",
+                    actual_value=edge_dist,
+                    actual_unit="mm",
+                    required_value=min_dist,
+                    required_unit="mm",
+                    delta=edge_dist - min_dist,
+                    evidence={
+                        "measurement": "hole_edge_distance",
+                        "hole_id": hole["id"],
+                        "body_id": body["id"],
+                        "edge_distance_mm": edge_dist,
+                        "required_mm": min_dist,
+                        "diameter_mm": hole["diameter"],
+                    },
                 ))
 
     return checks
@@ -487,12 +844,29 @@ def check_hole_spacing(config, constraints):
             min_spacing = factor * ref_dia
 
             if edge_gap < min_spacing and edge_gap >= 0:
+                deficit = min_spacing - edge_gap
                 checks.append(DFMCheck(
                     "DFM-03", "warning",
                     f"Hole spacing {edge_gap:.1f}mm between '{h1['id']}' and '{h2['id']}' "
                     f"< recommended {min_spacing:.1f}mm ({factor}x dia {ref_dia:.1f}mm)",
                     feature=f"{h1['id']},{h2['id']}",
-                    recommendation=f"Increase spacing to >= {min_spacing:.1f}mm",
+                    recommendation=(
+                        f"Increase the ligament between holes '{h1['id']}' and '{h2['id']}' by at least {deficit:.1f} mm "
+                        f"(for example by moving one center {deficit:.1f} mm farther away or reducing one hole diameter) "
+                        f"so spacing reaches {min_spacing:.1f} mm."
+                    ),
+                    feature_type="hole_pair",
+                    actual_value=edge_gap,
+                    actual_unit="mm",
+                    required_value=min_spacing,
+                    required_unit="mm",
+                    delta=edge_gap - min_spacing,
+                    evidence={
+                        "measurement": "hole_spacing",
+                        "hole_ids": f"{h1['id']},{h2['id']}",
+                        "edge_gap_mm": edge_gap,
+                        "required_mm": min_spacing,
+                    },
                 ))
 
     return checks
@@ -513,13 +887,35 @@ def check_fillet_chamfer(config, constraints):
         checks.append(DFMCheck(
             "DFM-04", "warning",
             "No fillet or chamfer operations found — internal corners may cause stress concentration",
-            recommendation="Add fillet (R >= 0.5mm) or chamfer to internal corners",
+            recommendation="Add at least one fillet with R >= 0.5 mm or a chamfer on the internal corners created by the cut features.",
+            feature_type="internal_corner",
+            actual_value=0,
+            actual_unit="count",
+            required_value=1,
+            required_unit="count",
+            delta=-1,
+            evidence={
+                "measurement": "corner_relief_ops",
+                "fillet_count": 0,
+                "chamfer_count": 0,
+            },
         ))
     elif has_cuts and not has_fillet:
         checks.append(DFMCheck(
             "DFM-04", "info",
             "Chamfer present but no fillet — consider fillets for stress-critical corners",
-            recommendation="Fillets distribute stress better than chamfers at internal corners",
+            recommendation="Add a fillet to the most stress-critical internal corners if fatigue or crack initiation is a concern.",
+            feature_type="internal_corner",
+            actual_value=0,
+            actual_unit="count",
+            required_value=1,
+            required_unit="count",
+            delta=-1,
+            evidence={
+                "measurement": "fillet_ops",
+                "fillet_count": 0,
+                "chamfer_count": 1,
+            },
         ))
 
     return checks
@@ -540,12 +936,33 @@ def check_drill_ratio(config, constraints):
             continue
         ratio = hole["height"] / hole["diameter"]
         if ratio > max_ratio:
+            max_depth = max_ratio * hole["diameter"]
+            depth_reduction = hole["height"] - max_depth
+            required_diameter = hole["height"] / max_ratio
+            diameter_increase = required_diameter - hole["diameter"]
             checks.append(DFMCheck(
                 "DFM-05", "warning",
                 f"Drill ratio {ratio:.1f}:1 for '{hole['id']}' exceeds "
                 f"max {max_ratio:.0f}:1 (depth={hole['height']:.1f}mm, dia={hole['diameter']:.1f}mm)",
                 feature=hole["id"],
-                recommendation=f"Reduce depth or increase diameter to achieve <= {max_ratio:.0f}:1 ratio",
+                recommendation=(
+                    f"Reduce hole depth by at least {depth_reduction:.1f} mm, or increase the diameter by at least "
+                    f"{diameter_increase:.1f} mm so hole '{hole['id']}' meets the {max_ratio:.0f}:1 drill ratio limit."
+                ),
+                feature_type="hole",
+                actual_value=ratio,
+                actual_unit="ratio",
+                required_value=max_ratio,
+                required_unit="ratio",
+                delta=ratio - max_ratio,
+                evidence={
+                    "measurement": "drill_ratio",
+                    "hole_id": hole["id"],
+                    "ratio": ratio,
+                    "depth_mm": hole["height"],
+                    "diameter_mm": hole["diameter"],
+                    "max_depth_mm": max_depth,
+                },
             ))
 
     return checks
@@ -565,12 +982,28 @@ def check_tool_constraints(config, constraints):
     if min_tool_dia:
         for hole in holes:
             if hole["diameter"] > 0 and hole["diameter"] < min_tool_dia:
+                deficit = min_tool_dia - hole["diameter"]
                 checks.append(DFMCheck(
                     "DFM-07", "error",
                     f"Hole '{hole['id']}' diameter {hole['diameter']:.1f}mm "
                     f"< minimum tool diameter {min_tool_dia:.1f}mm",
                     feature=hole["id"],
-                    recommendation=f"Increase hole diameter to >= {min_tool_dia:.1f}mm or use different shop",
+                    recommendation=(
+                        f"Increase hole '{hole['id']}' diameter by at least {deficit:.1f} mm to reach "
+                        f"{min_tool_dia:.1f} mm, or use a shop profile with smaller tooling."
+                    ),
+                    feature_type="hole",
+                    actual_value=hole["diameter"],
+                    actual_unit="mm",
+                    required_value=min_tool_dia,
+                    required_unit="mm",
+                    delta=hole["diameter"] - min_tool_dia,
+                    evidence={
+                        "measurement": "tool_diameter",
+                        "hole_id": hole["id"],
+                        "diameter_mm": hole["diameter"],
+                        "required_mm": min_tool_dia,
+                    },
                 ))
 
     # Max drill depth check
@@ -578,12 +1011,28 @@ def check_tool_constraints(config, constraints):
     if max_drill_depth:
         for hole in holes:
             if hole["height"] > max_drill_depth:
+                excess = hole["height"] - max_drill_depth
                 checks.append(DFMCheck(
                     "DFM-08", "error",
                     f"Hole '{hole['id']}' depth {hole['height']:.1f}mm "
                     f"exceeds maximum drill depth {max_drill_depth:.1f}mm",
                     feature=hole["id"],
-                    recommendation=f"Reduce depth to <= {max_drill_depth:.1f}mm or use different shop",
+                    recommendation=(
+                        f"Reduce hole '{hole['id']}' depth by at least {excess:.1f} mm to stay within "
+                        f"the {max_drill_depth:.1f} mm shop limit, or move the work to a deeper-capacity process."
+                    ),
+                    feature_type="hole",
+                    actual_value=hole["height"],
+                    actual_unit="mm",
+                    required_value=max_drill_depth,
+                    required_unit="mm",
+                    delta=hole["height"] - max_drill_depth,
+                    evidence={
+                        "measurement": "drill_depth",
+                        "hole_id": hole["id"],
+                        "depth_mm": hole["height"],
+                        "required_mm": max_drill_depth,
+                    },
                 ))
 
     # Min internal radius check (fillets/chamfers)
@@ -596,12 +1045,28 @@ def check_tool_constraints(config, constraints):
                 size_key = "radius" if op_type == "fillet" else "size"
                 radius = op.get(size_key, 0)
                 if radius > 0 and radius < min_internal_radius:
+                    deficit = min_internal_radius - radius
                     checks.append(DFMCheck(
                         "DFM-09", "warning",
                         f"{op_type.capitalize()} '{op.get('id', 'unknown')}' radius {radius:.1f}mm "
                         f"< minimum internal radius {min_internal_radius:.1f}mm",
                         feature=op.get("id", "unknown"),
-                        recommendation=f"Increase {op_type} radius to >= {min_internal_radius:.1f}mm",
+                        recommendation=(
+                            f"Increase the {op_type} size by at least {deficit:.1f} mm so the internal corner reaches "
+                            f"{min_internal_radius:.1f} mm."
+                        ),
+                        feature_type="internal_corner",
+                        actual_value=radius,
+                        actual_unit="mm",
+                        required_value=min_internal_radius,
+                        required_unit="mm",
+                        delta=radius - min_internal_radius,
+                        evidence={
+                            "measurement": "internal_corner_radius",
+                            "operation_id": op.get("id", "unknown"),
+                            "radius_mm": radius,
+                            "required_mm": min_internal_radius,
+                        },
                     ))
 
     return checks
@@ -663,6 +1128,7 @@ def check_undercut(config, constraints):
                     msg_prefix = "Potential undercut"
                     tool_approach = "axial"
 
+                step_count_value = max(len(unique_radii) - 1, 0)
                 checks.append(DFMCheck(
                     "DFM-06", severity,
                     f"{msg_prefix}: coaxial holes '{larger.get('id')}' "
@@ -670,10 +1136,26 @@ def check_undercut(config, constraints):
                     f"(R={smaller.get('radius')}mm) form internal step"
                     f" (tool_approach={tool_approach})",
                     feature=f"{larger.get('id')},{smaller.get('id')}",
-                    recommendation="Verify tool access for internal step — "
-                                   "consider through-hole or relief groove"
-                                   if not is_counterbore else
-                                   "Counterbore depth and clearance are adequate",
+                    recommendation=(
+                        "Verify tool access for the internal step and add a relief groove, convert it to a through-feature, "
+                        "or split the operation into accessible machining stages."
+                        if not is_counterbore else
+                        "Counterbore looks intentional; keep enough clearance for the larger tool and verify fastener head access."
+                    ),
+                    feature_type="undercut",
+                    actual_value=step_count_value,
+                    actual_unit="count",
+                    required_value=0 if not is_counterbore else 1,
+                    required_unit="count",
+                    delta=step_count_value if not is_counterbore else step_count_value - 1,
+                    evidence={
+                        "measurement": "coaxial_step_count",
+                        "feature_ids": f"{larger.get('id')},{smaller.get('id')}",
+                        "step_count": step_count_value,
+                        "larger_radius_mm": larger.get("radius"),
+                        "smaller_radius_mm": smaller.get("radius"),
+                        "tool_approach": tool_approach,
+                    },
                 ))
 
     # --- T-slot detection (cut boxes forming T-profile) ---
@@ -706,15 +1188,76 @@ def _detect_t_slot(cut_boxes):
                 narrower = min(w1, w2)
                 ratio = narrower / wider
                 if ratio < 0.6:
+                    required_width = 0.6 * wider
+                    width_deficit = required_width - narrower
                     checks.append(DFMCheck(
                         "DFM-06", "warning",
                         f"T-slot pattern: '{b1['id']}' and '{b2['id']}' form "
                         f"undercut profile (width ratio {ratio:.2f})"
                         f" (tool_approach=radial)",
                         feature="t_slot",
-                        recommendation="T-slot requires special tooling — "
-                                       "verify tool access or use open-side design",
+                        recommendation=(
+                            f"Increase the narrow slot width by at least {width_deficit:.1f} mm or open one side of the feature "
+                            f"so the profile no longer behaves like a T-slot undercut."
+                        ),
+                        feature_type="t_slot",
+                        actual_value=ratio,
+                        actual_unit="ratio",
+                        required_value=0.6,
+                        required_unit="ratio",
+                        delta=ratio - 0.6,
+                        evidence={
+                            "measurement": "t_slot_width_ratio",
+                            "feature_ids": f"{b1['id']},{b2['id']}",
+                            "width_ratio": ratio,
+                            "required_ratio": 0.6,
+                            "tool_approach": "radial",
+                        },
                     ))
+    return checks
+
+
+def _build_context_checks(config, requested_process, resolved_process):
+    checks = []
+    supported_processes = sorted(PROCESS_CONSTRAINTS.keys())
+    material = _material_name(config)
+    process_supported = requested_process in PROCESS_CONSTRAINTS
+
+    if not process_supported:
+        checks.append(DFMCheck(
+            "DFM-10",
+            "info",
+            f"Process '{requested_process}' is not in the built-in DFM constraint table; using '{resolved_process}' defaults.",
+            recommendation=(
+                f"Set manufacturing.process to one of {', '.join(supported_processes)}, or add "
+                f"rule_profile.processes.dfm_constraints.{requested_process} so the checker can use process-specific limits."
+            ),
+            actual_value=requested_process,
+            required_value="supported_process_profile",
+            manufacturability_impact="Unsupported process inputs reduce the fidelity of the rule thresholds and suggested fixes.",
+            confidence="low",
+            evidence={
+                "supported_processes": ", ".join(supported_processes),
+                "fallback_process": resolved_process,
+            },
+        ))
+
+    if material == "unknown" and not process_supported:
+        checks.append(DFMCheck(
+            "DFM-11",
+            "info",
+            "Material is unknown, so material-sensitive DFM guidance may be incomplete.",
+            recommendation="Set manufacturing.material to the intended stock or alloy so reviewers can judge whether the current geometry is still appropriate.",
+            actual_value="unknown",
+            required_value="specified_material",
+            manufacturability_impact="Unknown material context weakens confidence in wall, corner, and tooling guidance.",
+            confidence="low",
+            evidence={
+                "measurement": "material_context",
+                "material": "unknown",
+            },
+        ))
+
     return checks
 
 
@@ -725,9 +1268,10 @@ def _detect_t_slot(cut_boxes):
 def run_dfm_check(config):
     """Run all DFM checks and return report dict."""
     mfg = config.get("manufacturing", {})
-    process = mfg.get("process", "machining")
-    constraints = PROCESS_CONSTRAINTS.get(process, PROCESS_CONSTRAINTS["machining"])
-    profile_constraints = _profile_process_constraints(config, process)
+    requested_process = mfg.get("process", "machining")
+    resolved_process = requested_process if requested_process in PROCESS_CONSTRAINTS else "machining"
+    constraints = PROCESS_CONSTRAINTS.get(requested_process, PROCESS_CONSTRAINTS["machining"])
+    profile_constraints = _profile_process_constraints(config, requested_process)
     if profile_constraints:
         constraints = dict(constraints)
         constraints.update(profile_constraints)
@@ -736,7 +1280,7 @@ def run_dfm_check(config):
     # Apply shop_profile overrides
     if profile:
         constraints = dict(constraints)  # Make a copy to avoid modifying global
-        proc_caps = profile.get("process_capabilities", {}).get(process, {})
+        proc_caps = profile.get("process_capabilities", {}).get(requested_process, {})
 
         # Override process-specific constraints
         if proc_caps.get("min_wall_thickness_mm"):
@@ -764,6 +1308,7 @@ def run_dfm_check(config):
         constraints["min_wall"] = min_wall_override
 
     all_checks = []
+    all_checks.extend(_build_context_checks(config, requested_process, resolved_process))
     all_checks.extend(check_wall_thickness(config, constraints))
     all_checks.extend(check_hole_edge_distance(config, constraints))
     all_checks.extend(check_hole_spacing(config, constraints))
@@ -775,25 +1320,41 @@ def run_dfm_check(config):
     if profile:
         all_checks.extend(check_tool_constraints(config, constraints))
 
+    issues = [_build_issue(check, config, requested_process) for check in all_checks]
+    checks = [_build_legacy_check(check, issue) for check, issue in zip(all_checks, issues)]
+
     errors = sum(1 for c in all_checks if c.severity == "error")
     warnings = sum(1 for c in all_checks if c.severity == "warning")
     infos = sum(1 for c in all_checks if c.severity == "info")
     score = max(0, 100 - errors * 15 - warnings * 5)
+    severity_counts = {"critical": 0, "major": 0, "minor": 0, "info": 0}
+    for issue in issues:
+        severity_counts[issue["severity"]] = severity_counts.get(issue["severity"], 0) + 1
+    score_impact = {
+        "error_penalty": errors * LEGACY_SCORE_IMPACT["error"],
+        "warning_penalty": warnings * LEGACY_SCORE_IMPACT["warning"],
+        "total_penalty": (errors * LEGACY_SCORE_IMPACT["error"]) + (warnings * LEGACY_SCORE_IMPACT["warning"]),
+    }
 
     return {
         "success": True,
-        "process": process,
-        "material": mfg.get("material", "unknown"),
+        "process": requested_process,
+        "resolved_process": resolved_process,
+        "material": _material_name(config),
         "rule_profile": {
             "id": (config.get("rule_profile") or {}).get("id"),
             "label": (config.get("rule_profile") or {}).get("label"),
         } if config.get("rule_profile") else None,
-        "checks": [c.to_dict() for c in all_checks],
+        "checks": checks,
+        "issues": issues,
         "summary": {
             "errors": errors,
             "warnings": warnings,
             "info": infos,
             "total": len(all_checks),
+            "severity_counts": severity_counts,
+            "top_fixes": _summarize_top_fixes(issues),
+            "score_impact": score_impact,
         },
         "score": score,
     }
