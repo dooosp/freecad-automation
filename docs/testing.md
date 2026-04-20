@@ -65,7 +65,7 @@ This is intentionally API-and-helper coverage, not runtime-backed verification. 
 
 ## Runtime Smoke Contents
 
-`npm run test:runtime-smoke` uses the checked-in `configs/examples/ks_bracket.toml` and `configs/examples/bracket_fem.toml` examples, rewrites them into throwaway configs, and writes runtime outputs under `output/runtime-smoke/`.
+`npm run test:runtime-smoke` uses the checked-in `configs/examples/ks_bracket.toml`, `configs/examples/quality_pass_bracket.toml`, and `configs/examples/bracket_fem.toml` examples, rewrites them into throwaway configs, and writes runtime outputs under `output/runtime-smoke/`.
 
 The smoke lane verifies:
 
@@ -75,6 +75,8 @@ The smoke lane verifies:
 - `fcad inspect`
 - `fcad fem`
 - `fcad report`
+- strict expected-fail checks for `ks_bracket` create/draw quality gates
+- strict pass checks for `quality_pass_bracket` create/draw quality gates plus `Ready for manufacturing review: Yes`
 
 The smoke harness validates the generated artifact manifests for `create`, `draw`, `fem`, and `report`, asserts that create also produced a valid `<base>_create_quality.json` plus linked output manifest entry, and checks that required artifact types exist and recorded output files are non-empty. It also writes `output/runtime-smoke/smoke-manifest.json` so workflow uploads can be inspected without replaying the run.
 

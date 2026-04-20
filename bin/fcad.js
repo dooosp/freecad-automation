@@ -3300,7 +3300,7 @@ async function cmdReport(configPath, flags = []) {
       throw new Error(result.error || 'Engineering report generation failed');
     }
 
-    const manifestPath = await writeCliManifest({
+    const reportManifestInput = {
       command: 'report',
       configPath: absPath,
       configSummary: configDocument.summary,
@@ -3318,7 +3318,8 @@ async function cmdReport(configPath, flags = []) {
         include_dfm: includeDfm,
         include_monte_carlo: includeMC,
       },
-    });
+    };
+    let manifestPath = await writeCliManifest(reportManifestInput);
     await emitOutputManifestSafe({
       command: 'report',
       commandArgs: [configPath, ...flags],
@@ -3355,6 +3356,7 @@ async function cmdReport(configPath, flags = []) {
       result.report_summary.missing_optional_artifacts = (result.report_summary.missing_optional_artifacts || [])
         .filter((artifactKey) => !(artifactKey === 'report_manifest' && reportOutputManifest));
       await writeJsonFile(result.summary_json, result.report_summary);
+      manifestPath = await writeCliManifest(reportManifestInput);
     }
     console.log(`\n=== Engineering Report Generated ===`);
     console.log(`  PDF: ${result.path} (${result.size_bytes} bytes)`);

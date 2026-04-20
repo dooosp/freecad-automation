@@ -63,6 +63,15 @@ Deeper runtime-backed suites are available as `npm run test:runtime:model`, `tes
 
 Full details, workflow mapping, and local commands live in [docs/testing.md](./docs/testing.md).
 
+## Quality Fixtures
+
+The repository now keeps two explicit quality fixtures with different purposes:
+
+- [`configs/examples/ks_bracket.toml`](./configs/examples/ks_bracket.toml): intentional fail-demo for geometry, drawing-quality, and DFM blockers. Use it when you want to prove the gates still catch real issues. Its strict create/draw paths are expected to fail, and its report should stay `Ready for manufacturing review: No`.
+- [`configs/examples/quality_pass_bracket.toml`](./configs/examples/quality_pass_bracket.toml): strict-pass happy path for the current quality stack. Use it when you want to prove create quality, drawing quality, DFM, and report readiness can all pass without weakening the gates.
+
+Treat `ks_bracket` as the blocker-rich example and `quality_pass_bracket` as the clean regression target; they are not interchangeable.
+
 ## Supported And Verified Platform Scope
 
 - verified maintainer path: macOS + `FreeCAD.app` 1.1.x for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, and `report`
