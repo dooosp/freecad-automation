@@ -101,20 +101,81 @@ try {
   assert.equal(result.success, true);
 
   const qaJsonPath = svgPath.replace('.svg', '_qa.json');
+  const drawingQualityPath = svgPath.replace('.svg', '_quality.json');
   const runLogPath = join(outputDir, 'qa_dfm_bridge_run_log.json');
   assert.equal(existsSync(qaJsonPath), true);
+  assert.equal(existsSync(drawingQualityPath), true);
   assert.equal(existsSync(runLogPath), true);
 
   const qaReport = JSON.parse(readFileSync(qaJsonPath, 'utf8'));
   assert.equal(qaReport.metrics.dfm_error_count, 0);
   assert.equal(qaReport.metrics.dfm_warning_count, 1);
 
+  const drawingQuality = JSON.parse(readFileSync(drawingQualityPath, 'utf8'));
+  assert.equal(drawingQuality.command, 'draw');
+  assert.equal(drawingQuality.drawing_svg, svgPath);
+  assert.equal(drawingQuality.qa_file, qaJsonPath);
+  assert.equal(drawingQuality.status, 'pass');
+
   const runLog = JSON.parse(readFileSync(runLogPath, 'utf8'));
   assert.equal(existsSync(runLog.artifacts.effective_config), true);
+  assert.equal(runLog.artifacts.drawing_quality, drawingQualityPath);
 
   const effectiveConfig = JSON.parse(readFileSync(runLog.artifacts.effective_config, 'utf8'));
   assert.equal(effectiveConfig.manufacturing.process, 'machining');
   assert.equal(effectiveConfig.operations[0].op, 'cut');
+
+  const strictOutputDir = join(tempRoot, 'strict-output');
+  mkdirSync(strictOutputDir, { recursive: true });
+  const strictSvgPath = join(strictOutputDir, 'qa_dfm_bridge_strict_drawing.svg');
+  writeFileSync(strictSvgPath, readFileSync(svgPath, 'utf8'), 'utf8');
+
+  await assert.rejects(
+    runDrawPipeline({
+      projectRoot: PROJECT_ROOT,
+      configPath,
+      flags: ['--raw', '--no-plan'],
+      strictQuality: true,
+      loadConfig: async () => ({
+        ...structuredClone(config),
+        name: 'qa_dfm_bridge_strict',
+        export: { directory: strictOutputDir },
+      }),
+      deepMerge: (target, source) => Object.assign(target, source),
+      generateDrawing: async () => ({
+        success: true,
+        drawing_paths: [
+          {
+            format: 'svg',
+            path: strictSvgPath,
+            size_bytes: readFileSync(strictSvgPath).length,
+          },
+        ],
+        views: ['front', 'top', 'right', 'iso'],
+        scale: '1:1',
+        layout_report: { summary: { view_count: 4, overflow_views: ['front'], all_within_limits: false } },
+        dimension_map: { auto_dimensions: [], plan_dimensions: [], summary: {} },
+        dim_conflicts: { conflicts: [], summary: { count: 0 } },
+        traceability: {
+          schema_version: '0.1',
+          model_name: 'qa_dfm_bridge_strict',
+          features: [],
+          dimensions: [],
+          links: [],
+          summary: {
+            feature_count: 0,
+            dimension_count: 0,
+            linked_dimensions: 0,
+            unresolved_dimensions: [],
+          },
+        },
+      }),
+      runScript: async () => {
+        throw new Error('runScript should not be called in strict test');
+      },
+    }),
+    /Strict drawing quality gate failed/
+  );
 
   console.log('draw-pipeline-qa-config.test.js: ok');
 } finally {

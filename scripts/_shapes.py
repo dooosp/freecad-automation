@@ -631,11 +631,21 @@ def get_metadata(shape):
     """Extract geometric metadata from a shape."""
     bb = shape.BoundBox
     return {
+        "valid_shape": bool(shape.isValid()),
         "volume": round(shape.Volume, 2),
         "area": round(shape.Area, 2),
+        "solid_count": len(shape.Solids),
+        "face_count": len(shape.Faces),
+        "edge_count": len(shape.Edges),
+        "vertex_count": len(shape.Vertexes),
         "faces": len(shape.Faces),
         "edges": len(shape.Edges),
         "vertices": len(shape.Vertexes),
+        "bbox": {
+            "min": [round(bb.XMin, 2), round(bb.YMin, 2), round(bb.ZMin, 2)],
+            "max": [round(bb.XMax, 2), round(bb.YMax, 2), round(bb.ZMax, 2)],
+            "size": [round(bb.XLength, 2), round(bb.YLength, 2), round(bb.ZLength, 2)],
+        },
         "bounding_box": {
             "min": [round(bb.XMin, 2), round(bb.YMin, 2), round(bb.ZMin, 2)],
             "max": [round(bb.XMax, 2), round(bb.YMax, 2), round(bb.ZMax, 2)],

@@ -26,8 +26,8 @@ const COMMAND_MANIFEST = Object.freeze([
     helpSection: 'freecad-backed',
     helpEntries: Object.freeze([
       Object.freeze({
-        usage: 'fcad create <config.toml|json>',
-        summary: 'Generate parametric model output',
+        usage: 'fcad create <config.toml|json> [--strict-quality]',
+        summary: 'Generate parametric model output plus additive create-quality JSON',
       }),
     ]),
     runtime: Object.freeze({
@@ -47,8 +47,8 @@ const COMMAND_MANIFEST = Object.freeze([
     helpSection: 'freecad-backed',
     helpEntries: Object.freeze([
       Object.freeze({
-        usage: 'fcad draw <config.toml|json>',
-        summary: 'Generate TechDraw SVG output',
+        usage: 'fcad draw <config.toml|json> [--bom] [--strict-quality] [--fail-under <number>]',
+        summary: 'Generate TechDraw SVG output plus additive drawing QA sidecars',
       }),
     ]),
     runtime: Object.freeze({
@@ -527,6 +527,7 @@ const WORKFLOW_SPECIFIC_OPTIONS = Object.freeze([
   Object.freeze({ flag: '--fail-under N', description: 'Fail if QA score < N (with draw)' }),
   Object.freeze({ flag: '--weights-preset P', description: 'QA weight profile: default|auto|flange|shaft|...' }),
   Object.freeze({ flag: '--strict', description: 'Treat warnings as errors (with validate/dfm)' }),
+  Object.freeze({ flag: '--strict-quality', description: 'Fail create only when blocking create-quality checks are found' }),
   Object.freeze({ flag: '--manifest-out <path>', description: 'Write a provenance manifest for stdout-oriented commands such as inspect/fem/tolerance/dfm' }),
   Object.freeze({ flag: '--recommend', description: 'Auto-recommend fit specs (with tolerance)' }),
   Object.freeze({ flag: '--csv', description: 'Export tolerance report as CSV (with tolerance)' }),

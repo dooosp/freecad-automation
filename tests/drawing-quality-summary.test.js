@@ -1,0 +1,242 @@
+import assert from 'node:assert/strict';
+
+import {
+  buildDrawingQualitySummary,
+  shouldFailDrawingQualityGate,
+} from '../src/services/drawing/drawing-quality-summary.js';
+
+function makeBaseArtifacts() {
+  return {
+    inputConfigPath: '/tmp/ks_bracket.toml',
+    drawingSvgPath: '/tmp/ks_bracket_drawing.svg',
+    planPath: '/tmp/ks_bracket_plan.toml',
+    qaPath: '/tmp/ks_bracket_drawing_qa.json',
+    qaReport: {
+      score: 94,
+      metrics: {
+        overflow_count: 0,
+      },
+      details: {
+        overflows: [],
+      },
+    },
+    qaIssuesPath: '/tmp/ks_bracket_drawing_qa_issues.json',
+    qaIssues: {
+      issues: [],
+    },
+    traceabilityPath: '/tmp/ks_bracket_traceability.json',
+    traceability: {
+      summary: {
+        feature_count: 3,
+        dimension_count: 3,
+        linked_dimensions: 3,
+        unresolved_dimensions: [],
+      },
+      links: [
+        { dim_id: 'WIDTH', feature_id: 'body_width' },
+        { dim_id: 'HEIGHT', feature_id: 'body_height' },
+        { dim_id: 'HOLE_DIA', feature_id: 'hole_1' },
+      ],
+    },
+    layoutReportPath: '/tmp/ks_bracket_layout_report.json',
+    layoutReport: {
+      views: {
+        front: {},
+        top: {},
+        right: {},
+      },
+      summary: {
+        view_count: 3,
+        overflow_views: [],
+        all_within_limits: true,
+      },
+    },
+    dimensionMapPath: '/tmp/ks_bracket_dimension_map.json',
+    dimensionMap: {
+      plan_dimensions: [
+        { dim_id: 'WIDTH', required: true, rendered: true, status: 'rendered', feature: 'body_width' },
+        { dim_id: 'HEIGHT', required: true, rendered: true, status: 'rendered', feature: 'body_height' },
+        { dim_id: 'HOLE_DIA', required: true, rendered: true, status: 'rendered', feature: 'hole_1' },
+      ],
+      auto_dimensions: [],
+      summary: {
+        auto_count: 0,
+        plan_count: 3,
+        rendered_plan_count: 3,
+        conflict_count: 0,
+        skipped_duplicate_count: 0,
+        dedupe_conflict_count: 0,
+      },
+    },
+    dimConflictsPath: '/tmp/ks_bracket_dim_conflicts.json',
+    dimConflicts: {
+      conflicts: [],
+      summary: {
+        count: 0,
+      },
+    },
+    bomPath: '/tmp/ks_bracket_bom.csv',
+    bomEntries: [
+      { id: 'body', material: 'AL6061', count: 1 },
+      { id: 'fastener', material: 'SCM435', count: 2 },
+    ],
+    bomRows: [
+      { item: '1', id: 'body', material: 'AL6061', qty: '1' },
+      { item: '2', id: 'fastener', material: 'SCM435', qty: '2' },
+    ],
+    generatedViews: ['front', 'top', 'right'],
+  };
+}
+
+{
+  const summary = buildDrawingQualitySummary(makeBaseArtifacts());
+  assert.equal(summary.command, 'draw');
+  assert.equal(summary.status, 'pass');
+  assert.equal(summary.score, 94);
+  assert.equal(summary.views.required_count, 3);
+  assert.equal(summary.views.generated_count, 3);
+  assert.deepEqual(summary.views.missing_views, []);
+  assert.equal(summary.views.overlap_count, 0);
+  assert.equal(summary.dimensions.coverage_percent, 100);
+  assert.equal(summary.dimensions.conflict_count, 0);
+  assert.equal(summary.traceability.coverage_percent, 100);
+  assert.equal(summary.bom.expected_items, 2);
+  assert.equal(summary.bom.actual_items, 2);
+  assert.deepEqual(summary.blocking_issues, []);
+  assert.deepEqual(summary.recommended_actions, []);
+}
+
+{
+  const summary = buildDrawingQualitySummary({
+    ...makeBaseArtifacts(),
+    bomPath: null,
+    bomEntries: [],
+    bomRows: [],
+  });
+  assert.equal(summary.status, 'pass');
+  assert.equal(summary.bom.expected_items, 0);
+  assert.equal(summary.bom.actual_items, 0);
+  assert.equal(summary.bom.balloon_mismatches, 0);
+}
+
+{
+  const summary = buildDrawingQualitySummary({
+    ...makeBaseArtifacts(),
+    dimensionMap: {
+      plan_dimensions: [
+        { dim_id: 'WIDTH', required: true, rendered: true, status: 'rendered', feature: 'body_width' },
+        { dim_id: 'HEIGHT', required: true, rendered: false, status: 'missing', feature: 'body_height' },
+        { dim_id: 'HOLE_DIA', required: true, rendered: true, status: 'rendered', feature: 'hole_1' },
+      ],
+      auto_dimensions: [],
+      summary: {
+        auto_count: 0,
+        plan_count: 3,
+        rendered_plan_count: 2,
+        conflict_count: 0,
+        skipped_duplicate_count: 0,
+        dedupe_conflict_count: 0,
+      },
+    },
+  });
+  assert.equal(summary.status, 'fail');
+  assert.equal(summary.dimensions.coverage_percent, 66.67);
+  assert.deepEqual(summary.dimensions.missing_required_intents, ['HEIGHT']);
+  assert(summary.blocking_issues.some((issue) => issue.code === 'required-dimension-coverage'));
+  assert(summary.recommended_actions.some((item) => item.includes('HEIGHT')));
+}
+
+{
+  const summary = buildDrawingQualitySummary({
+    ...makeBaseArtifacts(),
+    dimConflicts: {
+      conflicts: [
+        { dim_id: 'WIDTH', category: 'layout', reason: 'collision' },
+      ],
+      summary: {
+        count: 1,
+      },
+    },
+  });
+  assert.equal(summary.status, 'fail');
+  assert.equal(summary.dimensions.conflict_count, 1);
+  assert(summary.blocking_issues.some((issue) => issue.code === 'dimension-conflicts'));
+  assert(summary.recommended_actions.some((item) => item.includes('moving view/dimension')));
+}
+
+{
+  const summary = buildDrawingQualitySummary({
+    ...makeBaseArtifacts(),
+    traceability: {
+      summary: {
+        feature_count: 3,
+        dimension_count: 3,
+        linked_dimensions: 2,
+        unresolved_dimensions: ['HOLE_DIA'],
+      },
+      links: [
+        { dim_id: 'WIDTH', feature_id: 'body_width' },
+        { dim_id: 'HEIGHT', feature_id: 'body_height' },
+        { dim_id: 'HOLE_DIA', feature_id: null },
+      ],
+    },
+  });
+  assert.equal(summary.status, 'fail');
+  assert.equal(summary.traceability.coverage_percent, 66.67);
+  assert.deepEqual(summary.traceability.unmapped_required_entities, ['HOLE_DIA']);
+  assert(summary.blocking_issues.some((issue) => issue.code === 'traceability-coverage'));
+  assert(summary.recommended_actions.some((item) => item.includes('mapping entity ids')));
+}
+
+{
+  const summary = buildDrawingQualitySummary({
+    ...makeBaseArtifacts(),
+    qaIssues: {
+      issues: [
+        {
+          id: 'ISSUE_001',
+          severity: 'high',
+          category: 'completeness',
+          rule_id: 'required_dim_missing',
+        },
+      ],
+    },
+  });
+  assert.equal(summary.status, 'fail');
+  assert(summary.blocking_issues.some((issue) => issue.code === 'critical-qa-issue'));
+}
+
+{
+  const summary = buildDrawingQualitySummary({
+    ...makeBaseArtifacts(),
+    qaIssuesPath: null,
+    qaIssues: null,
+  });
+  assert.equal(summary.status, 'warning');
+  assert(summary.warnings.some((item) => item.includes('qa issues')));
+  assert.equal(shouldFailDrawingQualityGate(summary, { strictQuality: false }), false);
+  assert.equal(shouldFailDrawingQualityGate(summary, { strictQuality: true }), false);
+}
+
+{
+  const failingSummary = buildDrawingQualitySummary({
+    ...makeBaseArtifacts(),
+    layoutReport: {
+      views: {
+        front: {},
+        top: {},
+        right: {},
+      },
+      summary: {
+        view_count: 3,
+        overflow_views: ['top'],
+        all_within_limits: false,
+      },
+    },
+  });
+  assert.equal(failingSummary.status, 'fail');
+  assert.equal(shouldFailDrawingQualityGate(failingSummary, { strictQuality: false }), false);
+  assert.equal(shouldFailDrawingQualityGate(failingSummary, { strictQuality: true }), true);
+}
+
+console.log('drawing-quality-summary.test.js: ok');

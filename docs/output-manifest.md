@@ -12,6 +12,8 @@ FreeCAD Automation now emits an additive output manifest for the core `fcad` art
 
 This output manifest is separate from the existing `artifact-manifest` contract. The goal is narrower and more direct: make it easy to answer which input produced which outputs, under which runtime and git state, and with which warnings or failures.
 
+For `create`, the manifest's `linked_artifacts.quality_json` field now points at the additive `<base>_create_quality.json` report when create exported model artifacts and quality evaluation ran.
+
 ## Naming
 
 - Primary artifact present: sibling `<base>_manifest.json`
@@ -95,7 +97,7 @@ The manifest includes:
     "run_log_json": "/repo/output/ks_bracket_run_log.json",
     "traceability_json": "/repo/output/ks_bracket_traceability.json",
     "report_pdf": null,
-    "quality_json": "/repo/output/ks_bracket_drawing_qa_issues.json"
+    "quality_json": "/repo/output/ks_bracket_drawing_quality.json"
   },
   "warnings": [],
   "errors": [],

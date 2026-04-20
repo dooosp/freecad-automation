@@ -11,6 +11,8 @@ import {
 import { join, resolve } from 'node:path';
 
 import { validateArtifactManifest } from '../lib/artifact-manifest.js';
+import { validateCreateQualityReport } from '../lib/create-quality.js';
+import { validateOutputManifest } from '../lib/output-manifest.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const OUTPUT_DIR = join(ROOT, 'output', 'runtime-smoke');
@@ -173,6 +175,18 @@ function assertArtifactManifest(manifestPath, {
   return manifest;
 }
 
+function assertOutputManifest(manifestPath, { command, linkedQualityPath = null } = {}) {
+  assertArtifact(manifestPath);
+  const manifest = readJson(manifestPath);
+  const validation = validateOutputManifest(manifest);
+  assert.equal(validation.ok, true, validation.errors.join('\n'));
+  assert.equal(manifest.command, command);
+  if (linkedQualityPath) {
+    assert.equal(manifest.linked_artifacts.quality_json, linkedQualityPath);
+  }
+  return manifest;
+}
+
 rmSync(OUTPUT_DIR, { recursive: true, force: true });
 mkdirSync(CONFIG_DIR, { recursive: true });
 
@@ -198,12 +212,27 @@ rmSync(join(OUTPUT_DIR, 'bracket_fem_runtime_smoke_fem_artifact-manifest.json'),
 runCli(['check-runtime']);
 runCli(['create', bracketConfig]);
 assertArtifact(join(OUTPUT_DIR, 'ks_bracket_runtime_smoke.step'));
+const createQualityPath = join(OUTPUT_DIR, 'ks_bracket_runtime_smoke_create_quality.json');
+assertArtifact(createQualityPath);
+const createQuality = readJson(createQualityPath);
+const createQualityValidation = validateCreateQualityReport(createQuality);
+assert.equal(createQualityValidation.ok, true, createQualityValidation.errors.join('\n'));
+assert.notEqual(createQuality.status, 'skipped', 'live runtime smoke should not report skipped create quality');
+assert.equal(createQuality.step_roundtrip.reimport_attempted, true);
+assert.equal(createQuality.stl_quality.mesh_load_attempted, true);
 assertArtifactManifest(
   join(OUTPUT_DIR, 'ks_bracket_runtime_smoke_artifact-manifest.json'),
   {
     command: 'create',
     requiredArtifactTypes: ['model.step', 'model.stl'],
     expectedConfigSuffix: 'output/runtime-smoke-configs/ks_bracket.runtime-smoke.toml',
+  }
+);
+assertOutputManifest(
+  join(OUTPUT_DIR, 'ks_bracket_runtime_smoke_manifest.json'),
+  {
+    command: 'create',
+    linkedQualityPath: createQualityPath,
   }
 );
 

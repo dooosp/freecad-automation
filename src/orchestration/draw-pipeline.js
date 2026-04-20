@@ -14,6 +14,13 @@ import {
   ensureDrawingViews,
   ensureDrawSchema,
 } from './drawing-prep.js';
+import {
+  buildDrawingQualitySummary,
+  parseBomCsv,
+  resolveDrawingQualityPath,
+  shouldFailDrawingQualityGate,
+  writeDrawingQualitySummary,
+} from '../services/drawing/drawing-quality-summary.js';
 
 function nowIso() {
   return new Date().toISOString();
@@ -320,6 +327,7 @@ export async function runDrawPipeline({
   overridePath = null,
   failUnderValue = null,
   weightsPresetValue = null,
+  strictQuality = false,
   loadConfig,
   deepMerge,
   generateDrawing,
@@ -463,6 +471,8 @@ export async function runDrawPipeline({
     const qaWeightPreset = weightsPresetValue || config.drawing_plan?.dimensioning?.qa_weight_preset || '';
     const qaWeightArg = qaWeightPreset ? ` --weights-preset ${qaWeightPreset}` : '';
     let configArg = '';
+    let latestQaReport = null;
+    let latestQaIssues = null;
 
     const configStage = beginStage(runLog, 'persist_effective_config');
     try {
@@ -562,6 +572,7 @@ export async function runDrawPipeline({
           if (qaOutput.trim()) onInfo(qaOutput.trim());
 
           const qaAfter = JSON.parse(readFileSync(qaJson, 'utf-8'));
+          latestQaReport = qaAfter;
           let repairReport = null;
           if (existsSync(reportJson)) {
             repairReport = JSON.parse(readFileSync(reportJson, 'utf-8'));
@@ -606,6 +617,7 @@ export async function runDrawPipeline({
           try {
             const issueReport = buildQaIssueReport(qaAfter, repairReport);
             writeJson(qaIssuesJson, issueReport);
+            latestQaIssues = issueReport;
             runLog.artifacts.qa_issues = runLog.artifacts.qa_issues || [];
             runLog.artifacts.qa_issues.push(qaIssuesJson);
             onInfo(`  QA issues: ${qaIssuesJson}`);
@@ -627,6 +639,91 @@ export async function runDrawPipeline({
       } else {
         addSkippedStage(runLog, 'qa_after', '--no-score');
       }
+    }
+
+    const qualityStage = beginStage(runLog, 'drawing_quality_summary');
+    try {
+      const primarySvgPath = svgPaths[0] || null;
+      const qaJsonPath = primarySvgPath ? primarySvgPath.replace('.svg', '_qa.json') : null;
+      const qaIssuesJsonPath = primarySvgPath ? primarySvgPath.replace('.svg', '_qa_issues.json') : null;
+      const traceabilityPath = runLog.artifacts.traceability || join(artifactDir, `${artifactStem}_traceability.json`);
+      const layoutPath = runLog.artifacts.layout_report || join(artifactDir, `${artifactStem}_layout_report.json`);
+      const dimMapPath = runLog.artifacts.dimension_map || join(artifactDir, `${artifactStem}_dimension_map.json`);
+      const conflictPath = runLog.artifacts.dim_conflicts || join(artifactDir, `${artifactStem}_dim_conflicts.json`);
+      const bomPath = result.drawing_paths?.find((entry) => entry.format === 'csv')?.path || null;
+
+      const qaReport = latestQaReport || (qaJsonPath && existsSync(qaJsonPath)
+        ? JSON.parse(readFileSync(qaJsonPath, 'utf8'))
+        : null);
+      const qaIssues = latestQaIssues || (qaIssuesJsonPath && existsSync(qaIssuesJsonPath)
+        ? JSON.parse(readFileSync(qaIssuesJsonPath, 'utf8'))
+        : null);
+      const traceability = traceabilityPath && existsSync(traceabilityPath)
+        ? JSON.parse(readFileSync(traceabilityPath, 'utf8'))
+        : result.traceability || null;
+      const layoutReport = layoutPath && existsSync(layoutPath)
+        ? JSON.parse(readFileSync(layoutPath, 'utf8'))
+        : result.layout_report || null;
+      const dimensionMap = dimMapPath && existsSync(dimMapPath)
+        ? JSON.parse(readFileSync(dimMapPath, 'utf8'))
+        : result.dimension_map || null;
+      const dimConflicts = conflictPath && existsSync(conflictPath)
+        ? JSON.parse(readFileSync(conflictPath, 'utf8'))
+        : result.dim_conflicts || null;
+      const bomRows = bomPath && existsSync(bomPath)
+        ? parseBomCsv(readFileSync(bomPath, 'utf8'))
+        : [];
+      const svgContent = primarySvgPath && existsSync(primarySvgPath)
+        ? readFileSync(primarySvgPath, 'utf8')
+        : result.svgContent || null;
+
+      const drawingQuality = buildDrawingQualitySummary({
+        inputConfigPath: absPath,
+        drawingSvgPath: primarySvgPath,
+        planPath: runLog.artifacts.plan || null,
+        plan: config.drawing_plan || null,
+        qaPath: qaJsonPath,
+        qaReport,
+        qaIssuesPath: qaIssuesJsonPath,
+        qaIssues,
+        traceabilityPath,
+        traceability,
+        layoutReportPath: layoutPath,
+        layoutReport,
+        dimensionMapPath: dimMapPath,
+        dimensionMap,
+        dimConflictsPath: conflictPath,
+        dimConflicts,
+        bomPath,
+        bomEntries: result.bom || [],
+        bomRows,
+        generatedViews: result.views || [],
+        svgContent,
+      });
+      const drawingQualityPath = primarySvgPath ? resolveDrawingQualityPath(primarySvgPath) : join(artifactDir, `${artifactStem}_drawing_quality.json`);
+      await writeDrawingQualitySummary(drawingQualityPath, drawingQuality);
+      runLog.artifacts.drawing_quality = drawingQualityPath;
+      result.drawing_quality = drawingQuality;
+      result.drawing_quality_path = drawingQualityPath;
+      onInfo(`  Drawing quality: ${drawingQualityPath}`);
+      onInfo(`  Drawing quality status: ${drawingQuality.status} (score=${drawingQuality.score ?? 'n/a'})`);
+      endStage(qualityStage, 'ok', {
+        status: drawingQuality.status,
+        score: drawingQuality.score ?? null,
+      });
+
+      if (shouldFailDrawingQualityGate(drawingQuality, { strictQuality })) {
+        const reasons = drawingQuality.blocking_issues.map((issue) => issue.message).join(' | ');
+        const gateError = new Error(`Strict drawing quality gate failed: ${reasons}`);
+        gateError.result = result;
+        throw gateError;
+      }
+    } catch (error) {
+      endStage(qualityStage, strictQuality ? 'failed' : 'warning', { warning: error.message });
+      if (strictQuality) {
+        throw error;
+      }
+      onError(`  Drawing quality warning: ${error.message}`);
     }
 
     runLog.status = 'success';

@@ -76,7 +76,7 @@ The smoke lane verifies:
 - `fcad fem`
 - `fcad report`
 
-The smoke harness validates the generated artifact manifests for `create`, `draw`, `fem`, and `report`, asserting that required artifact types exist, the recorded output files are non-empty, and key manifest fields stay populated. It also writes `output/runtime-smoke/smoke-manifest.json` so workflow uploads can be inspected without replaying the run.
+The smoke harness validates the generated artifact manifests for `create`, `draw`, `fem`, and `report`, asserts that create also produced a valid `<base>_create_quality.json` plus linked output manifest entry, and checks that required artifact types exist and recorded output files are non-empty. It also writes `output/runtime-smoke/smoke-manifest.json` so workflow uploads can be inspected without replaying the run.
 
 `fcad tolerance` is still intentionally outside the repository-owned smoke lane. It succeeds locally on the checked-in assembly example, but it remains a heavier assembly-plus-Monte-Carlo runtime path and is left to deeper local validation until we can harden it for CI without destabilizing the smoke lane.
 

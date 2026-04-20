@@ -105,6 +105,64 @@ Treat that execution plan as the task-specific source of truth for this worktree
 - Progress tracking files for this task:
   - `tmp/codex/output-manifest-foundation-status.md`
   - `tmp/codex/output-manifest-foundation-tool-evidence.md`
-  - `tmp/codex/output-manifest-foundation-verification-status.md`
+- `tmp/codex/output-manifest-foundation-verification-status.md`
 - Verification/remediation plan for this task:
   - `docs/exec-plans/output-manifest-foundation-verification.md`
+
+## Task addendum: create-roundtrip-quality
+For this task, follow:
+- `docs/exec-plans/create-roundtrip-quality.md`
+
+Treat that execution plan as the task-specific source of truth for this worktree.
+
+### Task-specific create quality constraints
+- Goal: add additive STEP/STL/BREP round-trip quality checks after `fcad create` without replacing the shipped output-manifest helper.
+- Scope surfaces:
+  - `create` CLI orchestration
+  - model export validation
+  - inspect/runtime reuse
+  - create quality JSON output
+  - tests and docs
+- Non-negotiables:
+  - preserve existing create outputs and filenames
+  - keep default `create` behavior warning-oriented; only explicit strict quality mode may fail the command
+  - do not claim geometry validation passed unless the runtime actually re-imported or inspected the exported files
+  - reuse `lib/output-manifest.js` and `schemas/output-manifest.schema.json`; do not create a second manifest system
+  - keep control files inside this repo root only
+- Progress tracking files for this task:
+  - `tmp/codex/create-roundtrip-quality-status.md`
+  - `tmp/codex/create-roundtrip-quality-tool-evidence.md`
+  - `tmp/codex/create-roundtrip-quality-verification-status.md`
+- Verification/remediation plan for this task:
+  - `docs/exec-plans/create-roundtrip-quality-verification.md`
+
+## Task addendum: drawing-qa-gates
+For this task, follow:
+- `docs/exec-plans/drawing-qa-gates.md`
+
+Treat that execution plan as the task-specific source of truth for this worktree.
+
+### Task-specific drawing QA constraints
+- Goal: strengthen draw QA gates and add a unified additive drawing quality summary without replacing existing draw outputs or manifest contracts.
+- Scope surfaces:
+  - `fcad draw`
+  - draw QA aggregation
+  - plan validation integration
+  - generated JSON summaries
+  - tests and docs
+- Non-negotiables:
+  - preserve the existing TechDraw/SVG generation pipeline unless a narrow compatibility hook is required
+  - keep existing draw sidecars intact; add the unified drawing-quality JSON additively
+  - default draw behavior must remain warning-friendly; strict failure should only happen through explicit strict-quality behavior
+  - do not claim runtime-backed drawing validation unless a real draw command ran on this machine
+  - keep control files inside this repo root only
+- Known upstream issue:
+  - `configs/examples/ks_bracket.toml` currently yields a create-quality failure because the generated model shape is invalid even though STEP round-trip and STL checks pass; treat that as upstream unless this task needs a tiny compatibility hook
+- Known pre-existing failure:
+  - `tests/output-contract-cli.test.js` currently expects `readiness-report.json` while the code emits `input.readiness-report`; do not fix it here unless this task directly requires that contract
+- Progress tracking files for this task:
+  - `tmp/codex/drawing-qa-gates-status.md`
+  - `tmp/codex/drawing-qa-gates-tool-evidence.md`
+  - `tmp/codex/drawing-qa-gates-verification-status.md`
+- Verification/remediation plan for this task:
+  - `docs/exec-plans/drawing-qa-gates-verification.md`

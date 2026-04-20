@@ -189,8 +189,8 @@ Low-confidence import findings stay visible as warnings and review-needed eviden
 ```bash
 fcad check-runtime
 fcad check-runtime --json
-fcad create <config.toml|json>
-fcad draw <config.toml|json>
+fcad create <config.toml|json> [--strict-quality]
+fcad draw <config.toml|json> [--bom] [--strict-quality] [--fail-under <number>]
 fcad report <config.toml|json>
 fcad inspect <model.step|fcstd> [--manifest-out <path>]
 fcad fem <config.toml|json> [--manifest-out <path>]
@@ -205,7 +205,11 @@ fcad sweep <config.toml|json> --matrix <matrix.toml|json> [--out-dir <dir>]
 
 Major runtime and analysis commands now also emit an additive output manifest named `<base>_manifest.json`. When a command writes a primary artifact, the output manifest is written beside it. When a command is stdout-first and has no primary artifact, the manifest is written beside the input file by default. The legacy `artifact-manifest` contract remains available where already documented, including `--manifest-out`.
 
+`fcad create` also emits an additive `<base>_create_quality.json` report when it exports model artifacts. The create output manifest links that report through `linked_artifacts.quality_json`, and `--strict-quality` exits non-zero only when the quality report finds blocking export issues.
+
 See [docs/output-manifest.md](./docs/output-manifest.md) for the unified output-manifest fields, naming rules, and example JSON.
+
+`fcad draw` also writes an additive `<base>_drawing_quality.json` summary beside the existing draw sidecars. It aggregates required-dimension coverage, conflict counts, layout overlap signals, BOM consistency, and traceability coverage into one status block. Default draw still completes with warnings, while `--strict-quality` exits non-zero when blocking draw-quality issues remain.
 
 ### Parameter Sweep
 
@@ -616,6 +620,8 @@ Notes:
 - In assembly mode, each part can define its own `final`.
 - Assembly mode currently expects top-level `parts` and `assembly`; `parts` alone does not activate assembly handling.
 - Assembly part operations currently follow the assembly builder's supported set and are not a drop-in match for every single-part operation.
+- When `create` exports STEP/STL/BREP artifacts, it also writes `<base>_create_quality.json` with generated-model geometry, STEP/BREP re-import checks, STL mesh checks, thresholds, warnings, and blocking issues.
+- `--strict-quality` keeps the exported files but fails the command if the quality report status is `fail`.
 
 Legacy / compatibility note:
 

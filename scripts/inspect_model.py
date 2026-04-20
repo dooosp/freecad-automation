@@ -42,6 +42,29 @@ try:
     elif ext == ".stl":
         import Mesh
         mesh = Mesh.Mesh(filepath)
+        watertight = mesh.isSolid() if hasattr(mesh, "isSolid") else None
+        has_non_manifolds = mesh.hasNonManifolds() if hasattr(mesh, "hasNonManifolds") else None
+        non_uniform_oriented = mesh.countNonUniformOrientedFacets() if hasattr(mesh, "countNonUniformOrientedFacets") else None
+        corrupted_facets = mesh.hasCorruptedFacets() if hasattr(mesh, "hasCorruptedFacets") else None
+        invalid_points = mesh.hasInvalidPoints() if hasattr(mesh, "hasInvalidPoints") else None
+        invalid_neighbourhood = mesh.hasInvalidNeighbourhood() if hasattr(mesh, "hasInvalidNeighbourhood") else None
+        bbox = {
+            "min": [
+                round(mesh.BoundBox.XMin, 2),
+                round(mesh.BoundBox.YMin, 2),
+                round(mesh.BoundBox.ZMin, 2),
+            ],
+            "max": [
+                round(mesh.BoundBox.XMax, 2),
+                round(mesh.BoundBox.YMax, 2),
+                round(mesh.BoundBox.ZMax, 2),
+            ],
+            "size": [
+                round(mesh.BoundBox.XLength, 2),
+                round(mesh.BoundBox.YLength, 2),
+                round(mesh.BoundBox.ZLength, 2),
+            ],
+        }
         respond({
             "success": True,
             "file": filepath,
@@ -49,12 +72,18 @@ try:
             "model": {
                 "points": mesh.CountPoints,
                 "facets": mesh.CountFacets,
+                "triangle_count": mesh.CountFacets,
                 "volume": round(mesh.Volume, 2),
                 "area": round(mesh.Area, 2),
-                "bounding_box": {
-                    "min": list(mesh.BoundBox.getMin()),
-                    "max": list(mesh.BoundBox.getMax()),
-                },
+                "watertight_or_closed": bool(watertight) if watertight is not None else None,
+                "non_manifold_count": None,
+                "has_non_manifolds": bool(has_non_manifolds) if has_non_manifolds is not None else None,
+                "non_uniform_oriented_facet_count": non_uniform_oriented,
+                "corrupted_facets": bool(corrupted_facets) if corrupted_facets is not None else None,
+                "invalid_points": bool(invalid_points) if invalid_points is not None else None,
+                "invalid_neighbourhood": bool(invalid_neighbourhood) if invalid_neighbourhood is not None else None,
+                "bbox": bbox,
+                "bounding_box": bbox,
             },
         })
     else:

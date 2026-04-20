@@ -71,7 +71,7 @@ import {
   runStandardDocsWorkflow,
   writeReadinessArtifacts,
 } from '../src/api/manufacturing.js';
-import { createModel, inspectModel } from '../src/api/model.js';
+import { createModel, generateCreateQualityArtifact, inspectModel } from '../src/api/model.js';
 import { createReportService } from '../src/api/report.js';
 import { runReviewContextPipeline } from '../src/orchestration/review-context-pipeline.js';
 import { runSweep } from '../src/services/sweep/sweep-service.js';
@@ -272,7 +272,7 @@ async function main() {
       format: options.json ? 'json' : 'text',
     }));
   } else if (command === 'create') {
-    await cmdCreate(args[0]);
+    await cmdCreate(args);
   } else if (command === 'review') {
     await cmdProductionReview(args);
   } else if (command === 'process-plan') {
@@ -577,6 +577,24 @@ function createOutputEntriesFromExports(exports = [], prefix = 'model') {
     .filter(Boolean);
 }
 
+function createOutputEntriesFromPartFiles(partFiles = [], kind = 'model.part-stl') {
+  return (partFiles || [])
+    .filter((entry) => entry?.path)
+    .map((entry) => createOutputEntry(kind, entry.path))
+    .filter(Boolean);
+}
+
+function createPartFileArtifactEntries(partFiles = [], type = 'model.part-stl') {
+  return (partFiles || [])
+    .filter((entry) => entry?.path)
+    .map((entry, index) => createArtifactEntry(type, entry.path, {
+      label: entry.label || entry.ref || `Part STL ${index + 1}`,
+      scope: 'user-facing',
+      stability: 'stable',
+    }))
+    .filter(Boolean);
+}
+
 function buildExpectedModelOutputs(config = {}) {
   const exportConfig = config.export || {};
   const formats = Array.isArray(exportConfig.formats) ? exportConfig.formats : [];
@@ -632,7 +650,7 @@ function buildExpectedDrawArtifacts(config = {}) {
       qa_json: svgPath.replace(/\.svg$/i, '_qa.json'),
       run_log_json: join(outputDir, `${stem}_run_log.json`),
       traceability_json: join(outputDir, `${stem}_traceability.json`),
-      quality_json: svgPath.replace(/\.svg$/i, '_qa_issues.json'),
+      quality_json: svgPath.replace(/\.svg$/i, '_quality.json'),
     },
   };
 }
@@ -646,7 +664,7 @@ function buildDrawLinkedArtifactsFromSvg(svgPath) {
     qa_json: normalizedPath.replace(/\.svg$/i, '_qa.json'),
     run_log_json: join(dir, `${stem}_run_log.json`),
     traceability_json: join(dir, `${stem}_traceability.json`),
-    quality_json: normalizedPath.replace(/\.svg$/i, '_qa_issues.json'),
+    quality_json: normalizedPath.replace(/\.svg$/i, '_quality.json'),
   };
 }
 
@@ -780,6 +798,10 @@ function collectDrawManifestArtifacts(result) {
     createArtifactEntry('drawing.qa-issues', normalizedPath.replace(/\.svg$/i, '_qa_issues.json'), {
       label: 'Drawing QA issues',
       stability: 'best-effort',
+    }),
+    createArtifactEntry('drawing.quality-summary', normalizedPath.replace(/\.svg$/i, '_quality.json'), {
+      label: 'Drawing quality summary',
+      stability: 'stable',
     }),
     createArtifactEntry('drawing.repair-report', normalizedPath.replace(/\.svg$/i, '_repair_report.json'), {
       label: 'Repair report',
@@ -2424,6 +2446,7 @@ async function cmdDraw(rawArgs = []) {
   let overridePath = null;
   let failUnderValue = null;
   let weightsPresetValue = null;
+  let strictQuality = false;
   for (let i = 0; i < rawArgs.length; i++) {
     const arg = rawArgs[i];
     if (arg === '--override') {
@@ -2443,6 +2466,9 @@ async function cmdDraw(rawArgs = []) {
     } else if (arg.startsWith('--weights-preset=')) {
       weightsPresetValue = requireOptionValue('--weights-preset', arg.split('=')[1], 'fcad draw <config> --weights-preset <preset>');
       flags.push('--weights-preset');
+    } else if (arg === '--strict-quality') {
+      strictQuality = true;
+      flags.push('--strict-quality');
     } else if (arg.startsWith('--')) {
       flags.push(arg);
     } else {
@@ -2467,6 +2493,7 @@ async function cmdDraw(rawArgs = []) {
       overridePath,
       failUnderValue,
       weightsPresetValue,
+      strictQuality,
       loadConfig: loadConfigForCli,
       deepMerge,
       generateDrawing,
@@ -2505,6 +2532,29 @@ async function cmdDraw(rawArgs = []) {
     console.log(`Manifest: ${manifestPath}`);
     return result;
   } catch (error) {
+    if (error?.result && configDocument?.config) {
+      const strictSvgPath = error.result?.drawing_paths?.find((entry) => entry.format === 'svg')?.path
+        || error.result?.svg_path
+        || error.result?.drawing_path
+        || configDocument.config.export?.directory
+        || null;
+      const failureManifestPath = await writeCliManifest({
+        command: 'draw',
+        status: 'failed',
+        configPath: absPath,
+        configSummary: configDocument.summary,
+        config: configDocument.config,
+        primaryOutputPath: strictSvgPath,
+        outputDir: configDocument.config.export?.directory || null,
+        artifacts: collectDrawManifestArtifacts(error.result),
+        warnings: configDocument.summary?.warnings || [],
+        details: {
+          strict_quality: true,
+          strict_quality_failure: true,
+        },
+      });
+      console.error(`Manifest: ${failureManifestPath}`);
+    }
     const predicted = buildExpectedDrawArtifacts(configDocument?.config || {});
     await emitOutputManifestSafe({
       command: 'draw',
@@ -2575,7 +2625,14 @@ async function cmdSweep(rawArgs = []) {
   }
 }
 
-async function cmdCreate(configPath) {
+async function cmdCreate(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  if (positional.length > 1) {
+    console.error('Error: create accepts a single config file path');
+    process.exit(1);
+  }
+  const [configPath] = positional;
+  const strictQuality = Boolean(options['strict-quality']);
   const repoContext = collectRepoContext(PROJECT_ROOT);
   const startedAt = nowIso();
   if (!configPath) {
@@ -2609,6 +2666,27 @@ async function cmdCreate(configPath) {
       throw new Error(result.error || 'Model creation failed');
     }
 
+    const createQuality = await generateCreateQualityArtifact({
+      createResult: result,
+      configPath: absPath,
+      config,
+      strictQuality,
+      runScript: (script, input, opts = {}) => runScript(script, input, {
+        ...opts,
+        onStderr: (text) => process.stderr.write(text),
+      }),
+    });
+
+    const outputManifestWarnings = [
+      ...(configDocument.summary?.warnings || []),
+      ...createQuality.report.warnings.map((warning) => `Create quality: ${warning}`),
+      ...(!createQuality.strictFailure
+        ? createQuality.report.blocking_issues.map((warning) => `Create quality blocking issue: ${warning}`)
+        : []),
+    ];
+    const outputManifestErrors = createQuality.strictFailure
+      ? createQuality.report.blocking_issues.map((issue) => `Create quality blocking issue: ${issue}`)
+      : [];
     const firstExportPath = result.exports?.[0]?.path || config.export?.directory || null;
     const manifestPath = await writeCliManifest({
       command: 'create',
@@ -2617,21 +2695,36 @@ async function cmdCreate(configPath) {
       config,
       primaryOutputPath: firstExportPath,
       outputDir: config.export?.directory || null,
-      artifacts: createExportArtifactEntries(result.exports, 'model'),
+      artifacts: [
+        ...createExportArtifactEntries(result.exports, 'model'),
+        ...createPartFileArtifactEntries(result.assembly?.part_files),
+        createArtifactEntry('model.create-quality', createQuality.path, {
+          label: 'Create quality JSON',
+          scope: 'user-facing',
+          stability: 'stable',
+        }),
+      ].filter(Boolean),
     });
     await emitOutputManifestSafe({
       command: 'create',
-      commandArgs: [configPath],
+      commandArgs: strictQuality ? [configPath, '--strict-quality'] : [configPath],
       repoContext,
       startedAt,
       inputPath: absPath,
       primaryOutputPath: result.exports?.[0]?.path || null,
       outputDir: config.export?.directory || null,
-      outputs: createOutputEntriesFromExports(result.exports, 'model'),
-      warnings: configDocument.summary?.warnings || [],
+      outputs: [
+        ...createOutputEntriesFromExports(result.exports, 'model'),
+        ...createOutputEntriesFromPartFiles(result.assembly?.part_files),
+      ],
+      linkedArtifacts: {
+        quality_json: createQuality.path,
+      },
+      warnings: outputManifestWarnings,
+      errors: outputManifestErrors,
       status: resolveOutputManifestStatus({
-        warnings: configDocument.summary?.warnings || [],
-        errors: [],
+        warnings: outputManifestWarnings,
+        errors: outputManifestErrors,
       }),
     });
     console.log('\nModel created successfully!');
@@ -2651,12 +2744,30 @@ async function cmdCreate(configPath) {
         console.log(`    ${exp.format}: ${exp.path} (${exp.size_bytes} bytes)`);
       }
     }
+    console.log(`  Create quality: ${createQuality.report.status}`);
+    console.log(`  Create quality report: ${createQuality.path}`);
+    if (createQuality.report.warnings.length > 0) {
+      console.log('  Create quality warnings:');
+      for (const warning of createQuality.report.warnings) {
+        console.log(`    - ${warning}`);
+      }
+    }
+    if (createQuality.report.blocking_issues.length > 0) {
+      console.log('  Create quality blocking issues:');
+      for (const issue of createQuality.report.blocking_issues) {
+        console.log(`    - ${issue}`);
+      }
+    }
     console.log(`  Manifest: ${manifestPath}`);
+    if (createQuality.strictFailure) {
+      console.error('\nCreate completed, but --strict-quality found blocking quality issues.');
+      process.exit(1);
+    }
     return result;
   } catch (error) {
     await emitOutputManifestSafe({
       command: 'create',
-      commandArgs: [configPath],
+      commandArgs: strictQuality ? [configPath, '--strict-quality'] : [configPath],
       repoContext,
       startedAt,
       inputPath: absPath,
