@@ -888,6 +888,15 @@ textarea {
   justify-content: flex-start;
 }
 
+.quality-dashboard-stack {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.quality-dashboard-links {
+  align-items: stretch;
+}
+
 .artifact-timeline {
   display: grid;
   gap: var(--space-3);

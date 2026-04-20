@@ -1,8 +1,10 @@
 import {
+  createActionGrid,
   createButton,
   createCard,
   createEmptyState,
   createInfoGrid,
+  createList,
   createSectionHeader,
   el,
 } from './renderers.js';
@@ -32,6 +34,10 @@ import {
   isReleaseBundleArtifact,
   isReviewPackArtifact,
 } from './artifact-actions.js';
+import {
+  buildQualityDashboardModel,
+  collectQualityDashboardArtifacts,
+} from './quality-dashboard.js';
 import { applyTranslations } from '../i18n/index.js';
 
 function ensureArtifactsWorkspaceState(store = {}) {
@@ -44,6 +50,10 @@ function ensureArtifactsWorkspaceState(store = {}) {
   store.viewerArtifactId = store.viewerArtifactId || '';
   store.viewerError = store.viewerError || '';
   store.viewerData = store.viewerData || null;
+  store.qualityStatus = store.qualityStatus || 'idle';
+  store.qualityError = store.qualityError || '';
+  store.qualityData = store.qualityData || null;
+  store.qualityCacheKey = store.qualityCacheKey || '';
   store.compare = store.compare && typeof store.compare === 'object'
     ? store.compare
     : {
@@ -55,6 +65,7 @@ function ensureArtifactsWorkspaceState(store = {}) {
       };
   store.cache = store.cache && typeof store.cache === 'object' ? store.cache : {};
   store.viewerCache = store.viewerCache && typeof store.viewerCache === 'object' ? store.viewerCache : {};
+  store.qualityCache = store.qualityCache && typeof store.qualityCache === 'object' ? store.qualityCache : {};
   return store;
 }
 
@@ -299,6 +310,68 @@ function renderOutputQueue(recentJobs = []) {
   });
 }
 
+function formatStatusLabel(value = '') {
+  return String(value || 'Not available')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function renderQualityDashboard(model) {
+  return el('div', {
+    className: 'quality-dashboard-stack',
+    children: [
+      createInfoGrid([
+        { label: 'Overall status', value: formatStatusLabel(model.overallStatus) },
+        { label: 'Ready for manufacturing review', value: model.readyLabel },
+        { label: 'Source', value: model.source === 'report_summary' ? 'report_summary.json' : 'create/drawing/manifest fallback' },
+        { label: 'Artifact links', value: String(model.artifactLinks.length) },
+      ]),
+      createActionGrid(
+        model.surfaces.map((surface) => ({
+          title: surface.title,
+          copy: surface.summary,
+          meta: `Status: ${formatStatusLabel(surface.status)}${Number.isFinite(surface.score) ? ` • Score ${surface.score}` : ''}`,
+          tone: surface.tone,
+        }))
+      ),
+      model.blockers.length > 0
+        ? createList(
+            model.blockers.map((entry, index) => ({
+              label: `Top blocker ${index + 1}`,
+              copy: entry,
+            }))
+          )
+        : el('div', {
+            className: 'support-note',
+            text: 'No top blockers were reported for this artifact set.',
+          }),
+      model.recommendedActions.length > 0
+        ? createList(
+            model.recommendedActions.map((entry, index) => ({
+              label: `Recommended action ${index + 1}`,
+              copy: entry,
+            }))
+          )
+        : el('div', {
+            className: 'support-note',
+            text: 'No recommended actions were provided by the selected quality artifacts.',
+          }),
+      model.artifactLinks.length > 0
+        ? el('div', {
+            className: 'review-detail-actions quality-dashboard-links',
+            children: model.artifactLinks.map((artifact) =>
+              el('a', {
+                className: 'action-button action-button-ghost',
+                text: artifact.label,
+                attrs: { href: artifact.href, target: '_blank', rel: 'noreferrer noopener' },
+              })
+            ),
+          })
+        : null,
+    ].filter(Boolean),
+  });
+}
+
 export function renderArtifactsWorkspace(state) {
   ensureArtifactsWorkspaceState(state.data.artifactsWorkspace);
   const activeJob = state.data.activeJob;
@@ -346,6 +419,14 @@ export function renderArtifactsWorkspace(state) {
                 copy: '출력 파일을 검토하는 동안 매니페스트 정보, 저장소 상태, 내보내기 준비 상태를 계속 볼 수 있습니다.',
                 body: [
                   el('div', { dataset: { hook: 'artifacts-job-summary' } }),
+                ],
+              }),
+              createCard({
+                kicker: 'Quality dashboard',
+                title: 'Manufacturing quality snapshot',
+                copy: 'Prefer report_summary.json when it exists, then fall back to create/drawing/manifest evidence without inventing missing files.',
+                body: [
+                  el('div', { dataset: { hook: 'artifacts-quality-dashboard' } }),
                 ],
               }),
               createCard({
@@ -407,6 +488,7 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
   const artifactsState = ensureArtifactsWorkspaceState(state.data.artifactsWorkspace);
   const timelineElement = root.querySelector('[data-hook="artifacts-timeline"]');
   const jobSummaryElement = root.querySelector('[data-hook="artifacts-job-summary"]');
+  const qualityDashboardElement = root.querySelector('[data-hook="artifacts-quality-dashboard"]');
   const compareElement = root.querySelector('[data-hook="artifacts-compare"]');
   const cardsElement = root.querySelector('[data-hook="artifacts-cards"]');
   const detailSummaryElement = root.querySelector('[data-hook="artifacts-detail-summary"]');
@@ -453,6 +535,55 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
         { label: '작업 저장소', value: summarizeStorage(activeJob.storage) },
       ])
     );
+  }
+
+  function syncQualityDashboard() {
+    const activeJob = state.data.activeJob;
+    if (!activeJob?.summary) {
+      qualityDashboardElement.replaceChildren(
+        createEmptyState({
+          icon: 'Q',
+          title: 'No active quality dashboard',
+          copy: 'Open a tracked job to load report_summary.json or the fallback quality artifacts.',
+        })
+      );
+      return;
+    }
+
+    if (artifactsState.qualityStatus === 'loading') {
+      qualityDashboardElement.replaceChildren(
+        createEmptyState({
+          icon: '...',
+          title: 'Loading quality dashboard',
+          copy: 'Reading quality artifacts from the tracked job.',
+        })
+      );
+      return;
+    }
+
+    if (artifactsState.qualityStatus === 'error') {
+      qualityDashboardElement.replaceChildren(
+        createEmptyState({
+          icon: '!',
+          title: 'Quality dashboard unavailable',
+          copy: artifactsState.qualityError || 'The quality dashboard could not be prepared for this job.',
+        })
+      );
+      return;
+    }
+
+    if (!artifactsState.qualityData) {
+      qualityDashboardElement.replaceChildren(
+        createEmptyState({
+          icon: 'Q',
+          title: 'No quality artifacts detected',
+          copy: 'This job does not expose report_summary.json, create quality, drawing quality, or manifest evidence yet.',
+        })
+      );
+      return;
+    }
+
+    qualityDashboardElement.replaceChildren(renderQualityDashboard(artifactsState.qualityData));
   }
 
   function syncCompare() {
@@ -701,6 +832,66 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
       artifactsState.viewerArtifactId = artifact.id;
       artifactsState.viewerError = error instanceof Error ? error.message : String(error);
       artifactsState.viewerData = buildArtifactViewer({ artifact });
+    }
+  }
+
+  async function ensureQualityDashboard() {
+    const activeJob = state.data.activeJob;
+    if (!activeJob?.summary) {
+      artifactsState.qualityStatus = 'idle';
+      artifactsState.qualityError = '';
+      artifactsState.qualityData = null;
+      artifactsState.qualityCacheKey = '';
+      return;
+    }
+
+    const selectedArtifacts = collectQualityDashboardArtifacts(activeJob.artifacts || []);
+    const relevantArtifacts = selectedArtifacts.payloadArtifacts;
+    const cacheKey = `${activeJob.summary.id}:${relevantArtifacts.map((artifact) => artifact.id).join('|')}`;
+
+    if (cacheKey === artifactsState.qualityCacheKey && artifactsState.qualityStatus === 'ready') {
+      return;
+    }
+
+    if (artifactsState.qualityCache[cacheKey]) {
+      artifactsState.qualityStatus = 'ready';
+      artifactsState.qualityError = '';
+      artifactsState.qualityData = artifactsState.qualityCache[cacheKey];
+      artifactsState.qualityCacheKey = cacheKey;
+      return;
+    }
+
+    artifactsState.qualityStatus = 'loading';
+    artifactsState.qualityError = '';
+    artifactsState.qualityData = null;
+    artifactsState.qualityCacheKey = cacheKey;
+    syncQualityDashboard();
+
+    try {
+      const artifactPayloads = {};
+      for (const artifact of relevantArtifacts) {
+        if (!canPreviewAsText(artifact)) continue;
+        try {
+          const raw = await fetchArtifactText(artifact, 250000);
+          artifactPayloads[artifact.id] = raw ? parseArtifactPayload(artifact, raw) : null;
+        } catch {
+          // Keep the dashboard best-effort and allow fallback sources to render.
+        }
+      }
+
+      const model = buildQualityDashboardModel({
+        artifacts: activeJob.artifacts || [],
+        artifactPayloads,
+      });
+
+      artifactsState.qualityStatus = 'ready';
+      artifactsState.qualityError = '';
+      artifactsState.qualityData = model;
+      artifactsState.qualityCache[cacheKey] = model;
+    } catch (error) {
+      artifactsState.qualityStatus = 'error';
+      artifactsState.qualityError = error instanceof Error ? error.message : String(error);
+      artifactsState.qualityData = null;
     }
   }
 
@@ -969,6 +1160,8 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
     if (destroyed) return;
     syncTimeline();
     syncJobSummary();
+    await ensureQualityDashboard();
+    syncQualityDashboard();
     syncCompare();
     syncCards();
     await ensureArtifactViewer();
