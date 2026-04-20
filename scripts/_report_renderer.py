@@ -8,6 +8,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 import numpy as np
 import os
 import json
+import textwrap
 from datetime import datetime
 from _report_styles import (
     STYLE_PROFESSIONAL, SEVERITY_COLORS, PAGE_WIDTH, PAGE_HEIGHT,
@@ -16,7 +17,125 @@ from _report_styles import (
 )
 
 
-def render_report(config, template, data, output_path):
+def _decision_status_color(status):
+    return {
+        "pass": "#2e8b57",
+        "warning": "#d68910",
+        "fail": "#c0392b",
+        "incomplete": "#6c757d",
+    }.get(str(status or "").lower(), "#6c757d")
+
+
+def _ready_label(value):
+    if value is True:
+        return "Yes"
+    if value is False:
+        return "No"
+    return "Unknown"
+
+
+def _format_list(items, fallback="None", limit=5):
+    if not isinstance(items, list) or not items:
+        return [fallback]
+    lines = []
+    for item in items[:limit]:
+        lines.extend(textwrap.wrap(str(item), width=50) or [str(item)])
+    return lines
+
+
+def _compact_path(value, max_length=56, tail_segments=2):
+    text = str(value or "n/a")
+    if len(text) <= max_length:
+        return text
+    normalized = text.replace("\\", "/")
+    parts = [part for part in normalized.split("/") if part]
+    if len(parts) >= tail_segments:
+        compact = ".../" + "/".join(parts[-tail_segments:])
+        if len(compact) <= max_length:
+            return compact
+    return "..." + text[-(max_length - 3):]
+
+
+def _render_key_value_rows(ax, rows, label_x=0.0, value_x=0.32, wrap_width=36):
+    y = 0.95
+    for label, value in rows:
+        rendered = _compact_path(value) if label in {"Input"} else str(value or "n/a")
+        wrapped_value = textwrap.wrap(rendered, width=wrap_width) or [rendered]
+        ax.text(label_x, y, label, fontsize=8, fontweight='bold', va='top', color='#2c3e50')
+        for index, line in enumerate(wrapped_value):
+            ax.text(value_x, y - (index * 0.09), line, fontsize=8, va='top', color='#333333', clip_on=True)
+        y -= max(0.12, 0.09 * len(wrapped_value) + 0.03)
+
+
+def _render_decision_summary_block(fig, title, lines, rect):
+    ax = fig.add_axes(rect)
+    ax.axis('off')
+    ax.set_title(title, fontsize=10, fontweight='bold', loc='left')
+    y = 0.95
+    wrap_width = 34 if rect[2] <= 0.22 else 48
+    for line in lines:
+        wrapped_lines = textwrap.wrap(str(line), width=wrap_width) or [str(line)]
+        for index, wrapped_line in enumerate(wrapped_lines):
+            prefix = "- " if index == 0 else "  "
+            ax.text(0.0, y, f"{prefix}{wrapped_line}", fontsize=8, va='top', color='#333333', clip_on=True)
+            y -= 0.09
+        y -= 0.03
+
+
+def render_decision_summary_page(fig, config, summary, report_artifacts, style):
+    model_name = config.get('name', 'Engineering Report')
+    fig.suptitle('Executive Decision Summary', fontsize=16, fontweight='bold', y=0.97)
+    fig.text(0.5, 0.94, f"Generated: {summary.get('generated_at', datetime.now().isoformat())}",
+             ha='center', fontsize=8, color='#666666')
+    fig.text(
+        0.08, 0.87, str(summary.get('overall_status', 'incomplete')).upper(),
+        fontsize=14, fontweight='bold', color='white',
+        bbox=dict(boxstyle='round,pad=0.35', facecolor=_decision_status_color(summary.get('overall_status')), edgecolor='none')
+    )
+    fig.text(0.22, 0.875, f"Score: {summary.get('overall_score', 'n/a')}", fontsize=11, fontweight='bold', color='#333333')
+    fig.text(
+        0.38, 0.875,
+        f"Ready for manufacturing review: {_ready_label(summary.get('ready_for_manufacturing_review'))}",
+        fontsize=11, color='#333333'
+    )
+
+    info_ax = fig.add_axes([0.05, 0.55, 0.40, 0.25])
+    info_ax.axis('off')
+    info_ax.set_title('Run Context', fontsize=10, fontweight='bold', loc='left')
+    runtime = summary.get('runtime_status') or {}
+    rows = [
+        ('Config', summary.get('config_name', model_name)),
+        ('Input', summary.get('input_config')),
+        ('Run ID', summary.get('run_id')),
+        ('Git commit', summary.get('git_commit')),
+        ('Git branch', summary.get('git_branch')),
+        ('Runtime', runtime.get('mode')),
+        ('Optional missing', ', '.join(summary.get('missing_optional_artifacts') or []) or 'none'),
+    ]
+    _render_key_value_rows(info_ax, rows)
+
+    _render_decision_summary_block(fig, 'Top Risks', _format_list((summary.get('top_risks') or [])[:4], limit=4), [0.50, 0.55, 0.20, 0.25])
+    _render_decision_summary_block(fig, 'Recommended Actions', _format_list((summary.get('recommended_actions') or [])[:3], limit=3), [0.73, 0.55, 0.22, 0.25])
+    _render_decision_summary_block(fig, 'Blocking Issues', _format_list((summary.get('blocking_issues') or [])[:4], limit=4), [0.05, 0.20, 0.40, 0.25])
+    _render_decision_summary_block(fig, 'Warnings', _format_list((summary.get('warnings') or [])[:3], limit=3), [0.50, 0.20, 0.20, 0.25])
+
+    artifact_ax = fig.add_axes([0.73, 0.20, 0.22, 0.25])
+    artifact_ax.axis('off')
+    artifact_ax.set_title('Generated Outputs', fontsize=10, fontweight='bold', loc='left')
+    lines = []
+    for artifact in (report_artifacts or [])[:5]:
+        label = artifact.get('label') or artifact.get('key') or 'artifact'
+        lines.append(f"{label} [{artifact.get('status', 'unknown')}]")
+        lines.extend(textwrap.wrap(_compact_path(artifact.get('path') or 'n/a', max_length=44), width=34) or ['n/a'])
+    if not lines:
+        lines = ['No artifact references available.']
+    y = 0.95
+    for line in lines[:10]:
+        artifact_ax.text(0.0, y, line, fontsize=7, va='top', color='#333333', wrap=True, clip_on=True)
+        y -= 0.08 if len(line) < 42 else 0.10
+
+
+def render_report(config, template, data, output_path, decision_summary=None, report_artifacts=None):
     """Render a multi-page PDF report based on template configuration.
 
     Args:
@@ -33,7 +152,15 @@ def render_report(config, template, data, output_path):
 
     with PdfPages(output_path) as pdf:
         page_num = 0
-        total_pages_estimate = _count_total_pages(template)
+        total_pages_estimate = _count_total_pages(template, decision_summary)
+
+        if isinstance(decision_summary, dict) and decision_summary:
+            page_num += 1
+            fig = _new_page()
+            render_decision_summary_page(fig, config, decision_summary, report_artifacts or [], style)
+            _render_footer(fig, page_num, total_pages_estimate, style)
+            pdf.savefig(fig)
+            plt.close(fig)
 
         # Title Block page
         if template.get('title_block'):
@@ -176,9 +303,13 @@ def _count_pre_section_pages(template):
     return count
 
 
-def _count_total_pages(template):
+def _count_total_pages(template, decision_summary=None):
     """Count the total number of rendered pages for footer pagination."""
-    return _count_pre_section_pages(template) + _count_enabled_sections(template)
+    return (
+        _count_pre_section_pages(template)
+        + _count_enabled_sections(template)
+        + (1 if isinstance(decision_summary, dict) and decision_summary else 0)
+    )
 
 def _render_section_header(fig, title, style):
     """Render section header bar at top of page."""

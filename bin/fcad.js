@@ -632,6 +632,7 @@ function buildExpectedReportOutputs(config = {}) {
   const stem = safeFilenameComponent(config.name, 'unnamed');
   return [
     createOutputEntry('report.pdf', join(outputDir, `${stem}_report.pdf`)),
+    createOutputEntry('report.summary-json', join(outputDir, `${stem}_report_summary.json`)),
   ];
 }
 
@@ -3307,6 +3308,9 @@ async function cmdReport(configPath, flags = []) {
       primaryOutputPath: result.path,
       artifacts: [
         createArtifactEntry('report.pdf', result.path, { label: 'Engineering report PDF' }),
+        ...(result.summary_json
+          ? [createArtifactEntry('report.summary-json', result.summary_json, { label: 'Engineering report summary JSON' })]
+          : []),
       ],
       details: {
         include_tolerance: includeTolerance,
@@ -3324,26 +3328,53 @@ async function cmdReport(configPath, flags = []) {
       primaryOutputPath: result.path,
       outputs: [
         createOutputEntry('report.pdf', result.path),
+        ...(result.summary_json ? [createOutputEntry('report.summary-json', result.summary_json)] : []),
       ],
       linkedArtifacts: {
         report_pdf: result.path,
+        ...(result.summary_json ? { report_summary_json: result.summary_json } : {}),
       },
       warnings: configDocument.summary?.warnings || [],
     });
+    if (result.summary_json && result.report_summary) {
+      const reportManifestArtifact = (result.report_summary.artifacts_referenced || [])
+        .find((artifact) => artifact?.key === 'report_manifest');
+      const reportOutputManifest = reportManifestArtifact?.path
+        ? await readJsonIfExists(reportManifestArtifact.path)
+        : null;
+      result.report_summary.artifacts_referenced = (result.report_summary.artifacts_referenced || []).map((artifact) => (
+        artifact?.key === 'report_manifest'
+          ? { ...artifact, status: reportOutputManifest ? 'available' : artifact.status }
+          : artifact
+      ));
+      if (reportOutputManifest) {
+        result.report_summary.run_id = reportOutputManifest.run_id || result.report_summary.run_id || null;
+        result.report_summary.git_commit = reportOutputManifest.repo?.head_sha || result.report_summary.git_commit || null;
+        result.report_summary.git_branch = reportOutputManifest.repo?.branch || result.report_summary.git_branch || null;
+      }
+      result.report_summary.missing_optional_artifacts = (result.report_summary.missing_optional_artifacts || [])
+        .filter((artifactKey) => !(artifactKey === 'report_manifest' && reportOutputManifest));
+      await writeJsonFile(result.summary_json, result.report_summary);
+    }
     console.log(`\n=== Engineering Report Generated ===`);
     console.log(`  PDF: ${result.path} (${result.size_bytes} bytes)`);
+    if (result.summary_json) {
+      console.log(`  Summary JSON: ${result.summary_json}`);
+    }
     console.log(`  Manifest: ${manifestPath}`);
     return result;
   } catch (error) {
+    const expectedOutputs = buildExpectedReportOutputs(config || {});
     await emitOutputManifestSafe({
       command: 'report',
       commandArgs: [configPath, ...flags],
       repoContext,
       startedAt,
       inputPath: absPath,
-      outputs: buildExpectedReportOutputs(config || {}),
+      outputs: expectedOutputs,
       linkedArtifacts: {
-        report_pdf: buildExpectedReportOutputs(config || {})[0]?.path || null,
+        report_pdf: expectedOutputs[0]?.path || null,
+        report_summary_json: expectedOutputs[1]?.path || null,
       },
       warnings: configDocument?.summary?.warnings || [],
       errors: [error.message],

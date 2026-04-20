@@ -209,6 +209,35 @@ Major runtime and analysis commands now also emit an additive output manifest na
 
 `fcad draw` also writes an additive `<base>_drawing_quality.json` summary beside the existing draw sidecars. It aggregates required-dimension coverage, conflict counts, layout overlap signals, BOM consistency, and traceability coverage into one status block. Default draw still completes with warnings, while `--strict-quality` exits non-zero when blocking draw-quality issues remain.
 
+`fcad report` now also writes an additive `<base>_report_summary.json` beside the PDF. The summary keeps the first-page executive decision fields machine-readable:
+
+- `overall_status`: `pass | warning | fail | incomplete`
+- `overall_score` when enough scored inputs exist
+- `ready_for_manufacturing_review`: `true | false | null`
+- `top_risks`
+- `recommended_actions`
+- `inputs_consumed`
+- `artifacts_referenced`
+- `blocking_issues`
+- `warnings`
+- `missing_optional_artifacts`
+
+The PDF first page now mirrors those fields as an executive decision summary. It is intentionally honest about partial data:
+
+- missing create/drawing/DFM decision inputs downgrade readiness to `unknown` / `incomplete`
+- missing optional FEM or tolerance artifacts stay visible as `not_run` / `not_available`, never pass
+- known upstream create-quality, drawing-quality, or DFM failures are surfaced as blockers instead of being silently repaired by the report step
+
+Representative first-page fields:
+
+```text
+Status: FAIL
+Score: 78.5
+Ready for manufacturing review: No
+Top risks: Generated model shape is invalid.; Missing required drawing dimensions: HOLE_DIA.; DFM critical findings: 1.
+Recommended actions: Repair the generated model geometry before proceeding to manufacturing review.; Add or map the missing required dimension intent(s): HOLE_DIA.; Increase wall thickness around the drilled feature.
+```
+
 `fcad dfm` now keeps the legacy `checks`, `summary`, and `score` fields while also emitting an additive `issues` array for actionable findings. Each non-pass issue can include:
 
 - `rule_id` / `rule_name`

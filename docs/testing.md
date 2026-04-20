@@ -114,6 +114,14 @@ This lane requires Python 3.11+ and the helper script will prefer an explicit `P
 
 The Python lane is also the main hosted-safe coverage source for DFM issue enrichment. `tests/test_dfm.py` verifies that actionable DFM findings keep legacy `checks` compatibility while adding `issues`, severity counts, measurable `actual/required/delta` fields, and null-safe handling when exact feature-location data is unavailable.
 
+The hosted-safe Node lanes now also cover the decision-ready report upgrade:
+
+- `tests/report-decision-summary.test.js` validates report readiness logic, summary schema compliance, and missing-artifact truthfulness
+- `tests/report-service-summary.test.js` validates that `createReportService()` writes `<base>_report_summary.json` and passes executive-summary payloads into the Python renderer input
+- `tests/report-decision-pdf.test.js` attempts a partial-data PDF smoke, but it exits early with a skip message when the local `python3` environment cannot import `matplotlib`
+
+Treat that PDF smoke exactly like runtime-backed verification: if the renderer dependency is unavailable, record it as environment-unavailable rather than claiming the PDF path was verified.
+
 Real runtime smoke:
 
 <!-- GENERATED:runtime-smoke-local:start -->
