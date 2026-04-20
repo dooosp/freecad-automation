@@ -1,5 +1,5 @@
 import { basename, dirname, extname, join, parse, resolve } from 'node:path';
-import { mkdir } from 'node:fs/promises';
+import { copyFile, mkdir, stat } from 'node:fs/promises';
 import {
   AfExecutionContractError,
   buildAfArtifactContractFromDocument,
@@ -20,6 +20,7 @@ import {
 import { D_ANALYSIS_VERSION, D_ARTIFACT_SCHEMA_VERSION } from '../../../lib/d-artifact-schema.js';
 import { isWindowsAbsolutePath, normalizeLocalPath } from '../../../lib/paths.js';
 import { runScript } from '../../../lib/runner.js';
+import { createDfmService } from '../../api/analysis.js';
 import { createDrawingService, runDrawPipeline } from '../../api/drawing.js';
 import { analyzeStep, createModel, inspectModel } from '../../api/model.js';
 import { createReportService } from '../../api/report.js';
@@ -143,9 +144,91 @@ function collectDrawManifestArtifacts(result) {
     }));
 }
 
-function collectReportManifestArtifacts(result) {
+async function pathExists(path) {
+  if (!path) return false;
+  try {
+    await stat(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function buildSeededReportArtifactPaths(configName) {
+  const stem = String(configName || '').trim();
+  if (!stem) return {};
+  return {
+    create_quality: `${stem}_create_quality.json`,
+    drawing_quality: `${stem}_drawing_quality.json`,
+    create_manifest: `${stem}_manifest.json`,
+    drawing_manifest: `${stem}_drawing_manifest.json`,
+    drawing_svg: `${stem}_drawing.svg`,
+    model_step: `${stem}.step`,
+    model_stl: `${stem}.stl`,
+  };
+}
+
+async function seedTrackedReportArtifacts({
+  projectRoot,
+  resolvedConfig,
+  outputDir,
+}) {
+  const configName = resolvedConfig?.config?.name || null;
+  const fileNames = buildSeededReportArtifactPaths(configName);
+  if (Object.keys(fileNames).length === 0) {
+    return {};
+  }
+
+  const sourceDir = resolve(
+    projectRoot,
+    resolvedConfig?.config?.export?.directory || 'output'
+  );
+  const seededArtifacts = {};
+
+  for (const [key, fileName] of Object.entries(fileNames)) {
+    const sourcePath = join(sourceDir, fileName);
+    if (!(await pathExists(sourcePath))) continue;
+    const targetPath = join(outputDir, fileName);
+    if (resolve(sourcePath) !== resolve(targetPath)) {
+      await copyFile(sourcePath, targetPath);
+    }
+    seededArtifacts[key] = targetPath;
+  }
+
+  return seededArtifacts;
+}
+
+export async function prepareTrackedReportAnalysisResults({
+  projectRoot,
+  resolvedConfig,
+  requestOptions = {},
+  createDfmServiceFn = createDfmService,
+} = {}) {
+  const explicitAnalysisResults = requestOptions?.analysis_results || null;
+  if (explicitAnalysisResults?.dfm) {
+    return explicitAnalysisResults;
+  }
+
+  if (requestOptions?.include_dfm !== true) {
+    return explicitAnalysisResults;
+  }
+
+  const runDfm = createDfmServiceFn();
+  const dfm = await runDfm({
+    freecadRoot: projectRoot,
+    configPath: resolvedConfig?.configPath || null,
+    config: resolvedConfig?.config || null,
+  });
+
+  return {
+    ...(explicitAnalysisResults || {}),
+    dfm,
+  };
+}
+
+export function collectReportManifestArtifacts(result) {
   const pdfPath = result?.pdf_path || result?.path;
-  return pdfPath
+  const artifacts = pdfPath
     ? [{
         type: 'report.pdf',
         path: pdfPath,
@@ -154,6 +237,40 @@ function collectReportManifestArtifacts(result) {
         stability: 'stable',
       }]
     : [];
+
+  if (result?.summary_json) {
+    artifacts.push({
+      type: 'report.summary-json',
+      path: result.summary_json,
+      label: 'Report summary JSON',
+      scope: 'user-facing',
+      stability: 'stable',
+    });
+  }
+
+  const seededArtifacts = result?.seeded_artifacts || {};
+  const seededMapping = [
+    ['create_quality', 'model.quality-summary', 'Create quality JSON'],
+    ['drawing_quality', 'drawing.quality-summary', 'Drawing quality JSON'],
+    ['create_manifest', 'output.manifest.json', 'Create manifest JSON'],
+    ['drawing_manifest', 'drawing.output-manifest.json', 'Drawing manifest JSON'],
+    ['drawing_svg', 'drawing.svg', 'Drawing SVG'],
+    ['model_step', 'model.step', 'STEP model'],
+    ['model_stl', 'model.stl', 'STL model'],
+  ];
+
+  for (const [key, type, label] of seededMapping) {
+    if (!seededArtifacts[key]) continue;
+    artifacts.push({
+      type,
+      path: seededArtifacts[key],
+      label,
+      scope: 'user-facing',
+      stability: 'stable',
+    });
+  }
+
+  return artifacts;
 }
 
 function collectInspectManifestArtifacts(resolvedConfig) {
@@ -570,7 +687,17 @@ export function createJobExecutor({
 
   async function executeReport(job, resolvedConfig) {
     const outputDir = await ensureJobArtifactDir(jobStore, job.id);
-    return generateReport({
+    const seededArtifacts = await seedTrackedReportArtifacts({
+      projectRoot,
+      resolvedConfig,
+      outputDir,
+    });
+    const analysisResults = await prepareTrackedReportAnalysisResults({
+      projectRoot,
+      resolvedConfig,
+      requestOptions: job.request.options || {},
+    });
+    const result = await generateReport({
       freecadRoot: projectRoot,
       runScript: createLoggedRunner(job.id),
       loadConfig: async (filepath) => (await loadConfigWithDiagnostics(filepath)).config,
@@ -581,13 +708,17 @@ export function createJobExecutor({
       includeDfm: job.request.options?.include_dfm === true,
       includeTolerance: job.request.options?.include_tolerance !== false,
       includeCost: job.request.options?.include_cost === true,
-      analysisResults: job.request.options?.analysis_results || null,
+      analysisResults,
       templateName: job.request.options?.template_name || null,
       metadata: job.request.options?.metadata || null,
       sections: job.request.options?.sections || null,
       options: job.request.options?.report_options || null,
       profileName: job.request.options?.profile_name || null,
     });
+    return {
+      ...result,
+      seeded_artifacts: seededArtifacts,
+    };
   }
 
   async function executeReviewContext(job) {
