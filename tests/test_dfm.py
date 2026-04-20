@@ -649,5 +649,117 @@ class TestDFMReport(unittest.TestCase):
         self.assertIsNone(config_no_dfm.get("dfm_results"))
 
 
+class TestDFMActionableIssues(unittest.TestCase):
+    """Actionable DFM issue enrichment remains additive to the legacy report."""
+
+    def test_wall_issue_exposes_actionable_measurements(self):
+        cfg = _base_config(
+            extra_shapes=[
+                {"id": "hole1", "type": "cylinder", "radius": 5,
+                 "height": 25, "position": [94.5, 0, -2]},
+            ],
+            extra_ops=[{"op": "cut", "base": "disc", "tool": "hole1"}],
+            manufacturing={"process": "machining"},
+        )
+        cfg["name"] = "thin_wall_part"
+
+        result = run_dfm_check(cfg)
+
+        dfm01 = next(c for c in result["checks"] if c["code"] == "DFM-01")
+        self.assertEqual(dfm01["severity"], "error")
+        self.assertEqual(dfm01["rule_id"], "DFM-01")
+        self.assertEqual(dfm01["status"], "fail")
+        self.assertEqual(dfm01["actual_unit"], "mm")
+        self.assertEqual(dfm01["required_unit"], "mm")
+        self.assertAlmostEqual(dfm01["actual_value"], 0.5, places=2)
+        self.assertAlmostEqual(dfm01["required_value"], 1.5, places=2)
+        self.assertAlmostEqual(dfm01["delta"], -1.0, places=2)
+        self.assertEqual(dfm01["suggested_fix"].startswith("Increase wall thickness by at least 1.0 mm"), True)
+        self.assertEqual(dfm01["confidence"], "high")
+
+        issue = next(i for i in result["issues"] if i["rule_id"] == "DFM-01")
+        self.assertEqual(issue["rule_name"], "Minimum wall thickness")
+        self.assertEqual(issue["severity"], "critical")
+        self.assertEqual(issue["part_name"], "thin_wall_part")
+        self.assertEqual(issue["feature_id"], "hole1")
+        self.assertEqual(issue["feature_type"], "hole")
+        self.assertEqual(isinstance(issue["evidence"], dict), True)
+        self.assertEqual("manufacturability_impact" in issue, True)
+
+    def test_unavailable_locations_use_null_instead_of_guessing(self):
+        cfg = _base_config(
+            extra_shapes=[
+                {"id": "h1", "type": "cylinder", "radius": 5,
+                 "height": 25, "position": [50, 0, -2]},
+            ],
+            extra_ops=[{"op": "cut", "base": "disc", "tool": "h1"}],
+            manufacturing={"process": "machining"},
+        )
+
+        result = run_dfm_check(cfg)
+        issue = next(i for i in result["issues"] if i["rule_id"] == "DFM-04")
+
+        self.assertIsNone(issue["part_id"])
+        self.assertIsNone(issue["feature_id"])
+        self.assertEqual(issue["feature_type"], "internal_corner")
+        self.assertEqual(issue["actual_value"], 0)
+        self.assertEqual(issue["required_value"], 1)
+        self.assertEqual(issue["delta"], -1)
+
+    def test_summary_includes_severity_counts_and_top_fixes(self):
+        cfg = _base_config(
+            extra_shapes=[
+                {"id": "hole1", "type": "cylinder", "radius": 5,
+                 "height": 25, "position": [94.5, 0, -2]},
+                {"id": "hole2", "type": "cylinder", "radius": 5,
+                 "height": 25, "position": [55, 0, -2]},
+                {"id": "hole3", "type": "cylinder", "radius": 5,
+                 "height": 25, "position": [40, 0, -2]},
+            ],
+            extra_ops=[
+                {"op": "cut", "base": "disc", "tool": "hole1"},
+                {"op": "cut", "base": "disc", "tool": "hole2"},
+                {"op": "cut", "base": "disc", "tool": "hole3"},
+            ],
+            manufacturing={"process": "machining"},
+        )
+
+        result = run_dfm_check(cfg)
+
+        self.assertIn("severity_counts", result["summary"])
+        self.assertIn("top_fixes", result["summary"])
+        self.assertIn("score_impact", result["summary"])
+        self.assertEqual(result["summary"]["severity_counts"]["critical"] >= 1, True)
+        self.assertEqual(result["summary"]["severity_counts"]["major"] >= 1, True)
+        self.assertEqual(len(result["summary"]["top_fixes"]) <= 3, True)
+        self.assertEqual(result["summary"]["score_impact"]["total_penalty"], 100 - result["score"])
+
+    def test_unknown_process_and_material_emit_context_issue(self):
+        cfg = _base_config(
+            extra_shapes=[
+                {"id": "h1", "type": "cylinder", "radius": 5,
+                 "height": 25, "position": [92, 0, -2]},
+            ],
+            extra_ops=[{"op": "cut", "base": "disc", "tool": "h1"}],
+            manufacturing={"process": "laser_cutting"},
+        )
+
+        result = run_dfm_check(cfg)
+
+        process_issue = next(i for i in result["issues"] if i["rule_id"] == "DFM-10")
+        material_issue = next(i for i in result["issues"] if i["rule_id"] == "DFM-11")
+
+        self.assertEqual(process_issue["severity"], "info")
+        self.assertEqual(process_issue["actual_value"], "laser_cutting")
+        self.assertEqual(process_issue["required_value"], "supported_process_profile")
+        self.assertEqual(process_issue["suggested_fix"].startswith("Set manufacturing.process"), True)
+
+        self.assertEqual(material_issue["severity"], "info")
+        self.assertEqual(material_issue["material"], "unknown")
+        self.assertEqual(material_issue["actual_value"], "unknown")
+        self.assertEqual(material_issue["required_value"], "specified_material")
+        self.assertEqual(material_issue["feature_id"], None)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

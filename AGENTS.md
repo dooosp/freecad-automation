@@ -166,3 +166,37 @@ Treat that execution plan as the task-specific source of truth for this worktree
   - `tmp/codex/drawing-qa-gates-verification-status.md`
 - Verification/remediation plan for this task:
   - `docs/exec-plans/drawing-qa-gates-verification.md`
+
+## Task addendum: dfm-actionable-suggestions
+For this task, follow:
+- `docs/exec-plans/dfm-actionable-suggestions.md`
+
+Treat that execution plan as the task-specific source of truth for this worktree.
+
+### Task-specific DFM constraints
+- Goal: make non-pass `fcad dfm` checks actionable by adding severity, measurable values, manufacturability impact, and concrete fix guidance without replacing the existing DFM `checks`, `summary`, or `score` surfaces.
+- Scope surfaces:
+  - `fcad dfm`
+  - Python DFM checker output
+  - Node CLI compatibility mapping
+  - DFM summary/reporting
+  - tests and docs
+- Non-negotiables:
+  - preserve existing DFM coverage and legacy top-level fields unless an additive compatibility wrapper is required
+  - do not invent exact part/feature locations when the checker cannot measure them
+  - use `null` or `unknown` for unavailable evidence instead of guessing
+  - keep default DFM exit-code behavior unchanged unless an existing strict path is explicitly used
+  - reuse the shipped output-manifest conventions; do not create a second manifest or quality-report system
+  - keep control files inside this repo root only
+- Known upstream issue:
+  - `configs/examples/ks_bracket.toml` currently yields a create-quality failure because the generated model shape is invalid even though STEP round-trip and STL checks pass; do not fix geometry generation or create-quality internals in this task
+- Known upstream issue:
+  - `configs/examples/ks_bracket.toml` currently yields a drawing-quality failure because of missing required intent `HOLE_DIA`, dimension conflicts, and low traceability coverage; do not fix drawing QA internals in this task
+- Known pre-existing failure:
+  - `tests/output-contract-cli.test.js` has a readiness provenance mismatch; do not fix it here unless this task directly requires that contract
+- Progress tracking files for this task:
+  - `tmp/codex/dfm-actionable-suggestions-status.md`
+  - `tmp/codex/dfm-actionable-suggestions-tool-evidence.md`
+  - `tmp/codex/dfm-actionable-suggestions-verification-status.md`
+- Verification/remediation plan for this task:
+  - `docs/exec-plans/dfm-actionable-suggestions-verification.md`

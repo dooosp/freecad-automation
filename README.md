@@ -207,9 +207,55 @@ Major runtime and analysis commands now also emit an additive output manifest na
 
 `fcad create` also emits an additive `<base>_create_quality.json` report when it exports model artifacts. The create output manifest links that report through `linked_artifacts.quality_json`, and `--strict-quality` exits non-zero only when the quality report finds blocking export issues.
 
-See [docs/output-manifest.md](./docs/output-manifest.md) for the unified output-manifest fields, naming rules, and example JSON.
-
 `fcad draw` also writes an additive `<base>_drawing_quality.json` summary beside the existing draw sidecars. It aggregates required-dimension coverage, conflict counts, layout overlap signals, BOM consistency, and traceability coverage into one status block. Default draw still completes with warnings, while `--strict-quality` exits non-zero when blocking draw-quality issues remain.
+
+`fcad dfm` now keeps the legacy `checks`, `summary`, and `score` fields while also emitting an additive `issues` array for actionable findings. Each non-pass issue can include:
+
+- `rule_id` / `rule_name`
+- `severity`: `critical | major | minor | info`
+- `status`: `fail | warning | skipped`
+- `part_id` / `part_name` and `feature_id` / `feature_type` when known
+- `actual_value`, `required_value`, `delta`, and matching units when measurable
+- `process`, `material`, `manufacturability_impact`, `suggested_fix`, `confidence`, and `evidence`
+
+Representative actionable DFM issue:
+
+```json
+{
+  "rule_id": "DFM-01",
+  "rule_name": "Minimum wall thickness",
+  "severity": "critical",
+  "status": "fail",
+  "part_name": "thin_wall_part",
+  "feature_id": "hole1",
+  "feature_type": "hole",
+  "actual_value": 0.5,
+  "actual_unit": "mm",
+  "required_value": 1.5,
+  "required_unit": "mm",
+  "delta": -1.0,
+  "process": "machining",
+  "material": "unknown",
+  "manufacturability_impact": "Thin walls can distort, chatter, or break during manufacturing and reduce part robustness.",
+  "suggested_fix": "Increase wall thickness by at least 1.0 mm by moving hole 'hole1' inward 1.0 mm, reducing its diameter by 2.0 mm, or switching to a process/material profile that supports the current 0.5 mm wall.",
+  "confidence": "high",
+  "evidence": {
+    "measurement": "wall_thickness",
+    "hole_id": "hole1",
+    "wall_mm": 0.5,
+    "threshold_mm": 1.5
+  }
+}
+```
+
+Severity guidance:
+
+- `critical`: likely blocker for the selected manufacturing path
+- `major`: manufacturable only with meaningful redesign, process change, or closer review
+- `minor`: quality-of-manufacture or robustness improvement recommended
+- `info`: context or confidence warning that should be reviewed but is not a direct blocker
+
+See [docs/output-manifest.md](./docs/output-manifest.md) for the unified output-manifest fields, naming rules, and example JSON.
 
 ### Parameter Sweep
 

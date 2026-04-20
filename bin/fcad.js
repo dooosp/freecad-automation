@@ -3080,11 +3080,35 @@ async function cmdDfm(rawArgs = []) {
     }
 
     const { checks, summary, score } = result;
+    const issues = Array.isArray(result.issues) ? result.issues : [];
 
     console.log(`=== DFM Report (${result.process}) ===\n`);
 
     if (checks.length === 0) {
       console.log('  No issues found — design is manufacturing-ready.\n');
+    } else if (issues.length > 0) {
+      for (const issue of issues) {
+        const icon = issue.status === 'fail' ? '\x1b[31mFAIL\x1b[0m'
+          : issue.severity === 'info' ? '\x1b[36mINFO\x1b[0m'
+          : '\x1b[33mWARN\x1b[0m';
+        console.log(`  [${icon}] ${issue.rule_id} (${issue.severity}): ${issue.message}`);
+        if (
+          issue.actual_value !== null && issue.actual_value !== undefined
+          && issue.required_value !== null && issue.required_value !== undefined
+        ) {
+          const actualUnit = issue.actual_unit ? ` ${issue.actual_unit}` : '';
+          const requiredUnit = issue.required_unit ? ` ${issue.required_unit}` : '';
+          const deltaUnit = issue.actual_unit || issue.required_unit ? ` ${issue.actual_unit || issue.required_unit}` : '';
+          const deltaValue = typeof issue.delta === 'number'
+            ? issue.delta.toFixed(3).replace(/\.?0+$/, '')
+            : issue.delta;
+          console.log(`         actual=${issue.actual_value}${actualUnit}, required=${issue.required_value}${requiredUnit}, delta=${deltaValue}${deltaUnit}`);
+        }
+        if (issue.suggested_fix) {
+          console.log(`         fix: ${issue.suggested_fix}`);
+        }
+      }
+      console.log('');
     } else {
       for (const c of checks) {
         const icon = c.severity === 'error' ? '\x1b[31mERROR\x1b[0m'
@@ -3099,6 +3123,15 @@ async function cmdDfm(rawArgs = []) {
     }
 
     console.log(`Summary: ${summary.errors} errors, ${summary.warnings} warnings, ${summary.info} info`);
+    if (summary.severity_counts) {
+      console.log(`Severity: ${summary.severity_counts.critical || 0} critical, ${summary.severity_counts.major || 0} major, ${summary.severity_counts.minor || 0} minor, ${summary.severity_counts.info || 0} info`);
+    }
+    if (Array.isArray(summary.top_fixes) && summary.top_fixes.length > 0) {
+      console.log('Top fixes:');
+      for (const fix of summary.top_fixes) {
+        console.log(`  - ${fix.rule_id}: ${fix.suggested_fix}`);
+      }
+    }
     console.log(`DFM Score: ${score}/100`);
 
     const emittedManifestPath = await writeStdoutCommandManifest({
