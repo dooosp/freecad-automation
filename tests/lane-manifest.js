@@ -19,6 +19,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'FreeCAD invocation contracts', args: Object.freeze(['tests/freecad-invocation.test.js']) }),
       Object.freeze({ label: 'Serve CLI', args: Object.freeze(['tests/serve-cli.test.js']) }),
       Object.freeze({ label: 'Create quality helper', args: Object.freeze(['tests/create-quality.test.js']) }),
+      Object.freeze({ label: 'Quality fixture matrix contracts', args: Object.freeze(['tests/quality-fixture-matrix.test.js']) }),
       Object.freeze({ label: 'Report artifact exposure helper', args: Object.freeze(['tests/job-executor-report-artifacts.test.js']) }),
       Object.freeze({ label: 'Report analysis preparation helper', args: Object.freeze(['tests/job-executor-report-analysis.test.js']) }),
       Object.freeze({ label: 'DFM actionable issue contracts', args: Object.freeze(['tests/dfm-actionable.test.js']) }),
@@ -144,7 +145,7 @@ export const WORKFLOW_MAPPINGS = Object.freeze([
     label: 'FreeCAD Runtime Smoke (self-hosted macOS)',
     commands: Object.freeze(['test:runtime-smoke']),
     scope: 'No Linux or Windows runtime ownership claims, and no repository-owned tolerance smoke claim yet',
-    suffix: 'plus runtime-backed Python smoke regressions',
+    suffix: 'plus runtime-backed Python smoke regressions and the quality fixture matrix',
   }),
 ]);
 
