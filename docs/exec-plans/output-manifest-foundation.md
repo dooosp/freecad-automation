@@ -17,4 +17,4 @@ Add a unified output-manifest layer for major `fcad` commands so a run can trace
 
 - the existing `artifact-manifest` contract remains documented and tested, so the new output manifest should be additive
 - `origin/master` at `75acc9fd656f0462c5d3f80467da097a9fe04a77` is the pinned base for this task worktree
-- the selected task repo root is `/Users/jangtaeho/worktrees/freecad-automation-output-manifest-foundation`
+- the selected task repo root is the dedicated output-manifest-foundation worktree for `freecad-automation`

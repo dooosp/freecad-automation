@@ -17,7 +17,7 @@ Add additive post-export quality checks for `fcad create` so STEP, STL, BREP, an
 
 - the existing `output-manifest` helper and schema from `output-manifest-foundation` are the only manifest layer touched in this task
 - `origin/master` currently resolves to `75acc9fd656f0462c5d3f80467da097a9fe04a77`
-- this task worktree root is `/Users/jangtaeho/worktrees/freecad-automation-create-roundtrip-quality`
+- this task worktree root is the dedicated create-roundtrip-quality worktree for `freecad-automation`
 - repo identity is proved by `package.json` name `freecad-automation` and `origin` URL `https://github.com/dooosp/freecad-automation.git`, even though the linked worktree directory basename differs from the canonical repo basename
 - known pre-existing failure to classify, not fix unless directly touched:
   - `tests/output-contract-cli.test.js` currently expects `readiness-report.json`, while current code emits `input.readiness-report`

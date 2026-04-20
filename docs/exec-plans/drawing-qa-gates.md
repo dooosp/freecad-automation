@@ -15,7 +15,7 @@ Strengthen `fcad draw` quality gating by adding a unified additive `<base>_drawi
 
 ## Working assumptions
 
-- the selected repo root is `/Users/jangtaeho/worktrees/freecad-automation-drawing-qa-gates`
+- the selected repo root is the dedicated drawing-qa-gates worktree for `freecad-automation`
 - repo identity is proven by `package.json` name `freecad-automation` and `origin` remote `https://github.com/dooosp/freecad-automation.git`, even though the worktree directory basename differs
 - `origin/master` at `75acc9fd656f0462c5d3f80467da097a9fe04a77` is the discoverable default-branch pin at task start
 - the current task branch is `feat/drawing-qa-gates` at `379d0063b542f2adb641d8a773827f1dae33e9da`
