@@ -1,0 +1,96 @@
+config_version = 1
+name = "quality_pass_bracket"
+
+[manufacturing]
+process = "machining"
+material = "AL6061"
+
+[[shapes]]
+id = "plate"
+type = "box"
+length = 160
+width = 100
+height = 8
+
+[[shapes]]
+id = "hole_left"
+type = "cylinder"
+radius = 3
+height = 12
+position = [30, 30, -2]
+
+[[shapes]]
+id = "hole_right"
+type = "cylinder"
+radius = 5
+height = 12
+position = [125, 70, -2]
+
+[[operations]]
+op = "cut"
+base = "plate"
+tool = "hole_left"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "hole_right"
+result = "body"
+
+[[operations]]
+op = "chamfer"
+target = "body"
+size = 1.0
+result = "final"
+
+[drawing]
+views = ["top", "iso"]
+
+[drawing.meta]
+part_name = "Quality Pass Bracket"
+material = "AL6061"
+
+[drawing.style]
+show_hidden = true
+show_centerlines = true
+show_dimensions = true
+
+[drawing.dimension_style]
+type = "baseline"
+
+[drawing_plan]
+part_type = "generic"
+profile = "KS"
+
+[drawing_plan.views]
+enabled = ["top", "iso"]
+layout = "third_angle"
+
+[drawing_plan.dimensioning]
+auto_plan_dedupe = "off"
+qa_weight_preset = "bracket"
+
+[[drawing_plan.dim_intents]]
+id = "HOLE_LEFT_DIA"
+feature = "hole_left"
+view = "top"
+style = "diameter"
+required = true
+value_mm = 6
+placement_side = "top_left"
+placement_offset_mm = 6
+
+[[drawing_plan.dim_intents]]
+id = "HOLE_RIGHT_DIA"
+feature = "hole_right"
+view = "top"
+style = "diameter"
+required = true
+value_mm = 10
+placement_side = "bottom_right"
+placement_offset_mm = 8
+
+[export]
+formats = ["step", "stl"]
+directory = "output"

@@ -11,6 +11,7 @@ const CANONICAL_EXAMPLES = [
   'configs/examples/controller_housing.toml',
   'configs/examples/controller_housing_eol.toml',
   'configs/examples/pcb_mount_plate.toml',
+  'configs/examples/quality_pass_bracket.toml',
 ];
 
 function visitOperationLists(config, visitor) {
