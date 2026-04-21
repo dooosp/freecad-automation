@@ -659,6 +659,8 @@ export function createJobExecutor({
   }
 
   async function executeDraw(job, resolvedConfig) {
+    const outputDir = await ensureJobArtifactDir(jobStore, job.id);
+    const resolvedConfigPath = resolveMaybe(projectRoot, resolvedConfig.configPath);
     return runDrawPipeline({
       projectRoot,
       configPath: resolvedConfig.configPath,
@@ -669,7 +671,19 @@ export function createJobExecutor({
       overridePath: job.request.options?.override_path || null,
       failUnderValue: job.request.options?.fail_under ?? null,
       weightsPresetValue: job.request.options?.weights_preset ?? null,
-      loadConfig: async (filepath) => (await loadConfigWithDiagnostics(filepath)).config,
+      loadConfig: async (filepath) => {
+        const loaded = (await loadConfigWithDiagnostics(filepath)).config;
+        if (resolveMaybe(projectRoot, filepath) !== resolvedConfigPath || loaded.export?.directory) {
+          return loaded;
+        }
+        return {
+          ...loaded,
+          export: {
+            ...(loaded.export || {}),
+            directory: outputDir,
+          },
+        };
+      },
       deepMerge,
       generateDrawing,
       runScript: createLoggedRunner(job.id),

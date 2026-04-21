@@ -21,13 +21,16 @@ import {
 } from './quality-fixture-matrix.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
-const OUTPUT_DIR = join(ROOT, 'output', 'runtime-smoke');
-const CONFIG_DIR = join(ROOT, 'output', 'runtime-smoke-configs');
-const REPORT_DIR = join(ROOT, 'output');
+const RUN_ID = String(process.env.FCAD_SMOKE_RUN_ID || new Date().toISOString().replace(/[:.]/g, '-')).replace(/[^A-Za-z0-9_.-]+/g, '-');
+const OUTPUT_DIR = join(ROOT, 'output', 'smoke', RUN_ID);
+const CONFIG_DIR = join(OUTPUT_DIR, 'configs');
+const REPORT_DIR = OUTPUT_DIR;
 const MANIFEST_PATH = join(OUTPUT_DIR, 'smoke-manifest.json');
 
 const smokeManifest = {
   generated_at: new Date().toISOString(),
+  run_id: RUN_ID,
+  output_dir: OUTPUT_DIR,
   source_configs: [],
   commands: [],
   artifact_manifests: [],
@@ -273,13 +276,6 @@ const qualityPassConfig = cloneConfigWithOutput(
 );
 smokeManifest.source_configs.push(join(ROOT, 'configs', 'examples', 'quality_pass_bracket.toml'));
 
-rmSync(join(REPORT_DIR, 'ks_bracket_runtime_smoke_report.pdf'), { force: true });
-rmSync(join(REPORT_DIR, 'ks_bracket_runtime_smoke_report_artifact-manifest.json'), { force: true });
-rmSync(join(REPORT_DIR, 'quality_pass_bracket_runtime_smoke_report.pdf'), { force: true });
-rmSync(join(REPORT_DIR, 'quality_pass_bracket_runtime_smoke_report_artifact-manifest.json'), { force: true });
-rmSync(join(REPORT_DIR, 'bracket_fem_runtime_smoke.FCStd'), { force: true });
-rmSync(join(OUTPUT_DIR, 'bracket_fem_runtime_smoke_fem_artifact-manifest.json'), { force: true });
-
 runCli(['check-runtime']);
 runCli(['create', bracketConfig]);
 assertArtifact(join(OUTPUT_DIR, 'ks_bracket_runtime_smoke.step'));
@@ -296,7 +292,7 @@ assertArtifactManifest(
   {
     command: 'create',
     requiredArtifactTypes: ['model.step', 'model.stl'],
-    expectedConfigSuffix: 'output/runtime-smoke-configs/ks_bracket.runtime-smoke.toml',
+    expectedConfigSuffix: `output/smoke/${RUN_ID}/configs/ks_bracket.runtime-smoke.toml`,
   }
 );
 assertOutputManifest(
@@ -329,7 +325,7 @@ assertArtifactManifest(
   {
     command: 'draw',
     requiredArtifactTypes: ['drawing.svg', 'drawing.qa-report'],
-    expectedConfigSuffix: 'output/runtime-smoke-configs/ks_bracket.runtime-smoke.toml',
+    expectedConfigSuffix: `output/smoke/${RUN_ID}/configs/ks_bracket.runtime-smoke.toml`,
   }
 );
 const ksDrawingQualityPath = join(OUTPUT_DIR, 'ks_bracket_runtime_smoke_drawing_quality.json');
@@ -359,7 +355,7 @@ assertArtifactManifest(
   {
     command: 'fem',
     requiredArtifactTypes: ['analysis.fem.step'],
-    expectedConfigSuffix: 'output/runtime-smoke-configs/bracket_fem.runtime-smoke.toml',
+    expectedConfigSuffix: `output/smoke/${RUN_ID}/configs/bracket_fem.runtime-smoke.toml`,
     detailChecks: (manifest) => {
       assert.equal(manifest.details?.analysis_type, 'static');
       assert.equal(typeof manifest.details?.export_count, 'number');
@@ -371,7 +367,7 @@ assertArtifactManifest(
 );
 
 syncArtifactsForReport('ks_bracket_runtime_smoke');
-runCli(['report', bracketConfig, '--dfm']);
+runCli(['report', bracketConfig, '--dfm', '--out-dir', OUTPUT_DIR]);
 assertArtifact(join(REPORT_DIR, 'ks_bracket_runtime_smoke_report.pdf'));
 const ksReportSummaryPath = join(REPORT_DIR, 'ks_bracket_runtime_smoke_report_summary.json');
 assertArtifact(ksReportSummaryPath);
@@ -385,7 +381,7 @@ assertArtifactManifest(
   {
     command: 'report',
     requiredArtifactTypes: ['report.pdf'],
-    expectedConfigSuffix: 'output/runtime-smoke-configs/ks_bracket.runtime-smoke.toml',
+    expectedConfigSuffix: `output/smoke/${RUN_ID}/configs/ks_bracket.runtime-smoke.toml`,
     detailChecks: (manifest) => {
       assert.equal(manifest.details?.include_fem, false);
       assert.equal(manifest.details?.include_tolerance, true);
@@ -429,7 +425,7 @@ qualityPassFixtureRecord.observed.dfmExit = qualityPassDfm.status;
 qualityPassFixtureRecord.observed.dfmScore = qualityPassDfmScore;
 
 syncArtifactsForReport('quality_pass_bracket_runtime_smoke');
-runCli(['report', qualityPassConfig, '--dfm']);
+runCli(['report', qualityPassConfig, '--dfm', '--out-dir', OUTPUT_DIR]);
 assertArtifact(join(REPORT_DIR, 'quality_pass_bracket_runtime_smoke_report.pdf'));
 const qualityPassReportSummaryPath = join(REPORT_DIR, 'quality_pass_bracket_runtime_smoke_report_summary.json');
 assertArtifact(qualityPassReportSummaryPath);
@@ -447,7 +443,7 @@ assertArtifactManifest(
   {
     command: 'report',
     requiredArtifactTypes: ['report.pdf'],
-    expectedConfigSuffix: 'output/runtime-smoke-configs/quality_pass_bracket.runtime-smoke.toml',
+    expectedConfigSuffix: `output/smoke/${RUN_ID}/configs/quality_pass_bracket.runtime-smoke.toml`,
     detailChecks: (manifest) => {
       assert.equal(manifest.details?.include_fem, false);
       assert.equal(manifest.details?.include_tolerance, true);

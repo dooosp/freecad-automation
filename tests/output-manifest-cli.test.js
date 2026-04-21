@@ -9,8 +9,10 @@ import { validateOutputManifest } from '../lib/output-manifest.js';
 const ROOT = resolve(import.meta.dirname, '..');
 const CLI = join(ROOT, 'bin', 'fcad.js');
 const TMP_DIR = mkdtempSync(join(tmpdir(), 'fcad-output-manifest-cli-'));
+const manifestPath = join(ROOT, 'output', 'ks_bracket_manifest.json');
 
 try {
+  rmSync(manifestPath, { force: true });
   const sourceConfigPath = join(ROOT, 'configs', 'examples', 'ks_bracket.toml');
   const configPath = join(TMP_DIR, 'ks_bracket.toml');
   const configContent = readFileSync(sourceConfigPath, 'utf8');
@@ -27,7 +29,6 @@ try {
 
   assert.notEqual(result.status, null, result.stderr || result.stdout);
 
-  const manifestPath = join(TMP_DIR, 'ks_bracket_manifest.json');
   assert.equal(existsSync(manifestPath), true, `Expected output manifest at ${manifestPath}`);
 
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
@@ -40,5 +41,6 @@ try {
 
   console.log('output-manifest-cli.test.js: ok');
 } finally {
+  rmSync(manifestPath, { force: true });
   rmSync(TMP_DIR, { recursive: true, force: true });
 }

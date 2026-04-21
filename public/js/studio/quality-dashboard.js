@@ -35,20 +35,74 @@ function safeList(value) {
   return Array.isArray(value) ? value : [];
 }
 
+const OPTIONAL_ARTIFACT_KEYS = new Set([
+  'fem',
+  'tolerance',
+  'create_manifest',
+  'drawing_manifest',
+  'report_manifest',
+  'traceability_json',
+]);
+
+function basename(value = '') {
+  return String(value || '').replace(/\\/g, '/').split('/').filter(Boolean).pop() || '';
+}
+
+function stripKnownConfigSuffix(value = '') {
+  return String(value || '')
+    .replace(/_report_summary\.json$/i, '')
+    .replace(/_report\.pdf$/i, '')
+    .replace(/_drawing_quality\.json$/i, '')
+    .replace(/_create_quality\.json$/i, '')
+    .replace(/_drawing_manifest\.json$/i, '')
+    .replace(/_manifest\.json$/i, '')
+    .replace(/_drawing\.svg$/i, '')
+    .replace(/\.(toml|json|step|stl|fcstd)$/i, '')
+    .trim();
+}
+
+function deriveConfigName({ reportSummary = {}, artifacts = [] } = {}) {
+  if (typeof reportSummary.config_name === 'string' && reportSummary.config_name.trim()) {
+    return reportSummary.config_name.trim();
+  }
+
+  const artifactName = artifacts
+    .map((artifact) => stripKnownConfigSuffix(basename(artifact.file_name || artifact.path || artifact.key || artifact.id)))
+    .find((value) => value && value !== 'report');
+  return artifactName || 'Unknown config';
+}
+
 function toStatusTone(status = '') {
   const normalized = normalizeString(status);
-  if (normalized === 'pass' || normalized === 'ready') return 'ok';
+  if (normalized === 'pass' || normalized === 'ready' || normalized === 'generated' || normalized === 'in_memory') return 'ok';
   if (normalized === 'warning' || normalized === 'available') return 'warn';
-  if (normalized === 'fail') return 'bad';
+  if (normalized === 'fail' || normalized === 'missing') return 'bad';
   return 'info';
 }
 
 function normalizeSurfaceStatus(status = '') {
   const normalized = normalizeString(status);
-  if (['pass', 'warning', 'fail', 'available'].includes(normalized)) return normalized;
+  if (['pass', 'warning', 'fail', 'available', 'generated', 'in_memory', 'not_run', 'not_available', 'missing'].includes(normalized)) return normalized;
   if (normalized === 'ready') return 'pass';
-  if (normalized === 'not_run' || normalized === 'not_available' || normalized === 'missing') return 'not_available';
   return normalized || 'not_available';
+}
+
+export function formatQualityStatusLabel(status = '', required = false) {
+  const normalized = normalizeSurfaceStatus(status);
+  if (normalized === 'generated') return 'Generated';
+  if (normalized === 'available') return 'Available';
+  if (normalized === 'in_memory') return 'Computed in report';
+  if (normalized === 'not_run') return required ? 'Required missing' : 'Optional not run';
+  if (normalized === 'not_available' || normalized === 'missing') {
+    return required ? 'Required missing' : 'Optional missing';
+  }
+  if (normalized === 'pass') return 'Passed';
+  if (normalized === 'fail') return 'Failed';
+  if (normalized === 'warning') return 'Warning';
+  if (normalized === 'incomplete') return 'Incomplete';
+  return normalized
+    ? normalized.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
+    : 'Unknown';
 }
 
 function buildArtifactMatcher(needleList) {
@@ -124,46 +178,338 @@ function summaryFromIssues(issues = [], fallback) {
   return uniqueStrings(issues)[0] || fallback;
 }
 
+function buildCheck(label, status, detail = '', {
+  id = null,
+  surface = label,
+  required = false,
+  decision = false,
+  sourceArtifactId = null,
+  gate = null,
+} = {}) {
+  const normalizedStatus = normalizeSurfaceStatus(status);
+  return {
+    id: id || `${String(surface || label).toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${String(label).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+    label,
+    surface,
+    required,
+    decision,
+    status: normalizedStatus,
+    displayStatus: formatQualityStatusLabel(normalizedStatus, required),
+    tone: toStatusTone(status),
+    detail,
+    sourceArtifactId,
+    gate,
+  };
+}
+
+function statusCheckBucket(status = '') {
+  const normalized = normalizeSurfaceStatus(status);
+  if (['pass', 'available', 'generated', 'in_memory'].includes(normalized)) return 'passed';
+  if (normalized === 'fail') return 'failed';
+  return 'unavailable';
+}
+
+function appendStatusCheck(groups, label, status, detail = '', options = {}) {
+  const check = buildCheck(label, status, detail, options);
+  groups[statusCheckBucket(status)].push(check);
+  return groups;
+}
+
+function buildSurfaceDetail(surface = {}) {
+  const details = [];
+  if (surface.score !== null && surface.score !== undefined && Number.isFinite(Number(surface.score))) {
+    details.push(`score ${Number(surface.score)}`);
+  }
+  if (surface.invalid_shape === true) details.push('invalid shape');
+  if (Array.isArray(surface.missing_required_dimensions) && surface.missing_required_dimensions.length > 0) {
+    details.push(`missing dimensions ${surface.missing_required_dimensions.join(', ')}`);
+  }
+  if (Number(surface.conflict_count || 0) > 0) details.push(`${surface.conflict_count} dimension conflicts`);
+  if (Number(surface.overlap_count || 0) > 0) details.push(`${surface.overlap_count} overlaps`);
+  if (Number.isFinite(Number(surface.traceability_coverage_percent))) {
+    details.push(`traceability ${Number(surface.traceability_coverage_percent)}%`);
+  }
+  if (surface.severity_counts?.critical) details.push(`${surface.severity_counts.critical} critical findings`);
+  if (surface.severity_counts?.major) details.push(`${surface.severity_counts.major} major findings`);
+  return details.join(' - ');
+}
+
+function formatArtifactReferenceLabel(artifact = {}) {
+  if (typeof artifact.label === 'string' && artifact.label.trim()) return artifact.label.trim();
+  const raw = artifact.label || artifact.key || artifact.type || 'Artifact';
+  return String(raw)
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function formatArtifactReferenceStatus(status = '', required = false) {
+  const normalized = normalizeString(status);
+  if (normalized === 'generated' || normalized === 'available' || normalized === 'in_memory') {
+    return {
+      status: normalized,
+      detail: formatQualityStatusLabel(normalized, required),
+    };
+  }
+  if (normalized === 'missing' || normalized === 'not_available' || normalized === 'not_run') {
+    return {
+      status: normalized,
+      detail: formatQualityStatusLabel(normalized, required),
+    };
+  }
+  return {
+    status: normalized || 'not_available',
+    detail: formatQualityStatusLabel(normalized || 'not_available', required),
+  };
+}
+
+function buildReportSummaryChecks({ reportSummary = {}, reportArtifactPresent = false } = {}) {
+  const groups = {
+    passed: [],
+    failed: [],
+    unavailable: [],
+  };
+
+  appendStatusCheck(
+    groups,
+    'Overall status',
+    reportSummary.overall_status,
+    reportSummary.ready_for_manufacturing_review === true
+      ? 'ready for manufacturing review'
+      : reportSummary.ready_for_manufacturing_review === false
+        ? 'not ready for manufacturing review'
+        : '',
+    { decision: true, surface: 'Decision' }
+  );
+  appendStatusCheck(
+    groups,
+    'Ready for manufacturing review',
+    reportSummary.ready_for_manufacturing_review === true ? 'pass' : 'fail',
+    reportSummary.ready_for_manufacturing_review === true ? 'Yes' : 'No',
+    { decision: true, surface: 'Decision' }
+  );
+
+  const surfaces = safeObject(reportSummary.surfaces);
+  [
+    ['Geometry', surfaces.create_quality, true],
+    ['Drawing', surfaces.drawing_quality, true],
+    ['DFM', surfaces.dfm, true],
+    ['Report', { status: 'pass' }, true],
+    ['FEM', surfaces.fem, false],
+    ['Tolerance', surfaces.tolerance, false],
+  ].forEach(([label, surface, required]) => {
+    const safeSurface = safeObject(surface);
+    appendStatusCheck(groups, label, safeSurface.status || 'not_available', buildSurfaceDetail(safeSurface), {
+      surface: label,
+      required,
+      gate: label,
+      sourceArtifactId: `${label.toLowerCase()}_surface`,
+    });
+  });
+
+  appendStatusCheck(
+    groups,
+    'Report PDF',
+    reportArtifactPresent ? 'pass' : 'not_available',
+    reportArtifactPresent ? 'openable artifact link present' : 'PDF artifact link missing',
+    { surface: 'Artifacts', required: true, sourceArtifactId: 'report_pdf' }
+  );
+
+  safeList(reportSummary.artifacts_referenced).forEach((artifact) => {
+    const required = typeof artifact?.required === 'boolean'
+      ? artifact.required
+      : !OPTIONAL_ARTIFACT_KEYS.has(artifact?.key);
+    const artifactStatus = formatArtifactReferenceStatus(artifact?.status, required);
+    appendStatusCheck(
+      groups,
+      formatArtifactReferenceLabel(artifact),
+      artifactStatus.status,
+      artifactStatus.detail,
+      {
+        id: `artifact-${artifact?.key || artifact?.label || artifact?.type || 'unknown'}`,
+        surface: 'Artifacts',
+        required,
+        sourceArtifactId: artifact?.key || artifact?.id || null,
+      }
+    );
+  });
+
+  return groups;
+}
+
+function buildFallbackChecks({ createSurface = {}, drawingSurface = {}, reportStatus = 'not_available' } = {}) {
+  const groups = {
+    passed: [],
+    failed: [],
+    unavailable: [],
+  };
+  appendStatusCheck(groups, 'Geometry', createSurface.status, createSurface.invalidShape ? 'invalid shape' : '', {
+    surface: 'Geometry',
+    required: true,
+    gate: 'Geometry',
+  });
+  appendStatusCheck(
+    groups,
+    'Drawing',
+    drawingSurface.status,
+    [
+      drawingSurface.score !== null && drawingSurface.score !== undefined && Number.isFinite(Number(drawingSurface.score))
+        ? `score ${drawingSurface.score}`
+        : '',
+      drawingSurface.missingRequiredDimensions?.length
+        ? `missing dimensions ${drawingSurface.missingRequiredDimensions.join(', ')}`
+        : '',
+      drawingSurface.conflictCount > 0 ? `${drawingSurface.conflictCount} dimension conflicts` : '',
+      drawingSurface.overlapCount > 0 ? `${drawingSurface.overlapCount} overlaps` : '',
+    ].filter(Boolean).join(' - '),
+    { surface: 'Drawing', required: true, gate: 'Drawing' }
+  );
+  appendStatusCheck(groups, 'DFM', 'not_available', 'DFM summary is not available for this artifact set.', {
+    surface: 'DFM',
+    required: true,
+    gate: 'DFM',
+  });
+  appendStatusCheck(groups, 'Report', reportStatus, reportStatus === 'available' ? 'partial report evidence found' : '', {
+    surface: 'Report',
+    required: true,
+    gate: 'Report',
+  });
+  return groups;
+}
+
+function flattenChecks(checks = {}) {
+  return [
+    ...safeList(checks.passed),
+    ...safeList(checks.failed),
+    ...safeList(checks.unavailable),
+  ];
+}
+
+function requiredGateChecks(checks = {}) {
+  return flattenChecks(checks).filter((check) => check.required && check.gate);
+}
+
+function failedRequiredGateChecks(checks = {}) {
+  return requiredGateChecks(checks).filter((check) => (
+    check.status === 'fail'
+    || check.status === 'not_available'
+    || check.status === 'missing'
+    || check.status === 'not_run'
+  ));
+}
+
+function passedRequiredGateChecks(checks = {}) {
+  return requiredGateChecks(checks).filter((check) => (
+    check.status === 'pass'
+    || check.status === 'available'
+    || check.status === 'generated'
+    || check.status === 'in_memory'
+  ));
+}
+
+function gateNames(checks = []) {
+  return uniqueStrings(checks.map((check) => check.surface || check.label));
+}
+
+function buildDecisionCopies({ overallStatus, readyForManufacturingReview, checks = {} } = {}) {
+  const failedGates = failedRequiredGateChecks(checks);
+  const failedNames = gateNames(failedGates);
+  const failedLabel = failedNames.length > 0 ? failedNames.join(', ') : 'required quality gates';
+
+  if (overallStatus === 'pass' && readyForManufacturingReview === true) {
+    return {
+      blockedCopy: 'No manufacturing blockers',
+      readyCopy: 'Ready for manufacturing review: Yes',
+      gateCopy: 'All required quality gates passed',
+    };
+  }
+
+  if (overallStatus === 'fail' || readyForManufacturingReview === false) {
+    return {
+      blockedCopy: `Manufacturing review blocked by ${failedGates.length} quality checks`,
+      readyCopy: `Ready for manufacturing review: No because ${failedLabel} failed`,
+      gateCopy: failedLabel,
+    };
+  }
+
+  return {
+    blockedCopy: 'Manufacturing review readiness is incomplete',
+    readyCopy: 'Ready for manufacturing review: Unknown',
+    gateCopy: 'Required quality gates are incomplete',
+  };
+}
+
+function withDecisionFields(model = {}) {
+  const failedGates = failedRequiredGateChecks(model.checks);
+  const passedGates = passedRequiredGateChecks(model.checks);
+  const decisionCopies = buildDecisionCopies({
+    overallStatus: model.overallStatus,
+    readyForManufacturingReview: model.readyForManufacturingReview,
+    checks: model.checks,
+  });
+
+  return {
+    ...model,
+    layout: model.overallStatus === 'pass' && model.readyForManufacturingReview === true
+      ? 'passed'
+      : model.overallStatus === 'fail' || model.readyForManufacturingReview === false
+        ? 'failed'
+        : 'incomplete',
+    failedGateChecks: failedGates,
+    failedGateNames: gateNames(failedGates),
+    passedRequiredGateChecks: passedGates,
+    optionalImprovements: uniqueStrings(model.recommendedActions),
+    decisionCopies,
+  };
+}
+
 function buildArtifactLinks(artifacts = []) {
   const linkDefinitions = [
     {
       id: 'report_summary_json',
       label: 'Report summary JSON',
+      required: true,
       match: isReportSummaryArtifact,
     },
     {
       id: 'manifest_json',
       label: 'Manifest JSON',
+      required: false,
       match: isManifestArtifact,
     },
     {
       id: 'create_quality_json',
       label: 'Create quality JSON',
+      required: true,
       match: isCreateQualityArtifact,
     },
     {
       id: 'drawing_quality_json',
       label: 'Drawing quality JSON',
+      required: true,
       match: isDrawingQualityArtifact,
     },
     {
       id: 'report_pdf',
       label: 'PDF report',
+      required: true,
       match: buildArtifactMatcher(['report.pdf', '_report.pdf']),
     },
     {
       id: 'drawing_svg',
       label: 'SVG drawing',
+      required: true,
       match: buildArtifactMatcher(['drawing.svg', '_drawing.svg', '.svg']),
     },
     {
       id: 'model_step',
       label: 'STEP',
+      required: true,
       match: buildArtifactMatcher(['model.step', '.step', '.stp']),
     },
     {
       id: 'model_stl',
       label: 'STL',
+      required: true,
       match: buildArtifactMatcher(['model.stl', '.stl']),
     },
   ];
@@ -175,10 +521,15 @@ function buildArtifactLinks(artifacts = []) {
       return {
         id: definition.id,
         label: definition.label,
+        kind: definition.id,
+        required: definition.required !== false,
+        status: 'available',
+        statusLabel: formatQualityStatusLabel('available', definition.required !== false),
         fileName: artifact.file_name || artifact.key || artifact.id || definition.label,
         href: artifact.links?.open || null,
         downloadHref: artifact.links?.download || null,
         artifactId: artifact.id || null,
+        sourceArtifactId: artifact.id || artifact.key || null,
       };
     })
     .filter(Boolean);
@@ -190,9 +541,11 @@ function buildReportSummaryModel({ artifacts = [], reportSummary = {} } = {}) {
   const drawingSurface = safeObject(surfaces.drawing_quality);
   const dfmSurface = safeObject(surfaces.dfm);
   const reportArtifactPresent = buildArtifactLinks(artifacts).some((entry) => entry.id === 'report_pdf');
+  const checks = buildReportSummaryChecks({ reportSummary, reportArtifactPresent });
 
-  return {
+  return withDecisionFields({
     source: 'report_summary',
+    configName: deriveConfigName({ reportSummary, artifacts }),
     overallStatus: normalizeSurfaceStatus(reportSummary.overall_status || 'not_available'),
     overallTone: toStatusTone(reportSummary.overall_status),
     readyForManufacturingReview: typeof reportSummary.ready_for_manufacturing_review === 'boolean'
@@ -247,10 +600,12 @@ function buildReportSummaryModel({ artifacts = [], reportSummary = {} } = {}) {
     blockers: uniqueStrings([
       ...safeList(reportSummary.blocking_issues),
       ...safeList(reportSummary.top_risks),
-    ]).slice(0, 5),
-    recommendedActions: uniqueStrings(safeList(reportSummary.recommended_actions)).slice(0, 5),
+    ]),
+    warnings: uniqueStrings(safeList(reportSummary.warnings)),
+    recommendedActions: uniqueStrings(safeList(reportSummary.recommended_actions)),
     artifactLinks: buildArtifactLinks(artifacts),
-  };
+    checks,
+  });
 }
 
 function summarizeCreateFallback(createQuality = {}) {
@@ -319,8 +674,9 @@ function buildFallbackModel({
     readyForManufacturingReview = null;
   }
 
-  return {
+  return withDecisionFields({
     source: 'quality_artifact_fallback',
+    configName: deriveConfigName({ artifacts }),
     overallStatus,
     overallTone: toStatusTone(overallStatus),
     readyForManufacturingReview,
@@ -364,14 +720,19 @@ function buildFallbackModel({
       ...createSurface.blockers,
       ...drawingSurface.blockingIssues,
       dfmMissingMessage,
-    ]).slice(0, 5),
+    ]),
+    warnings: uniqueStrings([
+      ...createSurface.warnings,
+      ...drawingSurface.warnings,
+    ]),
     recommendedActions: uniqueStrings([
       createSurface.invalidShape ? 'Repair the generated model geometry before proceeding.' : null,
       ...drawingSurface.recommendedActions,
       'Run report generation with DFM attached to restore the decision summary.',
-    ]).slice(0, 5),
+    ]),
     artifactLinks: buildArtifactLinks(artifacts),
-  };
+    checks: buildFallbackChecks({ createSurface, drawingSurface, reportStatus }),
+  });
 }
 
 export function buildQualityDashboardModel({

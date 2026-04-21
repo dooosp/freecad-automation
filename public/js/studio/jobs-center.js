@@ -5,6 +5,10 @@ import {
   supportsStudioJobRetry,
 } from './jobs-client.js';
 import { ensureStudioJobMonitorState, sortStudioJobsByUpdatedAt } from './job-monitor.js';
+import {
+  deriveRecentJobQualityStatus,
+  formatRecentJobQualityLine,
+} from './recent-job-quality-status.js';
 import { createButton, createEmptyState, el } from './renderers.js';
 
 export function shortJobId(id = '') {
@@ -112,6 +116,7 @@ function createJobActions(job) {
 function createJobsCenterItem(job, { activeJobId = '' } = {}) {
   const shortId = shortJobId(job.id);
   const tone = studioJobTone(job.status);
+  const qualityStatus = deriveRecentJobQualityStatus(job);
   const lineage = job.retried_from_job_id
     ? `Retry of ${shortJobId(job.retried_from_job_id)}`
     : 'Original run';
@@ -132,17 +137,28 @@ function createJobsCenterItem(job, { activeJobId = '' } = {}) {
           el('div', {
             className: 'jobs-center-title-stack',
             children: [
-              el('p', { className: 'jobs-center-title', text: `${job.type || 'job'} ${shortId}` }),
-              el('p', { className: 'jobs-center-subtitle', text: `${formatStudioJobStatus(job.status)}${requestSource ? ` • ${requestSource}` : ''}` }),
+              el('p', { className: 'jobs-center-title', text: formatRecentJobQualityLine(job, shortId) }),
+              el('p', { className: 'jobs-center-subtitle', text: requestSource || formatStudioJobTime(job.updated_at || job.lastPollTime) }),
             ],
           }),
-          el('span', { className: 'pill', text: tone === 'warn' ? 'Active' : formatStudioJobStatus(job.status) }),
+          el('span', {
+            className: 'pill',
+            text: tone === 'warn'
+              ? 'Active'
+              : qualityStatus.hasQualityDecision
+                ? qualityStatus.qualityStatus
+                : qualityStatus.jobExecutionStatus,
+          }),
         ],
       }),
       el('div', {
         className: 'jobs-center-meta',
         children: [
           createJobMetaRow('Job id', job.id || shortId),
+          createJobMetaRow('Config', qualityStatus.configName),
+          createJobMetaRow('Job', qualityStatus.jobExecutionStatus),
+          createJobMetaRow('Quality', qualityStatus.qualityStatus),
+          createJobMetaRow('Ready', qualityStatus.readyForManufacturingReview),
           createJobMetaRow('Created', formatStudioJobTime(job.created_at)),
           createJobMetaRow('Updated', formatStudioJobTime(job.updated_at || job.lastPollTime)),
           createJobMetaRow('Lineage', lineage),

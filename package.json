@@ -28,6 +28,7 @@
   },
   "scripts": {
     "check:runtime": "node scripts/check-runtime.js",
+    "check:source-hygiene": "node scripts/check-source-tree-hygiene.js",
     "smoke:runtime": "npm run test:runtime-smoke",
     "test:node:contract": "node tests/run-node-lane.js contract",
     "test:node:integration": "node tests/run-node-lane.js integration",

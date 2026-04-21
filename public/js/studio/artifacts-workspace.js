@@ -1,5 +1,4 @@
 import {
-  createActionGrid,
   createButton,
   createCard,
   createEmptyState,
@@ -24,6 +23,7 @@ import {
 } from './artifact-insights.js';
 import {
   deriveArtifactReentryCapabilities,
+  findDefaultArtifactForJob,
   findPreferredConfigArtifact,
   findPreferredDocsManifestArtifact,
   findPreferredReadinessReportArtifact,
@@ -37,7 +37,12 @@ import {
 import {
   buildQualityDashboardModel,
   collectQualityDashboardArtifacts,
+  formatQualityStatusLabel,
 } from './quality-dashboard.js';
+import {
+  deriveRecentJobQualityStatus,
+  formatRecentJobQualityLine,
+} from './recent-job-quality-status.js';
 import { applyTranslations } from '../i18n/index.js';
 
 function ensureArtifactsWorkspaceState(store = {}) {
@@ -67,6 +72,14 @@ function ensureArtifactsWorkspaceState(store = {}) {
   store.viewerCache = store.viewerCache && typeof store.viewerCache === 'object' ? store.viewerCache : {};
   store.qualityCache = store.qualityCache && typeof store.qualityCache === 'object' ? store.qualityCache : {};
   return store;
+}
+
+function activeJobIdFromState(state = {}) {
+  return state.data?.activeJob?.summary?.id || '';
+}
+
+function artifactStateCacheKey(jobId = '', artifactId = '') {
+  return `${jobId || 'no-job'}:${artifactId || 'no-artifact'}`;
 }
 
 function renderViewerBlock(viewer) {
@@ -120,6 +133,7 @@ function renderTimeline(recentJobs = [], activeJobId = '', compareJobId = '') {
     children: recentJobs.map((job, index) => {
       const isActive = job.id === activeJobId;
       const isCompare = job.id === compareJobId;
+      const status = deriveRecentJobQualityStatus(job);
       return el('article', {
         className: `timeline-item${isActive ? ' is-active' : ''}${index === 0 ? ' is-latest' : ''}`,
         children: [
@@ -130,14 +144,14 @@ function renderTimeline(recentJobs = [], activeJobId = '', compareJobId = '') {
               el('div', {
                 className: 'job-title-row',
                 children: [
-                  el('p', { className: 'job-title', text: `${job.type} ${shortJobId(job.id)}` }),
+                  el('p', { className: 'job-title', text: formatRecentJobQualityLine(job, shortJobId(job.id)) }),
                   el('span', { className: 'pill', text: index === 0 ? '최신' : isActive ? '활성' : '이전' }),
                   isCompare ? el('span', { className: 'pill', text: '비교' }) : null,
                 ],
               }),
               el('p', {
                 className: 'timeline-copy',
-                text: `${formatJobStatus(job.status)} • ${formatDateTime(job.updated_at)}`,
+                text: `${status.configName} • ${formatDateTime(job.updated_at)}`,
               }),
             ],
           }),
@@ -292,82 +306,235 @@ function renderOutputQueue(recentJobs = []) {
 
   return el('div', {
     className: 'output-queue',
-    children: recentJobs.slice(0, 4).map((job) =>
-      el('article', {
+    children: recentJobs.slice(0, 4).map((job) => {
+      const status = deriveRecentJobQualityStatus(job);
+      return el('article', {
         className: 'queue-row',
         children: [
           el('div', {
             className: 'queue-row-copy',
             children: [
               el('p', { className: 'queue-row-title', text: `${job.type} ${shortJobId(job.id)}` }),
-              el('p', { className: 'queue-row-meta', text: formatDateTime(job.updated_at) }),
+              el('p', { className: 'queue-row-meta', text: formatRecentJobQualityLine(job, shortJobId(job.id)) }),
             ],
           }),
-          el('span', { className: 'pill', text: formatJobStatus(job.status) }),
+          el('span', { className: 'pill', text: status.hasQualityDecision ? status.qualityStatus : status.jobExecutionStatus }),
         ],
+      });
+    }),
+  });
+}
+
+function formatStatusLabel(value = '') {
+  return formatQualityStatusLabel(value);
+}
+
+function renderQualityDashboardHeader(model) {
+  return [
+    el('h3', {
+      className: 'quality-dashboard-title',
+      text: `Quality Dashboard - ${model.configName || 'Unknown config'}`,
+    }),
+    createInfoGrid([
+      { label: 'Overall quality status', value: formatStatusLabel(model.overallStatus) },
+      { label: 'Ready for manufacturing review', value: model.readyLabel },
+      { label: 'Source', value: model.source === 'report_summary' ? 'report_summary.json' : 'create/drawing/manifest fallback' },
+      { label: 'Artifact links', value: String(model.artifactLinks.length) },
+    ]),
+  ];
+}
+
+function renderDecisionNotes(model) {
+  return [
+    el('div', {
+      className: model.layout === 'failed' ? 'support-note support-note-warn' : 'support-note',
+      text: model.decisionCopies.blockedCopy,
+    }),
+    el('div', {
+      className: model.layout === 'failed' ? 'support-note support-note-warn' : 'support-note',
+      text: model.decisionCopies.readyCopy,
+    }),
+  ];
+}
+
+function renderCheckSection({ title, empty, items = [], grouped = false }) {
+  if (grouped) {
+    const groupedItems = items.reduce((groups, item) => {
+      const surface = item.surface || item.label || 'Quality';
+      groups[surface] = groups[surface] || [];
+      groups[surface].push(item);
+      return groups;
+    }, {});
+
+    return el('div', {
+      className: 'quality-check-section',
+      children: [
+        el('p', { className: 'list-label', text: `${title} (${items.length})` }),
+        items.length > 0
+          ? createList(
+              Object.entries(groupedItems).flatMap(([surface, surfaceItems]) =>
+                surfaceItems.map((entry) => ({
+                  label: surface,
+                  copy: entry.detail || `${entry.label} failed`,
+                  meta: entry.displayStatus || formatQualityStatusLabel(entry.status, entry.required),
+                }))
+              )
+            )
+          : el('div', { className: 'support-note', text: empty }),
+      ],
+    });
+  }
+
+  return el('div', {
+    className: 'quality-check-section',
+    children: [
+      el('p', { className: 'list-label', text: `${title} (${items.length})` }),
+      items.length > 0
+        ? createList(
+            items.map((entry) => ({
+              label: entry.label,
+              copy: entry.detail,
+              meta: entry.displayStatus || formatQualityStatusLabel(entry.status, entry.required),
+            }))
+          )
+        : el('div', { className: 'support-note', text: empty }),
+    ],
+  });
+}
+
+function renderTextListSection({ title, empty, items = [], labelPrefix }) {
+  return el('div', {
+    className: 'quality-check-section',
+    children: [
+      el('p', { className: 'list-label', text: `${title} (${items.length})` }),
+      items.length > 0
+        ? createList(
+            items.map((entry, index) => ({
+              label: `${labelPrefix} ${index + 1}`,
+              copy: entry,
+            }))
+          )
+        : el('div', { className: 'support-note', text: empty }),
+    ],
+  });
+}
+
+function renderArtifactLinks(artifactLinks = []) {
+  if (artifactLinks.length === 0) return null;
+  return el('div', {
+    className: 'review-detail-actions quality-dashboard-links',
+    children: artifactLinks.map((artifact) =>
+      el('a', {
+        className: 'action-button action-button-ghost',
+        text: artifact.statusLabel ? `${artifact.label} - ${artifact.statusLabel}` : artifact.label,
+        attrs: { href: artifact.href, target: '_blank', rel: 'noreferrer noopener' },
       })
     ),
   });
 }
 
-function formatStatusLabel(value = '') {
-  return String(value || 'Not available')
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
 function renderQualityDashboard(model) {
+  const checks = model.checks || {};
+  const requiredUnavailable = (checks.unavailable || []).filter((entry) => entry.required && !entry.decision);
+  const failedChecks = [
+    ...(checks.failed || []).filter((entry) => !entry.decision),
+    ...requiredUnavailable,
+  ];
+  const passedChecks = (checks.passed || []).filter((entry) => !entry.decision);
+  const unavailableChecks = (checks.unavailable || []).filter((entry) => !entry.required || entry.decision);
+  const commonHeader = [
+    ...renderQualityDashboardHeader(model),
+    ...renderDecisionNotes(model),
+  ];
+
+  if (model.layout === 'passed') {
+    return el('div', {
+      className: 'quality-dashboard-stack',
+      children: [
+        ...commonHeader,
+        el('div', { className: 'support-note', text: model.decisionCopies.gateCopy }),
+        renderCheckSection({
+          title: 'Required gates passed',
+          empty: 'No required gate evidence was reported for this artifact set.',
+          items: model.passedRequiredGateChecks || [],
+        }),
+        renderTextListSection({
+          title: 'Optional improvements',
+          empty: 'No optional improvements were recommended.',
+          items: model.optionalImprovements || [],
+          labelPrefix: 'Optional improvement',
+        }),
+        renderArtifactLinks(model.artifactLinks),
+      ].filter(Boolean),
+    });
+  }
+
+  if (model.layout === 'failed') {
+    return el('div', {
+      className: 'quality-dashboard-stack',
+      children: [
+        ...commonHeader,
+        renderCheckSection({
+          title: 'Failed checks',
+          empty: 'No failed checks were reported for this artifact set.',
+          items: failedChecks,
+          grouped: true,
+        }),
+        renderTextListSection({
+          title: 'Top blockers',
+          empty: 'No top blockers were reported for this artifact set.',
+          items: model.blockers,
+          labelPrefix: 'Top blocker',
+        }),
+        renderTextListSection({
+          title: 'Recommended actions',
+          empty: 'No recommended actions were provided by the selected quality artifacts.',
+          items: model.recommendedActions,
+          labelPrefix: 'Recommended action',
+        }),
+        renderCheckSection({
+          title: 'Passed checks',
+          empty: 'No passed checks were reported for this artifact set.',
+          items: passedChecks,
+        }),
+        renderArtifactLinks(model.artifactLinks),
+      ].filter(Boolean),
+    });
+  }
+
   return el('div', {
     className: 'quality-dashboard-stack',
     children: [
-      createInfoGrid([
-        { label: 'Overall status', value: formatStatusLabel(model.overallStatus) },
-        { label: 'Ready for manufacturing review', value: model.readyLabel },
-        { label: 'Source', value: model.source === 'report_summary' ? 'report_summary.json' : 'create/drawing/manifest fallback' },
-        { label: 'Artifact links', value: String(model.artifactLinks.length) },
-      ]),
-      createActionGrid(
-        model.surfaces.map((surface) => ({
-          title: surface.title,
-          copy: surface.summary,
-          meta: `Status: ${formatStatusLabel(surface.status)}${Number.isFinite(surface.score) ? ` • Score ${surface.score}` : ''}`,
-          tone: surface.tone,
-        }))
-      ),
-      model.blockers.length > 0
-        ? createList(
-            model.blockers.map((entry, index) => ({
-              label: `Top blocker ${index + 1}`,
-              copy: entry,
-            }))
-          )
-        : el('div', {
-            className: 'support-note',
-            text: 'No top blockers were reported for this artifact set.',
-          }),
-      model.recommendedActions.length > 0
-        ? createList(
-            model.recommendedActions.map((entry, index) => ({
-              label: `Recommended action ${index + 1}`,
-              copy: entry,
-            }))
-          )
-        : el('div', {
-            className: 'support-note',
-            text: 'No recommended actions were provided by the selected quality artifacts.',
-          }),
-      model.artifactLinks.length > 0
-        ? el('div', {
-            className: 'review-detail-actions quality-dashboard-links',
-            children: model.artifactLinks.map((artifact) =>
-              el('a', {
-                className: 'action-button action-button-ghost',
-                text: artifact.label,
-                attrs: { href: artifact.href, target: '_blank', rel: 'noreferrer noopener' },
-              })
-            ),
-          })
-        : null,
+      ...commonHeader,
+      renderCheckSection({
+        title: 'Failed checks',
+        empty: 'No failed checks were reported for this artifact set.',
+        items: failedChecks,
+        grouped: true,
+      }),
+      renderTextListSection({
+        title: 'Top blockers',
+        empty: 'No top blockers were reported for this artifact set.',
+        items: model.blockers,
+        labelPrefix: 'Top blocker',
+      }),
+      renderTextListSection({
+        title: 'Recommended actions',
+        empty: 'No recommended actions were provided by the selected quality artifacts.',
+        items: model.recommendedActions,
+        labelPrefix: 'Recommended action',
+      }),
+      renderCheckSection({
+        title: 'Passed checks',
+        empty: 'No passed checks were reported for this artifact set.',
+        items: passedChecks,
+      }),
+      renderCheckSection({
+        title: 'Not run or unavailable',
+        empty: 'No unavailable checks were reported for this artifact set.',
+        items: unavailableChecks,
+      }),
+      renderArtifactLinks(model.artifactLinks),
     ].filter(Boolean),
   });
 }
@@ -499,7 +666,21 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
 
   function getSelectedArtifact() {
     const artifacts = state.data.activeJob.artifacts || [];
-    return artifacts.find((artifact) => artifact.id === artifactsState.selectedArtifactId) || artifacts[0] || null;
+    return artifacts.find((artifact) => artifact.id === artifactsState.selectedArtifactId)
+      || findDefaultArtifactForJob(artifacts)
+      || null;
+  }
+
+  function getSelectedArtifactCacheKey(artifact = getSelectedArtifact()) {
+    return artifactStateCacheKey(activeJobIdFromState(state), artifact?.id || '');
+  }
+
+  function isHydratingSelectedJob() {
+    return Boolean(
+      state.selectedJobId
+      && state.data.activeJob.summary?.id !== state.selectedJobId
+      && state.data.activeJob.status !== 'unavailable'
+    );
   }
 
   function syncTimeline() {
@@ -514,6 +695,17 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
 
   function syncJobSummary() {
     const activeJob = state.data.activeJob;
+    if (isHydratingSelectedJob()) {
+      jobSummaryElement.replaceChildren(
+        createEmptyState({
+          icon: '...',
+          title: 'Loading artifacts',
+          copy: `Hydrating tracked job ${shortJobId(state.selectedJobId)} from the direct route.`,
+        })
+      );
+      return;
+    }
+
     if (!activeJob?.summary) {
       jobSummaryElement.replaceChildren(
         createEmptyState({
@@ -539,6 +731,17 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
 
   function syncQualityDashboard() {
     const activeJob = state.data.activeJob;
+    if (isHydratingSelectedJob()) {
+      qualityDashboardElement.replaceChildren(
+        createEmptyState({
+          icon: '...',
+          title: 'Loading artifacts',
+          copy: 'Hydrating the tracked job before deciding whether quality artifacts exist.',
+        })
+      );
+      return;
+    }
+
     if (!activeJob?.summary) {
       qualityDashboardElement.replaceChildren(
         createEmptyState({
@@ -554,8 +757,8 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
       qualityDashboardElement.replaceChildren(
         createEmptyState({
           icon: '...',
-          title: 'Loading quality dashboard',
-          copy: 'Reading quality artifacts from the tracked job.',
+          title: 'Loading artifacts',
+          copy: 'Hydrating the tracked job before deciding whether quality artifacts exist.',
         })
       );
       return;
@@ -701,12 +904,34 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
 
   function syncCards() {
     const activeJob = state.data.activeJob;
+    if (isHydratingSelectedJob()) {
+      cardsElement.replaceChildren(
+        createEmptyState({
+          icon: '...',
+          title: 'Loading artifacts',
+          copy: `Hydrating tracked job ${shortJobId(state.selectedJobId)} from the direct route.`,
+        })
+      );
+      return;
+    }
+
     if (!activeJob?.summary) {
       cardsElement.replaceChildren(
         createEmptyState({
           icon: '[]',
           title: 'No active artifact set',
           copy: 'Select a tracked job from the timeline to populate this board.',
+        })
+      );
+      return;
+    }
+
+    if (activeJob.status === 'loading') {
+      cardsElement.replaceChildren(
+        createEmptyState({
+          icon: '...',
+          title: 'Loading artifacts',
+          copy: 'Hydrating the selected tracked job artifact list.',
         })
       );
       return;
@@ -748,9 +973,10 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
       return;
     }
 
-    if (artifactsState.cache[artifact.id]) {
+    const cacheKey = getSelectedArtifactCacheKey(artifact);
+    if (artifactsState.cache[cacheKey]) {
       artifactsState.previewStatus = 'ready';
-      artifactsState.previewText = artifactsState.cache[artifact.id];
+      artifactsState.previewText = artifactsState.cache[cacheKey];
       artifactsState.previewArtifactId = artifact.id;
       artifactsState.previewError = '';
       return;
@@ -764,10 +990,12 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
 
     try {
       const text = await fetchArtifactText(artifact);
-      artifactsState.cache[artifact.id] = text || '';
+      if (getSelectedArtifactCacheKey() !== cacheKey) return;
+      artifactsState.cache[cacheKey] = text || '';
       artifactsState.previewStatus = 'ready';
       artifactsState.previewText = text || '';
     } catch (error) {
+      if (getSelectedArtifactCacheKey() !== cacheKey) return;
       artifactsState.previewStatus = 'error';
       artifactsState.previewError = error instanceof Error ? error.message : String(error);
     }
@@ -783,11 +1011,12 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
       return;
     }
 
-    if (artifactsState.viewerCache[artifact.id]) {
+    const cacheKey = getSelectedArtifactCacheKey(artifact);
+    if (artifactsState.viewerCache[cacheKey]) {
       artifactsState.viewerStatus = 'ready';
       artifactsState.viewerArtifactId = artifact.id;
       artifactsState.viewerError = '';
-      artifactsState.viewerData = artifactsState.viewerCache[artifact.id];
+      artifactsState.viewerData = artifactsState.viewerCache[cacheKey];
       return;
     }
 
@@ -823,11 +1052,13 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
         relatedArtifacts,
         relatedPayloads,
       });
-      artifactsState.viewerCache[artifact.id] = viewer;
+      if (getSelectedArtifactCacheKey() !== cacheKey) return;
+      artifactsState.viewerCache[cacheKey] = viewer;
       artifactsState.viewerStatus = 'ready';
       artifactsState.viewerArtifactId = artifact.id;
       artifactsState.viewerData = viewer;
     } catch (error) {
+      if (getSelectedArtifactCacheKey() !== cacheKey) return;
       artifactsState.viewerStatus = 'error';
       artifactsState.viewerArtifactId = artifact.id;
       artifactsState.viewerError = error instanceof Error ? error.message : String(error);
@@ -842,6 +1073,14 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
       artifactsState.qualityError = '';
       artifactsState.qualityData = null;
       artifactsState.qualityCacheKey = '';
+      return;
+    }
+
+    if (activeJob.status === 'loading') {
+      artifactsState.qualityStatus = 'loading';
+      artifactsState.qualityError = '';
+      artifactsState.qualityData = null;
+      artifactsState.qualityCacheKey = `${activeJob.summary.id}:loading`;
       return;
     }
 
@@ -884,11 +1123,13 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
         artifactPayloads,
       });
 
+      if (artifactsState.qualityCacheKey !== cacheKey) return;
       artifactsState.qualityStatus = 'ready';
       artifactsState.qualityError = '';
       artifactsState.qualityData = model;
       artifactsState.qualityCache[cacheKey] = model;
     } catch (error) {
+      if (artifactsState.qualityCacheKey !== cacheKey) return;
       artifactsState.qualityStatus = 'error';
       artifactsState.qualityError = error instanceof Error ? error.message : String(error);
       artifactsState.qualityData = null;
@@ -899,11 +1140,17 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
     const artifact = getSelectedArtifact();
     if (!artifact) {
       detailSummaryElement.replaceChildren(
-        createEmptyState({
-          icon: '>',
-          title: 'Select an artifact',
-          copy: 'The detail panel will show structured reopen state, manifest notes, and a raw preview when the artifact is browser-friendly.',
-        })
+        isHydratingSelectedJob()
+          ? createEmptyState({
+              icon: '...',
+              title: 'Loading artifacts',
+              copy: 'Waiting for the selected tracked job to hydrate before choosing an artifact.',
+            })
+          : createEmptyState({
+              icon: '>',
+              title: 'Select an artifact',
+              copy: 'The detail panel will show structured reopen state, manifest notes, and a raw preview when the artifact is browser-friendly.',
+            })
       );
       detailActionsElement.replaceChildren();
       detailPreviewElement.hidden = true;
@@ -1227,6 +1474,10 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
       artifactsState.previewText = '';
       artifactsState.previewArtifactId = '';
       artifactsState.previewError = '';
+      artifactsState.viewerStatus = 'idle';
+      artifactsState.viewerArtifactId = '';
+      artifactsState.viewerError = '';
+      artifactsState.viewerData = null;
       syncAll();
       return;
     }
@@ -1238,7 +1489,7 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
 
   root.addEventListener('click', handleClick);
   if (!artifactsState.selectedArtifactId) {
-    artifactsState.selectedArtifactId = state.data.activeJob.artifacts?.[0]?.id || '';
+    artifactsState.selectedArtifactId = findDefaultArtifactForJob(state.data.activeJob.artifacts || [])?.id || '';
   }
   syncAll();
 

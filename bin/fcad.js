@@ -316,9 +316,7 @@ async function main() {
   } else if (command === 'tolerance') {
     await cmdTolerance(args);
   } else if (command === 'report') {
-    const flags = args.filter(a => a.startsWith('--'));
-    const configArg = args.find(a => !a.startsWith('--'));
-    await cmdReport(configArg, flags);
+    await cmdReport(args);
   } else if (command === 'validate') {
     const flags = args.filter(a => a.startsWith('--'));
     const configArg = args.find(a => !a.startsWith('--'));
@@ -3209,9 +3207,45 @@ async function cmdDfm(rawArgs = []) {
   }
 }
 
-async function cmdReport(configPath, flags = []) {
+function parseReportArgs(rawArgs = []) {
+  const positional = [];
+  const options = {};
+  const booleanOptions = new Set(['dfm', 'fem', 'monte-carlo', 'no-tolerance']);
+
+  for (let i = 0; i < rawArgs.length; i += 1) {
+    const arg = rawArgs[i];
+    if (!arg.startsWith('--')) {
+      positional.push(arg);
+      continue;
+    }
+
+    const withoutPrefix = arg.slice(2);
+    const [key, inlineValue] = withoutPrefix.split(/=(.*)/s, 2);
+    if (booleanOptions.has(key)) {
+      options[key] = true;
+      continue;
+    }
+    if (key === 'out-dir') {
+      if (inlineValue !== undefined) {
+        options[key] = inlineValue;
+        continue;
+      }
+      options[key] = requireOptionValue('--out-dir', rawArgs[i + 1], 'fcad report <config> --out-dir <dir>');
+      i += 1;
+      continue;
+    }
+
+    options[key] = inlineValue !== undefined ? inlineValue : true;
+  }
+
+  return { positional, options };
+}
+
+async function cmdReport(rawArgs = []) {
   const repoContext = collectRepoContext(PROJECT_ROOT);
   const startedAt = nowIso();
+  const { positional, options } = parseReportArgs(rawArgs);
+  const configPath = positional[0];
   if (!configPath) {
     console.error('Error: config file path required');
     console.error('  fcad report configs/examples/ptu_assembly_mates.toml');
@@ -3219,16 +3253,19 @@ async function cmdReport(configPath, flags = []) {
   }
 
   const absPath = resolveMaybe(configPath);
+  const outputDir = options['out-dir'] === true
+    ? requireOptionValue('--out-dir', options['out-dir'], 'fcad report <config> --out-dir <dir>')
+    : buildDefaultOutputDir(options['out-dir']);
   console.log(`Loading config: ${absPath}`);
   let configDocument = null;
   let config = null;
   try {
     configDocument = await loadConfigDocumentForCli(absPath);
     config = configDocument.config;
-    const includeTolerance = !flags.includes('--no-tolerance');
-    const includeFem = flags.includes('--fem');
-    const includeMC = flags.includes('--monte-carlo');
-    const includeDfm = flags.includes('--dfm');
+    const includeTolerance = options['no-tolerance'] !== true;
+    const includeFem = options.fem === true;
+    const includeMC = options['monte-carlo'] === true;
+    const includeDfm = options.dfm === true;
     const analysisResults = {};
 
     if (includeTolerance && config.assembly) {
@@ -3289,6 +3326,7 @@ async function cmdReport(configPath, flags = []) {
       loadConfig: loadConfigForCli,
       configPath: absPath,
       config,
+      outputDir,
       includeDrawing: false,
       includeDfm,
       includeTolerance,
@@ -3322,11 +3360,12 @@ async function cmdReport(configPath, flags = []) {
     let manifestPath = await writeCliManifest(reportManifestInput);
     await emitOutputManifestSafe({
       command: 'report',
-      commandArgs: [configPath, ...flags],
+      commandArgs: rawArgs,
       repoContext,
       startedAt,
       inputPath: absPath,
       primaryOutputPath: result.path,
+      outputDir,
       outputs: [
         createOutputEntry('report.pdf', result.path),
         ...(result.summary_json ? [createOutputEntry('report.summary-json', result.summary_json)] : []),
@@ -3366,13 +3405,17 @@ async function cmdReport(configPath, flags = []) {
     console.log(`  Manifest: ${manifestPath}`);
     return result;
   } catch (error) {
-    const expectedOutputs = buildExpectedReportOutputs(config || {});
+    const expectedOutputs = buildExpectedReportOutputs({
+      ...(config || {}),
+      ...(outputDir ? { _report_output_dir: outputDir } : {}),
+    });
     await emitOutputManifestSafe({
       command: 'report',
-      commandArgs: [configPath, ...flags],
+      commandArgs: rawArgs,
       repoContext,
       startedAt,
       inputPath: absPath,
+      outputDir,
       outputs: expectedOutputs,
       linkedArtifacts: {
         report_pdf: expectedOutputs[0]?.path || null,
