@@ -1,4 +1,7 @@
 import {
+  findDefaultArtifactForJob,
+} from './artifact-actions.js';
+import {
   describeJobMonitorTransition,
   ensureStudioJobMonitorState,
   findStudioMonitoredJob,
@@ -21,6 +24,8 @@ import { shortJobId } from './jobs-center.js';
 import { RECENT_JOBS_LIMIT, JOB_MONITOR_POLL_MS } from './studio-shell-store.js';
 
 export function createStudioJobMonitorController(app) {
+  let openJobRequestSeq = 0;
+
   function findKnownJob(jobId) {
     return app.state.data.recentJobs.items.find((job) => job.id === jobId)
       || (app.state.data.activeJob.summary?.id === jobId ? app.state.data.activeJob.summary : null)
@@ -46,6 +51,32 @@ export function createStudioJobMonitorController(app) {
   function setCompletionNotice(notice = null) {
     app.state.data.completionNotice = notice;
     app.dom.renderCompletionNotice();
+  }
+
+  function resetArtifactsWorkspaceForJobSwitch() {
+    app.state.data.artifactsWorkspace = {
+      ...app.state.data.artifactsWorkspace,
+      selectedArtifactId: '',
+      previewStatus: 'idle',
+      previewText: '',
+      previewArtifactId: '',
+      previewError: '',
+      viewerStatus: 'idle',
+      viewerArtifactId: '',
+      viewerError: '',
+      viewerData: null,
+      qualityStatus: 'loading',
+      qualityError: '',
+      qualityData: null,
+      qualityCacheKey: '',
+      compare: {
+        jobId: '',
+        status: 'idle',
+        errorMessage: '',
+        job: null,
+        artifacts: [],
+      },
+    };
   }
 
   function buildCompletionNotice(job, target, remainingActiveCount = 0) {
@@ -382,21 +413,46 @@ export function createStudioJobMonitorController(app) {
       return;
     }
 
+    const requestSeq = ++openJobRequestSeq;
+    const loadingSummary = {
+      id: normalizedJobId,
+      type: 'job',
+      status: 'unknown',
+      updated_at: null,
+      links: {},
+    };
+
+    if (!sameJob) {
+      app.state.data.review = {
+        ...app.state.data.review,
+        status: 'idle',
+        jobId: '',
+        cards: [],
+        selectedCardId: '',
+        errorMessage: '',
+      };
+      resetArtifactsWorkspaceForJobSwitch();
+      app.state.data.activeJob = {
+        status: 'loading',
+        summary: loadingSummary,
+        artifacts: [],
+        manifest: null,
+        storage: null,
+        errorMessage: '',
+      };
+      app.navigateTo(route, { selectedJobId: normalizedJobId });
+    }
+
     let summary = null;
     try {
       summary = await fetchJobSummary(normalizedJobId, summaryHint);
     } catch {
       summary = null;
     }
+    if (requestSeq !== openJobRequestSeq) return;
 
     if (!summary) {
-      summary = {
-        id: normalizedJobId,
-        type: 'job',
-        status: 'unknown',
-        updated_at: null,
-        links: {},
-      };
+      summary = loadingSummary;
     }
 
     syncJobIntoState(summary);
@@ -409,38 +465,17 @@ export function createStudioJobMonitorController(app) {
       errorMessage: '',
     };
 
-    if (!sameJob) {
-      app.state.data.review = {
-        ...app.state.data.review,
-        status: 'idle',
-        jobId: '',
-        cards: [],
-        selectedCardId: '',
-        errorMessage: '',
-      };
-      app.state.data.artifactsWorkspace = {
-        ...app.state.data.artifactsWorkspace,
-        selectedArtifactId: '',
-        previewStatus: 'idle',
-        previewText: '',
-        previewArtifactId: '',
-        previewError: '',
-        compare: {
-          jobId: '',
-          status: 'idle',
-          errorMessage: '',
-          job: null,
-          artifacts: [],
-        },
-      };
+    if (sameJob) {
+      app.navigateTo(route, { selectedJobId: normalizedJobId });
+    } else {
+      app.commitRender();
     }
-
-    app.navigateTo(route, { selectedJobId: normalizedJobId });
 
     try {
       const payload = await app.fetchJson(
         summary.links?.artifacts || `/jobs/${encodeURIComponent(normalizedJobId)}/artifacts`
       );
+      if (requestSeq !== openJobRequestSeq) return;
       app.state.data.activeJob = {
         status: 'ready',
         summary,
@@ -455,7 +490,9 @@ export function createStudioJobMonitorController(app) {
           (artifact) => artifact.id === app.state.data.artifactsWorkspace.selectedArtifactId
         )
       ) {
-        app.state.data.artifactsWorkspace.selectedArtifactId = app.state.data.activeJob.artifacts[0]?.id || '';
+        app.state.data.artifactsWorkspace.selectedArtifactId = findDefaultArtifactForJob(
+          app.state.data.activeJob.artifacts
+        )?.id || '';
       }
       app.addLog({
         status: 'Artifacts',
@@ -464,6 +501,7 @@ export function createStudioJobMonitorController(app) {
         time: 'job',
       });
     } catch {
+      if (requestSeq !== openJobRequestSeq) return;
       app.state.data.activeJob = {
         status: 'unavailable',
         summary,

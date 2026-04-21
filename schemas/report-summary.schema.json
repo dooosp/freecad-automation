@@ -95,6 +95,7 @@
         "key": { "type": "string" },
         "label": { "type": "string" },
         "path": { "type": ["string", "null"] },
+        "required": { "type": "boolean" },
         "status": {
           "type": "string",
           "enum": ["available", "generated", "in_memory", "not_available", "not_run"]

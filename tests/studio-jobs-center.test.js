@@ -4,6 +4,10 @@ import {
   collectJobsCenterJobs,
   deriveJobsCenterActionEligibility,
 } from '../public/js/studio/jobs-center.js';
+import {
+  deriveRecentJobQualityStatus,
+  formatRecentJobQualityLine,
+} from '../public/js/studio/recent-job-quality-status.js';
 
 const jobs = collectJobsCenterJobs({
   recentJobs: [
@@ -20,6 +24,76 @@ const jobs = collectJobsCenterJobs({
 });
 
 assert.deepEqual(jobs.map((job) => job.id), ['job-active', 'job-retry', 'job-older']);
+
+{
+  const job = {
+    id: '6230c792',
+    type: 'report',
+    status: 'succeeded',
+    result: {
+      report_summary: {
+        config_name: 'ks_bracket',
+        overall_status: 'fail',
+        ready_for_manufacturing_review: false,
+      },
+    },
+  };
+  assert.deepEqual(deriveRecentJobQualityStatus(job), {
+    configName: 'ks_bracket',
+    jobExecutionStatus: 'Job succeeded',
+    qualityStatus: 'Quality failed',
+    readyForManufacturingReview: 'Ready No',
+    hasQualityDecision: true,
+  });
+  assert.equal(
+    formatRecentJobQualityLine(job, '6230c792'),
+    'report 6230c792 · ks_bracket · Job succeeded · Quality failed · Ready No'
+  );
+}
+
+{
+  const job = {
+    id: '9d02714d',
+    type: 'report',
+    status: 'succeeded',
+    result: {
+      report_summary: {
+        config_name: 'quality_pass_bracket',
+        overall_status: 'pass',
+        ready_for_manufacturing_review: true,
+      },
+    },
+  };
+  assert.deepEqual(deriveRecentJobQualityStatus(job), {
+    configName: 'quality_pass_bracket',
+    jobExecutionStatus: 'Job succeeded',
+    qualityStatus: 'Quality passed',
+    readyForManufacturingReview: 'Ready Yes',
+    hasQualityDecision: true,
+  });
+  assert.equal(
+    formatRecentJobQualityLine(job, '9d02714d'),
+    'report 9d02714d · quality_pass_bracket · Job succeeded · Quality passed · Ready Yes'
+  );
+}
+
+{
+  const job = {
+    id: 'missing-quality',
+    type: 'report',
+    status: 'succeeded',
+    artifacts: {
+      summary_json: '/tmp/output/custom_bracket_report_summary.json',
+    },
+  };
+  assert.deepEqual(deriveRecentJobQualityStatus(job), {
+    configName: 'custom_bracket',
+    jobExecutionStatus: 'Job succeeded',
+    qualityStatus: 'Quality Unknown',
+    readyForManufacturingReview: 'Ready Unknown',
+    hasQualityDecision: false,
+  });
+}
 
 assert.deepEqual(
   deriveJobsCenterActionEligibility({

@@ -18,6 +18,10 @@ import {
   deriveArtifactReentryCapabilities,
   findPreferredConfigArtifact,
 } from './artifact-actions.js';
+import {
+  deriveRecentJobQualityStatus,
+  formatRecentJobQualityLine,
+} from './recent-job-quality-status.js';
 import { applyTranslations } from '../i18n/index.js';
 
 function ensureReviewState(review = {}) {
@@ -56,19 +60,20 @@ function renderRecentJobs(recentJobs = []) {
 
   return el('div', {
     className: 'review-job-table',
-    children: recentJobs.slice(0, 5).map((job, index) =>
-      el('article', {
+    children: recentJobs.slice(0, 5).map((job, index) => {
+      const status = deriveRecentJobQualityStatus(job);
+      return el('article', {
         className: 'review-job-row',
         children: [
           el('div', {
             className: 'review-job-source',
             children: [
-              el('p', { className: 'job-title', text: `${job.type} ${shortJobId(job.id)}` }),
+              el('p', { className: 'job-title', text: formatRecentJobQualityLine(job, shortJobId(job.id)) }),
               el('p', { className: 'job-copy', text: index === 0 ? '최신 추적 소스' : '추적 소스' }),
             ],
           }),
           el('p', { className: 'review-job-time', text: formatDateTime(job.updated_at) }),
-          el('span', { className: 'pill', text: formatJobStatus(job.status) }),
+          el('span', { className: 'pill', text: status.hasQualityDecision ? status.qualityStatus : status.jobExecutionStatus }),
           createButton({
             label: '열기',
             action: 'review-open-job',
@@ -76,8 +81,8 @@ function renderRecentJobs(recentJobs = []) {
             dataset: { jobId: job.id },
           }),
         ],
-      })
-    ),
+      });
+    }),
   });
 }
 
@@ -106,7 +111,7 @@ function renderReviewActivity(recentJobs = []) {
               }),
               el('p', {
                 className: 'activity-meta',
-                text: `${formatJobStatus(job.status)} • ${formatDateTime(job.updated_at)}`,
+                text: `${formatRecentJobQualityLine(job, shortJobId(job.id))} • ${formatDateTime(job.updated_at)}`,
               }),
             ],
           }),

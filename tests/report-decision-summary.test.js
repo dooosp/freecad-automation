@@ -94,6 +94,11 @@ function makeBaseInput(overrides = {}) {
   assert.deepEqual(summary.blocking_issues, []);
   assert.equal(summary.missing_optional_artifacts.includes('fem'), false);
   assert.equal(summary.missing_optional_artifacts.includes('tolerance'), false);
+  assert.equal(summary.artifacts_referenced.find((artifact) => artifact.key === 'create_quality')?.required, true);
+  assert.equal(summary.artifacts_referenced.find((artifact) => artifact.key === 'drawing_quality')?.required, true);
+  assert.equal(summary.artifacts_referenced.find((artifact) => artifact.key === 'dfm')?.required, true);
+  assert.equal(summary.artifacts_referenced.find((artifact) => artifact.key === 'fem')?.required, false);
+  assert.equal(summary.artifacts_referenced.find((artifact) => artifact.key === 'tolerance')?.required, false);
 }
 
 {
@@ -125,13 +130,23 @@ function makeBaseInput(overrides = {}) {
     'not_run'
   );
   assert.equal(
+    summary.artifacts_referenced.find((artifact) => artifact.key === 'fem')?.required,
+    false
+  );
+  assert.equal(
     summary.artifacts_referenced.find((artifact) => artifact.key === 'tolerance')?.status,
     'not_available'
+  );
+  assert.equal(
+    summary.artifacts_referenced.find((artifact) => artifact.key === 'tolerance')?.required,
+    false
   );
   assert.equal(
     summary.artifacts_referenced.find((artifact) => artifact.key === 'report_manifest')?.status,
     'generated'
   );
+  assert.deepEqual(summary.blocking_issues, []);
+  assert.equal(summary.ready_for_manufacturing_review, true);
   assert.equal(summary.missing_optional_artifacts.includes('report_manifest'), false);
 }
 

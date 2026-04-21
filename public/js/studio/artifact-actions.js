@@ -39,6 +39,30 @@ const STABILIZATION_REVIEW_MATCHERS = [
   'stabilization-review',
   'review.stabilization.json',
 ];
+const REPORT_SUMMARY_MATCHERS = [
+  'report_summary_json',
+  'report summary json',
+  '_report_summary.json',
+  'report.summary',
+];
+const QUALITY_REPORT_PDF_MATCHERS = [
+  'report.pdf',
+  '_report.pdf',
+  'report_pdf',
+  'engineering report pdf',
+];
+const QUALITY_EVIDENCE_MATCHERS = [
+  'create_quality',
+  'drawing_quality',
+  'quality-summary',
+  'quality summary',
+  'dfm',
+  '_manifest.json',
+  'output.manifest.json',
+  'create_manifest',
+  'drawing_manifest',
+  'traceability',
+];
 
 function normalizeString(value) {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
@@ -254,4 +278,30 @@ export function findPreferredReleaseBundleManifestArtifact(artifacts = []) {
   return [...artifacts]
     .filter((artifact) => artifact.exists !== false && isReleaseBundleManifestArtifact(artifact))
     .sort((left, right) => artifactSearchText(left).localeCompare(artifactSearchText(right)))[0] || null;
+}
+
+function firstAvailableArtifact(artifacts = [], predicate = () => true) {
+  return artifacts.find((artifact) => artifact?.exists !== false && predicate(artifact)) || null;
+}
+
+function isReportSummaryDefaultArtifact(artifact = {}) {
+  return includesAny(artifactSearchText(artifact), REPORT_SUMMARY_MATCHERS);
+}
+
+function isQualityReportPdfArtifact(artifact = {}) {
+  const extension = normalizeString(artifact.extension);
+  return extension === '.pdf' && includesAny(artifactSearchText(artifact), QUALITY_REPORT_PDF_MATCHERS);
+}
+
+function isQualityEvidenceArtifact(artifact = {}) {
+  return includesAny(artifactSearchText(artifact), QUALITY_EVIDENCE_MATCHERS);
+}
+
+export function findDefaultArtifactForJob(artifacts = []) {
+  return firstAvailableArtifact(artifacts, isReportSummaryDefaultArtifact)
+    || firstAvailableArtifact(artifacts, isQualityReportPdfArtifact)
+    || firstAvailableArtifact(artifacts, isReviewSourceArtifact)
+    || firstAvailableArtifact(artifacts, isQualityEvidenceArtifact)
+    || firstAvailableArtifact(artifacts)
+    || null;
 }

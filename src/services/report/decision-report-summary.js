@@ -28,6 +28,14 @@ const OPTIONAL_ARTIFACT_KEYS = new Set([
   'traceability_json',
 ]);
 
+const REQUIRED_ARTIFACT_KEYS = new Set([
+  'report_pdf',
+  'report_summary_json',
+  'create_quality',
+  'drawing_quality',
+  'dfm',
+]);
+
 function uniqueStrings(values = []) {
   return [...new Set(
     values
@@ -57,12 +65,16 @@ function formatSchemaErrors(errors = []) {
   return errors.map((error) => `${error.instancePath || '/'} ${error.message}`);
 }
 
-function artifactRef(key, label, path, status, note = null) {
+function artifactRef(key, label, path, status, note = null, options = {}) {
+  const required = typeof options.required === 'boolean'
+    ? options.required
+    : REQUIRED_ARTIFACT_KEYS.has(key) || !OPTIONAL_ARTIFACT_KEYS.has(key);
   return {
     key,
     label,
     path: path ? resolve(path) : null,
     status,
+    required,
     note,
   };
 }

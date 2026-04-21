@@ -5,6 +5,7 @@ import {
   canReenterModelWorkspace,
   canStartTrackedArtifactRun,
   deriveArtifactReentryCapabilities,
+  findDefaultArtifactForJob,
   findPreferredConfigArtifact,
   findPreferredDocsManifestArtifact,
   findPreferredReleaseBundleManifestArtifact,
@@ -190,6 +191,78 @@ const preferredBundleManifest = findPreferredReleaseBundleManifestArtifact([
 ]);
 
 assert.equal(preferredBundleManifest?.id, 'bundle-manifest');
+
+assert.equal(findDefaultArtifactForJob([
+  {
+    id: 'first-model',
+    type: 'model.step',
+    file_name: 'part.step',
+    extension: '.step',
+    exists: true,
+  },
+  {
+    id: 'quality-report-pdf',
+    type: 'report.pdf',
+    file_name: 'quality_pass_bracket_report.pdf',
+    extension: '.pdf',
+    exists: true,
+  },
+  {
+    id: 'report-summary',
+    type: 'report.summary-json',
+    file_name: 'quality_pass_bracket_report_summary.json',
+    extension: '.json',
+    exists: true,
+  },
+])?.id, 'report-summary');
+
+assert.equal(findDefaultArtifactForJob([
+  {
+    id: 'missing-summary',
+    type: 'report.summary-json',
+    file_name: 'quality_pass_bracket_report_summary.json',
+    extension: '.json',
+    exists: false,
+  },
+  {
+    id: 'quality-report-pdf',
+    type: 'report.pdf',
+    file_name: 'quality_pass_bracket_report.pdf',
+    extension: '.pdf',
+    exists: true,
+  },
+  {
+    id: 'review-pack',
+    type: 'review-pack.json',
+    file_name: 'review_pack.json',
+    extension: '.json',
+    exists: true,
+  },
+])?.id, 'quality-report-pdf');
+
+assert.equal(findDefaultArtifactForJob([
+  {
+    id: 'source-config',
+    type: 'config.effective',
+    file_name: 'effective-config.json',
+    extension: '.json',
+    exists: true,
+  },
+  {
+    id: 'review-pack',
+    type: 'review-pack.json',
+    file_name: 'review_pack.json',
+    extension: '.json',
+    exists: true,
+  },
+  {
+    id: 'create-quality',
+    type: 'model.quality-summary',
+    file_name: 'ks_bracket_create_quality.json',
+    extension: '.json',
+    exists: true,
+  },
+])?.id, 'review-pack');
 
 assert.equal(canStartTrackedArtifactRun({
   type: 'review-pack.json',

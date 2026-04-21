@@ -19,6 +19,10 @@ import {
   ensureModelTrackedRunState,
 } from './model-tracked-runs.js';
 import { getStudioExampleValue } from './examples.js';
+import {
+  deriveRecentJobQualityStatus,
+  formatRecentJobQualityLine,
+} from './recent-job-quality-status.js';
 import { renderReviewWorkspace } from './review-workspace.js';
 import { renderArtifactsWorkspace } from './artifacts-workspace.js';
 
@@ -75,6 +79,11 @@ function formatJobStatus(status) {
 function shortJobId(id = '') {
   if (!id) return 'Unknown job';
   return id.length > 8 ? id.slice(0, 8) : id;
+}
+
+function recentJobPillLabel(job = {}) {
+  const status = deriveRecentJobQualityStatus(job);
+  return status.hasQualityDecision ? status.qualityStatus : status.jobExecutionStatus;
 }
 
 function exampleCountLabel(examplesState) {
@@ -744,11 +753,11 @@ function createRecentJobsCard(state) {
                     children: [
                       el('p', {
                         className: 'job-title',
-                        text: `${job.type} ${shortJobId(job.id)}`,
+                        text: formatRecentJobQualityLine(job, shortJobId(job.id)),
                       }),
                       el('span', {
                         className: 'pill',
-                        text: formatJobStatus(job.status),
+                        text: recentJobPillLabel(job),
                       }),
                     ],
                   }),
@@ -2172,10 +2181,10 @@ function createConsoleQueueCard(state) {
                     className: 'queue-row-copy',
                     children: [
                       el('p', { className: 'queue-row-title', text: `${job.type} ${shortJobId(job.id)}` }),
-                      el('p', { className: 'queue-row-meta', text: formatDateTime(job.updated_at) }),
+                      el('p', { className: 'queue-row-meta', text: formatRecentJobQualityLine(job, shortJobId(job.id)) }),
                     ],
                   }),
-                  el('span', { className: 'pill', text: formatJobStatus(job.status) }),
+                  el('span', { className: 'pill', text: recentJobPillLabel(job) }),
                 ],
               })
             ),
