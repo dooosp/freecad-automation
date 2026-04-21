@@ -16,6 +16,7 @@ const GENERATED_FILE_PATTERNS = [
   /_report_summary\.json$/i,
   /_drawing_intent\.json$/i,
   /_feature_catalog\.json$/i,
+  /_extracted_drawing_semantics\.json$/i,
   /_drawing\.svg$/i,
   /_drawing_quality\.json$/i,
   /_create_quality\.json$/i,

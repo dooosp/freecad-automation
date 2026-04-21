@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freecad-automation.local/schemas/extracted-drawing-semantics.schema.json",
+  "title": "Extracted Drawing Semantics",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "status",
+    "decision",
+    "methods",
+    "sources",
+    "views",
+    "dimensions",
+    "notes",
+    "title_block",
+    "coverage",
+    "unknowns",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "artifact_type": {
+      "const": "extracted_drawing_semantics"
+    },
+    "status": {
+      "enum": ["available", "partial", "unknown", "unsupported"]
+    },
+    "decision": {
+      "const": "advisory"
+    },
+    "methods": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "views": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/view"
+      }
+    },
+    "dimensions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/dimension"
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/note"
+      }
+    },
+    "title_block": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["part_name", "material", "tolerance", "drawing_number"],
+      "properties": {
+        "part_name": {
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/titleBlockEntry" }
+          ]
+        },
+        "material": {
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/titleBlockEntry" }
+          ]
+        },
+        "tolerance": {
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/titleBlockEntry" }
+          ]
+        },
+        "drawing_number": {
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/titleBlockEntry" }
+          ]
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required_dimensions_total",
+        "required_dimensions_extracted",
+        "required_notes_total",
+        "required_notes_extracted",
+        "required_views_total",
+        "required_views_extracted"
+      ],
+      "properties": {
+        "required_dimensions_total": { "type": "integer", "minimum": 0 },
+        "required_dimensions_extracted": { "type": "integer", "minimum": 0 },
+        "required_notes_total": { "type": "integer", "minimum": 0 },
+        "required_notes_extracted": { "type": "integer", "minimum": 0 },
+        "required_views_total": { "type": "integer", "minimum": 0 },
+        "required_views_extracted": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "unknowns": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_type", "path", "inspected", "method"],
+      "properties": {
+        "artifact_type": { "type": "string" },
+        "path": { "type": ["string", "null"] },
+        "inspected": { "type": "boolean" },
+        "method": { "type": "string" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["artifact_type", "method"],
+      "properties": {
+        "artifact_type": { "type": "string" },
+        "path": { "type": ["string", "null"] },
+        "method": { "type": "string" }
+      }
+    },
+    "view": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "source", "confidence", "provenance"],
+      "properties": {
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "source": { "type": ["string", "null"] },
+        "matched_intent_id": { "type": ["string", "null"] },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "provenance": { "$ref": "#/$defs/provenance" }
+      }
+    },
+    "dimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "raw_text",
+        "value",
+        "unit",
+        "matched_intent_id",
+        "matched_feature_id",
+        "source",
+        "confidence",
+        "provenance"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "raw_text": { "type": "string" },
+        "value": { "type": ["number", "null"] },
+        "unit": { "type": ["string", "null"] },
+        "matched_intent_id": { "type": ["string", "null"] },
+        "matched_feature_id": { "type": ["string", "null"] },
+        "source": { "type": ["string", "null"] },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "provenance": { "$ref": "#/$defs/provenance" }
+      }
+    },
+    "note": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "raw_text",
+        "category",
+        "matched_intent_id",
+        "source",
+        "confidence",
+        "provenance"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "raw_text": { "type": "string" },
+        "category": {
+          "enum": ["material", "tolerance", "general", "unknown"]
+        },
+        "matched_intent_id": { "type": ["string", "null"] },
+        "source": { "type": ["string", "null"] },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "provenance": { "$ref": "#/$defs/provenance" }
+      }
+    },
+    "titleBlockEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["raw_text", "source", "confidence", "provenance"],
+      "properties": {
+        "raw_text": { "type": "string" },
+        "source": { "type": ["string", "null"] },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "provenance": { "$ref": "#/$defs/provenance" }
+      }
+    }
+  }
+}

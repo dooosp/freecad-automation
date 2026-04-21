@@ -102,9 +102,11 @@ try {
 
   const qaJsonPath = svgPath.replace('.svg', '_qa.json');
   const drawingQualityPath = svgPath.replace('.svg', '_quality.json');
+  const extractedSemanticsPath = join(outputDir, 'qa_dfm_bridge_extracted_drawing_semantics.json');
   const runLogPath = join(outputDir, 'qa_dfm_bridge_run_log.json');
   assert.equal(existsSync(qaJsonPath), true);
   assert.equal(existsSync(drawingQualityPath), true);
+  assert.equal(existsSync(extractedSemanticsPath), true);
   assert.equal(existsSync(runLogPath), true);
 
   const qaReport = JSON.parse(readFileSync(qaJsonPath, 'utf8'));
@@ -116,10 +118,13 @@ try {
   assert.equal(drawingQuality.drawing_svg, svgPath);
   assert.equal(drawingQuality.qa_file, qaJsonPath);
   assert.equal(drawingQuality.status, 'pass');
+  assert.equal(drawingQuality.extracted_drawing_semantics_file, extractedSemanticsPath);
+  assert.equal(drawingQuality.semantic_quality.extracted_evidence.status, 'available');
 
   const runLog = JSON.parse(readFileSync(runLogPath, 'utf8'));
   assert.equal(existsSync(runLog.artifacts.effective_config), true);
   assert.equal(runLog.artifacts.drawing_quality, drawingQualityPath);
+  assert.equal(runLog.artifacts.extracted_drawing_semantics, extractedSemanticsPath);
 
   const effectiveConfig = JSON.parse(readFileSync(runLog.artifacts.effective_config, 'utf8'));
   assert.equal(effectiveConfig.manufacturing.process, 'machining');

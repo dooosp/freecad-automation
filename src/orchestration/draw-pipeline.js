@@ -22,6 +22,11 @@ import {
   writeDrawingQualitySummary,
 } from '../services/drawing/drawing-quality-summary.js';
 import {
+  buildExtractedDrawingSemantics,
+  resolveExtractedDrawingSemanticsPath,
+  writeExtractedDrawingSemantics,
+} from '../services/drawing/extracted-drawing-semantics.js';
+import {
   buildDrawingPlanner,
   writeDrawingPlanner,
 } from '../services/drawing/drawing-planner.js';
@@ -699,6 +704,27 @@ export async function runDrawPipeline({
       runLog.artifacts.drawing_planner = plannerPath;
       result.drawing_planner = drawingPlanner;
       result.drawing_planner_path = plannerPath;
+      const extractedDrawingSemanticsPath = primarySvgPath
+        ? resolveExtractedDrawingSemanticsPath(primarySvgPath)
+        : join(artifactDir, `${artifactStem}_extracted_drawing_semantics.json`);
+      const extractedDrawingSemantics = buildExtractedDrawingSemantics({
+        drawingSvgPath: primarySvgPath,
+        svgContent,
+        layoutReportPath: layoutPath,
+        layoutReport,
+        dimensionMapPath: dimMapPath,
+        dimensionMap,
+        traceabilityPath,
+        traceability,
+        drawingIntent: config.drawing_intent || null,
+      });
+      await writeExtractedDrawingSemantics(
+        extractedDrawingSemanticsPath,
+        extractedDrawingSemantics
+      );
+      runLog.artifacts.extracted_drawing_semantics = extractedDrawingSemanticsPath;
+      result.extracted_drawing_semantics = extractedDrawingSemantics;
+      result.extracted_drawing_semantics_path = extractedDrawingSemanticsPath;
 
       const drawingQuality = buildDrawingQualitySummary({
         inputConfigPath: absPath,
@@ -726,6 +752,8 @@ export async function runDrawPipeline({
         bomRows,
         generatedViews: result.views || [],
         svgContent,
+        extractedDrawingSemanticsPath,
+        extractedDrawingSemantics,
       });
       const drawingQualityPath = primarySvgPath ? resolveDrawingQualityPath(primarySvgPath) : join(artifactDir, `${artifactStem}_drawing_quality.json`);
       await writeDrawingQualitySummary(drawingQualityPath, drawingQuality);

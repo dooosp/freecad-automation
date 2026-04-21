@@ -1,6 +1,8 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
+import { summarizeExtractedDrawingSemantics } from './extracted-drawing-semantics.js';
+
 export const DRAWING_QUALITY_SCHEMA_VERSION = '0.1';
 
 export const DEFAULT_DRAWING_QUALITY_THRESHOLDS = Object.freeze({
@@ -291,6 +293,8 @@ function buildSemanticDrawingQualityReport({
   traceability = null,
   producedViews = [],
   svgContent = null,
+  extractedDrawingSemantics = null,
+  extractedDrawingSemanticsPath = null,
 } = {}) {
   const intent = asObject(drawingIntent);
   const enforceable = intent.enforceable === true || intent.policy === 'enforceable';
@@ -427,6 +431,10 @@ function buildSemanticDrawingQualityReport({
     required_blockers: requiredBlockers,
     optional_missing_information: uniqueStrings(optionalMissing),
     suggested_actions: suggestedActions,
+    extracted_evidence: summarizeExtractedDrawingSemantics(
+      extractedDrawingSemantics,
+      extractedDrawingSemanticsPath
+    ),
   };
 }
 
@@ -488,6 +496,8 @@ export function buildDrawingQualitySummary({
   bomRows = [],
   generatedViews = [],
   svgContent = null,
+  extractedDrawingSemanticsPath = null,
+  extractedDrawingSemantics = null,
   thresholds = DEFAULT_DRAWING_QUALITY_THRESHOLDS,
 } = {}) {
   const effectiveThresholds = {
@@ -504,6 +514,8 @@ export function buildDrawingQualitySummary({
     const semanticQuality = buildSemanticDrawingQualityReport({
       drawingIntent,
       featureCatalog,
+      extractedDrawingSemantics,
+      extractedDrawingSemanticsPath,
     });
     return {
       schema_version: DRAWING_QUALITY_SCHEMA_VERSION,
@@ -518,6 +530,7 @@ export function buildDrawingQualitySummary({
       planner_file: resolveMaybe(plannerPath),
       dimension_map_file: resolveMaybe(dimensionMapPath),
       dim_conflicts_file: resolveMaybe(dimConflictsPath),
+      extracted_drawing_semantics_file: resolveMaybe(extractedDrawingSemanticsPath),
       bom_file: resolveMaybe(bomPath),
       score: qaReport?.score ?? null,
       status: 'skipped',
@@ -628,6 +641,8 @@ export function buildDrawingQualitySummary({
     traceability,
     producedViews,
     svgContent,
+    extractedDrawingSemantics,
+    extractedDrawingSemanticsPath,
   });
 
   const highSeverityIssues = asArray(qaIssues?.issues).filter((issue) => (
@@ -730,6 +745,7 @@ export function buildDrawingQualitySummary({
     planner_file: resolveMaybe(plannerPath),
     dimension_map_file: resolveMaybe(dimensionMapPath),
     dim_conflicts_file: resolveMaybe(dimConflictsPath),
+    extracted_drawing_semantics_file: resolveMaybe(extractedDrawingSemanticsPath),
     bom_file: resolveMaybe(bomPath),
     score: qaReport?.score ?? null,
     status: blockingIssues.length > 0 ? 'fail' : warnings.length > 0 ? 'warning' : 'pass',

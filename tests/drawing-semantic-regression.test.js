@@ -18,6 +18,10 @@ import {
 } from '../lib/output-manifest.js';
 import { buildDrawingQualitySummary } from '../src/services/drawing/drawing-quality-summary.js';
 import {
+  buildExtractedDrawingSemantics,
+  validateExtractedDrawingSemantics,
+} from '../src/services/drawing/extracted-drawing-semantics.js';
+import {
   buildDecisionReportSummary,
   validateDecisionReportSummary,
 } from '../src/services/report/decision-report-summary.js';
@@ -72,6 +76,29 @@ function normalizeDrawingQuality(summary, optionalMissingDimensionIds = []) {
     traceability: summary.traceability,
     blocking_issue_codes: summary.blocking_issues.map((issue) => issue.code),
     optional_missing_dimension_ids: optionalMissingDimensionIds,
+  };
+}
+
+function normalizeExtractedSemantics(semantics) {
+  return {
+    status: semantics.status,
+    methods: semantics.methods,
+    coverage: semantics.coverage,
+    view_ids: semantics.views.map((entry) => entry.id).sort(),
+    matched_dimension_ids: semantics.dimensions
+      .map((entry) => entry.matched_intent_id)
+      .filter(Boolean)
+      .sort(),
+    matched_note_ids: semantics.notes
+      .map((entry) => entry.matched_intent_id)
+      .filter(Boolean)
+      .sort(),
+    title_block: {
+      material: semantics.title_block.material?.raw_text || null,
+      tolerance: semantics.title_block.tolerance?.raw_text || null,
+      drawing_number: semantics.title_block.drawing_number?.raw_text || null,
+    },
+    unknowns: semantics.unknowns,
   };
 }
 
@@ -133,6 +160,13 @@ function qualityPassArtifacts(jobDir) {
     dimConflictsPath: join(artifactDir, 'quality_pass_bracket_dim_conflicts.json'),
     dimConflicts: { conflicts: [], summary: { count: 0 } },
     generatedViews: ['top', 'iso'],
+    svgContent: [
+      '<svg xmlns="http://www.w3.org/2000/svg">',
+      '  <text x="10" y="10">6</text>',
+      '  <text x="10" y="20">10</text>',
+      '  <text x="10" y="30">Material: AL6061</text>',
+      '</svg>',
+    ].join('\n'),
   };
 }
 
@@ -182,6 +216,13 @@ function ksBracketArtifacts(jobDir) {
     dimConflictsPath: join(artifactDir, 'ks_bracket_dim_conflicts.json'),
     dimConflicts: { conflicts: [], summary: { count: 0 } },
     generatedViews: ['front', 'top', 'right', 'iso'],
+    svgContent: [
+      '<svg xmlns="http://www.w3.org/2000/svg">',
+      '  <text x="10" y="10">60</text>',
+      '  <text x="10" y="20">SS304</text>',
+      '  <text x="10" y="30">Tolerance: KS B 0401 m</text>',
+      '</svg>',
+    ].join('\n'),
   };
 }
 
@@ -189,6 +230,7 @@ function makeReportInput({
   fixtureName,
   config,
   drawingQuality,
+  extractedSemantics,
   featureCatalog,
 }) {
   return {
@@ -211,6 +253,7 @@ function makeReportInput({
       warnings: [],
     },
     drawingQuality,
+    extractedDrawingSemantics: extractedSemantics,
     featureCatalog,
     dfm: {
       score: 100,
@@ -265,6 +308,23 @@ try {
       ? qualityPassArtifacts(jobDir)
       : ksBracketArtifacts(jobDir);
     const optionalMissingDimensionIds = expected(fixtureName, 'expected_drawing_quality.json').optional_missing_dimension_ids;
+    const extractedSemantics = buildExtractedDrawingSemantics({
+      drawingSvgPath: qualityArtifacts.drawingSvgPath,
+      svgContent: qualityArtifacts.svgContent,
+      layoutReportPath: qualityArtifacts.layoutReportPath,
+      layoutReport: qualityArtifacts.layoutReport,
+      dimensionMapPath: qualityArtifacts.dimensionMapPath,
+      dimensionMap: qualityArtifacts.dimensionMap,
+      traceabilityPath: qualityArtifacts.traceabilityPath,
+      traceability: qualityArtifacts.traceability,
+      drawingIntent,
+    });
+    const extractedValidation = validateExtractedDrawingSemantics(extractedSemantics);
+    assert.equal(extractedValidation.ok, true, extractedValidation.errors.join('\n'));
+    assert.deepEqual(
+      normalizeExtractedSemantics(extractedSemantics),
+      expected(fixtureName, 'expected_extracted_drawing_semantics.json')
+    );
     const drawingQuality = buildDrawingQualitySummary(qualityArtifacts);
     assert.deepEqual(
       normalizeDrawingQuality(drawingQuality, optionalMissingDimensionIds),
@@ -288,6 +348,7 @@ try {
       config,
       drawingIntent,
       drawingQuality,
+      extractedSemantics,
       featureCatalog,
       jobDir,
     };
@@ -304,6 +365,7 @@ try {
   assert.equal(passSummary.ready_for_manufacturing_review, true);
   assert.equal(passSummary.artifacts_referenced.find((artifact) => artifact.key === 'drawing_intent')?.required, false);
   assert.equal(passSummary.artifacts_referenced.find((artifact) => artifact.key === 'feature_catalog')?.required, false);
+  assert.equal(passSummary.artifacts_referenced.find((artifact) => artifact.key === 'extracted_drawing_semantics')?.required, false);
   assert.equal(passSummary.surfaces.drawing_quality.missing_required_dimensions.length, 0);
   assert.equal(passSummary.feature_catalog.available, true);
 
@@ -324,11 +386,13 @@ try {
   mkdirSync(manifestDir, { recursive: true });
   const semanticPaths = {
     drawingQuality: join(manifestDir, 'quality_pass_bracket_drawing_quality.json'),
+    extractedDrawingSemantics: join(manifestDir, 'quality_pass_bracket_extracted_drawing_semantics.json'),
     drawingIntent: join(manifestDir, 'quality_pass_bracket_drawing_intent.json'),
     featureCatalog: join(manifestDir, 'quality_pass_bracket_feature_catalog.json'),
     reportSummary: join(manifestDir, 'quality_pass_bracket_report_summary.json'),
   };
   writeFileSync(semanticPaths.drawingQuality, JSON.stringify(passContext.drawingQuality, null, 2), 'utf8');
+  writeFileSync(semanticPaths.extractedDrawingSemantics, JSON.stringify(passContext.extractedSemantics, null, 2), 'utf8');
   writeFileSync(semanticPaths.drawingIntent, JSON.stringify(passContext.drawingIntent, null, 2), 'utf8');
   writeFileSync(semanticPaths.featureCatalog, JSON.stringify(passContext.featureCatalog, null, 2), 'utf8');
   writeFileSync(semanticPaths.reportSummary, JSON.stringify(passSummary, null, 2), 'utf8');
@@ -345,6 +409,7 @@ try {
     commandArgs: ['configs/examples/quality_pass_bracket.toml'],
     linkedArtifacts: {
       quality_json: semanticPaths.drawingQuality,
+      extracted_drawing_semantics_json: semanticPaths.extractedDrawingSemantics,
       drawing_intent_json: semanticPaths.drawingIntent,
       feature_catalog_json: semanticPaths.featureCatalog,
       report_summary_json: semanticPaths.reportSummary,
@@ -357,6 +422,7 @@ try {
   const manifestValidation = validateOutputManifest(outputManifest);
   assert.equal(manifestValidation.ok, true, manifestValidation.errors.join('\n'));
   assert.equal(outputManifest.linked_artifacts.quality_json, semanticPaths.drawingQuality);
+  assert.equal(outputManifest.linked_artifacts.extracted_drawing_semantics_json, semanticPaths.extractedDrawingSemantics);
   assert.equal(outputManifest.linked_artifacts.drawing_intent_json, semanticPaths.drawingIntent);
   assert.equal(outputManifest.linked_artifacts.feature_catalog_json, semanticPaths.featureCatalog);
   assert.equal(outputManifest.linked_artifacts.report_summary_json, semanticPaths.reportSummary);
@@ -364,8 +430,8 @@ try {
     assert.equal(under(semanticPath, manifestDir), true, `${semanticPath} should stay under job artifacts`);
   }
 
-  const pollutionPath = join(ROOT, 'configs', 'examples', 'hygiene_probe_feature_catalog.json');
-  const outputPath = join(ROOT, 'output', 'hygiene_probe_feature_catalog.json');
+  const pollutionPath = join(ROOT, 'configs', 'examples', 'hygiene_probe_extracted_drawing_semantics.json');
+  const outputPath = join(ROOT, 'output', 'hygiene_probe_extracted_drawing_semantics.json');
   try {
     writeFileSync(pollutionPath, '{}\n', 'utf8');
     const dirtyResult = spawnSync('node', ['scripts/check-source-tree-hygiene.js'], {
@@ -373,7 +439,7 @@ try {
       encoding: 'utf8',
     });
     assert.notEqual(dirtyResult.status, 0, 'source hygiene should reject generated semantic artifacts outside output/');
-    assert.match(`${dirtyResult.stdout}\n${dirtyResult.stderr}`, /hygiene_probe_feature_catalog\.json/);
+    assert.match(`${dirtyResult.stdout}\n${dirtyResult.stderr}`, /hygiene_probe_extracted_drawing_semantics\.json/);
   } finally {
     rmSync(pollutionPath, { force: true });
   }

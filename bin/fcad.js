@@ -652,6 +652,7 @@ function buildExpectedDrawArtifacts(config = {}) {
     outputs: [
       createOutputEntry('drawing.svg', svgPath),
       createOutputEntry('drawing.quality-json', svgPath.replace(/\.svg$/i, '_quality.json')),
+      createOutputEntry('drawing.extracted-semantics-json', join(outputDir, `${stem}_extracted_drawing_semantics.json`)),
       config?.drawing?.dxf ? createOutputEntry('drawing.dxf', join(outputDir, `${stem}_front.dxf`)) : null,
       config?.drawing?.bom_csv ? createOutputEntry('drawing.csv', join(outputDir, `${stem}_bom.csv`)) : null,
     ].filter(Boolean),
@@ -660,6 +661,7 @@ function buildExpectedDrawArtifacts(config = {}) {
       run_log_json: join(outputDir, `${stem}_run_log.json`),
       traceability_json: join(outputDir, `${stem}_traceability.json`),
       planner_json: join(outputDir, `${stem}_drawing_planner.json`),
+      extracted_drawing_semantics_json: join(outputDir, `${stem}_extracted_drawing_semantics.json`),
       quality_json: svgPath.replace(/\.svg$/i, '_quality.json'),
     },
   };
@@ -675,6 +677,7 @@ function buildDrawLinkedArtifactsFromSvg(svgPath) {
     run_log_json: join(dir, `${stem}_run_log.json`),
     traceability_json: join(dir, `${stem}_traceability.json`),
     planner_json: join(dir, `${stem}_drawing_planner.json`),
+    extracted_drawing_semantics_json: join(dir, `${stem}_extracted_drawing_semantics.json`),
     quality_json: normalizedPath.replace(/\.svg$/i, '_quality.json'),
   };
 }
@@ -2541,6 +2544,7 @@ async function cmdDraw(rawArgs = []) {
       outputs: (result.drawing_paths || [])
         .map((entry) => createOutputEntry(`drawing.${String(entry.format).toLowerCase()}`, entry.path))
         .concat(result.drawing_quality_path ? [createOutputEntry('drawing.quality-json', result.drawing_quality_path)] : [])
+        .concat(result.extracted_drawing_semantics_path ? [createOutputEntry('drawing.extracted-semantics-json', result.extracted_drawing_semantics_path)] : [])
         .filter(Boolean),
       linkedArtifacts: buildDrawLinkedArtifactsFromSvg(svgPath),
       warnings: configDocument.summary?.warnings || [],
@@ -3375,6 +3379,12 @@ async function cmdReport(rawArgs = []) {
               stability: 'best-effort',
             })]
           : []),
+        ...(result.extracted_drawing_semantics_json
+          ? [createArtifactEntry('drawing.extracted-semantics-json', result.extracted_drawing_semantics_json, {
+              label: 'Extracted drawing semantics JSON',
+              stability: 'best-effort',
+            })]
+          : []),
       ],
       details: {
         include_tolerance: includeTolerance,
@@ -3396,11 +3406,13 @@ async function cmdReport(rawArgs = []) {
         createOutputEntry('report.pdf', result.path),
         ...(result.summary_json ? [createOutputEntry('report.summary-json', result.summary_json)] : []),
         ...(result.feature_catalog_json ? [createOutputEntry('report.feature-catalog', result.feature_catalog_json)] : []),
+        ...(result.extracted_drawing_semantics_json ? [createOutputEntry('report.drawing-extracted-semantics', result.extracted_drawing_semantics_json)] : []),
       ],
       linkedArtifacts: {
         report_pdf: result.path,
         ...(result.summary_json ? { report_summary_json: result.summary_json } : {}),
         ...(result.feature_catalog_json ? { feature_catalog_json: result.feature_catalog_json } : {}),
+        ...(result.extracted_drawing_semantics_json ? { extracted_drawing_semantics_json: result.extracted_drawing_semantics_json } : {}),
       },
       warnings: configDocument.summary?.warnings || [],
     });

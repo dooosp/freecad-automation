@@ -27,6 +27,7 @@ const OPTIONAL_ARTIFACT_KEYS = new Set([
   'create_manifest',
   'drawing_manifest',
   'feature_catalog',
+  'extracted_drawing_semantics',
   'report_manifest',
   'traceability_json',
   'drawing_intent',
@@ -115,6 +116,7 @@ export function deriveReportArtifactPaths({ primaryOutputPath = null, outputDir 
     create_quality: join(dir, `${baseStem}_create_quality.json`),
     create_manifest: join(dir, `${baseStem}_manifest.json`),
     drawing_quality: join(dir, `${baseStem}_drawing_quality.json`),
+    extracted_drawing_semantics: join(dir, `${baseStem}_extracted_drawing_semantics.json`),
     drawing_manifest: join(dir, `${baseStem}_drawing_manifest.json`),
     drawing_intent: join(dir, `${baseStem}_drawing_intent.json`),
     feature_catalog: join(dir, `${baseStem}_feature_catalog.json`),
@@ -178,6 +180,16 @@ function summarizeSemanticDrawingQuality(semanticQuality = null) {
       required_blockers: [],
       optional_missing_information: [],
       suggested_actions: [],
+      extracted_evidence: {
+        status: 'not_run',
+        advisory_only: true,
+        path: null,
+        matched_required_dimensions: 0,
+        matched_required_notes: 0,
+        matched_required_views: 0,
+        unknowns: [],
+        limitations: [],
+      },
     };
   }
 
@@ -203,6 +215,16 @@ function summarizeSemanticDrawingQuality(semanticQuality = null) {
     required_blockers: uniqueStrings(semanticQuality.required_blockers || []),
     optional_missing_information: uniqueStrings(semanticQuality.optional_missing_information || []),
     suggested_actions: uniqueStrings(semanticQuality.suggested_actions || []),
+    extracted_evidence: {
+      status: semanticQuality.extracted_evidence?.status || 'not_run',
+      advisory_only: semanticQuality.extracted_evidence?.advisory_only !== false,
+      path: semanticQuality.extracted_evidence?.path || null,
+      matched_required_dimensions: Number(semanticQuality.extracted_evidence?.matched_required_dimensions || 0),
+      matched_required_notes: Number(semanticQuality.extracted_evidence?.matched_required_notes || 0),
+      matched_required_views: Number(semanticQuality.extracted_evidence?.matched_required_views || 0),
+      unknowns: uniqueStrings(semanticQuality.extracted_evidence?.unknowns || []),
+      limitations: uniqueStrings(semanticQuality.extracted_evidence?.limitations || []),
+    },
   };
 }
 
@@ -491,6 +513,7 @@ export function buildDecisionReportSummary({
   drawingQuality = null,
   createManifest = null,
   drawingManifest = null,
+  extractedDrawingSemantics = null,
   featureCatalog = null,
   reportManifest = null,
   dfm = null,
@@ -634,6 +657,14 @@ export function buildDecisionReportSummary({
       'Drawing traceability JSON',
       paths.traceability_json,
       deriveArtifactStatus(paths.traceability_json, drawingQuality?.traceability_file),
+    ),
+    artifactRef(
+      'extracted_drawing_semantics',
+      'Extracted drawing semantics JSON',
+      paths.extracted_drawing_semantics,
+      deriveArtifactStatus(paths.extracted_drawing_semantics, extractedDrawingSemantics),
+      'Advisory extraction from generated drawing evidence only.',
+      { required: false },
     ),
     artifactRef(
       'create_manifest',
