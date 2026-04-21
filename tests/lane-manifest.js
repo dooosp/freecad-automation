@@ -21,6 +21,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'Create quality helper', args: Object.freeze(['tests/create-quality.test.js']) }),
       Object.freeze({ label: 'Quality fixture matrix contracts', args: Object.freeze(['tests/quality-fixture-matrix.test.js']) }),
       Object.freeze({ label: 'Drawing intent foundation', args: Object.freeze(['tests/drawing-intent-foundation.test.js']) }),
+      Object.freeze({ label: 'Extracted drawing semantics foundation', args: Object.freeze(['tests/extracted-drawing-semantics.test.js']) }),
       Object.freeze({ label: 'Conservative feature catalog contracts', args: Object.freeze(['tests/feature-catalog.test.js']) }),
       Object.freeze({ label: 'Drawing semantic regression fixtures', args: Object.freeze(['tests/drawing-semantic-regression.test.js']) }),
       Object.freeze({ label: 'Report artifact exposure helper', args: Object.freeze(['tests/job-executor-report-artifacts.test.js']) }),

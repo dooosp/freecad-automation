@@ -1,0 +1,34 @@
+{
+  "status": "available",
+  "methods": [
+    "svg_text_scan",
+    "layout_report_views",
+    "dimension_map_reference",
+    "traceability_reference"
+  ],
+  "coverage": {
+    "required_dimensions_total": 2,
+    "required_dimensions_extracted": 2,
+    "required_notes_total": 1,
+    "required_notes_extracted": 1,
+    "required_views_total": 2,
+    "required_views_extracted": 2
+  },
+  "view_ids": [
+    "iso",
+    "top"
+  ],
+  "matched_dimension_ids": [
+    "HOLE_LEFT_DIA",
+    "HOLE_RIGHT_DIA"
+  ],
+  "matched_note_ids": [
+    "MATERIAL"
+  ],
+  "title_block": {
+    "material": "Material: AL6061",
+    "tolerance": null,
+    "drawing_number": null
+  },
+  "unknowns": []
+}

@@ -77,6 +77,7 @@ function inferDrawArtifacts(result) {
     qa: normalizedPath.replace(/\.svg$/i, '_qa.json'),
     qa_issues: normalizedPath.replace(/\.svg$/i, '_qa_issues.json'),
     drawing_quality: normalizedPath.replace(/\.svg$/i, '_quality.json'),
+    extracted_drawing_semantics: join(dir, `${stem}_extracted_drawing_semantics.json`),
     drawing_planner: join(dir, `${stem}_drawing_planner.json`),
     repair_report: normalizedPath.replace(/\.svg$/i, '_repair_report.json'),
     run_log: join(dir, `${stem}_run_log.json`),
@@ -124,6 +125,7 @@ function collectDrawManifestArtifacts(result) {
     ['qa', 'drawing.qa-report', 'best-effort', 'user-facing'],
     ['qa_issues', 'drawing.qa-issues', 'best-effort', 'user-facing'],
     ['drawing_quality', 'drawing.quality-summary', 'stable', 'user-facing'],
+    ['extracted_drawing_semantics', 'drawing.extracted-semantics', 'best-effort', 'user-facing'],
     ['drawing_planner', 'drawing.planner', 'best-effort', 'user-facing'],
     ['repair_report', 'drawing.repair-report', 'best-effort', 'user-facing'],
     ['run_log', 'draw.run-log', 'internal', 'internal'],
@@ -164,6 +166,7 @@ function buildSeededReportArtifactPaths(configName) {
   return {
     create_quality: `${stem}_create_quality.json`,
     drawing_quality: `${stem}_drawing_quality.json`,
+    extracted_drawing_semantics: `${stem}_extracted_drawing_semantics.json`,
     create_manifest: `${stem}_manifest.json`,
     drawing_manifest: `${stem}_drawing_manifest.json`,
     drawing_svg: `${stem}_drawing.svg`,
@@ -279,11 +282,21 @@ export function collectReportManifestArtifacts(result) {
       stability: 'best-effort',
     });
   }
+  if (result?.extracted_drawing_semantics_json) {
+    artifacts.push({
+      type: 'drawing.extracted-semantics',
+      path: result.extracted_drawing_semantics_json,
+      label: 'Extracted drawing semantics JSON',
+      scope: 'user-facing',
+      stability: 'best-effort',
+    });
+  }
 
   const seededArtifacts = result?.seeded_artifacts || {};
   const seededMapping = [
     ['create_quality', 'model.quality-summary', 'Create quality JSON'],
     ['drawing_quality', 'drawing.quality-summary', 'Drawing quality JSON'],
+    ['extracted_drawing_semantics', 'drawing.extracted-semantics', 'Extracted drawing semantics JSON'],
     ['drawing_planner', 'drawing.planner', 'Drawing planner advisory JSON'],
     ['create_manifest', 'output.manifest.json', 'Create manifest JSON'],
     ['drawing_manifest', 'drawing.output-manifest.json', 'Drawing manifest JSON'],

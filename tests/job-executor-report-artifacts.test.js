@@ -7,9 +7,11 @@ import { collectReportManifestArtifacts } from '../src/services/jobs/job-executo
     pdf_path: '/tmp/job-artifacts/quality_pass_bracket_report.pdf',
     summary_json: '/tmp/job-artifacts/quality_pass_bracket_report_summary.json',
     feature_catalog_json: '/tmp/job-artifacts/quality_pass_bracket_feature_catalog.json',
+    extracted_drawing_semantics_json: '/tmp/job-artifacts/quality_pass_bracket_extracted_drawing_semantics.json',
     seeded_artifacts: {
       create_quality: '/tmp/job-artifacts/quality_pass_bracket_create_quality.json',
       drawing_quality: '/tmp/job-artifacts/quality_pass_bracket_drawing_quality.json',
+      extracted_drawing_semantics: '/tmp/job-artifacts/quality_pass_bracket_extracted_drawing_semantics.json',
       drawing_planner: '/tmp/job-artifacts/quality_pass_bracket_drawing_planner.json',
       create_manifest: '/tmp/job-artifacts/quality_pass_bracket_manifest.json',
       drawing_manifest: '/tmp/job-artifacts/quality_pass_bracket_drawing_manifest.json',
@@ -22,6 +24,7 @@ import { collectReportManifestArtifacts } from '../src/services/jobs/job-executo
   assert.equal(artifacts.some((artifact) => artifact.type === 'report.pdf'), true);
   assert.equal(artifacts.some((artifact) => artifact.type === 'report.summary-json'), true);
   assert.equal(artifacts.some((artifact) => artifact.type === 'feature-catalog.json'), true);
+  assert.equal(artifacts.some((artifact) => artifact.type === 'drawing.extracted-semantics'), true);
   assert.equal(artifacts.some((artifact) => artifact.type === 'model.quality-summary'), true);
   assert.equal(artifacts.some((artifact) => artifact.type === 'drawing.quality-summary'), true);
   assert.equal(artifacts.some((artifact) => artifact.type === 'drawing.planner'), true);

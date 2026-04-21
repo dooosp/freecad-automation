@@ -10,6 +10,7 @@ const TMP_DIR = mkdtempSync(join(tmpdir(), 'fcad-report-summary-'));
 try {
   const createQualityPath = join(TMP_DIR, 'service_probe_create_quality.json');
   const drawingQualityPath = join(TMP_DIR, 'service_probe_drawing_quality.json');
+  const extractedSemanticsPath = join(TMP_DIR, 'service_probe_extracted_drawing_semantics.json');
   const pdfPath = join(TMP_DIR, 'service_probe_report.pdf');
 
   writeFileSync(createQualityPath, `${JSON.stringify({
@@ -23,6 +24,7 @@ try {
   writeFileSync(drawingQualityPath, `${JSON.stringify({
     status: 'fail',
     score: 71,
+    extracted_drawing_semantics_file: extractedSemanticsPath,
     views: {
       overlap_count: 0,
     },
@@ -39,6 +41,33 @@ try {
     ],
     warnings: [],
     recommended_actions: ['Add or map the missing required dimension intent(s): HOLE_DIA.'],
+    semantic_quality: {
+      extracted_evidence: {
+        status: 'partial',
+        advisory_only: true,
+        path: extractedSemanticsPath,
+        matched_required_dimensions: 0,
+        matched_required_notes: 0,
+        matched_required_views: 1,
+        unknowns: ['Required dimension not reliably extracted: HOLE_DIA.'],
+        limitations: ['Advisory-only foundation.'],
+      },
+    },
+  }, null, 2)}\n`, 'utf8');
+  writeFileSync(extractedSemanticsPath, `${JSON.stringify({
+    artifact_type: 'extracted_drawing_semantics',
+    status: 'partial',
+    decision: 'advisory',
+    coverage: {
+      required_dimensions_total: 1,
+      required_dimensions_extracted: 0,
+      required_notes_total: 0,
+      required_notes_extracted: 0,
+      required_views_total: 1,
+      required_views_extracted: 1,
+    },
+    unknowns: ['Required dimension not reliably extracted: HOLE_DIA.'],
+    limitations: ['Advisory-only foundation.'],
   }, null, 2)}\n`, 'utf8');
 
   let capturedPayload = null;
@@ -141,6 +170,7 @@ try {
   assert.equal(summary.artifacts_referenced.some((artifact) => artifact.key === 'drawing_quality' && artifact.status === 'available'), true);
   assert.equal(summary.artifacts_referenced.some((artifact) => artifact.key === 'drawing_intent' && artifact.status === 'available'), true);
   assert.equal(summary.artifacts_referenced.some((artifact) => artifact.key === 'feature_catalog' && artifact.status === 'available'), true);
+  assert.equal(summary.artifacts_referenced.some((artifact) => artifact.key === 'extracted_drawing_semantics' && artifact.status === 'available'), true);
   const drawingIntent = JSON.parse(readFileSync(result.drawing_intent_json, 'utf8'));
   assert.equal(drawingIntent.part_type, 'service_probe');
   assert.equal(summary.feature_catalog.available, true);

@@ -339,4 +339,30 @@ function makeBaseArtifacts() {
   assert.equal(shouldFailDrawingQualityGate(failingSummary, { strictQuality: true }), true);
 }
 
+{
+  const summary = buildDrawingQualitySummary({
+    ...makeBaseArtifacts(),
+    extractedDrawingSemanticsPath: '/tmp/ks_bracket_extracted_drawing_semantics.json',
+    extractedDrawingSemantics: {
+      status: 'partial',
+      decision: 'advisory',
+      coverage: {
+        required_dimensions_total: 1,
+        required_dimensions_extracted: 0,
+        required_notes_total: 1,
+        required_notes_extracted: 0,
+        required_views_total: 1,
+        required_views_extracted: 1,
+      },
+      unknowns: ['Required dimension not reliably extracted: WIDTH.'],
+      limitations: ['Advisory-only foundation.'],
+    },
+  });
+  assert.equal(summary.extracted_drawing_semantics_file, '/tmp/ks_bracket_extracted_drawing_semantics.json');
+  assert.equal(summary.semantic_quality.extracted_evidence.status, 'partial');
+  assert.equal(summary.semantic_quality.extracted_evidence.advisory_only, true);
+  assert.equal(summary.semantic_quality.extracted_evidence.matched_required_views, 1);
+  assert.deepEqual(summary.blocking_issues, []);
+}
+
 console.log('drawing-quality-summary.test.js: ok');

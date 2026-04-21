@@ -139,6 +139,7 @@ function syncArtifactsForReport(baseName) {
   const artifactNames = [
     `${baseName}_create_quality.json`,
     `${baseName}_drawing_quality.json`,
+    `${baseName}_extracted_drawing_semantics.json`,
     `${baseName}_manifest.json`,
     `${baseName}_drawing_manifest.json`,
     `${baseName}_traceability.json`,
@@ -336,11 +337,14 @@ assertArtifactManifest(
   }
 );
 const ksDrawingQualityPath = join(OUTPUT_DIR, 'ks_bracket_runtime_smoke_drawing_quality.json');
+const ksExtractedSemanticsPath = join(OUTPUT_DIR, 'ks_bracket_runtime_smoke_extracted_drawing_semantics.json');
 const ksDrawingPlannerPath = join(OUTPUT_DIR, 'ks_bracket_runtime_smoke_drawing_planner.json');
 assertArtifact(ksDrawingQualityPath);
+assertArtifact(ksExtractedSemanticsPath);
 assertArtifact(ksDrawingPlannerPath);
 const ksDrawingQuality = readJson(ksDrawingQualityPath);
 assert.equal(ksDrawingQuality.status, 'fail');
+assert.equal(ksDrawingQuality.extracted_drawing_semantics_file, ksExtractedSemanticsPath);
 ksFixtureRecord.observed.drawingQualityStatus = ksDrawingQuality.status;
 
 const ksStrictDraw = runCliExpectFailure(['draw', bracketConfig, '--bom', '--strict-quality']);
@@ -357,6 +361,7 @@ assertOutputManifest(
     linkedQualityPath: ksDrawingQualityPath,
     linkedArtifacts: {
       planner_json: ksDrawingPlannerPath,
+      extracted_drawing_semantics_json: ksExtractedSemanticsPath,
     },
   }
 );
@@ -427,13 +432,16 @@ assertOutputManifest(
 
 const qualityPassStrictDraw = runCli(['draw', qualityPassConfig, '--bom', '--strict-quality']);
 const qualityPassDrawingQualityPath = join(OUTPUT_DIR, 'quality_pass_bracket_runtime_smoke_drawing_quality.json');
+const qualityPassExtractedSemanticsPath = join(OUTPUT_DIR, 'quality_pass_bracket_runtime_smoke_extracted_drawing_semantics.json');
 const qualityPassDrawingPlannerPath = join(OUTPUT_DIR, 'quality_pass_bracket_runtime_smoke_drawing_planner.json');
 assertArtifact(qualityPassDrawingQualityPath);
+assertArtifact(qualityPassExtractedSemanticsPath);
 assertArtifact(qualityPassDrawingPlannerPath);
 const qualityPassDrawingQuality = readJson(qualityPassDrawingQualityPath);
 assert.equal(qualityPassDrawingQuality.status, qualityPassFixture.strictDraw.qualityStatus);
 assert.equal(qualityPassDrawingQuality.dimensions.coverage_percent, 100);
 assert.equal(qualityPassDrawingQuality.traceability.coverage_percent >= 95, true);
+assert.equal(qualityPassDrawingQuality.extracted_drawing_semantics_file, qualityPassExtractedSemanticsPath);
 qualityPassFixtureRecord.observed.drawingQualityStatus = qualityPassDrawingQuality.status;
 qualityPassFixtureRecord.observed.strictDrawExit = qualityPassStrictDraw.status;
 assertOutputManifest(
@@ -443,6 +451,7 @@ assertOutputManifest(
     linkedQualityPath: qualityPassDrawingQualityPath,
     linkedArtifacts: {
       planner_json: qualityPassDrawingPlannerPath,
+      extracted_drawing_semantics_json: qualityPassExtractedSemanticsPath,
     },
   }
 );

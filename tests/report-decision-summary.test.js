@@ -36,6 +36,7 @@ function makeBaseInput(overrides = {}) {
     drawingQuality: {
       status: 'pass',
       score: 96,
+      extracted_drawing_semantics_file: '/tmp/output/ks_bracket_extracted_drawing_semantics.json',
       views: {
         overlap_count: 0,
       },
@@ -71,6 +72,16 @@ function makeBaseInput(overrides = {}) {
         required_blockers: [],
         optional_missing_information: [],
         suggested_actions: [],
+        extracted_evidence: {
+          status: 'partial',
+          advisory_only: true,
+          path: '/tmp/output/ks_bracket_extracted_drawing_semantics.json',
+          matched_required_dimensions: 1,
+          matched_required_notes: 0,
+          matched_required_views: 1,
+          unknowns: ['Required note not reliably extracted: MATERIAL.'],
+          limitations: ['Advisory-only foundation.'],
+        },
       },
     },
     featureCatalog: {
@@ -81,6 +92,21 @@ function makeBaseInput(overrides = {}) {
         recognized_features: 4,
         unknown_features: 0,
       },
+    },
+    extractedDrawingSemantics: {
+      artifact_type: 'extracted_drawing_semantics',
+      status: 'partial',
+      decision: 'advisory',
+      coverage: {
+        required_dimensions_total: 1,
+        required_dimensions_extracted: 1,
+        required_notes_total: 1,
+        required_notes_extracted: 0,
+        required_views_total: 1,
+        required_views_extracted: 1,
+      },
+      unknowns: ['Required note not reliably extracted: MATERIAL.'],
+      limitations: ['Advisory-only foundation.'],
     },
     dfm: {
       score: 92,
@@ -130,11 +156,14 @@ function makeBaseInput(overrides = {}) {
   assert.equal(summary.artifacts_referenced.find((artifact) => artifact.key === 'drawing_quality')?.required, true);
   assert.equal(summary.artifacts_referenced.find((artifact) => artifact.key === 'dfm')?.required, true);
   assert.equal(summary.artifacts_referenced.find((artifact) => artifact.key === 'feature_catalog')?.required, false);
+  assert.equal(summary.artifacts_referenced.find((artifact) => artifact.key === 'extracted_drawing_semantics')?.required, false);
+  assert.equal(summary.artifacts_referenced.find((artifact) => artifact.key === 'extracted_drawing_semantics')?.status, 'available');
   assert.equal(summary.feature_catalog.total_features, 4);
   assert.equal(summary.artifacts_referenced.find((artifact) => artifact.key === 'fem')?.required, false);
   assert.equal(summary.artifacts_referenced.find((artifact) => artifact.key === 'tolerance')?.required, false);
   assert.equal(summary.surfaces.drawing_quality.semantic_quality.decision, 'pass');
   assert.equal(summary.surfaces.drawing_quality.semantic_quality.required_dimensions_present, 1);
+  assert.equal(summary.surfaces.drawing_quality.semantic_quality.extracted_evidence.status, 'partial');
 }
 
 {
