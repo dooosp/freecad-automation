@@ -116,6 +116,10 @@ function jobContextExpression(hook) {
   }))()`;
 }
 
+function pageTextExpression() {
+  return `(() => document.body?.innerText?.replace(/\\s+/g, ' ').trim() || '')()`;
+}
+
 function routeLabelExpression(route) {
   return `(() => document.querySelector('.nav-link[data-route="${route}"] .nav-label')?.textContent?.trim() || '')()`;
 }
@@ -271,6 +275,274 @@ async function openPageTarget(browserWebSocketUrl) {
   return payload.webSocketDebuggerUrl;
 }
 
+function passQualityReportSummary() {
+  return {
+    config_name: 'quality_pass_bracket',
+    overall_status: 'pass',
+    ready_for_manufacturing_review: true,
+    blocking_issues: [],
+    top_risks: [],
+    recommended_actions: ['Archive the approved release bundle.'],
+    artifacts_referenced: [
+      {
+        key: 'create_manifest',
+        label: 'Create Manifest',
+        status: 'in_memory',
+        required: false,
+      },
+    ],
+    surfaces: {
+      create_quality: {
+        available: true,
+        status: 'pass',
+        invalid_shape: false,
+        blocking_issues: [],
+        warnings: [],
+      },
+      drawing_quality: {
+        available: true,
+        status: 'pass',
+        score: 100,
+        missing_required_dimensions: [],
+        conflict_count: 0,
+        overlap_count: 0,
+        traceability_coverage_percent: 100,
+        recommended_actions: [],
+        blocking_issues: [],
+        warnings: [],
+      },
+      dfm: {
+        available: true,
+        status: 'pass',
+        score: 100,
+        severity_counts: {
+          critical: 0,
+          major: 0,
+          minor: 0,
+          info: 1,
+        },
+        top_fixes: ['Optional: add a fillet on the highest stress corner.'],
+        blocking_issues: [],
+        warnings: [],
+      },
+    },
+  };
+}
+
+function failQualityReportSummary() {
+  return {
+    config_name: 'ks_bracket',
+    overall_status: 'fail',
+    ready_for_manufacturing_review: false,
+    blocking_issues: [
+      'Generated model shape is invalid.',
+      'Dimension conflict count 7 exceeds the allowed maximum 0.',
+    ],
+    top_risks: [
+      'Missing required drawing dimensions: HOLE_DIA.',
+      'DFM critical findings: 2.',
+    ],
+    recommended_actions: [
+      'Repair the generated model geometry before proceeding to manufacturing review.',
+      'Increase edge distance around hole1 and hole3.',
+    ],
+    artifacts_referenced: [
+      {
+        key: 'fem',
+        label: 'FEM analysis',
+        status: 'not_run',
+        required: false,
+      },
+      {
+        key: 'tolerance',
+        label: 'Tolerance analysis',
+        status: 'not_available',
+        required: false,
+      },
+    ],
+    surfaces: {
+      create_quality: {
+        available: true,
+        status: 'fail',
+        invalid_shape: true,
+        blocking_issues: ['Generated model shape is invalid.'],
+        warnings: [],
+      },
+      drawing_quality: {
+        available: true,
+        status: 'fail',
+        score: 71,
+        missing_required_dimensions: ['HOLE_DIA'],
+        conflict_count: 7,
+        overlap_count: 0,
+        traceability_coverage_percent: 0,
+        recommended_actions: ['Add or map the missing required dimension intent(s): HOLE_DIA.'],
+        blocking_issues: ['Dimension conflict count 7 exceeds the allowed maximum 0.'],
+        warnings: [],
+      },
+      dfm: {
+        available: true,
+        status: 'fail',
+        score: 70,
+        severity_counts: {
+          critical: 2,
+          major: 0,
+          minor: 0,
+          info: 0,
+        },
+        top_fixes: ['Increase edge distance around hole1 and hole3.'],
+        blocking_issues: ['hole1 edge distance 3.5 mm < 9.0 mm'],
+        warnings: [],
+      },
+    },
+  };
+}
+
+function optionalQualityReportSummary() {
+  return {
+    config_name: 'optional_quality_bracket',
+    overall_status: 'incomplete',
+    ready_for_manufacturing_review: null,
+    blocking_issues: [],
+    top_risks: [],
+    recommended_actions: ['Optional: rerun tolerance for a wider production sample.'],
+    artifacts_referenced: [
+      {
+        key: 'create_manifest',
+        label: 'Create Manifest',
+        status: 'in_memory',
+        required: false,
+      },
+      {
+        key: 'fem',
+        label: 'FEM analysis',
+        status: 'not_run',
+        required: false,
+      },
+      {
+        key: 'tolerance',
+        label: 'Tolerance analysis',
+        status: 'not_available',
+        required: false,
+      },
+    ],
+    surfaces: {
+      create_quality: {
+        available: true,
+        status: 'pass',
+        invalid_shape: false,
+        blocking_issues: [],
+        warnings: [],
+      },
+      drawing_quality: {
+        available: true,
+        status: 'pass',
+        score: 100,
+        missing_required_dimensions: [],
+        conflict_count: 0,
+        overlap_count: 0,
+        traceability_coverage_percent: 100,
+        blocking_issues: [],
+        warnings: [],
+      },
+      dfm: {
+        available: true,
+        status: 'pass',
+        score: 100,
+        severity_counts: {
+          critical: 0,
+          major: 0,
+          minor: 0,
+          info: 0,
+        },
+        top_fixes: [],
+        blocking_issues: [],
+        warnings: [],
+      },
+    },
+  };
+}
+
+async function seedQualityDecisionJob(jobStore, {
+  projectRoot,
+  configName,
+  reportSummary,
+}) {
+  const job = await jobStore.createJob({
+    type: 'report',
+    config: {
+      name: configName,
+      shapes: [{ id: 'body', type: 'box', length: 12, width: 10, height: 8 }],
+      export: { formats: ['step'], directory: 'output' },
+    },
+  });
+  const reportSummaryPath = await jobStore.writeJobFile(
+    job.id,
+    `artifacts/${configName}_report_summary.json`,
+    `${JSON.stringify(reportSummary, null, 2)}\n`
+  );
+  const reportPdfPath = await jobStore.writeJobFile(
+    job.id,
+    `artifacts/${configName}_report.pdf`,
+    `%PDF-1.4\n% ${configName} browser smoke placeholder\n`
+  );
+  const manifestPath = await jobStore.writeJobFile(
+    job.id,
+    `artifacts/${configName}_manifest.json`,
+    `${JSON.stringify({ command: 'report', config_name: configName }, null, 2)}\n`
+  );
+  const manifest = await buildArtifactManifest({
+    projectRoot,
+    interface: 'api',
+    command: 'report',
+    jobType: 'report',
+    status: 'succeeded',
+    requestId: job.id,
+    artifacts: [
+      {
+        type: 'report.summary-json',
+        path: reportSummaryPath,
+        label: 'report_summary_json',
+        scope: 'user-facing',
+        stability: 'stable',
+      },
+      {
+        type: 'report.pdf',
+        path: reportPdfPath,
+        label: 'report_pdf',
+        scope: 'user-facing',
+        stability: 'stable',
+      },
+      {
+        type: 'output.manifest.json',
+        path: manifestPath,
+        label: 'create_manifest',
+        scope: 'user-facing',
+        stability: 'stable',
+      },
+    ],
+    timestamps: {
+      created_at: job.created_at,
+      finished_at: new Date().toISOString(),
+    },
+  });
+  return jobStore.completeJob(
+    job.id,
+    {
+      success: true,
+      source: 'browser-quality-smoke',
+      report_summary: reportSummary,
+    },
+    {
+      report_summary: reportSummaryPath,
+      report_pdf: reportPdfPath,
+      create_manifest: manifestPath,
+    },
+    {},
+    manifest
+  );
+}
+
 const chromeBinary = findChromeBinary();
 if (!chromeBinary) {
   console.log('studio-shell-browser-smoke.test.js: skipped (Chrome not available)');
@@ -288,6 +560,21 @@ let cdp = null;
 try {
   const port = await listen(server);
   const baseUrl = `http://127.0.0.1:${port}`;
+  const passQualityJob = await seedQualityDecisionJob(jobStore, {
+    projectRoot: ROOT,
+    configName: 'quality_pass_bracket',
+    reportSummary: passQualityReportSummary(),
+  });
+  const failQualityJob = await seedQualityDecisionJob(jobStore, {
+    projectRoot: ROOT,
+    configName: 'ks_bracket',
+    reportSummary: failQualityReportSummary(),
+  });
+  const optionalQualityJob = await seedQualityDecisionJob(jobStore, {
+    projectRoot: ROOT,
+    configName: 'optional_quality_bracket',
+    reportSummary: optionalQualityReportSummary(),
+  });
   const seededJob = await jobStore.createJob({
     type: 'report',
     config: {
@@ -404,6 +691,119 @@ try {
   const initialShellShape = await cdp.evaluate(studioSnapshotExpression());
   assert.equal(initialShellShape.navCount, 5);
   assert.equal(initialShellShape.pathname, '/studio/');
+
+  await cdp.evaluate(`(() => {
+    const localeSelect = document.getElementById('studio-locale-select');
+    if (!localeSelect) return false;
+    localeSelect.value = 'en';
+    localeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`);
+  await waitFor(async () => {
+    const nextSnapshot = await cdp.evaluate(localeSnapshotExpression());
+    assert.equal(nextSnapshot.lang, 'en');
+    assert.equal(nextSnapshot.selectedLocale, 'en');
+    assert.equal(nextSnapshot.activeRoute, 'start');
+    return nextSnapshot;
+  });
+
+  await cdp.evaluate(`document.querySelector('.nav-link[data-route="artifacts"]')?.click()`);
+  await waitForRoute(cdp, 'artifacts', {
+    attempts: 50,
+    delayMs: 200,
+  });
+
+  async function openQualityJobFromTimeline(jobId) {
+    await waitFor(async () => {
+      const clicked = await cdp.evaluate(`(() => {
+        const button = document.querySelector('[data-action="artifacts-open-job"][data-job-id="${jobId}"]');
+        if (!button) return false;
+        button.click();
+        return true;
+      })()`);
+      assert.equal(clicked, true);
+      return clicked;
+    }, {
+      attempts: 50,
+      delayMs: 150,
+    });
+    await waitForRoute(cdp, 'artifacts', {
+      attempts: 50,
+      delayMs: 200,
+      expectedHash: `#artifacts?job=${jobId}`,
+    });
+  }
+
+  async function waitForDashboardText(expectedText) {
+    return waitFor(async () => {
+      const dashboard = await cdp.evaluate(jobContextExpression('artifacts-quality-dashboard'));
+      assert.equal(dashboard.text.includes(expectedText), true);
+      return dashboard.text;
+    }, {
+      attempts: 60,
+      delayMs: 150,
+    });
+  }
+
+  function assertIncludesAll(text, expectedValues) {
+    for (const expected of expectedValues) {
+      assert.equal(text.includes(expected), true, `Expected browser text to include ${expected}`);
+    }
+  }
+
+  function assertExcludesAll(text, forbiddenValues) {
+    for (const forbidden of forbiddenValues) {
+      assert.equal(text.includes(forbidden), false, `Expected browser text not to include ${forbidden}`);
+    }
+  }
+
+  await openQualityJobFromTimeline(passQualityJob.id);
+  const passDashboardText = await waitForDashboardText('Quality Dashboard - quality_pass_bracket');
+  const passPageText = await cdp.evaluate(pageTextExpression());
+  assertIncludesAll(passPageText, [
+    'quality_pass_bracket',
+    'Job succeeded',
+    'Quality passed',
+    'Ready Yes',
+  ]);
+  assertIncludesAll(passDashboardText, [
+    'Quality Dashboard - quality_pass_bracket',
+    'All required quality gates passed',
+    'No manufacturing blockers',
+    'Ready for manufacturing review: Yes',
+  ]);
+  assertExcludesAll(passDashboardText, ['in_memory', 'not_available']);
+
+  await openQualityJobFromTimeline(failQualityJob.id);
+  const failDashboardText = await waitForDashboardText('Quality Dashboard - ks_bracket');
+  const failPageText = await cdp.evaluate(pageTextExpression());
+  assertIncludesAll(failPageText, [
+    'ks_bracket',
+    'Job succeeded',
+    'Quality failed',
+    'Ready No',
+  ]);
+  assertIncludesAll(failDashboardText, [
+    'Quality Dashboard - ks_bracket',
+    'Manufacturing review blocked by',
+    'Ready for manufacturing review: No',
+  ]);
+  assertExcludesAll(failDashboardText, ['in_memory', 'not_available']);
+
+  await openQualityJobFromTimeline(optionalQualityJob.id);
+  const optionalDashboardText = await waitForDashboardText('Quality Dashboard - optional_quality_bracket');
+  assertIncludesAll(optionalDashboardText, [
+    'Optional missing',
+    'Optional not run',
+    'Computed in report',
+  ]);
+  assertExcludesAll(optionalDashboardText, ['in_memory', 'not_available']);
+
+  await cdp.evaluate(`document.querySelector('.nav-link[data-route="start"]')?.click()`);
+  await waitForRoute(cdp, 'start', {
+    attempts: 50,
+    delayMs: 200,
+  });
 
   await cdp.evaluate(`document.getElementById('jobs-toggle')?.click()`);
   let drawerSnapshot = await waitFor(async () => {
