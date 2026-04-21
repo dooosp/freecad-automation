@@ -240,7 +240,7 @@ function assertArtifactManifest(manifestPath, {
   return manifest;
 }
 
-function assertOutputManifest(manifestPath, { command, linkedQualityPath = null } = {}) {
+function assertOutputManifest(manifestPath, { command, linkedQualityPath = null, linkedArtifacts = {} } = {}) {
   assertArtifact(manifestPath);
   const manifest = readJson(manifestPath);
   const validation = validateOutputManifest(manifest);
@@ -248,6 +248,13 @@ function assertOutputManifest(manifestPath, { command, linkedQualityPath = null 
   assert.equal(manifest.command, command);
   if (linkedQualityPath) {
     assert.equal(manifest.linked_artifacts.quality_json, linkedQualityPath);
+  }
+  for (const [artifactKey, artifactPath] of Object.entries(linkedArtifacts)) {
+    assert.equal(
+      manifest.linked_artifacts?.[artifactKey],
+      artifactPath,
+      `${manifestPath} should link ${artifactKey}`
+    );
   }
   return manifest;
 }
@@ -329,7 +336,9 @@ assertArtifactManifest(
   }
 );
 const ksDrawingQualityPath = join(OUTPUT_DIR, 'ks_bracket_runtime_smoke_drawing_quality.json');
+const ksDrawingPlannerPath = join(OUTPUT_DIR, 'ks_bracket_runtime_smoke_drawing_planner.json');
 assertArtifact(ksDrawingQualityPath);
+assertArtifact(ksDrawingPlannerPath);
 const ksDrawingQuality = readJson(ksDrawingQualityPath);
 assert.equal(ksDrawingQuality.status, 'fail');
 ksFixtureRecord.observed.drawingQualityStatus = ksDrawingQuality.status;
@@ -341,6 +350,16 @@ assert.match(
   /Strict drawing quality gate failed/i
 );
 assertExpectedExitCode(ksStrictDraw.status, ksFixture.strictDraw.expectedExit, 'ks_bracket strict draw');
+assertOutputManifest(
+  join(OUTPUT_DIR, 'ks_bracket_runtime_smoke_drawing_manifest.json'),
+  {
+    command: 'draw',
+    linkedQualityPath: ksDrawingQualityPath,
+    linkedArtifacts: {
+      planner_json: ksDrawingPlannerPath,
+    },
+  }
+);
 
 runCli(['inspect', join(OUTPUT_DIR, 'ks_bracket_runtime_smoke.step')]);
 runCli([
@@ -408,13 +427,25 @@ assertOutputManifest(
 
 const qualityPassStrictDraw = runCli(['draw', qualityPassConfig, '--bom', '--strict-quality']);
 const qualityPassDrawingQualityPath = join(OUTPUT_DIR, 'quality_pass_bracket_runtime_smoke_drawing_quality.json');
+const qualityPassDrawingPlannerPath = join(OUTPUT_DIR, 'quality_pass_bracket_runtime_smoke_drawing_planner.json');
 assertArtifact(qualityPassDrawingQualityPath);
+assertArtifact(qualityPassDrawingPlannerPath);
 const qualityPassDrawingQuality = readJson(qualityPassDrawingQualityPath);
 assert.equal(qualityPassDrawingQuality.status, qualityPassFixture.strictDraw.qualityStatus);
 assert.equal(qualityPassDrawingQuality.dimensions.coverage_percent, 100);
 assert.equal(qualityPassDrawingQuality.traceability.coverage_percent >= 95, true);
 qualityPassFixtureRecord.observed.drawingQualityStatus = qualityPassDrawingQuality.status;
 qualityPassFixtureRecord.observed.strictDrawExit = qualityPassStrictDraw.status;
+assertOutputManifest(
+  join(OUTPUT_DIR, 'quality_pass_bracket_runtime_smoke_drawing_manifest.json'),
+  {
+    command: 'draw',
+    linkedQualityPath: qualityPassDrawingQualityPath,
+    linkedArtifacts: {
+      planner_json: qualityPassDrawingPlannerPath,
+    },
+  }
+);
 
 const qualityPassDfm = runCli(['dfm', qualityPassConfig]);
 const qualityPassDfmScoreMatch = `${qualityPassDfm.stdout}\n${qualityPassDfm.stderr}`.match(/DFM Score:\s*(\d+)\/100/i);

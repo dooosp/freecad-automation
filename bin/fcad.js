@@ -659,6 +659,7 @@ function buildExpectedDrawArtifacts(config = {}) {
       qa_json: svgPath.replace(/\.svg$/i, '_qa.json'),
       run_log_json: join(outputDir, `${stem}_run_log.json`),
       traceability_json: join(outputDir, `${stem}_traceability.json`),
+      planner_json: join(outputDir, `${stem}_drawing_planner.json`),
       quality_json: svgPath.replace(/\.svg$/i, '_quality.json'),
     },
   };
