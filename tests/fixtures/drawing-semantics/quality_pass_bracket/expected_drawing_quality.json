@@ -1,0 +1,23 @@
+{
+  "status": "pass",
+  "views": {
+    "required_count": 2,
+    "generated_count": 2,
+    "missing_views": [],
+    "overlap_count": 0
+  },
+  "dimensions": {
+    "required_count": 2,
+    "mapped_count": 2,
+    "coverage_percent": 100,
+    "missing_required_intents": [],
+    "conflict_count": 0,
+    "duplicate_count": 0
+  },
+  "traceability": {
+    "coverage_percent": 100,
+    "unmapped_required_entities": []
+  },
+  "blocking_issue_codes": [],
+  "optional_missing_dimension_ids": ["CHAMFER_SIZE"]
+}

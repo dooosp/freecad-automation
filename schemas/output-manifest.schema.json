@@ -168,6 +168,12 @@
             "null"
           ]
         },
+        "planner_json": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "report_pdf": {
           "type": [
             "string",
@@ -175,6 +181,24 @@
           ]
         },
         "quality_json": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "report_summary_json": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "drawing_intent_json": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "feature_catalog_json": {
           "type": [
             "string",
             "null"

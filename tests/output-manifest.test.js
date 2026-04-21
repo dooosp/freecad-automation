@@ -18,10 +18,14 @@ try {
   const outputPath = join(TMP_DIR, 'sample.step');
   const missingPath = join(TMP_DIR, 'missing.json');
   const runLogPath = join(TMP_DIR, 'sample_run_log.json');
+  const plannerPath = join(TMP_DIR, 'sample_drawing_planner.json');
+  const featureCatalogPath = join(TMP_DIR, 'sample_feature_catalog.json');
 
   writeFileSync(inputPath, 'name = "sample"\n', 'utf8');
   writeFileSync(outputPath, 'STEP', 'utf8');
   writeFileSync(runLogPath, JSON.stringify({ ok: true }, null, 2), 'utf8');
+  writeFileSync(plannerPath, JSON.stringify({ status: 'advisory' }, null, 2), 'utf8');
+  writeFileSync(featureCatalogPath, JSON.stringify({ artifact_type: 'feature_catalog' }, null, 2), 'utf8');
 
   const manifest = await buildOutputManifest({
     projectRoot: ROOT,
@@ -40,6 +44,8 @@ try {
     ],
     linkedArtifacts: {
       run_log_json: runLogPath,
+      planner_json: plannerPath,
+      feature_catalog_json: featureCatalogPath,
     },
     warnings: ['example warning'],
     status: 'warning',
@@ -59,6 +65,8 @@ try {
   assert.equal(manifest.outputs[1].exists, false);
   assert.equal(manifest.outputs[1].sha256, null);
   assert.equal(manifest.linked_artifacts.run_log_json, runLogPath);
+  assert.equal(manifest.linked_artifacts.planner_json, plannerPath);
+  assert.equal(manifest.linked_artifacts.feature_catalog_json, featureCatalogPath);
   assert.equal(manifest.repo.branch, 'feat/output-manifest-foundation');
   assert.equal(manifest.timings.duration_ms, 2000);
 

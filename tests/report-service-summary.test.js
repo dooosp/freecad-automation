@@ -71,10 +71,26 @@ try {
     },
     loadConfig: async () => ({
       name: 'service_probe',
+      drawing_intent: {
+        part_type: 'service_probe',
+        required_views: ['top'],
+        required_dimensions: [
+          { id: 'HOLE_DIA', feature: 'hole1', required: true },
+        ],
+        missing_semantics_policy: 'advisory',
+      },
       export: { directory: TMP_DIR },
     }),
     config: {
       name: 'service_probe',
+      drawing_intent: {
+        part_type: 'service_probe',
+        required_views: ['top'],
+        required_dimensions: [
+          { id: 'HOLE_DIA', feature: 'hole1', required: true },
+        ],
+        missing_semantics_policy: 'advisory',
+      },
       export: { directory: TMP_DIR },
     },
     includeDrawing: false,
@@ -116,11 +132,20 @@ try {
   assert.equal(capturedPayload._decision_summary.overall_status, 'fail');
   assert.equal(capturedPayload._decision_summary.ready_for_manufacturing_review, false);
   assert.equal(result.summary_json.endsWith('_report_summary.json'), true);
+  assert.equal(result.drawing_intent_json.endsWith('_drawing_intent.json'), true);
+  assert.equal(result.feature_catalog_json.endsWith('_feature_catalog.json'), true);
 
   const summary = JSON.parse(readFileSync(result.summary_json, 'utf8'));
   assert.equal(summary.overall_status, 'fail');
   assert.equal(summary.artifacts_referenced.some((artifact) => artifact.key === 'create_quality' && artifact.status === 'available'), true);
   assert.equal(summary.artifacts_referenced.some((artifact) => artifact.key === 'drawing_quality' && artifact.status === 'available'), true);
+  assert.equal(summary.artifacts_referenced.some((artifact) => artifact.key === 'drawing_intent' && artifact.status === 'available'), true);
+  assert.equal(summary.artifacts_referenced.some((artifact) => artifact.key === 'feature_catalog' && artifact.status === 'available'), true);
+  const drawingIntent = JSON.parse(readFileSync(result.drawing_intent_json, 'utf8'));
+  assert.equal(drawingIntent.part_type, 'service_probe');
+  assert.equal(summary.feature_catalog.available, true);
+  const featureCatalog = JSON.parse(readFileSync(result.feature_catalog_json, 'utf8'));
+  assert.equal(featureCatalog.artifact_type, 'feature_catalog');
 } finally {
   rmSync(TMP_DIR, { recursive: true, force: true });
 }

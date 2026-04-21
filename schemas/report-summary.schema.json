@@ -75,6 +75,27 @@
       "type": "array",
       "items": { "type": "string" }
     },
+    "drawing_intent": { "$ref": "#/$defs/drawingIntent" },
+    "feature_catalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "available",
+        "total_features",
+        "recognized_features",
+        "unknown_features",
+        "recognition_policy"
+      ],
+      "properties": {
+        "path": { "type": "string" },
+        "available": { "type": "boolean" },
+        "total_features": { "type": "integer", "minimum": 0 },
+        "recognized_features": { "type": "integer", "minimum": 0 },
+        "unknown_features": { "type": "integer", "minimum": 0 },
+        "recognition_policy": { "type": ["string", "null"] }
+      }
+    },
     "surfaces": {
       "type": "object",
       "properties": {
@@ -118,9 +139,147 @@
         "warnings": {
           "type": "array",
           "items": { "type": "string" }
+        },
+        "semantic_quality": { "$ref": "#/$defs/drawingSemanticQuality" }
+      },
+      "additionalProperties": true
+    },
+    "drawingSemanticQuality": {
+      "type": "object",
+      "required": [
+        "decision",
+        "advisory_decision",
+        "enforceable",
+        "score",
+        "critical_features_total",
+        "critical_features_covered",
+        "required_dimensions_total",
+        "required_dimensions_present",
+        "missing_required_dimensions",
+        "required_notes_missing",
+        "required_views_missing",
+        "traceability",
+        "missing_critical_information",
+        "required_blockers",
+        "optional_missing_information",
+        "suggested_actions"
+      ],
+      "properties": {
+        "decision": { "type": "string" },
+        "advisory_decision": { "type": "string" },
+        "enforceable": { "type": "boolean" },
+        "score": { "type": ["number", "null"] },
+        "critical_features_total": { "type": "integer", "minimum": 0 },
+        "critical_features_covered": { "type": "integer", "minimum": 0 },
+        "required_dimensions_total": { "type": "integer", "minimum": 0 },
+        "required_dimensions_present": { "type": "integer", "minimum": 0 },
+        "missing_required_dimensions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "required_notes_missing": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "required_views_missing": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "traceability": {
+          "type": "object",
+          "required": [
+            "required_dimensions_total",
+            "linked_required_dimensions",
+            "missing_required_dimensions",
+            "unknown_required_dimensions"
+          ],
+          "properties": {
+            "required_dimensions_total": { "type": "integer", "minimum": 0 },
+            "linked_required_dimensions": { "type": "integer", "minimum": 0 },
+            "missing_required_dimensions": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "unknown_required_dimensions": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "additionalProperties": true
+        },
+        "missing_critical_information": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "required_blockers": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "optional_missing_information": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "suggested_actions": {
+          "type": "array",
+          "items": { "type": "string" }
         }
       },
       "additionalProperties": true
+    },
+    "drawingIntent": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "part_type": { "type": "string" },
+        "manufacturing_process": { "type": "string" },
+        "material": { "type": "string" },
+        "critical_features": {
+          "type": "array",
+          "items": { "type": "object", "additionalProperties": true }
+        },
+        "required_dimensions": {
+          "type": "array",
+          "items": { "type": "object", "additionalProperties": true }
+        },
+        "required_notes": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              { "type": "string" },
+              { "type": "object", "additionalProperties": true }
+            ]
+          }
+        },
+        "datum_strategy": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "required_views": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              { "type": "string" },
+              { "type": "object", "additionalProperties": true }
+            ]
+          }
+        },
+        "drawing_standard": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "object", "additionalProperties": true }
+          ]
+        },
+        "tolerance_policy": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "object", "additionalProperties": true }
+          ]
+        },
+        "missing_semantics_policy": {
+          "type": "string",
+          "enum": ["advisory", "enforced"]
+        }
+      }
     }
   },
   "additionalProperties": false

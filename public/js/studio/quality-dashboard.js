@@ -262,6 +262,178 @@ function formatArtifactReferenceStatus(status = '', required = false) {
   };
 }
 
+function firstFiniteNumber(...values) {
+  for (const value of values) {
+    if (Number.isFinite(Number(value))) return Number(value);
+  }
+  return null;
+}
+
+function formatPercent(...values) {
+  const numberValue = firstFiniteNumber(...values);
+  if (numberValue === null) return null;
+  return Number.isInteger(numberValue) ? `${numberValue}%` : `${numberValue.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')}%`;
+}
+
+function issueText(issue) {
+  if (typeof issue === 'string') return issue;
+  if (issue && typeof issue === 'object') return issue.message || issue.summary || issue.code || '';
+  return '';
+}
+
+function stringListFrom(...values) {
+  return uniqueStrings(values.flatMap((value) => safeList(value).map(issueText)));
+}
+
+function drawingStatusLabel(status = '', available = true) {
+  if (!available) return 'Unknown';
+  const normalized = normalizeSurfaceStatus(status);
+  if (normalized === 'pass') return 'Pass';
+  if (normalized === 'fail') return 'Fail';
+  if (normalized === 'warning') return 'Advisory';
+  if (normalized === 'not_available' || normalized === 'not_run' || normalized === 'missing' || normalized === 'incomplete') {
+    return 'Unknown';
+  }
+  return formatQualityStatusLabel(normalized);
+}
+
+function drawingStatusTone(status = '', available = true) {
+  if (!available) return 'info';
+  const normalized = normalizeSurfaceStatus(status);
+  if (normalized === 'pass') return 'ok';
+  if (normalized === 'fail') return 'bad';
+  if (normalized === 'warning') return 'warn';
+  return 'info';
+}
+
+function collectDrawingMissingNotesViews(surface = {}, raw = {}) {
+  const missingViews = stringListFrom(
+    surface.missing_views,
+    surface.missing_required_views,
+    raw.views?.missing_views,
+    raw.views?.missing_required_views,
+    raw.views?.missing_required
+  ).map((entry) => `View: ${entry}`);
+  const missingNotes = stringListFrom(
+    surface.missing_notes,
+    surface.missing_required_notes,
+    raw.notes?.missing_notes,
+    raw.notes?.missing_required_notes,
+    raw.notes?.missing_required,
+    raw.annotations?.missing_required_notes
+  ).map((entry) => `Note: ${entry}`);
+  const expectedViews = firstFiniteNumber(raw.views?.required_count, raw.views?.expected_count);
+  const generatedViews = firstFiniteNumber(raw.views?.generated_count, raw.views?.actual_count);
+
+  return uniqueStrings([
+    ...missingViews,
+    ...missingNotes,
+    expectedViews !== null && generatedViews !== null && generatedViews < expectedViews
+      ? `Views generated ${generatedViews}/${expectedViews}`
+      : '',
+  ]);
+}
+
+function buildDrawingCoverageLabel(surface = {}, raw = {}, missingRequiredDimensions = []) {
+  const coverage = formatPercent(
+    surface.traceability_coverage_percent,
+    raw.traceability?.coverage_percent,
+    raw.dimensions?.coverage_percent
+  );
+  const linkedDimensions = firstFiniteNumber(raw.traceability?.linked_dimensions, raw.traceability?.summary?.linked_dimensions);
+  const dimensionCount = firstFiniteNumber(raw.traceability?.dimension_count, raw.traceability?.summary?.dimension_count);
+
+  if (coverage) return `${coverage} traceability coverage`;
+  if (linkedDimensions !== null && dimensionCount !== null) return `${linkedDimensions}/${dimensionCount} dimension links covered`;
+  if (missingRequiredDimensions.length === 0 && normalizeSurfaceStatus(surface.status) === 'pass') return 'Covered';
+  return 'Unknown';
+}
+
+function buildDrawingQualityPanel({ artifacts = [], reportSummary = {}, drawingSurface = {}, drawingQuality = {} } = {}) {
+  const raw = safeObject(drawingQuality);
+  const surface = safeObject(drawingSurface);
+  const artifactLinks = buildArtifactLinks(artifacts);
+  const drawingArtifact = artifactLinks.find((artifact) => artifact.id === 'drawing_quality_json') || null;
+  const reportArtifact = artifactLinks.find((artifact) => artifact.id === 'report_summary_json') || null;
+  const hasSurfaceEvidence = Object.keys(surface).length > 0;
+  const hasRawEvidence = Object.keys(raw).length > 0;
+  const hasArtifactEvidence = Boolean(drawingArtifact || reportArtifact);
+  if (!hasSurfaceEvidence && !hasRawEvidence && !hasArtifactEvidence) return null;
+
+  const available = surface.available === true || hasRawEvidence;
+  const status = available
+    ? normalizeSurfaceStatus(surface.status || raw.status || 'warning')
+    : 'not_available';
+  const missingRequiredDimensions = uniqueStrings([
+    ...safeList(surface.missing_required_dimensions),
+    ...safeList(raw.dimensions?.missing_required_intents),
+    ...safeList(raw.dimensions?.missing_required_dimensions),
+  ]);
+  const conflictCount = firstFiniteNumber(surface.conflict_count, raw.dimensions?.conflict_count) || 0;
+  const overlapCount = firstFiniteNumber(surface.overlap_count, raw.views?.overlap_count) || 0;
+  const missingNotesViews = collectDrawingMissingNotesViews(surface, raw);
+  const blockers = uniqueStrings([
+    ...stringListFrom(surface.blocking_issues, raw.blocking_issues),
+    ...missingRequiredDimensions.map((entry) => `Missing required dimension: ${entry}`),
+    conflictCount > 0 ? `${conflictCount} dimension conflicts` : '',
+    overlapCount > 0 ? `${overlapCount} drawing layout overlaps` : '',
+  ]);
+  const advisoryItems = uniqueStrings([
+    ...stringListFrom(surface.warnings, raw.warnings),
+    ...safeList(raw.dimensions?.missing_optional_intents).map((entry) => `Optional dimension: ${entry}`),
+    ...safeList(raw.notes?.missing_optional_notes).map((entry) => `Optional note: ${entry}`),
+  ]);
+  const blocksReview = available && (
+    status === 'fail'
+    || blockers.length > 0
+    || missingRequiredDimensions.length > 0
+    || missingNotesViews.length > 0
+    || conflictCount > 0
+    || overlapCount > 0
+  );
+  const advisoryOnly = available && !blocksReview && (status === 'warning' || advisoryItems.length > 0);
+  const suggestedActions = uniqueStrings([
+    ...safeList(surface.recommended_actions),
+    ...safeList(raw.recommended_actions),
+    !available ? 'Run drawing semantic QA to produce drawing_quality evidence.' : '',
+    blocksReview && missingRequiredDimensions.length > 0 ? 'Add or map the missing required drawing dimensions before review.' : '',
+    blocksReview && missingNotesViews.length > 0 ? 'Add the missing required drawing notes or views before review.' : '',
+    blocksReview && conflictCount > 0 ? 'Resolve drawing dimension conflicts before manufacturing review.' : '',
+    blocksReview && overlapCount > 0 ? 'Repair drawing view or annotation overlaps before manufacturing review.' : '',
+    !blocksReview && !advisoryOnly && available ? 'No drawing action required.' : '',
+  ]);
+
+  return {
+    available,
+    status,
+    statusLabel: drawingStatusLabel(status, available),
+    tone: drawingStatusTone(status, available),
+    score: firstFiniteNumber(surface.score, raw.score),
+    criticalCoverageLabel: buildDrawingCoverageLabel(surface, raw, missingRequiredDimensions),
+    missingRequiredDimensions,
+    missingNotesViews,
+    blockers,
+    advisoryItems,
+    suggestedActions,
+    decisionImpact: !available
+      ? 'Unknown - drawing semantic QA not available for this job'
+      : blocksReview
+        ? 'Blocks manufacturing review'
+        : advisoryOnly
+          ? 'Advisory only'
+          : 'Does not block manufacturing review',
+    evidenceArtifact: drawingArtifact || reportArtifact || null,
+    evidenceSource: drawingArtifact
+      ? 'drawing_quality evidence'
+      : reportArtifact
+        ? 'report_summary drawing surface'
+        : 'drawing quality payload',
+    reportReady: typeof reportSummary.ready_for_manufacturing_review === 'boolean'
+      ? reportSummary.ready_for_manufacturing_review
+      : null,
+  };
+}
+
 function buildReportSummaryChecks({ reportSummary = {}, reportArtifactPresent = false } = {}) {
   const groups = {
     passed: [],
@@ -535,7 +707,7 @@ function buildArtifactLinks(artifacts = []) {
     .filter(Boolean);
 }
 
-function buildReportSummaryModel({ artifacts = [], reportSummary = {} } = {}) {
+function buildReportSummaryModel({ artifacts = [], reportSummary = {}, drawingQuality = {} } = {}) {
   const surfaces = safeObject(reportSummary.surfaces);
   const createSurface = safeObject(surfaces.create_quality);
   const drawingSurface = safeObject(surfaces.drawing_quality);
@@ -604,6 +776,12 @@ function buildReportSummaryModel({ artifacts = [], reportSummary = {} } = {}) {
     warnings: uniqueStrings(safeList(reportSummary.warnings)),
     recommendedActions: uniqueStrings(safeList(reportSummary.recommended_actions)),
     artifactLinks: buildArtifactLinks(artifacts),
+    drawingQuality: buildDrawingQualityPanel({
+      artifacts,
+      reportSummary,
+      drawingSurface,
+      drawingQuality,
+    }),
     checks,
   });
 }
@@ -731,6 +909,21 @@ function buildFallbackModel({
       'Run report generation with DFM attached to restore the decision summary.',
     ]),
     artifactLinks: buildArtifactLinks(artifacts),
+    drawingQuality: buildDrawingQualityPanel({
+      artifacts,
+      drawingSurface: {
+        available: Object.keys(drawingQuality).length > 0,
+        status: drawingSurface.status,
+        score: drawingSurface.score,
+        missing_required_dimensions: drawingSurface.missingRequiredDimensions,
+        conflict_count: drawingSurface.conflictCount,
+        overlap_count: drawingSurface.overlapCount,
+        recommended_actions: drawingSurface.recommendedActions,
+        blocking_issues: drawingSurface.blockingIssues,
+        warnings: drawingSurface.warnings,
+      },
+      drawingQuality,
+    }),
     checks: buildFallbackChecks({ createSurface, drawingSurface, reportStatus }),
   });
 }
@@ -742,7 +935,8 @@ export function buildQualityDashboardModel({
   const selectedArtifacts = collectQualityDashboardArtifacts(artifacts);
   const reportSummary = safeObject(selectedArtifacts.reportSummary ? artifactPayloads[selectedArtifacts.reportSummary.id] : null);
   if (Object.keys(reportSummary).length > 0 && reportSummary.overall_status) {
-    return buildReportSummaryModel({ artifacts, reportSummary });
+    const drawingQuality = safeObject(selectedArtifacts.drawingQuality ? artifactPayloads[selectedArtifacts.drawingQuality.id] : null);
+    return buildReportSummaryModel({ artifacts, reportSummary, drawingQuality });
   }
 
   const createQuality = safeObject(selectedArtifacts.createQuality ? artifactPayloads[selectedArtifacts.createQuality.id] : null);

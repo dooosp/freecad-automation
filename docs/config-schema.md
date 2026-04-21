@@ -28,7 +28,7 @@ The schema stays compatibility-first at the top level, but canonical v1 coverage
 | `parts`, `assembly` | Multi-part geometry and placement for assembly/tolerance workflows. |
 | `manufacturing`, `standards`, `batch_size` | Manufacturing assumptions plus rule-profile selection used by DFM/cost/readiness flows. |
 | `product`, `production`, `quality` | Product/program context for production-engineering outputs, including typed `production.sites`, automation candidates, traceability, critical dimensions, quality gates, and functional test points. |
-| `drawing`, `drawing_plan` | Drawing metadata, views, notes, tolerances, revisions, feature tolerances, datums, and compiled plan inputs used by draw/QA/report paths. |
+| `drawing`, `drawing_plan`, `drawing_intent` | Drawing metadata, views, notes, tolerances, revisions, feature tolerances, datums, compiled plan inputs, and optional semantic drawing intent used for report metadata. |
 | `fem`, `tolerance` | Analysis-specific sections for FEM and tolerance workflows. |
 | `export`, `import` | Artifact output controls and STEP-import templates. |
 
@@ -56,6 +56,12 @@ The migration/validation layer currently applies these safe defaults when the re
 - `drawing.units = "mm"`
 - `export.formats = ["step"]`
 - `fem.analysis_type = "static"`
+
+## Drawing Intent
+
+`drawing_intent` is optional semantic metadata for what a generated drawing is expected to communicate. It can describe part type, process, material, critical features, required dimensions, required notes, datum strategy, required views, drawing standard, tolerance policy, and `missing_semantics_policy`.
+
+For this foundation layer, missing `drawing_intent` is allowed and does not affect job success, quality status, or manufacturing-readiness decisions. When present, it is preserved in `report_summary.json`; `missing_semantics_policy = "advisory"` is the default safety posture.
 
 ## Rule Profile Selection
 

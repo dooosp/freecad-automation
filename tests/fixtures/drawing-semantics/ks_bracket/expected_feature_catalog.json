@@ -1,0 +1,140 @@
+{
+  "summary": {
+    "total_features": 10,
+    "recognized_features": 7,
+    "unknown_features": 3,
+    "recognition_sources": [
+      "explicit_config_box_primary_candidate",
+      "explicit_config_cut_cylinder",
+      "explicit_config_cut_tool_unclassified",
+      "explicit_config_equal_radius_hole_group",
+      "explicit_config_fillet_operation",
+      "explicit_config_shape_unclassified"
+    ]
+  },
+  "features": [
+    {
+      "feature_id": "base_plate",
+      "type": "primary_body",
+      "critical": true,
+      "dimensions": {
+        "length_mm": 120,
+        "width_mm": 80,
+        "height_mm": 8
+      },
+      "evidence_kind": "config_shape"
+    },
+    {
+      "feature_id": "fillet_8",
+      "type": "fillet",
+      "critical": false,
+      "dimensions": {
+        "radius_mm": 3
+      },
+      "evidence_kind": "config_operation"
+    },
+    {
+      "feature_id": "gusset",
+      "type": "unknown",
+      "critical": false,
+      "dimensions": {
+        "length_mm": 30,
+        "width_mm": 80,
+        "height_mm": 30,
+        "position_mm": [8, 0, 8]
+      },
+      "evidence_kind": "config_shape"
+    },
+    {
+      "feature_id": "hole_pattern_1",
+      "type": "hole_pattern",
+      "critical": true,
+      "dimensions": {
+        "count": 4,
+        "diameter_mm": 9,
+        "member_feature_ids": ["hole1", "hole2", "hole3", "hole4"],
+        "center_positions_mm": [
+          [30, 20, -2],
+          [90, 20, -2],
+          [30, 60, -2],
+          [90, 60, -2]
+        ],
+        "spacing_x_mm": 60,
+        "spacing_y_mm": 40
+      },
+      "evidence_kind": "config_feature_group"
+    },
+    {
+      "feature_id": "hole1",
+      "type": "hole",
+      "critical": true,
+      "dimensions": {
+        "height_mm": 12,
+        "radius_mm": 4.5,
+        "diameter_mm": 9,
+        "position_mm": [30, 20, -2]
+      },
+      "evidence_kind": "config_operation"
+    },
+    {
+      "feature_id": "hole2",
+      "type": "hole",
+      "critical": true,
+      "dimensions": {
+        "height_mm": 12,
+        "radius_mm": 4.5,
+        "diameter_mm": 9,
+        "position_mm": [90, 20, -2]
+      },
+      "evidence_kind": "config_operation"
+    },
+    {
+      "feature_id": "hole3",
+      "type": "hole",
+      "critical": true,
+      "dimensions": {
+        "height_mm": 12,
+        "radius_mm": 4.5,
+        "diameter_mm": 9,
+        "position_mm": [30, 60, -2]
+      },
+      "evidence_kind": "config_operation"
+    },
+    {
+      "feature_id": "hole4",
+      "type": "hole",
+      "critical": true,
+      "dimensions": {
+        "height_mm": 12,
+        "radius_mm": 4.5,
+        "diameter_mm": 9,
+        "position_mm": [90, 60, -2]
+      },
+      "evidence_kind": "config_operation"
+    },
+    {
+      "feature_id": "v_groove",
+      "type": "unknown_cut_feature",
+      "critical": true,
+      "dimensions": {
+        "length_mm": 4,
+        "width_mm": 40,
+        "height_mm": 25,
+        "position_mm": [-2, 20, 30]
+      },
+      "evidence_kind": "config_operation"
+    },
+    {
+      "feature_id": "web",
+      "type": "unknown",
+      "critical": true,
+      "dimensions": {
+        "length_mm": 8,
+        "width_mm": 80,
+        "height_mm": 60,
+        "position_mm": [0, 0, 8]
+      },
+      "evidence_kind": "config_shape"
+    }
+  ]
+}

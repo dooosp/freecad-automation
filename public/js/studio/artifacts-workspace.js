@@ -419,6 +419,102 @@ function renderTextListSection({ title, empty, items = [], labelPrefix }) {
   });
 }
 
+function formatListValue(items = [], empty = 'None') {
+  return items.length > 0 ? items.join(', ') : empty;
+}
+
+function renderDrawingQualitySection(drawingQuality = null) {
+  if (!drawingQuality) return null;
+  const scoreNote = drawingQuality.score !== null && drawingQuality.score !== undefined
+    ? `score ${drawingQuality.score}`
+    : '';
+  const evidenceArtifact = drawingQuality.evidenceArtifact;
+
+  return el('div', {
+    className: 'quality-drawing-panel',
+    children: [
+      el('div', {
+        className: 'quality-drawing-panel-header',
+        children: [
+          el('div', {
+            children: [
+              el('p', { className: 'list-label', text: 'Drawing semantic QA' }),
+              el('p', {
+                className: 'list-copy',
+                text: drawingQuality.available
+                  ? 'Semantic drawing evidence is interpreted separately from job execution status.'
+                  : 'Drawing semantic QA not available for this job.',
+              }),
+            ],
+          }),
+          el('span', {
+            className: `pill pill-status-${drawingQuality.tone || 'info'}`,
+            text: drawingQuality.statusLabel || 'Unknown',
+          }),
+        ],
+      }),
+      createInfoGrid([
+        {
+          label: 'Overall drawing quality',
+          value: drawingQuality.statusLabel || 'Unknown',
+          note: scoreNote,
+        },
+        {
+          label: 'Critical feature coverage',
+          value: drawingQuality.criticalCoverageLabel || 'Unknown',
+        },
+        {
+          label: 'Missing required dimensions',
+          value: formatListValue(drawingQuality.missingRequiredDimensions),
+        },
+        {
+          label: 'Missing notes/views',
+          value: formatListValue(drawingQuality.missingNotesViews),
+        },
+        {
+          label: 'Manufacturing review impact',
+          value: drawingQuality.decisionImpact || 'Unknown',
+        },
+        {
+          label: 'Evidence artifact',
+          value: evidenceArtifact?.label || 'Report summary',
+          note: evidenceArtifact?.fileName || drawingQuality.evidenceSource || '',
+        },
+      ]),
+      renderTextListSection({
+        title: 'Drawing blockers',
+        empty: 'No drawing blockers were reported.',
+        items: drawingQuality.blockers || [],
+        labelPrefix: 'Drawing blocker',
+      }),
+      renderTextListSection({
+        title: 'Drawing advisories',
+        empty: 'No advisory drawing items were reported.',
+        items: drawingQuality.advisoryItems || [],
+        labelPrefix: 'Drawing advisory',
+      }),
+      renderTextListSection({
+        title: 'Suggested drawing actions',
+        empty: 'No drawing action was suggested.',
+        items: drawingQuality.suggestedActions || [],
+        labelPrefix: 'Drawing action',
+      }),
+      evidenceArtifact?.href
+        ? el('div', {
+            className: 'review-detail-actions quality-dashboard-links',
+            children: [
+              el('a', {
+                className: 'action-button action-button-ghost',
+                text: `Open evidence - ${evidenceArtifact.label}`,
+                attrs: { href: evidenceArtifact.href, target: '_blank', rel: 'noreferrer noopener' },
+              }),
+            ],
+          })
+        : null,
+    ].filter(Boolean),
+  });
+}
+
 function renderArtifactLinks(artifactLinks = []) {
   if (artifactLinks.length === 0) return null;
   return el('div', {
@@ -452,6 +548,7 @@ function renderQualityDashboard(model) {
       className: 'quality-dashboard-stack',
       children: [
         ...commonHeader,
+        renderDrawingQualitySection(model.drawingQuality),
         el('div', { className: 'support-note', text: model.decisionCopies.gateCopy }),
         renderCheckSection({
           title: 'Required gates passed',
@@ -474,6 +571,7 @@ function renderQualityDashboard(model) {
       className: 'quality-dashboard-stack',
       children: [
         ...commonHeader,
+        renderDrawingQualitySection(model.drawingQuality),
         renderCheckSection({
           title: 'Failed checks',
           empty: 'No failed checks were reported for this artifact set.',
@@ -506,6 +604,7 @@ function renderQualityDashboard(model) {
     className: 'quality-dashboard-stack',
     children: [
       ...commonHeader,
+      renderDrawingQualitySection(model.drawingQuality),
       renderCheckSection({
         title: 'Failed checks',
         empty: 'No failed checks were reported for this artifact set.',

@@ -1,0 +1,10 @@
+{
+  "drawing_intent": {
+    "part_type": "v_block_bracket",
+    "material": "SS304",
+    "required_views": ["front", "top", "right", "iso"],
+    "critical_feature_ids": ["BASE_PLATE", "V_GROOVE", "WEB"],
+    "required_dimension_ids": ["MOUNTING_HOLE_DIA", "BASE_PLATE_ENVELOPE", "WEB_HEIGHT"],
+    "missing_semantics_policy": "advisory"
+  }
+}

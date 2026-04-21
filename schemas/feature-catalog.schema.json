@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freecad-automation.local/schemas/feature-catalog.schema.json",
+  "title": "Conservative manufacturing feature catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "generated_at",
+    "recognition_policy",
+    "config_name",
+    "source_refs",
+    "summary",
+    "features",
+    "warnings"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "artifact_type": { "const": "feature_catalog" },
+    "generated_at": { "type": "string" },
+    "recognition_policy": { "type": "string", "minLength": 1 },
+    "config_name": { "type": "string" },
+    "source_refs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/sourceRef" }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total_features",
+        "recognized_features",
+        "unknown_features",
+        "recognition_sources"
+      ],
+      "properties": {
+        "total_features": { "type": "integer", "minimum": 0 },
+        "recognized_features": { "type": "integer", "minimum": 0 },
+        "unknown_features": { "type": "integer", "minimum": 0 },
+        "recognition_sources": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "features": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/feature" }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "$defs": {
+    "sourceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path"],
+      "properties": {
+        "kind": { "type": "string", "minLength": 1 },
+        "path": { "type": ["string", "null"] },
+        "label": { "type": ["string", "null"] }
+      }
+    },
+    "feature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "feature_id",
+        "type",
+        "source",
+        "recognition_source",
+        "confidence",
+        "critical",
+        "related_config_path",
+        "related_artifact",
+        "dimensions",
+        "evidence"
+      ],
+      "properties": {
+        "feature_id": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1 },
+        "recognition_source": { "type": "string", "minLength": 1 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "critical": { "type": "boolean" },
+        "related_config_path": { "type": ["string", "null"] },
+        "related_artifact": { "type": ["string", "null"] },
+        "dimensions": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "evidence": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["kind"],
+          "properties": {
+            "kind": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    }
+  }
+}

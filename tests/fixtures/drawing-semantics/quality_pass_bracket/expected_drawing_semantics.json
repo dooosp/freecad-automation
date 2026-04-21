@@ -1,0 +1,10 @@
+{
+  "drawing_intent": {
+    "part_type": "mounting_bracket",
+    "material": "AL6061",
+    "required_views": ["top", "iso"],
+    "critical_feature_ids": ["PLATE", "MOUNTING_HOLES"],
+    "required_dimension_ids": ["HOLE_LEFT_DIA", "HOLE_RIGHT_DIA"],
+    "missing_semantics_policy": "advisory"
+  }
+}

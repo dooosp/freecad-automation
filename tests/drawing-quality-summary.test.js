@@ -104,6 +104,8 @@ function makeBaseArtifacts() {
   assert.equal(summary.bom.actual_items, 2);
   assert.deepEqual(summary.blocking_issues, []);
   assert.deepEqual(summary.recommended_actions, []);
+  assert.equal(summary.semantic_quality.decision, 'unknown');
+  assert.equal(summary.semantic_quality.enforceable, false);
 }
 
 {
@@ -117,6 +119,104 @@ function makeBaseArtifacts() {
   assert.equal(summary.bom.expected_items, 0);
   assert.equal(summary.bom.actual_items, 0);
   assert.equal(summary.bom.balloon_mismatches, 0);
+}
+
+{
+  const summary = buildDrawingQualitySummary({
+    ...makeBaseArtifacts(),
+    drawingIntent: {
+      optional_dimensions: [
+        { id: 'SERVICE_CLEARANCE', feature: 'service_zone' },
+      ],
+      optional_notes: ['SERVICE ACCESS'],
+    },
+  });
+  assert.equal(summary.status, 'pass');
+  assert.equal(summary.semantic_quality.required_blockers.length, 0);
+  assert.equal(summary.semantic_quality.optional_missing_information.length, 2);
+  assert.deepEqual(summary.blocking_issues, []);
+}
+
+{
+  const summary = buildDrawingQualitySummary({
+    ...makeBaseArtifacts(),
+    drawingIntent: {
+      required_dimensions: [
+        { id: 'WIDTH', feature: 'body_width' },
+        { id: 'DEPTH', feature: 'body_depth' },
+      ],
+      required_notes: ['MACHINED PART'],
+      required_views: ['front', 'section'],
+    },
+    featureCatalog: {
+      features: [
+        { id: 'body_width', critical: true },
+        { id: 'body_depth', critical: true },
+      ],
+    },
+    bomPath: null,
+    bomEntries: [],
+    bomRows: [],
+    svgContent: '<svg><g class="general-notes"><text>MACHINED PART</text></g></svg>',
+  });
+  assert.equal(summary.status, 'pass');
+  assert.equal(summary.semantic_quality.decision, 'advisory');
+  assert.equal(summary.semantic_quality.enforceable, false);
+  assert.equal(summary.semantic_quality.required_dimensions_total, 2);
+  assert.equal(summary.semantic_quality.required_dimensions_present, 1);
+  assert.deepEqual(summary.semantic_quality.missing_required_dimensions, ['DEPTH']);
+  assert.deepEqual(summary.semantic_quality.required_views_missing, ['section']);
+  assert(summary.semantic_quality.missing_critical_information.some((item) => item.includes('DEPTH')));
+  assert.equal(summary.semantic_quality.required_blockers.length, 0);
+  assert.deepEqual(summary.blocking_issues, []);
+}
+
+{
+  const summary = buildDrawingQualitySummary({
+    ...makeBaseArtifacts(),
+    dimensionMap: null,
+    traceability: null,
+    drawingIntent: {
+      required_dimensions: [
+        { id: 'WIDTH', feature: 'body_width' },
+      ],
+    },
+  });
+  assert.equal(summary.semantic_quality.decision, 'advisory');
+  assert.equal(summary.semantic_quality.required_dimensions_present, 0);
+  assert.deepEqual(summary.semantic_quality.missing_required_dimensions, ['WIDTH']);
+  assert.deepEqual(summary.semantic_quality.traceability.unknown_required_dimensions, ['WIDTH']);
+  assert.notEqual(summary.semantic_quality.advisory_decision, 'pass');
+}
+
+{
+  const summary = buildDrawingQualitySummary({
+    ...makeBaseArtifacts(),
+    drawingIntent: {
+      enforceable: true,
+      required_dimensions: [
+        { id: 'DEPTH', feature: 'body_depth' },
+      ],
+    },
+  });
+  assert.equal(summary.status, 'fail');
+  assert.equal(summary.semantic_quality.decision, 'fail');
+  assert(summary.semantic_quality.required_blockers.some((item) => item.includes('DEPTH')));
+  assert(summary.blocking_issues.some((issue) => issue.code === 'semantic-drawing-intent-coverage'));
+}
+
+{
+  const summary = buildDrawingQualitySummary({
+    ...makeBaseArtifacts(),
+    drawingIntent: {
+      required_dimensions: [
+        { id: 'WIDTH', feature: 'body_width' },
+      ],
+    },
+  });
+  assert.equal(summary.semantic_quality.traceability.linked_required_dimensions, 1);
+  assert.equal(summary.semantic_quality.traceability.rows[0].status, 'linked');
+  assert.equal(summary.semantic_quality.traceability.rows[0].feature_id, 'body_width');
 }
 
 {
