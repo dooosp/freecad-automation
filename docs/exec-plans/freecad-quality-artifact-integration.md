@@ -4,8 +4,8 @@
 - Integrate completed quality artifact UI fixes and generated artifact output hygiene fixes into a clean branch from `origin/master`.
 
 ## Strategy
-- Treat `/Users/jangtaeho/freecad-automation` and `/Users/jangtaeho/worktrees/freecad-automation-generated-artifact-output-hygiene` as read-only source worktrees.
-- Apply only task-scoped diffs to `/Users/jangtaeho/worktrees/freecad-automation-quality-artifact-integrated`.
+- Treat the source worktrees for the original automation branch and generated artifact output hygiene branch as read-only references.
+- Apply only task-scoped diffs to the integrated quality artifact branch worktree.
 - Exclude generated demo artifacts, `configs/examples/*_manifest.json`, repo-root `demo_*`, `output/*`, and temporary status files from commits.
 - Validate syntax, focused tests, broader suites, runtime smoke, source hygiene, and final diff state before local commit.
 
