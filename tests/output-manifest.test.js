@@ -67,6 +67,17 @@ try {
   });
   assert.equal(derivedPath, join(TMP_DIR, 'sample_manifest.json'));
 
+  const defaultDerivedPath = createOutputManifestPath({
+    inputPath,
+  });
+  assert.equal(defaultDerivedPath, resolve(ROOT, 'output', 'sample-config_manifest.json'));
+
+  const smokeInputPath = resolve(ROOT, 'output', 'smoke', 'run-123', 'configs', 'sample.toml');
+  const smokeDerivedPath = createOutputManifestPath({
+    inputPath: smokeInputPath,
+  });
+  assert.equal(smokeDerivedPath, resolve(ROOT, 'output', 'smoke', 'run-123', 'sample_manifest.json'));
+
   const manifestPath = join(TMP_DIR, 'sample_manifest.json');
   await writeOutputManifest(manifestPath, manifest);
   const persisted = JSON.parse(readFileSync(manifestPath, 'utf8'));

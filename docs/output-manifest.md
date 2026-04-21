@@ -23,7 +23,7 @@ Examples:
 
 - `output/ks_bracket.step` -> `output/ks_bracket_manifest.json`
 - `output/ks_bracket_drawing.svg` -> `output/ks_bracket_drawing_manifest.json`
-- `tmp/ks_bracket.toml` for `fcad dfm tmp/ks_bracket.toml` -> `tmp/ks_bracket_manifest.json`
+- `tmp/ks_bracket.toml` for `fcad dfm tmp/ks_bracket.toml` -> `output/ks_bracket_manifest.json`
 
 ## Why it helps
 
