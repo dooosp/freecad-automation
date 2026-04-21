@@ -21,6 +21,10 @@ import {
   shouldFailDrawingQualityGate,
   writeDrawingQualitySummary,
 } from '../services/drawing/drawing-quality-summary.js';
+import {
+  buildDrawingPlanner,
+  writeDrawingPlanner,
+} from '../services/drawing/drawing-planner.js';
 
 function nowIso() {
   return new Date().toISOString();
@@ -650,6 +654,7 @@ export async function runDrawPipeline({
       const layoutPath = runLog.artifacts.layout_report || join(artifactDir, `${artifactStem}_layout_report.json`);
       const dimMapPath = runLog.artifacts.dimension_map || join(artifactDir, `${artifactStem}_dimension_map.json`);
       const conflictPath = runLog.artifacts.dim_conflicts || join(artifactDir, `${artifactStem}_dim_conflicts.json`);
+      const plannerPath = join(artifactDir, `${artifactStem}_drawing_planner.json`);
       const bomPath = result.drawing_paths?.find((entry) => entry.format === 'csv')?.path || null;
 
       const qaReport = latestQaReport || (qaJsonPath && existsSync(qaJsonPath)
@@ -676,6 +681,24 @@ export async function runDrawPipeline({
       const svgContent = primarySvgPath && existsSync(primarySvgPath)
         ? readFileSync(primarySvgPath, 'utf8')
         : result.svgContent || null;
+      const drawingPlanner = buildDrawingPlanner({
+        config,
+        drawingIntent: config.drawing_intent || config.drawing_plan || null,
+        traceability,
+        dimensionMap,
+        artifactRefs: {
+          input_config: absPath,
+          drawing_svg: primarySvgPath,
+          plan: runLog.artifacts.plan || null,
+          traceability: traceabilityPath,
+          dimension_map: dimMapPath,
+          dim_conflicts: conflictPath,
+        },
+      });
+      await writeDrawingPlanner(plannerPath, drawingPlanner);
+      runLog.artifacts.drawing_planner = plannerPath;
+      result.drawing_planner = drawingPlanner;
+      result.drawing_planner_path = plannerPath;
 
       const drawingQuality = buildDrawingQualitySummary({
         inputConfigPath: absPath,
@@ -690,10 +713,14 @@ export async function runDrawPipeline({
         traceability,
         layoutReportPath: layoutPath,
         layoutReport,
+        plannerPath,
+        planner: drawingPlanner,
         dimensionMapPath: dimMapPath,
         dimensionMap,
         dimConflictsPath: conflictPath,
         dimConflicts,
+        drawingIntent: config.drawing_intent || null,
+        featureCatalog: config.feature_catalog || null,
         bomPath,
         bomEntries: result.bom || [],
         bomRows,

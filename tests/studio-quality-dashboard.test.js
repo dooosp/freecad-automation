@@ -170,6 +170,13 @@ function makeArtifact({
   assert.deepEqual(model.optionalImprovements, ['Archive the approved release bundle.']);
   assert.equal(model.checks.passed.find((entry) => entry.label === 'Create Manifest')?.displayStatus, 'Computed in report');
   assert.equal(model.checks.passed.some((entry) => entry.displayStatus === 'in_memory'), false);
+  assert.equal(model.drawingQuality.statusLabel, 'Pass');
+  assert.equal(model.drawingQuality.criticalCoverageLabel, '100% traceability coverage');
+  assert.equal(model.drawingQuality.decisionImpact, 'Does not block manufacturing review');
+  assert.deepEqual(model.drawingQuality.missingRequiredDimensions, []);
+  assert.deepEqual(model.drawingQuality.missingNotesViews, []);
+  assert.deepEqual(model.drawingQuality.suggestedActions, ['No drawing action required.']);
+  assert.equal(model.drawingQuality.evidenceArtifact.label, 'Drawing quality JSON');
 }
 
 {
@@ -242,6 +249,8 @@ function makeArtifact({
             status: 'fail',
             score: 71,
             missing_required_dimensions: ['HOLE_DIA'],
+            missing_required_views: ['section A-A'],
+            missing_required_notes: ['material callout'],
             conflict_count: 7,
             overlap_count: 0,
             traceability_coverage_percent: 0,
@@ -293,6 +302,12 @@ function makeArtifact({
   assert.equal(model.checks.unavailable.find((entry) => entry.label === 'FEM analysis')?.displayStatus, 'Optional not run');
   assert.equal(model.checks.unavailable.find((entry) => entry.label === 'Tolerance analysis')?.displayStatus, 'Optional missing');
   assert.equal(model.blockers.length, 4);
+  assert.equal(model.drawingQuality.statusLabel, 'Fail');
+  assert.equal(model.drawingQuality.decisionImpact, 'Blocks manufacturing review');
+  assert.deepEqual(model.drawingQuality.missingRequiredDimensions, ['HOLE_DIA']);
+  assert.deepEqual(model.drawingQuality.missingNotesViews, ['View: section A-A', 'Note: material callout']);
+  assert.equal(model.drawingQuality.blockers.some((entry) => entry.includes('Dimension conflict count 7')), true);
+  assert.equal(model.drawingQuality.suggestedActions.some((entry) => entry.includes('HOLE_DIA')), true);
 }
 
 {
@@ -382,6 +397,8 @@ function makeArtifact({
   assert.equal(model.checks.unavailable.find((entry) => entry.label === 'FEM analysis')?.displayStatus, 'Optional not run');
   assert.equal(model.checks.unavailable.find((entry) => entry.label === 'Tolerance analysis')?.displayStatus, 'Optional missing');
   assert.deepEqual(model.optionalImprovements, ['Optional: rerun tolerance for a wider production sample.']);
+  assert.equal(model.drawingQuality.statusLabel, 'Pass');
+  assert.equal(model.drawingQuality.decisionImpact, 'Does not block manufacturing review');
 }
 
 {
@@ -444,6 +461,61 @@ function makeArtifact({
   assert.equal(model.failedGateNames.includes('Geometry'), true);
   assert.equal(model.failedGateChecks.find((entry) => entry.label === 'Geometry')?.displayStatus, 'Required missing');
   assert.equal(model.checks.unavailable.find((entry) => entry.label === 'Create quality JSON')?.displayStatus, 'Required missing');
+}
+
+{
+  const model = buildQualityDashboardModel({
+    artifacts: [
+      makeArtifact({
+        id: 'report-summary',
+        key: 'report_summary_json',
+        type: 'report.summary-json',
+        file_name: 'drawing_unavailable_report_summary.json',
+        extension: '.json',
+      }),
+    ],
+    artifactPayloads: {
+      'report-summary': {
+        overall_status: 'incomplete',
+        ready_for_manufacturing_review: null,
+        blocking_issues: [],
+        top_risks: [],
+        recommended_actions: [],
+        artifacts_referenced: [],
+        surfaces: {
+          create_quality: {
+            available: true,
+            status: 'pass',
+            blocking_issues: [],
+            warnings: [],
+          },
+          drawing_quality: {
+            available: false,
+            status: 'not_available',
+            blocking_issues: [],
+            warnings: [],
+          },
+          dfm: {
+            available: true,
+            status: 'pass',
+            severity_counts: {
+              critical: 0,
+              major: 0,
+              minor: 0,
+              info: 0,
+            },
+            blocking_issues: [],
+            warnings: [],
+          },
+        },
+      },
+    },
+  });
+
+  assert.equal(model.drawingQuality.statusLabel, 'Unknown');
+  assert.equal(model.drawingQuality.decisionImpact, 'Unknown - drawing semantic QA not available for this job');
+  assert.deepEqual(model.drawingQuality.suggestedActions, ['Run drawing semantic QA to produce drawing_quality evidence.']);
+  assert.equal(model.drawingQuality.evidenceArtifact.label, 'Report summary JSON');
 }
 
 assert.equal(formatQualityStatusLabel('generated', true), 'Generated');
@@ -538,6 +610,59 @@ assert.equal(formatQualityStatusLabel('missing', true), 'Required missing');
   assert.equal(model.checks.passed.some((entry) => entry.label === 'Geometry'), true);
   assert.equal(model.checks.passed.some((entry) => entry.label === 'Drawing'), true);
   assert.equal(model.checks.unavailable.some((entry) => entry.label === 'DFM'), true);
+  assert.equal(model.drawingQuality.statusLabel, 'Pass');
+  assert.equal(model.drawingQuality.criticalCoverageLabel, '100% traceability coverage');
+  assert.equal(model.drawingQuality.evidenceArtifact.label, 'Drawing quality JSON');
+}
+
+{
+  const artifacts = [
+    makeArtifact({
+      id: 'drawing-quality',
+      key: 'drawing_quality',
+      type: 'drawing.quality-summary',
+      file_name: 'fallback_fail_drawing_quality.json',
+      extension: '.json',
+    }),
+  ];
+
+  const model = buildQualityDashboardModel({
+    artifacts,
+    artifactPayloads: {
+      'drawing-quality': {
+        status: 'warning',
+        score: 83,
+        dimensions: {
+          missing_required_intents: [],
+          missing_optional_intents: ['CHAMFER_NOTE'],
+          conflict_count: 0,
+        },
+        views: {
+          required_count: 3,
+          generated_count: 3,
+          overlap_count: 0,
+        },
+        notes: {
+          missing_optional_notes: ['packaging note'],
+        },
+        traceability: {
+          linked_dimensions: 2,
+          dimension_count: 3,
+        },
+        blocking_issues: [],
+        warnings: ['Finish note can be clarified.'],
+        recommended_actions: ['Add the required finish note before release.'],
+      },
+    },
+  });
+
+  assert.equal(model.drawingQuality.statusLabel, 'Advisory');
+  assert.equal(model.drawingQuality.decisionImpact, 'Advisory only');
+  assert.deepEqual(model.drawingQuality.missingNotesViews, []);
+  assert.deepEqual(
+    model.drawingQuality.advisoryItems,
+    ['Finish note can be clarified.', 'Optional dimension: CHAMFER_NOTE', 'Optional note: packaging note']
+  );
 }
 
 console.log('studio-quality-dashboard.test.js: ok');

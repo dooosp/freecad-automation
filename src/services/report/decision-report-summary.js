@@ -4,6 +4,8 @@ import { dirname, join, parse, resolve } from 'node:path';
 
 import Ajv2020 from 'ajv/dist/2020.js';
 
+import { getDrawingIntent } from '../../../lib/drawing-intent.js';
+
 const REPORT_SUMMARY_SCHEMA = JSON.parse(
   readFileSync(new URL('../../../schemas/report-summary.schema.json', import.meta.url), 'utf8')
 );
@@ -24,8 +26,10 @@ const OPTIONAL_ARTIFACT_KEYS = new Set([
   'tolerance',
   'create_manifest',
   'drawing_manifest',
+  'feature_catalog',
   'report_manifest',
   'traceability_json',
+  'drawing_intent',
 ]);
 
 const REQUIRED_ARTIFACT_KEYS = new Set([
@@ -59,6 +63,12 @@ function roundNumber(value, decimals = 2) {
   if (!Number.isFinite(value)) return null;
   const multiplier = 10 ** decimals;
   return Math.round(value * multiplier) / multiplier;
+}
+
+function finiteNumberOrNull(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 function formatSchemaErrors(errors = []) {
@@ -106,6 +116,8 @@ export function deriveReportArtifactPaths({ primaryOutputPath = null, outputDir 
     create_manifest: join(dir, `${baseStem}_manifest.json`),
     drawing_quality: join(dir, `${baseStem}_drawing_quality.json`),
     drawing_manifest: join(dir, `${baseStem}_drawing_manifest.json`),
+    drawing_intent: join(dir, `${baseStem}_drawing_intent.json`),
+    feature_catalog: join(dir, `${baseStem}_feature_catalog.json`),
     traceability_json: join(dir, `${baseStem}_traceability.json`),
     tolerance_csv: join(dir, `${baseStem}_tolerance.csv`),
   };
@@ -142,6 +154,58 @@ function summarizeCreateQuality(createQuality) {
   };
 }
 
+function summarizeSemanticDrawingQuality(semanticQuality = null) {
+  if (!semanticQuality || typeof semanticQuality !== 'object') {
+    return {
+      decision: 'not_available',
+      advisory_decision: 'unknown',
+      enforceable: false,
+      score: null,
+      critical_features_total: 0,
+      critical_features_covered: 0,
+      required_dimensions_total: 0,
+      required_dimensions_present: 0,
+      missing_required_dimensions: [],
+      required_notes_missing: [],
+      required_views_missing: [],
+      traceability: {
+        required_dimensions_total: 0,
+        linked_required_dimensions: 0,
+        missing_required_dimensions: [],
+        unknown_required_dimensions: [],
+      },
+      missing_critical_information: [],
+      required_blockers: [],
+      optional_missing_information: [],
+      suggested_actions: [],
+    };
+  }
+
+  return {
+    decision: semanticQuality.decision || 'unknown',
+    advisory_decision: semanticQuality.advisory_decision || 'unknown',
+    enforceable: semanticQuality.enforceable === true,
+    score: finiteNumberOrNull(semanticQuality.score),
+    critical_features_total: Number(semanticQuality.critical_features_total || 0),
+    critical_features_covered: Number(semanticQuality.critical_features_covered || 0),
+    required_dimensions_total: Number(semanticQuality.required_dimensions_total || 0),
+    required_dimensions_present: Number(semanticQuality.required_dimensions_present || 0),
+    missing_required_dimensions: uniqueStrings(semanticQuality.missing_required_dimensions || []),
+    required_notes_missing: uniqueStrings(semanticQuality.required_notes_missing || []),
+    required_views_missing: uniqueStrings(semanticQuality.required_views_missing || []),
+    traceability: {
+      required_dimensions_total: Number(semanticQuality.traceability?.required_dimensions_total || 0),
+      linked_required_dimensions: Number(semanticQuality.traceability?.linked_required_dimensions || 0),
+      missing_required_dimensions: uniqueStrings(semanticQuality.traceability?.missing_required_dimensions || []),
+      unknown_required_dimensions: uniqueStrings(semanticQuality.traceability?.unknown_required_dimensions || []),
+    },
+    missing_critical_information: uniqueStrings(semanticQuality.missing_critical_information || []),
+    required_blockers: uniqueStrings(semanticQuality.required_blockers || []),
+    optional_missing_information: uniqueStrings(semanticQuality.optional_missing_information || []),
+    suggested_actions: uniqueStrings(semanticQuality.suggested_actions || []),
+  };
+}
+
 function summarizeDrawingQuality(drawingQuality) {
   if (!drawingQuality || typeof drawingQuality !== 'object') {
     return {
@@ -152,11 +216,14 @@ function summarizeDrawingQuality(drawingQuality) {
       conflict_count: 0,
       overlap_count: 0,
       traceability_coverage_percent: null,
+      semantic_quality: summarizeSemanticDrawingQuality(null),
       recommended_actions: [],
       blocking_issues: [],
       warnings: [],
     };
   }
+
+  const semanticQuality = summarizeSemanticDrawingQuality(drawingQuality.semantic_quality);
 
   return {
     available: true,
@@ -172,7 +239,11 @@ function summarizeDrawingQuality(drawingQuality) {
     traceability_coverage_percent: Number.isFinite(Number(drawingQuality.traceability?.coverage_percent))
       ? Number(drawingQuality.traceability.coverage_percent)
       : null,
-    recommended_actions: uniqueStrings(drawingQuality.recommended_actions || []),
+    semantic_quality: semanticQuality,
+    recommended_actions: uniqueStrings([
+      ...(drawingQuality.recommended_actions || []),
+      ...semanticQuality.suggested_actions,
+    ]),
     blocking_issues: uniqueStrings((drawingQuality.blocking_issues || []).map((issue) => (
       typeof issue === 'string' ? issue : issue?.message
     ))),
@@ -363,6 +434,11 @@ function renderTopRisks(surfaces, criticalInputsMissing = []) {
   if (surfaces.drawing_quality.overlap_count > 0) {
     risks.push(`Drawing view/layout overlaps detected: ${surfaces.drawing_quality.overlap_count}.`);
   }
+  if (surfaces.drawing_quality.semantic_quality.enforceable && surfaces.drawing_quality.semantic_quality.required_blockers.length > 0) {
+    risks.push(...surfaces.drawing_quality.semantic_quality.required_blockers);
+  } else if (surfaces.drawing_quality.semantic_quality.missing_critical_information.length > 0) {
+    risks.push('Drawing intent has advisory missing required semantic evidence.');
+  }
   if ((surfaces.dfm.severity_counts?.critical || 0) > 0) {
     risks.push(`DFM critical findings: ${surfaces.dfm.severity_counts.critical}.`);
   }
@@ -415,6 +491,7 @@ export function buildDecisionReportSummary({
   drawingQuality = null,
   createManifest = null,
   drawingManifest = null,
+  featureCatalog = null,
   reportManifest = null,
   dfm = null,
   fem = null,
@@ -436,6 +513,7 @@ export function buildDecisionReportSummary({
     fem: summarizeFem(fem),
     tolerance: summarizeTolerance(tolerance, thresholds.tolerance_success_rate_pct),
   };
+  const drawingIntent = getDrawingIntent(config);
 
   let overallStatus = 'pass';
   let readyForManufacturingReview = true;
@@ -463,10 +541,17 @@ export function buildDecisionReportSummary({
     || surfaces.drawing_quality.conflict_count > 0
     || surfaces.drawing_quality.overlap_count > 0
     || surfaces.drawing_quality.status === 'fail'
+    || (
+      surfaces.drawing_quality.semantic_quality.enforceable
+      && surfaces.drawing_quality.semantic_quality.required_blockers.length > 0
+    )
   ) {
     overallStatus = 'fail';
     readyForManufacturingReview = false;
-    blockingIssues.push(...surfaces.drawing_quality.blocking_issues);
+    blockingIssues.push(
+      ...surfaces.drawing_quality.blocking_issues,
+      ...surfaces.drawing_quality.semantic_quality.required_blockers,
+    );
   }
 
   if ((surfaces.dfm.severity_counts.critical || 0) > 0 || surfaces.dfm.status === 'fail') {
@@ -562,6 +647,26 @@ export function buildDecisionReportSummary({
       paths.drawing_manifest,
       deriveArtifactStatus(paths.drawing_manifest, drawingManifest),
     ),
+    ...(drawingIntent
+      ? [artifactRef(
+          'drawing_intent',
+          'Drawing intent JSON',
+          paths.drawing_intent,
+          deriveArtifactStatus(paths.drawing_intent, drawingIntent, { inMemory: true }),
+          'Drawing intent is optional semantic metadata.',
+          { required: false },
+        )]
+      : []),
+    ...(featureCatalog
+      ? [artifactRef(
+          'feature_catalog',
+          'Conservative feature catalog JSON',
+          paths.feature_catalog,
+          deriveArtifactStatus(paths.feature_catalog, featureCatalog),
+          'Feature recognition is conservative and evidence-scoped.',
+          { required: false },
+        )]
+      : []),
     artifactRef(
       'report_manifest',
       'Report output manifest',
@@ -605,6 +710,19 @@ export function buildDecisionReportSummary({
     missing_optional_artifacts: uniqueStrings(missingOptionalArtifacts),
     top_risks: renderTopRisks(surfaces, criticalInputsMissing),
     surfaces,
+    ...(drawingIntent ? { drawing_intent: drawingIntent } : {}),
+    ...(featureCatalog
+      ? {
+          feature_catalog: {
+            path: resolve(paths.feature_catalog),
+            available: true,
+            total_features: Number(featureCatalog.summary?.total_features || 0),
+            recognized_features: Number(featureCatalog.summary?.recognized_features || 0),
+            unknown_features: Number(featureCatalog.summary?.unknown_features || 0),
+            recognition_policy: featureCatalog.recognition_policy || null,
+          },
+        }
+      : {}),
   };
 
   return summary;

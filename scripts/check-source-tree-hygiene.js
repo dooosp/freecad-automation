@@ -14,6 +14,8 @@ const GENERATED_FILE_PATTERNS = [
   /^artifact-manifest\.json$/i,
   /_report\.pdf$/i,
   /_report_summary\.json$/i,
+  /_drawing_intent\.json$/i,
+  /_feature_catalog\.json$/i,
   /_drawing\.svg$/i,
   /_drawing_quality\.json$/i,
   /_create_quality\.json$/i,
@@ -48,6 +50,11 @@ function isUnderOutput(path) {
 function looksGenerated(path) {
   const name = basename(path);
   return GENERATED_FILE_PATTERNS.some((pattern) => pattern.test(name));
+}
+
+function isExpectedFixture(path) {
+  const repoPath = toRepoPath(path);
+  return repoPath.startsWith('tests/fixtures/') && basename(repoPath).startsWith('expected_');
 }
 
 function listOutputArtifacts() {
@@ -93,6 +100,7 @@ function listUnexpectedGeneratedFiles() {
     .map(parseGitStatusLine)
     .filter(({ path }) => {
       const firstSegment = path.split('/')[0];
+      if (isExpectedFixture(path)) return false;
       return !SOURCE_ALLOWED_DIRS.has(firstSegment) && !isUnderOutput(path) && looksGenerated(path);
     })
     .sort((a, b) => a.path.localeCompare(b.path));

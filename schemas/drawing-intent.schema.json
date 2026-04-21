@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freecad-automation.local/schemas/drawing-intent.schema.json",
+  "title": "Drawing intent",
+  "description": "Optional semantic intent metadata for generated engineering drawings.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "part_type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "manufacturing_process": {
+      "type": "string",
+      "minLength": 1
+    },
+    "material": {
+      "type": "string",
+      "minLength": 1
+    },
+    "critical_features": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/criticalFeature"
+      }
+    },
+    "required_dimensions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/requiredDimension"
+      }
+    },
+    "required_notes": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1
+          },
+          {
+            "$ref": "#/$defs/requiredNote"
+          }
+        ]
+      }
+    },
+    "datum_strategy": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "primary": { "type": "string" },
+        "secondary": { "type": "string" },
+        "tertiary": { "type": "string" },
+        "scheme": { "type": "string" },
+        "notes": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "required_views": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1
+          },
+          {
+            "$ref": "#/$defs/requiredView"
+          }
+        ]
+      }
+    },
+    "drawing_standard": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "object",
+          "additionalProperties": true
+        }
+      ]
+    },
+    "tolerance_policy": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "$ref": "#/$defs/tolerancePolicy"
+        }
+      ]
+    },
+    "missing_semantics_policy": {
+      "type": "string",
+      "enum": ["advisory", "enforced"],
+      "default": "advisory"
+    }
+  },
+  "$defs": {
+    "criticalFeature": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "string" },
+        "feature": { "type": "string" },
+        "description": { "type": "string" },
+        "reason": { "type": "string" },
+        "view": { "type": "string" }
+      }
+    },
+    "requiredDimension": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "string" },
+        "feature": { "type": "string" },
+        "label": { "type": "string" },
+        "dimension_type": { "type": "string" },
+        "nominal_mm": { "type": ["number", "null"] },
+        "value_mm": { "type": ["number", "null"] },
+        "tolerance": { "type": ["string", "null"] },
+        "required": { "type": "boolean" },
+        "view": { "type": "string" },
+        "reason": { "type": "string" }
+      }
+    },
+    "requiredNote": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "category": { "type": "string" },
+        "required": { "type": "boolean" }
+      }
+    },
+    "requiredView": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "name": { "type": "string" },
+        "purpose": { "type": "string" },
+        "required": { "type": "boolean" }
+      }
+    },
+    "tolerancePolicy": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "general": { "type": ["string", "null"] },
+        "fits": { "type": ["string", "null"] },
+        "gdt": { "type": ["string", "null"] },
+        "notes": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

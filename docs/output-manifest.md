@@ -96,6 +96,7 @@ The manifest includes:
     "qa_json": "/repo/output/ks_bracket_drawing_qa.json",
     "run_log_json": "/repo/output/ks_bracket_run_log.json",
     "traceability_json": "/repo/output/ks_bracket_traceability.json",
+    "planner_json": "/repo/output/ks_bracket_drawing_planner.json",
     "report_pdf": null,
     "quality_json": "/repo/output/ks_bracket_drawing_quality.json"
   },

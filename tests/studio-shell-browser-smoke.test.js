@@ -373,6 +373,8 @@ function failQualityReportSummary() {
         status: 'fail',
         score: 71,
         missing_required_dimensions: ['HOLE_DIA'],
+        missing_required_views: ['section A-A'],
+        missing_required_notes: ['material callout'],
         conflict_count: 7,
         overlap_count: 0,
         traceability_coverage_percent: 0,
@@ -491,6 +493,40 @@ async function seedQualityDecisionJob(jobStore, {
     `artifacts/${configName}_manifest.json`,
     `${JSON.stringify({ command: 'report', config_name: configName }, null, 2)}\n`
   );
+  const drawingQualityPath = await jobStore.writeJobFile(
+    job.id,
+    `artifacts/${configName}_drawing_quality.json`,
+    `${JSON.stringify({
+      status: reportSummary.surfaces.drawing_quality.status,
+      score: reportSummary.surfaces.drawing_quality.score,
+      dimensions: {
+        missing_required_intents: reportSummary.surfaces.drawing_quality.missing_required_dimensions || [],
+        missing_optional_intents: reportSummary.surfaces.drawing_quality.missing_optional_dimensions || [],
+        conflict_count: reportSummary.surfaces.drawing_quality.conflict_count || 0,
+      },
+      views: {
+        required_count: 3,
+        generated_count: reportSummary.surfaces.drawing_quality.missing_required_views?.length ? 2 : 3,
+        missing_views: reportSummary.surfaces.drawing_quality.missing_required_views || [],
+        overlap_count: reportSummary.surfaces.drawing_quality.overlap_count || 0,
+      },
+      notes: {
+        missing_required_notes: reportSummary.surfaces.drawing_quality.missing_required_notes || [],
+        missing_optional_notes: reportSummary.surfaces.drawing_quality.missing_optional_notes || [],
+      },
+      traceability: {
+        coverage_percent: reportSummary.surfaces.drawing_quality.traceability_coverage_percent,
+      },
+      blocking_issues: reportSummary.surfaces.drawing_quality.blocking_issues || [],
+      warnings: reportSummary.surfaces.drawing_quality.warnings || [],
+      recommended_actions: reportSummary.surfaces.drawing_quality.recommended_actions || [],
+    }, null, 2)}\n`
+  );
+  const drawingSvgPath = await jobStore.writeJobFile(
+    job.id,
+    `artifacts/${configName}_drawing.svg`,
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 60"><text x="8" y="32">${configName}</text></svg>\n`
+  );
   const manifest = await buildArtifactManifest({
     projectRoot,
     interface: 'api',
@@ -520,6 +556,20 @@ async function seedQualityDecisionJob(jobStore, {
         scope: 'user-facing',
         stability: 'stable',
       },
+      {
+        type: 'drawing.quality-summary',
+        path: drawingQualityPath,
+        label: 'drawing_quality',
+        scope: 'user-facing',
+        stability: 'stable',
+      },
+      {
+        type: 'drawing.svg',
+        path: drawingSvgPath,
+        label: 'drawing_svg',
+        scope: 'user-facing',
+        stability: 'stable',
+      },
     ],
     timestamps: {
       created_at: job.created_at,
@@ -537,6 +587,8 @@ async function seedQualityDecisionJob(jobStore, {
       report_summary: reportSummaryPath,
       report_pdf: reportPdfPath,
       create_manifest: manifestPath,
+      drawing_quality: drawingQualityPath,
+      drawing_svg: drawingSvgPath,
     },
     {},
     manifest
@@ -757,6 +809,39 @@ try {
     }
   }
 
+  async function selectArtifactCardByText(expectedText) {
+    await waitFor(async () => {
+      const clicked = await cdp.evaluate(`(() => {
+        const cards = [...document.querySelectorAll('.artifact-card')];
+        const card = cards.find((entry) => entry.textContent.includes(${JSON.stringify(expectedText)}));
+        const button = card?.querySelector('[data-action="artifacts-select-artifact"]');
+        if (!button) return false;
+        button.click();
+        return true;
+      })()`);
+      assert.equal(clicked, true);
+      return clicked;
+    }, {
+      attempts: 50,
+      delayMs: 150,
+    });
+  }
+
+  async function waitForArtifactPreview(expectedText) {
+    return waitFor(async () => {
+      const preview = await cdp.evaluate(`(() => ({
+        hidden: document.querySelector('[data-hook="artifacts-detail-preview"]')?.hidden ?? true,
+        text: document.querySelector('[data-hook="artifacts-detail-preview"]')?.textContent || '',
+      }))()`);
+      assert.equal(preview.hidden, false);
+      assert.equal(preview.text.includes(expectedText), true);
+      return preview.text;
+    }, {
+      attempts: 60,
+      delayMs: 150,
+    });
+  }
+
   await openQualityJobFromTimeline(passQualityJob.id);
   const passDashboardText = await waitForDashboardText('Quality Dashboard - quality_pass_bracket');
   const passPageText = await cdp.evaluate(pageTextExpression());
@@ -768,11 +853,25 @@ try {
   ]);
   assertIncludesAll(passDashboardText, [
     'Quality Dashboard - quality_pass_bracket',
+    'Drawing semantic QA',
+    'Overall drawing quality',
+    'Pass',
+    'Critical feature coverage',
+    '100% traceability coverage',
+    'Missing required dimensions',
+    'None',
+    'Manufacturing review impact',
+    'Does not block manufacturing review',
+    'Evidence artifact',
+    'Drawing quality JSON',
     'All required quality gates passed',
     'No manufacturing blockers',
     'Ready for manufacturing review: Yes',
   ]);
   assertExcludesAll(passDashboardText, ['in_memory', 'not_available']);
+  await selectArtifactCardByText('quality_pass_bracket_drawing_quality.json');
+  const passDrawingPreviewText = await waitForArtifactPreview('"status": "pass"');
+  assertIncludesAll(passDrawingPreviewText, ['"status": "pass"', '"score": 100']);
 
   await openQualityJobFromTimeline(failQualityJob.id);
   const failDashboardText = await waitForDashboardText('Quality Dashboard - ks_bracket');
@@ -785,10 +884,27 @@ try {
   ]);
   assertIncludesAll(failDashboardText, [
     'Quality Dashboard - ks_bracket',
+    'Drawing semantic QA',
+    'Overall drawing quality',
+    'Fail',
+    'Missing required dimensions',
+    'HOLE_DIA',
+    'Missing notes/views',
+    'View: section A-A, Note: material callout',
+    'Manufacturing review impact',
+    'Blocks manufacturing review',
+    'Open evidence - Drawing quality JSON',
     'Manufacturing review blocked by',
     'Ready for manufacturing review: No',
   ]);
   assertExcludesAll(failDashboardText, ['in_memory', 'not_available']);
+  const previewAfterSwitch = await cdp.evaluate(`(() => ({
+    hidden: document.querySelector('[data-hook="artifacts-detail-preview"]')?.hidden ?? true,
+    text: document.querySelector('[data-hook="artifacts-detail-preview"]')?.textContent || '',
+  }))()`);
+  assert.equal(previewAfterSwitch.text.includes('quality_pass_bracket'), false);
+  assert.equal(previewAfterSwitch.text.includes('quality_pass_bracket_drawing.svg'), false);
+  assert.equal(previewAfterSwitch.text.includes('quality_pass_bracket_report.pdf'), false);
 
   await openQualityJobFromTimeline(optionalQualityJob.id);
   const optionalDashboardText = await waitForDashboardText('Quality Dashboard - optional_quality_bracket');

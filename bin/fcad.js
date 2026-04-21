@@ -556,6 +556,15 @@ function createArtifactEntry(type, path, {
   };
 }
 
+function drawingIntentManifestMetadata(reportSummary = null) {
+  const drawingIntent = reportSummary?.drawing_intent;
+  if (!drawingIntent || typeof drawingIntent !== 'object') return undefined;
+  return {
+    includes_drawing_intent: true,
+    missing_semantics_policy: drawingIntent.missing_semantics_policy || 'advisory',
+  };
+}
+
 function safeFilenameComponent(value, defaultValue = 'unnamed') {
   const text = String(value || '').trim().replaceAll('\\', '/').replaceAll('\0', '');
   const leaf = text.split('/').pop();
@@ -642,6 +651,7 @@ function buildExpectedDrawArtifacts(config = {}) {
     primaryOutputPath: svgPath,
     outputs: [
       createOutputEntry('drawing.svg', svgPath),
+      createOutputEntry('drawing.quality-json', svgPath.replace(/\.svg$/i, '_quality.json')),
       config?.drawing?.dxf ? createOutputEntry('drawing.dxf', join(outputDir, `${stem}_front.dxf`)) : null,
       config?.drawing?.bom_csv ? createOutputEntry('drawing.csv', join(outputDir, `${stem}_bom.csv`)) : null,
     ].filter(Boolean),
@@ -663,6 +673,7 @@ function buildDrawLinkedArtifactsFromSvg(svgPath) {
     qa_json: normalizedPath.replace(/\.svg$/i, '_qa.json'),
     run_log_json: join(dir, `${stem}_run_log.json`),
     traceability_json: join(dir, `${stem}_traceability.json`),
+    planner_json: join(dir, `${stem}_drawing_planner.json`),
     quality_json: normalizedPath.replace(/\.svg$/i, '_quality.json'),
   };
 }
@@ -801,6 +812,10 @@ function collectDrawManifestArtifacts(result) {
     createArtifactEntry('drawing.quality-summary', normalizedPath.replace(/\.svg$/i, '_quality.json'), {
       label: 'Drawing quality summary',
       stability: 'stable',
+    }),
+    createArtifactEntry('drawing.planner', join(dir, `${stem}_drawing_planner.json`), {
+      label: 'Drawing planner advisory JSON',
+      stability: 'best-effort',
     }),
     createArtifactEntry('drawing.repair-report', normalizedPath.replace(/\.svg$/i, '_repair_report.json'), {
       label: 'Repair report',
@@ -2524,6 +2539,7 @@ async function cmdDraw(rawArgs = []) {
       outputDir: configDocument.config.export?.directory || null,
       outputs: (result.drawing_paths || [])
         .map((entry) => createOutputEntry(`drawing.${String(entry.format).toLowerCase()}`, entry.path))
+        .concat(result.drawing_quality_path ? [createOutputEntry('drawing.quality-json', result.drawing_quality_path)] : [])
         .filter(Boolean),
       linkedArtifacts: buildDrawLinkedArtifactsFromSvg(svgPath),
       warnings: configDocument.summary?.warnings || [],
@@ -3347,7 +3363,16 @@ async function cmdReport(rawArgs = []) {
       artifacts: [
         createArtifactEntry('report.pdf', result.path, { label: 'Engineering report PDF' }),
         ...(result.summary_json
-          ? [createArtifactEntry('report.summary-json', result.summary_json, { label: 'Engineering report summary JSON' })]
+          ? [createArtifactEntry('report.summary-json', result.summary_json, {
+              label: 'Engineering report summary JSON',
+              metadata: drawingIntentManifestMetadata(result.report_summary),
+            })]
+          : []),
+        ...(result.feature_catalog_json
+          ? [createArtifactEntry('feature-catalog.json', result.feature_catalog_json, {
+              label: 'Conservative feature catalog JSON',
+              stability: 'best-effort',
+            })]
           : []),
       ],
       details: {
@@ -3369,10 +3394,12 @@ async function cmdReport(rawArgs = []) {
       outputs: [
         createOutputEntry('report.pdf', result.path),
         ...(result.summary_json ? [createOutputEntry('report.summary-json', result.summary_json)] : []),
+        ...(result.feature_catalog_json ? [createOutputEntry('report.feature-catalog', result.feature_catalog_json)] : []),
       ],
       linkedArtifacts: {
         report_pdf: result.path,
         ...(result.summary_json ? { report_summary_json: result.summary_json } : {}),
+        ...(result.feature_catalog_json ? { feature_catalog_json: result.feature_catalog_json } : {}),
       },
       warnings: configDocument.summary?.warnings || [],
     });

@@ -171,6 +171,90 @@ by = "TH"
 [drawing.notes]
 material_spec = "SS304 (KS D 3698)"
 
+[drawing_intent]
+part_type = "v_block_bracket"
+manufacturing_process = "machining"
+material = "SS304"
+required_views = ["front", "top", "right", "iso"]
+drawing_standard = "KS"
+missing_semantics_policy = "advisory"
+
+[drawing_intent.datum_strategy]
+primary = "base_plate_bottom_face"
+secondary = "base_plate_long_edge"
+tertiary = "mounting_hole_pattern"
+scheme = "A/B/C datum strategy for bracket setup and inspection planning"
+notes = ["Datum intent is descriptive metadata in this foundation task."]
+
+[drawing_intent.tolerance_policy]
+general = "KS B 0401 m"
+fits = "Existing hole tolerance metadata only."
+gdt = "Do not infer GD&T automatically from this intent model."
+notes = ["Use existing drawing tolerances and GD&T metadata as authored."]
+
+[[drawing_intent.critical_features]]
+id = "BASE_PLATE"
+feature = "base_plate"
+description = "Base plate envelope and hole pattern communicate mounting function."
+reason = "Mounting stability depends on the base plate and four clearance holes."
+view = "top"
+
+[[drawing_intent.critical_features]]
+id = "V_GROOVE"
+feature = "v_groove"
+description = "V-groove communicates the clamping/reference feature."
+reason = "Primary functional feature of the bracket."
+view = "front"
+
+[[drawing_intent.critical_features]]
+id = "WEB"
+feature = "web"
+description = "Vertical web communicates bracket height and support face."
+reason = "Defines the supported geometry relative to the base."
+view = "front"
+
+[[drawing_intent.required_dimensions]]
+id = "MOUNTING_HOLE_DIA"
+feature = "hole1,hole2,hole3,hole4"
+label = "Mounting hole diameter"
+dimension_type = "diameter"
+value_mm = 9
+tolerance = "H8"
+required = true
+view = "top"
+reason = "Four M8 clearance holes must be communicated."
+
+[[drawing_intent.required_dimensions]]
+id = "BASE_PLATE_ENVELOPE"
+feature = "base_plate"
+label = "Base plate length and width"
+dimension_type = "linear"
+required = true
+view = "top"
+reason = "Overall mounting footprint must be visible."
+
+[[drawing_intent.required_dimensions]]
+id = "WEB_HEIGHT"
+feature = "web"
+label = "Web height"
+dimension_type = "linear"
+value_mm = 60
+required = true
+view = "front"
+reason = "Functional support height must be visible."
+
+[[drawing_intent.required_notes]]
+id = "MATERIAL"
+text = "SS304 (KS D 3698)"
+category = "material"
+required = true
+
+[[drawing_intent.required_notes]]
+id = "SURFACE_FINISH"
+text = "Default surface finish Ra 6.3 unless otherwise specified."
+category = "surface_finish"
+required = true
+
 # --- Export ---
 
 [export]

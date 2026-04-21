@@ -4,6 +4,14 @@ import {
   readJsonIfExists,
   runPythonJsonScript,
 } from '../../../lib/context-loader.js';
+import {
+  buildFeatureCatalog,
+  writeFeatureCatalog,
+} from '../../../lib/feature-catalog.js';
+import {
+  getDrawingIntent,
+  writeDrawingIntent,
+} from '../../../lib/drawing-intent.js';
 import { convertPathFromRuntime, getFreeCADRuntime } from '../../../lib/paths.js';
 import { collectRepoContext } from '../../../lib/output-manifest.js';
 import { loadShopProfile } from '../config/profile-service.js';
@@ -291,6 +299,24 @@ export function createReportService({
       readJsonIfExists(finalArtifactPaths.create_manifest),
       readJsonIfExists(finalArtifactPaths.drawing_manifest),
     ]);
+    let featureCatalog = null;
+    let featureCatalogPath = null;
+    const drawingIntent = getDrawingIntent(loadedConfig);
+    let drawingIntentPath = null;
+    if (drawingIntent) {
+      drawingIntentPath = await writeDrawingIntent(finalArtifactPaths.drawing_intent, drawingIntent);
+    }
+    try {
+      featureCatalog = buildFeatureCatalog({
+        config: loadedConfig,
+        configPath: resolve(freecadRoot, configPath || `${reportStem}.toml`),
+        relatedArtifact: resolvedPdfPath,
+      });
+      featureCatalogPath = await writeFeatureCatalog(finalArtifactPaths.feature_catalog, featureCatalog);
+    } catch {
+      featureCatalog = null;
+      featureCatalogPath = null;
+    }
 
     const reportSummary = buildDecisionReportSummary({
       configPath: resolve(freecadRoot, configPath || `${reportStem}.toml`),
@@ -304,6 +330,7 @@ export function createReportService({
       drawingQuality: finalDrawingQuality || drawingQuality,
       createManifest: finalCreateManifest || createManifest,
       drawingManifest: finalDrawingManifest || drawingManifest,
+      featureCatalog,
       dfm: normalizedResults.dfm || null,
       fem: normalizedResults.fem ? femInput : null,
       tolerance: tolInput || null,
@@ -316,6 +343,13 @@ export function createReportService({
     result.summary_json = summaryPath;
     result.report_summary = reportSummary;
     result.decision_summary = reportSummary;
+    if (drawingIntentPath) {
+      result.drawing_intent_json = drawingIntentPath;
+    }
+    if (featureCatalogPath) {
+      result.feature_catalog_json = featureCatalogPath;
+      result.feature_catalog = featureCatalog;
+    }
 
     if (pdfRelPath) {
       try {

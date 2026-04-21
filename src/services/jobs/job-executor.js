@@ -77,6 +77,7 @@ function inferDrawArtifacts(result) {
     qa: normalizedPath.replace(/\.svg$/i, '_qa.json'),
     qa_issues: normalizedPath.replace(/\.svg$/i, '_qa_issues.json'),
     drawing_quality: normalizedPath.replace(/\.svg$/i, '_quality.json'),
+    drawing_planner: join(dir, `${stem}_drawing_planner.json`),
     repair_report: normalizedPath.replace(/\.svg$/i, '_repair_report.json'),
     run_log: join(dir, `${stem}_run_log.json`),
     effective_config: join(dir, `${stem}_effective_config.json`),
@@ -99,6 +100,8 @@ function inferCreateArtifacts(result) {
 function inferReportArtifacts(result) {
   return {
     pdf: result?.pdf_path || result?.path || null,
+    ...(result?.drawing_intent_json ? { drawing_intent: result.drawing_intent_json } : {}),
+    ...(result?.feature_catalog_json ? { feature_catalog: result.feature_catalog_json } : {}),
   };
 }
 
@@ -121,6 +124,7 @@ function collectDrawManifestArtifacts(result) {
     ['qa', 'drawing.qa-report', 'best-effort', 'user-facing'],
     ['qa_issues', 'drawing.qa-issues', 'best-effort', 'user-facing'],
     ['drawing_quality', 'drawing.quality-summary', 'stable', 'user-facing'],
+    ['drawing_planner', 'drawing.planner', 'best-effort', 'user-facing'],
     ['repair_report', 'drawing.repair-report', 'best-effort', 'user-facing'],
     ['run_log', 'draw.run-log', 'internal', 'internal'],
     ['effective_config', 'config.effective', 'internal', 'internal'],
@@ -228,6 +232,13 @@ export async function prepareTrackedReportAnalysisResults({
 
 export function collectReportManifestArtifacts(result) {
   const pdfPath = result?.pdf_path || result?.path;
+  const drawingIntent = result?.report_summary?.drawing_intent || result?.decision_summary?.drawing_intent || null;
+  const drawingIntentMetadata = drawingIntent && typeof drawingIntent === 'object'
+    ? {
+        includes_drawing_intent: true,
+        missing_semantics_policy: drawingIntent.missing_semantics_policy || 'advisory',
+      }
+    : null;
   const artifacts = pdfPath
     ? [{
         type: 'report.pdf',
@@ -245,6 +256,27 @@ export function collectReportManifestArtifacts(result) {
       label: 'Report summary JSON',
       scope: 'user-facing',
       stability: 'stable',
+      ...(drawingIntentMetadata ? { metadata: drawingIntentMetadata } : {}),
+    });
+  }
+
+  if (result?.drawing_intent_json) {
+    artifacts.push({
+      type: 'drawing-intent.json',
+      path: result.drawing_intent_json,
+      label: 'Drawing intent JSON',
+      scope: 'user-facing',
+      stability: 'stable',
+    });
+  }
+
+  if (result?.feature_catalog_json) {
+    artifacts.push({
+      type: 'feature-catalog.json',
+      path: result.feature_catalog_json,
+      label: 'Conservative feature catalog JSON',
+      scope: 'user-facing',
+      stability: 'best-effort',
     });
   }
 
@@ -252,6 +284,7 @@ export function collectReportManifestArtifacts(result) {
   const seededMapping = [
     ['create_quality', 'model.quality-summary', 'Create quality JSON'],
     ['drawing_quality', 'drawing.quality-summary', 'Drawing quality JSON'],
+    ['drawing_planner', 'drawing.planner', 'Drawing planner advisory JSON'],
     ['create_manifest', 'output.manifest.json', 'Create manifest JSON'],
     ['drawing_manifest', 'drawing.output-manifest.json', 'Drawing manifest JSON'],
     ['drawing_svg', 'drawing.svg', 'Drawing SVG'],

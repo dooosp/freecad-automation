@@ -27,6 +27,10 @@ function asArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function asObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
 function resolveMaybe(path) {
   return typeof path === 'string' && path.trim() ? resolve(path) : null;
 }
@@ -75,6 +79,357 @@ function isMappedRequiredDimension(entry = {}) {
   return entry.rendered === true || entry.status === 'rendered';
 }
 
+function normalizeId(value = null) {
+  if (typeof value !== 'string' && typeof value !== 'number') return null;
+  const text = String(value).trim();
+  return text || null;
+}
+
+function normalizeComparable(value = null) {
+  return normalizeId(value)?.toLowerCase().replace(/[^a-z0-9]+/g, '') || null;
+}
+
+function normalizeRequirementItem(item, defaultRequired = false) {
+  if (typeof item === 'string') {
+    return {
+      id: item,
+      label: item,
+      required: defaultRequired,
+      optional: !defaultRequired,
+    };
+  }
+  if (!item || typeof item !== 'object') return null;
+  const id = normalizeId(item.id ?? item.key ?? item.name ?? item.feature ?? item.dim_id ?? item.view);
+  const label = normalizeId(item.label ?? item.title ?? item.name ?? item.text ?? id);
+  if (!id && !label) return null;
+  const optional = item.optional === true || item.required === false;
+  const required = item.required === true || item.critical === true || (!optional && defaultRequired);
+  return {
+    ...item,
+    id,
+    label: label || id,
+    required,
+    optional: optional || !required,
+  };
+}
+
+function normalizeRequirementList(values = [], defaultRequired = false) {
+  return asArray(values)
+    .map((item) => normalizeRequirementItem(item, defaultRequired))
+    .filter(Boolean);
+}
+
+function collectFeatureCatalogCriticalFeatures(featureCatalog = null) {
+  const catalog = Array.isArray(featureCatalog)
+    ? { features: featureCatalog }
+    : asObject(featureCatalog);
+  const features = asArray(catalog.features ?? catalog.items ?? catalog.feature_catalog);
+  return features
+    .map((feature) => normalizeRequirementItem(feature, false))
+    .filter((feature) => feature?.required === true || feature?.critical === true);
+}
+
+function collectDrawingIntentDimensions(drawingIntent = {}) {
+  const intentDimensions = normalizeRequirementList(
+    drawingIntent.required_dimensions
+      ?? drawingIntent.dimensions
+      ?? drawingIntent.dimension_requirements,
+    true
+  );
+  const optionalDimensions = normalizeRequirementList(
+    drawingIntent.optional_dimensions
+      ?? drawingIntent.reference_dimensions,
+    false
+  );
+
+  return {
+    required: uniqueById([
+      ...intentDimensions.filter((entry) => entry.required && !entry.optional),
+    ]),
+    optional: uniqueById([
+      ...optionalDimensions,
+      ...intentDimensions.filter((entry) => entry.optional),
+    ]),
+  };
+}
+
+function uniqueById(items = []) {
+  const seen = new Set();
+  const result = [];
+  for (const item of items) {
+    const key = normalizeComparable(item?.id ?? item?.label);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    result.push(item);
+  }
+  return result;
+}
+
+function collectIntentViews(drawingIntent = {}) {
+  const required = normalizeRequirementList(
+    drawingIntent.required_views
+      ?? drawingIntent.views?.required
+      ?? drawingIntent.views,
+    true
+  );
+  const optional = normalizeRequirementList(
+    drawingIntent.optional_views
+      ?? drawingIntent.views?.optional,
+    false
+  );
+  return {
+    required: uniqueById(required),
+    optional: uniqueById(optional),
+  };
+}
+
+function collectIntentNotes(drawingIntent = {}) {
+  return {
+    required: uniqueById(normalizeRequirementList(
+      drawingIntent.required_notes
+        ?? drawingIntent.notes?.required
+        ?? drawingIntent.notes,
+      true
+    )),
+    optional: uniqueById(normalizeRequirementList(
+      drawingIntent.optional_notes
+        ?? drawingIntent.notes?.optional,
+      false
+    )),
+  };
+}
+
+function collectIntentFeatures(drawingIntent = {}, featureCatalog = null) {
+  const required = normalizeRequirementList(
+    drawingIntent.critical_features
+      ?? drawingIntent.required_features
+      ?? drawingIntent.features?.critical
+      ?? drawingIntent.features?.required,
+    true
+  );
+  const optional = normalizeRequirementList(
+    drawingIntent.optional_features
+      ?? drawingIntent.features?.optional,
+    false
+  );
+  return {
+    required: uniqueById([...required, ...collectFeatureCatalogCriticalFeatures(featureCatalog)]),
+    optional: uniqueById(optional),
+  };
+}
+
+function extractSvgText(svgContent = null) {
+  if (typeof svgContent !== 'string' || !svgContent.trim()) return '';
+  return svgContent
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function hasTextEvidence(requirement = {}, svgText = '') {
+  const source = normalizeComparable(svgText);
+  if (!source) return false;
+  const candidates = uniqueStrings([
+    requirement.id,
+    requirement.label,
+    requirement.text,
+    requirement.note,
+  ]);
+  return candidates.some((candidate) => {
+    const normalized = normalizeComparable(candidate);
+    return Boolean(normalized && source.includes(normalized));
+  });
+}
+
+function buildDimensionEvidence(dimensionMap = null, traceability = null) {
+  const renderedDimensions = new Map();
+  const renderedFeatures = new Set();
+  for (const entry of asArray(dimensionMap?.plan_dimensions)) {
+    if (!isMappedRequiredDimension(entry)) continue;
+    const dimId = normalizeComparable(entry.dim_id ?? entry.id);
+    const featureId = normalizeComparable(entry.feature ?? entry.feature_id);
+    if (dimId) renderedDimensions.set(dimId, entry);
+    if (featureId) renderedFeatures.add(featureId);
+  }
+
+  const traceLinks = new Map();
+  for (const link of asArray(traceability?.links)) {
+    const dimId = normalizeComparable(link?.dim_id ?? link?.dimension_id);
+    const featureId = normalizeComparable(link?.feature_id ?? link?.feature);
+    if (dimId && featureId) {
+      traceLinks.set(dimId, {
+        dimension_id: link.dim_id ?? link.dimension_id,
+        feature_id: link.feature_id ?? link.feature,
+        source: link.source ?? 'traceability',
+      });
+      renderedFeatures.add(featureId);
+    }
+  }
+
+  return {
+    renderedDimensions,
+    renderedFeatures,
+    traceLinks,
+    hasDimensionEvidence: Boolean(dimensionMap && typeof dimensionMap === 'object'),
+    hasTraceabilityEvidence: Boolean(traceability && typeof traceability === 'object'),
+  };
+}
+
+function itemName(item = {}) {
+  return item.label || item.id || 'unnamed requirement';
+}
+
+function coverageScore(present, total) {
+  if (!total) return null;
+  return Number(((present / total) * 100).toFixed(2));
+}
+
+function buildSemanticDrawingQualityReport({
+  drawingIntent = null,
+  featureCatalog = null,
+  dimensionMap = null,
+  traceability = null,
+  producedViews = [],
+  svgContent = null,
+} = {}) {
+  const intent = asObject(drawingIntent);
+  const enforceable = intent.enforceable === true || intent.policy === 'enforceable';
+  const features = collectIntentFeatures(intent, featureCatalog);
+  const dimensions = collectDrawingIntentDimensions(intent);
+  const notes = collectIntentNotes(intent);
+  const views = collectIntentViews(intent);
+  const evidence = buildDimensionEvidence(dimensionMap, traceability);
+  const producedViewSet = new Set(producedViews.map(normalizeComparable).filter(Boolean));
+  const svgText = extractSvgText(svgContent);
+
+  const coveredFeatures = features.required.filter((feature) => (
+    evidence.renderedFeatures.has(normalizeComparable(feature.id))
+      || evidence.renderedFeatures.has(normalizeComparable(feature.feature))
+      || dimensions.required.some((dimension) => (
+        normalizeComparable(dimension.feature) === normalizeComparable(feature.id)
+          && evidence.renderedDimensions.has(normalizeComparable(dimension.id))
+      ))
+  ));
+  const presentDimensions = dimensions.required.filter((dimension) => {
+    const dimKey = normalizeComparable(dimension.id ?? dimension.dim_id);
+    if (dimKey && evidence.renderedDimensions.has(dimKey)) return true;
+    const featureKey = normalizeComparable(dimension.feature ?? dimension.feature_id);
+    return Boolean(featureKey && evidence.renderedFeatures.has(featureKey));
+  });
+  const presentNotes = notes.required.filter((note) => hasTextEvidence(note, svgText));
+  const presentViews = views.required.filter((view) => producedViewSet.has(normalizeComparable(view.id ?? view.view)));
+
+  const missingCriticalFeatures = features.required.filter((feature) => !coveredFeatures.includes(feature)).map(itemName);
+  const missingRequiredDimensions = dimensions.required.filter((dimension) => !presentDimensions.includes(dimension)).map(itemName);
+  const missingRequiredNotes = notes.required.filter((note) => !presentNotes.includes(note)).map(itemName);
+  const missingRequiredViews = views.required.filter((view) => !presentViews.includes(view)).map(itemName);
+
+  const optionalMissing = [
+    ...features.optional.filter((feature) => !evidence.renderedFeatures.has(normalizeComparable(feature.id))).map((feature) => `Optional feature not evidenced: ${itemName(feature)}.`),
+    ...dimensions.optional.filter((dimension) => !evidence.renderedDimensions.has(normalizeComparable(dimension.id))).map((dimension) => `Optional dimension not evidenced: ${itemName(dimension)}.`),
+    ...notes.optional.filter((note) => !hasTextEvidence(note, svgText)).map((note) => `Optional note not evidenced: ${itemName(note)}.`),
+    ...views.optional.filter((view) => !producedViewSet.has(normalizeComparable(view.id ?? view.view))).map((view) => `Optional view not evidenced: ${itemName(view)}.`),
+  ];
+
+  const traceabilityRows = dimensions.required.map((dimension) => {
+    const dimKey = normalizeComparable(dimension.id ?? dimension.dim_id);
+    const link = dimKey ? evidence.traceLinks.get(dimKey) : null;
+    return {
+      dimension_id: dimension.id ?? dimension.dim_id ?? itemName(dimension),
+      feature_id: link?.feature_id ?? dimension.feature ?? null,
+      status: link ? 'linked' : evidence.hasTraceabilityEvidence ? 'missing' : 'unknown',
+      evidence: link || null,
+    };
+  });
+  const traceLinked = traceabilityRows.filter((row) => row.status === 'linked').length;
+  const traceMissing = traceabilityRows.filter((row) => row.status === 'missing').map((row) => row.dimension_id);
+  const traceUnknown = traceabilityRows.filter((row) => row.status === 'unknown').map((row) => row.dimension_id);
+
+  const missingCriticalInformation = uniqueStrings([
+    ...missingCriticalFeatures.map((name) => `Critical feature is not evidenced on the drawing: ${name}.`),
+    ...missingRequiredDimensions.map((name) => `Required dimension is not evidenced on the drawing: ${name}.`),
+    ...missingRequiredNotes.map((name) => `Required note is not evidenced on the drawing: ${name}.`),
+    ...missingRequiredViews.map((name) => `Required view is not present in generated drawing evidence: ${name}.`),
+    ...traceMissing.map((name) => `Required dimension lacks traceability evidence: ${name}.`),
+    ...traceUnknown.map((name) => `Required dimension traceability is unknown because traceability evidence is unavailable: ${name}.`),
+  ]);
+
+  const requiredMissingCount = missingCriticalFeatures.length
+    + missingRequiredDimensions.length
+    + missingRequiredNotes.length
+    + missingRequiredViews.length
+    + traceMissing.length
+    + traceUnknown.length;
+  const requiredBlockers = enforceable ? missingCriticalInformation : [];
+  const metricScores = [
+    coverageScore(coveredFeatures.length, features.required.length),
+    coverageScore(presentDimensions.length, dimensions.required.length),
+    coverageScore(presentNotes.length, notes.required.length),
+    coverageScore(presentViews.length, views.required.length),
+    coverageScore(traceLinked, traceabilityRows.length),
+  ].filter((score) => score !== null);
+  const score = metricScores.length
+    ? Number((metricScores.reduce((sum, value) => sum + value, 0) / metricScores.length).toFixed(2))
+    : null;
+
+  const suggestedActions = uniqueStrings([
+    missingCriticalFeatures.length ? `Add drawing evidence for critical feature(s): ${missingCriticalFeatures.join(', ')}.` : null,
+    missingRequiredDimensions.length ? `Add or map required dimension(s): ${missingRequiredDimensions.join(', ')}.` : null,
+    missingRequiredNotes.length ? `Add required drawing note(s): ${missingRequiredNotes.join(', ')}.` : null,
+    missingRequiredViews.length ? `Generate required view(s): ${missingRequiredViews.join(', ')}.` : null,
+    (traceMissing.length || traceUnknown.length) ? 'Attach or regenerate traceability evidence for required dimensions.' : null,
+  ]);
+
+  const advisoryDecision = requiredMissingCount > 0
+    ? 'needs_attention'
+    : metricScores.length > 0
+      ? 'pass'
+      : 'unknown';
+
+  return {
+    decision: enforceable && requiredBlockers.length > 0
+      ? 'fail'
+      : advisoryDecision === 'pass'
+        ? 'pass'
+        : advisoryDecision === 'unknown'
+          ? 'unknown'
+          : 'advisory',
+    advisory_decision: advisoryDecision,
+    enforceable,
+    score,
+    score_basis: {
+      critical_feature_coverage_percent: coverageScore(coveredFeatures.length, features.required.length),
+      required_dimension_coverage_percent: coverageScore(presentDimensions.length, dimensions.required.length),
+      required_note_coverage_percent: coverageScore(presentNotes.length, notes.required.length),
+      required_view_coverage_percent: coverageScore(presentViews.length, views.required.length),
+      dimension_traceability_percent: coverageScore(traceLinked, traceabilityRows.length),
+    },
+    critical_features_total: features.required.length,
+    critical_features_covered: coveredFeatures.length,
+    missing_critical_features: missingCriticalFeatures,
+    required_dimensions_total: dimensions.required.length,
+    required_dimensions_present: presentDimensions.length,
+    missing_required_dimensions: missingRequiredDimensions,
+    required_notes_total: notes.required.length,
+    required_notes_present: presentNotes.length,
+    required_notes_missing: missingRequiredNotes,
+    required_views_total: views.required.length,
+    required_views_present: presentViews.length,
+    required_views_missing: missingRequiredViews,
+    traceability: {
+      required_dimensions_total: traceabilityRows.length,
+      linked_required_dimensions: traceLinked,
+      missing_required_dimensions: traceMissing,
+      unknown_required_dimensions: traceUnknown,
+      rows: traceabilityRows,
+    },
+    missing_critical_information: missingCriticalInformation,
+    required_blockers: requiredBlockers,
+    optional_missing_information: uniqueStrings(optionalMissing),
+    suggested_actions: suggestedActions,
+  };
+}
+
 function inferDuplicateCount(dimensionMap = {}, dimConflicts = {}) {
   const fromSummary = Number(dimensionMap?.summary?.skipped_duplicate_count);
   if (Number.isFinite(fromSummary)) return fromSummary;
@@ -120,10 +475,14 @@ export function buildDrawingQualitySummary({
   traceability = null,
   layoutReportPath = null,
   layoutReport = null,
+  plannerPath = null,
+  planner = null,
   dimensionMapPath = null,
   dimensionMap = null,
   dimConflictsPath = null,
   dimConflicts = null,
+  drawingIntent = null,
+  featureCatalog = null,
   bomPath = null,
   bomEntries = [],
   bomRows = [],
@@ -142,6 +501,10 @@ export function buildDrawingQualitySummary({
 
   if (!drawingSvgPath) {
     warnings.push('Drawing SVG artifact is missing; drawing quality evaluation was skipped.');
+    const semanticQuality = buildSemanticDrawingQualityReport({
+      drawingIntent,
+      featureCatalog,
+    });
     return {
       schema_version: DRAWING_QUALITY_SCHEMA_VERSION,
       command: 'draw',
@@ -152,6 +515,7 @@ export function buildDrawingQualitySummary({
       qa_issues_file: resolveMaybe(qaIssuesPath),
       traceability_file: resolveMaybe(traceabilityPath),
       layout_report_file: resolveMaybe(layoutReportPath),
+      planner_file: resolveMaybe(plannerPath),
       dimension_map_file: resolveMaybe(dimensionMapPath),
       dim_conflicts_file: resolveMaybe(dimConflictsPath),
       bom_file: resolveMaybe(bomPath),
@@ -181,10 +545,13 @@ export function buildDrawingQualitySummary({
         coverage_percent: 0,
         unmapped_required_entities: [],
       },
+      semantic_quality: semanticQuality,
       thresholds: effectiveThresholds,
       blocking_issues: blockingIssues,
       warnings,
       recommended_actions: recommendedActions,
+      suggested_actions: recommendedActions,
+      drawing_planner: planner || null,
     };
   }
 
@@ -254,10 +621,19 @@ export function buildDrawingQualitySummary({
     requiredDimensions.length - traceabilityGaps.length,
     requiredDimensions.length
   );
+  const semanticQuality = buildSemanticDrawingQualityReport({
+    drawingIntent,
+    featureCatalog,
+    dimensionMap,
+    traceability,
+    producedViews,
+    svgContent,
+  });
 
   const highSeverityIssues = asArray(qaIssues?.issues).filter((issue) => (
     issue?.severity === 'high' || issue?.severity === 'critical'
   ));
+  const plannerSuggestedActions = uniqueStrings(planner?.suggested_actions || []);
 
   if (missingViews.length > 0) {
     pushIssue(
@@ -333,7 +709,14 @@ export function buildDrawingQualitySummary({
       { issue_ids: highSeverityIssues.map((issue) => issue?.id).filter(Boolean) }
     );
   }
-
+  if (semanticQuality.enforceable && semanticQuality.required_blockers.length > 0) {
+    pushIssue(
+      blockingIssues,
+      'semantic-drawing-intent-coverage',
+      'Enforceable drawing intent has missing required semantic evidence.',
+      { missing_critical_information: semanticQuality.missing_critical_information }
+    );
+  }
   const summary = {
     schema_version: DRAWING_QUALITY_SCHEMA_VERSION,
     command: 'draw',
@@ -344,6 +727,7 @@ export function buildDrawingQualitySummary({
     qa_issues_file: resolveMaybe(qaIssuesPath),
     traceability_file: resolveMaybe(traceabilityPath),
     layout_report_file: resolveMaybe(layoutReportPath),
+    planner_file: resolveMaybe(plannerPath),
     dimension_map_file: resolveMaybe(dimensionMapPath),
     dim_conflicts_file: resolveMaybe(dimConflictsPath),
     bom_file: resolveMaybe(bomPath),
@@ -373,10 +757,21 @@ export function buildDrawingQualitySummary({
       coverage_percent: traceabilityCoveragePercent,
       unmapped_required_entities: traceabilityGaps,
     },
+    semantic_quality: semanticQuality,
     thresholds: effectiveThresholds,
     blocking_issues: blockingIssues,
     warnings: uniqueStrings(warnings),
-    recommended_actions: uniqueStrings(recommendedActions),
+    recommended_actions: uniqueStrings([
+      ...recommendedActions,
+      ...plannerSuggestedActions,
+      ...semanticQuality.suggested_actions,
+    ]),
+    suggested_actions: uniqueStrings([
+      ...recommendedActions,
+      ...plannerSuggestedActions,
+      ...semanticQuality.suggested_actions,
+    ]),
+    drawing_planner: planner || null,
   };
 
   return summary;

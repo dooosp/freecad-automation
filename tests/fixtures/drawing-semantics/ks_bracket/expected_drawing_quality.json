@@ -1,0 +1,23 @@
+{
+  "status": "fail",
+  "views": {
+    "required_count": 4,
+    "generated_count": 4,
+    "missing_views": [],
+    "overlap_count": 0
+  },
+  "dimensions": {
+    "required_count": 3,
+    "mapped_count": 2,
+    "coverage_percent": 66.67,
+    "missing_required_intents": ["MOUNTING_HOLE_DIA"],
+    "conflict_count": 0,
+    "duplicate_count": 0
+  },
+  "traceability": {
+    "coverage_percent": 66.67,
+    "unmapped_required_entities": ["MOUNTING_HOLE_DIA"]
+  },
+  "blocking_issue_codes": ["required-dimension-coverage", "traceability-coverage"],
+  "optional_missing_dimension_ids": ["SURFACE_FINISH"]
+}
