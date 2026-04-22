@@ -28,6 +28,7 @@ import {
 } from '../services/drawing/extracted-drawing-semantics.js';
 import {
   buildDrawingPlanner,
+  refineDrawingPlannerWithExtractedCoverage,
   writeDrawingPlanner,
 } from '../services/drawing/drawing-planner.js';
 
@@ -755,6 +756,17 @@ export async function runDrawPipeline({
         extractedDrawingSemanticsPath,
         extractedDrawingSemantics,
       });
+      const refinedDrawingPlanner = refineDrawingPlannerWithExtractedCoverage({
+        planner: drawingPlanner,
+        drawingIntent: config.drawing_intent || null,
+        featureCatalog: config.feature_catalog || null,
+        extractedEvidence: drawingQuality.semantic_quality?.extracted_evidence || null,
+      });
+      await writeDrawingPlanner(plannerPath, refinedDrawingPlanner);
+      runLog.artifacts.drawing_planner = plannerPath;
+      result.drawing_planner = refinedDrawingPlanner;
+      result.drawing_planner_path = plannerPath;
+      drawingQuality.drawing_planner = refinedDrawingPlanner;
       const drawingQualityPath = primarySvgPath ? resolveDrawingQualityPath(primarySvgPath) : join(artifactDir, `${artifactStem}_drawing_quality.json`);
       await writeDrawingQualitySummary(drawingQualityPath, drawingQuality);
       runLog.artifacts.drawing_quality = drawingQualityPath;

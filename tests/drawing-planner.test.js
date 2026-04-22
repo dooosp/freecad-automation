@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 
 import {
   buildDrawingPlanner,
+  buildPlannerActionsFromExtractedCoverage,
+  refineDrawingPlannerWithExtractedCoverage,
 } from '../src/services/drawing/drawing-planner.js';
 
 function makePlateConfig() {
@@ -113,6 +115,76 @@ function makePlateConfig() {
     'planner should not promote named rectangular cuts into slot requirements without canonical feature-catalog evidence'
   );
   assert.equal(plan.section_view_recommendations.some((entry) => entry.feature_id === 'slot'), false);
+}
+
+{
+  const basePlanner = {
+    status: 'advisory',
+    suggested_actions: ['Carry forward existing planner suggestion.'],
+    section_view_recommendations: [
+      {
+        feature_id: 'slot_001',
+        feature_type: 'slot',
+      },
+    ],
+  };
+  const extractedEvidence = {
+    status: 'partial',
+    required_dimensions: [
+      {
+        requirement_id: 'SLOT_DEPTH',
+        requirement_label: 'Slot depth',
+        classification: 'unknown',
+        candidate_matches: [],
+      },
+      {
+        requirement_id: 'SLOT_DEPTH',
+        requirement_label: 'Slot depth',
+        classification: 'unknown',
+        candidate_matches: [],
+      },
+    ],
+    required_notes: [],
+    required_views: [],
+    unmatched_dimensions: [],
+    unmatched_notes: [],
+  };
+  const details = buildPlannerActionsFromExtractedCoverage({
+    drawingIntent: {
+      required_dimensions: [
+        { id: 'SLOT_DEPTH', label: 'Slot depth', feature: 'slot_001', dimension_type: 'depth', required: true },
+      ],
+    },
+    featureCatalog: {
+      features: [
+        { feature_id: 'slot_001', type: 'slot' },
+      ],
+    },
+    planner: basePlanner,
+    extractedEvidence,
+  });
+  assert.equal(details.length, 1);
+  assert.equal(details[0].classification, 'unknown');
+  assert.equal(details[0].category, 'dimension');
+  assert.equal(details[0].recommended_fix.includes('section view through slot_001'), true);
+
+  const refinedPlanner = refineDrawingPlannerWithExtractedCoverage({
+    planner: basePlanner,
+    drawingIntent: {
+      required_dimensions: [
+        { id: 'SLOT_DEPTH', label: 'Slot depth', feature: 'slot_001', dimension_type: 'depth', required: true },
+      ],
+    },
+    featureCatalog: {
+      features: [
+        { feature_id: 'slot_001', type: 'slot' },
+      ],
+    },
+    extractedEvidence,
+  });
+  assert.equal(refinedPlanner.suggested_action_details.length, 1);
+  assert.equal(refinedPlanner.suggested_actions.some((entry) => entry.includes('SLOT_DEPTH') || entry.includes('Slot depth')), true);
+  assert.equal(refinedPlanner.suggested_actions.some((entry) => entry.includes('section view through slot_001')), true);
 }
 
 console.log('drawing-planner.test.js: ok');
