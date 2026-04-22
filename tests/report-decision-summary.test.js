@@ -75,12 +75,83 @@ function makeBaseInput(overrides = {}) {
         extracted_evidence: {
           status: 'partial',
           advisory_only: true,
+          file: '/tmp/output/ks_bracket_extracted_drawing_semantics.json',
           path: '/tmp/output/ks_bracket_extracted_drawing_semantics.json',
+          sources: [
+            { artifact_type: 'svg', path: '/tmp/output/ks_bracket_drawing.svg', inspected: true, method: 'svg_text_scan' },
+          ],
+          coverage: {
+            required_dimensions: { total: 1, extracted: 1, missing: 0, unknown: 0, unsupported: 0, extracted_percent: 100 },
+            required_notes: { total: 1, extracted: 0, missing: 0, unknown: 1, unsupported: 0, extracted_percent: 0 },
+            required_views: { total: 1, extracted: 1, missing: 0, unknown: 0, unsupported: 0, extracted_percent: 100 },
+            total_required: 3,
+            total_extracted: 2,
+            total_missing: 0,
+            total_unknown: 1,
+            total_unsupported: 0,
+          },
+          required_dimensions: [
+            {
+              requirement_id: 'WIDTH',
+              requirement_label: 'WIDTH',
+              classification: 'extracted',
+              matched_extracted_id: 'svg_text_001',
+              matched_raw_text: '40',
+              matched_feature_id: 'body_width',
+              source_artifact: 'svg',
+              confidence: 0.9,
+              reason: 'Reliable extracted dimension evidence matched this required dimension.',
+              provenance: {
+                artifact_type: 'svg',
+                path: '/tmp/output/ks_bracket_drawing.svg',
+                method: 'svg_dimension_text_scan',
+              },
+              candidate_matches: [],
+            },
+          ],
+          required_notes: [
+            {
+              requirement_id: 'MATERIAL',
+              requirement_label: 'MATERIAL',
+              classification: 'unknown',
+              matched_extracted_id: null,
+              matched_raw_text: null,
+              matched_feature_id: null,
+              source_artifact: null,
+              confidence: null,
+              reason: 'Extracted drawing semantics explicitly marked this required note as uncertain.',
+              provenance: null,
+              candidate_matches: [],
+            },
+          ],
+          required_views: [
+            {
+              requirement_id: 'front',
+              requirement_label: 'front',
+              classification: 'extracted',
+              matched_extracted_id: 'front',
+              matched_raw_text: 'Front',
+              matched_feature_id: null,
+              source_artifact: 'layout_report',
+              confidence: 0.9,
+              reason: 'Reliable extracted view evidence matched this required view.',
+              provenance: {
+                artifact_type: 'layout_report',
+                path: '/tmp/output/ks_bracket_layout_report.json',
+                method: 'layout_report_views',
+              },
+              candidate_matches: [],
+            },
+          ],
+          unmatched_dimensions: [],
+          unmatched_notes: [],
           matched_required_dimensions: 1,
           matched_required_notes: 0,
           matched_required_views: 1,
+          missing_required_items: [],
           unknowns: ['Required note not reliably extracted: MATERIAL.'],
           limitations: ['Advisory-only foundation.'],
+          suggested_actions: ['Review low-confidence or incomplete extracted note evidence for: MATERIAL.'],
         },
       },
     },
@@ -164,6 +235,8 @@ function makeBaseInput(overrides = {}) {
   assert.equal(summary.surfaces.drawing_quality.semantic_quality.decision, 'pass');
   assert.equal(summary.surfaces.drawing_quality.semantic_quality.required_dimensions_present, 1);
   assert.equal(summary.surfaces.drawing_quality.semantic_quality.extracted_evidence.status, 'partial');
+  assert.equal(summary.surfaces.drawing_quality.semantic_quality.extracted_evidence.coverage.required_dimensions.extracted, 1);
+  assert.equal(summary.surfaces.drawing_quality.semantic_quality.extracted_evidence.required_notes[0].classification, 'unknown');
 }
 
 {

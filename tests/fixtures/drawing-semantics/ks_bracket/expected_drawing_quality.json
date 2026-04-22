@@ -18,6 +18,58 @@
     "coverage_percent": 66.67,
     "unmapped_required_entities": ["MOUNTING_HOLE_DIA"]
   },
+  "extracted_evidence": {
+    "status": "partial",
+    "coverage": {
+      "required_dimensions": {
+        "total": 3,
+        "extracted": 1,
+        "missing": 0,
+        "unknown": 2,
+        "unsupported": 0,
+        "extracted_percent": 33.33
+      },
+      "required_notes": {
+        "total": 2,
+        "extracted": 0,
+        "missing": 0,
+        "unknown": 2,
+        "unsupported": 0,
+        "extracted_percent": 0
+      },
+      "required_views": {
+        "total": 4,
+        "extracted": 4,
+        "missing": 0,
+        "unknown": 0,
+        "unsupported": 0,
+        "extracted_percent": 100
+      },
+      "total_required": 9,
+      "total_extracted": 5,
+      "total_missing": 0,
+      "total_unknown": 4,
+      "total_unsupported": 0
+    },
+    "required_dimension_classifications": [
+      { "requirement_id": "MOUNTING_HOLE_DIA", "classification": "unknown" },
+      { "requirement_id": "BASE_PLATE_ENVELOPE", "classification": "unknown" },
+      { "requirement_id": "WEB_HEIGHT", "classification": "extracted" }
+    ],
+    "required_note_classifications": [
+      { "requirement_id": "MATERIAL", "classification": "unknown" },
+      { "requirement_id": "SURFACE_FINISH", "classification": "unknown" }
+    ],
+    "required_view_classifications": [
+      { "requirement_id": "front", "classification": "extracted" },
+      { "requirement_id": "top", "classification": "extracted" },
+      { "requirement_id": "right", "classification": "extracted" },
+      { "requirement_id": "iso", "classification": "extracted" }
+    ],
+    "unmatched_dimensions": [],
+    "unmatched_notes": ["SS304", "Tolerance: KS B 0401 m"],
+    "missing_required_items": []
+  },
   "blocking_issue_codes": ["required-dimension-coverage", "traceability-coverage"],
   "optional_missing_dimension_ids": ["SURFACE_FINISH"]
 }

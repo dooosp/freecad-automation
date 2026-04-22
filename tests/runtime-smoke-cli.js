@@ -48,11 +48,13 @@ const ksFixture = getQualityFixtureExpectation('ks_bracket');
 const qualityPassFixture = getQualityFixtureExpectation('quality_pass_bracket');
 const ksFixtureRecord = getQualityFixtureSmokeRecord(smokeManifest.quality_fixture_matrix, 'ks_bracket');
 const qualityPassFixtureRecord = getQualityFixtureSmokeRecord(smokeManifest.quality_fixture_matrix, 'quality_pass_bracket');
+const CLI_MAX_BUFFER_BYTES = 16 * 1024 * 1024;
 
 function runCli(args) {
   const completed = spawnSync('node', [join(ROOT, 'bin', 'fcad.js'), ...args], {
     cwd: ROOT,
     encoding: 'utf8',
+    maxBuffer: CLI_MAX_BUFFER_BYTES,
   });
 
   if (completed.stdout) process.stdout.write(completed.stdout);
@@ -76,6 +78,7 @@ function runCliExpectFailure(args) {
   const completed = spawnSync('node', [join(ROOT, 'bin', 'fcad.js'), ...args], {
     cwd: ROOT,
     encoding: 'utf8',
+    maxBuffer: CLI_MAX_BUFFER_BYTES,
   });
 
   if (completed.stdout) process.stdout.write(completed.stdout);
@@ -345,6 +348,8 @@ assertArtifact(ksDrawingPlannerPath);
 const ksDrawingQuality = readJson(ksDrawingQualityPath);
 assert.equal(ksDrawingQuality.status, 'fail');
 assert.equal(ksDrawingQuality.extracted_drawing_semantics_file, ksExtractedSemanticsPath);
+assert.equal(ksDrawingQuality.semantic_quality.extracted_evidence.coverage.required_dimensions.extracted >= 0, true);
+assert.equal(ksDrawingQuality.semantic_quality.extracted_evidence.required_dimensions.some((entry) => entry.classification === 'unknown' || entry.classification === 'missing'), true);
 ksFixtureRecord.observed.drawingQualityStatus = ksDrawingQuality.status;
 
 const ksStrictDraw = runCliExpectFailure(['draw', bracketConfig, '--bom', '--strict-quality']);
@@ -442,6 +447,8 @@ assert.equal(qualityPassDrawingQuality.status, qualityPassFixture.strictDraw.qua
 assert.equal(qualityPassDrawingQuality.dimensions.coverage_percent, 100);
 assert.equal(qualityPassDrawingQuality.traceability.coverage_percent >= 95, true);
 assert.equal(qualityPassDrawingQuality.extracted_drawing_semantics_file, qualityPassExtractedSemanticsPath);
+assert.equal(qualityPassDrawingQuality.semantic_quality.extracted_evidence.coverage.required_dimensions.missing, 0);
+assert.equal(qualityPassDrawingQuality.semantic_quality.extracted_evidence.required_dimensions.every((entry) => entry.classification === 'extracted'), true);
 qualityPassFixtureRecord.observed.drawingQualityStatus = qualityPassDrawingQuality.status;
 qualityPassFixtureRecord.observed.strictDrawExit = qualityPassStrictDraw.status;
 assertOutputManifest(

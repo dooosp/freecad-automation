@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 
 import {
   buildExtractedDrawingSemantics,
+  compareDrawingIntentToExtractedSemantics,
   resolveExtractedDrawingSemanticsPath,
   validateExtractedDrawingSemantics,
 } from '../src/services/drawing/extracted-drawing-semantics.js';
@@ -57,6 +58,24 @@ const ROOT = resolve(import.meta.dirname, '..');
   assert.equal(first.notes.some((entry) => entry.raw_text === '2X Ø16'), false);
   assert.equal(first.dimensions.some((entry) => entry.raw_text === '2026'), false);
   assert(first.unknowns.some((entry) => entry.includes('MATERIAL')));
+
+  const comparison = compareDrawingIntentToExtractedSemantics(
+    input.drawingIntent,
+    first,
+    null,
+    null,
+    '/tmp/assembly_extracted_drawing_semantics.json'
+  );
+  assert.equal(comparison.status, 'partial');
+  assert.equal(comparison.file, '/tmp/assembly_extracted_drawing_semantics.json');
+  assert.equal(comparison.coverage.required_dimensions.extracted, 1);
+  assert.equal(comparison.coverage.required_notes.unknown, 1);
+  assert.equal(comparison.coverage.required_views.extracted, 1);
+  assert.equal(comparison.required_dimensions[0].classification, 'extracted');
+  assert.equal(comparison.required_dimensions[0].matched_extracted_id, 'svg_text_001');
+  assert.equal(comparison.required_notes[0].classification, 'unknown');
+  assert.equal(comparison.required_views[0].classification, 'extracted');
+  assert(comparison.unknowns.some((entry) => entry.includes('MATERIAL')));
 }
 
 {
@@ -108,6 +127,59 @@ const ROOT = resolve(import.meta.dirname, '..');
   assert.equal(unknown.status, 'unknown');
   assert.equal(unknown.dimensions.length, 0);
   assert(unknown.unknowns.some((entry) => entry.includes('WIDTH')));
+}
+
+{
+  const comparison = compareDrawingIntentToExtractedSemantics(
+    {
+      required_dimensions: [{ id: 'WIDTH', value_mm: 40, required: true }],
+    },
+    {
+      status: 'partial',
+      decision: 'advisory',
+      sources: [
+        { artifact_type: 'svg', path: '/tmp/low-confidence.svg', inspected: true, method: 'svg_text_scan' },
+      ],
+      views: [],
+      dimensions: [
+        {
+          id: 'svg_text_001',
+          raw_text: '40',
+          value: 40,
+          unit: 'mm',
+          matched_intent_id: 'WIDTH',
+          matched_feature_id: 'body_width',
+          source: '/tmp/low-confidence.svg',
+          confidence: 0.42,
+          provenance: {
+            artifact_type: 'svg',
+            path: '/tmp/low-confidence.svg',
+            method: 'svg_dimension_text_scan',
+          },
+        },
+      ],
+      notes: [],
+      coverage: {
+        required_dimensions_total: 1,
+        required_dimensions_extracted: 0,
+        required_notes_total: 0,
+        required_notes_extracted: 0,
+        required_views_total: 0,
+        required_views_extracted: 0,
+      },
+      unknowns: [],
+      limitations: ['Advisory-only foundation.'],
+    },
+    null,
+    null,
+    '/tmp/low-confidence_extracted_drawing_semantics.json'
+  );
+
+  assert.equal(comparison.coverage.required_dimensions.extracted, 0);
+  assert.equal(comparison.coverage.required_dimensions.unknown, 1);
+  assert.equal(comparison.required_dimensions[0].classification, 'unknown');
+  assert.equal(comparison.required_dimensions[0].candidate_matches.length, 1);
+  assert.equal(comparison.required_dimensions[0].candidate_matches[0].matched_extracted_id, 'svg_text_001');
 }
 
 {

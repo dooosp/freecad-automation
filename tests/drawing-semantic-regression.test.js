@@ -74,6 +74,21 @@ function normalizeDrawingQuality(summary, optionalMissingDimensionIds = []) {
     views: summary.views,
     dimensions: summary.dimensions,
     traceability: summary.traceability,
+    extracted_evidence: {
+      status: summary.semantic_quality?.extracted_evidence?.status || 'not_run',
+      coverage: summary.semantic_quality?.extracted_evidence?.coverage || {},
+      required_dimension_classifications: (summary.semantic_quality?.extracted_evidence?.required_dimensions || [])
+        .map((entry) => ({ requirement_id: entry.requirement_id, classification: entry.classification })),
+      required_note_classifications: (summary.semantic_quality?.extracted_evidence?.required_notes || [])
+        .map((entry) => ({ requirement_id: entry.requirement_id, classification: entry.classification })),
+      required_view_classifications: (summary.semantic_quality?.extracted_evidence?.required_views || [])
+        .map((entry) => ({ requirement_id: entry.requirement_id, classification: entry.classification })),
+      unmatched_dimensions: (summary.semantic_quality?.extracted_evidence?.unmatched_dimensions || [])
+        .map((entry) => entry.raw_text),
+      unmatched_notes: (summary.semantic_quality?.extracted_evidence?.unmatched_notes || [])
+        .map((entry) => entry.raw_text),
+      missing_required_items: summary.semantic_quality?.extracted_evidence?.missing_required_items || [],
+    },
     blocking_issue_codes: summary.blocking_issues.map((issue) => issue.code),
     optional_missing_dimension_ids: optionalMissingDimensionIds,
   };
@@ -325,7 +340,13 @@ try {
       normalizeExtractedSemantics(extractedSemantics),
       expected(fixtureName, 'expected_extracted_drawing_semantics.json')
     );
-    const drawingQuality = buildDrawingQualitySummary(qualityArtifacts);
+    const drawingQuality = buildDrawingQualitySummary({
+      ...qualityArtifacts,
+      drawingIntent,
+      featureCatalog,
+      extractedDrawingSemantics: extractedSemantics,
+      extractedDrawingSemanticsPath: join(jobDir, 'artifacts', `${fixtureName}_extracted_drawing_semantics.json`),
+    });
     assert.deepEqual(
       normalizeDrawingQuality(drawingQuality, optionalMissingDimensionIds),
       expected(fixtureName, 'expected_drawing_quality.json')

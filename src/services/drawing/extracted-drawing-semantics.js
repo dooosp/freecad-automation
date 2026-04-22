@@ -16,6 +16,7 @@ const validateSemantics = ajv.compile(EXTRACTED_DRAWING_SEMANTICS_SCHEMA);
 
 export const EXTRACTED_DRAWING_SEMANTICS_SCHEMA_VERSION = 1;
 export const EXTRACTED_DRAWING_SEMANTICS_ARTIFACT_TYPE = 'extracted_drawing_semantics';
+export const RELIABLE_EXTRACTED_MATCH_CONFIDENCE = 0.75;
 
 function formatSchemaErrors(errors = []) {
   return errors.map((error) => `${error.instancePath || '/'} ${error.message}`);
@@ -478,6 +479,523 @@ function determineStatus({ sources = [], views = [], dimensions = [], notes = []
   if (inspected.length === 0) return 'unsupported';
   if (extractedCount === 0) return 'unknown';
   return unknowns.length > 0 ? 'partial' : 'available';
+}
+
+function roundPercent(numerator, denominator) {
+  if (!denominator) return null;
+  return Number(((numerator / denominator) * 100).toFixed(2));
+}
+
+function hasUsableProvenance(entry = {}) {
+  return Boolean(
+    entry?.provenance
+      && typeof entry.provenance === 'object'
+      && normalizeText(entry.provenance.artifact_type)
+      && normalizeText(entry.provenance.method)
+  );
+}
+
+function compareConfidence(a = {}, b = {}) {
+  return Number(b?.confidence || 0) - Number(a?.confidence || 0);
+}
+
+function sortByConfidence(entries = []) {
+  return [...entries].sort(compareConfidence);
+}
+
+function candidateMatch(entry = {}, reason) {
+  return {
+    matched_extracted_id: normalizeText(entry.id),
+    matched_raw_text: normalizeText(entry.raw_text ?? entry.label),
+    matched_feature_id: normalizeText(entry.matched_feature_id),
+    source_artifact: normalizeText(entry.provenance?.artifact_type ?? entry.source),
+    confidence: roundConfidence(entry.confidence),
+    reason,
+    provenance: hasUsableProvenance(entry) ? entry.provenance : null,
+  };
+}
+
+function comparableRequirementHints(requirement = {}) {
+  return uniqueStrings([
+    requirement.id,
+    requirement.label,
+    requirement.text,
+    requirement.note,
+    requirement.view,
+  ]).map((value) => normalizeComparable(value)).filter(Boolean);
+}
+
+function hasRequirementUnknownHint(requirement = {}, unknowns = []) {
+  const hints = comparableRequirementHints(requirement);
+  if (hints.length === 0) return false;
+  return asArray(unknowns).some((entry) => {
+    const comparable = normalizeComparable(entry);
+    return comparable && hints.some((hint) => comparable.includes(hint));
+  });
+}
+
+function categorySourcesAvailable(extractedDrawingSemantics = {}, category) {
+  const sources = asArray(extractedDrawingSemantics?.sources).filter((source) => source?.inspected === true);
+  if (category === 'views') {
+    return sources.some((source) => source.artifact_type === 'layout_report' || source.artifact_type === 'svg');
+  }
+  return sources.some((source) => source.artifact_type === 'svg');
+}
+
+function reliableMatch(entry = {}) {
+  return hasUsableProvenance(entry) && Number(entry.confidence || 0) >= RELIABLE_EXTRACTED_MATCH_CONFIDENCE;
+}
+
+function normalizeRequirementEntry(requirement = {}, classification, {
+  match = null,
+  reason,
+  candidateMatches = [],
+} = {}) {
+  return {
+    requirement_id: normalizeText(requirement.id),
+    requirement_label: normalizeText(requirement.label ?? requirement.text ?? requirement.view ?? requirement.id),
+    classification,
+    matched_extracted_id: normalizeText(match?.id),
+    matched_raw_text: normalizeText(match?.raw_text ?? match?.label),
+    matched_feature_id: normalizeText(match?.matched_feature_id),
+    source_artifact: normalizeText(match?.provenance?.artifact_type ?? match?.source),
+    confidence: match ? roundConfidence(match.confidence) : null,
+    reason,
+    provenance: match && hasUsableProvenance(match) ? match.provenance : null,
+    candidate_matches: candidateMatches,
+  };
+}
+
+function coverageCounts(entries = []) {
+  const counts = {
+    total: entries.length,
+    extracted: 0,
+    missing: 0,
+    unknown: 0,
+    unsupported: 0,
+  };
+  for (const entry of entries) {
+    if (entry?.classification === 'extracted') counts.extracted += 1;
+    else if (entry?.classification === 'missing') counts.missing += 1;
+    else if (entry?.classification === 'unsupported') counts.unsupported += 1;
+    else counts.unknown += 1;
+  }
+  return {
+    ...counts,
+    extracted_percent: roundPercent(counts.extracted, counts.total),
+  };
+}
+
+function compareRequiredDimensions(requiredDimensions = [], extractedDrawingSemantics = null) {
+  const semantics = asObject(extractedDrawingSemantics);
+  const unknowns = asArray(semantics.unknowns);
+  const sourcesAvailable = categorySourcesAvailable(semantics, 'dimensions');
+  const dimensions = asArray(semantics.dimensions);
+  const usedIds = new Set();
+
+  const required = requiredDimensions.map((requirement) => {
+    const requirementId = normalizeComparable(requirement.id);
+    const matches = sortByConfidence(dimensions.filter((entry) => (
+      normalizeComparable(entry.matched_intent_id) === requirementId
+    )));
+    const reliable = matches.filter(reliableMatch);
+    const bestReliable = reliable[0] || null;
+    const candidateMatches = matches
+      .filter((entry) => !reliableMatch(entry))
+      .map((entry) => candidateMatch(entry, 'Matched extracted dimension stayed below the reliable confidence threshold.'));
+
+    if (bestReliable) {
+      usedIds.add(bestReliable.id);
+      return normalizeRequirementEntry(
+        requirement,
+        'extracted',
+        {
+          match: bestReliable,
+          reason: 'Reliable extracted dimension evidence matched this required dimension.',
+          candidateMatches,
+        }
+      );
+    }
+
+    if (candidateMatches.length > 0) {
+      matches.forEach((entry) => usedIds.add(entry.id));
+      return normalizeRequirementEntry(
+        requirement,
+        'unknown',
+        {
+          reason: 'Only low-confidence extracted dimension candidates were available for this required dimension.',
+          candidateMatches,
+        }
+      );
+    }
+
+    if (!semantics || Object.keys(semantics).length === 0) {
+      return normalizeRequirementEntry(
+        requirement,
+        'unsupported',
+        { reason: 'Extracted drawing semantics artifact was not available for comparison.' }
+      );
+    }
+
+    if (!sourcesAvailable) {
+      return normalizeRequirementEntry(
+        requirement,
+        'unknown',
+        { reason: 'Dimension extraction evidence was unavailable, so this requirement remains unknown.' }
+      );
+    }
+
+    if (hasRequirementUnknownHint(requirement, unknowns)) {
+      return normalizeRequirementEntry(
+        requirement,
+        'unknown',
+        { reason: 'Extracted drawing semantics explicitly marked this required dimension as uncertain.' }
+      );
+    }
+
+    return normalizeRequirementEntry(
+      requirement,
+      'missing',
+      { reason: 'No reliable extracted dimension evidence matched this required dimension.' }
+    );
+  });
+
+  const unmatched = sortByConfidence(dimensions)
+    .filter((entry) => !usedIds.has(entry.id))
+    .filter((entry) => !normalizeComparable(entry.matched_intent_id))
+    .map((entry) => ({
+      extracted_id: normalizeText(entry.id),
+      raw_text: normalizeText(entry.raw_text),
+      matched_feature_id: normalizeText(entry.matched_feature_id),
+      source_artifact: normalizeText(entry.provenance?.artifact_type ?? entry.source),
+      confidence: roundConfidence(entry.confidence),
+      reason: 'Extracted dimension did not match a required drawing-intent dimension.',
+      provenance: hasUsableProvenance(entry) ? entry.provenance : null,
+    }));
+
+  return {
+    required,
+    unmatched,
+    coverage: coverageCounts(required),
+  };
+}
+
+function compareRequiredNotes(requiredNotes = [], extractedDrawingSemantics = null) {
+  const semantics = asObject(extractedDrawingSemantics);
+  const unknowns = asArray(semantics.unknowns);
+  const sourcesAvailable = categorySourcesAvailable(semantics, 'notes');
+  const notes = asArray(semantics.notes);
+  const usedIds = new Set();
+
+  const required = requiredNotes.map((requirement) => {
+    const requirementId = normalizeComparable(requirement.id);
+    const matches = sortByConfidence(notes.filter((entry) => (
+      normalizeComparable(entry.matched_intent_id) === requirementId
+    )));
+    const reliable = matches.filter(reliableMatch);
+    const bestReliable = reliable[0] || null;
+    const candidateMatches = matches
+      .filter((entry) => !reliableMatch(entry))
+      .map((entry) => candidateMatch(entry, 'Matched extracted note stayed below the reliable confidence threshold.'));
+
+    if (bestReliable) {
+      usedIds.add(bestReliable.id);
+      return normalizeRequirementEntry(
+        requirement,
+        'extracted',
+        {
+          match: bestReliable,
+          reason: 'Reliable extracted note evidence matched this required drawing note.',
+          candidateMatches,
+        }
+      );
+    }
+
+    if (candidateMatches.length > 0) {
+      matches.forEach((entry) => usedIds.add(entry.id));
+      return normalizeRequirementEntry(
+        requirement,
+        'unknown',
+        {
+          reason: 'Only low-confidence extracted note candidates were available for this required drawing note.',
+          candidateMatches,
+        }
+      );
+    }
+
+    if (!semantics || Object.keys(semantics).length === 0) {
+      return normalizeRequirementEntry(
+        requirement,
+        'unsupported',
+        { reason: 'Extracted drawing semantics artifact was not available for comparison.' }
+      );
+    }
+
+    if (!sourcesAvailable) {
+      return normalizeRequirementEntry(
+        requirement,
+        'unknown',
+        { reason: 'Note extraction evidence was unavailable, so this requirement remains unknown.' }
+      );
+    }
+
+    if (hasRequirementUnknownHint(requirement, unknowns)) {
+      return normalizeRequirementEntry(
+        requirement,
+        'unknown',
+        { reason: 'Extracted drawing semantics explicitly marked this required note as uncertain.' }
+      );
+    }
+
+    return normalizeRequirementEntry(
+      requirement,
+      'missing',
+      { reason: 'No reliable extracted note evidence matched this required drawing note.' }
+    );
+  });
+
+  const unmatched = sortByConfidence(notes)
+    .filter((entry) => !usedIds.has(entry.id))
+    .filter((entry) => !normalizeComparable(entry.matched_intent_id))
+    .map((entry) => ({
+      extracted_id: normalizeText(entry.id),
+      raw_text: normalizeText(entry.raw_text),
+      category: normalizeText(entry.category),
+      source_artifact: normalizeText(entry.provenance?.artifact_type ?? entry.source),
+      confidence: roundConfidence(entry.confidence),
+      reason: 'Extracted note did not match a required drawing-intent note.',
+      provenance: hasUsableProvenance(entry) ? entry.provenance : null,
+    }));
+
+  return {
+    required,
+    unmatched,
+    coverage: coverageCounts(required),
+  };
+}
+
+function compareRequiredViews(requiredViews = [], extractedDrawingSemantics = null) {
+  const semantics = asObject(extractedDrawingSemantics);
+  const unknowns = asArray(semantics.unknowns);
+  const sourcesAvailable = categorySourcesAvailable(semantics, 'views');
+  const views = asArray(semantics.views);
+
+  const required = requiredViews.map((requirement) => {
+    const aliases = viewAliases(requirement.id ?? requirement.view ?? requirement.label).map(normalizeComparable);
+    const matches = sortByConfidence(views.filter((entry) => {
+      const matchedIntentId = normalizeComparable(entry.matched_intent_id);
+      const entryId = normalizeComparable(entry.id);
+      return aliases.includes(matchedIntentId) || aliases.includes(entryId);
+    }));
+    const reliable = matches.filter(reliableMatch);
+    const bestReliable = reliable[0] || null;
+    const candidateMatches = matches
+      .filter((entry) => !reliableMatch(entry))
+      .map((entry) => candidateMatch(entry, 'Matched extracted view stayed below the reliable confidence threshold.'));
+
+    if (bestReliable) {
+      return normalizeRequirementEntry(
+        requirement,
+        'extracted',
+        {
+          match: bestReliable,
+          reason: 'Reliable extracted view evidence matched this required view.',
+          candidateMatches,
+        }
+      );
+    }
+
+    if (candidateMatches.length > 0) {
+      return normalizeRequirementEntry(
+        requirement,
+        'unknown',
+        {
+          reason: 'Only low-confidence extracted view candidates were available for this required view.',
+          candidateMatches,
+        }
+      );
+    }
+
+    if (!semantics || Object.keys(semantics).length === 0) {
+      return normalizeRequirementEntry(
+        requirement,
+        'unsupported',
+        { reason: 'Extracted drawing semantics artifact was not available for comparison.' }
+      );
+    }
+
+    if (!sourcesAvailable) {
+      return normalizeRequirementEntry(
+        requirement,
+        'unknown',
+        { reason: 'View extraction evidence was unavailable, so this requirement remains unknown.' }
+      );
+    }
+
+    if (hasRequirementUnknownHint(requirement, unknowns)) {
+      return normalizeRequirementEntry(
+        requirement,
+        'unknown',
+        { reason: 'Extracted drawing semantics explicitly marked this required view as uncertain.' }
+      );
+    }
+
+    return normalizeRequirementEntry(
+      requirement,
+      'missing',
+      { reason: 'No reliable extracted view evidence matched this required view.' }
+    );
+  });
+
+  return {
+    required,
+    coverage: coverageCounts(required),
+  };
+}
+
+function summarizeComparisonCoverage({ dimensions, notes, views }) {
+  return {
+    required_dimensions: dimensions.coverage,
+    required_notes: notes.coverage,
+    required_views: views.coverage,
+    total_required: dimensions.coverage.total + notes.coverage.total + views.coverage.total,
+    total_extracted: dimensions.coverage.extracted + notes.coverage.extracted + views.coverage.extracted,
+    total_missing: dimensions.coverage.missing + notes.coverage.missing + views.coverage.missing,
+    total_unknown: dimensions.coverage.unknown + notes.coverage.unknown + views.coverage.unknown,
+    total_unsupported: dimensions.coverage.unsupported + notes.coverage.unsupported + views.coverage.unsupported,
+  };
+}
+
+function summarizeUnknownRequirements(comparison = {}) {
+  return [
+    ...asArray(comparison.required_dimensions).filter((entry) => entry.classification === 'unknown').map((entry) => entry.requirement_id),
+    ...asArray(comparison.required_notes).filter((entry) => entry.classification === 'unknown').map((entry) => entry.requirement_id),
+    ...asArray(comparison.required_views).filter((entry) => entry.classification === 'unknown').map((entry) => entry.requirement_id),
+  ].filter(Boolean);
+}
+
+function summarizeMissingRequirements(comparison = {}) {
+  return [
+    ...asArray(comparison.required_dimensions).filter((entry) => entry.classification === 'missing').map((entry) => entry.requirement_id),
+    ...asArray(comparison.required_notes).filter((entry) => entry.classification === 'missing').map((entry) => entry.requirement_id),
+    ...asArray(comparison.required_views).filter((entry) => entry.classification === 'missing').map((entry) => entry.requirement_id),
+  ].filter(Boolean);
+}
+
+function buildSuggestedActions(comparison = {}, { featureCatalog = null, planner = null } = {}) {
+  const missingDimensions = asArray(comparison.required_dimensions)
+    .filter((entry) => entry.classification === 'missing')
+    .map((entry) => entry.requirement_id);
+  const unknownDimensions = asArray(comparison.required_dimensions)
+    .filter((entry) => entry.classification === 'unknown')
+    .map((entry) => entry.requirement_id);
+  const missingNotes = asArray(comparison.required_notes)
+    .filter((entry) => entry.classification === 'missing')
+    .map((entry) => entry.requirement_id);
+  const unknownNotes = asArray(comparison.required_notes)
+    .filter((entry) => entry.classification === 'unknown')
+    .map((entry) => entry.requirement_id);
+  const missingViews = asArray(comparison.required_views)
+    .filter((entry) => entry.classification === 'missing')
+    .map((entry) => entry.requirement_id);
+  const unknownViews = asArray(comparison.required_views)
+    .filter((entry) => entry.classification === 'unknown')
+    .map((entry) => entry.requirement_id);
+
+  return uniqueStrings([
+    missingDimensions.length > 0
+      ? `Add or clarify extracted drawing dimension evidence for: ${missingDimensions.join(', ')}.`
+      : null,
+    unknownDimensions.length > 0
+      ? `Review low-confidence or incomplete extracted dimension evidence for: ${unknownDimensions.join(', ')}.`
+      : null,
+    missingNotes.length > 0
+      ? `Add or clarify extracted drawing note evidence for: ${missingNotes.join(', ')}.`
+      : null,
+    unknownNotes.length > 0
+      ? `Review low-confidence or incomplete extracted note evidence for: ${unknownNotes.join(', ')}.`
+      : null,
+    missingViews.length > 0
+      ? `Generate or expose extracted drawing view evidence for: ${missingViews.join(', ')}.`
+      : null,
+    unknownViews.length > 0
+      ? `Review low-confidence or incomplete extracted view evidence for: ${unknownViews.join(', ')}.`
+      : null,
+    asArray(comparison.unmatched_dimensions).length > 0
+      ? 'Review unmatched extracted dimensions to confirm they are supplemental and not missing intent requirements.'
+      : null,
+    asArray(comparison.unmatched_notes).length > 0
+      ? 'Review unmatched extracted notes to confirm they are supplemental and not missing intent requirements.'
+      : null,
+    planner && missingDimensions.length > 0
+      ? 'Review drawing planner recommendations for required dimensions that were not reliably extracted.'
+      : null,
+    planner && missingViews.length > 0
+      ? 'Review drawing planner recommendations for required views that were not reliably extracted.'
+      : null,
+    featureCatalog && (missingDimensions.length > 0 || unknownDimensions.length > 0)
+      ? 'Cross-check feature catalog evidence for features tied to missing or uncertain extracted dimensions.'
+      : null,
+  ]);
+}
+
+export function compareDrawingIntentToExtractedSemantics(
+  drawingIntent = null,
+  extractedDrawingSemantics = null,
+  featureCatalog = null,
+  planner = null,
+  extractedDrawingSemanticsPath = null
+) {
+  const intent = asObject(drawingIntent);
+  const requiredDimensions = collectIntentDimensions(intent);
+  const requiredNotes = collectIntentNotes(intent);
+  const requiredViews = collectIntentViews(intent);
+  const semantics = extractedDrawingSemantics && typeof extractedDrawingSemantics === 'object'
+    ? extractedDrawingSemantics
+    : null;
+
+  const dimensionComparison = compareRequiredDimensions(requiredDimensions, semantics);
+  const noteComparison = compareRequiredNotes(requiredNotes, semantics);
+  const viewComparison = compareRequiredViews(requiredViews, semantics);
+  const coverage = summarizeComparisonCoverage({
+    dimensions: dimensionComparison,
+    notes: noteComparison,
+    views: viewComparison,
+  });
+
+  const comparison = {
+    status: semantics?.status || (extractedDrawingSemanticsPath ? 'not_available' : 'not_run'),
+    advisory_only: semantics?.decision !== 'enforced',
+    file: resolveMaybe(extractedDrawingSemanticsPath),
+    path: resolveMaybe(extractedDrawingSemanticsPath),
+    sources: asArray(semantics?.sources),
+    coverage,
+    required_dimensions: dimensionComparison.required,
+    required_notes: noteComparison.required,
+    required_views: viewComparison.required,
+    unmatched_dimensions: dimensionComparison.unmatched,
+    unmatched_notes: noteComparison.unmatched,
+    unknowns: uniqueStrings([
+      ...asArray(semantics?.unknowns),
+      ...summarizeUnknownRequirements({
+        required_dimensions: dimensionComparison.required,
+        required_notes: noteComparison.required,
+        required_views: viewComparison.required,
+      }).map((requirementId) => `Required extracted evidence remains unknown: ${requirementId}.`),
+    ]),
+    limitations: uniqueStrings(asArray(semantics?.limitations)),
+    matched_required_dimensions: coverage.required_dimensions.extracted,
+    matched_required_notes: coverage.required_notes.extracted,
+    matched_required_views: coverage.required_views.extracted,
+    missing_required_items: summarizeMissingRequirements({
+      required_dimensions: dimensionComparison.required,
+      required_notes: noteComparison.required,
+      required_views: viewComparison.required,
+    }),
+  };
+
+  comparison.suggested_actions = buildSuggestedActions(comparison, { featureCatalog, planner });
+  return comparison;
 }
 
 export function resolveExtractedDrawingSemanticsPath(drawingSvgPath) {
