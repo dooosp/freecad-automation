@@ -47,6 +47,42 @@ from _svg_utils import escape as _escape, arrow_head as _arrow_head
 
 # -- Edge Projection -----------------------------------------------------------
 
+def _normalize_view_token(value, separator="_"):
+    text = str(value or "").strip().lower()
+    if not text:
+        return "view"
+    out = []
+    previous_sep = False
+    for ch in text:
+        if ch.isalnum():
+            out.append(ch)
+            previous_sep = False
+        elif not previous_sep:
+            out.append(separator)
+            previous_sep = True
+    normalized = "".join(out).strip(separator)
+    return normalized or "view"
+
+
+def _wrap_view_svg(svg, metadata=None, fallback_view_id="view"):
+    metadata = metadata or {}
+    semantic_id = str(metadata.get("id") or fallback_view_id or "view")
+    wrapper_slug = _normalize_view_token(semantic_id, separator="-")
+    wrapper_id = f"drawing-view-{wrapper_slug}"
+    attrs = [
+        f'class="drawing-view drawing-view-{wrapper_slug}"',
+        f'id="{_escape(wrapper_id)}"',
+        f'data-view-id="{_escape(semantic_id)}"',
+        f'data-view-kind="{_escape(str(metadata.get("kind") or "orthographic"))}"',
+        f'data-view-label="{_escape(str(metadata.get("label") or semantic_id))}"',
+        f'data-region-ref="{_escape(str(metadata.get("region_ref") or wrapper_id))}"',
+    ]
+    if metadata.get("identity"):
+        attrs.append(f'data-view-identity="{_escape(str(metadata["identity"]))}"')
+    if metadata.get("source_view"):
+        attrs.append(f'data-source-view="{_escape(str(metadata["source_view"]))}"')
+    return f'<g {" ".join(attrs)}>\n{svg}\n</g>'
+
 def project_view(shape, direction, view_name):
     """Project shape with TechDraw.projectEx() and classify edges.
     Returns: (groups, bounds, circles, arcs)
@@ -601,7 +637,7 @@ def compose_drawing(views_svg, name, bom, scale, bbox,
                     mates=None, tol_specs=None, meta=None, style_cfg=None,
                     extra_svg="", revisions=None, notes_list=None,
                     gdt_entries=None, feature_graph=None,
-                    view_data=None):
+                    view_data=None, view_metadata=None):
     """Assemble full A3 landscape SVG with views, ISO 7200 title block, BOM, legend, GD&T."""
     meta = meta or {}
     style_cfg = style_cfg or {}
@@ -628,7 +664,7 @@ def compose_drawing(views_svg, name, bom, scale, bbox,
     # View content
     for vn, svg in views_svg.items():
         p.append(f'<!-- {vn.upper()} -->')
-        p.append(svg)
+        p.append(_wrap_view_svg(svg, (view_metadata or {}).get(vn), vn))
 
     # ── ISO 7200 Title Block ──────────────────────────────────────────────
     tb_y = PAGE_H - MARGIN - TITLE_H
@@ -1644,6 +1680,7 @@ try:
 
     # -- Project Views --
     views_svg = {}
+    view_metadata = {}
     view_data = {}  # bounds/cx/cy per view for cutting line rendering
     for vname in views_requested:
         if vname not in VIEW_DIRECTIONS:
@@ -1683,6 +1720,11 @@ try:
         cx, cy = VIEW_CELLS.get(vname, VIEW_CELLS["front"])
         view_data[vname] = {"bounds": bounds, "cx": cx, "cy": cy,
                            "groups": groups, "circles": circles, "arcs": arcs}
+        view_metadata[vname] = {
+            "id": vname,
+            "label": "ISOMETRIC" if vname == "iso" else vname.upper(),
+            "kind": "isometric" if vname == "iso" else "orthographic",
+        }
         n_edges = sum(len(v) for v in groups.values())
         log(f"  View '{vname}': {n_edges} edges")
 
@@ -1836,6 +1878,13 @@ try:
                     del views_svg["iso"]
                 # Render cutting line on parent view
                 parent_vn = SECTION_PARENT_MAP.get(sec_plane)
+                view_metadata["section"] = {
+                    "id": f"section_{_normalize_view_token(sec_label)}",
+                    "label": f"SECTION {sec_label}",
+                    "kind": "section",
+                    "identity": str(sec_label),
+                    "source_view": parent_vn,
+                }
                 if parent_vn and parent_vn in view_data and parent_vn in views_svg:
                     vd = view_data[parent_vn]
                     cut_svg = render_cutting_line_svg(
@@ -1873,6 +1922,13 @@ try:
                 views_svg["detail"] = det_svg
                 if "iso" in views_svg:
                     del views_svg["iso"]
+                view_metadata["detail"] = {
+                    "id": f"detail_{_normalize_view_token(det_label)}",
+                    "label": f"DETAIL {det_label}",
+                    "kind": "detail",
+                    "identity": str(det_label),
+                    "source_view": source_vn,
+                }
                 # Add indicator circle on parent view
                 ind_svg = render_detail_indicator_svg(
                     det_center, det_radius, det_label,
@@ -2042,7 +2098,7 @@ try:
         extra_svg=extra_svg,
         revisions=revisions, notes_list=notes_list,
         gdt_entries=gdt_entries, feature_graph=feature_graph,
-        view_data=view_data)
+        view_data=view_data, view_metadata=view_metadata)
 
     # -- Save SVG --
     export_dir = config.get("export", {}).get("directory", ".")

@@ -405,7 +405,7 @@ try {
     };
   }
 
-  for (const fixtureName of ['note_semantics_plate', 'slot_hole_pattern_semantics_case', 'unsupported_semantics_case']) {
+  for (const fixtureName of ['note_semantics_plate', 'slot_hole_pattern_semantics_case', 'section_detail_view_semantics_case', 'unsupported_semantics_case']) {
     const fixture = syntheticFixture(fixtureName);
     const expectations = expectedSuite(fixtureName);
     const drawingIntent = fixture.drawing_intent;

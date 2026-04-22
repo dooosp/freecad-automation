@@ -75,8 +75,18 @@
     "layoutReportPath": "/tmp/note_semantics_plate_layout_report.json",
     "layoutReport": {
       "views": {
-        "top": { "label": "Top View" },
-        "section_a_a": { "label": "Section A-A" }
+        "top": {
+          "label": "Top View",
+          "cell_center_mm": [70, 60],
+          "cell_bounds_mm": { "x_min": 10, "y_min": 10, "x_max": 130, "y_max": 110 }
+        },
+        "section_a_a": {
+          "label": "Section A-A",
+          "view_kind": "section",
+          "identity": "A-A",
+          "cell_center_mm": [210, 60],
+          "cell_bounds_mm": { "x_min": 150, "y_min": 10, "x_max": 270, "y_max": 110 }
+        }
       },
       "summary": {
         "overflow_views": []

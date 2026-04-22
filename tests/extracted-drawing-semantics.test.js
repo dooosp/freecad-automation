@@ -337,6 +337,68 @@ const ROOT = resolve(import.meta.dirname, '..');
 }
 
 {
+  const semantics = buildExtractedDrawingSemantics({
+    drawingSvgPath: '/tmp/structured-section-detail.svg',
+    svgContent: [
+      '<svg xmlns="http://www.w3.org/2000/svg">',
+      '  <g class="drawing-view drawing-view-section-a-a" id="drawing-view-section-a-a" data-view-id="section_a_a" data-view-kind="section" data-view-label="SECTION A-A" data-view-identity="A-A" data-region-ref="drawing-view:section_a_a"></g>',
+      '  <g class="drawing-view drawing-view-detail-b" id="drawing-view-detail-b" data-view-id="detail_b" data-view-kind="detail" data-view-label="DETAIL B" data-view-identity="B" data-source-view="top" data-region-ref="drawing-view:detail_b"></g>',
+      '</svg>',
+    ].join('\n'),
+    drawingIntent: {
+      required_views: [
+        { id: 'section_a_a', label: 'Section A-A', view_kind: 'section', required: true },
+        { id: 'detail_b', label: 'Detail B', view_kind: 'detail', source_view: 'top', required: true },
+      ],
+    },
+  });
+
+  assert.equal(semantics.methods.includes('svg_view_group_metadata'), true);
+  assert.equal(semantics.coverage.required_views_extracted, 2);
+  assert.equal(semantics.views.some((entry) => entry.id === 'section_a_a' && entry.view_kind === 'section'), true);
+  assert.equal(semantics.views.some((entry) => entry.id === 'detail_b' && entry.view_kind === 'detail'), true);
+}
+
+{
+  const semantics = buildExtractedDrawingSemantics({
+    drawingSvgPath: '/tmp/label-only-section-detail.svg',
+    svgContent: [
+      '<svg xmlns="http://www.w3.org/2000/svg">',
+      '  <text x="10" y="10">SECTION A-A</text>',
+      '  <text x="10" y="20">DETAIL B</text>',
+      '</svg>',
+    ].join('\n'),
+    drawingIntent: {
+      required_views: [
+        { id: 'section_a_a', label: 'Section A-A', view_kind: 'section', required: true },
+        { id: 'detail_b', label: 'Detail B', view_kind: 'detail', source_view: 'top', required: true },
+      ],
+    },
+  });
+
+  assert.equal(semantics.methods.includes('svg_view_group_metadata'), false);
+  assert.equal(semantics.views.length, 0);
+  assert(semantics.unknowns.some((entry) => entry.includes('distinct traceable view group or region: section_a_a')));
+  assert(semantics.unknowns.some((entry) => entry.includes('distinct traceable view group or region: detail_b')));
+
+  const comparison = compareDrawingIntentToExtractedSemantics(
+    {
+      required_views: [
+        { id: 'section_a_a', label: 'Section A-A', view_kind: 'section', required: true },
+        { id: 'detail_b', label: 'Detail B', view_kind: 'detail', source_view: 'top', required: true },
+      ],
+    },
+    semantics,
+    null,
+    null,
+    '/tmp/label-only-section-detail_extracted_drawing_semantics.json'
+  );
+
+  assert.equal(comparison.required_views[0].classification, 'unknown');
+  assert.equal(comparison.required_views[1].classification, 'unknown');
+}
+
+{
   const comparison = compareDrawingIntentToExtractedSemantics(
     {
       required_dimensions: [],

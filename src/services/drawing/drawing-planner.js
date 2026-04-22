@@ -1,6 +1,11 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
+import {
+  collectRecommendedDrawingViews,
+  isExplicitlyUnsupportedDrawingView,
+  normalizeDrawingViewDescriptor,
+} from '../../../lib/drawing-intent.js';
 import { buildFeatureCatalog } from '../../../lib/feature-catalog.js';
 
 export const DRAWING_PLANNER_SCHEMA_VERSION = '0.1';
@@ -267,7 +272,7 @@ function pushDimension(recommendations, missing, dimensions, spec) {
   }
 }
 
-function buildViewRecommendations(config, features) {
+function buildViewRecommendations(config, features, drawingIntent = {}) {
   const existingViews = uniqueStrings([
     ...asArray(config?.drawing_plan?.views?.enabled),
     ...asArray(config?.drawing?.views),
@@ -277,8 +282,15 @@ function buildViewRecommendations(config, features) {
   const hasBracket = config?.drawing_plan?.part_type === 'bracket'
     || asArray(config.operations).some((operation) => operation?.op === 'fuse');
   const views = [];
+  const seenViewIds = new Set();
+  const pushViewRecommendation = (entry) => {
+    const key = cleanText(entry?.view);
+    if (!key || seenViewIds.has(key)) return;
+    seenViewIds.add(key);
+    views.push(entry);
+  };
   const addView = (view, reason, refs, score = 0.78) => {
-    views.push(recommendation({
+    pushViewRecommendation(recommendation({
       id: `view:${view}`,
       type: 'required_view',
       view,
@@ -310,6 +322,39 @@ function buildViewRecommendations(config, features) {
       uniqueStrings(asArray(config.operations).map((operation) => `config:operation:${operation?.op || 'unknown'}`)),
       0.68
     );
+  }
+
+  for (const explicitView of collectRecommendedDrawingViews(drawingIntent)) {
+    const descriptor = normalizeDrawingViewDescriptor(explicitView);
+    if (!descriptor.id) continue;
+    const label = cleanText(explicitView.label || descriptor.label || descriptor.id, descriptor.id);
+    const kindLabel = descriptor.view_kind === 'section'
+      ? 'section view'
+      : descriptor.view_kind === 'detail'
+        ? 'detail view'
+        : 'view';
+    pushViewRecommendation(recommendation({
+      id: `view:${descriptor.id}`,
+      type: 'recommended_view',
+      view: descriptor.id,
+      feature_id: cleanText(explicitView.feature),
+      status: existingViews.includes(descriptor.id) ? 'already_requested' : 'recommended',
+      message: `Carry recommended ${label}.`,
+      reason: cleanText(explicitView.reason || explicitView.purpose, `Drawing intent explicitly recommends this ${kindLabel}.`),
+      evidence_refs: uniqueStrings([
+        'drawing_intent:recommended_views',
+        cleanText(explicitView.feature) ? `drawing_intent:feature:${cleanText(explicitView.feature)}` : null,
+      ]),
+      confidence: makeConfidence(
+        descriptor.view_kind === 'section' || descriptor.view_kind === 'detail' ? 0.72 : 0.68,
+        'Drawing intent explicitly marks this view as recommended, but it remains advisory.'
+      ),
+      suggested_fix: existingViews.includes(descriptor.id)
+        ? null
+        : descriptor.view_kind === 'section' || descriptor.view_kind === 'detail'
+          ? `Add ${label} only if it improves clarity, and keep it as a distinct labeled view region rather than a loose label.`
+          : `Add "${descriptor.id}" to drawing.views or drawing_plan.views.enabled only if it improves clarity.`,
+    }));
   }
   return views;
 }
@@ -671,10 +716,12 @@ function noteActionLabel(requirement = {}, evidenceEntry = {}) {
 }
 
 function viewActionLabel(requirement = {}, evidenceEntry = {}) {
-  return cleanText(
-    requirement.view || requirement.id || evidenceEntry.requirement_id || evidenceEntry.requirement_label,
-    'required view'
-  );
+  const descriptor = normalizeDrawingViewDescriptor({
+    ...requirement,
+    id: requirement.view || requirement.id || evidenceEntry.requirement_id || evidenceEntry.requirement_label,
+    label: requirement.label || evidenceEntry.requirement_label,
+  });
+  return cleanText(descriptor.label || descriptor.id, 'required view');
 }
 
 function requirementLookup(drawingIntent = {}) {
@@ -855,8 +902,21 @@ function noteFixSteps(requirement = {}, evidenceEntry = {}, classification = 'un
 }
 
 function viewFixSteps(requirement = {}, evidenceEntry = {}, classification = 'unknown') {
-  const requirementLabel = cleanText(evidenceEntry.requirement_label || requirement.label || requirement.id, 'required view');
-  const viewName = cleanText(requirement.view || requirement.id || evidenceEntry.requirement_id, requirementLabel);
+  const descriptor = normalizeDrawingViewDescriptor({
+    ...requirement,
+    id: requirement.view || requirement.id || evidenceEntry.requirement_id || evidenceEntry.requirement_label,
+    label: requirement.label || evidenceEntry.requirement_label,
+  });
+  const requirementLabel = cleanText(evidenceEntry.requirement_label || descriptor.label || descriptor.id, 'required view');
+  const viewName = cleanText(descriptor.label || descriptor.id, requirementLabel);
+  const requiresStructuredEvidence = descriptor.view_kind === 'section' || descriptor.view_kind === 'detail';
+
+  if (isExplicitlyUnsupportedDrawingView(requirement)) {
+    return [
+      `Keep ${viewName} marked unsupported until the generator and extractor can represent that view form safely.`,
+      'Do not satisfy this requirement with a loose label or inferred geometry alone.',
+    ];
+  }
 
   if (classification === 'unsupported') {
     return [
@@ -868,7 +928,9 @@ function viewFixSteps(requirement = {}, evidenceEntry = {}, classification = 'un
   if (classification === 'missing') {
     return [
       `Add the required ${viewName} view to the drawing.`,
-      `Label the ${viewName} view clearly so extraction can match ${requirementLabel}.`,
+      requiresStructuredEvidence
+        ? `Keep ${viewName} as a distinct labeled view region/group; a loose label alone does not satisfy ${requirementLabel}.`
+        : `Label the ${viewName} view clearly so extraction can match ${requirementLabel}.`,
     ];
   }
 
@@ -880,7 +942,9 @@ function viewFixSteps(requirement = {}, evidenceEntry = {}, classification = 'un
   }
 
   return [
-    `Verify the ${viewName} view label is present and readable.`,
+    requiresStructuredEvidence
+      ? `Verify ${viewName} has a distinct view region/group plus readable identity; a loose label alone is insufficient.`
+      : `Verify the ${viewName} view label is present and readable.`,
     `Confirm extraction can match the ${viewName} view back to ${requirementLabel}.`,
   ];
 }
@@ -1084,7 +1148,7 @@ export function buildDrawingPlanner({
   });
   const intent = drawingIntent || config?.drawing_plan || {};
   const dimensions = collectIntentDimensions(intent, dimensionMap || {});
-  const recommendedViews = buildViewRecommendations(config, catalog.features);
+  const recommendedViews = buildViewRecommendations(config, catalog.features, drawingIntent || {});
   const dimensionPlan = buildDimensions(catalog.features, dimensions);
   const annotations = buildAnnotations(config, catalog.features);
   const { section, detail } = buildSectionAndDetailViews(catalog.features);

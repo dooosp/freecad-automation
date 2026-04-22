@@ -136,7 +136,7 @@
     "suggested_actions": [
       "Carry forward existing planner suggestion.",
       "Review required dimension Slot depth because extracted evidence is low-confidence. Add or label a section view through slot_001 if the depth is not readable in the current orthographic views. Verify the linked depth dimension for Slot depth is visible and labeled clearly. Check that SVG text extraction can read the depth label.",
-      "Add or label the required view section_a_a if it should appear in the drawing. Verify the section_a_a view label is present and readable. Confirm extraction can match the section_a_a view back to section_a_a.",
+      "Add or label the required view section_a_a if it should appear in the drawing. Verify section_a_a has a distinct view region/group plus readable identity; a loose label alone is insufficient. Confirm extraction can match the section_a_a view back to section_a_a.",
       "Improve intent aliases or drawing labels for unmatched extracted dimensions. Review whether the unmatched dimensions should map to an existing required intent. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
       "Improve intent aliases or drawing labels for unmatched extracted notes. Review whether the unmatched notes should satisfy an existing required note. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably."
     ],
@@ -157,7 +157,7 @@
         "classification": "missing",
         "severity": "advisory",
         "title": "Add or label the required view section_a_a if it should appear in the drawing.",
-        "recommended_fix": "Verify the section_a_a view label is present and readable. Confirm extraction can match the section_a_a view back to section_a_a."
+        "recommended_fix": "Verify section_a_a has a distinct view region/group plus readable identity; a loose label alone is insufficient. Confirm extraction can match the section_a_a view back to section_a_a."
       },
       {
         "category": "mapping",

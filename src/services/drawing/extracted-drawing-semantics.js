@@ -5,6 +5,13 @@ import { dirname, join, parse, resolve } from 'node:path';
 import Ajv2020 from 'ajv/dist/2020.js';
 
 import {
+  collectRequiredDrawingViews,
+  isExplicitlyUnsupportedDrawingView,
+  normalizeDrawingViewDescriptor,
+  viewRequirementMatches,
+} from '../../../lib/drawing-intent.js';
+
+import {
   buildPlannerActionsFromExtractedCoverage,
   formatPlannerSuggestedAction,
 } from './drawing-planner.js';
@@ -124,12 +131,7 @@ function collectIntentNotes(drawingIntent = {}) {
 }
 
 function collectIntentViews(drawingIntent = {}) {
-  return uniqueById(normalizeRequirementList(
-    drawingIntent.required_views
-      ?? drawingIntent.views?.required
-      ?? drawingIntent.views,
-    true
-  ).filter((entry) => entry.required && !entry.optional));
+  return collectRequiredDrawingViews(drawingIntent);
 }
 
 function createSource(artifactType, path, inspected, method) {
@@ -260,26 +262,10 @@ function matchRequiredNote(note = {}, requiredNotes = []) {
   return null;
 }
 
-function viewAliases(viewId = null) {
-  const normalized = normalizeComparable(viewId);
-  if (!normalized) return [];
-  const aliases = new Set([normalized]);
-  const aliasMap = {
-    front: ['frontview', 'elevation'],
-    top: ['topview', 'plan'],
-    right: ['rightview', 'sideview'],
-    left: ['leftview'],
-    iso: ['isometric', 'isometricview'],
-    section: ['sectionview', 'sectionaa', 'sectionbb'],
-  };
-  for (const alias of aliasMap[normalized] || []) aliases.add(alias);
-  return [...aliases];
-}
-
 function matchRequiredView(view = {}, requiredViews = []) {
-  const target = normalizeComparable(view.id ?? view.label);
-  if (!target) return null;
-  return requiredViews.find((required) => viewAliases(required.id ?? required.view ?? required.label).includes(target)) || null;
+  const descriptor = normalizeDrawingViewDescriptor(view);
+  if (!descriptor.id) return null;
+  return requiredViews.find((required) => viewRequirementMatches(required, descriptor)) || null;
 }
 
 function findUniqueRequiredDimensionByValue(requiredDimensions = [], value = null) {
@@ -303,20 +289,95 @@ function matchFeatureId(requiredDimension = {}, traceability = null) {
 function collectViewsFromLayout(layoutReport = null, layoutReportPath = null, requiredViews = []) {
   const views = [];
   for (const [viewId, entry] of Object.entries(asObject(layoutReport?.views))) {
-    const id = normalizeText(viewId);
-    if (!id) continue;
-    const matched = matchRequiredView({ id, label: entry?.label || id }, requiredViews);
+    const descriptor = normalizeDrawingViewDescriptor({
+      id: viewId,
+      label: entry?.label || viewId,
+      view_kind: entry?.view_kind,
+      identity: entry?.identity,
+      source_view: entry?.source_view,
+      feature: entry?.feature_id ?? entry?.feature,
+    });
+    if (!descriptor.id) continue;
+    const hasDistinctRegion = Boolean(
+      entry?.cell_bounds_mm
+      || entry?.cell_center_mm
+      || entry?.region_ref
+      || entry?.view_group_id
+      || entry?.group_id
+    );
+    if ((descriptor.view_kind === 'section' || descriptor.view_kind === 'detail') && !hasDistinctRegion) {
+      continue;
+    }
+    const matched = matchRequiredView(descriptor, requiredViews);
     views.push({
-      id,
-      label: normalizeText(entry?.label) || id,
+      id: descriptor.id,
+      label: descriptor.label,
+      raw_text: descriptor.label,
+      view_kind: descriptor.view_kind,
+      identity: descriptor.identity,
+      source_view: descriptor.source_view,
       source: resolveMaybe(layoutReportPath),
       matched_intent_id: matched?.id ?? null,
-      confidence: roundConfidence(entry?.label ? 0.95 : 0.9),
+      confidence: roundConfidence(entry?.label ? 0.96 : 0.92),
       provenance: createProvenance({
         artifactType: 'layout_report',
         path: layoutReportPath,
         method: 'layout_report_views',
-        layout_view_key: id,
+        layout_view_key: descriptor.id,
+        layout_region_ref: normalizeText(entry?.region_ref ?? entry?.view_group_id ?? entry?.group_id ?? `views.${descriptor.id}`),
+      }),
+    });
+  }
+  return views;
+}
+
+function extractSvgAttributes(attributeText = '') {
+  const attrs = {};
+  const pattern = /([:\w-]+)\s*=\s*"([^"]*)"/g;
+  let match;
+  while ((match = pattern.exec(attributeText)) !== null) {
+    attrs[match[1]] = decodeXmlText(match[2] || '');
+  }
+  return attrs;
+}
+
+function collectViewsFromSvgGroups(svgContent = null, svgPath = null, requiredViews = []) {
+  if (typeof svgContent !== 'string' || !svgContent.trim()) return [];
+  const views = [];
+  const pattern = /<g\b([^>]*)>/gi;
+  let match;
+  while ((match = pattern.exec(svgContent)) !== null) {
+    const attrs = extractSvgAttributes(match[1] || '');
+    const className = normalizeText(attrs.class) || '';
+    if (!/\bdrawing-view\b/.test(className)) continue;
+
+    const descriptor = normalizeDrawingViewDescriptor({
+      id: attrs['data-view-id'] ?? attrs.id?.replace(/^drawing-view-/, ''),
+      label: attrs['data-view-label'] ?? attrs['aria-label'] ?? attrs['data-view-id'],
+      view_kind: attrs['data-view-kind'],
+      identity: attrs['data-view-identity'],
+      source_view: attrs['data-source-view'],
+    });
+    if (!descriptor.id) continue;
+    const regionRef = normalizeText(attrs['data-region-ref'] ?? attrs.id);
+    if (!regionRef) continue;
+    const matched = matchRequiredView(descriptor, requiredViews);
+    views.push({
+      id: descriptor.id,
+      label: descriptor.label,
+      raw_text: descriptor.label,
+      view_kind: descriptor.view_kind,
+      identity: descriptor.identity,
+      source_view: descriptor.source_view,
+      source: resolveMaybe(svgPath),
+      matched_intent_id: matched?.id ?? null,
+      confidence: roundConfidence(0.94),
+      provenance: createProvenance({
+        artifactType: 'svg',
+        path: svgPath,
+        method: 'svg_view_group_metadata',
+        svg_group_id: normalizeText(attrs.id),
+        svg_region_ref: regionRef,
       }),
     });
   }
@@ -326,15 +387,19 @@ function collectViewsFromLayout(layoutReport = null, layoutReportPath = null, re
 function collectViewsFromSvgText(textNodes = [], svgPath = null, requiredViews = []) {
   const views = [];
   for (const node of textNodes) {
-    const comparable = normalizeComparable(node.text);
-    if (!comparable) continue;
-    const matched = requiredViews.find((required) => viewAliases(required.id ?? required.view ?? required.label).some((alias) => comparable.includes(alias)));
+    const descriptor = normalizeDrawingViewDescriptor({ label: node.text });
+    if (!descriptor.id || descriptor.view_kind === 'section' || descriptor.view_kind === 'detail') continue;
+    const matched = matchRequiredView(descriptor, requiredViews);
     if (!matched) continue;
     views.push({
-      id: normalizeText(matched.id ?? matched.view ?? matched.label),
-      label: node.text,
+      id: descriptor.id,
+      label: descriptor.label,
+      raw_text: node.text,
+      view_kind: descriptor.view_kind,
+      identity: descriptor.identity,
+      source_view: descriptor.source_view,
       source: resolveMaybe(svgPath),
-      matched_intent_id: normalizeText(matched.id ?? matched.view ?? matched.label),
+      matched_intent_id: normalizeText(matched.id),
       confidence: roundConfidence(0.72),
       provenance: createProvenance({
         artifactType: 'svg',
@@ -390,9 +455,8 @@ function collectNotesFromSvg(textNodes = [], svgPath = null, requiredNotes = [])
   for (const node of textNodes) {
     if (looksLikeDimensionText(node.text)) continue;
     if (!/[A-Za-z]/.test(node.text)) continue;
-    if (['front', 'top', 'right', 'left', 'iso', 'section'].some((viewKey) => (
-      viewAliases(viewKey).some((alias) => normalizeComparable(node.text)?.includes(alias))
-    ))) {
+    const viewDescriptor = normalizeDrawingViewDescriptor({ label: node.text });
+    if (viewDescriptor.id && viewDescriptor.view_kind !== 'unknown') {
       continue;
     }
     const category = classifyNoteCategory(node.text);
@@ -790,12 +854,18 @@ function compareRequiredViews(requiredViews = [], extractedDrawingSemantics = nu
   const views = asArray(semantics.views);
 
   const required = requiredViews.map((requirement) => {
-    const aliases = viewAliases(requirement.id ?? requirement.view ?? requirement.label).map(normalizeComparable);
-    const matches = sortByConfidence(views.filter((entry) => {
-      const matchedIntentId = normalizeComparable(entry.matched_intent_id);
-      const entryId = normalizeComparable(entry.id);
-      return aliases.includes(matchedIntentId) || aliases.includes(entryId);
-    }));
+    if (isExplicitlyUnsupportedDrawingView(requirement)) {
+      return normalizeRequirementEntry(
+        requirement,
+        'unsupported',
+        { reason: 'This required view kind is not yet safely represented by the current conservative generator/extractor foundation.' }
+      );
+    }
+
+    const matches = sortByConfidence(views.filter((entry) => (
+      viewRequirementMatches(requirement, { ...entry, id: entry.matched_intent_id || entry.id })
+      || viewRequirementMatches(requirement, entry)
+    )));
     const reliable = matches.filter(reliableMatch);
     const bestReliable = reliable[0] || null;
     const candidateMatches = matches
@@ -981,9 +1051,11 @@ export function buildExtractedDrawingSemantics({
   const requiredNotes = collectIntentNotes(asObject(drawingIntent));
   const requiredViews = collectIntentViews(asObject(drawingIntent));
   const textNodes = extractSvgTextNodes(svgContent);
+  const structuredSvgViews = collectViewsFromSvgGroups(svgContent, drawingSvgPath, requiredViews);
 
   const sources = [
     createSource('svg', drawingSvgPath, Boolean(svgContent), 'svg_text_scan'),
+    createSource('svg', drawingSvgPath, structuredSvgViews.length > 0, 'svg_view_group_metadata'),
     createSource('layout_report', layoutReportPath, Boolean(layoutReport && typeof layoutReport === 'object'), 'layout_report_views'),
     createSource('dimension_map', dimensionMapPath, Boolean(dimensionMap && typeof dimensionMap === 'object'), 'dimension_map_reference'),
     createSource('traceability', traceabilityPath, Boolean(traceability && typeof traceability === 'object'), 'traceability_reference'),
@@ -991,6 +1063,7 @@ export function buildExtractedDrawingSemantics({
 
   const methods = uniqueStrings(sources.filter((source) => source.inspected).map((source) => source.method));
   const views = dedupeViewEntries([
+    ...structuredSvgViews,
     ...collectViewsFromLayout(layoutReport, layoutReportPath, requiredViews),
     ...collectViewsFromSvgText(textNodes, drawingSvgPath, requiredViews),
   ]);
@@ -1013,6 +1086,18 @@ export function buildExtractedDrawingSemantics({
     ...requiredViews
       .filter((entry) => !views.some((view) => normalizeComparable(view.matched_intent_id ?? view.id) === normalizeComparable(entry.id ?? entry.view ?? entry.label)))
       .map((entry) => `Required view not reliably extracted: ${entry.id ?? entry.view ?? entry.label}.`),
+    ...requiredViews
+      .filter((entry) => normalizeDrawingViewDescriptor(entry).view_kind === 'section' || normalizeDrawingViewDescriptor(entry).view_kind === 'detail')
+      .flatMap((entry) => {
+        const descriptor = normalizeDrawingViewDescriptor(entry);
+        const structuredMatch = views.some((view) => viewRequirementMatches(descriptor, view));
+        if (structuredMatch) return [];
+        const labelHint = textNodes.some((node) => viewRequirementMatches(descriptor, { label: node.text }));
+        if (!labelHint) return [];
+        return [
+          `Required view evidence remained unknown because a loose label appeared without a distinct traceable view group or region: ${descriptor.id}.`,
+        ];
+      }),
   ]);
 
   const limitations = uniqueStrings([

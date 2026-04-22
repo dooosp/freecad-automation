@@ -130,7 +130,7 @@
     "suggested_actions": [
       "Verify required dimension Pocket depth because extracted evidence is unknown. Verify the dimension label for Pocket depth is visible and readable in the SVG. Relink or relabel Pocket depth if it was manually drafted or detached from the source dimension.",
       "Add or label the required note SURFACE_FINISH if it should appear in the drawing. Verify the required note text \"Surface finish: Ra 1.6\" is present and readable. Confirm extraction can still match the note to Surface finish: Ra 1.6.",
-      "Add or label the required view section if it should appear in the drawing. Verify the section view label is present and readable. Confirm extraction can match the section view back to section."
+      "Add or label the required view section if it should appear in the drawing. Verify section has a distinct view region/group plus readable identity; a loose label alone is insufficient. Confirm extraction can match the section view back to section."
     ],
     "suggested_action_details": [
       {
@@ -158,7 +158,7 @@
         "classification": "unknown",
         "severity": "review",
         "title": "Add or label the required view section if it should appear in the drawing.",
-        "recommended_fix": "Verify the section view label is present and readable. Confirm extraction can match the section view back to section."
+        "recommended_fix": "Verify section has a distinct view region/group plus readable identity; a loose label alone is insufficient. Confirm extraction can match the section view back to section."
       }
     ]
   }

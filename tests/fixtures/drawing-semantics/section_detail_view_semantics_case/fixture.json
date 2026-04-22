@@ -1,0 +1,135 @@
+{
+  "drawing_intent": {
+    "part_type": "section_detail_view_fixture",
+    "material": null,
+    "critical_features": [
+      { "id": "slot_001" },
+      { "id": "hole_small" }
+    ],
+    "required_dimensions": [],
+    "required_notes": [],
+    "required_views": [
+      "top",
+      { "id": "section_a_a", "label": "Section A-A", "view_kind": "section", "feature": "slot_001", "required": true },
+      { "id": "detail_b", "label": "Detail B", "view_kind": "detail", "feature": "hole_small", "source_view": "top", "required": true }
+    ],
+    "missing_semantics_policy": "advisory"
+  },
+  "feature_catalog": {
+    "summary": {
+      "total_features": 2,
+      "recognized_features": 2,
+      "unknown_features": 0,
+      "recognition_sources": ["synthetic_fixture"]
+    },
+    "features": [
+      {
+        "feature_id": "hole_small",
+        "type": "hole",
+        "critical": true,
+        "dimensions": {
+          "diameter_mm": 4
+        },
+        "evidence": {
+          "kind": "synthetic_fixture"
+        }
+      },
+      {
+        "feature_id": "slot_001",
+        "type": "slot",
+        "critical": true,
+        "dimensions": {
+          "depth_mm": 6,
+          "length_mm": 22,
+          "width_mm": 8
+        },
+        "evidence": {
+          "kind": "synthetic_fixture"
+        }
+      }
+    ]
+  },
+  "planner": {
+    "status": "advisory",
+    "suggested_actions": [],
+    "section_view_recommendations": [],
+    "detail_view_recommendations": []
+  },
+  "artifacts": {
+    "inputConfigPath": "/tmp/section_detail_view_semantics_case.toml",
+    "drawingSvgPath": "/tmp/section_detail_view_semantics_case_drawing.svg",
+    "planPath": "/tmp/section_detail_view_semantics_case_plan.toml",
+    "plan": {
+      "views": {
+        "enabled": ["top", "section_a_a", "detail_b"]
+      }
+    },
+    "qaPath": "/tmp/section_detail_view_semantics_case_drawing_qa.json",
+    "qaReport": {
+      "score": 95,
+      "metrics": {
+        "overflow_count": 0
+      },
+      "details": {
+        "overflows": []
+      }
+    },
+    "qaIssuesPath": "/tmp/section_detail_view_semantics_case_drawing_qa_issues.json",
+    "qaIssues": {
+      "issues": []
+    },
+    "traceabilityPath": "/tmp/section_detail_view_semantics_case_traceability.json",
+    "traceability": {
+      "summary": {
+        "unresolved_dimensions": []
+      },
+      "links": []
+    },
+    "layoutReportPath": "/tmp/section_detail_view_semantics_case_layout_report.json",
+    "layoutReport": {
+      "views": {
+        "top": {
+          "label": "Top View",
+          "cell_center_mm": [70, 60],
+          "cell_bounds_mm": { "x_min": 10, "y_min": 10, "x_max": 130, "y_max": 110 }
+        },
+        "section_a_a": {
+          "label": "Section A-A",
+          "view_kind": "section",
+          "identity": "A-A",
+          "cell_center_mm": [210, 60],
+          "cell_bounds_mm": { "x_min": 150, "y_min": 10, "x_max": 270, "y_max": 110 }
+        },
+        "detail_b": {
+          "label": "Detail B",
+          "view_kind": "detail",
+          "identity": "B",
+          "source_view": "top",
+          "cell_center_mm": [210, 150],
+          "cell_bounds_mm": { "x_min": 150, "y_min": 115, "x_max": 270, "y_max": 185 }
+        }
+      },
+      "summary": {
+        "overflow_views": []
+      }
+    },
+    "plannerPath": "/tmp/section_detail_view_semantics_case_drawing_planner.json",
+    "dimensionMapPath": "/tmp/section_detail_view_semantics_case_dimension_map.json",
+    "dimensionMap": {
+      "plan_dimensions": [],
+      "summary": {
+        "skipped_duplicate_count": 0
+      }
+    },
+    "dimConflictsPath": "/tmp/section_detail_view_semantics_case_dim_conflicts.json",
+    "dimConflicts": {
+      "conflicts": [],
+      "summary": {
+        "count": 0
+      }
+    },
+    "generatedViews": ["top", "section_a_a", "detail_b"],
+    "svgContent": "<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>",
+    "extractedDrawingSemanticsPath": "/tmp/section_detail_view_semantics_case_extracted_drawing_semantics.json"
+  }
+}

@@ -232,4 +232,33 @@ function makePlateConfig() {
   assert.equal(details[0].recommended_fix.includes('without inferring a combined envelope'), true);
 }
 
+{
+  const plan = buildDrawingPlanner({
+    config: makePlateConfig(),
+    drawingIntent: {
+      recommended_views: [
+        {
+          id: 'section_a_a',
+          label: 'Section A-A',
+          view_kind: 'section',
+          feature: 'hole_left',
+          reason: 'Optional section view for crowded callouts.',
+        },
+        {
+          id: 'detail_b',
+          label: 'Detail B',
+          view_kind: 'detail',
+          feature: 'hole_left',
+          source_view: 'top',
+          reason: 'Optional detail view for small hole readability.',
+        },
+      ],
+    },
+  });
+
+  assert.equal(plan.recommended_views.some((entry) => entry.view === 'section_a_a' && entry.status === 'recommended'), true);
+  assert.equal(plan.recommended_views.some((entry) => entry.view === 'detail_b' && entry.status === 'recommended'), true);
+  assert.equal(plan.suggested_actions.some((entry) => entry.includes('distinct labeled view region')), true);
+}
+
 console.log('drawing-planner.test.js: ok');

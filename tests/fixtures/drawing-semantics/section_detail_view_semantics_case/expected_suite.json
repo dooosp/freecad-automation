@@ -1,0 +1,143 @@
+{
+  "drawing_intent": {
+    "drawing_intent": {
+      "part_type": "section_detail_view_fixture",
+      "material": null,
+      "required_views": [
+        "top",
+        { "id": "section_a_a", "label": "Section A-A", "view_kind": "section", "feature": "slot_001", "required": true },
+        { "id": "detail_b", "label": "Detail B", "view_kind": "detail", "feature": "hole_small", "source_view": "top", "required": true }
+      ],
+      "critical_feature_ids": ["slot_001", "hole_small"],
+      "required_dimension_ids": [],
+      "missing_semantics_policy": "advisory"
+    }
+  },
+  "feature_catalog": {
+    "summary": {
+      "total_features": 2,
+      "recognized_features": 2,
+      "unknown_features": 0,
+      "recognition_sources": ["synthetic_fixture"]
+    },
+    "features": [
+      {
+        "feature_id": "hole_small",
+        "type": "hole",
+        "critical": true,
+        "dimensions": {
+          "diameter_mm": 4
+        },
+        "evidence_kind": "synthetic_fixture"
+      },
+      {
+        "feature_id": "slot_001",
+        "type": "slot",
+        "critical": true,
+        "dimensions": {
+          "depth_mm": 6,
+          "length_mm": 22,
+          "width_mm": 8
+        },
+        "evidence_kind": "synthetic_fixture"
+      }
+    ]
+  },
+  "extracted_drawing_semantics": {
+    "status": "available",
+    "methods": [
+      "svg_text_scan",
+      "layout_report_views",
+      "dimension_map_reference",
+      "traceability_reference"
+    ],
+    "coverage": {
+      "required_dimensions_total": 0,
+      "required_dimensions_extracted": 0,
+      "required_notes_total": 0,
+      "required_notes_extracted": 0,
+      "required_views_total": 3,
+      "required_views_extracted": 3
+    },
+    "view_ids": ["detail_b", "section_a_a", "top"],
+    "matched_dimension_ids": [],
+    "matched_note_ids": [],
+    "title_block": {
+      "material": null,
+      "tolerance": null,
+      "drawing_number": null
+    },
+    "unknowns": []
+  },
+  "drawing_quality": {
+    "status": "pass",
+    "views": {
+      "required_count": 3,
+      "generated_count": 3,
+      "missing_views": [],
+      "overlap_count": 0
+    },
+    "dimensions": {
+      "required_count": 0,
+      "mapped_count": 0,
+      "coverage_percent": 100,
+      "missing_required_intents": [],
+      "conflict_count": 0,
+      "duplicate_count": 0
+    },
+    "traceability": {
+      "coverage_percent": 100,
+      "unmapped_required_entities": []
+    },
+    "extracted_evidence": {
+      "status": "available",
+      "coverage": {
+        "required_dimensions": {
+          "total": 0,
+          "extracted": 0,
+          "missing": 0,
+          "unknown": 0,
+          "unsupported": 0,
+          "extracted_percent": null
+        },
+        "required_notes": {
+          "total": 0,
+          "extracted": 0,
+          "missing": 0,
+          "unknown": 0,
+          "unsupported": 0,
+          "extracted_percent": null
+        },
+        "required_views": {
+          "total": 3,
+          "extracted": 3,
+          "missing": 0,
+          "unknown": 0,
+          "unsupported": 0,
+          "extracted_percent": 100
+        },
+        "total_required": 3,
+        "total_extracted": 3,
+        "total_missing": 0,
+        "total_unknown": 0,
+        "total_unsupported": 0
+      },
+      "required_dimension_classifications": [],
+      "required_note_classifications": [],
+      "required_view_classifications": [
+        { "requirement_id": "top", "classification": "extracted" },
+        { "requirement_id": "section_a_a", "classification": "extracted" },
+        { "requirement_id": "detail_b", "classification": "extracted" }
+      ],
+      "unmatched_dimensions": [],
+      "unmatched_notes": [],
+      "missing_required_items": []
+    },
+    "blocking_issue_codes": [],
+    "optional_missing_dimension_ids": []
+  },
+  "drawing_planner": {
+    "suggested_actions": [],
+    "suggested_action_details": []
+  }
+}
