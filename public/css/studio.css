@@ -960,6 +960,36 @@ textarea {
   gap: var(--space-1);
 }
 
+.quality-suggested-action-list {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.quality-suggested-action-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid rgba(148, 170, 190, 0.14);
+  border-radius: var(--radius-1);
+  background:
+    linear-gradient(180deg, rgba(104, 181, 255, 0.06), rgba(255, 255, 255, 0.02)),
+    rgba(255, 255, 255, 0.02);
+}
+
+.quality-suggested-action-copy {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.quality-suggested-action-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
 .quality-dashboard-links {
   align-items: stretch;
 }

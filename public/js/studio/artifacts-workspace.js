@@ -508,6 +508,7 @@ function renderExtractedSemanticsSection(extractedSemantics = null) {
             text: extractedSemantics.unmatchedSummary,
           })
         : null,
+      renderSuggestedActionGroups(extractedSemantics),
       ...extractedSemantics.requiredGroups.map((group) => renderSemanticEvidenceSection(group)),
       ...extractedSemantics.unmatchedGroups.map((group) => renderSemanticEvidenceSection(group)),
       renderTextListSection({
@@ -522,12 +523,6 @@ function renderExtractedSemanticsSection(extractedSemantics = null) {
         items: extractedSemantics.limitations || [],
         labelPrefix: 'Limitation',
       }),
-      renderTextListSection({
-        title: 'Suggested semantic actions',
-        empty: 'No semantic advisory actions were suggested.',
-        items: extractedSemantics.suggestedActions || [],
-        labelPrefix: 'Semantic action',
-      }),
       evidenceArtifact?.href
         ? el('div', {
             className: 'review-detail-actions quality-dashboard-links',
@@ -541,6 +536,68 @@ function renderExtractedSemanticsSection(extractedSemantics = null) {
           })
         : null,
     ].filter(Boolean),
+  });
+}
+
+function renderSuggestedActionGroups(extractedSemantics = null) {
+  if (!extractedSemantics) return null;
+  const groups = Array.isArray(extractedSemantics.suggestedActionGroups)
+    ? extractedSemantics.suggestedActionGroups
+    : [];
+  const totalCount = Number(extractedSemantics.suggestedActionCount || 0);
+
+  return el('div', {
+    className: 'quality-check-section quality-suggested-actions',
+    children: [
+      el('p', { className: 'list-label', text: `Suggested drawing actions (${totalCount})` }),
+      groups.length > 0
+        ? el('div', {
+            className: 'support-note',
+            text: `Showing ${totalCount} deduped suggested action${totalCount === 1 ? '' : 's'}. ${extractedSemantics.suggestedActionAdvisoryCopy || ''}`.trim(),
+          })
+        : el('div', {
+            className: 'support-note',
+            text: extractedSemantics.suggestedActionEmptyCopy || 'No additional drawing actions were suggested from extracted evidence.',
+          }),
+      ...groups.map((group) => (
+        el('div', {
+          className: 'quality-semantic-subsection',
+          children: [
+            el('p', { className: 'list-label', text: `${group.title} (${group.items.length})` }),
+            el('div', {
+              className: 'quality-suggested-action-list',
+              children: group.items.map((entry) => (
+                el('div', {
+                  className: 'quality-suggested-action-item',
+                  children: [
+                    el('div', {
+                      className: 'quality-suggested-action-copy',
+                      children: [
+                        el('p', { className: 'list-label', text: entry.title }),
+                        entry.message ? el('p', { className: 'list-copy', text: entry.message }) : null,
+                        entry.recommendedFix
+                          ? el('p', { className: 'list-copy', text: `Recommended fix: ${entry.recommendedFix}` })
+                          : null,
+                        entry.targetSummary ? el('p', { className: 'artifact-meta', text: entry.targetSummary }) : null,
+                        entry.evidenceSourceSummary ? el('p', { className: 'artifact-meta', text: entry.evidenceSourceSummary }) : null,
+                        entry.evidencePathSummary ? el('p', { className: 'artifact-meta', text: entry.evidencePathSummary }) : null,
+                      ].filter(Boolean),
+                    }),
+                    el('div', {
+                      className: 'quality-suggested-action-badges',
+                      children: [
+                        createPill(entry.impactLabel || 'Advisory', entry.impactTone || 'info'),
+                        createPill(entry.classificationLabel || 'Unknown', entry.classificationTone || 'info'),
+                      ],
+                    }),
+                  ],
+                })
+              )),
+            }),
+          ],
+        })
+      )),
+    ],
   });
 }
 
