@@ -4,6 +4,7 @@ import {
   createEmptyState,
   createInfoGrid,
   createList,
+  createPill,
   createSectionHeader,
   el,
 } from './renderers.js';
@@ -419,6 +420,130 @@ function renderTextListSection({ title, empty, items = [], labelPrefix }) {
   });
 }
 
+function renderSemanticEvidenceSection({ title, empty, items = [] }) {
+  return el('div', {
+    className: 'quality-check-section quality-semantic-subsection',
+    children: [
+      el('p', { className: 'list-label', text: `${title} (${items.length})` }),
+      items.length > 0
+        ? el('div', {
+            className: 'quality-semantic-list',
+            children: items.map((entry) =>
+              el('div', {
+                className: 'quality-semantic-item',
+                children: [
+                  el('div', {
+                    className: 'quality-semantic-item-copy',
+                    children: [
+                      el('p', { className: 'list-label', text: entry.label }),
+                      entry.detail ? el('p', { className: 'list-copy', text: entry.detail }) : null,
+                      entry.note ? el('p', { className: 'artifact-meta', text: entry.note }) : null,
+                    ],
+                  }),
+                  createPill(entry.classificationLabel || 'Unknown', entry.classificationTone || 'info'),
+                ],
+              })
+            ),
+          })
+        : el('div', { className: 'support-note', text: empty }),
+    ],
+  });
+}
+
+function renderExtractedSemanticsSection(extractedSemantics = null) {
+  if (!extractedSemantics) return null;
+  const evidenceArtifact = extractedSemantics.evidenceArtifact;
+
+  return el('div', {
+    className: 'quality-extracted-panel',
+    children: [
+      el('div', {
+        className: 'quality-drawing-panel-header',
+        children: [
+          el('div', {
+            children: [
+              el('p', { className: 'list-label', text: 'Extracted drawing semantics' }),
+              el('p', {
+                className: 'list-copy',
+                text: extractedSemantics.summary,
+              }),
+            ],
+          }),
+          el('div', {
+            className: 'quality-extracted-badges',
+            children: [
+              createPill(extractedSemantics.impactLabel || 'Advisory', extractedSemantics.impactTone || 'info'),
+              createPill(extractedSemantics.statusLabel || 'Unknown', extractedSemantics.tone || 'info'),
+            ],
+          }),
+        ],
+      }),
+      createInfoGrid([
+        {
+          label: 'Status',
+          value: extractedSemantics.statusLabel || 'Unknown',
+        },
+        {
+          label: 'Impact',
+          value: extractedSemantics.impactLabel || 'Advisory',
+          note: extractedSemantics.impactCopy || '',
+        },
+      ]),
+      el('p', { className: 'list-label', text: 'Coverage' }),
+      createInfoGrid([
+        ...extractedSemantics.coverageItems,
+      ]),
+      el('p', { className: 'list-label', text: 'Evidence' }),
+      createInfoGrid([
+        extractedSemantics.evidenceItem,
+      ]),
+      el('p', { className: 'list-label', text: 'Manufacturing readiness' }),
+      el('div', {
+        className: 'support-note',
+        text: extractedSemantics.readinessCopy,
+      }),
+      extractedSemantics.unmatchedSummary
+        ? el('div', {
+            className: 'support-note',
+            text: extractedSemantics.unmatchedSummary,
+          })
+        : null,
+      ...extractedSemantics.requiredGroups.map((group) => renderSemanticEvidenceSection(group)),
+      ...extractedSemantics.unmatchedGroups.map((group) => renderSemanticEvidenceSection(group)),
+      renderTextListSection({
+        title: 'Semantic unknowns',
+        empty: 'No extracted-semantics unknowns were reported.',
+        items: extractedSemantics.unknowns || [],
+        labelPrefix: 'Unknown',
+      }),
+      renderTextListSection({
+        title: 'Semantic limitations',
+        empty: 'No extracted-semantics limitations were reported.',
+        items: extractedSemantics.limitations || [],
+        labelPrefix: 'Limitation',
+      }),
+      renderTextListSection({
+        title: 'Suggested semantic actions',
+        empty: 'No semantic advisory actions were suggested.',
+        items: extractedSemantics.suggestedActions || [],
+        labelPrefix: 'Semantic action',
+      }),
+      evidenceArtifact?.href
+        ? el('div', {
+            className: 'review-detail-actions quality-dashboard-links',
+            children: [
+              el('a', {
+                className: 'action-button action-button-ghost',
+                text: `Open evidence - ${evidenceArtifact.label}`,
+                attrs: { href: evidenceArtifact.href, target: '_blank', rel: 'noreferrer noopener' },
+              }),
+            ],
+          })
+        : null,
+    ].filter(Boolean),
+  });
+}
+
 function formatListValue(items = [], empty = 'None') {
   return items.length > 0 ? items.join(', ') : empty;
 }
@@ -499,6 +624,7 @@ function renderDrawingQualitySection(drawingQuality = null) {
         items: drawingQuality.suggestedActions || [],
         labelPrefix: 'Drawing action',
       }),
+      renderExtractedSemanticsSection(drawingQuality.extractedSemantics),
       evidenceArtifact?.href
         ? el('div', {
             className: 'review-detail-actions quality-dashboard-links',

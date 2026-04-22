@@ -27,6 +27,298 @@ function makeArtifact({
   };
 }
 
+function makeAvailableExtractedEvidence() {
+  return {
+    status: 'available',
+    advisory_only: true,
+    file: '/tmp/output/quality_pass_bracket_extracted_drawing_semantics.json',
+    path: '/tmp/output/quality_pass_bracket_extracted_drawing_semantics.json',
+    sources: [
+      { artifact_type: 'svg', path: '/tmp/output/quality_pass_bracket_drawing.svg', inspected: true, method: 'svg_text_scan' },
+    ],
+    coverage: {
+      required_dimensions: { total: 2, extracted: 2, missing: 0, unknown: 0, unsupported: 0, extracted_percent: 100 },
+      required_notes: { total: 1, extracted: 1, missing: 0, unknown: 0, unsupported: 0, extracted_percent: 100 },
+      required_views: { total: 2, extracted: 2, missing: 0, unknown: 0, unsupported: 0, extracted_percent: 100 },
+      total_required: 5,
+      total_extracted: 5,
+      total_missing: 0,
+      total_unknown: 0,
+      total_unsupported: 0,
+    },
+    required_dimensions: [
+      {
+        requirement_id: 'HOLE_LEFT_DIA',
+        requirement_label: 'Left hole diameter',
+        classification: 'extracted',
+        matched_extracted_id: 'svg_text_001',
+        matched_raw_text: '6',
+        matched_feature_id: 'hole_left',
+        source_artifact: 'svg',
+        confidence: 0.93,
+        reason: 'Reliable extracted dimension evidence matched this required dimension.',
+        provenance: { artifact_type: 'svg', path: '/tmp/output/quality_pass_bracket_drawing.svg', method: 'svg_dimension_text_scan' },
+        candidate_matches: [],
+      },
+      {
+        requirement_id: 'HOLE_RIGHT_DIA',
+        requirement_label: 'Right hole diameter',
+        classification: 'extracted',
+        matched_extracted_id: 'svg_text_002',
+        matched_raw_text: '6',
+        matched_feature_id: 'hole_right',
+        source_artifact: 'svg',
+        confidence: 0.92,
+        reason: 'Reliable extracted dimension evidence matched this required dimension.',
+        provenance: { artifact_type: 'svg', path: '/tmp/output/quality_pass_bracket_drawing.svg', method: 'svg_dimension_text_scan' },
+        candidate_matches: [],
+      },
+    ],
+    required_notes: [
+      {
+        requirement_id: 'MATERIAL',
+        requirement_label: 'Material callout',
+        classification: 'extracted',
+        matched_extracted_id: 'svg_note_001',
+        matched_raw_text: 'Material: AL6061',
+        matched_feature_id: null,
+        source_artifact: 'svg',
+        confidence: 0.91,
+        reason: 'Reliable extracted note evidence matched this required drawing note.',
+        provenance: { artifact_type: 'svg', path: '/tmp/output/quality_pass_bracket_drawing.svg', method: 'svg_text_scan' },
+        candidate_matches: [],
+      },
+    ],
+    required_views: [
+      {
+        requirement_id: 'top',
+        requirement_label: 'Top view',
+        classification: 'extracted',
+        matched_extracted_id: 'top',
+        matched_raw_text: 'Top',
+        matched_feature_id: null,
+        source_artifact: 'layout_report',
+        confidence: 0.9,
+        reason: 'Reliable extracted view evidence matched this required view.',
+        provenance: { artifact_type: 'layout_report', path: '/tmp/output/quality_pass_bracket_layout_report.json', method: 'layout_report_views' },
+        candidate_matches: [],
+      },
+      {
+        requirement_id: 'iso',
+        requirement_label: 'Isometric view',
+        classification: 'extracted',
+        matched_extracted_id: 'iso',
+        matched_raw_text: 'Iso',
+        matched_feature_id: null,
+        source_artifact: 'layout_report',
+        confidence: 0.89,
+        reason: 'Reliable extracted view evidence matched this required view.',
+        provenance: { artifact_type: 'layout_report', path: '/tmp/output/quality_pass_bracket_layout_report.json', method: 'layout_report_views' },
+        candidate_matches: [],
+      },
+    ],
+    unmatched_dimensions: [],
+    unmatched_notes: [],
+    matched_required_dimensions: 2,
+    matched_required_notes: 1,
+    matched_required_views: 2,
+    missing_required_items: [],
+    unknowns: [],
+    limitations: ['Advisory-only foundation.'],
+    suggested_actions: [],
+  };
+}
+
+function makePartialExtractedEvidence() {
+  return {
+    status: 'partial',
+    advisory_only: true,
+    file: '/tmp/output/ks_bracket_extracted_drawing_semantics.json',
+    path: '/tmp/output/ks_bracket_extracted_drawing_semantics.json',
+    sources: [
+      { artifact_type: 'svg', path: '/tmp/output/ks_bracket_drawing.svg', inspected: true, method: 'svg_text_scan' },
+      { artifact_type: 'layout_report', path: '/tmp/output/ks_bracket_layout_report.json', inspected: true, method: 'layout_report_views' },
+    ],
+    coverage: {
+      required_dimensions: { total: 3, extracted: 1, missing: 0, unknown: 2, unsupported: 0, extracted_percent: 33.33 },
+      required_notes: { total: 2, extracted: 1, missing: 0, unknown: 1, unsupported: 0, extracted_percent: 50 },
+      required_views: { total: 4, extracted: 4, missing: 0, unknown: 0, unsupported: 0, extracted_percent: 100 },
+      total_required: 9,
+      total_extracted: 6,
+      total_missing: 0,
+      total_unknown: 3,
+      total_unsupported: 0,
+    },
+    required_dimensions: [
+      {
+        requirement_id: 'WEB_HEIGHT',
+        requirement_label: 'Web height',
+        classification: 'extracted',
+        matched_extracted_id: 'svg_text_010',
+        matched_raw_text: '68',
+        matched_feature_id: 'web',
+        source_artifact: 'svg',
+        confidence: 0.88,
+        reason: 'Reliable extracted dimension evidence matched this required dimension.',
+        provenance: { artifact_type: 'svg', path: '/tmp/output/ks_bracket_drawing.svg', method: 'svg_dimension_text_scan' },
+        candidate_matches: [],
+      },
+      {
+        requirement_id: 'HOLE_DIA',
+        requirement_label: 'Hole diameter',
+        classification: 'unknown',
+        matched_extracted_id: null,
+        matched_raw_text: null,
+        matched_feature_id: null,
+        source_artifact: null,
+        confidence: null,
+        reason: 'Only low-confidence extracted dimension candidates were available for this required dimension.',
+        provenance: null,
+        candidate_matches: [
+          {
+            matched_extracted_id: 'svg_text_100',
+            matched_raw_text: '16',
+            matched_feature_id: null,
+            source_artifact: 'svg',
+            confidence: 0.31,
+            reason: 'Matched extracted dimension stayed below the reliable confidence threshold.',
+            provenance: { artifact_type: 'svg', path: '/tmp/output/ks_bracket_drawing.svg', method: 'svg_dimension_text_scan' },
+          },
+        ],
+      },
+      {
+        requirement_id: 'BASE_PLATE_ENVELOPE',
+        requirement_label: 'Base plate envelope',
+        classification: 'unknown',
+        matched_extracted_id: null,
+        matched_raw_text: null,
+        matched_feature_id: null,
+        source_artifact: null,
+        confidence: null,
+        reason: 'Only low-confidence extracted dimension candidates were available for this required dimension.',
+        provenance: null,
+        candidate_matches: [],
+      },
+    ],
+    required_notes: [
+      {
+        requirement_id: 'SURFACE_FINISH',
+        requirement_label: 'Surface finish',
+        classification: 'extracted',
+        matched_extracted_id: 'svg_note_001',
+        matched_raw_text: 'Surface finish: powder coat',
+        matched_feature_id: null,
+        source_artifact: 'svg',
+        confidence: 0.82,
+        reason: 'Reliable extracted note evidence matched this required drawing note.',
+        provenance: { artifact_type: 'svg', path: '/tmp/output/ks_bracket_drawing.svg', method: 'svg_text_scan' },
+        candidate_matches: [],
+      },
+      {
+        requirement_id: 'MATERIAL',
+        requirement_label: 'Material callout',
+        classification: 'unknown',
+        matched_extracted_id: null,
+        matched_raw_text: null,
+        matched_feature_id: null,
+        source_artifact: null,
+        confidence: null,
+        reason: 'Extracted drawing semantics explicitly marked this required note as uncertain.',
+        provenance: null,
+        candidate_matches: [],
+      },
+    ],
+    required_views: [
+      {
+        requirement_id: 'front',
+        requirement_label: 'Front view',
+        classification: 'extracted',
+        matched_extracted_id: 'front',
+        matched_raw_text: 'Front',
+        matched_feature_id: null,
+        source_artifact: 'layout_report',
+        confidence: 0.92,
+        reason: 'Reliable extracted view evidence matched this required view.',
+        provenance: { artifact_type: 'layout_report', path: '/tmp/output/ks_bracket_layout_report.json', method: 'layout_report_views' },
+        candidate_matches: [],
+      },
+      {
+        requirement_id: 'top',
+        requirement_label: 'Top view',
+        classification: 'extracted',
+        matched_extracted_id: 'top',
+        matched_raw_text: 'Top',
+        matched_feature_id: null,
+        source_artifact: 'layout_report',
+        confidence: 0.91,
+        reason: 'Reliable extracted view evidence matched this required view.',
+        provenance: { artifact_type: 'layout_report', path: '/tmp/output/ks_bracket_layout_report.json', method: 'layout_report_views' },
+        candidate_matches: [],
+      },
+      {
+        requirement_id: 'right',
+        requirement_label: 'Right view',
+        classification: 'extracted',
+        matched_extracted_id: 'right',
+        matched_raw_text: 'Right',
+        matched_feature_id: null,
+        source_artifact: 'layout_report',
+        confidence: 0.9,
+        reason: 'Reliable extracted view evidence matched this required view.',
+        provenance: { artifact_type: 'layout_report', path: '/tmp/output/ks_bracket_layout_report.json', method: 'layout_report_views' },
+        candidate_matches: [],
+      },
+      {
+        requirement_id: 'section A-A',
+        requirement_label: 'Section A-A',
+        classification: 'extracted',
+        matched_extracted_id: 'section-a-a',
+        matched_raw_text: 'Section A-A',
+        matched_feature_id: null,
+        source_artifact: 'layout_report',
+        confidence: 0.9,
+        reason: 'Reliable extracted view evidence matched this required view.',
+        provenance: { artifact_type: 'layout_report', path: '/tmp/output/ks_bracket_layout_report.json', method: 'layout_report_views' },
+        candidate_matches: [],
+      },
+    ],
+    unmatched_dimensions: [
+      {
+        extracted_id: 'svg_text_888',
+        raw_text: '60',
+        matched_feature_id: null,
+        source_artifact: 'svg',
+        confidence: 0.84,
+        reason: 'Extracted dimension did not match a required drawing-intent dimension.',
+        provenance: { artifact_type: 'svg', path: '/tmp/output/ks_bracket_drawing.svg', method: 'svg_dimension_text_scan' },
+      },
+    ],
+    unmatched_notes: [
+      {
+        extracted_id: 'svg_note_002',
+        raw_text: 'Tolerance: KS B 0401 m',
+        category: 'tolerance',
+        matched_feature_id: null,
+        source_artifact: 'svg',
+        confidence: 0.87,
+        reason: 'Extracted note did not match a required drawing-intent note.',
+        provenance: { artifact_type: 'svg', path: '/tmp/output/ks_bracket_drawing.svg', method: 'svg_text_scan' },
+      },
+    ],
+    matched_required_dimensions: 1,
+    matched_required_notes: 1,
+    matched_required_views: 4,
+    missing_required_items: [],
+    unknowns: [
+      'Required dimension not reliably extracted: HOLE_DIA.',
+      'Required dimension not reliably extracted: BASE_PLATE_ENVELOPE.',
+      'Required note not reliably extracted: MATERIAL.',
+    ],
+    limitations: ['Advisory-only foundation.'],
+    suggested_actions: ['Review low-confidence or incomplete extracted dimension evidence for: HOLE_DIA.'],
+  };
+}
+
 {
   const artifacts = [
     makeArtifact({
@@ -85,6 +377,13 @@ function makeArtifact({
       file_name: 'quality_pass_bracket_drawing_quality.json',
       extension: '.json',
     }),
+    makeArtifact({
+      id: 'extracted-semantics',
+      key: 'extracted_drawing_semantics',
+      type: 'drawing.extracted-semantics',
+      file_name: 'quality_pass_bracket_extracted_drawing_semantics.json',
+      extension: '.json',
+    }),
   ];
 
   const model = buildQualityDashboardModel({
@@ -121,6 +420,11 @@ function makeArtifact({
             recommended_actions: [],
             blocking_issues: [],
             warnings: [],
+            semantic_quality: {
+              enforceable: false,
+              suggested_actions: [],
+              extracted_evidence: makeAvailableExtractedEvidence(),
+            },
           },
           dfm: {
             available: true,
@@ -177,6 +481,15 @@ function makeArtifact({
   assert.deepEqual(model.drawingQuality.missingNotesViews, []);
   assert.deepEqual(model.drawingQuality.suggestedActions, ['No drawing action required.']);
   assert.equal(model.drawingQuality.evidenceArtifact.label, 'Drawing quality JSON');
+  assert.equal(model.drawingQuality.extractedSemantics.statusLabel, 'Available');
+  assert.equal(model.drawingQuality.extractedSemantics.impactLabel, 'Advisory');
+  assert.equal(model.drawingQuality.extractedSemantics.summary, 'Required drawing semantics were confirmed from extracted evidence.');
+  assert.equal(model.drawingQuality.extractedSemantics.coverageItems[0].value, '2 / 2 extracted');
+  assert.equal(model.drawingQuality.extractedSemantics.requiredGroups[0].items[0].classificationLabel, 'Extracted');
+  assert.equal(model.drawingQuality.extractedSemantics.requiredGroups[1].items[0].detail, 'Matched extracted evidence: Material: AL6061');
+  assert.equal(model.drawingQuality.extractedSemantics.evidenceArtifact.label, 'Extracted drawing semantics JSON');
+  assert.equal(model.drawingQuality.extractedSemantics.evidenceItem.value, 'extracted_drawing_semantics_json');
+  assert.equal(model.drawingQuality.extractedSemantics.readinessCopy, 'Manufacturing readiness is still determined by required Geometry / Drawing / DFM gates.');
 }
 
 {
@@ -201,6 +514,13 @@ function makeArtifact({
       type: 'drawing.svg',
       file_name: 'ks_bracket_drawing.svg',
       extension: '.svg',
+    }),
+    makeArtifact({
+      id: 'extracted-semantics',
+      key: 'extracted_drawing_semantics',
+      type: 'drawing.extracted-semantics',
+      file_name: 'ks_bracket_extracted_drawing_semantics.json',
+      extension: '.json',
     }),
   ];
 
@@ -257,6 +577,11 @@ function makeArtifact({
             recommended_actions: ['Add or map the missing required dimension intent(s): HOLE_DIA.'],
             blocking_issues: ['Dimension conflict count 7 exceeds the allowed maximum 0.'],
             warnings: [],
+            semantic_quality: {
+              enforceable: false,
+              suggested_actions: ['Review low-confidence or incomplete extracted dimension evidence for: HOLE_DIA.'],
+              extracted_evidence: makePartialExtractedEvidence(),
+            },
           },
           dfm: {
             available: true,
@@ -308,6 +633,21 @@ function makeArtifact({
   assert.deepEqual(model.drawingQuality.missingNotesViews, ['View: section A-A', 'Note: material callout']);
   assert.equal(model.drawingQuality.blockers.some((entry) => entry.includes('Dimension conflict count 7')), true);
   assert.equal(model.drawingQuality.suggestedActions.some((entry) => entry.includes('HOLE_DIA')), true);
+  assert.equal(model.drawingQuality.extractedSemantics.statusLabel, 'Partial');
+  assert.equal(model.drawingQuality.extractedSemantics.summary, 'Some drawing requirements could not be confirmed from extracted evidence.');
+  assert.equal(model.drawingQuality.extractedSemantics.coverageItems[0].value, '1 extracted, 2 unknown');
+  assert.equal(model.drawingQuality.extractedSemantics.coverageItems[1].value, '1 extracted, 1 unknown');
+  assert.equal(model.drawingQuality.extractedSemantics.coverageItems[2].value, '4 / 4 extracted');
+  assert.equal(model.drawingQuality.extractedSemantics.requiredGroups[0].items[0].classificationLabel, 'Extracted');
+  assert.equal(model.drawingQuality.extractedSemantics.requiredGroups[0].items[1].classificationLabel, 'Unknown');
+  assert.equal(model.drawingQuality.extractedSemantics.requiredGroups[1].items[1].classificationLabel, 'Unknown');
+  assert.equal(model.drawingQuality.extractedSemantics.requiredGroups[0].items[1].detail, 'Low-confidence candidate: 16');
+  assert.equal(model.drawingQuality.extractedSemantics.requiredGroups[1].items[0].classificationLabel, 'Extracted');
+  assert.equal(model.drawingQuality.extractedSemantics.unmatchedGroups[0].items[0].classificationLabel, 'Advisory');
+  assert.equal(model.drawingQuality.extractedSemantics.unmatchedGroups[1].items[0].label, 'Tolerance: KS B 0401 m');
+  assert.equal(model.drawingQuality.extractedSemantics.unmatchedSummary, 'Some extracted drawing text could not be matched to required intent.');
+  assert.equal(model.drawingQuality.extractedSemantics.readinessCopy, 'Still blocked by required Geometry / Drawing / DFM gates.');
+  assert.equal(model.readyLabel, 'No');
 }
 
 {
@@ -516,6 +856,9 @@ function makeArtifact({
   assert.equal(model.drawingQuality.decisionImpact, 'Unknown - drawing semantic QA not available for this job');
   assert.deepEqual(model.drawingQuality.suggestedActions, ['Run drawing semantic QA to produce drawing_quality evidence.']);
   assert.equal(model.drawingQuality.evidenceArtifact.label, 'Report summary JSON');
+  assert.equal(model.drawingQuality.extractedSemantics.statusLabel, 'Unknown');
+  assert.equal(model.drawingQuality.extractedSemantics.summary, 'Extracted drawing semantics evidence is not available for this job.');
+  assert.equal(model.drawingQuality.extractedSemantics.evidenceItem.value, 'Not linked');
 }
 
 assert.equal(formatQualityStatusLabel('generated', true), 'Generated');
@@ -663,6 +1006,63 @@ assert.equal(formatQualityStatusLabel('missing', true), 'Required missing');
     model.drawingQuality.advisoryItems,
     ['Finish note can be clarified.', 'Optional dimension: CHAMFER_NOTE', 'Optional note: packaging note']
   );
+}
+
+{
+  const model = buildQualityDashboardModel({
+    artifacts: [
+      makeArtifact({
+        id: 'drawing-quality',
+        key: 'drawing_quality',
+        type: 'drawing.quality-summary',
+        file_name: 'fallback_semantic_unknown_drawing_quality.json',
+        extension: '.json',
+      }),
+      makeArtifact({
+        id: 'extracted-semantics',
+        key: 'extracted_drawing_semantics',
+        type: 'drawing.extracted-semantics',
+        file_name: 'fallback_semantic_unknown_extracted_drawing_semantics.json',
+        extension: '.json',
+      }),
+    ],
+    artifactPayloads: {
+      'drawing-quality': {
+        status: 'pass',
+        score: 92,
+        dimensions: {
+          missing_required_intents: [],
+          conflict_count: 0,
+        },
+        views: {
+          overlap_count: 0,
+        },
+        traceability: {
+          coverage_percent: 100,
+        },
+        semantic_quality: {
+          enforceable: false,
+          suggested_actions: ['Review low-confidence semantic evidence.'],
+          extracted_evidence: {
+            ...makePartialExtractedEvidence(),
+            required_dimensions: [{
+              ...makePartialExtractedEvidence().required_dimensions[0],
+              classification: 'unknown',
+            }],
+          },
+        },
+        blocking_issues: [],
+        warnings: [],
+        recommended_actions: [],
+      },
+    },
+  });
+
+  assert.equal(model.drawingQuality.statusLabel, 'Pass');
+  assert.equal(model.drawingQuality.extractedSemantics.requiredGroups[0].items[0].classificationLabel, 'Unknown');
+  assert.notEqual(model.drawingQuality.extractedSemantics.requiredGroups[0].items[0].classificationLabel, 'Extracted');
+  assert.equal(model.drawingQuality.extractedSemantics.evidenceArtifact.label, 'Extracted drawing semantics JSON');
+  assert.equal(model.drawingQuality.extractedSemantics.evidenceItem.value, 'extracted_drawing_semantics_json');
 }
 
 console.log('studio-quality-dashboard.test.js: ok');
