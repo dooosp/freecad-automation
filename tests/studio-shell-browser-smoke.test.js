@@ -310,6 +310,68 @@ function passQualityReportSummary() {
         recommended_actions: [],
         blocking_issues: [],
         warnings: [],
+        semantic_quality: {
+          enforceable: false,
+          suggested_actions: [],
+          extracted_evidence: {
+            status: 'available',
+            advisory_only: true,
+            file: '/tmp/output/quality_pass_bracket_extracted_drawing_semantics.json',
+            path: '/tmp/output/quality_pass_bracket_extracted_drawing_semantics.json',
+            coverage: {
+              required_dimensions: { total: 2, extracted: 2, missing: 0, unknown: 0, unsupported: 0, extracted_percent: 100 },
+              required_notes: { total: 1, extracted: 1, missing: 0, unknown: 0, unsupported: 0, extracted_percent: 100 },
+              required_views: { total: 2, extracted: 2, missing: 0, unknown: 0, unsupported: 0, extracted_percent: 100 },
+              total_required: 5,
+              total_extracted: 5,
+              total_missing: 0,
+              total_unknown: 0,
+              total_unsupported: 0,
+            },
+            required_dimensions: [
+              {
+                requirement_id: 'HOLE_LEFT_DIA',
+                requirement_label: 'Left hole diameter',
+                classification: 'extracted',
+                matched_raw_text: '6',
+                source_artifact: 'svg',
+                confidence: 0.93,
+                candidate_matches: [],
+              },
+            ],
+            required_notes: [
+              {
+                requirement_id: 'MATERIAL',
+                requirement_label: 'Material callout',
+                classification: 'extracted',
+                matched_raw_text: 'Material: AL6061',
+                source_artifact: 'svg',
+                confidence: 0.91,
+                candidate_matches: [],
+              },
+            ],
+            required_views: [
+              {
+                requirement_id: 'top',
+                requirement_label: 'Top view',
+                classification: 'extracted',
+                matched_raw_text: 'Top',
+                source_artifact: 'layout_report',
+                confidence: 0.9,
+                candidate_matches: [],
+              },
+            ],
+            unmatched_dimensions: [],
+            unmatched_notes: [],
+            matched_required_dimensions: 2,
+            matched_required_notes: 1,
+            matched_required_views: 2,
+            missing_required_items: [],
+            unknowns: [],
+            limitations: ['Advisory-only foundation.'],
+            suggested_actions: [],
+          },
+        },
       },
       dfm: {
         available: true,
@@ -381,6 +443,138 @@ function failQualityReportSummary() {
         recommended_actions: ['Add or map the missing required dimension intent(s): HOLE_DIA.'],
         blocking_issues: ['Dimension conflict count 7 exceeds the allowed maximum 0.'],
         warnings: [],
+        semantic_quality: {
+          enforceable: false,
+          suggested_actions: ['Review low-confidence or incomplete extracted dimension evidence for: HOLE_DIA.'],
+          extracted_evidence: {
+            status: 'partial',
+            advisory_only: true,
+            file: '/tmp/output/ks_bracket_extracted_drawing_semantics.json',
+            path: '/tmp/output/ks_bracket_extracted_drawing_semantics.json',
+            coverage: {
+              required_dimensions: { total: 3, extracted: 1, missing: 0, unknown: 2, unsupported: 0, extracted_percent: 33.33 },
+              required_notes: { total: 2, extracted: 1, missing: 0, unknown: 1, unsupported: 0, extracted_percent: 50 },
+              required_views: { total: 4, extracted: 4, missing: 0, unknown: 0, unsupported: 0, extracted_percent: 100 },
+              total_required: 9,
+              total_extracted: 6,
+              total_missing: 0,
+              total_unknown: 3,
+              total_unsupported: 0,
+            },
+            required_dimensions: [
+              {
+                requirement_id: 'WEB_HEIGHT',
+                requirement_label: 'Web height',
+                classification: 'extracted',
+                matched_raw_text: '68',
+                source_artifact: 'svg',
+                confidence: 0.88,
+                candidate_matches: [],
+              },
+              {
+                requirement_id: 'HOLE_DIA',
+                requirement_label: 'Hole diameter',
+                classification: 'unknown',
+                confidence: null,
+                candidate_matches: [
+                  {
+                    matched_raw_text: '16',
+                    source_artifact: 'svg',
+                    confidence: 0.31,
+                  },
+                ],
+              },
+              {
+                requirement_id: 'BASE_PLATE_ENVELOPE',
+                requirement_label: 'Base plate envelope',
+                classification: 'unknown',
+                candidate_matches: [],
+              },
+            ],
+            required_notes: [
+              {
+                requirement_id: 'SURFACE_FINISH',
+                requirement_label: 'Surface finish',
+                classification: 'extracted',
+                matched_raw_text: 'Surface finish: powder coat',
+                source_artifact: 'svg',
+                confidence: 0.82,
+                candidate_matches: [],
+              },
+              {
+                requirement_id: 'MATERIAL',
+                requirement_label: 'Material callout',
+                classification: 'unknown',
+                candidate_matches: [],
+              },
+            ],
+            required_views: [
+              {
+                requirement_id: 'front',
+                requirement_label: 'Front view',
+                classification: 'extracted',
+                matched_raw_text: 'Front',
+                source_artifact: 'layout_report',
+                confidence: 0.92,
+                candidate_matches: [],
+              },
+              {
+                requirement_id: 'top',
+                requirement_label: 'Top view',
+                classification: 'extracted',
+                matched_raw_text: 'Top',
+                source_artifact: 'layout_report',
+                confidence: 0.91,
+                candidate_matches: [],
+              },
+              {
+                requirement_id: 'right',
+                requirement_label: 'Right view',
+                classification: 'extracted',
+                matched_raw_text: 'Right',
+                source_artifact: 'layout_report',
+                confidence: 0.9,
+                candidate_matches: [],
+              },
+              {
+                requirement_id: 'section A-A',
+                requirement_label: 'Section A-A',
+                classification: 'extracted',
+                matched_raw_text: 'Section A-A',
+                source_artifact: 'layout_report',
+                confidence: 0.9,
+                candidate_matches: [],
+              },
+            ],
+            unmatched_dimensions: [
+              {
+                raw_text: '60',
+                source_artifact: 'svg',
+                confidence: 0.84,
+                reason: 'Extracted dimension did not match a required drawing-intent dimension.',
+              },
+            ],
+            unmatched_notes: [
+              {
+                raw_text: 'Tolerance: KS B 0401 m',
+                source_artifact: 'svg',
+                confidence: 0.87,
+                reason: 'Extracted note did not match a required drawing-intent note.',
+              },
+            ],
+            matched_required_dimensions: 1,
+            matched_required_notes: 1,
+            matched_required_views: 4,
+            missing_required_items: [],
+            unknowns: [
+              'Required dimension not reliably extracted: HOLE_DIA.',
+              'Required dimension not reliably extracted: BASE_PLATE_ENVELOPE.',
+              'Required note not reliably extracted: MATERIAL.',
+            ],
+            limitations: ['Advisory-only foundation.'],
+            suggested_actions: ['Review low-confidence or incomplete extracted dimension evidence for: HOLE_DIA.'],
+          },
+        },
       },
       dfm: {
         available: true,
@@ -493,6 +687,36 @@ async function seedQualityDecisionJob(jobStore, {
     `artifacts/${configName}_manifest.json`,
     `${JSON.stringify({ command: 'report', config_name: configName }, null, 2)}\n`
   );
+  const extractedSemanticsPath = await jobStore.writeJobFile(
+    job.id,
+    `artifacts/${configName}_extracted_drawing_semantics.json`,
+    `${JSON.stringify({
+      artifact_type: 'extracted_drawing_semantics',
+      status: reportSummary.surfaces.drawing_quality.semantic_quality?.extracted_evidence?.status || 'unknown',
+      decision: 'advisory',
+      coverage: {
+        required_dimensions_total: reportSummary.surfaces.drawing_quality.semantic_quality?.extracted_evidence?.coverage?.required_dimensions?.total || 0,
+        required_dimensions_extracted: reportSummary.surfaces.drawing_quality.semantic_quality?.extracted_evidence?.coverage?.required_dimensions?.extracted || 0,
+        required_notes_total: reportSummary.surfaces.drawing_quality.semantic_quality?.extracted_evidence?.coverage?.required_notes?.total || 0,
+        required_notes_extracted: reportSummary.surfaces.drawing_quality.semantic_quality?.extracted_evidence?.coverage?.required_notes?.extracted || 0,
+        required_views_total: reportSummary.surfaces.drawing_quality.semantic_quality?.extracted_evidence?.coverage?.required_views?.total || 0,
+        required_views_extracted: reportSummary.surfaces.drawing_quality.semantic_quality?.extracted_evidence?.coverage?.required_views?.extracted || 0,
+      },
+      unknowns: reportSummary.surfaces.drawing_quality.semantic_quality?.extracted_evidence?.unknowns || [],
+      limitations: reportSummary.surfaces.drawing_quality.semantic_quality?.extracted_evidence?.limitations || [],
+    }, null, 2)}\n`
+  );
+  const drawingPlannerPath = await jobStore.writeJobFile(
+    job.id,
+    `artifacts/${configName}_drawing_planner.json`,
+    `${JSON.stringify({
+      status: 'advisory',
+      summary: {
+        config_name: configName,
+        note: 'browser smoke planner placeholder',
+      },
+    }, null, 2)}\n`
+  );
   const drawingQualityPath = await jobStore.writeJobFile(
     job.id,
     `artifacts/${configName}_drawing_quality.json`,
@@ -517,6 +741,7 @@ async function seedQualityDecisionJob(jobStore, {
       traceability: {
         coverage_percent: reportSummary.surfaces.drawing_quality.traceability_coverage_percent,
       },
+      semantic_quality: reportSummary.surfaces.drawing_quality.semantic_quality || null,
       blocking_issues: reportSummary.surfaces.drawing_quality.blocking_issues || [],
       warnings: reportSummary.surfaces.drawing_quality.warnings || [],
       recommended_actions: reportSummary.surfaces.drawing_quality.recommended_actions || [],
@@ -564,6 +789,20 @@ async function seedQualityDecisionJob(jobStore, {
         stability: 'stable',
       },
       {
+        type: 'drawing.extracted-semantics',
+        path: extractedSemanticsPath,
+        label: 'Extracted drawing semantics JSON',
+        scope: 'user-facing',
+        stability: 'best-effort',
+      },
+      {
+        type: 'drawing.planner',
+        path: drawingPlannerPath,
+        label: 'Drawing planner advisory JSON',
+        scope: 'user-facing',
+        stability: 'stable',
+      },
+      {
         type: 'drawing.svg',
         path: drawingSvgPath,
         label: 'drawing_svg',
@@ -588,6 +827,8 @@ async function seedQualityDecisionJob(jobStore, {
       report_pdf: reportPdfPath,
       create_manifest: manifestPath,
       drawing_quality: drawingQualityPath,
+      extracted_drawing_semantics: extractedSemanticsPath,
+      drawing_planner: drawingPlannerPath,
       drawing_svg: drawingSvgPath,
     },
     {},
@@ -864,14 +1105,31 @@ try {
     'Does not block manufacturing review',
     'Evidence artifact',
     'Drawing quality JSON',
+    'Extracted drawing semantics',
+    'Available',
+    'Advisory',
+    'Required drawing semantics were confirmed from extracted evidence.',
+    'Status',
+    'Impact',
+    'Dimensions',
+    '2 / 2 extracted',
+    'Notes',
+    '1 / 1 extracted',
+    'Views',
+    '2 / 2 extracted',
+    'Evidence',
+    'extracted_drawing_semantics_json',
+    'Manufacturing readiness',
+    'Manufacturing readiness is still determined by required Geometry / Drawing / DFM gates.',
+    'Open evidence - Extracted drawing semantics JSON',
     'All required quality gates passed',
     'No manufacturing blockers',
     'Ready for manufacturing review: Yes',
   ]);
   assertExcludesAll(passDashboardText, ['in_memory', 'not_available']);
-  await selectArtifactCardByText('quality_pass_bracket_drawing_quality.json');
-  const passDrawingPreviewText = await waitForArtifactPreview('"status": "pass"');
-  assertIncludesAll(passDrawingPreviewText, ['"status": "pass"', '"score": 100']);
+  await selectArtifactCardByText('quality_pass_bracket_extracted_drawing_semantics.json');
+  const passExtractedPreviewText = await waitForArtifactPreview('"artifact_type": "extracted_drawing_semantics"');
+  assertIncludesAll(passExtractedPreviewText, ['"status": "available"', '"required_dimensions_extracted": 2']);
 
   await openQualityJobFromTimeline(failQualityJob.id);
   const failDashboardText = await waitForDashboardText('Quality Dashboard - ks_bracket');
@@ -893,11 +1151,43 @@ try {
     'View: section A-A, Note: material callout',
     'Manufacturing review impact',
     'Blocks manufacturing review',
+    'Extracted drawing semantics',
+    'Partial',
+    'Some drawing requirements could not be confirmed from extracted evidence.',
+    'Status',
+    'Impact',
+    'Hole diameter',
+    'Unknown',
+    'Low-confidence candidate: 16',
+    'Dimensions',
+    '1 extracted, 2 unknown',
+    'Notes',
+    '1 extracted, 1 unknown',
+    'Views',
+    '4 / 4 extracted',
+    'Evidence',
+    'extracted_drawing_semantics_json',
+    'Some extracted drawing text could not be matched to required intent.',
+    'Unmatched extracted dimensions',
+    '60',
+    'Unmatched extracted notes',
+    'Tolerance: KS B 0401 m',
+    'Manufacturing readiness',
+    'Still blocked by required Geometry / Drawing / DFM gates.',
+    'Open evidence - Extracted drawing semantics JSON',
     'Open evidence - Drawing quality JSON',
     'Manufacturing review blocked by',
     'Ready for manufacturing review: No',
   ]);
   assertExcludesAll(failDashboardText, ['in_memory', 'not_available']);
+  const failPageTextAfterSwitch = await cdp.evaluate(pageTextExpression());
+  assertExcludesAll(failPageTextAfterSwitch, [
+    'quality_pass_bracket_extracted_drawing_semantics.json',
+    'quality_pass_bracket_drawing_planner.json',
+    'quality_pass_bracket_drawing_quality.json',
+    'quality_pass_bracket_drawing.svg',
+    'quality_pass_bracket_report.pdf',
+  ]);
   const previewAfterSwitch = await cdp.evaluate(`(() => ({
     hidden: document.querySelector('[data-hook="artifacts-detail-preview"]')?.hidden ?? true,
     text: document.querySelector('[data-hook="artifacts-detail-preview"]')?.textContent || '',
@@ -905,6 +1195,8 @@ try {
   assert.equal(previewAfterSwitch.text.includes('quality_pass_bracket'), false);
   assert.equal(previewAfterSwitch.text.includes('quality_pass_bracket_drawing.svg'), false);
   assert.equal(previewAfterSwitch.text.includes('quality_pass_bracket_report.pdf'), false);
+  assert.equal(previewAfterSwitch.text.includes('quality_pass_bracket_extracted_drawing_semantics'), false);
+  assert.equal(previewAfterSwitch.text.includes('quality_pass_bracket_drawing_planner'), false);
 
   await openQualityJobFromTimeline(optionalQualityJob.id);
   const optionalDashboardText = await waitForDashboardText('Quality Dashboard - optional_quality_bracket');

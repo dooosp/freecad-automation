@@ -42,6 +42,7 @@ const OPTIONAL_ARTIFACT_KEYS = new Set([
   'drawing_manifest',
   'report_manifest',
   'traceability_json',
+  'extracted_drawing_semantics',
 ]);
 
 function basename(value = '') {
@@ -53,6 +54,7 @@ function stripKnownConfigSuffix(value = '') {
     .replace(/_report_summary\.json$/i, '')
     .replace(/_report\.pdf$/i, '')
     .replace(/_drawing_quality\.json$/i, '')
+    .replace(/_extracted_drawing_semantics\.json$/i, '')
     .replace(/_create_quality\.json$/i, '')
     .replace(/_drawing_manifest\.json$/i, '')
     .replace(/_manifest\.json$/i, '')
@@ -128,6 +130,12 @@ export const isDrawingQualityArtifact = buildArtifactMatcher([
   'drawing_quality',
   '_drawing_quality.json',
   'drawing.quality-summary',
+]);
+
+export const isExtractedDrawingSemanticsArtifact = buildArtifactMatcher([
+  'extracted_drawing_semantics',
+  '_extracted_drawing_semantics.json',
+  'drawing.extracted-semantics',
 ]);
 
 export const isManifestArtifact = buildArtifactMatcher([
@@ -285,6 +293,329 @@ function stringListFrom(...values) {
   return uniqueStrings(values.flatMap((value) => safeList(value).map(issueText)));
 }
 
+function joinDisplayParts(parts = [], separator = ' · ') {
+  return parts.filter(Boolean).join(separator);
+}
+
+function formatConfidenceLabel(value) {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) return '';
+  return `${Math.round(numberValue * 100)}% confidence`;
+}
+
+function humanizeToken(value = '') {
+  if (!value) return '';
+  return String(value)
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function formatEvidenceSourceLabel(value = '') {
+  const normalized = normalizeString(value);
+  if (!normalized) return '';
+  if (normalized === 'svg') return 'SVG';
+  if (normalized === 'layout_report') return 'Layout report';
+  if (normalized === 'title_block') return 'Title block';
+  return humanizeToken(value);
+}
+
+function normalizeExtractedSemanticsStatus(status = '') {
+  const normalized = normalizeString(status);
+  if (['available', 'partial', 'unknown', 'unsupported'].includes(normalized)) return normalized;
+  if (['not_run', 'not_available', 'missing', 'incomplete'].includes(normalized)) return 'unknown';
+  return normalized || 'unknown';
+}
+
+function formatExtractedSemanticsStatusLabel(status = '') {
+  const normalized = normalizeExtractedSemanticsStatus(status);
+  if (normalized === 'available') return 'Available';
+  if (normalized === 'partial') return 'Partial';
+  if (normalized === 'unsupported') return 'Unsupported';
+  return 'Unknown';
+}
+
+function extractedSemanticsTone(status = '') {
+  const normalized = normalizeExtractedSemanticsStatus(status);
+  if (normalized === 'available') return 'ok';
+  if (normalized === 'partial') return 'warn';
+  return 'info';
+}
+
+function extractedClassificationLabel(classification = '') {
+  const normalized = normalizeString(classification);
+  if (normalized === 'extracted') return 'Extracted';
+  if (normalized === 'missing') return 'Missing';
+  if (normalized === 'unsupported') return 'Unsupported';
+  return 'Unknown';
+}
+
+function extractedClassificationTone(classification = '') {
+  const normalized = normalizeString(classification);
+  if (normalized === 'extracted') return 'ok';
+  if (normalized === 'missing') return 'warn';
+  return 'info';
+}
+
+function defaultExtractedCoverageGroup() {
+  return {
+    total: 0,
+    extracted: 0,
+    missing: 0,
+    unknown: 0,
+    unsupported: 0,
+    extracted_percent: null,
+  };
+}
+
+function buildExtractedCoverageValue(coverage = {}) {
+  const total = Number(coverage.total || 0);
+  const extracted = Number(coverage.extracted || 0);
+  const missing = Number(coverage.missing || 0);
+  const unknown = Number(coverage.unknown || 0);
+  const unsupported = Number(coverage.unsupported || 0);
+
+  if (total > 0 && extracted === total && missing === 0 && unknown === 0 && unsupported === 0) {
+    return `${extracted} / ${total} extracted`;
+  }
+
+  const segments = [
+    extracted > 0 ? `${extracted} extracted` : '',
+    unknown > 0 ? `${unknown} unknown` : '',
+    missing > 0 ? `${missing} missing` : '',
+    unsupported > 0 ? `${unsupported} unsupported` : '',
+  ].filter(Boolean);
+
+  if (segments.length > 0) return segments.join(', ');
+  if (total > 0) return `0 / ${total} extracted`;
+  return 'No required items';
+}
+
+function buildExtractedCoverageNote(coverage = {}) {
+  return '';
+}
+
+function summarizeRequiredEvidenceForDisplay(entries = []) {
+  return safeList(entries).map((entry) => {
+    const safeEntry = safeObject(entry);
+    const candidate = safeList(safeEntry.candidate_matches)[0] || null;
+    const sourceLabel = formatEvidenceSourceLabel(safeEntry.source_artifact || candidate?.source_artifact);
+    const confidenceLabel = formatConfidenceLabel(
+      safeEntry.confidence !== null && safeEntry.confidence !== undefined
+        ? safeEntry.confidence
+        : candidate?.confidence
+    );
+    const matchedText = safeEntry.matched_raw_text || safeEntry.matched_extracted_id || '';
+    const candidateText = candidate?.matched_raw_text || candidate?.matched_extracted_id || '';
+    const classification = normalizeString(safeEntry.classification) || 'unknown';
+    let detail = safeEntry.reason || 'No extracted evidence detail was reported.';
+
+    if (classification === 'extracted' && matchedText) {
+      detail = `Matched extracted evidence: ${matchedText}`;
+    } else if (classification === 'unknown' && candidateText) {
+      detail = `Low-confidence candidate: ${candidateText}`;
+    } else if (classification === 'missing' && matchedText) {
+      detail = `Unconfirmed extracted evidence: ${matchedText}`;
+    }
+
+    return {
+      label: safeEntry.requirement_label || safeEntry.requirement_id || 'Unnamed requirement',
+      classificationLabel: extractedClassificationLabel(classification),
+      classificationTone: extractedClassificationTone(classification),
+      detail,
+      note: joinDisplayParts([
+        sourceLabel ? `Source: ${sourceLabel}` : '',
+        confidenceLabel,
+      ]),
+    };
+  });
+}
+
+function summarizeUnmatchedEvidenceForDisplay(entries = [], fallbackLabel = 'Extracted item') {
+  return safeList(entries).map((entry) => {
+    const safeEntry = safeObject(entry);
+    return {
+      label: safeEntry.raw_text || safeEntry.extracted_id || fallbackLabel,
+      classificationLabel: 'Advisory',
+      classificationTone: 'info',
+      detail: safeEntry.reason || 'Extracted evidence did not match a required drawing-intent item.',
+      note: joinDisplayParts([
+        formatEvidenceSourceLabel(safeEntry.source_artifact)
+          ? `Source: ${formatEvidenceSourceLabel(safeEntry.source_artifact)}`
+          : '',
+        formatConfidenceLabel(safeEntry.confidence),
+      ]),
+    };
+  });
+}
+
+function buildExtractedSemanticsSummary(status, extractedEvidence = {}, semanticQuality = {}) {
+  const normalizedStatus = normalizeExtractedSemanticsStatus(status);
+  const coverage = safeObject(extractedEvidence.coverage);
+  const totalRequired = Number(coverage.total_required || 0);
+  const totalMissing = Number(coverage.total_missing || 0);
+  const totalUnknown = Number(coverage.total_unknown || 0);
+  const totalUnsupported = Number(coverage.total_unsupported || 0);
+  const explicitEvidencePath = extractedEvidence.file || extractedEvidence.path;
+  const hasEvidence = Boolean(explicitEvidencePath)
+    || safeList(extractedEvidence.required_dimensions).length > 0
+    || safeList(extractedEvidence.required_notes).length > 0
+    || safeList(extractedEvidence.required_views).length > 0;
+
+  if (!hasEvidence && normalizedStatus === 'unknown') {
+    return 'Extracted drawing semantics evidence is not available for this job.';
+  }
+  if (normalizedStatus === 'unsupported') {
+    return 'Extracted drawing semantics evidence is unsupported for this job.';
+  }
+  if (normalizedStatus === 'partial') {
+    return 'Some drawing requirements could not be confirmed from extracted evidence.';
+  }
+  if (
+    normalizedStatus === 'available'
+    && totalRequired > 0
+    && totalMissing === 0
+    && totalUnknown === 0
+    && totalUnsupported === 0
+  ) {
+    return 'Required drawing semantics were confirmed from extracted evidence.';
+  }
+  if (semanticQuality.enforceable === true) {
+    return 'Extracted drawing semantics are shown here, but required gates still drive readiness unless an explicit enforceable policy applies.';
+  }
+  return 'Extracted drawing semantics evidence is not available for this job.';
+}
+
+function buildExtractedReadinessCopy(reportSummary = {}) {
+  const ready = reportSummary.ready_for_manufacturing_review;
+  const surfaces = safeObject(reportSummary.surfaces);
+  const failedNames = [
+    ['Geometry', surfaces.create_quality],
+    ['Drawing', surfaces.drawing_quality],
+    ['DFM', surfaces.dfm],
+  ]
+    .filter(([, surface]) => {
+      const status = normalizeSurfaceStatus(safeObject(surface).status || 'not_available');
+      return status === 'fail' || status === 'missing' || status === 'not_available' || status === 'not_run';
+    })
+    .map(([label]) => label);
+
+  if (ready === false && failedNames.length > 0) {
+    return `Still blocked by required ${failedNames.join(' / ')} gates.`;
+  }
+  if (ready === true) {
+    return 'Manufacturing readiness is still determined by required Geometry / Drawing / DFM gates.';
+  }
+  return 'Manufacturing readiness is still driven by required quality gates unless an explicit enforceable policy applies.';
+}
+
+function extractedEvidenceDisplayKey(evidenceArtifact = null) {
+  if (!evidenceArtifact) return 'Not linked';
+  if (evidenceArtifact.id === 'extracted_drawing_semantics_json') return 'extracted_drawing_semantics_json';
+  return evidenceArtifact.artifactKey || evidenceArtifact.label || 'Not linked';
+}
+
+function buildExtractedSemanticsPanel({ artifacts = [], reportSummary = {}, drawingSurface = {}, drawingQuality = {} } = {}) {
+  const surface = safeObject(drawingSurface);
+  const raw = safeObject(drawingQuality);
+  const semanticQuality = {
+    ...safeObject(raw.semantic_quality),
+    ...safeObject(surface.semantic_quality),
+  };
+  const extractedEvidence = safeObject(semanticQuality.extracted_evidence);
+  const artifactLinks = buildArtifactLinks(artifacts);
+  const extractedArtifact = artifactLinks.find((artifact) => artifact.id === 'extracted_drawing_semantics_json') || null;
+  const normalizedStatus = normalizeExtractedSemanticsStatus(extractedEvidence.status);
+  const coverage = safeObject(extractedEvidence.coverage);
+  const evidenceArtifact = extractedArtifact || (
+    extractedEvidence.file || extractedEvidence.path
+      ? {
+          label: 'Extracted drawing semantics JSON',
+          fileName: basename(extractedEvidence.file || extractedEvidence.path),
+          href: null,
+        }
+      : null
+  );
+
+  return {
+    status: normalizedStatus,
+    statusLabel: formatExtractedSemanticsStatusLabel(normalizedStatus),
+    tone: extractedSemanticsTone(normalizedStatus),
+    impactLabel: semanticQuality.enforceable === true ? 'Enforceable' : 'Advisory',
+    impactTone: semanticQuality.enforceable === true ? 'warn' : 'info',
+    impactCopy: semanticQuality.enforceable === true
+      ? 'An explicit enforceable policy can promote extracted-semantics gaps into required blockers.'
+      : 'Extracted-semantics gaps are advisory by default.',
+    summary: buildExtractedSemanticsSummary(normalizedStatus, extractedEvidence, semanticQuality),
+    readinessCopy: buildExtractedReadinessCopy(reportSummary),
+    evidenceArtifact,
+    coverageItems: [
+      {
+        label: 'Dimensions',
+        value: buildExtractedCoverageValue(coverage.required_dimensions || defaultExtractedCoverageGroup()),
+        note: buildExtractedCoverageNote(coverage.required_dimensions || defaultExtractedCoverageGroup()),
+      },
+      {
+        label: 'Notes',
+        value: buildExtractedCoverageValue(coverage.required_notes || defaultExtractedCoverageGroup()),
+        note: buildExtractedCoverageNote(coverage.required_notes || defaultExtractedCoverageGroup()),
+      },
+      {
+        label: 'Views',
+        value: buildExtractedCoverageValue(coverage.required_views || defaultExtractedCoverageGroup()),
+        note: buildExtractedCoverageNote(coverage.required_views || defaultExtractedCoverageGroup()),
+      },
+    ],
+    evidenceItem: {
+      label: 'Evidence',
+      value: extractedEvidenceDisplayKey(evidenceArtifact),
+      note: evidenceArtifact?.artifactKey
+        ? evidenceArtifact.label || evidenceArtifact.fileName || ''
+        : evidenceArtifact?.fileName || '',
+    },
+    requiredGroups: [
+      {
+        title: 'Required dimensions',
+        empty: 'No required dimensions were provided for extracted-semantics comparison.',
+        items: summarizeRequiredEvidenceForDisplay(extractedEvidence.required_dimensions),
+      },
+      {
+        title: 'Required notes',
+        empty: 'No required notes were provided for extracted-semantics comparison.',
+        items: summarizeRequiredEvidenceForDisplay(extractedEvidence.required_notes),
+      },
+      {
+        title: 'Required views',
+        empty: 'No required views were provided for extracted-semantics comparison.',
+        items: summarizeRequiredEvidenceForDisplay(extractedEvidence.required_views),
+      },
+    ],
+    unmatchedGroups: [
+      {
+        title: 'Unmatched extracted dimensions',
+        empty: 'No unmatched extracted dimensions were reported.',
+        items: summarizeUnmatchedEvidenceForDisplay(extractedEvidence.unmatched_dimensions, 'Extracted dimension'),
+      },
+      {
+        title: 'Unmatched extracted notes',
+        empty: 'No unmatched extracted notes were reported.',
+        items: summarizeUnmatchedEvidenceForDisplay(extractedEvidence.unmatched_notes, 'Extracted note'),
+      },
+    ],
+    unmatchedSummary: (
+      safeList(extractedEvidence.unmatched_dimensions).length > 0
+      || safeList(extractedEvidence.unmatched_notes).length > 0
+    )
+      ? 'Some extracted drawing text could not be matched to required intent.'
+      : '',
+    suggestedActions: uniqueStrings([
+      ...safeList(semanticQuality.suggested_actions),
+      ...safeList(extractedEvidence.suggested_actions),
+    ]),
+    limitations: uniqueStrings(safeList(extractedEvidence.limitations)),
+    unknowns: uniqueStrings(safeList(extractedEvidence.unknowns)),
+  };
+}
+
 function drawingStatusLabel(status = '', available = true) {
   if (!available) return 'Unknown';
   const normalized = normalizeSurfaceStatus(status);
@@ -428,6 +759,12 @@ function buildDrawingQualityPanel({ artifacts = [], reportSummary = {}, drawingS
       : reportArtifact
         ? 'report_summary drawing surface'
         : 'drawing quality payload',
+    extractedSemantics: buildExtractedSemanticsPanel({
+      artifacts,
+      reportSummary,
+      drawingSurface: surface,
+      drawingQuality: raw,
+    }),
     reportReady: typeof reportSummary.ready_for_manufacturing_review === 'boolean'
       ? reportSummary.ready_for_manufacturing_review
       : null,
@@ -661,6 +998,12 @@ function buildArtifactLinks(artifacts = []) {
       match: isDrawingQualityArtifact,
     },
     {
+      id: 'extracted_drawing_semantics_json',
+      label: 'Extracted drawing semantics JSON',
+      required: false,
+      match: isExtractedDrawingSemanticsArtifact,
+    },
+    {
       id: 'report_pdf',
       label: 'PDF report',
       required: true,
@@ -701,6 +1044,7 @@ function buildArtifactLinks(artifacts = []) {
         href: artifact.links?.open || null,
         downloadHref: artifact.links?.download || null,
         artifactId: artifact.id || null,
+        artifactKey: artifact.key || null,
         sourceArtifactId: artifact.id || artifact.key || null,
       };
     })
