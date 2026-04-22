@@ -187,4 +187,49 @@ function makePlateConfig() {
   assert.equal(refinedPlanner.suggested_actions.some((entry) => entry.includes('section view through slot_001')), true);
 }
 
+{
+  const details = buildPlannerActionsFromExtractedCoverage({
+    drawingIntent: {
+      required_dimensions: [
+        { id: 'BASE_PLATE_ENVELOPE', label: 'Base plate length and width', feature: 'base_plate', dimension_type: 'linear', required: true },
+      ],
+    },
+    featureCatalog: {
+      features: [
+        { feature_id: 'base_plate', type: 'plate' },
+      ],
+    },
+    planner: {
+      status: 'advisory',
+      suggested_actions: [],
+      section_view_recommendations: [],
+    },
+    extractedEvidence: {
+      status: 'partial',
+      required_dimensions: [
+        {
+          requirement_id: 'BASE_PLATE_ENVELOPE',
+          requirement_label: 'Base plate length and width',
+          classification: 'unknown',
+          candidate_matches: [],
+        },
+      ],
+      required_notes: [],
+      required_views: [],
+      unmatched_dimensions: ['120', '80'],
+      unmatched_notes: [],
+      coverage: {
+        total_missing: 0,
+        total_unknown: 1,
+        total_unsupported: 0,
+      },
+    },
+  });
+
+  assert.equal(details.length >= 1, true);
+  assert.equal(details[0].classification, 'unknown');
+  assert.equal(details[0].recommended_fix.includes('overall length and width callouts for base_plate'), true);
+  assert.equal(details[0].recommended_fix.includes('without inferring a combined envelope'), true);
+}
+
 console.log('drawing-planner.test.js: ok');
