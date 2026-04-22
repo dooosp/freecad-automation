@@ -195,9 +195,9 @@ function looksLikeDimensionText(text = '') {
   const normalized = normalizeText(text);
   if (!normalized) return false;
   if (/^\d{1,3}(?:\.\d+)?$/.test(normalized)) return true;
-  if (/^(?:\d+X|X\d+)\s*[ØR]?\s*\d+(?:\.\d+)?(?:\s*(?:MM|DEG|°))?$/i.test(normalized)) return true;
+  if (/^(?:\d+\s*[Xx]\s*|[Xx]\s*\d+\s*)?[Ø⌀R]?\s*\d+(?:\.\d+)?(?:\s*(?:MM|DEG|°))?(?:\s+[A-Z]\d+)?$/i.test(normalized)) return true;
   if (/^(?:THK|TYP)\s+\d+(?:\.\d+)?$/i.test(normalized)) return true;
-  if (/^[ØR]\s*\d+(?:\.\d+)?(?:\s*(?:MM|DEG|°))?$/i.test(normalized)) return true;
+  if (/^[Ø⌀R]\s*\d+(?:\.\d+)?(?:\s*(?:MM|DEG|°))?(?:\s+[A-Z]\d+)?$/i.test(normalized)) return true;
   if (/^\d+(?:\.\d+)?\s*(?:MM|DEG|°)$/.test(normalized.toUpperCase())) return true;
   return false;
 }
@@ -207,9 +207,13 @@ function parseDimensionValue(rawText = '') {
   if (!normalized) return { value: null, unit: null };
   const matches = [...normalized.matchAll(/([0-9]+(?:\.[0-9]+)?)/g)].map((match) => match[1]);
   if (matches.length === 0) return { value: null, unit: null };
-  const rawValue = /\b\d+\s*X\b/i.test(normalized) && matches.length > 1
-    ? matches[matches.length - 1]
-    : matches[0];
+  const symbolMatch = normalized.match(/(?:\d+\s*[Xx]\s*)?[Ø⌀R]\s*([0-9]+(?:\.\d+)?)/);
+  const repeatedValueMatch = normalized.match(/^\d+\s*[Xx]\s*([0-9]+(?:\.\d+)?)/);
+  const prefixedKeywordMatch = normalized.match(/^(?:THK|TYP)\s+([0-9]+(?:\.\d+)?)/i);
+  const rawValue = symbolMatch?.[1]
+    || repeatedValueMatch?.[1]
+    || prefixedKeywordMatch?.[1]
+    || matches[0];
   const value = Number.parseFloat(rawValue);
   const upper = normalized.toUpperCase();
   const unit = upper.includes('DEG') || normalized.includes('°')

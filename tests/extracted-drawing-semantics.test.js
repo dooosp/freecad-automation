@@ -116,6 +116,38 @@ const ROOT = resolve(import.meta.dirname, '..');
 }
 
 {
+  const semantics = buildExtractedDrawingSemantics({
+    drawingSvgPath: '/tmp/unicode-hole-callout_probe.svg',
+    svgContent: [
+      '<svg xmlns="http://www.w3.org/2000/svg">',
+      '  <text x="10" y="10">⌀9 H8</text>',
+      '  <text x="10" y="20">2X ⌀16 H7</text>',
+      '  <text x="10" y="30">Tolerance: KS B 0401 m</text>',
+      '</svg>',
+    ].join('\n'),
+    drawingIntent: {
+      required_dimensions: [
+        { id: 'MOUNTING_HOLE_DIA', value_mm: 9, feature: 'hole_pattern_1', required: true },
+        { id: 'HOLE_PATTERN_DIA', value_mm: 16, feature: 'hole_pattern_1', required: true },
+      ],
+    },
+  });
+
+  assert.equal(semantics.coverage.required_dimensions_extracted, 2);
+  assert.equal(
+    semantics.dimensions.some((entry) => entry.raw_text === '⌀9 H8' && entry.matched_intent_id === 'MOUNTING_HOLE_DIA'),
+    true
+  );
+  assert.equal(
+    semantics.dimensions.some((entry) => entry.raw_text === '2X ⌀16 H7' && entry.matched_intent_id === 'HOLE_PATTERN_DIA'),
+    true
+  );
+  assert.equal(semantics.notes.some((entry) => entry.raw_text === '⌀9 H8'), false);
+  assert.equal(semantics.notes.some((entry) => entry.raw_text === '2X ⌀16 H7'), false);
+  assert.equal(semantics.title_block.tolerance?.raw_text, 'Tolerance: KS B 0401 m');
+}
+
+{
   const unsupported = buildExtractedDrawingSemantics();
   assert.equal(unsupported.status, 'unsupported');
   assert.equal(unsupported.decision, 'advisory');

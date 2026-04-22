@@ -356,6 +356,14 @@ assert.equal(ksDrawingQuality.extracted_drawing_semantics_file, ksExtractedSeman
 assert.equal(ksDrawingQuality.semantic_quality.extracted_evidence.coverage.required_dimensions.extracted >= 0, true);
 assert.equal(ksDrawingQuality.semantic_quality.extracted_evidence.required_dimensions.some((entry) => entry.classification === 'unknown' || entry.classification === 'missing'), true);
 assert.equal(
+  ksDrawingQuality.semantic_quality.extracted_evidence.required_dimensions.find((entry) => entry.requirement_id === 'MOUNTING_HOLE_DIA')?.classification,
+  'extracted'
+);
+assert.equal(
+  ksDrawingQuality.semantic_quality.extracted_evidence.required_dimensions.find((entry) => entry.requirement_id === 'BASE_PLATE_ENVELOPE')?.classification,
+  'unknown'
+);
+assert.equal(
   ksDrawingQuality.semantic_quality.extracted_evidence.required_notes.every((entry) => entry.classification === 'extracted'),
   true
 );

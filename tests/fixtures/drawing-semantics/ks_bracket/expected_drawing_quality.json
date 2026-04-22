@@ -23,11 +23,11 @@
     "coverage": {
       "required_dimensions": {
         "total": 3,
-        "extracted": 1,
+        "extracted": 2,
         "missing": 0,
-        "unknown": 2,
+        "unknown": 1,
         "unsupported": 0,
-        "extracted_percent": 33.33
+        "extracted_percent": 66.67
       },
       "required_notes": {
         "total": 2,
@@ -46,13 +46,13 @@
         "extracted_percent": 100
       },
       "total_required": 9,
-      "total_extracted": 7,
+      "total_extracted": 8,
       "total_missing": 0,
-      "total_unknown": 2,
+      "total_unknown": 1,
       "total_unsupported": 0
     },
     "required_dimension_classifications": [
-      { "requirement_id": "MOUNTING_HOLE_DIA", "classification": "unknown" },
+      { "requirement_id": "MOUNTING_HOLE_DIA", "classification": "extracted" },
       { "requirement_id": "BASE_PLATE_ENVELOPE", "classification": "unknown" },
       { "requirement_id": "WEB_HEIGHT", "classification": "extracted" }
     ],
@@ -66,7 +66,7 @@
       { "requirement_id": "right", "classification": "extracted" },
       { "requirement_id": "iso", "classification": "extracted" }
     ],
-    "unmatched_dimensions": [],
+    "unmatched_dimensions": ["120", "80"],
     "unmatched_notes": ["Tolerance: KS B 0401 m"],
     "missing_required_items": []
   },

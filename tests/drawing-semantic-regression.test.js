@@ -259,7 +259,10 @@ function ksBracketArtifacts(jobDir) {
     generatedViews: ['front', 'top', 'right', 'iso'],
     svgContent: [
       '<svg xmlns="http://www.w3.org/2000/svg">',
+      '  <text x="10" y="5">⌀9 H8</text>',
       '  <text x="10" y="10">60</text>',
+      '  <text x="10" y="15">120</text>',
+      '  <text x="10" y="18">80</text>',
       '  <text x="10" y="20">Material: SS304 (KS D 3698)</text>',
       '  <text x="10" y="30">Default surface finish Ra 6.3 unless otherwise specified.</text>',
       '  <text x="10" y="40">Tolerance: KS B 0401 m</text>',

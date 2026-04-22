@@ -733,10 +733,26 @@ function isHoleDiameterRequirement(requirement = {}, evidenceEntry = {}, feature
   return hasDiameterHint && featureContext.has_hole_feature;
 }
 
+function isEnvelopeRequirement(requirement = {}, evidenceEntry = {}) {
+  const comparable = [
+    requirement.id,
+    requirement.label,
+    evidenceEntry.requirement_id,
+    evidenceEntry.requirement_label,
+  ].map((value) => normalizeId(value));
+  return comparable.some((value) => value && (
+    value.includes('envelope')
+      || value.includes('footprint')
+      || value.includes('lengthandwidth')
+      || value.includes('overalllengthandwidth')
+  ));
+}
+
 function dimensionFixSteps(requirement = {}, evidenceEntry = {}, featureContext = {}, classification = 'unknown') {
   const requirementLabel = cleanText(evidenceEntry.requirement_label || requirement.label || requirement.id, 'required dimension');
   const sectionFeatureId = cleanText(featureContext.section_feature_id || featureContext.primary_feature_id);
   const holeFeatureId = cleanText(featureContext.primary_feature_id);
+  const envelopeFeatureId = cleanText(featureContext.primary_feature_id);
 
   if (classification === 'unsupported') {
     return [
@@ -769,6 +785,18 @@ function dimensionFixSteps(requirement = {}, evidenceEntry = {}, featureContext 
       : [
         `Verify the diameter callout for ${holeFeatureId} is visible and clearly labeled as ${requirementLabel}.`,
         'Confirm the diameter symbol and label survive SVG text extraction.',
+      ];
+  }
+
+  if (isEnvelopeRequirement(requirement, evidenceEntry) && envelopeFeatureId) {
+    return classification === 'missing'
+      ? [
+        `Add or verify both overall length and width callouts for ${envelopeFeatureId}.`,
+        `Keep the footprint dimensions linked or labeled so extraction can map them back to ${requirementLabel} without guessing a combined envelope value.`,
+      ]
+      : [
+        `Verify the overall length and width callouts for ${envelopeFeatureId} are both visible and readable in the SVG.`,
+        `Keep the footprint dimensions separately labeled or linked so extraction can satisfy ${requirementLabel} without inferring a combined envelope.`,
       ];
   }
 

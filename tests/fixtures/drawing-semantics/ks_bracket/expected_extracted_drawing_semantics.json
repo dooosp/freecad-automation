@@ -8,7 +8,7 @@
   ],
   "coverage": {
     "required_dimensions_total": 3,
-    "required_dimensions_extracted": 1,
+    "required_dimensions_extracted": 2,
     "required_notes_total": 2,
     "required_notes_extracted": 2,
     "required_views_total": 4,
@@ -21,6 +21,7 @@
     "top"
   ],
   "matched_dimension_ids": [
+    "MOUNTING_HOLE_DIA",
     "WEB_HEIGHT"
   ],
   "matched_note_ids": [
@@ -33,7 +34,6 @@
     "drawing_number": null
   },
   "unknowns": [
-    "Required dimension not reliably extracted: MOUNTING_HOLE_DIA.",
     "Required dimension not reliably extracted: BASE_PLATE_ENVELOPE."
   ]
 }
