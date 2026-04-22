@@ -342,9 +342,13 @@ assertArtifactManifest(
 const ksDrawingQualityPath = join(OUTPUT_DIR, 'ks_bracket_runtime_smoke_drawing_quality.json');
 const ksExtractedSemanticsPath = join(OUTPUT_DIR, 'ks_bracket_runtime_smoke_extracted_drawing_semantics.json');
 const ksDrawingPlannerPath = join(OUTPUT_DIR, 'ks_bracket_runtime_smoke_drawing_planner.json');
+const ksDrawingIntentPath = join(OUTPUT_DIR, 'ks_bracket_runtime_smoke_drawing_intent.json');
+const ksFeatureCatalogPath = join(OUTPUT_DIR, 'ks_bracket_runtime_smoke_feature_catalog.json');
 assertArtifact(ksDrawingQualityPath);
 assertArtifact(ksExtractedSemanticsPath);
 assertArtifact(ksDrawingPlannerPath);
+assertArtifact(ksDrawingIntentPath);
+assertArtifact(ksFeatureCatalogPath);
 const ksDrawingQuality = readJson(ksDrawingQualityPath);
 const ksDrawingPlanner = readJson(ksDrawingPlannerPath);
 assert.equal(ksDrawingQuality.status, 'fail');
@@ -379,6 +383,8 @@ assertOutputManifest(
     linkedArtifacts: {
       planner_json: ksDrawingPlannerPath,
       extracted_drawing_semantics_json: ksExtractedSemanticsPath,
+      drawing_intent_json: ksDrawingIntentPath,
+      feature_catalog_json: ksFeatureCatalogPath,
     },
   }
 );
@@ -415,6 +421,18 @@ assertArtifact(ksReportSummaryPath);
 const ksReportSummary = readJson(ksReportSummaryPath);
 assert.equal(ksReportSummary.ready_for_manufacturing_review, ksFixture.report.readyForManufacturingReview);
 assert.equal(ksReportSummary.overall_status, ksFixture.report.overallStatus);
+assert.equal(ksReportSummary.artifacts_referenced.find((artifact) => artifact.key === 'drawing_intent')?.path, ksDrawingIntentPath);
+assert.equal(ksReportSummary.artifacts_referenced.find((artifact) => artifact.key === 'drawing_intent')?.status, 'available');
+assert.equal(ksReportSummary.artifacts_referenced.find((artifact) => artifact.key === 'feature_catalog')?.path, ksFeatureCatalogPath);
+assert.equal(ksReportSummary.artifacts_referenced.find((artifact) => artifact.key === 'feature_catalog')?.status, 'available');
+assert.equal(
+  ksReportSummary.artifacts_referenced.find((artifact) => artifact.key === 'extracted_drawing_semantics')?.path,
+  ksExtractedSemanticsPath
+);
+assert.equal(
+  ksReportSummary.surfaces.drawing_quality.semantic_quality.extracted_evidence.path,
+  ksExtractedSemanticsPath
+);
 ksFixtureRecord.observed.reportReadyForManufacturingReview = ksReportSummary.ready_for_manufacturing_review;
 ksFixtureRecord.observed.reportOverallStatus = ksReportSummary.overall_status;
 assertArtifactManifest(
@@ -451,9 +469,13 @@ const qualityPassStrictDraw = runCli(['draw', qualityPassConfig, '--bom', '--str
 const qualityPassDrawingQualityPath = join(OUTPUT_DIR, 'quality_pass_bracket_runtime_smoke_drawing_quality.json');
 const qualityPassExtractedSemanticsPath = join(OUTPUT_DIR, 'quality_pass_bracket_runtime_smoke_extracted_drawing_semantics.json');
 const qualityPassDrawingPlannerPath = join(OUTPUT_DIR, 'quality_pass_bracket_runtime_smoke_drawing_planner.json');
+const qualityPassDrawingIntentPath = join(OUTPUT_DIR, 'quality_pass_bracket_runtime_smoke_drawing_intent.json');
+const qualityPassFeatureCatalogPath = join(OUTPUT_DIR, 'quality_pass_bracket_runtime_smoke_feature_catalog.json');
 assertArtifact(qualityPassDrawingQualityPath);
 assertArtifact(qualityPassExtractedSemanticsPath);
 assertArtifact(qualityPassDrawingPlannerPath);
+assertArtifact(qualityPassDrawingIntentPath);
+assertArtifact(qualityPassFeatureCatalogPath);
 const qualityPassDrawingQuality = readJson(qualityPassDrawingQualityPath);
 const qualityPassDrawingPlanner = readJson(qualityPassDrawingPlannerPath);
 assert.equal(qualityPassDrawingQuality.status, qualityPassFixture.strictDraw.qualityStatus);
@@ -473,6 +495,8 @@ assertOutputManifest(
     linkedArtifacts: {
       planner_json: qualityPassDrawingPlannerPath,
       extracted_drawing_semantics_json: qualityPassExtractedSemanticsPath,
+      drawing_intent_json: qualityPassDrawingIntentPath,
+      feature_catalog_json: qualityPassFeatureCatalogPath,
     },
   }
 );
@@ -496,6 +520,30 @@ assert.equal(
   qualityPassFixture.report.readyForManufacturingReview
 );
 assert.equal(qualityPassReportSummary.overall_status, qualityPassFixture.report.overallStatus);
+assert.equal(
+  qualityPassReportSummary.artifacts_referenced.find((artifact) => artifact.key === 'drawing_intent')?.path,
+  qualityPassDrawingIntentPath
+);
+assert.equal(
+  qualityPassReportSummary.artifacts_referenced.find((artifact) => artifact.key === 'drawing_intent')?.status,
+  'available'
+);
+assert.equal(
+  qualityPassReportSummary.artifacts_referenced.find((artifact) => artifact.key === 'feature_catalog')?.path,
+  qualityPassFeatureCatalogPath
+);
+assert.equal(
+  qualityPassReportSummary.artifacts_referenced.find((artifact) => artifact.key === 'feature_catalog')?.status,
+  'available'
+);
+assert.equal(
+  qualityPassReportSummary.artifacts_referenced.find((artifact) => artifact.key === 'extracted_drawing_semantics')?.path,
+  qualityPassExtractedSemanticsPath
+);
+assert.equal(
+  qualityPassReportSummary.surfaces.drawing_quality.semantic_quality.extracted_evidence.path,
+  qualityPassExtractedSemanticsPath
+);
 qualityPassFixtureRecord.observed.reportReadyForManufacturingReview =
   qualityPassReportSummary.ready_for_manufacturing_review;
 qualityPassFixtureRecord.observed.reportOverallStatus = qualityPassReportSummary.overall_status;

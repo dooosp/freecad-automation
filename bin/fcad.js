@@ -674,6 +674,8 @@ function buildExpectedDrawArtifacts(config = {}) {
       createOutputEntry('drawing.svg', svgPath),
       createOutputEntry('drawing.quality-json', svgPath.replace(/\.svg$/i, '_quality.json')),
       createOutputEntry('drawing.extracted-semantics-json', join(outputDir, `${stem}_extracted_drawing_semantics.json`)),
+      createOutputEntry('drawing.intent-json', join(outputDir, `${stem}_drawing_intent.json`)),
+      createOutputEntry('drawing.feature-catalog-json', join(outputDir, `${stem}_feature_catalog.json`)),
       config?.drawing?.dxf ? createOutputEntry('drawing.dxf', join(outputDir, `${stem}_front.dxf`)) : null,
       config?.drawing?.bom_csv ? createOutputEntry('drawing.csv', join(outputDir, `${stem}_bom.csv`)) : null,
     ].filter(Boolean),
@@ -683,6 +685,8 @@ function buildExpectedDrawArtifacts(config = {}) {
       traceability_json: join(outputDir, `${stem}_traceability.json`),
       planner_json: join(outputDir, `${stem}_drawing_planner.json`),
       extracted_drawing_semantics_json: join(outputDir, `${stem}_extracted_drawing_semantics.json`),
+      drawing_intent_json: join(outputDir, `${stem}_drawing_intent.json`),
+      feature_catalog_json: join(outputDir, `${stem}_feature_catalog.json`),
       quality_json: svgPath.replace(/\.svg$/i, '_quality.json'),
     },
   };
@@ -699,6 +703,8 @@ function buildDrawLinkedArtifactsFromSvg(svgPath) {
     traceability_json: join(dir, `${stem}_traceability.json`),
     planner_json: join(dir, `${stem}_drawing_planner.json`),
     extracted_drawing_semantics_json: join(dir, `${stem}_extracted_drawing_semantics.json`),
+    drawing_intent_json: join(dir, `${stem}_drawing_intent.json`),
+    feature_catalog_json: join(dir, `${stem}_feature_catalog.json`),
     quality_json: normalizedPath.replace(/\.svg$/i, '_quality.json'),
   };
 }
@@ -2566,6 +2572,8 @@ async function cmdDraw(rawArgs = []) {
         .map((entry) => createOutputEntry(`drawing.${String(entry.format).toLowerCase()}`, entry.path))
         .concat(result.drawing_quality_path ? [createOutputEntry('drawing.quality-json', result.drawing_quality_path)] : [])
         .concat(result.extracted_drawing_semantics_path ? [createOutputEntry('drawing.extracted-semantics-json', result.extracted_drawing_semantics_path)] : [])
+        .concat(result.drawing_intent_json ? [createOutputEntry('drawing.intent-json', result.drawing_intent_json)] : [])
+        .concat(result.feature_catalog_json ? [createOutputEntry('drawing.feature-catalog-json', result.feature_catalog_json)] : [])
         .filter(Boolean),
       linkedArtifacts: buildDrawLinkedArtifactsFromSvg(svgPath),
       warnings: configDocument.summary?.warnings || [],

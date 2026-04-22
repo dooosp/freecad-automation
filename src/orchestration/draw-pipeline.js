@@ -31,6 +31,15 @@ import {
   refineDrawingPlannerWithExtractedCoverage,
   writeDrawingPlanner,
 } from '../services/drawing/drawing-planner.js';
+import {
+  buildFeatureCatalog,
+  createFeatureCatalogPath,
+  writeFeatureCatalog,
+} from '../../lib/feature-catalog.js';
+import {
+  getDrawingIntent,
+  writeDrawingIntent,
+} from '../../lib/drawing-intent.js';
 
 function nowIso() {
   return new Date().toISOString();
@@ -662,6 +671,16 @@ export async function runDrawPipeline({
       const conflictPath = runLog.artifacts.dim_conflicts || join(artifactDir, `${artifactStem}_dim_conflicts.json`);
       const plannerPath = join(artifactDir, `${artifactStem}_drawing_planner.json`);
       const bomPath = result.drawing_paths?.find((entry) => entry.format === 'csv')?.path || null;
+      const drawingIntentPath = primarySvgPath
+        ? primarySvgPath.replace(/_drawing\.svg$/i, '_drawing_intent.json')
+        : join(artifactDir, `${artifactStem}_drawing_intent.json`);
+      const drawingIntent = getDrawingIntent(config);
+      const featureCatalogPath = createFeatureCatalogPath({
+        primaryOutputPath: primarySvgPath,
+        outputDir: artifactDir,
+        configName: artifactStem,
+      });
+      let featureCatalog = null;
 
       const qaReport = latestQaReport || (qaJsonPath && existsSync(qaJsonPath)
         ? JSON.parse(readFileSync(qaJsonPath, 'utf8'))
@@ -687,9 +706,27 @@ export async function runDrawPipeline({
       const svgContent = primarySvgPath && existsSync(primarySvgPath)
         ? readFileSync(primarySvgPath, 'utf8')
         : result.svgContent || null;
+      if (drawingIntent) {
+        await writeDrawingIntent(drawingIntentPath, drawingIntent);
+        runLog.artifacts.drawing_intent = drawingIntentPath;
+        result.drawing_intent_json = drawingIntentPath;
+      }
+      try {
+        featureCatalog = config.feature_catalog || buildFeatureCatalog({
+          config,
+          configPath: absPath,
+          relatedArtifact: primarySvgPath,
+        });
+        await writeFeatureCatalog(featureCatalogPath, featureCatalog);
+        runLog.artifacts.feature_catalog = featureCatalogPath;
+        result.feature_catalog = featureCatalog;
+        result.feature_catalog_json = featureCatalogPath;
+      } catch (error) {
+        onError(`  Feature catalog warning: ${error.message}`);
+      }
       const drawingPlanner = buildDrawingPlanner({
         config,
-        drawingIntent: config.drawing_intent || config.drawing_plan || null,
+        drawingIntent: drawingIntent || config.drawing_plan || null,
         traceability,
         dimensionMap,
         artifactRefs: {
@@ -746,8 +783,8 @@ export async function runDrawPipeline({
         dimensionMap,
         dimConflictsPath: conflictPath,
         dimConflicts,
-        drawingIntent: config.drawing_intent || null,
-        featureCatalog: config.feature_catalog || null,
+        drawingIntent,
+        featureCatalog,
         bomPath,
         bomEntries: result.bom || [],
         bomRows,
@@ -758,8 +795,8 @@ export async function runDrawPipeline({
       });
       const refinedDrawingPlanner = refineDrawingPlannerWithExtractedCoverage({
         planner: drawingPlanner,
-        drawingIntent: config.drawing_intent || null,
-        featureCatalog: config.feature_catalog || null,
+        drawingIntent,
+        featureCatalog,
         extractedEvidence: drawingQuality.semantic_quality?.extracted_evidence || null,
       });
       await writeDrawingPlanner(plannerPath, refinedDrawingPlanner);
