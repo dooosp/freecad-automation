@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
-import { summarizeExtractedDrawingSemantics } from './extracted-drawing-semantics.js';
+import { compareDrawingIntentToExtractedSemantics } from './extracted-drawing-semantics.js';
 
 export const DRAWING_QUALITY_SCHEMA_VERSION = '0.1';
 
@@ -289,6 +289,7 @@ function coverageScore(present, total) {
 function buildSemanticDrawingQualityReport({
   drawingIntent = null,
   featureCatalog = null,
+  planner = null,
   dimensionMap = null,
   traceability = null,
   producedViews = [],
@@ -389,6 +390,17 @@ function buildSemanticDrawingQualityReport({
     : metricScores.length > 0
       ? 'pass'
       : 'unknown';
+  const extractedEvidence = compareDrawingIntentToExtractedSemantics(
+    drawingIntent,
+    extractedDrawingSemantics,
+    featureCatalog,
+    planner,
+    extractedDrawingSemanticsPath
+  );
+  const semanticSuggestedActions = uniqueStrings([
+    ...suggestedActions,
+    ...asArray(extractedEvidence.suggested_actions),
+  ]);
 
   return {
     decision: enforceable && requiredBlockers.length > 0
@@ -430,11 +442,8 @@ function buildSemanticDrawingQualityReport({
     missing_critical_information: missingCriticalInformation,
     required_blockers: requiredBlockers,
     optional_missing_information: uniqueStrings(optionalMissing),
-    suggested_actions: suggestedActions,
-    extracted_evidence: summarizeExtractedDrawingSemantics(
-      extractedDrawingSemantics,
-      extractedDrawingSemanticsPath
-    ),
+    suggested_actions: semanticSuggestedActions,
+    extracted_evidence: extractedEvidence,
   };
 }
 
@@ -637,6 +646,7 @@ export function buildDrawingQualitySummary({
   const semanticQuality = buildSemanticDrawingQualityReport({
     drawingIntent,
     featureCatalog,
+    planner,
     dimensionMap,
     traceability,
     producedViews,

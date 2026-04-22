@@ -342,10 +342,36 @@ function makeBaseArtifacts() {
 {
   const summary = buildDrawingQualitySummary({
     ...makeBaseArtifacts(),
+    drawingIntent: {
+      required_dimensions: [
+        { id: 'WIDTH', feature: 'body_width' },
+      ],
+      required_notes: ['MATERIAL'],
+      required_views: ['front'],
+    },
     extractedDrawingSemanticsPath: '/tmp/ks_bracket_extracted_drawing_semantics.json',
     extractedDrawingSemantics: {
       status: 'partial',
       decision: 'advisory',
+      sources: [
+        { artifact_type: 'svg', path: '/tmp/ks_bracket_drawing.svg', inspected: true, method: 'svg_text_scan' },
+      ],
+      dimensions: [],
+      notes: [],
+      views: [
+        {
+          id: 'front',
+          label: 'Front',
+          source: '/tmp/ks_bracket_layout_report.json',
+          matched_intent_id: 'front',
+          confidence: 0.9,
+          provenance: {
+            artifact_type: 'layout_report',
+            path: '/tmp/ks_bracket_layout_report.json',
+            method: 'layout_report_views',
+          },
+        },
+      ],
       coverage: {
         required_dimensions_total: 1,
         required_dimensions_extracted: 0,
@@ -354,14 +380,74 @@ function makeBaseArtifacts() {
         required_views_total: 1,
         required_views_extracted: 1,
       },
-      unknowns: ['Required dimension not reliably extracted: WIDTH.'],
+      unknowns: [
+        'Required note not reliably extracted: MATERIAL.',
+      ],
       limitations: ['Advisory-only foundation.'],
     },
   });
   assert.equal(summary.extracted_drawing_semantics_file, '/tmp/ks_bracket_extracted_drawing_semantics.json');
   assert.equal(summary.semantic_quality.extracted_evidence.status, 'partial');
   assert.equal(summary.semantic_quality.extracted_evidence.advisory_only, true);
+  assert.equal(summary.semantic_quality.extracted_evidence.coverage.required_dimensions.missing, 1);
+  assert.equal(summary.semantic_quality.extracted_evidence.coverage.required_notes.unknown, 1);
   assert.equal(summary.semantic_quality.extracted_evidence.matched_required_views, 1);
+  assert.equal(summary.semantic_quality.extracted_evidence.required_dimensions[0].classification, 'missing');
+  assert.equal(summary.semantic_quality.extracted_evidence.required_notes[0].classification, 'unknown');
+  assert.equal(summary.semantic_quality.extracted_evidence.required_views[0].classification, 'extracted');
+  assert(summary.semantic_quality.suggested_actions.some((item) => item.includes('WIDTH')));
+  assert.deepEqual(summary.blocking_issues, []);
+}
+
+{
+  const summary = buildDrawingQualitySummary({
+    ...makeBaseArtifacts(),
+    drawingIntent: {
+      required_dimensions: [
+        { id: 'WIDTH', feature: 'body_width' },
+      ],
+    },
+    extractedDrawingSemantics: {
+      status: 'partial',
+      decision: 'advisory',
+      sources: [
+        { artifact_type: 'svg', path: '/tmp/ks_bracket_drawing.svg', inspected: true, method: 'svg_text_scan' },
+      ],
+      views: [],
+      dimensions: [
+        {
+          id: 'svg_text_001',
+          raw_text: '40',
+          value: 40,
+          unit: 'mm',
+          matched_intent_id: 'WIDTH',
+          matched_feature_id: 'body_width',
+          source: '/tmp/ks_bracket_drawing.svg',
+          confidence: 0.31,
+          provenance: {
+            artifact_type: 'svg',
+            path: '/tmp/ks_bracket_drawing.svg',
+            method: 'svg_dimension_text_scan',
+          },
+        },
+      ],
+      notes: [],
+      coverage: {
+        required_dimensions_total: 1,
+        required_dimensions_extracted: 0,
+        required_notes_total: 0,
+        required_notes_extracted: 0,
+        required_views_total: 0,
+        required_views_extracted: 0,
+      },
+      unknowns: [],
+      limitations: ['Advisory-only foundation.'],
+    },
+  });
+  assert.equal(summary.status, 'pass');
+  assert.equal(summary.semantic_quality.extracted_evidence.required_dimensions[0].classification, 'unknown');
+  assert.equal(summary.semantic_quality.extracted_evidence.matched_required_dimensions, 0);
+  assert.equal(summary.semantic_quality.extracted_evidence.required_dimensions[0].candidate_matches.length, 1);
   assert.deepEqual(summary.blocking_issues, []);
 }
 

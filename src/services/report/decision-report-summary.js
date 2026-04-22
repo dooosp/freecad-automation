@@ -49,6 +49,14 @@ function uniqueStrings(values = []) {
   )];
 }
 
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function asObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
 function safeString(value, fallback = null) {
   return typeof value === 'string' && value.trim() ? value.trim() : fallback;
 }
@@ -74,6 +82,49 @@ function finiteNumberOrNull(value) {
 
 function formatSchemaErrors(errors = []) {
   return errors.map((error) => `${error.instancePath || '/'} ${error.message}`);
+}
+
+function summarizeRequiredEvidence(entries = []) {
+  return asArray(entries)
+    .filter((entry) => entry && typeof entry === 'object')
+    .map((entry) => ({
+      requirement_id: safeString(entry.requirement_id),
+      requirement_label: safeString(entry.requirement_label),
+      classification: safeString(entry.classification, 'unknown'),
+      matched_extracted_id: safeString(entry.matched_extracted_id),
+      matched_raw_text: safeString(entry.matched_raw_text),
+      matched_feature_id: safeString(entry.matched_feature_id),
+      source_artifact: safeString(entry.source_artifact),
+      confidence: finiteNumberOrNull(entry.confidence),
+      reason: safeString(entry.reason),
+      provenance: entry.provenance && typeof entry.provenance === 'object' ? entry.provenance : null,
+      candidate_matches: asArray(entry.candidate_matches)
+        .filter((candidate) => candidate && typeof candidate === 'object')
+        .map((candidate) => ({
+          matched_extracted_id: safeString(candidate.matched_extracted_id),
+          matched_raw_text: safeString(candidate.matched_raw_text),
+          matched_feature_id: safeString(candidate.matched_feature_id),
+          source_artifact: safeString(candidate.source_artifact),
+          confidence: finiteNumberOrNull(candidate.confidence),
+          reason: safeString(candidate.reason),
+          provenance: candidate.provenance && typeof candidate.provenance === 'object' ? candidate.provenance : null,
+        })),
+    }));
+}
+
+function summarizeUnmatchedEvidence(entries = []) {
+  return asArray(entries)
+    .filter((entry) => entry && typeof entry === 'object')
+    .map((entry) => ({
+      extracted_id: safeString(entry.extracted_id),
+      raw_text: safeString(entry.raw_text),
+      category: safeString(entry.category),
+      matched_feature_id: safeString(entry.matched_feature_id),
+      source_artifact: safeString(entry.source_artifact),
+      confidence: finiteNumberOrNull(entry.confidence),
+      reason: safeString(entry.reason),
+      provenance: entry.provenance && typeof entry.provenance === 'object' ? entry.provenance : null,
+    }));
 }
 
 function artifactRef(key, label, path, status, note = null, options = {}) {
@@ -183,15 +234,40 @@ function summarizeSemanticDrawingQuality(semanticQuality = null) {
       extracted_evidence: {
         status: 'not_run',
         advisory_only: true,
+        file: null,
         path: null,
+        sources: [],
+        coverage: {
+          required_dimensions: { total: 0, extracted: 0, missing: 0, unknown: 0, unsupported: 0, extracted_percent: null },
+          required_notes: { total: 0, extracted: 0, missing: 0, unknown: 0, unsupported: 0, extracted_percent: null },
+          required_views: { total: 0, extracted: 0, missing: 0, unknown: 0, unsupported: 0, extracted_percent: null },
+          total_required: 0,
+          total_extracted: 0,
+          total_missing: 0,
+          total_unknown: 0,
+          total_unsupported: 0,
+        },
+        required_dimensions: [],
+        required_notes: [],
+        required_views: [],
+        unmatched_dimensions: [],
+        unmatched_notes: [],
         matched_required_dimensions: 0,
         matched_required_notes: 0,
         matched_required_views: 0,
+        missing_required_items: [],
         unknowns: [],
         limitations: [],
+        suggested_actions: [],
       },
     };
   }
+
+  const extractedEvidence = asObject(semanticQuality.extracted_evidence);
+  const coverage = asObject(extractedEvidence.coverage);
+  const requiredDimensionCoverage = asObject(coverage.required_dimensions);
+  const requiredNoteCoverage = asObject(coverage.required_notes);
+  const requiredViewCoverage = asObject(coverage.required_views);
 
   return {
     decision: semanticQuality.decision || 'unknown',
@@ -216,14 +292,54 @@ function summarizeSemanticDrawingQuality(semanticQuality = null) {
     optional_missing_information: uniqueStrings(semanticQuality.optional_missing_information || []),
     suggested_actions: uniqueStrings(semanticQuality.suggested_actions || []),
     extracted_evidence: {
-      status: semanticQuality.extracted_evidence?.status || 'not_run',
-      advisory_only: semanticQuality.extracted_evidence?.advisory_only !== false,
-      path: semanticQuality.extracted_evidence?.path || null,
-      matched_required_dimensions: Number(semanticQuality.extracted_evidence?.matched_required_dimensions || 0),
-      matched_required_notes: Number(semanticQuality.extracted_evidence?.matched_required_notes || 0),
-      matched_required_views: Number(semanticQuality.extracted_evidence?.matched_required_views || 0),
-      unknowns: uniqueStrings(semanticQuality.extracted_evidence?.unknowns || []),
-      limitations: uniqueStrings(semanticQuality.extracted_evidence?.limitations || []),
+      status: extractedEvidence.status || 'not_run',
+      advisory_only: extractedEvidence.advisory_only !== false,
+      file: safeString(extractedEvidence.file),
+      path: safeString(extractedEvidence.path),
+      sources: asArray(extractedEvidence.sources),
+      coverage: {
+        required_dimensions: {
+          total: Number(requiredDimensionCoverage.total || 0),
+          extracted: Number(requiredDimensionCoverage.extracted || 0),
+          missing: Number(requiredDimensionCoverage.missing || 0),
+          unknown: Number(requiredDimensionCoverage.unknown || 0),
+          unsupported: Number(requiredDimensionCoverage.unsupported || 0),
+          extracted_percent: finiteNumberOrNull(requiredDimensionCoverage.extracted_percent),
+        },
+        required_notes: {
+          total: Number(requiredNoteCoverage.total || 0),
+          extracted: Number(requiredNoteCoverage.extracted || 0),
+          missing: Number(requiredNoteCoverage.missing || 0),
+          unknown: Number(requiredNoteCoverage.unknown || 0),
+          unsupported: Number(requiredNoteCoverage.unsupported || 0),
+          extracted_percent: finiteNumberOrNull(requiredNoteCoverage.extracted_percent),
+        },
+        required_views: {
+          total: Number(requiredViewCoverage.total || 0),
+          extracted: Number(requiredViewCoverage.extracted || 0),
+          missing: Number(requiredViewCoverage.missing || 0),
+          unknown: Number(requiredViewCoverage.unknown || 0),
+          unsupported: Number(requiredViewCoverage.unsupported || 0),
+          extracted_percent: finiteNumberOrNull(requiredViewCoverage.extracted_percent),
+        },
+        total_required: Number(coverage.total_required || 0),
+        total_extracted: Number(coverage.total_extracted || 0),
+        total_missing: Number(coverage.total_missing || 0),
+        total_unknown: Number(coverage.total_unknown || 0),
+        total_unsupported: Number(coverage.total_unsupported || 0),
+      },
+      required_dimensions: summarizeRequiredEvidence(extractedEvidence.required_dimensions),
+      required_notes: summarizeRequiredEvidence(extractedEvidence.required_notes),
+      required_views: summarizeRequiredEvidence(extractedEvidence.required_views),
+      unmatched_dimensions: summarizeUnmatchedEvidence(extractedEvidence.unmatched_dimensions),
+      unmatched_notes: summarizeUnmatchedEvidence(extractedEvidence.unmatched_notes),
+      matched_required_dimensions: Number(extractedEvidence.matched_required_dimensions || 0),
+      matched_required_notes: Number(extractedEvidence.matched_required_notes || 0),
+      matched_required_views: Number(extractedEvidence.matched_required_views || 0),
+      missing_required_items: uniqueStrings(extractedEvidence.missing_required_items || []),
+      unknowns: uniqueStrings(extractedEvidence.unknowns || []),
+      limitations: uniqueStrings(extractedEvidence.limitations || []),
+      suggested_actions: uniqueStrings(extractedEvidence.suggested_actions || []),
     },
   };
 }

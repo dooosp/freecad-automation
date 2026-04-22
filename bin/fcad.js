@@ -95,10 +95,31 @@ const PROJECT_ROOT = resolve(__dirname, '..');
 const VALID_DFM_PROCESSES = new Set(['machining', 'casting', 'sheet_metal', '3d_printing']);
 const VALIDATE_TIMEOUT_MS = 30_000;
 
+for (const stream of [process.stdout, process.stderr]) {
+  stream.on('error', (error) => {
+    if (error?.code !== 'EPIPE') {
+      throw error;
+    }
+  });
+}
+
 function runWithCliStderr(script, input, opts = {}) {
+  const forwardStderr = (text) => {
+    if (!text || !process.stderr || process.stderr.destroyed || process.stderr.writable === false) {
+      return;
+    }
+    process.stderr.write(text, (error) => {
+      if (error && error.code !== 'EPIPE') {
+        process.nextTick(() => {
+          throw error;
+        });
+      }
+    });
+  };
+
   return runScript(script, input, {
     ...opts,
-    onStderr: (text) => process.stderr.write(text),
+    onStderr: forwardStderr,
   });
 }
 
