@@ -1,0 +1,116 @@
+{
+  "drawing_intent": {
+    "part_type": "unsupported_fixture",
+    "material": null,
+    "critical_features": [
+      { "id": "pocket_001" }
+    ],
+    "required_dimensions": [
+      {
+        "id": "POCKET_DEPTH",
+        "label": "Pocket depth",
+        "feature": "pocket_001",
+        "dimension_type": "depth",
+        "required": true
+      }
+    ],
+    "required_notes": [
+      {
+        "id": "SURFACE_FINISH",
+        "text": "Surface finish: Ra 1.6",
+        "required": true
+      }
+    ],
+    "required_views": ["section"],
+    "missing_semantics_policy": "advisory"
+  },
+  "feature_catalog": {
+    "summary": {
+      "total_features": 1,
+      "recognized_features": 1,
+      "unknown_features": 0,
+      "recognition_sources": ["synthetic_fixture"]
+    },
+    "features": [
+      {
+        "feature_id": "pocket_001",
+        "type": "pocket",
+        "critical": true,
+        "dimensions": {
+          "depth_mm": 4
+        },
+        "evidence": {
+          "kind": "synthetic_fixture"
+        }
+      }
+    ]
+  },
+  "planner": {
+    "status": "advisory",
+    "suggested_actions": [],
+    "section_view_recommendations": []
+  },
+  "artifacts": {
+    "inputConfigPath": "/tmp/unsupported_semantics_case.toml",
+    "drawingSvgPath": "/tmp/unsupported_semantics_case_drawing.svg",
+    "planPath": "/tmp/unsupported_semantics_case_plan.toml",
+    "plan": {
+      "views": {
+        "enabled": ["top"]
+      }
+    },
+    "qaPath": "/tmp/unsupported_semantics_case_drawing_qa.json",
+    "qaReport": {
+      "score": 96,
+      "metrics": {
+        "overflow_count": 0
+      },
+      "details": {
+        "overflows": []
+      }
+    },
+    "qaIssuesPath": "/tmp/unsupported_semantics_case_drawing_qa_issues.json",
+    "qaIssues": {
+      "issues": []
+    },
+    "traceabilityPath": "/tmp/unsupported_semantics_case_traceability.json",
+    "traceability": {
+      "summary": {
+        "unresolved_dimensions": []
+      },
+      "links": [
+        { "dim_id": "POCKET_DEPTH", "feature_id": "pocket_001" }
+      ]
+    },
+    "layoutReportPath": "/tmp/unsupported_semantics_case_layout_report.json",
+    "layoutReport": {
+      "views": {
+        "top": { "label": "Top View" }
+      },
+      "summary": {
+        "overflow_views": []
+      }
+    },
+    "plannerPath": "/tmp/unsupported_semantics_case_drawing_planner.json",
+    "dimensionMapPath": "/tmp/unsupported_semantics_case_dimension_map.json",
+    "dimensionMap": {
+      "plan_dimensions": [
+        { "dim_id": "POCKET_DEPTH", "required": true, "rendered": true, "status": "rendered", "feature": "pocket_001" }
+      ],
+      "summary": {
+        "skipped_duplicate_count": 0
+      }
+    },
+    "dimConflictsPath": "/tmp/unsupported_semantics_case_dim_conflicts.json",
+    "dimConflicts": {
+      "conflicts": [],
+      "summary": {
+        "count": 0
+      }
+    },
+    "generatedViews": ["top"],
+    "svgContent": "<svg/>",
+    "extractedDrawingSemanticsPath": "/tmp/unsupported_semantics_case_extracted_drawing_semantics.json"
+  },
+  "extracted_input": {}
+}

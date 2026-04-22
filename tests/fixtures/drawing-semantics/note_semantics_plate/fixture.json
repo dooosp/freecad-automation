@@ -1,0 +1,104 @@
+{
+  "drawing_intent": {
+    "part_type": "note_semantics_plate",
+    "material": "AL6061",
+    "critical_features": [
+      { "id": "PLATE" }
+    ],
+    "required_dimensions": [],
+    "required_notes": [
+      { "id": "MATERIAL", "text": "Material: AL6061", "category": "material", "required": true },
+      { "id": "GENERAL_NOTE", "text": "Deburr and break sharp edges.", "category": "general", "required": true },
+      { "id": "SURFACE_FINISH", "text": "Surface finish: Ra 3.2", "category": "general", "required": true }
+    ],
+    "required_views": ["top", "section_a_a"],
+    "missing_semantics_policy": "advisory"
+  },
+  "feature_catalog": {
+    "summary": {
+      "total_features": 1,
+      "recognized_features": 1,
+      "unknown_features": 0,
+      "recognition_sources": ["synthetic_fixture"]
+    },
+    "features": [
+      {
+        "feature_id": "plate",
+        "type": "primary_body",
+        "critical": true,
+        "dimensions": {
+          "length_mm": 120,
+          "width_mm": 60,
+          "height_mm": 8
+        },
+        "evidence": {
+          "kind": "synthetic_fixture"
+        }
+      }
+    ]
+  },
+  "planner": {
+    "status": "advisory",
+    "suggested_actions": [],
+    "section_view_recommendations": []
+  },
+  "artifacts": {
+    "inputConfigPath": "/tmp/note_semantics_plate.toml",
+    "drawingSvgPath": "/tmp/note_semantics_plate_drawing.svg",
+    "planPath": "/tmp/note_semantics_plate_plan.toml",
+    "plan": {
+      "views": {
+        "enabled": ["top", "section_a_a"]
+      }
+    },
+    "qaPath": "/tmp/note_semantics_plate_drawing_qa.json",
+    "qaReport": {
+      "score": 97,
+      "metrics": {
+        "overflow_count": 0
+      },
+      "details": {
+        "overflows": []
+      }
+    },
+    "qaIssuesPath": "/tmp/note_semantics_plate_drawing_qa_issues.json",
+    "qaIssues": {
+      "issues": []
+    },
+    "traceabilityPath": "/tmp/note_semantics_plate_traceability.json",
+    "traceability": {
+      "summary": {
+        "unresolved_dimensions": []
+      },
+      "links": []
+    },
+    "layoutReportPath": "/tmp/note_semantics_plate_layout_report.json",
+    "layoutReport": {
+      "views": {
+        "top": { "label": "Top View" },
+        "section_a_a": { "label": "Section A-A" }
+      },
+      "summary": {
+        "overflow_views": []
+      }
+    },
+    "plannerPath": "/tmp/note_semantics_plate_drawing_planner.json",
+    "dimensionMapPath": "/tmp/note_semantics_plate_dimension_map.json",
+    "dimensionMap": {
+      "plan_dimensions": [],
+      "summary": {
+        "skipped_duplicate_count": 0
+      }
+    },
+    "dimConflictsPath": "/tmp/note_semantics_plate_dim_conflicts.json",
+    "dimConflicts": {
+      "conflicts": [],
+      "summary": {
+        "count": 0
+      }
+    },
+    "generatedViews": ["top", "section_a_a"],
+    "svgContent": "<svg xmlns=\"http://www.w3.org/2000/svg\">\n  <text x=\"10\" y=\"30\">Material: AL6061</text>\n  <text x=\"10\" y=\"40\">Deburr and break sharp edges.</text>\n  <text x=\"10\" y=\"50\">Surface finish: Ra 3.2</text>\n</svg>",
+    "extractedDrawingSemanticsPath": "/tmp/note_semantics_plate_extracted_drawing_semantics.json"
+  }
+}

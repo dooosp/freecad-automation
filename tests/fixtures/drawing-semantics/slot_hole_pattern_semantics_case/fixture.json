@@ -1,0 +1,255 @@
+{
+  "drawing_intent": {
+    "part_type": "slot_hole_pattern_fixture",
+    "material": null,
+    "critical_features": [
+      { "id": "slot_001" },
+      { "id": "hole_pattern_1" }
+    ],
+    "required_dimensions": [
+      {
+        "id": "SLOT_DEPTH",
+        "label": "Slot depth",
+        "feature": "slot_001",
+        "dimension_type": "depth",
+        "value_mm": 6,
+        "required": true
+      },
+      {
+        "id": "HOLE_PATTERN_DIA",
+        "label": "Hole pattern diameter",
+        "feature": "hole_pattern_1",
+        "dimension_type": "diameter",
+        "value_mm": 9,
+        "required": true
+      }
+    ],
+    "required_notes": [],
+    "required_views": ["top", "section_a_a"],
+    "missing_semantics_policy": "advisory"
+  },
+  "feature_catalog": {
+    "summary": {
+      "total_features": 2,
+      "recognized_features": 2,
+      "unknown_features": 0,
+      "recognition_sources": ["synthetic_fixture"]
+    },
+    "features": [
+      {
+        "feature_id": "hole_pattern_1",
+        "type": "hole_pattern",
+        "critical": true,
+        "dimensions": {
+          "count": 4,
+          "diameter_mm": 9,
+          "spacing_x_mm": 60,
+          "spacing_y_mm": 30
+        },
+        "evidence": {
+          "kind": "synthetic_fixture"
+        }
+      },
+      {
+        "feature_id": "slot_001",
+        "type": "slot",
+        "critical": true,
+        "dimensions": {
+          "depth_mm": 6,
+          "length_mm": 24,
+          "width_mm": 8
+        },
+        "evidence": {
+          "kind": "synthetic_fixture"
+        }
+      }
+    ]
+  },
+  "planner": {
+    "status": "advisory",
+    "suggested_actions": ["Carry forward existing planner suggestion."],
+    "section_view_recommendations": [
+      {
+        "feature_id": "slot_001",
+        "feature_type": "slot"
+      }
+    ]
+  },
+  "artifacts": {
+    "inputConfigPath": "/tmp/slot_hole_pattern_semantics_case.toml",
+    "drawingSvgPath": "/tmp/slot_hole_pattern_semantics_case_drawing.svg",
+    "planPath": "/tmp/slot_hole_pattern_semantics_case_plan.toml",
+    "plan": {
+      "views": {
+        "enabled": ["top"]
+      }
+    },
+    "qaPath": "/tmp/slot_hole_pattern_semantics_case_drawing_qa.json",
+    "qaReport": {
+      "score": 91,
+      "metrics": {
+        "overflow_count": 0
+      },
+      "details": {
+        "overflows": []
+      }
+    },
+    "qaIssuesPath": "/tmp/slot_hole_pattern_semantics_case_drawing_qa_issues.json",
+    "qaIssues": {
+      "issues": []
+    },
+    "traceabilityPath": "/tmp/slot_hole_pattern_semantics_case_traceability.json",
+    "traceability": {
+      "summary": {
+        "unresolved_dimensions": []
+      },
+      "links": [
+        { "dim_id": "SLOT_DEPTH", "feature_id": "slot_001" },
+        { "dim_id": "HOLE_PATTERN_DIA", "feature_id": "hole_pattern_1" }
+      ]
+    },
+    "layoutReportPath": "/tmp/slot_hole_pattern_semantics_case_layout_report.json",
+    "layoutReport": {
+      "views": {
+        "top": { "label": "Top View" }
+      },
+      "summary": {
+        "overflow_views": []
+      }
+    },
+    "plannerPath": "/tmp/slot_hole_pattern_semantics_case_drawing_planner.json",
+    "dimensionMapPath": "/tmp/slot_hole_pattern_semantics_case_dimension_map.json",
+    "dimensionMap": {
+      "plan_dimensions": [
+        { "dim_id": "SLOT_DEPTH", "required": true, "rendered": true, "status": "rendered", "feature": "slot_001" },
+        { "dim_id": "HOLE_PATTERN_DIA", "required": true, "rendered": true, "status": "rendered", "feature": "hole_pattern_1" }
+      ],
+      "summary": {
+        "skipped_duplicate_count": 0
+      }
+    },
+    "dimConflictsPath": "/tmp/slot_hole_pattern_semantics_case_dim_conflicts.json",
+    "dimConflicts": {
+      "conflicts": [],
+      "summary": {
+        "count": 0
+      }
+    },
+    "generatedViews": ["top"],
+    "svgContent": "<svg/>",
+    "extractedDrawingSemanticsPath": "/tmp/slot_hole_pattern_semantics_case_extracted_drawing_semantics.json"
+  },
+  "extracted_drawing_semantics": {
+    "schema_version": 1,
+    "artifact_type": "extracted_drawing_semantics",
+    "status": "partial",
+    "decision": "advisory",
+    "methods": ["svg_text_scan", "layout_report_views"],
+    "sources": [
+      {
+        "artifact_type": "svg",
+        "path": "/tmp/slot_hole_pattern_semantics_case_drawing.svg",
+        "inspected": true,
+        "method": "svg_text_scan"
+      },
+      {
+        "artifact_type": "layout_report",
+        "path": "/tmp/slot_hole_pattern_semantics_case_layout_report.json",
+        "inspected": true,
+        "method": "layout_report_views"
+      }
+    ],
+    "views": [
+      {
+        "id": "top",
+        "label": "Top View",
+        "source": "/tmp/slot_hole_pattern_semantics_case_layout_report.json",
+        "matched_intent_id": "top",
+        "confidence": 0.95,
+        "provenance": {
+          "artifact_type": "layout_report",
+          "path": "/tmp/slot_hole_pattern_semantics_case_layout_report.json",
+          "method": "layout_report_views"
+        }
+      }
+    ],
+    "dimensions": [
+      {
+        "id": "svg_dim_001",
+        "raw_text": "DEPTH 6",
+        "value": 6,
+        "unit": "mm",
+        "matched_intent_id": "SLOT_DEPTH",
+        "matched_feature_id": "slot_001",
+        "source": "/tmp/slot_hole_pattern_semantics_case_drawing.svg",
+        "confidence": 0.42,
+        "provenance": {
+          "artifact_type": "svg",
+          "path": "/tmp/slot_hole_pattern_semantics_case_drawing.svg",
+          "method": "svg_dimension_text_scan"
+        }
+      },
+      {
+        "id": "svg_dim_002",
+        "raw_text": "4X Ø9",
+        "value": 9,
+        "unit": "mm",
+        "matched_intent_id": "HOLE_PATTERN_DIA",
+        "matched_feature_id": "hole_pattern_1",
+        "source": "/tmp/slot_hole_pattern_semantics_case_drawing.svg",
+        "confidence": 0.84,
+        "provenance": {
+          "artifact_type": "svg",
+          "path": "/tmp/slot_hole_pattern_semantics_case_drawing.svg",
+          "method": "svg_dimension_text_scan"
+        }
+      },
+      {
+        "id": "svg_dim_003",
+        "raw_text": "PCD 60",
+        "value": 60,
+        "unit": "mm",
+        "matched_intent_id": null,
+        "matched_feature_id": "hole_pattern_1",
+        "source": "/tmp/slot_hole_pattern_semantics_case_drawing.svg",
+        "confidence": 0.63,
+        "provenance": {
+          "artifact_type": "svg",
+          "path": "/tmp/slot_hole_pattern_semantics_case_drawing.svg",
+          "method": "svg_dimension_text_scan"
+        }
+      }
+    ],
+    "notes": [
+      {
+        "id": "svg_note_001",
+        "raw_text": "Break sharp edges",
+        "category": "general",
+        "matched_intent_id": null,
+        "source": "/tmp/slot_hole_pattern_semantics_case_drawing.svg",
+        "confidence": 0.8,
+        "provenance": {
+          "artifact_type": "svg",
+          "path": "/tmp/slot_hole_pattern_semantics_case_drawing.svg",
+          "method": "svg_note_text_scan"
+        }
+      }
+    ],
+    "title_block": {
+      "part_name": null,
+      "material": null,
+      "tolerance": null,
+      "drawing_number": null
+    },
+    "coverage": {
+      "required_dimensions_total": 2,
+      "required_dimensions_extracted": 2,
+      "required_notes_total": 0,
+      "required_notes_extracted": 0,
+      "required_views_total": 2,
+      "required_views_extracted": 1
+    },
+    "unknowns": [],
+    "limitations": ["Advisory-only extracted evidence fixture."]
+  }
+}

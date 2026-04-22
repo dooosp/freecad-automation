@@ -1,0 +1,182 @@
+{
+  "drawing_intent": {
+    "drawing_intent": {
+      "part_type": "slot_hole_pattern_fixture",
+      "material": null,
+      "required_views": ["top", "section_a_a"],
+      "critical_feature_ids": ["slot_001", "hole_pattern_1"],
+      "required_dimension_ids": ["SLOT_DEPTH", "HOLE_PATTERN_DIA"],
+      "missing_semantics_policy": "advisory"
+    }
+  },
+  "feature_catalog": {
+    "summary": {
+      "total_features": 2,
+      "recognized_features": 2,
+      "unknown_features": 0,
+      "recognition_sources": ["synthetic_fixture"]
+    },
+    "features": [
+      {
+        "feature_id": "hole_pattern_1",
+        "type": "hole_pattern",
+        "critical": true,
+        "dimensions": {
+          "count": 4,
+          "diameter_mm": 9,
+          "spacing_x_mm": 60,
+          "spacing_y_mm": 30
+        },
+        "evidence_kind": "synthetic_fixture"
+      },
+      {
+        "feature_id": "slot_001",
+        "type": "slot",
+        "critical": true,
+        "dimensions": {
+          "depth_mm": 6,
+          "length_mm": 24,
+          "width_mm": 8
+        },
+        "evidence_kind": "synthetic_fixture"
+      }
+    ]
+  },
+  "extracted_drawing_semantics": {
+    "status": "partial",
+    "methods": ["svg_text_scan", "layout_report_views"],
+    "coverage": {
+      "required_dimensions_total": 2,
+      "required_dimensions_extracted": 2,
+      "required_notes_total": 0,
+      "required_notes_extracted": 0,
+      "required_views_total": 2,
+      "required_views_extracted": 1
+    },
+    "view_ids": ["top"],
+    "matched_dimension_ids": ["HOLE_PATTERN_DIA", "SLOT_DEPTH"],
+    "matched_note_ids": [],
+    "title_block": {
+      "material": null,
+      "tolerance": null,
+      "drawing_number": null
+    },
+    "unknowns": []
+  },
+  "drawing_quality": {
+    "status": "pass",
+    "views": {
+      "required_count": 1,
+      "generated_count": 1,
+      "missing_views": [],
+      "overlap_count": 0
+    },
+    "dimensions": {
+      "required_count": 2,
+      "mapped_count": 2,
+      "coverage_percent": 100,
+      "missing_required_intents": [],
+      "conflict_count": 0,
+      "duplicate_count": 0
+    },
+    "traceability": {
+      "coverage_percent": 100,
+      "unmapped_required_entities": []
+    },
+    "extracted_evidence": {
+      "status": "partial",
+      "coverage": {
+        "required_dimensions": {
+          "total": 2,
+          "extracted": 1,
+          "missing": 0,
+          "unknown": 1,
+          "unsupported": 0,
+          "extracted_percent": 50
+        },
+        "required_notes": {
+          "total": 0,
+          "extracted": 0,
+          "missing": 0,
+          "unknown": 0,
+          "unsupported": 0,
+          "extracted_percent": null
+        },
+        "required_views": {
+          "total": 2,
+          "extracted": 1,
+          "missing": 1,
+          "unknown": 0,
+          "unsupported": 0,
+          "extracted_percent": 50
+        },
+        "total_required": 4,
+        "total_extracted": 2,
+        "total_missing": 1,
+        "total_unknown": 1,
+        "total_unsupported": 0
+      },
+      "required_dimension_classifications": [
+        { "requirement_id": "SLOT_DEPTH", "classification": "unknown" },
+        { "requirement_id": "HOLE_PATTERN_DIA", "classification": "extracted" }
+      ],
+      "required_note_classifications": [],
+      "required_view_classifications": [
+        { "requirement_id": "top", "classification": "extracted" },
+        { "requirement_id": "section_a_a", "classification": "missing" }
+      ],
+      "unmatched_dimensions": ["PCD 60"],
+      "unmatched_notes": ["Break sharp edges"],
+      "missing_required_items": ["section_a_a"]
+    },
+    "blocking_issue_codes": [],
+    "optional_missing_dimension_ids": []
+  },
+  "drawing_planner": {
+    "suggested_actions": [
+      "Carry forward existing planner suggestion.",
+      "Review required dimension Slot depth because extracted evidence is low-confidence. Add or label a section view through slot_001 if the depth is not readable in the current orthographic views. Verify the linked depth dimension for Slot depth is visible and labeled clearly. Check that SVG text extraction can read the depth label.",
+      "Add or label the required view section_a_a if it should appear in the drawing. Verify the section_a_a view label is present and readable. Confirm extraction can match the section_a_a view back to section_a_a.",
+      "Improve intent aliases or drawing labels for unmatched extracted dimensions. Review whether the unmatched dimensions should map to an existing required intent. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+      "Improve intent aliases or drawing labels for unmatched extracted notes. Review whether the unmatched notes should satisfy an existing required note. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably."
+    ],
+    "suggested_action_details": [
+      {
+        "category": "dimension",
+        "target_requirement_id": "SLOT_DEPTH",
+        "target_feature_id": "slot_001",
+        "classification": "low_confidence",
+        "severity": "review",
+        "title": "Review required dimension Slot depth because extracted evidence is low-confidence.",
+        "recommended_fix": "Add or label a section view through slot_001 if the depth is not readable in the current orthographic views. Verify the linked depth dimension for Slot depth is visible and labeled clearly. Check that SVG text extraction can read the depth label."
+      },
+      {
+        "category": "view",
+        "target_requirement_id": "section_a_a",
+        "target_feature_id": null,
+        "classification": "missing",
+        "severity": "advisory",
+        "title": "Add or label the required view section_a_a if it should appear in the drawing.",
+        "recommended_fix": "Verify the section_a_a view label is present and readable. Confirm extraction can match the section_a_a view back to section_a_a."
+      },
+      {
+        "category": "mapping",
+        "target_requirement_id": "unmatched_dimensions",
+        "target_feature_id": null,
+        "classification": "unmatched",
+        "severity": "info",
+        "title": "Improve intent aliases or drawing labels for unmatched extracted dimensions.",
+        "recommended_fix": "Review whether the unmatched dimensions should map to an existing required intent. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably."
+      },
+      {
+        "category": "mapping",
+        "target_requirement_id": "unmatched_notes",
+        "target_feature_id": null,
+        "classification": "unmatched",
+        "severity": "info",
+        "title": "Improve intent aliases or drawing labels for unmatched extracted notes.",
+        "recommended_fix": "Review whether the unmatched notes should satisfy an existing required note. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably."
+      }
+    ]
+  }
+}

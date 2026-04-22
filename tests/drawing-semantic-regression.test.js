@@ -19,8 +19,10 @@ import {
 import { buildDrawingQualitySummary } from '../src/services/drawing/drawing-quality-summary.js';
 import {
   buildExtractedDrawingSemantics,
+  compareDrawingIntentToExtractedSemantics,
   validateExtractedDrawingSemantics,
 } from '../src/services/drawing/extracted-drawing-semantics.js';
+import { refineDrawingPlannerWithExtractedCoverage } from '../src/services/drawing/drawing-planner.js';
 import {
   buildDecisionReportSummary,
   validateDecisionReportSummary,
@@ -40,6 +42,14 @@ function readJson(path) {
 
 function expected(fixtureName, fileName) {
   return readJson(join(FIXTURE_ROOT, fixtureName, fileName));
+}
+
+function syntheticFixture(fixtureName) {
+  return readJson(join(FIXTURE_ROOT, fixtureName, 'fixture.json'));
+}
+
+function expectedSuite(fixtureName) {
+  return readJson(join(FIXTURE_ROOT, fixtureName, 'expected_suite.json'));
 }
 
 function normalizeIntent(intent) {
@@ -114,6 +124,22 @@ function normalizeExtractedSemantics(semantics) {
       drawing_number: semantics.title_block.drawing_number?.raw_text || null,
     },
     unknowns: semantics.unknowns,
+  };
+}
+
+function normalizePlanner(planner) {
+  return {
+    suggested_actions: planner.suggested_actions || [],
+    suggested_action_details: (planner.suggested_action_details || [])
+      .map((entry) => ({
+        category: entry.category,
+        target_requirement_id: entry.target_requirement_id,
+        target_feature_id: entry.target_feature_id,
+        classification: entry.classification,
+        severity: entry.severity,
+        title: entry.title,
+        recommended_fix: entry.recommended_fix,
+      })),
   };
 }
 
@@ -374,6 +400,80 @@ try {
       featureCatalog,
       jobDir,
     };
+  }
+
+  for (const fixtureName of ['note_semantics_plate', 'slot_hole_pattern_semantics_case', 'unsupported_semantics_case']) {
+    const fixture = syntheticFixture(fixtureName);
+    const expectations = expectedSuite(fixtureName);
+    const drawingIntent = fixture.drawing_intent;
+    const featureCatalog = fixture.feature_catalog;
+    const planner = fixture.planner || { status: 'advisory', suggested_actions: [] };
+    const extractedInput = Object.prototype.hasOwnProperty.call(fixture, 'extracted_input')
+      ? (fixture.extracted_input || {})
+      : {
+          drawingSvgPath: fixture.artifacts?.drawingSvgPath || null,
+          svgContent: fixture.artifacts?.svgContent || null,
+          layoutReportPath: fixture.artifacts?.layoutReportPath || null,
+          layoutReport: fixture.artifacts?.layoutReport || null,
+          dimensionMapPath: fixture.artifacts?.dimensionMapPath || null,
+          dimensionMap: fixture.artifacts?.dimensionMap || null,
+          traceabilityPath: fixture.artifacts?.traceabilityPath || null,
+          traceability: fixture.artifacts?.traceability || null,
+        };
+    const extractedSemantics = fixture.extracted_drawing_semantics
+      ? fixture.extracted_drawing_semantics
+      : buildExtractedDrawingSemantics({
+          ...extractedInput,
+          drawingIntent,
+        });
+
+    assert.deepEqual(
+      { drawing_intent: normalizeIntent(drawingIntent) },
+      expectations.drawing_intent
+    );
+    assert.deepEqual(
+      normalizeCatalog(featureCatalog),
+      expectations.feature_catalog
+    );
+
+    const extractedValidation = validateExtractedDrawingSemantics(extractedSemantics);
+    assert.equal(extractedValidation.ok, true, extractedValidation.errors.join('\n'));
+    assert.deepEqual(
+      normalizeExtractedSemantics(extractedSemantics),
+      expectations.extracted_drawing_semantics
+    );
+
+    const comparison = compareDrawingIntentToExtractedSemantics(
+      drawingIntent,
+      extractedSemantics,
+      featureCatalog,
+      planner,
+      fixture.artifacts?.extractedDrawingSemanticsPath || `/tmp/${fixtureName}_extracted_drawing_semantics.json`
+    );
+    const refinedPlanner = refineDrawingPlannerWithExtractedCoverage({
+      planner,
+      drawingIntent,
+      featureCatalog,
+      extractedEvidence: comparison,
+    });
+
+    const optionalMissingDimensionIds = expectations.drawing_quality.optional_missing_dimension_ids || [];
+    const drawingQuality = buildDrawingQualitySummary({
+      ...(fixture.artifacts || {}),
+      planner,
+      drawingIntent,
+      featureCatalog,
+      extractedDrawingSemantics: extractedSemantics,
+      extractedDrawingSemanticsPath: fixture.artifacts?.extractedDrawingSemanticsPath || `/tmp/${fixtureName}_extracted_drawing_semantics.json`,
+    });
+    assert.deepEqual(
+      normalizeDrawingQuality(drawingQuality, optionalMissingDimensionIds),
+      expectations.drawing_quality
+    );
+    assert.deepEqual(
+      normalizePlanner(refinedPlanner),
+      expectations.drawing_planner
+    );
   }
 
   const passContext = fixtureContexts.quality_pass_bracket;

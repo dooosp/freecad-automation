@@ -1,0 +1,165 @@
+{
+  "drawing_intent": {
+    "drawing_intent": {
+      "part_type": "unsupported_fixture",
+      "material": null,
+      "required_views": ["section"],
+      "critical_feature_ids": ["pocket_001"],
+      "required_dimension_ids": ["POCKET_DEPTH"],
+      "missing_semantics_policy": "advisory"
+    }
+  },
+  "feature_catalog": {
+    "summary": {
+      "total_features": 1,
+      "recognized_features": 1,
+      "unknown_features": 0,
+      "recognition_sources": ["synthetic_fixture"]
+    },
+    "features": [
+      {
+        "feature_id": "pocket_001",
+        "type": "pocket",
+        "critical": true,
+        "dimensions": {
+          "depth_mm": 4
+        },
+        "evidence_kind": "synthetic_fixture"
+      }
+    ]
+  },
+  "extracted_drawing_semantics": {
+    "status": "unsupported",
+    "methods": [],
+    "coverage": {
+      "required_dimensions_total": 1,
+      "required_dimensions_extracted": 0,
+      "required_notes_total": 1,
+      "required_notes_extracted": 0,
+      "required_views_total": 1,
+      "required_views_extracted": 0
+    },
+    "view_ids": [],
+    "matched_dimension_ids": [],
+    "matched_note_ids": [],
+    "title_block": {
+      "material": null,
+      "tolerance": null,
+      "drawing_number": null
+    },
+    "unknowns": [
+      "SVG text evidence is unavailable; text extraction stayed conservative.",
+      "Layout report evidence is unavailable; reliable view extraction may be incomplete.",
+      "Dimension map evidence is unavailable; rendered-dimension cross-checks stayed unknown.",
+      "Traceability evidence is unavailable; matched feature provenance stayed unknown where applicable.",
+      "Required dimension not reliably extracted: POCKET_DEPTH.",
+      "Required note not reliably extracted: SURFACE_FINISH.",
+      "Required view not reliably extracted: section."
+    ]
+  },
+  "drawing_quality": {
+    "status": "pass",
+    "views": {
+      "required_count": 1,
+      "generated_count": 1,
+      "missing_views": [],
+      "overlap_count": 0
+    },
+    "dimensions": {
+      "required_count": 1,
+      "mapped_count": 1,
+      "coverage_percent": 100,
+      "missing_required_intents": [],
+      "conflict_count": 0,
+      "duplicate_count": 0
+    },
+    "traceability": {
+      "coverage_percent": 100,
+      "unmapped_required_entities": []
+    },
+    "extracted_evidence": {
+      "status": "unsupported",
+      "coverage": {
+        "required_dimensions": {
+          "total": 1,
+          "extracted": 0,
+          "missing": 0,
+          "unknown": 1,
+          "unsupported": 0,
+          "extracted_percent": 0
+        },
+        "required_notes": {
+          "total": 1,
+          "extracted": 0,
+          "missing": 0,
+          "unknown": 1,
+          "unsupported": 0,
+          "extracted_percent": 0
+        },
+        "required_views": {
+          "total": 1,
+          "extracted": 0,
+          "missing": 0,
+          "unknown": 1,
+          "unsupported": 0,
+          "extracted_percent": 0
+        },
+        "total_required": 3,
+        "total_extracted": 0,
+        "total_missing": 0,
+        "total_unknown": 3,
+        "total_unsupported": 0
+      },
+      "required_dimension_classifications": [
+        { "requirement_id": "POCKET_DEPTH", "classification": "unknown" }
+      ],
+      "required_note_classifications": [
+        { "requirement_id": "SURFACE_FINISH", "classification": "unknown" }
+      ],
+      "required_view_classifications": [
+        { "requirement_id": "section", "classification": "unknown" }
+      ],
+      "unmatched_dimensions": [],
+      "unmatched_notes": [],
+      "missing_required_items": []
+    },
+    "blocking_issue_codes": [],
+    "optional_missing_dimension_ids": []
+  },
+  "drawing_planner": {
+    "suggested_actions": [
+      "Verify required dimension Pocket depth because extracted evidence is unknown. Verify the dimension label for Pocket depth is visible and readable in the SVG. Relink or relabel Pocket depth if it was manually drafted or detached from the source dimension.",
+      "Add or label the required note SURFACE_FINISH if it should appear in the drawing. Verify the required note text \"Surface finish: Ra 1.6\" is present and readable. Confirm extraction can still match the note to Surface finish: Ra 1.6.",
+      "Add or label the required view section if it should appear in the drawing. Verify the section view label is present and readable. Confirm extraction can match the section view back to section."
+    ],
+    "suggested_action_details": [
+      {
+        "category": "dimension",
+        "target_requirement_id": "POCKET_DEPTH",
+        "target_feature_id": "pocket_001",
+        "classification": "unknown",
+        "severity": "review",
+        "title": "Verify required dimension Pocket depth because extracted evidence is unknown.",
+        "recommended_fix": "Verify the dimension label for Pocket depth is visible and readable in the SVG. Relink or relabel Pocket depth if it was manually drafted or detached from the source dimension."
+      },
+      {
+        "category": "note",
+        "target_requirement_id": "SURFACE_FINISH",
+        "target_feature_id": null,
+        "classification": "unknown",
+        "severity": "review",
+        "title": "Add or label the required note SURFACE_FINISH if it should appear in the drawing.",
+        "recommended_fix": "Verify the required note text \"Surface finish: Ra 1.6\" is present and readable. Confirm extraction can still match the note to Surface finish: Ra 1.6."
+      },
+      {
+        "category": "view",
+        "target_requirement_id": "section",
+        "target_feature_id": null,
+        "classification": "unknown",
+        "severity": "review",
+        "title": "Add or label the required view section if it should appear in the drawing.",
+        "recommended_fix": "Verify the section view label is present and readable. Confirm extraction can match the section view back to section."
+      }
+    ]
+  }
+}
