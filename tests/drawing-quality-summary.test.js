@@ -396,6 +396,9 @@ function makeBaseArtifacts() {
   assert.equal(summary.semantic_quality.extracted_evidence.required_notes[0].classification, 'unknown');
   assert.equal(summary.semantic_quality.extracted_evidence.required_views[0].classification, 'extracted');
   assert(summary.semantic_quality.suggested_actions.some((item) => item.includes('WIDTH')));
+  assert.equal(summary.semantic_quality.suggested_action_details.some((entry) => entry.category === 'dimension' && entry.classification === 'missing'), true);
+  assert.equal(summary.semantic_quality.extracted_evidence.suggested_action_details.some((entry) => entry.category === 'note' && entry.classification === 'unknown'), true);
+  assert.equal(summary.semantic_quality.suggested_action_details.every((entry) => ['advisory', 'review', 'info'].includes(entry.severity)), true);
   assert.deepEqual(summary.blocking_issues, []);
 }
 
@@ -448,6 +451,8 @@ function makeBaseArtifacts() {
   assert.equal(summary.semantic_quality.extracted_evidence.required_dimensions[0].classification, 'unknown');
   assert.equal(summary.semantic_quality.extracted_evidence.matched_required_dimensions, 0);
   assert.equal(summary.semantic_quality.extracted_evidence.required_dimensions[0].candidate_matches.length, 1);
+  assert.equal(summary.semantic_quality.suggested_action_details[0].classification, 'low_confidence');
+  assert.equal(summary.semantic_quality.suggested_action_details[0].severity, 'review');
   assert.deepEqual(summary.blocking_issues, []);
 }
 

@@ -4,6 +4,11 @@ import { dirname, join, parse, resolve } from 'node:path';
 
 import Ajv2020 from 'ajv/dist/2020.js';
 
+import {
+  buildPlannerActionsFromExtractedCoverage,
+  formatPlannerSuggestedAction,
+} from './drawing-planner.js';
+
 const EXTRACTED_DRAWING_SEMANTICS_SCHEMA = JSON.parse(
   readFileSync(new URL('../../../schemas/extracted-drawing-semantics.schema.json', import.meta.url), 'utf8')
 );
@@ -882,63 +887,6 @@ function summarizeMissingRequirements(comparison = {}) {
   ].filter(Boolean);
 }
 
-function buildSuggestedActions(comparison = {}, { featureCatalog = null, planner = null } = {}) {
-  const missingDimensions = asArray(comparison.required_dimensions)
-    .filter((entry) => entry.classification === 'missing')
-    .map((entry) => entry.requirement_id);
-  const unknownDimensions = asArray(comparison.required_dimensions)
-    .filter((entry) => entry.classification === 'unknown')
-    .map((entry) => entry.requirement_id);
-  const missingNotes = asArray(comparison.required_notes)
-    .filter((entry) => entry.classification === 'missing')
-    .map((entry) => entry.requirement_id);
-  const unknownNotes = asArray(comparison.required_notes)
-    .filter((entry) => entry.classification === 'unknown')
-    .map((entry) => entry.requirement_id);
-  const missingViews = asArray(comparison.required_views)
-    .filter((entry) => entry.classification === 'missing')
-    .map((entry) => entry.requirement_id);
-  const unknownViews = asArray(comparison.required_views)
-    .filter((entry) => entry.classification === 'unknown')
-    .map((entry) => entry.requirement_id);
-
-  return uniqueStrings([
-    missingDimensions.length > 0
-      ? `Add or clarify extracted drawing dimension evidence for: ${missingDimensions.join(', ')}.`
-      : null,
-    unknownDimensions.length > 0
-      ? `Review low-confidence or incomplete extracted dimension evidence for: ${unknownDimensions.join(', ')}.`
-      : null,
-    missingNotes.length > 0
-      ? `Add or clarify extracted drawing note evidence for: ${missingNotes.join(', ')}.`
-      : null,
-    unknownNotes.length > 0
-      ? `Review low-confidence or incomplete extracted note evidence for: ${unknownNotes.join(', ')}.`
-      : null,
-    missingViews.length > 0
-      ? `Generate or expose extracted drawing view evidence for: ${missingViews.join(', ')}.`
-      : null,
-    unknownViews.length > 0
-      ? `Review low-confidence or incomplete extracted view evidence for: ${unknownViews.join(', ')}.`
-      : null,
-    asArray(comparison.unmatched_dimensions).length > 0
-      ? 'Review unmatched extracted dimensions to confirm they are supplemental and not missing intent requirements.'
-      : null,
-    asArray(comparison.unmatched_notes).length > 0
-      ? 'Review unmatched extracted notes to confirm they are supplemental and not missing intent requirements.'
-      : null,
-    planner && missingDimensions.length > 0
-      ? 'Review drawing planner recommendations for required dimensions that were not reliably extracted.'
-      : null,
-    planner && missingViews.length > 0
-      ? 'Review drawing planner recommendations for required views that were not reliably extracted.'
-      : null,
-    featureCatalog && (missingDimensions.length > 0 || unknownDimensions.length > 0)
-      ? 'Cross-check feature catalog evidence for features tied to missing or uncertain extracted dimensions.'
-      : null,
-  ]);
-}
-
 export function compareDrawingIntentToExtractedSemantics(
   drawingIntent = null,
   extractedDrawingSemantics = null,
@@ -994,7 +942,15 @@ export function compareDrawingIntentToExtractedSemantics(
     }),
   };
 
-  comparison.suggested_actions = buildSuggestedActions(comparison, { featureCatalog, planner });
+  comparison.suggested_action_details = buildPlannerActionsFromExtractedCoverage({
+    drawingIntent: intent,
+    featureCatalog,
+    planner,
+    extractedEvidence: comparison,
+  });
+  comparison.suggested_actions = uniqueStrings(
+    comparison.suggested_action_details.map((entry) => formatPlannerSuggestedAction(entry))
+  );
   return comparison;
 }
 

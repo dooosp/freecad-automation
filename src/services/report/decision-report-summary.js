@@ -127,6 +127,29 @@ function summarizeUnmatchedEvidence(entries = []) {
     }));
 }
 
+function summarizeSuggestedActionDetails(entries = []) {
+  return asArray(entries)
+    .filter((entry) => entry && typeof entry === 'object')
+    .map((entry) => ({
+      id: safeString(entry.id),
+      severity: safeString(entry.severity),
+      category: safeString(entry.category),
+      target_requirement_id: safeString(entry.target_requirement_id),
+      target_feature_id: safeString(entry.target_feature_id),
+      classification: safeString(entry.classification, 'unknown'),
+      title: safeString(entry.title),
+      message: safeString(entry.message),
+      recommended_fix: safeString(entry.recommended_fix),
+      evidence: asArray(entry.evidence)
+        .filter((item) => item && typeof item === 'object')
+        .map((item) => ({
+          source: safeString(item.source),
+          path: safeString(item.path),
+          value: safeString(item.value),
+        })),
+    }));
+}
+
 function artifactRef(key, label, path, status, note = null, options = {}) {
   const required = typeof options.required === 'boolean'
     ? options.required
@@ -231,6 +254,7 @@ function summarizeSemanticDrawingQuality(semanticQuality = null) {
       required_blockers: [],
       optional_missing_information: [],
       suggested_actions: [],
+      suggested_action_details: [],
       extracted_evidence: {
         status: 'not_run',
         advisory_only: true,
@@ -259,6 +283,7 @@ function summarizeSemanticDrawingQuality(semanticQuality = null) {
         unknowns: [],
         limitations: [],
         suggested_actions: [],
+        suggested_action_details: [],
       },
     };
   }
@@ -291,6 +316,7 @@ function summarizeSemanticDrawingQuality(semanticQuality = null) {
     required_blockers: uniqueStrings(semanticQuality.required_blockers || []),
     optional_missing_information: uniqueStrings(semanticQuality.optional_missing_information || []),
     suggested_actions: uniqueStrings(semanticQuality.suggested_actions || []),
+    suggested_action_details: summarizeSuggestedActionDetails(semanticQuality.suggested_action_details),
     extracted_evidence: {
       status: extractedEvidence.status || 'not_run',
       advisory_only: extractedEvidence.advisory_only !== false,
@@ -340,6 +366,7 @@ function summarizeSemanticDrawingQuality(semanticQuality = null) {
       unknowns: uniqueStrings(extractedEvidence.unknowns || []),
       limitations: uniqueStrings(extractedEvidence.limitations || []),
       suggested_actions: uniqueStrings(extractedEvidence.suggested_actions || []),
+      suggested_action_details: summarizeSuggestedActionDetails(extractedEvidence.suggested_action_details),
     },
   };
 }

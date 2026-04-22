@@ -125,6 +125,34 @@
       },
       "additionalProperties": false
     },
+    "suggestedActionEvidence": {
+      "type": "object",
+      "properties": {
+        "source": { "type": ["string", "null"] },
+        "path": { "type": ["string", "null"] },
+        "value": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "suggestedActionDetail": {
+      "type": "object",
+      "properties": {
+        "id": { "type": ["string", "null"] },
+        "severity": { "type": ["string", "null"] },
+        "category": { "type": ["string", "null"] },
+        "target_requirement_id": { "type": ["string", "null"] },
+        "target_feature_id": { "type": ["string", "null"] },
+        "classification": { "type": ["string", "null"] },
+        "title": { "type": ["string", "null"] },
+        "message": { "type": ["string", "null"] },
+        "recommended_fix": { "type": ["string", "null"] },
+        "evidence": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/suggestedActionEvidence" }
+        }
+      },
+      "additionalProperties": true
+    },
     "surfaceSummary": {
       "type": "object",
       "required": ["status", "available", "blocking_issues", "warnings"],
@@ -224,6 +252,10 @@
           "type": "array",
           "items": { "type": "string" }
         },
+        "suggested_action_details": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/suggestedActionDetail" }
+        },
         "extracted_evidence": {
           "type": "object",
           "required": [
@@ -287,6 +319,10 @@
             "suggested_actions": {
               "type": "array",
               "items": { "type": "string" }
+            },
+            "suggested_action_details": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/suggestedActionDetail" }
             }
           },
           "additionalProperties": true

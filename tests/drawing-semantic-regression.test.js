@@ -389,6 +389,7 @@ try {
   assert.equal(passSummary.artifacts_referenced.find((artifact) => artifact.key === 'extracted_drawing_semantics')?.required, false);
   assert.equal(passSummary.surfaces.drawing_quality.missing_required_dimensions.length, 0);
   assert.equal(passSummary.feature_catalog.available, true);
+  assert.deepEqual(passSummary.surfaces.drawing_quality.semantic_quality.suggested_action_details, []);
 
   const ksContext = fixtureContexts.ks_bracket;
   const failSummary = buildDecisionReportSummary(makeReportInput({
@@ -402,6 +403,11 @@ try {
   assert.deepEqual(failSummary.surfaces.drawing_quality.missing_required_dimensions, ['MOUNTING_HOLE_DIA']);
   assert(failSummary.top_risks.some((risk) => risk.includes('Missing required drawing dimensions: MOUNTING_HOLE_DIA')));
   assert(failSummary.recommended_actions.some((action) => action.includes('MOUNTING_HOLE_DIA')));
+  assert.equal(failSummary.surfaces.drawing_quality.semantic_quality.extracted_evidence.suggested_action_details.length > 0, true);
+  assert.equal(
+    failSummary.surfaces.drawing_quality.semantic_quality.extracted_evidence.suggested_action_details.some((entry) => entry.classification === 'unknown' || entry.classification === 'missing'),
+    true
+  );
 
   const manifestDir = join(TMP_DIR, 'jobs', 'quality_pass_bracket', 'artifacts');
   mkdirSync(manifestDir, { recursive: true });

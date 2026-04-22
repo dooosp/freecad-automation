@@ -376,20 +376,6 @@ function buildSemanticDrawingQualityReport({
   const score = metricScores.length
     ? Number((metricScores.reduce((sum, value) => sum + value, 0) / metricScores.length).toFixed(2))
     : null;
-
-  const suggestedActions = uniqueStrings([
-    missingCriticalFeatures.length ? `Add drawing evidence for critical feature(s): ${missingCriticalFeatures.join(', ')}.` : null,
-    missingRequiredDimensions.length ? `Add or map required dimension(s): ${missingRequiredDimensions.join(', ')}.` : null,
-    missingRequiredNotes.length ? `Add required drawing note(s): ${missingRequiredNotes.join(', ')}.` : null,
-    missingRequiredViews.length ? `Generate required view(s): ${missingRequiredViews.join(', ')}.` : null,
-    (traceMissing.length || traceUnknown.length) ? 'Attach or regenerate traceability evidence for required dimensions.' : null,
-  ]);
-
-  const advisoryDecision = requiredMissingCount > 0
-    ? 'needs_attention'
-    : metricScores.length > 0
-      ? 'pass'
-      : 'unknown';
   const extractedEvidence = compareDrawingIntentToExtractedSemantics(
     drawingIntent,
     extractedDrawingSemantics,
@@ -397,13 +383,69 @@ function buildSemanticDrawingQualityReport({
     planner,
     extractedDrawingSemanticsPath
   );
+  const extractedCoverageComplete = Number(extractedEvidence.coverage?.total_required || 0) > 0
+    && Number(extractedEvidence.coverage?.total_missing || 0) === 0
+    && Number(extractedEvidence.coverage?.total_unknown || 0) === 0
+    && Number(extractedEvidence.coverage?.total_unsupported || 0) === 0;
+  const extractedActionCategories = new Set(
+    asArray(extractedEvidence.suggested_action_details)
+      .map((entry) => entry?.category)
+      .filter((value) => typeof value === 'string' && value.trim())
+  );
+  const effectiveCoveredFeatures = extractedCoverageComplete ? features.required : coveredFeatures;
+  const effectiveMissingCriticalFeatures = extractedCoverageComplete ? [] : missingCriticalFeatures;
+  const effectiveMissingCriticalInformation = uniqueStrings([
+    ...effectiveMissingCriticalFeatures.map((name) => `Critical feature is not evidenced on the drawing: ${name}.`),
+    ...missingRequiredDimensions.map((name) => `Required dimension is not evidenced on the drawing: ${name}.`),
+    ...missingRequiredNotes.map((name) => `Required note is not evidenced on the drawing: ${name}.`),
+    ...missingRequiredViews.map((name) => `Required view is not present in generated drawing evidence: ${name}.`),
+    ...traceMissing.map((name) => `Required dimension lacks traceability evidence: ${name}.`),
+    ...traceUnknown.map((name) => `Required dimension traceability is unknown because traceability evidence is unavailable: ${name}.`),
+  ]);
+  const effectiveRequiredMissingCount = effectiveMissingCriticalFeatures.length
+    + missingRequiredDimensions.length
+    + missingRequiredNotes.length
+    + missingRequiredViews.length
+    + traceMissing.length
+    + traceUnknown.length;
+  const effectiveRequiredBlockers = enforceable ? effectiveMissingCriticalInformation : [];
+  const effectiveMetricScores = [
+    coverageScore(effectiveCoveredFeatures.length, features.required.length),
+    coverageScore(presentDimensions.length, dimensions.required.length),
+    coverageScore(presentNotes.length, notes.required.length),
+    coverageScore(presentViews.length, views.required.length),
+    coverageScore(traceLinked, traceabilityRows.length),
+  ].filter((score) => score !== null);
+  const effectiveScore = effectiveMetricScores.length
+    ? Number((effectiveMetricScores.reduce((sum, value) => sum + value, 0) / effectiveMetricScores.length).toFixed(2))
+    : null;
+  const suggestedActions = uniqueStrings([
+    effectiveMissingCriticalFeatures.length ? `Add drawing evidence for critical feature(s): ${effectiveMissingCriticalFeatures.join(', ')}.` : null,
+    missingRequiredDimensions.length && !extractedActionCategories.has('dimension')
+      ? `Add or map required dimension(s): ${missingRequiredDimensions.join(', ')}.`
+      : null,
+    missingRequiredNotes.length && !extractedActionCategories.has('note')
+      ? `Add required drawing note(s): ${missingRequiredNotes.join(', ')}.`
+      : null,
+    missingRequiredViews.length && !extractedActionCategories.has('view')
+      ? `Generate required view(s): ${missingRequiredViews.join(', ')}.`
+      : null,
+    (traceMissing.length || traceUnknown.length) ? 'Attach or regenerate traceability evidence for required dimensions.' : null,
+  ]);
+  const advisoryDecision = effectiveRequiredMissingCount > 0
+    ? 'needs_attention'
+    : effectiveMetricScores.length > 0
+      ? 'pass'
+      : 'unknown';
   const semanticSuggestedActions = uniqueStrings([
     ...suggestedActions,
     ...asArray(extractedEvidence.suggested_actions),
   ]);
+  const semanticSuggestedActionDetails = asArray(extractedEvidence.suggested_action_details)
+    .filter((entry) => entry && typeof entry === 'object');
 
   return {
-    decision: enforceable && requiredBlockers.length > 0
+    decision: enforceable && effectiveRequiredBlockers.length > 0
       ? 'fail'
       : advisoryDecision === 'pass'
         ? 'pass'
@@ -412,17 +454,17 @@ function buildSemanticDrawingQualityReport({
           : 'advisory',
     advisory_decision: advisoryDecision,
     enforceable,
-    score,
+    score: effectiveScore,
     score_basis: {
-      critical_feature_coverage_percent: coverageScore(coveredFeatures.length, features.required.length),
+      critical_feature_coverage_percent: coverageScore(effectiveCoveredFeatures.length, features.required.length),
       required_dimension_coverage_percent: coverageScore(presentDimensions.length, dimensions.required.length),
       required_note_coverage_percent: coverageScore(presentNotes.length, notes.required.length),
       required_view_coverage_percent: coverageScore(presentViews.length, views.required.length),
       dimension_traceability_percent: coverageScore(traceLinked, traceabilityRows.length),
     },
     critical_features_total: features.required.length,
-    critical_features_covered: coveredFeatures.length,
-    missing_critical_features: missingCriticalFeatures,
+    critical_features_covered: effectiveCoveredFeatures.length,
+    missing_critical_features: effectiveMissingCriticalFeatures,
     required_dimensions_total: dimensions.required.length,
     required_dimensions_present: presentDimensions.length,
     missing_required_dimensions: missingRequiredDimensions,
@@ -439,10 +481,11 @@ function buildSemanticDrawingQualityReport({
       unknown_required_dimensions: traceUnknown,
       rows: traceabilityRows,
     },
-    missing_critical_information: missingCriticalInformation,
-    required_blockers: requiredBlockers,
+    missing_critical_information: effectiveMissingCriticalInformation,
+    required_blockers: effectiveRequiredBlockers,
     optional_missing_information: uniqueStrings(optionalMissing),
     suggested_actions: semanticSuggestedActions,
+    suggested_action_details: semanticSuggestedActionDetails,
     extracted_evidence: extractedEvidence,
   };
 }

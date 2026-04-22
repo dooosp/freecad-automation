@@ -72,6 +72,7 @@ function makeBaseInput(overrides = {}) {
         required_blockers: [],
         optional_missing_information: [],
         suggested_actions: [],
+        suggested_action_details: [],
         extracted_evidence: {
           status: 'partial',
           advisory_only: true,
@@ -152,6 +153,26 @@ function makeBaseInput(overrides = {}) {
           unknowns: ['Required note not reliably extracted: MATERIAL.'],
           limitations: ['Advisory-only foundation.'],
           suggested_actions: ['Review low-confidence or incomplete extracted note evidence for: MATERIAL.'],
+          suggested_action_details: [
+            {
+              id: 'note:material:unknown',
+              severity: 'review',
+              category: 'note',
+              target_requirement_id: 'MATERIAL',
+              target_feature_id: null,
+              classification: 'unknown',
+              title: 'Required note MATERIAL is unknown in extracted drawing evidence.',
+              message: 'Extracted drawing semantics explicitly marked this required note as uncertain.',
+              recommended_fix: 'Verify the required note text is present and readable. Confirm extraction can still match the note to MATERIAL.',
+              evidence: [
+                {
+                  source: 'drawing_quality.semantic_quality.extracted_evidence',
+                  path: 'required_notes.MATERIAL.classification',
+                  value: 'unknown',
+                },
+              ],
+            },
+          ],
         },
       },
     },
@@ -237,6 +258,8 @@ function makeBaseInput(overrides = {}) {
   assert.equal(summary.surfaces.drawing_quality.semantic_quality.extracted_evidence.status, 'partial');
   assert.equal(summary.surfaces.drawing_quality.semantic_quality.extracted_evidence.coverage.required_dimensions.extracted, 1);
   assert.equal(summary.surfaces.drawing_quality.semantic_quality.extracted_evidence.required_notes[0].classification, 'unknown');
+  assert.equal(summary.surfaces.drawing_quality.semantic_quality.extracted_evidence.suggested_action_details[0].target_requirement_id, 'MATERIAL');
+  assert.equal(summary.surfaces.drawing_quality.semantic_quality.extracted_evidence.suggested_action_details[0].classification, 'unknown');
 }
 
 {

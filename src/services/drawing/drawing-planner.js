@@ -530,6 +530,517 @@ function buildSectionAndDetailViews(features) {
   return { section, detail };
 }
 
+function normalizeRequirementItem(item, defaultRequired = false) {
+  if (typeof item === 'string') {
+    return {
+      id: item,
+      label: item,
+      text: item,
+      required: defaultRequired,
+      optional: !defaultRequired,
+    };
+  }
+  if (!item || typeof item !== 'object') return null;
+  const id = cleanText(item.id ?? item.key ?? item.name ?? item.feature ?? item.dim_id ?? item.view);
+  const label = cleanText(item.label ?? item.title ?? item.name ?? item.text ?? id);
+  if (!id && !label) return null;
+  const optional = item.optional === true || item.required === false;
+  const required = item.required === true || item.critical === true || (!optional && defaultRequired);
+  return {
+    ...item,
+    id,
+    label: label || id,
+    required,
+    optional: optional || !required,
+  };
+}
+
+function normalizeRequirementList(values = [], defaultRequired = false) {
+  return asArray(values)
+    .map((item) => normalizeRequirementItem(item, defaultRequired))
+    .filter(Boolean);
+}
+
+function collectRequiredIntentItems(drawingIntent = {}) {
+  const dimensions = normalizeRequirementList(
+    drawingIntent.required_dimensions
+      ?? drawingIntent.dimensions
+      ?? drawingIntent.dimension_requirements,
+    true
+  ).filter((entry) => entry.required && !entry.optional);
+  const notes = normalizeRequirementList(
+    drawingIntent.required_notes
+      ?? drawingIntent.notes?.required
+      ?? drawingIntent.notes,
+    true
+  ).filter((entry) => entry.required && !entry.optional);
+  const views = normalizeRequirementList(
+    drawingIntent.required_views
+      ?? drawingIntent.views?.required
+      ?? drawingIntent.views,
+    true
+  ).filter((entry) => entry.required && !entry.optional);
+  return {
+    dimensions,
+    notes,
+    views,
+  };
+}
+
+function splitFeatureIds(value) {
+  return uniqueStrings(String(value || '')
+    .split(',')
+    .map((entry) => cleanText(entry))
+    .filter(Boolean));
+}
+
+function featureCatalogMap(featureCatalog = null) {
+  const items = asArray(featureCatalog?.features || featureCatalog);
+  return new Map(
+    items
+      .filter((entry) => entry && typeof entry === 'object' && cleanText(entry.feature_id || entry.id) && cleanText(entry.type))
+      .map((entry) => [
+        cleanText(entry.feature_id || entry.id),
+        {
+          feature_id: cleanText(entry.feature_id || entry.id),
+          type: cleanText(entry.type),
+        },
+      ])
+  );
+}
+
+function serializeEvidenceValue(value) {
+  if (value === null || value === undefined) return 'null';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return JSON.stringify(value);
+}
+
+function actionEvidence(source, path, value) {
+  return {
+    source,
+    path,
+    value: serializeEvidenceValue(value),
+  };
+}
+
+function actionIdPart(value, fallback = 'item') {
+  const normalized = normalizeId(value);
+  return normalized || fallback;
+}
+
+function buildPlannerAction({
+  id,
+  severity,
+  category,
+  targetRequirementId = null,
+  targetFeatureId = null,
+  classification,
+  title,
+  message,
+  recommendedFixSteps = [],
+  evidence = [],
+}) {
+  return {
+    id,
+    severity,
+    category,
+    target_requirement_id: cleanText(targetRequirementId),
+    target_feature_id: cleanText(targetFeatureId),
+    classification,
+    title,
+    message,
+    recommended_fix: uniqueStrings(recommendedFixSteps).join(' '),
+    evidence: evidence.filter((entry) => entry && typeof entry === 'object' && cleanText(entry.source) && cleanText(entry.path)),
+  };
+}
+
+export function formatPlannerSuggestedAction(action = {}) {
+  return uniqueStrings([
+    cleanText(action.title),
+    cleanText(action.recommended_fix),
+  ]).join(' ');
+}
+
+function noteActionLabel(requirement = {}, evidenceEntry = {}) {
+  return cleanText(
+    evidenceEntry.requirement_id || requirement.id || evidenceEntry.requirement_label || requirement.label,
+    'required note'
+  );
+}
+
+function viewActionLabel(requirement = {}, evidenceEntry = {}) {
+  return cleanText(
+    requirement.view || requirement.id || evidenceEntry.requirement_id || evidenceEntry.requirement_label,
+    'required view'
+  );
+}
+
+function requirementLookup(drawingIntent = {}) {
+  const intent = collectRequiredIntentItems(drawingIntent);
+  const lookup = new Map();
+  for (const entry of intent.dimensions) lookup.set(cleanText(entry.id), entry);
+  for (const entry of intent.notes) lookup.set(cleanText(entry.id), entry);
+  for (const entry of intent.views) lookup.set(cleanText(entry.id), entry);
+  return lookup;
+}
+
+function requirementFeatureContext(requirement = {}, evidenceEntry = {}, { featureCatalog = null, planner = null } = {}) {
+  const catalogById = featureCatalogMap(featureCatalog);
+  const featureIds = uniqueStrings([
+    ...splitFeatureIds(requirement.feature),
+    cleanText(evidenceEntry.matched_feature_id),
+    ...asArray(evidenceEntry.candidate_matches).map((entry) => cleanText(entry?.matched_feature_id)),
+  ]);
+  const featureTypes = uniqueStrings(featureIds.map((featureId) => cleanText(catalogById.get(featureId)?.type)).filter(Boolean));
+  const sectionMatch = asArray(planner?.section_view_recommendations).find((entry) => {
+    if (featureIds.some((featureId) => featureId && cleanText(entry?.feature_id) === featureId)) return true;
+    return featureTypes.some((type) => type && cleanText(entry?.feature_type) === type);
+  }) || null;
+  return {
+    feature_ids: featureIds,
+    feature_types: featureTypes,
+    primary_feature_id: featureIds[0] || cleanText(sectionMatch?.feature_id),
+    section_feature_id: cleanText(sectionMatch?.feature_id),
+    supports_section_view: Boolean(sectionMatch),
+    has_hole_feature: featureTypes.some((type) => type === 'hole' || type === 'through_hole' || type === 'hole_pattern'),
+  };
+}
+
+function isDimensionDepthRequirement(requirement = {}, evidenceEntry = {}) {
+  const comparable = [
+    requirement.id,
+    requirement.label,
+    requirement.dimension_type,
+    evidenceEntry.requirement_id,
+    evidenceEntry.requirement_label,
+  ].map((value) => normalizeId(value));
+  return comparable.some((value) => value && value.includes('depth'));
+}
+
+function isHoleDiameterRequirement(requirement = {}, evidenceEntry = {}, featureContext = {}) {
+  const dimensionType = normalizeId(requirement.dimension_type || requirement.style || '');
+  const comparable = [
+    requirement.id,
+    requirement.label,
+    evidenceEntry.requirement_id,
+    evidenceEntry.requirement_label,
+  ].map((value) => normalizeId(value));
+  const hasDiameterHint = comparable.some((value) => value && value.includes('dia'))
+    || comparable.some((value) => value && value.includes('diameter'))
+    || dimensionType === 'diameter';
+  return hasDiameterHint && featureContext.has_hole_feature;
+}
+
+function dimensionFixSteps(requirement = {}, evidenceEntry = {}, featureContext = {}, classification = 'unknown') {
+  const requirementLabel = cleanText(evidenceEntry.requirement_label || requirement.label || requirement.id, 'required dimension');
+  const sectionFeatureId = cleanText(featureContext.section_feature_id || featureContext.primary_feature_id);
+  const holeFeatureId = cleanText(featureContext.primary_feature_id);
+
+  if (classification === 'unsupported') {
+    return [
+      'Regenerate the drawing semantics artifacts and confirm SVG or layout extraction ran for this drawing.',
+      `Re-check ${requirementLabel} after extracted evidence is available.`,
+    ];
+  }
+
+  if (isDimensionDepthRequirement(requirement, evidenceEntry) && featureContext.supports_section_view && sectionFeatureId) {
+    return classification === 'missing'
+      ? [
+        `Add or label a section view through ${sectionFeatureId}.`,
+        `Add a linked depth dimension for ${requirementLabel}.`,
+        'Verify SVG text extraction can read the depth label.',
+      ]
+      : [
+        `Add or label a section view through ${sectionFeatureId} if the depth is not readable in the current orthographic views.`,
+        `Verify the linked depth dimension for ${requirementLabel} is visible and labeled clearly.`,
+        'Check that SVG text extraction can read the depth label.',
+      ];
+  }
+
+  if (isHoleDiameterRequirement(requirement, evidenceEntry, featureContext) && holeFeatureId) {
+    return classification === 'missing'
+      ? [
+        `Add or verify a diameter callout for ${holeFeatureId}.`,
+        `Keep the callout linked or labeled as ${requirementLabel}.`,
+        'Verify SVG text extraction can read the diameter text.',
+      ]
+      : [
+        `Verify the diameter callout for ${holeFeatureId} is visible and clearly labeled as ${requirementLabel}.`,
+        'Confirm the diameter symbol and label survive SVG text extraction.',
+      ];
+  }
+
+  if (classification === 'missing') {
+    return [
+      `Add the required dimension for ${requirementLabel} to the drawing.`,
+      `Label or link it so extracted evidence can map it back to ${requirementLabel}.`,
+    ];
+  }
+
+  if (classification === 'low_confidence') {
+    return [
+      `Review the low-confidence extracted candidate for ${requirementLabel}.`,
+      'Improve the dimension label, leader placement, or alias text so extraction becomes reliable.',
+    ];
+  }
+
+  return [
+    `Verify the dimension label for ${requirementLabel} is visible and readable in the SVG.`,
+    `Relink or relabel ${requirementLabel} if it was manually drafted or detached from the source dimension.`,
+  ];
+}
+
+function noteFixSteps(requirement = {}, evidenceEntry = {}, classification = 'unknown') {
+  const requirementLabel = cleanText(evidenceEntry.requirement_label || requirement.label || requirement.id, 'required note');
+  const noteText = cleanText(requirement.text);
+  const locationHint = requirement.category === 'material'
+    ? 'title block or material note area'
+    : 'general notes';
+
+  if (classification === 'unsupported') {
+    return [
+      'Regenerate extracted drawing semantics so SVG note extraction runs for this sheet.',
+      `Re-check ${requirementLabel} after note extraction is available.`,
+    ];
+  }
+
+  if (classification === 'missing') {
+    return uniqueStrings([
+      noteText ? `Add the required note text "${noteText}" to the ${locationHint}.` : `Add the required note for ${requirementLabel} to the ${locationHint}.`,
+      `Keep the note text labeled or readable so extraction can match ${requirementLabel}.`,
+    ]);
+  }
+
+  if (classification === 'low_confidence') {
+    return [
+      `Review the low-confidence extracted note candidate for ${requirementLabel}.`,
+      'Improve the note wording or label so extraction can match it reliably.',
+    ];
+  }
+
+  return uniqueStrings([
+    noteText ? `Verify the required note text "${noteText}" is present and readable.` : `Verify the note text for ${requirementLabel} is present and readable.`,
+    `Confirm extraction can still match the note to ${requirementLabel}.`,
+  ]);
+}
+
+function viewFixSteps(requirement = {}, evidenceEntry = {}, classification = 'unknown') {
+  const requirementLabel = cleanText(evidenceEntry.requirement_label || requirement.label || requirement.id, 'required view');
+  const viewName = cleanText(requirement.view || requirement.id || evidenceEntry.requirement_id, requirementLabel);
+
+  if (classification === 'unsupported') {
+    return [
+      'Regenerate the layout report or SVG extraction so required view detection can run.',
+      `Re-check the ${viewName} view after extracted evidence is available.`,
+    ];
+  }
+
+  if (classification === 'missing') {
+    return [
+      `Add the required ${viewName} view to the drawing.`,
+      `Label the ${viewName} view clearly so extraction can match ${requirementLabel}.`,
+    ];
+  }
+
+  if (classification === 'low_confidence') {
+    return [
+      `Review the low-confidence extracted view candidate for ${viewName}.`,
+      `Improve the ${viewName} label or layout report naming so extraction is reliable.`,
+    ];
+  }
+
+  return [
+    `Verify the ${viewName} view label is present and readable.`,
+    `Confirm extraction can match the ${viewName} view back to ${requirementLabel}.`,
+  ];
+}
+
+function pushPlannerAction(target, seenKeys, action) {
+  if (!action) return;
+  const key = [
+    cleanText(action.category, 'general'),
+    cleanText(action.target_requirement_id, 'none'),
+    cleanText(action.target_feature_id, 'none'),
+    cleanText(action.classification, 'unknown'),
+  ].join(':');
+  if (seenKeys.has(key)) return;
+  seenKeys.add(key);
+  target.push(action);
+}
+
+export function buildPlannerActionsFromExtractedCoverage({
+  drawingIntent = null,
+  featureCatalog = null,
+  planner = null,
+  extractedEvidence = null,
+} = {}) {
+  const comparison = extractedEvidence && typeof extractedEvidence === 'object' ? extractedEvidence : {};
+  const requirements = requirementLookup(drawingIntent || {});
+  const actions = [];
+  const seenKeys = new Set();
+  const coverageStatus = cleanText(comparison.status, 'not_run');
+  const coverage = comparison.coverage && typeof comparison.coverage === 'object'
+    ? comparison.coverage
+    : {};
+  const shouldFlagUnmatchedItems = Number(coverage.total_missing || 0) > 0
+    || Number(coverage.total_unknown || 0) > 0
+    || Number(coverage.total_unsupported || 0) > 0;
+
+  const requiredGroups = [
+    { key: 'required_dimensions', category: 'dimension', itemType: 'dimension', steps: dimensionFixSteps },
+    { key: 'required_notes', category: 'note', itemType: 'note', steps: noteFixSteps },
+    { key: 'required_views', category: 'view', itemType: 'view', steps: viewFixSteps },
+  ];
+
+  for (const group of requiredGroups) {
+    const entries = asArray(comparison[group.key]);
+    entries.forEach((entry, index) => {
+      const requirementId = cleanText(entry?.requirement_id);
+      const requirement = requirements.get(requirementId) || {};
+      const featureContext = requirementFeatureContext(requirement, entry, { featureCatalog, planner });
+      const rawClassification = cleanText(entry?.classification, 'unknown');
+      if (rawClassification === 'extracted') return;
+
+      const classification = rawClassification === 'unknown' && asArray(entry?.candidate_matches).length > 0
+        ? 'low_confidence'
+        : rawClassification;
+      const severity = classification === 'missing'
+        ? 'advisory'
+        : classification === 'unmatched'
+          ? 'info'
+          : 'review';
+      const requirementLabel = cleanText(entry?.requirement_label || requirement.label || requirement.id || requirementId, requirementId || 'requirement');
+      const title = group.itemType === 'dimension'
+        ? classification === 'unsupported'
+          ? `Check required dimension ${requirementLabel} after extracted drawing semantics are available.`
+          : classification === 'low_confidence'
+            ? `Review required dimension ${requirementLabel} because extracted evidence is low-confidence.`
+            : classification === 'missing'
+              ? `Add or label required dimension ${requirementLabel} if it should appear in the drawing.`
+              : `Verify required dimension ${requirementLabel} because extracted evidence is unknown.`
+        : group.itemType === 'note'
+          ? classification === 'unsupported'
+            ? `Check required note ${noteActionLabel(requirement, entry)} after extracted drawing semantics are available.`
+            : `Add or label the required note ${noteActionLabel(requirement, entry)} if it should appear in the drawing.`
+          : classification === 'unsupported'
+            ? `Check required view ${viewActionLabel(requirement, entry)} after extracted drawing semantics are available.`
+            : `Add or label the required view ${viewActionLabel(requirement, entry)} if it should appear in the drawing.`;
+      const message = cleanText(entry?.reason, title);
+      const recommendedFixSteps = group.steps(requirement, entry, featureContext, classification);
+      const evidence = [
+        actionEvidence('drawing_quality.semantic_quality.extracted_evidence', 'status', coverageStatus),
+        actionEvidence(
+          'drawing_quality.semantic_quality.extracted_evidence',
+          `${group.key}.${requirementId || index}.classification`,
+          rawClassification
+        ),
+      ];
+      const topCandidate = asArray(entry?.candidate_matches)[0];
+      if (classification === 'low_confidence' && topCandidate) {
+        evidence.push(
+          actionEvidence(
+            'drawing_quality.semantic_quality.extracted_evidence',
+            `${group.key}.${requirementId || index}.candidate_matches[0].confidence`,
+            topCandidate.confidence
+          )
+        );
+      }
+      pushPlannerAction(actions, seenKeys, buildPlannerAction({
+        id: `${group.category}:${actionIdPart(requirementId, group.category)}:${classification}`,
+        severity,
+        category: group.category,
+        targetRequirementId: requirementId,
+        targetFeatureId: featureContext.primary_feature_id,
+        classification,
+        title,
+        message,
+        recommendedFixSteps,
+        evidence,
+      }));
+    });
+  }
+
+  if (shouldFlagUnmatchedItems) {
+    const unmatchedDimensions = asArray(comparison.unmatched_dimensions)
+      .map((entry) => cleanText(entry?.raw_text))
+      .filter(Boolean);
+    if (unmatchedDimensions.length > 0) {
+      pushPlannerAction(actions, seenKeys, buildPlannerAction({
+        id: 'mapping:unmatched-dimensions:unmatched',
+        severity: 'info',
+        category: 'mapping',
+        targetRequirementId: 'unmatched_dimensions',
+        targetFeatureId: null,
+        classification: 'unmatched',
+        title: 'Improve intent aliases or drawing labels for unmatched extracted dimensions.',
+        message: 'Some extracted dimensions did not match any required drawing intent.',
+        recommendedFixSteps: [
+          'Review whether the unmatched dimensions should map to an existing required intent.',
+          'If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.',
+        ],
+        evidence: [
+          actionEvidence('drawing_quality.semantic_quality.extracted_evidence', 'status', coverageStatus),
+          actionEvidence('drawing_quality.semantic_quality.extracted_evidence', 'unmatched_dimensions.count', unmatchedDimensions.length),
+          actionEvidence('drawing_quality.semantic_quality.extracted_evidence', 'unmatched_dimensions.samples', unmatchedDimensions.slice(0, 5)),
+        ],
+      }));
+    }
+
+    const unmatchedNotes = asArray(comparison.unmatched_notes)
+      .map((entry) => cleanText(entry?.raw_text))
+      .filter(Boolean);
+    if (unmatchedNotes.length > 0) {
+      pushPlannerAction(actions, seenKeys, buildPlannerAction({
+        id: 'mapping:unmatched-notes:unmatched',
+        severity: 'info',
+        category: 'mapping',
+        targetRequirementId: 'unmatched_notes',
+        targetFeatureId: null,
+        classification: 'unmatched',
+        title: 'Improve intent aliases or drawing labels for unmatched extracted notes.',
+        message: 'Some extracted notes did not match any required drawing intent.',
+        recommendedFixSteps: [
+          'Review whether the unmatched notes should satisfy an existing required note.',
+          'If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.',
+        ],
+        evidence: [
+          actionEvidence('drawing_quality.semantic_quality.extracted_evidence', 'status', coverageStatus),
+          actionEvidence('drawing_quality.semantic_quality.extracted_evidence', 'unmatched_notes.count', unmatchedNotes.length),
+          actionEvidence('drawing_quality.semantic_quality.extracted_evidence', 'unmatched_notes.samples', unmatchedNotes.slice(0, 5)),
+        ],
+      }));
+    }
+  }
+
+  return actions;
+}
+
+export function refineDrawingPlannerWithExtractedCoverage({
+  planner = null,
+  drawingIntent = null,
+  featureCatalog = null,
+  extractedEvidence = null,
+} = {}) {
+  const currentPlanner = planner && typeof planner === 'object' ? planner : {};
+  const extractedActions = buildPlannerActionsFromExtractedCoverage({
+    drawingIntent,
+    featureCatalog,
+    planner: currentPlanner,
+    extractedEvidence,
+  });
+
+  return {
+    ...currentPlanner,
+    suggested_actions: uniqueStrings([
+      ...asArray(currentPlanner.suggested_actions),
+      ...extractedActions.map((entry) => formatPlannerSuggestedAction(entry)),
+    ]),
+    suggested_action_details: extractedActions,
+  };
+}
+
 export function buildDrawingPlanner({
   config = {},
   drawingIntent = null,
