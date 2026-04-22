@@ -29,13 +29,46 @@ def _std_ref(standard, key):
     return fallbacks.get(key, "")
 
 
-def build_general_notes(drawing_cfg, feature_graph=None, standard="KS"):
+def _normalize_note_text(value):
+    if value is None:
+        return ""
+    return " ".join(str(value).strip().split())
+
+
+def _normalize_note_key(value):
+    return "".join(ch.lower() for ch in _normalize_note_text(value) if ch.isalnum())
+
+
+def _collect_required_note_texts(drawing_intent=None):
+    mapping = {}
+    required_notes = drawing_intent.get("required_notes", []) if isinstance(drawing_intent, dict) else []
+    for entry in required_notes:
+        if isinstance(entry, str):
+            continue
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("required") is False:
+            continue
+        text = _normalize_note_text(entry.get("text"))
+        if not text:
+            continue
+        note_id = _normalize_note_key(entry.get("id"))
+        category = _normalize_note_key(entry.get("category"))
+        if category:
+            mapping[category] = text
+        if note_id:
+            mapping[note_id] = text
+    return mapping
+
+
+def build_general_notes(drawing_cfg, feature_graph=None, standard="KS", drawing_intent=None):
     """Build a list of general notes for the drawing.
 
     Args:
         drawing_cfg: drawing section of TOML config
         feature_graph: FeatureGraph for feature-aware notes
         standard: Standard system to use ('KS', 'ISO', etc.)
+        drawing_intent: optional drawing_intent section for explicit required note text
 
     Returns:
         list of note strings
@@ -47,6 +80,7 @@ def build_general_notes(drawing_cfg, feature_graph=None, standard="KS"):
     notes_cfg = drawing_cfg.get("notes", {})
     tol_cfg = drawing_cfg.get("tolerances", {})
     ks_cfg = drawing_cfg.get("ks_standard", {})
+    required_note_texts = _collect_required_note_texts(drawing_intent)
 
     # 1. General tolerance (with versioned standard reference)
     gen_tol = ks_cfg.get("general_tolerance") or tol_cfg.get("general") or meta.get("tolerance", "")
@@ -62,7 +96,10 @@ def build_general_notes(drawing_cfg, feature_graph=None, standard="KS"):
     # 2. Default surface finish
     sf_default = sf_cfg.get("default", "")
     if sf_default:
-        notes.append(f"UNLESS OTHERWISE SPECIFIED: {sf_default}")
+        notes.append(
+            required_note_texts.get("surfacefinish")
+            or f"UNLESS OTHERWISE SPECIFIED: {sf_default}"
+        )
 
     # 3. Edge treatment
     has_chamfer = False
@@ -270,4 +307,3 @@ def render_general_notes_svg(notes, x, y, max_width=200):
     out.append('</g>')
     total_height = cur_y - y
     return '\n'.join(out), total_height
-
