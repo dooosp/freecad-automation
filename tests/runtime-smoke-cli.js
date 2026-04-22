@@ -351,8 +351,17 @@ assert.equal(ksDrawingQuality.status, 'fail');
 assert.equal(ksDrawingQuality.extracted_drawing_semantics_file, ksExtractedSemanticsPath);
 assert.equal(ksDrawingQuality.semantic_quality.extracted_evidence.coverage.required_dimensions.extracted >= 0, true);
 assert.equal(ksDrawingQuality.semantic_quality.extracted_evidence.required_dimensions.some((entry) => entry.classification === 'unknown' || entry.classification === 'missing'), true);
+assert.equal(
+  ksDrawingQuality.semantic_quality.extracted_evidence.required_notes.every((entry) => entry.classification === 'extracted'),
+  true
+);
+assert.equal(
+  ksDrawingQuality.semantic_quality.extracted_evidence.required_notes.some((entry) => entry.requirement_id === 'SURFACE_FINISH' && entry.classification === 'extracted'),
+  true
+);
 assert.equal(Array.isArray(ksDrawingPlanner.suggested_action_details), true);
 assert.equal(ksDrawingPlanner.suggested_action_details.some((entry) => entry.classification === 'unknown' || entry.classification === 'missing'), true);
+assert.equal(ksDrawingPlanner.suggested_action_details.some((entry) => entry.category === 'note'), false);
 ksFixtureRecord.observed.drawingQualityStatus = ksDrawingQuality.status;
 
 const ksStrictDraw = runCliExpectFailure(['draw', bracketConfig, '--bom', '--strict-quality']);

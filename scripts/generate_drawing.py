@@ -2017,7 +2017,12 @@ try:
     if plan_notes.get("general"):
         notes_list = list(plan_notes["general"])
     elif feature_graph:
-        notes_list = build_general_notes(drawing_cfg, feature_graph, standard=config.get("standard", "KS"))
+        notes_list = build_general_notes(
+            drawing_cfg,
+            feature_graph,
+            standard=config.get("standard", "KS"),
+            drawing_intent=config.get("drawing_intent", {}),
+        )
 
     # -- Compose Drawing --
     extra_svg = '\n'.join(extra_svg_parts)

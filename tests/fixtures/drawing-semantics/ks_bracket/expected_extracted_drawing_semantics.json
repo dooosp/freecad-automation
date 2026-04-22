@@ -10,7 +10,7 @@
     "required_dimensions_total": 3,
     "required_dimensions_extracted": 1,
     "required_notes_total": 2,
-    "required_notes_extracted": 0,
+    "required_notes_extracted": 2,
     "required_views_total": 4,
     "required_views_extracted": 4
   },
@@ -23,16 +23,17 @@
   "matched_dimension_ids": [
     "WEB_HEIGHT"
   ],
-  "matched_note_ids": [],
+  "matched_note_ids": [
+    "MATERIAL",
+    "SURFACE_FINISH"
+  ],
   "title_block": {
-    "material": "SS304",
+    "material": "Material: SS304 (KS D 3698)",
     "tolerance": "Tolerance: KS B 0401 m",
     "drawing_number": null
   },
   "unknowns": [
     "Required dimension not reliably extracted: MOUNTING_HOLE_DIA.",
-    "Required dimension not reliably extracted: BASE_PLATE_ENVELOPE.",
-    "Required note not reliably extracted: MATERIAL.",
-    "Required note not reliably extracted: SURFACE_FINISH."
+    "Required dimension not reliably extracted: BASE_PLATE_ENVELOPE."
   ]
 }
