@@ -126,6 +126,7 @@ function makeAvailableExtractedEvidence() {
     unknowns: [],
     limitations: ['Advisory-only foundation.'],
     suggested_actions: [],
+    suggested_action_details: [],
   };
 }
 
@@ -316,6 +317,62 @@ function makePartialExtractedEvidence() {
     ],
     limitations: ['Advisory-only foundation.'],
     suggested_actions: ['Review low-confidence or incomplete extracted dimension evidence for: HOLE_DIA.'],
+    suggested_action_details: [
+      {
+        id: 'dimension:hole-dia:low-confidence',
+        severity: 'review',
+        category: 'dimension',
+        target_requirement_id: 'HOLE_DIA',
+        target_feature_id: 'hole_001',
+        classification: 'low_confidence',
+        title: 'Review required dimension Hole diameter because extracted evidence is low-confidence.',
+        message: 'Only a low-confidence extracted candidate was available for HOLE_DIA.',
+        recommended_fix: 'Verify the hole diameter callout is visible and update aliases if extraction should map it to HOLE_DIA.',
+        evidence: [
+          {
+            source: 'drawing_quality.semantic_quality.extracted_evidence',
+            path: 'required_dimensions.HOLE_DIA.candidate_matches[0].confidence',
+            value: '0.31',
+          },
+        ],
+      },
+      {
+        id: 'note:material:unknown',
+        severity: 'review',
+        category: 'note',
+        target_requirement_id: 'MATERIAL',
+        target_feature_id: '',
+        classification: 'unknown',
+        title: 'Add or verify the required note Material callout.',
+        message: 'Extracted drawing semantics explicitly marked the MATERIAL note as uncertain.',
+        recommended_fix: 'Verify the required note text is present and readable. Confirm extraction can still match the note to MATERIAL.',
+        evidence: [
+          {
+            source: 'drawing_quality.semantic_quality.extracted_evidence',
+            path: 'required_notes.MATERIAL.classification',
+            value: 'unknown',
+          },
+        ],
+      },
+      {
+        id: 'mapping:unmatched-dimensions:unmatched',
+        severity: 'info',
+        category: 'mapping',
+        target_requirement_id: 'unmatched_dimensions',
+        target_feature_id: '',
+        classification: 'unmatched',
+        title: 'Improve intent aliases or drawing labels for unmatched extracted dimensions.',
+        message: 'Some extracted dimensions did not match any required drawing intent.',
+        recommended_fix: 'Review whether the unmatched dimensions should map to an existing required intent.',
+        evidence: [
+          {
+            source: 'drawing_quality.semantic_quality.extracted_evidence',
+            path: 'unmatched_dimensions.count',
+            value: '1',
+          },
+        ],
+      },
+    ],
   };
 }
 
@@ -490,6 +547,8 @@ function makePartialExtractedEvidence() {
   assert.equal(model.drawingQuality.extractedSemantics.evidenceArtifact.label, 'Extracted drawing semantics JSON');
   assert.equal(model.drawingQuality.extractedSemantics.evidenceItem.value, 'extracted_drawing_semantics_json');
   assert.equal(model.drawingQuality.extractedSemantics.readinessCopy, 'Manufacturing readiness is still determined by required Geometry / Drawing / DFM gates.');
+  assert.equal(model.drawingQuality.extractedSemantics.suggestedActionCount, 0);
+  assert.equal(model.drawingQuality.extractedSemantics.suggestedActionEmptyCopy, 'No additional drawing actions were suggested from extracted evidence.');
 }
 
 {
@@ -647,6 +706,18 @@ function makePartialExtractedEvidence() {
   assert.equal(model.drawingQuality.extractedSemantics.unmatchedGroups[1].items[0].label, 'Tolerance: KS B 0401 m');
   assert.equal(model.drawingQuality.extractedSemantics.unmatchedSummary, 'Some extracted drawing text could not be matched to required intent.');
   assert.equal(model.drawingQuality.extractedSemantics.readinessCopy, 'Still blocked by required Geometry / Drawing / DFM gates.');
+  assert.equal(model.drawingQuality.extractedSemantics.suggestedActionCount, 3);
+  assert.deepEqual(
+    model.drawingQuality.extractedSemantics.suggestedActionGroups.map((group) => group.title),
+    ['Dimensions', 'Notes', 'Mapping & labels']
+  );
+  assert.equal(model.drawingQuality.extractedSemantics.suggestedActionGroups[0].items[0].impactLabel, 'Review');
+  assert.equal(model.drawingQuality.extractedSemantics.suggestedActionGroups[0].items[0].classificationLabel, 'Low confidence');
+  assert.equal(model.drawingQuality.extractedSemantics.suggestedActionGroups[0].items[0].targetSummary, 'Requirement: HOLE_DIA · Feature: hole_001');
+  assert.equal(model.drawingQuality.extractedSemantics.suggestedActionGroups[0].items[0].evidenceSourceSummary, 'Evidence source: Extracted drawing semantics');
+  assert.equal(model.drawingQuality.extractedSemantics.suggestedActionGroups[1].items[0].title.includes('Material callout'), true);
+  assert.equal(model.drawingQuality.extractedSemantics.suggestedActionGroups[2].items[0].impactLabel, 'Info');
+  assert.equal(model.blockers.some((entry) => entry.includes('Improve intent aliases')), false);
   assert.equal(model.readyLabel, 'No');
 }
 
@@ -1063,6 +1134,106 @@ assert.equal(formatQualityStatusLabel('missing', true), 'Required missing');
   assert.notEqual(model.drawingQuality.extractedSemantics.requiredGroups[0].items[0].classificationLabel, 'Extracted');
   assert.equal(model.drawingQuality.extractedSemantics.evidenceArtifact.label, 'Extracted drawing semantics JSON');
   assert.equal(model.drawingQuality.extractedSemantics.evidenceItem.value, 'extracted_drawing_semantics_json');
+}
+
+{
+  const model = buildQualityDashboardModel({
+    artifacts: [
+      makeArtifact({
+        id: 'report-summary',
+        key: 'report_summary_json',
+        type: 'report.summary-json',
+        file_name: 'grouped_action_report_summary.json',
+        extension: '.json',
+      }),
+    ],
+    artifactPayloads: {
+      'report-summary': {
+        overall_status: 'pass',
+        ready_for_manufacturing_review: true,
+        blocking_issues: [],
+        top_risks: [],
+        recommended_actions: [],
+        artifacts_referenced: [],
+        surfaces: {
+          create_quality: {
+            available: true,
+            status: 'pass',
+            blocking_issues: [],
+            warnings: [],
+          },
+          drawing_quality: {
+            available: true,
+            status: 'pass',
+            score: 95,
+            missing_required_dimensions: [],
+            conflict_count: 0,
+            overlap_count: 0,
+            traceability_coverage_percent: 100,
+            blocking_issues: [],
+            warnings: [],
+            semantic_quality: {
+              enforceable: false,
+              suggested_actions: [],
+              suggested_action_details: [
+                {
+                  id: 'view:section-a-a:missing',
+                  severity: 'advisory',
+                  category: 'view',
+                  target_requirement_id: 'SECTION_A_A',
+                  target_feature_id: 'slot_001',
+                  classification: 'missing',
+                  title: 'Add or label the required view Section A-A if it should appear in the drawing.',
+                  message: 'The required section view is missing from extracted evidence.',
+                  recommended_fix: 'Add or label the section view and keep the view label readable.',
+                  evidence: [
+                    {
+                      source: 'drawing_quality.semantic_quality.extracted_evidence',
+                      path: 'required_views.SECTION_A_A.classification',
+                      value: 'missing',
+                    },
+                  ],
+                },
+              ],
+              extracted_evidence: {
+                status: 'partial',
+                advisory_only: true,
+                path: '/tmp/output/grouped_action_extracted_drawing_semantics.json',
+                matched_required_dimensions: 0,
+                matched_required_notes: 0,
+                matched_required_views: 0,
+                unknowns: [],
+                limitations: [],
+                suggested_actions: [],
+                suggested_action_details: [],
+              },
+            },
+          },
+          dfm: {
+            available: true,
+            status: 'pass',
+            score: 100,
+            severity_counts: {
+              critical: 0,
+              major: 0,
+              minor: 0,
+              info: 0,
+            },
+            top_fixes: [],
+            blocking_issues: [],
+            warnings: [],
+          },
+        },
+      },
+    },
+  });
+
+  assert.deepEqual(
+    model.drawingQuality.extractedSemantics.suggestedActionGroups.map((group) => group.title),
+    ['Views']
+  );
+  assert.equal(model.drawingQuality.extractedSemantics.suggestedActionGroups[0].items[0].recommendedFix.includes('section view'), true);
+  assert.equal(model.readyLabel, 'Yes');
 }
 
 console.log('studio-quality-dashboard.test.js: ok');

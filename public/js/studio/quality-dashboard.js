@@ -394,6 +394,199 @@ function buildExtractedCoverageNote(coverage = {}) {
   return '';
 }
 
+const SUGGESTED_ACTION_GROUP_DEFINITIONS = [
+  { id: 'dimensions', title: 'Dimensions' },
+  { id: 'notes', title: 'Notes' },
+  { id: 'views', title: 'Views' },
+  { id: 'mapping', title: 'Mapping & labels' },
+  { id: 'review', title: 'Review / extraction' },
+  { id: 'other', title: 'Layout / other' },
+];
+
+function normalizeSuggestedActionSeverity(value = '') {
+  const normalized = normalizeString(value);
+  if (['advisory', 'review', 'info', 'enforceable'].includes(normalized)) return normalized;
+  return normalized || 'advisory';
+}
+
+function formatSuggestedActionImpactLabel(value = '') {
+  const normalized = normalizeSuggestedActionSeverity(value);
+  if (normalized === 'advisory') return 'Advisory';
+  if (normalized === 'review') return 'Review';
+  if (normalized === 'info') return 'Info';
+  if (normalized === 'enforceable') return 'Enforceable';
+  return humanizeToken(normalized) || 'Advisory';
+}
+
+function suggestedActionImpactTone(value = '') {
+  const normalized = normalizeSuggestedActionSeverity(value);
+  if (normalized === 'review') return 'warn';
+  if (normalized === 'enforceable') return 'bad';
+  return 'info';
+}
+
+function normalizeSuggestedActionClassification(value = '') {
+  const normalized = normalizeString(value);
+  if (['missing', 'unknown', 'unsupported', 'unmatched', 'low_confidence'].includes(normalized)) return normalized;
+  return normalized || 'unknown';
+}
+
+function formatSuggestedActionClassificationLabel(value = '') {
+  const normalized = normalizeSuggestedActionClassification(value);
+  if (normalized === 'low_confidence') return 'Low confidence';
+  return humanizeToken(normalized) || 'Unknown';
+}
+
+function suggestedActionClassificationTone(value = '') {
+  const normalized = normalizeSuggestedActionClassification(value);
+  if (normalized === 'missing' || normalized === 'low_confidence') return 'warn';
+  return 'info';
+}
+
+function suggestedActionGroupId(action = {}) {
+  const category = normalizeString(action.category);
+  if (category === 'dimension' || category === 'dimensions') return 'dimensions';
+  if (category === 'note' || category === 'notes') return 'notes';
+  if (category === 'view' || category === 'views') return 'views';
+  if (['mapping', 'alias', 'aliases', 'label', 'labels'].includes(category)) return 'mapping';
+  if (category === 'review' || category === 'extraction') return 'review';
+  if (category === 'layout' || category === 'other') return 'other';
+  if (normalizeSuggestedActionClassification(action.classification) === 'low_confidence') return 'review';
+  return 'other';
+}
+
+function formatSuggestedActionEvidenceSource(source = '') {
+  const normalized = normalizeString(source);
+  if (!normalized) return '';
+  if (normalized === 'drawing_quality.semantic_quality.extracted_evidence') return 'Extracted drawing semantics';
+  if (normalized === 'drawing_quality.semantic_quality') return 'Drawing semantic quality';
+  if (normalized === 'drawing_planner' || normalized === 'drawing_quality.semantic_quality.suggested_action_details') {
+    return 'Drawing planner';
+  }
+  if (normalized.includes('extracted_evidence')) return 'Extracted drawing semantics';
+  if (normalized.includes('drawing_planner')) return 'Drawing planner';
+  return humanizeToken(source.split('.').pop() || source);
+}
+
+function summarizeSuggestedActionEvidence(evidence = []) {
+  const sources = uniqueStrings(
+    safeList(evidence)
+      .map((item) => formatSuggestedActionEvidenceSource(item?.source))
+      .filter(Boolean)
+  );
+  const paths = uniqueStrings(
+    safeList(evidence)
+      .map((item) => (typeof item?.path === 'string' ? item.path.trim() : ''))
+      .filter(Boolean)
+  );
+
+  return {
+    sourceSummary: sources.length > 0 ? `Evidence source: ${sources.join(', ')}` : '',
+    pathSummary: paths.length > 0
+      ? `Evidence path: ${paths.slice(0, 2).join(' · ')}${paths.length > 2 ? ` +${paths.length - 2} more` : ''}`
+      : '',
+  };
+}
+
+function buildSuggestedActionFallbackEntry(text = '', index = 0) {
+  return {
+    id: `fallback-${index + 1}`,
+    severity: 'advisory',
+    category: 'other',
+    classification: 'unknown',
+    title: text,
+    message: '',
+    recommended_fix: '',
+    target_requirement_id: '',
+    target_feature_id: '',
+    evidence: [],
+  };
+}
+
+function suggestedActionIdentity(entry = {}) {
+  return uniqueStrings([
+    entry.id,
+    entry.category,
+    entry.target_requirement_id,
+    entry.target_feature_id,
+    entry.classification,
+    entry.severity,
+    entry.title,
+    entry.message,
+    entry.recommended_fix,
+    ...safeList(entry.evidence).map((item) => `${item?.source || ''}:${item?.path || ''}:${item?.value || ''}`),
+  ])
+    .join('|')
+    .toLowerCase();
+}
+
+function dedupeSuggestedActionDetails(entries = []) {
+  const seen = new Set();
+  const result = [];
+
+  safeList(entries).forEach((entry) => {
+    const safeEntry = safeObject(entry);
+    const identity = suggestedActionIdentity(safeEntry);
+    if (!identity || seen.has(identity)) return;
+    seen.add(identity);
+    result.push(safeEntry);
+  });
+
+  return result;
+}
+
+function buildSuggestedActionDisplayModel({ semanticQuality = {}, extractedEvidence = {} } = {}) {
+  const detailEntries = dedupeSuggestedActionDetails([
+    ...safeList(semanticQuality.suggested_action_details),
+    ...safeList(extractedEvidence.suggested_action_details),
+  ]);
+  const rawSuggestedActions = uniqueStrings([
+    ...safeList(semanticQuality.suggested_actions),
+    ...safeList(extractedEvidence.suggested_actions),
+  ]);
+  const normalizedEntries = detailEntries.length > 0
+    ? detailEntries
+    : rawSuggestedActions.map((entry, index) => buildSuggestedActionFallbackEntry(entry, index));
+  const groups = SUGGESTED_ACTION_GROUP_DEFINITIONS.map((definition) => {
+    const items = normalizedEntries
+      .filter((entry) => suggestedActionGroupId(entry) === definition.id)
+      .map((entry) => {
+        const evidenceSummary = summarizeSuggestedActionEvidence(entry.evidence);
+        const targetParts = [
+          entry.target_requirement_id ? `Requirement: ${entry.target_requirement_id}` : '',
+          entry.target_feature_id ? `Feature: ${entry.target_feature_id}` : '',
+        ].filter(Boolean);
+
+        return {
+          id: entry.id || '',
+          title: entry.title || entry.message || 'Suggested drawing action',
+          message: entry.message && entry.message !== entry.title ? entry.message : '',
+          recommendedFix: entry.recommended_fix || '',
+          impactLabel: formatSuggestedActionImpactLabel(entry.severity),
+          impactTone: suggestedActionImpactTone(entry.severity),
+          classificationLabel: formatSuggestedActionClassificationLabel(entry.classification),
+          classificationTone: suggestedActionClassificationTone(entry.classification),
+          targetSummary: targetParts.join(' · '),
+          evidenceSourceSummary: evidenceSummary.sourceSummary,
+          evidencePathSummary: evidenceSummary.pathSummary,
+        };
+      });
+
+    return {
+      id: definition.id,
+      title: definition.title,
+      items,
+    };
+  }).filter((group) => group.items.length > 0);
+
+  return {
+    totalCount: normalizedEntries.length,
+    advisoryCopy: 'These suggestions are advisory unless an explicit enforceable drawing policy applies.',
+    emptyCopy: 'No additional drawing actions were suggested from extracted evidence.',
+    groups,
+  };
+}
+
 function summarizeRequiredEvidenceForDisplay(entries = []) {
   return safeList(entries).map((entry) => {
     const safeEntry = safeObject(entry);
@@ -535,6 +728,11 @@ function buildExtractedSemanticsPanel({ artifacts = [], reportSummary = {}, draw
         }
       : null
   );
+  const suggestedActions = uniqueStrings([
+    ...safeList(semanticQuality.suggested_actions),
+    ...safeList(extractedEvidence.suggested_actions),
+  ]);
+  const suggestedActionDisplay = buildSuggestedActionDisplayModel({ semanticQuality, extractedEvidence });
 
   return {
     status: normalizedStatus,
@@ -607,10 +805,11 @@ function buildExtractedSemanticsPanel({ artifacts = [], reportSummary = {}, draw
     )
       ? 'Some extracted drawing text could not be matched to required intent.'
       : '',
-    suggestedActions: uniqueStrings([
-      ...safeList(semanticQuality.suggested_actions),
-      ...safeList(extractedEvidence.suggested_actions),
-    ]),
+    suggestedActions,
+    suggestedActionCount: suggestedActionDisplay.totalCount,
+    suggestedActionAdvisoryCopy: suggestedActionDisplay.advisoryCopy,
+    suggestedActionEmptyCopy: suggestedActionDisplay.emptyCopy,
+    suggestedActionGroups: suggestedActionDisplay.groups,
     limitations: uniqueStrings(safeList(extractedEvidence.limitations)),
     unknowns: uniqueStrings(safeList(extractedEvidence.unknowns)),
   };
