@@ -1,0 +1,124 @@
+config_version = 1
+name = "section_detail_runtime_probe"
+
+[manufacturing]
+process = "machining"
+material = "AL6061"
+
+[[shapes]]
+id = "plate"
+type = "box"
+length = 80
+width = 50
+height = 10
+
+[[shapes]]
+id = "slot_cut"
+type = "box"
+length = 24
+width = 12
+height = 14
+position = [28, 19, -2]
+
+[[shapes]]
+id = "small_hole"
+type = "cylinder"
+radius = 2.5
+height = 14
+position = [58, 34, -2]
+
+[[operations]]
+op = "cut"
+base = "plate"
+tool = "slot_cut"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "small_hole"
+result = "final"
+
+[drawing]
+views = ["top", "front"]
+
+[drawing.meta]
+part_name = "Section Detail Runtime Probe"
+material = "AL6061"
+
+[drawing.style]
+show_hidden = true
+show_centerlines = true
+show_dimensions = false
+
+[drawing.section]
+plane = "XZ"
+offset = 25.0
+label = "A-A"
+
+[drawing.detail]
+source_view = "top"
+center = [0, 0]
+radius = 90
+scale_factor = 3
+label = "B"
+cell = "right"
+
+[drawing_plan]
+part_type = "generic"
+profile = "KS"
+
+[drawing_plan.views]
+enabled = ["top", "front"]
+layout = "third_angle"
+
+[drawing_plan.dimensioning]
+qa_weight_preset = "bracket"
+
+[drawing_intent]
+part_type = "section_detail_runtime_probe"
+manufacturing_process = "machining"
+material = "AL6061"
+drawing_standard = "project-default"
+missing_semantics_policy = "advisory"
+
+[[drawing_intent.critical_features]]
+id = "SLOT_CUT"
+feature = "slot_cut"
+description = "Slot cut used only to exercise section view evidence."
+reason = "Runtime proof path for distinct section view metadata."
+view = "section_a_a"
+
+[[drawing_intent.critical_features]]
+id = "SMALL_HOLE"
+feature = "small_hole"
+description = "Small hole used only to exercise detail view evidence."
+reason = "Runtime proof path for distinct detail view metadata."
+view = "detail_b"
+
+[[drawing_intent.required_views]]
+id = "top"
+label = "Top"
+view_kind = "orthographic"
+required = true
+
+[[drawing_intent.required_views]]
+id = "section_a_a"
+label = "Section A-A"
+view_kind = "section"
+identity = "A-A"
+feature = "slot_cut"
+required = true
+
+[[drawing_intent.required_views]]
+id = "detail_b"
+label = "Detail B"
+view_kind = "detail"
+identity = "B"
+feature = "small_hole"
+source_view = "top"
+required = true
+
+[export]
+formats = ["step", "stl"]
+directory = "output"
