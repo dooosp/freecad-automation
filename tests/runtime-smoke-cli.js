@@ -99,17 +99,31 @@ function runCliExpectFailure(args) {
   return completed;
 }
 
-function cloneConfigWithOutput(sourcePath, targetName, rewrittenName) {
+function cloneConfigWithOutput(sourcePath, targetName, rewrittenName, {
+  reviewerFeedbackPath = null,
+} = {}) {
   const source = readFileSync(sourcePath, 'utf8');
   const escapedOutputDir = OUTPUT_DIR.replace(/\\/g, '\\\\');
   const withOutputDir = source.replace(
     /directory\s*=\s*"[^"]*"/,
     `directory = "${escapedOutputDir}"`
   );
-  const rewritten = withOutputDir.replace(
+  let rewritten = withOutputDir.replace(
     /^name\s*=\s*"[^"]*"/m,
     `name = "${rewrittenName}"`
   );
+
+  if (reviewerFeedbackPath) {
+    const escapedReviewerFeedbackPath = reviewerFeedbackPath.replace(/\\/g, '\\\\');
+    if (/\[reviewer_feedback\]/.test(rewritten)) {
+      rewritten = rewritten.replace(
+        /(\[reviewer_feedback\][\s\S]*?path\s*=\s*)"[^"]*"/,
+        `$1"${escapedReviewerFeedbackPath}"`
+      );
+    } else {
+      rewritten += `\n[reviewer_feedback]\npath = "${escapedReviewerFeedbackPath}"\n`;
+    }
+  }
 
   const targetPath = join(CONFIG_DIR, targetName);
   writeFileSync(targetPath, rewritten, 'utf8');
@@ -350,6 +364,19 @@ const sectionDetailConfig = cloneConfigWithOutput(
   'section_detail_runtime_probe_smoke'
 );
 smokeManifest.source_configs.push(join(ROOT, 'configs', 'examples', 'section_detail_runtime_probe.toml'));
+
+const reviewerFeedbackInputPath = join(CONFIG_DIR, 'runtime-linked-open-feedback.json');
+copyFileSync(
+  join(ROOT, 'tests', 'fixtures', 'reviewer-feedback', 'runtime-linked-open-feedback.json'),
+  reviewerFeedbackInputPath
+);
+const reviewerFeedbackConfig = cloneConfigWithOutput(
+  join(ROOT, 'configs', 'examples', 'reviewer_feedback_runtime_probe.toml'),
+  'reviewer_feedback_runtime_probe.runtime-smoke.toml',
+  'reviewer_feedback_runtime_probe_smoke',
+  { reviewerFeedbackPath: './runtime-linked-open-feedback.json' }
+);
+smokeManifest.source_configs.push(join(ROOT, 'configs', 'examples', 'reviewer_feedback_runtime_probe.toml'));
 
 runCli(['check-runtime']);
 runCli(['create', bracketConfig]);
@@ -779,14 +806,127 @@ assertArtifactManifest(
   }
 );
 
+runCli(['create', reviewerFeedbackConfig, '--strict-quality']);
+const reviewerFeedbackBase = 'reviewer_feedback_runtime_probe_smoke';
+const reviewerFeedbackCreateQualityPath = join(OUTPUT_DIR, `${reviewerFeedbackBase}_create_quality.json`);
+assertArtifact(reviewerFeedbackCreateQualityPath);
+const reviewerFeedbackCreateQuality = readJson(reviewerFeedbackCreateQualityPath);
+assert.equal(reviewerFeedbackCreateQuality.status, 'pass');
+
+runCli(['draw', reviewerFeedbackConfig, '--bom', '--strict-quality']);
+const reviewerFeedbackDrawingQualityPath = join(OUTPUT_DIR, `${reviewerFeedbackBase}_drawing_quality.json`);
+const reviewerFeedbackExtractedSemanticsPath = join(OUTPUT_DIR, `${reviewerFeedbackBase}_extracted_drawing_semantics.json`);
+const reviewerFeedbackDrawingPlannerPath = join(OUTPUT_DIR, `${reviewerFeedbackBase}_drawing_planner.json`);
+const reviewerFeedbackDrawingIntentPath = join(OUTPUT_DIR, `${reviewerFeedbackBase}_drawing_intent.json`);
+const reviewerFeedbackFeatureCatalogPath = join(OUTPUT_DIR, `${reviewerFeedbackBase}_feature_catalog.json`);
+assertArtifact(reviewerFeedbackInputPath);
+assertArtifact(reviewerFeedbackDrawingQualityPath);
+assertArtifact(reviewerFeedbackExtractedSemanticsPath);
+assertArtifact(reviewerFeedbackDrawingPlannerPath);
+assertArtifact(reviewerFeedbackDrawingIntentPath);
+assertArtifact(reviewerFeedbackFeatureCatalogPath);
+const reviewerFeedbackDrawingQuality = readJson(reviewerFeedbackDrawingQualityPath);
+const reviewerFeedbackDrawingPlanner = readJson(reviewerFeedbackDrawingPlannerPath);
+const reviewerFeedbackSummary = reviewerFeedbackDrawingQuality.reviewer_feedback;
+const reviewerFeedbackItem = reviewerFeedbackSummary.items.find((entry) => entry.id === 'rf-runtime-open-001');
+assert.equal(reviewerFeedbackDrawingQuality.status, 'pass');
+assert.equal(reviewerFeedbackSummary.advisory_only, true);
+assert.equal(reviewerFeedbackSummary.status, 'available');
+assert.equal(reviewerFeedbackSummary.evidence_state, 'linked');
+assert.equal(reviewerFeedbackSummary.total_count, 1);
+assert.equal(reviewerFeedbackSummary.unresolved_count, 1);
+assert.equal(reviewerFeedbackSummary.linked_count, 1);
+assert.equal(reviewerFeedbackSummary.invalid_count, 0);
+assert.equal(reviewerFeedbackSummary.provenance.path, reviewerFeedbackInputPath);
+assert(reviewerFeedbackItem, 'Runtime reviewer feedback item should be surfaced in drawing quality');
+assert.equal(reviewerFeedbackItem.target_type, 'required_dimension');
+assert.equal(reviewerFeedbackItem.target_id, 'HOLE_LEFT_DIA');
+assert.equal(reviewerFeedbackItem.link_status, 'linked');
+assert.equal(reviewerFeedbackItem.resolution_state, 'unresolved');
+assert.equal(reviewerFeedbackItem.provenance.path, reviewerFeedbackInputPath);
+assert.equal(
+  reviewerFeedbackItem.linked_evidence.some(
+    (entry) => entry.path === 'required_dimensions.HOLE_LEFT_DIA.classification' && entry.value === 'extracted'
+  ),
+  true
+);
+assert.equal(
+  reviewerFeedbackDrawingQuality.semantic_quality.extracted_evidence.required_dimensions.every(
+    (entry) => entry.classification === 'extracted'
+  ),
+  true
+);
+assert.equal(
+  reviewerFeedbackDrawingPlanner.suggested_action_details.some(
+    (entry) => entry.category === 'reviewer_feedback' && entry.classification === 'linked'
+  ),
+  true
+);
+assertArtifactManifest(
+  join(OUTPUT_DIR, `${reviewerFeedbackBase}_drawing_artifact-manifest.json`),
+  {
+    command: 'draw',
+    requiredArtifactTypes: ['drawing.svg', 'drawing.qa-report'],
+    expectedConfigSuffix: `output/smoke/${RUN_ID}/configs/reviewer_feedback_runtime_probe.runtime-smoke.toml`,
+  }
+);
+assertOutputManifest(
+  join(OUTPUT_DIR, `${reviewerFeedbackBase}_drawing_manifest.json`),
+  {
+    command: 'draw',
+    linkedQualityPath: reviewerFeedbackDrawingQualityPath,
+    linkedArtifacts: {
+      planner_json: reviewerFeedbackDrawingPlannerPath,
+      extracted_drawing_semantics_json: reviewerFeedbackExtractedSemanticsPath,
+      drawing_intent_json: reviewerFeedbackDrawingIntentPath,
+      feature_catalog_json: reviewerFeedbackFeatureCatalogPath,
+      reviewer_feedback_json: reviewerFeedbackInputPath,
+    },
+  }
+);
+
+syncArtifactsForReport(reviewerFeedbackBase);
+runCli(['report', reviewerFeedbackConfig, '--dfm', '--out-dir', OUTPUT_DIR]);
+assertArtifact(join(REPORT_DIR, `${reviewerFeedbackBase}_report.pdf`));
+const reviewerFeedbackReportSummaryPath = join(REPORT_DIR, `${reviewerFeedbackBase}_report_summary.json`);
+assertArtifact(reviewerFeedbackReportSummaryPath);
+const reviewerFeedbackReportSummary = readJson(reviewerFeedbackReportSummaryPath);
+assert.equal(reviewerFeedbackReportSummary.ready_for_manufacturing_review, true);
+assert.equal(reviewerFeedbackReportSummary.overall_status, 'pass');
+assert.equal(reviewerFeedbackReportSummary.surfaces.drawing_quality.reviewer_feedback.status, 'available');
+assert.equal(reviewerFeedbackReportSummary.surfaces.drawing_quality.reviewer_feedback.unresolved_count, 1);
+assert.equal(reviewerFeedbackReportSummary.surfaces.drawing_quality.reviewer_feedback.linked_count, 1);
+assert.equal(
+  reviewerFeedbackReportSummary.surfaces.drawing_quality.reviewer_feedback.items
+    .some((entry) => entry.id === 'rf-runtime-open-001' && entry.link_status === 'linked'),
+  true
+);
+assert.equal(
+  reviewerFeedbackReportSummary.inputs_consumed
+    .some((entry) => entry.key === 'reviewer_feedback_json' && entry.path === reviewerFeedbackInputPath),
+  true
+);
+assertArtifactManifest(
+  join(REPORT_DIR, `${reviewerFeedbackBase}_report_artifact-manifest.json`),
+  {
+    command: 'report',
+    requiredArtifactTypes: ['report.pdf'],
+    expectedConfigSuffix: `output/smoke/${RUN_ID}/configs/reviewer_feedback_runtime_probe.runtime-smoke.toml`,
+    detailChecks: (manifest) => {
+      assert.equal(manifest.details?.include_fem, false);
+      assert.equal(manifest.details?.include_tolerance, true);
+    },
+  }
+);
+
 writeFileSync(MANIFEST_PATH, JSON.stringify(smokeManifest, null, 2) + '\n', 'utf8');
 const persistedSmokeManifest = readJson(MANIFEST_PATH);
 assert.equal(Array.isArray(persistedSmokeManifest.source_configs), true);
 assert.equal(Array.isArray(persistedSmokeManifest.commands), true);
 assert.equal(Array.isArray(persistedSmokeManifest.artifact_manifests), true);
 assert.equal(Array.isArray(persistedSmokeManifest.artifacts), true);
-assert.equal(persistedSmokeManifest.source_configs.length, 4);
-assert.equal(persistedSmokeManifest.artifact_manifests.length, 7);
+assert.equal(persistedSmokeManifest.source_configs.length, 5);
+assert.equal(persistedSmokeManifest.artifact_manifests.length, 9);
 assert(
   persistedSmokeManifest.commands.some(
     (entry) => entry.command.includes('fcad fem') && entry.command.includes('bracket_fem.runtime-smoke.toml')
@@ -800,10 +940,22 @@ assert(
   'Smoke manifest should record the section/detail runtime draw command'
 );
 assert(
+  persistedSmokeManifest.commands.some(
+    (entry) => entry.command.includes('fcad draw') && entry.command.includes('reviewer_feedback_runtime_probe.runtime-smoke.toml')
+  ),
+  'Smoke manifest should record the reviewer-feedback runtime draw command'
+);
+assert(
   persistedSmokeManifest.artifacts.some(
     (artifact) => artifact.path === sectionDetailExtractedSemanticsPath
   ),
   'Smoke manifest should summarize the section/detail extracted semantics artifact'
+);
+assert(
+  persistedSmokeManifest.artifacts.some(
+    (artifact) => artifact.path === reviewerFeedbackDrawingQualityPath
+  ),
+  'Smoke manifest should summarize the reviewer-feedback drawing quality artifact'
 );
 assert(
   persistedSmokeManifest.commands.some(

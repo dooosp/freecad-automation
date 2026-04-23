@@ -209,6 +209,12 @@
             "string",
             "null"
           ]
+        },
+        "reviewer_feedback_json": {
+          "type": [
+            "string",
+            "null"
+          ]
         }
       }
     },

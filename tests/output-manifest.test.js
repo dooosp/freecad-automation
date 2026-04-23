@@ -21,6 +21,7 @@ try {
   const plannerPath = join(TMP_DIR, 'sample_drawing_planner.json');
   const featureCatalogPath = join(TMP_DIR, 'sample_feature_catalog.json');
   const extractedSemanticsPath = join(TMP_DIR, 'sample_extracted_drawing_semantics.json');
+  const reviewerFeedbackPath = join(TMP_DIR, 'reviewer_feedback.json');
 
   writeFileSync(inputPath, 'name = "sample"\n', 'utf8');
   writeFileSync(outputPath, 'STEP', 'utf8');
@@ -28,6 +29,7 @@ try {
   writeFileSync(plannerPath, JSON.stringify({ status: 'advisory' }, null, 2), 'utf8');
   writeFileSync(featureCatalogPath, JSON.stringify({ artifact_type: 'feature_catalog' }, null, 2), 'utf8');
   writeFileSync(extractedSemanticsPath, JSON.stringify({ artifact_type: 'extracted_drawing_semantics' }, null, 2), 'utf8');
+  writeFileSync(reviewerFeedbackPath, JSON.stringify({ schema_version: '0.1', items: [] }, null, 2), 'utf8');
 
   const manifest = await buildOutputManifest({
     projectRoot: ROOT,
@@ -49,6 +51,7 @@ try {
       planner_json: plannerPath,
       feature_catalog_json: featureCatalogPath,
       extracted_drawing_semantics_json: extractedSemanticsPath,
+      reviewer_feedback_json: reviewerFeedbackPath,
     },
     warnings: ['example warning'],
     status: 'warning',
@@ -71,6 +74,7 @@ try {
   assert.equal(manifest.linked_artifacts.planner_json, plannerPath);
   assert.equal(manifest.linked_artifacts.feature_catalog_json, featureCatalogPath);
   assert.equal(manifest.linked_artifacts.extracted_drawing_semantics_json, extractedSemanticsPath);
+  assert.equal(manifest.linked_artifacts.reviewer_feedback_json, reviewerFeedbackPath);
   assert.equal(manifest.repo.branch, 'feat/output-manifest-foundation');
   assert.equal(manifest.timings.duration_ms, 2000);
 

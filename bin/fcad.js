@@ -2575,7 +2575,10 @@ async function cmdDraw(rawArgs = []) {
         .concat(result.drawing_intent_json ? [createOutputEntry('drawing.intent-json', result.drawing_intent_json)] : [])
         .concat(result.feature_catalog_json ? [createOutputEntry('drawing.feature-catalog-json', result.feature_catalog_json)] : [])
         .filter(Boolean),
-      linkedArtifacts: buildDrawLinkedArtifactsFromSvg(svgPath),
+      linkedArtifacts: {
+        ...buildDrawLinkedArtifactsFromSvg(svgPath),
+        ...(result.reviewer_feedback_path ? { reviewer_feedback_json: result.reviewer_feedback_path } : {}),
+      },
       warnings: configDocument.summary?.warnings || [],
     });
     console.log(`Manifest: ${manifestPath}`);
