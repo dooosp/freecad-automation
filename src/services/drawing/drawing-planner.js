@@ -1133,6 +1133,73 @@ export function refineDrawingPlannerWithExtractedCoverage({
   };
 }
 
+export function buildPlannerActionsFromLayoutReadability(layoutReadability = null) {
+  const block = layoutReadability && typeof layoutReadability === 'object' ? layoutReadability : {};
+  const findings = asArray(block.findings).filter((finding) => finding?.severity === 'warning');
+  const actions = [];
+  const seenKeys = new Set();
+
+  findings.forEach((finding, index) => {
+    const viewIds = asArray(finding.view_ids).map((entry) => cleanText(entry)).filter(Boolean);
+    const localizedViewIds = viewIds.filter((entry) => entry !== 'page');
+    if (
+      ['text_overlap', 'dimension_overlap', 'view_crowding'].includes(cleanText(finding.type, ''))
+      && localizedViewIds.length === 0
+    ) {
+      return;
+    }
+    const evidence = [
+      actionEvidence('drawing_quality.layout_readability', 'status', cleanText(block.status, 'unknown')),
+      actionEvidence('drawing_quality.layout_readability', `findings.${index}.type`, cleanText(finding.type, 'unknown')),
+      actionEvidence('drawing_quality.layout_readability', `findings.${index}.view_ids`, viewIds),
+    ];
+
+    const rawSource = finding.raw_source && typeof finding.raw_source === 'object' ? finding.raw_source : {};
+    if (cleanText(rawSource.path)) {
+      evidence.push(actionEvidence('drawing_quality.layout_readability', `findings.${index}.raw_source.path`, rawSource.path));
+    }
+    if (cleanText(rawSource.method)) {
+      evidence.push(actionEvidence('drawing_quality.layout_readability', `findings.${index}.raw_source.method`, rawSource.method));
+    }
+
+    pushPlannerAction(actions, seenKeys, buildPlannerAction({
+      id: `layout:${actionIdPart(finding.type, 'finding')}:${actionIdPart(localizedViewIds[0] || viewIds[0], String(index + 1))}`,
+      severity: 'info',
+      category: 'layout',
+      classification: cleanText(finding.type, 'warning'),
+      title: cleanText(finding.message, 'Review advisory layout/readability evidence.'),
+      message: cleanText(finding.message, 'Structured layout/readability evidence needs review.'),
+      recommendedFixSteps: [
+        cleanText(finding.recommendation, 'Review advisory layout/readability evidence and adjust the drawing if the structured finding is valid.'),
+      ],
+      evidence,
+    }));
+  });
+
+  return actions;
+}
+
+export function refineDrawingPlannerWithLayoutReadability({
+  planner = null,
+  layoutReadability = null,
+} = {}) {
+  const currentPlanner = planner && typeof planner === 'object' ? planner : {};
+  const layoutActions = buildPlannerActionsFromLayoutReadability(layoutReadability);
+  const existingDetails = asArray(currentPlanner.suggested_action_details);
+
+  return {
+    ...currentPlanner,
+    suggested_actions: uniqueStrings([
+      ...asArray(currentPlanner.suggested_actions),
+      ...layoutActions.map((entry) => formatPlannerSuggestedAction(entry)),
+    ]),
+    suggested_action_details: [
+      ...existingDetails,
+      ...layoutActions.filter((entry) => !existingDetails.some((existing) => existing?.id === entry.id)),
+    ],
+  };
+}
+
 export function buildDrawingPlanner({
   config = {},
   drawingIntent = null,

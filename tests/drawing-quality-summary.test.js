@@ -106,6 +106,52 @@ function makeBaseArtifacts() {
   assert.deepEqual(summary.recommended_actions, []);
   assert.equal(summary.semantic_quality.decision, 'unknown');
   assert.equal(summary.semantic_quality.enforceable, false);
+  assert.equal(summary.layout_readability.status, 'ok');
+  assert.equal(summary.layout_readability.evidence_state, 'partial');
+  assert.equal(summary.layout_readability.score, null);
+  assert.equal(summary.layout_readability.warning_count, 0);
+}
+
+{
+  const summary = buildDrawingQualitySummary({
+    ...makeBaseArtifacts(),
+    qaReport: {
+      score: 94,
+      metrics: {
+        overflow_count: 0,
+        text_overlap_pairs: 1,
+        dim_overlap_pairs: 1,
+        notes_overflow: true,
+      },
+      details: {
+        overflows: [],
+        text_overlaps: [{ text1: '12', text2: 'R6', iou: 0.33, view: 'front' }],
+      },
+    },
+    layoutReport: {
+      views: {
+        front: { label: 'Front', fit: { overflow: true } },
+        top: { label: 'Top', fit: { overflow: false } },
+        right: { label: 'Right', fit: { overflow: false } },
+      },
+      summary: {
+        view_count: 3,
+        overflow_views: [],
+        all_within_limits: true,
+      },
+    },
+  });
+
+  assert.equal(summary.status, 'pass');
+  assert.deepEqual(summary.blocking_issues, []);
+  assert.equal(summary.layout_readability.status, 'warning');
+  assert.equal(summary.layout_readability.warning_count, 4);
+  assert.deepEqual(
+    summary.layout_readability.findings.map((entry) => entry.type),
+    ['view_crowding', 'text_overlap', 'dimension_overlap', 'title_block_clearance']
+  );
+  assert.equal(summary.recommended_actions.some((entry) => entry.includes('Reduce scale or improve spacing for view Front.')), true);
+  assert.equal(summary.recommended_actions.some((entry) => entry.includes('title block')), true);
 }
 
 {

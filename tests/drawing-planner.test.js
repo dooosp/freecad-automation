@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import {
   buildDrawingPlanner,
   buildPlannerActionsFromExtractedCoverage,
+  buildPlannerActionsFromLayoutReadability,
   refineDrawingPlannerWithExtractedCoverage,
+  refineDrawingPlannerWithLayoutReadability,
 } from '../src/services/drawing/drawing-planner.js';
 
 function makePlateConfig() {
@@ -259,6 +261,55 @@ function makePlateConfig() {
   assert.equal(plan.recommended_views.some((entry) => entry.view === 'section_a_a' && entry.status === 'recommended'), true);
   assert.equal(plan.recommended_views.some((entry) => entry.view === 'detail_b' && entry.status === 'recommended'), true);
   assert.equal(plan.suggested_actions.some((entry) => entry.includes('distinct labeled view region')), true);
+}
+
+{
+  const layoutActions = buildPlannerActionsFromLayoutReadability({
+    status: 'warning',
+    findings: [
+      {
+        type: 'text_overlap',
+        severity: 'warning',
+        message: 'Structured QA evidence shows overlapping drawing text.',
+        recommendation: 'Separate overlapping note or dimension text and reroute leaders if needed.',
+        view_ids: ['front'],
+        raw_source: {
+          path: '/tmp/layout_warning_qa.json',
+          method: 'qa_vector_text_overlap',
+        },
+      },
+    ],
+  });
+  assert.equal(layoutActions.length, 1);
+  assert.equal(layoutActions[0].category, 'layout');
+  assert.equal(layoutActions[0].classification, 'text_overlap');
+
+  const refinedPlanner = refineDrawingPlannerWithLayoutReadability({
+    planner: {
+      status: 'advisory',
+      suggested_actions: ['Carry forward existing planner suggestion.'],
+      suggested_action_details: [],
+    },
+    layoutReadability: {
+      status: 'warning',
+      findings: [
+        {
+          type: 'text_overlap',
+          severity: 'warning',
+          message: 'Structured QA evidence shows overlapping drawing text.',
+          recommendation: 'Separate overlapping note or dimension text and reroute leaders if needed.',
+          view_ids: ['front'],
+          raw_source: {
+            path: '/tmp/layout_warning_qa.json',
+            method: 'qa_vector_text_overlap',
+          },
+        },
+      ],
+    },
+  });
+  assert.equal(refinedPlanner.suggested_action_details.length, 1);
+  assert.equal(refinedPlanner.suggested_actions.some((entry) => entry.includes('overlapping drawing text')), true);
+  assert.equal(refinedPlanner.suggested_actions.some((entry) => entry.includes('Separate overlapping note or dimension text')), true);
 }
 
 console.log('drawing-planner.test.js: ok');

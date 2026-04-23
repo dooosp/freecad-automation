@@ -50,6 +50,16 @@ function makeBaseInput(overrides = {}) {
       blocking_issues: [],
       warnings: [],
       recommended_actions: [],
+      layout_readability: {
+        status: 'ok',
+        score: 100,
+        confidence: 'high',
+        evidence_state: 'available',
+        summary: 'No advisory layout/readability findings were confirmed from structured metadata.',
+        finding_count: 0,
+        warning_count: 0,
+        findings: [],
+      },
       semantic_quality: {
         decision: 'pass',
         advisory_decision: 'pass',
@@ -260,6 +270,8 @@ function makeBaseInput(overrides = {}) {
   assert.equal(summary.surfaces.drawing_quality.semantic_quality.extracted_evidence.required_notes[0].classification, 'unknown');
   assert.equal(summary.surfaces.drawing_quality.semantic_quality.extracted_evidence.suggested_action_details[0].target_requirement_id, 'MATERIAL');
   assert.equal(summary.surfaces.drawing_quality.semantic_quality.extracted_evidence.suggested_action_details[0].classification, 'unknown');
+  assert.equal(summary.surfaces.drawing_quality.layout_readability.status, 'ok');
+  assert.equal(summary.surfaces.drawing_quality.layout_readability.score, 100);
 }
 
 {
