@@ -263,6 +263,32 @@ function assertOutputManifest(manifestPath, { command, linkedQualityPath = null,
   return manifest;
 }
 
+function findRequiredViewClassification(drawingQuality, requirementId) {
+  return drawingQuality.semantic_quality?.extracted_evidence?.required_views
+    ?.find((entry) => entry.requirement_id === requirementId);
+}
+
+function assertRuntimeViewEvidence(semantics, {
+  id,
+  viewKind,
+  identity,
+  sourceView = null,
+  regionRef,
+  drawingSvgPath,
+}) {
+  const view = semantics.views.find((entry) => entry.id === id && entry.view_kind === viewKind);
+  assert(view, `Expected extracted ${viewKind} view evidence for ${id}`);
+  assert.equal(view.identity, identity);
+  assert.equal(view.source_view, sourceView);
+  assert.equal(view.source, drawingSvgPath);
+  assert.equal(view.provenance?.artifact_type, 'svg');
+  assert.equal(view.provenance?.method, 'svg_view_group_metadata');
+  assert.equal(view.provenance?.svg_region_ref, regionRef);
+  assert.match(view.provenance?.svg_group_id || '', /^drawing-view-/);
+  assert.equal(view.confidence >= 0.9, true);
+  return view;
+}
+
 rmSync(OUTPUT_DIR, { recursive: true, force: true });
 mkdirSync(CONFIG_DIR, { recursive: true });
 
@@ -286,6 +312,13 @@ const qualityPassConfig = cloneConfigWithOutput(
   'quality_pass_bracket_runtime_smoke'
 );
 smokeManifest.source_configs.push(join(ROOT, 'configs', 'examples', 'quality_pass_bracket.toml'));
+
+const sectionDetailConfig = cloneConfigWithOutput(
+  join(ROOT, 'configs', 'examples', 'section_detail_runtime_probe.toml'),
+  'section_detail_runtime_probe.runtime-smoke.toml',
+  'section_detail_runtime_probe_smoke'
+);
+smokeManifest.source_configs.push(join(ROOT, 'configs', 'examples', 'section_detail_runtime_probe.toml'));
 
 runCli(['check-runtime']);
 runCli(['create', bracketConfig]);
@@ -574,19 +607,151 @@ assertArtifactManifest(
   }
 );
 
+runCli(['draw', sectionDetailConfig]);
+const sectionDetailBase = 'section_detail_runtime_probe_smoke';
+const sectionDetailDrawingSvgPath = join(OUTPUT_DIR, `${sectionDetailBase}_drawing.svg`);
+const sectionDetailDrawingQualityPath = join(OUTPUT_DIR, `${sectionDetailBase}_drawing_quality.json`);
+const sectionDetailExtractedSemanticsPath = join(OUTPUT_DIR, `${sectionDetailBase}_extracted_drawing_semantics.json`);
+const sectionDetailDrawingPlannerPath = join(OUTPUT_DIR, `${sectionDetailBase}_drawing_planner.json`);
+const sectionDetailDrawingIntentPath = join(OUTPUT_DIR, `${sectionDetailBase}_drawing_intent.json`);
+const sectionDetailFeatureCatalogPath = join(OUTPUT_DIR, `${sectionDetailBase}_feature_catalog.json`);
+const sectionDetailLayoutReportPath = join(OUTPUT_DIR, `${sectionDetailBase}_layout_report.json`);
+assertArtifact(sectionDetailDrawingSvgPath);
+assertArtifact(sectionDetailDrawingQualityPath);
+assertArtifact(sectionDetailExtractedSemanticsPath);
+assertArtifact(sectionDetailDrawingPlannerPath);
+assertArtifact(sectionDetailDrawingIntentPath);
+assertArtifact(sectionDetailFeatureCatalogPath);
+assertArtifact(sectionDetailLayoutReportPath);
+assertArtifactManifest(
+  join(OUTPUT_DIR, `${sectionDetailBase}_drawing_artifact-manifest.json`),
+  {
+    command: 'draw',
+    requiredArtifactTypes: ['drawing.svg', 'drawing.qa-report'],
+    expectedConfigSuffix: `output/smoke/${RUN_ID}/configs/section_detail_runtime_probe.runtime-smoke.toml`,
+  }
+);
+const sectionDetailSemantics = readJson(sectionDetailExtractedSemanticsPath);
+const sectionDetailDrawingQuality = readJson(sectionDetailDrawingQualityPath);
+const sectionDetailDrawingPlanner = readJson(sectionDetailDrawingPlannerPath);
+assert.equal(sectionDetailSemantics.sources.some((entry) => entry.method === 'svg_view_group_metadata' && entry.inspected === true), true);
+assert.equal(sectionDetailSemantics.coverage.required_views_extracted, 3);
+assertRuntimeViewEvidence(sectionDetailSemantics, {
+  id: 'section_a_a',
+  viewKind: 'section',
+  identity: 'A-A',
+  sourceView: 'top',
+  regionRef: 'cell:iso',
+  drawingSvgPath: sectionDetailDrawingSvgPath,
+});
+assertRuntimeViewEvidence(sectionDetailSemantics, {
+  id: 'detail_b',
+  viewKind: 'detail',
+  identity: 'B',
+  sourceView: 'top',
+  regionRef: 'cell:right',
+  drawingSvgPath: sectionDetailDrawingSvgPath,
+});
+assert.equal(sectionDetailDrawingQuality.status, 'pass');
+assert.equal(sectionDetailDrawingQuality.semantic_quality.extracted_evidence.coverage.required_views.extracted, 3);
+assert.equal(sectionDetailDrawingQuality.semantic_quality.extracted_evidence.coverage.required_views.missing, 0);
+assert.equal(sectionDetailDrawingQuality.semantic_quality.extracted_evidence.coverage.required_views.unknown, 0);
+assert.equal(findRequiredViewClassification(sectionDetailDrawingQuality, 'section_a_a')?.classification, 'extracted');
+assert.equal(findRequiredViewClassification(sectionDetailDrawingQuality, 'detail_b')?.classification, 'extracted');
+assert.equal(Array.isArray(sectionDetailDrawingPlanner.suggested_actions), true);
+assert.equal(
+  sectionDetailDrawingPlanner.suggested_actions.some((entry) => entry.includes('detail view')),
+  true
+);
+assert.equal(Array.isArray(sectionDetailDrawingPlanner.suggested_action_details), true);
+assertOutputManifest(
+  join(OUTPUT_DIR, `${sectionDetailBase}_drawing_manifest.json`),
+  {
+    command: 'draw',
+    linkedQualityPath: sectionDetailDrawingQualityPath,
+    linkedArtifacts: {
+      planner_json: sectionDetailDrawingPlannerPath,
+      extracted_drawing_semantics_json: sectionDetailExtractedSemanticsPath,
+      drawing_intent_json: sectionDetailDrawingIntentPath,
+      feature_catalog_json: sectionDetailFeatureCatalogPath,
+    },
+  }
+);
+
+syncArtifactsForReport(sectionDetailBase);
+runCli(['report', sectionDetailConfig, '--out-dir', OUTPUT_DIR]);
+assertArtifact(join(REPORT_DIR, `${sectionDetailBase}_report.pdf`));
+const sectionDetailReportSummaryPath = join(REPORT_DIR, `${sectionDetailBase}_report_summary.json`);
+assertArtifact(sectionDetailReportSummaryPath);
+const sectionDetailReportSummary = readJson(sectionDetailReportSummaryPath);
+assert.equal(
+  sectionDetailReportSummary.artifacts_referenced.find((artifact) => artifact.key === 'drawing_intent')?.path,
+  sectionDetailDrawingIntentPath
+);
+assert.equal(
+  sectionDetailReportSummary.artifacts_referenced.find((artifact) => artifact.key === 'feature_catalog')?.path,
+  sectionDetailFeatureCatalogPath
+);
+assert.equal(
+  sectionDetailReportSummary.artifacts_referenced.find((artifact) => artifact.key === 'extracted_drawing_semantics')?.path,
+  sectionDetailExtractedSemanticsPath
+);
+assert.equal(
+  sectionDetailReportSummary.surfaces.drawing_quality.semantic_quality.extracted_evidence.path,
+  sectionDetailExtractedSemanticsPath
+);
+assert.equal(
+  sectionDetailReportSummary.surfaces.drawing_quality.semantic_quality.extracted_evidence.coverage.required_views.extracted,
+  3
+);
+assert.equal(
+  sectionDetailReportSummary.surfaces.drawing_quality.semantic_quality.extracted_evidence.required_views
+    .some((entry) => entry.requirement_id === 'section_a_a' && entry.classification === 'extracted'),
+  true
+);
+assert.equal(
+  sectionDetailReportSummary.surfaces.drawing_quality.semantic_quality.extracted_evidence.required_views
+    .some((entry) => entry.requirement_id === 'detail_b' && entry.classification === 'extracted'),
+  true
+);
+assertArtifactManifest(
+  join(REPORT_DIR, `${sectionDetailBase}_report_artifact-manifest.json`),
+  {
+    command: 'report',
+    requiredArtifactTypes: ['report.pdf'],
+    expectedConfigSuffix: `output/smoke/${RUN_ID}/configs/section_detail_runtime_probe.runtime-smoke.toml`,
+    detailChecks: (manifest) => {
+      assert.equal(manifest.details?.include_fem, false);
+      assert.equal(manifest.details?.include_tolerance, true);
+    },
+  }
+);
+
 writeFileSync(MANIFEST_PATH, JSON.stringify(smokeManifest, null, 2) + '\n', 'utf8');
 const persistedSmokeManifest = readJson(MANIFEST_PATH);
 assert.equal(Array.isArray(persistedSmokeManifest.source_configs), true);
 assert.equal(Array.isArray(persistedSmokeManifest.commands), true);
 assert.equal(Array.isArray(persistedSmokeManifest.artifact_manifests), true);
 assert.equal(Array.isArray(persistedSmokeManifest.artifacts), true);
-assert.equal(persistedSmokeManifest.source_configs.length, 3);
-assert.equal(persistedSmokeManifest.artifact_manifests.length, 5);
+assert.equal(persistedSmokeManifest.source_configs.length, 4);
+assert.equal(persistedSmokeManifest.artifact_manifests.length, 7);
 assert(
   persistedSmokeManifest.commands.some(
     (entry) => entry.command.includes('fcad fem') && entry.command.includes('bracket_fem.runtime-smoke.toml')
   ),
   'Smoke manifest should record the FEM runtime command'
+);
+assert(
+  persistedSmokeManifest.commands.some(
+    (entry) => entry.command.includes('fcad draw') && entry.command.includes('section_detail_runtime_probe.runtime-smoke.toml')
+  ),
+  'Smoke manifest should record the section/detail runtime draw command'
+);
+assert(
+  persistedSmokeManifest.artifacts.some(
+    (artifact) => artifact.path === sectionDetailExtractedSemanticsPath
+  ),
+  'Smoke manifest should summarize the section/detail extracted semantics artifact'
 );
 assert(
   persistedSmokeManifest.commands.some(

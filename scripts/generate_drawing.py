@@ -83,6 +83,12 @@ def _wrap_view_svg(svg, metadata=None, fallback_view_id="view"):
         attrs.append(f'data-source-view="{_escape(str(metadata["source_view"]))}"')
     return f'<g {" ".join(attrs)}>\n{svg}\n</g>'
 
+
+def _resolve_optional_view_cell(view_cfg, default_cell="iso"):
+    """Resolve an explicitly configured optional view cell."""
+    cell = str((view_cfg or {}).get("cell") or default_cell or "iso").strip().lower()
+    return cell if cell in VIEW_CELLS else default_cell
+
 def project_view(shape, direction, view_name):
     """Project shape with TechDraw.projectEx() and classify edges.
     Returns: (groups, bounds, circles, arcs)
@@ -1868,14 +1874,15 @@ try:
             sec_groups, sec_bounds, sec_circles, _sec_arcs = project_view(
                 sec_shape, sec_dir, "front")
             if sec_groups:
-                # Place section in ISO cell (top-right), replacing ISO if present
-                sec_cx, sec_cy = VIEW_CELLS.get("iso", VIEW_CELLS["right"])
+                # Place section in ISO cell by default, replacing ISO if present.
+                sec_cell = _resolve_optional_view_cell(section_cfg, "iso")
+                sec_cx, sec_cy = VIEW_CELLS.get(sec_cell, VIEW_CELLS["iso"])
                 sec_svg = render_section_svg(
                     sec_label, sec_groups, sec_bounds, sec_circles,
                     sec_cx, sec_cy, scale, bounds if 'bounds' in dir() else None)
                 views_svg["section"] = sec_svg
-                if "iso" in views_svg:
-                    del views_svg["iso"]
+                if sec_cell in views_svg:
+                    del views_svg[sec_cell]
                 # Render cutting line on parent view
                 parent_vn = SECTION_PARENT_MAP.get(sec_plane)
                 view_metadata["section"] = {
@@ -1884,6 +1891,7 @@ try:
                     "kind": "section",
                     "identity": str(sec_label),
                     "source_view": parent_vn,
+                    "region_ref": f"cell:{sec_cell}",
                 }
                 if parent_vn and parent_vn in view_data and parent_vn in views_svg:
                     vd = view_data[parent_vn]
@@ -1901,18 +1909,21 @@ try:
         else:
             log(f"  Section: failed to create section on plane {sec_plane}")
 
-    # -- Detail View (optional, ISO cell when no section) --
+    # -- Detail View (optional, ISO cell by default; explicit alternate cell can coexist with section) --
     detail_cfg = drawing_cfg.get("detail") or derived_detail_cfg
-    if detail_cfg and "section" not in views_svg:
+    if detail_cfg:
         source_vn = detail_cfg.get("source_view", "front")
-        if source_vn in view_data:
+        detail_cell = _resolve_optional_view_cell(detail_cfg, "iso")
+        section_region_ref = (view_metadata.get("section") or {}).get("region_ref")
+        detail_cell_available = section_region_ref != f"cell:{detail_cell}"
+        if source_vn in view_data and detail_cell_available:
             vd = view_data[source_vn]
             det_center = detail_cfg.get("center", [0, 0])
             det_radius = detail_cfg.get("radius", 10)
             det_sf = detail_cfg.get("scale_factor", 3)
             det_label = detail_cfg.get("label", "Z")
 
-            det_cx, det_cy = VIEW_CELLS.get("iso", VIEW_CELLS["right"])
+            det_cx, det_cy = VIEW_CELLS.get(detail_cell, VIEW_CELLS["iso"])
             det_svg = render_detail_svg(
                 det_label, vd["groups"], vd["circles"], vd.get("arcs", []),
                 det_center, det_radius,
@@ -1920,14 +1931,15 @@ try:
                 show_hidden=drawing_cfg.get("style", {}).get("show_hidden", True))
             if det_svg:
                 views_svg["detail"] = det_svg
-                if "iso" in views_svg:
-                    del views_svg["iso"]
+                if detail_cell in views_svg:
+                    del views_svg[detail_cell]
                 view_metadata["detail"] = {
                     "id": f"detail_{_normalize_view_token(det_label)}",
                     "label": f"DETAIL {det_label}",
                     "kind": "detail",
                     "identity": str(det_label),
                     "source_view": source_vn,
+                    "region_ref": f"cell:{detail_cell}",
                 }
                 # Add indicator circle on parent view
                 ind_svg = render_detail_indicator_svg(
