@@ -56,6 +56,8 @@ function makeEvidenceContext() {
           type: 'text_overlap',
           message: 'Structured QA evidence shows overlapping drawing text.',
           view_ids: ['front'],
+          source_kind: 'qa_metrics',
+          completeness_state: 'complete',
         },
       ],
     },
@@ -91,6 +93,38 @@ function makeEvidenceContext() {
   assert.equal(summary.items[0].link_status, 'linked');
   assert.equal(summary.items[0].linked_evidence.some((entry) => entry.path === 'required_dimensions.WIDTH.classification'), true);
   assert.equal(summary.suggested_actions.some((entry) => entry.includes('RF-001')), true);
+}
+
+{
+  const summary = buildReviewerFeedbackSummary({
+    reviewerFeedback: {
+      schema_version: '0.1',
+      items: [
+        {
+          id: 'RF-LAYOUT-001',
+          target_type: 'layout_readability_finding',
+          target_id: 'layout_text_overlap_front_01',
+          category: 'layout_readability_review',
+          status: 'open',
+          severity: 'warning',
+          comment: 'Confirm the text-overlap warning source.',
+        },
+      ],
+    },
+    reviewerFeedbackPath: '/tmp/output/reviewer_feedback.json',
+    ...makeEvidenceContext(),
+  });
+
+  assert.equal(summary.status, 'available');
+  assert.equal(summary.items[0].link_status, 'linked');
+  assert.equal(
+    summary.items[0].linked_evidence.some((entry) => entry.path === 'findings.0.source_kind' && entry.value === 'qa_metrics'),
+    true
+  );
+  assert.equal(
+    summary.items[0].linked_evidence.some((entry) => entry.path === 'findings.0.completeness_state' && entry.value === 'complete'),
+    true
+  );
 }
 
 {

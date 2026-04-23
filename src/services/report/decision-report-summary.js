@@ -504,11 +504,14 @@ function summarizeLayoutReadability(layoutReadability) {
       status: 'not_evaluated',
       score: null,
       confidence: null,
+      advisory_only: true,
       evidence_state: 'missing',
+      completeness_state: 'missing',
       summary: 'Layout/readability scoring was not evaluated.',
       finding_count: 0,
       warning_count: 0,
       findings: [],
+      provenance: null,
     };
   }
 
@@ -516,7 +519,9 @@ function summarizeLayoutReadability(layoutReadability) {
     status: safeString(layoutReadability.status, 'not_evaluated'),
     score: finiteNumberOrNull(layoutReadability.score),
     confidence: safeString(layoutReadability.confidence),
+    advisory_only: layoutReadability.advisory_only !== false,
     evidence_state: safeString(layoutReadability.evidence_state),
+    completeness_state: safeString(layoutReadability.completeness_state),
     summary: safeString(layoutReadability.summary),
     finding_count: Number.isFinite(Number(layoutReadability.finding_count))
       ? Number(layoutReadability.finding_count)
@@ -535,7 +540,17 @@ function summarizeLayoutReadability(layoutReadability) {
         element_ids: uniqueStrings(entry.element_ids || []),
         labels: uniqueStrings(entry.labels || []),
         raw_source: entry.raw_source && typeof entry.raw_source === 'object' ? entry.raw_source : null,
+        source_kind: safeString(entry.source_kind),
+        source_artifact: safeString(entry.source_artifact),
+        source_ref: safeString(entry.source_ref),
+        evidence_state: safeString(entry.evidence_state),
+        completeness_state: safeString(entry.completeness_state),
+        advisory_only: entry.advisory_only !== false,
+        provenance: entry.provenance && typeof entry.provenance === 'object' ? entry.provenance : null,
       })),
+    provenance: layoutReadability.provenance && typeof layoutReadability.provenance === 'object'
+      ? layoutReadability.provenance
+      : null,
   };
 }
 

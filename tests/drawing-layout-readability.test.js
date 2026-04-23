@@ -45,9 +45,18 @@ import { evaluateLayoutReadability } from '../src/services/drawing/layout-readab
   assert.equal(first.evidence_state, 'available');
   assert.equal(first.score, 100);
   assert.equal(first.confidence, 'high');
+  assert.equal(first.advisory_only, true);
+  assert.equal(first.completeness_state, 'complete');
   assert.equal(first.warning_count, 0);
   assert.deepEqual(first.findings, []);
   assert.deepEqual(first.provenance.evaluated_view_ids.sort(), ['front', 'top']);
+  assert.equal(first.provenance.source_completeness.layout_report.completeness_state, 'complete');
+  assert.equal(first.provenance.source_completeness.qa_metrics.completeness_state, 'complete');
+  assert.equal(first.provenance.source_completeness.svg_view_metadata.completeness_state, 'complete');
+  assert.deepEqual(
+    first.provenance.sources.map((entry) => entry.source_kind).sort(),
+    ['layout_report', 'qa_metrics', 'svg_view_metadata']
+  );
 }
 
 {
@@ -94,6 +103,17 @@ import { evaluateLayoutReadability } from '../src/services/drawing/layout-readab
   );
   assert.equal(result.findings[0].view_ids[0], 'front');
   assert.equal(result.findings[1].labels.includes('12'), true);
+  assert.equal(result.findings[0].source_kind, 'layout_report');
+  assert.equal(result.findings[0].source_ref, 'views.front');
+  assert.equal(result.findings[0].source_artifact, 'layout_report');
+  assert.equal(result.findings[0].evidence_state, 'available');
+  assert.equal(result.findings[0].completeness_state, 'complete');
+  assert.equal(result.findings[0].provenance.method, 'layout_report_views');
+  assert.equal(result.findings[1].source_kind, 'qa_metrics');
+  assert.equal(result.findings[1].source_ref, 'details.text_overlaps.0');
+  assert.equal(result.findings[1].provenance.method, 'qa_vector_text_overlap');
+  assert.equal(result.findings[2].source_kind, 'qa_metrics');
+  assert.equal(result.findings[2].source_ref, 'metrics.dim_overlap_pairs');
   assert.equal(result.recommended_actions.some((entry) => entry.includes('title block')), true);
 }
 
@@ -115,8 +135,16 @@ import { evaluateLayoutReadability } from '../src/services/drawing/layout-readab
 
   assert.equal(result.status, 'ok');
   assert.equal(result.evidence_state, 'partial');
+  assert.equal(result.completeness_state, 'partial');
   assert.equal(result.score, null);
   assert.equal(result.warning_count, 0);
+  assert.equal(result.provenance.source_completeness.layout_report.completeness_state, 'complete');
+  assert.equal(result.provenance.source_completeness.qa_metrics.completeness_state, 'missing');
+  assert.equal(result.provenance.source_completeness.svg_view_metadata.completeness_state, 'unsupported');
+  assert.equal(
+    result.provenance.source_completeness.svg_view_metadata.missing_reasons.includes('drawing-view group metadata not found'),
+    true
+  );
 }
 
 {
@@ -124,7 +152,14 @@ import { evaluateLayoutReadability } from '../src/services/drawing/layout-readab
 
   assert.equal(result.status, 'not_evaluated');
   assert.equal(result.evidence_state, 'missing');
+  assert.equal(result.completeness_state, 'missing');
   assert.equal(result.score, null);
   assert.equal(result.findings[0].type, 'missing_layout_metadata');
+  assert.equal(result.findings[0].source_kind, 'metadata_preflight');
+  assert.equal(result.findings[0].evidence_state, 'missing');
+  assert.equal(result.findings[0].completeness_state, 'missing');
+  assert.equal(result.provenance.source_completeness.layout_report.completeness_state, 'missing');
+  assert.equal(result.provenance.source_completeness.qa_metrics.completeness_state, 'missing');
+  assert.equal(result.provenance.source_completeness.svg_view_metadata.completeness_state, 'missing');
   assert.equal(result.recommended_actions[0].includes('layout report'), true);
 }

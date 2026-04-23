@@ -108,8 +108,13 @@ function makeBaseArtifacts() {
   assert.equal(summary.semantic_quality.enforceable, false);
   assert.equal(summary.layout_readability.status, 'ok');
   assert.equal(summary.layout_readability.evidence_state, 'partial');
+  assert.equal(summary.layout_readability.completeness_state, 'partial');
+  assert.equal(summary.layout_readability.advisory_only, true);
   assert.equal(summary.layout_readability.score, null);
   assert.equal(summary.layout_readability.warning_count, 0);
+  assert.equal(summary.layout_readability.provenance.source_completeness.layout_report.completeness_state, 'complete');
+  assert.equal(summary.layout_readability.provenance.source_completeness.qa_metrics.completeness_state, 'partial');
+  assert.equal(summary.layout_readability.provenance.source_completeness.svg_view_metadata.completeness_state, 'partial');
 }
 
 {
@@ -145,11 +150,18 @@ function makeBaseArtifacts() {
   assert.equal(summary.status, 'pass');
   assert.deepEqual(summary.blocking_issues, []);
   assert.equal(summary.layout_readability.status, 'warning');
+  assert.equal(summary.layout_readability.advisory_only, true);
   assert.equal(summary.layout_readability.warning_count, 4);
   assert.deepEqual(
     summary.layout_readability.findings.map((entry) => entry.type),
     ['view_crowding', 'text_overlap', 'dimension_overlap', 'title_block_clearance']
   );
+  assert.deepEqual(
+    [...new Set(summary.layout_readability.findings.map((entry) => entry.source_kind))].sort(),
+    ['layout_report', 'qa_metrics']
+  );
+  assert.equal(summary.layout_readability.findings.every((entry) => entry.advisory_only === true), true);
+  assert.equal(summary.layout_readability.findings.every((entry) => entry.provenance?.source_kind), true);
   assert.equal(summary.recommended_actions.some((entry) => entry.includes('Reduce scale or improve spacing for view Front.')), true);
   assert.equal(summary.recommended_actions.some((entry) => entry.includes('title block')), true);
 }

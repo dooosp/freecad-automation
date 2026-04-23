@@ -275,6 +275,9 @@ function makePlateConfig() {
         message: 'Structured QA evidence shows overlapping drawing text.',
         recommendation: 'Separate overlapping note or dimension text and reroute leaders if needed.',
         view_ids: ['front'],
+        source_kind: 'qa_metrics',
+        evidence_state: 'available',
+        completeness_state: 'complete',
         raw_source: {
           path: '/tmp/layout_warning_qa.json',
           method: 'qa_vector_text_overlap',
@@ -285,6 +288,14 @@ function makePlateConfig() {
   assert.equal(layoutActions.length, 1);
   assert.equal(layoutActions[0].category, 'layout');
   assert.equal(layoutActions[0].classification, 'text_overlap');
+  assert.equal(
+    layoutActions[0].evidence.some((entry) => entry.path === 'findings.0.source_kind' && entry.value === 'qa_metrics'),
+    true
+  );
+  assert.equal(
+    layoutActions[0].evidence.some((entry) => entry.path === 'findings.0.completeness_state' && entry.value === 'complete'),
+    true
+  );
 
   const refinedPlanner = refineDrawingPlannerWithLayoutReadability({
     planner: {
@@ -301,6 +312,9 @@ function makePlateConfig() {
           message: 'Structured QA evidence shows overlapping drawing text.',
           recommendation: 'Separate overlapping note or dimension text and reroute leaders if needed.',
           view_ids: ['front'],
+          source_kind: 'qa_metrics',
+          evidence_state: 'available',
+          completeness_state: 'complete',
           raw_source: {
             path: '/tmp/layout_warning_qa.json',
             method: 'qa_vector_text_overlap',

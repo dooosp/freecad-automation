@@ -393,6 +393,16 @@ function buildTargetRegistry({
           path: `findings.${index}.view_ids`,
           value: JSON.stringify(asArray(finding?.view_ids)),
         },
+        {
+          source: 'drawing_quality.layout_readability',
+          path: `findings.${index}.source_kind`,
+          value: cleanText(finding?.source_kind),
+        },
+        {
+          source: 'drawing_quality.layout_readability',
+          path: `findings.${index}.completeness_state`,
+          value: cleanText(finding?.completeness_state),
+        },
       ],
     });
   });

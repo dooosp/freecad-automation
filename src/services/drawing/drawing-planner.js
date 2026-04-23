@@ -1155,6 +1155,15 @@ export function buildPlannerActionsFromLayoutReadability(layoutReadability = nul
     ];
 
     const rawSource = finding.raw_source && typeof finding.raw_source === 'object' ? finding.raw_source : {};
+    if (cleanText(finding.source_kind)) {
+      evidence.push(actionEvidence('drawing_quality.layout_readability', `findings.${index}.source_kind`, finding.source_kind));
+    }
+    if (cleanText(finding.evidence_state)) {
+      evidence.push(actionEvidence('drawing_quality.layout_readability', `findings.${index}.evidence_state`, finding.evidence_state));
+    }
+    if (cleanText(finding.completeness_state)) {
+      evidence.push(actionEvidence('drawing_quality.layout_readability', `findings.${index}.completeness_state`, finding.completeness_state));
+    }
     if (cleanText(rawSource.path)) {
       evidence.push(actionEvidence('drawing_quality.layout_readability', `findings.${index}.raw_source.path`, rawSource.path));
     }
