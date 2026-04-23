@@ -445,6 +445,8 @@ export async function runDrawPipeline({
     if (!result.success) {
       throw new Error(result.error || 'generate_drawing.py returned success=false');
     }
+    result.reviewer_feedback_path = reviewerFeedbackInput.reviewerFeedbackPath || null;
+    result.reviewer_feedback_input_status = reviewerFeedbackInput.inputStatus;
 
     artifactDir = resolveArtifactDir(config, result, projectRoot);
     artifactStem = resolveArtifactStem(config, result);

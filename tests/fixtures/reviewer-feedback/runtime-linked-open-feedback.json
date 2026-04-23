@@ -1,0 +1,18 @@
+{
+  "schema_version": "0.1",
+  "source": "runtime_manual_review",
+  "review_cycle": "runtime-smoke",
+  "items": [
+    {
+      "id": "rf-runtime-open-001",
+      "reviewer_label": "manufacturing_reviewer",
+      "target_type": "required_dimension",
+      "target_id": "HOLE_LEFT_DIA",
+      "category": "reviewer_question",
+      "status": "open",
+      "severity": "warning",
+      "comment": "Please verify this linked drawing evidence during manufacturing review.",
+      "requested_action": "Verify the linked drawing evidence before release."
+    }
+  ]
+}
