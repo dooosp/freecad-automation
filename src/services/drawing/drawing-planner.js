@@ -1200,6 +1200,82 @@ export function refineDrawingPlannerWithLayoutReadability({
   };
 }
 
+export function buildPlannerActionsFromReviewerFeedback(reviewerFeedback = null) {
+  const block = reviewerFeedback && typeof reviewerFeedback === 'object' ? reviewerFeedback : {};
+  const actions = [];
+  const seenKeys = new Set();
+
+  asArray(block.items).forEach((item, index) => {
+    if (item?.resolution_state !== 'unresolved') return;
+    if (!['linked', 'unmatched', 'stale', 'orphaned'].includes(cleanText(item?.link_status, ''))) return;
+
+    const feedbackId = cleanText(item?.id, `reviewer_feedback_${index + 1}`);
+    const targetId = cleanText(item?.target_id);
+    const targetType = cleanText(item?.target_type, 'reviewer feedback target');
+    const requestedAction = cleanText(item?.requested_action);
+    const evidence = [
+      actionEvidence('drawing_quality.reviewer_feedback', `items.${index}.status`, cleanText(item?.status, 'open')),
+      actionEvidence('drawing_quality.reviewer_feedback', `items.${index}.link_status`, cleanText(item?.link_status, 'unmatched')),
+      actionEvidence('drawing_quality.reviewer_feedback', `items.${index}.target_type`, targetType),
+    ];
+    if (targetId) {
+      evidence.push(actionEvidence('drawing_quality.reviewer_feedback', `items.${index}.target_id`, targetId));
+    }
+
+    const linkStatus = cleanText(item?.link_status, 'unmatched');
+    const recommendedFixSteps = uniqueStrings([
+      requestedAction,
+      linkStatus === 'linked'
+        ? `Review the linked ${targetType}${targetId ? ` ${targetId}` : ''} evidence and resolve reviewer feedback ${feedbackId} after confirming the current drawing output.`
+        : null,
+      linkStatus === 'unmatched'
+        ? `Confirm whether reviewer feedback ${feedbackId} should map to an existing evidence target before changing the drawing.`
+        : null,
+      (linkStatus === 'stale' || linkStatus === 'orphaned')
+        ? `Verify whether the referenced evidence or artifact changed after reviewer feedback ${feedbackId} was recorded.`
+        : null,
+    ]);
+
+    pushPlannerAction(actions, seenKeys, buildPlannerAction({
+      id: `reviewer-feedback:${actionIdPart(feedbackId, String(index + 1))}:${actionIdPart(linkStatus, 'open')}`,
+      severity: item?.severity === 'info' ? 'info' : 'review',
+      category: 'reviewer_feedback',
+      targetRequirementId: targetType.startsWith('required_') ? targetId : null,
+      targetFeatureId: null,
+      classification: linkStatus,
+      title: targetId
+        ? `Follow up reviewer feedback ${feedbackId} for ${targetId}.`
+        : `Follow up reviewer feedback ${feedbackId}.`,
+      message: cleanText(item?.comment, 'Reviewer feedback remains open and advisory-only.'),
+      recommendedFixSteps,
+      evidence,
+    }));
+  });
+
+  return actions;
+}
+
+export function refineDrawingPlannerWithReviewerFeedback({
+  planner = null,
+  reviewerFeedback = null,
+} = {}) {
+  const currentPlanner = planner && typeof planner === 'object' ? planner : {};
+  const feedbackActions = buildPlannerActionsFromReviewerFeedback(reviewerFeedback);
+  const existingDetails = asArray(currentPlanner.suggested_action_details);
+
+  return {
+    ...currentPlanner,
+    suggested_actions: uniqueStrings([
+      ...asArray(currentPlanner.suggested_actions),
+      ...feedbackActions.map((entry) => formatPlannerSuggestedAction(entry)),
+    ]),
+    suggested_action_details: [
+      ...existingDetails,
+      ...feedbackActions.filter((entry) => !existingDetails.some((existing) => existing?.id === entry.id)),
+    ],
+  };
+}
+
 export function buildDrawingPlanner({
   config = {},
   drawingIntent = null,

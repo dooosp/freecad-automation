@@ -1,0 +1,45 @@
+{
+  "schema_version": "0.1",
+  "source": "manual_review",
+  "items": [
+    {
+      "id": "RF-001",
+      "reviewer_label": "QA reviewer",
+      "target_type": "required_dimension",
+      "target_id": "WIDTH",
+      "category": "dimension_review",
+      "status": "open",
+      "severity": "warning",
+      "comment": "Confirm WIDTH after the latest layout change.",
+      "requested_action": "Verify WIDTH against the linked extracted evidence."
+    },
+    {
+      "id": "RF-002",
+      "reviewer_label": "QA reviewer",
+      "target_type": "planner_action",
+      "target_id": "layout:missing-action",
+      "category": "layout_readability_review",
+      "status": "question",
+      "severity": "warning",
+      "comment": "Check whether the linked planner action changed after layout updates."
+    },
+    {
+      "id": "RF-003",
+      "reviewer_label": "QA reviewer",
+      "target_type": "required_note",
+      "target_id": "MATERIAL",
+      "category": "note_review",
+      "status": "accepted",
+      "severity": "info",
+      "comment": "Accepted earlier."
+    },
+    {
+      "id": "RF-004",
+      "reviewer_label": "QA reviewer",
+      "category": "invalid_feedback_payload",
+      "status": "open",
+      "severity": "warning",
+      "comment": ""
+    }
+  ]
+}

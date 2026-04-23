@@ -13,11 +13,13 @@ The v1 workflow is:
 3. drawing generation
 4. `extracted_drawing_semantics`
 5. `drawing_quality.semantic_quality`
-6. `drawing_planner` suggested actions
-7. output, report, and artifact manifests
-8. Studio Quality Dashboard
-9. manufacturing readiness decision
-10. semantic, runtime, and browser regression coverage
+6. advisory `drawing_quality.layout_readability`
+7. advisory `drawing_quality.reviewer_feedback`
+8. `drawing_planner` suggested actions
+9. output, report, and artifact manifests
+10. Studio Quality Dashboard
+11. manufacturing readiness decision
+12. semantic, runtime, and browser regression coverage
 
 ## Workflow
 
@@ -28,6 +30,8 @@ The v1 workflow is:
 | drawing generation | `bin/fcad.js`, `src/orchestration/draw-pipeline.js` | `<base>_drawing.svg`, `<base>_drawing_qa.json` |
 | `extracted_drawing_semantics` | `src/services/drawing/extracted-drawing-semantics.js`, `schemas/extracted-drawing-semantics.schema.json` | `<base>_extracted_drawing_semantics.json` |
 | `drawing_quality.semantic_quality` | `src/services/drawing/drawing-quality-summary.js` | `<base>_drawing_quality.json` |
+| `drawing_quality.layout_readability` | `src/services/drawing/layout-readability.js` | `<base>_drawing_quality.json` |
+| `drawing_quality.reviewer_feedback` | `src/services/drawing/reviewer-feedback.js`, `schemas/reviewer-feedback.schema.json` | `<base>_drawing_quality.json` |
 | `drawing_planner` | `src/services/drawing/drawing-planner.js` | `<base>_drawing_planner.json` |
 | `report_summary` | `src/services/report/decision-report-summary.js`, `schemas/report-summary.schema.json` | `<base>_report_summary.json` |
 | output manifests | `lib/output-manifest.js`, `bin/fcad.js`, `src/services/jobs/job-executor.js` | `<base>_drawing_manifest.json`, `<base>_report_manifest.json`, `*_artifact-manifest.json` |
@@ -57,6 +61,8 @@ Generated artifacts remain under `output/`.
 - Quality pass does not automatically mean every advisory semantic gap is resolved.
 - Extracted drawing semantics are visible evidence, not an automatic override of required gates.
 - Unknown, unsupported, or low-confidence extracted evidence must not be promoted into confirmed extracted evidence.
+- Reviewer feedback remains explicit, traceable, and advisory-only.
+- Reviewer feedback must not satisfy missing required evidence or change manufacturing readiness.
 - Required vs optional remains separate from advisory vs blocking.
 
 ## Required Vs Advisory Semantics
@@ -165,6 +171,7 @@ The verified v1 Studio behavior is:
 - no screenshot-based semantic extraction
 - no automatic GD&T inference
 - no automatic tolerance inference beyond explicit generated or extracted evidence
+- no automatic learning, config mutation, or evidence promotion from reviewer feedback
 - unknown, unsupported, and low-confidence evidence remains conservative
 - remaining `ks_bracket` dimension unknowns such as `MOUNTING_HOLE_DIA` and `BASE_PLATE_ENVELOPE` are intentional until stronger feature and dimension evidence exists
 

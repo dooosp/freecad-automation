@@ -4,8 +4,10 @@ import {
   buildDrawingPlanner,
   buildPlannerActionsFromExtractedCoverage,
   buildPlannerActionsFromLayoutReadability,
+  buildPlannerActionsFromReviewerFeedback,
   refineDrawingPlannerWithExtractedCoverage,
   refineDrawingPlannerWithLayoutReadability,
+  refineDrawingPlannerWithReviewerFeedback,
 } from '../src/services/drawing/drawing-planner.js';
 
 function makePlateConfig() {
@@ -310,6 +312,64 @@ function makePlateConfig() {
   assert.equal(refinedPlanner.suggested_action_details.length, 1);
   assert.equal(refinedPlanner.suggested_actions.some((entry) => entry.includes('overlapping drawing text')), true);
   assert.equal(refinedPlanner.suggested_actions.some((entry) => entry.includes('Separate overlapping note or dimension text')), true);
+}
+
+{
+  const reviewerFeedback = {
+    status: 'partial',
+    items: [
+      {
+        id: 'RF-001',
+        status: 'open',
+        resolution_state: 'unresolved',
+        severity: 'warning',
+        link_status: 'linked',
+        target_type: 'required_dimension',
+        target_id: 'WIDTH',
+        comment: 'Confirm the WIDTH dimension still matches the linked evidence.',
+        requested_action: 'Verify WIDTH before closing the feedback item.',
+      },
+      {
+        id: 'RF-002',
+        status: 'question',
+        resolution_state: 'unresolved',
+        severity: 'warning',
+        link_status: 'stale',
+        target_type: 'planner_action',
+        target_id: 'layout:text-overlap',
+        comment: 'Check whether the underlying planner action changed after the layout update.',
+      },
+      {
+        id: 'RF-003',
+        status: 'accepted',
+        resolution_state: 'accepted',
+        severity: 'info',
+        link_status: 'linked',
+        target_type: 'required_note',
+        target_id: 'MATERIAL',
+        comment: 'Already accepted.',
+      },
+    ],
+  };
+
+  const details = buildPlannerActionsFromReviewerFeedback(reviewerFeedback);
+  assert.equal(details.length, 2);
+  assert.equal(details.some((entry) => entry.id.includes('reviewer-feedback:rf001')), true);
+  assert.equal(details.some((entry) => entry.classification === 'stale'), true);
+  assert.equal(details.every((entry) => entry.category === 'reviewer_feedback'), true);
+
+  const refinedPlanner = refineDrawingPlannerWithReviewerFeedback({
+    planner: {
+      status: 'advisory',
+      suggested_actions: ['Carry forward existing planner suggestion.'],
+      suggested_action_details: [],
+    },
+    reviewerFeedback,
+  });
+  assert.equal(refinedPlanner.suggested_action_details.length, 2);
+  assert.equal(refinedPlanner.suggested_actions.some((entry) => entry.includes('RF-001')), true);
+  assert.equal(refinedPlanner.suggested_actions.some((entry) => entry.includes('WIDTH')), true);
+  assert.equal(refinedPlanner.suggested_actions.some((entry) => entry.includes('RF-003')), false);
 }
 
 console.log('drawing-planner.test.js: ok');

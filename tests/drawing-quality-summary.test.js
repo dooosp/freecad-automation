@@ -502,4 +502,102 @@ function makeBaseArtifacts() {
   assert.deepEqual(summary.blocking_issues, []);
 }
 
+{
+  const summary = buildDrawingQualitySummary(makeBaseArtifacts());
+  assert.equal(summary.reviewer_feedback.status, 'none');
+  assert.equal(summary.reviewer_feedback.total_count, 0);
+  assert.deepEqual(summary.reviewer_feedback.items, []);
+}
+
+{
+  const summary = buildDrawingQualitySummary({
+    ...makeBaseArtifacts(),
+    drawingIntent: {
+      required_dimensions: [
+        { id: 'WIDTH', feature: 'body_width' },
+      ],
+      required_notes: ['MACHINED PART'],
+      required_views: ['front'],
+    },
+    extractedDrawingSemanticsPath: '/tmp/ks_bracket_extracted_drawing_semantics.json',
+    extractedDrawingSemantics: {
+      schema_version: '0.1',
+      status: 'partial',
+      methods: ['svg_dimension_text_scan'],
+      sources: [],
+      dimensions: [
+        {
+          id: 'svg_text_001',
+          raw_text: '40',
+          matched_intent_id: 'WIDTH',
+          matched_feature_id: 'body_width',
+        },
+      ],
+      notes: [],
+      views: [],
+      coverage: {
+        required_dimensions_total: 1,
+        required_dimensions_extracted: 1,
+        required_notes_total: 1,
+        required_notes_extracted: 0,
+        required_views_total: 1,
+        required_views_extracted: 0,
+      },
+      unknowns: [],
+      limitations: [],
+    },
+    reviewerFeedbackPath: '/tmp/reviewer_feedback.json',
+    reviewerFeedback: {
+      schema_version: '0.1',
+      source: 'manual_review',
+      items: [
+        {
+          id: 'RF-001',
+          reviewer_label: 'QA reviewer',
+          target_type: 'required_dimension',
+          target_id: 'WIDTH',
+          category: 'dimension_review',
+          status: 'open',
+          severity: 'warning',
+          comment: 'Confirm the WIDTH callout is still legible after the latest layout change.',
+          requested_action: 'Verify the WIDTH dimension text against the linked extracted evidence.',
+        },
+        {
+          id: 'RF-002',
+          reviewer_label: 'QA reviewer',
+          target_type: 'required_note',
+          target_id: 'SURFACE_FINISH',
+          category: 'note_review',
+          status: 'accepted',
+          severity: 'info',
+          comment: 'Surface finish feedback was accepted earlier.',
+        },
+        {
+          id: 'RF-003',
+          reviewer_label: 'QA reviewer',
+          target_type: 'required_view',
+          target_id: 'detail_z',
+          category: 'view_review',
+          status: 'question',
+          severity: 'warning',
+          comment: 'Check whether the referenced detail view changed or was removed.',
+        },
+      ],
+    },
+  });
+
+  assert.equal(summary.status, 'pass');
+  assert.equal(summary.reviewer_feedback.status, 'partial');
+  assert.equal(summary.reviewer_feedback.total_count, 3);
+  assert.equal(summary.reviewer_feedback.unresolved_count, 2);
+  assert.equal(summary.reviewer_feedback.linked_count, 1);
+  assert.equal(summary.reviewer_feedback.stale_count, 2);
+  assert.equal(summary.reviewer_feedback.accepted_count, 1);
+  assert.equal(summary.reviewer_feedback.items.find((entry) => entry.id === 'RF-001')?.link_status, 'linked');
+  assert.equal(summary.reviewer_feedback.items.find((entry) => entry.id === 'RF-003')?.link_status, 'stale');
+  assert.equal(summary.reviewer_feedback.suggested_actions.some((entry) => entry.includes('RF-001')), true);
+  assert.equal(summary.recommended_actions.some((entry) => entry.includes('RF-001')), true);
+  assert.equal(summary.reviewer_feedback.items.find((entry) => entry.id === 'RF-002')?.resolution_state, 'accepted');
+}
+
 console.log('drawing-quality-summary.test.js: ok');

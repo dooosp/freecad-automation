@@ -390,6 +390,97 @@ function makeBaseInput(overrides = {}) {
   assert.equal(summary.missing_optional_artifacts.includes('report_manifest'), false);
 }
 
+{
+  const summary = buildDecisionReportSummary(makeBaseInput({
+    drawingQuality: {
+      ...makeBaseInput().drawingQuality,
+      reviewer_feedback: {
+        advisory_only: true,
+        status: 'partial',
+        evidence_state: 'partial',
+        total_count: 2,
+        unresolved_count: 1,
+        linked_count: 1,
+        unmatched_count: 0,
+        stale_count: 1,
+        orphaned_count: 0,
+        invalid_count: 0,
+        accepted_count: 1,
+        resolved_count: 0,
+        items: [
+          {
+            id: 'RF-001',
+            source: 'manual_review',
+            target_type: 'required_dimension',
+            target_id: 'WIDTH',
+            category: 'dimension_review',
+            status: 'open',
+            severity: 'warning',
+            link_status: 'linked',
+            resolution_state: 'unresolved',
+            comment: 'Confirm WIDTH after the latest layout change.',
+            requested_action: 'Verify WIDTH against the linked evidence.',
+            linked_evidence: [
+              {
+                source: 'drawing_quality.semantic_quality.extracted_evidence',
+                path: 'required_dimensions.WIDTH.classification',
+                value: 'extracted',
+              },
+            ],
+            provenance: {
+              path: '/tmp/output/reviewer_feedback.json',
+            },
+          },
+          {
+            id: 'RF-002',
+            source: 'manual_review',
+            target_type: 'planner_action',
+            target_id: 'layout:text-overlap',
+            category: 'layout_readability_review',
+            status: 'accepted',
+            severity: 'info',
+            link_status: 'stale',
+            resolution_state: 'accepted',
+            comment: 'Accepted earlier.',
+            linked_evidence: [],
+            provenance: {
+              path: '/tmp/output/reviewer_feedback.json',
+            },
+          },
+        ],
+        summary: '2 reviewer feedback item(s): 1 unresolved, 1 linked, 1 stale, 0 invalid.',
+        suggested_actions: ['Follow up reviewer feedback RF-001 for WIDTH. Verify WIDTH against the linked evidence.'],
+        suggested_action_details: [
+          {
+            id: 'reviewer_feedback:RF-001',
+            severity: 'review',
+            category: 'reviewer_feedback',
+            target_requirement_id: 'WIDTH',
+            classification: 'linked',
+            title: 'Follow up reviewer feedback RF-001 for WIDTH.',
+            message: 'Confirm WIDTH after the latest layout change.',
+            recommended_fix: 'Verify WIDTH against the linked evidence.',
+            evidence: [],
+          },
+        ],
+        provenance: {
+          path: '/tmp/output/reviewer_feedback.json',
+        },
+      },
+      recommended_actions: [
+        'Follow up reviewer feedback RF-001 for WIDTH. Verify WIDTH against the linked evidence.',
+      ],
+    },
+  }));
+  assert.equal(summary.overall_status, 'pass');
+  assert.equal(summary.ready_for_manufacturing_review, true);
+  assert.equal(summary.surfaces.drawing_quality.reviewer_feedback.status, 'partial');
+  assert.equal(summary.surfaces.drawing_quality.reviewer_feedback.unresolved_count, 1);
+  assert.equal(summary.recommended_actions.some((entry) => entry.includes('RF-001')), true);
+  assert.equal(summary.top_risks.some((risk) => risk.includes('Open reviewer feedback items remain: 1')), true);
+  assert.equal(summary.inputs_consumed.some((entry) => entry.key === 'reviewer_feedback_json' && entry.path === '/tmp/output/reviewer_feedback.json'), true);
+}
+
 assert.equal(
   createReportSummaryPath({
     primaryOutputPath: '/tmp/output/ks_bracket_report.pdf',

@@ -150,6 +150,82 @@ function summarizeSuggestedActionDetails(entries = []) {
     }));
 }
 
+function summarizeReviewerFeedbackItem(entry = {}) {
+  return {
+    id: safeString(entry.id),
+    source: safeString(entry.source),
+    reviewer_label: safeString(entry.reviewer_label),
+    target_type: safeString(entry.target_type),
+    target_id: safeString(entry.target_id),
+    target_path: safeString(entry.target_path),
+    category: safeString(entry.category),
+    status: safeString(entry.status),
+    severity: safeString(entry.severity),
+    link_status: safeString(entry.link_status),
+    resolution_state: safeString(entry.resolution_state),
+    comment: safeString(entry.comment),
+    requested_action: safeString(entry.requested_action),
+    linked_evidence: asArray(entry.linked_evidence)
+      .filter((item) => item && typeof item === 'object')
+      .map((item) => ({
+        source: safeString(item.source),
+        path: safeString(item.path),
+        value: safeString(item.value),
+      })),
+    validation_errors: uniqueStrings(entry.validation_errors || []),
+    provenance: entry.provenance && typeof entry.provenance === 'object' ? entry.provenance : null,
+  };
+}
+
+function summarizeReviewerFeedback(reviewerFeedback = null) {
+  if (!reviewerFeedback || typeof reviewerFeedback !== 'object') {
+    return {
+      advisory_only: true,
+      status: 'none',
+      evidence_state: 'none',
+      total_count: 0,
+      unresolved_count: 0,
+      linked_count: 0,
+      unmatched_count: 0,
+      stale_count: 0,
+      orphaned_count: 0,
+      invalid_count: 0,
+      accepted_count: 0,
+      resolved_count: 0,
+      items: [],
+      summary: 'Reviewer feedback was not provided.',
+      suggested_actions: [],
+      suggested_action_details: [],
+      path: null,
+      provenance: null,
+    };
+  }
+
+  const provenance = reviewerFeedback.provenance && typeof reviewerFeedback.provenance === 'object'
+    ? reviewerFeedback.provenance
+    : null;
+  return {
+    advisory_only: reviewerFeedback.advisory_only !== false,
+    status: safeString(reviewerFeedback.status, 'none'),
+    evidence_state: safeString(reviewerFeedback.evidence_state, 'none'),
+    total_count: Number(reviewerFeedback.total_count || 0),
+    unresolved_count: Number(reviewerFeedback.unresolved_count || 0),
+    linked_count: Number(reviewerFeedback.linked_count || 0),
+    unmatched_count: Number(reviewerFeedback.unmatched_count || 0),
+    stale_count: Number(reviewerFeedback.stale_count || 0),
+    orphaned_count: Number(reviewerFeedback.orphaned_count || 0),
+    invalid_count: Number(reviewerFeedback.invalid_count || 0),
+    accepted_count: Number(reviewerFeedback.accepted_count || 0),
+    resolved_count: Number(reviewerFeedback.resolved_count || 0),
+    items: asArray(reviewerFeedback.items).map((entry) => summarizeReviewerFeedbackItem(entry)),
+    summary: safeString(reviewerFeedback.summary),
+    suggested_actions: uniqueStrings(reviewerFeedback.suggested_actions || []),
+    suggested_action_details: summarizeSuggestedActionDetails(reviewerFeedback.suggested_action_details),
+    path: safeString(provenance?.path),
+    provenance,
+  };
+}
+
 function artifactRef(key, label, path, status, note = null, options = {}) {
   const required = typeof options.required === 'boolean'
     ? options.required
@@ -383,6 +459,7 @@ function summarizeDrawingQuality(drawingQuality) {
       traceability_coverage_percent: null,
       semantic_quality: summarizeSemanticDrawingQuality(null),
       layout_readability: summarizeLayoutReadability(null),
+      reviewer_feedback: summarizeReviewerFeedback(null),
       recommended_actions: [],
       blocking_issues: [],
       warnings: [],
@@ -390,6 +467,7 @@ function summarizeDrawingQuality(drawingQuality) {
   }
 
   const semanticQuality = summarizeSemanticDrawingQuality(drawingQuality.semantic_quality);
+  const reviewerFeedback = summarizeReviewerFeedback(drawingQuality.reviewer_feedback);
 
   return {
     available: true,
@@ -407,9 +485,11 @@ function summarizeDrawingQuality(drawingQuality) {
       : null,
     semantic_quality: semanticQuality,
     layout_readability: summarizeLayoutReadability(drawingQuality.layout_readability),
+    reviewer_feedback: reviewerFeedback,
     recommended_actions: uniqueStrings([
       ...(drawingQuality.recommended_actions || []),
       ...semanticQuality.suggested_actions,
+      ...reviewerFeedback.suggested_actions,
     ]),
     blocking_issues: uniqueStrings((drawingQuality.blocking_issues || []).map((issue) => (
       typeof issue === 'string' ? issue : issue?.message
@@ -647,6 +727,12 @@ function renderTopRisks(surfaces, criticalInputsMissing = []) {
   } else if (surfaces.drawing_quality.semantic_quality.missing_critical_information.length > 0) {
     risks.push('Drawing intent has advisory missing required semantic evidence.');
   }
+  if (Number(surfaces.drawing_quality.reviewer_feedback.unresolved_count || 0) > 0) {
+    risks.push(`Open reviewer feedback items remain: ${surfaces.drawing_quality.reviewer_feedback.unresolved_count}.`);
+  }
+  if (['partial', 'invalid', 'unsupported'].includes(surfaces.drawing_quality.reviewer_feedback.status)) {
+    risks.push(surfaces.drawing_quality.reviewer_feedback.summary || 'Reviewer feedback input needs review.');
+  }
   if ((surfaces.dfm.severity_counts?.critical || 0) > 0) {
     risks.push(`DFM critical findings: ${surfaces.dfm.severity_counts.critical}.`);
   }
@@ -804,6 +890,7 @@ export function buildDecisionReportSummary({
     drawingManifest?.repo?.branch,
     repoContext?.branch
   );
+  const reviewerFeedbackPath = safeString(surfaces.drawing_quality.reviewer_feedback.path);
 
   const artifactsReferenced = [
     artifactRef('report_pdf', 'Engineering report PDF', paths.report_pdf, 'generated'),
@@ -916,6 +1003,9 @@ export function buildDecisionReportSummary({
     },
     inputs_consumed: [
       artifactRef('config', 'Input config', configPath, configPath ? 'available' : 'not_run'),
+      ...(reviewerFeedbackPath && ['available', 'partial', 'invalid'].includes(surfaces.drawing_quality.reviewer_feedback.status)
+        ? [artifactRef('reviewer_feedback_json', 'Reviewer feedback JSON', reviewerFeedbackPath, 'available', 'Explicit reviewer feedback remains advisory-only.', { required: false })]
+        : []),
       artifactRef('dfm_input', 'In-memory DFM results', null, dfm ? 'in_memory' : 'not_run'),
       artifactRef('fem_input', 'In-memory FEM results', null, fem ? 'in_memory' : 'not_run'),
       artifactRef('tolerance_input', 'In-memory tolerance results', null, tolerance ? 'in_memory' : 'not_run'),

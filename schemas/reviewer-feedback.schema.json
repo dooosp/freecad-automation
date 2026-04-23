@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freecad-automation.local/schemas/reviewer-feedback.schema.json",
+  "title": "Reviewer feedback input",
+  "type": "object",
+  "required": ["schema_version", "items"],
+  "properties": {
+    "schema_version": {
+      "const": "0.1"
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1
+    },
+    "review_cycle": {
+      "type": ["string", "null"]
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/feedbackItem"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "feedbackEvidence": {
+      "type": "object",
+      "properties": {
+        "source": { "type": ["string", "null"] },
+        "path": { "type": ["string", "null"] },
+        "value": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "feedbackItem": {
+      "type": "object",
+      "required": ["category", "status", "comment"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reviewer_label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_type": {
+          "type": "string",
+          "enum": [
+            "required_dimension",
+            "required_note",
+            "required_view",
+            "extracted_dimension",
+            "extracted_note",
+            "extracted_view",
+            "layout_readability_finding",
+            "planner_action",
+            "artifact"
+          ]
+        },
+        "target_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "category": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": ["open", "resolved", "accepted", "rejected", "question"]
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["info", "warning", "critical"]
+        },
+        "comment": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requested_action": {
+          "type": "string",
+          "minLength": 1
+        },
+        "linked_evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/feedbackEvidence"
+          }
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

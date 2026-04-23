@@ -352,6 +352,8 @@ assertArtifact(ksFeatureCatalogPath);
 const ksDrawingQuality = readJson(ksDrawingQualityPath);
 const ksDrawingPlanner = readJson(ksDrawingPlannerPath);
 assert.equal(ksDrawingQuality.status, 'fail');
+assert.equal(ksDrawingQuality.reviewer_feedback.status, 'none');
+assert.equal(ksDrawingQuality.reviewer_feedback.unresolved_count, 0);
 assert.equal(ksDrawingQuality.extracted_drawing_semantics_file, ksExtractedSemanticsPath);
 assert.equal(ksDrawingQuality.semantic_quality.extracted_evidence.coverage.required_dimensions.extracted >= 0, true);
 assert.equal(ksDrawingQuality.semantic_quality.extracted_evidence.required_dimensions.some((entry) => entry.classification === 'unknown' || entry.classification === 'missing'), true);
@@ -429,6 +431,7 @@ assertArtifact(ksReportSummaryPath);
 const ksReportSummary = readJson(ksReportSummaryPath);
 assert.equal(ksReportSummary.ready_for_manufacturing_review, ksFixture.report.readyForManufacturingReview);
 assert.equal(ksReportSummary.overall_status, ksFixture.report.overallStatus);
+assert.equal(ksReportSummary.surfaces.drawing_quality.reviewer_feedback.status, 'none');
 assert.equal(ksReportSummary.artifacts_referenced.find((artifact) => artifact.key === 'drawing_intent')?.path, ksDrawingIntentPath);
 assert.equal(ksReportSummary.artifacts_referenced.find((artifact) => artifact.key === 'drawing_intent')?.status, 'available');
 assert.equal(ksReportSummary.artifacts_referenced.find((artifact) => artifact.key === 'feature_catalog')?.path, ksFeatureCatalogPath);
@@ -487,6 +490,8 @@ assertArtifact(qualityPassFeatureCatalogPath);
 const qualityPassDrawingQuality = readJson(qualityPassDrawingQualityPath);
 const qualityPassDrawingPlanner = readJson(qualityPassDrawingPlannerPath);
 assert.equal(qualityPassDrawingQuality.status, qualityPassFixture.strictDraw.qualityStatus);
+assert.equal(qualityPassDrawingQuality.reviewer_feedback.status, 'none');
+assert.equal(qualityPassDrawingQuality.reviewer_feedback.unresolved_count, 0);
 assert.equal(qualityPassDrawingQuality.dimensions.coverage_percent, 100);
 assert.equal(qualityPassDrawingQuality.traceability.coverage_percent >= 95, true);
 assert.equal(qualityPassDrawingQuality.extracted_drawing_semantics_file, qualityPassExtractedSemanticsPath);
@@ -528,6 +533,7 @@ assert.equal(
   qualityPassFixture.report.readyForManufacturingReview
 );
 assert.equal(qualityPassReportSummary.overall_status, qualityPassFixture.report.overallStatus);
+assert.equal(qualityPassReportSummary.surfaces.drawing_quality.reviewer_feedback.status, 'none');
 assert.equal(
   qualityPassReportSummary.artifacts_referenced.find((artifact) => artifact.key === 'drawing_intent')?.path,
   qualityPassDrawingIntentPath

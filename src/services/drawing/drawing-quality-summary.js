@@ -3,6 +3,10 @@ import { dirname, resolve } from 'node:path';
 
 import { compareDrawingIntentToExtractedSemantics } from './extracted-drawing-semantics.js';
 import { evaluateLayoutReadability, summarizeLayoutReadabilityActions } from './layout-readability.js';
+import {
+  buildReviewerFeedbackSummary,
+  normalizeReviewerFeedbackSummary,
+} from './reviewer-feedback.js';
 
 export const DRAWING_QUALITY_SCHEMA_VERSION = '0.1';
 
@@ -523,6 +527,22 @@ function collectTraceabilityGaps(requiredDimensions = [], traceability = null) {
   return requiredIds.filter((id) => unresolved.has(id));
 }
 
+export function applyReviewerFeedbackToDrawingQualitySummary(summary, reviewerFeedbackSummary = null) {
+  const normalizedReviewerFeedback = normalizeReviewerFeedbackSummary(reviewerFeedbackSummary);
+  return {
+    ...summary,
+    reviewer_feedback: normalizedReviewerFeedback,
+    recommended_actions: uniqueStrings([
+      ...asArray(summary?.recommended_actions),
+      ...asArray(normalizedReviewerFeedback.suggested_actions),
+    ]),
+    suggested_actions: uniqueStrings([
+      ...asArray(summary?.suggested_actions),
+      ...asArray(normalizedReviewerFeedback.suggested_actions),
+    ]),
+  };
+}
+
 export function buildDrawingQualitySummary({
   inputConfigPath = null,
   drawingSvgPath = null,
@@ -551,6 +571,11 @@ export function buildDrawingQualitySummary({
   svgContent = null,
   extractedDrawingSemanticsPath = null,
   extractedDrawingSemantics = null,
+  reviewerFeedbackPath = null,
+  reviewerFeedback = null,
+  reviewerFeedbackInputStatus = null,
+  reviewerFeedbackInputErrors = [],
+  reviewerFeedbackSummary = null,
   thresholds = DEFAULT_DRAWING_QUALITY_THRESHOLDS,
 } = {}) {
   const effectiveThresholds = {
@@ -578,7 +603,30 @@ export function buildDrawingQualitySummary({
       layoutReportPath,
       layoutReport,
     });
-    return {
+    const computedReviewerFeedback = reviewerFeedbackSummary || buildReviewerFeedbackSummary({
+      reviewerFeedback,
+      reviewerFeedbackPath,
+      inputStatus: reviewerFeedbackInputStatus,
+      inputErrors: reviewerFeedbackInputErrors,
+      semanticQuality,
+      extractedDrawingSemantics,
+      layoutReadability,
+      planner,
+      artifactPaths: {
+        drawing_svg: drawingSvgPath,
+        plan_file: planPath,
+        qa_file: qaPath,
+        qa_issues_file: qaIssuesPath,
+        traceability_file: traceabilityPath,
+        layout_report_file: layoutReportPath,
+        planner_file: plannerPath,
+        dimension_map_file: dimensionMapPath,
+        dim_conflicts_file: dimConflictsPath,
+        extracted_drawing_semantics_file: extractedDrawingSemanticsPath,
+        bom_file: bomPath,
+      },
+    });
+    const summary = {
       schema_version: DRAWING_QUALITY_SCHEMA_VERSION,
       command: 'draw',
       input_config: resolveMaybe(inputConfigPath),
@@ -634,6 +682,7 @@ export function buildDrawingQualitySummary({
       ]),
       drawing_planner: planner || null,
     };
+    return applyReviewerFeedbackToDrawingQualitySummary(summary, computedReviewerFeedback);
   }
 
   if (!qaReport) {
@@ -722,6 +771,29 @@ export function buildDrawingQualitySummary({
     layoutReport,
   });
   const layoutReadabilityActions = summarizeLayoutReadabilityActions(layoutReadability);
+  const computedReviewerFeedback = reviewerFeedbackSummary || buildReviewerFeedbackSummary({
+    reviewerFeedback,
+    reviewerFeedbackPath,
+    inputStatus: reviewerFeedbackInputStatus,
+    inputErrors: reviewerFeedbackInputErrors,
+    semanticQuality,
+    extractedDrawingSemantics,
+    layoutReadability,
+    planner,
+    artifactPaths: {
+      drawing_svg: drawingSvgPath,
+      plan_file: planPath,
+      qa_file: qaPath,
+      qa_issues_file: qaIssuesPath,
+      traceability_file: traceabilityPath,
+      layout_report_file: layoutReportPath,
+      planner_file: plannerPath,
+      dimension_map_file: dimensionMapPath,
+      dim_conflicts_file: dimConflictsPath,
+      extracted_drawing_semantics_file: extractedDrawingSemanticsPath,
+      bom_file: bomPath,
+    },
+  });
 
   const highSeverityIssues = asArray(qaIssues?.issues).filter((issue) => (
     issue?.severity === 'high' || issue?.severity === 'critical'
@@ -871,7 +943,7 @@ export function buildDrawingQualitySummary({
     drawing_planner: planner || null,
   };
 
-  return summary;
+  return applyReviewerFeedbackToDrawingQualitySummary(summary, computedReviewerFeedback);
 }
 
 export function shouldFailDrawingQualityGate(summary, { strictQuality = false } = {}) {

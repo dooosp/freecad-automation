@@ -15,6 +15,7 @@ import {
   ensureDrawSchema,
 } from './drawing-prep.js';
 import {
+  applyReviewerFeedbackToDrawingQualitySummary,
   buildDrawingQualitySummary,
   parseBomCsv,
   resolveDrawingQualityPath,
@@ -30,8 +31,13 @@ import {
   buildDrawingPlanner,
   refineDrawingPlannerWithExtractedCoverage,
   refineDrawingPlannerWithLayoutReadability,
+  refineDrawingPlannerWithReviewerFeedback,
   writeDrawingPlanner,
 } from '../services/drawing/drawing-planner.js';
+import {
+  buildReviewerFeedbackSummary,
+  loadReviewerFeedbackInput,
+} from '../services/drawing/reviewer-feedback.js';
 import {
   buildFeatureCatalog,
   createFeatureCatalogPath,
@@ -365,6 +371,11 @@ export async function runDrawPipeline({
   try {
     const loadStage = beginStage(runLog, 'load_config');
     const config = await loadConfig(absPath);
+    const reviewerFeedbackInput = loadReviewerFeedbackInput({
+      projectRoot,
+      configPath: absPath,
+      config,
+    });
     ensureDrawSchema(config);
     artifactStem = config.name || artifactStem;
     endStage(loadStage, 'ok', { model_name: artifactStem });
@@ -793,6 +804,10 @@ export async function runDrawPipeline({
         svgContent,
         extractedDrawingSemanticsPath,
         extractedDrawingSemantics,
+        reviewerFeedbackPath: reviewerFeedbackInput.reviewerFeedbackPath,
+        reviewerFeedback: reviewerFeedbackInput.reviewerFeedback,
+        reviewerFeedbackInputStatus: reviewerFeedbackInput.inputStatus,
+        reviewerFeedbackInputErrors: reviewerFeedbackInput.inputErrors,
       });
       const refinedPlannerFromCoverage = refineDrawingPlannerWithExtractedCoverage({
         planner: drawingPlanner,
@@ -800,29 +815,59 @@ export async function runDrawPipeline({
         featureCatalog,
         extractedEvidence: drawingQuality.semantic_quality?.extracted_evidence || null,
       });
-      const refinedDrawingPlanner = refineDrawingPlannerWithLayoutReadability({
+      const refinedPlannerFromLayout = refineDrawingPlannerWithLayoutReadability({
         planner: refinedPlannerFromCoverage,
         layoutReadability: drawingQuality.layout_readability || null,
+      });
+      const refreshedReviewerFeedback = buildReviewerFeedbackSummary({
+        reviewerFeedback: reviewerFeedbackInput.reviewerFeedback,
+        reviewerFeedbackPath: reviewerFeedbackInput.reviewerFeedbackPath,
+        inputStatus: reviewerFeedbackInput.inputStatus,
+        inputErrors: reviewerFeedbackInput.inputErrors,
+        semanticQuality: drawingQuality.semantic_quality || null,
+        extractedDrawingSemantics,
+        layoutReadability: drawingQuality.layout_readability || null,
+        planner: refinedPlannerFromLayout,
+        artifactPaths: {
+          drawing_svg: primarySvgPath,
+          plan_file: runLog.artifacts.plan || null,
+          qa_file: qaJsonPath,
+          qa_issues_file: qaIssuesJsonPath,
+          traceability_file: traceabilityPath,
+          layout_report_file: layoutPath,
+          planner_file: plannerPath,
+          dimension_map_file: dimMapPath,
+          dim_conflicts_file: conflictPath,
+          extracted_drawing_semantics_file: extractedDrawingSemanticsPath,
+          bom_file: bomPath,
+        },
+      });
+      const refinedDrawingPlanner = refineDrawingPlannerWithReviewerFeedback({
+        planner: refinedPlannerFromLayout,
+        reviewerFeedback: refreshedReviewerFeedback,
       });
       await writeDrawingPlanner(plannerPath, refinedDrawingPlanner);
       runLog.artifacts.drawing_planner = plannerPath;
       result.drawing_planner = refinedDrawingPlanner;
       result.drawing_planner_path = plannerPath;
-      drawingQuality.drawing_planner = refinedDrawingPlanner;
+      const finalDrawingQuality = applyReviewerFeedbackToDrawingQualitySummary({
+        ...drawingQuality,
+        drawing_planner: refinedDrawingPlanner,
+      }, refreshedReviewerFeedback);
       const drawingQualityPath = primarySvgPath ? resolveDrawingQualityPath(primarySvgPath) : join(artifactDir, `${artifactStem}_drawing_quality.json`);
-      await writeDrawingQualitySummary(drawingQualityPath, drawingQuality);
+      await writeDrawingQualitySummary(drawingQualityPath, finalDrawingQuality);
       runLog.artifacts.drawing_quality = drawingQualityPath;
-      result.drawing_quality = drawingQuality;
+      result.drawing_quality = finalDrawingQuality;
       result.drawing_quality_path = drawingQualityPath;
       onInfo(`  Drawing quality: ${drawingQualityPath}`);
-      onInfo(`  Drawing quality status: ${drawingQuality.status} (score=${drawingQuality.score ?? 'n/a'})`);
+      onInfo(`  Drawing quality status: ${finalDrawingQuality.status} (score=${finalDrawingQuality.score ?? 'n/a'})`);
       endStage(qualityStage, 'ok', {
-        status: drawingQuality.status,
-        score: drawingQuality.score ?? null,
+        status: finalDrawingQuality.status,
+        score: finalDrawingQuality.score ?? null,
       });
 
-      if (shouldFailDrawingQualityGate(drawingQuality, { strictQuality })) {
-        const reasons = drawingQuality.blocking_issues.map((issue) => issue.message).join(' | ');
+      if (shouldFailDrawingQualityGate(finalDrawingQuality, { strictQuality })) {
+        const reasons = finalDrawingQuality.blocking_issues.map((issue) => issue.message).join(' | ');
         const gateError = new Error(`Strict drawing quality gate failed: ${reasons}`);
         gateError.result = result;
         throw gateError;

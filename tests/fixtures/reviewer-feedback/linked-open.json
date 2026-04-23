@@ -1,0 +1,17 @@
+{
+  "schema_version": "0.1",
+  "source": "manual_review",
+  "items": [
+    {
+      "id": "RF-001",
+      "reviewer_label": "QA reviewer",
+      "target_type": "required_dimension",
+      "target_id": "WIDTH",
+      "category": "dimension_review",
+      "status": "open",
+      "severity": "warning",
+      "comment": "Confirm WIDTH after the latest layout change.",
+      "requested_action": "Verify WIDTH against the linked extracted evidence."
+    }
+  ]
+}
