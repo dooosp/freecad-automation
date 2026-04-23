@@ -229,6 +229,7 @@ These are already well integrated and should be treated as part of the stable sh
 - Why now: layout/readability is already shipped and runtime-generated, so this is a low-risk confidence upgrade rather than a new product line.
 - Dependencies: none beyond current Prompt 18 baseline.
 - What must not change: layout/readability remains advisory-only; no new blockers; no pixel-based scoring.
+- Expected additive contract: `drawing_quality.layout_readability` should expose advisory-only provenance fields such as `source_kind`, `source_artifact`, `source_ref`, `evidence_state`, `completeness_state`, and per-source completeness for layout report, QA metrics, and SVG view metadata. Missing, partial, or unsupported metadata remains conservative and must not produce false scoring confidence.
 - Likely validation:
   - `node tests/drawing-layout-readability.test.js`
   - `node tests/drawing-quality-summary.test.js`

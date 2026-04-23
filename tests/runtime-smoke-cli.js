@@ -130,6 +130,37 @@ function readJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
 }
 
+function assertRuntimeLayoutReadability(layoutReadability, label, {
+  requireFinding = false,
+} = {}) {
+  assert.equal(layoutReadability && typeof layoutReadability === 'object', true, `${label} layout readability must be an object`);
+  assert.equal(layoutReadability.advisory_only, true, `${label} layout readability must stay advisory-only`);
+  assert(['available', 'partial', 'missing'].includes(layoutReadability.evidence_state), `${label} evidence_state should be conservative`);
+  assert(['complete', 'partial', 'missing'].includes(layoutReadability.completeness_state), `${label} completeness_state should be explicit`);
+  const sourceCompleteness = layoutReadability.provenance?.source_completeness;
+  assert.equal(sourceCompleteness && typeof sourceCompleteness === 'object', true, `${label} source completeness must be present`);
+  assert.equal(sourceCompleteness.layout_report?.source_kind, 'layout_report');
+  assert.equal(sourceCompleteness.qa_metrics?.source_kind, 'qa_metrics');
+  assert.equal(sourceCompleteness.svg_view_metadata?.source_kind, 'svg_view_metadata');
+  assert.equal(typeof sourceCompleteness.layout_report?.completeness_state, 'string');
+  assert.equal(typeof sourceCompleteness.qa_metrics?.completeness_state, 'string');
+  assert.equal(typeof sourceCompleteness.svg_view_metadata?.completeness_state, 'string');
+  assert.equal(Array.isArray(layoutReadability.provenance?.sources), true, `${label} layout sources must be listed`);
+
+  const findings = Array.isArray(layoutReadability.findings) ? layoutReadability.findings : [];
+  if (requireFinding) {
+    assert(findings.length > 0, `${label} should retain at least one advisory layout finding`);
+  }
+  for (const finding of findings) {
+    assert.equal(finding.advisory_only, true, `${label} layout findings must stay advisory-only`);
+    assert.equal(typeof finding.source_kind, 'string', `${label} finding source_kind missing`);
+    assert.equal(typeof finding.source_ref, 'string', `${label} finding source_ref missing`);
+    assert.equal(typeof finding.evidence_state, 'string', `${label} finding evidence_state missing`);
+    assert.equal(typeof finding.completeness_state, 'string', `${label} finding completeness_state missing`);
+    assert.equal(finding.provenance && typeof finding.provenance === 'object', true, `${label} finding provenance missing`);
+  }
+}
+
 function assertExpectedExitCode(status, expectedExit, label) {
   if (expectedExit === 'nonzero') {
     assert.notEqual(status, 0, `${label} should fail with a non-zero exit code`);
@@ -385,6 +416,9 @@ assertArtifact(ksFeatureCatalogPath);
 const ksDrawingQuality = readJson(ksDrawingQualityPath);
 const ksDrawingPlanner = readJson(ksDrawingPlannerPath);
 assert.equal(ksDrawingQuality.status, 'fail');
+assertRuntimeLayoutReadability(ksDrawingQuality.layout_readability, 'ks_bracket drawing quality', {
+  requireFinding: true,
+});
 assert.equal(ksDrawingQuality.reviewer_feedback.status, 'none');
 assert.equal(ksDrawingQuality.reviewer_feedback.unresolved_count, 0);
 assert.equal(ksDrawingQuality.extracted_drawing_semantics_file, ksExtractedSemanticsPath);
@@ -462,6 +496,11 @@ assertArtifact(join(REPORT_DIR, 'ks_bracket_runtime_smoke_report.pdf'));
 const ksReportSummaryPath = join(REPORT_DIR, 'ks_bracket_runtime_smoke_report_summary.json');
 assertArtifact(ksReportSummaryPath);
 const ksReportSummary = readJson(ksReportSummaryPath);
+assertRuntimeLayoutReadability(
+  ksReportSummary.surfaces.drawing_quality.layout_readability,
+  'ks_bracket report summary',
+  { requireFinding: true }
+);
 assert.equal(ksReportSummary.ready_for_manufacturing_review, ksFixture.report.readyForManufacturingReview);
 assert.equal(ksReportSummary.overall_status, ksFixture.report.overallStatus);
 assert.equal(ksReportSummary.surfaces.drawing_quality.reviewer_feedback.status, 'none');
@@ -523,6 +562,7 @@ assertArtifact(qualityPassFeatureCatalogPath);
 const qualityPassDrawingQuality = readJson(qualityPassDrawingQualityPath);
 const qualityPassDrawingPlanner = readJson(qualityPassDrawingPlannerPath);
 assert.equal(qualityPassDrawingQuality.status, qualityPassFixture.strictDraw.qualityStatus);
+assertRuntimeLayoutReadability(qualityPassDrawingQuality.layout_readability, 'quality_pass_bracket drawing quality');
 assert.equal(qualityPassDrawingQuality.reviewer_feedback.status, 'none');
 assert.equal(qualityPassDrawingQuality.reviewer_feedback.unresolved_count, 0);
 assert.equal(qualityPassDrawingQuality.dimensions.coverage_percent, 100);
@@ -561,6 +601,10 @@ assertArtifact(join(REPORT_DIR, 'quality_pass_bracket_runtime_smoke_report.pdf')
 const qualityPassReportSummaryPath = join(REPORT_DIR, 'quality_pass_bracket_runtime_smoke_report_summary.json');
 assertArtifact(qualityPassReportSummaryPath);
 const qualityPassReportSummary = readJson(qualityPassReportSummaryPath);
+assertRuntimeLayoutReadability(
+  qualityPassReportSummary.surfaces.drawing_quality.layout_readability,
+  'quality_pass_bracket report summary'
+);
 assert.equal(
   qualityPassReportSummary.ready_for_manufacturing_review,
   qualityPassFixture.report.readyForManufacturingReview
@@ -634,6 +678,10 @@ assertArtifactManifest(
 const sectionDetailSemantics = readJson(sectionDetailExtractedSemanticsPath);
 const sectionDetailDrawingQuality = readJson(sectionDetailDrawingQualityPath);
 const sectionDetailDrawingPlanner = readJson(sectionDetailDrawingPlannerPath);
+assertRuntimeLayoutReadability(
+  sectionDetailDrawingQuality.layout_readability,
+  'section_detail_runtime_probe drawing quality'
+);
 assert.equal(sectionDetailSemantics.sources.some((entry) => entry.method === 'svg_view_group_metadata' && entry.inspected === true), true);
 assert.equal(sectionDetailSemantics.coverage.required_views_extracted, 3);
 assertRuntimeViewEvidence(sectionDetailSemantics, {
@@ -684,6 +732,10 @@ assertArtifact(join(REPORT_DIR, `${sectionDetailBase}_report.pdf`));
 const sectionDetailReportSummaryPath = join(REPORT_DIR, `${sectionDetailBase}_report_summary.json`);
 assertArtifact(sectionDetailReportSummaryPath);
 const sectionDetailReportSummary = readJson(sectionDetailReportSummaryPath);
+assertRuntimeLayoutReadability(
+  sectionDetailReportSummary.surfaces.drawing_quality.layout_readability,
+  'section_detail_runtime_probe report summary'
+);
 assert.equal(
   sectionDetailReportSummary.artifacts_referenced.find((artifact) => artifact.key === 'drawing_intent')?.path,
   sectionDetailDrawingIntentPath

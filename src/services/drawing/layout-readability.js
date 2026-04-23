@@ -33,6 +33,40 @@ function resolveMaybe(path) {
   return typeof path === 'string' && path.trim() ? resolve(path) : null;
 }
 
+function sourceKindForArtifact(artifactType = null, method = null) {
+  if (artifactType === 'layout_report') return 'layout_report';
+  if (artifactType === 'qa_report') return 'qa_metrics';
+  if (artifactType === 'svg') return 'svg_view_metadata';
+  if (method === 'layout_readability_preflight') return 'metadata_preflight';
+  return cleanText(artifactType, 'unknown');
+}
+
+function sourceRefForSource(source = {}) {
+  const method = cleanText(source.method, 'source');
+  if (cleanText(source.layout_view_key)) return `views.${source.layout_view_key}`;
+  if (cleanText(source.layout_region_ref)) return source.layout_region_ref;
+  if (cleanText(source.metric)) return `metrics.${source.metric}`;
+  if (Number.isInteger(source.pair_index)) return `details.text_overlaps.${source.pair_index}`;
+  if (cleanText(source.svg_group_id)) return source.svg_group_id;
+  if (cleanText(source.svg_region_ref)) return source.svg_region_ref;
+  if (cleanText(source.path)) return source.path;
+  return method;
+}
+
+function normalizeProvenance(source = {}) {
+  const artifactType = cleanText(source.artifact_type);
+  const method = cleanText(source.method);
+  if (!artifactType && !method) return null;
+  return {
+    ...source,
+    artifact_type: artifactType,
+    path: resolveMaybe(source.path),
+    method,
+    source_kind: sourceKindForArtifact(artifactType, method),
+    source_ref: sourceRefForSource(source),
+  };
+}
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
@@ -106,11 +140,19 @@ function viewMetadataMap(layoutReport = {}, svgViews = []) {
 }
 
 function createSource(artifactType, path, method, extra = {}) {
-  return {
+  const source = {
     artifact_type: artifactType,
     path: resolveMaybe(path),
     method,
     ...extra,
+  };
+  return {
+    ...source,
+    source_kind: sourceKindForArtifact(artifactType, method),
+    source_artifact: artifactType,
+    source_ref: sourceRefForSource(source),
+    evidence_state: extra.evidence_state || 'available',
+    completeness_state: extra.completeness_state || 'complete',
   };
 }
 
@@ -124,10 +166,14 @@ function buildFinding({
   labels = [],
   boundingBoxes = [],
   rawSource = {},
+  evidenceState = 'available',
+  completenessState = 'complete',
 }) {
+  const provenance = normalizeProvenance(rawSource);
   return {
     type,
     severity,
+    advisory_only: true,
     message,
     recommendation,
     view_ids: uniqueStrings(viewIds),
@@ -137,6 +183,49 @@ function buildFinding({
       .filter((bbox) => bbox && typeof bbox === 'object')
       .map((bbox) => ({ ...bbox })),
     raw_source: rawSource,
+    source_kind: provenance?.source_kind || sourceKindForArtifact(rawSource?.artifact_type, rawSource?.method),
+    source_artifact: provenance?.artifact_type || cleanText(rawSource?.artifact_type),
+    source_ref: provenance?.source_ref || sourceRefForSource(rawSource),
+    evidence_state: evidenceState,
+    completeness_state: completenessState,
+    provenance,
+  };
+}
+
+function completenessRecord({
+  sourceKind,
+  sourceArtifact,
+  path = null,
+  method,
+  hasEvidence = false,
+  hasArtifact = false,
+  complete = false,
+  unsupported = false,
+  missingReasons = [],
+  evidenceKeys = [],
+}) {
+  const completenessState = unsupported
+    ? 'unsupported'
+    : complete
+      ? 'complete'
+      : hasEvidence || hasArtifact
+        ? 'partial'
+        : 'missing';
+  const evidenceState = completenessState === 'complete'
+    ? 'available'
+    : completenessState;
+  return {
+    source_kind: sourceKind,
+    source_artifact: sourceArtifact,
+    source_ref: method,
+    path: resolveMaybe(path),
+    method,
+    evidence_state: evidenceState,
+    completeness_state: completenessState,
+    available: hasEvidence,
+    inspected: hasEvidence || hasArtifact,
+    missing_reasons: uniqueStrings(missingReasons),
+    evidence_keys: uniqueStrings(evidenceKeys),
   };
 }
 
@@ -176,22 +265,86 @@ export function evaluateLayoutReadability({
   const hasDimensionOverlapEvidence = Number.isFinite(Number(qaMetrics.dim_overlap_pairs));
   const hasNotesOverflowEvidence = typeof qaMetrics.notes_overflow === 'boolean';
   const hasSvgViewMetadata = svgViews.length > 0;
+  const hasLayoutArtifact = Boolean(layoutReport && typeof layoutReport === 'object');
+  const hasQaArtifact = Boolean(qaReport && typeof qaReport === 'object');
+  const hasSvgArtifact = typeof svgContent === 'string' && svgContent.trim();
+  const layoutCompleteness = completenessRecord({
+    sourceKind: 'layout_report',
+    sourceArtifact: 'layout_report',
+    path: layoutReportPath,
+    method: 'layout_report_views',
+    hasEvidence: hasLayoutViewData || Object.keys(layoutSummary).length > 0,
+    hasArtifact: hasLayoutArtifact || Boolean(layoutReportPath),
+    complete: hasLayoutViewData && hasOverflowEvidence,
+    missingReasons: [
+      hasLayoutViewData ? '' : 'layout report views missing',
+      hasOverflowEvidence ? '' : 'overflow metadata missing',
+    ],
+    evidenceKeys: [
+      hasLayoutViewData ? 'views' : '',
+      Object.keys(layoutSummary).length > 0 ? 'summary' : '',
+      hasOverflowEvidence ? 'overflow' : '',
+    ],
+  });
+  const qaCompleteness = completenessRecord({
+    sourceKind: 'qa_metrics',
+    sourceArtifact: 'qa_report',
+    path: qaPath,
+    method: 'qa_vector_metrics',
+    hasEvidence: Object.keys(qaMetrics).length > 0 || Object.keys(qaDetails).length > 0,
+    hasArtifact: hasQaArtifact || Boolean(qaPath),
+    complete: hasTextOverlapEvidence && hasDimensionOverlapEvidence && hasNotesOverflowEvidence,
+    missingReasons: [
+      hasTextOverlapEvidence ? '' : 'text overlap metric/details missing',
+      hasDimensionOverlapEvidence ? '' : 'dimension overlap metric missing',
+      hasNotesOverflowEvidence ? '' : 'notes overflow metric missing',
+    ],
+    evidenceKeys: [
+      ...Object.keys(qaMetrics).map((key) => `metrics.${key}`),
+      ...Object.keys(qaDetails).map((key) => `details.${key}`),
+    ],
+  });
+  const svgCompleteness = completenessRecord({
+    sourceKind: 'svg_view_metadata',
+    sourceArtifact: 'svg',
+    path: drawingSvgPath,
+    method: 'svg_view_group_metadata',
+    hasEvidence: hasSvgViewMetadata,
+    hasArtifact: Boolean(hasSvgArtifact || drawingSvgPath),
+    complete: hasSvgViewMetadata,
+    unsupported: Boolean(hasSvgArtifact && !hasSvgViewMetadata),
+    missingReasons: [
+      hasSvgViewMetadata ? '' : hasSvgArtifact ? 'drawing-view group metadata not found' : 'SVG content missing',
+    ],
+    evidenceKeys: svgViews.map((entry) => `views.${entry.id}`),
+  });
+  const sourceCompleteness = {
+    layout_report: layoutCompleteness,
+    qa_metrics: qaCompleteness,
+    svg_view_metadata: svgCompleteness,
+  };
 
   const sources = uniqueSources([
     hasLayoutViewData || Object.keys(layoutSummary).length > 0
       ? createSource('layout_report', layoutReportPath, 'layout_report_views', {
           view_count: Object.keys(layoutViews).length,
+          evidence_state: layoutCompleteness.evidence_state,
+          completeness_state: layoutCompleteness.completeness_state,
         })
       : null,
     Object.keys(qaMetrics).length > 0 || Object.keys(qaDetails).length > 0
       ? createSource('qa_report', qaPath, 'qa_vector_metrics', {
           metric_keys: Object.keys(qaMetrics),
           detail_keys: Object.keys(qaDetails),
+          evidence_state: qaCompleteness.evidence_state,
+          completeness_state: qaCompleteness.completeness_state,
         })
       : null,
     hasSvgViewMetadata
       ? createSource('svg', drawingSvgPath, 'svg_view_group_metadata', {
           view_ids: svgViews.map((entry) => entry.id),
+          evidence_state: svgCompleteness.evidence_state,
+          completeness_state: svgCompleteness.completeness_state,
         })
       : null,
   ]);
@@ -316,6 +469,8 @@ export function evaluateLayoutReadability({
         path: null,
         method: 'layout_readability_preflight',
       },
+      evidenceState: 'missing',
+      completenessState: 'missing',
     }));
   }
 
@@ -326,6 +481,7 @@ export function evaluateLayoutReadability({
     : hasLayoutViewData && hasOverflowEvidence && hasTextOverlapEvidence && hasDimensionOverlapEvidence && hasNotesOverflowEvidence
       ? 'available'
       : 'partial';
+  const completenessState = evidenceState === 'available' ? 'complete' : evidenceState;
   const canScore = evidenceState === 'available';
   const score = canScore
     ? clamp(roundNumber(
@@ -364,7 +520,9 @@ export function evaluateLayoutReadability({
     status,
     score,
     confidence,
+    advisory_only: true,
     evidence_state: evidenceState,
+    completeness_state: completenessState,
     summary: status === 'warning'
       ? `${warningCount} advisory layout/readability finding(s) confirmed from structured metadata.`
       : status === 'ok'
@@ -380,6 +538,7 @@ export function evaluateLayoutReadability({
     provenance: {
       sources,
       evaluated_view_ids: evaluatedViews,
+      source_completeness: sourceCompleteness,
       metrics_available: {
         layout_views: hasLayoutViewData,
         overflow: hasOverflowEvidence,

@@ -54,11 +54,43 @@ function makeBaseInput(overrides = {}) {
         status: 'ok',
         score: 100,
         confidence: 'high',
+        advisory_only: true,
         evidence_state: 'available',
+        completeness_state: 'complete',
         summary: 'No advisory layout/readability findings were confirmed from structured metadata.',
         finding_count: 0,
         warning_count: 0,
         findings: [],
+        provenance: {
+          sources: [
+            {
+              artifact_type: 'layout_report',
+              path: '/tmp/output/ks_bracket_layout_report.json',
+              method: 'layout_report_views',
+              source_kind: 'layout_report',
+              source_artifact: 'layout_report',
+              source_ref: 'layout_report_views',
+              evidence_state: 'available',
+              completeness_state: 'complete',
+            },
+          ],
+          evaluated_view_ids: ['front'],
+          source_completeness: {
+            layout_report: {
+              source_kind: 'layout_report',
+              source_artifact: 'layout_report',
+              source_ref: 'layout_report_views',
+              path: '/tmp/output/ks_bracket_layout_report.json',
+              method: 'layout_report_views',
+              evidence_state: 'available',
+              completeness_state: 'complete',
+              available: true,
+              inspected: true,
+              missing_reasons: [],
+              evidence_keys: ['views', 'summary', 'overflow'],
+            },
+          },
+        },
       },
       semantic_quality: {
         decision: 'pass',
@@ -272,6 +304,12 @@ function makeBaseInput(overrides = {}) {
   assert.equal(summary.surfaces.drawing_quality.semantic_quality.extracted_evidence.suggested_action_details[0].classification, 'unknown');
   assert.equal(summary.surfaces.drawing_quality.layout_readability.status, 'ok');
   assert.equal(summary.surfaces.drawing_quality.layout_readability.score, 100);
+  assert.equal(summary.surfaces.drawing_quality.layout_readability.advisory_only, true);
+  assert.equal(summary.surfaces.drawing_quality.layout_readability.completeness_state, 'complete');
+  assert.equal(
+    summary.surfaces.drawing_quality.layout_readability.provenance.source_completeness.layout_report.source_kind,
+    'layout_report'
+  );
 }
 
 {
