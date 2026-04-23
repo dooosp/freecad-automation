@@ -2,6 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
 import { compareDrawingIntentToExtractedSemantics } from './extracted-drawing-semantics.js';
+import { evaluateLayoutReadability, summarizeLayoutReadabilityActions } from './layout-readability.js';
 
 export const DRAWING_QUALITY_SCHEMA_VERSION = '0.1';
 
@@ -569,6 +570,14 @@ export function buildDrawingQualitySummary({
       extractedDrawingSemantics,
       extractedDrawingSemanticsPath,
     });
+    const layoutReadability = evaluateLayoutReadability({
+      drawingSvgPath,
+      svgContent,
+      qaPath,
+      qaReport,
+      layoutReportPath,
+      layoutReport,
+    });
     return {
       schema_version: DRAWING_QUALITY_SCHEMA_VERSION,
       command: 'draw',
@@ -611,11 +620,18 @@ export function buildDrawingQualitySummary({
         unmapped_required_entities: [],
       },
       semantic_quality: semanticQuality,
+      layout_readability: layoutReadability,
       thresholds: effectiveThresholds,
       blocking_issues: blockingIssues,
       warnings,
-      recommended_actions: recommendedActions,
-      suggested_actions: recommendedActions,
+      recommended_actions: uniqueStrings([
+        ...recommendedActions,
+        ...summarizeLayoutReadabilityActions(layoutReadability),
+      ]),
+      suggested_actions: uniqueStrings([
+        ...recommendedActions,
+        ...summarizeLayoutReadabilityActions(layoutReadability),
+      ]),
       drawing_planner: planner || null,
     };
   }
@@ -697,6 +713,15 @@ export function buildDrawingQualitySummary({
     extractedDrawingSemantics,
     extractedDrawingSemanticsPath,
   });
+  const layoutReadability = evaluateLayoutReadability({
+    drawingSvgPath,
+    svgContent,
+    qaPath,
+    qaReport,
+    layoutReportPath,
+    layoutReport,
+  });
+  const layoutReadabilityActions = summarizeLayoutReadabilityActions(layoutReadability);
 
   const highSeverityIssues = asArray(qaIssues?.issues).filter((issue) => (
     issue?.severity === 'high' || issue?.severity === 'critical'
@@ -827,16 +852,19 @@ export function buildDrawingQualitySummary({
       unmapped_required_entities: traceabilityGaps,
     },
     semantic_quality: semanticQuality,
+    layout_readability: layoutReadability,
     thresholds: effectiveThresholds,
     blocking_issues: blockingIssues,
     warnings: uniqueStrings(warnings),
     recommended_actions: uniqueStrings([
       ...recommendedActions,
+      ...layoutReadabilityActions,
       ...plannerSuggestedActions,
       ...semanticQuality.suggested_actions,
     ]),
     suggested_actions: uniqueStrings([
       ...recommendedActions,
+      ...layoutReadabilityActions,
       ...plannerSuggestedActions,
       ...semanticQuality.suggested_actions,
     ]),

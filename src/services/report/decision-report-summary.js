@@ -382,6 +382,7 @@ function summarizeDrawingQuality(drawingQuality) {
       overlap_count: 0,
       traceability_coverage_percent: null,
       semantic_quality: summarizeSemanticDrawingQuality(null),
+      layout_readability: summarizeLayoutReadability(null),
       recommended_actions: [],
       blocking_issues: [],
       warnings: [],
@@ -405,6 +406,7 @@ function summarizeDrawingQuality(drawingQuality) {
       ? Number(drawingQuality.traceability.coverage_percent)
       : null,
     semantic_quality: semanticQuality,
+    layout_readability: summarizeLayoutReadability(drawingQuality.layout_readability),
     recommended_actions: uniqueStrings([
       ...(drawingQuality.recommended_actions || []),
       ...semanticQuality.suggested_actions,
@@ -413,6 +415,47 @@ function summarizeDrawingQuality(drawingQuality) {
       typeof issue === 'string' ? issue : issue?.message
     ))),
     warnings: uniqueStrings(drawingQuality.warnings || []),
+  };
+}
+
+function summarizeLayoutReadability(layoutReadability) {
+  if (!layoutReadability || typeof layoutReadability !== 'object') {
+    return {
+      status: 'not_evaluated',
+      score: null,
+      confidence: null,
+      evidence_state: 'missing',
+      summary: 'Layout/readability scoring was not evaluated.',
+      finding_count: 0,
+      warning_count: 0,
+      findings: [],
+    };
+  }
+
+  return {
+    status: safeString(layoutReadability.status, 'not_evaluated'),
+    score: finiteNumberOrNull(layoutReadability.score),
+    confidence: safeString(layoutReadability.confidence),
+    evidence_state: safeString(layoutReadability.evidence_state),
+    summary: safeString(layoutReadability.summary),
+    finding_count: Number.isFinite(Number(layoutReadability.finding_count))
+      ? Number(layoutReadability.finding_count)
+      : asArray(layoutReadability.findings).length,
+    warning_count: Number.isFinite(Number(layoutReadability.warning_count))
+      ? Number(layoutReadability.warning_count)
+      : asArray(layoutReadability.findings).filter((entry) => entry?.severity === 'warning').length,
+    findings: asArray(layoutReadability.findings)
+      .filter((entry) => entry && typeof entry === 'object')
+      .map((entry) => ({
+        type: safeString(entry.type),
+        severity: safeString(entry.severity),
+        message: safeString(entry.message),
+        recommendation: safeString(entry.recommendation),
+        view_ids: uniqueStrings(entry.view_ids || []),
+        element_ids: uniqueStrings(entry.element_ids || []),
+        labels: uniqueStrings(entry.labels || []),
+        raw_source: entry.raw_source && typeof entry.raw_source === 'object' ? entry.raw_source : null,
+      })),
   };
 }
 

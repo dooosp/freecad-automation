@@ -29,6 +29,7 @@ import {
 import {
   buildDrawingPlanner,
   refineDrawingPlannerWithExtractedCoverage,
+  refineDrawingPlannerWithLayoutReadability,
   writeDrawingPlanner,
 } from '../services/drawing/drawing-planner.js';
 import {
@@ -793,11 +794,15 @@ export async function runDrawPipeline({
         extractedDrawingSemanticsPath,
         extractedDrawingSemantics,
       });
-      const refinedDrawingPlanner = refineDrawingPlannerWithExtractedCoverage({
+      const refinedPlannerFromCoverage = refineDrawingPlannerWithExtractedCoverage({
         planner: drawingPlanner,
         drawingIntent,
         featureCatalog,
         extractedEvidence: drawingQuality.semantic_quality?.extracted_evidence || null,
+      });
+      const refinedDrawingPlanner = refineDrawingPlannerWithLayoutReadability({
+        planner: refinedPlannerFromCoverage,
+        layoutReadability: drawingQuality.layout_readability || null,
       });
       await writeDrawingPlanner(plannerPath, refinedDrawingPlanner);
       runLog.artifacts.drawing_planner = plannerPath;
