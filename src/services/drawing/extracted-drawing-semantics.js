@@ -242,10 +242,22 @@ function classifyNoteCategory(text = '') {
   return 'unknown';
 }
 
+function isMaterialLabelOnly(text = '') {
+  return normalizeComparable(text) === 'material';
+}
+
 function matchRequiredNote(note = {}, requiredNotes = []) {
   const noteComparable = normalizeComparable(note?.raw_text);
   if (!noteComparable) return null;
+  if (isMaterialLabelOnly(note?.raw_text)) return null;
   for (const required of requiredNotes) {
+    if (normalizeComparable(required.id) === 'material' && normalizeText(required.text ?? required.note)) {
+      const materialTextMatched = uniqueStrings([required.text, required.note])
+        .map((candidate) => normalizeComparable(candidate))
+        .some((candidate) => candidate && noteComparable.includes(candidate));
+      if (materialTextMatched) return required;
+      continue;
+    }
     const candidates = uniqueStrings([
       required.id,
       required.label,
@@ -339,6 +351,23 @@ function extractSvgAttributes(attributeText = '') {
     attrs[match[1]] = decodeXmlText(match[2] || '');
   }
   return attrs;
+}
+
+function parseSvgTextPosition(node = {}) {
+  const attrs = extractSvgAttributes(node.attributes || '');
+  const x = Number.parseFloat(attrs.x);
+  const y = Number.parseFloat(attrs.y);
+  return {
+    x: Number.isFinite(x) ? x : null,
+    y: Number.isFinite(y) ? y : null,
+  };
+}
+
+function isTitleBlockMaterialValueCandidate(node = {}) {
+  if (!normalizeText(node.text)) return false;
+  if (looksLikeDimensionText(node.text)) return false;
+  if (isMaterialLabelOnly(node.text)) return false;
+  return classifyNoteCategory(node.text) === 'material';
 }
 
 function collectViewsFromSvgGroups(svgContent = null, svgPath = null, requiredViews = []) {
@@ -479,11 +508,54 @@ function collectNotesFromSvg(textNodes = [], svgPath = null, requiredNotes = [])
   return notes;
 }
 
+function collectMaterialTitleBlockNotesFromSvg(textNodes = [], svgPath = null, requiredNotes = []) {
+  const notes = [];
+  for (let index = 0; index < textNodes.length; index += 1) {
+    const labelNode = textNodes[index];
+    if (!isMaterialLabelOnly(labelNode.text)) continue;
+    const labelPosition = parseSvgTextPosition(labelNode);
+    if (labelPosition.x === null || labelPosition.y === null) continue;
+
+    const valueNode = textNodes
+      .slice(index + 1)
+      .map((node) => ({ node, position: parseSvgTextPosition(node) }))
+      .filter(({ node, position }) => {
+        if (!isTitleBlockMaterialValueCandidate(node)) return false;
+        if (position.x === null || position.y === null) return false;
+        return Math.abs(position.x - labelPosition.x) <= 0.75
+          && position.y > labelPosition.y
+          && position.y - labelPosition.y <= 16;
+      })
+      .sort((a, b) => a.position.y - b.position.y)[0]?.node || null;
+
+    if (!valueNode) continue;
+    const rawText = `Material: ${valueNode.text}`;
+    const matchedRequired = matchRequiredNote({ raw_text: rawText }, requiredNotes);
+    notes.push({
+      id: `${labelNode.id}_${valueNode.id}_material_pair`,
+      raw_text: rawText,
+      category: 'material',
+      matched_intent_id: matchedRequired?.id ?? null,
+      source: resolveMaybe(svgPath),
+      confidence: roundConfidence(matchedRequired ? 0.86 : 0.72),
+      provenance: createProvenance({
+        artifactType: 'svg',
+        path: svgPath,
+        method: 'svg_title_block_material_pair',
+        label_svg_text_id: labelNode.id,
+        value_svg_text_id: valueNode.id,
+      }),
+    });
+  }
+  return notes;
+}
+
 function firstMatchingNote(notes = [], predicate) {
   return notes.find((note) => predicate(note)) || null;
 }
 
 function buildTitleBlock(notes = []) {
+  const materialNote = firstMatchingNote(notes, (note) => note.category === 'material' && !isMaterialLabelOnly(note.raw_text));
   return {
     part_name: firstMatchingNote(notes, (note) => /\bPART\b|\bNAME\b/i.test(note.raw_text))
       ? {
@@ -493,12 +565,12 @@ function buildTitleBlock(notes = []) {
           provenance: firstMatchingNote(notes, (note) => /\bPART\b|\bNAME\b/i.test(note.raw_text)).provenance,
         }
       : null,
-    material: firstMatchingNote(notes, (note) => note.category === 'material')
+    material: materialNote
       ? {
-          raw_text: firstMatchingNote(notes, (note) => note.category === 'material').raw_text,
-          source: firstMatchingNote(notes, (note) => note.category === 'material').source,
+          raw_text: materialNote.raw_text,
+          source: materialNote.source,
           confidence: 0.72,
-          provenance: firstMatchingNote(notes, (note) => note.category === 'material').provenance,
+          provenance: materialNote.provenance,
         }
       : null,
     tolerance: firstMatchingNote(notes, (note) => note.category === 'tolerance')
@@ -1052,9 +1124,11 @@ export function buildExtractedDrawingSemantics({
   const requiredViews = collectIntentViews(asObject(drawingIntent));
   const textNodes = extractSvgTextNodes(svgContent);
   const structuredSvgViews = collectViewsFromSvgGroups(svgContent, drawingSvgPath, requiredViews);
+  const materialTitleBlockNotes = collectMaterialTitleBlockNotesFromSvg(textNodes, drawingSvgPath, requiredNotes);
 
   const sources = [
     createSource('svg', drawingSvgPath, Boolean(svgContent), 'svg_text_scan'),
+    createSource('svg', drawingSvgPath, materialTitleBlockNotes.length > 0, 'svg_title_block_material_pair'),
     createSource('svg', drawingSvgPath, structuredSvgViews.length > 0, 'svg_view_group_metadata'),
     createSource('layout_report', layoutReportPath, Boolean(layoutReport && typeof layoutReport === 'object'), 'layout_report_views'),
     createSource('dimension_map', dimensionMapPath, Boolean(dimensionMap && typeof dimensionMap === 'object'), 'dimension_map_reference'),
@@ -1068,7 +1142,10 @@ export function buildExtractedDrawingSemantics({
     ...collectViewsFromSvgText(textNodes, drawingSvgPath, requiredViews),
   ]);
   const dimensions = collectDimensionsFromSvg(textNodes, drawingSvgPath, requiredDimensions, traceability);
-  const notes = collectNotesFromSvg(textNodes, drawingSvgPath, requiredNotes);
+  const notes = [
+    ...materialTitleBlockNotes,
+    ...collectNotesFromSvg(textNodes, drawingSvgPath, requiredNotes),
+  ];
   const titleBlock = buildTitleBlock(notes);
   const coverage = buildCoverage(requiredDimensions, requiredNotes, requiredViews, dimensions, notes, views);
 

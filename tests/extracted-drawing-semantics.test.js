@@ -148,6 +148,78 @@ const ROOT = resolve(import.meta.dirname, '..');
 }
 
 {
+  const semantics = buildExtractedDrawingSemantics({
+    drawingSvgPath: '/tmp/title-block-material-pair.svg',
+    svgContent: [
+      '<svg xmlns="http://www.w3.org/2000/svg">',
+      '  <text x="120" y="180">MATERIAL</text>',
+      '  <text x="120" y="187">AL6061</text>',
+      '</svg>',
+    ].join('\n'),
+    drawingIntent: {
+      required_notes: [
+        { id: 'MATERIAL', text: 'Material: AL6061', required: true },
+      ],
+    },
+  });
+
+  assert.equal(semantics.methods.includes('svg_title_block_material_pair'), true);
+  assert.equal(semantics.coverage.required_notes_extracted, 1);
+  assert.equal(semantics.title_block.material?.raw_text, 'Material: AL6061');
+  assert.equal(
+    semantics.notes.some((entry) => (
+      entry.raw_text === 'Material: AL6061'
+        && entry.matched_intent_id === 'MATERIAL'
+        && entry.provenance.method === 'svg_title_block_material_pair'
+        && entry.provenance.label_svg_text_id === 'svg_text_001'
+        && entry.provenance.value_svg_text_id === 'svg_text_002'
+    )),
+    true
+  );
+}
+
+{
+  const labelOnly = buildExtractedDrawingSemantics({
+    drawingSvgPath: '/tmp/title-block-material-label-only.svg',
+    svgContent: [
+      '<svg xmlns="http://www.w3.org/2000/svg">',
+      '  <text x="120" y="180">MATERIAL</text>',
+      '</svg>',
+    ].join('\n'),
+    drawingIntent: {
+      required_notes: [
+        { id: 'MATERIAL', text: 'Material: AL6061', required: true },
+      ],
+    },
+  });
+
+  assert.equal(labelOnly.methods.includes('svg_title_block_material_pair'), false);
+  assert.equal(labelOnly.coverage.required_notes_extracted, 0);
+  assert.equal(labelOnly.title_block.material, null);
+  assert(labelOnly.unknowns.some((entry) => entry.includes('MATERIAL')));
+
+  const mismatchedValue = buildExtractedDrawingSemantics({
+    drawingSvgPath: '/tmp/title-block-material-mismatch.svg',
+    svgContent: [
+      '<svg xmlns="http://www.w3.org/2000/svg">',
+      '  <text x="120" y="180">MATERIAL</text>',
+      '  <text x="120" y="187">AL6061</text>',
+      '</svg>',
+    ].join('\n'),
+    drawingIntent: {
+      required_notes: [
+        { id: 'MATERIAL', text: 'Material: SS304', required: true },
+      ],
+    },
+  });
+
+  assert.equal(mismatchedValue.methods.includes('svg_title_block_material_pair'), true);
+  assert.equal(mismatchedValue.coverage.required_notes_extracted, 0);
+  assert.equal(mismatchedValue.title_block.material?.raw_text, 'Material: AL6061');
+  assert(mismatchedValue.unknowns.some((entry) => entry.includes('MATERIAL')));
+}
+
+{
   const unsupported = buildExtractedDrawingSemantics();
   assert.equal(unsupported.status, 'unsupported');
   assert.equal(unsupported.decision, 'advisory');
