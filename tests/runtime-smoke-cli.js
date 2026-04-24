@@ -467,6 +467,11 @@ assert.equal(
   ksDrawingQuality.semantic_quality.extracted_evidence.required_notes.some((entry) => entry.requirement_id === 'SURFACE_FINISH' && entry.classification === 'extracted'),
   true
 );
+assert.equal(Array.isArray(ksDrawingQuality.semantic_quality.required_blockers), true);
+assert.equal(
+  ksDrawingQuality.semantic_quality.required_blockers.some((entry) => entry.includes('BASE_PLATE_ENVELOPE')),
+  true
+);
 assert.equal(Array.isArray(ksDrawingPlanner.suggested_action_details), true);
 assert.equal(ksDrawingPlanner.suggested_action_details.some((entry) => entry.classification === 'unknown' || entry.classification === 'missing'), true);
 assert.equal(ksDrawingPlanner.suggested_action_details.some((entry) => entry.category === 'note'), false);
@@ -530,6 +535,10 @@ assertRuntimeLayoutReadability(
 );
 assert.equal(ksReportSummary.ready_for_manufacturing_review, ksFixture.report.readyForManufacturingReview);
 assert.equal(ksReportSummary.overall_status, ksFixture.report.overallStatus);
+assert.equal(
+  ksReportSummary.surfaces.drawing_quality.semantic_quality.required_blockers.some((entry) => entry.includes('BASE_PLATE_ENVELOPE')),
+  true
+);
 assert.equal(ksReportSummary.surfaces.drawing_quality.reviewer_feedback.status, 'none');
 assert.equal(ksReportSummary.artifacts_referenced.find((artifact) => artifact.key === 'drawing_intent')?.path, ksDrawingIntentPath);
 assert.equal(ksReportSummary.artifacts_referenced.find((artifact) => artifact.key === 'drawing_intent')?.status, 'available');
@@ -597,6 +606,7 @@ assert.equal(qualityPassDrawingQuality.traceability.coverage_percent >= 95, true
 assert.equal(qualityPassDrawingQuality.extracted_drawing_semantics_file, qualityPassExtractedSemanticsPath);
 assert.equal(qualityPassDrawingQuality.semantic_quality.extracted_evidence.coverage.required_dimensions.missing, 0);
 assert.equal(qualityPassDrawingQuality.semantic_quality.extracted_evidence.required_dimensions.every((entry) => entry.classification === 'extracted'), true);
+assert.deepEqual(qualityPassDrawingQuality.semantic_quality.required_blockers, []);
 assert.deepEqual(qualityPassDrawingPlanner.suggested_action_details || [], []);
 qualityPassFixtureRecord.observed.drawingQualityStatus = qualityPassDrawingQuality.status;
 qualityPassFixtureRecord.observed.strictDrawExit = qualityPassStrictDraw.status;
@@ -637,6 +647,7 @@ assert.equal(
   qualityPassFixture.report.readyForManufacturingReview
 );
 assert.equal(qualityPassReportSummary.overall_status, qualityPassFixture.report.overallStatus);
+assert.deepEqual(qualityPassReportSummary.surfaces.drawing_quality.semantic_quality.required_blockers, []);
 assert.equal(qualityPassReportSummary.surfaces.drawing_quality.reviewer_feedback.status, 'none');
 assert.equal(
   qualityPassReportSummary.artifacts_referenced.find((artifact) => artifact.key === 'drawing_intent')?.path,

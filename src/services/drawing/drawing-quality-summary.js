@@ -291,6 +291,29 @@ function coverageScore(present, total) {
   return Number(((present / total) * 100).toFixed(2));
 }
 
+function requiredEvidenceBlockers(extractedEvidence = {}) {
+  const hasInspectedEvidence = asArray(extractedEvidence?.sources).some((source) => source?.inspected === true);
+  if (!hasInspectedEvidence) return [];
+
+  const groups = [
+    { key: 'required_dimensions', noun: 'dimension' },
+    { key: 'required_notes', noun: 'note' },
+    { key: 'required_views', noun: 'view' },
+  ];
+  const blockers = [];
+  for (const group of groups) {
+    for (const entry of asArray(extractedEvidence[group.key])) {
+      const classification = normalizeId(entry?.classification);
+      if (!classification || classification === 'extracted') continue;
+      const label = normalizeId(entry?.requirement_label || entry?.requirement_id || group.noun);
+      const id = normalizeId(entry?.requirement_id);
+      const idSuffix = id && id !== label ? ` (${id})` : '';
+      blockers.push(`Required ${group.noun} evidence is ${classification}: ${label}${idSuffix}.`);
+    }
+  }
+  return uniqueStrings(blockers);
+}
+
 function buildSemanticDrawingQualityReport({
   drawingIntent = null,
   featureCatalog = null,
@@ -407,13 +430,17 @@ function buildSemanticDrawingQualityReport({
     ...traceMissing.map((name) => `Required dimension lacks traceability evidence: ${name}.`),
     ...traceUnknown.map((name) => `Required dimension traceability is unknown because traceability evidence is unavailable: ${name}.`),
   ]);
+  const extractedRequiredBlockers = requiredEvidenceBlockers(extractedEvidence);
   const effectiveRequiredMissingCount = effectiveMissingCriticalFeatures.length
     + missingRequiredDimensions.length
     + missingRequiredNotes.length
     + missingRequiredViews.length
     + traceMissing.length
     + traceUnknown.length;
-  const effectiveRequiredBlockers = enforceable ? effectiveMissingCriticalInformation : [];
+  const effectiveRequiredBlockers = uniqueStrings([
+    ...extractedRequiredBlockers,
+    ...(enforceable ? effectiveMissingCriticalInformation : []),
+  ]);
   const effectiveMetricScores = [
     coverageScore(effectiveCoveredFeatures.length, features.required.length),
     coverageScore(presentDimensions.length, dimensions.required.length),
