@@ -173,7 +173,7 @@ The verified v1 Studio behavior is:
 - no automatic tolerance inference beyond explicit generated or extracted evidence
 - no automatic learning, config mutation, or evidence promotion from reviewer feedback
 - unknown, unsupported, and low-confidence evidence remains conservative
-- remaining `ks_bracket` dimension unknowns such as `MOUNTING_HOLE_DIA` and `BASE_PLATE_ENVELOPE` are intentional until stronger feature and dimension evidence exists
+- current remediation evidence keeps `MOUNTING_HOLE_DIA` extracted only from explicit SVG raw text with source/provenance, while `BASE_PLATE_ENVELOPE` remains unknown until explicit combined length-and-width evidence exists
 
 ## Post-v1 Roadmap
 

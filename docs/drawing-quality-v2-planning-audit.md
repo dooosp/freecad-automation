@@ -1,6 +1,8 @@
 # Drawing Quality v2 Planning Audit
 
-This document audits the shipped post-v1 Drawing Quality baseline on `origin/master` after Prompt 19. It is a planning and sequencing document only. It does not change product behavior, manufacturing-readiness logic, advisory/blocking policy, or drawing generation strategy.
+This document originally audited the shipped post-v1 Drawing Quality baseline on `origin/master` after Prompt 19. It now also records the local remediation-candidate evidence for Prompt 21 through Prompt 24 on candidate HEAD `9f779cdc90bff6a2cbc879ec5ab3126022c2233b`.
+
+The base locked `master` / `origin/master` reference for this remediation line remains `7288dd9439fe07054d72c16243e1fd12457c1e70`. The remediation candidate is not documented here as merged to `master`, pushed, or PR-verified. Final release or merge still requires branch publication and hosted GitHub checks.
 
 Audit baseline:
 
@@ -19,19 +21,19 @@ Primary evidence used for this audit:
 - `node tests/runtime-smoke-cli.js`
 - `npm run test:runtime-smoke`
 - targeted drawing/report/Studio tests
-- latest runtime smoke outputs under `output/smoke/2026-04-23T07-20-10-791Z/`
+- latest runtime smoke outputs under timestamped `output/smoke/...` directories
 
 ## Executive Summary
 
 The post-Prompt-19 Drawing Quality stack is shipped and end-to-end real on `master`, not just fixture scaffolding. The current baseline now generates and links `drawing_intent`, `feature_catalog`, `extracted_drawing_semantics`, `drawing_quality.semantic_quality`, advisory `drawing_quality.layout_readability`, advisory `drawing_quality.reviewer_feedback`, `drawing_planner`, report summaries, manifests, and Studio quality surfaces in one draw/report flow.
 
-The strongest verified path today is still the original semantic-quality chain plus report/manifest linkage and Studio surfacing. Advisory layout/readability and reviewer feedback are also shipped, but their verification posture is more conservative:
+In the original post-Prompt-19 audit, the strongest verified path was the semantic-quality chain plus report/manifest linkage and Studio surfacing. Before the remediation candidate, advisory layout/readability, reviewer feedback, and section/detail had these conservative evidence gaps:
 
-- layout/readability is runtime-generated today, but most branch-specific behavior is still asserted by unit/browser fixtures rather than by explicit runtime-smoke field assertions
-- reviewer feedback is runtime-proven only for the no-input path (`status: none`); linked/stale/invalid/open-item behavior is fixture-backed today
-- Prompt 17 section/detail logic is shipped as a conservative foundation, but there is not yet a dedicated runtime-backed section/detail example proving that path end to end
+- layout/readability was runtime-generated, but most branch-specific behavior was asserted by unit/browser fixtures rather than by explicit runtime-smoke field assertions
+- reviewer feedback was runtime-proven only for the no-input path (`status: none`), while linked/stale/invalid/open-item behavior was fixture-backed
+- Prompt 17 section/detail logic was shipped as a conservative foundation, but lacked a dedicated runtime-backed section/detail example proving that path end to end
 
-No docs refresh was required in `README.md`, `docs/testing.md`, `docs/drawing-quality-v1.md`, or `IMPLEMENTATION_PLAN.md` to keep this audit accurate. The current repo wording is still broadly aligned with shipped behavior, so this audit adds one new planning document instead of forcing churn into baseline docs.
+Prompt 21 through Prompt 24 are now proved on the remediation candidate by the runtime smoke, focused unit tests, manifest/path guards, and static semantic guards listed below. This remains candidate/remediation evidence only until the branch is pushed or opened as a PR and hosted GitHub checks pass.
 
 ## Current Verified Baseline After Prompt 19
 
@@ -61,7 +63,7 @@ What is already shipped and verified:
 - Studio quality surfaces consume report/drawing artifacts and expose semantic-quality evidence plus advisory suggested-action groups.
 - manufacturing readiness still depends on required Geometry / Drawing / DFM surfaces rather than advisory semantic/layout/reviewer signals.
 
-Latest runtime smoke (`output/smoke/2026-04-23T07-20-10-791Z/`) confirms:
+Current remediation-candidate runtime smoke under timestamped `output/smoke/...` directories confirms:
 
 - `quality_pass_bracket`
   - `drawing_quality.status = pass`
@@ -83,8 +85,15 @@ Latest runtime smoke (`output/smoke/2026-04-23T07-20-10-791Z/`) confirms:
   - `MOUNTING_HOLE_DIA` remained `extracted`
   - `BASE_PLATE_ENVELOPE` remained `unknown`
   - planner suggested-action details remained advisory-only
+- `section_detail_runtime_probe`
+  - runtime-backed section and detail views are generated and linked through drawing-quality/report artifacts
+  - structured section/detail provenance is required; loose labels alone still do not extract
+- `reviewer_feedback_runtime_probe`
+  - `reviewer_feedback.status = available`
+  - open linked reviewer feedback remains advisory-only and manifest-linked
+  - reviewer feedback does not satisfy missing required evidence or change readiness
 
-Those latest smoke outputs preserve the Prompt 16 through Prompt 19 locks:
+Those smoke outputs preserve the Prompt 16 through Prompt 24 locks:
 
 - `MOUNTING_HOLE_DIA` is not regressed out of the allowed explicit-evidence path
 - `BASE_PLATE_ENVELOPE` is not promoted beyond `unknown`
@@ -193,81 +202,73 @@ These are already well integrated and should be treated as part of the stable sh
   - reviewer feedback is explicit, traceable, and advisory-only
   - reviewer feedback does not change manufacturing readiness
 
-## Gap Register
+## Remediation Candidate Register
 
-| Gap | Category | Current evidence | Risk | Good Prompt 21+ candidate |
-| --- | --- | --- | --- | --- |
-| No dedicated runtime-backed section/detail example | section/detail runtime coverage gap | Prompt 17 logic is shipped and unit-tested, but current runtime smoke fixtures do not prove a section/detail path end to end | Medium | Yes |
-| Layout/readability detailed branches are stronger in fixtures than in runtime assertions | layout metadata/completeness gap | latest smoke emits advisory layout findings, but runtime smoke does not assert detailed layout fields the way unit tests do | Low | Yes |
-| Reviewer-feedback runtime path only proves the no-input case | reviewer feedback ingestion/UX gap | runtime smoke asserts `status = none`; linked/open/stale/invalid flows are fixture-backed only | Low | Yes |
-| Some report/Studio advisory branches are payload-tested more strongly than runtime-owned | report/manifest/Studio visibility gap | report and Studio tests are good, but not every advisory state is tied to a live runtime scenario | Low | Yes |
-| Conservative semantic wins beyond Prompt 16 remain narrow | semantic evidence gap | hole/envelope rules are locked; additional conservative improvements need stronger explicit source evidence before promotion | Medium | Yes |
-| Runtime smoke upload workflow paths are stale relative to actual output layout | CI/workflow hygiene gap | workflow still uploads `output/runtime-smoke` while current smoke writes under `output/smoke/...` | Low | Track separately |
-| Any remaining GitHub Actions Node 20 deprecation warning is operational, not semantic | CI/workflow hygiene gap | workflow files already pin Node `24`; any lingering warning is likely action-runtime hygiene rather than drawing-quality product scope | Low | Track separately |
-| OCR, pixel parsing, generator rewrites, automatic GD&T/tolerance inference, reviewer automation | not-safe-yet / broad-engine gap | no conservative evidence model supports these without broader design changes | High | No |
+| Item | Category | Current remediation-candidate evidence | Status |
+| --- | --- | --- | --- |
+| Prompt 21 section/detail runtime proof | section/detail runtime coverage | `section_detail_runtime_probe` now runs through runtime smoke and proves structured section/detail view evidence end to end through draw, extracted semantics, quality summary, planner, report summary, and manifests. Loose section/detail labels alone still do not extract. | Proved on candidate |
+| Prompt 22 layout provenance/completeness | layout metadata/completeness | `drawing_quality.layout_readability` now carries advisory-only provenance/completeness metadata including source kind, source artifact/ref, evidence state, completeness state, and per-source completeness. Missing, partial, or unsupported metadata remains conservative and does not affect readiness. | Proved on candidate |
+| Prompt 23 reviewer-feedback ingestion | reviewer feedback ingestion/UX | `reviewer_feedback_runtime_probe` now proves explicit repo-local reviewer-feedback JSON ingestion with linked/open feedback. The feedback is manifest-linked, path-safe, advisory-only, and does not satisfy missing evidence or change manufacturing readiness. | Proved on candidate |
+| Prompt 24 material semantic increment | semantic evidence | The new Prompt 24 increment is limited to explicit SVG title-block `MATERIAL` label/value pair evidence. Pre-existing explicit SVG material note text remains allowed only when the SVG text has raw text, source, and provenance, and is not inferred from config/defaults/reviewer/layout/QA/model/OCR/pixels. | Proved on candidate |
+| Checklist 9 artifact/manifest path guard | artifact/manifest remediation | Latest candidate path guard reports `BAD_PATH_REFS=0`, `MISSING_REFS=0`, `OPTIONAL_UNAVAILABLE_WITH_PATH=0`, and `REQUIRED_UNAVAILABLE=0`. | Proved on candidate |
+| Runtime smoke upload workflow paths | CI/workflow hygiene | Runtime smoke writes under `output/smoke/...`. Any workflow upload-path cleanup remains operational follow-up, not drawing-quality product status. | Track separately |
+| GitHub Actions runtime deprecation warnings | CI/workflow hygiene | Any remaining action-runtime warning is operational cleanup, not semantic Drawing Quality scope. | Track separately |
+| OCR, pixel parsing, generator rewrites, automatic GD&T/tolerance inference, reviewer automation | not-safe-yet / broad-engine gap | No conservative evidence model supports these without broader design changes, and the remediation candidate does not add them. | Not in scope |
 
-## Recommended Next Prompt Sequence For v2
+## Prompt 21 Through Prompt 24 Candidate Status
 
-### Prompt 21: Add one runtime-backed section/detail proof path
+### Prompt 21: Runtime-backed section/detail proof path
 
-- Goal: add one narrow example fixture/config that exercises section/detail evidence end to end through draw, extracted semantics, quality summary, planner, report summary, and Studio payloads.
-- Why now: this is the biggest remaining gap between Prompt 17 shipping status and runtime-owned confidence.
-- Dependencies: current Prompt 17 conservative rules and existing smoke harness.
-- What must not change: loose section/detail labels must still stay non-extracted; readiness logic must stay unchanged; no broad section-cut engine work.
-- Likely validation:
+- Candidate status: complete on candidate HEAD `9f779cdc90bff6a2cbc879ec5ab3126022c2233b`.
+- Evidence: `section_detail_runtime_probe` is included in `node tests/runtime-smoke-cli.js` and emits runtime-backed section/detail views, extracted evidence, drawing quality, report summary, and manifests.
+- Preserved locks: loose section/detail labels alone are not extracted; extraction still requires structured region/group provenance; readiness logic is unchanged.
+- Validation evidence:
   - `node tests/drawing-planner.test.js`
   - `node tests/extracted-drawing-semantics.test.js`
   - `node tests/drawing-semantic-regression.test.js`
   - `node tests/runtime-smoke-cli.js`
   - `node tests/report-decision-summary.test.js`
   - `node tests/studio-quality-dashboard.test.js`
-- Estimated risk: Medium
 
-### Prompt 22: Harden structured layout metadata completeness and provenance
+### Prompt 22: Structured layout metadata completeness and provenance
 
-- Goal: make it clearer which layout/readability findings came from layout reports, QA metrics, and SVG view metadata, while preserving conservative `missing` or `partial` states when structured metadata is incomplete.
-- Why now: layout/readability is already shipped and runtime-generated, so this is a low-risk confidence upgrade rather than a new product line.
-- Dependencies: none beyond current Prompt 18 baseline.
-- What must not change: layout/readability remains advisory-only; no new blockers; no pixel-based scoring.
-- Expected additive contract: `drawing_quality.layout_readability` should expose advisory-only provenance fields such as `source_kind`, `source_artifact`, `source_ref`, `evidence_state`, `completeness_state`, and per-source completeness for layout report, QA metrics, and SVG view metadata. Missing, partial, or unsupported metadata remains conservative and must not produce false scoring confidence.
-- Likely validation:
+- Candidate status: complete on candidate HEAD `9f779cdc90bff6a2cbc879ec5ab3126022c2233b`.
+- Evidence: `drawing_quality.layout_readability` exposes advisory-only provenance and completeness fields for layout report, QA metrics, and SVG view metadata.
+- Preserved locks: layout/readability remains advisory-only, does not become a blocker, does not change readiness, and does not use pixel-based scoring.
+- Validation evidence:
   - `node tests/drawing-layout-readability.test.js`
   - `node tests/drawing-quality-summary.test.js`
   - `node tests/report-decision-summary.test.js`
   - `node tests/studio-quality-dashboard.test.js`
-  - targeted runtime artifact spot-check from `node tests/runtime-smoke-cli.js`
-- Estimated risk: Low
+  - `node tests/runtime-smoke-cli.js`
 
-### Prompt 23: Add one runtime-backed reviewer-feedback ingestion path
+### Prompt 23: Runtime-backed reviewer-feedback ingestion path
 
-- Goal: exercise a repo-local explicit reviewer-feedback JSON through draw/report/Studio once, proving that open linked feedback surfaces correctly without affecting readiness.
-- Why now: Prompt 19 is shipped, but runtime ownership currently stops at `status = none`.
-- Dependencies: current reviewer-feedback schema and explicit repo-root path guardrails.
-- What must not change: reviewer feedback must stay advisory-only, must not satisfy missing evidence, and must not change manufacturing readiness.
-- Likely validation:
+- Candidate status: complete on candidate HEAD `9f779cdc90bff6a2cbc879ec5ab3126022c2233b`.
+- Evidence: `reviewer_feedback_runtime_probe` proves explicit repo-local reviewer-feedback JSON ingestion with `status = available`, one linked/open item, and manifest-linked advisory evidence.
+- Preserved locks: reviewer feedback remains path-safe and advisory-only; it does not satisfy missing required evidence, does not promote feedback into extracted evidence, and does not change manufacturing readiness.
+- Validation evidence:
   - `node tests/reviewer-feedback.test.js`
   - `node tests/drawing-quality-summary.test.js`
   - `node tests/report-decision-summary.test.js`
   - `node tests/studio-quality-dashboard.test.js`
-  - one runtime smoke scenario with reviewer-feedback input
-- Estimated risk: Low to Medium
+  - `node tests/runtime-smoke-cli.js`
 
-### Prompt 24: Add one more conservative semantic-evidence increment
+### Prompt 24: Conservative material semantic-evidence increment
 
-- Goal: deliver one narrow semantic-evidence improvement where the source drawing text or metadata is already explicit, without widening policy or inferring combined requirements.
-- Why now: after runtime-backed section/detail and reviewer/layout confidence improves, another conservative semantic increment becomes easier to validate safely.
-- Dependencies: none strict, but it is safer after Prompt 21 through Prompt 23 strengthen end-to-end observability.
-- What must not change:
-  - `MOUNTING_HOLE_DIA` explicit-evidence rules
-  - `BASE_PLATE_ENVELOPE` remains `unknown` without explicit combined evidence
+- Candidate status: complete on candidate HEAD `9f779cdc90bff6a2cbc879ec5ab3126022c2233b`.
+- Evidence: material extraction is limited to explicit SVG evidence. The new Prompt 24 increment is title-block `MATERIAL` label/value pair extraction.
+- Scope adjudication: pre-existing explicit SVG material note text remains allowed only when explicit SVG text carries raw/source/provenance and matches the required material evidence. Material is not inferred from config/defaults/reviewer/layout/QA/model/OCR/pixels.
+- Preserved locks:
+  - `MOUNTING_HOLE_DIA` remains extracted only under explicit SVG raw/provenance/source evidence.
+  - `BASE_PLATE_ENVELOPE` remains `unknown` without explicit combined length-and-width evidence.
   - no OCR
   - no automatic GD&T or tolerance inference
-- Likely validation:
+- Validation evidence:
   - `node tests/extracted-drawing-semantics.test.js`
   - `node tests/drawing-semantic-regression.test.js`
   - `node tests/drawing-quality-summary.test.js`
   - `node tests/runtime-smoke-cli.js`
-- Estimated risk: Medium
 
 ### Separate Operational Follow-Ups
 
@@ -292,20 +293,25 @@ These should not be mixed into semantic drawing-quality prompts:
 - do not automate reviewer messaging, issue filing, or external notifications
 - do not use broad engine prompts to paper over narrow evidence gaps
 
-## Suggested v2 Exit Criteria
+## v2 Exit Criteria
 
-Drawing Quality v2 should be considered conservatively complete only when all of the following are true:
+The local remediation candidate satisfies the conservative v2 exit criteria listed below. This is candidate evidence only; final release or merge still requires branch push or PR creation and hosted GitHub checks.
 
-- at least one runtime-backed section/detail example proves the Prompt 17 evidence rules end to end
-- layout/readability provenance and completeness states are clear, conservative, and explicitly surfaced in report/Studio payloads
-- reviewer-feedback ingestion is proven at least once end to end with explicit input and advisory-only outcome
-- at least one additional semantic-evidence increment lands without changing readiness or widening extraction policy
+- `section_detail_runtime_probe` proves the Prompt 17 evidence rules end to end
+- layout/readability provenance and completeness states are clear, conservative, advisory-only, and explicitly surfaced in report/Studio payloads
+- `reviewer_feedback_runtime_probe` proves explicit input ingestion with linked/open feedback and advisory-only outcome
+- the Prompt 24 material increment lands without changing readiness or widening extraction policy beyond explicit SVG material label/value evidence
 - `quality_pass_bracket` still passes and stays ready for manufacturing review
 - `ks_bracket` still fails and stays blocked for manufacturing review
+- `MOUNTING_HOLE_DIA` remains extracted from explicit SVG evidence
+- `BASE_PLATE_ENVELOPE` remains unknown without explicit combined evidence
 - no advisory signal becomes a blocker
 - no unknown or unsupported evidence is promoted into extracted without explicit justification
+- no OCR, PDF pixel parsing, screenshot parsing, rendered image pixel scoring, or computer vision is introduced
+- automatic GD&T and tolerance inference remain disabled
+- artifact path guard remains clean with `BAD_PATH_REFS=0`, `MISSING_REFS=0`, `OPTIONAL_UNAVAILABLE_WITH_PATH=0`, and `REQUIRED_UNAVAILABLE=0`
 - operational CI/workflow cleanup is tracked separately from product drawing-quality scope
 
 ## Audit Conclusion
 
-The current post-Prompt-19 baseline is strong enough to support a conservative Drawing Quality v2 plan, but not strong enough for a broad v2 feature push. The safe next move is a short prompt sequence that tightens runtime ownership of section/detail, layout/readability provenance, and reviewer-feedback ingestion before attempting any larger semantic or UX expansion.
+The current remediation candidate closes the Prompt 21 through Prompt 24 evidence gaps without weakening the Drawing Quality locks. It remains a local candidate until branch publication and hosted GitHub checks complete. Operational cleanup items, including runtime-smoke artifact upload paths and any Actions runtime deprecation warning, remain separate from product/semantic Drawing Quality status.
