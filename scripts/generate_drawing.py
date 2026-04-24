@@ -29,7 +29,7 @@ from _general_notes import (build_general_notes, build_revision_table,
 from _dim_baseline import (render_baseline_dimensions_svg,
                            render_ordinate_dimensions_svg,
                            select_dimension_strategy)
-from _gdt_automation import auto_select_datums, auto_assign_gdt, render_gdt_frame_svg
+from _gdt_automation import render_gdt_frame_svg
 from _annotation_planner import AnnotationPlanner
 from _drawing_constants import *
 from _drawing_constants import _extract_fn, _cell_bounds
@@ -827,12 +827,12 @@ def compose_drawing(views_svg, name, bom, scale, bbox,
             if rev_svg:
                 p.append(rev_svg)
 
-    # GD&T symbols — P0-3: feature-anchored placement with leaders
+    # Explicit GD&T symbols — P0-3: feature-anchored placement with leaders
     if gdt_entries and view_data:
         gdt_planner = AnnotationPlanner()
         placements = place_gdt_on_view(gdt_entries, view_data, scale, planner=gdt_planner)
         if placements:
-            p.append('<!-- GD&T Auto (anchored) -->')
+            p.append('<!-- GD&T Explicit (anchored) -->')
             for gdt, fx, fy, ax, ay, fw, fh in placements:
                 # Render leader line from anchor to frame
                 leader_svg = _render_leader_svg(ax, ay, fx, fy, fw, fh)
@@ -846,27 +846,14 @@ def compose_drawing(views_svg, name, bom, scale, bbox,
         fcx, fcy = VIEW_CELLS["front"]
         gx = fcx + CELL_W / 2 - 35
         gy = fcy - CELL_H / 2 + 20
-        p.append('<!-- GD&T Auto (stack fallback) -->')
+        p.append('<!-- GD&T Explicit (stack fallback) -->')
         for gi, gdt in enumerate(gdt_entries[:6]):
             frame_svg, (fw, fh) = render_gdt_frame_svg(gdt, gx, gy + gi * 10)
             if frame_svg:
                 p.append(frame_svg)
 
     if mates:
-        try:
-            from _gdt_symbols import generate_gdt_for_mates
-            fcx, fcy = VIEW_CELLS["front"]
-            gx = fcx + CELL_W / 2 - 35
-            gy = fcy - CELL_H / 2 + 20
-            n_auto = len(gdt_entries) if gdt_entries else 0
-            frags = generate_gdt_for_mates(
-                mates, tolerance_specs=tol_specs or {},
-                start_x=gx, start_y=gy + n_auto * 10, spacing=12)
-            if frags:
-                p.append('<!-- GD&T Mates -->')
-                p.extend(frags)
-        except Exception:
-            pass
+        pass
 
     # Extra SVG content (surface finish, chamfer callouts, thread callouts, etc.)
     if extra_svg:
@@ -2069,15 +2056,11 @@ try:
                     log(f"  Ordinate dimensions: added to {bv}")
             break  # Only add to one view
 
-    # -- Auto GD&T --
+    # -- GD&T --
     gdt_entries = []
     gdt_mode = drawing_cfg.get("gdt", {}).get("mode", "")
-    if gdt_mode == "auto" and feature_graph:
-        shape_dims = (bbox.XLength, bbox.YLength, bbox.ZLength)
-        datums = auto_select_datums(feature_graph, shape_bbox=shape_dims)
-        gdt_entries = auto_assign_gdt(feature_graph, datums)
-        if gdt_entries:
-            log(f"  Auto GD&T: {len(gdt_entries)} tolerances assigned")
+    if gdt_mode == "auto":
+        log("  Auto GD&T disabled: Drawing Quality v2 requires explicit GD&T/tolerance evidence")
 
     # -- Build Enhanced Notes (plan > auto) --
     plan_notes = config.get("drawing_plan", {}).get("notes", {})

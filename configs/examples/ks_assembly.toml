@@ -1,6 +1,6 @@
 # ============================================================
 # KS Assembly — Housing + Shaft + Bearing assembly
-# Demonstrates: BOM, balloons, auto GD&T, section view
+# Demonstrates: BOM, balloons, disabled auto-GD&T no-op, section view
 # ============================================================
 
 name = "ks_assembly"
