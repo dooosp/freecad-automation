@@ -5,11 +5,12 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
   rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 import { validateArtifactManifest } from '../lib/artifact-manifest.js';
 import { validateCreateQualityReport } from '../lib/create-quality.js';
@@ -142,6 +143,143 @@ function assertArtifact(path) {
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
+}
+
+function walkFiles(dir) {
+  const files = [];
+  for (const entry of readdirSync(dir)) {
+    const filePath = join(dir, entry);
+    const stats = statSync(filePath);
+    if (stats.isDirectory()) {
+      files.push(...walkFiles(filePath));
+    } else {
+      files.push(filePath);
+    }
+  }
+  return files;
+}
+
+function collectCandidateRefs(value, trail = []) {
+  const refs = [];
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const status = String(value.status || value.availability || '').toLowerCase();
+    const required = value.required === true;
+    const pathKeys = ['path', 'artifact_path', 'input_path', 'output_path', 'relative_path', 'href'];
+    for (const key of pathKeys) {
+      if (typeof value[key] === 'string' && value[key]) {
+        refs.push({
+          raw: value[key],
+          trail: trail.concat(key).join('.'),
+          status,
+          required,
+          object: value,
+        });
+      }
+    }
+    for (const [key, child] of Object.entries(value)) {
+      refs.push(...collectCandidateRefs(child, trail.concat(key)));
+    }
+    return refs;
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => {
+      refs.push(...collectCandidateRefs(item, trail.concat(String(index))));
+    });
+    return refs;
+  }
+
+  if (
+    typeof value === 'string'
+    && (
+      value.includes('output/')
+      || value.includes('output\\')
+      || value.endsWith('.json')
+      || value.endsWith('.svg')
+      || value.endsWith('.pdf')
+      || value.endsWith('.png')
+      || value.endsWith('.html')
+      || value.endsWith('.csv')
+      || value.endsWith('.toml')
+    )
+  ) {
+    refs.push({
+      raw: value,
+      trail: trail.join('.'),
+      status: '',
+      required: undefined,
+      object: null,
+    });
+  }
+  return refs;
+}
+
+function assertNoUnsafeOrMissingArtifactRefs(rootDir) {
+  const jsonFiles = walkFiles(rootDir).filter((filePath) => filePath.endsWith('.json'));
+  const badRefs = [];
+  const missingRefs = [];
+  const optionalUnavailableWithPath = [];
+  const requiredUnavailable = [];
+
+  for (const filePath of jsonFiles) {
+    let parsed;
+    try {
+      parsed = readJson(filePath);
+    } catch {
+      continue;
+    }
+
+    const relFile = relative(ROOT, filePath);
+    for (const ref of collectCandidateRefs(parsed)) {
+      if (
+        ref.object
+        && ['not_available', 'missing', 'unavailable'].includes(ref.status)
+        && ref.required
+      ) {
+        requiredUnavailable.push({ file: relFile, field: ref.trail, object: ref.object });
+      }
+      if (
+        ref.object
+        && ['not_available', 'missing', 'unavailable'].includes(ref.status)
+        && !ref.required
+      ) {
+        optionalUnavailableWithPath.push({ file: relFile, field: ref.trail, raw: ref.raw });
+      }
+
+      const resolved = isAbsolute(ref.raw) ? ref.raw : resolve(ROOT, ref.raw);
+      const rel = relative(ROOT, resolved);
+      const normalized = rel.split(sep).join('/');
+      if (ref.raw.includes('..') || normalized.startsWith('..') || (isAbsolute(ref.raw) && !resolved.startsWith(ROOT))) {
+        badRefs.push({ file: relFile, field: ref.trail, raw: ref.raw });
+        continue;
+      }
+      if (
+        (
+          normalized.startsWith('output/')
+          || normalized.startsWith('configs/')
+          || normalized.startsWith('docs/')
+          || normalized.startsWith('src/')
+          || normalized.startsWith('tests/')
+        )
+        && !existsSync(resolved)
+      ) {
+        missingRefs.push({ file: relFile, field: ref.trail, raw: ref.raw });
+      }
+    }
+  }
+
+  assert.deepEqual(badRefs, [], `Unsafe artifact references found:\n${JSON.stringify(badRefs, null, 2)}`);
+  assert.deepEqual(missingRefs, [], `Missing artifact references found:\n${JSON.stringify(missingRefs, null, 2)}`);
+  assert.deepEqual(
+    optionalUnavailableWithPath,
+    [],
+    `Optional unavailable artifacts must not serialize stale paths:\n${JSON.stringify(optionalUnavailableWithPath, null, 2)}`
+  );
+  assert.deepEqual(
+    requiredUnavailable,
+    [],
+    `Required artifacts must resolve to generated files:\n${JSON.stringify(requiredUnavailable, null, 2)}`
+  );
 }
 
 function assertRuntimeLayoutReadability(layoutReadability, label, {
@@ -467,6 +605,11 @@ assert.equal(
   ksDrawingQuality.semantic_quality.extracted_evidence.required_notes.some((entry) => entry.requirement_id === 'SURFACE_FINISH' && entry.classification === 'extracted'),
   true
 );
+assert.equal(Array.isArray(ksDrawingQuality.semantic_quality.required_blockers), true);
+assert.equal(
+  ksDrawingQuality.semantic_quality.required_blockers.some((entry) => entry.includes('BASE_PLATE_ENVELOPE')),
+  true
+);
 assert.equal(Array.isArray(ksDrawingPlanner.suggested_action_details), true);
 assert.equal(ksDrawingPlanner.suggested_action_details.some((entry) => entry.classification === 'unknown' || entry.classification === 'missing'), true);
 assert.equal(ksDrawingPlanner.suggested_action_details.some((entry) => entry.category === 'note'), false);
@@ -530,6 +673,10 @@ assertRuntimeLayoutReadability(
 );
 assert.equal(ksReportSummary.ready_for_manufacturing_review, ksFixture.report.readyForManufacturingReview);
 assert.equal(ksReportSummary.overall_status, ksFixture.report.overallStatus);
+assert.equal(
+  ksReportSummary.surfaces.drawing_quality.semantic_quality.required_blockers.some((entry) => entry.includes('BASE_PLATE_ENVELOPE')),
+  true
+);
 assert.equal(ksReportSummary.surfaces.drawing_quality.reviewer_feedback.status, 'none');
 assert.equal(ksReportSummary.artifacts_referenced.find((artifact) => artifact.key === 'drawing_intent')?.path, ksDrawingIntentPath);
 assert.equal(ksReportSummary.artifacts_referenced.find((artifact) => artifact.key === 'drawing_intent')?.status, 'available');
@@ -597,6 +744,7 @@ assert.equal(qualityPassDrawingQuality.traceability.coverage_percent >= 95, true
 assert.equal(qualityPassDrawingQuality.extracted_drawing_semantics_file, qualityPassExtractedSemanticsPath);
 assert.equal(qualityPassDrawingQuality.semantic_quality.extracted_evidence.coverage.required_dimensions.missing, 0);
 assert.equal(qualityPassDrawingQuality.semantic_quality.extracted_evidence.required_dimensions.every((entry) => entry.classification === 'extracted'), true);
+assert.deepEqual(qualityPassDrawingQuality.semantic_quality.required_blockers, []);
 assert.deepEqual(qualityPassDrawingPlanner.suggested_action_details || [], []);
 qualityPassFixtureRecord.observed.drawingQualityStatus = qualityPassDrawingQuality.status;
 qualityPassFixtureRecord.observed.strictDrawExit = qualityPassStrictDraw.status;
@@ -637,6 +785,7 @@ assert.equal(
   qualityPassFixture.report.readyForManufacturingReview
 );
 assert.equal(qualityPassReportSummary.overall_status, qualityPassFixture.report.overallStatus);
+assert.deepEqual(qualityPassReportSummary.surfaces.drawing_quality.semantic_quality.required_blockers, []);
 assert.equal(qualityPassReportSummary.surfaces.drawing_quality.reviewer_feedback.status, 'none');
 assert.equal(
   qualityPassReportSummary.artifacts_referenced.find((artifact) => artifact.key === 'drawing_intent')?.path,
@@ -678,8 +827,32 @@ assertArtifactManifest(
   }
 );
 
-runCli(['draw', sectionDetailConfig]);
 const sectionDetailBase = 'section_detail_runtime_probe_smoke';
+const sectionDetailStrictCreate = runCli(['create', sectionDetailConfig, '--strict-quality']);
+const sectionDetailCreateQualityPath = join(OUTPUT_DIR, `${sectionDetailBase}_create_quality.json`);
+assertArtifact(join(OUTPUT_DIR, `${sectionDetailBase}.step`));
+assertArtifact(join(OUTPUT_DIR, `${sectionDetailBase}.stl`));
+assertArtifact(sectionDetailCreateQualityPath);
+const sectionDetailCreateQuality = readJson(sectionDetailCreateQualityPath);
+assert.equal(sectionDetailCreateQuality.status, 'pass');
+assert.equal(sectionDetailStrictCreate.status, 0);
+assertArtifactManifest(
+  join(OUTPUT_DIR, `${sectionDetailBase}_artifact-manifest.json`),
+  {
+    command: 'create',
+    requiredArtifactTypes: ['model.step', 'model.stl'],
+    expectedConfigSuffix: `output/smoke/${RUN_ID}/configs/section_detail_runtime_probe.runtime-smoke.toml`,
+  }
+);
+assertOutputManifest(
+  join(OUTPUT_DIR, `${sectionDetailBase}_manifest.json`),
+  {
+    command: 'create',
+    linkedQualityPath: sectionDetailCreateQualityPath,
+  }
+);
+
+runCli(['draw', sectionDetailConfig]);
 const sectionDetailDrawingSvgPath = join(OUTPUT_DIR, `${sectionDetailBase}_drawing.svg`);
 const sectionDetailDrawingQualityPath = join(OUTPUT_DIR, `${sectionDetailBase}_drawing_quality.json`);
 const sectionDetailExtractedSemanticsPath = join(OUTPUT_DIR, `${sectionDetailBase}_extracted_drawing_semantics.json`);
@@ -762,6 +935,18 @@ const sectionDetailReportSummary = readJson(sectionDetailReportSummaryPath);
 assertRuntimeLayoutReadability(
   sectionDetailReportSummary.surfaces.drawing_quality.layout_readability,
   'section_detail_runtime_probe report summary'
+);
+assert.equal(
+  sectionDetailReportSummary.artifacts_referenced.find((artifact) => artifact.key === 'create_quality')?.path,
+  sectionDetailCreateQualityPath
+);
+assert.equal(
+  sectionDetailReportSummary.artifacts_referenced.find((artifact) => artifact.key === 'create_quality')?.status,
+  'available'
+);
+assert.equal(
+  sectionDetailReportSummary.artifacts_referenced.find((artifact) => artifact.key === 'create_manifest')?.status,
+  'available'
 );
 assert.equal(
   sectionDetailReportSummary.artifacts_referenced.find((artifact) => artifact.key === 'drawing_intent')?.path,
@@ -926,7 +1111,7 @@ assert.equal(Array.isArray(persistedSmokeManifest.commands), true);
 assert.equal(Array.isArray(persistedSmokeManifest.artifact_manifests), true);
 assert.equal(Array.isArray(persistedSmokeManifest.artifacts), true);
 assert.equal(persistedSmokeManifest.source_configs.length, 5);
-assert.equal(persistedSmokeManifest.artifact_manifests.length, 9);
+assert.equal(persistedSmokeManifest.artifact_manifests.length, 10);
 assert(
   persistedSmokeManifest.commands.some(
     (entry) => entry.command.includes('fcad fem') && entry.command.includes('bracket_fem.runtime-smoke.toml')
@@ -976,5 +1161,6 @@ assert(
   persistedSmokeManifest.artifacts.some((artifact) => artifact.type === 'analysis.fem.step'),
   'Smoke manifest should summarize the FEM STEP artifact'
 );
+assertNoUnsafeOrMissingArtifactRefs(OUTPUT_DIR);
 
 console.log('runtime-smoke-cli.js: ok');

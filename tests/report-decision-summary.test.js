@@ -420,6 +420,14 @@ function makeBaseInput(overrides = {}) {
     false
   );
   assert.equal(
+    summary.artifacts_referenced.find((artifact) => artifact.key === 'tolerance')?.path,
+    null
+  );
+  assert.equal(
+    summary.artifacts_referenced.find((artifact) => artifact.key === 'create_manifest')?.path,
+    null
+  );
+  assert.equal(
     summary.artifacts_referenced.find((artifact) => artifact.key === 'report_manifest')?.status,
     'generated'
   );

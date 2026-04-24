@@ -65,7 +65,7 @@ This is intentionally API-and-helper coverage, not runtime-backed verification. 
 
 ## Runtime Smoke Contents
 
-`npm run test:runtime-smoke` uses the checked-in `configs/examples/ks_bracket.toml`, `configs/examples/quality_pass_bracket.toml`, and `configs/examples/bracket_fem.toml` examples, rewrites them into throwaway configs, and writes runtime outputs under `output/runtime-smoke/`.
+`npm run test:runtime-smoke` uses checked-in examples including `configs/examples/ks_bracket.toml`, `configs/examples/quality_pass_bracket.toml`, `configs/examples/bracket_fem.toml`, `configs/examples/section_detail_runtime_probe.toml`, and `configs/examples/reviewer_feedback_runtime_probe.toml`, rewrites them into throwaway configs, and writes timestamped runtime outputs under `output/smoke/...`.
 
 The quality fixture matrix has two explicit roles:
 
@@ -83,7 +83,7 @@ The smoke lane verifies:
 - strict expected-fail checks for `ks_bracket` create/draw quality gates
 - strict pass checks for `quality_pass_bracket` create/draw quality gates plus `Ready for manufacturing review: Yes`
 
-The smoke harness validates the generated artifact manifests for `create`, `draw`, `fem`, and `report`, asserts that create also produced a valid `<base>_create_quality.json` plus linked output manifest entry, and checks that required artifact types exist and recorded output files are non-empty. It also writes `output/runtime-smoke/smoke-manifest.json`, including observed quality fixture matrix outcomes, so workflow uploads can be inspected without replaying the run.
+The smoke harness validates the generated artifact manifests for `create`, `draw`, `fem`, and `report`, asserts that create also produced a valid `<base>_create_quality.json` plus linked output manifest entry, and checks that required artifact types exist and recorded output files are non-empty. It also writes `output/smoke/<run-id>/smoke-manifest.json`, including observed quality fixture matrix outcomes, so workflow uploads can be inspected without replaying the run.
 
 `fcad tolerance` is still intentionally outside the repository-owned smoke lane. It succeeds locally on the checked-in assembly example, but it remains a heavier assembly-plus-Monte-Carlo runtime path and is left to deeper local validation until we can harden it for CI without destabilizing the smoke lane.
 

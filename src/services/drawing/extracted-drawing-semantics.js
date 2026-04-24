@@ -246,7 +246,25 @@ function isMaterialLabelOnly(text = '') {
   return normalizeComparable(text) === 'material';
 }
 
-function matchRequiredNote(note = {}, requiredNotes = []) {
+function materialCodeTokens(value = null) {
+  const text = normalizeText(value)?.toUpperCase() || '';
+  return [...text.matchAll(/\b(?:AL\d{3,4}|SS\d{3,4}|SUS\d{3,4}|SCM\d{3,4})\b/g)]
+    .map((match) => normalizeComparable(match[0]))
+    .filter(Boolean);
+}
+
+function materialCodeMatches(note = {}, required = {}) {
+  const noteTokens = materialCodeTokens(note.raw_text);
+  if (noteTokens.length === 0) return false;
+  const requiredTokens = uniqueStrings([
+    ...materialCodeTokens(required.text),
+    ...materialCodeTokens(required.note),
+    ...materialCodeTokens(required.label),
+  ]);
+  return requiredTokens.some((token) => noteTokens.includes(token));
+}
+
+function matchRequiredNote(note = {}, requiredNotes = [], { allowMaterialCodeOnly = false } = {}) {
   const noteComparable = normalizeComparable(note?.raw_text);
   if (!noteComparable) return null;
   if (isMaterialLabelOnly(note?.raw_text)) return null;
@@ -256,6 +274,7 @@ function matchRequiredNote(note = {}, requiredNotes = []) {
         .map((candidate) => normalizeComparable(candidate))
         .some((candidate) => candidate && noteComparable.includes(candidate));
       if (materialTextMatched) return required;
+      if (allowMaterialCodeOnly && materialCodeMatches(note, required)) return required;
       continue;
     }
     const candidates = uniqueStrings([
@@ -530,7 +549,11 @@ function collectMaterialTitleBlockNotesFromSvg(textNodes = [], svgPath = null, r
 
     if (!valueNode) continue;
     const rawText = `Material: ${valueNode.text}`;
-    const matchedRequired = matchRequiredNote({ raw_text: rawText }, requiredNotes);
+    const matchedRequired = matchRequiredNote(
+      { raw_text: rawText },
+      requiredNotes,
+      { allowMaterialCodeOnly: true }
+    );
     notes.push({
       id: `${labelNode.id}_${valueNode.id}_material_pair`,
       raw_text: rawText,

@@ -179,6 +179,35 @@ const ROOT = resolve(import.meta.dirname, '..');
 }
 
 {
+  const semantics = buildExtractedDrawingSemantics({
+    drawingSvgPath: '/tmp/title-block-material-code-pair.svg',
+    svgContent: [
+      '<svg xmlns="http://www.w3.org/2000/svg">',
+      '  <text x="120" y="180">MATERIAL</text>',
+      '  <text x="120" y="187">SS304</text>',
+      '</svg>',
+    ].join('\n'),
+    drawingIntent: {
+      required_notes: [
+        { id: 'MATERIAL', text: 'SS304 (KS D 3698)', required: true },
+      ],
+    },
+  });
+
+  assert.equal(semantics.methods.includes('svg_title_block_material_pair'), true);
+  assert.equal(semantics.coverage.required_notes_extracted, 1);
+  assert.equal(semantics.title_block.material?.raw_text, 'Material: SS304');
+  assert.equal(
+    semantics.notes.some((entry) => (
+      entry.raw_text === 'Material: SS304'
+        && entry.matched_intent_id === 'MATERIAL'
+        && entry.provenance.method === 'svg_title_block_material_pair'
+    )),
+    true
+  );
+}
+
+{
   const labelOnly = buildExtractedDrawingSemantics({
     drawingSvgPath: '/tmp/title-block-material-label-only.svg',
     svgContent: [

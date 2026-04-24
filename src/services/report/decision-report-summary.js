@@ -230,10 +230,11 @@ function artifactRef(key, label, path, status, note = null, options = {}) {
   const required = typeof options.required === 'boolean'
     ? options.required
     : REQUIRED_ARTIFACT_KEYS.has(key) || !OPTIONAL_ARTIFACT_KEYS.has(key);
+  const availablePath = ['not_available', 'missing', 'unavailable'].includes(status) ? null : path;
   return {
     key,
     label,
-    path: path ? resolve(path) : null,
+    path: availablePath ? resolve(availablePath) : null,
     status,
     required,
     note,

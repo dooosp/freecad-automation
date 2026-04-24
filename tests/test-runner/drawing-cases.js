@@ -17,8 +17,8 @@ import {
 } from './shared.js';
 
 export function createDrawingCases(assert) {
-async function testGDTSymbols() {
-  console.log('\n--- Test: GD&T symbols in drawing ---');
+async function testAutoGDTSymbolsDisabled() {
+  console.log('\n--- Test: automatic GD&T symbols are disabled ---');
 
   const config = await loadExampleConfig('configs/examples/ptu_assembly_mates.toml');
 
@@ -30,16 +30,16 @@ async function testGDTSymbols() {
   assert(result.success === true, 'Drawing generated');
   const svgPath = normalizeGeneratedPath(result.drawing_paths[0].path);
 
-  // Read SVG and check for GD&T elements
+  // Read SVG and check that assembly mates do not infer GD&T elements.
   const svgContent = readFileSync(svgPath, 'utf8');
   const hasGDT = svgContent.includes('gdt-symbol');
-  assert(hasGDT, 'SVG contains GD&T symbols (class="gdt-symbol")');
+  assert(!hasGDT, 'SVG does not contain inferred GD&T symbols (class="gdt-symbol")');
 
   const hasConcentricity = svgContent.includes('data-type="concentricity"');
-  assert(hasConcentricity, 'SVG contains concentricity symbol for coaxial mates');
+  assert(!hasConcentricity, 'SVG does not infer concentricity symbol for coaxial mates');
 }
 
   return [
-    ['GD&T symbols', testGDTSymbols],
+    ['automatic GD&T disabled', testAutoGDTSymbolsDisabled],
   ];
 }

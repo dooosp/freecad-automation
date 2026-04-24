@@ -1,7 +1,8 @@
-"""
-GD&T (Geometric Dimensioning & Tolerancing) symbol library for SVG drawings.
-Maps assembly mate types to ISO 1101 geometric tolerance symbols.
-Generates feature control frame SVG fragments.
+"""Explicit GD&T symbol rendering helpers for SVG drawings.
+
+Drawing Quality v2 prohibits automatic mate-to-GD&T and tolerance inference.
+The legacy mate-generation API remains import-compatible, but returns no
+generated fragments.
 """
 
 
@@ -35,17 +36,12 @@ GDT_SYMBOLS = {
     },
 }
 
-# Mate type → GD&T symbol mapping
-MATE_TO_GDT = {
-    "coaxial": "concentricity",
-    "coincident": "perpendicularity",
-    "parallel": "parallelism",
-}
+MATE_TO_GDT = {}
 
 
 def mate_type_to_gdt(mate_type):
-    """Map a mate constraint type to the corresponding GD&T symbol key."""
-    return MATE_TO_GDT.get(mate_type, None)
+    """Return no inferred GD&T symbol for assembly mates."""
+    return None
 
 
 def render_fcf_svg(symbol_key, tolerance_value=None, datum=None, x=0, y=0, size=8):
@@ -116,47 +112,5 @@ def render_fcf_svg(symbol_key, tolerance_value=None, datum=None, x=0, y=0, size=
 
 
 def generate_gdt_for_mates(mates, tolerance_specs=None, start_x=0, start_y=0, spacing=12):
-    """
-    Generate GD&T SVG fragments for a list of mate constraints.
-
-    Args:
-        mates: list of mate dicts from assembly config
-        tolerance_specs: dict of "part1/part2" → spec like "H7/g6"
-        start_x, start_y: starting position for the first symbol
-        spacing: vertical spacing between symbols
-
-    Returns list of SVG <g> fragment strings.
-    """
-    if not tolerance_specs:
-        tolerance_specs = {}
-
-    fragments = []
-    y_offset = start_y
-    datum_letter = ord('A')
-
-    for mate in mates:
-        mate_type = mate.get("type", "")
-        gdt_key = mate_type_to_gdt(mate_type)
-        if not gdt_key:
-            continue
-
-        p1 = mate.get("part1", "")
-        p2 = mate.get("part2", "")
-        spec_key = f"{p1}/{p2}"
-        spec = tolerance_specs.get(spec_key, None)
-
-        tol_val = None
-        if spec:
-            # Extract tolerance grade from spec like "H7/g6"
-            tol_val = spec
-
-        datum = chr(datum_letter)
-        datum_letter += 1
-
-        frag = render_fcf_svg(gdt_key, tolerance_value=tol_val, datum=datum,
-                              x=start_x, y=y_offset)
-        if frag:
-            fragments.append(frag)
-            y_offset += spacing
-
-    return fragments
+    """Return no inferred GD&T SVG fragments for assembly mates."""
+    return []

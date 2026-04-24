@@ -33,7 +33,7 @@ export const CORE_CASE_LAYERS = [
     id: 'drawing',
     label: 'Drawing',
     caseNames: [
-      'GD&T symbols',
+      'automatic GD&T disabled',
     ],
   },
   {
