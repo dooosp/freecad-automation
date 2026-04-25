@@ -87,7 +87,49 @@
       ],
       "properties": {
         "max_step_volume_delta_percent": { "type": "number", "minimum": 0 },
-        "max_bbox_delta_mm": { "type": "number", "minimum": 0 }
+        "max_bbox_delta_mm": { "type": "number", "minimum": 0 },
+        "max_engineering_dimension_delta_mm": { "type": "number", "minimum": 0 },
+        "max_engineering_center_delta_mm": { "type": "number", "minimum": 0 }
+      }
+    },
+    "engineering_quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "source",
+        "validation_kind",
+        "measurements",
+        "measurement_provenance",
+        "blocking_issues",
+        "warnings"
+      ],
+      "properties": {
+        "status": {
+          "enum": ["pass", "warning", "fail", "skipped"]
+        },
+        "source": {
+          "$ref": "#/$defs/measurementSource"
+        },
+        "validation_kind": {
+          "enum": ["config_intent_check", "generated_shape_geometry_check"]
+        },
+        "measurements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/engineeringMeasurement" }
+        },
+        "measurement_provenance": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/measurementProvenance" }
+        },
+        "blocking_issues": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
       }
     },
     "status": {
@@ -109,6 +151,12 @@
       "maxItems": 3,
       "items": { "type": "number" }
     },
+    "vector2": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "type": "number" }
+    },
     "bbox": {
       "type": "object",
       "additionalProperties": false,
@@ -128,6 +176,48 @@
         "max": { "$ref": "#/$defs/vector3" },
         "size": { "$ref": "#/$defs/vector3" },
         "max_abs_mm": { "type": "number", "minimum": 0 }
+      }
+    },
+    "measurementSource": {
+      "enum": [
+        "generated_shape_geometry",
+        "reimported_step_geometry",
+        "stl_mesh_geometry",
+        "config_parameter",
+        "unavailable"
+      ]
+    },
+    "provenanceValue": {
+      "anyOf": [
+        { "type": "null" },
+        { "type": "number" },
+        { "$ref": "#/$defs/vector2" },
+        { "$ref": "#/$defs/vector3" },
+        { "$ref": "#/$defs/bbox" }
+      ]
+    },
+    "measurementProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "measurement_id",
+        "measurement_type",
+        "source",
+        "report_field",
+        "source_field",
+        "value",
+        "note"
+      ],
+      "properties": {
+        "measurement_id": { "type": "string", "minLength": 1 },
+        "measurement_type": {
+          "enum": ["bbox", "thickness", "volume", "hole_diameter", "hole_center"]
+        },
+        "source": { "$ref": "#/$defs/measurementSource" },
+        "report_field": { "type": ["string", "null"] },
+        "source_field": { "type": ["string", "null"] },
+        "value": { "$ref": "#/$defs/provenanceValue" },
+        "note": { "type": ["string", "null"] }
       }
     },
     "geometry": {
@@ -152,9 +242,61 @@
             { "$ref": "#/$defs/bbox" }
           ]
         },
+        "cylindrical_faces": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/cylindricalFace" }
+        },
         "solid_count": { "type": ["integer", "null"], "minimum": 0 },
         "face_count": { "type": ["integer", "null"], "minimum": 0 },
         "edge_count": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "cylindricalFace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "face_index",
+        "surface_type",
+        "radius_mm",
+        "diameter_mm",
+        "center_mm",
+        "center_xy_mm",
+        "center_of_mass_mm",
+        "axis",
+        "bbox",
+        "area_mm2"
+      ],
+      "properties": {
+        "face_index": { "type": "integer", "minimum": 1 },
+        "surface_type": { "type": ["string", "null"] },
+        "radius_mm": { "type": ["number", "null"], "minimum": 0 },
+        "diameter_mm": { "type": "number", "minimum": 0 },
+        "center_mm": {
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/vector3" }
+          ]
+        },
+        "center_xy_mm": { "$ref": "#/$defs/vector2" },
+        "center_of_mass_mm": {
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/vector3" }
+          ]
+        },
+        "axis": {
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/vector3" }
+          ]
+        },
+        "bbox": {
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/bbox" }
+          ]
+        },
+        "area_mm2": { "type": ["number", "null"], "minimum": 0 }
       }
     },
     "roundtrip": {
@@ -183,6 +325,66 @@
           "type": "array",
           "items": { "type": "string" }
         }
+      }
+    },
+    "engineeringMeasurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requirement_id",
+        "source_requirement_id",
+        "feature_id",
+        "measurement_type",
+        "expected_value_mm",
+        "actual_value_mm",
+        "source_value_mm",
+        "expected_center_xy_mm",
+        "actual_center_xy_mm",
+        "tolerance_mm",
+        "delta_mm",
+        "center_delta_mm",
+        "status",
+        "required",
+        "source",
+        "source_field",
+        "expected_source",
+        "expected_source_field",
+        "validation_kind",
+        "matched_face_index",
+        "message"
+      ],
+      "properties": {
+        "requirement_id": { "type": "string", "minLength": 1 },
+        "source_requirement_id": { "type": "string", "minLength": 1 },
+        "feature_id": { "type": "string", "minLength": 1 },
+        "measurement_type": { "enum": ["hole_diameter", "hole_center"] },
+        "expected_value_mm": { "type": ["number", "null"] },
+        "actual_value_mm": { "type": ["number", "null"] },
+        "source_value_mm": { "type": ["number", "null"] },
+        "expected_center_xy_mm": {
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/vector2" }
+          ]
+        },
+        "actual_center_xy_mm": {
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/vector2" }
+          ]
+        },
+        "tolerance_mm": { "type": "number", "minimum": 0 },
+        "delta_mm": { "type": ["number", "null"], "minimum": 0 },
+        "center_delta_mm": { "type": ["number", "null"], "minimum": 0 },
+        "status": { "enum": ["pass", "fail", "missing", "unavailable"] },
+        "required": { "type": "boolean" },
+        "source": { "$ref": "#/$defs/measurementSource" },
+        "source_field": { "type": ["string", "null"] },
+        "expected_source": { "$ref": "#/$defs/measurementSource" },
+        "expected_source_field": { "type": ["string", "null"] },
+        "validation_kind": { "enum": ["config_intent_check", "generated_shape_geometry_check"] },
+        "matched_face_index": { "type": ["integer", "null"], "minimum": 1 },
+        "message": { "type": ["string", "null"] }
       }
     }
   }

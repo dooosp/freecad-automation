@@ -57,6 +57,7 @@ export async function generateCreateQualityArtifact({
 
   const report = buildCreateQualityReport({
     inputConfigPath: configPath,
+    config,
     createResult,
     inspections,
     runtimeAvailable,

@@ -145,6 +145,12 @@ function readJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
 }
 
+function provenanceById(report) {
+  return new Map(
+    (report.engineering_quality?.measurement_provenance || []).map((entry) => [entry.measurement_id, entry])
+  );
+}
+
 function walkFiles(dir) {
   const files = [];
   for (const entry of readdirSync(dir)) {
@@ -496,6 +502,20 @@ const qualityPassConfig = cloneConfigWithOutput(
 );
 smokeManifest.source_configs.push(join(ROOT, 'configs', 'examples', 'quality_pass_bracket.toml'));
 
+const qualityFailWrongHoleDiameterConfig = cloneConfigWithOutput(
+  join(ROOT, 'configs', 'examples', 'quality_fail_wrong_hole_diameter.toml'),
+  'quality_fail_wrong_hole_diameter.runtime-smoke.toml',
+  'quality_fail_wrong_hole_diameter_runtime_smoke'
+);
+smokeManifest.source_configs.push(join(ROOT, 'configs', 'examples', 'quality_fail_wrong_hole_diameter.toml'));
+
+const qualityFailWrongHoleCenterConfig = cloneConfigWithOutput(
+  join(ROOT, 'configs', 'examples', 'quality_fail_wrong_hole_center.toml'),
+  'quality_fail_wrong_hole_center.runtime-smoke.toml',
+  'quality_fail_wrong_hole_center_runtime_smoke'
+);
+smokeManifest.source_configs.push(join(ROOT, 'configs', 'examples', 'quality_fail_wrong_hole_center.toml'));
+
 const sectionDetailConfig = cloneConfigWithOutput(
   join(ROOT, 'configs', 'examples', 'section_detail_runtime_probe.toml'),
   'section_detail_runtime_probe.runtime-smoke.toml',
@@ -712,6 +732,14 @@ const qualityPassCreateQuality = readJson(qualityPassCreateQualityPath);
 const qualityPassCreateValidation = validateCreateQualityReport(qualityPassCreateQuality);
 assert.equal(qualityPassCreateValidation.ok, true, qualityPassCreateValidation.errors.join('\n'));
 assert.equal(qualityPassCreateQuality.status, qualityPassFixture.strictCreate.qualityStatus);
+const qualityPassCreateProvenance = provenanceById(qualityPassCreateQuality);
+assert.equal(qualityPassCreateProvenance.get('bbox')?.source, 'generated_shape_geometry');
+assert.equal(qualityPassCreateProvenance.get('thickness')?.source, 'generated_shape_geometry');
+assert.equal(qualityPassCreateProvenance.get('volume')?.source, 'generated_shape_geometry');
+assert.equal(qualityPassCreateProvenance.get('hole_left_diameter')?.source, 'generated_shape_geometry');
+assert.equal(qualityPassCreateProvenance.get('hole_left_center')?.source, 'generated_shape_geometry');
+assert.equal(qualityPassCreateProvenance.get('hole_right_diameter')?.source, 'generated_shape_geometry');
+assert.equal(qualityPassCreateProvenance.get('hole_right_center')?.source, 'generated_shape_geometry');
 qualityPassFixtureRecord.observed.createQualityStatus = qualityPassCreateQuality.status;
 qualityPassFixtureRecord.observed.strictCreateExit = qualityPassStrictCreate.status;
 assertOutputManifest(
@@ -721,6 +749,83 @@ assertOutputManifest(
     linkedQualityPath: qualityPassCreateQualityPath,
   }
 );
+
+const qualityFailWrongHoleStrictCreate = runCliExpectFailure([
+  'create',
+  qualityFailWrongHoleDiameterConfig,
+  '--strict-quality',
+]);
+assert.match(
+  `${qualityFailWrongHoleStrictCreate.stdout}\n${qualityFailWrongHoleStrictCreate.stderr}`,
+  /strict-quality found blocking quality issues|Strict create quality gate failed/i
+);
+const qualityFailWrongHoleCreateQualityPath = join(
+  OUTPUT_DIR,
+  'quality_fail_wrong_hole_diameter_runtime_smoke_create_quality.json'
+);
+assertArtifact(qualityFailWrongHoleCreateQualityPath);
+const qualityFailWrongHoleCreateQuality = readJson(qualityFailWrongHoleCreateQualityPath);
+const qualityFailWrongHoleCreateValidation = validateCreateQualityReport(qualityFailWrongHoleCreateQuality);
+assert.equal(qualityFailWrongHoleCreateValidation.ok, true, qualityFailWrongHoleCreateValidation.errors.join('\n'));
+assert.equal(qualityFailWrongHoleCreateQuality.status, 'fail');
+assert.equal(qualityFailWrongHoleCreateQuality.engineering_quality.status, 'fail');
+assert.equal(
+  qualityFailWrongHoleCreateQuality.engineering_quality.measurements.find((entry) => entry.requirement_id === 'HOLE_LEFT_DIA')?.status,
+  'fail'
+);
+assert.equal(
+  qualityFailWrongHoleCreateQuality.engineering_quality.measurements.find((entry) => entry.requirement_id === 'HOLE_LEFT_DIA')?.source,
+  'generated_shape_geometry'
+);
+assert.equal(
+  qualityFailWrongHoleCreateQuality.engineering_quality.measurements.find((entry) => entry.requirement_id === 'HOLE_LEFT_DIA')?.validation_kind,
+  'generated_shape_geometry_check'
+);
+const qualityFailWrongHoleProvenance = provenanceById(qualityFailWrongHoleCreateQuality);
+assert.equal(qualityFailWrongHoleProvenance.get('hole_left_diameter')?.source, 'generated_shape_geometry');
+assert.equal(qualityFailWrongHoleProvenance.get('hole_left_center')?.source, 'generated_shape_geometry');
+
+const qualityFailWrongHoleCenterStrictCreate = runCliExpectFailure([
+  'create',
+  qualityFailWrongHoleCenterConfig,
+  '--strict-quality',
+]);
+assert.match(
+  `${qualityFailWrongHoleCenterStrictCreate.stdout}\n${qualityFailWrongHoleCenterStrictCreate.stderr}`,
+  /strict-quality found blocking quality issues|Strict create quality gate failed/i
+);
+assert.equal(qualityFailWrongHoleCenterStrictCreate.status, 1);
+const qualityFailWrongHoleCenterCreateQualityPath = join(
+  OUTPUT_DIR,
+  'quality_fail_wrong_hole_center_runtime_smoke_create_quality.json'
+);
+assertArtifact(qualityFailWrongHoleCenterCreateQualityPath);
+const qualityFailWrongHoleCenterCreateQuality = readJson(qualityFailWrongHoleCenterCreateQualityPath);
+const qualityFailWrongHoleCenterCreateValidation = validateCreateQualityReport(qualityFailWrongHoleCenterCreateQuality);
+assert.equal(
+  qualityFailWrongHoleCenterCreateValidation.ok,
+  true,
+  qualityFailWrongHoleCenterCreateValidation.errors.join('\n')
+);
+assert.equal(qualityFailWrongHoleCenterCreateQuality.status, 'fail');
+assert.equal(qualityFailWrongHoleCenterCreateQuality.engineering_quality.status, 'fail');
+const wrongCenterMeasurement = qualityFailWrongHoleCenterCreateQuality.engineering_quality.measurements
+  .find((entry) => entry.requirement_id === 'hole_left_CENTER');
+assert.equal(wrongCenterMeasurement?.status, 'fail');
+assert.equal(wrongCenterMeasurement?.source, 'generated_shape_geometry');
+assert.equal(wrongCenterMeasurement?.validation_kind, 'generated_shape_geometry_check');
+assert.deepEqual(wrongCenterMeasurement?.expected_center_xy_mm, [30, 30]);
+assert.deepEqual(wrongCenterMeasurement?.actual_center_xy_mm, [32, 30]);
+assert.equal(wrongCenterMeasurement?.tolerance_mm, 0.2);
+assert.equal(wrongCenterMeasurement?.center_delta_mm, 2);
+assert.equal(
+  qualityFailWrongHoleCenterCreateQuality.engineering_quality.measurements
+    .find((entry) => entry.requirement_id === 'HOLE_LEFT_DIA')?.status,
+  'pass'
+);
+const qualityFailWrongHoleCenterProvenance = provenanceById(qualityFailWrongHoleCenterCreateQuality);
+assert.equal(qualityFailWrongHoleCenterProvenance.get('hole_left_center')?.source, 'generated_shape_geometry');
+assert.equal(qualityFailWrongHoleCenterProvenance.get('hole_left_diameter')?.source, 'generated_shape_geometry');
 
 const qualityPassStrictDraw = runCli(['draw', qualityPassConfig, '--bom', '--strict-quality']);
 const qualityPassDrawingQualityPath = join(OUTPUT_DIR, 'quality_pass_bracket_runtime_smoke_drawing_quality.json');
@@ -1110,7 +1215,7 @@ assert.equal(Array.isArray(persistedSmokeManifest.source_configs), true);
 assert.equal(Array.isArray(persistedSmokeManifest.commands), true);
 assert.equal(Array.isArray(persistedSmokeManifest.artifact_manifests), true);
 assert.equal(Array.isArray(persistedSmokeManifest.artifacts), true);
-assert.equal(persistedSmokeManifest.source_configs.length, 5);
+assert.equal(persistedSmokeManifest.source_configs.length, 7);
 assert.equal(persistedSmokeManifest.artifact_manifests.length, 10);
 assert(
   persistedSmokeManifest.commands.some(
@@ -1129,6 +1234,22 @@ assert(
     (entry) => entry.command.includes('fcad draw') && entry.command.includes('reviewer_feedback_runtime_probe.runtime-smoke.toml')
   ),
   'Smoke manifest should record the reviewer-feedback runtime draw command'
+);
+assert(
+  persistedSmokeManifest.commands.some(
+    (entry) => entry.command.includes('fcad create')
+      && entry.command.includes('quality_fail_wrong_hole_diameter.runtime-smoke.toml')
+      && entry.expected_failure === true
+  ),
+  'Smoke manifest should record the expected-fail wrong-hole-diameter strict create check'
+);
+assert(
+  persistedSmokeManifest.commands.some(
+    (entry) => entry.command.includes('fcad create')
+      && entry.command.includes('quality_fail_wrong_hole_center.runtime-smoke.toml')
+      && entry.expected_failure === true
+  ),
+  'Smoke manifest should record the expected-fail wrong-hole-center strict create check'
 );
 assert(
   persistedSmokeManifest.artifacts.some(

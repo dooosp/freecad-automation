@@ -627,9 +627,97 @@ def apply_chamfer(shape, size, edge_indices=None):
     return current
 
 
+def _round_float(value, ndigits=4):
+    try:
+        numeric = float(value)
+    except Exception:
+        return None
+    if not math.isfinite(numeric):
+        return None
+    return round(numeric, ndigits)
+
+
+def _vector_to_list(value, ndigits=4):
+    if value is None:
+        return None
+    try:
+        return [
+            _round_float(value.x, ndigits),
+            _round_float(value.y, ndigits),
+            _round_float(value.z, ndigits),
+        ]
+    except Exception:
+        return None
+
+
+def _bbox_to_dict(bound_box, ndigits=4):
+    return {
+        "min": [
+            _round_float(bound_box.XMin, ndigits),
+            _round_float(bound_box.YMin, ndigits),
+            _round_float(bound_box.ZMin, ndigits),
+        ],
+        "max": [
+            _round_float(bound_box.XMax, ndigits),
+            _round_float(bound_box.YMax, ndigits),
+            _round_float(bound_box.ZMax, ndigits),
+        ],
+        "size": [
+            _round_float(bound_box.XLength, ndigits),
+            _round_float(bound_box.YLength, ndigits),
+            _round_float(bound_box.ZLength, ndigits),
+        ],
+    }
+
+
+def _surface_kind(surface):
+    try:
+        return str(surface.__class__.__name__)
+    except Exception:
+        return "unknown"
+
+
+def _extract_cylindrical_faces(shape):
+    """Extract cylindrical face metadata from the generated shape topology."""
+    cylindrical_faces = []
+    for index, face in enumerate(getattr(shape, "Faces", []) or [], start=1):
+        surface = getattr(face, "Surface", None)
+        radius = _round_float(getattr(surface, "Radius", None))
+        if radius is None or radius <= 0:
+            continue
+
+        surface_kind = _surface_kind(surface)
+        if "cylinder" not in surface_kind.lower():
+            continue
+
+        center = (
+            _vector_to_list(getattr(surface, "Center", None))
+            or _vector_to_list(getattr(surface, "Location", None))
+            or _vector_to_list(getattr(face, "CenterOfMass", None))
+        )
+        axis = _vector_to_list(getattr(surface, "Axis", None))
+        center_of_mass = _vector_to_list(getattr(face, "CenterOfMass", None))
+        bbox = _bbox_to_dict(face.BoundBox)
+
+        cylindrical_faces.append({
+            "face_index": index,
+            "surface_type": surface_kind,
+            "radius_mm": radius,
+            "diameter_mm": _round_float(radius * 2.0),
+            "center_mm": center,
+            "center_of_mass_mm": center_of_mass,
+            "axis": axis,
+            "bbox": bbox,
+            "area_mm2": _round_float(getattr(face, "Area", None)),
+        })
+
+    return cylindrical_faces
+
+
 def get_metadata(shape):
     """Extract geometric metadata from a shape."""
     bb = shape.BoundBox
+    cylindrical_faces = _extract_cylindrical_faces(shape)
     return {
         "valid_shape": bool(shape.isValid()),
         "volume": round(shape.Volume, 2),
@@ -651,4 +739,5 @@ def get_metadata(shape):
             "max": [round(bb.XMax, 2), round(bb.YMax, 2), round(bb.ZMax, 2)],
             "size": [round(bb.XLength, 2), round(bb.YLength, 2), round(bb.ZLength, 2)],
         },
+        "cylindrical_faces": cylindrical_faces,
     }
