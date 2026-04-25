@@ -740,6 +740,21 @@ assert.equal(qualityPassCreateProvenance.get('hole_left_diameter')?.source, 'gen
 assert.equal(qualityPassCreateProvenance.get('hole_left_center')?.source, 'generated_shape_geometry');
 assert.equal(qualityPassCreateProvenance.get('hole_right_diameter')?.source, 'generated_shape_geometry');
 assert.equal(qualityPassCreateProvenance.get('hole_right_center')?.source, 'generated_shape_geometry');
+assert.equal(qualityPassCreateProvenance.get('hole_left_step_diameter')?.source, 'reimported_step_geometry');
+assert.equal(qualityPassCreateProvenance.get('hole_left_step_center')?.source, 'reimported_step_geometry');
+assert.equal(qualityPassCreateProvenance.get('hole_right_step_diameter')?.source, 'reimported_step_geometry');
+assert.equal(qualityPassCreateProvenance.get('hole_right_step_center')?.source, 'reimported_step_geometry');
+assert.equal(
+  qualityPassCreateQuality.engineering_quality.measurements
+    .filter((entry) => entry.source === 'reimported_step_geometry')
+    .every((entry) => entry.validation_kind === 'reimported_step_geometry_check' && entry.status === 'pass'),
+  true
+);
+assert.equal(
+  qualityPassCreateQuality.engineering_quality.measurements
+    .filter((entry) => entry.source === 'reimported_step_geometry').length,
+  4
+);
 qualityPassFixtureRecord.observed.createQualityStatus = qualityPassCreateQuality.status;
 qualityPassFixtureRecord.observed.strictCreateExit = qualityPassStrictCreate.status;
 assertOutputManifest(
@@ -784,6 +799,17 @@ assert.equal(
 const qualityFailWrongHoleProvenance = provenanceById(qualityFailWrongHoleCreateQuality);
 assert.equal(qualityFailWrongHoleProvenance.get('hole_left_diameter')?.source, 'generated_shape_geometry');
 assert.equal(qualityFailWrongHoleProvenance.get('hole_left_center')?.source, 'generated_shape_geometry');
+assert.equal(qualityFailWrongHoleProvenance.get('hole_left_step_diameter')?.source, 'reimported_step_geometry');
+assert.equal(
+  qualityFailWrongHoleCreateQuality.engineering_quality.measurements
+    .find((entry) => entry.requirement_id === 'HOLE_LEFT_DIA_STEP_REIMPORT')?.status,
+  'fail'
+);
+assert.equal(
+  qualityFailWrongHoleCreateQuality.engineering_quality.measurements
+    .find((entry) => entry.requirement_id === 'HOLE_LEFT_DIA_STEP_REIMPORT')?.source,
+  'reimported_step_geometry'
+);
 
 const qualityFailWrongHoleCenterStrictCreate = runCliExpectFailure([
   'create',
@@ -826,6 +852,13 @@ assert.equal(
 const qualityFailWrongHoleCenterProvenance = provenanceById(qualityFailWrongHoleCenterCreateQuality);
 assert.equal(qualityFailWrongHoleCenterProvenance.get('hole_left_center')?.source, 'generated_shape_geometry');
 assert.equal(qualityFailWrongHoleCenterProvenance.get('hole_left_diameter')?.source, 'generated_shape_geometry');
+assert.equal(qualityFailWrongHoleCenterProvenance.get('hole_left_step_center')?.source, 'reimported_step_geometry');
+const stepWrongCenterMeasurement = qualityFailWrongHoleCenterCreateQuality.engineering_quality.measurements
+  .find((entry) => entry.requirement_id === 'hole_left_CENTER_STEP_REIMPORT');
+assert.equal(stepWrongCenterMeasurement?.status, 'fail');
+assert.equal(stepWrongCenterMeasurement?.source, 'reimported_step_geometry');
+assert.deepEqual(stepWrongCenterMeasurement?.actual_center_xy_mm, [32, 30]);
+assert.equal(stepWrongCenterMeasurement?.center_delta_mm, 2);
 
 const qualityPassStrictDraw = runCli(['draw', qualityPassConfig, '--bom', '--strict-quality']);
 const qualityPassDrawingQualityPath = join(OUTPUT_DIR, 'quality_pass_bracket_runtime_smoke_drawing_quality.json');
