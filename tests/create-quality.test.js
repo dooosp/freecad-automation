@@ -93,6 +93,10 @@ function engineeringMeasurement(report, requirementId) {
   return report.engineering_quality.measurements.find((entry) => entry.requirement_id === requirementId);
 }
 
+function engineeringMeasurementsBySource(report, source) {
+  return report.engineering_quality.measurements.filter((entry) => entry.source === source);
+}
+
 const passingReport = buildCreateQualityReport({
   inputConfigPath: '/tmp/sample.toml',
   createResult: makeCreateResult(),
@@ -269,6 +273,86 @@ assert.deepEqual(engineeringMeasurement(qualityPassEngineeringReport, 'hole_left
 assert.equal(engineeringMeasurement(qualityPassEngineeringReport, 'HOLE_RIGHT_DIA')?.actual_value_mm, 10);
 assert.deepEqual(engineeringMeasurement(qualityPassEngineeringReport, 'hole_right_CENTER')?.actual_center_xy_mm, [125, 70]);
 
+const qualityPassRoundtripEngineeringReport = buildCreateQualityReport({
+  inputConfigPath: '/tmp/quality_pass_bracket.toml',
+  config: qualityPassConfig,
+  createResult: makeCreateResult({
+    model: {
+      bounding_box: {
+        min: [0, 0, 0],
+        max: [160, 100, 8],
+        size: [160, 100, 8],
+      },
+      cylindrical_faces: [
+        cylindricalFace(7, 6, [30, 30, 4]),
+        cylindricalFace(12, 10, [125, 70, 4]),
+      ],
+    },
+    exports: [
+      { format: 'step', path: '/tmp/sample.step', size_bytes: 1000 },
+    ],
+    assembly: { part_files: [] },
+  }),
+  runtimeAvailable: true,
+  inspections: {
+    step: {
+      success: true,
+      model: makeGeometry({
+        volume: 100,
+        bbox: {
+          min: [0, 0, 0],
+          max: [160, 100, 8],
+          size: [160, 100, 8],
+        },
+        cylindrical_faces: [
+          cylindricalFace(30, 6, [30, 30, -2]),
+          cylindricalFace(31, 10, [125, 70, -2]),
+        ],
+      }),
+    },
+  },
+});
+
+assert.equal(qualityPassRoundtripEngineeringReport.status, 'pass');
+assert.equal(qualityPassRoundtripEngineeringReport.step_roundtrip.reimport_valid, true);
+assert.equal(
+  qualityPassRoundtripEngineeringReport.step_roundtrip.reimported_geometry.cylindrical_faces.length,
+  2
+);
+assert.equal(
+  engineeringMeasurementsBySource(qualityPassRoundtripEngineeringReport, 'generated_shape_geometry').length,
+  4
+);
+assert.equal(
+  engineeringMeasurementsBySource(qualityPassRoundtripEngineeringReport, 'reimported_step_geometry').length,
+  4
+);
+assert.equal(
+  qualityPassRoundtripEngineeringReport.engineering_quality.measurements
+    .filter((entry) => entry.source === 'reimported_step_geometry')
+    .every((entry) => entry.validation_kind === 'reimported_step_geometry_check'),
+  true
+);
+const stepLeftDiameter = engineeringMeasurement(qualityPassRoundtripEngineeringReport, 'HOLE_LEFT_DIA_STEP_REIMPORT');
+assert.equal(stepLeftDiameter?.status, 'pass');
+assert.equal(stepLeftDiameter?.source, 'reimported_step_geometry');
+assert.equal(stepLeftDiameter?.source_field, 'step_roundtrip.reimported_geometry.cylindrical_faces[face_index=30].diameter_mm');
+assert.equal(stepLeftDiameter?.source_delta_mm, 0);
+assert.notEqual(stepLeftDiameter?.source, 'config_parameter');
+const stepLeftCenter = engineeringMeasurement(qualityPassRoundtripEngineeringReport, 'hole_left_CENTER_STEP_REIMPORT');
+assert.equal(stepLeftCenter?.status, 'pass');
+assert.equal(stepLeftCenter?.source, 'reimported_step_geometry');
+assert.deepEqual(stepLeftCenter?.actual_center_xy_mm, [30, 30]);
+assert.equal(stepLeftCenter?.source_center_delta_mm, 0);
+const qualityPassRoundtripProvenance = provenanceById(qualityPassRoundtripEngineeringReport);
+assert.equal(qualityPassRoundtripProvenance.get('hole_left_diameter')?.source, 'generated_shape_geometry');
+assert.equal(qualityPassRoundtripProvenance.get('hole_left_step_diameter')?.source, 'reimported_step_geometry');
+assert.equal(
+  qualityPassRoundtripProvenance.get('hole_left_step_diameter')?.source_field,
+  'step_roundtrip.reimported_geometry.cylindrical_faces[face_index=30].diameter_mm'
+);
+assert.equal(qualityPassRoundtripProvenance.get('hole_left_step_center')?.source, 'reimported_step_geometry');
+
 const wrongHoleDiameterConfig = await loadExampleConfig('quality_fail_wrong_hole_diameter');
 const wrongHoleDiameterReport = buildCreateQualityReport({
   inputConfigPath: '/tmp/quality_fail_wrong_hole_diameter.toml',
@@ -301,6 +385,49 @@ assert.equal(engineeringMeasurement(wrongHoleDiameterReport, 'HOLE_LEFT_DIA')?.s
 assert.equal(engineeringMeasurement(wrongHoleDiameterReport, 'HOLE_LEFT_DIA')?.expected_source, 'config_parameter');
 assert.equal(engineeringMeasurement(wrongHoleDiameterReport, 'HOLE_LEFT_DIA')?.validation_kind, 'generated_shape_geometry_check');
 assert.equal(provenanceById(wrongHoleDiameterReport).get('hole_left_diameter')?.source, 'generated_shape_geometry');
+
+const wrongHoleDiameterRoundtripReport = buildCreateQualityReport({
+  inputConfigPath: '/tmp/quality_fail_wrong_hole_diameter.toml',
+  config: wrongHoleDiameterConfig,
+  createResult: makeCreateResult({
+    model: {
+      bounding_box: {
+        min: [0, 0, 0],
+        max: [160, 100, 8],
+        size: [160, 100, 8],
+      },
+      cylindrical_faces: [
+        cylindricalFace(7, 8, [30, 30, 4]),
+        cylindricalFace(12, 10, [125, 70, 4]),
+      ],
+    },
+    exports: [
+      { format: 'step', path: '/tmp/sample.step', size_bytes: 1000 },
+    ],
+    assembly: { part_files: [] },
+  }),
+  runtimeAvailable: true,
+  inspections: {
+    step: {
+      success: true,
+      model: makeGeometry({
+        volume: 100,
+        bbox: {
+          min: [0, 0, 0],
+          max: [160, 100, 8],
+          size: [160, 100, 8],
+        },
+        cylindrical_faces: [
+          cylindricalFace(30, 8, [30, 30, -2]),
+          cylindricalFace(31, 10, [125, 70, -2]),
+        ],
+      }),
+    },
+  },
+});
+assert.equal(wrongHoleDiameterRoundtripReport.status, 'fail');
+assert.equal(engineeringMeasurement(wrongHoleDiameterRoundtripReport, 'HOLE_LEFT_DIA_STEP_REIMPORT')?.status, 'fail');
+assert.equal(engineeringMeasurement(wrongHoleDiameterRoundtripReport, 'HOLE_LEFT_DIA_STEP_REIMPORT')?.source, 'reimported_step_geometry');
 
 const wrongHoleCenterConfig = await loadExampleConfig('quality_fail_wrong_hole_center');
 const wrongHoleCenterReport = buildCreateQualityReport({
@@ -344,6 +471,53 @@ assert.equal(
 );
 assert.equal(provenanceById(wrongHoleCenterReport).get('hole_left_center')?.source, 'generated_shape_geometry');
 assert.equal(provenanceById(wrongHoleCenterReport).get('hole_left_center')?.value?.[0], 32);
+
+const wrongHoleCenterRoundtripReport = buildCreateQualityReport({
+  inputConfigPath: '/tmp/quality_fail_wrong_hole_center.toml',
+  config: wrongHoleCenterConfig,
+  createResult: makeCreateResult({
+    model: {
+      bounding_box: {
+        min: [0, 0, 0],
+        max: [160, 100, 8],
+        size: [160, 100, 8],
+      },
+      cylindrical_faces: [
+        cylindricalFace(7, 6, [32, 30, 4]),
+        cylindricalFace(12, 10, [125, 70, 4]),
+      ],
+    },
+    exports: [
+      { format: 'step', path: '/tmp/sample.step', size_bytes: 1000 },
+    ],
+    assembly: { part_files: [] },
+  }),
+  runtimeAvailable: true,
+  inspections: {
+    step: {
+      success: true,
+      model: makeGeometry({
+        volume: 100,
+        bbox: {
+          min: [0, 0, 0],
+          max: [160, 100, 8],
+          size: [160, 100, 8],
+        },
+        cylindrical_faces: [
+          cylindricalFace(30, 6, [32, 30, -2]),
+          cylindricalFace(31, 10, [125, 70, -2]),
+        ],
+      }),
+    },
+  },
+});
+assert.equal(wrongHoleCenterRoundtripReport.status, 'fail');
+assert.equal(engineeringMeasurement(wrongHoleCenterRoundtripReport, 'HOLE_LEFT_DIA_STEP_REIMPORT')?.status, 'pass');
+const stepWrongCenterMeasurement = engineeringMeasurement(wrongHoleCenterRoundtripReport, 'hole_left_CENTER_STEP_REIMPORT');
+assert.equal(stepWrongCenterMeasurement?.status, 'fail');
+assert.equal(stepWrongCenterMeasurement?.source, 'reimported_step_geometry');
+assert.deepEqual(stepWrongCenterMeasurement?.actual_center_xy_mm, [32, 30]);
+assert.equal(stepWrongCenterMeasurement?.center_delta_mm, 2);
 
 const missingExpectedHoleReport = buildCreateQualityReport({
   inputConfigPath: '/tmp/missing-hole.toml',
@@ -414,6 +588,57 @@ assert.equal(unavailableHoleMeasurementReport.engineering_quality.measurements[1
 assert.equal(unavailableHoleMeasurementReport.engineering_quality.measurements[1].source, 'unavailable');
 assert.equal(unavailableHoleMeasurementReport.engineering_quality.measurements[1].actual_center_xy_mm, null);
 assert.notEqual(unavailableHoleMeasurementReport.engineering_quality.measurements[1].status, 'pass');
+
+const unavailableStepHoleMeasurementReport = buildCreateQualityReport({
+  inputConfigPath: '/tmp/unavailable-step-hole.toml',
+  config: qualityPassConfig,
+  createResult: makeCreateResult({
+    model: {
+      bounding_box: {
+        min: [0, 0, 0],
+        max: [160, 100, 8],
+        size: [160, 100, 8],
+      },
+      cylindrical_faces: [
+        cylindricalFace(7, 6, [30, 30, 4]),
+        cylindricalFace(12, 10, [125, 70, 4]),
+      ],
+    },
+    exports: [
+      { format: 'step', path: '/tmp/sample.step', size_bytes: 1000 },
+    ],
+    assembly: { part_files: [] },
+  }),
+  runtimeAvailable: true,
+  inspections: {
+    step: {
+      success: true,
+      model: makeGeometry({
+        volume: 100,
+        bbox: {
+          min: [0, 0, 0],
+          max: [160, 100, 8],
+          size: [160, 100, 8],
+        },
+        cylindrical_faces: [],
+      }),
+    },
+  },
+});
+assert.equal(unavailableStepHoleMeasurementReport.status, 'fail');
+assert.equal(unavailableStepHoleMeasurementReport.engineering_quality.status, 'fail');
+assert.equal(
+  engineeringMeasurement(unavailableStepHoleMeasurementReport, 'HOLE_LEFT_DIA_STEP_REIMPORT')?.status,
+  'unavailable'
+);
+assert.equal(
+  engineeringMeasurement(unavailableStepHoleMeasurementReport, 'HOLE_LEFT_DIA_STEP_REIMPORT')?.source,
+  'unavailable'
+);
+assert.notEqual(
+  engineeringMeasurement(unavailableStepHoleMeasurementReport, 'HOLE_LEFT_DIA_STEP_REIMPORT')?.status,
+  'pass'
+);
 
 assert.equal(
   createCreateQualityPath({

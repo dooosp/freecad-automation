@@ -112,7 +112,7 @@
           "$ref": "#/$defs/measurementSource"
         },
         "validation_kind": {
-          "enum": ["config_intent_check", "generated_shape_geometry_check"]
+          "enum": ["config_intent_check", "generated_shape_geometry_check", "reimported_step_geometry_check"]
         },
         "measurements": {
           "type": "array",
@@ -321,6 +321,12 @@
             { "$ref": "#/$defs/bboxDelta" }
           ]
         },
+        "reimported_geometry": {
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/geometry" }
+          ]
+        },
         "warnings": {
           "type": "array",
           "items": { "type": "string" }
@@ -376,13 +382,15 @@
         "tolerance_mm": { "type": "number", "minimum": 0 },
         "delta_mm": { "type": ["number", "null"], "minimum": 0 },
         "center_delta_mm": { "type": ["number", "null"], "minimum": 0 },
+        "source_delta_mm": { "type": ["number", "null"], "minimum": 0 },
+        "source_center_delta_mm": { "type": ["number", "null"], "minimum": 0 },
         "status": { "enum": ["pass", "fail", "missing", "unavailable"] },
         "required": { "type": "boolean" },
         "source": { "$ref": "#/$defs/measurementSource" },
         "source_field": { "type": ["string", "null"] },
         "expected_source": { "$ref": "#/$defs/measurementSource" },
         "expected_source_field": { "type": ["string", "null"] },
-        "validation_kind": { "enum": ["config_intent_check", "generated_shape_geometry_check"] },
+        "validation_kind": { "enum": ["config_intent_check", "generated_shape_geometry_check", "reimported_step_geometry_check"] },
         "matched_face_index": { "type": ["integer", "null"], "minimum": 1 },
         "message": { "type": ["string", "null"] }
       }
