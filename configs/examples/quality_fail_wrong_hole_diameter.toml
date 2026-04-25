@@ -1,0 +1,156 @@
+config_version = 1
+name = "quality_fail_wrong_hole_diameter"
+
+[manufacturing]
+process = "machining"
+material = "AL6061"
+
+[[shapes]]
+id = "plate"
+type = "box"
+length = 160
+width = 100
+height = 8
+
+[[shapes]]
+id = "hole_left"
+type = "cylinder"
+radius = 4
+height = 12
+position = [30, 30, -2]
+
+[[shapes]]
+id = "hole_right"
+type = "cylinder"
+radius = 5
+height = 12
+position = [125, 70, -2]
+
+[[operations]]
+op = "cut"
+base = "plate"
+tool = "hole_left"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "hole_right"
+result = "body"
+
+[[operations]]
+op = "chamfer"
+target = "body"
+size = 1.0
+result = "final"
+
+[drawing]
+views = ["top", "iso"]
+
+[drawing.meta]
+part_name = "Quality Fail Wrong Hole Diameter"
+material = "AL6061"
+
+[drawing.style]
+show_hidden = true
+show_centerlines = true
+show_dimensions = true
+
+[drawing.dimension_style]
+type = "baseline"
+
+[drawing_plan]
+part_type = "generic"
+profile = "KS"
+
+[drawing_plan.views]
+enabled = ["top", "iso"]
+layout = "third_angle"
+
+[drawing_plan.dimensioning]
+auto_plan_dedupe = "off"
+qa_weight_preset = "bracket"
+
+[drawing_intent]
+part_type = "mounting_bracket"
+manufacturing_process = "machining"
+material = "AL6061"
+required_views = ["top", "iso"]
+drawing_standard = "project-default"
+missing_semantics_policy = "advisory"
+
+[drawing_intent.datum_strategy]
+primary = "plate_top_face"
+secondary = "left_mounting_hole"
+tertiary = "right_mounting_hole"
+scheme = "simple fixture-oriented datum reference"
+notes = ["Use hole centers and plate face as drawing QA references only."]
+
+[drawing_intent.tolerance_policy]
+general = "Use existing drawing metadata only; do not infer additional tolerances."
+gdt = "none"
+notes = ["No automatic GD&T inference is required for this fixture."]
+
+[[drawing_intent.critical_features]]
+id = "PLATE"
+feature = "plate"
+description = "Base plate envelope communicates overall bracket footprint."
+reason = "Defines the stock and primary visual context."
+view = "top"
+
+[[drawing_intent.critical_features]]
+id = "MOUNTING_HOLES"
+feature = "hole_left,hole_right"
+description = "Two mounting hole diameters must remain visible and traceable."
+reason = "Hole sizes are required for the strict-pass drawing fixture."
+view = "top"
+
+[[drawing_intent.required_dimensions]]
+id = "HOLE_LEFT_DIA"
+feature = "hole_left"
+label = "Left mounting hole diameter"
+dimension_type = "diameter"
+value_mm = 6
+required = true
+view = "top"
+reason = "Confirms the smaller mounting hole size."
+
+[[drawing_intent.required_dimensions]]
+id = "HOLE_RIGHT_DIA"
+feature = "hole_right"
+label = "Right mounting hole diameter"
+dimension_type = "diameter"
+value_mm = 10
+required = true
+view = "top"
+reason = "Confirms the larger mounting hole size."
+
+[[drawing_intent.required_notes]]
+id = "MATERIAL"
+text = "Material: AL6061"
+category = "material"
+required = true
+
+[[drawing_plan.dim_intents]]
+id = "HOLE_LEFT_DIA"
+feature = "hole_left"
+view = "top"
+style = "diameter"
+required = true
+value_mm = 6
+placement_side = "top_left"
+placement_offset_mm = 6
+
+[[drawing_plan.dim_intents]]
+id = "HOLE_RIGHT_DIA"
+feature = "hole_right"
+view = "top"
+style = "diameter"
+required = true
+value_mm = 10
+placement_side = "bottom_right"
+placement_offset_mm = 8
+
+[export]
+formats = ["step", "stl"]
+directory = "output"
