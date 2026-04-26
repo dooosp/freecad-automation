@@ -1,0 +1,262 @@
+{
+  "schema_version": "1.0",
+  "artifact_type": "release_bundle_manifest",
+  "workflow": "readiness_release_bundle",
+  "generated_at": "2026-04-26T23:38:32.518Z",
+  "warnings": [
+    "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/plate-with-holes/cad/pcb_mount_plate.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
+    "Missing or limited inspection evidence; review-pack remains usable with partial evidence.",
+    "Missing or limited quality evidence; review-pack remains usable with partial evidence."
+  ],
+  "coverage": {
+    "source_artifact_count": 5,
+    "source_file_count": 1,
+    "hotspot_count": 4,
+    "inspection_record_count": 0,
+    "inspection_outlier_count": 0,
+    "quality_issue_count": 0,
+    "quality_hotspot_count": 0,
+    "review_priority_count": 4,
+    "required_section_count": 4,
+    "available_section_count": 4,
+    "process_step_count": 5,
+    "quality_gate_count": 4,
+    "missing_input_count": 2,
+    "evidence_record_count": 4,
+    "upstream_review_pack_coverage": {
+      "source_artifact_count": 2,
+      "source_file_count": 1,
+      "hotspot_count": 4,
+      "inspection_record_count": 0,
+      "inspection_outlier_count": 0,
+      "quality_issue_count": 0,
+      "quality_hotspot_count": 0,
+      "review_priority_count": 4
+    },
+    "bundled_artifact_count": 13,
+    "included_source_artifact_count": 4,
+    "skipped_optional_artifact_count": 0,
+    "docs_included": true,
+    "document_count": 5
+  },
+  "confidence": {
+    "level": "heuristic",
+    "score": 0.76,
+    "rationale": "Canonical review pack combines upstream D artifacts into a decision-oriented JSON contract.",
+    "propagated_from": "readiness_report",
+    "propagation_notes": [
+      "Release packaging preserves readiness_report confidence without changing score or level."
+    ]
+  },
+  "source_artifact_refs": [
+    {
+      "artifact_type": "cad_model",
+      "path": "docs/examples/plate-with-holes/cad/pcb_mount_plate.step",
+      "role": "input",
+      "label": "Geometry source"
+    },
+    {
+      "artifact_type": "source_file",
+      "path": "docs/examples/plate-with-holes/cad/pcb_mount_plate.step",
+      "role": "evidence",
+      "label": "Context source file"
+    },
+    {
+      "artifact_type": "review_pack",
+      "path": "docs/examples/plate-with-holes/review/review_pack.json",
+      "role": "input",
+      "label": "Canonical review-pack JSON"
+    },
+    {
+      "artifact_type": "readiness_report",
+      "path": "docs/examples/plate-with-holes/readiness/readiness_report.json",
+      "role": "input",
+      "label": "Canonical readiness report JSON"
+    },
+    {
+      "artifact_type": "docs_manifest",
+      "path": "docs/examples/plate-with-holes/standard-docs/standard_docs_manifest.json",
+      "role": "input",
+      "label": "Standard docs manifest JSON"
+    }
+  ],
+  "canonical_artifact": {
+    "json_is_source_of_truth": true,
+    "artifact_type": "release_bundle_manifest",
+    "artifact_filename": "release_bundle_manifest.json",
+    "derived_outputs": [
+      "release_bundle"
+    ],
+    "rationale": "release_bundle_manifest.json is the canonical packaging inventory; the ZIP is a derived transport artifact."
+  },
+  "contract": {
+    "layer": "C",
+    "command": "pack",
+    "contract_version": "c2",
+    "canonical_artifact_kind": "release_bundle_manifest",
+    "primary_output": "release_bundle_manifest.json",
+    "required_inputs": [
+      "readiness_report"
+    ],
+    "optional_inputs": [
+      "docs_manifest",
+      "stabilization_review",
+      "review_pack"
+    ],
+    "derived_outputs": [
+      "release_bundle"
+    ],
+    "notes": [
+      "The release-bundle manifest packages canonical C outputs without replacing canonical JSON as the source of truth."
+    ]
+  },
+  "readiness_report_ref": {
+    "artifact_type": "readiness_report",
+    "path": "docs/examples/plate-with-holes/readiness/readiness_report.json",
+    "role": "input",
+    "label": "Canonical readiness report JSON"
+  },
+  "docs_manifest_ref": {
+    "artifact_type": "docs_manifest",
+    "path": "docs/examples/plate-with-holes/standard-docs/standard_docs_manifest.json",
+    "role": "input",
+    "label": "Standard docs manifest JSON"
+  },
+  "bundle_artifacts": [
+    {
+      "artifact_type": "readiness_report",
+      "role": "primary",
+      "label": "Canonical readiness report JSON",
+      "path": "canonical/readiness_report.json",
+      "source_path": "docs/examples/plate-with-holes/readiness/readiness_report.json",
+      "size_bytes": 61961,
+      "sha256": "e84e271ed32b10cf901dc5b2a55cb7d8714907b19d38c3add8b8c33a1ed33e0a",
+      "exists": true
+    },
+    {
+      "artifact_type": "readiness_markdown",
+      "role": "derived",
+      "label": "Readiness report Markdown",
+      "path": "canonical/readiness_report.md",
+      "source_path": "docs/examples/plate-with-holes/readiness/readiness_report.md",
+      "size_bytes": 3610,
+      "sha256": "d66ea40a97eb31aa8759dc32d470f39df48f89574d81ac55a45aed783f3c4268",
+      "exists": true
+    },
+    {
+      "artifact_type": "cad_model",
+      "role": "input",
+      "label": "Geometry source",
+      "path": "references/pcb_mount_plate.step",
+      "source_path": "docs/examples/plate-with-holes/cad/pcb_mount_plate.step",
+      "size_bytes": 24225,
+      "sha256": "f9e3575bd6ffc065b8d32ca5a9695874332831ef2de83b2be6fff504c2b320e5",
+      "exists": true
+    },
+    {
+      "artifact_type": "review_pack",
+      "role": "input",
+      "label": "Canonical review-pack JSON",
+      "path": "canonical/review_pack.json",
+      "source_path": "docs/examples/plate-with-holes/review/review_pack.json",
+      "size_bytes": 26481,
+      "sha256": "a98242406f5a5f7ae215724d6fd381fb52b091780b963ad57f69c64e7aa40463",
+      "exists": true
+    },
+    {
+      "artifact_type": "docs_manifest",
+      "role": "input",
+      "label": "Standard docs manifest JSON",
+      "path": "docs/standard_docs_manifest.json",
+      "source_path": "docs/examples/plate-with-holes/standard-docs/standard_docs_manifest.json",
+      "size_bytes": 5952,
+      "sha256": "c6cbc5c98351ec1fe3bfdfd3de06d3daa7c6710b4f973e07a1ba505c20b8a5df",
+      "exists": true
+    },
+    {
+      "artifact_type": "docs_document",
+      "role": "derived",
+      "label": "process_flow.md",
+      "path": "docs/process_flow.md",
+      "source_path": "docs/examples/plate-with-holes/standard-docs/process_flow.md",
+      "size_bytes": 748,
+      "sha256": "dfbeb26f73550374c6e1f06a78f274c9053fd13fd72a2fc209ef6c4b1dc38a0c",
+      "exists": true
+    },
+    {
+      "artifact_type": "docs_document",
+      "role": "derived",
+      "label": "control_plan_draft.csv",
+      "path": "docs/control_plan_draft.csv",
+      "source_path": "docs/examples/plate-with-holes/standard-docs/control_plan_draft.csv",
+      "size_bytes": 99,
+      "sha256": "399ec793f4b62b635f30ecdf59e1b97e03f0eb862b2bfd48ff2362c554aabc64",
+      "exists": true
+    },
+    {
+      "artifact_type": "docs_document",
+      "role": "derived",
+      "label": "inspection_checksheet_draft.csv",
+      "path": "docs/inspection_checksheet_draft.csv",
+      "source_path": "docs/examples/plate-with-holes/standard-docs/inspection_checksheet_draft.csv",
+      "size_bytes": 70,
+      "sha256": "4595fdd1b54a345237d4716fecec90495ec7a0cb7a0e7593147875557ed0d391",
+      "exists": true
+    },
+    {
+      "artifact_type": "docs_document",
+      "role": "derived",
+      "label": "work_instruction_draft.md",
+      "path": "docs/work_instruction_draft.md",
+      "source_path": "docs/examples/plate-with-holes/standard-docs/work_instruction_draft.md",
+      "size_bytes": 778,
+      "sha256": "be2b993737d6613dfe5e4bab33c44698d0e7f5d34368c8248cb22c4686e13bd5",
+      "exists": true
+    },
+    {
+      "artifact_type": "docs_document",
+      "role": "derived",
+      "label": "pfmea_seed.csv",
+      "path": "docs/pfmea_seed.csv",
+      "source_path": "docs/examples/plate-with-holes/standard-docs/pfmea_seed.csv",
+      "size_bytes": 1241,
+      "sha256": "ad19b4fbb61efd53217392b63cfeb113650e62979d380342b2bfb2a2503c6973",
+      "exists": true
+    },
+    {
+      "artifact_type": "release_bundle_log",
+      "role": "supporting",
+      "label": "Release bundle log JSON",
+      "path": "release_bundle_log.json",
+      "source_path": "docs/examples/plate-with-holes/release/release_bundle_log.json",
+      "size_bytes": 4799,
+      "sha256": "1dba1641009d02c7be7a3b10fb75e0f9665f8895b447b1aea6cbfa2d3f7969a3",
+      "exists": true
+    },
+    {
+      "artifact_type": "release_bundle_checksums",
+      "role": "supporting",
+      "label": "Release bundle checksums",
+      "path": "release_bundle_checksums.sha256",
+      "source_path": "docs/examples/plate-with-holes/release/release_bundle_checksums.sha256",
+      "size_bytes": 1041,
+      "sha256": "dc4142cd98ea4410ae83f11b45ef10409822a7c3261353dec194c927f23a9700",
+      "exists": true
+    },
+    {
+      "artifact_type": "release_bundle_manifest",
+      "role": "primary",
+      "label": "Release bundle manifest JSON",
+      "path": "release_bundle_manifest.json",
+      "source_path": "docs/examples/plate-with-holes/release/release_bundle_manifest.json"
+    }
+  ],
+  "release_notes": [
+    "Canonical readiness_report.json remains the source of truth for release packaging.",
+    "Standard-document drafts were included from the supplied or discovered docs manifest."
+  ],
+  "bundle_file": {
+    "path": "docs/examples/plate-with-holes/release/release_bundle.zip",
+    "filename": "release_bundle.zip"
+  }
+}

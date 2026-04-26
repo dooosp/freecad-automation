@@ -1,0 +1,434 @@
+config_version = 1
+name = "pcb_mount_plate"
+batch_size = 150
+
+[product]
+family = "controller_subassembly"
+module_type = "PCB mount plate"
+vehicle_program = "Cluster / ICC electronics carrier"
+revision = "A"
+decision_scope = "machining readiness and line-support review"
+connector_clearance_mm = 5.0
+connector_side = "PCB connector-side slot"
+fastening_strategy = "manual PCB screw fastening to mounting bosses"
+traceability_label_area = "plate edge opposite connector slot"
+
+[manufacturing]
+process = "machining"
+material = "AL6061"
+
+[production]
+sites = ["Korea-Gwangju"]
+annual_volume = 220000
+target_ct_sec = 28
+automation_mode = "manual"
+pilot_lot = 150
+automation_candidates = [
+  "vision check for connector boss location",
+  "inline flatness measurement",
+]
+
+[quality.traceability]
+serial_level = "lot"
+record_linkage = "lot + revision + inspection record"
+label_area = "plate edge opposite connector slot"
+
+[[quality.critical_dimensions]]
+id = "cd-01"
+name = "PCB stand-off height"
+target_mm = 8.0
+tolerance = "±0.05"
+rationale = "board coplanarity"
+
+[[quality.critical_dimensions]]
+id = "cd-02"
+name = "connector slot position"
+target_mm = 42.0
+tolerance = "±0.10"
+rationale = "electrical mating"
+
+[[quality.functional_test_points]]
+id = "ftp-01"
+name = "PCB connector-side clearance confirmation"
+location = "end_of_line"
+rationale = "prevent interference during controller subassembly build"
+
+[[shapes]]
+id = "plate"
+type = "box"
+length = 145
+width = 98
+height = 4
+
+[[shapes]]
+id = "standoff1"
+type = "cylinder"
+radius = 3.5
+height = 8
+position = [18, 18, 4]
+
+[[shapes]]
+id = "standoff2"
+type = "cylinder"
+radius = 3.5
+height = 8
+position = [127, 18, 4]
+
+[[shapes]]
+id = "standoff3"
+type = "cylinder"
+radius = 3.5
+height = 8
+position = [18, 80, 4]
+
+[[shapes]]
+id = "standoff4"
+type = "cylinder"
+radius = 3.5
+height = 8
+position = [127, 80, 4]
+
+[[shapes]]
+id = "slot"
+type = "box"
+length = 18
+width = 10
+height = 8
+position = [60, 42, -2]
+
+[[shapes]]
+id = "hole1"
+type = "cylinder"
+radius = 2
+height = 8
+position = [22, 22, -2]
+
+[[shapes]]
+id = "hole2"
+type = "cylinder"
+radius = 2
+height = 8
+position = [123, 22, -2]
+
+[[shapes]]
+id = "hole3"
+type = "cylinder"
+radius = 2
+height = 8
+position = [22, 76, -2]
+
+[[shapes]]
+id = "hole4"
+type = "cylinder"
+radius = 2
+height = 8
+position = [123, 76, -2]
+
+[[operations]]
+op = "fuse"
+base = "plate"
+tool = "standoff1"
+result = "body"
+
+[[operations]]
+op = "fuse"
+base = "body"
+tool = "standoff2"
+result = "body"
+
+[[operations]]
+op = "fuse"
+base = "body"
+tool = "standoff3"
+result = "body"
+
+[[operations]]
+op = "fuse"
+base = "body"
+tool = "standoff4"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "slot"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "hole1"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "hole2"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "hole3"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "hole4"
+result = "final"
+
+[drawing]
+views = ["front", "top", "right", "iso"]
+
+[drawing.meta]
+part_name = "PCB Mount Plate"
+material = "AL6061"
+units = "mm"
+drawing_no = "PCB-MOUNT-PLATE-A"
+
+[drawing.style]
+show_hidden = true
+show_centerlines = true
+show_dimensions = true
+
+[drawing.dimension_style]
+type = "baseline"
+
+[drawing_plan]
+part_type = "generic"
+profile = "KS"
+
+[drawing_plan.views]
+enabled = ["front", "top", "right", "iso"]
+layout = "third_angle"
+
+[drawing_plan.dimensioning]
+auto_plan_dedupe = "off"
+qa_weight_preset = "bracket"
+
+[drawing_intent]
+part_type = "plate_with_holes"
+manufacturing_process = "machining"
+material = "AL6061"
+required_views = ["front", "top", "right", "iso"]
+drawing_standard = "project-default"
+missing_semantics_policy = "advisory"
+
+[drawing_intent.datum_strategy]
+primary = "plate_top_face"
+secondary = "left_front_mounting_hole"
+tertiary = "right_front_mounting_hole"
+scheme = "fixture-oriented plate datum using the top face and front hole row"
+notes = ["Use hole centers and the connector-side slot as drawing QA references only."]
+
+[drawing_intent.tolerance_policy]
+general = "Carry source critical dimensions forward; do not infer additional tolerances."
+gdt = "none"
+notes = ["Connector slot position and standoff height are critical manufacturing checks from the source config."]
+
+[[drawing_intent.critical_features]]
+id = "PLATE"
+feature = "plate"
+description = "Base plate envelope communicates the 145 mm by 98 mm by 4 mm machined carrier footprint."
+reason = "Defines stock size and mounting-envelope context."
+view = "top"
+
+[[drawing_intent.critical_features]]
+id = "MOUNTING_HOLE_PATTERN"
+feature = "hole1,hole2,hole3,hole4"
+description = "Four mounting holes form the PCB screw pattern."
+reason = "Hole diameter and pattern location control board assembly fit."
+view = "top"
+
+[[drawing_intent.critical_features]]
+id = "CONNECTOR_SLOT"
+feature = "slot"
+description = "Connector-side clearance slot must remain visible and tied to the slot-position quality check."
+reason = "Prevents connector interference during controller subassembly build."
+view = "top"
+
+[[drawing_intent.critical_features]]
+id = "STANDOFFS"
+feature = "standoff1,standoff2,standoff3,standoff4"
+description = "Four board standoffs establish PCB support height."
+reason = "Standoff height is a critical dimension for board coplanarity."
+view = "front"
+
+[[drawing_intent.required_dimensions]]
+id = "PLATE_LENGTH"
+feature = "plate"
+label = "Overall plate length"
+dimension_type = "linear"
+value_mm = 145
+required = true
+view = "top"
+reason = "Confirms the long-axis plate envelope."
+
+[[drawing_intent.required_dimensions]]
+id = "PLATE_WIDTH"
+feature = "plate"
+label = "Overall plate width"
+dimension_type = "linear"
+value_mm = 98
+required = true
+view = "top"
+reason = "Confirms the short-axis plate envelope."
+
+[[drawing_intent.required_dimensions]]
+id = "PLATE_THICKNESS"
+feature = "plate"
+label = "Plate thickness"
+dimension_type = "linear"
+value_mm = 4
+required = true
+view = "front"
+reason = "Confirms the machined plate thickness."
+
+[[drawing_intent.required_dimensions]]
+id = "MOUNTING_HOLE_DIA"
+feature = "hole1,hole2,hole3,hole4"
+label = "Four mounting hole diameters"
+dimension_type = "diameter"
+value_mm = 4
+required = true
+view = "top"
+reason = "Confirms the PCB fastening hole size."
+
+[[drawing_intent.required_dimensions]]
+id = "MOUNTING_HOLE_PATTERN_X"
+feature = "hole1,hole2,hole3,hole4"
+label = "Mounting hole column spacing"
+dimension_type = "linear"
+value_mm = 101
+required = true
+view = "top"
+reason = "Captures the horizontal spacing from x=22 mm to x=123 mm."
+
+[[drawing_intent.required_dimensions]]
+id = "MOUNTING_HOLE_PATTERN_Y"
+feature = "hole1,hole2,hole3,hole4"
+label = "Mounting hole row spacing"
+dimension_type = "linear"
+value_mm = 54
+required = true
+view = "top"
+reason = "Captures the vertical spacing from y=22 mm to y=76 mm."
+
+[[drawing_intent.required_dimensions]]
+id = "CONNECTOR_SLOT_SIZE"
+feature = "slot"
+label = "Connector slot length and width"
+dimension_type = "linear"
+value_mm = 18
+required = true
+view = "top"
+reason = "Captures the connector-side clearance opening size; slot width is 10 mm."
+
+[[drawing_intent.required_dimensions]]
+id = "CONNECTOR_SLOT_POSITION"
+feature = "slot"
+label = "Connector slot position"
+dimension_type = "linear"
+value_mm = 42
+required = true
+view = "top"
+reason = "Carries forward source quality critical dimension cd-02."
+
+[[drawing_intent.required_dimensions]]
+id = "STANDOFF_HEIGHT"
+feature = "standoff1,standoff2,standoff3,standoff4"
+label = "PCB standoff height"
+dimension_type = "linear"
+value_mm = 8
+required = true
+view = "front"
+reason = "Carries forward source quality critical dimension cd-01."
+
+[[drawing_intent.required_notes]]
+id = "MATERIAL"
+text = "Material: AL6061"
+category = "material"
+required = true
+
+[[drawing_intent.required_notes]]
+id = "PROCESS"
+text = "Process: machining"
+category = "manufacturing"
+required = true
+
+[[drawing_intent.required_notes]]
+id = "TRACEABILITY"
+text = "Lot traceability label area on plate edge opposite connector slot."
+category = "traceability"
+required = true
+
+[[drawing_plan.dim_intents]]
+id = "TOTAL_LENGTH"
+feature = "plate"
+view = "top"
+style = "linear"
+required = false
+value_mm = 145
+placement_side = "bottom"
+placement_offset_mm = 6
+reason = "Overall plate length is required for the curated plate-with-holes package."
+
+[[drawing_plan.dim_intents]]
+id = "HEIGHT"
+feature = "plate"
+view = "top"
+style = "linear"
+required = false
+value_mm = 98
+placement_side = "right"
+placement_offset_mm = 6
+reason = "Overall plate width is required for the curated plate-with-holes package."
+
+[[drawing_plan.dim_intents]]
+id = "THK"
+feature = "plate"
+view = "front"
+style = "linear"
+required = false
+value_mm = 4
+placement_side = "right"
+placement_offset_mm = 4
+reason = "Plate thickness is required for drawing QA."
+
+[[drawing_plan.dim_intents]]
+id = "HOLE_DIA"
+feature = "hole1,hole2,hole3,hole4"
+view = "top"
+style = "diameter"
+required = true
+value_mm = 4
+placement_side = "top_right"
+placement_offset_mm = 5
+reason = "The four mounting holes share a 4 mm diameter."
+
+[[drawing_plan.dim_intents]]
+id = "CONNECTOR_SLOT_POSITION"
+feature = "slot"
+view = "top"
+style = "linear"
+required = false
+value_mm = 42
+placement_side = "top"
+placement_offset_mm = 10
+reason = "Advisory source quality dimension for connector slot position."
+
+[[drawing_plan.dim_intents]]
+id = "STANDOFF_HEIGHT"
+feature = "standoff1,standoff2,standoff3,standoff4"
+view = "front"
+style = "linear"
+required = false
+value_mm = 8
+placement_side = "left"
+placement_offset_mm = 8
+reason = "Advisory source quality dimension for PCB standoff height."
+
+[export]
+formats = ["step", "stl"]
+directory = "output"

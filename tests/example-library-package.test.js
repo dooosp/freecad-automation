@@ -5,8 +5,22 @@ import { basename, extname, isAbsolute, join, relative, resolve } from 'node:pat
 import { listZipEntries, readZipEntry } from '../lib/zip-archive.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
-const PACKAGE_ROOT = resolve(ROOT, 'docs', 'examples', 'quality-pass-bracket');
 const MANIFEST_PATH = resolve(ROOT, 'docs', 'examples', 'example-library-manifest.json');
+
+const CANONICAL_PACKAGES = Object.freeze([
+  {
+    slug: 'quality-pass-bracket',
+    stem: 'quality_pass_bracket',
+    sourceConfig: 'configs/examples/quality_pass_bracket.toml',
+    directConfigCopy: true,
+  },
+  {
+    slug: 'plate-with-holes',
+    stem: 'pcb_mount_plate',
+    sourceConfig: 'configs/examples/pcb_mount_plate.toml',
+    directConfigCopy: false,
+  },
+]);
 
 const CANONICAL_ARTIFACTS = Object.freeze([
   'review/review_pack.json',
@@ -74,87 +88,98 @@ function assertPortableJson(filePath) {
   return payload;
 }
 
-assert.equal(existsSync(PACKAGE_ROOT), true, 'quality-pass-bracket package should exist');
-assert.equal(existsSync(join(PACKAGE_ROOT, 'README.md')), true, 'README.md should exist');
-assert.equal(existsSync(join(PACKAGE_ROOT, 'config.toml')), true, 'config.toml should exist');
-assert.equal(
-  readFileSync(join(PACKAGE_ROOT, 'config.toml'), 'utf8'),
-  readFileSync(resolve(ROOT, 'configs', 'examples', 'quality_pass_bracket.toml'), 'utf8'),
-  'package config should be a direct copy of the tracked source config'
-);
-
-for (const artifact of CANONICAL_ARTIFACTS) {
-  assert.equal(existsSync(join(PACKAGE_ROOT, artifact)), true, `canonical artifact should exist: ${artifact}`);
-}
-
-const packageFiles = walkFiles(PACKAGE_ROOT);
-for (const filePath of packageFiles) {
-  assert.equal(STALE_AF5_NAMES.includes(basename(filePath)), false, `stale AF5 filename should be absent: ${filePath}`);
-  if (!TEXT_EXTENSIONS.has(extname(filePath))) continue;
-  const text = readFileSync(filePath, 'utf8');
-  assertPortableText(relative(ROOT, filePath), text);
-  if (extname(filePath) === '.json') assertPortableJson(filePath);
-}
-
 const libraryManifest = JSON.parse(readFileSync(MANIFEST_PATH, 'utf8'));
-const qualityPassEntry = libraryManifest.examples.find((example) => example.slug === 'quality-pass-bracket');
-assert.equal(Boolean(qualityPassEntry), true, 'quality-pass-bracket should be in the example-library manifest');
-assert.equal(qualityPassEntry.status, 'canonical-package');
-for (const key of [
-  'generated_cad',
-  'quality_report',
-  'review_pack',
-  'readiness_report',
-  'standard_docs_manifest',
-  'release_bundle_manifest',
-  'release_bundle_zip',
-]) {
-  assert.equal(qualityPassEntry.current_coverage[key], true, `manifest coverage should mark ${key} true`);
+
+for (const packageDef of CANONICAL_PACKAGES) {
+  const packageRoot = resolve(ROOT, 'docs', 'examples', packageDef.slug);
+  assert.equal(existsSync(packageRoot), true, `${packageDef.slug} package should exist`);
+  assert.equal(existsSync(join(packageRoot, 'README.md')), true, `${packageDef.slug} README.md should exist`);
+  assert.equal(existsSync(join(packageRoot, 'config.toml')), true, `${packageDef.slug} config.toml should exist`);
+
+  if (packageDef.directConfigCopy) {
+    assert.equal(
+      readFileSync(join(packageRoot, 'config.toml'), 'utf8'),
+      readFileSync(resolve(ROOT, packageDef.sourceConfig), 'utf8'),
+      `${packageDef.slug} package config should be a direct copy of the tracked source config`
+    );
+  } else {
+    const configText = readFileSync(join(packageRoot, 'config.toml'), 'utf8');
+    assert.match(configText, /\[drawing_intent\]/, `${packageDef.slug} config should include curated drawing intent`);
+    assert.match(configText, /\[\[drawing_intent\.required_dimensions\]\]/, `${packageDef.slug} config should include required dimensions`);
+  }
+
+  for (const artifact of CANONICAL_ARTIFACTS) {
+    assert.equal(existsSync(join(packageRoot, artifact)), true, `${packageDef.slug} canonical artifact should exist: ${artifact}`);
+  }
+
+  const packageFiles = walkFiles(packageRoot);
+  for (const filePath of packageFiles) {
+    assert.equal(STALE_AF5_NAMES.includes(basename(filePath)), false, `stale AF5 filename should be absent: ${filePath}`);
+    if (!TEXT_EXTENSIONS.has(extname(filePath))) continue;
+    const text = readFileSync(filePath, 'utf8');
+    assertPortableText(relative(ROOT, filePath), text);
+    if (extname(filePath) === '.json') assertPortableJson(filePath);
+  }
+
+  const manifestEntry = libraryManifest.examples.find((example) => example.slug === packageDef.slug);
+  assert.equal(Boolean(manifestEntry), true, `${packageDef.slug} should be in the example-library manifest`);
+  assert.equal(manifestEntry.status, 'canonical-package');
+  for (const key of [
+    'generated_cad',
+    'quality_report',
+    'review_pack',
+    'readiness_report',
+    'standard_docs_manifest',
+    'release_bundle_manifest',
+    'release_bundle_zip',
+  ]) {
+    assert.equal(manifestEntry.current_coverage[key], true, `${packageDef.slug} manifest coverage should mark ${key} true`);
+  }
+  assert.equal(manifestEntry.current_coverage.studio_reopen_fixture, true, `${packageDef.slug} Studio reopen fixture should be covered`);
+
+  const releaseManifestPath = join(packageRoot, 'release', 'release_bundle_manifest.json');
+  const releaseManifest = assertPortableJson(releaseManifestPath);
+  assert.equal(releaseManifest.bundle_file.filename, 'release_bundle.zip');
+  assert.equal(releaseManifest.bundle_file.path, `docs/examples/${packageDef.slug}/release/release_bundle.zip`);
+  assert.equal(releaseManifest.readiness_report_ref.path, `docs/examples/${packageDef.slug}/readiness/readiness_report.json`);
+  assert.equal(releaseManifest.docs_manifest_ref.path, `docs/examples/${packageDef.slug}/standard-docs/standard_docs_manifest.json`);
+
+  const zipPath = join(packageRoot, 'release', 'release_bundle.zip');
+  assert.equal(existsSync(zipPath), true, `${packageDef.slug} release_bundle.zip should exist in release directory`);
+  assert.equal(statSync(zipPath).size < 250_000, true, `${packageDef.slug} release_bundle.zip should stay small enough for curated docs review`);
+
+  const zipEntries = await listZipEntries(zipPath);
+  const zipEntryNames = zipEntries.map((entry) => entry.name).sort();
+  const expectedZipEntries = [
+    'canonical/readiness_report.json',
+    'canonical/readiness_report.md',
+    'canonical/review_pack.json',
+    'docs/control_plan_draft.csv',
+    'docs/inspection_checksheet_draft.csv',
+    'docs/pfmea_seed.csv',
+    'docs/process_flow.md',
+    'docs/standard_docs_manifest.json',
+    'docs/work_instruction_draft.md',
+    `references/${packageDef.stem}.step`,
+    'release_bundle_checksums.sha256',
+    'release_bundle_log.json',
+    'release_bundle_manifest.json',
+  ].sort();
+  assert.deepEqual(zipEntryNames, expectedZipEntries);
+  for (const staleName of STALE_AF5_NAMES) {
+    assert.equal(zipEntryNames.includes(staleName), false, `${packageDef.slug} release bundle should not include stale entry ${staleName}`);
+  }
+
+  for (const entryName of zipEntryNames.filter((name) => TEXT_EXTENSIONS.has(extname(name)))) {
+    const entry = await readZipEntry(zipPath, entryName);
+    assertPortableText(`${packageDef.slug}:release_bundle.zip:${entryName}`, entry.data.toString('utf8'));
+  }
+
+  assert.notEqual(
+    releaseManifest.bundle_file.path,
+    releaseManifest.canonical_artifact?.artifact_filename,
+    `${packageDef.slug} release_bundle_manifest.json should not be confused with release_bundle.zip`
+  );
 }
-assert.equal(qualityPassEntry.current_coverage.studio_reopen_fixture, true, 'Studio reopen fixture should be covered');
-
-const releaseManifestPath = join(PACKAGE_ROOT, 'release', 'release_bundle_manifest.json');
-const releaseManifest = assertPortableJson(releaseManifestPath);
-assert.equal(releaseManifest.bundle_file.filename, 'release_bundle.zip');
-assert.equal(releaseManifest.bundle_file.path, 'docs/examples/quality-pass-bracket/release/release_bundle.zip');
-assert.equal(releaseManifest.readiness_report_ref.path, 'docs/examples/quality-pass-bracket/readiness/readiness_report.json');
-assert.equal(releaseManifest.docs_manifest_ref.path, 'docs/examples/quality-pass-bracket/standard-docs/standard_docs_manifest.json');
-
-const zipPath = join(PACKAGE_ROOT, 'release', 'release_bundle.zip');
-assert.equal(existsSync(zipPath), true, 'release_bundle.zip should exist in release directory');
-assert.equal(statSync(zipPath).size < 250_000, true, 'release_bundle.zip should stay small enough for curated docs review');
-
-const zipEntries = await listZipEntries(zipPath);
-const zipEntryNames = zipEntries.map((entry) => entry.name).sort();
-const expectedZipEntries = [
-  'canonical/readiness_report.json',
-  'canonical/readiness_report.md',
-  'canonical/review_pack.json',
-  'docs/control_plan_draft.csv',
-  'docs/inspection_checksheet_draft.csv',
-  'docs/pfmea_seed.csv',
-  'docs/process_flow.md',
-  'docs/standard_docs_manifest.json',
-  'docs/work_instruction_draft.md',
-  'references/quality_pass_bracket.step',
-  'release_bundle_checksums.sha256',
-  'release_bundle_log.json',
-  'release_bundle_manifest.json',
-].sort();
-assert.deepEqual(zipEntryNames, expectedZipEntries);
-for (const staleName of STALE_AF5_NAMES) {
-  assert.equal(zipEntryNames.includes(staleName), false, `release bundle should not include stale entry ${staleName}`);
-}
-
-for (const entryName of zipEntryNames.filter((name) => TEXT_EXTENSIONS.has(extname(name)))) {
-  const entry = await readZipEntry(zipPath, entryName);
-  assertPortableText(`release_bundle.zip:${entryName}`, entry.data.toString('utf8'));
-}
-
-assert.notEqual(
-  releaseManifest.bundle_file.path,
-  releaseManifest.canonical_artifact?.artifact_filename,
-  'release_bundle_manifest.json should not be confused with release_bundle.zip'
-);
 
 console.log('example-library-package.test.js: ok');
