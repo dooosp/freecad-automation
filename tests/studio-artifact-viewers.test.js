@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import {
+  buildArtifactDetailItems,
   buildArtifactOpenLabel,
   buildArtifactViewer,
 } from '../public/js/studio/artifact-insights.js';
@@ -269,5 +270,93 @@ assert.equal(bundleViewer.kind, 'release_bundle');
 assert.equal(bundleViewer.title, 'Bundle viewer');
 assert.equal(bundleViewer.highlights.find((item) => item.label === 'Canonical entries')?.value, '2');
 assert.equal(bundleViewer.sections.some((section) => section.title === 'Bundle contents'), true);
+
+const af5ArtifactSurface = [
+  {
+    id: 'review-pack',
+    type: 'review-pack.json',
+    file_name: 'review_pack.json',
+    extension: '.json',
+    openLabel: 'Open review pack',
+    reentryTarget: 'review_pack',
+  },
+  {
+    id: 'readiness-report',
+    type: 'readiness-report.json',
+    file_name: 'readiness_report.json',
+    extension: '.json',
+    openLabel: 'Open readiness report',
+    reentryTarget: 'readiness_report',
+  },
+  {
+    id: 'standard-docs-manifest',
+    type: 'standard-docs.summary',
+    file_name: 'standard_docs_manifest.json',
+    extension: '.json',
+    openLabel: 'Open',
+    reentryTarget: null,
+  },
+  {
+    id: 'release-bundle-manifest',
+    type: 'release-bundle.manifest.json',
+    file_name: 'release_bundle_manifest.json',
+    extension: '.json',
+    openLabel: 'Open bundle manifest',
+    reentryTarget: null,
+  },
+  {
+    id: 'release-bundle',
+    type: 'release-bundle.zip',
+    file_name: 'release_bundle.zip',
+    extension: '.zip',
+    openLabel: 'Open release bundle',
+    reentryTarget: 'release_bundle',
+  },
+].map((artifact) => ({
+  ...artifact,
+  key: artifact.id,
+  exists: true,
+  size_bytes: 4096,
+  content_type: artifact.extension === '.zip' ? 'application/zip' : 'application/json',
+  scope: 'user-facing',
+  stability: 'stable',
+  capabilities: {
+    can_open: true,
+    can_download: true,
+    browser_safe: artifact.extension !== '.zip',
+  },
+  links: {
+    open: `/artifacts/job-af5/${artifact.id}`,
+    download: `/artifacts/job-af5/${artifact.id}/download`,
+  },
+  contract: artifact.reentryTarget
+    ? {
+        reentry_target: artifact.reentryTarget,
+        canonical_file_name: artifact.file_name,
+      }
+    : null,
+}));
+
+assert.deepEqual(af5ArtifactSurface.map((artifact) => artifact.file_name), [
+  'review_pack.json',
+  'readiness_report.json',
+  'standard_docs_manifest.json',
+  'release_bundle_manifest.json',
+  'release_bundle.zip',
+]);
+for (const artifact of af5ArtifactSurface) {
+  assert.equal(buildArtifactOpenLabel(artifact), artifact.openLabel);
+  const detailMap = Object.fromEntries(
+    buildArtifactDetailItems(artifact, { summary: { request: { source_label: 'Tracked AF5 job' } } })
+      .map((item) => [item.label, item])
+  );
+  assert.equal(detailMap['File name'].value, artifact.file_name);
+  assert.equal(detailMap['Open route'].value, 'Available');
+  assert.equal(detailMap['Download route'].value, 'Available');
+  assert.equal(JSON.stringify(detailMap).includes('/artifacts/job-af5'), false);
+  if (artifact.reentryTarget) {
+    assert.equal(detailMap['Re-entry target'].value, artifact.reentryTarget);
+  }
+}
 
 console.log('studio-artifact-viewers.test.js: ok');

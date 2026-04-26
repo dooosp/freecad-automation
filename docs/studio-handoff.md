@@ -44,6 +44,7 @@ Practical rules:
 
 - Use preview while iterating on TOML, geometry, sheet layout, or dimensions and you do not need provenance yet.
 - Use tracked runs when the output should appear in the job timeline, feed `Review`, or support artifact-driven re-entry later.
+- `review-context` is part of the current Studio/local API bridge when submitted with source paths from an import/bootstrap handoff or another local API source-path flow. It requires `context_path` or `model_path` and may include `bom_path`, `inspection_path`, `quality_path`, and `compare_to_path`; it is not a config TOML submission.
 - Model preview and drawing preview stay available even while a tracked run is queued or running.
 - The shell monitor resumes and polls every queued/running job it knows about through `GET /jobs/:id`; it is no longer a single-active-run indicator.
 - Artifacts and Review deep links can carry a selected tracked job as `#artifacts?job=<job-id>` or `#review?job=<job-id>`. Search-param fallback `?job=<job-id>` is also accepted when reopening a shared URL.
@@ -117,6 +118,7 @@ Every queue action is capability-driven in the UI. The jobs center and workspace
 | --- | --- | --- |
 | `create` | `Artifacts` | Create remains artifact-first so manifests, exports, and re-entry actions stay visible. |
 | `draw` | `Artifacts` | Draw completion reopens the draw job in the artifact trail. |
+| `review-context` | `Review` | Review-context completion is review-first when canonical `review_pack.json` is present, otherwise it falls back to `Artifacts`. |
 | `report` | `Review` when review-ready outputs exist, otherwise `Artifacts` | Review gets priority only when normalized review/readiness artifacts are actually present. |
 | `inspect` | `Review` for review-family results, otherwise `Artifacts` | Inspect stays artifact-first unless the completed run clearly produced review-oriented output. |
 
@@ -143,18 +145,28 @@ When a job settles while other tracked jobs are still active, the shell prefers 
 - Config-like artifacts can be reopened into `Model` without copying raw paths back into the editor.
 - Config-like artifacts can launch tracked `report` reruns through `artifact_ref`.
 - Model artifacts can launch tracked `inspect` through `artifact_ref`.
+- Source-path `review-context` can be queued through `POST /api/studio/jobs` when the handoff provides a project-local `context_path` or `model_path`. The Studio bridge does not accept `config_toml` or arbitrary `artifact_ref` for `review-context`.
 - Canonical `review_pack.json` artifacts can launch tracked `readiness-pack`, and canonical `readiness_report.json` artifacts can launch tracked `pack`.
-- Canonical review/readiness artifacts and `release_bundle.zip` can launch tracked `generate-standard-docs` when the required canonical inputs can be resolved safely.
+- Canonical `readiness_report.json` artifacts and `release_bundle.zip` can launch tracked `generate-standard-docs` when the required canonical inputs can be resolved safely.
 - Selected baseline/candidate canonical review-pack artifacts can launch tracked `compare-rev`; selected baseline/candidate canonical readiness-report artifacts can launch tracked `stabilization-review`.
 - Review remains read-only, but it can seed the same continuation paths through tracked artifacts instead of pushing users back to raw local paths.
+
+## AF5 publish/reopen contract
+
+- Canonical AF5 artifacts are `review_pack.json`, `readiness_report.json`, `standard_docs_manifest.json`, `release_bundle_manifest.json`, and `release_bundle.zip`.
+- The canonical flow is `review-context -> review_pack.json -> readiness-pack/readiness-report --review-pack -> readiness_report.json`.
+- `readiness_report.json` is the source of truth for both `generate-standard-docs` and `pack`: docs write `standard_docs_manifest.json`, while pack writes `release_bundle_manifest.json` and `release_bundle.zip`.
+- Studio re-entry scope is tracked job/artifact re-entry. The supported path is to reopen jobs from recent history or selected-job deep links, inspect/download safe artifact routes, and queue follow-up jobs from supported tracked artifacts.
+- Arbitrary local artifact or release-bundle import into the Package/Artifacts workspace is intentionally not claimed here. The separate imported-CAD bootstrap lane can ingest STEP/FCStd source through project-local paths or upload payloads, then queue tracked `review-context` after its human review gate.
 
 ## Artifact-driven tracked continuation
 
 - `POST /api/studio/jobs` accepts `artifact_ref` for tracked re-entry.
+- `POST /api/studio/jobs` also accepts `review-context` with source paths (`context_path` or `model_path`) for the current import/bootstrap handoff surface.
 - Tracked `inspect` requires a model-like artifact such as `.step`, `.stp`, `.stl`, `.fcstd`, or `.brep`.
 - Tracked `report` requires a config-like artifact such as the effective config copy or input config copy.
 - Tracked `readiness-pack` requires a canonical review-pack JSON artifact or a release bundle that already carries canonical review-pack content.
-- Tracked `generate-standard-docs` requires a canonical review-pack JSON artifact, canonical readiness-report JSON artifact, or a release bundle with matching canonical inputs; the config lineage must still resolve cleanly.
+- Tracked `generate-standard-docs` requires a canonical readiness-report JSON artifact or a release bundle with matching canonical inputs; the config lineage must still resolve cleanly.
 - Tracked `pack` requires a canonical readiness-report JSON artifact or a release bundle that already carries canonical readiness inputs.
 - Tracked `compare-rev` requires both `baseline_artifact_ref` and `candidate_artifact_ref`, and both must resolve to canonical review-pack JSON artifacts.
 - Tracked `stabilization-review` requires both `baseline_artifact_ref` and `candidate_artifact_ref`, and both must resolve to canonical readiness-report JSON artifacts.
@@ -181,7 +193,7 @@ When a job settles while other tracked jobs are still active, the shell prefers 
 - `GET /api/studio/model-previews/:id/parts/:index`: browserless per-part asset route for assembly previews
 - `POST /api/studio/drawing-preview`: fast drawing preview bridge
 - `POST /api/studio/drawing-previews/:id/dimensions`: preview-only drawing edit bridge
-- `POST /api/studio/jobs`: studio-to-job bridge for tracked `create`, `draw`, `inspect`, `report`, and artifact-driven `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, and `pack`
+- `POST /api/studio/jobs`: studio-to-job bridge for tracked `create`, `draw`, `inspect`, `report`, source-path `review-context`, and artifact-driven `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, and `pack`
 - `GET /jobs`: recent tracked jobs for shell resume and artifact timeline views
 - `GET /jobs/:id`: live job status
 - `POST /jobs/:id/cancel`: cancel a queued tracked job before execution starts
@@ -203,6 +215,6 @@ The studio shell is now the preferred browser surface for `fcad serve`, but it d
 ## Remaining gaps
 
 - Prompt-design flow: the studio supports prompt-to-TOML drafting, but not the legacy streaming UX or richer assistant iteration controls.
-- Runtime-only features: the studio directly covers validate, model preview, drawing preview, tracked jobs, queued cancel, terminal retry, multi-job monitoring, jobs-center quick actions, artifact browsing, and artifact-driven inspect/report/readiness/docs/pack continuation plus paired compare/stabilization follow-up. It does not yet expose dedicated workspace controls for FEM, tolerance, bulk queue actions, `review-context` submit from a dedicated browser form, or any unsafe forced kill path for running commands.
+- Runtime-only features: the studio directly covers validate, model preview, drawing preview, tracked jobs, queued cancel, terminal retry, multi-job monitoring, jobs-center quick actions, artifact browsing, source-path `review-context` handoff from the import/bootstrap lane, and artifact-driven inspect/report/readiness/docs/pack continuation plus paired compare/stabilization follow-up. It does not yet expose dedicated workspace controls for FEM, tolerance, bulk queue actions, a standalone arbitrary `review-context` browser form, arbitrary local artifact import into Packages, or any unsafe forced kill path for running commands.
 - Deferred review workflows: Review is still read-only and depends on tracked artifacts rather than live inline authoring.
 - Still-legacy drawing/edit flows: the studio supports HTTP dimension edits, but the original websocket-driven all-in-one drawing flow remains the fallback for contributors who still depend on that shell.

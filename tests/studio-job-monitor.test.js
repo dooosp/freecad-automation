@@ -267,4 +267,73 @@ assert.equal(cancelledJobCompletionNotice.tone, 'warn');
 assert.equal(cancelledJobCompletionNotice.title, 'Tracked draw cancelled');
 assert.equal(cancelledJobCompletionNotice.actions[0].action, 'open-jobs-center');
 
+const af5PackJob = {
+  id: 'af5-pack-job-123456789',
+  type: 'pack',
+  status: 'succeeded',
+  updated_at: '2026-03-28T12:00:00.000Z',
+  request: {
+    artifact_ref: {
+      job_id: 'af5-docs-job-123456789',
+      artifact_id: 'readiness-report',
+    },
+    source_job_id: 'af5-docs-job-123456789',
+    source_artifact_id: 'readiness-report',
+    source_label: 'readiness_report.json',
+  },
+};
+const af5RecentJobs = mergeTrackedJobIntoRecentJobs(
+  af5PackJob,
+  [
+    { id: 'af5-review-job-123456789', type: 'review-context', status: 'succeeded', updated_at: '2026-03-28T09:00:00.000Z' },
+    { id: 'af5-readiness-job-123456789', type: 'readiness-pack', status: 'succeeded', updated_at: '2026-03-28T10:00:00.000Z' },
+    { id: 'af5-docs-job-123456789', type: 'generate-standard-docs', status: 'succeeded', updated_at: '2026-03-28T11:00:00.000Z' },
+  ],
+  4
+);
+
+assert.deepEqual(af5RecentJobs.map((job) => job.id), [
+  'af5-pack-job-123456789',
+  'af5-docs-job-123456789',
+  'af5-readiness-job-123456789',
+  'af5-review-job-123456789',
+]);
+assert.deepEqual(af5RecentJobs[0].request.artifact_ref, {
+  job_id: 'af5-docs-job-123456789',
+  artifact_id: 'readiness-report',
+});
+assert.equal('config_toml' in af5RecentJobs[0].request, false);
+assert.equal('context_path' in af5RecentJobs[0].request, false);
+assert.equal('model_path' in af5RecentJobs[0].request, false);
+
+const af5CompletionTarget = resolveMonitoredJobCompletionTarget(
+  af5PackJob,
+  {
+    artifacts: [
+      { type: 'review-pack.json', file_name: 'review_pack.json', exists: true, contract: { reentry_target: 'review_pack' } },
+      { type: 'readiness-report.json', file_name: 'readiness_report.json', exists: true, contract: { reentry_target: 'readiness_report' } },
+      { type: 'standard-docs.summary', file_name: 'standard_docs_manifest.json', exists: true },
+      { type: 'release-bundle.manifest.json', file_name: 'release_bundle_manifest.json', exists: true },
+      { type: 'release-bundle.zip', file_name: 'release_bundle.zip', extension: '.zip', exists: true, contract: { reentry_target: 'release_bundle' } },
+    ],
+    completionAction: {
+      type: 'tracked-run-completion',
+      sourceArtifactFamily: 'review',
+    },
+  }
+);
+assert.deepEqual(af5CompletionTarget, {
+  route: 'review',
+  secondaryRoute: 'artifacts',
+  hasReviewOutputs: true,
+});
+const af5CompletionNotice = buildStudioJobCompletionNotice(af5PackJob, af5CompletionTarget, 0);
+assert.deepEqual(
+  af5CompletionNotice.actions.map((action) => [action.label, action.action, action.route]),
+  [
+    ['Open Review', 'open-job', 'review'],
+    ['Open Artifacts', 'open-job', 'artifacts'],
+  ]
+);
+
 console.log('studio-job-monitor.test.js: ok');
