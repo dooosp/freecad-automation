@@ -1,5 +1,13 @@
 import { buildStudioArtifactRef, deriveStudioArtifactFamily } from './artifact-actions.js';
-import { resolveSelectedStudioExampleId } from './examples.js';
+import {
+  findStudioExampleById,
+  resolveSelectedStudioExampleId,
+  VERIFIED_BRACKET_EXAMPLE_ID,
+} from './examples.js';
+import {
+  buildTrackedReportJobOptions,
+  ensureModelTrackedRunState,
+} from './model-tracked-runs.js';
 import { deriveStudioChromeState } from './studio-state.js';
 import {
   bindStudioShellElements,
@@ -240,6 +248,111 @@ export function bootStudioShell({
     });
   }
 
+  async function validateSharedModelConfig() {
+    const model = app.state.data.model;
+    if (!(model.configText || '').trim()) {
+      model.buildState = 'error';
+      model.errorMessage = 'Config TOML is empty.';
+      model.buildSummary = 'Load the verified bracket before running tracked create or report.';
+      app.commitRender();
+      return false;
+    }
+
+    model.buildState = 'validating';
+    model.errorMessage = '';
+    model.buildSummary = 'Checking config before tracked submission...';
+    app.commitRender();
+
+    try {
+      const payload = await app.fetchJson('/api/studio/validate-config', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ config_toml: model.configText }),
+      });
+      model.validation = payload.validation || model.validation;
+      model.overview = payload.overview || model.overview;
+      model.buildState = 'idle';
+      model.buildSummary = payload.overview?.mode === 'assembly'
+        ? `Validated assembly config with ${payload.overview.part_count} parts.`
+        : 'Validated single-part config for tracked submission.';
+      app.addLog({
+        status: 'Tracked path',
+        message: model.buildSummary,
+        tone: 'info',
+        time: 'start',
+      });
+      app.commitRender();
+      return true;
+    } catch (error) {
+      model.buildState = 'error';
+      model.errorMessage = error instanceof Error ? error.message : String(error);
+      model.buildSummary = 'Validation failed before the tracked job could start.';
+      model.buildLog = [`Validation error: ${model.errorMessage}`];
+      app.addLog({
+        status: 'Tracked path',
+        message: model.errorMessage,
+        tone: 'warn',
+        time: 'start',
+      });
+      app.commitRender();
+      return false;
+    }
+  }
+
+  async function runSharedModelTrackedJob(type) {
+    const model = ensureModelTrackedRunState(app.state.data.model);
+    const valid = await validateSharedModelConfig();
+    if (!valid) return;
+
+    try {
+      model.trackedRun = {
+        type,
+        lastJobId: '',
+        status: 'submitting',
+        submitting: true,
+        error: '',
+      };
+      app.commitRender();
+
+      const job = await app.submitTrackedStudioRun({
+        type,
+        configToml: model.configText,
+        ...(type === 'report'
+          ? { options: buildTrackedReportJobOptions(model.reportOptions) }
+          : {}),
+      });
+
+      model.trackedRun = {
+        type,
+        lastJobId: job.id,
+        status: job.status,
+        submitting: false,
+        error: '',
+      };
+      app.addLog({
+        status: 'Tracked path',
+        message: `Queued tracked ${type} for ${model.sourceName || 'the active config'}.`,
+        tone: 'info',
+        time: 'job',
+      });
+      app.commitRender();
+    } catch (error) {
+      model.trackedRun = {
+        ...model.trackedRun,
+        type,
+        submitting: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+      app.addLog({
+        status: 'Tracked path',
+        message: model.trackedRun.error,
+        tone: 'warn',
+        time: 'job',
+      });
+      app.commitRender();
+    }
+  }
+
   async function handleShellAction(actionTarget) {
     const { action, jobId } = actionTarget.dataset;
 
@@ -253,8 +366,50 @@ export function bootStudioShell({
       return;
     }
 
+    if (action === 'load-verified-bracket') {
+      const verifiedExample = findStudioExampleById(
+        app.state.data.examples.items,
+        VERIFIED_BRACKET_EXAMPLE_ID
+      );
+      if (!verifiedExample) {
+        logActionFailure(
+          'Examples',
+          new Error('quality_pass_bracket is not available from the checked-in examples source.'),
+          'examples'
+        );
+        return;
+      }
+
+      app.state.data.examples.selectedId = VERIFIED_BRACKET_EXAMPLE_ID;
+      app.workspace.loadSelectedExampleIntoSharedModel();
+      app.commitRender();
+      return;
+    }
+
+    if (action === 'go-model') {
+      app.navigateTo('model', {
+        pendingFocus: app.state.data.model.configText ? 'config' : null,
+      });
+      return;
+    }
+
+    if (action === 'start-run-tracked-create') {
+      await runSharedModelTrackedJob('create');
+      return;
+    }
+
+    if (action === 'start-run-tracked-report') {
+      await runSharedModelTrackedJob('report');
+      return;
+    }
+
     if (action === 'go-artifacts') {
       app.navigateTo('artifacts');
+      return;
+    }
+
+    if (action === 'open-jobs-center') {
+      app.dom.setJobsDrawer(true);
       return;
     }
 
@@ -405,6 +560,12 @@ export function bootStudioShell({
   }
 
   app.elements.workspaceRoot.addEventListener('click', async (event) => {
+    const actionTarget = app.routing.findActionTarget(event.target);
+    if (!actionTarget) return;
+    await handleShellAction(actionTarget);
+  });
+
+  app.elements.completionNoticeHost?.addEventListener('click', async (event) => {
     const actionTarget = app.routing.findActionTarget(event.target);
     if (!actionTarget) return;
     await handleShellAction(actionTarget);

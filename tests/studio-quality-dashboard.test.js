@@ -27,6 +27,205 @@ function makeArtifact({
   };
 }
 
+function makeEngineeringMeasurement({
+  requirement_id,
+  source_requirement_id,
+  feature_id,
+  measurement_type,
+  expected_value_mm = null,
+  actual_value_mm = null,
+  expected_center_xy_mm = null,
+  actual_center_xy_mm = null,
+  tolerance_mm,
+  delta_mm = null,
+  center_delta_mm = null,
+  status = 'pass',
+  source = 'generated_shape_geometry',
+  validation_kind = 'generated_shape_geometry_check',
+  message = null,
+}) {
+  return {
+    requirement_id,
+    source_requirement_id,
+    feature_id,
+    measurement_type,
+    expected_value_mm,
+    actual_value_mm,
+    source_value_mm: actual_value_mm,
+    expected_center_xy_mm,
+    actual_center_xy_mm,
+    tolerance_mm,
+    delta_mm,
+    center_delta_mm,
+    source_delta_mm: null,
+    source_center_delta_mm: null,
+    status,
+    required: true,
+    source,
+    source_field: `${source}.${feature_id}.${measurement_type}`,
+    expected_source: 'config_parameter',
+    expected_source_field: `config.${source_requirement_id}`,
+    validation_kind,
+    matched_face_index: 7,
+    message,
+  };
+}
+
+function makeCreateQualityPayload({
+  status = 'pass',
+  failLeftCenter = false,
+  failLeftDiameter = false,
+  failStepReimport = false,
+} = {}) {
+  const leftCenterStatus = failLeftCenter ? 'fail' : 'pass';
+  const leftCenterActual = failLeftCenter ? [32, 30] : [30, 30];
+  const leftCenterDelta = failLeftCenter ? 2 : 0;
+  const leftDiameterStatus = failLeftDiameter ? 'fail' : 'pass';
+  const leftDiameterActual = failLeftDiameter ? 7 : 6;
+  const leftDiameterDelta = failLeftDiameter ? 1 : 0;
+  const stepSource = 'reimported_step_geometry';
+  const stepKind = 'reimported_step_geometry_check';
+  return {
+    status,
+    geometry: {
+      valid_shape: status !== 'fail',
+      volume: 128000,
+      bbox: {
+        min: [0, 0, 0],
+        max: [160, 100, 8],
+        size: [160, 100, 8],
+      },
+    },
+    step_roundtrip: {
+      exported: true,
+      reimport_attempted: true,
+      reimport_valid: true,
+      volume_delta_percent: failStepReimport ? 1.2 : 0,
+      bbox_delta: {
+        min: [0, 0, 0],
+        max: [0, 0, 0],
+        size: [0, 0, 0],
+        max_abs_mm: 0,
+      },
+    },
+    thresholds: {
+      max_step_volume_delta_percent: 0.5,
+      max_bbox_delta_mm: 0.2,
+      max_engineering_dimension_delta_mm: 0.05,
+      max_engineering_center_delta_mm: 0.2,
+    },
+    engineering_quality: {
+      status,
+      source: 'generated_shape_geometry',
+      validation_kind: 'generated_shape_geometry_check',
+      blocking_issues: failLeftCenter ? ['Hole hole_left generated_shape_geometry center differs from expected center by 2 mm.'] : [],
+      warnings: [],
+      measurements: [
+        makeEngineeringMeasurement({
+          requirement_id: 'HOLE_LEFT_DIA',
+          source_requirement_id: 'HOLE_LEFT_DIA',
+          feature_id: 'hole_left',
+          measurement_type: 'hole_diameter',
+          expected_value_mm: 6,
+          actual_value_mm: leftDiameterActual,
+          tolerance_mm: 0.05,
+          delta_mm: leftDiameterDelta,
+          status: leftDiameterStatus,
+          message: failLeftDiameter ? 'Hole hole_left generated_shape_geometry diameter differs from expected diameter by 1 mm.' : null,
+        }),
+        makeEngineeringMeasurement({
+          requirement_id: 'hole_left_CENTER',
+          source_requirement_id: 'HOLE_LEFT_DIA',
+          feature_id: 'hole_left',
+          measurement_type: 'hole_center',
+          expected_center_xy_mm: [30, 30],
+          actual_center_xy_mm: leftCenterActual,
+          tolerance_mm: 0.2,
+          delta_mm: leftCenterDelta,
+          center_delta_mm: leftCenterDelta,
+          status: leftCenterStatus,
+          message: failLeftCenter ? 'Hole hole_left generated_shape_geometry center differs from expected center by 2 mm.' : null,
+        }),
+        makeEngineeringMeasurement({
+          requirement_id: 'HOLE_RIGHT_DIA',
+          source_requirement_id: 'HOLE_RIGHT_DIA',
+          feature_id: 'hole_right',
+          measurement_type: 'hole_diameter',
+          expected_value_mm: 10,
+          actual_value_mm: 10,
+          tolerance_mm: 0.05,
+          delta_mm: 0,
+        }),
+        makeEngineeringMeasurement({
+          requirement_id: 'hole_right_CENTER',
+          source_requirement_id: 'HOLE_RIGHT_DIA',
+          feature_id: 'hole_right',
+          measurement_type: 'hole_center',
+          expected_center_xy_mm: [125, 70],
+          actual_center_xy_mm: [125, 70],
+          tolerance_mm: 0.2,
+          delta_mm: 0,
+          center_delta_mm: 0,
+        }),
+        makeEngineeringMeasurement({
+          requirement_id: 'HOLE_LEFT_DIA_STEP_REIMPORT',
+          source_requirement_id: 'HOLE_LEFT_DIA',
+          feature_id: 'hole_left',
+          measurement_type: 'hole_diameter',
+          expected_value_mm: 6,
+          actual_value_mm: failStepReimport ? 6 : leftDiameterActual,
+          tolerance_mm: 0.05,
+          delta_mm: failStepReimport ? 0 : leftDiameterDelta,
+          status: failStepReimport ? 'pass' : leftDiameterStatus,
+          source: stepSource,
+          validation_kind: stepKind,
+        }),
+        makeEngineeringMeasurement({
+          requirement_id: 'hole_left_CENTER_STEP_REIMPORT',
+          source_requirement_id: 'HOLE_LEFT_DIA',
+          feature_id: 'hole_left',
+          measurement_type: 'hole_center',
+          expected_center_xy_mm: [30, 30],
+          actual_center_xy_mm: leftCenterActual,
+          tolerance_mm: 0.2,
+          delta_mm: leftCenterDelta,
+          center_delta_mm: leftCenterDelta,
+          status: leftCenterStatus,
+          source: stepSource,
+          validation_kind: stepKind,
+          message: failLeftCenter ? 'Hole hole_left reimported_step_geometry center differs from expected center by 2 mm.' : null,
+        }),
+        makeEngineeringMeasurement({
+          requirement_id: 'HOLE_RIGHT_DIA_STEP_REIMPORT',
+          source_requirement_id: 'HOLE_RIGHT_DIA',
+          feature_id: 'hole_right',
+          measurement_type: 'hole_diameter',
+          expected_value_mm: 10,
+          actual_value_mm: 10,
+          tolerance_mm: 0.05,
+          delta_mm: 0,
+          source: stepSource,
+          validation_kind: stepKind,
+        }),
+        makeEngineeringMeasurement({
+          requirement_id: 'hole_right_CENTER_STEP_REIMPORT',
+          source_requirement_id: 'HOLE_RIGHT_DIA',
+          feature_id: 'hole_right',
+          measurement_type: 'hole_center',
+          expected_center_xy_mm: [125, 70],
+          actual_center_xy_mm: [125, 70],
+          tolerance_mm: 0.2,
+          delta_mm: 0,
+          center_delta_mm: 0,
+          source: stepSource,
+          validation_kind: stepKind,
+        }),
+      ],
+      measurement_provenance: [],
+    },
+  };
+}
+
 function makeAvailableExtractedEvidence() {
   return {
     status: 'available',
@@ -446,6 +645,7 @@ function makePartialExtractedEvidence() {
   const model = buildQualityDashboardModel({
     artifacts,
     artifactPayloads: {
+      'create-quality': makeCreateQualityPayload(),
       'report-summary': {
         overall_status: 'pass',
         ready_for_manufacturing_review: true,
@@ -549,6 +749,15 @@ function makePartialExtractedEvidence() {
   assert.equal(model.drawingQuality.extractedSemantics.readinessCopy, 'Manufacturing readiness is still determined by required Geometry / Drawing / DFM gates.');
   assert.equal(model.drawingQuality.extractedSemantics.suggestedActionCount, 0);
   assert.equal(model.drawingQuality.extractedSemantics.suggestedActionEmptyCopy, 'No additional drawing actions were suggested from extracted evidence.');
+  assert.equal(model.engineeringQuality.statusLabel, 'PASS');
+  assert.equal(model.engineeringQuality.sections[0].title, 'Generated geometry');
+  assert.equal(model.engineeringQuality.sections[1].title, 'STEP reimport');
+  assert.equal(model.engineeringQuality.sections[0].rows.some((entry) => entry.label === 'Shape validity' && entry.statusLabel === 'PASS'), true);
+  assert.equal(model.engineeringQuality.sections[0].rows.some((entry) => entry.label === 'Bounding box' && entry.actual.includes('[160, 100, 8] mm')), true);
+  assert.equal(model.engineeringQuality.sections[0].rows.some((entry) => entry.label === 'Left hole diameter' && entry.expected === '6 mm'), true);
+  assert.equal(model.engineeringQuality.sections[1].rows.some((entry) => entry.label === 'Left hole center' && entry.source === 'reimported_step_geometry'), true);
+  assert.equal(model.engineeringQuality.failures.length, 0);
+  assert.equal(model.engineeringQuality.nextActions, null);
 }
 
 {
@@ -575,6 +784,13 @@ function makePartialExtractedEvidence() {
       extension: '.svg',
     }),
     makeArtifact({
+      id: 'create-quality',
+      key: 'create_quality',
+      type: 'model.quality-summary',
+      file_name: 'ks_bracket_create_quality.json',
+      extension: '.json',
+    }),
+    makeArtifact({
       id: 'extracted-semantics',
       key: 'extracted_drawing_semantics',
       type: 'drawing.extracted-semantics',
@@ -586,6 +802,7 @@ function makePartialExtractedEvidence() {
   const model = buildQualityDashboardModel({
     artifacts,
     artifactPayloads: {
+      'create-quality': makeCreateQualityPayload({ status: 'fail', failLeftCenter: true }),
       'report-summary': {
         overall_status: 'fail',
         ready_for_manufacturing_review: false,
@@ -719,6 +936,120 @@ function makePartialExtractedEvidence() {
   assert.equal(model.drawingQuality.extractedSemantics.suggestedActionGroups[2].items[0].impactLabel, 'Info');
   assert.equal(model.blockers.some((entry) => entry.includes('Improve intent aliases')), false);
   assert.equal(model.readyLabel, 'No');
+  assert.equal(model.engineeringQuality.statusLabel, 'FAIL');
+  assert.equal(model.engineeringQuality.failures.length, 3);
+  assert.equal(model.engineeringQuality.failures.some((entry) => entry.label === 'Shape validity' && entry.actual === 'Invalid shape'), true);
+  const generatedFailure = model.engineeringQuality.failures.find((entry) => (
+    entry.label === 'Left hole center' && entry.source === 'generated_shape_geometry'
+  ));
+  assert.equal(generatedFailure.expected, '[30, 30] mm');
+  assert.equal(generatedFailure.actual, '[32, 30] mm');
+  assert.equal(generatedFailure.delta, '2 mm');
+  assert.equal(generatedFailure.tolerance, '0.2 mm');
+  const stepFailure = model.engineeringQuality.failures.find((entry) => (
+    entry.label === 'Left hole center' && entry.source === 'reimported_step_geometry'
+  ));
+  assert.equal(stepFailure.expected, '[30, 30] mm');
+  assert.equal(stepFailure.actual, '[32, 30] mm');
+  assert.equal(stepFailure.tolerance, '0.2 mm');
+  assert.equal(model.engineeringQuality.nextActions.title, 'What to do next');
+  assert.equal(model.engineeringQuality.nextActions.steps.some((entry) => entry.includes('Run tracked create again')), true);
+  assert.equal(model.engineeringQuality.nextActions.steps.some((entry) => entry.includes('Run tracked report again')), true);
+  const centerGuidance = model.engineeringQuality.nextActions.entries.find((entry) => (
+    entry.label === 'Left hole center'
+  ));
+  assert.equal(centerGuidance.whatFailed.includes('outside tolerance'), true);
+  assert.equal(centerGuidance.whyItMatters.includes('hole position'), true);
+  assert.equal(centerGuidance.change.includes('hole center'), true);
+}
+
+{
+  const artifacts = [
+    makeArtifact({
+      id: 'create-quality',
+      key: 'create_quality',
+      type: 'model.quality-summary',
+      file_name: 'quality_fail_wrong_hole_diameter_create_quality.json',
+      extension: '.json',
+    }),
+  ];
+  const model = buildQualityDashboardModel({
+    artifacts,
+    artifactPayloads: {
+      'create-quality': makeCreateQualityPayload({ status: 'fail', failLeftDiameter: true }),
+    },
+  });
+
+  const diameterGuidance = model.engineeringQuality.nextActions.entries.find((entry) => (
+    entry.label === 'Left hole diameter'
+  ));
+  assert(diameterGuidance);
+  assert.equal(diameterGuidance.whatFailed.includes('size'), true);
+  assert.equal(diameterGuidance.whyItMatters.includes('diameter'), true);
+  assert.equal(diameterGuidance.change.includes('diameter'), true);
+  assert.equal(diameterGuidance.rerun.includes('Run tracked create again'), true);
+}
+
+{
+  const artifacts = [
+    makeArtifact({
+      id: 'create-quality',
+      key: 'create_quality',
+      type: 'model.quality-summary',
+      file_name: 'step_reimport_probe_create_quality.json',
+      extension: '.json',
+    }),
+  ];
+  const model = buildQualityDashboardModel({
+    artifacts,
+    artifactPayloads: {
+      'create-quality': makeCreateQualityPayload({ status: 'fail', failStepReimport: true }),
+    },
+  });
+
+  const stepGuidance = model.engineeringQuality.nextActions.entries.find((entry) => (
+    entry.label === 'STEP volume delta'
+  ));
+  assert(stepGuidance);
+  assert.equal(stepGuidance.whatFailed.includes('STEP reimport'), true);
+  assert.equal(stepGuidance.evidence.includes('STEP export'), true);
+  assert.equal(stepGuidance.change.includes('boolean operations'), true);
+}
+
+{
+  const artifacts = [
+    makeArtifact({
+      id: 'create-quality',
+      key: 'create_quality',
+      type: 'model.quality-summary',
+      file_name: 'incomplete_create_quality.json',
+      extension: '.json',
+    }),
+  ];
+  const model = buildQualityDashboardModel({
+    artifacts,
+    artifactPayloads: {
+      'create-quality': {
+        status: 'warning',
+        geometry: {
+          valid_shape: null,
+        },
+        step_roundtrip: {
+          reimport_attempted: true,
+          reimport_valid: null,
+        },
+        engineering_quality: {
+          status: 'warning',
+          measurements: [],
+        },
+      },
+    },
+  });
+
+  assert.equal(model.engineeringQuality.statusLabel, 'WARNING');
+  assert.equal(model.engineeringQuality.failures.length, 0);
+  assert(model.engineeringQuality.nextActions);
+  assert.equal(model.engineeringQuality.nextActions.entries.some((entry) => entry.whatFailed.includes('incomplete')), true);
 }
 
 {

@@ -914,6 +914,113 @@ textarea {
   background: rgba(255, 255, 255, 0.025);
 }
 
+.quality-engineering-panel {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid rgba(104, 181, 255, 0.18);
+  border-radius: var(--radius-1);
+  background:
+    linear-gradient(180deg, rgba(104, 181, 255, 0.06), rgba(255, 255, 255, 0.02)),
+    rgba(255, 255, 255, 0.02);
+}
+
+.quality-engineering-rows {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.quality-engineering-row {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid rgba(126, 149, 171, 0.14);
+  border-radius: var(--radius-1);
+  background: rgba(5, 13, 23, 0.32);
+}
+
+.quality-engineering-row[data-tone="ok"] {
+  border-color: rgba(118, 200, 147, 0.22);
+}
+
+.quality-engineering-row[data-tone="bad"] {
+  border-color: rgba(241, 123, 123, 0.28);
+}
+
+.quality-engineering-row-title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.quality-engineering-row-main {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.quality-engineering-fields {
+  display: grid;
+  grid-template-columns: minmax(5.5rem, max-content) minmax(0, 1fr);
+  gap: 0.35rem var(--space-3);
+  margin: 0;
+}
+
+.quality-engineering-fields dt {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.quality-engineering-fields dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.quality-failure-next-actions {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid rgba(241, 123, 123, 0.26);
+  border-radius: var(--radius-1);
+  background:
+    linear-gradient(180deg, rgba(241, 123, 123, 0.07), rgba(255, 255, 255, 0.02)),
+    rgba(5, 13, 23, 0.34);
+}
+
+.quality-failure-guidance-list {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.quality-failure-guidance-card {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid rgba(126, 149, 171, 0.16);
+  border-radius: var(--radius-1);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.quality-failure-step-list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding-left: 1.25rem;
+  color: var(--text-muted);
+}
+
+.quality-failure-step-list li {
+  padding-left: 0.2rem;
+}
+
+.quality-failure-actions {
+  justify-content: flex-start;
+}
+
 .quality-extracted-panel {
   display: grid;
   gap: var(--space-3);
@@ -1811,6 +1918,11 @@ textarea {
   background: linear-gradient(180deg, rgba(42, 28, 12, 0.92), rgba(28, 20, 10, 0.96));
 }
 
+.completion-notice[data-tone="bad"] {
+  border-color: rgba(241, 123, 123, 0.32);
+  background: linear-gradient(180deg, rgba(46, 18, 18, 0.92), rgba(28, 12, 12, 0.96));
+}
+
 .completion-notice-copy {
   display: grid;
   gap: var(--space-1);
@@ -2423,6 +2535,22 @@ body::after {
   gap: 0.75rem;
 }
 
+.start-tracked-path {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.9rem;
+  border-radius: var(--radius-1);
+  border: 1px solid rgba(104, 181, 255, 0.22);
+  background: rgba(104, 181, 255, 0.08);
+}
+
+.console-example-fallback {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(126, 164, 198, 0.16);
+}
+
 .workflow-progress {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -2676,6 +2804,63 @@ body::after {
   font-size: 0.86rem;
 }
 
+.generated-files-panel,
+.generated-file-groups,
+.generated-file-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.generated-file-group {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.generated-file-group-title {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 0.9rem;
+}
+
+.generated-file-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.85rem;
+  align-items: center;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid rgba(126, 164, 198, 0.14);
+  border-radius: 0.95rem;
+  background: rgba(5, 13, 23, 0.42);
+}
+
+.generated-file-copy {
+  min-width: 0;
+}
+
+.generated-file-label,
+.generated-file-hint {
+  margin: 0;
+}
+
+.generated-file-label {
+  color: var(--text-strong);
+  font-weight: 800;
+}
+
+.generated-file-hint {
+  margin-top: 0.2rem;
+  color: var(--text-dim);
+  font-size: 0.84rem;
+  overflow-wrap: anywhere;
+}
+
+.generated-file-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  justify-content: flex-end;
+}
+
 .model-status-grid,
 .drawing-status-grid {
   gap: 0.85rem;
@@ -2794,5 +2979,13 @@ body::after {
   .artifact-pipeline,
   .workflow-progress {
     grid-template-columns: 1fr;
+  }
+
+  .generated-file-row {
+    grid-template-columns: 1fr;
+  }
+
+  .generated-file-actions {
+    justify-content: flex-start;
   }
 }

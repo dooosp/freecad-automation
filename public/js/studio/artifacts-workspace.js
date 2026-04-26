@@ -79,6 +79,15 @@ function activeJobIdFromState(state = {}) {
   return state.data?.activeJob?.summary?.id || '';
 }
 
+function normalizeConfigIdentity(value = '') {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\.toml$/i, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
 function artifactStateCacheKey(jobId = '', artifactId = '') {
   return `${jobId || 'no-job'}:${artifactId || 'no-artifact'}`;
 }
@@ -124,8 +133,8 @@ function renderTimeline(recentJobs = [], activeJobId = '', compareJobId = '') {
   if (recentJobs.length === 0) {
     return createEmptyState({
       icon: '[]',
-      title: '추적 작업이 없습니다',
-      copy: '`fcad serve`로 생성한 추적 작업이 여기에 산출물 타임라인으로 표시됩니다.',
+      title: 'No tracked jobs',
+      copy: 'Tracked jobs created by `fcad serve` appear here as an artifact timeline.',
     });
   }
 
@@ -146,8 +155,8 @@ function renderTimeline(recentJobs = [], activeJobId = '', compareJobId = '') {
                 className: 'job-title-row',
                 children: [
                   el('p', { className: 'job-title', text: formatRecentJobQualityLine(job, shortJobId(job.id)) }),
-                  el('span', { className: 'pill', text: index === 0 ? '최신' : isActive ? '활성' : '이전' }),
-                  isCompare ? el('span', { className: 'pill', text: '비교' }) : null,
+                  el('span', { className: 'pill', text: index === 0 ? 'Latest' : isActive ? 'Active' : 'Previous' }),
+                  isCompare ? el('span', { className: 'pill', text: 'Compare' }) : null,
                 ],
               }),
               el('p', {
@@ -160,14 +169,14 @@ function renderTimeline(recentJobs = [], activeJobId = '', compareJobId = '') {
             className: 'timeline-actions',
             children: [
               createButton({
-                label: isActive ? '활성' : '열기',
+                label: isActive ? 'Active' : 'Open',
                 action: 'artifacts-open-job',
                 tone: isActive ? 'primary' : 'ghost',
                 dataset: { jobId: job.id },
                 disabled: isActive,
               }),
               createButton({
-                label: isCompare ? '비교 중' : '비교',
+                label: isCompare ? 'Comparing' : 'Compare',
                 action: 'artifacts-compare-job',
                 tone: 'ghost',
                 dataset: { jobId: job.id },
@@ -201,7 +210,7 @@ function renderArtifactCard(artifact, selected = false) {
               }),
               el('p', {
                 className: 'artifact-meta',
-                text: `${artifact.file_name} • ${artifact.exists ? formatBytes(artifact.size_bytes) : '누락됨'}${artifact.type ? ` • ${artifact.type}` : ''}`,
+                text: `${artifact.file_name} • ${artifact.exists ? formatBytes(artifact.size_bytes) : 'Missing'}${artifact.type ? ` • ${artifact.type}` : ''}`,
               }),
             ],
           }),
@@ -209,7 +218,7 @@ function renderArtifactCard(artifact, selected = false) {
             className: 'artifact-card-actions',
             children: [
               createButton({
-                label: '검토',
+                label: 'Inspect',
                 action: 'artifacts-select-artifact',
                 tone: selected ? 'primary' : 'ghost',
                 dataset: { artifactId: artifact.id },
@@ -224,7 +233,7 @@ function renderArtifactCard(artifact, selected = false) {
           artifact.capabilities?.can_open
             ? el('a', {
                 className: 'action-button action-button-primary',
-                text: '열기',
+                text: 'Open',
                 attrs: { href: artifact.links.open, target: '_blank', rel: 'noreferrer noopener' },
               })
             : null,
@@ -244,9 +253,9 @@ function renderArtifactCard(artifact, selected = false) {
 function summarizeStorage(storage = null) {
   const files = storage?.files || {};
   const entries = Object.entries(files);
-  if (entries.length === 0) return '사용할 수 없음';
+  if (entries.length === 0) return 'Unavailable';
   const available = entries.filter(([, record]) => record?.exists).length;
-  return `${available}/${entries.length} 인덱싱됨`;
+  return `${available}/${entries.length} indexed`;
 }
 
 function diffArtifacts(current = [], baseline = []) {
@@ -258,7 +267,253 @@ function diffArtifacts(current = [], baseline = []) {
 }
 
 function compareAvailabilityLabel(isAvailable) {
-  return isAvailable ? '준비됨' : '누락됨';
+  return isAvailable ? 'Ready' : 'Missing';
+}
+
+function artifactVisibilityText(artifact = {}) {
+  return [
+    artifact.type,
+    artifact.key,
+    artifact.file_name,
+    artifact.id,
+    artifact.extension,
+    artifact.content_type,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+}
+
+function artifactHasAny(artifact = {}, needles = []) {
+  const search = artifactVisibilityText(artifact);
+  return needles.some((needle) => search.includes(needle));
+}
+
+function isAvailableArtifact(artifact = {}) {
+  return artifact && artifact.exists !== false;
+}
+
+function isStepArtifact(artifact = {}) {
+  const extension = String(artifact.extension || '').toLowerCase();
+  return isAvailableArtifact(artifact)
+    && (extension === '.step' || extension === '.stp' || artifactHasAny(artifact, ['.step', '.stp', 'step export', 'model.step']));
+}
+
+function isStlArtifact(artifact = {}) {
+  const extension = String(artifact.extension || '').toLowerCase();
+  return isAvailableArtifact(artifact)
+    && (extension === '.stl' || artifactHasAny(artifact, ['.stl', 'stl export', 'model.stl', 'mesh.stl']));
+}
+
+function isPdfReportArtifact(artifact = {}) {
+  const extension = String(artifact.extension || '').toLowerCase();
+  return isAvailableArtifact(artifact)
+    && extension === '.pdf'
+    && artifactHasAny(artifact, ['report', 'pdf']);
+}
+
+function isReportSummaryArtifactForDownloads(artifact = {}) {
+  return isAvailableArtifact(artifact) && artifactHasAny(artifact, [
+    'report_summary_json',
+    'report summary json',
+    '_report_summary.json',
+    'report.summary',
+  ]);
+}
+
+function isCreateQualityArtifactForDownloads(artifact = {}) {
+  return isAvailableArtifact(artifact) && artifactHasAny(artifact, [
+    'create_quality',
+    '_create_quality.json',
+    'model.quality-summary',
+  ]);
+}
+
+function isDrawingQualityArtifactForDownloads(artifact = {}) {
+  return isAvailableArtifact(artifact) && artifactHasAny(artifact, [
+    'drawing_quality',
+    '_drawing_quality.json',
+    'drawing.quality-summary',
+  ]);
+}
+
+function isManifestArtifactForDownloads(artifact = {}) {
+  return isAvailableArtifact(artifact) && artifactHasAny(artifact, [
+    'artifact-manifest',
+    'artifact manifest',
+    'output.manifest.json',
+    '_manifest.json',
+    'create_manifest',
+    'drawing_manifest',
+    'report_manifest',
+  ]);
+}
+
+function firstMatchingArtifact(artifacts = [], predicate) {
+  return artifacts.find((artifact) => predicate(artifact)) || null;
+}
+
+function buildGeneratedArtifactRow({ id, label, hint, artifact }) {
+  const canOpen = Boolean(artifact?.capabilities?.can_open && artifact?.links?.open);
+  const canDownload = Boolean(artifact?.capabilities?.can_download && artifact?.links?.download);
+  return {
+    id,
+    label,
+    hint,
+    artifactId: artifact.id || '',
+    fileName: artifact.file_name || artifact.key || 'Artifact',
+    type: artifact.type || '',
+    openHref: canOpen ? artifact.links.open : '',
+    downloadHref: canDownload ? artifact.links.download : '',
+    canOpen,
+    canDownload,
+  };
+}
+
+export function collectGeneratedArtifactGroups(artifacts = []) {
+  const cadRows = [
+    firstMatchingArtifact(artifacts, isStepArtifact)
+      ? buildGeneratedArtifactRow({
+          id: 'step',
+          label: 'STEP model',
+          hint: 'STEP export',
+          artifact: firstMatchingArtifact(artifacts, isStepArtifact),
+        })
+      : null,
+    firstMatchingArtifact(artifacts, isStlArtifact)
+      ? buildGeneratedArtifactRow({
+          id: 'stl',
+          label: 'STL mesh',
+          hint: 'STL export',
+          artifact: firstMatchingArtifact(artifacts, isStlArtifact),
+        })
+      : null,
+  ].filter(Boolean);
+
+  const reportRows = [
+    firstMatchingArtifact(artifacts, isPdfReportArtifact)
+      ? buildGeneratedArtifactRow({
+          id: 'pdf-report',
+          label: 'PDF report',
+          hint: 'Report PDF',
+          artifact: firstMatchingArtifact(artifacts, isPdfReportArtifact),
+        })
+      : null,
+    firstMatchingArtifact(artifacts, isReportSummaryArtifactForDownloads)
+      ? buildGeneratedArtifactRow({
+          id: 'report-summary',
+          label: 'Report summary',
+          hint: 'Summary JSON',
+          artifact: firstMatchingArtifact(artifacts, isReportSummaryArtifactForDownloads),
+        })
+      : null,
+  ].filter(Boolean);
+
+  const qualityRows = [
+    firstMatchingArtifact(artifacts, isCreateQualityArtifactForDownloads)
+      ? buildGeneratedArtifactRow({
+          id: 'create-quality',
+          label: 'Create quality JSON',
+          hint: 'Model quality evidence',
+          artifact: firstMatchingArtifact(artifacts, isCreateQualityArtifactForDownloads),
+        })
+      : null,
+    firstMatchingArtifact(artifacts, isDrawingQualityArtifactForDownloads)
+      ? buildGeneratedArtifactRow({
+          id: 'drawing-quality',
+          label: 'Drawing quality JSON',
+          hint: 'Drawing QA evidence',
+          artifact: firstMatchingArtifact(artifacts, isDrawingQualityArtifactForDownloads),
+        })
+      : null,
+    firstMatchingArtifact(artifacts, isManifestArtifactForDownloads)
+      ? buildGeneratedArtifactRow({
+          id: 'manifest',
+          label: 'Manifest',
+          hint: 'Artifact index',
+          artifact: firstMatchingArtifact(artifacts, isManifestArtifactForDownloads),
+        })
+      : null,
+  ].filter(Boolean);
+
+  return [
+    { id: 'cad-exports', title: 'CAD exports', rows: cadRows },
+    { id: 'reports', title: 'Reports', rows: reportRows },
+    { id: 'quality-evidence', title: 'Quality evidence', rows: qualityRows },
+  ];
+}
+
+function renderGeneratedArtifactRow(row) {
+  return el('div', {
+    className: 'generated-file-row',
+    dataset: { artifactKind: row.id, artifactId: row.artifactId },
+    children: [
+      el('div', {
+        className: 'generated-file-copy',
+        children: [
+          el('p', { className: 'generated-file-label', text: row.label }),
+          el('p', {
+            className: 'generated-file-hint',
+            text: `${row.hint}${row.fileName ? ` • ${row.fileName}` : ''}${row.type ? ` • ${row.type}` : ''}`,
+          }),
+        ],
+      }),
+      el('div', {
+        className: 'generated-file-actions',
+        children: [
+          row.canOpen
+            ? el('a', {
+                className: 'action-button action-button-primary',
+                text: 'Open',
+                attrs: { href: row.openHref, target: '_blank', rel: 'noreferrer noopener' },
+              })
+            : null,
+          row.canDownload
+            ? el('a', {
+                className: 'action-button action-button-ghost',
+                text: 'Download',
+                attrs: { href: row.downloadHref, rel: 'noreferrer' },
+              })
+            : null,
+        ].filter(Boolean),
+      }),
+    ],
+  });
+}
+
+function renderGeneratedArtifactGroup(group) {
+  if (!group.rows.length) return null;
+  return el('section', {
+    className: 'generated-file-group',
+    dataset: { generatedGroup: group.id },
+    children: [
+      el('h4', { className: 'generated-file-group-title', text: group.title }),
+      el('div', {
+        className: 'generated-file-list',
+        children: group.rows.map(renderGeneratedArtifactRow),
+      }),
+    ],
+  });
+}
+
+function renderGeneratedFilesPanel(artifacts = []) {
+  const groups = collectGeneratedArtifactGroups(artifacts);
+  const hasHighlightedArtifacts = groups.some((group) => group.rows.length > 0);
+
+  return el('div', {
+    className: 'generated-files-panel',
+    children: [
+      hasHighlightedArtifacts
+        ? el('div', {
+            className: 'generated-file-groups',
+            children: groups.map(renderGeneratedArtifactGroup).filter(Boolean),
+          })
+        : el('div', {
+            className: 'support-note',
+            text: 'No primary STEP, STL, report, or quality evidence files were detected for this run yet. Use All artifacts below for the raw manifest-backed list.',
+          }),
+    ],
+  });
 }
 
 function renderArtifactPipeline(activeJob) {
@@ -269,10 +524,10 @@ function renderArtifactPipeline(activeJob) {
   const hasPackage = Boolean(findPreferredReleaseBundleArtifact(artifacts) || findPreferredReleaseBundleManifestArtifact(artifacts));
   const hasDownload = artifacts.some((artifact) => artifact.capabilities?.can_download);
   const steps = [
-    { label: '검토', state: hasReview ? '준비됨' : '대기 중', tone: hasReview ? 'ok' : 'warn' },
-    { label: 'Manifest', state: hasManifest ? '인덱싱됨' : '대기 중', tone: hasManifest ? 'info' : 'warn' },
-    { label: '패키지', state: hasPackage ? '사용 가능' : '대기 중', tone: hasPackage ? 'ok' : 'warn' },
-    { label: '다운로드', state: hasDownload ? '준비됨' : '대기 중', tone: hasDownload ? 'ok' : 'info' },
+    { label: 'Review', state: hasReview ? 'Ready' : 'Waiting', tone: hasReview ? 'ok' : 'warn' },
+    { label: 'Manifest', state: hasManifest ? 'Indexed' : 'Waiting', tone: hasManifest ? 'info' : 'warn' },
+    { label: 'Package', state: hasPackage ? 'Available' : 'Waiting', tone: hasPackage ? 'ok' : 'warn' },
+    { label: 'Download', state: hasDownload ? 'Ready' : 'Waiting', tone: hasDownload ? 'ok' : 'info' },
   ];
 
   return el('div', {
@@ -300,8 +555,8 @@ function renderOutputQueue(recentJobs = []) {
   if (recentJobs.length === 0) {
     return createEmptyState({
       icon: 'Q',
-      title: '아직 대기 중인 출력이 없습니다',
-      copy: '로컬 API가 기록하는 즉시 추적 검토, 패키지, 내보내기 실행이 여기에 표시됩니다.',
+      title: 'No queued outputs yet',
+      copy: 'Tracked review, package, and export runs appear here as soon as the local API records them.',
     });
   }
 
@@ -698,6 +953,233 @@ function renderDrawingQualitySection(drawingQuality = null) {
   });
 }
 
+function renderEngineeringQualityRows(rows = []) {
+  return el('div', {
+    className: 'quality-engineering-rows',
+    children: rows.map((row) => (
+      el('div', {
+        className: 'quality-engineering-row',
+        dataset: { tone: row.tone || 'info' },
+        children: [
+          el('div', {
+            className: 'quality-engineering-row-main',
+            children: [
+              el('div', {
+                className: 'quality-engineering-row-title',
+                children: [
+                  el('span', { className: 'list-label', text: row.label || 'Engineering check' }),
+                  createPill(row.statusLabel || formatQualityStatusLabel(row.status), row.tone || 'info'),
+                ],
+              }),
+              row.detail ? el('p', { className: 'list-copy', text: row.detail }) : null,
+            ].filter(Boolean),
+          }),
+          el('dl', {
+            className: 'quality-engineering-fields',
+            children: [
+              ['Expected', row.expected],
+              ['Actual', row.actual],
+              ['Delta / error', row.delta],
+              ['Tolerance', row.tolerance],
+              ['Source', row.source],
+            ].flatMap(([label, value]) => [
+              el('dt', { text: label }),
+              el('dd', { text: value || 'Not reported' }),
+            ]),
+          }),
+        ],
+      })
+    )),
+  });
+}
+
+function canRunTrackedQualityFlow(state = {}, dashboardModel = {}) {
+  const sharedModel = state.data?.model || {};
+  const configText = sharedModel.configText || '';
+  if (state.connectionState !== 'connected') return false;
+  if (state.data?.health?.available !== true) return false;
+  if (!configText.trim()) return false;
+
+  const targetName = normalizeConfigIdentity(dashboardModel.configName);
+  if (!targetName || targetName === 'unknown_config') return false;
+
+  const sourceCandidates = [
+    sharedModel.sourceName,
+    sharedModel.sourcePath,
+    configText.match(/^\s*name\s*=\s*["']([^"']+)["']/m)?.[1] || '',
+  ].map(normalizeConfigIdentity);
+  return sourceCandidates.includes(targetName);
+}
+
+function qualityActionLink(model = {}, id = '') {
+  return (model.artifactLinks || []).find((entry) => entry.id === id && entry.href) || null;
+}
+
+function hasGeneratedFileTargets(model = {}) {
+  const generatedLinkIds = new Set([
+    'model_step',
+    'model_stl',
+    'report_pdf',
+    'report_summary_json',
+    'create_quality_json',
+    'drawing_quality_json',
+    'manifest_json',
+  ]);
+  return (model.artifactLinks || []).some((entry) => generatedLinkIds.has(entry.id));
+}
+
+function renderFailureActionButtons({ model = {}, state = {} } = {}) {
+  const createQualityLink = qualityActionLink(model, 'create_quality_json');
+  const canRerun = canRunTrackedQualityFlow(state, model);
+  const actions = [
+    createQualityLink
+      ? el('a', {
+          className: 'action-button action-button-primary',
+          text: 'Inspect quality evidence',
+          attrs: { href: createQualityLink.href, target: '_blank', rel: 'noreferrer noopener' },
+        })
+      : null,
+    hasGeneratedFileTargets(model)
+      ? el('a', {
+          className: 'action-button action-button-ghost',
+          text: 'Open generated files',
+          attrs: { href: '#studio-generated-files' },
+        })
+      : null,
+    createButton({
+      label: 'Open Model workspace',
+      action: 'go-model',
+      tone: 'ghost',
+    }),
+    canRerun
+      ? createButton({
+          label: 'Run tracked create again',
+          action: 'start-run-tracked-create',
+          tone: 'ghost',
+        })
+      : null,
+    canRerun
+      ? createButton({
+          label: 'Run tracked report again',
+          action: 'start-run-tracked-report',
+          tone: 'ghost',
+        })
+      : null,
+  ].filter(Boolean);
+
+  if (actions.length === 0) return null;
+  return el('div', {
+    className: 'review-detail-actions quality-dashboard-links quality-failure-actions',
+    children: actions,
+  });
+}
+
+function renderEngineeringFailureNextActions(nextActions = null, { model = {}, state = {} } = {}) {
+  if (!nextActions) return null;
+  const entries = Array.isArray(nextActions.entries) ? nextActions.entries : [];
+  const steps = Array.isArray(nextActions.steps) ? nextActions.steps : [];
+
+  return el('div', {
+    className: 'quality-failure-next-actions',
+    children: [
+      el('div', {
+        className: 'quality-drawing-panel-header',
+        children: [
+          el('div', {
+            children: [
+              el('p', { className: 'list-label', text: nextActions.title || 'What to do next' }),
+              el('p', {
+                className: 'list-copy',
+                text: nextActions.summary || 'Inspect the linked evidence, fix the source issue, then rerun the tracked flow.',
+              }),
+            ],
+          }),
+        ],
+      }),
+      entries.length > 0
+        ? el('div', {
+            className: 'quality-failure-guidance-list',
+            children: entries.slice(0, 4).map((entry) => (
+              el('article', {
+                className: 'quality-failure-guidance-card',
+                children: [
+                  el('p', { className: 'list-label', text: entry.whatFailed || `${entry.label || 'Engineering check'} failed.` }),
+                  el('p', { className: 'list-copy', text: entry.whyItMatters || 'This quality gate protects downstream CAD and manufacturing review decisions.' }),
+                  createInfoGrid([
+                    { label: 'Inspect', value: entry.evidence || 'Inspect the quality evidence JSON.' },
+                    { label: 'Change', value: entry.change || 'Fix the related config or source geometry.' },
+                    { label: 'Rerun', value: entry.rerun || 'Run tracked create again after the fix.' },
+                    { label: 'Success', value: entry.success || 'Confirm Engineering Quality becomes PASS.' },
+                  ]),
+                ],
+              })
+            )),
+          })
+        : null,
+      steps.length > 0
+        ? el('ol', {
+            className: 'quality-failure-step-list',
+            children: steps.map((step) => el('li', { text: step })),
+          })
+        : null,
+      renderFailureActionButtons({ model, state }),
+    ].filter(Boolean),
+  });
+}
+
+function renderEngineeringQualitySection(engineeringQuality = null, { model = {}, state = {} } = {}) {
+  if (!engineeringQuality) return null;
+
+  return el('div', {
+    className: 'quality-engineering-panel',
+    children: [
+      el('div', {
+        className: 'quality-drawing-panel-header',
+        children: [
+          el('div', {
+            children: [
+              el('p', { className: 'list-label', text: 'Engineering Quality' }),
+              el('p', {
+                className: 'list-copy',
+                text: engineeringQuality.summary || 'Generated geometry and STEP reimport evidence are shown as human-readable checks.',
+              }),
+            ],
+          }),
+          el('span', {
+            className: `pill pill-status-${engineeringQuality.tone || 'info'}`,
+            text: engineeringQuality.statusLabel || 'UNKNOWN',
+          }),
+        ],
+      }),
+      createInfoGrid([
+        {
+          label: 'Engineering Quality',
+          value: engineeringQuality.statusLabel || 'UNKNOWN',
+        },
+      ]),
+      ...engineeringQuality.sections.map((section) => (
+        el('div', {
+          className: 'quality-check-section',
+          children: [
+            el('p', { className: 'list-label', text: `${section.title} (${section.rows.length})` }),
+            renderEngineeringQualityRows(section.rows),
+          ],
+        })
+      )),
+      engineeringQuality.failures.length > 0
+        ? el('div', {
+            className: 'quality-check-section',
+            children: [
+              el('p', { className: 'list-label', text: `Problems found (${engineeringQuality.failures.length})` }),
+              renderEngineeringQualityRows(engineeringQuality.failures),
+            ],
+          })
+        : null,
+      renderEngineeringFailureNextActions(engineeringQuality.nextActions, { model, state }),
+    ].filter(Boolean),
+  });
+}
+
 function renderArtifactLinks(artifactLinks = []) {
   if (artifactLinks.length === 0) return null;
   return el('div', {
@@ -712,7 +1194,7 @@ function renderArtifactLinks(artifactLinks = []) {
   });
 }
 
-function renderQualityDashboard(model) {
+function renderQualityDashboard(model, state = {}) {
   const checks = model.checks || {};
   const requiredUnavailable = (checks.unavailable || []).filter((entry) => entry.required && !entry.decision);
   const failedChecks = [
@@ -731,6 +1213,7 @@ function renderQualityDashboard(model) {
       className: 'quality-dashboard-stack',
       children: [
         ...commonHeader,
+        renderEngineeringQualitySection(model.engineeringQuality, { model, state }),
         renderDrawingQualitySection(model.drawingQuality),
         el('div', { className: 'support-note', text: model.decisionCopies.gateCopy }),
         renderCheckSection({
@@ -754,6 +1237,7 @@ function renderQualityDashboard(model) {
       className: 'quality-dashboard-stack',
       children: [
         ...commonHeader,
+        renderEngineeringQualitySection(model.engineeringQuality, { model, state }),
         renderDrawingQualitySection(model.drawingQuality),
         renderCheckSection({
           title: 'Failed checks',
@@ -787,6 +1271,7 @@ function renderQualityDashboard(model) {
     className: 'quality-dashboard-stack',
     children: [
       ...commonHeader,
+        renderEngineeringQualitySection(model.engineeringQuality, { model, state }),
       renderDrawingQualitySection(model.drawingQuality),
       renderCheckSection({
         title: 'Failed checks',
@@ -830,19 +1315,19 @@ export function renderArtifactsWorkspace(state) {
     className: 'workspace-shell artifacts-dashboard',
     children: [
       createSectionHeader({
-        kicker: '패키지 작업 영역',
-        title: '산출물 관리 대시보드',
-        description: '최근 작업, 매니페스트 상태, 패키지 준비도, 안전한 다운로드 경로를 하나의 산출물 중심 작업 영역에서 확인합니다.',
+        kicker: 'Packs workspace',
+        title: 'Artifact management dashboard',
+        description: 'Review recent jobs, manifest status, package readiness, and safe download routes from one artifact-centered workspace.',
         badges: [
-          { label: activeJob?.summary ? '추적 작업 선택됨' : '활성 패키지 없음', tone: activeJob?.summary ? 'ok' : 'warn' },
-          { label: `최근 실행 ${recentJobs.length || 0}개`, tone: recentJobs.length ? 'info' : 'warn' },
-          { label: '매니페스트 기반 다운로드 경로', tone: 'ok' },
+          { label: activeJob?.summary ? 'Tracked job selected' : 'No active package', tone: activeJob?.summary ? 'ok' : 'warn' },
+          { label: `${recentJobs.length || 0} recent runs`, tone: recentJobs.length ? 'info' : 'warn' },
+          { label: 'Manifest-backed download path', tone: 'ok' },
         ],
       }),
       createCard({
-        kicker: '산출물 파이프라인',
-        title: '검토에서 다운로드까지의 흐름',
-        copy: '활성 산출물 세트가 표준 검토 출력, 매니페스트 인덱싱, 패키지 조립, 명시적 다운로드 준비 상태에 기반하도록 유지합니다.',
+        kicker: 'Artifact pipeline',
+        title: 'Review-to-download flow',
+        copy: 'Keep the active artifact set grounded in standard review outputs, manifest indexing, package assembly, and explicit download readiness.',
         surface: 'canvas',
         body: [
           renderArtifactPipeline(activeJob),
@@ -855,17 +1340,17 @@ export function renderArtifactsWorkspace(state) {
             className: 'artifacts-column artifacts-column-left',
             children: [
               createCard({
-                kicker: '최근 작업',
-                title: '최근 작업 흐름',
-                copy: '최신 작업은 눈에 띄게 유지되고, 이전 실행은 비교 준비 상태와 재열기 가능 상태를 유지합니다.',
+                kicker: 'Recent jobs',
+                title: 'Recent job flow',
+                copy: 'Keep the latest job visible while older runs stay compare-ready and reopenable.',
                 body: [
                   el('div', { dataset: { hook: 'artifacts-timeline' } }),
                 ],
               }),
               createCard({
-                kicker: '패키지 상태',
-                title: activeJob?.summary ? `${activeJob.summary.type} ${shortJobId(activeJob.summary.id)}` : '추적 작업 선택',
-                copy: '출력 파일을 검토하는 동안 매니페스트 정보, 저장소 상태, 내보내기 준비 상태를 계속 볼 수 있습니다.',
+                kicker: 'Package status',
+                title: activeJob?.summary ? `${activeJob.summary.type} ${shortJobId(activeJob.summary.id)}` : 'Select tracked job',
+                copy: 'Keep manifest facts, storage status, and export readiness visible while you inspect output files.',
                 body: [
                   el('div', { dataset: { hook: 'artifacts-job-summary' } }),
                 ],
@@ -879,17 +1364,17 @@ export function renderArtifactsWorkspace(state) {
                 ],
               }),
               createCard({
-                kicker: '비교',
-                title: '현재 패키지와 기준선 비교',
-                copy: '이전 추적 실행을 기준선으로 선택하세요. 양쪽에 표준 review-pack 또는 readiness 입력이 있으면 Studio가 여기서 compare-rev 또는 stabilization-review를 대기열에 넣을 수 있습니다.',
+                kicker: 'Compare',
+                title: 'Compare active package with baseline',
+                copy: 'Choose an older tracked run as the baseline. When both sides have standard review-pack or readiness inputs, Studio can queue compare-rev or stabilization-review here.',
                 body: [
                   el('div', { dataset: { hook: 'artifacts-compare' } }),
                 ],
               }),
               createCard({
-                kicker: '실시간 출력 대기열',
-                title: '최근 패키지 및 내보내기 활동',
-                copy: '산출물을 선택하지 않아도 패키지, 보고서, 내보내기 활동이 작은 대기열 행으로 계속 보입니다.',
+                kicker: 'Live output queue',
+                title: 'Recent package and export activity',
+                copy: 'Keep package, report, and export activity visible as compact queue rows even when no artifact is selected.',
                 body: [
                   renderOutputQueue(recentJobs),
                 ],
@@ -900,9 +1385,21 @@ export function renderArtifactsWorkspace(state) {
             className: 'artifacts-column artifacts-column-center',
             children: [
               createCard({
-                kicker: '활성 산출물',
-                title: '현재 작업의 출력 목록',
-                copy: '산출물은 작업별로 그룹화되고 유형 배지, 열기/다운로드 작업, 구조화된 메타데이터를 제공합니다.',
+                kicker: 'Generated files',
+                title: 'Your generated files',
+                copy: 'Download or inspect the main outputs from this run.',
+                surface: 'canvas',
+                body: [
+                  el('div', {
+                    attrs: { id: 'studio-generated-files' },
+                    dataset: { hook: 'artifacts-generated-files' },
+                  }),
+                ],
+              }),
+              createCard({
+                kicker: 'All artifacts',
+                title: 'Current job output list',
+                copy: 'Artifacts stay grouped by job with type badges, open/download actions, and structured metadata.',
                 surface: 'canvas',
                 body: [
                   el('div', { className: 'artifact-card-grid', dataset: { hook: 'artifacts-cards' } }),
@@ -914,9 +1411,9 @@ export function renderArtifactsWorkspace(state) {
             className: 'artifacts-column artifacts-column-right',
             children: [
               createCard({
-                kicker: '구조화된 인스펙터',
-                title: '산출물 세부 정보',
-                copy: '선택한 산출물을 검토하고, 안전한 경우 미리본 뒤, 원시 파일 시스템 경로 없이 후속 작업으로 이어가세요.',
+                kicker: 'Structured inspector',
+                title: 'Artifact detail',
+                copy: 'Inspect the selected artifact, preview it when safe, and continue into follow-up actions without raw filesystem paths.',
                 surface: 'canvas',
                 body: [
                   el('div', { dataset: { hook: 'artifacts-detail-summary' } }),
@@ -939,6 +1436,7 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
   const jobSummaryElement = root.querySelector('[data-hook="artifacts-job-summary"]');
   const qualityDashboardElement = root.querySelector('[data-hook="artifacts-quality-dashboard"]');
   const compareElement = root.querySelector('[data-hook="artifacts-compare"]');
+  const generatedFilesElement = root.querySelector('[data-hook="artifacts-generated-files"]');
   const cardsElement = root.querySelector('[data-hook="artifacts-cards"]');
   const detailSummaryElement = root.querySelector('[data-hook="artifacts-detail-summary"]');
   const detailActionsElement = root.querySelector('[data-hook="artifacts-detail-actions"]');
@@ -992,8 +1490,8 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
       jobSummaryElement.replaceChildren(
         createEmptyState({
           icon: 'A',
-          title: '활성 작업이 없습니다',
-          copy: '타임라인에서 최근 작업을 열면 이곳에서 해당 산출물 세트를 검토할 수 있습니다.',
+          title: 'No active job',
+          copy: 'Open a recent job from the timeline to inspect its artifact set here.',
         })
       );
       return;
@@ -1001,12 +1499,12 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
 
     jobSummaryElement.replaceChildren(
       createInfoGrid([
-        { label: '작업', value: `${activeJob.summary.type} ${shortJobId(activeJob.summary.id)}` },
-        { label: '상태', value: formatJobStatus(activeJob.summary.status) },
-        { label: '업데이트', value: formatDateTime(activeJob.summary.updated_at) },
-        { label: '매니페스트 명령', value: activeJob.manifest?.command || '알 수 없음' },
-        { label: '산출물 수', value: String((activeJob.artifacts || []).length) },
-        { label: '작업 저장소', value: summarizeStorage(activeJob.storage) },
+        { label: 'Job', value: `${activeJob.summary.type} ${shortJobId(activeJob.summary.id)}` },
+        { label: 'Status', value: formatJobStatus(activeJob.summary.status) },
+        { label: 'Updated', value: formatDateTime(activeJob.summary.updated_at) },
+        { label: 'Manifest command', value: activeJob.manifest?.command || 'Unknown' },
+        { label: 'Artifact count', value: String((activeJob.artifacts || []).length) },
+        { label: 'Job storage', value: summarizeStorage(activeJob.storage) },
       ])
     );
   }
@@ -1068,7 +1566,7 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
       return;
     }
 
-    qualityDashboardElement.replaceChildren(renderQualityDashboard(artifactsState.qualityData));
+    qualityDashboardElement.replaceChildren(renderQualityDashboard(artifactsState.qualityData, state));
   }
 
   function syncCompare() {
@@ -1076,8 +1574,8 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
       compareElement.replaceChildren(
         createEmptyState({
           icon: '=',
-          title: '비교에는 활성 작업이 필요합니다',
-          copy: '먼저 추적 작업을 연 뒤 타임라인에서 이전 실행을 기준선으로 선택하세요.',
+          title: 'Compare needs an active job',
+          copy: 'Open a tracked job first, then choose an older run from the timeline as the baseline.',
         })
       );
       return;
@@ -1090,8 +1588,8 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
       compareElement.replaceChildren(
         createEmptyState({
           icon: '...',
-          title: '기준선 산출물을 불러오는 중입니다',
-          copy: '선택한 기준선을 준비하여 compare-rev와 안정화 준비 상태를 확인하고 있습니다.',
+          title: 'Loading baseline artifacts',
+          copy: 'Preparing the selected baseline for compare-rev and stabilization readiness checks.',
         })
       );
       return;
@@ -1101,8 +1599,8 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
       compareElement.replaceChildren(
         createEmptyState({
           icon: '!',
-          title: '기준선 비교를 준비하지 못했습니다',
-          copy: artifactsState.compare.errorMessage || '선택한 기준선 작업을 불러오지 못했습니다.',
+          title: 'Baseline compare failed',
+          copy: artifactsState.compare.errorMessage || 'The selected baseline job could not be loaded.',
         })
       );
       return;
@@ -1112,8 +1610,8 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
       compareElement.replaceChildren(
         createEmptyState({
           icon: '<>',
-          title: '기준선이 선택되지 않았습니다',
-          copy: '이전 타임라인 항목에서 비교를 선택하면 커버리지 변화를 확인하고, 표준 산출물이 있을 때 추적 비교 작업을 실행할 수 있습니다.',
+          title: 'No baseline selected',
+          copy: 'Choose Compare on an older timeline entry to inspect coverage changes and run tracked compare work when standard artifacts are available.',
         })
       );
       return;
@@ -1182,6 +1680,55 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
         ],
       })
     );
+  }
+
+  function syncGeneratedFiles() {
+    const activeJob = state.data.activeJob;
+    if (isHydratingSelectedJob()) {
+      generatedFilesElement.replaceChildren(
+        createEmptyState({
+          icon: '...',
+          title: 'Loading artifacts',
+          copy: 'Hydrating the tracked job before listing generated files.',
+        })
+      );
+      return;
+    }
+
+    if (!activeJob?.summary) {
+      generatedFilesElement.replaceChildren(
+        createEmptyState({
+          icon: 'F',
+          title: 'No active artifact set',
+          copy: 'Open a recent job to see the generated STEP, STL, reports, and quality evidence here.',
+        })
+      );
+      return;
+    }
+
+    if (activeJob.status === 'loading') {
+      generatedFilesElement.replaceChildren(
+        createEmptyState({
+          icon: '...',
+          title: 'Loading artifacts',
+          copy: 'Hydrating the selected tracked job artifact list.',
+        })
+      );
+      return;
+    }
+
+    if ((activeJob.artifacts || []).length === 0) {
+      generatedFilesElement.replaceChildren(
+        createEmptyState({
+          icon: '0',
+          title: 'This job exposes no artifacts',
+          copy: 'The job record exists, but the generated file list is empty.',
+        })
+      );
+      return;
+    }
+
+    generatedFilesElement.replaceChildren(renderGeneratedFilesPanel(activeJob.artifacts || []));
   }
 
   function syncCards() {
@@ -1692,6 +2239,7 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
     await ensureQualityDashboard();
     syncQualityDashboard();
     syncCompare();
+    syncGeneratedFiles();
     syncCards();
     await ensureArtifactViewer();
     await ensureArtifactPreview();
