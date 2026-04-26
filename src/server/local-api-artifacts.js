@@ -1,5 +1,23 @@
 import { basename, extname, posix, win32 } from 'node:path';
 
+const POSIX_FILESYSTEM_ROOTS = new Set([
+  'Applications',
+  'Users',
+  'Volumes',
+  'etc',
+  'home',
+  'mnt',
+  'opt',
+  'private',
+  'srv',
+  'tmp',
+  'usr',
+  'var',
+]);
+
+const WINDOWS_PATH_PATTERN = /(?:[A-Za-z]:\\(?:[^\\\r\n"'`<>|]+\\?)+|\\\\[^\s"'`<>|]+(?:\\[^\s"'`<>|]+)+)/g;
+const POSIX_PATH_PATTERN = /(?:\/(?:[^\/\s"'`<>()]+\/)+[^\/\s"'`<>()]+)/g;
+
 const INLINE_ARTIFACT_EXTENSIONS = new Set([
   '.csv',
   '.dxf',
@@ -78,13 +96,31 @@ function buildArtifactLinks(jobId, artifactId) {
 function isAbsoluteFilesystemPath(value) {
   return typeof value === 'string'
     && value.length > 0
-    && (posix.isAbsolute(value) || win32.isAbsolute(value));
+    && (
+      /^[A-Za-z]:[\\/]/.test(value)
+      || value.startsWith('\\\\')
+      || (
+        posix.isAbsolute(value)
+        && POSIX_FILESYSTEM_ROOTS.has(value.split('/').filter(Boolean)[0] || '')
+      )
+    );
 }
 
 function basenameFromAnyPath(value) {
   if (typeof value !== 'string' || value.length === 0) return value;
   if (win32.isAbsolute(value)) return win32.basename(value);
   return basename(value);
+}
+
+function redactEmbeddedFilesystemPaths(value) {
+  if (typeof value !== 'string' || value.length === 0) return value;
+  return value
+    .replace(WINDOWS_PATH_PATTERN, (match) => (
+      isAbsoluteFilesystemPath(match) ? basenameFromAnyPath(match) : match
+    ))
+    .replace(POSIX_PATH_PATTERN, (match) => (
+      isAbsoluteFilesystemPath(match) ? basenameFromAnyPath(match) : match
+    ));
 }
 
 export function redactPublicPathValues(value) {
@@ -102,7 +138,7 @@ export function redactPublicPathValues(value) {
     return basenameFromAnyPath(value);
   }
 
-  return value;
+  return redactEmbeddedFilesystemPaths(value);
 }
 
 export function toPublicStorage(storage = null) {

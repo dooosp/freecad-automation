@@ -1,0 +1,611 @@
+{
+  "schema_version": "1.0",
+  "command": "create",
+  "input_config": "docs/examples/quality-pass-bracket/config.toml",
+  "primary_outputs": {
+    "step": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step",
+    "stl": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket.stl",
+    "brep": null,
+    "fcstd": null,
+    "per_part_stl": []
+  },
+  "geometry": {
+    "valid_shape": true,
+    "volume": 126560.37,
+    "area": 35663.84,
+    "bbox": {
+      "min": [
+        0,
+        0,
+        0
+      ],
+      "max": [
+        160,
+        100,
+        8
+      ],
+      "size": [
+        160,
+        100,
+        8
+      ]
+    },
+    "cylindrical_faces": [
+      {
+        "face_index": 30,
+        "surface_type": "Cylinder",
+        "radius_mm": 3,
+        "diameter_mm": 6,
+        "center_mm": [
+          30,
+          30,
+          -2
+        ],
+        "center_xy_mm": [
+          30,
+          30
+        ],
+        "center_of_mass_mm": [
+          30,
+          30,
+          4
+        ],
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "bbox": null,
+        "area_mm2": 113.0973
+      },
+      {
+        "face_index": 31,
+        "surface_type": "Cylinder",
+        "radius_mm": 5,
+        "diameter_mm": 10,
+        "center_mm": [
+          125,
+          70,
+          -2
+        ],
+        "center_xy_mm": [
+          125,
+          70
+        ],
+        "center_of_mass_mm": [
+          125,
+          70,
+          4
+        ],
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "bbox": null,
+        "area_mm2": 188.4956
+      }
+    ],
+    "solid_count": 1,
+    "face_count": 32,
+    "edge_count": 62
+  },
+  "step_roundtrip": {
+    "exported": true,
+    "reimport_attempted": true,
+    "reimport_valid": true,
+    "volume_delta_percent": 0,
+    "bbox_delta": {
+      "min": [
+        0,
+        0,
+        0
+      ],
+      "max": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        0,
+        0,
+        0
+      ],
+      "max_abs_mm": 0
+    },
+    "reimported_geometry": {
+      "valid_shape": true,
+      "volume": 126560.37,
+      "area": 35663.84,
+      "bbox": {
+        "min": [
+          0,
+          0,
+          0
+        ],
+        "max": [
+          160,
+          100,
+          8
+        ],
+        "size": [
+          160,
+          100,
+          8
+        ]
+      },
+      "cylindrical_faces": [
+        {
+          "face_index": 30,
+          "surface_type": "Cylinder",
+          "radius_mm": 3,
+          "diameter_mm": 6,
+          "center_mm": [
+            30,
+            30,
+            -2
+          ],
+          "center_xy_mm": [
+            30,
+            30
+          ],
+          "center_of_mass_mm": [
+            30,
+            30,
+            4
+          ],
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "bbox": null,
+          "area_mm2": 113.0973
+        },
+        {
+          "face_index": 31,
+          "surface_type": "Cylinder",
+          "radius_mm": 5,
+          "diameter_mm": 10,
+          "center_mm": [
+            125,
+            70,
+            -2
+          ],
+          "center_xy_mm": [
+            125,
+            70
+          ],
+          "center_of_mass_mm": [
+            125,
+            70,
+            4
+          ],
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "bbox": null,
+          "area_mm2": 188.4956
+        }
+      ],
+      "solid_count": 1,
+      "face_count": 32,
+      "edge_count": 62
+    },
+    "warnings": []
+  },
+  "brep_roundtrip": {
+    "exported": false,
+    "reimport_attempted": false,
+    "reimport_valid": null,
+    "volume_delta_percent": null,
+    "bbox_delta": null,
+    "reimported_geometry": null,
+    "warnings": []
+  },
+  "stl_quality": {
+    "exported": true,
+    "mesh_load_attempted": true,
+    "triangle_count": 3076,
+    "watertight_or_closed": true,
+    "non_manifold_count": null,
+    "warnings": []
+  },
+  "engineering_quality": {
+    "status": "pass",
+    "source": "generated_shape_geometry",
+    "validation_kind": "generated_shape_geometry_check",
+    "measurements": [
+      {
+        "requirement_id": "HOLE_LEFT_DIA",
+        "source_requirement_id": "HOLE_LEFT_DIA",
+        "feature_id": "hole_left",
+        "measurement_type": "hole_diameter",
+        "expected_value_mm": 6,
+        "actual_value_mm": 6,
+        "source_value_mm": 6,
+        "expected_center_xy_mm": [
+          30,
+          30
+        ],
+        "actual_center_xy_mm": [
+          30,
+          30
+        ],
+        "tolerance_mm": 0.05,
+        "delta_mm": 0,
+        "center_delta_mm": 0,
+        "source_delta_mm": null,
+        "source_center_delta_mm": null,
+        "status": "pass",
+        "required": true,
+        "source": "generated_shape_geometry",
+        "source_field": "geometry.cylindrical_faces[face_index=30].diameter_mm",
+        "expected_source": "config_parameter",
+        "expected_source_field": "config.drawing_intent.required_dimensions[id=HOLE_LEFT_DIA].value_mm",
+        "validation_kind": "generated_shape_geometry_check",
+        "matched_face_index": 30,
+        "message": null
+      },
+      {
+        "requirement_id": "hole_left_CENTER",
+        "source_requirement_id": "HOLE_LEFT_DIA",
+        "feature_id": "hole_left",
+        "measurement_type": "hole_center",
+        "expected_value_mm": null,
+        "actual_value_mm": null,
+        "source_value_mm": null,
+        "expected_center_xy_mm": [
+          30,
+          30
+        ],
+        "actual_center_xy_mm": [
+          30,
+          30
+        ],
+        "tolerance_mm": 0.2,
+        "delta_mm": 0,
+        "center_delta_mm": 0,
+        "source_delta_mm": null,
+        "source_center_delta_mm": null,
+        "status": "pass",
+        "required": true,
+        "source": "generated_shape_geometry",
+        "source_field": "geometry.cylindrical_faces[face_index=30].center_mm",
+        "expected_source": "config_parameter",
+        "expected_source_field": "config.shapes[id=hole_left].position",
+        "validation_kind": "generated_shape_geometry_check",
+        "matched_face_index": 30,
+        "message": null
+      },
+      {
+        "requirement_id": "HOLE_LEFT_DIA_STEP_REIMPORT",
+        "source_requirement_id": "HOLE_LEFT_DIA",
+        "feature_id": "hole_left",
+        "measurement_type": "hole_diameter",
+        "expected_value_mm": 6,
+        "actual_value_mm": 6,
+        "source_value_mm": 6,
+        "expected_center_xy_mm": [
+          30,
+          30
+        ],
+        "actual_center_xy_mm": [
+          30,
+          30
+        ],
+        "tolerance_mm": 0.05,
+        "delta_mm": 0,
+        "center_delta_mm": 0,
+        "source_delta_mm": 0,
+        "source_center_delta_mm": 0,
+        "status": "pass",
+        "required": true,
+        "source": "reimported_step_geometry",
+        "source_field": "step_roundtrip.reimported_geometry.cylindrical_faces[face_index=30].diameter_mm",
+        "expected_source": "config_parameter",
+        "expected_source_field": "config.drawing_intent.required_dimensions[id=HOLE_LEFT_DIA].value_mm",
+        "validation_kind": "reimported_step_geometry_check",
+        "matched_face_index": 30,
+        "message": null
+      },
+      {
+        "requirement_id": "hole_left_CENTER_STEP_REIMPORT",
+        "source_requirement_id": "HOLE_LEFT_DIA",
+        "feature_id": "hole_left",
+        "measurement_type": "hole_center",
+        "expected_value_mm": null,
+        "actual_value_mm": null,
+        "source_value_mm": null,
+        "expected_center_xy_mm": [
+          30,
+          30
+        ],
+        "actual_center_xy_mm": [
+          30,
+          30
+        ],
+        "tolerance_mm": 0.2,
+        "delta_mm": 0,
+        "center_delta_mm": 0,
+        "source_delta_mm": null,
+        "source_center_delta_mm": 0,
+        "status": "pass",
+        "required": true,
+        "source": "reimported_step_geometry",
+        "source_field": "step_roundtrip.reimported_geometry.cylindrical_faces[face_index=30].center_mm",
+        "expected_source": "config_parameter",
+        "expected_source_field": "config.shapes[id=hole_left].position",
+        "validation_kind": "reimported_step_geometry_check",
+        "matched_face_index": 30,
+        "message": null
+      },
+      {
+        "requirement_id": "HOLE_RIGHT_DIA",
+        "source_requirement_id": "HOLE_RIGHT_DIA",
+        "feature_id": "hole_right",
+        "measurement_type": "hole_diameter",
+        "expected_value_mm": 10,
+        "actual_value_mm": 10,
+        "source_value_mm": 10,
+        "expected_center_xy_mm": [
+          125,
+          70
+        ],
+        "actual_center_xy_mm": [
+          125,
+          70
+        ],
+        "tolerance_mm": 0.05,
+        "delta_mm": 0,
+        "center_delta_mm": 0,
+        "source_delta_mm": null,
+        "source_center_delta_mm": null,
+        "status": "pass",
+        "required": true,
+        "source": "generated_shape_geometry",
+        "source_field": "geometry.cylindrical_faces[face_index=31].diameter_mm",
+        "expected_source": "config_parameter",
+        "expected_source_field": "config.drawing_intent.required_dimensions[id=HOLE_RIGHT_DIA].value_mm",
+        "validation_kind": "generated_shape_geometry_check",
+        "matched_face_index": 31,
+        "message": null
+      },
+      {
+        "requirement_id": "hole_right_CENTER",
+        "source_requirement_id": "HOLE_RIGHT_DIA",
+        "feature_id": "hole_right",
+        "measurement_type": "hole_center",
+        "expected_value_mm": null,
+        "actual_value_mm": null,
+        "source_value_mm": null,
+        "expected_center_xy_mm": [
+          125,
+          70
+        ],
+        "actual_center_xy_mm": [
+          125,
+          70
+        ],
+        "tolerance_mm": 0.2,
+        "delta_mm": 0,
+        "center_delta_mm": 0,
+        "source_delta_mm": null,
+        "source_center_delta_mm": null,
+        "status": "pass",
+        "required": true,
+        "source": "generated_shape_geometry",
+        "source_field": "geometry.cylindrical_faces[face_index=31].center_mm",
+        "expected_source": "config_parameter",
+        "expected_source_field": "config.shapes[id=hole_right].position",
+        "validation_kind": "generated_shape_geometry_check",
+        "matched_face_index": 31,
+        "message": null
+      },
+      {
+        "requirement_id": "HOLE_RIGHT_DIA_STEP_REIMPORT",
+        "source_requirement_id": "HOLE_RIGHT_DIA",
+        "feature_id": "hole_right",
+        "measurement_type": "hole_diameter",
+        "expected_value_mm": 10,
+        "actual_value_mm": 10,
+        "source_value_mm": 10,
+        "expected_center_xy_mm": [
+          125,
+          70
+        ],
+        "actual_center_xy_mm": [
+          125,
+          70
+        ],
+        "tolerance_mm": 0.05,
+        "delta_mm": 0,
+        "center_delta_mm": 0,
+        "source_delta_mm": 0,
+        "source_center_delta_mm": 0,
+        "status": "pass",
+        "required": true,
+        "source": "reimported_step_geometry",
+        "source_field": "step_roundtrip.reimported_geometry.cylindrical_faces[face_index=31].diameter_mm",
+        "expected_source": "config_parameter",
+        "expected_source_field": "config.drawing_intent.required_dimensions[id=HOLE_RIGHT_DIA].value_mm",
+        "validation_kind": "reimported_step_geometry_check",
+        "matched_face_index": 31,
+        "message": null
+      },
+      {
+        "requirement_id": "hole_right_CENTER_STEP_REIMPORT",
+        "source_requirement_id": "HOLE_RIGHT_DIA",
+        "feature_id": "hole_right",
+        "measurement_type": "hole_center",
+        "expected_value_mm": null,
+        "actual_value_mm": null,
+        "source_value_mm": null,
+        "expected_center_xy_mm": [
+          125,
+          70
+        ],
+        "actual_center_xy_mm": [
+          125,
+          70
+        ],
+        "tolerance_mm": 0.2,
+        "delta_mm": 0,
+        "center_delta_mm": 0,
+        "source_delta_mm": null,
+        "source_center_delta_mm": 0,
+        "status": "pass",
+        "required": true,
+        "source": "reimported_step_geometry",
+        "source_field": "step_roundtrip.reimported_geometry.cylindrical_faces[face_index=31].center_mm",
+        "expected_source": "config_parameter",
+        "expected_source_field": "config.shapes[id=hole_right].position",
+        "validation_kind": "reimported_step_geometry_check",
+        "matched_face_index": 31,
+        "message": null
+      }
+    ],
+    "measurement_provenance": [
+      {
+        "measurement_id": "bbox",
+        "measurement_type": "bbox",
+        "source": "generated_shape_geometry",
+        "report_field": "geometry.bbox",
+        "source_field": null,
+        "value": {
+          "min": [
+            0,
+            0,
+            0
+          ],
+          "max": [
+            160,
+            100,
+            8
+          ],
+          "size": [
+            160,
+            100,
+            8
+          ]
+        },
+        "note": "Generated FreeCAD shape metadata from scripts/_shapes.py get_metadata(final_shape)."
+      },
+      {
+        "measurement_id": "thickness",
+        "measurement_type": "thickness",
+        "source": "generated_shape_geometry",
+        "report_field": "geometry.bbox.size[2]",
+        "source_field": null,
+        "value": 8,
+        "note": "Overall Z extent from generated FreeCAD shape metadata; this is not a local wall-thickness feature check."
+      },
+      {
+        "measurement_id": "volume",
+        "measurement_type": "volume",
+        "source": "generated_shape_geometry",
+        "report_field": "geometry.volume",
+        "source_field": null,
+        "value": 126560.37,
+        "note": "Generated FreeCAD shape metadata from scripts/_shapes.py get_metadata(final_shape)."
+      },
+      {
+        "measurement_id": "hole_left_diameter",
+        "measurement_type": "hole_diameter",
+        "source": "generated_shape_geometry",
+        "report_field": "engineering_quality.measurements[requirement_id=HOLE_LEFT_DIA].source_value_mm",
+        "source_field": "geometry.cylindrical_faces[face_index=30].diameter_mm",
+        "value": 6,
+        "note": "Actual hole diameter measured from cylindrical face metadata on the generated FreeCAD shape."
+      },
+      {
+        "measurement_id": "hole_left_center",
+        "measurement_type": "hole_center",
+        "source": "generated_shape_geometry",
+        "report_field": "engineering_quality.measurements[requirement_id=hole_left_CENTER].actual_center_xy_mm",
+        "source_field": "geometry.cylindrical_faces[face_index=30].center_mm",
+        "value": [
+          30,
+          30
+        ],
+        "note": "Actual hole center measured from cylindrical face metadata on the generated FreeCAD shape."
+      },
+      {
+        "measurement_id": "hole_left_step_diameter",
+        "measurement_type": "hole_diameter",
+        "source": "reimported_step_geometry",
+        "report_field": "engineering_quality.measurements[requirement_id=HOLE_LEFT_DIA_STEP_REIMPORT].source_value_mm",
+        "source_field": "step_roundtrip.reimported_geometry.cylindrical_faces[face_index=30].diameter_mm",
+        "value": 6,
+        "note": "Actual hole diameter measured from cylindrical face metadata after STEP export/re-import."
+      },
+      {
+        "measurement_id": "hole_left_step_center",
+        "measurement_type": "hole_center",
+        "source": "reimported_step_geometry",
+        "report_field": "engineering_quality.measurements[requirement_id=hole_left_CENTER_STEP_REIMPORT].actual_center_xy_mm",
+        "source_field": "step_roundtrip.reimported_geometry.cylindrical_faces[face_index=30].center_mm",
+        "value": [
+          30,
+          30
+        ],
+        "note": "Actual hole center measured from cylindrical face metadata after STEP export/re-import."
+      },
+      {
+        "measurement_id": "hole_right_diameter",
+        "measurement_type": "hole_diameter",
+        "source": "generated_shape_geometry",
+        "report_field": "engineering_quality.measurements[requirement_id=HOLE_RIGHT_DIA].source_value_mm",
+        "source_field": "geometry.cylindrical_faces[face_index=31].diameter_mm",
+        "value": 10,
+        "note": "Actual hole diameter measured from cylindrical face metadata on the generated FreeCAD shape."
+      },
+      {
+        "measurement_id": "hole_right_center",
+        "measurement_type": "hole_center",
+        "source": "generated_shape_geometry",
+        "report_field": "engineering_quality.measurements[requirement_id=hole_right_CENTER].actual_center_xy_mm",
+        "source_field": "geometry.cylindrical_faces[face_index=31].center_mm",
+        "value": [
+          125,
+          70
+        ],
+        "note": "Actual hole center measured from cylindrical face metadata on the generated FreeCAD shape."
+      },
+      {
+        "measurement_id": "hole_right_step_diameter",
+        "measurement_type": "hole_diameter",
+        "source": "reimported_step_geometry",
+        "report_field": "engineering_quality.measurements[requirement_id=HOLE_RIGHT_DIA_STEP_REIMPORT].source_value_mm",
+        "source_field": "step_roundtrip.reimported_geometry.cylindrical_faces[face_index=31].diameter_mm",
+        "value": 10,
+        "note": "Actual hole diameter measured from cylindrical face metadata after STEP export/re-import."
+      },
+      {
+        "measurement_id": "hole_right_step_center",
+        "measurement_type": "hole_center",
+        "source": "reimported_step_geometry",
+        "report_field": "engineering_quality.measurements[requirement_id=hole_right_CENTER_STEP_REIMPORT].actual_center_xy_mm",
+        "source_field": "step_roundtrip.reimported_geometry.cylindrical_faces[face_index=31].center_mm",
+        "value": [
+          125,
+          70
+        ],
+        "note": "Actual hole center measured from cylindrical face metadata after STEP export/re-import."
+      }
+    ],
+    "blocking_issues": [],
+    "warnings": []
+  },
+  "thresholds": {
+    "max_step_volume_delta_percent": 0.5,
+    "max_bbox_delta_mm": 0.2,
+    "max_engineering_dimension_delta_mm": 0.05,
+    "max_engineering_center_delta_mm": 0.2
+  },
+  "status": "pass",
+  "blocking_issues": [],
+  "warnings": []
+}

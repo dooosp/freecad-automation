@@ -1,0 +1,1488 @@
+{
+  "schema_version": "0.1",
+  "command": "draw",
+  "input_config": "docs/examples/quality-pass-bracket/config.toml",
+  "drawing_svg": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+  "plan_file": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_plan.toml",
+  "qa_file": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing_qa.json",
+  "qa_issues_file": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing_qa_issues.json",
+  "traceability_file": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_traceability.json",
+  "layout_report_file": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_layout_report.json",
+  "planner_file": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing_planner.json",
+  "dimension_map_file": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_dimension_map.json",
+  "dim_conflicts_file": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_dim_conflicts.json",
+  "extracted_drawing_semantics_file": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_extracted_drawing_semantics.json",
+  "bom_file": null,
+  "score": 95,
+  "status": "pass",
+  "views": {
+    "required_count": 2,
+    "generated_count": 2,
+    "missing_views": [],
+    "overlap_count": 0
+  },
+  "dimensions": {
+    "required_count": 2,
+    "mapped_count": 2,
+    "coverage_percent": 100,
+    "missing_required_intents": [],
+    "conflict_count": 0,
+    "duplicate_count": 0
+  },
+  "bom": {
+    "expected_items": 0,
+    "actual_items": 0,
+    "missing_material_count": 0,
+    "balloon_mismatches": 0
+  },
+  "traceability": {
+    "coverage_percent": 100,
+    "unmapped_required_entities": []
+  },
+  "semantic_quality": {
+    "decision": "pass",
+    "advisory_decision": "pass",
+    "enforceable": false,
+    "score": 100,
+    "score_basis": {
+      "critical_feature_coverage_percent": 100,
+      "required_dimension_coverage_percent": 100,
+      "required_note_coverage_percent": 100,
+      "required_view_coverage_percent": 100,
+      "dimension_traceability_percent": 100
+    },
+    "critical_features_total": 2,
+    "critical_features_covered": 2,
+    "missing_critical_features": [],
+    "required_dimensions_total": 2,
+    "required_dimensions_present": 2,
+    "missing_required_dimensions": [],
+    "required_notes_total": 1,
+    "required_notes_present": 1,
+    "required_notes_missing": [],
+    "required_views_total": 2,
+    "required_views_present": 2,
+    "required_views_missing": [],
+    "traceability": {
+      "required_dimensions_total": 2,
+      "linked_required_dimensions": 2,
+      "missing_required_dimensions": [],
+      "unknown_required_dimensions": [],
+      "rows": [
+        {
+          "dimension_id": "HOLE_LEFT_DIA",
+          "feature_id": "hole_left",
+          "status": "linked",
+          "evidence": {
+            "dimension_id": "HOLE_LEFT_DIA",
+            "feature_id": "hole_left",
+            "source": "traceability"
+          }
+        },
+        {
+          "dimension_id": "HOLE_RIGHT_DIA",
+          "feature_id": "hole_right",
+          "status": "linked",
+          "evidence": {
+            "dimension_id": "HOLE_RIGHT_DIA",
+            "feature_id": "hole_right",
+            "source": "traceability"
+          }
+        }
+      ]
+    },
+    "missing_critical_information": [],
+    "required_blockers": [],
+    "optional_missing_information": [],
+    "suggested_actions": [],
+    "suggested_action_details": [],
+    "extracted_evidence": {
+      "status": "available",
+      "advisory_only": true,
+      "file": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_extracted_drawing_semantics.json",
+      "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_extracted_drawing_semantics.json",
+      "sources": [
+        {
+          "artifact_type": "svg",
+          "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+          "inspected": true,
+          "method": "svg_text_scan"
+        },
+        {
+          "artifact_type": "svg",
+          "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+          "inspected": true,
+          "method": "svg_title_block_material_pair"
+        },
+        {
+          "artifact_type": "svg",
+          "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+          "inspected": true,
+          "method": "svg_view_group_metadata"
+        },
+        {
+          "artifact_type": "layout_report",
+          "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_layout_report.json",
+          "inspected": true,
+          "method": "layout_report_views"
+        },
+        {
+          "artifact_type": "dimension_map",
+          "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_dimension_map.json",
+          "inspected": true,
+          "method": "dimension_map_reference"
+        },
+        {
+          "artifact_type": "traceability",
+          "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_traceability.json",
+          "inspected": true,
+          "method": "traceability_reference"
+        }
+      ],
+      "coverage": {
+        "required_dimensions": {
+          "total": 2,
+          "extracted": 2,
+          "missing": 0,
+          "unknown": 0,
+          "unsupported": 0,
+          "extracted_percent": 100
+        },
+        "required_notes": {
+          "total": 1,
+          "extracted": 1,
+          "missing": 0,
+          "unknown": 0,
+          "unsupported": 0,
+          "extracted_percent": 100
+        },
+        "required_views": {
+          "total": 2,
+          "extracted": 2,
+          "missing": 0,
+          "unknown": 0,
+          "unsupported": 0,
+          "extracted_percent": 100
+        },
+        "total_required": 5,
+        "total_extracted": 5,
+        "total_missing": 0,
+        "total_unknown": 0,
+        "total_unsupported": 0
+      },
+      "required_dimensions": [
+        {
+          "requirement_id": "HOLE_LEFT_DIA",
+          "requirement_label": "Left mounting hole diameter",
+          "classification": "extracted",
+          "matched_extracted_id": "svg_text_006",
+          "matched_raw_text": "⌀6",
+          "matched_feature_id": "hole_left",
+          "source_artifact": "svg",
+          "confidence": 0.84,
+          "reason": "Reliable extracted dimension evidence matched this required dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_006"
+          },
+          "candidate_matches": []
+        },
+        {
+          "requirement_id": "HOLE_RIGHT_DIA",
+          "requirement_label": "Right mounting hole diameter",
+          "classification": "extracted",
+          "matched_extracted_id": "svg_text_007",
+          "matched_raw_text": "⌀10",
+          "matched_feature_id": "hole_right",
+          "source_artifact": "svg",
+          "confidence": 0.84,
+          "reason": "Reliable extracted dimension evidence matched this required dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_007"
+          },
+          "candidate_matches": []
+        }
+      ],
+      "required_notes": [
+        {
+          "requirement_id": "MATERIAL",
+          "requirement_label": "Material: AL6061",
+          "classification": "extracted",
+          "matched_extracted_id": "svg_text_025_svg_text_026_material_pair",
+          "matched_raw_text": "Material: AL6061",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.86,
+          "reason": "Reliable extracted note evidence matched this required drawing note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_title_block_material_pair",
+            "label_svg_text_id": "svg_text_025",
+            "value_svg_text_id": "svg_text_026"
+          },
+          "candidate_matches": []
+        }
+      ],
+      "required_views": [
+        {
+          "requirement_id": "top",
+          "requirement_label": "top",
+          "classification": "extracted",
+          "matched_extracted_id": "top",
+          "matched_raw_text": "TOP",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.94,
+          "reason": "Reliable extracted view evidence matched this required view.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_view_group_metadata",
+            "svg_group_id": "drawing-view-top",
+            "svg_region_ref": "drawing-view-top"
+          },
+          "candidate_matches": [
+            {
+              "matched_extracted_id": "top",
+              "matched_raw_text": "TOP",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.72,
+              "reason": "Matched extracted view stayed below the reliable confidence threshold.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+                "method": "svg_view_label_scan",
+                "svg_text_id": "svg_text_001"
+              }
+            }
+          ]
+        },
+        {
+          "requirement_id": "iso",
+          "requirement_label": "iso",
+          "classification": "extracted",
+          "matched_extracted_id": "iso",
+          "matched_raw_text": "ISOMETRIC",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.94,
+          "reason": "Reliable extracted view evidence matched this required view.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_view_group_metadata",
+            "svg_group_id": "drawing-view-iso",
+            "svg_region_ref": "drawing-view-iso"
+          },
+          "candidate_matches": [
+            {
+              "matched_extracted_id": "iso",
+              "matched_raw_text": "ISO",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.72,
+              "reason": "Matched extracted view stayed below the reliable confidence threshold.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+                "method": "svg_view_label_scan",
+                "svg_text_id": "svg_text_020"
+              }
+            }
+          ]
+        }
+      ],
+      "unmatched_dimensions": [
+        {
+          "extracted_id": "svg_text_002",
+          "raw_text": "160",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_002"
+          }
+        },
+        {
+          "extracted_id": "svg_text_003",
+          "raw_text": "100",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_003"
+          }
+        },
+        {
+          "extracted_id": "svg_text_004",
+          "raw_text": "⌀8",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_004"
+          }
+        },
+        {
+          "extracted_id": "svg_text_005",
+          "raw_text": "⌀12",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_005"
+          }
+        },
+        {
+          "extracted_id": "svg_text_008",
+          "raw_text": "30.0",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_008"
+          }
+        },
+        {
+          "extracted_id": "svg_text_009",
+          "raw_text": "95",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_009"
+          }
+        },
+        {
+          "extracted_id": "svg_text_010",
+          "raw_text": "35",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_010"
+          }
+        },
+        {
+          "extracted_id": "svg_text_011",
+          "raw_text": "30",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_011"
+          }
+        },
+        {
+          "extracted_id": "svg_text_012",
+          "raw_text": "40",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_012"
+          }
+        },
+        {
+          "extracted_id": "svg_text_013",
+          "raw_text": "30",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_013"
+          }
+        },
+        {
+          "extracted_id": "svg_text_018",
+          "raw_text": "30",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_018"
+          }
+        },
+        {
+          "extracted_id": "svg_text_019",
+          "raw_text": "125",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_019"
+          }
+        }
+      ],
+      "unmatched_notes": [
+        {
+          "extracted_id": "svg_text_016",
+          "raw_text": "B",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_016"
+          }
+        },
+        {
+          "extracted_id": "svg_text_017",
+          "raw_text": "C",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_017"
+          }
+        },
+        {
+          "extracted_id": "svg_text_021",
+          "raw_text": "PART NAME",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_021"
+          }
+        },
+        {
+          "extracted_id": "svg_text_022",
+          "raw_text": "Quality Pass Bracket",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_022"
+          }
+        },
+        {
+          "extracted_id": "svg_text_023",
+          "raw_text": "DRAWING NO.",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_023"
+          }
+        },
+        {
+          "extracted_id": "svg_text_025",
+          "raw_text": "MATERIAL",
+          "category": "material",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_025"
+          }
+        },
+        {
+          "extracted_id": "svg_text_026",
+          "raw_text": "AL6061",
+          "category": "material",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_026"
+          }
+        },
+        {
+          "extracted_id": "svg_text_027",
+          "raw_text": "SCALE",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_027"
+          }
+        },
+        {
+          "extracted_id": "svg_text_029",
+          "raw_text": "TOLERANCE",
+          "category": "tolerance",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_029"
+          }
+        },
+        {
+          "extracted_id": "svg_text_030",
+          "raw_text": "KS B 0401:2014-m",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_030"
+          }
+        },
+        {
+          "extracted_id": "svg_text_031",
+          "raw_text": "DATE",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_031"
+          }
+        },
+        {
+          "extracted_id": "svg_text_033",
+          "raw_text": "DESIGNED BY",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_033"
+          }
+        },
+        {
+          "extracted_id": "svg_text_035",
+          "raw_text": "SIZE / SHEET",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_035"
+          }
+        },
+        {
+          "extracted_id": "svg_text_036",
+          "raw_text": "A3",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_036"
+          }
+        },
+        {
+          "extracted_id": "svg_text_037",
+          "raw_text": "BBox: 160 x 100 x 8 mm",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_037"
+          }
+        },
+        {
+          "extracted_id": "svg_text_038",
+          "raw_text": "Visible",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_038"
+          }
+        },
+        {
+          "extracted_id": "svg_text_039",
+          "raw_text": "Hidden",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_039"
+          }
+        },
+        {
+          "extracted_id": "svg_text_040",
+          "raw_text": "Center",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_040"
+          }
+        },
+        {
+          "extracted_id": "svg_text_041",
+          "raw_text": "Dimension",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_041"
+          }
+        },
+        {
+          "extracted_id": "svg_text_042",
+          "raw_text": "NOTES:",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_042"
+          }
+        },
+        {
+          "extracted_id": "svg_text_043",
+          "raw_text": "1. GENERAL TOLERANCES PER KS B 0401:2014-m",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_043"
+          }
+        },
+        {
+          "extracted_id": "svg_text_044",
+          "raw_text": "2. BREAK ALL SHARP EDGES C1",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_044"
+          }
+        },
+        {
+          "extracted_id": "svg_text_045",
+          "raw_text": "3. DEBURR ALL MACHINED EDGES",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_045"
+          }
+        },
+        {
+          "extracted_id": "svg_text_047",
+          "raw_text": "5. ALL DIMENSIONS IN mm",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_047"
+          }
+        }
+      ],
+      "unknowns": [],
+      "limitations": [
+        "Advisory-only foundation; no OCR, no PDF raster parsing, and no screenshot analysis were used.",
+        "Vector geometry without reliable text labels is not promoted to semantic matches in this task.",
+        "Unsupported or missing extraction evidence remains unknown instead of being inferred as pass."
+      ],
+      "matched_required_dimensions": 2,
+      "matched_required_notes": 1,
+      "matched_required_views": 2,
+      "missing_required_items": [],
+      "suggested_action_details": [],
+      "suggested_actions": []
+    }
+  },
+  "layout_readability": {
+    "status": "warning",
+    "score": 88,
+    "confidence": "high",
+    "advisory_only": true,
+    "evidence_state": "available",
+    "completeness_state": "complete",
+    "summary": "1 advisory layout/readability finding(s) confirmed from structured metadata.",
+    "finding_count": 1,
+    "warning_count": 1,
+    "info_count": 0,
+    "findings": [
+      {
+        "type": "text_overlap",
+        "severity": "warning",
+        "advisory_only": true,
+        "message": "Structured QA evidence shows overlapping drawing text.",
+        "recommendation": "Separate overlapping note or dimension text and reroute leaders if needed.",
+        "view_ids": [
+          "page"
+        ],
+        "element_ids": [],
+        "labels": [
+          "SIZE / SHEET",
+          "BBox: 160 x 100 x 8 mm"
+        ],
+        "bounding_boxes": [],
+        "raw_source": {
+          "artifact_type": "qa_report",
+          "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing_qa.json",
+          "method": "qa_vector_text_overlap",
+          "pair_index": 0,
+          "iou": 0.568
+        },
+        "source_kind": "qa_metrics",
+        "source_artifact": "qa_report",
+        "source_ref": "details.text_overlaps.0",
+        "evidence_state": "available",
+        "completeness_state": "complete",
+        "provenance": {
+          "artifact_type": "qa_report",
+          "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing_qa.json",
+          "method": "qa_vector_text_overlap",
+          "pair_index": 0,
+          "iou": 0.568,
+          "source_kind": "qa_metrics",
+          "source_ref": "details.text_overlaps.0"
+        }
+      }
+    ],
+    "recommended_actions": [
+      "Separate overlapping note or dimension text and reroute leaders if needed."
+    ],
+    "provenance": {
+      "sources": [
+        {
+          "artifact_type": "layout_report",
+          "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_layout_report.json",
+          "method": "layout_report_views",
+          "view_count": 2,
+          "evidence_state": "available",
+          "completeness_state": "complete",
+          "source_kind": "layout_report",
+          "source_artifact": "layout_report",
+          "source_ref": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_layout_report.json"
+        },
+        {
+          "artifact_type": "qa_report",
+          "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing_qa.json",
+          "method": "qa_vector_metrics",
+          "metric_keys": [
+            "intent_metrics_applicable",
+            "iso_hidden_count",
+            "overflow_count",
+            "text_overlap_pairs",
+            "dim_overlap_pairs",
+            "notes_overflow",
+            "gdt_unanchored",
+            "dense_iso",
+            "stroke_violations",
+            "float_precision_count",
+            "dim_completeness",
+            "dim_redundancy",
+            "datum_coherence",
+            "view_coverage",
+            "note_convention",
+            "required_presence_rate",
+            "required_presence_miss",
+            "value_inconsistency",
+            "virtual_pcd_present",
+            "note_semantic_mismatch",
+            "dfm_error_count",
+            "dfm_warning_count",
+            "dfm_score"
+          ],
+          "detail_keys": [
+            "overflows",
+            "text_overlaps",
+            "required_presence_missing_ids"
+          ],
+          "evidence_state": "available",
+          "completeness_state": "complete",
+          "source_kind": "qa_metrics",
+          "source_artifact": "qa_report",
+          "source_ref": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing_qa.json"
+        },
+        {
+          "artifact_type": "svg",
+          "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+          "method": "svg_view_group_metadata",
+          "view_ids": [
+            "top",
+            "iso"
+          ],
+          "evidence_state": "available",
+          "completeness_state": "complete",
+          "source_kind": "svg_view_metadata",
+          "source_artifact": "svg",
+          "source_ref": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg"
+        }
+      ],
+      "evaluated_view_ids": [
+        "top",
+        "iso",
+        "page"
+      ],
+      "source_completeness": {
+        "layout_report": {
+          "source_kind": "layout_report",
+          "source_artifact": "layout_report",
+          "source_ref": "layout_report_views",
+          "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_layout_report.json",
+          "method": "layout_report_views",
+          "evidence_state": "available",
+          "completeness_state": "complete",
+          "available": true,
+          "inspected": true,
+          "missing_reasons": [],
+          "evidence_keys": [
+            "views",
+            "summary",
+            "overflow"
+          ]
+        },
+        "qa_metrics": {
+          "source_kind": "qa_metrics",
+          "source_artifact": "qa_report",
+          "source_ref": "qa_vector_metrics",
+          "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing_qa.json",
+          "method": "qa_vector_metrics",
+          "evidence_state": "available",
+          "completeness_state": "complete",
+          "available": true,
+          "inspected": true,
+          "missing_reasons": [],
+          "evidence_keys": [
+            "metrics.intent_metrics_applicable",
+            "metrics.iso_hidden_count",
+            "metrics.overflow_count",
+            "metrics.text_overlap_pairs",
+            "metrics.dim_overlap_pairs",
+            "metrics.notes_overflow",
+            "metrics.gdt_unanchored",
+            "metrics.dense_iso",
+            "metrics.stroke_violations",
+            "metrics.float_precision_count",
+            "metrics.dim_completeness",
+            "metrics.dim_redundancy",
+            "metrics.datum_coherence",
+            "metrics.view_coverage",
+            "metrics.note_convention",
+            "metrics.required_presence_rate",
+            "metrics.required_presence_miss",
+            "metrics.value_inconsistency",
+            "metrics.virtual_pcd_present",
+            "metrics.note_semantic_mismatch",
+            "metrics.dfm_error_count",
+            "metrics.dfm_warning_count",
+            "metrics.dfm_score",
+            "details.overflows",
+            "details.text_overlaps",
+            "details.required_presence_missing_ids"
+          ]
+        },
+        "svg_view_metadata": {
+          "source_kind": "svg_view_metadata",
+          "source_artifact": "svg",
+          "source_ref": "svg_view_group_metadata",
+          "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+          "method": "svg_view_group_metadata",
+          "evidence_state": "available",
+          "completeness_state": "complete",
+          "available": true,
+          "inspected": true,
+          "missing_reasons": [],
+          "evidence_keys": [
+            "views.top",
+            "views.iso"
+          ]
+        }
+      },
+      "metrics_available": {
+        "layout_views": true,
+        "overflow": true,
+        "text_overlap": true,
+        "dimension_overlap": true,
+        "notes_overflow": true,
+        "svg_view_metadata": true
+      }
+    }
+  },
+  "thresholds": {
+    "required_dimension_coverage_percent": 100,
+    "max_dimension_conflicts": 0,
+    "max_view_overlaps": 0,
+    "min_traceability_coverage_percent": 95
+  },
+  "blocking_issues": [],
+  "warnings": [],
+  "recommended_actions": [
+    "Separate overlapping note or dimension text and reroute leaders if needed.",
+    "Add \"front\" to drawing.views or drawing_plan.views.enabled.",
+    "Add a required linear dimension intent for overall length from a declared datum or edge.",
+    "Add a required linear dimension intent for overall width from a declared datum or edge.",
+    "Add a required thickness/height dimension intent on a front or side view.",
+    "Add required X/Y or ordinate location intent for \"hole_left\" from declared datums.",
+    "Add required X/Y or ordinate location intent for \"hole_right\" from declared datums.",
+    "Enable or verify center marks/centerlines for hole views.",
+    "Add or verify the material note in the title block or general notes.",
+    "Add a local detail view only if diameter/location callouts collide or become unreadable."
+  ],
+  "suggested_actions": [
+    "Separate overlapping note or dimension text and reroute leaders if needed.",
+    "Add \"front\" to drawing.views or drawing_plan.views.enabled.",
+    "Add a required linear dimension intent for overall length from a declared datum or edge.",
+    "Add a required linear dimension intent for overall width from a declared datum or edge.",
+    "Add a required thickness/height dimension intent on a front or side view.",
+    "Add required X/Y or ordinate location intent for \"hole_left\" from declared datums.",
+    "Add required X/Y or ordinate location intent for \"hole_right\" from declared datums.",
+    "Enable or verify center marks/centerlines for hole views.",
+    "Add or verify the material note in the title block or general notes.",
+    "Add a local detail view only if diameter/location callouts collide or become unreadable."
+  ],
+  "drawing_planner": {
+    "schema_version": "0.1",
+    "planner_type": "drawing_view_dimension_advisory",
+    "status": "advisory",
+    "generated_from": {
+      "drawing_intent": true,
+      "feature_catalog": true,
+      "artifact_refs": {
+        "input_config": "docs/examples/quality-pass-bracket/config.toml",
+        "drawing_svg": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "plan": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_plan.toml",
+        "traceability": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_traceability.json",
+        "dimension_map": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_dimension_map.json",
+        "dim_conflicts": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_dim_conflicts.json"
+      }
+    },
+    "recommended_views": [
+      {
+        "id": "view:top",
+        "type": "required_view",
+        "view": "top",
+        "status": "already_requested",
+        "message": "Recommend top view.",
+        "reason": "Top view is the clearest evidence-backed view for plate footprint and hole locations.",
+        "evidence_refs": [
+          "config:shape:hole_left",
+          "traceability:feature:hole_left",
+          "config:shape:hole_right",
+          "traceability:feature:hole_right",
+          "config:shape:plate"
+        ],
+        "confidence": {
+          "score": 0.86,
+          "level": "high",
+          "rationale": "Conservative view rule matched reliable geometry evidence."
+        }
+      },
+      {
+        "id": "view:front",
+        "type": "required_view",
+        "view": "front",
+        "status": "recommended",
+        "message": "Recommend front view.",
+        "reason": "Front view supports body thickness/height communication without relying on an isometric view.",
+        "evidence_refs": [
+          "config:shape:plate"
+        ],
+        "confidence": {
+          "score": 0.74,
+          "level": "medium",
+          "rationale": "Conservative view rule matched reliable geometry evidence."
+        },
+        "suggested_fix": "Add \"front\" to drawing.views or drawing_plan.views.enabled."
+      }
+    ],
+    "required_dimensions_by_feature": [
+      {
+        "id": "plate:overall_length",
+        "type": "required_dimension",
+        "feature_type": "plate",
+        "feature_id": "plate",
+        "view": "top",
+        "dimension_type": "overall_length",
+        "status": "missing_intent",
+        "message": "Dimension overall length for plate.",
+        "reason": "Body/plate footprint should be bounded by an overall length dimension.",
+        "evidence_refs": [
+          "config:shape:plate"
+        ],
+        "confidence": {
+          "score": 0.82,
+          "level": "high",
+          "rationale": "Box body dimensions are explicit in config or feature evidence."
+        },
+        "suggested_fix": "Add a required linear dimension intent for overall length from a declared datum or edge."
+      },
+      {
+        "id": "plate:overall_width",
+        "type": "required_dimension",
+        "feature_type": "plate",
+        "feature_id": "plate",
+        "view": "top",
+        "dimension_type": "overall_width",
+        "status": "missing_intent",
+        "message": "Dimension overall width for plate.",
+        "reason": "Body/plate footprint should be bounded by an overall width dimension.",
+        "evidence_refs": [
+          "config:shape:plate"
+        ],
+        "confidence": {
+          "score": 0.82,
+          "level": "high",
+          "rationale": "Box body dimensions are explicit in config or feature evidence."
+        },
+        "suggested_fix": "Add a required linear dimension intent for overall width from a declared datum or edge."
+      },
+      {
+        "id": "plate:thickness",
+        "type": "required_dimension",
+        "feature_type": "plate",
+        "feature_id": "plate",
+        "view": "front",
+        "dimension_type": "thickness",
+        "status": "missing_intent",
+        "message": "Dimension thickness for plate.",
+        "reason": "A plate/body thickness is required to manufacture the body from orthographic views.",
+        "evidence_refs": [
+          "config:shape:plate"
+        ],
+        "confidence": {
+          "score": 0.78,
+          "level": "medium",
+          "rationale": "Box height/thickness evidence is available."
+        },
+        "suggested_fix": "Add a required thickness/height dimension intent on a front or side view."
+      },
+      {
+        "id": "hole_left:diameter",
+        "type": "required_dimension",
+        "feature_type": "hole",
+        "feature_id": "hole_left",
+        "view": "top",
+        "dimension_type": "diameter",
+        "status": "planned",
+        "message": "Dimension diameter for hole_left.",
+        "reason": "Through-hole evidence supports a required diameter callout.",
+        "evidence_refs": [
+          "config:shape:hole_left",
+          "traceability:feature:hole_left"
+        ],
+        "confidence": {
+          "score": 0.9,
+          "level": "high",
+          "rationale": "Cylinder cut provides reliable diameter evidence."
+        }
+      },
+      {
+        "id": "hole_right:diameter",
+        "type": "required_dimension",
+        "feature_type": "hole",
+        "feature_id": "hole_right",
+        "view": "top",
+        "dimension_type": "diameter",
+        "status": "planned",
+        "message": "Dimension diameter for hole_right.",
+        "reason": "Through-hole evidence supports a required diameter callout.",
+        "evidence_refs": [
+          "config:shape:hole_right",
+          "traceability:feature:hole_right"
+        ],
+        "confidence": {
+          "score": 0.9,
+          "level": "high",
+          "rationale": "Cylinder cut provides reliable diameter evidence."
+        }
+      },
+      {
+        "id": "hole_left:center_location",
+        "type": "required_dimension",
+        "feature_type": "hole",
+        "feature_id": "hole_left",
+        "view": "top",
+        "dimension_type": "center_location",
+        "status": "missing_intent",
+        "message": "Locate center of hole_left.",
+        "reason": "A standalone through hole needs a center-location dimension from a datum or edge.",
+        "evidence_refs": [
+          "config:shape:hole_left",
+          "traceability:feature:hole_left"
+        ],
+        "confidence": {
+          "score": 0.8,
+          "level": "high",
+          "rationale": "Hole position is available."
+        },
+        "suggested_fix": "Add required X/Y or ordinate location intent for \"hole_left\" from declared datums."
+      },
+      {
+        "id": "hole_right:center_location",
+        "type": "required_dimension",
+        "feature_type": "hole",
+        "feature_id": "hole_right",
+        "view": "top",
+        "dimension_type": "center_location",
+        "status": "missing_intent",
+        "message": "Locate center of hole_right.",
+        "reason": "A standalone through hole needs a center-location dimension from a datum or edge.",
+        "evidence_refs": [
+          "config:shape:hole_right",
+          "traceability:feature:hole_right"
+        ],
+        "confidence": {
+          "score": 0.8,
+          "level": "high",
+          "rationale": "Hole position is available."
+        },
+        "suggested_fix": "Add required X/Y or ordinate location intent for \"hole_right\" from declared datums."
+      }
+    ],
+    "missing_dimensions": [
+      {
+        "id": "plate:overall_length:missing",
+        "dimension_id": "plate:overall_length",
+        "feature_id": "plate",
+        "feature_type": "plate",
+        "dimension_type": "overall_length",
+        "explanation": "No explicit drawing intent or dimension-map entry was found for the body overall length.",
+        "suggested_fix": "Add a required linear dimension intent for overall length from a declared datum or edge.",
+        "evidence_refs": [
+          "config:shape:plate"
+        ],
+        "confidence": {
+          "score": 0.82,
+          "level": "high",
+          "rationale": "Box body dimensions are explicit in config or feature evidence."
+        }
+      },
+      {
+        "id": "plate:overall_width:missing",
+        "dimension_id": "plate:overall_width",
+        "feature_id": "plate",
+        "feature_type": "plate",
+        "dimension_type": "overall_width",
+        "explanation": "No explicit drawing intent or dimension-map entry was found for the body overall width.",
+        "suggested_fix": "Add a required linear dimension intent for overall width from a declared datum or edge.",
+        "evidence_refs": [
+          "config:shape:plate"
+        ],
+        "confidence": {
+          "score": 0.82,
+          "level": "high",
+          "rationale": "Box body dimensions are explicit in config or feature evidence."
+        }
+      },
+      {
+        "id": "plate:thickness:missing",
+        "dimension_id": "plate:thickness",
+        "feature_id": "plate",
+        "feature_type": "plate",
+        "dimension_type": "thickness",
+        "explanation": "No explicit drawing intent or dimension-map entry was found for body thickness.",
+        "suggested_fix": "Add a required thickness/height dimension intent on a front or side view.",
+        "evidence_refs": [
+          "config:shape:plate"
+        ],
+        "confidence": {
+          "score": 0.78,
+          "level": "medium",
+          "rationale": "Box height/thickness evidence is available."
+        }
+      },
+      {
+        "id": "hole_left:center_location:missing",
+        "dimension_id": "hole_left:center_location",
+        "feature_id": "hole_left",
+        "feature_type": "hole",
+        "dimension_type": "center_location",
+        "explanation": "No explicit center-location intent was found for standalone hole \"hole_left\".",
+        "suggested_fix": "Add required X/Y or ordinate location intent for \"hole_left\" from declared datums.",
+        "evidence_refs": [
+          "config:shape:hole_left",
+          "traceability:feature:hole_left"
+        ],
+        "confidence": {
+          "score": 0.8,
+          "level": "high",
+          "rationale": "Hole position is available."
+        }
+      },
+      {
+        "id": "hole_right:center_location:missing",
+        "dimension_id": "hole_right:center_location",
+        "feature_id": "hole_right",
+        "feature_type": "hole",
+        "dimension_type": "center_location",
+        "explanation": "No explicit center-location intent was found for standalone hole \"hole_right\".",
+        "suggested_fix": "Add required X/Y or ordinate location intent for \"hole_right\" from declared datums.",
+        "evidence_refs": [
+          "config:shape:hole_right",
+          "traceability:feature:hole_right"
+        ],
+        "confidence": {
+          "score": 0.8,
+          "level": "high",
+          "rationale": "Hole position is available."
+        }
+      }
+    ],
+    "recommended_annotations": [
+      {
+        "id": "annotation:centerlines-for-holes",
+        "type": "annotation",
+        "status": "recommended",
+        "message": "Show center marks or centerlines for hole features.",
+        "reason": "Hole features are present; center marks improve inspection readability without adding tolerance claims.",
+        "evidence_refs": [
+          "config:shape:hole_left",
+          "traceability:feature:hole_left",
+          "config:shape:hole_right",
+          "traceability:feature:hole_right"
+        ],
+        "confidence": {
+          "score": 0.82,
+          "level": "high",
+          "rationale": "Hole features are reliable drawing evidence."
+        },
+        "suggested_fix": "Enable or verify center marks/centerlines for hole views."
+      },
+      {
+        "id": "annotation:material-note",
+        "type": "annotation",
+        "status": "recommended",
+        "message": "Carry material note \"AL6061\" on the drawing.",
+        "reason": "Material is explicitly declared in drawing/manufacturing metadata.",
+        "evidence_refs": [
+          "config:drawing.meta.material",
+          "config:manufacturing.material"
+        ],
+        "confidence": {
+          "score": 0.86,
+          "level": "high",
+          "rationale": "Material metadata is explicitly present."
+        },
+        "suggested_fix": "Add or verify the material note in the title block or general notes."
+      }
+    ],
+    "section_view_recommendations": [],
+    "detail_view_recommendations": [
+      {
+        "id": "detail:small-hole-callouts",
+        "type": "detail_view",
+        "feature_type": "through_hole",
+        "status": "recommended",
+        "message": "Consider a detail view for small hole callouts if the sheet scale makes them crowded.",
+        "reason": "Small hole diameter evidence is present; this remains conditional on drawing readability.",
+        "evidence_refs": [
+          "config:shape:hole_left",
+          "traceability:feature:hole_left"
+        ],
+        "confidence": {
+          "score": 0.56,
+          "level": "medium",
+          "rationale": "Small feature evidence supports only a conditional detail-view recommendation."
+        },
+        "suggested_fix": "Add a local detail view only if diameter/location callouts collide or become unreadable."
+      }
+    ],
+    "suggested_actions": [
+      "Add \"front\" to drawing.views or drawing_plan.views.enabled.",
+      "Add a required linear dimension intent for overall length from a declared datum or edge.",
+      "Add a required linear dimension intent for overall width from a declared datum or edge.",
+      "Add a required thickness/height dimension intent on a front or side view.",
+      "Add required X/Y or ordinate location intent for \"hole_left\" from declared datums.",
+      "Add required X/Y or ordinate location intent for \"hole_right\" from declared datums.",
+      "Enable or verify center marks/centerlines for hole views.",
+      "Add or verify the material note in the title block or general notes.",
+      "Add a local detail view only if diameter/location callouts collide or become unreadable."
+    ],
+    "evidence": [
+      {
+        "ref": "config:shape:hole_left",
+        "kind": "feature_catalog",
+        "summary": "hole feature \"hole_left\" from conservative feature catalog evidence."
+      },
+      {
+        "ref": "config:shape:hole_right",
+        "kind": "feature_catalog",
+        "summary": "hole feature \"hole_right\" from conservative feature catalog evidence."
+      },
+      {
+        "ref": "config:shape:plate",
+        "kind": "feature_catalog",
+        "summary": "plate feature \"plate\" from conservative feature catalog evidence."
+      },
+      {
+        "ref": "feature_catalog:chamfer_3",
+        "kind": "feature_catalog",
+        "summary": "chamfer feature \"chamfer_3\" from conservative feature catalog evidence."
+      },
+      {
+        "ref": "traceability:feature:chamfer_body",
+        "kind": "feature",
+        "summary": "chamfer feature \"chamfer_body\" from drawing traceability."
+      }
+    ],
+    "confidence": {
+      "score": 0.8,
+      "level": "high",
+      "rationale": "Aggregate confidence from deterministic feature and drawing-intent evidence; recommendations remain advisory."
+    },
+    "limitations": [
+      "Planner recommendations are advisory and do not replace TechDraw generation.",
+      "No GD&T or tolerance callout is inferred unless explicitly present in drawing metadata.",
+      "Functional requirements are not inferred beyond drawing_intent and reliable feature evidence."
+    ],
+    "suggested_action_details": []
+  },
+  "reviewer_feedback": {
+    "advisory_only": true,
+    "status": "none",
+    "evidence_state": "none",
+    "total_count": 0,
+    "unresolved_count": 0,
+    "linked_count": 0,
+    "unmatched_count": 0,
+    "stale_count": 0,
+    "orphaned_count": 0,
+    "invalid_count": 0,
+    "accepted_count": 0,
+    "resolved_count": 0,
+    "items": [],
+    "summary": "Reviewer feedback was not provided.",
+    "suggested_actions": [],
+    "suggested_action_details": [],
+    "provenance": {
+      "artifact_type": "reviewer_feedback_json",
+      "path": null,
+      "method": "explicit_reviewer_feedback_json",
+      "input_status": "none"
+    }
+  }
+}
