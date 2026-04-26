@@ -8,7 +8,10 @@ import {
   findDefaultArtifactForJob,
   findPreferredConfigArtifact,
   findPreferredDocsManifestArtifact,
+  findPreferredReadinessReportArtifact,
+  findPreferredReleaseBundleArtifact,
   findPreferredReleaseBundleManifestArtifact,
+  findPreferredReviewPackArtifact,
   isConfigLikeArtifact,
   isInspectableModelArtifact,
   isReviewContextArtifact,
@@ -339,6 +342,151 @@ assert.deepEqual(deriveArtifactReentryCapabilities({
     reentry_target: 'release_bundle',
   },
 }), {
+  canOpenInModel: false,
+  canRunTrackedReviewContext: false,
+  canRunTrackedReport: false,
+  canRunTrackedInspect: false,
+  canRunTrackedReadinessPack: true,
+  canRunTrackedStandardDocs: true,
+  canRunTrackedPack: true,
+  canSeedReview: false,
+});
+
+function makeAf5Artifact({
+  id,
+  type,
+  fileName,
+  extension = '.json',
+  reentryTarget = null,
+}) {
+  return {
+    id,
+    key: id,
+    type,
+    file_name: fileName,
+    extension,
+    exists: true,
+    capabilities: {
+      can_open: true,
+      can_download: true,
+      browser_safe: extension !== '.zip',
+    },
+    links: {
+      open: `/artifacts/job-af5/${id}`,
+      download: `/artifacts/job-af5/${id}/download`,
+    },
+    contract: reentryTarget
+      ? {
+          reentry_target: reentryTarget,
+          canonical_file_name: fileName,
+        }
+      : null,
+  };
+}
+
+const af5CanonicalArtifacts = [
+  makeAf5Artifact({
+    id: 'review-pack',
+    type: 'review-pack.json',
+    fileName: 'review_pack.json',
+    reentryTarget: 'review_pack',
+  }),
+  makeAf5Artifact({
+    id: 'readiness-report',
+    type: 'readiness-report.json',
+    fileName: 'readiness_report.json',
+    reentryTarget: 'readiness_report',
+  }),
+  makeAf5Artifact({
+    id: 'standard-docs-manifest',
+    type: 'standard-docs.summary',
+    fileName: 'standard_docs_manifest.json',
+  }),
+  makeAf5Artifact({
+    id: 'release-bundle-manifest',
+    type: 'release-bundle.manifest.json',
+    fileName: 'release_bundle_manifest.json',
+  }),
+  makeAf5Artifact({
+    id: 'release-bundle',
+    type: 'release-bundle.zip',
+    fileName: 'release_bundle.zip',
+    extension: '.zip',
+    reentryTarget: 'release_bundle',
+  }),
+];
+
+assert.deepEqual(af5CanonicalArtifacts.map((artifact) => artifact.file_name), [
+  'review_pack.json',
+  'readiness_report.json',
+  'standard_docs_manifest.json',
+  'release_bundle_manifest.json',
+  'release_bundle.zip',
+]);
+assert.equal(
+  af5CanonicalArtifacts.some((artifact) => [
+    'review-pack.json',
+    'readiness-report.json',
+    'standard-docs-manifest.json',
+    'release-bundle-manifest.json',
+    'release-bundle.zip',
+  ].includes(artifact.file_name)),
+  false
+);
+assert.equal(findPreferredReviewPackArtifact(af5CanonicalArtifacts)?.file_name, 'review_pack.json');
+assert.equal(findPreferredReadinessReportArtifact(af5CanonicalArtifacts)?.file_name, 'readiness_report.json');
+assert.equal(findPreferredDocsManifestArtifact(af5CanonicalArtifacts)?.file_name, 'standard_docs_manifest.json');
+assert.equal(findPreferredReleaseBundleManifestArtifact(af5CanonicalArtifacts)?.file_name, 'release_bundle_manifest.json');
+assert.equal(findPreferredReleaseBundleArtifact(af5CanonicalArtifacts)?.file_name, 'release_bundle.zip');
+assert.equal(findDefaultArtifactForJob(af5CanonicalArtifacts)?.file_name, 'review_pack.json');
+
+for (const artifact of af5CanonicalArtifacts) {
+  assert.equal(artifact.capabilities.can_open, true, `${artifact.file_name} should expose an open route`);
+  assert.equal(artifact.links.open, `/artifacts/job-af5/${artifact.id}`);
+  assert.equal(artifact.links.open.includes('/local-file'), false);
+}
+
+assert.deepEqual(deriveArtifactReentryCapabilities(af5CanonicalArtifacts[0]), {
+  canOpenInModel: false,
+  canRunTrackedReviewContext: false,
+  canRunTrackedReport: false,
+  canRunTrackedInspect: false,
+  canRunTrackedReadinessPack: true,
+  canRunTrackedStandardDocs: false,
+  canRunTrackedPack: false,
+  canSeedReview: true,
+});
+assert.deepEqual(deriveArtifactReentryCapabilities(af5CanonicalArtifacts[1]), {
+  canOpenInModel: false,
+  canRunTrackedReviewContext: false,
+  canRunTrackedReport: false,
+  canRunTrackedInspect: false,
+  canRunTrackedReadinessPack: false,
+  canRunTrackedStandardDocs: true,
+  canRunTrackedPack: true,
+  canSeedReview: true,
+});
+assert.deepEqual(deriveArtifactReentryCapabilities(af5CanonicalArtifacts[2]), {
+  canOpenInModel: false,
+  canRunTrackedReviewContext: false,
+  canRunTrackedReport: false,
+  canRunTrackedInspect: false,
+  canRunTrackedReadinessPack: false,
+  canRunTrackedStandardDocs: false,
+  canRunTrackedPack: false,
+  canSeedReview: true,
+});
+assert.deepEqual(deriveArtifactReentryCapabilities(af5CanonicalArtifacts[3]), {
+  canOpenInModel: false,
+  canRunTrackedReviewContext: false,
+  canRunTrackedReport: false,
+  canRunTrackedInspect: false,
+  canRunTrackedReadinessPack: false,
+  canRunTrackedStandardDocs: false,
+  canRunTrackedPack: false,
+  canSeedReview: false,
+});
+assert.deepEqual(deriveArtifactReentryCapabilities(af5CanonicalArtifacts[4]), {
   canOpenInModel: false,
   canRunTrackedReviewContext: false,
   canRunTrackedReport: false,

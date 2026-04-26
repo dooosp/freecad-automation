@@ -493,6 +493,86 @@ const docsFromBundle = await translateStudioJobSubmission({
 assert.equal(docsFromBundle.ok, true, docsFromBundle.errors?.join('\n'));
 assert.equal(docsFromBundle.request.config_path, '/tmp/release_bundle.zip');
 assert.equal(docsFromBundle.request.readiness_report_path, '/tmp/release_bundle.zip');
+assert.equal(docsFromBundle.request.options.studio.source, 'artifact-reference');
+assert.deepEqual(docsFromBundle.request.options.studio.source_job_id, 'job-bundle');
+assert.deepEqual(docsFromBundle.request.options.studio.source_artifact_id, 'release-bundle');
+
+const readinessFromBundle = await translateStudioJobSubmission({
+  type: 'readiness-pack',
+  artifact_ref: {
+    job_id: 'job-bundle',
+    artifact_id: 'release-bundle',
+  },
+}, {
+  async resolveArtifactRef(ref) {
+    return {
+      jobId: ref.job_id,
+      artifact: {
+        id: ref.artifact_id,
+        path: '/tmp/release_bundle.zip',
+        type: 'release-bundle.zip',
+        file_name: 'release_bundle.zip',
+        extension: '.zip',
+        exists: true,
+        contract: {
+          reentry_target: 'release_bundle',
+        },
+      },
+      jobArtifacts: [],
+    };
+  },
+});
+
+assert.equal(readinessFromBundle.ok, true, readinessFromBundle.errors?.join('\n'));
+assert.equal(readinessFromBundle.request.type, 'readiness-pack');
+assert.equal(readinessFromBundle.request.review_pack_path, '/tmp/release_bundle.zip');
+assert.equal(readinessFromBundle.request.options.studio.source, 'artifact-reference');
+assert.equal(readinessFromBundle.request.options.studio.source_job_id, 'job-bundle');
+assert.equal(readinessFromBundle.request.options.studio.source_artifact_id, 'release-bundle');
+assert.equal('config_toml' in readinessFromBundle.request, false);
+assert.equal('context_path' in readinessFromBundle.request, false);
+
+const packFromBundle = await translateStudioJobSubmission({
+  type: 'pack',
+  artifact_ref: {
+    job_id: 'job-bundle',
+    artifact_id: 'release-bundle',
+  },
+}, {
+  async resolveArtifactRef(ref) {
+    return {
+      jobId: ref.job_id,
+      artifact: {
+        id: ref.artifact_id,
+        path: '/tmp/release_bundle.zip',
+        type: 'release-bundle.zip',
+        file_name: 'release_bundle.zip',
+        extension: '.zip',
+        exists: true,
+        contract: {
+          reentry_target: 'release_bundle',
+        },
+      },
+      jobArtifacts: [
+        {
+          id: 'release-bundle-manifest',
+          path: '/tmp/release_bundle_manifest.json',
+          type: 'release-bundle.manifest.json',
+          file_name: 'release_bundle_manifest.json',
+          extension: '.json',
+          exists: true,
+        },
+      ],
+    };
+  },
+});
+
+assert.equal(packFromBundle.ok, true, packFromBundle.errors?.join('\n'));
+assert.equal(packFromBundle.request.type, 'pack');
+assert.equal(packFromBundle.request.readiness_report_path, '/tmp/release_bundle.zip');
+assert.equal('docs_manifest_path' in packFromBundle.request, false);
+assert.equal(packFromBundle.request.options.studio.source, 'artifact-reference');
+assert.equal(packFromBundle.request.options.studio.source_label, 'release_bundle.zip');
 
 const invalidDocsFromReviewPack = await translateStudioJobSubmission({
   type: 'generate-standard-docs',

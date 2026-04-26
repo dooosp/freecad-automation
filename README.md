@@ -189,7 +189,7 @@ Imported STEP / FCStd intake is a bootstrap lane, not reverse-CAD magic.
 - Local API preview route: `POST /api/studio/import-bootstrap`
 - Public goal: bring an existing STEP or FCStd into the review loop safely, quickly, and honestly
 - Draft bootstrap artifacts: `import_diagnostics.json`, `bootstrap_summary.json`, `draft_config.toml`, `engineering_context.json`, `geometry_intelligence.json`, `bootstrap_warnings.json`, and `confidence_map.json`
-- Canonical downstream lineage remains unchanged: `review-context -> review_pack.json -> readiness-pack/readiness-report --review-pack -> readiness_report.json -> generate-standard-docs / pack`
+- Canonical downstream lineage remains unchanged: `review-context -> review_pack.json -> readiness-pack/readiness-report --review-pack -> readiness_report.json -> generate-standard-docs -> standard_docs_manifest.json` and `readiness_report.json -> pack -> release_bundle_manifest.json` plus `release_bundle.zip`.
 
 Low-confidence import findings stay visible as warnings and review-needed evidence. The bootstrap gate is designed to capture assumptions, allow human correction, and then hand off into the existing canonical review/readiness flow without inventing a parallel product surface.
 
@@ -382,9 +382,17 @@ Startup behavior:
 Studio execution model:
 
 - `Preview`: fast request/response work for Model and Drawing. Preview routes are scratch-safe, keep the current workspace state local, and do not create `/jobs` history.
-- `Tracked run`: `POST /api/studio/jobs` queues `create`, `draw`, `inspect`, `report`, `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, and `pack` into `/jobs`, while direct `POST /jobs` JSON requests also cover `review-context`.
-- `Artifact re-entry`: `Artifacts` and `Review` can reopen config artifacts in `Model`, rerun tracked `report` from config-like artifacts, rerun tracked `inspect` from model artifacts, continue `readiness-pack` from canonical `review_pack.json` or `release_bundle.zip`, continue `generate-standard-docs` from canonical review/readiness inputs or release bundles, continue `pack` from canonical readiness inputs or release bundles, and stage `compare-rev` or `stabilization-review` from selected baseline/candidate canonical artifacts when both sides are present.
+- `Tracked run`: `POST /api/studio/jobs` queues `create`, `draw`, `inspect`, `report`, `review-context`, `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, and `pack` into `/jobs`. Studio `review-context` submissions are source-path based (`context_path` or `model_path`, with optional BOM/inspection/quality/compare paths), not config TOML or generic artifact-ref submissions.
+- `Artifact re-entry`: `Artifacts` and `Review` can reopen config artifacts in `Model`, rerun tracked `report` from config-like artifacts, rerun tracked `inspect` from model artifacts, continue `readiness-pack` from canonical `review_pack.json` or `release_bundle.zip`, continue `generate-standard-docs` from canonical readiness inputs or release bundles, continue `pack` from canonical readiness inputs or release bundles, and stage `compare-rev` or `stabilization-review` from selected baseline/candidate canonical artifacts when both sides are present.
 - Browser-visible preview payloads are path-redacted too: tracked job payloads, artifact payloads, example payloads, and drawing preview responses all avoid raw filesystem paths.
+
+AF5 publish/reopen contract:
+
+- `review-context` writes canonical `review_pack.json`.
+- `readiness-pack` or `readiness-report --review-pack` consumes `review_pack.json` and writes canonical `readiness_report.json`.
+- `generate-standard-docs` consumes `readiness_report.json` plus matching config lineage and writes `standard_docs_manifest.json` with generated document outputs.
+- `pack` consumes `readiness_report.json`, optionally `standard_docs_manifest.json`, and writes `release_bundle_manifest.json` plus `release_bundle.zip`.
+- Studio re-entry is tracked job/artifact re-entry through `/jobs`, `/jobs/:id/artifacts`, safe artifact routes, and selected-job deep links. Arbitrary local release-bundle or artifact import into the Package/Artifacts workspace is not part of this contract today; use tracked artifacts or the separate imported-CAD bootstrap lane.
 
 Phase-3 tracked execution model:
 
@@ -438,8 +446,8 @@ Endpoints:
 Supported job types:
 
 - `POST /jobs`: `create`, `draw`, `inspect`, `report`, `review-context`, `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, `pack`
-- `POST /api/studio/jobs`: `create`, `draw`, `inspect`, `report`, `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, `pack`
-- `review-context` remains a direct `/jobs` or CLI path today; the Studio bridge does not yet accept raw review-context source-file submissions.
+- `POST /api/studio/jobs`: `create`, `draw`, `inspect`, `report`, `review-context`, `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, `pack`
+- Studio `review-context` accepts source-file path fields that the local API can resolve (`context_path` or `model_path`, with optional `bom_path`, `inspection_path`, `quality_path`, and `compare_to_path`). It does not accept `config_toml`, `artifact_ref`, or arbitrary local artifact import on that path.
 
 Endpoint usage:
 
@@ -448,7 +456,7 @@ Endpoint usage:
 - `GET /health` returns API liveness plus the same shared runtime diagnostics contract used by `fcad check-runtime --json`
 - `POST /api/studio/model-preview` validates the current TOML and returns preview-only model assets for the Model workspace
 - `POST /api/studio/drawing-preview` returns the fast sheet-first drawing preview; `POST /api/studio/drawing-previews/:id/dimensions` preserves the HTTP edit loop for dimension changes while keeping preview-plan files server-side only
-- `POST /api/studio/jobs` is the studio bridge route: Model and Drawing submit tracked jobs here, and Studio-safe tracked continuation also covers inspect/report re-entry plus compare, readiness, stabilization, docs, and pack jobs from supported artifact references; canonical readiness-backed `generate-standard-docs` can rehydrate a config-like input automatically when the tracked lineage no longer carries a config copy
+- `POST /api/studio/jobs` is the studio bridge route: Model and Drawing submit tracked jobs here, imported-CAD handoff can queue source-path `review-context`, and Studio-safe tracked continuation also covers inspect/report re-entry plus compare, readiness, stabilization, docs, and pack jobs from supported artifact references; canonical readiness-backed `generate-standard-docs` can rehydrate a config-like input automatically when the tracked lineage no longer carries a config copy
 - `POST /jobs` accepts a JSON job request and returns `202 Accepted` with the queued job record for `create`, `draw`, `inspect`, `report`, `review-context`, `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, and `pack`
 - `GET /jobs` returns recent tracked jobs for shell resume and artifact timeline views
 - `GET /jobs/:id` returns the latest status, sanitized browser-visible request metadata, redacted result/manifest summaries, status history, and logical storage metadata
@@ -511,6 +519,14 @@ curl -X POST http://127.0.0.1:3000/api/studio/model-preview \
   -H 'content-type: application/json' \
   -d '{
     "config_toml": "name = \"preview_bracket\"\n[[shapes]]\nid = \"body\"\ntype = \"box\"\nlength = 40\nwidth = 20\nheight = 8\n"
+  }'
+
+curl -X POST http://127.0.0.1:3000/api/studio/jobs \
+  -H 'content-type: application/json' \
+  -d '{
+    "type": "review-context",
+    "context_path": "output/imports/<session-id>/artifacts/engineering_context.json",
+    "model_path": "output/imports/<session-id>/source/simple_bracket.step"
   }'
 
 curl -X POST http://127.0.0.1:3000/api/studio/jobs \
@@ -602,7 +618,7 @@ Current limitations:
 - retry is intentionally narrow and only supported from `failed` or `cancelled` jobs
 - `job.log` is best-effort and primarily captures orchestration events and stderr surfaced from underlying scripts
 - `GET /jobs/:id/artifacts` reports public artifact metadata and links, but it does not inline artifact contents inside the listing response
-- `POST /jobs` and `POST /api/studio/jobs` do not expose every CLI path. `review-context` is direct-JSON only today, while browser-native submit flows stay scoped to the tracked review-first and continuation job surface instead of trying to mirror every shell workflow.
+- `POST /jobs` and `POST /api/studio/jobs` do not expose every CLI path. Studio `review-context` is supported for local API source-path handoff, but the browser UI still avoids a broad arbitrary-file importer and does not try to mirror every shell workflow.
 - preview smoke and legacy serve smoke are browserless HTTP checks only; they do not claim real browser automation or websocket interaction
 
 Studio and legacy shell guide:

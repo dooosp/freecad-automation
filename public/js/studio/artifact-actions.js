@@ -188,11 +188,11 @@ export function isReadinessReportArtifact(artifact = {}) {
 export function isReleaseBundleArtifact(artifact = {}) {
   const target = contractReentryTarget(artifact);
   if (target === 'release_bundle') return true;
-  return includesAny(artifactSearchText(artifact), [
+  const search = artifactSearchText(artifact);
+  if (includesAny(search, RELEASE_BUNDLE_MANIFEST_MATCHERS)) return false;
+  return includesAny(search, [
     'release_bundle.zip',
     'release-bundle.zip',
-    'release_bundle',
-    'release-bundle',
   ]);
 }
 
