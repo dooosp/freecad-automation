@@ -1,0 +1,131 @@
+{
+  "schema_version": "1.0",
+  "artifact_type": "feature_catalog",
+  "generated_at": "2026-04-26T00:00:00.000Z",
+  "recognition_policy": "conservative_config_evidence_only",
+  "config_name": "quality_pass_bracket",
+  "source_refs": [
+    {
+      "kind": "config",
+      "path": "docs/examples/quality-pass-bracket/config.toml",
+      "label": "Input config"
+    },
+    {
+      "kind": "report",
+      "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "label": "Engineering report PDF"
+    }
+  ],
+  "summary": {
+    "total_features": 4,
+    "recognized_features": 4,
+    "unknown_features": 0,
+    "recognition_sources": [
+      "explicit_config_box_primary_candidate",
+      "explicit_config_chamfer_operation",
+      "explicit_config_cut_cylinder"
+    ]
+  },
+  "features": [
+    {
+      "feature_id": "hole_left",
+      "type": "hole",
+      "source": "config.operations.cut_tool_cylinder",
+      "recognition_source": "explicit_config_cut_cylinder",
+      "confidence": 0.9,
+      "critical": true,
+      "related_config_path": "docs/examples/quality-pass-bracket/config.toml",
+      "related_artifact": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "dimensions": {
+        "height_mm": 12,
+        "radius_mm": 3,
+        "diameter_mm": 6,
+        "position_mm": [
+          30,
+          30,
+          -2
+        ]
+      },
+      "evidence": {
+        "kind": "config_operation",
+        "operation_index": 0,
+        "operation": "cut",
+        "tool_shape_id": "hole_left",
+        "tool_shape_type": "cylinder",
+        "base": "plate",
+        "result": "body"
+      }
+    },
+    {
+      "feature_id": "hole_right",
+      "type": "hole",
+      "source": "config.operations.cut_tool_cylinder",
+      "recognition_source": "explicit_config_cut_cylinder",
+      "confidence": 0.9,
+      "critical": true,
+      "related_config_path": "docs/examples/quality-pass-bracket/config.toml",
+      "related_artifact": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "dimensions": {
+        "height_mm": 12,
+        "radius_mm": 5,
+        "diameter_mm": 10,
+        "position_mm": [
+          125,
+          70,
+          -2
+        ]
+      },
+      "evidence": {
+        "kind": "config_operation",
+        "operation_index": 1,
+        "operation": "cut",
+        "tool_shape_id": "hole_right",
+        "tool_shape_type": "cylinder",
+        "base": "body",
+        "result": "body"
+      }
+    },
+    {
+      "feature_id": "plate",
+      "type": "primary_body",
+      "source": "config.shapes.box",
+      "recognition_source": "explicit_config_box_primary_candidate",
+      "confidence": 0.82,
+      "critical": true,
+      "related_config_path": "docs/examples/quality-pass-bracket/config.toml",
+      "related_artifact": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "dimensions": {
+        "length_mm": 160,
+        "width_mm": 100,
+        "height_mm": 8
+      },
+      "evidence": {
+        "kind": "config_shape",
+        "shape_id": "plate",
+        "shape_type": "box",
+        "primary_selection": "first_non_cut_box_or_named_base"
+      }
+    },
+    {
+      "feature_id": "chamfer_3",
+      "type": "chamfer",
+      "source": "config.operations.chamfer",
+      "recognition_source": "explicit_config_chamfer_operation",
+      "confidence": 0.95,
+      "critical": false,
+      "related_config_path": "docs/examples/quality-pass-bracket/config.toml",
+      "related_artifact": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "dimensions": {
+        "size_mm": 1
+      },
+      "evidence": {
+        "kind": "config_operation",
+        "operation_index": 2,
+        "operation": "chamfer",
+        "target": "body",
+        "result": "final"
+      }
+    }
+  ],
+  "warnings": []
+}

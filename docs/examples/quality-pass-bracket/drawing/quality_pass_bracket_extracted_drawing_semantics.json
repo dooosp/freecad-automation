@@ -1,0 +1,846 @@
+{
+  "schema_version": 1,
+  "artifact_type": "extracted_drawing_semantics",
+  "status": "available",
+  "decision": "advisory",
+  "methods": [
+    "svg_text_scan",
+    "svg_title_block_material_pair",
+    "svg_view_group_metadata",
+    "layout_report_views",
+    "dimension_map_reference",
+    "traceability_reference"
+  ],
+  "sources": [
+    {
+      "artifact_type": "svg",
+      "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "inspected": true,
+      "method": "svg_text_scan"
+    },
+    {
+      "artifact_type": "svg",
+      "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "inspected": true,
+      "method": "svg_title_block_material_pair"
+    },
+    {
+      "artifact_type": "svg",
+      "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "inspected": true,
+      "method": "svg_view_group_metadata"
+    },
+    {
+      "artifact_type": "layout_report",
+      "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_layout_report.json",
+      "inspected": true,
+      "method": "layout_report_views"
+    },
+    {
+      "artifact_type": "dimension_map",
+      "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_dimension_map.json",
+      "inspected": true,
+      "method": "dimension_map_reference"
+    },
+    {
+      "artifact_type": "traceability",
+      "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_traceability.json",
+      "inspected": true,
+      "method": "traceability_reference"
+    }
+  ],
+  "views": [
+    {
+      "id": "top",
+      "label": "TOP",
+      "raw_text": "TOP",
+      "view_kind": "orthographic",
+      "identity": null,
+      "source_view": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "matched_intent_id": "top",
+      "confidence": 0.94,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_view_group_metadata",
+        "svg_group_id": "drawing-view-top",
+        "svg_region_ref": "drawing-view-top"
+      }
+    },
+    {
+      "id": "iso",
+      "label": "ISOMETRIC",
+      "raw_text": "ISOMETRIC",
+      "view_kind": "isometric",
+      "identity": null,
+      "source_view": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "matched_intent_id": "iso",
+      "confidence": 0.94,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_view_group_metadata",
+        "svg_group_id": "drawing-view-iso",
+        "svg_region_ref": "drawing-view-iso"
+      }
+    },
+    {
+      "id": "top",
+      "label": "top",
+      "raw_text": "top",
+      "view_kind": "orthographic",
+      "identity": null,
+      "source_view": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_layout_report.json",
+      "matched_intent_id": "top",
+      "confidence": 0.92,
+      "provenance": {
+        "artifact_type": "layout_report",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_layout_report.json",
+        "method": "layout_report_views",
+        "layout_view_key": "top",
+        "layout_region_ref": "views.top"
+      }
+    },
+    {
+      "id": "iso",
+      "label": "iso",
+      "raw_text": "iso",
+      "view_kind": "isometric",
+      "identity": null,
+      "source_view": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_layout_report.json",
+      "matched_intent_id": "iso",
+      "confidence": 0.92,
+      "provenance": {
+        "artifact_type": "layout_report",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_layout_report.json",
+        "method": "layout_report_views",
+        "layout_view_key": "iso",
+        "layout_region_ref": "views.iso"
+      }
+    },
+    {
+      "id": "top",
+      "label": "TOP",
+      "raw_text": "TOP",
+      "view_kind": "orthographic",
+      "identity": null,
+      "source_view": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "matched_intent_id": "top",
+      "confidence": 0.72,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_view_label_scan",
+        "svg_text_id": "svg_text_001"
+      }
+    },
+    {
+      "id": "iso",
+      "label": "ISO",
+      "raw_text": "ISO",
+      "view_kind": "isometric",
+      "identity": null,
+      "source_view": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "matched_intent_id": "iso",
+      "confidence": 0.72,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_view_label_scan",
+        "svg_text_id": "svg_text_020"
+      }
+    }
+  ],
+  "dimensions": [
+    {
+      "id": "svg_text_002",
+      "raw_text": "160",
+      "value": 160,
+      "unit": "mm",
+      "matched_intent_id": null,
+      "matched_feature_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.62,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_002"
+      }
+    },
+    {
+      "id": "svg_text_003",
+      "raw_text": "100",
+      "value": 100,
+      "unit": "mm",
+      "matched_intent_id": null,
+      "matched_feature_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.62,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_003"
+      }
+    },
+    {
+      "id": "svg_text_004",
+      "raw_text": "⌀8",
+      "value": 8,
+      "unit": "mm",
+      "matched_intent_id": null,
+      "matched_feature_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.62,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_004"
+      }
+    },
+    {
+      "id": "svg_text_005",
+      "raw_text": "⌀12",
+      "value": 12,
+      "unit": "mm",
+      "matched_intent_id": null,
+      "matched_feature_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.62,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_005"
+      }
+    },
+    {
+      "id": "svg_text_006",
+      "raw_text": "⌀6",
+      "value": 6,
+      "unit": "mm",
+      "matched_intent_id": "HOLE_LEFT_DIA",
+      "matched_feature_id": "hole_left",
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.84,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_006"
+      }
+    },
+    {
+      "id": "svg_text_007",
+      "raw_text": "⌀10",
+      "value": 10,
+      "unit": "mm",
+      "matched_intent_id": "HOLE_RIGHT_DIA",
+      "matched_feature_id": "hole_right",
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.84,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_007"
+      }
+    },
+    {
+      "id": "svg_text_008",
+      "raw_text": "30.0",
+      "value": 30,
+      "unit": "mm",
+      "matched_intent_id": null,
+      "matched_feature_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.62,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_008"
+      }
+    },
+    {
+      "id": "svg_text_009",
+      "raw_text": "95",
+      "value": 95,
+      "unit": "mm",
+      "matched_intent_id": null,
+      "matched_feature_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.62,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_009"
+      }
+    },
+    {
+      "id": "svg_text_010",
+      "raw_text": "35",
+      "value": 35,
+      "unit": "mm",
+      "matched_intent_id": null,
+      "matched_feature_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.62,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_010"
+      }
+    },
+    {
+      "id": "svg_text_011",
+      "raw_text": "30",
+      "value": 30,
+      "unit": "mm",
+      "matched_intent_id": null,
+      "matched_feature_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.62,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_011"
+      }
+    },
+    {
+      "id": "svg_text_012",
+      "raw_text": "40",
+      "value": 40,
+      "unit": "mm",
+      "matched_intent_id": null,
+      "matched_feature_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.62,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_012"
+      }
+    },
+    {
+      "id": "svg_text_013",
+      "raw_text": "30",
+      "value": 30,
+      "unit": "mm",
+      "matched_intent_id": null,
+      "matched_feature_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.62,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_013"
+      }
+    },
+    {
+      "id": "svg_text_014",
+      "raw_text": "Ø6",
+      "value": 6,
+      "unit": "mm",
+      "matched_intent_id": "HOLE_LEFT_DIA",
+      "matched_feature_id": "hole_left",
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.84,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_014"
+      }
+    },
+    {
+      "id": "svg_text_015",
+      "raw_text": "Ø10",
+      "value": 10,
+      "unit": "mm",
+      "matched_intent_id": "HOLE_RIGHT_DIA",
+      "matched_feature_id": "hole_right",
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.84,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_015"
+      }
+    },
+    {
+      "id": "svg_text_018",
+      "raw_text": "30",
+      "value": 30,
+      "unit": "mm",
+      "matched_intent_id": null,
+      "matched_feature_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.62,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_018"
+      }
+    },
+    {
+      "id": "svg_text_019",
+      "raw_text": "125",
+      "value": 125,
+      "unit": "mm",
+      "matched_intent_id": null,
+      "matched_feature_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.62,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_019"
+      }
+    }
+  ],
+  "notes": [
+    {
+      "id": "svg_text_025_svg_text_026_material_pair",
+      "raw_text": "Material: AL6061",
+      "category": "material",
+      "matched_intent_id": "MATERIAL",
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.86,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_title_block_material_pair",
+        "label_svg_text_id": "svg_text_025",
+        "value_svg_text_id": "svg_text_026"
+      }
+    },
+    {
+      "id": "svg_text_016",
+      "raw_text": "B",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_016"
+      }
+    },
+    {
+      "id": "svg_text_017",
+      "raw_text": "C",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_017"
+      }
+    },
+    {
+      "id": "svg_text_021",
+      "raw_text": "PART NAME",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_021"
+      }
+    },
+    {
+      "id": "svg_text_022",
+      "raw_text": "Quality Pass Bracket",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_022"
+      }
+    },
+    {
+      "id": "svg_text_023",
+      "raw_text": "DRAWING NO.",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_023"
+      }
+    },
+    {
+      "id": "svg_text_025",
+      "raw_text": "MATERIAL",
+      "category": "material",
+      "matched_intent_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_025"
+      }
+    },
+    {
+      "id": "svg_text_026",
+      "raw_text": "AL6061",
+      "category": "material",
+      "matched_intent_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_026"
+      }
+    },
+    {
+      "id": "svg_text_027",
+      "raw_text": "SCALE",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_027"
+      }
+    },
+    {
+      "id": "svg_text_029",
+      "raw_text": "TOLERANCE",
+      "category": "tolerance",
+      "matched_intent_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_029"
+      }
+    },
+    {
+      "id": "svg_text_030",
+      "raw_text": "KS B 0401:2014-m",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_030"
+      }
+    },
+    {
+      "id": "svg_text_031",
+      "raw_text": "DATE",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_031"
+      }
+    },
+    {
+      "id": "svg_text_033",
+      "raw_text": "DESIGNED BY",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_033"
+      }
+    },
+    {
+      "id": "svg_text_035",
+      "raw_text": "SIZE / SHEET",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_035"
+      }
+    },
+    {
+      "id": "svg_text_036",
+      "raw_text": "A3",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_036"
+      }
+    },
+    {
+      "id": "svg_text_037",
+      "raw_text": "BBox: 160 x 100 x 8 mm",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_037"
+      }
+    },
+    {
+      "id": "svg_text_038",
+      "raw_text": "Visible",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_038"
+      }
+    },
+    {
+      "id": "svg_text_039",
+      "raw_text": "Hidden",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_039"
+      }
+    },
+    {
+      "id": "svg_text_040",
+      "raw_text": "Center",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_040"
+      }
+    },
+    {
+      "id": "svg_text_041",
+      "raw_text": "Dimension",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_041"
+      }
+    },
+    {
+      "id": "svg_text_042",
+      "raw_text": "NOTES:",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_042"
+      }
+    },
+    {
+      "id": "svg_text_043",
+      "raw_text": "1. GENERAL TOLERANCES PER KS B 0401:2014-m",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_043"
+      }
+    },
+    {
+      "id": "svg_text_044",
+      "raw_text": "2. BREAK ALL SHARP EDGES C1",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_044"
+      }
+    },
+    {
+      "id": "svg_text_045",
+      "raw_text": "3. DEBURR ALL MACHINED EDGES",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_045"
+      }
+    },
+    {
+      "id": "svg_text_046",
+      "raw_text": "4. MATERIAL: AL6061",
+      "category": "material",
+      "matched_intent_id": "MATERIAL",
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.82,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_046"
+      }
+    },
+    {
+      "id": "svg_text_047",
+      "raw_text": "5. ALL DIMENSIONS IN mm",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_047"
+      }
+    }
+  ],
+  "title_block": {
+    "part_name": {
+      "raw_text": "PART NAME",
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.6,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_021"
+      }
+    },
+    "material": {
+      "raw_text": "Material: AL6061",
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.72,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_title_block_material_pair",
+        "label_svg_text_id": "svg_text_025",
+        "value_svg_text_id": "svg_text_026"
+      }
+    },
+    "tolerance": {
+      "raw_text": "TOLERANCE",
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.72,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_029"
+      }
+    },
+    "drawing_number": {
+      "raw_text": "DRAWING NO.",
+      "source": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+      "confidence": 0.58,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_023"
+      }
+    }
+  },
+  "coverage": {
+    "required_dimensions_total": 2,
+    "required_dimensions_extracted": 2,
+    "required_notes_total": 1,
+    "required_notes_extracted": 1,
+    "required_views_total": 2,
+    "required_views_extracted": 2
+  },
+  "unknowns": [],
+  "limitations": [
+    "Advisory-only foundation; no OCR, no PDF raster parsing, and no screenshot analysis were used.",
+    "Vector geometry without reliable text labels is not promoted to semantic matches in this task.",
+    "Unsupported or missing extraction evidence remains unknown instead of being inferred as pass."
+  ]
+}

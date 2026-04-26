@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { basename, join, relative, resolve, sep } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const OUTPUT_DIR = resolve(ROOT, 'output');
+const EXAMPLE_LIBRARY_MANIFEST = resolve(ROOT, 'docs', 'examples', 'example-library-manifest.json');
 
 const GENERATED_FILE_PATTERNS = [
   /^demo_/,
@@ -58,6 +59,37 @@ function isExpectedFixture(path) {
   return repoPath.startsWith('tests/fixtures/') && basename(repoPath).startsWith('expected_');
 }
 
+function getCuratedExampleRoots() {
+  if (!existsSync(EXAMPLE_LIBRARY_MANIFEST)) return new Set();
+  try {
+    const manifest = JSON.parse(readFileSync(EXAMPLE_LIBRARY_MANIFEST, 'utf8'));
+    const examples = Array.isArray(manifest.examples) ? manifest.examples : [];
+    return new Set(
+      examples
+        .filter((example) => (
+          example?.status === 'canonical-package'
+          || example?.current_coverage?.generated_cad === true
+          || example?.current_coverage?.review_pack === true
+          || example?.current_coverage?.release_bundle_zip === true
+        ))
+        .map((example) => example.docs_example_root || (example.slug ? `docs/examples/${example.slug}` : null))
+        .filter(Boolean)
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+const CURATED_EXAMPLE_ROOTS = getCuratedExampleRoots();
+
+function isCuratedExamplePackageArtifact(path) {
+  const repoPath = toRepoPath(path);
+  for (const root of CURATED_EXAMPLE_ROOTS) {
+    if (repoPath === root || repoPath.startsWith(`${root}/`)) return true;
+  }
+  return false;
+}
+
 function listOutputArtifacts() {
   const artifacts = [];
   if (!existsSync(OUTPUT_DIR)) return artifacts;
@@ -102,6 +134,7 @@ function listUnexpectedGeneratedFiles() {
     .filter(({ path }) => {
       const firstSegment = path.split('/')[0];
       if (isExpectedFixture(path)) return false;
+      if (isCuratedExamplePackageArtifact(path)) return false;
       return !SOURCE_ALLOWED_DIRS.has(firstSegment) && !isUnderOutput(path) && looksGenerated(path);
     })
     .sort((a, b) => a.path.localeCompare(b.path));

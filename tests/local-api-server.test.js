@@ -455,6 +455,10 @@ try {
         stability: 'stable',
       },
     ],
+    warnings: [
+      `Private report was generated at ${PRIVATE_RESULT_PATH}`,
+      `Windows support file was generated at C:\\private\\report\\support.md`,
+    ],
     timestamps: {
       created_at: redactionSourceJob.created_at,
       finished_at: new Date().toISOString(),
@@ -497,6 +501,10 @@ try {
   assert.deepEqual(redactedJobPayload.job.artifacts.report_files, ['private-report.json', 'support.md']);
   assert.equal(redactedJobPayload.job.manifest.config_path, 'private-source-config.toml');
   assert.equal(redactedJobPayload.job.manifest.artifacts[0].path, 'private-report.json');
+  assert.equal(redactedJobPayload.job.manifest.warnings[0].includes(PRIVATE_RESULT_PATH), false);
+  assert.equal(redactedJobPayload.job.manifest.warnings[0].includes('private-report.json'), true);
+  assert.equal(redactedJobPayload.job.manifest.warnings[1].includes('C:\\private\\report'), false);
+  assert.equal(redactedJobPayload.job.manifest.warnings[1].includes('support.md'), true);
   assert.equal('root' in redactedJobPayload.job.storage, false);
   assert.equal('path' in redactedJobPayload.job.storage.files.job, false);
   assertNoLeakedPathStrings(redactedJobPayload, [PRIVATE_CONFIG_PATH, PRIVATE_RESULT_PATH, redactionArtifactPath, jobsDir, tmpRoot]);

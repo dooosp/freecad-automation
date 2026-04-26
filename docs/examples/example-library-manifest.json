@@ -1,0 +1,317 @@
+{
+  "schema_version": 1,
+  "phase": "example-library-expansion",
+  "canonical_artifacts": [
+    "review_pack.json",
+    "readiness_report.json",
+    "standard_docs_manifest.json",
+    "release_bundle_manifest.json",
+    "release_bundle.zip"
+  ],
+  "coverage_rules": {
+    "checked_in_curated_package_artifacts_only": true,
+    "generic_fixtures_do_not_count_as_example_coverage": true,
+    "generated_outputs_do_not_count_until_promoted": true,
+    "studio_reopen_requires_deterministic_fixture": true,
+    "portable_paths_only": true
+  },
+  "recommended_directory_shape": [
+    "README.md",
+    "config.toml",
+    "cad/",
+    "quality/",
+    "drawing/",
+    "review/review_pack.json",
+    "readiness/readiness_report.json",
+    "standard-docs/standard_docs_manifest.json",
+    "release/release_bundle_manifest.json",
+    "release/release_bundle.zip",
+    "reopen-notes.md"
+  ],
+  "examples": [
+    {
+      "slug": "quality-pass-bracket",
+      "status": "canonical-package",
+      "source_config": "configs/examples/quality_pass_bracket.toml",
+      "role": "canonical-bracket-seed",
+      "priority": 1,
+      "basis": [
+        "quality_pass_bracket"
+      ],
+      "current_coverage": {
+        "config": true,
+        "drawing_intent": true,
+        "generated_cad": true,
+        "quality_report": true,
+        "review_pack": true,
+        "readiness_report": true,
+        "standard_docs_manifest": true,
+        "release_bundle_manifest": true,
+        "release_bundle_zip": true,
+        "studio_reopen_fixture": true
+      },
+      "notes": [
+        "First curated canonical AF5 package promoted under docs/examples/quality-pass-bracket.",
+        "Create quality, drawing quality, and DFM passed; readiness remains needs_more_evidence because the safe existing review-context/readiness path does not consume these generated quality artifacts as inspection or quality linkage side inputs."
+      ]
+    },
+    {
+      "slug": "plate-with-holes",
+      "status": "candidate",
+      "source_config": "configs/examples/pcb_mount_plate.toml",
+      "role": "plate-hole-pattern-seed",
+      "priority": 2,
+      "basis": [
+        "pcb_mount_plate",
+        "quality_fail_wrong_hole_center",
+        "quality_fail_wrong_hole_diameter"
+      ],
+      "current_coverage": {
+        "config": true,
+        "drawing_intent": false,
+        "generated_cad": false,
+        "quality_report": false,
+        "review_pack": false,
+        "readiness_report": false,
+        "standard_docs_manifest": false,
+        "release_bundle_manifest": false,
+        "release_bundle_zip": false,
+        "studio_reopen_fixture": false
+      },
+      "notes": [
+        "Good second package candidate because the source config already carries manufacturing and quality metadata.",
+        "Needs drawing-intent review before canonical package generation."
+      ]
+    },
+    {
+      "slug": "motor-mount",
+      "status": "candidate",
+      "source_config": "configs/generated/cnc_motor_mount_bracket.toml",
+      "role": "generated-motor-mount-seed",
+      "priority": 3,
+      "basis": [
+        "cnc_motor_mount_bracket"
+      ],
+      "current_coverage": {
+        "config": true,
+        "drawing_intent": false,
+        "generated_cad": false,
+        "quality_report": false,
+        "review_pack": false,
+        "readiness_report": false,
+        "standard_docs_manifest": false,
+        "release_bundle_manifest": false,
+        "release_bundle_zip": false,
+        "studio_reopen_fixture": false
+      },
+      "notes": [
+        "Tracked generated config exists and is a strong package candidate after provenance and drawing intent review.",
+        "Do not promote generated outputs until they are reviewed and copied into a curated package."
+      ]
+    },
+    {
+      "slug": "enclosure",
+      "status": "candidate",
+      "source_config": "configs/examples/controller_housing.toml",
+      "role": "controller-housing-seed",
+      "priority": 4,
+      "basis": [
+        "controller_housing"
+      ],
+      "current_coverage": {
+        "config": true,
+        "drawing_intent": false,
+        "generated_cad": false,
+        "quality_report": false,
+        "review_pack": false,
+        "readiness_report": false,
+        "standard_docs_manifest": false,
+        "release_bundle_manifest": false,
+        "release_bundle_zip": false,
+        "studio_reopen_fixture": false
+      },
+      "notes": [
+        "Production-readiness style enclosure seed with manufacturing, quality, drawing, and export sections.",
+        "Useful after bracket, plate, and motor mount packages establish the canonical package pattern."
+      ]
+    },
+    {
+      "slug": "controller-housing-eol",
+      "status": "candidate-existing-docs",
+      "source_config": "configs/examples/controller_housing_eol.toml",
+      "docs_example_root": "docs/examples/controller-housing-eol",
+      "role": "standard-docs-enclosure-variant",
+      "priority": 5,
+      "basis": [
+        "controller_housing_eol"
+      ],
+      "current_coverage": {
+        "config": true,
+        "drawing_intent": false,
+        "generated_cad": false,
+        "quality_report": false,
+        "review_pack": false,
+        "readiness_report": false,
+        "standard_docs_manifest": true,
+        "release_bundle_manifest": false,
+        "release_bundle_zip": false,
+        "studio_reopen_fixture": false
+      },
+      "notes": [
+        "Checked-in standard-docs manifests exist, but this is not a full AF5 curated package yet.",
+        "Regenerate or sanitize existing docs manifests before promotion to a portable canonical package."
+      ]
+    },
+    {
+      "slug": "fixture-plate",
+      "status": "candidate-alias",
+      "source_config": "configs/examples/pcb_mount_plate.toml",
+      "role": "fixture-plate-seed",
+      "priority": 6,
+      "basis": [
+        "pcb_mount_plate"
+      ],
+      "current_coverage": {
+        "config": true,
+        "drawing_intent": false,
+        "generated_cad": false,
+        "quality_report": false,
+        "review_pack": false,
+        "readiness_report": false,
+        "standard_docs_manifest": false,
+        "release_bundle_manifest": false,
+        "release_bundle_zip": false,
+        "studio_reopen_fixture": false
+      },
+      "notes": [
+        "Shares its current source with plate-with-holes.",
+        "Create a distinct fixture config only after the first package validation path is stable."
+      ]
+    },
+    {
+      "slug": "shaft-support",
+      "status": "partial-candidate",
+      "source_config": "configs/examples/ks_shaft.toml",
+      "role": "shaft-support-seed",
+      "priority": 7,
+      "basis": [
+        "ks_shaft",
+        "seatbelt_retractor"
+      ],
+      "current_coverage": {
+        "config": true,
+        "drawing_intent": false,
+        "generated_cad": false,
+        "quality_report": false,
+        "review_pack": false,
+        "readiness_report": false,
+        "standard_docs_manifest": false,
+        "release_bundle_manifest": false,
+        "release_bundle_zip": false,
+        "studio_reopen_fixture": false
+      },
+      "notes": [
+        "Partial seed only; needs a clearer shaft-support package boundary.",
+        "Use seatbelt_retractor as a related mechanism reference, not as a canonical package source yet."
+      ]
+    },
+    {
+      "slug": "ks-bracket",
+      "status": "candidate-fail-demo",
+      "source_config": "configs/examples/ks_bracket.toml",
+      "role": "blocker-rich-bracket-demo",
+      "priority": 8,
+      "basis": [
+        "ks_bracket"
+      ],
+      "current_coverage": {
+        "config": true,
+        "drawing_intent": true,
+        "generated_cad": false,
+        "quality_report": false,
+        "review_pack": false,
+        "readiness_report": false,
+        "standard_docs_manifest": false,
+        "release_bundle_manifest": false,
+        "release_bundle_zip": false,
+        "studio_reopen_fixture": false
+      },
+      "notes": [
+        "Intentional blocker-rich expected-fail fixture.",
+        "Keep separate from the canonical passing bracket package."
+      ]
+    },
+    {
+      "slug": "hinge-block",
+      "status": "absent",
+      "source_config": null,
+      "role": "new-example-candidate",
+      "priority": 9,
+      "basis": [],
+      "current_coverage": {
+        "config": false,
+        "drawing_intent": false,
+        "generated_cad": false,
+        "quality_report": false,
+        "review_pack": false,
+        "readiness_report": false,
+        "standard_docs_manifest": false,
+        "release_bundle_manifest": false,
+        "release_bundle_zip": false,
+        "studio_reopen_fixture": false
+      },
+      "notes": [
+        "No tracked source config exists yet.",
+        "Create only after the first canonical package set and validation tests are stable."
+      ]
+    },
+    {
+      "slug": "spacer",
+      "status": "absent",
+      "source_config": null,
+      "role": "new-example-candidate",
+      "priority": 10,
+      "basis": [],
+      "current_coverage": {
+        "config": false,
+        "drawing_intent": false,
+        "generated_cad": false,
+        "quality_report": false,
+        "review_pack": false,
+        "readiness_report": false,
+        "standard_docs_manifest": false,
+        "release_bundle_manifest": false,
+        "release_bundle_zip": false,
+        "studio_reopen_fixture": false
+      },
+      "notes": [
+        "No tracked source config exists yet.",
+        "Keep out of scope until existing examples have canonical AF5 coverage."
+      ]
+    },
+    {
+      "slug": "simple-jig",
+      "status": "absent",
+      "source_config": null,
+      "role": "new-example-candidate",
+      "priority": 11,
+      "basis": [],
+      "current_coverage": {
+        "config": false,
+        "drawing_intent": false,
+        "generated_cad": false,
+        "quality_report": false,
+        "review_pack": false,
+        "readiness_report": false,
+        "standard_docs_manifest": false,
+        "release_bundle_manifest": false,
+        "release_bundle_zip": false,
+        "studio_reopen_fixture": false
+      },
+      "notes": [
+        "No tracked source config exists yet.",
+        "Create only after hinge-block and spacer scope are deliberately scheduled."
+      ]
+    }
+  ]
+}
