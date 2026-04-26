@@ -33,6 +33,18 @@ assert.equal(ko.t('locale.label'), '언어');
 assert.equal(ko.t('index.title'), 'FreeCAD 클래식 뷰어');
 assert.equal(ko.t('index.mode.label'), '클래식 호환 모드');
 assert.equal(translateText('Jobs center', 'ko'), '작업 센터');
+assert.equal(translateText('Open Jobs center', 'ko'), '작업 센터 열기');
+assert.equal(translateText('Retry tracked job', 'ko'), '추적 작업 다시 시도');
+assert.equal(translateText('Tracked report completed', 'ko'), '추적 보고서 완료');
+assert.equal(translateText('Tracked create failed', 'ko'), '추적 생성 실패');
+assert.equal(
+  translateText('Open Artifacts to inspect generated files and quality evidence.', 'ko'),
+  '생성 파일과 품질 근거를 검토하려면 산출물을 여세요.'
+);
+assert.equal(
+  translateText('2 other active jobs still running.', 'ko'),
+  '다른 활성 작업 2개가 아직 실행 중입니다.'
+);
 assert.equal(translateText('Console', 'ko'), '콘솔');
 assert.equal(translateText('Packs', 'ko'), '패키지');
 assert.equal(translateText('Preferred browser review console', 'ko'), '기본 브라우저 검토 콘솔');
@@ -43,6 +55,35 @@ assert.equal(
 assert.equal(
   translateText('Use the Packs workspace to reopen tracked review packs, readiness reports, and release bundles. Local file import is not available on this path yet.', 'ko'),
   '패키지 작업 영역에서 추적된 검토 패키지, 준비 상태 보고서, 릴리스 번들을 다시 열 수 있습니다. 이 경로에서는 아직 로컬 파일 가져오기를 지원하지 않습니다.'
+);
+assert.equal(translateText('Start with a verified bracket', 'ko'), '검증된 브래킷으로 시작');
+assert.equal(translateText('Recommended example: quality_pass_bracket', 'ko'), '권장 예제: quality_pass_bracket');
+assert.equal(translateText('Load verified bracket', 'ko'), '검증된 브래킷 불러오기');
+assert.equal(translateText('Open Model workspace', 'ko'), '모델 작업 영역 열기');
+assert.equal(translateText('Primary tracked path', 'ko'), '기본 추적 경로');
+assert.equal(
+  translateText('Recommended path: run tracked create first, then tracked report.', 'ko'),
+  '권장 경로: 먼저 추적 생성을 실행한 뒤 추적 보고서를 실행하세요.'
+);
+assert.equal(translateText('Run tracked create first', 'ko'), '먼저 추적 생성 실행');
+assert.equal(translateText('Engineering Quality', 'ko'), '엔지니어링 품질');
+assert.equal(translateText('Generated geometry', 'ko'), '생성 형상');
+assert.equal(translateText('STEP reimport', 'ko'), 'STEP 재가져오기');
+assert.equal(translateText('Left hole center', 'ko'), '왼쪽 홀 중심');
+assert.equal(translateText('Expected', 'ko'), '예상');
+assert.equal(translateText('Actual', 'ko'), '실제');
+assert.equal(translateText('Tolerance', 'ko'), '허용오차');
+assert.equal(translateText('Source', 'ko'), '소스');
+assert.equal(translateText('What to do next', 'ko'), '다음에 할 일');
+assert.equal(translateText('Inspect quality evidence', 'ko'), '품질 근거 검토');
+assert.equal(translateText('Run tracked create again', 'ko'), '추적 생성 다시 실행');
+assert.equal(
+  translateText('Left hole center is outside tolerance.', 'ko'),
+  '왼쪽 홀 중심이 허용오차를 벗어났습니다.'
+);
+assert.equal(
+  translateText('Run tracked create again after the fix.', 'ko'),
+  '수정한 뒤 추적 생성을 다시 실행하세요.'
 );
 assert.equal(translateText('Open compare workspace', 'ko'), '비교 작업 영역 열기');
 assert.equal(translateText('3 recent jobs', 'ko'), '3개의 최근 작업');
@@ -192,8 +233,43 @@ assert.equal(translateText('Baseline', 'ko'), '기준선');
 assert.equal(translateText('Added artifact types', 'ko'), '추가된 산출물 유형');
 assert.equal(translateText('Missing vs baseline', 'ko'), '기준선 대비 누락');
 assert.equal(translateText('Baseline updated', 'ko'), '기준선 업데이트 시각');
+assert.equal(translateText('Packs workspace', 'ko'), '패키지 작업 영역');
+assert.equal(translateText('Artifact management dashboard', 'ko'), '산출물 관리 대시보드');
+assert.equal(translateText('Tracked job selected', 'ko'), '추적 작업 선택됨');
+assert.equal(translateText('No active package', 'ko'), '활성 패키지가 없습니다');
+assert.equal(translateText('2 recent runs', 'ko'), '최근 실행 2개');
+assert.equal(translateText('Manifest-backed download path', 'ko'), '매니페스트 기반 다운로드 경로');
+assert.equal(translateText('Review-to-download flow', 'ko'), '검토에서 다운로드까지의 흐름');
+assert.equal(translateText('No tracked jobs', 'ko'), '추적된 작업이 없습니다');
+assert.equal(translateText('Tracked jobs created by `fcad serve` appear here as an artifact timeline.', 'ko'), '`fcad serve`로 생성한 추적 작업이 여기에 산출물 타임라인으로 표시됩니다.');
 assert.equal(translateText('No active artifact set', 'ko'), '활성 산출물 세트 없음');
+assert.equal(translateText('No active job', 'ko'), '활성 작업 없음');
+assert.equal(translateText('Job', 'ko'), '작업');
+assert.equal(translateText('Manifest command', 'ko'), '매니페스트 명령');
+assert.equal(translateText('Artifact count', 'ko'), '산출물 수');
+assert.equal(translateText('Job storage', 'ko'), '작업 저장소');
 assert.equal(translateText('This job exposes no artifacts', 'ko'), '이 작업은 산출물을 제공하지 않습니다');
+assert.equal(translateText('Your generated files', 'ko'), '생성된 파일');
+assert.equal(
+  translateText('Download or inspect the main outputs from this run.', 'ko'),
+  '이번 실행의 주요 출력을 다운로드하거나 확인하세요.'
+);
+assert.equal(translateText('CAD exports', 'ko'), 'CAD 내보내기');
+assert.equal(translateText('STEP model', 'ko'), 'STEP 모델');
+assert.equal(translateText('STL mesh', 'ko'), 'STL 메시');
+assert.equal(translateText('PDF report', 'ko'), 'PDF 보고서');
+assert.equal(translateText('Report summary', 'ko'), '보고서 요약');
+assert.equal(translateText('Quality evidence', 'ko'), '품질 근거');
+assert.equal(translateText('Create quality JSON', 'ko'), '생성 품질 JSON');
+assert.equal(translateText('Drawing quality JSON', 'ko'), '도면 품질 JSON');
+assert.equal(translateText('All artifacts', 'ko'), '전체 산출물');
+assert.equal(translateText('Current job output list', 'ko'), '현재 작업의 출력 목록');
+assert.equal(translateText('Structured inspector', 'ko'), '구조화된 인스펙터');
+assert.equal(translateText('Package', 'ko'), '패키지');
+assert.equal(translateText('Previous', 'ko'), '이전');
+assert.equal(translateText('Comparing', 'ko'), '비교 중');
+assert.equal(translateText('1/2 indexed', 'ko'), '1/2 인덱싱됨');
+assert.equal(translateText('No queued outputs yet', 'ko'), '아직 대기 중인 출력이 없습니다');
 assert.equal(
   translateText('The job record exists, but the artifact list is empty. The manifest may still explain why.', 'ko'),
   '작업 기록은 존재하지만 산출물 목록이 비어 있습니다. 이유는 매니페스트에 남아 있을 수 있습니다.'

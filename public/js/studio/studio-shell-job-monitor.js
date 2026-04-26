@@ -5,6 +5,7 @@ import {
   describeJobMonitorTransition,
   ensureStudioJobMonitorState,
   findStudioMonitoredJob,
+  buildStudioJobCompletionNotice,
   listActiveStudioMonitoredJobs,
   mergeTrackedJobIntoRecentJobs,
   resolveMonitoredJobCompletionTarget,
@@ -79,35 +80,6 @@ export function createStudioJobMonitorController(app) {
     };
   }
 
-  function buildCompletionNotice(job, target, remainingActiveCount = 0) {
-    const shortId = shortJobId(job.id);
-    const primaryRoute = target.route || 'artifacts';
-    const primaryLabel = primaryRoute === 'review' ? 'Open Review' : 'Open Artifacts';
-    const secondaryRoute = target.secondaryRoute || '';
-    const secondaryLabel = secondaryRoute === 'review'
-      ? 'Open Review'
-      : secondaryRoute === 'artifacts'
-        ? 'Open Artifacts'
-        : '';
-    const completionCopy = primaryRoute === 'review'
-      ? 'Review-ready outputs are available for the completed run.'
-      : 'Tracked artifacts are ready for the completed run.';
-    const handoffCopy = remainingActiveCount > 0
-      ? ` Stayed on the current workspace while ${remainingActiveCount} other active job${remainingActiveCount === 1 ? '' : 's'} remain.`
-      : ` Routed ${job.type} ${shortId} into ${primaryRoute}.`;
-
-    return {
-      jobId: job.id,
-      tone: 'ok',
-      title: `${job.type} ${shortId} settled`,
-      message: `${completionCopy}${handoffCopy}`,
-      primaryRoute,
-      primaryLabel,
-      secondaryRoute,
-      secondaryLabel,
-    };
-  }
-
   function clearJobMonitorTimer() {
     if (app.runtime.jobMonitorTimer) {
       app.window.clearTimeout(app.runtime.jobMonitorTimer);
@@ -146,13 +118,23 @@ export function createStudioJobMonitorController(app) {
       artifacts,
       completionAction,
     });
-    if (!target.route) return;
 
     const remainingActiveCount = listActiveStudioMonitoredJobs(app.state.data.jobMonitor)
       .filter((entry) => entry.id !== job.id)
       .length;
 
-    setCompletionNotice(buildCompletionNotice(job, target, remainingActiveCount));
+    setCompletionNotice(buildStudioJobCompletionNotice(job, target, remainingActiveCount));
+
+    if (!target.route) {
+      app.addLog({
+        status: 'Tracked run',
+        message: `${job.type} ${shortJobId(job.id)} finished with status ${job.status}. Completion notice is ready in the shell.`,
+        tone: job.status === 'failed' ? 'bad' : 'warn',
+        time: 'job',
+      });
+      app.refreshShellChrome({ syncWorkspace: true });
+      return;
+    }
 
     if (remainingActiveCount > 0) {
       app.addLog({
@@ -407,9 +389,6 @@ export function createStudioJobMonitorController(app) {
 
     if (sameJob && app.state.data.activeJob.status === 'ready') {
       app.navigateTo(route, { selectedJobId: normalizedJobId });
-      if (app.state.data.completionNotice?.jobId === normalizedJobId) {
-        setCompletionNotice(null);
-      }
       return;
     }
 
@@ -517,9 +496,6 @@ export function createStudioJobMonitorController(app) {
         time: 'job',
       });
     } finally {
-      if (app.state.data.completionNotice?.jobId === normalizedJobId) {
-        setCompletionNotice(null);
-      }
       app.commitRender();
     }
   }

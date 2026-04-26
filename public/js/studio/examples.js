@@ -2,6 +2,8 @@ function normalizeExampleValue(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+export const VERIFIED_BRACKET_EXAMPLE_ID = 'quality_pass_bracket';
+
 export function getStudioExampleValue(example = {}) {
   return normalizeExampleValue(example.id) || normalizeExampleValue(example.name);
 }

@@ -5,9 +5,14 @@ import {
   buildArtifactDetailNotes,
 } from '../public/js/studio/artifact-insights.js';
 import {
+  collectGeneratedArtifactGroups,
+} from '../public/js/studio/artifacts-workspace.js';
+import {
+  findStudioExampleById,
   getSelectedStudioExample,
   getStudioExampleValue,
   resolveSelectedStudioExampleId,
+  VERIFIED_BRACKET_EXAMPLE_ID,
 } from '../public/js/studio/examples.js';
 import { toPublicDrawingPreviewPayload } from '../src/server/public-drawing-preview.js';
 
@@ -24,11 +29,19 @@ const examples = [
     content: 'name = "controller_housing"',
     path: '/Users/tester/Documents/freecad-automation/configs/examples/controller_housing.toml',
   },
+  {
+    id: 'quality_pass_bracket',
+    name: 'quality_pass_bracket.toml',
+    content: 'name = "quality_pass_bracket"',
+    path: '/Users/tester/Documents/freecad-automation/configs/examples/quality_pass_bracket.toml',
+  },
 ];
 
+assert.equal(VERIFIED_BRACKET_EXAMPLE_ID, 'quality_pass_bracket');
 assert.equal(getStudioExampleValue(examples[0]), 'ks_bracket');
 assert.equal(resolveSelectedStudioExampleId(examples, 'controller_housing'), 'controller_housing');
 assert.equal(resolveSelectedStudioExampleId(examples, 'missing-example'), 'ks_bracket');
+assert.equal(findStudioExampleById(examples, VERIFIED_BRACKET_EXAMPLE_ID)?.name, 'quality_pass_bracket.toml');
 assert.equal(
   getSelectedStudioExample({
     items: examples,
@@ -97,6 +110,125 @@ assert.deepEqual(detailNotes, [
   'Manifest warning two',
 ]);
 assert.equal(JSON.stringify(detailNotes).includes('/Users/'), false);
+
+function makeGeneratedArtifact({
+  id,
+  key,
+  type,
+  fileName,
+  extension,
+  canOpen = true,
+  canDownload = true,
+  exists = true,
+}) {
+  return {
+    id,
+    key,
+    type,
+    file_name: fileName,
+    extension,
+    content_type: extension === '.json' ? 'application/json' : 'application/octet-stream',
+    exists,
+    capabilities: {
+      can_open: canOpen,
+      can_download: canDownload,
+    },
+    links: {
+      open: `/artifacts/job-1/${id}`,
+      download: `/artifacts/job-1/${id}/download`,
+    },
+  };
+}
+
+const generatedGroups = collectGeneratedArtifactGroups([
+  makeGeneratedArtifact({
+    id: 'step-model',
+    key: 'step',
+    type: 'model.step',
+    fileName: 'quality_pass_bracket.step',
+    extension: '.step',
+  }),
+  makeGeneratedArtifact({
+    id: 'stl-mesh',
+    key: 'stl',
+    type: 'model.stl',
+    fileName: 'quality_pass_bracket.stl',
+    extension: '.stl',
+    canOpen: false,
+  }),
+  makeGeneratedArtifact({
+    id: 'report-pdf',
+    key: 'report_pdf',
+    type: 'report.pdf',
+    fileName: 'quality_pass_bracket_report.pdf',
+    extension: '.pdf',
+  }),
+  makeGeneratedArtifact({
+    id: 'report-summary',
+    key: 'report_summary_json',
+    type: 'report.summary-json',
+    fileName: 'quality_pass_bracket_report_summary.json',
+    extension: '.json',
+  }),
+  makeGeneratedArtifact({
+    id: 'create-quality',
+    key: 'create_quality',
+    type: 'model.quality-summary',
+    fileName: 'quality_pass_bracket_create_quality.json',
+    extension: '.json',
+  }),
+  makeGeneratedArtifact({
+    id: 'drawing-quality',
+    key: 'drawing_quality',
+    type: 'drawing.quality-summary',
+    fileName: 'quality_pass_bracket_drawing_quality.json',
+    extension: '.json',
+  }),
+  makeGeneratedArtifact({
+    id: 'manifest',
+    key: 'create_manifest',
+    type: 'output.manifest.json',
+    fileName: 'quality_pass_bracket_manifest.json',
+    extension: '.json',
+    canDownload: false,
+  }),
+  makeGeneratedArtifact({
+    id: 'missing-step',
+    key: 'missing_step',
+    type: 'model.step',
+    fileName: 'missing.step',
+    extension: '.step',
+    exists: false,
+  }),
+]);
+const generatedGroupMap = Object.fromEntries(generatedGroups.map((group) => [group.id, group]));
+assert.deepEqual(generatedGroupMap['cad-exports'].rows.map((row) => row.label), ['STEP model', 'STL mesh']);
+assert.deepEqual(generatedGroupMap.reports.rows.map((row) => row.label), ['PDF report', 'Report summary']);
+assert.deepEqual(generatedGroupMap['quality-evidence'].rows.map((row) => row.label), [
+  'Create quality JSON',
+  'Drawing quality JSON',
+  'Manifest',
+]);
+assert.equal(generatedGroupMap['cad-exports'].rows.find((row) => row.id === 'step').canOpen, true);
+assert.equal(generatedGroupMap['cad-exports'].rows.find((row) => row.id === 'stl').canOpen, false);
+assert.equal(generatedGroupMap['cad-exports'].rows.find((row) => row.id === 'stl').canDownload, true);
+assert.equal(generatedGroupMap['quality-evidence'].rows.find((row) => row.id === 'manifest').canDownload, false);
+assert.equal(JSON.stringify(generatedGroups).includes('missing.step'), false);
+
+const sparseGeneratedGroups = collectGeneratedArtifactGroups([
+  makeGeneratedArtifact({
+    id: 'create-quality-only',
+    key: 'create_quality',
+    type: 'model.quality-summary',
+    fileName: 'partial_create_quality.json',
+    extension: '.json',
+    canOpen: false,
+  }),
+]);
+assert.equal(sparseGeneratedGroups.find((group) => group.id === 'cad-exports').rows.length, 0);
+assert.equal(sparseGeneratedGroups.find((group) => group.id === 'reports').rows.length, 0);
+assert.equal(sparseGeneratedGroups.find((group) => group.id === 'quality-evidence').rows[0].label, 'Create quality JSON');
+assert.equal(sparseGeneratedGroups.find((group) => group.id === 'quality-evidence').rows[0].canOpen, false);
 
 const previewPayload = toPublicDrawingPreviewPayload({
   preview: {

@@ -716,19 +716,204 @@ function optionalQualityReportSummary() {
   };
 }
 
-async function seedQualityDecisionJob(jobStore, {
+function smokeEngineeringMeasurement({
+  requirement_id,
+  source_requirement_id,
+  feature_id,
+  measurement_type,
+  expected_value_mm = null,
+  actual_value_mm = null,
+  expected_center_xy_mm = null,
+  actual_center_xy_mm = null,
+  tolerance_mm,
+  delta_mm = null,
+  center_delta_mm = null,
+  status = 'pass',
+  source = 'generated_shape_geometry',
+  validation_kind = 'generated_shape_geometry_check',
+  message = null,
+}) {
+  return {
+    requirement_id,
+    source_requirement_id,
+    feature_id,
+    measurement_type,
+    expected_value_mm,
+    actual_value_mm,
+    source_value_mm: actual_value_mm,
+    expected_center_xy_mm,
+    actual_center_xy_mm,
+    tolerance_mm,
+    delta_mm,
+    center_delta_mm,
+    source_delta_mm: null,
+    source_center_delta_mm: null,
+    status,
+    required: true,
+    source,
+    source_field: `${source}.${feature_id}.${measurement_type}`,
+    expected_source: 'config_parameter',
+    expected_source_field: `config.${source_requirement_id}`,
+    validation_kind,
+    matched_face_index: 7,
+    message,
+  };
+}
+
+function smokeCreateQualityPayload(reportSummary) {
+  const failed = reportSummary.surfaces.create_quality.status === 'fail';
+  const failLeftCenter = failed;
+  const leftCenterActual = failLeftCenter ? [32, 30] : [30, 30];
+  const leftCenterDelta = failLeftCenter ? 2 : 0;
+  const leftCenterStatus = failLeftCenter ? 'fail' : 'pass';
+  const stepSource = 'reimported_step_geometry';
+  const stepKind = 'reimported_step_geometry_check';
+
+  return {
+    status: failed ? 'fail' : 'pass',
+    geometry: {
+      valid_shape: !failed,
+      volume: 128000,
+      bbox: {
+        min: [0, 0, 0],
+        max: [160, 100, 8],
+        size: [160, 100, 8],
+      },
+    },
+    step_roundtrip: {
+      exported: true,
+      reimport_attempted: true,
+      reimport_valid: true,
+      volume_delta_percent: 0,
+      bbox_delta: {
+        min: [0, 0, 0],
+        max: [0, 0, 0],
+        size: [0, 0, 0],
+        max_abs_mm: 0,
+      },
+    },
+    thresholds: {
+      max_step_volume_delta_percent: 0.5,
+      max_bbox_delta_mm: 0.2,
+      max_engineering_dimension_delta_mm: 0.05,
+      max_engineering_center_delta_mm: 0.2,
+    },
+    engineering_quality: {
+      status: failed ? 'fail' : 'pass',
+      source: 'generated_shape_geometry',
+      validation_kind: 'generated_shape_geometry_check',
+      blocking_issues: failLeftCenter ? ['Hole hole_left generated_shape_geometry center differs from expected center by 2 mm.'] : [],
+      warnings: [],
+      measurements: [
+        smokeEngineeringMeasurement({
+          requirement_id: 'HOLE_LEFT_DIA',
+          source_requirement_id: 'HOLE_LEFT_DIA',
+          feature_id: 'hole_left',
+          measurement_type: 'hole_diameter',
+          expected_value_mm: 6,
+          actual_value_mm: 6,
+          tolerance_mm: 0.05,
+          delta_mm: 0,
+        }),
+        smokeEngineeringMeasurement({
+          requirement_id: 'hole_left_CENTER',
+          source_requirement_id: 'HOLE_LEFT_DIA',
+          feature_id: 'hole_left',
+          measurement_type: 'hole_center',
+          expected_center_xy_mm: [30, 30],
+          actual_center_xy_mm: leftCenterActual,
+          tolerance_mm: 0.2,
+          delta_mm: leftCenterDelta,
+          center_delta_mm: leftCenterDelta,
+          status: leftCenterStatus,
+          message: failLeftCenter ? 'Hole hole_left generated_shape_geometry center differs from expected center by 2 mm.' : null,
+        }),
+        smokeEngineeringMeasurement({
+          requirement_id: 'HOLE_RIGHT_DIA',
+          source_requirement_id: 'HOLE_RIGHT_DIA',
+          feature_id: 'hole_right',
+          measurement_type: 'hole_diameter',
+          expected_value_mm: 10,
+          actual_value_mm: 10,
+          tolerance_mm: 0.05,
+          delta_mm: 0,
+        }),
+        smokeEngineeringMeasurement({
+          requirement_id: 'hole_right_CENTER',
+          source_requirement_id: 'HOLE_RIGHT_DIA',
+          feature_id: 'hole_right',
+          measurement_type: 'hole_center',
+          expected_center_xy_mm: [125, 70],
+          actual_center_xy_mm: [125, 70],
+          tolerance_mm: 0.2,
+          delta_mm: 0,
+          center_delta_mm: 0,
+        }),
+        smokeEngineeringMeasurement({
+          requirement_id: 'HOLE_LEFT_DIA_STEP_REIMPORT',
+          source_requirement_id: 'HOLE_LEFT_DIA',
+          feature_id: 'hole_left',
+          measurement_type: 'hole_diameter',
+          expected_value_mm: 6,
+          actual_value_mm: 6,
+          tolerance_mm: 0.05,
+          delta_mm: 0,
+          source: stepSource,
+          validation_kind: stepKind,
+        }),
+        smokeEngineeringMeasurement({
+          requirement_id: 'hole_left_CENTER_STEP_REIMPORT',
+          source_requirement_id: 'HOLE_LEFT_DIA',
+          feature_id: 'hole_left',
+          measurement_type: 'hole_center',
+          expected_center_xy_mm: [30, 30],
+          actual_center_xy_mm: leftCenterActual,
+          tolerance_mm: 0.2,
+          delta_mm: leftCenterDelta,
+          center_delta_mm: leftCenterDelta,
+          status: leftCenterStatus,
+          source: stepSource,
+          validation_kind: stepKind,
+          message: failLeftCenter ? 'Hole hole_left reimported_step_geometry center differs from expected center by 2 mm.' : null,
+        }),
+        smokeEngineeringMeasurement({
+          requirement_id: 'HOLE_RIGHT_DIA_STEP_REIMPORT',
+          source_requirement_id: 'HOLE_RIGHT_DIA',
+          feature_id: 'hole_right',
+          measurement_type: 'hole_diameter',
+          expected_value_mm: 10,
+          actual_value_mm: 10,
+          tolerance_mm: 0.05,
+          delta_mm: 0,
+          source: stepSource,
+          validation_kind: stepKind,
+        }),
+        smokeEngineeringMeasurement({
+          requirement_id: 'hole_right_CENTER_STEP_REIMPORT',
+          source_requirement_id: 'HOLE_RIGHT_DIA',
+          feature_id: 'hole_right',
+          measurement_type: 'hole_center',
+          expected_center_xy_mm: [125, 70],
+          actual_center_xy_mm: [125, 70],
+          tolerance_mm: 0.2,
+          delta_mm: 0,
+          center_delta_mm: 0,
+          source: stepSource,
+          validation_kind: stepKind,
+        }),
+      ],
+      measurement_provenance: [],
+    },
+  };
+}
+
+async function completeQualityDecisionJob(jobStore, {
   projectRoot,
+  job,
   configName,
   reportSummary,
+  source = 'browser-quality-smoke',
 }) {
-  const job = await jobStore.createJob({
-    type: 'report',
-    config: {
-      name: configName,
-      shapes: [{ id: 'body', type: 'box', length: 12, width: 10, height: 8 }],
-      export: { formats: ['step'], directory: 'output' },
-    },
-  });
   const reportSummaryPath = await jobStore.writeJobFile(
     job.id,
     `artifacts/${configName}_report_summary.json`,
@@ -739,10 +924,25 @@ async function seedQualityDecisionJob(jobStore, {
     `artifacts/${configName}_report.pdf`,
     `%PDF-1.4\n% ${configName} browser smoke placeholder\n`
   );
+  const stepPath = await jobStore.writeJobFile(
+    job.id,
+    `artifacts/${configName}.step`,
+    `ISO-10303-21;\nHEADER;\nFILE_DESCRIPTION(('${configName} browser smoke placeholder'),'2;1');\nENDSEC;\nDATA;\nENDSEC;\nEND-ISO-10303-21;\n`
+  );
+  const stlPath = await jobStore.writeJobFile(
+    job.id,
+    `artifacts/${configName}.stl`,
+    `solid ${configName}\nendsolid ${configName}\n`
+  );
   const manifestPath = await jobStore.writeJobFile(
     job.id,
     `artifacts/${configName}_manifest.json`,
     `${JSON.stringify({ command: 'report', config_name: configName }, null, 2)}\n`
+  );
+  const createQualityPath = await jobStore.writeJobFile(
+    job.id,
+    `artifacts/${configName}_create_quality.json`,
+    `${JSON.stringify(smokeCreateQualityPayload(reportSummary), null, 2)}\n`
   );
   const extractedSemanticsPath = await jobStore.writeJobFile(
     job.id,
@@ -832,9 +1032,30 @@ async function seedQualityDecisionJob(jobStore, {
         stability: 'stable',
       },
       {
+        type: 'model.step',
+        path: stepPath,
+        label: 'step_export',
+        scope: 'user-facing',
+        stability: 'stable',
+      },
+      {
+        type: 'model.stl',
+        path: stlPath,
+        label: 'stl_export',
+        scope: 'user-facing',
+        stability: 'stable',
+      },
+      {
         type: 'output.manifest.json',
         path: manifestPath,
         label: 'create_manifest',
+        scope: 'user-facing',
+        stability: 'stable',
+      },
+      {
+        type: 'model.quality-summary',
+        path: createQualityPath,
+        label: 'create_quality',
         scope: 'user-facing',
         stability: 'stable',
       },
@@ -876,13 +1097,16 @@ async function seedQualityDecisionJob(jobStore, {
     job.id,
     {
       success: true,
-      source: 'browser-quality-smoke',
+      source,
       report_summary: reportSummary,
     },
     {
       report_summary: reportSummaryPath,
       report_pdf: reportPdfPath,
+      step: stepPath,
+      stl: stlPath,
       create_manifest: manifestPath,
+      create_quality: createQualityPath,
       drawing_quality: drawingQualityPath,
       extracted_drawing_semantics: extractedSemanticsPath,
       drawing_planner: drawingPlannerPath,
@@ -891,6 +1115,121 @@ async function seedQualityDecisionJob(jobStore, {
     {},
     manifest
   );
+}
+
+async function seedQualityDecisionJob(jobStore, {
+  projectRoot,
+  configName,
+  reportSummary,
+}) {
+  const job = await jobStore.createJob({
+    type: 'report',
+    config: {
+      name: configName,
+      shapes: [{ id: 'body', type: 'box', length: 12, width: 10, height: 8 }],
+      export: { formats: ['step'], directory: 'output' },
+    },
+  });
+  return completeQualityDecisionJob(jobStore, {
+    projectRoot,
+    job,
+    configName,
+    reportSummary,
+  });
+}
+
+function configNameFromTrackedRequest(request = {}) {
+  const explicitName = request.config?.name || request.options?.studio?.config_name;
+  if (explicitName) return String(explicitName);
+  const configToml = String(request.config_toml || '');
+  return configToml.match(/^\s*name\s*=\s*["']([^"']+)["']/m)?.[1] || 'quality_pass_bracket';
+}
+
+function createBrowserSmokeExecutor({ projectRoot, jobStore }) {
+  return {
+    async execute(jobId) {
+      const claim = await jobStore.claimJobForExecution(jobId, 'browser_smoke_executor_started');
+      if (!claim.ok) return;
+
+      const job = claim.job;
+      const configName = configNameFromTrackedRequest(job.request);
+      await jobStore.appendLog(job.id, `Browser smoke fake executor completed ${job.type} for ${configName}.`);
+      await completeQualityDecisionJob(jobStore, {
+        projectRoot,
+        job,
+        configName,
+        reportSummary: passQualityReportSummary(),
+        source: 'browser-smoke-fake-executor',
+      });
+    },
+  };
+}
+
+function browserSmokeRuntimeDiagnostics() {
+  return {
+    diagnostics_version: 'browser-smoke',
+    status: 'ready',
+    available: true,
+    platform: process.platform,
+    description: 'Browser smoke deterministic runtime stub.',
+    source: 'browser-smoke',
+    mode: 'stubbed',
+    path_style: 'posix',
+    executable: '/browser-smoke/freecad',
+    python_executable: process.execPath,
+    runtime_executable: '/browser-smoke/freecad',
+    gui_executable: '',
+    checked_candidates: [],
+    selected_runtime: {
+      summary: 'Browser smoke deterministic runtime stub.',
+      source: 'browser-smoke',
+      mode: 'stubbed',
+      path_style: 'posix',
+      executable: '/browser-smoke/freecad',
+      bundle_root: '',
+      install_root: '',
+      runtime_executable: '/browser-smoke/freecad',
+      python_executable: process.execPath,
+      gui_executable: '',
+    },
+    detected_runtime_paths: {
+      checked_candidates: [],
+      selected_candidates: [],
+    },
+    env_overrides: {
+      resolution_order: [],
+      values: [],
+    },
+    version_details: {
+      python: {
+        executable: process.execPath,
+        version: process.version,
+        platform: process.platform,
+        source: 'browser-smoke',
+        error: null,
+      },
+      freecad: {
+        executable: '/browser-smoke/freecad',
+        version: 'browser-smoke',
+        home_path: null,
+        module_path: null,
+        source: 'browser-smoke',
+        error: null,
+      },
+    },
+    command_classes: {
+      diagnostics: [],
+      freecad_backed: [],
+      plain_python_or_node: [],
+      mixed_or_conditional: [],
+    },
+    capability_map: {},
+    warnings: [],
+    errors: [],
+    support_boundary_note: '',
+    next_steps: [],
+    remediation: [],
+  };
 }
 
 const chromeBinary = findChromeBinary();
@@ -902,6 +1241,8 @@ if (!chromeBinary) {
 const { server, jobStore } = createLocalApiServer({
   projectRoot: ROOT,
   jobsDir: JOBS_DIR,
+  runtimeDiagnosticsFactory: browserSmokeRuntimeDiagnostics,
+  executorFactory: createBrowserSmokeExecutor,
 });
 
 let chrome = null;
@@ -1057,10 +1398,114 @@ try {
     return nextSnapshot;
   });
 
+  const firstRunCard = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => {
+      const card = document.querySelector('[data-hook="verified-bracket-card"]');
+      const button = document.querySelector('[data-action="load-verified-bracket"]');
+      const modelButton = document.querySelector('[data-action="go-model"]');
+      const trackedPath = document.querySelector('[data-hook="start-tracked-primary-path"]');
+      return {
+        text: card?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+        trackedText: trackedPath?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+        loadButtonDisabled: button?.disabled ?? true,
+        hasModelButton: Boolean(modelButton),
+      };
+    })()`);
+    assert.equal(snapshot.text.includes('Start with a verified bracket'), true);
+    assert.equal(snapshot.text.includes('quality_pass_bracket'), true);
+    assert.equal(snapshot.trackedText.includes('Run tracked create first'), true);
+    assert.equal(snapshot.trackedText.includes('Run tracked report'), true);
+    assert.equal(snapshot.loadButtonDisabled, false);
+    assert.equal(snapshot.hasModelButton, true);
+    return snapshot;
+  }, {
+    attempts: 50,
+    delayMs: 150,
+  });
+  assert.equal(firstRunCard.text.includes('Stage 3 quality target'), true);
+
+  await cdp.evaluate(`document.querySelector('[data-action="load-verified-bracket"]')?.click()`);
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => ({
+      activeRoute: document.querySelector('.nav-link[aria-current="page"]')?.dataset?.route || '',
+      selectedExample: document.querySelector('[data-action="select-example"]')?.value || '',
+      hasModelButton: Boolean(document.querySelector('[data-action="go-model"]')),
+      trackedText: document.querySelector('[data-hook="start-tracked-primary-path"]')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+      hasTrackedCreate: Boolean(document.querySelector('[data-action="start-run-tracked-create"]')),
+      hasTrackedReport: Boolean(document.querySelector('[data-action="start-run-tracked-report"]')),
+      trackedCreateDisabled: document.querySelector('[data-action="start-run-tracked-create"]')?.disabled ?? true,
+      trackedReportDisabled: document.querySelector('[data-action="start-run-tracked-report"]')?.disabled ?? true,
+    }))()`);
+    assert.equal(snapshot.activeRoute, 'start');
+    assert.equal(snapshot.selectedExample, 'quality_pass_bracket');
+    assert.equal(snapshot.hasModelButton, true);
+    assert.equal(snapshot.trackedText.includes('tracked create'), true);
+    assert.equal(snapshot.hasTrackedCreate, true);
+    assert.equal(snapshot.hasTrackedReport, true);
+    assert.equal(snapshot.trackedCreateDisabled, false);
+    assert.equal(snapshot.trackedReportDisabled, false);
+    return snapshot;
+  }, {
+    attempts: 50,
+    delayMs: 150,
+  });
+
+  await cdp.evaluate(`document.querySelector('[data-action="start-run-tracked-report"]')?.click()`);
+  const completionNotice = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => {
+      const host = document.getElementById('completion-notice-host');
+      const actionSnapshot = (label) => {
+        const button = [...(host?.querySelectorAll('button[data-action]') || [])]
+          .find((entry) => entry.textContent.trim() === label);
+        return {
+          action: button?.dataset?.action || '',
+          jobId: button?.dataset?.jobId || '',
+          route: button?.dataset?.route || '',
+        };
+      };
+      return {
+        hidden: host?.hidden ?? true,
+        text: host?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+        tone: host?.querySelector('.completion-notice')?.dataset?.tone || '',
+        openArtifacts: actionSnapshot('Open Artifacts'),
+        dismiss: actionSnapshot('Dismiss'),
+      };
+    })()`);
+    assert.equal(snapshot.hidden, false);
+    assert.equal(snapshot.tone, 'ok');
+    assert.equal(snapshot.text.includes('Tracked report completed'), true);
+    assert.equal(snapshot.text.includes('Job succeeded'), true);
+    assert.equal(snapshot.text.includes('Quality passed'), true);
+    assert.equal(snapshot.text.includes('Ready Yes'), true);
+    assert.equal(snapshot.text.includes('Open Artifacts to inspect generated files and quality evidence.'), true);
+    assert.equal(snapshot.openArtifacts.action, 'open-job');
+    assert.equal(snapshot.openArtifacts.route, 'artifacts');
+    assert.equal(snapshot.openArtifacts.jobId.length > 0, true);
+    assert.equal(snapshot.dismiss.action, 'dismiss-completion-notice');
+    assert.equal(snapshot.dismiss.jobId, snapshot.openArtifacts.jobId);
+    return snapshot;
+  }, {
+    attempts: 80,
+    delayMs: 150,
+  });
+
+  await cdp.evaluate(`(() => {
+    const host = document.getElementById('completion-notice-host');
+    const button = [...(host?.querySelectorAll('button[data-action="open-job"]') || [])]
+      .find((entry) => entry.textContent.trim() === 'Open Artifacts');
+    button?.click();
+  })()`);
+  await waitForRoute(cdp, 'artifacts', {
+    attempts: 50,
+    delayMs: 200,
+    expectedHash: `#artifacts?job=${completionNotice.openArtifacts.jobId}`,
+  });
+
   await cdp.evaluate(`document.querySelector('.nav-link[data-route="artifacts"]')?.click()`);
   await waitForRoute(cdp, 'artifacts', {
     attempts: 50,
     delayMs: 200,
+    expectedHash: `#artifacts?job=${completionNotice.openArtifacts.jobId}`,
   });
 
   async function openQualityJobFromTimeline(jobId) {
@@ -1149,8 +1594,87 @@ try {
     'Quality passed',
     'Ready Yes',
   ]);
+  const generatedFilesSnapshot = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => {
+      const panel = document.querySelector('[data-hook="artifacts-generated-files"]');
+      const card = panel?.closest('.studio-card');
+      const rowSnapshot = (kind) => {
+        const row = panel?.querySelector(\`[data-artifact-kind="\${kind}"]\`);
+        return {
+          text: row?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+          actions: [...(row?.querySelectorAll('a.action-button') || [])].map((entry) => entry.textContent.trim()),
+          hrefs: [...(row?.querySelectorAll('a.action-button') || [])].map((entry) => entry.getAttribute('href') || ''),
+        };
+      };
+      return {
+        text: card?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+        step: rowSnapshot('step'),
+        stl: rowSnapshot('stl'),
+        pdf: rowSnapshot('pdf-report'),
+        reportSummary: rowSnapshot('report-summary'),
+        createQuality: rowSnapshot('create-quality'),
+        drawingQuality: rowSnapshot('drawing-quality'),
+        manifest: rowSnapshot('manifest'),
+      };
+    })()`);
+    assertIncludesAll(snapshot.text, [
+      'Your generated files',
+      'Download or inspect the main outputs from this run.',
+      'CAD exports',
+      'STEP model',
+      'quality_pass_bracket.step',
+      'STL mesh',
+      'quality_pass_bracket.stl',
+      'Reports',
+      'PDF report',
+      'quality_pass_bracket_report.pdf',
+      'Report summary',
+      'quality_pass_bracket_report_summary.json',
+      'Quality evidence',
+      'Create quality JSON',
+      'quality_pass_bracket_create_quality.json',
+      'Drawing quality JSON',
+      'quality_pass_bracket_drawing_quality.json',
+      'Manifest',
+      'quality_pass_bracket_manifest.json',
+    ]);
+    assert.deepEqual(snapshot.step.actions, ['Open', 'Download']);
+    assert.deepEqual(snapshot.stl.actions, ['Download']);
+    assert.deepEqual(snapshot.pdf.actions, ['Open', 'Download']);
+    assert.deepEqual(snapshot.reportSummary.actions, ['Open', 'Download']);
+    assert.deepEqual(snapshot.createQuality.actions, ['Open', 'Download']);
+    assert.deepEqual(snapshot.drawingQuality.actions, ['Open', 'Download']);
+    assert.deepEqual(snapshot.manifest.actions, ['Open', 'Download']);
+    assert.equal(snapshot.step.hrefs.every((href) => href.includes('/artifacts/')), true);
+    assert.equal(snapshot.stl.hrefs.every((href) => href.includes('/download')), true);
+    return snapshot;
+  }, {
+    attempts: 60,
+    delayMs: 150,
+  });
+  assert.equal(generatedFilesSnapshot.text.includes('All artifacts'), false);
   assertIncludesAll(passDashboardText, [
     'Quality Dashboard - quality_pass_bracket',
+    'Engineering Quality',
+    'PASS',
+    'Generated geometry',
+    'Shape validity',
+    'Bounding box',
+    'Volume',
+    'Left hole diameter',
+    'Left hole center',
+    'Right hole diameter',
+    'Right hole center',
+    'STEP reimport',
+    'STEP shape validity',
+    'STEP volume delta',
+    'STEP bounding box',
+    'Expected',
+    'Actual',
+    'Tolerance',
+    'Source',
+    'generated_shape_geometry',
+    'reimported_step_geometry',
     'Drawing semantic QA',
     'Overall drawing quality',
     'Pass',
@@ -1185,7 +1709,7 @@ try {
     'No manufacturing blockers',
     'Ready for manufacturing review: Yes',
   ]);
-  assertExcludesAll(passDashboardText, ['in_memory', 'not_available']);
+  assertExcludesAll(passDashboardText, ['in_memory', 'not_available', 'What to do next', 'Run tracked create again after the fix']);
   await selectArtifactCardByText('quality_pass_bracket_extracted_drawing_semantics.json');
   const passExtractedPreviewText = await waitForArtifactPreview('"artifact_type": "extracted_drawing_semantics"');
   assertIncludesAll(passExtractedPreviewText, ['"status": "available"', '"required_dimensions_extracted": 2']);
@@ -1201,6 +1725,27 @@ try {
   ]);
   assertIncludesAll(failDashboardText, [
     'Quality Dashboard - ks_bracket',
+    'Engineering Quality',
+    'FAIL',
+    'Problems found',
+    'Left hole center',
+    '[30, 30] mm',
+    '[32, 30] mm',
+    '2 mm',
+    '0.2 mm',
+    'generated_shape_geometry',
+    'reimported_step_geometry',
+    'What to do next',
+    'Left hole center is outside tolerance.',
+    'A hole position that misses the target center',
+    'Inspect the create-quality JSON',
+    'Check hole center, placement',
+    'Run tracked create again after the fix.',
+    'Run tracked report again when report artifacts need to reflect the new result.',
+    'Open Artifacts and confirm Engineering Quality becomes PASS.',
+    'Inspect quality evidence',
+    'Open generated files',
+    'Open Model workspace',
     'Drawing semantic QA',
     'Overall drawing quality',
     'Fail',
@@ -1261,8 +1806,11 @@ try {
     'quality_pass_bracket_extracted_drawing_semantics.json',
     'quality_pass_bracket_drawing_planner.json',
     'quality_pass_bracket_drawing_quality.json',
+    'quality_pass_bracket_create_quality.json',
     'quality_pass_bracket_drawing.svg',
     'quality_pass_bracket_report.pdf',
+    'quality_pass_bracket.step',
+    'quality_pass_bracket.stl',
   ]);
   const previewAfterSwitch = await cdp.evaluate(`(() => ({
     hidden: document.querySelector('[data-hook="artifacts-detail-preview"]')?.hidden ?? true,
@@ -1271,6 +1819,9 @@ try {
   assert.equal(previewAfterSwitch.text.includes('quality_pass_bracket'), false);
   assert.equal(previewAfterSwitch.text.includes('quality_pass_bracket_drawing.svg'), false);
   assert.equal(previewAfterSwitch.text.includes('quality_pass_bracket_report.pdf'), false);
+  assert.equal(previewAfterSwitch.text.includes('quality_pass_bracket.step'), false);
+  assert.equal(previewAfterSwitch.text.includes('quality_pass_bracket.stl'), false);
+  assert.equal(previewAfterSwitch.text.includes('quality_pass_bracket_create_quality'), false);
   assert.equal(previewAfterSwitch.text.includes('quality_pass_bracket_extracted_drawing_semantics'), false);
   assert.equal(previewAfterSwitch.text.includes('quality_pass_bracket_drawing_planner'), false);
 
@@ -1589,6 +2140,41 @@ try {
     delayMs: 150,
   });
   assert.equal(artifactActions.text.includes('검토 열기'), true);
+
+  await cdp.evaluate(`(() => {
+    const localeSelect = document.getElementById('studio-locale-select');
+    if (!localeSelect) return false;
+    localeSelect.value = 'en';
+    localeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`);
+  const englishArtifactsSnapshot = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => {
+      const root = document.querySelector('.artifacts-dashboard');
+      const header = root?.querySelector('.section-header');
+      const generated = document.querySelector('[data-hook="artifacts-generated-files"]')?.closest('.studio-card');
+      const quality = document.querySelector('[data-hook="artifacts-quality-dashboard"]');
+      const actions = document.querySelector('[data-hook="artifacts-detail-actions"]');
+      return {
+        lang: document.documentElement.lang || '',
+        text: root?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+        headerText: header?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+        generatedText: generated?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+        actionText: actions?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+      };
+    })()`);
+    assert.equal(snapshot.lang, 'en');
+    assert.equal(snapshot.text.includes('Artifact management dashboard'), true);
+    assert.equal(snapshot.generatedText.includes('Your generated files'), true);
+    assert.equal(snapshot.actionText.includes('Download'), true);
+    return snapshot;
+  }, {
+    attempts: 50,
+    delayMs: 150,
+  });
+  assert.doesNotMatch(englishArtifactsSnapshot.headerText, /[가-힣]/);
+  assert.doesNotMatch(englishArtifactsSnapshot.generatedText, /[가-힣]/);
+  assert.doesNotMatch(englishArtifactsSnapshot.actionText, /[가-힣]/);
 
   const blockingLogs = cdp.logs.filter((entry) => (
     entry.source === 'network'

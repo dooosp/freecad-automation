@@ -310,6 +310,484 @@ function humanizeToken(value = '') {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function formatUpperStatus(status = '') {
+  const normalized = normalizeSurfaceStatus(status);
+  if (normalized === 'pass') return 'PASS';
+  if (normalized === 'fail') return 'FAIL';
+  if (normalized === 'warning') return 'WARNING';
+  if (normalized === 'missing') return 'MISSING';
+  if (normalized === 'unavailable' || normalized === 'not_available') return 'UNAVAILABLE';
+  if (normalized === 'skipped') return 'SKIPPED';
+  return normalized ? normalized.replace(/_/g, ' ').toUpperCase() : 'UNKNOWN';
+}
+
+function formatMeasurementValue(value, { unit = '', precision = 4 } = {}) {
+  if (Array.isArray(value)) {
+    const formatted = value.map((entry) => formatMeasurementValue(entry, { precision })).join(', ');
+    return `[${formatted}]${unit ? ` ${unit}` : ''}`;
+  }
+
+  if (value === null || value === undefined || value === '') return 'Not reported';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (Number.isFinite(Number(value))) {
+    const rounded = Number(Number(value).toFixed(precision));
+    return `${rounded}${unit ? ` ${unit}` : ''}`;
+  }
+  return String(value);
+}
+
+function statusFromBoolean(value) {
+  if (value === true) return 'pass';
+  if (value === false) return 'fail';
+  return 'unavailable';
+}
+
+function statusFromDelta(delta, tolerance) {
+  if (!Number.isFinite(Number(delta))) return 'unavailable';
+  if (!Number.isFinite(Number(tolerance))) return 'unavailable';
+  return Number(delta) <= Number(tolerance) ? 'pass' : 'fail';
+}
+
+function formatMeasurementSource(value = '') {
+  const normalized = normalizeString(value);
+  if (normalized === 'generated_shape_geometry') return 'generated_shape_geometry';
+  if (normalized === 'reimported_step_geometry') return 'reimported_step_geometry';
+  if (normalized === 'config_parameter') return 'config_parameter';
+  if (normalized === 'unavailable') return 'unavailable';
+  return value || 'Not reported';
+}
+
+function engineeringSourceTitle(source = '') {
+  const normalized = normalizeString(source);
+  if (normalized === 'generated_shape_geometry') return 'Generated geometry';
+  if (normalized === 'reimported_step_geometry') return 'STEP reimport';
+  return humanizeToken(source) || 'Engineering quality';
+}
+
+function formatFeatureLabel(featureId = '', fallback = '') {
+  const normalized = normalizeString(featureId);
+  if (normalized === 'hole_left' || normalized === 'left_hole') return 'Left hole';
+  if (normalized === 'hole_right' || normalized === 'right_hole') return 'Right hole';
+  if (normalized === 'hole') return 'Hole';
+  return humanizeToken(featureId || fallback);
+}
+
+function measurementLabel(measurement = {}) {
+  const feature = formatFeatureLabel(measurement.feature_id, measurement.source_requirement_id || measurement.requirement_id);
+  const type = normalizeString(measurement.measurement_type);
+  if (type === 'hole_diameter') return `${feature || 'Hole'} diameter`;
+  if (type === 'hole_center') return `${feature || 'Hole'} center`;
+  return humanizeToken(measurement.requirement_id || measurement.measurement_type || 'Engineering check');
+}
+
+function measurementExpectedActual(measurement = {}) {
+  const type = normalizeString(measurement.measurement_type);
+  if (type === 'hole_center') {
+    return {
+      expected: formatMeasurementValue(measurement.expected_center_xy_mm, { unit: 'mm' }),
+      actual: formatMeasurementValue(measurement.actual_center_xy_mm, { unit: 'mm' }),
+      delta: formatMeasurementValue(
+        measurement.center_delta_mm ?? measurement.delta_mm ?? measurement.source_center_delta_mm,
+        { unit: 'mm' }
+      ),
+    };
+  }
+
+  return {
+    expected: formatMeasurementValue(measurement.expected_value_mm, { unit: 'mm' }),
+    actual: formatMeasurementValue(
+      measurement.actual_value_mm ?? measurement.source_value_mm,
+      { unit: 'mm' }
+    ),
+    delta: formatMeasurementValue(
+      measurement.delta_mm ?? measurement.source_delta_mm,
+      { unit: 'mm' }
+    ),
+  };
+}
+
+function buildEngineeringRow({
+  id,
+  label,
+  status,
+  expected = 'Not reported',
+  actual = 'Not reported',
+  delta = 'Not reported',
+  tolerance = 'Not reported',
+  source = 'Not reported',
+  detail = '',
+  failureKind = '',
+  measurementType = '',
+  featureId = '',
+  validationKind = '',
+}) {
+  const normalizedStatus = normalizeSurfaceStatus(status);
+  return {
+    id,
+    label,
+    status: normalizedStatus,
+    statusLabel: formatUpperStatus(normalizedStatus),
+    tone: toStatusTone(normalizedStatus),
+    expected,
+    actual,
+    delta,
+    tolerance,
+    source: formatMeasurementSource(source),
+    detail,
+    failureKind,
+    measurementType,
+    featureId,
+    validationKind,
+  };
+}
+
+function buildEngineeringMeasurementRow(measurement = {}) {
+  const values = measurementExpectedActual(measurement);
+  const label = measurementLabel(measurement);
+  const detail = measurement.message
+    || (normalizeSurfaceStatus(measurement.status) === 'pass'
+      ? `${label} is within the reported tolerance.`
+      : '');
+  return buildEngineeringRow({
+    id: measurement.requirement_id || `${measurement.source || 'engineering'}-${label}`,
+    label,
+    status: measurement.status,
+    expected: values.expected,
+    actual: values.actual,
+    delta: values.delta,
+    tolerance: formatMeasurementValue(measurement.tolerance_mm, { unit: 'mm' }),
+    source: measurement.source,
+    detail,
+    failureKind: normalizeString(measurement.measurement_type),
+    measurementType: normalizeString(measurement.measurement_type),
+    featureId: measurement.feature_id || '',
+    validationKind: measurement.validation_kind || '',
+  });
+}
+
+function buildGeneratedShapeRows(createQuality = {}) {
+  const geometry = safeObject(createQuality.geometry);
+  const rows = [];
+  const validStatus = statusFromBoolean(geometry.valid_shape);
+  rows.push(buildEngineeringRow({
+    id: 'generated-shape-validity',
+    label: 'Shape validity',
+    status: validStatus,
+    expected: 'Valid shape',
+    actual: geometry.valid_shape === true
+      ? 'Valid shape'
+      : geometry.valid_shape === false
+        ? 'Invalid shape'
+        : 'Not reported',
+    delta: 'Not applicable',
+    tolerance: 'Required',
+    source: 'generated_shape_geometry',
+    detail: validStatus === 'pass'
+      ? 'Generated model shape is valid.'
+      : validStatus === 'fail'
+        ? 'Generated model shape is invalid.'
+        : 'Generated shape validity was not reported.',
+    failureKind: 'shape_validity',
+  }));
+
+  if (geometry.bbox) {
+    rows.push(buildEngineeringRow({
+      id: 'generated-bbox',
+      label: 'Bounding box',
+      status: 'pass',
+      expected: 'Generated bbox available',
+      actual: `size ${formatMeasurementValue(geometry.bbox.size, { unit: 'mm' })}`,
+      delta: 'Not applicable',
+      tolerance: 'Metadata present',
+      source: 'generated_shape_geometry',
+      detail: 'Generated bounding-box metadata is available.',
+      failureKind: 'bounding_box',
+    }));
+  }
+
+  if (geometry.volume !== null && geometry.volume !== undefined) {
+    const status = Number(geometry.volume) > 0 ? 'pass' : 'fail';
+    rows.push(buildEngineeringRow({
+      id: 'generated-volume',
+      label: 'Volume',
+      status,
+      expected: '> 0 mm^3',
+      actual: formatMeasurementValue(geometry.volume, { unit: 'mm^3' }),
+      delta: 'Not applicable',
+      tolerance: 'Positive volume',
+      source: 'generated_shape_geometry',
+      detail: status === 'pass'
+        ? 'Generated model volume is positive.'
+        : 'Generated model volume is empty or non-positive.',
+      failureKind: 'volume',
+    }));
+  }
+
+  return rows;
+}
+
+function buildStepRoundtripRows(createQuality = {}) {
+  const step = safeObject(createQuality.step_roundtrip);
+  if (Object.keys(step).length === 0) return [];
+
+  const thresholds = safeObject(createQuality.thresholds);
+  const rows = [];
+  if (step.reimport_attempted || step.reimport_valid !== null && step.reimport_valid !== undefined) {
+    const validStatus = statusFromBoolean(step.reimport_valid);
+    rows.push(buildEngineeringRow({
+      id: 'step-shape-validity',
+      label: 'STEP shape validity',
+      status: validStatus,
+      expected: 'Valid reimported STEP shape',
+      actual: step.reimport_valid === true
+        ? 'Valid shape'
+        : step.reimport_valid === false
+          ? 'Invalid shape'
+          : 'Not reported',
+      delta: 'Not applicable',
+      tolerance: 'Required',
+      source: 'reimported_step_geometry',
+      detail: validStatus === 'pass'
+        ? 'STEP reimport produced a valid shape.'
+        : validStatus === 'fail'
+          ? 'STEP reimported shape is invalid.'
+          : 'STEP reimport validity was not reported.',
+      failureKind: 'step_reimport_shape',
+    }));
+  }
+
+  if (step.volume_delta_percent !== null && step.volume_delta_percent !== undefined) {
+    const tolerance = thresholds.max_step_volume_delta_percent;
+    rows.push(buildEngineeringRow({
+      id: 'step-volume-delta',
+      label: 'STEP volume delta',
+      status: statusFromDelta(step.volume_delta_percent, tolerance),
+      expected: 'Match generated volume',
+      actual: formatMeasurementValue(step.volume_delta_percent, { unit: '%' }),
+      delta: formatMeasurementValue(step.volume_delta_percent, { unit: '%' }),
+      tolerance: formatMeasurementValue(tolerance, { unit: '%' }),
+      source: 'reimported_step_geometry',
+      detail: 'STEP reimport volume delta is compared with the generated model volume.',
+      failureKind: 'step_reimport_volume',
+    }));
+  }
+
+  if (step.bbox_delta?.max_abs_mm !== null && step.bbox_delta?.max_abs_mm !== undefined) {
+    const tolerance = thresholds.max_bbox_delta_mm;
+    rows.push(buildEngineeringRow({
+      id: 'step-bbox-delta',
+      label: 'STEP bounding box',
+      status: statusFromDelta(step.bbox_delta.max_abs_mm, tolerance),
+      expected: 'Match generated bbox',
+      actual: `max delta ${formatMeasurementValue(step.bbox_delta.max_abs_mm, { unit: 'mm' })}`,
+      delta: formatMeasurementValue(step.bbox_delta.max_abs_mm, { unit: 'mm' }),
+      tolerance: formatMeasurementValue(tolerance, { unit: 'mm' }),
+      source: 'reimported_step_geometry',
+      detail: 'STEP reimport bounding-box delta is compared with the generated model bbox.',
+      failureKind: 'step_reimport_bounding_box',
+    }));
+  }
+
+  return rows;
+}
+
+function isMissingEvidenceRow(row = {}) {
+  if (['missing', 'unavailable', 'not_available', 'not_run', 'incomplete'].includes(normalizeSurfaceStatus(row.status))) {
+    return true;
+  }
+  return [row.expected, row.actual, row.delta, row.tolerance, row.source].some((value) => (
+    normalizeString(value) === 'not reported' || normalizeString(value) === 'unavailable'
+  ));
+}
+
+function rowFailureKind(row = {}) {
+  const explicit = normalizeString(row.failureKind || row.measurementType);
+  const label = normalizeString(row.label);
+  const source = normalizeString(row.source);
+
+  if (isMissingEvidenceRow(row)) return 'missing_evidence';
+  if (explicit === 'hole_center' || label.includes('hole center')) return 'hole_center';
+  if (explicit === 'hole_diameter' || label.includes('hole diameter')) return 'hole_diameter';
+  if (explicit.includes('bounding_box') || label.includes('bounding box')) return source === 'reimported_step_geometry' ? 'step_reimport_bounding_box' : 'bounding_box';
+  if (explicit.includes('volume') || label.includes('volume')) return source === 'reimported_step_geometry' ? 'step_reimport_volume' : 'volume';
+  if (explicit.includes('shape') || label.includes('shape validity')) return source === 'reimported_step_geometry' ? 'step_reimport_shape' : 'shape_validity';
+  if (source === 'reimported_step_geometry') return 'step_reimport';
+  return 'engineering_measurement';
+}
+
+function buildFailureGuidanceEntry(row = {}) {
+  const kind = rowFailureKind(row);
+  const label = row.label || 'Engineering check';
+  const isStep = normalizeString(row.source) === 'reimported_step_geometry' || kind.startsWith('step_reimport');
+  const suffix = isStep ? ' after STEP reimport' : '';
+  const evidenceCopy = isStep
+    ? 'Inspect the STEP export, create-quality JSON, and generated-vs-reimported measurements.'
+    : 'Inspect the create-quality JSON and compare expected, actual, delta, tolerance, and source.';
+
+  const base = {
+    id: row.id || `${kind}-${label}`,
+    label,
+    statusLabel: row.statusLabel || formatUpperStatus(row.status),
+    source: row.source || 'Not reported',
+    evidence: evidenceCopy,
+    rerun: 'Run tracked create again after the fix, then run tracked report again when report artifacts need to reflect the new result.',
+    success: 'Open Artifacts and confirm Engineering Quality becomes PASS.',
+  };
+
+  if (kind === 'hole_center') {
+    return {
+      ...base,
+      whatFailed: `${label} is outside tolerance${suffix}.`,
+      whyItMatters: 'A hole position that misses the target center can break fit, fastening, or downstream drawing intent.',
+      change: 'Check hole center, placement, pitch, bracket width/height, or source geometry that controls this feature.',
+    };
+  }
+
+  if (kind === 'hole_diameter') {
+    return {
+      ...base,
+      whatFailed: `${label} size is outside tolerance${suffix}.`,
+      whyItMatters: 'A hole diameter that misses the target size can make hardware fit too loose, too tight, or impossible to assemble.',
+      change: 'Check hole diameter or radius config values and the source feature that creates this cut.',
+    };
+  }
+
+  if (kind === 'bounding_box' || kind === 'step_reimport_bounding_box') {
+    return {
+      ...base,
+      whatFailed: `${label} does not match the expected part size${suffix}.`,
+      whyItMatters: 'A part envelope mismatch means the generated or exported CAD may not match the intended bracket dimensions.',
+      change: 'Check bracket dimensions, thickness, flange/base dimensions, or source geometry that controls the outer shape.',
+    };
+  }
+
+  if (kind === 'volume' || kind === 'step_reimport_volume') {
+    return {
+      ...base,
+      whatFailed: `${label} differs from the expected material volume${suffix}.`,
+      whyItMatters: 'A volume mismatch can point to wrong dimensions, missing cutouts, failed holes, or unstable boolean operations.',
+      change: 'Check dimensions, cutouts, holes, and boolean operations that add or remove material.',
+    };
+  }
+
+  if (kind === 'shape_validity') {
+    return {
+      ...base,
+      whatFailed: 'The generated CAD shape is invalid.',
+      whyItMatters: 'Invalid geometry can make exported files, drawings, and manufacturing checks unreliable.',
+      evidence: 'Inspect the generated files, create-quality JSON, and any geometry warnings attached to the run.',
+      change: 'Check geometry operations, boolean cuts, fillets, chamfers, and feature dimensions that may create a broken solid.',
+    };
+  }
+
+  if (kind === 'step_reimport_shape' || kind === 'step_reimport') {
+    return {
+      ...base,
+      whatFailed: 'The exported STEP geometry did not preserve a valid expected result.',
+      whyItMatters: 'If STEP reimport changes or invalidates geometry, the deliverable CAD file may not match the model Studio reviewed.',
+      evidence: 'Inspect the STEP artifact, create-quality JSON, and reimported STEP evidence.',
+      change: 'Check export settings, generated shape stability, boolean operations, and any source feature behind the failing STEP measurement.',
+    };
+  }
+
+  if (kind === 'missing_evidence') {
+    return {
+      ...base,
+      whatFailed: `${label} evidence is incomplete or missing.`,
+      whyItMatters: 'Studio cannot prove the quality result without the expected measurement or artifact evidence.',
+      evidence: 'Inspect generated files, quality evidence JSON, manifest entries, and job logs.',
+      change: 'Check whether the tracked job produced the expected artifacts and whether the config/source path still resolves.',
+    };
+  }
+
+  return {
+    ...base,
+    whatFailed: `${label} failed its engineering quality check.`,
+    whyItMatters: 'The generated evidence does not match the expected engineering target closely enough to clear the quality gate.',
+    change: 'Check the config or source feature that controls this measurement.',
+  };
+}
+
+function buildEngineeringFailureNextActions({ failedRows = [], unavailableRows = [], status = '' } = {}) {
+  const normalizedStatus = normalizeSurfaceStatus(status);
+  if (normalizedStatus === 'pass') return null;
+
+  const actionableRows = failedRows.length > 0 ? failedRows : unavailableRows;
+  if (actionableRows.length === 0) return null;
+
+  const entries = actionableRows.map(buildFailureGuidanceEntry);
+  const primaryEntry = entries[0] || null;
+  return {
+    title: 'What to do next',
+    summary: primaryEntry
+      ? 'Start with the failed check, inspect the linked evidence, fix the related config or source geometry, then rerun the tracked flow.'
+      : 'Inspect the available quality evidence, repair the source issue, then rerun the tracked flow.',
+    entries,
+    steps: [
+      primaryEntry?.evidence || 'Inspect the quality evidence JSON for expected, actual, delta, tolerance, and source.',
+      primaryEntry?.change || 'Fix the related config value or source geometry.',
+      'Run tracked create again after the fix.',
+      'Run tracked report again when report artifacts need to reflect the new result.',
+      'Open Artifacts and confirm Engineering Quality becomes PASS.',
+    ],
+  };
+}
+
+function buildEngineeringQualitySummary(createQuality = {}) {
+  if (!createQuality || Object.keys(createQuality).length === 0) return null;
+
+  const engineering = safeObject(createQuality.engineering_quality);
+  const measurements = safeList(engineering.measurements).map(buildEngineeringMeasurementRow);
+  const generatedRows = [
+    ...buildGeneratedShapeRows(createQuality),
+    ...measurements.filter((row) => row.source === 'generated_shape_geometry'),
+  ];
+  const stepRows = [
+    ...buildStepRoundtripRows(createQuality),
+    ...measurements.filter((row) => row.source === 'reimported_step_geometry'),
+  ];
+  const hasEvidence = generatedRows.length > 0 || stepRows.length > 0;
+  if (!hasEvidence) return null;
+
+  const failedRows = [...generatedRows, ...stepRows].filter((row) => row.status === 'fail');
+  const unavailableRows = [...generatedRows, ...stepRows].filter((row) => (
+    row.status === 'missing' || row.status === 'unavailable' || row.status === 'not_available'
+  ));
+  const status = normalizeSurfaceStatus(
+    engineering.status
+    || createQuality.status
+    || (failedRows.length > 0 ? 'fail' : unavailableRows.length > 0 ? 'warning' : 'pass')
+  );
+
+  return {
+    status,
+    statusLabel: formatUpperStatus(status),
+    tone: toStatusTone(status),
+    summary: status === 'pass'
+      ? 'Generated geometry and STEP reimport checks are within reported tolerances.'
+      : status === 'fail'
+        ? `${failedRows.length} engineering quality check${failedRows.length === 1 ? '' : 's'} failed.`
+        : 'Engineering quality evidence is incomplete.',
+    sections: [
+      {
+        id: 'generated_shape_geometry',
+        title: engineeringSourceTitle('generated_shape_geometry'),
+        source: 'generated_shape_geometry',
+        rows: generatedRows,
+      },
+      {
+        id: 'reimported_step_geometry',
+        title: engineeringSourceTitle('reimported_step_geometry'),
+        source: 'reimported_step_geometry',
+        rows: stepRows,
+      },
+    ].filter((section) => section.rows.length > 0),
+    failures: failedRows,
+    unavailableRows,
+    nextActions: buildEngineeringFailureNextActions({ failedRows, unavailableRows, status }),
+  };
+}
+
 function formatEvidenceSourceLabel(value = '') {
   const normalized = normalizeString(value);
   if (!normalized) return '';
@@ -1250,7 +1728,12 @@ function buildArtifactLinks(artifacts = []) {
     .filter(Boolean);
 }
 
-function buildReportSummaryModel({ artifacts = [], reportSummary = {}, drawingQuality = {} } = {}) {
+function buildReportSummaryModel({
+  artifacts = [],
+  reportSummary = {},
+  createQuality = {},
+  drawingQuality = {},
+} = {}) {
   const surfaces = safeObject(reportSummary.surfaces);
   const createSurface = safeObject(surfaces.create_quality);
   const drawingSurface = safeObject(surfaces.drawing_quality);
@@ -1325,6 +1808,7 @@ function buildReportSummaryModel({ artifacts = [], reportSummary = {}, drawingQu
       drawingSurface,
       drawingQuality,
     }),
+    engineeringQuality: buildEngineeringQualitySummary(createQuality),
     checks,
   });
 }
@@ -1467,6 +1951,7 @@ function buildFallbackModel({
       },
       drawingQuality,
     }),
+    engineeringQuality: buildEngineeringQualitySummary(createQuality),
     checks: buildFallbackChecks({ createSurface, drawingSurface, reportStatus }),
   });
 }
@@ -1478,8 +1963,9 @@ export function buildQualityDashboardModel({
   const selectedArtifacts = collectQualityDashboardArtifacts(artifacts);
   const reportSummary = safeObject(selectedArtifacts.reportSummary ? artifactPayloads[selectedArtifacts.reportSummary.id] : null);
   if (Object.keys(reportSummary).length > 0 && reportSummary.overall_status) {
+    const createQuality = safeObject(selectedArtifacts.createQuality ? artifactPayloads[selectedArtifacts.createQuality.id] : null);
     const drawingQuality = safeObject(selectedArtifacts.drawingQuality ? artifactPayloads[selectedArtifacts.drawingQuality.id] : null);
-    return buildReportSummaryModel({ artifacts, reportSummary, drawingQuality });
+    return buildReportSummaryModel({ artifacts, reportSummary, createQuality, drawingQuality });
   }
 
   const createQuality = safeObject(selectedArtifacts.createQuality ? artifactPayloads[selectedArtifacts.createQuality.id] : null);

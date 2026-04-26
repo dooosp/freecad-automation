@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 
 import {
   countActiveStudioMonitoredJobs,
+  buildStudioJobCompletionNotice,
   describeJobMonitorTransition,
   ensureStudioJobMonitorState,
   findStudioMonitoredJob,
@@ -168,5 +169,102 @@ assert.equal(
   ),
   ''
 );
+
+const passedCompletionNotice = buildStudioJobCompletionNotice(
+  {
+    id: 'job-pass-123456789',
+    type: 'report',
+    status: 'succeeded',
+    result: {
+      report_summary: {
+        config_name: 'quality_pass_bracket',
+        overall_status: 'pass',
+        ready_for_manufacturing_review: true,
+      },
+    },
+  },
+  {
+    route: 'review',
+    secondaryRoute: 'artifacts',
+  },
+  0
+);
+assert.equal(passedCompletionNotice.tone, 'ok');
+assert.equal(passedCompletionNotice.title, 'Tracked report completed');
+assert.match(passedCompletionNotice.message, /Job succeeded/);
+assert.match(passedCompletionNotice.message, /Quality passed/);
+assert.match(passedCompletionNotice.message, /Ready Yes/);
+assert.deepEqual(passedCompletionNotice.messageParts, [
+  'Job succeeded.',
+  'Quality passed.',
+  'Ready Yes.',
+  'Open Review for decision context or Artifacts for generated files.',
+]);
+assert.deepEqual(
+  passedCompletionNotice.actions.map((action) => [action.label, action.action, action.route]),
+  [
+    ['Open Review', 'open-job', 'review'],
+    ['Open Artifacts', 'open-job', 'artifacts'],
+  ]
+);
+
+const failedQualityCompletionNotice = buildStudioJobCompletionNotice(
+  {
+    id: 'job-quality-fail-123456789',
+    type: 'report',
+    status: 'succeeded',
+    result: {
+      report_summary: {
+        config_name: 'ks_bracket',
+        overall_status: 'fail',
+        ready_for_manufacturing_review: false,
+      },
+    },
+  },
+  {
+    route: 'artifacts',
+    secondaryRoute: '',
+  },
+  1
+);
+assert.equal(failedQualityCompletionNotice.tone, 'warn');
+assert.equal(failedQualityCompletionNotice.title, 'Tracked report completed');
+assert.match(failedQualityCompletionNotice.message, /Quality failed/);
+assert.match(failedQualityCompletionNotice.message, /Ready No/);
+assert.match(failedQualityCompletionNotice.message, /1 other active job still running/);
+assert.equal(failedQualityCompletionNotice.messageParts.includes('1 other active job still running.'), true);
+
+const failedJobCompletionNotice = buildStudioJobCompletionNotice(
+  {
+    id: 'job-failed-123456789',
+    type: 'create',
+    status: 'failed',
+  },
+  {},
+  0
+);
+assert.equal(failedJobCompletionNotice.tone, 'bad');
+assert.equal(failedJobCompletionNotice.title, 'Tracked create failed');
+assert.match(failedJobCompletionNotice.message, /Open Jobs center/);
+assert.deepEqual(
+  failedJobCompletionNotice.actions.map((action) => [action.label, action.action]),
+  [
+    ['Retry tracked job', 'retry-job'],
+    ['Open Jobs center', 'open-jobs-center'],
+  ]
+);
+
+const cancelledJobCompletionNotice = buildStudioJobCompletionNotice(
+  {
+    id: 'job-cancelled-123456789',
+    type: 'draw',
+    status: 'cancelled',
+  },
+  {},
+  0
+);
+assert.equal(cancelledJobCompletionNotice.tone, 'warn');
+assert.equal(cancelledJobCompletionNotice.title, 'Tracked draw cancelled');
+assert.equal(cancelledJobCompletionNotice.actions[0].action, 'open-jobs-center');
 
 console.log('studio-job-monitor.test.js: ok');

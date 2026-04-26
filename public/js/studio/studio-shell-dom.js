@@ -144,6 +144,17 @@ function setBadgeTone(element, tone = 'info') {
   element.dataset.tone = tone;
 }
 
+function createCompletionActionButton(documentRef, action = {}) {
+  const button = documentRef.createElement('button');
+  button.className = `action-button action-button-${action.tone === 'primary' ? 'primary' : 'ghost'}`;
+  button.type = 'button';
+  button.dataset.action = action.action || 'open-job';
+  if (action.jobId) button.dataset.jobId = action.jobId;
+  if (action.route) button.dataset.route = action.route;
+  button.textContent = action.label || 'Open Jobs center';
+  return button;
+}
+
 export function createStudioShellDomController(app) {
   function syncChrome() {
     const workspace = workspaceDefinitions[app.state.route];
@@ -207,32 +218,43 @@ export function createStudioShellDomController(app) {
     title.textContent = notice.title;
     copy.append(title);
 
-    const message = app.document.createElement('p');
-    message.className = 'completion-notice-message';
-    message.textContent = notice.message;
-    copy.append(message);
+    const messageParts = Array.isArray(notice.messageParts) && notice.messageParts.length > 0
+      ? notice.messageParts
+      : [notice.message];
+    messageParts.filter(Boolean).forEach((part) => {
+      const message = app.document.createElement('p');
+      message.className = 'completion-notice-message';
+      message.textContent = part;
+      copy.append(message);
+    });
 
     const actions = app.document.createElement('div');
     actions.className = 'completion-notice-actions';
 
-    const primaryButton = app.document.createElement('button');
-    primaryButton.className = 'action-button action-button-primary';
-    primaryButton.type = 'button';
-    primaryButton.dataset.action = 'open-job';
-    primaryButton.dataset.jobId = notice.jobId;
-    primaryButton.dataset.route = notice.primaryRoute;
-    primaryButton.textContent = notice.primaryLabel;
-    actions.append(primaryButton);
+    if (Array.isArray(notice.actions) && notice.actions.length > 0) {
+      notice.actions.forEach((action) => {
+        actions.append(createCompletionActionButton(app.document, action));
+      });
+    } else if (notice.primaryRoute) {
+      const primaryButton = app.document.createElement('button');
+      primaryButton.className = 'action-button action-button-primary';
+      primaryButton.type = 'button';
+      primaryButton.dataset.action = 'open-job';
+      primaryButton.dataset.jobId = notice.jobId;
+      primaryButton.dataset.route = notice.primaryRoute;
+      primaryButton.textContent = notice.primaryLabel;
+      actions.append(primaryButton);
 
-    if (notice.secondaryRoute) {
-      const secondaryButton = app.document.createElement('button');
-      secondaryButton.className = 'action-button action-button-ghost';
-      secondaryButton.type = 'button';
-      secondaryButton.dataset.action = 'open-job';
-      secondaryButton.dataset.jobId = notice.jobId;
-      secondaryButton.dataset.route = notice.secondaryRoute;
-      secondaryButton.textContent = notice.secondaryLabel;
-      actions.append(secondaryButton);
+      if (notice.secondaryRoute) {
+        const secondaryButton = app.document.createElement('button');
+        secondaryButton.className = 'action-button action-button-ghost';
+        secondaryButton.type = 'button';
+        secondaryButton.dataset.action = 'open-job';
+        secondaryButton.dataset.jobId = notice.jobId;
+        secondaryButton.dataset.route = notice.secondaryRoute;
+        secondaryButton.textContent = notice.secondaryLabel;
+        actions.append(secondaryButton);
+      }
     }
 
     const dismissButton = app.document.createElement('button');

@@ -18,7 +18,11 @@ import {
   deriveModelTrackedRunPresentation,
   ensureModelTrackedRunState,
 } from './model-tracked-runs.js';
-import { getStudioExampleValue } from './examples.js';
+import {
+  findStudioExampleById,
+  getStudioExampleValue,
+  VERIFIED_BRACKET_EXAMPLE_ID,
+} from './examples.js';
 import {
   deriveRecentJobQualityStatus,
   formatRecentJobQualityLine,
@@ -430,7 +434,9 @@ function createExamplesSelect(state) {
             text: example.name,
             attrs: {
               value: getStudioExampleValue(example),
-              selected: getStudioExampleValue(example) === state.data.examples.selectedId,
+              ...(getStudioExampleValue(example) === state.data.examples.selectedId
+                ? { selected: true }
+                : {}),
             },
           })
         )
@@ -441,6 +447,43 @@ function createExamplesSelect(state) {
           }),
         ],
   });
+}
+
+function createVerifiedBracketMeta(examples = {}) {
+  if (examples.status === 'loading') return 'Loading examples...';
+  if (examples.status !== 'ready') return 'Verified bracket example loads when the checked-in examples source is available.';
+
+  const verifiedExample = findStudioExampleById(examples.items, VERIFIED_BRACKET_EXAMPLE_ID);
+  if (!verifiedExample) return 'quality_pass_bracket is not currently exposed by the examples endpoint.';
+  return 'Recommended example: quality_pass_bracket';
+}
+
+function canLoadVerifiedBracket(examples = {}) {
+  return examples.status === 'ready'
+    && Boolean(findStudioExampleById(examples.items, VERIFIED_BRACKET_EXAMPLE_ID));
+}
+
+function isVerifiedBracketLoaded(model = {}) {
+  return model.sourcePath === VERIFIED_BRACKET_EXAMPLE_ID
+    || model.sourceName === `${VERIFIED_BRACKET_EXAMPLE_ID}.toml`;
+}
+
+function canRunStartTrackedPath(state) {
+  const model = state.data.model || {};
+  return state.connectionState === 'connected'
+    && state.data.health.available === true
+    && Boolean((model.configText || '').trim())
+    && model.trackedRun?.submitting !== true;
+}
+
+function startTrackedPathMeta(state) {
+  const model = state.data.model || {};
+  if (!model.configText) return 'Load the verified bracket to unlock tracked create and report actions.';
+  if (state.connectionState !== 'connected') return 'Tracked jobs require the local API path from `fcad serve`.';
+  if (state.data.health.available !== true) return 'Tracked jobs unlock after runtime health is ready.';
+  if (model.trackedRun?.submitting === true) return 'Submitting the tracked job...';
+  if (isVerifiedBracketLoaded(model)) return 'Recommended path: run tracked create first, then tracked report.';
+  return 'Tracked create/report will use the currently loaded config.';
 }
 
 function createStartActionsCard(state) {
@@ -947,7 +990,9 @@ function createModelExampleSelect(state) {
             text: example.name,
             attrs: {
               value: getStudioExampleValue(example),
-              selected: getStudioExampleValue(example) === state.data.examples.selectedId,
+              ...(getStudioExampleValue(example) === state.data.examples.selectedId
+                ? { selected: true }
+                : {}),
             },
           })
         )
@@ -1300,7 +1345,7 @@ function createModelWorkspace(state) {
                         className: 'model-action-row',
                         children: [
                           createButton({
-                            label: 'TOML 초안 생성',
+                            label: 'Draft TOML',
                             action: 'model-draft-prompt',
                             tone: 'ghost',
                             dataset: { hook: 'draft-prompt' },
@@ -1318,9 +1363,9 @@ function createModelWorkspace(state) {
             className: 'model-column model-column-center',
             children: [
               createCard({
-                kicker: '뷰포트',
-                title: '최신 빌드 결과를 검토하세요',
-                copy: '이제 모델 캔버스가 작업 영역의 중심이어서 빌드 직후 결과를 바로 확인할 수 있습니다.',
+                kicker: 'Viewport',
+                title: 'Inspect the latest build result',
+                copy: 'The model canvas now leads the workspace so the user can see the outcome immediately after build.',
                 surface: 'canvas',
                 body: [
                   el('div', {
@@ -1333,7 +1378,7 @@ function createModelWorkspace(state) {
                             dataset: { hook: 'wireframe' },
                             attrs: { type: 'checkbox' },
                           }),
-                          el('span', { text: '와이어프레임' }),
+                          el('span', { text: 'Wireframe' }),
                         ],
                       }),
                       el('label', {
@@ -1343,13 +1388,13 @@ function createModelWorkspace(state) {
                             dataset: { hook: 'edges' },
                             attrs: { type: 'checkbox', checked: true },
                           }),
-                          el('span', { text: '에지' }),
+                          el('span', { text: 'Edges' }),
                         ],
                       }),
                       el('label', {
                         className: 'studio-range-row',
                         children: [
-                          el('span', { text: '불투명도' }),
+                          el('span', { text: 'Opacity' }),
                           el('input', {
                             dataset: { hook: 'opacity' },
                             attrs: { type: 'range', min: 10, max: 100, value: 100 },
@@ -1357,13 +1402,13 @@ function createModelWorkspace(state) {
                         ],
                       }),
                       createButton({
-                        label: '스크린샷',
+                        label: 'Screenshot',
                         action: 'model-screenshot',
                         tone: 'ghost',
                         dataset: { hook: 'screenshot' },
                       }),
                       createButton({
-                        label: '뷰 맞춤',
+                        label: 'Fit view',
                         action: 'model-fit-view',
                         tone: 'ghost',
                         dataset: { hook: 'fit-view' },
@@ -1379,7 +1424,7 @@ function createModelWorkspace(state) {
                   el('p', {
                     className: 'inline-note',
                     dataset: { hook: 'viewport-caption' },
-                    text: '뷰포트가 중심에 남아 있어서 워크플로우가 입력 선택 → 빌드 → 결과 검토 순서로 읽힙니다.',
+                    text: 'The viewport stays dominant so the workflow reads as choose input, preview, then inspect the result.',
                   }),
                 ],
               }),
@@ -1389,33 +1434,33 @@ function createModelWorkspace(state) {
             className: 'model-column model-column-right',
             children: [
               createCard({
-                kicker: '모델 메타데이터',
-                title: '운영용 모델 정보',
-                copy: '메타데이터는 임의의 텍스트 덤프가 아니라 빌드 피드백으로 정리됩니다.',
+                kicker: 'Model metadata',
+                title: 'Operational model facts',
+                copy: 'Metadata is presented as build feedback, not a random textbox dump.',
                 body: [
                   el('div', { className: 'model-info studio-side-panel', dataset: { hook: 'model-info' } }),
                 ],
               }),
               createCard({
-                kicker: '부품',
-                title: '부품/어셈블리 구조',
-                copy: '부품 선택, 재질 스와치, 부품별 검토는 입력 패널이 아니라 뷰포트 옆에 유지됩니다.',
+                kicker: 'Parts',
+                title: 'Assembly structure',
+                copy: 'Part selection, material swatches, and per-part inspection stay next to the viewport rather than inside the input stack.',
                 body: [
                   el('div', { className: 'parts-list studio-side-panel', dataset: { hook: 'parts-list' } }),
                 ],
               }),
               createCard({
-                kicker: '빌드 로그',
-                title: '빌드 파이프라인 출력',
-                copy: '로그는 일반 콘솔 잡음이 아니라 파이프라인의 운영 피드백으로 정리됩니다.',
+                kicker: 'Build log',
+                title: 'Build pipeline output',
+                copy: 'Logs are framed as operational feedback from the pipeline instead of generic console noise.',
                 body: [
                   el('div', { className: 'build-log studio-side-panel', dataset: { hook: 'build-log' } }),
                 ],
               }),
               createCard({
-                kicker: '모션 제어',
-                title: '모션 데이터가 있으면 애니메이션을 유지합니다',
-                copy: '모델에 모션 데이터가 있으면 동일한 재생 동작을 여기서 계속 사용할 수 있습니다.',
+                kicker: 'Motion controls',
+                title: 'Preserve animation when motion data exists',
+                copy: 'If the model carries motion data, the same playback behavior remains available here.',
                 body: [
                   el('div', {
                     className: 'animation-controls studio-side-panel',
@@ -1424,9 +1469,9 @@ function createModelWorkspace(state) {
                       el('div', {
                         className: 'anim-btn-row',
                         children: [
-                          createButton({ label: '재생', action: 'play', tone: 'ghost', dataset: { hook: 'play' } }),
-                          createButton({ label: '일시정지', action: 'pause', tone: 'ghost', dataset: { hook: 'pause' } }),
-                          createButton({ label: '재설정', action: 'reset-motion', tone: 'ghost', dataset: { hook: 'reset-motion' } }),
+                          createButton({ label: 'Play', action: 'play', tone: 'ghost', dataset: { hook: 'play' } }),
+                          createButton({ label: 'Pause', action: 'pause', tone: 'ghost', dataset: { hook: 'pause' } }),
+                          createButton({ label: 'Reset', action: 'reset-motion', tone: 'ghost', dataset: { hook: 'reset-motion' } }),
                         ],
                       }),
                       el('div', {
@@ -1474,13 +1519,13 @@ function createDrawingWorkspace(state) {
     className: 'workspace-shell',
     children: [
       createSectionHeader({
-        kicker: '도면 작업 영역',
-        title: 'FreeCAD 도면은 시트 중심으로 유지됩니다',
-        description: '예전 오버레이 흐름으로 떨어지지 않고 전용 작업대에서 제조용 시트를 생성, 검토, 수정하세요.',
+        kicker: 'Drawing workspace',
+        title: 'FreeCAD drawing stays sheet-first',
+        description: 'Generate, inspect, and revise manufacturing-facing sheets in a dedicated workbench instead of dropping into the old overlay flow.',
         badges: [
-          { label: hasConfig ? '설정 로드됨' : '설정 필요', tone: hasConfig ? 'ok' : 'warn' },
-          { label: `도면 ${drawingStatus === 'ready' ? '준비됨' : drawingStatus === 'error' ? '오류' : drawingStatus === 'generating' ? '생성 중' : '대기'}`, tone },
-          { label: 'BOM 및 QA 보조 패널', tone: 'info' },
+          { label: hasConfig ? 'Config loaded' : 'Config needed', tone: hasConfig ? 'ok' : 'warn' },
+          { label: `Drawing ${drawingStatus === 'ready' ? 'ready' : drawingStatus === 'error' ? 'error' : drawingStatus === 'generating' ? 'generating' : 'pending'}`, tone },
+          { label: 'BOM and QA sidecars', tone: 'info' },
         ],
       }),
       el('div', {
@@ -1490,32 +1535,32 @@ function createDrawingWorkspace(state) {
             className: 'model-status-surface',
             dataset: { hook: 'drawing-source-surface', tone: hasConfig ? 'ok' : 'warn' },
             children: [
-              el('h3', { className: 'model-status-title', text: hasConfig ? '설정 준비됨' : '설정 대기 중' }),
-              el('p', { className: 'model-status-copy', text: hasConfig ? '이 작업 영역은 공유된 설정 상태에서 바로 시트를 생성할 수 있습니다.' : '시트를 생성하기 전에 여기서 예제를 불러오거나 설정 파일을 여세요.' }),
+              el('h3', { className: 'model-status-title', text: hasConfig ? 'Config ready' : 'Config pending' }),
+              el('p', { className: 'model-status-copy', text: hasConfig ? 'This workspace can generate a sheet from the shared config state.' : 'Load an example or open a config here before generating a sheet.' }),
             ],
           }),
           el('article', {
             className: 'model-status-surface',
             dataset: { hook: 'drawing-runtime-surface', tone: 'info' },
             children: [
-              el('h3', { className: 'model-status-title', text: '런타임 대기 중' }),
-              el('p', { className: 'model-status-copy', text: '도면 미리보기와 추적 시트 실행은 Studio의 다른 화면과 같은 런타임과 작업 모델을 사용합니다.' }),
+              el('h3', { className: 'model-status-title', text: 'Runtime pending' }),
+              el('p', { className: 'model-status-copy', text: 'Drawing previews and tracked sheet runs use the same runtime and job model as the rest of Studio.' }),
             ],
           }),
           el('article', {
             className: 'model-status-surface',
             dataset: { hook: 'drawing-job-surface', tone },
             children: [
-              el('h3', { className: 'model-status-title', text: drawingStatus === 'generating' ? '생성 중' : '아직 도면이 없습니다' }),
-              el('p', { className: 'model-status-copy', text: 'Preview Drawing은 로컬에서 빠르게 동작하고, 추적 도면 실행은 모니터링되는 작업으로 전달됩니다.' }),
+              el('h3', { className: 'model-status-title', text: drawingStatus === 'generating' ? 'Generating' : 'No drawing yet' }),
+              el('p', { className: 'model-status-copy', text: 'Preview Drawing stays local and fast; tracked draw routes into monitored jobs.' }),
             ],
           }),
           el('article', {
             className: 'model-status-surface',
             dataset: { hook: 'drawing-result-surface', tone: 'info' },
             children: [
-              el('h3', { className: 'model-status-title', text: '시트 준비 대기' }),
-              el('p', { className: 'model-status-copy', text: '첫 렌더링 이후 BOM, 주석, QA, 치수 상태가 여기에 요약됩니다.' }),
+              el('h3', { className: 'model-status-title', text: 'Sheet pending' }),
+              el('p', { className: 'model-status-copy', text: 'BOM, annotations, QA, and dimension state will summarize here after the first render.' }),
             ],
           }),
         ],
@@ -1527,9 +1572,9 @@ function createDrawingWorkspace(state) {
             className: 'drawing-column drawing-column-left',
             children: [
               createCard({
-                kicker: '소스',
-                title: '시트 입력 소스를 선택하세요',
-                copy: '도면 작업 영역에서 예제나 설정을 불러오고, 형상이나 전체 TOML을 실제로 수정할 때만 모델로 이동하세요.',
+                kicker: 'Source',
+                title: 'Choose what feeds the sheet',
+                copy: 'Stay in Drawing to load an example or config, then jump to Model only when you actually want to revise geometry or full TOML.',
                 body: [
                   el('div', {
                     className: 'action-controls',
@@ -1539,17 +1584,17 @@ function createDrawingWorkspace(state) {
                         className: 'model-action-row',
                         children: [
                           createButton({
-                            label: '예제 불러오기',
+                            label: 'Load example',
                             action: 'drawing-load-example',
                             tone: 'primary',
                           }),
                           createButton({
-                            label: '설정 파일 열기',
+                            label: 'Open config file',
                             action: 'drawing-open-config',
                             tone: 'ghost',
                           }),
                           createButton({
-                            label: '모델에서 편집',
+                            label: 'Edit in model',
                             action: 'drawing-open-model',
                             tone: 'ghost',
                           }),
@@ -1569,14 +1614,14 @@ function createDrawingWorkspace(state) {
                 ],
               }),
               createCard({
-                kicker: '미리보기 vs 추적 실행',
-                title: '시트를 준비한 뒤 실행 경로를 고르세요',
-                copy: 'Preview Drawing은 빠른 시트 중심 반복 작업을 유지합니다. Run Tracked Draw Job은 현재 TOML과 도면 설정을 일반 작업 파이프라인과 산출물 타임라인으로 전달합니다.',
+                kicker: 'Preview vs tracked run',
+                title: 'Set up the sheet, then choose the execution lane',
+                copy: 'Preview Drawing keeps the fast sheet-first loop in place. Run Tracked Draw Job submits the current TOML plus drawing settings into the normal job pipeline and Artifacts timeline.',
                 body: [
                   el('div', {
                     className: 'drawing-preset-group',
                     children: [
-                      el('p', { className: 'info-label', text: '보기 프리셋' }),
+                      el('p', { className: 'info-label', text: 'View presets' }),
                       el('div', {
                         className: 'drawing-view-grid',
                         children: ['front', 'top', 'right', 'iso'].map((view) =>
@@ -1600,7 +1645,7 @@ function createDrawingWorkspace(state) {
                       el('label', {
                         className: 'drawing-select-field',
                         children: [
-                          el('span', { className: 'info-label', text: '시트 축척' }),
+                          el('span', { className: 'info-label', text: 'Sheet scale' }),
                           el('select', {
                             className: 'studio-select',
                             dataset: { hook: 'drawing-scale' },
@@ -1623,7 +1668,7 @@ function createDrawingWorkspace(state) {
                             dataset: { hook: 'drawing-section-assist' },
                             attrs: { type: 'checkbox' },
                           }),
-                          el('span', { text: '단면 보조' }),
+                          el('span', { text: 'Section assist' }),
                         ],
                       }),
                       el('label', {
@@ -1633,7 +1678,7 @@ function createDrawingWorkspace(state) {
                             dataset: { hook: 'drawing-detail-assist' },
                             attrs: { type: 'checkbox' },
                           }),
-                          el('span', { text: '상세도 보조' }),
+                          el('span', { text: 'Detail assist' }),
                         ],
                       }),
                     ],
@@ -1641,25 +1686,25 @@ function createDrawingWorkspace(state) {
                   el('p', {
                     className: 'inline-note',
                     dataset: { hook: 'drawing-summary' },
-                    text: 'Preview Drawing은 로컬에서 빠르게 동작합니다. Run Tracked Draw Job은 현재 시트 설정을 추적 작업과 산출물로 게시합니다.',
+                    text: 'Preview Drawing runs locally and quickly. Run Tracked Draw Job publishes the current sheet settings as a tracked job and artifact set.',
                   }),
                   el('div', {
                     className: 'model-action-row',
                     children: [
                       createButton({
-                        label: '도면 미리보기',
+                        label: 'Preview drawing',
                         action: 'drawing-generate',
                         tone: 'primary',
                         dataset: { hook: 'drawing-generate' },
                       }),
                       createButton({
-                        label: '추적 도면 실행',
+                        label: 'Run Tracked Draw Job',
                         action: 'drawing-run-tracked',
                         tone: 'ghost',
                         dataset: { hook: 'drawing-tracked-run' },
                       }),
                       createButton({
-                        label: '시트 맞춤',
+                        label: 'Fit sheet',
                         action: 'drawing-fit',
                         tone: 'ghost',
                         dataset: { hook: 'drawing-fit-side' },
@@ -1675,9 +1720,9 @@ function createDrawingWorkspace(state) {
             className: 'drawing-column drawing-column-center',
             children: [
               createCard({
-                kicker: '도면 캔버스',
-                title: '시트 보기',
-                copy: '여기서는 시트가 중심 표면이며, 도면 검토에 필요한 제어만 남깁니다.',
+                kicker: 'Drawing canvas',
+                title: 'Sheet view',
+                copy: 'The sheet is the primary surface here, with just the controls that matter for drawing inspection.',
                 surface: 'canvas',
                 body: [
                   el('div', {
@@ -1696,7 +1741,7 @@ function createDrawingWorkspace(state) {
                         dataset: { hook: 'drawing-zoom-out' },
                       }),
                       createButton({
-                        label: '맞춤',
+                        label: 'Fit',
                         action: 'drawing-fit',
                         tone: 'ghost',
                         dataset: { hook: 'drawing-fit' },
@@ -1714,8 +1759,8 @@ function createDrawingWorkspace(state) {
                         children: [
                           createEmptyState({
                             icon: '2D',
-                            title: '아직 도면이 없습니다',
-                            copy: '빠른 반복에는 Preview Drawing을, 현재 TOML과 시트 설정을 작업 대기열에 넣으려면 Run Tracked Draw Job을 사용하세요.',
+                            title: 'No drawing yet',
+                            copy: 'Use Preview Drawing for the fast loop or Run Tracked Draw Job to queue the current TOML and sheet settings.',
                           }),
                         ],
                       }),
@@ -1728,7 +1773,7 @@ function createDrawingWorkspace(state) {
                   el('p', {
                     className: 'inline-note',
                     dataset: { hook: 'drawing-canvas-caption' },
-                    text: '드래그로 이동하고, 마우스 휠로 확대/축소하고, 치수 텍스트를 클릭해 편집 루프를 시트에 붙여 두세요.',
+                    text: 'Pan with drag, zoom with the mouse wheel, and click dimension text to keep the edit loop attached to the sheet.',
                   }),
                 ],
               }),
@@ -1740,41 +1785,41 @@ function createDrawingWorkspace(state) {
               createCard({
                 kicker: 'BOM',
                 title: 'BOM',
-                copy: '제조용 부품 구조는 시트 아래가 아니라 옆에 유지됩니다.',
+                copy: 'Manufacturing-facing part structure stays beside the sheet instead of below it.',
                 body: [
                   el('div', { className: 'drawing-side-panel', dataset: { hook: 'drawing-bom' } }),
                 ],
               }),
               createCard({
-                kicker: '주석',
-                title: '메모 및 콜아웃',
-                copy: '일반 메모와 도면 계획 콜아웃은 문서화 보조 패널로 계속 보입니다.',
+                kicker: 'Annotations',
+                title: 'Notes and callouts',
+                copy: 'General notes and drawing-plan callouts stay visible as documentation sidecars.',
                 body: [
                   el('div', { className: 'drawing-side-panel', dataset: { hook: 'drawing-annotations' } }),
                 ],
               }),
               createCard({
-                kicker: 'QA 요약',
-                title: '시트 준비 상태',
-                copy: '반복 작업 중에도 도면 점수와 치수 상태를 계속 볼 수 있습니다.',
+                kicker: 'QA summary',
+                title: 'Sheet readiness',
+                copy: 'Keep the drawing score and dimension posture visible while you iterate.',
                 body: [
                   el('div', { className: 'drawing-side-panel', dataset: { hook: 'drawing-qa' } }),
                 ],
               }),
               createCard({
-                kicker: '치수 반복 작업',
-                title: '편집 가능한 치수와 이력',
-                copy: '기존 편집 루프는 시트에 그대로 연결되고, 오른쪽 패널에서 현재 값과 변경 이력을 확인할 수 있습니다.',
+                kicker: 'Dimension loop',
+                title: 'Editable dimensions and history',
+                copy: 'The existing edit loop stays attached to the sheet, with a right-side register for current values and change history.',
                 body: [
                   createDisclosure({
-                    summary: '현재 편집 가능한 치수',
+                    summary: 'Current editable dimensions',
                     open: true,
                     body: [
                       el('div', { className: 'drawing-side-panel', dataset: { hook: 'drawing-dimensions' } }),
                     ],
                   }),
                   createDisclosure({
-                    summary: '편집 이력',
+                    summary: 'Edit history',
                     open: true,
                     body: [
                       el('div', { className: 'drawing-side-panel', dataset: { hook: 'drawing-history' } }),
@@ -1977,6 +2022,8 @@ function createConsoleHero(state) {
   const recentJobs = state.data.recentJobs.items || [];
   const importBootstrap = ensureImportBootstrapState(state);
   const hasTrackedJobs = recentJobs.length > 0;
+  const verifiedBracketAvailable = canLoadVerifiedBracket(state.data.examples);
+  const canRunTracked = canRunStartTrackedPath(state);
 
   return el('section', {
     className: 'console-hero',
@@ -1994,23 +2041,92 @@ function createConsoleHero(state) {
       }),
       el('div', {
         className: 'console-hero-panel',
+        dataset: { hook: 'verified-bracket-card' },
         children: [
-          el('p', { className: 'eyebrow', text: 'Recommended next action' }),
-          el('h3', { className: 'card-title', text: 'Step 1. Connect input context to the console' }),
+          el('p', { className: 'eyebrow', text: 'Start here' }),
+          el('h3', { className: 'card-title', text: 'Start with a verified bracket' }),
           el('p', {
             className: 'card-copy',
-            text: importBootstrap.modelPath || importBootstrap.modelFileName
-              ? 'Input context is partially staged. Continue from the console to validate source assumptions before tracked review.'
-              : 'Start from an example, a checked-in config, or the tracked job trail. Model and Drawing remain available, but the review path begins here.',
+            text: 'This example is the clean Stage 3 quality target. It should generate successfully and pass engineering quality.',
+          }),
+          el('p', {
+            className: 'action-meta',
+            text: createVerifiedBracketMeta(state.data.examples),
+          }),
+          el('p', {
+            className: 'support-note',
+            text: 'After loading, run a tracked create or report job to generate artifacts and review quality.',
+          }),
+          el('div', {
+            className: 'start-tracked-path',
+            dataset: { hook: 'start-tracked-primary-path' },
+            children: [
+              el('p', { className: 'eyebrow', text: 'Primary tracked path' }),
+              el('p', {
+                className: 'action-meta',
+                text: startTrackedPathMeta(state),
+              }),
+              el('div', {
+                className: 'console-hero-actions',
+                children: [
+                  createButton({
+                    label: 'Run tracked create first',
+                    action: 'start-run-tracked-create',
+                    tone: 'primary',
+                    disabled: !canRunTracked,
+                    attrs: {
+                      'aria-label': 'Run tracked create job for the loaded config',
+                    },
+                  }),
+                  createButton({
+                    label: 'Run tracked report',
+                    action: 'start-run-tracked-report',
+                    tone: 'ghost',
+                    disabled: !canRunTracked,
+                    attrs: {
+                      'aria-label': 'Run tracked report job for the loaded config',
+                    },
+                  }),
+                ],
+              }),
+            ],
           }),
           el('div', {
             className: 'console-hero-actions',
             children: [
+              createButton({
+                label: 'Load verified bracket',
+                action: 'load-verified-bracket',
+                tone: 'primary',
+                disabled: !verifiedBracketAvailable,
+                attrs: {
+                  'aria-label': 'Load verified bracket example quality_pass_bracket',
+                },
+              }),
+              createButton({
+                label: 'Open Model workspace',
+                action: 'go-model',
+                tone: 'ghost',
+                attrs: {
+                  'aria-label': 'Open Model workspace',
+                },
+              }),
+            ],
+          }),
+          el('div', {
+            className: 'console-example-fallback',
+            children: [
+              el('p', {
+                className: 'inline-note',
+                text: importBootstrap.modelPath || importBootstrap.modelFileName
+                  ? 'Input context is partially staged. You can still load any checked-in example below.'
+                  : 'Need a different starting point? The full example picker remains available.',
+              }),
               createExamplesSelect(state),
               createButton({
-                label: 'Bring source context into the console',
+                label: 'Load selected example',
                 action: 'try-example',
-                tone: 'primary',
+                tone: 'ghost',
                 disabled: state.data.examples.status !== 'ready' || state.data.examples.items.length === 0,
               }),
               createButton({
