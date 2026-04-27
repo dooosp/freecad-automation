@@ -43,13 +43,14 @@ npm run test:runtime-smoke
 
 If you are reviewing the repository on GitHub:
 
-1. Read the [infotainment production readiness case study](./docs/portfolio/infotainment-production-readiness-case.md).
-2. Open the [checked-in example artifact set](./docs/examples/infotainment-display-bracket/README.md).
-3. Review the [parameter sweep gallery](./docs/examples/parameter-sweep-gallery.md).
-4. Compare the [Korea vs Mexico stabilization example](./docs/examples/infotainment-display-bracket/stabilization-comparison.md).
-5. Read the [before-vs-after improvement case](./docs/portfolio/before-after-improvement-case.md).
-6. Skim the [readiness report markdown](./docs/examples/infotainment-display-bracket/readiness-report.md).
-7. Inspect the [example config](./configs/examples/infotainment_display_bracket.toml) and the command classification below.
+1. Open the [canonical example library](./docs/examples/README.md) for the curated AF5 package index.
+2. Read the [infotainment production readiness case study](./docs/portfolio/infotainment-production-readiness-case.md).
+3. Open the [checked-in example artifact set](./docs/examples/infotainment-display-bracket/README.md).
+4. Review the [parameter sweep gallery](./docs/examples/parameter-sweep-gallery.md).
+5. Compare the [Korea vs Mexico stabilization example](./docs/examples/infotainment-display-bracket/stabilization-comparison.md).
+6. Read the [before-vs-after improvement case](./docs/portfolio/before-after-improvement-case.md).
+7. Skim the [readiness report markdown](./docs/examples/infotainment-display-bracket/readiness-report.md).
+8. Inspect the [example config](./configs/examples/infotainment_display_bracket.toml) and the command classification below.
 
 ## Test Lanes
 
@@ -827,6 +828,7 @@ The canonical readiness workflow produces a JSON report and a Markdown summary t
 
 For a checked-in example that can be reviewed without running the CLI, see:
 
+- [Canonical example library](./docs/examples/README.md)
 - [Infotainment production readiness case](./docs/portfolio/infotainment-production-readiness-case.md)
 - [Checked-in example artifact set](./docs/examples/infotainment-display-bracket/README.md)
 - [Korea vs Mexico stabilization comparison](./docs/examples/infotainment-display-bracket/stabilization-comparison.md)

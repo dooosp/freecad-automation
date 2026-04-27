@@ -2,7 +2,7 @@
 
 ## Goal
 
-Define a curated example-library structure for canonical AF5 packages before generating the first package. The first package target is `quality_pass_bracket`, but this phase only locks the plan, candidate map, artifact contract, and coverage manifest.
+Define and grow a curated example-library structure for canonical AF5 packages. The first three canonical packages are now `quality-pass-bracket`, `plate-with-holes`, and `motor-mount`; the next maintenance step is keeping the public example-library index aligned with the manifest and package tests.
 
 ## Scope Boundary
 
@@ -107,9 +107,11 @@ Studio reopen validation should be deterministic. It should use a temp job-store
 3. Build `quality-pass-bracket` as the first canonical AF5 package.
 4. Add package validation tests for canonical names, required directories, and artifact coverage.
 5. Add deterministic Studio reopen validation for tracked job and artifact re-entry.
-6. Extend packages to `plate-with-holes`, `motor-mount`, and `enclosure`.
-7. Decide whether `controller-housing-eol` becomes a full canonical package or remains a standard-docs example.
-8. Create new geometry examples for `hinge-block`, `spacer`, and `simple-jig` after the first package set is stable.
+6. Extend packages to `plate-with-holes` and `motor-mount`.
+7. Refresh the public example-library index after the first three canonical packages are merged.
+8. Decide whether `controller-housing-eol` becomes a full canonical package or remains a standard-docs example after manifest regeneration or sanitization.
+9. Extend packages to `enclosure` only when a fourth package is intentionally scheduled.
+10. Create new geometry examples for `hinge-block`, `spacer`, and `simple-jig` after the first package set is stable.
 
 ## Definition Of Done For The First 3 Canonical Packages
 
