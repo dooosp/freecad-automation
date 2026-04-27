@@ -52,6 +52,18 @@ try {
   });
   assert.equal(reviewTracked.ok, true, reviewTracked.errors?.join('\n'));
 
+  const reviewContextSideInputs = validateJobRequest({
+    type: 'review-context',
+    context_path: 'tests/fixtures/sample_part_context.json',
+    create_quality_path: 'docs/examples/motor-mount/quality/cnc_motor_mount_bracket_create_quality.json',
+    drawing_quality_path: 'docs/examples/motor-mount/quality/cnc_motor_mount_bracket_drawing_quality.json',
+    drawing_qa_path: 'docs/examples/motor-mount/quality/cnc_motor_mount_bracket_drawing_qa.json',
+    drawing_intent_path: 'docs/examples/motor-mount/drawing/cnc_motor_mount_bracket_drawing_intent.json',
+    feature_catalog_path: 'docs/examples/motor-mount/drawing/cnc_motor_mount_bracket_feature_catalog.json',
+    dfm_report_path: 'docs/examples/infotainment-display-bracket/quality-risk.json',
+  });
+  assert.equal(reviewContextSideInputs.ok, true, reviewContextSideInputs.errors?.join('\n'));
+
   const invalidReviewTracked = validateJobRequest({
     type: 'pack',
   });

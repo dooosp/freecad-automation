@@ -1,5 +1,6 @@
-import { writeFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { createHash } from 'node:crypto';
+import { readFile, stat, writeFile } from 'node:fs/promises';
+import { basename, dirname, relative, resolve } from 'node:path';
 
 import {
   artifactPathFor,
@@ -27,6 +28,122 @@ function safeObject(value) {
 
 function safeList(value) {
   return Array.isArray(value) ? value : [];
+}
+
+const PACKAGE_EVIDENCE_SPECS = Object.freeze([
+  Object.freeze({
+    key: 'createQualityPath',
+    artifactType: 'create_quality_report',
+    evidenceType: 'create_quality_report',
+    label: 'Create quality report',
+    classifications: ['quality_evidence'],
+  }),
+  Object.freeze({
+    key: 'drawingQualityPath',
+    artifactType: 'drawing_quality_report',
+    evidenceType: 'drawing_quality_report',
+    label: 'Drawing quality report',
+    classifications: ['quality_evidence', 'drawing_evidence'],
+  }),
+  Object.freeze({
+    key: 'drawingQaPath',
+    artifactType: 'drawing_qa_report',
+    evidenceType: 'drawing_qa_report',
+    label: 'Drawing QA report',
+    classifications: ['quality_evidence', 'drawing_evidence'],
+  }),
+  Object.freeze({
+    key: 'drawingIntentPath',
+    artifactType: 'drawing_intent',
+    evidenceType: 'drawing_intent',
+    label: 'Drawing intent',
+    classifications: ['design_traceability_evidence', 'advisory_context'],
+  }),
+  Object.freeze({
+    key: 'featureCatalogPath',
+    artifactType: 'feature_catalog',
+    evidenceType: 'feature_catalog',
+    label: 'Feature catalog',
+    classifications: ['design_traceability_evidence', 'advisory_context'],
+  }),
+  Object.freeze({
+    key: 'dfmReportPath',
+    artifactType: 'dfm_report',
+    evidenceType: 'dfm_report',
+    label: 'DFM report',
+    classifications: ['quality_evidence'],
+  }),
+]);
+
+function portableRepoPath(projectRoot, inputPath) {
+  const resolvedRoot = resolve(projectRoot);
+  const resolvedPath = resolve(inputPath);
+  const relPath = relative(resolvedRoot, resolvedPath).replace(/\\/g, '/');
+  if (!relPath || relPath.startsWith('..') || relPath.startsWith('/')) {
+    return {
+      ok: false,
+      sourceRef: basename(resolvedPath),
+      warning: `Package evidence input ${basename(resolvedPath)} is outside the repository and was not linked as canonical evidence.`,
+    };
+  }
+  if (relPath === 'output' || relPath.startsWith('output/')) {
+    return {
+      ok: false,
+      sourceRef: relPath,
+      warning: 'Package evidence input under ignored output/ was not linked as canonical evidence.',
+    };
+  }
+  if (relPath === 'tmp/codex' || relPath.startsWith('tmp/codex/')) {
+    return {
+      ok: false,
+      sourceRef: relPath,
+      warning: 'Package evidence input under the task-status scratch area was not linked as canonical evidence.',
+    };
+  }
+  return {
+    ok: true,
+    sourceRef: relPath,
+    warning: null,
+  };
+}
+
+async function buildPackageEvidenceRecords(projectRoot, sideInputPaths = {}) {
+  const records = [];
+  const warnings = [];
+
+  for (const spec of PACKAGE_EVIDENCE_SPECS) {
+    const inputPath = sideInputPaths[spec.key];
+    if (!inputPath) continue;
+
+    const portable = portableRepoPath(projectRoot, inputPath);
+    if (!portable.ok) {
+      warnings.push(portable.warning);
+      continue;
+    }
+
+    const fileBuffer = await readFile(inputPath);
+    const fileStat = await stat(inputPath);
+    records.push({
+      evidence_id: `package:${spec.evidenceType}:${portable.sourceRef}`,
+      type: spec.evidenceType,
+      artifact_type: spec.artifactType,
+      category: spec.classifications[0],
+      classifications: spec.classifications,
+      source_ref: portable.sourceRef,
+      file_name: basename(portable.sourceRef),
+      size_bytes: fileStat.size,
+      sha256: createHash('sha256').update(fileBuffer).digest('hex'),
+      label: spec.label,
+      inspection_evidence: false,
+      rationale: `${spec.label} supplied as explicit review-context package side input.`,
+    });
+  }
+
+  if (records.length > 0) {
+    warnings.push('Package quality/drawing side inputs are review evidence, but they do not satisfy inspection_evidence without a genuine inspection input.');
+  }
+
+  return { records, warnings: uniqueWarnings(warnings) };
 }
 
 function normalizeBootstrapConfidenceMap(value) {
@@ -305,7 +422,7 @@ function buildBootstrapSummary({
         || importDiagnostics.unit_assumption
         || analysisInputs.usedMetadataOnlyFallback
       ),
-      optional_context_inputs: ['bom', 'inspection', 'quality'],
+      optional_context_inputs: ['bom', 'inspection', 'quality', 'create_quality', 'drawing_quality', 'drawing_qa', 'drawing_intent', 'feature_catalog', 'dfm_report'],
     },
   };
 }
@@ -317,6 +434,12 @@ export async function runReviewContextPipeline({
   bomPath = null,
   inspectionPath = null,
   qualityPath = null,
+  createQualityPath = null,
+  drawingQualityPath = null,
+  drawingQaPath = null,
+  drawingIntentPath = null,
+  featureCatalogPath = null,
+  dfmReportPath = null,
   compareToPath = null,
   outputPath = null,
   outDir = null,
@@ -486,6 +609,27 @@ export async function runReviewContextPipeline({
   await writeJsonFile(paths.qualityHotspots, linkageResult.quality_hotspots);
   await writeJsonFile(paths.reviewPriorities, linkageResult.review_priorities);
 
+  const packageEvidence = await buildPackageEvidenceRecords(projectRoot, {
+    createQualityPath,
+    drawingQualityPath,
+    drawingQaPath,
+    drawingIntentPath,
+    featureCatalogPath,
+    dfmReportPath,
+  });
+  const packageEvidenceSourceRefs = packageEvidence.records.map((record) => ({
+    artifact_type: record.artifact_type,
+    path: record.source_ref,
+    role: 'evidence',
+    label: record.label,
+  }));
+  if (packageEvidence.warnings.length > 0) {
+    context.metadata = {
+      ...(context.metadata || {}),
+      warnings: uniqueWarnings(context.metadata?.warnings, packageEvidence.warnings),
+    };
+  }
+
   const reviewPackResult = await runPythonJsonScript(projectRoot, 'scripts/reporting/review_pack.py', {
     context,
     geometry_intelligence: analysisResult.geometry_intelligence,
@@ -500,6 +644,8 @@ export async function runReviewContextPipeline({
         ? ['context-input', 'analyze-part', 'quality-link', 'review-pack']
         : ['ingest', 'analyze-part', 'quality-link', 'review-pack'],
     },
+    package_evidence: packageEvidence.records,
+    source_artifact_refs: packageEvidenceSourceRefs,
     output_dir: outputDir,
     output_stem: deriveArtifactStem(paths.reviewPackJson, defaultStem),
     output_json_path: paths.reviewPackJson,
@@ -604,7 +750,7 @@ export async function runReviewContextPipeline({
         importDiagnostics: rawImportDiagnostics,
         usedMetadataOnlyFallback: analysisInputs.usedMetadataOnlyFallback,
       }),
-      optional_context_inputs: ['bom', 'inspection', 'quality'],
+      optional_context_inputs: ['bom', 'inspection', 'quality', 'create_quality', 'drawing_quality', 'drawing_qa', 'drawing_intent', 'feature_catalog', 'dfm_report'],
     },
     review_ready: Boolean(resolvedModelPath || contextPath),
   };
