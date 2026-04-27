@@ -2,14 +2,14 @@
   "schema_version": "1.0",
   "artifact_type": "release_bundle_manifest",
   "workflow": "readiness_release_bundle",
-  "generated_at": "2026-04-27T00:29:03.662Z",
+  "generated_at": "2026-04-27T11:31:08.563Z",
   "warnings": [
     "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/motor-mount/cad/cnc_motor_mount_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
-    "Missing or limited inspection evidence; review-pack remains usable with partial evidence.",
-    "Missing or limited quality evidence; review-pack remains usable with partial evidence."
+    "Package quality/drawing side inputs are review evidence, but they do not satisfy inspection_evidence without a genuine inspection input.",
+    "Missing or limited inspection evidence; review-pack remains usable with partial evidence."
   ],
   "coverage": {
-    "source_artifact_count": 5,
+    "source_artifact_count": 10,
     "source_file_count": 1,
     "hotspot_count": 2,
     "inspection_record_count": 0,
@@ -21,10 +21,10 @@
     "available_section_count": 4,
     "process_step_count": 3,
     "quality_gate_count": 2,
-    "missing_input_count": 2,
-    "evidence_record_count": 2,
+    "missing_input_count": 1,
+    "evidence_record_count": 7,
     "upstream_review_pack_coverage": {
-      "source_artifact_count": 2,
+      "source_artifact_count": 7,
       "source_file_count": 1,
       "hotspot_count": 2,
       "inspection_record_count": 0,
@@ -49,6 +49,36 @@
     ]
   },
   "source_artifact_refs": [
+    {
+      "artifact_type": "create_quality_report",
+      "path": "docs/examples/motor-mount/quality/cnc_motor_mount_bracket_create_quality.json",
+      "role": "evidence",
+      "label": "Create quality report"
+    },
+    {
+      "artifact_type": "drawing_quality_report",
+      "path": "docs/examples/motor-mount/quality/cnc_motor_mount_bracket_drawing_quality.json",
+      "role": "evidence",
+      "label": "Drawing quality report"
+    },
+    {
+      "artifact_type": "drawing_qa_report",
+      "path": "docs/examples/motor-mount/quality/cnc_motor_mount_bracket_drawing_qa.json",
+      "role": "evidence",
+      "label": "Drawing QA report"
+    },
+    {
+      "artifact_type": "drawing_intent",
+      "path": "docs/examples/motor-mount/drawing/cnc_motor_mount_bracket_drawing_intent.json",
+      "role": "evidence",
+      "label": "Drawing intent"
+    },
+    {
+      "artifact_type": "feature_catalog",
+      "path": "docs/examples/motor-mount/drawing/cnc_motor_mount_bracket_feature_catalog.json",
+      "role": "evidence",
+      "label": "Feature catalog"
+    },
     {
       "artifact_type": "cad_model",
       "path": "docs/examples/motor-mount/cad/cnc_motor_mount_bracket.step",
@@ -129,8 +159,8 @@
       "label": "Canonical readiness report JSON",
       "path": "canonical/readiness_report.json",
       "source_path": "docs/examples/motor-mount/readiness/readiness_report.json",
-      "size_bytes": 53188,
-      "sha256": "d9563c91a72fe6a9bab3741730f42c38ebc990a27229b2ab74fdba083ecd4c1b"
+      "size_bytes": 68552,
+      "sha256": "f41d6695cfebeebd5ecce005917e01964834a63e3a05eec010f666173d07e90c"
     },
     {
       "artifact_type": "readiness_markdown",
@@ -138,8 +168,8 @@
       "label": "Readiness report Markdown",
       "path": "canonical/readiness_report.md",
       "source_path": "docs/examples/motor-mount/readiness/readiness_report.md",
-      "size_bytes": 3934,
-      "sha256": "c51d88fbf5d670e19e786f3f0c7943ff0a1a6c7895c073a9ada65b6f5535676e"
+      "size_bytes": 4028,
+      "sha256": "c19549aa44048b80ea996c65431c36853b24146535bcc89522d188d6df5bafb4"
     },
     {
       "artifact_type": "cad_model",
@@ -156,8 +186,8 @@
       "label": "Canonical review-pack JSON",
       "path": "canonical/review_pack.json",
       "source_path": "docs/examples/motor-mount/review/review_pack.json",
-      "size_bytes": 20345,
-      "sha256": "ac6c8d092c8a474833f6e8e848d55b496a2fe038e625df1869685e418d51b823"
+      "size_bytes": 31175,
+      "sha256": "2e538e57f122786cd729dc0cf603d36782e97b595ce073c1bfb781558697e313"
     },
     {
       "artifact_type": "docs_manifest",
@@ -165,8 +195,8 @@
       "label": "Standard docs manifest JSON",
       "path": "docs/standard_docs_manifest.json",
       "source_path": "docs/examples/motor-mount/standard-docs/standard_docs_manifest.json",
-      "size_bytes": 5930,
-      "sha256": "cdf97210a4da3901d8bb5ef7a63fd92ef7c2b45027490dc19b4e26b2ed982e72"
+      "size_bytes": 7051,
+      "sha256": "dd1b1cca5076b14a7ce73c93418ef32c10d40eb6beb42f736be02353d076257c"
     },
     {
       "artifact_type": "docs_document",
@@ -219,8 +249,8 @@
       "label": "Release bundle log JSON",
       "path": "release_bundle_log.json",
       "source_path": "docs/examples/motor-mount/release/release_bundle_log.json",
-      "size_bytes": 4752,
-      "sha256": "cde2ff59e46d0c294bc5b7a16969a80560eca0e8bb624a09442f7750a2a2ca9d"
+      "size_bytes": 4802,
+      "sha256": "9768e8e4f1e3bb5d4ecdea3927d0611580768dbd4b11e7f2f85bbe8a20b077e1"
     },
     {
       "artifact_type": "release_bundle_checksums",
@@ -229,16 +259,14 @@
       "path": "release_bundle_checksums.sha256",
       "source_path": "docs/examples/motor-mount/release/release_bundle_checksums.sha256",
       "size_bytes": 1049,
-      "sha256": "cd2411a4b088b7f52e7f7d4d170d9bc247d922ff4531df1e9021424ba154e8eb"
+      "sha256": "422464fc39e5a88c885190ffd7bca5cd94e8bc24d1abdbc394f8c7aec25d51aa"
     },
     {
       "artifact_type": "release_bundle_manifest",
       "role": "primary",
       "label": "Release bundle manifest JSON",
       "path": "release_bundle_manifest.json",
-      "source_path": "docs/examples/motor-mount/release/release_bundle_manifest.json",
-      "sha256": "324ca800d023659faf9786019dd828373a82a0153fd92a54b3caa6fce469a806",
-      "size_bytes": 9552
+      "source_path": "docs/examples/motor-mount/release/release_bundle_manifest.json"
     }
   ],
   "release_notes": [

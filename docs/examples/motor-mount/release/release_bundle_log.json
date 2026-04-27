@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-27T00:29:03.662Z",
+  "generated_at": "2026-04-27T11:31:08.563Z",
   "readiness_report_path": "docs/examples/motor-mount/readiness/readiness_report.json",
   "docs_manifest_path": "docs/examples/motor-mount/standard-docs/standard_docs_manifest.json",
   "bundle_output_path": "docs/examples/motor-mount/release/release_bundle.zip",
@@ -10,8 +10,8 @@
       "label": "Canonical readiness report JSON",
       "path": "canonical/readiness_report.json",
       "source_path": "docs/examples/motor-mount/readiness/readiness_report.json",
-      "sha256": "d9563c91a72fe6a9bab3741730f42c38ebc990a27229b2ab74fdba083ecd4c1b",
-      "size_bytes": 53188
+      "sha256": "f41d6695cfebeebd5ecce005917e01964834a63e3a05eec010f666173d07e90c",
+      "size_bytes": 68552
     },
     {
       "artifact_type": "readiness_markdown",
@@ -19,8 +19,8 @@
       "label": "Readiness report Markdown",
       "path": "canonical/readiness_report.md",
       "source_path": "docs/examples/motor-mount/readiness/readiness_report.md",
-      "sha256": "c51d88fbf5d670e19e786f3f0c7943ff0a1a6c7895c073a9ada65b6f5535676e",
-      "size_bytes": 3934
+      "sha256": "c19549aa44048b80ea996c65431c36853b24146535bcc89522d188d6df5bafb4",
+      "size_bytes": 4028
     },
     {
       "artifact_type": "cad_model",
@@ -37,8 +37,8 @@
       "label": "Canonical review-pack JSON",
       "path": "canonical/review_pack.json",
       "source_path": "docs/examples/motor-mount/review/review_pack.json",
-      "sha256": "ac6c8d092c8a474833f6e8e848d55b496a2fe038e625df1869685e418d51b823",
-      "size_bytes": 20345
+      "sha256": "2e538e57f122786cd729dc0cf603d36782e97b595ce073c1bfb781558697e313",
+      "size_bytes": 31175
     },
     {
       "artifact_type": "docs_manifest",
@@ -46,8 +46,8 @@
       "label": "Standard docs manifest JSON",
       "path": "docs/standard_docs_manifest.json",
       "source_path": "docs/examples/motor-mount/standard-docs/standard_docs_manifest.json",
-      "sha256": "cdf97210a4da3901d8bb5ef7a63fd92ef7c2b45027490dc19b4e26b2ed982e72",
-      "size_bytes": 5930
+      "sha256": "dd1b1cca5076b14a7ce73c93418ef32c10d40eb6beb42f736be02353d076257c",
+      "size_bytes": 7051
     },
     {
       "artifact_type": "docs_document",
@@ -98,7 +98,7 @@
   "skipped_artifacts": [],
   "warnings": [
     "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/motor-mount/cad/cnc_motor_mount_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
-    "Missing or limited inspection evidence; review-pack remains usable with partial evidence.",
-    "Missing or limited quality evidence; review-pack remains usable with partial evidence."
+    "Package quality/drawing side inputs are review evidence, but they do not satisfy inspection_evidence without a genuine inspection input.",
+    "Missing or limited inspection evidence; review-pack remains usable with partial evidence."
   ]
 }
