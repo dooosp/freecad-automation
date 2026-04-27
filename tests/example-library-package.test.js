@@ -156,7 +156,7 @@ for (const packageDef of CANONICAL_PACKAGES) {
   assert.equal(releaseManifest.readiness_report_ref.path, `docs/examples/${packageDef.slug}/readiness/readiness_report.json`);
   assert.equal(releaseManifest.docs_manifest_ref.path, `docs/examples/${packageDef.slug}/standard-docs/standard_docs_manifest.json`);
 
-  if (['quality-pass-bracket', 'plate-with-holes', 'motor-mount'].includes(packageDef.slug)) {
+  if (['quality-pass-bracket', 'plate-with-holes', 'motor-mount', 'controller-housing-eol'].includes(packageDef.slug)) {
     const reviewPack = assertPortableJson(join(packageRoot, 'review', 'review_pack.json'));
     const packageEvidenceRecords = (reviewPack.evidence_ledger?.records || [])
       .filter((record) => String(record.evidence_id || '').startsWith('package:'));

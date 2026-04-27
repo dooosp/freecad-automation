@@ -33,7 +33,7 @@ The retained `standard-docs-korea/` and `standard-docs-mexico/` directories are 
 
 The package artifacts were generated with the local FreeCAD runtime, then sanitized so checked-in JSON and text files use repo-relative package paths instead of local runtime paths.
 
-Create quality passed. Drawing quality passed with score 72 and 100% strict traceability coverage for the supported drawing-plan dimension. DFM is warning-only because the housing still carries deep through-hole drill-ratio warnings and note-driven edge-treatment risk. The readiness report status is `needs_more_evidence`, score 41, because the review pack was built from the generated STEP without separate inspection or quality side inputs.
+Create quality passed. Drawing quality passed with score 72 and 100% strict traceability coverage for the supported drawing-plan dimension. DFM is warning-only because the housing still carries deep through-hole drill-ratio warnings and note-driven edge-treatment risk; no checked-in package DFM report is used as review-pack side input. The readiness report status remains `needs_more_evidence`, score 52, because package quality and drawing evidence is now linked while genuine inspection evidence is still missing.
 
 ## Studio Reopen
 
