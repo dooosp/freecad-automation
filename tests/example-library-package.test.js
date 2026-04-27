@@ -156,26 +156,26 @@ for (const packageDef of CANONICAL_PACKAGES) {
   assert.equal(releaseManifest.readiness_report_ref.path, `docs/examples/${packageDef.slug}/readiness/readiness_report.json`);
   assert.equal(releaseManifest.docs_manifest_ref.path, `docs/examples/${packageDef.slug}/standard-docs/standard_docs_manifest.json`);
 
-  if (packageDef.slug === 'quality-pass-bracket') {
+  if (packageDef.slug === 'quality-pass-bracket' || packageDef.slug === 'plate-with-holes') {
     const reviewPack = assertPortableJson(join(packageRoot, 'review', 'review_pack.json'));
     const packageEvidenceRecords = (reviewPack.evidence_ledger?.records || [])
       .filter((record) => String(record.evidence_id || '').startsWith('package:'));
-    assert.equal(packageEvidenceRecords.length, 5, 'quality-pass-bracket review pack should link five package side inputs');
+    assert.equal(packageEvidenceRecords.length, 5, `${packageDef.slug} review pack should link five package side inputs`);
     assert.equal(
       packageEvidenceRecords.some((record) => (record.classifications || []).includes('quality_evidence')),
       true,
-      'quality-pass-bracket should link package quality evidence'
+      `${packageDef.slug} should link package quality evidence`
     );
     assert.equal(
       packageEvidenceRecords.every((record) => record.inspection_evidence === false),
       true,
-      'quality-pass-bracket side inputs should not satisfy inspection evidence'
+      `${packageDef.slug} side inputs should not satisfy inspection evidence`
     );
 
     const readinessReport = assertPortableJson(join(packageRoot, 'readiness', 'readiness_report.json'));
     const missingInputs = readinessReport.review_pack?.uncertainty_coverage_report?.missing_inputs || [];
-    assert.equal(missingInputs.includes('quality_evidence'), false, 'quality evidence should no longer be missing');
-    assert.equal(missingInputs.includes('inspection_evidence'), true, 'inspection evidence should remain missing');
+    assert.equal(missingInputs.includes('quality_evidence'), false, `${packageDef.slug} quality evidence should no longer be missing`);
+    assert.equal(missingInputs.includes('inspection_evidence'), true, `${packageDef.slug} inspection evidence should remain missing`);
   }
 
   const zipPath = join(packageRoot, 'release', 'release_bundle.zip');
