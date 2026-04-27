@@ -39,6 +39,10 @@ function assertArtifact(kind, document) {
   assert.equal(validation.ok, true, `${kind} schema errors:\n${validation.errors.join('\n')}`);
 }
 
+function samePath(left, right) {
+  return Boolean(left && right) && (left === right || resolve(left) === resolve(right));
+}
+
 try {
   const readinessFixture = readJson(join(FIXTURE_DIR, 'sample_readiness_report.canonical.json'));
   const reviewPackFixture = join(ROOT, 'tests', 'fixtures', 'd-artifacts', 'sample_review_pack.canonical.json');
@@ -118,12 +122,12 @@ try {
   assert.equal(docsFromReadinessRun.status, 0, docsFromReadinessRun.stderr || docsFromReadinessRun.stdout);
   const docsFromReadinessManifest = readJson(join(docsFromReadinessDir, 'standard_docs_manifest.json'));
   assert.equal(
-    docsFromReadinessManifest.source_artifact_refs.some((ref) => ref.artifact_type === 'readiness_report' && ref.path === readinessOut),
+    docsFromReadinessManifest.source_artifact_refs.some((ref) => ref.artifact_type === 'readiness_report' && samePath(ref.path, readinessOut)),
     true,
     'docs manifest should preserve the supplied canonical readiness report path'
   );
   assert.equal(
-    docsFromReadinessManifest.source_artifact_refs.some((ref) => ref.artifact_type === 'review_pack' && ref.path === reviewPackFixture),
+    docsFromReadinessManifest.source_artifact_refs.some((ref) => ref.artifact_type === 'review_pack' && samePath(ref.path, reviewPackFixture)),
     true,
     'docs manifest should preserve upstream review-pack provenance through canonical readiness input'
   );

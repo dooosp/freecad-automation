@@ -1,4 +1,4 @@
-import { basename, dirname, extname, join, resolve } from 'node:path';
+import { basename, dirname, extname, join, relative, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 
@@ -49,6 +49,14 @@ function mergeSourceArtifactRefs(primary = [], secondary = []) {
     });
   }
   return merged;
+}
+
+function repoRelativePath(projectRoot, filePath) {
+  if (typeof filePath !== 'string' || !filePath.trim()) return filePath;
+  const relPath = relative(resolve(projectRoot), resolve(filePath)).replace(/\\/g, '/');
+  return relPath && !relPath.startsWith('..') && !relPath.startsWith('/')
+    ? relPath
+    : filePath;
 }
 
 function normalizeBundlePath(relativePath) {
@@ -211,9 +219,19 @@ export async function runReleaseBundleWorkflow({
   const sourceArtifactRefs = mergeSourceArtifactRefs(
     safeList(readinessReport.source_artifact_refs),
     [
-      buildSourceArtifactRef('readiness_report', resolvedReadinessPath, 'input', 'Canonical readiness report JSON'),
+      buildSourceArtifactRef(
+        'readiness_report',
+        repoRelativePath(projectRoot, resolvedReadinessPath),
+        'input',
+        'Canonical readiness report JSON'
+      ),
       ...(docsManifestPath && docsManifest
-        ? [buildSourceArtifactRef('docs_manifest', resolve(docsManifestPath), 'input', 'Standard docs manifest JSON')]
+        ? [buildSourceArtifactRef(
+            'docs_manifest',
+            repoRelativePath(projectRoot, docsManifestPath),
+            'input',
+            'Standard docs manifest JSON'
+          )]
         : []),
     ]
   );
@@ -266,7 +284,7 @@ export async function runReleaseBundleWorkflow({
       skippedArtifacts.push({
         artifact_type: ref.artifact_type,
         role: ref.role || 'input',
-        source_path: resolvedSourcePath,
+        source_path: repoRelativePath(projectRoot, resolvedSourcePath),
         label: ref.label || null,
         reason: 'missing',
       });
@@ -306,7 +324,7 @@ export async function runReleaseBundleWorkflow({
         skippedArtifacts.push({
           artifact_type: 'docs_document',
           role: 'derived',
-          source_path: resolvedDocumentPath,
+          source_path: repoRelativePath(projectRoot, resolvedDocumentPath),
           label: document.label || document.filename || null,
           reason: 'missing',
         });
@@ -328,15 +346,15 @@ export async function runReleaseBundleWorkflow({
 
   const bundleLogPayload = {
     generated_at: generatedAt,
-    readiness_report_path: resolvedReadinessPath,
-    docs_manifest_path: docsManifestPath ? resolve(docsManifestPath) : null,
-    bundle_output_path: resolvedOutputPath,
+    readiness_report_path: repoRelativePath(projectRoot, resolvedReadinessPath),
+    docs_manifest_path: docsManifestPath ? repoRelativePath(projectRoot, docsManifestPath) : null,
+    bundle_output_path: repoRelativePath(projectRoot, resolvedOutputPath),
     included_artifacts: bundleEntries.map((entry) => ({
       artifact_type: entry.artifact_type,
       role: entry.role,
       label: entry.label,
       path: entry.path,
-      source_path: entry.source_path,
+      source_path: repoRelativePath(projectRoot, entry.source_path),
       sha256: entry.sha256,
       size_bytes: entry.size_bytes,
     })),
@@ -395,7 +413,7 @@ export async function runReleaseBundleWorkflow({
     contract: getCCommandContract('pack'),
     readiness_report_ref: buildSourceArtifactRef(
       'readiness_report',
-      resolvedReadinessPath,
+      repoRelativePath(projectRoot, resolvedReadinessPath),
       'input',
       'Canonical readiness report JSON'
     ),
@@ -403,7 +421,7 @@ export async function runReleaseBundleWorkflow({
       ? {
           docs_manifest_ref: buildSourceArtifactRef(
             'docs_manifest',
-            resolve(docsManifestPath),
+            repoRelativePath(projectRoot, docsManifestPath),
             'input',
             'Standard docs manifest JSON'
           ),
@@ -415,7 +433,7 @@ export async function runReleaseBundleWorkflow({
         role: entry.role,
         label: entry.label,
         path: entry.path,
-        source_path: entry.source_path,
+        source_path: repoRelativePath(projectRoot, entry.source_path),
         size_bytes: entry.size_bytes,
         sha256: entry.sha256,
       })),
@@ -424,7 +442,7 @@ export async function runReleaseBundleWorkflow({
         role: 'supporting',
         label: 'Release bundle log JSON',
         path: 'release_bundle_log.json',
-        source_path: logEntry.path,
+        source_path: repoRelativePath(projectRoot, logEntry.path),
         size_bytes: logEntry.size_bytes,
         sha256: logEntry.sha256,
       },
@@ -433,7 +451,7 @@ export async function runReleaseBundleWorkflow({
         role: 'supporting',
         label: 'Release bundle checksums',
         path: 'release_bundle_checksums.sha256',
-        source_path: checksumsMetadata.path,
+        source_path: repoRelativePath(projectRoot, checksumsMetadata.path),
         size_bytes: checksumsMetadata.size_bytes,
         sha256: checksumsMetadata.sha256,
       },
@@ -442,7 +460,7 @@ export async function runReleaseBundleWorkflow({
         role: 'primary',
         label: 'Release bundle manifest JSON',
         path: 'release_bundle_manifest.json',
-        source_path: manifestPath,
+        source_path: repoRelativePath(projectRoot, manifestPath),
       },
     ],
     release_notes: buildReleaseNotes({
@@ -450,7 +468,7 @@ export async function runReleaseBundleWorkflow({
       skippedArtifacts,
     }),
     bundle_file: {
-      path: resolvedOutputPath,
+      path: repoRelativePath(projectRoot, resolvedOutputPath),
       filename: basename(resolvedOutputPath),
     },
   };
