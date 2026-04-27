@@ -27,7 +27,7 @@ The current drawing renderer can strictly trace the shared hole-diameter plan di
 
 The package artifacts were generated with the local FreeCAD runtime, then sanitized so checked-in JSON and text files use repo-relative package paths instead of local runtime paths.
 
-The create and drawing quality gates passed. DFM is warning-only because edge treatment remains note-driven rather than modeled as a fillet/chamfer operation. The readiness report status is `needs_more_evidence` because the review pack was built from the generated STEP without separate inspection or quality side inputs.
+The create and drawing quality gates passed, and the review pack links the checked-in package quality and drawing evidence as side inputs. DFM is warning-only because edge treatment remains note-driven rather than modeled as a fillet/chamfer operation. The readiness report status is still `needs_more_evidence` because no separate inspection evidence is packaged.
 
 ## Assembly Deferral
 
