@@ -26,3 +26,7 @@ Source config:
 - [controller_housing_eol.toml](../../../configs/examples/controller_housing_eol.toml)
 
 These documents are generated planning aids and remain drafts until reviewed and controlled by production engineering / quality owners.
+
+## Portability Status
+
+The checked-in standard-doc manifests have been sanitized so document references are repo-relative and portable. They remain legacy standard-doc examples, not canonical package evidence; full package promotion still requires regenerating the review, readiness, standard-doc, release, and reopen artifacts through the canonical AF5 flow.
