@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "artifact_type": "docs_manifest",
   "workflow": "standard_docs_generation",
-  "generated_at": "2026-04-27T02:25:10.590Z",
+  "generated_at": "2026-04-27T11:49:45.450Z",
   "draft_notice": "Generated planning aid only. Engineering review required before controlled-document use.",
   "part": {
     "part_id": "controller_housing_eol",
@@ -14,12 +14,12 @@
   },
   "warnings": [
     "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/controller-housing-eol/cad/controller_housing_eol.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
-    "Missing or limited inspection evidence; review-pack remains usable with partial evidence.",
-    "Missing or limited quality evidence; review-pack remains usable with partial evidence."
+    "Package quality/drawing side inputs are review evidence, but they do not satisfy inspection_evidence without a genuine inspection input.",
+    "Missing or limited inspection evidence; review-pack remains usable with partial evidence."
   ],
   "coverage": {
     "document_count": 5,
-    "source_artifact_count": 4
+    "source_artifact_count": 9
   },
   "confidence": {
     "level": "heuristic",
@@ -52,6 +52,36 @@
     ]
   },
   "source_artifact_refs": [
+    {
+      "artifact_type": "create_quality_report",
+      "path": "docs/examples/controller-housing-eol/quality/controller_housing_eol_create_quality.json",
+      "role": "evidence",
+      "label": "Create quality report"
+    },
+    {
+      "artifact_type": "drawing_quality_report",
+      "path": "docs/examples/controller-housing-eol/quality/controller_housing_eol_drawing_quality.json",
+      "role": "evidence",
+      "label": "Drawing quality report"
+    },
+    {
+      "artifact_type": "drawing_qa_report",
+      "path": "docs/examples/controller-housing-eol/quality/controller_housing_eol_drawing_qa.json",
+      "role": "evidence",
+      "label": "Drawing QA report"
+    },
+    {
+      "artifact_type": "drawing_intent",
+      "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing_intent.json",
+      "role": "evidence",
+      "label": "Drawing intent"
+    },
+    {
+      "artifact_type": "feature_catalog",
+      "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_feature_catalog.json",
+      "role": "evidence",
+      "label": "Feature catalog"
+    },
     {
       "artifact_type": "cad_model",
       "path": "docs/examples/controller-housing-eol/cad/controller_housing_eol.step",

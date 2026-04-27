@@ -2,14 +2,14 @@
   "schema_version": "1.0",
   "artifact_type": "release_bundle_manifest",
   "workflow": "readiness_release_bundle",
-  "generated_at": "2026-04-27T02:25:13.860Z",
+  "generated_at": "2026-04-27T11:49:48.527Z",
   "warnings": [
     "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/controller-housing-eol/cad/controller_housing_eol.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
-    "Missing or limited inspection evidence; review-pack remains usable with partial evidence.",
-    "Missing or limited quality evidence; review-pack remains usable with partial evidence."
+    "Package quality/drawing side inputs are review evidence, but they do not satisfy inspection_evidence without a genuine inspection input.",
+    "Missing or limited inspection evidence; review-pack remains usable with partial evidence."
   ],
   "coverage": {
-    "source_artifact_count": 5,
+    "source_artifact_count": 10,
     "source_file_count": 1,
     "hotspot_count": 1,
     "inspection_record_count": 0,
@@ -21,10 +21,10 @@
     "available_section_count": 4,
     "process_step_count": 2,
     "quality_gate_count": 1,
-    "missing_input_count": 2,
-    "evidence_record_count": 1,
+    "missing_input_count": 1,
+    "evidence_record_count": 6,
     "upstream_review_pack_coverage": {
-      "source_artifact_count": 2,
+      "source_artifact_count": 7,
       "source_file_count": 1,
       "hotspot_count": 1,
       "inspection_record_count": 0,
@@ -49,6 +49,36 @@
     ]
   },
   "source_artifact_refs": [
+    {
+      "artifact_type": "create_quality_report",
+      "path": "docs/examples/controller-housing-eol/quality/controller_housing_eol_create_quality.json",
+      "role": "evidence",
+      "label": "Create quality report"
+    },
+    {
+      "artifact_type": "drawing_quality_report",
+      "path": "docs/examples/controller-housing-eol/quality/controller_housing_eol_drawing_quality.json",
+      "role": "evidence",
+      "label": "Drawing quality report"
+    },
+    {
+      "artifact_type": "drawing_qa_report",
+      "path": "docs/examples/controller-housing-eol/quality/controller_housing_eol_drawing_qa.json",
+      "role": "evidence",
+      "label": "Drawing QA report"
+    },
+    {
+      "artifact_type": "drawing_intent",
+      "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing_intent.json",
+      "role": "evidence",
+      "label": "Drawing intent"
+    },
+    {
+      "artifact_type": "feature_catalog",
+      "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_feature_catalog.json",
+      "role": "evidence",
+      "label": "Feature catalog"
+    },
     {
       "artifact_type": "cad_model",
       "path": "docs/examples/controller-housing-eol/cad/controller_housing_eol.step",
@@ -129,8 +159,8 @@
       "label": "Canonical readiness report JSON",
       "path": "canonical/readiness_report.json",
       "source_path": "docs/examples/controller-housing-eol/readiness/readiness_report.json",
-      "size_bytes": 47664,
-      "sha256": "dd11be49703a3ca3d0860345e18749771ea9fba787929cb675a499b1456fb45e"
+      "size_bytes": 61464,
+      "sha256": "58a1341de2eea68d74a3888d3895a6679ad2b5e30e7da1f1ba50bb37b900105f"
     },
     {
       "artifact_type": "readiness_markdown",
@@ -138,8 +168,8 @@
       "label": "Readiness report Markdown",
       "path": "canonical/readiness_report.md",
       "source_path": "docs/examples/controller-housing-eol/readiness/readiness_report.md",
-      "size_bytes": 3935,
-      "sha256": "a8d76d1d34e0bc860abfbe7bdc7fa00a204fd302fa8ab126dfdbfbda843af465"
+      "size_bytes": 3791,
+      "sha256": "a7511e4d7c6487cbf47bba4403ec4077f50e42177beced0c1b6845bdaf513ebb"
     },
     {
       "artifact_type": "cad_model",
@@ -156,8 +186,8 @@
       "label": "Canonical review-pack JSON",
       "path": "canonical/review_pack.json",
       "source_path": "docs/examples/controller-housing-eol/review/review_pack.json",
-      "size_bytes": 15674,
-      "sha256": "156cca0830121ab371ae516c86b1871bbccd82e2cd3f4d83e386bb67566c5071"
+      "size_bytes": 26303,
+      "sha256": "342c328869d16cb19dc8294ef6415eb822b0414c505e48ad1b2e08a7104f8714"
     },
     {
       "artifact_type": "docs_manifest",
@@ -165,8 +195,8 @@
       "label": "Standard docs manifest JSON",
       "path": "docs/standard_docs_manifest.json",
       "source_path": "docs/examples/controller-housing-eol/standard-docs/standard_docs_manifest.json",
-      "size_bytes": 6700,
-      "sha256": "1b1bd03e491c45531dc4c0747bd3607c414a1e431fde78926c139b41d80190b3"
+      "size_bytes": 7234,
+      "sha256": "f1d10f5d71385cc77eeaecbbb83bfb62b266821c53cf094a5a5f37fbadd7e274"
     },
     {
       "artifact_type": "docs_document",
@@ -219,8 +249,8 @@
       "label": "Release bundle log JSON",
       "path": "release_bundle_log.json",
       "source_path": "docs/examples/controller-housing-eol/release/release_bundle_log.json",
-      "size_bytes": 5589,
-      "sha256": "63f22d7040f1fabbdf673d1bbfc2879c2edcb30cb63a67b1deca90d1e5d1625a"
+      "size_bytes": 4953,
+      "sha256": "13103567a3a23e15d0e1fb113ae1cdc2cdbcdb39885c54ff71ac3612d8c9629f"
     },
     {
       "artifact_type": "release_bundle_checksums",
@@ -229,7 +259,7 @@
       "path": "release_bundle_checksums.sha256",
       "source_path": "docs/examples/controller-housing-eol/release/release_bundle_checksums.sha256",
       "size_bytes": 1048,
-      "sha256": "7c583109b6f8d405ea23c52ef31916d5c9db398b5d524cbbcbecf268a047eacf"
+      "sha256": "c0022f0414816b5f286e8caa0de28661b07907e07e705b40d9a329e6acc17f12"
     },
     {
       "artifact_type": "release_bundle_manifest",
