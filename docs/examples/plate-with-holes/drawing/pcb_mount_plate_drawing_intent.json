@@ -1,0 +1,171 @@
+{
+  "part_type": "plate_with_holes",
+  "manufacturing_process": "machining",
+  "material": "AL6061",
+  "required_views": [
+    "front",
+    "top",
+    "right",
+    "iso"
+  ],
+  "drawing_standard": "project-default",
+  "missing_semantics_policy": "advisory",
+  "datum_strategy": {
+    "primary": "plate_top_face",
+    "secondary": "left_front_mounting_hole",
+    "tertiary": "right_front_mounting_hole",
+    "scheme": "fixture-oriented plate datum using the top face and front hole row",
+    "notes": [
+      "Use hole centers and the connector-side slot as drawing QA references only."
+    ]
+  },
+  "tolerance_policy": {
+    "general": "Carry source critical dimensions forward; do not infer additional tolerances.",
+    "gdt": "none",
+    "notes": [
+      "Connector slot position and standoff height are critical manufacturing checks from the source config."
+    ]
+  },
+  "critical_features": [
+    {
+      "id": "PLATE",
+      "feature": "plate",
+      "description": "Base plate envelope communicates the 145 mm by 98 mm by 4 mm machined carrier footprint.",
+      "reason": "Defines stock size and mounting-envelope context.",
+      "view": "top"
+    },
+    {
+      "id": "MOUNTING_HOLE_PATTERN",
+      "feature": "hole1,hole2,hole3,hole4",
+      "description": "Four mounting holes form the PCB screw pattern.",
+      "reason": "Hole diameter and pattern location control board assembly fit.",
+      "view": "top"
+    },
+    {
+      "id": "CONNECTOR_SLOT",
+      "feature": "slot",
+      "description": "Connector-side clearance slot must remain visible and tied to the slot-position quality check.",
+      "reason": "Prevents connector interference during controller subassembly build.",
+      "view": "top"
+    },
+    {
+      "id": "STANDOFFS",
+      "feature": "standoff1,standoff2,standoff3,standoff4",
+      "description": "Four board standoffs establish PCB support height.",
+      "reason": "Standoff height is a critical dimension for board coplanarity.",
+      "view": "front"
+    }
+  ],
+  "required_dimensions": [
+    {
+      "id": "PLATE_LENGTH",
+      "feature": "plate",
+      "label": "Overall plate length",
+      "dimension_type": "linear",
+      "value_mm": 145,
+      "required": true,
+      "view": "top",
+      "reason": "Confirms the long-axis plate envelope."
+    },
+    {
+      "id": "PLATE_WIDTH",
+      "feature": "plate",
+      "label": "Overall plate width",
+      "dimension_type": "linear",
+      "value_mm": 98,
+      "required": true,
+      "view": "top",
+      "reason": "Confirms the short-axis plate envelope."
+    },
+    {
+      "id": "PLATE_THICKNESS",
+      "feature": "plate",
+      "label": "Plate thickness",
+      "dimension_type": "linear",
+      "value_mm": 4,
+      "required": true,
+      "view": "front",
+      "reason": "Confirms the machined plate thickness."
+    },
+    {
+      "id": "MOUNTING_HOLE_DIA",
+      "feature": "hole1,hole2,hole3,hole4",
+      "label": "Four mounting hole diameters",
+      "dimension_type": "diameter",
+      "value_mm": 4,
+      "required": true,
+      "view": "top",
+      "reason": "Confirms the PCB fastening hole size."
+    },
+    {
+      "id": "MOUNTING_HOLE_PATTERN_X",
+      "feature": "hole1,hole2,hole3,hole4",
+      "label": "Mounting hole column spacing",
+      "dimension_type": "linear",
+      "value_mm": 101,
+      "required": true,
+      "view": "top",
+      "reason": "Captures the horizontal spacing from x=22 mm to x=123 mm."
+    },
+    {
+      "id": "MOUNTING_HOLE_PATTERN_Y",
+      "feature": "hole1,hole2,hole3,hole4",
+      "label": "Mounting hole row spacing",
+      "dimension_type": "linear",
+      "value_mm": 54,
+      "required": true,
+      "view": "top",
+      "reason": "Captures the vertical spacing from y=22 mm to y=76 mm."
+    },
+    {
+      "id": "CONNECTOR_SLOT_SIZE",
+      "feature": "slot",
+      "label": "Connector slot length and width",
+      "dimension_type": "linear",
+      "value_mm": 18,
+      "required": true,
+      "view": "top",
+      "reason": "Captures the connector-side clearance opening size; slot width is 10 mm."
+    },
+    {
+      "id": "CONNECTOR_SLOT_POSITION",
+      "feature": "slot",
+      "label": "Connector slot position",
+      "dimension_type": "linear",
+      "value_mm": 42,
+      "required": true,
+      "view": "top",
+      "reason": "Carries forward source quality critical dimension cd-02."
+    },
+    {
+      "id": "STANDOFF_HEIGHT",
+      "feature": "standoff1,standoff2,standoff3,standoff4",
+      "label": "PCB standoff height",
+      "dimension_type": "linear",
+      "value_mm": 8,
+      "required": true,
+      "view": "front",
+      "reason": "Carries forward source quality critical dimension cd-01."
+    }
+  ],
+  "required_notes": [
+    {
+      "id": "MATERIAL",
+      "text": "Material: AL6061",
+      "category": "material",
+      "required": true
+    },
+    {
+      "id": "PROCESS",
+      "text": "Process: machining",
+      "category": "manufacturing",
+      "required": true
+    },
+    {
+      "id": "TRACEABILITY",
+      "text": "Lot traceability label area on plate edge opposite connector slot.",
+      "category": "traceability",
+      "required": true
+    }
+  ]
+}

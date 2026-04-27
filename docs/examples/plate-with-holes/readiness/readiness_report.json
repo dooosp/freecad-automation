@@ -1,0 +1,1502 @@
+{
+  "workflow": "production_readiness",
+  "part": {
+    "part_id": "pcb_mount_plate",
+    "name": "pcb_mount_plate",
+    "description": null,
+    "revision": null,
+    "material": "AL6061",
+    "process": "machining"
+  },
+  "review_pack": {
+    "artifact_type": "review_pack",
+    "schema_version": "1.0",
+    "analysis_version": "d1",
+    "generated_at": "2026-04-26T23:38:19Z",
+    "part_id": "pcb_mount_plate",
+    "revision": null,
+    "warnings": [
+      "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/plate-with-holes/cad/pcb_mount_plate.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints."
+    ],
+    "coverage": {
+      "source_artifact_count": 2,
+      "source_file_count": 1,
+      "hotspot_count": 4,
+      "inspection_record_count": 0,
+      "inspection_outlier_count": 0,
+      "quality_issue_count": 0,
+      "quality_hotspot_count": 0,
+      "review_priority_count": 4
+    },
+    "confidence": {
+      "level": "heuristic",
+      "score": 0.76,
+      "rationale": "Canonical review pack combines upstream D artifacts into a decision-oriented JSON contract."
+    },
+    "source_artifact_refs": [
+      {
+        "artifact_type": "cad_model",
+        "path": "docs/examples/plate-with-holes/cad/pcb_mount_plate.step",
+        "role": "input",
+        "label": "Geometry source"
+      },
+      {
+        "artifact_type": "source_file",
+        "path": "docs/examples/plate-with-holes/cad/pcb_mount_plate.step",
+        "role": "evidence",
+        "label": "Context source file"
+      }
+    ],
+    "canonical_artifact": {
+      "type": "review_pack.json",
+      "version": "2.0",
+      "json_is_source_of_truth": true,
+      "derived_renderers": [
+        "markdown",
+        "pdf"
+      ]
+    },
+    "part": {
+      "part_id": "pcb_mount_plate",
+      "name": "pcb_mount_plate",
+      "description": null,
+      "revision": null,
+      "material": "AL6061",
+      "process": "machining"
+    },
+    "executive_summary": {
+      "headline": "pcb_mount_plate revision None shows 4 prioritized review topics led by slenderness, complexity, stress_or_tooling.",
+      "part_revision": null,
+      "top_risk_categories": [
+        "slenderness",
+        "complexity",
+        "stress_or_tooling"
+      ],
+      "priority_count": 4,
+      "geometry_hotspot_count": 4,
+      "inspection_anomaly_count": 0,
+      "quality_signal_count": 0,
+      "recommended_action_count": 3,
+      "confidence": {
+        "label": "heuristic",
+        "numeric_score": 0.62
+      }
+    },
+    "prioritized_hotspots": [
+      {
+        "priority_rank": 1,
+        "hotspot_id": "hotspot:slenderness:0c165ba17b",
+        "category": "slenderness",
+        "title": "Review Slender geometry review",
+        "score": 1,
+        "rationale": "Slender geometry review carries geometry evidence plus 0 inspection and 0 quality link(s).",
+        "evidence_count": 1,
+        "score_breakdown": {
+          "geometry_evidence_score": 1,
+          "inspection_anomaly_score": 0,
+          "quality_recurrence_score": 0,
+          "process_sensitivity_score": 0,
+          "data_quality_penalty": 0,
+          "ambiguity_penalty": 0
+        },
+        "geometry_hotspot_titles": [
+          "Slender geometry review"
+        ],
+        "inspection_record_ids": [],
+        "quality_issue_ids": [],
+        "recommended_action": "Review handling, fixturing, and stiffness controls for the linked slender hotspot."
+      },
+      {
+        "priority_rank": 2,
+        "hotspot_id": "hotspot:complexity:63e8edf2ba",
+        "category": "complexity",
+        "title": "Review High complexity review",
+        "score": 0.765,
+        "rationale": "High complexity review carries geometry evidence plus 0 inspection and 0 quality link(s).",
+        "evidence_count": 1,
+        "score_breakdown": {
+          "geometry_evidence_score": 0.765,
+          "inspection_anomaly_score": 0,
+          "quality_recurrence_score": 0,
+          "process_sensitivity_score": 0,
+          "data_quality_penalty": 0,
+          "ambiguity_penalty": 0
+        },
+        "geometry_hotspot_titles": [
+          "High complexity review"
+        ],
+        "inspection_record_ids": [],
+        "quality_issue_ids": [],
+        "recommended_action": "Prioritize a manufacturability review for the linked high-complexity hotspot before the next release."
+      },
+      {
+        "priority_rank": 3,
+        "hotspot_id": "hotspot:stress_or_tooling:580f0055e0",
+        "category": "stress_or_tooling",
+        "title": "Review Inner corner risk",
+        "score": 0.65,
+        "rationale": "Inner corner risk carries geometry evidence plus 0 inspection and 0 quality link(s).",
+        "evidence_count": 1,
+        "score_breakdown": {
+          "geometry_evidence_score": 0.65,
+          "inspection_anomaly_score": 0,
+          "quality_recurrence_score": 0,
+          "process_sensitivity_score": 0,
+          "data_quality_penalty": 0,
+          "ambiguity_penalty": 0
+        },
+        "geometry_hotspot_titles": [
+          "Inner corner risk"
+        ],
+        "inspection_record_ids": [],
+        "quality_issue_ids": [],
+        "recommended_action": "Review local edge treatment, cutter access, and stress concentration controls at the linked hotspot."
+      },
+      {
+        "priority_rank": 4,
+        "hotspot_id": "hotspot:wall_thickness:18df6aadd6",
+        "category": "wall_thickness",
+        "title": "Review Thin-wall candidate",
+        "score": 0.6,
+        "rationale": "Thin-wall candidate carries geometry evidence plus 0 inspection and 0 quality link(s).",
+        "evidence_count": 1,
+        "score_breakdown": {
+          "geometry_evidence_score": 0.6,
+          "inspection_anomaly_score": 0,
+          "quality_recurrence_score": 0,
+          "process_sensitivity_score": 0,
+          "data_quality_penalty": 0,
+          "ambiguity_penalty": 0
+        },
+        "geometry_hotspot_titles": [
+          "Thin-wall candidate"
+        ],
+        "inspection_record_ids": [],
+        "quality_issue_ids": [],
+        "recommended_action": null
+      }
+    ],
+    "inspection_anomaly_linkage": {
+      "summary": {
+        "record_count": 0,
+        "linked_record_count": 0,
+        "unmatched_record_count": 0
+      },
+      "records": []
+    },
+    "quality_pattern_linkage": {
+      "summary": {
+        "issue_count": 0,
+        "matched_categories": 0,
+        "matched_issue_count": 0,
+        "ambiguous_issue_count": 0,
+        "linked_record_count": 0,
+        "hotspot_count": 0
+      },
+      "records": [],
+      "hotspots": []
+    },
+    "evidence_ledger": {
+      "record_count": 4,
+      "counts_by_type": {
+        "geometry_hotspot": 4,
+        "inspection_anomaly": 0,
+        "quality_pattern": 0
+      },
+      "records": [
+        {
+          "evidence_id": "geometry:slenderness:slender_geometry_review",
+          "type": "geometry_hotspot",
+          "category": "slenderness",
+          "title": "Slender geometry review",
+          "score": 1,
+          "rationale": "Large aspect ratio can increase review focus on stiffness, handling, and fixture strategy.",
+          "confidence": 0.6
+        },
+        {
+          "evidence_id": "geometry:complexity:high_complexity_review",
+          "type": "geometry_hotspot",
+          "category": "complexity",
+          "title": "High complexity review",
+          "score": 0.765,
+          "rationale": "Geometry complexity is high enough to justify focused review sequencing.",
+          "confidence": 0.6
+        },
+        {
+          "evidence_id": "geometry:stress_or_tooling:inner_corner_risk",
+          "type": "geometry_hotspot",
+          "category": "stress_or_tooling",
+          "title": "Inner corner risk",
+          "score": 0.65,
+          "rationale": "Sharp internal transitions can drive stress concentration or tooling complexity.",
+          "confidence": 0.6
+        },
+        {
+          "evidence_id": "geometry:wall_thickness:thin-wall_candidate",
+          "type": "geometry_hotspot",
+          "category": "wall_thickness",
+          "title": "Thin-wall candidate",
+          "score": 0.6,
+          "rationale": "Bounding-box thinness suggests regions that may be sensitive to distortion or manufacturing variation.",
+          "confidence": 0.6
+        }
+      ]
+    },
+    "uncertainty_coverage_report": {
+      "analysis_confidence": "heuristic",
+      "numeric_score": 0.62,
+      "partial_evidence": true,
+      "missing_inputs": [
+        "inspection_evidence",
+        "quality_evidence"
+      ],
+      "coverage": {
+        "source_file_count": 1,
+        "geometry_hotspot_count": 4,
+        "inspection_anomaly_count": 0,
+        "quality_pattern_count": 0,
+        "review_priority_count": 4,
+        "evidence_record_count": 4
+      },
+      "warnings": [
+        "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/plate-with-holes/cad/pcb_mount_plate.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints."
+      ]
+    },
+    "recommended_actions": [
+      {
+        "action_id": "action-hotspot:slenderness:0c165ba17b",
+        "action_type": "fixture_review",
+        "priority_rank": 1,
+        "target_hotspot_id": "hotspot:slenderness:0c165ba17b",
+        "category": "slenderness",
+        "based_on": "slenderness",
+        "owner_role": "manufacturing_engineer",
+        "recommended_action": "Review handling, fixturing, and stiffness controls for the linked slender hotspot.",
+        "why": "Slender geometry review carries geometry evidence plus 0 inspection and 0 quality link(s).",
+        "evidence_refs": [
+          {
+            "source_type": "geometry_hotspot",
+            "source_id": "hotspot:slenderness:0c165ba17b"
+          }
+        ],
+        "confidence": 0.512,
+        "expected_effect": "Reduces handling-induced variation and fixture instability."
+      },
+      {
+        "action_id": "action-hotspot:complexity:63e8edf2ba",
+        "action_type": "design_review",
+        "priority_rank": 2,
+        "target_hotspot_id": "hotspot:complexity:63e8edf2ba",
+        "category": "complexity",
+        "based_on": "complexity",
+        "owner_role": "design_engineer",
+        "recommended_action": "Prioritize a manufacturability review for the linked high-complexity hotspot before the next release.",
+        "why": "High complexity review carries geometry evidence plus 0 inspection and 0 quality link(s).",
+        "evidence_refs": [
+          {
+            "source_type": "geometry_hotspot",
+            "source_id": "hotspot:complexity:63e8edf2ba"
+          }
+        ],
+        "confidence": 0.43,
+        "expected_effect": "Reduces avoidable downstream review churn and setup risk."
+      },
+      {
+        "action_id": "action-hotspot:stress_or_tooling:580f0055e0",
+        "action_type": "tooling_review",
+        "priority_rank": 3,
+        "target_hotspot_id": "hotspot:stress_or_tooling:580f0055e0",
+        "category": "stress_or_tooling",
+        "based_on": "stress_or_tooling",
+        "owner_role": "manufacturing_engineer",
+        "recommended_action": "Review local edge treatment, cutter access, and stress concentration controls at the linked hotspot.",
+        "why": "Inner corner risk carries geometry evidence plus 0 inspection and 0 quality link(s).",
+        "evidence_refs": [
+          {
+            "source_type": "geometry_hotspot",
+            "source_id": "hotspot:stress_or_tooling:580f0055e0"
+          }
+        ],
+        "confidence": 0.39,
+        "expected_effect": "Reduces tooling risk and clarifies whether geometry changes are needed."
+      }
+    ],
+    "data_quality_notes": [
+      {
+        "severity": "warning",
+        "message": "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/plate-with-holes/cad/pcb_mount_plate.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints."
+      },
+      {
+        "severity": "info",
+        "message": "Missing or limited inspection evidence; review-pack remains usable with partial evidence."
+      },
+      {
+        "severity": "info",
+        "message": "Missing or limited quality evidence; review-pack remains usable with partial evidence."
+      }
+    ],
+    "geometry_summary": {
+      "bounding_box_mm": {
+        "x": 145,
+        "y": 98,
+        "z": 12,
+        "diagonal": 175.422
+      },
+      "size_band": "small",
+      "volume_mm3": 57150.44,
+      "surface_area_mm2": 31032.25,
+      "face_count": 22,
+      "edge_count": 48,
+      "vertex_count": 32,
+      "bbox_volume_mm3": 170520,
+      "compactness_ratio": 0.3352,
+      "surface_to_volume_ratio": 0.543,
+      "max_aspect_ratio": 12.0833,
+      "mid_to_min_ratio": 8.1667,
+      "planar_spread_ratio": 1.4796,
+      "thinness_ratio": 0.0828,
+      "face_density": 0.0001,
+      "edge_density": 0.0003
+    },
+    "geometry_features": {
+      "hole_like_feature_count": 0,
+      "hole_pattern_count": 0,
+      "thin_wall_candidates": [
+        {
+          "feature_type": "thin_wall",
+          "confidence": 0.6,
+          "evidence": "thinness_ratio=0.0828"
+        }
+      ],
+      "deep_pocket_candidates": [],
+      "inner_corner_risk_candidates": [
+        {
+          "feature_type": "inner_corner",
+          "confidence": 0.65,
+          "evidence": "complex shape without fillet evidence"
+        }
+      ],
+      "fillet_density": 0,
+      "chamfer_density": 0,
+      "feature_density": 0,
+      "complexity_score": 76.5,
+      "records": [
+        {
+          "feature_id": "feature:thin_wall_candidate:fba03a3e7d",
+          "feature_type": "thin_wall_candidate",
+          "region_ref": "region:global",
+          "entity_refs": [],
+          "score": 0.6,
+          "confidence": 0.6,
+          "reason_codes": [
+            "geometry.thinness.low"
+          ],
+          "evidence_refs": [],
+          "match_tokens": [
+            "thin",
+            "wall",
+            "thickness"
+          ],
+          "details": {
+            "thinness_ratio": 0.0828,
+            "max_aspect_ratio": 12.0833
+          }
+        },
+        {
+          "feature_id": "feature:inner_corner_risk:bff1ca34b5",
+          "feature_type": "inner_corner_risk",
+          "region_ref": "region:global",
+          "entity_refs": [],
+          "score": 0.65,
+          "confidence": 0.65,
+          "reason_codes": [
+            "geometry.corner.internal_risk",
+            "geometry.fillet.absent"
+          ],
+          "evidence_refs": [],
+          "match_tokens": [
+            "corner",
+            "fillet",
+            "radius"
+          ],
+          "details": {
+            "face_count": 22,
+            "fillet_count": 0
+          }
+        }
+      ],
+      "derived_feature_count": 2
+    },
+    "geometry_hotspots": [
+      {
+        "hotspot_id": "hotspot:slenderness:0c165ba17b",
+        "title": "Slender geometry review",
+        "category": "slenderness",
+        "region_ref": "region:global",
+        "feature_refs": [],
+        "entity_refs": [],
+        "severity": "high",
+        "score": 1,
+        "reason_codes": [
+          "geometry.aspect_ratio.elevated",
+          "geometry.aspect_ratio.critical"
+        ],
+        "evidence_refs": [],
+        "rationale": "Large aspect ratio can increase review focus on stiffness, handling, and fixture strategy.",
+        "evidence": {
+          "max_aspect_ratio": 12.0833
+        }
+      },
+      {
+        "hotspot_id": "hotspot:complexity:63e8edf2ba",
+        "title": "High complexity review",
+        "category": "complexity",
+        "region_ref": "region:global",
+        "feature_refs": [],
+        "entity_refs": [],
+        "severity": "medium",
+        "score": 0.765,
+        "reason_codes": [
+          "geometry.complexity.high"
+        ],
+        "evidence_refs": [],
+        "rationale": "Geometry complexity is high enough to justify focused review sequencing.",
+        "evidence": {
+          "complexity_score": 76.5
+        }
+      },
+      {
+        "hotspot_id": "hotspot:stress_or_tooling:580f0055e0",
+        "title": "Inner corner risk",
+        "category": "stress_or_tooling",
+        "region_ref": "region:global",
+        "feature_refs": [
+          "feature:inner_corner_risk:bff1ca34b5"
+        ],
+        "entity_refs": [],
+        "severity": "medium",
+        "score": 0.65,
+        "reason_codes": [
+          "geometry.corner.internal_risk",
+          "geometry.fillet.absent"
+        ],
+        "evidence_refs": [],
+        "rationale": "Sharp internal transitions can drive stress concentration or tooling complexity.",
+        "evidence": {
+          "face_count": 22,
+          "fillet_count": 0
+        }
+      },
+      {
+        "hotspot_id": "hotspot:wall_thickness:18df6aadd6",
+        "title": "Thin-wall candidate",
+        "category": "wall_thickness",
+        "region_ref": "region:global",
+        "feature_refs": [
+          "feature:thin_wall_candidate:fba03a3e7d"
+        ],
+        "entity_refs": [],
+        "severity": "medium",
+        "score": 0.6,
+        "reason_codes": [
+          "geometry.thinness.low"
+        ],
+        "evidence_refs": [],
+        "rationale": "Bounding-box thinness suggests regions that may be sensitive to distortion or manufacturing variation.",
+        "evidence": {
+          "thinness_ratio": 0.0828,
+          "max_aspect_ratio": 12.0833
+        }
+      }
+    ],
+    "inspection_linkage": {
+      "summary": {
+        "count": 0,
+        "out_of_tolerance": 0,
+        "in_tolerance": 0,
+        "unknown": 0
+      },
+      "records": []
+    },
+    "inspection_anomalies": [],
+    "quality_linkage": {
+      "summary": {
+        "issue_count": 0,
+        "matched_categories": 0,
+        "matched_issue_count": 0,
+        "ambiguous_issue_count": 0
+      },
+      "records": []
+    },
+    "quality_hotspots": [],
+    "review_priorities": [
+      {
+        "priority_rank": 1,
+        "hotspot_id": "hotspot:slenderness:0c165ba17b",
+        "category": "slenderness",
+        "hotspot_title": "Slender geometry review",
+        "score": 1,
+        "title": "Review Slender geometry review",
+        "evidence_count": 1,
+        "score_breakdown": {
+          "geometry_evidence_score": 1,
+          "inspection_anomaly_score": 0,
+          "quality_recurrence_score": 0,
+          "process_sensitivity_score": 0,
+          "data_quality_penalty": 0,
+          "ambiguity_penalty": 0
+        },
+        "confidence": 0.512,
+        "ambiguity": {
+          "inspection_records": 0,
+          "quality_records": 0
+        },
+        "related_inspection_records": [],
+        "related_quality_issues": [],
+        "evidence_refs": [
+          {
+            "source_type": "geometry_hotspot",
+            "source_id": "hotspot:slenderness:0c165ba17b"
+          }
+        ],
+        "rationale": "Slender geometry review carries geometry evidence plus 0 inspection and 0 quality link(s)."
+      },
+      {
+        "priority_rank": 2,
+        "hotspot_id": "hotspot:complexity:63e8edf2ba",
+        "category": "complexity",
+        "hotspot_title": "High complexity review",
+        "score": 0.765,
+        "title": "Review High complexity review",
+        "evidence_count": 1,
+        "score_breakdown": {
+          "geometry_evidence_score": 0.765,
+          "inspection_anomaly_score": 0,
+          "quality_recurrence_score": 0,
+          "process_sensitivity_score": 0,
+          "data_quality_penalty": 0,
+          "ambiguity_penalty": 0
+        },
+        "confidence": 0.43,
+        "ambiguity": {
+          "inspection_records": 0,
+          "quality_records": 0
+        },
+        "related_inspection_records": [],
+        "related_quality_issues": [],
+        "evidence_refs": [
+          {
+            "source_type": "geometry_hotspot",
+            "source_id": "hotspot:complexity:63e8edf2ba"
+          }
+        ],
+        "rationale": "High complexity review carries geometry evidence plus 0 inspection and 0 quality link(s)."
+      },
+      {
+        "priority_rank": 3,
+        "hotspot_id": "hotspot:stress_or_tooling:580f0055e0",
+        "category": "stress_or_tooling",
+        "hotspot_title": "Inner corner risk",
+        "score": 0.65,
+        "title": "Review Inner corner risk",
+        "evidence_count": 1,
+        "score_breakdown": {
+          "geometry_evidence_score": 0.65,
+          "inspection_anomaly_score": 0,
+          "quality_recurrence_score": 0,
+          "process_sensitivity_score": 0,
+          "data_quality_penalty": 0,
+          "ambiguity_penalty": 0
+        },
+        "confidence": 0.39,
+        "ambiguity": {
+          "inspection_records": 0,
+          "quality_records": 0
+        },
+        "related_inspection_records": [],
+        "related_quality_issues": [],
+        "evidence_refs": [
+          {
+            "source_type": "geometry_hotspot",
+            "source_id": "hotspot:stress_or_tooling:580f0055e0"
+          }
+        ],
+        "rationale": "Inner corner risk carries geometry evidence plus 0 inspection and 0 quality link(s)."
+      },
+      {
+        "priority_rank": 4,
+        "hotspot_id": "hotspot:wall_thickness:18df6aadd6",
+        "category": "wall_thickness",
+        "hotspot_title": "Thin-wall candidate",
+        "score": 0.6,
+        "title": "Review Thin-wall candidate",
+        "evidence_count": 1,
+        "score_breakdown": {
+          "geometry_evidence_score": 0.6,
+          "inspection_anomaly_score": 0,
+          "quality_recurrence_score": 0,
+          "process_sensitivity_score": 0,
+          "data_quality_penalty": 0,
+          "ambiguity_penalty": 0
+        },
+        "confidence": 0.372,
+        "ambiguity": {
+          "inspection_records": 0,
+          "quality_records": 0
+        },
+        "related_inspection_records": [],
+        "related_quality_issues": [],
+        "evidence_refs": [
+          {
+            "source_type": "geometry_hotspot",
+            "source_id": "hotspot:wall_thickness:18df6aadd6"
+          }
+        ],
+        "rationale": "Thin-wall candidate carries geometry evidence plus 0 inspection and 0 quality link(s)."
+      }
+    ],
+    "evidence_appendix": {
+      "geometry_metrics": {
+        "bounding_box_mm": {
+          "x": 145,
+          "y": 98,
+          "z": 12,
+          "diagonal": 175.422
+        },
+        "size_band": "small",
+        "volume_mm3": 57150.44,
+        "surface_area_mm2": 31032.25,
+        "face_count": 22,
+        "edge_count": 48,
+        "vertex_count": 32,
+        "bbox_volume_mm3": 170520,
+        "compactness_ratio": 0.3352,
+        "surface_to_volume_ratio": 0.543,
+        "max_aspect_ratio": 12.0833,
+        "mid_to_min_ratio": 8.1667,
+        "planar_spread_ratio": 1.4796,
+        "thinness_ratio": 0.0828,
+        "face_density": 0.0001,
+        "edge_density": 0.0003
+      },
+      "geometry_feature_summary": {
+        "hole_like_feature_count": 0,
+        "hole_pattern_count": 0,
+        "thin_wall_candidates": [
+          {
+            "feature_type": "thin_wall",
+            "confidence": 0.6,
+            "evidence": "thinness_ratio=0.0828"
+          }
+        ],
+        "deep_pocket_candidates": [],
+        "inner_corner_risk_candidates": [
+          {
+            "feature_type": "inner_corner",
+            "confidence": 0.65,
+            "evidence": "complex shape without fillet evidence"
+          }
+        ],
+        "fillet_density": 0,
+        "chamfer_density": 0,
+        "feature_density": 0,
+        "complexity_score": 76.5,
+        "records": [
+          {
+            "feature_id": "feature:thin_wall_candidate:fba03a3e7d",
+            "feature_type": "thin_wall_candidate",
+            "region_ref": "region:global",
+            "entity_refs": [],
+            "score": 0.6,
+            "confidence": 0.6,
+            "reason_codes": [
+              "geometry.thinness.low"
+            ],
+            "evidence_refs": [],
+            "match_tokens": [
+              "thin",
+              "wall",
+              "thickness"
+            ],
+            "details": {
+              "thinness_ratio": 0.0828,
+              "max_aspect_ratio": 12.0833
+            }
+          },
+          {
+            "feature_id": "feature:inner_corner_risk:bff1ca34b5",
+            "feature_type": "inner_corner_risk",
+            "region_ref": "region:global",
+            "entity_refs": [],
+            "score": 0.65,
+            "confidence": 0.65,
+            "reason_codes": [
+              "geometry.corner.internal_risk",
+              "geometry.fillet.absent"
+            ],
+            "evidence_refs": [],
+            "match_tokens": [
+              "corner",
+              "fillet",
+              "radius"
+            ],
+            "details": {
+              "face_count": 22,
+              "fillet_count": 0
+            }
+          }
+        ],
+        "derived_feature_count": 2
+      },
+      "source_files": [
+        "docs/examples/plate-with-holes/cad/pcb_mount_plate.step"
+      ],
+      "warnings": [
+        "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/plate-with-holes/cad/pcb_mount_plate.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints."
+      ],
+      "inspection_record_count": 0,
+      "quality_issue_count": 0,
+      "canonical_json_note": "review_pack.json is the canonical decision artifact; markdown/pdf are derived renderers."
+    },
+    "metadata": {
+      "analysis_confidence": "heuristic",
+      "artifact_provenance": {
+        "workflow": [
+          "ingest",
+          "analyze-part",
+          "quality-link",
+          "review-pack"
+        ],
+        "source_files": [
+          "docs/examples/plate-with-holes/cad/pcb_mount_plate.step"
+        ],
+        "context_created_at": "2026-04-26T23:38:19+00:00",
+        "warnings": [
+          "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/plate-with-holes/cad/pcb_mount_plate.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints."
+        ]
+      },
+      "renderers": [
+        "markdown",
+        "pdf"
+      ],
+      "available_sections": [
+        "executive_summary",
+        "prioritized_hotspots",
+        "inspection_anomaly_linkage",
+        "quality_pattern_linkage",
+        "evidence_ledger",
+        "uncertainty_coverage_report",
+        "recommended_actions",
+        "data_quality_notes"
+      ],
+      "renderers_derived_from_canonical_json": [
+        "markdown",
+        "pdf"
+      ]
+    }
+  },
+  "process_plan": {
+    "agent": "process_planning",
+    "part": {
+      "part_id": "pcb_mount_plate",
+      "name": "pcb_mount_plate",
+      "description": null,
+      "revision": null,
+      "material": "AL6061",
+      "process": "machining"
+    },
+    "summary": {
+      "overall_risk_level": "high",
+      "planning_mode": "review_pack_execution",
+      "priority_count": 4,
+      "recommended_action_count": 3,
+      "highest_priority_category": "slenderness",
+      "partial_evidence": true,
+      "missing_inputs": [
+        "inspection_evidence",
+        "quality_evidence"
+      ]
+    },
+    "planning_basis": {
+      "source_review_pack": {
+        "part_id": "pcb_mount_plate",
+        "revision": null,
+        "generated_at": "2026-04-26T23:38:19Z",
+        "path": "docs/examples/plate-with-holes/review/review_pack.json"
+      },
+      "review_pack_headline": "pcb_mount_plate revision None shows 4 prioritized review topics led by slenderness, complexity, stress_or_tooling.",
+      "top_risk_categories": [
+        "slenderness",
+        "complexity",
+        "stress_or_tooling"
+      ],
+      "uncertainty_coverage_report": {
+        "analysis_confidence": "heuristic",
+        "numeric_score": 0.62,
+        "partial_evidence": true,
+        "missing_inputs": [
+          "inspection_evidence",
+          "quality_evidence"
+        ],
+        "coverage": {
+          "source_file_count": 1,
+          "geometry_hotspot_count": 4,
+          "inspection_anomaly_count": 0,
+          "quality_pattern_count": 0,
+          "review_priority_count": 4,
+          "evidence_record_count": 4
+        },
+        "warnings": [
+          "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/plate-with-holes/cad/pcb_mount_plate.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints."
+        ]
+      },
+      "upstream_confidence": {
+        "level": "heuristic",
+        "score": 0.76,
+        "rationale": "Canonical review pack combines upstream D artifacts into a decision-oriented JSON contract."
+      }
+    },
+    "process_flow": [
+      {
+        "step": 10,
+        "operation": "Review Slender geometry review",
+        "execution_type": "risk_review",
+        "priority_rank": 1,
+        "category": "slenderness",
+        "score": 1,
+        "recommended_action": "Review handling, fixturing, and stiffness controls for the linked slender hotspot.",
+        "related_inspection_records": [],
+        "related_quality_issues": [],
+        "completion_evidence": [
+          "Review handling, fixturing, and stiffness controls for the linked slender hotspot."
+        ],
+        "rationale": "Slender geometry review carries geometry evidence plus 0 inspection and 0 quality link(s)."
+      },
+      {
+        "step": 20,
+        "operation": "Review High complexity review",
+        "execution_type": "risk_review",
+        "priority_rank": 2,
+        "category": "complexity",
+        "score": 0.765,
+        "recommended_action": "Prioritize a manufacturability review for the linked high-complexity hotspot before the next release.",
+        "related_inspection_records": [],
+        "related_quality_issues": [],
+        "completion_evidence": [
+          "Prioritize a manufacturability review for the linked high-complexity hotspot before the next release."
+        ],
+        "rationale": "High complexity review carries geometry evidence plus 0 inspection and 0 quality link(s)."
+      },
+      {
+        "step": 30,
+        "operation": "Review Inner corner risk",
+        "execution_type": "risk_review",
+        "priority_rank": 3,
+        "category": "stress_or_tooling",
+        "score": 0.65,
+        "recommended_action": "Review local edge treatment, cutter access, and stress concentration controls at the linked hotspot.",
+        "related_inspection_records": [],
+        "related_quality_issues": [],
+        "completion_evidence": [
+          "Review local edge treatment, cutter access, and stress concentration controls at the linked hotspot."
+        ],
+        "rationale": "Inner corner risk carries geometry evidence plus 0 inspection and 0 quality link(s)."
+      },
+      {
+        "step": 40,
+        "operation": "Review Thin-wall candidate",
+        "execution_type": "risk_review",
+        "priority_rank": 4,
+        "category": "wall_thickness",
+        "score": 0.6,
+        "recommended_action": null,
+        "related_inspection_records": [],
+        "related_quality_issues": [],
+        "completion_evidence": [],
+        "rationale": "Thin-wall candidate carries geometry evidence plus 0 inspection and 0 quality link(s)."
+      },
+      {
+        "step": 50,
+        "operation": "Close missing evidence before release",
+        "execution_type": "evidence_gap_closure",
+        "priority_rank": null,
+        "category": "evidence_gap",
+        "score": null,
+        "recommended_action": "Collect or validate: inspection_evidence, quality_evidence",
+        "related_inspection_records": [],
+        "related_quality_issues": [],
+        "completion_evidence": [
+          "inspection_evidence",
+          "quality_evidence"
+        ],
+        "rationale": "Review-pack uncertainty report identified missing upstream evidence that must stay visible in C outputs."
+      }
+    ],
+    "key_inspection_points": [],
+    "automation_candidates": [],
+    "bottleneck_risks": [
+      "Review Slender geometry review",
+      "Review High complexity review",
+      "Review Inner corner risk",
+      "Missing evidence: inspection_evidence",
+      "Missing evidence: quality_evidence"
+    ],
+    "planning_notes": [
+      "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/plate-with-holes/cad/pcb_mount_plate.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
+      "Missing or limited inspection evidence; review-pack remains usable with partial evidence.",
+      "Missing or limited quality evidence; review-pack remains usable with partial evidence.",
+      "Partial evidence propagated from review-pack uncertainty coverage report."
+    ],
+    "schema_version": "1.0",
+    "artifact_type": "process_plan",
+    "generated_at": "2026-04-26T23:38:26.483Z",
+    "warnings": [
+      "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/plate-with-holes/cad/pcb_mount_plate.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
+      "Missing or limited inspection evidence; review-pack remains usable with partial evidence.",
+      "Missing or limited quality evidence; review-pack remains usable with partial evidence."
+    ],
+    "coverage": {
+      "source_artifact_count": 3,
+      "source_file_count": 1,
+      "hotspot_count": 4,
+      "inspection_record_count": 0,
+      "inspection_outlier_count": 0,
+      "quality_issue_count": 0,
+      "quality_hotspot_count": 0,
+      "review_priority_count": 4,
+      "recommended_action_count": 3,
+      "process_step_count": 5,
+      "key_inspection_point_count": 0,
+      "automation_candidate_count": 0,
+      "missing_input_count": 2,
+      "upstream_review_pack_coverage": {
+        "source_artifact_count": 2,
+        "source_file_count": 1,
+        "hotspot_count": 4,
+        "inspection_record_count": 0,
+        "inspection_outlier_count": 0,
+        "quality_issue_count": 0,
+        "quality_hotspot_count": 0,
+        "review_priority_count": 4
+      }
+    },
+    "confidence": {
+      "level": "heuristic",
+      "score": 0.76,
+      "rationale": "Canonical review pack combines upstream D artifacts into a decision-oriented JSON contract.",
+      "propagated_from": "review_pack",
+      "propagation_notes": [
+        "C preserves D confidence from review_pack without recalculating score or level.",
+        "Process-plan-specific interpretation lives in planning_basis and summary fields instead of confidence."
+      ],
+      "source_confidence_refs": [
+        {
+          "artifact_type": "review_pack",
+          "path": "docs/examples/plate-with-holes/review/review_pack.json",
+          "role": "confidence_source",
+          "label": "Review-pack confidence source"
+        }
+      ]
+    },
+    "source_artifact_refs": [
+      {
+        "artifact_type": "cad_model",
+        "path": "docs/examples/plate-with-holes/cad/pcb_mount_plate.step",
+        "role": "input",
+        "label": "Geometry source"
+      },
+      {
+        "artifact_type": "source_file",
+        "path": "docs/examples/plate-with-holes/cad/pcb_mount_plate.step",
+        "role": "evidence",
+        "label": "Context source file"
+      },
+      {
+        "artifact_type": "review_pack",
+        "path": "docs/examples/plate-with-holes/review/review_pack.json",
+        "role": "input",
+        "label": "Canonical review-pack JSON"
+      }
+    ],
+    "canonical_artifact": {
+      "json_is_source_of_truth": true,
+      "artifact_type": "process_plan",
+      "artifact_filename": "process_plan.json",
+      "derived_outputs": [],
+      "rationale": "This JSON artifact is the canonical machine-readable source for the downstream C output."
+    },
+    "contract": {
+      "layer": "C",
+      "command": "process-plan",
+      "contract_version": "c2",
+      "canonical_artifact_kind": "process_plan",
+      "primary_output": "process_plan.json",
+      "required_inputs": [
+        "review_pack"
+      ],
+      "optional_inputs": [
+        "config"
+      ],
+      "derived_outputs": [],
+      "notes": [
+        "Process-plan JSON is the machine-readable source of truth for this downstream C output.",
+        "Canonical C2 process planning consumes review-pack priorities and recommended actions rather than re-implementing D scoring, linkage, or geometry logic."
+      ]
+    }
+  },
+  "quality_risk": {
+    "agent": "quality_traceability",
+    "part": {
+      "part_id": "pcb_mount_plate",
+      "name": "pcb_mount_plate",
+      "description": null,
+      "revision": null,
+      "material": "AL6061",
+      "process": "machining"
+    },
+    "summary": {
+      "overall_risk_level": "high",
+      "quality_signal_count": 0,
+      "linked_priority_count": 4,
+      "partial_evidence": true,
+      "missing_inputs": [
+        "inspection_evidence",
+        "quality_evidence"
+      ]
+    },
+    "critical_dimensions": [],
+    "inspection_required_points": [],
+    "traceability_summary": {
+      "source_file_count": 1,
+      "evidence_record_count": 4,
+      "inspection_record_count": 0,
+      "quality_issue_count": 0,
+      "partial_evidence": true,
+      "missing_inputs": [
+        "inspection_evidence",
+        "quality_evidence"
+      ]
+    },
+    "quality_risks": [
+      {
+        "risk_id": "quality-risk-1",
+        "title": "Review Slender geometry review",
+        "category": "slenderness",
+        "severity": "high",
+        "priority_rank": 1,
+        "score": 1,
+        "evidence_count": 1,
+        "linked_inspection_records": [],
+        "linked_quality_issues": [],
+        "recommended_action": "Review handling, fixturing, and stiffness controls for the linked slender hotspot.",
+        "rationale": "Slender geometry review carries geometry evidence plus 0 inspection and 0 quality link(s).",
+        "source": "review_pack"
+      },
+      {
+        "risk_id": "quality-risk-2",
+        "title": "Review High complexity review",
+        "category": "complexity",
+        "severity": "medium",
+        "priority_rank": 2,
+        "score": 0.765,
+        "evidence_count": 1,
+        "linked_inspection_records": [],
+        "linked_quality_issues": [],
+        "recommended_action": "Prioritize a manufacturability review for the linked high-complexity hotspot before the next release.",
+        "rationale": "High complexity review carries geometry evidence plus 0 inspection and 0 quality link(s).",
+        "source": "review_pack"
+      },
+      {
+        "risk_id": "quality-risk-3",
+        "title": "Review Inner corner risk",
+        "category": "stress_or_tooling",
+        "severity": "medium",
+        "priority_rank": 3,
+        "score": 0.65,
+        "evidence_count": 1,
+        "linked_inspection_records": [],
+        "linked_quality_issues": [],
+        "recommended_action": "Review local edge treatment, cutter access, and stress concentration controls at the linked hotspot.",
+        "rationale": "Inner corner risk carries geometry evidence plus 0 inspection and 0 quality link(s).",
+        "source": "review_pack"
+      },
+      {
+        "risk_id": "quality-risk-4",
+        "title": "Review Thin-wall candidate",
+        "category": "wall_thickness",
+        "severity": "low",
+        "priority_rank": 4,
+        "score": 0.6,
+        "evidence_count": 1,
+        "linked_inspection_records": [],
+        "linked_quality_issues": [],
+        "recommended_action": null,
+        "rationale": "Thin-wall candidate carries geometry evidence plus 0 inspection and 0 quality link(s).",
+        "source": "review_pack"
+      }
+    ],
+    "quality_gates": [
+      {
+        "gate_id": "gate-priority-1",
+        "title": "Review Slender geometry review",
+        "gate_type": "readiness_review",
+        "linked_categories": [
+          "slenderness"
+        ],
+        "priority_rank": 1,
+        "recommended_action": "Review handling, fixturing, and stiffness controls for the linked slender hotspot."
+      },
+      {
+        "gate_id": "gate-priority-2",
+        "title": "Review High complexity review",
+        "gate_type": "readiness_review",
+        "linked_categories": [
+          "complexity"
+        ],
+        "priority_rank": 2,
+        "recommended_action": "Prioritize a manufacturability review for the linked high-complexity hotspot before the next release."
+      },
+      {
+        "gate_id": "gate-priority-3",
+        "title": "Review Inner corner risk",
+        "gate_type": "readiness_review",
+        "linked_categories": [
+          "stress_or_tooling"
+        ],
+        "priority_rank": 3,
+        "recommended_action": "Review local edge treatment, cutter access, and stress concentration controls at the linked hotspot."
+      },
+      {
+        "gate_id": "gate-priority-4",
+        "title": "Review Thin-wall candidate",
+        "gate_type": "readiness_review",
+        "linked_categories": [
+          "wall_thickness"
+        ],
+        "priority_rank": 4,
+        "recommended_action": null
+      }
+    ],
+    "evidence_pack": {
+      "review_pack_headline": "pcb_mount_plate revision None shows 4 prioritized review topics led by slenderness, complexity, stress_or_tooling.",
+      "linkage_summary": {
+        "inspection": {
+          "count": 0,
+          "out_of_tolerance": 0,
+          "in_tolerance": 0,
+          "unknown": 0
+        },
+        "quality": {
+          "issue_count": 0,
+          "matched_categories": 0,
+          "matched_issue_count": 0,
+          "ambiguous_issue_count": 0
+        }
+      },
+      "uncertainty_coverage_report": {
+        "analysis_confidence": "heuristic",
+        "numeric_score": 0.62,
+        "partial_evidence": true,
+        "missing_inputs": [
+          "inspection_evidence",
+          "quality_evidence"
+        ],
+        "coverage": {
+          "source_file_count": 1,
+          "geometry_hotspot_count": 4,
+          "inspection_anomaly_count": 0,
+          "quality_pattern_count": 0,
+          "review_priority_count": 4,
+          "evidence_record_count": 4
+        },
+        "warnings": [
+          "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/plate-with-holes/cad/pcb_mount_plate.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints."
+        ]
+      },
+      "data_quality_notes": [
+        {
+          "severity": "warning",
+          "message": "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/plate-with-holes/cad/pcb_mount_plate.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints."
+        },
+        {
+          "severity": "info",
+          "message": "Missing or limited inspection evidence; review-pack remains usable with partial evidence."
+        },
+        {
+          "severity": "info",
+          "message": "Missing or limited quality evidence; review-pack remains usable with partial evidence."
+        }
+      ],
+      "upstream_confidence": {
+        "level": "heuristic",
+        "score": 0.76,
+        "rationale": "Canonical review pack combines upstream D artifacts into a decision-oriented JSON contract."
+      }
+    },
+    "schema_version": "1.0",
+    "artifact_type": "quality_risk",
+    "generated_at": "2026-04-26T23:38:26.484Z",
+    "warnings": [
+      "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/plate-with-holes/cad/pcb_mount_plate.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
+      "Missing or limited inspection evidence; review-pack remains usable with partial evidence.",
+      "Missing or limited quality evidence; review-pack remains usable with partial evidence."
+    ],
+    "coverage": {
+      "source_artifact_count": 3,
+      "source_file_count": 1,
+      "hotspot_count": 4,
+      "inspection_record_count": 0,
+      "inspection_outlier_count": 0,
+      "quality_issue_count": 0,
+      "quality_hotspot_count": 0,
+      "review_priority_count": 4,
+      "critical_dimension_count": 0,
+      "quality_risk_count": 4,
+      "quality_gate_count": 4,
+      "missing_input_count": 2,
+      "upstream_review_pack_coverage": {
+        "source_artifact_count": 2,
+        "source_file_count": 1,
+        "hotspot_count": 4,
+        "inspection_record_count": 0,
+        "inspection_outlier_count": 0,
+        "quality_issue_count": 0,
+        "quality_hotspot_count": 0,
+        "review_priority_count": 4
+      }
+    },
+    "confidence": {
+      "level": "heuristic",
+      "score": 0.76,
+      "rationale": "Canonical review pack combines upstream D artifacts into a decision-oriented JSON contract.",
+      "propagated_from": "review_pack",
+      "propagation_notes": [
+        "C preserves D confidence from review_pack without recalculating score or level.",
+        "Quality-risk-specific interpretation lives in evidence_pack and summary fields instead of confidence."
+      ],
+      "source_confidence_refs": [
+        {
+          "artifact_type": "review_pack",
+          "path": "docs/examples/plate-with-holes/review/review_pack.json",
+          "role": "confidence_source",
+          "label": "Review-pack confidence source"
+        }
+      ]
+    },
+    "source_artifact_refs": [
+      {
+        "artifact_type": "cad_model",
+        "path": "docs/examples/plate-with-holes/cad/pcb_mount_plate.step",
+        "role": "input",
+        "label": "Geometry source"
+      },
+      {
+        "artifact_type": "source_file",
+        "path": "docs/examples/plate-with-holes/cad/pcb_mount_plate.step",
+        "role": "evidence",
+        "label": "Context source file"
+      },
+      {
+        "artifact_type": "review_pack",
+        "path": "docs/examples/plate-with-holes/review/review_pack.json",
+        "role": "input",
+        "label": "Canonical review-pack JSON"
+      }
+    ],
+    "canonical_artifact": {
+      "json_is_source_of_truth": true,
+      "artifact_type": "quality_risk",
+      "artifact_filename": "quality_risk.json",
+      "derived_outputs": [],
+      "rationale": "This JSON artifact is the canonical machine-readable source for the downstream C output."
+    },
+    "contract": {
+      "layer": "C",
+      "command": "quality-risk",
+      "contract_version": "c2",
+      "canonical_artifact_kind": "quality_risk",
+      "primary_output": "quality_risk.json",
+      "required_inputs": [
+        "review_pack"
+      ],
+      "optional_inputs": [
+        "config"
+      ],
+      "derived_outputs": [],
+      "notes": [
+        "Quality-risk JSON remains a downstream readiness artifact and should propagate upstream evidence metadata when available.",
+        "Canonical C2 quality-risk assembly consumes D linkage and review-priority outputs instead of recreating them."
+      ]
+    }
+  },
+  "schema_version": "1.0",
+  "artifact_type": "readiness_report",
+  "generated_at": "2026-04-26T23:38:26.484Z",
+  "warnings": [
+    "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/plate-with-holes/cad/pcb_mount_plate.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
+    "Missing or limited inspection evidence; review-pack remains usable with partial evidence.",
+    "Missing or limited quality evidence; review-pack remains usable with partial evidence."
+  ],
+  "coverage": {
+    "source_artifact_count": 3,
+    "source_file_count": 1,
+    "hotspot_count": 4,
+    "inspection_record_count": 0,
+    "inspection_outlier_count": 0,
+    "quality_issue_count": 0,
+    "quality_hotspot_count": 0,
+    "review_priority_count": 4,
+    "required_section_count": 4,
+    "available_section_count": 4,
+    "process_step_count": 5,
+    "quality_gate_count": 4,
+    "missing_input_count": 2,
+    "evidence_record_count": 4,
+    "upstream_review_pack_coverage": {
+      "source_artifact_count": 2,
+      "source_file_count": 1,
+      "hotspot_count": 4,
+      "inspection_record_count": 0,
+      "inspection_outlier_count": 0,
+      "quality_issue_count": 0,
+      "quality_hotspot_count": 0,
+      "review_priority_count": 4
+    }
+  },
+  "confidence": {
+    "level": "heuristic",
+    "score": 0.76,
+    "rationale": "Canonical review pack combines upstream D artifacts into a decision-oriented JSON contract.",
+    "propagated_from": "review_pack",
+    "propagation_notes": [
+      "C preserves D confidence from review_pack without recalculating score or level.",
+      "Readiness score, gate decision, and action synthesis remain downstream packaging fields, not confidence rewrites."
+    ],
+    "source_confidence_refs": [
+      {
+        "artifact_type": "review_pack",
+        "path": "docs/examples/plate-with-holes/review/review_pack.json",
+        "role": "confidence_source",
+        "label": "Review-pack confidence source"
+      },
+      {
+        "artifact_type": "review_pack",
+        "path": "docs/examples/plate-with-holes/review/review_pack.json",
+        "role": "input",
+        "label": "Canonical review-pack JSON"
+      },
+      {
+        "artifact_type": "review_pack",
+        "path": "docs/examples/plate-with-holes/review/review_pack.json",
+        "role": "input",
+        "label": "Canonical review-pack JSON"
+      }
+    ]
+  },
+  "source_artifact_refs": [
+    {
+      "artifact_type": "cad_model",
+      "path": "docs/examples/plate-with-holes/cad/pcb_mount_plate.step",
+      "role": "input",
+      "label": "Geometry source"
+    },
+    {
+      "artifact_type": "source_file",
+      "path": "docs/examples/plate-with-holes/cad/pcb_mount_plate.step",
+      "role": "evidence",
+      "label": "Context source file"
+    },
+    {
+      "artifact_type": "review_pack",
+      "path": "docs/examples/plate-with-holes/review/review_pack.json",
+      "role": "input",
+      "label": "Canonical review-pack JSON"
+    }
+  ],
+  "canonical_artifact": {
+    "json_is_source_of_truth": true,
+    "artifact_type": "readiness_report",
+    "artifact_filename": "readiness_report.json",
+    "derived_outputs": [
+      "readiness_markdown",
+      "docs_manifest",
+      "release_bundle_manifest"
+    ],
+    "rationale": "readiness_report.json is the canonical C artifact; downstream markdown and release packaging derive from it."
+  },
+  "contract": {
+    "layer": "C",
+    "command": "readiness-report",
+    "contract_version": "c2",
+    "canonical_artifact_kind": "readiness_report",
+    "primary_output": "readiness_report.json",
+    "required_inputs": [
+      "review_pack"
+    ],
+    "optional_inputs": [
+      "config",
+      "process_plan",
+      "quality_risk"
+    ],
+    "derived_outputs": [
+      "readiness_markdown",
+      "docs_manifest",
+      "release_bundle_manifest"
+    ],
+    "notes": [
+      "readiness_report.json is the canonical C artifact.",
+      "Markdown, checklists, and release packaging must derive from canonical JSON rather than becoming the source of truth.",
+      "Canonical C2 readiness assembly packages D review-pack evidence plus C outputs without recomputing D decision logic.",
+      "The --review-pack route is canonical; readiness-report <config> remains a legacy compatibility path and should not be presented as canonical D-backed provenance."
+    ]
+  },
+  "readiness_summary": {
+    "score": 50,
+    "status": "needs_more_evidence",
+    "gate_decision": "hold_for_evidence_completion"
+  },
+  "summary": {
+    "overall_risk_level": "high",
+    "top_issues": [
+      "Review Slender geometry review",
+      "Review High complexity review",
+      "Review Inner corner risk",
+      "Missing evidence: inspection_evidence",
+      "Missing evidence: quality_evidence"
+    ],
+    "recommended_actions": [
+      "Review handling, fixturing, and stiffness controls for the linked slender hotspot.",
+      "Prioritize a manufacturability review for the linked high-complexity hotspot before the next release.",
+      "Review local edge treatment, cutter access, and stress concentration controls at the linked hotspot.",
+      "Collect or validate: inspection_evidence, quality_evidence"
+    ],
+    "likely_bottleneck_candidates": [
+      "Review Slender geometry review",
+      "Review High complexity review",
+      "Review Inner corner risk",
+      "Missing evidence: inspection_evidence",
+      "Missing evidence: quality_evidence"
+    ],
+    "likely_automation_candidates": [],
+    "launch_stabilization_focus": [],
+    "review_pack_headline": "pcb_mount_plate revision None shows 4 prioritized review topics led by slenderness, complexity, stress_or_tooling."
+  },
+  "decision_summary": {
+    "go_signals": [
+      "Manufacturing execution steps were derived directly from review priorities and recommended actions.",
+      "Quality gates and inspection-required points are explicitly listed for downstream follow-up."
+    ],
+    "hold_points": [
+      "Upstream evidence is still partial: inspection_evidence, quality_evidence.",
+      "Propagated warnings remain open: STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/plate-with-holes/cad/pcb_mount_plate.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.; Missing or limited inspection evidence; review-pack remains usable with partial evidence.; Missing or limited quality evidence; review-pack remains usable with partial evidence..",
+      "Release readiness remains gated until the open evidence and risk actions are closed."
+    ],
+    "next_actions": [
+      "Review handling, fixturing, and stiffness controls for the linked slender hotspot.",
+      "Prioritize a manufacturability review for the linked high-complexity hotspot before the next release.",
+      "Review local edge treatment, cutter access, and stress concentration controls at the linked hotspot.",
+      "Collect or validate: inspection_evidence, quality_evidence"
+    ]
+  },
+  "markdown": "# Production Readiness Report: pcb_mount_plate\n\n- Status: needs_more_evidence\n- Composite score: 50\n- Gate decision: hold_for_evidence_completion\n- Review-pack headline: pcb_mount_plate revision None shows 4 prioritized review topics led by slenderness, complexity, stress_or_tooling.\n\n## Executive Summary\n\n- Overall risk level: high\n- Top issues: Review Slender geometry review; Review High complexity review; Review Inner corner risk; Missing evidence: inspection_evidence; Missing evidence: quality_evidence\n- Recommended actions: Review handling, fixturing, and stiffness controls for the linked slender hotspot.; Prioritize a manufacturability review for the linked high-complexity hotspot before the next release.; Review local edge treatment, cutter access, and stress concentration controls at the linked hotspot.; Collect or validate: inspection_evidence, quality_evidence\n- Missing inputs: inspection_evidence, quality_evidence\n\n## Process Plan\n\n- Flow steps: 5\n- Key inspection points: 0\n- Bottleneck risks: Review Slender geometry review; Review High complexity review; Review Inner corner risk; Missing evidence: inspection_evidence; Missing evidence: quality_evidence\n\n## Quality Risk\n\n- Critical dimensions: 0\n- Quality risks: 4\n- Quality gates: 4\n\n## Decision Summary\n\n- Go signals: Manufacturing execution steps were derived directly from review priorities and recommended actions.; Quality gates and inspection-required points are explicitly listed for downstream follow-up.\n- Hold points: Upstream evidence is still partial: inspection_evidence, quality_evidence.; Propagated warnings remain open: STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/plate-with-holes/cad/pcb_mount_plate.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.; Missing or limited inspection evidence; review-pack remains usable with partial evidence.; Missing or limited quality evidence; review-pack remains usable with partial evidence..; Release readiness remains gated until the open evidence and risk actions are closed.\n- Next actions: Review handling, fixturing, and stiffness controls for the linked slender hotspot.; Prioritize a manufacturability review for the linked high-complexity hotspot before the next release.; Review local edge treatment, cutter access, and stress concentration controls at the linked hotspot.; Collect or validate: inspection_evidence, quality_evidence\n\n## Propagated Signals\n\n- Warnings: STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/plate-with-holes/cad/pcb_mount_plate.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.; Missing or limited inspection evidence; review-pack remains usable with partial evidence.; Missing or limited quality evidence; review-pack remains usable with partial evidence.\n- Confidence: heuristic (0.76)\n"
+}

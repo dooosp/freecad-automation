@@ -1,0 +1,359 @@
+{
+  "schema_version": "1.0",
+  "artifact_type": "feature_catalog",
+  "generated_at": "2026-04-26T23:37:48.991Z",
+  "recognition_policy": "conservative_config_evidence_only",
+  "config_name": "pcb_mount_plate",
+  "source_refs": [
+    {
+      "kind": "config",
+      "path": "docs/examples/plate-with-holes/config.toml",
+      "label": "Input config"
+    },
+    {
+      "kind": "report",
+      "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+      "label": "Engineering report PDF"
+    }
+  ],
+  "summary": {
+    "total_features": 11,
+    "recognized_features": 6,
+    "unknown_features": 5,
+    "recognition_sources": [
+      "explicit_config_box_primary_candidate",
+      "explicit_config_cut_cylinder",
+      "explicit_config_cut_tool_unclassified",
+      "explicit_config_equal_radius_hole_group",
+      "explicit_config_shape_unclassified"
+    ]
+  },
+  "features": [
+    {
+      "feature_id": "hole1",
+      "type": "hole",
+      "source": "config.operations.cut_tool_cylinder",
+      "recognition_source": "explicit_config_cut_cylinder",
+      "confidence": 0.9,
+      "critical": true,
+      "related_config_path": "docs/examples/plate-with-holes/config.toml",
+      "related_artifact": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+      "dimensions": {
+        "height_mm": 8,
+        "radius_mm": 2,
+        "diameter_mm": 4,
+        "position_mm": [
+          22,
+          22,
+          -2
+        ]
+      },
+      "evidence": {
+        "kind": "config_operation",
+        "operation_index": 5,
+        "operation": "cut",
+        "tool_shape_id": "hole1",
+        "tool_shape_type": "cylinder",
+        "base": "body",
+        "result": "body"
+      }
+    },
+    {
+      "feature_id": "hole2",
+      "type": "hole",
+      "source": "config.operations.cut_tool_cylinder",
+      "recognition_source": "explicit_config_cut_cylinder",
+      "confidence": 0.9,
+      "critical": true,
+      "related_config_path": "docs/examples/plate-with-holes/config.toml",
+      "related_artifact": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+      "dimensions": {
+        "height_mm": 8,
+        "radius_mm": 2,
+        "diameter_mm": 4,
+        "position_mm": [
+          123,
+          22,
+          -2
+        ]
+      },
+      "evidence": {
+        "kind": "config_operation",
+        "operation_index": 6,
+        "operation": "cut",
+        "tool_shape_id": "hole2",
+        "tool_shape_type": "cylinder",
+        "base": "body",
+        "result": "body"
+      }
+    },
+    {
+      "feature_id": "hole3",
+      "type": "hole",
+      "source": "config.operations.cut_tool_cylinder",
+      "recognition_source": "explicit_config_cut_cylinder",
+      "confidence": 0.9,
+      "critical": true,
+      "related_config_path": "docs/examples/plate-with-holes/config.toml",
+      "related_artifact": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+      "dimensions": {
+        "height_mm": 8,
+        "radius_mm": 2,
+        "diameter_mm": 4,
+        "position_mm": [
+          22,
+          76,
+          -2
+        ]
+      },
+      "evidence": {
+        "kind": "config_operation",
+        "operation_index": 7,
+        "operation": "cut",
+        "tool_shape_id": "hole3",
+        "tool_shape_type": "cylinder",
+        "base": "body",
+        "result": "body"
+      }
+    },
+    {
+      "feature_id": "hole4",
+      "type": "hole",
+      "source": "config.operations.cut_tool_cylinder",
+      "recognition_source": "explicit_config_cut_cylinder",
+      "confidence": 0.9,
+      "critical": true,
+      "related_config_path": "docs/examples/plate-with-holes/config.toml",
+      "related_artifact": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+      "dimensions": {
+        "height_mm": 8,
+        "radius_mm": 2,
+        "diameter_mm": 4,
+        "position_mm": [
+          123,
+          76,
+          -2
+        ]
+      },
+      "evidence": {
+        "kind": "config_operation",
+        "operation_index": 8,
+        "operation": "cut",
+        "tool_shape_id": "hole4",
+        "tool_shape_type": "cylinder",
+        "base": "body",
+        "result": "final"
+      }
+    },
+    {
+      "feature_id": "hole_pattern_1",
+      "type": "hole_pattern",
+      "source": "config.operations.cut_tool_cylinder_group",
+      "recognition_source": "explicit_config_equal_radius_hole_group",
+      "confidence": 0.78,
+      "critical": true,
+      "related_config_path": "docs/examples/plate-with-holes/config.toml",
+      "related_artifact": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+      "dimensions": {
+        "count": 4,
+        "diameter_mm": 4,
+        "member_feature_ids": [
+          "hole1",
+          "hole2",
+          "hole3",
+          "hole4"
+        ],
+        "center_positions_mm": [
+          [
+            22,
+            22,
+            -2
+          ],
+          [
+            123,
+            22,
+            -2
+          ],
+          [
+            22,
+            76,
+            -2
+          ],
+          [
+            123,
+            76,
+            -2
+          ]
+        ],
+        "spacing_x_mm": 101,
+        "spacing_y_mm": 54
+      },
+      "evidence": {
+        "kind": "config_feature_group",
+        "rule": "same_radius_cut_cylinders",
+        "member_shape_ids": [
+          "hole1",
+          "hole2",
+          "hole3",
+          "hole4"
+        ]
+      }
+    },
+    {
+      "feature_id": "plate",
+      "type": "primary_body",
+      "source": "config.shapes.box",
+      "recognition_source": "explicit_config_box_primary_candidate",
+      "confidence": 0.82,
+      "critical": true,
+      "related_config_path": "docs/examples/plate-with-holes/config.toml",
+      "related_artifact": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+      "dimensions": {
+        "length_mm": 145,
+        "width_mm": 98,
+        "height_mm": 4
+      },
+      "evidence": {
+        "kind": "config_shape",
+        "shape_id": "plate",
+        "shape_type": "box",
+        "primary_selection": "first_non_cut_box_or_named_base"
+      }
+    },
+    {
+      "feature_id": "standoff1",
+      "type": "unknown",
+      "source": "config.shapes.unclassified_solid",
+      "recognition_source": "explicit_config_shape_unclassified",
+      "confidence": 0.35,
+      "critical": true,
+      "related_config_path": "docs/examples/plate-with-holes/config.toml",
+      "related_artifact": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+      "dimensions": {
+        "height_mm": 8,
+        "radius_mm": 3.5,
+        "diameter_mm": 7,
+        "position_mm": [
+          18,
+          18,
+          4
+        ]
+      },
+      "evidence": {
+        "kind": "config_shape",
+        "shape_id": "standoff1",
+        "shape_type": "cylinder",
+        "reason": "Shape is explicit in config but not safely classifiable as a manufacturing feature yet."
+      }
+    },
+    {
+      "feature_id": "standoff2",
+      "type": "unknown",
+      "source": "config.shapes.unclassified_solid",
+      "recognition_source": "explicit_config_shape_unclassified",
+      "confidence": 0.35,
+      "critical": true,
+      "related_config_path": "docs/examples/plate-with-holes/config.toml",
+      "related_artifact": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+      "dimensions": {
+        "height_mm": 8,
+        "radius_mm": 3.5,
+        "diameter_mm": 7,
+        "position_mm": [
+          127,
+          18,
+          4
+        ]
+      },
+      "evidence": {
+        "kind": "config_shape",
+        "shape_id": "standoff2",
+        "shape_type": "cylinder",
+        "reason": "Shape is explicit in config but not safely classifiable as a manufacturing feature yet."
+      }
+    },
+    {
+      "feature_id": "standoff3",
+      "type": "unknown",
+      "source": "config.shapes.unclassified_solid",
+      "recognition_source": "explicit_config_shape_unclassified",
+      "confidence": 0.35,
+      "critical": true,
+      "related_config_path": "docs/examples/plate-with-holes/config.toml",
+      "related_artifact": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+      "dimensions": {
+        "height_mm": 8,
+        "radius_mm": 3.5,
+        "diameter_mm": 7,
+        "position_mm": [
+          18,
+          80,
+          4
+        ]
+      },
+      "evidence": {
+        "kind": "config_shape",
+        "shape_id": "standoff3",
+        "shape_type": "cylinder",
+        "reason": "Shape is explicit in config but not safely classifiable as a manufacturing feature yet."
+      }
+    },
+    {
+      "feature_id": "standoff4",
+      "type": "unknown",
+      "source": "config.shapes.unclassified_solid",
+      "recognition_source": "explicit_config_shape_unclassified",
+      "confidence": 0.35,
+      "critical": true,
+      "related_config_path": "docs/examples/plate-with-holes/config.toml",
+      "related_artifact": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+      "dimensions": {
+        "height_mm": 8,
+        "radius_mm": 3.5,
+        "diameter_mm": 7,
+        "position_mm": [
+          127,
+          80,
+          4
+        ]
+      },
+      "evidence": {
+        "kind": "config_shape",
+        "shape_id": "standoff4",
+        "shape_type": "cylinder",
+        "reason": "Shape is explicit in config but not safely classifiable as a manufacturing feature yet."
+      }
+    },
+    {
+      "feature_id": "slot",
+      "type": "unknown_cut_feature",
+      "source": "config.operations.cut_tool_unclassified",
+      "recognition_source": "explicit_config_cut_tool_unclassified",
+      "confidence": 0.45,
+      "critical": true,
+      "related_config_path": "docs/examples/plate-with-holes/config.toml",
+      "related_artifact": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+      "dimensions": {
+        "length_mm": 18,
+        "width_mm": 10,
+        "height_mm": 8,
+        "position_mm": [
+          60,
+          42,
+          -2
+        ]
+      },
+      "evidence": {
+        "kind": "config_operation",
+        "operation_index": 4,
+        "operation": "cut",
+        "tool_shape_id": "slot",
+        "tool_shape_type": "box",
+        "reason": "Cut tool is explicit but not safely identifiable as a hole or slot."
+      }
+    }
+  ],
+  "warnings": [
+    "Some explicit config shapes or cut tools were left unknown because they are not safely classifiable yet."
+  ]
+}

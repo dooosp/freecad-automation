@@ -57,7 +57,7 @@
     },
     {
       "slug": "plate-with-holes",
-      "status": "candidate",
+      "status": "canonical-package",
       "source_config": "configs/examples/pcb_mount_plate.toml",
       "role": "plate-hole-pattern-seed",
       "priority": 2,
@@ -68,19 +68,20 @@
       ],
       "current_coverage": {
         "config": true,
-        "drawing_intent": false,
-        "generated_cad": false,
-        "quality_report": false,
-        "review_pack": false,
-        "readiness_report": false,
-        "standard_docs_manifest": false,
-        "release_bundle_manifest": false,
-        "release_bundle_zip": false,
-        "studio_reopen_fixture": false
+        "drawing_intent": true,
+        "generated_cad": true,
+        "quality_report": true,
+        "review_pack": true,
+        "readiness_report": true,
+        "standard_docs_manifest": true,
+        "release_bundle_manifest": true,
+        "release_bundle_zip": true,
+        "studio_reopen_fixture": true
       },
       "notes": [
-        "Good second package candidate because the source config already carries manufacturing and quality metadata.",
-        "Needs drawing-intent review before canonical package generation."
+        "Second curated canonical AF5 package promoted under docs/examples/plate-with-holes.",
+        "Create quality and drawing quality passed; readiness remains needs_more_evidence because the safe existing review-context/readiness path does not consume separate inspection or quality linkage side inputs.",
+        "Curated config adds explicit drawing intent for plate envelope, hole pattern, connector slot, standoffs, required views, and manufacturing notes."
       ]
     },
     {

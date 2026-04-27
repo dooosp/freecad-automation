@@ -1,0 +1,164 @@
+{
+  "schema_version": "1.0",
+  "artifact_type": "docs_manifest",
+  "workflow": "standard_docs_generation",
+  "generated_at": "2026-04-26T23:38:29.459Z",
+  "draft_notice": "Generated planning aid only. Engineering review required before controlled-document use.",
+  "part": {
+    "part_id": "pcb_mount_plate",
+    "name": "pcb_mount_plate",
+    "description": null,
+    "revision": null,
+    "material": "AL6061",
+    "process": "machining"
+  },
+  "warnings": [
+    "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/plate-with-holes/cad/pcb_mount_plate.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
+    "Missing or limited inspection evidence; review-pack remains usable with partial evidence.",
+    "Missing or limited quality evidence; review-pack remains usable with partial evidence."
+  ],
+  "coverage": {
+    "document_count": 5,
+    "source_artifact_count": 4
+  },
+  "confidence": {
+    "level": "heuristic",
+    "score": 0.76,
+    "rationale": "Canonical review pack combines upstream D artifacts into a decision-oriented JSON contract.",
+    "propagated_from": "review_pack",
+    "propagation_notes": [
+      "C preserves D confidence from review_pack without recalculating score or level.",
+      "Readiness score, gate decision, and action synthesis remain downstream packaging fields, not confidence rewrites."
+    ],
+    "source_confidence_refs": [
+      {
+        "artifact_type": "review_pack",
+        "path": "docs/examples/plate-with-holes/review/review_pack.json",
+        "role": "confidence_source",
+        "label": "Review-pack confidence source"
+      },
+      {
+        "artifact_type": "review_pack",
+        "path": "docs/examples/plate-with-holes/review/review_pack.json",
+        "role": "input",
+        "label": "Canonical review-pack JSON"
+      },
+      {
+        "artifact_type": "review_pack",
+        "path": "docs/examples/plate-with-holes/review/review_pack.json",
+        "role": "input",
+        "label": "Canonical review-pack JSON"
+      }
+    ]
+  },
+  "source_artifact_refs": [
+    {
+      "artifact_type": "cad_model",
+      "path": "docs/examples/plate-with-holes/cad/pcb_mount_plate.step",
+      "role": "input",
+      "label": "Geometry source"
+    },
+    {
+      "artifact_type": "source_file",
+      "path": "docs/examples/plate-with-holes/cad/pcb_mount_plate.step",
+      "role": "evidence",
+      "label": "Context source file"
+    },
+    {
+      "artifact_type": "review_pack",
+      "path": "docs/examples/plate-with-holes/review/review_pack.json",
+      "role": "input",
+      "label": "Canonical review-pack JSON"
+    },
+    {
+      "artifact_type": "readiness_report",
+      "path": "docs/examples/plate-with-holes/readiness/readiness_report.json",
+      "role": "input",
+      "label": "Canonical readiness report JSON"
+    }
+  ],
+  "canonical_artifact": {
+    "json_is_source_of_truth": true,
+    "artifact_type": "docs_manifest",
+    "artifact_filename": "standard_docs_manifest.json",
+    "derived_outputs": [
+      "process_flow.md",
+      "control_plan_draft.csv",
+      "inspection_checksheet_draft.csv",
+      "work_instruction_draft.md",
+      "pfmea_seed.csv"
+    ],
+    "rationale": "The docs manifest JSON is the canonical inventory for derived standard-document drafts."
+  },
+  "contract": {
+    "layer": "C",
+    "command": "generate-standard-docs",
+    "contract_version": "c2",
+    "canonical_artifact_kind": "docs_manifest",
+    "primary_output": "standard_docs_manifest.json",
+    "required_inputs": [
+      "config",
+      "readiness_report"
+    ],
+    "optional_inputs": [
+      "runtime"
+    ],
+    "derived_outputs": [
+      "process_flow.md",
+      "control_plan_draft.csv",
+      "inspection_checksheet_draft.csv",
+      "work_instruction_draft.md",
+      "pfmea_seed.csv"
+    ],
+    "notes": [
+      "The docs manifest JSON inventories user-facing drafts derived from canonical readiness JSON.",
+      "CLI callers must provide --readiness-report; config-only fallback does not qualify as canonical readiness input.",
+      "generate-standard-docs must consume canonical readiness_report.json directly rather than rebuilding readiness from review_pack.json."
+    ]
+  },
+  "site_profile": null,
+  "rule_profile": {
+    "id": "ks-basic",
+    "label": "KS basic rule profile",
+    "description": "Backward-compatible KS-oriented standards metadata with the legacy DFM process assumptions.",
+    "standards_pack": {
+      "id": "ks-basic",
+      "label": "KS basic standards pack"
+    },
+    "material_pack": {
+      "id": "common-metals-basic",
+      "label": "Common metals basic material pack"
+    },
+    "process_pack": {
+      "id": "ks-basic",
+      "label": "KS basic DFM process pack"
+    },
+    "selection": {
+      "requested": "ks-basic",
+      "resolved": "ks-basic",
+      "reason": "requested"
+    }
+  },
+  "documents": [
+    {
+      "filename": "process_flow.md",
+      "path": "docs/examples/plate-with-holes/standard-docs/process_flow.md"
+    },
+    {
+      "filename": "control_plan_draft.csv",
+      "path": "docs/examples/plate-with-holes/standard-docs/control_plan_draft.csv"
+    },
+    {
+      "filename": "inspection_checksheet_draft.csv",
+      "path": "docs/examples/plate-with-holes/standard-docs/inspection_checksheet_draft.csv"
+    },
+    {
+      "filename": "work_instruction_draft.md",
+      "path": "docs/examples/plate-with-holes/standard-docs/work_instruction_draft.md"
+    },
+    {
+      "filename": "pfmea_seed.csv",
+      "path": "docs/examples/plate-with-holes/standard-docs/pfmea_seed.csv"
+    }
+  ]
+}

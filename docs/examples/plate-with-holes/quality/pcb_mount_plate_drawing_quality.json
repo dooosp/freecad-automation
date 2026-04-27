@@ -1,0 +1,2326 @@
+{
+  "schema_version": "0.1",
+  "command": "draw",
+  "input_config": "docs/examples/plate-with-holes/config.toml",
+  "drawing_svg": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+  "plan_file": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_plan.toml",
+  "qa_file": "docs/examples/plate-with-holes/quality/pcb_mount_plate_drawing_qa.json",
+  "qa_issues_file": "docs/examples/plate-with-holes/quality/pcb_mount_plate_drawing_qa_issues.json",
+  "traceability_file": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_traceability.json",
+  "layout_report_file": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_layout_report.json",
+  "planner_file": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing_planner.json",
+  "dimension_map_file": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_dimension_map.json",
+  "dim_conflicts_file": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_dim_conflicts.json",
+  "extracted_drawing_semantics_file": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_extracted_drawing_semantics.json",
+  "bom_file": null,
+  "score": 86,
+  "status": "pass",
+  "views": {
+    "required_count": 4,
+    "generated_count": 4,
+    "missing_views": [],
+    "overlap_count": 0
+  },
+  "dimensions": {
+    "required_count": 1,
+    "mapped_count": 1,
+    "coverage_percent": 100,
+    "missing_required_intents": [],
+    "conflict_count": 0,
+    "duplicate_count": 0
+  },
+  "bom": {
+    "expected_items": 0,
+    "actual_items": 0,
+    "missing_material_count": 0,
+    "balloon_mismatches": 0
+  },
+  "traceability": {
+    "coverage_percent": 100,
+    "unmapped_required_entities": []
+  },
+  "semantic_quality": {
+    "decision": "advisory",
+    "advisory_decision": "needs_attention",
+    "enforceable": false,
+    "score": 66.67,
+    "score_basis": {
+      "critical_feature_coverage_percent": 100,
+      "required_dimension_coverage_percent": 100,
+      "required_note_coverage_percent": 33.33,
+      "required_view_coverage_percent": 100,
+      "dimension_traceability_percent": 0
+    },
+    "critical_features_total": 4,
+    "critical_features_covered": 4,
+    "missing_critical_features": [],
+    "required_dimensions_total": 9,
+    "required_dimensions_present": 9,
+    "missing_required_dimensions": [],
+    "required_notes_total": 3,
+    "required_notes_present": 1,
+    "required_notes_missing": [
+      "Process: machining",
+      "Lot traceability label area on plate edge opposite connector slot."
+    ],
+    "required_views_total": 4,
+    "required_views_present": 4,
+    "required_views_missing": [],
+    "traceability": {
+      "required_dimensions_total": 9,
+      "linked_required_dimensions": 0,
+      "missing_required_dimensions": [
+        "PLATE_LENGTH",
+        "PLATE_WIDTH",
+        "PLATE_THICKNESS",
+        "MOUNTING_HOLE_DIA",
+        "MOUNTING_HOLE_PATTERN_X",
+        "MOUNTING_HOLE_PATTERN_Y",
+        "CONNECTOR_SLOT_SIZE",
+        "CONNECTOR_SLOT_POSITION",
+        "STANDOFF_HEIGHT"
+      ],
+      "unknown_required_dimensions": [],
+      "rows": [
+        {
+          "dimension_id": "PLATE_LENGTH",
+          "feature_id": "plate",
+          "status": "missing",
+          "evidence": null
+        },
+        {
+          "dimension_id": "PLATE_WIDTH",
+          "feature_id": "plate",
+          "status": "missing",
+          "evidence": null
+        },
+        {
+          "dimension_id": "PLATE_THICKNESS",
+          "feature_id": "plate",
+          "status": "missing",
+          "evidence": null
+        },
+        {
+          "dimension_id": "MOUNTING_HOLE_DIA",
+          "feature_id": "hole1,hole2,hole3,hole4",
+          "status": "missing",
+          "evidence": null
+        },
+        {
+          "dimension_id": "MOUNTING_HOLE_PATTERN_X",
+          "feature_id": "hole1,hole2,hole3,hole4",
+          "status": "missing",
+          "evidence": null
+        },
+        {
+          "dimension_id": "MOUNTING_HOLE_PATTERN_Y",
+          "feature_id": "hole1,hole2,hole3,hole4",
+          "status": "missing",
+          "evidence": null
+        },
+        {
+          "dimension_id": "CONNECTOR_SLOT_SIZE",
+          "feature_id": "slot",
+          "status": "missing",
+          "evidence": null
+        },
+        {
+          "dimension_id": "CONNECTOR_SLOT_POSITION",
+          "feature_id": "slot",
+          "status": "missing",
+          "evidence": null
+        },
+        {
+          "dimension_id": "STANDOFF_HEIGHT",
+          "feature_id": "standoff1,standoff2,standoff3,standoff4",
+          "status": "missing",
+          "evidence": null
+        }
+      ]
+    },
+    "missing_critical_information": [
+      "Required note is not evidenced on the drawing: Process: machining.",
+      "Required note is not evidenced on the drawing: Lot traceability label area on plate edge opposite connector slot..",
+      "Required dimension lacks traceability evidence: PLATE_LENGTH.",
+      "Required dimension lacks traceability evidence: PLATE_WIDTH.",
+      "Required dimension lacks traceability evidence: PLATE_THICKNESS.",
+      "Required dimension lacks traceability evidence: MOUNTING_HOLE_DIA.",
+      "Required dimension lacks traceability evidence: MOUNTING_HOLE_PATTERN_X.",
+      "Required dimension lacks traceability evidence: MOUNTING_HOLE_PATTERN_Y.",
+      "Required dimension lacks traceability evidence: CONNECTOR_SLOT_SIZE.",
+      "Required dimension lacks traceability evidence: CONNECTOR_SLOT_POSITION.",
+      "Required dimension lacks traceability evidence: STANDOFF_HEIGHT."
+    ],
+    "required_blockers": [
+      "Required dimension evidence is unknown: Plate thickness (PLATE_THICKNESS).",
+      "Required dimension evidence is unknown: Four mounting hole diameters (MOUNTING_HOLE_DIA).",
+      "Required note evidence is unknown: Process: machining (PROCESS).",
+      "Required note evidence is unknown: Lot traceability label area on plate edge opposite connector slot. (TRACEABILITY)."
+    ],
+    "optional_missing_information": [],
+    "suggested_actions": [
+      "Attach or regenerate traceability evidence for required dimensions.",
+      "Verify required dimension Plate thickness because extracted evidence is unknown. Verify the dimension label for Plate thickness is visible and readable in the SVG. Relink or relabel Plate thickness if it was manually drafted or detached from the source dimension.",
+      "Verify required dimension Four mounting hole diameters because extracted evidence is unknown. Verify the diameter callout for hole1 is visible and clearly labeled as Four mounting hole diameters. Confirm the diameter symbol and label survive SVG text extraction.",
+      "Add or label the required note PROCESS if it should appear in the drawing. Verify the required note text \"Process: machining\" is present and readable. Confirm extraction can still match the note to Process: machining.",
+      "Add or label the required note TRACEABILITY if it should appear in the drawing. Verify the required note text \"Lot traceability label area on plate edge opposite connector slot.\" is present and readable. Confirm extraction can still match the note to Lot traceability label area on plate edge opposite connector slot..",
+      "Improve intent aliases or drawing labels for unmatched extracted dimensions. Review whether the unmatched dimensions should map to an existing required intent. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+      "Improve intent aliases or drawing labels for unmatched extracted notes. Review whether the unmatched notes should satisfy an existing required note. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably."
+    ],
+    "suggested_action_details": [
+      {
+        "id": "dimension:platethickness:unknown",
+        "severity": "review",
+        "category": "dimension",
+        "target_requirement_id": "PLATE_THICKNESS",
+        "target_feature_id": "plate",
+        "classification": "unknown",
+        "title": "Verify required dimension Plate thickness because extracted evidence is unknown.",
+        "message": "Extracted drawing semantics explicitly marked this required dimension as uncertain.",
+        "recommended_fix": "Verify the dimension label for Plate thickness is visible and readable in the SVG. Relink or relabel Plate thickness if it was manually drafted or detached from the source dimension.",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "required_dimensions.PLATE_THICKNESS.classification",
+            "value": "unknown"
+          }
+        ]
+      },
+      {
+        "id": "dimension:mountingholedia:unknown",
+        "severity": "review",
+        "category": "dimension",
+        "target_requirement_id": "MOUNTING_HOLE_DIA",
+        "target_feature_id": "hole1",
+        "classification": "unknown",
+        "title": "Verify required dimension Four mounting hole diameters because extracted evidence is unknown.",
+        "message": "Extracted drawing semantics explicitly marked this required dimension as uncertain.",
+        "recommended_fix": "Verify the diameter callout for hole1 is visible and clearly labeled as Four mounting hole diameters. Confirm the diameter symbol and label survive SVG text extraction.",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "required_dimensions.MOUNTING_HOLE_DIA.classification",
+            "value": "unknown"
+          }
+        ]
+      },
+      {
+        "id": "note:process:unknown",
+        "severity": "review",
+        "category": "note",
+        "target_requirement_id": "PROCESS",
+        "target_feature_id": null,
+        "classification": "unknown",
+        "title": "Add or label the required note PROCESS if it should appear in the drawing.",
+        "message": "Extracted drawing semantics explicitly marked this required note as uncertain.",
+        "recommended_fix": "Verify the required note text \"Process: machining\" is present and readable. Confirm extraction can still match the note to Process: machining.",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "required_notes.PROCESS.classification",
+            "value": "unknown"
+          }
+        ]
+      },
+      {
+        "id": "note:traceability:unknown",
+        "severity": "review",
+        "category": "note",
+        "target_requirement_id": "TRACEABILITY",
+        "target_feature_id": null,
+        "classification": "unknown",
+        "title": "Add or label the required note TRACEABILITY if it should appear in the drawing.",
+        "message": "Extracted drawing semantics explicitly marked this required note as uncertain.",
+        "recommended_fix": "Verify the required note text \"Lot traceability label area on plate edge opposite connector slot.\" is present and readable. Confirm extraction can still match the note to Lot traceability label area on plate edge opposite connector slot..",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "required_notes.TRACEABILITY.classification",
+            "value": "unknown"
+          }
+        ]
+      },
+      {
+        "id": "mapping:unmatched-dimensions:unmatched",
+        "severity": "info",
+        "category": "mapping",
+        "target_requirement_id": "unmatched_dimensions",
+        "target_feature_id": null,
+        "classification": "unmatched",
+        "title": "Improve intent aliases or drawing labels for unmatched extracted dimensions.",
+        "message": "Some extracted dimensions did not match any required drawing intent.",
+        "recommended_fix": "Review whether the unmatched dimensions should map to an existing required intent. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "unmatched_dimensions.count",
+            "value": "9"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "unmatched_dimensions.samples",
+            "value": "[\"12\",\"4\",\"22\",\"22\",\"123\"]"
+          }
+        ]
+      },
+      {
+        "id": "mapping:unmatched-notes:unmatched",
+        "severity": "info",
+        "category": "mapping",
+        "target_requirement_id": "unmatched_notes",
+        "target_feature_id": null,
+        "classification": "unmatched",
+        "title": "Improve intent aliases or drawing labels for unmatched extracted notes.",
+        "message": "Some extracted notes did not match any required drawing intent.",
+        "recommended_fix": "Review whether the unmatched notes should satisfy an existing required note. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "unmatched_notes.count",
+            "value": "29"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "unmatched_notes.samples",
+            "value": "[\"A\",\"B\",\"B\",\"C\",\"A\"]"
+          }
+        ]
+      }
+    ],
+    "extracted_evidence": {
+      "status": "partial",
+      "advisory_only": true,
+      "file": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_extracted_drawing_semantics.json",
+      "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_extracted_drawing_semantics.json",
+      "sources": [
+        {
+          "artifact_type": "svg",
+          "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+          "inspected": true,
+          "method": "svg_text_scan"
+        },
+        {
+          "artifact_type": "svg",
+          "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+          "inspected": true,
+          "method": "svg_title_block_material_pair"
+        },
+        {
+          "artifact_type": "svg",
+          "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+          "inspected": true,
+          "method": "svg_view_group_metadata"
+        },
+        {
+          "artifact_type": "layout_report",
+          "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_layout_report.json",
+          "inspected": true,
+          "method": "layout_report_views"
+        },
+        {
+          "artifact_type": "dimension_map",
+          "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_dimension_map.json",
+          "inspected": true,
+          "method": "dimension_map_reference"
+        },
+        {
+          "artifact_type": "traceability",
+          "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_traceability.json",
+          "inspected": true,
+          "method": "traceability_reference"
+        }
+      ],
+      "coverage": {
+        "required_dimensions": {
+          "total": 9,
+          "extracted": 7,
+          "missing": 0,
+          "unknown": 2,
+          "unsupported": 0,
+          "extracted_percent": 77.78
+        },
+        "required_notes": {
+          "total": 3,
+          "extracted": 1,
+          "missing": 0,
+          "unknown": 2,
+          "unsupported": 0,
+          "extracted_percent": 33.33
+        },
+        "required_views": {
+          "total": 4,
+          "extracted": 4,
+          "missing": 0,
+          "unknown": 0,
+          "unsupported": 0,
+          "extracted_percent": 100
+        },
+        "total_required": 16,
+        "total_extracted": 12,
+        "total_missing": 0,
+        "total_unknown": 4,
+        "total_unsupported": 0
+      },
+      "required_dimensions": [
+        {
+          "requirement_id": "PLATE_LENGTH",
+          "requirement_label": "Overall plate length",
+          "classification": "extracted",
+          "matched_extracted_id": "svg_text_002",
+          "matched_raw_text": "145",
+          "matched_feature_id": "plate",
+          "source_artifact": "svg",
+          "confidence": 0.84,
+          "reason": "Reliable extracted dimension evidence matched this required dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_002"
+          },
+          "candidate_matches": []
+        },
+        {
+          "requirement_id": "PLATE_WIDTH",
+          "requirement_label": "Overall plate width",
+          "classification": "extracted",
+          "matched_extracted_id": "svg_text_014",
+          "matched_raw_text": "98",
+          "matched_feature_id": "plate",
+          "source_artifact": "svg",
+          "confidence": 0.84,
+          "reason": "Reliable extracted dimension evidence matched this required dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_014"
+          },
+          "candidate_matches": []
+        },
+        {
+          "requirement_id": "PLATE_THICKNESS",
+          "requirement_label": "Plate thickness",
+          "classification": "unknown",
+          "matched_extracted_id": null,
+          "matched_raw_text": null,
+          "matched_feature_id": null,
+          "source_artifact": null,
+          "confidence": null,
+          "reason": "Extracted drawing semantics explicitly marked this required dimension as uncertain.",
+          "provenance": null,
+          "candidate_matches": []
+        },
+        {
+          "requirement_id": "MOUNTING_HOLE_DIA",
+          "requirement_label": "Four mounting hole diameters",
+          "classification": "unknown",
+          "matched_extracted_id": null,
+          "matched_raw_text": null,
+          "matched_feature_id": null,
+          "source_artifact": null,
+          "confidence": null,
+          "reason": "Extracted drawing semantics explicitly marked this required dimension as uncertain.",
+          "provenance": null,
+          "candidate_matches": []
+        },
+        {
+          "requirement_id": "MOUNTING_HOLE_PATTERN_X",
+          "requirement_label": "Mounting hole column spacing",
+          "classification": "extracted",
+          "matched_extracted_id": "svg_text_017",
+          "matched_raw_text": "101",
+          "matched_feature_id": "hole1,hole2,hole3,hole4",
+          "source_artifact": "svg",
+          "confidence": 0.84,
+          "reason": "Reliable extracted dimension evidence matched this required dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_017"
+          },
+          "candidate_matches": []
+        },
+        {
+          "requirement_id": "MOUNTING_HOLE_PATTERN_Y",
+          "requirement_label": "Mounting hole row spacing",
+          "classification": "extracted",
+          "matched_extracted_id": "svg_text_020",
+          "matched_raw_text": "54",
+          "matched_feature_id": "hole1,hole2,hole3,hole4",
+          "source_artifact": "svg",
+          "confidence": 0.84,
+          "reason": "Reliable extracted dimension evidence matched this required dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_020"
+          },
+          "candidate_matches": []
+        },
+        {
+          "requirement_id": "CONNECTOR_SLOT_SIZE",
+          "requirement_label": "Connector slot length and width",
+          "classification": "extracted",
+          "matched_extracted_id": "svg_text_016",
+          "matched_raw_text": "18",
+          "matched_feature_id": "slot",
+          "source_artifact": "svg",
+          "confidence": 0.84,
+          "reason": "Reliable extracted dimension evidence matched this required dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_016"
+          },
+          "candidate_matches": []
+        },
+        {
+          "requirement_id": "CONNECTOR_SLOT_POSITION",
+          "requirement_label": "Connector slot position",
+          "classification": "extracted",
+          "matched_extracted_id": "svg_text_025",
+          "matched_raw_text": "42",
+          "matched_feature_id": "slot",
+          "source_artifact": "svg",
+          "confidence": 0.84,
+          "reason": "Reliable extracted dimension evidence matched this required dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_025"
+          },
+          "candidate_matches": []
+        },
+        {
+          "requirement_id": "STANDOFF_HEIGHT",
+          "requirement_label": "PCB standoff height",
+          "classification": "extracted",
+          "matched_extracted_id": "svg_text_005",
+          "matched_raw_text": "8",
+          "matched_feature_id": "standoff1,standoff2,standoff3,standoff4",
+          "source_artifact": "svg",
+          "confidence": 0.84,
+          "reason": "Reliable extracted dimension evidence matched this required dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_005"
+          },
+          "candidate_matches": []
+        }
+      ],
+      "required_notes": [
+        {
+          "requirement_id": "MATERIAL",
+          "requirement_label": "Material: AL6061",
+          "classification": "extracted",
+          "matched_extracted_id": "svg_text_038_svg_text_039_material_pair",
+          "matched_raw_text": "Material: AL6061",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.86,
+          "reason": "Reliable extracted note evidence matched this required drawing note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_title_block_material_pair",
+            "label_svg_text_id": "svg_text_038",
+            "value_svg_text_id": "svg_text_039"
+          },
+          "candidate_matches": []
+        },
+        {
+          "requirement_id": "PROCESS",
+          "requirement_label": "Process: machining",
+          "classification": "unknown",
+          "matched_extracted_id": null,
+          "matched_raw_text": null,
+          "matched_feature_id": null,
+          "source_artifact": null,
+          "confidence": null,
+          "reason": "Extracted drawing semantics explicitly marked this required note as uncertain.",
+          "provenance": null,
+          "candidate_matches": []
+        },
+        {
+          "requirement_id": "TRACEABILITY",
+          "requirement_label": "Lot traceability label area on plate edge opposite connector slot.",
+          "classification": "unknown",
+          "matched_extracted_id": null,
+          "matched_raw_text": null,
+          "matched_feature_id": null,
+          "source_artifact": null,
+          "confidence": null,
+          "reason": "Extracted drawing semantics explicitly marked this required note as uncertain.",
+          "provenance": null,
+          "candidate_matches": []
+        }
+      ],
+      "required_views": [
+        {
+          "requirement_id": "front",
+          "requirement_label": "front",
+          "classification": "extracted",
+          "matched_extracted_id": "front",
+          "matched_raw_text": "FRONT",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.94,
+          "reason": "Reliable extracted view evidence matched this required view.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_view_group_metadata",
+            "svg_group_id": "drawing-view-front",
+            "svg_region_ref": "drawing-view-front"
+          },
+          "candidate_matches": [
+            {
+              "matched_extracted_id": "front",
+              "matched_raw_text": "FRONT",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.72,
+              "reason": "Matched extracted view stayed below the reliable confidence threshold.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+                "method": "svg_view_label_scan",
+                "svg_text_id": "svg_text_001"
+              }
+            }
+          ]
+        },
+        {
+          "requirement_id": "top",
+          "requirement_label": "top",
+          "classification": "extracted",
+          "matched_extracted_id": "top",
+          "matched_raw_text": "TOP",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.94,
+          "reason": "Reliable extracted view evidence matched this required view.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_view_group_metadata",
+            "svg_group_id": "drawing-view-top",
+            "svg_region_ref": "drawing-view-top"
+          },
+          "candidate_matches": [
+            {
+              "matched_extracted_id": "top",
+              "matched_raw_text": "TOP",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.72,
+              "reason": "Matched extracted view stayed below the reliable confidence threshold.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+                "method": "svg_view_label_scan",
+                "svg_text_id": "svg_text_012"
+              }
+            }
+          ]
+        },
+        {
+          "requirement_id": "right",
+          "requirement_label": "right",
+          "classification": "extracted",
+          "matched_extracted_id": "right",
+          "matched_raw_text": "RIGHT",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.94,
+          "reason": "Reliable extracted view evidence matched this required view.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_view_group_metadata",
+            "svg_group_id": "drawing-view-right",
+            "svg_region_ref": "drawing-view-right"
+          },
+          "candidate_matches": [
+            {
+              "matched_extracted_id": "right",
+              "matched_raw_text": "RIGHT",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.72,
+              "reason": "Matched extracted view stayed below the reliable confidence threshold.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+                "method": "svg_view_label_scan",
+                "svg_text_id": "svg_text_028"
+              }
+            }
+          ]
+        },
+        {
+          "requirement_id": "iso",
+          "requirement_label": "iso",
+          "classification": "extracted",
+          "matched_extracted_id": "iso",
+          "matched_raw_text": "ISOMETRIC",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.94,
+          "reason": "Reliable extracted view evidence matched this required view.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_view_group_metadata",
+            "svg_group_id": "drawing-view-iso",
+            "svg_region_ref": "drawing-view-iso"
+          },
+          "candidate_matches": [
+            {
+              "matched_extracted_id": "iso",
+              "matched_raw_text": "ISO",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.72,
+              "reason": "Matched extracted view stayed below the reliable confidence threshold.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+                "method": "svg_view_label_scan",
+                "svg_text_id": "svg_text_033"
+              }
+            }
+          ]
+        }
+      ],
+      "unmatched_dimensions": [
+        {
+          "extracted_id": "svg_text_003",
+          "raw_text": "12",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_003"
+          }
+        },
+        {
+          "extracted_id": "svg_text_004",
+          "raw_text": "4",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_004"
+          }
+        },
+        {
+          "extracted_id": "svg_text_008",
+          "raw_text": "22",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_008"
+          }
+        },
+        {
+          "extracted_id": "svg_text_009",
+          "raw_text": "22",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_009"
+          }
+        },
+        {
+          "extracted_id": "svg_text_010",
+          "raw_text": "123",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_010"
+          }
+        },
+        {
+          "extracted_id": "svg_text_011",
+          "raw_text": "123",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_011"
+          }
+        },
+        {
+          "extracted_id": "svg_text_015",
+          "raw_text": "⌀7",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_015"
+          }
+        },
+        {
+          "extracted_id": "svg_text_024",
+          "raw_text": "Ø4",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_024"
+          }
+        },
+        {
+          "extracted_id": "svg_text_030",
+          "raw_text": "12",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_030"
+          }
+        }
+      ],
+      "unmatched_notes": [
+        {
+          "extracted_id": "svg_text_006",
+          "raw_text": "A",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_006"
+          }
+        },
+        {
+          "extracted_id": "svg_text_007",
+          "raw_text": "B",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_007"
+          }
+        },
+        {
+          "extracted_id": "svg_text_026",
+          "raw_text": "B",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_026"
+          }
+        },
+        {
+          "extracted_id": "svg_text_027",
+          "raw_text": "C",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_027"
+          }
+        },
+        {
+          "extracted_id": "svg_text_031",
+          "raw_text": "A",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_031"
+          }
+        },
+        {
+          "extracted_id": "svg_text_032",
+          "raw_text": "C",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_032"
+          }
+        },
+        {
+          "extracted_id": "svg_text_034",
+          "raw_text": "PART NAME",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_034"
+          }
+        },
+        {
+          "extracted_id": "svg_text_035",
+          "raw_text": "PCB Mount Plate",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_035"
+          }
+        },
+        {
+          "extracted_id": "svg_text_036",
+          "raw_text": "DRAWING NO.",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_036"
+          }
+        },
+        {
+          "extracted_id": "svg_text_037",
+          "raw_text": "PCB-MOUNT-PLATE-A",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_037"
+          }
+        },
+        {
+          "extracted_id": "svg_text_038",
+          "raw_text": "MATERIAL",
+          "category": "material",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_038"
+          }
+        },
+        {
+          "extracted_id": "svg_text_039",
+          "raw_text": "AL6061",
+          "category": "material",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_039"
+          }
+        },
+        {
+          "extracted_id": "svg_text_040",
+          "raw_text": "SCALE",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_040"
+          }
+        },
+        {
+          "extracted_id": "svg_text_042",
+          "raw_text": "TOLERANCE",
+          "category": "tolerance",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_042"
+          }
+        },
+        {
+          "extracted_id": "svg_text_043",
+          "raw_text": "KS B 0401:2014-m",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_043"
+          }
+        },
+        {
+          "extracted_id": "svg_text_044",
+          "raw_text": "DATE",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_044"
+          }
+        },
+        {
+          "extracted_id": "svg_text_046",
+          "raw_text": "DESIGNED BY",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_046"
+          }
+        },
+        {
+          "extracted_id": "svg_text_048",
+          "raw_text": "SIZE / SHEET",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_048"
+          }
+        },
+        {
+          "extracted_id": "svg_text_049",
+          "raw_text": "A3",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_049"
+          }
+        },
+        {
+          "extracted_id": "svg_text_050",
+          "raw_text": "BBox: 145 x 98 x 12 mm",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_050"
+          }
+        },
+        {
+          "extracted_id": "svg_text_051",
+          "raw_text": "Visible",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_051"
+          }
+        },
+        {
+          "extracted_id": "svg_text_052",
+          "raw_text": "Hidden",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_052"
+          }
+        },
+        {
+          "extracted_id": "svg_text_053",
+          "raw_text": "Center",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_053"
+          }
+        },
+        {
+          "extracted_id": "svg_text_054",
+          "raw_text": "Dimension",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_054"
+          }
+        },
+        {
+          "extracted_id": "svg_text_055",
+          "raw_text": "NOTES:",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_055"
+          }
+        },
+        {
+          "extracted_id": "svg_text_056",
+          "raw_text": "1. GENERAL TOLERANCES PER KS B 0401:2014-m",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_056"
+          }
+        },
+        {
+          "extracted_id": "svg_text_057",
+          "raw_text": "2. BREAK ALL SHARP EDGES 0.2~0.5",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_057"
+          }
+        },
+        {
+          "extracted_id": "svg_text_058",
+          "raw_text": "3. DEBURR ALL MACHINED EDGES",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_058"
+          }
+        },
+        {
+          "extracted_id": "svg_text_060",
+          "raw_text": "5. ALL DIMENSIONS IN mm",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_060"
+          }
+        }
+      ],
+      "unknowns": [
+        "Required dimension not reliably extracted: PLATE_THICKNESS.",
+        "Required dimension not reliably extracted: MOUNTING_HOLE_DIA.",
+        "Required note not reliably extracted: PROCESS.",
+        "Required note not reliably extracted: TRACEABILITY.",
+        "Required extracted evidence remains unknown: PLATE_THICKNESS.",
+        "Required extracted evidence remains unknown: MOUNTING_HOLE_DIA.",
+        "Required extracted evidence remains unknown: PROCESS.",
+        "Required extracted evidence remains unknown: TRACEABILITY."
+      ],
+      "limitations": [
+        "Advisory-only foundation; no OCR, no PDF raster parsing, and no screenshot analysis were used.",
+        "Vector geometry without reliable text labels is not promoted to semantic matches in this task.",
+        "Unsupported or missing extraction evidence remains unknown instead of being inferred as pass."
+      ],
+      "matched_required_dimensions": 7,
+      "matched_required_notes": 1,
+      "matched_required_views": 4,
+      "missing_required_items": [],
+      "suggested_action_details": [
+        {
+          "id": "dimension:platethickness:unknown",
+          "severity": "review",
+          "category": "dimension",
+          "target_requirement_id": "PLATE_THICKNESS",
+          "target_feature_id": "plate",
+          "classification": "unknown",
+          "title": "Verify required dimension Plate thickness because extracted evidence is unknown.",
+          "message": "Extracted drawing semantics explicitly marked this required dimension as uncertain.",
+          "recommended_fix": "Verify the dimension label for Plate thickness is visible and readable in the SVG. Relink or relabel Plate thickness if it was manually drafted or detached from the source dimension.",
+          "evidence": [
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "status",
+              "value": "partial"
+            },
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "required_dimensions.PLATE_THICKNESS.classification",
+              "value": "unknown"
+            }
+          ]
+        },
+        {
+          "id": "dimension:mountingholedia:unknown",
+          "severity": "review",
+          "category": "dimension",
+          "target_requirement_id": "MOUNTING_HOLE_DIA",
+          "target_feature_id": "hole1",
+          "classification": "unknown",
+          "title": "Verify required dimension Four mounting hole diameters because extracted evidence is unknown.",
+          "message": "Extracted drawing semantics explicitly marked this required dimension as uncertain.",
+          "recommended_fix": "Verify the diameter callout for hole1 is visible and clearly labeled as Four mounting hole diameters. Confirm the diameter symbol and label survive SVG text extraction.",
+          "evidence": [
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "status",
+              "value": "partial"
+            },
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "required_dimensions.MOUNTING_HOLE_DIA.classification",
+              "value": "unknown"
+            }
+          ]
+        },
+        {
+          "id": "note:process:unknown",
+          "severity": "review",
+          "category": "note",
+          "target_requirement_id": "PROCESS",
+          "target_feature_id": null,
+          "classification": "unknown",
+          "title": "Add or label the required note PROCESS if it should appear in the drawing.",
+          "message": "Extracted drawing semantics explicitly marked this required note as uncertain.",
+          "recommended_fix": "Verify the required note text \"Process: machining\" is present and readable. Confirm extraction can still match the note to Process: machining.",
+          "evidence": [
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "status",
+              "value": "partial"
+            },
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "required_notes.PROCESS.classification",
+              "value": "unknown"
+            }
+          ]
+        },
+        {
+          "id": "note:traceability:unknown",
+          "severity": "review",
+          "category": "note",
+          "target_requirement_id": "TRACEABILITY",
+          "target_feature_id": null,
+          "classification": "unknown",
+          "title": "Add or label the required note TRACEABILITY if it should appear in the drawing.",
+          "message": "Extracted drawing semantics explicitly marked this required note as uncertain.",
+          "recommended_fix": "Verify the required note text \"Lot traceability label area on plate edge opposite connector slot.\" is present and readable. Confirm extraction can still match the note to Lot traceability label area on plate edge opposite connector slot..",
+          "evidence": [
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "status",
+              "value": "partial"
+            },
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "required_notes.TRACEABILITY.classification",
+              "value": "unknown"
+            }
+          ]
+        },
+        {
+          "id": "mapping:unmatched-dimensions:unmatched",
+          "severity": "info",
+          "category": "mapping",
+          "target_requirement_id": "unmatched_dimensions",
+          "target_feature_id": null,
+          "classification": "unmatched",
+          "title": "Improve intent aliases or drawing labels for unmatched extracted dimensions.",
+          "message": "Some extracted dimensions did not match any required drawing intent.",
+          "recommended_fix": "Review whether the unmatched dimensions should map to an existing required intent. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+          "evidence": [
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "status",
+              "value": "partial"
+            },
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "unmatched_dimensions.count",
+              "value": "9"
+            },
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "unmatched_dimensions.samples",
+              "value": "[\"12\",\"4\",\"22\",\"22\",\"123\"]"
+            }
+          ]
+        },
+        {
+          "id": "mapping:unmatched-notes:unmatched",
+          "severity": "info",
+          "category": "mapping",
+          "target_requirement_id": "unmatched_notes",
+          "target_feature_id": null,
+          "classification": "unmatched",
+          "title": "Improve intent aliases or drawing labels for unmatched extracted notes.",
+          "message": "Some extracted notes did not match any required drawing intent.",
+          "recommended_fix": "Review whether the unmatched notes should satisfy an existing required note. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+          "evidence": [
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "status",
+              "value": "partial"
+            },
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "unmatched_notes.count",
+              "value": "29"
+            },
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "unmatched_notes.samples",
+              "value": "[\"A\",\"B\",\"B\",\"C\",\"A\"]"
+            }
+          ]
+        }
+      ],
+      "suggested_actions": [
+        "Verify required dimension Plate thickness because extracted evidence is unknown. Verify the dimension label for Plate thickness is visible and readable in the SVG. Relink or relabel Plate thickness if it was manually drafted or detached from the source dimension.",
+        "Verify required dimension Four mounting hole diameters because extracted evidence is unknown. Verify the diameter callout for hole1 is visible and clearly labeled as Four mounting hole diameters. Confirm the diameter symbol and label survive SVG text extraction.",
+        "Add or label the required note PROCESS if it should appear in the drawing. Verify the required note text \"Process: machining\" is present and readable. Confirm extraction can still match the note to Process: machining.",
+        "Add or label the required note TRACEABILITY if it should appear in the drawing. Verify the required note text \"Lot traceability label area on plate edge opposite connector slot.\" is present and readable. Confirm extraction can still match the note to Lot traceability label area on plate edge opposite connector slot..",
+        "Improve intent aliases or drawing labels for unmatched extracted dimensions. Review whether the unmatched dimensions should map to an existing required intent. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+        "Improve intent aliases or drawing labels for unmatched extracted notes. Review whether the unmatched notes should satisfy an existing required note. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably."
+      ]
+    }
+  },
+  "layout_readability": {
+    "status": "warning",
+    "score": 88,
+    "confidence": "high",
+    "advisory_only": true,
+    "evidence_state": "available",
+    "completeness_state": "complete",
+    "summary": "1 advisory layout/readability finding(s) confirmed from structured metadata.",
+    "finding_count": 1,
+    "warning_count": 1,
+    "info_count": 0,
+    "findings": [
+      {
+        "type": "text_overlap",
+        "severity": "warning",
+        "advisory_only": true,
+        "message": "Structured QA evidence shows overlapping drawing text.",
+        "recommendation": "Separate overlapping note or dimension text and reroute leaders if needed.",
+        "view_ids": [
+          "page"
+        ],
+        "element_ids": [],
+        "labels": [
+          "SIZE / SHEET",
+          "BBox: 145 x 98 x 12 mm"
+        ],
+        "bounding_boxes": [],
+        "raw_source": {
+          "artifact_type": "qa_report",
+          "path": "docs/examples/plate-with-holes/quality/pcb_mount_plate_drawing_qa.json",
+          "method": "qa_vector_text_overlap",
+          "pair_index": 0,
+          "iou": 0.568
+        },
+        "source_kind": "qa_metrics",
+        "source_artifact": "qa_report",
+        "source_ref": "details.text_overlaps.0",
+        "evidence_state": "available",
+        "completeness_state": "complete",
+        "provenance": {
+          "artifact_type": "qa_report",
+          "path": "docs/examples/plate-with-holes/quality/pcb_mount_plate_drawing_qa.json",
+          "method": "qa_vector_text_overlap",
+          "pair_index": 0,
+          "iou": 0.568,
+          "source_kind": "qa_metrics",
+          "source_ref": "details.text_overlaps.0"
+        }
+      }
+    ],
+    "recommended_actions": [
+      "Separate overlapping note or dimension text and reroute leaders if needed."
+    ],
+    "provenance": {
+      "sources": [
+        {
+          "artifact_type": "layout_report",
+          "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_layout_report.json",
+          "method": "layout_report_views",
+          "view_count": 4,
+          "evidence_state": "available",
+          "completeness_state": "complete",
+          "source_kind": "layout_report",
+          "source_artifact": "layout_report",
+          "source_ref": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_layout_report.json"
+        },
+        {
+          "artifact_type": "qa_report",
+          "path": "docs/examples/plate-with-holes/quality/pcb_mount_plate_drawing_qa.json",
+          "method": "qa_vector_metrics",
+          "metric_keys": [
+            "intent_metrics_applicable",
+            "iso_hidden_count",
+            "overflow_count",
+            "text_overlap_pairs",
+            "dim_overlap_pairs",
+            "notes_overflow",
+            "gdt_unanchored",
+            "dense_iso",
+            "stroke_violations",
+            "float_precision_count",
+            "dim_completeness",
+            "dim_redundancy",
+            "datum_coherence",
+            "view_coverage",
+            "note_convention",
+            "required_presence_rate",
+            "required_presence_miss",
+            "value_inconsistency",
+            "virtual_pcd_present",
+            "note_semantic_mismatch",
+            "dfm_error_count",
+            "dfm_warning_count",
+            "dfm_score"
+          ],
+          "detail_keys": [
+            "overflows",
+            "text_overlaps",
+            "required_presence_missing_ids"
+          ],
+          "evidence_state": "available",
+          "completeness_state": "complete",
+          "source_kind": "qa_metrics",
+          "source_artifact": "qa_report",
+          "source_ref": "docs/examples/plate-with-holes/quality/pcb_mount_plate_drawing_qa.json"
+        },
+        {
+          "artifact_type": "svg",
+          "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+          "method": "svg_view_group_metadata",
+          "view_ids": [
+            "front",
+            "top",
+            "right",
+            "iso"
+          ],
+          "evidence_state": "available",
+          "completeness_state": "complete",
+          "source_kind": "svg_view_metadata",
+          "source_artifact": "svg",
+          "source_ref": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg"
+        }
+      ],
+      "evaluated_view_ids": [
+        "front",
+        "top",
+        "right",
+        "iso",
+        "page"
+      ],
+      "source_completeness": {
+        "layout_report": {
+          "source_kind": "layout_report",
+          "source_artifact": "layout_report",
+          "source_ref": "layout_report_views",
+          "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_layout_report.json",
+          "method": "layout_report_views",
+          "evidence_state": "available",
+          "completeness_state": "complete",
+          "available": true,
+          "inspected": true,
+          "missing_reasons": [],
+          "evidence_keys": [
+            "views",
+            "summary",
+            "overflow"
+          ]
+        },
+        "qa_metrics": {
+          "source_kind": "qa_metrics",
+          "source_artifact": "qa_report",
+          "source_ref": "qa_vector_metrics",
+          "path": "docs/examples/plate-with-holes/quality/pcb_mount_plate_drawing_qa.json",
+          "method": "qa_vector_metrics",
+          "evidence_state": "available",
+          "completeness_state": "complete",
+          "available": true,
+          "inspected": true,
+          "missing_reasons": [],
+          "evidence_keys": [
+            "metrics.intent_metrics_applicable",
+            "metrics.iso_hidden_count",
+            "metrics.overflow_count",
+            "metrics.text_overlap_pairs",
+            "metrics.dim_overlap_pairs",
+            "metrics.notes_overflow",
+            "metrics.gdt_unanchored",
+            "metrics.dense_iso",
+            "metrics.stroke_violations",
+            "metrics.float_precision_count",
+            "metrics.dim_completeness",
+            "metrics.dim_redundancy",
+            "metrics.datum_coherence",
+            "metrics.view_coverage",
+            "metrics.note_convention",
+            "metrics.required_presence_rate",
+            "metrics.required_presence_miss",
+            "metrics.value_inconsistency",
+            "metrics.virtual_pcd_present",
+            "metrics.note_semantic_mismatch",
+            "metrics.dfm_error_count",
+            "metrics.dfm_warning_count",
+            "metrics.dfm_score",
+            "details.overflows",
+            "details.text_overlaps",
+            "details.required_presence_missing_ids"
+          ]
+        },
+        "svg_view_metadata": {
+          "source_kind": "svg_view_metadata",
+          "source_artifact": "svg",
+          "source_ref": "svg_view_group_metadata",
+          "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+          "method": "svg_view_group_metadata",
+          "evidence_state": "available",
+          "completeness_state": "complete",
+          "available": true,
+          "inspected": true,
+          "missing_reasons": [],
+          "evidence_keys": [
+            "views.front",
+            "views.top",
+            "views.right",
+            "views.iso"
+          ]
+        }
+      },
+      "metrics_available": {
+        "layout_views": true,
+        "overflow": true,
+        "text_overlap": true,
+        "dimension_overlap": true,
+        "notes_overflow": true,
+        "svg_view_metadata": true
+      }
+    }
+  },
+  "thresholds": {
+    "required_dimension_coverage_percent": 100,
+    "max_dimension_conflicts": 0,
+    "max_view_overlaps": 0,
+    "min_traceability_coverage_percent": 95
+  },
+  "blocking_issues": [],
+  "warnings": [],
+  "recommended_actions": [
+    "Separate overlapping note or dimension text and reroute leaders if needed.",
+    "Add a required diameter dimension intent for \"hole1\".",
+    "Add a required diameter dimension intent for \"hole2\".",
+    "Add a required diameter dimension intent for \"hole3\".",
+    "Add a required diameter dimension intent for \"hole4\".",
+    "Enable or verify center marks/centerlines for hole views.",
+    "Add or verify the material note in the title block or general notes.",
+    "Add a local detail view only if diameter/location callouts collide or become unreadable.",
+    "Attach or regenerate traceability evidence for required dimensions.",
+    "Verify required dimension Plate thickness because extracted evidence is unknown. Verify the dimension label for Plate thickness is visible and readable in the SVG. Relink or relabel Plate thickness if it was manually drafted or detached from the source dimension.",
+    "Verify required dimension Four mounting hole diameters because extracted evidence is unknown. Verify the diameter callout for hole1 is visible and clearly labeled as Four mounting hole diameters. Confirm the diameter symbol and label survive SVG text extraction.",
+    "Add or label the required note PROCESS if it should appear in the drawing. Verify the required note text \"Process: machining\" is present and readable. Confirm extraction can still match the note to Process: machining.",
+    "Add or label the required note TRACEABILITY if it should appear in the drawing. Verify the required note text \"Lot traceability label area on plate edge opposite connector slot.\" is present and readable. Confirm extraction can still match the note to Lot traceability label area on plate edge opposite connector slot..",
+    "Improve intent aliases or drawing labels for unmatched extracted dimensions. Review whether the unmatched dimensions should map to an existing required intent. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+    "Improve intent aliases or drawing labels for unmatched extracted notes. Review whether the unmatched notes should satisfy an existing required note. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably."
+  ],
+  "suggested_actions": [
+    "Separate overlapping note or dimension text and reroute leaders if needed.",
+    "Add a required diameter dimension intent for \"hole1\".",
+    "Add a required diameter dimension intent for \"hole2\".",
+    "Add a required diameter dimension intent for \"hole3\".",
+    "Add a required diameter dimension intent for \"hole4\".",
+    "Enable or verify center marks/centerlines for hole views.",
+    "Add or verify the material note in the title block or general notes.",
+    "Add a local detail view only if diameter/location callouts collide or become unreadable.",
+    "Attach or regenerate traceability evidence for required dimensions.",
+    "Verify required dimension Plate thickness because extracted evidence is unknown. Verify the dimension label for Plate thickness is visible and readable in the SVG. Relink or relabel Plate thickness if it was manually drafted or detached from the source dimension.",
+    "Verify required dimension Four mounting hole diameters because extracted evidence is unknown. Verify the diameter callout for hole1 is visible and clearly labeled as Four mounting hole diameters. Confirm the diameter symbol and label survive SVG text extraction.",
+    "Add or label the required note PROCESS if it should appear in the drawing. Verify the required note text \"Process: machining\" is present and readable. Confirm extraction can still match the note to Process: machining.",
+    "Add or label the required note TRACEABILITY if it should appear in the drawing. Verify the required note text \"Lot traceability label area on plate edge opposite connector slot.\" is present and readable. Confirm extraction can still match the note to Lot traceability label area on plate edge opposite connector slot..",
+    "Improve intent aliases or drawing labels for unmatched extracted dimensions. Review whether the unmatched dimensions should map to an existing required intent. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+    "Improve intent aliases or drawing labels for unmatched extracted notes. Review whether the unmatched notes should satisfy an existing required note. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably."
+  ],
+  "drawing_planner": {
+    "schema_version": "0.1",
+    "planner_type": "drawing_view_dimension_advisory",
+    "status": "advisory",
+    "generated_from": {
+      "drawing_intent": true,
+      "feature_catalog": true,
+      "artifact_refs": {
+        "input_config": "docs/examples/plate-with-holes/config.toml",
+        "drawing_svg": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing.svg",
+        "plan": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_plan.toml",
+        "traceability": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_traceability.json",
+        "dimension_map": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_dimension_map.json",
+        "dim_conflicts": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_dim_conflicts.json"
+      }
+    },
+    "recommended_views": [
+      {
+        "id": "view:top",
+        "type": "required_view",
+        "view": "top",
+        "status": "already_requested",
+        "message": "Recommend top view.",
+        "reason": "Top view is the clearest evidence-backed view for plate footprint and hole locations.",
+        "evidence_refs": [
+          "config:shape:hole1",
+          "traceability:feature:hole1",
+          "config:shape:hole2",
+          "traceability:feature:hole2",
+          "config:shape:hole3",
+          "traceability:feature:hole3",
+          "config:shape:hole4",
+          "traceability:feature:hole4",
+          "config:shape:plate"
+        ],
+        "confidence": {
+          "score": 0.86,
+          "level": "high",
+          "rationale": "Conservative view rule matched reliable geometry evidence."
+        }
+      },
+      {
+        "id": "view:front",
+        "type": "required_view",
+        "view": "front",
+        "status": "already_requested",
+        "message": "Recommend front view.",
+        "reason": "Front view supports body thickness/height communication without relying on an isometric view.",
+        "evidence_refs": [
+          "config:shape:plate"
+        ],
+        "confidence": {
+          "score": 0.74,
+          "level": "medium",
+          "rationale": "Conservative view rule matched reliable geometry evidence."
+        }
+      },
+      {
+        "id": "view:right",
+        "type": "required_view",
+        "view": "right",
+        "status": "already_requested",
+        "message": "Recommend right view.",
+        "reason": "A fused/bracket-like body benefits from a side view to avoid hiding the web or depth relationship.",
+        "evidence_refs": [
+          "config:operation:fuse",
+          "config:operation:cut"
+        ],
+        "confidence": {
+          "score": 0.68,
+          "level": "medium",
+          "rationale": "Conservative view rule matched reliable geometry evidence."
+        }
+      }
+    ],
+    "required_dimensions_by_feature": [
+      {
+        "id": "plate:overall_length",
+        "type": "required_dimension",
+        "feature_type": "plate",
+        "feature_id": "plate",
+        "view": "top",
+        "dimension_type": "overall_length",
+        "status": "planned",
+        "message": "Dimension overall length for plate.",
+        "reason": "Body/plate footprint should be bounded by an overall length dimension.",
+        "evidence_refs": [
+          "config:shape:plate"
+        ],
+        "confidence": {
+          "score": 0.82,
+          "level": "high",
+          "rationale": "Box body dimensions are explicit in config or feature evidence."
+        }
+      },
+      {
+        "id": "plate:overall_width",
+        "type": "required_dimension",
+        "feature_type": "plate",
+        "feature_id": "plate",
+        "view": "top",
+        "dimension_type": "overall_width",
+        "status": "planned",
+        "message": "Dimension overall width for plate.",
+        "reason": "Body/plate footprint should be bounded by an overall width dimension.",
+        "evidence_refs": [
+          "config:shape:plate"
+        ],
+        "confidence": {
+          "score": 0.82,
+          "level": "high",
+          "rationale": "Box body dimensions are explicit in config or feature evidence."
+        }
+      },
+      {
+        "id": "plate:thickness",
+        "type": "required_dimension",
+        "feature_type": "plate",
+        "feature_id": "plate",
+        "view": "front",
+        "dimension_type": "thickness",
+        "status": "planned",
+        "message": "Dimension thickness for plate.",
+        "reason": "A plate/body thickness is required to manufacture the body from orthographic views.",
+        "evidence_refs": [
+          "config:shape:plate"
+        ],
+        "confidence": {
+          "score": 0.78,
+          "level": "medium",
+          "rationale": "Box height/thickness evidence is available."
+        }
+      },
+      {
+        "id": "hole1:diameter",
+        "type": "required_dimension",
+        "feature_type": "hole",
+        "feature_id": "hole1",
+        "view": "top",
+        "dimension_type": "diameter",
+        "status": "missing_intent",
+        "message": "Dimension diameter for hole1.",
+        "reason": "Through-hole evidence supports a required diameter callout.",
+        "evidence_refs": [
+          "config:shape:hole1",
+          "traceability:feature:hole1"
+        ],
+        "confidence": {
+          "score": 0.9,
+          "level": "high",
+          "rationale": "Cylinder cut provides reliable diameter evidence."
+        },
+        "suggested_fix": "Add a required diameter dimension intent for \"hole1\"."
+      },
+      {
+        "id": "hole2:diameter",
+        "type": "required_dimension",
+        "feature_type": "hole",
+        "feature_id": "hole2",
+        "view": "top",
+        "dimension_type": "diameter",
+        "status": "missing_intent",
+        "message": "Dimension diameter for hole2.",
+        "reason": "Through-hole evidence supports a required diameter callout.",
+        "evidence_refs": [
+          "config:shape:hole2",
+          "traceability:feature:hole2"
+        ],
+        "confidence": {
+          "score": 0.9,
+          "level": "high",
+          "rationale": "Cylinder cut provides reliable diameter evidence."
+        },
+        "suggested_fix": "Add a required diameter dimension intent for \"hole2\"."
+      },
+      {
+        "id": "hole3:diameter",
+        "type": "required_dimension",
+        "feature_type": "hole",
+        "feature_id": "hole3",
+        "view": "top",
+        "dimension_type": "diameter",
+        "status": "missing_intent",
+        "message": "Dimension diameter for hole3.",
+        "reason": "Through-hole evidence supports a required diameter callout.",
+        "evidence_refs": [
+          "config:shape:hole3",
+          "traceability:feature:hole3"
+        ],
+        "confidence": {
+          "score": 0.9,
+          "level": "high",
+          "rationale": "Cylinder cut provides reliable diameter evidence."
+        },
+        "suggested_fix": "Add a required diameter dimension intent for \"hole3\"."
+      },
+      {
+        "id": "hole4:diameter",
+        "type": "required_dimension",
+        "feature_type": "hole",
+        "feature_id": "hole4",
+        "view": "top",
+        "dimension_type": "diameter",
+        "status": "missing_intent",
+        "message": "Dimension diameter for hole4.",
+        "reason": "Through-hole evidence supports a required diameter callout.",
+        "evidence_refs": [
+          "config:shape:hole4",
+          "traceability:feature:hole4"
+        ],
+        "confidence": {
+          "score": 0.9,
+          "level": "high",
+          "rationale": "Cylinder cut provides reliable diameter evidence."
+        },
+        "suggested_fix": "Add a required diameter dimension intent for \"hole4\"."
+      },
+      {
+        "id": "hole_pattern_1:pattern_callout",
+        "type": "required_dimension",
+        "feature_type": "hole_pattern",
+        "feature_id": "hole_pattern_1",
+        "view": "top",
+        "dimension_type": "hole_pattern",
+        "status": "planned",
+        "message": "Define 4x hole pattern with common diameter 4 mm.",
+        "reason": "Repeated equal-diameter holes should be communicated as a pattern instead of individually over-dimensioning each edge.",
+        "evidence_refs": [
+          "config:shape:hole1",
+          "traceability:feature:hole1",
+          "config:shape:hole2",
+          "traceability:feature:hole2",
+          "config:shape:hole3",
+          "traceability:feature:hole3",
+          "config:shape:hole4",
+          "traceability:feature:hole4"
+        ],
+        "confidence": {
+          "score": 0.78,
+          "level": "medium",
+          "rationale": "Three or more equal-diameter positioned holes were detected."
+        }
+      }
+    ],
+    "missing_dimensions": [
+      {
+        "id": "hole1:diameter:missing",
+        "dimension_id": "hole1:diameter",
+        "feature_id": "hole1",
+        "feature_type": "hole",
+        "dimension_type": "diameter",
+        "explanation": "No explicit diameter intent or mapped dimension was found for hole \"hole1\".",
+        "suggested_fix": "Add a required diameter dimension intent for \"hole1\".",
+        "evidence_refs": [
+          "config:shape:hole1",
+          "traceability:feature:hole1"
+        ],
+        "confidence": {
+          "score": 0.9,
+          "level": "high",
+          "rationale": "Cylinder cut provides reliable diameter evidence."
+        }
+      },
+      {
+        "id": "hole2:diameter:missing",
+        "dimension_id": "hole2:diameter",
+        "feature_id": "hole2",
+        "feature_type": "hole",
+        "dimension_type": "diameter",
+        "explanation": "No explicit diameter intent or mapped dimension was found for hole \"hole2\".",
+        "suggested_fix": "Add a required diameter dimension intent for \"hole2\".",
+        "evidence_refs": [
+          "config:shape:hole2",
+          "traceability:feature:hole2"
+        ],
+        "confidence": {
+          "score": 0.9,
+          "level": "high",
+          "rationale": "Cylinder cut provides reliable diameter evidence."
+        }
+      },
+      {
+        "id": "hole3:diameter:missing",
+        "dimension_id": "hole3:diameter",
+        "feature_id": "hole3",
+        "feature_type": "hole",
+        "dimension_type": "diameter",
+        "explanation": "No explicit diameter intent or mapped dimension was found for hole \"hole3\".",
+        "suggested_fix": "Add a required diameter dimension intent for \"hole3\".",
+        "evidence_refs": [
+          "config:shape:hole3",
+          "traceability:feature:hole3"
+        ],
+        "confidence": {
+          "score": 0.9,
+          "level": "high",
+          "rationale": "Cylinder cut provides reliable diameter evidence."
+        }
+      },
+      {
+        "id": "hole4:diameter:missing",
+        "dimension_id": "hole4:diameter",
+        "feature_id": "hole4",
+        "feature_type": "hole",
+        "dimension_type": "diameter",
+        "explanation": "No explicit diameter intent or mapped dimension was found for hole \"hole4\".",
+        "suggested_fix": "Add a required diameter dimension intent for \"hole4\".",
+        "evidence_refs": [
+          "config:shape:hole4",
+          "traceability:feature:hole4"
+        ],
+        "confidence": {
+          "score": 0.9,
+          "level": "high",
+          "rationale": "Cylinder cut provides reliable diameter evidence."
+        }
+      }
+    ],
+    "recommended_annotations": [
+      {
+        "id": "annotation:centerlines-for-holes",
+        "type": "annotation",
+        "status": "recommended",
+        "message": "Show center marks or centerlines for hole features.",
+        "reason": "Hole features are present; center marks improve inspection readability without adding tolerance claims.",
+        "evidence_refs": [
+          "config:shape:hole1",
+          "traceability:feature:hole1",
+          "config:shape:hole2",
+          "traceability:feature:hole2",
+          "config:shape:hole3",
+          "traceability:feature:hole3",
+          "config:shape:hole4",
+          "traceability:feature:hole4"
+        ],
+        "confidence": {
+          "score": 0.82,
+          "level": "high",
+          "rationale": "Hole features are reliable drawing evidence."
+        },
+        "suggested_fix": "Enable or verify center marks/centerlines for hole views."
+      },
+      {
+        "id": "annotation:material-note",
+        "type": "annotation",
+        "status": "recommended",
+        "message": "Carry material note \"AL6061\" on the drawing.",
+        "reason": "Material is explicitly declared in drawing/manufacturing metadata.",
+        "evidence_refs": [
+          "config:drawing.meta.material",
+          "config:manufacturing.material"
+        ],
+        "confidence": {
+          "score": 0.86,
+          "level": "high",
+          "rationale": "Material metadata is explicitly present."
+        },
+        "suggested_fix": "Add or verify the material note in the title block or general notes."
+      }
+    ],
+    "section_view_recommendations": [],
+    "detail_view_recommendations": [
+      {
+        "id": "detail:small-hole-callouts",
+        "type": "detail_view",
+        "feature_type": "through_hole",
+        "status": "recommended",
+        "message": "Consider a detail view for small hole callouts if the sheet scale makes them crowded.",
+        "reason": "Small hole diameter evidence is present; this remains conditional on drawing readability.",
+        "evidence_refs": [
+          "config:shape:hole1",
+          "traceability:feature:hole1",
+          "config:shape:hole2",
+          "traceability:feature:hole2",
+          "config:shape:hole3",
+          "traceability:feature:hole3",
+          "config:shape:hole4",
+          "traceability:feature:hole4"
+        ],
+        "confidence": {
+          "score": 0.56,
+          "level": "medium",
+          "rationale": "Small feature evidence supports only a conditional detail-view recommendation."
+        },
+        "suggested_fix": "Add a local detail view only if diameter/location callouts collide or become unreadable."
+      }
+    ],
+    "suggested_actions": [
+      "Add a required diameter dimension intent for \"hole1\".",
+      "Add a required diameter dimension intent for \"hole2\".",
+      "Add a required diameter dimension intent for \"hole3\".",
+      "Add a required diameter dimension intent for \"hole4\".",
+      "Enable or verify center marks/centerlines for hole views.",
+      "Add or verify the material note in the title block or general notes.",
+      "Add a local detail view only if diameter/location callouts collide or become unreadable.",
+      "Verify required dimension Plate thickness because extracted evidence is unknown. Verify the dimension label for Plate thickness is visible and readable in the SVG. Relink or relabel Plate thickness if it was manually drafted or detached from the source dimension.",
+      "Verify required dimension Four mounting hole diameters because extracted evidence is unknown. Verify the diameter callout for hole1 is visible and clearly labeled as Four mounting hole diameters. Confirm the diameter symbol and label survive SVG text extraction.",
+      "Add or label the required note PROCESS if it should appear in the drawing. Verify the required note text \"Process: machining\" is present and readable. Confirm extraction can still match the note to Process: machining.",
+      "Add or label the required note TRACEABILITY if it should appear in the drawing. Verify the required note text \"Lot traceability label area on plate edge opposite connector slot.\" is present and readable. Confirm extraction can still match the note to Lot traceability label area on plate edge opposite connector slot..",
+      "Improve intent aliases or drawing labels for unmatched extracted dimensions. Review whether the unmatched dimensions should map to an existing required intent. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+      "Improve intent aliases or drawing labels for unmatched extracted notes. Review whether the unmatched notes should satisfy an existing required note. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably."
+    ],
+    "evidence": [
+      {
+        "ref": "config:shape:hole1",
+        "kind": "feature_catalog",
+        "summary": "hole feature \"hole1\" from conservative feature catalog evidence."
+      },
+      {
+        "ref": "config:shape:hole2",
+        "kind": "feature_catalog",
+        "summary": "hole feature \"hole2\" from conservative feature catalog evidence."
+      },
+      {
+        "ref": "config:shape:hole3",
+        "kind": "feature_catalog",
+        "summary": "hole feature \"hole3\" from conservative feature catalog evidence."
+      },
+      {
+        "ref": "config:shape:hole4",
+        "kind": "feature_catalog",
+        "summary": "hole feature \"hole4\" from conservative feature catalog evidence."
+      },
+      {
+        "ref": "config:shape:plate",
+        "kind": "feature_catalog",
+        "summary": "plate feature \"plate\" from conservative feature catalog evidence."
+      },
+      {
+        "ref": "feature_catalog:hole_pattern_1",
+        "kind": "feature_catalog",
+        "summary": "hole_pattern feature \"hole_pattern_1\" from conservative feature catalog evidence."
+      }
+    ],
+    "confidence": {
+      "score": 0.83,
+      "level": "high",
+      "rationale": "Aggregate confidence from deterministic feature and drawing-intent evidence; recommendations remain advisory."
+    },
+    "limitations": [
+      "Planner recommendations are advisory and do not replace TechDraw generation.",
+      "No GD&T or tolerance callout is inferred unless explicitly present in drawing metadata.",
+      "Functional requirements are not inferred beyond drawing_intent and reliable feature evidence."
+    ],
+    "suggested_action_details": [
+      {
+        "id": "dimension:platethickness:unknown",
+        "severity": "review",
+        "category": "dimension",
+        "target_requirement_id": "PLATE_THICKNESS",
+        "target_feature_id": "plate",
+        "classification": "unknown",
+        "title": "Verify required dimension Plate thickness because extracted evidence is unknown.",
+        "message": "Extracted drawing semantics explicitly marked this required dimension as uncertain.",
+        "recommended_fix": "Verify the dimension label for Plate thickness is visible and readable in the SVG. Relink or relabel Plate thickness if it was manually drafted or detached from the source dimension.",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "required_dimensions.PLATE_THICKNESS.classification",
+            "value": "unknown"
+          }
+        ]
+      },
+      {
+        "id": "dimension:mountingholedia:unknown",
+        "severity": "review",
+        "category": "dimension",
+        "target_requirement_id": "MOUNTING_HOLE_DIA",
+        "target_feature_id": "hole1",
+        "classification": "unknown",
+        "title": "Verify required dimension Four mounting hole diameters because extracted evidence is unknown.",
+        "message": "Extracted drawing semantics explicitly marked this required dimension as uncertain.",
+        "recommended_fix": "Verify the diameter callout for hole1 is visible and clearly labeled as Four mounting hole diameters. Confirm the diameter symbol and label survive SVG text extraction.",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "required_dimensions.MOUNTING_HOLE_DIA.classification",
+            "value": "unknown"
+          }
+        ]
+      },
+      {
+        "id": "note:process:unknown",
+        "severity": "review",
+        "category": "note",
+        "target_requirement_id": "PROCESS",
+        "target_feature_id": null,
+        "classification": "unknown",
+        "title": "Add or label the required note PROCESS if it should appear in the drawing.",
+        "message": "Extracted drawing semantics explicitly marked this required note as uncertain.",
+        "recommended_fix": "Verify the required note text \"Process: machining\" is present and readable. Confirm extraction can still match the note to Process: machining.",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "required_notes.PROCESS.classification",
+            "value": "unknown"
+          }
+        ]
+      },
+      {
+        "id": "note:traceability:unknown",
+        "severity": "review",
+        "category": "note",
+        "target_requirement_id": "TRACEABILITY",
+        "target_feature_id": null,
+        "classification": "unknown",
+        "title": "Add or label the required note TRACEABILITY if it should appear in the drawing.",
+        "message": "Extracted drawing semantics explicitly marked this required note as uncertain.",
+        "recommended_fix": "Verify the required note text \"Lot traceability label area on plate edge opposite connector slot.\" is present and readable. Confirm extraction can still match the note to Lot traceability label area on plate edge opposite connector slot..",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "required_notes.TRACEABILITY.classification",
+            "value": "unknown"
+          }
+        ]
+      },
+      {
+        "id": "mapping:unmatched-dimensions:unmatched",
+        "severity": "info",
+        "category": "mapping",
+        "target_requirement_id": "unmatched_dimensions",
+        "target_feature_id": null,
+        "classification": "unmatched",
+        "title": "Improve intent aliases or drawing labels for unmatched extracted dimensions.",
+        "message": "Some extracted dimensions did not match any required drawing intent.",
+        "recommended_fix": "Review whether the unmatched dimensions should map to an existing required intent. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "unmatched_dimensions.count",
+            "value": "9"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "unmatched_dimensions.samples",
+            "value": "[\"12\",\"4\",\"22\",\"22\",\"123\"]"
+          }
+        ]
+      },
+      {
+        "id": "mapping:unmatched-notes:unmatched",
+        "severity": "info",
+        "category": "mapping",
+        "target_requirement_id": "unmatched_notes",
+        "target_feature_id": null,
+        "classification": "unmatched",
+        "title": "Improve intent aliases or drawing labels for unmatched extracted notes.",
+        "message": "Some extracted notes did not match any required drawing intent.",
+        "recommended_fix": "Review whether the unmatched notes should satisfy an existing required note. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "unmatched_notes.count",
+            "value": "29"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "unmatched_notes.samples",
+            "value": "[\"A\",\"B\",\"B\",\"C\",\"A\"]"
+          }
+        ]
+      }
+    ]
+  },
+  "reviewer_feedback": {
+    "advisory_only": true,
+    "status": "none",
+    "evidence_state": "none",
+    "total_count": 0,
+    "unresolved_count": 0,
+    "linked_count": 0,
+    "unmatched_count": 0,
+    "stale_count": 0,
+    "orphaned_count": 0,
+    "invalid_count": 0,
+    "accepted_count": 0,
+    "resolved_count": 0,
+    "items": [],
+    "summary": "Reviewer feedback was not provided.",
+    "suggested_actions": [],
+    "suggested_action_details": [],
+    "provenance": {
+      "artifact_type": "reviewer_feedback_json",
+      "path": null,
+      "method": "explicit_reviewer_feedback_json",
+      "input_status": "none"
+    }
+  }
+}
