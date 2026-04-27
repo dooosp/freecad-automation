@@ -25,7 +25,7 @@ The current drawing renderer can strictly trace the hole-diameter plan dimension
 
 The package artifacts were generated with the local FreeCAD runtime, then sanitized so checked-in JSON and text files use repo-relative package paths instead of local runtime paths.
 
-The create and drawing quality gates passed. The readiness report status is `needs_more_evidence` because the review pack was built from the generated STEP without separate inspection or quality side inputs.
+The create and drawing quality gates passed. The review pack links checked-in create quality, drawing quality, drawing QA, drawing intent, and feature catalog side inputs. These side inputs clear the generated `quality_evidence` gap but do not satisfy `inspection_evidence`; the readiness report status remains `needs_more_evidence`.
 
 ## Studio Reopen
 
