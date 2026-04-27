@@ -29,6 +29,10 @@ const CANONICAL_PACKAGES = Object.freeze([
     slug: 'plate-with-holes',
     partId: 'pcb_mount_plate',
   },
+  {
+    slug: 'motor-mount',
+    partId: 'cnc_motor_mount_bracket',
+  },
 ]);
 
 const CANONICAL_ARTIFACTS = Object.freeze([

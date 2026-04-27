@@ -1,0 +1,104 @@
+{
+  "generated_at": "2026-04-27T00:29:03.662Z",
+  "readiness_report_path": "docs/examples/motor-mount/readiness/readiness_report.json",
+  "docs_manifest_path": "docs/examples/motor-mount/standard-docs/standard_docs_manifest.json",
+  "bundle_output_path": "docs/examples/motor-mount/release/release_bundle.zip",
+  "included_artifacts": [
+    {
+      "artifact_type": "readiness_report",
+      "role": "primary",
+      "label": "Canonical readiness report JSON",
+      "path": "canonical/readiness_report.json",
+      "source_path": "docs/examples/motor-mount/readiness/readiness_report.json",
+      "sha256": "d9563c91a72fe6a9bab3741730f42c38ebc990a27229b2ab74fdba083ecd4c1b",
+      "size_bytes": 53188
+    },
+    {
+      "artifact_type": "readiness_markdown",
+      "role": "derived",
+      "label": "Readiness report Markdown",
+      "path": "canonical/readiness_report.md",
+      "source_path": "docs/examples/motor-mount/readiness/readiness_report.md",
+      "sha256": "c51d88fbf5d670e19e786f3f0c7943ff0a1a6c7895c073a9ada65b6f5535676e",
+      "size_bytes": 3934
+    },
+    {
+      "artifact_type": "cad_model",
+      "role": "input",
+      "label": "Geometry source",
+      "path": "references/cnc_motor_mount_bracket.step",
+      "source_path": "docs/examples/motor-mount/cad/cnc_motor_mount_bracket.step",
+      "sha256": "8b9c1c83d3cedcb75668065dcbf3401847781c303c8ada9854c6f59edf751377",
+      "size_bytes": 28459
+    },
+    {
+      "artifact_type": "review_pack",
+      "role": "input",
+      "label": "Canonical review-pack JSON",
+      "path": "canonical/review_pack.json",
+      "source_path": "docs/examples/motor-mount/review/review_pack.json",
+      "sha256": "ac6c8d092c8a474833f6e8e848d55b496a2fe038e625df1869685e418d51b823",
+      "size_bytes": 20345
+    },
+    {
+      "artifact_type": "docs_manifest",
+      "role": "input",
+      "label": "Standard docs manifest JSON",
+      "path": "docs/standard_docs_manifest.json",
+      "source_path": "docs/examples/motor-mount/standard-docs/standard_docs_manifest.json",
+      "sha256": "cdf97210a4da3901d8bb5ef7a63fd92ef7c2b45027490dc19b4e26b2ed982e72",
+      "size_bytes": 5930
+    },
+    {
+      "artifact_type": "docs_document",
+      "role": "derived",
+      "label": "process_flow.md",
+      "path": "docs/process_flow.md",
+      "source_path": "docs/examples/motor-mount/standard-docs/process_flow.md",
+      "sha256": "e72951dcb6d89326798e2c213dc04449a379030c151572c52670f422abd8bc9f",
+      "size_bytes": 596
+    },
+    {
+      "artifact_type": "docs_document",
+      "role": "derived",
+      "label": "control_plan_draft.csv",
+      "path": "docs/control_plan_draft.csv",
+      "source_path": "docs/examples/motor-mount/standard-docs/control_plan_draft.csv",
+      "sha256": "399ec793f4b62b635f30ecdf59e1b97e03f0eb862b2bfd48ff2362c554aabc64",
+      "size_bytes": 99
+    },
+    {
+      "artifact_type": "docs_document",
+      "role": "derived",
+      "label": "inspection_checksheet_draft.csv",
+      "path": "docs/inspection_checksheet_draft.csv",
+      "source_path": "docs/examples/motor-mount/standard-docs/inspection_checksheet_draft.csv",
+      "sha256": "4595fdd1b54a345237d4716fecec90495ec7a0cb7a0e7593147875557ed0d391",
+      "size_bytes": 70
+    },
+    {
+      "artifact_type": "docs_document",
+      "role": "derived",
+      "label": "work_instruction_draft.md",
+      "path": "docs/work_instruction_draft.md",
+      "source_path": "docs/examples/motor-mount/standard-docs/work_instruction_draft.md",
+      "sha256": "2f8012073d021a0f7390f3493e5be11d635df151109103420e0d3f536041fb45",
+      "size_bytes": 786
+    },
+    {
+      "artifact_type": "docs_document",
+      "role": "derived",
+      "label": "pfmea_seed.csv",
+      "path": "docs/pfmea_seed.csv",
+      "source_path": "docs/examples/motor-mount/standard-docs/pfmea_seed.csv",
+      "sha256": "8096daeba0676f69c0e6622f61fdf73d99ecb2d5ccf6757bac3459a7827a4325",
+      "size_bytes": 663
+    }
+  ],
+  "skipped_artifacts": [],
+  "warnings": [
+    "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/motor-mount/cad/cnc_motor_mount_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
+    "Missing or limited inspection evidence; review-pack remains usable with partial evidence.",
+    "Missing or limited quality evidence; review-pack remains usable with partial evidence."
+  ]
+}

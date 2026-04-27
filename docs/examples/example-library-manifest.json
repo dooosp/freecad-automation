@@ -86,7 +86,7 @@
     },
     {
       "slug": "motor-mount",
-      "status": "candidate",
+      "status": "canonical-package",
       "source_config": "configs/generated/cnc_motor_mount_bracket.toml",
       "role": "generated-motor-mount-seed",
       "priority": 3,
@@ -95,19 +95,22 @@
       ],
       "current_coverage": {
         "config": true,
-        "drawing_intent": false,
-        "generated_cad": false,
-        "quality_report": false,
-        "review_pack": false,
-        "readiness_report": false,
-        "standard_docs_manifest": false,
-        "release_bundle_manifest": false,
-        "release_bundle_zip": false,
-        "studio_reopen_fixture": false
+        "drawing_intent": true,
+        "generated_cad": true,
+        "quality_report": true,
+        "review_pack": true,
+        "readiness_report": true,
+        "standard_docs_manifest": true,
+        "release_bundle_manifest": true,
+        "release_bundle_zip": true,
+        "studio_reopen_fixture": true
       },
       "notes": [
-        "Tracked generated config exists and is a strong package candidate after provenance and drawing intent review.",
-        "Do not promote generated outputs until they are reviewed and copied into a curated package."
+        "Third curated canonical AF5 package promoted under docs/examples/motor-mount.",
+        "Curated config uses the single-part cnc_motor_mount_bracket source, adds explicit drawing intent, and normalizes the support rib away from the hole pattern so DFM edge-distance checks stay warning-only.",
+        "Create quality and drawing quality passed; DFM is warning-only because edge treatment remains note-driven rather than modeled as a fillet/chamfer operation.",
+        "Readiness remains needs_more_evidence because the safe existing review-context/readiness path does not consume separate inspection or quality linkage side inputs.",
+        "The related assembly config is intentionally deferred and is not part of this package."
       ]
     },
     {
