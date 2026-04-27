@@ -44,7 +44,8 @@ Practical rules:
 
 - Use preview while iterating on TOML, geometry, sheet layout, or dimensions and you do not need provenance yet.
 - Use tracked runs when the output should appear in the job timeline, feed `Review`, or support artifact-driven re-entry later.
-- `review-context` is part of the current Studio/local API bridge when submitted with source paths from an import/bootstrap handoff or another local API source-path flow. It requires `context_path` or `model_path` and may include `bom_path`, `inspection_path`, `quality_path`, and `compare_to_path`; it is not a config TOML submission.
+- `review-context` is part of the current Studio/local API bridge when submitted with source paths from an import/bootstrap handoff or another local API source-path flow. It requires `context_path` or `model_path` and may include `bom_path`, `inspection_path`, `quality_path`, package evidence paths (`create_quality_path`, `drawing_quality_path`, `drawing_qa_path`, `drawing_intent_path`, `feature_catalog_path`, `dfm_report_path`), and `compare_to_path`; it is not a config TOML submission.
+- Package evidence side inputs are normalized into portable review-pack source refs when they are safe repo-local paths. Generated create/drawing/DFM quality side inputs may satisfy `quality_evidence`; drawing intent and feature catalogs are recorded as drawing/design-traceability context. They do not satisfy `inspection_evidence` unless a genuine inspection-like input is supplied.
 - Model preview and drawing preview stay available even while a tracked run is queued or running.
 - The shell monitor resumes and polls every queued/running job it knows about through `GET /jobs/:id`; it is no longer a single-active-run indicator.
 - Artifacts and Review deep links can carry a selected tracked job as `#artifacts?job=<job-id>` or `#review?job=<job-id>`. Search-param fallback `?job=<job-id>` is also accepted when reopening a shared URL.
@@ -145,7 +146,7 @@ When a job settles while other tracked jobs are still active, the shell prefers 
 - Config-like artifacts can be reopened into `Model` without copying raw paths back into the editor.
 - Config-like artifacts can launch tracked `report` reruns through `artifact_ref`.
 - Model artifacts can launch tracked `inspect` through `artifact_ref`.
-- Source-path `review-context` can be queued through `POST /api/studio/jobs` when the handoff provides a project-local `context_path` or `model_path`. The Studio bridge does not accept `config_toml` or arbitrary `artifact_ref` for `review-context`.
+- Source-path `review-context` can be queued through `POST /api/studio/jobs` when the handoff provides a project-local `context_path` or `model_path`, optionally with package evidence side-input paths. The Studio bridge does not accept `config_toml` or arbitrary `artifact_ref` for `review-context`.
 - Canonical `review_pack.json` artifacts can launch tracked `readiness-pack`, and canonical `readiness_report.json` artifacts can launch tracked `pack`.
 - Canonical `readiness_report.json` artifacts and `release_bundle.zip` can launch tracked `generate-standard-docs` when the required canonical inputs can be resolved safely.
 - Selected baseline/candidate canonical review-pack artifacts can launch tracked `compare-rev`; selected baseline/candidate canonical readiness-report artifacts can launch tracked `stabilization-review`.

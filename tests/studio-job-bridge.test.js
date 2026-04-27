@@ -116,6 +116,12 @@ const reviewContextSubmission = await translateStudioJobSubmission({
   context_path: 'output/imports/bootstrap-123/artifacts/engineering_context.json',
   model_path: 'output/imports/bootstrap-123/source/simple_bracket.step',
   quality_path: 'tests/fixtures/sample_quality.csv',
+  create_quality_path: 'docs/examples/motor-mount/quality/cnc_motor_mount_bracket_create_quality.json',
+  drawing_quality_path: 'docs/examples/motor-mount/quality/cnc_motor_mount_bracket_drawing_quality.json',
+  drawing_qa_path: 'docs/examples/motor-mount/quality/cnc_motor_mount_bracket_drawing_qa.json',
+  drawing_intent_path: 'docs/examples/motor-mount/drawing/cnc_motor_mount_bracket_drawing_intent.json',
+  feature_catalog_path: 'docs/examples/motor-mount/drawing/cnc_motor_mount_bracket_feature_catalog.json',
+  dfm_report_path: 'docs/examples/infotainment-display-bracket/quality-risk.json',
   options: {
     bootstrap: {
       import_diagnostics: {
@@ -145,6 +151,12 @@ assert.equal(reviewContextSubmission.request.type, 'review-context');
 assert.equal(reviewContextSubmission.request.context_path, 'output/imports/bootstrap-123/artifacts/engineering_context.json');
 assert.equal(reviewContextSubmission.request.model_path, 'output/imports/bootstrap-123/source/simple_bracket.step');
 assert.equal(reviewContextSubmission.request.quality_path, 'tests/fixtures/sample_quality.csv');
+assert.equal(reviewContextSubmission.request.create_quality_path, 'docs/examples/motor-mount/quality/cnc_motor_mount_bracket_create_quality.json');
+assert.equal(reviewContextSubmission.request.drawing_quality_path, 'docs/examples/motor-mount/quality/cnc_motor_mount_bracket_drawing_quality.json');
+assert.equal(reviewContextSubmission.request.drawing_qa_path, 'docs/examples/motor-mount/quality/cnc_motor_mount_bracket_drawing_qa.json');
+assert.equal(reviewContextSubmission.request.drawing_intent_path, 'docs/examples/motor-mount/drawing/cnc_motor_mount_bracket_drawing_intent.json');
+assert.equal(reviewContextSubmission.request.feature_catalog_path, 'docs/examples/motor-mount/drawing/cnc_motor_mount_bracket_feature_catalog.json');
+assert.equal(reviewContextSubmission.request.dfm_report_path, 'docs/examples/infotainment-display-bracket/quality-risk.json');
 assert.deepEqual(reviewContextSubmission.request.options.bootstrap.import_diagnostics, {
   import_kind: 'part',
   body_count: 1,

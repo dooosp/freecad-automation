@@ -367,7 +367,7 @@ const COMMAND_MANIFEST = Object.freeze([
     helpSection: 'plain-python-node',
     helpEntries: Object.freeze([
       Object.freeze({
-        usage: 'fcad review-context --model <file> [--bom bom.csv] [--inspection insp.csv] [--quality ncr.csv] --out <review_pack.json> [--compare-to baseline_review_pack.json]',
+        usage: 'fcad review-context --model <file> [--bom bom.csv] [--inspection insp.csv] [--quality ncr.csv] [--create-quality create_quality.json] [--drawing-quality drawing_quality.json] [--drawing-qa drawing_qa.json] [--drawing-intent drawing_intent.json] [--feature-catalog feature_catalog.json] [--dfm-report dfm_report.json] --out <review_pack.json> [--compare-to baseline_review_pack.json]',
         summary: null,
       }),
     ]),
@@ -516,6 +516,12 @@ const SHARED_WORKFLOW_OPTIONS = Object.freeze([
   Object.freeze({ flag: '--out <path>', description: 'Primary output JSON path; sibling artifacts share its stem' }),
   Object.freeze({ flag: '--out-dir <dir>', description: 'Output directory when using default artifact names' }),
   Object.freeze({ flag: '--compare-to <path>', description: 'Baseline review-pack JSON for optional revision comparison with review-context' }),
+  Object.freeze({ flag: '--create-quality <path>', description: 'Package create-quality JSON side input for review-context quality evidence' }),
+  Object.freeze({ flag: '--drawing-quality <path>', description: 'Package drawing-quality JSON side input for review-context quality/drawing evidence' }),
+  Object.freeze({ flag: '--drawing-qa <path>', description: 'Package drawing QA JSON side input for review-context quality/drawing evidence' }),
+  Object.freeze({ flag: '--drawing-intent <path>', description: 'Drawing intent JSON side input for review-context design traceability context' }),
+  Object.freeze({ flag: '--feature-catalog <path>', description: 'Feature catalog JSON side input for review-context design traceability context' }),
+  Object.freeze({ flag: '--dfm-report <path>', description: 'DFM report JSON side input for review-context quality evidence' }),
 ]);
 
 const WORKFLOW_SPECIFIC_OPTIONS = Object.freeze([

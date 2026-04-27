@@ -178,9 +178,11 @@ fcad ingest --model <file> [--bom bom.csv] [--inspection inspection.csv] [--qual
 fcad analyze-part <context.json|model.step>
 fcad quality-link --context <context.json> --geometry <geometry.json>
 fcad review-pack --context <context.json> --geometry <geometry.json>
-fcad review-context --model <file> [--bom bom.csv] [--inspection inspection.csv] [--quality quality.csv] --out <review_pack.json>
+fcad review-context --model <file> [--bom bom.csv] [--inspection inspection.csv] [--quality quality.csv] [--create-quality create_quality.json] [--drawing-quality drawing_quality.json] [--drawing-qa drawing_qa.json] [--drawing-intent drawing_intent.json] [--feature-catalog feature_catalog.json] [--dfm-report dfm_report.json] --out <review_pack.json>
 fcad compare-rev <baseline.json> <candidate.json>
 ```
+
+`review-context` accepts explicit package-side evidence inputs for checked-in create quality, drawing quality, drawing QA, drawing intent, feature catalog, and DFM report JSON. These paths are normalized to portable repo-relative source refs in `review_pack.json`; unsafe outside-repo, ignored output, or task-status scratch evidence paths are not linked as canonical evidence. Quality/drawing/DFM side inputs can close `quality_evidence`, and drawing intent or feature catalogs are recorded as drawing/design-traceability context, but none of these side inputs satisfy `inspection_evidence` without a genuine inspection input.
 
 ### Imported CAD Bootstrap Lane
 
@@ -383,7 +385,7 @@ Startup behavior:
 Studio execution model:
 
 - `Preview`: fast request/response work for Model and Drawing. Preview routes are scratch-safe, keep the current workspace state local, and do not create `/jobs` history.
-- `Tracked run`: `POST /api/studio/jobs` queues `create`, `draw`, `inspect`, `report`, `review-context`, `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, and `pack` into `/jobs`. Studio `review-context` submissions are source-path based (`context_path` or `model_path`, with optional BOM/inspection/quality/compare paths), not config TOML or generic artifact-ref submissions.
+- `Tracked run`: `POST /api/studio/jobs` queues `create`, `draw`, `inspect`, `report`, `review-context`, `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, and `pack` into `/jobs`. Studio `review-context` submissions are source-path based (`context_path` or `model_path`, with optional BOM/inspection/quality/package-evidence/compare paths), not config TOML or generic artifact-ref submissions.
 - `Artifact re-entry`: `Artifacts` and `Review` can reopen config artifacts in `Model`, rerun tracked `report` from config-like artifacts, rerun tracked `inspect` from model artifacts, continue `readiness-pack` from canonical `review_pack.json` or `release_bundle.zip`, continue `generate-standard-docs` from canonical readiness inputs or release bundles, continue `pack` from canonical readiness inputs or release bundles, and stage `compare-rev` or `stabilization-review` from selected baseline/candidate canonical artifacts when both sides are present.
 - Browser-visible preview payloads are path-redacted too: tracked job payloads, artifact payloads, example payloads, and drawing preview responses all avoid raw filesystem paths.
 
@@ -448,7 +450,7 @@ Supported job types:
 
 - `POST /jobs`: `create`, `draw`, `inspect`, `report`, `review-context`, `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, `pack`
 - `POST /api/studio/jobs`: `create`, `draw`, `inspect`, `report`, `review-context`, `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, `pack`
-- Studio `review-context` accepts source-file path fields that the local API can resolve (`context_path` or `model_path`, with optional `bom_path`, `inspection_path`, `quality_path`, and `compare_to_path`). It does not accept `config_toml`, `artifact_ref`, or arbitrary local artifact import on that path.
+- Studio `review-context` accepts source-file path fields that the local API can resolve (`context_path` or `model_path`, with optional `bom_path`, `inspection_path`, `quality_path`, `create_quality_path`, `drawing_quality_path`, `drawing_qa_path`, `drawing_intent_path`, `feature_catalog_path`, `dfm_report_path`, and `compare_to_path`). Package evidence paths are normalized into review-pack source refs when safe; they do not imply arbitrary local artifact import or inspection evidence. It does not accept `config_toml`, `artifact_ref`, or arbitrary local artifact import on that path.
 
 Endpoint usage:
 

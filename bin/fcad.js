@@ -2066,11 +2066,17 @@ async function cmdReviewContext(rawArgs = []) {
   const bomPath = resolveMaybe(options.bom);
   const inspectionPath = resolveMaybe(options.inspection);
   const qualityPath = resolveMaybe(options.quality);
+  const createQualityPath = resolveMaybe(options['create-quality']);
+  const drawingQualityPath = resolveMaybe(options['drawing-quality']);
+  const drawingQaPath = resolveMaybe(options['drawing-qa']);
+  const drawingIntentPath = resolveMaybe(options['drawing-intent']);
+  const featureCatalogPath = resolveMaybe(options['feature-catalog']);
+  const dfmReportPath = resolveMaybe(options['dfm-report']);
   const compareToPath = resolveMaybe(options['compare-to']);
 
   if (!modelPath && !contextPath) {
     console.error('Error: review-context requires --model <file> or --context <context.json>');
-    console.error('  fcad review-context --model part.step [--bom bom.csv] [--inspection insp.csv] [--quality ncr.csv] --out output/review_pack.json');
+    console.error('  fcad review-context --model part.step [--bom bom.csv] [--inspection insp.csv] [--quality ncr.csv] [--create-quality create_quality.json] --out output/review_pack.json');
     process.exit(1);
   }
 
@@ -2079,6 +2085,12 @@ async function cmdReviewContext(rawArgs = []) {
   requireExistingInputFile('bom', bomPath);
   requireExistingInputFile('inspection', inspectionPath);
   requireExistingInputFile('quality', qualityPath);
+  requireExistingInputFile('create-quality', createQualityPath);
+  requireExistingInputFile('drawing-quality', drawingQualityPath);
+  requireExistingInputFile('drawing-qa', drawingQaPath);
+  requireExistingInputFile('drawing-intent', drawingIntentPath);
+  requireExistingInputFile('feature-catalog', featureCatalogPath);
+  requireExistingInputFile('dfm-report', dfmReportPath);
   requireExistingInputFile('compare-to', compareToPath);
 
   const result = await runReviewContextPipeline({
@@ -2088,6 +2100,12 @@ async function cmdReviewContext(rawArgs = []) {
     bomPath,
     inspectionPath,
     qualityPath,
+    createQualityPath,
+    drawingQualityPath,
+    drawingQaPath,
+    drawingIntentPath,
+    featureCatalogPath,
+    dfmReportPath,
     compareToPath,
     outputPath: options.out || null,
     outDir: resolveMaybe(options['out-dir']) || null,
@@ -2140,6 +2158,12 @@ async function cmdReviewContext(rawArgs = []) {
       ...(bomPath ? [createArtifactEntry('input.bom', bomPath, { label: 'Input BOM CSV' })] : []),
       ...(inspectionPath ? [createArtifactEntry('input.inspection', inspectionPath, { label: 'Input inspection CSV' })] : []),
       ...(qualityPath ? [createArtifactEntry('input.quality', qualityPath, { label: 'Input quality CSV' })] : []),
+      ...(createQualityPath ? [createArtifactEntry('input.create-quality', createQualityPath, { label: 'Input create quality report' })] : []),
+      ...(drawingQualityPath ? [createArtifactEntry('input.drawing-quality', drawingQualityPath, { label: 'Input drawing quality report' })] : []),
+      ...(drawingQaPath ? [createArtifactEntry('input.drawing-qa', drawingQaPath, { label: 'Input drawing QA report' })] : []),
+      ...(drawingIntentPath ? [createArtifactEntry('input.drawing-intent', drawingIntentPath, { label: 'Input drawing intent JSON' })] : []),
+      ...(featureCatalogPath ? [createArtifactEntry('input.feature-catalog', featureCatalogPath, { label: 'Input feature catalog JSON' })] : []),
+      ...(dfmReportPath ? [createArtifactEntry('input.dfm-report', dfmReportPath, { label: 'Input DFM report' })] : []),
       ...(compareToPath ? [createArtifactEntry('input.baseline', compareToPath, { label: 'Baseline review-pack JSON' })] : []),
     ],
     details: {

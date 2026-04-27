@@ -146,6 +146,12 @@ export function validateStudioJobSubmission(body) {
     'bom_path',
     'inspection_path',
     'quality_path',
+    'create_quality_path',
+    'drawing_quality_path',
+    'drawing_qa_path',
+    'drawing_intent_path',
+    'feature_catalog_path',
+    'dfm_report_path',
     'compare_to_path',
     'drawing_settings',
     'drawing_preview_id',
@@ -182,7 +188,20 @@ export function validateStudioJobSubmission(body) {
   validateOptionalObject(request.drawing_plan, 'drawing_plan', errors);
   validateOptionalObject(request.report_options, 'report_options', errors);
   validateOptionalObject(request.options, 'options', errors);
-  ['context_path', 'model_path', 'bom_path', 'inspection_path', 'quality_path', 'compare_to_path'].forEach((fieldName) => {
+  [
+    'context_path',
+    'model_path',
+    'bom_path',
+    'inspection_path',
+    'quality_path',
+    'create_quality_path',
+    'drawing_quality_path',
+    'drawing_qa_path',
+    'drawing_intent_path',
+    'feature_catalog_path',
+    'dfm_report_path',
+    'compare_to_path',
+  ].forEach((fieldName) => {
     if (request[fieldName] !== undefined && trimOptionalString(request[fieldName]).length === 0) {
       errors.push(`${fieldName} must be a non-empty string when provided.`);
     }
@@ -278,6 +297,12 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
         ...(trimOptionalString(request.bom_path) ? { bom_path: trimOptionalString(request.bom_path) } : {}),
         ...(trimOptionalString(request.inspection_path) ? { inspection_path: trimOptionalString(request.inspection_path) } : {}),
         ...(trimOptionalString(request.quality_path) ? { quality_path: trimOptionalString(request.quality_path) } : {}),
+        ...(trimOptionalString(request.create_quality_path) ? { create_quality_path: trimOptionalString(request.create_quality_path) } : {}),
+        ...(trimOptionalString(request.drawing_quality_path) ? { drawing_quality_path: trimOptionalString(request.drawing_quality_path) } : {}),
+        ...(trimOptionalString(request.drawing_qa_path) ? { drawing_qa_path: trimOptionalString(request.drawing_qa_path) } : {}),
+        ...(trimOptionalString(request.drawing_intent_path) ? { drawing_intent_path: trimOptionalString(request.drawing_intent_path) } : {}),
+        ...(trimOptionalString(request.feature_catalog_path) ? { feature_catalog_path: trimOptionalString(request.feature_catalog_path) } : {}),
+        ...(trimOptionalString(request.dfm_report_path) ? { dfm_report_path: trimOptionalString(request.dfm_report_path) } : {}),
         ...(trimOptionalString(request.compare_to_path) ? { compare_to_path: trimOptionalString(request.compare_to_path) } : {}),
         ...(isPlainObject(request.options) ? { options: structuredClone(request.options) } : {}),
       },

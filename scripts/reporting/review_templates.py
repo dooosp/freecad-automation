@@ -166,7 +166,42 @@ def _build_quality_pattern_linkage(quality_linkage, quality_hotspots):
     }
 
 
-def _build_evidence_ledger(hotspots, inspection_anomaly_linkage, quality_pattern_linkage):
+def _has_classification(records, classification):
+    for record in records:
+        classifications = _safe_list(record.get("classifications"))
+        if classification in classifications or record.get("category") == classification:
+            return True
+    return False
+
+
+def _build_package_evidence_ledger_records(package_evidence):
+    records = []
+    for index, evidence in enumerate(package_evidence):
+        if not isinstance(evidence, dict):
+            continue
+        evidence_type = evidence.get("type") or evidence.get("artifact_type") or "package_evidence"
+        classifications = _safe_list(evidence.get("classifications"))
+        category = evidence.get("category") or (classifications[0] if classifications else "advisory_context")
+        records.append({
+            "evidence_id": evidence.get("evidence_id") or f"package:{evidence_type}:{index + 1}",
+            "type": evidence_type,
+            "artifact_type": evidence.get("artifact_type") or evidence_type,
+            "category": category,
+            "classifications": classifications,
+            "source_ref": evidence.get("source_ref"),
+            "file_name": evidence.get("file_name"),
+            "title": evidence.get("label") or evidence.get("file_name") or evidence_type,
+            "score": evidence.get("score"),
+            "rationale": evidence.get("rationale") or "Explicit review-context package side input.",
+            "confidence": evidence.get("confidence"),
+            "size_bytes": evidence.get("size_bytes"),
+            "sha256": evidence.get("sha256"),
+            "inspection_evidence": bool(evidence.get("inspection_evidence") is True),
+        })
+    return records
+
+
+def _build_evidence_ledger(hotspots, inspection_anomaly_linkage, quality_pattern_linkage, package_evidence=None):
     records = []
 
     for hotspot in hotspots:
@@ -205,12 +240,19 @@ def _build_evidence_ledger(hotspots, inspection_anomaly_linkage, quality_pattern
             "confidence": 0.7 if issue.get("linked_to_geometry") else 0.45,
         })
 
+    records.extend(_build_package_evidence_ledger_records(_safe_list(package_evidence)))
+    counts_by_type = {}
+    for record in records:
+        record_type = record.get("type") or "unknown"
+        counts_by_type[record_type] = counts_by_type.get(record_type, 0) + 1
+
     return {
         "record_count": len(records),
         "counts_by_type": {
             "geometry_hotspot": len([item for item in records if item.get("type") == "geometry_hotspot"]),
             "inspection_anomaly": len([item for item in records if item.get("type") == "inspection_anomaly"]),
             "quality_pattern": len([item for item in records if item.get("type") == "quality_pattern"]),
+            **counts_by_type,
         },
         "records": records,
     }
@@ -219,12 +261,14 @@ def _build_evidence_ledger(hotspots, inspection_anomaly_linkage, quality_pattern
 def _build_uncertainty_coverage_report(metadata, geometry, hotspots, inspection_anomaly_linkage, quality_pattern_linkage, review_priorities, evidence_ledger):
     source_files = _safe_list(metadata.get("source_files"))
     warnings = _safe_list(metadata.get("warnings"))
+    ledger_records = _safe_list(evidence_ledger.get("records"))
+    has_quality_evidence = bool(quality_pattern_linkage.get("records")) or _has_classification(ledger_records, "quality_evidence")
     missing_inputs = []
     if not source_files:
         missing_inputs.append("source_files")
     if not inspection_anomaly_linkage.get("records"):
         missing_inputs.append("inspection_evidence")
-    if not quality_pattern_linkage.get("records"):
+    if not has_quality_evidence:
         missing_inputs.append("quality_evidence")
 
     numeric_score = 0.45
@@ -232,7 +276,7 @@ def _build_uncertainty_coverage_report(metadata, geometry, hotspots, inspection_
         numeric_score += 0.15
     if inspection_anomaly_linkage.get("records"):
         numeric_score += 0.15
-    if quality_pattern_linkage.get("records"):
+    if has_quality_evidence:
         numeric_score += 0.15
     if review_priorities:
         numeric_score += 0.05
@@ -249,6 +293,18 @@ def _build_uncertainty_coverage_report(metadata, geometry, hotspots, inspection_
             "geometry_hotspot_count": len(hotspots),
             "inspection_anomaly_count": len(inspection_anomaly_linkage.get("records") or []),
             "quality_pattern_count": len(quality_pattern_linkage.get("records") or []),
+            "package_quality_evidence_count": len([
+                item for item in ledger_records
+                if _has_classification([item], "quality_evidence")
+            ]),
+            "drawing_evidence_count": len([
+                item for item in ledger_records
+                if _has_classification([item], "drawing_evidence")
+            ]),
+            "design_traceability_evidence_count": len([
+                item for item in ledger_records
+                if _has_classification([item], "design_traceability_evidence")
+            ]),
             "review_priority_count": len(review_priorities),
             "evidence_record_count": evidence_ledger.get("record_count"),
         },
@@ -293,13 +349,17 @@ def build_review_pack_data(payload):
     review_priorities_source = payload.get("review_priorities") or {"records": [], "recommended_actions": []}
     review_priorities = _safe_list(review_priorities_source.get("records"))
     actions = _safe_list(review_priorities_source.get("recommended_actions"))
+    package_evidence = [
+        item for item in _safe_list(payload.get("package_evidence"))
+        if isinstance(item, dict)
+    ]
     metadata = context.get("metadata") or {}
     workflow = ((payload.get("workflow") or {}).get("steps")) or ["ingest", "analyze-part", "quality-link", "review-pack"]
     source_refs = payload.get("source_artifact_refs") or []
 
     inspection_anomaly_linkage = _build_inspection_anomaly_linkage(inspection_linkage, inspection_outliers)
     quality_pattern_linkage = _build_quality_pattern_linkage(quality_linkage, quality_hotspots)
-    evidence_ledger = _build_evidence_ledger(hotspots, inspection_anomaly_linkage, quality_pattern_linkage)
+    evidence_ledger = _build_evidence_ledger(hotspots, inspection_anomaly_linkage, quality_pattern_linkage, package_evidence)
     uncertainty_report = _build_uncertainty_coverage_report(
         metadata,
         geometry,
@@ -389,6 +449,7 @@ def build_review_pack_data(payload):
             "geometry_metrics": metrics,
             "geometry_feature_summary": features,
             "source_files": _safe_list(metadata.get("source_files")),
+            "package_evidence": package_evidence,
             "warnings": _safe_list(metadata.get("warnings")),
             "inspection_record_count": len(_records(payload, "inspection_linkage")),
             "quality_issue_count": len(_records(payload, "quality_linkage")),
@@ -412,7 +473,16 @@ def build_review_pack_data(payload):
                 "uncertainty_coverage_report",
                 "recommended_actions",
                 "data_quality_notes",
+                "package_evidence",
             ],
+            "package_evidence": {
+                "record_count": len(package_evidence),
+                "classifications": sorted({
+                    classification
+                    for item in package_evidence
+                    for classification in _safe_list(item.get("classifications"))
+                }),
+            },
             "renderers_derived_from_canonical_json": ["markdown", "pdf"],
         },
     }
@@ -489,6 +559,7 @@ def build_markdown_sections(payload_or_report):
         f"- Geometry records: {evidence_ledger.get('counts_by_type', {}).get('geometry_hotspot', 0)}",
         f"- Inspection records: {evidence_ledger.get('counts_by_type', {}).get('inspection_anomaly', 0)}",
         f"- Quality records: {evidence_ledger.get('counts_by_type', {}).get('quality_pattern', 0)}",
+        f"- Package side-input records: {sum(count for key, count in (evidence_ledger.get('counts_by_type') or {}).items() if key not in ['geometry_hotspot', 'inspection_anomaly', 'quality_pattern'])}",
     ])
     for record in (evidence_ledger.get("records") or [])[:5]:
         lines.append(f"- {record.get('type')}: {record.get('title')} [{record.get('category')}]")
