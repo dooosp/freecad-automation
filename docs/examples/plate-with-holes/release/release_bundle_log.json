@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-26T23:38:32.518Z",
+  "generated_at": "2026-04-27T11:10:46.281Z",
   "readiness_report_path": "docs/examples/plate-with-holes/readiness/readiness_report.json",
   "docs_manifest_path": "docs/examples/plate-with-holes/standard-docs/standard_docs_manifest.json",
   "bundle_output_path": "docs/examples/plate-with-holes/release/release_bundle.zip",
@@ -10,8 +10,8 @@
       "label": "Canonical readiness report JSON",
       "path": "canonical/readiness_report.json",
       "source_path": "docs/examples/plate-with-holes/readiness/readiness_report.json",
-      "sha256": "e84e271ed32b10cf901dc5b2a55cb7d8714907b19d38c3add8b8c33a1ed33e0a",
-      "size_bytes": 61961
+      "sha256": "3d76d03aa558c992ee298f898cca54228025fc968a59ff51ca9a2aca20f9881d",
+      "size_bytes": 77985
     },
     {
       "artifact_type": "readiness_markdown",
@@ -19,8 +19,8 @@
       "label": "Readiness report Markdown",
       "path": "canonical/readiness_report.md",
       "source_path": "docs/examples/plate-with-holes/readiness/readiness_report.md",
-      "sha256": "d66ea40a97eb31aa8759dc32d470f39df48f89574d81ac55a45aed783f3c4268",
-      "size_bytes": 3610
+      "sha256": "ab79e4dd336a868aa5e80a2775c4813cfea8df7e92095cd55687eee24e9b15f8",
+      "size_bytes": 4125
     },
     {
       "artifact_type": "cad_model",
@@ -37,8 +37,8 @@
       "label": "Canonical review-pack JSON",
       "path": "canonical/review_pack.json",
       "source_path": "docs/examples/plate-with-holes/review/review_pack.json",
-      "sha256": "a98242406f5a5f7ae215724d6fd381fb52b091780b963ad57f69c64e7aa40463",
-      "size_bytes": 26481
+      "sha256": "1c45a392a1c05dc505fa31adaab72faecfc89832c07eee825a392002c6d41070",
+      "size_bytes": 37156
     },
     {
       "artifact_type": "docs_manifest",
@@ -46,8 +46,8 @@
       "label": "Standard docs manifest JSON",
       "path": "docs/standard_docs_manifest.json",
       "source_path": "docs/examples/plate-with-holes/standard-docs/standard_docs_manifest.json",
-      "sha256": "c6cbc5c98351ec1fe3bfdfd3de06d3daa7c6710b4f973e07a1ba505c20b8a5df",
-      "size_bytes": 5952
+      "sha256": "a9e45fd454195a2901af02c5d4796c4997c2f66558dcc086e938361fc1a2698b",
+      "size_bytes": 7058
     },
     {
       "artifact_type": "docs_document",
@@ -82,8 +82,8 @@
       "label": "work_instruction_draft.md",
       "path": "docs/work_instruction_draft.md",
       "source_path": "docs/examples/plate-with-holes/standard-docs/work_instruction_draft.md",
-      "sha256": "be2b993737d6613dfe5e4bab33c44698d0e7f5d34368c8248cb22c4686e13bd5",
-      "size_bytes": 778
+      "sha256": "304e12d797567087958f446cb9632c160118239790dccdbf78fb4c3b4bb27b03",
+      "size_bytes": 779
     },
     {
       "artifact_type": "docs_document",
@@ -98,7 +98,7 @@
   "skipped_artifacts": [],
   "warnings": [
     "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/plate-with-holes/cad/pcb_mount_plate.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
-    "Missing or limited inspection evidence; review-pack remains usable with partial evidence.",
-    "Missing or limited quality evidence; review-pack remains usable with partial evidence."
+    "Package quality/drawing side inputs are review evidence, but they do not satisfy inspection_evidence without a genuine inspection input.",
+    "Missing or limited inspection evidence; review-pack remains usable with partial evidence."
   ]
 }

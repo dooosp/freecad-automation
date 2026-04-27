@@ -2,14 +2,15 @@
   "artifact_type": "review_pack",
   "schema_version": "1.0",
   "analysis_version": "d1",
-  "generated_at": "2026-04-26T23:38:19Z",
+  "generated_at": "2026-04-27T11:10:16Z",
   "part_id": "pcb_mount_plate",
   "revision": null,
   "warnings": [
-    "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/plate-with-holes/cad/pcb_mount_plate.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints."
+    "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/plate-with-holes/cad/pcb_mount_plate.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
+    "Package quality/drawing side inputs are review evidence, but they do not satisfy inspection_evidence without a genuine inspection input."
   ],
   "coverage": {
-    "source_artifact_count": 2,
+    "source_artifact_count": 7,
     "source_file_count": 1,
     "hotspot_count": 4,
     "inspection_record_count": 0,
@@ -24,6 +25,36 @@
     "rationale": "Canonical review pack combines upstream D artifacts into a decision-oriented JSON contract."
   },
   "source_artifact_refs": [
+    {
+      "artifact_type": "create_quality_report",
+      "path": "docs/examples/plate-with-holes/quality/pcb_mount_plate_create_quality.json",
+      "role": "evidence",
+      "label": "Create quality report"
+    },
+    {
+      "artifact_type": "drawing_quality_report",
+      "path": "docs/examples/plate-with-holes/quality/pcb_mount_plate_drawing_quality.json",
+      "role": "evidence",
+      "label": "Drawing quality report"
+    },
+    {
+      "artifact_type": "drawing_qa_report",
+      "path": "docs/examples/plate-with-holes/quality/pcb_mount_plate_drawing_qa.json",
+      "role": "evidence",
+      "label": "Drawing QA report"
+    },
+    {
+      "artifact_type": "drawing_intent",
+      "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing_intent.json",
+      "role": "evidence",
+      "label": "Drawing intent"
+    },
+    {
+      "artifact_type": "feature_catalog",
+      "path": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_feature_catalog.json",
+      "role": "evidence",
+      "label": "Feature catalog"
+    },
     {
       "artifact_type": "cad_model",
       "path": "docs/examples/plate-with-holes/cad/pcb_mount_plate.step",
@@ -69,7 +100,7 @@
     "recommended_action_count": 3,
     "confidence": {
       "label": "heuristic",
-      "numeric_score": 0.62
+      "numeric_score": 0.74
     }
   },
   "prioritized_hotspots": [
@@ -187,11 +218,16 @@
     "hotspots": []
   },
   "evidence_ledger": {
-    "record_count": 4,
+    "record_count": 9,
     "counts_by_type": {
       "geometry_hotspot": 4,
       "inspection_anomaly": 0,
-      "quality_pattern": 0
+      "quality_pattern": 0,
+      "create_quality_report": 1,
+      "drawing_quality_report": 1,
+      "drawing_qa_report": 1,
+      "drawing_intent": 1,
+      "feature_catalog": 1
     },
     "records": [
       {
@@ -229,27 +265,124 @@
         "score": 0.6,
         "rationale": "Bounding-box thinness suggests regions that may be sensitive to distortion or manufacturing variation.",
         "confidence": 0.6
+      },
+      {
+        "evidence_id": "package:create_quality_report:docs/examples/plate-with-holes/quality/pcb_mount_plate_create_quality.json",
+        "type": "create_quality_report",
+        "artifact_type": "create_quality_report",
+        "category": "quality_evidence",
+        "classifications": [
+          "quality_evidence"
+        ],
+        "source_ref": "docs/examples/plate-with-holes/quality/pcb_mount_plate_create_quality.json",
+        "file_name": "pcb_mount_plate_create_quality.json",
+        "title": "Create quality report",
+        "score": null,
+        "rationale": "Create quality report supplied as explicit review-context package side input.",
+        "confidence": null,
+        "size_bytes": 36454,
+        "sha256": "87288bb06cd5b297b6b9dd56313fa76e1b18670163c5d050e443ffae4820b7d1",
+        "inspection_evidence": false
+      },
+      {
+        "evidence_id": "package:drawing_quality_report:docs/examples/plate-with-holes/quality/pcb_mount_plate_drawing_quality.json",
+        "type": "drawing_quality_report",
+        "artifact_type": "drawing_quality_report",
+        "category": "quality_evidence",
+        "classifications": [
+          "quality_evidence",
+          "drawing_evidence"
+        ],
+        "source_ref": "docs/examples/plate-with-holes/quality/pcb_mount_plate_drawing_quality.json",
+        "file_name": "pcb_mount_plate_drawing_quality.json",
+        "title": "Drawing quality report",
+        "score": null,
+        "rationale": "Drawing quality report supplied as explicit review-context package side input.",
+        "confidence": null,
+        "size_bytes": 98752,
+        "sha256": "2dfbd2b03d716013cffe8775a21b08de8553df060139fd27fb9f4bde276899f5",
+        "inspection_evidence": false
+      },
+      {
+        "evidence_id": "package:drawing_qa_report:docs/examples/plate-with-holes/quality/pcb_mount_plate_drawing_qa.json",
+        "type": "drawing_qa_report",
+        "artifact_type": "drawing_qa_report",
+        "category": "quality_evidence",
+        "classifications": [
+          "quality_evidence",
+          "drawing_evidence"
+        ],
+        "source_ref": "docs/examples/plate-with-holes/quality/pcb_mount_plate_drawing_qa.json",
+        "file_name": "pcb_mount_plate_drawing_qa.json",
+        "title": "Drawing QA report",
+        "score": null,
+        "rationale": "Drawing QA report supplied as explicit review-context package side input.",
+        "confidence": null,
+        "size_bytes": 1191,
+        "sha256": "619dcfd55a78547adfb00592bf4c14bee5cd2025ea03ed9b3598adb33467c809",
+        "inspection_evidence": false
+      },
+      {
+        "evidence_id": "package:drawing_intent:docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing_intent.json",
+        "type": "drawing_intent",
+        "artifact_type": "drawing_intent",
+        "category": "design_traceability_evidence",
+        "classifications": [
+          "design_traceability_evidence",
+          "advisory_context"
+        ],
+        "source_ref": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing_intent.json",
+        "file_name": "pcb_mount_plate_drawing_intent.json",
+        "title": "Drawing intent",
+        "score": null,
+        "rationale": "Drawing intent supplied as explicit review-context package side input.",
+        "confidence": null,
+        "size_bytes": 5147,
+        "sha256": "16dfb7766ce078e9fd1740241c5a25d4b5232445dce130acd412efdf2864d796",
+        "inspection_evidence": false
+      },
+      {
+        "evidence_id": "package:feature_catalog:docs/examples/plate-with-holes/drawing/pcb_mount_plate_feature_catalog.json",
+        "type": "feature_catalog",
+        "artifact_type": "feature_catalog",
+        "category": "design_traceability_evidence",
+        "classifications": [
+          "design_traceability_evidence",
+          "advisory_context"
+        ],
+        "source_ref": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_feature_catalog.json",
+        "file_name": "pcb_mount_plate_feature_catalog.json",
+        "title": "Feature catalog",
+        "score": null,
+        "rationale": "Feature catalog supplied as explicit review-context package side input.",
+        "confidence": null,
+        "size_bytes": 10459,
+        "sha256": "19a40672f1d37179901c7aa9850166f371368cc6503e8d16acdfcdf4897063b9",
+        "inspection_evidence": false
       }
     ]
   },
   "uncertainty_coverage_report": {
     "analysis_confidence": "heuristic",
-    "numeric_score": 0.62,
+    "numeric_score": 0.74,
     "partial_evidence": true,
     "missing_inputs": [
-      "inspection_evidence",
-      "quality_evidence"
+      "inspection_evidence"
     ],
     "coverage": {
       "source_file_count": 1,
       "geometry_hotspot_count": 4,
       "inspection_anomaly_count": 0,
       "quality_pattern_count": 0,
+      "package_quality_evidence_count": 3,
+      "drawing_evidence_count": 2,
+      "design_traceability_evidence_count": 2,
       "review_priority_count": 4,
-      "evidence_record_count": 4
+      "evidence_record_count": 9
     },
     "warnings": [
-      "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/plate-with-holes/cad/pcb_mount_plate.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints."
+      "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/plate-with-holes/cad/pcb_mount_plate.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
+      "Package quality/drawing side inputs are review evidence, but they do not satisfy inspection_evidence without a genuine inspection input."
     ]
   },
   "recommended_actions": [
@@ -317,12 +450,12 @@
       "message": "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/plate-with-holes/cad/pcb_mount_plate.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints."
     },
     {
-      "severity": "info",
-      "message": "Missing or limited inspection evidence; review-pack remains usable with partial evidence."
+      "severity": "warning",
+      "message": "Package quality/drawing side inputs are review evidence, but they do not satisfy inspection_evidence without a genuine inspection input."
     },
     {
       "severity": "info",
-      "message": "Missing or limited quality evidence; review-pack remains usable with partial evidence."
+      "message": "Missing or limited inspection evidence; review-pack remains usable with partial evidence."
     }
   ],
   "geometry_summary": {
@@ -741,8 +874,95 @@
     "source_files": [
       "docs/examples/plate-with-holes/cad/pcb_mount_plate.step"
     ],
+    "package_evidence": [
+      {
+        "evidence_id": "package:create_quality_report:docs/examples/plate-with-holes/quality/pcb_mount_plate_create_quality.json",
+        "type": "create_quality_report",
+        "artifact_type": "create_quality_report",
+        "category": "quality_evidence",
+        "classifications": [
+          "quality_evidence"
+        ],
+        "source_ref": "docs/examples/plate-with-holes/quality/pcb_mount_plate_create_quality.json",
+        "file_name": "pcb_mount_plate_create_quality.json",
+        "size_bytes": 36454,
+        "sha256": "87288bb06cd5b297b6b9dd56313fa76e1b18670163c5d050e443ffae4820b7d1",
+        "label": "Create quality report",
+        "inspection_evidence": false,
+        "rationale": "Create quality report supplied as explicit review-context package side input."
+      },
+      {
+        "evidence_id": "package:drawing_quality_report:docs/examples/plate-with-holes/quality/pcb_mount_plate_drawing_quality.json",
+        "type": "drawing_quality_report",
+        "artifact_type": "drawing_quality_report",
+        "category": "quality_evidence",
+        "classifications": [
+          "quality_evidence",
+          "drawing_evidence"
+        ],
+        "source_ref": "docs/examples/plate-with-holes/quality/pcb_mount_plate_drawing_quality.json",
+        "file_name": "pcb_mount_plate_drawing_quality.json",
+        "size_bytes": 98752,
+        "sha256": "2dfbd2b03d716013cffe8775a21b08de8553df060139fd27fb9f4bde276899f5",
+        "label": "Drawing quality report",
+        "inspection_evidence": false,
+        "rationale": "Drawing quality report supplied as explicit review-context package side input."
+      },
+      {
+        "evidence_id": "package:drawing_qa_report:docs/examples/plate-with-holes/quality/pcb_mount_plate_drawing_qa.json",
+        "type": "drawing_qa_report",
+        "artifact_type": "drawing_qa_report",
+        "category": "quality_evidence",
+        "classifications": [
+          "quality_evidence",
+          "drawing_evidence"
+        ],
+        "source_ref": "docs/examples/plate-with-holes/quality/pcb_mount_plate_drawing_qa.json",
+        "file_name": "pcb_mount_plate_drawing_qa.json",
+        "size_bytes": 1191,
+        "sha256": "619dcfd55a78547adfb00592bf4c14bee5cd2025ea03ed9b3598adb33467c809",
+        "label": "Drawing QA report",
+        "inspection_evidence": false,
+        "rationale": "Drawing QA report supplied as explicit review-context package side input."
+      },
+      {
+        "evidence_id": "package:drawing_intent:docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing_intent.json",
+        "type": "drawing_intent",
+        "artifact_type": "drawing_intent",
+        "category": "design_traceability_evidence",
+        "classifications": [
+          "design_traceability_evidence",
+          "advisory_context"
+        ],
+        "source_ref": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_drawing_intent.json",
+        "file_name": "pcb_mount_plate_drawing_intent.json",
+        "size_bytes": 5147,
+        "sha256": "16dfb7766ce078e9fd1740241c5a25d4b5232445dce130acd412efdf2864d796",
+        "label": "Drawing intent",
+        "inspection_evidence": false,
+        "rationale": "Drawing intent supplied as explicit review-context package side input."
+      },
+      {
+        "evidence_id": "package:feature_catalog:docs/examples/plate-with-holes/drawing/pcb_mount_plate_feature_catalog.json",
+        "type": "feature_catalog",
+        "artifact_type": "feature_catalog",
+        "category": "design_traceability_evidence",
+        "classifications": [
+          "design_traceability_evidence",
+          "advisory_context"
+        ],
+        "source_ref": "docs/examples/plate-with-holes/drawing/pcb_mount_plate_feature_catalog.json",
+        "file_name": "pcb_mount_plate_feature_catalog.json",
+        "size_bytes": 10459,
+        "sha256": "19a40672f1d37179901c7aa9850166f371368cc6503e8d16acdfcdf4897063b9",
+        "label": "Feature catalog",
+        "inspection_evidence": false,
+        "rationale": "Feature catalog supplied as explicit review-context package side input."
+      }
+    ],
     "warnings": [
-      "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/plate-with-holes/cad/pcb_mount_plate.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints."
+      "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/plate-with-holes/cad/pcb_mount_plate.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
+      "Package quality/drawing side inputs are review evidence, but they do not satisfy inspection_evidence without a genuine inspection input."
     ],
     "inspection_record_count": 0,
     "quality_issue_count": 0,
@@ -760,9 +980,10 @@
       "source_files": [
         "docs/examples/plate-with-holes/cad/pcb_mount_plate.step"
       ],
-      "context_created_at": "2026-04-26T23:38:19+00:00",
+      "context_created_at": "2026-04-27T11:10:16+00:00",
       "warnings": [
-        "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/plate-with-holes/cad/pcb_mount_plate.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints."
+        "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/plate-with-holes/cad/pcb_mount_plate.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
+        "Package quality/drawing side inputs are review evidence, but they do not satisfy inspection_evidence without a genuine inspection input."
       ]
     },
     "renderers": [
@@ -777,8 +998,18 @@
       "evidence_ledger",
       "uncertainty_coverage_report",
       "recommended_actions",
-      "data_quality_notes"
+      "data_quality_notes",
+      "package_evidence"
     ],
+    "package_evidence": {
+      "record_count": 5,
+      "classifications": [
+        "advisory_context",
+        "design_traceability_evidence",
+        "drawing_evidence",
+        "quality_evidence"
+      ]
+    },
     "renderers_derived_from_canonical_json": [
       "markdown",
       "pdf"
