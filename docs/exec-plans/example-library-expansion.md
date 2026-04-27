@@ -2,7 +2,7 @@
 
 ## Goal
 
-Define and grow a curated example-library structure for canonical AF5 packages. The first three canonical packages are now `quality-pass-bracket`, `plate-with-holes`, and `motor-mount`; the next maintenance step is keeping the public example-library index aligned with the manifest and package tests.
+Define and grow a curated example-library structure for canonical AF5 packages. The first four canonical packages are now `quality-pass-bracket`, `plate-with-holes`, `motor-mount`, and `controller-housing-eol`; the next maintenance step is keeping the public example-library index aligned with the manifest and package tests.
 
 ## Scope Boundary
 
@@ -57,7 +57,7 @@ The coverage manifest must use these exact underscore names. Legacy hyphenated A
 2. `plate-with-holes`: plate and hole-pattern seed from `configs/examples/pcb_mount_plate.toml`; can also reference existing quality fixture patterns.
 3. `motor-mount`: generated motor-mount seed from `configs/generated/cnc_motor_mount_bracket.toml`; promote only after reviewing generated provenance and drawing intent gaps.
 4. `enclosure`: controller-housing seed from `configs/examples/controller_housing.toml`.
-5. `controller-housing-eol`: standard-docs-rich enclosure variant from `configs/examples/controller_housing_eol.toml`; existing checked-in standard docs are useful but should be regenerated or sanitized before canonical package promotion.
+5. `controller-housing-eol`: promoted canonical enclosure/EOL package from `configs/examples/controller_housing_eol.toml`; default standard docs are regenerated canonical evidence while site preset docs remain legacy examples.
 6. `fixture-plate`: possible fixture-oriented package using `configs/examples/pcb_mount_plate.toml` until a distinct fixture config exists.
 7. `shaft-support`: partial seed from `configs/examples/ks_shaft.toml`, with `configs/examples/seatbelt_retractor.toml` as a related mechanism-heavy reference.
 8. `ks-bracket`: intentional blocker-rich bracket demo from `configs/examples/ks_bracket.toml`; keep as a fail/demo package, not the happy path.
@@ -93,7 +93,7 @@ Studio reopen validation should be deterministic. It should use a temp job-store
 ## Risk Register
 
 - Existing checked-in docs examples include older artifact conventions and should not be promoted without normalization.
-- `controller-housing-eol` has useful checked-in standard docs, but the existing manifest should be treated as legacy until regenerated or sanitized for portable paths.
+- `controller-housing-eol` is now promoted with regenerated canonical standard docs; retained Korea/Mexico site-doc manifests remain legacy examples only.
 - Generic review and readiness fixtures prove schema behavior, not curated per-example package coverage.
 - Generated motor-mount configs are promising, but need provenance review before becoming canonical examples.
 - Binary release bundles can create noisy diffs and should be added only when the package contract and validation are locked.
@@ -109,8 +109,8 @@ Studio reopen validation should be deterministic. It should use a temp job-store
 5. Add deterministic Studio reopen validation for tracked job and artifact re-entry.
 6. Extend packages to `plate-with-holes` and `motor-mount`.
 7. Refresh the public example-library index after the first three canonical packages are merged.
-8. Decide whether `controller-housing-eol` becomes a full canonical package or remains a standard-docs example after manifest regeneration or sanitization.
-9. Extend packages to `enclosure` only when a fourth package is intentionally scheduled.
+8. Promoted `controller-housing-eol` as the fourth full canonical package after manifest regeneration and package validation.
+9. Extend packages to the broader `enclosure` candidate only when a later package is intentionally scheduled.
 10. Create new geometry examples for `hinge-block`, `spacer`, and `simple-jig` after the first package set is stable.
 
 ## Definition Of Done For The First 3 Canonical Packages

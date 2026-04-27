@@ -26,6 +26,12 @@ const CANONICAL_PACKAGES = Object.freeze([
     sourceConfig: 'configs/generated/cnc_motor_mount_bracket.toml',
     directConfigCopy: false,
   },
+  {
+    slug: 'controller-housing-eol',
+    stem: 'controller_housing_eol',
+    sourceConfig: 'configs/examples/controller_housing_eol.toml',
+    directConfigCopy: false,
+  },
 ]);
 
 const CANONICAL_ARTIFACTS = Object.freeze([

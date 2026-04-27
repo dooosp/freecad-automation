@@ -33,6 +33,10 @@ const CANONICAL_PACKAGES = Object.freeze([
     slug: 'motor-mount',
     partId: 'cnc_motor_mount_bracket',
   },
+  {
+    slug: 'controller-housing-eol',
+    partId: 'controller_housing_eol',
+  },
 ]);
 
 const CANONICAL_ARTIFACTS = Object.freeze([
@@ -328,7 +332,7 @@ try {
       }
     }
 
-    const { response: recentResponse, payload: recentPayload } = await getJson(`${baseUrl}/jobs?limit=3`);
+    const { response: recentResponse, payload: recentPayload } = await getJson(`${baseUrl}/jobs?limit=4`);
     assert.equal(recentResponse.status, 200);
     assert.equal(recentPayload.jobs[0].id, job.id);
     assert.equal(recentPayload.jobs[0].result.example_slug, packageDef.slug);

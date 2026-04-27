@@ -1,0 +1,447 @@
+config_version = 1
+name = "controller_housing_eol"
+batch_size = 96
+
+[product]
+family = "controller"
+module_type = "Infotainment controller housing + PCB assembly"
+vehicle_program = "SDV cockpit domain controller"
+revision = "C"
+decision_scope = "electronics assembly, enclosure sealing, and launch stabilization review"
+connector_clearance_mm = 4.5
+connector_side = "rear I/O connector opening"
+fastening_strategy = "manual torque-controlled screw fastening with digital trace"
+traceability_label_area = "outer wall next to rear connector opening"
+
+[manufacturing]
+process = "casting"
+material = "AL6061"
+batch_size = 96
+machining_notes = [
+  "Machine connector datum and PCB mounting face before EOL fixture confirmation.",
+  "Protect the sealing interface and cavity cleanliness before electronics loading.",
+  "Keep rear connector opening, gasket interface, and traceability label area visible for launch review.",
+]
+
+[production]
+sites = ["Korea-Ulsan", "Mexico-MTY"]
+annual_volume = 165000
+target_ct_sec = 48
+automation_mode = "hybrid"
+pilot_lot = 96
+automation_candidates = [
+  "vision confirmation of connector-side opening and gasket seating",
+  "digital torque trace capture for six closeout screws",
+  "barcode pairing and EOL electrical result linkage",
+]
+
+[assembly]
+pcb_insert_direction = "top-down guided insertion"
+connector_mating_force_n = 46
+screw_count = 6
+torque_spec_nm = 0.85
+requires_gasket = true
+requires_eol_electrical_test = true
+requires_barcode_pairing = true
+requires_vision_confirmation = true
+functional_test_fixture_type = "nest fixture with side-probe access"
+
+[quality.traceability]
+serial_level = "unit_serial_pairing"
+record_linkage = "housing serial + PCB serial + operator + torque trace + EOL result"
+label_strategy = "laser mark housing + scan PCB serial before closure"
+label_area = "outer wall next to rear connector opening"
+retention_note = "Retain launch serialization, torque, and EOL records for cross-site issue containment."
+
+[[quality.critical_dimensions]]
+id = "cd-01"
+name = "connector boss datum to PCB mount face"
+feature = "connector_port"
+target_mm = 64.0
+tolerance = "+/-0.10"
+rationale = "connector fit and PCB stack-up alignment"
+
+[[quality.critical_dimensions]]
+id = "cd-02"
+name = "cover sealing groove depth"
+feature = "seal_interface"
+target_mm = 2.4
+tolerance = "+/-0.05"
+rationale = "gasket compression and sealing durability"
+
+[[quality.critical_dimensions]]
+id = "cd-03"
+name = "four-hole mounting pattern diameter"
+feature = "mount1,mount2,mount3,mount4"
+target_mm = 6.0
+tolerance = "project default"
+rationale = "housing fixture location and cover fastening clearance"
+
+[[quality.gates]]
+name = "Machined housing release"
+stage = "pre_assembly"
+objective = "Confirm connector datum, sealing face, and cavity cleanliness before electronics loading."
+evidence = ["first article", "fixture check", "cleanliness confirmation"]
+
+[[quality.gates]]
+name = "Assembly closeout gate"
+stage = "end_of_line"
+objective = "Verify torque trace, gasket confirmation, serialization pairing, and EOL pass status."
+evidence = ["torque record", "barcode pairing log", "EOL electrical test result"]
+
+[[quality.functional_test_points]]
+id = "ftp-01"
+name = "CAN/LVDS power-up and communication test"
+location = "end_of_line"
+rationale = "confirm electrical readiness before pack-out"
+
+[[quality.functional_test_points]]
+id = "ftp-02"
+name = "Connector-side fit confirmation"
+location = "end_of_line"
+rationale = "protect downstream vehicle install and side-probe access"
+
+[[quality.functional_test_points]]
+id = "ftp-03"
+name = "Barcode pairing and torque-trace completeness"
+location = "end_of_line"
+rationale = "preserve unit-level traceability across Korea and Mexico launch sites"
+
+[[shapes]]
+id = "housing"
+type = "box"
+length = 172
+width = 126
+height = 50
+
+[[shapes]]
+id = "cavity"
+type = "box"
+length = 142
+width = 96
+height = 34
+position = [15, 15, 8]
+
+[[shapes]]
+id = "connector_port"
+type = "box"
+length = 42
+width = 30
+height = 18
+position = [118, 46, 10]
+
+[[shapes]]
+id = "seal_interface"
+type = "box"
+length = 150
+width = 104
+height = 2.4
+position = [11, 11, 47.6]
+
+[[shapes]]
+id = "mount1"
+type = "cylinder"
+radius = 3
+height = 56
+position = [20, 20, -4]
+
+[[shapes]]
+id = "mount2"
+type = "cylinder"
+radius = 3
+height = 56
+position = [152, 20, -4]
+
+[[shapes]]
+id = "mount3"
+type = "cylinder"
+radius = 3
+height = 56
+position = [20, 106, -4]
+
+[[shapes]]
+id = "mount4"
+type = "cylinder"
+radius = 3
+height = 56
+position = [152, 106, -4]
+
+[[operations]]
+op = "cut"
+base = "housing"
+tool = "cavity"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "connector_port"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "seal_interface"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mount1"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mount2"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mount3"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mount4"
+result = "final"
+
+[drawing]
+views = ["front", "top", "right", "iso"]
+
+[drawing.meta]
+part_name = "Controller Housing EOL"
+drawing_no = "CTRL-HOUSING-EOL-C"
+material = "AL6061"
+tolerance = "Project launch tolerance plan"
+units = "mm"
+
+[drawing.style]
+show_hidden = true
+show_centerlines = true
+show_dimensions = true
+
+[drawing.dimension_style]
+type = "baseline"
+
+[[drawing.feature_tolerances]]
+feature_id = "seal_groove_depth"
+value = 2.4
+tolerance_grade = "+/-0.05"
+
+[drawing_plan]
+part_type = "generic"
+profile = "KS"
+
+[drawing_plan.views]
+enabled = ["front", "top", "right", "iso"]
+layout = "third_angle"
+
+[drawing_plan.dimensioning]
+auto_plan_dedupe = "off"
+qa_weight_preset = "bracket"
+
+[drawing_plan.notes]
+general = [
+  "Material: AL6061 casting with machined datum and sealing surfaces.",
+  "Torque spec: 0.85 Nm for six assembly closeout screws.",
+  "EOL release requires barcode pairing, torque trace, gasket confirmation, and functional electrical pass.",
+]
+
+[drawing_intent]
+part_type = "controller_housing_eol"
+manufacturing_process = "casting"
+material = "AL6061"
+required_views = ["front", "top", "right", "iso"]
+drawing_standard = "project-default"
+missing_semantics_policy = "advisory"
+
+[drawing_intent.datum_strategy]
+primary = "pcb_mount_face"
+secondary = "rear_connector_opening"
+tertiary = "front_left_mounting_hole"
+scheme = "assembly-oriented enclosure datum using the PCB mount face, connector opening, and mounting hole pattern"
+notes = ["Use connector datum, sealing interface, and mounting pattern as launch drawing QA references only."]
+
+[drawing_intent.tolerance_policy]
+general = "Carry source critical dimensions forward; do not infer additional geometric tolerances."
+gdt = "none"
+notes = ["Connector datum and seal groove depth are controlled by the source quality metadata."]
+
+[[drawing_intent.critical_features]]
+id = "HOUSING_ENVELOPE"
+feature = "housing"
+description = "Outer housing envelope communicates the 172 mm by 126 mm by 50 mm controller enclosure footprint."
+reason = "Defines vehicle package and fixture envelope context."
+view = "iso"
+
+[[drawing_intent.critical_features]]
+id = "INTERNAL_CAVITY"
+feature = "cavity"
+description = "Internal cavity communicates electronics volume and top-down PCB insertion intent."
+reason = "Protects PCB loading and cavity cleanliness review."
+view = "top"
+
+[[drawing_intent.critical_features]]
+id = "CONNECTOR_OPENING"
+feature = "connector_port"
+description = "Rear connector opening and datum support connector seating and side-probe access."
+reason = "Controls connector fit and EOL probing access."
+view = "right"
+
+[[drawing_intent.critical_features]]
+id = "MOUNTING_HOLE_PATTERN"
+feature = "mount1,mount2,mount3,mount4"
+description = "Four housing mounting holes establish fixture and closeout pattern references."
+reason = "Supports cover fastening clearance and fixture location."
+view = "top"
+
+[[drawing_intent.critical_features]]
+id = "SEAL_INTERFACE"
+feature = "seal_interface"
+description = "Seal interface represents the gasket compression path around the cover opening."
+reason = "Protects sealing durability and gasket confirmation at assembly closeout."
+view = "front"
+
+[[drawing_intent.required_dimensions]]
+id = "HOUSING_LENGTH"
+feature = "housing"
+label = "Overall housing length"
+dimension_type = "linear"
+value_mm = 172
+required = true
+view = "top"
+reason = "Confirms the enclosure package envelope."
+
+[[drawing_intent.required_dimensions]]
+id = "HOUSING_WIDTH"
+feature = "housing"
+label = "Overall housing width"
+dimension_type = "linear"
+value_mm = 126
+required = true
+view = "top"
+reason = "Confirms the enclosure package envelope."
+
+[[drawing_intent.required_dimensions]]
+id = "HOUSING_HEIGHT"
+feature = "housing"
+label = "Overall housing height"
+dimension_type = "linear"
+value_mm = 50
+required = true
+view = "front"
+reason = "Confirms enclosure stack height."
+
+[[drawing_intent.required_dimensions]]
+id = "CAVITY_LENGTH"
+feature = "cavity"
+label = "Internal cavity length"
+dimension_type = "linear"
+value_mm = 142
+required = true
+view = "top"
+reason = "Captures electronics volume intent."
+
+[[drawing_intent.required_dimensions]]
+id = "CAVITY_WIDTH"
+feature = "cavity"
+label = "Internal cavity width"
+dimension_type = "linear"
+value_mm = 96
+required = true
+view = "top"
+reason = "Captures electronics volume intent."
+
+[[drawing_intent.required_dimensions]]
+id = "CONNECTOR_OPENING_WIDTH"
+feature = "connector_port"
+label = "Rear connector opening width"
+dimension_type = "linear"
+value_mm = 30
+required = true
+view = "right"
+reason = "Carries connector-side fit and probe access intent."
+
+[[drawing_intent.required_dimensions]]
+id = "CONNECTOR_OPENING_LENGTH"
+feature = "connector_port"
+label = "Rear connector opening length"
+dimension_type = "linear"
+value_mm = 42
+required = true
+view = "top"
+reason = "Carries connector datum and fit intent."
+
+[[drawing_intent.required_dimensions]]
+id = "MOUNTING_HOLE_DIA"
+feature = "mount1,mount2,mount3,mount4"
+label = "Mounting hole diameters"
+dimension_type = "diameter"
+value_mm = 6
+required = true
+view = "top"
+reason = "Confirms the shared mounting and fixture hole size."
+
+[[drawing_intent.required_dimensions]]
+id = "MOUNTING_HOLE_PATTERN_X"
+feature = "mount1,mount2,mount3,mount4"
+label = "Mounting hole column spacing"
+dimension_type = "linear"
+value_mm = 132
+required = true
+view = "top"
+reason = "Captures the horizontal spacing from x=20 mm to x=152 mm."
+
+[[drawing_intent.required_dimensions]]
+id = "MOUNTING_HOLE_PATTERN_Y"
+feature = "mount1,mount2,mount3,mount4"
+label = "Mounting hole row spacing"
+dimension_type = "linear"
+value_mm = 86
+required = true
+view = "top"
+reason = "Captures the vertical spacing from y=20 mm to y=106 mm."
+
+[[drawing_intent.required_dimensions]]
+id = "SEAL_GROOVE_DEPTH"
+feature = "seal_interface"
+label = "Cover sealing groove depth"
+dimension_type = "linear"
+value_mm = 2.4
+tolerance = "+/-0.05"
+required = true
+view = "front"
+reason = "Carries the gasket compression critical dimension."
+
+[[drawing_intent.required_notes]]
+id = "MATERIAL_PROCESS"
+text = "Material: AL6061 casting with machined connector datum and sealing surfaces."
+required = true
+
+[[drawing_intent.required_notes]]
+id = "TORQUE_TRACE"
+text = "Assembly closeout requires six screws tightened to 0.85 Nm with digital torque trace."
+required = true
+
+[[drawing_intent.required_notes]]
+id = "EOL_FUNCTIONAL_TEST"
+text = "EOL release requires barcode pairing, gasket confirmation, vision confirmation, and electrical functional pass."
+required = true
+
+[[drawing_plan.dim_intents]]
+id = "MOUNTING_HOLE_DIA"
+feature = "mount1,mount2,mount3,mount4"
+view = "top"
+style = "diameter"
+required = true
+priority = 1
+value_mm = 6
+reason = "Shared housing mounting and fixture hole diameter."
+source = "drawing_intent.required_dimensions"
+
+[export]
+formats = ["step", "stl"]
+directory = "docs/examples/controller-housing-eol/cad"

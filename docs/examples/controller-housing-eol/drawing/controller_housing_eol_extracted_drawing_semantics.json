@@ -1,0 +1,1018 @@
+{
+  "schema_version": 1,
+  "artifact_type": "extracted_drawing_semantics",
+  "status": "partial",
+  "decision": "advisory",
+  "methods": [
+    "svg_text_scan",
+    "svg_title_block_material_pair",
+    "svg_view_group_metadata",
+    "layout_report_views",
+    "dimension_map_reference",
+    "traceability_reference"
+  ],
+  "sources": [
+    {
+      "artifact_type": "svg",
+      "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "inspected": true,
+      "method": "svg_text_scan"
+    },
+    {
+      "artifact_type": "svg",
+      "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "inspected": true,
+      "method": "svg_title_block_material_pair"
+    },
+    {
+      "artifact_type": "svg",
+      "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "inspected": true,
+      "method": "svg_view_group_metadata"
+    },
+    {
+      "artifact_type": "layout_report",
+      "path": "docs/examples/controller-housing-eol/cad/controller_housing_eol_layout_report.json",
+      "inspected": true,
+      "method": "layout_report_views"
+    },
+    {
+      "artifact_type": "dimension_map",
+      "path": "docs/examples/controller-housing-eol/cad/controller_housing_eol_dimension_map.json",
+      "inspected": true,
+      "method": "dimension_map_reference"
+    },
+    {
+      "artifact_type": "traceability",
+      "path": "docs/examples/controller-housing-eol/cad/controller_housing_eol_traceability.json",
+      "inspected": true,
+      "method": "traceability_reference"
+    }
+  ],
+  "views": [
+    {
+      "id": "front",
+      "label": "FRONT",
+      "raw_text": "FRONT",
+      "view_kind": "orthographic",
+      "identity": null,
+      "source_view": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "matched_intent_id": "front",
+      "confidence": 0.94,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_view_group_metadata",
+        "svg_group_id": "drawing-view-front",
+        "svg_region_ref": "drawing-view-front"
+      }
+    },
+    {
+      "id": "top",
+      "label": "TOP",
+      "raw_text": "TOP",
+      "view_kind": "orthographic",
+      "identity": null,
+      "source_view": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "matched_intent_id": "top",
+      "confidence": 0.94,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_view_group_metadata",
+        "svg_group_id": "drawing-view-top",
+        "svg_region_ref": "drawing-view-top"
+      }
+    },
+    {
+      "id": "right",
+      "label": "RIGHT",
+      "raw_text": "RIGHT",
+      "view_kind": "orthographic",
+      "identity": null,
+      "source_view": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "matched_intent_id": "right",
+      "confidence": 0.94,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_view_group_metadata",
+        "svg_group_id": "drawing-view-right",
+        "svg_region_ref": "drawing-view-right"
+      }
+    },
+    {
+      "id": "iso",
+      "label": "ISOMETRIC",
+      "raw_text": "ISOMETRIC",
+      "view_kind": "isometric",
+      "identity": null,
+      "source_view": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "matched_intent_id": "iso",
+      "confidence": 0.94,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_view_group_metadata",
+        "svg_group_id": "drawing-view-iso",
+        "svg_region_ref": "drawing-view-iso"
+      }
+    },
+    {
+      "id": "front",
+      "label": "front",
+      "raw_text": "front",
+      "view_kind": "orthographic",
+      "identity": null,
+      "source_view": null,
+      "source": "docs/examples/controller-housing-eol/cad/controller_housing_eol_layout_report.json",
+      "matched_intent_id": "front",
+      "confidence": 0.92,
+      "provenance": {
+        "artifact_type": "layout_report",
+        "path": "docs/examples/controller-housing-eol/cad/controller_housing_eol_layout_report.json",
+        "method": "layout_report_views",
+        "layout_view_key": "front",
+        "layout_region_ref": "views.front"
+      }
+    },
+    {
+      "id": "top",
+      "label": "top",
+      "raw_text": "top",
+      "view_kind": "orthographic",
+      "identity": null,
+      "source_view": null,
+      "source": "docs/examples/controller-housing-eol/cad/controller_housing_eol_layout_report.json",
+      "matched_intent_id": "top",
+      "confidence": 0.92,
+      "provenance": {
+        "artifact_type": "layout_report",
+        "path": "docs/examples/controller-housing-eol/cad/controller_housing_eol_layout_report.json",
+        "method": "layout_report_views",
+        "layout_view_key": "top",
+        "layout_region_ref": "views.top"
+      }
+    },
+    {
+      "id": "right",
+      "label": "right",
+      "raw_text": "right",
+      "view_kind": "orthographic",
+      "identity": null,
+      "source_view": null,
+      "source": "docs/examples/controller-housing-eol/cad/controller_housing_eol_layout_report.json",
+      "matched_intent_id": "right",
+      "confidence": 0.92,
+      "provenance": {
+        "artifact_type": "layout_report",
+        "path": "docs/examples/controller-housing-eol/cad/controller_housing_eol_layout_report.json",
+        "method": "layout_report_views",
+        "layout_view_key": "right",
+        "layout_region_ref": "views.right"
+      }
+    },
+    {
+      "id": "iso",
+      "label": "iso",
+      "raw_text": "iso",
+      "view_kind": "isometric",
+      "identity": null,
+      "source_view": null,
+      "source": "docs/examples/controller-housing-eol/cad/controller_housing_eol_layout_report.json",
+      "matched_intent_id": "iso",
+      "confidence": 0.92,
+      "provenance": {
+        "artifact_type": "layout_report",
+        "path": "docs/examples/controller-housing-eol/cad/controller_housing_eol_layout_report.json",
+        "method": "layout_report_views",
+        "layout_view_key": "iso",
+        "layout_region_ref": "views.iso"
+      }
+    },
+    {
+      "id": "front",
+      "label": "FRONT",
+      "raw_text": "FRONT",
+      "view_kind": "orthographic",
+      "identity": null,
+      "source_view": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "matched_intent_id": "front",
+      "confidence": 0.72,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_view_label_scan",
+        "svg_text_id": "svg_text_001"
+      }
+    },
+    {
+      "id": "top",
+      "label": "TOP",
+      "raw_text": "TOP",
+      "view_kind": "orthographic",
+      "identity": null,
+      "source_view": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "matched_intent_id": "top",
+      "confidence": 0.72,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_view_label_scan",
+        "svg_text_id": "svg_text_010"
+      }
+    },
+    {
+      "id": "right",
+      "label": "RIGHT",
+      "raw_text": "RIGHT",
+      "view_kind": "orthographic",
+      "identity": null,
+      "source_view": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "matched_intent_id": "right",
+      "confidence": 0.72,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_view_label_scan",
+        "svg_text_id": "svg_text_022"
+      }
+    },
+    {
+      "id": "iso",
+      "label": "ISO",
+      "raw_text": "ISO",
+      "view_kind": "isometric",
+      "identity": null,
+      "source_view": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "matched_intent_id": "iso",
+      "confidence": 0.72,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_view_label_scan",
+        "svg_text_id": "svg_text_027"
+      }
+    }
+  ],
+  "dimensions": [
+    {
+      "id": "svg_text_002",
+      "raw_text": "172",
+      "value": 172,
+      "unit": "mm",
+      "matched_intent_id": "HOUSING_LENGTH",
+      "matched_feature_id": "housing",
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.84,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_002"
+      }
+    },
+    {
+      "id": "svg_text_003",
+      "raw_text": "50",
+      "value": 50,
+      "unit": "mm",
+      "matched_intent_id": "HOUSING_HEIGHT",
+      "matched_feature_id": "housing",
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.84,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_003"
+      }
+    },
+    {
+      "id": "svg_text_006",
+      "raw_text": "20",
+      "value": 20,
+      "unit": "mm",
+      "matched_intent_id": null,
+      "matched_feature_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.62,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_006"
+      }
+    },
+    {
+      "id": "svg_text_007",
+      "raw_text": "20",
+      "value": 20,
+      "unit": "mm",
+      "matched_intent_id": null,
+      "matched_feature_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.62,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_007"
+      }
+    },
+    {
+      "id": "svg_text_008",
+      "raw_text": "152",
+      "value": 152,
+      "unit": "mm",
+      "matched_intent_id": null,
+      "matched_feature_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.62,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_008"
+      }
+    },
+    {
+      "id": "svg_text_009",
+      "raw_text": "152",
+      "value": 152,
+      "unit": "mm",
+      "matched_intent_id": null,
+      "matched_feature_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.62,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_009"
+      }
+    },
+    {
+      "id": "svg_text_011",
+      "raw_text": "172",
+      "value": 172,
+      "unit": "mm",
+      "matched_intent_id": "HOUSING_LENGTH",
+      "matched_feature_id": "housing",
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.84,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_011"
+      }
+    },
+    {
+      "id": "svg_text_012",
+      "raw_text": "126",
+      "value": 126,
+      "unit": "mm",
+      "matched_intent_id": "HOUSING_WIDTH",
+      "matched_feature_id": "housing",
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.84,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_012"
+      }
+    },
+    {
+      "id": "svg_text_013",
+      "raw_text": "20",
+      "value": 20,
+      "unit": "mm",
+      "matched_intent_id": null,
+      "matched_feature_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.62,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_013"
+      }
+    },
+    {
+      "id": "svg_text_014",
+      "raw_text": "132",
+      "value": 132,
+      "unit": "mm",
+      "matched_intent_id": "MOUNTING_HOLE_PATTERN_X",
+      "matched_feature_id": "mount1,mount2,mount3,mount4",
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.84,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_014"
+      }
+    },
+    {
+      "id": "svg_text_015",
+      "raw_text": "20",
+      "value": 20,
+      "unit": "mm",
+      "matched_intent_id": null,
+      "matched_feature_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.62,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_015"
+      }
+    },
+    {
+      "id": "svg_text_016",
+      "raw_text": "20",
+      "value": 20,
+      "unit": "mm",
+      "matched_intent_id": null,
+      "matched_feature_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.62,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_016"
+      }
+    },
+    {
+      "id": "svg_text_017",
+      "raw_text": "86",
+      "value": 86,
+      "unit": "mm",
+      "matched_intent_id": "MOUNTING_HOLE_PATTERN_Y",
+      "matched_feature_id": "mount1,mount2,mount3,mount4",
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.84,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_017"
+      }
+    },
+    {
+      "id": "svg_text_018",
+      "raw_text": "20",
+      "value": 20,
+      "unit": "mm",
+      "matched_intent_id": null,
+      "matched_feature_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.62,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_018"
+      }
+    },
+    {
+      "id": "svg_text_019",
+      "raw_text": "Ø6",
+      "value": 6,
+      "unit": "mm",
+      "matched_intent_id": "MOUNTING_HOLE_DIA",
+      "matched_feature_id": "mount1,mount2,mount3,mount4",
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.84,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_019"
+      }
+    },
+    {
+      "id": "svg_text_023",
+      "raw_text": "126",
+      "value": 126,
+      "unit": "mm",
+      "matched_intent_id": "HOUSING_WIDTH",
+      "matched_feature_id": "housing",
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.84,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_023"
+      }
+    },
+    {
+      "id": "svg_text_024",
+      "raw_text": "50",
+      "value": 50,
+      "unit": "mm",
+      "matched_intent_id": "HOUSING_HEIGHT",
+      "matched_feature_id": "housing",
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.84,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_dimension_text_scan",
+        "svg_text_id": "svg_text_024"
+      }
+    }
+  ],
+  "notes": [
+    {
+      "id": "svg_text_032_svg_text_033_material_pair",
+      "raw_text": "Material: AL6061",
+      "category": "material",
+      "matched_intent_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.72,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_title_block_material_pair",
+        "label_svg_text_id": "svg_text_032",
+        "value_svg_text_id": "svg_text_033"
+      }
+    },
+    {
+      "id": "svg_text_004",
+      "raw_text": "A",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_004"
+      }
+    },
+    {
+      "id": "svg_text_005",
+      "raw_text": "B",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_005"
+      }
+    },
+    {
+      "id": "svg_text_020",
+      "raw_text": "B",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_020"
+      }
+    },
+    {
+      "id": "svg_text_021",
+      "raw_text": "C",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_021"
+      }
+    },
+    {
+      "id": "svg_text_025",
+      "raw_text": "A",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_025"
+      }
+    },
+    {
+      "id": "svg_text_026",
+      "raw_text": "C",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_026"
+      }
+    },
+    {
+      "id": "svg_text_028",
+      "raw_text": "PART NAME",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_028"
+      }
+    },
+    {
+      "id": "svg_text_029",
+      "raw_text": "Controller Housing EOL",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_029"
+      }
+    },
+    {
+      "id": "svg_text_030",
+      "raw_text": "DRAWING NO.",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_030"
+      }
+    },
+    {
+      "id": "svg_text_031",
+      "raw_text": "CTRL-HOUSING-EOL-C",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_031"
+      }
+    },
+    {
+      "id": "svg_text_032",
+      "raw_text": "MATERIAL",
+      "category": "material",
+      "matched_intent_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_032"
+      }
+    },
+    {
+      "id": "svg_text_033",
+      "raw_text": "AL6061",
+      "category": "material",
+      "matched_intent_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_033"
+      }
+    },
+    {
+      "id": "svg_text_034",
+      "raw_text": "SCALE",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_034"
+      }
+    },
+    {
+      "id": "svg_text_036",
+      "raw_text": "TOLERANCE",
+      "category": "tolerance",
+      "matched_intent_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_036"
+      }
+    },
+    {
+      "id": "svg_text_037",
+      "raw_text": "Project launch tolerance plan",
+      "category": "tolerance",
+      "matched_intent_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_037"
+      }
+    },
+    {
+      "id": "svg_text_038",
+      "raw_text": "DATE",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_038"
+      }
+    },
+    {
+      "id": "svg_text_040",
+      "raw_text": "DESIGNED BY",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_040"
+      }
+    },
+    {
+      "id": "svg_text_042",
+      "raw_text": "SIZE / SHEET",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_042"
+      }
+    },
+    {
+      "id": "svg_text_043",
+      "raw_text": "A3",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_043"
+      }
+    },
+    {
+      "id": "svg_text_044",
+      "raw_text": "BBox: 172 x 126 x 50 mm",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_044"
+      }
+    },
+    {
+      "id": "svg_text_045",
+      "raw_text": "Visible",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_045"
+      }
+    },
+    {
+      "id": "svg_text_046",
+      "raw_text": "Hidden",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_046"
+      }
+    },
+    {
+      "id": "svg_text_047",
+      "raw_text": "Center",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_047"
+      }
+    },
+    {
+      "id": "svg_text_048",
+      "raw_text": "Dimension",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_048"
+      }
+    },
+    {
+      "id": "svg_text_049",
+      "raw_text": "NOTES:",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_049"
+      }
+    },
+    {
+      "id": "svg_text_050",
+      "raw_text": "1. Material: AL6061 casting with machined datum and sealing surfaces.",
+      "category": "material",
+      "matched_intent_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_050"
+      }
+    },
+    {
+      "id": "svg_text_051",
+      "raw_text": "2. Torque spec: 0.85 Nm for six assembly closeout screws.",
+      "category": "general",
+      "matched_intent_id": null,
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.68,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_051"
+      }
+    },
+    {
+      "id": "svg_text_052",
+      "raw_text": "3. EOL release requires barcode pairing, torque trace, gasket confirmation, and functional electrical pass.",
+      "category": "general",
+      "matched_intent_id": "TORQUE_TRACE",
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.82,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_052"
+      }
+    }
+  ],
+  "title_block": {
+    "part_name": {
+      "raw_text": "PART NAME",
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.6,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_028"
+      }
+    },
+    "material": {
+      "raw_text": "Material: AL6061",
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.72,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_title_block_material_pair",
+        "label_svg_text_id": "svg_text_032",
+        "value_svg_text_id": "svg_text_033"
+      }
+    },
+    "tolerance": {
+      "raw_text": "TOLERANCE",
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.72,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_036"
+      }
+    },
+    "drawing_number": {
+      "raw_text": "DRAWING NO.",
+      "source": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+      "confidence": 0.58,
+      "provenance": {
+        "artifact_type": "svg",
+        "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "method": "svg_note_text_scan",
+        "svg_text_id": "svg_text_030"
+      }
+    }
+  },
+  "coverage": {
+    "required_dimensions_total": 11,
+    "required_dimensions_extracted": 6,
+    "required_notes_total": 3,
+    "required_notes_extracted": 1,
+    "required_views_total": 4,
+    "required_views_extracted": 4
+  },
+  "unknowns": [
+    "Required dimension not reliably extracted: CAVITY_LENGTH.",
+    "Required dimension not reliably extracted: CAVITY_WIDTH.",
+    "Required dimension not reliably extracted: CONNECTOR_OPENING_WIDTH.",
+    "Required dimension not reliably extracted: CONNECTOR_OPENING_LENGTH.",
+    "Required dimension not reliably extracted: SEAL_GROOVE_DEPTH.",
+    "Required note not reliably extracted: MATERIAL_PROCESS.",
+    "Required note not reliably extracted: EOL_FUNCTIONAL_TEST."
+  ],
+  "limitations": [
+    "Advisory-only foundation; no OCR, no PDF raster parsing, and no screenshot analysis were used.",
+    "Vector geometry without reliable text labels is not promoted to semantic matches in this task.",
+    "Unsupported or missing extraction evidence remains unknown instead of being inferred as pass."
+  ]
+}

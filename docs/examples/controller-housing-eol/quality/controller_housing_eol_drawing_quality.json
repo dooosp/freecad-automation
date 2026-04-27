@@ -1,0 +1,2580 @@
+{
+  "schema_version": "0.1",
+  "command": "draw",
+  "input_config": "docs/examples/controller-housing-eol/config.toml",
+  "drawing_svg": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+  "plan_file": "docs/examples/controller-housing-eol/cad/controller_housing_eol_plan.toml",
+  "qa_file": "docs/examples/controller-housing-eol/quality/controller_housing_eol_drawing_qa.json",
+  "qa_issues_file": "docs/examples/controller-housing-eol/cad/controller_housing_eol_drawing_qa_issues.json",
+  "traceability_file": "docs/examples/controller-housing-eol/cad/controller_housing_eol_traceability.json",
+  "layout_report_file": "docs/examples/controller-housing-eol/cad/controller_housing_eol_layout_report.json",
+  "planner_file": "docs/examples/controller-housing-eol/cad/controller_housing_eol_drawing_planner.json",
+  "dimension_map_file": "docs/examples/controller-housing-eol/cad/controller_housing_eol_dimension_map.json",
+  "dim_conflicts_file": "docs/examples/controller-housing-eol/cad/controller_housing_eol_dim_conflicts.json",
+  "extracted_drawing_semantics_file": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_extracted_drawing_semantics.json",
+  "bom_file": null,
+  "score": 72,
+  "status": "pass",
+  "views": {
+    "required_count": 4,
+    "generated_count": 4,
+    "missing_views": [],
+    "overlap_count": 0
+  },
+  "dimensions": {
+    "required_count": 1,
+    "mapped_count": 1,
+    "coverage_percent": 100,
+    "missing_required_intents": [],
+    "conflict_count": 0,
+    "duplicate_count": 0
+  },
+  "bom": {
+    "expected_items": 0,
+    "actual_items": 0,
+    "missing_material_count": 0,
+    "balloon_mismatches": 0
+  },
+  "traceability": {
+    "coverage_percent": 100,
+    "unmapped_required_entities": []
+  },
+  "semantic_quality": {
+    "decision": "advisory",
+    "advisory_decision": "needs_attention",
+    "enforceable": false,
+    "score": 37.94,
+    "score_basis": {
+      "critical_feature_coverage_percent": 20,
+      "required_dimension_coverage_percent": 27.27,
+      "required_note_coverage_percent": 33.33,
+      "required_view_coverage_percent": 100,
+      "dimension_traceability_percent": 9.09
+    },
+    "critical_features_total": 5,
+    "critical_features_covered": 1,
+    "missing_critical_features": [
+      "HOUSING_ENVELOPE",
+      "INTERNAL_CAVITY",
+      "CONNECTOR_OPENING",
+      "SEAL_INTERFACE"
+    ],
+    "required_dimensions_total": 11,
+    "required_dimensions_present": 3,
+    "missing_required_dimensions": [
+      "Overall housing length",
+      "Overall housing width",
+      "Overall housing height",
+      "Internal cavity length",
+      "Internal cavity width",
+      "Rear connector opening width",
+      "Rear connector opening length",
+      "Cover sealing groove depth"
+    ],
+    "required_notes_total": 3,
+    "required_notes_present": 1,
+    "required_notes_missing": [
+      "Material: AL6061 casting with machined connector datum and sealing surfaces.",
+      "EOL release requires barcode pairing, gasket confirmation, vision confirmation, and electrical functional pass."
+    ],
+    "required_views_total": 4,
+    "required_views_present": 4,
+    "required_views_missing": [],
+    "traceability": {
+      "required_dimensions_total": 11,
+      "linked_required_dimensions": 1,
+      "missing_required_dimensions": [
+        "HOUSING_LENGTH",
+        "HOUSING_WIDTH",
+        "HOUSING_HEIGHT",
+        "CAVITY_LENGTH",
+        "CAVITY_WIDTH",
+        "CONNECTOR_OPENING_WIDTH",
+        "CONNECTOR_OPENING_LENGTH",
+        "MOUNTING_HOLE_PATTERN_X",
+        "MOUNTING_HOLE_PATTERN_Y",
+        "SEAL_GROOVE_DEPTH"
+      ],
+      "unknown_required_dimensions": [],
+      "rows": [
+        {
+          "dimension_id": "HOUSING_LENGTH",
+          "feature_id": "housing",
+          "status": "missing",
+          "evidence": null
+        },
+        {
+          "dimension_id": "HOUSING_WIDTH",
+          "feature_id": "housing",
+          "status": "missing",
+          "evidence": null
+        },
+        {
+          "dimension_id": "HOUSING_HEIGHT",
+          "feature_id": "housing",
+          "status": "missing",
+          "evidence": null
+        },
+        {
+          "dimension_id": "CAVITY_LENGTH",
+          "feature_id": "cavity",
+          "status": "missing",
+          "evidence": null
+        },
+        {
+          "dimension_id": "CAVITY_WIDTH",
+          "feature_id": "cavity",
+          "status": "missing",
+          "evidence": null
+        },
+        {
+          "dimension_id": "CONNECTOR_OPENING_WIDTH",
+          "feature_id": "connector_port",
+          "status": "missing",
+          "evidence": null
+        },
+        {
+          "dimension_id": "CONNECTOR_OPENING_LENGTH",
+          "feature_id": "connector_port",
+          "status": "missing",
+          "evidence": null
+        },
+        {
+          "dimension_id": "MOUNTING_HOLE_DIA",
+          "feature_id": "mount1",
+          "status": "linked",
+          "evidence": {
+            "dimension_id": "MOUNTING_HOLE_DIA",
+            "feature_id": "mount1",
+            "source": "traceability"
+          }
+        },
+        {
+          "dimension_id": "MOUNTING_HOLE_PATTERN_X",
+          "feature_id": "mount1,mount2,mount3,mount4",
+          "status": "missing",
+          "evidence": null
+        },
+        {
+          "dimension_id": "MOUNTING_HOLE_PATTERN_Y",
+          "feature_id": "mount1,mount2,mount3,mount4",
+          "status": "missing",
+          "evidence": null
+        },
+        {
+          "dimension_id": "SEAL_GROOVE_DEPTH",
+          "feature_id": "seal_interface",
+          "status": "missing",
+          "evidence": null
+        }
+      ]
+    },
+    "missing_critical_information": [
+      "Critical feature is not evidenced on the drawing: HOUSING_ENVELOPE.",
+      "Critical feature is not evidenced on the drawing: INTERNAL_CAVITY.",
+      "Critical feature is not evidenced on the drawing: CONNECTOR_OPENING.",
+      "Critical feature is not evidenced on the drawing: SEAL_INTERFACE.",
+      "Required dimension is not evidenced on the drawing: Overall housing length.",
+      "Required dimension is not evidenced on the drawing: Overall housing width.",
+      "Required dimension is not evidenced on the drawing: Overall housing height.",
+      "Required dimension is not evidenced on the drawing: Internal cavity length.",
+      "Required dimension is not evidenced on the drawing: Internal cavity width.",
+      "Required dimension is not evidenced on the drawing: Rear connector opening width.",
+      "Required dimension is not evidenced on the drawing: Rear connector opening length.",
+      "Required dimension is not evidenced on the drawing: Cover sealing groove depth.",
+      "Required note is not evidenced on the drawing: Material: AL6061 casting with machined connector datum and sealing surfaces..",
+      "Required note is not evidenced on the drawing: EOL release requires barcode pairing, gasket confirmation, vision confirmation, and electrical functional pass..",
+      "Required dimension lacks traceability evidence: HOUSING_LENGTH.",
+      "Required dimension lacks traceability evidence: HOUSING_WIDTH.",
+      "Required dimension lacks traceability evidence: HOUSING_HEIGHT.",
+      "Required dimension lacks traceability evidence: CAVITY_LENGTH.",
+      "Required dimension lacks traceability evidence: CAVITY_WIDTH.",
+      "Required dimension lacks traceability evidence: CONNECTOR_OPENING_WIDTH.",
+      "Required dimension lacks traceability evidence: CONNECTOR_OPENING_LENGTH.",
+      "Required dimension lacks traceability evidence: MOUNTING_HOLE_PATTERN_X.",
+      "Required dimension lacks traceability evidence: MOUNTING_HOLE_PATTERN_Y.",
+      "Required dimension lacks traceability evidence: SEAL_GROOVE_DEPTH."
+    ],
+    "required_blockers": [
+      "Required dimension evidence is unknown: Internal cavity length (CAVITY_LENGTH).",
+      "Required dimension evidence is unknown: Internal cavity width (CAVITY_WIDTH).",
+      "Required dimension evidence is unknown: Rear connector opening width (CONNECTOR_OPENING_WIDTH).",
+      "Required dimension evidence is unknown: Rear connector opening length (CONNECTOR_OPENING_LENGTH).",
+      "Required dimension evidence is unknown: Cover sealing groove depth (SEAL_GROOVE_DEPTH).",
+      "Required note evidence is unknown: Material: AL6061 casting with machined connector datum and sealing surfaces. (MATERIAL_PROCESS).",
+      "Required note evidence is unknown: EOL release requires barcode pairing, gasket confirmation, vision confirmation, and electrical functional pass. (EOL_FUNCTIONAL_TEST)."
+    ],
+    "optional_missing_information": [],
+    "suggested_actions": [
+      "Add drawing evidence for critical feature(s): HOUSING_ENVELOPE, INTERNAL_CAVITY, CONNECTOR_OPENING, SEAL_INTERFACE.",
+      "Attach or regenerate traceability evidence for required dimensions.",
+      "Verify required dimension Internal cavity length because extracted evidence is unknown. Verify the dimension label for Internal cavity length is visible and readable in the SVG. Relink or relabel Internal cavity length if it was manually drafted or detached from the source dimension.",
+      "Verify required dimension Internal cavity width because extracted evidence is unknown. Verify the dimension label for Internal cavity width is visible and readable in the SVG. Relink or relabel Internal cavity width if it was manually drafted or detached from the source dimension.",
+      "Verify required dimension Rear connector opening width because extracted evidence is unknown. Verify the dimension label for Rear connector opening width is visible and readable in the SVG. Relink or relabel Rear connector opening width if it was manually drafted or detached from the source dimension.",
+      "Verify required dimension Rear connector opening length because extracted evidence is unknown. Verify the dimension label for Rear connector opening length is visible and readable in the SVG. Relink or relabel Rear connector opening length if it was manually drafted or detached from the source dimension.",
+      "Verify required dimension Cover sealing groove depth because extracted evidence is unknown. Verify the dimension label for Cover sealing groove depth is visible and readable in the SVG. Relink or relabel Cover sealing groove depth if it was manually drafted or detached from the source dimension.",
+      "Add or label the required note MATERIAL_PROCESS if it should appear in the drawing. Verify the required note text \"Material: AL6061 casting with machined connector datum and sealing surfaces.\" is present and readable. Confirm extraction can still match the note to Material: AL6061 casting with machined connector datum and sealing surfaces..",
+      "Add or label the required note EOL_FUNCTIONAL_TEST if it should appear in the drawing. Verify the required note text \"EOL release requires barcode pairing, gasket confirmation, vision confirmation, and electrical functional pass.\" is present and readable. Confirm extraction can still match the note to EOL release requires barcode pairing, gasket confirmation, vision confirmation, and electrical functional pass..",
+      "Improve intent aliases or drawing labels for unmatched extracted dimensions. Review whether the unmatched dimensions should map to an existing required intent. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+      "Improve intent aliases or drawing labels for unmatched extracted notes. Review whether the unmatched notes should satisfy an existing required note. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably."
+    ],
+    "suggested_action_details": [
+      {
+        "id": "dimension:cavitylength:unknown",
+        "severity": "review",
+        "category": "dimension",
+        "target_requirement_id": "CAVITY_LENGTH",
+        "target_feature_id": "cavity",
+        "classification": "unknown",
+        "title": "Verify required dimension Internal cavity length because extracted evidence is unknown.",
+        "message": "Extracted drawing semantics explicitly marked this required dimension as uncertain.",
+        "recommended_fix": "Verify the dimension label for Internal cavity length is visible and readable in the SVG. Relink or relabel Internal cavity length if it was manually drafted or detached from the source dimension.",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "required_dimensions.CAVITY_LENGTH.classification",
+            "value": "unknown"
+          }
+        ]
+      },
+      {
+        "id": "dimension:cavitywidth:unknown",
+        "severity": "review",
+        "category": "dimension",
+        "target_requirement_id": "CAVITY_WIDTH",
+        "target_feature_id": "cavity",
+        "classification": "unknown",
+        "title": "Verify required dimension Internal cavity width because extracted evidence is unknown.",
+        "message": "Extracted drawing semantics explicitly marked this required dimension as uncertain.",
+        "recommended_fix": "Verify the dimension label for Internal cavity width is visible and readable in the SVG. Relink or relabel Internal cavity width if it was manually drafted or detached from the source dimension.",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "required_dimensions.CAVITY_WIDTH.classification",
+            "value": "unknown"
+          }
+        ]
+      },
+      {
+        "id": "dimension:connectoropeningwidth:unknown",
+        "severity": "review",
+        "category": "dimension",
+        "target_requirement_id": "CONNECTOR_OPENING_WIDTH",
+        "target_feature_id": "connector_port",
+        "classification": "unknown",
+        "title": "Verify required dimension Rear connector opening width because extracted evidence is unknown.",
+        "message": "Extracted drawing semantics explicitly marked this required dimension as uncertain.",
+        "recommended_fix": "Verify the dimension label for Rear connector opening width is visible and readable in the SVG. Relink or relabel Rear connector opening width if it was manually drafted or detached from the source dimension.",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "required_dimensions.CONNECTOR_OPENING_WIDTH.classification",
+            "value": "unknown"
+          }
+        ]
+      },
+      {
+        "id": "dimension:connectoropeninglength:unknown",
+        "severity": "review",
+        "category": "dimension",
+        "target_requirement_id": "CONNECTOR_OPENING_LENGTH",
+        "target_feature_id": "connector_port",
+        "classification": "unknown",
+        "title": "Verify required dimension Rear connector opening length because extracted evidence is unknown.",
+        "message": "Extracted drawing semantics explicitly marked this required dimension as uncertain.",
+        "recommended_fix": "Verify the dimension label for Rear connector opening length is visible and readable in the SVG. Relink or relabel Rear connector opening length if it was manually drafted or detached from the source dimension.",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "required_dimensions.CONNECTOR_OPENING_LENGTH.classification",
+            "value": "unknown"
+          }
+        ]
+      },
+      {
+        "id": "dimension:sealgroovedepth:unknown",
+        "severity": "review",
+        "category": "dimension",
+        "target_requirement_id": "SEAL_GROOVE_DEPTH",
+        "target_feature_id": "seal_interface",
+        "classification": "unknown",
+        "title": "Verify required dimension Cover sealing groove depth because extracted evidence is unknown.",
+        "message": "Extracted drawing semantics explicitly marked this required dimension as uncertain.",
+        "recommended_fix": "Verify the dimension label for Cover sealing groove depth is visible and readable in the SVG. Relink or relabel Cover sealing groove depth if it was manually drafted or detached from the source dimension.",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "required_dimensions.SEAL_GROOVE_DEPTH.classification",
+            "value": "unknown"
+          }
+        ]
+      },
+      {
+        "id": "note:materialprocess:unknown",
+        "severity": "review",
+        "category": "note",
+        "target_requirement_id": "MATERIAL_PROCESS",
+        "target_feature_id": null,
+        "classification": "unknown",
+        "title": "Add or label the required note MATERIAL_PROCESS if it should appear in the drawing.",
+        "message": "Extracted drawing semantics explicitly marked this required note as uncertain.",
+        "recommended_fix": "Verify the required note text \"Material: AL6061 casting with machined connector datum and sealing surfaces.\" is present and readable. Confirm extraction can still match the note to Material: AL6061 casting with machined connector datum and sealing surfaces..",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "required_notes.MATERIAL_PROCESS.classification",
+            "value": "unknown"
+          }
+        ]
+      },
+      {
+        "id": "note:eolfunctionaltest:unknown",
+        "severity": "review",
+        "category": "note",
+        "target_requirement_id": "EOL_FUNCTIONAL_TEST",
+        "target_feature_id": null,
+        "classification": "unknown",
+        "title": "Add or label the required note EOL_FUNCTIONAL_TEST if it should appear in the drawing.",
+        "message": "Extracted drawing semantics explicitly marked this required note as uncertain.",
+        "recommended_fix": "Verify the required note text \"EOL release requires barcode pairing, gasket confirmation, vision confirmation, and electrical functional pass.\" is present and readable. Confirm extraction can still match the note to EOL release requires barcode pairing, gasket confirmation, vision confirmation, and electrical functional pass..",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "required_notes.EOL_FUNCTIONAL_TEST.classification",
+            "value": "unknown"
+          }
+        ]
+      },
+      {
+        "id": "mapping:unmatched-dimensions:unmatched",
+        "severity": "info",
+        "category": "mapping",
+        "target_requirement_id": "unmatched_dimensions",
+        "target_feature_id": null,
+        "classification": "unmatched",
+        "title": "Improve intent aliases or drawing labels for unmatched extracted dimensions.",
+        "message": "Some extracted dimensions did not match any required drawing intent.",
+        "recommended_fix": "Review whether the unmatched dimensions should map to an existing required intent. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "unmatched_dimensions.count",
+            "value": "8"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "unmatched_dimensions.samples",
+            "value": "[\"20\",\"20\",\"152\",\"152\",\"20\"]"
+          }
+        ]
+      },
+      {
+        "id": "mapping:unmatched-notes:unmatched",
+        "severity": "info",
+        "category": "mapping",
+        "target_requirement_id": "unmatched_notes",
+        "target_feature_id": null,
+        "classification": "unmatched",
+        "title": "Improve intent aliases or drawing labels for unmatched extracted notes.",
+        "message": "Some extracted notes did not match any required drawing intent.",
+        "recommended_fix": "Review whether the unmatched notes should satisfy an existing required note. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "unmatched_notes.count",
+            "value": "28"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "unmatched_notes.samples",
+            "value": "[\"Material: AL6061\",\"A\",\"B\",\"B\",\"C\"]"
+          }
+        ]
+      }
+    ],
+    "extracted_evidence": {
+      "status": "partial",
+      "advisory_only": true,
+      "file": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_extracted_drawing_semantics.json",
+      "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_extracted_drawing_semantics.json",
+      "sources": [
+        {
+          "artifact_type": "svg",
+          "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+          "inspected": true,
+          "method": "svg_text_scan"
+        },
+        {
+          "artifact_type": "svg",
+          "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+          "inspected": true,
+          "method": "svg_title_block_material_pair"
+        },
+        {
+          "artifact_type": "svg",
+          "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+          "inspected": true,
+          "method": "svg_view_group_metadata"
+        },
+        {
+          "artifact_type": "layout_report",
+          "path": "docs/examples/controller-housing-eol/cad/controller_housing_eol_layout_report.json",
+          "inspected": true,
+          "method": "layout_report_views"
+        },
+        {
+          "artifact_type": "dimension_map",
+          "path": "docs/examples/controller-housing-eol/cad/controller_housing_eol_dimension_map.json",
+          "inspected": true,
+          "method": "dimension_map_reference"
+        },
+        {
+          "artifact_type": "traceability",
+          "path": "docs/examples/controller-housing-eol/cad/controller_housing_eol_traceability.json",
+          "inspected": true,
+          "method": "traceability_reference"
+        }
+      ],
+      "coverage": {
+        "required_dimensions": {
+          "total": 11,
+          "extracted": 6,
+          "missing": 0,
+          "unknown": 5,
+          "unsupported": 0,
+          "extracted_percent": 54.55
+        },
+        "required_notes": {
+          "total": 3,
+          "extracted": 1,
+          "missing": 0,
+          "unknown": 2,
+          "unsupported": 0,
+          "extracted_percent": 33.33
+        },
+        "required_views": {
+          "total": 4,
+          "extracted": 4,
+          "missing": 0,
+          "unknown": 0,
+          "unsupported": 0,
+          "extracted_percent": 100
+        },
+        "total_required": 18,
+        "total_extracted": 11,
+        "total_missing": 0,
+        "total_unknown": 7,
+        "total_unsupported": 0
+      },
+      "required_dimensions": [
+        {
+          "requirement_id": "HOUSING_LENGTH",
+          "requirement_label": "Overall housing length",
+          "classification": "extracted",
+          "matched_extracted_id": "svg_text_002",
+          "matched_raw_text": "172",
+          "matched_feature_id": "housing",
+          "source_artifact": "svg",
+          "confidence": 0.84,
+          "reason": "Reliable extracted dimension evidence matched this required dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_002"
+          },
+          "candidate_matches": []
+        },
+        {
+          "requirement_id": "HOUSING_WIDTH",
+          "requirement_label": "Overall housing width",
+          "classification": "extracted",
+          "matched_extracted_id": "svg_text_012",
+          "matched_raw_text": "126",
+          "matched_feature_id": "housing",
+          "source_artifact": "svg",
+          "confidence": 0.84,
+          "reason": "Reliable extracted dimension evidence matched this required dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_012"
+          },
+          "candidate_matches": []
+        },
+        {
+          "requirement_id": "HOUSING_HEIGHT",
+          "requirement_label": "Overall housing height",
+          "classification": "extracted",
+          "matched_extracted_id": "svg_text_003",
+          "matched_raw_text": "50",
+          "matched_feature_id": "housing",
+          "source_artifact": "svg",
+          "confidence": 0.84,
+          "reason": "Reliable extracted dimension evidence matched this required dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_003"
+          },
+          "candidate_matches": []
+        },
+        {
+          "requirement_id": "CAVITY_LENGTH",
+          "requirement_label": "Internal cavity length",
+          "classification": "unknown",
+          "matched_extracted_id": null,
+          "matched_raw_text": null,
+          "matched_feature_id": null,
+          "source_artifact": null,
+          "confidence": null,
+          "reason": "Extracted drawing semantics explicitly marked this required dimension as uncertain.",
+          "provenance": null,
+          "candidate_matches": []
+        },
+        {
+          "requirement_id": "CAVITY_WIDTH",
+          "requirement_label": "Internal cavity width",
+          "classification": "unknown",
+          "matched_extracted_id": null,
+          "matched_raw_text": null,
+          "matched_feature_id": null,
+          "source_artifact": null,
+          "confidence": null,
+          "reason": "Extracted drawing semantics explicitly marked this required dimension as uncertain.",
+          "provenance": null,
+          "candidate_matches": []
+        },
+        {
+          "requirement_id": "CONNECTOR_OPENING_WIDTH",
+          "requirement_label": "Rear connector opening width",
+          "classification": "unknown",
+          "matched_extracted_id": null,
+          "matched_raw_text": null,
+          "matched_feature_id": null,
+          "source_artifact": null,
+          "confidence": null,
+          "reason": "Extracted drawing semantics explicitly marked this required dimension as uncertain.",
+          "provenance": null,
+          "candidate_matches": []
+        },
+        {
+          "requirement_id": "CONNECTOR_OPENING_LENGTH",
+          "requirement_label": "Rear connector opening length",
+          "classification": "unknown",
+          "matched_extracted_id": null,
+          "matched_raw_text": null,
+          "matched_feature_id": null,
+          "source_artifact": null,
+          "confidence": null,
+          "reason": "Extracted drawing semantics explicitly marked this required dimension as uncertain.",
+          "provenance": null,
+          "candidate_matches": []
+        },
+        {
+          "requirement_id": "MOUNTING_HOLE_DIA",
+          "requirement_label": "Mounting hole diameters",
+          "classification": "extracted",
+          "matched_extracted_id": "svg_text_019",
+          "matched_raw_text": "Ø6",
+          "matched_feature_id": "mount1,mount2,mount3,mount4",
+          "source_artifact": "svg",
+          "confidence": 0.84,
+          "reason": "Reliable extracted dimension evidence matched this required dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_019"
+          },
+          "candidate_matches": []
+        },
+        {
+          "requirement_id": "MOUNTING_HOLE_PATTERN_X",
+          "requirement_label": "Mounting hole column spacing",
+          "classification": "extracted",
+          "matched_extracted_id": "svg_text_014",
+          "matched_raw_text": "132",
+          "matched_feature_id": "mount1,mount2,mount3,mount4",
+          "source_artifact": "svg",
+          "confidence": 0.84,
+          "reason": "Reliable extracted dimension evidence matched this required dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_014"
+          },
+          "candidate_matches": []
+        },
+        {
+          "requirement_id": "MOUNTING_HOLE_PATTERN_Y",
+          "requirement_label": "Mounting hole row spacing",
+          "classification": "extracted",
+          "matched_extracted_id": "svg_text_017",
+          "matched_raw_text": "86",
+          "matched_feature_id": "mount1,mount2,mount3,mount4",
+          "source_artifact": "svg",
+          "confidence": 0.84,
+          "reason": "Reliable extracted dimension evidence matched this required dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_017"
+          },
+          "candidate_matches": []
+        },
+        {
+          "requirement_id": "SEAL_GROOVE_DEPTH",
+          "requirement_label": "Cover sealing groove depth",
+          "classification": "unknown",
+          "matched_extracted_id": null,
+          "matched_raw_text": null,
+          "matched_feature_id": null,
+          "source_artifact": null,
+          "confidence": null,
+          "reason": "Extracted drawing semantics explicitly marked this required dimension as uncertain.",
+          "provenance": null,
+          "candidate_matches": []
+        }
+      ],
+      "required_notes": [
+        {
+          "requirement_id": "MATERIAL_PROCESS",
+          "requirement_label": "Material: AL6061 casting with machined connector datum and sealing surfaces.",
+          "classification": "unknown",
+          "matched_extracted_id": null,
+          "matched_raw_text": null,
+          "matched_feature_id": null,
+          "source_artifact": null,
+          "confidence": null,
+          "reason": "Extracted drawing semantics explicitly marked this required note as uncertain.",
+          "provenance": null,
+          "candidate_matches": []
+        },
+        {
+          "requirement_id": "TORQUE_TRACE",
+          "requirement_label": "Assembly closeout requires six screws tightened to 0.85 Nm with digital torque trace.",
+          "classification": "extracted",
+          "matched_extracted_id": "svg_text_052",
+          "matched_raw_text": "3. EOL release requires barcode pairing, torque trace, gasket confirmation, and functional electrical pass.",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.82,
+          "reason": "Reliable extracted note evidence matched this required drawing note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_052"
+          },
+          "candidate_matches": []
+        },
+        {
+          "requirement_id": "EOL_FUNCTIONAL_TEST",
+          "requirement_label": "EOL release requires barcode pairing, gasket confirmation, vision confirmation, and electrical functional pass.",
+          "classification": "unknown",
+          "matched_extracted_id": null,
+          "matched_raw_text": null,
+          "matched_feature_id": null,
+          "source_artifact": null,
+          "confidence": null,
+          "reason": "Extracted drawing semantics explicitly marked this required note as uncertain.",
+          "provenance": null,
+          "candidate_matches": []
+        }
+      ],
+      "required_views": [
+        {
+          "requirement_id": "front",
+          "requirement_label": "front",
+          "classification": "extracted",
+          "matched_extracted_id": "front",
+          "matched_raw_text": "FRONT",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.94,
+          "reason": "Reliable extracted view evidence matched this required view.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_view_group_metadata",
+            "svg_group_id": "drawing-view-front",
+            "svg_region_ref": "drawing-view-front"
+          },
+          "candidate_matches": [
+            {
+              "matched_extracted_id": "front",
+              "matched_raw_text": "FRONT",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.72,
+              "reason": "Matched extracted view stayed below the reliable confidence threshold.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+                "method": "svg_view_label_scan",
+                "svg_text_id": "svg_text_001"
+              }
+            }
+          ]
+        },
+        {
+          "requirement_id": "top",
+          "requirement_label": "top",
+          "classification": "extracted",
+          "matched_extracted_id": "top",
+          "matched_raw_text": "TOP",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.94,
+          "reason": "Reliable extracted view evidence matched this required view.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_view_group_metadata",
+            "svg_group_id": "drawing-view-top",
+            "svg_region_ref": "drawing-view-top"
+          },
+          "candidate_matches": [
+            {
+              "matched_extracted_id": "top",
+              "matched_raw_text": "TOP",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.72,
+              "reason": "Matched extracted view stayed below the reliable confidence threshold.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+                "method": "svg_view_label_scan",
+                "svg_text_id": "svg_text_010"
+              }
+            }
+          ]
+        },
+        {
+          "requirement_id": "right",
+          "requirement_label": "right",
+          "classification": "extracted",
+          "matched_extracted_id": "right",
+          "matched_raw_text": "RIGHT",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.94,
+          "reason": "Reliable extracted view evidence matched this required view.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_view_group_metadata",
+            "svg_group_id": "drawing-view-right",
+            "svg_region_ref": "drawing-view-right"
+          },
+          "candidate_matches": [
+            {
+              "matched_extracted_id": "right",
+              "matched_raw_text": "RIGHT",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.72,
+              "reason": "Matched extracted view stayed below the reliable confidence threshold.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+                "method": "svg_view_label_scan",
+                "svg_text_id": "svg_text_022"
+              }
+            }
+          ]
+        },
+        {
+          "requirement_id": "iso",
+          "requirement_label": "iso",
+          "classification": "extracted",
+          "matched_extracted_id": "iso",
+          "matched_raw_text": "ISOMETRIC",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.94,
+          "reason": "Reliable extracted view evidence matched this required view.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_view_group_metadata",
+            "svg_group_id": "drawing-view-iso",
+            "svg_region_ref": "drawing-view-iso"
+          },
+          "candidate_matches": [
+            {
+              "matched_extracted_id": "iso",
+              "matched_raw_text": "ISO",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.72,
+              "reason": "Matched extracted view stayed below the reliable confidence threshold.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+                "method": "svg_view_label_scan",
+                "svg_text_id": "svg_text_027"
+              }
+            }
+          ]
+        }
+      ],
+      "unmatched_dimensions": [
+        {
+          "extracted_id": "svg_text_006",
+          "raw_text": "20",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_006"
+          }
+        },
+        {
+          "extracted_id": "svg_text_007",
+          "raw_text": "20",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_007"
+          }
+        },
+        {
+          "extracted_id": "svg_text_008",
+          "raw_text": "152",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_008"
+          }
+        },
+        {
+          "extracted_id": "svg_text_009",
+          "raw_text": "152",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_009"
+          }
+        },
+        {
+          "extracted_id": "svg_text_013",
+          "raw_text": "20",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_013"
+          }
+        },
+        {
+          "extracted_id": "svg_text_015",
+          "raw_text": "20",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_015"
+          }
+        },
+        {
+          "extracted_id": "svg_text_016",
+          "raw_text": "20",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_016"
+          }
+        },
+        {
+          "extracted_id": "svg_text_018",
+          "raw_text": "20",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_018"
+          }
+        }
+      ],
+      "unmatched_notes": [
+        {
+          "extracted_id": "svg_text_032_svg_text_033_material_pair",
+          "raw_text": "Material: AL6061",
+          "category": "material",
+          "source_artifact": "svg",
+          "confidence": 0.72,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_title_block_material_pair",
+            "label_svg_text_id": "svg_text_032",
+            "value_svg_text_id": "svg_text_033"
+          }
+        },
+        {
+          "extracted_id": "svg_text_004",
+          "raw_text": "A",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_004"
+          }
+        },
+        {
+          "extracted_id": "svg_text_005",
+          "raw_text": "B",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_005"
+          }
+        },
+        {
+          "extracted_id": "svg_text_020",
+          "raw_text": "B",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_020"
+          }
+        },
+        {
+          "extracted_id": "svg_text_021",
+          "raw_text": "C",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_021"
+          }
+        },
+        {
+          "extracted_id": "svg_text_025",
+          "raw_text": "A",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_025"
+          }
+        },
+        {
+          "extracted_id": "svg_text_026",
+          "raw_text": "C",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_026"
+          }
+        },
+        {
+          "extracted_id": "svg_text_028",
+          "raw_text": "PART NAME",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_028"
+          }
+        },
+        {
+          "extracted_id": "svg_text_029",
+          "raw_text": "Controller Housing EOL",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_029"
+          }
+        },
+        {
+          "extracted_id": "svg_text_030",
+          "raw_text": "DRAWING NO.",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_030"
+          }
+        },
+        {
+          "extracted_id": "svg_text_031",
+          "raw_text": "CTRL-HOUSING-EOL-C",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_031"
+          }
+        },
+        {
+          "extracted_id": "svg_text_032",
+          "raw_text": "MATERIAL",
+          "category": "material",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_032"
+          }
+        },
+        {
+          "extracted_id": "svg_text_033",
+          "raw_text": "AL6061",
+          "category": "material",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_033"
+          }
+        },
+        {
+          "extracted_id": "svg_text_034",
+          "raw_text": "SCALE",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_034"
+          }
+        },
+        {
+          "extracted_id": "svg_text_036",
+          "raw_text": "TOLERANCE",
+          "category": "tolerance",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_036"
+          }
+        },
+        {
+          "extracted_id": "svg_text_037",
+          "raw_text": "Project launch tolerance plan",
+          "category": "tolerance",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_037"
+          }
+        },
+        {
+          "extracted_id": "svg_text_038",
+          "raw_text": "DATE",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_038"
+          }
+        },
+        {
+          "extracted_id": "svg_text_040",
+          "raw_text": "DESIGNED BY",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_040"
+          }
+        },
+        {
+          "extracted_id": "svg_text_042",
+          "raw_text": "SIZE / SHEET",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_042"
+          }
+        },
+        {
+          "extracted_id": "svg_text_043",
+          "raw_text": "A3",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_043"
+          }
+        },
+        {
+          "extracted_id": "svg_text_044",
+          "raw_text": "BBox: 172 x 126 x 50 mm",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_044"
+          }
+        },
+        {
+          "extracted_id": "svg_text_045",
+          "raw_text": "Visible",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_045"
+          }
+        },
+        {
+          "extracted_id": "svg_text_046",
+          "raw_text": "Hidden",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_046"
+          }
+        },
+        {
+          "extracted_id": "svg_text_047",
+          "raw_text": "Center",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_047"
+          }
+        },
+        {
+          "extracted_id": "svg_text_048",
+          "raw_text": "Dimension",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_048"
+          }
+        },
+        {
+          "extracted_id": "svg_text_049",
+          "raw_text": "NOTES:",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_049"
+          }
+        },
+        {
+          "extracted_id": "svg_text_050",
+          "raw_text": "1. Material: AL6061 casting with machined datum and sealing surfaces.",
+          "category": "material",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_050"
+          }
+        },
+        {
+          "extracted_id": "svg_text_051",
+          "raw_text": "2. Torque spec: 0.85 Nm for six assembly closeout screws.",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_051"
+          }
+        }
+      ],
+      "unknowns": [
+        "Required dimension not reliably extracted: CAVITY_LENGTH.",
+        "Required dimension not reliably extracted: CAVITY_WIDTH.",
+        "Required dimension not reliably extracted: CONNECTOR_OPENING_WIDTH.",
+        "Required dimension not reliably extracted: CONNECTOR_OPENING_LENGTH.",
+        "Required dimension not reliably extracted: SEAL_GROOVE_DEPTH.",
+        "Required note not reliably extracted: MATERIAL_PROCESS.",
+        "Required note not reliably extracted: EOL_FUNCTIONAL_TEST.",
+        "Required extracted evidence remains unknown: CAVITY_LENGTH.",
+        "Required extracted evidence remains unknown: CAVITY_WIDTH.",
+        "Required extracted evidence remains unknown: CONNECTOR_OPENING_WIDTH.",
+        "Required extracted evidence remains unknown: CONNECTOR_OPENING_LENGTH.",
+        "Required extracted evidence remains unknown: SEAL_GROOVE_DEPTH.",
+        "Required extracted evidence remains unknown: MATERIAL_PROCESS.",
+        "Required extracted evidence remains unknown: EOL_FUNCTIONAL_TEST."
+      ],
+      "limitations": [
+        "Advisory-only foundation; no OCR, no PDF raster parsing, and no screenshot analysis were used.",
+        "Vector geometry without reliable text labels is not promoted to semantic matches in this task.",
+        "Unsupported or missing extraction evidence remains unknown instead of being inferred as pass."
+      ],
+      "matched_required_dimensions": 6,
+      "matched_required_notes": 1,
+      "matched_required_views": 4,
+      "missing_required_items": [],
+      "suggested_action_details": [
+        {
+          "id": "dimension:cavitylength:unknown",
+          "severity": "review",
+          "category": "dimension",
+          "target_requirement_id": "CAVITY_LENGTH",
+          "target_feature_id": "cavity",
+          "classification": "unknown",
+          "title": "Verify required dimension Internal cavity length because extracted evidence is unknown.",
+          "message": "Extracted drawing semantics explicitly marked this required dimension as uncertain.",
+          "recommended_fix": "Verify the dimension label for Internal cavity length is visible and readable in the SVG. Relink or relabel Internal cavity length if it was manually drafted or detached from the source dimension.",
+          "evidence": [
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "status",
+              "value": "partial"
+            },
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "required_dimensions.CAVITY_LENGTH.classification",
+              "value": "unknown"
+            }
+          ]
+        },
+        {
+          "id": "dimension:cavitywidth:unknown",
+          "severity": "review",
+          "category": "dimension",
+          "target_requirement_id": "CAVITY_WIDTH",
+          "target_feature_id": "cavity",
+          "classification": "unknown",
+          "title": "Verify required dimension Internal cavity width because extracted evidence is unknown.",
+          "message": "Extracted drawing semantics explicitly marked this required dimension as uncertain.",
+          "recommended_fix": "Verify the dimension label for Internal cavity width is visible and readable in the SVG. Relink or relabel Internal cavity width if it was manually drafted or detached from the source dimension.",
+          "evidence": [
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "status",
+              "value": "partial"
+            },
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "required_dimensions.CAVITY_WIDTH.classification",
+              "value": "unknown"
+            }
+          ]
+        },
+        {
+          "id": "dimension:connectoropeningwidth:unknown",
+          "severity": "review",
+          "category": "dimension",
+          "target_requirement_id": "CONNECTOR_OPENING_WIDTH",
+          "target_feature_id": "connector_port",
+          "classification": "unknown",
+          "title": "Verify required dimension Rear connector opening width because extracted evidence is unknown.",
+          "message": "Extracted drawing semantics explicitly marked this required dimension as uncertain.",
+          "recommended_fix": "Verify the dimension label for Rear connector opening width is visible and readable in the SVG. Relink or relabel Rear connector opening width if it was manually drafted or detached from the source dimension.",
+          "evidence": [
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "status",
+              "value": "partial"
+            },
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "required_dimensions.CONNECTOR_OPENING_WIDTH.classification",
+              "value": "unknown"
+            }
+          ]
+        },
+        {
+          "id": "dimension:connectoropeninglength:unknown",
+          "severity": "review",
+          "category": "dimension",
+          "target_requirement_id": "CONNECTOR_OPENING_LENGTH",
+          "target_feature_id": "connector_port",
+          "classification": "unknown",
+          "title": "Verify required dimension Rear connector opening length because extracted evidence is unknown.",
+          "message": "Extracted drawing semantics explicitly marked this required dimension as uncertain.",
+          "recommended_fix": "Verify the dimension label for Rear connector opening length is visible and readable in the SVG. Relink or relabel Rear connector opening length if it was manually drafted or detached from the source dimension.",
+          "evidence": [
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "status",
+              "value": "partial"
+            },
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "required_dimensions.CONNECTOR_OPENING_LENGTH.classification",
+              "value": "unknown"
+            }
+          ]
+        },
+        {
+          "id": "dimension:sealgroovedepth:unknown",
+          "severity": "review",
+          "category": "dimension",
+          "target_requirement_id": "SEAL_GROOVE_DEPTH",
+          "target_feature_id": "seal_interface",
+          "classification": "unknown",
+          "title": "Verify required dimension Cover sealing groove depth because extracted evidence is unknown.",
+          "message": "Extracted drawing semantics explicitly marked this required dimension as uncertain.",
+          "recommended_fix": "Verify the dimension label for Cover sealing groove depth is visible and readable in the SVG. Relink or relabel Cover sealing groove depth if it was manually drafted or detached from the source dimension.",
+          "evidence": [
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "status",
+              "value": "partial"
+            },
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "required_dimensions.SEAL_GROOVE_DEPTH.classification",
+              "value": "unknown"
+            }
+          ]
+        },
+        {
+          "id": "note:materialprocess:unknown",
+          "severity": "review",
+          "category": "note",
+          "target_requirement_id": "MATERIAL_PROCESS",
+          "target_feature_id": null,
+          "classification": "unknown",
+          "title": "Add or label the required note MATERIAL_PROCESS if it should appear in the drawing.",
+          "message": "Extracted drawing semantics explicitly marked this required note as uncertain.",
+          "recommended_fix": "Verify the required note text \"Material: AL6061 casting with machined connector datum and sealing surfaces.\" is present and readable. Confirm extraction can still match the note to Material: AL6061 casting with machined connector datum and sealing surfaces..",
+          "evidence": [
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "status",
+              "value": "partial"
+            },
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "required_notes.MATERIAL_PROCESS.classification",
+              "value": "unknown"
+            }
+          ]
+        },
+        {
+          "id": "note:eolfunctionaltest:unknown",
+          "severity": "review",
+          "category": "note",
+          "target_requirement_id": "EOL_FUNCTIONAL_TEST",
+          "target_feature_id": null,
+          "classification": "unknown",
+          "title": "Add or label the required note EOL_FUNCTIONAL_TEST if it should appear in the drawing.",
+          "message": "Extracted drawing semantics explicitly marked this required note as uncertain.",
+          "recommended_fix": "Verify the required note text \"EOL release requires barcode pairing, gasket confirmation, vision confirmation, and electrical functional pass.\" is present and readable. Confirm extraction can still match the note to EOL release requires barcode pairing, gasket confirmation, vision confirmation, and electrical functional pass..",
+          "evidence": [
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "status",
+              "value": "partial"
+            },
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "required_notes.EOL_FUNCTIONAL_TEST.classification",
+              "value": "unknown"
+            }
+          ]
+        },
+        {
+          "id": "mapping:unmatched-dimensions:unmatched",
+          "severity": "info",
+          "category": "mapping",
+          "target_requirement_id": "unmatched_dimensions",
+          "target_feature_id": null,
+          "classification": "unmatched",
+          "title": "Improve intent aliases or drawing labels for unmatched extracted dimensions.",
+          "message": "Some extracted dimensions did not match any required drawing intent.",
+          "recommended_fix": "Review whether the unmatched dimensions should map to an existing required intent. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+          "evidence": [
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "status",
+              "value": "partial"
+            },
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "unmatched_dimensions.count",
+              "value": "8"
+            },
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "unmatched_dimensions.samples",
+              "value": "[\"20\",\"20\",\"152\",\"152\",\"20\"]"
+            }
+          ]
+        },
+        {
+          "id": "mapping:unmatched-notes:unmatched",
+          "severity": "info",
+          "category": "mapping",
+          "target_requirement_id": "unmatched_notes",
+          "target_feature_id": null,
+          "classification": "unmatched",
+          "title": "Improve intent aliases or drawing labels for unmatched extracted notes.",
+          "message": "Some extracted notes did not match any required drawing intent.",
+          "recommended_fix": "Review whether the unmatched notes should satisfy an existing required note. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+          "evidence": [
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "status",
+              "value": "partial"
+            },
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "unmatched_notes.count",
+              "value": "28"
+            },
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "unmatched_notes.samples",
+              "value": "[\"Material: AL6061\",\"A\",\"B\",\"B\",\"C\"]"
+            }
+          ]
+        }
+      ],
+      "suggested_actions": [
+        "Verify required dimension Internal cavity length because extracted evidence is unknown. Verify the dimension label for Internal cavity length is visible and readable in the SVG. Relink or relabel Internal cavity length if it was manually drafted or detached from the source dimension.",
+        "Verify required dimension Internal cavity width because extracted evidence is unknown. Verify the dimension label for Internal cavity width is visible and readable in the SVG. Relink or relabel Internal cavity width if it was manually drafted or detached from the source dimension.",
+        "Verify required dimension Rear connector opening width because extracted evidence is unknown. Verify the dimension label for Rear connector opening width is visible and readable in the SVG. Relink or relabel Rear connector opening width if it was manually drafted or detached from the source dimension.",
+        "Verify required dimension Rear connector opening length because extracted evidence is unknown. Verify the dimension label for Rear connector opening length is visible and readable in the SVG. Relink or relabel Rear connector opening length if it was manually drafted or detached from the source dimension.",
+        "Verify required dimension Cover sealing groove depth because extracted evidence is unknown. Verify the dimension label for Cover sealing groove depth is visible and readable in the SVG. Relink or relabel Cover sealing groove depth if it was manually drafted or detached from the source dimension.",
+        "Add or label the required note MATERIAL_PROCESS if it should appear in the drawing. Verify the required note text \"Material: AL6061 casting with machined connector datum and sealing surfaces.\" is present and readable. Confirm extraction can still match the note to Material: AL6061 casting with machined connector datum and sealing surfaces..",
+        "Add or label the required note EOL_FUNCTIONAL_TEST if it should appear in the drawing. Verify the required note text \"EOL release requires barcode pairing, gasket confirmation, vision confirmation, and electrical functional pass.\" is present and readable. Confirm extraction can still match the note to EOL release requires barcode pairing, gasket confirmation, vision confirmation, and electrical functional pass..",
+        "Improve intent aliases or drawing labels for unmatched extracted dimensions. Review whether the unmatched dimensions should map to an existing required intent. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+        "Improve intent aliases or drawing labels for unmatched extracted notes. Review whether the unmatched notes should satisfy an existing required note. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably."
+      ]
+    }
+  },
+  "layout_readability": {
+    "status": "warning",
+    "score": 88,
+    "confidence": "high",
+    "advisory_only": true,
+    "evidence_state": "available",
+    "completeness_state": "complete",
+    "summary": "1 advisory layout/readability finding(s) confirmed from structured metadata.",
+    "finding_count": 1,
+    "warning_count": 1,
+    "info_count": 0,
+    "findings": [
+      {
+        "type": "text_overlap",
+        "severity": "warning",
+        "advisory_only": true,
+        "message": "Structured QA evidence shows overlapping drawing text.",
+        "recommendation": "Separate overlapping note or dimension text and reroute leaders if needed.",
+        "view_ids": [
+          "page"
+        ],
+        "element_ids": [],
+        "labels": [
+          "SIZE / SHEET",
+          "BBox: 172 x 126 x 50 mm"
+        ],
+        "bounding_boxes": [],
+        "raw_source": {
+          "artifact_type": "qa_report",
+          "path": "docs/examples/controller-housing-eol/quality/controller_housing_eol_drawing_qa.json",
+          "method": "qa_vector_text_overlap",
+          "pair_index": 0,
+          "iou": 0.545
+        },
+        "source_kind": "qa_metrics",
+        "source_artifact": "qa_report",
+        "source_ref": "details.text_overlaps.0",
+        "evidence_state": "available",
+        "completeness_state": "complete",
+        "provenance": {
+          "artifact_type": "qa_report",
+          "path": "docs/examples/controller-housing-eol/quality/controller_housing_eol_drawing_qa.json",
+          "method": "qa_vector_text_overlap",
+          "pair_index": 0,
+          "iou": 0.545,
+          "source_kind": "qa_metrics",
+          "source_ref": "details.text_overlaps.0"
+        }
+      }
+    ],
+    "recommended_actions": [
+      "Separate overlapping note or dimension text and reroute leaders if needed."
+    ],
+    "provenance": {
+      "sources": [
+        {
+          "artifact_type": "layout_report",
+          "path": "docs/examples/controller-housing-eol/cad/controller_housing_eol_layout_report.json",
+          "method": "layout_report_views",
+          "view_count": 4,
+          "evidence_state": "available",
+          "completeness_state": "complete",
+          "source_kind": "layout_report",
+          "source_artifact": "layout_report",
+          "source_ref": "docs/examples/controller-housing-eol/cad/controller_housing_eol_layout_report.json"
+        },
+        {
+          "artifact_type": "qa_report",
+          "path": "docs/examples/controller-housing-eol/quality/controller_housing_eol_drawing_qa.json",
+          "method": "qa_vector_metrics",
+          "metric_keys": [
+            "intent_metrics_applicable",
+            "iso_hidden_count",
+            "overflow_count",
+            "text_overlap_pairs",
+            "dim_overlap_pairs",
+            "notes_overflow",
+            "gdt_unanchored",
+            "dense_iso",
+            "stroke_violations",
+            "float_precision_count",
+            "dim_completeness",
+            "dim_redundancy",
+            "datum_coherence",
+            "view_coverage",
+            "note_convention",
+            "required_presence_rate",
+            "required_presence_miss",
+            "value_inconsistency",
+            "virtual_pcd_present",
+            "note_semantic_mismatch",
+            "dfm_error_count",
+            "dfm_warning_count",
+            "dfm_score"
+          ],
+          "detail_keys": [
+            "overflows",
+            "text_overlaps",
+            "required_presence_missing_ids"
+          ],
+          "evidence_state": "available",
+          "completeness_state": "complete",
+          "source_kind": "qa_metrics",
+          "source_artifact": "qa_report",
+          "source_ref": "docs/examples/controller-housing-eol/quality/controller_housing_eol_drawing_qa.json"
+        },
+        {
+          "artifact_type": "svg",
+          "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+          "method": "svg_view_group_metadata",
+          "view_ids": [
+            "front",
+            "top",
+            "right",
+            "iso"
+          ],
+          "evidence_state": "available",
+          "completeness_state": "complete",
+          "source_kind": "svg_view_metadata",
+          "source_artifact": "svg",
+          "source_ref": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg"
+        }
+      ],
+      "evaluated_view_ids": [
+        "front",
+        "top",
+        "right",
+        "iso",
+        "page"
+      ],
+      "source_completeness": {
+        "layout_report": {
+          "source_kind": "layout_report",
+          "source_artifact": "layout_report",
+          "source_ref": "layout_report_views",
+          "path": "docs/examples/controller-housing-eol/cad/controller_housing_eol_layout_report.json",
+          "method": "layout_report_views",
+          "evidence_state": "available",
+          "completeness_state": "complete",
+          "available": true,
+          "inspected": true,
+          "missing_reasons": [],
+          "evidence_keys": [
+            "views",
+            "summary",
+            "overflow"
+          ]
+        },
+        "qa_metrics": {
+          "source_kind": "qa_metrics",
+          "source_artifact": "qa_report",
+          "source_ref": "qa_vector_metrics",
+          "path": "docs/examples/controller-housing-eol/quality/controller_housing_eol_drawing_qa.json",
+          "method": "qa_vector_metrics",
+          "evidence_state": "available",
+          "completeness_state": "complete",
+          "available": true,
+          "inspected": true,
+          "missing_reasons": [],
+          "evidence_keys": [
+            "metrics.intent_metrics_applicable",
+            "metrics.iso_hidden_count",
+            "metrics.overflow_count",
+            "metrics.text_overlap_pairs",
+            "metrics.dim_overlap_pairs",
+            "metrics.notes_overflow",
+            "metrics.gdt_unanchored",
+            "metrics.dense_iso",
+            "metrics.stroke_violations",
+            "metrics.float_precision_count",
+            "metrics.dim_completeness",
+            "metrics.dim_redundancy",
+            "metrics.datum_coherence",
+            "metrics.view_coverage",
+            "metrics.note_convention",
+            "metrics.required_presence_rate",
+            "metrics.required_presence_miss",
+            "metrics.value_inconsistency",
+            "metrics.virtual_pcd_present",
+            "metrics.note_semantic_mismatch",
+            "metrics.dfm_error_count",
+            "metrics.dfm_warning_count",
+            "metrics.dfm_score",
+            "details.overflows",
+            "details.text_overlaps",
+            "details.required_presence_missing_ids"
+          ]
+        },
+        "svg_view_metadata": {
+          "source_kind": "svg_view_metadata",
+          "source_artifact": "svg",
+          "source_ref": "svg_view_group_metadata",
+          "path": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+          "method": "svg_view_group_metadata",
+          "evidence_state": "available",
+          "completeness_state": "complete",
+          "available": true,
+          "inspected": true,
+          "missing_reasons": [],
+          "evidence_keys": [
+            "views.front",
+            "views.top",
+            "views.right",
+            "views.iso"
+          ]
+        }
+      },
+      "metrics_available": {
+        "layout_views": true,
+        "overflow": true,
+        "text_overlap": true,
+        "dimension_overlap": true,
+        "notes_overflow": true,
+        "svg_view_metadata": true
+      }
+    }
+  },
+  "thresholds": {
+    "required_dimension_coverage_percent": 100,
+    "max_dimension_conflicts": 0,
+    "max_view_overlaps": 0,
+    "min_traceability_coverage_percent": 95
+  },
+  "blocking_issues": [],
+  "warnings": [],
+  "recommended_actions": [
+    "Separate overlapping note or dimension text and reroute leaders if needed.",
+    "Add a required diameter dimension intent for \"mount1\".",
+    "Add a required diameter dimension intent for \"mount2\".",
+    "Add a required diameter dimension intent for \"mount3\".",
+    "Add a required diameter dimension intent for \"mount4\".",
+    "Enable or verify center marks/centerlines for hole views.",
+    "Add or verify the material note in the title block or general notes.",
+    "Add a local detail view only if diameter/location callouts collide or become unreadable.",
+    "Add drawing evidence for critical feature(s): HOUSING_ENVELOPE, INTERNAL_CAVITY, CONNECTOR_OPENING, SEAL_INTERFACE.",
+    "Attach or regenerate traceability evidence for required dimensions.",
+    "Verify required dimension Internal cavity length because extracted evidence is unknown. Verify the dimension label for Internal cavity length is visible and readable in the SVG. Relink or relabel Internal cavity length if it was manually drafted or detached from the source dimension.",
+    "Verify required dimension Internal cavity width because extracted evidence is unknown. Verify the dimension label for Internal cavity width is visible and readable in the SVG. Relink or relabel Internal cavity width if it was manually drafted or detached from the source dimension.",
+    "Verify required dimension Rear connector opening width because extracted evidence is unknown. Verify the dimension label for Rear connector opening width is visible and readable in the SVG. Relink or relabel Rear connector opening width if it was manually drafted or detached from the source dimension.",
+    "Verify required dimension Rear connector opening length because extracted evidence is unknown. Verify the dimension label for Rear connector opening length is visible and readable in the SVG. Relink or relabel Rear connector opening length if it was manually drafted or detached from the source dimension.",
+    "Verify required dimension Cover sealing groove depth because extracted evidence is unknown. Verify the dimension label for Cover sealing groove depth is visible and readable in the SVG. Relink or relabel Cover sealing groove depth if it was manually drafted or detached from the source dimension.",
+    "Add or label the required note MATERIAL_PROCESS if it should appear in the drawing. Verify the required note text \"Material: AL6061 casting with machined connector datum and sealing surfaces.\" is present and readable. Confirm extraction can still match the note to Material: AL6061 casting with machined connector datum and sealing surfaces..",
+    "Add or label the required note EOL_FUNCTIONAL_TEST if it should appear in the drawing. Verify the required note text \"EOL release requires barcode pairing, gasket confirmation, vision confirmation, and electrical functional pass.\" is present and readable. Confirm extraction can still match the note to EOL release requires barcode pairing, gasket confirmation, vision confirmation, and electrical functional pass..",
+    "Improve intent aliases or drawing labels for unmatched extracted dimensions. Review whether the unmatched dimensions should map to an existing required intent. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+    "Improve intent aliases or drawing labels for unmatched extracted notes. Review whether the unmatched notes should satisfy an existing required note. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably."
+  ],
+  "suggested_actions": [
+    "Separate overlapping note or dimension text and reroute leaders if needed.",
+    "Add a required diameter dimension intent for \"mount1\".",
+    "Add a required diameter dimension intent for \"mount2\".",
+    "Add a required diameter dimension intent for \"mount3\".",
+    "Add a required diameter dimension intent for \"mount4\".",
+    "Enable or verify center marks/centerlines for hole views.",
+    "Add or verify the material note in the title block or general notes.",
+    "Add a local detail view only if diameter/location callouts collide or become unreadable.",
+    "Add drawing evidence for critical feature(s): HOUSING_ENVELOPE, INTERNAL_CAVITY, CONNECTOR_OPENING, SEAL_INTERFACE.",
+    "Attach or regenerate traceability evidence for required dimensions.",
+    "Verify required dimension Internal cavity length because extracted evidence is unknown. Verify the dimension label for Internal cavity length is visible and readable in the SVG. Relink or relabel Internal cavity length if it was manually drafted or detached from the source dimension.",
+    "Verify required dimension Internal cavity width because extracted evidence is unknown. Verify the dimension label for Internal cavity width is visible and readable in the SVG. Relink or relabel Internal cavity width if it was manually drafted or detached from the source dimension.",
+    "Verify required dimension Rear connector opening width because extracted evidence is unknown. Verify the dimension label for Rear connector opening width is visible and readable in the SVG. Relink or relabel Rear connector opening width if it was manually drafted or detached from the source dimension.",
+    "Verify required dimension Rear connector opening length because extracted evidence is unknown. Verify the dimension label for Rear connector opening length is visible and readable in the SVG. Relink or relabel Rear connector opening length if it was manually drafted or detached from the source dimension.",
+    "Verify required dimension Cover sealing groove depth because extracted evidence is unknown. Verify the dimension label for Cover sealing groove depth is visible and readable in the SVG. Relink or relabel Cover sealing groove depth if it was manually drafted or detached from the source dimension.",
+    "Add or label the required note MATERIAL_PROCESS if it should appear in the drawing. Verify the required note text \"Material: AL6061 casting with machined connector datum and sealing surfaces.\" is present and readable. Confirm extraction can still match the note to Material: AL6061 casting with machined connector datum and sealing surfaces..",
+    "Add or label the required note EOL_FUNCTIONAL_TEST if it should appear in the drawing. Verify the required note text \"EOL release requires barcode pairing, gasket confirmation, vision confirmation, and electrical functional pass.\" is present and readable. Confirm extraction can still match the note to EOL release requires barcode pairing, gasket confirmation, vision confirmation, and electrical functional pass..",
+    "Improve intent aliases or drawing labels for unmatched extracted dimensions. Review whether the unmatched dimensions should map to an existing required intent. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+    "Improve intent aliases or drawing labels for unmatched extracted notes. Review whether the unmatched notes should satisfy an existing required note. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably."
+  ],
+  "drawing_planner": {
+    "schema_version": "0.1",
+    "planner_type": "drawing_view_dimension_advisory",
+    "status": "advisory",
+    "generated_from": {
+      "drawing_intent": true,
+      "feature_catalog": true,
+      "artifact_refs": {
+        "input_config": "docs/examples/controller-housing-eol/config.toml",
+        "drawing_svg": "docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing.svg",
+        "plan": "docs/examples/controller-housing-eol/cad/controller_housing_eol_plan.toml",
+        "traceability": "docs/examples/controller-housing-eol/cad/controller_housing_eol_traceability.json",
+        "dimension_map": "docs/examples/controller-housing-eol/cad/controller_housing_eol_dimension_map.json",
+        "dim_conflicts": "docs/examples/controller-housing-eol/cad/controller_housing_eol_dim_conflicts.json"
+      }
+    },
+    "recommended_views": [
+      {
+        "id": "view:top",
+        "type": "required_view",
+        "view": "top",
+        "status": "already_requested",
+        "message": "Recommend top view.",
+        "reason": "Top view is the clearest evidence-backed view for plate footprint and hole locations.",
+        "evidence_refs": [
+          "config:shape:housing",
+          "config:shape:mount1",
+          "traceability:feature:mount1",
+          "config:shape:mount2",
+          "traceability:feature:mount2",
+          "config:shape:mount3",
+          "traceability:feature:mount3",
+          "config:shape:mount4",
+          "traceability:feature:mount4"
+        ],
+        "confidence": {
+          "score": 0.86,
+          "level": "high",
+          "rationale": "Conservative view rule matched reliable geometry evidence."
+        }
+      },
+      {
+        "id": "view:front",
+        "type": "required_view",
+        "view": "front",
+        "status": "already_requested",
+        "message": "Recommend front view.",
+        "reason": "Front view supports body thickness/height communication without relying on an isometric view.",
+        "evidence_refs": [
+          "config:shape:housing"
+        ],
+        "confidence": {
+          "score": 0.74,
+          "level": "medium",
+          "rationale": "Conservative view rule matched reliable geometry evidence."
+        }
+      }
+    ],
+    "required_dimensions_by_feature": [
+      {
+        "id": "housing:overall_length",
+        "type": "required_dimension",
+        "feature_type": "body",
+        "feature_id": "housing",
+        "view": "top",
+        "dimension_type": "overall_length",
+        "status": "planned",
+        "message": "Dimension overall length for housing.",
+        "reason": "Body/plate footprint should be bounded by an overall length dimension.",
+        "evidence_refs": [
+          "config:shape:housing"
+        ],
+        "confidence": {
+          "score": 0.82,
+          "level": "high",
+          "rationale": "Box body dimensions are explicit in config or feature evidence."
+        }
+      },
+      {
+        "id": "housing:overall_width",
+        "type": "required_dimension",
+        "feature_type": "body",
+        "feature_id": "housing",
+        "view": "top",
+        "dimension_type": "overall_width",
+        "status": "planned",
+        "message": "Dimension overall width for housing.",
+        "reason": "Body/plate footprint should be bounded by an overall width dimension.",
+        "evidence_refs": [
+          "config:shape:housing"
+        ],
+        "confidence": {
+          "score": 0.82,
+          "level": "high",
+          "rationale": "Box body dimensions are explicit in config or feature evidence."
+        }
+      },
+      {
+        "id": "housing:thickness",
+        "type": "required_dimension",
+        "feature_type": "body",
+        "feature_id": "housing",
+        "view": "front",
+        "dimension_type": "thickness",
+        "status": "planned",
+        "message": "Dimension thickness for housing.",
+        "reason": "A plate/body thickness is required to manufacture the body from orthographic views.",
+        "evidence_refs": [
+          "config:shape:housing"
+        ],
+        "confidence": {
+          "score": 0.78,
+          "level": "medium",
+          "rationale": "Box height/thickness evidence is available."
+        }
+      },
+      {
+        "id": "mount1:diameter",
+        "type": "required_dimension",
+        "feature_type": "hole",
+        "feature_id": "mount1",
+        "view": "top",
+        "dimension_type": "diameter",
+        "status": "missing_intent",
+        "message": "Dimension diameter for mount1.",
+        "reason": "Through-hole evidence supports a required diameter callout.",
+        "evidence_refs": [
+          "config:shape:mount1",
+          "traceability:feature:mount1"
+        ],
+        "confidence": {
+          "score": 0.9,
+          "level": "high",
+          "rationale": "Cylinder cut provides reliable diameter evidence."
+        },
+        "suggested_fix": "Add a required diameter dimension intent for \"mount1\"."
+      },
+      {
+        "id": "mount2:diameter",
+        "type": "required_dimension",
+        "feature_type": "hole",
+        "feature_id": "mount2",
+        "view": "top",
+        "dimension_type": "diameter",
+        "status": "missing_intent",
+        "message": "Dimension diameter for mount2.",
+        "reason": "Through-hole evidence supports a required diameter callout.",
+        "evidence_refs": [
+          "config:shape:mount2",
+          "traceability:feature:mount2"
+        ],
+        "confidence": {
+          "score": 0.9,
+          "level": "high",
+          "rationale": "Cylinder cut provides reliable diameter evidence."
+        },
+        "suggested_fix": "Add a required diameter dimension intent for \"mount2\"."
+      },
+      {
+        "id": "mount3:diameter",
+        "type": "required_dimension",
+        "feature_type": "hole",
+        "feature_id": "mount3",
+        "view": "top",
+        "dimension_type": "diameter",
+        "status": "missing_intent",
+        "message": "Dimension diameter for mount3.",
+        "reason": "Through-hole evidence supports a required diameter callout.",
+        "evidence_refs": [
+          "config:shape:mount3",
+          "traceability:feature:mount3"
+        ],
+        "confidence": {
+          "score": 0.9,
+          "level": "high",
+          "rationale": "Cylinder cut provides reliable diameter evidence."
+        },
+        "suggested_fix": "Add a required diameter dimension intent for \"mount3\"."
+      },
+      {
+        "id": "mount4:diameter",
+        "type": "required_dimension",
+        "feature_type": "hole",
+        "feature_id": "mount4",
+        "view": "top",
+        "dimension_type": "diameter",
+        "status": "missing_intent",
+        "message": "Dimension diameter for mount4.",
+        "reason": "Through-hole evidence supports a required diameter callout.",
+        "evidence_refs": [
+          "config:shape:mount4",
+          "traceability:feature:mount4"
+        ],
+        "confidence": {
+          "score": 0.9,
+          "level": "high",
+          "rationale": "Cylinder cut provides reliable diameter evidence."
+        },
+        "suggested_fix": "Add a required diameter dimension intent for \"mount4\"."
+      },
+      {
+        "id": "hole_pattern_1:pattern_callout",
+        "type": "required_dimension",
+        "feature_type": "hole_pattern",
+        "feature_id": "hole_pattern_1",
+        "view": "top",
+        "dimension_type": "hole_pattern",
+        "status": "planned",
+        "message": "Define 4x hole pattern with common diameter 6 mm.",
+        "reason": "Repeated equal-diameter holes should be communicated as a pattern instead of individually over-dimensioning each edge.",
+        "evidence_refs": [
+          "config:shape:mount1",
+          "traceability:feature:mount1",
+          "config:shape:mount2",
+          "traceability:feature:mount2",
+          "config:shape:mount3",
+          "traceability:feature:mount3",
+          "config:shape:mount4",
+          "traceability:feature:mount4"
+        ],
+        "confidence": {
+          "score": 0.78,
+          "level": "medium",
+          "rationale": "Three or more equal-diameter positioned holes were detected."
+        }
+      }
+    ],
+    "missing_dimensions": [
+      {
+        "id": "mount1:diameter:missing",
+        "dimension_id": "mount1:diameter",
+        "feature_id": "mount1",
+        "feature_type": "hole",
+        "dimension_type": "diameter",
+        "explanation": "No explicit diameter intent or mapped dimension was found for hole \"mount1\".",
+        "suggested_fix": "Add a required diameter dimension intent for \"mount1\".",
+        "evidence_refs": [
+          "config:shape:mount1",
+          "traceability:feature:mount1"
+        ],
+        "confidence": {
+          "score": 0.9,
+          "level": "high",
+          "rationale": "Cylinder cut provides reliable diameter evidence."
+        }
+      },
+      {
+        "id": "mount2:diameter:missing",
+        "dimension_id": "mount2:diameter",
+        "feature_id": "mount2",
+        "feature_type": "hole",
+        "dimension_type": "diameter",
+        "explanation": "No explicit diameter intent or mapped dimension was found for hole \"mount2\".",
+        "suggested_fix": "Add a required diameter dimension intent for \"mount2\".",
+        "evidence_refs": [
+          "config:shape:mount2",
+          "traceability:feature:mount2"
+        ],
+        "confidence": {
+          "score": 0.9,
+          "level": "high",
+          "rationale": "Cylinder cut provides reliable diameter evidence."
+        }
+      },
+      {
+        "id": "mount3:diameter:missing",
+        "dimension_id": "mount3:diameter",
+        "feature_id": "mount3",
+        "feature_type": "hole",
+        "dimension_type": "diameter",
+        "explanation": "No explicit diameter intent or mapped dimension was found for hole \"mount3\".",
+        "suggested_fix": "Add a required diameter dimension intent for \"mount3\".",
+        "evidence_refs": [
+          "config:shape:mount3",
+          "traceability:feature:mount3"
+        ],
+        "confidence": {
+          "score": 0.9,
+          "level": "high",
+          "rationale": "Cylinder cut provides reliable diameter evidence."
+        }
+      },
+      {
+        "id": "mount4:diameter:missing",
+        "dimension_id": "mount4:diameter",
+        "feature_id": "mount4",
+        "feature_type": "hole",
+        "dimension_type": "diameter",
+        "explanation": "No explicit diameter intent or mapped dimension was found for hole \"mount4\".",
+        "suggested_fix": "Add a required diameter dimension intent for \"mount4\".",
+        "evidence_refs": [
+          "config:shape:mount4",
+          "traceability:feature:mount4"
+        ],
+        "confidence": {
+          "score": 0.9,
+          "level": "high",
+          "rationale": "Cylinder cut provides reliable diameter evidence."
+        }
+      }
+    ],
+    "recommended_annotations": [
+      {
+        "id": "annotation:centerlines-for-holes",
+        "type": "annotation",
+        "status": "recommended",
+        "message": "Show center marks or centerlines for hole features.",
+        "reason": "Hole features are present; center marks improve inspection readability without adding tolerance claims.",
+        "evidence_refs": [
+          "config:shape:mount1",
+          "traceability:feature:mount1",
+          "config:shape:mount2",
+          "traceability:feature:mount2",
+          "config:shape:mount3",
+          "traceability:feature:mount3",
+          "config:shape:mount4",
+          "traceability:feature:mount4"
+        ],
+        "confidence": {
+          "score": 0.82,
+          "level": "high",
+          "rationale": "Hole features are reliable drawing evidence."
+        },
+        "suggested_fix": "Enable or verify center marks/centerlines for hole views."
+      },
+      {
+        "id": "annotation:material-note",
+        "type": "annotation",
+        "status": "recommended",
+        "message": "Carry material note \"AL6061\" on the drawing.",
+        "reason": "Material is explicitly declared in drawing/manufacturing metadata.",
+        "evidence_refs": [
+          "config:drawing.meta.material",
+          "config:manufacturing.material"
+        ],
+        "confidence": {
+          "score": 0.86,
+          "level": "high",
+          "rationale": "Material metadata is explicitly present."
+        },
+        "suggested_fix": "Add or verify the material note in the title block or general notes."
+      }
+    ],
+    "section_view_recommendations": [],
+    "detail_view_recommendations": [
+      {
+        "id": "detail:small-hole-callouts",
+        "type": "detail_view",
+        "feature_type": "through_hole",
+        "status": "recommended",
+        "message": "Consider a detail view for small hole callouts if the sheet scale makes them crowded.",
+        "reason": "Small hole diameter evidence is present; this remains conditional on drawing readability.",
+        "evidence_refs": [
+          "config:shape:mount1",
+          "traceability:feature:mount1",
+          "config:shape:mount2",
+          "traceability:feature:mount2",
+          "config:shape:mount3",
+          "traceability:feature:mount3",
+          "config:shape:mount4",
+          "traceability:feature:mount4"
+        ],
+        "confidence": {
+          "score": 0.56,
+          "level": "medium",
+          "rationale": "Small feature evidence supports only a conditional detail-view recommendation."
+        },
+        "suggested_fix": "Add a local detail view only if diameter/location callouts collide or become unreadable."
+      }
+    ],
+    "suggested_actions": [
+      "Add a required diameter dimension intent for \"mount1\".",
+      "Add a required diameter dimension intent for \"mount2\".",
+      "Add a required diameter dimension intent for \"mount3\".",
+      "Add a required diameter dimension intent for \"mount4\".",
+      "Enable or verify center marks/centerlines for hole views.",
+      "Add or verify the material note in the title block or general notes.",
+      "Add a local detail view only if diameter/location callouts collide or become unreadable.",
+      "Verify required dimension Internal cavity length because extracted evidence is unknown. Verify the dimension label for Internal cavity length is visible and readable in the SVG. Relink or relabel Internal cavity length if it was manually drafted or detached from the source dimension.",
+      "Verify required dimension Internal cavity width because extracted evidence is unknown. Verify the dimension label for Internal cavity width is visible and readable in the SVG. Relink or relabel Internal cavity width if it was manually drafted or detached from the source dimension.",
+      "Verify required dimension Rear connector opening width because extracted evidence is unknown. Verify the dimension label for Rear connector opening width is visible and readable in the SVG. Relink or relabel Rear connector opening width if it was manually drafted or detached from the source dimension.",
+      "Verify required dimension Rear connector opening length because extracted evidence is unknown. Verify the dimension label for Rear connector opening length is visible and readable in the SVG. Relink or relabel Rear connector opening length if it was manually drafted or detached from the source dimension.",
+      "Verify required dimension Cover sealing groove depth because extracted evidence is unknown. Verify the dimension label for Cover sealing groove depth is visible and readable in the SVG. Relink or relabel Cover sealing groove depth if it was manually drafted or detached from the source dimension.",
+      "Add or label the required note MATERIAL_PROCESS if it should appear in the drawing. Verify the required note text \"Material: AL6061 casting with machined connector datum and sealing surfaces.\" is present and readable. Confirm extraction can still match the note to Material: AL6061 casting with machined connector datum and sealing surfaces..",
+      "Add or label the required note EOL_FUNCTIONAL_TEST if it should appear in the drawing. Verify the required note text \"EOL release requires barcode pairing, gasket confirmation, vision confirmation, and electrical functional pass.\" is present and readable. Confirm extraction can still match the note to EOL release requires barcode pairing, gasket confirmation, vision confirmation, and electrical functional pass..",
+      "Improve intent aliases or drawing labels for unmatched extracted dimensions. Review whether the unmatched dimensions should map to an existing required intent. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+      "Improve intent aliases or drawing labels for unmatched extracted notes. Review whether the unmatched notes should satisfy an existing required note. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably."
+    ],
+    "evidence": [
+      {
+        "ref": "config:shape:housing",
+        "kind": "feature_catalog",
+        "summary": "body feature \"housing\" from conservative feature catalog evidence."
+      },
+      {
+        "ref": "config:shape:mount1",
+        "kind": "feature_catalog",
+        "summary": "hole feature \"mount1\" from conservative feature catalog evidence."
+      },
+      {
+        "ref": "config:shape:mount2",
+        "kind": "feature_catalog",
+        "summary": "hole feature \"mount2\" from conservative feature catalog evidence."
+      },
+      {
+        "ref": "config:shape:mount3",
+        "kind": "feature_catalog",
+        "summary": "hole feature \"mount3\" from conservative feature catalog evidence."
+      },
+      {
+        "ref": "config:shape:mount4",
+        "kind": "feature_catalog",
+        "summary": "hole feature \"mount4\" from conservative feature catalog evidence."
+      },
+      {
+        "ref": "feature_catalog:hole_pattern_1",
+        "kind": "feature_catalog",
+        "summary": "hole_pattern feature \"hole_pattern_1\" from conservative feature catalog evidence."
+      }
+    ],
+    "confidence": {
+      "score": 0.84,
+      "level": "high",
+      "rationale": "Aggregate confidence from deterministic feature and drawing-intent evidence; recommendations remain advisory."
+    },
+    "limitations": [
+      "Planner recommendations are advisory and do not replace TechDraw generation.",
+      "No GD&T or tolerance callout is inferred unless explicitly present in drawing metadata.",
+      "Functional requirements are not inferred beyond drawing_intent and reliable feature evidence."
+    ],
+    "suggested_action_details": [
+      {
+        "id": "dimension:cavitylength:unknown",
+        "severity": "review",
+        "category": "dimension",
+        "target_requirement_id": "CAVITY_LENGTH",
+        "target_feature_id": "cavity",
+        "classification": "unknown",
+        "title": "Verify required dimension Internal cavity length because extracted evidence is unknown.",
+        "message": "Extracted drawing semantics explicitly marked this required dimension as uncertain.",
+        "recommended_fix": "Verify the dimension label for Internal cavity length is visible and readable in the SVG. Relink or relabel Internal cavity length if it was manually drafted or detached from the source dimension.",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "required_dimensions.CAVITY_LENGTH.classification",
+            "value": "unknown"
+          }
+        ]
+      },
+      {
+        "id": "dimension:cavitywidth:unknown",
+        "severity": "review",
+        "category": "dimension",
+        "target_requirement_id": "CAVITY_WIDTH",
+        "target_feature_id": "cavity",
+        "classification": "unknown",
+        "title": "Verify required dimension Internal cavity width because extracted evidence is unknown.",
+        "message": "Extracted drawing semantics explicitly marked this required dimension as uncertain.",
+        "recommended_fix": "Verify the dimension label for Internal cavity width is visible and readable in the SVG. Relink or relabel Internal cavity width if it was manually drafted or detached from the source dimension.",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "required_dimensions.CAVITY_WIDTH.classification",
+            "value": "unknown"
+          }
+        ]
+      },
+      {
+        "id": "dimension:connectoropeningwidth:unknown",
+        "severity": "review",
+        "category": "dimension",
+        "target_requirement_id": "CONNECTOR_OPENING_WIDTH",
+        "target_feature_id": "connector_port",
+        "classification": "unknown",
+        "title": "Verify required dimension Rear connector opening width because extracted evidence is unknown.",
+        "message": "Extracted drawing semantics explicitly marked this required dimension as uncertain.",
+        "recommended_fix": "Verify the dimension label for Rear connector opening width is visible and readable in the SVG. Relink or relabel Rear connector opening width if it was manually drafted or detached from the source dimension.",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "required_dimensions.CONNECTOR_OPENING_WIDTH.classification",
+            "value": "unknown"
+          }
+        ]
+      },
+      {
+        "id": "dimension:connectoropeninglength:unknown",
+        "severity": "review",
+        "category": "dimension",
+        "target_requirement_id": "CONNECTOR_OPENING_LENGTH",
+        "target_feature_id": "connector_port",
+        "classification": "unknown",
+        "title": "Verify required dimension Rear connector opening length because extracted evidence is unknown.",
+        "message": "Extracted drawing semantics explicitly marked this required dimension as uncertain.",
+        "recommended_fix": "Verify the dimension label for Rear connector opening length is visible and readable in the SVG. Relink or relabel Rear connector opening length if it was manually drafted or detached from the source dimension.",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "required_dimensions.CONNECTOR_OPENING_LENGTH.classification",
+            "value": "unknown"
+          }
+        ]
+      },
+      {
+        "id": "dimension:sealgroovedepth:unknown",
+        "severity": "review",
+        "category": "dimension",
+        "target_requirement_id": "SEAL_GROOVE_DEPTH",
+        "target_feature_id": "seal_interface",
+        "classification": "unknown",
+        "title": "Verify required dimension Cover sealing groove depth because extracted evidence is unknown.",
+        "message": "Extracted drawing semantics explicitly marked this required dimension as uncertain.",
+        "recommended_fix": "Verify the dimension label for Cover sealing groove depth is visible and readable in the SVG. Relink or relabel Cover sealing groove depth if it was manually drafted or detached from the source dimension.",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "required_dimensions.SEAL_GROOVE_DEPTH.classification",
+            "value": "unknown"
+          }
+        ]
+      },
+      {
+        "id": "note:materialprocess:unknown",
+        "severity": "review",
+        "category": "note",
+        "target_requirement_id": "MATERIAL_PROCESS",
+        "target_feature_id": null,
+        "classification": "unknown",
+        "title": "Add or label the required note MATERIAL_PROCESS if it should appear in the drawing.",
+        "message": "Extracted drawing semantics explicitly marked this required note as uncertain.",
+        "recommended_fix": "Verify the required note text \"Material: AL6061 casting with machined connector datum and sealing surfaces.\" is present and readable. Confirm extraction can still match the note to Material: AL6061 casting with machined connector datum and sealing surfaces..",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "required_notes.MATERIAL_PROCESS.classification",
+            "value": "unknown"
+          }
+        ]
+      },
+      {
+        "id": "note:eolfunctionaltest:unknown",
+        "severity": "review",
+        "category": "note",
+        "target_requirement_id": "EOL_FUNCTIONAL_TEST",
+        "target_feature_id": null,
+        "classification": "unknown",
+        "title": "Add or label the required note EOL_FUNCTIONAL_TEST if it should appear in the drawing.",
+        "message": "Extracted drawing semantics explicitly marked this required note as uncertain.",
+        "recommended_fix": "Verify the required note text \"EOL release requires barcode pairing, gasket confirmation, vision confirmation, and electrical functional pass.\" is present and readable. Confirm extraction can still match the note to EOL release requires barcode pairing, gasket confirmation, vision confirmation, and electrical functional pass..",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "required_notes.EOL_FUNCTIONAL_TEST.classification",
+            "value": "unknown"
+          }
+        ]
+      },
+      {
+        "id": "mapping:unmatched-dimensions:unmatched",
+        "severity": "info",
+        "category": "mapping",
+        "target_requirement_id": "unmatched_dimensions",
+        "target_feature_id": null,
+        "classification": "unmatched",
+        "title": "Improve intent aliases or drawing labels for unmatched extracted dimensions.",
+        "message": "Some extracted dimensions did not match any required drawing intent.",
+        "recommended_fix": "Review whether the unmatched dimensions should map to an existing required intent. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "unmatched_dimensions.count",
+            "value": "8"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "unmatched_dimensions.samples",
+            "value": "[\"20\",\"20\",\"152\",\"152\",\"20\"]"
+          }
+        ]
+      },
+      {
+        "id": "mapping:unmatched-notes:unmatched",
+        "severity": "info",
+        "category": "mapping",
+        "target_requirement_id": "unmatched_notes",
+        "target_feature_id": null,
+        "classification": "unmatched",
+        "title": "Improve intent aliases or drawing labels for unmatched extracted notes.",
+        "message": "Some extracted notes did not match any required drawing intent.",
+        "recommended_fix": "Review whether the unmatched notes should satisfy an existing required note. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "unmatched_notes.count",
+            "value": "28"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "unmatched_notes.samples",
+            "value": "[\"Material: AL6061\",\"A\",\"B\",\"B\",\"C\"]"
+          }
+        ]
+      }
+    ]
+  },
+  "reviewer_feedback": {
+    "advisory_only": true,
+    "status": "none",
+    "evidence_state": "none",
+    "total_count": 0,
+    "unresolved_count": 0,
+    "linked_count": 0,
+    "unmatched_count": 0,
+    "stale_count": 0,
+    "orphaned_count": 0,
+    "invalid_count": 0,
+    "accepted_count": 0,
+    "resolved_count": 0,
+    "items": [],
+    "summary": "Reviewer feedback was not provided.",
+    "suggested_actions": [],
+    "suggested_action_details": [],
+    "provenance": {
+      "artifact_type": "reviewer_feedback_json",
+      "path": null,
+      "method": "explicit_reviewer_feedback_json",
+      "input_status": "none"
+    }
+  }
+}

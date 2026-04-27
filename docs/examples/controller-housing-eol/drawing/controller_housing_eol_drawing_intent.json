@@ -1,0 +1,196 @@
+{
+  "part_type": "controller_housing_eol",
+  "manufacturing_process": "casting",
+  "material": "AL6061",
+  "required_views": [
+    "front",
+    "top",
+    "right",
+    "iso"
+  ],
+  "drawing_standard": "project-default",
+  "missing_semantics_policy": "advisory",
+  "datum_strategy": {
+    "primary": "pcb_mount_face",
+    "secondary": "rear_connector_opening",
+    "tertiary": "front_left_mounting_hole",
+    "scheme": "assembly-oriented enclosure datum using the PCB mount face, connector opening, and mounting hole pattern",
+    "notes": [
+      "Use connector datum, sealing interface, and mounting pattern as launch drawing QA references only."
+    ]
+  },
+  "tolerance_policy": {
+    "general": "Carry source critical dimensions forward; do not infer additional geometric tolerances.",
+    "gdt": "none",
+    "notes": [
+      "Connector datum and seal groove depth are controlled by the source quality metadata."
+    ]
+  },
+  "critical_features": [
+    {
+      "id": "HOUSING_ENVELOPE",
+      "feature": "housing",
+      "description": "Outer housing envelope communicates the 172 mm by 126 mm by 50 mm controller enclosure footprint.",
+      "reason": "Defines vehicle package and fixture envelope context.",
+      "view": "iso"
+    },
+    {
+      "id": "INTERNAL_CAVITY",
+      "feature": "cavity",
+      "description": "Internal cavity communicates electronics volume and top-down PCB insertion intent.",
+      "reason": "Protects PCB loading and cavity cleanliness review.",
+      "view": "top"
+    },
+    {
+      "id": "CONNECTOR_OPENING",
+      "feature": "connector_port",
+      "description": "Rear connector opening and datum support connector seating and side-probe access.",
+      "reason": "Controls connector fit and EOL probing access.",
+      "view": "right"
+    },
+    {
+      "id": "MOUNTING_HOLE_PATTERN",
+      "feature": "mount1,mount2,mount3,mount4",
+      "description": "Four housing mounting holes establish fixture and closeout pattern references.",
+      "reason": "Supports cover fastening clearance and fixture location.",
+      "view": "top"
+    },
+    {
+      "id": "SEAL_INTERFACE",
+      "feature": "seal_interface",
+      "description": "Seal interface represents the gasket compression path around the cover opening.",
+      "reason": "Protects sealing durability and gasket confirmation at assembly closeout.",
+      "view": "front"
+    }
+  ],
+  "required_dimensions": [
+    {
+      "id": "HOUSING_LENGTH",
+      "feature": "housing",
+      "label": "Overall housing length",
+      "dimension_type": "linear",
+      "value_mm": 172,
+      "required": true,
+      "view": "top",
+      "reason": "Confirms the enclosure package envelope."
+    },
+    {
+      "id": "HOUSING_WIDTH",
+      "feature": "housing",
+      "label": "Overall housing width",
+      "dimension_type": "linear",
+      "value_mm": 126,
+      "required": true,
+      "view": "top",
+      "reason": "Confirms the enclosure package envelope."
+    },
+    {
+      "id": "HOUSING_HEIGHT",
+      "feature": "housing",
+      "label": "Overall housing height",
+      "dimension_type": "linear",
+      "value_mm": 50,
+      "required": true,
+      "view": "front",
+      "reason": "Confirms enclosure stack height."
+    },
+    {
+      "id": "CAVITY_LENGTH",
+      "feature": "cavity",
+      "label": "Internal cavity length",
+      "dimension_type": "linear",
+      "value_mm": 142,
+      "required": true,
+      "view": "top",
+      "reason": "Captures electronics volume intent."
+    },
+    {
+      "id": "CAVITY_WIDTH",
+      "feature": "cavity",
+      "label": "Internal cavity width",
+      "dimension_type": "linear",
+      "value_mm": 96,
+      "required": true,
+      "view": "top",
+      "reason": "Captures electronics volume intent."
+    },
+    {
+      "id": "CONNECTOR_OPENING_WIDTH",
+      "feature": "connector_port",
+      "label": "Rear connector opening width",
+      "dimension_type": "linear",
+      "value_mm": 30,
+      "required": true,
+      "view": "right",
+      "reason": "Carries connector-side fit and probe access intent."
+    },
+    {
+      "id": "CONNECTOR_OPENING_LENGTH",
+      "feature": "connector_port",
+      "label": "Rear connector opening length",
+      "dimension_type": "linear",
+      "value_mm": 42,
+      "required": true,
+      "view": "top",
+      "reason": "Carries connector datum and fit intent."
+    },
+    {
+      "id": "MOUNTING_HOLE_DIA",
+      "feature": "mount1,mount2,mount3,mount4",
+      "label": "Mounting hole diameters",
+      "dimension_type": "diameter",
+      "value_mm": 6,
+      "required": true,
+      "view": "top",
+      "reason": "Confirms the shared mounting and fixture hole size."
+    },
+    {
+      "id": "MOUNTING_HOLE_PATTERN_X",
+      "feature": "mount1,mount2,mount3,mount4",
+      "label": "Mounting hole column spacing",
+      "dimension_type": "linear",
+      "value_mm": 132,
+      "required": true,
+      "view": "top",
+      "reason": "Captures the horizontal spacing from x=20 mm to x=152 mm."
+    },
+    {
+      "id": "MOUNTING_HOLE_PATTERN_Y",
+      "feature": "mount1,mount2,mount3,mount4",
+      "label": "Mounting hole row spacing",
+      "dimension_type": "linear",
+      "value_mm": 86,
+      "required": true,
+      "view": "top",
+      "reason": "Captures the vertical spacing from y=20 mm to y=106 mm."
+    },
+    {
+      "id": "SEAL_GROOVE_DEPTH",
+      "feature": "seal_interface",
+      "label": "Cover sealing groove depth",
+      "dimension_type": "linear",
+      "value_mm": 2.4,
+      "tolerance": "+/-0.05",
+      "required": true,
+      "view": "front",
+      "reason": "Carries the gasket compression critical dimension."
+    }
+  ],
+  "required_notes": [
+    {
+      "id": "MATERIAL_PROCESS",
+      "text": "Material: AL6061 casting with machined connector datum and sealing surfaces.",
+      "required": true
+    },
+    {
+      "id": "TORQUE_TRACE",
+      "text": "Assembly closeout requires six screws tightened to 0.85 Nm with digital torque trace.",
+      "required": true
+    },
+    {
+      "id": "EOL_FUNCTIONAL_TEST",
+      "text": "EOL release requires barcode pairing, gasket confirmation, vision confirmation, and electrical functional pass.",
+      "required": true
+    }
+  ]
+}
