@@ -1,5 +1,5 @@
 import { mkdir, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 
 import { getCCommandContract } from '../../lib/c-artifact-schema.js';
 import { writeValidatedCArtifact } from '../../lib/context-loader.js';
@@ -39,6 +39,14 @@ function mergeSourceArtifactRefs(primary = [], secondary = []) {
     });
   }
   return merged;
+}
+
+function repoRelativePath(projectRoot, filePath) {
+  if (typeof filePath !== 'string' || !filePath.trim()) return filePath;
+  const relPath = relative(resolve(projectRoot), resolve(filePath)).replace(/\\/g, '/');
+  return relPath && !relPath.startsWith('..') && !relPath.startsWith('/')
+    ? relPath
+    : filePath;
 }
 
 function firstDefined(...values) {
@@ -167,7 +175,12 @@ export function createStandardDocsWorkflow() {
       },
       source_artifact_refs: mergeSourceArtifactRefs(
         report.source_artifact_refs || [],
-        [buildSourceArtifactRef('readiness_report', readinessReportPath, 'input', 'Canonical readiness report JSON')]
+        [buildSourceArtifactRef(
+          'readiness_report',
+          repoRelativePath(freecadRoot, readinessReportPath),
+          'input',
+          'Canonical readiness report JSON'
+        )]
       ),
       canonical_artifact: {
         json_is_source_of_truth: true,
@@ -184,7 +197,10 @@ export function createStandardDocsWorkflow() {
           }
         : null,
       rule_profile: summarizeRuleProfile(ruleProfile),
-      documents: Object.entries(artifacts).map(([filename, path]) => ({ filename, path })),
+      documents: Object.entries(artifacts).map(([filename, path]) => ({
+        filename,
+        path: repoRelativePath(freecadRoot, path),
+      })),
     };
 
     artifacts.manifest = await writeValidatedCArtifact(

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-26T00:00:00.000Z",
+  "generated_at": "2026-04-27T08:49:56.122Z",
   "readiness_report_path": "docs/examples/quality-pass-bracket/readiness/readiness_report.json",
   "docs_manifest_path": "docs/examples/quality-pass-bracket/standard-docs/standard_docs_manifest.json",
   "bundle_output_path": "docs/examples/quality-pass-bracket/release/release_bundle.zip",
@@ -10,8 +10,8 @@
       "label": "Canonical readiness report JSON",
       "path": "canonical/readiness_report.json",
       "source_path": "docs/examples/quality-pass-bracket/readiness/readiness_report.json",
-      "sha256": "4d7c73925da4a449a0817adc0bae8a7ee88287f274e75f7d6c246bf45feb9c71",
-      "size_bytes": 62394
+      "sha256": "fc2eac30307649abb799566c71fc8a0e146e579908e32109ea42fcffb3649324",
+      "size_bytes": 78836
     },
     {
       "artifact_type": "readiness_markdown",
@@ -19,8 +19,8 @@
       "label": "Readiness report Markdown",
       "path": "canonical/readiness_report.md",
       "source_path": "docs/examples/quality-pass-bracket/readiness/readiness_report.md",
-      "sha256": "3e4341af1496b4b00d3e28a0b5363a82d6247d073cdaafd302bee2a1e1b4c460",
-      "size_bytes": 3639
+      "sha256": "4d1897b971bd2a37f223ac1179b23bc2081be8d6b1075f34b9d59a465c1c2c52",
+      "size_bytes": 4163
     },
     {
       "artifact_type": "cad_model",
@@ -37,8 +37,8 @@
       "label": "Canonical review-pack JSON",
       "path": "canonical/review_pack.json",
       "source_path": "docs/examples/quality-pass-bracket/review/review_pack.json",
-      "sha256": "fd50735655d87448fc2aaae7ddd603ebadc78244d65ef3197fd2dad936dfc1bb",
-      "size_bytes": 26676
+      "sha256": "c3ca0fa7a2961e25164f58afea99841497d65ed428a51855cca22044be9fc65a",
+      "size_bytes": 37620
     },
     {
       "artifact_type": "docs_manifest",
@@ -46,8 +46,8 @@
       "label": "Standard docs manifest JSON",
       "path": "docs/standard_docs_manifest.json",
       "source_path": "docs/examples/quality-pass-bracket/standard-docs/standard_docs_manifest.json",
-      "sha256": "f1092809686ab1fa2d80c2535b5a7568c93a1597888f101ffa046fec59761059",
-      "size_bytes": 6029
+      "sha256": "5eb94c0e74466189014fa27cffd73be00223096df74b9ccf7e273ac8ad8995f9",
+      "size_bytes": 7180
     },
     {
       "artifact_type": "docs_document",
@@ -98,7 +98,7 @@
   "skipped_artifacts": [],
   "warnings": [
     "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
-    "Missing or limited inspection evidence; review-pack remains usable with partial evidence.",
-    "Missing or limited quality evidence; review-pack remains usable with partial evidence."
+    "Package quality/drawing side inputs are review evidence, but they do not satisfy inspection_evidence without a genuine inspection input.",
+    "Missing or limited inspection evidence; review-pack remains usable with partial evidence."
   ]
 }

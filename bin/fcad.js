@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { resolve, join, dirname, extname, parse, sep, isAbsolute } from 'node:path';
+import { resolve, join, dirname, extname, parse, sep, isAbsolute, relative } from 'node:path';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
@@ -224,6 +224,14 @@ function normalizeJsonOutputPath(pathValue) {
   if (!pathValue) return null;
   const absPath = resolveMaybe(pathValue);
   return absPath.toLowerCase().endsWith('.json') ? absPath : `${absPath}.json`;
+}
+
+function repoRelativePath(filePath) {
+  if (typeof filePath !== 'string' || !filePath.trim()) return filePath;
+  const relPath = relative(PROJECT_ROOT, resolve(filePath)).replace(/\\/g, '/');
+  return relPath && !relPath.startsWith('..') && !relPath.startsWith('/')
+    ? relPath
+    : filePath;
 }
 
 function siblingArtifactPath(primaryJsonPath, suffix) {
@@ -1416,7 +1424,7 @@ async function cmdReadinessPack(rawArgs = [], {
 
   const report = buildReadinessReportFromReviewPack({
     reviewPack: reviewPackInput.reviewPack,
-    reviewPackPath: reviewPackInput.reviewPackPath,
+    reviewPackPath: repoRelativePath(reviewPackInput.reviewPackPath),
     processPlan,
     qualityRisk,
   });

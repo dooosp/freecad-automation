@@ -94,14 +94,14 @@ try {
     metadata: {
       created_at: '2026-04-27T00:00:00Z',
       warnings: [],
-      source_files: ['tests/fixtures/sample_part.step'],
+      source_files: [resolve(ROOT, 'tests/fixtures/sample_part.step')],
     },
     part: {
       name: 'side-input-contract-part',
       revision: 'A',
     },
     geometry_source: {
-      path: 'tests/fixtures/sample_part.step',
+      path: resolve(ROOT, 'tests/fixtures/sample_part.step'),
       file_type: 'step',
       model_metadata: {
         bounding_box: {
@@ -129,6 +129,7 @@ try {
   const reviewPack = readJson(result.artifacts.reviewPackJson);
   assertValidDArtifact('review_pack', reviewPack, { command: 'review-context' });
   const serialized = JSON.stringify(reviewPack);
+  assert.equal(serialized.includes(ROOT), false, 'review_pack.json must not include repo-root absolute paths');
   assert.equal(serialized.includes(tempRoot), false, 'review_pack.json must not include temp absolute paths');
   assert.equal(serialized.includes('/Users/'), false, 'review_pack.json must not include user-home absolute paths');
   assert.equal(serialized.includes('tmp/codex'), false, 'review_pack.json must not include tmp/codex paths');

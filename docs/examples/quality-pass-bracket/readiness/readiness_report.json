@@ -12,14 +12,15 @@
     "artifact_type": "review_pack",
     "schema_version": "1.0",
     "analysis_version": "d1",
-    "generated_at": "2026-04-26T00:00:00.000Z",
+    "generated_at": "2026-04-27T08:47:26Z",
     "part_id": "quality_pass_bracket",
     "revision": null,
     "warnings": [
-      "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints."
+      "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
+      "Package quality/drawing side inputs are review evidence, but they do not satisfy inspection_evidence without a genuine inspection input."
     ],
     "coverage": {
-      "source_artifact_count": 2,
+      "source_artifact_count": 7,
       "source_file_count": 1,
       "hotspot_count": 4,
       "inspection_record_count": 0,
@@ -34,6 +35,36 @@
       "rationale": "Canonical review pack combines upstream D artifacts into a decision-oriented JSON contract."
     },
     "source_artifact_refs": [
+      {
+        "artifact_type": "create_quality_report",
+        "path": "docs/examples/quality-pass-bracket/quality/quality_pass_bracket_create_quality.json",
+        "role": "evidence",
+        "label": "Create quality report"
+      },
+      {
+        "artifact_type": "drawing_quality_report",
+        "path": "docs/examples/quality-pass-bracket/quality/quality_pass_bracket_drawing_quality.json",
+        "role": "evidence",
+        "label": "Drawing quality report"
+      },
+      {
+        "artifact_type": "drawing_qa_report",
+        "path": "docs/examples/quality-pass-bracket/quality/quality_pass_bracket_drawing_qa.json",
+        "role": "evidence",
+        "label": "Drawing QA report"
+      },
+      {
+        "artifact_type": "drawing_intent",
+        "path": "docs/examples/quality-pass-bracket/drawing/quality_pass_bracket_drawing_intent.json",
+        "role": "evidence",
+        "label": "Drawing intent"
+      },
+      {
+        "artifact_type": "feature_catalog",
+        "path": "docs/examples/quality-pass-bracket/drawing/quality_pass_bracket_feature_catalog.json",
+        "role": "evidence",
+        "label": "Feature catalog"
+      },
       {
         "artifact_type": "cad_model",
         "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step",
@@ -79,7 +110,7 @@
       "recommended_action_count": 3,
       "confidence": {
         "label": "heuristic",
-        "numeric_score": 0.62
+        "numeric_score": 0.74
       }
     },
     "prioritized_hotspots": [
@@ -197,11 +228,16 @@
       "hotspots": []
     },
     "evidence_ledger": {
-      "record_count": 4,
+      "record_count": 9,
       "counts_by_type": {
         "geometry_hotspot": 4,
         "inspection_anomaly": 0,
-        "quality_pattern": 0
+        "quality_pattern": 0,
+        "create_quality_report": 1,
+        "drawing_quality_report": 1,
+        "drawing_qa_report": 1,
+        "drawing_intent": 1,
+        "feature_catalog": 1
       },
       "records": [
         {
@@ -239,27 +275,124 @@
           "score": 0.65,
           "rationale": "Sharp internal transitions can drive stress concentration or tooling complexity.",
           "confidence": 0.6
+        },
+        {
+          "evidence_id": "package:create_quality_report:docs/examples/quality-pass-bracket/quality/quality_pass_bracket_create_quality.json",
+          "type": "create_quality_report",
+          "artifact_type": "create_quality_report",
+          "category": "quality_evidence",
+          "classifications": [
+            "quality_evidence"
+          ],
+          "source_ref": "docs/examples/quality-pass-bracket/quality/quality_pass_bracket_create_quality.json",
+          "file_name": "quality_pass_bracket_create_quality.json",
+          "title": "Create quality report",
+          "score": null,
+          "rationale": "Create quality report supplied as explicit review-context package side input.",
+          "confidence": null,
+          "size_bytes": 18222,
+          "sha256": "cc6c083b1624fed4fb1968237a55174c61125ffe61b33081c0e796d11b039559",
+          "inspection_evidence": false
+        },
+        {
+          "evidence_id": "package:drawing_quality_report:docs/examples/quality-pass-bracket/quality/quality_pass_bracket_drawing_quality.json",
+          "type": "drawing_quality_report",
+          "artifact_type": "drawing_quality_report",
+          "category": "quality_evidence",
+          "classifications": [
+            "quality_evidence",
+            "drawing_evidence"
+          ],
+          "source_ref": "docs/examples/quality-pass-bracket/quality/quality_pass_bracket_drawing_quality.json",
+          "file_name": "quality_pass_bracket_drawing_quality.json",
+          "title": "Drawing quality report",
+          "score": null,
+          "rationale": "Drawing quality report supplied as explicit review-context package side input.",
+          "confidence": null,
+          "size_bytes": 56988,
+          "sha256": "26badddd1c65eebc7b70229d1e8afef26f4ab5bc28bf338700886fd9ecd8882f",
+          "inspection_evidence": false
+        },
+        {
+          "evidence_id": "package:drawing_qa_report:docs/examples/quality-pass-bracket/quality/quality_pass_bracket_drawing_qa.json",
+          "type": "drawing_qa_report",
+          "artifact_type": "drawing_qa_report",
+          "category": "quality_evidence",
+          "classifications": [
+            "quality_evidence",
+            "drawing_evidence"
+          ],
+          "source_ref": "docs/examples/quality-pass-bracket/quality/quality_pass_bracket_drawing_qa.json",
+          "file_name": "quality_pass_bracket_drawing_qa.json",
+          "title": "Drawing QA report",
+          "score": null,
+          "rationale": "Drawing QA report supplied as explicit review-context package side input.",
+          "confidence": null,
+          "size_bytes": 1143,
+          "sha256": "683503037da0347863f236b3192f241e6883c39150da13a9d31caeee86a272f2",
+          "inspection_evidence": false
+        },
+        {
+          "evidence_id": "package:drawing_intent:docs/examples/quality-pass-bracket/drawing/quality_pass_bracket_drawing_intent.json",
+          "type": "drawing_intent",
+          "artifact_type": "drawing_intent",
+          "category": "design_traceability_evidence",
+          "classifications": [
+            "design_traceability_evidence",
+            "advisory_context"
+          ],
+          "source_ref": "docs/examples/quality-pass-bracket/drawing/quality_pass_bracket_drawing_intent.json",
+          "file_name": "quality_pass_bracket_drawing_intent.json",
+          "title": "Drawing intent",
+          "score": null,
+          "rationale": "Drawing intent supplied as explicit review-context package side input.",
+          "confidence": null,
+          "size_bytes": 2016,
+          "sha256": "c14e248121ae30e4fce811cbddc51facaa04c17771d547076b5f8721bf05524e",
+          "inspection_evidence": false
+        },
+        {
+          "evidence_id": "package:feature_catalog:docs/examples/quality-pass-bracket/drawing/quality_pass_bracket_feature_catalog.json",
+          "type": "feature_catalog",
+          "artifact_type": "feature_catalog",
+          "category": "design_traceability_evidence",
+          "classifications": [
+            "design_traceability_evidence",
+            "advisory_context"
+          ],
+          "source_ref": "docs/examples/quality-pass-bracket/drawing/quality_pass_bracket_feature_catalog.json",
+          "file_name": "quality_pass_bracket_feature_catalog.json",
+          "title": "Feature catalog",
+          "score": null,
+          "rationale": "Feature catalog supplied as explicit review-context package side input.",
+          "confidence": null,
+          "size_bytes": 3863,
+          "sha256": "668d4dcab2e32a90a11d115ca6019c9d0b9f1c405872a2a65f4bf175aade5d39",
+          "inspection_evidence": false
         }
       ]
     },
     "uncertainty_coverage_report": {
       "analysis_confidence": "heuristic",
-      "numeric_score": 0.62,
+      "numeric_score": 0.74,
       "partial_evidence": true,
       "missing_inputs": [
-        "inspection_evidence",
-        "quality_evidence"
+        "inspection_evidence"
       ],
       "coverage": {
         "source_file_count": 1,
         "geometry_hotspot_count": 4,
         "inspection_anomaly_count": 0,
         "quality_pattern_count": 0,
+        "package_quality_evidence_count": 3,
+        "drawing_evidence_count": 2,
+        "design_traceability_evidence_count": 2,
         "review_priority_count": 4,
-        "evidence_record_count": 4
+        "evidence_record_count": 9
       },
       "warnings": [
-        "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints."
+        "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
+        "Package quality/drawing side inputs are review evidence, but they do not satisfy inspection_evidence without a genuine inspection input."
       ]
     },
     "recommended_actions": [
@@ -327,12 +460,12 @@
         "message": "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints."
       },
       {
-        "severity": "info",
-        "message": "Missing or limited inspection evidence; review-pack remains usable with partial evidence."
+        "severity": "warning",
+        "message": "Package quality/drawing side inputs are review evidence, but they do not satisfy inspection_evidence without a genuine inspection input."
       },
       {
         "severity": "info",
-        "message": "Missing or limited quality evidence; review-pack remains usable with partial evidence."
+        "message": "Missing or limited inspection evidence; review-pack remains usable with partial evidence."
       }
     ],
     "geometry_summary": {
@@ -755,8 +888,95 @@
       "source_files": [
         "docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step"
       ],
+      "package_evidence": [
+        {
+          "evidence_id": "package:create_quality_report:docs/examples/quality-pass-bracket/quality/quality_pass_bracket_create_quality.json",
+          "type": "create_quality_report",
+          "artifact_type": "create_quality_report",
+          "category": "quality_evidence",
+          "classifications": [
+            "quality_evidence"
+          ],
+          "source_ref": "docs/examples/quality-pass-bracket/quality/quality_pass_bracket_create_quality.json",
+          "file_name": "quality_pass_bracket_create_quality.json",
+          "size_bytes": 18222,
+          "sha256": "cc6c083b1624fed4fb1968237a55174c61125ffe61b33081c0e796d11b039559",
+          "label": "Create quality report",
+          "inspection_evidence": false,
+          "rationale": "Create quality report supplied as explicit review-context package side input."
+        },
+        {
+          "evidence_id": "package:drawing_quality_report:docs/examples/quality-pass-bracket/quality/quality_pass_bracket_drawing_quality.json",
+          "type": "drawing_quality_report",
+          "artifact_type": "drawing_quality_report",
+          "category": "quality_evidence",
+          "classifications": [
+            "quality_evidence",
+            "drawing_evidence"
+          ],
+          "source_ref": "docs/examples/quality-pass-bracket/quality/quality_pass_bracket_drawing_quality.json",
+          "file_name": "quality_pass_bracket_drawing_quality.json",
+          "size_bytes": 56988,
+          "sha256": "26badddd1c65eebc7b70229d1e8afef26f4ab5bc28bf338700886fd9ecd8882f",
+          "label": "Drawing quality report",
+          "inspection_evidence": false,
+          "rationale": "Drawing quality report supplied as explicit review-context package side input."
+        },
+        {
+          "evidence_id": "package:drawing_qa_report:docs/examples/quality-pass-bracket/quality/quality_pass_bracket_drawing_qa.json",
+          "type": "drawing_qa_report",
+          "artifact_type": "drawing_qa_report",
+          "category": "quality_evidence",
+          "classifications": [
+            "quality_evidence",
+            "drawing_evidence"
+          ],
+          "source_ref": "docs/examples/quality-pass-bracket/quality/quality_pass_bracket_drawing_qa.json",
+          "file_name": "quality_pass_bracket_drawing_qa.json",
+          "size_bytes": 1143,
+          "sha256": "683503037da0347863f236b3192f241e6883c39150da13a9d31caeee86a272f2",
+          "label": "Drawing QA report",
+          "inspection_evidence": false,
+          "rationale": "Drawing QA report supplied as explicit review-context package side input."
+        },
+        {
+          "evidence_id": "package:drawing_intent:docs/examples/quality-pass-bracket/drawing/quality_pass_bracket_drawing_intent.json",
+          "type": "drawing_intent",
+          "artifact_type": "drawing_intent",
+          "category": "design_traceability_evidence",
+          "classifications": [
+            "design_traceability_evidence",
+            "advisory_context"
+          ],
+          "source_ref": "docs/examples/quality-pass-bracket/drawing/quality_pass_bracket_drawing_intent.json",
+          "file_name": "quality_pass_bracket_drawing_intent.json",
+          "size_bytes": 2016,
+          "sha256": "c14e248121ae30e4fce811cbddc51facaa04c17771d547076b5f8721bf05524e",
+          "label": "Drawing intent",
+          "inspection_evidence": false,
+          "rationale": "Drawing intent supplied as explicit review-context package side input."
+        },
+        {
+          "evidence_id": "package:feature_catalog:docs/examples/quality-pass-bracket/drawing/quality_pass_bracket_feature_catalog.json",
+          "type": "feature_catalog",
+          "artifact_type": "feature_catalog",
+          "category": "design_traceability_evidence",
+          "classifications": [
+            "design_traceability_evidence",
+            "advisory_context"
+          ],
+          "source_ref": "docs/examples/quality-pass-bracket/drawing/quality_pass_bracket_feature_catalog.json",
+          "file_name": "quality_pass_bracket_feature_catalog.json",
+          "size_bytes": 3863,
+          "sha256": "668d4dcab2e32a90a11d115ca6019c9d0b9f1c405872a2a65f4bf175aade5d39",
+          "label": "Feature catalog",
+          "inspection_evidence": false,
+          "rationale": "Feature catalog supplied as explicit review-context package side input."
+        }
+      ],
       "warnings": [
-        "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints."
+        "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
+        "Package quality/drawing side inputs are review evidence, but they do not satisfy inspection_evidence without a genuine inspection input."
       ],
       "inspection_record_count": 0,
       "quality_issue_count": 0,
@@ -774,9 +994,10 @@
         "source_files": [
           "docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step"
         ],
-        "context_created_at": "2026-04-26T12:48:41+00:00",
+        "context_created_at": "2026-04-27T08:47:26+00:00",
         "warnings": [
-          "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints."
+          "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
+          "Package quality/drawing side inputs are review evidence, but they do not satisfy inspection_evidence without a genuine inspection input."
         ]
       },
       "renderers": [
@@ -791,8 +1012,18 @@
         "evidence_ledger",
         "uncertainty_coverage_report",
         "recommended_actions",
-        "data_quality_notes"
+        "data_quality_notes",
+        "package_evidence"
       ],
+      "package_evidence": {
+        "record_count": 5,
+        "classifications": [
+          "advisory_context",
+          "design_traceability_evidence",
+          "drawing_evidence",
+          "quality_evidence"
+        ]
+      },
       "renderers_derived_from_canonical_json": [
         "markdown",
         "pdf"
@@ -817,15 +1048,14 @@
       "highest_priority_category": "complexity",
       "partial_evidence": true,
       "missing_inputs": [
-        "inspection_evidence",
-        "quality_evidence"
+        "inspection_evidence"
       ]
     },
     "planning_basis": {
       "source_review_pack": {
         "part_id": "quality_pass_bracket",
         "revision": null,
-        "generated_at": "2026-04-26T00:00:00.000Z",
+        "generated_at": "2026-04-27T08:47:26Z",
         "path": "docs/examples/quality-pass-bracket/review/review_pack.json"
       },
       "review_pack_headline": "quality_pass_bracket revision None shows 4 prioritized review topics led by complexity, slenderness, wall_thickness.",
@@ -836,22 +1066,25 @@
       ],
       "uncertainty_coverage_report": {
         "analysis_confidence": "heuristic",
-        "numeric_score": 0.62,
+        "numeric_score": 0.74,
         "partial_evidence": true,
         "missing_inputs": [
-          "inspection_evidence",
-          "quality_evidence"
+          "inspection_evidence"
         ],
         "coverage": {
           "source_file_count": 1,
           "geometry_hotspot_count": 4,
           "inspection_anomaly_count": 0,
           "quality_pattern_count": 0,
+          "package_quality_evidence_count": 3,
+          "drawing_evidence_count": 2,
+          "design_traceability_evidence_count": 2,
           "review_priority_count": 4,
-          "evidence_record_count": 4
+          "evidence_record_count": 9
         },
         "warnings": [
-          "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints."
+          "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
+          "Package quality/drawing side inputs are review evidence, but they do not satisfy inspection_evidence without a genuine inspection input."
         ]
       },
       "upstream_confidence": {
@@ -926,12 +1159,11 @@
         "priority_rank": null,
         "category": "evidence_gap",
         "score": null,
-        "recommended_action": "Collect or validate: inspection_evidence, quality_evidence",
+        "recommended_action": "Collect or validate: inspection_evidence",
         "related_inspection_records": [],
         "related_quality_issues": [],
         "completion_evidence": [
-          "inspection_evidence",
-          "quality_evidence"
+          "inspection_evidence"
         ],
         "rationale": "Review-pack uncertainty report identified missing upstream evidence that must stay visible in C outputs."
       }
@@ -942,25 +1174,24 @@
       "Review High complexity review",
       "Review Slender geometry review",
       "Review Thin-wall candidate",
-      "Missing evidence: inspection_evidence",
-      "Missing evidence: quality_evidence"
+      "Missing evidence: inspection_evidence"
     ],
     "planning_notes": [
       "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
+      "Package quality/drawing side inputs are review evidence, but they do not satisfy inspection_evidence without a genuine inspection input.",
       "Missing or limited inspection evidence; review-pack remains usable with partial evidence.",
-      "Missing or limited quality evidence; review-pack remains usable with partial evidence.",
       "Partial evidence propagated from review-pack uncertainty coverage report."
     ],
     "schema_version": "1.0",
     "artifact_type": "process_plan",
-    "generated_at": "2026-04-26T00:00:00.000Z",
+    "generated_at": "2026-04-27T08:49:08.173Z",
     "warnings": [
       "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
-      "Missing or limited inspection evidence; review-pack remains usable with partial evidence.",
-      "Missing or limited quality evidence; review-pack remains usable with partial evidence."
+      "Package quality/drawing side inputs are review evidence, but they do not satisfy inspection_evidence without a genuine inspection input.",
+      "Missing or limited inspection evidence; review-pack remains usable with partial evidence."
     ],
     "coverage": {
-      "source_artifact_count": 3,
+      "source_artifact_count": 8,
       "source_file_count": 1,
       "hotspot_count": 4,
       "inspection_record_count": 0,
@@ -972,9 +1203,9 @@
       "process_step_count": 5,
       "key_inspection_point_count": 0,
       "automation_candidate_count": 0,
-      "missing_input_count": 2,
+      "missing_input_count": 1,
       "upstream_review_pack_coverage": {
-        "source_artifact_count": 2,
+        "source_artifact_count": 7,
         "source_file_count": 1,
         "hotspot_count": 4,
         "inspection_record_count": 0,
@@ -1003,6 +1234,36 @@
       ]
     },
     "source_artifact_refs": [
+      {
+        "artifact_type": "create_quality_report",
+        "path": "docs/examples/quality-pass-bracket/quality/quality_pass_bracket_create_quality.json",
+        "role": "evidence",
+        "label": "Create quality report"
+      },
+      {
+        "artifact_type": "drawing_quality_report",
+        "path": "docs/examples/quality-pass-bracket/quality/quality_pass_bracket_drawing_quality.json",
+        "role": "evidence",
+        "label": "Drawing quality report"
+      },
+      {
+        "artifact_type": "drawing_qa_report",
+        "path": "docs/examples/quality-pass-bracket/quality/quality_pass_bracket_drawing_qa.json",
+        "role": "evidence",
+        "label": "Drawing QA report"
+      },
+      {
+        "artifact_type": "drawing_intent",
+        "path": "docs/examples/quality-pass-bracket/drawing/quality_pass_bracket_drawing_intent.json",
+        "role": "evidence",
+        "label": "Drawing intent"
+      },
+      {
+        "artifact_type": "feature_catalog",
+        "path": "docs/examples/quality-pass-bracket/drawing/quality_pass_bracket_feature_catalog.json",
+        "role": "evidence",
+        "label": "Feature catalog"
+      },
       {
         "artifact_type": "cad_model",
         "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step",
@@ -1064,21 +1325,19 @@
       "linked_priority_count": 4,
       "partial_evidence": true,
       "missing_inputs": [
-        "inspection_evidence",
-        "quality_evidence"
+        "inspection_evidence"
       ]
     },
     "critical_dimensions": [],
     "inspection_required_points": [],
     "traceability_summary": {
       "source_file_count": 1,
-      "evidence_record_count": 4,
+      "evidence_record_count": 9,
       "inspection_record_count": 0,
       "quality_issue_count": 0,
       "partial_evidence": true,
       "missing_inputs": [
-        "inspection_evidence",
-        "quality_evidence"
+        "inspection_evidence"
       ]
     },
     "quality_risks": [
@@ -1199,22 +1458,25 @@
       },
       "uncertainty_coverage_report": {
         "analysis_confidence": "heuristic",
-        "numeric_score": 0.62,
+        "numeric_score": 0.74,
         "partial_evidence": true,
         "missing_inputs": [
-          "inspection_evidence",
-          "quality_evidence"
+          "inspection_evidence"
         ],
         "coverage": {
           "source_file_count": 1,
           "geometry_hotspot_count": 4,
           "inspection_anomaly_count": 0,
           "quality_pattern_count": 0,
+          "package_quality_evidence_count": 3,
+          "drawing_evidence_count": 2,
+          "design_traceability_evidence_count": 2,
           "review_priority_count": 4,
-          "evidence_record_count": 4
+          "evidence_record_count": 9
         },
         "warnings": [
-          "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints."
+          "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
+          "Package quality/drawing side inputs are review evidence, but they do not satisfy inspection_evidence without a genuine inspection input."
         ]
       },
       "data_quality_notes": [
@@ -1223,12 +1485,12 @@
           "message": "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints."
         },
         {
-          "severity": "info",
-          "message": "Missing or limited inspection evidence; review-pack remains usable with partial evidence."
+          "severity": "warning",
+          "message": "Package quality/drawing side inputs are review evidence, but they do not satisfy inspection_evidence without a genuine inspection input."
         },
         {
           "severity": "info",
-          "message": "Missing or limited quality evidence; review-pack remains usable with partial evidence."
+          "message": "Missing or limited inspection evidence; review-pack remains usable with partial evidence."
         }
       ],
       "upstream_confidence": {
@@ -1239,14 +1501,14 @@
     },
     "schema_version": "1.0",
     "artifact_type": "quality_risk",
-    "generated_at": "2026-04-26T00:00:00.000Z",
+    "generated_at": "2026-04-27T08:49:08.174Z",
     "warnings": [
       "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
-      "Missing or limited inspection evidence; review-pack remains usable with partial evidence.",
-      "Missing or limited quality evidence; review-pack remains usable with partial evidence."
+      "Package quality/drawing side inputs are review evidence, but they do not satisfy inspection_evidence without a genuine inspection input.",
+      "Missing or limited inspection evidence; review-pack remains usable with partial evidence."
     ],
     "coverage": {
-      "source_artifact_count": 3,
+      "source_artifact_count": 8,
       "source_file_count": 1,
       "hotspot_count": 4,
       "inspection_record_count": 0,
@@ -1257,9 +1519,9 @@
       "critical_dimension_count": 0,
       "quality_risk_count": 4,
       "quality_gate_count": 4,
-      "missing_input_count": 2,
+      "missing_input_count": 1,
       "upstream_review_pack_coverage": {
-        "source_artifact_count": 2,
+        "source_artifact_count": 7,
         "source_file_count": 1,
         "hotspot_count": 4,
         "inspection_record_count": 0,
@@ -1288,6 +1550,36 @@
       ]
     },
     "source_artifact_refs": [
+      {
+        "artifact_type": "create_quality_report",
+        "path": "docs/examples/quality-pass-bracket/quality/quality_pass_bracket_create_quality.json",
+        "role": "evidence",
+        "label": "Create quality report"
+      },
+      {
+        "artifact_type": "drawing_quality_report",
+        "path": "docs/examples/quality-pass-bracket/quality/quality_pass_bracket_drawing_quality.json",
+        "role": "evidence",
+        "label": "Drawing quality report"
+      },
+      {
+        "artifact_type": "drawing_qa_report",
+        "path": "docs/examples/quality-pass-bracket/quality/quality_pass_bracket_drawing_qa.json",
+        "role": "evidence",
+        "label": "Drawing QA report"
+      },
+      {
+        "artifact_type": "drawing_intent",
+        "path": "docs/examples/quality-pass-bracket/drawing/quality_pass_bracket_drawing_intent.json",
+        "role": "evidence",
+        "label": "Drawing intent"
+      },
+      {
+        "artifact_type": "feature_catalog",
+        "path": "docs/examples/quality-pass-bracket/drawing/quality_pass_bracket_feature_catalog.json",
+        "role": "evidence",
+        "label": "Feature catalog"
+      },
       {
         "artifact_type": "cad_model",
         "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step",
@@ -1335,14 +1627,14 @@
   },
   "schema_version": "1.0",
   "artifact_type": "readiness_report",
-  "generated_at": "2026-04-26T00:00:00.000Z",
+  "generated_at": "2026-04-27T08:49:08.174Z",
   "warnings": [
     "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
-    "Missing or limited inspection evidence; review-pack remains usable with partial evidence.",
-    "Missing or limited quality evidence; review-pack remains usable with partial evidence."
+    "Package quality/drawing side inputs are review evidence, but they do not satisfy inspection_evidence without a genuine inspection input.",
+    "Missing or limited inspection evidence; review-pack remains usable with partial evidence."
   ],
   "coverage": {
-    "source_artifact_count": 3,
+    "source_artifact_count": 8,
     "source_file_count": 1,
     "hotspot_count": 4,
     "inspection_record_count": 0,
@@ -1354,10 +1646,10 @@
     "available_section_count": 4,
     "process_step_count": 5,
     "quality_gate_count": 4,
-    "missing_input_count": 2,
-    "evidence_record_count": 4,
+    "missing_input_count": 1,
+    "evidence_record_count": 9,
     "upstream_review_pack_coverage": {
-      "source_artifact_count": 2,
+      "source_artifact_count": 7,
       "source_file_count": 1,
       "hotspot_count": 4,
       "inspection_record_count": 0,
@@ -1398,6 +1690,36 @@
     ]
   },
   "source_artifact_refs": [
+    {
+      "artifact_type": "create_quality_report",
+      "path": "docs/examples/quality-pass-bracket/quality/quality_pass_bracket_create_quality.json",
+      "role": "evidence",
+      "label": "Create quality report"
+    },
+    {
+      "artifact_type": "drawing_quality_report",
+      "path": "docs/examples/quality-pass-bracket/quality/quality_pass_bracket_drawing_quality.json",
+      "role": "evidence",
+      "label": "Drawing quality report"
+    },
+    {
+      "artifact_type": "drawing_qa_report",
+      "path": "docs/examples/quality-pass-bracket/quality/quality_pass_bracket_drawing_qa.json",
+      "role": "evidence",
+      "label": "Drawing QA report"
+    },
+    {
+      "artifact_type": "drawing_intent",
+      "path": "docs/examples/quality-pass-bracket/drawing/quality_pass_bracket_drawing_intent.json",
+      "role": "evidence",
+      "label": "Drawing intent"
+    },
+    {
+      "artifact_type": "feature_catalog",
+      "path": "docs/examples/quality-pass-bracket/drawing/quality_pass_bracket_feature_catalog.json",
+      "role": "evidence",
+      "label": "Feature catalog"
+    },
     {
       "artifact_type": "cad_model",
       "path": "docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step",
@@ -1455,7 +1777,7 @@
     ]
   },
   "readiness_summary": {
-    "score": 50,
+    "score": 61,
     "status": "needs_more_evidence",
     "gate_decision": "hold_for_evidence_completion"
   },
@@ -1466,20 +1788,19 @@
       "Review Slender geometry review",
       "Review Thin-wall candidate",
       "Missing evidence: inspection_evidence",
-      "Missing evidence: quality_evidence"
+      "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints."
     ],
     "recommended_actions": [
       "Prioritize a manufacturability review for the linked high-complexity hotspot before the next release.",
       "Review handling, fixturing, and stiffness controls for the linked slender hotspot.",
       "Review minimum wall thickness, distortion risk, and process controls around the linked wall hotspot.",
-      "Collect or validate: inspection_evidence, quality_evidence"
+      "Collect or validate: inspection_evidence"
     ],
     "likely_bottleneck_candidates": [
       "Review High complexity review",
       "Review Slender geometry review",
       "Review Thin-wall candidate",
-      "Missing evidence: inspection_evidence",
-      "Missing evidence: quality_evidence"
+      "Missing evidence: inspection_evidence"
     ],
     "likely_automation_candidates": [],
     "launch_stabilization_focus": [],
@@ -1491,16 +1812,16 @@
       "Quality gates and inspection-required points are explicitly listed for downstream follow-up."
     ],
     "hold_points": [
-      "Upstream evidence is still partial: inspection_evidence, quality_evidence.",
-      "Propagated warnings remain open: STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.; Missing or limited inspection evidence; review-pack remains usable with partial evidence.; Missing or limited quality evidence; review-pack remains usable with partial evidence..",
+      "Upstream evidence is still partial: inspection_evidence.",
+      "Propagated warnings remain open: STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.; Package quality/drawing side inputs are review evidence, but they do not satisfy inspection_evidence without a genuine inspection input.; Missing or limited inspection evidence; review-pack remains usable with partial evidence..",
       "Release readiness remains gated until the open evidence and risk actions are closed."
     ],
     "next_actions": [
       "Prioritize a manufacturability review for the linked high-complexity hotspot before the next release.",
       "Review handling, fixturing, and stiffness controls for the linked slender hotspot.",
       "Review minimum wall thickness, distortion risk, and process controls around the linked wall hotspot.",
-      "Collect or validate: inspection_evidence, quality_evidence"
+      "Collect or validate: inspection_evidence"
     ]
   },
-  "markdown": "# Production Readiness Report: quality_pass_bracket\n\n- Status: needs_more_evidence\n- Composite score: 50\n- Gate decision: hold_for_evidence_completion\n- Review-pack headline: quality_pass_bracket revision None shows 4 prioritized review topics led by complexity, slenderness, wall_thickness.\n\n## Executive Summary\n\n- Overall risk level: high\n- Top issues: Review High complexity review; Review Slender geometry review; Review Thin-wall candidate; Missing evidence: inspection_evidence; Missing evidence: quality_evidence\n- Recommended actions: Prioritize a manufacturability review for the linked high-complexity hotspot before the next release.; Review handling, fixturing, and stiffness controls for the linked slender hotspot.; Review minimum wall thickness, distortion risk, and process controls around the linked wall hotspot.; Collect or validate: inspection_evidence, quality_evidence\n- Missing inputs: inspection_evidence, quality_evidence\n\n## Process Plan\n\n- Flow steps: 5\n- Key inspection points: 0\n- Bottleneck risks: Review High complexity review; Review Slender geometry review; Review Thin-wall candidate; Missing evidence: inspection_evidence; Missing evidence: quality_evidence\n\n## Quality Risk\n\n- Critical dimensions: 0\n- Quality risks: 4\n- Quality gates: 4\n\n## Decision Summary\n\n- Go signals: Manufacturing execution steps were derived directly from review priorities and recommended actions.; Quality gates and inspection-required points are explicitly listed for downstream follow-up.\n- Hold points: Upstream evidence is still partial: inspection_evidence, quality_evidence.; Propagated warnings remain open: STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.; Missing or limited inspection evidence; review-pack remains usable with partial evidence.; Missing or limited quality evidence; review-pack remains usable with partial evidence..; Release readiness remains gated until the open evidence and risk actions are closed.\n- Next actions: Prioritize a manufacturability review for the linked high-complexity hotspot before the next release.; Review handling, fixturing, and stiffness controls for the linked slender hotspot.; Review minimum wall thickness, distortion risk, and process controls around the linked wall hotspot.; Collect or validate: inspection_evidence, quality_evidence\n\n## Propagated Signals\n\n- Warnings: STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.; Missing or limited inspection evidence; review-pack remains usable with partial evidence.; Missing or limited quality evidence; review-pack remains usable with partial evidence.\n- Confidence: heuristic (0.76)\n"
+  "markdown": "# Production Readiness Report: quality_pass_bracket\n\n- Status: needs_more_evidence\n- Composite score: 61\n- Gate decision: hold_for_evidence_completion\n- Review-pack headline: quality_pass_bracket revision None shows 4 prioritized review topics led by complexity, slenderness, wall_thickness.\n\n## Executive Summary\n\n- Overall risk level: high\n- Top issues: Review High complexity review; Review Slender geometry review; Review Thin-wall candidate; Missing evidence: inspection_evidence; STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.\n- Recommended actions: Prioritize a manufacturability review for the linked high-complexity hotspot before the next release.; Review handling, fixturing, and stiffness controls for the linked slender hotspot.; Review minimum wall thickness, distortion risk, and process controls around the linked wall hotspot.; Collect or validate: inspection_evidence\n- Missing inputs: inspection_evidence\n\n## Process Plan\n\n- Flow steps: 5\n- Key inspection points: 0\n- Bottleneck risks: Review High complexity review; Review Slender geometry review; Review Thin-wall candidate; Missing evidence: inspection_evidence\n\n## Quality Risk\n\n- Critical dimensions: 0\n- Quality risks: 4\n- Quality gates: 4\n\n## Decision Summary\n\n- Go signals: Manufacturing execution steps were derived directly from review priorities and recommended actions.; Quality gates and inspection-required points are explicitly listed for downstream follow-up.\n- Hold points: Upstream evidence is still partial: inspection_evidence.; Propagated warnings remain open: STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.; Package quality/drawing side inputs are review evidence, but they do not satisfy inspection_evidence without a genuine inspection input.; Missing or limited inspection evidence; review-pack remains usable with partial evidence..; Release readiness remains gated until the open evidence and risk actions are closed.\n- Next actions: Prioritize a manufacturability review for the linked high-complexity hotspot before the next release.; Review handling, fixturing, and stiffness controls for the linked slender hotspot.; Review minimum wall thickness, distortion risk, and process controls around the linked wall hotspot.; Collect or validate: inspection_evidence\n\n## Propagated Signals\n\n- Warnings: STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.; Package quality/drawing side inputs are review evidence, but they do not satisfy inspection_evidence without a genuine inspection input.; Missing or limited inspection evidence; review-pack remains usable with partial evidence.\n- Confidence: heuristic (0.76)\n"
 }

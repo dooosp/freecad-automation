@@ -306,6 +306,42 @@ function uniqueWarnings(...lists) {
   )];
 }
 
+function repoRelativeArtifactPath(projectRoot, inputPath) {
+  if (typeof inputPath !== 'string' || !inputPath.trim()) return inputPath;
+  const resolvedRoot = resolve(projectRoot);
+  const resolvedPath = resolve(inputPath);
+  const relPath = relative(resolvedRoot, resolvedPath).replace(/\\/g, '/');
+  return relPath && !relPath.startsWith('..') && !relPath.startsWith('/')
+    ? relPath
+    : inputPath;
+}
+
+function sanitizeRepoLocalArtifactString(projectRoot, value) {
+  if (typeof value !== 'string' || !value.trim()) return value;
+  const root = resolve(projectRoot).replace(/\\/g, '/');
+  let output = value.replaceAll('\\', '/');
+  output = output.replaceAll(`file://${root}/`, '');
+  output = output.replaceAll(`${root}/`, '');
+  output = output.replaceAll(`file://${root}`, '.');
+  output = output.replaceAll(root, '.');
+  return output;
+}
+
+function sanitizeRepoLocalArtifactValue(projectRoot, value) {
+  if (typeof value === 'string') {
+    return sanitizeRepoLocalArtifactString(projectRoot, value);
+  }
+  if (Array.isArray(value)) {
+    return value.map((entry) => sanitizeRepoLocalArtifactValue(projectRoot, entry));
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, sanitizeRepoLocalArtifactValue(projectRoot, entry)])
+    );
+  }
+  return value;
+}
+
 function compactRuntimeDiagnostics(runtimeDiagnostics = []) {
   return runtimeDiagnostics.map((diagnostic) => ({
     stage: diagnostic?.stage || null,
@@ -502,6 +538,9 @@ export async function runReviewContextPipeline({
   }
 
   const resolvedModelPath = modelPath || context?.geometry_source?.path || null;
+  const portableResolvedModelPath = resolvedModelPath
+    ? repoRelativeArtifactPath(projectRoot, resolvedModelPath)
+    : null;
   const analysisInputs = await resolveModelAnalysisInputs({
     modelPath: resolvedModelPath,
     modelMetadata: context?.geometry_source?.model_metadata || null,
@@ -528,6 +567,7 @@ export async function runReviewContextPipeline({
   context.geometry_source = {
     ...(context?.geometry_source || {}),
     ...(analysisInputs.geometrySourcePatch || {}),
+    ...(portableResolvedModelPath ? { path: portableResolvedModelPath } : {}),
     ...(bootstrapSummarySeed.model_kind ? { model_kind: bootstrapSummarySeed.model_kind } : {}),
     ...(bootstrapSummarySeed.part_count !== undefined ? { part_count: bootstrapSummarySeed.part_count } : {}),
     ...(bootstrapSummarySeed.body_count !== undefined ? { body_count: bootstrapSummarySeed.body_count } : {}),
@@ -551,6 +591,7 @@ export async function runReviewContextPipeline({
     ],
     runtime_diagnostics: analysisInputs.runtimeDiagnostics,
   };
+  context = sanitizeRepoLocalArtifactValue(projectRoot, context);
   ingestLog = {
     ...(ingestLog || {}),
     warnings: [
@@ -573,6 +614,7 @@ export async function runReviewContextPipeline({
       diagnostics: (((ingestLog?.diagnostics) || []).length + analysisInputs.runtimeDiagnostics.length),
     },
   };
+  ingestLog = sanitizeRepoLocalArtifactValue(projectRoot, ingestLog);
 
   await writeJsonFile(paths.context, context);
   await writeJsonFile(paths.engineeringContext, context);
@@ -591,23 +633,25 @@ export async function runReviewContextPipeline({
   }, {
     onStderr: (text) => process.stderr.write(text),
   });
+  const portableAnalysisResult = sanitizeRepoLocalArtifactValue(projectRoot, analysisResult);
 
-  await writeJsonFile(paths.geometry, analysisResult.geometry_intelligence);
-  await writeJsonFile(paths.hotspots, analysisResult.manufacturing_hotspots);
+  await writeJsonFile(paths.geometry, portableAnalysisResult.geometry_intelligence);
+  await writeJsonFile(paths.hotspots, portableAnalysisResult.manufacturing_hotspots);
 
   const linkageResult = await runPythonJsonScript(projectRoot, 'scripts/quality_link.py', {
     context,
-    geometry_intelligence: analysisResult.geometry_intelligence,
-    manufacturing_hotspots: analysisResult.manufacturing_hotspots,
+    geometry_intelligence: portableAnalysisResult.geometry_intelligence,
+    manufacturing_hotspots: portableAnalysisResult.manufacturing_hotspots,
   }, {
     onStderr: (text) => process.stderr.write(text),
   });
+  const portableLinkageResult = sanitizeRepoLocalArtifactValue(projectRoot, linkageResult);
 
-  await writeJsonFile(paths.inspectionLinkage, linkageResult.inspection_linkage);
-  await writeJsonFile(paths.inspectionOutliers, linkageResult.inspection_outliers);
-  await writeJsonFile(paths.qualityLinkage, linkageResult.quality_linkage);
-  await writeJsonFile(paths.qualityHotspots, linkageResult.quality_hotspots);
-  await writeJsonFile(paths.reviewPriorities, linkageResult.review_priorities);
+  await writeJsonFile(paths.inspectionLinkage, portableLinkageResult.inspection_linkage);
+  await writeJsonFile(paths.inspectionOutliers, portableLinkageResult.inspection_outliers);
+  await writeJsonFile(paths.qualityLinkage, portableLinkageResult.quality_linkage);
+  await writeJsonFile(paths.qualityHotspots, portableLinkageResult.quality_hotspots);
+  await writeJsonFile(paths.reviewPriorities, portableLinkageResult.review_priorities);
 
   const packageEvidence = await buildPackageEvidenceRecords(projectRoot, {
     createQualityPath,
@@ -632,13 +676,13 @@ export async function runReviewContextPipeline({
 
   const reviewPackResult = await runPythonJsonScript(projectRoot, 'scripts/reporting/review_pack.py', {
     context,
-    geometry_intelligence: analysisResult.geometry_intelligence,
-    manufacturing_hotspots: analysisResult.manufacturing_hotspots,
-    inspection_linkage: linkageResult.inspection_linkage,
-    inspection_outliers: linkageResult.inspection_outliers,
-    quality_linkage: linkageResult.quality_linkage,
-    quality_hotspots: linkageResult.quality_hotspots,
-    review_priorities: linkageResult.review_priorities,
+    geometry_intelligence: portableAnalysisResult.geometry_intelligence,
+    manufacturing_hotspots: portableAnalysisResult.manufacturing_hotspots,
+    inspection_linkage: portableLinkageResult.inspection_linkage,
+    inspection_outliers: portableLinkageResult.inspection_outliers,
+    quality_linkage: portableLinkageResult.quality_linkage,
+    quality_hotspots: portableLinkageResult.quality_hotspots,
+    review_priorities: portableLinkageResult.review_priorities,
     workflow: {
       steps: contextPath
         ? ['context-input', 'analyze-part', 'quality-link', 'review-pack']
@@ -655,6 +699,8 @@ export async function runReviewContextPipeline({
     timeout: 180_000,
     onStderr: (text) => process.stderr.write(text),
   });
+  reviewPackResult.summary = sanitizeRepoLocalArtifactValue(projectRoot, reviewPackResult.summary);
+  await writeJsonFile(paths.reviewPackJson, reviewPackResult.summary);
 
   let revisionComparison = null;
   if (compareToPath) {
@@ -668,7 +714,7 @@ export async function runReviewContextPipeline({
     }, {
       onStderr: (text) => process.stderr.write(text),
     });
-    revisionComparison = comparisonResult.comparison;
+    revisionComparison = sanitizeRepoLocalArtifactValue(projectRoot, comparisonResult.comparison);
     await writeJsonFile(paths.revisionComparison, revisionComparison);
   }
 
@@ -676,7 +722,7 @@ export async function runReviewContextPipeline({
   const importDiagnostics = {
     artifact_type: 'import_diagnostics',
     generated_at: context?.metadata?.created_at || new Date().toISOString(),
-    source_model_path: resolvedModelPath,
+    source_model_path: portableResolvedModelPath || resolvedModelPath,
     file_type: context?.geometry_source?.file_type || null,
     analysis_mode: context?.geometry_source?.analysis_mode || null,
     model_kind: context?.geometry_source?.model_kind || rawImportDiagnostics.import_kind || bootstrapSummarySeed.model_kind || null,
@@ -693,41 +739,42 @@ export async function runReviewContextPipeline({
       ...bootstrapWarnings,
     ]),
   };
-  await writeJsonFile(paths.importDiagnostics, importDiagnostics);
+  const portableImportDiagnostics = sanitizeRepoLocalArtifactValue(projectRoot, importDiagnostics);
+  await writeJsonFile(paths.importDiagnostics, portableImportDiagnostics);
 
   const bootstrapWarningsDocument = {
     artifact_type: 'bootstrap_warnings',
-    generated_at: importDiagnostics.generated_at,
-    warning_count: importDiagnostics.warnings.length,
-    warnings: importDiagnostics.warnings,
+    generated_at: portableImportDiagnostics.generated_at,
+    warning_count: portableImportDiagnostics.warnings.length,
+    warnings: portableImportDiagnostics.warnings,
   };
   await writeJsonFile(paths.bootstrapWarnings, bootstrapWarningsDocument);
 
   const confidenceMap = {
     artifact_type: 'confidence_map',
-    generated_at: importDiagnostics.generated_at,
+    generated_at: portableImportDiagnostics.generated_at,
     import_bootstrap: buildImportBootstrapConfidenceMap({
       bootstrapConfidenceSeed,
       analysisInputs,
       importDiagnostics: rawImportDiagnostics,
     }),
-    geometry_intelligence: analysisResult.geometry_intelligence.confidence || null,
-    manufacturing_hotspots: analysisResult.manufacturing_hotspots.confidence || null,
+    geometry_intelligence: portableAnalysisResult.geometry_intelligence.confidence || null,
+    manufacturing_hotspots: portableAnalysisResult.manufacturing_hotspots.confidence || null,
     review_pack: reviewPackResult.summary?.confidence || null,
   };
-  await writeJsonFile(paths.confidenceMap, confidenceMap);
+  await writeJsonFile(paths.confidenceMap, sanitizeRepoLocalArtifactValue(projectRoot, confidenceMap));
 
-  const geometryMetrics = analysisResult.geometry_intelligence.metrics?.bounding_box_mm || {};
+  const geometryMetrics = portableAnalysisResult.geometry_intelligence.metrics?.bounding_box_mm || {};
   const featureHints = safeObject(context?.geometry_source?.feature_hints);
   const bootstrapSummary = {
     artifact_type: 'bootstrap_summary',
-    generated_at: importDiagnostics.generated_at,
+    generated_at: portableImportDiagnostics.generated_at,
     part: context?.part || { name: defaultStem },
     source: {
-      model_path: resolvedModelPath,
+      model_path: portableResolvedModelPath || resolvedModelPath,
       file_type: context?.geometry_source?.file_type || null,
       analysis_mode: context?.geometry_source?.analysis_mode || null,
-      model_kind: importDiagnostics.model_kind,
+      model_kind: portableImportDiagnostics.model_kind,
     },
     dimensions_mm: {
       x: geometryMetrics.x ?? null,
@@ -739,11 +786,11 @@ export async function runReviewContextPipeline({
       bolt_circle_count: featureCollectionCount(featureHints.bolt_circles),
       fillet_count: featureCollectionCount(featureHints.fillets),
       chamfer_count: featureCollectionCount(featureHints.chamfers),
-      derived_feature_count: featureCollectionCount(analysisResult.geometry_intelligence.derived_features),
-      hotspot_count: featureCollectionCount(analysisResult.manufacturing_hotspots.hotspots),
+      derived_feature_count: featureCollectionCount(portableAnalysisResult.geometry_intelligence.derived_features),
+      hotspot_count: featureCollectionCount(portableAnalysisResult.manufacturing_hotspots.hotspots),
     },
     warning_count: bootstrapWarningsDocument.warning_count,
-    diagnostics_count: importDiagnostics.diagnostics.length,
+    diagnostics_count: portableImportDiagnostics.diagnostics.length,
     review_gate: {
       ready_for_review_context: true,
       correction_required: shouldRequireBootstrapCorrection({
@@ -754,7 +801,7 @@ export async function runReviewContextPipeline({
     },
     review_ready: Boolean(resolvedModelPath || contextPath),
   };
-  await writeJsonFile(paths.bootstrapSummary, bootstrapSummary);
+  await writeJsonFile(paths.bootstrapSummary, sanitizeRepoLocalArtifactValue(projectRoot, bootstrapSummary));
 
   const generatedDraftConfigToml = draftConfigToml
     || (analysisInputs.stepFeatureResult?.suggested_config
@@ -768,9 +815,9 @@ export async function runReviewContextPipeline({
   return {
     context,
     ingestLog,
-    geometryIntelligence: analysisResult.geometry_intelligence,
-    manufacturingHotspots: analysisResult.manufacturing_hotspots,
-    linkage: linkageResult,
+    geometryIntelligence: portableAnalysisResult.geometry_intelligence,
+    manufacturingHotspots: portableAnalysisResult.manufacturing_hotspots,
+    linkage: portableLinkageResult,
     reviewPack: reviewPackResult.summary,
     artifacts: {
       context: paths.context,
