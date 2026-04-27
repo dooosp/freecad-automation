@@ -68,6 +68,7 @@ function getCuratedExampleRoots() {
       examples
         .filter((example) => (
           example?.status === 'canonical-package'
+          || example?.current_coverage?.standard_docs_manifest === true
           || example?.current_coverage?.generated_cad === true
           || example?.current_coverage?.review_pack === true
           || example?.current_coverage?.release_bundle_zip === true

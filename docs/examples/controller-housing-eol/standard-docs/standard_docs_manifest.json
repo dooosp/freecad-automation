@@ -3,6 +3,7 @@
   "workflow": "standard_docs_generation",
   "generated_at": "2026-03-10T11:38:35.398Z",
   "draft_notice": "Generated planning aid only. Engineering review required before controlled-document use.",
+  "sanitization_note": "Legacy generated manifest sanitized for repository portability. Document paths are repo-relative; full canonical package promotion still requires a fresh canonical artifact regeneration pass.",
   "part": {
     "name": "controller_housing_eol",
     "revision": "C",
@@ -20,23 +21,23 @@
   "documents": [
     {
       "filename": "process_flow.md",
-      "path": "/Users/jangtaeho/Documents/New/freecad-automation/docs/examples/controller-housing-eol/standard-docs/process_flow.md"
+      "path": "docs/examples/controller-housing-eol/standard-docs/process_flow.md"
     },
     {
       "filename": "control_plan_draft.csv",
-      "path": "/Users/jangtaeho/Documents/New/freecad-automation/docs/examples/controller-housing-eol/standard-docs/control_plan_draft.csv"
+      "path": "docs/examples/controller-housing-eol/standard-docs/control_plan_draft.csv"
     },
     {
       "filename": "inspection_checksheet_draft.csv",
-      "path": "/Users/jangtaeho/Documents/New/freecad-automation/docs/examples/controller-housing-eol/standard-docs/inspection_checksheet_draft.csv"
+      "path": "docs/examples/controller-housing-eol/standard-docs/inspection_checksheet_draft.csv"
     },
     {
       "filename": "work_instruction_draft.md",
-      "path": "/Users/jangtaeho/Documents/New/freecad-automation/docs/examples/controller-housing-eol/standard-docs/work_instruction_draft.md"
+      "path": "docs/examples/controller-housing-eol/standard-docs/work_instruction_draft.md"
     },
     {
       "filename": "pfmea_seed.csv",
-      "path": "/Users/jangtaeho/Documents/New/freecad-automation/docs/examples/controller-housing-eol/standard-docs/pfmea_seed.csv"
+      "path": "docs/examples/controller-housing-eol/standard-docs/pfmea_seed.csv"
     }
   ]
 }

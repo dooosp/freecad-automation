@@ -18,6 +18,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'Example library manifest', args: Object.freeze(['tests/example-library-manifest.test.js']) }),
       Object.freeze({ label: 'Example library index', args: Object.freeze(['tests/example-library-index.test.js']) }),
       Object.freeze({ label: 'Example library package', args: Object.freeze(['tests/example-library-package.test.js']) }),
+      Object.freeze({ label: 'Controller housing EOL standard docs', args: Object.freeze(['tests/controller-housing-eol-standard-docs.test.js']) }),
       Object.freeze({ label: 'Example library Studio reopen', args: Object.freeze(['tests/example-library-studio-reopen.test.js']) }),
       Object.freeze({ label: 'Runtime path contracts', args: Object.freeze(['tests/paths-runtime.test.js']) }),
       Object.freeze({ label: 'FreeCAD invocation contracts', args: Object.freeze(['tests/freecad-invocation.test.js']) }),

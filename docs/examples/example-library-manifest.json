@@ -163,7 +163,7 @@
       },
       "notes": [
         "Checked-in standard-docs manifests exist, but this is not a full AF5 curated package yet.",
-        "Regenerate or sanitize existing docs manifests before promotion to a portable canonical package."
+        "Existing standard-doc manifests have been sanitized for portable repo-relative document paths, but they remain legacy docs examples until a full canonical artifact regeneration pass promotes the package."
       ]
     },
     {
