@@ -11,6 +11,7 @@ const STANDARD_DOC_SETS = Object.freeze([
     dir: 'standard-docs',
     siteProfile: null,
     label: 'default profile preset',
+    canonical: true,
   },
   {
     dir: 'standard-docs-korea',
@@ -19,6 +20,7 @@ const STANDARD_DOC_SETS = Object.freeze([
       label: 'Korea-Ulsan launch profile',
     },
     label: 'Korea-Ulsan launch profile',
+    canonical: false,
   },
   {
     dir: 'standard-docs-mexico',
@@ -27,6 +29,7 @@ const STANDARD_DOC_SETS = Object.freeze([
       label: 'Mexico-MTY launch profile',
     },
     label: 'Mexico-MTY launch profile',
+    canonical: false,
   },
 ]);
 
@@ -115,12 +118,20 @@ for (const standardDocSet of STANDARD_DOC_SETS) {
   const manifest = readJson(manifestPath);
   assert.equal(manifest.workflow, 'standard_docs_generation');
   assert.equal(manifest.part?.name, 'controller_housing_eol');
-  assert.equal(manifest.sanitization_note?.includes('repo-relative'), true, `${standardDocSet.dir} should document path sanitization`);
-  assert.equal(
-    manifest.sanitization_note?.includes('full canonical package promotion still requires'),
-    true,
-    `${standardDocSet.dir} should document the remaining canonical regeneration requirement`
-  );
+  if (standardDocSet.canonical) {
+    assert.equal(manifest.schema_version, '1.0', `${standardDocSet.dir} should be regenerated canonical docs evidence`);
+    assert.equal(manifest.artifact_type, 'docs_manifest');
+    assert.equal(manifest.canonical_artifact?.artifact_filename, 'standard_docs_manifest.json');
+    assert.equal(manifest.sanitization_note, undefined, `${standardDocSet.dir} should no longer be the legacy sanitized manifest`);
+  } else {
+    assert.equal(manifest.schema_version, '0.1', `${standardDocSet.dir} should remain a legacy site-doc example`);
+    assert.equal(manifest.sanitization_note?.includes('repo-relative'), true, `${standardDocSet.dir} should document path sanitization`);
+    assert.equal(
+      manifest.sanitization_note?.includes('full canonical package promotion still requires'),
+      true,
+      `${standardDocSet.dir} should document that the site docs are legacy sanitized examples`
+    );
+  }
   assert.deepEqual(manifest.site_profile, standardDocSet.siteProfile);
 
   const documentNames = manifest.documents.map((document) => document.filename).sort();
@@ -146,23 +157,25 @@ for (const standardDocSet of STANDARD_DOC_SETS) {
 const libraryManifest = readJson(MANIFEST_PATH);
 const eolEntry = libraryManifest.examples.find((example) => example.slug === 'controller-housing-eol');
 assert.equal(Boolean(eolEntry), true, 'controller-housing-eol should stay listed in the example library manifest');
-assert.equal(eolEntry.status, 'candidate-existing-docs');
-assert.equal(eolEntry.current_coverage.standard_docs_manifest, true);
+assert.equal(eolEntry.status, 'canonical-package');
 for (const key of [
+  'config',
+  'drawing_intent',
   'generated_cad',
   'quality_report',
   'review_pack',
   'readiness_report',
+  'standard_docs_manifest',
   'release_bundle_manifest',
   'release_bundle_zip',
   'studio_reopen_fixture',
 ]) {
-  assert.equal(eolEntry.current_coverage[key], false, `controller-housing-eol should not claim full package coverage for ${key}`);
+  assert.equal(eolEntry.current_coverage[key], true, `controller-housing-eol should claim canonical package coverage for ${key}`);
 }
 assert.equal(
-  eolEntry.notes.some((note) => note.includes('legacy docs examples until a full canonical artifact regeneration pass')),
+  eolEntry.notes.some((note) => note.includes('Korea and Mexico standard-doc directories remain legacy site examples')),
   true,
-  'manifest should document the remaining canonical package regeneration requirement'
+  'manifest should document retained legacy site docs'
 );
 
 console.log('controller-housing-eol-standard-docs.test.js: ok');

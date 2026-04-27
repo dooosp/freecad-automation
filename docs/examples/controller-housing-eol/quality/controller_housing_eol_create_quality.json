@@ -1,0 +1,1267 @@
+{
+  "schema_version": "1.0",
+  "command": "create",
+  "input_config": "docs/examples/controller-housing-eol/config.toml",
+  "primary_outputs": {
+    "step": "docs/examples/controller-housing-eol/cad/controller_housing_eol.step",
+    "stl": "docs/examples/controller-housing-eol/cad/controller_housing_eol.stl",
+    "brep": null,
+    "fcstd": null,
+    "per_part_stl": []
+  },
+  "geometry": {
+    "valid_shape": true,
+    "volume": 579513.88,
+    "area": 118672.23,
+    "bbox": {
+      "min": [
+        0,
+        0,
+        0
+      ],
+      "max": [
+        172,
+        126,
+        50
+      ],
+      "size": [
+        172,
+        126,
+        50
+      ]
+    },
+    "cylindrical_faces": [
+      {
+        "face_index": 11,
+        "surface_type": "Cylinder",
+        "radius_mm": 3,
+        "diameter_mm": 6,
+        "center_mm": [
+          20,
+          20,
+          -4
+        ],
+        "center_xy_mm": [
+          20,
+          20
+        ],
+        "center_of_mass_mm": [
+          20,
+          20,
+          4
+        ],
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "bbox": null,
+        "area_mm2": 150.7964
+      },
+      {
+        "face_index": 12,
+        "surface_type": "Cylinder",
+        "radius_mm": 3,
+        "diameter_mm": 6,
+        "center_mm": [
+          152,
+          20,
+          -4
+        ],
+        "center_xy_mm": [
+          152,
+          20
+        ],
+        "center_of_mass_mm": [
+          152,
+          20,
+          4
+        ],
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "bbox": null,
+        "area_mm2": 150.7964
+      },
+      {
+        "face_index": 13,
+        "surface_type": "Cylinder",
+        "radius_mm": 3,
+        "diameter_mm": 6,
+        "center_mm": [
+          20,
+          106,
+          -4
+        ],
+        "center_xy_mm": [
+          20,
+          106
+        ],
+        "center_of_mass_mm": [
+          20,
+          106,
+          4
+        ],
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "bbox": null,
+        "area_mm2": 150.7964
+      },
+      {
+        "face_index": 14,
+        "surface_type": "Cylinder",
+        "radius_mm": 3,
+        "diameter_mm": 6,
+        "center_mm": [
+          152,
+          106,
+          -4
+        ],
+        "center_xy_mm": [
+          152,
+          106
+        ],
+        "center_of_mass_mm": [
+          152,
+          106,
+          4
+        ],
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "bbox": null,
+        "area_mm2": 150.7964
+      },
+      {
+        "face_index": 17,
+        "surface_type": "Cylinder",
+        "radius_mm": 3,
+        "diameter_mm": 6,
+        "center_mm": [
+          20,
+          20,
+          -4
+        ],
+        "center_xy_mm": [
+          20,
+          20
+        ],
+        "center_of_mass_mm": [
+          20,
+          20,
+          44.8
+        ],
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "bbox": null,
+        "area_mm2": 105.5575
+      },
+      {
+        "face_index": 18,
+        "surface_type": "Cylinder",
+        "radius_mm": 3,
+        "diameter_mm": 6,
+        "center_mm": [
+          152,
+          20,
+          -4
+        ],
+        "center_xy_mm": [
+          152,
+          20
+        ],
+        "center_of_mass_mm": [
+          152,
+          20,
+          44.8
+        ],
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "bbox": null,
+        "area_mm2": 105.5575
+      },
+      {
+        "face_index": 19,
+        "surface_type": "Cylinder",
+        "radius_mm": 3,
+        "diameter_mm": 6,
+        "center_mm": [
+          20,
+          106,
+          -4
+        ],
+        "center_xy_mm": [
+          20,
+          106
+        ],
+        "center_of_mass_mm": [
+          20,
+          106,
+          44.8
+        ],
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "bbox": null,
+        "area_mm2": 105.5575
+      },
+      {
+        "face_index": 20,
+        "surface_type": "Cylinder",
+        "radius_mm": 3,
+        "diameter_mm": 6,
+        "center_mm": [
+          152,
+          106,
+          -4
+        ],
+        "center_xy_mm": [
+          152,
+          106
+        ],
+        "center_of_mass_mm": [
+          152,
+          106,
+          44.8
+        ],
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "bbox": null,
+        "area_mm2": 105.5575
+      }
+    ],
+    "solid_count": 1,
+    "face_count": 30,
+    "edge_count": 72
+  },
+  "step_roundtrip": {
+    "exported": true,
+    "reimport_attempted": true,
+    "reimport_valid": true,
+    "volume_delta_percent": 0,
+    "bbox_delta": {
+      "min": [
+        0,
+        0,
+        0
+      ],
+      "max": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        0,
+        0,
+        0
+      ],
+      "max_abs_mm": 0
+    },
+    "reimported_geometry": {
+      "valid_shape": true,
+      "volume": 579513.88,
+      "area": 118672.23,
+      "bbox": {
+        "min": [
+          0,
+          0,
+          0
+        ],
+        "max": [
+          172,
+          126,
+          50
+        ],
+        "size": [
+          172,
+          126,
+          50
+        ]
+      },
+      "cylindrical_faces": [
+        {
+          "face_index": 11,
+          "surface_type": "Cylinder",
+          "radius_mm": 3,
+          "diameter_mm": 6,
+          "center_mm": [
+            20,
+            20,
+            -4
+          ],
+          "center_xy_mm": [
+            20,
+            20
+          ],
+          "center_of_mass_mm": [
+            20,
+            20,
+            4
+          ],
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "bbox": null,
+          "area_mm2": 150.7964
+        },
+        {
+          "face_index": 12,
+          "surface_type": "Cylinder",
+          "radius_mm": 3,
+          "diameter_mm": 6,
+          "center_mm": [
+            152,
+            20,
+            -4
+          ],
+          "center_xy_mm": [
+            152,
+            20
+          ],
+          "center_of_mass_mm": [
+            152,
+            20,
+            4
+          ],
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "bbox": null,
+          "area_mm2": 150.7964
+        },
+        {
+          "face_index": 13,
+          "surface_type": "Cylinder",
+          "radius_mm": 3,
+          "diameter_mm": 6,
+          "center_mm": [
+            20,
+            106,
+            -4
+          ],
+          "center_xy_mm": [
+            20,
+            106
+          ],
+          "center_of_mass_mm": [
+            20,
+            106,
+            4
+          ],
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "bbox": null,
+          "area_mm2": 150.7964
+        },
+        {
+          "face_index": 14,
+          "surface_type": "Cylinder",
+          "radius_mm": 3,
+          "diameter_mm": 6,
+          "center_mm": [
+            152,
+            106,
+            -4
+          ],
+          "center_xy_mm": [
+            152,
+            106
+          ],
+          "center_of_mass_mm": [
+            152,
+            106,
+            4
+          ],
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "bbox": null,
+          "area_mm2": 150.7964
+        },
+        {
+          "face_index": 17,
+          "surface_type": "Cylinder",
+          "radius_mm": 3,
+          "diameter_mm": 6,
+          "center_mm": [
+            20,
+            20,
+            -4
+          ],
+          "center_xy_mm": [
+            20,
+            20
+          ],
+          "center_of_mass_mm": [
+            20,
+            20,
+            44.8
+          ],
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "bbox": null,
+          "area_mm2": 105.5575
+        },
+        {
+          "face_index": 18,
+          "surface_type": "Cylinder",
+          "radius_mm": 3,
+          "diameter_mm": 6,
+          "center_mm": [
+            152,
+            20,
+            -4
+          ],
+          "center_xy_mm": [
+            152,
+            20
+          ],
+          "center_of_mass_mm": [
+            152,
+            20,
+            44.8
+          ],
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "bbox": null,
+          "area_mm2": 105.5575
+        },
+        {
+          "face_index": 19,
+          "surface_type": "Cylinder",
+          "radius_mm": 3,
+          "diameter_mm": 6,
+          "center_mm": [
+            20,
+            106,
+            -4
+          ],
+          "center_xy_mm": [
+            20,
+            106
+          ],
+          "center_of_mass_mm": [
+            20,
+            106,
+            44.8
+          ],
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "bbox": null,
+          "area_mm2": 105.5575
+        },
+        {
+          "face_index": 20,
+          "surface_type": "Cylinder",
+          "radius_mm": 3,
+          "diameter_mm": 6,
+          "center_mm": [
+            152,
+            106,
+            -4
+          ],
+          "center_xy_mm": [
+            152,
+            106
+          ],
+          "center_of_mass_mm": [
+            152,
+            106,
+            44.8
+          ],
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "bbox": null,
+          "area_mm2": 105.5575
+        }
+      ],
+      "solid_count": 1,
+      "face_count": 30,
+      "edge_count": 72
+    },
+    "warnings": []
+  },
+  "brep_roundtrip": {
+    "exported": false,
+    "reimport_attempted": false,
+    "reimport_valid": null,
+    "volume_delta_percent": null,
+    "bbox_delta": null,
+    "reimported_geometry": null,
+    "warnings": []
+  },
+  "stl_quality": {
+    "exported": true,
+    "mesh_load_attempted": true,
+    "triangle_count": 4120,
+    "watertight_or_closed": true,
+    "non_manifold_count": null,
+    "warnings": []
+  },
+  "engineering_quality": {
+    "status": "pass",
+    "source": "generated_shape_geometry",
+    "validation_kind": "generated_shape_geometry_check",
+    "measurements": [
+      {
+        "requirement_id": "MOUNTING_HOLE_DIA",
+        "source_requirement_id": "MOUNTING_HOLE_DIA",
+        "feature_id": "mount1",
+        "measurement_type": "hole_diameter",
+        "expected_value_mm": 6,
+        "actual_value_mm": 6,
+        "source_value_mm": 6,
+        "expected_center_xy_mm": [
+          20,
+          20
+        ],
+        "actual_center_xy_mm": [
+          20,
+          20
+        ],
+        "tolerance_mm": 0.05,
+        "delta_mm": 0,
+        "center_delta_mm": 0,
+        "source_delta_mm": null,
+        "source_center_delta_mm": null,
+        "status": "pass",
+        "required": true,
+        "source": "generated_shape_geometry",
+        "source_field": "geometry.cylindrical_faces[face_index=11].diameter_mm",
+        "expected_source": "config_parameter",
+        "expected_source_field": "config.drawing_intent.required_dimensions[id=MOUNTING_HOLE_DIA].value_mm",
+        "validation_kind": "generated_shape_geometry_check",
+        "matched_face_index": 11,
+        "message": null
+      },
+      {
+        "requirement_id": "mount1_CENTER",
+        "source_requirement_id": "MOUNTING_HOLE_DIA",
+        "feature_id": "mount1",
+        "measurement_type": "hole_center",
+        "expected_value_mm": null,
+        "actual_value_mm": null,
+        "source_value_mm": null,
+        "expected_center_xy_mm": [
+          20,
+          20
+        ],
+        "actual_center_xy_mm": [
+          20,
+          20
+        ],
+        "tolerance_mm": 0.2,
+        "delta_mm": 0,
+        "center_delta_mm": 0,
+        "source_delta_mm": null,
+        "source_center_delta_mm": null,
+        "status": "pass",
+        "required": true,
+        "source": "generated_shape_geometry",
+        "source_field": "geometry.cylindrical_faces[face_index=11].center_mm",
+        "expected_source": "config_parameter",
+        "expected_source_field": "config.shapes[id=mount1].position",
+        "validation_kind": "generated_shape_geometry_check",
+        "matched_face_index": 11,
+        "message": null
+      },
+      {
+        "requirement_id": "MOUNTING_HOLE_DIA_STEP_REIMPORT",
+        "source_requirement_id": "MOUNTING_HOLE_DIA",
+        "feature_id": "mount1",
+        "measurement_type": "hole_diameter",
+        "expected_value_mm": 6,
+        "actual_value_mm": 6,
+        "source_value_mm": 6,
+        "expected_center_xy_mm": [
+          20,
+          20
+        ],
+        "actual_center_xy_mm": [
+          20,
+          20
+        ],
+        "tolerance_mm": 0.05,
+        "delta_mm": 0,
+        "center_delta_mm": 0,
+        "source_delta_mm": 0,
+        "source_center_delta_mm": 0,
+        "status": "pass",
+        "required": true,
+        "source": "reimported_step_geometry",
+        "source_field": "step_roundtrip.reimported_geometry.cylindrical_faces[face_index=11].diameter_mm",
+        "expected_source": "config_parameter",
+        "expected_source_field": "config.drawing_intent.required_dimensions[id=MOUNTING_HOLE_DIA].value_mm",
+        "validation_kind": "reimported_step_geometry_check",
+        "matched_face_index": 11,
+        "message": null
+      },
+      {
+        "requirement_id": "mount1_CENTER_STEP_REIMPORT",
+        "source_requirement_id": "MOUNTING_HOLE_DIA",
+        "feature_id": "mount1",
+        "measurement_type": "hole_center",
+        "expected_value_mm": null,
+        "actual_value_mm": null,
+        "source_value_mm": null,
+        "expected_center_xy_mm": [
+          20,
+          20
+        ],
+        "actual_center_xy_mm": [
+          20,
+          20
+        ],
+        "tolerance_mm": 0.2,
+        "delta_mm": 0,
+        "center_delta_mm": 0,
+        "source_delta_mm": null,
+        "source_center_delta_mm": 0,
+        "status": "pass",
+        "required": true,
+        "source": "reimported_step_geometry",
+        "source_field": "step_roundtrip.reimported_geometry.cylindrical_faces[face_index=11].center_mm",
+        "expected_source": "config_parameter",
+        "expected_source_field": "config.shapes[id=mount1].position",
+        "validation_kind": "reimported_step_geometry_check",
+        "matched_face_index": 11,
+        "message": null
+      },
+      {
+        "requirement_id": "MOUNTING_HOLE_DIA",
+        "source_requirement_id": "MOUNTING_HOLE_DIA",
+        "feature_id": "mount2",
+        "measurement_type": "hole_diameter",
+        "expected_value_mm": 6,
+        "actual_value_mm": 6,
+        "source_value_mm": 6,
+        "expected_center_xy_mm": [
+          152,
+          20
+        ],
+        "actual_center_xy_mm": [
+          152,
+          20
+        ],
+        "tolerance_mm": 0.05,
+        "delta_mm": 0,
+        "center_delta_mm": 0,
+        "source_delta_mm": null,
+        "source_center_delta_mm": null,
+        "status": "pass",
+        "required": true,
+        "source": "generated_shape_geometry",
+        "source_field": "geometry.cylindrical_faces[face_index=12].diameter_mm",
+        "expected_source": "config_parameter",
+        "expected_source_field": "config.drawing_intent.required_dimensions[id=MOUNTING_HOLE_DIA].value_mm",
+        "validation_kind": "generated_shape_geometry_check",
+        "matched_face_index": 12,
+        "message": null
+      },
+      {
+        "requirement_id": "mount2_CENTER",
+        "source_requirement_id": "MOUNTING_HOLE_DIA",
+        "feature_id": "mount2",
+        "measurement_type": "hole_center",
+        "expected_value_mm": null,
+        "actual_value_mm": null,
+        "source_value_mm": null,
+        "expected_center_xy_mm": [
+          152,
+          20
+        ],
+        "actual_center_xy_mm": [
+          152,
+          20
+        ],
+        "tolerance_mm": 0.2,
+        "delta_mm": 0,
+        "center_delta_mm": 0,
+        "source_delta_mm": null,
+        "source_center_delta_mm": null,
+        "status": "pass",
+        "required": true,
+        "source": "generated_shape_geometry",
+        "source_field": "geometry.cylindrical_faces[face_index=12].center_mm",
+        "expected_source": "config_parameter",
+        "expected_source_field": "config.shapes[id=mount2].position",
+        "validation_kind": "generated_shape_geometry_check",
+        "matched_face_index": 12,
+        "message": null
+      },
+      {
+        "requirement_id": "MOUNTING_HOLE_DIA_STEP_REIMPORT",
+        "source_requirement_id": "MOUNTING_HOLE_DIA",
+        "feature_id": "mount2",
+        "measurement_type": "hole_diameter",
+        "expected_value_mm": 6,
+        "actual_value_mm": 6,
+        "source_value_mm": 6,
+        "expected_center_xy_mm": [
+          152,
+          20
+        ],
+        "actual_center_xy_mm": [
+          152,
+          20
+        ],
+        "tolerance_mm": 0.05,
+        "delta_mm": 0,
+        "center_delta_mm": 0,
+        "source_delta_mm": 0,
+        "source_center_delta_mm": 0,
+        "status": "pass",
+        "required": true,
+        "source": "reimported_step_geometry",
+        "source_field": "step_roundtrip.reimported_geometry.cylindrical_faces[face_index=12].diameter_mm",
+        "expected_source": "config_parameter",
+        "expected_source_field": "config.drawing_intent.required_dimensions[id=MOUNTING_HOLE_DIA].value_mm",
+        "validation_kind": "reimported_step_geometry_check",
+        "matched_face_index": 12,
+        "message": null
+      },
+      {
+        "requirement_id": "mount2_CENTER_STEP_REIMPORT",
+        "source_requirement_id": "MOUNTING_HOLE_DIA",
+        "feature_id": "mount2",
+        "measurement_type": "hole_center",
+        "expected_value_mm": null,
+        "actual_value_mm": null,
+        "source_value_mm": null,
+        "expected_center_xy_mm": [
+          152,
+          20
+        ],
+        "actual_center_xy_mm": [
+          152,
+          20
+        ],
+        "tolerance_mm": 0.2,
+        "delta_mm": 0,
+        "center_delta_mm": 0,
+        "source_delta_mm": null,
+        "source_center_delta_mm": 0,
+        "status": "pass",
+        "required": true,
+        "source": "reimported_step_geometry",
+        "source_field": "step_roundtrip.reimported_geometry.cylindrical_faces[face_index=12].center_mm",
+        "expected_source": "config_parameter",
+        "expected_source_field": "config.shapes[id=mount2].position",
+        "validation_kind": "reimported_step_geometry_check",
+        "matched_face_index": 12,
+        "message": null
+      },
+      {
+        "requirement_id": "MOUNTING_HOLE_DIA",
+        "source_requirement_id": "MOUNTING_HOLE_DIA",
+        "feature_id": "mount3",
+        "measurement_type": "hole_diameter",
+        "expected_value_mm": 6,
+        "actual_value_mm": 6,
+        "source_value_mm": 6,
+        "expected_center_xy_mm": [
+          20,
+          106
+        ],
+        "actual_center_xy_mm": [
+          20,
+          106
+        ],
+        "tolerance_mm": 0.05,
+        "delta_mm": 0,
+        "center_delta_mm": 0,
+        "source_delta_mm": null,
+        "source_center_delta_mm": null,
+        "status": "pass",
+        "required": true,
+        "source": "generated_shape_geometry",
+        "source_field": "geometry.cylindrical_faces[face_index=13].diameter_mm",
+        "expected_source": "config_parameter",
+        "expected_source_field": "config.drawing_intent.required_dimensions[id=MOUNTING_HOLE_DIA].value_mm",
+        "validation_kind": "generated_shape_geometry_check",
+        "matched_face_index": 13,
+        "message": null
+      },
+      {
+        "requirement_id": "mount3_CENTER",
+        "source_requirement_id": "MOUNTING_HOLE_DIA",
+        "feature_id": "mount3",
+        "measurement_type": "hole_center",
+        "expected_value_mm": null,
+        "actual_value_mm": null,
+        "source_value_mm": null,
+        "expected_center_xy_mm": [
+          20,
+          106
+        ],
+        "actual_center_xy_mm": [
+          20,
+          106
+        ],
+        "tolerance_mm": 0.2,
+        "delta_mm": 0,
+        "center_delta_mm": 0,
+        "source_delta_mm": null,
+        "source_center_delta_mm": null,
+        "status": "pass",
+        "required": true,
+        "source": "generated_shape_geometry",
+        "source_field": "geometry.cylindrical_faces[face_index=13].center_mm",
+        "expected_source": "config_parameter",
+        "expected_source_field": "config.shapes[id=mount3].position",
+        "validation_kind": "generated_shape_geometry_check",
+        "matched_face_index": 13,
+        "message": null
+      },
+      {
+        "requirement_id": "MOUNTING_HOLE_DIA_STEP_REIMPORT",
+        "source_requirement_id": "MOUNTING_HOLE_DIA",
+        "feature_id": "mount3",
+        "measurement_type": "hole_diameter",
+        "expected_value_mm": 6,
+        "actual_value_mm": 6,
+        "source_value_mm": 6,
+        "expected_center_xy_mm": [
+          20,
+          106
+        ],
+        "actual_center_xy_mm": [
+          20,
+          106
+        ],
+        "tolerance_mm": 0.05,
+        "delta_mm": 0,
+        "center_delta_mm": 0,
+        "source_delta_mm": 0,
+        "source_center_delta_mm": 0,
+        "status": "pass",
+        "required": true,
+        "source": "reimported_step_geometry",
+        "source_field": "step_roundtrip.reimported_geometry.cylindrical_faces[face_index=13].diameter_mm",
+        "expected_source": "config_parameter",
+        "expected_source_field": "config.drawing_intent.required_dimensions[id=MOUNTING_HOLE_DIA].value_mm",
+        "validation_kind": "reimported_step_geometry_check",
+        "matched_face_index": 13,
+        "message": null
+      },
+      {
+        "requirement_id": "mount3_CENTER_STEP_REIMPORT",
+        "source_requirement_id": "MOUNTING_HOLE_DIA",
+        "feature_id": "mount3",
+        "measurement_type": "hole_center",
+        "expected_value_mm": null,
+        "actual_value_mm": null,
+        "source_value_mm": null,
+        "expected_center_xy_mm": [
+          20,
+          106
+        ],
+        "actual_center_xy_mm": [
+          20,
+          106
+        ],
+        "tolerance_mm": 0.2,
+        "delta_mm": 0,
+        "center_delta_mm": 0,
+        "source_delta_mm": null,
+        "source_center_delta_mm": 0,
+        "status": "pass",
+        "required": true,
+        "source": "reimported_step_geometry",
+        "source_field": "step_roundtrip.reimported_geometry.cylindrical_faces[face_index=13].center_mm",
+        "expected_source": "config_parameter",
+        "expected_source_field": "config.shapes[id=mount3].position",
+        "validation_kind": "reimported_step_geometry_check",
+        "matched_face_index": 13,
+        "message": null
+      },
+      {
+        "requirement_id": "MOUNTING_HOLE_DIA",
+        "source_requirement_id": "MOUNTING_HOLE_DIA",
+        "feature_id": "mount4",
+        "measurement_type": "hole_diameter",
+        "expected_value_mm": 6,
+        "actual_value_mm": 6,
+        "source_value_mm": 6,
+        "expected_center_xy_mm": [
+          152,
+          106
+        ],
+        "actual_center_xy_mm": [
+          152,
+          106
+        ],
+        "tolerance_mm": 0.05,
+        "delta_mm": 0,
+        "center_delta_mm": 0,
+        "source_delta_mm": null,
+        "source_center_delta_mm": null,
+        "status": "pass",
+        "required": true,
+        "source": "generated_shape_geometry",
+        "source_field": "geometry.cylindrical_faces[face_index=14].diameter_mm",
+        "expected_source": "config_parameter",
+        "expected_source_field": "config.drawing_intent.required_dimensions[id=MOUNTING_HOLE_DIA].value_mm",
+        "validation_kind": "generated_shape_geometry_check",
+        "matched_face_index": 14,
+        "message": null
+      },
+      {
+        "requirement_id": "mount4_CENTER",
+        "source_requirement_id": "MOUNTING_HOLE_DIA",
+        "feature_id": "mount4",
+        "measurement_type": "hole_center",
+        "expected_value_mm": null,
+        "actual_value_mm": null,
+        "source_value_mm": null,
+        "expected_center_xy_mm": [
+          152,
+          106
+        ],
+        "actual_center_xy_mm": [
+          152,
+          106
+        ],
+        "tolerance_mm": 0.2,
+        "delta_mm": 0,
+        "center_delta_mm": 0,
+        "source_delta_mm": null,
+        "source_center_delta_mm": null,
+        "status": "pass",
+        "required": true,
+        "source": "generated_shape_geometry",
+        "source_field": "geometry.cylindrical_faces[face_index=14].center_mm",
+        "expected_source": "config_parameter",
+        "expected_source_field": "config.shapes[id=mount4].position",
+        "validation_kind": "generated_shape_geometry_check",
+        "matched_face_index": 14,
+        "message": null
+      },
+      {
+        "requirement_id": "MOUNTING_HOLE_DIA_STEP_REIMPORT",
+        "source_requirement_id": "MOUNTING_HOLE_DIA",
+        "feature_id": "mount4",
+        "measurement_type": "hole_diameter",
+        "expected_value_mm": 6,
+        "actual_value_mm": 6,
+        "source_value_mm": 6,
+        "expected_center_xy_mm": [
+          152,
+          106
+        ],
+        "actual_center_xy_mm": [
+          152,
+          106
+        ],
+        "tolerance_mm": 0.05,
+        "delta_mm": 0,
+        "center_delta_mm": 0,
+        "source_delta_mm": 0,
+        "source_center_delta_mm": 0,
+        "status": "pass",
+        "required": true,
+        "source": "reimported_step_geometry",
+        "source_field": "step_roundtrip.reimported_geometry.cylindrical_faces[face_index=14].diameter_mm",
+        "expected_source": "config_parameter",
+        "expected_source_field": "config.drawing_intent.required_dimensions[id=MOUNTING_HOLE_DIA].value_mm",
+        "validation_kind": "reimported_step_geometry_check",
+        "matched_face_index": 14,
+        "message": null
+      },
+      {
+        "requirement_id": "mount4_CENTER_STEP_REIMPORT",
+        "source_requirement_id": "MOUNTING_HOLE_DIA",
+        "feature_id": "mount4",
+        "measurement_type": "hole_center",
+        "expected_value_mm": null,
+        "actual_value_mm": null,
+        "source_value_mm": null,
+        "expected_center_xy_mm": [
+          152,
+          106
+        ],
+        "actual_center_xy_mm": [
+          152,
+          106
+        ],
+        "tolerance_mm": 0.2,
+        "delta_mm": 0,
+        "center_delta_mm": 0,
+        "source_delta_mm": null,
+        "source_center_delta_mm": 0,
+        "status": "pass",
+        "required": true,
+        "source": "reimported_step_geometry",
+        "source_field": "step_roundtrip.reimported_geometry.cylindrical_faces[face_index=14].center_mm",
+        "expected_source": "config_parameter",
+        "expected_source_field": "config.shapes[id=mount4].position",
+        "validation_kind": "reimported_step_geometry_check",
+        "matched_face_index": 14,
+        "message": null
+      }
+    ],
+    "measurement_provenance": [
+      {
+        "measurement_id": "bbox",
+        "measurement_type": "bbox",
+        "source": "generated_shape_geometry",
+        "report_field": "geometry.bbox",
+        "source_field": null,
+        "value": {
+          "min": [
+            0,
+            0,
+            0
+          ],
+          "max": [
+            172,
+            126,
+            50
+          ],
+          "size": [
+            172,
+            126,
+            50
+          ]
+        },
+        "note": "Generated FreeCAD shape metadata from scripts/_shapes.py get_metadata(final_shape)."
+      },
+      {
+        "measurement_id": "thickness",
+        "measurement_type": "thickness",
+        "source": "generated_shape_geometry",
+        "report_field": "geometry.bbox.size[2]",
+        "source_field": null,
+        "value": 50,
+        "note": "Overall Z extent from generated FreeCAD shape metadata; this is not a local wall-thickness feature check."
+      },
+      {
+        "measurement_id": "volume",
+        "measurement_type": "volume",
+        "source": "generated_shape_geometry",
+        "report_field": "geometry.volume",
+        "source_field": null,
+        "value": 579513.88,
+        "note": "Generated FreeCAD shape metadata from scripts/_shapes.py get_metadata(final_shape)."
+      },
+      {
+        "measurement_id": "mount1_diameter",
+        "measurement_type": "hole_diameter",
+        "source": "generated_shape_geometry",
+        "report_field": "engineering_quality.measurements[requirement_id=MOUNTING_HOLE_DIA].source_value_mm",
+        "source_field": "geometry.cylindrical_faces[face_index=11].diameter_mm",
+        "value": 6,
+        "note": "Actual hole diameter measured from cylindrical face metadata on the generated FreeCAD shape."
+      },
+      {
+        "measurement_id": "mount1_center",
+        "measurement_type": "hole_center",
+        "source": "generated_shape_geometry",
+        "report_field": "engineering_quality.measurements[requirement_id=mount1_CENTER].actual_center_xy_mm",
+        "source_field": "geometry.cylindrical_faces[face_index=11].center_mm",
+        "value": [
+          20,
+          20
+        ],
+        "note": "Actual hole center measured from cylindrical face metadata on the generated FreeCAD shape."
+      },
+      {
+        "measurement_id": "mount1_step_diameter",
+        "measurement_type": "hole_diameter",
+        "source": "reimported_step_geometry",
+        "report_field": "engineering_quality.measurements[requirement_id=MOUNTING_HOLE_DIA_STEP_REIMPORT].source_value_mm",
+        "source_field": "step_roundtrip.reimported_geometry.cylindrical_faces[face_index=11].diameter_mm",
+        "value": 6,
+        "note": "Actual hole diameter measured from cylindrical face metadata after STEP export/re-import."
+      },
+      {
+        "measurement_id": "mount1_step_center",
+        "measurement_type": "hole_center",
+        "source": "reimported_step_geometry",
+        "report_field": "engineering_quality.measurements[requirement_id=mount1_CENTER_STEP_REIMPORT].actual_center_xy_mm",
+        "source_field": "step_roundtrip.reimported_geometry.cylindrical_faces[face_index=11].center_mm",
+        "value": [
+          20,
+          20
+        ],
+        "note": "Actual hole center measured from cylindrical face metadata after STEP export/re-import."
+      },
+      {
+        "measurement_id": "mount2_diameter",
+        "measurement_type": "hole_diameter",
+        "source": "generated_shape_geometry",
+        "report_field": "engineering_quality.measurements[requirement_id=MOUNTING_HOLE_DIA].source_value_mm",
+        "source_field": "geometry.cylindrical_faces[face_index=12].diameter_mm",
+        "value": 6,
+        "note": "Actual hole diameter measured from cylindrical face metadata on the generated FreeCAD shape."
+      },
+      {
+        "measurement_id": "mount2_center",
+        "measurement_type": "hole_center",
+        "source": "generated_shape_geometry",
+        "report_field": "engineering_quality.measurements[requirement_id=mount2_CENTER].actual_center_xy_mm",
+        "source_field": "geometry.cylindrical_faces[face_index=12].center_mm",
+        "value": [
+          152,
+          20
+        ],
+        "note": "Actual hole center measured from cylindrical face metadata on the generated FreeCAD shape."
+      },
+      {
+        "measurement_id": "mount2_step_diameter",
+        "measurement_type": "hole_diameter",
+        "source": "reimported_step_geometry",
+        "report_field": "engineering_quality.measurements[requirement_id=MOUNTING_HOLE_DIA_STEP_REIMPORT].source_value_mm",
+        "source_field": "step_roundtrip.reimported_geometry.cylindrical_faces[face_index=12].diameter_mm",
+        "value": 6,
+        "note": "Actual hole diameter measured from cylindrical face metadata after STEP export/re-import."
+      },
+      {
+        "measurement_id": "mount2_step_center",
+        "measurement_type": "hole_center",
+        "source": "reimported_step_geometry",
+        "report_field": "engineering_quality.measurements[requirement_id=mount2_CENTER_STEP_REIMPORT].actual_center_xy_mm",
+        "source_field": "step_roundtrip.reimported_geometry.cylindrical_faces[face_index=12].center_mm",
+        "value": [
+          152,
+          20
+        ],
+        "note": "Actual hole center measured from cylindrical face metadata after STEP export/re-import."
+      },
+      {
+        "measurement_id": "mount3_diameter",
+        "measurement_type": "hole_diameter",
+        "source": "generated_shape_geometry",
+        "report_field": "engineering_quality.measurements[requirement_id=MOUNTING_HOLE_DIA].source_value_mm",
+        "source_field": "geometry.cylindrical_faces[face_index=13].diameter_mm",
+        "value": 6,
+        "note": "Actual hole diameter measured from cylindrical face metadata on the generated FreeCAD shape."
+      },
+      {
+        "measurement_id": "mount3_center",
+        "measurement_type": "hole_center",
+        "source": "generated_shape_geometry",
+        "report_field": "engineering_quality.measurements[requirement_id=mount3_CENTER].actual_center_xy_mm",
+        "source_field": "geometry.cylindrical_faces[face_index=13].center_mm",
+        "value": [
+          20,
+          106
+        ],
+        "note": "Actual hole center measured from cylindrical face metadata on the generated FreeCAD shape."
+      },
+      {
+        "measurement_id": "mount3_step_diameter",
+        "measurement_type": "hole_diameter",
+        "source": "reimported_step_geometry",
+        "report_field": "engineering_quality.measurements[requirement_id=MOUNTING_HOLE_DIA_STEP_REIMPORT].source_value_mm",
+        "source_field": "step_roundtrip.reimported_geometry.cylindrical_faces[face_index=13].diameter_mm",
+        "value": 6,
+        "note": "Actual hole diameter measured from cylindrical face metadata after STEP export/re-import."
+      },
+      {
+        "measurement_id": "mount3_step_center",
+        "measurement_type": "hole_center",
+        "source": "reimported_step_geometry",
+        "report_field": "engineering_quality.measurements[requirement_id=mount3_CENTER_STEP_REIMPORT].actual_center_xy_mm",
+        "source_field": "step_roundtrip.reimported_geometry.cylindrical_faces[face_index=13].center_mm",
+        "value": [
+          20,
+          106
+        ],
+        "note": "Actual hole center measured from cylindrical face metadata after STEP export/re-import."
+      },
+      {
+        "measurement_id": "mount4_diameter",
+        "measurement_type": "hole_diameter",
+        "source": "generated_shape_geometry",
+        "report_field": "engineering_quality.measurements[requirement_id=MOUNTING_HOLE_DIA].source_value_mm",
+        "source_field": "geometry.cylindrical_faces[face_index=14].diameter_mm",
+        "value": 6,
+        "note": "Actual hole diameter measured from cylindrical face metadata on the generated FreeCAD shape."
+      },
+      {
+        "measurement_id": "mount4_center",
+        "measurement_type": "hole_center",
+        "source": "generated_shape_geometry",
+        "report_field": "engineering_quality.measurements[requirement_id=mount4_CENTER].actual_center_xy_mm",
+        "source_field": "geometry.cylindrical_faces[face_index=14].center_mm",
+        "value": [
+          152,
+          106
+        ],
+        "note": "Actual hole center measured from cylindrical face metadata on the generated FreeCAD shape."
+      },
+      {
+        "measurement_id": "mount4_step_diameter",
+        "measurement_type": "hole_diameter",
+        "source": "reimported_step_geometry",
+        "report_field": "engineering_quality.measurements[requirement_id=MOUNTING_HOLE_DIA_STEP_REIMPORT].source_value_mm",
+        "source_field": "step_roundtrip.reimported_geometry.cylindrical_faces[face_index=14].diameter_mm",
+        "value": 6,
+        "note": "Actual hole diameter measured from cylindrical face metadata after STEP export/re-import."
+      },
+      {
+        "measurement_id": "mount4_step_center",
+        "measurement_type": "hole_center",
+        "source": "reimported_step_geometry",
+        "report_field": "engineering_quality.measurements[requirement_id=mount4_CENTER_STEP_REIMPORT].actual_center_xy_mm",
+        "source_field": "step_roundtrip.reimported_geometry.cylindrical_faces[face_index=14].center_mm",
+        "value": [
+          152,
+          106
+        ],
+        "note": "Actual hole center measured from cylindrical face metadata after STEP export/re-import."
+      }
+    ],
+    "blocking_issues": [],
+    "warnings": []
+  },
+  "thresholds": {
+    "max_step_volume_delta_percent": 0.5,
+    "max_bbox_delta_mm": 0.2,
+    "max_engineering_dimension_delta_mm": 0.05,
+    "max_engineering_center_delta_mm": 0.2
+  },
+  "status": "pass",
+  "blocking_issues": [],
+  "warnings": []
+}

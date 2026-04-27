@@ -28,7 +28,7 @@ const indexText = readFileSync(INDEX_PATH, 'utf8');
 const manifest = JSON.parse(readFileSync(MANIFEST_PATH, 'utf8'));
 const canonicalPackages = manifest.examples.filter((example) => example.status === 'canonical-package');
 
-assert.equal(canonicalPackages.length, 3, 'example-library index assumes the first three canonical packages are complete');
+assert.equal(canonicalPackages.length, 4, 'example-library index assumes the first four canonical packages are complete');
 assert.match(indexText, /^# Example Library/m);
 assert.match(indexText, /status `canonical-package`/);
 
@@ -52,7 +52,7 @@ assert.match(indexText, /not arbitrary local file import/);
 assert.equal(indexText.includes('arbitrary local file import support'), false, 'index should not claim arbitrary local file import support');
 assert.match(indexText, /small curated package artifacts/);
 assert.match(indexText, /not ignored generated-output directories/);
-assert.match(indexText, /No fourth package is complete yet\./);
+assert.match(indexText, /No fifth package is complete yet\./);
 
 assert.equal(indexText.includes('tmp/codex'), false, 'index should not reference task notes');
 assert.equal(indexText.includes('/Users/'), false, 'index should not contain local user paths');

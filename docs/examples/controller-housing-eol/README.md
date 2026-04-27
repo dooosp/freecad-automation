@@ -1,32 +1,40 @@
-# Controller Housing EOL Example
+# Controller Housing EOL
 
-Checked-in draft standard-document set for an automotive infotainment controller housing assembly scenario with:
+`controller-housing-eol` is the fourth curated AF5 example package. It is based on `configs/examples/controller_housing_eol.toml` and promoted here as the enclosure and end-of-line package with canonical AF5 artifact names.
 
-- PCB loading and connector seating review
-- torque-controlled fastening
-- gasket / sealing confirmation
-- barcode / serial pairing
-- EOL electrical / functional test planning
+The package focuses on an infotainment controller housing plus PCB assembly closeout scenario: cast AL6061 enclosure geometry, rear connector opening, internal electronics cavity, mounting hole pattern, gasket/seal interface, torque trace, barcode pairing, cross-site launch context, and EOL electrical release. `configs/examples/controller_housing.toml` remains a broader enclosure candidate; this package uses the EOL variant because it carries the stronger assembly, traceability, functional-test, and cross-site production basis.
 
-Files:
+## Included Artifacts
 
-- Default generated set:
-  - [process_flow.md](./standard-docs/process_flow.md)
-  - [control_plan_draft.csv](./standard-docs/control_plan_draft.csv)
-  - [inspection_checksheet_draft.csv](./standard-docs/inspection_checksheet_draft.csv)
-  - [work_instruction_draft.md](./standard-docs/work_instruction_draft.md)
-  - [pfmea_seed.csv](./standard-docs/pfmea_seed.csv)
-  - [standard_docs_manifest.json](./standard-docs/standard_docs_manifest.json)
-- Site-aware preset examples:
-  - [Korea preset docs](./standard-docs-korea/process_flow.md)
-  - [Mexico preset docs](./standard-docs-mexico/process_flow.md)
+- `config.toml`: curated copy of the controller housing EOL source config with self-contained drawing plan, drawing intent, STEP/STL export, production, quality, traceability, and EOL metadata.
+- `cad/controller_housing_eol.step` and `cad/controller_housing_eol.stl`: runtime-generated exports.
+- `quality/controller_housing_eol_create_quality.json`: strict create-quality result with STEP/STL round-trip evidence.
+- `quality/controller_housing_eol_drawing_quality.json`: strict drawing-quality summary.
+- `drawing/controller_housing_eol_drawing.svg`: generated drawing preview.
+- `review/review_pack.json`: canonical review handoff.
+- `readiness/readiness_report.json`: canonical readiness handoff.
+- `standard-docs/standard_docs_manifest.json`: current canonical standard-document draft inventory generated from the readiness report.
+- `release/release_bundle_manifest.json`: canonical release bundle inventory.
+- `release/release_bundle.zip`: portable release bundle.
 
-Source config:
+## Drawing Intent
 
-- [controller_housing_eol.toml](../../../configs/examples/controller_housing_eol.toml)
+The curated config adds explicit drawing intent for housing envelope, internal cavity, rear connector opening and datum, four-hole mounting pattern, gasket/seal interface, material and process notes, torque trace, barcode pairing, EOL functional-test release, and front/top/right/iso drawing views.
 
-These documents are generated planning aids and remain drafts until reviewed and controlled by production engineering / quality owners.
+The current drawing renderer can strictly trace the shared mounting-hole diameter plan dimension through the hole feature graph. The seal depth, cavity, connector opening, and package envelope requirements remain explicit advisory drawing intent when the current traceability mapper cannot prove those links as strict drawing-plan dimensions.
 
-## Portability Status
+## Standard Docs
 
-The checked-in standard-doc manifests have been sanitized so document references are repo-relative and portable. They remain legacy standard-doc examples, not canonical package evidence; full package promotion still requires regenerating the review, readiness, standard-doc, release, and reopen artifacts through the canonical AF5 flow.
+The default `standard-docs/` set is now the canonical package standard-document output. It was regenerated from `readiness/readiness_report.json` and uses current `schema_version: "1.0"`.
+
+The retained `standard-docs-korea/` and `standard-docs-mexico/` directories are legacy site-document examples from the earlier standard-doc sanitization work. They remain useful for site preset comparison and intentionally keep their legacy `schema_version: "0.1"` manifests.
+
+## Generation Notes
+
+The package artifacts were generated with the local FreeCAD runtime, then sanitized so checked-in JSON and text files use repo-relative package paths instead of local runtime paths.
+
+Create quality passed. Drawing quality passed with score 72 and 100% strict traceability coverage for the supported drawing-plan dimension. DFM is warning-only because the housing still carries deep through-hole drill-ratio warnings and note-driven edge-treatment risk. The readiness report status is `needs_more_evidence`, score 41, because the review pack was built from the generated STEP without separate inspection or quality side inputs.
+
+## Studio Reopen
+
+This package is covered by the deterministic Studio reopen fixture. The fixture represents the package as a tracked job/artifact set without committing volatile job IDs.

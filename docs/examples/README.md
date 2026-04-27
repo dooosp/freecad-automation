@@ -7,6 +7,7 @@ The current canonical packages are:
 - [`quality-pass-bracket`](./quality-pass-bracket/README.md)
 - [`plate-with-holes`](./plate-with-holes/README.md)
 - [`motor-mount`](./motor-mount/README.md)
+- [`controller-housing-eol`](./controller-housing-eol/README.md)
 
 ## Canonical Package Contract
 
@@ -52,11 +53,12 @@ review-context
 | [`quality-pass-bracket`](./quality-pass-bracket/README.md) | `configs/examples/quality_pass_bracket.toml` | Canonical passing bracket seed and first AF5 package template | `needs_more_evidence`, score 50 | Yes | Yes | Baseline package pattern for canonical review, readiness, standard-doc, release, and reopen artifacts. |
 | [`plate-with-holes`](./plate-with-holes/README.md) | `configs/examples/pcb_mount_plate.toml` | Hole pattern, connector slot, standoff/plate package with curated drawing intent | `needs_more_evidence`, score 50 | Yes | Yes | Curated drawing intent makes the plate package useful for hole-pattern and manufacturing-note review. |
 | [`motor-mount`](./motor-mount/README.md) | `configs/generated/cnc_motor_mount_bracket.toml` | Generated-config promotion into a curated single-part motor mount package | `needs_more_evidence`, score 44 | Yes | Yes | The related assembly config is intentionally deferred and is not part of this package. |
+| [`controller-housing-eol`](./controller-housing-eol/README.md) | `configs/examples/controller_housing_eol.toml` | Enclosure and EOL package for controller housing assembly, traceability, torque, barcode pairing, gasket confirmation, and functional-test release | `needs_more_evidence`, score 41 | Yes | Yes | Default standard docs are regenerated canonical evidence; Korea and Mexico standard-doc directories remain legacy site examples. |
 
 `needs_more_evidence` is not a package failure. It reflects that the safe canonical review/readiness path currently lacks separate inspection evidence and quality-linkage side inputs. Do not rephrase these packages as passed readiness until those inputs are supplied and the readiness artifacts are regenerated through the canonical flow.
 
 ## Next Candidates
 
-`controller-housing-eol` is a strong next candidate because it already has useful standard-document material, but it must first go through standard-doc manifest regeneration or sanitization because existing docs can be path-bearing. New simple geometry examples such as `spacer` or `hinge-block` are also possible later.
+`controller_housing.toml` remains a broader enclosure candidate for a later package or comparison pass. New simple geometry examples such as `spacer` or `hinge-block` are also possible later.
 
-No fourth package is complete yet.
+No fifth package is complete yet.

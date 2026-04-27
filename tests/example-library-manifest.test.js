@@ -14,6 +14,7 @@ const REQUIRED_CANONICAL_ARTIFACTS = Object.freeze([
 ]);
 
 const STALE_AF5_NAMES = Object.freeze([
+  'review-pack.json',
   'readiness-report.json',
   'standard-docs-manifest.json',
   'release-bundle-manifest.json',

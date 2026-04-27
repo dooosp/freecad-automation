@@ -1,0 +1,104 @@
+{
+  "generated_at": "2026-04-27T02:25:13.860Z",
+  "readiness_report_path": "docs/examples/controller-housing-eol/readiness/readiness_report.json",
+  "docs_manifest_path": "docs/examples/controller-housing-eol/standard-docs/standard_docs_manifest.json",
+  "bundle_output_path": "docs/examples/controller-housing-eol/release/release_bundle.zip",
+  "included_artifacts": [
+    {
+      "artifact_type": "readiness_report",
+      "role": "primary",
+      "label": "Canonical readiness report JSON",
+      "path": "canonical/readiness_report.json",
+      "source_path": "docs/examples/controller-housing-eol/readiness/readiness_report.json",
+      "sha256": "dd11be49703a3ca3d0860345e18749771ea9fba787929cb675a499b1456fb45e",
+      "size_bytes": 47664
+    },
+    {
+      "artifact_type": "readiness_markdown",
+      "role": "derived",
+      "label": "Readiness report Markdown",
+      "path": "canonical/readiness_report.md",
+      "source_path": "docs/examples/controller-housing-eol/readiness/readiness_report.md",
+      "sha256": "a8d76d1d34e0bc860abfbe7bdc7fa00a204fd302fa8ab126dfdbfbda843af465",
+      "size_bytes": 3935
+    },
+    {
+      "artifact_type": "cad_model",
+      "role": "input",
+      "label": "Geometry source",
+      "path": "references/controller_housing_eol.step",
+      "source_path": "docs/examples/controller-housing-eol/cad/controller_housing_eol.step",
+      "sha256": "b186a1066a9e6fcbd2912c1ec5367101cda4f8049665d8461ea62ab38875ed85",
+      "size_bytes": 34193
+    },
+    {
+      "artifact_type": "review_pack",
+      "role": "input",
+      "label": "Canonical review-pack JSON",
+      "path": "canonical/review_pack.json",
+      "source_path": "docs/examples/controller-housing-eol/review/review_pack.json",
+      "sha256": "156cca0830121ab371ae516c86b1871bbccd82e2cd3f4d83e386bb67566c5071",
+      "size_bytes": 15674
+    },
+    {
+      "artifact_type": "docs_manifest",
+      "role": "input",
+      "label": "Standard docs manifest JSON",
+      "path": "docs/standard_docs_manifest.json",
+      "source_path": "docs/examples/controller-housing-eol/standard-docs/standard_docs_manifest.json",
+      "sha256": "1b1bd03e491c45531dc4c0747bd3607c414a1e431fde78926c139b41d80190b3",
+      "size_bytes": 6700
+    },
+    {
+      "artifact_type": "docs_document",
+      "role": "derived",
+      "label": "process_flow.md",
+      "path": "docs/process_flow.md",
+      "source_path": "docs/examples/controller-housing-eol/standard-docs/process_flow.md",
+      "sha256": "f65ee2a68e7956c596c30d4e2f53a5cf200aec3df2d4b6c94756e8aea880c962",
+      "size_bytes": 520
+    },
+    {
+      "artifact_type": "docs_document",
+      "role": "derived",
+      "label": "control_plan_draft.csv",
+      "path": "docs/control_plan_draft.csv",
+      "source_path": "docs/examples/controller-housing-eol/standard-docs/control_plan_draft.csv",
+      "sha256": "399ec793f4b62b635f30ecdf59e1b97e03f0eb862b2bfd48ff2362c554aabc64",
+      "size_bytes": 99
+    },
+    {
+      "artifact_type": "docs_document",
+      "role": "derived",
+      "label": "inspection_checksheet_draft.csv",
+      "path": "docs/inspection_checksheet_draft.csv",
+      "source_path": "docs/examples/controller-housing-eol/standard-docs/inspection_checksheet_draft.csv",
+      "sha256": "4595fdd1b54a345237d4716fecec90495ec7a0cb7a0e7593147875557ed0d391",
+      "size_bytes": 70
+    },
+    {
+      "artifact_type": "docs_document",
+      "role": "derived",
+      "label": "work_instruction_draft.md",
+      "path": "docs/work_instruction_draft.md",
+      "source_path": "docs/examples/controller-housing-eol/standard-docs/work_instruction_draft.md",
+      "sha256": "c08fe4d32f6149140d2ca59cc36dad0804cb9b44f121cdea7f77fa5ca377d4ff",
+      "size_bytes": 786
+    },
+    {
+      "artifact_type": "docs_document",
+      "role": "derived",
+      "label": "pfmea_seed.csv",
+      "path": "docs/pfmea_seed.csv",
+      "source_path": "docs/examples/controller-housing-eol/standard-docs/pfmea_seed.csv",
+      "sha256": "7dcfe9be3ddd99bcfda73fb4d38ca43fe8847bf60bb1e00b271ecdb10ca0db43",
+      "size_bytes": 379
+    }
+  ],
+  "skipped_artifacts": [],
+  "warnings": [
+    "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/controller-housing-eol/cad/controller_housing_eol.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
+    "Missing or limited inspection evidence; review-pack remains usable with partial evidence.",
+    "Missing or limited quality evidence; review-pack remains usable with partial evidence."
+  ]
+}
