@@ -1,0 +1,418 @@
+config_version = 1
+name = "cnc_motor_mount_bracket"
+batch_size = 20
+
+[product]
+family = "motor_mounting"
+module_type = "CNC motor mount bracket"
+vehicle_program = "Automation cell motor support"
+revision = "A"
+decision_scope = "machining readiness and package reopen review"
+fastening_strategy = "four bolt motor/base mounting pattern"
+traceability_label_area = "base plate side face"
+
+[manufacturing]
+process = "machining"
+material = "AL6061-T6"
+batch_size = 20
+machining_notes = [
+  "Machine base plate datum face before drilling the four-hole pattern.",
+  "Maintain burr-free mounting holes and deburred external edges.",
+  "Use the support web and rib as stiffness features for setup review.",
+]
+
+[production]
+sites = ["Korea-Gwangju"]
+annual_volume = 12000
+target_ct_sec = 90
+automation_mode = "manual"
+pilot_lot = 20
+automation_candidates = [
+  "probe verification of four-hole pattern before release",
+  "visual deburr check at final inspection",
+]
+
+[quality.traceability]
+serial_level = "lot"
+record_linkage = "lot + revision + inspection record"
+label_area = "base plate side face"
+
+[[quality.critical_dimensions]]
+id = "cd-01"
+name = "base plate envelope"
+target_mm = 120.0
+tolerance = "project default"
+rationale = "motor support mounting envelope"
+
+[[quality.critical_dimensions]]
+id = "cd-02"
+name = "four-hole pattern diameter"
+target_mm = 9.0
+tolerance = "project default"
+rationale = "mounting fastener clearance"
+
+[[quality.critical_dimensions]]
+id = "cd-03"
+name = "support web height"
+target_mm = 60.0
+tolerance = "project default"
+rationale = "motor mounting stiffness"
+
+[[quality.functional_test_points]]
+id = "ftp-01"
+name = "four-hole pattern visual and probe confirmation"
+location = "final_inspection"
+rationale = "confirm motor/base interface before release"
+
+[[quality.functional_test_points]]
+id = "ftp-02"
+name = "deburr and fillet review"
+location = "final_inspection"
+rationale = "prevent assembly damage at handled edges"
+
+[[shapes]]
+id = "base_plate"
+type = "box"
+length = 120
+width = 80
+height = 10
+
+[[shapes]]
+id = "support_web"
+type = "box"
+length = 12
+width = 80
+height = 60
+position = [0, 0, 8]
+
+[[shapes]]
+id = "support_rib"
+type = "box"
+length = 36
+width = 80
+height = 36
+position = [42, 0, 8]
+
+[[shapes]]
+id = "mount_hole_1"
+type = "cylinder"
+radius = 4.5
+height = 16
+position = [20, 15, -3]
+
+[[shapes]]
+id = "mount_hole_2"
+type = "cylinder"
+radius = 4.5
+height = 16
+position = [100, 15, -3]
+
+[[shapes]]
+id = "mount_hole_3"
+type = "cylinder"
+radius = 4.5
+height = 16
+position = [20, 65, -3]
+
+[[shapes]]
+id = "mount_hole_4"
+type = "cylinder"
+radius = 4.5
+height = 16
+position = [100, 65, -3]
+
+[[operations]]
+op = "fuse"
+base = "base_plate"
+tool = "support_web"
+result = "body"
+
+[[operations]]
+op = "fuse"
+base = "body"
+tool = "support_rib"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mount_hole_1"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mount_hole_2"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mount_hole_3"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mount_hole_4"
+result = "final"
+
+[drawing]
+views = ["front", "top", "right", "iso"]
+
+[drawing.meta]
+part_name = "CNC Motor Mount Bracket"
+drawing_no = "CNC-MOTOR-MOUNT-A"
+material = "AL6061-T6"
+tolerance = "ISO 2768-m"
+units = "mm"
+
+[drawing.style]
+show_hidden = true
+show_centerlines = true
+show_dimensions = true
+
+[drawing.dimension_style]
+type = "baseline"
+
+[drawing_plan]
+part_type = "generic"
+profile = "KS"
+
+[drawing_plan.views]
+enabled = ["front", "top", "right", "iso"]
+layout = "third_angle"
+
+[drawing_plan.dimensioning]
+auto_plan_dedupe = "off"
+qa_weight_preset = "bracket"
+
+[drawing_intent]
+part_type = "motor_mount_bracket"
+manufacturing_process = "machining"
+material = "AL6061-T6"
+required_views = ["front", "top", "right", "iso"]
+drawing_standard = "project-default"
+missing_semantics_policy = "advisory"
+
+[drawing_intent.datum_strategy]
+primary = "base_plate_top_face"
+secondary = "front_left_mounting_hole"
+tertiary = "front_right_mounting_hole"
+scheme = "fixture-oriented motor mount datum using the base face and front hole row"
+notes = ["Use the base plate and four-hole pattern as drawing QA references only."]
+
+[drawing_intent.tolerance_policy]
+general = "Carry source drawing tolerance note forward; do not infer additional tolerances."
+gdt = "none"
+notes = ["ISO 2768-m is carried from the source drawing metadata as a general note."]
+
+[[drawing_intent.critical_features]]
+id = "BASE_PLATE"
+feature = "base_plate"
+description = "Base plate envelope communicates the 120 mm by 80 mm by 10 mm machined support footprint."
+reason = "Defines stock size, mounting face, and base plate intent."
+view = "top"
+
+[[drawing_intent.critical_features]]
+id = "SUPPORT_WEB"
+feature = "support_web"
+description = "Vertical support web provides the motor mounting face and stiffness reference."
+reason = "Communicates the raised support feature from the single-part source config."
+view = "front"
+
+[[drawing_intent.critical_features]]
+id = "SUPPORT_RIB"
+feature = "support_rib"
+description = "Support rib reinforces the web and should remain visible in front and iso views."
+reason = "Shows the normalized central stiffness feature without relying on the deferred assembly config."
+view = "front"
+
+[[drawing_intent.critical_features]]
+id = "FOUR_HOLE_PATTERN"
+feature = "mount_hole_1,mount_hole_2,mount_hole_3,mount_hole_4"
+description = "Four mounting holes define the motor/base mounting interface."
+reason = "Hole diameter and pattern location control the fastening interface."
+view = "top"
+
+[[drawing_intent.required_dimensions]]
+id = "BASE_LENGTH"
+feature = "base_plate"
+label = "Overall base length"
+dimension_type = "linear"
+value_mm = 120
+required = true
+view = "top"
+reason = "Confirms the long-axis base envelope."
+
+[[drawing_intent.required_dimensions]]
+id = "BASE_WIDTH"
+feature = "base_plate"
+label = "Overall base width"
+dimension_type = "linear"
+value_mm = 80
+required = true
+view = "top"
+reason = "Confirms the short-axis base envelope."
+
+[[drawing_intent.required_dimensions]]
+id = "BASE_THICKNESS"
+feature = "base_plate"
+label = "Base plate thickness"
+dimension_type = "linear"
+value_mm = 10
+required = true
+view = "front"
+reason = "Confirms the machined base thickness."
+
+[[drawing_intent.required_dimensions]]
+id = "SUPPORT_WEB_HEIGHT"
+feature = "support_web"
+label = "Support web height"
+dimension_type = "linear"
+value_mm = 60
+required = true
+view = "front"
+reason = "Carries forward the source support web height."
+
+[[drawing_intent.required_dimensions]]
+id = "SUPPORT_RIB_HEIGHT"
+feature = "support_rib"
+label = "Support rib height"
+dimension_type = "linear"
+value_mm = 36
+required = true
+view = "front"
+reason = "Carries forward the source support rib height."
+
+[[drawing_intent.required_dimensions]]
+id = "MOUNTING_HOLE_DIA"
+feature = "mount_hole_1,mount_hole_2,mount_hole_3,mount_hole_4"
+label = "Four mounting hole diameters"
+dimension_type = "diameter"
+value_mm = 9
+required = true
+view = "top"
+reason = "Confirms the shared fastener clearance hole size."
+
+[[drawing_intent.required_dimensions]]
+id = "MOUNTING_HOLE_PATTERN_X"
+feature = "mount_hole_1,mount_hole_2,mount_hole_3,mount_hole_4"
+label = "Mounting hole column spacing"
+dimension_type = "linear"
+value_mm = 80
+required = true
+view = "top"
+reason = "Captures the horizontal spacing from x=20 mm to x=100 mm."
+
+[[drawing_intent.required_dimensions]]
+id = "MOUNTING_HOLE_PATTERN_Y"
+feature = "mount_hole_1,mount_hole_2,mount_hole_3,mount_hole_4"
+label = "Mounting hole row spacing"
+dimension_type = "linear"
+value_mm = 50
+required = true
+view = "top"
+reason = "Captures the vertical spacing from y=15 mm to y=65 mm."
+
+[[drawing_intent.required_notes]]
+id = "MATERIAL"
+text = "Material: AL6061-T6"
+category = "material"
+required = true
+
+[[drawing_intent.required_notes]]
+id = "PROCESS"
+text = "Process: machining"
+category = "manufacturing"
+required = true
+
+[[drawing_intent.required_notes]]
+id = "DEBURR"
+text = "Remove burrs and sharp edges."
+category = "manufacturing"
+required = true
+
+[[drawing_intent.required_notes]]
+id = "EDGE_BREAK"
+text = "1 mm chamfer applied as a deburr edge break on the final machined bracket body."
+category = "manufacturing"
+required = true
+
+[[drawing_plan.dim_intents]]
+id = "TOTAL_LENGTH"
+feature = "base_plate"
+view = "top"
+style = "linear"
+required = false
+value_mm = 120
+placement_side = "bottom"
+placement_offset_mm = 6
+reason = "Overall base length is required for the curated motor-mount package."
+
+[[drawing_plan.dim_intents]]
+id = "HEIGHT"
+feature = "base_plate"
+view = "top"
+style = "linear"
+required = false
+value_mm = 80
+placement_side = "right"
+placement_offset_mm = 6
+reason = "Overall base width is required for drawing QA context."
+
+[[drawing_plan.dim_intents]]
+id = "THK"
+feature = "base_plate"
+view = "front"
+style = "linear"
+required = false
+value_mm = 10
+placement_side = "right"
+placement_offset_mm = 4
+reason = "Base plate thickness is required for drawing QA context."
+
+[[drawing_plan.dim_intents]]
+id = "HOLE_DIA"
+feature = "mount_hole_1,mount_hole_2,mount_hole_3,mount_hole_4"
+view = "top"
+style = "diameter"
+required = true
+value_mm = 9
+placement_side = "top_right"
+placement_offset_mm = 5
+reason = "The four mounting holes share a 9 mm diameter."
+
+[[drawing_plan.dim_intents]]
+id = "SUPPORT_WEB_HEIGHT"
+feature = "support_web"
+view = "front"
+style = "linear"
+required = false
+value_mm = 60
+placement_side = "left"
+placement_offset_mm = 8
+reason = "Advisory source dimension for the support web height."
+
+[[drawing_plan.dim_intents]]
+id = "SUPPORT_RIB_HEIGHT"
+feature = "support_rib"
+view = "front"
+style = "linear"
+required = false
+value_mm = 36
+placement_side = "right"
+placement_offset_mm = 8
+reason = "Advisory source dimension for the support rib height."
+
+[notes]
+general = [
+  "UNLESS OTHERWISE SPECIFIED:",
+  "MATERIAL: AL6061-T6",
+  "REMOVE BURRS AND SHARP EDGES.",
+]
+placement = "bottom_left"
+
+[export]
+formats = ["step", "stl"]
+directory = "output"

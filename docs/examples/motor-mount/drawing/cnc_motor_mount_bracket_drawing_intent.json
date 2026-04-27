@@ -1,0 +1,167 @@
+{
+  "part_type": "motor_mount_bracket",
+  "manufacturing_process": "machining",
+  "material": "AL6061-T6",
+  "required_views": [
+    "front",
+    "top",
+    "right",
+    "iso"
+  ],
+  "drawing_standard": "project-default",
+  "missing_semantics_policy": "advisory",
+  "datum_strategy": {
+    "primary": "base_plate_top_face",
+    "secondary": "front_left_mounting_hole",
+    "tertiary": "front_right_mounting_hole",
+    "scheme": "fixture-oriented motor mount datum using the base face and front hole row",
+    "notes": [
+      "Use the base plate and four-hole pattern as drawing QA references only."
+    ]
+  },
+  "tolerance_policy": {
+    "general": "Carry source drawing tolerance note forward; do not infer additional tolerances.",
+    "gdt": "none",
+    "notes": [
+      "ISO 2768-m is carried from the source drawing metadata as a general note."
+    ]
+  },
+  "critical_features": [
+    {
+      "id": "BASE_PLATE",
+      "feature": "base_plate",
+      "description": "Base plate envelope communicates the 120 mm by 80 mm by 10 mm machined support footprint.",
+      "reason": "Defines stock size, mounting face, and base plate intent.",
+      "view": "top"
+    },
+    {
+      "id": "SUPPORT_WEB",
+      "feature": "support_web",
+      "description": "Vertical support web provides the motor mounting face and stiffness reference.",
+      "reason": "Communicates the raised support feature from the single-part source config.",
+      "view": "front"
+    },
+    {
+      "id": "SUPPORT_RIB",
+      "feature": "support_rib",
+      "description": "Support rib reinforces the web and should remain visible in front and iso views.",
+      "reason": "Shows the normalized central stiffness feature without relying on the deferred assembly config.",
+      "view": "front"
+    },
+    {
+      "id": "FOUR_HOLE_PATTERN",
+      "feature": "mount_hole_1,mount_hole_2,mount_hole_3,mount_hole_4",
+      "description": "Four mounting holes define the motor/base mounting interface.",
+      "reason": "Hole diameter and pattern location control the fastening interface.",
+      "view": "top"
+    }
+  ],
+  "required_dimensions": [
+    {
+      "id": "BASE_LENGTH",
+      "feature": "base_plate",
+      "label": "Overall base length",
+      "dimension_type": "linear",
+      "value_mm": 120,
+      "required": true,
+      "view": "top",
+      "reason": "Confirms the long-axis base envelope."
+    },
+    {
+      "id": "BASE_WIDTH",
+      "feature": "base_plate",
+      "label": "Overall base width",
+      "dimension_type": "linear",
+      "value_mm": 80,
+      "required": true,
+      "view": "top",
+      "reason": "Confirms the short-axis base envelope."
+    },
+    {
+      "id": "BASE_THICKNESS",
+      "feature": "base_plate",
+      "label": "Base plate thickness",
+      "dimension_type": "linear",
+      "value_mm": 10,
+      "required": true,
+      "view": "front",
+      "reason": "Confirms the machined base thickness."
+    },
+    {
+      "id": "SUPPORT_WEB_HEIGHT",
+      "feature": "support_web",
+      "label": "Support web height",
+      "dimension_type": "linear",
+      "value_mm": 60,
+      "required": true,
+      "view": "front",
+      "reason": "Carries forward the source support web height."
+    },
+    {
+      "id": "SUPPORT_RIB_HEIGHT",
+      "feature": "support_rib",
+      "label": "Support rib height",
+      "dimension_type": "linear",
+      "value_mm": 36,
+      "required": true,
+      "view": "front",
+      "reason": "Carries forward the source support rib height."
+    },
+    {
+      "id": "MOUNTING_HOLE_DIA",
+      "feature": "mount_hole_1,mount_hole_2,mount_hole_3,mount_hole_4",
+      "label": "Four mounting hole diameters",
+      "dimension_type": "diameter",
+      "value_mm": 9,
+      "required": true,
+      "view": "top",
+      "reason": "Confirms the shared fastener clearance hole size."
+    },
+    {
+      "id": "MOUNTING_HOLE_PATTERN_X",
+      "feature": "mount_hole_1,mount_hole_2,mount_hole_3,mount_hole_4",
+      "label": "Mounting hole column spacing",
+      "dimension_type": "linear",
+      "value_mm": 80,
+      "required": true,
+      "view": "top",
+      "reason": "Captures the horizontal spacing from x=20 mm to x=100 mm."
+    },
+    {
+      "id": "MOUNTING_HOLE_PATTERN_Y",
+      "feature": "mount_hole_1,mount_hole_2,mount_hole_3,mount_hole_4",
+      "label": "Mounting hole row spacing",
+      "dimension_type": "linear",
+      "value_mm": 50,
+      "required": true,
+      "view": "top",
+      "reason": "Captures the vertical spacing from y=15 mm to y=65 mm."
+    }
+  ],
+  "required_notes": [
+    {
+      "id": "MATERIAL",
+      "text": "Material: AL6061-T6",
+      "category": "material",
+      "required": true
+    },
+    {
+      "id": "PROCESS",
+      "text": "Process: machining",
+      "category": "manufacturing",
+      "required": true
+    },
+    {
+      "id": "DEBURR",
+      "text": "Remove burrs and sharp edges.",
+      "category": "manufacturing",
+      "required": true
+    },
+    {
+      "id": "EDGE_BREAK",
+      "text": "1 mm chamfer applied as a deburr edge break on the final machined bracket body.",
+      "category": "manufacturing",
+      "required": true
+    }
+  ]
+}

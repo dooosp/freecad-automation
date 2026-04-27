@@ -20,6 +20,12 @@ const CANONICAL_PACKAGES = Object.freeze([
     sourceConfig: 'configs/examples/pcb_mount_plate.toml',
     directConfigCopy: false,
   },
+  {
+    slug: 'motor-mount',
+    stem: 'cnc_motor_mount_bracket',
+    sourceConfig: 'configs/generated/cnc_motor_mount_bracket.toml',
+    directConfigCopy: false,
+  },
 ]);
 
 const CANONICAL_ARTIFACTS = Object.freeze([
