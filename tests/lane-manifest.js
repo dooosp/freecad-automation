@@ -46,6 +46,8 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'STEP import bootstrap contracts', args: Object.freeze(['tests/step-import-service.test.js']) }),
       Object.freeze({ label: 'Bootstrap import service contracts', args: Object.freeze(['tests/bootstrap-import-service.test.js']) }),
       Object.freeze({ label: 'Evidence linkage side-input contract', args: Object.freeze(['tests/evidence-linkage-side-input-contract.test.js']) }),
+      Object.freeze({ label: 'Inspection evidence contract', args: Object.freeze(['tests/inspection-evidence-contract.test.js']) }),
+      Object.freeze({ label: 'Readiness inspection evidence contract', args: Object.freeze(['tests/readiness-inspection-evidence-contract.test.js']) }),
       Object.freeze({ label: 'Design reviewer validation', args: Object.freeze(['tests/design-reviewer-validation.test.js']) }),
       Object.freeze({ label: 'D artifact contracts', args: Object.freeze(['tests/d-artifact-schema.test.js']) }),
       Object.freeze({ label: 'C artifact contracts', args: Object.freeze(['tests/c-artifact-schema.test.js']) }),

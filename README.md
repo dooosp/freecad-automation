@@ -178,11 +178,11 @@ fcad ingest --model <file> [--bom bom.csv] [--inspection inspection.csv] [--qual
 fcad analyze-part <context.json|model.step>
 fcad quality-link --context <context.json> --geometry <geometry.json>
 fcad review-pack --context <context.json> --geometry <geometry.json>
-fcad review-context --model <file> [--bom bom.csv] [--inspection inspection.csv] [--quality quality.csv] [--create-quality create_quality.json] [--drawing-quality drawing_quality.json] [--drawing-qa drawing_qa.json] [--drawing-intent drawing_intent.json] [--feature-catalog feature_catalog.json] [--dfm-report dfm_report.json] --out <review_pack.json>
+fcad review-context --model <file> [--bom bom.csv] [--inspection inspection.csv] [--quality quality.csv] [--create-quality create_quality.json] [--drawing-quality drawing_quality.json] [--drawing-qa drawing_qa.json] [--drawing-intent drawing_intent.json] [--feature-catalog feature_catalog.json] [--dfm-report dfm_report.json] [--inspection-evidence inspection_evidence.json] --out <review_pack.json>
 fcad compare-rev <baseline.json> <candidate.json>
 ```
 
-`review-context` accepts explicit package-side evidence inputs for checked-in create quality, drawing quality, drawing QA, drawing intent, feature catalog, and DFM report JSON. These paths are normalized to portable repo-relative source refs in `review_pack.json`; unsafe outside-repo, ignored output, or task-status scratch evidence paths are not linked as canonical evidence. Quality/drawing/DFM side inputs can close `quality_evidence`, and drawing intent or feature catalogs are recorded as drawing/design-traceability context, but none of these side inputs satisfy `inspection_evidence` without a genuine inspection input.
+`review-context` accepts explicit package-side evidence inputs for checked-in create quality, drawing quality, drawing QA, drawing intent, feature catalog, and DFM report JSON. It also accepts `--inspection-evidence <path>` for a genuine inspection evidence JSON file that passes the inspection evidence contract. These paths are normalized to portable repo-relative source refs in `review_pack.json`; unsafe outside-repo, ignored output, or task-status scratch evidence paths are not linked as canonical evidence. Quality/drawing/DFM side inputs can close `quality_evidence`, and drawing intent or feature catalogs are recorded as drawing/design-traceability context, but none of these generated side inputs satisfy `inspection_evidence`. Readiness recognizes only the explicit validated `inspection_evidence` record written into the review pack.
 
 ### Imported CAD Bootstrap Lane
 
