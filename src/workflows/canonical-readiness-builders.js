@@ -21,6 +21,17 @@ function safeObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 
+function isSafeRepoSourceRef(value) {
+  if (typeof value !== 'string' || !value.trim()) return false;
+  const normalized = value.trim().replaceAll('\\', '/');
+  if (normalized !== value.trim()) return false;
+  if (normalized.startsWith('/') || /^[A-Za-z]:/.test(normalized)) return false;
+  if (normalized.split('/').includes('..')) return false;
+  if (normalized === 'output' || normalized.startsWith('output/')) return false;
+  if (normalized === 'tmp/codex' || normalized.startsWith('tmp/codex/')) return false;
+  return true;
+}
+
 function uniqueStrings(values = []) {
   return [...new Set(
     values
@@ -51,6 +62,40 @@ function mergeSourceArtifactRefs(primary = [], secondary = []) {
   }
 
   return merged;
+}
+
+function hasMatchingInspectionEvidenceSourceRef(sourceArtifactRefs = [], sourceRef = null) {
+  return safeList(sourceArtifactRefs).some((ref) => (
+    ref?.artifact_type === 'inspection_evidence'
+    && ref?.role === 'evidence'
+    && ref?.path === sourceRef
+  ));
+}
+
+function isExplicitInspectionEvidenceRecord(record, sourceArtifactRefs = []) {
+  const classifications = safeList(record?.classifications);
+  const sourceRef = record?.source_ref;
+  return Boolean(
+    record?.inspection_evidence === true
+    && record?.type === 'inspection_evidence'
+    && record?.artifact_type === 'inspection_evidence'
+    && record?.category === 'inspection_evidence'
+    && classifications.includes('inspection_evidence')
+    && isSafeRepoSourceRef(sourceRef)
+    && typeof record?.sha256 === 'string'
+    && record.sha256.length === 64
+    && hasMatchingInspectionEvidenceSourceRef(sourceArtifactRefs, sourceRef)
+  );
+}
+
+function getExplicitInspectionEvidenceRecords(reviewPack = {}) {
+  const records = safeList(reviewPack?.evidence_ledger?.records);
+  const sourceArtifactRefs = safeList(reviewPack?.source_artifact_refs);
+  return records.filter((record) => isExplicitInspectionEvidenceRecord(record, sourceArtifactRefs));
+}
+
+function hasExplicitInspectionEvidence(reviewPack = {}) {
+  return getExplicitInspectionEvidenceRecords(reviewPack).length > 0;
 }
 
 function buildCanonicalArtifactDescriptor(kind, contract) {
@@ -101,7 +146,38 @@ function collectDataQualityMessages(reviewPack) {
 }
 
 function collectMissingInputs(reviewPack) {
-  return uniqueStrings(safeList(reviewPack.uncertainty_coverage_report?.missing_inputs));
+  const missingInputs = uniqueStrings(safeList(reviewPack.uncertainty_coverage_report?.missing_inputs));
+  if (!hasExplicitInspectionEvidence(reviewPack)) return missingInputs;
+  return missingInputs.filter((input) => input !== 'inspection_evidence');
+}
+
+function normalizeDataQualityNotesForInspectionEvidence(reviewPack, notes) {
+  if (!hasExplicitInspectionEvidence(reviewPack)) return notes;
+  return safeList(notes).filter((note) => {
+    const message = note?.message;
+    return !(typeof message === 'string' && /Missing or limited inspection evidence/i.test(message));
+  });
+}
+
+function normalizeReviewPackInspectionEvidenceCoverage(reviewPack) {
+  if (!hasExplicitInspectionEvidence(reviewPack)) return reviewPack;
+  const normalized = cloneJson(reviewPack);
+  const missingInputs = collectMissingInputs(normalized);
+  const inspectionEvidenceRecords = getExplicitInspectionEvidenceRecords(normalized);
+  normalized.uncertainty_coverage_report = {
+    ...safeObject(normalized.uncertainty_coverage_report),
+    partial_evidence: missingInputs.length > 0,
+    missing_inputs: missingInputs,
+    coverage: {
+      ...safeObject(normalized.uncertainty_coverage_report?.coverage),
+      inspection_evidence_record_count: inspectionEvidenceRecords.length,
+    },
+  };
+  normalized.data_quality_notes = normalizeDataQualityNotesForInspectionEvidence(
+    normalized,
+    normalized.data_quality_notes
+  );
+  return normalized;
 }
 
 function getReviewPackExecutiveSummary(reviewPack) {
@@ -139,7 +215,21 @@ function getReviewPackPrioritizedHotspots(reviewPack) {
 
 function getReviewPackUncertaintyReport(reviewPack) {
   const explicit = safeObject(reviewPack.uncertainty_coverage_report);
-  if (Object.keys(explicit).length > 0) return explicit;
+  if (Object.keys(explicit).length > 0) {
+    const missingInputs = collectMissingInputs(reviewPack);
+    const inspectionEvidenceRecords = getExplicitInspectionEvidenceRecords(reviewPack);
+    return {
+      ...explicit,
+      partial_evidence: missingInputs.length > 0,
+      missing_inputs: missingInputs,
+      coverage: inspectionEvidenceRecords.length > 0
+        ? {
+          ...safeObject(explicit.coverage),
+          inspection_evidence_record_count: inspectionEvidenceRecords.length,
+        }
+        : safeObject(explicit.coverage),
+    };
+  }
   return {
     analysis_confidence: reviewPack.confidence?.level || 'heuristic',
     numeric_score: reviewPack.confidence?.score ?? null,
@@ -925,38 +1015,39 @@ export function buildReadinessReportFromReviewPack({
   generatedAt = null,
 } = {}) {
   assertValidDArtifact('review_pack', reviewPack, { command: 'readiness-report' });
-  assertArtifactMatchesReviewPack(reviewPack, processPlan, {
+  const readinessReviewPack = normalizeReviewPackInspectionEvidenceCoverage(reviewPack);
+  assertArtifactMatchesReviewPack(readinessReviewPack, processPlan, {
     artifactKind: 'process_plan',
     reviewPackPath,
   });
-  assertArtifactMatchesReviewPack(reviewPack, qualityRisk, {
+  assertArtifactMatchesReviewPack(readinessReviewPack, qualityRisk, {
     artifactKind: 'quality_risk',
     reviewPackPath,
   });
 
   const resolvedProcessPlan = processPlan || buildProcessPlanFromReviewPack({
-    reviewPack,
+    reviewPack: readinessReviewPack,
     reviewPackPath,
     generatedAt,
   });
   const resolvedQualityRisk = qualityRisk || buildQualityRiskFromReviewPack({
-    reviewPack,
+    reviewPack: readinessReviewPack,
     reviewPackPath,
     generatedAt,
   });
   const sourceArtifactRefs = mergeSourceArtifactRefs(
-    buildReviewPackSourceRefs(reviewPack, reviewPackPath),
+    buildReviewPackSourceRefs(readinessReviewPack, reviewPackPath),
     mergeSourceArtifactRefs(
       safeList(resolvedProcessPlan.source_artifact_refs),
       safeList(resolvedQualityRisk.source_artifact_refs)
     )
   );
   const warnings = uniqueStrings([
-    ...collectReviewPackWarnings(reviewPack),
+    ...collectReviewPackWarnings(readinessReviewPack),
     ...safeList(resolvedProcessPlan.warnings),
     ...safeList(resolvedQualityRisk.warnings),
   ]);
-  const confidence = buildPropagatedConfidence(reviewPack.confidence, {
+  const confidence = buildPropagatedConfidence(readinessReviewPack.confidence, {
     propagatedFrom: 'review_pack',
     propagationNotes: [
       'C preserves D confidence from review_pack without recalculating score or level.',
@@ -973,8 +1064,8 @@ export function buildReadinessReportFromReviewPack({
 
   const report = buildArtifactEnvelope({
     workflow: 'production_readiness',
-    part: normalizePart(reviewPack.part),
-    review_pack: cloneJson(reviewPack),
+    part: normalizePart(readinessReviewPack.part),
+    review_pack: cloneJson(readinessReviewPack),
     process_plan: resolvedProcessPlan,
     quality_risk: resolvedQualityRisk,
   }, {
@@ -982,15 +1073,15 @@ export function buildReadinessReportFromReviewPack({
     command: 'readiness-report',
     generatedAt,
     warnings,
-    coverage: buildReadinessCoverage(reviewPack, resolvedProcessPlan, resolvedQualityRisk, sourceArtifactRefs),
+    coverage: buildReadinessCoverage(readinessReviewPack, resolvedProcessPlan, resolvedQualityRisk, sourceArtifactRefs),
     confidence,
     sourceArtifactRefs,
   });
 
-  const missingInputs = collectMissingInputs(reviewPack);
+  const missingInputs = collectMissingInputs(readinessReviewPack);
   report.readiness_summary = buildReadinessSummary(report, missingInputs);
-  report.summary = buildReportSummary(reviewPack, resolvedProcessPlan, resolvedQualityRisk, report.readiness_summary, warnings, missingInputs);
-  report.decision_summary = buildDecisionSummary(reviewPack, resolvedProcessPlan, resolvedQualityRisk, report.readiness_summary, warnings, missingInputs);
+  report.summary = buildReportSummary(readinessReviewPack, resolvedProcessPlan, resolvedQualityRisk, report.readiness_summary, warnings, missingInputs);
+  report.decision_summary = buildDecisionSummary(readinessReviewPack, resolvedProcessPlan, resolvedQualityRisk, report.readiness_summary, warnings, missingInputs);
   report.markdown = renderCanonicalReadinessMarkdown(report);
   return report;
 }

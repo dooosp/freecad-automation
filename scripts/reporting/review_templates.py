@@ -174,6 +174,63 @@ def _has_classification(records, classification):
     return False
 
 
+def _is_safe_repo_source_ref(value):
+    if not isinstance(value, str) or not value.strip():
+        return False
+    normalized = value.strip()
+    if normalized.startswith("/") or "\\" in normalized:
+        return False
+    if len(normalized) >= 2 and normalized[1] == ":" and normalized[0].isalpha():
+        return False
+    parts = normalized.split("/")
+    if ".." in parts:
+        return False
+    if normalized == "output" or normalized.startswith("output/"):
+        return False
+    if normalized == "tmp/codex" or normalized.startswith("tmp/codex/"):
+        return False
+    return True
+
+
+def _has_matching_inspection_source_ref(source_refs, source_ref):
+    for ref in _safe_list(source_refs):
+        if not isinstance(ref, dict):
+            continue
+        if (
+            ref.get("artifact_type") == "inspection_evidence"
+            and ref.get("role") == "evidence"
+            and ref.get("path") == source_ref
+        ):
+            return True
+    return False
+
+
+def _is_explicit_inspection_evidence_record(record, source_refs):
+    if not isinstance(record, dict):
+        return False
+    classifications = _safe_list(record.get("classifications"))
+    source_ref = record.get("source_ref")
+    sha256 = record.get("sha256")
+    return bool(
+        record.get("inspection_evidence") is True
+        and record.get("type") == "inspection_evidence"
+        and record.get("artifact_type") == "inspection_evidence"
+        and record.get("category") == "inspection_evidence"
+        and "inspection_evidence" in classifications
+        and _is_safe_repo_source_ref(source_ref)
+        and isinstance(sha256, str)
+        and len(sha256) == 64
+        and _has_matching_inspection_source_ref(source_refs, source_ref)
+    )
+
+
+def _explicit_inspection_evidence_records(records, source_refs):
+    return [
+        record for record in _safe_list(records)
+        if _is_explicit_inspection_evidence_record(record, source_refs)
+    ]
+
+
 def _build_package_evidence_ledger_records(package_evidence):
     records = []
     for index, evidence in enumerate(package_evidence):
@@ -258,15 +315,17 @@ def _build_evidence_ledger(hotspots, inspection_anomaly_linkage, quality_pattern
     }
 
 
-def _build_uncertainty_coverage_report(metadata, geometry, hotspots, inspection_anomaly_linkage, quality_pattern_linkage, review_priorities, evidence_ledger):
+def _build_uncertainty_coverage_report(metadata, geometry, hotspots, inspection_anomaly_linkage, quality_pattern_linkage, review_priorities, evidence_ledger, source_refs):
     source_files = _safe_list(metadata.get("source_files"))
     warnings = _safe_list(metadata.get("warnings"))
     ledger_records = _safe_list(evidence_ledger.get("records"))
+    inspection_evidence_records = _explicit_inspection_evidence_records(ledger_records, source_refs)
+    has_inspection_evidence = bool(inspection_anomaly_linkage.get("records")) or bool(inspection_evidence_records)
     has_quality_evidence = bool(quality_pattern_linkage.get("records")) or _has_classification(ledger_records, "quality_evidence")
     missing_inputs = []
     if not source_files:
         missing_inputs.append("source_files")
-    if not inspection_anomaly_linkage.get("records"):
+    if not has_inspection_evidence:
         missing_inputs.append("inspection_evidence")
     if not has_quality_evidence:
         missing_inputs.append("quality_evidence")
@@ -274,7 +333,7 @@ def _build_uncertainty_coverage_report(metadata, geometry, hotspots, inspection_
     numeric_score = 0.45
     if hotspots:
         numeric_score += 0.15
-    if inspection_anomaly_linkage.get("records"):
+    if has_inspection_evidence:
         numeric_score += 0.15
     if has_quality_evidence:
         numeric_score += 0.15
@@ -292,6 +351,7 @@ def _build_uncertainty_coverage_report(metadata, geometry, hotspots, inspection_
             "source_file_count": len(source_files),
             "geometry_hotspot_count": len(hotspots),
             "inspection_anomaly_count": len(inspection_anomaly_linkage.get("records") or []),
+            "inspection_evidence_record_count": len(inspection_evidence_records),
             "quality_pattern_count": len(quality_pattern_linkage.get("records") or []),
             "package_quality_evidence_count": len([
                 item for item in ledger_records
@@ -368,6 +428,7 @@ def build_review_pack_data(payload):
         quality_pattern_linkage,
         review_priorities,
         evidence_ledger,
+        source_refs,
     )
     prioritized_hotspots = _build_prioritized_hotspots(
         review_priorities,

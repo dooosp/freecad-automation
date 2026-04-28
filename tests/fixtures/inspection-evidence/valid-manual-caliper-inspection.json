@@ -1,0 +1,57 @@
+{
+  "schema_version": "1.0",
+  "evidence_type": "inspection_evidence",
+  "source_type": "manual_caliper_check",
+  "inspected_part": "synthetic_plate_fixture",
+  "inspected_at": "2026-04-28T10:15:00Z",
+  "inspector": "Synthetic fixture inspector",
+  "inspection_author": null,
+  "measurement_system": "metric",
+  "units": "mm",
+  "source_file": "tests/fixtures/inspection-evidence/source/manual-caliper-check-record.json",
+  "measured_features": [
+    {
+      "feature_id": "plate_thickness",
+      "drawing_ref": "SYN-FIXTURE-DWG-001:A",
+      "requirement_ref": "PLATE_THICKNESS",
+      "nominal_value": 6,
+      "measured_value": 6.02,
+      "tolerance_upper": 0.05,
+      "tolerance_lower": -0.05,
+      "units": "mm",
+      "result": "pass",
+      "measurement_method": "digital_caliper"
+    },
+    {
+      "feature_id": "hole_diameter_A",
+      "drawing_ref": "SYN-FIXTURE-DWG-001:B",
+      "requirement_ref": "HOLE_DIA_A",
+      "nominal_value": 8,
+      "measured_value": 7.99,
+      "tolerance_upper": 0.04,
+      "tolerance_lower": -0.04,
+      "units": "mm",
+      "result": "pass",
+      "measurement_method": "digital_caliper"
+    },
+    {
+      "feature_id": "hole_center_spacing_A_B",
+      "drawing_ref": "SYN-FIXTURE-DWG-001:C",
+      "requirement_ref": "HOLE_SPACING_A_B",
+      "nominal_value": 42,
+      "measured_value": 42.03,
+      "tolerance_upper": 0.08,
+      "tolerance_lower": -0.08,
+      "units": "mm",
+      "result": "pass",
+      "measurement_method": "digital_caliper"
+    }
+  ],
+  "overall_result": "pass",
+  "traceability_refs": [
+    "PLATE_THICKNESS",
+    "HOLE_DIA_A",
+    "HOLE_SPACING_A_B"
+  ],
+  "notes": "Synthetic contract fixture for inspection evidence schema tests. Not canonical package readiness evidence."
+}

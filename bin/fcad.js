@@ -2080,6 +2080,7 @@ async function cmdReviewContext(rawArgs = []) {
   const drawingIntentPath = resolveMaybe(options['drawing-intent']);
   const featureCatalogPath = resolveMaybe(options['feature-catalog']);
   const dfmReportPath = resolveMaybe(options['dfm-report']);
+  const inspectionEvidencePath = resolveMaybe(options['inspection-evidence']);
   const compareToPath = resolveMaybe(options['compare-to']);
 
   if (!modelPath && !contextPath) {
@@ -2099,6 +2100,7 @@ async function cmdReviewContext(rawArgs = []) {
   requireExistingInputFile('drawing-intent', drawingIntentPath);
   requireExistingInputFile('feature-catalog', featureCatalogPath);
   requireExistingInputFile('dfm-report', dfmReportPath);
+  requireExistingInputFile('inspection-evidence', inspectionEvidencePath);
   requireExistingInputFile('compare-to', compareToPath);
 
   const result = await runReviewContextPipeline({
@@ -2114,6 +2116,7 @@ async function cmdReviewContext(rawArgs = []) {
     drawingIntentPath,
     featureCatalogPath,
     dfmReportPath,
+    inspectionEvidencePath,
     compareToPath,
     outputPath: options.out || null,
     outDir: resolveMaybe(options['out-dir']) || null,
@@ -2172,6 +2175,7 @@ async function cmdReviewContext(rawArgs = []) {
       ...(drawingIntentPath ? [createArtifactEntry('input.drawing-intent', drawingIntentPath, { label: 'Input drawing intent JSON' })] : []),
       ...(featureCatalogPath ? [createArtifactEntry('input.feature-catalog', featureCatalogPath, { label: 'Input feature catalog JSON' })] : []),
       ...(dfmReportPath ? [createArtifactEntry('input.dfm-report', dfmReportPath, { label: 'Input DFM report' })] : []),
+      ...(inspectionEvidencePath ? [createArtifactEntry('input.inspection-evidence', inspectionEvidencePath, { label: 'Input inspection evidence JSON' })] : []),
       ...(compareToPath ? [createArtifactEntry('input.baseline', compareToPath, { label: 'Baseline review-pack JSON' })] : []),
     ],
     details: {

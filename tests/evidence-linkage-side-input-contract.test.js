@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -12,6 +12,14 @@ import { buildReadinessReportFromReviewPack } from '../src/workflows/canonical-r
 
 const ROOT = resolve(import.meta.dirname, '..');
 const tempRoot = mkdtempSync(join(tmpdir(), 'fcad-evidence-linkage-'));
+const VALID_INSPECTION_EVIDENCE_PATH = resolve(
+  ROOT,
+  'tests/fixtures/inspection-evidence/valid-manual-caliper-inspection.json'
+);
+const CREATE_QUALITY_REPORT_PATH = resolve(
+  ROOT,
+  'docs/examples/motor-mount/quality/cnc_motor_mount_bracket_create_quality.json'
+);
 
 function readJson(filePath) {
   return JSON.parse(readFileSync(filePath, 'utf8'));
@@ -80,6 +88,7 @@ function buildStubRunPythonJsonScript() {
 
 try {
   const contextPath = join(tempRoot, 'context.json');
+  const invalidInspectionEvidencePath = join(tempRoot, 'invalid_inspection_evidence.json');
   const unsafeOutsidePath = join(tempRoot, 'outside_dfm_report.json');
   const unsafeOutputDir = resolve(ROOT, 'output', 'evidence-linkage-side-input-contract-test');
   const unsafeTmpCodexDir = resolve(ROOT, 'tmp', 'codex', 'evidence-linkage-side-input-contract-test');
@@ -87,6 +96,15 @@ try {
   const unsafeTmpCodexPath = join(unsafeTmpCodexDir, 'drawing_quality.json');
   mkdirSync(unsafeOutputDir, { recursive: true });
   mkdirSync(unsafeTmpCodexDir, { recursive: true });
+  writeFileSync(invalidInspectionEvidencePath, JSON.stringify({
+    schema_version: '1.0',
+    evidence_type: 'inspection_evidence',
+    source_type: 'manual_caliper_check',
+    inspected_part: 'side-input-contract-part',
+    inspected_at: '2026-04-27T00:00:00Z',
+    source_ref: 'tests/fixtures/inspection-evidence/invalid.json',
+    overall_result: 'unknown',
+  }, null, 2), 'utf8');
   writeFileSync(unsafeOutsidePath, '{"artifact_type":"dfm_report"}\n', 'utf8');
   writeFileSync(unsafeOutputPath, '{"artifact_type":"create_quality_report"}\n', { encoding: 'utf8', flag: 'w' });
   writeFileSync(unsafeTmpCodexPath, '{"artifact_type":"drawing_quality_report"}\n', { encoding: 'utf8', flag: 'w' });
@@ -115,7 +133,7 @@ try {
     projectRoot: ROOT,
     contextPath,
     outputPath: join(tempRoot, 'artifacts', 'review_pack.json'),
-    createQualityPath: resolve(ROOT, 'docs/examples/motor-mount/quality/cnc_motor_mount_bracket_create_quality.json'),
+    createQualityPath: CREATE_QUALITY_REPORT_PATH,
     drawingQualityPath: resolve(ROOT, 'docs/examples/motor-mount/quality/cnc_motor_mount_bracket_drawing_quality.json'),
     drawingQaPath: resolve(ROOT, 'docs/examples/motor-mount/quality/cnc_motor_mount_bracket_drawing_qa.json'),
     drawingIntentPath: resolve(ROOT, 'docs/examples/motor-mount/drawing/cnc_motor_mount_bracket_drawing_intent.json'),
@@ -143,6 +161,11 @@ try {
   assert.equal(packageRecords.every((record) => record.inspection_evidence === false), true);
   assert.equal(packageRecords.every((record) => typeof record.sha256 === 'string' && record.sha256.length === 64), true);
   assert.equal(packageRecords.every((record) => !record.source_ref.startsWith('/')), true);
+  assert.equal(
+    reviewPack.evidence_ledger.records.some((record) => record.type === 'inspection_evidence'),
+    false,
+    'review-context should not add inspection evidence records when --inspection-evidence is absent'
+  );
 
   assert.equal(
     reviewPack.source_artifact_refs.some((ref) => ref.path === 'docs/examples/motor-mount/quality/cnc_motor_mount_bracket_create_quality.json'),
@@ -178,6 +201,91 @@ try {
     true
   );
   assert.equal(readinessReport.readiness_summary.status, 'needs_more_evidence');
+
+  const inspectionResult = await runReviewContextPipeline({
+    projectRoot: ROOT,
+    contextPath,
+    outputPath: join(tempRoot, 'inspection-artifacts', 'review_pack.json'),
+    inspectionEvidencePath: VALID_INSPECTION_EVIDENCE_PATH,
+    runPythonJsonScript: buildStubRunPythonJsonScript(),
+    inspectModelIfAvailable: async () => null,
+    detectStepFeaturesIfAvailable: async () => null,
+  });
+  const inspectionReviewPack = readJson(inspectionResult.artifacts.reviewPackJson);
+  assertValidDArtifact('review_pack', inspectionReviewPack, { command: 'review-context' });
+  const inspectionRecords = inspectionReviewPack.evidence_ledger.records.filter(
+    (record) => record.type === 'inspection_evidence'
+  );
+  assert.equal(inspectionRecords.length, 1);
+  assert.equal(inspectionRecords[0].inspection_evidence, true);
+  assert.equal(
+    inspectionRecords[0].source_ref,
+    'tests/fixtures/inspection-evidence/valid-manual-caliper-inspection.json'
+  );
+  assert.equal(inspectionRecords[0].source_ref.startsWith('/'), false);
+  assert.equal(inspectionRecords[0].source_ref.includes('..'), false);
+  assert.equal(typeof inspectionRecords[0].sha256, 'string');
+  assert.equal(inspectionRecords[0].sha256.length, 64);
+  assert.equal(
+    inspectionReviewPack.source_artifact_refs.some((ref) => (
+      ref.artifact_type === 'inspection_evidence'
+      && ref.path === 'tests/fixtures/inspection-evidence/valid-manual-caliper-inspection.json'
+      && ref.role === 'evidence'
+    )),
+    true
+  );
+  assert.equal(
+    inspectionReviewPack.uncertainty_coverage_report.missing_inputs.includes('inspection_evidence'),
+    false,
+    'validated inspection evidence should close review-pack inspection_evidence coverage'
+  );
+  const inspectionReadinessReport = buildReadinessReportFromReviewPack({
+    reviewPack: inspectionReviewPack,
+    reviewPackPath: inspectionResult.artifacts.reviewPackJson,
+    generatedAt: '2026-04-27T00:00:00Z',
+  });
+  assert.equal(
+    inspectionReadinessReport.review_pack.uncertainty_coverage_report.missing_inputs.includes('inspection_evidence'),
+    false
+  );
+  assert.equal(
+    inspectionReadinessReport.process_plan.summary.missing_inputs.includes('inspection_evidence'),
+    false
+  );
+  assert.equal(
+    inspectionReadinessReport.quality_risk.summary.missing_inputs.includes('inspection_evidence'),
+    false
+  );
+
+  const generatedOutputPath = join(tempRoot, 'generated-rejected', 'review_pack.json');
+  await assert.rejects(
+    () => runReviewContextPipeline({
+      projectRoot: ROOT,
+      contextPath,
+      outputPath: generatedOutputPath,
+      inspectionEvidencePath: CREATE_QUALITY_REPORT_PATH,
+      runPythonJsonScript: buildStubRunPythonJsonScript(),
+      inspectModelIfAvailable: async () => null,
+      detectStepFeaturesIfAvailable: async () => null,
+    }),
+    /Inspection evidence validation failed.*(evidence_type|measured_features)/i
+  );
+  assert.equal(existsSync(generatedOutputPath), false);
+
+  const invalidOutputPath = join(tempRoot, 'invalid-rejected', 'review_pack.json');
+  await assert.rejects(
+    () => runReviewContextPipeline({
+      projectRoot: ROOT,
+      contextPath,
+      outputPath: invalidOutputPath,
+      inspectionEvidencePath: invalidInspectionEvidencePath,
+      runPythonJsonScript: buildStubRunPythonJsonScript(),
+      inspectModelIfAvailable: async () => null,
+      detectStepFeaturesIfAvailable: async () => null,
+    }),
+    /Inspection evidence validation failed.*measured_features/i
+  );
+  assert.equal(existsSync(invalidOutputPath), false);
 
   const unsafeResult = await runReviewContextPipeline({
     projectRoot: ROOT,

@@ -8,6 +8,7 @@ import {
   readJsonFile,
   writeJsonFile,
 } from '../../lib/context-loader.js';
+import { assertValidInspectionEvidence } from '../../lib/inspection-evidence.js';
 import { resolveModelAnalysisInputs } from '../../lib/model-analysis.js';
 import { generateConfigFromAnalysis } from '../api/model.js';
 
@@ -144,6 +145,40 @@ async function buildPackageEvidenceRecords(projectRoot, sideInputPaths = {}) {
   }
 
   return { records, warnings: uniqueWarnings(warnings) };
+}
+
+async function buildInspectionEvidenceRecord(projectRoot, inspectionEvidencePath) {
+  if (!inspectionEvidencePath) {
+    return { record: null, warning: null };
+  }
+
+  const inspectionEvidence = await readJsonFile(inspectionEvidencePath);
+  assertValidInspectionEvidence(inspectionEvidence, { path: inspectionEvidencePath });
+
+  const portable = portableRepoPath(projectRoot, inspectionEvidencePath);
+  if (!portable.ok) {
+    return { record: null, warning: portable.warning };
+  }
+
+  const fileBuffer = await readFile(inspectionEvidencePath);
+  const fileStat = await stat(inspectionEvidencePath);
+  return {
+    record: {
+      evidence_id: `package:inspection_evidence:${portable.sourceRef}`,
+      type: 'inspection_evidence',
+      artifact_type: 'inspection_evidence',
+      category: 'inspection_evidence',
+      classifications: ['inspection_evidence'],
+      source_ref: portable.sourceRef,
+      file_name: basename(portable.sourceRef),
+      size_bytes: fileStat.size,
+      sha256: createHash('sha256').update(fileBuffer).digest('hex'),
+      label: 'Inspection evidence',
+      inspection_evidence: true,
+      rationale: 'Validated inspection evidence supplied as explicit review-context side input.',
+    },
+    warning: null,
+  };
 }
 
 function normalizeBootstrapConfidenceMap(value) {
@@ -476,6 +511,7 @@ export async function runReviewContextPipeline({
   drawingIntentPath = null,
   featureCatalogPath = null,
   dfmReportPath = null,
+  inspectionEvidencePath = null,
   compareToPath = null,
   outputPath = null,
   outDir = null,
@@ -661,16 +697,33 @@ export async function runReviewContextPipeline({
     featureCatalogPath,
     dfmReportPath,
   });
+  const inspectionEvidence = await buildInspectionEvidenceRecord(projectRoot, inspectionEvidencePath);
+  const reviewPackageEvidence = [
+    ...packageEvidence.records,
+    ...(inspectionEvidence.record ? [inspectionEvidence.record] : []),
+  ];
+  const evidenceWarnings = uniqueWarnings(
+    packageEvidence.warnings,
+    inspectionEvidence.warning ? [inspectionEvidence.warning] : []
+  );
   const packageEvidenceSourceRefs = packageEvidence.records.map((record) => ({
     artifact_type: record.artifact_type,
     path: record.source_ref,
     role: 'evidence',
     label: record.label,
   }));
-  if (packageEvidence.warnings.length > 0) {
+  if (inspectionEvidence.record) {
+    packageEvidenceSourceRefs.push({
+      artifact_type: inspectionEvidence.record.artifact_type,
+      path: inspectionEvidence.record.source_ref,
+      role: 'evidence',
+      label: inspectionEvidence.record.label,
+    });
+  }
+  if (evidenceWarnings.length > 0) {
     context.metadata = {
       ...(context.metadata || {}),
-      warnings: uniqueWarnings(context.metadata?.warnings, packageEvidence.warnings),
+      warnings: uniqueWarnings(context.metadata?.warnings, evidenceWarnings),
     };
   }
 
@@ -688,7 +741,7 @@ export async function runReviewContextPipeline({
         ? ['context-input', 'analyze-part', 'quality-link', 'review-pack']
         : ['ingest', 'analyze-part', 'quality-link', 'review-pack'],
     },
-    package_evidence: packageEvidence.records,
+    package_evidence: reviewPackageEvidence,
     source_artifact_refs: packageEvidenceSourceRefs,
     output_dir: outputDir,
     output_stem: deriveArtifactStem(paths.reviewPackJson, defaultStem),
