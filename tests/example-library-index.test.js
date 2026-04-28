@@ -46,7 +46,8 @@ for (const staleName of STALE_AF5_NAMES) {
 }
 
 assert.match(indexText, /`needs_more_evidence` is not a package failure/);
-assert.match(indexText, /lacks separate inspection evidence and quality-linkage side inputs/);
+assert.match(indexText, /held at `hold_for_evidence_completion` because `inspection_evidence` remains missing/);
+assert.match(indexText, /quality and drawing evidence is review evidence and closes `quality_evidence`, but it does not satisfy `inspection_evidence`/);
 assert.match(indexText, /tracked job\/artifact re-entry/);
 assert.match(indexText, /not arbitrary local file import/);
 assert.equal(indexText.includes('arbitrary local file import support'), false, 'index should not claim arbitrary local file import support');
