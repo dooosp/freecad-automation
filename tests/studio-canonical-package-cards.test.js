@@ -18,8 +18,25 @@ const canonicalRefsRendererSource = workspaceSource.slice(
   workspaceSource.indexOf('function createCanonicalArtifactRefsList'),
   workspaceSource.indexOf('function createCanonicalPackageCards')
 );
+const canonicalPreviewPanelSource = workspaceSource.slice(
+  workspaceSource.indexOf('function createCanonicalArtifactPreviewPanel'),
+  workspaceSource.indexOf('function createCanonicalPackageCards')
+);
+const canonicalPreviewHandlerSource = shellCoreSource.slice(
+  shellCoreSource.indexOf("if (action === 'preview-canonical-artifact')"),
+  shellCoreSource.indexOf("if (action === 'copy-canonical-artifact-path')")
+);
 
 function makePackage(slug) {
+  const artifacts = {
+    review_pack_path: `docs/examples/${slug}/review/review_pack.json`,
+    readiness_report_path: `docs/examples/${slug}/readiness/readiness_report.json`,
+    standard_docs_manifest_path: `docs/examples/${slug}/standard-docs/standard_docs_manifest.json`,
+    release_manifest_path: `docs/examples/${slug}/release/release_bundle_manifest.json`,
+    release_checksums_path: `docs/examples/${slug}/release/release_bundle_checksums.sha256`,
+    release_bundle_path: `docs/examples/${slug}/release/release_bundle.zip`,
+    reopen_notes_path: `docs/examples/${slug}/reopen-notes.md`,
+  };
   return {
     slug,
     name: `${slug} package`,
@@ -33,15 +50,64 @@ function makePackage(slug) {
       inspection_evidence_missing: true,
       source_of_truth_path: `docs/examples/${slug}/readiness/readiness_report.json`,
     },
-    artifacts: {
-      review_pack_path: `docs/examples/${slug}/review/review_pack.json`,
-      readiness_report_path: `docs/examples/${slug}/readiness/readiness_report.json`,
-      standard_docs_manifest_path: `docs/examples/${slug}/standard-docs/standard_docs_manifest.json`,
-      release_manifest_path: `docs/examples/${slug}/release/release_bundle_manifest.json`,
-      release_checksums_path: `docs/examples/${slug}/release/release_bundle_checksums.sha256`,
-      release_bundle_path: `docs/examples/${slug}/release/release_bundle.zip`,
-      reopen_notes_path: `docs/examples/${slug}/reopen-notes.md`,
-    },
+    artifacts,
+    artifact_catalog: [
+      {
+        key: 'readme',
+        label: 'README',
+        path_field: 'readme_path',
+        path: `docs/examples/${slug}/README.md`,
+        content_kind: 'markdown',
+        text_preview_allowed: true,
+        download_allowed: false,
+        warning_required: false,
+        warning: null,
+        path_must_be_repo_relative: true,
+        optional: false,
+        available: true,
+        production_ready: null,
+      },
+      ...[
+        ['review_pack', 'Review pack', 'review_pack_path', 'json', true],
+        ['readiness_report', 'Readiness report', 'readiness_report_path', 'json', true],
+        ['standard_docs_manifest', 'Standard docs manifest', 'standard_docs_manifest_path', 'manifest', true],
+        ['release_manifest', 'Release manifest', 'release_manifest_path', 'manifest', true],
+        ['release_checksums', 'Release checksums', 'release_checksums_path', 'checksum', true],
+        ['release_bundle', 'Release bundle', 'release_bundle_path', 'zip', false],
+        ['reopen_notes', 'Reopen notes', 'reopen_notes_path', 'markdown', true],
+      ].map(([key, label, pathField, contentKind, textPreviewAllowed]) => ({
+        key,
+        label,
+        path_field: pathField,
+        path: artifacts[pathField],
+        content_kind: contentKind,
+        text_preview_allowed: textPreviewAllowed,
+        download_allowed: false,
+        warning_required: key === 'release_bundle',
+        warning: key === 'release_bundle'
+          ? 'Release bundle presence does not mean production-ready; package remains needs_more_evidence until real inspection_evidence is attached.'
+          : null,
+        path_must_be_repo_relative: true,
+        optional: false,
+        available: true,
+        production_ready: key === 'release_bundle' ? false : null,
+      })),
+      {
+        key: 'collection_guide',
+        label: 'Inspection evidence collection guide',
+        path_field: 'collection_guide_path',
+        path: `docs/inspection-evidence-collection/${slug}.md`,
+        content_kind: 'markdown',
+        text_preview_allowed: true,
+        download_allowed: false,
+        warning_required: false,
+        warning: null,
+        path_must_be_repo_relative: true,
+        optional: true,
+        available: true,
+        production_ready: null,
+      },
+    ],
     evidence_boundary: {
       release_bundle_presence_does_not_mean_production_ready:
         'Release bundle presence does not mean production-ready; readiness remains gated by the canonical readiness report.',
@@ -80,21 +146,38 @@ assert.match(canonicalPackagesSource, /\/api\/canonical-packages/);
 assert.match(shellCoreSource, /loadCanonicalPackages/);
 assert.match(shellCoreSource, /loadExamples/);
 assert.match(shellCoreSource, /copy-canonical-artifact-path/);
+assert.match(shellCoreSource, /preview-canonical-artifact/);
+assert.match(canonicalPreviewHandlerSource, /buildCanonicalArtifactPreviewRoute\(slug, artifactKey\)/);
+assert.match(canonicalPreviewHandlerSource, /canonicalPackageSlug/);
+assert.match(canonicalPreviewHandlerSource, /canonicalArtifactKey/);
+assert.doesNotMatch(canonicalPreviewHandlerSource, /canonicalArtifactPath/);
+assert.doesNotMatch(canonicalPreviewHandlerSource, /\/jobs\//);
+assert.doesNotMatch(canonicalPreviewHandlerSource, /run-artifact/);
 assert.match(shellCoreSource, /navigatorRef\?\.clipboard\?\.writeText/);
 assert.match(workspaceSource, /createCanonicalPackageCards/);
 assert.match(canonicalRefsRendererSource, /copy-canonical-artifact-path/);
+assert.match(canonicalRefsRendererSource, /preview-canonical-artifact/);
 assert.match(canonicalRefsRendererSource, /canonicalArtifactPath/);
+assert.match(canonicalRefsRendererSource, /canonicalArtifactKey/);
 assert.match(canonicalRefsRendererSource, /Copy repo path/);
+assert.match(canonicalRefsRendererSource, /Preview/);
 assert.doesNotMatch(canonicalRefsRendererSource, /href/);
 assert.doesNotMatch(canonicalRefsRendererSource, /download/);
-assert.doesNotMatch(canonicalRefsRendererSource, /\/artifacts\//);
 assert.doesNotMatch(canonicalRefsRendererSource, /run-artifact/);
 assert.doesNotMatch(canonicalRefsRendererSource, /input/i);
+assert.match(canonicalPreviewPanelSource, /el\('pre'/);
+assert.match(canonicalPreviewPanelSource, /text: preview\.content/);
+assert.doesNotMatch(canonicalPreviewPanelSource, /html:/);
+assert.doesNotMatch(canonicalPreviewPanelSource, /innerHTML/);
 assert.match(examplesSource, /quality_pass_bracket/);
 assert.doesNotMatch(examplesSource, /canonical-packages/);
 assert.equal(translateText('Copy repo path', 'ko'), '저장소 경로 복사');
 assert.equal(translateText('Copied', 'ko'), '복사됨');
 assert.equal(translateText('Copy failed', 'ko'), '복사 실패');
+assert.equal(translateText('Preview', 'ko'), '미리보기');
+assert.equal(translateText('Close preview', 'ko'), '미리보기 닫기');
+assert.equal(translateText('Preview failed', 'ko'), '미리보기 실패');
+assert.equal(translateText('Preview truncated by server size limit.', 'ko'), '서버 크기 제한으로 미리보기가 잘렸습니다.');
 
 assert.equal(state.status, 'ready');
 assert.equal(sectionModel.title, 'Canonical CAD packages');
@@ -116,32 +199,61 @@ for (const card of sectionModel.cards) {
   assert.equal(card.artifactRefs.every((ref) => ref.copyAction?.label === 'Copy repo path'), true);
   assert.equal(card.artifactRefs.every((ref) => ref.copyAction?.copiedLabel === 'Copied'), true);
   assert.equal(card.artifactRefs.every((ref) => ref.copyAction?.failedLabel === 'Copy failed'), true);
-  assert.equal(card.artifactRefs.every((ref) => typeof ref.key === 'string' && ref.key.endsWith('_path')), true);
-  assert.equal(card.artifactRefs.some((ref) => ref.label === 'review_pack'), true);
-  assert.equal(card.artifactRefs.some((ref) => ref.label === 'readiness_report'), true);
-  assert.equal(card.artifactRefs.some((ref) => ref.label === 'standard-docs manifest'), true);
-  assert.equal(card.artifactRefs.some((ref) => ref.label === 'release manifest'), true);
-  assert.equal(card.artifactRefs.some((ref) => ref.label === 'checksums'), true);
-  assert.equal(card.artifactRefs.some((ref) => ref.label === 'release bundle'), true);
-  assert.equal(card.artifactRefs.some((ref) => ref.label === 'reopen notes'), true);
+  assert.equal(card.artifactRefs.every((ref) => typeof ref.key === 'string' && ref.key.endsWith('_path') === false), true);
+  assert.equal(card.artifactRefs.some((ref) => ref.label === 'README'), true);
+  assert.equal(card.artifactRefs.some((ref) => ref.label === 'Review pack'), true);
+  assert.equal(card.artifactRefs.some((ref) => ref.label === 'Readiness report'), true);
+  assert.equal(card.artifactRefs.some((ref) => ref.label === 'Standard docs manifest'), true);
+  assert.equal(card.artifactRefs.some((ref) => ref.label === 'Release manifest'), true);
+  assert.equal(card.artifactRefs.some((ref) => ref.label === 'Release checksums'), true);
+  assert.equal(card.artifactRefs.some((ref) => ref.label === 'Release bundle'), true);
+  assert.equal(card.artifactRefs.some((ref) => ref.label === 'Reopen notes'), true);
+  assert.equal(card.artifactRefs.some((ref) => ref.label === 'Inspection evidence collection guide'), true);
+  assert.equal(card.artifactRefs.filter((ref) => ref.previewAction).length, 8);
+  assert.equal(card.artifactRefs.filter((ref) => !ref.previewAction).map((ref) => ref.key).join(','), 'release_bundle');
+  assert.equal(card.artifactRefs.every((ref) => ref.previewAction?.route.includes(ref.path) !== true), true);
+  assert.equal(card.artifactRefs.every((ref) => ref.previewAction?.route.includes(`/${card.slug}/artifacts/${ref.key}/preview`) !== false), true);
   assert.match(
-    card.artifactRefs.find((ref) => ref.label === 'release bundle')?.note || '',
+    card.artifactRefs.find((ref) => ref.label === 'Release bundle')?.note || '',
     /Release bundle presence does not mean production-ready/
   );
   assert.match(
-    card.artifactRefs.find((ref) => ref.label === 'release bundle')?.note || '',
+    card.artifactRefs.find((ref) => ref.label === 'Release bundle')?.note || '',
     /needs_more_evidence/
   );
   assert.match(
-    card.artifactRefs.find((ref) => ref.label === 'release bundle')?.note || '',
+    card.artifactRefs.find((ref) => ref.label === 'Release bundle')?.note || '',
     /inspection_evidence/
   );
 }
+
+const previewModel = buildCanonicalPackageSectionModel({
+  ...state,
+  preview: {
+    status: 'ready',
+    slug: 'quality-pass-bracket',
+    artifactKey: 'readiness_report',
+    payload: {
+      path: 'docs/examples/quality-pass-bracket/readiness/readiness_report.json',
+      content_kind: 'json',
+      content_type: 'application/json; charset=utf-8',
+      size_bytes: 1024,
+      truncated: true,
+      warnings: ['inspection_evidence remains missing unless real completed inspection evidence is attached.'],
+      content: '<script>alert("xss")</script>',
+    },
+  },
+});
+assert.equal(previewModel.preview.status, 'ready');
+assert.equal(previewModel.preview.content, '<script>alert("xss")</script>');
+assert.equal(previewModel.preview.truncated, true);
+assert.equal(previewModel.preview.warnings.length, 1);
 
 assert.equal(serialized.includes('/Users/'), false);
 assert.equal(serialized.includes('href'), false);
 assert.equal(serialized.includes('download'), false);
 assert.equal(serialized.includes('data-action'), false);
-assert.equal(serialized.includes('/artifacts/'), false);
+assert.equal(serialized.includes('/api/canonical-packages/quality-pass-bracket/artifacts/readiness_report/preview'), true);
+assert.equal(serialized.includes('/jobs/'), false);
 
 console.log('studio-canonical-package-cards.test.js: ok');

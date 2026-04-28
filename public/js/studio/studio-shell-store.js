@@ -52,6 +52,9 @@ export function createStudioShellState(locationLike = {}) {
         status: 'loading',
         items: [],
         message: '',
+        preview: {
+          status: 'idle',
+        },
       },
       recentJobs: {
         status: 'loading',

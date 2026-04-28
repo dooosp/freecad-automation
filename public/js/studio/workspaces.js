@@ -2263,24 +2263,107 @@ function createCanonicalArtifactRefsList(artifactRefs = []) {
             className: 'canonical-artifact-path-actions',
             children: [
               el('code', { className: 'canonical-path', text: ref.path }),
-              createButton({
-                label: ref.copyAction?.label || 'Copy repo path',
-                action: 'copy-canonical-artifact-path',
-                tone: 'ghost',
-                attrs: {
-                  'aria-label': `Copy repo path: ${ref.path}`,
-                  title: 'Copy repo path',
-                },
-                dataset: {
-                  canonicalArtifactKey: ref.key,
-                  canonicalArtifactPath: ref.path,
-                },
+              el('div', {
+                className: 'canonical-artifact-actions',
+                children: [
+                  ref.previewAction ? createButton({
+                    label: ref.previewAction.label || 'Preview',
+                    action: 'preview-canonical-artifact',
+                    tone: 'ghost',
+                    attrs: {
+                      'aria-label': `Preview ${ref.label}`,
+                      title: 'Preview',
+                    },
+                    dataset: {
+                      canonicalPackageSlug: ref.slug,
+                      canonicalArtifactKey: ref.key,
+                      canonicalArtifactLabel: ref.label,
+                    },
+                  }) : null,
+                  createButton({
+                    label: ref.copyAction?.label || 'Copy repo path',
+                    action: 'copy-canonical-artifact-path',
+                    tone: 'ghost',
+                    attrs: {
+                      'aria-label': `Copy repo path: ${ref.path}`,
+                      title: 'Copy repo path',
+                    },
+                    dataset: {
+                      canonicalArtifactKey: ref.key,
+                      canonicalArtifactPath: ref.path,
+                    },
+                  }),
+                ],
               }),
             ],
           }),
         ],
       })
     ),
+  });
+}
+
+function formatPreviewSize(sizeBytes) {
+  if (!Number.isFinite(sizeBytes)) return 'Unavailable';
+  if (sizeBytes < 1024) return `${sizeBytes} B`;
+  if (sizeBytes < 1024 * 1024) return `${(sizeBytes / 1024).toFixed(1)} KB`;
+  return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function createCanonicalArtifactPreviewPanel(preview) {
+  if (!preview || preview.status === 'idle') return null;
+
+  const isLoading = preview.status === 'loading';
+  const isError = preview.status === 'error';
+
+  return el('div', {
+    className: `canonical-preview-panel${isError ? ' canonical-preview-panel-error' : ''}`,
+    dataset: { hook: 'canonical-artifact-preview' },
+    children: [
+      el('div', {
+        className: 'canonical-preview-header',
+        children: [
+          el('div', {
+            children: [
+              el('p', { className: 'eyebrow', text: 'Canonical artifact preview' }),
+              el('h5', { className: 'canonical-preview-title', text: preview.label || preview.artifactKey || 'Preview' }),
+            ],
+          }),
+          createButton({
+            label: 'Close preview',
+            action: 'close-canonical-artifact-preview',
+            tone: 'ghost',
+          }),
+        ],
+      }),
+      isLoading ? el('p', { className: 'support-note', text: 'Loading preview...' }) : null,
+      isError ? el('p', {
+        className: 'support-note support-note-warn',
+        text: preview.errorMessage || 'Preview failed',
+      }) : null,
+      !isLoading && !isError ? createInfoGrid([
+        { label: 'Path', value: preview.path },
+        { label: 'Content kind', value: preview.contentKind },
+        { label: 'Content type', value: preview.contentType },
+        { label: 'Size', value: formatPreviewSize(preview.sizeBytes) },
+        { label: 'Truncated', value: preview.truncated ? 'Yes' : 'No' },
+      ]) : null,
+      !isLoading && !isError && preview.truncated ? el('p', {
+        className: 'support-note support-note-warn',
+        text: 'Preview truncated by server size limit.',
+      }) : null,
+      !isLoading && !isError && preview.warnings.length > 0 ? el('div', {
+        className: 'canonical-preview-warnings',
+        children: preview.warnings.map((warning) =>
+          el('p', { className: 'support-note support-note-warn', text: warning })
+        ),
+      }) : null,
+      !isLoading && !isError ? el('pre', {
+        className: 'canonical-preview-content',
+        attrs: { tabindex: '0' },
+        text: preview.content,
+      }) : null,
+    ],
   });
 }
 
@@ -2354,6 +2437,9 @@ function createCanonicalPackageCards(state) {
               ]),
               el('p', { className: 'canonical-callout', text: card.callout }),
               createCanonicalArtifactRefsList(card.artifactRefs),
+              sectionModel.preview.slug === card.slug
+                ? createCanonicalArtifactPreviewPanel(sectionModel.preview)
+                : null,
             ],
           })
         ),
