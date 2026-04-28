@@ -8,8 +8,8 @@ at:
 
 This guide is not readiness evidence. The package remains missing
 `inspection_evidence` until a real completed JSON file is attached through the
-Stage 5B `review-context --inspection-evidence` flow and the selected
-review/readiness artifacts are regenerated.
+Stage 5B `review-context --inspection-evidence <PATH_TO_COMPLETED_REAL_JSON>`
+flow and the selected review/readiness artifacts are regenerated.
 
 ## Evidence Boundary
 
@@ -161,5 +161,5 @@ node --input-type=module -e "import { readFileSync } from 'node:fs'; import { as
 ```
 
 Then Stage 5B may attach the completed real JSON through
-`review-context --inspection-evidence` and regenerate only the selected
-review/readiness artifacts required by that stage.
+`review-context --inspection-evidence <PATH_TO_COMPLETED_REAL_JSON>` and
+regenerate only the selected review/readiness artifacts required by that stage.

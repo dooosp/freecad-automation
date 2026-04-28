@@ -6,12 +6,7 @@ const ROOT = resolve(import.meta.dirname, '..');
 const ROOT_README_PATH = resolve(ROOT, 'README.md');
 const EXAMPLE_INDEX_PATH = resolve(ROOT, 'docs', 'examples', 'README.md');
 const INSPECTION_CONTRACT_PATH = resolve(ROOT, 'docs', 'inspection-evidence-contract.md');
-const QUALITY_PASS_COLLECTION_GUIDE_PATH = resolve(
-  ROOT,
-  'docs',
-  'inspection-evidence-collection',
-  'quality-pass-bracket.md'
-);
+const INSPECTION_COLLECTION_DIR = resolve(ROOT, 'docs', 'inspection-evidence-collection');
 const SYNTHETIC_FIXTURE_REF = 'tests/fixtures/inspection-evidence/valid-manual-caliper-inspection.json';
 
 const CANONICAL_PACKAGES = Object.freeze([
@@ -46,15 +41,15 @@ assert.equal(existsSync(ROOT_README_PATH), true, 'root README should exist');
 assert.equal(existsSync(EXAMPLE_INDEX_PATH), true, 'canonical example index should exist');
 assert.equal(existsSync(INSPECTION_CONTRACT_PATH), true, 'inspection evidence contract should exist');
 assert.equal(
-  existsSync(QUALITY_PASS_COLLECTION_GUIDE_PATH),
+  existsSync(join(INSPECTION_COLLECTION_DIR, 'README.md')),
   true,
-  'quality-pass-bracket inspection collection guide should exist'
+  'inspection evidence collection guide index should exist'
 );
 
 const rootReadmeText = readText(ROOT_README_PATH);
 const exampleIndexText = readText(EXAMPLE_INDEX_PATH);
 const inspectionContractText = readText(INSPECTION_CONTRACT_PATH);
-const collectionGuideText = readText(QUALITY_PASS_COLLECTION_GUIDE_PATH);
+const collectionGuideIndexText = readText(join(INSPECTION_COLLECTION_DIR, 'README.md'));
 
 assertMentions(
   rootReadmeText,
@@ -85,13 +80,16 @@ for (const slug of CANONICAL_PACKAGES) {
   const readinessReportPath = join(packageRoot, 'readiness', 'readiness_report.json');
   const reviewPackPath = join(packageRoot, 'review', 'review_pack.json');
   const inspectionEvidencePath = join(packageRoot, 'inspection', 'inspection_evidence.json');
+  const collectionGuidePath = join(INSPECTION_COLLECTION_DIR, `${slug}.md`);
 
   assert.equal(existsSync(packageReadmePath), true, `${slug} README should exist`);
   assert.equal(existsSync(readinessReportPath), true, `${slug} readiness_report.json should exist`);
   assert.equal(existsSync(reviewPackPath), true, `${slug} review_pack.json should exist`);
   assert.equal(existsSync(inspectionEvidencePath), false, `${slug} should not have canonical inspection_evidence.json`);
+  assert.equal(existsSync(collectionGuidePath), true, `${slug} inspection collection guide should exist`);
 
   const packageReadmeText = readText(packageReadmePath);
+  const collectionGuideText = readText(collectionGuidePath);
   const readinessReport = readJson(readinessReportPath);
   const reviewPack = readJson(reviewPackPath);
   const missingInputs = readinessReport.review_pack?.uncertainty_coverage_report?.missing_inputs || [];
@@ -129,11 +127,33 @@ for (const slug of CANONICAL_PACKAGES) {
     false,
     `${slug} review pack should not contain an inspection evidence record`
   );
+  assertMentions(collectionGuideText, /This guide is not readiness evidence/, `${slug} guide should identify itself as a guide, not evidence`);
+  assertMentions(collectionGuideText, /Do not use it as package evidence/, `${slug} guide should reject the Stage 2 fixture as package evidence`);
+  assertMentions(collectionGuideText, /Measured values must come from real physical inspection or a supplier/, `${slug} guide should require real measurements`);
+  assertMentions(collectionGuideText, /<PATH_TO_COMPLETED_REAL_JSON>/, `${slug} guide should keep completed-real-evidence placeholder boundary`);
+  assertMentions(
+    collectionGuideText,
+    new RegExp(`docs/examples/${slug}/inspection/inspection_evidence\\.json`),
+    `${slug} guide should name the future completed real JSON target`
+  );
+  assertDoesNotMention(
+    collectionGuideText,
+    /"measured_value":\s*(?:\d+|true|false|"[^"<][^"]*")/,
+    `${slug} guide should not include fabricated measured values`
+  );
 }
 
-assertMentions(collectionGuideText, /This guide is not readiness evidence/, 'collection guide should identify itself as a guide, not evidence');
-assertMentions(collectionGuideText, /Do not use it as package evidence/, 'collection guide should reject the Stage 2 fixture as package evidence');
-assertMentions(collectionGuideText, /Measured values must come from real physical inspection or a supplier/, 'collection guide should require real measurements');
+for (const slug of CANONICAL_PACKAGES) {
+  assert.equal(
+    collectionGuideIndexText.includes(`[\`${slug}\`](./${slug}.md)`),
+    true,
+    `collection guide index should link ${slug}`
+  );
+}
+assertMentions(collectionGuideIndexText, /These non-canonical guides/, 'collection guide index should mark guides non-canonical');
+assertMentions(collectionGuideIndexText, /They are not\s+inspection evidence/, 'collection guide index should say guides are not evidence');
+assertMentions(collectionGuideIndexText, /review-context --inspection-evidence <PATH_TO_COMPLETED_REAL_JSON>/, 'collection guide index should preserve future attachment boundary');
+assertMentions(collectionGuideIndexText, /canonical packages remain\s+`needs_more_evidence`/, 'collection guide index should keep current readiness boundary');
 assertMentions(inspectionContractText, /is not package readiness evidence/, 'contract doc should state the fixture is not package readiness evidence');
 assertMentions(inspectionContractText, /The guide is not readiness evidence/, 'contract doc should treat the collection guide as non-canonical guidance');
 
