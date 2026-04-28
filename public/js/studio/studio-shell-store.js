@@ -48,6 +48,11 @@ export function createStudioShellState(locationLike = {}) {
         sourceLabel: 'configs/examples',
         message: '',
       },
+      canonicalPackages: {
+        status: 'loading',
+        items: [],
+        message: '',
+      },
       recentJobs: {
         status: 'loading',
         items: [],

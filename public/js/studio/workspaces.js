@@ -19,6 +19,9 @@ import {
   ensureModelTrackedRunState,
 } from './model-tracked-runs.js';
 import {
+  buildCanonicalPackageSectionModel,
+} from './canonical-packages.js';
+import {
   findStudioExampleById,
   getStudioExampleValue,
   VERIFIED_BRACKET_EXAMPLE_ID,
@@ -2242,6 +2245,99 @@ function createConsoleGuidedWorkflowCard(state) {
   });
 }
 
+function createCanonicalArtifactRefsList(artifactRefs = []) {
+  return el('div', {
+    className: 'canonical-artifact-refs',
+    children: artifactRefs.map((ref) =>
+      el('div', {
+        className: 'canonical-artifact-ref',
+        children: [
+          el('span', { className: 'canonical-artifact-label', text: ref.label }),
+          el('code', { className: 'canonical-path', text: ref.path }),
+        ],
+      })
+    ),
+  });
+}
+
+function createCanonicalPackageCards(state) {
+  const sectionModel = buildCanonicalPackageSectionModel(state.data.canonicalPackages);
+
+  if (sectionModel.status === 'loading') {
+    return createCard({
+      kicker: 'Checked-in docs packages',
+      title: sectionModel.title,
+      copy: 'Loading read-only package cards from the local canonical packages endpoint.',
+      body: [
+        createEmptyState({
+          icon: '...',
+          title: 'Loading canonical packages',
+          copy: 'Existing Studio examples and tracked artifact reopen stay available while package discovery loads.',
+        }),
+      ],
+    });
+  }
+
+  if (sectionModel.status !== 'ready') {
+    return createCard({
+      kicker: 'Checked-in docs packages',
+      title: sectionModel.title,
+      copy: 'Canonical package discovery is optional for Studio startup.',
+      body: [
+        createEmptyState({
+          icon: '!',
+          title: 'Canonical packages unavailable',
+          copy: sectionModel.message || 'Studio could not load read-only canonical package cards from the local API.',
+        }),
+      ],
+    });
+  }
+
+  return createCard({
+    kicker: 'Checked-in docs packages',
+    title: sectionModel.title,
+    copy: 'These first-user packages are repo-checked docs packages. They are separate from tracked jobs and show path labels only.',
+    body: [
+      el('div', {
+        className: 'canonical-boundary-notes',
+        children: sectionModel.boundaryNotes.map((note) =>
+          el('p', { className: 'support-note', text: note })
+        ),
+      }),
+      el('div', {
+        className: 'canonical-package-grid',
+        dataset: { hook: 'canonical-package-cards' },
+        children: sectionModel.cards.map((card) =>
+          el('article', {
+            className: 'canonical-package-card',
+            children: [
+              el('div', {
+                className: 'canonical-package-card-header',
+                children: [
+                  el('div', {
+                    children: [
+                      el('p', { className: 'eyebrow', text: card.slug }),
+                      el('h4', { className: 'card-title', text: card.title }),
+                    ],
+                  }),
+                  el('span', { className: 'pill pill-status-warn', text: card.readiness.status }),
+                ],
+              }),
+              createInfoGrid([
+                { label: 'Score', value: card.readiness.score },
+                { label: 'Gate decision', value: card.readiness.gateDecision },
+                { label: 'Source of truth', value: card.sourceOfTruthPath },
+              ]),
+              el('p', { className: 'canonical-callout', text: card.callout }),
+              createCanonicalArtifactRefsList(card.artifactRefs),
+            ],
+          })
+        ),
+      }),
+    ],
+  });
+}
+
 function createConsoleQueueCard(state) {
   const recentJobs = state.data.recentJobs.items || [];
   const trackedRows = [
@@ -2327,6 +2423,7 @@ function createConsoleWorkspace(state) {
             className: 'console-column console-column-left',
             children: [
               createConsoleGuidedWorkflowCard(state),
+              createCanonicalPackageCards(state),
               createQuickLinksCard(state),
               createRecentJobsCard(state),
             ],
