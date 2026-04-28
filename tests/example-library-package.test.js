@@ -191,6 +191,7 @@ for (const packageDef of CANONICAL_PACKAGES) {
   assert.equal(releaseManifest.docs_manifest_ref.path, `docs/examples/${packageDef.slug}/standard-docs/standard_docs_manifest.json`);
 
   if (['quality-pass-bracket', 'plate-with-holes', 'motor-mount', 'controller-housing-eol'].includes(packageDef.slug)) {
+    const packageReadme = readFileSync(join(packageRoot, 'README.md'), 'utf8');
     const reviewPack = assertPortableJson(join(packageRoot, 'review', 'review_pack.json'));
     const packageEvidenceRecords = (reviewPack.evidence_ledger?.records || [])
       .filter((record) => String(record.evidence_id || '').startsWith('package:'));
@@ -210,6 +211,31 @@ for (const packageDef of CANONICAL_PACKAGES) {
     const missingInputs = readinessReport.review_pack?.uncertainty_coverage_report?.missing_inputs || [];
     assert.equal(missingInputs.includes('quality_evidence'), false, `${packageDef.slug} quality evidence should no longer be missing`);
     assert.equal(missingInputs.includes('inspection_evidence'), true, `${packageDef.slug} inspection evidence should remain missing`);
+    assert.match(
+      packageReadme,
+      /readiness\/readiness_report\.json` is the readiness source of truth/,
+      `${packageDef.slug} README should identify readiness_report.json as the readiness source of truth`
+    );
+    assert.match(
+      packageReadme,
+      new RegExp(`current readiness status remains \`${readinessReport.readiness_summary.status}\`, score ${readinessReport.readiness_summary.score}`),
+      `${packageDef.slug} README readiness status should match readiness_report.json`
+    );
+    assert.match(
+      packageReadme,
+      new RegExp(`gate decision \`${readinessReport.readiness_summary.gate_decision}\``),
+      `${packageDef.slug} README gate decision should match readiness_report.json`
+    );
+    assert.match(
+      packageReadme,
+      /(?:do|does) not satisfy `inspection_evidence`/,
+      `${packageDef.slug} README should not imply quality or drawing evidence satisfies inspection evidence`
+    );
+    assert.match(
+      packageReadme,
+      /no real inspection evidence is attached yet/,
+      `${packageDef.slug} README should state that real inspection evidence is not attached yet`
+    );
 
     const indexRow = canonicalIndexRows.get(packageDef.slug);
     assert.equal(Boolean(indexRow), true, `${packageDef.slug} should be listed in the example library index`);

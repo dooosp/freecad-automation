@@ -33,7 +33,7 @@ The retained `standard-docs-korea/` and `standard-docs-mexico/` directories are 
 
 The package artifacts were generated with the local FreeCAD runtime, then sanitized so checked-in JSON and text files use repo-relative package paths instead of local runtime paths.
 
-Create quality passed. Drawing quality passed with score 72 and 100% strict traceability coverage for the supported drawing-plan dimension. DFM is warning-only because the housing still carries deep through-hole drill-ratio warnings and note-driven edge-treatment risk; no checked-in package DFM report is used as review-pack side input. The readiness report status remains `needs_more_evidence`, score 52, because package quality and drawing evidence is now linked while genuine inspection evidence is still missing.
+`readiness/readiness_report.json` is the readiness source of truth. The current readiness status remains `needs_more_evidence`, score 52, with gate decision `hold_for_evidence_completion`. Create quality passed. Drawing quality passed with score 72 and 100% strict traceability coverage for the supported drawing-plan dimension. DFM is warning-only because the housing still carries deep through-hole drill-ratio warnings and note-driven edge-treatment risk; no checked-in package DFM report is used as review-pack side input. The linked package quality and drawing evidence clears the generated `quality_evidence` gap, but it does not satisfy `inspection_evidence`; no real inspection evidence is attached yet.
 
 ## Studio Reopen
 
