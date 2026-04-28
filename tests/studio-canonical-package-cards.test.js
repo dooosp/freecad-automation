@@ -7,12 +7,17 @@ import {
   buildCanonicalPackageSectionModel,
   normalizeCanonicalPackagesPayload,
 } from '../public/js/studio/canonical-packages.js';
+import { translateText } from '../public/js/i18n/index.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const shellCoreSource = readFileSync(resolve(ROOT, 'public/js/studio/studio-shell-core.js'), 'utf8');
 const canonicalPackagesSource = readFileSync(resolve(ROOT, 'public/js/studio/canonical-packages.js'), 'utf8');
 const workspaceSource = readFileSync(resolve(ROOT, 'public/js/studio/workspaces.js'), 'utf8');
 const examplesSource = readFileSync(resolve(ROOT, 'public/js/studio/examples.js'), 'utf8');
+const canonicalRefsRendererSource = workspaceSource.slice(
+  workspaceSource.indexOf('function createCanonicalArtifactRefsList'),
+  workspaceSource.indexOf('function createCanonicalPackageCards')
+);
 
 function makePackage(slug) {
   return {
@@ -74,9 +79,22 @@ assert.equal(CANONICAL_PACKAGES_ENDPOINT, '/api/canonical-packages');
 assert.match(canonicalPackagesSource, /\/api\/canonical-packages/);
 assert.match(shellCoreSource, /loadCanonicalPackages/);
 assert.match(shellCoreSource, /loadExamples/);
+assert.match(shellCoreSource, /copy-canonical-artifact-path/);
+assert.match(shellCoreSource, /navigatorRef\?\.clipboard\?\.writeText/);
 assert.match(workspaceSource, /createCanonicalPackageCards/);
+assert.match(canonicalRefsRendererSource, /copy-canonical-artifact-path/);
+assert.match(canonicalRefsRendererSource, /canonicalArtifactPath/);
+assert.match(canonicalRefsRendererSource, /Copy repo path/);
+assert.doesNotMatch(canonicalRefsRendererSource, /href/);
+assert.doesNotMatch(canonicalRefsRendererSource, /download/);
+assert.doesNotMatch(canonicalRefsRendererSource, /\/artifacts\//);
+assert.doesNotMatch(canonicalRefsRendererSource, /run-artifact/);
+assert.doesNotMatch(canonicalRefsRendererSource, /input/i);
 assert.match(examplesSource, /quality_pass_bracket/);
 assert.doesNotMatch(examplesSource, /canonical-packages/);
+assert.equal(translateText('Copy repo path', 'ko'), '저장소 경로 복사');
+assert.equal(translateText('Copied', 'ko'), '복사됨');
+assert.equal(translateText('Copy failed', 'ko'), '복사 실패');
 
 assert.equal(state.status, 'ready');
 assert.equal(sectionModel.title, 'Canonical CAD packages');
@@ -95,6 +113,10 @@ for (const card of sectionModel.cards) {
   assert.match(card.sourceOfTruthPath, /^docs\/examples\/.+\/readiness\/readiness_report\.json$/);
   assert.equal(card.actions.length, 0);
   assert.equal(card.artifactRefs.every((ref) => /^docs\//.test(ref.path)), true);
+  assert.equal(card.artifactRefs.every((ref) => ref.copyAction?.label === 'Copy repo path'), true);
+  assert.equal(card.artifactRefs.every((ref) => ref.copyAction?.copiedLabel === 'Copied'), true);
+  assert.equal(card.artifactRefs.every((ref) => ref.copyAction?.failedLabel === 'Copy failed'), true);
+  assert.equal(card.artifactRefs.every((ref) => typeof ref.key === 'string' && ref.key.endsWith('_path')), true);
   assert.equal(card.artifactRefs.some((ref) => ref.label === 'review_pack'), true);
   assert.equal(card.artifactRefs.some((ref) => ref.label === 'readiness_report'), true);
   assert.equal(card.artifactRefs.some((ref) => ref.label === 'standard-docs manifest'), true);
@@ -102,11 +124,24 @@ for (const card of sectionModel.cards) {
   assert.equal(card.artifactRefs.some((ref) => ref.label === 'checksums'), true);
   assert.equal(card.artifactRefs.some((ref) => ref.label === 'release bundle'), true);
   assert.equal(card.artifactRefs.some((ref) => ref.label === 'reopen notes'), true);
+  assert.match(
+    card.artifactRefs.find((ref) => ref.label === 'release bundle')?.note || '',
+    /Release bundle presence does not mean production-ready/
+  );
+  assert.match(
+    card.artifactRefs.find((ref) => ref.label === 'release bundle')?.note || '',
+    /needs_more_evidence/
+  );
+  assert.match(
+    card.artifactRefs.find((ref) => ref.label === 'release bundle')?.note || '',
+    /inspection_evidence/
+  );
 }
 
 assert.equal(serialized.includes('/Users/'), false);
 assert.equal(serialized.includes('href'), false);
 assert.equal(serialized.includes('download'), false);
 assert.equal(serialized.includes('data-action'), false);
+assert.equal(serialized.includes('/artifacts/'), false);
 
 console.log('studio-canonical-package-cards.test.js: ok');

@@ -2674,6 +2674,32 @@ body::after {
   font-weight: 700;
 }
 
+.canonical-artifact-meta,
+.canonical-artifact-path-actions {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.canonical-artifact-path-actions {
+  justify-items: end;
+}
+
+.canonical-artifact-note {
+  max-width: 24rem;
+  margin: 0;
+  color: #ffd596;
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+
+.canonical-artifact-path-actions .action-button {
+  min-height: 2rem;
+  padding: 0.42rem 0.62rem;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
 .canonical-path {
   min-width: 0;
   color: var(--text-strong);

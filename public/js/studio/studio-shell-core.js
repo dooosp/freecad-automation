@@ -27,6 +27,7 @@ import {
   bindLocaleControls,
   initializeLocale,
   subscribeLocale,
+  translateText,
 } from '../i18n/index.js';
 
 export { localizedBootMessage, reportStudioBootFailure } from './studio-shell-dom.js';
@@ -55,6 +56,40 @@ function resolveRuntimePath(runtime = {}) {
     || runtime?.runtime_executable
     || runtime?.python_executable
     || '';
+}
+
+async function copyTextToClipboard({ documentRef, navigatorRef }, text) {
+  const value = typeof text === 'string' ? text : '';
+  if (!value) {
+    throw new Error('Copy failed');
+  }
+
+  if (navigatorRef?.clipboard?.writeText) {
+    await navigatorRef.clipboard.writeText(value);
+    return;
+  }
+
+  if (!documentRef?.body || typeof documentRef.execCommand !== 'function') {
+    throw new Error('Clipboard API unavailable');
+  }
+
+  const textarea = documentRef.createElement('textarea');
+  textarea.value = value;
+  textarea.setAttribute('readonly', 'readonly');
+  textarea.style.position = 'fixed';
+  textarea.style.left = '-9999px';
+  textarea.style.top = '0';
+  documentRef.body.append(textarea);
+  textarea.focus();
+  textarea.select();
+
+  try {
+    if (!documentRef.execCommand('copy')) {
+      throw new Error('Clipboard copy command failed');
+    }
+  } finally {
+    textarea.remove();
+  }
 }
 
 export function bootStudioShell({
@@ -379,6 +414,41 @@ export function bootStudioShell({
 
   async function handleShellAction(actionTarget) {
     const { action, jobId } = actionTarget.dataset;
+
+    if (action === 'copy-canonical-artifact-path') {
+      const artifactPath = actionTarget.dataset.canonicalArtifactPath || '';
+      const originalLabel = actionTarget.dataset.originalLabel || actionTarget.textContent || 'Copy repo path';
+      actionTarget.dataset.originalLabel = originalLabel;
+
+      try {
+        await copyTextToClipboard({
+          documentRef: app.document,
+          navigatorRef: app.navigator,
+        }, artifactPath);
+        actionTarget.textContent = translateText('Copied');
+        app.addLog({
+          status: 'Copied',
+          message: `Copied canonical package repo path: ${artifactPath}`,
+          tone: 'info',
+          time: 'package',
+        });
+      } catch (error) {
+        actionTarget.textContent = translateText('Copy failed');
+        app.addLog({
+          status: 'Copy failed',
+          message: error instanceof Error ? error.message : String(error),
+          tone: 'warn',
+          time: 'package',
+        });
+      } finally {
+        app.window.setTimeout(() => {
+          if (actionTarget.isConnected) {
+            actionTarget.textContent = translateText(originalLabel);
+          }
+        }, 1800);
+      }
+      return;
+    }
 
     if (action === 'refresh-health') {
       await refreshHealth();

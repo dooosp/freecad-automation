@@ -37,7 +37,13 @@ const en = {
     'api.title': 'fcad Local API',
     'api.locale.caption': 'Language',
   },
-  phrases: {},
+  phrases: {
+    'Copy repo path': 'Copy repo path',
+    'Copied': 'Copied',
+    'Copy failed': 'Copy failed',
+    'These first-user packages are repo-checked docs packages. They are separate from tracked jobs and expose copy-only repo path controls.': 'These first-user packages are repo-checked docs packages. They are separate from tracked jobs and expose copy-only repo path controls.',
+    'Release bundle presence does not mean production-ready; package remains needs_more_evidence until real inspection_evidence is attached.': 'Release bundle presence does not mean production-ready; package remains needs_more_evidence until real inspection_evidence is attached.',
+  },
   patterns: [],
 };
 
