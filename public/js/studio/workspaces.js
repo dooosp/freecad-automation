@@ -2252,8 +2252,32 @@ function createCanonicalArtifactRefsList(artifactRefs = []) {
       el('div', {
         className: 'canonical-artifact-ref',
         children: [
-          el('span', { className: 'canonical-artifact-label', text: ref.label }),
-          el('code', { className: 'canonical-path', text: ref.path }),
+          el('div', {
+            className: 'canonical-artifact-meta',
+            children: [
+              el('span', { className: 'canonical-artifact-label', text: ref.label }),
+              ref.note ? el('p', { className: 'canonical-artifact-note', text: ref.note }) : null,
+            ],
+          }),
+          el('div', {
+            className: 'canonical-artifact-path-actions',
+            children: [
+              el('code', { className: 'canonical-path', text: ref.path }),
+              createButton({
+                label: ref.copyAction?.label || 'Copy repo path',
+                action: 'copy-canonical-artifact-path',
+                tone: 'ghost',
+                attrs: {
+                  'aria-label': `Copy repo path: ${ref.path}`,
+                  title: 'Copy repo path',
+                },
+                dataset: {
+                  canonicalArtifactKey: ref.key,
+                  canonicalArtifactPath: ref.path,
+                },
+              }),
+            ],
+          }),
         ],
       })
     ),
@@ -2296,7 +2320,7 @@ function createCanonicalPackageCards(state) {
   return createCard({
     kicker: 'Checked-in docs packages',
     title: sectionModel.title,
-    copy: 'These first-user packages are repo-checked docs packages. They are separate from tracked jobs and show path labels only.',
+    copy: 'These first-user packages are repo-checked docs packages. They are separate from tracked jobs and expose copy-only repo path controls.',
     body: [
       el('div', {
         className: 'canonical-boundary-notes',

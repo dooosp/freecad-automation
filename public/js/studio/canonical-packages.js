@@ -1,13 +1,15 @@
 export const CANONICAL_PACKAGES_ENDPOINT = '/api/canonical-packages';
 
+const RELEASE_BUNDLE_COPY_NOTE = 'Release bundle presence does not mean production-ready; package remains needs_more_evidence until real inspection_evidence is attached.';
+
 const ARTIFACT_REF_LABELS = Object.freeze([
-  ['review_pack_path', 'review_pack'],
-  ['readiness_report_path', 'readiness_report'],
-  ['standard_docs_manifest_path', 'standard-docs manifest'],
-  ['release_manifest_path', 'release manifest'],
-  ['release_checksums_path', 'checksums'],
-  ['release_bundle_path', 'release bundle'],
-  ['reopen_notes_path', 'reopen notes'],
+  ['review_pack_path', 'review_pack', ''],
+  ['readiness_report_path', 'readiness_report', ''],
+  ['standard_docs_manifest_path', 'standard-docs manifest', ''],
+  ['release_manifest_path', 'release manifest', ''],
+  ['release_checksums_path', 'checksums', ''],
+  ['release_bundle_path', 'release bundle', RELEASE_BUNDLE_COPY_NOTE],
+  ['reopen_notes_path', 'reopen notes', ''],
 ]);
 
 const DEFAULT_BOUNDARY_NOTES = Object.freeze([
@@ -60,7 +62,17 @@ export async function fetchCanonicalPackages(fetchJson) {
 export function buildCanonicalPackageCardModel(pkg = {}) {
   const readiness = isPlainObject(pkg.readiness) ? pkg.readiness : {};
   const artifactRefs = ARTIFACT_REF_LABELS
-    .map(([key, label]) => ({ label, path: pathValue(pkg.artifacts?.[key]) }))
+    .map(([key, label, note]) => ({
+      key,
+      label,
+      path: pathValue(pkg.artifacts?.[key]),
+      note,
+      copyAction: {
+        label: 'Copy repo path',
+        copiedLabel: 'Copied',
+        failedLabel: 'Copy failed',
+      },
+    }))
     .filter((entry) => entry.path);
   const missingInputs = Array.isArray(readiness.missing_inputs)
     ? readiness.missing_inputs.filter((entry) => typeof entry === 'string' && entry.trim())

@@ -56,6 +56,13 @@ assert.equal(
   translateText('Use the Packs workspace to reopen tracked review packs, readiness reports, and release bundles. Local file import is not available on this path yet.', 'ko'),
   '패키지 작업 영역에서 추적된 검토 패키지, 준비 상태 보고서, 릴리스 번들을 다시 열 수 있습니다. 이 경로에서는 아직 로컬 파일 가져오기를 지원하지 않습니다.'
 );
+assert.equal(translateText('Copy repo path', 'ko'), '저장소 경로 복사');
+assert.equal(translateText('Copied', 'ko'), '복사됨');
+assert.equal(translateText('Copy failed', 'ko'), '복사 실패');
+assert.equal(
+  translateText('Release bundle presence does not mean production-ready; package remains needs_more_evidence until real inspection_evidence is attached.', 'ko'),
+  '릴리스 번들이 있어도 production-ready를 뜻하지 않습니다. 실제 inspection_evidence가 첨부될 때까지 패키지는 needs_more_evidence 상태로 유지됩니다.'
+);
 assert.equal(translateText('Start with a verified bracket', 'ko'), '검증된 브래킷으로 시작');
 assert.equal(translateText('Recommended example: quality_pass_bracket', 'ko'), '권장 예제: quality_pass_bracket');
 assert.equal(translateText('Load verified bracket', 'ko'), '검증된 브래킷 불러오기');
