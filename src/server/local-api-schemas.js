@@ -723,6 +723,152 @@ const artifactsResponseSchema = {
   },
 };
 
+const relativePathSchema = {
+  anyOf: [
+    { type: 'null' },
+    {
+      type: 'string',
+      minLength: 1,
+      not: {
+        anyOf: [
+          { pattern: '^/' },
+          { pattern: '^[A-Za-z]:[\\\\/]' },
+          { pattern: '^~' },
+          { pattern: '(^|/)\\.\\.(/|$)' },
+          { pattern: '^output/' },
+          { pattern: '^tmp/' },
+        ],
+      },
+    },
+  ],
+};
+
+const canonicalPackageBoundarySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'release_bundle_presence_does_not_mean_production_ready',
+    'quality_drawing_evidence_does_not_satisfy_inspection_evidence',
+    'packages_remain_needs_more_evidence_until_real_inspection_evidence_is_attached',
+  ],
+  properties: {
+    release_bundle_presence_does_not_mean_production_ready: { type: 'string', minLength: 1 },
+    quality_drawing_evidence_does_not_satisfy_inspection_evidence: { type: 'string', minLength: 1 },
+    packages_remain_needs_more_evidence_until_real_inspection_evidence_is_attached: { type: 'string', minLength: 1 },
+  },
+};
+
+const canonicalPackageStudioBoundarySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'checked_in_canonical_packages_are_read_only_docs_packages',
+    'tracked_job_artifact_reopen_remains_separate',
+  ],
+  properties: {
+    checked_in_canonical_packages_are_read_only_docs_packages: { type: 'string', minLength: 1 },
+    tracked_job_artifact_reopen_remains_separate: { type: 'string', minLength: 1 },
+  },
+};
+
+const canonicalPackageSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'slug',
+    'name',
+    'package_path',
+    'readme_path',
+    'readiness',
+    'artifacts',
+    'evidence_boundary',
+    'studio_boundary',
+    'collection_guide_path',
+    'inspection_evidence_path',
+  ],
+  properties: {
+    slug: {
+      enum: [
+        'quality-pass-bracket',
+        'plate-with-holes',
+        'motor-mount',
+        'controller-housing-eol',
+      ],
+    },
+    name: { type: 'string', minLength: 1 },
+    package_path: relativePathSchema,
+    readme_path: relativePathSchema,
+    readiness: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'status',
+        'score',
+        'gate_decision',
+        'missing_inputs',
+        'inspection_evidence_missing',
+        'source_of_truth_path',
+      ],
+      properties: {
+        status: { type: ['string', 'null'] },
+        score: { type: ['number', 'null'] },
+        gate_decision: { type: ['string', 'null'] },
+        missing_inputs: {
+          type: 'array',
+          items: { type: 'string', minLength: 1 },
+        },
+        inspection_evidence_missing: { type: 'boolean' },
+        source_of_truth_path: relativePathSchema,
+      },
+    },
+    artifacts: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'review_pack_path',
+        'readiness_report_path',
+        'standard_docs_manifest_path',
+        'release_manifest_path',
+        'release_checksums_path',
+        'release_bundle_path',
+        'reopen_notes_path',
+      ],
+      properties: {
+        review_pack_path: relativePathSchema,
+        readiness_report_path: relativePathSchema,
+        standard_docs_manifest_path: relativePathSchema,
+        release_manifest_path: relativePathSchema,
+        release_checksums_path: relativePathSchema,
+        release_bundle_path: relativePathSchema,
+        reopen_notes_path: relativePathSchema,
+      },
+    },
+    evidence_boundary: canonicalPackageBoundarySchema,
+    studio_boundary: canonicalPackageStudioBoundarySchema,
+    collection_guide_path: relativePathSchema,
+    inspection_evidence_path: relativePathSchema,
+  },
+};
+
+const canonicalPackagesResponseSchema = {
+  $id: 'fcad.canonicalPackagesResponse',
+  type: 'object',
+  additionalProperties: false,
+  required: ['api_version', 'ok', 'status', 'service', 'packages'],
+  properties: {
+    api_version: { const: LOCAL_API_VERSION },
+    ok: { const: true },
+    status: { const: 'ok' },
+    service: { const: LOCAL_API_SERVICE },
+    packages: {
+      type: 'array',
+      minItems: 4,
+      maxItems: 4,
+      items: canonicalPackageSchema,
+    },
+  },
+};
+
 const jobActionResponseSchema = {
   $id: 'fcad.jobActionResponse',
   type: 'object',
@@ -765,6 +911,7 @@ const responseValidators = {
   job: ajv.compile(jobResponseSchema),
   jobs: ajv.compile(jobsResponseSchema),
   artifacts: ajv.compile(artifactsResponseSchema),
+  canonical_packages: ajv.compile(canonicalPackagesResponseSchema),
   job_action: ajv.compile(jobActionResponseSchema),
   error: ajv.compile(errorResponseSchema),
 };
