@@ -51,6 +51,41 @@ If you are reviewing the repository on GitHub:
 6. Use Studio for tracked job/artifact reopen. The checked-in canonical packages are docs-package artifacts today; first-class canonical package discovery in Studio is not part of the current contract.
 7. Before Stage 5B, collect real inspection measurements and attach only genuine validated inspection evidence. Do not treat synthetic fixtures or generated CAD/drawing/readiness outputs as package inspection evidence.
 
+## First-user CLI recipe: inspect a canonical package
+
+Use this recipe when you want to inspect checked-in canonical package artifacts without regenerating anything. The canonical package index is [`docs/examples/README.md`](./docs/examples/README.md); the example below uses `quality-pass-bracket`.
+
+```bash
+ls docs/examples/quality-pass-bracket
+cat docs/examples/quality-pass-bracket/readiness/readiness_report.json
+cat docs/examples/quality-pass-bracket/review/review_pack.json
+ls docs/examples/quality-pass-bracket/standard-docs
+ls docs/examples/quality-pass-bracket/release
+```
+
+`readiness/readiness_report.json` is the source of truth for the checked-in package. Today the status remains `needs_more_evidence`, the gate decision remains `hold_for_evidence_completion`, and `inspection_evidence` is still missing. Linked quality/drawing evidence is review evidence only; quality/drawing evidence does not satisfy `inspection_evidence`.
+
+Regenerate later only when you are intentionally updating package artifacts, or when completed real inspection evidence exists and you are deliberately refreshing the review/readiness chain. These commands write new artifacts, so do not run them just to inspect the checked-in package:
+
+```bash
+fcad review-context \
+  --model docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step \
+  --create-quality docs/examples/quality-pass-bracket/quality/quality_pass_bracket_create_quality.json \
+  --drawing-quality docs/examples/quality-pass-bracket/quality/quality_pass_bracket_drawing_quality.json \
+  --drawing-qa docs/examples/quality-pass-bracket/quality/quality_pass_bracket_drawing_qa.json \
+  --drawing-intent docs/examples/quality-pass-bracket/drawing/quality_pass_bracket_drawing_intent.json \
+  --feature-catalog docs/examples/quality-pass-bracket/drawing/quality_pass_bracket_feature_catalog.json \
+  --inspection-evidence <PATH_TO_COMPLETED_REAL_JSON> \
+  --out <UPDATED_REVIEW_PACK_JSON>
+fcad readiness-pack --review-pack <UPDATED_REVIEW_PACK_JSON> --out <UPDATED_READINESS_REPORT_JSON>
+fcad generate-standard-docs docs/examples/quality-pass-bracket/config.toml --readiness-report <UPDATED_READINESS_REPORT_JSON> --out-dir <UPDATED_STANDARD_DOCS_DIR>
+fcad pack --readiness <UPDATED_READINESS_REPORT_JSON> --out <UPDATED_RELEASE_BUNDLE_ZIP>
+```
+
+Only use `--inspection-evidence <PATH_TO_COMPLETED_REAL_JSON>` for a completed real inspection JSON that validates against the inspection evidence contract. Do not use `tests/fixtures/inspection-evidence/valid-manual-caliper-inspection.json`, `docs/inspection-evidence-collection/quality-pass-bracket.md`, generated CAD quality reports, drawing quality reports, readiness reports, or review packs as package inspection evidence.
+
+Studio supports tracked job/artifact reopen; checked-in canonical package discovery is documented first today and is not yet a first-class Studio package-card path.
+
 Older portfolio and case-study material is still useful after the canonical route is clear:
 
 - [Infotainment production readiness case study](./docs/portfolio/infotainment-production-readiness-case.md)
