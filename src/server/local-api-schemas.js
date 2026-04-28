@@ -927,6 +927,54 @@ const canonicalPackagesResponseSchema = {
   },
 };
 
+const canonicalArtifactPreviewResponseSchema = {
+  $id: 'fcad.canonicalArtifactPreviewResponse',
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'api_version',
+    'ok',
+    'slug',
+    'artifact_key',
+    'path',
+    'content_kind',
+    'content_type',
+    'size_bytes',
+    'truncated',
+    'content',
+    'warnings',
+  ],
+  properties: {
+    api_version: { const: LOCAL_API_VERSION },
+    ok: { const: true },
+    slug: {
+      enum: [
+        'quality-pass-bracket',
+        'plate-with-holes',
+        'motor-mount',
+        'controller-housing-eol',
+      ],
+    },
+    artifact_key: { enum: CANONICAL_ARTIFACT_KEYS },
+    path: relativePathSchema,
+    content_kind: { enum: ['json', 'markdown', 'text', 'manifest', 'checksum'] },
+    content_type: {
+      enum: [
+        'application/json; charset=utf-8',
+        'text/markdown; charset=utf-8',
+        'text/plain; charset=utf-8',
+      ],
+    },
+    size_bytes: { type: 'integer', minimum: 0 },
+    truncated: { type: 'boolean' },
+    content: { type: 'string' },
+    warnings: {
+      type: 'array',
+      items: { type: 'string', minLength: 1 },
+    },
+  },
+};
+
 const jobActionResponseSchema = {
   $id: 'fcad.jobActionResponse',
   type: 'object',
@@ -970,6 +1018,7 @@ const responseValidators = {
   jobs: ajv.compile(jobsResponseSchema),
   artifacts: ajv.compile(artifactsResponseSchema),
   canonical_packages: ajv.compile(canonicalPackagesResponseSchema),
+  canonical_artifact_preview: ajv.compile(canonicalArtifactPreviewResponseSchema),
   job_action: ajv.compile(jobActionResponseSchema),
   error: ajv.compile(errorResponseSchema),
 };
