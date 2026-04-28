@@ -2,6 +2,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { LOCAL_API_SERVICE, LOCAL_API_VERSION } from './local-api-contract.js';
+import { buildCanonicalArtifactCatalog } from './canonical-artifact-key-contract.js';
 
 export const CANONICAL_PACKAGE_SLUGS = Object.freeze([
   'quality-pass-bracket',
@@ -108,6 +109,31 @@ async function buildCanonicalPackage(projectRoot, slug) {
   const readinessReport = await readJson(projectRoot, readinessPath, { required: true });
   const inspectionEvidenceMissing = !(await pathExists(projectRoot, inspectionEvidencePath));
   const title = await readPackageTitle(projectRoot, readmePath, slug);
+  const artifacts = {
+    review_pack_path: await optionalPath(projectRoot, reviewPackPath),
+    readiness_report_path: readinessPath,
+    standard_docs_manifest_path: await optionalPath(
+      projectRoot,
+      packageRelativePath(slug, 'standard-docs/standard_docs_manifest.json')
+    ),
+    release_manifest_path: await optionalPath(
+      projectRoot,
+      packageRelativePath(slug, 'release/release_bundle_manifest.json')
+    ),
+    release_checksums_path: await optionalPath(
+      projectRoot,
+      packageRelativePath(slug, 'release/release_bundle_checksums.sha256')
+    ),
+    release_bundle_path: await optionalPath(
+      projectRoot,
+      packageRelativePath(slug, 'release/release_bundle.zip')
+    ),
+    reopen_notes_path: await optionalPath(projectRoot, packageRelativePath(slug, 'reopen-notes.md')),
+  };
+  const collectionGuidePath = await optionalPath(
+    projectRoot,
+    `docs/inspection-evidence-collection/${slug}.md`
+  );
 
   return {
     slug,
@@ -115,33 +141,15 @@ async function buildCanonicalPackage(projectRoot, slug) {
     package_path: packagePath,
     readme_path: readmePath,
     readiness: readinessFromReport(readinessReport, readinessPath, inspectionEvidenceMissing),
-    artifacts: {
-      review_pack_path: await optionalPath(projectRoot, reviewPackPath),
-      readiness_report_path: readinessPath,
-      standard_docs_manifest_path: await optionalPath(
-        projectRoot,
-        packageRelativePath(slug, 'standard-docs/standard_docs_manifest.json')
-      ),
-      release_manifest_path: await optionalPath(
-        projectRoot,
-        packageRelativePath(slug, 'release/release_bundle_manifest.json')
-      ),
-      release_checksums_path: await optionalPath(
-        projectRoot,
-        packageRelativePath(slug, 'release/release_bundle_checksums.sha256')
-      ),
-      release_bundle_path: await optionalPath(
-        projectRoot,
-        packageRelativePath(slug, 'release/release_bundle.zip')
-      ),
-      reopen_notes_path: await optionalPath(projectRoot, packageRelativePath(slug, 'reopen-notes.md')),
-    },
+    artifacts,
+    artifact_catalog: buildCanonicalArtifactCatalog({
+      readme_path: readmePath,
+      collection_guide_path: collectionGuidePath,
+      ...artifacts,
+    }),
     evidence_boundary: { ...EVIDENCE_BOUNDARY },
     studio_boundary: { ...STUDIO_BOUNDARY },
-    collection_guide_path: await optionalPath(
-      projectRoot,
-      `docs/inspection-evidence-collection/${slug}.md`
-    ),
+    collection_guide_path: collectionGuidePath,
     inspection_evidence_path: inspectionEvidenceMissing ? null : inspectionEvidencePath,
   };
 }

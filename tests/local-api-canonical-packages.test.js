@@ -13,6 +13,25 @@ const EXPECTED_SLUGS = [
   'motor-mount',
   'controller-housing-eol',
 ];
+const EXPECTED_ARTIFACT_KEYS = [
+  'readme',
+  'review_pack',
+  'readiness_report',
+  'standard_docs_manifest',
+  'release_manifest',
+  'release_checksums',
+  'release_bundle',
+  'reopen_notes',
+  'collection_guide',
+];
+const EXPECTED_CONTENT_KINDS = new Set([
+  'json',
+  'markdown',
+  'text',
+  'zip',
+  'manifest',
+  'checksum',
+]);
 const BLOCKED_PATH_PATTERNS = [
   /^\/|^[A-Za-z]:[\\/]/,
   /^~/,
@@ -61,6 +80,23 @@ function assertPathSafe(value) {
   }
 }
 
+function assertNoRouteFields(value) {
+  if (Array.isArray(value)) {
+    value.forEach(assertNoRouteFields);
+    return;
+  }
+  if (!value || typeof value !== 'object') {
+    return;
+  }
+  assert.equal(Object.hasOwn(value, 'href'), false);
+  assert.equal(Object.hasOwn(value, 'open'), false);
+  assert.equal(Object.hasOwn(value, 'download'), false);
+  assert.equal(Object.hasOwn(value, 'links'), false);
+  for (const entry of Object.values(value)) {
+    assertNoRouteFields(entry);
+  }
+}
+
 try {
   const port = await listen();
   const baseUrl = `http://127.0.0.1:${port}`;
@@ -93,6 +129,49 @@ try {
     assert.equal(pkg.artifacts.release_checksums_path, `docs/examples/${pkg.slug}/release/release_bundle_checksums.sha256`);
     assert.equal(pkg.artifacts.release_bundle_path, `docs/examples/${pkg.slug}/release/release_bundle.zip`);
     assert.equal(pkg.artifacts.reopen_notes_path, `docs/examples/${pkg.slug}/reopen-notes.md`);
+    assert.equal(Array.isArray(pkg.artifact_catalog), true, 'canonical packages should expose artifact_catalog');
+    assert.deepEqual(pkg.artifact_catalog.map((artifact) => artifact.key), EXPECTED_ARTIFACT_KEYS);
+    assert.equal(new Set(pkg.artifact_catalog.map((artifact) => artifact.key)).size, EXPECTED_ARTIFACT_KEYS.length);
+    assert.equal(pkg.artifact_catalog.every((artifact) => EXPECTED_ARTIFACT_KEYS.includes(artifact.key)), true);
+    assert.equal(pkg.artifact_catalog.some((artifact) => artifact.key === 'inspection_evidence'), false);
+    assert.equal(pkg.artifact_catalog.every((artifact) => typeof artifact.label === 'string' && artifact.label.length > 0), true);
+    assert.equal(pkg.artifact_catalog.every((artifact) => EXPECTED_CONTENT_KINDS.has(artifact.content_kind)), true);
+    assert.equal(pkg.artifact_catalog.every((artifact) => artifact.path_must_be_repo_relative === true), true);
+    assert.equal(pkg.artifact_catalog.every((artifact) => typeof artifact.optional === 'boolean'), true);
+    assert.equal(pkg.artifact_catalog.every((artifact) => typeof artifact.available === 'boolean'), true);
+    assert.equal(pkg.artifact_catalog.every((artifact) => typeof artifact.text_preview_allowed === 'boolean'), true);
+    assert.equal(pkg.artifact_catalog.every((artifact) => artifact.download_allowed === false), true);
+    assert.equal(
+      pkg.artifact_catalog
+        .filter((artifact) => ['json', 'markdown', 'text', 'manifest', 'checksum'].includes(artifact.content_kind))
+        .every((artifact) => artifact.text_preview_allowed === true),
+      true
+    );
+    assert.equal(
+      pkg.artifact_catalog
+        .filter((artifact) => artifact.content_kind === 'zip')
+        .every((artifact) => artifact.text_preview_allowed === false),
+      true
+    );
+    assert.equal(
+      pkg.artifact_catalog.every((artifact) => (
+        typeof artifact.path_field === 'string'
+        && Object.hasOwn(pkg, artifact.path_field)
+      ) || (
+        typeof artifact.path_field === 'string'
+        && Object.hasOwn(pkg.artifacts, artifact.path_field)
+      )),
+      true
+    );
+    assert.equal(pkg.artifact_catalog.every((artifact) => artifact.path === pkg[artifact.path_field] || artifact.path === pkg.artifacts[artifact.path_field]), true);
+    assert.equal(pkg.artifact_catalog.every((artifact) => artifact.path === null || artifact.path.startsWith('docs/')), true);
+    assert.equal(pkg.artifact_catalog.some((artifact) => artifact.path?.startsWith('output/')), false);
+    assert.equal(pkg.artifact_catalog.some((artifact) => artifact.job_id || artifact.artifact_ref), false);
+    const releaseBundle = pkg.artifact_catalog.find((artifact) => artifact.key === 'release_bundle');
+    assert.equal(releaseBundle.warning_required, true);
+    assert.equal(releaseBundle.production_ready, false);
+    assert.match(releaseBundle.warning, /does not mean production-ready/);
+    assert.match(releaseBundle.warning, /needs_more_evidence/);
     assert.equal(pkg.inspection_evidence_path, null);
     assert.equal(pkg.collection_guide_path, `docs/inspection-evidence-collection/${pkg.slug}.md`);
     assert.match(
@@ -122,6 +201,7 @@ try {
     .forEach(assertPathSafe);
 
   const serialized = JSON.stringify(payload);
+  assertNoRouteFields(payload.packages.flatMap((pkg) => pkg.artifact_catalog));
   assert.equal(serialized.includes('inspection_evidence.json'), false);
   assert.equal(serialized.includes('output/'), false);
   assert.equal(serialized.includes('source_job_id'), false);
