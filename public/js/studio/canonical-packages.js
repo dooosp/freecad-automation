@@ -1,6 +1,7 @@
 export const CANONICAL_PACKAGES_ENDPOINT = '/api/canonical-packages';
 
 const RELEASE_BUNDLE_COPY_NOTE = 'Release bundle presence does not mean production-ready; package remains needs_more_evidence until real inspection_evidence is attached.';
+const PREVIEW_ACTION_LABEL = 'Preview';
 
 const ARTIFACT_REF_LABELS = Object.freeze([
   ['review_pack_path', 'review_pack', ''],
@@ -19,6 +20,10 @@ const DEFAULT_BOUNDARY_NOTES = Object.freeze([
   'Canonical packages remain needs_more_evidence until real inspection_evidence is attached through the canonical flow.',
   'Quality and drawing evidence does not satisfy inspection_evidence without genuine completed inspection evidence.',
 ]);
+
+export function buildCanonicalArtifactPreviewRoute(slug, artifactKey) {
+  return `${CANONICAL_PACKAGES_ENDPOINT}/${encodeURIComponent(slug)}/artifacts/${encodeURIComponent(artifactKey)}/preview`;
+}
 
 function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -41,6 +46,73 @@ function uniqueStrings(values = []) {
   return [...new Set(values.filter((value) => typeof value === 'string' && value.trim()))];
 }
 
+function normalizePreviewState(preview = {}) {
+  if (!isPlainObject(preview) || !preview.status) {
+    return { status: 'idle' };
+  }
+
+  const payload = isPlainObject(preview.payload) ? preview.payload : {};
+  return {
+    status: compactString(preview.status, 'idle'),
+    slug: pathValue(preview.slug),
+    artifactKey: pathValue(preview.artifactKey),
+    label: compactString(preview.label, compactString(preview.artifactKey, 'Preview')),
+    path: pathValue(payload.path),
+    contentKind: compactString(payload.content_kind),
+    contentType: compactString(payload.content_type),
+    sizeBytes: Number.isFinite(payload.size_bytes) ? payload.size_bytes : null,
+    truncated: payload.truncated === true,
+    warnings: Array.isArray(payload.warnings)
+      ? payload.warnings.filter((warning) => typeof warning === 'string' && warning.trim())
+      : [],
+    content: typeof payload.content === 'string' ? payload.content : '',
+    errorMessage: typeof preview.errorMessage === 'string' ? preview.errorMessage : '',
+  };
+}
+
+function buildFallbackArtifactCatalog(pkg = {}) {
+  return ARTIFACT_REF_LABELS.map(([pathField, label, note]) => ({
+    key: pathField.replace(/_path$/, ''),
+    label,
+    path: pathValue(pkg.artifacts?.[pathField]),
+    text_preview_allowed: false,
+    warning: note,
+    available: Boolean(pathValue(pkg.artifacts?.[pathField])),
+  }));
+}
+
+function buildArtifactRefs(pkg = {}) {
+  const catalog = Array.isArray(pkg.artifact_catalog) && pkg.artifact_catalog.length > 0
+    ? pkg.artifact_catalog
+    : buildFallbackArtifactCatalog(pkg);
+
+  return catalog
+    .filter((entry) => isPlainObject(entry) && entry.available !== false && pathValue(entry.path))
+    .map((entry) => {
+      const key = pathValue(entry.key);
+      const textPreviewAllowed = entry.text_preview_allowed === true && key !== 'release_bundle';
+      return {
+        key,
+        slug: pathValue(pkg.slug),
+        label: compactString(entry.label, key),
+        path: pathValue(entry.path),
+        contentKind: compactString(entry.content_kind),
+        note: entry.warning || (key === 'release_bundle' ? RELEASE_BUNDLE_COPY_NOTE : ''),
+        copyAction: {
+          label: 'Copy repo path',
+          copiedLabel: 'Copied',
+          failedLabel: 'Copy failed',
+        },
+        previewAction: textPreviewAllowed
+          ? {
+              label: PREVIEW_ACTION_LABEL,
+              route: buildCanonicalArtifactPreviewRoute(pkg.slug, key),
+            }
+          : null,
+      };
+    });
+}
+
 export function normalizeCanonicalPackagesPayload(payload = {}) {
   const packages = Array.isArray(payload?.packages) ? payload.packages.filter(isPlainObject) : [];
   return {
@@ -61,19 +133,7 @@ export async function fetchCanonicalPackages(fetchJson) {
 
 export function buildCanonicalPackageCardModel(pkg = {}) {
   const readiness = isPlainObject(pkg.readiness) ? pkg.readiness : {};
-  const artifactRefs = ARTIFACT_REF_LABELS
-    .map(([key, label, note]) => ({
-      key,
-      label,
-      path: pathValue(pkg.artifacts?.[key]),
-      note,
-      copyAction: {
-        label: 'Copy repo path',
-        copiedLabel: 'Copied',
-        failedLabel: 'Copy failed',
-      },
-    }))
-    .filter((entry) => entry.path);
+  const artifactRefs = buildArtifactRefs(pkg);
   const missingInputs = Array.isArray(readiness.missing_inputs)
     ? readiness.missing_inputs.filter((entry) => typeof entry === 'string' && entry.trim())
     : [];
@@ -119,6 +179,7 @@ export function buildCanonicalPackageSectionModel(canonicalPackagesState = {}) {
     status: canonicalPackagesState.status || 'loading',
     message: canonicalPackagesState.message || '',
     cards,
+    preview: normalizePreviewState(canonicalPackagesState.preview),
     boundaryNotes,
   };
 }

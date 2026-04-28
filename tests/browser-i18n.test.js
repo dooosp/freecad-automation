@@ -59,6 +59,11 @@ assert.equal(
 assert.equal(translateText('Copy repo path', 'ko'), '저장소 경로 복사');
 assert.equal(translateText('Copied', 'ko'), '복사됨');
 assert.equal(translateText('Copy failed', 'ko'), '복사 실패');
+assert.equal(translateText('Preview', 'ko'), '미리보기');
+assert.equal(translateText('Close preview', 'ko'), '미리보기 닫기');
+assert.equal(translateText('Preview failed', 'ko'), '미리보기 실패');
+assert.equal(translateText('Canonical artifact preview', 'ko'), '표준 산출물 미리보기');
+assert.equal(translateText('Preview truncated by server size limit.', 'ko'), '서버 크기 제한으로 미리보기가 잘렸습니다.');
 assert.equal(
   translateText('Release bundle presence does not mean production-ready; package remains needs_more_evidence until real inspection_evidence is attached.', 'ko'),
   '릴리스 번들이 있어도 production-ready를 뜻하지 않습니다. 실제 inspection_evidence가 첨부될 때까지 패키지는 needs_more_evidence 상태로 유지됩니다.'

@@ -1,5 +1,8 @@
 import { buildStudioArtifactRef, deriveStudioArtifactFamily } from './artifact-actions.js';
-import { fetchCanonicalPackages } from './canonical-packages.js';
+import {
+  buildCanonicalArtifactPreviewRoute,
+  fetchCanonicalPackages,
+} from './canonical-packages.js';
 import {
   findStudioExampleById,
   resolveSelectedStudioExampleId,
@@ -266,7 +269,9 @@ export function bootStudioShell({
 
   async function loadCanonicalPackages() {
     try {
+      const currentPreview = app.state.data.canonicalPackages.preview || { status: 'idle' };
       app.state.data.canonicalPackages = await fetchCanonicalPackages(app.fetchJson);
+      app.state.data.canonicalPackages.preview = currentPreview;
       app.addLog({
         status: 'Canonical packages',
         message: app.state.data.canonicalPackages.items.length > 0
@@ -280,6 +285,7 @@ export function bootStudioShell({
         status: 'unavailable',
         items: [],
         message: 'Canonical packages are not available on this serve path.',
+        preview: { status: 'idle' },
       };
     } finally {
       app.commitRender();
@@ -414,6 +420,60 @@ export function bootStudioShell({
 
   async function handleShellAction(actionTarget) {
     const { action, jobId } = actionTarget.dataset;
+
+    if (action === 'preview-canonical-artifact') {
+      const slug = actionTarget.dataset.canonicalPackageSlug || '';
+      const artifactKey = actionTarget.dataset.canonicalArtifactKey || '';
+      const label = actionTarget.dataset.canonicalArtifactLabel || artifactKey || 'Preview';
+
+      app.state.data.canonicalPackages.preview = {
+        status: 'loading',
+        slug,
+        artifactKey,
+        label,
+      };
+      app.commitRender();
+
+      try {
+        const payload = await app.fetchJson(buildCanonicalArtifactPreviewRoute(slug, artifactKey));
+        app.state.data.canonicalPackages.preview = {
+          status: 'ready',
+          slug,
+          artifactKey,
+          label,
+          payload,
+        };
+        app.addLog({
+          status: 'Preview',
+          message: `Loaded canonical artifact preview for ${slug}:${artifactKey}.`,
+          tone: 'info',
+          time: 'package',
+        });
+      } catch (error) {
+        app.state.data.canonicalPackages.preview = {
+          status: 'error',
+          slug,
+          artifactKey,
+          label,
+          errorMessage: error instanceof Error ? error.message : String(error),
+        };
+        app.addLog({
+          status: 'Preview failed',
+          message: app.state.data.canonicalPackages.preview.errorMessage,
+          tone: 'warn',
+          time: 'package',
+        });
+      } finally {
+        app.commitRender();
+      }
+      return;
+    }
+
+    if (action === 'close-canonical-artifact-preview') {
+      app.state.data.canonicalPackages.preview = { status: 'idle' };
+      app.commitRender();
+      return;
+    }
 
     if (action === 'copy-canonical-artifact-path') {
       const artifactPath = actionTarget.dataset.canonicalArtifactPath || '';
