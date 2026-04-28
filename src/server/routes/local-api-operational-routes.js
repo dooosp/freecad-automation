@@ -1,6 +1,7 @@
 import { LOCAL_API_VERSION } from '../local-api-contract.js';
 import { buildHealthPayload } from '../local-api-health.js';
 import { loadExampleConfigs } from '../local-api-landing.js';
+import { buildCanonicalPackagesPayload } from '../canonical-package-discovery.js';
 import { assertResponse, createErrorResponse } from '../local-api-response-helpers.js';
 import { listShopProfiles } from '../../api/config.js';
 
@@ -21,6 +22,17 @@ export function registerOperationalRoutes(app, {
   app.get('/api/examples', async (_req, res, next) => {
     try {
       res.json(await loadExampleConfigs());
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/api/canonical-packages', async (_req, res, next) => {
+    try {
+      res.json(assertResponse(
+        'canonical_packages',
+        await buildCanonicalPackagesPayload({ projectRoot })
+      ));
     } catch (error) {
       next(error);
     }
