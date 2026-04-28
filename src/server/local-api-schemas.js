@@ -2,6 +2,10 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import { readFileSync } from 'node:fs';
 import { LOCAL_API_SERVICE, LOCAL_API_VERSION } from './local-api-contract.js';
 import {
+  CANONICAL_ARTIFACT_CONTENT_KINDS,
+  CANONICAL_ARTIFACT_KEYS,
+} from './canonical-artifact-key-contract.js';
+import {
   LOCAL_API_CONFIG_JOB_COMMANDS,
   LOCAL_API_JOB_COMMANDS,
   LOCAL_API_OTHER_PUBLIC_JOB_COMMANDS,
@@ -771,6 +775,53 @@ const canonicalPackageStudioBoundarySchema = {
   },
 };
 
+const canonicalArtifactCatalogEntrySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'key',
+    'label',
+    'path_field',
+    'path',
+    'content_kind',
+    'text_preview_allowed',
+    'download_allowed',
+    'warning_required',
+    'warning',
+    'path_must_be_repo_relative',
+    'optional',
+    'available',
+    'production_ready',
+  ],
+  properties: {
+    key: { enum: CANONICAL_ARTIFACT_KEYS },
+    label: { type: 'string', minLength: 1 },
+    path_field: {
+      enum: [
+        'readme_path',
+        'review_pack_path',
+        'readiness_report_path',
+        'standard_docs_manifest_path',
+        'release_manifest_path',
+        'release_checksums_path',
+        'release_bundle_path',
+        'reopen_notes_path',
+        'collection_guide_path',
+      ],
+    },
+    path: relativePathSchema,
+    content_kind: { enum: CANONICAL_ARTIFACT_CONTENT_KINDS },
+    text_preview_allowed: { type: 'boolean' },
+    download_allowed: { type: 'boolean' },
+    warning_required: { type: 'boolean' },
+    warning: nullableString,
+    path_must_be_repo_relative: { const: true },
+    optional: { type: 'boolean' },
+    available: { type: 'boolean' },
+    production_ready: nullableBoolean,
+  },
+};
+
 const canonicalPackageSchema = {
   type: 'object',
   additionalProperties: false,
@@ -781,6 +832,7 @@ const canonicalPackageSchema = {
     'readme_path',
     'readiness',
     'artifacts',
+    'artifact_catalog',
     'evidence_boundary',
     'studio_boundary',
     'collection_guide_path',
@@ -842,6 +894,12 @@ const canonicalPackageSchema = {
         release_bundle_path: relativePathSchema,
         reopen_notes_path: relativePathSchema,
       },
+    },
+    artifact_catalog: {
+      type: 'array',
+      minItems: CANONICAL_ARTIFACT_KEYS.length,
+      maxItems: CANONICAL_ARTIFACT_KEYS.length,
+      items: canonicalArtifactCatalogEntrySchema,
     },
     evidence_boundary: canonicalPackageBoundarySchema,
     studio_boundary: canonicalPackageStudioBoundarySchema,
