@@ -73,6 +73,22 @@ assert.deepEqual(
 );
 assertMentions(exampleIndexText, /readiness_report\.json` is the readiness source of truth/, 'example index should name readiness_report.json as source of truth');
 assertMentions(exampleIndexText, /quality and drawing evidence is review evidence.*does not satisfy `inspection_evidence`/, 'example index should preserve the generated-evidence boundary');
+assertMentions(exampleIndexText, /## Artifact Map/, 'example index should include a first-user artifact map');
+assertMentions(exampleIndexText, /review\/review_pack\.json/, 'artifact map should mention the review pack');
+assertMentions(exampleIndexText, /package evidence ledger/, 'artifact map should describe the review pack ledger');
+assertMentions(exampleIndexText, /source refs/, 'artifact map should mention portable source refs');
+assertMentions(exampleIndexText, /readiness\/readiness_report\.json/, 'artifact map should mention the readiness report');
+assertMentions(exampleIndexText, /readiness source of truth/, 'artifact map should identify the readiness source of truth');
+assertMentions(exampleIndexText, /standard-docs\//, 'artifact map should mention standard docs');
+assertMentions(exampleIndexText, /release\//, 'artifact map should mention the release directory');
+assertMentions(exampleIndexText, /release_bundle_manifest\.json/, 'artifact map should mention the release bundle manifest');
+assertMentions(exampleIndexText, /release_bundle_checksums\.sha256/, 'artifact map should mention release checksums');
+assertMentions(exampleIndexText, /release_bundle\.zip/, 'artifact map should mention the release bundle zip');
+assertMentions(exampleIndexText, /reopen-notes\.md/, 'artifact map should mention reopen notes');
+assertMentions(exampleIndexText, /Studio supports tracked job\/artifact reopen/, 'artifact map should preserve the Studio tracked-job boundary');
+assertMentions(exampleIndexText, /Checked-in canonical package artifacts are documented first/, 'artifact map should distinguish checked-in packages from Studio discovery');
+assertMentions(exampleIndexText, /Release bundle presence does not mean production-ready/, 'artifact map should not imply release bundles are production-ready');
+assertMentions(exampleIndexText, /remain `needs_more_evidence` until real `inspection_evidence`/, 'artifact map should keep the current evidence boundary');
 
 for (const slug of CANONICAL_PACKAGES) {
   const packageRoot = resolve(ROOT, 'docs', 'examples', slug);

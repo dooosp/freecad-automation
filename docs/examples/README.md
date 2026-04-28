@@ -27,6 +27,20 @@ Canonical packages include:
 
 The checked-in release bundles are intentionally small curated package artifacts. They are part of the public example package contract, not ignored generated-output directories.
 
+## Artifact Map
+
+For any canonical package, start with these checked-in package artifacts:
+
+- `review/review_pack.json`: package evidence ledger with portable source refs for CAD, quality, drawing, and package-side evidence inputs.
+- `readiness/readiness_report.json`: readiness source of truth for status, score, gate decision, and missing evidence.
+- `standard-docs/`: generated standard-document drafts plus `standard_docs_manifest.json`.
+- `release/`: release metadata and bundle files, including `release_bundle_manifest.json`, `release_bundle_checksums.sha256`, `release_bundle_log.json`, and `release_bundle.zip`.
+- `reopen-notes.md`: deterministic Studio reopen fixture notes for the checked-in package routes.
+
+Studio supports tracked job/artifact reopen. Checked-in canonical package artifacts are documented first today; the Studio boundary is the tracked job/artifact route, not arbitrary local package import.
+
+Release bundle presence does not mean production-ready. All four packages remain `needs_more_evidence` until real `inspection_evidence` is attached and the canonical review/readiness/release chain is deliberately regenerated.
+
 ## Canonical AF5 Flow
 
 The canonical AF5 package flow is:
