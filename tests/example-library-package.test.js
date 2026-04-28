@@ -5,6 +5,7 @@ import { basename, extname, isAbsolute, join, relative, resolve } from 'node:pat
 import { listZipEntries, readZipEntry } from '../lib/zip-archive.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
+const INDEX_PATH = resolve(ROOT, 'docs', 'examples', 'README.md');
 const MANIFEST_PATH = resolve(ROOT, 'docs', 'examples', 'example-library-manifest.json');
 
 const CANONICAL_PACKAGES = Object.freeze([
@@ -100,7 +101,40 @@ function assertPortableJson(filePath) {
   return payload;
 }
 
+function parseCanonicalIndexRows(markdown) {
+  const rows = new Map();
+  for (const line of markdown.split('\n')) {
+    const slugMatch = line.match(/^\| \[`([^`]+)`\]/);
+    if (!slugMatch) continue;
+    const cells = line.split('|').map((cell) => cell.trim());
+    rows.set(slugMatch[1], {
+      sourceBasis: cells[2],
+      readinessStatus: cells[4],
+    });
+  }
+  return rows;
+}
+
+const exampleIndexText = readFileSync(INDEX_PATH, 'utf8');
+const canonicalIndexRows = parseCanonicalIndexRows(exampleIndexText);
 const libraryManifest = JSON.parse(readFileSync(MANIFEST_PATH, 'utf8'));
+
+assert.match(
+  exampleIndexText,
+  /readiness_report\.json` is the readiness source of truth/,
+  'example library index should name readiness_report.json as the readiness source of truth'
+);
+assert.match(
+  exampleIndexText,
+  /inspection_evidence` remains missing/,
+  'example library index should state that inspection_evidence remains missing'
+);
+assert.match(
+  exampleIndexText,
+  /quality and drawing evidence is review evidence and closes `quality_evidence`, but it does not satisfy `inspection_evidence`/,
+  'example library index should not imply quality or drawing evidence satisfies inspection evidence'
+);
+assert.match(exampleIndexText, /No fifth package is complete yet\./, 'example library index should not imply a fifth package is complete');
 
 for (const packageDef of CANONICAL_PACKAGES) {
   const packageRoot = resolve(ROOT, 'docs', 'examples', packageDef.slug);
@@ -176,6 +210,15 @@ for (const packageDef of CANONICAL_PACKAGES) {
     const missingInputs = readinessReport.review_pack?.uncertainty_coverage_report?.missing_inputs || [];
     assert.equal(missingInputs.includes('quality_evidence'), false, `${packageDef.slug} quality evidence should no longer be missing`);
     assert.equal(missingInputs.includes('inspection_evidence'), true, `${packageDef.slug} inspection evidence should remain missing`);
+
+    const indexRow = canonicalIndexRows.get(packageDef.slug);
+    assert.equal(Boolean(indexRow), true, `${packageDef.slug} should be listed in the example library index`);
+    assert.equal(indexRow.sourceBasis, `\`${packageDef.sourceConfig}\``, `${packageDef.slug} index source basis should match package definition`);
+    assert.equal(
+      indexRow.readinessStatus,
+      `\`${readinessReport.readiness_summary.status}\`, score ${readinessReport.readiness_summary.score}`,
+      `${packageDef.slug} index readiness status should match readiness_report.json`
+    );
   }
 
   const zipPath = join(packageRoot, 'release', 'release_bundle.zip');
