@@ -1,4 +1,5 @@
 import { buildStudioArtifactRef, deriveStudioArtifactFamily } from './artifact-actions.js';
+import { fetchCanonicalPackages } from './canonical-packages.js';
 import {
   findStudioExampleById,
   resolveSelectedStudioExampleId,
@@ -228,11 +229,34 @@ export function bootStudioShell({
     }
   }
 
+  async function loadCanonicalPackages() {
+    try {
+      app.state.data.canonicalPackages = await fetchCanonicalPackages(app.fetchJson);
+      app.addLog({
+        status: 'Canonical packages',
+        message: app.state.data.canonicalPackages.items.length > 0
+          ? `Loaded ${app.state.data.canonicalPackages.items.length} read-only canonical package cards.`
+          : 'Canonical package endpoint responded without package cards.',
+        tone: app.state.data.canonicalPackages.items.length > 0 ? 'ok' : 'warn',
+        time: 'packages',
+      });
+    } catch {
+      app.state.data.canonicalPackages = {
+        status: 'unavailable',
+        items: [],
+        message: 'Canonical packages are not available on this serve path.',
+      };
+    } finally {
+      app.commitRender();
+    }
+  }
+
   async function hydrateShell() {
     await loadLandingPayload();
     await Promise.allSettled([
       refreshHealth(),
       loadExamples(),
+      loadCanonicalPackages(),
       app.jobs.refreshRecentJobs(),
     ]);
     app.jobs.resumeJobMonitoring();

@@ -37,6 +37,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'Studio artifact re-entry', args: Object.freeze(['tests/studio-artifact-actions.test.js']) }),
       Object.freeze({ label: 'Studio quality dashboard', args: Object.freeze(['tests/studio-quality-dashboard.test.js']) }),
       Object.freeze({ label: 'Studio public contract helpers', args: Object.freeze(['tests/studio-public-contract.test.js']) }),
+      Object.freeze({ label: 'Studio canonical package cards', args: Object.freeze(['tests/studio-canonical-package-cards.test.js']) }),
       Object.freeze({ label: 'Studio drawing workspace helpers', args: Object.freeze(['tests/studio-drawing-workspace.test.js']) }),
       Object.freeze({ label: 'Studio jobs client', args: Object.freeze(['tests/studio-jobs-client.test.js']) }),
       Object.freeze({ label: 'Studio model tracked state', args: Object.freeze(['tests/model-tracked-runs.test.js']) }),
