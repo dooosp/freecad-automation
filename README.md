@@ -43,14 +43,21 @@ npm run test:runtime-smoke
 
 If you are reviewing the repository on GitHub:
 
-1. Open the [canonical example library](./docs/examples/README.md) for the curated AF5 package index.
-2. Read the [infotainment production readiness case study](./docs/portfolio/infotainment-production-readiness-case.md).
-3. Open the [checked-in example artifact set](./docs/examples/infotainment-display-bracket/README.md).
-4. Review the [parameter sweep gallery](./docs/examples/parameter-sweep-gallery.md).
-5. Compare the [Korea vs Mexico stabilization example](./docs/examples/infotainment-display-bracket/stabilization-comparison.md).
-6. Read the [before-vs-after improvement case](./docs/portfolio/before-after-improvement-case.md).
-7. Skim the [readiness report markdown](./docs/examples/infotainment-display-bracket/readiness-report.md).
-8. Inspect the [example config](./configs/examples/infotainment_display_bracket.toml) and the command classification below.
+1. Start with the [canonical example library](./docs/examples/README.md) for the current CAD publish/review package route.
+2. Pick one of the four canonical packages and read its package README plus `readiness/readiness_report.json`; that JSON is the readiness source of truth for standard docs and release packaging.
+3. Read the current status honestly: all four canonical packages are `needs_more_evidence` with gate decision `hold_for_evidence_completion` because `inspection_evidence` remains missing.
+4. Treat linked quality/drawing evidence as review evidence only. It can close `quality_evidence`, but quality/drawing evidence does not satisfy `inspection_evidence`.
+5. Inspect the package artifacts in place: `review/review_pack.json`, `readiness/readiness_report.json`, `standard-docs/`, `release/`, and any package `reopen-notes.md` or deterministic reopen fixture.
+6. Use Studio for tracked job/artifact reopen. The checked-in canonical packages are docs-package artifacts today; first-class canonical package discovery in Studio is not part of the current contract.
+7. Before Stage 5B, collect real inspection measurements and attach only genuine validated inspection evidence. Do not treat synthetic fixtures or generated CAD/drawing/readiness outputs as package inspection evidence.
+
+Older portfolio and case-study material is still useful after the canonical route is clear:
+
+- [Infotainment production readiness case study](./docs/portfolio/infotainment-production-readiness-case.md)
+- [Checked-in infotainment example artifact set](./docs/examples/infotainment-display-bracket/README.md)
+- [Parameter sweep gallery](./docs/examples/parameter-sweep-gallery.md)
+- [Korea vs Mexico stabilization example](./docs/examples/infotainment-display-bracket/stabilization-comparison.md)
+- [Before-vs-after improvement case](./docs/portfolio/before-after-improvement-case.md)
 
 ## Test Lanes
 

@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '..');
+const ROOT_README_PATH = resolve(ROOT, 'README.md');
 const INDEX_PATH = resolve(ROOT, 'docs', 'examples', 'README.md');
 const MANIFEST_PATH = resolve(ROOT, 'docs', 'examples', 'example-library-manifest.json');
 
@@ -24,9 +25,18 @@ const STALE_AF5_NAMES = Object.freeze([
 
 assert.equal(existsSync(INDEX_PATH), true, 'docs/examples/README.md should exist');
 
+const rootReadmeText = readFileSync(ROOT_README_PATH, 'utf8');
 const indexText = readFileSync(INDEX_PATH, 'utf8');
 const manifest = JSON.parse(readFileSync(MANIFEST_PATH, 'utf8'));
 const canonicalPackages = manifest.examples.filter((example) => example.status === 'canonical-package');
+
+assert.match(rootReadmeText, /canonical example library/);
+assert.match(rootReadmeText, /readiness\/readiness_report\.json`; that JSON is the readiness source of truth/);
+assert.match(rootReadmeText, /inspection_evidence` remains missing/);
+assert.match(rootReadmeText, /quality\/drawing evidence does not satisfy `inspection_evidence`/);
+assert.match(rootReadmeText, /Studio for tracked job\/artifact reopen/);
+assert.match(rootReadmeText, /checked-in canonical packages are docs-package artifacts today/);
+assert.match(rootReadmeText, /Do not treat synthetic fixtures or generated CAD\/drawing\/readiness outputs as package inspection evidence/);
 
 assert.equal(canonicalPackages.length, 4, 'example-library index assumes the first four canonical packages are complete');
 assert.match(indexText, /^# Example Library/m);
