@@ -22,6 +22,8 @@ Canonical packages include:
 - `readiness/readiness_report.json`
 - `standard-docs/standard_docs_manifest.json`
 - `release/release_bundle_manifest.json`
+- `release/release_bundle_checksums.sha256`
+- `release/release_bundle_log.json`
 - `release/release_bundle.zip`
 - `reopen-notes.md` plus deterministic Studio tracked re-entry coverage
 
