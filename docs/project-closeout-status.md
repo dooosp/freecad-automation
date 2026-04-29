@@ -6,7 +6,7 @@ Production readiness remains held. The canonical packages are not production-rea
 
 Generated quality, drawing, readiness, review, standard-doc, release, template, fixture, and collection-guide artifacts are not inspection evidence. Quality/drawing evidence is review evidence, not inspection evidence.
 
-For first-user Studio guidance, see [Studio first-user walkthrough](./studio-first-user-walkthrough.md). For DFM and readiness boundaries, see [DFM and readiness guide](./dfm-readiness-guide.md).
+For first-user Studio guidance, see [Studio first-user walkthrough](./studio-first-user-walkthrough.md). For DFM and readiness boundaries, see [DFM and readiness guide](./dfm-readiness-guide.md). For the final non-inspection software milestone summary, see [final non-inspection software closeout](./final-non-inspection-software-closeout.md).
 
 ## Canonical Package Inventory
 
@@ -49,4 +49,4 @@ Do not fabricate, simulate, or infer measured values. Do not treat generated art
 - Stage 5C-C canonical package integrity hardening
 - Stage 5C-D Studio first-user walkthrough polish
 - Stage 5C-E DFM/readiness documentation cleanup
-- Stage 5C-F final software closeout report
+- Stage 5C-F final software closeout report: [final non-inspection software closeout](./final-non-inspection-software-closeout.md)

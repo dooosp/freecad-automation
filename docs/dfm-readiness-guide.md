@@ -2,6 +2,8 @@
 
 Use this guide to read the current non-inspection CAD project closeout without improving readiness by implication. The project can close the software/documentation package path while production readiness remains held for real inspection evidence.
 
+For the final non-inspection software milestone summary, see [final non-inspection software closeout](./final-non-inspection-software-closeout.md).
+
 ## What DFM signals mean
 
 DFM signals are review and manufacturability signals. They can identify risk, review topics, and next engineering questions such as thin-wall risk, tool access, drill ratio, edge treatment, complexity, or fixturing sensitivity.

@@ -63,7 +63,7 @@ Release bundle presence does not mean production-ready. The release bundle is us
 
 Production readiness remains held until genuine completed inspection evidence exists and the canonical review/readiness chain is deliberately refreshed.
 
-For how DFM signals, readiness reports, release bundles, and missing inspection evidence relate to each other, see [DFM and readiness guide](./dfm-readiness-guide.md).
+For how DFM signals, readiness reports, release bundles, and missing inspection evidence relate to each other, see [DFM and readiness guide](./dfm-readiness-guide.md). For the final non-inspection software milestone summary, see [final non-inspection software closeout](./final-non-inspection-software-closeout.md).
 
 ## What Not To Do
 
