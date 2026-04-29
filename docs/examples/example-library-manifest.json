@@ -52,7 +52,8 @@
       },
       "notes": [
         "First curated canonical AF5 package promoted under docs/examples/quality-pass-bracket.",
-        "Create quality, drawing quality, and DFM passed; readiness remains needs_more_evidence because the safe existing review-context/readiness path does not consume these generated quality artifacts as inspection or quality linkage side inputs."
+        "Create quality and drawing quality evidence is linked in the review pack as review evidence and clears quality_evidence.",
+        "Readiness remains needs_more_evidence with score 61 because inspection_evidence remains missing; production readiness is not claimed."
       ]
     },
     {
@@ -80,7 +81,8 @@
       },
       "notes": [
         "Second curated canonical AF5 package promoted under docs/examples/plate-with-holes.",
-        "Create quality and drawing quality passed; readiness remains needs_more_evidence because the safe existing review-context/readiness path does not consume separate inspection or quality linkage side inputs.",
+        "Create quality and drawing quality evidence is linked in the review pack as review evidence and clears quality_evidence.",
+        "Readiness remains needs_more_evidence with score 61 because inspection_evidence remains missing; production readiness is not claimed.",
         "Curated config adds explicit drawing intent for plate envelope, hole pattern, connector slot, standoffs, required views, and manufacturing notes."
       ]
     },
@@ -109,7 +111,8 @@
         "Third curated canonical AF5 package promoted under docs/examples/motor-mount.",
         "Curated config uses the single-part cnc_motor_mount_bracket source, adds explicit drawing intent, and normalizes the support rib away from the hole pattern so DFM edge-distance checks stay warning-only.",
         "Create quality and drawing quality passed; DFM is warning-only because edge treatment remains note-driven rather than modeled as a fillet/chamfer operation.",
-        "Readiness remains needs_more_evidence because the safe existing review-context/readiness path does not consume separate inspection or quality linkage side inputs.",
+        "Quality and drawing evidence is linked in the review pack as review evidence and clears quality_evidence.",
+        "Readiness remains needs_more_evidence with score 55 because inspection_evidence remains missing; production readiness is not claimed.",
         "The related assembly config is intentionally deferred and is not part of this package."
       ]
     },
@@ -154,7 +157,6 @@
         "drawing_intent": true,
         "generated_cad": true,
         "quality_report": true,
-        "review_pack": false,
         "review_pack": true,
         "readiness_report": true,
         "standard_docs_manifest": true,
@@ -166,7 +168,8 @@
         "Fourth curated canonical AF5 package promoted under docs/examples/controller-housing-eol.",
         "Curated config uses controller_housing_eol as the source basis and carries EOL assembly, traceability, functional-test, cross-site production, drawing plan, and drawing intent metadata.",
         "Create quality and drawing quality passed; DFM remains warning-only because the enclosure still carries deep through-hole drill-ratio warnings and note-driven edge-treatment risk.",
-        "Readiness remains needs_more_evidence with score 41 because the safe existing review-context/readiness path does not consume separate inspection or quality linkage side inputs.",
+        "Quality and drawing evidence is linked in the review pack as review evidence and clears quality_evidence.",
+        "Readiness remains needs_more_evidence with score 52 because inspection_evidence remains missing; production readiness is not claimed.",
         "The default standard-docs set is now regenerated canonical schema_version 1.0 evidence; Korea and Mexico standard-doc directories remain legacy site examples with schema_version 0.1."
       ]
     },
