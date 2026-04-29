@@ -6,7 +6,7 @@ export const TEST_LANES = Object.freeze([
     label: 'Node contract',
     npmScript: 'test:node:contract',
     packageCommand: 'node tests/run-node-lane.js contract',
-    scope: 'config migration/validation, runtime path resolution, invocation assembly, structural validation',
+    scope: 'config migration/validation, runtime path resolution, invocation assembly, structural validation, canonical package integrity',
     freecadRequired: false,
     steps: Object.freeze([
       Object.freeze({ label: 'Config normalizer', args: Object.freeze(['tests/config-normalizer.test.js']) }),
@@ -19,6 +19,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'First-user docs smoke', args: Object.freeze(['tests/first-user-docs-smoke.test.js']) }),
       Object.freeze({ label: 'Example library index', args: Object.freeze(['tests/example-library-index.test.js']) }),
       Object.freeze({ label: 'Example library package', args: Object.freeze(['tests/example-library-package.test.js']) }),
+      Object.freeze({ label: 'Canonical package integrity', args: Object.freeze(['tests/canonical-package-integrity.test.js']) }),
       Object.freeze({ label: 'Controller housing EOL standard docs', args: Object.freeze(['tests/controller-housing-eol-standard-docs.test.js']) }),
       Object.freeze({ label: 'Example library Studio reopen', args: Object.freeze(['tests/example-library-studio-reopen.test.js']) }),
       Object.freeze({ label: 'Runtime path contracts', args: Object.freeze(['tests/paths-runtime.test.js']) }),

@@ -7,7 +7,7 @@ This repository now separates fast hosted checks from real FreeCAD-backed smoke 
 <!-- GENERATED:lane-table:start -->
 | Lane | Command | Scope | FreeCAD required |
 | --- | --- | --- | --- |
-| Node contract | `npm run test:node:contract` | config migration/validation, runtime path resolution, invocation assembly, structural validation | No |
+| Node contract | `npm run test:node:contract` | config migration/validation, runtime path resolution, invocation assembly, structural validation, canonical package integrity | No |
 | Node integration | `npm run test:node:integration` | local API/job contracts, studio bridge routes, browserless studio and legacy serve smoke, rule profiles, sweep logic, draw/report service integration | No |
 | Snapshots | `npm run test:snapshots` | normalized SVG and report preview regression baselines | No |
 | Python | `npm run test:py` | plain-Python and CLI-adjacent regression coverage that does not require a live FreeCAD launch | No |

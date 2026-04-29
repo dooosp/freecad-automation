@@ -12,6 +12,8 @@ const CANONICAL_ARTIFACTS = Object.freeze([
   'readiness_report.json',
   'standard_docs_manifest.json',
   'release_bundle_manifest.json',
+  'release_bundle_checksums.sha256',
+  'release_bundle_log.json',
   'release_bundle.zip',
 ]);
 
