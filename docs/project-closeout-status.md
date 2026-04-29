@@ -6,7 +6,7 @@ Production readiness remains held. The canonical packages are not production-rea
 
 Generated quality, drawing, readiness, review, standard-doc, release, template, fixture, and collection-guide artifacts are not inspection evidence. Quality/drawing evidence is review evidence, not inspection evidence.
 
-For first-user Studio guidance, see [Studio first-user walkthrough](./studio-first-user-walkthrough.md).
+For first-user Studio guidance, see [Studio first-user walkthrough](./studio-first-user-walkthrough.md). For DFM and readiness boundaries, see [DFM and readiness guide](./dfm-readiness-guide.md).
 
 ## Canonical Package Inventory
 
