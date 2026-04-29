@@ -38,7 +38,7 @@ The hosted workflow is the fast PR lane and does not install or launch FreeCAD. 
 
 ## Docs Smoke Coverage
 
-`node tests/first-user-docs-smoke.test.js` checks the first-user package documentation path, including the Studio walkthrough for canonical package cards, safe artifact preview, release bundle boundaries, the DFM/readiness guide, and the current `needs_more_evidence` / `inspection_evidence` readiness hold.
+`node tests/first-user-docs-smoke.test.js` checks the first-user package documentation path, including the Studio walkthrough for canonical package cards, safe artifact preview, release bundle boundaries, the DFM/readiness guide, the final non-inspection software closeout report, and the current `needs_more_evidence` / `inspection_evidence` readiness hold.
 
 ## Verification Wording
 

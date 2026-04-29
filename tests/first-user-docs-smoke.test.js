@@ -6,6 +6,7 @@ const ROOT = resolve(import.meta.dirname, '..');
 const ROOT_README_PATH = resolve(ROOT, 'README.md');
 const EXAMPLE_INDEX_PATH = resolve(ROOT, 'docs', 'examples', 'README.md');
 const PROJECT_CLOSEOUT_STATUS_PATH = resolve(ROOT, 'docs', 'project-closeout-status.md');
+const FINAL_CLOSEOUT_PATH = resolve(ROOT, 'docs', 'final-non-inspection-software-closeout.md');
 const DFM_READINESS_GUIDE_PATH = resolve(ROOT, 'docs', 'dfm-readiness-guide.md');
 const STUDIO_FIRST_USER_WALKTHROUGH_PATH = resolve(ROOT, 'docs', 'studio-first-user-walkthrough.md');
 const TESTING_DOC_PATH = resolve(ROOT, 'docs', 'testing.md');
@@ -55,6 +56,7 @@ function parseCanonicalPackageList(markdown) {
 assert.equal(existsSync(ROOT_README_PATH), true, 'root README should exist');
 assert.equal(existsSync(EXAMPLE_INDEX_PATH), true, 'canonical example index should exist');
 assert.equal(existsSync(PROJECT_CLOSEOUT_STATUS_PATH), true, 'project closeout status should exist');
+assert.equal(existsSync(FINAL_CLOSEOUT_PATH), true, 'final non-inspection software closeout should exist');
 assert.equal(existsSync(DFM_READINESS_GUIDE_PATH), true, 'DFM/readiness guide should exist');
 assert.equal(existsSync(STUDIO_FIRST_USER_WALKTHROUGH_PATH), true, 'Studio first-user walkthrough should exist');
 assert.equal(existsSync(TESTING_DOC_PATH), true, 'testing doc should exist');
@@ -68,6 +70,7 @@ assert.equal(
 const rootReadmeText = readText(ROOT_README_PATH);
 const exampleIndexText = readText(EXAMPLE_INDEX_PATH);
 const projectCloseoutStatusText = readText(PROJECT_CLOSEOUT_STATUS_PATH);
+const finalCloseoutText = readText(FINAL_CLOSEOUT_PATH);
 const dfmReadinessGuideText = readText(DFM_READINESS_GUIDE_PATH);
 const studioFirstUserWalkthroughText = readText(STUDIO_FIRST_USER_WALKTHROUGH_PATH);
 const testingDocText = readText(TESTING_DOC_PATH);
@@ -98,6 +101,11 @@ assertMentions(
   rootReadmeText,
   /\[DFM and readiness guide\]\(\.\/docs\/dfm-readiness-guide\.md\)/,
   'root README should link the DFM and readiness guide'
+);
+assertMentions(
+  rootReadmeText,
+  /\[final non-inspection software closeout\]\(\.\/docs\/final-non-inspection-software-closeout\.md\)/,
+  'root README should link the final non-inspection software closeout'
 );
 
 assert.deepEqual(
@@ -150,6 +158,11 @@ assertMentions(
   /\[DFM and readiness guide\]\(\.\/dfm-readiness-guide\.md\)/,
   'project closeout should link the DFM and readiness guide'
 );
+assertMentions(
+  projectCloseoutStatusText,
+  /\[final non-inspection software closeout\]\(\.\/final-non-inspection-software-closeout\.md\)/,
+  'project closeout should link the final non-inspection software closeout'
+);
 assertMentions(projectCloseoutStatusText, /config\s+-> cad\/export\s+-> quality\/drawing\s+-> review_pack\s+-> readiness_report\s+-> standard_docs\s+-> release_bundle\s+-> Studio reopen\/preview/, 'project closeout should include current artifact chain');
 for (const [slug, score] of Object.entries({
   'quality-pass-bracket': 61,
@@ -161,6 +174,65 @@ for (const [slug, score] of Object.entries({
     projectCloseoutStatusText,
     new RegExp(`\\| \`${slug}\` [^\\n]+\\| ${score} \\| \`hold_for_evidence_completion\` \\| \`inspection_evidence\` \\|`),
     `project closeout should list ${slug} readiness truth`
+  );
+}
+
+assertMentions(
+  finalCloseoutText,
+  /^# Final non-inspection software closeout/m,
+  'final closeout should have the expected title'
+);
+assertMentions(
+  finalCloseoutText,
+  /AF5-style package flow|AF5 package flow/,
+  'final closeout should mention AF5 or the artifact chain'
+);
+assertMentions(finalCloseoutText, /Studio/, 'final closeout should mention Studio');
+assertMentions(
+  finalCloseoutText,
+  /release_bundle\.zip` remains non-previewable and non-downloadable/,
+  'final closeout should preserve release bundle preview/download boundary'
+);
+assertMentions(finalCloseoutText, /`needs_more_evidence`/, 'final closeout should mention needs_more_evidence');
+assertMentions(finalCloseoutText, /`hold_for_evidence_completion`/, 'final closeout should mention hold_for_evidence_completion');
+assertMentions(finalCloseoutText, /`inspection_evidence`/, 'final closeout should mention inspection_evidence');
+assertMentions(
+  finalCloseoutText,
+  /Stage 5B remains parked/,
+  'final closeout should keep Stage 5B parked'
+);
+assertMentions(
+  finalCloseoutText,
+  /Generated quality, drawing, review, readiness, standard-doc, and release artifacts are not inspection evidence/,
+  'final closeout should reject generated artifacts as inspection evidence'
+);
+assertMentions(
+  finalCloseoutText,
+  /DFM signals and reports are review\/manufacturability signals, not physical inspection evidence/,
+  'final closeout should keep DFM signals out of inspection evidence'
+);
+assertMentions(
+  finalCloseoutText,
+  /No measured values were fabricated/,
+  'final closeout should reject fabricated measured values'
+);
+assertMentions(
+  finalCloseoutText,
+  /no open pull request rows/i,
+  'final closeout should record the preflight open PR status'
+);
+assertNoPositiveProductionReadyClaim(finalCloseoutText, 'final closeout should not claim production readiness');
+for (const [slug, score] of Object.entries({
+  'quality-pass-bracket': 61,
+  'plate-with-holes': 61,
+  'motor-mount': 55,
+  'controller-housing-eol': 52,
+})) {
+  assertMentions(finalCloseoutText, new RegExp(`\\| \`${slug}\` [^\\n]+\\|`), `final closeout should mention ${slug}`);
+  assertMentions(
+    finalCloseoutText,
+    new RegExp(`\\| \`${slug}\` \\| \`needs_more_evidence\` \\| ${score} \\| \`hold_for_evidence_completion\` \\| \`inspection_evidence\` \\|`),
+    `final closeout should list ${slug} readiness truth`
   );
 }
 
@@ -235,6 +307,11 @@ assertMentions(studioFirstUserWalkthroughText, /`inspection_evidence` means genu
 assertMentions(studioFirstUserWalkthroughText, /Generated quality, drawing, review, readiness, standard-docs, release, template, fixture, and collection-guide artifacts are not inspection evidence/, 'Studio walkthrough should reject generated artifacts as inspection evidence');
 assertMentions(studioFirstUserWalkthroughText, /Production readiness remains held until genuine completed inspection evidence exists/, 'Studio walkthrough should keep production readiness held');
 assertMentions(studioFirstUserWalkthroughText, /Stage 5B remains parked until a genuine completed inspection evidence JSON exists/, 'Studio walkthrough should preserve Stage 5B parked language');
+assertMentions(
+  studioFirstUserWalkthroughText,
+  /\[final non-inspection software closeout\]\(\.\/final-non-inspection-software-closeout\.md\)/,
+  'Studio walkthrough should link the final non-inspection software closeout'
+);
 assertNoPositiveProductionReadyClaim(studioFirstUserWalkthroughText, 'Studio walkthrough should not claim production readiness');
 for (const slug of CANONICAL_PACKAGES) {
   assert.equal(
@@ -253,6 +330,11 @@ assertMentions(
   testingDocText,
   /Studio walkthrough for canonical package cards, safe artifact preview, release bundle boundaries/,
   'testing doc should document the Studio walkthrough docs-smoke coverage'
+);
+assertMentions(
+  testingDocText,
+  /final non-inspection software closeout report/,
+  'testing doc should document final closeout docs-smoke coverage'
 );
 
 for (const slug of CANONICAL_PACKAGES) {
