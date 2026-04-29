@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path';
 const ROOT = resolve(import.meta.dirname, '..');
 const ROOT_README_PATH = resolve(ROOT, 'README.md');
 const EXAMPLE_INDEX_PATH = resolve(ROOT, 'docs', 'examples', 'README.md');
+const PROJECT_CLOSEOUT_STATUS_PATH = resolve(ROOT, 'docs', 'project-closeout-status.md');
 const INSPECTION_CONTRACT_PATH = resolve(ROOT, 'docs', 'inspection-evidence-contract.md');
 const INSPECTION_COLLECTION_DIR = resolve(ROOT, 'docs', 'inspection-evidence-collection');
 const SYNTHETIC_FIXTURE_REF = 'tests/fixtures/inspection-evidence/valid-manual-caliper-inspection.json';
@@ -39,6 +40,7 @@ function parseCanonicalPackageList(markdown) {
 
 assert.equal(existsSync(ROOT_README_PATH), true, 'root README should exist');
 assert.equal(existsSync(EXAMPLE_INDEX_PATH), true, 'canonical example index should exist');
+assert.equal(existsSync(PROJECT_CLOSEOUT_STATUS_PATH), true, 'project closeout status should exist');
 assert.equal(existsSync(INSPECTION_CONTRACT_PATH), true, 'inspection evidence contract should exist');
 assert.equal(
   existsSync(join(INSPECTION_COLLECTION_DIR, 'README.md')),
@@ -48,6 +50,7 @@ assert.equal(
 
 const rootReadmeText = readText(ROOT_README_PATH);
 const exampleIndexText = readText(EXAMPLE_INDEX_PATH);
+const projectCloseoutStatusText = readText(PROJECT_CLOSEOUT_STATUS_PATH);
 const inspectionContractText = readText(INSPECTION_CONTRACT_PATH);
 const collectionGuideIndexText = readText(join(INSPECTION_COLLECTION_DIR, 'README.md'));
 
@@ -59,8 +62,9 @@ assertMentions(
 assertMentions(rootReadmeText, /First-user CLI recipe: inspect a canonical package/, 'root README should include the first-user CLI recipe');
 assertMentions(rootReadmeText, /inspect checked-in canonical package artifacts without regenerating anything/, 'CLI recipe should inspect checked-in artifacts');
 assertMentions(rootReadmeText, /Regenerate later only when/, 'CLI recipe should distinguish future regeneration from inspection');
-assertMentions(rootReadmeText, /Studio supports tracked job\/artifact reopen/, 'root README should distinguish Studio tracked reopen');
-assertMentions(rootReadmeText, /checked-in canonical packages are docs-package artifacts today/, 'root README should describe checked-in packages as docs-package artifacts');
+assertMentions(rootReadmeText, /read-only canonical package cards/, 'root README should describe Studio canonical package cards');
+assertMentions(rootReadmeText, /allowlisted artifact preview/, 'root README should describe allowlisted artifact preview');
+assertMentions(rootReadmeText, /checked-in canonical packages remain docs-package artifacts/, 'root README should describe checked-in packages as docs-package artifacts');
 assertMentions(rootReadmeText, /--inspection-evidence <PATH_TO_COMPLETED_REAL_JSON>/, 'root README should show the completed-real-evidence CLI placeholder');
 assertMentions(rootReadmeText, /Do not treat synthetic fixtures or generated CAD\/drawing\/readiness outputs as package inspection evidence/, 'root README should reject synthetic/generated package evidence');
 assertMentions(rootReadmeText, /quality\/drawing evidence does not satisfy `inspection_evidence`/, 'root README should preserve the inspection evidence boundary');
@@ -85,10 +89,30 @@ assertMentions(exampleIndexText, /release_bundle_manifest\.json/, 'artifact map 
 assertMentions(exampleIndexText, /release_bundle_checksums\.sha256/, 'artifact map should mention release checksums');
 assertMentions(exampleIndexText, /release_bundle\.zip/, 'artifact map should mention the release bundle zip');
 assertMentions(exampleIndexText, /reopen-notes\.md/, 'artifact map should mention reopen notes');
-assertMentions(exampleIndexText, /Studio supports tracked job\/artifact reopen/, 'artifact map should preserve the Studio tracked-job boundary');
-assertMentions(exampleIndexText, /Checked-in canonical package artifacts are documented first/, 'artifact map should distinguish checked-in packages from Studio discovery');
+assertMentions(exampleIndexText, /read-only canonical package cards/, 'artifact map should mention Studio canonical package cards');
+assertMentions(exampleIndexText, /allowlisted artifact preview/, 'artifact map should mention allowlisted artifact preview');
+assertMentions(exampleIndexText, /tracked job\/artifact reopen remains separate/, 'artifact map should preserve the Studio tracked-job boundary');
 assertMentions(exampleIndexText, /Release bundle presence does not mean production-ready/, 'artifact map should not imply release bundles are production-ready');
 assertMentions(exampleIndexText, /remain `needs_more_evidence` until real `inspection_evidence`/, 'artifact map should keep the current evidence boundary');
+
+assertMentions(projectCloseoutStatusText, /non-inspection software milestone/, 'project closeout should separate software closeout');
+assertMentions(projectCloseoutStatusText, /Production readiness remains held/, 'project closeout should not claim production readiness');
+assertMentions(projectCloseoutStatusText, /release bundle presence does not mean production-ready/, 'project closeout should preserve release boundary');
+assertMentions(projectCloseoutStatusText, /Stage 5B inspection evidence remains parked/, 'project closeout should state Stage 5B is parked');
+assertMentions(projectCloseoutStatusText, /Quality\/drawing evidence is review evidence, not inspection evidence/, 'project closeout should preserve evidence boundary');
+assertMentions(projectCloseoutStatusText, /config\s+-> cad\/export\s+-> quality\/drawing\s+-> review_pack\s+-> readiness_report\s+-> standard_docs\s+-> release_bundle\s+-> Studio reopen\/preview/, 'project closeout should include current artifact chain');
+for (const [slug, score] of Object.entries({
+  'quality-pass-bracket': 61,
+  'plate-with-holes': 61,
+  'motor-mount': 55,
+  'controller-housing-eol': 52,
+})) {
+  assertMentions(
+    projectCloseoutStatusText,
+    new RegExp(`\\| \`${slug}\` [^\\n]+\\| ${score} \\| \`hold_for_evidence_completion\` \\| \`inspection_evidence\` \\|`),
+    `project closeout should list ${slug} readiness truth`
+  );
+}
 
 for (const slug of CANONICAL_PACKAGES) {
   const packageRoot = resolve(ROOT, 'docs', 'examples', slug);

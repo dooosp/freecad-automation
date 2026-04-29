@@ -37,7 +37,7 @@ For any canonical package, start with these checked-in package artifacts:
 - `release/`: release metadata and bundle files, including `release_bundle_manifest.json`, `release_bundle_checksums.sha256`, `release_bundle_log.json`, and `release_bundle.zip`.
 - `reopen-notes.md`: deterministic Studio reopen fixture notes for the checked-in package routes.
 
-Studio supports tracked job/artifact reopen. Checked-in canonical package artifacts are documented first today; the Studio boundary is the tracked job/artifact route, not arbitrary local package import.
+Studio supports read-only canonical package cards and allowlisted artifact preview through the local API. Checked-in canonical package artifacts are discoverable there; tracked job/artifact reopen remains separate, and the route is not arbitrary local package import.
 
 Release bundle presence does not mean production-ready. All four packages remain `needs_more_evidence` until real `inspection_evidence` is attached and the canonical review/readiness/release chain is deliberately regenerated.
 
@@ -55,10 +55,10 @@ review-context
   -> pack
   -> release_bundle_manifest.json
   -> release_bundle.zip
-  -> Studio tracked job/artifact reopen
+  -> Studio package cards / allowlisted artifact preview and tracked job/artifact reopen
 ```
 
-`readiness_report.json` is the readiness source of truth for standard docs and release packaging. The checked-in Studio reopen coverage proves tracked job/artifact re-entry for canonical artifacts; it is not arbitrary local file import.
+`readiness_report.json` is the readiness source of truth for standard docs and release packaging. The checked-in Studio coverage proves read-only package-card discovery, allowlisted artifact preview, and tracked job/artifact re-entry for canonical artifacts; it is not arbitrary local file import.
 
 ## Canonical Packages
 
