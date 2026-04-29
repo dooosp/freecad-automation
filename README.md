@@ -51,6 +51,8 @@ If you are reviewing the repository on GitHub:
 6. Use Studio for read-only canonical package cards, allowlisted artifact preview, and tracked job/artifact reopen. The checked-in canonical packages remain docs-package artifacts, not arbitrary local file imports.
 7. Before Stage 5B, collect real inspection measurements and attach only genuine validated inspection evidence. Do not treat synthetic fixtures or generated CAD/drawing/readiness outputs as package inspection evidence.
 
+For the browser path, read the [Studio first-user walkthrough](./docs/studio-first-user-walkthrough.md). It explains canonical package cards, safe artifact preview, release bundle boundaries, and why readiness remains held until genuine `inspection_evidence` exists.
+
 ## First-user CLI recipe: inspect a canonical package
 
 Use this recipe when you want to inspect checked-in canonical package artifacts without regenerating anything. The canonical package index is [`docs/examples/README.md`](./docs/examples/README.md); the example below uses `quality-pass-bracket`.
