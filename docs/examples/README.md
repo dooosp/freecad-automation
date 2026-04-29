@@ -9,7 +9,7 @@ The current canonical packages are:
 - [`motor-mount`](./motor-mount/README.md)
 - [`controller-housing-eol`](./controller-housing-eol/README.md)
 
-For the browser review path, use the [Studio first-user walkthrough](../studio-first-user-walkthrough.md).
+For the browser review path, use the [Studio first-user walkthrough](../studio-first-user-walkthrough.md). For DFM and readiness boundaries, use the [DFM and readiness guide](../dfm-readiness-guide.md).
 
 ## Canonical Package Contract
 

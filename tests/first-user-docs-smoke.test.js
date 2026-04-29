@@ -6,6 +6,7 @@ const ROOT = resolve(import.meta.dirname, '..');
 const ROOT_README_PATH = resolve(ROOT, 'README.md');
 const EXAMPLE_INDEX_PATH = resolve(ROOT, 'docs', 'examples', 'README.md');
 const PROJECT_CLOSEOUT_STATUS_PATH = resolve(ROOT, 'docs', 'project-closeout-status.md');
+const DFM_READINESS_GUIDE_PATH = resolve(ROOT, 'docs', 'dfm-readiness-guide.md');
 const STUDIO_FIRST_USER_WALKTHROUGH_PATH = resolve(ROOT, 'docs', 'studio-first-user-walkthrough.md');
 const TESTING_DOC_PATH = resolve(ROOT, 'docs', 'testing.md');
 const INSPECTION_CONTRACT_PATH = resolve(ROOT, 'docs', 'inspection-evidence-contract.md');
@@ -54,6 +55,7 @@ function parseCanonicalPackageList(markdown) {
 assert.equal(existsSync(ROOT_README_PATH), true, 'root README should exist');
 assert.equal(existsSync(EXAMPLE_INDEX_PATH), true, 'canonical example index should exist');
 assert.equal(existsSync(PROJECT_CLOSEOUT_STATUS_PATH), true, 'project closeout status should exist');
+assert.equal(existsSync(DFM_READINESS_GUIDE_PATH), true, 'DFM/readiness guide should exist');
 assert.equal(existsSync(STUDIO_FIRST_USER_WALKTHROUGH_PATH), true, 'Studio first-user walkthrough should exist');
 assert.equal(existsSync(TESTING_DOC_PATH), true, 'testing doc should exist');
 assert.equal(existsSync(INSPECTION_CONTRACT_PATH), true, 'inspection evidence contract should exist');
@@ -66,6 +68,7 @@ assert.equal(
 const rootReadmeText = readText(ROOT_README_PATH);
 const exampleIndexText = readText(EXAMPLE_INDEX_PATH);
 const projectCloseoutStatusText = readText(PROJECT_CLOSEOUT_STATUS_PATH);
+const dfmReadinessGuideText = readText(DFM_READINESS_GUIDE_PATH);
 const studioFirstUserWalkthroughText = readText(STUDIO_FIRST_USER_WALKTHROUGH_PATH);
 const testingDocText = readText(TESTING_DOC_PATH);
 const inspectionContractText = readText(INSPECTION_CONTRACT_PATH);
@@ -90,6 +93,11 @@ assertMentions(
   rootReadmeText,
   /\[Studio first-user walkthrough\]\(\.\/docs\/studio-first-user-walkthrough\.md\)/,
   'root README should link the Studio first-user walkthrough'
+);
+assertMentions(
+  rootReadmeText,
+  /\[DFM and readiness guide\]\(\.\/docs\/dfm-readiness-guide\.md\)/,
+  'root README should link the DFM and readiness guide'
 );
 
 assert.deepEqual(
@@ -121,6 +129,11 @@ assertMentions(
   /\[Studio first-user walkthrough\]\(\.\.\/studio-first-user-walkthrough\.md\)/,
   'example index should link the Studio first-user walkthrough'
 );
+assertMentions(
+  exampleIndexText,
+  /\[DFM and readiness guide\]\(\.\.\/dfm-readiness-guide\.md\)/,
+  'example index should link the DFM and readiness guide'
+);
 
 assertMentions(projectCloseoutStatusText, /non-inspection software milestone/, 'project closeout should separate software closeout');
 assertMentions(projectCloseoutStatusText, /Production readiness remains held/, 'project closeout should not claim production readiness');
@@ -131,6 +144,11 @@ assertMentions(
   projectCloseoutStatusText,
   /\[Studio first-user walkthrough\]\(\.\/studio-first-user-walkthrough\.md\)/,
   'project closeout should link the Studio first-user walkthrough'
+);
+assertMentions(
+  projectCloseoutStatusText,
+  /\[DFM and readiness guide\]\(\.\/dfm-readiness-guide\.md\)/,
+  'project closeout should link the DFM and readiness guide'
 );
 assertMentions(projectCloseoutStatusText, /config\s+-> cad\/export\s+-> quality\/drawing\s+-> review_pack\s+-> readiness_report\s+-> standard_docs\s+-> release_bundle\s+-> Studio reopen\/preview/, 'project closeout should include current artifact chain');
 for (const [slug, score] of Object.entries({
@@ -143,6 +161,62 @@ for (const [slug, score] of Object.entries({
     projectCloseoutStatusText,
     new RegExp(`\\| \`${slug}\` [^\\n]+\\| ${score} \\| \`hold_for_evidence_completion\` \\| \`inspection_evidence\` \\|`),
     `project closeout should list ${slug} readiness truth`
+  );
+}
+
+assertMentions(dfmReadinessGuideText, /^# DFM and readiness guide/m, 'DFM/readiness guide should have the expected title');
+assertMentions(dfmReadinessGuideText, /\bDFM\b/, 'DFM/readiness guide should mention DFM');
+assertMentions(
+  dfmReadinessGuideText,
+  /Readiness reports are the source of truth for status, score, gate decision, and missing inputs/,
+  'DFM/readiness guide should identify readiness reports as source of truth'
+);
+assertMentions(dfmReadinessGuideText, /`needs_more_evidence`/, 'DFM/readiness guide should mention needs_more_evidence');
+assertMentions(dfmReadinessGuideText, /`hold_for_evidence_completion`/, 'DFM/readiness guide should mention hold_for_evidence_completion');
+assertMentions(dfmReadinessGuideText, /`inspection_evidence`/, 'DFM/readiness guide should mention inspection_evidence');
+assertMentions(
+  dfmReadinessGuideText,
+  /Release bundle presence does not mean production-ready/,
+  'DFM/readiness guide should preserve the release bundle readiness boundary'
+);
+assertMentions(
+  dfmReadinessGuideText,
+  /DFM signals and DFM reports are not inspection evidence/,
+  'DFM/readiness guide should state DFM signals and reports are not inspection evidence'
+);
+assertMentions(
+  dfmReadinessGuideText,
+  /Stage 5B remains parked/,
+  'DFM/readiness guide should preserve the Stage 5B parked boundary'
+);
+assertMentions(
+  dfmReadinessGuideText,
+  /Do not fabricate measured values/,
+  'DFM/readiness guide should reject fabricated measured values'
+);
+assertMentions(
+  dfmReadinessGuideText,
+  /Do not infer measured values from CAD nominal dimensions/,
+  'DFM/readiness guide should reject inferred measured values'
+);
+assertNoPositiveProductionReadyClaim(dfmReadinessGuideText, 'DFM/readiness guide should not claim production readiness');
+for (const [slug, score] of Object.entries({
+  'quality-pass-bracket': 61,
+  'plate-with-holes': 61,
+  'motor-mount': 55,
+  'controller-housing-eol': 52,
+})) {
+  const guideRowPattern = new RegExp(
+    '\\| `' +
+      slug +
+      '` \\| `needs_more_evidence` \\| ' +
+      score +
+      ' \\| `hold_for_evidence_completion` \\| `inspection_evidence` \\|'
+  );
+  assertMentions(
+    dfmReadinessGuideText,
+    guideRowPattern,
+    `DFM/readiness guide should list ${slug} readiness truth`
   );
 }
 
