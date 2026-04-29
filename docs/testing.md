@@ -36,6 +36,10 @@ The runtime domain runner uses the same FreeCAD-backed script path as the CLI an
 
 The hosted workflow is the fast PR lane and does not install or launch FreeCAD. The self-hosted workflow is the repository-owned runtime smoke source of truth for real FreeCAD-backed quality checks on pull requests, manual reruns, and the weekly schedule.
 
+## Docs Smoke Coverage
+
+`node tests/first-user-docs-smoke.test.js` checks the first-user package documentation path, including the Studio walkthrough for canonical package cards, safe artifact preview, release bundle boundaries, and the current `needs_more_evidence` / `inspection_evidence` readiness hold.
+
 ## Verification Wording
 
 Use the following terms consistently in contributor notes and PR verification blocks:

@@ -6,6 +6,8 @@ const ROOT = resolve(import.meta.dirname, '..');
 const ROOT_README_PATH = resolve(ROOT, 'README.md');
 const EXAMPLE_INDEX_PATH = resolve(ROOT, 'docs', 'examples', 'README.md');
 const PROJECT_CLOSEOUT_STATUS_PATH = resolve(ROOT, 'docs', 'project-closeout-status.md');
+const STUDIO_FIRST_USER_WALKTHROUGH_PATH = resolve(ROOT, 'docs', 'studio-first-user-walkthrough.md');
+const TESTING_DOC_PATH = resolve(ROOT, 'docs', 'testing.md');
 const INSPECTION_CONTRACT_PATH = resolve(ROOT, 'docs', 'inspection-evidence-contract.md');
 const INSPECTION_COLLECTION_DIR = resolve(ROOT, 'docs', 'inspection-evidence-collection');
 const SYNTHETIC_FIXTURE_REF = 'tests/fixtures/inspection-evidence/valid-manual-caliper-inspection.json';
@@ -33,6 +35,17 @@ function assertDoesNotMention(text, pattern, label) {
   assert.equal(pattern.test(text), false, label);
 }
 
+function assertNoPositiveProductionReadyClaim(text, label) {
+  const positiveClaimPatterns = [
+    /\b(is|are|as|now|marked|considered)\s+production-ready\b/i,
+    /\bproduction readiness (is|has been) (complete|cleared|approved|achieved)\b/i,
+    /\bready for production\b/i,
+  ];
+  for (const pattern of positiveClaimPatterns) {
+    assertDoesNotMention(text, pattern, label);
+  }
+}
+
 function parseCanonicalPackageList(markdown) {
   const matches = markdown.matchAll(/^- \[`([^`]+)`\]\(\.\/[^)]+\/README\.md\)$/gm);
   return Array.from(matches, (match) => match[1]);
@@ -41,6 +54,8 @@ function parseCanonicalPackageList(markdown) {
 assert.equal(existsSync(ROOT_README_PATH), true, 'root README should exist');
 assert.equal(existsSync(EXAMPLE_INDEX_PATH), true, 'canonical example index should exist');
 assert.equal(existsSync(PROJECT_CLOSEOUT_STATUS_PATH), true, 'project closeout status should exist');
+assert.equal(existsSync(STUDIO_FIRST_USER_WALKTHROUGH_PATH), true, 'Studio first-user walkthrough should exist');
+assert.equal(existsSync(TESTING_DOC_PATH), true, 'testing doc should exist');
 assert.equal(existsSync(INSPECTION_CONTRACT_PATH), true, 'inspection evidence contract should exist');
 assert.equal(
   existsSync(join(INSPECTION_COLLECTION_DIR, 'README.md')),
@@ -51,6 +66,8 @@ assert.equal(
 const rootReadmeText = readText(ROOT_README_PATH);
 const exampleIndexText = readText(EXAMPLE_INDEX_PATH);
 const projectCloseoutStatusText = readText(PROJECT_CLOSEOUT_STATUS_PATH);
+const studioFirstUserWalkthroughText = readText(STUDIO_FIRST_USER_WALKTHROUGH_PATH);
+const testingDocText = readText(TESTING_DOC_PATH);
 const inspectionContractText = readText(INSPECTION_CONTRACT_PATH);
 const collectionGuideIndexText = readText(join(INSPECTION_COLLECTION_DIR, 'README.md'));
 
@@ -69,6 +86,11 @@ assertMentions(rootReadmeText, /--inspection-evidence <PATH_TO_COMPLETED_REAL_JS
 assertMentions(rootReadmeText, /Do not treat synthetic fixtures or generated CAD\/drawing\/readiness outputs as package inspection evidence/, 'root README should reject synthetic/generated package evidence');
 assertMentions(rootReadmeText, /quality\/drawing evidence does not satisfy `inspection_evidence`/, 'root README should preserve the inspection evidence boundary');
 assertMentions(rootReadmeText, new RegExp(SYNTHETIC_FIXTURE_REF), 'root README should explicitly reject the synthetic fixture as package evidence');
+assertMentions(
+  rootReadmeText,
+  /\[Studio first-user walkthrough\]\(\.\/docs\/studio-first-user-walkthrough\.md\)/,
+  'root README should link the Studio first-user walkthrough'
+);
 
 assert.deepEqual(
   parseCanonicalPackageList(exampleIndexText),
@@ -94,12 +116,22 @@ assertMentions(exampleIndexText, /allowlisted artifact preview/, 'artifact map s
 assertMentions(exampleIndexText, /tracked job\/artifact reopen remains separate/, 'artifact map should preserve the Studio tracked-job boundary');
 assertMentions(exampleIndexText, /Release bundle presence does not mean production-ready/, 'artifact map should not imply release bundles are production-ready');
 assertMentions(exampleIndexText, /remain `needs_more_evidence` until real `inspection_evidence`/, 'artifact map should keep the current evidence boundary');
+assertMentions(
+  exampleIndexText,
+  /\[Studio first-user walkthrough\]\(\.\.\/studio-first-user-walkthrough\.md\)/,
+  'example index should link the Studio first-user walkthrough'
+);
 
 assertMentions(projectCloseoutStatusText, /non-inspection software milestone/, 'project closeout should separate software closeout');
 assertMentions(projectCloseoutStatusText, /Production readiness remains held/, 'project closeout should not claim production readiness');
 assertMentions(projectCloseoutStatusText, /release bundle presence does not mean production-ready/, 'project closeout should preserve release boundary');
 assertMentions(projectCloseoutStatusText, /Stage 5B inspection evidence remains parked/, 'project closeout should state Stage 5B is parked');
 assertMentions(projectCloseoutStatusText, /Quality\/drawing evidence is review evidence, not inspection evidence/, 'project closeout should preserve evidence boundary');
+assertMentions(
+  projectCloseoutStatusText,
+  /\[Studio first-user walkthrough\]\(\.\/studio-first-user-walkthrough\.md\)/,
+  'project closeout should link the Studio first-user walkthrough'
+);
 assertMentions(projectCloseoutStatusText, /config\s+-> cad\/export\s+-> quality\/drawing\s+-> review_pack\s+-> readiness_report\s+-> standard_docs\s+-> release_bundle\s+-> Studio reopen\/preview/, 'project closeout should include current artifact chain');
 for (const [slug, score] of Object.entries({
   'quality-pass-bracket': 61,
@@ -113,6 +145,41 @@ for (const [slug, score] of Object.entries({
     `project closeout should list ${slug} readiness truth`
   );
 }
+
+assertMentions(studioFirstUserWalkthroughText, /^# Studio First-User Walkthrough/m, 'Studio walkthrough should have the expected title');
+assertMentions(studioFirstUserWalkthroughText, /Studio uses tracked\/canonical package and artifact routes/, 'Studio walkthrough should mention tracked/canonical routes');
+assertMentions(studioFirstUserWalkthroughText, /Canonical package cards are read-only views/, 'Studio walkthrough should explain canonical package cards');
+assertMentions(studioFirstUserWalkthroughText, /safe package identifiers and artifact keys/, 'Studio walkthrough should explain safe slug plus artifact key preview');
+assertMentions(studioFirstUserWalkthroughText, /\/api\/canonical-packages\/<slug>\/artifacts\/<artifactKey>\/preview/, 'Studio walkthrough should show the safe canonical preview route shape');
+assertMentions(studioFirstUserWalkthroughText, /Canonical artifact actions are read-only/, 'Studio walkthrough should mention read-only canonical artifact actions');
+assertMentions(studioFirstUserWalkthroughText, /release_bundle\.zip` is a curated package artifact, not a text-preview artifact/, 'Studio walkthrough should keep release_bundle.zip non-preview text boundary');
+assertMentions(studioFirstUserWalkthroughText, /remains non-previewable/, 'Studio walkthrough should state release_bundle.zip remains non-previewable');
+assertMentions(studioFirstUserWalkthroughText, /does not expose an arbitrary local file open or download route/, 'Studio walkthrough should reject arbitrary local open/download routes');
+assertMentions(studioFirstUserWalkthroughText, /Release bundle presence does not mean production-ready/, 'Studio walkthrough should preserve release bundle readiness boundary');
+assertMentions(studioFirstUserWalkthroughText, /All four canonical packages remain `needs_more_evidence`/, 'Studio walkthrough should keep current readiness status');
+assertMentions(studioFirstUserWalkthroughText, /`inspection_evidence` means genuine completed inspection evidence JSON/, 'Studio walkthrough should define inspection_evidence');
+assertMentions(studioFirstUserWalkthroughText, /Generated quality, drawing, review, readiness, standard-docs, release, template, fixture, and collection-guide artifacts are not inspection evidence/, 'Studio walkthrough should reject generated artifacts as inspection evidence');
+assertMentions(studioFirstUserWalkthroughText, /Production readiness remains held until genuine completed inspection evidence exists/, 'Studio walkthrough should keep production readiness held');
+assertMentions(studioFirstUserWalkthroughText, /Stage 5B remains parked until a genuine completed inspection evidence JSON exists/, 'Studio walkthrough should preserve Stage 5B parked language');
+assertNoPositiveProductionReadyClaim(studioFirstUserWalkthroughText, 'Studio walkthrough should not claim production readiness');
+for (const slug of CANONICAL_PACKAGES) {
+  assert.equal(
+    studioFirstUserWalkthroughText.includes(`\`${slug}\``),
+    true,
+    `Studio walkthrough should mention ${slug}`
+  );
+}
+
+assertMentions(
+  testingDocText,
+  /node tests\/first-user-docs-smoke\.test\.js/,
+  'testing doc should mention the first-user docs smoke command'
+);
+assertMentions(
+  testingDocText,
+  /Studio walkthrough for canonical package cards, safe artifact preview, release bundle boundaries/,
+  'testing doc should document the Studio walkthrough docs-smoke coverage'
+);
 
 for (const slug of CANONICAL_PACKAGES) {
   const packageRoot = resolve(ROOT, 'docs', 'examples', slug);

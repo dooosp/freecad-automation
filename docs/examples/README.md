@@ -9,6 +9,8 @@ The current canonical packages are:
 - [`motor-mount`](./motor-mount/README.md)
 - [`controller-housing-eol`](./controller-housing-eol/README.md)
 
+For the browser review path, use the [Studio first-user walkthrough](../studio-first-user-walkthrough.md).
+
 ## Canonical Package Contract
 
 Each canonical package lives under `docs/examples/<slug>/` and is tracked in [`example-library-manifest.json`](./example-library-manifest.json) with status `canonical-package`.
