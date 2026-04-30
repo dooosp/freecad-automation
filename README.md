@@ -473,6 +473,9 @@ Endpoints:
 - `GET /api`
 - `GET /health`
 - `GET /studio`
+- `GET /api/examples`
+- `GET /api/canonical-packages`
+- `GET /api/canonical-packages/:slug/artifacts/:artifactKey/preview`
 - `POST /api/studio/validate-config`
 - `POST /api/studio/model-preview`
 - `GET /api/studio/model-previews/:id/model`
@@ -501,6 +504,9 @@ Endpoint usage:
 - `GET /` is the preferred browser entrypoint for the studio shell; JSON and text callers can still use `/` directly
 - `GET /api` returns the local API info page and route discovery payload
 - `GET /health` returns API liveness plus the same shared runtime diagnostics contract used by `fcad check-runtime --json`
+- `GET /api/examples` returns checked-in example TOML records without repository checkout paths
+- `GET /api/canonical-packages` returns the read-only Studio canonical package cards for the five checked-in docs packages: package refs, readiness truth, artifact catalog, evidence-boundary copy, and Studio-boundary copy
+- `GET /api/canonical-packages/:slug/artifacts/:artifactKey/preview` returns allowlisted text previews by safe package slug plus artifact key; it does not accept arbitrary local file paths
 - `POST /api/studio/model-preview` validates the current TOML and returns preview-only model assets for the Model workspace
 - `POST /api/studio/drawing-preview` returns the fast sheet-first drawing preview; `POST /api/studio/drawing-previews/:id/dimensions` preserves the HTTP edit loop for dimension changes while keeping preview-plan files server-side only
 - `POST /api/studio/jobs` is the studio bridge route: Model and Drawing submit tracked jobs here, imported-CAD handoff can queue source-path `review-context`, and Studio-safe tracked continuation also covers inspect/report re-entry plus compare, readiness, stabilization, docs, and pack jobs from supported artifact references; canonical readiness-backed `generate-standard-docs` can rehydrate a config-like input automatically when the tracked lineage no longer carries a config copy
@@ -557,7 +563,13 @@ curl -X POST http://127.0.0.1:3000/jobs/<job-id>/retry
 curl http://127.0.0.1:3000/jobs/<job-id>/artifacts
 
 curl http://127.0.0.1:3000/artifacts/<job-id>/<artifact-id>
+
+curl http://127.0.0.1:3000/api/canonical-packages
+
+curl http://127.0.0.1:3000/api/canonical-packages/hinge-block/artifacts/readiness_report/preview
 ```
+
+For the canonical package route contract, artifact key allowlist, release bundle boundary, and readiness/evidence boundary, see the [Studio canonical package API](./docs/studio-canonical-package-api.md).
 
 Studio bridge examples:
 
@@ -647,6 +659,14 @@ Browser-visible local API payload shape:
   - `storage`: logical file metadata only; no public filesystem paths
 - `GET /api/examples`
   - `{ id, name, content }` for each checked-in example TOML
+- `GET /api/canonical-packages`
+  - `packages[*]`: safe `slug`, package refs, readiness status/score/gate/missing inputs, `artifact_catalog`, `evidence_boundary`, `studio_boundary`, `collection_guide_path`, and `inspection_evidence_path`
+  - checked-in packages remain read-only docs packages; the response is not an arbitrary local folder listing
+- `GET /api/canonical-packages/:slug/artifacts/:artifactKey/preview`
+  - supported text-preview keys: `readme`, `review_pack`, `readiness_report`, `standard_docs_manifest`, `release_manifest`, `release_checksums`, `reopen_notes`, and `collection_guide`
+  - response: `slug`, `artifact_key`, repo-relative `path`, `content_kind`, `content_type`, `size_bytes`, `truncated`, `content`, and `warnings`
+  - `release_bundle.zip` appears as the `release_bundle` package artifact, but it is not text-previewable and this canonical route does not add preview, download, or open access for the ZIP
+  - release bundle presence does not mean production-ready, generated package artifacts do not satisfy `inspection_evidence`, and Stage 5B remains parked until genuine completed inspection evidence exists
 - `POST /api/studio/drawing-preview` and `POST /api/studio/drawing-previews/:id/dimensions`
   - `preview`: browser-safe drawing preview data including `id`, `preview_reference`, `editable_plan_reference` when an editable plan exists, `settings`, `overview`, `validation`, `svg`, `bom`, `views`, `scale`, `qa_summary`, `annotations`, `dimensions`, `editable_plan_available`, `dimension_editing_available`, `tracked_draw_bridge_available`, and `artifact_capabilities`
   - server-only preview sidecars such as `plan_path`, preview working directories, `run_log`, and other path-bearing preview files stay internal
