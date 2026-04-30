@@ -3111,6 +3111,31 @@ body::after {
 }
 
 @media (max-width: 920px) {
+  .studio-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .studio-sidebar {
+    border-right: 0;
+    border-bottom: 1px solid rgba(126, 164, 198, 0.2);
+    box-shadow: none;
+  }
+
+  .app-bar {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .app-bar-badges,
+  .app-bar-actions {
+    justify-content: flex-start;
+  }
+
+  .workspace-root,
+  .studio-main {
+    min-width: 0;
+  }
+
   .console-grid,
   .review-dashboard-grid,
   .artifacts-dashboard-grid {
@@ -3137,5 +3162,41 @@ body::after {
 
   .generated-file-actions {
     justify-content: flex-start;
+  }
+
+  .canonical-package-grid,
+  .canonical-package-card-header,
+  .canonical-artifact-ref {
+    grid-template-columns: 1fr;
+  }
+
+  .canonical-artifact-path-actions {
+    width: 100%;
+    justify-items: start;
+  }
+
+  .canonical-path {
+    text-align: left;
+  }
+
+  .canonical-artifact-actions {
+    justify-content: flex-start;
+  }
+
+  .canonical-artifact-note {
+    max-width: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .workspace-root,
+  .app-bar,
+  .studio-sidebar {
+    padding: 1rem;
+  }
+
+  .canonical-package-card,
+  .canonical-preview-panel {
+    padding: 0.85rem;
   }
 }
