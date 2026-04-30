@@ -7,6 +7,7 @@ const ROOT_README_PATH = resolve(ROOT, 'README.md');
 const EXAMPLE_INDEX_PATH = resolve(ROOT, 'docs', 'examples', 'README.md');
 const PROJECT_CLOSEOUT_STATUS_PATH = resolve(ROOT, 'docs', 'project-closeout-status.md');
 const FINAL_CLOSEOUT_PATH = resolve(ROOT, 'docs', 'final-non-inspection-software-closeout.md');
+const STAGE_5D_CLOSEOUT_PATH = resolve(ROOT, 'docs', 'stage-5d-feature-expansion-closeout.md');
 const DFM_READINESS_GUIDE_PATH = resolve(ROOT, 'docs', 'dfm-readiness-guide.md');
 const CANONICAL_PACKAGE_WORKFLOW_PATH = resolve(ROOT, 'docs', 'canonical-package-generation-workflow.md');
 const STUDIO_FIRST_USER_WALKTHROUGH_PATH = resolve(ROOT, 'docs', 'studio-first-user-walkthrough.md');
@@ -60,6 +61,7 @@ assert.equal(existsSync(ROOT_README_PATH), true, 'root README should exist');
 assert.equal(existsSync(EXAMPLE_INDEX_PATH), true, 'canonical example index should exist');
 assert.equal(existsSync(PROJECT_CLOSEOUT_STATUS_PATH), true, 'project closeout status should exist');
 assert.equal(existsSync(FINAL_CLOSEOUT_PATH), true, 'final non-inspection software closeout should exist');
+assert.equal(existsSync(STAGE_5D_CLOSEOUT_PATH), true, 'Stage 5D feature expansion closeout should exist');
 assert.equal(existsSync(DFM_READINESS_GUIDE_PATH), true, 'DFM/readiness guide should exist');
 assert.equal(existsSync(CANONICAL_PACKAGE_WORKFLOW_PATH), true, 'canonical package generation workflow guide should exist');
 assert.equal(existsSync(STUDIO_FIRST_USER_WALKTHROUGH_PATH), true, 'Studio first-user walkthrough should exist');
@@ -76,6 +78,7 @@ const rootReadmeText = readText(ROOT_README_PATH);
 const exampleIndexText = readText(EXAMPLE_INDEX_PATH);
 const projectCloseoutStatusText = readText(PROJECT_CLOSEOUT_STATUS_PATH);
 const finalCloseoutText = readText(FINAL_CLOSEOUT_PATH);
+const stage5dCloseoutText = readText(STAGE_5D_CLOSEOUT_PATH);
 const dfmReadinessGuideText = readText(DFM_READINESS_GUIDE_PATH);
 const canonicalPackageWorkflowText = readText(CANONICAL_PACKAGE_WORKFLOW_PATH);
 const studioFirstUserWalkthroughText = readText(STUDIO_FIRST_USER_WALKTHROUGH_PATH);
@@ -122,6 +125,11 @@ assertMentions(
   rootReadmeText,
   /\[final non-inspection software closeout\]\(\.\/docs\/final-non-inspection-software-closeout\.md\)/,
   'root README should link the final non-inspection software closeout'
+);
+assertMentions(
+  rootReadmeText,
+  /\[Stage 5D feature expansion closeout\]\(\.\/docs\/stage-5d-feature-expansion-closeout\.md\)/,
+  'root README should link the Stage 5D feature expansion closeout'
 );
 
 assert.deepEqual(
@@ -183,6 +191,11 @@ assertMentions(
   projectCloseoutStatusText,
   /\[final non-inspection software closeout\]\(\.\/final-non-inspection-software-closeout\.md\)/,
   'project closeout should link the final non-inspection software closeout'
+);
+assertMentions(
+  projectCloseoutStatusText,
+  /\[Stage 5D feature expansion closeout\]\(\.\/stage-5d-feature-expansion-closeout\.md\)/,
+  'project closeout should link the Stage 5D feature expansion closeout'
 );
 assertMentions(projectCloseoutStatusText, /config\s+-> cad\/export\s+-> quality\/drawing\s+-> review_pack\s+-> readiness_report\s+-> standard_docs\s+-> release_bundle\s+-> Studio reopen\/preview/, 'project closeout should include current artifact chain');
 for (const [slug, score] of Object.entries({
@@ -258,6 +271,53 @@ for (const [slug, score] of Object.entries({
     `final closeout should list ${slug} readiness truth`
   );
 }
+
+assertMentions(
+  stage5dCloseoutText,
+  /^# Stage 5D feature expansion closeout/m,
+  'Stage 5D closeout should have the expected title'
+);
+assertMentions(stage5dCloseoutText, /Stage 5D-A: roadmap/, 'Stage 5D closeout should mention the Stage 5D-A roadmap');
+assertMentions(stage5dCloseoutText, /Stage 5D-B: candidate selection/, 'Stage 5D closeout should mention Stage 5D-B candidate selection');
+for (const pr of ['#91', '#92', '#93', '#94', '#95']) {
+  assert.equal(stage5dCloseoutText.includes(pr), true, `Stage 5D closeout should mention PR ${pr}`);
+}
+for (const slug of CANONICAL_PACKAGES) {
+  assert.equal(
+    stage5dCloseoutText.includes(`\`${slug}\``),
+    true,
+    `Stage 5D closeout should mention ${slug}`
+  );
+}
+assertMentions(stage5dCloseoutText, /`hinge-block` is the fifth canonical package/, 'Stage 5D closeout should identify hinge-block as fifth package');
+assertMentions(stage5dCloseoutText, /`needs_more_evidence`/, 'Stage 5D closeout should mention needs_more_evidence');
+assertMentions(stage5dCloseoutText, /`hold_for_evidence_completion`/, 'Stage 5D closeout should mention hold_for_evidence_completion');
+assertMentions(stage5dCloseoutText, /`inspection_evidence`/, 'Stage 5D closeout should mention inspection_evidence');
+assertMentions(stage5dCloseoutText, /Stage 5B remains parked/, 'Stage 5D closeout should keep Stage 5B parked');
+assertMentions(stage5dCloseoutText, /No real inspection evidence was created or attached/, 'Stage 5D closeout should state no real inspection evidence was attached');
+assertMentions(
+  stage5dCloseoutText,
+  /Generated CAD, drawing, quality, review, readiness, standard-doc, release, reopen, package, Markdown, fixture, and collection-guide artifacts are not `inspection_evidence`/,
+  'Stage 5D closeout should reject generated artifacts as inspection evidence'
+);
+assertMentions(
+  stage5dCloseoutText,
+  /`release_bundle\.zip` is a package transport artifact/,
+  'Stage 5D closeout should preserve release bundle transport boundary'
+);
+assertMentions(
+  stage5dCloseoutText,
+  /`release_bundle\.zip` is not production-readiness proof/,
+  'Stage 5D closeout should reject release bundle production-readiness proof'
+);
+assertMentions(
+  stage5dCloseoutText,
+  /non-previewable, non-downloadable, and non-openable/,
+  'Stage 5D closeout should preserve release bundle non-action boundary'
+);
+assertMentions(stage5dCloseoutText, /No deploy was performed/, 'Stage 5D closeout should state no deploy was performed');
+assertMentions(stage5dCloseoutText, /No Studio\/API preview, download, or open route widening was added/, 'Stage 5D closeout should reject route widening');
+assertNoPositiveProductionReadyClaim(stage5dCloseoutText, 'Stage 5D closeout should not claim production readiness');
 
 assertMentions(dfmReadinessGuideText, /^# DFM and readiness guide/m, 'DFM/readiness guide should have the expected title');
 assertMentions(dfmReadinessGuideText, /\bDFM\b/, 'DFM/readiness guide should mention DFM');
@@ -511,6 +571,11 @@ assertMentions(
   testingDocText,
   /final non-inspection software closeout report/,
   'testing doc should document final closeout docs-smoke coverage'
+);
+assertMentions(
+  testingDocText,
+  /Stage 5D feature expansion closeout/,
+  'testing doc should document Stage 5D closeout docs-smoke coverage'
 );
 
 for (const slug of CANONICAL_PACKAGES) {
