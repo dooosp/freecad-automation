@@ -120,6 +120,73 @@ function pageTextExpression() {
   return `(() => document.body?.innerText?.replace(/\\s+/g, ' ').trim() || '')()`;
 }
 
+function canonicalPackageSnapshotExpression() {
+  return `(() => {
+    const cards = [...document.querySelectorAll('.canonical-package-card')];
+    const slugText = (card) => card.querySelector('.eyebrow')?.textContent?.trim() || '';
+    const qualityPassCard = cards.find((card) => slugText(card) === 'quality-pass-bracket');
+    const releaseBundleRef = [...(qualityPassCard?.querySelectorAll('.canonical-artifact-ref') || [])]
+      .find((entry) => entry.textContent.includes('release_bundle.zip'));
+    const readinessRef = [...(qualityPassCard?.querySelectorAll('.canonical-artifact-ref') || [])]
+      .find((entry) => entry.textContent.includes('readiness_report.json'));
+    const actionSnapshot = (root) => [...(root?.querySelectorAll('button[data-action],a') || [])].map((entry) => ({
+      tag: entry.tagName.toLowerCase(),
+      action: entry.dataset?.action || '',
+      text: entry.textContent?.replace(/\\s+/g, ' ').trim() || '',
+      href: entry.getAttribute('href') || '',
+      download: entry.hasAttribute('download'),
+    }));
+    return {
+      count: cards.length,
+      slugs: cards.map(slugText),
+      text: document.querySelector('[data-hook="canonical-package-cards"]')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+      releaseBundleActions: actionSnapshot(releaseBundleRef),
+      releaseBundleText: releaseBundleRef?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+      readinessActions: actionSnapshot(readinessRef),
+    };
+  })()`;
+}
+
+function canonicalPreviewSnapshotExpression() {
+  return `(() => {
+    const panel = document.querySelector('[data-hook="canonical-artifact-preview"]');
+    return {
+      text: panel?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+      title: panel?.querySelector('.canonical-preview-title')?.textContent?.trim() || '',
+      content: panel?.querySelector('.canonical-preview-content')?.textContent || '',
+      links: [...(panel?.querySelectorAll('a') || [])].map((entry) => ({
+        href: entry.getAttribute('href') || '',
+        download: entry.hasAttribute('download'),
+      })),
+    };
+  })()`;
+}
+
+function modelRouteReadinessExpression() {
+  return `(() => {
+    const root = document.getElementById('workspace-root')?.firstElementChild;
+    return {
+      text: root?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+      hasValidate: Boolean(root?.querySelector('[data-action="model-validate"]')),
+      hasBuild: Boolean(root?.querySelector('[data-action="model-build"]')),
+      hasTrackedCreate: Boolean(root?.querySelector('[data-action="model-run-tracked-create"]')),
+      hasTrackedReport: Boolean(root?.querySelector('[data-action="model-run-tracked-report"]')),
+    };
+  })()`;
+}
+
+function drawingRouteReadinessExpression() {
+  return `(() => {
+    const root = document.getElementById('workspace-root')?.firstElementChild;
+    return {
+      text: root?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+      hasPreview: Boolean(root?.querySelector('[data-action="drawing-generate"]')),
+      hasTrackedDraw: Boolean(root?.querySelector('[data-action="drawing-run-tracked"]')),
+      hasStage: Boolean(root?.querySelector('[data-hook="drawing-stage"]')),
+    };
+  })()`;
+}
+
 function routeLabelExpression(route) {
   return `(() => document.querySelector('.nav-link[data-route="${route}"] .nav-label')?.textContent?.trim() || '')()`;
 }
@@ -1398,6 +1465,76 @@ try {
     return nextSnapshot;
   });
 
+  const canonicalPackageSnapshot = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(canonicalPackageSnapshotExpression());
+    assert.equal(snapshot.count, 5);
+    assert.deepEqual(snapshot.slugs, [
+      'quality-pass-bracket',
+      'plate-with-holes',
+      'motor-mount',
+      'controller-housing-eol',
+      'hinge-block',
+    ]);
+    assertIncludesAll(snapshot.text, [
+      'quality-pass-bracket',
+      'hinge-block',
+      'needs_more_evidence',
+      'hold_for_evidence_completion',
+      'missing inspection_evidence',
+      'Release bundle presence does not mean production-ready',
+      'Quality and drawing evidence do not satisfy inspection_evidence',
+    ]);
+    assert.deepEqual(snapshot.readinessActions.map((entry) => entry.action), [
+      'preview-canonical-artifact',
+      'copy-canonical-artifact-path',
+    ]);
+    assert.deepEqual(snapshot.releaseBundleActions.map((entry) => entry.action), [
+      'copy-canonical-artifact-path',
+    ]);
+    assert.equal(snapshot.releaseBundleActions.some((entry) => entry.tag === 'a'), false);
+    assert.equal(snapshot.releaseBundleActions.some((entry) => entry.download), false);
+    assert.equal(snapshot.releaseBundleActions.some((entry) => /preview|download|open/i.test(entry.action)), false);
+    assert.equal(snapshot.releaseBundleText.includes('release_bundle.zip'), true);
+    assert.equal(snapshot.releaseBundleText.includes('Preview'), false);
+    assert.equal(snapshot.releaseBundleText.includes('Download'), false);
+    assert.equal(snapshot.releaseBundleText.includes('Open'), false);
+    return snapshot;
+  }, {
+    attempts: 60,
+    delayMs: 150,
+  });
+  assert.equal(canonicalPackageSnapshot.slugs.includes('hinge-block'), true);
+
+  await cdp.evaluate(`(() => {
+    const card = [...document.querySelectorAll('.canonical-package-card')]
+      .find((entry) => entry.querySelector('.eyebrow')?.textContent?.trim() === 'quality-pass-bracket');
+    const ref = [...(card?.querySelectorAll('.canonical-artifact-ref') || [])]
+      .find((entry) => entry.textContent.includes('readiness_report.json'));
+    ref?.querySelector('[data-action="preview-canonical-artifact"]')?.click();
+  })()`);
+  const canonicalPreviewSnapshot = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(canonicalPreviewSnapshotExpression());
+    assert.equal(snapshot.title, 'Readiness report');
+    assertIncludesAll(snapshot.text, [
+      'Canonical artifact preview',
+      'docs/examples/quality-pass-bracket/readiness/readiness_report.json',
+      'Content kind',
+      'json',
+    ]);
+    assertIncludesAll(snapshot.content, [
+      '"readiness_summary"',
+      '"needs_more_evidence"',
+      '"inspection_evidence"',
+    ]);
+    assert.equal(snapshot.links.length, 0);
+    return snapshot;
+  }, {
+    attempts: 60,
+    delayMs: 150,
+  });
+  assert.equal(canonicalPreviewSnapshot.content.includes('release_bundle.zip'), false);
+  await cdp.evaluate(`document.querySelector('[data-action="close-canonical-artifact-preview"]')?.click()`);
+
   const firstRunCard = await waitFor(async () => {
     const snapshot = await cdp.evaluate(`(() => {
       const card = document.querySelector('[data-hook="verified-bracket-card"]');
@@ -2023,6 +2160,26 @@ try {
     assert.equal(await cdp.evaluate(routeLabelExpression(route)), forcedLocaleLabels[route]);
     assert.match(snapshot.summary, /[가-힣]/);
     assert.match(nextLocaleSnapshot.summary, /[가-힣]/);
+    if (route === 'model') {
+      const modelReadiness = await cdp.evaluate(modelRouteReadinessExpression());
+      assert.equal(/Model|모델/.test(modelReadiness.text), true);
+      assert.equal(/Runtime pending|런타임 대기/.test(modelReadiness.text), true);
+      assert.equal(/API pending|API 대기/.test(modelReadiness.text), true);
+      assert.equal(modelReadiness.hasValidate, true);
+      assert.equal(modelReadiness.hasBuild, true);
+      assert.equal(modelReadiness.hasTrackedCreate, true);
+      assert.equal(modelReadiness.hasTrackedReport, true);
+    }
+    if (route === 'drawing') {
+      const drawingReadiness = await cdp.evaluate(drawingRouteReadinessExpression());
+      assert.equal(/Drawing|도면/.test(drawingReadiness.text), true);
+      assert.equal(/Runtime pending|런타임 대기/.test(drawingReadiness.text), true);
+      assert.equal(/No drawing yet|아직 도면/.test(drawingReadiness.text), true);
+      assert.equal(/Sheet pending|시트 준비/.test(drawingReadiness.text), true);
+      assert.equal(drawingReadiness.hasPreview, true);
+      assert.equal(drawingReadiness.hasTrackedDraw, true);
+      assert.equal(drawingReadiness.hasStage, true);
+    }
   }
 
   await cdp.send('Page.navigate', { url: `${baseUrl}/studio/#review` });

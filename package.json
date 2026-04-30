@@ -32,6 +32,7 @@
     "smoke:runtime": "npm run test:runtime-smoke",
     "test:node:contract": "node tests/run-node-lane.js contract",
     "test:node:integration": "node tests/run-node-lane.js integration",
+    "test:studio-browser-smoke": "node tests/studio-shell-browser-smoke.test.js",
     "test:snapshots": "node tests/run-node-lane.js snapshots",
     "test:snapshots:update": "UPDATE_SNAPSHOTS=1 npm run test:snapshots",
     "test:runtime-smoke": "node tests/run-node-lane.js runtime-smoke",

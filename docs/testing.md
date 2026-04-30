@@ -10,6 +10,7 @@ This repository now separates fast hosted checks from real FreeCAD-backed smoke 
 | Node contract | `npm run test:node:contract` | config migration/validation, runtime path resolution, invocation assembly, structural validation, canonical package integrity | No |
 | Node integration | `npm run test:node:integration` | local API/job contracts, studio bridge routes, browserless studio and legacy serve smoke, rule profiles, sweep logic, draw/report service integration | No |
 | Snapshots | `npm run test:snapshots` | normalized SVG and report preview regression baselines | No |
+| Studio browser smoke | `npm run test:studio-browser-smoke` | real Chrome/CDP Studio browser smoke for shell routing, canonical package cards, safe preview, release bundle non-action boundary, and route readiness without FreeCAD runtime execution | No |
 | Python | `npm run test:py` | plain-Python and CLI-adjacent regression coverage that does not require a live FreeCAD launch | No |
 | Runtime smoke | `npm run test:runtime-smoke` | real `fcad` smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, and `report` using checked-in example configs | Yes |
 <!-- GENERATED:lane-table:end -->
