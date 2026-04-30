@@ -33,6 +33,12 @@ const CANONICAL_PACKAGES = Object.freeze([
     sourceConfig: 'configs/examples/controller_housing_eol.toml',
     directConfigCopy: false,
   },
+  {
+    slug: 'hinge-block',
+    stem: 'hinge_block',
+    sourceConfig: 'configs/examples/hinge_block.toml',
+    directConfigCopy: true,
+  },
 ]);
 
 const CANONICAL_ARTIFACTS = Object.freeze([
@@ -136,7 +142,6 @@ assert.match(
   /quality and drawing evidence is review evidence and closes `quality_evidence`, but it does not satisfy `inspection_evidence`/,
   'example library index should not imply quality or drawing evidence satisfies inspection evidence'
 );
-assert.match(exampleIndexText, /No fifth package is complete yet\./, 'example library index should not imply a fifth package is complete');
 
 for (const packageDef of CANONICAL_PACKAGES) {
   const packageRoot = resolve(ROOT, 'docs', 'examples', packageDef.slug);
@@ -192,7 +197,7 @@ for (const packageDef of CANONICAL_PACKAGES) {
   assert.equal(releaseManifest.readiness_report_ref.path, `docs/examples/${packageDef.slug}/readiness/readiness_report.json`);
   assert.equal(releaseManifest.docs_manifest_ref.path, `docs/examples/${packageDef.slug}/standard-docs/standard_docs_manifest.json`);
 
-  if (['quality-pass-bracket', 'plate-with-holes', 'motor-mount', 'controller-housing-eol'].includes(packageDef.slug)) {
+  if (['quality-pass-bracket', 'plate-with-holes', 'motor-mount', 'controller-housing-eol', 'hinge-block'].includes(packageDef.slug)) {
     const packageReadme = readFileSync(join(packageRoot, 'README.md'), 'utf8');
     const reviewPack = assertPortableJson(join(packageRoot, 'review', 'review_pack.json'));
     const packageEvidenceRecords = (reviewPack.evidence_ledger?.records || [])

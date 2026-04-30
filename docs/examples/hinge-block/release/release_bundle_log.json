@@ -1,0 +1,104 @@
+{
+  "generated_at": "2026-04-30T00:23:04.945Z",
+  "readiness_report_path": "docs/examples/hinge-block/readiness/readiness_report.json",
+  "docs_manifest_path": "docs/examples/hinge-block/standard-docs/standard_docs_manifest.json",
+  "bundle_output_path": "docs/examples/hinge-block/release/release_bundle.zip",
+  "included_artifacts": [
+    {
+      "artifact_type": "readiness_report",
+      "role": "primary",
+      "label": "Canonical readiness report JSON",
+      "path": "canonical/readiness_report.json",
+      "source_path": "docs/examples/hinge-block/readiness/readiness_report.json",
+      "sha256": "9702f851fac76ba2b961e058cec750e349a98c3a3c4501496572967228f6f7e2",
+      "size_bytes": 59708
+    },
+    {
+      "artifact_type": "readiness_markdown",
+      "role": "derived",
+      "label": "Readiness report Markdown",
+      "path": "canonical/readiness_report.md",
+      "source_path": "docs/examples/hinge-block/readiness/readiness_report.md",
+      "sha256": "acf8d6dcade90caf16f14cf378fd844899505fbb65ae0c9e6acd94cc2ec01423",
+      "size_bytes": 3703
+    },
+    {
+      "artifact_type": "cad_model",
+      "role": "input",
+      "label": "Geometry source",
+      "path": "references/hinge_block.step",
+      "source_path": "docs/examples/hinge-block/cad/hinge_block.step",
+      "sha256": "eb2fdf740c4a8f991d7aa74a8f5a581267fb0fd955e1c325cdf87f82ce0d6823",
+      "size_bytes": 22922
+    },
+    {
+      "artifact_type": "review_pack",
+      "role": "input",
+      "label": "Canonical review-pack JSON",
+      "path": "canonical/review_pack.json",
+      "source_path": "docs/examples/hinge-block/review/review_pack.json",
+      "sha256": "58b230e6aabe31e2d5a2d7995ece3bb2f36be7e159c90bef389ae62b3749b7af",
+      "size_bytes": 25431
+    },
+    {
+      "artifact_type": "docs_manifest",
+      "role": "input",
+      "label": "Standard docs manifest JSON",
+      "path": "docs/standard_docs_manifest.json",
+      "source_path": "docs/examples/hinge-block/standard-docs/standard_docs_manifest.json",
+      "sha256": "9ddf23115432b5a9af0812adcee2272559d2d7208d4148c722244afb786ca074",
+      "size_bytes": 6917
+    },
+    {
+      "artifact_type": "docs_document",
+      "role": "derived",
+      "label": "process_flow.md",
+      "path": "docs/process_flow.md",
+      "source_path": "docs/examples/hinge-block/standard-docs/process_flow.md",
+      "sha256": "0afd1f03248b4f196beb1c3939df02e03967354b6fb616c1f31a7dc74420b1ba",
+      "size_bytes": 509
+    },
+    {
+      "artifact_type": "docs_document",
+      "role": "derived",
+      "label": "control_plan_draft.csv",
+      "path": "docs/control_plan_draft.csv",
+      "source_path": "docs/examples/hinge-block/standard-docs/control_plan_draft.csv",
+      "sha256": "399ec793f4b62b635f30ecdf59e1b97e03f0eb862b2bfd48ff2362c554aabc64",
+      "size_bytes": 99
+    },
+    {
+      "artifact_type": "docs_document",
+      "role": "derived",
+      "label": "inspection_checksheet_draft.csv",
+      "path": "docs/inspection_checksheet_draft.csv",
+      "source_path": "docs/examples/hinge-block/standard-docs/inspection_checksheet_draft.csv",
+      "sha256": "4595fdd1b54a345237d4716fecec90495ec7a0cb7a0e7593147875557ed0d391",
+      "size_bytes": 70
+    },
+    {
+      "artifact_type": "docs_document",
+      "role": "derived",
+      "label": "work_instruction_draft.md",
+      "path": "docs/work_instruction_draft.md",
+      "source_path": "docs/examples/hinge-block/standard-docs/work_instruction_draft.md",
+      "sha256": "93fb8b17f8c3cec9f4285ae85ab79ef7c5e8c4f9968ef401f045f6f1caba1492",
+      "size_bytes": 774
+    },
+    {
+      "artifact_type": "docs_document",
+      "role": "derived",
+      "label": "pfmea_seed.csv",
+      "path": "docs/pfmea_seed.csv",
+      "source_path": "docs/examples/hinge-block/standard-docs/pfmea_seed.csv",
+      "sha256": "7dcfe9be3ddd99bcfda73fb4d38ca43fe8847bf60bb1e00b271ecdb10ca0db43",
+      "size_bytes": 379
+    }
+  ],
+  "skipped_artifacts": [],
+  "warnings": [
+    "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/hinge-block/cad/hinge_block.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
+    "Package quality/drawing side inputs are review evidence, but they do not satisfy inspection_evidence without a genuine inspection input.",
+    "Missing or limited inspection evidence; review-pack remains usable with partial evidence."
+  ]
+}

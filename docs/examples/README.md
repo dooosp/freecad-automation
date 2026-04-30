@@ -8,6 +8,7 @@ The current canonical packages are:
 - [`plate-with-holes`](./plate-with-holes/README.md)
 - [`motor-mount`](./motor-mount/README.md)
 - [`controller-housing-eol`](./controller-housing-eol/README.md)
+- [`hinge-block`](./hinge-block/README.md)
 
 For the browser review path, use the [Studio first-user walkthrough](../studio-first-user-walkthrough.md). For DFM and readiness boundaries, use the [DFM and readiness guide](../dfm-readiness-guide.md).
 
@@ -43,7 +44,7 @@ For any canonical package, start with these checked-in package artifacts:
 
 Studio supports read-only canonical package cards and allowlisted artifact preview through the local API. Checked-in canonical package artifacts are discoverable there; tracked job/artifact reopen remains separate, and the route is not arbitrary local package import.
 
-Release bundle presence does not mean production-ready. All four packages remain `needs_more_evidence` until real `inspection_evidence` is attached and the canonical review/readiness/release chain is deliberately regenerated.
+Release bundle presence does not mean production-ready. All five packages remain `needs_more_evidence` until real `inspection_evidence` is attached and the canonical review/readiness/release chain is deliberately regenerated.
 
 ## Canonical AF5 Flow
 
@@ -72,11 +73,10 @@ review-context
 | [`plate-with-holes`](./plate-with-holes/README.md) | `configs/examples/pcb_mount_plate.toml` | Hole pattern, connector slot, standoff/plate package with curated drawing intent | `needs_more_evidence`, score 61 | Yes | Yes | Curated drawing intent makes the plate package useful for hole-pattern and manufacturing-note review. |
 | [`motor-mount`](./motor-mount/README.md) | `configs/generated/cnc_motor_mount_bracket.toml` | Generated-config promotion into a curated single-part motor mount package | `needs_more_evidence`, score 55 | Yes | Yes | The related assembly config is intentionally deferred and is not part of this package. |
 | [`controller-housing-eol`](./controller-housing-eol/README.md) | `configs/examples/controller_housing_eol.toml` | Enclosure and EOL package for controller housing assembly, traceability, torque, barcode pairing, gasket confirmation, and functional-test release | `needs_more_evidence`, score 52 | Yes | Yes | Default standard docs are regenerated canonical evidence; Korea and Mexico standard-doc directories remain legacy site examples. |
+| [`hinge-block`](./hinge-block/README.md) | `configs/examples/hinge_block.toml` | Small machined hinge support package with bounded ears, hinge-pin clearance holes, and base mounting holes | `needs_more_evidence`, score 52 | Yes | Yes | Single-part mechanism-like example; no assembly motion, load rating, or production-readiness claim is made. |
 
-`needs_more_evidence` is not a package failure. In the current readiness reports, all four packages are held at `hold_for_evidence_completion` because `inspection_evidence` remains missing. The linked quality and drawing evidence is review evidence and closes `quality_evidence`, but it does not satisfy `inspection_evidence`; only genuine completed inspection evidence JSON attached through the canonical flow should change that. Do not rephrase these packages as passed readiness until that evidence is supplied and the readiness artifacts are regenerated through the canonical flow.
+`needs_more_evidence` is not a package failure. In the current readiness reports, all five packages are held at `hold_for_evidence_completion` because `inspection_evidence` remains missing. The linked quality and drawing evidence is review evidence and closes `quality_evidence`, but it does not satisfy `inspection_evidence`; only genuine completed inspection evidence JSON attached through the canonical flow should change that. Do not rephrase these packages as passed readiness until that evidence is supplied and the readiness artifacts are regenerated through the canonical flow.
 
 ## Next Candidates
 
-`controller_housing.toml` remains a broader enclosure candidate for a later package or comparison pass. New simple geometry examples such as `spacer` or `hinge-block` are also possible later.
-
-No fifth package is complete yet.
+`controller_housing.toml` remains a broader enclosure candidate for a later package or comparison pass. New simple geometry examples such as `spacer` remain possible later, but spacer is not approved or packaged in this stage.

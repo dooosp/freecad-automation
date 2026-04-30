@@ -40,6 +40,7 @@ Do not fabricate measured values. Do not infer measured values from CAD nominal 
 | `plate-with-holes` | `needs_more_evidence` | 61 | `hold_for_evidence_completion` | `inspection_evidence` | No checked-in package DFM report is used as review-pack side input; readiness/review signals include manufacturability review topics. | Software/package closeout can proceed; production readiness remains held for genuine inspection evidence. |
 | `motor-mount` | `needs_more_evidence` | 55 | `hold_for_evidence_completion` | `inspection_evidence` | DFM remains warning-only in the package README; no checked-in package DFM report is used as review-pack side input. | Software/package closeout can proceed; production readiness remains held for genuine inspection evidence. |
 | `controller-housing-eol` | `needs_more_evidence` | 52 | `hold_for_evidence_completion` | `inspection_evidence` | DFM remains warning-only in the package README; no checked-in package DFM report is used as review-pack side input. | Software/package closeout can proceed; production readiness remains held for genuine inspection evidence. |
+| `hinge-block` | `needs_more_evidence` | 52 | `hold_for_evidence_completion` | `inspection_evidence` | No checked-in package DFM report is used as review-pack side input; readiness/review signals include hinge-pin and mounting-hole manufacturability review topics. | Software/package closeout can proceed; production readiness remains held for genuine inspection evidence. |
 
 ## What is allowed during non-inspection closeout
 

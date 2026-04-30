@@ -1,0 +1,2280 @@
+{
+  "schema_version": "0.1",
+  "command": "draw",
+  "input_config": "configs/examples/hinge_block.toml",
+  "drawing_svg": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+  "plan_file": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+  "qa_file": "docs/examples/hinge-block/quality/hinge_block_drawing_qa.json",
+  "qa_issues_file": "docs/examples/hinge-block/quality/hinge_block_drawing_qa.json",
+  "traceability_file": "docs/examples/hinge-block/drawing/hinge_block_extracted_drawing_semantics.json",
+  "layout_report_file": "docs/examples/hinge-block/drawing/hinge_block_extracted_drawing_semantics.json",
+  "planner_file": "docs/examples/hinge-block/drawing/hinge_block_drawing_intent.json",
+  "dimension_map_file": "docs/examples/hinge-block/drawing/hinge_block_extracted_drawing_semantics.json",
+  "dim_conflicts_file": "docs/examples/hinge-block/drawing/hinge_block_extracted_drawing_semantics.json",
+  "extracted_drawing_semantics_file": "docs/examples/hinge-block/drawing/hinge_block_extracted_drawing_semantics.json",
+  "bom_file": null,
+  "score": 84,
+  "status": "pass",
+  "views": {
+    "required_count": 4,
+    "generated_count": 4,
+    "missing_views": [],
+    "overlap_count": 0
+  },
+  "dimensions": {
+    "required_count": 2,
+    "mapped_count": 2,
+    "coverage_percent": 100,
+    "missing_required_intents": [],
+    "conflict_count": 0,
+    "duplicate_count": 0
+  },
+  "bom": {
+    "expected_items": 0,
+    "actual_items": 0,
+    "missing_material_count": 0,
+    "balloon_mismatches": 0
+  },
+  "traceability": {
+    "coverage_percent": 100,
+    "unmapped_required_entities": []
+  },
+  "semantic_quality": {
+    "decision": "advisory",
+    "advisory_decision": "needs_attention",
+    "enforceable": false,
+    "score": 80,
+    "score_basis": {
+      "critical_feature_coverage_percent": 50,
+      "required_dimension_coverage_percent": 100,
+      "required_note_coverage_percent": 50,
+      "required_view_coverage_percent": 100,
+      "dimension_traceability_percent": 100
+    },
+    "critical_features_total": 4,
+    "critical_features_covered": 2,
+    "missing_critical_features": [
+      "BASE_BLOCK",
+      "HINGE_EARS"
+    ],
+    "required_dimensions_total": 2,
+    "required_dimensions_present": 2,
+    "missing_required_dimensions": [],
+    "required_notes_total": 2,
+    "required_notes_present": 1,
+    "required_notes_missing": [
+      "Generated quality and drawing artifacts are not inspection evidence."
+    ],
+    "required_views_total": 4,
+    "required_views_present": 4,
+    "required_views_missing": [],
+    "traceability": {
+      "required_dimensions_total": 2,
+      "linked_required_dimensions": 2,
+      "missing_required_dimensions": [],
+      "unknown_required_dimensions": [],
+      "rows": [
+        {
+          "dimension_id": "HINGE_PIN_DIA",
+          "feature_id": "hinge_pin_left",
+          "status": "linked",
+          "evidence": {
+            "dimension_id": "HINGE_PIN_DIA",
+            "feature_id": "hinge_pin_left",
+            "source": "traceability"
+          }
+        },
+        {
+          "dimension_id": "MOUNTING_HOLE_DIA",
+          "feature_id": "mount_hole_left",
+          "status": "linked",
+          "evidence": {
+            "dimension_id": "MOUNTING_HOLE_DIA",
+            "feature_id": "mount_hole_left",
+            "source": "traceability"
+          }
+        }
+      ]
+    },
+    "missing_critical_information": [
+      "Critical feature is not evidenced on the drawing: BASE_BLOCK.",
+      "Critical feature is not evidenced on the drawing: HINGE_EARS.",
+      "Required note is not evidenced on the drawing: Generated quality and drawing artifacts are not inspection evidence.."
+    ],
+    "required_blockers": [
+      "Required note evidence is unknown: Generated quality and drawing artifacts are not inspection evidence. (EVIDENCE_BOUNDARY)."
+    ],
+    "optional_missing_information": [],
+    "suggested_actions": [
+      "Add drawing evidence for critical feature(s): BASE_BLOCK, HINGE_EARS.",
+      "Add or label the required note EVIDENCE_BOUNDARY if it should appear in the drawing. Verify the required note text \"Generated quality and drawing artifacts are not inspection evidence.\" is present and readable. Confirm extraction can still match the note to Generated quality and drawing artifacts are not inspection evidence..",
+      "Improve intent aliases or drawing labels for unmatched extracted dimensions. Review whether the unmatched dimensions should map to an existing required intent. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+      "Improve intent aliases or drawing labels for unmatched extracted notes. Review whether the unmatched notes should satisfy an existing required note. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably."
+    ],
+    "suggested_action_details": [
+      {
+        "id": "note:evidenceboundary:unknown",
+        "severity": "review",
+        "category": "note",
+        "target_requirement_id": "EVIDENCE_BOUNDARY",
+        "target_feature_id": null,
+        "classification": "unknown",
+        "title": "Add or label the required note EVIDENCE_BOUNDARY if it should appear in the drawing.",
+        "message": "Extracted drawing semantics explicitly marked this required note as uncertain.",
+        "recommended_fix": "Verify the required note text \"Generated quality and drawing artifacts are not inspection evidence.\" is present and readable. Confirm extraction can still match the note to Generated quality and drawing artifacts are not inspection evidence..",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "required_notes.EVIDENCE_BOUNDARY.classification",
+            "value": "unknown"
+          }
+        ]
+      },
+      {
+        "id": "mapping:unmatched-dimensions:unmatched",
+        "severity": "info",
+        "category": "mapping",
+        "target_requirement_id": "unmatched_dimensions",
+        "target_feature_id": null,
+        "classification": "unmatched",
+        "title": "Improve intent aliases or drawing labels for unmatched extracted dimensions.",
+        "message": "Some extracted dimensions did not match any required drawing intent.",
+        "recommended_fix": "Review whether the unmatched dimensions should map to an existing required intent. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "unmatched_dimensions.count",
+            "value": "20"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "unmatched_dimensions.samples",
+            "value": "[\"90\",\"38\",\"21\",\"48\",\"21\"]"
+          }
+        ]
+      },
+      {
+        "id": "mapping:unmatched-notes:unmatched",
+        "severity": "info",
+        "category": "mapping",
+        "target_requirement_id": "unmatched_notes",
+        "target_feature_id": null,
+        "classification": "unmatched",
+        "title": "Improve intent aliases or drawing labels for unmatched extracted notes.",
+        "message": "Some extracted notes did not match any required drawing intent.",
+        "recommended_fix": "Review whether the unmatched notes should satisfy an existing required note. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "unmatched_notes.count",
+            "value": "30"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "unmatched_notes.samples",
+            "value": "[\"A\",\"B\",\"B\",\"C\",\"A\"]"
+          }
+        ]
+      }
+    ],
+    "extracted_evidence": {
+      "status": "partial",
+      "advisory_only": true,
+      "file": "docs/examples/hinge-block/drawing/hinge_block_extracted_drawing_semantics.json",
+      "path": "docs/examples/hinge-block/drawing/hinge_block_extracted_drawing_semantics.json",
+      "sources": [
+        {
+          "artifact_type": "svg",
+          "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+          "inspected": true,
+          "method": "svg_text_scan"
+        },
+        {
+          "artifact_type": "svg",
+          "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+          "inspected": true,
+          "method": "svg_title_block_material_pair"
+        },
+        {
+          "artifact_type": "svg",
+          "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+          "inspected": true,
+          "method": "svg_view_group_metadata"
+        },
+        {
+          "artifact_type": "layout_report",
+          "path": "docs/examples/hinge-block/drawing/hinge_block_extracted_drawing_semantics.json",
+          "inspected": true,
+          "method": "layout_report_views"
+        },
+        {
+          "artifact_type": "dimension_map",
+          "path": "docs/examples/hinge-block/drawing/hinge_block_extracted_drawing_semantics.json",
+          "inspected": true,
+          "method": "dimension_map_reference"
+        },
+        {
+          "artifact_type": "traceability",
+          "path": "docs/examples/hinge-block/drawing/hinge_block_extracted_drawing_semantics.json",
+          "inspected": true,
+          "method": "traceability_reference"
+        }
+      ],
+      "coverage": {
+        "required_dimensions": {
+          "total": 2,
+          "extracted": 2,
+          "missing": 0,
+          "unknown": 0,
+          "unsupported": 0,
+          "extracted_percent": 100
+        },
+        "required_notes": {
+          "total": 2,
+          "extracted": 1,
+          "missing": 0,
+          "unknown": 1,
+          "unsupported": 0,
+          "extracted_percent": 50
+        },
+        "required_views": {
+          "total": 4,
+          "extracted": 4,
+          "missing": 0,
+          "unknown": 0,
+          "unsupported": 0,
+          "extracted_percent": 100
+        },
+        "total_required": 8,
+        "total_extracted": 7,
+        "total_missing": 0,
+        "total_unknown": 1,
+        "total_unsupported": 0
+      },
+      "required_dimensions": [
+        {
+          "requirement_id": "HINGE_PIN_DIA",
+          "requirement_label": "Hinge pin hole diameter",
+          "classification": "extracted",
+          "matched_extracted_id": "svg_text_004",
+          "matched_raw_text": "⌀8",
+          "matched_feature_id": "hinge_pin_left,hinge_pin_right",
+          "source_artifact": "svg",
+          "confidence": 0.84,
+          "reason": "Reliable extracted dimension evidence matched this required dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_004"
+          },
+          "candidate_matches": []
+        },
+        {
+          "requirement_id": "MOUNTING_HOLE_DIA",
+          "requirement_label": "Base mounting hole diameter",
+          "classification": "extracted",
+          "matched_extracted_id": "svg_text_020",
+          "matched_raw_text": "⌀6",
+          "matched_feature_id": "mount_hole_left,mount_hole_right",
+          "source_artifact": "svg",
+          "confidence": 0.84,
+          "reason": "Reliable extracted dimension evidence matched this required dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_020"
+          },
+          "candidate_matches": []
+        }
+      ],
+      "required_notes": [
+        {
+          "requirement_id": "MATERIAL",
+          "requirement_label": "Material: AL6061 machined hinge block.",
+          "classification": "extracted",
+          "matched_extracted_id": "svg_text_039_svg_text_040_material_pair",
+          "matched_raw_text": "Material: AL6061",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.86,
+          "reason": "Reliable extracted note evidence matched this required drawing note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_title_block_material_pair",
+            "label_svg_text_id": "svg_text_039",
+            "value_svg_text_id": "svg_text_040"
+          },
+          "candidate_matches": []
+        },
+        {
+          "requirement_id": "EVIDENCE_BOUNDARY",
+          "requirement_label": "Generated quality and drawing artifacts are not inspection evidence.",
+          "classification": "unknown",
+          "matched_extracted_id": null,
+          "matched_raw_text": null,
+          "matched_feature_id": null,
+          "source_artifact": null,
+          "confidence": null,
+          "reason": "Extracted drawing semantics explicitly marked this required note as uncertain.",
+          "provenance": null,
+          "candidate_matches": []
+        }
+      ],
+      "required_views": [
+        {
+          "requirement_id": "front",
+          "requirement_label": "front",
+          "classification": "extracted",
+          "matched_extracted_id": "front",
+          "matched_raw_text": "FRONT",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.94,
+          "reason": "Reliable extracted view evidence matched this required view.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_view_group_metadata",
+            "svg_group_id": "drawing-view-front",
+            "svg_region_ref": "drawing-view-front"
+          },
+          "candidate_matches": [
+            {
+              "matched_extracted_id": "front",
+              "matched_raw_text": "FRONT",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.72,
+              "reason": "Matched extracted view stayed below the reliable confidence threshold.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+                "method": "svg_view_label_scan",
+                "svg_text_id": "svg_text_001"
+              }
+            }
+          ]
+        },
+        {
+          "requirement_id": "top",
+          "requirement_label": "top",
+          "classification": "extracted",
+          "matched_extracted_id": "top",
+          "matched_raw_text": "TOP",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.94,
+          "reason": "Reliable extracted view evidence matched this required view.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_view_group_metadata",
+            "svg_group_id": "drawing-view-top",
+            "svg_region_ref": "drawing-view-top"
+          },
+          "candidate_matches": [
+            {
+              "matched_extracted_id": "top",
+              "matched_raw_text": "TOP",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.72,
+              "reason": "Matched extracted view stayed below the reliable confidence threshold.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+                "method": "svg_view_label_scan",
+                "svg_text_id": "svg_text_017"
+              }
+            }
+          ]
+        },
+        {
+          "requirement_id": "right",
+          "requirement_label": "right",
+          "classification": "extracted",
+          "matched_extracted_id": "right",
+          "matched_raw_text": "RIGHT",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.94,
+          "reason": "Reliable extracted view evidence matched this required view.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_view_group_metadata",
+            "svg_group_id": "drawing-view-right",
+            "svg_region_ref": "drawing-view-right"
+          },
+          "candidate_matches": [
+            {
+              "matched_extracted_id": "right",
+              "matched_raw_text": "RIGHT",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.72,
+              "reason": "Matched extracted view stayed below the reliable confidence threshold.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+                "method": "svg_view_label_scan",
+                "svg_text_id": "svg_text_029"
+              }
+            }
+          ]
+        },
+        {
+          "requirement_id": "iso",
+          "requirement_label": "iso",
+          "classification": "extracted",
+          "matched_extracted_id": "iso",
+          "matched_raw_text": "ISOMETRIC",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.94,
+          "reason": "Reliable extracted view evidence matched this required view.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_view_group_metadata",
+            "svg_group_id": "drawing-view-iso",
+            "svg_region_ref": "drawing-view-iso"
+          },
+          "candidate_matches": [
+            {
+              "matched_extracted_id": "iso",
+              "matched_raw_text": "ISO",
+              "matched_feature_id": null,
+              "source_artifact": "svg",
+              "confidence": 0.72,
+              "reason": "Matched extracted view stayed below the reliable confidence threshold.",
+              "provenance": {
+                "artifact_type": "svg",
+                "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+                "method": "svg_view_label_scan",
+                "svg_text_id": "svg_text_034"
+              }
+            }
+          ]
+        }
+      ],
+      "unmatched_dimensions": [
+        {
+          "extracted_id": "svg_text_002",
+          "raw_text": "90",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_002"
+          }
+        },
+        {
+          "extracted_id": "svg_text_003",
+          "raw_text": "38",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_003"
+          }
+        },
+        {
+          "extracted_id": "svg_text_005",
+          "raw_text": "21",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_005"
+          }
+        },
+        {
+          "extracted_id": "svg_text_006",
+          "raw_text": "48",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_006"
+          }
+        },
+        {
+          "extracted_id": "svg_text_007",
+          "raw_text": "21",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_007"
+          }
+        },
+        {
+          "extracted_id": "svg_text_008",
+          "raw_text": "27",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_008"
+          }
+        },
+        {
+          "extracted_id": "svg_text_009",
+          "raw_text": "11",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_009"
+          }
+        },
+        {
+          "extracted_id": "svg_text_013",
+          "raw_text": "21",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_013"
+          }
+        },
+        {
+          "extracted_id": "svg_text_014",
+          "raw_text": "24",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_014"
+          }
+        },
+        {
+          "extracted_id": "svg_text_015",
+          "raw_text": "66",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_015"
+          }
+        },
+        {
+          "extracted_id": "svg_text_016",
+          "raw_text": "69",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_016"
+          }
+        },
+        {
+          "extracted_id": "svg_text_018",
+          "raw_text": "90",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_018"
+          }
+        },
+        {
+          "extracted_id": "svg_text_019",
+          "raw_text": "50",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_019"
+          }
+        },
+        {
+          "extracted_id": "svg_text_021",
+          "raw_text": "24",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_021"
+          }
+        },
+        {
+          "extracted_id": "svg_text_022",
+          "raw_text": "42",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_022"
+          }
+        },
+        {
+          "extracted_id": "svg_text_023",
+          "raw_text": "24",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_023"
+          }
+        },
+        {
+          "extracted_id": "svg_text_024",
+          "raw_text": "14",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_024"
+          }
+        },
+        {
+          "extracted_id": "svg_text_025",
+          "raw_text": "36",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_025"
+          }
+        },
+        {
+          "extracted_id": "svg_text_030",
+          "raw_text": "50",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_030"
+          }
+        },
+        {
+          "extracted_id": "svg_text_031",
+          "raw_text": "38",
+          "matched_feature_id": null,
+          "source_artifact": "svg",
+          "confidence": 0.62,
+          "reason": "Extracted dimension did not match a required drawing-intent dimension.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_dimension_text_scan",
+            "svg_text_id": "svg_text_031"
+          }
+        }
+      ],
+      "unmatched_notes": [
+        {
+          "extracted_id": "svg_text_011",
+          "raw_text": "A",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_011"
+          }
+        },
+        {
+          "extracted_id": "svg_text_012",
+          "raw_text": "B",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_012"
+          }
+        },
+        {
+          "extracted_id": "svg_text_027",
+          "raw_text": "B",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_027"
+          }
+        },
+        {
+          "extracted_id": "svg_text_028",
+          "raw_text": "C",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_028"
+          }
+        },
+        {
+          "extracted_id": "svg_text_032",
+          "raw_text": "A",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_032"
+          }
+        },
+        {
+          "extracted_id": "svg_text_033",
+          "raw_text": "C",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_033"
+          }
+        },
+        {
+          "extracted_id": "svg_text_035",
+          "raw_text": "PART NAME",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_035"
+          }
+        },
+        {
+          "extracted_id": "svg_text_036",
+          "raw_text": "Hinge Block",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_036"
+          }
+        },
+        {
+          "extracted_id": "svg_text_037",
+          "raw_text": "DRAWING NO.",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_037"
+          }
+        },
+        {
+          "extracted_id": "svg_text_038",
+          "raw_text": "HINGE-BLOCK-A",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_038"
+          }
+        },
+        {
+          "extracted_id": "svg_text_039",
+          "raw_text": "MATERIAL",
+          "category": "material",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_039"
+          }
+        },
+        {
+          "extracted_id": "svg_text_040",
+          "raw_text": "AL6061",
+          "category": "material",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_040"
+          }
+        },
+        {
+          "extracted_id": "svg_text_041",
+          "raw_text": "SCALE",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_041"
+          }
+        },
+        {
+          "extracted_id": "svg_text_043",
+          "raw_text": "TOLERANCE",
+          "category": "tolerance",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_043"
+          }
+        },
+        {
+          "extracted_id": "svg_text_044",
+          "raw_text": "Project default",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_044"
+          }
+        },
+        {
+          "extracted_id": "svg_text_045",
+          "raw_text": "DATE",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_045"
+          }
+        },
+        {
+          "extracted_id": "svg_text_047",
+          "raw_text": "DESIGNED BY",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_047"
+          }
+        },
+        {
+          "extracted_id": "svg_text_049",
+          "raw_text": "SIZE / SHEET",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_049"
+          }
+        },
+        {
+          "extracted_id": "svg_text_050",
+          "raw_text": "A3",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_050"
+          }
+        },
+        {
+          "extracted_id": "svg_text_051",
+          "raw_text": "BBox: 90 x 50 x 38 mm",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_051"
+          }
+        },
+        {
+          "extracted_id": "svg_text_052",
+          "raw_text": "Visible",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_052"
+          }
+        },
+        {
+          "extracted_id": "svg_text_053",
+          "raw_text": "Hidden",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_053"
+          }
+        },
+        {
+          "extracted_id": "svg_text_054",
+          "raw_text": "Center",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_054"
+          }
+        },
+        {
+          "extracted_id": "svg_text_055",
+          "raw_text": "Dimension",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_055"
+          }
+        },
+        {
+          "extracted_id": "svg_text_056",
+          "raw_text": "NOTES:",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_056"
+          }
+        },
+        {
+          "extracted_id": "svg_text_057",
+          "raw_text": "1. GENERAL TOLERANCES PER KS B 0401:2014 Project default",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_057"
+          }
+        },
+        {
+          "extracted_id": "svg_text_058",
+          "raw_text": "2. BREAK ALL SHARP EDGES 0.2~0.5",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_058"
+          }
+        },
+        {
+          "extracted_id": "svg_text_059",
+          "raw_text": "3. DEBURR ALL MACHINED EDGES",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_059"
+          }
+        },
+        {
+          "extracted_id": "svg_text_060",
+          "raw_text": "4. MATERIAL: AL6061",
+          "category": "material",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_060"
+          }
+        },
+        {
+          "extracted_id": "svg_text_061",
+          "raw_text": "5. ALL DIMENSIONS IN mm",
+          "category": "general",
+          "source_artifact": "svg",
+          "confidence": 0.68,
+          "reason": "Extracted note did not match a required drawing-intent note.",
+          "provenance": {
+            "artifact_type": "svg",
+            "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+            "method": "svg_note_text_scan",
+            "svg_text_id": "svg_text_061"
+          }
+        }
+      ],
+      "unknowns": [
+        "Required note not reliably extracted: EVIDENCE_BOUNDARY.",
+        "Required extracted evidence remains unknown: EVIDENCE_BOUNDARY."
+      ],
+      "limitations": [
+        "Advisory-only foundation; no OCR, no PDF raster parsing, and no screenshot analysis were used.",
+        "Vector geometry without reliable text labels is not promoted to semantic matches in this task.",
+        "Unsupported or missing extraction evidence remains unknown instead of being inferred as pass."
+      ],
+      "matched_required_dimensions": 2,
+      "matched_required_notes": 1,
+      "matched_required_views": 4,
+      "missing_required_items": [],
+      "suggested_action_details": [
+        {
+          "id": "note:evidenceboundary:unknown",
+          "severity": "review",
+          "category": "note",
+          "target_requirement_id": "EVIDENCE_BOUNDARY",
+          "target_feature_id": null,
+          "classification": "unknown",
+          "title": "Add or label the required note EVIDENCE_BOUNDARY if it should appear in the drawing.",
+          "message": "Extracted drawing semantics explicitly marked this required note as uncertain.",
+          "recommended_fix": "Verify the required note text \"Generated quality and drawing artifacts are not inspection evidence.\" is present and readable. Confirm extraction can still match the note to Generated quality and drawing artifacts are not inspection evidence..",
+          "evidence": [
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "status",
+              "value": "partial"
+            },
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "required_notes.EVIDENCE_BOUNDARY.classification",
+              "value": "unknown"
+            }
+          ]
+        },
+        {
+          "id": "mapping:unmatched-dimensions:unmatched",
+          "severity": "info",
+          "category": "mapping",
+          "target_requirement_id": "unmatched_dimensions",
+          "target_feature_id": null,
+          "classification": "unmatched",
+          "title": "Improve intent aliases or drawing labels for unmatched extracted dimensions.",
+          "message": "Some extracted dimensions did not match any required drawing intent.",
+          "recommended_fix": "Review whether the unmatched dimensions should map to an existing required intent. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+          "evidence": [
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "status",
+              "value": "partial"
+            },
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "unmatched_dimensions.count",
+              "value": "20"
+            },
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "unmatched_dimensions.samples",
+              "value": "[\"90\",\"38\",\"21\",\"48\",\"21\"]"
+            }
+          ]
+        },
+        {
+          "id": "mapping:unmatched-notes:unmatched",
+          "severity": "info",
+          "category": "mapping",
+          "target_requirement_id": "unmatched_notes",
+          "target_feature_id": null,
+          "classification": "unmatched",
+          "title": "Improve intent aliases or drawing labels for unmatched extracted notes.",
+          "message": "Some extracted notes did not match any required drawing intent.",
+          "recommended_fix": "Review whether the unmatched notes should satisfy an existing required note. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+          "evidence": [
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "status",
+              "value": "partial"
+            },
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "unmatched_notes.count",
+              "value": "30"
+            },
+            {
+              "source": "drawing_quality.semantic_quality.extracted_evidence",
+              "path": "unmatched_notes.samples",
+              "value": "[\"A\",\"B\",\"B\",\"C\",\"A\"]"
+            }
+          ]
+        }
+      ],
+      "suggested_actions": [
+        "Add or label the required note EVIDENCE_BOUNDARY if it should appear in the drawing. Verify the required note text \"Generated quality and drawing artifacts are not inspection evidence.\" is present and readable. Confirm extraction can still match the note to Generated quality and drawing artifacts are not inspection evidence..",
+        "Improve intent aliases or drawing labels for unmatched extracted dimensions. Review whether the unmatched dimensions should map to an existing required intent. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+        "Improve intent aliases or drawing labels for unmatched extracted notes. Review whether the unmatched notes should satisfy an existing required note. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably."
+      ]
+    }
+  },
+  "layout_readability": {
+    "status": "warning",
+    "score": 88,
+    "confidence": "high",
+    "advisory_only": true,
+    "evidence_state": "available",
+    "completeness_state": "complete",
+    "summary": "1 advisory layout/readability finding(s) confirmed from structured metadata.",
+    "finding_count": 1,
+    "warning_count": 1,
+    "info_count": 0,
+    "findings": [
+      {
+        "type": "text_overlap",
+        "severity": "warning",
+        "advisory_only": true,
+        "message": "Structured QA evidence shows overlapping drawing text.",
+        "recommendation": "Separate overlapping note or dimension text and reroute leaders if needed.",
+        "view_ids": [
+          "page"
+        ],
+        "element_ids": [],
+        "labels": [
+          "SIZE / SHEET",
+          "BBox: 90 x 50 x 38 mm"
+        ],
+        "bounding_boxes": [],
+        "raw_source": {
+          "artifact_type": "qa_report",
+          "path": "docs/examples/hinge-block/quality/hinge_block_drawing_qa.json",
+          "method": "qa_vector_text_overlap",
+          "pair_index": 0,
+          "iou": 0.593
+        },
+        "source_kind": "qa_metrics",
+        "source_artifact": "qa_report",
+        "source_ref": "details.text_overlaps.0",
+        "evidence_state": "available",
+        "completeness_state": "complete",
+        "provenance": {
+          "artifact_type": "qa_report",
+          "path": "docs/examples/hinge-block/quality/hinge_block_drawing_qa.json",
+          "method": "qa_vector_text_overlap",
+          "pair_index": 0,
+          "iou": 0.593,
+          "source_kind": "qa_metrics",
+          "source_ref": "details.text_overlaps.0"
+        }
+      }
+    ],
+    "recommended_actions": [
+      "Separate overlapping note or dimension text and reroute leaders if needed."
+    ],
+    "provenance": {
+      "sources": [
+        {
+          "artifact_type": "layout_report",
+          "path": "docs/examples/hinge-block/drawing/hinge_block_extracted_drawing_semantics.json",
+          "method": "layout_report_views",
+          "view_count": 4,
+          "evidence_state": "available",
+          "completeness_state": "complete",
+          "source_kind": "layout_report",
+          "source_artifact": "layout_report",
+          "source_ref": "docs/examples/hinge-block/drawing/hinge_block_extracted_drawing_semantics.json"
+        },
+        {
+          "artifact_type": "qa_report",
+          "path": "docs/examples/hinge-block/quality/hinge_block_drawing_qa.json",
+          "method": "qa_vector_metrics",
+          "metric_keys": [
+            "intent_metrics_applicable",
+            "iso_hidden_count",
+            "overflow_count",
+            "text_overlap_pairs",
+            "dim_overlap_pairs",
+            "notes_overflow",
+            "gdt_unanchored",
+            "dense_iso",
+            "stroke_violations",
+            "float_precision_count",
+            "dim_completeness",
+            "dim_redundancy",
+            "datum_coherence",
+            "view_coverage",
+            "note_convention",
+            "required_presence_rate",
+            "required_presence_miss",
+            "value_inconsistency",
+            "virtual_pcd_present",
+            "note_semantic_mismatch",
+            "dfm_error_count",
+            "dfm_warning_count",
+            "dfm_score"
+          ],
+          "detail_keys": [
+            "overflows",
+            "text_overlaps",
+            "required_presence_missing_ids"
+          ],
+          "evidence_state": "available",
+          "completeness_state": "complete",
+          "source_kind": "qa_metrics",
+          "source_artifact": "qa_report",
+          "source_ref": "docs/examples/hinge-block/quality/hinge_block_drawing_qa.json"
+        },
+        {
+          "artifact_type": "svg",
+          "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+          "method": "svg_view_group_metadata",
+          "view_ids": [
+            "front",
+            "top",
+            "right",
+            "iso"
+          ],
+          "evidence_state": "available",
+          "completeness_state": "complete",
+          "source_kind": "svg_view_metadata",
+          "source_artifact": "svg",
+          "source_ref": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg"
+        }
+      ],
+      "evaluated_view_ids": [
+        "front",
+        "top",
+        "right",
+        "iso",
+        "page"
+      ],
+      "source_completeness": {
+        "layout_report": {
+          "source_kind": "layout_report",
+          "source_artifact": "layout_report",
+          "source_ref": "layout_report_views",
+          "path": "docs/examples/hinge-block/drawing/hinge_block_extracted_drawing_semantics.json",
+          "method": "layout_report_views",
+          "evidence_state": "available",
+          "completeness_state": "complete",
+          "available": true,
+          "inspected": true,
+          "missing_reasons": [],
+          "evidence_keys": [
+            "views",
+            "summary",
+            "overflow"
+          ]
+        },
+        "qa_metrics": {
+          "source_kind": "qa_metrics",
+          "source_artifact": "qa_report",
+          "source_ref": "qa_vector_metrics",
+          "path": "docs/examples/hinge-block/quality/hinge_block_drawing_qa.json",
+          "method": "qa_vector_metrics",
+          "evidence_state": "available",
+          "completeness_state": "complete",
+          "available": true,
+          "inspected": true,
+          "missing_reasons": [],
+          "evidence_keys": [
+            "metrics.intent_metrics_applicable",
+            "metrics.iso_hidden_count",
+            "metrics.overflow_count",
+            "metrics.text_overlap_pairs",
+            "metrics.dim_overlap_pairs",
+            "metrics.notes_overflow",
+            "metrics.gdt_unanchored",
+            "metrics.dense_iso",
+            "metrics.stroke_violations",
+            "metrics.float_precision_count",
+            "metrics.dim_completeness",
+            "metrics.dim_redundancy",
+            "metrics.datum_coherence",
+            "metrics.view_coverage",
+            "metrics.note_convention",
+            "metrics.required_presence_rate",
+            "metrics.required_presence_miss",
+            "metrics.value_inconsistency",
+            "metrics.virtual_pcd_present",
+            "metrics.note_semantic_mismatch",
+            "metrics.dfm_error_count",
+            "metrics.dfm_warning_count",
+            "metrics.dfm_score",
+            "details.overflows",
+            "details.text_overlaps",
+            "details.required_presence_missing_ids"
+          ]
+        },
+        "svg_view_metadata": {
+          "source_kind": "svg_view_metadata",
+          "source_artifact": "svg",
+          "source_ref": "svg_view_group_metadata",
+          "path": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+          "method": "svg_view_group_metadata",
+          "evidence_state": "available",
+          "completeness_state": "complete",
+          "available": true,
+          "inspected": true,
+          "missing_reasons": [],
+          "evidence_keys": [
+            "views.front",
+            "views.top",
+            "views.right",
+            "views.iso"
+          ]
+        }
+      },
+      "metrics_available": {
+        "layout_views": true,
+        "overflow": true,
+        "text_overlap": true,
+        "dimension_overlap": true,
+        "notes_overflow": true,
+        "svg_view_metadata": true
+      }
+    }
+  },
+  "thresholds": {
+    "required_dimension_coverage_percent": 100,
+    "max_dimension_conflicts": 0,
+    "max_view_overlaps": 0,
+    "min_traceability_coverage_percent": 95
+  },
+  "blocking_issues": [],
+  "warnings": [],
+  "recommended_actions": [
+    "Separate overlapping note or dimension text and reroute leaders if needed.",
+    "Add a required linear dimension intent for overall length from a declared datum or edge.",
+    "Add a required linear dimension intent for overall width from a declared datum or edge.",
+    "Add a required thickness/height dimension intent on a front or side view.",
+    "Add a required diameter dimension intent for \"hinge_pin_left\".",
+    "Add a required diameter dimension intent for \"hinge_pin_right\".",
+    "Add a required diameter dimension intent for \"mount_hole_left\".",
+    "Add a required diameter dimension intent for \"mount_hole_right\".",
+    "Add required X/Y or ordinate location intent for \"hinge_pin_left\" from declared datums.",
+    "Add required X/Y or ordinate location intent for \"hinge_pin_right\" from declared datums.",
+    "Add required X/Y or ordinate location intent for \"mount_hole_left\" from declared datums.",
+    "Add required X/Y or ordinate location intent for \"mount_hole_right\" from declared datums.",
+    "Enable or verify center marks/centerlines for hole views.",
+    "Add or verify the material note in the title block or general notes.",
+    "Add a local detail view only if diameter/location callouts collide or become unreadable.",
+    "Add drawing evidence for critical feature(s): BASE_BLOCK, HINGE_EARS.",
+    "Add or label the required note EVIDENCE_BOUNDARY if it should appear in the drawing. Verify the required note text \"Generated quality and drawing artifacts are not inspection evidence.\" is present and readable. Confirm extraction can still match the note to Generated quality and drawing artifacts are not inspection evidence..",
+    "Improve intent aliases or drawing labels for unmatched extracted dimensions. Review whether the unmatched dimensions should map to an existing required intent. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+    "Improve intent aliases or drawing labels for unmatched extracted notes. Review whether the unmatched notes should satisfy an existing required note. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably."
+  ],
+  "suggested_actions": [
+    "Separate overlapping note or dimension text and reroute leaders if needed.",
+    "Add a required linear dimension intent for overall length from a declared datum or edge.",
+    "Add a required linear dimension intent for overall width from a declared datum or edge.",
+    "Add a required thickness/height dimension intent on a front or side view.",
+    "Add a required diameter dimension intent for \"hinge_pin_left\".",
+    "Add a required diameter dimension intent for \"hinge_pin_right\".",
+    "Add a required diameter dimension intent for \"mount_hole_left\".",
+    "Add a required diameter dimension intent for \"mount_hole_right\".",
+    "Add required X/Y or ordinate location intent for \"hinge_pin_left\" from declared datums.",
+    "Add required X/Y or ordinate location intent for \"hinge_pin_right\" from declared datums.",
+    "Add required X/Y or ordinate location intent for \"mount_hole_left\" from declared datums.",
+    "Add required X/Y or ordinate location intent for \"mount_hole_right\" from declared datums.",
+    "Enable or verify center marks/centerlines for hole views.",
+    "Add or verify the material note in the title block or general notes.",
+    "Add a local detail view only if diameter/location callouts collide or become unreadable.",
+    "Add drawing evidence for critical feature(s): BASE_BLOCK, HINGE_EARS.",
+    "Add or label the required note EVIDENCE_BOUNDARY if it should appear in the drawing. Verify the required note text \"Generated quality and drawing artifacts are not inspection evidence.\" is present and readable. Confirm extraction can still match the note to Generated quality and drawing artifacts are not inspection evidence..",
+    "Improve intent aliases or drawing labels for unmatched extracted dimensions. Review whether the unmatched dimensions should map to an existing required intent. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+    "Improve intent aliases or drawing labels for unmatched extracted notes. Review whether the unmatched notes should satisfy an existing required note. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably."
+  ],
+  "drawing_planner": {
+    "schema_version": "0.1",
+    "planner_type": "drawing_view_dimension_advisory",
+    "status": "advisory",
+    "generated_from": {
+      "drawing_intent": true,
+      "feature_catalog": true,
+      "artifact_refs": {
+        "input_config": "configs/examples/hinge_block.toml",
+        "drawing_svg": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+        "plan": "docs/examples/hinge-block/drawing/hinge_block_drawing.svg",
+        "traceability": "docs/examples/hinge-block/drawing/hinge_block_extracted_drawing_semantics.json",
+        "dimension_map": "docs/examples/hinge-block/drawing/hinge_block_extracted_drawing_semantics.json",
+        "dim_conflicts": "docs/examples/hinge-block/drawing/hinge_block_extracted_drawing_semantics.json"
+      }
+    },
+    "recommended_views": [
+      {
+        "id": "view:top",
+        "type": "required_view",
+        "view": "top",
+        "status": "already_requested",
+        "message": "Recommend top view.",
+        "reason": "Top view is the clearest evidence-backed view for plate footprint and hole locations.",
+        "evidence_refs": [
+          "config:shape:base_block",
+          "config:shape:hinge_pin_left",
+          "traceability:feature:hinge_pin_left",
+          "config:shape:hinge_pin_right",
+          "traceability:feature:hinge_pin_right",
+          "config:shape:mount_hole_left",
+          "traceability:feature:mount_hole_left",
+          "config:shape:mount_hole_right",
+          "traceability:feature:mount_hole_right"
+        ],
+        "confidence": {
+          "score": 0.86,
+          "level": "high",
+          "rationale": "Conservative view rule matched reliable geometry evidence."
+        }
+      },
+      {
+        "id": "view:front",
+        "type": "required_view",
+        "view": "front",
+        "status": "already_requested",
+        "message": "Recommend front view.",
+        "reason": "Front view supports body thickness/height communication without relying on an isometric view.",
+        "evidence_refs": [
+          "config:shape:base_block"
+        ],
+        "confidence": {
+          "score": 0.74,
+          "level": "medium",
+          "rationale": "Conservative view rule matched reliable geometry evidence."
+        }
+      },
+      {
+        "id": "view:right",
+        "type": "required_view",
+        "view": "right",
+        "status": "already_requested",
+        "message": "Recommend right view.",
+        "reason": "A fused/bracket-like body benefits from a side view to avoid hiding the web or depth relationship.",
+        "evidence_refs": [
+          "config:operation:fuse",
+          "config:operation:cut"
+        ],
+        "confidence": {
+          "score": 0.68,
+          "level": "medium",
+          "rationale": "Conservative view rule matched reliable geometry evidence."
+        }
+      }
+    ],
+    "required_dimensions_by_feature": [
+      {
+        "id": "base_block:overall_length",
+        "type": "required_dimension",
+        "feature_type": "body",
+        "feature_id": "base_block",
+        "view": "top",
+        "dimension_type": "overall_length",
+        "status": "missing_intent",
+        "message": "Dimension overall length for base_block.",
+        "reason": "Body/plate footprint should be bounded by an overall length dimension.",
+        "evidence_refs": [
+          "config:shape:base_block"
+        ],
+        "confidence": {
+          "score": 0.82,
+          "level": "high",
+          "rationale": "Box body dimensions are explicit in config or feature evidence."
+        },
+        "suggested_fix": "Add a required linear dimension intent for overall length from a declared datum or edge."
+      },
+      {
+        "id": "base_block:overall_width",
+        "type": "required_dimension",
+        "feature_type": "body",
+        "feature_id": "base_block",
+        "view": "top",
+        "dimension_type": "overall_width",
+        "status": "missing_intent",
+        "message": "Dimension overall width for base_block.",
+        "reason": "Body/plate footprint should be bounded by an overall width dimension.",
+        "evidence_refs": [
+          "config:shape:base_block"
+        ],
+        "confidence": {
+          "score": 0.82,
+          "level": "high",
+          "rationale": "Box body dimensions are explicit in config or feature evidence."
+        },
+        "suggested_fix": "Add a required linear dimension intent for overall width from a declared datum or edge."
+      },
+      {
+        "id": "base_block:thickness",
+        "type": "required_dimension",
+        "feature_type": "body",
+        "feature_id": "base_block",
+        "view": "front",
+        "dimension_type": "thickness",
+        "status": "missing_intent",
+        "message": "Dimension thickness for base_block.",
+        "reason": "A plate/body thickness is required to manufacture the body from orthographic views.",
+        "evidence_refs": [
+          "config:shape:base_block"
+        ],
+        "confidence": {
+          "score": 0.78,
+          "level": "medium",
+          "rationale": "Box height/thickness evidence is available."
+        },
+        "suggested_fix": "Add a required thickness/height dimension intent on a front or side view."
+      },
+      {
+        "id": "hinge_pin_left:diameter",
+        "type": "required_dimension",
+        "feature_type": "hole",
+        "feature_id": "hinge_pin_left",
+        "view": "top",
+        "dimension_type": "diameter",
+        "status": "missing_intent",
+        "message": "Dimension diameter for hinge_pin_left.",
+        "reason": "Through-hole evidence supports a required diameter callout.",
+        "evidence_refs": [
+          "config:shape:hinge_pin_left",
+          "traceability:feature:hinge_pin_left"
+        ],
+        "confidence": {
+          "score": 0.9,
+          "level": "high",
+          "rationale": "Cylinder cut provides reliable diameter evidence."
+        },
+        "suggested_fix": "Add a required diameter dimension intent for \"hinge_pin_left\"."
+      },
+      {
+        "id": "hinge_pin_right:diameter",
+        "type": "required_dimension",
+        "feature_type": "hole",
+        "feature_id": "hinge_pin_right",
+        "view": "top",
+        "dimension_type": "diameter",
+        "status": "missing_intent",
+        "message": "Dimension diameter for hinge_pin_right.",
+        "reason": "Through-hole evidence supports a required diameter callout.",
+        "evidence_refs": [
+          "config:shape:hinge_pin_right",
+          "traceability:feature:hinge_pin_right"
+        ],
+        "confidence": {
+          "score": 0.9,
+          "level": "high",
+          "rationale": "Cylinder cut provides reliable diameter evidence."
+        },
+        "suggested_fix": "Add a required diameter dimension intent for \"hinge_pin_right\"."
+      },
+      {
+        "id": "mount_hole_left:diameter",
+        "type": "required_dimension",
+        "feature_type": "hole",
+        "feature_id": "mount_hole_left",
+        "view": "top",
+        "dimension_type": "diameter",
+        "status": "missing_intent",
+        "message": "Dimension diameter for mount_hole_left.",
+        "reason": "Through-hole evidence supports a required diameter callout.",
+        "evidence_refs": [
+          "config:shape:mount_hole_left",
+          "traceability:feature:mount_hole_left"
+        ],
+        "confidence": {
+          "score": 0.9,
+          "level": "high",
+          "rationale": "Cylinder cut provides reliable diameter evidence."
+        },
+        "suggested_fix": "Add a required diameter dimension intent for \"mount_hole_left\"."
+      },
+      {
+        "id": "mount_hole_right:diameter",
+        "type": "required_dimension",
+        "feature_type": "hole",
+        "feature_id": "mount_hole_right",
+        "view": "top",
+        "dimension_type": "diameter",
+        "status": "missing_intent",
+        "message": "Dimension diameter for mount_hole_right.",
+        "reason": "Through-hole evidence supports a required diameter callout.",
+        "evidence_refs": [
+          "config:shape:mount_hole_right",
+          "traceability:feature:mount_hole_right"
+        ],
+        "confidence": {
+          "score": 0.9,
+          "level": "high",
+          "rationale": "Cylinder cut provides reliable diameter evidence."
+        },
+        "suggested_fix": "Add a required diameter dimension intent for \"mount_hole_right\"."
+      },
+      {
+        "id": "hinge_pin_left:center_location",
+        "type": "required_dimension",
+        "feature_type": "hole",
+        "feature_id": "hinge_pin_left",
+        "view": "top",
+        "dimension_type": "center_location",
+        "status": "missing_intent",
+        "message": "Locate center of hinge_pin_left.",
+        "reason": "A standalone through hole needs a center-location dimension from a datum or edge.",
+        "evidence_refs": [
+          "config:shape:hinge_pin_left",
+          "traceability:feature:hinge_pin_left"
+        ],
+        "confidence": {
+          "score": 0.8,
+          "level": "high",
+          "rationale": "Hole position is available."
+        },
+        "suggested_fix": "Add required X/Y or ordinate location intent for \"hinge_pin_left\" from declared datums."
+      },
+      {
+        "id": "hinge_pin_right:center_location",
+        "type": "required_dimension",
+        "feature_type": "hole",
+        "feature_id": "hinge_pin_right",
+        "view": "top",
+        "dimension_type": "center_location",
+        "status": "missing_intent",
+        "message": "Locate center of hinge_pin_right.",
+        "reason": "A standalone through hole needs a center-location dimension from a datum or edge.",
+        "evidence_refs": [
+          "config:shape:hinge_pin_right",
+          "traceability:feature:hinge_pin_right"
+        ],
+        "confidence": {
+          "score": 0.8,
+          "level": "high",
+          "rationale": "Hole position is available."
+        },
+        "suggested_fix": "Add required X/Y or ordinate location intent for \"hinge_pin_right\" from declared datums."
+      },
+      {
+        "id": "mount_hole_left:center_location",
+        "type": "required_dimension",
+        "feature_type": "hole",
+        "feature_id": "mount_hole_left",
+        "view": "top",
+        "dimension_type": "center_location",
+        "status": "missing_intent",
+        "message": "Locate center of mount_hole_left.",
+        "reason": "A standalone through hole needs a center-location dimension from a datum or edge.",
+        "evidence_refs": [
+          "config:shape:mount_hole_left",
+          "traceability:feature:mount_hole_left"
+        ],
+        "confidence": {
+          "score": 0.8,
+          "level": "high",
+          "rationale": "Hole position is available."
+        },
+        "suggested_fix": "Add required X/Y or ordinate location intent for \"mount_hole_left\" from declared datums."
+      },
+      {
+        "id": "mount_hole_right:center_location",
+        "type": "required_dimension",
+        "feature_type": "hole",
+        "feature_id": "mount_hole_right",
+        "view": "top",
+        "dimension_type": "center_location",
+        "status": "missing_intent",
+        "message": "Locate center of mount_hole_right.",
+        "reason": "A standalone through hole needs a center-location dimension from a datum or edge.",
+        "evidence_refs": [
+          "config:shape:mount_hole_right",
+          "traceability:feature:mount_hole_right"
+        ],
+        "confidence": {
+          "score": 0.8,
+          "level": "high",
+          "rationale": "Hole position is available."
+        },
+        "suggested_fix": "Add required X/Y or ordinate location intent for \"mount_hole_right\" from declared datums."
+      }
+    ],
+    "missing_dimensions": [
+      {
+        "id": "base_block:overall_length:missing",
+        "dimension_id": "base_block:overall_length",
+        "feature_id": "base_block",
+        "feature_type": "body",
+        "dimension_type": "overall_length",
+        "explanation": "No explicit drawing intent or dimension-map entry was found for the body overall length.",
+        "suggested_fix": "Add a required linear dimension intent for overall length from a declared datum or edge.",
+        "evidence_refs": [
+          "config:shape:base_block"
+        ],
+        "confidence": {
+          "score": 0.82,
+          "level": "high",
+          "rationale": "Box body dimensions are explicit in config or feature evidence."
+        }
+      },
+      {
+        "id": "base_block:overall_width:missing",
+        "dimension_id": "base_block:overall_width",
+        "feature_id": "base_block",
+        "feature_type": "body",
+        "dimension_type": "overall_width",
+        "explanation": "No explicit drawing intent or dimension-map entry was found for the body overall width.",
+        "suggested_fix": "Add a required linear dimension intent for overall width from a declared datum or edge.",
+        "evidence_refs": [
+          "config:shape:base_block"
+        ],
+        "confidence": {
+          "score": 0.82,
+          "level": "high",
+          "rationale": "Box body dimensions are explicit in config or feature evidence."
+        }
+      },
+      {
+        "id": "base_block:thickness:missing",
+        "dimension_id": "base_block:thickness",
+        "feature_id": "base_block",
+        "feature_type": "body",
+        "dimension_type": "thickness",
+        "explanation": "No explicit drawing intent or dimension-map entry was found for body thickness.",
+        "suggested_fix": "Add a required thickness/height dimension intent on a front or side view.",
+        "evidence_refs": [
+          "config:shape:base_block"
+        ],
+        "confidence": {
+          "score": 0.78,
+          "level": "medium",
+          "rationale": "Box height/thickness evidence is available."
+        }
+      },
+      {
+        "id": "hinge_pin_left:diameter:missing",
+        "dimension_id": "hinge_pin_left:diameter",
+        "feature_id": "hinge_pin_left",
+        "feature_type": "hole",
+        "dimension_type": "diameter",
+        "explanation": "No explicit diameter intent or mapped dimension was found for hole \"hinge_pin_left\".",
+        "suggested_fix": "Add a required diameter dimension intent for \"hinge_pin_left\".",
+        "evidence_refs": [
+          "config:shape:hinge_pin_left",
+          "traceability:feature:hinge_pin_left"
+        ],
+        "confidence": {
+          "score": 0.9,
+          "level": "high",
+          "rationale": "Cylinder cut provides reliable diameter evidence."
+        }
+      },
+      {
+        "id": "hinge_pin_right:diameter:missing",
+        "dimension_id": "hinge_pin_right:diameter",
+        "feature_id": "hinge_pin_right",
+        "feature_type": "hole",
+        "dimension_type": "diameter",
+        "explanation": "No explicit diameter intent or mapped dimension was found for hole \"hinge_pin_right\".",
+        "suggested_fix": "Add a required diameter dimension intent for \"hinge_pin_right\".",
+        "evidence_refs": [
+          "config:shape:hinge_pin_right",
+          "traceability:feature:hinge_pin_right"
+        ],
+        "confidence": {
+          "score": 0.9,
+          "level": "high",
+          "rationale": "Cylinder cut provides reliable diameter evidence."
+        }
+      },
+      {
+        "id": "mount_hole_left:diameter:missing",
+        "dimension_id": "mount_hole_left:diameter",
+        "feature_id": "mount_hole_left",
+        "feature_type": "hole",
+        "dimension_type": "diameter",
+        "explanation": "No explicit diameter intent or mapped dimension was found for hole \"mount_hole_left\".",
+        "suggested_fix": "Add a required diameter dimension intent for \"mount_hole_left\".",
+        "evidence_refs": [
+          "config:shape:mount_hole_left",
+          "traceability:feature:mount_hole_left"
+        ],
+        "confidence": {
+          "score": 0.9,
+          "level": "high",
+          "rationale": "Cylinder cut provides reliable diameter evidence."
+        }
+      },
+      {
+        "id": "mount_hole_right:diameter:missing",
+        "dimension_id": "mount_hole_right:diameter",
+        "feature_id": "mount_hole_right",
+        "feature_type": "hole",
+        "dimension_type": "diameter",
+        "explanation": "No explicit diameter intent or mapped dimension was found for hole \"mount_hole_right\".",
+        "suggested_fix": "Add a required diameter dimension intent for \"mount_hole_right\".",
+        "evidence_refs": [
+          "config:shape:mount_hole_right",
+          "traceability:feature:mount_hole_right"
+        ],
+        "confidence": {
+          "score": 0.9,
+          "level": "high",
+          "rationale": "Cylinder cut provides reliable diameter evidence."
+        }
+      },
+      {
+        "id": "hinge_pin_left:center_location:missing",
+        "dimension_id": "hinge_pin_left:center_location",
+        "feature_id": "hinge_pin_left",
+        "feature_type": "hole",
+        "dimension_type": "center_location",
+        "explanation": "No explicit center-location intent was found for standalone hole \"hinge_pin_left\".",
+        "suggested_fix": "Add required X/Y or ordinate location intent for \"hinge_pin_left\" from declared datums.",
+        "evidence_refs": [
+          "config:shape:hinge_pin_left",
+          "traceability:feature:hinge_pin_left"
+        ],
+        "confidence": {
+          "score": 0.8,
+          "level": "high",
+          "rationale": "Hole position is available."
+        }
+      },
+      {
+        "id": "hinge_pin_right:center_location:missing",
+        "dimension_id": "hinge_pin_right:center_location",
+        "feature_id": "hinge_pin_right",
+        "feature_type": "hole",
+        "dimension_type": "center_location",
+        "explanation": "No explicit center-location intent was found for standalone hole \"hinge_pin_right\".",
+        "suggested_fix": "Add required X/Y or ordinate location intent for \"hinge_pin_right\" from declared datums.",
+        "evidence_refs": [
+          "config:shape:hinge_pin_right",
+          "traceability:feature:hinge_pin_right"
+        ],
+        "confidence": {
+          "score": 0.8,
+          "level": "high",
+          "rationale": "Hole position is available."
+        }
+      },
+      {
+        "id": "mount_hole_left:center_location:missing",
+        "dimension_id": "mount_hole_left:center_location",
+        "feature_id": "mount_hole_left",
+        "feature_type": "hole",
+        "dimension_type": "center_location",
+        "explanation": "No explicit center-location intent was found for standalone hole \"mount_hole_left\".",
+        "suggested_fix": "Add required X/Y or ordinate location intent for \"mount_hole_left\" from declared datums.",
+        "evidence_refs": [
+          "config:shape:mount_hole_left",
+          "traceability:feature:mount_hole_left"
+        ],
+        "confidence": {
+          "score": 0.8,
+          "level": "high",
+          "rationale": "Hole position is available."
+        }
+      },
+      {
+        "id": "mount_hole_right:center_location:missing",
+        "dimension_id": "mount_hole_right:center_location",
+        "feature_id": "mount_hole_right",
+        "feature_type": "hole",
+        "dimension_type": "center_location",
+        "explanation": "No explicit center-location intent was found for standalone hole \"mount_hole_right\".",
+        "suggested_fix": "Add required X/Y or ordinate location intent for \"mount_hole_right\" from declared datums.",
+        "evidence_refs": [
+          "config:shape:mount_hole_right",
+          "traceability:feature:mount_hole_right"
+        ],
+        "confidence": {
+          "score": 0.8,
+          "level": "high",
+          "rationale": "Hole position is available."
+        }
+      }
+    ],
+    "recommended_annotations": [
+      {
+        "id": "annotation:centerlines-for-holes",
+        "type": "annotation",
+        "status": "recommended",
+        "message": "Show center marks or centerlines for hole features.",
+        "reason": "Hole features are present; center marks improve inspection readability without adding tolerance claims.",
+        "evidence_refs": [
+          "config:shape:hinge_pin_left",
+          "traceability:feature:hinge_pin_left",
+          "config:shape:hinge_pin_right",
+          "traceability:feature:hinge_pin_right",
+          "config:shape:mount_hole_left",
+          "traceability:feature:mount_hole_left",
+          "config:shape:mount_hole_right",
+          "traceability:feature:mount_hole_right"
+        ],
+        "confidence": {
+          "score": 0.82,
+          "level": "high",
+          "rationale": "Hole features are reliable drawing evidence."
+        },
+        "suggested_fix": "Enable or verify center marks/centerlines for hole views."
+      },
+      {
+        "id": "annotation:material-note",
+        "type": "annotation",
+        "status": "recommended",
+        "message": "Carry material note \"AL6061\" on the drawing.",
+        "reason": "Material is explicitly declared in drawing/manufacturing metadata.",
+        "evidence_refs": [
+          "config:drawing.meta.material",
+          "config:manufacturing.material"
+        ],
+        "confidence": {
+          "score": 0.86,
+          "level": "high",
+          "rationale": "Material metadata is explicitly present."
+        },
+        "suggested_fix": "Add or verify the material note in the title block or general notes."
+      }
+    ],
+    "section_view_recommendations": [],
+    "detail_view_recommendations": [
+      {
+        "id": "detail:small-hole-callouts",
+        "type": "detail_view",
+        "feature_type": "through_hole",
+        "status": "recommended",
+        "message": "Consider a detail view for small hole callouts if the sheet scale makes them crowded.",
+        "reason": "Small hole diameter evidence is present; this remains conditional on drawing readability.",
+        "evidence_refs": [
+          "config:shape:mount_hole_left",
+          "traceability:feature:mount_hole_left",
+          "config:shape:mount_hole_right",
+          "traceability:feature:mount_hole_right"
+        ],
+        "confidence": {
+          "score": 0.56,
+          "level": "medium",
+          "rationale": "Small feature evidence supports only a conditional detail-view recommendation."
+        },
+        "suggested_fix": "Add a local detail view only if diameter/location callouts collide or become unreadable."
+      }
+    ],
+    "suggested_actions": [
+      "Add a required linear dimension intent for overall length from a declared datum or edge.",
+      "Add a required linear dimension intent for overall width from a declared datum or edge.",
+      "Add a required thickness/height dimension intent on a front or side view.",
+      "Add a required diameter dimension intent for \"hinge_pin_left\".",
+      "Add a required diameter dimension intent for \"hinge_pin_right\".",
+      "Add a required diameter dimension intent for \"mount_hole_left\".",
+      "Add a required diameter dimension intent for \"mount_hole_right\".",
+      "Add required X/Y or ordinate location intent for \"hinge_pin_left\" from declared datums.",
+      "Add required X/Y or ordinate location intent for \"hinge_pin_right\" from declared datums.",
+      "Add required X/Y or ordinate location intent for \"mount_hole_left\" from declared datums.",
+      "Add required X/Y or ordinate location intent for \"mount_hole_right\" from declared datums.",
+      "Enable or verify center marks/centerlines for hole views.",
+      "Add or verify the material note in the title block or general notes.",
+      "Add a local detail view only if diameter/location callouts collide or become unreadable.",
+      "Add or label the required note EVIDENCE_BOUNDARY if it should appear in the drawing. Verify the required note text \"Generated quality and drawing artifacts are not inspection evidence.\" is present and readable. Confirm extraction can still match the note to Generated quality and drawing artifacts are not inspection evidence..",
+      "Improve intent aliases or drawing labels for unmatched extracted dimensions. Review whether the unmatched dimensions should map to an existing required intent. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+      "Improve intent aliases or drawing labels for unmatched extracted notes. Review whether the unmatched notes should satisfy an existing required note. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably."
+    ],
+    "evidence": [
+      {
+        "ref": "config:shape:base_block",
+        "kind": "feature_catalog",
+        "summary": "body feature \"base_block\" from conservative feature catalog evidence."
+      },
+      {
+        "ref": "config:shape:hinge_pin_left",
+        "kind": "feature_catalog",
+        "summary": "hole feature \"hinge_pin_left\" from conservative feature catalog evidence."
+      },
+      {
+        "ref": "config:shape:hinge_pin_right",
+        "kind": "feature_catalog",
+        "summary": "hole feature \"hinge_pin_right\" from conservative feature catalog evidence."
+      },
+      {
+        "ref": "config:shape:mount_hole_left",
+        "kind": "feature_catalog",
+        "summary": "hole feature \"mount_hole_left\" from conservative feature catalog evidence."
+      },
+      {
+        "ref": "config:shape:mount_hole_right",
+        "kind": "feature_catalog",
+        "summary": "hole feature \"mount_hole_right\" from conservative feature catalog evidence."
+      }
+    ],
+    "confidence": {
+      "score": 0.82,
+      "level": "high",
+      "rationale": "Aggregate confidence from deterministic feature and drawing-intent evidence; recommendations remain advisory."
+    },
+    "limitations": [
+      "Planner recommendations are advisory and do not replace TechDraw generation.",
+      "No GD&T or tolerance callout is inferred unless explicitly present in drawing metadata.",
+      "Functional requirements are not inferred beyond drawing_intent and reliable feature evidence."
+    ],
+    "suggested_action_details": [
+      {
+        "id": "note:evidenceboundary:unknown",
+        "severity": "review",
+        "category": "note",
+        "target_requirement_id": "EVIDENCE_BOUNDARY",
+        "target_feature_id": null,
+        "classification": "unknown",
+        "title": "Add or label the required note EVIDENCE_BOUNDARY if it should appear in the drawing.",
+        "message": "Extracted drawing semantics explicitly marked this required note as uncertain.",
+        "recommended_fix": "Verify the required note text \"Generated quality and drawing artifacts are not inspection evidence.\" is present and readable. Confirm extraction can still match the note to Generated quality and drawing artifacts are not inspection evidence..",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "required_notes.EVIDENCE_BOUNDARY.classification",
+            "value": "unknown"
+          }
+        ]
+      },
+      {
+        "id": "mapping:unmatched-dimensions:unmatched",
+        "severity": "info",
+        "category": "mapping",
+        "target_requirement_id": "unmatched_dimensions",
+        "target_feature_id": null,
+        "classification": "unmatched",
+        "title": "Improve intent aliases or drawing labels for unmatched extracted dimensions.",
+        "message": "Some extracted dimensions did not match any required drawing intent.",
+        "recommended_fix": "Review whether the unmatched dimensions should map to an existing required intent. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "unmatched_dimensions.count",
+            "value": "20"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "unmatched_dimensions.samples",
+            "value": "[\"90\",\"38\",\"21\",\"48\",\"21\"]"
+          }
+        ]
+      },
+      {
+        "id": "mapping:unmatched-notes:unmatched",
+        "severity": "info",
+        "category": "mapping",
+        "target_requirement_id": "unmatched_notes",
+        "target_feature_id": null,
+        "classification": "unmatched",
+        "title": "Improve intent aliases or drawing labels for unmatched extracted notes.",
+        "message": "Some extracted notes did not match any required drawing intent.",
+        "recommended_fix": "Review whether the unmatched notes should satisfy an existing required note. If they are required, expand drawing_intent aliases or tighten drawing labels so extraction can match them reliably.",
+        "evidence": [
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "status",
+            "value": "partial"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "unmatched_notes.count",
+            "value": "30"
+          },
+          {
+            "source": "drawing_quality.semantic_quality.extracted_evidence",
+            "path": "unmatched_notes.samples",
+            "value": "[\"A\",\"B\",\"B\",\"C\",\"A\"]"
+          }
+        ]
+      }
+    ]
+  },
+  "reviewer_feedback": {
+    "advisory_only": true,
+    "status": "none",
+    "evidence_state": "none",
+    "total_count": 0,
+    "unresolved_count": 0,
+    "linked_count": 0,
+    "unmatched_count": 0,
+    "stale_count": 0,
+    "orphaned_count": 0,
+    "invalid_count": 0,
+    "accepted_count": 0,
+    "resolved_count": 0,
+    "items": [],
+    "summary": "Reviewer feedback was not provided.",
+    "suggested_actions": [],
+    "suggested_action_details": [],
+    "provenance": {
+      "artifact_type": "reviewer_feedback_json",
+      "path": null,
+      "method": "explicit_reviewer_feedback_json",
+      "input_status": "none"
+    }
+  }
+}

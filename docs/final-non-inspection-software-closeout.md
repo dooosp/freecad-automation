@@ -19,7 +19,7 @@ It does not create, attach, simulate, or infer inspection evidence. It does not 
 ## What is complete
 
 - The repo has a stable AF5-style package flow from review context through readiness, standard docs, release packaging, and Studio review surfaces.
-- Four canonical packages are documented in `docs/examples/README.md` and protected by package integrity tests.
+- Five canonical packages are documented in `docs/examples/README.md` and protected by package integrity tests.
 - Canonical package cards and safe artifact text preview are documented for Studio first users.
 - `release_bundle.zip` remains non-previewable and non-downloadable in the canonical artifact preview flow.
 - DFM/readiness boundaries are documented in `docs/dfm-readiness-guide.md`.
@@ -37,8 +37,9 @@ The current canonical package set is:
 | `plate-with-holes` | `configs/examples/pcb_mount_plate.toml` | Plate, hole pattern, connector slot, and standoff package. |
 | `motor-mount` | `configs/generated/cnc_motor_mount_bracket.toml` | Generated single-part motor mount package promoted into the curated set. |
 | `controller-housing-eol` | `configs/examples/controller_housing_eol.toml` | Controller housing EOL package for enclosure, traceability, and functional-test review. |
+| `hinge-block` | `configs/examples/hinge_block.toml` | Small machined hinge support package with bounded ears, hinge-pin clearance holes, and base mounting holes. |
 
-No fifth canonical package is complete in this closeout.
+The fifth canonical package is limited to the approved hinge-block pilot. Spacer remains unapproved and absent.
 
 ## Artifact chain
 
@@ -102,8 +103,9 @@ The current readiness values below come from the checked-in `readiness/readiness
 | `plate-with-holes` | `needs_more_evidence` | 61 | `hold_for_evidence_completion` | `inspection_evidence` | Software/package closeout is complete; production readiness remains intentionally held. |
 | `motor-mount` | `needs_more_evidence` | 55 | `hold_for_evidence_completion` | `inspection_evidence` | Software/package closeout is complete; production readiness remains intentionally held. |
 | `controller-housing-eol` | `needs_more_evidence` | 52 | `hold_for_evidence_completion` | `inspection_evidence` | Software/package closeout is complete; production readiness remains intentionally held. |
+| `hinge-block` | `needs_more_evidence` | 52 | `hold_for_evidence_completion` | `inspection_evidence` | Software/package closeout is complete; production readiness remains intentionally held. |
 
-All four canonical packages remain `needs_more_evidence`. All four remain held at `hold_for_evidence_completion` because `inspection_evidence` remains missing.
+All five canonical packages remain `needs_more_evidence`. All five remain held at `hold_for_evidence_completion` because `inspection_evidence` remains missing.
 
 ## What is intentionally not claimed
 
@@ -137,7 +139,7 @@ Generated quality, drawing, review, readiness, standard-doc, release, template, 
 - Attach only validated completed inspection evidence through the canonical flow.
 - Regenerate review packs, readiness reports, standard docs, and release bundles only after valid inspection evidence is attached.
 - Keep package readiness held until the refreshed readiness reports justify a different gate decision.
-- Consider future canonical package candidates only after the current four-package closeout remains protected by tests.
+- Consider future canonical package candidates only after the current five-package closeout remains protected by tests and receives separate approval.
 
 ## Closeout decision
 

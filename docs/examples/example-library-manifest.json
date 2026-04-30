@@ -258,27 +258,34 @@
     },
     {
       "slug": "hinge-block",
-      "status": "absent",
-      "source_config": null,
-      "role": "new-example-candidate",
+      "status": "canonical-package",
+      "source_config": "configs/examples/hinge_block.toml",
+      "role": "hinge-block-canonical-package",
       "priority": 9,
-      "basis": [],
+      "basis": [
+        "hinge_block"
+      ],
       "current_coverage": {
-        "config": false,
-        "drawing_intent": false,
-        "generated_cad": false,
-        "quality_report": false,
-        "review_pack": false,
-        "readiness_report": false,
-        "standard_docs_manifest": false,
-        "release_bundle_manifest": false,
-        "release_bundle_zip": false,
-        "studio_reopen_fixture": false
+        "config": true,
+        "drawing_intent": true,
+        "generated_cad": true,
+        "quality_report": true,
+        "review_pack": true,
+        "readiness_report": true,
+        "standard_docs_manifest": true,
+        "release_bundle_manifest": true,
+        "release_bundle_zip": true,
+        "studio_reopen_fixture": true
       },
       "notes": [
-        "No tracked source config exists yet.",
-        "Create only after the first canonical package set and validation tests are stable."
-      ]
+        "Fifth curated canonical AF5 package promoted under docs/examples/hinge-block.",
+        "Curated config creates a small machined AL6061 hinge block with two hinge ears, hinge-pin clearance holes, base mounting holes, explicit drawing intent, and portable package artifacts.",
+        "Create quality and drawing quality passed; no checked-in package DFM report is used as a review-pack side input.",
+        "Quality and drawing evidence is linked in the review pack as review evidence and clears quality_evidence.",
+        "Readiness remains needs_more_evidence with score 52 because inspection_evidence remains missing; production readiness is not claimed.",
+        "Fallback spacer remains unapproved and absent."
+      ],
+      "docs_example_root": "docs/examples/hinge-block"
     },
     {
       "slug": "spacer",

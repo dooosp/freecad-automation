@@ -12,8 +12,9 @@ The current canonical packages are:
 - `plate-with-holes`
 - `motor-mount`
 - `controller-housing-eol`
+- `hinge-block`
 
-All four canonical packages remain `needs_more_evidence` with gate decision `hold_for_evidence_completion` because `inspection_evidence` is still missing.
+All five canonical packages remain `needs_more_evidence` with gate decision `hold_for_evidence_completion` because `inspection_evidence` is still missing.
 
 ## Start From Canonical Packages
 
@@ -82,4 +83,4 @@ If you have genuine inspection evidence later, follow the inspection evidence co
 
 ## Validation And Tests
 
-The first-user documentation smoke coverage checks that this walkthrough exists, names the four canonical packages, explains canonical package cards and safe artifact preview, preserves the `release_bundle.zip` boundary, rejects arbitrary local file open/download routes, keeps `needs_more_evidence` and `inspection_evidence` visible, avoids production-readiness claims, and preserves the Stage 5B parked boundary.
+The first-user documentation smoke coverage checks that this walkthrough exists, names the five canonical packages, explains canonical package cards and safe artifact preview, preserves the `release_bundle.zip` boundary, rejects arbitrary local file open/download routes, keeps `needs_more_evidence` and `inspection_evidence` visible, avoids production-readiness claims, and preserves the Stage 5B parked boundary.
