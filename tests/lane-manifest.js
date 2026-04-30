@@ -100,6 +100,15 @@ export const TEST_LANES = Object.freeze([
     ]),
   }),
   Object.freeze({
+    id: 'studio-browser-smoke',
+    label: 'Studio browser smoke',
+    npmScript: 'test:studio-browser-smoke',
+    packageCommand: 'node tests/studio-shell-browser-smoke.test.js',
+    scope: 'real Chrome/CDP Studio browser smoke for shell routing, canonical package cards, safe preview, release bundle non-action boundary, and route readiness without FreeCAD runtime execution',
+    freecadRequired: false,
+    browserRequired: true,
+  }),
+  Object.freeze({
     id: 'py',
     label: 'Python',
     npmScript: 'test:py',
