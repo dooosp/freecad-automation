@@ -10,7 +10,7 @@ The current canonical packages are:
 - [`controller-housing-eol`](./controller-housing-eol/README.md)
 - [`hinge-block`](./hinge-block/README.md)
 
-For the browser review path, use the [Studio first-user walkthrough](../studio-first-user-walkthrough.md). For DFM and readiness boundaries, use the [DFM and readiness guide](../dfm-readiness-guide.md).
+For the browser review path, use the [Studio first-user walkthrough](../studio-first-user-walkthrough.md). For future maintainer package-generation planning, use the [canonical package generation workflow](../canonical-package-generation-workflow.md). For DFM and readiness boundaries, use the [DFM and readiness guide](../dfm-readiness-guide.md).
 
 ## Canonical Package Contract
 

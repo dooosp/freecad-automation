@@ -8,6 +8,7 @@ const EXAMPLE_INDEX_PATH = resolve(ROOT, 'docs', 'examples', 'README.md');
 const PROJECT_CLOSEOUT_STATUS_PATH = resolve(ROOT, 'docs', 'project-closeout-status.md');
 const FINAL_CLOSEOUT_PATH = resolve(ROOT, 'docs', 'final-non-inspection-software-closeout.md');
 const DFM_READINESS_GUIDE_PATH = resolve(ROOT, 'docs', 'dfm-readiness-guide.md');
+const CANONICAL_PACKAGE_WORKFLOW_PATH = resolve(ROOT, 'docs', 'canonical-package-generation-workflow.md');
 const STUDIO_FIRST_USER_WALKTHROUGH_PATH = resolve(ROOT, 'docs', 'studio-first-user-walkthrough.md');
 const STUDIO_CANONICAL_PACKAGE_API_PATH = resolve(ROOT, 'docs', 'studio-canonical-package-api.md');
 const TESTING_DOC_PATH = resolve(ROOT, 'docs', 'testing.md');
@@ -60,6 +61,7 @@ assert.equal(existsSync(EXAMPLE_INDEX_PATH), true, 'canonical example index shou
 assert.equal(existsSync(PROJECT_CLOSEOUT_STATUS_PATH), true, 'project closeout status should exist');
 assert.equal(existsSync(FINAL_CLOSEOUT_PATH), true, 'final non-inspection software closeout should exist');
 assert.equal(existsSync(DFM_READINESS_GUIDE_PATH), true, 'DFM/readiness guide should exist');
+assert.equal(existsSync(CANONICAL_PACKAGE_WORKFLOW_PATH), true, 'canonical package generation workflow guide should exist');
 assert.equal(existsSync(STUDIO_FIRST_USER_WALKTHROUGH_PATH), true, 'Studio first-user walkthrough should exist');
 assert.equal(existsSync(STUDIO_CANONICAL_PACKAGE_API_PATH), true, 'Studio canonical package API doc should exist');
 assert.equal(existsSync(TESTING_DOC_PATH), true, 'testing doc should exist');
@@ -75,6 +77,7 @@ const exampleIndexText = readText(EXAMPLE_INDEX_PATH);
 const projectCloseoutStatusText = readText(PROJECT_CLOSEOUT_STATUS_PATH);
 const finalCloseoutText = readText(FINAL_CLOSEOUT_PATH);
 const dfmReadinessGuideText = readText(DFM_READINESS_GUIDE_PATH);
+const canonicalPackageWorkflowText = readText(CANONICAL_PACKAGE_WORKFLOW_PATH);
 const studioFirstUserWalkthroughText = readText(STUDIO_FIRST_USER_WALKTHROUGH_PATH);
 const studioCanonicalPackageApiText = readText(STUDIO_CANONICAL_PACKAGE_API_PATH);
 const testingDocText = readText(TESTING_DOC_PATH);
@@ -104,6 +107,11 @@ assertMentions(
   rootReadmeText,
   /\[Studio first-user walkthrough\]\(\.\/docs\/studio-first-user-walkthrough\.md\)/,
   'root README should link the Studio first-user walkthrough'
+);
+assertMentions(
+  rootReadmeText,
+  /\[canonical package generation workflow\]\(\.\/docs\/canonical-package-generation-workflow\.md\)/,
+  'root README should link the canonical package generation workflow'
 );
 assertMentions(
   rootReadmeText,
@@ -144,6 +152,11 @@ assertMentions(
   exampleIndexText,
   /\[Studio first-user walkthrough\]\(\.\.\/studio-first-user-walkthrough\.md\)/,
   'example index should link the Studio first-user walkthrough'
+);
+assertMentions(
+  exampleIndexText,
+  /\[canonical package generation workflow\]\(\.\.\/canonical-package-generation-workflow\.md\)/,
+  'example index should link the canonical package generation workflow'
 );
 assertMentions(
   exampleIndexText,
@@ -303,6 +316,124 @@ for (const [slug, score] of Object.entries({
   );
 }
 
+assertMentions(
+  canonicalPackageWorkflowText,
+  /^# Canonical package generation workflow/m,
+  'canonical package workflow should have the expected title'
+);
+assertMentions(
+  canonicalPackageWorkflowText,
+  /Use this maintainer guide/,
+  'canonical package workflow should identify itself as a maintainer guide'
+);
+assertMentions(
+  canonicalPackageWorkflowText,
+  /Do not use this guide as approval to regenerate CAD, package, readiness, standard-doc, or release artifacts/,
+  'canonical package workflow should not authorize regeneration'
+);
+assertMentions(
+  canonicalPackageWorkflowText,
+  /Generated package artifacts are not inspection evidence/,
+  'canonical package workflow should reject generated package artifacts as inspection evidence'
+);
+assertMentions(
+  canonicalPackageWorkflowText,
+  /Release bundles are package transport artifacts, not production-readiness proof/,
+  'canonical package workflow should preserve the release bundle boundary'
+);
+assertMentions(
+  canonicalPackageWorkflowText,
+  /Stage 5B remains parked/,
+  'canonical package workflow should preserve Stage 5B parked language'
+);
+assertMentions(
+  canonicalPackageWorkflowText,
+  /New package work should start with candidate selection and explicit approval/,
+  'canonical package workflow should require candidate approval'
+);
+assertMentions(
+  canonicalPackageWorkflowText,
+  /Use these commands only in a separately approved package-generation task/,
+  'canonical package workflow should keep generation commands future-only'
+);
+for (const command of [
+  'fcad validate-config',
+  'fcad create',
+  'fcad draw',
+  'fcad review-context',
+  'fcad readiness-pack',
+  'fcad generate-standard-docs',
+  'fcad pack',
+]) {
+  assert.equal(canonicalPackageWorkflowText.includes(command), true, `canonical package workflow should mention ${command}`);
+}
+for (const artifact of [
+  'review/review_pack.json',
+  'readiness/readiness_report.json',
+  'readiness/readiness_report.md',
+  'standard-docs/',
+  'release/release_bundle_manifest.json',
+  'release/release_bundle_checksums.sha256',
+  'release/release_bundle_log.json',
+  'release/release_bundle.zip',
+  'reopen-notes.md',
+]) {
+  assert.equal(canonicalPackageWorkflowText.includes(artifact), true, `canonical package workflow should mention ${artifact}`);
+}
+assertMentions(
+  canonicalPackageWorkflowText,
+  /Keep readiness as `needs_more_evidence` with gate decision `hold_for_evidence_completion` when `inspection_evidence` is missing/,
+  'canonical package workflow should preserve readiness hold wording'
+);
+assertMentions(
+  canonicalPackageWorkflowText,
+  /Do not pass `--inspection-evidence` unless a separate evidence-gated task validates real evidence/,
+  'canonical package workflow should protect inspection evidence attachment'
+);
+assertMentions(
+  canonicalPackageWorkflowText,
+  /`release_bundle\.zip` is not previewable, downloadable, or openable through canonical package preview/,
+  'canonical package workflow should preserve release bundle preview/download/open boundary'
+);
+assertMentions(
+  canonicalPackageWorkflowText,
+  /Do not add arbitrary local file serving/,
+  'canonical package workflow should reject arbitrary local file serving'
+);
+assertMentions(
+  canonicalPackageWorkflowText,
+  /Do not widen Studio or API preview, download, or open routes/,
+  'canonical package workflow should reject route widening'
+);
+assertMentions(
+  canonicalPackageWorkflowText,
+  /Update `docs\/examples\/example-library-manifest\.json`/,
+  'canonical package workflow should include manifest updates'
+);
+assertMentions(
+  canonicalPackageWorkflowText,
+  /Canonical slugs must be visible through the existing canonical package discovery contract/,
+  'canonical package workflow should keep Studio discovery scoped'
+);
+assertMentions(
+  canonicalPackageWorkflowText,
+  /node tests\/first-user-docs-smoke\.test\.js/,
+  'canonical package workflow should list docs smoke validation'
+);
+assertMentions(
+  canonicalPackageWorkflowText,
+  /Do not run `fcad create`, `fcad draw`, `fcad pack`, or runtime smoke for a docs-only guide update/,
+  'canonical package workflow should preserve docs-only validation boundary'
+);
+assertNoPositiveProductionReadyClaim(canonicalPackageWorkflowText, 'canonical package workflow should not claim production readiness');
+for (const slug of CANONICAL_PACKAGES) {
+  assert.equal(
+    canonicalPackageWorkflowText.includes(`\`${slug}\``),
+    true,
+    `canonical package workflow should mention ${slug}`
+  );
+}
+
 assertMentions(studioFirstUserWalkthroughText, /^# Studio First-User Walkthrough/m, 'Studio walkthrough should have the expected title');
 assertMentions(studioFirstUserWalkthroughText, /Studio uses tracked\/canonical package and artifact routes/, 'Studio walkthrough should mention tracked/canonical routes');
 assertMentions(studioFirstUserWalkthroughText, /Canonical package cards are read-only views/, 'Studio walkthrough should explain canonical package cards');
@@ -370,6 +501,11 @@ assertMentions(
   testingDocText,
   /Studio walkthrough for canonical package cards, safe artifact preview, release bundle boundaries/,
   'testing doc should document the Studio walkthrough docs-smoke coverage'
+);
+assertMentions(
+  testingDocText,
+  /canonical package generation workflow guide/,
+  'testing doc should document canonical package workflow docs-smoke coverage'
 );
 assertMentions(
   testingDocText,
