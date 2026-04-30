@@ -22,6 +22,8 @@ Start with canonical packages rather than arbitrary local files. The canonical p
 
 Studio uses tracked/canonical package and artifact routes. Canonical package cards are read-only views of checked-in package metadata and artifacts; they are not a local-file browser and they do not import arbitrary folders from disk.
 
+For the browser-facing local API contract behind those cards, see [Studio canonical package API](./studio-canonical-package-api.md).
+
 From a canonical package card, inspect:
 
 - package name and safe package identifier
@@ -34,6 +36,7 @@ From a canonical package card, inspect:
 Canonical package preview uses safe package identifiers and artifact keys, not arbitrary local file paths. The route shape is based on a slug plus an artifact key, such as:
 
 ```text
+/api/canonical-packages
 /api/canonical-packages/<slug>/artifacts/<artifactKey>/preview
 ```
 

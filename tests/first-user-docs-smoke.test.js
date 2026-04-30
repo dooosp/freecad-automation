@@ -9,6 +9,7 @@ const PROJECT_CLOSEOUT_STATUS_PATH = resolve(ROOT, 'docs', 'project-closeout-sta
 const FINAL_CLOSEOUT_PATH = resolve(ROOT, 'docs', 'final-non-inspection-software-closeout.md');
 const DFM_READINESS_GUIDE_PATH = resolve(ROOT, 'docs', 'dfm-readiness-guide.md');
 const STUDIO_FIRST_USER_WALKTHROUGH_PATH = resolve(ROOT, 'docs', 'studio-first-user-walkthrough.md');
+const STUDIO_CANONICAL_PACKAGE_API_PATH = resolve(ROOT, 'docs', 'studio-canonical-package-api.md');
 const TESTING_DOC_PATH = resolve(ROOT, 'docs', 'testing.md');
 const INSPECTION_CONTRACT_PATH = resolve(ROOT, 'docs', 'inspection-evidence-contract.md');
 const INSPECTION_COLLECTION_DIR = resolve(ROOT, 'docs', 'inspection-evidence-collection');
@@ -60,6 +61,7 @@ assert.equal(existsSync(PROJECT_CLOSEOUT_STATUS_PATH), true, 'project closeout s
 assert.equal(existsSync(FINAL_CLOSEOUT_PATH), true, 'final non-inspection software closeout should exist');
 assert.equal(existsSync(DFM_READINESS_GUIDE_PATH), true, 'DFM/readiness guide should exist');
 assert.equal(existsSync(STUDIO_FIRST_USER_WALKTHROUGH_PATH), true, 'Studio first-user walkthrough should exist');
+assert.equal(existsSync(STUDIO_CANONICAL_PACKAGE_API_PATH), true, 'Studio canonical package API doc should exist');
 assert.equal(existsSync(TESTING_DOC_PATH), true, 'testing doc should exist');
 assert.equal(existsSync(INSPECTION_CONTRACT_PATH), true, 'inspection evidence contract should exist');
 assert.equal(
@@ -74,6 +76,7 @@ const projectCloseoutStatusText = readText(PROJECT_CLOSEOUT_STATUS_PATH);
 const finalCloseoutText = readText(FINAL_CLOSEOUT_PATH);
 const dfmReadinessGuideText = readText(DFM_READINESS_GUIDE_PATH);
 const studioFirstUserWalkthroughText = readText(STUDIO_FIRST_USER_WALKTHROUGH_PATH);
+const studioCanonicalPackageApiText = readText(STUDIO_CANONICAL_PACKAGE_API_PATH);
 const testingDocText = readText(TESTING_DOC_PATH);
 const inspectionContractText = readText(INSPECTION_CONTRACT_PATH);
 const collectionGuideIndexText = readText(join(INSPECTION_COLLECTION_DIR, 'README.md'));
@@ -89,6 +92,10 @@ assertMentions(rootReadmeText, /Regenerate later only when/, 'CLI recipe should 
 assertMentions(rootReadmeText, /read-only canonical package cards/, 'root README should describe Studio canonical package cards');
 assertMentions(rootReadmeText, /allowlisted artifact preview/, 'root README should describe allowlisted artifact preview');
 assertMentions(rootReadmeText, /checked-in canonical packages remain docs-package artifacts/, 'root README should describe checked-in packages as docs-package artifacts');
+assertMentions(rootReadmeText, /GET \/api\/canonical-packages/, 'root README should document the canonical package listing route');
+assertMentions(rootReadmeText, /GET \/api\/canonical-packages\/:slug\/artifacts\/:artifactKey\/preview/, 'root README should document the canonical artifact preview route');
+assertMentions(rootReadmeText, /does not accept arbitrary local file paths/, 'root README should reject arbitrary local file paths for canonical previews');
+assertMentions(rootReadmeText, /release_bundle\.zip` appears as the `release_bundle` package artifact, but it is not text-previewable/, 'root README should keep release_bundle.zip as a non-previewable package artifact');
 assertMentions(rootReadmeText, /--inspection-evidence <PATH_TO_COMPLETED_REAL_JSON>/, 'root README should show the completed-real-evidence CLI placeholder');
 assertMentions(rootReadmeText, /Do not treat synthetic fixtures or generated CAD\/drawing\/readiness outputs as package inspection evidence/, 'root README should reject synthetic/generated package evidence');
 assertMentions(rootReadmeText, /quality\/drawing evidence does not satisfy `inspection_evidence`/, 'root README should preserve the inspection evidence boundary');
@@ -299,7 +306,13 @@ for (const [slug, score] of Object.entries({
 assertMentions(studioFirstUserWalkthroughText, /^# Studio First-User Walkthrough/m, 'Studio walkthrough should have the expected title');
 assertMentions(studioFirstUserWalkthroughText, /Studio uses tracked\/canonical package and artifact routes/, 'Studio walkthrough should mention tracked/canonical routes');
 assertMentions(studioFirstUserWalkthroughText, /Canonical package cards are read-only views/, 'Studio walkthrough should explain canonical package cards');
+assertMentions(
+  studioFirstUserWalkthroughText,
+  /\[Studio canonical package API\]\(\.\/studio-canonical-package-api\.md\)/,
+  'Studio walkthrough should link the Studio canonical package API doc'
+);
 assertMentions(studioFirstUserWalkthroughText, /safe package identifiers and artifact keys/, 'Studio walkthrough should explain safe slug plus artifact key preview');
+assertMentions(studioFirstUserWalkthroughText, /\/api\/canonical-packages/, 'Studio walkthrough should show the canonical package listing route');
 assertMentions(studioFirstUserWalkthroughText, /\/api\/canonical-packages\/<slug>\/artifacts\/<artifactKey>\/preview/, 'Studio walkthrough should show the safe canonical preview route shape');
 assertMentions(studioFirstUserWalkthroughText, /Canonical artifact actions are read-only/, 'Studio walkthrough should mention read-only canonical artifact actions');
 assertMentions(studioFirstUserWalkthroughText, /release_bundle\.zip` is a curated package artifact, not a text-preview artifact/, 'Studio walkthrough should keep release_bundle.zip non-preview text boundary');
@@ -322,6 +335,29 @@ for (const slug of CANONICAL_PACKAGES) {
     studioFirstUserWalkthroughText.includes(`\`${slug}\``),
     true,
     `Studio walkthrough should mention ${slug}`
+  );
+}
+
+assertMentions(studioCanonicalPackageApiText, /^# Studio canonical package API/m, 'Studio canonical package API doc should have the expected title');
+assertMentions(studioCanonicalPackageApiText, /GET \/api\/canonical-packages/, 'Studio canonical package API doc should document the package listing route');
+assertMentions(
+  studioCanonicalPackageApiText,
+  /GET \/api\/canonical-packages\/<slug>\/artifacts\/<artifactKey>\/preview/,
+  'Studio canonical package API doc should document the preview route'
+);
+assertMentions(studioCanonicalPackageApiText, /not an arbitrary local folder importer/, 'Studio canonical package API doc should reject arbitrary local folders');
+assertMentions(studioCanonicalPackageApiText, /not a path supplied by the browser/, 'Studio canonical package API doc should reject browser-supplied paths');
+assertMentions(studioCanonicalPackageApiText, /release_bundle\.zip` is listed in the package artifact catalog as `release_bundle`/, 'Studio canonical package API doc should list release_bundle as a package artifact');
+assertMentions(studioCanonicalPackageApiText, /does not add a preview, download, or open route for it/, 'Studio canonical package API doc should preserve release bundle route boundary');
+assertMentions(studioCanonicalPackageApiText, /release_bundle_manifest\.json` and `release_bundle_checksums\.sha256`/, 'Studio canonical package API doc should distinguish previewable release text artifacts');
+assertMentions(studioCanonicalPackageApiText, /Generated quality, drawing, review, readiness, standard-doc, release, fixture, template, and collection-guide artifacts are not inspection evidence/, 'Studio canonical package API doc should reject generated artifacts as inspection evidence');
+assertMentions(studioCanonicalPackageApiText, /Stage 5B remains parked until a genuine completed inspection evidence JSON exists/, 'Studio canonical package API doc should preserve Stage 5B parked boundary');
+assertNoPositiveProductionReadyClaim(studioCanonicalPackageApiText, 'Studio canonical package API doc should not claim production readiness');
+for (const slug of CANONICAL_PACKAGES) {
+  assert.equal(
+    studioCanonicalPackageApiText.includes(`\`${slug}\``),
+    true,
+    `Studio canonical package API doc should mention ${slug}`
   );
 }
 
