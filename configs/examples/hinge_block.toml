@@ -1,0 +1,291 @@
+config_version = 1
+name = "hinge_block"
+batch_size = 24
+
+[product]
+family = "mechanism_support"
+module_type = "Hinge block"
+vehicle_program = "Automation fixture support"
+revision = "A"
+decision_scope = "machining readiness and package reopen review"
+fastening_strategy = "two base mounting bolts plus hinge pin clearance"
+traceability_label_area = "base side face"
+
+[manufacturing]
+process = "machining"
+material = "AL6061"
+batch_size = 24
+machining_notes = [
+  "Machine the base datum face before drilling the hinge-pin and mounting holes.",
+  "Keep the two hinge ears deburred and visually clear for fixture review.",
+  "Use the hinge-pin hole diameter as a drawing QA reference only until real inspection evidence is supplied.",
+]
+
+[production]
+sites = ["Korea-Gwangju"]
+annual_volume = 8000
+target_ct_sec = 75
+automation_mode = "manual"
+pilot_lot = 24
+automation_candidates = [
+  "probe verification of hinge-pin hole diameter before release",
+  "visual deburr check around the ear gap and mounting holes",
+]
+
+[quality.traceability]
+serial_level = "lot"
+record_linkage = "lot + revision + inspection record"
+label_area = "base side face"
+
+[[quality.critical_dimensions]]
+id = "cd-01"
+name = "hinge pin hole diameter"
+feature = "hinge_pin_left,hinge_pin_right"
+target_mm = 8.0
+tolerance = "project default"
+rationale = "hinge pin clearance and aligned ear support"
+
+[[quality.critical_dimensions]]
+id = "cd-02"
+name = "base mounting hole diameter"
+feature = "mount_hole_left,mount_hole_right"
+target_mm = 6.0
+tolerance = "project default"
+rationale = "fixture fastening clearance"
+
+[[quality.functional_test_points]]
+id = "ftp-01"
+name = "hinge pin visual clearance confirmation"
+location = "final_inspection"
+rationale = "confirm the two hinge ears are open and usable before release"
+
+[[quality.functional_test_points]]
+id = "ftp-02"
+name = "mounting hole visual confirmation"
+location = "final_inspection"
+rationale = "confirm base fastening holes are present before release"
+
+[[shapes]]
+id = "base_block"
+type = "box"
+length = 90
+width = 50
+height = 12
+
+[[shapes]]
+id = "left_ear"
+type = "box"
+length = 22
+width = 14
+height = 26
+position = [10, 32, 12]
+
+[[shapes]]
+id = "right_ear"
+type = "box"
+length = 22
+width = 14
+height = 26
+position = [58, 32, 12]
+
+[[shapes]]
+id = "hinge_pin_left"
+type = "cylinder"
+radius = 4
+height = 24
+position = [21, 28, 27]
+direction = [0, 1, 0]
+
+[[shapes]]
+id = "hinge_pin_right"
+type = "cylinder"
+radius = 4
+height = 24
+position = [69, 28, 27]
+direction = [0, 1, 0]
+
+[[shapes]]
+id = "mount_hole_left"
+type = "cylinder"
+radius = 3
+height = 18
+position = [24, 14, -3]
+
+[[shapes]]
+id = "mount_hole_right"
+type = "cylinder"
+radius = 3
+height = 18
+position = [66, 14, -3]
+
+[[operations]]
+op = "fuse"
+base = "base_block"
+tool = "left_ear"
+result = "body"
+
+[[operations]]
+op = "fuse"
+base = "body"
+tool = "right_ear"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "hinge_pin_left"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "hinge_pin_right"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mount_hole_left"
+result = "body"
+
+[[operations]]
+op = "cut"
+base = "body"
+tool = "mount_hole_right"
+result = "final"
+
+[drawing]
+views = ["front", "top", "right", "iso"]
+
+[drawing.meta]
+part_name = "Hinge Block"
+drawing_no = "HINGE-BLOCK-A"
+material = "AL6061"
+tolerance = "Project default"
+units = "mm"
+
+[drawing.style]
+show_hidden = true
+show_centerlines = true
+show_dimensions = true
+
+[drawing.dimension_style]
+type = "baseline"
+
+[drawing_plan]
+part_type = "generic"
+profile = "KS"
+
+[drawing_plan.views]
+enabled = ["front", "top", "right", "iso"]
+layout = "third_angle"
+
+[drawing_plan.dimensioning]
+auto_plan_dedupe = "off"
+qa_weight_preset = "bracket"
+
+[drawing_intent]
+part_type = "hinge_block"
+manufacturing_process = "machining"
+material = "AL6061"
+required_views = ["front", "top", "right", "iso"]
+drawing_standard = "project-default"
+missing_semantics_policy = "advisory"
+
+[drawing_intent.datum_strategy]
+primary = "base_block_top_face"
+secondary = "left_mounting_hole"
+tertiary = "right_mounting_hole"
+scheme = "fixture-oriented hinge block datum using the base face and mounting hole row"
+notes = ["Use the base block, mounting holes, and hinge-pin holes as drawing QA references only."]
+
+[drawing_intent.tolerance_policy]
+general = "Carry source critical dimensions forward; do not infer additional tolerances."
+gdt = "none"
+notes = ["Project default tolerances remain advisory until real inspection evidence exists."]
+
+[[drawing_intent.critical_features]]
+id = "BASE_BLOCK"
+feature = "base_block"
+description = "Base block communicates the 90 mm by 50 mm by 12 mm machined support footprint."
+reason = "Defines stock size, datum face, and fixture mounting envelope."
+view = "top"
+
+[[drawing_intent.critical_features]]
+id = "HINGE_EARS"
+feature = "left_ear,right_ear"
+description = "Two hinge ears provide bounded support around the hinge-pin clearance holes."
+reason = "Shows the mechanism-like support feature without claiming assembly motion or load rating."
+view = "front"
+
+[[drawing_intent.critical_features]]
+id = "HINGE_PIN_HOLES"
+feature = "hinge_pin_left,hinge_pin_right"
+description = "Aligned hinge-pin clearance holes pass through the two hinge ears."
+reason = "Controls the hinge pin clearance interface for review."
+view = "front"
+
+[[drawing_intent.critical_features]]
+id = "MOUNTING_HOLES"
+feature = "mount_hole_left,mount_hole_right"
+description = "Two mounting holes define the base fastening interface."
+reason = "Controls the fixture fastening clearance."
+view = "top"
+
+[[drawing_intent.required_dimensions]]
+id = "HINGE_PIN_DIA"
+feature = "hinge_pin_left,hinge_pin_right"
+label = "Hinge pin hole diameter"
+dimension_type = "diameter"
+value_mm = 8
+required = true
+view = "front"
+reason = "Confirms the shared hinge pin clearance diameter."
+
+[[drawing_intent.required_dimensions]]
+id = "MOUNTING_HOLE_DIA"
+feature = "mount_hole_left,mount_hole_right"
+label = "Base mounting hole diameter"
+dimension_type = "diameter"
+value_mm = 6
+required = true
+view = "top"
+reason = "Confirms the shared base mounting hole diameter."
+
+[[drawing_intent.required_notes]]
+id = "MATERIAL"
+text = "Material: AL6061 machined hinge block."
+category = "material"
+required = true
+
+[[drawing_intent.required_notes]]
+id = "EVIDENCE_BOUNDARY"
+text = "Generated quality and drawing artifacts are not inspection evidence."
+category = "evidence_boundary"
+required = true
+
+[[drawing_plan.dim_intents]]
+id = "HINGE_PIN_DIA"
+feature = "hinge_pin_left,hinge_pin_right"
+view = "front"
+style = "diameter"
+required = true
+priority = 1
+value_mm = 8
+reason = "Shared hinge-pin clearance hole diameter."
+source = "drawing_intent.required_dimensions"
+
+[[drawing_plan.dim_intents]]
+id = "MOUNTING_HOLE_DIA"
+feature = "mount_hole_left,mount_hole_right"
+view = "top"
+style = "diameter"
+required = true
+priority = 2
+value_mm = 6
+reason = "Shared base mounting hole diameter."
+source = "drawing_intent.required_dimensions"
+
+[export]
+formats = ["step", "stl"]
+directory = "docs/examples/hinge-block/cad"

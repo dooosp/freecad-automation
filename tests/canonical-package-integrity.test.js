@@ -29,6 +29,11 @@ const CANONICAL_PACKAGES = Object.freeze([
     score: 52,
     sourceConfig: 'configs/examples/controller_housing_eol.toml',
   },
+  {
+    slug: 'hinge-block',
+    score: 52,
+    sourceConfig: 'configs/examples/hinge_block.toml',
+  },
 ]);
 
 const CANONICAL_SLUGS = CANONICAL_PACKAGES.map((pkg) => pkg.slug);
@@ -223,7 +228,7 @@ const canonicalEntries = manifest.examples.filter((example) => example.status ==
 assert.deepEqual(
   canonicalEntries.map((entry) => entry.slug),
   CANONICAL_SLUGS,
-  'manifest canonical package inventory should stay fixed at the four-package closeout set'
+  'manifest canonical package inventory should stay fixed at the five-package closeout set'
 );
 assert.deepEqual(
   manifest.canonical_artifacts,
@@ -256,10 +261,9 @@ for (const entry of manifest.examples.filter((example) => example.status !== 'ca
     'release_bundle_zip',
     'studio_reopen_fixture',
   ].every((key) => coverage[key] === true);
-  assert.equal(completeCoverage, false, `${entry.slug} should not look like an accidental fifth complete canonical package`);
+  assert.equal(completeCoverage, false, `${entry.slug} should not look like an accidental complete canonical package`);
 }
 
-assert.match(examplesReadme, /No fifth package is complete yet\./);
 assert.match(examplesReadme, /release_bundle_checksums\.sha256/);
 assert.match(examplesReadme, /release_bundle_log\.json/);
 assert.match(closeoutText, /non-inspection software milestone/);

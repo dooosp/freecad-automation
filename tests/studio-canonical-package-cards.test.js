@@ -134,6 +134,7 @@ const payload = {
     makePackage('plate-with-holes'),
     makePackage('motor-mount'),
     makePackage('controller-housing-eol'),
+    makePackage('hinge-block'),
   ],
 };
 
@@ -181,7 +182,7 @@ assert.equal(translateText('Preview truncated by server size limit.', 'ko'), 'ì„
 
 assert.equal(state.status, 'ready');
 assert.equal(sectionModel.title, 'Canonical CAD packages');
-assert.equal(sectionModel.cards.length, 4);
+assert.equal(sectionModel.cards.length, 5);
 assert.equal(sectionModel.boundaryNotes.some((note) => /read-only docs packages/i.test(note)), true);
 assert.equal(sectionModel.boundaryNotes.some((note) => /tracked job\/artifact reopen remains separate/i.test(note)), true);
 assert.equal(sectionModel.boundaryNotes.some((note) => /release bundle presence does not mean production-ready/i.test(note)), true);

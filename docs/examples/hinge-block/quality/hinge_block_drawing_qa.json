@@ -1,0 +1,49 @@
+{
+  "file": "hinge_block_drawing.svg",
+  "score": 84,
+  "weight_profile": "bracket",
+  "timestamp": "2026-04-30T08:38:32",
+  "metrics": {
+    "intent_metrics_applicable": true,
+    "iso_hidden_count": 0,
+    "overflow_count": 0,
+    "text_overlap_pairs": 1,
+    "dim_overlap_pairs": 0,
+    "notes_overflow": false,
+    "gdt_unanchored": 0,
+    "dense_iso": false,
+    "stroke_violations": 0,
+    "float_precision_count": 0,
+    "dim_completeness": 0,
+    "dim_redundancy": 4,
+    "datum_coherence": true,
+    "view_coverage": false,
+    "note_convention": 0,
+    "required_presence_rate": 100,
+    "required_presence_miss": 0,
+    "value_inconsistency": 0,
+    "virtual_pcd_present": null,
+    "note_semantic_mismatch": null,
+    "dfm_error_count": 0,
+    "dfm_warning_count": 1,
+    "dfm_score": 95
+  },
+  "deductions": {
+    "text_overlap_pairs": -2,
+    "dim_redundancy": -8,
+    "datum_coherence": -3,
+    "dfm_warning_count": -3
+  },
+  "details": {
+    "overflows": [],
+    "text_overlaps": [
+      {
+        "text1": "SIZE / SHEET",
+        "text2": "BBox: 90 x 50 x 38 mm",
+        "iou": 0.593,
+        "view": "page"
+      }
+    ],
+    "required_presence_missing_ids": []
+  }
+}

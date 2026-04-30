@@ -12,6 +12,7 @@ const EXPECTED_SLUGS = [
   'plate-with-holes',
   'motor-mount',
   'controller-housing-eol',
+  'hinge-block',
 ];
 const EXPECTED_ARTIFACT_KEYS = [
   'readme',
@@ -109,7 +110,7 @@ try {
   assert.equal(validateLocalApiResponse('canonical_packages', payload).ok, true);
   assert.equal(payload.ok, true);
   assert.deepEqual(payload.packages.map((entry) => entry.slug), EXPECTED_SLUGS);
-  assert.equal(payload.packages.length, 4);
+  assert.equal(payload.packages.length, 5);
 
   for (const pkg of payload.packages) {
     assert.equal(typeof pkg.name, 'string');

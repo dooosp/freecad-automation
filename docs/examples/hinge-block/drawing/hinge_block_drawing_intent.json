@@ -1,0 +1,95 @@
+{
+  "part_type": "hinge_block",
+  "manufacturing_process": "machining",
+  "material": "AL6061",
+  "required_views": [
+    "front",
+    "top",
+    "right",
+    "iso"
+  ],
+  "drawing_standard": "project-default",
+  "missing_semantics_policy": "advisory",
+  "datum_strategy": {
+    "primary": "base_block_top_face",
+    "secondary": "left_mounting_hole",
+    "tertiary": "right_mounting_hole",
+    "scheme": "fixture-oriented hinge block datum using the base face and mounting hole row",
+    "notes": [
+      "Use the base block, mounting holes, and hinge-pin holes as drawing QA references only."
+    ]
+  },
+  "tolerance_policy": {
+    "general": "Carry source critical dimensions forward; do not infer additional tolerances.",
+    "gdt": "none",
+    "notes": [
+      "Project default tolerances remain advisory until real inspection evidence exists."
+    ]
+  },
+  "critical_features": [
+    {
+      "id": "BASE_BLOCK",
+      "feature": "base_block",
+      "description": "Base block communicates the 90 mm by 50 mm by 12 mm machined support footprint.",
+      "reason": "Defines stock size, datum face, and fixture mounting envelope.",
+      "view": "top"
+    },
+    {
+      "id": "HINGE_EARS",
+      "feature": "left_ear,right_ear",
+      "description": "Two hinge ears provide bounded support around the hinge-pin clearance holes.",
+      "reason": "Shows the mechanism-like support feature without claiming assembly motion or load rating.",
+      "view": "front"
+    },
+    {
+      "id": "HINGE_PIN_HOLES",
+      "feature": "hinge_pin_left,hinge_pin_right",
+      "description": "Aligned hinge-pin clearance holes pass through the two hinge ears.",
+      "reason": "Controls the hinge pin clearance interface for review.",
+      "view": "front"
+    },
+    {
+      "id": "MOUNTING_HOLES",
+      "feature": "mount_hole_left,mount_hole_right",
+      "description": "Two mounting holes define the base fastening interface.",
+      "reason": "Controls the fixture fastening clearance.",
+      "view": "top"
+    }
+  ],
+  "required_dimensions": [
+    {
+      "id": "HINGE_PIN_DIA",
+      "feature": "hinge_pin_left,hinge_pin_right",
+      "label": "Hinge pin hole diameter",
+      "dimension_type": "diameter",
+      "value_mm": 8,
+      "required": true,
+      "view": "front",
+      "reason": "Confirms the shared hinge pin clearance diameter."
+    },
+    {
+      "id": "MOUNTING_HOLE_DIA",
+      "feature": "mount_hole_left,mount_hole_right",
+      "label": "Base mounting hole diameter",
+      "dimension_type": "diameter",
+      "value_mm": 6,
+      "required": true,
+      "view": "top",
+      "reason": "Confirms the shared base mounting hole diameter."
+    }
+  ],
+  "required_notes": [
+    {
+      "id": "MATERIAL",
+      "text": "Material: AL6061 machined hinge block.",
+      "category": "material",
+      "required": true
+    },
+    {
+      "id": "EVIDENCE_BOUNDARY",
+      "text": "Generated quality and drawing artifacts are not inspection evidence.",
+      "category": "evidence_boundary",
+      "required": true
+    }
+  ]
+}

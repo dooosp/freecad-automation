@@ -1,0 +1,280 @@
+{
+  "schema_version": "1.0",
+  "artifact_type": "release_bundle_manifest",
+  "workflow": "readiness_release_bundle",
+  "generated_at": "2026-04-30T00:23:04.945Z",
+  "warnings": [
+    "STEP feature detection failed: No JSON found in stdout of step_feature_detector.py\nstdout: FreeCAD 1.1.1, Libs: 1.1.1R20260414 (Git shallow)\n(C) 2001-2026 FreeCAD contributors\nFreeCAD is free and open-source software licensed under the terms of LGPL2+ license.\n\nRobust MCP Bridge: Init.py loaded\nRobust MCP Bridge: Init loaded\nRobust MCP Bridge: Auto-start preference = False\n\nstderr:  Model: docs/examples/hinge-block/cad/hinge_block.step Continuing without STEP-derived feature hints. Repair the STEP/shape if you need STEP-derived feature hints.",
+    "Package quality/drawing side inputs are review evidence, but they do not satisfy inspection_evidence without a genuine inspection input.",
+    "Missing or limited inspection evidence; review-pack remains usable with partial evidence."
+  ],
+  "coverage": {
+    "source_artifact_count": 10,
+    "source_file_count": 1,
+    "hotspot_count": 1,
+    "inspection_record_count": 0,
+    "inspection_outlier_count": 0,
+    "quality_issue_count": 0,
+    "quality_hotspot_count": 0,
+    "review_priority_count": 1,
+    "required_section_count": 4,
+    "available_section_count": 4,
+    "process_step_count": 2,
+    "quality_gate_count": 1,
+    "missing_input_count": 1,
+    "evidence_record_count": 6,
+    "upstream_review_pack_coverage": {
+      "source_artifact_count": 7,
+      "source_file_count": 1,
+      "hotspot_count": 1,
+      "inspection_record_count": 0,
+      "inspection_outlier_count": 0,
+      "quality_issue_count": 0,
+      "quality_hotspot_count": 0,
+      "review_priority_count": 1
+    },
+    "bundled_artifact_count": 13,
+    "included_source_artifact_count": 4,
+    "skipped_optional_artifact_count": 0,
+    "docs_included": true,
+    "document_count": 5
+  },
+  "confidence": {
+    "level": "heuristic",
+    "score": 0.76,
+    "rationale": "Canonical review pack combines upstream D artifacts into a decision-oriented JSON contract.",
+    "propagated_from": "readiness_report",
+    "propagation_notes": [
+      "Release packaging preserves readiness_report confidence without changing score or level."
+    ]
+  },
+  "source_artifact_refs": [
+    {
+      "artifact_type": "create_quality_report",
+      "path": "docs/examples/hinge-block/quality/hinge_block_create_quality.json",
+      "role": "evidence",
+      "label": "Create quality report"
+    },
+    {
+      "artifact_type": "drawing_quality_report",
+      "path": "docs/examples/hinge-block/quality/hinge_block_drawing_quality.json",
+      "role": "evidence",
+      "label": "Drawing quality report"
+    },
+    {
+      "artifact_type": "drawing_qa_report",
+      "path": "docs/examples/hinge-block/quality/hinge_block_drawing_qa.json",
+      "role": "evidence",
+      "label": "Drawing QA report"
+    },
+    {
+      "artifact_type": "drawing_intent",
+      "path": "docs/examples/hinge-block/drawing/hinge_block_drawing_intent.json",
+      "role": "evidence",
+      "label": "Drawing intent"
+    },
+    {
+      "artifact_type": "feature_catalog",
+      "path": "docs/examples/hinge-block/drawing/hinge_block_feature_catalog.json",
+      "role": "evidence",
+      "label": "Feature catalog"
+    },
+    {
+      "artifact_type": "cad_model",
+      "path": "docs/examples/hinge-block/cad/hinge_block.step",
+      "role": "input",
+      "label": "Geometry source"
+    },
+    {
+      "artifact_type": "source_file",
+      "path": "docs/examples/hinge-block/cad/hinge_block.step",
+      "role": "evidence",
+      "label": "Context source file"
+    },
+    {
+      "artifact_type": "review_pack",
+      "path": "docs/examples/hinge-block/review/review_pack.json",
+      "role": "input",
+      "label": "Canonical review-pack JSON"
+    },
+    {
+      "artifact_type": "readiness_report",
+      "path": "docs/examples/hinge-block/readiness/readiness_report.json",
+      "role": "input",
+      "label": "Canonical readiness report JSON"
+    },
+    {
+      "artifact_type": "docs_manifest",
+      "path": "docs/examples/hinge-block/standard-docs/standard_docs_manifest.json",
+      "role": "input",
+      "label": "Standard docs manifest JSON"
+    }
+  ],
+  "canonical_artifact": {
+    "json_is_source_of_truth": true,
+    "artifact_type": "release_bundle_manifest",
+    "artifact_filename": "release_bundle_manifest.json",
+    "derived_outputs": [
+      "release_bundle"
+    ],
+    "rationale": "release_bundle_manifest.json is the canonical packaging inventory; the ZIP is a derived transport artifact."
+  },
+  "contract": {
+    "layer": "C",
+    "command": "pack",
+    "contract_version": "c2",
+    "canonical_artifact_kind": "release_bundle_manifest",
+    "primary_output": "release_bundle_manifest.json",
+    "required_inputs": [
+      "readiness_report"
+    ],
+    "optional_inputs": [
+      "docs_manifest",
+      "stabilization_review",
+      "review_pack"
+    ],
+    "derived_outputs": [
+      "release_bundle"
+    ],
+    "notes": [
+      "The release-bundle manifest packages canonical C outputs without replacing canonical JSON as the source of truth."
+    ]
+  },
+  "readiness_report_ref": {
+    "artifact_type": "readiness_report",
+    "path": "docs/examples/hinge-block/readiness/readiness_report.json",
+    "role": "input",
+    "label": "Canonical readiness report JSON"
+  },
+  "docs_manifest_ref": {
+    "artifact_type": "docs_manifest",
+    "path": "docs/examples/hinge-block/standard-docs/standard_docs_manifest.json",
+    "role": "input",
+    "label": "Standard docs manifest JSON"
+  },
+  "bundle_artifacts": [
+    {
+      "artifact_type": "readiness_report",
+      "role": "primary",
+      "label": "Canonical readiness report JSON",
+      "path": "canonical/readiness_report.json",
+      "source_path": "docs/examples/hinge-block/readiness/readiness_report.json",
+      "size_bytes": 59708,
+      "sha256": "9702f851fac76ba2b961e058cec750e349a98c3a3c4501496572967228f6f7e2"
+    },
+    {
+      "artifact_type": "readiness_markdown",
+      "role": "derived",
+      "label": "Readiness report Markdown",
+      "path": "canonical/readiness_report.md",
+      "source_path": "docs/examples/hinge-block/readiness/readiness_report.md",
+      "size_bytes": 3703,
+      "sha256": "acf8d6dcade90caf16f14cf378fd844899505fbb65ae0c9e6acd94cc2ec01423"
+    },
+    {
+      "artifact_type": "cad_model",
+      "role": "input",
+      "label": "Geometry source",
+      "path": "references/hinge_block.step",
+      "source_path": "docs/examples/hinge-block/cad/hinge_block.step",
+      "size_bytes": 22922,
+      "sha256": "eb2fdf740c4a8f991d7aa74a8f5a581267fb0fd955e1c325cdf87f82ce0d6823"
+    },
+    {
+      "artifact_type": "review_pack",
+      "role": "input",
+      "label": "Canonical review-pack JSON",
+      "path": "canonical/review_pack.json",
+      "source_path": "docs/examples/hinge-block/review/review_pack.json",
+      "size_bytes": 25431,
+      "sha256": "58b230e6aabe31e2d5a2d7995ece3bb2f36be7e159c90bef389ae62b3749b7af"
+    },
+    {
+      "artifact_type": "docs_manifest",
+      "role": "input",
+      "label": "Standard docs manifest JSON",
+      "path": "docs/standard_docs_manifest.json",
+      "source_path": "docs/examples/hinge-block/standard-docs/standard_docs_manifest.json",
+      "size_bytes": 6917,
+      "sha256": "9ddf23115432b5a9af0812adcee2272559d2d7208d4148c722244afb786ca074"
+    },
+    {
+      "artifact_type": "docs_document",
+      "role": "derived",
+      "label": "process_flow.md",
+      "path": "docs/process_flow.md",
+      "source_path": "docs/examples/hinge-block/standard-docs/process_flow.md",
+      "size_bytes": 509,
+      "sha256": "0afd1f03248b4f196beb1c3939df02e03967354b6fb616c1f31a7dc74420b1ba"
+    },
+    {
+      "artifact_type": "docs_document",
+      "role": "derived",
+      "label": "control_plan_draft.csv",
+      "path": "docs/control_plan_draft.csv",
+      "source_path": "docs/examples/hinge-block/standard-docs/control_plan_draft.csv",
+      "size_bytes": 99,
+      "sha256": "399ec793f4b62b635f30ecdf59e1b97e03f0eb862b2bfd48ff2362c554aabc64"
+    },
+    {
+      "artifact_type": "docs_document",
+      "role": "derived",
+      "label": "inspection_checksheet_draft.csv",
+      "path": "docs/inspection_checksheet_draft.csv",
+      "source_path": "docs/examples/hinge-block/standard-docs/inspection_checksheet_draft.csv",
+      "size_bytes": 70,
+      "sha256": "4595fdd1b54a345237d4716fecec90495ec7a0cb7a0e7593147875557ed0d391"
+    },
+    {
+      "artifact_type": "docs_document",
+      "role": "derived",
+      "label": "work_instruction_draft.md",
+      "path": "docs/work_instruction_draft.md",
+      "source_path": "docs/examples/hinge-block/standard-docs/work_instruction_draft.md",
+      "size_bytes": 774,
+      "sha256": "93fb8b17f8c3cec9f4285ae85ab79ef7c5e8c4f9968ef401f045f6f1caba1492"
+    },
+    {
+      "artifact_type": "docs_document",
+      "role": "derived",
+      "label": "pfmea_seed.csv",
+      "path": "docs/pfmea_seed.csv",
+      "source_path": "docs/examples/hinge-block/standard-docs/pfmea_seed.csv",
+      "size_bytes": 379,
+      "sha256": "7dcfe9be3ddd99bcfda73fb4d38ca43fe8847bf60bb1e00b271ecdb10ca0db43"
+    },
+    {
+      "artifact_type": "release_bundle_log",
+      "role": "supporting",
+      "label": "Release bundle log JSON",
+      "path": "release_bundle_log.json",
+      "source_path": "docs/examples/hinge-block/release/release_bundle_log.json",
+      "size_bytes": 4766,
+      "sha256": "4ff594b7d7e1dfc21021a8bd2784d62ed871458481dddbfa639aaf64536d38f8"
+    },
+    {
+      "artifact_type": "release_bundle_checksums",
+      "role": "supporting",
+      "label": "Release bundle checksums",
+      "path": "release_bundle_checksums.sha256",
+      "source_path": "docs/examples/hinge-block/release/release_bundle_checksums.sha256",
+      "size_bytes": 1037,
+      "sha256": "acb6fb05e47a1392e106d87288163adfeacf0f4588c4bd5dda73ad438ee43711"
+    },
+    {
+      "artifact_type": "release_bundle_manifest",
+      "role": "primary",
+      "label": "Release bundle manifest JSON",
+      "path": "release_bundle_manifest.json",
+      "source_path": "docs/examples/hinge-block/release/release_bundle_manifest.json"
+    }
+  ],
+  "release_notes": [
+    "Canonical readiness_report.json remains the source of truth for release packaging.",
+    "Standard-document drafts were included from the supplied or discovered docs manifest."
+  ],
+  "bundle_file": {
+    "path": "docs/examples/hinge-block/release/release_bundle.zip",
+    "filename": "release_bundle.zip"
+  }
+}

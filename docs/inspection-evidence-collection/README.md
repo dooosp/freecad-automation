@@ -9,6 +9,7 @@ themselves.
 - [`plate-with-holes`](./plate-with-holes.md)
 - [`motor-mount`](./motor-mount.md)
 - [`controller-housing-eol`](./controller-housing-eol.md)
+- [`hinge-block`](./hinge-block.md)
 
 Completed real JSON must be written later under the matching
 `docs/examples/<package>/inspection/inspection_evidence.json` target and attached

@@ -37,6 +37,10 @@ const CANONICAL_PACKAGES = Object.freeze([
     slug: 'controller-housing-eol',
     partId: 'controller_housing_eol',
   },
+  {
+    slug: 'hinge-block',
+    partId: 'hinge_block',
+  },
 ]);
 
 const CANONICAL_ARTIFACTS = Object.freeze([

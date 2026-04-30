@@ -12,6 +12,7 @@ export const CANONICAL_PACKAGE_SLUGS = Object.freeze([
   'plate-with-holes',
   'motor-mount',
   'controller-housing-eol',
+  'hinge-block',
 ]);
 
 const EVIDENCE_BOUNDARY = Object.freeze({

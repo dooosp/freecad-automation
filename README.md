@@ -44,8 +44,8 @@ npm run test:runtime-smoke
 If you are reviewing the repository on GitHub:
 
 1. Start with the [project closeout status](./docs/project-closeout-status.md) and the [canonical example library](./docs/examples/README.md) for the current CAD publish/review package route.
-2. Pick one of the four canonical packages and read its package README plus `readiness/readiness_report.json`; that JSON is the readiness source of truth for standard docs and release packaging.
-3. Read the current status honestly: all four canonical packages are `needs_more_evidence` with gate decision `hold_for_evidence_completion` because `inspection_evidence` remains missing.
+2. Pick one of the five canonical packages and read its package README plus `readiness/readiness_report.json`; that JSON is the readiness source of truth for standard docs and release packaging.
+3. Read the current status honestly: all five canonical packages are `needs_more_evidence` with gate decision `hold_for_evidence_completion` because `inspection_evidence` remains missing.
 4. Treat linked quality/drawing evidence as review evidence only. It can close `quality_evidence`, but quality/drawing evidence does not satisfy `inspection_evidence`.
 5. Inspect the package artifacts in place: `review/review_pack.json`, `readiness/readiness_report.json`, `standard-docs/`, `release/`, and any package `reopen-notes.md` or deterministic reopen fixture.
 6. Use Studio for read-only canonical package cards, allowlisted artifact preview, and tracked job/artifact reopen. The checked-in canonical packages remain docs-package artifacts, not arbitrary local file imports.

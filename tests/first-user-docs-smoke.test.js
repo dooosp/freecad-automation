@@ -19,6 +19,7 @@ const CANONICAL_PACKAGES = Object.freeze([
   'plate-with-holes',
   'motor-mount',
   'controller-housing-eol',
+  'hinge-block',
 ]);
 
 function readText(path) {
@@ -111,7 +112,7 @@ assertMentions(
 assert.deepEqual(
   parseCanonicalPackageList(exampleIndexText),
   CANONICAL_PACKAGES,
-  'example index should list exactly the four canonical packages in first-user order'
+  'example index should list exactly the five canonical packages in first-user order'
 );
 assertMentions(exampleIndexText, /readiness_report\.json` is the readiness source of truth/, 'example index should name readiness_report.json as source of truth');
 assertMentions(exampleIndexText, /quality and drawing evidence is review evidence.*does not satisfy `inspection_evidence`/, 'example index should preserve the generated-evidence boundary');
@@ -169,6 +170,7 @@ for (const [slug, score] of Object.entries({
   'plate-with-holes': 61,
   'motor-mount': 55,
   'controller-housing-eol': 52,
+  'hinge-block': 52,
 })) {
   assertMentions(
     projectCloseoutStatusText,
@@ -227,6 +229,7 @@ for (const [slug, score] of Object.entries({
   'plate-with-holes': 61,
   'motor-mount': 55,
   'controller-housing-eol': 52,
+  'hinge-block': 52,
 })) {
   assertMentions(finalCloseoutText, new RegExp(`\\| \`${slug}\` [^\\n]+\\|`), `final closeout should mention ${slug}`);
   assertMentions(
@@ -277,6 +280,7 @@ for (const [slug, score] of Object.entries({
   'plate-with-holes': 61,
   'motor-mount': 55,
   'controller-housing-eol': 52,
+  'hinge-block': 52,
 })) {
   const guideRowPattern = new RegExp(
     '\\| `' +
@@ -302,7 +306,7 @@ assertMentions(studioFirstUserWalkthroughText, /release_bundle\.zip` is a curate
 assertMentions(studioFirstUserWalkthroughText, /remains non-previewable/, 'Studio walkthrough should state release_bundle.zip remains non-previewable');
 assertMentions(studioFirstUserWalkthroughText, /does not expose an arbitrary local file open or download route/, 'Studio walkthrough should reject arbitrary local open/download routes');
 assertMentions(studioFirstUserWalkthroughText, /Release bundle presence does not mean production-ready/, 'Studio walkthrough should preserve release bundle readiness boundary');
-assertMentions(studioFirstUserWalkthroughText, /All four canonical packages remain `needs_more_evidence`/, 'Studio walkthrough should keep current readiness status');
+assertMentions(studioFirstUserWalkthroughText, /All five canonical packages remain `needs_more_evidence`/, 'Studio walkthrough should keep current readiness status');
 assertMentions(studioFirstUserWalkthroughText, /`inspection_evidence` means genuine completed inspection evidence JSON/, 'Studio walkthrough should define inspection_evidence');
 assertMentions(studioFirstUserWalkthroughText, /Generated quality, drawing, review, readiness, standard-docs, release, template, fixture, and collection-guide artifacts are not inspection evidence/, 'Studio walkthrough should reject generated artifacts as inspection evidence');
 assertMentions(studioFirstUserWalkthroughText, /Production readiness remains held until genuine completed inspection evidence exists/, 'Studio walkthrough should keep production readiness held');

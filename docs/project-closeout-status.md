@@ -18,8 +18,9 @@ The current canonical package set is:
 | `plate-with-holes` | `configs/examples/pcb_mount_plate.toml` | `needs_more_evidence` | 61 | `hold_for_evidence_completion` | `inspection_evidence` |
 | `motor-mount` | `configs/generated/cnc_motor_mount_bracket.toml` | `needs_more_evidence` | 55 | `hold_for_evidence_completion` | `inspection_evidence` |
 | `controller-housing-eol` | `configs/examples/controller_housing_eol.toml` | `needs_more_evidence` | 52 | `hold_for_evidence_completion` | `inspection_evidence` |
+| `hinge-block` | `configs/examples/hinge_block.toml` | `needs_more_evidence` | 52 | `hold_for_evidence_completion` | `inspection_evidence` |
 
-All four packages remain `needs_more_evidence` and are held at `hold_for_evidence_completion`.
+All five packages remain `needs_more_evidence` and are held at `hold_for_evidence_completion`.
 
 ## Artifact Chain
 
