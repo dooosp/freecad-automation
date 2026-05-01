@@ -37,6 +37,30 @@ The runtime domain runner uses the same FreeCAD-backed script path as the CLI an
 
 The hosted workflow is the fast PR lane and does not install or launch FreeCAD. The self-hosted workflow is the repository-owned runtime smoke source of truth for real FreeCAD-backed quality checks on pull requests, manual reruns, and the weekly schedule.
 
+## GitHub Actions Node24 Runtime
+
+The GitHub-hosted and self-hosted workflows opt JavaScript actions into the Node24 action runtime with `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"` and use Node24-backed action majors:
+
+- `actions/checkout@v6`
+- `actions/setup-node@v6`
+- `actions/upload-artifact@v7`
+- `actions/setup-python@v6`
+
+This is separate from the project runtime. The workflow steps still set `node-version: "24"` for repository commands, while the action pins and `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24` cover the JavaScript action runtime transition.
+
+Self-hosted FreeCAD smoke runners must run a current GitHub Actions runner with Node24 action support. Use runner `v2.328.0` or newer, keep macOS above `13.4`, and do not set `ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true` unless temporarily diagnosing an upstream action-runtime regression.
+
+Manual verification for issue #31:
+
+```bash
+gh workflow run automation-ci.yml --ref <branch-or-sha>
+gh workflow run freecad-runtime-smoke.yml --ref <branch-or-sha>
+gh run view <run-id> --json conclusion,jobs
+gh api repos/dooosp/freecad-automation/check-runs/<job-id>/annotations
+```
+
+The acceptance check is not just green jobs: hosted fast lanes and the self-hosted runtime smoke must pass with no Node20 action-runtime deprecation annotations.
+
 ## Docs Smoke Coverage
 
 `node tests/first-user-docs-smoke.test.js` checks the first-user package documentation path, including the Studio walkthrough for canonical package cards, safe artifact preview, release bundle boundaries, the canonical package generation workflow guide, the DFM/readiness guide, the final non-inspection software closeout report, the Stage 5D feature expansion closeout, and the current `needs_more_evidence` / `inspection_evidence` readiness hold.
