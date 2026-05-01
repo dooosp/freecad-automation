@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { existsSync, lstatSync, readFileSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 
+import { CANONICAL_PACKAGE_SLUGS as DISCOVERY_CANONICAL_PACKAGE_SLUGS } from '../src/server/canonical-package-discovery.js';
+
 const ROOT = resolve(import.meta.dirname, '..');
 const EXAMPLES_ROOT = resolve(ROOT, 'docs', 'examples');
 const EXAMPLES_README_PATH = join(EXAMPLES_ROOT, 'README.md');
@@ -225,6 +227,11 @@ assert.deepEqual(
 
 const manifest = JSON.parse(rawManifest);
 const canonicalEntries = manifest.examples.filter((example) => example.status === 'canonical-package');
+assert.deepEqual(
+  DISCOVERY_CANONICAL_PACKAGE_SLUGS,
+  canonicalEntries.map((entry) => entry.slug),
+  'Studio/API canonical package discovery should match the manifest canonical package inventory'
+);
 assert.deepEqual(
   canonicalEntries.map((entry) => entry.slug),
   CANONICAL_SLUGS,
