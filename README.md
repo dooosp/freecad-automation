@@ -264,7 +264,7 @@ Major runtime and analysis commands now also emit an additive output manifest na
 
 `fcad create` also emits an additive `<base>_create_quality.json` report when it exports model artifacts. The create output manifest links that report through `linked_artifacts.quality_json`, and `--strict-quality` exits non-zero only when the quality report finds blocking export issues.
 
-Inside the create-quality report, `generated_shape_geometry` marks measurements captured from the FreeCAD shape that `fcad create` generated before export. `reimported_step_geometry` marks measurements captured only after the exported STEP file is re-imported, so it is STEP round-trip evidence for the exported file, not a replacement source for generated-shape checks.
+Inside the create-quality report, `generated_shape_geometry` marks measurements captured from the FreeCAD shape that `fcad create` generated before export. `reimported_step_geometry` marks measurements captured only after the exported STEP file is re-imported, so it is STEP round-trip evidence for the exported file, not a replacement source for generated-shape checks. When STEP re-import geometry is unavailable, create-quality records an explicit unavailable STEP geometry state instead of fake measurements; that provenance is separate from package `inspection_evidence`.
 
 `fcad draw` also writes an additive `<base>_drawing_quality.json` summary beside the existing draw sidecars. It aggregates required-dimension coverage, conflict counts, layout overlap signals, BOM consistency, and traceability coverage into one status block. Default draw still completes with warnings, while `--strict-quality` exits non-zero when blocking draw-quality issues remain.
 
@@ -791,7 +791,7 @@ Notes:
 - Assembly mode currently expects top-level `parts` and `assembly`; `parts` alone does not activate assembly handling.
 - Assembly part operations currently follow the assembly builder's supported set and are not a drop-in match for every single-part operation.
 - When `create` exports STEP/STL/BREP artifacts, it also writes `<base>_create_quality.json` with generated-model geometry, STEP/BREP re-import checks, STL mesh checks, thresholds, warnings, and blocking issues.
-- Create-quality evidence separates `generated_shape_geometry` measurements from the in-memory generated FreeCAD shape and `reimported_step_geometry` measurements from the exported STEP after re-import; STEP re-import evidence proves the exported file round-trips, not that every generated-shape check came from STEP.
+- Create-quality evidence separates `generated_shape_geometry` measurements from the in-memory generated FreeCAD shape and `reimported_step_geometry` measurements from the exported STEP after re-import; STEP re-import evidence proves the exported file round-trips, not that every generated-shape check came from STEP. Unavailable STEP geometry is reported as explicit unavailable provenance, not inferred or synthetic measurement evidence, and remains separate from `inspection_evidence`.
 - `--strict-quality` keeps the exported files but fails the command if the quality report status is `fail`.
 
 Legacy / compatibility note:

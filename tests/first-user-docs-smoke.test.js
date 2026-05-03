@@ -108,6 +108,8 @@ assertMentions(rootReadmeText, /quality\/drawing evidence does not satisfy `insp
 assertMentions(rootReadmeText, /`generated_shape_geometry` marks measurements captured from the FreeCAD shape that `fcad create` generated before export/, 'root README should define generated_shape_geometry as pre-export generated-shape evidence');
 assertMentions(rootReadmeText, /`reimported_step_geometry` marks measurements captured only after the exported STEP file is re-imported/, 'root README should define reimported_step_geometry as STEP reimport evidence');
 assertMentions(rootReadmeText, /STEP round-trip evidence for the exported file, not a replacement source for generated-shape checks/, 'root README should keep STEP reimport evidence separate from generated-shape checks');
+assertMentions(rootReadmeText, /unavailable STEP geometry state instead of fake measurements/, 'root README should describe unavailable STEP geometry as explicit unavailable evidence');
+assertMentions(rootReadmeText, /Unavailable STEP geometry is reported as explicit unavailable provenance, not inferred or synthetic measurement evidence/, 'root README should reject synthetic STEP geometry measurements');
 assertMentions(rootReadmeText, new RegExp(SYNTHETIC_FIXTURE_REF), 'root README should explicitly reject the synthetic fixture as package evidence');
 assertMentions(
   rootReadmeText,
