@@ -37,11 +37,8 @@ const smokeManifest = {
   artifact_manifests: [],
   artifacts: [],
   quality_fixture_matrix: createQualityFixtureSmokeMatrix(),
-  excluded_commands: [
-    {
-      command: 'tolerance',
-      reason: 'Assembly-plus-Monte-Carlo runtime flow is still left to deeper local validation so the repository-owned smoke lane stays stable.',
-    },
+  scope_notes: [
+    'Includes a narrow CSV-backed fcad tolerance smoke on self-hosted macOS; this does not claim broader platform runtime maturity or Monte Carlo-specific acceptance coverage.',
   ],
 };
 
@@ -495,6 +492,13 @@ const femConfig = cloneConfigWithOutput(
 );
 smokeManifest.source_configs.push(join(ROOT, 'configs', 'examples', 'bracket_fem.toml'));
 
+const toleranceConfig = cloneConfigWithOutput(
+  join(ROOT, 'configs', 'examples', 'ptu_assembly_mates.toml'),
+  'ptu_assembly_mates.runtime-smoke.toml',
+  'ptu_assembly_mates_runtime_smoke'
+);
+smokeManifest.source_configs.push(join(ROOT, 'configs', 'examples', 'ptu_assembly_mates.toml'));
+
 const qualityPassConfig = cloneConfigWithOutput(
   join(ROOT, 'configs', 'examples', 'quality_pass_bracket.toml'),
   'quality_pass_bracket.runtime-smoke.toml',
@@ -678,6 +682,45 @@ assertArtifactManifest(
       assert(manifest.details.safety_factor > 0, 'FEM smoke should report a positive safety factor');
     },
   }
+);
+
+const toleranceManifestPath = join(OUTPUT_DIR, 'ptu_assembly_mates_runtime_smoke_tolerance_artifact-manifest.json');
+runCli([
+  'tolerance',
+  toleranceConfig,
+  '--recommend',
+  '--csv',
+  '--manifest-out',
+  toleranceManifestPath,
+]);
+const toleranceCsvPath = join(OUTPUT_DIR, 'ptu_assembly_mates_runtime_smoke_tolerance.csv');
+assertArtifact(toleranceCsvPath);
+const toleranceCsv = readFileSync(toleranceCsvPath, 'utf8');
+assert.match(toleranceCsv, /^Bore Part,Shaft Part,Nominal D \(mm\),Spec,Fit Type,/);
+assert.match(toleranceCsv, /input_shaft/);
+assertArtifactManifest(
+  toleranceManifestPath,
+  {
+    command: 'tolerance',
+    requiredArtifactTypes: ['analysis.tolerance.csv'],
+    expectedConfigSuffix: `output/smoke/${RUN_ID}/configs/ptu_assembly_mates.runtime-smoke.toml`,
+    detailChecks: (manifest) => {
+      assert(manifest.details?.pair_count > 0, 'Tolerance smoke should analyze at least one pair');
+      assert(manifest.details?.stack_up_pairs > 0, 'Tolerance smoke should include stack-up pairs');
+      assert.equal(typeof manifest.details?.includes_monte_carlo, 'boolean');
+      assert.equal(manifest.details?.export_count, 1);
+    },
+  }
+);
+const toleranceOutputManifest = assertOutputManifest(
+  join(OUTPUT_DIR, 'ptu_assembly_mates_runtime_smoke_tolerance_manifest.json'),
+  { command: 'tolerance' }
+);
+assert(
+  toleranceOutputManifest.outputs.some(
+    (entry) => entry.kind === 'analysis.tolerance.csv' && entry.path === toleranceCsvPath && entry.exists === true
+  ),
+  'Tolerance output manifest should record the generated CSV'
 );
 
 syncArtifactsForReport('ks_bracket_runtime_smoke');
@@ -1248,13 +1291,19 @@ assert.equal(Array.isArray(persistedSmokeManifest.source_configs), true);
 assert.equal(Array.isArray(persistedSmokeManifest.commands), true);
 assert.equal(Array.isArray(persistedSmokeManifest.artifact_manifests), true);
 assert.equal(Array.isArray(persistedSmokeManifest.artifacts), true);
-assert.equal(persistedSmokeManifest.source_configs.length, 7);
-assert.equal(persistedSmokeManifest.artifact_manifests.length, 10);
+assert.equal(persistedSmokeManifest.source_configs.length, 8);
+assert.equal(persistedSmokeManifest.artifact_manifests.length, 11);
 assert(
   persistedSmokeManifest.commands.some(
     (entry) => entry.command.includes('fcad fem') && entry.command.includes('bracket_fem.runtime-smoke.toml')
   ),
   'Smoke manifest should record the FEM runtime command'
+);
+assert(
+  persistedSmokeManifest.commands.some(
+    (entry) => entry.command.includes('fcad tolerance') && entry.command.includes('ptu_assembly_mates.runtime-smoke.toml')
+  ),
+  'Smoke manifest should record the tolerance runtime command'
 );
 assert(
   persistedSmokeManifest.commands.some(
@@ -1314,6 +1363,10 @@ assert.equal(
 assert(
   persistedSmokeManifest.artifacts.some((artifact) => artifact.type === 'analysis.fem.step'),
   'Smoke manifest should summarize the FEM STEP artifact'
+);
+assert(
+  persistedSmokeManifest.artifacts.some((artifact) => artifact.type === 'analysis.tolerance.csv'),
+  'Smoke manifest should summarize the tolerance CSV artifact'
 );
 assertNoUnsafeOrMissingArtifactRefs(OUTPUT_DIR);
 

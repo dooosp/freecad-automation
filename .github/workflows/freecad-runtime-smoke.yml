@@ -55,15 +55,12 @@ jobs:
         run: |
           mkdir -p .ci
           {
-            echo "# output/runtime-smoke"
-            if [ -d output/runtime-smoke ]; then
-              find output/runtime-smoke -maxdepth 2 -type f | sort
+            echo "# output/smoke"
+            if [ -d output/smoke ]; then
+              find output/smoke -maxdepth 3 -type f | sort
             else
-              echo "output/runtime-smoke missing"
+              echo "output/smoke missing"
             fi
-            echo
-            echo "# runtime-smoke root artifacts"
-            find output -maxdepth 1 -type f \( -name '*runtime_smoke*' -o -name '*runtime-smoke*' \) | sort
           } | tee .ci/freecad-runtime-artifacts.txt
 
       - name: Upload runtime diagnostics
@@ -85,8 +82,6 @@ jobs:
         with:
           name: freecad-runtime-smoke-artifacts-${{ github.run_id }}
           path: |
-            output/runtime-smoke
-            output/runtime-smoke-configs
-            output/*runtime_smoke*
+            output/smoke
           if-no-files-found: warn
           retention-days: 14
