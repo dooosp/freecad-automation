@@ -390,7 +390,7 @@ assert.match(
 assert.equal(shouldFailCreateQuality(qualityPassFailedStepRoundtripReport, false), false);
 assert.equal(shouldFailCreateQuality(qualityPassFailedStepRoundtripReport, true), true);
 assert.equal(qualityPassFailedStepRoundtripReport.step_roundtrip.reimported_geometry, null);
-assert.equal(qualityPassFailedStepRoundtripReport.engineering_quality.status, 'pass');
+assert.equal(qualityPassFailedStepRoundtripReport.engineering_quality.status, 'fail');
 assert.equal(
   engineeringMeasurementsBySource(qualityPassFailedStepRoundtripReport, 'generated_shape_geometry').length,
   4
@@ -399,7 +399,22 @@ assert.equal(
   engineeringMeasurementsBySource(qualityPassFailedStepRoundtripReport, 'reimported_step_geometry').length,
   0
 );
-assert.equal(provenanceById(qualityPassFailedStepRoundtripReport).has('hole_left_step_diameter'), false);
+const failedStepLeftDiameter = engineeringMeasurement(
+  qualityPassFailedStepRoundtripReport,
+  'HOLE_LEFT_DIA_STEP_REIMPORT'
+);
+assert.equal(failedStepLeftDiameter?.status, 'unavailable');
+assert.equal(failedStepLeftDiameter?.source, 'unavailable');
+assert.equal(failedStepLeftDiameter?.validation_kind, 'reimported_step_geometry_check');
+assert.match(failedStepLeftDiameter?.message || '', /STEP re-import did not produce geometry/);
+assert.match(
+  qualityPassFailedStepRoundtripReport.blocking_issues.join('\n'),
+  /Engineering quality: STEP re-import did not produce geometry for fixture-scoped validation of hole_left/
+);
+assert.equal(
+  provenanceById(qualityPassFailedStepRoundtripReport).get('hole_left_step_diameter')?.source,
+  'unavailable'
+);
 
 const genericHoleRoundtripReport = buildCreateQualityReport({
   inputConfigPath: '/tmp/generic-hole-plate.toml',
@@ -545,6 +560,10 @@ const wrongHoleDiameterRoundtripReport = buildCreateQualityReport({
 assert.equal(wrongHoleDiameterRoundtripReport.status, 'fail');
 assert.equal(engineeringMeasurement(wrongHoleDiameterRoundtripReport, 'HOLE_LEFT_DIA_STEP_REIMPORT')?.status, 'fail');
 assert.equal(engineeringMeasurement(wrongHoleDiameterRoundtripReport, 'HOLE_LEFT_DIA_STEP_REIMPORT')?.source, 'reimported_step_geometry');
+assert.match(
+  wrongHoleDiameterRoundtripReport.blocking_issues.join('\n'),
+  /Engineering quality: Hole hole_left reimported_step_geometry diameter 8 mm differs from expected 6 mm/
+);
 
 const wrongHoleCenterConfig = await loadExampleConfig('quality_fail_wrong_hole_center');
 const wrongHoleCenterReport = buildCreateQualityReport({
@@ -635,6 +654,10 @@ assert.equal(stepWrongCenterMeasurement?.status, 'fail');
 assert.equal(stepWrongCenterMeasurement?.source, 'reimported_step_geometry');
 assert.deepEqual(stepWrongCenterMeasurement?.actual_center_xy_mm, [32, 30]);
 assert.equal(stepWrongCenterMeasurement?.center_delta_mm, 2);
+assert.match(
+  wrongHoleCenterRoundtripReport.blocking_issues.join('\n'),
+  /Engineering quality: Hole hole_left reimported_step_geometry center differs from expected center by 2 mm/
+);
 
 const missingExpectedHoleReport = buildCreateQualityReport({
   inputConfigPath: '/tmp/missing-hole.toml',
@@ -755,6 +778,14 @@ assert.equal(
 assert.notEqual(
   engineeringMeasurement(unavailableStepHoleMeasurementReport, 'HOLE_LEFT_DIA_STEP_REIMPORT')?.status,
   'pass'
+);
+assert.match(
+  unavailableStepHoleMeasurementReport.blocking_issues.join('\n'),
+  /Engineering quality: STEP re-imported geometry has no cylindrical hole face matching hole_left/
+);
+assert.equal(
+  provenanceById(unavailableStepHoleMeasurementReport).get('hole_left_step_diameter')?.source,
+  'unavailable'
 );
 
 assert.equal(
