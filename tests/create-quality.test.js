@@ -353,6 +353,123 @@ assert.equal(
 );
 assert.equal(qualityPassRoundtripProvenance.get('hole_left_step_center')?.source, 'reimported_step_geometry');
 
+const qualityPassFailedStepRoundtripReport = buildCreateQualityReport({
+  inputConfigPath: '/tmp/quality_pass_bracket.toml',
+  config: qualityPassConfig,
+  createResult: makeCreateResult({
+    model: {
+      bounding_box: {
+        min: [0, 0, 0],
+        max: [160, 100, 8],
+        size: [160, 100, 8],
+      },
+      cylindrical_faces: [
+        cylindricalFace(7, 6, [30, 30, 4]),
+        cylindricalFace(12, 10, [125, 70, 4]),
+      ],
+    },
+    exports: [
+      { format: 'step', path: '/tmp/sample.step', size_bytes: 1000 },
+    ],
+    assembly: { part_files: [] },
+  }),
+  runtimeAvailable: true,
+  inspections: {
+    step: {
+      success: false,
+      error: 'STEP re-import failed',
+    },
+  },
+});
+
+assert.equal(qualityPassFailedStepRoundtripReport.status, 'fail');
+assert.match(
+  qualityPassFailedStepRoundtripReport.blocking_issues.join('\n'),
+  /STEP round-trip failed: STEP re-import failed/
+);
+assert.equal(shouldFailCreateQuality(qualityPassFailedStepRoundtripReport, false), false);
+assert.equal(shouldFailCreateQuality(qualityPassFailedStepRoundtripReport, true), true);
+assert.equal(qualityPassFailedStepRoundtripReport.step_roundtrip.reimported_geometry, null);
+assert.equal(qualityPassFailedStepRoundtripReport.engineering_quality.status, 'pass');
+assert.equal(
+  engineeringMeasurementsBySource(qualityPassFailedStepRoundtripReport, 'generated_shape_geometry').length,
+  4
+);
+assert.equal(
+  engineeringMeasurementsBySource(qualityPassFailedStepRoundtripReport, 'reimported_step_geometry').length,
+  0
+);
+assert.equal(provenanceById(qualityPassFailedStepRoundtripReport).has('hole_left_step_diameter'), false);
+
+const genericHoleRoundtripReport = buildCreateQualityReport({
+  inputConfigPath: '/tmp/generic-hole-plate.toml',
+  config: {
+    name: 'generic_hole_plate',
+    shapes: [
+      { id: 'plate', type: 'box', length: 80, width: 40, height: 6 },
+      { id: 'mount_hole', type: 'cylinder', radius: 3, height: 10, position: [20, 20, -2] },
+    ],
+    operations: [
+      { op: 'cut', base: 'plate', tool: 'mount_hole', result: 'body' },
+    ],
+    drawing_intent: {
+      required_dimensions: [
+        {
+          id: 'MOUNT_HOLE_DIA',
+          feature: 'mount_hole',
+          dimension_type: 'diameter',
+          value_mm: 6,
+          required: true,
+        },
+      ],
+    },
+  },
+  createResult: makeCreateResult({
+    model: {
+      bounding_box: {
+        min: [0, 0, 0],
+        max: [80, 40, 6],
+        size: [80, 40, 6],
+      },
+      cylindrical_faces: [
+        cylindricalFace(3, 6, [20, 20, 3]),
+      ],
+    },
+    exports: [
+      { format: 'step', path: '/tmp/generic-hole-plate.step', size_bytes: 1000 },
+    ],
+    assembly: { part_files: [] },
+  }),
+  runtimeAvailable: true,
+  inspections: {
+    step: {
+      success: true,
+      model: makeGeometry({
+        volume: 100,
+        bbox: {
+          min: [0, 0, 0],
+          max: [80, 40, 6],
+          size: [80, 40, 6],
+        },
+        cylindrical_faces: [
+          cylindricalFace(40, 6, [20, 20, -2]),
+        ],
+      }),
+    },
+  },
+});
+
+assert.equal(genericHoleRoundtripReport.status, 'pass');
+assert.equal(
+  engineeringMeasurementsBySource(genericHoleRoundtripReport, 'generated_shape_geometry').length,
+  2
+);
+assert.equal(
+  engineeringMeasurementsBySource(genericHoleRoundtripReport, 'reimported_step_geometry').length,
+  0
+);
+assert.equal(provenanceById(genericHoleRoundtripReport).has('mount_hole_step_diameter'), false);
+
 const wrongHoleDiameterConfig = await loadExampleConfig('quality_fail_wrong_hole_diameter');
 const wrongHoleDiameterReport = buildCreateQualityReport({
   inputConfigPath: '/tmp/quality_fail_wrong_hole_diameter.toml',
