@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -66,9 +66,9 @@ const BLOCKED_PATH_PATTERNS = [
   /^output\//,
 ];
 
-async function listen() {
-  await new Promise((resolveListen) => server.listen(0, '127.0.0.1', resolveListen));
-  const address = server.address();
+async function listen(apiServer = server) {
+  await new Promise((resolveListen) => apiServer.listen(0, '127.0.0.1', resolveListen));
+  const address = apiServer.address();
   return typeof address === 'object' && address ? address.port : 0;
 }
 
@@ -163,6 +163,38 @@ try {
   const stepResponse = await fetchPreview(baseUrl, 'quality-pass-bracket', 'quality_pass_bracket.step');
   assert.equal(stepResponse.status, 404);
   assert.equal(validateLocalApiResponse('error', await stepResponse.json()).ok, true);
+
+  const escapeRoot = join(tmpRoot, 'symlink-escape-root');
+  const outsideSecret = join(tmpRoot, 'outside-secret.md');
+  mkdirSync(join(escapeRoot, 'docs/examples/quality-pass-bracket/readiness'), { recursive: true });
+  writeFileSync(
+    join(escapeRoot, 'docs/examples/quality-pass-bracket/readiness/readiness_report.json'),
+    `${JSON.stringify({
+      readiness_summary: {
+        status: 'needs_more_evidence',
+        score: 0,
+        gate_decision: 'hold_for_evidence_completion',
+        missing_inputs: ['inspection_evidence'],
+      },
+    })}\n`
+  );
+  writeFileSync(outsideSecret, '# outside secret\n\nraw-local-file-content');
+  symlinkSync(outsideSecret, join(escapeRoot, 'docs/examples/quality-pass-bracket/README.md'));
+  const { server: escapeServer } = createLocalApiServer({
+    projectRoot: escapeRoot,
+    jobsDir: join(tmpRoot, 'symlink-escape-jobs'),
+  });
+  try {
+    const escapePort = await listen(escapeServer);
+    const escapeResponse = await fetchPreview(`http://127.0.0.1:${escapePort}`, 'quality-pass-bracket', 'readme');
+    assert.equal(escapeResponse.status, 400);
+    const escapePayload = await escapeResponse.json();
+    assert.equal(validateLocalApiResponse('error', escapePayload).ok, true);
+    assert.equal(JSON.stringify(escapePayload).includes(outsideSecret), false);
+    assert.equal(JSON.stringify(escapePayload).includes('raw-local-file-content'), false);
+  } finally {
+    await new Promise((resolveClose) => escapeServer.close(resolveClose));
+  }
 
   const truncationRoot = join(tmpRoot, 'truncation-root');
   mkdirSync(join(truncationRoot, 'docs/examples/quality-pass-bracket/readiness'), { recursive: true });
