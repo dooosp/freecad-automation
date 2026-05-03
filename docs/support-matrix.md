@@ -36,7 +36,9 @@ This matrix is the public support boundary for the current release. It separates
 - `line-plan`
 - `quality-risk`
 - `investment-review`
+- `readiness-pack`
 - `readiness-report`
+- `pack`
 - `stabilization-review`
 - `generate-standard-docs`
 - `ingest`

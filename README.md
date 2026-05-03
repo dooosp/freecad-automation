@@ -1073,13 +1073,15 @@ Legacy compatibility aliases remain available at `quality_risk_pack.schema.json`
 
 ## Testing
 
-Hosted contract checks:
+Hosted-safe Node checks:
 
 ```bash
 npm run test:node:contract
+npm run test:node:integration
+npm run test:snapshots
 ```
 
-These checks cover runtime discovery, command assembly, and path conversion logic. They do not install or execute FreeCAD.
+These checks cover runtime discovery, command assembly, path conversion logic, hosted-safe integration wiring, and snapshots. They do not install or execute FreeCAD.
 
 Python and CLI checks:
 
@@ -1087,23 +1089,24 @@ Python and CLI checks:
 npm run test:py
 ```
 
-`npm run test:py` shells out to `python3 -m pytest -q`, so `python3` should resolve to Python 3.11 or newer. Hosted CI currently pins Python 3.11 to match the documented minimum.
+`npm run test:py` uses `node scripts/run-pytest.js -q tests` with the runtime-backed regressions excluded, so the selected Python interpreter should resolve to Python 3.11 or newer. Hosted CI currently pins Python 3.11 to match the documented minimum.
 
-Layered integration runner:
+Default hosted-safe Node suite:
 
 ```bash
 npm test
-npm run test:full
 ```
 
-`npm test` now runs the staged integration runner through the existing `tests/test-runner.js` compatibility shim. Internally the cases are split into runtime, model, drawing, analysis/report, and integration modules, while `npm run test:full` adds the advanced motion/design layer on top.
+`npm test` runs `node scripts/run-test-suite.js default-node`, which expands to `test:node:contract`, `test:node:integration`, and `test:snapshots` through `tests/lane-manifest.js`.
 
 ## Runtime Smoke Coverage
 
 GitHub-hosted CI currently covers:
 
-- Node runtime-contract tests on `ubuntu-24.04` and `macos-14`
-- Python unit and CLI tests on `ubuntu-24.04`
+- `test:node:contract` on `ubuntu-24.04` and `macos-14`
+- `test:node:integration` on `ubuntu-24.04`
+- `test:snapshots` on `ubuntu-24.04`
+- `test:py` on `ubuntu-24.04`
 
 GitHub-hosted CI does not currently install or launch FreeCAD.
 
