@@ -124,6 +124,81 @@ assertFails(
   /measured_value|contains/i
 );
 
+const inspectionShapedGeneratedArtifacts = [
+  ['create-quality alias', 'create_quality_report'],
+  ['Studio create-quality summary', 'model.quality-summary'],
+  ['tolerance hardening report', 'tolerance_report'],
+  ['runtime smoke report', 'runtime_smoke_report'],
+  ['runtime smoke alias', 'runtime_smoke'],
+  ['release bundle manifest', 'release_bundle_manifest'],
+  ['release bundle ZIP metadata', 'release_bundle'],
+  ['Studio release bundle ZIP metadata', 'release-bundle.zip'],
+  ['Studio release bundle manifest', 'release-bundle.manifest.json'],
+  ['release bundle log', 'release_bundle_log'],
+  ['Studio release bundle log', 'release-bundle.log.json'],
+  ['generated docs manifest', 'docs_manifest'],
+  ['Studio docs manifest summary', 'standard-docs.summary'],
+  ['generated package artifact', 'package_artifact'],
+  ['canonical package manifest', 'canonical_package_manifest'],
+  ['artifact manifest', 'artifact_manifest'],
+  ['output manifest', 'output_manifest'],
+  ['Studio output manifest', 'output.manifest.json'],
+];
+
+for (const [name, artifactType] of inspectionShapedGeneratedArtifacts) {
+  assertFails(
+    `inspection-shaped ${name}`,
+    validInspectionEvidence({
+      artifact_type: artifactType,
+      source_ref: 'docs/examples/motor-mount/release/release_bundle_manifest.json',
+    }),
+    new RegExp(`${artifactType} artifacts are not inspection evidence`)
+  );
+  assertFails(
+    `inspection-shaped ${name} via type`,
+    validInspectionEvidence({
+      type: artifactType,
+      source_ref: 'docs/examples/motor-mount/release/release_bundle_manifest.json',
+    }),
+    new RegExp(`${artifactType} artifacts are not inspection evidence`)
+  );
+}
+
+assertFails(
+  'inspection-shaped generated type still reports generated type when artifact_type is inspection_evidence',
+  validInspectionEvidence({
+    artifact_type: 'inspection_evidence',
+    type: 'release-bundle.manifest.json',
+    source_ref: 'tests/fixtures/inspection-evidence/source/manual-caliper-check-record.json',
+  }),
+  /\/type generated release-bundle\.manifest\.json artifacts are not inspection evidence/
+);
+
+const generatedArtifactSourceRefs = [
+  ['create-quality source ref', 'docs/examples/motor-mount/quality/cnc_motor_mount_bracket_create_quality.json'],
+  ['tolerance source ref', 'docs/examples/runtime-smoke/ptu_assembly_mates_runtime_smoke_tolerance_manifest.json'],
+  ['runtime-smoke source ref', 'docs/examples/runtime-smoke/ks_bracket_runtime_smoke_report_summary.json'],
+  ['release bundle source ref', 'docs/examples/motor-mount/release/release_bundle_manifest.json'],
+  ['release bundle ZIP source file', 'docs/examples/motor-mount/release/release_bundle.zip'],
+  ['package manifest source ref', 'docs/examples/motor-mount/package_manifest.json'],
+  ['docs manifest source ref', 'docs/examples/motor-mount/standard-docs/standard_docs_manifest.json'],
+  ['artifact manifest source ref', 'docs/examples/runtime-smoke/ks_bracket_runtime_smoke_artifact-manifest.json'],
+  ['output manifest source ref', 'docs/examples/runtime-smoke/ks_bracket_runtime_smoke_output_manifest.json'],
+];
+
+for (const [name, sourceRef] of generatedArtifactSourceRefs) {
+  assertFails(
+    name,
+    validInspectionEvidence({ source_ref: sourceRef, source_file: undefined }),
+    /source_ref must not point at a generated artifact path/
+  );
+  assertFails(
+    `${name} via source_file`,
+    validInspectionEvidence({ source_ref: undefined, source_file: sourceRef }),
+    /source_file must not point at a generated artifact path/
+  );
+}
+
 assertPasses(
   'unknown overall result with explicit feature result semantics',
   validInspectionEvidence({
