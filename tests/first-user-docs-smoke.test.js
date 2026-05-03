@@ -105,6 +105,9 @@ assertMentions(rootReadmeText, /release_bundle\.zip` appears as the `release_bun
 assertMentions(rootReadmeText, /--inspection-evidence <PATH_TO_COMPLETED_REAL_JSON>/, 'root README should show the completed-real-evidence CLI placeholder');
 assertMentions(rootReadmeText, /Do not treat synthetic fixtures or generated CAD\/drawing\/readiness outputs as package inspection evidence/, 'root README should reject synthetic/generated package evidence');
 assertMentions(rootReadmeText, /quality\/drawing evidence does not satisfy `inspection_evidence`/, 'root README should preserve the inspection evidence boundary');
+assertMentions(rootReadmeText, /`generated_shape_geometry` marks measurements captured from the FreeCAD shape that `fcad create` generated before export/, 'root README should define generated_shape_geometry as pre-export generated-shape evidence');
+assertMentions(rootReadmeText, /`reimported_step_geometry` marks measurements captured only after the exported STEP file is re-imported/, 'root README should define reimported_step_geometry as STEP reimport evidence');
+assertMentions(rootReadmeText, /STEP round-trip evidence for the exported file, not a replacement source for generated-shape checks/, 'root README should keep STEP reimport evidence separate from generated-shape checks');
 assertMentions(rootReadmeText, new RegExp(SYNTHETIC_FIXTURE_REF), 'root README should explicitly reject the synthetic fixture as package evidence');
 assertMentions(
   rootReadmeText,
