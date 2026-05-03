@@ -124,7 +124,7 @@ export const TEST_LANES = Object.freeze([
     label: 'Runtime smoke',
     npmScript: 'test:runtime-smoke',
     packageCommand: 'node tests/run-node-lane.js runtime-smoke',
-    scope: 'real `fcad` smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, and `report` using checked-in example configs',
+    scope: 'real `fcad` smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, narrow `tolerance --csv`, and `report` using checked-in example configs',
     freecadRequired: true,
     steps: Object.freeze([
       Object.freeze({ label: 'CLI runtime smoke', args: Object.freeze(['tests/runtime-smoke-cli.js']) }),
@@ -173,8 +173,8 @@ export const WORKFLOW_MAPPINGS = Object.freeze([
   Object.freeze({
     label: 'FreeCAD Runtime Smoke (self-hosted macOS)',
     commands: Object.freeze(['test:runtime-smoke']),
-    scope: 'No Linux or Windows runtime ownership claims, and no repository-owned tolerance smoke claim yet',
-    suffix: 'plus runtime-backed Python smoke regressions and the quality fixture matrix',
+    scope: 'No Linux or Windows runtime ownership claims, and no broad tolerance or Monte Carlo maturity claim',
+    suffix: 'plus runtime-backed Python smoke regressions, the quality fixture matrix, and a narrow tolerance CSV smoke',
   }),
 ]);
 

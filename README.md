@@ -9,9 +9,9 @@ The repository has two public layers:
 
 Validation snapshot:
 
-- verified locally by maintainers on macOS with FreeCAD 1.1.x for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, and `report`
+- verified locally by maintainers on macOS with FreeCAD 1.1.x for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, narrow `tolerance --csv`, and `report`
 - verified in hosted CI through explicit fast lanes: `test:node:contract`, `test:node:integration`, `test:snapshots`, and `test:py`; hosted CI does not install or launch FreeCAD
-- verified in repository-owned runtime CI through the `FreeCAD Runtime Smoke (self-hosted macOS)` workflow for real `check-runtime`, `create`, `draw --bom`, `inspect`, and `report`
+- verified in repository-owned runtime CI through the `FreeCAD Runtime Smoke (self-hosted macOS)` workflow for real `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, narrow `tolerance --csv`, and `report`
 - experimental or not yet automated for live FreeCAD execution on Windows native, WSL -> Windows FreeCAD, and Linux; those paths remain compatibility paths, not equal-maturity claims
 
 Run `fcad check-runtime` first on any new machine and before troubleshooting a FreeCAD-backed failure.
@@ -103,7 +103,7 @@ Older portfolio and case-study material is still useful after the canonical rout
 - `npm run test:snapshots`: normalized SVG/report snapshot regressions
 - `npm run test:studio-browser-smoke`: Chrome/CDP Studio browser smoke for shell routing, canonical package cards, safe preview, and release bundle non-action boundaries without FreeCAD runtime execution
 - `npm run test:py`: Python 3.11+ lane for non-runtime Python and CLI-adjacent regressions
-- `npm run test:runtime-smoke`: real FreeCAD-backed smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, and `report`
+- `npm run test:runtime-smoke`: real FreeCAD-backed smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, narrow `tolerance --csv`, and `report`
 
 Deeper runtime-backed suites are available as `npm run test:runtime:model`, `test:runtime:drawing`, `test:runtime:analysis`, `test:runtime:report`, `test:runtime:integration`, and `test:runtime:full`.
 
@@ -120,8 +120,8 @@ Treat `ks_bracket` as the blocker-rich example and `quality_pass_bracket` as the
 
 ## Supported And Verified Platform Scope
 
-- verified maintainer path: macOS + `FreeCAD.app` 1.1.x for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, and `report`
-- verified repository-owned runtime CI path: self-hosted macOS smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, and `report`
+- verified maintainer path: macOS + `FreeCAD.app` 1.1.x for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, narrow `tolerance --csv`, and `report`
+- verified repository-owned runtime CI path: self-hosted macOS smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, narrow `tolerance --csv`, and `report`
 - verified hosted CI path: Node contract, Node integration, snapshots, and Python lanes without installing or launching FreeCAD
 - compatibility paths only today: Windows native, WSL -> Windows FreeCAD, and Linux runtime execution
 
@@ -1119,9 +1119,11 @@ The smoke script currently exercises:
 - `fcad create`
 - `fcad draw --bom`
 - `fcad inspect`
+- `fcad fem`
+- `fcad tolerance --recommend --csv`
 - `fcad report`
 
-For CI, the repository also includes a self-hosted macOS workflow that uses the same smoke script and requires a runner labeled for FreeCAD with FreeCAD 1.1 installed.
+For CI, the repository also includes a self-hosted macOS workflow that uses the same smoke script and requires a runner labeled for FreeCAD with FreeCAD 1.1 installed. The tolerance coverage is intentionally narrow: it proves the checked-in PTU assembly can run through CSV export and manifest checks on that self-hosted macOS lane, without claiming Linux/Windows runtime coverage or broader Monte Carlo maturity.
 
 ## Release Prep
 
