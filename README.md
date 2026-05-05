@@ -899,13 +899,14 @@ The canonical readiness workflow produces a JSON report and a Markdown summary t
 For a checked-in example that can be reviewed without running the CLI, see:
 
 - [Canonical example library](./docs/examples/README.md)
+- [Quality pass bracket software/demo case study](./docs/portfolio/quality-pass-bracket-software-demo-case.md): readiness held on missing `inspection_evidence`; production-ready: no; preserves the release bundle boundary and keeps CAD-derived reference material separate from inspection evidence.
 - [Infotainment production readiness case](./docs/portfolio/infotainment-production-readiness-case.md)
 - [Checked-in example artifact set](./docs/examples/infotainment-display-bracket/README.md)
 - [Korea vs Mexico stabilization comparison](./docs/examples/infotainment-display-bracket/stabilization-comparison.md)
 - [Before-vs-after improvement case](./docs/portfolio/before-after-improvement-case.md)
 - [Checked-in electronics assembly + standard docs example](./docs/examples/controller-housing-eol/README.md)
 
-This case study documents the older config-driven readiness workflow for infotainment-oriented scenarios. The canonical C packaging path on current master is `review_pack.json -> readiness-pack/readiness-report --review-pack -> readiness_report.json -> standard docs / release bundle`.
+The infotainment-oriented case-study material documents the older config-driven readiness workflow. The canonical C packaging path on current master is `review_pack.json -> readiness-pack/readiness-report --review-pack -> readiness_report.json -> standard docs / release bundle`.
 
 ## Automotive Infotainment Example Configs
 
