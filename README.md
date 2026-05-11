@@ -190,7 +190,7 @@ Run `fcad check-runtime` before any FreeCAD-backed command on a new machine and 
 | --- | --- | --- |
 | Diagnostics | `check-runtime` | does not require FreeCAD to be present |
 | FreeCAD-backed | `create`, `draw`, `inspect`, `fem`, `tolerance`, `report` | requires a working FreeCAD runtime |
-| Plain-Python / non-FreeCAD | `dfm`, `review`, `process-plan`, `line-plan`, `quality-risk`, `investment-review`, `readiness-pack`, `readiness-report`, `pack`, `stabilization-review`, `generate-standard-docs`, `ingest`, `quality-link`, `review-pack`, `review-context`, `compare-rev`, `validate`, `validate-config`, `migrate-config`, `serve` | runs without launching FreeCAD; canonical readiness packaging consumes `review_pack.json`, keeps `readiness_report.json` as the source of truth, and treats `readiness-report <config>` as legacy compatibility rather than the flagship path |
+| Plain-Python / non-FreeCAD | `dfm`, `review`, `process-plan`, `line-plan`, `quality-risk`, `investment-review`, `readiness-pack`, `readiness-report`, `pack`, `closeout-package`, `stabilization-review`, `generate-standard-docs`, `ingest`, `quality-link`, `review-pack`, `review-context`, `compare-rev`, `validate`, `validate-config`, `migrate-config`, `serve` | runs without launching FreeCAD; canonical readiness packaging consumes `review_pack.json`, keeps `readiness_report.json` as the source of truth, and treats `readiness-report <config>` as legacy compatibility rather than the flagship path |
 | Mixed / conditional | `analyze-part`, `design`, `sweep` | `analyze-part` can inspect CAD through FreeCAD when needed; `design` ends by calling `create`; `sweep` stays inside the existing `create` / `cost` / `fem` / `report` service wrappers selected by the matrix file |
 
 ### Production-Readiness Commands
@@ -207,6 +207,7 @@ fcad readiness-pack --review-pack <review_pack.json> --out <readiness_report.jso
 fcad readiness-report --review-pack <review_pack.json>
 fcad readiness-report <config.toml|json>   # legacy compatibility / non-canonical
 fcad pack --readiness <readiness_report.json> --out <release_bundle.zip>
+fcad closeout-package <canonical-package-slug> --mode software-demo --out-dir output
 fcad stabilization-review <config.toml|json> --runtime <runtime.json>
 fcad stabilization-review <baseline_readiness_report.json> <candidate_readiness_report.json>
 fcad generate-standard-docs <config.toml|json> --readiness-report <readiness_report.json> [--out-dir <dir>]

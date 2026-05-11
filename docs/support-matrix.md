@@ -39,6 +39,7 @@ This matrix is the public support boundary for the current release. It separates
 - `readiness-pack`
 - `readiness-report`
 - `pack`
+- `closeout-package`
 - `stabilization-review`
 - `generate-standard-docs`
 - `ingest`

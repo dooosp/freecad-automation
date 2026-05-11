@@ -74,6 +74,7 @@ import {
 import { createModel, generateCreateQualityArtifact, inspectModel } from '../src/api/model.js';
 import { createReportService } from '../src/api/report.js';
 import { runReviewContextPipeline } from '../src/orchestration/review-context-pipeline.js';
+import { generateCloseoutPackage } from '../src/services/closeout-package/closeout-package-service.js';
 import { runSweep } from '../src/services/sweep/sweep-service.js';
 import { loadRuleProfile, summarizeRuleProfile } from '../src/services/config/rule-profile-service.js';
 import {
@@ -283,6 +284,41 @@ async function detectStepFeaturesIfAvailable(modelPath) {
   }
 }
 
+async function cmdCloseoutPackage(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  const slug = positional[0];
+  if (!slug) {
+    console.error('Error: canonical package slug required');
+    process.exit(1);
+  }
+  const mode = requireOptionValue('--mode', options.mode, 'fcad closeout-package <slug> --mode software-demo [--out-dir <dir>] [--strict-boundary]');
+  const outDir = Object.hasOwn(options, 'out-dir')
+    ? requireOptionValue('--out-dir', options['out-dir'], 'fcad closeout-package <slug> --mode software-demo [--out-dir <dir>] [--strict-boundary]')
+    : 'output';
+
+  try {
+    const result = await generateCloseoutPackage({
+      slug,
+      mode,
+      outDir,
+      projectRoot: PROJECT_ROOT,
+      strictBoundary: options['strict-boundary'] === true,
+    });
+
+    console.log(`Generated software/demo closeout package for ${result.package_id}`);
+    console.log(`Readiness: ${result.readiness_status} | score ${result.score} | gate ${result.gate_decision}`);
+    console.log(`Missing inputs: ${result.missing_inputs.join(', ') || 'none recorded'}`);
+    console.log('Packs:');
+    result.packs.forEach((pack) => {
+      console.log(`  - ${pack.directory_name}`);
+    });
+    return result;
+  } catch (error) {
+    console.error(`Error: ${error.message}`);
+    process.exit(1);
+  }
+}
+
 async function main() {
   const [command, ...args] = process.argv.slice(2);
 
@@ -318,6 +354,8 @@ async function main() {
     await cmdReadinessReport(args);
   } else if (command === 'pack') {
     await cmdPack(args);
+  } else if (command === 'closeout-package') {
+    await cmdCloseoutPackage(args);
   } else if (command === 'stabilization-review') {
     await cmdStabilizationReview(args);
   } else if (command === 'generate-standard-docs') {

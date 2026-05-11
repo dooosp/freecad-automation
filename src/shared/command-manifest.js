@@ -278,6 +278,21 @@ const COMMAND_MANIFEST = Object.freeze([
     }),
   }),
   Object.freeze({
+    name: 'closeout-package',
+    helpSection: 'plain-python-node',
+    helpEntries: Object.freeze([
+      Object.freeze({
+        usage: 'fcad closeout-package <canonical-package-slug> --mode software-demo [--out-dir <dir>] [--strict-boundary]',
+        summary: 'Generate local software/demo closeout, portfolio, and interview packs from checked-in canonical package artifacts',
+      }),
+    ]),
+    runtime: Object.freeze({
+      classification: 'plain-python-node',
+      requiresFreecadRuntime: false,
+      note: 'Reads checked-in docs/examples canonical package artifacts and writes ignored local output packs only.',
+    }),
+  }),
+  Object.freeze({
     name: 'stabilization-review',
     helpSection: 'plain-python-node',
     helpEntries: Object.freeze([
@@ -526,6 +541,7 @@ const SHARED_WORKFLOW_OPTIONS = Object.freeze([
 
 const WORKFLOW_SPECIFIC_OPTIONS = Object.freeze([
   Object.freeze({ flag: '--matrix <path>', description: 'Sweep definition TOML/JSON for fcad sweep' }),
+  Object.freeze({ flag: '--mode <name>', description: 'Mode selector for commands with explicit non-production modes, including closeout-package software-demo' }),
   Object.freeze({ flag: '--override <path>', description: 'Merge override TOML/JSON on top of base config (with draw)' }),
   Object.freeze({ flag: '--bom', description: 'Export BOM as separate CSV file (with draw)' }),
   Object.freeze({ flag: '--raw', description: 'Skip SVG post-processing (with draw)' }),
@@ -533,6 +549,7 @@ const WORKFLOW_SPECIFIC_OPTIONS = Object.freeze([
   Object.freeze({ flag: '--fail-under N', description: 'Fail if QA score < N (with draw)' }),
   Object.freeze({ flag: '--weights-preset P', description: 'QA weight profile: default|auto|flange|shaft|...' }),
   Object.freeze({ flag: '--strict', description: 'Treat warnings as errors (with validate/dfm)' }),
+  Object.freeze({ flag: '--strict-boundary', description: 'Fail closeout-package if the source package or generated text crosses the evidence boundary' }),
   Object.freeze({ flag: '--strict-quality', description: 'Fail create only when blocking create-quality checks are found' }),
   Object.freeze({ flag: '--manifest-out <path>', description: 'Write a provenance manifest for stdout-oriented commands such as inspect/fem/tolerance/dfm' }),
   Object.freeze({ flag: '--recommend', description: 'Auto-recommend fit specs (with tolerance)' }),
@@ -555,6 +572,7 @@ const CLI_HELP_EXAMPLES = Object.freeze([
   'fcad readiness-report --review-pack tests/fixtures/d-artifacts/sample_review_pack.canonical.json --out output/sample_readiness_report.json',
   'fcad readiness-report configs/examples/pcb_mount_plate.toml --out output/pcb_mount_plate_readiness_report.json',
   'fcad pack --readiness output/sample_readiness_report.json --out output/release_bundle.zip',
+  'fcad closeout-package quality-pass-bracket --mode software-demo --out-dir output',
   'fcad stabilization-review output/rev_a_readiness_report.json output/rev_b_readiness_report.json --out output/readiness_delta.json',
   'fcad generate-standard-docs configs/examples/controller_housing_eol.toml --readiness-report output/controller_housing_readiness_report.json --out-dir output/controller_housing_standard_docs',
   'fcad review-context --model tests/fixtures/sample_part.step --bom tests/fixtures/sample_bom.csv --inspection tests/fixtures/sample_inspection.csv --quality tests/fixtures/sample_quality.csv --out output/sample_review_pack.json',
@@ -567,6 +585,7 @@ const CLI_HELP_NOTES = Object.freeze([
   'readiness-pack is the flagship canonical C entrypoint when review_pack.json already exists.',
   'readiness-report <config> remains a legacy compatibility route; it is not the canonical D-backed readiness path.',
   'generate-standard-docs requires canonical readiness input via --readiness-report and will not synthesize or rebuild readiness downstream.',
+  'closeout-package is local software/demo packaging only; it does not regenerate canonical artifacts or create inspection evidence.',
   'sweep stays within the existing create/cost/fem/report service wrappers; it does not perform optimization.',
   'report remains FreeCAD-backed today, even when macOS falls back from freecadcmd to the bundled FreeCAD Python.',
   'Windows native, WSL -> Windows FreeCAD, and Linux runtime execution are compatibility paths, not equal-maturity claims.',
