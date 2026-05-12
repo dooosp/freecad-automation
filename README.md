@@ -900,7 +900,8 @@ The canonical readiness workflow produces a JSON report and a Markdown summary t
 For a checked-in example that can be reviewed without running the CLI, see:
 
 - [Canonical example library](./docs/examples/README.md)
-- [Quality pass bracket software/demo case study](./docs/portfolio/quality-pass-bracket-software-demo-case.md): readiness held on missing `inspection_evidence`; production-ready: no; preserves the release bundle boundary and keeps CAD-derived reference material separate from inspection evidence.
+- [Quality Pass Bracket Software/Demo Case Study](./docs/portfolio/quality-pass-bracket-software-demo-case.md): readiness held on missing `inspection_evidence`; production-ready: no; preserves the release bundle boundary and keeps CAD-derived reference material separate from inspection evidence.
+- [Plate With Holes Software/Demo Case Study](./docs/portfolio/plate-with-holes-software-demo-case.md): readiness held on missing `inspection_evidence`; production-ready: no; release bundle is transport/review material, not readiness proof.
 - [Infotainment production readiness case](./docs/portfolio/infotainment-production-readiness-case.md)
 - [Checked-in example artifact set](./docs/examples/infotainment-display-bracket/README.md)
 - [Korea vs Mexico stabilization comparison](./docs/examples/infotainment-display-bracket/stabilization-comparison.md)
