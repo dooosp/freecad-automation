@@ -103,19 +103,38 @@ function assertBoundaryText(label, text) {
   }
 }
 
-function assertManifestShape(manifestPath, expectedArtifactType) {
+function readReadinessTruth(packageId) {
+  const readiness = readJson(join(ROOT, 'docs', 'examples', packageId, 'readiness', 'readiness_report.json'));
+  const summary = readiness.readiness_summary ?? readiness;
+  const missingInputs =
+    readiness.review_pack?.uncertainty_coverage_report?.missing_inputs
+    ?? readiness.process_plan?.summary?.missing_inputs
+    ?? readiness.quality_risk?.summary?.missing_inputs
+    ?? readiness.missing_inputs
+    ?? [];
+
+  return {
+    status: summary.status,
+    score: summary.score,
+    gateDecision: summary.gate_decision,
+    missingInputs,
+  };
+}
+
+function assertManifestShape(manifestPath, expectedArtifactType, packageId) {
+  const truth = readReadinessTruth(packageId);
   const manifest = readJson(manifestPath);
   for (const field of REQUIRED_MANIFEST_FIELDS) {
     assert.equal(Object.hasOwn(manifest, field), true, `${manifestPath} missing ${field}`);
   }
 
   assert.equal(manifest.artifact_type, expectedArtifactType);
-  assert.equal(manifest.package_id, 'quality-pass-bracket');
+  assert.equal(manifest.package_id, packageId);
   assert.equal(manifest.mode, 'software-demo');
-  assert.equal(manifest.readiness_status, 'needs_more_evidence');
-  assert.equal(manifest.score, 61);
-  assert.equal(manifest.gate_decision, 'hold_for_evidence_completion');
-  assert.deepEqual(manifest.missing_inputs, ['inspection_evidence']);
+  assert.equal(manifest.readiness_status, truth.status);
+  assert.equal(manifest.score, truth.score);
+  assert.equal(manifest.gate_decision, truth.gateDecision);
+  assert.deepEqual(manifest.missing_inputs, truth.missingInputs);
   assert.equal(manifest.production_ready, false);
   assert.equal(manifest.inspection_evidence_created, false);
   assert.equal(manifest.inspection_evidence_attached, false);
@@ -124,7 +143,7 @@ function assertManifestShape(manifestPath, expectedArtifactType) {
   assert.equal(Array.isArray(manifest.files), true);
   assert.equal(Array.isArray(manifest.warnings), true);
   assert.equal(
-    manifest.source_refs.some((ref) => ref.path === 'docs/examples/quality-pass-bracket/readiness/readiness_report.json'),
+    manifest.source_refs.some((ref) => ref.path === `docs/examples/${packageId}/readiness/readiness_report.json`),
     true,
     'manifest should include repo-relative readiness source ref'
   );
@@ -134,50 +153,66 @@ function assertManifestShape(manifestPath, expectedArtifactType) {
 }
 
 try {
-  const outDir = join(TMP_DIR, 'generated');
-  const result = runCli([
-    'closeout-package',
-    'quality-pass-bracket',
-    '--mode',
-    'software-demo',
-    '--out-dir',
-    outDir,
-    '--strict-boundary',
-  ]);
+  for (const packageId of ['quality-pass-bracket', 'plate-with-holes']) {
+    const outDir = join(TMP_DIR, packageId);
+    const result = runCli([
+      'closeout-package',
+      packageId,
+      '--mode',
+      'software-demo',
+      '--out-dir',
+      outDir,
+      '--strict-boundary',
+    ]);
 
-  assert.equal(result.status, 0, result.stderr || result.stdout);
-  assert.match(result.stdout, /software\/demo closeout/i);
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /software\/demo closeout/i);
 
-  const closeoutDir = join(outDir, 'quality-pass-bracket-software-demo-closeout');
-  const portfolioDir = join(outDir, 'quality-pass-bracket-portfolio-pack');
-  const interviewDir = join(outDir, 'quality-pass-bracket-interview-demo-pack');
+    const closeoutDir = join(outDir, `${packageId}-software-demo-closeout`);
+    const portfolioDir = join(outDir, `${packageId}-portfolio-pack`);
+    const interviewDir = join(outDir, `${packageId}-interview-demo-pack`);
 
-  const closeoutManifest = assertManifestShape(
-    join(closeoutDir, 'closeout_manifest.json'),
-    'software_demo_closeout_manifest'
-  );
-  const portfolioManifest = assertManifestShape(
-    join(portfolioDir, 'portfolio_manifest.json'),
-    'software_demo_portfolio_manifest'
-  );
-  const interviewManifest = assertManifestShape(
-    join(interviewDir, 'interview_demo_manifest.json'),
-    'software_demo_interview_manifest'
-  );
+    const closeoutManifest = assertManifestShape(
+      join(closeoutDir, 'closeout_manifest.json'),
+      'software_demo_closeout_manifest',
+      packageId
+    );
+    const portfolioManifest = assertManifestShape(
+      join(portfolioDir, 'portfolio_manifest.json'),
+      'software_demo_portfolio_manifest',
+      packageId
+    );
+    const interviewManifest = assertManifestShape(
+      join(interviewDir, 'interview_demo_manifest.json'),
+      'software_demo_interview_manifest',
+      packageId
+    );
 
-  assert.equal(closeoutManifest.files.includes('closeout_summary.md'), true);
-  assert.equal(portfolioManifest.files.includes('portfolio_case_draft.md'), true);
-  assert.equal(interviewManifest.files.includes('interview_demo_talking_points.md'), true);
+    assert.equal(closeoutManifest.files.includes('closeout_summary.md'), true);
+    assert.equal(portfolioManifest.files.includes('portfolio_case_draft.md'), true);
+    assert.equal(interviewManifest.files.includes('interview_demo_talking_points.md'), true);
 
-  for (const markdownPath of [
-    join(closeoutDir, 'closeout_summary.md'),
-    join(portfolioDir, 'portfolio_case_draft.md'),
-    join(interviewDir, 'interview_demo_talking_points.md'),
-  ]) {
-    assert.equal(existsSync(markdownPath), true, `Expected markdown at ${markdownPath}`);
-    const markdown = readFileSync(markdownPath, 'utf8');
-    assertBoundaryText(markdownPath, markdown);
-    assertNoAbsoluteLocalPaths(markdownPath, markdown);
+    for (const markdownPath of [
+      join(closeoutDir, 'closeout_summary.md'),
+      join(portfolioDir, 'portfolio_case_draft.md'),
+      join(interviewDir, 'interview_demo_talking_points.md'),
+    ]) {
+      assert.equal(existsSync(markdownPath), true, `Expected markdown at ${markdownPath}`);
+      const markdown = readFileSync(markdownPath, 'utf8');
+      const truth = readReadinessTruth(packageId);
+      assert.match(markdown, new RegExp(`Readiness status: \`${truth.status}\``));
+      assert.match(markdown, new RegExp(`Score: \`${truth.score}\``));
+      assert.match(markdown, new RegExp(`Gate decision: \`${truth.gateDecision}\``));
+      for (const missingInput of truth.missingInputs) {
+        assert.match(markdown, new RegExp(`Missing inputs: \`${missingInput}\``));
+      }
+      assert.match(markdown, /Production ready: `false`/);
+      assert.match(markdown, /Inspection evidence created: `false`/);
+      assert.match(markdown, /Inspection evidence attached: `false`/);
+      assert.match(markdown, /Canonical artifacts regenerated: `false`/);
+      assertBoundaryText(markdownPath, markdown);
+      assertNoAbsoluteLocalPaths(markdownPath, markdown);
+    }
   }
 
   const invalidSlug = runCli([

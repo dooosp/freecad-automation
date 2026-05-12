@@ -63,9 +63,11 @@ The readiness source is [`docs/examples/quality-pass-bracket/readiness/readiness
 
 ## Evidence Boundary
 
-Generated CAD, drawing, quality, review, readiness, standard-doc, release, Studio, portfolio, and screenshot artifacts are review/demo evidence. They are not inspection evidence. The inspection evidence contract requires a genuine manufacturing or QA inspection record for a physical or supplier-inspected part, such as a completed CMM report, manual caliper check, gauge record, first-article inspection, or supplier inspection report.
+This is software/demo closeout only. No physical part inspection was completed or attached. No supplier inspection, no lab inspection, no CMM inspection, no manual caliper inspection, no gauge inspection, and no first-article evidence was completed or attached.
 
-No inspection evidence was created, attached, or substituted for this closeout. No canonical review, readiness, standard-doc, or release artifacts were regenerated for this portfolio page.
+Generated CAD, drawing, quality, review, readiness, standard-doc, release, Studio, portfolio, and screenshot artifacts are review/demo evidence only, not inspection evidence. The inspection evidence contract requires a genuine manufacturing or QA inspection record for a physical or supplier-inspected part, such as a completed CMM report, manual caliper check, gauge record, first-article inspection, or supplier inspection report.
+
+No inspection evidence was created, attached, or substituted for this closeout. Production readiness remains held until genuine completed `inspection_evidence` is attached through the canonical flow and the review, readiness, standard-doc, and release chain is deliberately regenerated. The release bundle is transport/review material, not readiness proof. No canonical review, readiness, standard-doc, or release artifacts were regenerated for this portfolio page.
 
 ## Portfolio Value
 
@@ -89,4 +91,4 @@ Those packs are local demo artifacts, not tracked canonical package inputs. Scre
 
 ## Future Work
 
-Resume Stage 5B only when a physical part, supplier-inspected part, or lab-inspected part exists and real measured values plus source provenance are available. Then validate a completed `inspection_evidence` candidate, attach it through the explicit review-context path, and deliberately regenerate the canonical review, readiness, standard-doc, and release chain.
+Future Stage 5B requires genuine completed inspection evidence from a physical part, supplier-inspected part, or lab-inspected part with real measured values plus source provenance. Then validate a completed `inspection_evidence` candidate, attach it through the explicit review-context path, and deliberately regenerate the canonical review, readiness, standard-doc, and release chain.
