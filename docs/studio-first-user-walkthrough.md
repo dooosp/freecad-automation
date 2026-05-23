@@ -69,6 +69,14 @@ Production readiness remains held until genuine completed inspection evidence ex
 
 For how DFM signals, readiness reports, release bundles, and missing inspection evidence relate to each other, see [DFM and readiness guide](./dfm-readiness-guide.md). For the final non-inspection software milestone summary, see [final non-inspection software closeout](./final-non-inspection-software-closeout.md).
 
+## Run Stage 5B intake from Review
+
+Use the Review workspace when maintainers need to repeat the Stage 5B inspection-evidence intake check without reading raw CLI output. The Review card queues a local tracked `inspection-evidence-intake` job; it does not ask anyone to type measured values and it does not attach evidence.
+
+The tracked intake report summarizes accepted count, rejected count, rejection classes, searched source classes, and package readiness. Readiness remains held when accepted count is `0`, and the report should say `readiness remains needs_more_evidence / hold_for_evidence_completion`.
+
+Open the completed intake job in Review to inspect the normalized card, then preview the report only through the tracked job artifact route. The report artifact is allowlisted by job id and artifact id; Studio does not import arbitrary local files for intake review.
+
 ## What Not To Do
 
 - Do not create or attach inspection evidence unless you have genuine completed inspection measurements.

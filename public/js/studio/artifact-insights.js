@@ -626,6 +626,35 @@ function summarizeList(items = [], fallback = 'No key points were captured in th
   return Array.isArray(items) && items.length > 0 ? items.slice(0, 3).join(' • ') : fallback;
 }
 
+function summarizeClasses(items = [], key = 'classification') {
+  const values = uniqueStrings(
+    safeList(items).map((entry) => (isPlainObject(entry) ? entry[key] : null))
+  );
+  return values.length > 0 ? values.join(' • ') : 'none';
+}
+
+function summarizeSourceClasses(sources = []) {
+  const values = uniqueStrings(
+    safeList(sources).map((entry) => (isPlainObject(entry) ? entry.kind : null))
+  );
+  return values.length > 0 ? values.join(' • ') : 'none';
+}
+
+function summarizePackageReadiness(packages = []) {
+  const values = safeList(packages)
+    .map((pkg) => {
+      if (!isPlainObject(pkg)) return null;
+      const readiness = safeObject(pkg.readiness_after);
+      return `${pkg.slug || 'unknown'}: ${readiness.status || 'unknown'} / ${readiness.gate_decision || 'unknown'}`;
+    })
+    .filter(Boolean);
+  return values.length > 0 ? values.join(' • ') : 'No package readiness records';
+}
+
+function formatInspectionIntakeBoundary() {
+  return 'Generated CAD/drawing/quality/readiness/review/standard-doc/release artifacts, fixtures, templates, and collection guides are not inspection evidence.';
+}
+
 function manifestNotes(manifest = null, artifact = null) {
   if (!manifest) return [];
   const notes = [];
@@ -671,8 +700,51 @@ function buildCard({
   };
 }
 
+export function buildInspectionEvidenceIntakeCard({
+  report = {},
+  artifact = null,
+  raw = null,
+  manifest = null,
+} = {}) {
+  const summary = safeObject(report.summary);
+  const acceptedCount = Number.isFinite(summary.accepted_candidate_count) ? summary.accepted_candidate_count : 0;
+  const rejectedCount = Number.isFinite(summary.rejected_candidate_count) ? summary.rejected_candidate_count : 0;
+  const foundGenuineEvidence = summary.genuine_inspection_evidence_found === true;
+  const readinessTruth = summary.readiness_truth
+    || (foundGenuineEvidence
+      ? 'valid candidates require canonical review-context attachment/regeneration before readiness may change'
+      : 'readiness remains needs_more_evidence / hold_for_evidence_completion');
+
+  return buildCard({
+    id: 'inspection-intake',
+    title: 'Stage 5B inspection evidence intake',
+    tone: foundGenuineEvidence ? 'ok' : 'warn',
+    score: acceptedCount,
+    status: foundGenuineEvidence ? 'Genuine inspection evidence found' : 'No genuine inspection evidence',
+    summary: `${readinessTruth}. No human-entered measurements requested.`,
+    artifact,
+    normalized: [
+      buildReviewDisplayField('Searched source classes', summarizeSourceClasses(report.searched_sources)),
+      buildReviewDisplayField('Accepted candidates', String(acceptedCount)),
+      buildReviewDisplayField('Rejected candidates', String(rejectedCount)),
+      buildReviewDisplayField('Rejection classes', summarizeClasses(report.rejected_candidates)),
+      buildReviewDisplayField('Package readiness', summarizePackageReadiness(report.packages)),
+      buildReviewDisplayField('Readiness explanation', readinessTruth),
+      buildReviewDisplayField('Evidence boundary', formatInspectionIntakeBoundary(report)),
+    ],
+    raw,
+    provenance: [
+      ...manifestNotes(manifest, artifact),
+      'Tracked job report preview only; no arbitrary local file import is used.',
+      'Intake reports are discovery/review artifacts only, not inspection evidence.',
+    ],
+  });
+}
+
 export function buildReviewCards({ activeJob, artifacts = [], sourceMap = {} }) {
   const manifest = activeJob?.manifest || null;
+  const inspectionIntakeArtifact = findArtifact(artifacts, ['inspection-evidence.intake-report', 'inspection-evidence-intake-report', 'intake-report']);
+  const inspectionIntake = sourceMap.inspectionIntake;
   const readinessArtifact = findArtifact(artifacts, ['readiness']);
   const readiness = sourceMap.readiness;
   const productReviewArtifact = readinessArtifact || findArtifact(artifacts, ['product_review', 'review.product']);
@@ -688,6 +760,16 @@ export function buildReviewCards({ activeJob, artifacts = [], sourceMap = {} }) 
   const reviewPack = sourceMap.reviewPack;
 
   const cards = [
+    ...(inspectionIntake
+      ? [
+          buildInspectionEvidenceIntakeCard({
+            report: inspectionIntake,
+            artifact: inspectionIntakeArtifact,
+            raw: sourceMap.inspectionIntakeRaw,
+            manifest,
+          }),
+        ]
+      : []),
     productReview
       ? buildCard({
           id: 'dfm',

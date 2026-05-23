@@ -136,6 +136,7 @@ export function isReviewableStudioJob(job = {}) {
     || type === 'readiness-pack'
     || type === 'generate-standard-docs'
     || type === 'pack'
+    || type === 'inspection-evidence-intake'
   )
     && String(job?.status || '').toLowerCase() === 'succeeded';
 }

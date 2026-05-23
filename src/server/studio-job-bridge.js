@@ -214,6 +214,32 @@ export function validateStudioJobSubmission(body) {
     if (hasConfigToml || hasArtifactRef || hasBaselineArtifactRef || hasCandidateArtifactRef) {
       errors.push('review-context does not accept config_toml, artifact_ref, baseline_artifact_ref, or candidate_artifact_ref.');
     }
+  } else if (request.type === 'inspection-evidence-intake') {
+    const unsupportedIntakeFields = [
+      'config_toml',
+      'artifact_ref',
+      'baseline_artifact_ref',
+      'candidate_artifact_ref',
+      'context_path',
+      'model_path',
+      'bom_path',
+      'inspection_path',
+      'quality_path',
+      'create_quality_path',
+      'drawing_quality_path',
+      'drawing_qa_path',
+      'drawing_intent_path',
+      'feature_catalog_path',
+      'dfm_report_path',
+      'compare_to_path',
+      'drawing_settings',
+      'drawing_preview_id',
+      'drawing_plan',
+      'report_options',
+    ].filter((fieldName) => request[fieldName] !== undefined);
+    if (unsupportedIntakeFields.length > 0) {
+      errors.push(`inspection-evidence-intake does not accept ${unsupportedIntakeFields.join(', ')}.`);
+    }
   } else if (request.type === 'inspect') {
     if (!hasArtifactRef) {
       errors.push('artifact_ref is required for type "inspect".');
@@ -304,6 +330,17 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
         ...(trimOptionalString(request.feature_catalog_path) ? { feature_catalog_path: trimOptionalString(request.feature_catalog_path) } : {}),
         ...(trimOptionalString(request.dfm_report_path) ? { dfm_report_path: trimOptionalString(request.dfm_report_path) } : {}),
         ...(trimOptionalString(request.compare_to_path) ? { compare_to_path: trimOptionalString(request.compare_to_path) } : {}),
+        ...(isPlainObject(request.options) ? { options: structuredClone(request.options) } : {}),
+      },
+    };
+  }
+
+  if (request.type === 'inspection-evidence-intake') {
+    return {
+      ok: true,
+      errors: [],
+      request: {
+        type: 'inspection-evidence-intake',
         ...(isPlainObject(request.options) ? { options: structuredClone(request.options) } : {}),
       },
     };

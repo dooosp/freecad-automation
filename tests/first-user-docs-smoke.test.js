@@ -104,6 +104,10 @@ assertMentions(rootReadmeText, /does not accept arbitrary local file paths/, 'ro
 assertMentions(rootReadmeText, /release_bundle\.zip` appears as the `release_bundle` package artifact, but it is not text-previewable/, 'root README should keep release_bundle.zip as a non-previewable package artifact');
 assertMentions(rootReadmeText, /--inspection-evidence <PATH_TO_COMPLETED_REAL_JSON>/, 'root README should show the completed-real-evidence CLI placeholder');
 assertMentions(rootReadmeText, /fcad inspection-evidence-intake --out <report\.json>/, 'root README should show autonomous inspection evidence intake');
+assertMentions(rootReadmeText, /Studio can run `inspection-evidence-intake` as a tracked local job/, 'root README should document Studio tracked Stage 5B intake');
+assertMentions(rootReadmeText, /\/api\/studio\/jobs/, 'root README should document the Studio tracked job submission route');
+assertMentions(rootReadmeText, /inspection-evidence\.intake-report/, 'root README should document the tracked intake report artifact type');
+assertMentions(rootReadmeText, /intake reports are discovery\/review artifacts only/, 'root README should keep intake reports out of inspection evidence');
 assertMentions(rootReadmeText, /Do not treat synthetic fixtures or generated CAD\/drawing\/readiness outputs as package inspection evidence/, 'root README should reject synthetic/generated package evidence');
 assertMentions(rootReadmeText, /quality\/drawing evidence does not satisfy `inspection_evidence`/, 'root README should preserve the inspection evidence boundary');
 assertMentions(rootReadmeText, /`generated_shape_geometry` marks measurements captured from the FreeCAD shape that `fcad create` generated before export/, 'root README should define generated_shape_geometry as pre-export generated-shape evidence');
@@ -521,6 +525,10 @@ assertMentions(studioFirstUserWalkthroughText, /`inspection_evidence` means genu
 assertMentions(studioFirstUserWalkthroughText, /Generated quality, drawing, review, readiness, standard-docs, release, template, fixture, and collection-guide artifacts are not inspection evidence/, 'Studio walkthrough should reject generated artifacts as inspection evidence');
 assertMentions(studioFirstUserWalkthroughText, /Production readiness remains held until genuine completed inspection evidence exists/, 'Studio walkthrough should keep production readiness held');
 assertMentions(studioFirstUserWalkthroughText, /Stage 5B remains parked until a genuine completed inspection evidence JSON exists/, 'Studio walkthrough should preserve Stage 5B parked language');
+assertMentions(studioFirstUserWalkthroughText, /Run Stage 5B intake from Review/, 'Studio walkthrough should document the Stage 5B intake review workflow');
+assertMentions(studioFirstUserWalkthroughText, /accepted count, rejected count, rejection classes, searched source classes, and package readiness/, 'Studio walkthrough should describe the intake summary fields');
+assertMentions(studioFirstUserWalkthroughText, /Readiness remains held when accepted count is `0`/, 'Studio walkthrough should explain the no-valid-evidence state');
+assertMentions(studioFirstUserWalkthroughText, /preview the report only through the tracked job artifact route/, 'Studio walkthrough should preserve tracked-report preview safety');
 assertMentions(
   studioFirstUserWalkthroughText,
   /\[final non-inspection software closeout\]\(\.\/final-non-inspection-software-closeout\.md\)/,
@@ -582,6 +590,11 @@ assertMentions(
   testingDocText,
   /Stage 5D feature expansion closeout/,
   'testing doc should document Stage 5D closeout docs-smoke coverage'
+);
+assertMentions(
+  testingDocText,
+  /Stage 5B inspection evidence intake Studio\/API review surface/,
+  'testing doc should document Stage 5B intake Studio/API test coverage'
 );
 
 for (const slug of CANONICAL_PACKAGES) {
@@ -665,6 +678,8 @@ assertMentions(collectionGuideIndexText, /They are not\s+inspection evidence/, '
 assertMentions(collectionGuideIndexText, /review-context --inspection-evidence <PATH_TO_COMPLETED_REAL_JSON>/, 'collection guide index should preserve future attachment boundary');
 assertMentions(collectionGuideIndexText, /canonical packages remain\s+`needs_more_evidence`/, 'collection guide index should keep current readiness boundary');
 assertMentions(inspectionContractText, /fcad inspection-evidence-intake/, 'contract doc should document autonomous evidence intake reporting');
+assertMentions(inspectionContractText, /Tracked Studio\/API intake reports are discovery\/review artifacts only/, 'contract doc should keep tracked intake reports out of inspection evidence');
+assertMentions(inspectionContractText, /Report preview is limited to registered tracked job artifacts/, 'contract doc should document preview allowlisting');
 assertMentions(inspectionContractText, /is not package readiness evidence/, 'contract doc should state the fixture is not package readiness evidence');
 assertMentions(inspectionContractText, /The guide is not readiness evidence/, 'contract doc should treat the collection guide as non-canonical guidance');
 

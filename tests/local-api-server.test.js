@@ -919,6 +919,76 @@ try {
     assert.equal(JSON.stringify(recentInspectJob.request).includes(modelArtifactPath), false);
   });
 
+  const intakeResponse = await fetch(`${baseUrl}/api/studio/jobs`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      type: 'inspection-evidence-intake',
+      options: {
+        package_slugs: ['quality-pass-bracket', 'hinge-block'],
+        include_github: false,
+      },
+    }),
+  });
+  assert.equal(intakeResponse.status, 202);
+  const intakePayload = await intakeResponse.json();
+  assert.equal(intakePayload.job.type, 'inspection-evidence-intake');
+  assert.deepEqual(intakePayload.job.request.options.package_slugs, ['quality-pass-bracket', 'hinge-block']);
+  assert.equal(JSON.stringify(intakePayload).includes(ROOT), false);
+
+  let intakeJobPayload = null;
+  await waitFor(async () => {
+    const intakeStatusResponse = await fetch(`${baseUrl}/jobs/${intakePayload.job.id}`, {
+      headers: { accept: 'application/json' },
+    });
+    assert.equal(intakeStatusResponse.status, 200);
+    intakeJobPayload = await intakeStatusResponse.json();
+    assert.equal(intakeJobPayload.job.status, 'succeeded');
+  }, { attempts: 20, delayMs: 50 });
+
+  assert.equal(intakeJobPayload.job.result.artifact_type, 'inspection_evidence_intake_report');
+  assert.equal(intakeJobPayload.job.result.summary.accepted_candidate_count, 0);
+  assert.equal(intakeJobPayload.job.result.summary.genuine_inspection_evidence_found, false);
+  assert.equal(
+    intakeJobPayload.job.result.summary.readiness_truth,
+    'readiness remains needs_more_evidence / hold_for_evidence_completion'
+  );
+  assert.equal(JSON.stringify(intakeJobPayload).includes(ROOT), false);
+
+  const intakeArtifactsResponse = await fetch(`${baseUrl}/jobs/${intakePayload.job.id}/artifacts`, {
+    headers: { accept: 'application/json' },
+  });
+  assert.equal(intakeArtifactsResponse.status, 200);
+  const intakeArtifactsPayload = await intakeArtifactsResponse.json();
+  const intakeReportArtifact = intakeArtifactsPayload.artifacts.find((artifact) =>
+    artifact.type === 'inspection-evidence.intake-report'
+  );
+  assert.equal(Boolean(intakeReportArtifact), true);
+  assert.equal(intakeReportArtifact.file_name, 'inspection-evidence-intake-report.json');
+  assert.equal(intakeReportArtifact.capabilities.can_open, true);
+  assert.equal(JSON.stringify(intakeArtifactsPayload).includes(ROOT), false);
+
+  const intakeReportResponse = await fetch(`${baseUrl}${intakeReportArtifact.links.open}`, {
+    headers: { accept: 'application/json' },
+  });
+  assert.equal(intakeReportResponse.status, 200);
+  const intakeReport = await intakeReportResponse.json();
+  assert.equal(intakeReport.artifact_type, 'inspection_evidence_intake_report');
+  assert.equal(intakeReport.summary.accepted_candidate_count, 0);
+  assert.deepEqual(intakeReport.summary.packages_without_genuine_evidence, ['quality-pass-bracket', 'hinge-block']);
+
+  const arbitraryPreviewResponse = await fetch(
+    `${baseUrl}/jobs/${intakePayload.job.id}/artifacts/package-json/content?path=${encodeURIComponent(join(ROOT, 'package.json'))}`,
+    { headers: { accept: 'application/json' } }
+  );
+  assert.equal(arbitraryPreviewResponse.status, 404);
+  const arbitraryPreviewText = await arbitraryPreviewResponse.text();
+  assert.equal(arbitraryPreviewText.includes('"name"'), false);
+  assert.equal(arbitraryPreviewText.includes('freecad-automation'), false);
+
   console.log('local-api-server.test.js: ok');
 } finally {
   await new Promise((resolveClose) => server.close(resolveClose));
