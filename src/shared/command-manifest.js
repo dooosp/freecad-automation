@@ -293,6 +293,21 @@ const COMMAND_MANIFEST = Object.freeze([
     }),
   }),
   Object.freeze({
+    name: 'inspection-evidence-intake',
+    helpSection: 'plain-python-node',
+    helpEntries: Object.freeze([
+      Object.freeze({
+        usage: 'fcad inspection-evidence-intake [--package <canonical-package-slug>] [--out <report.json>] [--include-github]',
+        summary: 'Discover and classify genuine inspection evidence candidates without requesting human-entered measurements',
+      }),
+    ]),
+    runtime: Object.freeze({
+      classification: 'plain-python-node',
+      requiresFreecadRuntime: false,
+      note: 'Emits a machine-readable discovery/intake report; generated artifacts, fixtures, templates, and guides are rejected as final inspection evidence.',
+    }),
+  }),
+  Object.freeze({
     name: 'stabilization-review',
     helpSection: 'plain-python-node',
     helpEntries: Object.freeze([

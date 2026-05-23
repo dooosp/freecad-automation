@@ -75,6 +75,7 @@ import { createModel, generateCreateQualityArtifact, inspectModel } from '../src
 import { createReportService } from '../src/api/report.js';
 import { runReviewContextPipeline } from '../src/orchestration/review-context-pipeline.js';
 import { generateCloseoutPackage } from '../src/services/closeout-package/closeout-package-service.js';
+import { discoverInspectionEvidenceIntake } from '../src/services/inspection-evidence-intake/inspection-evidence-intake-service.js';
 import { runSweep } from '../src/services/sweep/sweep-service.js';
 import { loadRuleProfile, summarizeRuleProfile } from '../src/services/config/rule-profile-service.js';
 import {
@@ -319,6 +320,34 @@ async function cmdCloseoutPackage(rawArgs = []) {
   }
 }
 
+async function cmdInspectionEvidenceIntake(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  const packageSelector = options.package || options.packages || positional[0] || null;
+  const packageSlugs = packageSelector
+    ? String(packageSelector).split(',').map((slug) => slug.trim()).filter(Boolean)
+    : undefined;
+  const includeGitHub = options['include-github'] === true || options.github === true;
+  const report = await discoverInspectionEvidenceIntake({
+    projectRoot: PROJECT_ROOT,
+    packageSlugs,
+    includeGitHub,
+    githubRepo: options['github-repo'] || 'dooosp/freecad-automation',
+  });
+  const outputPath = resolveMaybe(options.out);
+
+  if (outputPath) {
+    const writtenPath = await writeJsonFile(outputPath, report);
+    console.log(`Inspection evidence intake report: ${writtenPath}`);
+    console.log(`  Genuine evidence found: ${report.summary.genuine_inspection_evidence_found ? 'yes' : 'no'}`);
+    console.log(`  Accepted candidates: ${report.summary.accepted_candidate_count}`);
+    console.log(`  Rejected candidates: ${report.summary.rejected_candidate_count}`);
+  } else {
+    console.log(JSON.stringify(report, null, 2));
+  }
+
+  return report;
+}
+
 async function main() {
   const [command, ...args] = process.argv.slice(2);
 
@@ -356,6 +385,8 @@ async function main() {
     await cmdPack(args);
   } else if (command === 'closeout-package') {
     await cmdCloseoutPackage(args);
+  } else if (command === 'inspection-evidence-intake') {
+    await cmdInspectionEvidenceIntake(args);
   } else if (command === 'stabilization-review') {
     await cmdStabilizationReview(args);
   } else if (command === 'generate-standard-docs') {

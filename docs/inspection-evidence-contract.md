@@ -8,6 +8,8 @@ Generated CAD quality, drawing quality, drawing QA, drawing intent, feature cata
 
 `fcad review-context --inspection-evidence <path>` accepts only JSON that validates against this contract. When valid, the file is recorded as an explicit review-pack evidence ledger/source record with a portable source ref. Readiness can recognize that explicit record as `inspection_evidence` coverage; generated quality and drawing artifacts still fail if passed as inspection evidence.
 
+`fcad inspection-evidence-intake [--package <slug>] --out <report.json>` searches the allowed non-secret checkout sources and emits a machine-readable discovery/intake report. It classifies candidates as `genuine_valid`, `invalid_generated`, `invalid_schema`, `invalid_provenance`, or `no_candidate`. The command does not ask for human-entered measurements; if no genuine completed record is found, canonical packages stay `needs_more_evidence` / `hold_for_evidence_completion`.
+
 A non-canonical fixture lives at [`../tests/fixtures/inspection-evidence/valid-manual-caliper-inspection.json`](../tests/fixtures/inspection-evidence/valid-manual-caliper-inspection.json) for schema and validator tests only. It demonstrates the contract shape but is not package readiness evidence, and canonical packages remain `needs_more_evidence` until genuine inspection evidence is added to those packages.
 
 For each canonical package, including `quality-pass-bracket` and `hinge-block`, a non-canonical collection guide is available under [`inspection-evidence-collection/`](inspection-evidence-collection/). The guide is not readiness evidence; completed evidence must still be attached through `review-context --inspection-evidence` in a later Stage 5B flow.

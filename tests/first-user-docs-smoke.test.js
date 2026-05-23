@@ -103,6 +103,7 @@ assertMentions(rootReadmeText, /GET \/api\/canonical-packages\/:slug\/artifacts\
 assertMentions(rootReadmeText, /does not accept arbitrary local file paths/, 'root README should reject arbitrary local file paths for canonical previews');
 assertMentions(rootReadmeText, /release_bundle\.zip` appears as the `release_bundle` package artifact, but it is not text-previewable/, 'root README should keep release_bundle.zip as a non-previewable package artifact');
 assertMentions(rootReadmeText, /--inspection-evidence <PATH_TO_COMPLETED_REAL_JSON>/, 'root README should show the completed-real-evidence CLI placeholder');
+assertMentions(rootReadmeText, /fcad inspection-evidence-intake --out <report\.json>/, 'root README should show autonomous inspection evidence intake');
 assertMentions(rootReadmeText, /Do not treat synthetic fixtures or generated CAD\/drawing\/readiness outputs as package inspection evidence/, 'root README should reject synthetic/generated package evidence');
 assertMentions(rootReadmeText, /quality\/drawing evidence does not satisfy `inspection_evidence`/, 'root README should preserve the inspection evidence boundary');
 assertMentions(rootReadmeText, /`generated_shape_geometry` marks measurements captured from the FreeCAD shape that `fcad create` generated before export/, 'root README should define generated_shape_geometry as pre-export generated-shape evidence');
@@ -663,6 +664,7 @@ assertMentions(collectionGuideIndexText, /These non-canonical guides/, 'collecti
 assertMentions(collectionGuideIndexText, /They are not\s+inspection evidence/, 'collection guide index should say guides are not evidence');
 assertMentions(collectionGuideIndexText, /review-context --inspection-evidence <PATH_TO_COMPLETED_REAL_JSON>/, 'collection guide index should preserve future attachment boundary');
 assertMentions(collectionGuideIndexText, /canonical packages remain\s+`needs_more_evidence`/, 'collection guide index should keep current readiness boundary');
+assertMentions(inspectionContractText, /fcad inspection-evidence-intake/, 'contract doc should document autonomous evidence intake reporting');
 assertMentions(inspectionContractText, /is not package readiness evidence/, 'contract doc should state the fixture is not package readiness evidence');
 assertMentions(inspectionContractText, /The guide is not readiness evidence/, 'contract doc should treat the collection guide as non-canonical guidance');
 
