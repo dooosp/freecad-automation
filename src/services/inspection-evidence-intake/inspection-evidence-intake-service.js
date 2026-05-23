@@ -1,7 +1,10 @@
 import { execFile as execFileCallback } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { basename, dirname, extname, join, posix, resolve } from 'node:path';
+import { inflateRawSync } from 'node:zlib';
 import { promisify } from 'node:util';
-import { readFile, stat } from 'node:fs/promises';
-import { resolve } from 'node:path';
 
 import { validateInspectionEvidence } from '../../../lib/inspection-evidence.js';
 import { CANONICAL_PACKAGE_SLUGS } from '../../server/canonical-package-discovery.js';
@@ -36,6 +39,17 @@ const EVIDENCE_PATH_PATTERNS = Object.freeze([
 ]);
 
 const NON_GENUINE_TEXT_PATTERN = /synthetic|fixture|template|collection guide|generated|not readiness evidence|not package readiness evidence/i;
+
+const GITHUB_ALLOWED_FILE_EXTENSIONS = new Set(['.json', '.csv', '.tsv', '.md', '.markdown', '.txt']);
+const GITHUB_ALLOWED_ARCHIVE_EXTENSIONS = new Set(['.zip']);
+const GITHUB_MAX_DOWNLOADS = 20;
+const GITHUB_MAX_TEXT_BYTES = 256 * 1024;
+const GITHUB_MAX_ZIP_BYTES = 2 * 1024 * 1024;
+const GITHUB_MAX_ZIP_ENTRIES = 50;
+const GITHUB_MAX_ZIP_INNER_BYTES = 256 * 1024;
+const GITHUB_MAX_ZIP_TOTAL_INNER_BYTES = 1024 * 1024;
+const GITHUB_MAX_REPO_DOC_LINK_FILES = 100;
+const URL_PATTERN = /https?:\/\/[^\s<>"'`)\]]+/gi;
 
 const TABLE_HEADER_ALIASES = Object.freeze({
   schema_version: ['schema_version', 'schema', 'contract_version'],
@@ -156,6 +170,7 @@ function sourceFormatForPath(relativePath) {
   if (normalized.endsWith('.csv')) return 'csv';
   if (normalized.endsWith('.tsv')) return 'tsv';
   if (normalized.endsWith('.md') || normalized.endsWith('.markdown')) return 'markdown_table';
+  if (normalized.endsWith('.txt')) return 'txt';
   return 'unknown';
 }
 
@@ -388,7 +403,7 @@ function normalizeTableEvidenceDocument(rows, relativePath) {
 
 async function parseMachineReadableTableCandidate(projectRoot, relativePath) {
   const sourceFormat = sourceFormatForPath(relativePath);
-  if (!['csv', 'tsv', 'markdown_table'].includes(sourceFormat)) {
+  if (!['csv', 'tsv', 'markdown_table', 'txt'].includes(sourceFormat)) {
     return {
       ok: false,
       source_format: sourceFormat,
@@ -411,7 +426,13 @@ async function parseMachineReadableTableCandidate(projectRoot, relativePath) {
     ? parseDelimitedRows(text.raw, ',')
     : sourceFormat === 'tsv'
       ? parseDelimitedRows(text.raw, '\t')
-      : parseMarkdownTableRows(text.raw);
+      : sourceFormat === 'markdown_table'
+        ? parseMarkdownTableRows(text.raw)
+        : parseMarkdownTableRows(text.raw).length > 0
+          ? parseMarkdownTableRows(text.raw)
+          : text.raw.includes('\t')
+            ? parseDelimitedRows(text.raw, '\t')
+            : parseDelimitedRows(text.raw, ',');
   const rows = tableMatrixToRows(matrix);
   if (rows.length === 0) {
     return {
@@ -465,6 +486,32 @@ function sourcePathFromDocument(document = {}) {
   return normalizeRepoPath(document.source_ref || document.source_file || '');
 }
 
+function packageSlugFromDocument(document = {}, packageSlugs = []) {
+  const values = uniqueStrings([
+    document.package_id,
+    document.inspected_part,
+  ].map((value) => (value === null || value === undefined ? '' : String(value))));
+  return packageSlugs.find((slug) => values.includes(slug)) || null;
+}
+
+function isGithubSourceKind(sourceKind) {
+  return String(sourceKind || '').startsWith('github_') || sourceKind === 'repo_doc_public_link';
+}
+
+function isExternalCandidate(candidate = {}) {
+  return isGithubSourceKind(candidate.source_kind);
+}
+
+function safeReportSourceRef(value) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const trimmed = value.trim();
+  if (/^https?:\/\//i.test(trimmed)) {
+    const sanitized = sanitizePublicUrl(trimmed);
+    return sanitized.ok ? sanitized.url : '[redacted-url]';
+  }
+  return normalizeRepoPath(trimmed);
+}
+
 function documentText(document = {}) {
   return [
     document.notes,
@@ -516,11 +563,50 @@ async function hasGenuineLocalProvenance({
   };
 }
 
+function hasGenuineGithubProvenance({
+  relativePath,
+  document,
+  packageSlugs,
+  sourceProvenance,
+}) {
+  const reasons = [];
+  const slug = packageSlugFromDocument(document, packageSlugs) || packageSlugFromPath(relativePath, packageSlugs);
+  if (!slug) {
+    reasons.push('GitHub candidate does not identify one of the requested package_id/inspected_part values');
+  }
+
+  if (NON_GENUINE_TEXT_PATTERN.test(documentText(document))) {
+    reasons.push('document provenance text marks it as synthetic, generated, fixture, template, or guide material');
+  }
+
+  const sourcePath = sourcePathFromDocument(document);
+  if (!sourcePath) {
+    reasons.push('document does not provide a source_ref/source_file provenance path');
+  } else if (isGeneratedArtifactPath(sourcePath)) {
+    reasons.push('source_ref/source_file points at generated non-inspection output');
+  } else if (/^tests\/fixtures\//.test(sourcePath) || /^schemas\//.test(sourcePath)) {
+    reasons.push('source_ref/source_file points at fixture or schema material');
+  } else if (/^https?:\/\//i.test(sourcePath) && !sanitizePublicUrl(sourcePath).ok) {
+    reasons.push('source_ref/source_file URL is not a safe public URL');
+  }
+
+  if (!sourceProvenance?.source_url) {
+    reasons.push('GitHub candidate does not have sanitized public source URL provenance');
+  }
+
+  return {
+    ok: reasons.length === 0,
+    reasons,
+    package_slug: slug,
+  };
+}
+
 async function classifyCandidate({
   projectRoot,
   relativePath,
   packageSlugs,
   sourceKind = 'tracked_repo_file',
+  sourceProvenance = null,
 }) {
   const normalized = normalizeRepoPath(relativePath);
   const slug = packageSlugFromPath(normalized, packageSlugs);
@@ -530,6 +616,7 @@ async function classifyCandidate({
     source_format: sourceFormatForPath(normalized),
     adapter: normalized.toLowerCase().endsWith('.json') ? 'json_contract' : null,
     package_slug: slug,
+    source_provenance: sourceProvenance,
     classification: null,
     reasons: [],
     validation_errors: [],
@@ -573,14 +660,16 @@ async function classifyCandidate({
 
     const document = safeObject(tableCandidate.document);
     const validation = validateInspectionEvidence(document);
+    const documentPackageSlug = slug || packageSlugFromDocument(document, packageSlugs);
     const enriched = {
       ...tableBaseCandidate,
+      package_slug: documentPackageSlug,
       contract_ok: validation.ok,
       evidence_type: document.evidence_type || document.artifact_type || document.type || null,
       source_type: document.source_type || null,
       measured_feature_count: Array.isArray(document.measured_features) ? document.measured_features.length : null,
       validation_errors: validation.errors,
-      normalized_source_ref: document.source_ref || document.source_file || null,
+      normalized_source_ref: safeReportSourceRef(document.source_ref || document.source_file),
     };
 
     if (!validation.ok) {
@@ -594,15 +683,23 @@ async function classifyCandidate({
       };
     }
 
-    const provenance = await hasGenuineLocalProvenance({
-      projectRoot,
-      relativePath: normalized,
-      document,
-      packageSlugs,
-    });
+    const provenance = isGithubSourceKind(sourceKind)
+      ? hasGenuineGithubProvenance({
+          relativePath: normalized,
+          document,
+          packageSlugs,
+          sourceProvenance,
+        })
+      : await hasGenuineLocalProvenance({
+          projectRoot,
+          relativePath: normalized,
+          document,
+          packageSlugs,
+        });
     if (!provenance.ok) {
       return {
         ...enriched,
+        package_slug: provenance.package_slug || enriched.package_slug,
         classification: 'invalid_provenance',
         reasons: provenance.reasons,
       };
@@ -611,7 +708,9 @@ async function classifyCandidate({
     return {
       ...enriched,
       classification: 'genuine_valid',
-      reasons: ['machine-readable table normalized to contract-valid completed inspection record with local canonical package provenance'],
+      reasons: [isGithubSourceKind(sourceKind)
+        ? 'machine-readable table normalized to contract-valid completed inspection record with sanitized GitHub/public-link provenance'
+        : 'machine-readable table normalized to contract-valid completed inspection record with local canonical package provenance'],
     };
   }
 
@@ -627,14 +726,16 @@ async function classifyCandidate({
 
   const document = safeObject(parsed.document);
   const validation = validateInspectionEvidence(document);
+  const documentPackageSlug = slug || packageSlugFromDocument(document, packageSlugs);
   const enriched = {
     ...baseCandidate,
+    package_slug: documentPackageSlug,
     contract_ok: validation.ok,
     evidence_type: document.evidence_type || document.artifact_type || document.type || null,
     source_type: document.source_type || null,
     measured_feature_count: Array.isArray(document.measured_features) ? document.measured_features.length : null,
     validation_errors: validation.errors,
-    normalized_source_ref: document.source_ref || document.source_file || null,
+    normalized_source_ref: safeReportSourceRef(document.source_ref || document.source_file),
   };
 
   if (!validation.ok) {
@@ -648,15 +749,23 @@ async function classifyCandidate({
     };
   }
 
-  const provenance = await hasGenuineLocalProvenance({
-    projectRoot,
-    relativePath: normalized,
-    document,
-    packageSlugs,
-  });
+  const provenance = isGithubSourceKind(sourceKind)
+    ? hasGenuineGithubProvenance({
+        relativePath: normalized,
+        document,
+        packageSlugs,
+        sourceProvenance,
+      })
+    : await hasGenuineLocalProvenance({
+        projectRoot,
+        relativePath: normalized,
+        document,
+        packageSlugs,
+      });
   if (!provenance.ok) {
     return {
       ...enriched,
+      package_slug: provenance.package_slug || enriched.package_slug,
       classification: 'invalid_provenance',
       reasons: provenance.reasons,
     };
@@ -665,7 +774,9 @@ async function classifyCandidate({
   return {
     ...enriched,
     classification: 'genuine_valid',
-    reasons: ['contract-valid completed inspection record with local canonical package provenance'],
+    reasons: [isGithubSourceKind(sourceKind)
+      ? 'contract-valid completed inspection record with sanitized GitHub/public-link provenance'
+      : 'contract-valid completed inspection record with local canonical package provenance'],
   };
 }
 
@@ -693,7 +804,7 @@ async function readReadinessState(projectRoot, slug) {
 function canonicalCommandPlan(slug, acceptedCandidate) {
   const packageRoot = `docs/examples/${slug}`;
   const candidatePath = acceptedCandidate.path;
-  const attachmentPath = acceptedCandidate.source_format === 'json'
+  const attachmentPath = acceptedCandidate.source_format === 'json' && !isExternalCandidate(acceptedCandidate)
     ? candidatePath
     : `${packageRoot}/inspection/inspection_evidence.json`;
   return {
@@ -747,7 +858,221 @@ function packageClassification({ acceptedCandidates, packageRejectedCandidates }
 }
 
 function isPackageCandidate(candidate, slug) {
-  return candidate.package_slug === slug && isPackageInspectionPath(candidate.path, slug);
+  if (candidate.package_slug !== slug) return false;
+  return isExternalCandidate(candidate) || isPackageInspectionPath(candidate.path, slug);
+}
+
+async function defaultGithubFetch(url) {
+  if (typeof fetch !== 'function') {
+    throw new Error('global fetch is unavailable');
+  }
+  return fetch(url);
+}
+
+function sanitizeErrorMessage(error) {
+  return String(error?.message || error || 'unknown error')
+    .replace(URL_PATTERN, '[url]')
+    .replace(/[A-Za-z0-9_=-]{32,}/g, '[redacted]')
+    .slice(0, 300);
+}
+
+function urlHostLabel(rawUrl) {
+  try {
+    return new URL(String(rawUrl)).hostname;
+  } catch {
+    return null;
+  }
+}
+
+function isPrivateHostname(hostname) {
+  const host = String(hostname || '').toLowerCase();
+  return host === 'localhost'
+    || host === '::1'
+    || host.endsWith('.local')
+    || /^127\./.test(host)
+    || /^10\./.test(host)
+    || /^192\.168\./.test(host)
+    || /^172\.(1[6-9]|2\d|3[0-1])\./.test(host)
+    || /^169\.254\./.test(host);
+}
+
+function sanitizePublicUrl(rawUrl) {
+  const trimmed = String(rawUrl || '').trim().replace(/[.,;!?]+$/, '');
+  try {
+    const parsed = new URL(trimmed);
+    if (!['https:', 'http:'].includes(parsed.protocol)) {
+      return { ok: false, reason_code: 'unsupported_url_scheme', host: parsed.hostname || null };
+    }
+    if (parsed.username || parsed.password) {
+      return { ok: false, reason_code: 'url_userinfo_redacted', host: parsed.hostname || null };
+    }
+    if (isPrivateHostname(parsed.hostname)) {
+      return { ok: false, reason_code: 'private_url_redacted', host: parsed.hostname || null };
+    }
+    parsed.username = '';
+    parsed.password = '';
+    parsed.search = '';
+    parsed.hash = '';
+    return {
+      ok: true,
+      url: parsed.toString(),
+      host: parsed.hostname,
+      extension: extname(parsed.pathname).toLowerCase(),
+    };
+  } catch {
+    return { ok: false, reason_code: 'invalid_url', host: null };
+  }
+}
+
+function responseHeader(response, name) {
+  return typeof response?.headers?.get === 'function' ? response.headers.get(name) : null;
+}
+
+async function responseBuffer(response, maxBytes) {
+  const contentLength = Number(responseHeader(response, 'content-length') || 0);
+  if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+    return {
+      ok: false,
+      reason_code: 'download_too_large',
+      size_bytes: contentLength,
+    };
+  }
+  const arrayBuffer = await response.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  if (buffer.length > maxBytes) {
+    return {
+      ok: false,
+      reason_code: 'download_too_large',
+      size_bytes: buffer.length,
+    };
+  }
+  return {
+    ok: true,
+    buffer,
+    size_bytes: buffer.length,
+  };
+}
+
+function allowedKindForUrl(url) {
+  const extension = extname(new URL(url).pathname).toLowerCase();
+  if (GITHUB_ALLOWED_FILE_EXTENSIONS.has(extension)) return 'file';
+  if (GITHUB_ALLOWED_ARCHIVE_EXTENSIONS.has(extension)) return 'zip';
+  return null;
+}
+
+function extractCandidateLinks(text) {
+  return uniqueStrings(String(text || '').match(URL_PATTERN) || [])
+    .map((rawUrl) => sanitizePublicUrl(rawUrl))
+    .filter((entry) => entry.ok && allowedKindForUrl(entry.url))
+    .map((entry) => entry.url);
+}
+
+function githubCandidatePath(sourceUrl, innerPath = null) {
+  const hash = createHash('sha256').update(`${sourceUrl}\n${innerPath || ''}`).digest('hex').slice(0, 16);
+  if (innerPath) {
+    return normalizeRepoPath(innerPath);
+  }
+  const name = basename(new URL(sourceUrl).pathname).replace(/[^A-Za-z0-9._-]/g, '_') || `candidate-${hash}`;
+  return `github-downloads/${hash}/${name}`;
+}
+
+function safeSourcePageUrl(value) {
+  if (!value) return null;
+  const sanitized = sanitizePublicUrl(value);
+  return sanitized.ok ? sanitized.url : null;
+}
+
+function githubSourceProvenance(ref, extra = {}) {
+  return {
+    source_url: ref.source_url,
+    source_page_url: ref.source_page_url || null,
+    source_label: ref.source_label || null,
+    origin_kind: ref.origin_kind || null,
+    ...extra,
+  };
+}
+
+function safeZipEntryPath(entryName) {
+  const raw = String(entryName || '');
+  if (!raw || raw.includes('\\') || raw.startsWith('/') || /^[A-Za-z]:/.test(raw)) return null;
+  if (raw.split('/').includes('..')) return null;
+  const normalized = posix.normalize(raw);
+  if (!normalized || normalized === '.' || normalized.startsWith('../') || normalized.includes('/../')) return null;
+  return normalized;
+}
+
+function inspectZipEntries(buffer) {
+  const entries = [];
+  let offset = 0;
+  let totalInnerBytes = 0;
+
+  while (offset + 30 <= buffer.length) {
+    const signature = buffer.readUInt32LE(offset);
+    if (signature !== 0x04034b50) break;
+
+    const flags = buffer.readUInt16LE(offset + 6);
+    const method = buffer.readUInt16LE(offset + 8);
+    const compressedSize = buffer.readUInt32LE(offset + 18);
+    const uncompressedSize = buffer.readUInt32LE(offset + 22);
+    const fileNameLength = buffer.readUInt16LE(offset + 26);
+    const extraLength = buffer.readUInt16LE(offset + 28);
+    const nameStart = offset + 30;
+    const nameEnd = nameStart + fileNameLength;
+    const dataStart = nameEnd + extraLength;
+    const dataEnd = dataStart + compressedSize;
+
+    if (entries.length >= GITHUB_MAX_ZIP_ENTRIES) {
+      return { ok: false, reason_code: 'zip_entry_limit_exceeded' };
+    }
+    if ((flags & 0x08) !== 0 || dataEnd > buffer.length) {
+      return { ok: false, reason_code: 'unsupported_zip_descriptor' };
+    }
+
+    const entryName = buffer.slice(nameStart, nameEnd).toString('utf8');
+    const safePath = safeZipEntryPath(entryName);
+    if (!safePath) {
+      return { ok: false, reason_code: 'unsafe_zip_path', inner_path: entryName.replace(URL_PATTERN, '[url]').slice(0, 160) };
+    }
+
+    const isDirectory = safePath.endsWith('/');
+    if (!isDirectory && GITHUB_ALLOWED_FILE_EXTENSIONS.has(extname(safePath).toLowerCase())) {
+      if (uncompressedSize > GITHUB_MAX_ZIP_INNER_BYTES) {
+        return { ok: false, reason_code: 'zip_inner_file_too_large', inner_path: safePath };
+      }
+      totalInnerBytes += uncompressedSize;
+      if (totalInnerBytes > GITHUB_MAX_ZIP_TOTAL_INNER_BYTES) {
+        return { ok: false, reason_code: 'zip_total_inner_bytes_exceeded' };
+      }
+
+      const compressed = buffer.slice(dataStart, dataEnd);
+      let content;
+      if (method === 0) {
+        content = compressed;
+      } else if (method === 8) {
+        content = inflateRawSync(compressed);
+      } else {
+        return { ok: false, reason_code: 'unsupported_zip_compression', inner_path: safePath };
+      }
+      entries.push({
+        inner_path: safePath,
+        content,
+        size_bytes: content.length,
+      });
+    }
+
+    offset = dataEnd;
+  }
+
+  return { ok: true, entries };
+}
+
+function classificationCounts(candidates = []) {
+  return candidates.reduce((counts, candidate) => {
+    if (!candidate || candidate.classification === 'genuine_valid') return counts;
+    const key = candidate.classification || 'unknown';
+    counts[key] = (counts[key] || 0) + 1;
+    return counts;
+  }, {});
 }
 
 function normalizeGithubEntries(kind, parsed) {
@@ -758,6 +1083,7 @@ function normalizeGithubEntries(kind, parsed) {
       .map((artifact) => ({
         name: artifact.name || null,
         expired: artifact.expired ?? null,
+        sizeBytes: artifact.size_in_bytes ?? null,
         createdAt: artifact.created_at || null,
         url: artifact.archive_download_url || null,
         workflowRun: artifact.workflow_run?.html_url || null,
@@ -775,12 +1101,300 @@ function normalizeGithubEntries(kind, parsed) {
       }));
   }
 
+  if (kind === 'github_release_records') {
+    const pages = Array.isArray(parsed) && Array.isArray(parsed[0]) ? parsed : [parsed];
+    return pages
+      .flatMap((page) => safeList(page))
+      .map((release) => ({
+        tagName: release.tag_name || release.tagName || null,
+        name: release.name || null,
+        body: release.body || null,
+        url: release.html_url || release.url || null,
+        publishedAt: release.published_at || release.publishedAt || null,
+        assets: safeList(release.assets).map((asset) => ({
+          name: asset.name || null,
+          sizeBytes: asset.size ?? asset.size_in_bytes ?? null,
+          url: asset.browser_download_url || null,
+          contentType: asset.content_type || null,
+        })),
+      }));
+  }
+
   return Array.isArray(parsed) ? parsed : [];
 }
 
-async function githubSearchResults({ githubRepo, githubRunner = execFile }) {
+function candidateRefsFromEntries(kind, entries = [], skipped = [], rejected = []) {
+  const refs = [];
+  for (const entry of entries) {
+    if (kind === 'github_actions_artifacts') {
+      if (/inspection|cmm|caliper|gauge|first.article|supplier/i.test(JSON.stringify(entry))) {
+        skipped.push({
+          kind,
+          status: 'skipped',
+          reason_code: 'workflow_artifact_metadata_only',
+          reason: 'Workflow artifact metadata alone is not inspection evidence; archive download is not attempted without a public allowlisted file URL.',
+          source_page_url: safeSourcePageUrl(entry.workflowRun),
+        });
+        rejected.push({
+          path: entry.workflowRun || entry.name || kind,
+          source_kind: kind,
+          source_format: 'github_metadata',
+          adapter: 'github_metadata_scan',
+          package_slug: null,
+          source_provenance: {
+            source_page_url: safeSourcePageUrl(entry.workflowRun),
+            source_label: entry.name || null,
+            origin_kind: kind,
+          },
+          classification: 'invalid_provenance',
+          reasons: ['GitHub workflow artifact metadata is not an attached machine-readable completed inspection record'],
+          validation_errors: [],
+          contract_ok: false,
+          evidence_type: null,
+          source_type: null,
+          measured_feature_count: null,
+          normalized_source_ref: null,
+        });
+      }
+      continue;
+    }
+
+    const entryRefs = [];
+    for (const sourceUrl of extractCandidateLinks([entry.body, entry.title, entry.name].filter(Boolean).join('\n'))) {
+      entryRefs.push({
+        source_kind: 'github_linked_file',
+        origin_kind: kind,
+        source_url: sourceUrl,
+        source_page_url: safeSourcePageUrl(entry.url),
+        source_label: entry.title || entry.name || entry.tagName || null,
+      });
+    }
+
+    if (kind === 'github_release_records') {
+      for (const asset of safeList(entry.assets)) {
+        const sanitized = sanitizePublicUrl(asset.url);
+        if (!sanitized.ok || !allowedKindForUrl(sanitized.url)) continue;
+        entryRefs.push({
+          source_kind: 'github_release_asset',
+          origin_kind: kind,
+          source_url: sanitized.url,
+          source_page_url: safeSourcePageUrl(entry.url),
+          source_label: asset.name || entry.tagName || null,
+          declared_size_bytes: asset.sizeBytes ?? null,
+        });
+      }
+    }
+
+    if (/inspection|cmm|caliper|gauge|first.article|supplier/i.test(JSON.stringify(entry)) && entryRefs.length === 0) {
+      rejected.push({
+        path: entry.url || entry.tagName || entry.name || kind,
+        source_kind: kind,
+        source_format: 'github_metadata',
+        adapter: 'github_metadata_scan',
+        package_slug: null,
+        source_provenance: {
+          source_page_url: safeSourcePageUrl(entry.url),
+          source_label: entry.title || entry.name || entry.tagName || null,
+          origin_kind: kind,
+        },
+        classification: 'invalid_provenance',
+        reasons: ['GitHub metadata mention is not an attached machine-readable completed inspection record'],
+        validation_errors: [],
+        contract_ok: false,
+        evidence_type: null,
+        source_type: null,
+        measured_feature_count: null,
+        normalized_source_ref: null,
+      });
+    }
+    refs.push(...entryRefs);
+  }
+  return refs;
+}
+
+async function repoDocCandidateRefs({ projectRoot, trackedPaths = [], sources = [], skipped = [] }) {
+  const refs = [];
+  const docPaths = trackedPaths
+    .filter((pathValue) => /^(README\.md|docs\/).*\.(?:md|markdown|txt)$/i.test(pathValue))
+    .slice(0, GITHUB_MAX_REPO_DOC_LINK_FILES);
+  let scanned = 0;
+  for (const relativePath of docPaths) {
+    try {
+      const raw = await readFile(resolve(projectRoot, relativePath), 'utf8');
+      scanned += 1;
+      for (const sourceUrl of extractCandidateLinks(raw)) {
+        refs.push({
+          source_kind: 'repo_doc_public_link',
+          origin_kind: 'repo_doc_public_links',
+          source_url: sourceUrl,
+          source_page_url: null,
+          source_label: relativePath,
+        });
+      }
+    } catch (error) {
+      skipped.push({
+        kind: 'repo_doc_public_links',
+        status: 'skipped',
+        reason_code: 'repo_doc_read_failed',
+        reason: sanitizeErrorMessage(error),
+        path: relativePath,
+      });
+    }
+  }
+  sources.push({
+    kind: 'repo_doc_public_links',
+    status: 'searched',
+    file_count: scanned,
+    candidate_link_count: refs.length,
+  });
+  return refs;
+}
+
+async function writeAndClassifyGithubCandidate({
+  tempRoot,
+  relativePath,
+  buffer,
+  packageSlugs,
+  sourceKind,
+  sourceProvenance,
+}) {
+  const normalizedPath = normalizeRepoPath(relativePath);
+  await mkdir(dirname(resolve(tempRoot, normalizedPath)), { recursive: true });
+  await writeFile(resolve(tempRoot, normalizedPath), buffer);
+  return classifyCandidate({
+    projectRoot: tempRoot,
+    relativePath: normalizedPath,
+    packageSlugs,
+    sourceKind,
+    sourceProvenance,
+  });
+}
+
+async function downloadGithubCandidate({
+  ref,
+  tempRoot,
+  packageSlugs,
+  githubFetch,
+  skipped,
+  downloadedCandidates,
+}) {
+  const kind = allowedKindForUrl(ref.source_url);
+  const maxBytes = kind === 'zip' ? GITHUB_MAX_ZIP_BYTES : GITHUB_MAX_TEXT_BYTES;
+  try {
+    const response = await githubFetch(ref.source_url);
+    if (!response?.ok) {
+      skipped.push({
+        kind: ref.source_kind,
+        status: 'skipped',
+        reason_code: 'download_failed',
+        reason: `HTTP status ${response?.status ?? 'unknown'}`,
+        source_url: ref.source_url,
+        source_page_url: ref.source_page_url || null,
+      });
+      return [];
+    }
+
+    const downloaded = await responseBuffer(response, maxBytes);
+    if (!downloaded.ok) {
+      skipped.push({
+        kind: ref.source_kind,
+        status: 'skipped',
+        reason_code: downloaded.reason_code,
+        reason: 'GitHub candidate exceeded bounded download limits',
+        source_url: ref.source_url,
+        source_page_url: ref.source_page_url || null,
+        size_bytes: downloaded.size_bytes ?? null,
+      });
+      return [];
+    }
+
+    if (kind === 'zip') {
+      const zip = inspectZipEntries(downloaded.buffer);
+      if (!zip.ok) {
+        skipped.push({
+          kind: ref.source_kind,
+          status: 'skipped',
+          reason_code: zip.reason_code,
+          reason: 'ZIP candidate failed bounded safety inspection',
+          source_url: ref.source_url,
+          source_page_url: ref.source_page_url || null,
+          inner_path: zip.inner_path || null,
+        });
+        return [];
+      }
+
+      const candidates = [];
+      for (const entry of zip.entries) {
+        const candidatePath = githubCandidatePath(ref.source_url, entry.inner_path);
+        const provenance = githubSourceProvenance(ref, {
+          archive_url: ref.source_url,
+          inner_path: entry.inner_path,
+        });
+        downloadedCandidates.push({
+          source_kind: 'github_zip_entry',
+          source_url: ref.source_url,
+          source_page_url: ref.source_page_url || null,
+          candidate_path: candidatePath,
+          inner_path: entry.inner_path,
+          source_format: sourceFormatForPath(candidatePath),
+          size_bytes: entry.size_bytes,
+        });
+        candidates.push(await writeAndClassifyGithubCandidate({
+          tempRoot,
+          relativePath: candidatePath,
+          buffer: entry.content,
+          packageSlugs,
+          sourceKind: 'github_zip_entry',
+          sourceProvenance: provenance,
+        }));
+      }
+      return candidates;
+    }
+
+    const candidatePath = githubCandidatePath(ref.source_url);
+    downloadedCandidates.push({
+      source_kind: ref.source_kind,
+      source_url: ref.source_url,
+      source_page_url: ref.source_page_url || null,
+      candidate_path: candidatePath,
+      source_format: sourceFormatForPath(candidatePath),
+      size_bytes: downloaded.size_bytes,
+    });
+    return [await writeAndClassifyGithubCandidate({
+      tempRoot,
+      relativePath: candidatePath,
+      buffer: downloaded.buffer,
+      packageSlugs,
+      sourceKind: ref.source_kind,
+      sourceProvenance: githubSourceProvenance(ref),
+    })];
+  } catch (error) {
+    skipped.push({
+      kind: ref.source_kind,
+      status: 'skipped',
+      reason_code: 'download_error',
+      reason: sanitizeErrorMessage(error),
+      source_url: ref.source_url,
+      source_page_url: ref.source_page_url || null,
+      host: urlHostLabel(ref.source_url),
+    });
+    return [];
+  }
+}
+
+async function githubSearchResults({
+  githubRepo,
+  githubRunner = execFile,
+  githubFetch = defaultGithubFetch,
+  projectRoot,
+  trackedPaths = [],
+  packageSlugs = [],
+}) {
   const sources = [];
+  const skipped = [];
   const rejected = [];
+  const candidates = [];
+  const downloadedCandidates = [];
   const repoApiPath = `repos/${githubRepo}`;
   const commands = [
     {
@@ -813,53 +1427,101 @@ async function githubSearchResults({ githubRepo, githubRunner = execFile }) {
     },
     {
       kind: 'github_release_records',
-      args: ['release', 'list', '--repo', githubRepo, '--limit', '100', '--json', 'tagName,name,isDraft,isPrerelease,publishedAt'],
+      args: ['api', `${repoApiPath}/releases`, '--paginate', '--slurp'],
     },
   ];
 
-  for (const command of commands) {
-    try {
-      const { stdout } = await githubRunner('gh', command.args, {
-        maxBuffer: 10 * 1024 * 1024,
-      });
-      const parsed = JSON.parse(stdout || '[]');
-      const entries = normalizeGithubEntries(command.kind, parsed);
-      const matchingEntries = entries.filter((entry) => (
-        /inspection|cmm|caliper|gauge|first.article|supplier/i.test(JSON.stringify(entry))
-      ));
-      sources.push({
-        kind: command.kind,
-        status: 'searched',
-        entry_count: entries.length,
-        candidate_count: matchingEntries.length,
-      });
-      matchingEntries.forEach((entry) => {
-        rejected.push({
-          path: entry.url || entry.tagName || entry.name || command.kind,
-          source_kind: command.kind,
-          source_format: 'github_metadata',
-          adapter: 'github_metadata_scan',
-          package_slug: null,
-          classification: 'invalid_provenance',
-          reasons: ['GitHub metadata mention is not an attached machine-readable completed inspection record'],
-          validation_errors: [],
-          contract_ok: false,
-          evidence_type: null,
-          source_type: null,
-          measured_feature_count: null,
-          normalized_source_ref: null,
+  const refs = [];
+  refs.push(...await repoDocCandidateRefs({
+    projectRoot,
+    trackedPaths,
+    sources,
+    skipped,
+  }));
+
+  let githubCliAvailable = true;
+  try {
+    await githubRunner('gh', ['--version'], {
+      maxBuffer: 1024 * 1024,
+    });
+  } catch (error) {
+    githubCliAvailable = false;
+    skipped.push({
+      kind: 'github_cli',
+      status: 'skipped',
+      reason_code: 'github_cli_unavailable',
+      reason: sanitizeErrorMessage(error),
+    });
+  }
+
+  if (githubCliAvailable) {
+    for (const command of commands) {
+      try {
+        const { stdout } = await githubRunner('gh', command.args, {
+          maxBuffer: 10 * 1024 * 1024,
         });
-      });
-    } catch (error) {
-      sources.push({
-        kind: command.kind,
-        status: 'failed',
-        error: error.message,
-      });
+        const parsed = JSON.parse(stdout || '[]');
+        const entries = normalizeGithubEntries(command.kind, parsed);
+        const commandRefs = candidateRefsFromEntries(command.kind, entries, skipped, rejected);
+        sources.push({
+          kind: command.kind,
+          status: 'searched',
+          entry_count: entries.length,
+          candidate_link_count: commandRefs.length,
+        });
+        refs.push(...commandRefs);
+      } catch (error) {
+        skipped.push({
+          kind: command.kind,
+          status: 'skipped',
+          reason_code: 'github_command_failed',
+          reason: sanitizeErrorMessage(error),
+        });
+      }
     }
   }
 
-  return { sources, rejected };
+  const uniqueRefs = [];
+  const seen = new Set();
+  for (const ref of refs) {
+    const key = ref.source_url;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    uniqueRefs.push(ref);
+  }
+
+  const tempRoot = await mkdtemp(join(tmpdir(), 'fcad-github-intake-'));
+  try {
+    for (const ref of uniqueRefs.slice(0, GITHUB_MAX_DOWNLOADS)) {
+      candidates.push(...await downloadGithubCandidate({
+        ref,
+        tempRoot,
+        packageSlugs,
+        githubFetch,
+        skipped,
+        downloadedCandidates,
+      }));
+    }
+    if (uniqueRefs.length > GITHUB_MAX_DOWNLOADS) {
+      skipped.push({
+        kind: 'github_candidate_links',
+        status: 'skipped',
+        reason_code: 'download_count_limit_exceeded',
+        reason: 'GitHub discovery stopped at the bounded candidate download limit',
+        skipped_count: uniqueRefs.length - GITHUB_MAX_DOWNLOADS,
+      });
+    }
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+
+  return {
+    sources,
+    skipped,
+    downloaded_candidates: downloadedCandidates,
+    candidates,
+    rejected,
+  };
 }
 
 export async function discoverInspectionEvidenceIntake({
@@ -869,6 +1531,7 @@ export async function discoverInspectionEvidenceIntake({
   includeGitHub = false,
   githubRepo = 'dooosp/freecad-automation',
   githubRunner = execFile,
+  githubFetch = defaultGithubFetch,
   generatedAt = null,
 } = {}) {
   const resolvedRoot = resolve(projectRoot || process.cwd());
@@ -891,17 +1554,28 @@ export async function discoverInspectionEvidenceIntake({
   }
 
   const github = includeGitHub
-    ? await githubSearchResults({ githubRepo, githubRunner })
+    ? await githubSearchResults({
+        githubRepo,
+        githubRunner,
+        githubFetch,
+        projectRoot: resolvedRoot,
+        trackedPaths: tracked,
+        packageSlugs: normalizedSlugs,
+      })
     : {
         sources: [{
           kind: 'github_public_metadata',
           status: 'not_requested',
           reason: 'Use --include-github in connected environments; hosted tests keep network disabled.',
         }],
+        skipped: [],
+        downloaded_candidates: [],
+        candidates: [],
         rejected: [],
       };
 
-  const allCandidates = [...localCandidates, ...github.rejected];
+  const githubCandidates = [...safeList(github.candidates), ...safeList(github.rejected)];
+  const allCandidates = [...localCandidates, ...githubCandidates];
   const acceptedCandidates = allCandidates.filter((candidate) => candidate.classification === 'genuine_valid');
   const rejectedCandidates = allCandidates
     .filter((candidate) => candidate.classification !== 'genuine_valid')
@@ -946,6 +1620,7 @@ export async function discoverInspectionEvidenceIntake({
           candidate_path_count: candidatePaths.length,
         },
         ...github.sources,
+        ...safeList(github.skipped),
       ],
       accepted_candidates: packageAccepted,
       rejected_candidates: packageRejected,
@@ -955,12 +1630,14 @@ export async function discoverInspectionEvidenceIntake({
             mode: 'canonical_review_context_chain_required',
             candidate_path: packageAccepted[0].path,
             candidate_format: packageAccepted[0].source_format,
-            normalization_required: packageAccepted[0].source_format !== 'json',
-            normalized_contract_target: packageAccepted[0].source_format === 'json'
+            normalization_required: packageAccepted[0].source_format !== 'json' || isExternalCandidate(packageAccepted[0]),
+            normalized_contract_target: packageAccepted[0].source_format === 'json' && !isExternalCandidate(packageAccepted[0])
               ? packageAccepted[0].path
               : `docs/examples/${slug}/inspection/inspection_evidence.json`,
             canonical_commands: canonicalCommandPlan(slug, packageAccepted[0]),
-            note: packageAccepted[0].source_format === 'json'
+            note: isExternalCandidate(packageAccepted[0])
+              ? 'GitHub discovery found a contract-valid external candidate; review and serialize it under the canonical package inspection path before review-context attachment. Do not hand-enter measurements.'
+              : packageAccepted[0].source_format === 'json'
               ? 'Attach only through review-context, then regenerate readiness, standard-doc, and release artifacts.'
               : 'Adapter validated explicit table rows; serialize the normalized inspection-evidence JSON contract before review-context attachment. Do not hand-enter measurements.',
           }
@@ -981,11 +1658,12 @@ export async function discoverInspectionEvidenceIntake({
         'tracked repo files',
         'docs/examples/tests/fixtures inside the checkout',
         'existing non-secret local files in the checkout',
-        'public GitHub metadata when --include-github is used',
+        'public GitHub issues, PR comments, release metadata/assets, workflow artifact metadata, and allowlisted public links when --include-github is used',
       ],
       adapter_coverage: [
         'JSON inspection evidence contract files',
-        'CSV/TSV/Markdown tables with explicit inspection evidence columns',
+        'CSV/TSV/Markdown/TXT tables with explicit inspection evidence columns',
+        'bounded ZIP inspection for allowlisted inner JSON/CSV/TSV/Markdown/TXT files',
       ],
       hard_evidence_rule: 'Only real completed physical/supplier/lab/QA inspection records with measured feature records, result semantics, and provenance can be accepted.',
       rejected_as_final_evidence: [
@@ -1005,7 +1683,18 @@ export async function discoverInspectionEvidenceIntake({
         candidate_path_count: candidatePaths.length,
       },
       ...github.sources,
+      ...safeList(github.skipped),
     ],
+    github_discovery: {
+      enabled: includeGitHub === true,
+      repo: githubRepo,
+      searched_sources: safeList(github.sources),
+      skipped_sources: safeList(github.skipped),
+      downloaded_candidates: safeList(github.downloaded_candidates),
+      accepted_candidate_count: githubCandidates.filter((candidate) => candidate.classification === 'genuine_valid').length,
+      rejected_candidate_count: githubCandidates.filter((candidate) => candidate.classification !== 'genuine_valid').length,
+      rejection_classes: classificationCounts(githubCandidates),
+    },
     packages,
     accepted_candidates: acceptedCandidates,
     rejected_candidates: rejectedCandidates,

@@ -22,6 +22,76 @@ function writeText(path, value) {
   writeFileSync(path, value, 'utf8');
 }
 
+function makeFetchResponse(body, options = {}) {
+  const buffer = Buffer.isBuffer(body) ? body : Buffer.from(String(body), 'utf8');
+  return {
+    ok: options.ok ?? true,
+    status: options.status ?? 200,
+    headers: {
+      get(name) {
+        const normalized = String(name || '').toLowerCase();
+        if (normalized === 'content-length') return String(options.contentLength ?? buffer.length);
+        if (normalized === 'content-type') return options.contentType || 'text/plain';
+        return null;
+      },
+    },
+    async arrayBuffer() {
+      return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+    },
+    async text() {
+      return buffer.toString('utf8');
+    },
+  };
+}
+
+function makeGithubRunner({ issueBody = '', fail = false } = {}) {
+  return async function githubRunner(command, args = []) {
+    assert.equal(command, 'gh');
+    if (fail) throw new Error('gh unavailable for fixture test');
+    if (args[0] === '--version') {
+      return { stdout: 'gh version 2.50.0\n' };
+    }
+    if (args[0] === 'search' && args[1] === 'issues') {
+      return {
+        stdout: JSON.stringify(issueBody ? [{
+          number: 911,
+          title: 'Supplier inspection evidence candidate',
+          state: 'open',
+          url: 'https://github.com/dooosp/freecad-automation/issues/911',
+          isPullRequest: false,
+          body: issueBody,
+          updatedAt: '2026-05-23T00:00:00Z',
+        }] : []),
+      };
+    }
+    if (args[0] === 'api') {
+      return { stdout: '[]' };
+    }
+    if (args[0] === 'release') {
+      return { stdout: '[]' };
+    }
+    return { stdout: '[]' };
+  };
+}
+
+function makeStoredZipEntry(name, content) {
+  const nameBuffer = Buffer.from(name, 'utf8');
+  const contentBuffer = Buffer.from(content, 'utf8');
+  const header = Buffer.alloc(30);
+  header.writeUInt32LE(0x04034b50, 0);
+  header.writeUInt16LE(20, 4);
+  header.writeUInt16LE(0, 6);
+  header.writeUInt16LE(0, 8);
+  header.writeUInt16LE(0, 10);
+  header.writeUInt16LE(0, 12);
+  header.writeUInt32LE(0, 14);
+  header.writeUInt32LE(contentBuffer.length, 18);
+  header.writeUInt32LE(contentBuffer.length, 22);
+  header.writeUInt16LE(nameBuffer.length, 26);
+  header.writeUInt16LE(0, 28);
+  return Buffer.concat([header, nameBuffer, contentBuffer]);
+}
+
 function makeValidInspectionEvidence(overrides = {}) {
   return {
     schema_version: '1.0',
@@ -263,6 +333,123 @@ try {
   assert.equal(noValidTableReport.packages[0].intake_action.status, 'hold_for_evidence_completion');
   assert.equal(noValidTableReport.packages[0].classification, 'invalid_schema');
   assert.equal(noValidTableReport.packages[0].readiness_after.status, 'needs_more_evidence');
+
+  writeMinimalCanonicalPackage(tempRoot, 'github-table-part');
+  const githubTableReport = await discoverInspectionEvidenceIntake({
+    projectRoot: tempRoot,
+    packageSlugs: ['github-table-part'],
+    includeGitHub: true,
+    githubRepo: 'dooosp/freecad-automation',
+    githubRunner: makeGithubRunner({
+      issueBody: 'Completed supplier CMM record: https://example.com/public/cmm/github-table-part-cmm.csv',
+    }),
+    githubFetch: async (url) => {
+      assert.equal(url, 'https://example.com/public/cmm/github-table-part-cmm.csv');
+      return makeFetchResponse([
+        'schema_version,evidence_type,source_type,package_id,inspected_at,units,overall_result,feature_id,measured_value,result,measurement_method',
+        '1.0,inspection_evidence,cmm_report,github-table-part,2026-05-22T12:00:00Z,mm,pass,hole_a,8.01,pass,cmm_report',
+      ].join('\n'), { contentType: 'text/csv' });
+    },
+    generatedAt: '2026-05-23T00:00:00.000Z',
+  });
+
+  assert.equal(githubTableReport.summary.genuine_inspection_evidence_found, true);
+  assert.equal(githubTableReport.summary.accepted_candidate_count, 1);
+  assert.equal(githubTableReport.github_discovery.enabled, true);
+  assert.equal(githubTableReport.github_discovery.downloaded_candidates.length, 1);
+  assert.equal(githubTableReport.github_discovery.downloaded_candidates[0].source_url, 'https://example.com/public/cmm/github-table-part-cmm.csv');
+  assert.equal(githubTableReport.github_discovery.rejection_classes.invalid_schema || 0, 0);
+  assert.equal(githubTableReport.packages[0].classification, 'genuine_valid');
+  assert.equal(githubTableReport.packages[0].accepted_candidates[0].source_kind, 'github_linked_file');
+  assert.equal(githubTableReport.packages[0].accepted_candidates[0].source_format, 'csv');
+  assert.equal(githubTableReport.packages[0].intake_action.status, 'ready_for_canonical_attachment');
+  assert.equal(githubTableReport.packages[0].intake_action.normalization_required, true);
+
+  writeMinimalCanonicalPackage(tempRoot, 'github-generated-part');
+  const githubGeneratedReport = await discoverInspectionEvidenceIntake({
+    projectRoot: tempRoot,
+    packageSlugs: ['github-generated-part'],
+    includeGitHub: true,
+    githubRunner: makeGithubRunner({
+      issueBody: 'Generated review output is not evidence: https://example.com/public/quality/github-generated-part_create_quality.json',
+    }),
+    githubFetch: async () => makeFetchResponse(JSON.stringify({
+      artifact_type: 'create_quality_report',
+      schema_version: '1.0',
+      checks: [],
+    }), { contentType: 'application/json' }),
+    generatedAt: '2026-05-23T00:00:00.000Z',
+  });
+
+  assert.equal(githubGeneratedReport.summary.genuine_inspection_evidence_found, false);
+  assert.equal(githubGeneratedReport.github_discovery.downloaded_candidates.length, 1);
+  assert.equal(githubGeneratedReport.github_discovery.rejection_classes.invalid_generated, 1);
+  assert.equal(
+    githubGeneratedReport.rejected_candidates.some((candidate) => (
+      candidate.source_kind === 'github_linked_file'
+      && candidate.classification === 'invalid_generated'
+    )),
+    true
+  );
+
+  writeMinimalCanonicalPackage(tempRoot, 'github-zip-part');
+  const githubZipReport = await discoverInspectionEvidenceIntake({
+    projectRoot: tempRoot,
+    packageSlugs: ['github-zip-part'],
+    includeGitHub: true,
+    githubRunner: makeGithubRunner({
+      issueBody: 'Unsafe uploaded archive: https://example.com/public/inspection/unsafe.zip',
+    }),
+    githubFetch: async () => makeFetchResponse(makeStoredZipEntry('../evil.csv', 'not,evidence\n'), {
+      contentType: 'application/zip',
+    }),
+    generatedAt: '2026-05-23T00:00:00.000Z',
+  });
+
+  assert.equal(githubZipReport.summary.genuine_inspection_evidence_found, false);
+  assert.equal(
+    githubZipReport.github_discovery.skipped_sources.some((source) => source.reason_code === 'unsafe_zip_path'),
+    true,
+    'ZIP entries with traversal paths must be rejected before candidate parsing'
+  );
+
+  const githubUnavailableReport = await discoverInspectionEvidenceIntake({
+    projectRoot: tempRoot,
+    packageSlugs: ['github-table-part'],
+    includeGitHub: true,
+    githubRunner: makeGithubRunner({ fail: true }),
+    generatedAt: '2026-05-23T00:00:00.000Z',
+  });
+
+  assert.equal(githubUnavailableReport.summary.genuine_inspection_evidence_found, false);
+  assert.equal(githubUnavailableReport.github_discovery.enabled, true);
+  assert.equal(
+    githubUnavailableReport.github_discovery.skipped_sources.some((source) => source.reason_code === 'github_cli_unavailable'),
+    true
+  );
+  assert.equal(githubUnavailableReport.packages[0].intake_action.status, 'hold_for_evidence_completion');
+
+  writeMinimalCanonicalPackage(tempRoot, 'github-hold-part');
+  const githubHoldReport = await discoverInspectionEvidenceIntake({
+    projectRoot: tempRoot,
+    packageSlugs: ['github-hold-part'],
+    includeGitHub: true,
+    githubRunner: makeGithubRunner({
+      issueBody: 'Incomplete caliper table: https://example.com/public/caliper/github-hold-part.csv',
+    }),
+    githubFetch: async () => makeFetchResponse([
+      'schema_version,evidence_type,source_type,package_id,inspected_at,units,overall_result,feature_id,result,measurement_method',
+      '1.0,inspection_evidence,manual_caliper_check,github-hold-part,2026-05-22T12:00:00Z,mm,pass,slot_width,pass,manual_caliper_check',
+    ].join('\n'), { contentType: 'text/csv' }),
+    generatedAt: '2026-05-23T00:00:00.000Z',
+  });
+
+  assert.equal(githubHoldReport.github_discovery.downloaded_candidates.length, 1);
+  assert.equal(githubHoldReport.github_discovery.rejection_classes.invalid_schema, 1);
+  assert.equal(githubHoldReport.summary.genuine_inspection_evidence_found, false);
+  assert.equal(githubHoldReport.packages[0].classification, 'invalid_schema');
+  assert.equal(githubHoldReport.packages[0].intake_action.status, 'hold_for_evidence_completion');
+  assert.equal(githubHoldReport.packages[0].readiness_after.status, 'needs_more_evidence');
 
   const cliOutPath = join(tempRoot, 'quality-pass-bracket-intake-report.json');
   const cli = spawnSync(process.execPath, [
