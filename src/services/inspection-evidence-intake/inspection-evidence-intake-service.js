@@ -1,6 +1,6 @@
 import { execFile as execFileCallback } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, dirname, extname, join, posix, resolve } from 'node:path';
 import { inflateRawSync } from 'node:zlib';
@@ -88,8 +88,35 @@ function uniqueStrings(values = []) {
   return [...new Set(values.filter((value) => typeof value === 'string' && value.trim()).map((value) => value.trim()))];
 }
 
+function uniqueObjects(values = [], keyFn = JSON.stringify) {
+  const seen = new Set();
+  const unique = [];
+  for (const value of values) {
+    const key = keyFn(value);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(value);
+  }
+  return unique;
+}
+
 function normalizeRepoPath(pathValue) {
   return String(pathValue || '').replaceAll('\\', '/').replace(/^\.\//, '');
+}
+
+function normalizeMatchToken(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+function splitFeatureRefs(value) {
+  return uniqueStrings(String(value || '')
+    .split(/[,;|]/)
+    .flatMap((part) => part.split(/\s+and\s+/i))
+    .map((part) => part.trim()));
 }
 
 function nowIso(explicitValue = null) {
@@ -524,6 +551,29 @@ function documentText(document = {}) {
   ].filter((value) => typeof value === 'string').join('\n');
 }
 
+function documentAttachmentSignals(document = {}) {
+  const measuredFeatures = safeList(document.measured_features)
+    .filter((feature) => feature && typeof feature === 'object' && !Array.isArray(feature))
+    .map((feature) => ({
+      feature_id: typeof feature.feature_id === 'string' ? feature.feature_id : null,
+      requirement_ref: typeof feature.requirement_ref === 'string' ? feature.requirement_ref : null,
+      drawing_ref: typeof feature.drawing_ref === 'string' ? feature.drawing_ref : null,
+      nominal_value: typeof feature.nominal_value === 'number' ? feature.nominal_value : null,
+      units: typeof feature.units === 'string' ? feature.units : null,
+      measurement_method: typeof feature.measurement_method === 'string' ? feature.measurement_method : null,
+    }));
+  return {
+    package_id: typeof document.package_id === 'string' ? document.package_id : null,
+    inspected_part: typeof document.inspected_part === 'string' ? document.inspected_part : null,
+    source_ref: safeReportSourceRef(document.source_ref || document.source_file),
+    traceability_refs: uniqueStrings(safeList(document.traceability_refs)),
+    measured_features: measuredFeatures,
+    measured_feature_ids: uniqueStrings(measuredFeatures.map((feature) => feature.feature_id)),
+    requirement_refs: uniqueStrings(measuredFeatures.map((feature) => feature.requirement_ref)),
+    drawing_refs: uniqueStrings(measuredFeatures.map((feature) => feature.drawing_ref)),
+  };
+}
+
 async function hasGenuineLocalProvenance({
   projectRoot,
   relativePath,
@@ -571,10 +621,6 @@ function hasGenuineGithubProvenance({
 }) {
   const reasons = [];
   const slug = packageSlugFromDocument(document, packageSlugs) || packageSlugFromPath(relativePath, packageSlugs);
-  if (!slug) {
-    reasons.push('GitHub candidate does not identify one of the requested package_id/inspected_part values');
-  }
-
   if (NON_GENUINE_TEXT_PATTERN.test(documentText(document))) {
     reasons.push('document provenance text marks it as synthetic, generated, fixture, template, or guide material');
   }
@@ -625,6 +671,7 @@ async function classifyCandidate({
     source_type: null,
     measured_feature_count: null,
     normalized_source_ref: null,
+    document_signals: null,
   };
 
   if (isGeneratedArtifactPath(normalized)) {
@@ -670,6 +717,7 @@ async function classifyCandidate({
       measured_feature_count: Array.isArray(document.measured_features) ? document.measured_features.length : null,
       validation_errors: validation.errors,
       normalized_source_ref: safeReportSourceRef(document.source_ref || document.source_file),
+      document_signals: documentAttachmentSignals(document),
     };
 
     if (!validation.ok) {
@@ -736,6 +784,7 @@ async function classifyCandidate({
     measured_feature_count: Array.isArray(document.measured_features) ? document.measured_features.length : null,
     validation_errors: validation.errors,
     normalized_source_ref: safeReportSourceRef(document.source_ref || document.source_file),
+    document_signals: documentAttachmentSignals(document),
   };
 
   if (!validation.ok) {
@@ -798,6 +847,461 @@ async function readReadinessState(projectRoot, slug) {
     missing_inputs: missingInputs,
     inspection_evidence_missing: missingInputs.includes('inspection_evidence'),
     source_of_truth_path: readinessPath,
+  };
+}
+
+async function listPackageDrawingJsonPaths(projectRoot, slug) {
+  const drawingRoot = `docs/examples/${slug}/drawing`;
+  try {
+    const entries = await readdir(resolve(projectRoot, drawingRoot));
+    return entries
+      .filter((entry) => entry.endsWith('.json'))
+      .map((entry) => `${drawingRoot}/${entry}`);
+  } catch {
+    return [];
+  }
+}
+
+function basenameStem(pathValue) {
+  return basename(normalizeRepoPath(pathValue)).replace(/\.[^.]+$/, '');
+}
+
+function collectProfileTextTokens(values = []) {
+  return uniqueStrings(values)
+    .flatMap((value) => {
+      const raw = String(value || '').trim();
+      const stem = basenameStem(raw);
+      return [raw, stem, raw.replaceAll('-', '_'), stem.replaceAll('-', '_')];
+    })
+    .map(normalizeMatchToken)
+    .filter((token) => token && token.length >= 3);
+}
+
+function normalizedTextContains(values = [], token) {
+  const normalizedToken = normalizeMatchToken(token);
+  if (!normalizedToken) return false;
+  return values.some((value) => normalizeMatchToken(value).includes(normalizedToken));
+}
+
+function featureCatalogEntries(document = {}) {
+  return safeList(document.features)
+    .filter((feature) => feature && typeof feature === 'object' && !Array.isArray(feature))
+    .map((feature) => {
+      const id = feature.id || feature.feature_id || feature.name || feature.label || null;
+      return {
+        id: typeof id === 'string' ? id : null,
+        type: feature.type || feature.kind || feature.feature_type || null,
+        label: feature.label || feature.name || null,
+        dimensions: safeObject(feature.dimensions),
+      };
+    })
+    .filter((feature) => feature.id);
+}
+
+function requiredDimensionEntries(document = {}) {
+  return safeList(document.required_dimensions)
+    .filter((dimension) => dimension && typeof dimension === 'object' && !Array.isArray(dimension))
+    .map((dimension) => ({
+      id: typeof dimension.id === 'string' ? dimension.id : null,
+      feature_ids: splitFeatureRefs(dimension.feature),
+      label: typeof dimension.label === 'string' ? dimension.label : null,
+      dimension_type: typeof dimension.dimension_type === 'string' ? dimension.dimension_type : null,
+      value_mm: typeof dimension.value_mm === 'number' ? dimension.value_mm : null,
+      required: dimension.required !== false,
+    }))
+    .filter((dimension) => dimension.id || dimension.feature_ids.length > 0);
+}
+
+async function readPackageProfile(projectRoot, slug) {
+  const packageRoot = `docs/examples/${slug}`;
+  const reviewPackPath = `${packageRoot}/review/review_pack.json`;
+  const reviewPack = (await readJsonIfPossible(projectRoot, reviewPackPath)).document || {};
+  const sourceRefs = safeList(reviewPack.source_artifact_refs);
+  const drawingPaths = uniqueStrings([
+    ...sourceRefs
+      .filter((ref) => ['drawing_intent', 'feature_catalog'].includes(ref?.artifact_type))
+      .map((ref) => ref.path),
+    ...await listPackageDrawingJsonPaths(projectRoot, slug),
+  ]);
+  const drawingJsonDocuments = [];
+  for (const drawingPath of drawingPaths) {
+    const parsed = await readJsonIfPossible(projectRoot, drawingPath);
+    if (parsed.ok) {
+      drawingJsonDocuments.push({
+        path: drawingPath,
+        document: parsed.document,
+      });
+    }
+  }
+
+  const features = drawingJsonDocuments.flatMap((entry) => featureCatalogEntries(entry.document));
+  const requiredDimensions = drawingJsonDocuments.flatMap((entry) => requiredDimensionEntries(entry.document));
+  const featureTokens = new Map();
+  for (const feature of features) {
+    featureTokens.set(normalizeMatchToken(feature.id), feature);
+  }
+
+  const requiredTokens = new Map();
+  for (const dimension of requiredDimensions) {
+    if (dimension.id) requiredTokens.set(normalizeMatchToken(dimension.id), dimension);
+  }
+
+  const sourcePaths = uniqueStrings([
+    reviewPackPath,
+    ...sourceRefs.map((ref) => ref.path),
+    ...drawingPaths,
+  ]);
+  const modelAndDrawingSignals = collectProfileTextTokens([
+    slug,
+    reviewPack.part_id,
+    reviewPack.part?.id,
+    reviewPack.part?.name,
+    ...sourcePaths,
+    ...sourceRefs.map((ref) => ref.label),
+  ]);
+
+  return {
+    slug,
+    package_root: packageRoot,
+    review_pack_path: reviewPackPath,
+    source_paths: sourcePaths,
+    model_and_drawing_signals: modelAndDrawingSignals,
+    feature_tokens: featureTokens,
+    required_tokens: requiredTokens,
+    required_dimensions: requiredDimensions.filter((dimension) => dimension.required),
+  };
+}
+
+async function readPackageProfiles(projectRoot, slugs = []) {
+  const profiles = [];
+  for (const slug of slugs) {
+    profiles.push(await readPackageProfile(projectRoot, slug));
+  }
+  return profiles;
+}
+
+function candidateRawSignals(candidate = {}) {
+  const documentSignals = safeObject(candidate.document_signals);
+  const provenance = safeObject(candidate.source_provenance);
+  return uniqueStrings([
+    candidate.path,
+    candidate.normalized_source_ref,
+    documentSignals.source_ref,
+    documentSignals.package_id,
+    documentSignals.inspected_part,
+    provenance.source_url,
+    provenance.source_page_url,
+    provenance.source_label,
+    provenance.inner_path,
+    ...safeList(documentSignals.traceability_refs),
+    ...safeList(documentSignals.drawing_refs),
+  ]);
+}
+
+function candidateFeatureSignals(candidate = {}) {
+  return safeList(safeObject(candidate.document_signals).measured_features)
+    .map((feature) => ({
+      feature_id: feature.feature_id || null,
+      requirement_ref: feature.requirement_ref || null,
+      drawing_ref: feature.drawing_ref || null,
+      nominal_value: typeof feature.nominal_value === 'number' ? feature.nominal_value : null,
+      units: feature.units || null,
+    }));
+}
+
+function matchCandidateFeatures(candidate, profile) {
+  const matched = [];
+  const unmatched = [];
+  const coveredRequiredTokens = new Set();
+  const coveredFeatureTokens = new Set();
+
+  for (const feature of candidateFeatureSignals(candidate)) {
+    const signals = [];
+    const candidateFeatureToken = normalizeMatchToken(feature.feature_id);
+    const requirementToken = normalizeMatchToken(feature.requirement_ref);
+    const drawingToken = normalizeMatchToken(feature.drawing_ref);
+    const featureMatch = candidateFeatureToken ? profile.feature_tokens.get(candidateFeatureToken) : null;
+    const requirementMatch = requirementToken ? profile.required_tokens.get(requirementToken) : null;
+    let dimensionMatch = null;
+
+    if (featureMatch) {
+      signals.push('feature_id');
+      coveredFeatureTokens.add(candidateFeatureToken);
+    }
+    if (requirementMatch) {
+      signals.push('requirement_ref');
+      coveredRequiredTokens.add(requirementToken);
+      for (const featureId of requirementMatch.feature_ids) {
+        coveredFeatureTokens.add(normalizeMatchToken(featureId));
+      }
+    }
+    if (!requirementMatch && drawingToken && profile.required_tokens.has(drawingToken)) {
+      dimensionMatch = profile.required_tokens.get(drawingToken);
+      signals.push('drawing_ref');
+      coveredRequiredTokens.add(drawingToken);
+      for (const featureId of dimensionMatch.feature_ids) {
+        coveredFeatureTokens.add(normalizeMatchToken(featureId));
+      }
+    }
+    if (!featureMatch && !requirementMatch && !dimensionMatch && typeof feature.nominal_value === 'number') {
+      const valueMatches = profile.required_dimensions.filter((dimension) => (
+        typeof dimension.value_mm === 'number'
+        && Math.abs(dimension.value_mm - feature.nominal_value) < 0.000001
+      ));
+      if (valueMatches.length === 1) {
+        dimensionMatch = valueMatches[0];
+        signals.push('dimension_value');
+        if (dimensionMatch.id) coveredRequiredTokens.add(normalizeMatchToken(dimensionMatch.id));
+        for (const featureId of dimensionMatch.feature_ids) {
+          coveredFeatureTokens.add(normalizeMatchToken(featureId));
+        }
+      }
+    }
+
+    if (signals.length > 0) {
+      matched.push({
+        candidate_feature_id: feature.feature_id,
+        candidate_requirement_ref: feature.requirement_ref,
+        canonical_feature_id: featureMatch?.id || dimensionMatch?.feature_ids?.[0] || requirementMatch?.feature_ids?.[0] || null,
+        canonical_requirement_id: requirementMatch?.id || dimensionMatch?.id || null,
+        match_signals: signals,
+      });
+    } else {
+      unmatched.push({
+        candidate_feature_id: feature.feature_id,
+        candidate_requirement_ref: feature.requirement_ref,
+        reason_code: 'no_canonical_feature_or_requirement_match',
+      });
+    }
+  }
+
+  const missingRequired = profile.required_dimensions
+    .filter((dimension) => {
+      const requirementCovered = dimension.id && coveredRequiredTokens.has(normalizeMatchToken(dimension.id));
+      const featureCovered = dimension.feature_ids.some((featureId) => coveredFeatureTokens.has(normalizeMatchToken(featureId)));
+      return !(requirementCovered || featureCovered);
+    })
+    .map((dimension) => ({
+      canonical_requirement_id: dimension.id,
+      canonical_feature_ids: dimension.feature_ids,
+      label: dimension.label,
+      dimension_type: dimension.dimension_type,
+      value_mm: dimension.value_mm,
+    }));
+
+  return {
+    matched_features: uniqueObjects(matched, (entry) => [
+      entry.candidate_feature_id,
+      entry.candidate_requirement_ref,
+      entry.canonical_feature_id,
+      entry.canonical_requirement_id,
+      entry.match_signals.join(','),
+    ].join('|')),
+    unmatched_features: unmatched,
+    missing_required_features: missingRequired,
+  };
+}
+
+function evaluateCandidatePackageMatch(candidate, profile) {
+  const signals = safeObject(candidate.document_signals);
+  const rawSignals = candidateRawSignals(candidate);
+  const packageToken = normalizeMatchToken(profile.slug);
+  let score = 0;
+  const matchSignals = [];
+  let strongPackageSignal = false;
+
+  if (normalizeMatchToken(signals.package_id) === packageToken) {
+    score += 100;
+    strongPackageSignal = true;
+    matchSignals.push('explicit_package_id');
+  }
+  if (normalizeMatchToken(signals.inspected_part) === packageToken) {
+    score += 90;
+    strongPackageSignal = true;
+    matchSignals.push('explicit_inspected_part');
+  }
+  if (isPackageInspectionPath(candidate.path, profile.slug)) {
+    score += 95;
+    strongPackageSignal = true;
+    matchSignals.push('source_path_package_inspection_dir');
+  }
+  if (isPackageInspectionPath(signals.source_ref, profile.slug) || isPackageInspectionPath(candidate.normalized_source_ref, profile.slug)) {
+    score += 90;
+    strongPackageSignal = true;
+    matchSignals.push('source_ref_package_inspection_dir');
+  }
+  if (rawSignals.some((value) => normalizedTextContains([value], profile.slug))) {
+    score += 45;
+    matchSignals.push('source_text_contains_package_slug');
+  }
+  if (profile.model_and_drawing_signals.some((token) => normalizedTextContains(rawSignals, token))) {
+    score += 45;
+    strongPackageSignal = true;
+    matchSignals.push('model_or_drawing_name');
+  }
+
+  const featureSupport = matchCandidateFeatures(candidate, profile);
+  const featureIdMatches = featureSupport.matched_features
+    .filter((feature) => feature.match_signals.includes('feature_id')).length;
+  const requirementMatches = featureSupport.matched_features
+    .filter((feature) => feature.match_signals.includes('requirement_ref')).length;
+  const dimensionMatches = featureSupport.matched_features
+    .filter((feature) => feature.match_signals.includes('dimension_value')).length;
+  if (featureIdMatches > 0) {
+    score += Math.min(45, featureIdMatches * 20);
+    matchSignals.push('feature_id_overlap');
+  }
+  if (requirementMatches > 0) {
+    score += Math.min(45, requirementMatches * 25);
+    matchSignals.push('requirement_ref_overlap');
+  }
+  if (dimensionMatches > 0) {
+    score += Math.min(15, dimensionMatches * 5);
+    matchSignals.push('dimension_value_overlap');
+  }
+
+  return {
+    slug: profile.slug,
+    score,
+    match_signals: uniqueStrings(matchSignals),
+    strong_package_signal: strongPackageSignal,
+    ...featureSupport,
+  };
+}
+
+function noAttachmentPlan({
+  matchConfidence = 'none',
+  blockers = [],
+  candidateMatches = [],
+  note = null,
+} = {}) {
+  return {
+    matched_package: null,
+    match_confidence: matchConfidence,
+    candidate_package_matches: candidateMatches,
+    matched_features: [],
+    unmatched_features: [],
+    missing_required_features: [],
+    attachment_ready: false,
+    blockers: uniqueStrings(blockers),
+    canonical_next_command: null,
+    note,
+  };
+}
+
+function planCandidateAttachment(candidate, profiles = []) {
+  if (candidate.classification !== 'genuine_valid') {
+    return noAttachmentPlan({
+      blockers: ['candidate_not_genuine_valid'],
+      note: 'Candidate did not pass the hard inspection-evidence gate and cannot be attached.',
+    });
+  }
+
+  const evaluations = profiles
+    .map((profile) => evaluateCandidatePackageMatch(candidate, profile))
+    .filter((evaluation) => evaluation.score > 0)
+    .sort((left, right) => right.score - left.score || left.slug.localeCompare(right.slug));
+  const candidateMatches = evaluations.map((evaluation) => ({
+    slug: evaluation.slug,
+    score: evaluation.score,
+    match_signals: evaluation.match_signals,
+    matched_feature_count: evaluation.matched_features.length,
+  }));
+
+  if (evaluations.length === 0) {
+    return noAttachmentPlan({
+      blockers: ['no_package_match'],
+      note: 'Validated evidence did not match any canonical package using safe package, path, lineage, model, drawing, feature, or dimension signals.',
+    });
+  }
+
+  const best = evaluations[0];
+  const second = evaluations[1] || null;
+  const ambiguous = Boolean(
+    second
+    && second.score === best.score
+    && !best.strong_package_signal
+  );
+  if (ambiguous) {
+    return {
+      ...noAttachmentPlan({
+        matchConfidence: 'ambiguous',
+        blockers: ['ambiguous_package_match'],
+        candidateMatches,
+        note: 'Validated evidence matched multiple packages with equal non-explicit signals; canonical readiness remains held.',
+      }),
+      matched_features: best.matched_features,
+      unmatched_features: best.unmatched_features,
+      missing_required_features: best.missing_required_features,
+    };
+  }
+
+  const explicitProvenance = Boolean(
+    candidate.normalized_source_ref
+    || safeObject(candidate.document_signals).source_ref
+    || safeObject(candidate.source_provenance).source_url
+  );
+  const matchConfidence = best.strong_package_signal && best.score >= 80
+    ? 'high'
+    : best.score >= 40
+      ? 'medium'
+      : 'low';
+  const attachmentReady = matchConfidence === 'high' && explicitProvenance;
+  const blockers = [];
+  if (matchConfidence !== 'high') blockers.push('insufficient_package_match_confidence');
+  if (!explicitProvenance) blockers.push('missing_explicit_provenance');
+
+  return {
+    matched_package: best.slug,
+    match_confidence: matchConfidence,
+    candidate_package_matches: candidateMatches,
+    matched_features: best.matched_features,
+    unmatched_features: best.unmatched_features,
+    missing_required_features: best.missing_required_features,
+    attachment_ready: attachmentReady,
+    blockers,
+    canonical_next_command: attachmentReady ? canonicalCommandPlan(best.slug, candidate).review_context : null,
+    note: attachmentReady
+      ? 'High-confidence package match with explicit provenance; attach only through the canonical review-context chain.'
+      : 'Validated evidence requires review before canonical attachment.',
+  };
+}
+
+function packageHoldAttachmentPlan({
+  slug,
+  candidatePlans = [],
+  reason = 'no_genuine_valid_candidate',
+} = {}) {
+  const relevantPlan = candidatePlans.find((candidate) => candidate.matched_package === slug)
+    || candidatePlans.find((candidate) => safeList(candidate.candidate_package_matches).some((match) => match.slug === slug));
+  if (relevantPlan) {
+    return {
+      matched_package: relevantPlan.matched_package,
+      match_confidence: relevantPlan.match_confidence,
+      candidate_package_matches: safeList(relevantPlan.candidate_package_matches),
+      matched_features: safeList(relevantPlan.matched_features),
+      unmatched_features: safeList(relevantPlan.unmatched_features),
+      missing_required_features: safeList(relevantPlan.missing_required_features),
+      attachment_ready: false,
+      blockers: uniqueStrings([
+        ...safeList(relevantPlan.blockers),
+        relevantPlan.match_confidence === 'ambiguous' ? 'ambiguous_package_match' : 'attachment_not_ready',
+      ]),
+      canonical_next_command: null,
+      note: relevantPlan.note || 'Candidate is not ready for canonical attachment.',
+    };
+  }
+  return {
+    matched_package: null,
+    match_confidence: 'none',
+    candidate_package_matches: [],
+    matched_features: [],
+    unmatched_features: [],
+    missing_required_features: [],
+    attachment_ready: false,
+    blockers: [reason],
+    canonical_next_command: null,
+    note: 'No genuine completed inspection evidence was matched to this package; readiness must remain held.',
   };
 }
 
@@ -1575,8 +2079,26 @@ export async function discoverInspectionEvidenceIntake({
       };
 
   const githubCandidates = [...safeList(github.candidates), ...safeList(github.rejected)];
-  const allCandidates = [...localCandidates, ...githubCandidates];
+  const packageProfiles = await readPackageProfiles(resolvedRoot, normalizedSlugs);
+  const allCandidates = [...localCandidates, ...githubCandidates].map((candidate) => {
+    const attachmentPlan = planCandidateAttachment(candidate, packageProfiles);
+    return {
+      ...candidate,
+      package_slug: attachmentPlan.matched_package || candidate.package_slug,
+      matched_package: attachmentPlan.matched_package,
+      match_confidence: attachmentPlan.match_confidence,
+      candidate_package_matches: attachmentPlan.candidate_package_matches,
+      matched_features: attachmentPlan.matched_features,
+      unmatched_features: attachmentPlan.unmatched_features,
+      missing_required_features: attachmentPlan.missing_required_features,
+      attachment_ready: attachmentPlan.attachment_ready,
+      blockers: attachmentPlan.blockers,
+      canonical_next_command: attachmentPlan.canonical_next_command,
+      attachment_plan: attachmentPlan,
+    };
+  });
   const acceptedCandidates = allCandidates.filter((candidate) => candidate.classification === 'genuine_valid');
+  const attachmentReadyCandidates = acceptedCandidates.filter((candidate) => candidate.attachment_ready === true);
   const rejectedCandidates = allCandidates
     .filter((candidate) => candidate.classification !== 'genuine_valid')
     .map((candidate) => ({
@@ -1588,12 +2110,22 @@ export async function discoverInspectionEvidenceIntake({
 
   const packages = [];
   for (const slug of normalizedSlugs) {
-    const packageAccepted = acceptedCandidates.filter((candidate) => candidate.package_slug === slug);
+    const packageAccepted = attachmentReadyCandidates.filter((candidate) => candidate.matched_package === slug);
     const packageRejected = rejectedCandidates.filter((candidate) => candidate.package_slug === slug);
+    const packageCandidatePlans = acceptedCandidates.filter((candidate) => (
+      candidate.matched_package === slug
+      || safeList(candidate.candidate_package_matches).some((match) => match.slug === slug)
+    ));
     const readiness = await readReadinessState(resolvedRoot, slug);
     const classification = packageClassification({
       acceptedCandidates: packageAccepted,
       packageRejectedCandidates: packageRejected,
+    });
+    const readyPlan = packageAccepted[0]?.attachment_plan || null;
+    const attachmentPlan = readyPlan || packageHoldAttachmentPlan({
+      slug,
+      candidatePlans: packageCandidatePlans,
+      reason: packageCandidatePlans.length > 0 ? 'attachment_not_ready' : 'no_genuine_valid_candidate',
     });
     packages.push({
       slug,
@@ -1624,6 +2156,8 @@ export async function discoverInspectionEvidenceIntake({
       ],
       accepted_candidates: packageAccepted,
       rejected_candidates: packageRejected,
+      attachment_plan: attachmentPlan,
+      candidate_attachment_plans: packageCandidatePlans.map((candidate) => candidate.attachment_plan),
       intake_action: packageAccepted.length > 0
         ? {
             status: 'ready_for_canonical_attachment',
@@ -1635,6 +2169,14 @@ export async function discoverInspectionEvidenceIntake({
               ? packageAccepted[0].path
               : `docs/examples/${slug}/inspection/inspection_evidence.json`,
             canonical_commands: canonicalCommandPlan(slug, packageAccepted[0]),
+            canonical_next_command: readyPlan?.canonical_next_command || canonicalCommandPlan(slug, packageAccepted[0]).review_context,
+            matched_package: readyPlan?.matched_package || slug,
+            match_confidence: readyPlan?.match_confidence || 'high',
+            matched_features: readyPlan?.matched_features || [],
+            unmatched_features: readyPlan?.unmatched_features || [],
+            missing_required_features: readyPlan?.missing_required_features || [],
+            attachment_ready: true,
+            blockers: [],
             note: isExternalCandidate(packageAccepted[0])
               ? 'GitHub discovery found a contract-valid external candidate; review and serialize it under the canonical package inspection path before review-context attachment. Do not hand-enter measurements.'
               : packageAccepted[0].source_format === 'json'
@@ -1644,7 +2186,17 @@ export async function discoverInspectionEvidenceIntake({
         : {
             status: 'hold_for_evidence_completion',
             mode: 'no_human_measurement_entry_requested',
-            note: 'No genuine completed inspection evidence was found; readiness must remain held.',
+            matched_package: attachmentPlan.matched_package,
+            match_confidence: attachmentPlan.match_confidence,
+            matched_features: attachmentPlan.matched_features,
+            unmatched_features: attachmentPlan.unmatched_features,
+            missing_required_features: attachmentPlan.missing_required_features,
+            attachment_ready: false,
+            blockers: attachmentPlan.blockers,
+            canonical_next_command: null,
+            note: packageCandidatePlans.length > 0
+              ? 'A genuine candidate was found, but the attachment plan is not ready for this package; readiness must remain held.'
+              : 'No genuine completed inspection evidence was found; readiness must remain held.',
           },
     });
   }
@@ -1702,6 +2254,7 @@ export async function discoverInspectionEvidenceIntake({
       package_count: packages.length,
       candidate_count: allCandidates.length,
       accepted_candidate_count: acceptedCandidates.length,
+      attachment_ready_candidate_count: attachmentReadyCandidates.length,
       rejected_candidate_count: rejectedCandidates.length,
       genuine_inspection_evidence_found: acceptedCandidates.length > 0,
       packages_with_genuine_evidence: packages
