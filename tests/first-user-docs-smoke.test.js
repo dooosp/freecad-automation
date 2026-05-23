@@ -105,6 +105,7 @@ assertMentions(rootReadmeText, /release_bundle\.zip` appears as the `release_bun
 assertMentions(rootReadmeText, /--inspection-evidence <PATH_TO_COMPLETED_REAL_JSON>/, 'root README should show the completed-real-evidence CLI placeholder');
 assertMentions(rootReadmeText, /fcad inspection-evidence-intake --out <report\.json>/, 'root README should show autonomous inspection evidence intake');
 assertMentions(rootReadmeText, /Studio can run `inspection-evidence-intake` as a tracked local job/, 'root README should document Studio tracked Stage 5B intake');
+assertMentions(rootReadmeText, /explicit CSV\/TSV\/Markdown inspection tables/, 'root README should document table intake adapter coverage');
 assertMentions(rootReadmeText, /\/api\/studio\/jobs/, 'root README should document the Studio tracked job submission route');
 assertMentions(rootReadmeText, /inspection-evidence\.intake-report/, 'root README should document the tracked intake report artifact type');
 assertMentions(rootReadmeText, /intake reports are discovery\/review artifacts only/, 'root README should keep intake reports out of inspection evidence');
@@ -678,6 +679,8 @@ assertMentions(collectionGuideIndexText, /They are not\s+inspection evidence/, '
 assertMentions(collectionGuideIndexText, /review-context --inspection-evidence <PATH_TO_COMPLETED_REAL_JSON>/, 'collection guide index should preserve future attachment boundary');
 assertMentions(collectionGuideIndexText, /canonical packages remain\s+`needs_more_evidence`/, 'collection guide index should keep current readiness boundary');
 assertMentions(inspectionContractText, /fcad inspection-evidence-intake/, 'contract doc should document autonomous evidence intake reporting');
+assertMentions(inspectionContractText, /CSV, TSV, or Markdown tables/, 'contract doc should document machine-readable table adapter coverage');
+assertMentions(inspectionContractText, /does not infer or generate measurement values/, 'contract doc should keep table normalization inside the evidence boundary');
 assertMentions(inspectionContractText, /Tracked Studio\/API intake reports are discovery\/review artifacts only/, 'contract doc should keep tracked intake reports out of inspection evidence');
 assertMentions(inspectionContractText, /Report preview is limited to registered tracked job artifacts/, 'contract doc should document preview allowlisting');
 assertMentions(inspectionContractText, /is not package readiness evidence/, 'contract doc should state the fixture is not package readiness evidence');
