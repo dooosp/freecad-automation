@@ -136,6 +136,37 @@ function writeMinimalCanonicalPackage(projectRoot, slug, readiness = {}) {
   });
 }
 
+function writeFeatureProfile(projectRoot, slug, {
+  featureId = 'mount_hole_a_diameter',
+  requirementId = 'MOUNT_HOLE_A_DIA',
+  valueMm = 8,
+} = {}) {
+  writeJson(join(projectRoot, 'docs/examples', slug, 'drawing', `${slug.replaceAll('-', '_')}_feature_catalog.json`), {
+    artifact_type: 'feature_catalog',
+    features: [
+      {
+        id: featureId,
+        type: 'hole',
+        dimensions: {
+          diameter_mm: valueMm,
+        },
+      },
+    ],
+  });
+  writeJson(join(projectRoot, 'docs/examples', slug, 'drawing', `${slug.replaceAll('-', '_')}_drawing_intent.json`), {
+    required_dimensions: [
+      {
+        id: requirementId,
+        feature: featureId,
+        label: `${featureId} diameter`,
+        dimension_type: 'diameter',
+        value_mm: valueMm,
+        required: true,
+      },
+    ],
+  });
+}
+
 const tempRoot = mkdtempSync(join(tmpdir(), 'fcad-inspection-intake-'));
 
 try {
@@ -155,6 +186,12 @@ try {
   assert.equal(noValidReport.packages[0].readiness_after.status, 'needs_more_evidence');
   assert.equal(noValidReport.packages[0].readiness_after.gate_decision, 'hold_for_evidence_completion');
   assert.equal(noValidReport.packages[0].classification, 'no_candidate');
+  assert.equal(noValidReport.packages[0].attachment_plan.attachment_ready, false);
+  assert.equal(noValidReport.packages[0].attachment_plan.match_confidence, 'none');
+  assert.equal(
+    noValidReport.packages[0].attachment_plan.blockers.includes('no_genuine_valid_candidate'),
+    true
+  );
   assert.equal(
     noValidReport.rejected_candidates.some((candidate) => (
       candidate.classification === 'invalid_generated'
@@ -173,6 +210,7 @@ try {
   );
 
   writeMinimalCanonicalPackage(tempRoot, 'demo-intake-part');
+  writeFeatureProfile(tempRoot, 'demo-intake-part');
   writeJson(
     join(tempRoot, 'docs/examples/demo-intake-part/inspection/cmm-report-001.json'),
     { source: 'completed external CMM report placeholder for provenance path existence' }
@@ -204,11 +242,26 @@ try {
   assert.equal(validReport.summary.accepted_candidate_count, 1);
   assert.equal(validReport.packages[0].classification, 'genuine_valid');
   assert.equal(validReport.packages[0].accepted_candidates[0].classification, 'genuine_valid');
+  assert.equal(validReport.packages[0].accepted_candidates[0].matched_package, 'demo-intake-part');
+  assert.equal(validReport.packages[0].accepted_candidates[0].match_confidence, 'high');
+  assert.deepEqual(
+    validReport.packages[0].accepted_candidates[0].matched_features.map((feature) => feature.candidate_feature_id),
+    ['mount_hole_a_diameter']
+  );
+  assert.deepEqual(validReport.packages[0].accepted_candidates[0].missing_required_features, []);
+  assert.equal(validReport.packages[0].accepted_candidates[0].attachment_ready, true);
   assert.equal(
     validReport.packages[0].accepted_candidates[0].path,
     'docs/examples/demo-intake-part/inspection/inspection_evidence.json'
   );
   assert.equal(validReport.packages[0].intake_action.status, 'ready_for_canonical_attachment');
+  assert.equal(validReport.packages[0].attachment_plan.matched_package, 'demo-intake-part');
+  assert.equal(validReport.packages[0].attachment_plan.match_confidence, 'high');
+  assert.equal(validReport.packages[0].attachment_plan.attachment_ready, true);
+  assert.equal(
+    validReport.packages[0].attachment_plan.canonical_next_command.join(' '),
+    validReport.packages[0].intake_action.canonical_commands.review_context.join(' ')
+  );
   assert.match(
     validReport.packages[0].intake_action.canonical_commands.review_context.join(' '),
     /--inspection-evidence docs\/examples\/demo-intake-part\/inspection\/inspection_evidence\.json/
@@ -263,6 +316,8 @@ try {
     tableReport.packages[0].intake_action.normalized_contract_target,
     'docs/examples/table-intake-part/inspection/inspection_evidence.json'
   );
+  assert.equal(tableReport.packages[0].attachment_plan.matched_package, 'table-intake-part');
+  assert.equal(tableReport.packages[0].attachment_plan.attachment_ready, true);
   assert.match(
     tableReport.packages[0].intake_action.canonical_commands.review_context.join(' '),
     /--inspection-evidence docs\/examples\/table-intake-part\/inspection\/inspection_evidence\.json/
@@ -362,8 +417,57 @@ try {
   assert.equal(githubTableReport.packages[0].classification, 'genuine_valid');
   assert.equal(githubTableReport.packages[0].accepted_candidates[0].source_kind, 'github_linked_file');
   assert.equal(githubTableReport.packages[0].accepted_candidates[0].source_format, 'csv');
+  assert.equal(githubTableReport.packages[0].accepted_candidates[0].matched_package, 'github-table-part');
+  assert.equal(githubTableReport.packages[0].accepted_candidates[0].match_confidence, 'high');
+  assert.equal(githubTableReport.packages[0].accepted_candidates[0].attachment_ready, true);
   assert.equal(githubTableReport.packages[0].intake_action.status, 'ready_for_canonical_attachment');
   assert.equal(githubTableReport.packages[0].intake_action.normalization_required, true);
+
+  writeMinimalCanonicalPackage(tempRoot, 'ambiguous-alpha-part');
+  writeMinimalCanonicalPackage(tempRoot, 'ambiguous-beta-part');
+  writeFeatureProfile(tempRoot, 'ambiguous-alpha-part', {
+    featureId: 'shared_mount_hole',
+    requirementId: 'SHARED_MOUNT_HOLE_DIA',
+    valueMm: 8,
+  });
+  writeFeatureProfile(tempRoot, 'ambiguous-beta-part', {
+    featureId: 'shared_mount_hole',
+    requirementId: 'SHARED_MOUNT_HOLE_DIA',
+    valueMm: 8,
+  });
+  const ambiguousReport = await discoverInspectionEvidenceIntake({
+    projectRoot: tempRoot,
+    packageSlugs: ['ambiguous-alpha-part', 'ambiguous-beta-part'],
+    includeGitHub: true,
+    githubRepo: 'dooosp/freecad-automation',
+    githubRunner: makeGithubRunner({
+      issueBody: 'Completed supplier CMM record: https://example.com/public/cmm/shared-mount-hole.csv',
+    }),
+    githubFetch: async () => makeFetchResponse([
+      'schema_version,evidence_type,source_type,inspected_part,inspected_at,units,source_ref,overall_result,feature_id,requirement_ref,nominal_value,measured_value,result,measurement_method',
+      '1.0,inspection_evidence,cmm_report,supplier shared mounting plate,2026-05-22T12:00:00Z,mm,supplier/cmm/shared-mount-hole.csv,pass,shared_mount_hole,SHARED_MOUNT_HOLE_DIA,8,8.01,pass,cmm_report',
+    ].join('\n'), { contentType: 'text/csv' }),
+    generatedAt: '2026-05-23T00:00:00.000Z',
+  });
+
+  assert.equal(ambiguousReport.summary.genuine_inspection_evidence_found, true);
+  assert.equal(ambiguousReport.summary.attachment_ready_candidate_count, 0);
+  assert.equal(ambiguousReport.accepted_candidates.length, 1);
+  assert.equal(ambiguousReport.accepted_candidates[0].matched_package, null);
+  assert.equal(ambiguousReport.accepted_candidates[0].match_confidence, 'ambiguous');
+  assert.equal(ambiguousReport.accepted_candidates[0].attachment_ready, false);
+  assert.equal(
+    ambiguousReport.accepted_candidates[0].blockers.includes('ambiguous_package_match'),
+    true
+  );
+  assert.deepEqual(
+    ambiguousReport.packages.map((pkg) => pkg.readiness_after.gate_decision),
+    ['hold_for_evidence_completion', 'hold_for_evidence_completion']
+  );
+  assert.deepEqual(
+    ambiguousReport.packages.map((pkg) => pkg.attachment_plan.attachment_ready),
+    [false, false]
+  );
 
   writeMinimalCanonicalPackage(tempRoot, 'github-generated-part');
   const githubGeneratedReport = await discoverInspectionEvidenceIntake({
@@ -384,6 +488,12 @@ try {
   assert.equal(githubGeneratedReport.summary.genuine_inspection_evidence_found, false);
   assert.equal(githubGeneratedReport.github_discovery.downloaded_candidates.length, 1);
   assert.equal(githubGeneratedReport.github_discovery.rejection_classes.invalid_generated, 1);
+  assert.equal(githubGeneratedReport.rejected_candidates[0].matched_package, null);
+  assert.equal(githubGeneratedReport.rejected_candidates[0].attachment_ready, false);
+  assert.equal(
+    githubGeneratedReport.rejected_candidates[0].blockers.includes('candidate_not_genuine_valid'),
+    true
+  );
   assert.equal(
     githubGeneratedReport.rejected_candidates.some((candidate) => (
       candidate.source_kind === 'github_linked_file'
@@ -450,6 +560,11 @@ try {
   assert.equal(githubHoldReport.packages[0].classification, 'invalid_schema');
   assert.equal(githubHoldReport.packages[0].intake_action.status, 'hold_for_evidence_completion');
   assert.equal(githubHoldReport.packages[0].readiness_after.status, 'needs_more_evidence');
+  assert.equal(githubHoldReport.packages[0].attachment_plan.attachment_ready, false);
+  assert.equal(
+    githubHoldReport.packages[0].attachment_plan.blockers.includes('no_genuine_valid_candidate'),
+    true
+  );
 
   const cliOutPath = join(tempRoot, 'quality-pass-bracket-intake-report.json');
   const cli = spawnSync(process.execPath, [
