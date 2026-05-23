@@ -33,6 +33,7 @@ import {
   writeCanonicalReadinessArtifacts,
 } from '../../workflows/canonical-readiness-builders.js';
 import { discoverInspectionEvidenceIntake } from '../inspection-evidence-intake/inspection-evidence-intake-service.js';
+import { buildInspectionEvidencePromotionDryRunManifest } from '../inspection-evidence-intake/promotion-dry-run-service.js';
 import {
   resolveBundleBackedCanonicalPath,
   resolveBundleBackedConfigPath,
@@ -570,6 +571,58 @@ function normalizeIntakePackageSlugs(options = {}) {
   return undefined;
 }
 
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isSafeRepoRelativeJsonPath(value) {
+  if (typeof value !== 'string' || !value.trim()) return false;
+  const raw = value.trim();
+  const normalized = normalizeLocalPath(raw);
+  if (typeof normalized !== 'string' || !normalized.trim()) return false;
+  const path = normalized.trim().replaceAll('\\', '/').replace(/^\.\//, '');
+  if (raw.includes('\\')) return false;
+  if (path.includes('\0')) return false;
+  if (path.startsWith('/') || path.startsWith('~') || isWindowsAbsolutePath(path)) return false;
+  if (path.includes('<') || path.includes('>')) return false;
+  if (path.split('/').includes('..')) return false;
+  return /\.json$/i.test(path);
+}
+
+function validatePromotionDryRunRequest(request, errors) {
+  if (request.type !== 'inspection-evidence-promotion-dry-run') return;
+
+  const hasPath = typeof request.intake_report_path === 'string' && request.intake_report_path.trim().length > 0;
+  const hasArtifactRef = isPlainObject(request.intake_report_artifact_ref);
+
+  if (hasPath && !isSafeRepoRelativeJsonPath(request.intake_report_path)) {
+    errors.push('inspection-evidence-promotion-dry-run intake_report_path must be a safe repo-relative JSON path.');
+  }
+
+  if (!hasPath && !hasArtifactRef) {
+    errors.push('inspection-evidence-promotion-dry-run requires intake_report_path or intake_report_artifact_ref.');
+  }
+
+  if (hasPath && hasArtifactRef) {
+    errors.push('inspection-evidence-promotion-dry-run accepts only one intake report source.');
+  }
+}
+
+function isInspectionEvidenceIntakeArtifactRecord(artifact = {}) {
+  const search = [
+    artifact.type,
+    artifact.key,
+    artifact.file_name,
+    artifact.id,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return search.includes('inspection-evidence.intake-report')
+    || search.includes('inspection-evidence-intake-report')
+    || search.includes('intake-report');
+}
+
 export function validateJobRequest(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     return { ok: false, errors: ['Request body must be a JSON object.'] };
@@ -584,6 +637,7 @@ export function validateJobRequest(body) {
     if (Object.hasOwn(request, 'config') && request.config !== undefined) {
       validateOptionsObject(request.config, 'config', errors);
     }
+    validatePromotionDryRunRequest(request, errors);
   }
 
   return {
@@ -1105,6 +1159,77 @@ export function createJobExecutor({
     };
   }
 
+  async function loadPromotionDryRunIntakeReport(job) {
+    if (job.request.intake_report_artifact_ref) {
+      const ref = {
+        job_id: String(job.request.intake_report_artifact_ref.job_id || '').trim(),
+        artifact_id: String(job.request.intake_report_artifact_ref.artifact_id || '').trim(),
+      };
+      const artifact = await jobStore.getArtifact(ref.job_id, ref.artifact_id);
+      if (!artifact) {
+        throw new Error(`No artifact ${ref.artifact_id} found for job ${ref.job_id}.`);
+      }
+      if (!artifact.exists) {
+        throw new Error(`Artifact ${artifact.file_name} is registered for job ${ref.job_id}, but the file is missing.`);
+      }
+      if (!isInspectionEvidenceIntakeArtifactRecord(artifact)) {
+        throw new Error('inspection-evidence-promotion-dry-run requires a registered inspection-evidence intake report artifact.');
+      }
+      const report = await readJsonFile(artifact.path);
+      if (report?.artifact_type !== 'inspection_evidence_intake_report') {
+        throw new Error('inspection-evidence-promotion-dry-run input artifact is not an inspection_evidence_intake_report.');
+      }
+      return {
+        report,
+        artifactRef: ref,
+        intakeReportPathForManifest: null,
+      };
+    }
+
+    const relativePath = String(job.request.intake_report_path || '').trim();
+    if (!isSafeRepoRelativeJsonPath(relativePath)) {
+      throw new Error('inspection-evidence-promotion-dry-run intake_report_path must be a safe repo-relative JSON path.');
+    }
+    const reportPath = resolve(projectRoot, relativePath);
+    const report = await readJsonFile(reportPath);
+    if (report?.artifact_type !== 'inspection_evidence_intake_report') {
+      throw new Error('inspection-evidence-promotion-dry-run input path is not an inspection_evidence_intake_report.');
+    }
+    return {
+      report,
+      artifactRef: null,
+      intakeReportPathForManifest: relativePath,
+    };
+  }
+
+  async function executeInspectionEvidencePromotionDryRun(job) {
+    const source = await loadPromotionDryRunIntakeReport(job);
+    const manifest = buildInspectionEvidencePromotionDryRunManifest({
+      projectRoot,
+      intakeReport: source.report,
+      intakeReportPath: source.intakeReportPathForManifest,
+    });
+
+    if (source.artifactRef) {
+      manifest.source_intake_report = {
+        ...manifest.source_intake_report,
+        path: null,
+        artifact_ref: source.artifactRef,
+      };
+    }
+
+    const manifestPath = await jobStore.writeJobFile(
+      job.id,
+      'artifacts/promotion_dry_run_manifest.json',
+      `${JSON.stringify(manifest, null, 2)}\n`
+    );
+
+    return {
+      manifest,
+      manifestPath,
+    };
+  }
+
   function buildGenericAfMetadata(jobType, document, executionNotes = []) {
     return buildAfArtifactContractMetadata({
       jobType,
@@ -1403,6 +1528,32 @@ export function createJobExecutor({
               execution_notes: [
                 'inspection-evidence-intake reports are discovery/review artifacts only; they are not package inspection evidence.',
                 'Report preview is limited to registered tracked job artifact routes.',
+              ],
+            },
+          });
+        } else if (job.type === 'inspection-evidence-promotion-dry-run') {
+          const dryRunResult = await executeInspectionEvidencePromotionDryRun(job);
+          result = dryRunResult.manifest;
+          artifacts = {
+            inspection_evidence_promotion_dry_run_manifest: dryRunResult.manifestPath,
+          };
+          manifestArtifacts.push({
+            type: 'inspection-evidence.promotion-dry-run-manifest',
+            path: dryRunResult.manifestPath,
+            label: 'Stage 5B inspection evidence promotion dry-run manifest',
+            scope: 'user-facing',
+            stability: 'stable',
+            metadata: {
+              artifact_type: 'inspection_evidence_promotion_dry_run_manifest',
+              schema_version: dryRunResult.manifest.schema_version || '1.0',
+              promotion_can_run: dryRunResult.manifest.summary?.promotion_can_run === true,
+              ready_package_count: dryRunResult.manifest.summary?.ready_package_count ?? null,
+              blocked_package_count: dryRunResult.manifest.summary?.blocked_package_count ?? null,
+              canonical_artifacts_mutated: false,
+              readiness_expectation: dryRunResult.manifest.summary?.readiness_expectation || null,
+              execution_notes: [
+                'promotion dry-run manifests are planning/control artifacts only; they are not inspection evidence.',
+                'Dry-run execution writes only the tracked job manifest artifact and does not mutate canonical packages.',
               ],
             },
           });

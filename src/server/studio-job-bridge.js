@@ -4,6 +4,7 @@ import { validateConfigDocument } from '../../lib/config-schema.js';
 import {
   findPreferredConfigArtifact,
   findPreferredDocsManifestArtifact,
+  isInspectionEvidenceIntakeArtifact,
   findPreferredReadinessReportArtifact,
   findPreferredReviewPackArtifact,
   isConfigLikeArtifact,
@@ -72,6 +73,17 @@ function trimArtifactRef(value = {}) {
 
 function trimOptionalString(value) {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : '';
+}
+
+function isSafeRepoRelativeJsonPath(value) {
+  if (typeof value !== 'string' || !value.trim()) return false;
+  const raw = value.trim();
+  const normalized = raw.replaceAll('\\', '/').replace(/^\.\//, '');
+  if (raw.includes('\\')) return false;
+  if (normalized.startsWith('/') || /^[A-Za-z]:[\\/]/.test(raw) || normalized.startsWith('~')) return false;
+  if (normalized.includes('\0') || normalized.includes('<') || normalized.includes('>')) return false;
+  if (normalized.split('/').includes('..')) return false;
+  return /\.json$/i.test(normalized);
 }
 
 function buildResolvedArtifactOptions(request, resolvedArtifact) {
@@ -153,6 +165,7 @@ export function validateStudioJobSubmission(body) {
     'feature_catalog_path',
     'dfm_report_path',
     'compare_to_path',
+    'intake_report_path',
     'drawing_settings',
     'drawing_preview_id',
     'drawing_plan',
@@ -177,6 +190,7 @@ export function validateStudioJobSubmission(body) {
   const hasContextPath = trimOptionalString(request.context_path).length > 0;
   const hasModelPath = trimOptionalString(request.model_path).length > 0;
   const hasCompareToPath = trimOptionalString(request.compare_to_path).length > 0;
+  const hasIntakeReportPath = trimOptionalString(request.intake_report_path).length > 0;
 
   validateArtifactRef(request.artifact_ref, 'artifact_ref', errors);
   validateArtifactRef(request.baseline_artifact_ref, 'baseline_artifact_ref', errors);
@@ -201,6 +215,7 @@ export function validateStudioJobSubmission(body) {
     'feature_catalog_path',
     'dfm_report_path',
     'compare_to_path',
+    'intake_report_path',
   ].forEach((fieldName) => {
     if (request[fieldName] !== undefined && trimOptionalString(request[fieldName]).length === 0) {
       errors.push(`${fieldName} must be a non-empty string when provided.`);
@@ -232,6 +247,7 @@ export function validateStudioJobSubmission(body) {
       'feature_catalog_path',
       'dfm_report_path',
       'compare_to_path',
+      'intake_report_path',
       'drawing_settings',
       'drawing_preview_id',
       'drawing_plan',
@@ -239,6 +255,40 @@ export function validateStudioJobSubmission(body) {
     ].filter((fieldName) => request[fieldName] !== undefined);
     if (unsupportedIntakeFields.length > 0) {
       errors.push(`inspection-evidence-intake does not accept ${unsupportedIntakeFields.join(', ')}.`);
+    }
+  } else if (request.type === 'inspection-evidence-promotion-dry-run') {
+    const unsupportedDryRunFields = [
+      'config_toml',
+      'baseline_artifact_ref',
+      'candidate_artifact_ref',
+      'context_path',
+      'model_path',
+      'bom_path',
+      'inspection_path',
+      'quality_path',
+      'create_quality_path',
+      'drawing_quality_path',
+      'drawing_qa_path',
+      'drawing_intent_path',
+      'feature_catalog_path',
+      'dfm_report_path',
+      'compare_to_path',
+      'drawing_settings',
+      'drawing_preview_id',
+      'drawing_plan',
+      'report_options',
+    ].filter((fieldName) => request[fieldName] !== undefined);
+    if (unsupportedDryRunFields.length > 0) {
+      errors.push(`inspection-evidence-promotion-dry-run does not accept ${unsupportedDryRunFields.join(', ')}.`);
+    }
+    if (!hasArtifactRef && !hasIntakeReportPath) {
+      errors.push('inspection-evidence-promotion-dry-run requires artifact_ref or intake_report_path.');
+    }
+    if (hasArtifactRef && hasIntakeReportPath) {
+      errors.push('inspection-evidence-promotion-dry-run accepts only one intake report source.');
+    }
+    if (hasIntakeReportPath && !isSafeRepoRelativeJsonPath(request.intake_report_path)) {
+      errors.push('inspection-evidence-promotion-dry-run intake_report_path must be a safe repo-relative JSON path.');
     }
   } else if (request.type === 'inspect') {
     if (!hasArtifactRef) {
@@ -341,6 +391,55 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
       errors: [],
       request: {
         type: 'inspection-evidence-intake',
+        ...(isPlainObject(request.options) ? { options: structuredClone(request.options) } : {}),
+      },
+    };
+  }
+
+  if (request.type === 'inspection-evidence-promotion-dry-run') {
+    if (request.artifact_ref) {
+      if (typeof resolveArtifactRef !== 'function') {
+        return {
+          ok: false,
+          errors: ['artifact_ref requires a resolver on this studio serve path.'],
+        };
+      }
+
+      const ref = trimArtifactRef(request.artifact_ref);
+      let resolvedArtifact;
+      try {
+        resolvedArtifact = await resolveArtifactRef(ref);
+      } catch (error) {
+        return {
+          ok: false,
+          errors: [error instanceof Error ? error.message : String(error)],
+        };
+      }
+
+      if (!isInspectionEvidenceIntakeArtifact(resolvedArtifact.artifact)) {
+        return {
+          ok: false,
+          errors: ['inspection-evidence-promotion-dry-run requires a registered inspection-evidence intake report artifact.'],
+        };
+      }
+
+      return {
+        ok: true,
+        errors: [],
+        request: {
+          type: 'inspection-evidence-promotion-dry-run',
+          intake_report_artifact_ref: ref,
+          options: buildResolvedArtifactOptions(request, resolvedArtifact),
+        },
+      };
+    }
+
+    return {
+      ok: true,
+      errors: [],
+      request: {
+        type: 'inspection-evidence-promotion-dry-run',
+        intake_report_path: trimOptionalString(request.intake_report_path),
         ...(isPlainObject(request.options) ? { options: structuredClone(request.options) } : {}),
       },
     };

@@ -81,6 +81,35 @@ try {
   assert.equal(invalidInspectionEvidenceIntakePath.ok, false);
   assert.match(invalidInspectionEvidenceIntakePath.errors.join('\n'), /unsupported property "out"/);
 
+  const promotionDryRunFromSafePath = validateJobRequest({
+    type: 'inspection-evidence-promotion-dry-run',
+    intake_report_path: 'output/inspection-evidence-intake-report.json',
+  });
+  assert.equal(promotionDryRunFromSafePath.ok, true, promotionDryRunFromSafePath.errors?.join('\n'));
+
+  const promotionDryRunFromArtifact = validateJobRequest({
+    type: 'inspection-evidence-promotion-dry-run',
+    intake_report_artifact_ref: {
+      job_id: 'job-intake',
+      artifact_id: 'inspection-evidence-intake-report-0',
+    },
+  });
+  assert.equal(promotionDryRunFromArtifact.ok, true, promotionDryRunFromArtifact.errors?.join('\n'));
+
+  const invalidPromotionDryRunAbsolutePath = validateJobRequest({
+    type: 'inspection-evidence-promotion-dry-run',
+    intake_report_path: '/tmp/private/intake-report.json',
+  });
+  assert.equal(invalidPromotionDryRunAbsolutePath.ok, false);
+  assert.match(invalidPromotionDryRunAbsolutePath.errors.join('\n'), /safe repo-relative/i);
+
+  const invalidPromotionDryRunTraversalPath = validateJobRequest({
+    type: 'inspection-evidence-promotion-dry-run',
+    intake_report_path: '../private/intake-report.json',
+  });
+  assert.equal(invalidPromotionDryRunTraversalPath.ok, false);
+  assert.match(invalidPromotionDryRunTraversalPath.errors.join('\n'), /safe repo-relative/i);
+
   const invalidReviewTracked = validateJobRequest({
     type: 'pack',
   });

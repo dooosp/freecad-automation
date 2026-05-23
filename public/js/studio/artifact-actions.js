@@ -1,5 +1,16 @@
 const CONFIG_EXTENSIONS = new Set(['.json', '.toml']);
 const INSPECT_MODEL_EXTENSIONS = new Set(['.step', '.stp', '.stl', '.fcstd', '.brep', '.brp']);
+const INSPECTION_INTAKE_MATCHERS = [
+  'inspection-evidence.intake-report',
+  'inspection-evidence-intake-report',
+  'inspection evidence intake report',
+];
+const INSPECTION_PROMOTION_DRY_RUN_MATCHERS = [
+  'inspection-evidence.promotion-dry-run-manifest',
+  'inspection-evidence-promotion-dry-run-manifest',
+  'promotion_dry_run_manifest',
+  'promotion dry-run manifest',
+];
 const REVIEW_SOURCE_MATCHERS = [
   'readiness',
   'review.product',
@@ -14,6 +25,8 @@ const REVIEW_SOURCE_MATCHERS = [
   'process_plan',
   'line_plan',
   'drawing.qa-report',
+  ...INSPECTION_INTAKE_MATCHERS,
+  ...INSPECTION_PROMOTION_DRY_RUN_MATCHERS,
 ];
 const DOCS_MANIFEST_MATCHERS = [
   'standard_docs_manifest',
@@ -208,6 +221,18 @@ export function isStabilizationReviewArtifact(artifact = {}) {
   return includesAny(artifactSearchText(artifact), STABILIZATION_REVIEW_MATCHERS);
 }
 
+export function isInspectionEvidenceIntakeArtifact(artifact = {}) {
+  if (artifact.exists === false) return false;
+  const extension = normalizeString(artifact.extension);
+  return extension === '.json' && includesAny(artifactSearchText(artifact), INSPECTION_INTAKE_MATCHERS);
+}
+
+export function isInspectionEvidencePromotionDryRunArtifact(artifact = {}) {
+  if (artifact.exists === false) return false;
+  const extension = normalizeString(artifact.extension);
+  return extension === '.json' && includesAny(artifactSearchText(artifact), INSPECTION_PROMOTION_DRY_RUN_MATCHERS);
+}
+
 export function canReenterModelWorkspace(artifact = {}) {
   return artifact.exists !== false && isConfigLikeArtifact(artifact);
 }
@@ -226,6 +251,7 @@ export function canStartTrackedArtifactRun(artifact = {}, type = 'report') {
   if (type === 'pack') {
     return isReadinessReportArtifact(artifact) || isReleaseBundleArtifact(artifact);
   }
+  if (type === 'inspection-evidence-promotion-dry-run') return isInspectionEvidenceIntakeArtifact(artifact);
   if (type === 'report') return canReenterModelWorkspace(artifact);
   if (type === 'inspect') return isInspectableModelArtifact(artifact);
   return false;
@@ -240,6 +266,7 @@ export function deriveArtifactReentryCapabilities(artifact = {}) {
     canRunTrackedReadinessPack: canStartTrackedArtifactRun(artifact, 'readiness-pack'),
     canRunTrackedStandardDocs: canStartTrackedArtifactRun(artifact, 'generate-standard-docs'),
     canRunTrackedPack: canStartTrackedArtifactRun(artifact, 'pack'),
+    canRunTrackedPromotionDryRun: canStartTrackedArtifactRun(artifact, 'inspection-evidence-promotion-dry-run'),
     canSeedReview: artifact.exists !== false && isReviewSourceArtifact(artifact),
   };
 }
@@ -280,6 +307,18 @@ export function findPreferredReleaseBundleManifestArtifact(artifacts = []) {
     .sort((left, right) => artifactSearchText(left).localeCompare(artifactSearchText(right)))[0] || null;
 }
 
+export function findPreferredInspectionEvidenceIntakeArtifact(artifacts = []) {
+  return [...artifacts]
+    .filter((artifact) => isInspectionEvidenceIntakeArtifact(artifact))
+    .sort((left, right) => artifactSearchText(left).localeCompare(artifactSearchText(right)))[0] || null;
+}
+
+export function findPreferredInspectionEvidencePromotionDryRunArtifact(artifacts = []) {
+  return [...artifacts]
+    .filter((artifact) => isInspectionEvidencePromotionDryRunArtifact(artifact))
+    .sort((left, right) => artifactSearchText(left).localeCompare(artifactSearchText(right)))[0] || null;
+}
+
 function firstAvailableArtifact(artifacts = [], predicate = () => true) {
   return artifacts.find((artifact) => artifact?.exists !== false && predicate(artifact)) || null;
 }
@@ -298,7 +337,9 @@ function isQualityEvidenceArtifact(artifact = {}) {
 }
 
 export function findDefaultArtifactForJob(artifacts = []) {
-  return firstAvailableArtifact(artifacts, isReportSummaryDefaultArtifact)
+  return firstAvailableArtifact(artifacts, isInspectionEvidencePromotionDryRunArtifact)
+    || firstAvailableArtifact(artifacts, isInspectionEvidenceIntakeArtifact)
+    || firstAvailableArtifact(artifacts, isReportSummaryDefaultArtifact)
     || firstAvailableArtifact(artifacts, isQualityReportPdfArtifact)
     || firstAvailableArtifact(artifacts, isReviewSourceArtifact)
     || firstAvailableArtifact(artifacts, isQualityEvidenceArtifact)

@@ -41,14 +41,16 @@ assert.equal(PLAIN_PYTHON_COMMANDS.includes('inspection-evidence-intake'), true)
 assert.equal(PLAIN_PYTHON_COMMANDS.includes('inspection-evidence-promotion-dry-run'), true);
 assert.deepEqual(STUDIO_ARTIFACT_JOB_COMMANDS, ['readiness-pack', 'generate-standard-docs', 'pack']);
 assert.deepEqual(STUDIO_PAIRED_ARTIFACT_JOB_COMMANDS, ['compare-rev', 'stabilization-review']);
-assert.deepEqual(STUDIO_ARTIFACT_COMPATIBLE_JOB_COMMANDS, ['inspect', 'report', 'readiness-pack', 'generate-standard-docs', 'pack']);
+assert.deepEqual(STUDIO_ARTIFACT_COMPATIBLE_JOB_COMMANDS, ['inspect', 'report', 'readiness-pack', 'generate-standard-docs', 'pack', 'inspection-evidence-promotion-dry-run']);
 assert.equal(LOCAL_API_JOB_COMMANDS.includes('review-context'), true);
 assert.equal(LOCAL_API_JOB_COMMANDS.includes('inspection-evidence-intake'), true);
+assert.equal(LOCAL_API_JOB_COMMANDS.includes('inspection-evidence-promotion-dry-run'), true);
 assert.equal(STUDIO_JOB_COMMANDS.includes('review-context'), false);
 assert.equal(STUDIO_JOB_COMMANDS.includes('inspection-evidence-intake'), true);
+assert.equal(STUDIO_JOB_COMMANDS.includes('inspection-evidence-promotion-dry-run'), true);
 assert.equal(
   formatCommandNameList(STUDIO_JOB_COMMANDS, { conjunction: 'or' }),
-  'create, draw, inspect, report, compare-rev, readiness-pack, stabilization-review, generate-standard-docs, pack, or inspection-evidence-intake'
+  'create, draw, inspect, report, compare-rev, readiness-pack, stabilization-review, generate-standard-docs, pack, inspection-evidence-intake, or inspection-evidence-promotion-dry-run'
 );
 
 const serveEntrypoints = getServeEntrypointMetadata();

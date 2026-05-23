@@ -90,7 +90,7 @@ Open the completed intake job in Review to inspect the normalized card, then pre
 
 If you only want software/project closeout, use Studio and the docs to review canonical package cards, safe artifact preview, release boundaries, and readiness status as checked-in software deliverables. The current non-inspection closeout remains truthful without attaching inspection evidence.
 
-If you have genuine inspection evidence later, follow the inspection evidence contract and collection guides, attach a completed real inspection evidence JSON through the canonical flow, and then deliberately refresh the review/readiness/release chain. Stage 5B remains parked until a genuine completed inspection evidence JSON exists.
+If you have genuine inspection evidence later, follow the inspection evidence contract and collection guides, attach a completed real inspection evidence JSON through the canonical flow, and then deliberately refresh the review/readiness/release chain. Studio Review can queue a tracked promotion dry-run from a registered intake report artifact first; that card shows blockers, future commands, expected artifacts, mutation boundaries, rollback guidance, and the held readiness expectation without mutating canonical package files. Stage 5B remains parked until a genuine completed inspection evidence JSON exists.
 
 ## Validation And Tests
 

@@ -17,7 +17,9 @@ import {
 import {
   deriveArtifactReentryCapabilities,
   findPreferredConfigArtifact,
+  findPreferredInspectionEvidenceIntakeArtifact,
 } from './artifact-actions.js';
+import { fetchStudioJobArtifacts } from './jobs-client.js';
 import {
   deriveRecentJobQualityStatus,
   formatRecentJobQualityLine,
@@ -145,6 +147,13 @@ function renderInspectionIntakeLauncher(recentJobs = []) {
           createButton({
             label: latestIntake ? 'Open latest intake' : 'No intake report yet',
             action: 'open-latest-stage5b-intake',
+            tone: 'ghost',
+            disabled: !latestIntake,
+            dataset: latestIntake ? { jobId: latestIntake.id } : {},
+          }),
+          createButton({
+            label: 'Run dry-run',
+            action: 'run-stage5b-dry-run-latest',
             tone: 'ghost',
             disabled: !latestIntake,
             dataset: latestIntake ? { jobId: latestIntake.id } : {},
@@ -478,6 +487,17 @@ export function mountReviewWorkspace({ root, state, addLog, openJob, submitTrack
                   attrs: { href: card.artifact.links.download, rel: 'noreferrer' },
                 })
               : null,
+            card.id === 'inspection-intake'
+              ? createButton({
+                  label: 'Run dry-run',
+                  action: 'run-stage5b-dry-run-from-artifact',
+                  tone: 'ghost',
+                  dataset: {
+                    jobId: state.data.activeJob.summary?.id || '',
+                    artifactId: card.artifact.id,
+                  },
+                })
+              : null,
           ].filter(Boolean)
         : []),
       ...(state.data.activeJob.summary
@@ -588,6 +608,9 @@ export function mountReviewWorkspace({ root, state, addLog, openJob, submitTrack
         inspectionIntake: findBy('inspection-evidence.intake-report', '.json')
           || findBy('inspection-evidence-intake-report', '.json')
           || findBy('intake-report', '.json'),
+        inspectionPromotionDryRun: findBy('inspection-evidence.promotion-dry-run-manifest', '.json')
+          || findBy('inspection-evidence-promotion-dry-run-manifest', '.json')
+          || findBy('promotion_dry_run_manifest', '.json'),
       };
 
       const sourceEntries = Object.entries(sourceArtifacts).filter(([, artifact]) => artifact);
@@ -630,7 +653,7 @@ export function mountReviewWorkspace({ root, state, addLog, openJob, submitTrack
     }
   }
 
-  function handleClick(event) {
+  async function handleClick(event) {
     const actionTarget = event.target instanceof Element ? event.target.closest('[data-action]') : null;
     if (!actionTarget) return;
 
@@ -691,6 +714,63 @@ export function mountReviewWorkspace({ root, state, addLog, openJob, submitTrack
           time: 'review',
         });
       });
+    }
+
+    if (
+      (actionTarget.dataset.action === 'run-stage5b-dry-run-latest'
+        || actionTarget.dataset.action === 'run-stage5b-dry-run-from-artifact')
+      && actionTarget.dataset.jobId
+    ) {
+      if (typeof submitTrackedJob !== 'function') {
+        addLog({
+          status: 'Stage 5B dry-run',
+          message: 'Tracked promotion dry-run submission is unavailable on this serve path.',
+          tone: 'warn',
+          time: 'review',
+        });
+        return;
+      }
+
+      const sourceJobId = actionTarget.dataset.jobId;
+      const explicitArtifactId = actionTarget.dataset.artifactId || '';
+      const activeArtifacts = state.data.activeJob.summary?.id === sourceJobId
+        ? state.data.activeJob.artifacts || []
+        : [];
+      const intakeArtifact = explicitArtifactId
+        ? activeArtifacts.find((artifact) => artifact.id === explicitArtifactId)
+        : findPreferredInspectionEvidenceIntakeArtifact(activeArtifacts);
+
+      try {
+        const artifact = intakeArtifact || findPreferredInspectionEvidenceIntakeArtifact(
+          await fetchStudioJobArtifacts(sourceJobId)
+        );
+        if (!artifact) {
+          throw new Error('No registered inspection-evidence intake report artifact is available for the selected job.');
+        }
+        const job = await submitTrackedJob({
+          type: 'inspection-evidence-promotion-dry-run',
+          artifactRef: {
+            job_id: sourceJobId,
+            artifact_id: artifact.id,
+          },
+          completionAction: {
+            preferredRoute: 'review',
+          },
+        });
+        addLog({
+          status: 'Stage 5B dry-run',
+          message: `Queued tracked inspection-evidence-promotion-dry-run ${shortJobId(job?.id || '')}.`,
+          tone: 'info',
+          time: 'review',
+        });
+      } catch (error) {
+        addLog({
+          status: 'Stage 5B dry-run',
+          message: error instanceof Error ? error.message : String(error),
+          tone: 'warn',
+          time: 'review',
+        });
+      }
     }
   }
 

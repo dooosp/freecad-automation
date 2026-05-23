@@ -9,11 +9,14 @@ import {
   findPreferredConfigArtifact,
   findPreferredDocsManifestArtifact,
   findPreferredReadinessReportArtifact,
+  findPreferredInspectionEvidenceIntakeArtifact,
   findPreferredReleaseBundleArtifact,
   findPreferredReleaseBundleManifestArtifact,
   findPreferredReviewPackArtifact,
   isConfigLikeArtifact,
   isInspectableModelArtifact,
+  isInspectionEvidenceIntakeArtifact,
+  isInspectionEvidencePromotionDryRunArtifact,
   isReviewContextArtifact,
   isReadinessReportArtifact,
   isReleaseBundleArtifact,
@@ -297,6 +300,28 @@ assert.equal(canStartTrackedArtifactRun({
   },
 }, 'generate-standard-docs'), true);
 
+const intakeReportArtifact = {
+  type: 'inspection-evidence.intake-report',
+  file_name: 'inspection-evidence-intake-report.json',
+  extension: '.json',
+  exists: true,
+};
+const promotionDryRunManifestArtifact = {
+  type: 'inspection-evidence.promotion-dry-run-manifest',
+  file_name: 'promotion_dry_run_manifest.json',
+  extension: '.json',
+  exists: true,
+};
+
+assert.equal(isInspectionEvidenceIntakeArtifact(intakeReportArtifact), true);
+assert.equal(isInspectionEvidencePromotionDryRunArtifact(promotionDryRunManifestArtifact), true);
+assert.equal(canStartTrackedArtifactRun(intakeReportArtifact, 'inspection-evidence-promotion-dry-run'), true);
+assert.equal(canStartTrackedArtifactRun(promotionDryRunManifestArtifact, 'inspection-evidence-promotion-dry-run'), false);
+assert.equal(findPreferredInspectionEvidenceIntakeArtifact([
+  promotionDryRunManifestArtifact,
+  intakeReportArtifact,
+]), intakeReportArtifact);
+
 assert.equal(canStartTrackedArtifactRun({
   type: 'review-pack.json',
   file_name: 'review_pack.json',
@@ -320,6 +345,7 @@ assert.deepEqual(deriveArtifactReentryCapabilities({
   canRunTrackedReadinessPack: false,
   canRunTrackedStandardDocs: false,
   canRunTrackedPack: false,
+  canRunTrackedPromotionDryRun: false,
   canSeedReview: true,
 });
 
@@ -349,6 +375,7 @@ assert.deepEqual(deriveArtifactReentryCapabilities({
   canRunTrackedReadinessPack: true,
   canRunTrackedStandardDocs: true,
   canRunTrackedPack: true,
+  canRunTrackedPromotionDryRun: false,
   canSeedReview: false,
 });
 
@@ -454,6 +481,7 @@ assert.deepEqual(deriveArtifactReentryCapabilities(af5CanonicalArtifacts[0]), {
   canRunTrackedReadinessPack: true,
   canRunTrackedStandardDocs: false,
   canRunTrackedPack: false,
+  canRunTrackedPromotionDryRun: false,
   canSeedReview: true,
 });
 assert.deepEqual(deriveArtifactReentryCapabilities(af5CanonicalArtifacts[1]), {
@@ -464,6 +492,7 @@ assert.deepEqual(deriveArtifactReentryCapabilities(af5CanonicalArtifacts[1]), {
   canRunTrackedReadinessPack: false,
   canRunTrackedStandardDocs: true,
   canRunTrackedPack: true,
+  canRunTrackedPromotionDryRun: false,
   canSeedReview: true,
 });
 assert.deepEqual(deriveArtifactReentryCapabilities(af5CanonicalArtifacts[2]), {
@@ -474,6 +503,7 @@ assert.deepEqual(deriveArtifactReentryCapabilities(af5CanonicalArtifacts[2]), {
   canRunTrackedReadinessPack: false,
   canRunTrackedStandardDocs: false,
   canRunTrackedPack: false,
+  canRunTrackedPromotionDryRun: false,
   canSeedReview: true,
 });
 assert.deepEqual(deriveArtifactReentryCapabilities(af5CanonicalArtifacts[3]), {
@@ -484,6 +514,7 @@ assert.deepEqual(deriveArtifactReentryCapabilities(af5CanonicalArtifacts[3]), {
   canRunTrackedReadinessPack: false,
   canRunTrackedStandardDocs: false,
   canRunTrackedPack: false,
+  canRunTrackedPromotionDryRun: false,
   canSeedReview: false,
 });
 assert.deepEqual(deriveArtifactReentryCapabilities(af5CanonicalArtifacts[4]), {
@@ -494,6 +525,7 @@ assert.deepEqual(deriveArtifactReentryCapabilities(af5CanonicalArtifacts[4]), {
   canRunTrackedReadinessPack: true,
   canRunTrackedStandardDocs: true,
   canRunTrackedPack: true,
+  canRunTrackedPromotionDryRun: false,
   canSeedReview: false,
 });
 

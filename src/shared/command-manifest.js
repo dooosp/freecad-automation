@@ -327,6 +327,12 @@ const COMMAND_MANIFEST = Object.freeze([
       requiresFreecadRuntime: false,
       note: 'Consumes an intake report and writes a deterministic dry-run manifest with commands, expected outputs, blockers, mutation boundaries, and rollback guidance.',
     }),
+    surfaces: Object.freeze({
+      jobExecutor: true,
+      localApi: true,
+      studio: true,
+      studioSubmission: 'artifact',
+    }),
   }),
   Object.freeze({
     name: 'stabilization-review',
@@ -761,6 +767,7 @@ const JOB_EXECUTOR_COMMAND_ORDER = Object.freeze([
   'generate-standard-docs',
   'pack',
   'inspection-evidence-intake',
+  'inspection-evidence-promotion-dry-run',
 ]);
 const STUDIO_JOB_COMMAND_ORDER = Object.freeze([
   'create',
@@ -773,6 +780,7 @@ const STUDIO_JOB_COMMAND_ORDER = Object.freeze([
   'generate-standard-docs',
   'pack',
   'inspection-evidence-intake',
+  'inspection-evidence-promotion-dry-run',
 ]);
 const STUDIO_ARTIFACT_JOB_ORDER = Object.freeze([
   'readiness-pack',
@@ -785,6 +793,7 @@ const STUDIO_ARTIFACT_COMPATIBLE_JOB_ORDER = Object.freeze([
   'readiness-pack',
   'generate-standard-docs',
   'pack',
+  'inspection-evidence-promotion-dry-run',
 ]);
 const STUDIO_PAIRED_JOB_ORDER = Object.freeze([
   'compare-rev',
@@ -803,6 +812,7 @@ const LOCAL_API_OTHER_PUBLIC_JOB_ORDER = Object.freeze([
   'generate-standard-docs',
   'pack',
   'inspection-evidence-intake',
+  'inspection-evidence-promotion-dry-run',
 ]);
 
 function orderedCommandNames(order = [], predicate = null) {
