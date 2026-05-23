@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 
 import {
   buildInspectionEvidenceIntakeCard,
+  buildInspectionEvidencePromotionDryRunCard,
   buildReviewCards,
 } from '../public/js/studio/artifact-insights.js';
 import { renderReviewWorkspace } from '../public/js/studio/review-workspace.js';
@@ -91,6 +92,81 @@ const intakeArtifact = {
   },
 };
 
+const promotionDryRunManifest = {
+  artifact_type: 'inspection_evidence_promotion_dry_run_manifest',
+  schema_version: '1.0',
+  dry_run: true,
+  hard_evidence_rule: 'Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.',
+  evidence_boundary: {
+    dry_run_does_not_attach_evidence: true,
+    rejected_as_final_evidence: [
+      'dry-run manifests',
+      'intake reports',
+      'generated CAD/drawing/quality/readiness/review reports',
+      'GitHub metadata',
+    ],
+  },
+  summary: {
+    package_count: 1,
+    ready_package_count: 0,
+    blocked_package_count: 1,
+    promotion_can_run: false,
+    canonical_artifacts_mutated: false,
+    dry_run_manifest_only: true,
+    readiness_expectation: 'No promotion can run; readiness remains needs_more_evidence / hold_for_evidence_completion.',
+    blockers: ['no_genuine_valid_candidate'],
+  },
+  packages: [
+    {
+      package_slug: 'quality-pass-bracket',
+      attachment_ready: false,
+      match_confidence: 'none',
+      blockers: ['no_genuine_valid_candidate'],
+      canonical_next_command: null,
+      expected_artifacts: [],
+      mutation_boundaries: {
+        dry_run_writes: ['promotion_dry_run_manifest.json'],
+        canonical_artifacts_mutated_by_dry_run: false,
+        allowed_future_mutation_roots: [],
+        files_that_would_be_mutated: [],
+      },
+      readiness_expectation: {
+        dry_run: {
+          status: 'needs_more_evidence',
+          gate_decision: 'hold_for_evidence_completion',
+          missing_inputs: ['inspection_evidence'],
+        },
+        after_future_promotion: {
+          expected_action: 'no promotion command should run',
+        },
+      },
+      rollback_guidance: [
+        'No rollback is needed because no promotion commands should run.',
+        'Keep the canonical package readiness held until genuine completed inspection evidence is available.',
+      ],
+    },
+  ],
+};
+
+const promotionDryRunArtifact = {
+  id: 'inspection-evidence-promotion-dry-run-manifest-0',
+  key: 'Stage 5B promotion dry-run manifest',
+  type: 'inspection-evidence.promotion-dry-run-manifest',
+  file_name: 'promotion_dry_run_manifest.json',
+  extension: '.json',
+  content_type: 'application/json; charset=utf-8',
+  exists: true,
+  capabilities: {
+    can_open: true,
+    can_download: true,
+    browser_safe: true,
+  },
+  links: {
+    open: '/jobs/job-2/artifacts/inspection-evidence-promotion-dry-run-manifest-0/content',
+    download: '/jobs/job-2/artifacts/inspection-evidence-promotion-dry-run-manifest-0/content?download=1',
+  },
+};
+
 const raw = JSON.stringify(intakeReport, null, 2);
 const card = buildInspectionEvidenceIntakeCard({
   report: intakeReport,
@@ -120,6 +196,31 @@ assert.equal(normalized['Package readiness'], 'quality-pass-bracket: needs_more_
 assert.equal(normalized['Readiness explanation'], 'readiness remains needs_more_evidence / hold_for_evidence_completion');
 assert.equal(normalized['Evidence boundary'], 'Generated CAD/drawing/quality/readiness/review/standard-doc/release artifacts, fixtures, templates, and collection guides are not inspection evidence.');
 
+const dryRunRaw = JSON.stringify(promotionDryRunManifest, null, 2);
+const dryRunCard = buildInspectionEvidencePromotionDryRunCard({
+  manifest: promotionDryRunManifest,
+  artifact: promotionDryRunArtifact,
+  raw: dryRunRaw,
+});
+
+assert.equal(dryRunCard.id, 'inspection-promotion-dry-run');
+assert.equal(dryRunCard.title, 'Stage 5B promotion dry-run');
+assert.equal(dryRunCard.status, 'Promotion held');
+assert.equal(dryRunCard.tone, 'warn');
+assert.match(dryRunCard.summary, /readiness remains needs_more_evidence \/ hold_for_evidence_completion/);
+assert.match(dryRunCard.summary, /No canonical artifacts mutated/);
+const dryRunNormalized = Object.fromEntries(dryRunCard.normalized);
+assert.equal(dryRunNormalized['Package slug'], 'quality-pass-bracket');
+assert.equal(dryRunNormalized['Attachment ready'], 'No');
+assert.equal(dryRunNormalized['Match confidence'], 'none');
+assert.equal(dryRunNormalized['Blockers'], 'no_genuine_valid_candidate');
+assert.equal(dryRunNormalized['Canonical next command'], 'None');
+assert.equal(dryRunNormalized['Expected artifacts'], 'none');
+assert.match(dryRunNormalized['Mutation boundaries'], /canonical_artifacts_mutated_by_dry_run: false/);
+assert.match(dryRunNormalized['Readiness expectation'], /needs_more_evidence \/ hold_for_evidence_completion/);
+assert.match(dryRunNormalized['Rollback guidance'], /No rollback is needed/);
+assert.match(dryRunNormalized['Evidence boundary'], /dry-run manifests.*are not inspection evidence/i);
+
 const cards = buildReviewCards({
   activeJob: {
     manifest: {
@@ -134,6 +235,21 @@ const cards = buildReviewCards({
 });
 assert.equal(cards[0].id, 'inspection-intake');
 assert.equal(cards[0].empty, false);
+
+const dryRunCards = buildReviewCards({
+  activeJob: {
+    manifest: {
+      command: 'inspection-evidence-promotion-dry-run',
+    },
+  },
+  artifacts: [promotionDryRunArtifact],
+  sourceMap: {
+    inspectionPromotionDryRun: promotionDryRunManifest,
+    inspectionPromotionDryRunRaw: dryRunRaw,
+  },
+});
+assert.equal(dryRunCards[0].id, 'inspection-promotion-dry-run');
+assert.equal(dryRunCards[0].empty, false);
 
 globalThis.document = {
   createElement(tagName) {
@@ -172,6 +288,7 @@ const reviewTree = renderReviewWorkspace({
 const renderedText = JSON.stringify(reviewTree);
 assert.match(renderedText, /Stage 5B intake/);
 assert.match(renderedText, /Run intake/);
+assert.match(renderedText, /Run dry-run/);
 assert.match(renderedText, /No human-entered measurements/);
 
 console.log('studio-inspection-evidence-intake-ux.test.js: ok');

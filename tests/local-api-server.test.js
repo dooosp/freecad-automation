@@ -980,6 +980,115 @@ try {
   assert.equal(intakeReport.summary.accepted_candidate_count, 0);
   assert.deepEqual(intakeReport.summary.packages_without_genuine_evidence, ['quality-pass-bracket', 'hinge-block']);
 
+  const directPromotionDryRunResponse = await fetch(`${baseUrl}/jobs`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      type: 'inspection-evidence-promotion-dry-run',
+      intake_report_path: 'tests/fixtures/promotion-dry-run/intake-report-no-candidate.json',
+    }),
+  });
+  assert.equal(directPromotionDryRunResponse.status, 202);
+  const directPromotionDryRunPayload = await directPromotionDryRunResponse.json();
+  assert.equal(directPromotionDryRunPayload.job.type, 'inspection-evidence-promotion-dry-run');
+  assert.equal('intake_report_path' in directPromotionDryRunPayload.job.request, false);
+  assert.equal(JSON.stringify(directPromotionDryRunPayload).includes(ROOT), false);
+
+  let directPromotionDryRunJobPayload = null;
+  await waitFor(async () => {
+    const directPromotionDryRunStatusResponse = await fetch(`${baseUrl}/jobs/${directPromotionDryRunPayload.job.id}`, {
+      headers: { accept: 'application/json' },
+    });
+    assert.equal(directPromotionDryRunStatusResponse.status, 200);
+    directPromotionDryRunJobPayload = await directPromotionDryRunStatusResponse.json();
+    assert.equal(directPromotionDryRunJobPayload.job.status, 'succeeded');
+  }, { attempts: 20, delayMs: 50 });
+
+  assert.equal(directPromotionDryRunJobPayload.job.result.artifact_type, 'inspection_evidence_promotion_dry_run_manifest');
+  assert.equal(directPromotionDryRunJobPayload.job.result.summary.promotion_can_run, false);
+  assert.equal(directPromotionDryRunJobPayload.job.result.summary.canonical_artifacts_mutated, false);
+  assert.equal(
+    directPromotionDryRunJobPayload.job.result.summary.readiness_expectation,
+    'No promotion can run; readiness remains needs_more_evidence / hold_for_evidence_completion.'
+  );
+
+  const promotionDryRunResponse = await fetch(`${baseUrl}/api/studio/jobs`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      type: 'inspection-evidence-promotion-dry-run',
+      artifact_ref: {
+        job_id: intakePayload.job.id,
+        artifact_id: intakeReportArtifact.id,
+      },
+    }),
+  });
+  assert.equal(promotionDryRunResponse.status, 202);
+  const promotionDryRunPayload = await promotionDryRunResponse.json();
+  assert.equal(promotionDryRunPayload.job.type, 'inspection-evidence-promotion-dry-run');
+  assert.deepEqual(promotionDryRunPayload.job.request.artifact_ref, {
+    job_id: intakePayload.job.id,
+    artifact_id: intakeReportArtifact.id,
+  });
+  assert.equal('intake_report_path' in promotionDryRunPayload.job.request, false);
+  assert.equal(JSON.stringify(promotionDryRunPayload).includes(ROOT), false);
+
+  let promotionDryRunJobPayload = null;
+  await waitFor(async () => {
+    const promotionDryRunStatusResponse = await fetch(`${baseUrl}/jobs/${promotionDryRunPayload.job.id}`, {
+      headers: { accept: 'application/json' },
+    });
+    assert.equal(promotionDryRunStatusResponse.status, 200);
+    promotionDryRunJobPayload = await promotionDryRunStatusResponse.json();
+    assert.equal(promotionDryRunJobPayload.job.status, 'succeeded');
+  }, { attempts: 20, delayMs: 50 });
+
+  assert.equal(promotionDryRunJobPayload.job.result.artifact_type, 'inspection_evidence_promotion_dry_run_manifest');
+  assert.equal(promotionDryRunJobPayload.job.result.summary.promotion_can_run, false);
+  assert.equal(promotionDryRunJobPayload.job.result.summary.canonical_artifacts_mutated, false);
+  assert.equal(
+    promotionDryRunJobPayload.job.result.summary.readiness_expectation,
+    'No promotion can run; readiness remains needs_more_evidence / hold_for_evidence_completion.'
+  );
+  assert.equal(JSON.stringify(promotionDryRunJobPayload).includes(ROOT), false);
+
+  const promotionDryRunArtifactsResponse = await fetch(`${baseUrl}/jobs/${promotionDryRunPayload.job.id}/artifacts`, {
+    headers: { accept: 'application/json' },
+  });
+  assert.equal(promotionDryRunArtifactsResponse.status, 200);
+  const promotionDryRunArtifactsPayload = await promotionDryRunArtifactsResponse.json();
+  const promotionDryRunArtifact = promotionDryRunArtifactsPayload.artifacts.find((artifact) =>
+    artifact.type === 'inspection-evidence.promotion-dry-run-manifest'
+  );
+  assert.equal(Boolean(promotionDryRunArtifact), true);
+  assert.equal(promotionDryRunArtifact.file_name, 'promotion_dry_run_manifest.json');
+  assert.equal(promotionDryRunArtifact.capabilities.can_open, true);
+  assert.equal(JSON.stringify(promotionDryRunArtifactsPayload).includes(ROOT), false);
+
+  const promotionDryRunManifestResponse = await fetch(`${baseUrl}${promotionDryRunArtifact.links.open}`, {
+    headers: { accept: 'application/json' },
+  });
+  assert.equal(promotionDryRunManifestResponse.status, 200);
+  const promotionDryRunManifest = await promotionDryRunManifestResponse.json();
+  assert.equal(promotionDryRunManifest.artifact_type, 'inspection_evidence_promotion_dry_run_manifest');
+  assert.equal(promotionDryRunManifest.summary.promotion_can_run, false);
+  assert.equal(promotionDryRunManifest.summary.canonical_artifacts_mutated, false);
+
+  const arbitraryPromotionDryRunPreviewResponse = await fetch(
+    `${baseUrl}/jobs/${promotionDryRunPayload.job.id}/artifacts/package-json/content?path=${encodeURIComponent(join(ROOT, 'package.json'))}`,
+    { headers: { accept: 'application/json' } }
+  );
+  assert.equal(arbitraryPromotionDryRunPreviewResponse.status, 404);
+  const arbitraryPromotionDryRunPreviewText = await arbitraryPromotionDryRunPreviewResponse.text();
+  assert.equal(arbitraryPromotionDryRunPreviewText.includes('"name"'), false);
+  assert.equal(arbitraryPromotionDryRunPreviewText.includes('freecad-automation'), false);
+
   const arbitraryPreviewResponse = await fetch(
     `${baseUrl}/jobs/${intakePayload.job.id}/artifacts/package-json/content?path=${encodeURIComponent(join(ROOT, 'package.json'))}`,
     { headers: { accept: 'application/json' } }

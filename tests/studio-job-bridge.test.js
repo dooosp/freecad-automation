@@ -296,6 +296,69 @@ assert.equal(unsupportedReviewContext.ok, false);
 assert.match(unsupportedReviewContext.errors.join('\n'), /requires either context_path or model_path/i);
 assert.match(unsupportedReviewContext.errors.join('\n'), /does not accept config_toml, artifact_ref/i);
 
+const promotionDryRunFromArtifact = await translateStudioJobSubmission({
+  type: 'inspection-evidence-promotion-dry-run',
+  artifact_ref: {
+    job_id: 'job-intake',
+    artifact_id: 'inspection-evidence-intake-report-0',
+  },
+}, {
+  async resolveArtifactRef(ref) {
+    return {
+      jobId: ref.job_id,
+      artifact: {
+        id: ref.artifact_id,
+        path: '/tmp/inspection-evidence-intake-report.json',
+        type: 'inspection-evidence.intake-report',
+        file_name: 'inspection-evidence-intake-report.json',
+        extension: '.json',
+        exists: true,
+      },
+    };
+  },
+});
+
+assert.equal(promotionDryRunFromArtifact.ok, true, promotionDryRunFromArtifact.errors?.join('\n'));
+assert.equal(promotionDryRunFromArtifact.request.type, 'inspection-evidence-promotion-dry-run');
+assert.deepEqual(promotionDryRunFromArtifact.request.intake_report_artifact_ref, {
+  job_id: 'job-intake',
+  artifact_id: 'inspection-evidence-intake-report-0',
+});
+assert.equal(promotionDryRunFromArtifact.request.options.studio.source_artifact_type, 'inspection-evidence.intake-report');
+
+const invalidPromotionDryRunArtifact = await translateStudioJobSubmission({
+  type: 'inspection-evidence-promotion-dry-run',
+  artifact_ref: {
+    job_id: 'job-config',
+    artifact_id: 'effective-config',
+  },
+}, {
+  async resolveArtifactRef(ref) {
+    return {
+      jobId: ref.job_id,
+      artifact: {
+        id: ref.artifact_id,
+        path: '/tmp/effective-config.json',
+        type: 'config.effective',
+        file_name: 'effective-config.json',
+        extension: '.json',
+        exists: true,
+      },
+    };
+  },
+});
+
+assert.equal(invalidPromotionDryRunArtifact.ok, false);
+assert.match(invalidPromotionDryRunArtifact.errors.join('\n'), /inspection-evidence intake report artifact/i);
+
+const invalidPromotionDryRunUnsafePath = validateStudioJobSubmission({
+  type: 'inspection-evidence-promotion-dry-run',
+  intake_report_path: '../private/intake-report.json',
+});
+
+assert.equal(invalidPromotionDryRunUnsafePath.ok, false);
+assert.match(invalidPromotionDryRunUnsafePath.errors.join('\n'), /safe repo-relative/i);
+
 const compareFromArtifacts = await translateStudioJobSubmission({
   type: 'compare-rev',
   baseline_artifact_ref: {

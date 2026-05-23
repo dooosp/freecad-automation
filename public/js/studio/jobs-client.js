@@ -39,6 +39,7 @@ export async function submitStudioTrackedJob({
   inspectionPath,
   qualityPath,
   compareToPath,
+  intakeReportPath,
   drawingSettings,
   drawingPreviewId,
   reportOptions,
@@ -61,6 +62,7 @@ export async function submitStudioTrackedJob({
       ...(inspectionPath ? { inspection_path: inspectionPath } : {}),
       ...(qualityPath ? { quality_path: qualityPath } : {}),
       ...(compareToPath ? { compare_to_path: compareToPath } : {}),
+      ...(intakeReportPath ? { intake_report_path: intakeReportPath } : {}),
       ...(drawingSettings ? { drawing_settings: drawingSettings } : {}),
       ...(drawingPreviewId ? { drawing_preview_id: drawingPreviewId } : {}),
       ...(reportOptions ? { report_options: reportOptions } : {}),
@@ -89,6 +91,11 @@ export async function pollStudioJob(jobId) {
 export async function refreshStudioJobs(limit = 6) {
   const payload = await fetchJobJson(`/jobs?limit=${encodeURIComponent(limit)}`);
   return Array.isArray(payload?.jobs) ? payload.jobs : [];
+}
+
+export async function fetchStudioJobArtifacts(jobId) {
+  const payload = await fetchJobJson(`/jobs/${encodeURIComponent(jobId)}/artifacts`);
+  return Array.isArray(payload?.artifacts) ? payload.artifacts : [];
 }
 
 export async function cancelStudioJob(jobId) {
@@ -137,6 +144,7 @@ export function isReviewableStudioJob(job = {}) {
     || type === 'generate-standard-docs'
     || type === 'pack'
     || type === 'inspection-evidence-intake'
+    || type === 'inspection-evidence-promotion-dry-run'
   )
     && String(job?.status || '').toLowerCase() === 'succeeded';
 }

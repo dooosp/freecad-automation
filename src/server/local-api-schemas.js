@@ -163,6 +163,24 @@ const localApiJobRequestSchema = {
         options: { type: 'object' },
       },
     },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['type'],
+      properties: {
+        type: { const: 'inspection-evidence-promotion-dry-run' },
+        intake_report_path: { type: 'string', minLength: 1 },
+        intake_report_artifact_ref: artifactRefSchema,
+        options: { type: 'object' },
+      },
+      oneOf: [
+        { required: ['intake_report_path'] },
+        { required: ['intake_report_artifact_ref'] },
+      ],
+      not: {
+        required: ['intake_report_path', 'intake_report_artifact_ref'],
+      },
+    },
   ],
 };
 

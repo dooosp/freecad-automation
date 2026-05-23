@@ -3,6 +3,8 @@ import { basename, posix, win32 } from 'node:path';
 const INTERNAL_REQUEST_FIELDS = new Set([
   'file_path',
   'config_path',
+  'intake_report_path',
+  'intake_report_artifact_ref',
   'source_artifact_path',
 ]);
 
@@ -46,7 +48,7 @@ function sanitizeRequestValue(value) {
 function buildArtifactRefMetadata(request = {}) {
   const studio = request.options?.studio;
   if (!isPlainObject(studio) || studio.source !== 'artifact-reference') {
-    return {};
+    return buildDirectArtifactRefMetadata(request);
   }
 
   const sourceJobId = typeof studio.source_job_id === 'string' ? studio.source_job_id.trim() : '';
@@ -67,6 +69,24 @@ function buildArtifactRefMetadata(request = {}) {
     source_artifact_id: sourceArtifactId,
     ...(sourceArtifactType ? { source_artifact_type: sourceArtifactType } : {}),
     ...(sourceLabel ? { source_label: sourceLabel } : {}),
+  };
+}
+
+function buildDirectArtifactRefMetadata(request = {}) {
+  const ref = request.intake_report_artifact_ref;
+  if (!isPlainObject(ref)) return {};
+
+  const sourceJobId = typeof ref.job_id === 'string' ? ref.job_id.trim() : '';
+  const sourceArtifactId = typeof ref.artifact_id === 'string' ? ref.artifact_id.trim() : '';
+  if (!sourceJobId || !sourceArtifactId) return {};
+
+  return {
+    artifact_ref: {
+      job_id: sourceJobId,
+      artifact_id: sourceArtifactId,
+    },
+    source_job_id: sourceJobId,
+    source_artifact_id: sourceArtifactId,
   };
 }
 

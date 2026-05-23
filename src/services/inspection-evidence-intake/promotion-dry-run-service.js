@@ -538,6 +538,7 @@ function buildPackageDryRun({ projectRoot, intakeReport, pkg, testOnly, intakeRe
       ? 'Test-only dry-run success proves orchestration only; it is not canonical inspection evidence.'
       : null,
     blockers: uniqueBlockers,
+    canonical_next_command: commands[0]?.command || null,
     commands_to_run: commands,
     expected_artifacts: expected,
     files_that_would_be_mutated: expected.map((artifact) => artifact.path),

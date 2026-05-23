@@ -1,0 +1,60 @@
+{
+  "artifact_type": "inspection_evidence_intake_report",
+  "schema_version": "1.0",
+  "generated_at": "2026-05-23T00:00:00.000Z",
+  "source_boundary": {
+    "hard_evidence_rule": "Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.",
+    "rejected_as_final_evidence": [
+      "dry-run manifests",
+      "intake reports",
+      "fixtures",
+      "generated CAD/drawing/quality/readiness/review reports",
+      "GitHub metadata"
+    ]
+  },
+  "packages": [
+    {
+      "slug": "quality-pass-bracket",
+      "classification": "no_candidate",
+      "readiness_before": {
+        "status": "needs_more_evidence",
+        "gate_decision": "hold_for_evidence_completion",
+        "missing_inputs": [
+          "inspection_evidence"
+        ]
+      },
+      "readiness_after": {
+        "status": "needs_more_evidence",
+        "gate_decision": "hold_for_evidence_completion",
+        "missing_inputs": [
+          "inspection_evidence"
+        ]
+      },
+      "accepted_candidates": [],
+      "rejected_candidates": [],
+      "attachment_plan": {
+        "attachment_ready": false,
+        "match_confidence": "none",
+        "blockers": [
+          "no_genuine_valid_candidate"
+        ]
+      }
+    }
+  ],
+  "accepted_candidates": [],
+  "rejected_candidates": [],
+  "summary": {
+    "package_count": 1,
+    "candidate_count": 0,
+    "accepted_candidate_count": 0,
+    "rejected_candidate_count": 0,
+    "genuine_inspection_evidence_found": false,
+    "attachment_ready_candidate_count": 0,
+    "packages_with_genuine_evidence": [],
+    "packages_without_genuine_evidence": [
+      "quality-pass-bracket"
+    ],
+    "requires_human_measurement_entry": false,
+    "readiness_truth": "readiness remains needs_more_evidence / hold_for_evidence_completion"
+  }
+}

@@ -655,6 +655,48 @@ function formatInspectionIntakeBoundary() {
   return 'Generated CAD/drawing/quality/readiness/review/standard-doc/release artifacts, fixtures, templates, and collection guides are not inspection evidence.';
 }
 
+function formatPromotionDryRunBoundary(manifest = {}) {
+  const rejected = uniqueStrings(safeList(manifest.evidence_boundary?.rejected_as_final_evidence));
+  const prefix = rejected.length > 0
+    ? rejected.join(', ')
+    : 'Dry-run manifests, intake reports, generated CAD/drawing/quality/readiness/review reports, release bundles, screenshots, CI summaries, templates, collection guides, and GitHub metadata';
+  return `${prefix} are not inspection evidence. Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.`;
+}
+
+function firstPromotionDryRunPackage(manifest = {}) {
+  return safeList(manifest.packages).find((entry) => isPlainObject(entry)) || {};
+}
+
+function formatCommand(command = null) {
+  if (!Array.isArray(command) || command.length === 0) return 'None';
+  return command.join(' ');
+}
+
+function formatExpectedArtifacts(artifacts = []) {
+  const paths = safeList(artifacts)
+    .map((entry) => (isPlainObject(entry) ? entry.path || entry.artifact_type : null))
+    .filter(Boolean);
+  return paths.length > 0 ? paths.slice(0, 4).join(' • ') : 'none';
+}
+
+function formatMutationBoundary(boundary = {}) {
+  const futureRoots = safeList(boundary.allowed_future_mutation_roots);
+  const files = safeList(boundary.files_that_would_be_mutated);
+  return [
+    `dry_run_writes: ${safeList(boundary.dry_run_writes).join(', ') || 'promotion_dry_run_manifest.json'}`,
+    `canonical_artifacts_mutated_by_dry_run: ${boundary.canonical_artifacts_mutated_by_dry_run === true ? 'true' : 'false'}`,
+    `future mutation roots: ${futureRoots.length > 0 ? futureRoots.join(', ') : 'none'}`,
+    `future file count: ${files.length}`,
+  ].join(' • ');
+}
+
+function formatReadinessExpectationForDryRun(pkg = {}, summary = {}) {
+  const dryRun = safeObject(pkg.readiness_expectation?.dry_run);
+  const status = dryRun.status || 'needs_more_evidence';
+  const gate = dryRun.gate_decision || 'hold_for_evidence_completion';
+  return `${status} / ${gate}; ${summary.readiness_expectation || 'Dry-run does not mutate readiness.'}`;
+}
+
 function manifestNotes(manifest = null, artifact = null) {
   if (!manifest) return [];
   const notes = [];
@@ -741,10 +783,57 @@ export function buildInspectionEvidenceIntakeCard({
   });
 }
 
+export function buildInspectionEvidencePromotionDryRunCard({
+  manifest = {},
+  artifact = null,
+  raw = null,
+  activeManifest = null,
+} = {}) {
+  const summary = safeObject(manifest.summary);
+  const pkg = firstPromotionDryRunPackage(manifest);
+  const promotionCanRun = summary.promotion_can_run === true;
+  const readinessExpectation = summary.readiness_expectation
+    || (promotionCanRun
+      ? 'Future promotion commands are listed, but readiness remains unchanged until deliberately run with genuine evidence.'
+      : 'No promotion can run; readiness remains needs_more_evidence / hold_for_evidence_completion.');
+  const canonicalMutated = summary.canonical_artifacts_mutated === true;
+
+  return buildCard({
+    id: 'inspection-promotion-dry-run',
+    title: 'Stage 5B promotion dry-run',
+    tone: promotionCanRun ? 'ok' : 'warn',
+    score: Number.isFinite(summary.ready_package_count) ? summary.ready_package_count : null,
+    status: promotionCanRun ? 'Future promotion plan ready' : 'Promotion held',
+    summary: `${readinessExpectation} No canonical artifacts mutated by the dry-run.`,
+    artifact,
+    normalized: [
+      buildReviewDisplayField('Package slug', pkg.package_slug || 'none'),
+      buildReviewDisplayField('Attachment ready', pkg.attachment_ready === true ? 'Yes' : 'No'),
+      buildReviewDisplayField('Match confidence', pkg.match_confidence || 'none'),
+      buildReviewDisplayField('Blockers', uniqueStrings(safeList(pkg.blockers)).join(' • ') || 'none'),
+      buildReviewDisplayField('Canonical next command', formatCommand(pkg.canonical_next_command)),
+      buildReviewDisplayField('Expected artifacts', formatExpectedArtifacts(pkg.expected_artifacts)),
+      buildReviewDisplayField('Mutation boundaries', formatMutationBoundary(safeObject(pkg.mutation_boundaries))),
+      buildReviewDisplayField('Readiness expectation', formatReadinessExpectationForDryRun(pkg, summary)),
+      buildReviewDisplayField('Rollback guidance', summarizeList(pkg.rollback_guidance, 'No rollback guidance recorded.')),
+      buildReviewDisplayField('Evidence boundary', formatPromotionDryRunBoundary(manifest)),
+      buildReviewDisplayField('Canonical artifacts mutated', canonicalMutated ? 'Yes' : 'No'),
+    ],
+    raw,
+    provenance: [
+      ...manifestNotes(activeManifest, artifact),
+      'Dry-run manifests are planning/control artifacts only, not package inspection evidence.',
+      'Preview is limited to the registered tracked job artifact route.',
+    ],
+  });
+}
+
 export function buildReviewCards({ activeJob, artifacts = [], sourceMap = {} }) {
   const manifest = activeJob?.manifest || null;
   const inspectionIntakeArtifact = findArtifact(artifacts, ['inspection-evidence.intake-report', 'inspection-evidence-intake-report', 'intake-report']);
   const inspectionIntake = sourceMap.inspectionIntake;
+  const inspectionPromotionDryRunArtifact = findArtifact(artifacts, ['inspection-evidence.promotion-dry-run-manifest', 'inspection-evidence-promotion-dry-run-manifest', 'promotion_dry_run_manifest']);
+  const inspectionPromotionDryRun = sourceMap.inspectionPromotionDryRun;
   const readinessArtifact = findArtifact(artifacts, ['readiness']);
   const readiness = sourceMap.readiness;
   const productReviewArtifact = readinessArtifact || findArtifact(artifacts, ['product_review', 'review.product']);
@@ -760,6 +849,16 @@ export function buildReviewCards({ activeJob, artifacts = [], sourceMap = {} }) 
   const reviewPack = sourceMap.reviewPack;
 
   const cards = [
+    ...(inspectionPromotionDryRun
+      ? [
+          buildInspectionEvidencePromotionDryRunCard({
+            manifest: inspectionPromotionDryRun,
+            artifact: inspectionPromotionDryRunArtifact,
+            raw: sourceMap.inspectionPromotionDryRunRaw,
+            activeManifest: manifest,
+          }),
+        ]
+      : []),
     ...(inspectionIntake
       ? [
           buildInspectionEvidenceIntakeCard({
