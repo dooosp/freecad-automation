@@ -40,6 +40,7 @@ This matrix is the public support boundary for the current release. It separates
 - `readiness-report`
 - `pack`
 - `closeout-package`
+- `inspection-evidence-intake`
 - `stabilization-review`
 - `generate-standard-docs`
 - `ingest`
@@ -82,3 +83,4 @@ This matrix is the public support boundary for the current release. It separates
 3. If the runtime is detected, run a small end-to-end command such as `fcad create <config.toml>` or `npm run test:runtime-smoke`.
 4. If runtime detection fails, fix the `FREECAD_*` override or install path reported by `fcad check-runtime`, then rerun it.
 5. If you only need the manufacturing-review layer, continue with the plain-Python / Node commands while FreeCAD setup is still in progress.
+6. For Stage 5B evidence work, run `fcad inspection-evidence-intake --out <report.json>` to emit a machine-readable discovery report. When it finds no genuine completed inspection evidence, readiness remains `needs_more_evidence` / `hold_for_evidence_completion`.
