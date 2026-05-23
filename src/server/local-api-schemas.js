@@ -154,6 +154,15 @@ const localApiJobRequestSchema = {
         options: { type: 'object' },
       },
     },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['type'],
+      properties: {
+        type: { const: 'inspection-evidence-intake' },
+        options: { type: 'object' },
+      },
+    },
   ],
 };
 

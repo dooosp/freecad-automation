@@ -32,6 +32,7 @@ import {
   buildStabilizationReviewFromReadinessReports,
   writeCanonicalReadinessArtifacts,
 } from '../../workflows/canonical-readiness-builders.js';
+import { discoverInspectionEvidenceIntake } from '../inspection-evidence-intake/inspection-evidence-intake-service.js';
 import {
   resolveBundleBackedCanonicalPath,
   resolveBundleBackedConfigPath,
@@ -558,6 +559,17 @@ function validateOptionsObject(value, fieldName, errors) {
   }
 }
 
+function normalizeIntakePackageSlugs(options = {}) {
+  const value = options.package_slugs ?? options.packages ?? options.package ?? null;
+  if (Array.isArray(value)) {
+    return value.map((entry) => String(entry || '').trim()).filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    return value.split(',').map((entry) => entry.trim()).filter(Boolean);
+  }
+  return undefined;
+}
+
 export function validateJobRequest(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     return { ok: false, errors: ['Request body must be a JSON object.'] };
@@ -1073,6 +1085,26 @@ export function createJobExecutor({
     };
   }
 
+  async function executeInspectionEvidenceIntake(job) {
+    const options = job.request.options || {};
+    const report = await discoverInspectionEvidenceIntake({
+      projectRoot,
+      packageSlugs: normalizeIntakePackageSlugs(options),
+      includeGitHub: options.include_github === true || options.github === true,
+      githubRepo: options.github_repo || 'dooosp/freecad-automation',
+    });
+    const reportPath = await jobStore.writeJobFile(
+      job.id,
+      'artifacts/inspection-evidence-intake-report.json',
+      `${JSON.stringify(report, null, 2)}\n`
+    );
+
+    return {
+      report,
+      reportPath,
+    };
+  }
+
   function buildGenericAfMetadata(jobType, document, executionNotes = []) {
     return buildAfArtifactContractMetadata({
       jobType,
@@ -1349,6 +1381,31 @@ export function createJobExecutor({
             { type: 'input.readiness-report', path: result.readinessPath, label: 'Canonical readiness report JSON', scope: 'internal', stability: 'stable' },
             ...(result.docsManifestPath ? [{ type: 'input.docs-manifest', path: result.docsManifestPath, label: 'Standard docs manifest JSON', scope: 'internal', stability: 'stable' }] : []),
           );
+        } else if (job.type === 'inspection-evidence-intake') {
+          const intakeResult = await executeInspectionEvidenceIntake(job);
+          result = intakeResult.report;
+          artifacts = {
+            inspection_evidence_intake_report: intakeResult.reportPath,
+          };
+          manifestArtifacts.push({
+            type: 'inspection-evidence.intake-report',
+            path: intakeResult.reportPath,
+            label: 'Stage 5B inspection evidence intake report',
+            scope: 'user-facing',
+            stability: 'stable',
+            metadata: {
+              artifact_type: 'inspection_evidence_intake_report',
+              schema_version: intakeResult.report.schema_version || '1.0',
+              accepted_candidate_count: intakeResult.report.summary?.accepted_candidate_count ?? null,
+              rejected_candidate_count: intakeResult.report.summary?.rejected_candidate_count ?? null,
+              genuine_inspection_evidence_found: intakeResult.report.summary?.genuine_inspection_evidence_found === true,
+              readiness_truth: intakeResult.report.summary?.readiness_truth || null,
+              execution_notes: [
+                'inspection-evidence-intake reports are discovery/review artifacts only; they are not package inspection evidence.',
+                'Report preview is limited to registered tracked job artifact routes.',
+              ],
+            },
+          });
         } else {
           throw new Error(`Unsupported job type: ${job.type}`);
         }

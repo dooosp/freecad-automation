@@ -64,6 +64,23 @@ try {
   });
   assert.equal(reviewContextSideInputs.ok, true, reviewContextSideInputs.errors?.join('\n'));
 
+  const inspectionEvidenceIntake = validateJobRequest({
+    type: 'inspection-evidence-intake',
+    options: {
+      package_slugs: ['quality-pass-bracket', 'hinge-block'],
+      include_github: false,
+    },
+  });
+  assert.equal(inspectionEvidenceIntake.ok, true, inspectionEvidenceIntake.errors?.join('\n'));
+  assert.deepEqual(inspectionEvidenceIntake.request.options.package_slugs, ['quality-pass-bracket', 'hinge-block']);
+
+  const invalidInspectionEvidenceIntakePath = validateJobRequest({
+    type: 'inspection-evidence-intake',
+    out: '/tmp/private/intake-report.json',
+  });
+  assert.equal(invalidInspectionEvidenceIntakePath.ok, false);
+  assert.match(invalidInspectionEvidenceIntakePath.errors.join('\n'), /unsupported property "out"/);
+
   const invalidReviewTracked = validateJobRequest({
     type: 'pack',
   });

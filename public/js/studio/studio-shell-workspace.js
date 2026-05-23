@@ -68,6 +68,7 @@ export function createStudioWorkspaceController(app) {
         state: app.state,
         addLog: app.addLog,
         openJob: app.openJob,
+        submitTrackedJob: app.submitTrackedStudioRun,
       });
     } else if (app.state.route === 'artifacts') {
       app.runtime.activeWorkspaceController = mountArtifactsWorkspace({

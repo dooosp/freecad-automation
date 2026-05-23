@@ -116,7 +116,7 @@ assert.deepEqual(
 assert.deepEqual(
   deriveJobsCenterActionEligibility({
     id: 'job-review',
-    type: 'report',
+    type: 'inspection-evidence-intake',
     status: 'succeeded',
     capabilities: {
       cancellation_supported: false,

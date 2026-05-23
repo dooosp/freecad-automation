@@ -42,6 +42,7 @@ assert.equal(supportsStudioJobCancellation({ capabilities: { cancellation_suppor
 assert.equal(supportsStudioJobRetry({ capabilities: { retry_supported: true } }), true);
 assert.equal(supportsStudioJobRetry({ capabilities: { retry_supported: false } }), false);
 assert.equal(isReviewableStudioJob({ type: 'report', status: 'succeeded' }), true);
+assert.equal(isReviewableStudioJob({ type: 'inspection-evidence-intake', status: 'succeeded' }), true);
 assert.equal(isReviewableStudioJob({ type: 'compare-rev', status: 'succeeded' }), false);
 assert.equal(isReviewableStudioJob({ type: 'stabilization-review', status: 'succeeded' }), false);
 assert.equal(isReviewableStudioJob({ type: 'draw', status: 'succeeded' }), false);

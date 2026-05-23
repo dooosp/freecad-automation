@@ -306,6 +306,12 @@ const COMMAND_MANIFEST = Object.freeze([
       requiresFreecadRuntime: false,
       note: 'Emits a machine-readable discovery/intake report; generated artifacts, fixtures, templates, and guides are rejected as final inspection evidence.',
     }),
+    surfaces: Object.freeze({
+      jobExecutor: true,
+      localApi: true,
+      studio: true,
+      studioSubmission: 'local-only',
+    }),
   }),
   Object.freeze({
     name: 'stabilization-review',
@@ -739,6 +745,7 @@ const JOB_EXECUTOR_COMMAND_ORDER = Object.freeze([
   'stabilization-review',
   'generate-standard-docs',
   'pack',
+  'inspection-evidence-intake',
 ]);
 const STUDIO_JOB_COMMAND_ORDER = Object.freeze([
   'create',
@@ -750,6 +757,7 @@ const STUDIO_JOB_COMMAND_ORDER = Object.freeze([
   'stabilization-review',
   'generate-standard-docs',
   'pack',
+  'inspection-evidence-intake',
 ]);
 const STUDIO_ARTIFACT_JOB_ORDER = Object.freeze([
   'readiness-pack',
@@ -779,6 +787,7 @@ const LOCAL_API_OTHER_PUBLIC_JOB_ORDER = Object.freeze([
   'stabilization-review',
   'generate-standard-docs',
   'pack',
+  'inspection-evidence-intake',
 ]);
 
 function orderedCommandNames(order = [], predicate = null) {
