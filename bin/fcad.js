@@ -76,6 +76,7 @@ import { createReportService } from '../src/api/report.js';
 import { runReviewContextPipeline } from '../src/orchestration/review-context-pipeline.js';
 import { generateCloseoutPackage } from '../src/services/closeout-package/closeout-package-service.js';
 import { discoverInspectionEvidenceIntake } from '../src/services/inspection-evidence-intake/inspection-evidence-intake-service.js';
+import { writeInspectionEvidencePromotionDryRunManifest } from '../src/services/inspection-evidence-intake/promotion-dry-run-service.js';
 import { runSweep } from '../src/services/sweep/sweep-service.js';
 import { loadRuleProfile, summarizeRuleProfile } from '../src/services/config/rule-profile-service.js';
 import {
@@ -186,6 +187,18 @@ function requireExistingInputFile(label, filePath) {
   if (!filePath) return;
   if (!existsSync(filePath)) {
     console.error(`Error: ${label} file not found: ${filePath}`);
+    process.exit(1);
+  }
+}
+
+function requireRepoScopedPath(label, filePath) {
+  const relPath = relative(PROJECT_ROOT, resolve(filePath)).replace(/\\/g, '/');
+  if (!relPath || relPath.startsWith('..') || relPath.startsWith('/')) {
+    console.error(`Error: ${label} must stay inside the repository root`);
+    process.exit(1);
+  }
+  if (relPath.split('/').includes('..') || relPath.includes('\\') || relPath.startsWith('~')) {
+    console.error(`Error: ${label} failed repository path safety checks`);
     process.exit(1);
   }
 }
@@ -348,6 +361,34 @@ async function cmdInspectionEvidenceIntake(rawArgs = []) {
   return report;
 }
 
+async function cmdInspectionEvidencePromotionDryRun(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  const reportPath = resolveMaybe(options['intake-report'] || options.report || positional[0]);
+  if (!reportPath) {
+    console.error('Error: inspection-evidence-promotion-dry-run requires --intake-report <report.json>');
+    process.exit(1);
+  }
+  requireExistingInputFile('inspection evidence intake report', reportPath);
+  requireRepoScopedPath('inspection evidence intake report', reportPath);
+
+  const outputPath = normalizeJsonOutputPath(options.out || 'output/promotion_dry_run_manifest.json');
+  requireRepoScopedPath('promotion dry-run output', outputPath);
+  const intakeReport = await readJsonFile(reportPath);
+  const result = await writeInspectionEvidencePromotionDryRunManifest({
+    projectRoot: PROJECT_ROOT,
+    intakeReport,
+    intakeReportPath: reportPath,
+    outputPath,
+  });
+
+  console.log(`Inspection evidence promotion dry-run manifest: ${result.output_path}`);
+  console.log(`  Promotion can run: ${result.manifest.summary.promotion_can_run ? 'yes' : 'no'}`);
+  console.log(`  Ready packages: ${result.manifest.summary.ready_package_count}`);
+  console.log(`  Blocked packages: ${result.manifest.summary.blocked_package_count}`);
+  console.log(`  Canonical artifacts mutated: ${result.manifest.summary.canonical_artifacts_mutated ? 'yes' : 'no'}`);
+  return result.manifest;
+}
+
 async function main() {
   const [command, ...args] = process.argv.slice(2);
 
@@ -387,6 +428,8 @@ async function main() {
     await cmdCloseoutPackage(args);
   } else if (command === 'inspection-evidence-intake') {
     await cmdInspectionEvidenceIntake(args);
+  } else if (command === 'inspection-evidence-promotion-dry-run') {
+    await cmdInspectionEvidencePromotionDryRun(args);
   } else if (command === 'stabilization-review') {
     await cmdStabilizationReview(args);
   } else if (command === 'generate-standard-docs') {

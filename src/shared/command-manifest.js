@@ -314,6 +314,21 @@ const COMMAND_MANIFEST = Object.freeze([
     }),
   }),
   Object.freeze({
+    name: 'inspection-evidence-promotion-dry-run',
+    helpSection: 'plain-python-node',
+    helpEntries: Object.freeze([
+      Object.freeze({
+        usage: 'fcad inspection-evidence-promotion-dry-run --intake-report <report.json> [--out <promotion_dry_run_manifest.json>]',
+        summary: 'Plan the future evidence promotion command chain without mutating canonical package artifacts',
+      }),
+    ]),
+    runtime: Object.freeze({
+      classification: 'plain-python-node',
+      requiresFreecadRuntime: false,
+      note: 'Consumes an intake report and writes a deterministic dry-run manifest with commands, expected outputs, blockers, mutation boundaries, and rollback guidance.',
+    }),
+  }),
+  Object.freeze({
     name: 'stabilization-review',
     helpSection: 'plain-python-node',
     helpEntries: Object.freeze([
