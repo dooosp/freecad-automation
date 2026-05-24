@@ -335,6 +335,21 @@ const COMMAND_MANIFEST = Object.freeze([
     }),
   }),
   Object.freeze({
+    name: 'stage5b-evidence-audit',
+    helpSection: 'plain-python-node',
+    helpEntries: Object.freeze([
+      Object.freeze({
+        usage: 'fcad stage5b-evidence-audit --out-dir <dir> [--include-github]',
+        summary: 'Run Stage 5B intake plus promotion dry-run and write a consolidated non-mutating audit bundle',
+      }),
+    ]),
+    runtime: Object.freeze({
+      classification: 'plain-python-node',
+      requiresFreecadRuntime: false,
+      note: 'Writes intake_report.json, promotion_dry_run_manifest.json, stage5b_audit_manifest.json, and a markdown summary without mutating canonical package artifacts.',
+    }),
+  }),
+  Object.freeze({
     name: 'stabilization-review',
     helpSection: 'plain-python-node',
     helpEntries: Object.freeze([
