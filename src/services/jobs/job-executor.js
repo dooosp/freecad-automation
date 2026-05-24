@@ -36,6 +36,10 @@ import { discoverInspectionEvidenceIntake } from '../inspection-evidence-intake/
 import { buildInspectionEvidencePromotionDryRunManifest } from '../inspection-evidence-intake/promotion-dry-run-service.js';
 import { writeStage5bEvidenceAuditBundle } from '../inspection-evidence-intake/stage5b-evidence-audit-service.js';
 import {
+  assertValidStage5bIntakeReport,
+  assertValidStage5bPromotionDryRunManifest,
+} from '../inspection-evidence-intake/stage5b-runtime-validation.js';
+import {
   resolveBundleBackedCanonicalPath,
   resolveBundleBackedConfigPath,
   resolveBundleBackedDocsManifestPath,
@@ -1231,6 +1235,7 @@ export function createJobExecutor({
 
   async function executeInspectionEvidencePromotionDryRun(job) {
     const source = await loadPromotionDryRunIntakeReport(job);
+    assertValidStage5bIntakeReport(source.report, { label: 'source intake report' });
     const manifest = buildInspectionEvidencePromotionDryRunManifest({
       projectRoot,
       intakeReport: source.report,
@@ -1244,6 +1249,7 @@ export function createJobExecutor({
         artifact_ref: source.artifactRef,
       };
     }
+    assertValidStage5bPromotionDryRunManifest(manifest, { label: 'promotion dry-run manifest' });
 
     const manifestPath = await jobStore.writeJobFile(
       job.id,

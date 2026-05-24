@@ -4,6 +4,12 @@ import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 
 import { discoverInspectionEvidenceIntake } from './inspection-evidence-intake-service.js';
 import { writeInspectionEvidencePromotionDryRunManifest } from './promotion-dry-run-service.js';
+import {
+  assertValidStage5bAuditManifest,
+  assertValidStage5bAuditSummaryMarkdown,
+  assertValidStage5bIntakeReport,
+  assertValidStage5bPromotionDryRunManifest,
+} from './stage5b-runtime-validation.js';
 
 const AUDIT_SCHEMA_VERSION = '1.0';
 const INTAKE_FILE_NAME = 'intake_report.json';
@@ -460,6 +466,7 @@ export async function writeStage5bEvidenceAuditBundle({
   if (githubFetch) intakeOptions.githubFetch = githubFetch;
 
   const intakeReport = await discoverInspectionEvidenceIntake(intakeOptions);
+  assertValidStage5bIntakeReport(intakeReport, { label: 'audit intake report' });
   await writeJsonFile(intakeReportPath, intakeReport);
 
   const promotionResult = await writeInspectionEvidencePromotionDryRunManifest({
@@ -469,6 +476,7 @@ export async function writeStage5bEvidenceAuditBundle({
     outputPath: promotionDryRunManifestPath,
     generatedAt: generated,
   });
+  assertValidStage5bPromotionDryRunManifest(promotionResult.manifest, { label: 'audit promotion dry-run manifest' });
 
   const intakeSha256 = await sha256IfReadable(intakeReportPath);
   const promotionDryRunSha256 = await sha256IfReadable(promotionDryRunManifestPath);
@@ -487,6 +495,7 @@ export async function writeStage5bEvidenceAuditBundle({
     promotionDryRunSha256,
   });
   const summaryMarkdown = renderAuditSummaryMarkdown(manifest);
+  assertValidStage5bAuditSummaryMarkdown(summaryMarkdown, { label: 'audit summary markdown' });
   await writeFile(auditSummaryPath, summaryMarkdown, 'utf8');
   const auditSummarySha256 = await sha256IfReadable(auditSummaryPath);
   manifest = {
@@ -499,6 +508,7 @@ export async function writeStage5bEvidenceAuditBundle({
       },
     },
   };
+  assertValidStage5bAuditManifest(manifest, { label: 'audit manifest' });
   await writeJsonFile(auditManifestPath, manifest);
 
   return {

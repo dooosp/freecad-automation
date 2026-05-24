@@ -8,6 +8,7 @@ import { promisify } from 'node:util';
 
 import { validateInspectionEvidence } from '../../../lib/inspection-evidence.js';
 import { CANONICAL_PACKAGE_SLUGS } from '../../server/canonical-package-discovery.js';
+import { assertValidStage5bIntakeReport } from './stage5b-runtime-validation.js';
 
 const execFile = promisify(execFileCallback);
 
@@ -833,21 +834,45 @@ async function readReadinessState(projectRoot, slug) {
   const readinessPath = `docs/examples/${slug}/readiness/readiness_report.json`;
   const parsed = await readJsonIfPossible(projectRoot, readinessPath);
   const summary = safeObject(parsed.document?.readiness_summary);
-  const missingInputs = Array.isArray(summary.missing_inputs)
+  const explicitMissingInputs = Array.isArray(summary.missing_inputs);
+  const missingInputs = explicitMissingInputs
     ? summary.missing_inputs
     : uniqueStrings([
       ...safeList(parsed.document?.review_pack?.uncertainty_coverage_report?.missing_inputs),
       ...safeList(parsed.document?.process_plan?.summary?.missing_inputs),
       ...safeList(parsed.document?.quality_risk?.summary?.missing_inputs),
     ]);
+  const synthesizeHeldState = !parsed.ok
+    || (!summary.status && !summary.gate_decision && missingInputs.length === 0);
+  const effectiveMissingInputs = missingInputs.length > 0
+    ? missingInputs
+    : synthesizeHeldState
+      ? ['inspection_evidence']
+      : [];
   return {
-    status: summary.status || null,
+    status: summary.status || (synthesizeHeldState ? 'needs_more_evidence' : null),
     score: summary.score ?? null,
-    gate_decision: summary.gate_decision || null,
-    missing_inputs: missingInputs,
-    inspection_evidence_missing: missingInputs.includes('inspection_evidence'),
+    gate_decision: summary.gate_decision || (synthesizeHeldState ? 'hold_for_evidence_completion' : null),
+    missing_inputs: effectiveMissingInputs,
+    inspection_evidence_missing: effectiveMissingInputs.includes('inspection_evidence'),
     source_of_truth_path: readinessPath,
   };
+}
+
+async function findCanonicalModelPath(projectRoot, slug) {
+  const cadRoot = `docs/examples/${slug}/cad`;
+  try {
+    const entries = await readdir(resolve(projectRoot, cadRoot));
+    const preferred = [
+      entries.find((entry) => /\.step$/i.test(entry)),
+      entries.find((entry) => /\.stp$/i.test(entry)),
+      entries.find((entry) => /\.fcstd$/i.test(entry)),
+      entries.find((entry) => /\.stl$/i.test(entry)),
+    ].find(Boolean);
+    return preferred ? `${cadRoot}/${preferred}` : null;
+  } catch {
+    return null;
+  }
 }
 
 async function listPackageDrawingJsonPaths(projectRoot, slug) {
@@ -963,6 +988,7 @@ async function readPackageProfile(projectRoot, slug) {
   return {
     slug,
     package_root: packageRoot,
+    canonical_model_path: await findCanonicalModelPath(projectRoot, slug),
     review_pack_path: reviewPackPath,
     source_paths: sourcePaths,
     model_and_drawing_signals: modelAndDrawingSignals,
@@ -1162,6 +1188,7 @@ function evaluateCandidatePackageMatch(candidate, profile) {
 
   return {
     slug: profile.slug,
+    canonical_model_path: profile.canonical_model_path || null,
     score,
     match_signals: uniqueStrings(matchSignals),
     strong_package_signal: strongPackageSignal,
@@ -1260,7 +1287,9 @@ function planCandidateAttachment(candidate, profiles = []) {
     missing_required_features: best.missing_required_features,
     attachment_ready: attachmentReady,
     blockers,
-    canonical_next_command: attachmentReady ? canonicalCommandPlan(best.slug, candidate).review_context : null,
+    canonical_next_command: attachmentReady
+      ? canonicalCommandPlan(best.slug, candidate, { modelPath: best.canonical_model_path }).review_context
+      : null,
     note: attachmentReady
       ? 'High-confidence package match with explicit provenance; attach only through the canonical review-context chain.'
       : 'Validated evidence requires review before canonical attachment.',
@@ -1305,18 +1334,19 @@ function packageHoldAttachmentPlan({
   };
 }
 
-function canonicalCommandPlan(slug, acceptedCandidate) {
+function canonicalCommandPlan(slug, acceptedCandidate, { modelPath = null } = {}) {
   const packageRoot = `docs/examples/${slug}`;
   const candidatePath = acceptedCandidate.path;
   const attachmentPath = acceptedCandidate.source_format === 'json' && !isExternalCandidate(acceptedCandidate)
     ? candidatePath
     : `${packageRoot}/inspection/inspection_evidence.json`;
+  const safeModelPath = modelPath || `${packageRoot}/cad/canonical-model-file.step`;
   return {
     review_context: [
       'fcad',
       'review-context',
       '--model',
-      `${packageRoot}/cad/<canonical-model-file>`,
+      safeModelPath,
       '--inspection-evidence',
       attachmentPath,
       '--out',
@@ -2109,6 +2139,7 @@ export async function discoverInspectionEvidenceIntake({
     }));
 
   const packages = [];
+  const packageProfileBySlug = new Map(packageProfiles.map((profile) => [profile.slug, profile]));
   for (const slug of normalizedSlugs) {
     const packageAccepted = attachmentReadyCandidates.filter((candidate) => candidate.matched_package === slug);
     const packageRejected = rejectedCandidates.filter((candidate) => candidate.package_slug === slug);
@@ -2122,6 +2153,9 @@ export async function discoverInspectionEvidenceIntake({
       packageRejectedCandidates: packageRejected,
     });
     const readyPlan = packageAccepted[0]?.attachment_plan || null;
+    const commandPlan = packageAccepted.length > 0
+      ? canonicalCommandPlan(slug, packageAccepted[0], { modelPath: packageProfileBySlug.get(slug)?.canonical_model_path })
+      : null;
     const attachmentPlan = readyPlan || packageHoldAttachmentPlan({
       slug,
       candidatePlans: packageCandidatePlans,
@@ -2168,8 +2202,8 @@ export async function discoverInspectionEvidenceIntake({
             normalized_contract_target: packageAccepted[0].source_format === 'json' && !isExternalCandidate(packageAccepted[0])
               ? packageAccepted[0].path
               : `docs/examples/${slug}/inspection/inspection_evidence.json`,
-            canonical_commands: canonicalCommandPlan(slug, packageAccepted[0]),
-            canonical_next_command: readyPlan?.canonical_next_command || canonicalCommandPlan(slug, packageAccepted[0]).review_context,
+            canonical_commands: commandPlan,
+            canonical_next_command: readyPlan?.canonical_next_command || commandPlan.review_context,
             matched_package: readyPlan?.matched_package || slug,
             match_confidence: readyPlan?.match_confidence || 'high',
             matched_features: readyPlan?.matched_features || [],
@@ -2201,7 +2235,7 @@ export async function discoverInspectionEvidenceIntake({
     });
   }
 
-  return {
+  const report = {
     artifact_type: 'inspection_evidence_intake_report',
     schema_version: REPORT_SCHEMA_VERSION,
     generated_at: nowIso(generatedAt),
@@ -2272,4 +2306,6 @@ export async function discoverInspectionEvidenceIntake({
         : 'readiness remains needs_more_evidence / hold_for_evidence_completion',
     },
   };
+  assertValidStage5bIntakeReport(report, { label: 'inspection evidence intake report' });
+  return report;
 }
