@@ -11,6 +11,15 @@ const INSPECTION_PROMOTION_DRY_RUN_MATCHERS = [
   'promotion_dry_run_manifest',
   'promotion dry-run manifest',
 ];
+const STAGE5B_AUDIT_MATCHERS = [
+  'stage5b.evidence-audit-manifest',
+  'stage5b.evidence-audit-summary',
+  'stage5b-evidence-audit',
+  'stage5b_audit_manifest',
+  'stage5b audit manifest',
+  'stage5b_audit_summary',
+  'stage5b audit summary',
+];
 const REVIEW_SOURCE_MATCHERS = [
   'readiness',
   'review.product',
@@ -27,6 +36,7 @@ const REVIEW_SOURCE_MATCHERS = [
   'drawing.qa-report',
   ...INSPECTION_INTAKE_MATCHERS,
   ...INSPECTION_PROMOTION_DRY_RUN_MATCHERS,
+  ...STAGE5B_AUDIT_MATCHERS,
 ];
 const DOCS_MANIFEST_MATCHERS = [
   'standard_docs_manifest',
@@ -233,6 +243,13 @@ export function isInspectionEvidencePromotionDryRunArtifact(artifact = {}) {
   return extension === '.json' && includesAny(artifactSearchText(artifact), INSPECTION_PROMOTION_DRY_RUN_MATCHERS);
 }
 
+export function isStage5bEvidenceAuditArtifact(artifact = {}) {
+  if (artifact.exists === false) return false;
+  const extension = normalizeString(artifact.extension);
+  return (extension === '.json' || extension === '.md' || extension === '.markdown')
+    && includesAny(artifactSearchText(artifact), STAGE5B_AUDIT_MATCHERS);
+}
+
 export function canReenterModelWorkspace(artifact = {}) {
   return artifact.exists !== false && isConfigLikeArtifact(artifact);
 }
@@ -319,6 +336,12 @@ export function findPreferredInspectionEvidencePromotionDryRunArtifact(artifacts
     .sort((left, right) => artifactSearchText(left).localeCompare(artifactSearchText(right)))[0] || null;
 }
 
+export function findPreferredStage5bEvidenceAuditArtifact(artifacts = []) {
+  return [...artifacts]
+    .filter((artifact) => isStage5bEvidenceAuditArtifact(artifact) && normalizeString(artifact.extension) === '.json')
+    .sort((left, right) => artifactSearchText(left).localeCompare(artifactSearchText(right)))[0] || null;
+}
+
 function firstAvailableArtifact(artifacts = [], predicate = () => true) {
   return artifacts.find((artifact) => artifact?.exists !== false && predicate(artifact)) || null;
 }
@@ -337,7 +360,8 @@ function isQualityEvidenceArtifact(artifact = {}) {
 }
 
 export function findDefaultArtifactForJob(artifacts = []) {
-  return firstAvailableArtifact(artifacts, isInspectionEvidencePromotionDryRunArtifact)
+  return firstAvailableArtifact(artifacts, isStage5bEvidenceAuditArtifact)
+    || firstAvailableArtifact(artifacts, isInspectionEvidencePromotionDryRunArtifact)
     || firstAvailableArtifact(artifacts, isInspectionEvidenceIntakeArtifact)
     || firstAvailableArtifact(artifacts, isReportSummaryDefaultArtifact)
     || firstAvailableArtifact(artifacts, isQualityReportPdfArtifact)

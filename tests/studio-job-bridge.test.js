@@ -359,6 +359,47 @@ const invalidPromotionDryRunUnsafePath = validateStudioJobSubmission({
 assert.equal(invalidPromotionDryRunUnsafePath.ok, false);
 assert.match(invalidPromotionDryRunUnsafePath.errors.join('\n'), /safe repo-relative/i);
 
+const stage5bAuditSubmission = await translateStudioJobSubmission({
+  type: 'stage5b-evidence-audit',
+  options: {
+    include_github: true,
+  },
+});
+
+assert.equal(stage5bAuditSubmission.ok, true, stage5bAuditSubmission.errors?.join('\n'));
+assert.equal(stage5bAuditSubmission.request.type, 'stage5b-evidence-audit');
+assert.deepEqual(stage5bAuditSubmission.request.options, { include_github: true });
+assert.equal('out_dir' in stage5bAuditSubmission.request, false);
+
+const invalidStage5bAuditWithPath = validateStudioJobSubmission({
+  type: 'stage5b-evidence-audit',
+  out_dir: '/tmp/private/stage5b-audit',
+});
+
+assert.equal(invalidStage5bAuditWithPath.ok, false);
+assert.match(invalidStage5bAuditWithPath.errors.join('\n'), /Unsupported property "out_dir"|does not accept/i);
+
+const invalidStage5bAuditWithArtifact = validateStudioJobSubmission({
+  type: 'stage5b-evidence-audit',
+  artifact_ref: {
+    job_id: 'job-intake',
+    artifact_id: 'inspection-evidence-intake-report-0',
+  },
+});
+
+assert.equal(invalidStage5bAuditWithArtifact.ok, false);
+assert.match(invalidStage5bAuditWithArtifact.errors.join('\n'), /stage5b-evidence-audit does not accept artifact_ref/i);
+
+const invalidStage5bAuditIncludeGithub = validateStudioJobSubmission({
+  type: 'stage5b-evidence-audit',
+  options: {
+    include_github: 'yes',
+  },
+});
+
+assert.equal(invalidStage5bAuditIncludeGithub.ok, false);
+assert.match(invalidStage5bAuditIncludeGithub.errors.join('\n'), /include_github.*boolean/i);
+
 const compareFromArtifacts = await translateStudioJobSubmission({
   type: 'compare-rev',
   baseline_artifact_ref: {

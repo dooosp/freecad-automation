@@ -63,7 +63,7 @@ The acceptance check is not just green jobs: hosted fast lanes and the self-host
 
 ## Docs Smoke Coverage
 
-`node tests/first-user-docs-smoke.test.js` checks the first-user package documentation path, including the Studio walkthrough for canonical package cards, safe artifact preview, release bundle boundaries, the Stage 5B inspection evidence intake Studio/API review surface, the canonical package generation workflow guide, the DFM/readiness guide, the final non-inspection software closeout report, the Stage 5D feature expansion closeout, and the current `needs_more_evidence` / `inspection_evidence` readiness hold.
+`node tests/first-user-docs-smoke.test.js` checks the first-user package documentation path, including the Studio walkthrough for canonical package cards, safe artifact preview, release bundle boundaries, the Stage 5B inspection evidence audit/intake Studio/API review surface, the canonical package generation workflow guide, the DFM/readiness guide, the final non-inspection software closeout report, the Stage 5D feature expansion closeout, and the current `needs_more_evidence` / `inspection_evidence` readiness hold.
 
 ## Verification Wording
 

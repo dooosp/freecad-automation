@@ -49,6 +49,29 @@ function validateOptionalObject(value, fieldName, errors) {
   }
 }
 
+function validateStage5bAuditOptions(options, errors) {
+  if (options === undefined) return;
+  if (!isPlainObject(options)) return;
+  const unsupportedOptions = Object.keys(options).filter((key) => key !== 'include_github');
+  if (unsupportedOptions.length > 0) {
+    errors.push(`stage5b-evidence-audit options only accepts include_github; unsupported option(s): ${unsupportedOptions.join(', ')}.`);
+  }
+  if (
+    Object.hasOwn(options, 'include_github')
+    && typeof options.include_github !== 'boolean'
+  ) {
+    errors.push('stage5b-evidence-audit options.include_github must be a boolean when provided.');
+  }
+}
+
+function buildStage5bAuditOptions(request) {
+  const options = {};
+  if (request.options?.include_github === true || request.options?.include_github === false) {
+    options.include_github = request.options.include_github;
+  }
+  return options;
+}
+
 function validateArtifactRef(value, fieldName, errors) {
   if (value === undefined) return;
   if (!isPlainObject(value)) {
@@ -290,6 +313,34 @@ export function validateStudioJobSubmission(body) {
     if (hasIntakeReportPath && !isSafeRepoRelativeJsonPath(request.intake_report_path)) {
       errors.push('inspection-evidence-promotion-dry-run intake_report_path must be a safe repo-relative JSON path.');
     }
+  } else if (request.type === 'stage5b-evidence-audit') {
+    const unsupportedAuditFields = [
+      'config_toml',
+      'artifact_ref',
+      'baseline_artifact_ref',
+      'candidate_artifact_ref',
+      'context_path',
+      'model_path',
+      'bom_path',
+      'inspection_path',
+      'quality_path',
+      'create_quality_path',
+      'drawing_quality_path',
+      'drawing_qa_path',
+      'drawing_intent_path',
+      'feature_catalog_path',
+      'dfm_report_path',
+      'compare_to_path',
+      'intake_report_path',
+      'drawing_settings',
+      'drawing_preview_id',
+      'drawing_plan',
+      'report_options',
+    ].filter((fieldName) => request[fieldName] !== undefined);
+    if (unsupportedAuditFields.length > 0) {
+      errors.push(`stage5b-evidence-audit does not accept ${unsupportedAuditFields.join(', ')}.`);
+    }
+    validateStage5bAuditOptions(request.options, errors);
   } else if (request.type === 'inspect') {
     if (!hasArtifactRef) {
       errors.push('artifact_ref is required for type "inspect".');
@@ -441,6 +492,18 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
         type: 'inspection-evidence-promotion-dry-run',
         intake_report_path: trimOptionalString(request.intake_report_path),
         ...(isPlainObject(request.options) ? { options: structuredClone(request.options) } : {}),
+      },
+    };
+  }
+
+  if (request.type === 'stage5b-evidence-audit') {
+    const options = buildStage5bAuditOptions(request);
+    return {
+      ok: true,
+      errors: [],
+      request: {
+        type: 'stage5b-evidence-audit',
+        ...(Object.keys(options).length > 0 ? { options } : {}),
       },
     };
   }

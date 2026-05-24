@@ -526,10 +526,10 @@ assertMentions(studioFirstUserWalkthroughText, /`inspection_evidence` means genu
 assertMentions(studioFirstUserWalkthroughText, /Generated quality, drawing, review, readiness, standard-docs, release, template, fixture, and collection-guide artifacts are not inspection evidence/, 'Studio walkthrough should reject generated artifacts as inspection evidence');
 assertMentions(studioFirstUserWalkthroughText, /Production readiness remains held until genuine completed inspection evidence exists/, 'Studio walkthrough should keep production readiness held');
 assertMentions(studioFirstUserWalkthroughText, /Stage 5B remains parked until a genuine completed inspection evidence JSON exists/, 'Studio walkthrough should preserve Stage 5B parked language');
-assertMentions(studioFirstUserWalkthroughText, /Run Stage 5B intake from Review/, 'Studio walkthrough should document the Stage 5B intake review workflow');
-assertMentions(studioFirstUserWalkthroughText, /accepted count, rejected count, rejection classes, searched source classes, and package readiness/, 'Studio walkthrough should describe the intake summary fields');
+assertMentions(studioFirstUserWalkthroughText, /Run Stage 5B audit from Review/, 'Studio walkthrough should document the Stage 5B audit review workflow');
+assertMentions(studioFirstUserWalkthroughText, /genuine evidence found, promotion can run, attachment-ready count, blockers, package readiness states, GitHub summary, next safe commands, readiness-held truth, and the evidence boundary/, 'Studio walkthrough should describe the audit summary fields');
 assertMentions(studioFirstUserWalkthroughText, /Readiness remains held when accepted count is `0`/, 'Studio walkthrough should explain the no-valid-evidence state');
-assertMentions(studioFirstUserWalkthroughText, /preview the report only through the tracked job artifact route/, 'Studio walkthrough should preserve tracked-report preview safety');
+assertMentions(studioFirstUserWalkthroughText, /preview audit artifacts only through tracked job artifact routes/, 'Studio walkthrough should preserve tracked-audit preview safety');
 assertMentions(
   studioFirstUserWalkthroughText,
   /\[final non-inspection software closeout\]\(\.\/final-non-inspection-software-closeout\.md\)/,
@@ -594,8 +594,8 @@ assertMentions(
 );
 assertMentions(
   testingDocText,
-  /Stage 5B inspection evidence intake Studio\/API review surface/,
-  'testing doc should document Stage 5B intake Studio/API test coverage'
+  /Stage 5B inspection evidence audit\/intake Studio\/API review surface/,
+  'testing doc should document Stage 5B audit/intake Studio/API test coverage'
 );
 
 for (const slug of CANONICAL_PACKAGES) {

@@ -127,22 +127,39 @@ function findLatestInspectionIntakeJob(recentJobs = []) {
   return recentJobs.find((job) => String(job?.type || '').toLowerCase() === 'inspection-evidence-intake') || null;
 }
 
+function findLatestStage5bAuditJob(recentJobs = []) {
+  return recentJobs.find((job) => String(job?.type || '').toLowerCase() === 'stage5b-evidence-audit') || null;
+}
+
 function renderInspectionIntakeLauncher(recentJobs = []) {
+  const latestAudit = findLatestStage5bAuditJob(recentJobs);
   const latestIntake = findLatestInspectionIntakeJob(recentJobs);
   return el('div', {
     className: 'inspection-intake-launcher',
     children: [
       el('p', {
         className: 'inline-note',
-        text: 'Run Stage 5B intake without human-entered measurements. Reports summarize accepted and rejected candidates; they do not create inspection evidence.',
+        text: 'Run the Stage 5B audit bundle without human-entered measurements. It summarizes intake, promotion dry-run blockers, readiness-held truth, and the evidence boundary without creating inspection evidence.',
       }),
       el('div', {
         className: 'review-card-actions',
         children: [
           createButton({
+            label: 'Run audit',
+            action: 'run-stage5b-audit',
+            tone: 'primary',
+          }),
+          createButton({
+            label: latestAudit ? 'Open latest audit' : 'No audit bundle yet',
+            action: 'open-latest-stage5b-audit',
+            tone: 'ghost',
+            disabled: !latestAudit,
+            dataset: latestAudit ? { jobId: latestAudit.id } : {},
+          }),
+          createButton({
             label: 'Run intake',
             action: 'run-stage5b-intake',
-            tone: 'primary',
+            tone: 'ghost',
           }),
           createButton({
             label: latestIntake ? 'Open latest intake' : 'No intake report yet',
@@ -248,8 +265,8 @@ export function renderReviewWorkspace(state) {
             children: [
               createCard({
                 kicker: 'Stage 5B intake',
-                title: 'Inspection evidence intake review',
-                copy: 'Repeat the no-evidence scan locally, then inspect the tracked report artifact in Review. No human-entered measurements are requested.',
+                title: 'Evidence audit review',
+                copy: 'Run the bundled audit locally, then inspect the tracked audit artifacts in Review. No human-entered measurements are requested.',
                 body: [
                   el('div', {
                     dataset: { hook: 'review-intake-launcher' },
@@ -611,6 +628,9 @@ export function mountReviewWorkspace({ root, state, addLog, openJob, submitTrack
         inspectionPromotionDryRun: findBy('inspection-evidence.promotion-dry-run-manifest', '.json')
           || findBy('inspection-evidence-promotion-dry-run-manifest', '.json')
           || findBy('promotion_dry_run_manifest', '.json'),
+        stage5bAudit: findBy('stage5b.evidence-audit-manifest', '.json')
+          || findBy('stage5b-evidence-audit', '.json')
+          || findBy('stage5b_audit_manifest', '.json'),
       };
 
       const sourceEntries = Object.entries(sourceArtifacts).filter(([, artifact]) => artifact);
@@ -677,6 +697,47 @@ export function mountReviewWorkspace({ root, state, addLog, openJob, submitTrack
 
     if (actionTarget.dataset.action === 'open-latest-stage5b-intake' && actionTarget.dataset.jobId) {
       openJob(actionTarget.dataset.jobId, { route: 'review' });
+      return;
+    }
+
+    if (actionTarget.dataset.action === 'open-latest-stage5b-audit' && actionTarget.dataset.jobId) {
+      openJob(actionTarget.dataset.jobId, { route: 'review' });
+      return;
+    }
+
+    if (actionTarget.dataset.action === 'run-stage5b-audit') {
+      if (typeof submitTrackedJob !== 'function') {
+        addLog({
+          status: 'Stage 5B audit',
+          message: 'Tracked audit submission is unavailable on this serve path.',
+          tone: 'warn',
+          time: 'review',
+        });
+        return;
+      }
+      submitTrackedJob({
+        type: 'stage5b-evidence-audit',
+        options: {
+          include_github: false,
+        },
+        completionAction: {
+          preferredRoute: 'review',
+        },
+      }).then((job) => {
+        addLog({
+          status: 'Stage 5B audit',
+          message: `Queued tracked stage5b-evidence-audit ${shortJobId(job?.id || '')}.`,
+          tone: 'info',
+          time: 'review',
+        });
+      }).catch((error) => {
+        addLog({
+          status: 'Stage 5B audit',
+          message: error instanceof Error ? error.message : String(error),
+          tone: 'warn',
+          time: 'review',
+        });
+      });
       return;
     }
 

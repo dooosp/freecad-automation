@@ -1,4 +1,4 @@
-import { basename, dirname, extname, join, parse, resolve } from 'node:path';
+import { basename, dirname, extname, isAbsolute, join, parse, relative, resolve } from 'node:path';
 import { copyFile, mkdir, stat } from 'node:fs/promises';
 import {
   AfExecutionContractError,
@@ -34,6 +34,7 @@ import {
 } from '../../workflows/canonical-readiness-builders.js';
 import { discoverInspectionEvidenceIntake } from '../inspection-evidence-intake/inspection-evidence-intake-service.js';
 import { buildInspectionEvidencePromotionDryRunManifest } from '../inspection-evidence-intake/promotion-dry-run-service.js';
+import { writeStage5bEvidenceAuditBundle } from '../inspection-evidence-intake/stage5b-evidence-audit-service.js';
 import {
   resolveBundleBackedCanonicalPath,
   resolveBundleBackedConfigPath,
@@ -347,6 +348,13 @@ async function ensureJobArtifactDir(jobStore, jobId) {
   return directory;
 }
 
+function isPathInsideProject(projectRoot, pathValue) {
+  const root = resolve(projectRoot);
+  const target = resolve(pathValue);
+  const rel = relative(root, target).replaceAll('\\', '/');
+  return Boolean(rel) && !rel.startsWith('..') && !isAbsolute(rel);
+}
+
 function buildBundleImportManifestArtifacts(importRecords = []) {
   const bundleEntries = [];
   const extractedEntries = [];
@@ -608,6 +616,24 @@ function validatePromotionDryRunRequest(request, errors) {
   }
 }
 
+function validateStage5bAuditRequest(request, errors) {
+  if (request.type !== 'stage5b-evidence-audit') return;
+  if (request.options !== undefined && !isPlainObject(request.options)) return;
+
+  const options = request.options || {};
+  const optionKeys = Object.keys(options);
+  const unsupportedOptions = optionKeys.filter((key) => key !== 'include_github');
+  if (unsupportedOptions.length > 0) {
+    errors.push(`stage5b-evidence-audit options only accepts include_github; unsupported option(s): ${unsupportedOptions.join(', ')}.`);
+  }
+  if (
+    Object.hasOwn(options, 'include_github')
+    && typeof options.include_github !== 'boolean'
+  ) {
+    errors.push('stage5b-evidence-audit options.include_github must be a boolean when provided.');
+  }
+}
+
 function isInspectionEvidenceIntakeArtifactRecord(artifact = {}) {
   const search = [
     artifact.type,
@@ -638,6 +664,7 @@ export function validateJobRequest(body) {
       validateOptionsObject(request.config, 'config', errors);
     }
     validatePromotionDryRunRequest(request, errors);
+    validateStage5bAuditRequest(request, errors);
   }
 
   return {
@@ -1230,6 +1257,21 @@ export function createJobExecutor({
     };
   }
 
+  async function executeStage5bEvidenceAudit(job) {
+    const defaultArtifactDir = await ensureJobArtifactDir(jobStore, job.id);
+    const outputDir = isPathInsideProject(projectRoot, defaultArtifactDir)
+      ? defaultArtifactDir
+      : resolve(projectRoot, 'tmp', 'codex', 'stage5b-evidence-audit-jobs', job.id);
+    await mkdir(outputDir, { recursive: true });
+
+    const options = job.request.options || {};
+    return writeStage5bEvidenceAuditBundle({
+      projectRoot,
+      outDir: outputDir,
+      includeGitHub: options.include_github === true,
+    });
+  }
+
   function buildGenericAfMetadata(jobType, document, executionNotes = []) {
     return buildAfArtifactContractMetadata({
       jobType,
@@ -1557,6 +1599,92 @@ export function createJobExecutor({
               ],
             },
           });
+        } else if (job.type === 'stage5b-evidence-audit') {
+          const auditResult = await executeStage5bEvidenceAudit(job);
+          result = auditResult.manifest;
+          const outputDir = auditResult.absolute_output_dir;
+          const intakePath = join(outputDir, 'intake_report.json');
+          const dryRunPath = join(outputDir, 'promotion_dry_run_manifest.json');
+          const auditManifestPath = join(outputDir, 'stage5b_audit_manifest.json');
+          const auditSummaryPath = join(outputDir, 'stage5b_audit_summary.md');
+          artifacts = {
+            stage5b_audit_intake_report: intakePath,
+            stage5b_audit_promotion_dry_run_manifest: dryRunPath,
+            stage5b_audit_manifest: auditManifestPath,
+            stage5b_audit_summary: auditSummaryPath,
+          };
+          manifestArtifacts.push(
+            {
+              type: 'inspection-evidence.intake-report',
+              path: intakePath,
+              label: 'Stage 5B audit intake report',
+              scope: 'user-facing',
+              stability: 'stable',
+              metadata: {
+                artifact_type: 'inspection_evidence_intake_report',
+                schema_version: auditResult.intake_report.schema_version || '1.0',
+                accepted_candidate_count: auditResult.intake_report.summary?.accepted_candidate_count ?? null,
+                rejected_candidate_count: auditResult.intake_report.summary?.rejected_candidate_count ?? null,
+                genuine_inspection_evidence_found: auditResult.intake_report.summary?.genuine_inspection_evidence_found === true,
+                execution_notes: [
+                  'Audit intake reports are discovery/review artifacts only; they are not package inspection evidence.',
+                  'Report preview is limited to registered tracked job artifact routes.',
+                ],
+              },
+            },
+            {
+              type: 'inspection-evidence.promotion-dry-run-manifest',
+              path: dryRunPath,
+              label: 'Stage 5B audit promotion dry-run manifest',
+              scope: 'user-facing',
+              stability: 'stable',
+              metadata: {
+                artifact_type: 'inspection_evidence_promotion_dry_run_manifest',
+                schema_version: auditResult.promotion_dry_run_manifest.schema_version || '1.0',
+                promotion_can_run: auditResult.promotion_dry_run_manifest.summary?.promotion_can_run === true,
+                canonical_artifacts_mutated: false,
+                execution_notes: [
+                  'Audit promotion dry-run manifests are planning/control artifacts only; they are not inspection evidence.',
+                  'Dry-run execution writes only tracked job artifacts and does not mutate canonical packages.',
+                ],
+              },
+            },
+            {
+              type: 'stage5b.evidence-audit-manifest',
+              path: auditManifestPath,
+              label: 'Stage 5B evidence audit manifest',
+              scope: 'user-facing',
+              stability: 'stable',
+              metadata: {
+                artifact_type: 'stage5b_evidence_audit_manifest',
+                schema_version: auditResult.manifest.schema_version || '1.0',
+                genuine_inspection_evidence_found: auditResult.manifest.summary?.genuine_inspection_evidence_found === true,
+                promotion_can_run: auditResult.manifest.summary?.promotion_can_run === true,
+                attachment_ready_candidate_count: auditResult.manifest.summary?.attachment_ready_candidate_count ?? null,
+                readiness_remains_held: auditResult.manifest.summary?.readiness_remains_held === true,
+                canonical_artifacts_mutated: false,
+                execution_notes: [
+                  'Stage 5B audit manifests are review/control artifacts only; they are not inspection evidence.',
+                  'Tracked audit execution does not attach evidence, regenerate readiness, or mutate canonical packages.',
+                ],
+              },
+            },
+            {
+              type: 'stage5b.evidence-audit-summary',
+              path: auditSummaryPath,
+              label: 'Stage 5B evidence audit summary',
+              scope: 'user-facing',
+              stability: 'stable',
+              metadata: {
+                artifact_type: 'stage5b_evidence_audit_summary_markdown',
+                schema_version: auditResult.manifest.schema_version || '1.0',
+                canonical_artifacts_mutated: false,
+                execution_notes: [
+                  'Stage 5B audit summaries are markdown views of the tracked audit manifest.',
+                ],
+              },
+            },
+          );
         } else {
           throw new Error(`Unsupported job type: ${job.type}`);
         }

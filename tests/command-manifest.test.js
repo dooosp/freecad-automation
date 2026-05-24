@@ -47,12 +47,14 @@ assert.deepEqual(STUDIO_ARTIFACT_COMPATIBLE_JOB_COMMANDS, ['inspect', 'report', 
 assert.equal(LOCAL_API_JOB_COMMANDS.includes('review-context'), true);
 assert.equal(LOCAL_API_JOB_COMMANDS.includes('inspection-evidence-intake'), true);
 assert.equal(LOCAL_API_JOB_COMMANDS.includes('inspection-evidence-promotion-dry-run'), true);
+assert.equal(LOCAL_API_JOB_COMMANDS.includes('stage5b-evidence-audit'), true);
 assert.equal(STUDIO_JOB_COMMANDS.includes('review-context'), false);
 assert.equal(STUDIO_JOB_COMMANDS.includes('inspection-evidence-intake'), true);
 assert.equal(STUDIO_JOB_COMMANDS.includes('inspection-evidence-promotion-dry-run'), true);
+assert.equal(STUDIO_JOB_COMMANDS.includes('stage5b-evidence-audit'), true);
 assert.equal(
   formatCommandNameList(STUDIO_JOB_COMMANDS, { conjunction: 'or' }),
-  'create, draw, inspect, report, compare-rev, readiness-pack, stabilization-review, generate-standard-docs, pack, inspection-evidence-intake, or inspection-evidence-promotion-dry-run'
+  'create, draw, inspect, report, compare-rev, readiness-pack, stabilization-review, generate-standard-docs, pack, inspection-evidence-intake, inspection-evidence-promotion-dry-run, or stage5b-evidence-audit'
 );
 
 const serveEntrypoints = getServeEntrypointMetadata();
