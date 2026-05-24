@@ -2220,6 +2220,9 @@ export async function discoverInspectionEvidenceIntake({
       hard_evidence_rule: 'Only real completed physical/supplier/lab/QA inspection records with measured feature records, result semantics, and provenance can be accepted.',
       rejected_as_final_evidence: [
         'generated CAD/drawing/quality/DFM/readiness/review/standard-doc/release artifacts',
+        'intake reports',
+        'promotion dry-run manifests',
+        'audit manifests',
         'fixtures',
         'templates',
         'collection guides',

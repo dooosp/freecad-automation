@@ -1,0 +1,258 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freecad-automation.local/schemas/stage5b-audit-manifest.schema.json",
+  "title": "Stage 5B evidence audit manifest",
+  "type": "object",
+  "required": [
+    "artifact_type",
+    "schema_version",
+    "generated_at",
+    "dry_run",
+    "non_mutating",
+    "include_github",
+    "outputs",
+    "source_classes",
+    "github_summary",
+    "attachment_ready",
+    "blockers",
+    "canonical_package_readiness_states",
+    "evidence_boundary",
+    "next_safe_commands",
+    "readiness_held_truth",
+    "summary"
+  ],
+  "properties": {
+    "artifact_type": { "const": "stage5b_evidence_audit_manifest" },
+    "schema_version": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/schemaVersion" },
+    "generated_at": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/timestamp" },
+    "dry_run": { "const": true },
+    "non_mutating": { "const": true },
+    "include_github": { "type": "boolean" },
+    "outputs": {
+      "type": "object",
+      "required": [
+        "intake_report",
+        "promotion_dry_run_manifest",
+        "stage5b_audit_manifest",
+        "stage5b_audit_summary"
+      ],
+      "properties": {
+        "intake_report": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/artifactRef" },
+        "promotion_dry_run_manifest": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/artifactRef" },
+        "stage5b_audit_manifest": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/artifactRef" },
+        "stage5b_audit_summary": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/artifactRef" }
+      },
+      "additionalProperties": true
+    },
+    "source_classes": {
+      "type": "object",
+      "required": [
+        "searched_source_classes",
+        "searched_sources",
+        "accepted_count",
+        "rejected_count",
+        "accepted_counts",
+        "rejected_counts",
+        "accepted_source_kinds",
+        "rejected_source_kinds",
+        "accepted_source_formats",
+        "rejected_source_formats"
+      ],
+      "properties": {
+        "searched_source_classes": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/stringArray" },
+        "searched_sources": { "type": "array" },
+        "accepted_count": { "type": "integer", "minimum": 0 },
+        "rejected_count": { "type": "integer", "minimum": 0 },
+        "accepted_counts": { "type": "object" },
+        "rejected_counts": { "type": "object" },
+        "accepted_source_kinds": { "type": "object" },
+        "rejected_source_kinds": { "type": "object" },
+        "accepted_source_formats": { "type": "object" },
+        "rejected_source_formats": { "type": "object" }
+      },
+      "additionalProperties": true
+    },
+    "github_summary": {
+      "type": "object",
+      "required": [
+        "enabled",
+        "repo",
+        "searched_source_count",
+        "skipped_source_count",
+        "downloaded_candidate_count",
+        "accepted_candidate_count",
+        "rejected_candidate_count",
+        "rejection_classes",
+        "searched_sources",
+        "skipped_sources",
+        "downloaded_candidates"
+      ],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "repo": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "searched_source_count": { "type": "integer", "minimum": 0 },
+        "skipped_source_count": { "type": "integer", "minimum": 0 },
+        "downloaded_candidate_count": { "type": "integer", "minimum": 0 },
+        "accepted_candidate_count": { "type": "integer", "minimum": 0 },
+        "rejected_candidate_count": { "type": "integer", "minimum": 0 },
+        "rejection_classes": { "type": "object" },
+        "searched_sources": { "type": "array" },
+        "skipped_sources": { "type": "array" },
+        "downloaded_candidates": { "type": "array" }
+      },
+      "additionalProperties": true
+    },
+    "attachment_ready": {
+      "type": "object",
+      "required": ["count", "candidates"],
+      "properties": {
+        "count": { "type": "integer", "minimum": 0 },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "path",
+              "source_kind",
+              "source_format",
+              "matched_package",
+              "match_confidence",
+              "fixture_or_test_source"
+            ],
+            "properties": {
+              "path": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/sourceRef" },
+              "source_kind": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/sourceRef" },
+              "source_format": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/sourceRef" },
+              "matched_package": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/sourceRef" },
+              "match_confidence": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/sourceRef" },
+              "fixture_or_test_source": { "type": "boolean" }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "blockers": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/stringArray" },
+    "canonical_package_readiness_states": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "slug",
+          "intake_classification",
+          "promotion_status",
+          "attachment_ready",
+          "readiness_before",
+          "readiness_after",
+          "readiness_remains_held",
+          "blockers"
+        ],
+        "properties": {
+          "slug": { "type": "string", "minLength": 1 },
+          "intake_classification": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/candidateClassification" },
+          "promotion_status": { "type": "string", "minLength": 1 },
+          "attachment_ready": { "type": "boolean" },
+          "readiness_before": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/readinessState" },
+          "readiness_after": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/readinessState" },
+          "readiness_remains_held": { "type": "boolean" },
+          "blockers": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/stringArray" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "evidence_boundary": {
+      "type": "object",
+      "required": [
+        "hard_evidence_rule",
+        "rejected_as_final_evidence",
+        "generated_artifacts_do_not_satisfy_inspection_evidence",
+        "github_metadata_alone_is_not_evidence",
+        "human_measurement_entry_requested"
+      ],
+      "properties": {
+        "hard_evidence_rule": { "type": "string", "minLength": 1 },
+        "rejected_as_final_evidence": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/stringArray" },
+        "generated_artifacts_do_not_satisfy_inspection_evidence": { "const": true },
+        "github_metadata_alone_is_not_evidence": { "const": true },
+        "human_measurement_entry_requested": { "const": false }
+      },
+      "additionalProperties": true
+    },
+    "next_safe_commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "command", "mutates_canonical_artifacts", "writes", "purpose"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "command": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/command" },
+          "mutates_canonical_artifacts": { "const": false },
+          "writes": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/stringArray" },
+          "purpose": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": true
+      }
+    },
+    "readiness_held_truth": {
+      "type": "object",
+      "required": [
+        "statement",
+        "no_genuine_completed_inspection_evidence_found",
+        "no_promotion_can_run",
+        "readiness_remains_held",
+        "canonical_package_artifacts_mutated",
+        "requires_human_measurement_entry",
+        "current_repo_truth"
+      ],
+      "properties": {
+        "statement": { "type": "string", "minLength": 1 },
+        "no_genuine_completed_inspection_evidence_found": { "type": "boolean" },
+        "no_promotion_can_run": { "type": "boolean" },
+        "readiness_remains_held": { "type": "boolean" },
+        "canonical_package_artifacts_mutated": { "const": false },
+        "requires_human_measurement_entry": { "const": false },
+        "current_repo_truth": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": true
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "package_count",
+        "accepted_candidate_count",
+        "rejected_candidate_count",
+        "attachment_ready_candidate_count",
+        "genuine_inspection_evidence_found",
+        "promotion_can_run",
+        "readiness_remains_held",
+        "canonical_artifacts_mutated",
+        "requires_human_measurement_entry",
+        "audit_bundle_only",
+        "intake_report_path",
+        "promotion_dry_run_manifest_path"
+      ],
+      "properties": {
+        "package_count": { "type": "integer", "minimum": 0 },
+        "accepted_candidate_count": { "type": "integer", "minimum": 0 },
+        "rejected_candidate_count": { "type": "integer", "minimum": 0 },
+        "attachment_ready_candidate_count": { "type": "integer", "minimum": 0 },
+        "genuine_inspection_evidence_found": { "type": "boolean" },
+        "promotion_can_run": { "type": "boolean" },
+        "readiness_remains_held": { "type": "boolean" },
+        "canonical_artifacts_mutated": { "const": false },
+        "requires_human_measurement_entry": { "const": false },
+        "audit_bundle_only": { "const": true },
+        "intake_report_path": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/repoPath" },
+        "promotion_dry_run_manifest_path": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/repoPath" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

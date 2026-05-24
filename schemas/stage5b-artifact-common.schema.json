@@ -1,0 +1,287 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json",
+  "$defs": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "timestamp": {
+      "type": "string",
+      "minLength": 1
+    },
+    "repoPath": {
+      "type": "string",
+      "minLength": 1
+    },
+    "nullableRepoPath": {
+      "anyOf": [
+        { "$ref": "#/$defs/repoPath" },
+        { "type": "null" }
+      ]
+    },
+    "sourceRef": {
+      "anyOf": [
+        { "type": "string", "minLength": 1 },
+        { "type": "null" }
+      ]
+    },
+    "stringArray": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "command": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "candidateClassification": {
+      "enum": [
+        "genuine_valid",
+        "invalid_generated",
+        "invalid_schema",
+        "invalid_provenance",
+        "no_candidate",
+        "unknown"
+      ]
+    },
+    "matchConfidence": {
+      "enum": ["high", "medium", "low", "ambiguous", "none"]
+    },
+    "readinessState": {
+      "type": "object",
+      "required": ["status", "gate_decision", "missing_inputs", "source_of_truth_path"],
+      "properties": {
+        "status": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "score": {
+          "anyOf": [
+            { "type": "number" },
+            { "type": "null" }
+          ]
+        },
+        "gate_decision": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "missing_inputs": { "$ref": "#/$defs/stringArray" },
+        "inspection_evidence_missing": {
+          "anyOf": [
+            { "type": "boolean" },
+            { "type": "null" }
+          ]
+        },
+        "source_of_truth_path": { "$ref": "#/$defs/nullableRepoPath" }
+      },
+      "additionalProperties": true
+    },
+    "artifactRef": {
+      "type": "object",
+      "required": ["path", "artifact_type"],
+      "properties": {
+        "path": { "$ref": "#/$defs/repoPath" },
+        "artifact_type": { "type": "string", "minLength": 1 },
+        "sha256": {
+          "anyOf": [
+            { "type": "string", "minLength": 64, "maxLength": 64 },
+            { "type": "null" }
+          ]
+        },
+        "sha256_note": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "sourceBoundary": {
+      "type": "object",
+      "required": ["hard_evidence_rule", "rejected_as_final_evidence"],
+      "properties": {
+        "allowed_sources": { "$ref": "#/$defs/stringArray" },
+        "adapter_coverage": { "$ref": "#/$defs/stringArray" },
+        "hard_evidence_rule": { "type": "string", "minLength": 1 },
+        "rejected_as_final_evidence": { "$ref": "#/$defs/stringArray" }
+      },
+      "additionalProperties": true
+    },
+    "candidatePackageMatch": {
+      "type": "object",
+      "required": ["slug", "score", "match_signals"],
+      "properties": {
+        "slug": { "type": "string", "minLength": 1 },
+        "score": { "type": "number" },
+        "match_signals": { "$ref": "#/$defs/stringArray" },
+        "matched_feature_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": true
+    },
+    "featureMatch": {
+      "type": "object",
+      "properties": {
+        "candidate_feature_id": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "candidate_requirement_ref": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "canonical_feature_id": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "canonical_requirement_id": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "match_signals": { "$ref": "#/$defs/stringArray" }
+      },
+      "additionalProperties": true
+    },
+    "attachmentPlan": {
+      "type": "object",
+      "required": [
+        "matched_package",
+        "match_confidence",
+        "candidate_package_matches",
+        "matched_features",
+        "unmatched_features",
+        "missing_required_features",
+        "attachment_ready",
+        "blockers",
+        "canonical_next_command"
+      ],
+      "properties": {
+        "matched_package": {
+          "anyOf": [
+            { "type": "string", "minLength": 1 },
+            { "type": "null" }
+          ]
+        },
+        "match_confidence": { "$ref": "#/$defs/matchConfidence" },
+        "candidate_package_matches": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/candidatePackageMatch" }
+        },
+        "matched_features": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/featureMatch" }
+        },
+        "unmatched_features": { "type": "array" },
+        "missing_required_features": { "type": "array" },
+        "attachment_ready": { "type": "boolean" },
+        "blockers": { "$ref": "#/$defs/stringArray" },
+        "canonical_next_command": {
+          "anyOf": [
+            { "$ref": "#/$defs/command" },
+            { "type": "null" }
+          ]
+        },
+        "note": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "candidate": {
+      "type": "object",
+      "required": ["path", "source_kind", "source_format", "classification"],
+      "properties": {
+        "path": { "$ref": "#/$defs/repoPath" },
+        "source_kind": { "type": "string", "minLength": 1 },
+        "source_format": { "type": "string", "minLength": 1 },
+        "adapter": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "package_slug": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "classification": { "$ref": "#/$defs/candidateClassification" },
+        "reasons": { "$ref": "#/$defs/stringArray" },
+        "validation_errors": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "contract_ok": { "type": "boolean" },
+        "evidence_type": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "source_type": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "measured_feature_count": {
+          "anyOf": [
+            { "type": "integer", "minimum": 0 },
+            { "type": "null" }
+          ]
+        },
+        "normalized_source_ref": { "$ref": "#/$defs/sourceRef" },
+        "document_signals": {
+          "anyOf": [
+            { "type": "object" },
+            { "type": "null" }
+          ]
+        },
+        "source_provenance": {
+          "anyOf": [
+            { "type": "object" },
+            { "type": "null" }
+          ]
+        },
+        "matched_package": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "match_confidence": { "$ref": "#/$defs/matchConfidence" },
+        "attachment_ready": { "type": "boolean" },
+        "blockers": { "$ref": "#/$defs/stringArray" },
+        "attachment_plan": { "$ref": "#/$defs/attachmentPlan" }
+      },
+      "additionalProperties": true
+    },
+    "safetyCheck": {
+      "type": "object",
+      "required": ["name", "status", "reason"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["pass", "fail"] },
+        "reason": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": true
+    },
+    "expectedArtifact": {
+      "type": "object",
+      "required": ["path", "artifact_type", "action"],
+      "properties": {
+        "path": { "$ref": "#/$defs/repoPath" },
+        "artifact_type": { "type": "string", "minLength": 1 },
+        "action": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": true
+    }
+  }
+}
