@@ -1205,6 +1205,324 @@ async function seedQualityDecisionJob(jobStore, {
   });
 }
 
+function stage5bIntakeReportPayload() {
+  return {
+    artifact_type: 'inspection_evidence_intake_report',
+    source: 'browser-smoke-fixture-not-evidence',
+    fixture_notice: 'Test-only browser smoke fixture. Not inspection evidence.',
+    searched_sources: [
+      { kind: 'canonical_package_artifacts', status: 'searched' },
+      { kind: 'inspection_evidence_collection_guides', status: 'searched' },
+      { kind: 'release_bundles', status: 'rejected_as_evidence' },
+    ],
+    accepted_candidates: [],
+    rejected_candidates: [
+      {
+        classification: 'generated_artifact',
+        reason: 'Release bundles, generated reports, fixtures, screenshots, and CI summaries are not inspection evidence.',
+      },
+      {
+        classification: 'fixture_only',
+        reason: 'Browser smoke fixtures are not evidence.',
+      },
+    ],
+    packages: [
+      {
+        slug: 'quality-pass-bracket',
+        readiness_after: {
+          status: 'needs_more_evidence',
+          gate_decision: 'hold_for_evidence_completion',
+        },
+      },
+      {
+        slug: 'hinge-block',
+        readiness_after: {
+          status: 'needs_more_evidence',
+          gate_decision: 'hold_for_evidence_completion',
+        },
+      },
+    ],
+    summary: {
+      genuine_inspection_evidence_found: false,
+      accepted_candidate_count: 0,
+      rejected_candidate_count: 2,
+      attachment_ready_candidate_count: 0,
+      requires_human_measurement_entry: false,
+      readiness_truth: 'readiness remains needs_more_evidence / hold_for_evidence_completion',
+    },
+  };
+}
+
+function stage5bPromotionDryRunPayload() {
+  return {
+    artifact_type: 'inspection_evidence_promotion_dry_run_manifest',
+    source: 'browser-smoke-fixture-not-evidence',
+    fixture_notice: 'Test-only browser smoke fixture. Not inspection evidence.',
+    summary: {
+      promotion_can_run: false,
+      canonical_artifacts_mutated: false,
+      ready_package_count: 0,
+      readiness_expectation: 'No promotion can run; readiness remains needs_more_evidence / hold_for_evidence_completion.',
+    },
+    packages: [
+      {
+        package_slug: 'none',
+        attachment_ready: false,
+        match_confidence: 'none',
+        blockers: [
+          'No genuine completed inspection evidence is available.',
+          'Browser smoke fixtures are not evidence.',
+        ],
+        canonical_next_command: [],
+        expected_artifacts: [],
+        readiness_expectation: {
+          dry_run: {
+            status: 'needs_more_evidence',
+            gate_decision: 'hold_for_evidence_completion',
+          },
+        },
+        mutation_boundaries: {
+          dry_run_writes: ['promotion_dry_run_manifest.json'],
+          canonical_artifacts_mutated_by_dry_run: false,
+          allowed_future_mutation_roots: [],
+          files_that_would_be_mutated: [],
+        },
+        rollback_guidance: [
+          'No rollback required because this dry-run did not mutate canonical artifacts.',
+        ],
+      },
+    ],
+    evidence_boundary: {
+      rejected_as_final_evidence: [
+        'dry-run manifests',
+        'intake reports',
+        'audit manifests',
+        'fixtures',
+        'generated CAD/drawing/quality/readiness/review reports',
+        'release bundles',
+        'screenshots',
+        'CI summaries',
+        'templates',
+        'collection guides',
+        'GitHub metadata',
+      ],
+      hard_evidence_rule: 'Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.',
+    },
+  };
+}
+
+function stage5bAuditManifestPayload() {
+  return {
+    artifact_type: 'stage5b_evidence_audit_manifest',
+    command: 'stage5b-evidence-audit',
+    source: 'browser-smoke-fixture-not-evidence',
+    fixture_notice: 'Test-only browser smoke fixture. Not inspection evidence.',
+    include_github: false,
+    outputs: {
+      intake_report: {
+        path: 'browser-smoke-fixture/intake_report.json',
+        sha256: 'test-only-not-evidence',
+      },
+      promotion_dry_run_manifest: {
+        path: 'browser-smoke-fixture/promotion_dry_run_manifest.json',
+        sha256: 'test-only-not-evidence',
+      },
+      stage5b_audit_manifest: {
+        path: 'browser-smoke-fixture/stage5b_audit_manifest.json',
+        sha256: 'test-only-not-evidence',
+      },
+      stage5b_audit_summary: {
+        path: 'browser-smoke-fixture/stage5b_audit_summary.md',
+        sha256: 'test-only-not-evidence',
+      },
+    },
+    source_classes: {
+      accepted_count: 0,
+      rejected_count: 2,
+      searched_sources: [
+        { kind: 'canonical_package_artifacts', status: 'searched' },
+        { kind: 'release_bundles', status: 'rejected_as_evidence' },
+      ],
+    },
+    summary: {
+      genuine_inspection_evidence_found: false,
+      promotion_can_run: false,
+      readiness_remains_held: true,
+      canonical_artifacts_mutated: false,
+      requires_human_measurement_entry: false,
+      accepted_candidate_count: 0,
+      attachment_ready_candidate_count: 0,
+    },
+    attachment_ready: {
+      count: 0,
+      candidates: [],
+    },
+    blockers: [
+      'No genuine completed inspection evidence is available.',
+      'Browser smoke fixtures are not evidence.',
+    ],
+    readiness_held_truth: {
+      no_genuine_completed_inspection_evidence_found: true,
+      no_promotion_can_run: true,
+      requires_human_measurement_entry: false,
+      statement: 'No genuine completed inspection evidence is available for promotion; no promotion can run and readiness remains needs_more_evidence / hold_for_evidence_completion.',
+    },
+    canonical_package_readiness_states: [
+      {
+        slug: 'quality-pass-bracket',
+        promotion_status: 'blocked_no_evidence',
+        readiness_remains_held: true,
+        readiness_after: {
+          status: 'needs_more_evidence',
+          gate_decision: 'hold_for_evidence_completion',
+        },
+      },
+      {
+        slug: 'hinge-block',
+        promotion_status: 'blocked_no_evidence',
+        readiness_remains_held: true,
+        readiness_after: {
+          status: 'needs_more_evidence',
+          gate_decision: 'hold_for_evidence_completion',
+        },
+      },
+    ],
+    github_summary: {
+      enabled: false,
+      repo: 'dooosp/freecad-automation',
+      searched_source_count: 0,
+      skipped_source_count: 0,
+      downloaded_candidate_count: 0,
+    },
+    next_safe_commands: [
+      {
+        name: 'rerun-audit',
+        command: ['fcad', 'stage5b-evidence-audit', '--out-dir', '<repo-output-dir>'],
+        mutates_canonical_artifacts: false,
+      },
+    ],
+    evidence_boundary: {
+      human_measurement_entry_requested: false,
+      rejected_as_final_evidence: [
+        'intake reports',
+        'dry-run manifests',
+        'audit manifests',
+        'fixtures',
+        'generated CAD/drawing/quality/DFM/readiness/review reports',
+        'release bundles',
+        'screenshots',
+        'CI summaries',
+        'templates',
+        'collection guides',
+        'GitHub metadata alone',
+      ],
+      hard_evidence_rule: 'Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.',
+    },
+  };
+}
+
+async function seedStage5bAuditJob(jobStore, { projectRoot }) {
+  const job = await jobStore.createJob({
+    type: 'stage5b-evidence-audit',
+    options: {
+      include_github: false,
+    },
+  });
+  const intakePath = await jobStore.writeJobFile(
+    job.id,
+    'artifacts/intake_report.json',
+    `${JSON.stringify(stage5bIntakeReportPayload(), null, 2)}\n`
+  );
+  const dryRunPath = await jobStore.writeJobFile(
+    job.id,
+    'artifacts/promotion_dry_run_manifest.json',
+    `${JSON.stringify(stage5bPromotionDryRunPayload(), null, 2)}\n`
+  );
+  const auditManifestPath = await jobStore.writeJobFile(
+    job.id,
+    'artifacts/stage5b_audit_manifest.json',
+    `${JSON.stringify(stage5bAuditManifestPayload(), null, 2)}\n`
+  );
+  const auditSummaryPath = await jobStore.writeJobFile(
+    job.id,
+    'artifacts/stage5b_audit_summary.md',
+    [
+      '# Stage 5B browser smoke audit summary',
+      '',
+      'Test-only fixture: not inspection evidence.',
+      '',
+      '- Genuine completed evidence found: no',
+      '- Promotion can run: no',
+      '- Readiness remains held: yes',
+      '- Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.',
+      '',
+    ].join('\n')
+  );
+  const manifest = await buildArtifactManifest({
+    projectRoot,
+    interface: 'api',
+    command: 'stage5b-evidence-audit',
+    jobType: 'stage5b-evidence-audit',
+    status: 'succeeded',
+    requestId: job.id,
+    artifacts: [
+      {
+        type: 'inspection-evidence.intake-report',
+        path: intakePath,
+        label: 'Stage 5B intake report',
+        scope: 'user-facing',
+        stability: 'stable',
+      },
+      {
+        type: 'inspection-evidence.promotion-dry-run-manifest',
+        path: dryRunPath,
+        label: 'Stage 5B promotion dry-run manifest',
+        scope: 'user-facing',
+        stability: 'stable',
+      },
+      {
+        type: 'stage5b.evidence-audit-manifest',
+        path: auditManifestPath,
+        label: 'Stage 5B audit manifest',
+        scope: 'user-facing',
+        stability: 'stable',
+      },
+      {
+        type: 'stage5b.evidence-audit-summary',
+        path: auditSummaryPath,
+        label: 'Stage 5B audit summary',
+        scope: 'user-facing',
+        stability: 'stable',
+      },
+    ],
+    timestamps: {
+      created_at: job.created_at,
+      finished_at: new Date().toISOString(),
+    },
+    details: {
+      fixture_notice: 'Browser smoke fixture only. Not inspection evidence.',
+      hard_evidence_rule: 'Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.',
+    },
+  });
+
+  return jobStore.completeJob(
+    job.id,
+    {
+      success: true,
+      source: 'browser-smoke-fixture-not-evidence',
+      fixture_notice: 'Browser smoke fixture only. Not inspection evidence.',
+    },
+    {
+      intake_report: intakePath,
+      promotion_dry_run_manifest: dryRunPath,
+      stage5b_audit_manifest: auditManifestPath,
+      stage5b_audit_summary: auditSummaryPath,
+    },
+    {},
+    manifest
+  );
+}
+
 function configNameFromTrackedRequest(request = {}) {
   const explicitName = request.config?.name || request.options?.studio?.config_name;
   if (explicitName) return String(explicitName);
@@ -1318,6 +1636,9 @@ let cdp = null;
 try {
   const port = await listen(server);
   const baseUrl = `http://127.0.0.1:${port}`;
+  const stage5bAuditJob = await seedStage5bAuditJob(jobStore, {
+    projectRoot: ROOT,
+  });
   const passQualityJob = await seedQualityDecisionJob(jobStore, {
     projectRoot: ROOT,
     configName: 'quality_pass_bracket',
@@ -1721,6 +2042,234 @@ try {
       delayMs: 150,
     });
   }
+
+  await cdp.send('Page.navigate', { url: `${baseUrl}/studio/#review` });
+  await waitForRoute(cdp, 'review', {
+    attempts: 50,
+    delayMs: 200,
+  });
+  const stage5bLauncher = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => {
+      const launcher = document.querySelector('[data-hook="review-intake-launcher"]');
+      const runAudit = launcher?.querySelector('[data-action="run-stage5b-audit"]');
+      const latestAudit = launcher?.querySelector('[data-action="open-latest-stage5b-audit"]');
+      return {
+        text: launcher?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+        runAuditVisible: Boolean(runAudit),
+        latestAuditText: latestAudit?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+        latestAuditJobId: latestAudit?.dataset?.jobId || '',
+        latestAuditDisabled: latestAudit?.disabled ?? true,
+      };
+    })()`);
+    assert.equal(snapshot.runAuditVisible, true);
+    assert.equal(snapshot.latestAuditDisabled, false);
+    assert.equal(snapshot.latestAuditJobId, stage5bAuditJob.id);
+    assertIncludesAll(snapshot.text, [
+      'Run the Stage 5B audit bundle without human-entered measurements',
+      'Run audit',
+      'Open latest audit',
+      'Run intake',
+      'Run dry-run',
+    ]);
+    assert.equal(snapshot.text.includes('/Users/'), false);
+    assert.equal(snapshot.text.includes('/tmp/'), false);
+    return snapshot;
+  }, {
+    attempts: 60,
+    delayMs: 150,
+  });
+  assert.equal(stage5bLauncher.latestAuditText, 'Open latest audit');
+
+  await cdp.evaluate(`document.querySelector('[data-action="open-latest-stage5b-audit"]')?.click()`);
+  await waitForRoute(cdp, 'review', {
+    attempts: 50,
+    delayMs: 200,
+    expectedHash: `#review?job=${stage5bAuditJob.id}`,
+  });
+  const stage5bReviewSummary = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(jobContextExpression('review-job-summary'));
+    assert.equal(snapshot.text.includes(stage5bAuditJob.id.slice(0, 8)), true);
+    assert.equal(snapshot.text.includes('/Users/'), false);
+    assert.equal(snapshot.text.includes('/tmp/'), false);
+    return snapshot;
+  }, {
+    attempts: 60,
+    delayMs: 150,
+  });
+  assert.equal(stage5bReviewSummary.text.includes('stage5b-evidence-audit'), true);
+
+  const stage5bCards = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(jobContextExpression('review-cards'));
+    assertIncludesAll(snapshot.text, [
+      'Stage 5B evidence audit',
+      'Readiness held',
+      'No promotion can run',
+      'Stage 5B promotion dry-run',
+      'Promotion held',
+      'Stage 5B inspection evidence intake',
+      'No genuine inspection evidence',
+    ]);
+    assert.equal(snapshot.text.includes('Future promotion plan ready'), false);
+    assert.equal(snapshot.text.includes('Genuine inspection evidence found'), false);
+    return snapshot;
+  }, {
+    attempts: 80,
+    delayMs: 150,
+  });
+  assert.equal(stage5bCards.text.includes('needs_more_evidence / hold_for_evidence_completion'), true);
+
+  await cdp.evaluate(`document.querySelector('[data-action="review-select-card"][data-card-id="stage5b-evidence-audit"]')?.click()`);
+  const stage5bAuditDetail = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => {
+      const summary = document.querySelector('[data-hook="review-detail-summary"]');
+      const rows = Object.fromEntries([...summary.querySelectorAll('.info-row')].map((row) => [
+        row.querySelector('.info-label')?.textContent?.trim() || '',
+        row.querySelector('.info-value')?.textContent?.trim() || '',
+      ]));
+      return {
+        text: summary?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+        rows,
+      };
+    })()`);
+    assert.equal(snapshot.rows['Genuine evidence found'], 'No');
+    assert.equal(snapshot.rows['Promotion can run'], 'No');
+    assert.equal(snapshot.rows['Attachment-ready candidates'], '0');
+    assert.equal(snapshot.rows['Canonical artifacts mutated'], 'No');
+    assertIncludesAll(snapshot.rows['Package readiness states'], [
+      'quality-pass-bracket: needs_more_evidence / hold_for_evidence_completion',
+      'hinge-block: needs_more_evidence / hold_for_evidence_completion',
+    ]);
+    assertIncludesAll(snapshot.rows['Readiness-held truth'], [
+      'No genuine completed inspection evidence is available',
+      'needs_more_evidence / hold_for_evidence_completion',
+    ]);
+    assertIncludesAll(snapshot.rows['Evidence boundary'], [
+      'Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence',
+    ]);
+    assert.equal(snapshot.text.includes('Yes'), false);
+    return snapshot;
+  }, {
+    attempts: 80,
+    delayMs: 150,
+  });
+  assert.equal(stage5bAuditDetail.text.includes('release bundles'), true);
+  assert.equal(stage5bAuditDetail.text.includes('screenshots'), true);
+  assert.equal(stage5bAuditDetail.text.includes('fixtures'), true);
+
+  const stage5bAuditActions = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => {
+      const actions = document.querySelector('[data-hook="review-detail-actions"]');
+      return {
+        text: actions?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+        links: [...(actions?.querySelectorAll('a') || [])].map((entry) => ({
+          text: entry.textContent?.replace(/\\s+/g, ' ').trim() || '',
+          href: entry.getAttribute('href') || '',
+          download: entry.hasAttribute('download'),
+        })),
+      };
+    })()`);
+    assert.equal(snapshot.links.length >= 2, true);
+    assert.equal(snapshot.links.some((entry) => entry.text.includes('원본 산출물 열기')), true);
+    assert.equal(snapshot.links.some((entry) => entry.text.includes('Download')), true);
+    assert.equal(snapshot.links.every((entry) => entry.href.includes(`/artifacts/${stage5bAuditJob.id}/`)), true);
+    assert.equal(snapshot.links.some((entry) => entry.href.includes('/Users/')), false);
+    assert.equal(snapshot.links.some((entry) => entry.href.includes('/tmp/')), false);
+    assert.equal(snapshot.links.some((entry) => entry.href.includes('release_bundle.zip')), false);
+    return snapshot;
+  }, {
+    attempts: 60,
+    delayMs: 150,
+  });
+  assert.equal(stage5bAuditActions.text.includes('Download'), true);
+
+  await cdp.evaluate(`document.querySelector('[data-hook="review-tab-provenance"]')?.click()`);
+  const stage5bAuditProvenance = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(jobContextExpression('review-detail-provenance'));
+    assertIncludesAll(snapshot.text, [
+      'Stage 5B audit bundles are review/control artifacts only, not package inspection evidence.',
+      'Preview is limited to registered tracked job artifact routes; no arbitrary local file path is opened.',
+    ]);
+    return snapshot;
+  }, {
+    attempts: 60,
+    delayMs: 150,
+  });
+  assert.equal(stage5bAuditProvenance.text.includes('/Users/'), false);
+  assert.equal(stage5bAuditProvenance.text.includes('/tmp/'), false);
+
+  const stage5bArtifactBoundary = await cdp.evaluate(`(async () => {
+    const artifactsResponse = await fetch('/jobs/${stage5bAuditJob.id}/artifacts');
+    const artifactsPayload = await artifactsResponse.json();
+    const auditArtifact = artifactsPayload.artifacts.find((artifact) => artifact.type === 'stage5b.evidence-audit-manifest');
+    const releaseLike = artifactsPayload.artifacts.filter((artifact) => /release_bundle\\.zip/i.test(artifact.file_name || ''));
+    const openResponse = await fetch(auditArtifact.links.open);
+    const openText = await openResponse.text();
+    const arbitraryResponse = await fetch('/artifacts/${stage5bAuditJob.id}/%2Ftmp%2Ffake-readiness-report.json');
+    const releaseResponse = await fetch('/artifacts/${stage5bAuditJob.id}/release_bundle.zip');
+    return {
+      artifactCount: artifactsPayload.artifacts.length,
+      auditOpen: auditArtifact.links.open,
+      auditApi: auditArtifact.links.api,
+      auditDownload: auditArtifact.links.download,
+      auditCanOpen: auditArtifact.capabilities.can_open,
+      openStatus: openResponse.status,
+      openHasBoundary: openText.includes('Only genuine completed physical/supplier/lab/QA inspection records'),
+      openHasNoEvidenceTruth: openText.includes('"genuine_inspection_evidence_found": false'),
+      arbitraryStatus: arbitraryResponse.status,
+      releaseStatus: releaseResponse.status,
+      releaseLikeCount: releaseLike.length,
+      serialized: JSON.stringify(artifactsPayload),
+    };
+  })()`);
+  assert.equal(stage5bArtifactBoundary.artifactCount >= 4, true);
+  assert.equal(stage5bArtifactBoundary.auditCanOpen, true);
+  assert.equal(stage5bArtifactBoundary.auditOpen.startsWith(`/artifacts/${stage5bAuditJob.id}/`), true);
+  assert.equal(stage5bArtifactBoundary.auditApi.startsWith(`/jobs/${stage5bAuditJob.id}/artifacts/`), true);
+  assert.equal(stage5bArtifactBoundary.auditDownload.startsWith(`/artifacts/${stage5bAuditJob.id}/`), true);
+  assert.equal(stage5bArtifactBoundary.openStatus, 200);
+  assert.equal(stage5bArtifactBoundary.openHasBoundary, true);
+  assert.equal(stage5bArtifactBoundary.openHasNoEvidenceTruth, true);
+  assert.equal(stage5bArtifactBoundary.arbitraryStatus, 404);
+  assert.equal(stage5bArtifactBoundary.releaseStatus, 404);
+  assert.equal(stage5bArtifactBoundary.releaseLikeCount, 0);
+  assert.equal(stage5bArtifactBoundary.serialized.includes('/Users/'), false);
+  assert.equal(stage5bArtifactBoundary.serialized.includes('/tmp/'), false);
+
+  await cdp.evaluate(`document.querySelector('[data-action="review-select-card"][data-card-id="inspection-promotion-dry-run"]')?.click()`);
+  const stage5bDryRunDetail = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => {
+      const summary = document.querySelector('[data-hook="review-detail-summary"]');
+      const rows = Object.fromEntries([...summary.querySelectorAll('.info-row')].map((row) => [
+        row.querySelector('.info-label')?.textContent?.trim() || '',
+        row.querySelector('.info-value')?.textContent?.trim() || '',
+      ]));
+      return {
+        text: summary?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+        rows,
+      };
+    })()`);
+    assert.equal(snapshot.rows['Attachment ready'], 'No');
+    assert.equal(snapshot.rows['Match confidence'], 'none');
+    assert.equal(snapshot.rows['Canonical artifacts mutated'], 'No');
+    assertIncludesAll(snapshot.rows['Readiness expectation'], [
+      'needs_more_evidence / hold_for_evidence_completion',
+    ]);
+    assertIncludesAll(snapshot.rows['Evidence boundary'], [
+      'Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence',
+    ]);
+    assert.equal(snapshot.text.includes('Promotion can runYes'), false);
+    return snapshot;
+  }, {
+    attempts: 60,
+    delayMs: 150,
+  });
+  assert.equal(stage5bDryRunDetail.text.includes('No promotion can run'), true);
+
+  await cdp.send('Page.navigate', { url: `${baseUrl}/studio/#artifacts` });
+  await waitForRoute(cdp, 'artifacts', {
+    attempts: 50,
+    delayMs: 200,
+  });
 
   await openQualityJobFromTimeline(passQualityJob.id);
   const passDashboardText = await waitForDashboardText('Quality Dashboard - quality_pass_bracket');
