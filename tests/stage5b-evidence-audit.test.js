@@ -16,6 +16,7 @@ import {
   writeStage5bEvidenceAuditBundle,
 } from '../src/services/inspection-evidence-intake/stage5b-evidence-audit-service.js';
 import { buildInspectionEvidencePromotionDryRunManifest } from '../src/services/inspection-evidence-intake/promotion-dry-run-service.js';
+import { createLocalApiServer } from '../src/server/local-api-server.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
 
@@ -30,6 +31,41 @@ function writeJson(path, value) {
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
+}
+
+async function listen(server) {
+  await new Promise((resolveListen) => server.listen(0, '127.0.0.1', resolveListen));
+  const address = server.address();
+  return typeof address === 'object' && address ? address.port : 0;
+}
+
+async function postJson(url, body) {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  const payload = await response.json();
+  return { response, payload };
+}
+
+async function waitForJob(baseUrl, jobId) {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const response = await fetch(`${baseUrl}/jobs/${jobId}`, {
+      headers: { accept: 'application/json' },
+    });
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    if (payload.job.status === 'succeeded') return payload.job;
+    if (payload.job.status === 'failed') {
+      throw new Error(payload.job.error?.message || 'Stage 5B audit tracked job failed');
+    }
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 50));
+  }
+  throw new Error(`Timed out waiting for Stage 5B audit job ${jobId}`);
 }
 
 function repoRelative(path, root = ROOT) {
@@ -275,6 +311,84 @@ try {
   });
   assert.equal(readFileSync(reviewPath, 'utf8'), reviewBefore, 'audit bundle must not mutate canonical review_pack.json');
   assert.equal(readFileSync(readinessPath, 'utf8'), readinessBefore, 'audit bundle must not mutate canonical readiness_report.json');
+
+  const apiSlug = 'api-audit-part';
+  writeMinimalCanonicalPackage(tempRoot, apiSlug);
+  const apiReviewPath = join(tempRoot, 'docs/examples', apiSlug, 'review', 'review_pack.json');
+  const apiReadinessPath = join(tempRoot, 'docs/examples', apiSlug, 'readiness', 'readiness_report.json');
+  const apiReviewBefore = readFileSync(apiReviewPath, 'utf8');
+  const apiReadinessBefore = readFileSync(apiReadinessPath, 'utf8');
+  const { server } = createLocalApiServer({
+    projectRoot: tempRoot,
+    jobsDir: join(tempRoot, 'output', 'jobs'),
+  });
+  const port = await listen(server);
+  const baseUrl = `http://127.0.0.1:${port}`;
+  try {
+    const { response: auditResponse, payload: auditPayload } = await postJson(`${baseUrl}/jobs`, {
+      type: 'stage5b-evidence-audit',
+      options: {
+        include_github: false,
+      },
+    });
+    assert.equal(auditResponse.status, 202);
+    assert.equal(auditPayload.job.type, 'stage5b-evidence-audit');
+    assert.equal('out_dir' in auditPayload.job.request, false);
+    assert.equal(JSON.stringify(auditPayload).includes(tempRoot), false);
+
+    const auditJob = await waitForJob(baseUrl, auditPayload.job.id);
+    assert.equal(auditJob.result.artifact_type, 'stage5b_evidence_audit_manifest');
+    assert.equal(auditJob.result.summary.genuine_inspection_evidence_found, false);
+    assert.equal(auditJob.result.summary.promotion_can_run, false);
+    assert.equal(auditJob.result.summary.readiness_remains_held, true);
+    assert.equal(auditJob.result.summary.canonical_artifacts_mutated, false);
+    assert.equal(auditJob.result.readiness_held_truth.no_promotion_can_run, true);
+    assert.equal(JSON.stringify(auditJob).includes(tempRoot), false);
+
+    const artifactsResponse = await fetch(`${baseUrl}/jobs/${auditJob.id}/artifacts`, {
+      headers: { accept: 'application/json' },
+    });
+    assert.equal(artifactsResponse.status, 200);
+    const artifactsPayload = await artifactsResponse.json();
+    const artifactTypes = artifactsPayload.artifacts.map((artifact) => artifact.type).sort();
+    assert.deepEqual(artifactTypes, [
+      'inspection-evidence.intake-report',
+      'inspection-evidence.promotion-dry-run-manifest',
+      'stage5b.evidence-audit-manifest',
+      'stage5b.evidence-audit-summary',
+    ].sort());
+    assert.equal(JSON.stringify(artifactsPayload).includes(tempRoot), false);
+
+    const auditManifestArtifact = artifactsPayload.artifacts.find((artifact) =>
+      artifact.type === 'stage5b.evidence-audit-manifest'
+    );
+    assert.equal(Boolean(auditManifestArtifact), true);
+    assert.equal(auditManifestArtifact.file_name, 'stage5b_audit_manifest.json');
+    assert.equal(auditManifestArtifact.capabilities.can_open, true);
+
+    const auditManifestResponse = await fetch(`${baseUrl}${auditManifestArtifact.links.open}`, {
+      headers: { accept: 'application/json' },
+    });
+    assert.equal(auditManifestResponse.status, 200);
+    const trackedAuditManifest = await auditManifestResponse.json();
+    assert.equal(trackedAuditManifest.artifact_type, 'stage5b_evidence_audit_manifest');
+    assert.equal(trackedAuditManifest.summary.genuine_inspection_evidence_found, false);
+    assert.equal(trackedAuditManifest.summary.promotion_can_run, false);
+
+    const arbitraryPreviewResponse = await fetch(
+      `${baseUrl}/jobs/${auditJob.id}/artifacts/package-json/content?path=${encodeURIComponent(join(ROOT, 'package.json'))}`,
+      { headers: { accept: 'application/json' } }
+    );
+    assert.equal(arbitraryPreviewResponse.status, 404);
+    const arbitraryPreviewText = await arbitraryPreviewResponse.text();
+    assert.equal(arbitraryPreviewText.includes('"name"'), false);
+    assert.equal(arbitraryPreviewText.includes('freecad-automation'), false);
+
+    assert.equal(readFileSync(apiReviewPath, 'utf8'), apiReviewBefore, 'tracked audit job must not mutate canonical review_pack.json');
+    assert.equal(readFileSync(apiReadinessPath, 'utf8'), apiReadinessBefore, 'tracked audit job must not mutate canonical readiness_report.json');
+  } finally {
+    await new Promise((resolveClose) => server.close(resolveClose));
+  }
 
   const unsafeCli = spawnSync(process.execPath, [
     'bin/fcad.js',

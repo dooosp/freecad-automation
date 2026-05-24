@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   buildInspectionEvidenceIntakeCard,
   buildInspectionEvidencePromotionDryRunCard,
+  buildStage5bEvidenceAuditCard,
   buildReviewCards,
 } from '../public/js/studio/artifact-insights.js';
 import { renderReviewWorkspace } from '../public/js/studio/review-workspace.js';
@@ -167,6 +168,139 @@ const promotionDryRunArtifact = {
   },
 };
 
+const stage5bAuditManifest = {
+  artifact_type: 'stage5b_evidence_audit_manifest',
+  schema_version: '1.0',
+  dry_run: true,
+  non_mutating: true,
+  include_github: false,
+  outputs: {
+    intake_report: {
+      path: 'output/jobs/job-audit/artifacts/intake_report.json',
+      artifact_type: 'inspection_evidence_intake_report',
+    },
+    promotion_dry_run_manifest: {
+      path: 'output/jobs/job-audit/artifacts/promotion_dry_run_manifest.json',
+      artifact_type: 'inspection_evidence_promotion_dry_run_manifest',
+    },
+    stage5b_audit_manifest: {
+      path: 'output/jobs/job-audit/artifacts/stage5b_audit_manifest.json',
+      artifact_type: 'stage5b_evidence_audit_manifest',
+    },
+    stage5b_audit_summary: {
+      path: 'output/jobs/job-audit/artifacts/stage5b_audit_summary.md',
+      artifact_type: 'stage5b_evidence_audit_summary_markdown',
+    },
+  },
+  source_classes: {
+    searched_source_classes: ['tracked_repo_files', 'github_public_metadata'],
+    accepted_count: 0,
+    rejected_count: 3,
+    rejected_counts: {
+      invalid_generated: 2,
+      invalid_schema: 1,
+    },
+  },
+  github_summary: {
+    enabled: false,
+    repo: 'dooosp/freecad-automation',
+    searched_source_count: 0,
+    skipped_source_count: 0,
+    downloaded_candidate_count: 0,
+    accepted_candidate_count: 0,
+    rejected_candidate_count: 0,
+  },
+  attachment_ready: {
+    count: 0,
+    candidates: [],
+  },
+  blockers: [
+    'no_genuine_completed_inspection_evidence',
+    'promotion_blocked_readiness_held',
+    'no_safe_promotion_command_available',
+  ],
+  canonical_package_readiness_states: [
+    {
+      slug: 'quality-pass-bracket',
+      promotion_status: 'blocked_no_candidate',
+      attachment_ready: false,
+      readiness_after: {
+        status: 'needs_more_evidence',
+        gate_decision: 'hold_for_evidence_completion',
+        missing_inputs: ['inspection_evidence'],
+      },
+      blockers: ['no_genuine_valid_candidate'],
+    },
+  ],
+  evidence_boundary: {
+    hard_evidence_rule: 'Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.',
+    rejected_as_final_evidence: [
+      'intake reports',
+      'promotion dry-run manifests',
+      'audit manifests',
+      'fixtures',
+      'generated CAD/drawing/quality/DFM/readiness/review reports',
+      'release bundles',
+      'screenshots',
+      'CI summaries',
+      'templates',
+      'collection guides',
+      'GitHub metadata alone',
+    ],
+  },
+  next_safe_commands: [
+    {
+      name: 'stage5b_evidence_audit',
+      command: ['fcad', 'stage5b-evidence-audit', '--out-dir', 'output/jobs/job-audit/artifacts'],
+      mutates_canonical_artifacts: false,
+    },
+    {
+      name: 'promotion_dry_run',
+      command: ['fcad', 'inspection-evidence-promotion-dry-run', '--intake-report', 'output/jobs/job-audit/artifacts/intake_report.json'],
+      mutates_canonical_artifacts: false,
+    },
+  ],
+  readiness_held_truth: {
+    statement: 'No genuine completed inspection evidence is available for promotion; no promotion can run and readiness remains needs_more_evidence / hold_for_evidence_completion.',
+    no_genuine_completed_inspection_evidence_found: true,
+    no_promotion_can_run: true,
+    readiness_remains_held: true,
+    canonical_package_artifacts_mutated: false,
+    requires_human_measurement_entry: false,
+  },
+  summary: {
+    package_count: 1,
+    accepted_candidate_count: 0,
+    rejected_candidate_count: 3,
+    attachment_ready_candidate_count: 0,
+    genuine_inspection_evidence_found: false,
+    promotion_can_run: false,
+    readiness_remains_held: true,
+    canonical_artifacts_mutated: false,
+    requires_human_measurement_entry: false,
+    audit_bundle_only: true,
+  },
+};
+
+const stage5bAuditArtifact = {
+  id: 'stage5b-evidence-audit-manifest-0',
+  key: 'Stage 5B evidence audit manifest',
+  type: 'stage5b.evidence-audit-manifest',
+  file_name: 'stage5b_audit_manifest.json',
+  extension: '.json',
+  content_type: 'application/json; charset=utf-8',
+  exists: true,
+  capabilities: {
+    can_open: true,
+    can_download: true,
+    browser_safe: true,
+  },
+  links: {
+    open: '/jobs/job-audit/artifacts/stage5b-evidence-audit-manifest-0/content',
+    download: '/jobs/job-audit/artifacts/stage5b-evidence-audit-manifest-0/content?download=1',
+  },
+};
+
 const raw = JSON.stringify(intakeReport, null, 2);
 const card = buildInspectionEvidenceIntakeCard({
   report: intakeReport,
@@ -221,6 +355,31 @@ assert.match(dryRunNormalized['Readiness expectation'], /needs_more_evidence \/ 
 assert.match(dryRunNormalized['Rollback guidance'], /No rollback is needed/);
 assert.match(dryRunNormalized['Evidence boundary'], /dry-run manifests.*are not inspection evidence/i);
 
+const auditRaw = JSON.stringify(stage5bAuditManifest, null, 2);
+const auditCard = buildStage5bEvidenceAuditCard({
+  manifest: stage5bAuditManifest,
+  artifact: stage5bAuditArtifact,
+  raw: auditRaw,
+});
+
+assert.equal(auditCard.id, 'stage5b-evidence-audit');
+assert.equal(auditCard.title, 'Stage 5B evidence audit');
+assert.equal(auditCard.status, 'Readiness held');
+assert.equal(auditCard.tone, 'warn');
+assert.equal(auditCard.score, 0);
+assert.match(auditCard.summary, /No genuine completed inspection evidence/);
+assert.match(auditCard.summary, /No promotion can run/);
+const auditNormalized = Object.fromEntries(auditCard.normalized);
+assert.equal(auditNormalized['Genuine evidence found'], 'No');
+assert.equal(auditNormalized['Promotion can run'], 'No');
+assert.equal(auditNormalized['Attachment-ready candidates'], '0');
+assert.equal(auditNormalized['Blockers'], 'no_genuine_completed_inspection_evidence • promotion_blocked_readiness_held • no_safe_promotion_command_available');
+assert.equal(auditNormalized['Package readiness states'], 'quality-pass-bracket: needs_more_evidence / hold_for_evidence_completion (blocked_no_candidate)');
+assert.equal(auditNormalized['GitHub summary'], 'Disabled for dooosp/freecad-automation; searched 0, skipped 0, downloaded 0');
+assert.match(auditNormalized['Next safe commands'], /stage5b_evidence_audit: fcad stage5b-evidence-audit/);
+assert.match(auditNormalized['Readiness-held truth'], /readiness remains needs_more_evidence/);
+assert.match(auditNormalized['Evidence boundary'], /GitHub metadata alone.*not evidence/i);
+
 const cards = buildReviewCards({
   activeJob: {
     manifest: {
@@ -250,6 +409,21 @@ const dryRunCards = buildReviewCards({
 });
 assert.equal(dryRunCards[0].id, 'inspection-promotion-dry-run');
 assert.equal(dryRunCards[0].empty, false);
+
+const auditCards = buildReviewCards({
+  activeJob: {
+    manifest: {
+      command: 'stage5b-evidence-audit',
+    },
+  },
+  artifacts: [stage5bAuditArtifact],
+  sourceMap: {
+    stage5bAudit: stage5bAuditManifest,
+    stage5bAuditRaw: auditRaw,
+  },
+});
+assert.equal(auditCards[0].id, 'stage5b-evidence-audit');
+assert.equal(auditCards[0].empty, false);
 
 globalThis.document = {
   createElement(tagName) {
@@ -286,6 +460,9 @@ const reviewTree = renderReviewWorkspace({
   },
 });
 const renderedText = JSON.stringify(reviewTree);
+assert.match(renderedText, /Stage 5B audit/);
+assert.match(renderedText, /Run audit/);
+assert.match(renderedText, /Open latest audit|No audit bundle yet/);
 assert.match(renderedText, /Stage 5B intake/);
 assert.match(renderedText, /Run intake/);
 assert.match(renderedText, /Run dry-run/);

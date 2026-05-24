@@ -181,6 +181,15 @@ const localApiJobRequestSchema = {
         required: ['intake_report_path', 'intake_report_artifact_ref'],
       },
     },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['type'],
+      properties: {
+        type: { const: 'stage5b-evidence-audit' },
+        options: { type: 'object' },
+      },
+    },
   ],
 };
 

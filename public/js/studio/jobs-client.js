@@ -145,6 +145,7 @@ export function isReviewableStudioJob(job = {}) {
     || type === 'pack'
     || type === 'inspection-evidence-intake'
     || type === 'inspection-evidence-promotion-dry-run'
+    || type === 'stage5b-evidence-audit'
   )
     && String(job?.status || '').toLowerCase() === 'succeeded';
 }

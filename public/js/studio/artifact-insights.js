@@ -663,6 +663,14 @@ function formatPromotionDryRunBoundary(manifest = {}) {
   return `${prefix} are not inspection evidence. Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.`;
 }
 
+function formatStage5bAuditBoundary(manifest = {}) {
+  const rejected = uniqueStrings(safeList(manifest.evidence_boundary?.rejected_as_final_evidence));
+  const prefix = rejected.length > 0
+    ? rejected.join(', ')
+    : 'Intake reports, dry-run manifests, audit manifests, fixtures, generated CAD/drawing/quality/DFM/readiness/review reports, release bundles, screenshots, CI summaries, templates, collection guides, and GitHub metadata alone';
+  return `${prefix} are not evidence. Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.`;
+}
+
 function firstPromotionDryRunPackage(manifest = {}) {
   return safeList(manifest.packages).find((entry) => isPlainObject(entry)) || {};
 }
@@ -677,6 +685,29 @@ function formatExpectedArtifacts(artifacts = []) {
     .map((entry) => (isPlainObject(entry) ? entry.path || entry.artifact_type : null))
     .filter(Boolean);
   return paths.length > 0 ? paths.slice(0, 4).join(' • ') : 'none';
+}
+
+function formatStage5bPackageReadiness(packages = []) {
+  const values = safeList(packages)
+    .map((pkg) => {
+      if (!isPlainObject(pkg)) return null;
+      const readiness = safeObject(pkg.readiness_after);
+      return `${pkg.slug || 'unknown'}: ${readiness.status || 'unknown'} / ${readiness.gate_decision || 'unknown'} (${pkg.promotion_status || 'not_evaluated'})`;
+    })
+    .filter(Boolean);
+  return values.length > 0 ? values.join(' • ') : 'No package readiness states recorded';
+}
+
+function formatStage5bGitHubSummary(github = {}) {
+  const enabled = github.enabled === true ? 'Enabled' : 'Disabled';
+  return `${enabled} for ${github.repo || 'unknown repo'}; searched ${github.searched_source_count || 0}, skipped ${github.skipped_source_count || 0}, downloaded ${github.downloaded_candidate_count || 0}`;
+}
+
+function formatStage5bNextSafeCommands(commands = []) {
+  const values = safeList(commands)
+    .filter((entry) => isPlainObject(entry))
+    .map((entry) => `${entry.name || 'command'}: ${formatCommand(entry.command)} (${entry.mutates_canonical_artifacts === true ? 'mutates canonical artifacts' : 'non-mutating'})`);
+  return values.length > 0 ? values.slice(0, 4).join(' • ') : 'No safe commands recorded';
 }
 
 function formatMutationBoundary(boundary = {}) {
@@ -828,8 +859,58 @@ export function buildInspectionEvidencePromotionDryRunCard({
   });
 }
 
+export function buildStage5bEvidenceAuditCard({
+  manifest = {},
+  artifact = null,
+  raw = null,
+  activeManifest = null,
+} = {}) {
+  const summary = safeObject(manifest.summary);
+  const truth = safeObject(manifest.readiness_held_truth);
+  const genuineFound = summary.genuine_inspection_evidence_found === true;
+  const promotionCanRun = summary.promotion_can_run === true;
+  const readinessHeld = summary.readiness_remains_held !== false;
+  const attachmentReadyCount = Number.isFinite(summary.attachment_ready_candidate_count)
+    ? summary.attachment_ready_candidate_count
+    : (Number.isFinite(manifest.attachment_ready?.count) ? manifest.attachment_ready.count : null);
+  const readinessStatement = truth.statement
+    || (promotionCanRun
+      ? 'A future promotion plan exists, but this audit did not attach evidence or change canonical readiness.'
+      : 'No genuine completed inspection evidence is available for promotion; no promotion can run and readiness remains needs_more_evidence / hold_for_evidence_completion.');
+
+  return buildCard({
+    id: 'stage5b-evidence-audit',
+    title: 'Stage 5B evidence audit',
+    tone: promotionCanRun && genuineFound ? 'ok' : 'warn',
+    score: attachmentReadyCount,
+    status: readinessHeld ? 'Readiness held' : 'Future promotion plan ready',
+    summary: `${readinessStatement} ${promotionCanRun ? 'Promotion can run only as a future controlled command.' : 'No promotion can run.'} No canonical artifacts mutated.`,
+    artifact,
+    normalized: [
+      buildReviewDisplayField('Genuine evidence found', genuineFound ? 'Yes' : 'No'),
+      buildReviewDisplayField('Promotion can run', promotionCanRun ? 'Yes' : 'No'),
+      buildReviewDisplayField('Attachment-ready candidates', attachmentReadyCount === null ? 'Unknown' : String(attachmentReadyCount)),
+      buildReviewDisplayField('Blockers', uniqueStrings(safeList(manifest.blockers)).join(' • ') || 'none'),
+      buildReviewDisplayField('Package readiness states', formatStage5bPackageReadiness(manifest.canonical_package_readiness_states)),
+      buildReviewDisplayField('GitHub summary', formatStage5bGitHubSummary(safeObject(manifest.github_summary))),
+      buildReviewDisplayField('Next safe commands', formatStage5bNextSafeCommands(manifest.next_safe_commands)),
+      buildReviewDisplayField('Readiness-held truth', readinessStatement),
+      buildReviewDisplayField('Evidence boundary', formatStage5bAuditBoundary(manifest)),
+      buildReviewDisplayField('Canonical artifacts mutated', summary.canonical_artifacts_mutated === true ? 'Yes' : 'No'),
+    ],
+    raw,
+    provenance: [
+      ...manifestNotes(activeManifest, artifact),
+      'Stage 5B audit bundles are review/control artifacts only, not package inspection evidence.',
+      'Preview is limited to registered tracked job artifact routes; no arbitrary local file path is opened.',
+    ],
+  });
+}
+
 export function buildReviewCards({ activeJob, artifacts = [], sourceMap = {} }) {
   const manifest = activeJob?.manifest || null;
+  const stage5bAuditArtifact = findArtifact(artifacts, ['stage5b.evidence-audit-manifest', 'stage5b-evidence-audit', 'stage5b_audit_manifest']);
+  const stage5bAudit = sourceMap.stage5bAudit;
   const inspectionIntakeArtifact = findArtifact(artifacts, ['inspection-evidence.intake-report', 'inspection-evidence-intake-report', 'intake-report']);
   const inspectionIntake = sourceMap.inspectionIntake;
   const inspectionPromotionDryRunArtifact = findArtifact(artifacts, ['inspection-evidence.promotion-dry-run-manifest', 'inspection-evidence-promotion-dry-run-manifest', 'promotion_dry_run_manifest']);
@@ -849,6 +930,16 @@ export function buildReviewCards({ activeJob, artifacts = [], sourceMap = {} }) 
   const reviewPack = sourceMap.reviewPack;
 
   const cards = [
+    ...(stage5bAudit
+      ? [
+          buildStage5bEvidenceAuditCard({
+            manifest: stage5bAudit,
+            artifact: stage5bAuditArtifact,
+            raw: sourceMap.stage5bAuditRaw,
+            activeManifest: manifest,
+          }),
+        ]
+      : []),
     ...(inspectionPromotionDryRun
       ? [
           buildInspectionEvidencePromotionDryRunCard({

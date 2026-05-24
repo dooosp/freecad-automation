@@ -69,13 +69,13 @@ Production readiness remains held until genuine completed inspection evidence ex
 
 For how DFM signals, readiness reports, release bundles, and missing inspection evidence relate to each other, see [DFM and readiness guide](./dfm-readiness-guide.md). For the final non-inspection software milestone summary, see [final non-inspection software closeout](./final-non-inspection-software-closeout.md).
 
-## Run Stage 5B intake from Review
+## Run Stage 5B audit from Review
 
-Use the Review workspace when maintainers need to repeat the Stage 5B inspection-evidence intake check without reading raw CLI output. The Review card queues a local tracked `inspection-evidence-intake` job; it does not ask anyone to type measured values and it does not attach evidence.
+Use the Review workspace when maintainers need to repeat the Stage 5B evidence audit without reading raw CLI output. The Review card queues a local tracked `stage5b-evidence-audit` job; it does not ask anyone to type measured values, does not accept a browser-provided output directory, and does not attach evidence.
 
-The tracked intake report summarizes accepted count, rejected count, rejection classes, searched source classes, and package readiness. Readiness remains held when accepted count is `0`, and the report should say `readiness remains needs_more_evidence / hold_for_evidence_completion`.
+The tracked audit registers the intake report, promotion dry-run manifest, audit manifest, and markdown summary. The audit card summarizes genuine evidence found, promotion can run, attachment-ready count, blockers, package readiness states, GitHub summary, next safe commands, readiness-held truth, and the evidence boundary. Readiness remains held when accepted count is `0`, and the audit should say no promotion can run and readiness remains `needs_more_evidence / hold_for_evidence_completion`.
 
-Open the completed intake job in Review to inspect the normalized card, then preview the report only through the tracked job artifact route. The report artifact is allowlisted by job id and artifact id; Studio does not import arbitrary local files for intake review.
+Open the completed audit job in Review to inspect the normalized card, then preview audit artifacts only through tracked job artifact routes. Artifacts are allowlisted by job id and artifact id; Studio does not import arbitrary local files for audit review.
 
 ## What Not To Do
 
@@ -90,7 +90,7 @@ Open the completed intake job in Review to inspect the normalized card, then pre
 
 If you only want software/project closeout, use Studio and the docs to review canonical package cards, safe artifact preview, release boundaries, and readiness status as checked-in software deliverables. The current non-inspection closeout remains truthful without attaching inspection evidence.
 
-If you have genuine inspection evidence later, follow the inspection evidence contract and collection guides, attach a completed real inspection evidence JSON through the canonical flow, and then deliberately refresh the review/readiness/release chain. Studio Review can queue a tracked promotion dry-run from a registered intake report artifact first; that card shows blockers, future commands, expected artifacts, mutation boundaries, rollback guidance, and the held readiness expectation without mutating canonical package files. Stage 5B remains parked until a genuine completed inspection evidence JSON exists.
+If you have genuine inspection evidence later, follow the inspection evidence contract and collection guides, attach a completed real inspection evidence JSON through the canonical flow, and then deliberately refresh the review/readiness/release chain. Studio Review can queue the tracked audit first, or queue a tracked promotion dry-run from a registered intake report artifact; those cards show blockers, future commands, expected artifacts, mutation boundaries, rollback guidance, and the held readiness expectation without mutating canonical package files. Stage 5B remains parked until a genuine completed inspection evidence JSON exists.
 
 ## Validation And Tests
 

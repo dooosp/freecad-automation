@@ -348,6 +348,12 @@ const COMMAND_MANIFEST = Object.freeze([
       requiresFreecadRuntime: false,
       note: 'Writes intake_report.json, promotion_dry_run_manifest.json, stage5b_audit_manifest.json, and a markdown summary without mutating canonical package artifacts.',
     }),
+    surfaces: Object.freeze({
+      jobExecutor: true,
+      localApi: true,
+      studio: true,
+      studioSubmission: 'local-only',
+    }),
   }),
   Object.freeze({
     name: 'stabilization-review',
@@ -783,6 +789,7 @@ const JOB_EXECUTOR_COMMAND_ORDER = Object.freeze([
   'pack',
   'inspection-evidence-intake',
   'inspection-evidence-promotion-dry-run',
+  'stage5b-evidence-audit',
 ]);
 const STUDIO_JOB_COMMAND_ORDER = Object.freeze([
   'create',
@@ -796,6 +803,7 @@ const STUDIO_JOB_COMMAND_ORDER = Object.freeze([
   'pack',
   'inspection-evidence-intake',
   'inspection-evidence-promotion-dry-run',
+  'stage5b-evidence-audit',
 ]);
 const STUDIO_ARTIFACT_JOB_ORDER = Object.freeze([
   'readiness-pack',
@@ -828,6 +836,7 @@ const LOCAL_API_OTHER_PUBLIC_JOB_ORDER = Object.freeze([
   'pack',
   'inspection-evidence-intake',
   'inspection-evidence-promotion-dry-run',
+  'stage5b-evidence-audit',
 ]);
 
 function orderedCommandNames(order = [], predicate = null) {

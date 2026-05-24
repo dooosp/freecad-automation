@@ -81,6 +81,41 @@ try {
   assert.equal(invalidInspectionEvidenceIntakePath.ok, false);
   assert.match(invalidInspectionEvidenceIntakePath.errors.join('\n'), /unsupported property "out"/);
 
+  const stage5bAudit = validateJobRequest({
+    type: 'stage5b-evidence-audit',
+    options: {
+      include_github: false,
+    },
+  });
+  assert.equal(stage5bAudit.ok, true, stage5bAudit.errors?.join('\n'));
+  assert.deepEqual(stage5bAudit.request.options, { include_github: false });
+
+  const invalidStage5bAuditOutDir = validateJobRequest({
+    type: 'stage5b-evidence-audit',
+    out_dir: '/tmp/private/stage5b-audit',
+  });
+  assert.equal(invalidStage5bAuditOutDir.ok, false);
+  assert.match(invalidStage5bAuditOutDir.errors.join('\n'), /unsupported property "out_dir"|must NOT have additional properties/);
+
+  const invalidStage5bAuditOptionPath = validateJobRequest({
+    type: 'stage5b-evidence-audit',
+    options: {
+      include_github: false,
+      out_dir: '../private/stage5b-audit',
+    },
+  });
+  assert.equal(invalidStage5bAuditOptionPath.ok, false);
+  assert.match(invalidStage5bAuditOptionPath.errors.join('\n'), /options\.out_dir|only accepts include_github/);
+
+  const invalidStage5bAuditIncludeGitHub = validateJobRequest({
+    type: 'stage5b-evidence-audit',
+    options: {
+      include_github: 'yes',
+    },
+  });
+  assert.equal(invalidStage5bAuditIncludeGitHub.ok, false);
+  assert.match(invalidStage5bAuditIncludeGitHub.errors.join('\n'), /include_github.*boolean/i);
+
   const promotionDryRunFromSafePath = validateJobRequest({
     type: 'inspection-evidence-promotion-dry-run',
     intake_report_path: 'output/inspection-evidence-intake-report.json',
@@ -168,6 +203,19 @@ try {
   assert.equal('artifact_ref' in publicInspectRequest, false);
   assert.equal(JSON.stringify(publicInspectRequest).includes('/tmp/private'), false);
   assert.equal(JSON.stringify(publicInspectRequest).includes('C:\\\\private\\\\secret'), false);
+
+  const publicStage5bAuditRequest = toPublicJobRequest({
+    type: 'stage5b-evidence-audit',
+    options: {
+      include_github: false,
+    },
+  });
+  assert.deepEqual(publicStage5bAuditRequest, {
+    type: 'stage5b-evidence-audit',
+    options: {
+      include_github: false,
+    },
+  });
 
   const store = createJobStore({ jobsDir: join(tmpRoot, 'jobs') });
   const job = await store.createJob(valid.request);
