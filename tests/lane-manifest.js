@@ -60,6 +60,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'Inspection evidence intake automation', args: Object.freeze(['tests/inspection-evidence-intake.test.js']) }),
       Object.freeze({ label: 'Inspection evidence promotion dry-run', args: Object.freeze(['tests/inspection-evidence-promotion-dry-run.test.js']) }),
       Object.freeze({ label: 'Stage 5B evidence audit bundle', args: Object.freeze(['tests/stage5b-evidence-audit.test.js']) }),
+      Object.freeze({ label: 'Stage 5B runtime validation', args: Object.freeze(['tests/stage5b-runtime-validation.test.js']) }),
       Object.freeze({ label: 'Stage 5B audit CLI smoke', args: Object.freeze(['tests/stage5b-evidence-audit-cli-smoke.test.js']) }),
       Object.freeze({ label: 'Readiness inspection evidence contract', args: Object.freeze(['tests/readiness-inspection-evidence-contract.test.js']) }),
       Object.freeze({ label: 'Design reviewer validation', args: Object.freeze(['tests/design-reviewer-validation.test.js']) }),

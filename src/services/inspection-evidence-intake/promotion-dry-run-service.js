@@ -2,6 +2,11 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
 
+import {
+  assertValidStage5bIntakeReport,
+  assertValidStage5bPromotionDryRunManifest,
+} from './stage5b-runtime-validation.js';
+
 const MANIFEST_SCHEMA_VERSION = '1.0';
 const REVIEW_CONTEXT_SIDE_INPUTS = Object.freeze([
   Object.freeze({
@@ -639,6 +644,7 @@ export async function writeInspectionEvidencePromotionDryRunManifest({
   }
   const resolvedRoot = resolve(projectRoot || process.cwd());
   const output = assertPathInsideProject(resolvedRoot, outputPath, 'promotion dry-run output path');
+  assertValidStage5bIntakeReport(intakeReport, { label: 'source intake report' });
   const manifest = buildInspectionEvidencePromotionDryRunManifest({
     projectRoot: resolvedRoot,
     intakeReport,
@@ -646,6 +652,7 @@ export async function writeInspectionEvidencePromotionDryRunManifest({
     generatedAt,
     testOnly,
   });
+  assertValidStage5bPromotionDryRunManifest(manifest, { label: 'promotion dry-run manifest' });
   mkdirSync(dirname(output.absolute), { recursive: true });
   writeFileSync(output.absolute, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
   return {

@@ -5,12 +5,34 @@
   "source_boundary": {
     "hard_evidence_rule": "Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.",
     "rejected_as_final_evidence": [
-      "dry-run manifests",
       "intake reports",
       "fixtures",
-      "generated CAD/drawing/quality/readiness/review reports",
-      "GitHub metadata"
+      "templates",
+      "collection guides",
+      "release bundles",
+      "promotion dry-run manifests",
+      "audit manifests",
+      "generated CAD/drawing/quality/DFM/readiness/review/standard-doc/release artifacts",
+      "GitHub metadata alone"
     ]
+  },
+  "searched_sources": [
+    {
+      "kind": "tracked_repo_files",
+      "status": "searched",
+      "path_count": 0,
+      "candidate_path_count": 0
+    }
+  ],
+  "github_discovery": {
+    "enabled": false,
+    "repo": "dooosp/freecad-automation",
+    "searched_sources": [],
+    "skipped_sources": [],
+    "downloaded_candidates": [],
+    "accepted_candidate_count": 0,
+    "rejected_candidate_count": 0,
+    "rejection_classes": {}
   },
   "packages": [
     {
@@ -21,23 +43,57 @@
         "gate_decision": "hold_for_evidence_completion",
         "missing_inputs": [
           "inspection_evidence"
-        ]
+        ],
+        "inspection_evidence_missing": true,
+        "source_of_truth_path": "docs/examples/quality-pass-bracket/readiness/readiness_report.json"
       },
       "readiness_after": {
         "status": "needs_more_evidence",
         "gate_decision": "hold_for_evidence_completion",
         "missing_inputs": [
           "inspection_evidence"
-        ]
+        ],
+        "inspection_evidence_missing": true,
+        "source_of_truth_path": "docs/examples/quality-pass-bracket/readiness/readiness_report.json"
       },
+      "searched_sources": [
+        {
+          "kind": "tracked_repo_files",
+          "status": "searched",
+          "path_count": 0,
+          "candidate_path_count": 0
+        }
+      ],
       "accepted_candidates": [],
       "rejected_candidates": [],
       "attachment_plan": {
+        "matched_package": null,
         "attachment_ready": false,
         "match_confidence": "none",
+        "candidate_package_matches": [],
+        "matched_features": [],
+        "unmatched_features": [],
+        "missing_required_features": [],
         "blockers": [
           "no_genuine_valid_candidate"
-        ]
+        ],
+        "canonical_next_command": null
+      },
+      "candidate_attachment_plans": [],
+      "intake_action": {
+        "status": "hold_for_evidence_completion",
+        "mode": "no_human_measurement_entry_requested",
+        "matched_package": null,
+        "match_confidence": "none",
+        "matched_features": [],
+        "unmatched_features": [],
+        "missing_required_features": [],
+        "attachment_ready": false,
+        "blockers": [
+          "no_genuine_valid_candidate"
+        ],
+        "canonical_next_command": null,
+        "note": "No genuine completed inspection evidence was found; readiness must remain held."
       }
     }
   ],
