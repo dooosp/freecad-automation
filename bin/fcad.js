@@ -77,6 +77,7 @@ import { runReviewContextPipeline } from '../src/orchestration/review-context-pi
 import { generateCloseoutPackage } from '../src/services/closeout-package/closeout-package-service.js';
 import { discoverInspectionEvidenceIntake } from '../src/services/inspection-evidence-intake/inspection-evidence-intake-service.js';
 import { writeInspectionEvidencePromotionDryRunManifest } from '../src/services/inspection-evidence-intake/promotion-dry-run-service.js';
+import { writeStage5bEvidenceAuditBundle } from '../src/services/inspection-evidence-intake/stage5b-evidence-audit-service.js';
 import { runSweep } from '../src/services/sweep/sweep-service.js';
 import { loadRuleProfile, summarizeRuleProfile } from '../src/services/config/rule-profile-service.js';
 import {
@@ -389,6 +390,43 @@ async function cmdInspectionEvidencePromotionDryRun(rawArgs = []) {
   return result.manifest;
 }
 
+async function cmdStage5bEvidenceAudit(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  const outDir = options['out-dir'];
+  if (!outDir || outDir === true) {
+    console.error('Error: stage5b-evidence-audit requires --out-dir <dir>');
+    process.exit(1);
+  }
+  const packageSelector = options.package || options.packages || positional[0] || null;
+  const packageSlugs = packageSelector
+    ? String(packageSelector).split(',').map((slug) => slug.trim()).filter(Boolean)
+    : undefined;
+  const includeGitHub = options['include-github'] === true || options.github === true;
+
+  try {
+    const result = await writeStage5bEvidenceAuditBundle({
+      projectRoot: PROJECT_ROOT,
+      outDir,
+      packageSlugs,
+      includeGitHub,
+      githubRepo: options['github-repo'] || 'dooosp/freecad-automation',
+    });
+    const manifest = result.manifest;
+    console.log(`Stage 5B evidence audit bundle: ${result.output_dir}`);
+    console.log(`  Intake report: ${result.paths.intake_report}`);
+    console.log(`  Promotion dry-run manifest: ${result.paths.promotion_dry_run_manifest}`);
+    console.log(`  Audit manifest: ${result.paths.stage5b_audit_manifest}`);
+    console.log(`  Audit summary: ${result.paths.stage5b_audit_summary}`);
+    console.log(`  Genuine evidence found: ${manifest.summary.genuine_inspection_evidence_found ? 'yes' : 'no'}`);
+    console.log(`  Promotion can run: ${manifest.summary.promotion_can_run ? 'yes' : 'no'}`);
+    console.log(`  Readiness remains held: ${manifest.summary.readiness_remains_held ? 'yes' : 'no'}`);
+    return manifest;
+  } catch (error) {
+    console.error(`Error: ${error.message}`);
+    process.exit(1);
+  }
+}
+
 async function main() {
   const [command, ...args] = process.argv.slice(2);
 
@@ -430,6 +468,8 @@ async function main() {
     await cmdInspectionEvidenceIntake(args);
   } else if (command === 'inspection-evidence-promotion-dry-run') {
     await cmdInspectionEvidencePromotionDryRun(args);
+  } else if (command === 'stage5b-evidence-audit') {
+    await cmdStage5bEvidenceAudit(args);
   } else if (command === 'stabilization-review') {
     await cmdStabilizationReview(args);
   } else if (command === 'generate-standard-docs') {
