@@ -7,6 +7,7 @@ const ROOT_README_PATH = resolve(ROOT, 'README.md');
 const EXAMPLE_INDEX_PATH = resolve(ROOT, 'docs', 'examples', 'README.md');
 const PROJECT_CLOSEOUT_STATUS_PATH = resolve(ROOT, 'docs', 'project-closeout-status.md');
 const FINAL_CLOSEOUT_PATH = resolve(ROOT, 'docs', 'final-non-inspection-software-closeout.md');
+const STAGE_5B_AUTOMATION_CLOSEOUT_PATH = resolve(ROOT, 'docs', 'stage-5b-automation-closeout-status.md');
 const STAGE_5D_CLOSEOUT_PATH = resolve(ROOT, 'docs', 'stage-5d-feature-expansion-closeout.md');
 const DFM_READINESS_GUIDE_PATH = resolve(ROOT, 'docs', 'dfm-readiness-guide.md');
 const CANONICAL_PACKAGE_WORKFLOW_PATH = resolve(ROOT, 'docs', 'canonical-package-generation-workflow.md');
@@ -61,6 +62,7 @@ assert.equal(existsSync(ROOT_README_PATH), true, 'root README should exist');
 assert.equal(existsSync(EXAMPLE_INDEX_PATH), true, 'canonical example index should exist');
 assert.equal(existsSync(PROJECT_CLOSEOUT_STATUS_PATH), true, 'project closeout status should exist');
 assert.equal(existsSync(FINAL_CLOSEOUT_PATH), true, 'final non-inspection software closeout should exist');
+assert.equal(existsSync(STAGE_5B_AUTOMATION_CLOSEOUT_PATH), true, 'Stage 5B automation closeout status should exist');
 assert.equal(existsSync(STAGE_5D_CLOSEOUT_PATH), true, 'Stage 5D feature expansion closeout should exist');
 assert.equal(existsSync(DFM_READINESS_GUIDE_PATH), true, 'DFM/readiness guide should exist');
 assert.equal(existsSync(CANONICAL_PACKAGE_WORKFLOW_PATH), true, 'canonical package generation workflow guide should exist');
@@ -78,6 +80,7 @@ const rootReadmeText = readText(ROOT_README_PATH);
 const exampleIndexText = readText(EXAMPLE_INDEX_PATH);
 const projectCloseoutStatusText = readText(PROJECT_CLOSEOUT_STATUS_PATH);
 const finalCloseoutText = readText(FINAL_CLOSEOUT_PATH);
+const stage5bAutomationCloseoutText = readText(STAGE_5B_AUTOMATION_CLOSEOUT_PATH);
 const stage5dCloseoutText = readText(STAGE_5D_CLOSEOUT_PATH);
 const dfmReadinessGuideText = readText(DFM_READINESS_GUIDE_PATH);
 const canonicalPackageWorkflowText = readText(CANONICAL_PACKAGE_WORKFLOW_PATH);
@@ -136,6 +139,11 @@ assertMentions(
   rootReadmeText,
   /\[final non-inspection software closeout\]\(\.\/docs\/final-non-inspection-software-closeout\.md\)/,
   'root README should link the final non-inspection software closeout'
+);
+assertMentions(
+  rootReadmeText,
+  /\[Stage 5B automation closeout status\]\(\.\/docs\/stage-5b-automation-closeout-status\.md\)/,
+  'root README should link the Stage 5B automation closeout status'
 );
 assertMentions(
   rootReadmeText,
@@ -280,6 +288,77 @@ for (const [slug, score] of Object.entries({
     finalCloseoutText,
     new RegExp(`\\| \`${slug}\` \\| \`needs_more_evidence\` \\| ${score} \\| \`hold_for_evidence_completion\` \\| \`inspection_evidence\` \\|`),
     `final closeout should list ${slug} readiness truth`
+  );
+}
+
+assertMentions(
+  stage5bAutomationCloseoutText,
+  /^# Stage 5B automation closeout status/m,
+  'Stage 5B automation closeout should have the expected title'
+);
+for (const pr of ['#113', '#114', '#115', '#116', '#117', '#118', '#119', '#120', '#121']) {
+  assert.equal(stage5bAutomationCloseoutText.includes(pr), true, `Stage 5B automation closeout should mention PR ${pr}`);
+}
+for (const surface of [
+  'inspection-evidence-intake',
+  'table normalization',
+  'include_github discovery',
+  'attachment planning',
+  'inspection-evidence-promotion-dry-run',
+  'promotion dry-run',
+  'stage5b-evidence-audit',
+  'tracked API/Studio review surfaces',
+]) {
+  assert.equal(
+    stage5bAutomationCloseoutText.includes(surface),
+    true,
+    `Stage 5B automation closeout should mention ${surface}`
+  );
+}
+assertMentions(
+  stage5bAutomationCloseoutText,
+  /no genuine completed inspection evidence (?:was|has been) found or attached/i,
+  'Stage 5B automation closeout should state no genuine completed inspection evidence was found or attached'
+);
+assertMentions(
+  stage5bAutomationCloseoutText,
+  /promotion cannot run/i,
+  'Stage 5B automation closeout should state promotion cannot run'
+);
+assertMentions(
+  stage5bAutomationCloseoutText,
+  /`needs_more_evidence` \/ `hold_for_evidence_completion`/,
+  'Stage 5B automation closeout should preserve readiness-held package truth'
+);
+for (const boundary of [
+  'generated artifacts',
+  'fixtures',
+  'intake reports',
+  'dry-run manifests',
+  'audit manifests',
+  'screenshots',
+  'CI summaries',
+  'GitHub metadata',
+  'templates',
+  'collection guides',
+]) {
+  assert.equal(
+    stage5bAutomationCloseoutText.includes(boundary),
+    true,
+    `Stage 5B automation closeout should reject ${boundary} as inspection evidence`
+  );
+}
+assertMentions(
+  stage5bAutomationCloseoutText,
+  /Generated\/fake\/human-entered measurements are not created or accepted/,
+  'Stage 5B automation closeout should reject generated, fake, or human-entered measurements'
+);
+assertNoPositiveProductionReadyClaim(stage5bAutomationCloseoutText, 'Stage 5B automation closeout should not claim production readiness');
+for (const slug of CANONICAL_PACKAGES) {
+  assert.equal(
+    stage5bAutomationCloseoutText.includes(`\`${slug}\``),
+    true,
+    `Stage 5B automation closeout should mention ${slug}`
   );
 }
 
@@ -586,6 +665,11 @@ assertMentions(
   testingDocText,
   /final non-inspection software closeout report/,
   'testing doc should document final closeout docs-smoke coverage'
+);
+assertMentions(
+  testingDocText,
+  /Stage 5B automation closeout status/,
+  'testing doc should document Stage 5B automation closeout docs-smoke coverage'
 );
 assertMentions(
   testingDocText,
