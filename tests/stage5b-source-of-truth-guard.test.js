@@ -1,0 +1,544 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+import {
+  JOB_EXECUTOR_COMMANDS,
+  LOCAL_API_JOB_COMMANDS,
+  PLAIN_PYTHON_COMMANDS,
+  STUDIO_ARTIFACT_COMPATIBLE_JOB_COMMANDS,
+  STUDIO_JOB_COMMANDS,
+  getCommandEntry,
+  renderCliUsage,
+} from '../src/shared/command-manifest.js';
+import { validateLocalApiJobRequest } from '../src/server/local-api-schemas.js';
+import {
+  translateStudioJobSubmission,
+  validateStudioJobSubmission,
+} from '../src/server/studio-job-bridge.js';
+import { validateJobRequest } from '../src/services/jobs/job-executor.js';
+import {
+  buildReviewCards,
+} from '../public/js/studio/artifact-insights.js';
+import {
+  canStartTrackedArtifactRun,
+  findPreferredInspectionEvidenceIntakeArtifact,
+  findPreferredInspectionEvidencePromotionDryRunArtifact,
+  findPreferredStage5bEvidenceAuditArtifact,
+  isInspectionEvidenceIntakeArtifact,
+  isInspectionEvidencePromotionDryRunArtifact,
+  isStage5bEvidenceAuditArtifact,
+} from '../public/js/studio/artifact-actions.js';
+import { isReviewableStudioJob } from '../public/js/studio/jobs-client.js';
+
+const ROOT = resolve(import.meta.dirname, '..');
+const readText = (path) => readFileSync(resolve(ROOT, path), 'utf8');
+
+const STAGE5B_COMMANDS = Object.freeze([
+  'inspection-evidence-intake',
+  'inspection-evidence-promotion-dry-run',
+  'stage5b-evidence-audit',
+]);
+
+const STAGE5B_ARTIFACTS = Object.freeze({
+  intake: Object.freeze({
+    command: 'inspection-evidence-intake',
+    type: 'inspection-evidence.intake-report',
+    fileName: 'inspection-evidence-intake-report.json',
+    auditFileName: 'intake_report.json',
+    documentArtifactType: 'inspection_evidence_intake_report',
+    cardId: 'inspection-intake',
+  }),
+  dryRun: Object.freeze({
+    command: 'inspection-evidence-promotion-dry-run',
+    type: 'inspection-evidence.promotion-dry-run-manifest',
+    fileName: 'promotion_dry_run_manifest.json',
+    documentArtifactType: 'inspection_evidence_promotion_dry_run_manifest',
+    cardId: 'inspection-promotion-dry-run',
+  }),
+  auditManifest: Object.freeze({
+    command: 'stage5b-evidence-audit',
+    type: 'stage5b.evidence-audit-manifest',
+    fileName: 'stage5b_audit_manifest.json',
+    documentArtifactType: 'stage5b_evidence_audit_manifest',
+    cardId: 'stage5b-evidence-audit',
+  }),
+  auditSummary: Object.freeze({
+    command: 'stage5b-evidence-audit',
+    type: 'stage5b.evidence-audit-summary',
+    fileName: 'stage5b_audit_summary.md',
+    documentArtifactType: 'stage5b_evidence_audit_summary_markdown',
+  }),
+});
+
+const HARD_EVIDENCE_RULE = 'Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.';
+const NON_EVIDENCE_BOUNDARY_PATTERN = /intake reports|dry-run manifests|audit manifests|generated CAD\/drawing\/quality\/DFM\/readiness\/review|fixtures|screenshots|CI summaries|templates|collection guides|GitHub metadata/i;
+
+function assertIncludesAll(haystack, needles, label) {
+  needles.forEach((needle) => {
+    assert(
+      haystack.includes(needle),
+      `${label} should include ${needle}`
+    );
+  });
+}
+
+function extractBacktickValuesFromLine(markdown, startsWith) {
+  const line = markdown.split('\n').find((candidate) => candidate.startsWith(startsWith));
+  assert(line, `Missing README line starting with ${startsWith}`);
+  return [...line.matchAll(/`([^`]+)`/g)].map((match) => match[1]);
+}
+
+function assertSameMembers(actual, expected, label) {
+  assert.deepEqual([...actual].sort(), [...expected].sort(), label);
+}
+
+function artifactFixture(definition, overrides = {}) {
+  return {
+    id: `${definition.type}-0`,
+    key: definition.fileName,
+    type: definition.type,
+    file_name: definition.fileName,
+    extension: definition.fileName.endsWith('.md') ? '.md' : '.json',
+    content_type: definition.fileName.endsWith('.md') ? 'text/markdown' : 'application/json',
+    exists: true,
+    size_bytes: 512,
+    scope: 'user-facing',
+    stability: 'stable',
+    capabilities: {
+      can_open: true,
+      can_download: true,
+    },
+    links: {
+      open: `/jobs/job-stage5b/artifacts/${definition.type}-0/content`,
+      download: `/jobs/job-stage5b/artifacts/${definition.type}-0/content?download=1`,
+    },
+    ...overrides,
+  };
+}
+
+const intakeReport = {
+  artifact_type: STAGE5B_ARTIFACTS.intake.documentArtifactType,
+  schema_version: '1.0',
+  source_boundary: {
+    hard_evidence_rule: HARD_EVIDENCE_RULE,
+    rejected_as_final_evidence: [
+      'fixtures',
+      'generated CAD/drawing/quality/DFM/readiness/review/standard-doc/release artifacts',
+      'intake reports',
+    ],
+  },
+  searched_sources: [{ kind: 'tracked_repo_files', status: 'searched' }],
+  rejected_candidates: [{ classification: 'invalid_generated' }],
+  packages: [
+    {
+      slug: 'quality-pass-bracket',
+      readiness_after: {
+        status: 'needs_more_evidence',
+        gate_decision: 'hold_for_evidence_completion',
+      },
+    },
+  ],
+  summary: {
+    accepted_candidate_count: 0,
+    rejected_candidate_count: 1,
+    genuine_inspection_evidence_found: false,
+    readiness_truth: 'readiness remains needs_more_evidence / hold_for_evidence_completion',
+  },
+};
+
+const dryRunManifest = {
+  artifact_type: STAGE5B_ARTIFACTS.dryRun.documentArtifactType,
+  schema_version: '1.0',
+  hard_evidence_rule: HARD_EVIDENCE_RULE,
+  evidence_boundary: {
+    dry_run_does_not_attach_evidence: true,
+    rejected_as_final_evidence: [
+      'dry-run manifests',
+      'intake reports',
+      'generated CAD/drawing/quality/DFM/readiness/review reports',
+      'release bundles',
+      'GitHub metadata',
+    ],
+  },
+  summary: {
+    promotion_can_run: false,
+    ready_package_count: 0,
+    blocked_package_count: 1,
+    canonical_artifacts_mutated: false,
+    readiness_expectation: 'No promotion can run; readiness remains needs_more_evidence / hold_for_evidence_completion.',
+  },
+  packages: [
+    {
+      package_slug: 'quality-pass-bracket',
+      attachment_ready: false,
+      match_confidence: 'none',
+      blockers: ['no_genuine_completed_inspection_evidence'],
+      canonical_next_command: null,
+      mutation_boundaries: {
+        dry_run_writes: ['promotion_dry_run_manifest.json'],
+        canonical_artifacts_mutated_by_dry_run: false,
+      },
+      readiness_expectation: {
+        dry_run: {
+          status: 'needs_more_evidence',
+          gate_decision: 'hold_for_evidence_completion',
+        },
+      },
+    },
+  ],
+};
+
+const auditManifest = {
+  artifact_type: STAGE5B_ARTIFACTS.auditManifest.documentArtifactType,
+  schema_version: '1.0',
+  generated_artifacts: {
+    intake_report: {
+      path: 'output/jobs/job-stage5b/artifacts/intake_report.json',
+      artifact_type: STAGE5B_ARTIFACTS.intake.documentArtifactType,
+    },
+    promotion_dry_run_manifest: {
+      path: 'output/jobs/job-stage5b/artifacts/promotion_dry_run_manifest.json',
+      artifact_type: STAGE5B_ARTIFACTS.dryRun.documentArtifactType,
+    },
+    stage5b_audit_manifest: {
+      path: 'output/jobs/job-stage5b/artifacts/stage5b_audit_manifest.json',
+      artifact_type: STAGE5B_ARTIFACTS.auditManifest.documentArtifactType,
+    },
+  },
+  evidence_boundary: {
+    hard_evidence_rule: HARD_EVIDENCE_RULE,
+    rejected_as_final_evidence: [
+      'intake reports',
+      'dry-run manifests',
+      'audit manifests',
+      'fixtures',
+      'generated CAD/drawing/quality/DFM/readiness/review reports',
+      'release bundles',
+      'screenshots',
+      'CI summaries',
+      'templates',
+      'collection guides',
+      'GitHub metadata alone',
+    ],
+  },
+  summary: {
+    genuine_inspection_evidence_found: false,
+    promotion_can_run: false,
+    attachment_ready_candidate_count: 0,
+    readiness_remains_held: true,
+    canonical_artifacts_mutated: false,
+  },
+  blockers: [
+    'no_genuine_completed_inspection_evidence',
+    'promotion_blocked_readiness_held',
+  ],
+  canonical_package_readiness_states: [
+    {
+      slug: 'quality-pass-bracket',
+      promotion_status: 'blocked_no_candidate',
+      readiness_after: {
+        status: 'needs_more_evidence',
+        gate_decision: 'hold_for_evidence_completion',
+      },
+    },
+  ],
+  github_summary: {
+    enabled: false,
+    repo: 'dooosp/freecad-automation',
+    searched_source_count: 0,
+    skipped_source_count: 0,
+    downloaded_candidate_count: 0,
+  },
+  next_safe_commands: [
+    {
+      name: 'stage5b_evidence_audit',
+      command: ['fcad', 'stage5b-evidence-audit', '--out-dir', 'output/stage5b'],
+      mutates_canonical_artifacts: false,
+    },
+    {
+      name: 'promotion_dry_run',
+      command: ['fcad', 'inspection-evidence-promotion-dry-run', '--intake-report', 'output/stage5b/intake_report.json'],
+      mutates_canonical_artifacts: false,
+    },
+  ],
+  readiness_held_truth: {
+    statement: 'No genuine completed inspection evidence is available for promotion; no promotion can run and readiness remains needs_more_evidence / hold_for_evidence_completion.',
+    no_genuine_completed_inspection_evidence_found: true,
+    canonical_package_artifacts_mutated: false,
+  },
+};
+
+const stage5bArtifacts = [
+  artifactFixture(STAGE5B_ARTIFACTS.intake),
+  artifactFixture(STAGE5B_ARTIFACTS.dryRun),
+  artifactFixture(STAGE5B_ARTIFACTS.auditManifest),
+  artifactFixture(STAGE5B_ARTIFACTS.auditSummary),
+];
+
+const docs = {
+  readme: readText('README.md'),
+  supportMatrix: readText('docs/support-matrix.md'),
+  testing: readText('docs/testing.md'),
+  closeout: readText('docs/stage-5b-automation-closeout-status.md'),
+  studioApi: readText('docs/studio-canonical-package-api.md'),
+  studioWalkthrough: readText('docs/studio-first-user-walkthrough.md'),
+};
+
+const sources = {
+  jobExecutor: readText('src/services/jobs/job-executor.js'),
+  localApiSchemas: readText('src/server/local-api-schemas.js'),
+  studioBridge: readText('src/server/studio-job-bridge.js'),
+  studioClient: readText('public/js/studio/jobs-client.js'),
+  reviewWorkspace: readText('public/js/studio/review-workspace.js'),
+  artifactActions: readText('public/js/studio/artifact-actions.js'),
+  artifactInsights: readText('public/js/studio/artifact-insights.js'),
+  intakeTest: readText('tests/inspection-evidence-intake.test.js'),
+  dryRunTest: readText('tests/inspection-evidence-promotion-dry-run.test.js'),
+  auditTest: readText('tests/stage5b-evidence-audit.test.js'),
+  studioUxTest: readText('tests/studio-inspection-evidence-intake-ux.test.js'),
+};
+
+const cliHelp = renderCliUsage();
+for (const command of STAGE5B_COMMANDS) {
+  const entry = getCommandEntry(command);
+  assert(entry, `command manifest should include ${command}`);
+  assert.equal(entry.runtime?.requiresFreecadRuntime, false, `${command} should remain non-FreeCAD`);
+  assert.equal(entry.surfaces?.jobExecutor, true, `${command} should be a tracked job-executor command`);
+  assert.equal(entry.surfaces?.localApi, true, `${command} should be a local API command`);
+  assert.equal(entry.surfaces?.studio, true, `${command} should be a Studio command`);
+  assert(PLAIN_PYTHON_COMMANDS.includes(command), `plain-Python docs source should include ${command}`);
+  assert(JOB_EXECUTOR_COMMANDS.includes(command), `job executor command list should include ${command}`);
+  assert(LOCAL_API_JOB_COMMANDS.includes(command), `local API command list should include ${command}`);
+  assert(STUDIO_JOB_COMMANDS.includes(command), `Studio command list should include ${command}`);
+  assert(cliHelp.includes(`fcad ${command}`), `CLI help should document fcad ${command}`);
+
+  ['readme', 'supportMatrix', 'closeout'].forEach((docKey) => {
+    assert(docs[docKey].includes(command), `${docKey} should document ${command}`);
+  });
+}
+
+assertSameMembers(
+  extractBacktickValuesFromLine(docs.readme, '- `POST /jobs`:').filter((value) => STAGE5B_COMMANDS.includes(value)),
+  STAGE5B_COMMANDS,
+  'README POST /jobs supported-job list should match Stage 5B tracked job types'
+);
+assertSameMembers(
+  extractBacktickValuesFromLine(docs.readme, '- `POST /api/studio/jobs`:').filter((value) => STAGE5B_COMMANDS.includes(value)),
+  STAGE5B_COMMANDS,
+  'README POST /api/studio/jobs supported-job list should match Stage 5B tracked job types'
+);
+assertIncludesAll(
+  docs.readme.split('\n').find((line) => line.includes('keeps the existing CLI/runtime execution path')) || '',
+  STAGE5B_COMMANDS,
+  'README local API execution-path bullet'
+);
+assertIncludesAll(
+  docs.readme.split('\n').find((line) => line.includes('`Tracked run`: `POST /api/studio/jobs` queues')) || '',
+  STAGE5B_COMMANDS,
+  'README Studio tracked-run bullet'
+);
+
+assert.match(docs.closeout, /PR #122|\[#122\]/, 'Stage 5B closeout should include the PR #122 closeout state');
+assert.match(docs.testing, /stage5b-source-of-truth-guard\.test\.js/, 'testing docs should mention the Stage 5B source-of-truth guard');
+
+const schemaRequests = [
+  { type: 'inspection-evidence-intake' },
+  {
+    type: 'inspection-evidence-promotion-dry-run',
+    intake_report_path: 'output/inspection-evidence-intake-report.json',
+  },
+  {
+    type: 'inspection-evidence-promotion-dry-run',
+    intake_report_artifact_ref: {
+      job_id: 'job-intake',
+      artifact_id: 'inspection-evidence-intake-report-0',
+    },
+  },
+  {
+    type: 'stage5b-evidence-audit',
+    options: { include_github: false },
+  },
+];
+
+for (const request of schemaRequests) {
+  const localApiValidation = validateLocalApiJobRequest(request);
+  assert.equal(localApiValidation.ok, true, `${request.type} should validate against the local API schema: ${localApiValidation.errors.join('\n')}`);
+
+  const executorValidation = validateJobRequest(request);
+  assert.equal(executorValidation.ok, true, `${request.type} should validate against the job executor: ${executorValidation.errors.join('\n')}`);
+}
+
+for (const command of STAGE5B_COMMANDS) {
+  assert(
+    isReviewableStudioJob({ type: command, status: 'succeeded' }),
+    `Studio jobs client should classify ${command} as reviewable`
+  );
+  assert(sources.reviewWorkspace.includes(`type: '${command}'`), `Review workspace should queue ${command}`);
+  assert(sources.studioClient.includes(`type === '${command}'`), `Studio jobs client should list ${command}`);
+  assert(sources.studioBridge.includes(`request.type === '${command}'`), `Studio bridge should special-case ${command}`);
+  assert(sources.jobExecutor.includes(`job.type === '${command}'`), `Job executor should execute ${command}`);
+}
+
+assert.equal(
+  STUDIO_ARTIFACT_COMPATIBLE_JOB_COMMANDS.includes('inspection-evidence-promotion-dry-run'),
+  true,
+  'promotion dry-run should remain artifact-compatible for registered intake reports'
+);
+assert.equal(
+  STUDIO_ARTIFACT_COMPATIBLE_JOB_COMMANDS.includes('inspection-evidence-intake'),
+  false,
+  'inspection-evidence-intake should remain a local-only Studio job, not artifact-ref driven'
+);
+assert.equal(
+  STUDIO_ARTIFACT_COMPATIBLE_JOB_COMMANDS.includes('stage5b-evidence-audit'),
+  false,
+  'stage5b-evidence-audit should remain server-output-only, not artifact-ref driven'
+);
+
+const intakeSubmission = validateStudioJobSubmission({
+  type: 'inspection-evidence-intake',
+  options: { include_github: false },
+});
+assert.equal(intakeSubmission.ok, true, intakeSubmission.errors.join('\n'));
+
+const auditSubmission = await translateStudioJobSubmission({
+  type: 'stage5b-evidence-audit',
+  options: { include_github: true },
+});
+assert.equal(auditSubmission.ok, true, auditSubmission.errors.join('\n'));
+assert.deepEqual(auditSubmission.request, {
+  type: 'stage5b-evidence-audit',
+  options: { include_github: true },
+});
+
+const dryRunSubmission = await translateStudioJobSubmission({
+  type: 'inspection-evidence-promotion-dry-run',
+  artifact_ref: {
+    job_id: 'job-intake',
+    artifact_id: STAGE5B_ARTIFACTS.intake.type,
+  },
+}, {
+  async resolveArtifactRef(ref) {
+    return {
+      jobId: ref.job_id,
+      artifact: artifactFixture(STAGE5B_ARTIFACTS.intake, {
+        id: ref.artifact_id,
+        path: '/tmp/inspection-evidence-intake-report.json',
+      }),
+    };
+  },
+});
+assert.equal(dryRunSubmission.ok, true, dryRunSubmission.errors.join('\n'));
+assert.deepEqual(dryRunSubmission.request.intake_report_artifact_ref, {
+  job_id: 'job-intake',
+  artifact_id: STAGE5B_ARTIFACTS.intake.type,
+});
+
+assert.equal(isInspectionEvidenceIntakeArtifact(stage5bArtifacts[0]), true);
+assert.equal(isInspectionEvidencePromotionDryRunArtifact(stage5bArtifacts[1]), true);
+assert.equal(isStage5bEvidenceAuditArtifact(stage5bArtifacts[2]), true);
+assert.equal(isStage5bEvidenceAuditArtifact(stage5bArtifacts[3]), true);
+assert.equal(canStartTrackedArtifactRun(stage5bArtifacts[0], 'inspection-evidence-promotion-dry-run'), true);
+assert.equal(findPreferredInspectionEvidenceIntakeArtifact(stage5bArtifacts)?.type, STAGE5B_ARTIFACTS.intake.type);
+assert.equal(findPreferredInspectionEvidencePromotionDryRunArtifact(stage5bArtifacts)?.type, STAGE5B_ARTIFACTS.dryRun.type);
+assert.equal(findPreferredStage5bEvidenceAuditArtifact(stage5bArtifacts)?.type, STAGE5B_ARTIFACTS.auditManifest.type);
+
+Object.values(STAGE5B_ARTIFACTS).forEach((definition) => {
+  assert(sources.jobExecutor.includes(`type: '${definition.type}'`), `job manifest should register ${definition.type}`);
+  assert(sources.jobExecutor.includes(`artifact_type: '${definition.documentArtifactType}'`), `job manifest metadata should register ${definition.documentArtifactType}`);
+  assert(sources.artifactActions.includes(definition.type), `artifact allowlist should recognize ${definition.type}`);
+  if (definition.cardId) {
+    assert(sources.artifactInsights.includes(`id: '${definition.cardId}'`), `Review card builder should expose ${definition.cardId}`);
+  }
+});
+assert(sources.jobExecutor.includes(STAGE5B_ARTIFACTS.intake.auditFileName), 'audit job manifest should register intake_report.json');
+
+const reviewCards = buildReviewCards({
+  activeJob: {
+    summary: {
+      id: 'job-stage5b',
+      type: 'stage5b-evidence-audit',
+      status: 'succeeded',
+    },
+    manifest: {
+      command: 'stage5b-evidence-audit',
+      warnings: [],
+    },
+  },
+  artifacts: stage5bArtifacts,
+  sourceMap: {
+    inspectionIntake: intakeReport,
+    inspectionIntakeRaw: JSON.stringify(intakeReport, null, 2),
+    inspectionPromotionDryRun: dryRunManifest,
+    inspectionPromotionDryRunRaw: JSON.stringify(dryRunManifest, null, 2),
+    stage5bAudit: auditManifest,
+    stage5bAuditRaw: JSON.stringify(auditManifest, null, 2),
+  },
+});
+
+assertIncludesAll(
+  reviewCards.map((card) => card.id),
+  [
+    STAGE5B_ARTIFACTS.auditManifest.cardId,
+    STAGE5B_ARTIFACTS.dryRun.cardId,
+    STAGE5B_ARTIFACTS.intake.cardId,
+  ],
+  'Review cards'
+);
+reviewCards
+  .filter((card) => [
+    STAGE5B_ARTIFACTS.auditManifest.cardId,
+    STAGE5B_ARTIFACTS.dryRun.cardId,
+    STAGE5B_ARTIFACTS.intake.cardId,
+  ].includes(card.id))
+  .forEach((card) => {
+    const rendered = JSON.stringify(card);
+    assert.match(rendered, /needs_more_evidence/);
+    assert.match(rendered, /hold_for_evidence_completion/);
+    assert.match(rendered, /not (?:package )?inspection evidence|not evidence/i);
+    assert.match(rendered, /No human-entered measurements|Only genuine completed physical\/supplier\/lab\/QA inspection records/i);
+  });
+
+Object.entries({
+  README: docs.readme,
+  supportMatrix: docs.supportMatrix,
+  testing: docs.testing,
+  closeout: docs.closeout,
+  studioApi: docs.studioApi,
+  studioWalkthrough: docs.studioWalkthrough,
+}).forEach(([label, text]) => {
+  assert.match(text, /needs_more_evidence/, `${label} should preserve needs_more_evidence truth`);
+  assert.match(text, /hold_for_evidence_completion/, `${label} should preserve readiness-held truth`);
+  assert.match(text, /inspection_evidence/, `${label} should preserve inspection_evidence boundary`);
+});
+
+assert.match(docs.closeout, /No genuine completed inspection evidence has been found or attached/);
+assert.match(docs.closeout, new RegExp(HARD_EVIDENCE_RULE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+assert.match(docs.closeout, NON_EVIDENCE_BOUNDARY_PATTERN);
+
+[
+  'inspection-evidence-intake reports are discovery/review artifacts only; they are not package inspection evidence.',
+  'promotion dry-run manifests are planning/control artifacts only; they are not inspection evidence.',
+  'Stage 5B audit manifests are review/control artifacts only; they are not inspection evidence.',
+].forEach((phrase) => {
+  assert(sources.jobExecutor.includes(phrase), `job executor metadata should preserve non-evidence phrase: ${phrase}`);
+});
+
+const combinedStage5bTestSource = [
+  sources.intakeTest,
+  sources.dryRunTest,
+  sources.auditTest,
+  sources.studioUxTest,
+].join('\n');
+
+Object.values(STAGE5B_ARTIFACTS).forEach((definition) => {
+  assert(
+    combinedStage5bTestSource.includes(definition.type)
+      || combinedStage5bTestSource.includes(definition.documentArtifactType)
+      || combinedStage5bTestSource.includes(definition.fileName),
+    `Stage 5B tests should cover ${definition.type}`
+  );
+});
+
+console.log('stage5b-source-of-truth-guard.test.js: ok');

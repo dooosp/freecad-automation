@@ -427,7 +427,7 @@ Startup behavior:
 - binds to `127.0.0.1` only
 - defaults to port `3000`
 - stores jobs under `output/jobs` unless `--jobs-dir` is provided
-- keeps the existing CLI/runtime execution path: `POST /jobs` schedules work through the same service layer used by the CLI, including `create`, `draw`, `inspect`, `report`, `review-context`, `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, `pack`, `inspection-evidence-intake`, and `inspection-evidence-promotion-dry-run`
+- keeps the existing CLI/runtime execution path: `POST /jobs` schedules work through the same service layer used by the CLI, including `create`, `draw`, `inspect`, `report`, `review-context`, `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, `pack`, `inspection-evidence-intake`, `inspection-evidence-promotion-dry-run`, and `stage5b-evidence-audit`
 - browser requests to `GET /` now land in `FreeCAD Automation Studio`
 - `GET /api` returns the local API info page in HTML, JSON, or plain text depending on `Accept`
 - `GET /studio` remains the direct `FreeCAD Automation Studio` route
@@ -436,7 +436,7 @@ Startup behavior:
 Studio execution model:
 
 - `Preview`: fast request/response work for Model and Drawing. Preview routes are scratch-safe, keep the current workspace state local, and do not create `/jobs` history.
-- `Tracked run`: `POST /api/studio/jobs` queues `create`, `draw`, `inspect`, `report`, `review-context`, `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, `pack`, `inspection-evidence-intake`, and `inspection-evidence-promotion-dry-run` into `/jobs`. Studio `review-context` submissions are source-path based (`context_path` or `model_path`, with optional BOM/inspection/quality/package-evidence/compare paths), not config TOML or generic artifact-ref submissions.
+- `Tracked run`: `POST /api/studio/jobs` queues `create`, `draw`, `inspect`, `report`, `review-context`, `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, `pack`, `inspection-evidence-intake`, `inspection-evidence-promotion-dry-run`, and `stage5b-evidence-audit` into `/jobs`. Studio `review-context` submissions are source-path based (`context_path` or `model_path`, with optional BOM/inspection/quality/package-evidence/compare paths), not config TOML or generic artifact-ref submissions.
 - `Artifact re-entry`: `Artifacts` and `Review` can reopen config artifacts in `Model`, rerun tracked `report` from config-like artifacts, rerun tracked `inspect` from model artifacts, continue `readiness-pack` from canonical `review_pack.json` or `release_bundle.zip`, continue `generate-standard-docs` from canonical readiness inputs or release bundles, continue `pack` from canonical readiness inputs or release bundles, queue `inspection-evidence-promotion-dry-run` from a registered `inspection-evidence.intake-report` artifact, and stage `compare-rev` or `stabilization-review` from selected baseline/candidate canonical artifacts when both sides are present.
 - Browser-visible preview payloads are path-redacted too: tracked job payloads, artifact payloads, example payloads, and drawing preview responses all avoid raw filesystem paths.
 
@@ -502,8 +502,8 @@ Endpoints:
 
 Supported job types:
 
-- `POST /jobs`: `create`, `draw`, `inspect`, `report`, `review-context`, `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, `pack`, `inspection-evidence-intake`, `inspection-evidence-promotion-dry-run`
-- `POST /api/studio/jobs`: `create`, `draw`, `inspect`, `report`, `review-context`, `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, `pack`, `inspection-evidence-intake`, `inspection-evidence-promotion-dry-run`
+- `POST /jobs`: `create`, `draw`, `inspect`, `report`, `review-context`, `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, `pack`, `inspection-evidence-intake`, `inspection-evidence-promotion-dry-run`, `stage5b-evidence-audit`
+- `POST /api/studio/jobs`: `create`, `draw`, `inspect`, `report`, `review-context`, `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, `pack`, `inspection-evidence-intake`, `inspection-evidence-promotion-dry-run`, `stage5b-evidence-audit`
 - Studio `review-context` accepts source-file path fields that the local API can resolve (`context_path` or `model_path`, with optional `bom_path`, `inspection_path`, `quality_path`, `create_quality_path`, `drawing_quality_path`, `drawing_qa_path`, `drawing_intent_path`, `feature_catalog_path`, `dfm_report_path`, and `compare_to_path`). Package evidence paths are normalized into review-pack source refs when safe; they do not imply arbitrary local artifact import or inspection evidence. It does not accept `config_toml`, `artifact_ref`, or arbitrary local artifact import on that path.
 
 Endpoint usage:

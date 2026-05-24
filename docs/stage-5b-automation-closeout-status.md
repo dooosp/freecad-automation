@@ -1,6 +1,6 @@
 # Stage 5B automation closeout status
 
-This document summarizes the Stage 5B automation chain after PRs [#113](https://github.com/dooosp/freecad-automation/pull/113), [#114](https://github.com/dooosp/freecad-automation/pull/114), [#115](https://github.com/dooosp/freecad-automation/pull/115), [#116](https://github.com/dooosp/freecad-automation/pull/116), [#117](https://github.com/dooosp/freecad-automation/pull/117), [#118](https://github.com/dooosp/freecad-automation/pull/118), [#119](https://github.com/dooosp/freecad-automation/pull/119), [#120](https://github.com/dooosp/freecad-automation/pull/120), and [#121](https://github.com/dooosp/freecad-automation/pull/121). It is a software/status closeout only. It does not attach inspection evidence, mutate canonical package artifacts, regenerate readiness, or claim production readiness.
+This document summarizes the Stage 5B automation chain through PR [#122](https://github.com/dooosp/freecad-automation/pull/122). It is a software/status closeout only. It does not attach inspection evidence, mutate canonical package artifacts, regenerate readiness, or claim production readiness.
 
 ## PR chain
 
@@ -15,6 +15,7 @@ This document summarizes the Stage 5B automation chain after PRs [#113](https://
 | [#119](https://github.com/dooosp/freecad-automation/pull/119) | Merged | `194823df0abd36b68ef9f012373cbf0404b7e162` | Exposed promotion dry-run through tracked Studio review. |
 | [#120](https://github.com/dooosp/freecad-automation/pull/120) | Merged | `b8831a1d5698a6432c10b1ddac1df433c4ac028d` | Added `stage5b-evidence-audit` and the non-mutating audit bundle. |
 | [#121](https://github.com/dooosp/freecad-automation/pull/121) | Merged | `aea988018efcbc6a6d16afe7f6287acaeb9cc738` | Exposed the Stage 5B audit in Studio as a tracked Review action. |
+| [#122](https://github.com/dooosp/freecad-automation/pull/122) | Merged | `d4ed1861b780d90170b5a1e6ae02f396b60f9d7f` | Closed out Stage 5B automation status without changing the no-evidence readiness truth. |
 
 ## Current automation surfaces
 
@@ -64,6 +65,8 @@ The following are not `inspection_evidence` for canonical package readiness:
 - collection guides
 
 Generated/fake/human-entered measurements are not created or accepted. Completed evidence must come from genuine physical inspection or a supplier inspection source, validate against the inspection evidence contract, and be attached later through the explicit `review-context --inspection-evidence <PATH_TO_COMPLETED_REAL_JSON>` path.
+
+Hard evidence rule: Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.
 
 ## Remaining truth
 

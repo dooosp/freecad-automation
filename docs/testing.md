@@ -63,7 +63,9 @@ The acceptance check is not just green jobs: hosted fast lanes and the self-host
 
 ## Docs Smoke Coverage
 
-`node tests/first-user-docs-smoke.test.js` checks the first-user package documentation path, including the Studio walkthrough for canonical package cards, safe artifact preview, release bundle boundaries, the Stage 5B inspection evidence audit/intake Studio/API review surface, the Stage 5B automation closeout status, the canonical package generation workflow guide, the DFM/readiness guide, the final non-inspection software closeout report, the Stage 5D feature expansion closeout, and the current `needs_more_evidence` / `inspection_evidence` readiness hold.
+`node tests/first-user-docs-smoke.test.js` checks the first-user package documentation path, including the Studio walkthrough for canonical package cards, safe artifact preview, release bundle boundaries, the Stage 5B inspection evidence audit/intake Studio/API review surface, the Stage 5B automation closeout status, the canonical package generation workflow guide, the DFM/readiness guide, the final non-inspection software closeout report, the Stage 5D feature expansion closeout, and the current `needs_more_evidence` / `hold_for_evidence_completion` / `inspection_evidence` readiness hold.
+
+`node tests/stage5b-source-of-truth-guard.test.js` locks the Stage 5B command, tracked-job, artifact-type, Review card, and evidence-boundary wording surfaces together so `inspection-evidence-intake`, `inspection-evidence-promotion-dry-run`, and `stage5b-evidence-audit` cannot drift between manifests, docs, local API schemas, the executor, Studio bridge/client code, and Review cards. It also protects the no-genuine-evidence truth: intake reports, promotion dry-run manifests, audit manifests, generated artifacts, screenshots, CI summaries, templates, collection guides, and GitHub metadata do not satisfy `inspection_evidence`, so canonical package readiness remains `needs_more_evidence` / `hold_for_evidence_completion` until genuine completed inspection evidence exists.
 
 ## Verification Wording
 
