@@ -57,4 +57,11 @@ getLaneManifest().forEach((lane) => {
   );
 });
 
+const contractLane = getLaneManifest().find((lane) => lane.id === 'contract');
+assert(contractLane, 'contract lane should exist');
+assert(
+  contractLane.steps.some((step) => step.args.includes('tests/stage5b-evidence-audit-cli-smoke.test.js')),
+  'contract lane should include the Stage 5B audit CLI smoke'
+);
+
 console.log('lane-manifest.test.js: ok');

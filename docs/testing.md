@@ -7,7 +7,7 @@ This repository now separates fast hosted checks from real FreeCAD-backed smoke 
 <!-- GENERATED:lane-table:start -->
 | Lane | Command | Scope | FreeCAD required |
 | --- | --- | --- | --- |
-| Node contract | `npm run test:node:contract` | config migration/validation, runtime path resolution, invocation assembly, structural validation, canonical package integrity | No |
+| Node contract | `npm run test:node:contract` | config migration/validation, runtime path resolution, invocation assembly, structural validation, canonical package integrity, and Stage 5B audit CLI smoke | No |
 | Node integration | `npm run test:node:integration` | local API/job contracts, studio bridge routes, browserless studio and legacy serve smoke, rule profiles, sweep logic, draw/report service integration | No |
 | Snapshots | `npm run test:snapshots` | normalized SVG and report preview regression baselines | No |
 | Studio browser smoke | `npm run test:studio-browser-smoke` | real Chrome/CDP Studio browser smoke for shell routing, canonical package cards, safe preview, release bundle non-action boundary, and route readiness without FreeCAD runtime execution | No |
@@ -35,7 +35,7 @@ The runtime domain runner uses the same FreeCAD-backed script path as the CLI an
 | `FreeCAD Runtime Smoke (self-hosted macOS)` | `test:runtime-smoke` plus runtime-backed Python smoke regressions, the quality fixture matrix, and a narrow tolerance CSV smoke | No Linux or Windows runtime ownership claims, and no broad tolerance or Monte Carlo maturity claim |
 <!-- GENERATED:workflow-mapping:end -->
 
-The hosted workflow is the fast PR lane and does not install or launch FreeCAD. The self-hosted workflow is the repository-owned runtime smoke source of truth for the listed real FreeCAD-backed checks on pull requests, manual reruns, and the weekly schedule.
+The hosted workflow is the fast PR lane and does not install or launch FreeCAD. Its Node contract lane also runs the non-mutating Stage 5B audit CLI smoke with GitHub discovery disabled. The self-hosted workflow is the repository-owned runtime smoke source of truth for the listed real FreeCAD-backed checks on pull requests, manual reruns, and the weekly schedule.
 
 ## GitHub Actions Node24 Runtime
 
