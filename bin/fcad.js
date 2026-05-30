@@ -78,6 +78,10 @@ import { generateCloseoutPackage } from '../src/services/closeout-package/closeo
 import { discoverInspectionEvidenceIntake } from '../src/services/inspection-evidence-intake/inspection-evidence-intake-service.js';
 import { writeInspectionEvidencePromotionDryRunManifest } from '../src/services/inspection-evidence-intake/promotion-dry-run-service.js';
 import { writeStage5bEvidenceAuditBundle } from '../src/services/inspection-evidence-intake/stage5b-evidence-audit-service.js';
+import {
+  isStage5bRuntimeValidationError,
+  writeStage5bValidationDiagnosticsFile,
+} from '../src/services/inspection-evidence-intake/stage5b-runtime-validation.js';
 import { runSweep } from '../src/services/sweep/sweep-service.js';
 import { loadRuleProfile, summarizeRuleProfile } from '../src/services/config/rule-profile-service.js';
 import {
@@ -334,6 +338,46 @@ async function cmdCloseoutPackage(rawArgs = []) {
   }
 }
 
+function cliRelativePath(pathValue) {
+  if (!pathValue || typeof pathValue !== 'string') return null;
+  const rel = relative(PROJECT_ROOT, pathValue).replaceAll('\\', '/');
+  return rel && !rel.startsWith('..') && !isAbsolute(rel) ? rel : pathValue;
+}
+
+async function writeCliStage5bValidationDiagnostics(error, {
+  diagnosticsPath,
+  artifactType = null,
+  artifactPath = null,
+  command = null,
+} = {}) {
+  if (!isStage5bRuntimeValidationError(error) || !diagnosticsPath) return null;
+  return writeStage5bValidationDiagnosticsFile(diagnosticsPath, error, {
+    projectRoot: PROJECT_ROOT,
+    artifactType,
+    artifactPath,
+    command,
+  });
+}
+
+function printCliStage5bValidationError(error, diagnosticsResult = null) {
+  const diagnostics = Array.isArray(error?.diagnostics) ? error.diagnostics : [];
+  console.error(`Error: Stage 5B validation failed: ${error.message}`);
+  diagnostics.slice(0, 3).forEach((diagnostic) => {
+    const pointer = diagnostic.json_pointer || '/';
+    const code = diagnostic.code || 'stage5b.validation_failed';
+    console.error(`  - ${code} ${pointer}: ${diagnostic.message}`);
+    if (diagnostic.remediation) {
+      console.error(`    Remediation: ${diagnostic.remediation}`);
+    }
+  });
+  if (diagnostics.length > 3) {
+    console.error(`  - ${diagnostics.length - 3} additional diagnostic(s) omitted from console output.`);
+  }
+  if (diagnosticsResult?.path) {
+    console.error(`  Diagnostics: ${diagnosticsResult.path}`);
+  }
+}
+
 async function cmdInspectionEvidenceIntake(rawArgs = []) {
   const { positional, options } = parseCliArgs(rawArgs);
   const packageSelector = options.package || options.packages || positional[0] || null;
@@ -341,13 +385,28 @@ async function cmdInspectionEvidenceIntake(rawArgs = []) {
     ? String(packageSelector).split(',').map((slug) => slug.trim()).filter(Boolean)
     : undefined;
   const includeGitHub = options['include-github'] === true || options.github === true;
-  const report = await discoverInspectionEvidenceIntake({
-    projectRoot: PROJECT_ROOT,
-    packageSlugs,
-    includeGitHub,
-    githubRepo: options['github-repo'] || 'dooosp/freecad-automation',
-  });
   const outputPath = resolveMaybe(options.out);
+  let report;
+  try {
+    report = await discoverInspectionEvidenceIntake({
+      projectRoot: PROJECT_ROOT,
+      packageSlugs,
+      includeGitHub,
+      githubRepo: options['github-repo'] || 'dooosp/freecad-automation',
+    });
+  } catch (error) {
+    if (isStage5bRuntimeValidationError(error)) {
+      const diagnosticsResult = await writeCliStage5bValidationDiagnostics(error, {
+        diagnosticsPath: outputPath ? join(dirname(outputPath), 'validation_diagnostics.json') : null,
+        artifactType: 'inspection_evidence_intake_report',
+        artifactPath: outputPath,
+        command: 'inspection-evidence-intake',
+      });
+      printCliStage5bValidationError(error, diagnosticsResult);
+      process.exit(1);
+    }
+    throw error;
+  }
 
   if (outputPath) {
     const writtenPath = await writeJsonFile(outputPath, report);
@@ -374,13 +433,27 @@ async function cmdInspectionEvidencePromotionDryRun(rawArgs = []) {
 
   const outputPath = normalizeJsonOutputPath(options.out || 'output/promotion_dry_run_manifest.json');
   requireRepoScopedPath('promotion dry-run output', outputPath);
-  const intakeReport = await readJsonFile(reportPath);
-  const result = await writeInspectionEvidencePromotionDryRunManifest({
-    projectRoot: PROJECT_ROOT,
-    intakeReport,
-    intakeReportPath: reportPath,
-    outputPath,
-  });
+  let result;
+  try {
+    const intakeReport = await readJsonFile(reportPath);
+    result = await writeInspectionEvidencePromotionDryRunManifest({
+      projectRoot: PROJECT_ROOT,
+      intakeReport,
+      intakeReportPath: reportPath,
+      outputPath,
+    });
+  } catch (error) {
+    if (isStage5bRuntimeValidationError(error)) {
+      const diagnosticsResult = await writeCliStage5bValidationDiagnostics(error, {
+        diagnosticsPath: join(dirname(outputPath), 'validation_diagnostics.json'),
+        artifactPath: cliRelativePath(reportPath),
+        command: 'inspection-evidence-promotion-dry-run',
+      });
+      printCliStage5bValidationError(error, diagnosticsResult);
+      process.exit(1);
+    }
+    throw error;
+  }
 
   console.log(`Inspection evidence promotion dry-run manifest: ${result.output_path}`);
   console.log(`  Promotion can run: ${result.manifest.summary.promotion_can_run ? 'yes' : 'no'}`);
@@ -422,6 +495,15 @@ async function cmdStage5bEvidenceAudit(rawArgs = []) {
     console.log(`  Readiness remains held: ${manifest.summary.readiness_remains_held ? 'yes' : 'no'}`);
     return manifest;
   } catch (error) {
+    if (isStage5bRuntimeValidationError(error)) {
+      const outputDir = resolve(PROJECT_ROOT, String(outDir));
+      const diagnosticsResult = await writeCliStage5bValidationDiagnostics(error, {
+        diagnosticsPath: join(outputDir, 'validation_diagnostics.json'),
+        command: 'stage5b-evidence-audit',
+      });
+      printCliStage5bValidationError(error, diagnosticsResult);
+      process.exit(1);
+    }
     console.error(`Error: ${error.message}`);
     process.exit(1);
   }

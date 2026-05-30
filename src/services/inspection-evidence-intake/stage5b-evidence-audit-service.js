@@ -466,7 +466,11 @@ export async function writeStage5bEvidenceAuditBundle({
   if (githubFetch) intakeOptions.githubFetch = githubFetch;
 
   const intakeReport = await discoverInspectionEvidenceIntake(intakeOptions);
-  assertValidStage5bIntakeReport(intakeReport, { label: 'audit intake report' });
+  assertValidStage5bIntakeReport(intakeReport, {
+    label: 'audit intake report',
+    artifactPath: intakeReportPath,
+    projectRoot: resolvedRoot,
+  });
   await writeJsonFile(intakeReportPath, intakeReport);
 
   const promotionResult = await writeInspectionEvidencePromotionDryRunManifest({
@@ -476,7 +480,11 @@ export async function writeStage5bEvidenceAuditBundle({
     outputPath: promotionDryRunManifestPath,
     generatedAt: generated,
   });
-  assertValidStage5bPromotionDryRunManifest(promotionResult.manifest, { label: 'audit promotion dry-run manifest' });
+  assertValidStage5bPromotionDryRunManifest(promotionResult.manifest, {
+    label: 'audit promotion dry-run manifest',
+    artifactPath: promotionDryRunManifestPath,
+    projectRoot: resolvedRoot,
+  });
 
   const intakeSha256 = await sha256IfReadable(intakeReportPath);
   const promotionDryRunSha256 = await sha256IfReadable(promotionDryRunManifestPath);
@@ -495,7 +503,11 @@ export async function writeStage5bEvidenceAuditBundle({
     promotionDryRunSha256,
   });
   const summaryMarkdown = renderAuditSummaryMarkdown(manifest);
-  assertValidStage5bAuditSummaryMarkdown(summaryMarkdown, { label: 'audit summary markdown' });
+  assertValidStage5bAuditSummaryMarkdown(summaryMarkdown, {
+    label: 'audit summary markdown',
+    artifactPath: auditSummaryPath,
+    projectRoot: resolvedRoot,
+  });
   await writeFile(auditSummaryPath, summaryMarkdown, 'utf8');
   const auditSummarySha256 = await sha256IfReadable(auditSummaryPath);
   manifest = {
@@ -508,7 +520,11 @@ export async function writeStage5bEvidenceAuditBundle({
       },
     },
   };
-  assertValidStage5bAuditManifest(manifest, { label: 'audit manifest' });
+  assertValidStage5bAuditManifest(manifest, {
+    label: 'audit manifest',
+    artifactPath: auditManifestPath,
+    projectRoot: resolvedRoot,
+  });
   await writeJsonFile(auditManifestPath, manifest);
 
   return {

@@ -38,6 +38,8 @@ import { writeStage5bEvidenceAuditBundle } from '../inspection-evidence-intake/s
 import {
   assertValidStage5bIntakeReport,
   assertValidStage5bPromotionDryRunManifest,
+  buildStage5bValidationDiagnosticsPayload,
+  isStage5bRuntimeValidationError,
 } from '../inspection-evidence-intake/stage5b-runtime-validation.js';
 import {
   resolveBundleBackedCanonicalPath,
@@ -1214,6 +1216,7 @@ export function createJobExecutor({
         report,
         artifactRef: ref,
         intakeReportPathForManifest: null,
+        intakeReportPathForDiagnostics: artifact.path,
       };
     }
 
@@ -1230,12 +1233,17 @@ export function createJobExecutor({
       report,
       artifactRef: null,
       intakeReportPathForManifest: relativePath,
+      intakeReportPathForDiagnostics: relativePath,
     };
   }
 
   async function executeInspectionEvidencePromotionDryRun(job) {
     const source = await loadPromotionDryRunIntakeReport(job);
-    assertValidStage5bIntakeReport(source.report, { label: 'source intake report' });
+    assertValidStage5bIntakeReport(source.report, {
+      label: 'source intake report',
+      artifactPath: source.intakeReportPathForDiagnostics,
+      projectRoot,
+    });
     const manifest = buildInspectionEvidencePromotionDryRunManifest({
       projectRoot,
       intakeReport: source.report,
@@ -1249,7 +1257,11 @@ export function createJobExecutor({
         artifact_ref: source.artifactRef,
       };
     }
-    assertValidStage5bPromotionDryRunManifest(manifest, { label: 'promotion dry-run manifest' });
+    assertValidStage5bPromotionDryRunManifest(manifest, {
+      label: 'promotion dry-run manifest',
+      artifactPath: 'artifacts/promotion_dry_run_manifest.json',
+      projectRoot,
+    });
 
     const manifestPath = await jobStore.writeJobFile(
       job.id,
@@ -1276,6 +1288,53 @@ export function createJobExecutor({
       outDir: outputDir,
       includeGitHub: options.include_github === true,
     });
+  }
+
+  async function writeTrackedStage5bValidationDiagnostics(job, error, {
+    artifacts,
+    manifestArtifacts,
+    diagnostics,
+  }) {
+    if (!isStage5bRuntimeValidationError(error)) return diagnostics;
+    if (![
+      'inspection-evidence-intake',
+      'inspection-evidence-promotion-dry-run',
+      'stage5b-evidence-audit',
+    ].includes(job.type)) {
+      return diagnostics;
+    }
+
+    const payload = buildStage5bValidationDiagnosticsPayload(error, {
+      projectRoot,
+      command: job.type,
+    });
+    const diagnosticsPath = await jobStore.writeJobFile(
+      job.id,
+      'artifacts/validation_diagnostics.json',
+      `${JSON.stringify(payload, null, 2)}\n`
+    );
+    artifacts.stage5b_validation_diagnostics = diagnosticsPath;
+    manifestArtifacts.push({
+      type: 'stage5b.validation-diagnostics',
+      path: diagnosticsPath,
+      label: 'Stage 5B validation diagnostics',
+      scope: 'user-facing',
+      stability: 'best-effort',
+      metadata: {
+        artifact_type: 'stage5b_validation_diagnostics',
+        diagnostic_count: payload.diagnostic_count,
+        validated_artifact_type: payload.artifact_type,
+        validation_status: payload.validation_status,
+        execution_notes: [
+          'Validation diagnostics are sanitized failure metadata for review only; they are not inspection evidence.',
+          'Diagnostics artifacts do not expose arbitrary local files and do not satisfy readiness evidence.',
+        ],
+      },
+    });
+    return {
+      ...diagnostics,
+      stage5b_validation_diagnostics: payload,
+    };
   }
 
   function buildGenericAfMetadata(jobType, document, executionNotes = []) {
@@ -1763,6 +1822,11 @@ export function createJobExecutor({
             execution_state: buildAfExecutionStateDescriptor('failed'),
           };
         }
+        diagnostics = await writeTrackedStage5bValidationDiagnostics(job, error, {
+          artifacts,
+          manifestArtifacts,
+          diagnostics,
+        });
         await appendLog(jobId, `Job failed: ${error instanceof Error ? error.message : String(error)}`);
         manifest = await buildArtifactManifest({
           projectRoot,

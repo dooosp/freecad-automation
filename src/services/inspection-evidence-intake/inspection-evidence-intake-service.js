@@ -2306,6 +2306,9 @@ export async function discoverInspectionEvidenceIntake({
         : 'readiness remains needs_more_evidence / hold_for_evidence_completion',
     },
   };
-  assertValidStage5bIntakeReport(report, { label: 'inspection evidence intake report' });
+  assertValidStage5bIntakeReport(report, {
+    label: 'inspection evidence intake report',
+    projectRoot: resolvedRoot,
+  });
   return report;
 }
