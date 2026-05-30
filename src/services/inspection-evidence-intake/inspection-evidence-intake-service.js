@@ -27,6 +27,7 @@ const GENERATED_PATH_PATTERNS = Object.freeze([
   /(^|\/)release_bundle(?:\.zip|_manifest\.json|_log\.json|_checksums\.sha256)$/i,
   /(^|\/)release-bundle(?:\.zip|-manifest\.json|-log\.json|-checksums\.sha256)$/i,
   /(^|\/)(?:artifact-manifest|output-manifest)\.(?:json|csv|tsv|md|markdown|txt)$/i,
+  /(^|\/)validation_diagnostics\.json$/i,
 ]);
 
 const EVIDENCE_PATH_PATTERNS = Object.freeze([

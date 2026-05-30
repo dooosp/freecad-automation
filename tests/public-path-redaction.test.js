@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { buildRuntimeDiagnostics } from '../lib/runtime-diagnostics.js';
+import { redactPublicPathValues } from '../src/server/local-api-artifacts.js';
 import { createLocalApiServer } from '../src/server/local-api-server.js';
 import { validateLocalApiResponse } from '../src/server/local-api-schemas.js';
 
@@ -20,6 +21,19 @@ function assertNoLeakedPathStrings(payload, blocked = []) {
   blocked.filter(Boolean).forEach((value) => {
     assert.equal(serialized.includes(String(value)), false, `Payload leaked path-like value: ${value}`);
   });
+}
+
+function assertNoLeakedSensitiveStrings(payload, blocked = []) {
+  const serialized = typeof payload === 'string' ? payload : JSON.stringify(payload);
+  assertNoLeakedPathStrings(serialized, blocked);
+  assert.equal(/gho_[A-Za-z0-9_]+/.test(serialized), false, 'Payload leaked a GitHub token');
+  assert.equal(/github_pat_[A-Za-z0-9_]+/.test(serialized), false, 'Payload leaked a GitHub fine-grained token');
+  assert.equal(/bearer\s+[A-Za-z0-9._-]+/i.test(serialized), false, 'Payload leaked a bearer token');
+  assert.equal(/authorization\s*[:=]/i.test(serialized), false, 'Payload leaked an authorization header');
+  assert.equal(/api[_-]?key\s*=/i.test(serialized), false, 'Payload leaked an API key');
+  assert.equal(/secret\s*=/i.test(serialized), false, 'Payload leaked a secret query parameter');
+  assert.equal(/https?:\/\/(?:localhost|127\.|10\.|192\.168\.|172\.)/i.test(serialized), false, 'Payload leaked a private URL');
+  assert.equal(serialized.includes('private.local'), false, 'Payload leaked a .local private URL');
 }
 
 async function listen(server) {
@@ -72,6 +86,28 @@ const fixtureDiagnostics = buildRuntimeDiagnostics({
     },
   }),
 });
+
+const publicRedactionPayload = redactPublicPathValues({
+  artifact_path: `${PRIVATE_TMP_FIXTURE}/artifacts/validation_diagnostics.json`,
+  diagnostics: [
+    {
+      message: `Authorization: Bearer gho_secretTOKEN123 at http://127.0.0.1:9876/private?token=github_pat_secretTOKEN123&secret=raw`,
+      remediation: 'Remove authorization header and api_key=raw before retrying.',
+      safe_source_ref: 'https://private.local/report.json?access_token=github_pat_secretTOKEN123',
+      public_source_ref: 'https://github.com/dooosp/freecad-automation/issues/128?token=github_pat_secretTOKEN123#comment-secret',
+      nested: {
+        windows_path: WINDOWS_RUNTIME_FIXTURE,
+      },
+    },
+  ],
+});
+assertNoLeakedSensitiveStrings(publicRedactionPayload, [
+  PRIVATE_TMP_FIXTURE,
+  WINDOWS_RUNTIME_FIXTURE,
+]);
+assert.equal(publicRedactionPayload.artifact_path, 'validation_diagnostics.json');
+assert.equal(publicRedactionPayload.diagnostics[0].safe_source_ref, '[redacted-url]');
+assert.equal(publicRedactionPayload.diagnostics[0].public_source_ref, 'https://github.com/dooosp/freecad-automation/issues/128');
 
 const { server } = createLocalApiServer({
   projectRoot: ROOT,

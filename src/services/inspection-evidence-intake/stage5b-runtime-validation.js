@@ -11,20 +11,16 @@ import {
 
 export const STAGE5B_EVIDENCE_BOUNDARY_NOTE = 'Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.';
 
+const WINDOWS_PATH_PATTERN = /(?:[A-Za-z]:\\(?:[^\\\r\n"'`<>|]+\\?)+|\\\\[^\s"'`<>|]+(?:\\[^\s"'`<>|]+)+)/g;
+const POSIX_PATH_PATTERN = /(?:\/(?:[^\/\s"'`<>()]+\/)+[^\/\s"'`<>()]+)/g;
+const URL_PATTERN = /https?:\/\/[^\s<>"'`)\]]+/gi;
+
 function safeList(value) {
   return Array.isArray(value) ? value : [];
 }
 
 function isWindowsAbsolutePath(value) {
   return /^[A-Za-z]:[\\/]/.test(String(value || ''));
-}
-
-function redactSecrets(value) {
-  return String(value || '')
-    .replace(/gho_[A-Za-z0-9_]+/g, '[redacted-token]')
-    .replace(/github_pat_[A-Za-z0-9_]+/g, '[redacted-token]')
-    .replace(/(authorization\s*[:=]\s*)(?:bearer\s+)?[^\s,;]+/gi, '$1[redacted-token]')
-    .replace(/((?:token|access_token|api_key|apikey|secret)=)[^&\s]+/gi, '$1[redacted]');
 }
 
 function isPrivateHostname(hostname) {
@@ -54,24 +50,47 @@ function sanitizePublicUrl(value) {
   }
 }
 
+function basenameFromAnyPath(value) {
+  if (win32.isAbsolute(value)) return win32.basename(value);
+  return basename(value);
+}
+
+function redactEmbeddedFilesystemPaths(value) {
+  return String(value || '')
+    .replace(WINDOWS_PATH_PATTERN, (match) => basenameFromAnyPath(match))
+    .replace(POSIX_PATH_PATTERN, (match) => basenameFromAnyPath(match));
+}
+
+function redactSecrets(value) {
+  return redactEmbeddedFilesystemPaths(String(value || '')
+    .replace(/authorization\s*[:=]\s*(?:bearer\s+)?[^\s,;]+/gi, '[redacted-header]')
+    .replace(/\b(?:x-api-key|api-key|api_key|apikey|access_token|token|secret)\s*[:=]\s*[^&\s,;]+/gi, '[redacted-secret]')
+    .replace(/gho_[A-Za-z0-9_]+/g, '[redacted-token]')
+    .replace(/github_pat_[A-Za-z0-9_]+/g, '[redacted-token]')
+    .replace(URL_PATTERN, (match) => sanitizePublicUrl(match) || '[redacted-url]')
+    .replace(/\b[a-z0-9.-]+\.local\b/gi, '[redacted-host]'));
+}
+
 function sanitizePathLike(value, { projectRoot = null, allowUrl = false } = {}) {
   if (value === null || value === undefined) return null;
-  const redacted = redactSecrets(value).trim();
-  if (!redacted) return null;
-  if (/^https?:\/\//i.test(redacted)) {
-    return allowUrl ? sanitizePublicUrl(redacted) : null;
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) {
+    return allowUrl ? sanitizePublicUrl(raw) : null;
   }
 
-  const normalized = redacted.replaceAll('\\', '/');
   if (projectRoot) {
     const root = resolve(projectRoot);
-    const absolute = isAbsolute(redacted) || isWindowsAbsolutePath(redacted)
-      ? resolve(redacted)
-      : resolve(root, redacted);
+    const absolute = isAbsolute(raw) || isWindowsAbsolutePath(raw)
+      ? resolve(raw)
+      : resolve(root, raw);
     const rel = relative(root, absolute).replaceAll('\\', '/');
     if (rel && !rel.startsWith('..') && !isAbsolute(rel)) return rel;
   }
 
+  const redacted = redactSecrets(raw).trim();
+  if (!redacted) return null;
+  const normalized = redacted.replaceAll('\\', '/');
   if (isAbsolute(redacted) || isWindowsAbsolutePath(redacted)) {
     return win32.isAbsolute(redacted) ? win32.basename(redacted) : basename(redacted);
   }

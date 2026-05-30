@@ -17,6 +17,7 @@ const POSIX_FILESYSTEM_ROOTS = new Set([
 
 const WINDOWS_PATH_PATTERN = /(?:[A-Za-z]:\\(?:[^\\\r\n"'`<>|]+\\?)+|\\\\[^\s"'`<>|]+(?:\\[^\s"'`<>|]+)+)/g;
 const POSIX_PATH_PATTERN = /(?:\/(?:[^\/\s"'`<>()]+\/)+[^\/\s"'`<>()]+)/g;
+const URL_PATTERN = /https?:\/\/[^\s<>"'`)\]]+/gi;
 
 const INLINE_ARTIFACT_EXTENSIONS = new Set([
   '.csv',
@@ -106,6 +107,33 @@ function isAbsoluteFilesystemPath(value) {
     );
 }
 
+function isPrivateHostname(hostname) {
+  const host = String(hostname || '').toLowerCase();
+  return host === 'localhost'
+    || host === '::1'
+    || host.endsWith('.local')
+    || /^127\./.test(host)
+    || /^10\./.test(host)
+    || /^192\.168\./.test(host)
+    || /^172\.(1[6-9]|2\d|3[0-1])\./.test(host)
+    || /^169\.254\./.test(host);
+}
+
+function sanitizePublicUrl(value) {
+  try {
+    const parsed = new URL(value);
+    if (!['http:', 'https:'].includes(parsed.protocol)) return null;
+    if (parsed.username || parsed.password || isPrivateHostname(parsed.hostname)) return null;
+    parsed.username = '';
+    parsed.password = '';
+    parsed.search = '';
+    parsed.hash = '';
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
 function basenameFromAnyPath(value) {
   if (typeof value !== 'string' || value.length === 0) return value;
   if (win32.isAbsolute(value)) return win32.basename(value);
@@ -123,6 +151,20 @@ function redactEmbeddedFilesystemPaths(value) {
     ));
 }
 
+function redactPublicString(value) {
+  if (typeof value !== 'string' || value.length === 0) return value;
+  if (/^https?:\/\//i.test(value.trim())) {
+    return sanitizePublicUrl(value.trim()) || '[redacted-url]';
+  }
+  return redactEmbeddedFilesystemPaths(value
+    .replace(/authorization\s*[:=]\s*(?:bearer\s+)?[^\s,;]+/gi, '[redacted-header]')
+    .replace(/\b(?:x-api-key|api-key|api_key|apikey|access_token|token|secret)\s*[:=]\s*[^&\s,;]+/gi, '[redacted-secret]')
+    .replace(/gho_[A-Za-z0-9_]+/g, '[redacted-token]')
+    .replace(/github_pat_[A-Za-z0-9_]+/g, '[redacted-token]')
+    .replace(URL_PATTERN, (match) => sanitizePublicUrl(match) || '[redacted-url]')
+    .replace(/\b[a-z0-9.-]+\.local\b/gi, '[redacted-host]'));
+}
+
 export function redactPublicPathValues(value) {
   if (Array.isArray(value)) {
     return value.map((entry) => redactPublicPathValues(entry));
@@ -138,7 +180,7 @@ export function redactPublicPathValues(value) {
     return basenameFromAnyPath(value);
   }
 
-  return redactEmbeddedFilesystemPaths(value);
+  return redactPublicString(value);
 }
 
 export function toPublicStorage(storage = null) {

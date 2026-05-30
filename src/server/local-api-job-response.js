@@ -20,14 +20,14 @@ export async function toJobResponse(jobStore, job, { executor = null } = {}) {
     updated_at: job.updated_at,
     started_at: job.started_at,
     finished_at: job.finished_at,
-    error: job.error,
+    error: redactPublicPathValues(job.error),
     retried_from_job_id: job.retried_from_job_id || null,
     request: toPublicJobRequest(job.request),
-    diagnostics: job.diagnostics,
+    diagnostics: redactPublicPathValues(job.diagnostics),
     artifacts: redactPublicPathValues(job.artifacts),
     manifest: redactPublicPathValues(job.manifest),
     result: redactPublicPathValues(job.result),
-    status_history: job.status_history,
+    status_history: redactPublicPathValues(job.status_history),
     storage,
     execution: executionContract
       ? {
