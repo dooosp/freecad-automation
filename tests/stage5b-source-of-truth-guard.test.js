@@ -542,6 +542,7 @@ assert.match(docs.runbook, /stage5b\.validation-diagnostics/);
 assert.match(docs.runbook, /node tests\/first-user-docs-smoke\.test\.js/);
 assert.match(docs.runbook, /node tests\/stage5b-source-of-truth-guard\.test\.js/);
 assert.match(docs.runbook, /node tests\/stage5b-evidence-audit-cli-smoke\.test\.js/);
+assert.match(docs.runbook, /npm run test:stage5b:no-evidence/);
 assert.match(docs.runbook, /npm run test:node:contract/);
 assert.match(docs.runbook, /npm test/);
 assert.match(docs.runbook, /human-typed, inferred, simulated, synthetic, CAD-generated, or guessed measurements/);

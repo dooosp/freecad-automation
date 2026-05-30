@@ -98,7 +98,8 @@ Older portfolio and case-study material is still useful after the canonical rout
 
 ## Test Lanes
 
-- `npm run test:node:contract`: fast hosted-safe Node contracts for config/runtime path/invocation boundaries plus the non-mutating Stage 5B audit CLI smoke
+- `npm run test:node:contract`: fast hosted-safe Node contracts for config/runtime path/invocation boundaries plus the non-mutating Stage 5B no-evidence/audit CLI smoke
+- `npm run test:stage5b:no-evidence`: focused local non-production CLI lane for the Stage 5B no-evidence path across intake, promotion dry-run, and audit
 - `npm run test:node:integration`: fast hosted-safe Node integration checks for local API/studio bridge routes, browserless studio and legacy serve smoke, sweep, draw/report service wiring, and rule profiles
 - `npm run test:snapshots`: normalized SVG/report snapshot regressions
 - `npm run test:studio-browser-smoke`: Chrome/CDP Studio browser smoke for shell routing, canonical package cards, safe preview, and release bundle non-action boundaries without FreeCAD runtime execution
