@@ -8,6 +8,7 @@ const EXAMPLE_INDEX_PATH = resolve(ROOT, 'docs', 'examples', 'README.md');
 const PROJECT_CLOSEOUT_STATUS_PATH = resolve(ROOT, 'docs', 'project-closeout-status.md');
 const FINAL_CLOSEOUT_PATH = resolve(ROOT, 'docs', 'final-non-inspection-software-closeout.md');
 const STAGE_5B_AUTOMATION_CLOSEOUT_PATH = resolve(ROOT, 'docs', 'stage-5b-automation-closeout-status.md');
+const STAGE_5B_OPERATIONAL_RUNBOOK_PATH = resolve(ROOT, 'docs', 'stage-5b-operational-runbook.md');
 const STAGE_5D_CLOSEOUT_PATH = resolve(ROOT, 'docs', 'stage-5d-feature-expansion-closeout.md');
 const DFM_READINESS_GUIDE_PATH = resolve(ROOT, 'docs', 'dfm-readiness-guide.md');
 const CANONICAL_PACKAGE_WORKFLOW_PATH = resolve(ROOT, 'docs', 'canonical-package-generation-workflow.md');
@@ -63,6 +64,7 @@ assert.equal(existsSync(EXAMPLE_INDEX_PATH), true, 'canonical example index shou
 assert.equal(existsSync(PROJECT_CLOSEOUT_STATUS_PATH), true, 'project closeout status should exist');
 assert.equal(existsSync(FINAL_CLOSEOUT_PATH), true, 'final non-inspection software closeout should exist');
 assert.equal(existsSync(STAGE_5B_AUTOMATION_CLOSEOUT_PATH), true, 'Stage 5B automation closeout status should exist');
+assert.equal(existsSync(STAGE_5B_OPERATIONAL_RUNBOOK_PATH), true, 'Stage 5B operational runbook should exist');
 assert.equal(existsSync(STAGE_5D_CLOSEOUT_PATH), true, 'Stage 5D feature expansion closeout should exist');
 assert.equal(existsSync(DFM_READINESS_GUIDE_PATH), true, 'DFM/readiness guide should exist');
 assert.equal(existsSync(CANONICAL_PACKAGE_WORKFLOW_PATH), true, 'canonical package generation workflow guide should exist');
@@ -81,6 +83,7 @@ const exampleIndexText = readText(EXAMPLE_INDEX_PATH);
 const projectCloseoutStatusText = readText(PROJECT_CLOSEOUT_STATUS_PATH);
 const finalCloseoutText = readText(FINAL_CLOSEOUT_PATH);
 const stage5bAutomationCloseoutText = readText(STAGE_5B_AUTOMATION_CLOSEOUT_PATH);
+const stage5bOperationalRunbookText = readText(STAGE_5B_OPERATIONAL_RUNBOOK_PATH);
 const stage5dCloseoutText = readText(STAGE_5D_CLOSEOUT_PATH);
 const dfmReadinessGuideText = readText(DFM_READINESS_GUIDE_PATH);
 const canonicalPackageWorkflowText = readText(CANONICAL_PACKAGE_WORKFLOW_PATH);
@@ -144,6 +147,11 @@ assertMentions(
   rootReadmeText,
   /\[Stage 5B automation closeout status\]\(\.\/docs\/stage-5b-automation-closeout-status\.md\)/,
   'root README should link the Stage 5B automation closeout status'
+);
+assertMentions(
+  rootReadmeText,
+  /\[Stage 5B operational runbook\]\(\.\/docs\/stage-5b-operational-runbook\.md\)/,
+  'root README should link the Stage 5B operational runbook'
 );
 assertMentions(
   rootReadmeText,
@@ -296,6 +304,11 @@ assertMentions(
   /^# Stage 5B automation closeout status/m,
   'Stage 5B automation closeout should have the expected title'
 );
+assertMentions(
+  stage5bAutomationCloseoutText,
+  /\[Stage 5B operational runbook\]\(\.\/stage-5b-operational-runbook\.md\)/,
+  'Stage 5B automation closeout should link the operational runbook'
+);
 for (const pr of ['#113', '#114', '#115', '#116', '#117', '#118', '#119', '#120', '#121']) {
   assert.equal(stage5bAutomationCloseoutText.includes(pr), true, `Stage 5B automation closeout should mention PR ${pr}`);
 }
@@ -361,6 +374,75 @@ for (const slug of CANONICAL_PACKAGES) {
     `Stage 5B automation closeout should mention ${slug}`
   );
 }
+
+assertMentions(
+  stage5bOperationalRunbookText,
+  /^# Stage 5B operational runbook/m,
+  'Stage 5B operational runbook should have the expected title'
+);
+for (const section of [
+  'Quick CLI Path',
+  'API And Tracked Job Path',
+  'Studio Review Path',
+  'Promotion Dry-Run Meaning',
+  'Diagnostics Meaning',
+  'What Never Counts As Inspection Evidence',
+  'Future Genuine-Evidence Path',
+  'Validation Commands',
+]) {
+  assert.equal(stage5bOperationalRunbookText.includes(section), true, `Stage 5B runbook should include ${section}`);
+}
+for (const command of [
+  'inspection-evidence-intake',
+  'inspection-evidence-promotion-dry-run',
+  'stage5b-evidence-audit',
+]) {
+  assert.equal(stage5bOperationalRunbookText.includes(command), true, `Stage 5B runbook should mention ${command}`);
+}
+for (const artifact of [
+  'intake_report.json',
+  'promotion_dry_run_manifest.json',
+  'stage5b_audit_manifest.json',
+  'stage5b_audit_summary.md',
+  'inspection-evidence.intake-report',
+  'inspection-evidence.promotion-dry-run-manifest',
+  'stage5b.evidence-audit-manifest',
+  'stage5b.evidence-audit-summary',
+  'stage5b.validation-diagnostics',
+]) {
+  assert.equal(stage5bOperationalRunbookText.includes(artifact), true, `Stage 5B runbook should mention ${artifact}`);
+}
+assertMentions(stage5bOperationalRunbookText, /Genuine evidence found: no/, 'Stage 5B runbook should state expected no-evidence CLI output');
+assertMentions(stage5bOperationalRunbookText, /Promotion can run: no/, 'Stage 5B runbook should state expected no-promotion output');
+assertMentions(stage5bOperationalRunbookText, /Readiness remains held: yes/, 'Stage 5B runbook should state expected held-readiness output');
+assertMentions(stage5bOperationalRunbookText, /`needs_more_evidence`/, 'Stage 5B runbook should mention needs_more_evidence');
+assertMentions(stage5bOperationalRunbookText, /`hold_for_evidence_completion`/, 'Stage 5B runbook should mention hold_for_evidence_completion');
+assertMentions(stage5bOperationalRunbookText, /`inspection_evidence`/, 'Stage 5B runbook should mention inspection_evidence');
+assertMentions(stage5bOperationalRunbookText, /Only genuine completed physical\/supplier\/lab\/QA inspection records can satisfy inspection_evidence/, 'Stage 5B runbook should preserve hard evidence rule');
+for (const boundary of [
+  'diagnostics',
+  'schemas',
+  'fixtures',
+  'CI metadata',
+  'screenshots',
+  'intake reports',
+  'promotion dry-run manifests',
+  'audit manifests',
+  'GitHub metadata',
+  'release bundles',
+  'templates',
+  'collection guides',
+  'human-typed, inferred, simulated, synthetic, CAD-generated, or guessed measurements',
+]) {
+  assert.equal(
+    stage5bOperationalRunbookText.includes(boundary),
+    true,
+    `Stage 5B runbook should reject ${boundary} as inspection evidence`
+  );
+}
+assertMentions(stage5bOperationalRunbookText, /review-context --inspection-evidence <PATH_TO_COMPLETED_REAL_JSON>/, 'Stage 5B runbook should preserve future genuine evidence path');
+assertMentions(stage5bOperationalRunbookText, /node tests\/stage5b-source-of-truth-guard\.test\.js/, 'Stage 5B runbook should list source-of-truth validation');
+assertNoPositiveProductionReadyClaim(stage5bOperationalRunbookText, 'Stage 5B runbook should not claim production readiness');
 
 assertMentions(
   stage5dCloseoutText,
@@ -606,6 +688,11 @@ assertMentions(studioFirstUserWalkthroughText, /Generated quality, drawing, revi
 assertMentions(studioFirstUserWalkthroughText, /Production readiness remains held until genuine completed inspection evidence exists/, 'Studio walkthrough should keep production readiness held');
 assertMentions(studioFirstUserWalkthroughText, /Stage 5B remains parked until a genuine completed inspection evidence JSON exists/, 'Studio walkthrough should preserve Stage 5B parked language');
 assertMentions(studioFirstUserWalkthroughText, /Run Stage 5B audit from Review/, 'Studio walkthrough should document the Stage 5B audit review workflow');
+assertMentions(
+  studioFirstUserWalkthroughText,
+  /\[Stage 5B operational runbook\]\(\.\/stage-5b-operational-runbook\.md\)/,
+  'Studio walkthrough should link the Stage 5B operational runbook'
+);
 assertMentions(studioFirstUserWalkthroughText, /genuine evidence found, promotion can run, attachment-ready count, blockers, package readiness states, GitHub summary, next safe commands, readiness-held truth, and the evidence boundary/, 'Studio walkthrough should describe the audit summary fields');
 assertMentions(studioFirstUserWalkthroughText, /Readiness remains held when accepted count is `0`/, 'Studio walkthrough should explain the no-valid-evidence state');
 assertMentions(studioFirstUserWalkthroughText, /preview audit artifacts only through tracked job artifact routes/, 'Studio walkthrough should preserve tracked-audit preview safety');
@@ -670,6 +757,11 @@ assertMentions(
   testingDocText,
   /Stage 5B automation closeout status/,
   'testing doc should document Stage 5B automation closeout docs-smoke coverage'
+);
+assertMentions(
+  testingDocText,
+  /Stage 5B operational runbook/,
+  'testing doc should document Stage 5B operational runbook docs-smoke coverage'
 );
 assertMentions(
   testingDocText,

@@ -281,6 +281,7 @@ const docs = {
   supportMatrix: readText('docs/support-matrix.md'),
   testing: readText('docs/testing.md'),
   closeout: readText('docs/stage-5b-automation-closeout-status.md'),
+  runbook: readText('docs/stage-5b-operational-runbook.md'),
   studioApi: readText('docs/studio-canonical-package-api.md'),
   studioWalkthrough: readText('docs/studio-first-user-walkthrough.md'),
 };
@@ -313,7 +314,7 @@ for (const command of STAGE5B_COMMANDS) {
   assert(STUDIO_JOB_COMMANDS.includes(command), `Studio command list should include ${command}`);
   assert(cliHelp.includes(`fcad ${command}`), `CLI help should document fcad ${command}`);
 
-  ['readme', 'supportMatrix', 'closeout'].forEach((docKey) => {
+  ['readme', 'supportMatrix', 'closeout', 'runbook'].forEach((docKey) => {
     assert(docs[docKey].includes(command), `${docKey} should document ${command}`);
   });
 }
@@ -340,7 +341,9 @@ assertIncludesAll(
 );
 
 assert.match(docs.closeout, /PR #122|\[#122\]/, 'Stage 5B closeout should include the PR #122 closeout state');
+assert.match(docs.closeout, /\[Stage 5B operational runbook\]\(\.\/stage-5b-operational-runbook\.md\)/, 'Stage 5B closeout should link the operational runbook');
 assert.match(docs.testing, /stage5b-source-of-truth-guard\.test\.js/, 'testing docs should mention the Stage 5B source-of-truth guard');
+assert.match(docs.testing, /Stage 5B operational runbook/, 'testing docs should mention the Stage 5B operational runbook');
 
 const schemaRequests = [
   { type: 'inspection-evidence-intake' },
@@ -448,6 +451,11 @@ Object.values(STAGE5B_ARTIFACTS).forEach((definition) => {
   assert(sources.jobExecutor.includes(`type: '${definition.type}'`), `job manifest should register ${definition.type}`);
   assert(sources.jobExecutor.includes(`artifact_type: '${definition.documentArtifactType}'`), `job manifest metadata should register ${definition.documentArtifactType}`);
   assert(sources.artifactActions.includes(definition.type), `artifact allowlist should recognize ${definition.type}`);
+  assert(docs.runbook.includes(definition.type), `operational runbook should document ${definition.type}`);
+  assert(
+    docs.runbook.includes(definition.fileName) || docs.runbook.includes(definition.auditFileName),
+    `operational runbook should document ${definition.fileName} or ${definition.auditFileName}`
+  );
   if (definition.cardId) {
     assert(sources.artifactInsights.includes(`id: '${definition.cardId}'`), `Review card builder should expose ${definition.cardId}`);
   }
@@ -505,6 +513,7 @@ Object.entries({
   supportMatrix: docs.supportMatrix,
   testing: docs.testing,
   closeout: docs.closeout,
+  runbook: docs.runbook,
   studioApi: docs.studioApi,
   studioWalkthrough: docs.studioWalkthrough,
 }).forEach(([label, text]) => {
@@ -516,6 +525,28 @@ Object.entries({
 assert.match(docs.closeout, /No genuine completed inspection evidence has been found or attached/);
 assert.match(docs.closeout, new RegExp(HARD_EVIDENCE_RULE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
 assert.match(docs.closeout, NON_EVIDENCE_BOUNDARY_PATTERN);
+
+assert.match(docs.runbook, /^# Stage 5B operational runbook/m);
+assert.match(docs.runbook, /Quick CLI Path/);
+assert.match(docs.runbook, /API And Tracked Job Path/);
+assert.match(docs.runbook, /Studio Review Path/);
+assert.match(docs.runbook, /Promotion Dry-Run Meaning/);
+assert.match(docs.runbook, /Diagnostics Meaning/);
+assert.match(docs.runbook, /Future Genuine-Evidence Path/);
+assert.match(docs.runbook, /fcad inspection-evidence-intake \[--package <canonical-package-slug>\] \[--include-github\] --out output\/stage5b-runbook\/inspection-evidence-intake-report\.json/);
+assert.match(docs.runbook, /fcad inspection-evidence-promotion-dry-run --intake-report output\/stage5b-runbook\/inspection-evidence-intake-report\.json --out output\/stage5b-runbook\/promotion_dry_run_manifest\.json/);
+assert.match(docs.runbook, /fcad stage5b-evidence-audit --out-dir output\/stage5b-runbook-audit \[--include-github\]/);
+assert.match(docs.runbook, /POST http:\/\/127\.0\.0\.1:3000\/jobs/);
+assert.match(docs.runbook, /POST http:\/\/127\.0\.0\.1:3000\/api\/studio\/jobs/);
+assert.match(docs.runbook, /stage5b\.validation-diagnostics/);
+assert.match(docs.runbook, /node tests\/first-user-docs-smoke\.test\.js/);
+assert.match(docs.runbook, /node tests\/stage5b-source-of-truth-guard\.test\.js/);
+assert.match(docs.runbook, /node tests\/stage5b-evidence-audit-cli-smoke\.test\.js/);
+assert.match(docs.runbook, /npm run test:node:contract/);
+assert.match(docs.runbook, /npm test/);
+assert.match(docs.runbook, /human-typed, inferred, simulated, synthetic, CAD-generated, or guessed measurements/);
+assert.match(docs.runbook, new RegExp(HARD_EVIDENCE_RULE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+assert.match(docs.runbook, NON_EVIDENCE_BOUNDARY_PATTERN);
 
 [
   'inspection-evidence-intake reports are discovery/review artifacts only; they are not package inspection evidence.',
