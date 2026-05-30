@@ -160,6 +160,7 @@ git diff --check
 node tests/first-user-docs-smoke.test.js
 node tests/stage5b-source-of-truth-guard.test.js
 node tests/stage5b-evidence-audit-cli-smoke.test.js
+npm run test:stage5b:no-evidence
 npm run test:node:contract
 npm test
 ```
