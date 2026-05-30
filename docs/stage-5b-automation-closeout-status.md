@@ -2,6 +2,8 @@
 
 This document summarizes the Stage 5B automation chain through PR [#122](https://github.com/dooosp/freecad-automation/pull/122). It is a software/status closeout only. It does not attach inspection evidence, mutate canonical package artifacts, regenerate readiness, or claim production readiness.
 
+For day-to-day CLI/API/Studio operation, diagnostics, expected no-evidence output, and validation commands, use the [Stage 5B operational runbook](./stage-5b-operational-runbook.md).
+
 ## PR chain
 
 | PR | Merged status | Merge commit | Automation surface |

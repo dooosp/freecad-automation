@@ -77,6 +77,8 @@ The tracked audit registers the intake report, promotion dry-run manifest, audit
 
 Open the completed audit job in Review to inspect the normalized card, then preview audit artifacts only through tracked job artifact routes. Artifacts are allowlisted by job id and artifact id; Studio does not import arbitrary local files for audit review.
 
+For exact CLI commands, tracked API payloads, diagnostic meaning, and the future genuine-evidence path, see the [Stage 5B operational runbook](./stage-5b-operational-runbook.md).
+
 ## What Not To Do
 
 - Do not create or attach inspection evidence unless you have genuine completed inspection measurements.
