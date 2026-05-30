@@ -23,6 +23,27 @@ Expected no-evidence result:
 - `inspection-evidence-promotion-dry-run` reports `promotion_can_run: false`, `canonical_artifacts_mutated: false`, and no canonical next command.
 - `stage5b-evidence-audit` reports `Genuine evidence found: no`, `Promotion can run: no`, and `Readiness remains held: yes`.
 
+## Candidate Acceptance Gate
+
+Before maintainers put a newly supplied JSON record into the Stage 5B intake/dry-run review path, run the local non-production candidate gate:
+
+```bash
+node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json> --out output/stage5b-candidate-gate/report.json
+```
+
+The gate only decides whether the supplied record is eligible for Stage 5B intake review. It is a checklist/control surface, not a promotion command. It does not run `review-context`, attach evidence, regenerate readiness, update standard docs, package a release bundle, or change canonical package state.
+
+The report must show `eligible_for_stage5b_intake_review: true` before the record enters intake/dry-run review. It still does not prove readiness. The checklist requires:
+
+- completed physical, supplier, lab, or QA inspection origin
+- source/provenance and reviewer traceability
+- package or part plus revision mapping
+- inspection date, completed status, and pass/fail/partial result fields
+- safe repo-relative attachment/provenance paths with no credentials, private URLs, absolute paths, `output/`, or `tmp/codex/`
+- explicit rejection reasons when any requirement fails
+
+The gate fails closed for generated/control artifacts, diagnostics, schemas, fixtures, intake reports, promotion dry-run manifests, audit outputs, GitHub/CI metadata, screenshots, templates, guides, comments, PR bodies, docs artifacts, release bundles, and CAD-generated, simulated, inferred, or synthetic measurements. Fixtures used by tests are control/non-evidence examples only and must not be promoted or described as genuine package evidence.
+
 ## Audit Outputs
 
 `fcad stage5b-evidence-audit --out-dir <dir>` writes these control artifacts:
@@ -143,10 +164,11 @@ For a future real evidence task:
 
 1. Collect a completed physical, supplier, lab, or QA inspection record outside the generated/control artifact chain.
 2. Serialize it to the inspection evidence JSON contract with explicit provenance and measured feature records.
-3. Run `fcad inspection-evidence-intake --out <report.json>` to classify and plan attachment.
-4. Run `fcad inspection-evidence-promotion-dry-run --intake-report <report.json> --out <promotion_dry_run_manifest.json>` and review blockers, match confidence, mutation boundaries, and rollback guidance.
-5. Attach only when the dry-run is attachment-ready and the task explicitly authorizes canonical mutation.
-6. Refresh `review-context --inspection-evidence`, `readiness-pack`, `generate-standard-docs`, and `pack` in that separate authorized task.
+3. Run `node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json>` and review the checklist. Rejections stop the record before intake/dry-run review.
+4. Run `fcad inspection-evidence-intake --out <report.json>` to classify and plan attachment.
+5. Run `fcad inspection-evidence-promotion-dry-run --intake-report <report.json> --out <promotion_dry_run_manifest.json>` and review blockers, match confidence, mutation boundaries, and rollback guidance.
+6. Attach only when the dry-run is attachment-ready and the task explicitly authorizes canonical mutation.
+7. Refresh `review-context --inspection-evidence`, `readiness-pack`, `generate-standard-docs`, and `pack` in that separate authorized task.
 
 Until that happens, the readiness truth remains unchanged.
 
@@ -157,6 +179,7 @@ Use these checks after runbook, docs, command-surface, or source-of-truth change
 ```bash
 git status --short
 git diff --check
+node tests/stage5b-candidate-evidence-gate.test.js
 node tests/first-user-docs-smoke.test.js
 node tests/stage5b-source-of-truth-guard.test.js
 node tests/stage5b-evidence-audit-cli-smoke.test.js
