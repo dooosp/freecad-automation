@@ -209,6 +209,38 @@ try {
     'schema-valid fixtures must be rejected as non-genuine provenance'
   );
 
+  writeMinimalCanonicalPackage(tempRoot, 'diagnostics-boundary-part');
+  writeJson(
+    join(tempRoot, 'docs/examples/diagnostics-boundary-part/inspection/validation_diagnostics.json'),
+    {
+      artifact_type: 'stage5b_validation_diagnostics',
+      validation_status: 'failed',
+      diagnostics: [],
+      evidence_boundary_note: 'Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.',
+    }
+  );
+  const diagnosticsBoundaryReport = await discoverInspectionEvidenceIntake({
+    projectRoot: tempRoot,
+    packageSlugs: ['diagnostics-boundary-part'],
+    trackedPaths: [
+      'docs/examples/diagnostics-boundary-part/inspection/validation_diagnostics.json',
+      'docs/examples/diagnostics-boundary-part/readiness/readiness_report.json',
+      'docs/examples/diagnostics-boundary-part/review/review_pack.json',
+    ],
+    includeGitHub: false,
+    generatedAt: '2026-05-23T00:00:00.000Z',
+  });
+  assert.equal(diagnosticsBoundaryReport.summary.genuine_inspection_evidence_found, false);
+  assert.equal(diagnosticsBoundaryReport.packages[0].readiness_after.gate_decision, 'hold_for_evidence_completion');
+  assert.equal(
+    diagnosticsBoundaryReport.rejected_candidates.some((candidate) => (
+      candidate.classification === 'invalid_generated'
+      && candidate.path === 'docs/examples/diagnostics-boundary-part/inspection/validation_diagnostics.json'
+    )),
+    true,
+    'validation_diagnostics.json must stay generated/control metadata, never inspection_evidence'
+  );
+
   writeMinimalCanonicalPackage(tempRoot, 'demo-intake-part');
   writeFeatureProfile(tempRoot, 'demo-intake-part');
   writeJson(
