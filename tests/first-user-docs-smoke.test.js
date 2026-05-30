@@ -382,6 +382,7 @@ assertMentions(
 );
 for (const section of [
   'Quick CLI Path',
+  'Candidate Acceptance Gate',
   'API And Tracked Job Path',
   'Studio Review Path',
   'Promotion Dry-Run Meaning',
@@ -393,6 +394,7 @@ for (const section of [
   assert.equal(stage5bOperationalRunbookText.includes(section), true, `Stage 5B runbook should include ${section}`);
 }
 for (const command of [
+  'scripts/stage5b-candidate-evidence-gate.js',
   'inspection-evidence-intake',
   'inspection-evidence-promotion-dry-run',
   'stage5b-evidence-audit',
@@ -429,6 +431,8 @@ for (const boundary of [
   'promotion dry-run manifests',
   'audit manifests',
   'GitHub metadata',
+  'PR bodies',
+  'docs artifacts',
   'release bundles',
   'templates',
   'collection guides',
@@ -441,6 +445,8 @@ for (const boundary of [
   );
 }
 assertMentions(stage5bOperationalRunbookText, /review-context --inspection-evidence <PATH_TO_COMPLETED_REAL_JSON>/, 'Stage 5B runbook should preserve future genuine evidence path');
+assertMentions(stage5bOperationalRunbookText, /eligible_for_stage5b_intake_review: true/, 'Stage 5B runbook should document candidate gate acceptance wording');
+assertMentions(stage5bOperationalRunbookText, /node tests\/stage5b-candidate-evidence-gate\.test\.js/, 'Stage 5B runbook should list candidate gate validation');
 assertMentions(stage5bOperationalRunbookText, /node tests\/stage5b-source-of-truth-guard\.test\.js/, 'Stage 5B runbook should list source-of-truth validation');
 assertNoPositiveProductionReadyClaim(stage5bOperationalRunbookText, 'Stage 5B runbook should not claim production readiness');
 
