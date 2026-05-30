@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { join, relative, resolve } from 'node:path';
 
 import { discoverInspectionEvidenceIntake } from '../src/services/inspection-evidence-intake/inspection-evidence-intake-service.js';
 import { writeInspectionEvidencePromotionDryRunManifest } from '../src/services/inspection-evidence-intake/promotion-dry-run-service.js';
 import { writeStage5bEvidenceAuditBundle } from '../src/services/inspection-evidence-intake/stage5b-evidence-audit-service.js';
+import { createJobExecutor } from '../src/services/jobs/job-executor.js';
+import { createJobStore } from '../src/services/jobs/job-store.js';
 import {
   assertValidStage5bAuditManifest,
   assertValidStage5bArtifact,
@@ -27,28 +30,59 @@ function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-function assertValidationFails(label, fn, pattern) {
-  assert.throws(
-    fn,
-    (error) => {
-      assert.equal(error.name, 'Stage5bRuntimeValidationError');
-      assert.match(error.message, pattern, label);
-      return true;
-    },
-    label
-  );
+function captureValidationFailure(label, fn, pattern) {
+  try {
+    fn();
+  } catch (error) {
+    assert.equal(error.name, 'Stage5bRuntimeValidationError');
+    assert.match(error.message, pattern, label);
+    return error;
+  }
+  assert.fail(`${label} should fail validation`);
 }
 
-async function assertValidationRejects(label, fn, pattern) {
-  await assert.rejects(
-    fn,
-    (error) => {
-      assert.equal(error.name, 'Stage5bRuntimeValidationError');
-      assert.match(error.message, pattern, label);
-      return true;
-    },
-    label
-  );
+async function captureValidationRejection(label, fn, pattern) {
+  try {
+    await fn();
+  } catch (error) {
+    assert.equal(error.name, 'Stage5bRuntimeValidationError');
+    assert.match(error.message, pattern, label);
+    return error;
+  }
+  assert.fail(`${label} should reject validation`);
+}
+
+function diagnosticsFrom(error) {
+  assert.equal(Array.isArray(error.diagnostics), true, 'validation error should expose diagnostics');
+  assert.equal(error.diagnostics.length > 0, true, 'validation error should contain at least one diagnostic');
+  return error.diagnostics;
+}
+
+function assertDiagnosticShape(diagnostic) {
+  [
+    'artifact_type',
+    'artifact_path',
+    'validation_stage',
+    'severity',
+    'code',
+    'message',
+    'json_pointer',
+    'remediation',
+    'evidence_boundary_note',
+    'safe_source_ref',
+  ].forEach((field) => {
+    assert.equal(Object.hasOwn(diagnostic, field), true, `diagnostic should include ${field}`);
+  });
+  assert.equal(diagnostic.severity, 'error');
+  assert.match(diagnostic.code, /^stage5b\./);
+  assert.match(diagnostic.evidence_boundary_note, /Only genuine completed physical\/supplier\/lab\/QA inspection records/);
+}
+
+function assertNoSecretOrAbsolutePath(value) {
+  const text = JSON.stringify(value);
+  assert.equal(text.includes(ROOT), false, 'diagnostics must not leak the repo absolute path');
+  assert.equal(/gho_[A-Za-z0-9_]+/.test(text), false, 'diagnostics must not leak GitHub tokens');
+  assert.equal(/authorization/i.test(text), false, 'diagnostics must not leak authorization headers');
 }
 
 const tempRoot = mkdtempSync(join(ROOT, 'tmp/codex/stage5b-runtime-validation-'));
@@ -91,7 +125,7 @@ try {
   assert.equal(auditManifest.summary.readiness_remains_held, true);
   assert.equal(auditManifest.readiness_held_truth.no_genuine_completed_inspection_evidence_found, true);
 
-  assertValidationFails(
+  const malformedError = captureValidationFailure(
     'malformed intake report fails clearly',
     () => assertValidStage5bIntakeReport({
       artifact_type: 'inspection_evidence_intake_report',
@@ -99,6 +133,12 @@ try {
     }, { label: 'malformed intake report' }),
     /Invalid Stage 5B malformed intake report.*summary.*required/is
   );
+  const malformedDiagnostics = diagnosticsFrom(malformedError);
+  assertDiagnosticShape(malformedDiagnostics[0]);
+  assert.equal(malformedDiagnostics[0].artifact_type, 'inspection_evidence_intake_report');
+  assert.equal(malformedDiagnostics[0].validation_stage, 'schema');
+  assert.equal(malformedDiagnostics.some((diagnostic) => /^\/summary/.test(diagnostic.json_pointer)), true);
+  assert.match(malformedDiagnostics[0].remediation, /required field|schema/i);
 
   const unsafeIntake = clone(intake);
   unsafeIntake.rejected_candidates.push({
@@ -120,11 +160,19 @@ try {
     },
   });
   unsafeIntake.summary.rejected_candidate_count += 1;
-  assertValidationFails(
+  const unsafeError = captureValidationFailure(
     'unsafe path and provenance fail',
     () => assertValidStage5bIntakeReport(unsafeIntake, { label: 'unsafe intake report' }),
     /safe repo-relative path|sanitized public URL/i
   );
+  const unsafeDiagnostics = diagnosticsFrom(unsafeError);
+  const unsafePathDiagnostic = unsafeDiagnostics.find((diagnostic) => diagnostic.code === 'stage5b.unsafe_path');
+  const unsafeSourceDiagnostic = unsafeDiagnostics.find((diagnostic) => diagnostic.code === 'stage5b.unsafe_source_ref');
+  assertDiagnosticShape(unsafePathDiagnostic);
+  assertDiagnosticShape(unsafeSourceDiagnostic);
+  assert.equal(unsafeSourceDiagnostic.safe_source_ref, null);
+  assert.match(unsafeSourceDiagnostic.remediation, /repo-relative path or sanitized public URL/i);
+  assertNoSecretOrAbsolutePath(unsafeDiagnostics);
 
   const fakePromotion = clone(dryRunResult.manifest);
   fakePromotion.summary.genuine_inspection_evidence_found = false;
@@ -133,10 +181,15 @@ try {
   fakePromotion.summary.promotion_can_run = true;
   fakePromotion.packages[0].promotion_status = 'ready_for_future_promotion_dry_run';
   fakePromotion.packages[0].blockers = [];
-  assertValidationFails(
+  const fakePromotionError = captureValidationFailure(
     'fake readiness promotion fails',
     () => assertValidStage5bPromotionDryRunManifest(fakePromotion, { label: 'fake promotion manifest' }),
     /promotion_can_run.*genuine inspection evidence|ready_package_count/i
+  );
+  assert.equal(
+    diagnosticsFrom(fakePromotionError).some((diagnostic) => diagnostic.code === 'stage5b.readiness_overclaim'),
+    true,
+    'fake promotion should emit an overclaim diagnostic'
   );
 
   const generatedEvidenceLeak = clone(intake);
@@ -170,15 +223,20 @@ try {
   generatedEvidenceLeak.summary.accepted_candidate_count = 1;
   generatedEvidenceLeak.summary.attachment_ready_candidate_count = 1;
   generatedEvidenceLeak.summary.genuine_inspection_evidence_found = true;
-  assertValidationFails(
+  const generatedLeakError = captureValidationFailure(
     'generated control artifact cannot become inspection evidence',
     () => assertValidStage5bIntakeReport(generatedEvidenceLeak, { label: 'generated control evidence leak' }),
     /control file|generated artifact|not inspection evidence/i
   );
+  assert.equal(
+    diagnosticsFrom(generatedLeakError).some((diagnostic) => diagnostic.code === 'stage5b.generated_control_artifact_not_evidence'),
+    true,
+    'generated control artifacts should get an explicit non-evidence diagnostic'
+  );
 
   const malformedReportPath = join(tempRoot, 'malformed-intake.json');
   writeJson(malformedReportPath, unsafeIntake);
-  await assertValidationRejects(
+  const writerError = await captureValidationRejection(
     'runtime writer rejects malformed intake input',
     () => writeInspectionEvidencePromotionDryRunManifest({
       projectRoot: ROOT,
@@ -189,6 +247,55 @@ try {
     }),
     /Invalid Stage 5B source intake report/i
   );
+  assert.equal(diagnosticsFrom(writerError).some((diagnostic) => diagnostic.validation_stage === 'semantic'), true);
+
+  const noEvidenceValidation = assertValidStage5bAuditManifest(auditResult.manifest, { label: 'no-evidence held audit manifest' });
+  assert.deepEqual(noEvidenceValidation.diagnostics, [], 'held no-evidence audit manifests should pass without diagnostics');
+
+  const cliOutputDir = join(tempRoot, 'cli-failure');
+  mkdirSync(cliOutputDir, { recursive: true });
+  const cliDiagnosticsPath = join(cliOutputDir, 'validation_diagnostics.json');
+  const cliResult = spawnSync(process.execPath, [
+    'bin/fcad.js',
+    'inspection-evidence-promotion-dry-run',
+    '--intake-report',
+    relative(ROOT, malformedReportPath),
+    '--out',
+    relative(ROOT, join(cliOutputDir, 'promotion_dry_run_manifest.json')),
+  ], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  });
+  assert.notEqual(cliResult.status, 0, 'malformed CLI promotion dry-run should fail');
+  assert.match(cliResult.stderr, /Stage 5B validation failed/i);
+  assert.match(cliResult.stderr, /validation_diagnostics\.json/);
+  assert.equal(existsSync(cliDiagnosticsPath), true, 'CLI should write validation_diagnostics.json beside requested output');
+  const cliDiagnostics = readJson(cliDiagnosticsPath);
+  assert.equal(cliDiagnostics.artifact_type, 'inspection_evidence_intake_report');
+  assert.equal(Array.isArray(cliDiagnostics.diagnostics), true);
+  assertDiagnosticShape(cliDiagnostics.diagnostics[0]);
+  assertNoSecretOrAbsolutePath(cliDiagnostics);
+
+  const jobReportPath = join(tempRoot, 'job-malformed-intake.json');
+  writeJson(jobReportPath, unsafeIntake);
+  const jobStore = createJobStore({ jobsDir: join(tempRoot, 'jobs') });
+  const executor = createJobExecutor({ projectRoot: ROOT, jobStore });
+  const job = await jobStore.createJob({
+    type: 'inspection-evidence-promotion-dry-run',
+    intake_report_path: relative(ROOT, jobReportPath),
+  });
+  await executor.execute(job.id);
+  const failedJob = await jobStore.getJob(job.id);
+  assert.equal(failedJob.status, 'failed');
+  assert.equal(failedJob.diagnostics.stage5b_validation_diagnostics.artifact_type, 'inspection_evidence_intake_report');
+  assert.equal(Array.isArray(failedJob.diagnostics.stage5b_validation_diagnostics.diagnostics), true);
+  assertDiagnosticShape(failedJob.diagnostics.stage5b_validation_diagnostics.diagnostics[0]);
+  assertNoSecretOrAbsolutePath(failedJob.diagnostics.stage5b_validation_diagnostics);
+  assert.equal(existsSync(failedJob.artifacts.stage5b_validation_diagnostics), true);
+  const jobArtifacts = await jobStore.listArtifacts(job.id);
+  const diagnosticsArtifact = jobArtifacts.find((artifact) => artifact.type === 'stage5b.validation-diagnostics');
+  assert.equal(Boolean(diagnosticsArtifact), true, 'failed tracked jobs should register validation diagnostics artifacts');
+  assert.equal(diagnosticsArtifact.file_name, 'validation_diagnostics.json');
 } finally {
   rmSync(tempRoot, { recursive: true, force: true });
 }

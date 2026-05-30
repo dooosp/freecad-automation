@@ -301,6 +301,58 @@ const stage5bAuditArtifact = {
   },
 };
 
+const validationDiagnostics = {
+  artifact_type: 'inspection_evidence_intake_report',
+  artifact_path: 'output/jobs/job-validation/artifacts/intake_report.json',
+  validation_status: 'failed',
+  diagnostics: [
+    {
+      artifact_type: 'inspection_evidence_intake_report',
+      artifact_path: 'output/jobs/job-validation/artifacts/intake_report.json',
+      validation_stage: 'semantic',
+      severity: 'error',
+      code: 'stage5b.generated_control_artifact_not_evidence',
+      message: 'accepted_candidates[0] points at a fixture, control file, or generated artifact; that is not inspection evidence',
+      json_pointer: '/accepted_candidates/0/path',
+      remediation: 'Use only genuine completed physical/supplier/lab/QA inspection records; control artifacts cannot satisfy inspection_evidence.',
+      evidence_boundary_note: 'Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.',
+      safe_source_ref: null,
+    },
+    {
+      artifact_type: 'inspection_evidence_intake_report',
+      artifact_path: 'output/jobs/job-validation/artifacts/intake_report.json',
+      validation_stage: 'semantic',
+      severity: 'error',
+      code: 'stage5b.readiness_overclaim',
+      message: 'summary.promotion_can_run must be false when no genuine inspection evidence was found',
+      json_pointer: '/summary/promotion_can_run',
+      remediation: 'Keep readiness held until genuine completed inspection evidence is attached through the canonical flow.',
+      evidence_boundary_note: 'Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.',
+      safe_source_ref: null,
+    },
+  ],
+  evidence_boundary_note: 'Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.',
+};
+
+const validationDiagnosticsArtifact = {
+  id: 'stage5b-validation-diagnostics-0',
+  key: 'Stage 5B validation diagnostics',
+  type: 'stage5b.validation-diagnostics',
+  file_name: 'validation_diagnostics.json',
+  extension: '.json',
+  content_type: 'application/json; charset=utf-8',
+  exists: true,
+  capabilities: {
+    can_open: true,
+    can_download: true,
+    browser_safe: true,
+  },
+  links: {
+    open: '/jobs/job-validation/artifacts/stage5b-validation-diagnostics-0/content',
+    download: '/jobs/job-validation/artifacts/stage5b-validation-diagnostics-0/content?download=1',
+  },
+};
+
 const raw = JSON.stringify(intakeReport, null, 2);
 const card = buildInspectionEvidenceIntakeCard({
   report: intakeReport,
@@ -424,6 +476,34 @@ const auditCards = buildReviewCards({
 });
 assert.equal(auditCards[0].id, 'stage5b-evidence-audit');
 assert.equal(auditCards[0].empty, false);
+
+const validationCards = buildReviewCards({
+  activeJob: {
+    status: 'failed',
+    diagnostics: {
+      stage5b_validation_diagnostics: validationDiagnostics,
+    },
+    manifest: {
+      command: 'stage5b-evidence-audit',
+    },
+  },
+  artifacts: [validationDiagnosticsArtifact],
+  sourceMap: {
+    stage5bValidationDiagnostics: validationDiagnostics,
+    stage5bValidationDiagnosticsRaw: JSON.stringify(validationDiagnostics, null, 2),
+  },
+});
+assert.equal(validationCards[0].id, 'stage5b-validation-diagnostics');
+assert.equal(validationCards[0].title, 'Stage 5B validation diagnostics');
+assert.equal(validationCards[0].status, 'Validation failed');
+assert.equal(validationCards[0].tone, 'bad');
+assert.equal(validationCards[0].score, 2);
+assert.match(validationCards[0].summary, /control artifacts cannot satisfy inspection_evidence|Only genuine completed/);
+const validationNormalized = Object.fromEntries(validationCards[0].normalized);
+assert.equal(validationNormalized['Artifact type'], 'inspection_evidence_intake_report');
+assert.match(validationNormalized['Top diagnostic'], /stage5b\.generated_control_artifact_not_evidence/);
+assert.match(validationNormalized['Remediation'], /genuine completed physical\/supplier\/lab\/QA inspection records/);
+assert.match(validationNormalized['Evidence boundary'], /Only genuine completed physical\/supplier\/lab\/QA inspection records/);
 
 globalThis.document = {
   createElement(tagName) {

@@ -631,6 +631,8 @@ export function mountReviewWorkspace({ root, state, addLog, openJob, submitTrack
         stage5bAudit: findBy('stage5b.evidence-audit-manifest', '.json')
           || findBy('stage5b-evidence-audit', '.json')
           || findBy('stage5b_audit_manifest', '.json'),
+        stage5bValidationDiagnostics: findBy('stage5b.validation-diagnostics', '.json')
+          || findBy('validation_diagnostics', '.json'),
       };
 
       const sourceEntries = Object.entries(sourceArtifacts).filter(([, artifact]) => artifact);

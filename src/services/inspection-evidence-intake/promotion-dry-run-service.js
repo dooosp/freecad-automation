@@ -644,7 +644,11 @@ export async function writeInspectionEvidencePromotionDryRunManifest({
   }
   const resolvedRoot = resolve(projectRoot || process.cwd());
   const output = assertPathInsideProject(resolvedRoot, outputPath, 'promotion dry-run output path');
-  assertValidStage5bIntakeReport(intakeReport, { label: 'source intake report' });
+  assertValidStage5bIntakeReport(intakeReport, {
+    label: 'source intake report',
+    artifactPath: intakeReportPath,
+    projectRoot: resolvedRoot,
+  });
   const manifest = buildInspectionEvidencePromotionDryRunManifest({
     projectRoot: resolvedRoot,
     intakeReport,
@@ -652,7 +656,11 @@ export async function writeInspectionEvidencePromotionDryRunManifest({
     generatedAt,
     testOnly,
   });
-  assertValidStage5bPromotionDryRunManifest(manifest, { label: 'promotion dry-run manifest' });
+  assertValidStage5bPromotionDryRunManifest(manifest, {
+    label: 'promotion dry-run manifest',
+    artifactPath: output.absolute,
+    projectRoot: resolvedRoot,
+  });
   mkdirSync(dirname(output.absolute), { recursive: true });
   writeFileSync(output.absolute, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
   return {

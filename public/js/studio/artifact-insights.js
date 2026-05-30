@@ -110,6 +110,7 @@ export function classifyArtifact(artifact = {}) {
   if (isReleaseBundleManifestArtifact(artifact)) return { badge: 'bundle-manifest', tone: 'info' };
   if (isRevisionComparisonArtifact(artifact)) return { badge: 'compare', tone: 'warn' };
   if (isStabilizationReviewArtifact(artifact)) return { badge: 'stabilization', tone: 'warn' };
+  if (includesAny(search, ['validation-diagnostics', 'validation_diagnostics'])) return { badge: 'validation', tone: 'bad' };
   if (includesAny(search, ['readiness'])) return { badge: 'readiness', tone: 'ok' };
   if (includesAny(search, ['review-pack', 'product_review', 'quality_risk', 'investment_review', 'process_plan', 'line_plan'])) {
     return { badge: 'report', tone: 'warn' };
@@ -773,6 +774,64 @@ function buildCard({
   };
 }
 
+function formatValidationDiagnostic(diagnostic = {}) {
+  const code = diagnostic.code || 'stage5b.validation_failed';
+  const pointer = diagnostic.json_pointer || '/';
+  const message = diagnostic.message || 'Validation failed.';
+  return `${code} ${pointer}: ${message}`;
+}
+
+function summarizeValidationDiagnostics(payload = {}) {
+  const diagnostics = safeList(payload.diagnostics);
+  return diagnostics.length > 0
+    ? diagnostics.map(formatValidationDiagnostic).join(' • ')
+    : 'No diagnostics recorded.';
+}
+
+function firstValidationDiagnostic(payload = {}) {
+  return safeList(payload.diagnostics)[0] || {};
+}
+
+export function buildStage5bValidationDiagnosticsCard({
+  diagnosticsPayload = {},
+  artifact = null,
+  raw = null,
+  activeManifest = null,
+} = {}) {
+  const diagnostics = safeList(diagnosticsPayload.diagnostics);
+  const firstDiagnostic = firstValidationDiagnostic(diagnosticsPayload);
+  const remediation = firstDiagnostic.remediation
+    || 'Fix the Stage 5B control artifact field indicated by json_pointer, then rerun validation.';
+  const boundary = firstDiagnostic.evidence_boundary_note
+    || diagnosticsPayload.evidence_boundary_note
+    || 'Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.';
+
+  return buildCard({
+    id: 'stage5b-validation-diagnostics',
+    title: 'Stage 5B validation diagnostics',
+    tone: 'bad',
+    score: diagnostics.length,
+    status: diagnosticsPayload.validation_status === 'failed' ? 'Validation failed' : 'Validation diagnostics',
+    summary: `${formatValidationDiagnostic(firstDiagnostic)} ${boundary}`,
+    artifact,
+    normalized: [
+      buildReviewDisplayField('Artifact type', diagnosticsPayload.artifact_type || firstDiagnostic.artifact_type || 'unknown'),
+      buildReviewDisplayField('Artifact path', diagnosticsPayload.artifact_path || firstDiagnostic.artifact_path || 'not exposed'),
+      buildReviewDisplayField('Diagnostic count', String(diagnostics.length)),
+      buildReviewDisplayField('Top diagnostic', formatValidationDiagnostic(firstDiagnostic)),
+      buildReviewDisplayField('All diagnostics', summarizeValidationDiagnostics(diagnosticsPayload)),
+      buildReviewDisplayField('Remediation', remediation),
+      buildReviewDisplayField('Evidence boundary', boundary),
+    ],
+    raw,
+    provenance: [
+      ...manifestNotes(activeManifest, artifact),
+      'Validation diagnostics are sanitized tracked job artifacts only; they are not inspection evidence.',
+      'The browser reads registered diagnostics artifacts or public job diagnostics, not arbitrary local files.',
+    ],
+  });
+}
+
 export function buildInspectionEvidenceIntakeCard({
   report = {},
   artifact = null,
@@ -909,6 +968,10 @@ export function buildStage5bEvidenceAuditCard({
 
 export function buildReviewCards({ activeJob, artifacts = [], sourceMap = {} }) {
   const manifest = activeJob?.manifest || null;
+  const validationDiagnosticsArtifact = findArtifact(artifacts, ['stage5b.validation-diagnostics', 'validation_diagnostics']);
+  const validationDiagnostics = sourceMap.stage5bValidationDiagnostics
+    || activeJob?.diagnostics?.stage5b_validation_diagnostics
+    || null;
   const stage5bAuditArtifact = findArtifact(artifacts, ['stage5b.evidence-audit-manifest', 'stage5b-evidence-audit', 'stage5b_audit_manifest']);
   const stage5bAudit = sourceMap.stage5bAudit;
   const inspectionIntakeArtifact = findArtifact(artifacts, ['inspection-evidence.intake-report', 'inspection-evidence-intake-report', 'intake-report']);
@@ -930,6 +993,16 @@ export function buildReviewCards({ activeJob, artifacts = [], sourceMap = {} }) 
   const reviewPack = sourceMap.reviewPack;
 
   const cards = [
+    ...(validationDiagnostics
+      ? [
+          buildStage5bValidationDiagnosticsCard({
+            diagnosticsPayload: validationDiagnostics,
+            artifact: validationDiagnosticsArtifact,
+            raw: sourceMap.stage5bValidationDiagnosticsRaw,
+            activeManifest: manifest,
+          }),
+        ]
+      : []),
     ...(stage5bAudit
       ? [
           buildStage5bEvidenceAuditCard({
