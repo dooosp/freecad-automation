@@ -6,3 +6,7 @@ scripts/__pycache__/
 .DS_Store
 .codex/
 logs/
+
+# Local-only Stage 5B candidate evidence inbox.
+# Received supplier/lab/QA/private records and candidate gate reports stay out of git.
+local/stage5b-candidate-evidence-inbox/

@@ -11,6 +11,7 @@ import {
 } from '../lib/stage5b-candidate-evidence-gate.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
+const LOCAL_INBOX_ROOT = 'local/stage5b-candidate-evidence-inbox';
 
 function writeText(path, value) {
   mkdirSync(resolve(path, '..'), { recursive: true });
@@ -23,6 +24,14 @@ function writeJson(path, value) {
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
+}
+
+function assertGitIgnored(path, label) {
+  const result = spawnSync('git', ['check-ignore', '--quiet', path], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, `${label} should be ignored by git: ${result.stderr || result.stdout}`);
 }
 
 function validCandidate(overrides = {}) {
@@ -75,6 +84,19 @@ function assertRejected(report, code, label) {
 const tempRoot = mkdtempSync(join(tmpdir(), 'fcad-stage5b-candidate-gate-'));
 
 try {
+  assertGitIgnored(
+    `${LOCAL_INBOX_ROOT}/quality-pass-bracket/supplier-final-inspection.json`,
+    'local Stage 5B inbox candidate record'
+  );
+  assertGitIgnored(
+    `${LOCAL_INBOX_ROOT}/quality-pass-bracket/candidate-gate-report.json`,
+    'local Stage 5B inbox candidate gate report'
+  );
+  assertGitIgnored(
+    `${LOCAL_INBOX_ROOT}/quality-pass-bracket/private-url-redaction-notes.txt`,
+    'local Stage 5B inbox private redaction notes'
+  );
+
   const candidatePath = 'docs/examples/candidate-gate-bracket/inspection/supplier-final-inspection.json';
   writeJson(join(tempRoot, candidatePath), validCandidate());
 

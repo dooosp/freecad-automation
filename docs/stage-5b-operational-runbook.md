@@ -31,10 +31,40 @@ The packet states the accepted origins, required mapping/date/status/result/
 reviewer/provenance fields, path-safety and redaction rules, rejection meanings,
 and post-acceptance review path. It is a control document, not evidence.
 
+## Local-Only Candidate Inbox
+
+Use one repo-relative local-only inbox for newly received records before the
+candidate gate:
+
+```text
+local/stage5b-candidate-evidence-inbox/<package-slug>/
+```
+
+Typical local paths are:
+
+```text
+local/stage5b-candidate-evidence-inbox/<package-slug>/received-inspection-evidence.json
+local/stage5b-candidate-evidence-inbox/<package-slug>/candidate-gate-report.json
+```
+
+This inbox is intentionally ignored by git. It is only a staging area for
+private supplier/lab/QA/physical-inspection material and local gate reports.
+Do not commit raw records, secrets, private URLs, PII, or supplier/lab/QA
+records from the inbox. The inbox itself is not canonical package evidence, and
+files inside it are not `inspection_evidence`.
+
+Safe local flow:
+
+1. Receive a completed physical, supplier, lab, or QA inspection record.
+2. Place the received candidate JSON under the ignored local inbox.
+3. Run `node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json> --out <report.json>`, with `--out` pointing to a local inbox report when the report might describe private material.
+4. Review the accept/reject report.
+5. Run intake, promotion dry-run, or audit later only if the task explicitly authorizes that review path. Later authorized attachment still needs validation, review, and deliberate `review-context --inspection-evidence` mutation outside this local-inbox guard task.
+
 Before maintainers put a newly supplied JSON record into the Stage 5B intake/dry-run review path, run the local non-production candidate gate:
 
 ```bash
-node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json> --out output/stage5b-candidate-gate/report.json
+node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json> --out local/stage5b-candidate-evidence-inbox/<package-slug>/candidate-gate-report.json
 ```
 
 The gate only decides whether the supplied record is eligible for Stage 5B intake review. It is a checklist/control surface, not a promotion command. It does not run `review-context`, attach evidence, regenerate readiness, update standard docs, package a release bundle, or change canonical package state.
@@ -150,7 +180,12 @@ These sources do not satisfy `inspection_evidence`:
 - diagnostics
 - schemas
 - fixtures
+- ignored inbox files
+- candidate gate reports
+- request packets
+- docs and documentation artifacts
 - generated CAD, drawing, quality, DFM, readiness, review, standard-doc, release, or manifest artifacts
+- CAD measurements
 - CI metadata and CI summaries
 - screenshots
 - intake reports
@@ -170,11 +205,12 @@ For a future real evidence task:
 
 1. Collect a completed physical, supplier, lab, or QA inspection record outside the generated/control artifact chain.
 2. Serialize it to the inspection evidence JSON contract with explicit provenance and measured feature records.
-3. Run `node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json>` and review the checklist. Rejections stop the record before intake/dry-run review.
-4. Run `fcad inspection-evidence-intake --out <report.json>` to classify and plan attachment.
-5. Run `fcad inspection-evidence-promotion-dry-run --intake-report <report.json> --out <promotion_dry_run_manifest.json>` and review blockers, match confidence, mutation boundaries, and rollback guidance.
-6. Attach only when the dry-run is attachment-ready and the task explicitly authorizes canonical mutation.
-7. Refresh `review-context --inspection-evidence`, `readiness-pack`, `generate-standard-docs`, and `pack` in that separate authorized task.
+3. Place the received candidate JSON in `local/stage5b-candidate-evidence-inbox/<package-slug>/` without committing the raw/private file.
+4. Run `node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json>` and review the checklist. Rejections stop the record before intake/dry-run review.
+5. Run `fcad inspection-evidence-intake --out <report.json>` only if the task explicitly authorizes intake review.
+6. Run `fcad inspection-evidence-promotion-dry-run --intake-report <report.json> --out <promotion_dry_run_manifest.json>` and review blockers, match confidence, mutation boundaries, and rollback guidance.
+7. Attach only when the dry-run is attachment-ready and the task explicitly authorizes canonical mutation.
+8. Refresh `review-context --inspection-evidence`, `readiness-pack`, `generate-standard-docs`, and `pack` in that separate authorized task.
 
 Until that happens, the readiness truth remains unchanged.
 

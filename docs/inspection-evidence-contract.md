@@ -12,6 +12,15 @@ Generated CAD quality, drawing quality, drawing QA, drawing intent, feature cata
 
 For a newly supplied JSON record, maintainers can run `node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json> --out <report.json>` before intake. Use the [`Stage 5B evidence request packet`](./stage-5b-evidence-request-packet.md) before that gate when asking a supplier, lab, QA reviewer, or physical inspector for completed real records. This local non-production gate emits a checklist and explicit rejection reasons for record origin, provenance/reviewer traceability, package/part/revision mapping, inspection date/status/result fields, path safety, redaction expectations, and non-evidence boundaries. `eligible_for_stage5b_intake_review: true` only means the record may enter intake/dry-run review; it does not attach evidence, promote evidence, mutate canonical artifacts, or change readiness.
 
+Maintainers should stage newly received candidate JSON and the candidate gate
+report under the ignored local-only inbox `local/stage5b-candidate-evidence-inbox/<package-slug>/`.
+Use paths such as `local/stage5b-candidate-evidence-inbox/<package-slug>/received-inspection-evidence.json`
+and `local/stage5b-candidate-evidence-inbox/<package-slug>/candidate-gate-report.json`
+for local review. Do not commit raw records, secrets, private URLs, PII, or
+supplier/lab/QA records from this inbox. Ignored inbox files and candidate gate
+reports are staging/control material only; they are not `inspection_evidence`
+and are not canonical package artifacts.
+
 For every candidate and package, the intake report also emits an attachment plan. The plan uses only safe deterministic signals already present in the candidate or canonical package files: explicit `package_id` / `inspected_part`, source path or sanitized public source link, package review-pack lineage, model or drawing filenames, measured `feature_id`, `requirement_ref`, drawing references, and nominal dimension values. It never infers new measurements. Key fields are:
 
 - `matched_package`: canonical package slug when one package is the best deterministic match; otherwise `null`.
@@ -42,7 +51,7 @@ The intake adapters can validate JSON contract files and row-oriented CSV, TSV, 
 
 GitHub downloads are intentionally narrow: only JSON, CSV, TSV, Markdown, TXT, and ZIP URLs are considered; text candidates have byte limits; ZIP candidates are inspected in a temporary directory with archive-size, entry-count, inner-file-size, path-traversal, compression, and extension checks before any allowlisted inner file is parsed. The report records searched GitHub sources, skipped sources, downloaded candidate metadata, rejection classes, and sanitized provenance. It does not expose tokens, request headers, private URLs, or raw logs.
 
-Generated quality, DFM, readiness, review, standard-doc, release, manifest, CI summary, screenshot, and drawing artifacts are rejected even when they use CSV, TSV, Markdown, TXT, or inspection-shaped fields. Intake reports, dry-run manifests, audit manifests, and GitHub metadata alone are also rejected. Fixtures may prove parser behavior in tests, but they are rejected as canonical package evidence.
+Generated quality, DFM, readiness, review, standard-doc, release, manifest, CI summary, screenshot, and drawing artifacts are rejected even when they use CSV, TSV, Markdown, TXT, or inspection-shaped fields. Ignored inbox files, candidate gate reports, request packets, docs, diagnostics, schemas, fixtures, intake reports, dry-run manifests, audit outputs, screenshots, comments, PR bodies, release bundles, CAD measurements, and CI/GitHub metadata alone are also rejected. Fixtures may prove parser behavior in tests, but they are rejected as canonical package evidence.
 
 Tracked Studio/API intake reports are discovery/review artifacts only. They can help maintainers inspect searched source classes, accepted/rejected counts, rejection classes, and package readiness, but they are not package readiness evidence. Report preview is limited to registered tracked job artifacts; the browser supplies a job id and artifact id, not an arbitrary local file path.
 

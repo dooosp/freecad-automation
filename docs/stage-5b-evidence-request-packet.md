@@ -50,8 +50,28 @@ measurement values.
 
 ## Attachment And Redaction Rules
 
-Use safe repo-relative paths for candidate JSON and provenance references, for
-example:
+Local-only inbox convention for maintainers: stage newly received JSON records
+and candidate gate reports under:
+
+```text
+local/stage5b-candidate-evidence-inbox/<package-slug>/
+```
+
+Example local staging paths:
+
+```text
+local/stage5b-candidate-evidence-inbox/<package-slug>/received-inspection-evidence.json
+local/stage5b-candidate-evidence-inbox/<package-slug>/candidate-gate-report.json
+```
+
+The inbox is ignored by git. Do not commit raw records, secrets, private URLs,
+PII, or supplier/lab/QA records from this local staging area. The inbox is only
+for pre-intake review; it is not a canonical attachment location and is not
+`inspection_evidence`.
+
+Use safe repo-relative paths for candidate JSON and provenance references. In a
+later explicitly authorized attachment task, a reviewed/redacted contract record
+may use a canonical package path such as:
 
 ```text
 docs/examples/<package-slug>/inspection/inspection_evidence.json
@@ -102,9 +122,10 @@ fields:
 - diagnostics
 - schemas
 - fixtures
+- ignored inbox files and candidate gate reports
 - intake reports, promotion dry-run manifests, and audit outputs
 - generated examples
-- generated packets, templates, and collection guides
+- request packets, generated packets, templates, and collection guides
 - screenshots
 - comments, PR bodies, issue bodies, and review comments
 - docs and generated documentation artifacts

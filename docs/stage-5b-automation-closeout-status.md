@@ -1,6 +1,6 @@
 # Stage 5B automation closeout status
 
-This document summarizes the Stage 5B automation chain through PR [#133](https://github.com/dooosp/freecad-automation/pull/133). It is a software/status closeout only. It does not attach inspection evidence, mutate canonical package artifacts, regenerate readiness, or claim production readiness.
+This document summarizes the Stage 5B automation chain through PR [#134](https://github.com/dooosp/freecad-automation/pull/134). It is a software/status closeout only. It does not attach inspection evidence, mutate canonical package artifacts, regenerate readiness, or claim production readiness.
 
 For day-to-day CLI/API/Studio operation, diagnostics, expected no-evidence output, and validation commands, use the [Stage 5B operational runbook](./stage-5b-operational-runbook.md). For supplier, lab, QA, or physical-inspection request wording before any candidate enters review, use the [Stage 5B evidence request packet](./stage-5b-evidence-request-packet.md).
 
@@ -22,18 +22,20 @@ For day-to-day CLI/API/Studio operation, diagnostics, expected no-evidence outpu
 | [#131](https://github.com/dooosp/freecad-automation/pull/131) | Merged | `7dc90ecf06059401a998d6d80f01a9b8579fd295` | Added the no-evidence verification lane that proves no genuine evidence is promoted. |
 | [#132](https://github.com/dooosp/freecad-automation/pull/132) | Merged | `cb3e989efff30bd8e169009eec7293a22e571ce6` | Added the candidate evidence gate for newly supplied JSON records before Stage 5B intake review. |
 | [#133](https://github.com/dooosp/freecad-automation/pull/133) | Merged | `a7469591055572ab9b12e6ad3fd571fdc78da248` | Added the Stage 5B evidence request packet for supplier/lab/QA/physical-inspection requests without changing readiness truth. |
+| [#134](https://github.com/dooosp/freecad-automation/pull/134) | Merged | `3b31eb2e6aca580a43c5785692fe5e3db887b814` | Synchronized the Stage 5B status ledger while preserving the no-evidence readiness truth. |
 
 ## Handoff ledger
 
 Use this ordered handoff when maintainers need to see the complete Stage 5B chain in one place:
 
 1. Stage 5B evidence request packet: ask a supplier, lab, QA reviewer, or physical inspector for a completed real record. The packet is a request/checklist control document, not evidence.
-2. Candidate evidence gate: run `node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json> --out <report.json>` for a newly supplied JSON record. The gate produces an accept/reject checklist only.
-3. Intake: run `inspection-evidence-intake` to search allowed sources and classify candidates without mutating canonical packages.
-4. Promotion dry-run: run `inspection-evidence-promotion-dry-run` from an intake report to plan future attachment only when a genuine validated candidate is attachment-ready.
-5. Audit: run `stage5b-evidence-audit` to write `intake_report.json`, `promotion_dry_run_manifest.json`, `stage5b_audit_manifest.json`, and `stage5b_audit_summary.md` as a non-mutating bundle.
-6. Studio/API review: queue intake, promotion dry-run, and audit jobs through `/jobs` or `/api/studio/jobs`; Review previews registered artifacts through tracked routes only.
-7. No-evidence lane: run `npm run test:stage5b:no-evidence` to prove the current documented CLI path finds no genuine evidence, promotes nothing, and leaves canonical artifacts unchanged.
+2. Local-only candidate inbox: place newly received JSON and gate reports under ignored `local/stage5b-candidate-evidence-inbox/<package-slug>/`. Do not commit raw records, secrets, private URLs, PII, or supplier/lab/QA records from this inbox.
+3. Candidate evidence gate: run `node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json> --out <report.json>` for a newly supplied JSON record. The gate produces an accept/reject checklist only.
+4. Intake: run `inspection-evidence-intake` to search allowed sources and classify candidates without mutating canonical packages, only after the task explicitly authorizes intake review.
+5. Promotion dry-run: run `inspection-evidence-promotion-dry-run` from an intake report to plan future attachment only when a genuine validated candidate is attachment-ready.
+6. Audit: run `stage5b-evidence-audit` to write `intake_report.json`, `promotion_dry_run_manifest.json`, `stage5b_audit_manifest.json`, and `stage5b_audit_summary.md` as a non-mutating bundle.
+7. Studio/API review: queue intake, promotion dry-run, and audit jobs through `/jobs` or `/api/studio/jobs`; Review previews registered artifacts through tracked routes only.
+8. No-evidence lane: run `npm run test:stage5b:no-evidence` to prove the current documented CLI path finds no genuine evidence, promotes nothing, and leaves canonical artifacts unchanged.
 
 The unchanged readiness truth across this chain is `needs_more_evidence / hold_for_evidence_completion`. No genuine completed `inspection_evidence` has been found or attached.
 
@@ -43,6 +45,7 @@ Stage 5B now has these software surfaces:
 
 - `inspection-evidence-intake` for non-mutating evidence discovery and report writing.
 - the [Stage 5B evidence request packet](./stage-5b-evidence-request-packet.md) for real-record requests before candidate review.
+- ignored `local/stage5b-candidate-evidence-inbox/` staging for received candidate records and candidate gate reports before any authorized intake review.
 - `node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json> --out <report.json>` for local non-production candidate acceptance checks.
 - table normalization for explicit inspection tables in CSV, TSV, Markdown, TXT, and allowlisted ZIP entries.
 - include_github discovery (`--include-github`) for bounded public GitHub search and sanitized candidate provenance.
@@ -82,6 +85,8 @@ The following are not `inspection_evidence` for canonical package readiness:
 - diagnostics
 - schemas
 - fixtures
+- ignored inbox files
+- candidate gate reports
 - intake reports
 - dry-run manifests
 - audit manifests and audit summaries
@@ -101,4 +106,4 @@ Hard evidence rule: Only genuine completed physical/supplier/lab/QA inspection r
 
 ## Remaining truth
 
-Stage 5B automation is landed as a software/status chain. The readiness boundary is unchanged: no request packet, template, doc, diagnostic, schema, fixture, intake report, dry-run manifest, audit output, screenshot, comment, PR body, readiness report, release bundle, Studio surface, GitHub search result, CI result, collection guide, CAD-generated measurement, or generated review artifact clears `inspection_evidence`.
+Stage 5B automation is landed as a software/status chain. The readiness boundary is unchanged: no ignored inbox file, candidate gate report, request packet, template, doc, diagnostic, schema, fixture, intake report, dry-run manifest, audit output, screenshot, comment, PR body, readiness report, release bundle, Studio surface, GitHub search result, CI result, collection guide, CAD-generated measurement, or generated review artifact clears `inspection_evidence`.
