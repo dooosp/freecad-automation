@@ -1,9 +1,101 @@
+import { stat } from 'node:fs/promises';
+import { basename, isAbsolute, resolve, win32 } from 'node:path';
 import { LOCAL_API_VERSION } from '../local-api-contract.js';
 import { toJobResponse } from '../local-api-job-response.js';
 import { assertResponse, createErrorResponse } from '../local-api-response-helpers.js';
 import { validateJobRequest } from '../../services/jobs/job-executor.js';
 
+const RETRY_INPUT_PATH_FIELDS = Object.freeze([
+  'config_path',
+  'file_path',
+  'context_path',
+  'model_path',
+  'bom_path',
+  'inspection_path',
+  'quality_path',
+  'create_quality_path',
+  'drawing_quality_path',
+  'drawing_qa_path',
+  'drawing_intent_path',
+  'feature_catalog_path',
+  'dfm_report_path',
+  'compare_to_path',
+  'baseline_path',
+  'candidate_path',
+  'review_pack_path',
+  'process_plan_path',
+  'quality_risk_path',
+  'readiness_report_path',
+  'docs_manifest_path',
+  'intake_report_path',
+]);
+
+const RETRY_ARTIFACT_REF_FIELDS = Object.freeze([
+  'artifact_ref',
+  'intake_report_artifact_ref',
+]);
+
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isWindowsAbsolutePath(value) {
+  return typeof value === 'string' && /^[A-Za-z]:[\\/]/.test(value.trim());
+}
+
+function basenameFromAnyPath(value) {
+  return win32.isAbsolute(value) ? win32.basename(value) : basename(value);
+}
+
+function resolveInputPath(projectRoot, value) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const trimmed = value.trim();
+  if (isAbsolute(trimmed) || isWindowsAbsolutePath(trimmed)) return resolve(trimmed);
+  return resolve(projectRoot, trimmed);
+}
+
+async function fileExists(pathValue) {
+  try {
+    await stat(pathValue);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function retryReferenceErrors(request, { projectRoot, jobStore }) {
+  const errors = [];
+
+  for (const field of RETRY_ARTIFACT_REF_FIELDS) {
+    const ref = request[field];
+    if (!isPlainObject(ref)) continue;
+    const jobId = String(ref.job_id || '').trim();
+    const artifactId = String(ref.artifact_id || '').trim();
+    try {
+      const artifact = await jobStore.getArtifact(jobId, artifactId);
+      if (!artifact) {
+        errors.push(`${field} points to a missing tracked artifact.`);
+      } else if (!artifact.exists) {
+        errors.push(`${field} points to tracked artifact ${artifact.file_name || artifactId}, but the file is missing.`);
+      }
+    } catch {
+      errors.push(`${field} points to a missing tracked job or artifact.`);
+    }
+  }
+
+  for (const field of RETRY_INPUT_PATH_FIELDS) {
+    const inputPath = request[field];
+    if (typeof inputPath !== 'string' || !inputPath.trim()) continue;
+    const resolvedPath = resolveInputPath(projectRoot, inputPath);
+    if (!resolvedPath || await fileExists(resolvedPath)) continue;
+    errors.push(`${field} input ${basenameFromAnyPath(inputPath)} is no longer available.`);
+  }
+
+  return errors;
+}
+
 export function registerJobRoutes(app, {
+  projectRoot,
   jobStore,
   executor,
   jobCoordinator,
@@ -113,6 +205,17 @@ export function registerJobRoutes(app, {
           'invalid_retry_request',
           validation.errors,
           400
+        );
+        res.status(response.status).json(assertResponse('error', response.body));
+        return;
+      }
+
+      const retryErrors = await retryReferenceErrors(validation.request, { projectRoot, jobStore });
+      if (retryErrors.length > 0) {
+        const response = createErrorResponse(
+          'stale_retry_reference',
+          retryErrors,
+          409
         );
         res.status(response.status).json(assertResponse('error', response.body));
         return;

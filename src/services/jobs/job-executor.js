@@ -55,6 +55,31 @@ const JOB_TYPES = new Set(JOB_EXECUTOR_COMMANDS);
 const INLINE_CONFIG_RELATIVE_PATH = 'inputs/inline-config.json';
 const EFFECTIVE_CONFIG_RELATIVE_PATH = 'inputs/effective-config.json';
 const INSPECTABLE_MODEL_EXTENSIONS = new Set(['.brep', '.brp', '.fcstd', '.step', '.stl', '.stp']);
+const DIRECT_JOB_PATH_FIELDS = Object.freeze({
+  create: ['config_path'],
+  draw: ['config_path'],
+  report: ['config_path'],
+  'review-context': [
+    'context_path',
+    'model_path',
+    'bom_path',
+    'inspection_path',
+    'quality_path',
+    'create_quality_path',
+    'drawing_quality_path',
+    'drawing_qa_path',
+    'drawing_intent_path',
+    'feature_catalog_path',
+    'dfm_report_path',
+    'compare_to_path',
+  ],
+  'compare-rev': ['baseline_path', 'candidate_path'],
+  'readiness-pack': ['review_pack_path', 'process_plan_path', 'quality_risk_path'],
+  'stabilization-review': ['baseline_path', 'candidate_path'],
+  'generate-standard-docs': ['config_path', 'readiness_report_path'],
+  pack: ['readiness_report_path', 'docs_manifest_path'],
+  'inspection-evidence-promotion-dry-run': ['intake_report_path'],
+});
 
 function resolveMaybe(projectRoot, value) {
   if (!value || typeof value !== 'string') return null;
@@ -663,6 +688,23 @@ function isSafeRepoRelativeJsonPath(value) {
   return isSafeRepoRelativePath(value) && /\.json$/i.test(String(value || '').trim());
 }
 
+function isStudioResolvedArtifactRequest(request = {}) {
+  const source = String(request.options?.studio?.source || '').trim();
+  return source === 'artifact-reference' || source === 'artifact-comparison';
+}
+
+function validateDirectJobPathFields(request, errors) {
+  if (isStudioResolvedArtifactRequest(request)) return;
+  const fields = DIRECT_JOB_PATH_FIELDS[request.type] || [];
+  for (const field of fields) {
+    const value = request[field];
+    if (value === undefined || value === null || value === '') continue;
+    if (!isSafeRepoRelativePath(value)) {
+      errors.push(`${request.type} ${field} must be a safe repo-relative path; use Studio artifact_ref re-entry for tracked artifacts.`);
+    }
+  }
+}
+
 function validateInspectRequest(request, errors) {
   if (request.type !== 'inspect') return;
   const hasFilePath = typeof request.file_path === 'string' && request.file_path.trim().length > 0;
@@ -774,6 +816,7 @@ export function validateJobRequest(body) {
       validateOptionsObject(request.config, 'config', errors);
     }
     validateInspectRequest(request, errors);
+    validateDirectJobPathFields(request, errors);
     validateInspectionEvidenceIntakeRequest(request, errors);
     validatePromotionDryRunRequest(request, errors);
     validateStage5bAuditRequest(request, errors);

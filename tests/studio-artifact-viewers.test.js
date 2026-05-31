@@ -321,7 +321,7 @@ const af5ArtifactSurface = [
   scope: 'user-facing',
   stability: 'stable',
   capabilities: {
-    can_open: true,
+    can_open: artifact.extension !== '.zip',
     can_download: true,
     browser_safe: artifact.extension !== '.zip',
   },
@@ -351,7 +351,7 @@ for (const artifact of af5ArtifactSurface) {
       .map((item) => [item.label, item])
   );
   assert.equal(detailMap['File name'].value, artifact.file_name);
-  assert.equal(detailMap['Open route'].value, 'Available');
+  assert.equal(detailMap['Open route'].value, artifact.extension === '.zip' ? 'Unavailable' : 'Available');
   assert.equal(detailMap['Download route'].value, 'Available');
   assert.equal(JSON.stringify(detailMap).includes('/artifacts/job-af5'), false);
   if (artifact.reentryTarget) {

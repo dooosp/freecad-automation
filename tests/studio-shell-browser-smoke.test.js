@@ -1451,7 +1451,8 @@ async function seedStage5bAuditJob(jobStore, { projectRoot }) {
       '',
       'Test-only fixture: not inspection evidence.',
       '',
-      '- Genuine completed evidence found: no',
+      '- Genuine candidate found: no',
+      '- Inspection evidence attached: no',
       '- Promotion can run: no',
       '- Readiness remains held: yes',
       '- Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.',
@@ -2107,7 +2108,7 @@ try {
       'Stage 5B promotion dry-run',
       'Promotion held',
       'Stage 5B inspection evidence intake',
-      'No genuine inspection evidence',
+      'No accepted genuine candidate',
     ]);
     assert.equal(snapshot.text.includes('Future promotion plan ready'), false);
     assert.equal(snapshot.text.includes('Genuine inspection evidence found'), false);
@@ -2131,7 +2132,8 @@ try {
         rows,
       };
     })()`);
-    assert.equal(snapshot.rows['Genuine evidence found'], 'No');
+    assert.equal(snapshot.rows['Genuine candidate found'], 'No');
+    assert.equal(snapshot.rows['Inspection evidence attached'], 'No');
     assert.equal(snapshot.rows['Promotion can run'], 'No');
     assert.equal(snapshot.rows['Attachment-ready candidates'], '0');
     assert.equal(snapshot.rows['Canonical artifacts mutated'], 'No');

@@ -114,14 +114,14 @@ assert.equal(canStartTrackedArtifactRun({
   file_name: 'part.step',
   extension: '.step',
   exists: true,
-}, 'review-context'), true);
+}, 'review-context'), false);
 
 assert.equal(canStartTrackedArtifactRun({
   type: 'context.json',
   file_name: 'sample_context.json',
   extension: '.json',
   exists: true,
-}, 'review-context'), true);
+}, 'review-context'), false);
 
 assert.equal(canStartTrackedArtifactRun({
   type: 'model.step',
@@ -394,7 +394,7 @@ function makeAf5Artifact({
     extension,
     exists: true,
     capabilities: {
-      can_open: true,
+      can_open: extension !== '.zip',
       can_download: true,
       browser_safe: extension !== '.zip',
     },
@@ -468,7 +468,7 @@ assert.equal(findPreferredReleaseBundleArtifact(af5CanonicalArtifacts)?.file_nam
 assert.equal(findDefaultArtifactForJob(af5CanonicalArtifacts)?.file_name, 'review_pack.json');
 
 for (const artifact of af5CanonicalArtifacts) {
-  assert.equal(artifact.capabilities.can_open, true, `${artifact.file_name} should expose an open route`);
+  assert.equal(artifact.capabilities.can_open, artifact.extension !== '.zip', `${artifact.file_name} should expose only inline-safe open routes`);
   assert.equal(artifact.links.open, `/artifacts/job-af5/${artifact.id}`);
   assert.equal(artifact.links.open.includes('/local-file'), false);
 }

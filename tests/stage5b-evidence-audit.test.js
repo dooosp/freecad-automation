@@ -245,6 +245,67 @@ try {
     'fixture-only attachment-ready candidates must block promotion in the audit'
   );
 
+  const readySlug = 'future-promotion-part';
+  writeMinimalCanonicalPackage(tempRoot, readySlug);
+  const readyEvidencePath = `docs/examples/${readySlug}/inspection/completed_supplier_record.json`;
+  writeJson(join(tempRoot, readyEvidencePath), {
+    artifact_type: 'inspection_evidence',
+    package_id: readySlug,
+    inspected_part: readySlug,
+    source_type: 'supplier',
+    inspected_at: '2026-05-20T00:00:00.000Z',
+    units: 'mm',
+    overall_result: 'pass',
+    features: [
+      {
+        feature_id: 'mount_hole_a_diameter',
+        measured_value: 6.01,
+        nominal_value: 6,
+        tolerance: 0.1,
+        result: 'pass',
+        measurement_method: 'supplier_cmm',
+      },
+    ],
+  });
+  const readyCandidate = {
+    ...fixtureReadyCandidate(readySlug),
+    path: readyEvidencePath,
+    source_kind: 'tracked_repo_file',
+    normalized_source_ref: readyEvidencePath,
+    document_signals: {
+      ...fixtureReadyCandidate(readySlug).document_signals,
+      source_ref: readyEvidencePath,
+    },
+  };
+  readyCandidate.attachment_plan = {
+    ...readyCandidate.attachment_plan,
+    canonical_next_command: ['fcad', 'review-context', '--inspection-evidence', readyEvidencePath],
+  };
+  const readyIntakeReport = intakeReportForCandidate(readySlug, readyCandidate);
+  const readyDryRun = buildInspectionEvidencePromotionDryRunManifest({
+    projectRoot: tempRoot,
+    intakeReport: readyIntakeReport,
+    intakeReportPath: 'output/ready_intake_report.json',
+    generatedAt: '2026-05-24T00:00:00.000Z',
+  });
+  const readyAudit = buildStage5bEvidenceAuditManifest({
+    projectRoot: tempRoot,
+    outDir: join(tempRoot, 'ready-audit'),
+    intakeReport: readyIntakeReport,
+    intakeReportPath: join(tempRoot, 'output/ready_intake_report.json'),
+    promotionDryRunManifest: readyDryRun,
+    promotionDryRunManifestPath: join(tempRoot, 'output/ready_promotion_dry_run_manifest.json'),
+    generatedAt: '2026-05-24T00:00:00.000Z',
+  });
+  assert.equal(readyDryRun.summary.promotion_can_run, true);
+  assert.equal(readyAudit.summary.genuine_inspection_evidence_found, true);
+  assert.equal(readyAudit.summary.promotion_can_run, true);
+  assert.equal(readyAudit.summary.readiness_remains_held, true);
+  assert.equal(readyAudit.readiness_held_truth.no_promotion_can_run, false);
+  assert.equal(readyAudit.readiness_held_truth.readiness_remains_held, true);
+  assert.match(readyAudit.readiness_held_truth.statement, /did not attach inspection evidence/i);
+  assert.match(readyAudit.readiness_held_truth.current_repo_truth, /no inspection_evidence has been attached/i);
+
   const generatedSlug = 'generated-artifact-part';
   writeMinimalCanonicalPackage(tempRoot, generatedSlug);
   writeJson(join(tempRoot, 'docs/examples', generatedSlug, 'quality', `${generatedSlug}_create_quality.json`), {

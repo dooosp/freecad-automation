@@ -62,11 +62,52 @@ try {
   });
   assert.equal(valid.ok, true);
 
-  const reviewTracked = validateJobRequest({
+  const invalidReviewTrackedAbsolutePath = validateJobRequest({
     type: 'readiness-pack',
     review_pack_path: '/tmp/review_pack.json',
   });
-  assert.equal(reviewTracked.ok, true, reviewTracked.errors?.join('\n'));
+  assert.equal(invalidReviewTrackedAbsolutePath.ok, false);
+  assert.match(invalidReviewTrackedAbsolutePath.errors.join('\n'), /safe repo-relative path/i);
+
+  [
+    {
+      type: 'review-context',
+      context_path: '/tmp/private/context.json',
+    },
+    {
+      type: 'review-context',
+      context_path: 'tests/fixtures/sample_part_context.json',
+      create_quality_path: '../private/create_quality.json',
+    },
+    {
+      type: 'readiness-pack',
+      review_pack_path: 'C:\\private\\review_pack.json',
+    },
+    {
+      type: 'generate-standard-docs',
+      config_path: '/tmp/private/config.toml',
+      readiness_report_path: 'docs/examples/motor-mount/readiness/readiness_report.json',
+    },
+    {
+      type: 'pack',
+      readiness_report_path: 'docs/examples/motor-mount/readiness/readiness_report.json',
+      docs_manifest_path: '../private/standard_docs_manifest.json',
+    },
+    {
+      type: 'compare-rev',
+      baseline_path: '/tmp/private/baseline.json',
+      candidate_path: 'docs/examples/motor-mount/review/review_pack.json',
+    },
+    {
+      type: 'stabilization-review',
+      baseline_path: 'docs/examples/motor-mount/review/review_pack.json',
+      candidate_path: '~/private/candidate.json',
+    },
+  ].forEach((request) => {
+    const validation = validateJobRequest(request);
+    assert.equal(validation.ok, false, `${request.type} should reject unsafe direct path fields`);
+    assert.match(validation.errors.join('\n'), /safe repo-relative path/i);
+  });
 
   const reviewContextSideInputs = validateJobRequest({
     type: 'review-context',
@@ -256,6 +297,41 @@ try {
   assert.equal(JSON.stringify(publicInspectRequest).includes('/tmp/private'), false);
   assert.equal(JSON.stringify(publicInspectRequest).includes('C:\\\\private\\\\secret'), false);
 
+  const internalPathFields = [
+    'config_path',
+    'file_path',
+    'context_path',
+    'model_path',
+    'bom_path',
+    'inspection_path',
+    'quality_path',
+    'create_quality_path',
+    'drawing_quality_path',
+    'drawing_qa_path',
+    'drawing_intent_path',
+    'feature_catalog_path',
+    'dfm_report_path',
+    'compare_to_path',
+    'baseline_path',
+    'candidate_path',
+    'review_pack_path',
+    'process_plan_path',
+    'quality_risk_path',
+    'readiness_report_path',
+    'docs_manifest_path',
+    'intake_report_path',
+    'intake_report_artifact_ref',
+    'source_artifact_path',
+  ];
+  const publicManyPathRequest = toPublicJobRequest(Object.fromEntries([
+    ['type', 'review-context'],
+    ...internalPathFields.map((field) => [field, `/tmp/private/${field}.json`]),
+  ]));
+  internalPathFields.forEach((field) => {
+    assert.equal(field in publicManyPathRequest, false, `${field} must not appear in public job request payloads`);
+  });
+  assert.equal(JSON.stringify(publicManyPathRequest).includes('/tmp/private'), false);
+
   const publicStage5bAuditRequest = toPublicJobRequest({
     type: 'stage5b-evidence-audit',
     options: {
@@ -275,6 +351,19 @@ try {
   assert.deepEqual(
     JSON.parse(readFileSync(job.paths.request, 'utf8')),
     valid.request
+  );
+
+  await assert.rejects(
+    () => store.writeJobFile(job.id, '../escape.json', '{}\n'),
+    /safety|inside the tracked job directory/i
+  );
+  await assert.rejects(
+    () => store.writeJobFile(job.id, '/tmp/private.json', '{}\n'),
+    /safety|inside the tracked job directory/i
+  );
+  await assert.rejects(
+    () => store.writeJobFile(job.id, 'artifacts\\private.json', '{}\n'),
+    /safety|inside the tracked job directory/i
   );
 
   const artifactPath = await store.writeJobFile(job.id, 'artifacts/sample.json', '{"ok":true}\n');
@@ -317,6 +406,23 @@ try {
   assert.equal(artifacts[0].type, 'report.sample');
   assert.equal(artifacts[0].file_name, 'sample.json');
   assert.equal(artifacts[0].extension, '.json');
+
+  const malformedManifestJob = await store.createJob(valid.request);
+  const malformedArtifactPath = await store.writeJobFile(malformedManifestJob.id, 'artifacts/malformed-scope.json', '{"ok":true}\n');
+  await store.completeJob(malformedManifestJob.id, { success: true }, {}, {}, {
+    manifest_version: '1.0',
+    command: 'report',
+    artifacts: [
+      {
+        type: 'report.malformed-scope',
+        path: malformedArtifactPath,
+        label: 'Malformed scope fixture',
+      },
+    ],
+  });
+  const malformedArtifacts = await store.listArtifacts(malformedManifestJob.id);
+  assert.equal(malformedArtifacts[0].scope, 'internal');
+
   const apiArtifacts = artifacts.map((artifact) => ({
     id: artifact.id,
     key: artifact.key,

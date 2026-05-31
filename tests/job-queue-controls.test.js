@@ -96,6 +96,45 @@ try {
   const cancelledLog = readFileSync(jobStore.getJobPaths(queuedPayload.job.id).log, 'utf8');
   assert.match(cancelledLog, /cancelled before execution started/i);
 
+  const staleArtifactRefJob = await jobStore.createJob({
+    type: 'inspect',
+    artifact_ref: {
+      job_id: 'missing-source-job',
+      artifact_id: 'missing-model',
+    },
+  });
+  await jobStore.failJob(staleArtifactRefJob.id, new Error('synthetic stale artifact source'));
+
+  const staleArtifactRetryResponse = await fetch(`${baseUrl}/jobs/${staleArtifactRefJob.id}/retry`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+    },
+  });
+  assert.equal(staleArtifactRetryResponse.status, 409);
+  const staleArtifactRetryPayload = await staleArtifactRetryResponse.json();
+  assert.equal(staleArtifactRetryPayload.ok, false);
+  assert.equal(staleArtifactRetryPayload.error.code, 'stale_retry_reference');
+  assert.match(staleArtifactRetryPayload.error.messages.join('\n'), /missing tracked job or artifact/i);
+
+  const missingPathJob = await jobStore.createJob({
+    type: 'inspect',
+    file_path: 'tmp/codex/missing-retry-source.step',
+  });
+  await jobStore.failJob(missingPathJob.id, new Error('synthetic missing input source'));
+
+  const missingPathRetryResponse = await fetch(`${baseUrl}/jobs/${missingPathJob.id}/retry`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+    },
+  });
+  assert.equal(missingPathRetryResponse.status, 409);
+  const missingPathRetryPayload = await missingPathRetryResponse.json();
+  assert.equal(missingPathRetryPayload.ok, false);
+  assert.equal(missingPathRetryPayload.error.code, 'stale_retry_reference');
+  assert.match(missingPathRetryPayload.error.messages.join('\n'), /input missing-retry-source\.step is no longer available/i);
+
   const failedSourceJob = await jobStore.createJob({
     type: 'report',
     config: buildConfig(),

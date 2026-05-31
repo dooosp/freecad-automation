@@ -19,9 +19,9 @@ fcad stage5b-evidence-audit --out-dir output/stage5b-runbook-audit [--include-gi
 
 Expected no-evidence result:
 
-- `inspection-evidence-intake` reports `Genuine evidence found: no`, `accepted_candidate_count: 0`, and `attachment_ready_candidate_count: 0`.
+- `inspection-evidence-intake` reports `Genuine candidate found: no`, `Inspection evidence attached: no`, `accepted_candidate_count: 0`, and `attachment_ready_candidate_count: 0`.
 - `inspection-evidence-promotion-dry-run` reports `promotion_can_run: false`, `canonical_artifacts_mutated: false`, and no canonical next command.
-- `stage5b-evidence-audit` reports `Genuine evidence found: no`, `Promotion can run: no`, and `Readiness remains held: yes`.
+- `stage5b-evidence-audit` reports `Genuine candidate found: no`, `Inspection evidence attached: no`, `Promotion can run: no`, and `Readiness remains held: yes`.
 
 ## Candidate Acceptance Gate
 

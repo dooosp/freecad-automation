@@ -3,7 +3,7 @@ import { join } from 'node:path';
 const PUBLIC_DIR = join(import.meta.dirname, '..', '..', 'public');
 
 export const LOCAL_API_STATIC_FILE_OPTIONS = Object.freeze({
-  dotfiles: 'allow',
+  dotfiles: 'deny',
 });
 
 export const LOCAL_API_STATIC_ASSET_REGISTRY = Object.freeze({
