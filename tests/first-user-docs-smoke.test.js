@@ -10,6 +10,7 @@ const FINAL_CLOSEOUT_PATH = resolve(ROOT, 'docs', 'final-non-inspection-software
 const STAGE_5B_AUTOMATION_CLOSEOUT_PATH = resolve(ROOT, 'docs', 'stage-5b-automation-closeout-status.md');
 const STAGE_5B_OPERATIONAL_RUNBOOK_PATH = resolve(ROOT, 'docs', 'stage-5b-operational-runbook.md');
 const STAGE_5B_EVIDENCE_REQUEST_PACKET_PATH = resolve(ROOT, 'docs', 'stage-5b-evidence-request-packet.md');
+const STAGE_5B_ARTIFACT_SCHEMA_CATALOG_PATH = resolve(ROOT, 'docs', 'stage-5b-artifact-schema-catalog.md');
 const STAGE_5D_CLOSEOUT_PATH = resolve(ROOT, 'docs', 'stage-5d-feature-expansion-closeout.md');
 const DFM_READINESS_GUIDE_PATH = resolve(ROOT, 'docs', 'dfm-readiness-guide.md');
 const CANONICAL_PACKAGE_WORKFLOW_PATH = resolve(ROOT, 'docs', 'canonical-package-generation-workflow.md');
@@ -67,6 +68,7 @@ assert.equal(existsSync(FINAL_CLOSEOUT_PATH), true, 'final non-inspection softwa
 assert.equal(existsSync(STAGE_5B_AUTOMATION_CLOSEOUT_PATH), true, 'Stage 5B automation closeout status should exist');
 assert.equal(existsSync(STAGE_5B_OPERATIONAL_RUNBOOK_PATH), true, 'Stage 5B operational runbook should exist');
 assert.equal(existsSync(STAGE_5B_EVIDENCE_REQUEST_PACKET_PATH), true, 'Stage 5B evidence request packet should exist');
+assert.equal(existsSync(STAGE_5B_ARTIFACT_SCHEMA_CATALOG_PATH), true, 'Stage 5B artifact/schema catalog should exist');
 assert.equal(existsSync(STAGE_5D_CLOSEOUT_PATH), true, 'Stage 5D feature expansion closeout should exist');
 assert.equal(existsSync(DFM_READINESS_GUIDE_PATH), true, 'DFM/readiness guide should exist');
 assert.equal(existsSync(CANONICAL_PACKAGE_WORKFLOW_PATH), true, 'canonical package generation workflow guide should exist');
@@ -87,6 +89,7 @@ const finalCloseoutText = readText(FINAL_CLOSEOUT_PATH);
 const stage5bAutomationCloseoutText = readText(STAGE_5B_AUTOMATION_CLOSEOUT_PATH);
 const stage5bOperationalRunbookText = readText(STAGE_5B_OPERATIONAL_RUNBOOK_PATH);
 const stage5bEvidenceRequestPacketText = readText(STAGE_5B_EVIDENCE_REQUEST_PACKET_PATH);
+const stage5bArtifactSchemaCatalogText = readText(STAGE_5B_ARTIFACT_SCHEMA_CATALOG_PATH);
 const stage5dCloseoutText = readText(STAGE_5D_CLOSEOUT_PATH);
 const dfmReadinessGuideText = readText(DFM_READINESS_GUIDE_PATH);
 const canonicalPackageWorkflowText = readText(CANONICAL_PACKAGE_WORKFLOW_PATH);
@@ -317,7 +320,17 @@ assertMentions(
   /\[Stage 5B operational runbook\]\(\.\/stage-5b-operational-runbook\.md\)/,
   'Stage 5B automation closeout should link the operational runbook'
 );
-for (const pr of ['#113', '#114', '#115', '#116', '#117', '#118', '#119', '#120', '#121', '#130', '#131', '#132']) {
+assertMentions(
+  stage5bAutomationCloseoutText,
+  /\[Stage 5B evidence request packet\]\(\.\/stage-5b-evidence-request-packet\.md\)/,
+  'Stage 5B automation closeout should link the evidence request packet'
+);
+assertMentions(
+  stage5bAutomationCloseoutText,
+  /\[Stage 5B artifact\/schema catalog\]\(\.\/stage-5b-artifact-schema-catalog\.md\)/,
+  'Stage 5B automation closeout should link the artifact/schema catalog'
+);
+for (const pr of ['#113', '#114', '#115', '#116', '#117', '#118', '#119', '#120', '#121', '#130', '#131', '#132', '#133', '#134', '#135', '#136']) {
   assert.equal(stage5bAutomationCloseoutText.includes(pr), true, `Stage 5B automation closeout should mention PR ${pr}`);
 }
 for (const surface of [
@@ -328,6 +341,8 @@ for (const surface of [
   'inspection-evidence-promotion-dry-run',
   'promotion dry-run',
   'stage5b-evidence-audit',
+  'artifact/schema catalog',
+  'validation diagnostics',
   'tracked API/Studio review surfaces',
 ]) {
   assert.equal(
@@ -388,9 +403,15 @@ assertMentions(
   /^# Stage 5B operational runbook/m,
   'Stage 5B operational runbook should have the expected title'
 );
+assertMentions(
+  stage5bOperationalRunbookText,
+  /\[Stage 5B artifact\/schema catalog\]\(\.\/stage-5b-artifact-schema-catalog\.md\)/,
+  'Stage 5B runbook should link the artifact/schema catalog'
+);
 for (const section of [
   'Quick CLI Path',
   'Candidate Acceptance Gate',
+  'Artifact/Schema Catalog',
   'API And Tracked Job Path',
   'Studio Review Path',
   'Promotion Dry-Run Meaning',
@@ -456,6 +477,7 @@ assertMentions(stage5bOperationalRunbookText, /review-context --inspection-evide
 assertMentions(stage5bOperationalRunbookText, /eligible_for_stage5b_intake_review: true/, 'Stage 5B runbook should document candidate gate acceptance wording');
 assertMentions(stage5bOperationalRunbookText, /node tests\/stage5b-candidate-evidence-gate\.test\.js/, 'Stage 5B runbook should list candidate gate validation');
 assertMentions(stage5bOperationalRunbookText, /node tests\/stage5b-source-of-truth-guard\.test\.js/, 'Stage 5B runbook should list source-of-truth validation');
+assertMentions(stage5bOperationalRunbookText, /node tests\/stage5b-artifact-catalog\.test\.js/, 'Stage 5B runbook should list catalog validation');
 assertNoPositiveProductionReadyClaim(stage5bOperationalRunbookText, 'Stage 5B runbook should not claim production readiness');
 
 assertMentions(
@@ -533,6 +555,16 @@ assertMentions(
 );
 assertMentions(
   stage5bEvidenceRequestPacketText,
+  /\[Stage 5B artifact\/schema catalog\]\(\.\/stage-5b-artifact-schema-catalog\.md\)/,
+  'Stage 5B evidence request packet should link the artifact/schema catalog'
+);
+assertMentions(
+  stage5bEvidenceRequestPacketText,
+  /Schema\s+discoverability does not make the report evidence/,
+  'Stage 5B evidence request packet should keep candidate gate schema discoverability non-evidence'
+);
+assertMentions(
+  stage5bEvidenceRequestPacketText,
   /fcad inspection-evidence-intake --out <report\.json>/,
   'Stage 5B evidence request packet should document intake after candidate acceptance'
 );
@@ -564,6 +596,21 @@ for (const boundary of [
   );
 }
 assertNoPositiveProductionReadyClaim(stage5bEvidenceRequestPacketText, 'Stage 5B evidence request packet should not claim production readiness');
+
+assertMentions(
+  stage5bArtifactSchemaCatalogText,
+  /^# Stage 5B artifact\/schema catalog/m,
+  'Stage 5B artifact/schema catalog should have the expected title'
+);
+assertMentions(stage5bArtifactSchemaCatalogText, /schemas\/stage5b-candidate-gate-report\.schema\.json/, 'catalog should make the candidate gate report schema discoverable');
+assertMentions(stage5bArtifactSchemaCatalogText, /validation_diagnostics\.json/, 'catalog should include validation diagnostics');
+assertMentions(stage5bArtifactSchemaCatalogText, /inspection-evidence\.intake-report/, 'catalog should document tracked intake preview');
+assertMentions(stage5bArtifactSchemaCatalogText, /stage5b\.validation-diagnostics/, 'catalog should document tracked diagnostics preview');
+assertMentions(stage5bArtifactSchemaCatalogText, /Not inspection_evidence/, 'catalog should state artifacts are not inspection evidence');
+assertMentions(stage5bArtifactSchemaCatalogText, /needs_more_evidence/, 'catalog should preserve needs_more_evidence truth');
+assertMentions(stage5bArtifactSchemaCatalogText, /hold_for_evidence_completion/, 'catalog should preserve readiness-held truth');
+assertMentions(stage5bArtifactSchemaCatalogText, /Only genuine completed physical\/supplier\/lab\/QA inspection\s+records can satisfy `?inspection_evidence`?/, 'catalog should preserve hard evidence rule');
+assertNoPositiveProductionReadyClaim(stage5bArtifactSchemaCatalogText, 'Stage 5B artifact/schema catalog should not claim production readiness');
 
 assertMentions(
   stage5dCloseoutText,

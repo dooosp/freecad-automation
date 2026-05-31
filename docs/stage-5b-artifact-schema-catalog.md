@@ -1,0 +1,35 @@
+# Stage 5B artifact/schema catalog
+
+This catalog is the concise maintainer map for Stage 5B control outputs. It
+does not create or attach evidence, and it does not change canonical readiness.
+
+Current truth: no genuine completed inspection evidence has been found or
+attached. Canonical packages remain `needs_more_evidence` with gate decision
+`hold_for_evidence_completion` until a genuine completed physical, supplier,
+lab, or QA inspection record is validated, reviewed, and deliberately attached
+in a later authorized task.
+
+Hard evidence rule: Only genuine completed physical/supplier/lab/QA inspection records can satisfy `inspection_evidence`. Packets, schemas, reports, manifests, diagnostics, docs, fixtures, PR bodies, CI/GitHub metadata, release bundles, CAD measurements, and Studio cards are control or review material only.
+
+## Catalog
+
+<!-- GENERATED:stage5b-artifact-catalog:start -->
+| Surface | Producer | Schema/contract | Location pattern | Preview boundary | Control/private status | inspection_evidence status | Readiness effect |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Stage 5B evidence request packet | Maintainer-authored Markdown request and checklist control document. | docs/stage-5b-evidence-request-packet.md plus docs/inspection-evidence-contract.md. | docs/stage-5b-evidence-request-packet.md | Tracked documentation preview only. It must not include raw supplier, lab, QA, or physical inspection records. | Tracked public control document. Private candidate records stay outside this file. | Not inspection_evidence. It requests genuine records but is not a record. | No readiness change. It preserves needs_more_evidence / hold_for_evidence_completion until genuine evidence is later validated, reviewed, and attached. |
+| Candidate gate report | node scripts/stage5b-candidate-evidence-gate.js via lib/stage5b-candidate-evidence-gate.js. | schemas/stage5b-candidate-gate-report.schema.json and validateStage5bCandidateGateReport. | local/stage5b-candidate-evidence-inbox/<package-slug>/candidate-gate-report.json or another explicit --out report path. | Local review only by default. Do not publish or preview private inbox reports unless a later task explicitly authorizes a redacted control artifact. | Local/private control report when staged in the ignored inbox. It may describe private candidate metadata. | Not inspection_evidence. Accept means eligible for later Stage 5B intake review only. | No readiness change. It does not attach evidence, promote evidence, satisfy readiness, or mutate canonical artifacts. |
+| intake_report.json | fcad inspection-evidence-intake, or fcad stage5b-evidence-audit when it runs the intake step. | schemas/stage5b-intake-report.schema.json and validateStage5bIntakeReport. | <explicit --out report.json> or <stage5b-audit-out-dir>/intake_report.json. | CLI output path for local review. Studio/API preview is limited to registered tracked artifacts such as inspection-evidence.intake-report, never arbitrary browser-supplied local paths. | Control and discovery artifact with sanitized provenance. It must not contain raw private records or secrets. | Not inspection_evidence. It classifies candidates and records rejection or attachment-plan metadata only. | Non-mutating. Without genuine attachment-ready evidence, packages remain needs_more_evidence / hold_for_evidence_completion. |
+| promotion_dry_run_manifest.json | fcad inspection-evidence-promotion-dry-run, or fcad stage5b-evidence-audit when it runs the dry-run step. | schemas/stage5b-promotion-dry-run-manifest.schema.json and validateStage5bPromotionDryRunManifest. | <explicit --out promotion_dry_run_manifest.json> or <stage5b-audit-out-dir>/promotion_dry_run_manifest.json. | CLI output path for local review. Studio/API preview is limited to registered tracked artifacts such as inspection-evidence.promotion-dry-run-manifest. | Planning/control artifact. It lists future commands and mutation boundaries without committing candidate records. | Not inspection_evidence. It is a plan for a possible later authorized promotion, not an attached record. | Non-mutating dry run. If promotion_can_run is false, readiness remains needs_more_evidence / hold_for_evidence_completion. |
+| stage5b_audit_manifest.json | fcad stage5b-evidence-audit via src/services/inspection-evidence-intake/stage5b-evidence-audit-service.js. | schemas/stage5b-audit-manifest.schema.json and validateStage5bAuditManifest. | <stage5b-audit-out-dir>/stage5b_audit_manifest.json. | CLI audit output path for local review. Studio/API preview is limited to the registered stage5b.evidence-audit-manifest artifact. | Control manifest linking the audit bundle by repo-relative path and hash. It must carry sanitized refs only. | Not inspection_evidence. It summarizes the audit and evidence boundary only. | Non-mutating. It records the readiness-held truth and must not claim production readiness. |
+| stage5b_audit_summary.md | fcad stage5b-evidence-audit via src/services/inspection-evidence-intake/stage5b-evidence-audit-service.js. | Markdown semantic contract enforced by validateStage5bAuditSummaryMarkdown. | <stage5b-audit-out-dir>/stage5b_audit_summary.md. | CLI audit output path for local review. Studio/API preview is limited to the registered stage5b.evidence-audit-summary artifact. | Markdown control summary. It must summarize only sanitized audit status and boundaries. | Not inspection_evidence. It is a human-readable audit summary. | No readiness change. It must state whether readiness remains held and preserve the hard evidence boundary. |
+| validation_diagnostics.json | Stage5bRuntimeValidationError diagnostics via src/services/inspection-evidence-intake/stage5b-runtime-validation.js. | buildStage5bValidationDiagnosticsPayload shape and sanitized diagnostics contract in stage5b-runtime-validation.js. | Beside a failed requested output path, or output/jobs/<job-id>/artifacts/validation_diagnostics.json for tracked jobs. | Sanitized diagnostics only. Studio/API preview is limited to registered stage5b.validation-diagnostics artifacts and redacts secrets, private URLs, and absolute paths. | Control/debug metadata. It must not expose raw logs, credentials, private records, or unredacted source paths. | Not inspection_evidence. Diagnostics explain malformed control artifacts or unsafe inputs. | No readiness change. It blocks or explains validation failure without attaching evidence or mutating canonical package artifacts. |
+<!-- GENERATED:stage5b-artifact-catalog:end -->
+
+## Use
+
+Use this catalog with the [Stage 5B operational runbook](./stage-5b-operational-runbook.md),
+the [Stage 5B evidence request packet](./stage-5b-evidence-request-packet.md),
+and the [inspection evidence contract](./inspection-evidence-contract.md). If a
+new Stage 5B control output is added, update `lib/stage5b-artifact-contracts.js`
+and run `node tests/stage5b-artifact-catalog.test.js` so the table, schemas,
+and readiness boundary stay aligned.
