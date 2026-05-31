@@ -1,4 +1,4 @@
-import { basename, dirname, extname, join, relative, resolve } from 'node:path';
+import { basename, dirname, extname, isAbsolute, join, relative, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 
@@ -59,6 +59,12 @@ function repoRelativePath(projectRoot, filePath) {
     : filePath;
 }
 
+function isPathWithinRoot(rootDir, targetPath) {
+  if (!rootDir || !targetPath) return false;
+  const relPath = relative(resolve(rootDir), resolve(targetPath)).replace(/\\/g, '/');
+  return relPath === '' || (!relPath.startsWith('..') && !isAbsolute(relPath));
+}
+
 function normalizeBundlePath(relativePath) {
   return String(relativePath || '').replace(/\\/g, '/').replace(/^\/+/, '');
 }
@@ -100,21 +106,81 @@ function defaultBundlePathForSourceRef(ref) {
   }
 }
 
-function resolveArtifactPath(rawPath, { projectRoot, readinessDir }) {
-  if (typeof rawPath !== 'string' || !rawPath.trim()) return null;
-  if (existsSync(rawPath)) return resolve(rawPath);
+function safeDisplayPath(rawPath) {
+  const fileName = basename(String(rawPath || '').replace(/\\/g, '/'));
+  return fileName || 'outside-bundle-root';
+}
 
-  const candidates = [
-    resolve(process.cwd(), rawPath),
-    resolve(projectRoot, rawPath),
-    resolve(readinessDir, rawPath),
-  ];
-
-  for (const candidate of candidates) {
-    if (existsSync(candidate)) return candidate;
+function resolveArtifactPath(rawPath, { projectRoot, readinessDir, allowedRoots = null }) {
+  if (typeof rawPath !== 'string' || !rawPath.trim()) {
+    return {
+      ok: false,
+      path: null,
+      reason: 'missing_path',
+    };
   }
 
-  return resolve(projectRoot, rawPath);
+  const roots = uniqueStrings(
+    (allowedRoots || [projectRoot, readinessDir])
+      .filter(Boolean)
+      .map((root) => resolve(root))
+  );
+  const raw = rawPath.trim();
+  const candidates = isAbsolute(raw)
+    ? [resolve(raw)]
+    : [
+        resolve(projectRoot, raw),
+        resolve(readinessDir, raw),
+      ];
+
+  const allowedCandidates = candidates.filter((candidate) =>
+    roots.some((root) => isPathWithinRoot(root, candidate))
+  );
+
+  const existing = allowedCandidates.find((candidate) => existsSync(candidate));
+  if (existing) {
+    return {
+      ok: true,
+      path: existing,
+      reason: 'found',
+    };
+  }
+
+  if (allowedCandidates.length > 0) {
+    return {
+      ok: true,
+      path: allowedCandidates[0],
+      reason: 'missing',
+    };
+  }
+
+  return {
+    ok: false,
+    path: candidates[0],
+    reason: 'outside_allowed_roots',
+  };
+}
+
+function filterAllowedSourceArtifactRefs(refs = [], {
+  projectRoot,
+  readinessDir,
+  warnings,
+  skippedArtifacts,
+}) {
+  return safeList(refs).filter((ref) => {
+    if (!ref?.path) return true;
+    const resolved = resolveArtifactPath(ref.path, { projectRoot, readinessDir });
+    if (resolved.ok) return true;
+    skippedArtifacts.push({
+      artifact_type: ref.artifact_type || 'source_artifact',
+      role: ref.role || 'input',
+      source_path: safeDisplayPath(ref.path),
+      label: ref.label || null,
+      reason: resolved.reason,
+    });
+    warnings.push(`Optional source artifact path is outside allowed bundle roots and was omitted: ${safeDisplayPath(ref.path)}`);
+    return false;
+  });
 }
 
 async function buildMetadataEntry({
@@ -216,8 +282,17 @@ export async function runReleaseBundleWorkflow({
   const bundleEntries = [];
   const skippedArtifacts = [];
   const warnings = [...safeList(readinessReport.warnings), ...additionalWarnings];
+  const readinessSourceArtifactRefs = filterAllowedSourceArtifactRefs(
+    readinessReport.source_artifact_refs,
+    {
+      projectRoot,
+      readinessDir,
+      warnings,
+      skippedArtifacts,
+    }
+  );
   const sourceArtifactRefs = mergeSourceArtifactRefs(
-    safeList(readinessReport.source_artifact_refs),
+    readinessSourceArtifactRefs,
     [
       buildSourceArtifactRef(
         'readiness_report',
@@ -269,7 +344,7 @@ export async function runReleaseBundleWorkflow({
 
   const includedSourceTypes = new Set(['review_pack', 'config', 'engineering_context', 'cad_model', 'source_file']);
   const seenSourcePaths = new Set([resolvedReadinessPath, readinessMarkdownPath]);
-  const sortedRefs = [...safeList(readinessReport.source_artifact_refs)].sort((left, right) => {
+  const sortedRefs = [...readinessSourceArtifactRefs].sort((left, right) => {
     const leftKey = `${left?.artifact_type || ''}|${left?.path || ''}|${left?.label || ''}`;
     const rightKey = `${right?.artifact_type || ''}|${right?.path || ''}|${right?.label || ''}`;
     return leftKey.localeCompare(rightKey);
@@ -279,7 +354,19 @@ export async function runReleaseBundleWorkflow({
     if (!includedSourceTypes.has(ref?.artifact_type)) continue;
     if (!ref.path) continue;
 
-    const resolvedSourcePath = resolveArtifactPath(ref.path, { projectRoot, readinessDir });
+    const resolvedSource = resolveArtifactPath(ref.path, { projectRoot, readinessDir });
+    if (!resolvedSource.ok) {
+      skippedArtifacts.push({
+        artifact_type: ref.artifact_type,
+        role: ref.role || 'input',
+        source_path: safeDisplayPath(ref.path),
+        label: ref.label || null,
+        reason: resolvedSource.reason,
+      });
+      warnings.push(`Optional source artifact path is outside allowed bundle roots and was omitted: ${safeDisplayPath(ref.path)}`);
+      continue;
+    }
+    const resolvedSourcePath = resolvedSource.path;
     if (!existsSync(resolvedSourcePath)) {
       skippedArtifacts.push({
         artifact_type: ref.artifact_type,
@@ -316,10 +403,23 @@ export async function runReleaseBundleWorkflow({
     seenSourcePaths.add(resolvedDocsManifestPath);
 
     for (const document of safeList(docsManifest.documents)) {
-      const resolvedDocumentPath = resolveArtifactPath(document.path, {
+      const resolvedDocument = resolveArtifactPath(document.path, {
         projectRoot,
         readinessDir: dirname(resolvedDocsManifestPath),
+        allowedRoots: [projectRoot, dirname(resolvedDocsManifestPath)],
       });
+      if (!resolvedDocument.ok) {
+        skippedArtifacts.push({
+          artifact_type: 'docs_document',
+          role: 'derived',
+          source_path: safeDisplayPath(document.path),
+          label: document.label || document.filename || null,
+          reason: resolvedDocument.reason,
+        });
+        warnings.push(`Document listed in docs manifest is outside allowed bundle roots and was omitted: ${safeDisplayPath(document.path)}`);
+        continue;
+      }
+      const resolvedDocumentPath = resolvedDocument.path;
       if (!existsSync(resolvedDocumentPath)) {
         skippedArtifacts.push({
           artifact_type: 'docs_document',

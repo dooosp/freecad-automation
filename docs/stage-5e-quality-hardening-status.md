@@ -28,7 +28,7 @@ Available local validation commands from `package.json` include `npm test`, `npm
 | [#106](https://github.com/dooosp/freecad-automation/pull/106) | Merged | `580bedadd99647d7721bda2d7723197c57f04bfa` | Added `tests/source-of-truth-drift.test.js` and wired it into the Node contract lane so package scripts, command classifications, support-matrix command lists, and runtime-smoke wording stay aligned with shared manifests. | Did not add runtime execution, change CLI command behavior, or replace the existing package/test manifests. |
 | [#107](https://github.com/dooosp/freecad-automation/pull/107) | Merged | `4bbcef0bb12b6eab3c8b5bda90baa8b1bd23a98c` | Hardened the inspection evidence validator and tests so generated artifact types and generated artifact paths are rejected even when shaped like inspection evidence. | Did not promote generated CAD, drawing, readiness, release, manifest, runtime-smoke, or package artifacts into `inspection_evidence`. |
 
-All six PRs reported green hosted lanes. Each PR also reported a successful `Self-hosted macOS FreeCAD smoke` check in GitHub Actions.
+The PR records for #102 through #107 list hosted lanes and the `Self-hosted macOS FreeCAD smoke` check as passing at merge time. This status document does not rerun those checks or broaden the runtime evidence boundary.
 
 ## STEP reimport validation status
 

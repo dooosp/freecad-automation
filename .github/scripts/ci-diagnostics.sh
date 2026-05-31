@@ -1,6 +1,28 @@
 #!/usr/bin/env bash
 set -u
 
+redact_path_value() {
+  value="${1:-}"
+  case "${value}" in
+    "")
+      printf 'unset'
+      ;;
+    /*)
+      printf '<path>/%s' "$(basename "${value}")"
+      ;;
+    [A-Za-z]:\\*|\\\\*)
+      leaf="${value##*\\}"
+      printf '<path>/%s' "${leaf}"
+      ;;
+    *)
+      printf '%s' "${value}"
+      ;;
+  esac
+}
+
+echo "artifact_class=ci_metadata_only"
+echo "inspection_evidence_status=not_inspection_evidence"
+echo "evidence_boundary=Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence"
 echo "timestamp_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo "github_workflow=${GITHUB_WORKFLOW:-unknown}"
 echo "github_run_id=${GITHUB_RUN_ID:-unknown}"
@@ -10,7 +32,7 @@ echo "github_event_name=${GITHUB_EVENT_NAME:-unknown}"
 echo "runner_os=${RUNNER_OS:-unknown}"
 echo "runner_name=${RUNNER_NAME:-unknown}"
 echo "runner_arch=${RUNNER_ARCH:-unknown}"
-echo "pwd=${PWD}"
+echo "pwd=<workspace>"
 echo "uname=$(uname -a 2>/dev/null || echo unavailable)"
 
 if command -v node >/dev/null 2>&1; then
@@ -48,7 +70,7 @@ fi
 for var in FREECAD_APP FREECAD_BIN FREECAD_CMD FREECAD_PYTHON FREECAD_DIR; do
   eval "value=\${$var:-}"
   if [ -n "${value}" ]; then
-    echo "${var}=${value}"
+    echo "${var}=$(redact_path_value "${value}")"
   else
     echo "${var}=unset"
   fi
@@ -61,13 +83,13 @@ else
 fi
 
 if command -v FreeCADCmd >/dev/null 2>&1; then
-  echo "freecadcmd_upper=$(command -v FreeCADCmd)"
+  echo "freecadcmd_upper=$(redact_path_value "$(command -v FreeCADCmd)")"
 else
   echo "freecadcmd_upper=missing"
 fi
 
 if command -v freecadcmd >/dev/null 2>&1; then
-  echo "freecadcmd_lower=$(command -v freecadcmd)"
+  echo "freecadcmd_lower=$(redact_path_value "$(command -v freecadcmd)")"
 else
   echo "freecadcmd_lower=missing"
 fi

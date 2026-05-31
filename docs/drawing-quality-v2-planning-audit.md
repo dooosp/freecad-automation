@@ -211,7 +211,7 @@ These are already well integrated and should be treated as part of the stable sh
 | Prompt 23 reviewer-feedback ingestion | reviewer feedback ingestion/UX | `reviewer_feedback_runtime_probe` now proves explicit repo-local reviewer-feedback JSON ingestion with linked/open feedback. The feedback is manifest-linked, path-safe, advisory-only, and does not satisfy missing evidence or change manufacturing readiness. | Proved on candidate |
 | Prompt 24 material semantic increment | semantic evidence | The new Prompt 24 increment is limited to explicit SVG title-block `MATERIAL` label/value pair evidence. Pre-existing explicit SVG material note text remains allowed only when the SVG text has raw text, source, and provenance, and is not inferred from config/defaults/reviewer/layout/QA/model/OCR/pixels. | Proved on candidate |
 | Checklist 9 artifact/manifest path guard | artifact/manifest remediation | Latest candidate path guard reports `BAD_PATH_REFS=0`, `MISSING_REFS=0`, `OPTIONAL_UNAVAILABLE_WITH_PATH=0`, and `REQUIRED_UNAVAILABLE=0`. | Proved on candidate |
-| Runtime smoke upload workflow paths | CI/workflow hygiene | Runtime smoke writes under `output/smoke/...`. Any workflow upload-path cleanup remains operational follow-up, not drawing-quality product status. | Track separately |
+| Runtime smoke upload workflow paths | CI/workflow hygiene | Runtime smoke writes under `output/smoke/...`, and the self-hosted workflow uploads `output/smoke`. Keep future workflow path edits separate from drawing-quality product status. | Covered, monitor |
 | GitHub Actions runtime deprecation warnings | CI/workflow hygiene | Any remaining action-runtime warning is operational cleanup, not semantic Drawing Quality scope. | Track separately |
 | OCR, pixel parsing, generator rewrites, automatic GD&T/tolerance inference, reviewer automation | not-safe-yet / broad-engine gap | No conservative evidence model supports these without broader design changes, and the remediation candidate does not add them. | Not in scope |
 
@@ -274,7 +274,7 @@ These are already well integrated and should be treated as part of the stable sh
 
 These should not be mixed into semantic drawing-quality prompts:
 
-- fix runtime-smoke artifact upload paths in `.github/workflows/freecad-runtime-smoke.yml` so they match the actual `output/smoke/...` layout
+- keep runtime-smoke artifact upload paths aligned with the actual `output/smoke/...` layout in `.github/workflows/freecad-runtime-smoke.yml`
 - audit any remaining GitHub Actions runtime deprecation warnings separately from drawing-quality product work
 
 ## Explicit Do-Not-Do-Yet List
@@ -314,4 +314,4 @@ The local remediation candidate satisfies the conservative v2 exit criteria list
 
 ## Audit Conclusion
 
-The current remediation candidate closes the Prompt 21 through Prompt 24 evidence gaps without weakening the Drawing Quality locks. It remains a local candidate until branch publication and hosted GitHub checks complete. Operational cleanup items, including runtime-smoke artifact upload paths and any Actions runtime deprecation warning, remain separate from product/semantic Drawing Quality status.
+The current remediation candidate closes the Prompt 21 through Prompt 24 evidence gaps without weakening the Drawing Quality locks. It remains a local candidate until branch publication and hosted GitHub checks complete. Operational cleanup items, including any future runtime-smoke artifact upload path drift and any Actions runtime deprecation warning, remain separate from product/semantic Drawing Quality status.

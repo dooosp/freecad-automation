@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 
 import { validateCArtifact } from '../lib/c-artifact-schema.js';
 import { createZipArchive, listZipEntries } from '../lib/zip-archive.js';
+import { runReleaseBundleWorkflow } from '../src/workflows/release-bundle-workflow.js';
 import { assertTextSnapshot } from './helpers/text-snapshot.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
@@ -186,6 +187,39 @@ try {
   assert.equal(docsZipEntries.some((entry) => entry.name === 'docs/standard_docs_manifest.json'), true);
   assert.equal(docsZipEntries.some((entry) => entry.name === 'docs/process_flow.md'), true);
   assert.equal(docsZipEntries.some((entry) => entry.name === 'docs/work_instruction_draft.md'), true);
+
+  const unsafeBundleDir = join(TMP_DIR, 'unsafe-bundle-flow');
+  mkdirSync(unsafeBundleDir, { recursive: true });
+  const outsideSourcePath = join(TMP_DIR, 'outside-host-file.txt');
+  writeFileSync(outsideSourcePath, 'outside host content must not enter release bundles\n', 'utf8');
+  const unsafeReadinessPath = join(unsafeBundleDir, 'unsafe_readiness_report.json');
+  const unsafeReadinessReport = {
+    ...readJson(docsReadinessOut),
+    source_artifact_refs: [
+      {
+        artifact_type: 'source_file',
+        path: outsideSourcePath,
+        role: 'input',
+        label: 'Outside host file',
+      },
+    ],
+  };
+  writeFileSync(unsafeReadinessPath, JSON.stringify(unsafeReadinessReport, null, 2), 'utf8');
+  const unsafeBundleZip = join(unsafeBundleDir, 'release_bundle.zip');
+  const unsafeResult = await runReleaseBundleWorkflow({
+    projectRoot: ROOT,
+    readinessPath: unsafeReadinessPath,
+    readinessReport: unsafeReadinessReport,
+    outputPath: unsafeBundleZip,
+  });
+  const unsafeManifestText = readFileSync(unsafeResult.manifest_path, 'utf8');
+  const unsafeLogText = readFileSync(unsafeResult.log_path, 'utf8');
+  const unsafeZipEntries = await listZipEntries(unsafeBundleZip);
+  assert.equal(unsafeZipEntries.some((entry) => entry.name === 'references/outside-host-file.txt'), false);
+  assert.equal(unsafeManifestText.includes(outsideSourcePath), false);
+  assert.equal(unsafeLogText.includes(outsideSourcePath), false);
+  assert.match(unsafeManifestText, /outside allowed bundle roots/i);
+  assert.match(unsafeLogText, /outside_allowed_roots/i);
 
   const utf8ZipPath = join(TMP_DIR, 'utf8-filenames.zip');
   await createZipArchive(utf8ZipPath, [

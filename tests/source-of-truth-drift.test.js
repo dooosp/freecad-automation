@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -20,6 +21,7 @@ const packageJson = JSON.parse(readText('package.json'));
 const readme = readText('README.md');
 const testingDoc = readText('docs/testing.md');
 const supportMatrix = readText('docs/support-matrix.md');
+const ciDiagnosticsScript = readText('.github/scripts/ci-diagnostics.sh');
 
 function extractSection(markdown, heading) {
   const marker = `${heading}\n`;
@@ -147,5 +149,25 @@ const runtimeSmokeClaims = [
   );
 });
 assert.match(runtimeSmokeClaims, /hosted CI does not install or launch FreeCAD/i);
+
+assert.match(ciDiagnosticsScript, /artifact_class=ci_metadata_only/);
+assert.match(ciDiagnosticsScript, /inspection_evidence_status=not_inspection_evidence/);
+assert.match(ciDiagnosticsScript, /Only genuine completed physical\/supplier\/lab\/QA inspection records can satisfy inspection_evidence/);
+
+const diagnosticsRun = spawnSync('bash', ['.github/scripts/ci-diagnostics.sh'], {
+  cwd: ROOT,
+  encoding: 'utf8',
+  env: {
+    ...process.env,
+    FREECAD_BIN: '/private/tmp/freecad-secret/FreeCADCmd',
+    FREECAD_APP: '/Applications/FreeCAD.app',
+  },
+});
+assert.equal(diagnosticsRun.status, 0, diagnosticsRun.stderr || diagnosticsRun.stdout);
+assert.match(diagnosticsRun.stdout, /artifact_class=ci_metadata_only/);
+assert.match(diagnosticsRun.stdout, /inspection_evidence_status=not_inspection_evidence/);
+assert.match(diagnosticsRun.stdout, /FREECAD_BIN=<path>\/FreeCADCmd/);
+assert.match(diagnosticsRun.stdout, /FREECAD_APP=<path>\/FreeCAD\.app/);
+assert.equal(diagnosticsRun.stdout.includes('/private/tmp/freecad-secret'), false);
 
 console.log('source-of-truth-drift.test.js: ok');

@@ -114,9 +114,13 @@ function validateArtifactRef(value, fieldName, errors) {
 
   if (typeof value.job_id !== 'string' || value.job_id.trim().length === 0) {
     errors.push(`${fieldName}.job_id must be a non-empty string.`);
+  } else if (!isSafeTrackedId(value.job_id)) {
+    errors.push(`${fieldName}.job_id must be a safe tracked id.`);
   }
   if (typeof value.artifact_id !== 'string' || value.artifact_id.trim().length === 0) {
     errors.push(`${fieldName}.artifact_id must be a non-empty string.`);
+  } else if (!isSafeTrackedId(value.artifact_id)) {
+    errors.push(`${fieldName}.artifact_id must be a safe tracked id.`);
   }
 }
 
@@ -125,6 +129,20 @@ function trimArtifactRef(value = {}) {
     job_id: String(value.job_id || '').trim(),
     artifact_id: String(value.artifact_id || '').trim(),
   };
+}
+
+function isSafeTrackedId(value) {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  const lower = raw.toLowerCase();
+  return Boolean(raw)
+    && raw !== '.'
+    && raw !== '..'
+    && !raw.includes('/')
+    && !raw.includes('\\')
+    && !lower.includes('%2f')
+    && !lower.includes('%5c')
+    && !raw.includes('\0')
+    && !raw.startsWith('~');
 }
 
 function trimOptionalString(value) {

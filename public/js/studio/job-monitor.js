@@ -179,6 +179,17 @@ function qualityCompletionParts(job = {}) {
   ];
 }
 
+function qualityCompletionNeedsAttention(parts = []) {
+  return parts.some((part) => {
+    const normalized = String(part || '').toLowerCase();
+    return normalized.includes('quality failed')
+      || normalized.includes('quality warning')
+      || normalized.includes('ready no')
+      || normalized.includes('ready unknown')
+      || normalized.includes('ready held');
+  });
+}
+
 function buildOpenJobAction({ label, jobId, route, tone = 'primary' }) {
   if (!jobId || !route) return null;
   return {
@@ -224,7 +235,7 @@ export function buildStudioJobCompletionNotice(job = {}, target = {}, remainingA
 
     return {
       jobId: job.id,
-      tone: qualityParts.includes('Quality failed.') ? 'warn' : 'ok',
+      tone: qualityCompletionNeedsAttention(qualityParts) ? 'warn' : 'ok',
       title: `Tracked ${jobType} completed`,
       message: messageParts.join(' '),
       messageParts,

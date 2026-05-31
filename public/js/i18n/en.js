@@ -53,6 +53,7 @@ const en = {
     'Preview truncated by server size limit.': 'Preview truncated by server size limit.',
     'These first-user packages are repo-checked docs packages. They are separate from tracked jobs and expose copy-only repo path controls.': 'These first-user packages are repo-checked docs packages. They are separate from tracked jobs and expose copy-only repo path controls.',
     'Release bundle presence does not mean production-ready; package remains needs_more_evidence until real inspection_evidence is attached.': 'Release bundle presence does not mean production-ready; package remains needs_more_evidence until real inspection_evidence is attached.',
+    'Ready held: missing inspection_evidence.': 'Ready held: missing inspection_evidence.',
   },
   patterns: [],
 };
