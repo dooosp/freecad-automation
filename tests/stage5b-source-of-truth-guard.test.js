@@ -282,6 +282,7 @@ const docs = {
   testing: readText('docs/testing.md'),
   closeout: readText('docs/stage-5b-automation-closeout-status.md'),
   runbook: readText('docs/stage-5b-operational-runbook.md'),
+  requestPacket: readText('docs/stage-5b-evidence-request-packet.md'),
   studioApi: readText('docs/studio-canonical-package-api.md'),
   studioWalkthrough: readText('docs/studio-first-user-walkthrough.md'),
 };
@@ -341,6 +342,7 @@ assertIncludesAll(
 );
 
 assert.match(docs.closeout, /PR #122|\[#122\]/, 'Stage 5B closeout should include the PR #122 closeout state');
+assert.match(docs.closeout, /PR #132|\[#132\]/, 'Stage 5B closeout should include the PR #132 candidate gate state');
 assert.match(docs.closeout, /\[Stage 5B operational runbook\]\(\.\/stage-5b-operational-runbook\.md\)/, 'Stage 5B closeout should link the operational runbook');
 assert.match(docs.testing, /stage5b-source-of-truth-guard\.test\.js/, 'testing docs should mention the Stage 5B source-of-truth guard');
 assert.match(docs.testing, /Stage 5B operational runbook/, 'testing docs should mention the Stage 5B operational runbook');
@@ -551,6 +553,29 @@ assert.match(docs.runbook, /npm test/);
 assert.match(docs.runbook, /human-typed, inferred, simulated, synthetic, CAD-generated, or guessed measurements/);
 assert.match(docs.runbook, new RegExp(HARD_EVIDENCE_RULE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
 assert.match(docs.runbook, NON_EVIDENCE_BOUNDARY_PATTERN);
+
+assert.match(docs.requestPacket, /^# Stage 5B evidence request packet/m);
+assert.match(docs.requestPacket, /suppliers?, labs?, QA\s+reviewers?, and physical inspectors?/i);
+assert.match(docs.requestPacket, /node scripts\/stage5b-candidate-evidence-gate\.js --candidate <repo-relative-json> --out <report\.json>/);
+assert.match(docs.requestPacket, /Package or part mapping/);
+assert.match(docs.requestPacket, /Revision mapping/);
+assert.match(docs.requestPacket, /Inspection date/);
+assert.match(docs.requestPacket, /Completion status/);
+assert.match(docs.requestPacket, /Overall result/);
+assert.match(docs.requestPacket, /Inspector and reviewer/);
+assert.match(docs.requestPacket, /Provenance/);
+assert.match(docs.requestPacket, /Feature evidence/);
+assert.match(docs.requestPacket, /eligible_for_stage5b_intake_review: true/);
+assert.match(docs.requestPacket, /generated examples/);
+assert.match(docs.requestPacket, /comments, PR bodies/);
+assert.match(docs.requestPacket, /CAD-generated measurements/);
+assert.match(docs.requestPacket, /CI\/GitHub metadata/);
+assert.match(docs.requestPacket, /does not prove readiness, attach evidence, mutate canonical package\s+artifacts, or authorize promotion/);
+assert.match(
+  docs.requestPacket.replace(/`inspection_evidence`/g, 'inspection_evidence').replace(/\s+/g, ' '),
+  new RegExp(HARD_EVIDENCE_RULE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+);
+assert.match(docs.requestPacket, NON_EVIDENCE_BOUNDARY_PATTERN);
 
 [
   'inspection-evidence-intake reports are discovery/review artifacts only; they are not package inspection evidence.',

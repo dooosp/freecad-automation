@@ -5,6 +5,10 @@ inspection measurements for the canonical example packages. They are not
 inspection evidence, and they do not satisfy `inspection_evidence` by
 themselves.
 
+For supplier, lab, QA reviewer, or physical inspector requests before the
+candidate gate, use the [`Stage 5B evidence request packet`](../stage-5b-evidence-request-packet.md).
+That packet is also a control document, not evidence.
+
 - [`quality-pass-bracket`](./quality-pass-bracket.md)
 - [`plate-with-holes`](./plate-with-holes.md)
 - [`motor-mount`](./motor-mount.md)

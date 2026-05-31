@@ -160,6 +160,7 @@ try {
     ['GitHub/CI metadata', '.github/workflows/automation-ci.yml', 'github_ci_metadata_not_evidence'],
     ['screenshot', 'docs/examples/candidate-gate-bracket/inspection/supplier-screenshot.png', 'screenshot_not_evidence'],
     ['template', 'docs/examples/candidate-gate-bracket/inspection/template-inspection.json', 'template_not_evidence'],
+    ['generated example', 'docs/examples/candidate-gate-bracket/inspection/example-generated-inspection.json', 'template_not_evidence'],
     ['guide', 'docs/inspection-evidence-collection/candidate-gate-bracket.md', 'guide_not_evidence'],
     ['comment', 'docs/examples/candidate-gate-bracket/inspection/comment.md', 'comment_or_pr_body_not_evidence'],
     ['PR body', 'docs/examples/candidate-gate-bracket/inspection/pr-body.md', 'comment_or_pr_body_not_evidence'],

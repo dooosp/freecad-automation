@@ -25,6 +25,12 @@ Expected no-evidence result:
 
 ## Candidate Acceptance Gate
 
+When maintainers need to request real records from a supplier, lab, QA reviewer,
+or physical inspector, start with the [Stage 5B evidence request packet](./stage-5b-evidence-request-packet.md).
+The packet states the accepted origins, required mapping/date/status/result/
+reviewer/provenance fields, path-safety and redaction rules, rejection meanings,
+and post-acceptance review path. It is a control document, not evidence.
+
 Before maintainers put a newly supplied JSON record into the Stage 5B intake/dry-run review path, run the local non-production candidate gate:
 
 ```bash
