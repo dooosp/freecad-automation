@@ -235,7 +235,8 @@ try {
     promotionDryRunManifestPath: join(tempRoot, 'output/promotion_dry_run_manifest.json'),
     generatedAt: '2026-05-24T00:00:00.000Z',
   });
-  assert.equal(fixtureAudit.summary.attachment_ready_candidate_count, 1);
+  assert.equal(fixtureAudit.summary.attachment_ready_candidate_count, 0);
+  assert.equal(fixtureAudit.attachment_ready.count, 0);
   assert.equal(fixtureAudit.summary.promotion_can_run, false);
   assert.equal(fixtureAudit.summary.readiness_remains_held, true);
   assert.equal(

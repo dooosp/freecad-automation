@@ -232,7 +232,7 @@ fcad review-context --model <file> [--bom bom.csv] [--inspection inspection.csv]
 fcad compare-rev <baseline.json> <candidate.json>
 ```
 
-`review-context` accepts explicit package-side evidence inputs for checked-in create quality, drawing quality, drawing QA, drawing intent, feature catalog, and DFM report JSON. It also accepts `--inspection-evidence <path>` for a genuine inspection evidence JSON file that passes the inspection evidence contract. These paths are normalized to portable repo-relative source refs in `review_pack.json`; unsafe outside-repo, ignored output, or task-status scratch evidence paths are not linked as canonical evidence. Quality/drawing/DFM side inputs can close `quality_evidence`, and drawing intent or feature catalogs are recorded as drawing/design-traceability context, but none of these generated side inputs satisfy `inspection_evidence`. Readiness recognizes only the explicit validated `inspection_evidence` record written into the review pack.
+`review-context` accepts explicit package-side evidence inputs for checked-in create quality, drawing quality, drawing QA, drawing intent, feature catalog, and DFM report JSON. It also accepts `--inspection-evidence <path>` for a genuine inspection evidence JSON file that passes the inspection evidence contract. These paths are normalized to portable repo-relative source refs in `review_pack.json`; unsafe outside-repo, ignored output, task-status scratch, or ignored Stage 5B candidate inbox paths are not linked as canonical evidence. Quality/drawing/DFM side inputs can close `quality_evidence`, and drawing intent or feature catalogs are recorded as drawing/design-traceability context, but none of these generated side inputs satisfy `inspection_evidence`. Readiness recognizes only the explicit validated `inspection_evidence` record written into the review pack.
 
 ### Imported CAD Bootstrap Lane
 
@@ -439,6 +439,7 @@ Studio execution model:
 - `Preview`: fast request/response work for Model and Drawing. Preview routes are scratch-safe, keep the current workspace state local, and do not create `/jobs` history.
 - `Tracked run`: `POST /api/studio/jobs` queues `create`, `draw`, `inspect`, `report`, `review-context`, `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, `pack`, `inspection-evidence-intake`, `inspection-evidence-promotion-dry-run`, and `stage5b-evidence-audit` into `/jobs`. Studio `review-context` submissions are source-path based (`context_path` or `model_path`, with optional BOM/inspection/quality/package-evidence/compare paths), not config TOML or generic artifact-ref submissions.
 - `Artifact re-entry`: `Artifacts` and `Review` can reopen config artifacts in `Model`, rerun tracked `report` from config-like artifacts, rerun tracked `inspect` from model artifacts, continue `readiness-pack` from canonical `review_pack.json` or `release_bundle.zip`, continue `generate-standard-docs` from canonical readiness inputs or release bundles, continue `pack` from canonical readiness inputs or release bundles, queue `inspection-evidence-promotion-dry-run` from a registered `inspection-evidence.intake-report` artifact, and stage `compare-rev` or `stabilization-review` from selected baseline/candidate canonical artifacts when both sides are present.
+- Tracked API/Studio `create` and `draw` jobs write generated outputs under the tracked job artifact directory, regardless of a config-provided export directory. Direct `inspect` accepts only safe repo-relative model paths; Studio inspect re-entry uses a registered `artifact_ref`.
 - Browser-visible preview payloads are path-redacted too: tracked job payloads, artifact payloads, example payloads, and drawing preview responses all avoid raw filesystem paths.
 
 AF5 publish/reopen contract:
@@ -518,15 +519,15 @@ Endpoint usage:
 - `POST /api/studio/model-preview` validates the current TOML and returns preview-only model assets for the Model workspace
 - `POST /api/studio/drawing-preview` returns the fast sheet-first drawing preview; `POST /api/studio/drawing-previews/:id/dimensions` preserves the HTTP edit loop for dimension changes while keeping preview-plan files server-side only
 - `POST /api/studio/jobs` is the studio bridge route: Model and Drawing submit tracked jobs here, imported-CAD handoff can queue source-path `review-context`, Stage 5B audit/intake/promotion dry-run can queue without browser-provided output paths, and Studio-safe tracked continuation also covers inspect/report re-entry plus compare, readiness, stabilization, docs, and pack jobs from supported artifact references; canonical readiness-backed `generate-standard-docs` can rehydrate a config-like input automatically when the tracked lineage no longer carries a config copy
-- `POST /jobs` accepts a JSON job request and returns `202 Accepted` with the queued job record for `create`, `draw`, `inspect`, `report`, `review-context`, `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, `pack`, `inspection-evidence-intake`, `inspection-evidence-promotion-dry-run`, and `stage5b-evidence-audit`; promotion dry-run accepts only a registered intake artifact reference from Studio or a safe repo-relative `intake_report_path`, while audit jobs accept only server-generated artifact output plus optional `include_github`
+- `POST /jobs` accepts a JSON job request and returns `202 Accepted` with the queued job record for `create`, `draw`, `inspect`, `report`, `review-context`, `compare-rev`, `readiness-pack`, `stabilization-review`, `generate-standard-docs`, `pack`, `inspection-evidence-intake`, `inspection-evidence-promotion-dry-run`, and `stage5b-evidence-audit`; direct inspect accepts a safe repo-relative model `file_path` or a registered `artifact_ref`, promotion dry-run accepts only a registered intake artifact reference from Studio or a safe repo-relative `intake_report_path`, and audit jobs accept only server-generated artifact output plus optional `include_github`
 - `GET /jobs` returns recent tracked jobs for shell resume and artifact timeline views
 - `GET /jobs/:id` returns the latest status, sanitized browser-visible request metadata, redacted result/manifest summaries, status history, and logical storage metadata
 - `POST /jobs/:id/cancel` deterministically cancels a queued job before the executor claims it; running-job cancellation returns a clear conflict unless the active executor explicitly supports safe cooperative stop
-- `POST /jobs/:id/retry` creates a new queued tracked job from the original persisted internal request, but only when the source job is already `failed` or `cancelled`
+- `POST /jobs/:id/retry` creates a new queued tracked job from the original persisted internal request only after the request passes the current job validator, and only when the source job is already `failed` or `cancelled`
 - `GET /jobs/:id/artifacts` returns the flattened public artifact list plus redacted manifest data and logical storage file metadata
 - `GET /jobs/:id/artifacts/:artifactId/content` is the compatibility alias for older API-shaped artifact opens
-- `GET /artifacts/:jobId/:artifactId` opens browser-safe artifact content inline when supported
-- `GET /artifacts/:jobId/:artifactId/download` forces a download for the same artifact
+- `GET /artifacts/:jobId/:artifactId` opens user-facing browser-safe artifact content inline when supported; HTML artifacts are not served inline
+- `GET /artifacts/:jobId/:artifactId/download` forces a download for user-facing artifacts
 
 Request examples:
 
@@ -648,7 +649,7 @@ Response notes:
 - the raw execution request still persists internally in `request.json` for the executor and job-store flows; public job responses are intentionally not a byte-for-byte echo of that internal file
 - job responses include `retried_from_job_id`, `capabilities.cancellation_supported`, `capabilities.retry_supported`, and `links.cancel` / `links.retry` so the studio can surface narrow queue controls without guessing
 - job responses include a `storage` block with logical file metadata only: `storage.files.<name>.exists` and `storage.files.<name>.size_bytes`. Browser-visible responses do not include `storage.root` or per-file `path` fields.
-- artifact list responses include browser-facing `links.open` and `links.download` routes, plus the compatibility alias in `links.api`
+- artifact list responses include `links.open`, `links.download`, and the compatibility alias in `links.api`; only artifacts with `scope: "user-facing"` are browser-openable or downloadable, while internal input/control artifacts remain reference-only for tracked reruns
 - public manifest/result/artifact summaries keep stable browser-facing labels only. When internal values were absolute paths, the browser-visible payload reduces them to file names such as `effective-config.json` or `job.log`.
 - `/api/examples` returns checked-in example records as `{ id, name, content }` and intentionally does not expose repository checkout paths
 - drawing preview responses expose safe provenance fields such as `preview_reference` and `editable_plan_reference` plus availability booleans and artifact capabilities; they do not expose `plan_path`, preview working directories, or other raw preview sidecar paths
@@ -683,7 +684,7 @@ Browser-visible local API payload shape:
 Internal executor/job-store payload shape:
 
 - `request.json`, `job.json`, `job.log`, and `artifact-manifest.json` remain path-bearing on disk where the executor and retry flow need them
-- artifact open/download routes still resolve against those internal paths server-side; the routes are public, the paths are not
+- artifact open/download routes resolve server-side against registered tracked artifacts only, and they reject internal-scope artifacts even when those internal artifacts can still be used as `artifact_ref` inputs for supported tracked reruns
 
 Current limitations:
 
@@ -1150,5 +1151,6 @@ node bin/fcad.js create configs/examples/ks_bracket.toml
 node bin/fcad.js draw configs/examples/ks_bracket.toml --bom
 node bin/fcad.js inspect output/ks_bracket.step
 node bin/fcad.js fem configs/examples/bracket_fem.toml
+node bin/fcad.js tolerance configs/examples/ptu_assembly_mates.toml --recommend --csv
 node bin/fcad.js report configs/examples/ks_bracket.toml
 ```

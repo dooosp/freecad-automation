@@ -638,7 +638,7 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
         ok: true,
         request: {
           type: 'inspect',
-          file_path: resolvedArtifact.artifact.path,
+          artifact_ref: trimArtifactRef(request.artifact_ref),
           options: buildResolvedArtifactOptions(request, resolvedArtifact),
         },
       };

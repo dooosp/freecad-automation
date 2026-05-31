@@ -1,6 +1,7 @@
 import { LOCAL_API_VERSION } from '../local-api-contract.js';
 import { toJobResponse } from '../local-api-job-response.js';
 import { assertResponse, createErrorResponse } from '../local-api-response-helpers.js';
+import { validateJobRequest } from '../../services/jobs/job-executor.js';
 
 export function registerJobRoutes(app, {
   jobStore,
@@ -106,7 +107,18 @@ export function registerJobRoutes(app, {
         return;
       }
 
-      const retriedJob = await jobStore.createJob(structuredClone(sourceJob.request), {
+      const validation = validateJobRequest(structuredClone(sourceJob.request));
+      if (!validation.ok) {
+        const response = createErrorResponse(
+          'invalid_retry_request',
+          validation.errors,
+          400
+        );
+        res.status(response.status).json(assertResponse('error', response.body));
+        return;
+      }
+
+      const retriedJob = await jobStore.createJob(validation.request, {
         retriedFromJobId: sourceJob.id,
       });
       await jobStore.appendLog(retriedJob.id, `Retry queued from job ${sourceJob.id}.`);

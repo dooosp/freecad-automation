@@ -758,6 +758,60 @@ try {
   assert.equal(artifactApiResponse.status, 200);
   assert.match(artifactApiResponse.headers.get('content-disposition') || '', /^inline;/);
 
+  const htmlJob = await jobStore.createJob({
+    type: 'report',
+    config: {
+      name: 'html_artifact_boundary_test',
+      shapes: [{ id: 'body', type: 'box', length: 10, width: 10, height: 10 }],
+      export: { formats: ['step'], directory: 'output' },
+    },
+  });
+  const htmlArtifactPath = await jobStore.writeJobFile(htmlJob.id, 'artifacts/unsafe-preview.html', '<script>window.__fcadUnsafe = true</script>\n');
+  const htmlManifest = await buildArtifactManifest({
+    projectRoot: ROOT,
+    interface: 'api',
+    command: 'report',
+    jobType: 'report',
+    status: 'succeeded',
+    requestId: htmlJob.id,
+    artifacts: [
+      {
+        type: 'report.html',
+        path: htmlArtifactPath,
+        label: 'HTML report',
+        scope: 'user-facing',
+        stability: 'best-effort',
+      },
+    ],
+    timestamps: {
+      created_at: htmlJob.created_at,
+      finished_at: new Date().toISOString(),
+    },
+  });
+  await jobStore.completeJob(htmlJob.id, { success: true }, { html: htmlArtifactPath }, {}, htmlManifest);
+
+  const htmlArtifactsResponse = await fetch(`${baseUrl}/jobs/${htmlJob.id}/artifacts`);
+  assert.equal(htmlArtifactsResponse.status, 200);
+  const htmlArtifactsPayload = await htmlArtifactsResponse.json();
+  const htmlArtifact = htmlArtifactsPayload.artifacts[0];
+  assert.equal(htmlArtifact.extension, '.html');
+  assert.equal(htmlArtifact.scope, 'user-facing');
+  assert.equal(htmlArtifact.capabilities.can_open, false);
+  assert.equal(htmlArtifact.capabilities.can_download, true);
+
+  const htmlOpenResponse = await fetch(`${baseUrl}${htmlArtifact.links.open}`, {
+    headers: {
+      accept: 'application/json',
+    },
+  });
+  assert.equal(htmlOpenResponse.status, 403);
+  const htmlOpenPayload = await htmlOpenResponse.json();
+  assert.equal(htmlOpenPayload.error.code, 'artifact_content_not_inline_safe');
+
+  const htmlDownloadResponse = await fetch(`${baseUrl}${htmlArtifact.links.download}`);
+  assert.equal(htmlDownloadResponse.status, 200);
+  assert.match(htmlDownloadResponse.headers.get('content-disposition') || '', /^attachment;/);
+
   const configSourceJob = await jobStore.createJob({
     type: 'create',
     config: {
@@ -796,7 +850,30 @@ try {
   const configArtifactsPayload = await configArtifactsResponse.json();
   const configArtifact = configArtifactsPayload.artifacts[0];
   assert.equal('path' in configArtifact, false);
+  assert.equal(configArtifact.scope, 'internal');
+  assert.equal(configArtifact.capabilities.can_open, false);
+  assert.equal(configArtifact.capabilities.can_download, false);
   assert.equal(JSON.stringify(configArtifactsPayload).includes(configArtifactPath), false);
+
+  const internalConfigOpenResponse = await fetch(`${baseUrl}${configArtifact.links.open}`, {
+    headers: {
+      accept: 'application/json',
+    },
+  });
+  assert.equal(internalConfigOpenResponse.status, 403);
+  const internalConfigOpenPayload = await internalConfigOpenResponse.json();
+  assert.equal(internalConfigOpenPayload.ok, false);
+  assert.equal(internalConfigOpenPayload.error.code, 'artifact_content_not_public');
+
+  const internalConfigApiResponse = await fetch(`${baseUrl}${configArtifact.links.api}`, {
+    headers: {
+      accept: 'application/json',
+    },
+  });
+  assert.equal(internalConfigApiResponse.status, 403);
+  const internalConfigApiPayload = await internalConfigApiResponse.json();
+  assert.equal(internalConfigApiPayload.ok, false);
+  assert.equal(internalConfigApiPayload.error.code, 'artifact_content_not_public');
 
   const rerunReportResponse = await fetch(`${baseUrl}/api/studio/jobs`, {
     method: 'POST',

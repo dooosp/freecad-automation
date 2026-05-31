@@ -22,7 +22,6 @@ const URL_PATTERN = /https?:\/\/[^\s<>"'`)\]]+/gi;
 const INLINE_ARTIFACT_EXTENSIONS = new Set([
   '.csv',
   '.dxf',
-  '.html',
   '.json',
   '.log',
   '.md',
@@ -73,12 +72,23 @@ export function inferArtifactContentType(filePath = '') {
   }
 }
 
-function buildArtifactCapabilities(filePath = '', exists = false) {
+function isBrowserAddressableArtifact(artifact = {}) {
+  return artifact.scope === 'user-facing';
+}
+
+function isInlineBlockedArtifact(artifact = {}) {
+  return extname(artifact.path || artifact.file_name || '').toLowerCase() === '.html';
+}
+
+function buildArtifactCapabilities(artifact = {}) {
+  const filePath = artifact.path || '';
+  const exists = Boolean(artifact.exists);
   const extension = extname(filePath).toLowerCase();
   const browserSafe = INLINE_ARTIFACT_EXTENSIONS.has(extension);
+  const browserAddressable = isBrowserAddressableArtifact(artifact);
   return {
-    can_open: exists && browserSafe,
-    can_download: exists,
+    can_open: exists && browserSafe && browserAddressable,
+    can_download: exists && browserAddressable,
     browser_safe: browserSafe,
   };
 }
@@ -216,10 +226,18 @@ export function toArtifactResponse(jobId, artifact) {
     content_type: contentType,
     exists: Boolean(artifact.exists),
     size_bytes: Number.isInteger(artifact.size_bytes) ? artifact.size_bytes : null,
-    capabilities: buildArtifactCapabilities(artifact.path, artifact.exists),
+    capabilities: buildArtifactCapabilities(artifact),
     links: buildArtifactLinks(jobId, artifact.id),
     contract: artifact.metadata?.af_contract
       ? redactPublicPathValues(artifact.metadata.af_contract)
       : null,
   };
+}
+
+export function canServeArtifactContent(artifact = {}) {
+  return isBrowserAddressableArtifact(artifact) && !isInlineBlockedArtifact(artifact);
+}
+
+export function canDownloadArtifactContent(artifact = {}) {
+  return isBrowserAddressableArtifact(artifact) && Boolean(artifact.exists);
 }

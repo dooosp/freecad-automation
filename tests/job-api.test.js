@@ -25,6 +25,22 @@ try {
   assert.equal(invalidExtraField.ok, false);
   assert.match(invalidExtraField.errors.join('\n'), /unsupported property "unexpected"/);
 
+  const invalidInspectAbsolutePath = validateJobRequest({
+    type: 'inspect',
+    file_path: '/tmp/private/sample.step',
+  });
+  assert.equal(invalidInspectAbsolutePath.ok, false);
+  assert.match(invalidInspectAbsolutePath.errors.join('\n'), /safe repo-relative model path/i);
+
+  const validInspectArtifactRef = validateJobRequest({
+    type: 'inspect',
+    artifact_ref: {
+      job_id: 'source-job',
+      artifact_id: 'model-step',
+    },
+  });
+  assert.equal(validInspectArtifactRef.ok, true, validInspectArtifactRef.errors?.join('\n'));
+
   const invalidDualConfig = validateJobRequest({
     type: 'create',
     config_path: 'configs/examples/ks_bracket.toml',
@@ -63,6 +79,14 @@ try {
     dfm_report_path: 'docs/examples/infotainment-display-bracket/quality-risk.json',
   });
   assert.equal(reviewContextSideInputs.ok, true, reviewContextSideInputs.errors?.join('\n'));
+
+  const invalidReviewContextInspectionEvidence = validateJobRequest({
+    type: 'review-context',
+    context_path: 'tests/fixtures/sample_part_context.json',
+    inspection_evidence_path: 'docs/examples/demo/inspection/inspection_evidence.json',
+  });
+  assert.equal(invalidReviewContextInspectionEvidence.ok, false);
+  assert.match(invalidReviewContextInspectionEvidence.errors.join('\n'), /inspection_evidence_path|additional properties/i);
 
   const inspectionEvidenceIntake = validateJobRequest({
     type: 'inspection-evidence-intake',

@@ -222,7 +222,10 @@ const inspectFromArtifact = await translateStudioJobSubmission({
 
 assert.equal(inspectFromArtifact.ok, true, inspectFromArtifact.errors?.join('\n'));
 assert.equal(inspectFromArtifact.request.type, 'inspect');
-assert.equal(inspectFromArtifact.request.file_path, '/tmp/example.step');
+assert.deepEqual(inspectFromArtifact.request.artifact_ref, {
+  job_id: 'job-model',
+  artifact_id: 'model-step',
+});
 assert.equal(inspectFromArtifact.request.options.studio.source_artifact_id, 'model-step');
 assert.equal(inspectFromArtifact.request.options.studio.source_label, 'example.step');
 

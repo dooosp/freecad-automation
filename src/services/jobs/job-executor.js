@@ -54,6 +54,7 @@ import { JOB_EXECUTOR_COMMANDS } from '../../shared/command-manifest.js';
 const JOB_TYPES = new Set(JOB_EXECUTOR_COMMANDS);
 const INLINE_CONFIG_RELATIVE_PATH = 'inputs/inline-config.json';
 const EFFECTIVE_CONFIG_RELATIVE_PATH = 'inputs/effective-config.json';
+const INSPECTABLE_MODEL_EXTENSIONS = new Set(['.brep', '.brp', '.fcstd', '.step', '.stl', '.stp']);
 
 function resolveMaybe(projectRoot, value) {
   if (!value || typeof value !== 'string') return null;
@@ -203,6 +204,9 @@ async function seedTrackedReportArtifacts({
     projectRoot,
     resolvedConfig?.config?.export?.directory || 'output'
   );
+  if (!isPathInsideProject(projectRoot, sourceDir)) {
+    return {};
+  }
   const seededArtifacts = {};
 
   for (const [key, fileName] of Object.entries(fileNames)) {
@@ -338,8 +342,8 @@ function collectInspectManifestArtifacts(resolvedConfig) {
         type: 'input.model',
         path: resolvedConfig.filePath,
         label: 'Input model',
-        scope: 'user-facing',
-        stability: 'stable',
+        scope: 'internal',
+        stability: 'internal',
       }]
     : [];
 }
@@ -355,10 +359,61 @@ async function ensureJobArtifactDir(jobStore, jobId) {
 }
 
 function isPathInsideProject(projectRoot, pathValue) {
-  const root = resolve(projectRoot);
+  return isPathWithinRoot(projectRoot, pathValue) && resolve(projectRoot) !== resolve(pathValue);
+}
+
+function isPathWithinRoot(rootDir, pathValue) {
+  const root = resolve(rootDir);
   const target = resolve(pathValue);
   const rel = relative(root, target).replaceAll('\\', '/');
-  return Boolean(rel) && !rel.startsWith('..') && !isAbsolute(rel);
+  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
+}
+
+function withTrackedExportDirectory(config = {}, outputDir, { ensureExport = false } = {}) {
+  const next = structuredClone(config || {});
+  if (next.export || ensureExport) {
+    next.export = {
+      ...(next.export || {}),
+      directory: outputDir,
+    };
+  }
+  return next;
+}
+
+function isPublishableArtifactPath({ projectRoot, jobDir, artifact }) {
+  if (!artifact?.path) return false;
+  return isPathWithinRoot(projectRoot, artifact.path) || isPathWithinRoot(jobDir, artifact.path);
+}
+
+function applyArtifactPublicationBoundary({ projectRoot, jobDir, artifacts = [] }) {
+  return artifacts.map((artifact) => {
+    if (artifact?.scope !== 'user-facing') return artifact;
+    if (isPublishableArtifactPath({ projectRoot, jobDir, artifact })) return artifact;
+    return {
+      ...artifact,
+      scope: 'internal',
+      stability: artifact.stability || 'internal',
+      metadata: {
+        ...(artifact.metadata || {}),
+        publication_boundary: {
+          downgraded_to_internal: true,
+          reason: 'Artifact path is outside the project root and this tracked job storage root.',
+        },
+      },
+    };
+  });
+}
+
+function isInspectableModelArtifactRecord(artifact = {}) {
+  const fields = [
+    artifact.type,
+    artifact.key,
+    artifact.file_name,
+    artifact.id,
+    artifact.path,
+  ].filter(Boolean).join(' ');
+  return isInspectableModelPath(artifact.path || artifact.file_name)
+    || /\bmodel\.(?:brep|brp|fcstd|step|stl|stp)\b/i.test(fields);
 }
 
 function buildBundleImportManifestArtifacts(importRecords = []) {
@@ -586,7 +641,7 @@ function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-function isSafeRepoRelativeJsonPath(value) {
+function isSafeRepoRelativePath(value) {
   if (typeof value !== 'string' || !value.trim()) return false;
   const raw = value.trim();
   const normalized = normalizeLocalPath(raw);
@@ -597,7 +652,34 @@ function isSafeRepoRelativeJsonPath(value) {
   if (path.startsWith('/') || path.startsWith('~') || isWindowsAbsolutePath(path)) return false;
   if (path.includes('<') || path.includes('>')) return false;
   if (path.split('/').includes('..')) return false;
-  return /\.json$/i.test(path);
+  return true;
+}
+
+function isInspectableModelPath(value) {
+  return INSPECTABLE_MODEL_EXTENSIONS.has(extname(String(value || '')).toLowerCase());
+}
+
+function isSafeRepoRelativeJsonPath(value) {
+  return isSafeRepoRelativePath(value) && /\.json$/i.test(String(value || '').trim());
+}
+
+function validateInspectRequest(request, errors) {
+  if (request.type !== 'inspect') return;
+  const hasFilePath = typeof request.file_path === 'string' && request.file_path.trim().length > 0;
+  const hasArtifactRef = isPlainObject(request.artifact_ref);
+
+  if (hasFilePath && !isSafeRepoRelativePath(request.file_path)) {
+    errors.push('inspect file_path must be a safe repo-relative model path; use artifact_ref for tracked Studio re-entry.');
+  }
+  if (hasFilePath && !isInspectableModelPath(request.file_path)) {
+    errors.push('inspect file_path must use a supported model extension: .brep, .brp, .fcstd, .step, .stl, or .stp.');
+  }
+  if (!hasFilePath && !hasArtifactRef) {
+    errors.push('inspect requires file_path or artifact_ref.');
+  }
+  if (hasFilePath && hasArtifactRef) {
+    errors.push('inspect accepts only one model source: file_path or artifact_ref.');
+  }
 }
 
 function validatePromotionDryRunRequest(request, errors) {
@@ -691,6 +773,7 @@ export function validateJobRequest(body) {
     if (Object.hasOwn(request, 'config') && request.config !== undefined) {
       validateOptionsObject(request.config, 'config', errors);
     }
+    validateInspectRequest(request, errors);
     validateInspectionEvidenceIntakeRequest(request, errors);
     validatePromotionDryRunRequest(request, errors);
     validateStage5bAuditRequest(request, errors);
@@ -783,6 +866,28 @@ export function createJobExecutor({
 
   async function resolveConfigInput(job) {
     if (job.request.type === 'inspect') {
+      if (job.request.artifact_ref) {
+        const ref = {
+          job_id: String(job.request.artifact_ref.job_id || '').trim(),
+          artifact_id: String(job.request.artifact_ref.artifact_id || '').trim(),
+        };
+        const artifact = await jobStore.getArtifact(ref.job_id, ref.artifact_id);
+        if (!artifact) {
+          throw new Error(`No artifact ${ref.artifact_id} found for job ${ref.job_id}.`);
+        }
+        if (!artifact.exists) {
+          throw new Error(`Artifact ${artifact.file_name} is registered for job ${ref.job_id}, but the file is missing.`);
+        }
+        if (!isInspectableModelArtifactRecord(artifact)) {
+          throw new Error('inspect artifact_ref must point to a supported tracked model artifact.');
+        }
+        return {
+          filePath: artifact.path,
+          diagnostics: {
+            input_artifact_ref: ref,
+          },
+        };
+      }
       return { filePath: resolveMaybe(projectRoot, job.request.file_path), diagnostics: {} };
     }
 
@@ -821,12 +926,13 @@ export function createJobExecutor({
   }
 
   async function executeCreate(job, resolvedConfig) {
+    const outputDir = await ensureJobArtifactDir(jobStore, job.id);
     return createModel({
       freecadRoot: projectRoot,
       runScript: createLoggedRunner(job.id),
       loadConfig: async (filepath) => (await loadConfigWithDiagnostics(filepath)).config,
       configPath: resolvedConfig.configPath,
-      config: resolvedConfig.config,
+      config: withTrackedExportDirectory(resolvedConfig.config, outputDir),
     });
   }
 
@@ -845,16 +951,10 @@ export function createJobExecutor({
       weightsPresetValue: job.request.options?.weights_preset ?? null,
       loadConfig: async (filepath) => {
         const loaded = (await loadConfigWithDiagnostics(filepath)).config;
-        if (resolveMaybe(projectRoot, filepath) !== resolvedConfigPath || loaded.export?.directory) {
+        if (resolveMaybe(projectRoot, filepath) !== resolvedConfigPath) {
           return loaded;
         }
-        return {
-          ...loaded,
-          export: {
-            ...(loaded.export || {}),
-            directory: outputDir,
-          },
-        };
+        return withTrackedExportDirectory(loaded, outputDir, { ensureExport: true });
       },
       deepMerge,
       generateDrawing,
@@ -1823,7 +1923,11 @@ export function createJobExecutor({
           configSummary: manifestConfigSummary,
           selectedProfile: job.request.options?.profile_name || null,
           ruleProfile: manifestRuleProfile,
-          artifacts: manifestArtifacts,
+          artifacts: applyArtifactPublicationBoundary({
+            projectRoot,
+            jobDir: jobStore.getJobDir(job.id),
+            artifacts: manifestArtifacts,
+          }),
           timestamps: {
             created_at: job.created_at,
             started_at: job.started_at,

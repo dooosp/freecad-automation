@@ -180,7 +180,7 @@ try {
 
   const cancelledSourceJob = await jobStore.createJob({
     type: 'inspect',
-    file_path: join(ROOT, 'tests', 'fixtures', 'sample_part.step'),
+    file_path: 'tests/fixtures/sample_part.step',
   });
   await jobStore.cancelJob(cancelledSourceJob.id, {
     message: 'Cancelled before execution started.',

@@ -101,6 +101,13 @@ function portableRepoPath(projectRoot, inputPath) {
       warning: 'Package evidence input under the task-status scratch area was not linked as canonical evidence.',
     };
   }
+  if (relPath === 'local/stage5b-candidate-evidence-inbox' || relPath.startsWith('local/stage5b-candidate-evidence-inbox/')) {
+    return {
+      ok: false,
+      sourceRef: relPath,
+      warning: 'Package evidence input under the ignored Stage 5B candidate inbox was not linked as canonical evidence.',
+    };
+  }
   return {
     ok: true,
     sourceRef: relPath,
