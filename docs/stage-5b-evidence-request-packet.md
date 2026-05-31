@@ -106,6 +106,11 @@ The candidate gate report is a control artifact with schema
 `schemas/stage5b-candidate-gate-report.schema.json`. Reviewers should read these
 fields together:
 
+The [Stage 5B artifact/schema catalog](./stage-5b-artifact-schema-catalog.md)
+also lists this report with its producer, schema path, local/private preview
+boundary, non-evidence status, and unchanged-readiness effect. Schema
+discoverability does not make the report evidence.
+
 | Field | Meaning |
 | --- | --- |
 | `candidate.path` and `candidate.source_ref` | Sanitized candidate path/source metadata for the supplied record. |

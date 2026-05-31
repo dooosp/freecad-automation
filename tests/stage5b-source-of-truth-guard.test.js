@@ -30,6 +30,7 @@ import {
   isStage5bEvidenceAuditArtifact,
 } from '../public/js/studio/artifact-actions.js';
 import { isReviewableStudioJob } from '../public/js/studio/jobs-client.js';
+import { getStage5bArtifactSchemaCatalog } from '../lib/stage5b-artifact-contracts.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const readText = (path) => readFileSync(resolve(ROOT, path), 'utf8');
@@ -295,6 +296,7 @@ const docs = {
   closeout: readText('docs/stage-5b-automation-closeout-status.md'),
   runbook: readText('docs/stage-5b-operational-runbook.md'),
   requestPacket: readText('docs/stage-5b-evidence-request-packet.md'),
+  artifactSchemaCatalog: readText('docs/stage-5b-artifact-schema-catalog.md'),
   inspectionContract: readText('docs/inspection-evidence-contract.md'),
   studioApi: readText('docs/studio-canonical-package-api.md'),
   studioWalkthrough: readText('docs/studio-first-user-walkthrough.md'),
@@ -360,10 +362,14 @@ assert.match(docs.closeout, /PR #131|\[#131\]/, 'Stage 5B closeout should includ
 assert.match(docs.closeout, /PR #132|\[#132\]/, 'Stage 5B closeout should include the PR #132 candidate gate state');
 assert.match(docs.closeout, /PR #133|\[#133\]/, 'Stage 5B closeout should include the PR #133 evidence request packet state');
 assert.match(docs.closeout, /PR #134|\[#134\]/, 'Stage 5B closeout should include the PR #134 status ledger sync state');
+assert.match(docs.closeout, /PR #135|\[#135\]/, 'Stage 5B closeout should include the PR #135 ignored inbox state');
+assert.match(docs.closeout, /PR #136|\[#136\]/, 'Stage 5B closeout should include the PR #136 candidate gate schema state');
 assert.match(docs.closeout, /\[Stage 5B operational runbook\]\(\.\/stage-5b-operational-runbook\.md\)/, 'Stage 5B closeout should link the operational runbook');
 assert.match(docs.closeout, /\[Stage 5B evidence request packet\]\(\.\/stage-5b-evidence-request-packet\.md\)/, 'Stage 5B closeout should link the evidence request packet');
+assert.match(docs.closeout, /\[Stage 5B artifact\/schema catalog\]\(\.\/stage-5b-artifact-schema-catalog\.md\)/, 'Stage 5B closeout should link the artifact/schema catalog');
 [
   'Stage 5B evidence request packet',
+  'Stage 5B artifact/schema catalog',
   LOCAL_STAGE5B_INBOX,
   'node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json>',
   'npm run test:stage5b:no-evidence',
@@ -375,6 +381,7 @@ assert.match(docs.closeout, /\[Stage 5B evidence request packet\]\(\.\/stage-5b-
   assert(docs.closeout.includes(needle), `Stage 5B closeout handoff ledger should include ${needle}`);
 });
 assert.match(docs.testing, /stage5b-source-of-truth-guard\.test\.js/, 'testing docs should mention the Stage 5B source-of-truth guard');
+assert.match(docs.testing, /stage5b-artifact-catalog\.test\.js/, 'testing docs should mention the Stage 5B artifact catalog guard');
 assert.match(docs.testing, /Stage 5B operational runbook/, 'testing docs should mention the Stage 5B operational runbook');
 
 Object.entries({
@@ -593,6 +600,7 @@ assert.match(docs.runbook, /stage5b\.validation-diagnostics/);
 assert.match(docs.runbook, /node tests\/first-user-docs-smoke\.test\.js/);
 assert.match(docs.runbook, /node tests\/stage5b-candidate-evidence-gate\.test\.js/);
 assert.match(docs.runbook, /node tests\/stage5b-source-of-truth-guard\.test\.js/);
+assert.match(docs.runbook, /node tests\/stage5b-artifact-catalog\.test\.js/);
 assert.match(docs.runbook, /node tests\/stage5b-evidence-audit-cli-smoke\.test\.js/);
 assert.match(docs.runbook, /npm run test:stage5b:no-evidence/);
 assert.match(docs.runbook, /npm run test:node:contract/);
@@ -620,11 +628,28 @@ assert.match(docs.requestPacket, /comments, PR bodies/);
 assert.match(docs.requestPacket, /CAD-generated measurements/);
 assert.match(docs.requestPacket, /CI\/GitHub metadata/);
 assert.match(docs.requestPacket, /does not prove readiness, attach evidence, mutate canonical package\s+artifacts, or authorize promotion/);
+assert.match(docs.requestPacket, /\[Stage 5B artifact\/schema catalog\]\(\.\/stage-5b-artifact-schema-catalog\.md\)/);
+assert.match(docs.requestPacket, /Schema\s+discoverability does not make the report evidence/);
 assert.match(
   docs.requestPacket.replace(/`inspection_evidence`/g, 'inspection_evidence').replace(/\s+/g, ' '),
   new RegExp(HARD_EVIDENCE_RULE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
 );
 assert.match(docs.requestPacket, NON_EVIDENCE_BOUNDARY_PATTERN);
+
+assert.match(docs.runbook, /\[Stage 5B artifact\/schema catalog\]\(\.\/stage-5b-artifact-schema-catalog\.md\)/);
+assert.match(docs.inspectionContract, /\[Stage 5B artifact\/schema catalog\]\(\.\/stage-5b-artifact-schema-catalog\.md\)/);
+assert.match(docs.artifactSchemaCatalog, /^# Stage 5B artifact\/schema catalog/m);
+assert.match(docs.artifactSchemaCatalog, /schemas\/stage5b-candidate-gate-report\.schema\.json/);
+assert.match(docs.artifactSchemaCatalog, /validation_diagnostics\.json/);
+assert.match(
+  docs.artifactSchemaCatalog.replace(/`inspection_evidence`/g, 'inspection_evidence'),
+  new RegExp(HARD_EVIDENCE_RULE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+);
+getStage5bArtifactSchemaCatalog().forEach((entry) => {
+  assert(docs.artifactSchemaCatalog.includes(entry.surface), `artifact/schema catalog should document ${entry.surface}`);
+  assert.match(entry.inspection_evidence_status, /Not inspection_evidence/i, `${entry.id} should stay non-evidence`);
+  assert.match(entry.readiness_effect, /No readiness change|Non-mutating|readiness remains|does not attach evidence/i, `${entry.id} should document readiness effect`);
+});
 
 [
   'inspection-evidence-intake reports are discovery/review artifacts only; they are not package inspection evidence.',

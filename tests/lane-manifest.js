@@ -17,6 +17,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'Lane manifest', args: Object.freeze(['tests/lane-manifest.test.js']) }),
       Object.freeze({ label: 'Source-of-truth drift', args: Object.freeze(['tests/source-of-truth-drift.test.js']) }),
       Object.freeze({ label: 'Stage 5B source-of-truth guard', args: Object.freeze(['tests/stage5b-source-of-truth-guard.test.js']) }),
+      Object.freeze({ label: 'Stage 5B artifact/schema catalog guard', args: Object.freeze(['tests/stage5b-artifact-catalog.test.js']) }),
       Object.freeze({ label: 'Stage 5B artifact schema contracts', args: Object.freeze(['tests/stage5b-artifact-contracts.test.js']) }),
       Object.freeze({ label: 'Stage 5B candidate evidence gate', args: Object.freeze(['tests/stage5b-candidate-evidence-gate.test.js']) }),
       Object.freeze({ label: 'Example library manifest', args: Object.freeze(['tests/example-library-manifest.test.js']) }),

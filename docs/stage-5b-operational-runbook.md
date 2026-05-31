@@ -108,6 +108,16 @@ The corresponding tracked artifact types are:
 
 These artifacts are review/control outputs only. They summarize searched source classes, accepted and rejected counts, GitHub skip/download metadata when enabled, blockers, attachment readiness, future commands, and canonical readiness-held truth. They do not attach evidence, regenerate readiness, update standard docs, package a release bundle, or make a production-readiness claim.
 
+## Artifact/Schema Catalog
+
+Use the [Stage 5B artifact/schema catalog](./stage-5b-artifact-schema-catalog.md)
+when you need the concise map of each control output's producer, schema or
+contract, location pattern, preview boundary, control/private status,
+`inspection_evidence` status, and readiness effect. The catalog makes the
+candidate gate report schema discoverable as
+`schemas/stage5b-candidate-gate-report.schema.json`, while preserving that the
+report is only a non-production control artifact and is never evidence.
+
 ## API And Tracked Job Path
 
 Start the local API and Studio shell:
@@ -234,6 +244,7 @@ git diff --check
 node tests/stage5b-candidate-evidence-gate.test.js
 node tests/first-user-docs-smoke.test.js
 node tests/stage5b-source-of-truth-guard.test.js
+node tests/stage5b-artifact-catalog.test.js
 node tests/stage5b-evidence-audit-cli-smoke.test.js
 npm run test:stage5b:no-evidence
 npm run test:node:contract

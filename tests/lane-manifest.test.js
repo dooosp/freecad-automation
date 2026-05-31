@@ -63,5 +63,9 @@ assert(
   contractLane.steps.some((step) => step.args.includes('tests/stage5b-evidence-audit-cli-smoke.test.js')),
   'contract lane should include the Stage 5B audit CLI smoke'
 );
+assert(
+  contractLane.steps.some((step) => step.args.includes('tests/stage5b-artifact-catalog.test.js')),
+  'contract lane should include the Stage 5B artifact/schema catalog guard'
+);
 
 console.log('lane-manifest.test.js: ok');
