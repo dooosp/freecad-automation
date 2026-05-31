@@ -414,7 +414,7 @@ export function collectGeneratedArtifactGroups(artifacts = []) {
       ? buildGeneratedArtifactRow({
           id: 'create-quality',
           label: 'Create quality JSON',
-          hint: 'Model quality evidence',
+          hint: 'Model quality output',
           artifact: firstMatchingArtifact(artifacts, isCreateQualityArtifactForDownloads),
         })
       : null,
@@ -422,7 +422,7 @@ export function collectGeneratedArtifactGroups(artifacts = []) {
       ? buildGeneratedArtifactRow({
           id: 'drawing-quality',
           label: 'Drawing quality JSON',
-          hint: 'Drawing QA evidence',
+          hint: 'Drawing QA output',
           artifact: firstMatchingArtifact(artifacts, isDrawingQualityArtifactForDownloads),
         })
       : null,
@@ -439,7 +439,7 @@ export function collectGeneratedArtifactGroups(artifacts = []) {
   return [
     { id: 'cad-exports', title: 'CAD exports', rows: cadRows },
     { id: 'reports', title: 'Reports', rows: reportRows },
-    { id: 'quality-evidence', title: 'Quality evidence', rows: qualityRows },
+    { id: 'quality-outputs', title: 'Quality outputs', rows: qualityRows },
   ];
 }
 
@@ -510,7 +510,7 @@ function renderGeneratedFilesPanel(artifacts = []) {
           })
         : el('div', {
             className: 'support-note',
-            text: 'No primary STEP, STL, report, or quality evidence files were detected for this run yet. Use All artifacts below for the raw manifest-backed list.',
+            text: 'No primary STEP, STL, report, or quality output files were detected for this run yet. Use All artifacts below for the raw manifest-backed list.',
           }),
     ],
   });
@@ -784,7 +784,7 @@ function renderExtractedSemanticsSection(extractedSemantics = null) {
             children: [
               el('a', {
                 className: 'action-button action-button-ghost',
-                text: `Open evidence - ${evidenceArtifact.label}`,
+                text: `Open output - ${evidenceArtifact.label}`,
                 attrs: { href: evidenceArtifact.href, target: '_blank', rel: 'noreferrer noopener' },
               }),
             ],
@@ -812,7 +812,7 @@ function renderSuggestedActionGroups(extractedSemantics = null) {
           })
         : el('div', {
             className: 'support-note',
-            text: extractedSemantics.suggestedActionEmptyCopy || 'No additional drawing actions were suggested from extracted evidence.',
+            text: extractedSemantics.suggestedActionEmptyCopy || 'No additional drawing actions were suggested from extracted output.',
           }),
       ...groups.map((group) => (
         el('div', {
@@ -879,7 +879,7 @@ function renderDrawingQualitySection(drawingQuality = null) {
               el('p', {
                 className: 'list-copy',
                 text: drawingQuality.available
-                  ? 'Semantic drawing evidence is interpreted separately from job execution status.'
+                  ? 'Semantic drawing QA output is interpreted separately from job execution status.'
                   : 'Drawing semantic QA not available for this job.',
               }),
             ],
@@ -913,7 +913,7 @@ function renderDrawingQualitySection(drawingQuality = null) {
           value: drawingQuality.decisionImpact || 'Unknown',
         },
         {
-          label: 'Evidence artifact',
+          label: 'Control output',
           value: evidenceArtifact?.label || 'Report summary',
           note: evidenceArtifact?.fileName || drawingQuality.evidenceSource || '',
         },
@@ -943,7 +943,7 @@ function renderDrawingQualitySection(drawingQuality = null) {
             children: [
               el('a', {
                 className: 'action-button action-button-ghost',
-                text: `Open evidence - ${evidenceArtifact.label}`,
+                text: `Open output - ${evidenceArtifact.label}`,
                 attrs: { href: evidenceArtifact.href, target: '_blank', rel: 'noreferrer noopener' },
               }),
             ],
@@ -1035,7 +1035,7 @@ function renderFailureActionButtons({ model = {}, state = {} } = {}) {
     createQualityLink
       ? el('a', {
           className: 'action-button action-button-primary',
-          text: 'Inspect quality evidence',
+          text: 'Inspect quality output',
           attrs: { href: createQualityLink.href, target: '_blank', rel: 'noreferrer noopener' },
         })
       : null,
@@ -1106,7 +1106,7 @@ function renderEngineeringFailureNextActions(nextActions = null, { model = {}, s
                   el('p', { className: 'list-label', text: entry.whatFailed || `${entry.label || 'Engineering check'} failed.` }),
                   el('p', { className: 'list-copy', text: entry.whyItMatters || 'This quality gate protects downstream CAD and manufacturing review decisions.' }),
                   createInfoGrid([
-                    { label: 'Inspect', value: entry.evidence || 'Inspect the quality evidence JSON.' },
+                    { label: 'Inspect', value: entry.evidence || 'Inspect the quality report JSON.' },
                     { label: 'Change', value: entry.change || 'Fix the related config or source geometry.' },
                     { label: 'Rerun', value: entry.rerun || 'Run tracked create again after the fix.' },
                     { label: 'Success', value: entry.success || 'Confirm Engineering Quality becomes PASS.' },
@@ -1700,7 +1700,7 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
         createEmptyState({
           icon: 'F',
           title: 'No active artifact set',
-          copy: 'Open a recent job to see the generated STEP, STL, reports, and quality evidence here.',
+          copy: 'Open a recent job to see the generated STEP, STL, reports, and quality outputs here.',
         })
       );
       return;

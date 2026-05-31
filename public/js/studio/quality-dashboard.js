@@ -685,7 +685,7 @@ function buildFailureGuidanceEntry(row = {}) {
       ...base,
       whatFailed: 'The exported STEP geometry did not preserve a valid expected result.',
       whyItMatters: 'If STEP reimport changes or invalidates geometry, the deliverable CAD file may not match the model Studio reviewed.',
-      evidence: 'Inspect the STEP artifact, create-quality JSON, and reimported STEP evidence.',
+      evidence: 'Inspect the STEP artifact, create-quality JSON, and reimported STEP output.',
       change: 'Check export settings, generated shape stability, boolean operations, and any source feature behind the failing STEP measurement.',
     };
   }
@@ -693,9 +693,9 @@ function buildFailureGuidanceEntry(row = {}) {
   if (kind === 'missing_evidence') {
     return {
       ...base,
-      whatFailed: `${label} evidence is incomplete or missing.`,
-      whyItMatters: 'Studio cannot prove the quality result without the expected measurement or artifact evidence.',
-      evidence: 'Inspect generated files, quality evidence JSON, manifest entries, and job logs.',
+      whatFailed: `${label} output is incomplete or missing.`,
+      whyItMatters: 'Studio cannot explain the quality result without the expected measurement or artifact metadata.',
+      evidence: 'Inspect generated files, quality report JSON, manifest entries, and job logs.',
       change: 'Check whether the tracked job produced the expected artifacts and whether the config/source path still resolves.',
     };
   }
@@ -703,7 +703,7 @@ function buildFailureGuidanceEntry(row = {}) {
   return {
     ...base,
     whatFailed: `${label} failed its engineering quality check.`,
-    whyItMatters: 'The generated evidence does not match the expected engineering target closely enough to clear the quality gate.',
+    whyItMatters: 'The generated QA metadata does not match the expected engineering target closely enough to clear the quality gate.',
     change: 'Check the config or source feature that controls this measurement.',
   };
 }
@@ -720,11 +720,11 @@ function buildEngineeringFailureNextActions({ failedRows = [], unavailableRows =
   return {
     title: 'What to do next',
     summary: primaryEntry
-      ? 'Start with the failed check, inspect the linked evidence, fix the related config or source geometry, then rerun the tracked flow.'
-      : 'Inspect the available quality evidence, repair the source issue, then rerun the tracked flow.',
+      ? 'Start with the failed check, inspect the linked output, fix the related config or source geometry, then rerun the tracked flow.'
+      : 'Inspect the available quality output, repair the source issue, then rerun the tracked flow.',
     entries,
     steps: [
-      primaryEntry?.evidence || 'Inspect the quality evidence JSON for expected, actual, delta, tolerance, and source.',
+      primaryEntry?.evidence || 'Inspect the quality report JSON for expected, actual, delta, tolerance, and source.',
       primaryEntry?.change || 'Fix the related config value or source geometry.',
       'Run tracked create again after the fix.',
       'Run tracked report again when report artifacts need to reflect the new result.',
@@ -767,7 +767,7 @@ function buildEngineeringQualitySummary(createQuality = {}) {
       ? 'Generated geometry and STEP reimport checks are within reported tolerances.'
       : status === 'fail'
         ? `${failedRows.length} engineering quality check${failedRows.length === 1 ? '' : 's'} failed.`
-        : 'Engineering quality evidence is incomplete.',
+        : 'Engineering quality output is incomplete.',
     sections: [
       {
         id: 'generated_shape_geometry',
@@ -1060,7 +1060,7 @@ function buildSuggestedActionDisplayModel({ semanticQuality = {}, extractedEvide
   return {
     totalCount: normalizedEntries.length,
     advisoryCopy: 'These suggestions are advisory unless an explicit enforceable drawing policy applies.',
-    emptyCopy: 'No additional drawing actions were suggested from extracted evidence.',
+    emptyCopy: 'No additional drawing actions were suggested from extracted output.',
     groups,
   };
 }
@@ -1078,14 +1078,14 @@ function summarizeRequiredEvidenceForDisplay(entries = []) {
     const matchedText = safeEntry.matched_raw_text || safeEntry.matched_extracted_id || '';
     const candidateText = candidate?.matched_raw_text || candidate?.matched_extracted_id || '';
     const classification = normalizeString(safeEntry.classification) || 'unknown';
-    let detail = safeEntry.reason || 'No extracted evidence detail was reported.';
+    let detail = safeEntry.reason || 'No extracted output detail was reported.';
 
     if (classification === 'extracted' && matchedText) {
-      detail = `Matched extracted evidence: ${matchedText}`;
+      detail = `Matched extracted output: ${matchedText}`;
     } else if (classification === 'unknown' && candidateText) {
       detail = `Low-confidence candidate: ${candidateText}`;
     } else if (classification === 'missing' && matchedText) {
-      detail = `Unconfirmed extracted evidence: ${matchedText}`;
+      detail = `Unconfirmed extracted output: ${matchedText}`;
     }
 
     return {
@@ -1133,13 +1133,13 @@ function buildExtractedSemanticsSummary(status, extractedEvidence = {}, semantic
     || safeList(extractedEvidence.required_views).length > 0;
 
   if (!hasEvidence && normalizedStatus === 'unknown') {
-    return 'Extracted drawing semantics evidence is not available for this job.';
+    return 'Extracted drawing semantics output is not available for this job.';
   }
   if (normalizedStatus === 'unsupported') {
-    return 'Extracted drawing semantics evidence is unsupported for this job.';
+    return 'Extracted drawing semantics output is unsupported for this job.';
   }
   if (normalizedStatus === 'partial') {
-    return 'Some drawing requirements could not be confirmed from extracted evidence.';
+    return 'Some drawing requirements could not be confirmed from extracted output.';
   }
   if (
     normalizedStatus === 'available'
@@ -1148,12 +1148,12 @@ function buildExtractedSemanticsSummary(status, extractedEvidence = {}, semantic
     && totalUnknown === 0
     && totalUnsupported === 0
   ) {
-    return 'Required drawing semantics were confirmed from extracted evidence.';
+    return 'Required drawing semantics were confirmed from extracted output.';
   }
   if (semanticQuality.enforceable === true) {
     return 'Extracted drawing semantics are shown here, but required gates still drive readiness unless an explicit enforceable policy applies.';
   }
-  return 'Extracted drawing semantics evidence is not available for this job.';
+  return 'Extracted drawing semantics output is not available for this job.';
 }
 
 function buildExtractedReadinessCopy(reportSummary = {}) {
@@ -1403,7 +1403,7 @@ function buildDrawingQualityPanel({ artifacts = [], reportSummary = {}, drawingS
   const suggestedActions = uniqueStrings([
     ...safeList(surface.recommended_actions),
     ...safeList(raw.recommended_actions),
-    !available ? 'Run drawing semantic QA to produce drawing_quality evidence.' : '',
+    !available ? 'Run drawing semantic QA to produce drawing_quality output.' : '',
     blocksReview && missingRequiredDimensions.length > 0 ? 'Add or map the missing required drawing dimensions before review.' : '',
     blocksReview && missingNotesViews.length > 0 ? 'Add the missing required drawing notes or views before review.' : '',
     blocksReview && conflictCount > 0 ? 'Resolve drawing dimension conflicts before manufacturing review.' : '',
@@ -1432,7 +1432,7 @@ function buildDrawingQualityPanel({ artifacts = [], reportSummary = {}, drawingS
           : 'Does not block manufacturing review',
     evidenceArtifact: drawingArtifact || reportArtifact || null,
     evidenceSource: drawingArtifact
-      ? 'drawing_quality evidence'
+      ? 'drawing_quality output'
       : reportArtifact
         ? 'report_summary drawing surface'
         : 'drawing quality payload',

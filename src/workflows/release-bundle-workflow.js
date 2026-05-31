@@ -1,6 +1,6 @@
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
-import { readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 
 import { validateDocsManifestAgainstReadiness } from '../../lib/af-execution-contract.js';
 import { collectArtifactMetadata } from '../../lib/artifact-manifest.js';
@@ -25,12 +25,43 @@ function safeObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 
+function compareStrings(left = '', right = '') {
+  return String(left || '').localeCompare(String(right || ''));
+}
+
 function uniqueStrings(values = []) {
   return [...new Set(
     values
       .filter((value) => typeof value === 'string' && value.trim())
       .map((value) => value.trim())
   )];
+}
+
+function pathWithinRootRelative(rootDir, targetPath) {
+  if (!rootDir || !targetPath) return null;
+  const relPath = relative(resolve(rootDir), resolve(targetPath)).replace(/\\/g, '/');
+  return relPath && !relPath.startsWith('..') && !isAbsolute(relPath) ? relPath : null;
+}
+
+function isBlockedRepoPath(repoPath = '') {
+  const normalized = normalizeBundlePath(repoPath);
+  return normalized === '.git'
+    || normalized.startsWith('.git/')
+    || normalized === 'local'
+    || normalized.startsWith('local/')
+    || normalized === 'tmp'
+    || normalized.startsWith('tmp/')
+    || normalized === 'output'
+    || normalized.startsWith('output/');
+}
+
+function isAllowedRepoSourcePath(repoPath = '') {
+  const normalized = normalizeBundlePath(repoPath);
+  if (!normalized || isBlockedRepoPath(normalized)) return false;
+  return normalized.startsWith('docs/examples/')
+    || normalized.startsWith('configs/examples/')
+    || normalized.startsWith('configs/generated/')
+    || normalized.startsWith('tests/fixtures/');
 }
 
 function mergeSourceArtifactRefs(primary = [], secondary = []) {
@@ -59,6 +90,21 @@ function repoRelativePath(projectRoot, filePath) {
     : filePath;
 }
 
+function portablePath(projectRoot, filePath, fallbackRoots = []) {
+  if (typeof filePath !== 'string' || !filePath.trim()) return filePath;
+  const repoPath = pathWithinRootRelative(projectRoot, filePath);
+  if (repoPath) return repoPath;
+  for (const root of fallbackRoots.filter(Boolean)) {
+    const rootPath = pathWithinRootRelative(root, filePath);
+    if (rootPath) return rootPath;
+  }
+  return safeDisplayPath(filePath);
+}
+
+function outputPortablePath(outputDir, filePath) {
+  return portablePath(null, filePath, [outputDir]);
+}
+
 function isPathWithinRoot(rootDir, targetPath) {
   if (!rootDir || !targetPath) return false;
   const relPath = relative(resolve(rootDir), resolve(targetPath)).replace(/\\/g, '/');
@@ -69,8 +115,20 @@ function normalizeBundlePath(relativePath) {
   return String(relativePath || '').replace(/\\/g, '/').replace(/^\/+/, '');
 }
 
+function assertSafeBundlePath(relativePath) {
+  const normalized = normalizeBundlePath(relativePath);
+  const segments = normalized.split('/');
+  const unsafe = !normalized
+    || segments.some((segment) => segment === '' || segment === '.' || segment === '..')
+    || normalized.includes('\0');
+  if (unsafe) {
+    throw new Error(`Unsafe release bundle path: ${relativePath || '(empty)'}`);
+  }
+  return normalized;
+}
+
 function makeUniqueBundlePath(desiredPath, usedPaths) {
-  const normalized = normalizeBundlePath(desiredPath);
+  const normalized = assertSafeBundlePath(desiredPath);
   if (!usedPaths.has(normalized)) {
     usedPaths.add(normalized);
     return normalized;
@@ -109,6 +167,29 @@ function defaultBundlePathForSourceRef(ref) {
 function safeDisplayPath(rawPath) {
   const fileName = basename(String(rawPath || '').replace(/\\/g, '/'));
   return fileName || 'outside-bundle-root';
+}
+
+function safeDocumentFilename(rawFilename, resolvedDocumentPath) {
+  const candidate = String(rawFilename || basename(resolvedDocumentPath) || '').trim();
+  if (
+    !candidate
+    || candidate.includes('/')
+    || candidate.includes('\\')
+    || candidate.includes('\0')
+    || candidate === '.'
+    || candidate === '..'
+  ) {
+    throw new Error(`Unsafe docs manifest filename for release bundle: ${safeDisplayPath(candidate || resolvedDocumentPath)}`);
+  }
+  return candidate;
+}
+
+function assertRepoScopedDocsManifest(projectRoot, docsManifestPath) {
+  if (!docsManifestPath) return;
+  const repoPath = pathWithinRootRelative(projectRoot, docsManifestPath);
+  if (!repoPath) {
+    throw new Error('Docs manifest for release packaging must stay inside the repository root.');
+  }
 }
 
 function resolveArtifactPath(rawPath, { projectRoot, readinessDir, allowedRoots = null }) {
@@ -161,6 +242,27 @@ function resolveArtifactPath(rawPath, { projectRoot, readinessDir, allowedRoots 
   };
 }
 
+function sourceArtifactAllowed(ref, resolvedPath, {
+  projectRoot,
+  readinessDir,
+}) {
+  if (!ref?.path || !resolvedPath) {
+    return { ok: true, reason: 'allowed' };
+  }
+  const repoPath = pathWithinRootRelative(projectRoot, resolvedPath);
+  if (!repoPath) {
+    return { ok: true, reason: 'allowed_external_work_dir' };
+  }
+  const readinessPath = pathWithinRootRelative(readinessDir, resolvedPath);
+  if (readinessPath && !isBlockedRepoPath(repoPath)) {
+    return { ok: true, reason: 'allowed_readiness_dir' };
+  }
+  if (isAllowedRepoSourcePath(repoPath)) {
+    return { ok: true, reason: 'allowed_repo_source' };
+  }
+  return { ok: false, reason: 'disallowed_repo_source_path' };
+}
+
 function filterAllowedSourceArtifactRefs(refs = [], {
   projectRoot,
   readinessDir,
@@ -170,17 +272,43 @@ function filterAllowedSourceArtifactRefs(refs = [], {
   return safeList(refs).filter((ref) => {
     if (!ref?.path) return true;
     const resolved = resolveArtifactPath(ref.path, { projectRoot, readinessDir });
-    if (resolved.ok) return true;
+    const allowed = resolved.ok
+      ? sourceArtifactAllowed(ref, resolved.path, { projectRoot, readinessDir })
+      : resolved;
+    if (resolved.ok && allowed.ok) return true;
     skippedArtifacts.push({
       artifact_type: ref.artifact_type || 'source_artifact',
       role: ref.role || 'input',
       source_path: safeDisplayPath(ref.path),
       label: ref.label || null,
-      reason: resolved.reason,
+      reason: allowed.reason || resolved.reason,
     });
-    warnings.push(`Optional source artifact path is outside allowed bundle roots and was omitted: ${safeDisplayPath(ref.path)}`);
+    warnings.push(`Optional source artifact path is not allowed in release bundles and was omitted: ${safeDisplayPath(ref.path)}`);
     return false;
   });
+}
+
+function manifestSourceArtifactRefs(refs = [], {
+  projectRoot,
+  readinessDir,
+  outputDir,
+}) {
+  return safeList(refs)
+    .map((ref) => {
+      if (!ref?.path) return ref;
+      const resolved = resolveArtifactPath(ref.path, { projectRoot, readinessDir });
+      return {
+        ...ref,
+        path: resolved.ok
+          ? portablePath(projectRoot, resolved.path, [readinessDir, outputDir])
+          : safeDisplayPath(ref.path),
+      };
+    })
+    .sort((left, right) => {
+      const leftKey = `${left?.artifact_type || ''}|${left?.path || ''}|${left?.role || ''}|${left?.label || ''}`;
+      const rightKey = `${right?.artifact_type || ''}|${right?.path || ''}|${right?.role || ''}|${right?.label || ''}`;
+      return compareStrings(leftKey, rightKey);
+    });
 }
 
 async function buildMetadataEntry({
@@ -269,6 +397,7 @@ export async function runReleaseBundleWorkflow({
   docsManifest = null,
   additionalWarnings = [],
   allowBundledDocsManifestPair = false,
+  generatedAt = null,
 } = {}) {
   const resolvedReadinessPath = resolve(readinessPath);
   const resolvedOutputPath = resolve(outputPath);
@@ -278,10 +407,12 @@ export async function runReleaseBundleWorkflow({
   const logPath = join(outputDir, 'release_bundle_log.json');
   const checksumsPath = join(outputDir, 'release_bundle_checksums.sha256');
   const usedBundlePaths = new Set();
-  const generatedAt = nowIso();
+  const resolvedGeneratedAt = nowIso(generatedAt);
+  const zipEntryDate = new Date(resolvedGeneratedAt);
   const bundleEntries = [];
   const skippedArtifacts = [];
   const warnings = [...safeList(readinessReport.warnings), ...additionalWarnings];
+  await mkdir(outputDir, { recursive: true });
   const readinessSourceArtifactRefs = filterAllowedSourceArtifactRefs(
     readinessReport.source_artifact_refs,
     {
@@ -312,6 +443,7 @@ export async function runReleaseBundleWorkflow({
   );
 
   if (docsManifestPath && docsManifest) {
+    assertRepoScopedDocsManifest(projectRoot, docsManifestPath);
     validateDocsManifestAgainstReadiness({
       readinessReport,
       readinessPath: resolvedReadinessPath,
@@ -371,11 +503,11 @@ export async function runReleaseBundleWorkflow({
       skippedArtifacts.push({
         artifact_type: ref.artifact_type,
         role: ref.role || 'input',
-        source_path: repoRelativePath(projectRoot, resolvedSourcePath),
+        source_path: portablePath(projectRoot, resolvedSourcePath, [readinessDir, outputDir]),
         label: ref.label || null,
         reason: 'missing',
       });
-      warnings.push(`Optional source artifact was not found and was omitted: ${ref.path}`);
+      warnings.push(`Optional source artifact was not found and was omitted: ${portablePath(projectRoot, resolvedSourcePath, [readinessDir, outputDir])}`);
       continue;
     }
 
@@ -402,11 +534,16 @@ export async function runReleaseBundleWorkflow({
     }));
     seenSourcePaths.add(resolvedDocsManifestPath);
 
-    for (const document of safeList(docsManifest.documents)) {
+    const sortedDocuments = [...safeList(docsManifest.documents)].sort((left, right) => {
+      const leftKey = `${left?.path || ''}|${left?.filename || ''}|${left?.label || ''}`;
+      const rightKey = `${right?.path || ''}|${right?.filename || ''}|${right?.label || ''}`;
+      return compareStrings(leftKey, rightKey);
+    });
+    for (const document of sortedDocuments) {
       const resolvedDocument = resolveArtifactPath(document.path, {
         projectRoot,
         readinessDir: dirname(resolvedDocsManifestPath),
-        allowedRoots: [projectRoot, dirname(resolvedDocsManifestPath)],
+        allowedRoots: [dirname(resolvedDocsManifestPath)],
       });
       if (!resolvedDocument.ok) {
         skippedArtifacts.push({
@@ -424,37 +561,38 @@ export async function runReleaseBundleWorkflow({
         skippedArtifacts.push({
           artifact_type: 'docs_document',
           role: 'derived',
-          source_path: repoRelativePath(projectRoot, resolvedDocumentPath),
+          source_path: portablePath(projectRoot, resolvedDocumentPath, [dirname(resolvedDocsManifestPath), outputDir]),
           label: document.label || document.filename || null,
           reason: 'missing',
         });
-        warnings.push(`Document listed in docs manifest was not found and was omitted: ${document.path}`);
+        warnings.push(`Document listed in docs manifest was not found and was omitted: ${portablePath(projectRoot, resolvedDocumentPath, [dirname(resolvedDocsManifestPath), outputDir])}`);
         continue;
       }
 
       if (seenSourcePaths.has(resolvedDocumentPath)) continue;
       seenSourcePaths.add(resolvedDocumentPath);
+      const documentFilename = safeDocumentFilename(document.filename, resolvedDocumentPath);
       bundleEntries.push(await buildMetadataEntry({
         artifactType: 'docs_document',
         role: 'derived',
-        label: document.label || document.filename || null,
-        bundlePath: makeUniqueBundlePath(`docs/${document.filename || basename(resolvedDocumentPath)}`, usedBundlePaths),
+        label: document.label || documentFilename,
+        bundlePath: makeUniqueBundlePath(`docs/${documentFilename}`, usedBundlePaths),
         sourcePath: resolvedDocumentPath,
       }));
     }
   }
 
   const bundleLogPayload = {
-    generated_at: generatedAt,
-    readiness_report_path: repoRelativePath(projectRoot, resolvedReadinessPath),
-    docs_manifest_path: docsManifestPath ? repoRelativePath(projectRoot, docsManifestPath) : null,
-    bundle_output_path: repoRelativePath(projectRoot, resolvedOutputPath),
+    generated_at: resolvedGeneratedAt,
+    readiness_report_path: portablePath(projectRoot, resolvedReadinessPath, [readinessDir, outputDir]),
+    docs_manifest_path: docsManifestPath ? portablePath(projectRoot, docsManifestPath, [readinessDir, outputDir]) : null,
+    bundle_output_path: outputPortablePath(outputDir, resolvedOutputPath),
     included_artifacts: bundleEntries.map((entry) => ({
       artifact_type: entry.artifact_type,
       role: entry.role,
       label: entry.label,
       path: entry.path,
-      source_path: repoRelativePath(projectRoot, entry.source_path),
+      source_path: portablePath(projectRoot, entry.source_path, [readinessDir, outputDir]),
       sha256: entry.sha256,
       size_bytes: entry.size_bytes,
     })),
@@ -496,7 +634,7 @@ export async function runReleaseBundleWorkflow({
     schema_version: C_ARTIFACT_SCHEMA_VERSION,
     artifact_type: 'release_bundle_manifest',
     workflow: 'readiness_release_bundle',
-    generated_at: generatedAt,
+    generated_at: resolvedGeneratedAt,
     warnings: uniqueStrings(warnings),
     coverage: {
       ...safeObject(readinessReport.coverage),
@@ -508,12 +646,16 @@ export async function runReleaseBundleWorkflow({
       document_count: safeList(docsManifest?.documents).length,
     },
     confidence: buildPropagatedConfidence(readinessReport),
-    source_artifact_refs: sourceArtifactRefs,
+    source_artifact_refs: manifestSourceArtifactRefs(sourceArtifactRefs, {
+      projectRoot,
+      readinessDir,
+      outputDir,
+    }),
     canonical_artifact: buildCanonicalArtifactDescriptor(),
     contract: getCCommandContract('pack'),
     readiness_report_ref: buildSourceArtifactRef(
       'readiness_report',
-      repoRelativePath(projectRoot, resolvedReadinessPath),
+      portablePath(projectRoot, resolvedReadinessPath, [readinessDir, outputDir]),
       'input',
       'Canonical readiness report JSON'
     ),
@@ -521,7 +663,7 @@ export async function runReleaseBundleWorkflow({
       ? {
           docs_manifest_ref: buildSourceArtifactRef(
             'docs_manifest',
-            repoRelativePath(projectRoot, docsManifestPath),
+            portablePath(projectRoot, docsManifestPath, [readinessDir, outputDir]),
             'input',
             'Standard docs manifest JSON'
           ),
@@ -533,7 +675,7 @@ export async function runReleaseBundleWorkflow({
         role: entry.role,
         label: entry.label,
         path: entry.path,
-        source_path: repoRelativePath(projectRoot, entry.source_path),
+        source_path: portablePath(projectRoot, entry.source_path, [readinessDir, outputDir]),
         size_bytes: entry.size_bytes,
         sha256: entry.sha256,
       })),
@@ -542,7 +684,7 @@ export async function runReleaseBundleWorkflow({
         role: 'supporting',
         label: 'Release bundle log JSON',
         path: 'release_bundle_log.json',
-        source_path: repoRelativePath(projectRoot, logEntry.path),
+          source_path: outputPortablePath(outputDir, logEntry.path),
         size_bytes: logEntry.size_bytes,
         sha256: logEntry.sha256,
       },
@@ -551,7 +693,7 @@ export async function runReleaseBundleWorkflow({
         role: 'supporting',
         label: 'Release bundle checksums',
         path: 'release_bundle_checksums.sha256',
-        source_path: repoRelativePath(projectRoot, checksumsMetadata.path),
+          source_path: outputPortablePath(outputDir, checksumsMetadata.path),
         size_bytes: checksumsMetadata.size_bytes,
         sha256: checksumsMetadata.sha256,
       },
@@ -560,15 +702,16 @@ export async function runReleaseBundleWorkflow({
         role: 'primary',
         label: 'Release bundle manifest JSON',
         path: 'release_bundle_manifest.json',
-        source_path: repoRelativePath(projectRoot, manifestPath),
+        source_path: outputPortablePath(outputDir, manifestPath),
       },
     ],
+    skipped_artifacts: skippedArtifacts,
     release_notes: buildReleaseNotes({
       docsManifestPath,
       skippedArtifacts,
     }),
     bundle_file: {
-      path: repoRelativePath(projectRoot, resolvedOutputPath),
+      path: outputPortablePath(outputDir, resolvedOutputPath),
       filename: basename(resolvedOutputPath),
     },
   };
@@ -582,20 +725,24 @@ export async function runReleaseBundleWorkflow({
     zipEntries.push({
       name: entry.path,
       data: await readFile(entry.source_path),
+      date: zipEntryDate,
     });
   }
   zipEntries.push(
     {
       name: 'release_bundle_log.json',
       data: await readFile(logPath),
+      date: zipEntryDate,
     },
     {
       name: 'release_bundle_checksums.sha256',
       data: await readFile(checksumsPath),
+      date: zipEntryDate,
     },
     {
       name: 'release_bundle_manifest.json',
       data: await readFile(manifestPath),
+      date: zipEntryDate,
     },
   );
   await createZipArchive(resolvedOutputPath, zipEntries);

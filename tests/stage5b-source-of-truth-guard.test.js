@@ -421,6 +421,10 @@ assert.match(docs.closeout, /PR #136|\[#136\]/, 'Stage 5B closeout should includ
 assert.match(docs.closeout, /PR #137|\[#137\]/, 'Stage 5B closeout should include the PR #137 artifact catalog state');
 assert.match(docs.closeout, /PR #138|\[#138\]/, 'Stage 5B closeout should include the PR #138 pre-attachment checklist state');
 assert.match(docs.closeout, /PR #139|\[#139\]/, 'Stage 5B closeout should include the PR #139 attachment authorization record state');
+assert.match(docs.closeout, /PR #140|\[#140\]/, 'Stage 5B closeout should include the PR #140 API/Studio artifact hardening state');
+assert.match(docs.closeout, /PR #141|\[#141\]/, 'Stage 5B closeout should include the PR #141 negative contract state');
+assert.match(docs.closeout, /PR #142|\[#142\]/, 'Stage 5B closeout should include the PR #142 job/artifact lifecycle state');
+assert.match(docs.closeout, /PR #143|\[#143\]/, 'Stage 5B closeout should include the PR #143 lifecycle hardening state');
 assert.match(docs.closeout, /\[Stage 5B operational runbook\]\(\.\/stage-5b-operational-runbook\.md\)/, 'Stage 5B closeout should link the operational runbook');
 assert.match(docs.closeout, /\[Stage 5B evidence request packet\]\(\.\/stage-5b-evidence-request-packet\.md\)/, 'Stage 5B closeout should link the evidence request packet');
 assert.match(docs.closeout, /\[Stage 5B attachment authorization record\]\(\.\/stage-5b-attachment-authorization-record\.md\)/, 'Stage 5B closeout should link the attachment authorization record');

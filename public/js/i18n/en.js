@@ -21,7 +21,7 @@ const en = {
     'studio.nav.model.label': 'Model',
     'studio.nav.model.copy': 'Optional prep lane for configs and geometry previews before review.',
     'studio.nav.drawing.label': 'Drawing',
-    'studio.nav.drawing.copy': 'Optional sheet-prep lane when a review needs drawing evidence.',
+    'studio.nav.drawing.copy': 'Optional sheet-prep lane when a review needs drawing output.',
     'studio.nav.review.label': 'Review',
     'studio.nav.review.copy': 'Hotspots, quality linkage, recommended actions, and readiness signals.',
     'studio.nav.artifacts.label': 'Packs',

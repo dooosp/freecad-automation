@@ -112,7 +112,7 @@ function makePackage(slug) {
       release_bundle_presence_does_not_mean_production_ready:
         'Release bundle presence does not mean production-ready; readiness remains gated by the canonical readiness report.',
       quality_drawing_evidence_does_not_satisfy_inspection_evidence:
-        'Quality and drawing evidence does not satisfy inspection_evidence without genuine completed inspection evidence.',
+        'Quality and drawing outputs are generated control metadata and do not satisfy inspection_evidence without genuine completed inspection evidence.',
       packages_remain_needs_more_evidence_until_real_inspection_evidence_is_attached:
         'Canonical packages remain needs_more_evidence until real inspection_evidence is attached through the canonical flow.',
     },
@@ -186,7 +186,7 @@ assert.equal(sectionModel.cards.length, 5);
 assert.equal(sectionModel.boundaryNotes.some((note) => /read-only docs packages/i.test(note)), true);
 assert.equal(sectionModel.boundaryNotes.some((note) => /tracked job\/artifact reopen remains separate/i.test(note)), true);
 assert.equal(sectionModel.boundaryNotes.some((note) => /release bundle presence does not mean production-ready/i.test(note)), true);
-assert.equal(sectionModel.boundaryNotes.some((note) => /quality and drawing evidence does not satisfy inspection_evidence/i.test(note)), true);
+assert.equal(sectionModel.boundaryNotes.some((note) => /quality and drawing outputs are generated control metadata/i.test(note)), true);
 
 for (const card of sectionModel.cards) {
   assert.equal(card.readiness.status, 'needs_more_evidence');

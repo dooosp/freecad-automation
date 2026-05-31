@@ -514,7 +514,7 @@ function createStartActionsCard(state) {
         {
           kicker: '2-4. Review signal path',
           title: 'Hotspots, linkage, and recommended actions stay upstream',
-          copy: 'Studio surfaces geometry, inspection, and quality outputs as tracked evidence instead of recreating D or C reasoning.',
+          copy: 'Studio surfaces geometry, inspection, and quality outputs as tracked control outputs instead of recreating D or C reasoning.',
           tone: 'ok',
         },
         {
@@ -623,7 +623,7 @@ function createStartActionsCard(state) {
         },
         {
           kicker: 'Import existing artifact / bundle',
-          title: 'Reopen tracked evidence',
+          title: 'Reopen tracked outputs',
           copy: 'Use the Packs workspace to reopen tracked review packs, readiness reports, and release bundles. Local file import is not available on this path yet.',
           meta: recentJobs.status === 'unavailable'
             ? 'Tracked artifact import needs the local API path from `fcad serve`.'
@@ -2166,7 +2166,7 @@ function createConsoleWorkflowRail() {
   return createCard({
     kicker: 'Workflow progress',
     title: 'Current location: Input',
-    copy: 'The console now stages context first and keeps downstream review, packaging, model inspection, drawing evidence, and export steps visible as one guided trail.',
+    copy: 'The console now stages context first and keeps downstream review, packaging, model inspection, drawing output, and export steps visible as one guided trail.',
     surface: 'canvas',
     body: [
       el('div', {
@@ -2572,7 +2572,7 @@ export const workspaceDefinitions = {
   },
   drawing: {
     label: 'Drawing',
-    summary: 'Optional sheet-prep lane when a review needs drawing evidence.',
+    summary: 'Optional sheet-prep lane when a review needs drawing output.',
     render(state) {
       return createDrawingWorkspace(state);
     },

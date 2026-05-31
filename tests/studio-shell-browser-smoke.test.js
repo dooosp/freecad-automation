@@ -1804,7 +1804,7 @@ try {
       'hold_for_evidence_completion',
       'missing inspection_evidence',
       'Release bundle presence does not mean production-ready',
-      'Quality and drawing evidence do not satisfy inspection_evidence',
+      'Quality and drawing outputs are generated control metadata and do not satisfy inspection_evidence',
     ]);
     assert.deepEqual(snapshot.readinessActions.map((entry) => entry.action), [
       'preview-canonical-artifact',
@@ -1936,7 +1936,7 @@ try {
     assert.equal(snapshot.text.includes('Job succeeded'), true);
     assert.equal(snapshot.text.includes('Quality passed'), true);
     assert.equal(snapshot.text.includes('Ready Yes'), true);
-    assert.equal(snapshot.text.includes('Open Artifacts to inspect generated files and quality evidence.'), true);
+    assert.equal(snapshot.text.includes('Open Artifacts to inspect generated files and quality outputs.'), true);
     assert.equal(snapshot.openArtifacts.action, 'open-job');
     assert.equal(snapshot.openArtifacts.route, 'artifacts');
     assert.equal(snapshot.openArtifacts.jobId.length > 0, true);
@@ -2318,7 +2318,7 @@ try {
       'quality_pass_bracket_report.pdf',
       'Report summary',
       'quality_pass_bracket_report_summary.json',
-      'Quality evidence',
+      'Quality outputs',
       'Create quality JSON',
       'quality_pass_bracket_create_quality.json',
       'Drawing quality JSON',
@@ -2372,12 +2372,12 @@ try {
     'None',
     'Manufacturing review impact',
     'Does not block manufacturing review',
-    'Evidence artifact',
+    'Control output',
     'Drawing quality JSON',
     'Extracted drawing semantics',
     'Available',
     'Advisory',
-    'Required drawing semantics were confirmed from extracted evidence.',
+    'Required drawing semantics were confirmed from extracted output.',
     'Status',
     'Impact',
     'Dimensions',
@@ -2391,8 +2391,8 @@ try {
     'Manufacturing readiness',
     'Manufacturing readiness is still determined by required Geometry / Drawing / DFM gates.',
     'Suggested drawing actions (0)',
-    'No additional drawing actions were suggested from extracted evidence.',
-    'Open evidence - Extracted drawing semantics JSON',
+    'No additional drawing actions were suggested from extracted output.',
+    'Open output - Extracted drawing semantics JSON',
     'All required quality gates passed',
     'No manufacturing blockers',
     'Ready for manufacturing review: Yes',
@@ -2431,7 +2431,7 @@ try {
     'Run tracked create again after the fix.',
     'Run tracked report again when report artifacts need to reflect the new result.',
     'Open Artifacts and confirm Engineering Quality becomes PASS.',
-    'Inspect quality evidence',
+    'Inspect quality output',
     'Open generated files',
     'Open Model workspace',
     'Drawing semantic QA',
@@ -2445,7 +2445,7 @@ try {
     'Blocks manufacturing review',
     'Extracted drawing semantics',
     'Partial',
-    'Some drawing requirements could not be confirmed from extracted evidence.',
+    'Some drawing requirements could not be confirmed from extracted output.',
     'Status',
     'Impact',
     'Hole diameter',
@@ -2483,8 +2483,8 @@ try {
     'Tolerance: KS B 0401 m',
     'Manufacturing readiness',
     'Still blocked by required Geometry / Drawing / DFM gates.',
-    'Open evidence - Extracted drawing semantics JSON',
-    'Open evidence - Drawing quality JSON',
+    'Open output - Extracted drawing semantics JSON',
+    'Open output - Drawing quality JSON',
     'Manufacturing review blocked by',
     'Ready for manufacturing review: No',
   ]);

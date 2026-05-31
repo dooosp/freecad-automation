@@ -106,7 +106,10 @@
       "type": "object",
       "required": ["filename", "path"],
       "properties": {
-        "filename": { "type": "string" },
+        "filename": {
+          "type": "string",
+          "pattern": "^[^/\\\\.][^/\\\\]*$"
+        },
         "path": { "type": "string" },
         "document_type": { "type": ["string", "null"] },
         "label": { "type": ["string", "null"] }

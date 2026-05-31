@@ -7,8 +7,10 @@ import { CANONICAL_PACKAGE_SLUGS as DISCOVERY_CANONICAL_PACKAGE_SLUGS } from '..
 const ROOT = resolve(import.meta.dirname, '..');
 const EXAMPLES_ROOT = resolve(ROOT, 'docs', 'examples');
 const EXAMPLES_README_PATH = join(EXAMPLES_ROOT, 'README.md');
+const INFOTAINMENT_README_PATH = join(EXAMPLES_ROOT, 'infotainment-display-bracket', 'README.md');
 const MANIFEST_PATH = join(EXAMPLES_ROOT, 'example-library-manifest.json');
 const CLOSEOUT_PATH = resolve(ROOT, 'docs', 'project-closeout-status.md');
+const INFOTAINMENT_PORTFOLIO_PATH = resolve(ROOT, 'docs', 'portfolio', 'infotainment-production-readiness-case.md');
 
 const CANONICAL_PACKAGES = Object.freeze([
   {
@@ -216,6 +218,8 @@ assert.deepEqual(
 );
 
 const examplesReadme = readText(EXAMPLES_README_PATH);
+const infotainmentReadme = readText(INFOTAINMENT_README_PATH);
+const infotainmentPortfolio = readText(INFOTAINMENT_PORTFOLIO_PATH);
 const closeoutText = readText(CLOSEOUT_PATH);
 const rawManifest = readText(MANIFEST_PATH);
 const manifestDuplicates = findDuplicateJsonObjectKeys(rawManifest);
@@ -273,6 +277,15 @@ for (const entry of manifest.examples.filter((example) => example.status !== 'ca
 
 assert.match(examplesReadme, /release_bundle_checksums\.sha256/);
 assert.match(examplesReadme, /release_bundle_log\.json/);
+assert.equal(examplesReadme.includes('canonical evidence'), false, 'docs/examples/README.md should not describe generated outputs as canonical evidence');
+for (const [label, text] of [
+  ['infotainment example README', infotainmentReadme],
+  ['infotainment portfolio case', infotainmentPortfolio],
+]) {
+  assert.match(text, /Historical non-canonical/i, `${label} should disclose historical non-canonical status`);
+  assert.match(text, /does not attach `inspection_evidence`/i, `${label} should preserve missing inspection_evidence truth`);
+  assert.match(text, /needs_more_evidence \/ hold_for_evidence_completion/i, `${label} should preserve readiness-held truth`);
+}
 assert.match(closeoutText, /non-inspection software milestone/);
 assert.match(closeoutText, /Production readiness remains held/);
 assert.match(closeoutText, /Stage 5B inspection evidence remains parked/);

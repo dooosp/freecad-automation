@@ -18,7 +18,7 @@ const DEFAULT_BOUNDARY_NOTES = Object.freeze([
   'Studio tracked job/artifact reopen remains separate from checked-in canonical docs package discovery.',
   'Release bundle presence does not mean production-ready; readiness remains gated by the canonical readiness report.',
   'Canonical packages remain needs_more_evidence until real inspection_evidence is attached through the canonical flow.',
-  'Quality and drawing evidence does not satisfy inspection_evidence without genuine completed inspection evidence.',
+  'Quality and drawing outputs are generated control metadata and do not satisfy inspection_evidence without genuine completed inspection evidence.',
 ]);
 
 export function buildCanonicalArtifactPreviewRoute(slug, artifactKey) {
@@ -155,7 +155,7 @@ export function buildCanonicalPackageCardModel(pkg = {}) {
       missingInspectionEvidence,
     },
     callout: missingInspectionEvidence
-      ? `${status}: missing inspection_evidence. Quality and drawing evidence do not satisfy inspection_evidence.`
+      ? `${status}: missing inspection_evidence. Quality and drawing outputs are generated control metadata and do not satisfy inspection_evidence.`
       : `${status}: inspection_evidence is attached.`,
     sourceOfTruthPath: pathValue(readiness.source_of_truth_path),
     artifactRefs,

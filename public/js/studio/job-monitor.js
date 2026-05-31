@@ -216,7 +216,7 @@ export function buildStudioJobCompletionNotice(job = {}, target = {}, remainingA
     const secondaryRoute = target.secondaryRoute || '';
     const destinationCopy = primaryRoute === 'review'
       ? 'Open Review for decision context or Artifacts for generated files.'
-      : 'Open Artifacts to inspect generated files and quality evidence.';
+      : 'Open Artifacts to inspect generated files and quality outputs.';
     const messageParts = ['Job succeeded.', ...qualityParts, destinationCopy, stillRunningCopy].filter(Boolean);
     const actions = [
       buildOpenJobAction({
