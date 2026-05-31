@@ -109,7 +109,10 @@ fields together:
 The [Stage 5B artifact/schema catalog](./stage-5b-artifact-schema-catalog.md)
 also lists this report with its producer, schema path, local/private preview
 boundary, non-evidence status, and unchanged-readiness effect. Schema
-discoverability does not make the report evidence.
+discoverability does not make the report evidence. The
+[Stage 5B attachment authorization record](./stage-5b-attachment-authorization-record.md)
+documents the later human authorization metadata required before canonical
+attachment; that record is control metadata, not `inspection_evidence`.
 
 | Field | Meaning |
 | --- | --- |
@@ -150,6 +153,7 @@ fields:
 - schemas
 - fixtures
 - ignored inbox files and candidate gate reports
+- attachment authorization records
 - intake reports, promotion dry-run manifests, and audit outputs
 - generated examples
 - request packets, generated packets, templates, and collection guides
@@ -179,6 +183,25 @@ artifacts, or authorize promotion. A later task must explicitly approve any
 canonical mutation through `review-context --inspection-evidence`,
 `readiness-pack`, `generate-standard-docs`, and `pack`.
 
+Before that later mutation task, maintainers must complete or reference the
+[Stage 5B attachment authorization record](./stage-5b-attachment-authorization-record.md).
+It records accepted gate report review, redaction/privacy review, provenance/
+reviewer traceability, package/part/revision mapping, intake/dry-run/audit
+review, human authorization, exact later task boundary, and readiness-held
+truth. The authorization record itself does not attach evidence, promote
+evidence, satisfy readiness, or mutate canonical artifacts.
+
+The authorization record checklist must state:
+
+- accepted candidate gate report
+- redaction/privacy review complete
+- provenance/reviewer traceability confirmed
+- package/part/revision mapping confirmed
+- intake/dry-run/audit outputs reviewed
+- explicit human authorization before attachment
+- exact later task boundary for attachment
+- readiness remains held until authorized attachment occurs
+
 ## Pre-Attachment Review Checklist
 
 Use this concise checklist before any later authorized intake review for an
@@ -207,11 +230,23 @@ evidence, promote evidence, satisfy readiness, or change package state.
    fcad inspection-evidence-promotion-dry-run --intake-report <report.json> --out <promotion_dry_run_manifest.json>
    fcad stage5b-evidence-audit --out-dir <dir>
    ```
-7. Authorization before attachment: do not run `review-context
+7. Attachment authorization record: complete or reference the
+   [Stage 5B attachment authorization record](./stage-5b-attachment-authorization-record.md)
+   as control metadata before canonical mutation. Confirm the accepted gate
+   report, redaction/privacy review, provenance/reviewer traceability,
+   package/part/revision mapping, intake/dry-run/audit output review, explicit
+   human authorization before attachment, exact later task boundary for
+   attachment, and readiness remains held until authorized attachment occurs.
+8. Authorization before attachment: do not run `review-context
    --inspection-evidence`, `readiness-pack`, `generate-standard-docs`, or `pack`
    until a separate later task explicitly authorizes canonical mutation after
    validation and review.
-8. Readiness-held truth: readiness remains `needs_more_evidence` /
+9. Exact later attachment task boundary: name the later task, issue, PR, or
+   change request allowed to run `review-context --inspection-evidence`; PR
+   comments, authorization records, gate reports, inbox files, catalogs,
+   schemas, dry-runs, and audits do not attach evidence or expand that boundary
+   by themselves.
+10. Readiness-held truth: readiness remains `needs_more_evidence` /
    `hold_for_evidence_completion`, and `inspection_evidence` remains missing
    until genuine completed evidence is validated, reviewed, and deliberately
    attached.

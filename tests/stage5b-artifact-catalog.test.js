@@ -14,6 +14,7 @@ const HARD_EVIDENCE_RULE = /Only genuine completed physical\/supplier\/lab\/QA i
 const EXPECTED_IDS = Object.freeze([
   'stage5b_evidence_request_packet',
   'stage5b_candidate_gate_report',
+  'stage5b_attachment_authorization_record',
   'inspection_evidence_intake_report',
   'inspection_evidence_promotion_dry_run_manifest',
   'stage5b_evidence_audit_manifest',
@@ -81,6 +82,17 @@ assert.match(candidateGate.preview_boundary, /Local review only/i);
 assert.match(candidateGate.inspection_evidence_status, /eligible for later Stage 5B intake review only/i);
 assert.match(candidateGate.readiness_effect, /does not attach evidence, promote evidence, satisfy readiness, or mutate canonical artifacts/i);
 assert.match(candidateGate.readiness_effect, /pre-attachment checklist/i);
+
+const authorizationRecord = catalog.find((entry) => entry.id === 'stage5b_attachment_authorization_record');
+assert.equal(authorizationRecord.schema_path, null);
+assert.match(authorizationRecord.schema_or_contract, /docs\/stage-5b-attachment-authorization-record\.md/);
+assert.match(authorizationRecord.control_private_status, /control metadata/i);
+assert.match(authorizationRecord.inspection_evidence_status, /Not inspection_evidence/i);
+assert.match(authorizationRecord.inspection_evidence_status, /authorization/i);
+assert.match(authorizationRecord.readiness_effect, /No readiness change/i);
+assert.match(authorizationRecord.readiness_effect, /later authorized attachment/i);
+assert.match(authorizationRecord.readiness_effect, /needs_more_evidence \/ hold_for_evidence_completion/i);
+assert(catalogDoc.includes('docs/stage-5b-attachment-authorization-record.md'), 'authorization record doc path should be discoverable');
 
 const trackedPreviewRows = catalog.filter((entry) => /Studio\/API preview/.test(entry.preview_boundary));
 assert.equal(trackedPreviewRows.length, 5, 'tracked audit/intake/dry-run/diagnostic outputs should document preview boundaries');

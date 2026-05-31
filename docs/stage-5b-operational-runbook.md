@@ -59,7 +59,7 @@ Safe local flow:
 2. Place the received candidate JSON under the ignored local inbox.
 3. Run `node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json> --out <report.json>`, with `--out` pointing to a local inbox report when the report might describe private material.
 4. Review the accept/reject report.
-5. Use the Pre-Attachment Review Checklist below before any intake, dry-run, or audit task.
+5. Use the Pre-Attachment Review Checklist and the Attachment Authorization Record below before any intake, dry-run, audit, or attachment task.
 6. Run intake, promotion dry-run, or audit later only if the task explicitly authorizes that review path. Later authorized attachment still needs validation, review, and deliberate `review-context --inspection-evidence` mutation outside this local-inbox guard task.
 
 Before maintainers put a newly supplied JSON record into the Stage 5B intake/dry-run review path, run the local non-production candidate gate:
@@ -89,7 +89,7 @@ metadata, `path_safety` redaction notes, `readiness_unchanged` fields, and
 promoted, no readiness was satisfied, and no canonical package artifacts were
 mutated.
 
-The gate fails closed for generated/control artifacts, diagnostics, schemas, fixtures, intake reports, promotion dry-run manifests, audit outputs, GitHub/CI metadata, screenshots, templates, guides, comments, PR bodies, docs artifacts, release bundles, and CAD-generated, simulated, inferred, or synthetic measurements. Fixtures used by tests are control/non-evidence examples only and must not be promoted or described as genuine package evidence.
+The gate fails closed for generated/control artifacts, diagnostics, schemas, fixtures, intake reports, promotion dry-run manifests, audit outputs, attachment authorization records, GitHub/CI metadata, screenshots, templates, guides, comments, PR bodies, docs artifacts, release bundles, and CAD-generated, simulated, inferred, or synthetic measurements. Fixtures used by tests are control/non-evidence examples only and must not be promoted or described as genuine package evidence.
 
 ## Pre-Attachment Review Checklist
 
@@ -124,13 +124,45 @@ canonical artifacts.
    fcad inspection-evidence-promotion-dry-run --intake-report <report.json> --out <promotion_dry_run_manifest.json>
    fcad stage5b-evidence-audit --out-dir <dir>
    ```
-7. Authorization before attachment: do not run `review-context
+7. Attachment authorization record: before any canonical mutation, complete or
+   reference the [Stage 5B attachment authorization record](./stage-5b-attachment-authorization-record.md)
+   as control metadata. It must confirm the accepted gate report, redaction/
+   privacy review, provenance/reviewer traceability, package/part/revision
+   mapping, intake/dry-run/audit review, human authorizer, and exact later task
+   boundary. The record itself is not `inspection_evidence`.
+8. Authorization before attachment: do not run `review-context
    --inspection-evidence`, `readiness-pack`, `generate-standard-docs`, or `pack`
    until a separate later task explicitly authorizes canonical mutation after
    validation and review.
-8. Readiness-held truth: until that later attachment task completes, readiness
+9. Exact later attachment task boundary: name the later task, issue, PR, or
+   change request that may run canonical mutation; no intake report, dry-run,
+   audit, authorization record, or PR comment can expand that boundary by
+   itself.
+10. Readiness-held truth: until that later attachment task completes, readiness
    remains `needs_more_evidence` / `hold_for_evidence_completion`, and
    `inspection_evidence` remains missing.
+
+## Attachment Authorization Record
+
+Use the [Stage 5B attachment authorization record](./stage-5b-attachment-authorization-record.md)
+at the future moment before any genuine inspection record is attached. It is
+control metadata, not `inspection_evidence`, and records whether these
+authorization prerequisites are complete:
+
+- accepted candidate gate report
+- redaction/privacy review complete
+- provenance/reviewer traceability confirmed
+- package/part/revision mapping confirmed
+- intake/dry-run/audit outputs reviewed
+- explicit human authorization before attachment
+- exact later task boundary for attachment
+- readiness remains held until authorized attachment occurs
+
+Authorization records do not attach evidence, promote evidence, satisfy
+readiness, or mutate canonical package artifacts. PR comments do not attach
+evidence. The only later mutation boundary is an explicitly authorized task that
+runs `review-context --inspection-evidence`, then refreshes readiness, standard
+docs, and release packaging with verified outputs.
 
 ## Audit Outputs
 
@@ -244,6 +276,7 @@ These sources do not satisfy `inspection_evidence`:
 - fixtures
 - ignored inbox files
 - candidate gate reports
+- attachment authorization records
 - request packets
 - docs and documentation artifacts
 - generated CAD, drawing, quality, DFM, readiness, review, standard-doc, release, or manifest artifacts
@@ -271,8 +304,9 @@ For a future real evidence task:
 4. Run `node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json>` and review the checklist. Rejections stop the record before intake/dry-run review.
 5. Run `fcad inspection-evidence-intake --out <report.json>` only if the task explicitly authorizes intake review.
 6. Run `fcad inspection-evidence-promotion-dry-run --intake-report <report.json> --out <promotion_dry_run_manifest.json>` and review blockers, match confidence, mutation boundaries, and rollback guidance.
-7. Attach only when the dry-run is attachment-ready and the task explicitly authorizes canonical mutation.
-8. Refresh `review-context --inspection-evidence`, `readiness-pack`, `generate-standard-docs`, and `pack` in that separate authorized task.
+7. Complete or reference the Stage 5B attachment authorization record as control metadata only.
+8. Attach only when the dry-run is attachment-ready and the separate later task explicitly authorizes canonical mutation.
+9. Refresh `review-context --inspection-evidence`, `readiness-pack`, `generate-standard-docs`, and `pack` in that separate authorized task.
 
 Until that happens, the readiness truth remains unchanged.
 

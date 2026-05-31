@@ -17,12 +17,13 @@ const PROMOTION_DRY_RUN_FILE_NAME = 'promotion_dry_run_manifest.json';
 const AUDIT_MANIFEST_FILE_NAME = 'stage5b_audit_manifest.json';
 const AUDIT_SUMMARY_FILE_NAME = 'stage5b_audit_summary.md';
 
-const HARD_EVIDENCE_RULE = 'Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence. Intake reports, dry-run manifests, audit manifests, fixtures, generated CAD/drawing/quality/DFM/readiness/review reports, release bundles, screenshots, CI summaries, templates, collection guides, and GitHub metadata alone are not evidence.';
+const HARD_EVIDENCE_RULE = 'Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence. Intake reports, dry-run manifests, audit manifests, authorization records, fixtures, generated CAD/drawing/quality/DFM/readiness/review reports, release bundles, screenshots, CI summaries, templates, collection guides, and GitHub metadata alone are not evidence.';
 
 const REJECTED_AS_FINAL_EVIDENCE = Object.freeze([
   'intake reports',
   'promotion dry-run manifests',
   'audit manifests',
+  'authorization records',
   'fixtures',
   'generated CAD artifacts',
   'generated drawing artifacts',

@@ -142,6 +142,7 @@ function assertCandidateReportContract(report, label, { eligible }) {
   assert.equal(report.path_safety.secret_bearing_refs_rejected, true);
   assert.match(report.path_safety.redaction_note, /absolute paths|tokens|credentials|authorization headers/i);
   assert.equal(report.non_evidence_boundary.candidate_gate_reports_do_not_satisfy_inspection_evidence, true);
+  assert.equal(report.non_evidence_boundary.authorization_records_do_not_satisfy_inspection_evidence, true);
   assert.equal(report.non_evidence_boundary.readiness_reports_do_not_satisfy_inspection_evidence, true);
   assert.equal(report.non_evidence_boundary.release_bundles_do_not_satisfy_inspection_evidence, true);
   assert.equal(report.non_evidence_boundary.cad_generated_measurements_are_not_evidence, true);
@@ -278,6 +279,8 @@ try {
     ['intake output', 'output/stage5b/intake_report.json', 'intake_output_not_evidence'],
     ['promotion dry-run output', 'output/stage5b/promotion_dry_run_manifest.json', 'promotion_dry_run_output_not_evidence'],
     ['audit manifest output', 'output/stage5b/stage5b_audit_manifest.json', 'audit_output_not_evidence'],
+    ['authorization record', 'docs/stage-5b-attachment-authorization-record.md', 'authorization_record_not_evidence'],
+    ['authorization record JSON', 'docs/examples/candidate-gate-bracket/inspection/attachment-authorization-record.json', 'authorization_record_not_evidence'],
     ['GitHub/CI metadata', '.github/workflows/automation-ci.yml', 'github_ci_metadata_not_evidence'],
     ['screenshot', 'docs/examples/candidate-gate-bracket/inspection/supplier-screenshot.png', 'screenshot_not_evidence'],
     ['template', 'docs/examples/candidate-gate-bracket/inspection/template-inspection.json', 'template_not_evidence'],
@@ -309,6 +312,7 @@ try {
     ['CI summary', 'ci_summary'],
     ['comment body', 'github_comment'],
     ['PR body', 'github_pr_body'],
+    ['attachment authorization record', 'stage5b_attachment_authorization_record'],
     ['docs manifest', 'docs_manifest'],
   ];
   for (const [label, artifactType] of artifactTypeCases) {

@@ -235,6 +235,7 @@
       "required": [
         "generated_control_artifacts_do_not_satisfy_inspection_evidence",
         "candidate_gate_reports_do_not_satisfy_inspection_evidence",
+        "authorization_records_do_not_satisfy_inspection_evidence",
         "readiness_reports_do_not_satisfy_inspection_evidence",
         "review_packs_do_not_satisfy_inspection_evidence",
         "release_bundles_do_not_satisfy_inspection_evidence",
@@ -247,6 +248,7 @@
       "properties": {
         "generated_control_artifacts_do_not_satisfy_inspection_evidence": { "const": true },
         "candidate_gate_reports_do_not_satisfy_inspection_evidence": { "const": true },
+        "authorization_records_do_not_satisfy_inspection_evidence": { "const": true },
         "readiness_reports_do_not_satisfy_inspection_evidence": { "const": true },
         "review_packs_do_not_satisfy_inspection_evidence": { "const": true },
         "release_bundles_do_not_satisfy_inspection_evidence": { "const": true },

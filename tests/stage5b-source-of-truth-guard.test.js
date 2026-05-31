@@ -74,7 +74,7 @@ const STAGE5B_ARTIFACTS = Object.freeze({
 });
 
 const HARD_EVIDENCE_RULE = 'Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.';
-const NON_EVIDENCE_BOUNDARY_PATTERN = /ignored inbox files|candidate gate reports|intake reports|dry-run manifests|audit manifests|generated CAD\/drawing\/quality\/DFM\/readiness\/review|fixtures|screenshots|CI summaries|templates|collection guides|GitHub metadata/i;
+const NON_EVIDENCE_BOUNDARY_PATTERN = /ignored inbox files|candidate gate reports|authorization records|intake reports|dry-run manifests|audit manifests|generated CAD\/drawing\/quality\/DFM\/readiness\/review|fixtures|screenshots|CI summaries|templates|collection guides|GitHub metadata/i;
 const PRE_ATTACHMENT_CHECKLIST_ITEMS = Object.freeze([
   'Accepted gate report',
   'Provenance and reviewer traceability',
@@ -82,8 +82,20 @@ const PRE_ATTACHMENT_CHECKLIST_ITEMS = Object.freeze([
   'Redaction and privacy review',
   'Path safety',
   'Next intake, dry-run, and audit commands',
+  'Attachment authorization record',
   'Authorization before attachment',
+  'Exact later attachment task boundary',
   'Readiness-held truth',
+]);
+const AUTHORIZATION_RECORD_ITEMS = Object.freeze([
+  'accepted candidate gate report',
+  'redaction/privacy review complete',
+  'provenance/reviewer traceability confirmed',
+  'package/part/revision mapping confirmed',
+  'intake/dry-run/audit outputs reviewed',
+  'explicit human authorization before attachment',
+  'exact later task boundary for attachment',
+  'readiness remains held until authorized attachment occurs',
 ]);
 
 function assertIncludesAll(haystack, needles, label) {
@@ -125,8 +137,18 @@ function assertPreAttachmentChecklist(text, label) {
   assert.match(text, /readiness remains `?needs_more_evidence`? \/ `?hold_for_evidence_completion`?/i, `${label} should preserve readiness-held truth`);
 }
 
+function assertAttachmentAuthorizationRecord(text, label) {
+  assert.match(text, /Stage 5B attachment authorization record/i, `${label} should name the attachment authorization record`);
+  assert.match(text, /control metadata, not `?inspection_evidence`?/i, `${label} should classify the authorization record as control metadata`);
+  for (const item of AUTHORIZATION_RECORD_ITEMS) {
+    assert.match(text.toLowerCase(), new RegExp(item.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${label} should include ${item}`);
+  }
+  assert.match(text, /review-context --inspection-evidence/i, `${label} should define the later attachment command boundary`);
+  assert.match(text, /needs_more_evidence`? \/ `?hold_for_evidence_completion/i, `${label} should preserve readiness-held truth`);
+}
+
 function assertNoControlSurfaceAttachmentOverclaim(text, label) {
-  const unsafeSurface = /\b(?:candidate acceptance|accepted gate report|candidate gate report|inbox placement|inbox file|catalog entr(?:y|ies)|schemas?|reports?|dry-runs?|audits?)\b/i;
+  const unsafeSurface = /\b(?:authorization records?|attachment authorization records?|candidate acceptance|accepted gate report|candidate gate report|inbox placement|inbox file|catalog entr(?:y|ies)|schemas?|reports?|dry-runs?|audits?)\b/i;
   const unsafeClaim = /\b(?:(?:attaches?|attached|promotes?|promoted)\b[^\n.]{0,120}\bevidence\b|(?:satisf(?:y|ies|ied)|clears?|cleared)\b[^\n.]{0,120}\b(?:inspection_evidence|readiness|evidence)\b|(?:proves?|proved)\b[^\n.]{0,120}\b(?:inspection_evidence|readiness)\b)/i;
   const negated = /\b(?:does not|do not|did not|cannot|never|must not|not |no |without|only genuine|control or review material only)\b/i;
   const unsafeLines = text.split('\n').filter((line) => unsafeSurface.test(line) && unsafeClaim.test(line) && !negated.test(line));
@@ -327,6 +349,7 @@ const docs = {
   closeout: readText('docs/stage-5b-automation-closeout-status.md'),
   runbook: readText('docs/stage-5b-operational-runbook.md'),
   requestPacket: readText('docs/stage-5b-evidence-request-packet.md'),
+  authorizationRecord: readText('docs/stage-5b-attachment-authorization-record.md'),
   artifactSchemaCatalog: readText('docs/stage-5b-artifact-schema-catalog.md'),
   inspectionContract: readText('docs/inspection-evidence-contract.md'),
   studioApi: readText('docs/studio-canonical-package-api.md'),
@@ -396,15 +419,19 @@ assert.match(docs.closeout, /PR #134|\[#134\]/, 'Stage 5B closeout should includ
 assert.match(docs.closeout, /PR #135|\[#135\]/, 'Stage 5B closeout should include the PR #135 ignored inbox state');
 assert.match(docs.closeout, /PR #136|\[#136\]/, 'Stage 5B closeout should include the PR #136 candidate gate schema state');
 assert.match(docs.closeout, /PR #137|\[#137\]/, 'Stage 5B closeout should include the PR #137 artifact catalog state');
+assert.match(docs.closeout, /PR #138|\[#138\]/, 'Stage 5B closeout should include the PR #138 pre-attachment checklist state');
 assert.match(docs.closeout, /\[Stage 5B operational runbook\]\(\.\/stage-5b-operational-runbook\.md\)/, 'Stage 5B closeout should link the operational runbook');
 assert.match(docs.closeout, /\[Stage 5B evidence request packet\]\(\.\/stage-5b-evidence-request-packet\.md\)/, 'Stage 5B closeout should link the evidence request packet');
+assert.match(docs.closeout, /\[Stage 5B attachment authorization record\]\(\.\/stage-5b-attachment-authorization-record\.md\)/, 'Stage 5B closeout should link the attachment authorization record');
 assert.match(docs.closeout, /\[Stage 5B artifact\/schema catalog\]\(\.\/stage-5b-artifact-schema-catalog\.md\)/, 'Stage 5B closeout should link the artifact/schema catalog');
 [
   'Stage 5B evidence request packet',
   'Stage 5B artifact/schema catalog',
+  'Stage 5B attachment authorization record',
   LOCAL_STAGE5B_INBOX,
   'node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json>',
   'Pre-attachment review checklist',
+  'exact later task boundary for attachment',
   'npm run test:stage5b:no-evidence',
   'inspection-evidence-intake',
   'inspection-evidence-promotion-dry-run',
@@ -417,6 +444,7 @@ assert.match(docs.testing, /stage5b-source-of-truth-guard\.test\.js/, 'testing d
 assert.match(docs.testing, /stage5b-artifact-catalog\.test\.js/, 'testing docs should mention the Stage 5B artifact catalog guard');
 assert.match(docs.testing, /Stage 5B operational runbook/, 'testing docs should mention the Stage 5B operational runbook');
 assert.match(docs.testing, /Pre-Attachment Review Checklist/, 'testing docs should mention the Stage 5B pre-attachment checklist guard');
+assert.match(docs.testing, /Stage 5B attachment authorization record/, 'testing docs should mention the Stage 5B attachment authorization record guard');
 
 Object.entries({
   README: docs.readme,
@@ -424,6 +452,7 @@ Object.entries({
   closeout: docs.closeout,
   runbook: docs.runbook,
   requestPacket: docs.requestPacket,
+  authorizationRecord: docs.authorizationRecord,
   artifactSchemaCatalog: docs.artifactSchemaCatalog,
   inspectionContract: docs.inspectionContract,
 }).forEach(([label, text]) => {
@@ -438,6 +467,7 @@ Object.entries({
   closeout: docs.closeout,
   runbook: docs.runbook,
   requestPacket: docs.requestPacket,
+  authorizationRecord: docs.authorizationRecord,
   artifactSchemaCatalog: docs.artifactSchemaCatalog,
   inspectionContract: docs.inspectionContract,
 }).forEach(([label, text]) => {
@@ -630,6 +660,7 @@ assert.match(docs.runbook, /^# Stage 5B operational runbook/m);
 assert.match(docs.runbook, /Quick CLI Path/);
 assert.match(docs.runbook, /Candidate Acceptance Gate/);
 assertPreAttachmentChecklist(docs.runbook, 'Stage 5B operational runbook');
+assertAttachmentAuthorizationRecord(docs.runbook, 'Stage 5B operational runbook');
 assert.match(docs.runbook, /Local-Only Candidate Inbox/);
 assert.match(docs.runbook, /local\/stage5b-candidate-evidence-inbox\/<package-slug>\/received-inspection-evidence\.json/);
 assert.match(docs.runbook, /local\/stage5b-candidate-evidence-inbox\/<package-slug>\/candidate-gate-report\.json/);
@@ -659,6 +690,7 @@ assert.match(docs.runbook, NON_EVIDENCE_BOUNDARY_PATTERN);
 
 assert.match(docs.requestPacket, /^# Stage 5B evidence request packet/m);
 assertPreAttachmentChecklist(docs.requestPacket, 'Stage 5B evidence request packet');
+assertAttachmentAuthorizationRecord(docs.requestPacket, 'Stage 5B evidence request packet');
 assert.match(docs.requestPacket, /suppliers?, labs?, QA\s+reviewers?, and physical inspectors?/i);
 assert.match(docs.requestPacket, /Local-only inbox convention/);
 assert.match(docs.requestPacket, /local\/stage5b-candidate-evidence-inbox\/<package-slug>\//);
@@ -679,6 +711,15 @@ assert.match(docs.requestPacket, /CI\/GitHub metadata/);
 assert.match(docs.requestPacket, /does not prove readiness, attach evidence, mutate canonical package\s+artifacts, or authorize promotion/);
 assert.match(docs.requestPacket, /\[Stage 5B artifact\/schema catalog\]\(\.\/stage-5b-artifact-schema-catalog\.md\)/);
 assert.match(docs.requestPacket, /Schema\s+discoverability does not make the report evidence/);
+assertAttachmentAuthorizationRecord(docs.authorizationRecord, 'Stage 5B attachment authorization record');
+assert.match(docs.authorizationRecord, /\[Stage 5B operational runbook\]\(\.\/stage-5b-operational-runbook\.md\)/);
+assert.match(docs.authorizationRecord, /\[Stage 5B evidence request packet\]\(\.\/stage-5b-evidence-request-packet\.md\)/);
+assert.match(docs.authorizationRecord, /\[Stage 5B artifact\/schema catalog\]\(\.\/stage-5b-artifact-schema-catalog\.md\)/);
+assert.match(docs.authorizationRecord, /authorization records? do not attach evidence/i);
+assert.match(docs.authorizationRecord, /PR comments? do not attach evidence/i);
+assert.match(docs.authorizationRecord, new RegExp(HARD_EVIDENCE_RULE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+assert.match(docs.authorizationRecord, NON_EVIDENCE_BOUNDARY_PATTERN);
+assertNoControlSurfaceAttachmentOverclaim(docs.authorizationRecord, 'Stage 5B attachment authorization record');
 assert.match(
   docs.requestPacket.replace(/`inspection_evidence`/g, 'inspection_evidence').replace(/\s+/g, ' '),
   new RegExp(HARD_EVIDENCE_RULE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
@@ -689,6 +730,8 @@ assert.match(docs.runbook, /\[Stage 5B artifact\/schema catalog\]\(\.\/stage-5b-
 assert.match(docs.inspectionContract, /\[Stage 5B artifact\/schema catalog\]\(\.\/stage-5b-artifact-schema-catalog\.md\)/);
 assert.match(docs.artifactSchemaCatalog, /^# Stage 5B artifact\/schema catalog/m);
 assert.match(docs.artifactSchemaCatalog, /schemas\/stage5b-candidate-gate-report\.schema\.json/);
+assert.match(docs.artifactSchemaCatalog, /Stage 5B attachment authorization record/);
+assert.match(docs.artifactSchemaCatalog, /docs\/stage-5b-attachment-authorization-record\.md/);
 assert.match(docs.artifactSchemaCatalog, /validation_diagnostics\.json/);
 assert.match(
   docs.artifactSchemaCatalog.replace(/`inspection_evidence`/g, 'inspection_evidence'),
