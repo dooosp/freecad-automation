@@ -254,6 +254,7 @@ if (!hasFreeCADRuntime()) {
     });
     assert.equal(validatePreviewResponse.status, 200);
     const validatePreviewPayload = await validatePreviewResponse.json();
+    assert.equal(validateLocalApiResponse('studio_validate_config', validatePreviewPayload).ok, true);
     assert.equal(validatePreviewPayload.ok, true);
     assert.equal(validatePreviewPayload.overview.name, 'api_create_integration');
 
@@ -269,6 +270,7 @@ if (!hasFreeCADRuntime()) {
     });
     assert.equal(previewResponse.status, 200);
     const previewPayload = await previewResponse.json();
+    assert.equal(validateLocalApiResponse('studio_model_preview', previewPayload).ok, true);
     assert.equal(previewPayload.ok, true);
     assert.equal(typeof previewPayload.preview.id, 'string');
     assert.equal(previewPayload.preview.model.name, 'api_create_integration');

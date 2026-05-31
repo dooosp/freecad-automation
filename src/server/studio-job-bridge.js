@@ -25,6 +25,10 @@ import {
   STUDIO_PAIRED_ARTIFACT_JOB_COMMANDS,
   formatCommandNameList,
 } from '../shared/command-manifest.js';
+import {
+  isLocalStage5bCandidateEvidenceInboxPath,
+  normalizeRepoRelativePathText,
+} from '../shared/stage5b-path-boundary.js';
 
 const STUDIO_SUBMISSION_JOB_COMMANDS = Object.freeze([
   ...STUDIO_JOB_COMMANDS,
@@ -152,12 +156,25 @@ function trimOptionalString(value) {
 function isSafeRepoRelativeJsonPath(value) {
   if (typeof value !== 'string' || !value.trim()) return false;
   const raw = value.trim();
-  const normalized = raw.replaceAll('\\', '/').replace(/^\.\//, '');
+  const normalized = normalizeRepoRelativePathText(raw);
   if (raw.includes('\\')) return false;
   if (normalized.startsWith('/') || /^[A-Za-z]:[\\/]/.test(raw) || normalized.startsWith('~')) return false;
   if (normalized.includes('\0') || normalized.includes('<') || normalized.includes('>')) return false;
   if (normalized.split('/').includes('..')) return false;
+  if (isLocalStage5bCandidateEvidenceInboxPath(normalized)) return false;
   return /\.json$/i.test(normalized);
+}
+
+function isSafeRepoRelativePath(value) {
+  if (typeof value !== 'string' || !value.trim()) return false;
+  const raw = value.trim();
+  const normalized = normalizeRepoRelativePathText(raw);
+  if (raw.includes('\\')) return false;
+  if (normalized.startsWith('/') || /^[A-Za-z]:[\\/]/.test(raw) || normalized.startsWith('~')) return false;
+  if (normalized.includes('\0') || normalized.includes('<') || normalized.includes('>')) return false;
+  if (normalized.split('/').includes('..')) return false;
+  if (isLocalStage5bCandidateEvidenceInboxPath(normalized)) return false;
+  return true;
 }
 
 function buildResolvedArtifactOptions(request, resolvedArtifact) {
@@ -293,6 +310,24 @@ export function validateStudioJobSubmission(body) {
   ].forEach((fieldName) => {
     if (request[fieldName] !== undefined && trimOptionalString(request[fieldName]).length === 0) {
       errors.push(`${fieldName} must be a non-empty string when provided.`);
+    }
+  });
+  [
+    'context_path',
+    'model_path',
+    'bom_path',
+    'inspection_path',
+    'quality_path',
+    'create_quality_path',
+    'drawing_quality_path',
+    'drawing_qa_path',
+    'drawing_intent_path',
+    'feature_catalog_path',
+    'dfm_report_path',
+    'compare_to_path',
+  ].forEach((fieldName) => {
+    if (request[fieldName] !== undefined && trimOptionalString(request[fieldName]).length > 0 && !isSafeRepoRelativePath(request[fieldName])) {
+      errors.push(`${fieldName} must be a safe repo-relative path.`);
     }
   });
 

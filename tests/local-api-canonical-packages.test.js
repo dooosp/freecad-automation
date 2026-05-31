@@ -226,7 +226,10 @@ try {
     headers: { accept: 'application/json' },
   });
   assert.equal(examplesResponse.status, 200);
-  const examples = await examplesResponse.json();
+  const examplesPayload = await examplesResponse.json();
+  assert.equal(validateLocalApiResponse('examples', examplesPayload).ok, true);
+  assert.equal(examplesPayload.ok, true);
+  const examples = examplesPayload.examples;
   assert.equal(Array.isArray(examples), true);
   assert.equal(examples.length > 0, true);
   assert.equal(examples.every((entry) => entry.name.endsWith('.toml')), true);
@@ -264,6 +267,32 @@ try {
     false,
     'canonical package discovery must not treat inbox symlinks as attached inspection evidence'
   );
+
+  const invalidEvidenceRoot = join(tmpRoot, 'invalid-evidence-root');
+  for (const slug of EXPECTED_SLUGS) {
+    writeMinimalReadiness(invalidEvidenceRoot, slug);
+  }
+  const invalidEvidenceDir = join(
+    invalidEvidenceRoot,
+    'docs',
+    'examples',
+    'quality-pass-bracket',
+    'inspection'
+  );
+  mkdirSync(invalidEvidenceDir, { recursive: true });
+  writeFileSync(
+    join(invalidEvidenceDir, 'inspection_evidence.json'),
+    `${JSON.stringify({ synthetic_fixture: true, source: 'generated' })}\n`,
+    'utf8'
+  );
+  const invalidEvidencePayload = await buildCanonicalPackagesPayload({ projectRoot: invalidEvidenceRoot });
+  assert.equal(validateLocalApiResponse('canonical_packages', invalidEvidencePayload).ok, true);
+  const invalidEvidencePackage = invalidEvidencePayload.packages.find((pkg) => pkg.slug === 'quality-pass-bracket');
+  assert.equal(invalidEvidencePackage.readiness.inspection_evidence_missing, true);
+  assert.equal(invalidEvidencePackage.readiness.status, 'needs_more_evidence');
+  assert.equal(invalidEvidencePackage.readiness.gate_decision, 'hold_for_evidence_completion');
+  assert.deepEqual(invalidEvidencePackage.readiness.missing_inputs, ['inspection_evidence']);
+  assert.equal(invalidEvidencePackage.inspection_evidence_path, null);
 } finally {
   await new Promise((resolveClose) => server.close(resolveClose));
   rmSync(tmpRoot, { recursive: true, force: true });

@@ -13,7 +13,8 @@ import {
 async function loadExamples(examplesSelect) {
   try {
     const response = await fetch('/api/examples');
-    const examples = await response.json();
+    const payload = await response.json();
+    const examples = Array.isArray(payload) ? payload : (payload?.examples || []);
     for (const example of examples) {
       const option = document.createElement('option');
       option.value = example.content;

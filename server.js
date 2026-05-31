@@ -20,6 +20,8 @@ import {
 } from './src/api/drawing.js';
 import { runFem } from './src/api/analysis.js';
 import { createModel } from './src/api/model.js';
+import { LOCAL_API_VERSION } from './src/server/local-api-contract.js';
+import { assertResponse, createErrorResponse } from './src/server/local-api-response-helpers.js';
 
 const PUBLIC_DIR = join(import.meta.dirname, 'public');
 const SHARED_JS_DIR = join(import.meta.dirname, 'src', 'shared');
@@ -49,9 +51,14 @@ export function startServer(port = 3000) {
           content,
         });
       }
-      res.json(examples);
+      res.json(assertResponse('examples', {
+        api_version: LOCAL_API_VERSION,
+        ok: true,
+        examples,
+      }));
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      const response = createErrorResponse('examples_unavailable', [err.message], 500);
+      res.status(response.status).json(assertResponse('error', response.body));
     }
   });
 

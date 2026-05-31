@@ -260,6 +260,7 @@ try {
   });
   assert.equal(jsonResponse.status, 200);
   const payload = await jsonResponse.json();
+  assert.equal(validateLocalApiResponse('landing', payload).ok, true);
   assert.equal(payload.ok, true);
   assert.equal(payload.mode, 'local_api');
   assert.equal(payload.project_root, '<project-root>');
@@ -312,6 +313,7 @@ try {
   });
   assert.equal(bootstrapPreviewResponse.status, 200);
   const bootstrapPreviewPayload = await bootstrapPreviewResponse.json();
+  assert.equal(validateLocalApiResponse('studio_import_bootstrap', bootstrapPreviewPayload).ok, true);
   assert.equal(bootstrapPreviewPayload.ok, true);
   assert.equal(bootstrapCalls.length > 0, true);
   assert.equal(bootstrapCalls[0].model.path, join(ROOT, 'tests', 'fixtures', 'imports', 'simple_bracket.step'));
@@ -591,7 +593,10 @@ try {
     },
   });
   assert.equal(examplesResponse.status, 200);
-  const examples = await examplesResponse.json();
+  const examplesPayload = await examplesResponse.json();
+  assert.equal(validateLocalApiResponse('examples', examplesPayload).ok, true);
+  assert.equal(examplesPayload.ok, true);
+  const examples = examplesPayload.examples;
   assert.equal(Array.isArray(examples), true);
   assert.equal(examples.length > 0, true);
   assert.deepEqual(Object.keys(examples[0]).sort(), ['content', 'id', 'name']);
@@ -608,6 +613,7 @@ try {
   });
   assert.equal(profilesResponse.status, 200);
   const profilesPayload = await profilesResponse.json();
+  assert.equal(validateLocalApiResponse('config_profiles', profilesPayload).ok, true);
   assert.equal(profilesPayload.ok, true);
   assert.equal(Array.isArray(profilesPayload.profiles), true);
   assert.equal(profilesPayload.profiles.length > 0, true);
@@ -625,6 +631,7 @@ try {
   });
   assert.equal(validateResponse.status, 200);
   const validationPayload = await validateResponse.json();
+  assert.equal(validateLocalApiResponse('studio_validate_config', validationPayload).ok, true);
   assert.equal(validationPayload.ok, true);
   assert.equal(validationPayload.overview.mode, 'part');
   assert.equal(typeof validationPayload.overview.shape_count, 'number');

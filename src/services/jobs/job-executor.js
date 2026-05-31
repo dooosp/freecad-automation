@@ -50,6 +50,10 @@ import {
 import { loadRuleProfile, summarizeRuleProfile } from '../config/rule-profile-service.js';
 import { validateLocalApiJobRequest } from '../../server/local-api-schemas.js';
 import { JOB_EXECUTOR_COMMANDS } from '../../shared/command-manifest.js';
+import {
+  isLocalStage5bCandidateEvidenceInboxPath,
+  normalizeRepoRelativePathText,
+} from '../../shared/stage5b-path-boundary.js';
 
 const JOB_TYPES = new Set(JOB_EXECUTOR_COMMANDS);
 const INLINE_CONFIG_RELATIVE_PATH = 'inputs/inline-config.json';
@@ -671,12 +675,13 @@ function isSafeRepoRelativePath(value) {
   const raw = value.trim();
   const normalized = normalizeLocalPath(raw);
   if (typeof normalized !== 'string' || !normalized.trim()) return false;
-  const path = normalized.trim().replaceAll('\\', '/').replace(/^\.\//, '');
+  const path = normalizeRepoRelativePathText(normalized);
   if (raw.includes('\\')) return false;
   if (path.includes('\0')) return false;
   if (path.startsWith('/') || path.startsWith('~') || isWindowsAbsolutePath(path)) return false;
   if (path.includes('<') || path.includes('>')) return false;
   if (path.split('/').includes('..')) return false;
+  if (isLocalStage5bCandidateEvidenceInboxPath(path)) return false;
   return true;
 }
 

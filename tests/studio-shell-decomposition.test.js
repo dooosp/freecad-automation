@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { localizedBootMessage } from '../public/js/studio/studio-shell-dom.js';
-import { bootStudioShell } from '../public/js/studio/studio-shell-core.js';
+import { bootStudioShell, createFetchJson } from '../public/js/studio/studio-shell-core.js';
 import {
   createStudioShellRuntime,
   createStudioShellState,
@@ -14,6 +14,7 @@ const shellSource = readFileSync(resolve(ROOT, 'public/js/studio-shell.js'), 'ut
 const shellLines = shellSource.trimEnd().split('\n').length;
 
 assert.equal(typeof bootStudioShell, 'function');
+assert.equal(typeof createFetchJson, 'function');
 assert.equal(typeof createStudioShellRuntime, 'function');
 assert.equal(typeof createStudioShellState, 'function');
 
@@ -56,5 +57,28 @@ assert.match(localizedBootMessage('contract', {
   documentRef: { documentElement: { lang: 'en' } },
   navigatorRef: { language: 'ko-KR' },
 }), /Studio shell markup did not match/);
+
+const fetchJson = createFetchJson({
+  async fetch(url, options = {}) {
+    assert.equal(url, '/api/studio/validate-config');
+    assert.equal(options.headers.accept, 'application/json');
+    return {
+      ok: false,
+      status: 400,
+      async json() {
+        return {
+          ok: false,
+          error: {
+            messages: ['Config TOML is required.'],
+          },
+        };
+      },
+    };
+  },
+});
+await assert.rejects(
+  () => fetchJson('/api/studio/validate-config'),
+  /Config TOML is required\./
+);
 
 console.log('studio-shell-decomposition.test.js: ok');

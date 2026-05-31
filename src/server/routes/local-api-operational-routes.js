@@ -25,7 +25,11 @@ export function registerOperationalRoutes(app, {
 
   app.get('/api/examples', async (_req, res, next) => {
     try {
-      res.json(await loadExampleConfigs());
+      res.json(assertResponse('examples', {
+        api_version: LOCAL_API_VERSION,
+        ok: true,
+        examples: await loadExampleConfigs(),
+      }));
     } catch (error) {
       next(error);
     }
@@ -63,11 +67,11 @@ export function registerOperationalRoutes(app, {
 
   app.get('/api/config/profiles', async (_req, res) => {
     try {
-      res.json({
+      res.json(assertResponse('config_profiles', {
         api_version: LOCAL_API_VERSION,
         ok: true,
         profiles: await listShopProfiles(projectRoot),
-      });
+      }));
     } catch (error) {
       const response = createErrorResponse(
         'config_profiles_unavailable',

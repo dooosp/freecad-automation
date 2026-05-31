@@ -56,12 +56,13 @@ try {
 
   const examplesResponse = await waitForFetch(`${baseUrl}/api/examples`);
   const examplesPayload = await examplesResponse.json();
-  assert.equal(Array.isArray(examplesPayload), true);
-  assert.equal(examplesPayload.length > 0, true);
-  assert.deepEqual(Object.keys(examplesPayload[0]).sort(), ['content', 'id', 'name']);
-  assert.equal(typeof examplesPayload[0].id, 'string');
-  assert.equal(typeof examplesPayload[0].name, 'string');
-  assert.equal('path' in examplesPayload[0], false);
+  assert.equal(examplesPayload.ok, true);
+  assert.equal(Array.isArray(examplesPayload.examples), true);
+  assert.equal(examplesPayload.examples.length > 0, true);
+  assert.deepEqual(Object.keys(examplesPayload.examples[0]).sort(), ['content', 'id', 'name']);
+  assert.equal(typeof examplesPayload.examples[0].id, 'string');
+  assert.equal(typeof examplesPayload.examples[0].name, 'string');
+  assert.equal('path' in examplesPayload.examples[0], false);
   assert.equal(JSON.stringify(examplesPayload).includes('/configs/examples/'), false);
 
   const cssResponse = await waitForFetch(`${baseUrl}/css/style.css`);

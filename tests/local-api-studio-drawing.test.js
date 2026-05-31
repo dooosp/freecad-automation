@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { createLocalApiServer } from '../src/server/local-api-server.js';
+import { validateLocalApiResponse } from '../src/server/local-api-schemas.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const tmpRoot = mkdtempSync(join(tmpdir(), 'fcad-local-api-drawing-'));
@@ -155,6 +156,7 @@ try {
   });
   assert.equal(previewResponse.status, 200);
   const previewPayload = await previewResponse.json();
+  assert.equal(validateLocalApiResponse('studio_drawing_preview', previewPayload).ok, true);
   assert.equal(previewPayload.ok, true);
   assert.equal(previewPayload.preview.id, 'preview-1');
   assert.equal(previewPayload.preview.scale, '1:2');
@@ -191,6 +193,7 @@ try {
   });
   assert.equal(updateResponse.status, 200);
   const updatePayload = await updateResponse.json();
+  assert.equal(validateLocalApiResponse('studio_drawing_preview', updatePayload).ok, true);
   assert.equal(updatePayload.ok, true);
   assert.equal(updatePayload.update.dim_id, 'WIDTH');
   assert.equal(updatePayload.update.new_value, 45);

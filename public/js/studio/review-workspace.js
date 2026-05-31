@@ -756,7 +756,6 @@ export function mountReviewWorkspace({ root, state, addLog, openJob, submitTrack
       submitTrackedJob({
         type: 'inspection-evidence-intake',
         options: {
-          source: 'review-workspace',
           include_github: false,
         },
         completionAction: {

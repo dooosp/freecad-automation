@@ -422,6 +422,22 @@ const invalidPromotionDryRunUnsafePath = validateStudioJobSubmission({
 assert.equal(invalidPromotionDryRunUnsafePath.ok, false);
 assert.match(invalidPromotionDryRunUnsafePath.errors.join('\n'), /safe repo-relative/i);
 
+const invalidPromotionDryRunInboxPath = validateStudioJobSubmission({
+  type: 'inspection-evidence-promotion-dry-run',
+  intake_report_path: 'local/stage5b-candidate-evidence-inbox/quality-pass-bracket/intake-report.json',
+});
+
+assert.equal(invalidPromotionDryRunInboxPath.ok, false);
+assert.match(invalidPromotionDryRunInboxPath.errors.join('\n'), /safe repo-relative/i);
+
+const invalidReviewContextInboxPath = validateStudioJobSubmission({
+  type: 'review-context',
+  model_path: 'local/stage5b-candidate-evidence-inbox/quality-pass-bracket/source.step',
+});
+
+assert.equal(invalidReviewContextInboxPath.ok, false);
+assert.match(invalidReviewContextInboxPath.errors.join('\n'), /safe repo-relative/i);
+
 const stage5bAuditSubmission = await translateStudioJobSubmission({
   type: 'stage5b-evidence-audit',
   options: {

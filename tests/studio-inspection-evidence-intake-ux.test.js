@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 import {
   buildInspectionEvidenceIntakeCard,
@@ -7,6 +9,9 @@ import {
   buildReviewCards,
 } from '../public/js/studio/artifact-insights.js';
 import { renderReviewWorkspace } from '../public/js/studio/review-workspace.js';
+
+const ROOT = resolve(import.meta.dirname, '..');
+const reviewWorkspaceSource = readFileSync(resolve(ROOT, 'public/js/studio/review-workspace.js'), 'utf8');
 
 const intakeReport = {
   artifact_type: 'inspection_evidence_intake_report',
@@ -561,5 +566,6 @@ assert.match(renderedText, /Stage 5B intake/);
 assert.match(renderedText, /Run intake/);
 assert.match(renderedText, /Run dry-run/);
 assert.match(renderedText, /No human-entered measurements/);
+assert.doesNotMatch(reviewWorkspaceSource, /source:\s*['"]review-workspace['"]/);
 
 console.log('studio-inspection-evidence-intake-ux.test.js: ok');

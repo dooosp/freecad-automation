@@ -46,6 +46,15 @@ function resolveSingleExportPath(previewDir, exports = [], format = 'stl') {
   return join(previewDir, basename(String(entry.path).replace(/\\/g, '/')));
 }
 
+function toPublicPartFile(partFile = {}, index = 0, previewId) {
+  const { path: _path, resolvedPath: _resolvedPath, ...publicPartFile } = partFile;
+  return {
+    ...publicPartFile,
+    index,
+    asset_url: `/api/studio/model-previews/${previewId}/parts/${index}`,
+  };
+}
+
 export function createStudioModelService({ projectRoot }) {
   const previews = new Map();
   const designService = createDesignService();
@@ -199,7 +208,6 @@ export function createStudioModelService({ projectRoot }) {
             ...partFile,
             index,
             resolvedPath: join(previewDir, basename(normalizedPath)),
-            asset_url: `/api/studio/model-previews/${previewId}/parts/${index}`,
           };
         });
         const singleModelPath = partFiles.length > 0
@@ -229,7 +237,7 @@ export function createStudioModelService({ projectRoot }) {
             assembly: result.assembly
               ? {
                   ...result.assembly,
-                  part_files: partFiles.map(({ resolvedPath, ...item }) => item),
+                  part_files: partFiles.map((partFile, index) => toPublicPartFile(partFile, index, previewId)),
                 }
               : null,
             motion_data: result.motion_data || null,

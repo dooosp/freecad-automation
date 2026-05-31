@@ -6,6 +6,10 @@ import {
   CANONICAL_ARTIFACT_KEY_CONTRACT,
   buildCanonicalArtifactCatalog,
 } from './canonical-artifact-key-contract.js';
+import {
+  validateAttachmentAuthorization,
+  validateInspectionEvidence,
+} from '../../lib/inspection-evidence.js';
 
 export const CANONICAL_PACKAGE_SLUGS = Object.freeze([
   'quality-pass-bracket',
@@ -99,7 +103,7 @@ function isUnsafeCanonicalEvidenceRoot(rootDir, targetPath) {
   return UNSAFE_CANONICAL_EVIDENCE_PREFIXES.some((prefix) => rel === prefix.slice(0, -1) || rel.startsWith(prefix));
 }
 
-async function canonicalInspectionEvidenceExists(projectRoot, relativePath) {
+async function isSafeCanonicalEvidenceFile(projectRoot, relativePath) {
   try {
     const rootRealPath = await realpath(projectRoot);
     const candidatePath = resolve(rootRealPath, relativePath);
@@ -108,6 +112,31 @@ async function canonicalInspectionEvidenceExists(projectRoot, relativePath) {
     const candidateRealPath = await realpath(candidatePath);
     return isInsideRoot(rootRealPath, candidateRealPath)
       && !isUnsafeCanonicalEvidenceRoot(rootRealPath, candidateRealPath);
+  } catch {
+    return false;
+  }
+}
+
+async function canonicalInspectionEvidenceAttached(projectRoot, slug, relativePath) {
+  if (!(await isSafeCanonicalEvidenceFile(projectRoot, relativePath))) {
+    return false;
+  }
+
+  const authorizationPath = packageRelativePath(slug, 'inspection/stage5b_attachment_authorization.json');
+  if (!(await isSafeCanonicalEvidenceFile(projectRoot, authorizationPath))) {
+    return false;
+  }
+
+  try {
+    const evidence = await readJson(projectRoot, relativePath, { required: true });
+    const evidenceValidation = validateInspectionEvidence(evidence);
+    if (!evidenceValidation.ok) return false;
+
+    const authorization = await readJson(projectRoot, authorizationPath, { required: true });
+    const authorizationValidation = validateAttachmentAuthorization(authorization, {
+      expectedInspectionEvidenceRef: relativePath,
+    });
+    return authorizationValidation.ok && authorization.package_slug === slug;
   } catch {
     return false;
   }
@@ -167,15 +196,29 @@ async function resolveCanonicalArtifactPath(projectRoot, relativePathValue, slug
 
   let fileRealPath;
   try {
+    const linkInfo = await lstat(resolvedPath);
+    if (linkInfo.isSymbolicLink()) {
+      throw Object.assign(new Error('Canonical artifact symlinks are not available for preview.'), {
+        code: 'canonical_artifact_unsafe_path',
+        status: 400,
+      });
+    }
     fileRealPath = await realpath(resolvedPath);
-  } catch {
+  } catch (error) {
+    if (error?.code === 'canonical_artifact_unsafe_path') {
+      throw error;
+    }
     throw Object.assign(new Error('Canonical artifact is not available for preview.'), {
       code: 'canonical_artifact_not_found',
       status: 404,
     });
   }
   const fileRootRelativePath = relative(rootRealPath, fileRealPath);
-  if (fileRootRelativePath.startsWith('..') || isAbsolute(fileRootRelativePath)) {
+  if (
+    fileRootRelativePath.startsWith('..')
+    || isAbsolute(fileRootRelativePath)
+    || isUnsafeCanonicalEvidenceRoot(rootRealPath, fileRealPath)
+  ) {
     throw Object.assign(new Error('Canonical artifact path failed repository boundary checks.'), {
       code: 'canonical_artifact_unsafe_path',
       status: 400,
@@ -272,7 +315,7 @@ async function buildCanonicalPackage(projectRoot, slug) {
   const reviewPackPath = packageRelativePath(slug, 'review/review_pack.json');
   const inspectionEvidencePath = inspectionEvidenceRelativePath(slug);
   const readinessReport = await readJson(projectRoot, readinessPath, { required: true });
-  const inspectionEvidenceMissing = !(await canonicalInspectionEvidenceExists(projectRoot, inspectionEvidencePath));
+  const inspectionEvidenceMissing = !(await canonicalInspectionEvidenceAttached(projectRoot, slug, inspectionEvidencePath));
   const title = await readPackageTitle(projectRoot, readmePath, slug);
   const artifacts = {
     review_pack_path: await optionalPath(projectRoot, reviewPackPath),

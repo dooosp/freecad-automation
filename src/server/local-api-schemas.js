@@ -32,6 +32,36 @@ const nullableBoolean = {
   type: ['boolean', 'null'],
 };
 
+const stringArraySchema = {
+  type: 'array',
+  items: { type: 'string' },
+};
+
+const routePathSchema = {
+  type: 'string',
+  minLength: 1,
+  pattern: '^/',
+};
+
+const nullableRoutePathSchema = {
+  anyOf: [
+    { type: 'null' },
+    routePathSchema,
+  ],
+};
+
+const looseObjectSchema = {
+  type: 'object',
+  additionalProperties: true,
+};
+
+const nullableLooseObjectSchema = {
+  anyOf: [
+    { type: 'null' },
+    looseObjectSchema,
+  ],
+};
+
 const artifactRefSchema = {
   type: 'object',
   additionalProperties: false,
@@ -589,6 +619,24 @@ const manifestSchema = {
   ],
 };
 
+const publicDisplayPathSchema = {
+  anyOf: [
+    { type: 'null' },
+    {
+      type: 'string',
+      minLength: 1,
+      not: {
+        anyOf: [
+          { pattern: '^/' },
+          { pattern: '^[A-Za-z]:[\\\\/]' },
+          { pattern: '^~' },
+          { pattern: '(^|/)\\.\\.(/|$)' },
+        ],
+      },
+    },
+  ],
+};
+
 const jobSchema = {
   type: 'object',
   additionalProperties: false,
@@ -711,6 +759,163 @@ const jobSchema = {
   },
 };
 
+const landingEndpointSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'health',
+    'jobs',
+    'job',
+    'cancel_job',
+    'retry_job',
+    'artifacts',
+    'artifact_open',
+    'artifact_download',
+    'artifact_content',
+  ],
+  properties: {
+    health: routePathSchema,
+    jobs: routePathSchema,
+    job: routePathSchema,
+    cancel_job: routePathSchema,
+    retry_job: routePathSchema,
+    artifacts: routePathSchema,
+    artifact_open: routePathSchema,
+    artifact_download: routePathSchema,
+    artifact_content: routePathSchema,
+  },
+};
+
+const studioRouteBundleSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'validate_config',
+    'design',
+    'model_preview',
+    'import_bootstrap',
+    'model_asset',
+    'model_part',
+    'drawing_preview',
+    'drawing_dimensions',
+  ],
+  properties: {
+    validate_config: routePathSchema,
+    design: routePathSchema,
+    model_preview: routePathSchema,
+    import_bootstrap: routePathSchema,
+    model_asset: routePathSchema,
+    model_part: routePathSchema,
+    drawing_preview: routePathSchema,
+    drawing_dimensions: routePathSchema,
+  },
+};
+
+const studioTrackedRouteBundleSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'submit',
+    'status',
+    'cancel',
+    'retry',
+    'artifacts',
+    'artifact_open',
+  ],
+  properties: {
+    submit: routePathSchema,
+    status: routePathSchema,
+    cancel: routePathSchema,
+    retry: routePathSchema,
+    artifacts: routePathSchema,
+    artifact_open: routePathSchema,
+  },
+};
+
+const landingResponseSchema = {
+  $id: 'fcad.landingResponse',
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'api_version',
+    'ok',
+    'status',
+    'service',
+    'mode',
+    'project_root',
+    'jobs_dir',
+    'endpoints',
+    'studio',
+    'api_info',
+    'viewer',
+    'examples',
+    'notes',
+  ],
+  properties: {
+    api_version: { const: LOCAL_API_VERSION },
+    ok: { const: true },
+    status: { const: 'ok' },
+    service: { const: LOCAL_API_SERVICE },
+    mode: { const: 'local_api' },
+    project_root: { type: 'string', minLength: 1 },
+    jobs_dir: { type: 'string', minLength: 1 },
+    endpoints: landingEndpointSchema,
+    studio: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'available',
+        'preferred_path',
+        'path',
+        'tracked_jobs_path',
+        'preview_routes',
+        'tracked_routes',
+        'note',
+      ],
+      properties: {
+        available: { type: 'boolean' },
+        preferred_path: routePathSchema,
+        path: routePathSchema,
+        tracked_jobs_path: routePathSchema,
+        preview_routes: studioRouteBundleSchema,
+        tracked_routes: studioTrackedRouteBundleSchema,
+        note: { type: 'string', minLength: 1 },
+      },
+    },
+    api_info: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['available', 'path'],
+      properties: {
+        available: { type: 'boolean' },
+        path: routePathSchema,
+      },
+    },
+    viewer: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['available', 'command', 'npm_script'],
+      properties: {
+        available: { type: 'boolean' },
+        command: { type: 'string', minLength: 1 },
+        npm_script: { type: 'string', minLength: 1 },
+      },
+    },
+    examples: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['health_curl'],
+      properties: {
+        health_curl: { type: 'string', minLength: 1 },
+      },
+    },
+    notes: {
+      type: 'array',
+      items: { type: 'string', minLength: 1 },
+    },
+  },
+};
+
 const healthResponseSchema = {
   $id: 'fcad.healthResponse',
   type: 'object',
@@ -723,6 +928,348 @@ const healthResponseSchema = {
     service: { const: LOCAL_API_SERVICE },
     jobs_dir: { type: 'string', minLength: 1 },
     runtime: runtimeDiagnosticsSchema,
+  },
+};
+
+const examplesResponseSchema = {
+  $id: 'fcad.examplesResponse',
+  type: 'object',
+  additionalProperties: false,
+  required: ['api_version', 'ok', 'examples'],
+  properties: {
+    api_version: { const: LOCAL_API_VERSION },
+    ok: { const: true },
+    examples: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['id', 'name', 'content'],
+        properties: {
+          id: { type: 'string', minLength: 1 },
+          name: { type: 'string', minLength: 1 },
+          content: { type: 'string', minLength: 1 },
+        },
+      },
+    },
+  },
+};
+
+const configProfilesResponseSchema = {
+  $id: 'fcad.configProfilesResponse',
+  type: 'object',
+  additionalProperties: false,
+  required: ['api_version', 'ok', 'profiles'],
+  properties: {
+    api_version: { const: LOCAL_API_VERSION },
+    ok: { const: true },
+    profiles: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['name', 'description', 'label'],
+        properties: {
+          name: { type: 'string', minLength: 1 },
+          description: { type: 'string' },
+          label: { type: 'string', minLength: 1 },
+        },
+      },
+    },
+  },
+};
+
+const studioValidationSummarySchema = {
+  type: 'object',
+  additionalProperties: true,
+  required: ['warnings'],
+  properties: {
+    warnings: stringArraySchema,
+    changed_fields: stringArraySchema,
+    deprecated_fields: stringArraySchema,
+    errors: stringArraySchema,
+  },
+};
+
+const studioOverviewSchema = {
+  type: 'object',
+  additionalProperties: true,
+  required: ['name', 'mode'],
+  properties: {
+    name: { type: 'string', minLength: 1 },
+    mode: { type: 'string', minLength: 1 },
+    part_count: { type: 'integer', minimum: 0 },
+    shape_count: { type: 'integer', minimum: 0 },
+    operation_count: { type: 'integer', minimum: 0 },
+    export_formats: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+    has_drawing: { type: 'boolean' },
+    has_motion: { type: 'boolean' },
+    has_fem: { type: 'boolean' },
+  },
+};
+
+const studioValidateConfigResponseSchema = {
+  $id: 'fcad.studioValidateConfigResponse',
+  type: 'object',
+  additionalProperties: false,
+  required: ['api_version', 'ok', 'validation', 'overview'],
+  properties: {
+    api_version: { const: LOCAL_API_VERSION },
+    ok: { const: true },
+    validation: studioValidationSummarySchema,
+    overview: studioOverviewSchema,
+  },
+};
+
+const studioDesignResponseSchema = {
+  $id: 'fcad.studioDesignResponse',
+  type: 'object',
+  additionalProperties: false,
+  required: ['api_version', 'ok', 'toml', 'report', 'validation'],
+  properties: {
+    api_version: { const: LOCAL_API_VERSION },
+    ok: { const: true },
+    toml: { type: 'string' },
+    report: true,
+    validation: {
+      anyOf: [
+        { type: 'null' },
+        { type: 'object', additionalProperties: true },
+      ],
+    },
+  },
+};
+
+const studioModelPreviewSchema = {
+  type: 'object',
+  additionalProperties: true,
+  required: [
+    'id',
+    'built_at',
+    'settings',
+    'overview',
+    'validation',
+    'logs',
+    'assembly',
+    'motion_data',
+    'model_asset_url',
+  ],
+  properties: {
+    id: { type: 'string', minLength: 1 },
+    built_at: { type: 'string', minLength: 1 },
+    settings: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['include_step', 'include_stl', 'per_part_stl'],
+      properties: {
+        include_step: { type: 'boolean' },
+        include_stl: { type: 'boolean' },
+        per_part_stl: { type: 'boolean' },
+      },
+    },
+    overview: studioOverviewSchema,
+    validation: studioValidationSummarySchema,
+    logs: stringArraySchema,
+    model: true,
+    assembly: {
+      anyOf: [
+        { type: 'null' },
+        {
+          type: 'object',
+          additionalProperties: true,
+          properties: {
+            part_files: {
+              type: 'array',
+              items: {
+                type: 'object',
+                additionalProperties: true,
+                required: ['id', 'index', 'asset_url'],
+                not: {
+                  anyOf: [
+                    { required: ['path'] },
+                    { required: ['resolvedPath'] },
+                  ],
+                },
+                properties: {
+                  id: { type: 'string', minLength: 1 },
+                  index: { type: 'integer', minimum: 0 },
+                  asset_url: routePathSchema,
+                },
+              },
+            },
+          },
+        },
+      ],
+    },
+    motion_data: true,
+    model_asset_url: nullableRoutePathSchema,
+  },
+};
+
+const studioModelPreviewResponseSchema = {
+  $id: 'fcad.studioModelPreviewResponse',
+  type: 'object',
+  additionalProperties: false,
+  required: ['api_version', 'ok', 'preview'],
+  properties: {
+    api_version: { const: LOCAL_API_VERSION },
+    ok: { const: true },
+    preview: studioModelPreviewSchema,
+  },
+};
+
+const bootstrapSourceSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['model_path', 'bom_path', 'inspection_path', 'quality_path'],
+  properties: {
+    model_path: publicDisplayPathSchema,
+    bom_path: publicDisplayPathSchema,
+    inspection_path: publicDisplayPathSchema,
+    quality_path: publicDisplayPathSchema,
+  },
+};
+
+const bootstrapTrackedReviewSeedSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['context_path', 'model_path'],
+  properties: {
+    context_path: publicDisplayPathSchema,
+    model_path: publicDisplayPathSchema,
+    bom_path: publicDisplayPathSchema,
+    inspection_path: publicDisplayPathSchema,
+    quality_path: publicDisplayPathSchema,
+  },
+};
+
+const bootstrapArtifactSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['key', 'path', 'file_name'],
+  properties: {
+    key: { type: 'string', minLength: 1 },
+    path: publicDisplayPathSchema,
+    file_name: { type: 'string', minLength: 1 },
+  },
+};
+
+const studioImportBootstrapResponseSchema = {
+  $id: 'fcad.studioImportBootstrapResponse',
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'api_version',
+    'ok',
+    'session_id',
+    'source',
+    'bootstrap',
+    'tracked_review_seed',
+    'artifacts',
+  ],
+  properties: {
+    api_version: { const: LOCAL_API_VERSION },
+    ok: { const: true },
+    session_id: { type: 'string', minLength: 1 },
+    source: bootstrapSourceSchema,
+    bootstrap: looseObjectSchema,
+    tracked_review_seed: bootstrapTrackedReviewSeedSchema,
+    artifacts: {
+      type: 'array',
+      items: bootstrapArtifactSchema,
+    },
+  },
+};
+
+const studioDrawingPreviewSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'id',
+    'drawn_at',
+    'settings',
+    'overview',
+    'validation',
+    'svg',
+    'bom',
+    'views',
+    'scale',
+    'qa_summary',
+    'annotations',
+    'dimensions',
+    'preview_reference',
+    'editable_plan_reference',
+    'editable_plan_available',
+    'dimension_editing_available',
+    'tracked_draw_bridge_available',
+    'artifact_capabilities',
+  ],
+  properties: {
+    id: { type: 'string' },
+    drawn_at: { type: 'string' },
+    settings: looseObjectSchema,
+    overview: looseObjectSchema,
+    validation: looseObjectSchema,
+    svg: { type: 'string' },
+    bom: { type: 'array', items: true },
+    views: { type: 'array', items: true },
+    scale: true,
+    qa_summary: nullableLooseObjectSchema,
+    annotations: { type: 'array', items: true },
+    dimensions: { type: 'array', items: true },
+    preview_reference: { type: 'string', minLength: 1 },
+    editable_plan_reference: { type: 'string' },
+    editable_plan_available: { type: 'boolean' },
+    dimension_editing_available: { type: 'boolean' },
+    tracked_draw_bridge_available: { type: 'boolean' },
+    artifact_capabilities: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'editable_plan',
+        'traceability',
+        'layout_report',
+        'repair_report',
+        'dimension_map',
+        'dimension_conflicts',
+        'run_log',
+      ],
+      properties: {
+        editable_plan: { type: 'boolean' },
+        traceability: { type: 'boolean' },
+        layout_report: { type: 'boolean' },
+        repair_report: { type: 'boolean' },
+        dimension_map: { type: 'boolean' },
+        dimension_conflicts: { type: 'boolean' },
+        run_log: { type: 'boolean' },
+      },
+    },
+  },
+};
+
+const studioDrawingPreviewResponseSchema = {
+  $id: 'fcad.studioDrawingPreviewResponse',
+  type: 'object',
+  additionalProperties: false,
+  required: ['api_version', 'ok', 'preview'],
+  properties: {
+    api_version: { const: LOCAL_API_VERSION },
+    ok: { const: true },
+    update: {
+      type: 'object',
+      additionalProperties: true,
+      required: ['dim_id', 'old_value', 'new_value', 'history_op'],
+      properties: {
+        dim_id: { type: 'string', minLength: 1 },
+        old_value: true,
+        new_value: true,
+        history_op: { type: 'string', minLength: 1 },
+      },
+    },
+    preview: studioDrawingPreviewSchema,
   },
 };
 
@@ -869,6 +1416,38 @@ const canonicalArtifactCatalogEntrySchema = {
 const canonicalPackageSchema = {
   type: 'object',
   additionalProperties: false,
+  allOf: [
+    {
+      if: {
+        properties: {
+          readiness: {
+            type: 'object',
+            properties: {
+              inspection_evidence_missing: { const: true },
+            },
+            required: ['inspection_evidence_missing'],
+          },
+        },
+      },
+      then: {
+        properties: {
+          readiness: {
+            type: 'object',
+            properties: {
+              status: { const: 'needs_more_evidence' },
+              gate_decision: { const: 'hold_for_evidence_completion' },
+              missing_inputs: {
+                type: 'array',
+                contains: { const: 'inspection_evidence' },
+              },
+            },
+            required: ['status', 'gate_decision', 'missing_inputs'],
+          },
+          inspection_evidence_path: { type: 'null' },
+        },
+      },
+    },
+  ],
   required: [
     'slug',
     'name',
@@ -1059,7 +1638,15 @@ const errorResponseSchema = {
 
 const validateJobRequestSchema = ajv.compile(localApiJobRequestSchema);
 const responseValidators = {
+  landing: ajv.compile(landingResponseSchema),
   health: ajv.compile(healthResponseSchema),
+  examples: ajv.compile(examplesResponseSchema),
+  config_profiles: ajv.compile(configProfilesResponseSchema),
+  studio_validate_config: ajv.compile(studioValidateConfigResponseSchema),
+  studio_design: ajv.compile(studioDesignResponseSchema),
+  studio_model_preview: ajv.compile(studioModelPreviewResponseSchema),
+  studio_import_bootstrap: ajv.compile(studioImportBootstrapResponseSchema),
+  studio_drawing_preview: ajv.compile(studioDrawingPreviewResponseSchema),
   job: ajv.compile(jobResponseSchema),
   jobs: ajv.compile(jobsResponseSchema),
   artifacts: ajv.compile(artifactsResponseSchema),

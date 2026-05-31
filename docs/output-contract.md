@@ -112,7 +112,7 @@ Browser-visible local API payloads intentionally avoid raw local filesystem path
 
 - `/jobs` and `/jobs/:id` keep logical job metadata plus redacted artifact/result/manifest data.
 - `/jobs/:id/artifacts` exposes artifact identity, file name, MIME type, capabilities, and public links, but not raw artifact paths.
-- `/api/examples` returns `id`, `name`, and `content` for checked-in examples without exposing checked-out file locations.
+- `/api/examples` returns an enveloped `{ api_version, ok: true, examples: [...] }` payload with `id`, `name`, and `content` for checked-in examples without exposing checked-out file locations.
 - `/api/studio/drawing-preview` and `/api/studio/drawing-previews/:id/dimensions` expose browser-safe drawing preview data with safe preview references instead of raw preview-plan or sidecar paths.
 
 Current browser-visible contract:
@@ -127,7 +127,7 @@ Current browser-visible contract:
   - `manifest` is the same redacted browser-safe manifest view used on `/jobs/:id`
   - `storage` stays logical and path-free
 - `/api/examples`
-  - each record is exactly `{ id, name, content }`
+  - the response is `{ api_version, ok: true, examples: [{ id, name, content }] }`
 - `/api/studio/drawing-preview` and `/api/studio/drawing-previews/:id/dimensions`
   - `preview` exposes `id`, `preview_reference`, `editable_plan_reference` when an editable plan exists, `settings`, `overview`, `validation`, `svg`, `bom`, `views`, `scale`, `qa_summary`, `annotations`, `dimensions`, `editable_plan_available`, `dimension_editing_available`, `tracked_draw_bridge_available`, and `artifact_capabilities`
   - preview-plan files, preview working directories, `logs`, `run_log`, and other path-bearing preview sidecars are not part of the browser contract

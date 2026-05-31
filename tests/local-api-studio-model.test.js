@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { createLocalApiServer } from '../src/server/local-api-server.js';
+import { validateLocalApiResponse } from '../src/server/local-api-schemas.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const tmpRoot = mkdtempSync(join(tmpdir(), 'fcad-local-api-model-'));
@@ -105,6 +106,33 @@ try {
   const port = await listen(server);
   const baseUrl = `http://127.0.0.1:${port}`;
 
+  const validationResponse = await fetch(`${baseUrl}/api/studio/validate-config`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      config_toml: 'name = "demo-assembly"\n[[parts]]\nid = "body"\n',
+    }),
+  });
+  assert.equal(validationResponse.status, 200);
+  const validationPayload = await validationResponse.json();
+  assert.equal(validateLocalApiResponse('studio_validate_config', validationPayload).ok, true);
+
+  const designResponse = await fetch(`${baseUrl}/api/studio/design`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      description: 'a small assembly bracket',
+    }),
+  });
+  assert.equal(designResponse.status, 200);
+  assert.equal(validateLocalApiResponse('studio_design', await designResponse.json()).ok, true);
+
   const previewResponse = await fetch(`${baseUrl}/api/studio/model-preview`, {
     method: 'POST',
     headers: {
@@ -122,10 +150,16 @@ try {
   });
   assert.equal(previewResponse.status, 200);
   const previewPayload = await previewResponse.json();
+  assert.equal(validateLocalApiResponse('studio_model_preview', previewPayload).ok, true);
   assert.equal(previewPayload.ok, true);
   assert.equal(previewPayload.preview.id, 'model-preview-1');
   assert.equal(previewPayload.preview.model_asset_url, '/api/studio/model-previews/model-preview-1/model');
   assert.equal(previewPayload.preview.assembly.part_files[0].asset_url, '/api/studio/model-previews/model-preview-1/parts/0');
+  assert.equal('path' in previewPayload.preview.assembly.part_files[0], false);
+  assert.equal('resolvedPath' in previewPayload.preview.assembly.part_files[0], false);
+  const unsafePreviewPayload = structuredClone(previewPayload);
+  unsafePreviewPayload.preview.assembly.part_files[0].path = '/tmp/private-part.stl';
+  assert.equal(validateLocalApiResponse('studio_model_preview', unsafePreviewPayload).ok, false);
 
   const modelAssetResponse = await fetch(`${baseUrl}/api/studio/model-previews/model-preview-1/model`);
   assert.equal(modelAssetResponse.status, 200);
