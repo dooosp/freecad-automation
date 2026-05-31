@@ -67,8 +67,8 @@ const artifactRefSchema = {
   additionalProperties: false,
   required: ['job_id', 'artifact_id'],
   properties: {
-    job_id: { type: 'string', minLength: 1 },
-    artifact_id: { type: 'string', minLength: 1 },
+    job_id: { type: 'string', minLength: 1, maxLength: 128 },
+    artifact_id: { type: 'string', minLength: 1, maxLength: 128 },
   },
 };
 

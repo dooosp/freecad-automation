@@ -113,10 +113,14 @@ export function createLocalApiJobCoordinator({
   }
 
   async function resolveArtifactRef({ job_id: jobId, artifact_id: artifactId }) {
-    await jobStore.getJob(jobId);
+    try {
+      await jobStore.getJob(jobId);
+    } catch {
+      throw new Error('artifact_ref points to a missing tracked job or artifact.');
+    }
     const artifact = await jobStore.getArtifact(jobId, artifactId);
     if (!artifact) {
-      throw new Error(`No artifact ${artifactId} found for job ${jobId}.`);
+      throw new Error('artifact_ref points to a missing tracked job or artifact.');
     }
     if (!artifact.exists) {
       throw new Error(`Artifact ${artifact.file_name} is registered for job ${jobId}, but the file is missing.`);

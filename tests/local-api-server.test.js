@@ -429,6 +429,77 @@ try {
   assert.equal(Array.isArray(jobsIndexPayload.jobs), true);
   assertNoLeakedPathStrings(jobsIndexPayload, [jobsDir, tmpRoot]);
 
+  const oversizedJobId = `missing-${'x'.repeat(4096)}`;
+  const oversizedJobResponse = await fetch(`${baseUrl}/jobs/${encodeURIComponent(oversizedJobId)}`, {
+    headers: {
+      accept: 'application/json',
+    },
+  });
+  assert.equal(oversizedJobResponse.status, 404);
+  const oversizedJobPayload = await oversizedJobResponse.json();
+  assert.equal(oversizedJobPayload.ok, false);
+  assert.equal(oversizedJobPayload.error.code, 'job_not_found');
+  assert.equal(JSON.stringify(oversizedJobPayload).includes(oversizedJobId), false);
+  assert.equal(JSON.stringify(oversizedJobPayload).length < 1000, true);
+
+  const missingArtifactRefResponse = await fetch(`${baseUrl}/api/studio/jobs`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      type: 'inspect',
+      artifact_ref: {
+        job_id: 'missing-job',
+        artifact_id: 'missing-artifact',
+      },
+    }),
+  });
+  assert.equal(missingArtifactRefResponse.status, 400);
+  const missingArtifactRefPayload = await missingArtifactRefResponse.json();
+  assert.equal(missingArtifactRefPayload.ok, false);
+  assert.equal(missingArtifactRefPayload.error.code, 'invalid_request');
+  assert.match(missingArtifactRefPayload.error.messages.join('\n'), /missing tracked job or artifact/i);
+  assertNoLeakedPathStrings(missingArtifactRefPayload, [ROOT, jobsDir, tmpRoot]);
+
+  const oversizedArtifactRefResponse = await fetch(`${baseUrl}/api/studio/jobs`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      type: 'inspect',
+      artifact_ref: {
+        job_id: `job-${'a'.repeat(5000)}`,
+        artifact_id: 'model-step',
+      },
+    }),
+  });
+  assert.equal(oversizedArtifactRefResponse.status, 400);
+  const oversizedArtifactRefPayload = await oversizedArtifactRefResponse.json();
+  assert.equal(oversizedArtifactRefPayload.ok, false);
+  assert.equal(oversizedArtifactRefPayload.error.code, 'invalid_request');
+  assert.match(oversizedArtifactRefPayload.error.messages.join('\n'), /safe tracked id/i);
+  assertNoLeakedPathStrings(oversizedArtifactRefPayload, [ROOT, jobsDir, tmpRoot]);
+  assert.equal(JSON.stringify(oversizedArtifactRefPayload).length < 1000, true);
+
+  const oversizedJsonResponse = await fetch(`${baseUrl}/api/studio/design`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      description: 'x'.repeat((5 * 1024 * 1024) + 1000),
+    }),
+  });
+  assert.equal(oversizedJsonResponse.status, 413);
+  const oversizedJsonPayload = await oversizedJsonResponse.json();
+  assert.equal(oversizedJsonPayload.ok, false);
+  assert.equal(oversizedJsonPayload.error.code, 'request_too_large');
+
   const redactionSourceJob = await jobStore.createJob({
     type: 'report',
     config_path: PRIVATE_CONFIG_PATH,

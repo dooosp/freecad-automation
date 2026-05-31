@@ -56,6 +56,11 @@ const en = {
     'Package readiness-backed outputs': 'Package readiness-backed outputs',
     'Ready held: missing inspection_evidence': 'Ready held: missing inspection_evidence',
     'Ready held: missing inspection_evidence.': 'Ready held: missing inspection_evidence.',
+    'Decision unknown': 'Decision unknown',
+    'Recent report needs review': 'Recent report needs review',
+    'Recent readiness-pack needs review': 'Recent readiness-pack needs review',
+    'Tracked report needs review': 'Tracked report needs review',
+    'Tracked draw needs review': 'Tracked draw needs review',
   },
   patterns: [],
 };

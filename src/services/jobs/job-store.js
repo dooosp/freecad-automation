@@ -63,13 +63,17 @@ function normalizeArtifactEntries(job) {
   const rawEntries = job.manifest?.artifacts?.length
     ? flattenManifestArtifacts(job.manifest.artifacts)
     : flattenArtifacts(job.artifacts);
+  const seenIds = new Map();
 
   return rawEntries.map((artifact, index) => {
     const fileName = basename(artifact.path);
     const extension = extname(fileName).toLowerCase();
-    const id = artifact.id
+    const baseId = artifact.id
       ? slugify(artifact.id)
       : `${slugify(artifact.type || artifact.key || fileName || 'artifact')}-${index}`;
+    const seenCount = seenIds.get(baseId) || 0;
+    seenIds.set(baseId, seenCount + 1);
+    const id = seenCount === 0 ? baseId : `${baseId}-${seenCount}`;
 
     return {
       id,

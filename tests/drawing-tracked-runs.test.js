@@ -54,4 +54,26 @@ const succeeded = deriveDrawingTrackedRunPresentation({
 assert.equal(succeeded.canOpenArtifacts, true);
 assert.equal(succeeded.job.id, 'job-draw-12345678');
 
+const needsReview = deriveDrawingTrackedRunPresentation({
+  drawing,
+  recentJobs: [
+    {
+      id: 'job-draw-12345678',
+      type: 'draw',
+      status: 'succeeded',
+      result: {
+        report_summary: {
+          config_name: 'drawing_quality_case',
+          overall_status: 'warning',
+          ready_for_manufacturing_review: false,
+        },
+      },
+    },
+  ],
+});
+assert.equal(needsReview.title, 'Tracked draw needs review');
+assert.equal(needsReview.tone, 'warn');
+assert.equal(needsReview.canOpenArtifacts, true);
+assert.match(needsReview.copy, /Ready No/);
+
 console.log('drawing-tracked-runs.test.js: ok');

@@ -5,6 +5,7 @@ import {
   deriveJobsCenterActionEligibility,
 } from '../public/js/studio/jobs-center.js';
 import {
+  deriveRecentJobDecisionState,
   deriveRecentJobQualityStatus,
   formatRecentJobQualityLine,
 } from '../public/js/studio/recent-job-quality-status.js';
@@ -106,6 +107,12 @@ assert.deepEqual(jobs.map((job) => job.id), ['job-active', 'job-retry', 'job-old
     formatRecentJobQualityLine(job, 'held-rea'),
     'readiness-pack held-rea · quality_pass_bracket · Job succeeded · Quality passed · Ready held: missing inspection_evidence'
   );
+  assert.deepEqual(deriveRecentJobDecisionState(job), {
+    label: 'Ready held: missing inspection_evidence',
+    tone: 'warn',
+    needsAttention: true,
+    reason: 'readiness',
+  });
 }
 
 {
@@ -123,6 +130,52 @@ assert.deepEqual(jobs.map((job) => job.id), ['job-active', 'job-retry', 'job-old
     qualityStatus: 'Quality Unknown',
     readyForManufacturingReview: 'Ready Unknown',
     hasQualityDecision: false,
+  });
+  assert.deepEqual(deriveRecentJobDecisionState(job), {
+    label: 'Job succeeded',
+    tone: 'ok',
+    needsAttention: false,
+    reason: 'execution',
+  });
+}
+
+{
+  const job = {
+    id: 'quality-failed',
+    type: 'report',
+    status: 'succeeded',
+    result: {
+      report_summary: {
+        config_name: 'ks_bracket',
+        overall_status: 'fail',
+        ready_for_manufacturing_review: false,
+      },
+    },
+  };
+  assert.deepEqual(deriveRecentJobDecisionState(job), {
+    label: 'Ready No',
+    tone: 'warn',
+    needsAttention: true,
+    reason: 'readiness',
+  });
+}
+
+{
+  const job = {
+    id: 'partial-report',
+    type: 'report',
+    status: 'succeeded',
+    result: {
+      report_summary: {
+        config_name: 'partial_report',
+      },
+    },
+  };
+  assert.deepEqual(deriveRecentJobDecisionState(job), {
+    label: 'Decision unknown',
+    tone: 'warn',
+    needsAttention: true,
+    reason: 'unknown_decision',
   });
 }
 

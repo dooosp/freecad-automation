@@ -7,6 +7,10 @@ import { buildRuntimeDiagnostics } from '../lib/runtime-diagnostics.js';
 import { redactPublicPathValues } from '../src/server/local-api-artifacts.js';
 import { createLocalApiServer } from '../src/server/local-api-server.js';
 import { validateLocalApiResponse } from '../src/server/local-api-schemas.js';
+import {
+  createPublicPathContext,
+  sanitizePublicPayload,
+} from '../src/server/public-path-sanitizer.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const TMP_ROOT = mkdtempSync(join(tmpdir(), 'fcad-public-path-redaction-'));
@@ -108,6 +112,33 @@ assertNoLeakedSensitiveStrings(publicRedactionPayload, [
 assert.equal(publicRedactionPayload.artifact_path, 'validation_diagnostics.json');
 assert.equal(publicRedactionPayload.diagnostics[0].safe_source_ref, '[redacted-url]');
 assert.equal(publicRedactionPayload.diagnostics[0].public_source_ref, 'https://github.com/dooosp/freecad-automation/issues/128');
+
+const spacedPathPayload = redactPublicPathValues({
+  message: 'Runtime failed at /Users/alice/My Files/customer secret/part one.step before retry.',
+  urls: [
+    'http://[::1]/loopback?token=secret',
+    'http://[fd00::1]/admin?access_token=secret',
+  ],
+});
+assertNoLeakedSensitiveStrings(spacedPathPayload, [
+  '/Users/alice',
+  'My Files',
+  'customer secret',
+  '::1',
+  'fd00::1',
+  'token=secret',
+  'access_token=secret',
+]);
+
+const publicPathSanitized = sanitizePublicPayload({
+  message: 'Probe wrote /Users/alice/My Files/customer secret/part one.step',
+}, createPublicPathContext({}));
+assertNoLeakedPathStrings(publicPathSanitized, [
+  '/Users/alice',
+  'My Files',
+  'customer secret',
+]);
+assert.match(publicPathSanitized.message, /<path>\/part one\.step/);
 
 const { server } = createLocalApiServer({
   projectRoot: ROOT,

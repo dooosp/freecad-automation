@@ -9,6 +9,9 @@ import { validateLocalApiResponse } from '../src/server/local-api-schemas.js';
 const ROOT = resolve(import.meta.dirname, '..');
 const tmpRoot = mkdtempSync(join(tmpdir(), 'fcad-local-api-drawing-'));
 const jobsDir = join(tmpRoot, 'jobs');
+const SPACED_PRIVATE_PLAN = '/Users/alice/My Files/customer secret/demo plan.toml';
+const PRIVATE_IPV6_URL = 'http://[fd00::1]/admin?token=secret';
+const LOOPBACK_IPV6_URL = 'http://[::1]/secret';
 
 function assertNoLeakedPathStrings(payload, blocked = []) {
   const serialized = JSON.stringify(payload);
@@ -37,9 +40,9 @@ const fakeDrawingService = {
           views: ['front', 'top'],
         },
         scale: '1:2',
-        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><!-- /tmp/demo-sheet_plan.toml --></svg>',
+        svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><!-- ${SPACED_PRIVATE_PLAN} ${PRIVATE_IPV6_URL} --></svg>`,
         bom: [],
-        annotations: ['Saved editable plan at /tmp/demo-sheet_plan.toml'],
+        annotations: [`Saved editable plan at ${SPACED_PRIVATE_PLAN}`, `Debug URL ${LOOPBACK_IPV6_URL}`],
         qa_summary: { score: 92 },
         dimensions: [
           {
@@ -79,9 +82,9 @@ const fakeDrawingService = {
           views: ['front', 'top'],
         },
         scale: '1:2',
-        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><!-- /tmp/demo-sheet_plan.toml --></svg>',
+        svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><!-- ${SPACED_PRIVATE_PLAN} ${PRIVATE_IPV6_URL} --></svg>`,
         bom: [],
-        annotations: ['Saved editable plan at /tmp/demo-sheet_plan.toml'],
+        annotations: [`Saved editable plan at ${SPACED_PRIVATE_PLAN}`, `Debug URL ${LOOPBACK_IPV6_URL}`],
         qa_summary: { score: 92 },
         dimensions: [
           {
@@ -140,6 +143,23 @@ try {
   const port = await listen(server);
   const baseUrl = `http://127.0.0.1:${port}`;
 
+  const invalidSettingsResponse = await fetch(`${baseUrl}/api/studio/drawing-preview`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      config_toml: configToml,
+      drawing_settings: [],
+    }),
+  });
+  assert.equal(invalidSettingsResponse.status, 400);
+  const invalidSettingsPayload = await invalidSettingsResponse.json();
+  assert.equal(invalidSettingsPayload.ok, false);
+  assert.equal(invalidSettingsPayload.error.code, 'invalid_request');
+  assert.match(invalidSettingsPayload.error.messages.join('\n'), /drawing_settings.*object/i);
+
   const previewResponse = await fetch(`${baseUrl}/api/studio/drawing-preview`, {
     method: 'POST',
     headers: {
@@ -178,6 +198,12 @@ try {
     '/tmp/demo-sheet_dimension_map.json',
     '/tmp/demo-sheet_run_log.json',
     '/tmp/preview-workdir',
+    '/Users/alice',
+    'My Files',
+    'customer secret',
+    'fd00::1',
+    '::1',
+    'token=secret',
   ]);
 
   const updateResponse = await fetch(`${baseUrl}/api/studio/drawing-previews/preview-1/dimensions`, {
@@ -211,6 +237,12 @@ try {
     '/tmp/demo-sheet_dimension_map.json',
     '/tmp/demo-sheet_run_log.json',
     '/tmp/preview-workdir',
+    '/Users/alice',
+    'My Files',
+    'customer secret',
+    'fd00::1',
+    '::1',
+    'token=secret',
   ]);
 
   const trackedResponse = await fetch(`${baseUrl}/api/studio/jobs`, {

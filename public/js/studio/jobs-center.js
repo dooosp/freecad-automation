@@ -6,6 +6,7 @@ import {
 } from './jobs-client.js';
 import { ensureStudioJobMonitorState, sortStudioJobsByUpdatedAt } from './job-monitor.js';
 import {
+  deriveRecentJobDecisionState,
   deriveRecentJobQualityStatus,
   formatRecentJobQualityLine,
 } from './recent-job-quality-status.js';
@@ -115,7 +116,8 @@ function createJobActions(job) {
 
 function createJobsCenterItem(job, { activeJobId = '' } = {}) {
   const shortId = shortJobId(job.id);
-  const tone = studioJobTone(job.status);
+  const decision = deriveRecentJobDecisionState(job);
+  const tone = studioJobTone(job.status) === 'warn' ? 'warn' : decision.tone;
   const qualityStatus = deriveRecentJobQualityStatus(job);
   const lineage = job.retried_from_job_id
     ? `Retry of ${shortJobId(job.retried_from_job_id)}`
@@ -142,12 +144,11 @@ function createJobsCenterItem(job, { activeJobId = '' } = {}) {
             ],
           }),
           el('span', {
-            className: 'pill',
+            className: `pill pill-status-${tone}`,
             text: tone === 'warn'
-              ? 'Active'
-              : qualityStatus.hasQualityDecision
-                ? qualityStatus.qualityStatus
-                : qualityStatus.jobExecutionStatus,
+              && ['queued', 'running'].includes(String(job.status || '').toLowerCase())
+                ? 'Active'
+                : decision.label,
           }),
         ],
       }),

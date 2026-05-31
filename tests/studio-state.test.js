@@ -142,6 +142,92 @@ assert.equal(connected.connectionBadgeText, 'Local API connected');
 assert.equal(connected.jobBadgeText, 'Recent draw succeeded');
 assert.equal(connected.projectBadgeText, 'Project New/freecad-automation');
 
+const failedDecisionChrome = deriveStudioChromeState({
+  landing: {
+    mode: 'local_api',
+    project_root: '/Users/jangtaeho/Documents/New/freecad-automation',
+  },
+  health: {
+    status: 'ready',
+    reachable: true,
+    available: true,
+    projectRoot: '/Users/jangtaeho/Documents/New/freecad-automation',
+  },
+  examples: {
+    status: 'ready',
+  },
+  recentJobs: {
+    status: 'ready',
+    items: [
+      {
+        id: 'job-quality-failed-123456',
+        type: 'report',
+        status: 'succeeded',
+        result: {
+          report_summary: {
+            config_name: 'ks_bracket',
+            overall_status: 'fail',
+            ready_for_manufacturing_review: false,
+          },
+        },
+      },
+    ],
+  },
+  activeJob: {
+    summary: null,
+  },
+});
+
+assert.equal(failedDecisionChrome.jobBadgeText, 'Recent report needs review');
+assert.equal(failedDecisionChrome.jobBadgeTone, 'warn');
+assert.match(failedDecisionChrome.jobBadgeTitle, /Ready No/);
+assert.equal(failedDecisionChrome.jobBadgeTitle.includes('Latest tracked job report succeeded.'), false);
+
+const heldReadinessChrome = deriveStudioChromeState({
+  landing: {
+    mode: 'local_api',
+    project_root: '/Users/jangtaeho/Documents/New/freecad-automation',
+  },
+  health: {
+    status: 'ready',
+    reachable: true,
+    available: true,
+    projectRoot: '/Users/jangtaeho/Documents/New/freecad-automation',
+  },
+  examples: {
+    status: 'ready',
+  },
+  recentJobs: {
+    status: 'ready',
+    items: [
+      {
+        id: 'job-held-readiness-123456',
+        type: 'readiness-pack',
+        status: 'succeeded',
+        result: {
+          report_summary: {
+            config_name: 'quality_pass_bracket',
+            overall_status: 'pass',
+            ready_for_manufacturing_review: true,
+          },
+          readiness_summary: {
+            status: 'needs_more_evidence',
+            gate_decision: 'hold_for_evidence_completion',
+            missing_inputs: ['inspection_evidence'],
+          },
+        },
+      },
+    ],
+  },
+  activeJob: {
+    summary: null,
+  },
+});
+
+assert.equal(heldReadinessChrome.jobBadgeText, 'Recent readiness-pack needs review');
+assert.equal(heldReadinessChrome.jobBadgeTone, 'warn');
+assert.match(heldReadinessChrome.jobBadgeTitle, /Ready held: missing inspection_evidence/);
+
 const monitored = deriveStudioChromeState({
   landing: {
     mode: 'local_api',

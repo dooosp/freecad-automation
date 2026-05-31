@@ -28,6 +28,27 @@ function trimOptionalString(value) {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : '';
 }
 
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function invalidRequest(res, messages) {
+  const response = createErrorResponse('invalid_request', messages);
+  res.status(response.status).json(assertResponse('error', response.body));
+}
+
+function validateObjectRequestBody(body, errors) {
+  if (!isPlainObject(body)) {
+    errors.push('Request body must be a JSON object.');
+  }
+}
+
+function validateOptionalPlainObject(body, fieldName, errors) {
+  if (body?.[fieldName] !== undefined && !isPlainObject(body[fieldName])) {
+    errors.push(`${fieldName} must be an object when provided.`);
+  }
+}
+
 function toProjectDisplayPath(projectRoot, value) {
   const trimmed = trimOptionalString(value);
   if (!trimmed) return '';
@@ -119,6 +140,13 @@ export function registerStudioRoutes(app, {
   });
 
   app.post('/api/studio/model-preview', async (req, res) => {
+    const requestErrors = [];
+    validateObjectRequestBody(req.body, requestErrors);
+    validateOptionalPlainObject(req.body, 'build_settings', requestErrors);
+    if (requestErrors.length > 0) {
+      invalidRequest(res, requestErrors);
+      return;
+    }
     try {
       const payload = await studioModelService.buildPreview({
         configToml: req.body?.config_toml,
@@ -172,6 +200,13 @@ export function registerStudioRoutes(app, {
   });
 
   app.post('/api/studio/drawing-preview', async (req, res) => {
+    const requestErrors = [];
+    validateObjectRequestBody(req.body, requestErrors);
+    validateOptionalPlainObject(req.body, 'drawing_settings', requestErrors);
+    if (requestErrors.length > 0) {
+      invalidRequest(res, requestErrors);
+      return;
+    }
     try {
       const payload = await studioDrawingService.buildPreview({
         configToml: req.body?.config_toml,
@@ -209,6 +244,21 @@ export function registerStudioRoutes(app, {
   });
 
   app.post('/api/studio/drawing-previews/:id/dimensions', async (req, res) => {
+    const requestErrors = [];
+    validateObjectRequestBody(req.body, requestErrors);
+    if (req.body?.dim_id !== undefined && (typeof req.body.dim_id !== 'string' || req.body.dim_id.trim().length === 0)) {
+      requestErrors.push('dim_id must be a non-empty string when provided.');
+    }
+    if (req.body?.value_mm !== undefined && !Number.isFinite(Number(req.body.value_mm))) {
+      requestErrors.push('value_mm must be a finite number when provided.');
+    }
+    if (req.body?.history_op !== undefined && (typeof req.body.history_op !== 'string' || !['edit', 'undo', 'redo'].includes(req.body.history_op))) {
+      requestErrors.push('history_op must be edit, undo, or redo when provided.');
+    }
+    if (requestErrors.length > 0) {
+      invalidRequest(res, requestErrors);
+      return;
+    }
     try {
       const payload = await studioDrawingService.updateDimension({
         previewId: req.params.id,

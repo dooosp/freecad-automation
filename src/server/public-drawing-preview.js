@@ -1,4 +1,5 @@
 import { basename, posix, win32 } from 'node:path';
+import { redactPublicPathValues } from './local-api-artifacts.js';
 
 const SERVER_ONLY_DRAWING_FIELDS = new Set([
   'artifacts',
@@ -33,6 +34,8 @@ function basenameFromAnyPath(value) {
 
 function redactPathString(value) {
   if (typeof value !== 'string' || value.length === 0) return value;
+  const sharedRedaction = redactPublicPathValues(value);
+  if (sharedRedaction !== value) return sharedRedaction;
   if (isAbsoluteFilesystemPath(value)) {
     return basenameFromAnyPath(value) || '[hidden-path]';
   }

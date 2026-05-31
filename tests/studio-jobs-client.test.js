@@ -111,4 +111,30 @@ try {
   globalThis.fetch = originalFetch;
 }
 
+globalThis.fetch = async () => ({
+  ok: false,
+  status: 422,
+  async json() {
+    return {
+      ok: false,
+      error: {
+        code: 'invalid_request',
+        messages: 'Request body must be a JSON object.',
+      },
+    };
+  },
+});
+
+try {
+  await assert.rejects(
+    () => submitStudioTrackedJob({
+      type: 'create',
+      configToml: 'name = "malformed_error_envelope"',
+    }),
+    /Request body must be a JSON object/
+  );
+} finally {
+  globalThis.fetch = originalFetch;
+}
+
 console.log('studio-jobs-client.test.js: ok');
