@@ -88,6 +88,7 @@
         "does_not_promote_evidence",
         "does_not_satisfy_readiness",
         "does_not_mutate_canonical_artifacts",
+        "later_attachment_authorization_required",
         "reviewer_note"
       ],
       "properties": {
@@ -110,6 +111,7 @@
         "does_not_promote_evidence": { "const": true },
         "does_not_satisfy_readiness": { "const": true },
         "does_not_mutate_canonical_artifacts": { "const": true },
+        "later_attachment_authorization_required": { "const": true },
         "reviewer_note": { "type": "string", "minLength": 1 }
       },
       "additionalProperties": false
@@ -194,6 +196,7 @@
         "evidence_promoted",
         "readiness_satisfied",
         "promotion_authorized",
+        "attachment_authorization_required",
         "note"
       ],
       "properties": {
@@ -206,6 +209,7 @@
         "evidence_promoted": { "const": false },
         "readiness_satisfied": { "const": false },
         "promotion_authorized": { "const": false },
+        "attachment_authorization_required": { "const": true },
         "note": { "type": "string", "minLength": 1 }
       },
       "additionalProperties": false
@@ -272,6 +276,7 @@
         "path_safety_field",
         "readiness_unchanged_field",
         "non_evidence_boundary_field",
+        "authorization_boundary_field",
         "passing_report_means",
         "passing_report_does_not_mean",
         "required_sections"
@@ -286,6 +291,7 @@
         "path_safety_field": { "const": "path_safety" },
         "readiness_unchanged_field": { "const": "readiness_unchanged" },
         "non_evidence_boundary_field": { "const": "non_evidence_boundary" },
+        "authorization_boundary_field": { "const": "decision.later_attachment_authorization_required" },
         "passing_report_means": { "const": "eligible for later Stage 5B intake review only" },
         "passing_report_does_not_mean": {
           "type": "array",
@@ -294,10 +300,11 @@
               "evidence_attached",
               "evidence_promoted",
               "readiness_satisfied",
-              "canonical_artifacts_mutated"
+              "canonical_artifacts_mutated",
+              "attachment_authorized"
             ]
           },
-          "minItems": 4,
+          "minItems": 5,
           "uniqueItems": true
         },
         "required_sections": {

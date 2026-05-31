@@ -66,6 +66,7 @@ const intakeReport = {
     candidate_count: 3,
     accepted_candidate_count: 0,
     rejected_candidate_count: 3,
+    attachment_ready_candidate_count: 0,
     genuine_inspection_evidence_found: false,
     packages_with_genuine_evidence: [],
     packages_without_genuine_evidence: ['quality-pass-bracket', 'hinge-block'],
@@ -376,11 +377,22 @@ assert.equal(card.raw, raw);
 const normalized = Object.fromEntries(card.normalized);
 assert.equal(normalized['Searched source classes'], 'tracked_repo_files • github_public_metadata');
 assert.equal(normalized['Accepted candidates'], '0');
+assert.equal(normalized['Attachment-ready candidates'], '0');
 assert.equal(normalized['Rejected candidates'], '3');
 assert.equal(normalized['Rejection classes'], 'invalid_generated • invalid_schema • invalid_provenance');
 assert.equal(normalized['Package readiness'], 'quality-pass-bracket: needs_more_evidence / hold_for_evidence_completion • hinge-block: needs_more_evidence / hold_for_evidence_completion');
 assert.equal(normalized['Readiness explanation'], 'readiness remains needs_more_evidence / hold_for_evidence_completion');
 assert.equal(normalized['Evidence boundary'], 'Generated CAD/drawing/quality/readiness/review/standard-doc/release artifacts, fixtures, templates, and collection guides are not inspection evidence.');
+
+const candidateFoundReport = structuredClone(intakeReport);
+candidateFoundReport.summary.accepted_candidate_count = 1;
+candidateFoundReport.summary.genuine_inspection_evidence_found = true;
+candidateFoundReport.summary.attachment_ready_candidate_count = 0;
+candidateFoundReport.summary.readiness_truth = 'candidate evidence found; readiness remains held until later authorized attachment';
+const candidateFoundCard = buildInspectionEvidenceIntakeCard({ report: candidateFoundReport });
+assert.equal(candidateFoundCard.tone, 'warn');
+assert.equal(candidateFoundCard.status, 'Candidate evidence found; readiness held');
+assert.match(candidateFoundCard.summary, /later authorized attachment/);
 
 const dryRunRaw = JSON.stringify(promotionDryRunManifest, null, 2);
 const dryRunCard = buildInspectionEvidencePromotionDryRunCard({

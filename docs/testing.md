@@ -38,6 +38,11 @@ The runtime domain runner uses the same FreeCAD-backed script path as the CLI an
 
 The hosted workflow is the fast PR lane and does not install or launch FreeCAD. Its Node contract lane also runs the non-mutating Stage 5B no-evidence CLI lane and audit CLI smoke with GitHub discovery disabled. The self-hosted workflow is the repository-owned runtime smoke source of truth for the listed real FreeCAD-backed checks on pull requests, manual reruns, and the weekly schedule.
 
+`npm run test:studio-browser-smoke` is a local/manual Chrome-capable lane unless
+a dedicated browser job is added. It is not part of `npm test` or the hosted
+Automation CI suite, so PR checks do not by themselves prove real browser
+rendering for Studio.
+
 ## GitHub Actions Node24 Runtime
 
 The GitHub-hosted and self-hosted workflows opt JavaScript actions into the Node24 action runtime with `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"` and use Node24-backed action majors:

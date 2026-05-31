@@ -17,9 +17,9 @@ Hard evidence rule: Only genuine completed physical/supplier/lab/QA inspection r
 Use this record only after the candidate gate report says
 `summary.eligible_for_stage5b_intake_review: true` and
 `decision.result: accept`. Keep raw/private records in the ignored local inbox
-or another explicitly authorized private control location; do not copy raw
-supplier/lab/QA material, private URLs, credentials, tokens, unnecessary PII,
-or private machine paths into this tracked document.
+or in an explicitly authorized private control location outside the repository
+root; do not copy raw supplier/lab/QA material, private URLs, credentials,
+tokens, unnecessary PII, or private machine paths into this tracked document.
 
 ## Authorization Checklist
 
@@ -66,15 +66,16 @@ is allowed to attach a reviewed/redacted genuine inspection record.
 ## Record Template
 
 Fill this out in a later authorized attachment task or in a private control
-record that is safe to share. Leave values as `unknown` or `null` when they are
-unavailable; do not invent missing measurements, reviewer data, provenance, or
-mapping.
+record that is safe to share. Keep alternate private-control records outside
+the repository root unless a later task explicitly authorizes a sanitized
+tracked record. Leave values as `unknown` or `null` when they are unavailable;
+do not invent missing measurements, reviewer data, provenance, or mapping.
 
 | Field | Required entry |
 | --- | --- |
 | Package slug | One canonical package slug. |
-| Candidate gate report ref | Safe repo-relative or private-control ref to the accepted report. |
-| Reviewed/redacted evidence JSON ref | Safe repo-relative or private-control ref to the reviewed JSON contract record. |
+| Candidate gate report ref | Ignored local-inbox path, safe sanitized repo-relative control ref, or private-control ref outside the repository root. |
+| Reviewed/redacted evidence JSON ref | Ignored local-inbox path, safe sanitized repo-relative control ref, or private-control ref outside the repository root. |
 | Redaction/privacy reviewer | Human reviewer and timestamp, or `unknown` if unavailable. |
 | Provenance/reviewer traceability reviewer | Human reviewer and timestamp, or `unknown` if unavailable. |
 | Package/part/revision mapping reviewer | Human reviewer and timestamp, or `unknown` if unavailable. |

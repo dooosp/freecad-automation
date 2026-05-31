@@ -296,6 +296,44 @@ assert.equal(unsupportedReviewContext.ok, false);
 assert.match(unsupportedReviewContext.errors.join('\n'), /requires either context_path or model_path/i);
 assert.match(unsupportedReviewContext.errors.join('\n'), /does not accept config_toml, artifact_ref/i);
 
+const intakeSubmission = await translateStudioJobSubmission({
+  type: 'inspection-evidence-intake',
+  options: {
+    include_github: true,
+    package_slugs: ['quality-pass-bracket'],
+  },
+});
+
+assert.equal(intakeSubmission.ok, true, intakeSubmission.errors?.join('\n'));
+assert.deepEqual(intakeSubmission.request, {
+  type: 'inspection-evidence-intake',
+  options: {
+    include_github: true,
+    package_slugs: ['quality-pass-bracket'],
+  },
+});
+
+const invalidIntakeRepoOption = validateStudioJobSubmission({
+  type: 'inspection-evidence-intake',
+  options: {
+    include_github: false,
+    github_repo: 'other/repo',
+  },
+});
+
+assert.equal(invalidIntakeRepoOption.ok, false);
+assert.match(invalidIntakeRepoOption.errors.join('\n'), /options only accepts include_github and package_slugs|github_repo/);
+
+const invalidIntakeIncludeGithub = validateStudioJobSubmission({
+  type: 'inspection-evidence-intake',
+  options: {
+    include_github: 'yes',
+  },
+});
+
+assert.equal(invalidIntakeIncludeGithub.ok, false);
+assert.match(invalidIntakeIncludeGithub.errors.join('\n'), /include_github.*boolean/i);
+
 const promotionDryRunFromArtifact = await translateStudioJobSubmission({
   type: 'inspection-evidence-promotion-dry-run',
   artifact_ref: {

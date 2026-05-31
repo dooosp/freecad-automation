@@ -841,23 +841,33 @@ export function buildInspectionEvidenceIntakeCard({
   const summary = safeObject(report.summary);
   const acceptedCount = Number.isFinite(summary.accepted_candidate_count) ? summary.accepted_candidate_count : 0;
   const rejectedCount = Number.isFinite(summary.rejected_candidate_count) ? summary.rejected_candidate_count : 0;
+  const attachmentReadyCount = Number.isFinite(summary.attachment_ready_candidate_count)
+    ? summary.attachment_ready_candidate_count
+    : 0;
   const foundGenuineEvidence = summary.genuine_inspection_evidence_found === true;
+  const hasAttachmentReadyCandidate = attachmentReadyCount > 0;
   const readinessTruth = summary.readiness_truth
     || (foundGenuineEvidence
-      ? 'valid candidates require canonical review-context attachment/regeneration before readiness may change'
+      ? 'candidate evidence found; readiness remains held until later authorized attachment'
       : 'readiness remains needs_more_evidence / hold_for_evidence_completion');
+  const status = hasAttachmentReadyCandidate
+    ? 'Attachment-ready candidate needs authorization'
+    : (foundGenuineEvidence
+      ? 'Candidate evidence found; readiness held'
+      : 'No genuine inspection evidence');
 
   return buildCard({
     id: 'inspection-intake',
     title: 'Stage 5B inspection evidence intake',
-    tone: foundGenuineEvidence ? 'ok' : 'warn',
+    tone: 'warn',
     score: acceptedCount,
-    status: foundGenuineEvidence ? 'Genuine inspection evidence found' : 'No genuine inspection evidence',
+    status,
     summary: `${readinessTruth}. No human-entered measurements requested.`,
     artifact,
     normalized: [
       buildReviewDisplayField('Searched source classes', summarizeSourceClasses(report.searched_sources)),
       buildReviewDisplayField('Accepted candidates', String(acceptedCount)),
+      buildReviewDisplayField('Attachment-ready candidates', String(attachmentReadyCount)),
       buildReviewDisplayField('Rejected candidates', String(rejectedCount)),
       buildReviewDisplayField('Rejection classes', summarizeClasses(report.rejected_candidates)),
       buildReviewDisplayField('Package readiness', summarizePackageReadiness(report.packages)),
