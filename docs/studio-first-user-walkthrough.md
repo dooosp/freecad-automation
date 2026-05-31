@@ -75,7 +75,7 @@ Use the Review workspace when maintainers need to repeat the Stage 5B evidence a
 
 The tracked audit registers the intake report, promotion dry-run manifest, audit manifest, and markdown summary. The audit card summarizes genuine evidence found, promotion can run, attachment-ready count, blockers, package readiness states, GitHub summary, next safe commands, readiness-held truth, and the evidence boundary. Readiness remains held when accepted count is `0`, and the audit should say no promotion can run and readiness remains `needs_more_evidence / hold_for_evidence_completion`.
 
-Open the completed audit job in Review to inspect the normalized card, then preview audit artifacts only through tracked job artifact routes. Artifacts are allowlisted by job id and artifact id; Studio does not import arbitrary local files for audit review.
+Open the completed audit job in Review to inspect the normalized card, then preview audit artifacts only through tracked job artifact routes. Artifacts are allowlisted by job id and artifact id; Studio does not import arbitrary local files for audit review. Internal tracked artifacts can still seed supported reruns by artifact reference, but they are not browser-openable or downloadable.
 
 For exact CLI commands, tracked API payloads, diagnostic meaning, and the future genuine-evidence path, see the [Stage 5B operational runbook](./stage-5b-operational-runbook.md).
 

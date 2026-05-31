@@ -110,7 +110,11 @@ if (!hasFreeCADRuntime()) {
     assert.equal(completedJob.manifest.artifacts.some((artifact) => artifact.type === 'model.step'), true);
     assert.equal('config_path' in completedJob.request, false);
     assert.equal(JSON.stringify(completedJob.request).includes(configPath), false);
-    assert.equal(existsSync(join(outputDir, 'api_create_integration.step')), true);
+    const storedCreateJob = await jobStore.getJob(created.job.id);
+    const expectedCreateStepPath = join(jobsDir, created.job.id, 'artifacts', 'api_create_integration.step');
+    assert.equal(storedCreateJob.artifacts.exports.includes(expectedCreateStepPath), true);
+    assert.equal(existsSync(expectedCreateStepPath), true);
+    assert.equal(existsSync(join(outputDir, 'api_create_integration.step')), false);
     assert.equal('root' in completedJob.storage, false);
     assert.equal('path' in completedJob.storage.files.job, false);
     assert.equal(completedJob.storage.files.job.exists, true);

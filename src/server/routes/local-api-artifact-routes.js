@@ -2,6 +2,8 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { LOCAL_API_VERSION } from '../local-api-contract.js';
 import {
+  canDownloadArtifactContent,
+  canServeArtifactContent,
   inferArtifactContentType,
   redactPublicPathValues,
   toArtifactResponse,
@@ -50,6 +52,24 @@ export function registerArtifactRoutes(app, { jobStore }) {
           'artifact_missing',
           [`Artifact ${artifact.file_name} is registered for job ${jobId}, but the file is missing.`],
           404
+        );
+        res.status(response.status).json(assertResponse('error', response.body));
+        return;
+      }
+      const contentAllowed = download
+        ? canDownloadArtifactContent(artifact)
+        : canServeArtifactContent(artifact);
+      if (!contentAllowed) {
+        const code = artifact.scope === 'user-facing'
+          ? 'artifact_content_not_inline_safe'
+          : 'artifact_content_not_public';
+        const message = artifact.scope === 'user-facing'
+          ? `Artifact ${artifact.file_name} is not available for inline browser preview; use the download route instead.`
+          : `Artifact ${artifact.file_name} is registered as ${artifact.scope || 'non-public'} and is not available through browser open or download routes.`;
+        const response = createErrorResponse(
+          code,
+          [message],
+          403
         );
         res.status(response.status).json(assertResponse('error', response.body));
         return;

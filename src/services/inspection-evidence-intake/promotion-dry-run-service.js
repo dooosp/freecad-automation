@@ -612,7 +612,7 @@ export function buildInspectionEvidencePromotionDryRunManifest({
       canonical_artifacts_mutated: false,
       dry_run_manifest_only: true,
       genuine_inspection_evidence_found: report.summary?.genuine_inspection_evidence_found === true,
-      attachment_ready_candidate_count: report.summary?.attachment_ready_candidate_count ?? readyPackages.length,
+      attachment_ready_candidate_count: readyPackages.length,
       readiness_expectation: readyPackages.length > 0
         ? 'Future promotion commands are listed, but readiness remains unchanged until those commands are deliberately run with genuine evidence.'
         : 'No promotion can run; readiness remains needs_more_evidence / hold_for_evidence_completion.',

@@ -216,7 +216,7 @@ function packageReadinessStates(intakeReport = {}, promotionDryRunManifest = {})
 
 function attachmentReadyCandidates(intakeReport = {}) {
   return safeList(intakeReport.accepted_candidates)
-    .filter((candidate) => candidate.attachment_ready === true)
+    .filter((candidate) => candidate.attachment_ready === true && isCanonicalAttachmentReadyCandidate(candidate))
     .map((candidate) => ({
       path: candidate.path || null,
       source_kind: candidate.source_kind || null,
@@ -226,6 +226,18 @@ function attachmentReadyCandidates(intakeReport = {}) {
       fixture_or_test_source: normalizeRepoPath(candidate.path).startsWith('tests/fixtures/')
         || String(candidate.source_kind || '').includes('fixture'),
     }));
+}
+
+function isCanonicalAttachmentReadyCandidate(candidate = {}) {
+  const path = normalizeRepoPath(candidate.path).toLowerCase();
+  const sourceKind = String(candidate.source_kind || '').toLowerCase();
+  if (!path) return false;
+  if (sourceKind.includes('fixture')) return false;
+  if (path.startsWith('tests/fixtures/') || path.startsWith('schemas/')) return false;
+  if (path.startsWith('output/') || path.startsWith('tmp/codex/')) return false;
+  if (path.startsWith('local/stage5b-candidate-evidence-inbox/')) return false;
+  if (!/^docs\/examples\/[^/]+\/inspection\/[^/]+\.json$/i.test(path)) return false;
+  return true;
 }
 
 function collectBlockers(intakeReport = {}, promotionDryRunManifest = {}) {
@@ -386,7 +398,7 @@ export function buildStage5bEvidenceAuditManifest({
       package_count: safeList(intake.packages).length,
       accepted_candidate_count: intake.summary?.accepted_candidate_count || 0,
       rejected_candidate_count: intake.summary?.rejected_candidate_count || 0,
-      attachment_ready_candidate_count: intake.summary?.attachment_ready_candidate_count ?? attachmentReady.length,
+      attachment_ready_candidate_count: attachmentReady.length,
       genuine_inspection_evidence_found: intake.summary?.genuine_inspection_evidence_found === true,
       promotion_can_run: promotionCanRun,
       readiness_remains_held: readinessTruth.readiness_remains_held,

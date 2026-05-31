@@ -48,11 +48,19 @@ const localApiJobRequestSchema = {
     {
       type: 'object',
       additionalProperties: false,
-      required: ['type', 'file_path'],
+      required: ['type'],
       properties: {
         type: { const: 'inspect' },
         file_path: { type: 'string', minLength: 1 },
+        artifact_ref: artifactRefSchema,
         options: { type: 'object' },
+      },
+      oneOf: [
+        { required: ['file_path'] },
+        { required: ['artifact_ref'] },
+      ],
+      not: {
+        required: ['file_path', 'artifact_ref'],
       },
     },
     {
