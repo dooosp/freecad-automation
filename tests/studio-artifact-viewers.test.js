@@ -6,6 +6,7 @@ import {
   buildArtifactDetailItems,
   buildArtifactOpenLabel,
   buildArtifactViewer,
+  parseArtifactPayload,
 } from '../public/js/studio/artifact-insights.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
@@ -82,6 +83,15 @@ assert.equal(readinessViewer.title, 'Readiness viewer');
 assert.equal(readinessViewer.highlights.find((item) => item.label === 'Gate')?.value, readinessReport.readiness_summary.gate_decision);
 assert.equal(readinessViewer.sections.some((section) => section.title === 'Decision summary'), true);
 assert.equal(readinessViewer.sections.some((section) => section.title === 'Next actions in artifact'), true);
+
+const truncatedJsonPreview = '{"artifact_type":"readiness_report","part":{}\n\n…truncated for the studio preview…';
+assert.equal(
+  parseArtifactPayload({
+    content_type: 'application/json; charset=utf-8',
+    extension: '.json',
+  }, truncatedJsonPreview),
+  null
+);
 
 const comparisonArtifact = {
   id: 'revision-comparison',

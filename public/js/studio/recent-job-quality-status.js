@@ -193,6 +193,103 @@ export function deriveRecentJobQualityStatus(job = {}) {
   };
 }
 
+function hasDecisionPayload(job = {}) {
+  const reportSummary = reportSummaryFromJob(job);
+  const readinessSummary = readinessSummaryFromJob(job, reportSummary);
+  return Object.keys(reportSummary).length > 0 || Object.keys(readinessSummary).length > 0;
+}
+
+function executionDecisionState(status = '') {
+  const normalized = String(status || '').toLowerCase();
+  if (normalized === 'failed') {
+    return {
+      label: 'Job failed',
+      tone: 'bad',
+      needsAttention: true,
+      reason: 'execution',
+    };
+  }
+  if (normalized === 'cancelled') {
+    return {
+      label: 'Job cancelled',
+      tone: 'warn',
+      needsAttention: true,
+      reason: 'execution',
+    };
+  }
+  if (normalized === 'running') {
+    return {
+      label: 'Job running',
+      tone: 'warn',
+      needsAttention: false,
+      reason: 'execution',
+    };
+  }
+  if (normalized === 'queued') {
+    return {
+      label: 'Job queued',
+      tone: 'info',
+      needsAttention: false,
+      reason: 'execution',
+    };
+  }
+  return {
+    label: formatJobExecutionStatus(status),
+    tone: normalized === 'succeeded' ? 'ok' : 'info',
+    needsAttention: false,
+    reason: 'execution',
+  };
+}
+
+export function deriveRecentJobDecisionState(job = {}) {
+  const execution = executionDecisionState(job.status);
+  if (String(job.status || '').toLowerCase() !== 'succeeded') {
+    return execution;
+  }
+
+  const status = deriveRecentJobQualityStatus(job);
+  const readiness = String(status.readyForManufacturingReview || '').toLowerCase();
+  const quality = String(status.qualityStatus || '').toLowerCase();
+
+  if (readiness.includes('ready held') || readiness === 'ready no') {
+    return {
+      label: status.readyForManufacturingReview,
+      tone: 'warn',
+      needsAttention: true,
+      reason: 'readiness',
+    };
+  }
+
+  if (quality === 'quality failed' || quality === 'quality warning') {
+    return {
+      label: status.qualityStatus,
+      tone: 'warn',
+      needsAttention: true,
+      reason: 'quality',
+    };
+  }
+
+  if (status.hasQualityDecision) {
+    return {
+      label: quality === 'quality unknown' ? status.readyForManufacturingReview : status.qualityStatus,
+      tone: 'ok',
+      needsAttention: false,
+      reason: 'decision',
+    };
+  }
+
+  if (hasDecisionPayload(job)) {
+    return {
+      label: 'Decision unknown',
+      tone: 'warn',
+      needsAttention: true,
+      reason: 'unknown_decision',
+    };
+  }
+
+  return execution;
+}
+
 export function formatRecentJobQualityLine(job = {}, shortId = '') {
   const status = deriveRecentJobQualityStatus(job);
   return [

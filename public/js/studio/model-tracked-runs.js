@@ -1,5 +1,6 @@
 import { studioJobTone } from './jobs-client.js';
 import { findStudioMonitoredJob } from './job-monitor.js';
+import { deriveRecentJobDecisionState } from './recent-job-quality-status.js';
 
 function normalizeString(value, fallback = '') {
   return typeof value === 'string' ? value : fallback;
@@ -161,9 +162,22 @@ export function deriveModelTrackedRunPresentation({
   const type = normalizeString(job.type || trackedRun.type || 'job').toLowerCase();
   const status = normalizeString(job.status || trackedRun.status || 'queued').toLowerCase();
   const shortId = shortJobId(job.id);
-  const tone = studioJobTone(status);
+  const decision = deriveRecentJobDecisionState(job);
+  const tone = decision.tone || studioJobTone(status);
 
   if (status === 'succeeded') {
+    if (decision.needsAttention) {
+      return {
+        status,
+        tone,
+        title: `Tracked ${type} needs review`,
+        copy: `Job ${shortId} finished, but ${decision.label}. Open Artifacts to inspect generated files and quality outputs before re-entry.`,
+        badgeLabel: `Tracked ${type} needs review`,
+        meta: `Job ${shortId}`,
+        job,
+        canOpenArtifacts: true,
+      };
+    }
     return {
       status,
       tone,

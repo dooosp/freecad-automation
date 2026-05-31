@@ -21,7 +21,7 @@ import {
 } from './artifact-actions.js';
 import { fetchStudioJobArtifacts } from './jobs-client.js';
 import {
-  deriveRecentJobQualityStatus,
+  deriveRecentJobDecisionState,
   formatRecentJobQualityLine,
 } from './recent-job-quality-status.js';
 import { applyTranslations } from '../i18n/index.js';
@@ -63,7 +63,7 @@ function renderRecentJobs(recentJobs = []) {
   return el('div', {
     className: 'review-job-table',
     children: recentJobs.slice(0, 5).map((job, index) => {
-      const status = deriveRecentJobQualityStatus(job);
+      const status = deriveRecentJobDecisionState(job);
       return el('article', {
         className: 'review-job-row',
         children: [
@@ -75,7 +75,7 @@ function renderRecentJobs(recentJobs = []) {
             ],
           }),
           el('p', { className: 'review-job-time', text: formatDateTime(job.updated_at) }),
-          el('span', { className: 'pill', text: status.hasQualityDecision ? status.qualityStatus : status.jobExecutionStatus }),
+          el('span', { className: `pill pill-status-${status.tone}`, text: status.label }),
           createButton({
             label: 'Open',
             action: 'review-open-job',

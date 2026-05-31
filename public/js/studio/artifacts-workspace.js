@@ -41,6 +41,7 @@ import {
   formatQualityStatusLabel,
 } from './quality-dashboard.js';
 import {
+  deriveRecentJobDecisionState,
   deriveRecentJobQualityStatus,
   formatRecentJobQualityLine,
 } from './recent-job-quality-status.js';
@@ -563,7 +564,7 @@ function renderOutputQueue(recentJobs = []) {
   return el('div', {
     className: 'output-queue',
     children: recentJobs.slice(0, 4).map((job) => {
-      const status = deriveRecentJobQualityStatus(job);
+      const status = deriveRecentJobDecisionState(job);
       return el('article', {
         className: 'queue-row',
         children: [
@@ -574,7 +575,7 @@ function renderOutputQueue(recentJobs = []) {
               el('p', { className: 'queue-row-meta', text: formatRecentJobQualityLine(job, shortJobId(job.id)) }),
             ],
           }),
-          el('span', { className: 'pill', text: status.hasQualityDecision ? status.qualityStatus : status.jobExecutionStatus }),
+          el('span', { className: `pill pill-status-${status.tone}`, text: status.label }),
         ],
       });
     }),

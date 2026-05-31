@@ -16,6 +16,7 @@ const POSIX_FILESYSTEM_ROOTS = new Set([
 ]);
 
 const WINDOWS_PATH_PATTERN = /(?:[A-Za-z]:\\(?:[^\\\r\n"'`<>|]+\\?)+|\\\\[^\s"'`<>|]+(?:\\[^\s"'`<>|]+)+)/g;
+const POSIX_EXT_PATH_PATTERN = /(?:\/(?:Applications|Users|Volumes|etc|home|mnt|opt|private|srv|tmp|usr|var)(?:\/[^\/\r\n"'`<>]+)+?\.[A-Za-z0-9]{1,12})\b/g;
 const POSIX_PATH_PATTERN = /(?:\/(?:[^\/\s"'`<>()]+\/)+[^\/\s"'`<>()]+)/g;
 const URL_PATTERN = /https?:\/\/[^\s<>"'`)\]]+/gi;
 
@@ -121,10 +122,13 @@ function isAbsoluteFilesystemPath(value) {
 }
 
 function isPrivateHostname(hostname) {
-  const host = String(hostname || '').toLowerCase();
+  const host = String(hostname || '').toLowerCase().replace(/^\[|\]$/g, '');
   return host === 'localhost'
     || host === '::1'
     || host.endsWith('.local')
+    || host.startsWith('fd')
+    || host.startsWith('fc')
+    || host.startsWith('fe80:')
     || /^127\./.test(host)
     || /^10\./.test(host)
     || /^192\.168\./.test(host)
@@ -157,6 +161,9 @@ function redactEmbeddedFilesystemPaths(value) {
   if (typeof value !== 'string' || value.length === 0) return value;
   return value
     .replace(WINDOWS_PATH_PATTERN, (match) => (
+      isAbsoluteFilesystemPath(match) ? basenameFromAnyPath(match) : match
+    ))
+    .replace(POSIX_EXT_PATH_PATTERN, (match) => (
       isAbsoluteFilesystemPath(match) ? basenameFromAnyPath(match) : match
     ))
     .replace(POSIX_PATH_PATTERN, (match) => (

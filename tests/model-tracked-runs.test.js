@@ -61,6 +61,28 @@ assert.equal(succeededPresentation.status, 'succeeded');
 assert.equal(succeededPresentation.canOpenArtifacts, true);
 assert.match(succeededPresentation.copy, /artifact trail/i);
 
+const needsReviewPresentation = deriveModelTrackedRunPresentation({
+  model,
+  recentJobs: [{
+    id: 'job-123456789',
+    type: 'report',
+    status: 'succeeded',
+    result: {
+      report_summary: {
+        config_name: 'ks_bracket',
+        overall_status: 'fail',
+        ready_for_manufacturing_review: false,
+      },
+    },
+  }],
+});
+assert.equal(needsReviewPresentation.status, 'succeeded');
+assert.equal(needsReviewPresentation.tone, 'warn');
+assert.equal(needsReviewPresentation.title, 'Tracked report needs review');
+assert.equal(needsReviewPresentation.badgeLabel, 'Tracked report needs review');
+assert.equal(needsReviewPresentation.canOpenArtifacts, true);
+assert.match(needsReviewPresentation.copy, /Ready No/);
+
 const failedPresentation = deriveModelTrackedRunPresentation({
   model: ensureModelTrackedRunState({
     trackedRun: {

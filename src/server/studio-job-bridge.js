@@ -41,6 +41,7 @@ const STUDIO_PAIRED_ARTIFACT_JOB_TYPES = new Set(STUDIO_PAIRED_ARTIFACT_JOB_COMM
 const STUDIO_JOB_TYPE_SENTENCE = formatCommandNameList(STUDIO_SUBMISSION_JOB_COMMANDS, { conjunction: 'or' });
 const STUDIO_ARTIFACT_TYPE_SENTENCE = formatCommandNameList(STUDIO_ARTIFACT_COMPATIBLE_JOB_COMMANDS, { conjunction: 'or', quote: 'double' });
 const STUDIO_PAIRED_ARTIFACT_TYPE_SENTENCE = formatCommandNameList(STUDIO_PAIRED_ARTIFACT_JOB_COMMANDS, { conjunction: 'or', quote: 'double' });
+const MAX_TRACKED_ID_LENGTH = 128;
 
 function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -139,6 +140,7 @@ function isSafeTrackedId(value) {
   const raw = typeof value === 'string' ? value.trim() : '';
   const lower = raw.toLowerCase();
   return Boolean(raw)
+    && raw.length <= MAX_TRACKED_ID_LENGTH
     && raw !== '.'
     && raw !== '..'
     && !raw.includes('/')
@@ -229,6 +231,25 @@ function parseStudioConfigToml(configToml) {
     throw new Error(validation.summary.errors.join(' | '));
   }
   return validation.config;
+}
+
+function artifactReentryTarget(artifact = {}) {
+  return String(
+    artifact?.contract?.reentry_target
+    || artifact?.metadata?.af_contract?.reentry_target
+    || ''
+  ).trim();
+}
+
+function artifactHasReentryTarget(artifact = {}, targets = []) {
+  return targets.includes(artifactReentryTarget(artifact));
+}
+
+function canonicalReentryError(command, targets = []) {
+  const artifactDescription = targets.includes('review_pack')
+    ? 'canonical review pack JSON or a release bundle'
+    : 'canonical readiness report JSON or a release bundle';
+  return `${command} requires ${artifactDescription} with AF contract metadata re-entry target ${targets.join(' or ')}.`;
 }
 
 export function validateStudioJobSubmission(body) {
@@ -621,10 +642,15 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
     if (request.type === 'compare-rev') {
       const baselineReviewPack = findPreferredReviewPackArtifact([baselineArtifact.artifact]);
       const candidateReviewPack = findPreferredReviewPackArtifact([candidateArtifact.artifact]);
-      if (!baselineReviewPack || !candidateReviewPack) {
+      if (
+        !baselineReviewPack
+        || !candidateReviewPack
+        || !artifactHasReentryTarget(baselineReviewPack, ['review_pack'])
+        || !artifactHasReentryTarget(candidateReviewPack, ['review_pack'])
+      ) {
         return {
           ok: false,
-          errors: ['compare-rev needs canonical review-pack JSON artifacts for both baseline and candidate.'],
+          errors: ['compare-rev needs canonical review-pack JSON artifacts with AF contract re-entry target review_pack for both baseline and candidate.'],
         };
       }
 
@@ -642,10 +668,15 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
     if (request.type === 'stabilization-review') {
       const baselineReadiness = findPreferredReadinessReportArtifact([baselineArtifact.artifact]);
       const candidateReadiness = findPreferredReadinessReportArtifact([candidateArtifact.artifact]);
-      if (!baselineReadiness || !candidateReadiness) {
+      if (
+        !baselineReadiness
+        || !candidateReadiness
+        || !artifactHasReentryTarget(baselineReadiness, ['readiness_report'])
+        || !artifactHasReentryTarget(candidateReadiness, ['readiness_report'])
+      ) {
         return {
           ok: false,
-          errors: ['stabilization-review needs canonical readiness-report JSON artifacts for both baseline and candidate.'],
+          errors: ['stabilization-review needs canonical readiness-report JSON artifacts with AF contract re-entry target readiness_report for both baseline and candidate.'],
         };
       }
 
@@ -727,10 +758,13 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
     }
 
     if (request.type === 'readiness-pack') {
-      if (!isReviewPackArtifact(resolvedArtifact.artifact) && !isReleaseBundleArtifact(resolvedArtifact.artifact)) {
+      if (
+        (!isReviewPackArtifact(resolvedArtifact.artifact) && !isReleaseBundleArtifact(resolvedArtifact.artifact))
+        || !artifactHasReentryTarget(resolvedArtifact.artifact, ['review_pack', 'release_bundle'])
+      ) {
         return {
           ok: false,
-          errors: ['artifact_ref must point to a canonical review-pack JSON or a release bundle for type "readiness-pack".'],
+          errors: [canonicalReentryError('readiness-pack', ['review_pack', 'release_bundle'])],
         };
       }
 
@@ -746,10 +780,13 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
 
     if (request.type === 'generate-standard-docs') {
       const selectedArtifact = resolvedArtifact.artifact;
-      if (!isReadinessReportArtifact(selectedArtifact) && !isReleaseBundleArtifact(selectedArtifact)) {
+      if (
+        (!isReadinessReportArtifact(selectedArtifact) && !isReleaseBundleArtifact(selectedArtifact))
+        || !artifactHasReentryTarget(selectedArtifact, ['readiness_report', 'release_bundle'])
+      ) {
         return {
           ok: false,
-          errors: ['artifact_ref must point to a canonical readiness report JSON or a release bundle for type "generate-standard-docs".'],
+          errors: [canonicalReentryError('generate-standard-docs', ['readiness_report', 'release_bundle'])],
         };
       }
 
@@ -790,10 +827,13 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
 
     if (request.type === 'pack') {
       const selectedArtifact = resolvedArtifact.artifact;
-      if (!isReadinessReportArtifact(selectedArtifact) && !isReleaseBundleArtifact(selectedArtifact)) {
+      if (
+        (!isReadinessReportArtifact(selectedArtifact) && !isReleaseBundleArtifact(selectedArtifact))
+        || !artifactHasReentryTarget(selectedArtifact, ['readiness_report', 'release_bundle'])
+      ) {
         return {
           ok: false,
-          errors: ['artifact_ref must point to a canonical readiness report JSON or a release bundle for type "pack".'],
+          errors: [canonicalReentryError('pack', ['readiness_report', 'release_bundle'])],
         };
       }
 

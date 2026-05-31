@@ -15,6 +15,7 @@ const TEXT_CONTENT_TYPES = [
   'image/svg+xml',
   'text/',
 ];
+const TRUNCATED_PREVIEW_MARKER = 'truncated for the studio preview';
 
 function includesAny(haystack, needles = []) {
   return needles.some((needle) => haystack.includes(needle));
@@ -151,11 +152,16 @@ export async function fetchArtifactText(artifact, maxChars = 16000) {
 
 export function parseArtifactPayload(artifact, rawText) {
   if (!rawText) return null;
+  if (String(rawText).includes(TRUNCATED_PREVIEW_MARKER)) return null;
   const contentType = String(artifact?.content_type || '').toLowerCase();
   const extension = String(artifact?.extension || '').toLowerCase();
 
   if (contentType.includes('json') || extension === '.json') {
-    return JSON.parse(rawText);
+    try {
+      return JSON.parse(rawText);
+    } catch {
+      return null;
+    }
   }
 
   return rawText;

@@ -312,6 +312,32 @@ assert.equal(readinessFromArtifact.ok, true, readinessFromArtifact.errors?.join(
 assert.equal(readinessFromArtifact.request.type, 'readiness-pack');
 assert.equal(readinessFromArtifact.request.review_pack_path, '/tmp/review_pack.json');
 
+const spoofedReadinessFromArtifact = await translateStudioJobSubmission({
+  type: 'readiness-pack',
+  artifact_ref: {
+    job_id: 'job-spoofed-review',
+    artifact_id: 'review-pack-name-only',
+  },
+}, {
+  async resolveArtifactRef(ref) {
+    return {
+      jobId: ref.job_id,
+      artifact: {
+        id: ref.artifact_id,
+        path: '/tmp/review_pack.json',
+        type: 'review-pack.json',
+        file_name: 'review_pack.json',
+        extension: '.json',
+        exists: true,
+      },
+      jobArtifacts: [],
+    };
+  },
+});
+
+assert.equal(spoofedReadinessFromArtifact.ok, false);
+assert.match(spoofedReadinessFromArtifact.errors.join('\n'), /AF contract|re-entry target/i);
+
 const unsupportedReviewContext = validateStudioJobSubmission({
   type: 'review-context',
   config_toml: baseToml,

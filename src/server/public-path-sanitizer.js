@@ -18,6 +18,7 @@ const POSIX_FILESYSTEM_ROOTS = new Set([
 ]);
 
 const WINDOWS_PATH_PATTERN = /(?:[A-Za-z]:\\(?:[^\\\r\n"'`<>|]+\\?)+|\\\\[^\s"'`<>|]+(?:\\[^\s"'`<>|]+)+)/g;
+const POSIX_EXT_PATH_PATTERN = /(?:\/(?:Applications|Users|Volumes|etc|home|mnt|opt|private|srv|tmp|usr|var)(?:\/[^\/\r\n"'`<>]+)+?\.[A-Za-z0-9]{1,12})\b/g;
 const POSIX_PATH_PATTERN = /(?:\/(?:[^\/\s"'`<>()]+\/)+[^\/\s"'`<>()]+)/g;
 
 function clone(value) {
@@ -138,6 +139,9 @@ function extractAbsolutePathMatches(text = '') {
   const value = String(text || '');
   for (const match of value.matchAll(WINDOWS_PATH_PATTERN)) {
     if (match[0]) matches.add(match[0]);
+  }
+  for (const match of value.matchAll(POSIX_EXT_PATH_PATTERN)) {
+    if (isAbsoluteFilesystemPath(match[0])) matches.add(match[0]);
   }
   for (const match of value.matchAll(POSIX_PATH_PATTERN)) {
     if (isAbsoluteFilesystemPath(match[0])) matches.add(match[0]);

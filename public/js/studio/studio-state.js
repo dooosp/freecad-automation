@@ -1,3 +1,5 @@
+import { deriveRecentJobDecisionState } from './recent-job-quality-status.js';
+
 const STUDIO_ROUTES = new Set(['start', 'model', 'drawing', 'review', 'artifacts']);
 const JOB_CONTEXT_ROUTES = new Set(['review', 'artifacts']);
 const ACTIVE_JOB_STATUSES = new Set(['queued', 'running']);
@@ -81,6 +83,23 @@ export function summarizeProjectPath(rawPath) {
 export function shortJobLabel(job) {
   if (!job) return 'No active job';
   return `${job.type} ${job.status}`;
+}
+
+function latestJobBadge(job = {}) {
+  const decision = deriveRecentJobDecisionState(job);
+  const type = job.type || 'job';
+  if (decision.needsAttention) {
+    return {
+      text: `Recent ${type} needs review`,
+      title: `Latest tracked job ${type} needs review: ${decision.label}.`,
+      tone: decision.tone,
+    };
+  }
+  return {
+    text: `Recent ${shortJobLabel(job)}`,
+    title: `Latest tracked job ${type} ${job.status || 'unknown'}.`,
+    tone: decision.tone,
+  };
 }
 
 function shortJobId(id = '') {
@@ -172,13 +191,10 @@ export function deriveStudioChromeState(data = {}) {
       : connectionState === 'legacy'
         ? 'Legacy shell fallback'
         : 'Shell-only mode';
-  let jobBadgeText = latestJob
-    ? `Recent ${shortJobLabel(latestJob)}`
-    : (recentJobs.status === 'loading' ? 'Recent jobs loading' : 'No recent job');
-  let jobBadgeTitle = latestJob
-    ? `Latest tracked job ${latestJob.type} ${latestJob.status}.`
-    : 'No tracked job is selected or monitored.';
-  let jobBadgeTone = latestJob ? jobTone(latestJob.status) : 'info';
+  const latestBadge = latestJob ? latestJobBadge(latestJob) : null;
+  let jobBadgeText = latestBadge?.text || (recentJobs.status === 'loading' ? 'Recent jobs loading' : 'No recent job');
+  let jobBadgeTitle = latestBadge?.title || 'No tracked job is selected or monitored.';
+  let jobBadgeTone = latestBadge?.tone || 'info';
 
   if (activeJobs.length > 0) {
     const runningCount = activeJobs.filter((job) => String(job.status).toLowerCase() === 'running').length;

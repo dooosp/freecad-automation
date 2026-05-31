@@ -58,6 +58,7 @@ import {
 const JOB_TYPES = new Set(JOB_EXECUTOR_COMMANDS);
 const INLINE_CONFIG_RELATIVE_PATH = 'inputs/inline-config.json';
 const EFFECTIVE_CONFIG_RELATIVE_PATH = 'inputs/effective-config.json';
+const MAX_TRACKED_ID_LENGTH = 128;
 const INSPECTABLE_MODEL_EXTENSIONS = new Set(['.brep', '.brp', '.fcstd', '.step', '.stl', '.stp']);
 const DIRECT_JOB_PATH_FIELDS = Object.freeze({
   create: ['config_path'],
@@ -689,6 +690,7 @@ function isSafeTrackedId(value) {
   const raw = typeof value === 'string' ? value.trim() : '';
   const lower = raw.toLowerCase();
   return Boolean(raw)
+    && raw.length <= MAX_TRACKED_ID_LENGTH
     && raw !== '.'
     && raw !== '..'
     && !raw.includes('/')

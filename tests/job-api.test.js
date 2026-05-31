@@ -469,6 +469,33 @@ try {
   const malformedArtifacts = await store.listArtifacts(malformedManifestJob.id);
   assert.equal(malformedArtifacts[0].scope, 'internal');
 
+  const collidingManifestJob = await store.createJob(valid.request);
+  const firstCollisionPath = await store.writeJobFile(collidingManifestJob.id, 'artifacts/first-collision.json', '{"first":true}\n');
+  const secondCollisionPath = await store.writeJobFile(collidingManifestJob.id, 'artifacts/second-collision.json', '{"second":true}\n');
+  await store.completeJob(collidingManifestJob.id, { success: true }, {}, {}, {
+    manifest_version: '1.0',
+    command: 'report',
+    artifacts: [
+      {
+        id: 'Review Pack',
+        type: 'review-pack.json',
+        path: firstCollisionPath,
+        label: 'First collision',
+        scope: 'user-facing',
+      },
+      {
+        id: 'review-pack',
+        type: 'review-pack.json',
+        path: secondCollisionPath,
+        label: 'Second collision',
+        scope: 'user-facing',
+      },
+    ],
+  });
+  const collidingArtifacts = await store.listArtifacts(collidingManifestJob.id);
+  assert.deepEqual(collidingArtifacts.map((artifact) => artifact.id), ['review-pack', 'review-pack-1']);
+  assert.equal((await store.getArtifact(collidingManifestJob.id, 'review-pack-1')).file_name, 'second-collision.json');
+
   const apiArtifacts = artifacts.map((artifact) => ({
     id: artifact.id,
     key: artifact.key,

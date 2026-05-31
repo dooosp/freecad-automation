@@ -133,6 +133,23 @@ try {
   assert.equal(designResponse.status, 200);
   assert.equal(validateLocalApiResponse('studio_design', await designResponse.json()).ok, true);
 
+  const invalidPreviewSettingsResponse = await fetch(`${baseUrl}/api/studio/model-preview`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      config_toml: 'name = "demo-assembly"\n[[parts]]\nid = "body"\n',
+      build_settings: 'oops',
+    }),
+  });
+  assert.equal(invalidPreviewSettingsResponse.status, 400);
+  const invalidPreviewSettingsPayload = await invalidPreviewSettingsResponse.json();
+  assert.equal(invalidPreviewSettingsPayload.ok, false);
+  assert.equal(invalidPreviewSettingsPayload.error.code, 'invalid_request');
+  assert.match(invalidPreviewSettingsPayload.error.messages.join('\n'), /build_settings.*object/i);
+
   const previewResponse = await fetch(`${baseUrl}/api/studio/model-preview`, {
     method: 'POST',
     headers: {

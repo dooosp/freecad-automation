@@ -4,7 +4,21 @@ const TERMINAL_JOB_STATUSES = new Set(['succeeded', 'failed', 'cancelled']);
 async function parseError(response) {
   try {
     const payload = await response.json();
-    return payload?.error?.messages?.join(' ') || payload?.message || `${response.status}`;
+    const messages = payload?.error?.messages;
+    if (Array.isArray(messages)) {
+      const text = messages.map((entry) => String(entry || '').trim()).filter(Boolean).join(' ');
+      if (text) return text;
+    }
+    if (typeof messages === 'string' && messages.trim()) {
+      return messages.trim();
+    }
+    if (typeof payload?.error?.message === 'string' && payload.error.message.trim()) {
+      return payload.error.message.trim();
+    }
+    if (typeof payload?.message === 'string' && payload.message.trim()) {
+      return payload.message.trim();
+    }
+    return `${response.status}`;
   } catch {
     return `${response.status}`;
   }
