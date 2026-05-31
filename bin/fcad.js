@@ -188,6 +188,16 @@ function requireOptionValue(optionName, value, usageHint = null) {
   process.exit(1);
 }
 
+function rejectUnsupportedOptions(command, options = {}, allowed = []) {
+  const allowedSet = new Set(allowed);
+  const unsupported = Object.keys(options).filter((key) => !allowedSet.has(key));
+  if (unsupported.length > 0) {
+    console.error(`Error: ${command} does not accept option(s): ${unsupported.map((key) => `--${key}`).join(', ')}`);
+    console.error(`  Allowed options: ${allowed.map((key) => `--${key}`).join(', ')}`);
+    process.exit(1);
+  }
+}
+
 function requireExistingInputFile(label, filePath) {
   if (!filePath) return;
   if (!existsSync(filePath)) {
@@ -380,11 +390,12 @@ function printCliStage5bValidationError(error, diagnosticsResult = null) {
 
 async function cmdInspectionEvidenceIntake(rawArgs = []) {
   const { positional, options } = parseCliArgs(rawArgs);
+  rejectUnsupportedOptions('inspection-evidence-intake', options, ['package', 'packages', 'out', 'include-github']);
   const packageSelector = options.package || options.packages || positional[0] || null;
   const packageSlugs = packageSelector
     ? String(packageSelector).split(',').map((slug) => slug.trim()).filter(Boolean)
     : undefined;
-  const includeGitHub = options['include-github'] === true || options.github === true;
+  const includeGitHub = options['include-github'] === true;
   const outputPath = resolveMaybe(options.out);
   let report;
   try {
@@ -392,7 +403,7 @@ async function cmdInspectionEvidenceIntake(rawArgs = []) {
       projectRoot: PROJECT_ROOT,
       packageSlugs,
       includeGitHub,
-      githubRepo: options['github-repo'] || 'dooosp/freecad-automation',
+      githubRepo: 'dooosp/freecad-automation',
     });
   } catch (error) {
     if (isStage5bRuntimeValidationError(error)) {
@@ -411,7 +422,8 @@ async function cmdInspectionEvidenceIntake(rawArgs = []) {
   if (outputPath) {
     const writtenPath = await writeJsonFile(outputPath, report);
     console.log(`Inspection evidence intake report: ${writtenPath}`);
-    console.log(`  Genuine evidence found: ${report.summary.genuine_inspection_evidence_found ? 'yes' : 'no'}`);
+    console.log(`  Genuine candidate found: ${report.summary.genuine_inspection_evidence_found ? 'yes' : 'no'}`);
+    console.log('  Inspection evidence attached: no');
     console.log(`  Accepted candidates: ${report.summary.accepted_candidate_count}`);
     console.log(`  Rejected candidates: ${report.summary.rejected_candidate_count}`);
   } else {
@@ -423,7 +435,8 @@ async function cmdInspectionEvidenceIntake(rawArgs = []) {
 
 async function cmdInspectionEvidencePromotionDryRun(rawArgs = []) {
   const { positional, options } = parseCliArgs(rawArgs);
-  const reportPath = resolveMaybe(options['intake-report'] || options.report || positional[0]);
+  rejectUnsupportedOptions('inspection-evidence-promotion-dry-run', options, ['intake-report', 'out']);
+  const reportPath = resolveMaybe(options['intake-report'] || positional[0]);
   if (!reportPath) {
     console.error('Error: inspection-evidence-promotion-dry-run requires --intake-report <report.json>');
     process.exit(1);
@@ -465,6 +478,7 @@ async function cmdInspectionEvidencePromotionDryRun(rawArgs = []) {
 
 async function cmdStage5bEvidenceAudit(rawArgs = []) {
   const { positional, options } = parseCliArgs(rawArgs);
+  rejectUnsupportedOptions('stage5b-evidence-audit', options, ['out-dir', 'package', 'packages', 'include-github']);
   const outDir = options['out-dir'];
   if (!outDir || outDir === true) {
     console.error('Error: stage5b-evidence-audit requires --out-dir <dir>');
@@ -474,7 +488,7 @@ async function cmdStage5bEvidenceAudit(rawArgs = []) {
   const packageSlugs = packageSelector
     ? String(packageSelector).split(',').map((slug) => slug.trim()).filter(Boolean)
     : undefined;
-  const includeGitHub = options['include-github'] === true || options.github === true;
+  const includeGitHub = options['include-github'] === true;
 
   try {
     const result = await writeStage5bEvidenceAuditBundle({
@@ -482,7 +496,7 @@ async function cmdStage5bEvidenceAudit(rawArgs = []) {
       outDir,
       packageSlugs,
       includeGitHub,
-      githubRepo: options['github-repo'] || 'dooosp/freecad-automation',
+      githubRepo: 'dooosp/freecad-automation',
     });
     const manifest = result.manifest;
     console.log(`Stage 5B evidence audit bundle: ${result.output_dir}`);
@@ -490,7 +504,8 @@ async function cmdStage5bEvidenceAudit(rawArgs = []) {
     console.log(`  Promotion dry-run manifest: ${result.paths.promotion_dry_run_manifest}`);
     console.log(`  Audit manifest: ${result.paths.stage5b_audit_manifest}`);
     console.log(`  Audit summary: ${result.paths.stage5b_audit_summary}`);
-    console.log(`  Genuine evidence found: ${manifest.summary.genuine_inspection_evidence_found ? 'yes' : 'no'}`);
+    console.log(`  Genuine candidate found: ${manifest.summary.genuine_inspection_evidence_found ? 'yes' : 'no'}`);
+    console.log('  Inspection evidence attached: no');
     console.log(`  Promotion can run: ${manifest.summary.promotion_can_run ? 'yes' : 'no'}`);
     console.log(`  Readiness remains held: ${manifest.summary.readiness_remains_held ? 'yes' : 'no'}`);
     return manifest;

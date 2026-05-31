@@ -366,7 +366,7 @@ const card = buildInspectionEvidenceIntakeCard({
 
 assert.equal(card.id, 'inspection-intake');
 assert.equal(card.title, 'Stage 5B inspection evidence intake');
-assert.equal(card.status, 'No genuine inspection evidence');
+assert.equal(card.status, 'No accepted genuine candidate');
 assert.equal(card.score, 0);
 assert.equal(card.tone, 'warn');
 assert.match(card.summary, /readiness remains needs_more_evidence \/ hold_for_evidence_completion/);
@@ -378,6 +378,7 @@ const normalized = Object.fromEntries(card.normalized);
 assert.equal(normalized['Searched source classes'], 'tracked_repo_files • github_public_metadata');
 assert.equal(normalized['Accepted candidates'], '0');
 assert.equal(normalized['Attachment-ready candidates'], '0');
+assert.equal(normalized['Inspection evidence attached'], 'No');
 assert.equal(normalized['Rejected candidates'], '3');
 assert.equal(normalized['Rejection classes'], 'invalid_generated • invalid_schema • invalid_provenance');
 assert.equal(normalized['Package readiness'], 'quality-pass-bracket: needs_more_evidence / hold_for_evidence_completion • hinge-block: needs_more_evidence / hold_for_evidence_completion');
@@ -391,7 +392,7 @@ candidateFoundReport.summary.attachment_ready_candidate_count = 0;
 candidateFoundReport.summary.readiness_truth = 'candidate evidence found; readiness remains held until later authorized attachment';
 const candidateFoundCard = buildInspectionEvidenceIntakeCard({ report: candidateFoundReport });
 assert.equal(candidateFoundCard.tone, 'warn');
-assert.equal(candidateFoundCard.status, 'Candidate evidence found; readiness held');
+assert.equal(candidateFoundCard.status, 'Genuine candidate found; readiness held');
 assert.match(candidateFoundCard.summary, /later authorized attachment/);
 
 const dryRunRaw = JSON.stringify(promotionDryRunManifest, null, 2);
@@ -434,7 +435,8 @@ assert.equal(auditCard.score, 0);
 assert.match(auditCard.summary, /No genuine completed inspection evidence/);
 assert.match(auditCard.summary, /No promotion can run/);
 const auditNormalized = Object.fromEntries(auditCard.normalized);
-assert.equal(auditNormalized['Genuine evidence found'], 'No');
+assert.equal(auditNormalized['Genuine candidate found'], 'No');
+assert.equal(auditNormalized['Inspection evidence attached'], 'No');
 assert.equal(auditNormalized['Promotion can run'], 'No');
 assert.equal(auditNormalized['Attachment-ready candidates'], '0');
 assert.equal(auditNormalized['Blockers'], 'no_genuine_completed_inspection_evidence • promotion_blocked_readiness_held • no_safe_promotion_command_available');

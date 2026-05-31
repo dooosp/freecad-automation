@@ -63,7 +63,8 @@ try {
     `stage5b-evidence-audit CLI smoke failed\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`
   );
   assert.match(result.stdout, /Stage 5B evidence audit bundle:/);
-  assert.match(result.stdout, /Genuine evidence found: no/);
+  assert.match(result.stdout, /Genuine candidate found: no/);
+  assert.match(result.stdout, /Inspection evidence attached: no/);
   assert.match(result.stdout, /Promotion can run: no/);
   assert.match(result.stdout, /Readiness remains held: yes/);
 
@@ -128,12 +129,25 @@ try {
     assert.equal(pkg.readiness_after?.gate_decision, 'hold_for_evidence_completion', `${pkg.slug} should stay held for evidence completion`);
   });
 
-  assert.match(summaryMarkdown, /Genuine completed evidence found: no/);
+  assert.match(summaryMarkdown, /Genuine candidate found: no/);
+  assert.match(summaryMarkdown, /Inspection evidence attached: no/);
   assert.match(summaryMarkdown, /Promotion can run: no/);
   assert.match(summaryMarkdown, /Readiness remains held: yes/);
 } finally {
   rmSync(ABSOLUTE_OUTPUT_DIR, { recursive: true, force: true });
 }
+
+[
+  ['stage5b-evidence-audit', '--github'],
+  ['stage5b-evidence-audit', '--github-repo', 'other/repo'],
+].forEach((args) => {
+  const result = spawnSync(process.execPath, ['bin/fcad.js', ...args], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  });
+  assert.notEqual(result.status, 0, `fcad ${args.join(' ')} should reject unsupported aliases`);
+  assert.match(result.stderr + result.stdout, /does not accept option|Unsupported option/i);
+});
 
 const canonicalFilesAfter = trackedDocsExampleFiles();
 const canonicalStatusAfter = docsExamplesStatus();

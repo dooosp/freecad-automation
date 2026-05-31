@@ -229,7 +229,8 @@ try {
     '--out',
     intakeRef,
   ], 'inspection-evidence-intake no-evidence lane');
-  assert.match(intakeRun.stdout, /Genuine evidence found: no/);
+  assert.match(intakeRun.stdout, /Genuine candidate found: no/);
+  assert.match(intakeRun.stdout, /Inspection evidence attached: no/);
   assert.match(intakeRun.stdout, /Accepted candidates: 0/);
 
   const dryRun = runFcad([
@@ -247,7 +248,8 @@ try {
     '--out-dir',
     auditRef,
   ], 'stage5b-evidence-audit no-evidence lane');
-  assert.match(auditRun.stdout, /Genuine evidence found: no/);
+  assert.match(auditRun.stdout, /Genuine candidate found: no/);
+  assert.match(auditRun.stdout, /Inspection evidence attached: no/);
   assert.match(auditRun.stdout, /Promotion can run: no/);
   assert.match(auditRun.stdout, /Readiness remains held: yes/);
 
@@ -277,9 +279,23 @@ try {
   assertNoEvidenceAudit(audit);
   assertRejectedCandidateClasses(intake);
   assertEvidenceBoundary({ intake, dryRun: promotionDryRun, audit, auditSummaryMarkdown });
-  assert.match(auditSummaryMarkdown, /Genuine completed evidence found: no/);
+  assert.match(auditSummaryMarkdown, /Genuine candidate found: no/);
+  assert.match(auditSummaryMarkdown, /Inspection evidence attached: no/);
   assert.match(auditSummaryMarkdown, /Promotion can run: no/);
   assert.match(auditSummaryMarkdown, /Readiness remains held: yes/);
+
+  [
+    ['inspection-evidence-intake', '--github', '--out', `${OUTPUT_DIR}/unsupported-intake.json`],
+    ['inspection-evidence-intake', '--github-repo', 'other/repo', '--out', `${OUTPUT_DIR}/unsupported-intake.json`],
+    ['inspection-evidence-promotion-dry-run', '--report', intakeRef, '--out', `${OUTPUT_DIR}/unsupported-promotion.json`],
+  ].forEach((args) => {
+    const unsupported = spawnSync(process.execPath, ['bin/fcad.js', ...args], {
+      cwd: ROOT,
+      encoding: 'utf8',
+    });
+    assert.notEqual(unsupported.status, 0, `fcad ${args.join(' ')} should reject unsupported aliases`);
+    assert.match(unsupported.stderr + unsupported.stdout, /does not accept option|Unsupported option/i);
+  });
 
   const canonicalFilesAfter = trackedDocsExampleFiles();
   const canonicalStatusAfter = docsExamplesStatus();

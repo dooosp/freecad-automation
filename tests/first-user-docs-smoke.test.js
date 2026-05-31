@@ -462,7 +462,8 @@ for (const artifact of [
 ]) {
   assert.equal(stage5bOperationalRunbookText.includes(artifact), true, `Stage 5B runbook should mention ${artifact}`);
 }
-assertMentions(stage5bOperationalRunbookText, /Genuine evidence found: no/, 'Stage 5B runbook should state expected no-evidence CLI output');
+assertMentions(stage5bOperationalRunbookText, /Genuine candidate found: no/, 'Stage 5B runbook should state expected no-evidence CLI output');
+assertMentions(stage5bOperationalRunbookText, /Inspection evidence attached: no/, 'Stage 5B runbook should state no evidence attachment');
 assertMentions(stage5bOperationalRunbookText, /Promotion can run: no/, 'Stage 5B runbook should state expected no-promotion output');
 assertMentions(stage5bOperationalRunbookText, /Readiness remains held: yes/, 'Stage 5B runbook should state expected held-readiness output');
 assertMentions(stage5bOperationalRunbookText, /`needs_more_evidence`/, 'Stage 5B runbook should mention needs_more_evidence');

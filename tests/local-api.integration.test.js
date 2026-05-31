@@ -24,6 +24,25 @@ function rewriteConfigForOutput(sourcePath, outputDir, nextName) {
     .replace(/directory\s*=\s*"[^"]*"/m, `directory = "${outputDir.replace(/\\/g, '\\\\')}"`);
 }
 
+function buildInlineCreateConfig(name) {
+  return {
+    name,
+    shapes: [
+      {
+        id: 'body',
+        type: 'box',
+        length: 10,
+        width: 10,
+        height: 10,
+      },
+    ],
+    export: {
+      formats: ['step', 'stl'],
+      directory: 'output',
+    },
+  };
+}
+
 async function listen(server) {
   await new Promise((resolveListen) => server.listen(0, '127.0.0.1', resolveListen));
   const address = server.address();
@@ -81,12 +100,27 @@ if (!hasFreeCADRuntime()) {
     assert.equal(Array.isArray(health.runtime.command_classes.freecad_backed), true);
     assert.equal(validateLocalApiResponse('health', health).ok, true);
 
-    const createResponse = await fetch(`${baseUrl}/jobs`, {
+    const unsafeConfigPathResponse = await fetch(`${baseUrl}/jobs`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         type: 'create',
         config_path: configPath,
+      }),
+    });
+    assert.equal(unsafeConfigPathResponse.status, 400);
+    const unsafeConfigPathPayload = await unsafeConfigPathResponse.json();
+    assert.equal(unsafeConfigPathPayload.ok, false);
+    assert.equal(unsafeConfigPathPayload.error.code, 'invalid_request');
+    assert.match(unsafeConfigPathPayload.error.messages.join('\n'), /safe repo-relative path/i);
+    assertNoLeakedPathStrings(unsafeConfigPathPayload, [configPath, jobsDir, tmpRoot]);
+
+    const createResponse = await fetch(`${baseUrl}/jobs`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        type: 'create',
+        config: buildInlineCreateConfig('api_create_integration'),
       }),
     });
     assert.equal(createResponse.status, 202);

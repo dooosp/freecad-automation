@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, readdir, rename, stat, writeFile, appendFile } from 'node:fs/promises';
-import { basename, dirname, extname, resolve, join } from 'node:path';
+import { basename, dirname, extname, isAbsolute, resolve, join, relative } from 'node:path';
 
 import { writeArtifactManifest } from '../../../lib/artifact-manifest.js';
 
@@ -42,7 +42,9 @@ function flattenManifestArtifacts(artifacts = []) {
       key: artifact.label || artifact.type || `artifact[${index}]`,
       path: artifact.path,
       type: artifact.type || 'artifact',
-      scope: artifact.scope || 'user-facing',
+      scope: artifact.scope === 'user-facing' || artifact.scope === 'internal'
+        ? artifact.scope
+        : 'internal',
       stability: artifact.stability || 'stable',
       metadata: artifact.metadata || null,
     }));
@@ -87,8 +89,54 @@ export function createJobStore({ jobsDir }) {
   const rootDir = resolve(jobsDir);
   const jobLocks = new Map();
 
+  function assertSafeJobId(id) {
+    const value = String(id || '').trim();
+    if (
+      !value
+      || value === '.'
+      || value === '..'
+      || value.includes('/')
+      || value.includes('\\')
+      || value.includes('\0')
+      || value.startsWith('~')
+    ) {
+      throw new Error('Invalid job id.');
+    }
+    return value;
+  }
+
+  function assertPathWithinJobDir(jobDir, targetPath, label) {
+    const resolvedJobDir = resolve(jobDir);
+    const resolvedTarget = resolve(targetPath);
+    const rel = relative(resolvedJobDir, resolvedTarget).replaceAll('\\', '/');
+    if (rel === '' || rel.startsWith('..') || isAbsolute(rel)) {
+      throw new Error(`${label} must stay inside the tracked job directory.`);
+    }
+    return resolvedTarget;
+  }
+
+  function resolveJobRelativePath(id, relativePath) {
+    if (typeof relativePath !== 'string' || !relativePath.trim()) {
+      throw new Error('Job file path must be a non-empty relative path.');
+    }
+    const raw = relativePath.trim();
+    const normalized = raw.replaceAll('\\', '/').replace(/^\.\//, '');
+    if (
+      raw.includes('\\')
+      || normalized.includes('\0')
+      || normalized.startsWith('/')
+      || normalized.startsWith('~')
+      || /^[A-Za-z]:[\\/]/.test(raw)
+      || normalized.split('/').includes('..')
+    ) {
+      throw new Error('Job file path failed tracked storage safety checks.');
+    }
+    const jobDir = getJobDir(id);
+    return assertPathWithinJobDir(jobDir, resolve(jobDir, normalized), 'Job file path');
+  }
+
   function getJobDir(id) {
-    return join(rootDir, id);
+    return join(rootDir, assertSafeJobId(id));
   }
 
   function getJobPaths(id) {
@@ -348,7 +396,7 @@ export function createJobStore({ jobsDir }) {
       await appendFile(getJobPaths(id).log, line, 'utf8');
     },
     async writeJobFile(id, relativePath, content) {
-      const absPath = join(getJobDir(id), relativePath);
+      const absPath = resolveJobRelativePath(id, relativePath);
       await mkdir(dirname(absPath), { recursive: true });
       await writeFile(absPath, content, 'utf8');
       return absPath;

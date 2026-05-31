@@ -1,5 +1,5 @@
-import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { readFile, realpath } from 'node:fs/promises';
+import { isAbsolute, relative, resolve } from 'node:path';
 import { LOCAL_API_VERSION } from '../local-api-contract.js';
 import {
   canDownloadArtifactContent,
@@ -11,12 +11,68 @@ import {
 } from '../local-api-artifacts.js';
 import { assertResponse, createErrorResponse } from '../local-api-response-helpers.js';
 
-export function registerArtifactRoutes(app, { jobStore }) {
+function isPathInside(rootDir, targetPath) {
+  const root = resolve(rootDir);
+  const target = resolve(targetPath);
+  const rel = relative(root, target).replaceAll('\\', '/');
+  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
+}
+
+function allowedArtifactRoots({ projectRoot, jobStore, jobId }) {
+  const roots = [jobStore.getJobDir(jobId)];
+  if (projectRoot) {
+    roots.push(resolve(projectRoot, 'output', 'imports'));
+    roots.push(resolve(projectRoot, 'tmp', 'codex', 'stage5b-evidence-audit-jobs', jobId));
+  }
+  return roots.map((root) => resolve(root));
+}
+
+async function resolvePublicArtifactPath({
+  artifact,
+  projectRoot,
+  jobStore,
+  jobId,
+}) {
+  if (!artifact?.path || artifact.exists !== true) {
+    return { ok: false, path: null };
+  }
+
+  try {
+    const resolvedPath = await realpath(resolve(artifact.path));
+    const roots = await Promise.all(
+      allowedArtifactRoots({ projectRoot, jobStore, jobId }).map(async (root) => {
+        try {
+          return await realpath(root);
+        } catch {
+          return resolve(root);
+        }
+      })
+    );
+    const allowed = roots.some((root) => isPathInside(root, resolvedPath));
+    return {
+      ok: allowed,
+      path: allowed ? resolvedPath : null,
+    };
+  } catch {
+    return { ok: false, path: null };
+  }
+}
+
+export function registerArtifactRoutes(app, { jobStore, projectRoot = null }) {
   app.get('/jobs/:id/artifacts', async (req, res) => {
     try {
       const job = await jobStore.getJob(req.params.id);
-      const artifacts = (await jobStore.listArtifacts(req.params.id)).map((artifact) =>
-        toArtifactResponse(req.params.id, artifact)
+      const rawArtifacts = await jobStore.listArtifacts(req.params.id);
+      const publicAccess = await Promise.all(rawArtifacts.map((artifact) =>
+        resolvePublicArtifactPath({
+          artifact,
+          projectRoot,
+          jobStore,
+          jobId: req.params.id,
+        })
+      ));
+      const artifacts = rawArtifacts.map((artifact, index) =>
+        toArtifactResponse(req.params.id, artifact, { publicPathAllowed: publicAccess[index].ok })
       );
       const storage = toPublicStorage(await jobStore.describeStorage(req.params.id));
       const payload = {
@@ -56,16 +112,22 @@ export function registerArtifactRoutes(app, { jobStore }) {
         res.status(response.status).json(assertResponse('error', response.body));
         return;
       }
+      const publicAccess = await resolvePublicArtifactPath({
+        artifact,
+        projectRoot,
+        jobStore,
+        jobId,
+      });
       const contentAllowed = download
-        ? canDownloadArtifactContent(artifact)
-        : canServeArtifactContent(artifact);
+        ? canDownloadArtifactContent(artifact, { publicPathAllowed: publicAccess.ok })
+        : canServeArtifactContent(artifact, { publicPathAllowed: publicAccess.ok });
       if (!contentAllowed) {
-        const code = artifact.scope === 'user-facing'
+        const code = artifact.scope === 'user-facing' && publicAccess.ok
           ? 'artifact_content_not_inline_safe'
           : 'artifact_content_not_public';
-        const message = artifact.scope === 'user-facing'
+        const message = artifact.scope === 'user-facing' && publicAccess.ok
           ? `Artifact ${artifact.file_name} is not available for inline browser preview; use the download route instead.`
-          : `Artifact ${artifact.file_name} is registered as ${artifact.scope || 'non-public'} and is not available through browser open or download routes.`;
+          : `Artifact ${artifact.file_name} is not available through browser open or download routes.`;
         const response = createErrorResponse(
           code,
           [message],
@@ -80,7 +142,7 @@ export function registerArtifactRoutes(app, { jobStore }) {
         'Content-Disposition',
         `${download ? 'attachment' : 'inline'}; filename="${artifact.file_name.replaceAll('"', '')}"`
       );
-      res.send(await readFile(resolve(artifact.path)));
+      res.send(await readFile(publicAccess.path));
     } catch {
       const response = createErrorResponse('job_not_found', [`No job found for id ${jobId}.`], 404);
       res.status(response.status).json(assertResponse('error', response.body));

@@ -27,7 +27,6 @@ const INLINE_ARTIFACT_EXTENSIONS = new Set([
   '.md',
   '.markdown',
   '.pdf',
-  '.svg',
   '.text',
   '.toml',
   '.txt',
@@ -80,15 +79,19 @@ function isInlineBlockedArtifact(artifact = {}) {
   return extname(artifact.path || artifact.file_name || '').toLowerCase() === '.html';
 }
 
-function buildArtifactCapabilities(artifact = {}) {
+function isInlinePreviewSafeArtifact(artifact = {}) {
   const filePath = artifact.path || '';
-  const exists = Boolean(artifact.exists);
   const extension = extname(filePath).toLowerCase();
-  const browserSafe = INLINE_ARTIFACT_EXTENSIONS.has(extension);
+  return INLINE_ARTIFACT_EXTENSIONS.has(extension) && !isInlineBlockedArtifact(artifact);
+}
+
+function buildArtifactCapabilities(artifact = {}, { publicPathAllowed = true } = {}) {
+  const exists = Boolean(artifact.exists);
+  const browserSafe = isInlinePreviewSafeArtifact(artifact);
   const browserAddressable = isBrowserAddressableArtifact(artifact);
   return {
-    can_open: exists && browserSafe && browserAddressable,
-    can_download: exists && browserAddressable,
+    can_open: exists && publicPathAllowed && browserSafe && browserAddressable,
+    can_download: exists && publicPathAllowed && browserAddressable,
     browser_safe: browserSafe,
   };
 }
@@ -213,7 +216,7 @@ export function toPublicStorage(storage = null) {
   };
 }
 
-export function toArtifactResponse(jobId, artifact) {
+export function toArtifactResponse(jobId, artifact, { publicPathAllowed = true } = {}) {
   const contentType = inferArtifactContentType(artifact.path);
   return {
     id: artifact.id,
@@ -226,7 +229,7 @@ export function toArtifactResponse(jobId, artifact) {
     content_type: contentType,
     exists: Boolean(artifact.exists),
     size_bytes: Number.isInteger(artifact.size_bytes) ? artifact.size_bytes : null,
-    capabilities: buildArtifactCapabilities(artifact),
+    capabilities: buildArtifactCapabilities(artifact, { publicPathAllowed }),
     links: buildArtifactLinks(jobId, artifact.id),
     contract: artifact.metadata?.af_contract
       ? redactPublicPathValues(artifact.metadata.af_contract)
@@ -234,10 +237,10 @@ export function toArtifactResponse(jobId, artifact) {
   };
 }
 
-export function canServeArtifactContent(artifact = {}) {
-  return isBrowserAddressableArtifact(artifact) && !isInlineBlockedArtifact(artifact);
+export function canServeArtifactContent(artifact = {}, { publicPathAllowed = true } = {}) {
+  return publicPathAllowed && isBrowserAddressableArtifact(artifact) && isInlinePreviewSafeArtifact(artifact);
 }
 
-export function canDownloadArtifactContent(artifact = {}) {
-  return isBrowserAddressableArtifact(artifact) && Boolean(artifact.exists);
+export function canDownloadArtifactContent(artifact = {}, { publicPathAllowed = true } = {}) {
+  return publicPathAllowed && isBrowserAddressableArtifact(artifact) && Boolean(artifact.exists);
 }

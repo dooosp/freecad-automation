@@ -314,18 +314,18 @@ function readinessHeldTruth(intakeReport = {}, promotionDryRunManifest = {}) {
   const genuineFound = intakeReport.summary?.genuine_inspection_evidence_found === true;
   const promotionCanRun = promotionDryRunManifest.summary?.promotion_can_run === true;
   const statement = promotionCanRun
-    ? 'A future promotion plan exists, but this audit did not attach evidence or change canonical readiness.'
+    ? 'A future promotion plan exists, but this audit did not attach inspection evidence or change canonical readiness; readiness remains needs_more_evidence / hold_for_evidence_completion until a later authorized attachment and regeneration task completes.'
     : 'No genuine completed inspection evidence is available for promotion; no promotion can run and readiness remains needs_more_evidence / hold_for_evidence_completion.';
   return {
     statement,
     no_genuine_completed_inspection_evidence_found: !genuineFound,
     no_promotion_can_run: !promotionCanRun,
-    readiness_remains_held: !promotionCanRun,
+    readiness_remains_held: true,
     canonical_package_artifacts_mutated: false,
     requires_human_measurement_entry: false,
     current_repo_truth: !genuineFound
       ? 'Current audit found no genuine completed inspection evidence.'
-      : 'Audit found candidate evidence; canonical readiness still requires a deliberate future promotion chain before any readiness claim changes.',
+      : 'Audit found candidate evidence; no inspection_evidence has been attached by this audit, and canonical readiness still requires a deliberate future promotion chain before any readiness claim changes.',
   };
 }
 
@@ -416,7 +416,8 @@ function renderAuditSummaryMarkdown(manifest) {
     '# Stage 5B Evidence Audit Summary',
     '',
     `Generated: ${manifest.generated_at}`,
-    `Genuine completed evidence found: ${manifest.summary.genuine_inspection_evidence_found ? 'yes' : 'no'}`,
+    `Genuine candidate found: ${manifest.summary.genuine_inspection_evidence_found ? 'yes' : 'no'}`,
+    'Inspection evidence attached: no',
     `Promotion can run: ${manifest.summary.promotion_can_run ? 'yes' : 'no'}`,
     `Readiness remains held: ${manifest.summary.readiness_remains_held ? 'yes' : 'no'}`,
     `Attachment-ready candidates: ${manifest.summary.attachment_ready_candidate_count}`,

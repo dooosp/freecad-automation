@@ -324,6 +324,18 @@ try {
     for (const definition of CANONICAL_ARTIFACTS) {
       const artifact = artifacts.find((entry) => entry.file_name === definition.fileName);
       const openResponse = await fetch(`${baseUrl}${artifact.links.open}`);
+      if (artifact.extension === '.zip') {
+        assert.equal(openResponse.status, 403, `${packageDef.slug} ${definition.fileName} must not be inline-previewable`);
+        const downloadResponse = await fetch(`${baseUrl}${artifact.links.download}`);
+        assert.equal(downloadResponse.status, 200, `${packageDef.slug} ${definition.fileName} download route should succeed`);
+        assert.match(
+          downloadResponse.headers.get('content-disposition') || '',
+          new RegExp(`filename="${definition.fileName}"`)
+        );
+        const bytes = await downloadResponse.arrayBuffer();
+        assert.equal(bytes.byteLength > 0, true, `${packageDef.slug} ${definition.fileName} download route should return content`);
+        continue;
+      }
       assert.equal(openResponse.status, 200, `${packageDef.slug} ${definition.fileName} open route should succeed`);
       assert.match(
         openResponse.headers.get('content-disposition') || '',

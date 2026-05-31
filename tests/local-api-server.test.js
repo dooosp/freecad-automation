@@ -18,6 +18,7 @@ const BOOTSTRAP_SESSION_DIR = join(ROOT, 'output', 'imports', BOOTSTRAP_SESSION_
 const BOOTSTRAP_SOURCE_MODEL_PATH = join(BOOTSTRAP_SESSION_DIR, 'source', 'simple_bracket.step');
 const BOOTSTRAP_ENGINEERING_CONTEXT_PATH = join(BOOTSTRAP_SESSION_DIR, 'artifacts', 'engineering_context.json');
 const BOOTSTRAP_DRAFT_CONFIG_PATH = join(BOOTSTRAP_SESSION_DIR, 'artifacts', 'bootstrap_draft_config.toml');
+const DOTFILE_TEST_PATH = join(ROOT, 'public', `.codex-local-api-dotfile-deny-${process.pid}`);
 const PREVIEW_DRAFT_CONFIG_TOML = 'name = "bootstrap_preview"\n[import]\nsource_step = "tests/fixtures/imports/simple_bracket.step"\n';
 const bootstrapCalls = [];
 
@@ -172,6 +173,11 @@ const { server, jobStore } = createLocalApiServer({
 try {
   const port = await listen(server);
   const baseUrl = `http://127.0.0.1:${port}`;
+
+  writeFileSync(DOTFILE_TEST_PATH, 'hidden static fixture\n', 'utf8');
+  const dotfileResponse = await fetch(`${baseUrl}/${DOTFILE_TEST_PATH.split('/').at(-1)}`);
+  assert.notEqual(dotfileResponse.status, 200);
+  assert.equal((await dotfileResponse.text()).includes('hidden static fixture'), false);
 
   const htmlResponse = await fetch(baseUrl, {
     headers: {
@@ -812,6 +818,113 @@ try {
   assert.equal(htmlDownloadResponse.status, 200);
   assert.match(htmlDownloadResponse.headers.get('content-disposition') || '', /^attachment;/);
 
+  const svgJob = await jobStore.createJob({
+    type: 'report',
+    config: {
+      name: 'svg_artifact_boundary_test',
+      shapes: [{ id: 'body', type: 'box', length: 10, width: 10, height: 10 }],
+      export: { formats: ['step'], directory: 'output' },
+    },
+  });
+  const svgArtifactPath = await jobStore.writeJobFile(svgJob.id, 'artifacts/unsafe-preview.svg', '<svg><script>alert(1)</script></svg>\n');
+  const svgManifest = await buildArtifactManifest({
+    projectRoot: ROOT,
+    interface: 'api',
+    command: 'report',
+    jobType: 'report',
+    status: 'succeeded',
+    requestId: svgJob.id,
+    artifacts: [
+      {
+        type: 'report.svg',
+        path: svgArtifactPath,
+        label: 'SVG report',
+        scope: 'user-facing',
+        stability: 'best-effort',
+      },
+    ],
+    timestamps: {
+      created_at: svgJob.created_at,
+      finished_at: new Date().toISOString(),
+    },
+  });
+  await jobStore.completeJob(svgJob.id, { success: true }, { svg: svgArtifactPath }, {}, svgManifest);
+
+  const svgArtifactsResponse = await fetch(`${baseUrl}/jobs/${svgJob.id}/artifacts`);
+  assert.equal(svgArtifactsResponse.status, 200);
+  const svgArtifactsPayload = await svgArtifactsResponse.json();
+  const svgArtifact = svgArtifactsPayload.artifacts[0];
+  assert.equal(svgArtifact.extension, '.svg');
+  assert.equal(svgArtifact.content_type, 'image/svg+xml');
+  assert.equal(svgArtifact.capabilities.browser_safe, false);
+  assert.equal(svgArtifact.capabilities.can_open, false);
+  assert.equal(svgArtifact.capabilities.can_download, true);
+
+  const svgOpenResponse = await fetch(`${baseUrl}${svgArtifact.links.open}`, {
+    headers: {
+      accept: 'application/json',
+    },
+  });
+  assert.equal(svgOpenResponse.status, 403);
+  const svgOpenPayload = await svgOpenResponse.json();
+  assert.equal(svgOpenPayload.error.code, 'artifact_content_not_inline_safe');
+
+  const svgDownloadResponse = await fetch(`${baseUrl}${svgArtifact.links.download}`);
+  assert.equal(svgDownloadResponse.status, 200);
+  assert.match(svgDownloadResponse.headers.get('content-disposition') || '', /^attachment;/);
+
+  const outsideArtifactJob = await jobStore.createJob({
+    type: 'report',
+    config: {
+      name: 'outside_artifact_boundary_test',
+      shapes: [{ id: 'body', type: 'box', length: 10, width: 10, height: 10 }],
+      export: { formats: ['step'], directory: 'output' },
+    },
+  });
+  const outsideArtifactPath = join(tmpRoot, 'outside-public-artifact.json');
+  writeFileSync(outsideArtifactPath, '{"private":true}\n', 'utf8');
+  const outsideManifest = await buildArtifactManifest({
+    projectRoot: ROOT,
+    interface: 'api',
+    command: 'report',
+    jobType: 'report',
+    status: 'succeeded',
+    requestId: outsideArtifactJob.id,
+    artifacts: [
+      {
+        type: 'report.outside',
+        path: outsideArtifactPath,
+        label: 'Outside artifact',
+        scope: 'user-facing',
+        stability: 'stable',
+      },
+    ],
+    timestamps: {
+      created_at: outsideArtifactJob.created_at,
+      finished_at: new Date().toISOString(),
+    },
+  });
+  await jobStore.completeJob(outsideArtifactJob.id, { success: true }, { outside: outsideArtifactPath }, {}, outsideManifest);
+
+  const outsideArtifactsResponse = await fetch(`${baseUrl}/jobs/${outsideArtifactJob.id}/artifacts`);
+  assert.equal(outsideArtifactsResponse.status, 200);
+  const outsideArtifactsPayload = await outsideArtifactsResponse.json();
+  const outsideArtifact = outsideArtifactsPayload.artifacts[0];
+  assert.equal(outsideArtifact.scope, 'user-facing');
+  assert.equal(outsideArtifact.capabilities.can_open, false);
+  assert.equal(outsideArtifact.capabilities.can_download, false);
+  assertNoLeakedPathStrings(outsideArtifactsPayload, [outsideArtifactPath, tmpRoot]);
+
+  const outsideOpenResponse = await fetch(`${baseUrl}${outsideArtifact.links.open}`, {
+    headers: {
+      accept: 'application/json',
+    },
+  });
+  assert.equal(outsideOpenResponse.status, 403);
+  const outsideOpenPayload = await outsideOpenResponse.json();
+  assert.equal(outsideOpenPayload.error.code, 'artifact_content_not_public');
+  assert.equal(JSON.stringify(outsideOpenPayload).includes(outsideArtifactPath), false);
+
   const configSourceJob = await jobStore.createJob({
     type: 'create',
     config: {
@@ -1178,6 +1291,7 @@ try {
   console.log('local-api-server.test.js: ok');
 } finally {
   await new Promise((resolveClose) => server.close(resolveClose));
+  rmSync(DOTFILE_TEST_PATH, { force: true });
   rmSync(BOOTSTRAP_SESSION_DIR, { recursive: true, force: true });
   rmSync(tmpRoot, { recursive: true, force: true });
 }

@@ -853,8 +853,8 @@ export function buildInspectionEvidenceIntakeCard({
   const status = hasAttachmentReadyCandidate
     ? 'Attachment-ready candidate needs authorization'
     : (foundGenuineEvidence
-      ? 'Candidate evidence found; readiness held'
-      : 'No genuine inspection evidence');
+      ? 'Genuine candidate found; readiness held'
+      : 'No accepted genuine candidate');
 
   return buildCard({
     id: 'inspection-intake',
@@ -867,6 +867,7 @@ export function buildInspectionEvidenceIntakeCard({
     normalized: [
       buildReviewDisplayField('Searched source classes', summarizeSourceClasses(report.searched_sources)),
       buildReviewDisplayField('Accepted candidates', String(acceptedCount)),
+      buildReviewDisplayField('Inspection evidence attached', 'No'),
       buildReviewDisplayField('Attachment-ready candidates', String(attachmentReadyCount)),
       buildReviewDisplayField('Rejected candidates', String(rejectedCount)),
       buildReviewDisplayField('Rejection classes', summarizeClasses(report.rejected_candidates)),
@@ -938,7 +939,6 @@ export function buildStage5bEvidenceAuditCard({
   const truth = safeObject(manifest.readiness_held_truth);
   const genuineFound = summary.genuine_inspection_evidence_found === true;
   const promotionCanRun = summary.promotion_can_run === true;
-  const readinessHeld = summary.readiness_remains_held !== false;
   const attachmentReadyCount = Number.isFinite(summary.attachment_ready_candidate_count)
     ? summary.attachment_ready_candidate_count
     : (Number.isFinite(manifest.attachment_ready?.count) ? manifest.attachment_ready.count : null);
@@ -952,11 +952,12 @@ export function buildStage5bEvidenceAuditCard({
     title: 'Stage 5B evidence audit',
     tone: promotionCanRun && genuineFound ? 'ok' : 'warn',
     score: attachmentReadyCount,
-    status: readinessHeld ? 'Readiness held' : 'Future promotion plan ready',
+    status: 'Readiness held',
     summary: `${readinessStatement} ${promotionCanRun ? 'Promotion can run only as a future controlled command.' : 'No promotion can run.'} No canonical artifacts mutated.`,
     artifact,
     normalized: [
-      buildReviewDisplayField('Genuine evidence found', genuineFound ? 'Yes' : 'No'),
+      buildReviewDisplayField('Genuine candidate found', genuineFound ? 'Yes' : 'No'),
+      buildReviewDisplayField('Inspection evidence attached', 'No'),
       buildReviewDisplayField('Promotion can run', promotionCanRun ? 'Yes' : 'No'),
       buildReviewDisplayField('Attachment-ready candidates', attachmentReadyCount === null ? 'Unknown' : String(attachmentReadyCount)),
       buildReviewDisplayField('Blockers', uniqueStrings(safeList(manifest.blockers)).join(' • ') || 'none'),

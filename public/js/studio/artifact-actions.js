@@ -257,7 +257,7 @@ export function canReenterModelWorkspace(artifact = {}) {
 export function canStartTrackedArtifactRun(artifact = {}, type = 'report') {
   if (artifact.exists === false) return false;
   if (type === 'review-context') {
-    return isInspectableModelArtifact(artifact) || isReviewContextArtifact(artifact);
+    return false;
   }
   if (type === 'readiness-pack') {
     return isReviewPackArtifact(artifact) || isReleaseBundleArtifact(artifact);

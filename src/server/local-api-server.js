@@ -67,11 +67,12 @@ export function createLocalApiServer({
     jobCoordinator,
   });
   registerJobRoutes(app, {
+    projectRoot,
     jobStore,
     executor,
     jobCoordinator,
   });
-  registerArtifactRoutes(app, { jobStore });
+  registerArtifactRoutes(app, { projectRoot, jobStore });
   app.use(createInternalErrorMiddleware());
 
   server.on('close', () => {
