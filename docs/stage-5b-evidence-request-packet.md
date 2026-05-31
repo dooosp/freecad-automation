@@ -178,3 +178,40 @@ review. It does not prove readiness, attach evidence, mutate canonical package
 artifacts, or authorize promotion. A later task must explicitly approve any
 canonical mutation through `review-context --inspection-evidence`,
 `readiness-pack`, `generate-standard-docs`, and `pack`.
+
+## Pre-Attachment Review Checklist
+
+Use this concise checklist before any later authorized intake review for an
+accepted candidate gate report. Passing the checklist still does not attach
+evidence, promote evidence, satisfy readiness, or change package state.
+
+1. Accepted gate report: confirm both
+   `summary.eligible_for_stage5b_intake_review: true` and
+   `decision.result: accept` in the candidate gate report.
+2. Provenance and reviewer traceability: confirm inspector, reviewer/approver,
+   source reference, and traceability refs are present and safely redacted.
+3. Package / part / revision mapping: confirm package slug, inspected part,
+   drawing/package revision, and feature refs map to the intended package without
+   guessing.
+4. Redaction and privacy review: remove tokens, credentials, authorization
+   headers, private URLs, unnecessary PII, customer secrets, private machine
+   paths, and raw supplier/lab/QA material before any tracked output or public
+   review.
+5. Path safety: use safe repo-relative paths only; reject absolute paths,
+   backslashes, traversal, `output/`, `tmp/codex/`, and paths outside the repo.
+6. Next intake, dry-run, and audit commands: only when a later task authorizes
+   review, use the non-mutating command path:
+
+   ```bash
+   fcad inspection-evidence-intake --out <report.json>
+   fcad inspection-evidence-promotion-dry-run --intake-report <report.json> --out <promotion_dry_run_manifest.json>
+   fcad stage5b-evidence-audit --out-dir <dir>
+   ```
+7. Authorization before attachment: do not run `review-context
+   --inspection-evidence`, `readiness-pack`, `generate-standard-docs`, or `pack`
+   until a separate later task explicitly authorizes canonical mutation after
+   validation and review.
+8. Readiness-held truth: readiness remains `needs_more_evidence` /
+   `hold_for_evidence_completion`, and `inspection_evidence` remains missing
+   until genuine completed evidence is validated, reviewed, and deliberately
+   attached.

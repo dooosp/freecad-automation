@@ -75,6 +75,16 @@ const STAGE5B_ARTIFACTS = Object.freeze({
 
 const HARD_EVIDENCE_RULE = 'Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.';
 const NON_EVIDENCE_BOUNDARY_PATTERN = /ignored inbox files|candidate gate reports|intake reports|dry-run manifests|audit manifests|generated CAD\/drawing\/quality\/DFM\/readiness\/review|fixtures|screenshots|CI summaries|templates|collection guides|GitHub metadata/i;
+const PRE_ATTACHMENT_CHECKLIST_ITEMS = Object.freeze([
+  'Accepted gate report',
+  'Provenance and reviewer traceability',
+  'Package / part / revision mapping',
+  'Redaction and privacy review',
+  'Path safety',
+  'Next intake, dry-run, and audit commands',
+  'Authorization before attachment',
+  'Readiness-held truth',
+]);
 
 function assertIncludesAll(haystack, needles, label) {
   needles.forEach((needle) => {
@@ -104,6 +114,27 @@ function assertNoAffirmativePrivateCommitGuidance(text, label) {
     return mentionsCommitAction && mentionsPrivateMaterial && !negated;
   });
   assert.deepEqual(unsafeLines, [], `${label} must not tell users to commit raw/private evidence material`);
+}
+
+function assertPreAttachmentChecklist(text, label) {
+  assert.match(text, /Pre-Attachment Review Checklist/, `${label} should include the pre-attachment review checklist`);
+  for (const item of PRE_ATTACHMENT_CHECKLIST_ITEMS) {
+    assert(text.includes(item), `${label} pre-attachment checklist should include ${item}`);
+  }
+  assert.match(text, /authorization before attachment/i, `${label} should require explicit later authorization before attachment`);
+  assert.match(text, /readiness remains `?needs_more_evidence`? \/ `?hold_for_evidence_completion`?/i, `${label} should preserve readiness-held truth`);
+}
+
+function assertNoControlSurfaceAttachmentOverclaim(text, label) {
+  const unsafeSurface = /\b(?:candidate acceptance|accepted gate report|candidate gate report|inbox placement|inbox file|catalog entr(?:y|ies)|schemas?|reports?|dry-runs?|audits?)\b/i;
+  const unsafeClaim = /\b(?:(?:attaches?|attached|promotes?|promoted)\b[^\n.]{0,120}\bevidence\b|(?:satisf(?:y|ies|ied)|clears?|cleared)\b[^\n.]{0,120}\b(?:inspection_evidence|readiness|evidence)\b|(?:proves?|proved)\b[^\n.]{0,120}\b(?:inspection_evidence|readiness)\b)/i;
+  const negated = /\b(?:does not|do not|did not|cannot|never|must not|not |no |without|only genuine|control or review material only)\b/i;
+  const unsafeLines = text.split('\n').filter((line) => unsafeSurface.test(line) && unsafeClaim.test(line) && !negated.test(line));
+  assert.deepEqual(
+    unsafeLines,
+    [],
+    `${label} must not imply candidate acceptance, inbox placement, catalog entries, schemas, reports, dry-runs, or audits attach evidence or satisfy readiness`
+  );
 }
 
 function artifactFixture(definition, overrides = {}) {
@@ -364,6 +395,7 @@ assert.match(docs.closeout, /PR #133|\[#133\]/, 'Stage 5B closeout should includ
 assert.match(docs.closeout, /PR #134|\[#134\]/, 'Stage 5B closeout should include the PR #134 status ledger sync state');
 assert.match(docs.closeout, /PR #135|\[#135\]/, 'Stage 5B closeout should include the PR #135 ignored inbox state');
 assert.match(docs.closeout, /PR #136|\[#136\]/, 'Stage 5B closeout should include the PR #136 candidate gate schema state');
+assert.match(docs.closeout, /PR #137|\[#137\]/, 'Stage 5B closeout should include the PR #137 artifact catalog state');
 assert.match(docs.closeout, /\[Stage 5B operational runbook\]\(\.\/stage-5b-operational-runbook\.md\)/, 'Stage 5B closeout should link the operational runbook');
 assert.match(docs.closeout, /\[Stage 5B evidence request packet\]\(\.\/stage-5b-evidence-request-packet\.md\)/, 'Stage 5B closeout should link the evidence request packet');
 assert.match(docs.closeout, /\[Stage 5B artifact\/schema catalog\]\(\.\/stage-5b-artifact-schema-catalog\.md\)/, 'Stage 5B closeout should link the artifact/schema catalog');
@@ -372,6 +404,7 @@ assert.match(docs.closeout, /\[Stage 5B artifact\/schema catalog\]\(\.\/stage-5b
   'Stage 5B artifact/schema catalog',
   LOCAL_STAGE5B_INBOX,
   'node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json>',
+  'Pre-attachment review checklist',
   'npm run test:stage5b:no-evidence',
   'inspection-evidence-intake',
   'inspection-evidence-promotion-dry-run',
@@ -383,6 +416,7 @@ assert.match(docs.closeout, /\[Stage 5B artifact\/schema catalog\]\(\.\/stage-5b
 assert.match(docs.testing, /stage5b-source-of-truth-guard\.test\.js/, 'testing docs should mention the Stage 5B source-of-truth guard');
 assert.match(docs.testing, /stage5b-artifact-catalog\.test\.js/, 'testing docs should mention the Stage 5B artifact catalog guard');
 assert.match(docs.testing, /Stage 5B operational runbook/, 'testing docs should mention the Stage 5B operational runbook');
+assert.match(docs.testing, /Pre-Attachment Review Checklist/, 'testing docs should mention the Stage 5B pre-attachment checklist guard');
 
 Object.entries({
   README: docs.readme,
@@ -390,11 +424,24 @@ Object.entries({
   closeout: docs.closeout,
   runbook: docs.runbook,
   requestPacket: docs.requestPacket,
+  artifactSchemaCatalog: docs.artifactSchemaCatalog,
   inspectionContract: docs.inspectionContract,
 }).forEach(([label, text]) => {
   assert(text.includes(LOCAL_STAGE5B_INBOX), `${label} should document the local-only Stage 5B candidate inbox`);
   assert.match(text, /raw records|private records|private URLs|PII|supplier\/lab\/QA records/i, `${label} should document privacy-sensitive inbox boundaries`);
   assertNoAffirmativePrivateCommitGuidance(text, label);
+});
+
+Object.entries({
+  README: docs.readme,
+  testing: docs.testing,
+  closeout: docs.closeout,
+  runbook: docs.runbook,
+  requestPacket: docs.requestPacket,
+  artifactSchemaCatalog: docs.artifactSchemaCatalog,
+  inspectionContract: docs.inspectionContract,
+}).forEach(([label, text]) => {
+  assertNoControlSurfaceAttachmentOverclaim(text, label);
 });
 
 const schemaRequests = [
@@ -582,6 +629,7 @@ assert.match(docs.closeout, NON_EVIDENCE_BOUNDARY_PATTERN);
 assert.match(docs.runbook, /^# Stage 5B operational runbook/m);
 assert.match(docs.runbook, /Quick CLI Path/);
 assert.match(docs.runbook, /Candidate Acceptance Gate/);
+assertPreAttachmentChecklist(docs.runbook, 'Stage 5B operational runbook');
 assert.match(docs.runbook, /Local-Only Candidate Inbox/);
 assert.match(docs.runbook, /local\/stage5b-candidate-evidence-inbox\/<package-slug>\/received-inspection-evidence\.json/);
 assert.match(docs.runbook, /local\/stage5b-candidate-evidence-inbox\/<package-slug>\/candidate-gate-report\.json/);
@@ -610,6 +658,7 @@ assert.match(docs.runbook, new RegExp(HARD_EVIDENCE_RULE.replace(/[.*+?^${}()|[\
 assert.match(docs.runbook, NON_EVIDENCE_BOUNDARY_PATTERN);
 
 assert.match(docs.requestPacket, /^# Stage 5B evidence request packet/m);
+assertPreAttachmentChecklist(docs.requestPacket, 'Stage 5B evidence request packet');
 assert.match(docs.requestPacket, /suppliers?, labs?, QA\s+reviewers?, and physical inspectors?/i);
 assert.match(docs.requestPacket, /Local-only inbox convention/);
 assert.match(docs.requestPacket, /local\/stage5b-candidate-evidence-inbox\/<package-slug>\//);
@@ -650,6 +699,11 @@ getStage5bArtifactSchemaCatalog().forEach((entry) => {
   assert.match(entry.inspection_evidence_status, /Not inspection_evidence/i, `${entry.id} should stay non-evidence`);
   assert.match(entry.readiness_effect, /No readiness change|Non-mutating|readiness remains|does not attach evidence/i, `${entry.id} should document readiness effect`);
 });
+assert.match(
+  getStage5bArtifactSchemaCatalog().find((entry) => entry.id === 'stage5b_candidate_gate_report').readiness_effect,
+  /pre-attachment checklist/i,
+  'candidate gate catalog entry should point accepted reports to the pre-attachment checklist'
+);
 
 [
   'inspection-evidence-intake reports are discovery/review artifacts only; they are not package inspection evidence.',

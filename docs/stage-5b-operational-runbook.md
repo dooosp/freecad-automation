@@ -59,7 +59,8 @@ Safe local flow:
 2. Place the received candidate JSON under the ignored local inbox.
 3. Run `node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json> --out <report.json>`, with `--out` pointing to a local inbox report when the report might describe private material.
 4. Review the accept/reject report.
-5. Run intake, promotion dry-run, or audit later only if the task explicitly authorizes that review path. Later authorized attachment still needs validation, review, and deliberate `review-context --inspection-evidence` mutation outside this local-inbox guard task.
+5. Use the Pre-Attachment Review Checklist below before any intake, dry-run, or audit task.
+6. Run intake, promotion dry-run, or audit later only if the task explicitly authorizes that review path. Later authorized attachment still needs validation, review, and deliberate `review-context --inspection-evidence` mutation outside this local-inbox guard task.
 
 Before maintainers put a newly supplied JSON record into the Stage 5B intake/dry-run review path, run the local non-production candidate gate:
 
@@ -89,6 +90,47 @@ promoted, no readiness was satisfied, and no canonical package artifacts were
 mutated.
 
 The gate fails closed for generated/control artifacts, diagnostics, schemas, fixtures, intake reports, promotion dry-run manifests, audit outputs, GitHub/CI metadata, screenshots, templates, guides, comments, PR bodies, docs artifacts, release bundles, and CAD-generated, simulated, inferred, or synthetic measurements. Fixtures used by tests are control/non-evidence examples only and must not be promoted or described as genuine package evidence.
+
+## Pre-Attachment Review Checklist
+
+Use this checklist only after a candidate gate report says
+`summary.eligible_for_stage5b_intake_review: true` and
+`decision.result: accept`. Passing this checklist authorizes intake review only;
+it does not attach evidence, promote evidence, satisfy readiness, or mutate
+canonical artifacts.
+
+1. Accepted gate report: keep the accepted candidate gate report with the record
+   under the ignored local inbox or another explicitly authorized local control
+   path, and verify the report is schema-valid and non-mutating.
+2. Provenance and reviewer traceability: verify the candidate carries inspector,
+   reviewer/approver, source reference, and traceability refs without relying on
+   a PR body, comment, screenshot, release asset, generated report, or human-typed
+   replacement value.
+3. Package / part / revision mapping: confirm the package slug, inspected part,
+   drawing or package revision, and measured feature refs map to one package
+   without guessing.
+4. Redaction and privacy review: remove or summarize private URLs, credentials,
+   tokens, authorization headers, unnecessary PII, customer secrets, private
+   machine paths, and raw supplier/lab/QA material before any tracked output or
+   public review.
+5. Path safety: use only safe repo-relative paths for control artifacts and
+   future reviewed JSON; reject absolute paths, backslashes, traversal, `output/`,
+   `tmp/codex/`, and any path outside the repository.
+6. Next intake, dry-run, and audit commands: if a later task explicitly
+   authorizes review, use the non-mutating command path:
+
+   ```bash
+   fcad inspection-evidence-intake --out <report.json>
+   fcad inspection-evidence-promotion-dry-run --intake-report <report.json> --out <promotion_dry_run_manifest.json>
+   fcad stage5b-evidence-audit --out-dir <dir>
+   ```
+7. Authorization before attachment: do not run `review-context
+   --inspection-evidence`, `readiness-pack`, `generate-standard-docs`, or `pack`
+   until a separate later task explicitly authorizes canonical mutation after
+   validation and review.
+8. Readiness-held truth: until that later attachment task completes, readiness
+   remains `needs_more_evidence` / `hold_for_evidence_completion`, and
+   `inspection_evidence` remains missing.
 
 ## Audit Outputs
 
@@ -245,6 +287,7 @@ node tests/stage5b-candidate-evidence-gate.test.js
 node tests/first-user-docs-smoke.test.js
 node tests/stage5b-source-of-truth-guard.test.js
 node tests/stage5b-artifact-catalog.test.js
+node tests/stage5b-artifact-contracts.test.js
 node tests/stage5b-evidence-audit-cli-smoke.test.js
 npm run test:stage5b:no-evidence
 npm run test:node:contract
