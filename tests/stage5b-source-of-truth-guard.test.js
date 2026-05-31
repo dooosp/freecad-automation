@@ -40,6 +40,7 @@ const STAGE5B_COMMANDS = Object.freeze([
   'stage5b-evidence-audit',
 ]);
 
+const LOCAL_STAGE5B_INBOX = 'local/stage5b-candidate-evidence-inbox/';
 const STAGE5B_ARTIFACTS = Object.freeze({
   intake: Object.freeze({
     command: 'inspection-evidence-intake',
@@ -72,7 +73,7 @@ const STAGE5B_ARTIFACTS = Object.freeze({
 });
 
 const HARD_EVIDENCE_RULE = 'Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.';
-const NON_EVIDENCE_BOUNDARY_PATTERN = /intake reports|dry-run manifests|audit manifests|generated CAD\/drawing\/quality\/DFM\/readiness\/review|fixtures|screenshots|CI summaries|templates|collection guides|GitHub metadata/i;
+const NON_EVIDENCE_BOUNDARY_PATTERN = /ignored inbox files|candidate gate reports|intake reports|dry-run manifests|audit manifests|generated CAD\/drawing\/quality\/DFM\/readiness\/review|fixtures|screenshots|CI summaries|templates|collection guides|GitHub metadata/i;
 
 function assertIncludesAll(haystack, needles, label) {
   needles.forEach((needle) => {
@@ -91,6 +92,17 @@ function extractBacktickValuesFromLine(markdown, startsWith) {
 
 function assertSameMembers(actual, expected, label) {
   assert.deepEqual([...actual].sort(), [...expected].sort(), label);
+}
+
+function assertNoAffirmativePrivateCommitGuidance(text, label) {
+  const unsafeLines = text.split('\n').filter((line) => {
+    const normalized = line.toLowerCase();
+    const mentionsCommitAction = /\b(?:git add|commit|check in|check-in)\b/.test(normalized);
+    const mentionsPrivateMaterial = /\b(?:raw evidence|raw records|private records|private urls|pii|supplier records|lab records|qa records|secrets)\b/.test(normalized);
+    const negated = /\b(?:do not|never|must not|without committing|not commit|not check in|not check-in)\b/.test(normalized);
+    return mentionsCommitAction && mentionsPrivateMaterial && !negated;
+  });
+  assert.deepEqual(unsafeLines, [], `${label} must not tell users to commit raw/private evidence material`);
 }
 
 function artifactFixture(definition, overrides = {}) {
@@ -283,6 +295,7 @@ const docs = {
   closeout: readText('docs/stage-5b-automation-closeout-status.md'),
   runbook: readText('docs/stage-5b-operational-runbook.md'),
   requestPacket: readText('docs/stage-5b-evidence-request-packet.md'),
+  inspectionContract: readText('docs/inspection-evidence-contract.md'),
   studioApi: readText('docs/studio-canonical-package-api.md'),
   studioWalkthrough: readText('docs/studio-first-user-walkthrough.md'),
 };
@@ -346,10 +359,12 @@ assert.match(docs.closeout, /PR #130|\[#130\]/, 'Stage 5B closeout should includ
 assert.match(docs.closeout, /PR #131|\[#131\]/, 'Stage 5B closeout should include the PR #131 no-evidence lane state');
 assert.match(docs.closeout, /PR #132|\[#132\]/, 'Stage 5B closeout should include the PR #132 candidate gate state');
 assert.match(docs.closeout, /PR #133|\[#133\]/, 'Stage 5B closeout should include the PR #133 evidence request packet state');
+assert.match(docs.closeout, /PR #134|\[#134\]/, 'Stage 5B closeout should include the PR #134 status ledger sync state');
 assert.match(docs.closeout, /\[Stage 5B operational runbook\]\(\.\/stage-5b-operational-runbook\.md\)/, 'Stage 5B closeout should link the operational runbook');
 assert.match(docs.closeout, /\[Stage 5B evidence request packet\]\(\.\/stage-5b-evidence-request-packet\.md\)/, 'Stage 5B closeout should link the evidence request packet');
 [
   'Stage 5B evidence request packet',
+  LOCAL_STAGE5B_INBOX,
   'node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json>',
   'npm run test:stage5b:no-evidence',
   'inspection-evidence-intake',
@@ -361,6 +376,19 @@ assert.match(docs.closeout, /\[Stage 5B evidence request packet\]\(\.\/stage-5b-
 });
 assert.match(docs.testing, /stage5b-source-of-truth-guard\.test\.js/, 'testing docs should mention the Stage 5B source-of-truth guard');
 assert.match(docs.testing, /Stage 5B operational runbook/, 'testing docs should mention the Stage 5B operational runbook');
+
+Object.entries({
+  README: docs.readme,
+  testing: docs.testing,
+  closeout: docs.closeout,
+  runbook: docs.runbook,
+  requestPacket: docs.requestPacket,
+  inspectionContract: docs.inspectionContract,
+}).forEach(([label, text]) => {
+  assert(text.includes(LOCAL_STAGE5B_INBOX), `${label} should document the local-only Stage 5B candidate inbox`);
+  assert.match(text, /raw records|private records|private URLs|PII|supplier\/lab\/QA records/i, `${label} should document privacy-sensitive inbox boundaries`);
+  assertNoAffirmativePrivateCommitGuidance(text, label);
+});
 
 const schemaRequests = [
   { type: 'inspection-evidence-intake' },
@@ -531,6 +559,7 @@ Object.entries({
   testing: docs.testing,
   closeout: docs.closeout,
   runbook: docs.runbook,
+  inspectionContract: docs.inspectionContract,
   studioApi: docs.studioApi,
   studioWalkthrough: docs.studioWalkthrough,
 }).forEach(([label, text]) => {
@@ -546,6 +575,9 @@ assert.match(docs.closeout, NON_EVIDENCE_BOUNDARY_PATTERN);
 assert.match(docs.runbook, /^# Stage 5B operational runbook/m);
 assert.match(docs.runbook, /Quick CLI Path/);
 assert.match(docs.runbook, /Candidate Acceptance Gate/);
+assert.match(docs.runbook, /Local-Only Candidate Inbox/);
+assert.match(docs.runbook, /local\/stage5b-candidate-evidence-inbox\/<package-slug>\/received-inspection-evidence\.json/);
+assert.match(docs.runbook, /local\/stage5b-candidate-evidence-inbox\/<package-slug>\/candidate-gate-report\.json/);
 assert.match(docs.runbook, /API And Tracked Job Path/);
 assert.match(docs.runbook, /Studio Review Path/);
 assert.match(docs.runbook, /Promotion Dry-Run Meaning/);
@@ -571,6 +603,8 @@ assert.match(docs.runbook, NON_EVIDENCE_BOUNDARY_PATTERN);
 
 assert.match(docs.requestPacket, /^# Stage 5B evidence request packet/m);
 assert.match(docs.requestPacket, /suppliers?, labs?, QA\s+reviewers?, and physical inspectors?/i);
+assert.match(docs.requestPacket, /Local-only inbox convention/);
+assert.match(docs.requestPacket, /local\/stage5b-candidate-evidence-inbox\/<package-slug>\//);
 assert.match(docs.requestPacket, /node scripts\/stage5b-candidate-evidence-gate\.js --candidate <repo-relative-json> --out <report\.json>/);
 assert.match(docs.requestPacket, /Package or part mapping/);
 assert.match(docs.requestPacket, /Revision mapping/);
