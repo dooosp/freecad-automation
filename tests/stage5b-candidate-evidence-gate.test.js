@@ -8,7 +8,12 @@ import {
   evaluateStage5bCandidateEvidence,
   evaluateStage5bCandidateEvidenceFile,
   STAGE5B_CANDIDATE_HARD_EVIDENCE_RULE,
+  STAGE5B_CANDIDATE_GATE_PASSING_MEANING,
 } from '../lib/stage5b-candidate-evidence-gate.js';
+import {
+  validateStage5bArtifact,
+  validateStage5bCandidateGateReport,
+} from '../lib/stage5b-artifact-contracts.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const LOCAL_INBOX_ROOT = 'local/stage5b-candidate-evidence-inbox';
@@ -71,7 +76,10 @@ function validCandidate(overrides = {}) {
 }
 
 function assertRejected(report, code, label) {
+  assertCandidateReportContract(report, label, { eligible: false });
   assert.equal(report.summary.eligible_for_stage5b_intake_review, false, `${label} should be rejected`);
+  assert.equal(report.summary.decision, 'reject', `${label} should have reject summary decision`);
+  assert.equal(report.decision.result, 'reject', `${label} should have reject decision`);
   assert.equal(report.summary.candidate_status, 'rejected', `${label} should have rejected status`);
   assert(
     report.summary.rejection_codes.includes(code),
@@ -79,6 +87,64 @@ function assertRejected(report, code, label) {
   );
   assert.equal(report.summary.canonical_artifacts_mutated, false, `${label} should not mutate canonical artifacts`);
   assert.equal(report.summary.genuine_evidence_attached, false, `${label} should not attach evidence`);
+  assert.equal(report.readiness_unchanged.unchanged, true, `${label} should preserve readiness unchanged`);
+  assert.equal(report.readiness_unchanged.gate_decision, 'hold_for_evidence_completion');
+}
+
+function assertPassesValidation(label, validation) {
+  assert.equal(validation.ok, true, `${label} should validate:\n${validation.errors.join('\n')}`);
+}
+
+function assertFailsValidation(label, validation, pattern) {
+  assert.equal(validation.ok, false, `${label} should fail validation`);
+  assert.match(validation.errors.join('\n'), pattern, `${label} should explain contract failure`);
+}
+
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function assertCandidateReportContract(report, label, { eligible }) {
+  assertPassesValidation(`${label} candidate gate report schema/semantics`, validateStage5bCandidateGateReport(report));
+  assertPassesValidation(`${label} candidate gate artifact dispatcher`, validateStage5bArtifact(report));
+  assert.equal(report.summary.eligible_for_stage5b_intake_review, eligible, `${label} eligibility should match expectation`);
+  assert.equal(report.decision.eligible_for_stage5b_intake_review, eligible, `${label} decision eligibility should match summary`);
+  assert.equal(report.decision.does_not_attach_evidence, true, `${label} decision should not attach evidence`);
+  assert.equal(report.decision.does_not_promote_evidence, true, `${label} decision should not promote evidence`);
+  assert.equal(report.decision.does_not_satisfy_readiness, true, `${label} decision should not satisfy readiness`);
+  assert.equal(report.decision.does_not_mutate_canonical_artifacts, true, `${label} decision should not mutate canonical artifacts`);
+  assert.match(report.decision.reviewer_note, /only a pre-intake eligibility signal/i);
+  assert.equal(report.report_contract.passing_report_means, STAGE5B_CANDIDATE_GATE_PASSING_MEANING);
+  for (const field of ['evidence_attached', 'evidence_promoted', 'readiness_satisfied', 'canonical_artifacts_mutated']) {
+    assert.equal(
+      report.report_contract.passing_report_does_not_mean.includes(field),
+      true,
+      `${label} report contract should deny ${field}`
+    );
+  }
+  for (const section of ['candidate', 'summary', 'decision', 'checklist', 'rejections', 'path_safety', 'readiness_unchanged', 'evidence_boundary', 'non_evidence_boundary']) {
+    assert.equal(
+      report.report_contract.required_sections.includes(section),
+      true,
+      `${label} report contract should require ${section}`
+    );
+  }
+  assert.equal(report.readiness_unchanged.canonical_package_status, 'needs_more_evidence');
+  assert.equal(report.readiness_unchanged.gate_decision, 'hold_for_evidence_completion');
+  assert.equal(report.readiness_unchanged.missing_input, 'inspection_evidence');
+  assert.equal(report.readiness_unchanged.genuine_evidence_attached, false);
+  assert.equal(report.readiness_unchanged.evidence_promoted, false);
+  assert.equal(report.readiness_unchanged.readiness_satisfied, false);
+  assert.equal(report.path_safety.safe_repo_relative_paths_required, true);
+  assert.equal(report.path_safety.absolute_paths_rejected, true);
+  assert.equal(report.path_safety.traversal_rejected, true);
+  assert.equal(report.path_safety.output_and_tmp_codex_rejected, true);
+  assert.equal(report.path_safety.secret_bearing_refs_rejected, true);
+  assert.match(report.path_safety.redaction_note, /absolute paths|tokens|credentials|authorization headers/i);
+  assert.equal(report.non_evidence_boundary.candidate_gate_reports_do_not_satisfy_inspection_evidence, true);
+  assert.equal(report.non_evidence_boundary.readiness_reports_do_not_satisfy_inspection_evidence, true);
+  assert.equal(report.non_evidence_boundary.release_bundles_do_not_satisfy_inspection_evidence, true);
+  assert.equal(report.non_evidence_boundary.cad_generated_measurements_are_not_evidence, true);
 }
 
 const tempRoot = mkdtempSync(join(tmpdir(), 'fcad-stage5b-candidate-gate-'));
@@ -107,17 +173,50 @@ try {
   });
   assert.equal(accepted.artifact_type, 'stage5b_candidate_evidence_acceptance_report');
   assert.equal(accepted.dry_run, true);
+  assertCandidateReportContract(accepted, 'accepted candidate', { eligible: true });
   assert.equal(accepted.summary.eligible_for_stage5b_intake_review, true);
+  assert.equal(accepted.summary.decision, 'accept');
+  assert.equal(accepted.decision.result, 'accept');
+  assert.equal(accepted.decision.meaning, 'eligible for later Stage 5B intake review only');
+  assert.equal(accepted.decision.next_allowed_step, 'later_authorized_stage5b_intake_review');
   assert.equal(accepted.summary.candidate_status, 'eligible_for_intake_review');
   assert.equal(accepted.summary.canonical_artifacts_mutated, false);
   assert.equal(accepted.summary.genuine_evidence_attached, false);
   assert.match(accepted.summary.readiness_truth, /needs_more_evidence \/ hold_for_evidence_completion/);
+  assert.equal(accepted.path_safety.candidate_path_is_safe_repo_relative, true);
+  assert.deepEqual(accepted.path_safety.candidate_path_rejection_codes, []);
+  assert.equal(accepted.path_safety.source_ref_is_safe_or_null, true);
+  assert.deepEqual(accepted.path_safety.source_ref_rejection_codes, []);
   assert.equal(
     accepted.checklist.every((item) => item.status === 'pass'),
     true,
     `accepted candidate checklist should pass: ${JSON.stringify(accepted.checklist, null, 2)}`
   );
   assert.equal(accepted.evidence_boundary.hard_evidence_rule, STAGE5B_CANDIDATE_HARD_EVIDENCE_RULE);
+
+  const overclaimedReadiness = clone(accepted);
+  overclaimedReadiness.readiness_unchanged.readiness_satisfied = true;
+  assertFailsValidation(
+    'candidate report readiness overclaim',
+    validateStage5bCandidateGateReport(overclaimedReadiness),
+    /readiness_satisfied|non-mutating candidate gate boundary/i
+  );
+
+  const mismatchedDecision = clone(accepted);
+  mismatchedDecision.decision.result = 'reject';
+  assertFailsValidation(
+    'candidate report decision mismatch',
+    validateStage5bCandidateGateReport(mismatchedDecision),
+    /summary\.decision must match decision\.result|accept when eligible/i
+  );
+
+  const missingBoundary = clone(accepted);
+  delete missingBoundary.path_safety.redaction_note;
+  assertFailsValidation(
+    'candidate report missing path redaction note',
+    validateStage5bCandidateGateReport(missingBoundary),
+    /path_safety\/redaction_note|redaction_note/i
+  );
 
   const missingCompleted = evaluateStage5bCandidateEvidence({
     document: validCandidate({ inspection_status: undefined, status: undefined }),
@@ -253,7 +352,9 @@ try {
   assert.equal(cliAccepted.status, 0, cliAccepted.stderr || cliAccepted.stdout);
   assert.match(cliAccepted.stdout, /eligible_for_intake_review/);
   assert.equal(existsSync(join(tempRoot, cliReportPath)), true, 'CLI should write the non-production gate report');
-  assert.equal(readJson(join(tempRoot, cliReportPath)).summary.genuine_evidence_attached, false);
+  const cliAcceptedReport = readJson(join(tempRoot, cliReportPath));
+  assertCandidateReportContract(cliAcceptedReport, 'CLI accepted candidate report', { eligible: true });
+  assert.equal(cliAcceptedReport.summary.genuine_evidence_attached, false);
 
   const fixtureCli = spawnSync(process.execPath, [
     'scripts/stage5b-candidate-evidence-gate.js',

@@ -1,0 +1,324 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freecad-automation.local/schemas/stage5b-candidate-gate-report.schema.json",
+  "title": "Stage 5B candidate evidence gate report",
+  "type": "object",
+  "required": [
+    "artifact_type",
+    "schema_version",
+    "generated_at",
+    "dry_run",
+    "candidate",
+    "summary",
+    "decision",
+    "checklist",
+    "rejections",
+    "path_safety",
+    "readiness_unchanged",
+    "evidence_boundary",
+    "non_evidence_boundary",
+    "report_contract"
+  ],
+  "properties": {
+    "artifact_type": { "const": "stage5b_candidate_evidence_acceptance_report" },
+    "schema_version": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/schemaVersion" },
+    "generated_at": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/timestamp" },
+    "dry_run": { "const": true },
+    "candidate": {
+      "type": "object",
+      "required": [
+        "path",
+        "source_ref",
+        "source_type",
+        "package_id",
+        "inspected_part",
+        "revision",
+        "inspected_at",
+        "inspection_status",
+        "overall_result",
+        "measured_feature_count"
+      ],
+      "properties": {
+        "path": { "anyOf": [{ "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/repoPath" }, { "type": "null" }] },
+        "source_ref": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+        "source_type": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+        "package_id": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+        "inspected_part": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+        "revision": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+        "inspected_at": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+        "inspection_status": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+        "overall_result": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+        "measured_feature_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "eligible_for_stage5b_intake_review",
+        "decision",
+        "candidate_status",
+        "rejection_count",
+        "rejection_codes",
+        "canonical_artifacts_mutated",
+        "genuine_evidence_attached",
+        "readiness_truth"
+      ],
+      "properties": {
+        "eligible_for_stage5b_intake_review": { "type": "boolean" },
+        "decision": { "enum": ["accept", "reject"] },
+        "candidate_status": { "enum": ["eligible_for_intake_review", "rejected"] },
+        "rejection_count": { "type": "integer", "minimum": 0 },
+        "rejection_codes": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/stringArray" },
+        "canonical_artifacts_mutated": { "const": false },
+        "genuine_evidence_attached": { "const": false },
+        "readiness_truth": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "decision": {
+      "type": "object",
+      "required": [
+        "result",
+        "label",
+        "eligible_for_stage5b_intake_review",
+        "meaning",
+        "next_allowed_step",
+        "does_not_attach_evidence",
+        "does_not_promote_evidence",
+        "does_not_satisfy_readiness",
+        "does_not_mutate_canonical_artifacts",
+        "reviewer_note"
+      ],
+      "properties": {
+        "result": { "enum": ["accept", "reject"] },
+        "label": {
+          "enum": [
+            "eligible_for_later_stage5b_intake_review",
+            "rejected_before_stage5b_intake_review"
+          ]
+        },
+        "eligible_for_stage5b_intake_review": { "type": "boolean" },
+        "meaning": { "type": "string", "minLength": 1 },
+        "next_allowed_step": {
+          "enum": [
+            "later_authorized_stage5b_intake_review",
+            "repair_or_replace_candidate_record_before_stage5b_intake_review"
+          ]
+        },
+        "does_not_attach_evidence": { "const": true },
+        "does_not_promote_evidence": { "const": true },
+        "does_not_satisfy_readiness": { "const": true },
+        "does_not_mutate_canonical_artifacts": { "const": true },
+        "reviewer_note": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "checklist": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "status", "rejection_codes"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "label": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["pass", "fail"] },
+          "rejection_codes": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/stringArray" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "rejections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "severity", "field", "requirement", "message"],
+        "properties": {
+          "code": { "type": "string", "minLength": 1 },
+          "severity": { "const": "error" },
+          "field": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+          "requirement": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+          "message": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "path_safety": {
+      "type": "object",
+      "required": [
+        "candidate_path",
+        "candidate_path_is_safe_repo_relative",
+        "candidate_path_rejection_codes",
+        "source_ref",
+        "source_ref_field",
+        "source_ref_is_redacted_or_summarized",
+        "source_ref_is_safe_or_null",
+        "source_ref_rejection_codes",
+        "safe_repo_relative_paths_required",
+        "absolute_paths_rejected",
+        "traversal_rejected",
+        "output_and_tmp_codex_rejected",
+        "private_machine_paths_rejected",
+        "secret_bearing_refs_rejected",
+        "redaction_note"
+      ],
+      "properties": {
+        "candidate_path": { "anyOf": [{ "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/repoPath" }, { "type": "null" }] },
+        "candidate_path_is_safe_repo_relative": { "type": "boolean" },
+        "candidate_path_rejection_codes": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/stringArray" },
+        "source_ref": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+        "source_ref_field": { "anyOf": [{ "enum": ["source_ref", "source_file"] }, { "type": "null" }] },
+        "source_ref_is_redacted_or_summarized": { "type": "boolean" },
+        "source_ref_is_safe_or_null": { "type": "boolean" },
+        "source_ref_rejection_codes": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/stringArray" },
+        "safe_repo_relative_paths_required": { "const": true },
+        "absolute_paths_rejected": { "const": true },
+        "traversal_rejected": { "const": true },
+        "output_and_tmp_codex_rejected": { "const": true },
+        "private_machine_paths_rejected": { "const": true },
+        "secret_bearing_refs_rejected": { "const": true },
+        "redaction_note": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "readiness_unchanged": {
+      "type": "object",
+      "required": [
+        "unchanged",
+        "canonical_package_status",
+        "gate_decision",
+        "missing_input",
+        "canonical_artifacts_mutated",
+        "genuine_evidence_attached",
+        "evidence_promoted",
+        "readiness_satisfied",
+        "promotion_authorized",
+        "note"
+      ],
+      "properties": {
+        "unchanged": { "const": true },
+        "canonical_package_status": { "const": "needs_more_evidence" },
+        "gate_decision": { "const": "hold_for_evidence_completion" },
+        "missing_input": { "const": "inspection_evidence" },
+        "canonical_artifacts_mutated": { "const": false },
+        "genuine_evidence_attached": { "const": false },
+        "evidence_promoted": { "const": false },
+        "readiness_satisfied": { "const": false },
+        "promotion_authorized": { "const": false },
+        "note": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "evidence_boundary": {
+      "type": "object",
+      "required": [
+        "hard_evidence_rule",
+        "non_production_gate",
+        "does_not_attach_evidence",
+        "does_not_promote_evidence",
+        "does_not_change_readiness",
+        "rejected_as_final_evidence"
+      ],
+      "properties": {
+        "hard_evidence_rule": { "type": "string", "minLength": 1 },
+        "non_production_gate": { "const": true },
+        "does_not_attach_evidence": { "const": true },
+        "does_not_promote_evidence": { "const": true },
+        "does_not_change_readiness": { "const": true },
+        "rejected_as_final_evidence": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/stringArray" }
+      },
+      "additionalProperties": false
+    },
+    "non_evidence_boundary": {
+      "type": "object",
+      "required": [
+        "generated_control_artifacts_do_not_satisfy_inspection_evidence",
+        "candidate_gate_reports_do_not_satisfy_inspection_evidence",
+        "readiness_reports_do_not_satisfy_inspection_evidence",
+        "review_packs_do_not_satisfy_inspection_evidence",
+        "release_bundles_do_not_satisfy_inspection_evidence",
+        "github_ci_metadata_alone_is_not_evidence",
+        "screenshots_do_not_satisfy_inspection_evidence",
+        "cad_generated_measurements_are_not_evidence",
+        "generated_quality_outputs_do_not_satisfy_inspection_evidence",
+        "rejected_as_final_evidence"
+      ],
+      "properties": {
+        "generated_control_artifacts_do_not_satisfy_inspection_evidence": { "const": true },
+        "candidate_gate_reports_do_not_satisfy_inspection_evidence": { "const": true },
+        "readiness_reports_do_not_satisfy_inspection_evidence": { "const": true },
+        "review_packs_do_not_satisfy_inspection_evidence": { "const": true },
+        "release_bundles_do_not_satisfy_inspection_evidence": { "const": true },
+        "github_ci_metadata_alone_is_not_evidence": { "const": true },
+        "screenshots_do_not_satisfy_inspection_evidence": { "const": true },
+        "cad_generated_measurements_are_not_evidence": { "const": true },
+        "generated_quality_outputs_do_not_satisfy_inspection_evidence": { "const": true },
+        "rejected_as_final_evidence": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/stringArray" }
+      },
+      "additionalProperties": false
+    },
+    "report_contract": {
+      "type": "object",
+      "required": [
+        "contract_name",
+        "contract_version",
+        "eligibility_field",
+        "decision_field",
+        "checklist_field",
+        "rejection_reasons_field",
+        "path_safety_field",
+        "readiness_unchanged_field",
+        "non_evidence_boundary_field",
+        "passing_report_means",
+        "passing_report_does_not_mean",
+        "required_sections"
+      ],
+      "properties": {
+        "contract_name": { "const": "stage5b_candidate_gate_report" },
+        "contract_version": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/schemaVersion" },
+        "eligibility_field": { "const": "summary.eligible_for_stage5b_intake_review" },
+        "decision_field": { "const": "decision.result" },
+        "checklist_field": { "const": "checklist" },
+        "rejection_reasons_field": { "const": "rejections" },
+        "path_safety_field": { "const": "path_safety" },
+        "readiness_unchanged_field": { "const": "readiness_unchanged" },
+        "non_evidence_boundary_field": { "const": "non_evidence_boundary" },
+        "passing_report_means": { "const": "eligible for later Stage 5B intake review only" },
+        "passing_report_does_not_mean": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "evidence_attached",
+              "evidence_promoted",
+              "readiness_satisfied",
+              "canonical_artifacts_mutated"
+            ]
+          },
+          "minItems": 4,
+          "uniqueItems": true
+        },
+        "required_sections": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "candidate",
+              "summary",
+              "decision",
+              "checklist",
+              "rejections",
+              "path_safety",
+              "readiness_unchanged",
+              "evidence_boundary",
+              "non_evidence_boundary"
+            ]
+          },
+          "minItems": 9,
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

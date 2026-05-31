@@ -100,6 +100,28 @@ for intake review eligibility only. It does not run `review-context`, attach
 evidence, regenerate readiness, update standard docs, package release bundles,
 or change canonical package state.
 
+## Candidate Gate Report Contract
+
+The candidate gate report is a control artifact with schema
+`schemas/stage5b-candidate-gate-report.schema.json`. Reviewers should read these
+fields together:
+
+| Field | Meaning |
+| --- | --- |
+| `candidate.path` and `candidate.source_ref` | Sanitized candidate path/source metadata for the supplied record. |
+| `summary.eligible_for_stage5b_intake_review` | `true` only when the record is eligible for a later authorized Stage 5B intake review. |
+| `decision.result` | `accept` or `reject`; accept is not evidence attachment or promotion. |
+| `checklist[]` | Pass/fail checklist items grouped by schema, origin, traceability, mapping, date/status/result, and evidence-boundary requirements. |
+| `rejections[]` and `summary.rejection_codes` | Machine-readable rejection reasons that explain why a candidate cannot enter intake review. |
+| `path_safety` | Safe repo-relative path, redaction, absolute-path, traversal, `output/`, `tmp/codex/`, private-machine-path, token, and credential boundaries. |
+| `readiness_unchanged` | Canonical package readiness remains `needs_more_evidence` / `hold_for_evidence_completion`, with `inspection_evidence` still missing. |
+| `non_evidence_boundary` | Generated/control artifacts, candidate gate reports, readiness reports, review packs, release bundles, screenshots, CI/GitHub metadata, and CAD-generated measurements are not inspection evidence. |
+
+The report also records `report_contract.passing_report_means` as “eligible for
+later Stage 5B intake review only” and lists what a passing report does not
+mean: no evidence is attached, no evidence is promoted, readiness is not
+satisfied, and canonical artifacts are not mutated.
+
 ## Rejection Meanings
 
 Common rejection groups mean:

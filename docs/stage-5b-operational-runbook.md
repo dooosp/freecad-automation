@@ -78,6 +78,16 @@ The report must show `eligible_for_stage5b_intake_review: true` before the recor
 - safe repo-relative attachment/provenance paths with no credentials, private URLs, absolute paths, `output/`, or `tmp/codex/`
 - explicit rejection reasons when any requirement fails
 
+The report contract is schema-backed by
+`schemas/stage5b-candidate-gate-report.schema.json`. Reviewers should interpret
+`decision.result: accept` and
+`summary.eligible_for_stage5b_intake_review: true` as “eligible for later Stage
+5B intake review only.” The report must also carry candidate path/source
+metadata, `path_safety` redaction notes, `readiness_unchanged` fields, and
+`non_evidence_boundary` fields proving that no evidence was attached or
+promoted, no readiness was satisfied, and no canonical package artifacts were
+mutated.
+
 The gate fails closed for generated/control artifacts, diagnostics, schemas, fixtures, intake reports, promotion dry-run manifests, audit outputs, GitHub/CI metadata, screenshots, templates, guides, comments, PR bodies, docs artifacts, release bundles, and CAD-generated, simulated, inferred, or synthetic measurements. Fixtures used by tests are control/non-evidence examples only and must not be promoted or described as genuine package evidence.
 
 ## Audit Outputs
