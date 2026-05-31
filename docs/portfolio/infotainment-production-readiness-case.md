@@ -1,5 +1,7 @@
 # Infotainment Production Readiness Case
 
+Historical non-canonical portfolio case: this page predates the current Stage 5B evidence boundary. It is demo/decision-support narrative only, does not attach `inspection_evidence`, and must not be used to override the current `needs_more_evidence / hold_for_evidence_completion` truth in the canonical package readiness reports.
+
 ## Problem Statement
 
 An automotive infotainment display bracket may look simple in CAD, but production engineering risk appears early when the design is translated into:

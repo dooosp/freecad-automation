@@ -1,5 +1,7 @@
 # Infotainment Display Bracket Example
 
+Historical non-canonical example: this older artifact set is portfolio/demo material, not current Stage 5B package truth. It does not attach `inspection_evidence`; use the current Stage 5B closeout and canonical package readiness reports for `needs_more_evidence / hold_for_evidence_completion` truth.
+
 Checked-in artifact set for a portfolio-facing automotive infotainment production-readiness example.
 
 Files:

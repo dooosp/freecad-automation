@@ -204,7 +204,7 @@ const generatedGroups = collectGeneratedArtifactGroups([
 const generatedGroupMap = Object.fromEntries(generatedGroups.map((group) => [group.id, group]));
 assert.deepEqual(generatedGroupMap['cad-exports'].rows.map((row) => row.label), ['STEP model', 'STL mesh']);
 assert.deepEqual(generatedGroupMap.reports.rows.map((row) => row.label), ['PDF report', 'Report summary']);
-assert.deepEqual(generatedGroupMap['quality-evidence'].rows.map((row) => row.label), [
+assert.deepEqual(generatedGroupMap['quality-outputs'].rows.map((row) => row.label), [
   'Create quality JSON',
   'Drawing quality JSON',
   'Manifest',
@@ -212,7 +212,7 @@ assert.deepEqual(generatedGroupMap['quality-evidence'].rows.map((row) => row.lab
 assert.equal(generatedGroupMap['cad-exports'].rows.find((row) => row.id === 'step').canOpen, true);
 assert.equal(generatedGroupMap['cad-exports'].rows.find((row) => row.id === 'stl').canOpen, false);
 assert.equal(generatedGroupMap['cad-exports'].rows.find((row) => row.id === 'stl').canDownload, true);
-assert.equal(generatedGroupMap['quality-evidence'].rows.find((row) => row.id === 'manifest').canDownload, false);
+assert.equal(generatedGroupMap['quality-outputs'].rows.find((row) => row.id === 'manifest').canDownload, false);
 assert.equal(JSON.stringify(generatedGroups).includes('missing.step'), false);
 
 const sparseGeneratedGroups = collectGeneratedArtifactGroups([
@@ -227,8 +227,8 @@ const sparseGeneratedGroups = collectGeneratedArtifactGroups([
 ]);
 assert.equal(sparseGeneratedGroups.find((group) => group.id === 'cad-exports').rows.length, 0);
 assert.equal(sparseGeneratedGroups.find((group) => group.id === 'reports').rows.length, 0);
-assert.equal(sparseGeneratedGroups.find((group) => group.id === 'quality-evidence').rows[0].label, 'Create quality JSON');
-assert.equal(sparseGeneratedGroups.find((group) => group.id === 'quality-evidence').rows[0].canOpen, false);
+assert.equal(sparseGeneratedGroups.find((group) => group.id === 'quality-outputs').rows[0].label, 'Create quality JSON');
+assert.equal(sparseGeneratedGroups.find((group) => group.id === 'quality-outputs').rows[0].canOpen, false);
 
 const previewPayload = toPublicDrawingPreviewPayload({
   preview: {

@@ -1,4 +1,4 @@
-import { open, readFile, realpath, stat } from 'node:fs/promises';
+import { lstat, open, readFile, realpath, stat } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 
 import { LOCAL_API_SERVICE, LOCAL_API_VERSION } from './local-api-contract.js';
@@ -19,7 +19,7 @@ const EVIDENCE_BOUNDARY = Object.freeze({
   release_bundle_presence_does_not_mean_production_ready:
     'Release bundle presence does not mean production-ready; readiness remains gated by the canonical readiness report.',
   quality_drawing_evidence_does_not_satisfy_inspection_evidence:
-    'Quality and drawing evidence does not satisfy inspection_evidence without genuine completed inspection evidence.',
+    'Quality and drawing outputs are generated control metadata and do not satisfy inspection_evidence without genuine completed inspection evidence.',
   packages_remain_needs_more_evidence_until_real_inspection_evidence_is_attached:
     'Canonical packages remain needs_more_evidence until real inspection_evidence is attached through the canonical flow.',
 });
@@ -30,6 +30,12 @@ const STUDIO_BOUNDARY = Object.freeze({
   tracked_job_artifact_reopen_remains_separate:
     'Studio tracked job/artifact reopen remains separate from checked-in canonical docs package discovery.',
 });
+
+const UNSAFE_CANONICAL_EVIDENCE_PREFIXES = Object.freeze([
+  'local/stage5b-candidate-evidence-inbox/',
+  'output/',
+  'tmp/codex/',
+]);
 
 const PREVIEW_SIZE_CAPS_BYTES = Object.freeze({
   json: 128 * 1024,
@@ -78,6 +84,30 @@ async function pathExists(projectRoot, relativePath) {
   try {
     await stat(join(projectRoot, relativePath));
     return true;
+  } catch {
+    return false;
+  }
+}
+
+function isInsideRoot(rootDir, targetPath) {
+  const rel = relative(rootDir, targetPath).replace(/\\/g, '/');
+  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
+}
+
+function isUnsafeCanonicalEvidenceRoot(rootDir, targetPath) {
+  const rel = relative(rootDir, targetPath).replace(/\\/g, '/');
+  return UNSAFE_CANONICAL_EVIDENCE_PREFIXES.some((prefix) => rel === prefix.slice(0, -1) || rel.startsWith(prefix));
+}
+
+async function canonicalInspectionEvidenceExists(projectRoot, relativePath) {
+  try {
+    const rootRealPath = await realpath(projectRoot);
+    const candidatePath = resolve(rootRealPath, relativePath);
+    const linkInfo = await lstat(candidatePath);
+    if (linkInfo.isSymbolicLink()) return false;
+    const candidateRealPath = await realpath(candidatePath);
+    return isInsideRoot(rootRealPath, candidateRealPath)
+      && !isUnsafeCanonicalEvidenceRoot(rootRealPath, candidateRealPath);
   } catch {
     return false;
   }
@@ -242,7 +272,7 @@ async function buildCanonicalPackage(projectRoot, slug) {
   const reviewPackPath = packageRelativePath(slug, 'review/review_pack.json');
   const inspectionEvidencePath = inspectionEvidenceRelativePath(slug);
   const readinessReport = await readJson(projectRoot, readinessPath, { required: true });
-  const inspectionEvidenceMissing = !(await pathExists(projectRoot, inspectionEvidencePath));
+  const inspectionEvidenceMissing = !(await canonicalInspectionEvidenceExists(projectRoot, inspectionEvidencePath));
   const title = await readPackageTitle(projectRoot, readmePath, slug);
   const artifacts = {
     review_pack_path: await optionalPath(projectRoot, reviewPackPath),

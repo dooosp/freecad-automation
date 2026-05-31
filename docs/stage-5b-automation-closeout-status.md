@@ -1,6 +1,6 @@
 # Stage 5B automation closeout status
 
-This document summarizes the Stage 5B automation chain through PR [#139](https://github.com/dooosp/freecad-automation/pull/139). It is a software/status closeout only. It does not attach inspection evidence, mutate canonical package artifacts, regenerate readiness, or claim production readiness.
+This document summarizes the Stage 5B automation chain through PR [#143](https://github.com/dooosp/freecad-automation/pull/143). It is a software/status closeout only. It does not attach inspection evidence, mutate canonical package artifacts, regenerate readiness, or claim production readiness.
 
 For day-to-day CLI/API/Studio operation, diagnostics, expected no-evidence output, and validation commands, use the [Stage 5B operational runbook](./stage-5b-operational-runbook.md). For supplier, lab, QA, or physical-inspection request wording before any candidate enters review, use the [Stage 5B evidence request packet](./stage-5b-evidence-request-packet.md). For future human sign-off metadata before canonical mutation, use the [Stage 5B attachment authorization record](./stage-5b-attachment-authorization-record.md). For the concise producer/schema/preview/evidence/readiness map of Stage 5B control outputs, use the [Stage 5B artifact/schema catalog](./stage-5b-artifact-schema-catalog.md).
 
@@ -28,6 +28,10 @@ For day-to-day CLI/API/Studio operation, diagnostics, expected no-evidence outpu
 | [#137](https://github.com/dooosp/freecad-automation/pull/137) | Merged | `0c3467d9425e9999f7ccada28adf8f613ebb7efc` | Added the Stage 5B artifact/schema catalog while preserving control-output non-evidence and readiness-held boundaries. |
 | [#138](https://github.com/dooosp/freecad-automation/pull/138) | Merged | `79cba7ab72cbaadc3f0c65a3a11bbaa24adf7339` | Added the Stage 5B pre-attachment checklist for accepted candidate gate reports while preserving the no-evidence readiness truth. |
 | [#139](https://github.com/dooosp/freecad-automation/pull/139) | Merged | `fd921e4b24fc5fcb3384dc4150355e78b1b1e80c` | Added the Stage 5B attachment authorization record for future human authorization metadata before any canonical attachment task. |
+| [#140](https://github.com/dooosp/freecad-automation/pull/140) | Merged | `8f92856ae32dd55eb5de53c42af75adb4a8831dc` | Hardened Stage 5B release audit guards without changing readiness truth. |
+| [#141](https://github.com/dooosp/freecad-automation/pull/141) | Merged | `74eda1576891bb0e1861a05635db150a5123da05` | Hardened local API artifact boundaries for preview/download surfaces. |
+| [#142](https://github.com/dooosp/freecad-automation/pull/142) | Merged | `93da3d0e9c5f5b41d0ac7ef55f47415da628f474` | Hardened local artifact and Stage 5B negative contracts. |
+| [#143](https://github.com/dooosp/freecad-automation/pull/143) | Merged | `c4c27dc49de9006859de4a88a01c78a9a952485e` | Hardened job artifact lifecycle boundaries. |
 
 ## Handoff ledger
 
@@ -59,6 +63,7 @@ Stage 5B now has these software surfaces:
 - the Pre-Attachment Review Checklist in the operational runbook and request packet for accepted gate reports before any later authorized intake, dry-run, audit, or attachment task.
 - the [Stage 5B attachment authorization record](./stage-5b-attachment-authorization-record.md) for future human authorization metadata before canonical attachment.
 - the [Stage 5B artifact/schema catalog](./stage-5b-artifact-schema-catalog.md) for request packet, candidate gate report, attachment authorization record, intake report, promotion dry-run manifest, audit manifest, audit summary, and validation diagnostics producer/schema/preview/evidence/readiness boundaries.
+- release audit, local API preview/download, negative-contract, and job/artifact lifecycle hardening through PRs #140-#143.
 - table normalization for explicit inspection tables in CSV, TSV, Markdown, TXT, and allowlisted ZIP entries.
 - include_github discovery (`--include-github`) for bounded public GitHub search and sanitized candidate provenance.
 - attachment planning that links only existing candidate/package signals and never invents measured values.

@@ -740,15 +740,15 @@ function makePartialExtractedEvidence() {
   assert.equal(model.drawingQuality.evidenceArtifact.label, 'Drawing quality JSON');
   assert.equal(model.drawingQuality.extractedSemantics.statusLabel, 'Available');
   assert.equal(model.drawingQuality.extractedSemantics.impactLabel, 'Advisory');
-  assert.equal(model.drawingQuality.extractedSemantics.summary, 'Required drawing semantics were confirmed from extracted evidence.');
+  assert.equal(model.drawingQuality.extractedSemantics.summary, 'Required drawing semantics were confirmed from extracted output.');
   assert.equal(model.drawingQuality.extractedSemantics.coverageItems[0].value, '2 / 2 extracted');
   assert.equal(model.drawingQuality.extractedSemantics.requiredGroups[0].items[0].classificationLabel, 'Extracted');
-  assert.equal(model.drawingQuality.extractedSemantics.requiredGroups[1].items[0].detail, 'Matched extracted evidence: Material: AL6061');
+  assert.equal(model.drawingQuality.extractedSemantics.requiredGroups[1].items[0].detail, 'Matched extracted output: Material: AL6061');
   assert.equal(model.drawingQuality.extractedSemantics.evidenceArtifact.label, 'Extracted drawing semantics JSON');
   assert.equal(model.drawingQuality.extractedSemantics.evidenceItem.value, 'extracted_drawing_semantics_json');
   assert.equal(model.drawingQuality.extractedSemantics.readinessCopy, 'Manufacturing readiness is still determined by required Geometry / Drawing / DFM gates.');
   assert.equal(model.drawingQuality.extractedSemantics.suggestedActionCount, 0);
-  assert.equal(model.drawingQuality.extractedSemantics.suggestedActionEmptyCopy, 'No additional drawing actions were suggested from extracted evidence.');
+  assert.equal(model.drawingQuality.extractedSemantics.suggestedActionEmptyCopy, 'No additional drawing actions were suggested from extracted output.');
   assert.equal(model.engineeringQuality.statusLabel, 'PASS');
   assert.equal(model.engineeringQuality.sections[0].title, 'Generated geometry');
   assert.equal(model.engineeringQuality.sections[1].title, 'STEP reimport');
@@ -910,7 +910,7 @@ function makePartialExtractedEvidence() {
   assert.equal(model.drawingQuality.blockers.some((entry) => entry.includes('Dimension conflict count 7')), true);
   assert.equal(model.drawingQuality.suggestedActions.some((entry) => entry.includes('HOLE_DIA')), true);
   assert.equal(model.drawingQuality.extractedSemantics.statusLabel, 'Partial');
-  assert.equal(model.drawingQuality.extractedSemantics.summary, 'Some drawing requirements could not be confirmed from extracted evidence.');
+  assert.equal(model.drawingQuality.extractedSemantics.summary, 'Some drawing requirements could not be confirmed from extracted output.');
   assert.equal(model.drawingQuality.extractedSemantics.coverageItems[0].value, '1 extracted, 2 unknown');
   assert.equal(model.drawingQuality.extractedSemantics.coverageItems[1].value, '1 extracted, 1 unknown');
   assert.equal(model.drawingQuality.extractedSemantics.coverageItems[2].value, '4 / 4 extracted');
@@ -1256,10 +1256,10 @@ function makePartialExtractedEvidence() {
 
   assert.equal(model.drawingQuality.statusLabel, 'Unknown');
   assert.equal(model.drawingQuality.decisionImpact, 'Unknown - drawing semantic QA not available for this job');
-  assert.deepEqual(model.drawingQuality.suggestedActions, ['Run drawing semantic QA to produce drawing_quality evidence.']);
+  assert.deepEqual(model.drawingQuality.suggestedActions, ['Run drawing semantic QA to produce drawing_quality output.']);
   assert.equal(model.drawingQuality.evidenceArtifact.label, 'Report summary JSON');
   assert.equal(model.drawingQuality.extractedSemantics.statusLabel, 'Unknown');
-  assert.equal(model.drawingQuality.extractedSemantics.summary, 'Extracted drawing semantics evidence is not available for this job.');
+  assert.equal(model.drawingQuality.extractedSemantics.summary, 'Extracted drawing semantics output is not available for this job.');
   assert.equal(model.drawingQuality.extractedSemantics.evidenceItem.value, 'Not linked');
 }
 

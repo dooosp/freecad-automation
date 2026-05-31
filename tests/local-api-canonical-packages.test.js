@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { createLocalApiServer } from '../src/server/local-api-server.js';
 import { validateLocalApiResponse } from '../src/server/local-api-schemas.js';
+import { buildCanonicalPackagesPayload } from '../src/server/canonical-package-discovery.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const EXPECTED_SLUGS = [
@@ -98,6 +99,19 @@ function assertNoRouteFields(value) {
   }
 }
 
+function writeMinimalReadiness(projectRoot, slug) {
+  const readinessPath = join(projectRoot, 'docs', 'examples', slug, 'readiness', 'readiness_report.json');
+  mkdirSync(join(projectRoot, 'docs', 'examples', slug, 'readiness'), { recursive: true });
+  writeFileSync(readinessPath, JSON.stringify({
+    readiness_summary: {
+      status: 'needs_more_evidence',
+      score: 0,
+      gate_decision: 'hold_for_evidence_completion',
+      missing_inputs: ['inspection_evidence'],
+    },
+  }, null, 2), 'utf8');
+}
+
 try {
   const port = await listen();
   const baseUrl = `http://127.0.0.1:${port}`;
@@ -181,7 +195,7 @@ try {
     );
     assert.match(
       pkg.evidence_boundary.quality_drawing_evidence_does_not_satisfy_inspection_evidence,
-      /does not satisfy inspection_evidence/
+      /do not satisfy inspection_evidence/
     );
     assert.match(
       pkg.evidence_boundary.packages_remain_needs_more_evidence_until_real_inspection_evidence_is_attached,
@@ -217,6 +231,39 @@ try {
   assert.equal(examples.length > 0, true);
   assert.equal(examples.every((entry) => entry.name.endsWith('.toml')), true);
   assert.equal(examples.some((entry) => EXPECTED_SLUGS.includes(entry.id)), false);
+
+  const symlinkRoot = join(tmpRoot, 'inbox-symlink-root');
+  for (const slug of EXPECTED_SLUGS) {
+    writeMinimalReadiness(symlinkRoot, slug);
+  }
+  const inboxEvidenceDir = join(
+    symlinkRoot,
+    'local',
+    'stage5b-candidate-evidence-inbox',
+    'quality-pass-bracket'
+  );
+  mkdirSync(inboxEvidenceDir, { recursive: true });
+  const inboxEvidencePath = join(inboxEvidenceDir, 'received-inspection-evidence.json');
+  writeFileSync(inboxEvidencePath, '{"private_candidate":"not_canonical"}\n', 'utf8');
+  const canonicalInspectionDir = join(
+    symlinkRoot,
+    'docs',
+    'examples',
+    'quality-pass-bracket',
+    'inspection'
+  );
+  mkdirSync(canonicalInspectionDir, { recursive: true });
+  symlinkSync(inboxEvidencePath, join(canonicalInspectionDir, 'inspection_evidence.json'));
+
+  const symlinkPayload = await buildCanonicalPackagesPayload({ projectRoot: symlinkRoot });
+  const symlinkPackage = symlinkPayload.packages.find((pkg) => pkg.slug === 'quality-pass-bracket');
+  assert.equal(symlinkPackage.readiness.inspection_evidence_missing, true);
+  assert.equal(symlinkPackage.inspection_evidence_path, null);
+  assert.equal(
+    JSON.stringify(symlinkPayload).includes('local/stage5b-candidate-evidence-inbox'),
+    false,
+    'canonical package discovery must not treat inbox symlinks as attached inspection evidence'
+  );
 } finally {
   await new Promise((resolveClose) => server.close(resolveClose));
   rmSync(tmpRoot, { recursive: true, force: true });

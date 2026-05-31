@@ -38,8 +38,8 @@ assert.equal(translateText('Retry tracked job', 'ko'), '추적 작업 다시 시
 assert.equal(translateText('Tracked report completed', 'ko'), '추적 보고서 완료');
 assert.equal(translateText('Tracked create failed', 'ko'), '추적 생성 실패');
 assert.equal(
-  translateText('Open Artifacts to inspect generated files and quality evidence.', 'ko'),
-  '생성 파일과 품질 근거를 검토하려면 산출물을 여세요.'
+  translateText('Open Artifacts to inspect generated files and quality outputs.', 'ko'),
+  '생성 파일과 품질 출력을 검토하려면 산출물을 여세요.'
 );
 assert.equal(
   translateText('2 other active jobs still running.', 'ko'),
@@ -87,7 +87,7 @@ assert.equal(translateText('Actual', 'ko'), '실제');
 assert.equal(translateText('Tolerance', 'ko'), '허용오차');
 assert.equal(translateText('Source', 'ko'), '소스');
 assert.equal(translateText('What to do next', 'ko'), '다음에 할 일');
-assert.equal(translateText('Inspect quality evidence', 'ko'), '품질 근거 검토');
+assert.equal(translateText('Inspect quality output', 'ko'), '품질 출력 검토');
 assert.equal(translateText('Run tracked create again', 'ko'), '추적 생성 다시 실행');
 assert.equal(
   translateText('Left hole center is outside tolerance.', 'ko'),
@@ -271,7 +271,7 @@ assert.equal(translateText('STEP model', 'ko'), 'STEP 모델');
 assert.equal(translateText('STL mesh', 'ko'), 'STL 메시');
 assert.equal(translateText('PDF report', 'ko'), 'PDF 보고서');
 assert.equal(translateText('Report summary', 'ko'), '보고서 요약');
-assert.equal(translateText('Quality evidence', 'ko'), '품질 근거');
+assert.equal(translateText('Quality outputs', 'ko'), '품질 출력');
 assert.equal(translateText('Create quality JSON', 'ko'), '생성 품질 JSON');
 assert.equal(translateText('Drawing quality JSON', 'ko'), '도면 품질 JSON');
 assert.equal(translateText('All artifacts', 'ko'), '전체 산출물');
