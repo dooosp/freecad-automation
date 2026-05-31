@@ -9,6 +9,7 @@ const PROJECT_CLOSEOUT_STATUS_PATH = resolve(ROOT, 'docs', 'project-closeout-sta
 const FINAL_CLOSEOUT_PATH = resolve(ROOT, 'docs', 'final-non-inspection-software-closeout.md');
 const STAGE_5B_AUTOMATION_CLOSEOUT_PATH = resolve(ROOT, 'docs', 'stage-5b-automation-closeout-status.md');
 const STAGE_5B_OPERATIONAL_RUNBOOK_PATH = resolve(ROOT, 'docs', 'stage-5b-operational-runbook.md');
+const STAGE_5B_EVIDENCE_REQUEST_PACKET_PATH = resolve(ROOT, 'docs', 'stage-5b-evidence-request-packet.md');
 const STAGE_5D_CLOSEOUT_PATH = resolve(ROOT, 'docs', 'stage-5d-feature-expansion-closeout.md');
 const DFM_READINESS_GUIDE_PATH = resolve(ROOT, 'docs', 'dfm-readiness-guide.md');
 const CANONICAL_PACKAGE_WORKFLOW_PATH = resolve(ROOT, 'docs', 'canonical-package-generation-workflow.md');
@@ -65,6 +66,7 @@ assert.equal(existsSync(PROJECT_CLOSEOUT_STATUS_PATH), true, 'project closeout s
 assert.equal(existsSync(FINAL_CLOSEOUT_PATH), true, 'final non-inspection software closeout should exist');
 assert.equal(existsSync(STAGE_5B_AUTOMATION_CLOSEOUT_PATH), true, 'Stage 5B automation closeout status should exist');
 assert.equal(existsSync(STAGE_5B_OPERATIONAL_RUNBOOK_PATH), true, 'Stage 5B operational runbook should exist');
+assert.equal(existsSync(STAGE_5B_EVIDENCE_REQUEST_PACKET_PATH), true, 'Stage 5B evidence request packet should exist');
 assert.equal(existsSync(STAGE_5D_CLOSEOUT_PATH), true, 'Stage 5D feature expansion closeout should exist');
 assert.equal(existsSync(DFM_READINESS_GUIDE_PATH), true, 'DFM/readiness guide should exist');
 assert.equal(existsSync(CANONICAL_PACKAGE_WORKFLOW_PATH), true, 'canonical package generation workflow guide should exist');
@@ -84,6 +86,7 @@ const projectCloseoutStatusText = readText(PROJECT_CLOSEOUT_STATUS_PATH);
 const finalCloseoutText = readText(FINAL_CLOSEOUT_PATH);
 const stage5bAutomationCloseoutText = readText(STAGE_5B_AUTOMATION_CLOSEOUT_PATH);
 const stage5bOperationalRunbookText = readText(STAGE_5B_OPERATIONAL_RUNBOOK_PATH);
+const stage5bEvidenceRequestPacketText = readText(STAGE_5B_EVIDENCE_REQUEST_PACKET_PATH);
 const stage5dCloseoutText = readText(STAGE_5D_CLOSEOUT_PATH);
 const dfmReadinessGuideText = readText(DFM_READINESS_GUIDE_PATH);
 const canonicalPackageWorkflowText = readText(CANONICAL_PACKAGE_WORKFLOW_PATH);
@@ -152,6 +155,11 @@ assertMentions(
   rootReadmeText,
   /\[Stage 5B operational runbook\]\(\.\/docs\/stage-5b-operational-runbook\.md\)/,
   'root README should link the Stage 5B operational runbook'
+);
+assertMentions(
+  rootReadmeText,
+  /\[Stage 5B evidence request packet\]\(\.\/docs\/stage-5b-evidence-request-packet\.md\)/,
+  'root README should link the Stage 5B evidence request packet'
 );
 assertMentions(
   rootReadmeText,
@@ -309,7 +317,7 @@ assertMentions(
   /\[Stage 5B operational runbook\]\(\.\/stage-5b-operational-runbook\.md\)/,
   'Stage 5B automation closeout should link the operational runbook'
 );
-for (const pr of ['#113', '#114', '#115', '#116', '#117', '#118', '#119', '#120', '#121']) {
+for (const pr of ['#113', '#114', '#115', '#116', '#117', '#118', '#119', '#120', '#121', '#130', '#131', '#132']) {
   assert.equal(stage5bAutomationCloseoutText.includes(pr), true, `Stage 5B automation closeout should mention PR ${pr}`);
 }
 for (const surface of [
@@ -449,6 +457,113 @@ assertMentions(stage5bOperationalRunbookText, /eligible_for_stage5b_intake_revie
 assertMentions(stage5bOperationalRunbookText, /node tests\/stage5b-candidate-evidence-gate\.test\.js/, 'Stage 5B runbook should list candidate gate validation');
 assertMentions(stage5bOperationalRunbookText, /node tests\/stage5b-source-of-truth-guard\.test\.js/, 'Stage 5B runbook should list source-of-truth validation');
 assertNoPositiveProductionReadyClaim(stage5bOperationalRunbookText, 'Stage 5B runbook should not claim production readiness');
+
+assertMentions(
+  stage5bEvidenceRequestPacketText,
+  /^# Stage 5B evidence request packet/m,
+  'Stage 5B evidence request packet should have the expected title'
+);
+assertMentions(
+  stage5bEvidenceRequestPacketText,
+  /request\/checklist control document/,
+  'Stage 5B evidence request packet should label itself as a control document'
+);
+assertMentions(
+  stage5bEvidenceRequestPacketText,
+  /not `inspection_evidence`/,
+  'Stage 5B evidence request packet should not claim to be evidence'
+);
+assertMentions(
+  stage5bEvidenceRequestPacketText,
+  /no genuine completed inspection evidence has been found or\s+attached/i,
+  'Stage 5B evidence request packet should preserve no-evidence truth'
+);
+assertMentions(
+  stage5bEvidenceRequestPacketText,
+  /`needs_more_evidence`/,
+  'Stage 5B evidence request packet should mention needs_more_evidence'
+);
+assertMentions(
+  stage5bEvidenceRequestPacketText,
+  /`hold_for_evidence_completion`/,
+  'Stage 5B evidence request packet should mention hold_for_evidence_completion'
+);
+assertMentions(
+  stage5bEvidenceRequestPacketText,
+  /Only genuine completed physical\/supplier\/lab\/QA inspection\s+records can satisfy `?inspection_evidence`?/,
+  'Stage 5B evidence request packet should preserve hard evidence rule'
+);
+for (const origin of [
+  'physical inspection',
+  'supplier inspection report',
+  'lab inspection report',
+  'QA inspection',
+]) {
+  assert.equal(
+    stage5bEvidenceRequestPacketText.includes(origin),
+    true,
+    `Stage 5B evidence request packet should accept ${origin}`
+  );
+}
+for (const requiredField of [
+  'Package or part mapping',
+  'Revision mapping',
+  'Inspection date',
+  'Completion status',
+  'Overall result',
+  'Inspector and reviewer',
+  'Provenance',
+  'Feature evidence',
+]) {
+  assert.equal(
+    stage5bEvidenceRequestPacketText.includes(requiredField),
+    true,
+    `Stage 5B evidence request packet should require ${requiredField}`
+  );
+}
+assertMentions(
+  stage5bEvidenceRequestPacketText,
+  /node scripts\/stage5b-candidate-evidence-gate\.js --candidate <repo-relative-json> --out <report\.json>/,
+  'Stage 5B evidence request packet should document the candidate gate command'
+);
+assertMentions(
+  stage5bEvidenceRequestPacketText,
+  /eligible_for_stage5b_intake_review: true/,
+  'Stage 5B evidence request packet should document candidate acceptance meaning'
+);
+assertMentions(
+  stage5bEvidenceRequestPacketText,
+  /fcad inspection-evidence-intake --out <report\.json>/,
+  'Stage 5B evidence request packet should document intake after candidate acceptance'
+);
+assertMentions(
+  stage5bEvidenceRequestPacketText,
+  /fcad inspection-evidence-promotion-dry-run --intake-report <report\.json> --out <promotion_dry_run_manifest\.json>/,
+  'Stage 5B evidence request packet should document dry-run after candidate acceptance'
+);
+for (const boundary of [
+  'diagnostics',
+  'schemas',
+  'fixtures',
+  'intake reports',
+  'promotion dry-run manifests',
+  'audit outputs',
+  'generated examples',
+  'screenshots',
+  'comments',
+  'PR bodies',
+  'docs',
+  'release bundles',
+  'CAD-generated measurements',
+  'CI/GitHub metadata',
+]) {
+  assert.equal(
+    stage5bEvidenceRequestPacketText.includes(boundary),
+    true,
+    `Stage 5B evidence request packet should reject ${boundary}`
+  );
+}
+assertNoPositiveProductionReadyClaim(stage5bEvidenceRequestPacketText, 'Stage 5B evidence request packet should not claim production readiness');
 
 assertMentions(
   stage5dCloseoutText,

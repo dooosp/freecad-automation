@@ -1,6 +1,6 @@
 # Stage 5B automation closeout status
 
-This document summarizes the Stage 5B automation chain through PR [#122](https://github.com/dooosp/freecad-automation/pull/122). It is a software/status closeout only. It does not attach inspection evidence, mutate canonical package artifacts, regenerate readiness, or claim production readiness.
+This document summarizes the Stage 5B automation chain through PR [#132](https://github.com/dooosp/freecad-automation/pull/132). It is a software/status closeout only. It does not attach inspection evidence, mutate canonical package artifacts, regenerate readiness, or claim production readiness.
 
 For day-to-day CLI/API/Studio operation, diagnostics, expected no-evidence output, and validation commands, use the [Stage 5B operational runbook](./stage-5b-operational-runbook.md).
 
@@ -18,6 +18,9 @@ For day-to-day CLI/API/Studio operation, diagnostics, expected no-evidence outpu
 | [#120](https://github.com/dooosp/freecad-automation/pull/120) | Merged | `b8831a1d5698a6432c10b1ddac1df433c4ac028d` | Added `stage5b-evidence-audit` and the non-mutating audit bundle. |
 | [#121](https://github.com/dooosp/freecad-automation/pull/121) | Merged | `aea988018efcbc6a6d16afe7f6287acaeb9cc738` | Exposed the Stage 5B audit in Studio as a tracked Review action. |
 | [#122](https://github.com/dooosp/freecad-automation/pull/122) | Merged | `d4ed1861b780d90170b5a1e6ae02f396b60f9d7f` | Closed out Stage 5B automation status without changing the no-evidence readiness truth. |
+| [#130](https://github.com/dooosp/freecad-automation/pull/130) | Merged | `a75b4cbffb082e2d6513edbf675357bead1fd144` | Added the Stage 5B operational runbook for CLI/API/Studio operation without changing readiness truth. |
+| [#131](https://github.com/dooosp/freecad-automation/pull/131) | Merged | `7dc90ecf06059401a998d6d80f01a9b8579fd295` | Added the no-evidence verification lane that proves no genuine evidence is promoted. |
+| [#132](https://github.com/dooosp/freecad-automation/pull/132) | Merged | `cb3e989efff30bd8e169009eec7293a22e571ce6` | Added the candidate evidence gate for newly supplied JSON records before Stage 5B intake review. |
 
 ## Current automation surfaces
 
