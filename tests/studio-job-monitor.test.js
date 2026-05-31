@@ -208,6 +208,42 @@ assert.deepEqual(
   ]
 );
 
+const heldReadinessCompletionNotice = buildStudioJobCompletionNotice(
+  {
+    id: 'job-held-readiness-123456789',
+    type: 'readiness-pack',
+    status: 'succeeded',
+    result: {
+      report_summary: {
+        config_name: 'quality_pass_bracket',
+        overall_status: 'pass',
+        ready_for_manufacturing_review: true,
+      },
+      readiness_summary: {
+        status: 'needs_more_evidence',
+        gate_decision: 'hold_for_evidence_completion',
+        missing_inputs: ['inspection_evidence'],
+      },
+    },
+  },
+  {
+    route: 'review',
+    secondaryRoute: 'artifacts',
+  },
+  0
+);
+assert.equal(heldReadinessCompletionNotice.tone, 'warn');
+assert.equal(heldReadinessCompletionNotice.title, 'Tracked readiness-pack completed');
+assert.match(heldReadinessCompletionNotice.message, /Quality passed/);
+assert.match(heldReadinessCompletionNotice.message, /Ready held: missing inspection_evidence/);
+assert.equal(heldReadinessCompletionNotice.message.includes('Ready Yes'), false);
+assert.deepEqual(heldReadinessCompletionNotice.messageParts, [
+  'Job succeeded.',
+  'Quality passed.',
+  'Ready held: missing inspection_evidence.',
+  'Open Review for decision context or Artifacts for generated files.',
+]);
+
 const failedQualityCompletionNotice = buildStudioJobCompletionNotice(
   {
     id: 'job-quality-fail-123456789',

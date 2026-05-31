@@ -199,6 +199,44 @@ try {
   assert.equal(runningCancelPayload.error.code, 'job_cancel_not_supported');
   assert.match(runningCancelPayload.error.messages.join('\n'), /does not support safe mid-command cancellation/i);
 
+  const cancelledRunningCompleteRace = await jobStore.createJob({
+    type: 'create',
+    config: buildConfig(),
+  });
+  await jobStore.setStatus(cancelledRunningCompleteRace.id, 'running', 'test_running');
+  const cancelledRunning = await jobStore.cancelJob(cancelledRunningCompleteRace.id, {
+    allowRunning: true,
+    message: 'Running job cancelled through test executor.',
+  });
+  assert.equal(cancelledRunning.ok, true);
+  await jobStore.completeJob(cancelledRunningCompleteRace.id, { success: true });
+  const completeRaceResult = await jobStore.getJob(cancelledRunningCompleteRace.id);
+  assert.equal(completeRaceResult.status, 'cancelled');
+  assert.equal(completeRaceResult.result, null);
+  assert.equal(
+    completeRaceResult.status_history.some((entry) => entry.status === 'succeeded'),
+    false
+  );
+
+  const cancelledRunningFailRace = await jobStore.createJob({
+    type: 'draw',
+    config: buildConfig(),
+  });
+  await jobStore.setStatus(cancelledRunningFailRace.id, 'running', 'test_running');
+  const cancelledFailing = await jobStore.cancelJob(cancelledRunningFailRace.id, {
+    allowRunning: true,
+    message: 'Running job cancelled before stale failure callback.',
+  });
+  assert.equal(cancelledFailing.ok, true);
+  await jobStore.failJob(cancelledRunningFailRace.id, new Error('stale executor failure'));
+  const failRaceResult = await jobStore.getJob(cancelledRunningFailRace.id);
+  assert.equal(failRaceResult.status, 'cancelled');
+  assert.equal(failRaceResult.error, null);
+  assert.equal(
+    failRaceResult.status_history.some((entry) => entry.status === 'failed'),
+    false
+  );
+
   const succeededCancelJob = await jobStore.createJob({
     type: 'create',
     config: buildConfig(),

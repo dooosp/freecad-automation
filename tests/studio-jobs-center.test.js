@@ -79,6 +79,37 @@ assert.deepEqual(jobs.map((job) => job.id), ['job-active', 'job-retry', 'job-old
 
 {
   const job = {
+    id: 'held-readiness',
+    type: 'readiness-pack',
+    status: 'succeeded',
+    result: {
+      report_summary: {
+        config_name: 'quality_pass_bracket',
+        overall_status: 'pass',
+        ready_for_manufacturing_review: true,
+      },
+      readiness_summary: {
+        status: 'needs_more_evidence',
+        gate_decision: 'hold_for_evidence_completion',
+        missing_inputs: ['inspection_evidence'],
+      },
+    },
+  };
+  assert.deepEqual(deriveRecentJobQualityStatus(job), {
+    configName: 'quality_pass_bracket',
+    jobExecutionStatus: 'Job succeeded',
+    qualityStatus: 'Quality passed',
+    readyForManufacturingReview: 'Ready held: missing inspection_evidence',
+    hasQualityDecision: true,
+  });
+  assert.equal(
+    formatRecentJobQualityLine(job, 'held-rea'),
+    'readiness-pack held-rea · quality_pass_bracket · Job succeeded · Quality passed · Ready held: missing inspection_evidence'
+  );
+}
+
+{
+  const job = {
     id: 'missing-quality',
     type: 'report',
     status: 'succeeded',

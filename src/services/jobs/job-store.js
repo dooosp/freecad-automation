@@ -355,6 +355,9 @@ export function createJobStore({ jobsDir }) {
     async completeJob(id, result, artifacts = {}, diagnostics = {}, manifest = null) {
       return withJobLock(id, async () => {
         const current = await this.getJob(id);
+        if (current.status === 'cancelled') {
+          return current;
+        }
         const nextJob = clone(current);
         const at = nowIso();
         nextJob.status = 'succeeded';
@@ -374,6 +377,9 @@ export function createJobStore({ jobsDir }) {
     async failJob(id, error, artifacts = {}, diagnostics = {}, manifest = null) {
       return withJobLock(id, async () => {
         const current = await this.getJob(id);
+        if (current.status === 'cancelled') {
+          return current;
+        }
         const nextJob = clone(current);
         const at = nowIso();
         nextJob.status = 'failed';

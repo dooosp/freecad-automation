@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 
-import { collectReportManifestArtifacts } from '../src/services/jobs/job-executor.js';
+import {
+  applyArtifactPublicationBoundary,
+  collectReportManifestArtifacts,
+} from '../src/services/jobs/job-executor.js';
 
 {
   const artifacts = collectReportManifestArtifacts({
@@ -61,6 +64,33 @@ import { collectReportManifestArtifacts } from '../src/services/jobs/job-executo
     artifacts.map((artifact) => artifact.type),
     ['report.pdf']
   );
+}
+
+{
+  const artifacts = applyArtifactPublicationBoundary({
+    projectRoot: '/repo/freecad-automation',
+    jobDir: '/repo/freecad-automation/.jobs/job-1',
+    artifacts: [
+      {
+        type: 'report.pdf',
+        path: '/private/tmp/outside-report.pdf',
+        label: 'Outside report',
+        scope: 'user-facing',
+        stability: 'stable',
+      },
+      {
+        type: 'report.summary-json',
+        path: '/repo/freecad-automation/.jobs/job-1/artifacts/report_summary.json',
+        label: 'Tracked summary',
+        scope: 'user-facing',
+        stability: 'stable',
+      },
+    ],
+  });
+
+  assert.equal(artifacts[0].scope, 'internal');
+  assert.equal(artifacts[0].metadata.publication_boundary.downgraded_to_internal, true);
+  assert.equal(artifacts[1].scope, 'user-facing');
 }
 
 console.log('job-executor-report-artifacts.test.js: ok');

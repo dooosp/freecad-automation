@@ -87,6 +87,19 @@ try {
   const persistedJob = await store.getJob(job.id);
   assert.equal(persistedJob.status, 'running');
 
+  await assert.rejects(
+    () => store.writeJobFile(job.id, '../escape.json', '{}'),
+    /tracked storage safety|inside the tracked job directory/i
+  );
+  await assert.rejects(
+    () => store.writeJobFile(job.id, '/tmp/private/escape.json', '{}'),
+    /tracked storage safety|inside the tracked job directory/i
+  );
+  await assert.rejects(
+    () => store.writeJobFile(job.id, 'nested\\escape.json', '{}'),
+    /tracked storage safety|inside the tracked job directory/i
+  );
+
   console.log('job-store-atomic-write.test.js: ok');
 } finally {
   interceptWrites = false;

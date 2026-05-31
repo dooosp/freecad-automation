@@ -8,7 +8,7 @@ This matrix is the public support boundary for the current release. It separates
 
 | Platform / runtime path | `fcad check-runtime` detection | Repository-owned live verification | Current status | Notes |
 | --- | --- | --- | --- | --- |
-| macOS + `FreeCAD.app` 1.1.x | Yes | Yes | Verified for listed checks | Maintainer-local verification covers `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, narrow `tolerance --csv`, and `report`. Repository-owned runtime smoke covers `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, narrow `tolerance --csv`, and `report` on self-hosted macOS. |
+| macOS + `FreeCAD.app` 1.1.x | Yes | Yes | Covered for listed checks | Maintainer-local checks cover `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, narrow `tolerance --csv`, and `report`. Repository-owned runtime smoke covers `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, narrow `tolerance --csv`, and `report` on self-hosted macOS. |
 | macOS hosted CI (`macos-14`) | N/A for live FreeCAD | No | Hosted-safe only | Hosted CI runs Node runtime-contract tests only. It does not install or launch FreeCAD. |
 | Ubuntu hosted CI (`ubuntu-24.04`) | N/A for live FreeCAD | No | Hosted-safe only | Hosted CI runs Node contract, Node integration, snapshots, and Python lanes without installing FreeCAD; the Node contract lane includes the non-mutating Stage 5B no-evidence CLI lane and audit CLI smoke with GitHub discovery disabled. |
 | Linux local with FreeCAD installed | Yes | No | Compatibility path | Runtime discovery and command assembly exist, but there is no repository-owned live runtime smoke on Linux yet. Validate locally with `fcad check-runtime` and your own smoke runs. |
@@ -63,9 +63,9 @@ This matrix is the public support boundary for the current release. It separates
 - `design`: generates config content first, then calls `create`.
 - `sweep`: follows the matrix-selected service wrappers; cost-only variants can stay plain Python, while create/fem/report variants require FreeCAD.
 
-## What Is Verified
+## What Is Covered
 
-- Maintainer-local macOS + `FreeCAD.app` 1.1.x verification exists for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, narrow `tolerance --csv`, and `report`.
+- Maintainer-local macOS + `FreeCAD.app` 1.1.x checks exist for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, narrow `tolerance --csv`, and `report`.
 - Repository-owned runtime smoke exists on self-hosted macOS for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, narrow `tolerance --csv`, and `report`.
 - Hosted CI covers Node runtime/path contracts, the non-mutating Stage 5B no-evidence CLI lane and audit CLI smoke, non-runtime integration checks, snapshots, and Python tests without claiming a live FreeCAD install.
 

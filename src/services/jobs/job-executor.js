@@ -410,7 +410,7 @@ function isPublishableArtifactPath({ projectRoot, jobDir, artifact }) {
   return isPathWithinRoot(projectRoot, artifact.path) || isPathWithinRoot(jobDir, artifact.path);
 }
 
-function applyArtifactPublicationBoundary({ projectRoot, jobDir, artifacts = [] }) {
+export function applyArtifactPublicationBoundary({ projectRoot, jobDir, artifacts = [] }) {
   return artifacts.map((artifact) => {
     if (artifact?.scope !== 'user-facing') return artifact;
     if (isPublishableArtifactPath({ projectRoot, jobDir, artifact })) return artifact;
@@ -680,6 +680,20 @@ function isSafeRepoRelativePath(value) {
   return true;
 }
 
+function isSafeTrackedId(value) {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  const lower = raw.toLowerCase();
+  return Boolean(raw)
+    && raw !== '.'
+    && raw !== '..'
+    && !raw.includes('/')
+    && !raw.includes('\\')
+    && !lower.includes('%2f')
+    && !lower.includes('%5c')
+    && !raw.includes('\0')
+    && !raw.startsWith('~');
+}
+
 function isInspectableModelPath(value) {
   return INSPECTABLE_MODEL_EXTENSIONS.has(extname(String(value || '')).toLowerCase());
 }
@@ -722,6 +736,21 @@ function validateInspectRequest(request, errors) {
   if (hasFilePath && hasArtifactRef) {
     errors.push('inspect accepts only one model source: file_path or artifact_ref.');
   }
+}
+
+function validateArtifactRefSafety(request, errors) {
+  [
+    ['artifact_ref', request.artifact_ref],
+    ['intake_report_artifact_ref', request.intake_report_artifact_ref],
+  ].forEach(([fieldName, ref]) => {
+    if (!isPlainObject(ref)) return;
+    if (!isSafeTrackedId(ref.job_id)) {
+      errors.push(`${fieldName}.job_id must be a safe tracked id.`);
+    }
+    if (!isSafeTrackedId(ref.artifact_id)) {
+      errors.push(`${fieldName}.artifact_id must be a safe tracked id.`);
+    }
+  });
 }
 
 function validatePromotionDryRunRequest(request, errors) {
@@ -816,6 +845,7 @@ export function validateJobRequest(body) {
       validateOptionsObject(request.config, 'config', errors);
     }
     validateInspectRequest(request, errors);
+    validateArtifactRefSafety(request, errors);
     validateDirectJobPathFields(request, errors);
     validateInspectionEvidenceIntakeRequest(request, errors);
     validatePromotionDryRunRequest(request, errors);
@@ -2009,7 +2039,11 @@ export function createJobExecutor({
           configSummary: manifestConfigSummary,
           selectedProfile: job.request.options?.profile_name || null,
           ruleProfile: manifestRuleProfile,
-          artifacts: manifestArtifacts,
+          artifacts: applyArtifactPublicationBoundary({
+            projectRoot,
+            jobDir: jobStore.getJobDir(job.id),
+            artifacts: manifestArtifacts,
+          }),
           warnings: diagnostics.config_warnings || [],
           deprecations: diagnostics.config_deprecated_fields || [],
           timestamps: {

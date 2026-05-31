@@ -176,6 +176,28 @@ const invalidReviewContextSubmission = validateStudioJobSubmission({
 assert.equal(invalidReviewContextSubmission.ok, false);
 assert.match(invalidReviewContextSubmission.errors.join('\n'), /review-context does not accept config_toml, artifact_ref/);
 
+const invalidUnsafeArtifactRef = validateStudioJobSubmission({
+  type: 'inspect',
+  artifact_ref: {
+    job_id: '../job-review',
+    artifact_id: 'artifact-review',
+  },
+});
+
+assert.equal(invalidUnsafeArtifactRef.ok, false);
+assert.match(invalidUnsafeArtifactRef.errors.join('\n'), /safe tracked id/i);
+
+const invalidEncodedUnsafeArtifactRef = validateStudioJobSubmission({
+  type: 'inspect',
+  artifact_ref: {
+    job_id: 'job-review',
+    artifact_id: 'artifact%2Freview',
+  },
+});
+
+assert.equal(invalidEncodedUnsafeArtifactRef.ok, false);
+assert.match(invalidEncodedUnsafeArtifactRef.errors.join('\n'), /safe tracked id/i);
+
 const missingArtifactResolver = await translateStudioJobSubmission({
   type: 'inspect',
   artifact_ref: {

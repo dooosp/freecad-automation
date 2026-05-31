@@ -41,6 +41,41 @@ try {
   });
   assert.equal(validInspectArtifactRef.ok, true, validInspectArtifactRef.errors?.join('\n'));
 
+  [
+    {
+      type: 'inspect',
+      artifact_ref: {
+        job_id: '..',
+        artifact_id: 'model-step',
+      },
+    },
+    {
+      type: 'inspect',
+      artifact_ref: {
+        job_id: 'source-job',
+        artifact_id: 'model/step',
+      },
+    },
+    {
+      type: 'inspection-evidence-promotion-dry-run',
+      intake_report_artifact_ref: {
+        job_id: 'source-job',
+        artifact_id: 'intake-report\u0000json',
+      },
+    },
+    {
+      type: 'inspection-evidence-promotion-dry-run',
+      intake_report_artifact_ref: {
+        job_id: 'source%2fjob',
+        artifact_id: 'intake-report-json',
+      },
+    },
+  ].forEach((request) => {
+    const validation = validateJobRequest(request);
+    assert.equal(validation.ok, false, `${request.type} should reject unsafe artifact refs`);
+    assert.match(validation.errors.join('\n'), /safe tracked id/i);
+  });
+
   const invalidDualConfig = validateJobRequest({
     type: 'create',
     config_path: 'configs/examples/ks_bracket.toml',

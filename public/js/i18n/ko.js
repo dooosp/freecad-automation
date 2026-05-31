@@ -212,6 +212,7 @@ const ko = {
     'Ready Yes.': '준비 상태 예.',
     'Ready No.': '준비 상태 아니요.',
     'Ready Unknown.': '준비 상태 알 수 없음.',
+    'Ready held: missing inspection_evidence.': '준비 상태 보류: inspection_evidence 누락.',
     'Open Review for decision context or Artifacts for generated files.': '의사결정 컨텍스트는 검토를 열고, 생성 파일은 산출물을 여세요.',
     'Open Artifacts to inspect generated files and quality evidence.': '생성 파일과 품질 근거를 검토하려면 산출물을 여세요.',
     'Job failed before Studio could finish the tracked flow. Open Jobs center to inspect status, then retry when the source issue is fixed.': 'Studio가 추적 흐름을 끝내기 전에 작업이 실패했습니다. 작업 센터에서 상태를 확인한 뒤 소스 문제가 수정되면 다시 시도하세요.',
