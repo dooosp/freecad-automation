@@ -10,6 +10,7 @@ const FINAL_CLOSEOUT_PATH = resolve(ROOT, 'docs', 'final-non-inspection-software
 const STAGE_5B_AUTOMATION_CLOSEOUT_PATH = resolve(ROOT, 'docs', 'stage-5b-automation-closeout-status.md');
 const STAGE_5B_OPERATIONAL_RUNBOOK_PATH = resolve(ROOT, 'docs', 'stage-5b-operational-runbook.md');
 const STAGE_5B_EVIDENCE_REQUEST_PACKET_PATH = resolve(ROOT, 'docs', 'stage-5b-evidence-request-packet.md');
+const STAGE_5B_ATTACHMENT_AUTHORIZATION_RECORD_PATH = resolve(ROOT, 'docs', 'stage-5b-attachment-authorization-record.md');
 const STAGE_5B_ARTIFACT_SCHEMA_CATALOG_PATH = resolve(ROOT, 'docs', 'stage-5b-artifact-schema-catalog.md');
 const STAGE_5D_CLOSEOUT_PATH = resolve(ROOT, 'docs', 'stage-5d-feature-expansion-closeout.md');
 const DFM_READINESS_GUIDE_PATH = resolve(ROOT, 'docs', 'dfm-readiness-guide.md');
@@ -68,6 +69,7 @@ assert.equal(existsSync(FINAL_CLOSEOUT_PATH), true, 'final non-inspection softwa
 assert.equal(existsSync(STAGE_5B_AUTOMATION_CLOSEOUT_PATH), true, 'Stage 5B automation closeout status should exist');
 assert.equal(existsSync(STAGE_5B_OPERATIONAL_RUNBOOK_PATH), true, 'Stage 5B operational runbook should exist');
 assert.equal(existsSync(STAGE_5B_EVIDENCE_REQUEST_PACKET_PATH), true, 'Stage 5B evidence request packet should exist');
+assert.equal(existsSync(STAGE_5B_ATTACHMENT_AUTHORIZATION_RECORD_PATH), true, 'Stage 5B attachment authorization record should exist');
 assert.equal(existsSync(STAGE_5B_ARTIFACT_SCHEMA_CATALOG_PATH), true, 'Stage 5B artifact/schema catalog should exist');
 assert.equal(existsSync(STAGE_5D_CLOSEOUT_PATH), true, 'Stage 5D feature expansion closeout should exist');
 assert.equal(existsSync(DFM_READINESS_GUIDE_PATH), true, 'DFM/readiness guide should exist');
@@ -89,6 +91,7 @@ const finalCloseoutText = readText(FINAL_CLOSEOUT_PATH);
 const stage5bAutomationCloseoutText = readText(STAGE_5B_AUTOMATION_CLOSEOUT_PATH);
 const stage5bOperationalRunbookText = readText(STAGE_5B_OPERATIONAL_RUNBOOK_PATH);
 const stage5bEvidenceRequestPacketText = readText(STAGE_5B_EVIDENCE_REQUEST_PACKET_PATH);
+const stage5bAttachmentAuthorizationRecordText = readText(STAGE_5B_ATTACHMENT_AUTHORIZATION_RECORD_PATH);
 const stage5bArtifactSchemaCatalogText = readText(STAGE_5B_ARTIFACT_SCHEMA_CATALOG_PATH);
 const stage5dCloseoutText = readText(STAGE_5D_CLOSEOUT_PATH);
 const dfmReadinessGuideText = readText(DFM_READINESS_GUIDE_PATH);
@@ -163,6 +166,11 @@ assertMentions(
   rootReadmeText,
   /\[Stage 5B evidence request packet\]\(\.\/docs\/stage-5b-evidence-request-packet\.md\)/,
   'root README should link the Stage 5B evidence request packet'
+);
+assertMentions(
+  rootReadmeText,
+  /\[Stage 5B attachment authorization record\]\(\.\/docs\/stage-5b-attachment-authorization-record\.md\)/,
+  'root README should link the Stage 5B attachment authorization record'
 );
 assertMentions(
   rootReadmeText,
@@ -327,10 +335,15 @@ assertMentions(
 );
 assertMentions(
   stage5bAutomationCloseoutText,
+  /\[Stage 5B attachment authorization record\]\(\.\/stage-5b-attachment-authorization-record\.md\)/,
+  'Stage 5B automation closeout should link the attachment authorization record'
+);
+assertMentions(
+  stage5bAutomationCloseoutText,
   /\[Stage 5B artifact\/schema catalog\]\(\.\/stage-5b-artifact-schema-catalog\.md\)/,
   'Stage 5B automation closeout should link the artifact/schema catalog'
 );
-for (const pr of ['#113', '#114', '#115', '#116', '#117', '#118', '#119', '#120', '#121', '#130', '#131', '#132', '#133', '#134', '#135', '#136', '#137']) {
+for (const pr of ['#113', '#114', '#115', '#116', '#117', '#118', '#119', '#120', '#121', '#130', '#131', '#132', '#133', '#134', '#135', '#136', '#137', '#138']) {
   assert.equal(stage5bAutomationCloseoutText.includes(pr), true, `Stage 5B automation closeout should mention PR ${pr}`);
 }
 for (const surface of [
@@ -342,6 +355,7 @@ for (const surface of [
   'promotion dry-run',
   'stage5b-evidence-audit',
   'artifact/schema catalog',
+  'attachment authorization record',
   'validation diagnostics',
   'tracked API/Studio review surfaces',
 ]) {
@@ -375,6 +389,7 @@ for (const boundary of [
   'screenshots',
   'CI summaries',
   'GitHub metadata',
+  'authorization records',
   'templates',
   'collection guides',
 ]) {
@@ -412,6 +427,7 @@ for (const section of [
   'Quick CLI Path',
   'Candidate Acceptance Gate',
   'Pre-Attachment Review Checklist',
+  'Attachment Authorization Record',
   'Artifact/Schema Catalog',
   'API And Tracked Job Path',
   'Studio Review Path',
@@ -441,6 +457,7 @@ for (const artifact of [
   'stage5b.evidence-audit-manifest',
   'stage5b.evidence-audit-summary',
   'stage5b.validation-diagnostics',
+  'stage-5b-attachment-authorization-record.md',
 ]) {
   assert.equal(stage5bOperationalRunbookText.includes(artifact), true, `Stage 5B runbook should mention ${artifact}`);
 }
@@ -483,7 +500,9 @@ for (const checklistItem of [
   'Redaction and privacy review',
   'Path safety',
   'Next intake, dry-run, and audit commands',
+  'Attachment authorization record',
   'Authorization before attachment',
+  'Exact later attachment task boundary',
   'Readiness-held truth',
 ]) {
   assert.equal(
@@ -587,6 +606,11 @@ assertMentions(
 );
 assertMentions(
   stage5bEvidenceRequestPacketText,
+  /\[Stage 5B attachment authorization record\]\(\.\/stage-5b-attachment-authorization-record\.md\)/,
+  'Stage 5B evidence request packet should link the attachment authorization record'
+);
+assertMentions(
+  stage5bEvidenceRequestPacketText,
   /Schema\s+discoverability does not make the report evidence/,
   'Stage 5B evidence request packet should keep candidate gate schema discoverability non-evidence'
 );
@@ -611,6 +635,7 @@ for (const boundary of [
   'screenshots',
   'comments',
   'PR bodies',
+  'authorization records',
   'docs',
   'release bundles',
   'CAD-generated measurements',
@@ -625,11 +650,37 @@ for (const boundary of [
 assertNoPositiveProductionReadyClaim(stage5bEvidenceRequestPacketText, 'Stage 5B evidence request packet should not claim production readiness');
 
 assertMentions(
+  stage5bAttachmentAuthorizationRecordText,
+  /^# Stage 5B attachment authorization record/m,
+  'Stage 5B attachment authorization record should have the expected title'
+);
+assertMentions(stage5bAttachmentAuthorizationRecordText, /control metadata, not `?inspection_evidence`?/i, 'authorization record should be control metadata only');
+for (const item of [
+  'Accepted candidate gate report',
+  'Redaction/privacy review complete',
+  'Provenance/reviewer traceability confirmed',
+  'Package/part/revision mapping confirmed',
+  'Intake/dry-run/audit outputs reviewed',
+  'Explicit human authorization before attachment',
+  'Exact later task boundary for attachment',
+  'Readiness remains held until authorized attachment occurs',
+]) {
+  assert.equal(stage5bAttachmentAuthorizationRecordText.includes(item), true, `authorization record should include ${item}`);
+}
+assertMentions(stage5bAttachmentAuthorizationRecordText, /review-context --inspection-evidence/, 'authorization record should name the later attachment command boundary');
+assertMentions(stage5bAttachmentAuthorizationRecordText, /authorization records? do not attach evidence/i, 'authorization record should deny self-evidence status');
+assertMentions(stage5bAttachmentAuthorizationRecordText, /PR comments? do not attach evidence/i, 'authorization record should reject PR comments as evidence attachment');
+assertMentions(stage5bAttachmentAuthorizationRecordText, /Only genuine completed physical\/supplier\/lab\/QA inspection records can satisfy `?inspection_evidence`?/, 'authorization record should preserve hard evidence rule');
+assertMentions(stage5bAttachmentAuthorizationRecordText, /`needs_more_evidence` \/ `hold_for_evidence_completion`/, 'authorization record should preserve readiness-held truth');
+assertNoPositiveProductionReadyClaim(stage5bAttachmentAuthorizationRecordText, 'Stage 5B attachment authorization record should not claim production readiness');
+
+assertMentions(
   stage5bArtifactSchemaCatalogText,
   /^# Stage 5B artifact\/schema catalog/m,
   'Stage 5B artifact/schema catalog should have the expected title'
 );
 assertMentions(stage5bArtifactSchemaCatalogText, /schemas\/stage5b-candidate-gate-report\.schema\.json/, 'catalog should make the candidate gate report schema discoverable');
+assertMentions(stage5bArtifactSchemaCatalogText, /docs\/stage-5b-attachment-authorization-record\.md/, 'catalog should include the attachment authorization record');
 assertMentions(stage5bArtifactSchemaCatalogText, /validation_diagnostics\.json/, 'catalog should include validation diagnostics');
 assertMentions(stage5bArtifactSchemaCatalogText, /inspection-evidence\.intake-report/, 'catalog should document tracked intake preview');
 assertMentions(stage5bArtifactSchemaCatalogText, /stage5b\.validation-diagnostics/, 'catalog should document tracked diagnostics preview');

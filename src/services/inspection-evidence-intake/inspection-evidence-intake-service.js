@@ -2258,6 +2258,7 @@ export async function discoverInspectionEvidenceIntake({
         'intake reports',
         'promotion dry-run manifests',
         'audit manifests',
+        'authorization records',
         'fixtures',
         'templates',
         'collection guides',

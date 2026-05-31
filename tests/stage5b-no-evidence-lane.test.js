@@ -193,6 +193,7 @@ function assertEvidenceBoundary({ intake, dryRun, audit, auditSummaryMarkdown })
     ['intake outputs', /intake reports?/i],
     ['promotion dry-run outputs', /promotion dry-run manifests?/i],
     ['audit outputs', /audit manifests?|audit summaries/i],
+    ['authorization records', /authorization records?/i],
     ['GitHub metadata', /GitHub metadata/i],
     ['CI metadata', /CI metadata|CI summaries|workflow metadata/i],
     ['screenshots', /screenshots/i],
