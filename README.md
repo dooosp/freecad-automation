@@ -514,7 +514,7 @@ Endpoint usage:
 - `GET /` is the preferred browser entrypoint for the studio shell; JSON and text callers can still use `/` directly
 - `GET /api` returns the local API info page and route discovery payload
 - `GET /health` returns API liveness plus the same shared runtime diagnostics contract used by `fcad check-runtime --json`
-- `GET /api/examples` returns checked-in example TOML records without repository checkout paths
+- `GET /api/examples` returns an enveloped `{ api_version, ok: true, examples: [...] }` payload of checked-in example TOML records without repository checkout paths
 - `GET /api/canonical-packages` returns the read-only Studio canonical package cards for the five checked-in docs packages: package refs, readiness truth, artifact catalog, evidence-boundary copy, and Studio-boundary copy
 - `GET /api/canonical-packages/:slug/artifacts/:artifactKey/preview` returns allowlisted text previews by safe package slug plus artifact key; it does not accept arbitrary local file paths
 - `POST /api/studio/model-preview` validates the current TOML and returns preview-only model assets for the Model workspace
@@ -652,7 +652,7 @@ Response notes:
 - job responses include a `storage` block with logical file metadata only: `storage.files.<name>.exists` and `storage.files.<name>.size_bytes`. Browser-visible responses do not include `storage.root` or per-file `path` fields.
 - artifact list responses include `links.open`, `links.download`, and the compatibility alias in `links.api`; only artifacts with `scope: "user-facing"` are browser-openable or downloadable, while internal input/control artifacts remain reference-only for tracked reruns
 - public manifest/result/artifact summaries keep stable browser-facing labels only. When internal values were absolute paths, the browser-visible payload reduces them to file names such as `effective-config.json` or `job.log`.
-- `/api/examples` returns checked-in example records as `{ id, name, content }` and intentionally does not expose repository checkout paths
+- `/api/examples` returns checked-in example records as `{ api_version, ok: true, examples: [{ id, name, content }] }` and intentionally does not expose repository checkout paths
 - drawing preview responses expose safe provenance fields such as `preview_reference` and `editable_plan_reference` plus availability booleans and artifact capabilities; they do not expose `plan_path`, preview working directories, or other raw preview sidecar paths
 - successful cancel/retry actions return `ok: true`, an `action` block that names the operation and outcome, and the current job record for the cancelled or newly retried job
 
@@ -668,7 +668,7 @@ Browser-visible local API payload shape:
   - `manifest`: the same redacted browser-safe manifest view used on the job detail route
   - `storage`: logical file metadata only; no public filesystem paths
 - `GET /api/examples`
-  - `{ id, name, content }` for each checked-in example TOML
+  - `{ api_version, ok: true, examples: [{ id, name, content }] }` for checked-in example TOML records
 - `GET /api/canonical-packages`
   - `packages[*]`: safe `slug`, package refs, readiness status/score/gate/missing inputs, `artifact_catalog`, `evidence_boundary`, `studio_boundary`, `collection_guide_path`, and `inspection_evidence_path`
   - checked-in packages remain read-only docs packages; the response is not an arbitrary local folder listing

@@ -91,7 +91,7 @@ The hosted-safe Node lanes now cover the phase-3 tracked execution model without
 - public storage metadata redaction on `/jobs`, `/jobs/:id`, and `/jobs/:id/artifacts`
 - browser-visible manifest/result redaction where internal values would otherwise contain absolute paths
 - public artifact list shape on `/jobs/:id/artifacts`
-- example payload shape on `/api/examples`
+- enveloped example payload shape on `/api/examples`
 - drawing preview and dimension-update response shapes on `/api/studio/drawing-preview` and `/api/studio/drawing-previews/:id/dimensions`, including safe preview/edit-loop references instead of raw preview-plan paths
 - cancel/retry route behavior by job state
 - multi-job monitor helpers, completion routing helpers, and selected-job deep-link helpers

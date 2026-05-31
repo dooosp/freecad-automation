@@ -7,6 +7,7 @@ import {
   resolveInitialLocale,
 } from '../shared/i18n-contract.js';
 import { createPublicPathContext, sanitizePublicPayload } from './public-path-sanitizer.js';
+import { assertResponse } from './local-api-response-helpers.js';
 
 const EXAMPLES_DIR = join(import.meta.dirname, '..', '..', 'configs', 'examples');
 
@@ -404,7 +405,7 @@ export function sendLandingResponse(req, res, payload) {
   const copy = buildLandingCopy(locale);
   const accepted = req.accepts(['html', 'json', 'text']);
   if (accepted === 'json') {
-    res.json(payload);
+    res.json(assertResponse('landing', payload));
     return;
   }
   if (accepted === 'text') {

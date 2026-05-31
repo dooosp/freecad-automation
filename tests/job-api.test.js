@@ -110,6 +110,10 @@ try {
       context_path: '/tmp/private/context.json',
     },
     {
+      type: 'inspect',
+      file_path: 'local/stage5b-candidate-evidence-inbox/quality-pass-bracket/source.step',
+    },
+    {
       type: 'review-context',
       context_path: 'tests/fixtures/sample_part_context.json',
       create_quality_path: '../private/create_quality.json',
@@ -141,7 +145,7 @@ try {
   ].forEach((request) => {
     const validation = validateJobRequest(request);
     assert.equal(validation.ok, false, `${request.type} should reject unsafe direct path fields`);
-    assert.match(validation.errors.join('\n'), /safe repo-relative path/i);
+    assert.match(validation.errors.join('\n'), /safe repo-relative.*path/i);
   });
 
   const reviewContextSideInputs = validateJobRequest({
@@ -272,6 +276,13 @@ try {
   });
   assert.equal(invalidPromotionDryRunTraversalPath.ok, false);
   assert.match(invalidPromotionDryRunTraversalPath.errors.join('\n'), /safe repo-relative/i);
+
+  const invalidPromotionDryRunInboxPath = validateJobRequest({
+    type: 'inspection-evidence-promotion-dry-run',
+    intake_report_path: 'local/stage5b-candidate-evidence-inbox/quality-pass-bracket/intake-report.json',
+  });
+  assert.equal(invalidPromotionDryRunInboxPath.ok, false);
+  assert.match(invalidPromotionDryRunInboxPath.errors.join('\n'), /safe repo-relative/i);
 
   const invalidReviewTracked = validateJobRequest({
     type: 'pack',

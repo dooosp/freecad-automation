@@ -196,6 +196,44 @@ try {
     await new Promise((resolveClose) => escapeServer.close(resolveClose));
   }
 
+  const blockedRoot = join(tmpRoot, 'blocked-symlink-root');
+  const blockedInboxDir = join(blockedRoot, 'local/stage5b-candidate-evidence-inbox/quality-pass-bracket');
+  mkdirSync(blockedInboxDir, { recursive: true });
+  writeFileSync(join(blockedInboxDir, 'private-readme.md'), '# private inbox content\n', 'utf8');
+  mkdirSync(join(blockedRoot, 'docs/examples/quality-pass-bracket'), { recursive: true });
+  mkdirSync(join(blockedRoot, 'docs/examples/quality-pass-bracket/readiness'), { recursive: true });
+  writeFileSync(
+    join(blockedRoot, 'docs/examples/quality-pass-bracket/readiness/readiness_report.json'),
+    `${JSON.stringify({
+      readiness_summary: {
+        status: 'needs_more_evidence',
+        score: 0,
+        gate_decision: 'hold_for_evidence_completion',
+        missing_inputs: ['inspection_evidence'],
+      },
+    })}\n`,
+    'utf8'
+  );
+  symlinkSync(
+    join(blockedInboxDir, 'private-readme.md'),
+    join(blockedRoot, 'docs/examples/quality-pass-bracket/README.md')
+  );
+  const { server: blockedServer } = createLocalApiServer({
+    projectRoot: blockedRoot,
+    jobsDir: join(tmpRoot, 'blocked-symlink-jobs'),
+  });
+  try {
+    const blockedPort = await listen(blockedServer);
+    const blockedResponse = await fetchPreview(`http://127.0.0.1:${blockedPort}`, 'quality-pass-bracket', 'readme');
+    assert.equal(blockedResponse.status, 400);
+    const blockedPayload = await blockedResponse.json();
+    assert.equal(validateLocalApiResponse('error', blockedPayload).ok, true);
+    assert.equal(JSON.stringify(blockedPayload).includes('stage5b-candidate-evidence-inbox'), false);
+    assert.equal(JSON.stringify(blockedPayload).includes('private inbox content'), false);
+  } finally {
+    await new Promise((resolveClose) => blockedServer.close(resolveClose));
+  }
+
   const truncationRoot = join(tmpRoot, 'truncation-root');
   mkdirSync(join(truncationRoot, 'docs/examples/quality-pass-bracket/readiness'), { recursive: true });
   writeFileSync(

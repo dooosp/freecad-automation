@@ -35,7 +35,7 @@ import {
 
 export { localizedBootMessage, reportStudioBootFailure } from './studio-shell-dom.js';
 
-function createFetchJson(windowRef = window) {
+export function createFetchJson(windowRef = window) {
   const fetchImpl = windowRef.fetch.bind(windowRef);
   return async function fetchJson(url, options = {}) {
     const response = await fetchImpl(url, {
@@ -46,7 +46,14 @@ function createFetchJson(windowRef = window) {
       ...options,
     });
     if (!response.ok) {
-      throw new Error(`${url} returned ${response.status}`);
+      let message = '';
+      try {
+        const payload = await response.json();
+        message = payload?.error?.messages?.join(' ') || payload?.message || '';
+      } catch (error) {
+        message = '';
+      }
+      throw new Error(message || `${url} returned ${response.status}`);
     }
     return response.json();
   };
@@ -237,8 +244,8 @@ export function bootStudioShell({
 
   async function loadExamples() {
     try {
-      const examples = await app.fetchJson('/api/examples');
-      const items = Array.isArray(examples) ? examples : [];
+      const examplesPayload = await app.fetchJson('/api/examples');
+      const items = Array.isArray(examplesPayload) ? examplesPayload : (examplesPayload?.examples || []);
       app.state.data.examples.items = items;
       app.state.data.examples.status = items.length > 0 ? 'ready' : 'empty';
       app.state.data.examples.selectedId = resolveSelectedStudioExampleId(

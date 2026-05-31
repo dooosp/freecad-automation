@@ -3,6 +3,7 @@ import { basename, posix, relative, resolve, sep, win32 } from 'node:path';
 import { runScript } from '../../../lib/runner.js';
 import { translateStudioJobSubmission } from '../studio-job-bridge.js';
 import { toPublicDrawingPreviewPayload } from '../public-drawing-preview.js';
+import { LOCAL_API_VERSION } from '../local-api-contract.js';
 import { assertResponse, createErrorResponse } from '../local-api-response-helpers.js';
 
 function isAbsoluteFilesystemPath(value) {
@@ -85,11 +86,12 @@ export function registerStudioRoutes(app, {
   app.post('/api/studio/validate-config', async (req, res) => {
     try {
       const payload = await studioModelService.validateConfigToml(req.body?.config_toml);
-      res.json({
+      res.json(assertResponse('studio_validate_config', {
+        api_version: LOCAL_API_VERSION,
         ok: true,
         validation: payload.summary,
         overview: payload.overview,
-      });
+      }));
     } catch (error) {
       const response = createErrorResponse(
         'invalid_config',
@@ -102,10 +104,11 @@ export function registerStudioRoutes(app, {
   app.post('/api/studio/design', async (req, res) => {
     try {
       const payload = await studioModelService.designFromPrompt(req.body?.description);
-      res.json({
+      res.json(assertResponse('studio_design', {
+        api_version: LOCAL_API_VERSION,
         ok: true,
         ...payload,
-      });
+      }));
     } catch (error) {
       const response = createErrorResponse(
         'design_failed',
@@ -121,10 +124,11 @@ export function registerStudioRoutes(app, {
         configToml: req.body?.config_toml,
         buildSettings: req.body?.build_settings || {},
       });
-      res.json({
+      res.json(assertResponse('studio_model_preview', {
+        api_version: LOCAL_API_VERSION,
         ok: true,
         ...payload,
-      });
+      }));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const status = /TOML parse error|Config TOML is required|must include|invalid/i.test(message) ? 400 : 500;
@@ -150,10 +154,11 @@ export function registerStudioRoutes(app, {
           ? req.body.metadata
           : {},
       });
-      res.json({
+      res.json(assertResponse('studio_import_bootstrap', {
+        api_version: LOCAL_API_VERSION,
         ok: true,
         ...redactBootstrapPreviewPaths(projectRoot, payload),
-      });
+      }));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const status = /required|unsupported|must stay inside|must be inside|failed bootstrap intake/i.test(message) ? 400 : 500;
@@ -172,10 +177,11 @@ export function registerStudioRoutes(app, {
         configToml: req.body?.config_toml,
         drawingSettings: req.body?.drawing_settings || {},
       });
-      res.json({
+      res.json(assertResponse('studio_drawing_preview', {
+        api_version: LOCAL_API_VERSION,
         ok: true,
         ...toPublicDrawingPreviewPayload(payload),
-      });
+      }));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const status = /TOML parse error|Config TOML is required|must include|invalid/i.test(message) ? 400 : 500;
@@ -210,10 +216,11 @@ export function registerStudioRoutes(app, {
         valueMm: req.body?.value_mm,
         historyOp: req.body?.history_op,
       });
-      res.json({
+      res.json(assertResponse('studio_drawing_preview', {
+        api_version: LOCAL_API_VERSION,
         ok: true,
         ...toPublicDrawingPreviewPayload(payload),
-      });
+      }));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const status = /No drawing preview found|editable plan path|Could not update|dim_intent|Invalid value|positive/i.test(message) ? 400 : 500;

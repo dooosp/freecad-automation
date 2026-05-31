@@ -57,7 +57,7 @@ Practical rules:
 | --- | --- | --- |
 | `GET /jobs` and `GET /jobs/:id` | sanitized request metadata, status history, diagnostics, redacted result/manifest summaries, flattened artifact summaries, and logical storage metadata | raw `file_path`, `config_path`, `source_artifact_path`, `storage.root`, per-file storage paths, and any other browser-visible absolute filesystem path |
 | `GET /jobs/:id/artifacts` | public artifact records with `file_name`, `content_type`, `exists`, `size_bytes`, `capabilities`, `links`, the redacted manifest view, and logical storage metadata | raw artifact `path` values and local storage filesystem paths |
-| `GET /api/examples` | checked-in example records shaped as `id`, `name`, and `content` | checked-out repository paths or filesystem locations |
+| `GET /api/examples` | enveloped checked-in example records shaped as `{ api_version, ok: true, examples: [{ id, name, content }] }` | checked-out repository paths or filesystem locations |
 | `POST /api/studio/drawing-preview` and `POST /api/studio/drawing-previews/:id/dimensions` | browser-safe preview metadata, SVG/BOM/QA/dimensions, `preview_reference`, `editable_plan_reference` when available, and capability booleans | raw `plan_path`, preview working directories, preview sidecar paths, `logs`, `run_log`, and other filesystem-backed preview details |
 | `request.json` inside the job directory | the internal executor request exactly as persisted for execution or retry | nothing; this is the internal source of truth |
 | `job.json`, `job.log`, and `artifact-manifest.json` inside the job directory | internal persisted job-store records used by executor, artifact serving, and retry flows | nothing; these remain path-bearing where the server needs them |
