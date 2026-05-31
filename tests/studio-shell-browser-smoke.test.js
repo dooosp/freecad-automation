@@ -2171,7 +2171,7 @@ try {
       };
     })()`);
     assert.equal(snapshot.links.length >= 2, true);
-    assert.equal(snapshot.links.some((entry) => entry.text.includes('원본 산출물 열기')), true);
+    assert.equal(snapshot.links.some((entry) => entry.text.includes('Open source artifact')), true);
     assert.equal(snapshot.links.some((entry) => entry.text.includes('Download')), true);
     assert.equal(snapshot.links.every((entry) => entry.href.includes(`/artifacts/${stage5bAuditJob.id}/`)), true);
     assert.equal(snapshot.links.some((entry) => entry.href.includes('/Users/')), false);

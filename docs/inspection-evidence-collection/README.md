@@ -17,7 +17,7 @@ That packet is also a control document, not evidence.
 
 Completed real JSON must be written later under the matching
 `docs/examples/<package>/inspection/inspection_evidence.json` target and attached
-through `review-context --inspection-evidence <PATH_TO_COMPLETED_REAL_JSON>`.
+through `review-context --inspection-evidence <PATH_TO_COMPLETED_REAL_JSON> --attachment-authorization <AUTHORIZATION_RECORD_JSON>`.
 
 Generated quality, drawing, readiness, review-pack, and synthetic fixture files
 must not be used as package inspection evidence. The canonical packages remain

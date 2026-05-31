@@ -1341,6 +1341,7 @@ function canonicalCommandPlan(slug, acceptedCandidate, { modelPath = null } = {}
   const attachmentPath = acceptedCandidate.source_format === 'json' && !isExternalCandidate(acceptedCandidate)
     ? candidatePath
     : `${packageRoot}/inspection/inspection_evidence.json`;
+  const authorizationPath = `${packageRoot}/inspection/stage5b_attachment_authorization.json`;
   const safeModelPath = modelPath || `${packageRoot}/cad/canonical-model-file.step`;
   return {
     review_context: [
@@ -1350,6 +1351,8 @@ function canonicalCommandPlan(slug, acceptedCandidate, { modelPath = null } = {}
       safeModelPath,
       '--inspection-evidence',
       attachmentPath,
+      '--attachment-authorization',
+      authorizationPath,
       '--out',
       `${packageRoot}/review/review_pack.json`,
     ],

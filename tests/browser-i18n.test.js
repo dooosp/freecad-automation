@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 
 import {
   DEFAULT_LOCALE,
@@ -13,6 +15,16 @@ import {
   createTranslator,
   translateText,
 } from '../public/js/i18n/index.js';
+
+const ROOT = resolve(import.meta.dirname, '..');
+
+function listJsFiles(dirPath) {
+  return readdirSync(dirPath, { withFileTypes: true }).flatMap((entry) => {
+    const entryPath = join(dirPath, entry.name);
+    if (entry.isDirectory()) return listJsFiles(entryPath);
+    return entry.isFile() && entry.name.endsWith('.js') ? [entryPath] : [];
+  });
+}
 
 assert.equal(DEFAULT_LOCALE, 'en');
 assert.deepEqual(SUPPORTED_LOCALES, ['en', 'ko']);
@@ -68,6 +80,8 @@ assert.equal(
   translateText('Release bundle presence does not mean production-ready; package remains needs_more_evidence until real inspection_evidence is attached.', 'ko'),
   '릴리스 번들이 있어도 production-ready를 뜻하지 않습니다. 실제 inspection_evidence가 첨부될 때까지 패키지는 needs_more_evidence 상태로 유지됩니다.'
 );
+assert.equal(translateText('Ready held: missing inspection_evidence', 'ko'), '준비 상태 보류: inspection_evidence 누락');
+assert.equal(translateText('Package readiness-backed outputs', 'ko'), '준비 상태 기반 출력 패키징');
 assert.equal(translateText('Start with a verified bracket', 'ko'), '검증된 브래킷으로 시작');
 assert.equal(translateText('Recommended example: quality_pass_bracket', 'ko'), '권장 예제: quality_pass_bracket');
 assert.equal(translateText('Load verified bracket', 'ko'), '검증된 브래킷 불러오기');
@@ -78,6 +92,11 @@ assert.equal(
   '권장 경로: 먼저 추적 생성을 실행한 뒤 추적 보고서를 실행하세요.'
 );
 assert.equal(translateText('Run tracked create first', 'ko'), '먼저 추적 생성 실행');
+
+for (const filePath of listJsFiles(join(ROOT, 'public/js/studio'))) {
+  const source = readFileSync(filePath, 'utf8');
+  assert.equal(/[가-힣]/.test(source), false, `${filePath} should keep Korean text in shared i18n dictionaries`);
+}
 assert.equal(translateText('Engineering Quality', 'ko'), '엔지니어링 품질');
 assert.equal(translateText('Generated geometry', 'ko'), '생성 형상');
 assert.equal(translateText('STEP reimport', 'ko'), 'STEP 재가져오기');

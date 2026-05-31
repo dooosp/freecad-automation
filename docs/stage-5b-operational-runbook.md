@@ -60,7 +60,7 @@ Safe local flow:
 3. Run `node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json> --out <report.json>`, with `--out` pointing to a local inbox report when the report might describe private material.
 4. Review the accept/reject report.
 5. Use the Pre-Attachment Review Checklist and the Attachment Authorization Record below before any intake, dry-run, audit, or attachment task.
-6. Run intake, promotion dry-run, or audit later only if the task explicitly authorizes that review path. Later authorized attachment still needs validation, review, and deliberate `review-context --inspection-evidence` mutation outside this local-inbox guard task.
+6. Run intake, promotion dry-run, or audit later only if the task explicitly authorizes that review path. Later authorized attachment still needs validation, review, and deliberate `review-context --inspection-evidence --attachment-authorization` mutation outside this local-inbox guard task.
 
 Before maintainers put a newly supplied JSON record into the Stage 5B intake/dry-run review path, run the local non-production candidate gate:
 
@@ -162,7 +162,7 @@ authorization prerequisites are complete:
 Authorization records do not attach evidence, promote evidence, satisfy
 readiness, or mutate canonical package artifacts. PR comments do not attach
 evidence. The only later mutation boundary is an explicitly authorized task that
-runs `review-context --inspection-evidence`, then refreshes readiness, standard
+runs `review-context --inspection-evidence --attachment-authorization`, then refreshes readiness, standard
 docs, and release packaging with verified outputs.
 
 ## Audit Outputs
@@ -255,12 +255,12 @@ When no valid candidate exists, the manifest must say promotion cannot run. It m
 
 When genuine evidence exists later, the dry-run should list the future command chain and mutation boundaries:
 
-- `review-context --inspection-evidence <PATH_TO_COMPLETED_REAL_JSON>`
+- `review-context --inspection-evidence <PATH_TO_COMPLETED_REAL_JSON> --attachment-authorization <AUTHORIZATION_RECORD_JSON> --attachment-authorization <AUTHORIZATION_RECORD_JSON>`
 - `readiness-pack`
 - `generate-standard-docs`
 - `pack`
 
-Run that future chain only in a separate evidence-gated task after the evidence record has been validated and reviewed.
+Run that future chain only in a separate evidence-gated task after the evidence record has been validated, reviewed, and explicitly authorized in the Stage 5B authorization control record.
 
 ## Diagnostics Meaning
 
@@ -307,7 +307,7 @@ For a future real evidence task:
 6. Run `fcad inspection-evidence-promotion-dry-run --intake-report <report.json> --out <promotion_dry_run_manifest.json>` and review blockers, match confidence, mutation boundaries, and rollback guidance.
 7. Complete or reference the Stage 5B attachment authorization record as control metadata only.
 8. Attach only when the dry-run is attachment-ready and the separate later task explicitly authorizes canonical mutation.
-9. Refresh `review-context --inspection-evidence`, `readiness-pack`, `generate-standard-docs`, and `pack` in that separate authorized task.
+9. Refresh `review-context --inspection-evidence --attachment-authorization`, `readiness-pack`, `generate-standard-docs`, and `pack` in that separate authorized task.
 
 Until that happens, the readiness truth remains unchanged.
 

@@ -118,7 +118,14 @@ function fixtureReadyCandidate(slug) {
       match_confidence: 'high',
       attachment_ready: true,
       blockers: [],
-      canonical_next_command: ['fcad', 'review-context', '--inspection-evidence', path],
+      canonical_next_command: [
+        'fcad',
+        'review-context',
+        '--inspection-evidence',
+        path,
+        '--attachment-authorization',
+        `docs/examples/${slug}/inspection/stage5b_attachment_authorization.json`,
+      ],
       candidate_package_matches: [{ slug, score: 285, match_signals: ['explicit_package_id'] }],
       matched_features: [{ candidate_feature_id: 'mount_hole_a_diameter', canonical_feature_id: 'mount_hole_a_diameter' }],
       unmatched_features: [],
@@ -279,7 +286,14 @@ try {
   };
   readyCandidate.attachment_plan = {
     ...readyCandidate.attachment_plan,
-    canonical_next_command: ['fcad', 'review-context', '--inspection-evidence', readyEvidencePath],
+    canonical_next_command: [
+      'fcad',
+      'review-context',
+      '--inspection-evidence',
+      readyEvidencePath,
+      '--attachment-authorization',
+      `docs/examples/${readySlug}/inspection/stage5b_attachment_authorization.json`,
+    ],
   };
   const readyIntakeReport = intakeReportForCandidate(readySlug, readyCandidate);
   const readyDryRun = buildInspectionEvidencePromotionDryRunManifest({

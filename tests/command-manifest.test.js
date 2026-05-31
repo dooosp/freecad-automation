@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import {
   DIAGNOSTIC_COMMANDS,
@@ -13,11 +14,13 @@ import {
   STUDIO_PAIRED_ARTIFACT_JOB_COMMANDS,
   formatCommandNameList,
   getServeEntrypointMetadata,
+  renderCommandUsage,
   renderCliUsage,
   renderServeUsage,
 } from '../src/shared/command-manifest.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
+const CLI = join(ROOT, 'bin', 'fcad.js');
 const packageJson = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8'));
 
 const cliHelp = renderCliUsage();
@@ -28,7 +31,26 @@ assert.match(cliHelp, /fcad closeout-package <canonical-package-slug> --mode sof
 assert.match(cliHelp, /fcad inspection-evidence-intake \[--package <canonical-package-slug>\] \[--out <report\.json>\] \[--include-github\]/i);
 assert.match(cliHelp, /fcad inspection-evidence-promotion-dry-run --intake-report <report\.json> \[--out <promotion_dry_run_manifest\.json>\]/i);
 assert.match(cliHelp, /fcad stage5b-evidence-audit --out-dir <dir> \[--include-github\]/i);
+assert.match(cliHelp, /fcad pack --readiness <readiness_report\.json>[\s\S]*--out <release_bundle\.zip> \[--generated-at <iso8601>\]/i);
+assert.match(cliHelp, /fcad review-context --model <file>[\s\S]*\[--inspection-evidence inspection_evidence\.json --attachment-authorization authorization_record\.json\][\s\S]*--out <review_pack\.json>/i);
+assert.match(cliHelp, /--inspection-evidence <path>\s+Genuine completed inspection evidence JSON side input for review-context; requires Stage 5B attachment authorization/i);
+assert.match(cliHelp, /--attachment-authorization <path>\s+Stage 5B authorization control record required with --inspection-evidence; it is not inspection evidence/i);
+assert.match(cliHelp, /--strict-quality\s+Fail create or draw when blocking quality checks are found/i);
+assert.match(cliHelp, /--generated-at <iso8601>\s+Use a fixed release bundle timestamp with pack for deterministic bundle metadata and ZIP entries/i);
 assert.match(cliHelp, /fcad serve \[port\] \[--jobs-dir <dir>\] \[--legacy-viewer\]/);
+
+for (const command of ['create', 'draw', 'inspect', 'report', 'pack', 'review-context']) {
+  const commandHelp = renderCommandUsage(command);
+  assert.match(commandHelp, new RegExp(`fcad ${command.replace('-', '\\-')}`));
+  assert.match(commandHelp, /Usage:/);
+
+  const run = spawnSync('node', [CLI, command, '--help'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  });
+  assert.equal(run.status, 0, `${command} --help failed:\n${run.stdout}\n${run.stderr}`);
+  assert.match(run.stdout, /Usage:/);
+}
 
 const serveHelp = renderServeUsage();
 assert.match(serveHelp, /fcad serve - local API, studio shell, and legacy compatibility viewer/);

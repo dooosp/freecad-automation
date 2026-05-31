@@ -227,6 +227,7 @@ function buildCommands(projectRoot, slug, candidate) {
   const evidencePath = normalizationRequired
     ? packagePath(slug, 'inspection/inspection_evidence.json')
     : normalizeRepoPath(candidate.path);
+  const authorizationPath = packagePath(slug, 'inspection/stage5b_attachment_authorization.json');
   const sideInputs = REVIEW_CONTEXT_SIDE_INPUTS
     .map((definition) => ({
       ...definition,
@@ -241,6 +242,8 @@ function buildCommands(projectRoot, slug, candidate) {
     ...sideInputs.flatMap((entry) => [entry.option, entry.path]),
     '--inspection-evidence',
     evidencePath,
+    '--attachment-authorization',
+    authorizationPath,
     '--out',
     packagePath(slug, 'review/review_pack.json'),
   ];

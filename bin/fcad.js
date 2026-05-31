@@ -94,6 +94,7 @@ import {
 import {
   GENERATE_STANDARD_DOCS_INPUT_MESSAGE,
   LEGACY_READINESS_REPORT_MESSAGE,
+  renderCommandUsage,
   renderCliUsage,
   renderServeUsage,
 } from '../src/shared/command-manifest.js';
@@ -530,6 +531,14 @@ async function main() {
   if (!command || command === 'help' || command === '--help') {
     console.log(USAGE);
     process.exit(0);
+  }
+
+  if (args.includes('--help') || args.includes('-h')) {
+    const commandUsage = renderCommandUsage(command);
+    if (commandUsage) {
+      console.log(commandUsage);
+      process.exit(0);
+    }
   }
 
   if (command === 'check-runtime') {
@@ -1763,6 +1772,13 @@ async function cmdPack(rawArgs = []) {
     console.error('Error: pack requires --readiness <readiness_report.json>');
     process.exit(1);
   }
+  const generatedAt = options['generated-at'] === undefined
+    ? null
+    : requireOptionValue('--generated-at', options['generated-at'], 'fcad pack --readiness <readiness_report.json> --out <release_bundle.zip> [--generated-at <iso8601>]');
+  if (generatedAt && Number.isNaN(Date.parse(generatedAt))) {
+    console.error('Error: --generated-at must be parseable date/time text');
+    process.exit(1);
+  }
 
   const readinessReport = await loadCanonicalReadinessReportInput(readinessPath, 'pack', 'readiness report');
   const docsInput = await resolveOptionalDocsManifest({
@@ -1786,6 +1802,7 @@ async function cmdPack(rawArgs = []) {
     docsManifestPath: docsInput.docsManifestPath,
     docsManifest: docsInput.docsManifest,
     additionalWarnings: docsInput.warnings,
+    generatedAt,
   });
 
   const manifestPath = await writeCliManifest({
@@ -2330,6 +2347,7 @@ async function cmdReviewContext(rawArgs = []) {
   const featureCatalogPath = resolveMaybe(options['feature-catalog']);
   const dfmReportPath = resolveMaybe(options['dfm-report']);
   const inspectionEvidencePath = resolveMaybe(options['inspection-evidence']);
+  const attachmentAuthorizationPath = resolveMaybe(options['attachment-authorization']);
   const compareToPath = resolveMaybe(options['compare-to']);
 
   if (!modelPath && !contextPath) {
@@ -2350,7 +2368,13 @@ async function cmdReviewContext(rawArgs = []) {
   requireExistingInputFile('feature-catalog', featureCatalogPath);
   requireExistingInputFile('dfm-report', dfmReportPath);
   requireExistingInputFile('inspection-evidence', inspectionEvidencePath);
+  requireExistingInputFile('attachment-authorization', attachmentAuthorizationPath);
   requireExistingInputFile('compare-to', compareToPath);
+
+  if (inspectionEvidencePath && !attachmentAuthorizationPath) {
+    console.error('Error: --inspection-evidence requires --attachment-authorization <authorization_record.json> after Stage 5B review authorization');
+    process.exit(1);
+  }
 
   const result = await runReviewContextPipeline({
     projectRoot: PROJECT_ROOT,
@@ -2366,6 +2390,7 @@ async function cmdReviewContext(rawArgs = []) {
     featureCatalogPath,
     dfmReportPath,
     inspectionEvidencePath,
+    attachmentAuthorizationPath,
     compareToPath,
     outputPath: options.out || null,
     outDir: resolveMaybe(options['out-dir']) || null,
@@ -2425,6 +2450,7 @@ async function cmdReviewContext(rawArgs = []) {
       ...(featureCatalogPath ? [createArtifactEntry('input.feature-catalog', featureCatalogPath, { label: 'Input feature catalog JSON' })] : []),
       ...(dfmReportPath ? [createArtifactEntry('input.dfm-report', dfmReportPath, { label: 'Input DFM report' })] : []),
       ...(inspectionEvidencePath ? [createArtifactEntry('input.inspection-evidence', inspectionEvidencePath, { label: 'Input inspection evidence JSON' })] : []),
+      ...(attachmentAuthorizationPath ? [createArtifactEntry('input.stage5b-attachment-authorization', attachmentAuthorizationPath, { label: 'Stage 5B attachment authorization record' })] : []),
       ...(compareToPath ? [createArtifactEntry('input.baseline', compareToPath, { label: 'Baseline review-pack JSON' })] : []),
     ],
     details: {

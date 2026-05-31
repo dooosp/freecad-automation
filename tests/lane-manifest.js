@@ -191,7 +191,7 @@ export const RUNTIME_DOMAIN_SCRIPTS = Object.freeze([
 export const WORKFLOW_MAPPINGS = Object.freeze([
   Object.freeze({
     label: 'Automation CI (hosted fast lanes)',
-    commands: Object.freeze(['test:node:contract', 'test:node:integration', 'test:snapshots', 'test:py']),
+    commands: Object.freeze(['test:node:contract', 'test:node:integration', 'test:snapshots', 'test:studio-browser-smoke', 'test:py']),
     scope: 'No hosted FreeCAD install or launch',
   }),
   Object.freeze({

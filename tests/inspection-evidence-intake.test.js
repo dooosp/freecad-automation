@@ -298,6 +298,10 @@ try {
     validReport.packages[0].intake_action.canonical_commands.review_context.join(' '),
     /--inspection-evidence docs\/examples\/demo-intake-part\/inspection\/inspection_evidence\.json/
   );
+  assert.match(
+    validReport.packages[0].intake_action.canonical_commands.review_context.join(' '),
+    /--attachment-authorization docs\/examples\/demo-intake-part\/inspection\/stage5b_attachment_authorization\.json/
+  );
   assert.equal(
     validReport.rejected_candidates.some((candidate) => candidate.classification === 'invalid_generated'),
     true,
@@ -353,6 +357,10 @@ try {
   assert.match(
     tableReport.packages[0].intake_action.canonical_commands.review_context.join(' '),
     /--inspection-evidence docs\/examples\/table-intake-part\/inspection\/inspection_evidence\.json/
+  );
+  assert.match(
+    tableReport.packages[0].intake_action.canonical_commands.review_context.join(' '),
+    /--attachment-authorization docs\/examples\/table-intake-part\/inspection\/stage5b_attachment_authorization\.json/
   );
   assert.equal(
     tableReport.rejected_candidates.some((candidate) => (

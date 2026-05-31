@@ -376,6 +376,44 @@ try {
   assert.equal(/\/(?:Users|private|tmp|var)\//.test(deterministicText), false, 'portable release metadata must not expose host absolute paths');
   assert.equal(/[A-Za-z]:[\\/]/.test(deterministicText), false, 'portable release metadata must not expose Windows absolute paths');
 
+  const cliDeterministicDir = join(REPO_TMP_DIR, 'cli-deterministic-flow');
+  const cliPackA = runCli([
+    'pack',
+    '--readiness',
+    docsReadinessOut,
+    '--docs-manifest',
+    join(standardDocsDir, 'standard_docs_manifest.json'),
+    '--out',
+    join(cliDeterministicDir, 'a', 'release_bundle.zip'),
+    '--generated-at',
+    '2026-05-31T00:00:00.000Z',
+  ]);
+  assert.equal(cliPackA.status, 0, cliPackA.stderr || cliPackA.stdout);
+  const cliPackB = runCli([
+    'pack',
+    '--readiness',
+    docsReadinessOut,
+    '--docs-manifest',
+    join(standardDocsDir, 'standard_docs_manifest.json'),
+    '--out',
+    join(cliDeterministicDir, 'b', 'release_bundle.zip'),
+    '--generated-at',
+    '2026-05-31T00:00:00.000Z',
+  ]);
+  assert.equal(cliPackB.status, 0, cliPackB.stderr || cliPackB.stdout);
+  for (const fileName of [
+    'release_bundle.zip',
+    'release_bundle_manifest.json',
+    'release_bundle_log.json',
+    'release_bundle_checksums.sha256',
+  ]) {
+    assert.equal(
+      hashFile(join(cliDeterministicDir, 'a', fileName)),
+      hashFile(join(cliDeterministicDir, 'b', fileName)),
+      `CLI pack --generated-at should make ${fileName} deterministic`
+    );
+  }
+
   const utf8ZipPath = join(TMP_DIR, 'utf8-filenames.zip');
   await createZipArchive(utf8ZipPath, [
     {

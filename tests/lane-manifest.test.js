@@ -74,6 +74,7 @@ assert(
   'npm run test:node:contract',
   'npm run test:node:integration',
   'npm run test:snapshots',
+  'npm run test:studio-browser-smoke',
   'npm run test:py',
 ].forEach((command) => {
   assert(

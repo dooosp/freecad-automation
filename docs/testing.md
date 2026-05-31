@@ -32,16 +32,13 @@ The runtime domain runner uses the same FreeCAD-backed script path as the CLI an
 <!-- GENERATED:workflow-mapping:start -->
 | Workflow | What it runs | What it does not claim |
 | --- | --- | --- |
-| `Automation CI (hosted fast lanes)` | `test:node:contract`, `test:node:integration`, `test:snapshots`, `test:py` | No hosted FreeCAD install or launch |
+| `Automation CI (hosted fast lanes)` | `test:node:contract`, `test:node:integration`, `test:snapshots`, `test:studio-browser-smoke`, `test:py` | No hosted FreeCAD install or launch |
 | `FreeCAD Runtime Smoke (self-hosted macOS)` | `test:runtime-smoke` plus runtime-backed Python smoke regressions, the quality fixture matrix, and a narrow tolerance CSV smoke | No Linux or Windows runtime ownership claims, and no broad tolerance or Monte Carlo maturity claim |
 <!-- GENERATED:workflow-mapping:end -->
 
 The hosted workflow is the fast PR lane and does not install or launch FreeCAD. Its Node contract lane also runs the non-mutating Stage 5B no-evidence CLI lane and audit CLI smoke with GitHub discovery disabled. The self-hosted workflow is the repository-owned runtime smoke source of truth for the listed real FreeCAD-backed checks on pull requests, manual reruns, and the weekly schedule.
 
-`npm run test:studio-browser-smoke` is a local/manual Chrome-capable lane unless
-a dedicated browser job is added. It is not part of `npm test` or the hosted
-Automation CI suite, so PR checks do not by themselves prove real browser
-rendering for Studio.
+`npm run test:studio-browser-smoke` is a Chrome-capable Studio lane that runs locally and as a hosted Automation CI job. It proves real browser rendering for the covered Studio routes without claiming a FreeCAD runtime launch.
 
 ## GitHub Actions Node24 Runtime
 

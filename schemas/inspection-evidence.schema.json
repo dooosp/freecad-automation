@@ -169,7 +169,7 @@
     "safeRelativePath": {
       "type": "string",
       "minLength": 1,
-      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))(?!output(?:/|$))(?!tmp/codex(?:/|$)).+$"
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))(?!output(?:/|$))(?!tmp/codex(?:/|$))(?!local/stage5b-candidate-evidence-inbox(?:/|$)).+$"
     },
     "measuredFeature": {
       "type": "object",

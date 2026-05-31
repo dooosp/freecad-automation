@@ -16,6 +16,10 @@ const VALID_INSPECTION_EVIDENCE_PATH = resolve(
   ROOT,
   'tests/fixtures/inspection-evidence/valid-manual-caliper-inspection.json'
 );
+const VALID_ATTACHMENT_AUTHORIZATION_PATH = resolve(
+  ROOT,
+  'tests/fixtures/inspection-evidence/stage5b-attachment-authorization.valid.json'
+);
 const CREATE_QUALITY_REPORT_PATH = resolve(
   ROOT,
   'docs/examples/motor-mount/quality/cnc_motor_mount_bracket_create_quality.json'
@@ -202,11 +206,27 @@ try {
   );
   assert.equal(readinessReport.readiness_summary.status, 'needs_more_evidence');
 
+  const unauthorizedOutputPath = join(tempRoot, 'unauthorized-inspection-artifacts', 'review_pack.json');
+  await assert.rejects(
+    () => runReviewContextPipeline({
+      projectRoot: ROOT,
+      contextPath,
+      outputPath: unauthorizedOutputPath,
+      inspectionEvidencePath: VALID_INSPECTION_EVIDENCE_PATH,
+      runPythonJsonScript: buildStubRunPythonJsonScript(),
+      inspectModelIfAvailable: async () => null,
+      detectStepFeaturesIfAvailable: async () => null,
+    }),
+    /requires --attachment-authorization/i
+  );
+  assert.equal(existsSync(unauthorizedOutputPath), false);
+
   const inspectionResult = await runReviewContextPipeline({
     projectRoot: ROOT,
     contextPath,
     outputPath: join(tempRoot, 'inspection-artifacts', 'review_pack.json'),
     inspectionEvidencePath: VALID_INSPECTION_EVIDENCE_PATH,
+    attachmentAuthorizationPath: VALID_ATTACHMENT_AUTHORIZATION_PATH,
     runPythonJsonScript: buildStubRunPythonJsonScript(),
     inspectModelIfAvailable: async () => null,
     detectStepFeaturesIfAvailable: async () => null,
@@ -231,6 +251,14 @@ try {
       ref.artifact_type === 'inspection_evidence'
       && ref.path === 'tests/fixtures/inspection-evidence/valid-manual-caliper-inspection.json'
       && ref.role === 'evidence'
+    )),
+    true
+  );
+  assert.equal(
+    inspectionReviewPack.source_artifact_refs.some((ref) => (
+      ref.artifact_type === 'stage5b_attachment_authorization'
+      && ref.path === 'tests/fixtures/inspection-evidence/stage5b-attachment-authorization.valid.json'
+      && ref.role === 'input'
     )),
     true
   );

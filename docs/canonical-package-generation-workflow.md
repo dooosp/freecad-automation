@@ -4,7 +4,7 @@ Use this maintainer guide when planning a future canonical package generation ta
 
 ## Purpose and boundaries
 
-- This is a reproducibility guide for maintainers, not a generation run log.
+- This is a replayability and reproducibility guide for maintainers, not a generation run log.
 - Generated package artifacts are not inspection evidence.
 - Release bundles are package transport artifacts, not production-readiness proof.
 - Stage 5B remains parked unless genuine completed inspection evidence exists and is validated in a separate evidence-gated cycle.
@@ -42,7 +42,7 @@ New package work should start with candidate selection and explicit approval bef
 
 ## Future-only generation command sequence
 
-Use these commands only in a separately approved package-generation task. They are listed here as the reproducible reference chain, not as commands to run for this guide.
+Use these commands only in a separately approved package-generation task. They are listed here as the reproducible reference chain, not as commands to run for this guide. Add `--generated-at <iso8601>` to `fcad pack` when a package-generation task needs byte-stable release bundle metadata and ZIP entry timestamps for comparison.
 
 ```bash
 fcad validate-config <config.toml>
@@ -51,10 +51,10 @@ fcad draw <config.toml> --bom
 fcad review-context --model <model.step> --create-quality <create_quality.json> --drawing-quality <drawing_quality.json> --drawing-qa <drawing_qa.json> --drawing-intent <drawing_intent.json> --feature-catalog <feature_catalog.json> --out <review_pack.json>
 fcad readiness-pack --review-pack <review_pack.json> --out <readiness_report.json>
 fcad generate-standard-docs <config.toml> --readiness-report <readiness_report.json> --out-dir <standard_docs_dir>
-fcad pack --readiness <readiness_report.json> --docs-manifest <standard_docs_manifest.json> --out <release_bundle.zip>
+fcad pack --readiness <readiness_report.json> --docs-manifest <standard_docs_manifest.json> --out <release_bundle.zip> [--generated-at <iso8601>]
 ```
 
-Only pass `--inspection-evidence <path>` to `fcad review-context` in a separate evidence-gated task with genuine completed inspection evidence JSON that validates against the inspection evidence contract.
+Only pass `--inspection-evidence <path> --attachment-authorization <authorization_record.json>` to `fcad review-context` in a separate evidence-gated task with genuine completed inspection evidence JSON that validates against the inspection evidence contract and an explicit Stage 5B attachment authorization control record.
 
 ## Generated artifact inventory
 
@@ -82,7 +82,7 @@ Generated CAD, drawing, quality, review, readiness, standard-doc, release, and r
 - Generated quality, drawing, review, readiness, standard-doc, release, fixture, template, and collection-guide artifacts are not inspection evidence.
 - Real inspection evidence must be external, genuine, schema-valid, and handled in a separate evidence-gated cycle.
 - Keep readiness as `needs_more_evidence` with gate decision `hold_for_evidence_completion` when `inspection_evidence` is missing.
-- Do not pass `--inspection-evidence` unless a separate evidence-gated task validates real evidence.
+- Do not pass `--inspection-evidence` unless a separate evidence-gated task validates real evidence and supplies `--attachment-authorization`.
 - Do not use generated CAD nominal dimensions, drawing intent, quality reports, readiness reports, review packs, fixtures, or collection guides as measured inspection evidence.
 
 ## Release bundle boundary

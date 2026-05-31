@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "record_type": "stage5b_attachment_authorization",
+  "authorized_attachment": true,
+  "package_slug": "synthetic-fixture-package",
+  "reviewed_redacted_evidence_json_ref": "tests/fixtures/inspection-evidence/valid-manual-caliper-inspection.json",
+  "candidate_gate_report_ref": "tests/fixtures/inspection-evidence/control-candidate-gate-report.json",
+  "intake_report_ref": "tests/fixtures/inspection-evidence/control-intake-report.json",
+  "promotion_dry_run_ref": "tests/fixtures/inspection-evidence/control-promotion-dry-run.json",
+  "audit_output_ref": "tests/fixtures/inspection-evidence/control-stage5b-audit.json",
+  "human_authorizer": "Fixture maintainer authorization",
+  "authorized_at": "2026-04-28T12:00:00Z",
+  "later_attachment_task_boundary": "fixture-only validation path; not canonical package evidence",
+  "approved_commands": [
+    "fcad review-context --inspection-evidence tests/fixtures/inspection-evidence/valid-manual-caliper-inspection.json --attachment-authorization tests/fixtures/inspection-evidence/stage5b-attachment-authorization.valid.json"
+  ],
+  "readiness_held_acknowledgement": "Canonical package readiness remains needs_more_evidence / hold_for_evidence_completion until a later authorized attachment task regenerates package artifacts.",
+  "evidence_boundary_acknowledgement": "Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence."
+}

@@ -261,7 +261,7 @@ const COMMAND_MANIFEST = Object.freeze([
     helpSection: 'plain-python-node',
     helpEntries: Object.freeze([
       Object.freeze({
-        usage: 'fcad pack --readiness <readiness_report.json> [--docs-manifest <standard_docs_manifest.json>] --out <release_bundle.zip>',
+        usage: 'fcad pack --readiness <readiness_report.json> [--docs-manifest <standard_docs_manifest.json>] --out <release_bundle.zip> [--generated-at <iso8601>]',
         summary: null,
       }),
     ]),
@@ -445,7 +445,7 @@ const COMMAND_MANIFEST = Object.freeze([
     helpSection: 'plain-python-node',
     helpEntries: Object.freeze([
       Object.freeze({
-        usage: 'fcad review-context --model <file> [--bom bom.csv] [--inspection insp.csv] [--quality ncr.csv] [--create-quality create_quality.json] [--drawing-quality drawing_quality.json] [--drawing-qa drawing_qa.json] [--drawing-intent drawing_intent.json] [--feature-catalog feature_catalog.json] [--dfm-report dfm_report.json] --out <review_pack.json> [--compare-to baseline_review_pack.json]',
+        usage: 'fcad review-context --model <file> [--bom bom.csv] [--inspection insp.csv] [--quality ncr.csv] [--create-quality create_quality.json] [--drawing-quality drawing_quality.json] [--drawing-qa drawing_qa.json] [--drawing-intent drawing_intent.json] [--feature-catalog feature_catalog.json] [--dfm-report dfm_report.json] [--inspection-evidence inspection_evidence.json --attachment-authorization authorization_record.json] --out <review_pack.json> [--compare-to baseline_review_pack.json]',
         summary: null,
       }),
     ]),
@@ -600,6 +600,8 @@ const SHARED_WORKFLOW_OPTIONS = Object.freeze([
   Object.freeze({ flag: '--drawing-intent <path>', description: 'Drawing intent JSON side input for review-context design traceability context' }),
   Object.freeze({ flag: '--feature-catalog <path>', description: 'Feature catalog JSON side input for review-context design traceability context' }),
   Object.freeze({ flag: '--dfm-report <path>', description: 'DFM report JSON side input for review-context quality evidence' }),
+  Object.freeze({ flag: '--inspection-evidence <path>', description: 'Genuine completed inspection evidence JSON side input for review-context; requires Stage 5B attachment authorization' }),
+  Object.freeze({ flag: '--attachment-authorization <path>', description: 'Stage 5B authorization control record required with --inspection-evidence; it is not inspection evidence' }),
 ]);
 
 const WORKFLOW_SPECIFIC_OPTIONS = Object.freeze([
@@ -613,7 +615,8 @@ const WORKFLOW_SPECIFIC_OPTIONS = Object.freeze([
   Object.freeze({ flag: '--weights-preset P', description: 'QA weight profile: default|auto|flange|shaft|...' }),
   Object.freeze({ flag: '--strict', description: 'Treat warnings as errors (with validate/dfm)' }),
   Object.freeze({ flag: '--strict-boundary', description: 'Fail closeout-package if the source package or generated text crosses the evidence boundary' }),
-  Object.freeze({ flag: '--strict-quality', description: 'Fail create only when blocking create-quality checks are found' }),
+  Object.freeze({ flag: '--strict-quality', description: 'Fail create or draw when blocking quality checks are found' }),
+  Object.freeze({ flag: '--generated-at <iso8601>', description: 'Use a fixed release bundle timestamp with pack for deterministic bundle metadata and ZIP entries' }),
   Object.freeze({ flag: '--manifest-out <path>', description: 'Write a provenance manifest for stdout-oriented commands such as inspect/fem/tolerance/dfm' }),
   Object.freeze({ flag: '--recommend', description: 'Auto-recommend fit specs (with tolerance)' }),
   Object.freeze({ flag: '--csv', description: 'Export tolerance report as CSV (with tolerance)' }),
@@ -746,6 +749,29 @@ export function getCommandManifest() {
 export function getCommandEntry(commandName) {
   const entry = COMMAND_MANIFEST.find((command) => command.name === commandName);
   return entry ? deepClone(entry) : null;
+}
+
+export function renderCommandUsage(commandName) {
+  const entry = getCommandEntry(commandName);
+  if (!entry) return null;
+  if (entry.name === 'serve') return renderServeUsage();
+
+  const lines = [
+    `fcad ${entry.name}`,
+    '',
+    'Usage:',
+    ...renderAlignedHelpLines(entry.helpEntries),
+    '',
+    'Runtime:',
+    `  ${entry.runtime?.classification || 'unknown'}${entry.runtime?.requiresFreecadRuntime ? ' (FreeCAD runtime required)' : ''}`,
+  ];
+
+  if (entry.runtime?.note) {
+    lines.push(`  ${entry.runtime.note}`);
+  }
+
+  lines.push('', 'Use `fcad --help` for shared options, examples, and the full command list.');
+  return lines.join('\n').trim();
 }
 
 export function getServeEntrypointMetadata() {

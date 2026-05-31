@@ -688,7 +688,7 @@ function createStartActionsCard(state) {
         },
         {
           kicker: 'Export / pack',
-          title: 'Package release-ready outputs',
+          title: 'Package readiness-backed outputs',
           copy: 'Keep the final export step grounded in readiness-backed artifacts, docs manifests, and release bundles instead of ad hoc downloads.',
           meta: latestPackJob ? 'Release pack available' : 'No release bundle yet',
           controls: [
