@@ -64,6 +64,39 @@ function validateStage5bAuditOptions(options, errors) {
   }
 }
 
+function validateInspectionEvidenceIntakeOptions(options, errors) {
+  if (options === undefined) return;
+  if (!isPlainObject(options)) return;
+  const unsupportedOptions = Object.keys(options).filter((key) => !['include_github', 'package_slugs'].includes(key));
+  if (unsupportedOptions.length > 0) {
+    errors.push(`inspection-evidence-intake options only accepts include_github and package_slugs; unsupported option(s): ${unsupportedOptions.join(', ')}.`);
+  }
+  if (
+    Object.hasOwn(options, 'include_github')
+    && typeof options.include_github !== 'boolean'
+  ) {
+    errors.push('inspection-evidence-intake options.include_github must be a boolean when provided.');
+  }
+  if (
+    Object.hasOwn(options, 'package_slugs')
+    && (!Array.isArray(options.package_slugs)
+      || options.package_slugs.some((slug) => typeof slug !== 'string' || slug.trim().length === 0))
+  ) {
+    errors.push('inspection-evidence-intake options.package_slugs must be an array of non-empty strings when provided.');
+  }
+}
+
+function buildInspectionEvidenceIntakeOptions(request) {
+  const options = {};
+  if (request.options?.include_github === true || request.options?.include_github === false) {
+    options.include_github = request.options.include_github;
+  }
+  if (Array.isArray(request.options?.package_slugs)) {
+    options.package_slugs = request.options.package_slugs.map((slug) => slug.trim());
+  }
+  return options;
+}
+
 function buildStage5bAuditOptions(request) {
   const options = {};
   if (request.options?.include_github === true || request.options?.include_github === false) {
@@ -279,6 +312,7 @@ export function validateStudioJobSubmission(body) {
     if (unsupportedIntakeFields.length > 0) {
       errors.push(`inspection-evidence-intake does not accept ${unsupportedIntakeFields.join(', ')}.`);
     }
+    validateInspectionEvidenceIntakeOptions(request.options, errors);
   } else if (request.type === 'inspection-evidence-promotion-dry-run') {
     const unsupportedDryRunFields = [
       'config_toml',
@@ -437,12 +471,13 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
   }
 
   if (request.type === 'inspection-evidence-intake') {
+    const options = buildInspectionEvidenceIntakeOptions(request);
     return {
       ok: true,
       errors: [],
       request: {
         type: 'inspection-evidence-intake',
-        ...(isPlainObject(request.options) ? { options: structuredClone(request.options) } : {}),
+        ...(Object.keys(options).length > 0 ? { options } : {}),
       },
     };
   }

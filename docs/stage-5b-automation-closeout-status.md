@@ -1,6 +1,6 @@
 # Stage 5B automation closeout status
 
-This document summarizes the Stage 5B automation chain through PR [#138](https://github.com/dooosp/freecad-automation/pull/138). It is a software/status closeout only. It does not attach inspection evidence, mutate canonical package artifacts, regenerate readiness, or claim production readiness.
+This document summarizes the Stage 5B automation chain through PR [#139](https://github.com/dooosp/freecad-automation/pull/139). It is a software/status closeout only. It does not attach inspection evidence, mutate canonical package artifacts, regenerate readiness, or claim production readiness.
 
 For day-to-day CLI/API/Studio operation, diagnostics, expected no-evidence output, and validation commands, use the [Stage 5B operational runbook](./stage-5b-operational-runbook.md). For supplier, lab, QA, or physical-inspection request wording before any candidate enters review, use the [Stage 5B evidence request packet](./stage-5b-evidence-request-packet.md). For future human sign-off metadata before canonical mutation, use the [Stage 5B attachment authorization record](./stage-5b-attachment-authorization-record.md). For the concise producer/schema/preview/evidence/readiness map of Stage 5B control outputs, use the [Stage 5B artifact/schema catalog](./stage-5b-artifact-schema-catalog.md).
 
@@ -27,6 +27,7 @@ For day-to-day CLI/API/Studio operation, diagnostics, expected no-evidence outpu
 | [#136](https://github.com/dooosp/freecad-automation/pull/136) | Merged | `447ee806f1b102e5d7d1cfdbfe3976e390d29b10` | Hardened the schema-backed candidate gate report contract while preserving the non-evidence boundary. |
 | [#137](https://github.com/dooosp/freecad-automation/pull/137) | Merged | `0c3467d9425e9999f7ccada28adf8f613ebb7efc` | Added the Stage 5B artifact/schema catalog while preserving control-output non-evidence and readiness-held boundaries. |
 | [#138](https://github.com/dooosp/freecad-automation/pull/138) | Merged | `79cba7ab72cbaadc3f0c65a3a11bbaa24adf7339` | Added the Stage 5B pre-attachment checklist for accepted candidate gate reports while preserving the no-evidence readiness truth. |
+| [#139](https://github.com/dooosp/freecad-automation/pull/139) | Merged | `fd921e4b24fc5fcb3384dc4150355e78b1b1e80c` | Added the Stage 5B attachment authorization record for future human authorization metadata before any canonical attachment task. |
 
 ## Handoff ledger
 
@@ -36,13 +37,14 @@ Use this ordered handoff when maintainers need to see the complete Stage 5B chai
 2. Local-only candidate inbox: place newly received JSON and gate reports under ignored `local/stage5b-candidate-evidence-inbox/<package-slug>/`. Do not commit raw records, secrets, private URLs, PII, or supplier/lab/QA records from this inbox.
 3. Candidate evidence gate: run `node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json> --out <report.json>` for a newly supplied JSON record. The gate produces an accept/reject checklist only.
 4. Pre-attachment review checklist: when a candidate gate report is accepted, verify provenance/reviewer traceability, package/part/revision mapping, redaction/privacy review, path safety, next intake/dry-run/audit commands, authorization before attachment, exact later task boundary for attachment, and readiness-held truth before any later authorized attachment task.
-5. Stage 5B attachment authorization record: use `docs/stage-5b-attachment-authorization-record.md` as control metadata only after accepted gate, privacy, provenance, mapping, intake, dry-run, and audit review are complete. Authorization records do not attach evidence or satisfy readiness.
-6. Artifact/schema catalog: use `docs/stage-5b-artifact-schema-catalog.md` to identify each control output's producer, schema or contract, preview boundary, non-evidence status, and readiness effect.
-7. Intake: run `inspection-evidence-intake` to search allowed sources and classify candidates without mutating canonical packages, only after the task explicitly authorizes intake review.
-8. Promotion dry-run: run `inspection-evidence-promotion-dry-run` from an intake report to plan future attachment only when a genuine validated candidate is attachment-ready.
-9. Audit: run `stage5b-evidence-audit` to write `intake_report.json`, `promotion_dry_run_manifest.json`, `stage5b_audit_manifest.json`, and `stage5b_audit_summary.md` as a non-mutating bundle.
-10. Studio/API review: queue intake, promotion dry-run, and audit jobs through `/jobs` or `/api/studio/jobs`; Review previews registered artifacts through tracked routes only.
-11. No-evidence lane: run `npm run test:stage5b:no-evidence` to prove the current documented CLI path finds no genuine evidence, promotes nothing, and leaves canonical artifacts unchanged.
+5. Stage 5B attachment authorization record template: use `docs/stage-5b-attachment-authorization-record.md` as the control-metadata template/reference while planning the review path. Do not complete or treat that record as authorization until intake, dry-run, and audit outputs have been reviewed.
+6. Intake: run `inspection-evidence-intake` to search allowed sources and classify candidates without mutating canonical packages, only after the task explicitly authorizes intake review.
+7. Promotion dry-run: run `inspection-evidence-promotion-dry-run` from an intake report to plan future attachment only when a genuine validated candidate is attachment-ready.
+8. Audit: run `stage5b-evidence-audit` to write `intake_report.json`, `promotion_dry_run_manifest.json`, `stage5b_audit_manifest.json`, and `stage5b_audit_summary.md` as a non-mutating bundle.
+9. Studio/API review: queue intake, promotion dry-run, and audit jobs through `/jobs` or `/api/studio/jobs`; Review previews registered artifacts through tracked routes only.
+10. No-evidence lane: run `npm run test:stage5b:no-evidence` to prove the current documented CLI path finds no genuine evidence, promotes nothing, and leaves canonical artifacts unchanged.
+11. Artifact/schema catalog: use `docs/stage-5b-artifact-schema-catalog.md` to identify each control output's producer, schema or contract, preview boundary, non-evidence status, and readiness effect.
+12. Attachment authorization before mutation: complete or reference the Stage 5B attachment authorization record only after accepted gate, privacy, provenance, mapping, intake, dry-run, audit, and no-evidence review are complete. Authorization records do not attach evidence or satisfy readiness.
 
 The unchanged readiness truth across this chain is `needs_more_evidence / hold_for_evidence_completion`. No genuine completed `inspection_evidence` has been found or attached.
 

@@ -74,6 +74,34 @@ try {
   assert.equal(inspectionEvidenceIntake.ok, true, inspectionEvidenceIntake.errors?.join('\n'));
   assert.deepEqual(inspectionEvidenceIntake.request.options.package_slugs, ['quality-pass-bracket', 'hinge-block']);
 
+  const invalidInspectionEvidenceIntakeRepo = validateJobRequest({
+    type: 'inspection-evidence-intake',
+    options: {
+      include_github: false,
+      github_repo: 'other/repo',
+    },
+  });
+  assert.equal(invalidInspectionEvidenceIntakeRepo.ok, false);
+  assert.match(invalidInspectionEvidenceIntakeRepo.errors.join('\n'), /options only accepts include_github and package_slugs|github_repo/);
+
+  const invalidInspectionEvidenceIntakeAlias = validateJobRequest({
+    type: 'inspection-evidence-intake',
+    options: {
+      github: true,
+    },
+  });
+  assert.equal(invalidInspectionEvidenceIntakeAlias.ok, false);
+  assert.match(invalidInspectionEvidenceIntakeAlias.errors.join('\n'), /options only accepts include_github and package_slugs|github/);
+
+  const invalidInspectionEvidenceIntakeIncludeGitHub = validateJobRequest({
+    type: 'inspection-evidence-intake',
+    options: {
+      include_github: 'yes',
+    },
+  });
+  assert.equal(invalidInspectionEvidenceIntakeIncludeGitHub.ok, false);
+  assert.match(invalidInspectionEvidenceIntakeIncludeGitHub.errors.join('\n'), /include_github.*boolean/i);
+
   const invalidInspectionEvidenceIntakePath = validateJobRequest({
     type: 'inspection-evidence-intake',
     out: '/tmp/private/intake-report.json',

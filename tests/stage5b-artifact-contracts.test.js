@@ -162,6 +162,26 @@ try {
     /readiness_remains_held|promotion_can_run|no genuine/i
   );
 
+  const malformedAuditAttachmentCandidate = clone(audit);
+  malformedAuditAttachmentCandidate.attachment_ready = {
+    count: 1,
+    candidates: [
+      {
+        path: 'docs/examples/quality-pass-bracket/inspection/inspection_evidence.json',
+        source_kind: 'tracked_repo_file',
+        source_format: 'json',
+        matched_package: 'quality-pass-bracket',
+        match_confidence: 'certain',
+        fixture_or_test_source: false,
+      },
+    ],
+  };
+  assertFails(
+    'audit attachment-ready confidence contract',
+    validateStage5bAuditManifest(malformedAuditAttachmentCandidate),
+    /match_confidence|allowed value|enum/i
+  );
+
   assertFails(
     'summary markdown wording missing boundary',
     validateStage5bAuditSummaryMarkdown(summaryMarkdown.replace(/Readiness remains held: yes/i, 'Readiness complete: yes')),

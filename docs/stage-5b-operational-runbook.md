@@ -100,8 +100,9 @@ it does not attach evidence, promote evidence, satisfy readiness, or mutate
 canonical artifacts.
 
 1. Accepted gate report: keep the accepted candidate gate report with the record
-   under the ignored local inbox or another explicitly authorized local control
-   path, and verify the report is schema-valid and non-mutating.
+   under the ignored local inbox, or keep any alternate private-control material
+   outside the repository root, and verify the report is schema-valid and
+   non-mutating.
 2. Provenance and reviewer traceability: verify the candidate carries inspector,
    reviewer/approver, source reference, and traceability refs without relying on
    a PR body, comment, screenshot, release asset, generated report, or human-typed

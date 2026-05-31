@@ -575,12 +575,9 @@ function validateOptionsObject(value, fieldName, errors) {
 }
 
 function normalizeIntakePackageSlugs(options = {}) {
-  const value = options.package_slugs ?? options.packages ?? options.package ?? null;
+  const value = options.package_slugs ?? null;
   if (Array.isArray(value)) {
     return value.map((entry) => String(entry || '').trim()).filter(Boolean);
-  }
-  if (typeof value === 'string') {
-    return value.split(',').map((entry) => entry.trim()).filter(Boolean);
   }
   return undefined;
 }
@@ -619,6 +616,31 @@ function validatePromotionDryRunRequest(request, errors) {
 
   if (hasPath && hasArtifactRef) {
     errors.push('inspection-evidence-promotion-dry-run accepts only one intake report source.');
+  }
+}
+
+function validateInspectionEvidenceIntakeRequest(request, errors) {
+  if (request.type !== 'inspection-evidence-intake') return;
+  if (request.options !== undefined && !isPlainObject(request.options)) return;
+
+  const options = request.options || {};
+  const optionKeys = Object.keys(options);
+  const unsupportedOptions = optionKeys.filter((key) => !['include_github', 'package_slugs'].includes(key));
+  if (unsupportedOptions.length > 0) {
+    errors.push(`inspection-evidence-intake options only accepts include_github and package_slugs; unsupported option(s): ${unsupportedOptions.join(', ')}.`);
+  }
+  if (
+    Object.hasOwn(options, 'include_github')
+    && typeof options.include_github !== 'boolean'
+  ) {
+    errors.push('inspection-evidence-intake options.include_github must be a boolean when provided.');
+  }
+  if (
+    Object.hasOwn(options, 'package_slugs')
+    && (!Array.isArray(options.package_slugs)
+      || options.package_slugs.some((slug) => typeof slug !== 'string' || slug.trim().length === 0))
+  ) {
+    errors.push('inspection-evidence-intake options.package_slugs must be an array of non-empty strings when provided.');
   }
 }
 
@@ -669,6 +691,7 @@ export function validateJobRequest(body) {
     if (Object.hasOwn(request, 'config') && request.config !== undefined) {
       validateOptionsObject(request.config, 'config', errors);
     }
+    validateInspectionEvidenceIntakeRequest(request, errors);
     validatePromotionDryRunRequest(request, errors);
     validateStage5bAuditRequest(request, errors);
   }
@@ -1177,8 +1200,8 @@ export function createJobExecutor({
     const report = await discoverInspectionEvidenceIntake({
       projectRoot,
       packageSlugs: normalizeIntakePackageSlugs(options),
-      includeGitHub: options.include_github === true || options.github === true,
-      githubRepo: options.github_repo || 'dooosp/freecad-automation',
+      includeGitHub: options.include_github === true,
+      githubRepo: 'dooosp/freecad-automation',
     });
     const reportPath = await jobStore.writeJobFile(
       job.id,

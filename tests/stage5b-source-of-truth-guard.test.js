@@ -420,6 +420,7 @@ assert.match(docs.closeout, /PR #135|\[#135\]/, 'Stage 5B closeout should includ
 assert.match(docs.closeout, /PR #136|\[#136\]/, 'Stage 5B closeout should include the PR #136 candidate gate schema state');
 assert.match(docs.closeout, /PR #137|\[#137\]/, 'Stage 5B closeout should include the PR #137 artifact catalog state');
 assert.match(docs.closeout, /PR #138|\[#138\]/, 'Stage 5B closeout should include the PR #138 pre-attachment checklist state');
+assert.match(docs.closeout, /PR #139|\[#139\]/, 'Stage 5B closeout should include the PR #139 attachment authorization record state');
 assert.match(docs.closeout, /\[Stage 5B operational runbook\]\(\.\/stage-5b-operational-runbook\.md\)/, 'Stage 5B closeout should link the operational runbook');
 assert.match(docs.closeout, /\[Stage 5B evidence request packet\]\(\.\/stage-5b-evidence-request-packet\.md\)/, 'Stage 5B closeout should link the evidence request packet');
 assert.match(docs.closeout, /\[Stage 5B attachment authorization record\]\(\.\/stage-5b-attachment-authorization-record\.md\)/, 'Stage 5B closeout should link the attachment authorization record');
@@ -533,6 +534,13 @@ const intakeSubmission = validateStudioJobSubmission({
   options: { include_github: false },
 });
 assert.equal(intakeSubmission.ok, true, intakeSubmission.errors.join('\n'));
+
+const invalidIntakeGithubRepoSubmission = validateStudioJobSubmission({
+  type: 'inspection-evidence-intake',
+  options: { github_repo: 'other/repo' },
+});
+assert.equal(invalidIntakeGithubRepoSubmission.ok, false);
+assert.match(invalidIntakeGithubRepoSubmission.errors.join('\n'), /options only accepts include_github and package_slugs|github_repo/);
 
 const auditSubmission = await translateStudioJobSubmission({
   type: 'stage5b-evidence-audit',

@@ -102,7 +102,7 @@ Older portfolio and case-study material is still useful after the canonical rout
 - `npm run test:stage5b:no-evidence`: focused local non-production CLI lane for the Stage 5B no-evidence path across intake, promotion dry-run, and audit
 - `npm run test:node:integration`: fast hosted-safe Node integration checks for local API/studio bridge routes, browserless studio and legacy serve smoke, sweep, draw/report service wiring, and rule profiles
 - `npm run test:snapshots`: normalized SVG/report snapshot regressions
-- `npm run test:studio-browser-smoke`: Chrome/CDP Studio browser smoke for shell routing, canonical package cards, safe preview, and release bundle non-action boundaries without FreeCAD runtime execution
+- `npm run test:studio-browser-smoke`: local/manual Chrome/CDP Studio browser smoke for shell routing, canonical package cards, safe preview, and release bundle non-action boundaries without FreeCAD runtime execution; this lane is not part of `npm test` or hosted Automation CI unless a dedicated browser job is added
 - `npm run test:py`: Python 3.11+ lane for non-runtime Python and CLI-adjacent regressions
 - `npm run test:runtime-smoke`: real FreeCAD-backed smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, narrow `tolerance --csv`, and `report`
 

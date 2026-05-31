@@ -113,9 +113,16 @@ function assertCandidateReportContract(report, label, { eligible }) {
   assert.equal(report.decision.does_not_promote_evidence, true, `${label} decision should not promote evidence`);
   assert.equal(report.decision.does_not_satisfy_readiness, true, `${label} decision should not satisfy readiness`);
   assert.equal(report.decision.does_not_mutate_canonical_artifacts, true, `${label} decision should not mutate canonical artifacts`);
+  assert.equal(report.decision.later_attachment_authorization_required, true, `${label} should require later attachment authorization`);
   assert.match(report.decision.reviewer_note, /only a pre-intake eligibility signal/i);
+  assert.match(report.decision.reviewer_note, /later explicit attachment authorization/i);
   assert.equal(report.report_contract.passing_report_means, STAGE5B_CANDIDATE_GATE_PASSING_MEANING);
-  for (const field of ['evidence_attached', 'evidence_promoted', 'readiness_satisfied', 'canonical_artifacts_mutated']) {
+  assert.equal(
+    report.report_contract.authorization_boundary_field,
+    'decision.later_attachment_authorization_required',
+    `${label} should expose the authorization boundary field`
+  );
+  for (const field of ['evidence_attached', 'evidence_promoted', 'readiness_satisfied', 'canonical_artifacts_mutated', 'attachment_authorized']) {
     assert.equal(
       report.report_contract.passing_report_does_not_mean.includes(field),
       true,
@@ -135,6 +142,9 @@ function assertCandidateReportContract(report, label, { eligible }) {
   assert.equal(report.readiness_unchanged.genuine_evidence_attached, false);
   assert.equal(report.readiness_unchanged.evidence_promoted, false);
   assert.equal(report.readiness_unchanged.readiness_satisfied, false);
+  assert.equal(report.readiness_unchanged.promotion_authorized, false);
+  assert.equal(report.readiness_unchanged.attachment_authorization_required, true);
+  assert.match(report.readiness_unchanged.note, /later explicitly authorized attachment task/i);
   assert.equal(report.path_safety.safe_repo_relative_paths_required, true);
   assert.equal(report.path_safety.absolute_paths_rejected, true);
   assert.equal(report.path_safety.traversal_rejected, true);
@@ -217,6 +227,14 @@ try {
     'candidate report missing path redaction note',
     validateStage5bCandidateGateReport(missingBoundary),
     /path_safety\/redaction_note|redaction_note/i
+  );
+
+  const missingAuthorizationBoundary = clone(accepted);
+  missingAuthorizationBoundary.decision.later_attachment_authorization_required = false;
+  assertFailsValidation(
+    'candidate report missing later attachment authorization boundary',
+    validateStage5bCandidateGateReport(missingAuthorizationBoundary),
+    /later_attachment_authorization_required|attachment authorization/i
   );
 
   const missingCompleted = evaluateStage5bCandidateEvidence({
