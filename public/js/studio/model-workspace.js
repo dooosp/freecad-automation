@@ -388,10 +388,10 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
 
   function syncSourceSummary() {
     renderInfoRows(sourceSummaryElement, [
-      ['소스', model.sourceType || '로드되지 않음'],
-      ['이름', model.sourceName || '제목 없는 설정'],
-      ['참조', model.sourcePath || '메모리 초안'],
-      ['편집', model.editingEnabled ? '사용' : '사용 안 함'],
+      ['Source', model.sourceType || 'Not loaded'],
+      ['Name', model.sourceName || 'Untitled config'],
+      ['Reference', model.sourcePath || 'In-memory draft'],
+      ['Editing', model.editingEnabled ? 'Enabled' : 'Disabled'],
     ]);
   }
 
@@ -400,19 +400,19 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     renderValidationNotes(
       validationWarningsElement,
       collectValidationNotes(model.validation),
-      '첫 검증 이후 검증 메모와 마이그레이션 경고가 여기에 표시됩니다.',
+      'Validation notes and migration warnings will appear here after the first validation.',
     );
   }
 
   function syncTrackedValidationNotes() {
     const validationNotes = collectValidationNotes(model.validation);
     const summaryCopy = validationNotes.length > 0
-      ? `추적 실행은 대기열에 넣기 전에 현재 TOML과 검증 메모 ${validationNotes.length}개를 함께 사용합니다.`
+      ? `Tracked runs will use the current TOML plus ${validationNotes.length} validation notes before queueing.`
       : '';
     renderValidationNotes(
       trackedValidationNotesElement,
       validationNotes,
-      '추적 생성 및 보고 실행은 검증 후 현재 TOML을 대기열에 넣습니다. 경고나 사용 중단 필드는 제출 전에 여기 표시됩니다.',
+      'Tracked create and report runs queue the current TOML after validation. Warnings and deprecations appear here before submit.',
       summaryCopy,
     );
   }
@@ -423,7 +423,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
       modelInfoElement.classList.remove('open');
       const empty = document.createElement('p');
       empty.className = 'inline-note';
-      empty.textContent = '메타데이터, 바운딩 박스, 파생 형상 정보를 보려면 모델을 빌드하세요.';
+      empty.textContent = 'Build a model to see metadata, bounding boxes, and derived geometry.';
       modelInfoElement.append(empty);
       return;
     }
@@ -442,8 +442,8 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
   function syncSummaryText() {
     statusSummaryElement.textContent = model.buildSummary;
     viewportCaptionElement.textContent = model.preview
-      ? '최신 미리보기를 뷰포트에서 바로 검토하세요. 생성 이력과 후속 산출물을 위한 추적 생성/보고는 계속 병행할 수 있습니다.'
-      : '뷰포트가 중심에 남아 있어서 워크플로우가 입력 선택 → 미리보기 → 결과 검토 순서로 읽힙니다.';
+      ? 'Inspect the latest preview directly in the viewport. Tracked create/report can still run beside it for provenance and follow-on outputs.'
+      : 'The viewport stays dominant so the workflow reads as source selection -> preview -> result review.';
   }
 
   function syncButtons() {

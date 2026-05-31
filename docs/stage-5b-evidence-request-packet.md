@@ -180,7 +180,7 @@ fcad inspection-evidence-promotion-dry-run --intake-report <report.json> --out <
 Acceptance by the candidate gate only means the record may enter intake/dry-run
 review. It does not prove readiness, attach evidence, mutate canonical package
 artifacts, or authorize promotion. A later task must explicitly approve any
-canonical mutation through `review-context --inspection-evidence`,
+canonical mutation through `review-context --inspection-evidence --attachment-authorization`,
 `readiness-pack`, `generate-standard-docs`, and `pack`.
 
 Before that later mutation task, maintainers must complete or reference the
@@ -242,7 +242,7 @@ evidence, promote evidence, satisfy readiness, or change package state.
    until a separate later task explicitly authorizes canonical mutation after
    validation and review.
 9. Exact later attachment task boundary: name the later task, issue, PR, or
-   change request allowed to run `review-context --inspection-evidence`; PR
+   change request allowed to run `review-context --inspection-evidence --attachment-authorization`; PR
    comments, authorization records, gate reports, inbox files, catalogs,
    schemas, dry-runs, and audits do not attach evidence or expand that boundary
    by themselves.

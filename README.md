@@ -78,13 +78,14 @@ fcad review-context \
   --drawing-intent docs/examples/quality-pass-bracket/drawing/quality_pass_bracket_drawing_intent.json \
   --feature-catalog docs/examples/quality-pass-bracket/drawing/quality_pass_bracket_feature_catalog.json \
   --inspection-evidence <PATH_TO_COMPLETED_REAL_JSON> \
+  --attachment-authorization <AUTHORIZATION_RECORD_JSON> \
   --out <UPDATED_REVIEW_PACK_JSON>
 fcad readiness-pack --review-pack <UPDATED_REVIEW_PACK_JSON> --out <UPDATED_READINESS_REPORT_JSON>
 fcad generate-standard-docs docs/examples/quality-pass-bracket/config.toml --readiness-report <UPDATED_READINESS_REPORT_JSON> --out-dir <UPDATED_STANDARD_DOCS_DIR>
 fcad pack --readiness <UPDATED_READINESS_REPORT_JSON> --out <UPDATED_RELEASE_BUNDLE_ZIP>
 ```
 
-Only use `--inspection-evidence <PATH_TO_COMPLETED_REAL_JSON>` for a completed real inspection JSON that validates against the inspection evidence contract. Do not use `tests/fixtures/inspection-evidence/valid-manual-caliper-inspection.json`, `docs/inspection-evidence-collection/quality-pass-bracket.md`, generated CAD quality reports, drawing quality reports, readiness reports, or review packs as package inspection evidence.
+Only use `--inspection-evidence <PATH_TO_COMPLETED_REAL_JSON> --attachment-authorization <AUTHORIZATION_RECORD_JSON>` for a completed real inspection JSON that validates against the inspection evidence contract and has explicit Stage 5B human authorization. Do not use `tests/fixtures/inspection-evidence/valid-manual-caliper-inspection.json`, `docs/inspection-evidence-collection/quality-pass-bracket.md`, generated CAD quality reports, drawing quality reports, readiness reports, or review packs as package inspection evidence.
 
 Studio supports read-only canonical package cards and allowlisted artifact preview through the local API. Tracked job/artifact reopen remains separate, and checked-in canonical package discovery is not arbitrary local file import.
 
@@ -102,7 +103,7 @@ Older portfolio and case-study material is still useful after the canonical rout
 - `npm run test:stage5b:no-evidence`: focused local non-production CLI lane for the Stage 5B no-evidence path across intake, promotion dry-run, and audit
 - `npm run test:node:integration`: fast hosted-safe Node integration checks for local API/studio bridge routes, browserless studio and legacy serve smoke, sweep, draw/report service wiring, and rule profiles
 - `npm run test:snapshots`: normalized SVG/report snapshot regressions
-- `npm run test:studio-browser-smoke`: local/manual Chrome/CDP Studio browser smoke for shell routing, canonical package cards, safe preview, and release bundle non-action boundaries without FreeCAD runtime execution; this lane is not part of `npm test` or hosted Automation CI unless a dedicated browser job is added
+- `npm run test:studio-browser-smoke`: Chrome/CDP Studio browser smoke for shell routing, canonical package cards, safe preview, and release bundle non-action boundaries without FreeCAD runtime execution; it runs locally and in the hosted Automation CI Studio browser smoke lane
 - `npm run test:py`: Python 3.11+ lane for non-runtime Python and CLI-adjacent regressions
 - `npm run test:runtime-smoke`: real FreeCAD-backed smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, narrow `tolerance --csv`, and `report`
 
@@ -228,11 +229,11 @@ fcad ingest --model <file> [--bom bom.csv] [--inspection inspection.csv] [--qual
 fcad analyze-part <context.json|model.step>
 fcad quality-link --context <context.json> --geometry <geometry.json>
 fcad review-pack --context <context.json> --geometry <geometry.json>
-fcad review-context --model <file> [--bom bom.csv] [--inspection inspection.csv] [--quality quality.csv] [--create-quality create_quality.json] [--drawing-quality drawing_quality.json] [--drawing-qa drawing_qa.json] [--drawing-intent drawing_intent.json] [--feature-catalog feature_catalog.json] [--dfm-report dfm_report.json] [--inspection-evidence inspection_evidence.json] --out <review_pack.json>
+fcad review-context --model <file> [--bom bom.csv] [--inspection inspection.csv] [--quality quality.csv] [--create-quality create_quality.json] [--drawing-quality drawing_quality.json] [--drawing-qa drawing_qa.json] [--drawing-intent drawing_intent.json] [--feature-catalog feature_catalog.json] [--dfm-report dfm_report.json] [--inspection-evidence inspection_evidence.json --attachment-authorization authorization_record.json] --out <review_pack.json>
 fcad compare-rev <baseline.json> <candidate.json>
 ```
 
-`review-context` accepts explicit package-side evidence inputs for checked-in create quality, drawing quality, drawing QA, drawing intent, feature catalog, and DFM report JSON. It also accepts `--inspection-evidence <path>` for a genuine inspection evidence JSON file that passes the inspection evidence contract. These paths are normalized to portable repo-relative source refs in `review_pack.json`; unsafe outside-repo, ignored output, task-status scratch, or ignored Stage 5B candidate inbox paths are not linked as canonical evidence. Quality/drawing/DFM side inputs can close `quality_evidence`, and drawing intent or feature catalogs are recorded as drawing/design-traceability context, but none of these generated side inputs satisfy `inspection_evidence`. Readiness recognizes only the explicit validated `inspection_evidence` record written into the review pack.
+`review-context` accepts explicit package-side evidence inputs for checked-in create quality, drawing quality, drawing QA, drawing intent, feature catalog, and DFM report JSON. It also accepts `--inspection-evidence <path>` for a genuine inspection evidence JSON file that passes the inspection evidence contract, but that path now requires `--attachment-authorization <path>` for the Stage 5B human authorization control record. These paths are normalized to portable repo-relative source refs in `review_pack.json`; unsafe outside-repo, ignored output, task-status scratch, or ignored Stage 5B candidate inbox paths are not linked as canonical evidence. Quality/drawing/DFM side inputs can close `quality_evidence`, and drawing intent or feature catalogs are recorded as drawing/design-traceability context, but none of these generated side inputs satisfy `inspection_evidence`. Readiness recognizes only the explicit validated and authorized `inspection_evidence` record written into the review pack.
 
 ### Imported CAD Bootstrap Lane
 

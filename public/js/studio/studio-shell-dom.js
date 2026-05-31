@@ -78,8 +78,8 @@ export function localizedBootMessage(key = 'assets', {
       contract: 'Studio shell markup did not match the expected browser contract. Reload and check the server static routes.',
     },
     ko: {
-      assets: 'Studio 자산을 불러오지 못했습니다. 새로고침하거나 서버 정적 라우트를 확인하세요.',
-      contract: 'Studio 셸 마크업이 예상한 브라우저 계약과 맞지 않습니다. 새로고침하거나 서버 정적 라우트를 확인하세요.',
+      assets: 'Studio \uc790\uc0b0\uc744 \ubd88\ub7ec\uc624\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4. \uc0c8\ub85c\uace0\uce68\ud558\uac70\ub098 \uc11c\ubc84 \uc815\uc801 \ub77c\uc6b0\ud2b8\ub97c \ud655\uc778\ud558\uc138\uc694.',
+      contract: 'Studio \uc178 \ub9c8\ud06c\uc5c5\uc774 \uc608\uc0c1\ud55c \ube0c\ub77c\uc6b0\uc800 \uacc4\uc57d\uacfc \ub9de\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4. \uc0c8\ub85c\uace0\uce68\ud558\uac70\ub098 \uc11c\ubc84 \uc815\uc801 \ub77c\uc6b0\ud2b8\ub97c \ud655\uc778\ud558\uc138\uc694.',
     },
   };
   return messages[locale]?.[key] || messages.en[key];

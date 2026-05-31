@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-import { validateInspectionEvidence } from '../lib/inspection-evidence.js';
+import {
+  validateAttachmentAuthorization,
+  validateInspectionEvidence,
+} from '../lib/inspection-evidence.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const VALID_FIXTURE_PATH = join(
@@ -15,6 +18,10 @@ function readJson(filePath) {
 }
 
 const VALID_INSPECTION_FIXTURE = readJson(VALID_FIXTURE_PATH);
+const VALID_AUTHORIZATION_FIXTURE = readJson(join(
+  ROOT,
+  'tests/fixtures/inspection-evidence/stage5b-attachment-authorization.valid.json'
+));
 
 function validInspectionEvidence(overrides = {}) {
   return {
@@ -240,5 +247,41 @@ assertFails(
   validInspectionEvidence({ source_ref: undefined, source_file: 'tmp/codex/inspection.json' }),
   /source_file|safe repo-relative/i
 );
+
+assertFails(
+  'ignored Stage 5B candidate inbox source file',
+  validInspectionEvidence({
+    source_ref: undefined,
+    source_file: 'local/stage5b-candidate-evidence-inbox/quality-pass-bracket/inspection.json',
+  }),
+  /source_file|safe repo-relative/i
+);
+
+const validAuthorization = validateAttachmentAuthorization(VALID_AUTHORIZATION_FIXTURE, {
+  expectedInspectionEvidenceRef: 'tests/fixtures/inspection-evidence/valid-manual-caliper-inspection.json',
+});
+assert.equal(
+  validAuthorization.ok,
+  true,
+  `fixture attachment authorization should pass:\n${validAuthorization.errors.join('\n')}`
+);
+
+const mismatchedAuthorization = validateAttachmentAuthorization({
+  ...VALID_AUTHORIZATION_FIXTURE,
+  reviewed_redacted_evidence_json_ref: 'tests/fixtures/inspection-evidence/other.json',
+}, {
+  expectedInspectionEvidenceRef: 'tests/fixtures/inspection-evidence/valid-manual-caliper-inspection.json',
+});
+assert.equal(mismatchedAuthorization.ok, false);
+assert.match(mismatchedAuthorization.errors.join('\n'), /must match the supplied inspection evidence path/i);
+
+const inboxAuthorization = validateAttachmentAuthorization({
+  ...VALID_AUTHORIZATION_FIXTURE,
+  candidate_gate_report_ref: 'local/stage5b-candidate-evidence-inbox/quality-pass-bracket/gate.json',
+}, {
+  expectedInspectionEvidenceRef: 'tests/fixtures/inspection-evidence/valid-manual-caliper-inspection.json',
+});
+assert.equal(inboxAuthorization.ok, false);
+assert.match(inboxAuthorization.errors.join('\n'), /must not expose ignored local inbox records/i);
 
 console.log('inspection-evidence-contract.test.js: ok');

@@ -97,6 +97,27 @@ jobs:
       - name: Run snapshot lane
         run: npm run test:snapshots
 
+  studio-browser-smoke:
+    name: Studio browser smoke lane
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install Node Dependencies
+        run: bash .github/scripts/retry.sh 3 15 npm ci --no-audit --prefer-offline
+
+      - name: Run Studio browser smoke lane
+        run: npm run test:studio-browser-smoke
+
   python:
     name: Python lane
     runs-on: ubuntu-24.04

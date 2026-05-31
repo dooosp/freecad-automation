@@ -55,7 +55,7 @@ is allowed to attach a reviewed/redacted genuine inspection record.
    satisfy readiness.
 7. Exact later task boundary for attachment: name the later task, issue, PR, or
    change request that is allowed to run canonical mutation. That later task is
-   the only boundary where `review-context --inspection-evidence`,
+   the only boundary where `review-context --inspection-evidence --attachment-authorization`,
    `readiness-pack`, `generate-standard-docs`, and `pack` may be run against the
    reviewed/redacted record.
 8. Readiness remains held until authorized attachment occurs: confirm readiness
@@ -84,7 +84,7 @@ do not invent missing measurements, reviewer data, provenance, or mapping.
 | Audit output reviewed | Safe ref plus readiness-held summary; control metadata only. |
 | Human authorizer | Named maintainer/owner who authorizes the later attachment task. |
 | Later attachment task boundary | Exact issue, PR, task, or change request allowed to run mutation. |
-| Approved commands | Explicit command boundary, usually `review-context --inspection-evidence`, `readiness-pack`, `generate-standard-docs`, and `pack`. |
+| Approved commands | Explicit command boundary, usually `review-context --inspection-evidence --attachment-authorization`, `readiness-pack`, `generate-standard-docs`, and `pack`. |
 | Readiness-held acknowledgement | Statement that readiness remains held until the later authorized attachment task completes. |
 
 ## Non-Evidence Boundary

@@ -7,7 +7,7 @@ This guide helps a human collect genuine inspection measurements for
 
 This guide is not readiness evidence. The package remains missing
 `inspection_evidence` until a real completed JSON file is attached through the
-Stage 5B `review-context --inspection-evidence <PATH_TO_COMPLETED_REAL_JSON>`
+Stage 5B `review-context --inspection-evidence <PATH_TO_COMPLETED_REAL_JSON> --attachment-authorization <AUTHORIZATION_RECORD_JSON>`
 flow and the selected review/readiness artifacts are regenerated.
 
 ## Evidence Boundary
@@ -150,4 +150,4 @@ node --input-type=module -e "import { readFileSync } from 'node:fs'; import { as
 
 Only after that separate evidence-gated cycle should the review, readiness,
 standard-doc, and release artifacts be regenerated with
-`review-context --inspection-evidence <PATH_TO_COMPLETED_REAL_JSON>`.
+`review-context --inspection-evidence <PATH_TO_COMPLETED_REAL_JSON> --attachment-authorization <AUTHORIZATION_RECORD_JSON>`.

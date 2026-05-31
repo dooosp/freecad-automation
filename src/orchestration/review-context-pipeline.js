@@ -8,7 +8,11 @@ import {
   readJsonFile,
   writeJsonFile,
 } from '../../lib/context-loader.js';
-import { assertValidInspectionEvidence } from '../../lib/inspection-evidence.js';
+import {
+  AttachmentAuthorizationValidationError,
+  assertValidAttachmentAuthorization,
+  assertValidInspectionEvidence,
+} from '../../lib/inspection-evidence.js';
 import { resolveModelAnalysisInputs } from '../../lib/model-analysis.js';
 import { generateConfigFromAnalysis } from '../api/model.js';
 
@@ -154,7 +158,7 @@ async function buildPackageEvidenceRecords(projectRoot, sideInputPaths = {}) {
   return { records, warnings: uniqueWarnings(warnings) };
 }
 
-async function buildInspectionEvidenceRecord(projectRoot, inspectionEvidencePath) {
+async function buildInspectionEvidenceRecord(projectRoot, inspectionEvidencePath, attachmentAuthorizationPath = null) {
   if (!inspectionEvidencePath) {
     return { record: null, warning: null };
   }
@@ -167,8 +171,27 @@ async function buildInspectionEvidenceRecord(projectRoot, inspectionEvidencePath
     return { record: null, warning: portable.warning };
   }
 
+  if (!attachmentAuthorizationPath) {
+    throw new AttachmentAuthorizationValidationError([
+      'review-context --inspection-evidence requires --attachment-authorization <authorization_record.json> after Stage 5B review authorization',
+    ], { path: inspectionEvidencePath });
+  }
+
+  const authorizationPortable = portableRepoPath(projectRoot, attachmentAuthorizationPath);
+  if (!authorizationPortable.ok) {
+    return { record: null, warning: authorizationPortable.warning };
+  }
+
+  const attachmentAuthorization = await readJsonFile(attachmentAuthorizationPath);
+  assertValidAttachmentAuthorization(attachmentAuthorization, {
+    path: attachmentAuthorizationPath,
+    expectedInspectionEvidenceRef: portable.sourceRef,
+  });
+
   const fileBuffer = await readFile(inspectionEvidencePath);
   const fileStat = await stat(inspectionEvidencePath);
+  const authorizationBuffer = await readFile(attachmentAuthorizationPath);
+  const authorizationStat = await stat(attachmentAuthorizationPath);
   return {
     record: {
       evidence_id: `package:inspection_evidence:${portable.sourceRef}`,
@@ -182,7 +205,16 @@ async function buildInspectionEvidenceRecord(projectRoot, inspectionEvidencePath
       sha256: createHash('sha256').update(fileBuffer).digest('hex'),
       label: 'Inspection evidence',
       inspection_evidence: true,
-      rationale: 'Validated inspection evidence supplied as explicit review-context side input.',
+      rationale: 'Validated inspection evidence supplied with explicit Stage 5B attachment authorization.',
+      attachment_authorization: {
+        record_type: 'stage5b_attachment_authorization',
+        source_ref: authorizationPortable.sourceRef,
+        file_name: basename(authorizationPortable.sourceRef),
+        size_bytes: authorizationStat.size,
+        sha256: createHash('sha256').update(authorizationBuffer).digest('hex'),
+        inspection_evidence: false,
+        rationale: 'Control metadata authorizing this later attachment; not inspection evidence.',
+      },
     },
     warning: null,
   };
@@ -519,6 +551,7 @@ export async function runReviewContextPipeline({
   featureCatalogPath = null,
   dfmReportPath = null,
   inspectionEvidencePath = null,
+  attachmentAuthorizationPath = null,
   compareToPath = null,
   outputPath = null,
   outDir = null,
@@ -704,7 +737,7 @@ export async function runReviewContextPipeline({
     featureCatalogPath,
     dfmReportPath,
   });
-  const inspectionEvidence = await buildInspectionEvidenceRecord(projectRoot, inspectionEvidencePath);
+  const inspectionEvidence = await buildInspectionEvidenceRecord(projectRoot, inspectionEvidencePath, attachmentAuthorizationPath);
   const reviewPackageEvidence = [
     ...packageEvidence.records,
     ...(inspectionEvidence.record ? [inspectionEvidence.record] : []),
@@ -725,6 +758,12 @@ export async function runReviewContextPipeline({
       path: inspectionEvidence.record.source_ref,
       role: 'evidence',
       label: inspectionEvidence.record.label,
+    });
+    packageEvidenceSourceRefs.push({
+      artifact_type: 'stage5b_attachment_authorization',
+      path: inspectionEvidence.record.attachment_authorization.source_ref,
+      role: 'input',
+      label: 'Stage 5B attachment authorization',
     });
   }
   if (evidenceWarnings.length > 0) {
