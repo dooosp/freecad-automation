@@ -330,7 +330,7 @@ assertMentions(
   /\[Stage 5B artifact\/schema catalog\]\(\.\/stage-5b-artifact-schema-catalog\.md\)/,
   'Stage 5B automation closeout should link the artifact/schema catalog'
 );
-for (const pr of ['#113', '#114', '#115', '#116', '#117', '#118', '#119', '#120', '#121', '#130', '#131', '#132', '#133', '#134', '#135', '#136']) {
+for (const pr of ['#113', '#114', '#115', '#116', '#117', '#118', '#119', '#120', '#121', '#130', '#131', '#132', '#133', '#134', '#135', '#136', '#137']) {
   assert.equal(stage5bAutomationCloseoutText.includes(pr), true, `Stage 5B automation closeout should mention PR ${pr}`);
 }
 for (const surface of [
@@ -411,6 +411,7 @@ assertMentions(
 for (const section of [
   'Quick CLI Path',
   'Candidate Acceptance Gate',
+  'Pre-Attachment Review Checklist',
   'Artifact/Schema Catalog',
   'API And Tracked Job Path',
   'Studio Review Path',
@@ -475,6 +476,27 @@ for (const boundary of [
 }
 assertMentions(stage5bOperationalRunbookText, /review-context --inspection-evidence <PATH_TO_COMPLETED_REAL_JSON>/, 'Stage 5B runbook should preserve future genuine evidence path');
 assertMentions(stage5bOperationalRunbookText, /eligible_for_stage5b_intake_review: true/, 'Stage 5B runbook should document candidate gate acceptance wording');
+for (const checklistItem of [
+  'Accepted gate report',
+  'Provenance and reviewer traceability',
+  'Package / part / revision mapping',
+  'Redaction and privacy review',
+  'Path safety',
+  'Next intake, dry-run, and audit commands',
+  'Authorization before attachment',
+  'Readiness-held truth',
+]) {
+  assert.equal(
+    stage5bOperationalRunbookText.includes(checklistItem),
+    true,
+    `Stage 5B runbook should include pre-attachment checklist item ${checklistItem}`
+  );
+  assert.equal(
+    stage5bEvidenceRequestPacketText.includes(checklistItem),
+    true,
+    `Stage 5B evidence request packet should include pre-attachment checklist item ${checklistItem}`
+  );
+}
 assertMentions(stage5bOperationalRunbookText, /node tests\/stage5b-candidate-evidence-gate\.test\.js/, 'Stage 5B runbook should list candidate gate validation');
 assertMentions(stage5bOperationalRunbookText, /node tests\/stage5b-source-of-truth-guard\.test\.js/, 'Stage 5B runbook should list source-of-truth validation');
 assertMentions(stage5bOperationalRunbookText, /node tests\/stage5b-artifact-catalog\.test\.js/, 'Stage 5B runbook should list catalog validation');
@@ -552,6 +574,11 @@ assertMentions(
   stage5bEvidenceRequestPacketText,
   /eligible_for_stage5b_intake_review: true/,
   'Stage 5B evidence request packet should document candidate acceptance meaning'
+);
+assertMentions(
+  stage5bEvidenceRequestPacketText,
+  /Pre-Attachment Review Checklist/,
+  'Stage 5B evidence request packet should document the pre-attachment checklist'
 );
 assertMentions(
   stage5bEvidenceRequestPacketText,

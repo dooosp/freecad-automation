@@ -80,6 +80,7 @@ assert.match(candidateGate.schema_or_contract, /validateStage5bCandidateGateRepo
 assert.match(candidateGate.preview_boundary, /Local review only/i);
 assert.match(candidateGate.inspection_evidence_status, /eligible for later Stage 5B intake review only/i);
 assert.match(candidateGate.readiness_effect, /does not attach evidence, promote evidence, satisfy readiness, or mutate canonical artifacts/i);
+assert.match(candidateGate.readiness_effect, /pre-attachment checklist/i);
 
 const trackedPreviewRows = catalog.filter((entry) => /Studio\/API preview/.test(entry.preview_boundary));
 assert.equal(trackedPreviewRows.length, 5, 'tracked audit/intake/dry-run/diagnostic outputs should document preview boundaries');

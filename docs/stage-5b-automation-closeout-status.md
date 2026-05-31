@@ -1,6 +1,6 @@
 # Stage 5B automation closeout status
 
-This document summarizes the Stage 5B automation chain through PR [#136](https://github.com/dooosp/freecad-automation/pull/136). It is a software/status closeout only. It does not attach inspection evidence, mutate canonical package artifacts, regenerate readiness, or claim production readiness.
+This document summarizes the Stage 5B automation chain through PR [#137](https://github.com/dooosp/freecad-automation/pull/137). It is a software/status closeout only. It does not attach inspection evidence, mutate canonical package artifacts, regenerate readiness, or claim production readiness.
 
 For day-to-day CLI/API/Studio operation, diagnostics, expected no-evidence output, and validation commands, use the [Stage 5B operational runbook](./stage-5b-operational-runbook.md). For supplier, lab, QA, or physical-inspection request wording before any candidate enters review, use the [Stage 5B evidence request packet](./stage-5b-evidence-request-packet.md). For the concise producer/schema/preview/evidence/readiness map of Stage 5B control outputs, use the [Stage 5B artifact/schema catalog](./stage-5b-artifact-schema-catalog.md).
 
@@ -25,6 +25,7 @@ For day-to-day CLI/API/Studio operation, diagnostics, expected no-evidence outpu
 | [#134](https://github.com/dooosp/freecad-automation/pull/134) | Merged | `3b31eb2e6aca580a43c5785692fe5e3db887b814` | Synchronized the Stage 5B status ledger while preserving the no-evidence readiness truth. |
 | [#135](https://github.com/dooosp/freecad-automation/pull/135) | Merged | `85fd703228e4890010826606391e412be1c2c75e` | Added the ignored local candidate evidence inbox guard without reading or committing private records. |
 | [#136](https://github.com/dooosp/freecad-automation/pull/136) | Merged | `447ee806f1b102e5d7d1cfdbfe3976e390d29b10` | Hardened the schema-backed candidate gate report contract while preserving the non-evidence boundary. |
+| [#137](https://github.com/dooosp/freecad-automation/pull/137) | Merged | `0c3467d9425e9999f7ccada28adf8f613ebb7efc` | Added the Stage 5B artifact/schema catalog while preserving control-output non-evidence and readiness-held boundaries. |
 
 ## Handoff ledger
 
@@ -33,12 +34,13 @@ Use this ordered handoff when maintainers need to see the complete Stage 5B chai
 1. Stage 5B evidence request packet: ask a supplier, lab, QA reviewer, or physical inspector for a completed real record. The packet is a request/checklist control document, not evidence.
 2. Local-only candidate inbox: place newly received JSON and gate reports under ignored `local/stage5b-candidate-evidence-inbox/<package-slug>/`. Do not commit raw records, secrets, private URLs, PII, or supplier/lab/QA records from this inbox.
 3. Candidate evidence gate: run `node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json> --out <report.json>` for a newly supplied JSON record. The gate produces an accept/reject checklist only.
-4. Artifact/schema catalog: use `docs/stage-5b-artifact-schema-catalog.md` to identify each control output's producer, schema or contract, preview boundary, non-evidence status, and readiness effect.
-5. Intake: run `inspection-evidence-intake` to search allowed sources and classify candidates without mutating canonical packages, only after the task explicitly authorizes intake review.
-6. Promotion dry-run: run `inspection-evidence-promotion-dry-run` from an intake report to plan future attachment only when a genuine validated candidate is attachment-ready.
-7. Audit: run `stage5b-evidence-audit` to write `intake_report.json`, `promotion_dry_run_manifest.json`, `stage5b_audit_manifest.json`, and `stage5b_audit_summary.md` as a non-mutating bundle.
-8. Studio/API review: queue intake, promotion dry-run, and audit jobs through `/jobs` or `/api/studio/jobs`; Review previews registered artifacts through tracked routes only.
-9. No-evidence lane: run `npm run test:stage5b:no-evidence` to prove the current documented CLI path finds no genuine evidence, promotes nothing, and leaves canonical artifacts unchanged.
+4. Pre-attachment review checklist: when a candidate gate report is accepted, verify provenance/reviewer traceability, package/part/revision mapping, redaction/privacy review, path safety, next intake/dry-run/audit commands, authorization before attachment, and readiness-held truth before any later authorized attachment task.
+5. Artifact/schema catalog: use `docs/stage-5b-artifact-schema-catalog.md` to identify each control output's producer, schema or contract, preview boundary, non-evidence status, and readiness effect.
+6. Intake: run `inspection-evidence-intake` to search allowed sources and classify candidates without mutating canonical packages, only after the task explicitly authorizes intake review.
+7. Promotion dry-run: run `inspection-evidence-promotion-dry-run` from an intake report to plan future attachment only when a genuine validated candidate is attachment-ready.
+8. Audit: run `stage5b-evidence-audit` to write `intake_report.json`, `promotion_dry_run_manifest.json`, `stage5b_audit_manifest.json`, and `stage5b_audit_summary.md` as a non-mutating bundle.
+9. Studio/API review: queue intake, promotion dry-run, and audit jobs through `/jobs` or `/api/studio/jobs`; Review previews registered artifacts through tracked routes only.
+10. No-evidence lane: run `npm run test:stage5b:no-evidence` to prove the current documented CLI path finds no genuine evidence, promotes nothing, and leaves canonical artifacts unchanged.
 
 The unchanged readiness truth across this chain is `needs_more_evidence / hold_for_evidence_completion`. No genuine completed `inspection_evidence` has been found or attached.
 
@@ -50,6 +52,7 @@ Stage 5B now has these software surfaces:
 - the [Stage 5B evidence request packet](./stage-5b-evidence-request-packet.md) for real-record requests before candidate review.
 - ignored `local/stage5b-candidate-evidence-inbox/` staging for received candidate records and candidate gate reports before any authorized intake review.
 - `node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json> --out <report.json>` for local non-production candidate acceptance checks.
+- the Pre-Attachment Review Checklist in the operational runbook and request packet for accepted gate reports before any later authorized intake, dry-run, audit, or attachment task.
 - the [Stage 5B artifact/schema catalog](./stage-5b-artifact-schema-catalog.md) for request packet, candidate gate report, intake report, promotion dry-run manifest, audit manifest, audit summary, and validation diagnostics producer/schema/preview/evidence/readiness boundaries.
 - table normalization for explicit inspection tables in CSV, TSV, Markdown, TXT, and allowlisted ZIP entries.
 - include_github discovery (`--include-github`) for bounded public GitHub search and sanitized candidate provenance.
