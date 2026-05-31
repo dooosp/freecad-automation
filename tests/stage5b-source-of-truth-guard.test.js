@@ -342,8 +342,23 @@ assertIncludesAll(
 );
 
 assert.match(docs.closeout, /PR #122|\[#122\]/, 'Stage 5B closeout should include the PR #122 closeout state');
+assert.match(docs.closeout, /PR #130|\[#130\]/, 'Stage 5B closeout should include the PR #130 operational runbook state');
+assert.match(docs.closeout, /PR #131|\[#131\]/, 'Stage 5B closeout should include the PR #131 no-evidence lane state');
 assert.match(docs.closeout, /PR #132|\[#132\]/, 'Stage 5B closeout should include the PR #132 candidate gate state');
+assert.match(docs.closeout, /PR #133|\[#133\]/, 'Stage 5B closeout should include the PR #133 evidence request packet state');
 assert.match(docs.closeout, /\[Stage 5B operational runbook\]\(\.\/stage-5b-operational-runbook\.md\)/, 'Stage 5B closeout should link the operational runbook');
+assert.match(docs.closeout, /\[Stage 5B evidence request packet\]\(\.\/stage-5b-evidence-request-packet\.md\)/, 'Stage 5B closeout should link the evidence request packet');
+[
+  'Stage 5B evidence request packet',
+  'node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json>',
+  'npm run test:stage5b:no-evidence',
+  'inspection-evidence-intake',
+  'inspection-evidence-promotion-dry-run',
+  'stage5b-evidence-audit',
+  'needs_more_evidence / hold_for_evidence_completion',
+].forEach((needle) => {
+  assert(docs.closeout.includes(needle), `Stage 5B closeout handoff ledger should include ${needle}`);
+});
 assert.match(docs.testing, /stage5b-source-of-truth-guard\.test\.js/, 'testing docs should mention the Stage 5B source-of-truth guard');
 assert.match(docs.testing, /Stage 5B operational runbook/, 'testing docs should mention the Stage 5B operational runbook');
 
