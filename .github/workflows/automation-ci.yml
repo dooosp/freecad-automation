@@ -23,12 +23,14 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        # provenance: actions/checkout@v6 -> de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        # provenance: actions/setup-node@v6 -> 48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
         with:
           node-version: "24"
 
@@ -45,12 +47,14 @@ jobs:
     timeout-minutes: 35
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        # provenance: actions/checkout@v6 -> de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        # provenance: actions/setup-node@v6 -> 48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
         with:
           node-version: "24"
           cache: npm
@@ -69,7 +73,8 @@ jobs:
 
       - name: Upload Core Diagnostics
         if: always()
-        uses: actions/upload-artifact@v7
+        # provenance: actions/upload-artifact@v7 -> 043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: node-contract-${{ matrix.os }}-${{ github.run_id }}
           path: .ci/node-contract-diagnostics.txt
@@ -82,12 +87,14 @@ jobs:
     timeout-minutes: 35
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        # provenance: actions/checkout@v6 -> de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        # provenance: actions/setup-node@v6 -> 48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
         with:
           node-version: "24"
           cache: npm
@@ -105,12 +112,14 @@ jobs:
     timeout-minutes: 35
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        # provenance: actions/checkout@v6 -> de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        # provenance: actions/setup-node@v6 -> 48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
         with:
           node-version: "24"
           cache: npm
@@ -128,12 +137,14 @@ jobs:
     timeout-minutes: 35
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        # provenance: actions/checkout@v6 -> de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        # provenance: actions/setup-node@v6 -> 48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
         with:
           node-version: "24"
           cache: npm
@@ -151,19 +162,22 @@ jobs:
     timeout-minutes: 35
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        # provenance: actions/checkout@v6 -> de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        # provenance: actions/setup-node@v6 -> 48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
         with:
           node-version: "24"
           cache: npm
           cache-dependency-path: package-lock.json
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        # provenance: actions/setup-python@v6 -> a309ff8b426b58ec0e2a45f0f869d46889d02405
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
           python-version: "3.11"
 
@@ -178,7 +192,8 @@ jobs:
 
       - name: Upload Python Diagnostics
         if: always()
-        uses: actions/upload-artifact@v7
+        # provenance: actions/upload-artifact@v7 -> 043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: python-lane-${{ github.run_id }}
           path: .pytest_cache

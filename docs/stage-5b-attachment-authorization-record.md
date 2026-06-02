@@ -93,9 +93,10 @@ Authorization records do not attach evidence, promote evidence, mutate canonical
 package artifacts, or satisfy `inspection_evidence`.
 
 Accepted gate reports, ignored inbox files, catalogs, schemas, dry-runs, audits,
-diagnostics, PR comments, issue bodies, screenshots, release bundles, generated
-CAD/drawing/quality/DFM/readiness/review artifacts, and human-typed or
-CAD-generated measurements are also not package inspection evidence.
+diagnostics, PR comments, issue bodies, screenshots, release bundles, release
+assets, CI/GitHub metadata, generated CAD/drawing/quality/DFM/readiness/review
+artifacts, and human-typed or CAD-generated measurements are also not package
+inspection evidence.
 
 Use this record with the [Stage 5B operational runbook](./stage-5b-operational-runbook.md),
 the [Stage 5B evidence request packet](./stage-5b-evidence-request-packet.md),

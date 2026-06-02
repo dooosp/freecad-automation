@@ -42,12 +42,12 @@ The hosted workflow is the fast PR lane and does not install or launch FreeCAD. 
 
 ## GitHub Actions Node24 Runtime
 
-The GitHub-hosted and self-hosted workflows opt JavaScript actions into the Node24 action runtime with `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"` and use Node24-backed action majors:
+The GitHub-hosted and self-hosted workflows opt JavaScript actions into the Node24 action runtime with `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"` and pin Node24-backed action majors to immutable commit SHAs with adjacent source-tag provenance comments:
 
-- `actions/checkout@v6`
-- `actions/setup-node@v6`
-- `actions/upload-artifact@v7`
-- `actions/setup-python@v6`
+- `actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd` from `actions/checkout@v6`
+- `actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e` from `actions/setup-node@v6`
+- `actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a` from `actions/upload-artifact@v7`
+- `actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405` from `actions/setup-python@v6`
 
 This is separate from the project runtime. The workflow steps still set `node-version: "24"` for repository commands, while the action pins and `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24` cover the JavaScript action runtime transition.
 

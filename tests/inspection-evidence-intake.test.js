@@ -44,7 +44,12 @@ function makeFetchResponse(body, options = {}) {
   };
 }
 
-function makeGithubRunner({ issueBody = '', fail = false, failMessage = 'gh unavailable for fixture test' } = {}) {
+function makeGithubRunner({
+  issueBody = '',
+  releaseRecords = [],
+  fail = false,
+  failMessage = 'gh unavailable for fixture test',
+} = {}) {
   return async function githubRunner(command, args = []) {
     assert.equal(command, 'gh');
     if (fail) throw new Error(failMessage);
@@ -63,6 +68,9 @@ function makeGithubRunner({ issueBody = '', fail = false, failMessage = 'gh unav
           updatedAt: '2026-05-23T00:00:00Z',
         }] : []),
       };
+    }
+    if (args[0] === 'api' && String(args[1] || '').endsWith('/releases')) {
+      return { stdout: JSON.stringify(releaseRecords) };
     }
     if (args[0] === 'api') {
       return { stdout: '[]' };
@@ -540,6 +548,95 @@ try {
       && candidate.classification === 'invalid_generated'
     )),
     true
+  );
+
+  writeMinimalCanonicalPackage(tempRoot, 'github-release-asset-part');
+  const releaseAssetUrl = 'https://example.com/releases/download/v1.1.0/inspection_evidence.json';
+  const githubReleaseAssetReport = await discoverInspectionEvidenceIntake({
+    projectRoot: tempRoot,
+    packageSlugs: ['github-release-asset-part'],
+    includeGitHub: true,
+    githubRepo: 'dooosp/freecad-automation',
+    githubRunner: makeGithubRunner({
+      releaseRecords: [{
+        tag_name: 'v1.1.0',
+        name: 'v1.1.0',
+        html_url: 'https://github.com/dooosp/freecad-automation/releases/tag/v1.1.0',
+        assets: [{
+          name: 'inspection_evidence.json',
+          browser_download_url: releaseAssetUrl,
+          content_type: 'application/json',
+          size: 512,
+        }],
+      }],
+    }),
+    githubFetch: async (url) => {
+      assert.equal(url, releaseAssetUrl);
+      return makeFetchResponse(JSON.stringify(makeValidInspectionEvidence({
+        package_id: 'github-release-asset-part',
+        inspected_part: 'github-release-asset-part',
+        source_ref: releaseAssetUrl,
+      })), { contentType: 'application/json' });
+    },
+    generatedAt: '2026-05-23T00:00:00.000Z',
+  });
+
+  assert.equal(githubReleaseAssetReport.summary.genuine_inspection_evidence_found, false);
+  assert.equal(githubReleaseAssetReport.github_discovery.downloaded_candidates.length, 1);
+  assert.equal(githubReleaseAssetReport.github_discovery.rejection_classes.invalid_provenance, 1);
+  assert.equal(
+    githubReleaseAssetReport.rejected_candidates.some((candidate) => (
+      candidate.source_kind === 'github_release_asset'
+      && candidate.classification === 'invalid_provenance'
+      && candidate.reasons.some((reason) => /release assets are distribution metadata, not inspection evidence/i.test(reason))
+    )),
+    true,
+    'GitHub release assets must not become genuine inspection evidence even when their payload is contract-shaped'
+  );
+
+  writeMinimalCanonicalPackage(tempRoot, 'github-release-bundle-part');
+  const releaseBundleUrl = 'https://example.com/releases/download/v1.1.0/release_bundle.zip';
+  const githubReleaseBundleReport = await discoverInspectionEvidenceIntake({
+    projectRoot: tempRoot,
+    packageSlugs: ['github-release-bundle-part'],
+    includeGitHub: true,
+    githubRepo: 'dooosp/freecad-automation',
+    githubRunner: makeGithubRunner({
+      releaseRecords: [{
+        tag_name: 'v1.1.0',
+        name: 'v1.1.0',
+        html_url: 'https://github.com/dooosp/freecad-automation/releases/tag/v1.1.0',
+        assets: [{
+          name: 'release_bundle.zip',
+          browser_download_url: releaseBundleUrl,
+          content_type: 'application/zip',
+          size: 1024,
+        }],
+      }],
+    }),
+    githubFetch: async (url) => {
+      assert.equal(url, releaseBundleUrl);
+      return makeFetchResponse(makeStoredZipEntry('inspection_evidence.json', JSON.stringify(makeValidInspectionEvidence({
+        package_id: 'github-release-bundle-part',
+        inspected_part: 'github-release-bundle-part',
+        source_ref: 'https://example.com/supplier/cmm/github-release-bundle-part.json',
+      }))), { contentType: 'application/zip' });
+    },
+    generatedAt: '2026-05-23T00:00:00.000Z',
+  });
+
+  assert.equal(githubReleaseBundleReport.summary.genuine_inspection_evidence_found, false);
+  assert.equal(githubReleaseBundleReport.github_discovery.downloaded_candidates.length, 1);
+  assert.equal(githubReleaseBundleReport.github_discovery.rejection_classes.invalid_provenance, 1);
+  assert.equal(
+    githubReleaseBundleReport.rejected_candidates.some((candidate) => (
+      candidate.source_kind === 'github_zip_entry'
+      && candidate.classification === 'invalid_provenance'
+      && candidate.source_provenance?.origin_kind === 'github_release_records'
+      && candidate.reasons.some((reason) => /release bundle ZIP entries are distribution artifacts, not inspection evidence/i.test(reason))
+    )),
+    true,
+    'inspection-shaped files inside release_bundle.zip must stay outside inspection_evidence'
   );
 
   writeMinimalCanonicalPackage(tempRoot, 'github-zip-part');

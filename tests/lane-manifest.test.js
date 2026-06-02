@@ -19,6 +19,51 @@ const testingDoc = readFileSync(resolve(ROOT, 'docs', 'testing.md'), 'utf8');
 const readme = readFileSync(resolve(ROOT, 'README.md'), 'utf8');
 const hostedWorkflow = readFileSync(resolve(ROOT, '.github', 'workflows', 'automation-ci.yml'), 'utf8');
 const runtimeWorkflow = readFileSync(resolve(ROOT, '.github', 'workflows', 'freecad-runtime-smoke.yml'), 'utf8');
+const workflowFiles = Object.freeze([
+  Object.freeze({ path: '.github/workflows/automation-ci.yml', text: hostedWorkflow }),
+  Object.freeze({ path: '.github/workflows/freecad-runtime-smoke.yml', text: runtimeWorkflow }),
+]);
+const approvedWorkflowActions = new Set([
+  'actions/checkout',
+  'actions/setup-node',
+  'actions/setup-python',
+  'actions/upload-artifact',
+]);
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function collectWorkflowUses() {
+  const uses = [];
+  workflowFiles.forEach((workflow) => {
+    workflow.text.split(/\r?\n/).forEach((line, index, lines) => {
+      const match = line.match(/^\s*uses:\s*['"]?([^'"\s#]+)['"]?/);
+      if (!match) return;
+
+      const spec = match[1];
+      if (spec.startsWith('./')) return;
+
+      const at = spec.lastIndexOf('@');
+      const action = at === -1 ? spec : spec.slice(0, at);
+      const ref = at === -1 ? '' : spec.slice(at + 1);
+      const precedingContext = lines.slice(Math.max(0, index - 2), index).join('\n');
+      uses.push({
+        action,
+        ref,
+        spec,
+        path: workflow.path,
+        lineNumber: index + 1,
+        precedingContext,
+      });
+    });
+  });
+  return uses;
+}
+
+function formatWorkflowUse(use) {
+  return `${use.path}:${use.lineNumber} ${use.spec}`;
+}
 
 function extractGeneratedBlock(markdown, blockName) {
   const pattern = new RegExp(`<!-- GENERATED:${blockName}:start -->\\n([\\s\\S]*?)\\n<!-- GENERATED:${blockName}:end -->`);
@@ -105,6 +150,37 @@ assert(
 assert(
   hostedWorkflow.includes('npm ci --ignore-scripts --no-audit --prefer-offline'),
   'hosted workflow should install Node dependencies without lifecycle scripts'
+);
+
+const workflowUses = collectWorkflowUses();
+const unapprovedWorkflowActions = workflowUses
+  .filter((use) => !approvedWorkflowActions.has(use.action.toLowerCase()))
+  .map(formatWorkflowUse);
+assert.deepEqual(
+  unapprovedWorkflowActions,
+  [],
+  'workflow actions should stay on the approved first-party action allowlist unless this guard is intentionally updated'
+);
+
+const mutableWorkflowActionRefs = workflowUses
+  .filter((use) => !/^[a-f0-9]{40}$/i.test(use.ref))
+  .map(formatWorkflowUse);
+assert.deepEqual(
+  mutableWorkflowActionRefs,
+  [],
+  'workflow actions should be pinned to full-length commit SHAs instead of tags, branches, or shortened refs'
+);
+
+const workflowUsesMissingProvenance = workflowUses
+  .filter((use) => {
+    const expected = new RegExp(`#\\s*provenance:\\s*${escapeRegExp(use.action)}@v\\d+\\s*->\\s*${use.ref}`, 'i');
+    return !expected.test(use.precedingContext);
+  })
+  .map(formatWorkflowUse);
+assert.deepEqual(
+  workflowUsesMissingProvenance,
+  [],
+  'workflow action pins should keep nearby source-tag provenance comments'
 );
 
 [

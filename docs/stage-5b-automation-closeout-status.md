@@ -116,6 +116,7 @@ The following are not `inspection_evidence` for canonical package readiness:
 - templates
 - collection guides
 - release bundles
+- release assets
 - CAD-generated measurements
 
 Generated/fake/human-entered measurements are not created or accepted. This also rejects replacement typed values, inferred, simulated, synthetic, or CAD-generated measurements. Completed evidence must come from genuine physical inspection or a supplier/lab/QA inspection source, validate against the inspection evidence contract, and be attached later through the explicit `review-context --inspection-evidence <PATH_TO_COMPLETED_REAL_JSON> --attachment-authorization <AUTHORIZATION_RECORD_JSON>` path.
@@ -124,4 +125,4 @@ Hard evidence rule: Only genuine completed physical/supplier/lab/QA inspection r
 
 ## Remaining truth
 
-Stage 5B automation is landed as a software/status chain. The readiness boundary is unchanged: no ignored inbox file, candidate gate report, authorization record, request packet, template, doc, diagnostic, schema, fixture, intake report, dry-run manifest, audit output, screenshot, comment, PR body, readiness report, release bundle, Studio surface, GitHub search result, CI result, collection guide, CAD-generated measurement, or generated review artifact clears `inspection_evidence`.
+Stage 5B automation is landed as a software/status chain. The readiness boundary is unchanged: no ignored inbox file, candidate gate report, authorization record, request packet, template, doc, diagnostic, schema, fixture, intake report, dry-run manifest, audit output, screenshot, comment, PR body, readiness report, release bundle, release asset, Studio surface, GitHub search result, CI/GitHub metadata, CI result, collection guide, CAD-generated measurement, or generated review artifact clears `inspection_evidence`.

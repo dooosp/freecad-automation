@@ -255,7 +255,7 @@ When no valid candidate exists, the manifest must say promotion cannot run. It m
 
 When genuine evidence exists later, the dry-run should list the future command chain and mutation boundaries:
 
-- `review-context --inspection-evidence <PATH_TO_COMPLETED_REAL_JSON> --attachment-authorization <AUTHORIZATION_RECORD_JSON> --attachment-authorization <AUTHORIZATION_RECORD_JSON>`
+- `review-context --inspection-evidence <PATH_TO_COMPLETED_REAL_JSON> --attachment-authorization <AUTHORIZATION_RECORD_JSON>`
 - `readiness-pack`
 - `generate-standard-docs`
 - `pack`

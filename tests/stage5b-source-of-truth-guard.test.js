@@ -74,7 +74,13 @@ const STAGE5B_ARTIFACTS = Object.freeze({
 });
 
 const HARD_EVIDENCE_RULE = 'Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.';
-const NON_EVIDENCE_BOUNDARY_PATTERN = /ignored inbox files|candidate gate reports|authorization records|intake reports|dry-run manifests|audit manifests|generated CAD\/drawing\/quality\/DFM\/readiness\/review|fixtures|screenshots|CI summaries|templates|collection guides|GitHub metadata/i;
+const NON_EVIDENCE_BOUNDARY_TERMS = Object.freeze([
+  Object.freeze({ label: 'diagnostics', pattern: /diagnostics/i }),
+  Object.freeze({ label: 'screenshots', pattern: /screenshots/i }),
+  Object.freeze({ label: 'release bundles', pattern: /release\s+bundles/i }),
+  Object.freeze({ label: 'release assets', pattern: /release\s+assets/i }),
+  Object.freeze({ label: 'CI/GitHub metadata', pattern: /CI\/GitHub\s+metadata|CI\s+metadata|GitHub\s+metadata/i }),
+]);
 const PRE_ATTACHMENT_CHECKLIST_ITEMS = Object.freeze([
   'Accepted gate report',
   'Provenance and reviewer traceability',
@@ -104,6 +110,12 @@ function assertIncludesAll(haystack, needles, label) {
       haystack.includes(needle),
       `${label} should include ${needle}`
     );
+  });
+}
+
+function assertNonEvidenceBoundary(text, label) {
+  NON_EVIDENCE_BOUNDARY_TERMS.forEach((term) => {
+    assert.match(text, term.pattern, `${label} should mention non-evidence boundary for ${term.label}`);
   });
 }
 
@@ -666,7 +678,7 @@ Object.entries({
 
 assert.match(docs.closeout, /No genuine completed inspection evidence has been found or attached/);
 assert.match(docs.closeout, new RegExp(HARD_EVIDENCE_RULE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-assert.match(docs.closeout, NON_EVIDENCE_BOUNDARY_PATTERN);
+assertNonEvidenceBoundary(docs.closeout, 'Final non-inspection software closeout');
 
 assert.match(docs.runbook, /^# Stage 5B operational runbook/m);
 assert.match(docs.runbook, /Quick CLI Path/);
@@ -698,7 +710,7 @@ assert.match(docs.runbook, /npm run test:node:contract/);
 assert.match(docs.runbook, /npm test/);
 assert.match(docs.runbook, /human-typed, inferred, simulated, synthetic, CAD-generated, or guessed measurements/);
 assert.match(docs.runbook, new RegExp(HARD_EVIDENCE_RULE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-assert.match(docs.runbook, NON_EVIDENCE_BOUNDARY_PATTERN);
+assertNonEvidenceBoundary(docs.runbook, 'Stage 5B operational runbook');
 
 assert.match(docs.requestPacket, /^# Stage 5B evidence request packet/m);
 assertPreAttachmentChecklist(docs.requestPacket, 'Stage 5B evidence request packet');
@@ -730,13 +742,13 @@ assert.match(docs.authorizationRecord, /\[Stage 5B artifact\/schema catalog\]\(\
 assert.match(docs.authorizationRecord, /authorization records? do not attach evidence/i);
 assert.match(docs.authorizationRecord, /PR comments? do not attach evidence/i);
 assert.match(docs.authorizationRecord, new RegExp(HARD_EVIDENCE_RULE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-assert.match(docs.authorizationRecord, NON_EVIDENCE_BOUNDARY_PATTERN);
+assertNonEvidenceBoundary(docs.authorizationRecord, 'Stage 5B attachment authorization record');
 assertNoControlSurfaceAttachmentOverclaim(docs.authorizationRecord, 'Stage 5B attachment authorization record');
 assert.match(
   docs.requestPacket.replace(/`inspection_evidence`/g, 'inspection_evidence').replace(/\s+/g, ' '),
   new RegExp(HARD_EVIDENCE_RULE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
 );
-assert.match(docs.requestPacket, NON_EVIDENCE_BOUNDARY_PATTERN);
+assertNonEvidenceBoundary(docs.requestPacket, 'Stage 5B evidence request packet');
 
 assert.match(docs.runbook, /\[Stage 5B artifact\/schema catalog\]\(\.\/stage-5b-artifact-schema-catalog\.md\)/);
 assert.match(docs.inspectionContract, /\[Stage 5B artifact\/schema catalog\]\(\.\/stage-5b-artifact-schema-catalog\.md\)/);
