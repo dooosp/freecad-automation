@@ -621,10 +621,25 @@ function hasGenuineGithubProvenance({
   relativePath,
   document,
   packageSlugs,
+  sourceKind,
   sourceProvenance,
 }) {
   const reasons = [];
   const slug = packageSlugFromDocument(document, packageSlugs) || packageSlugFromPath(relativePath, packageSlugs);
+  const fromGithubRelease = sourceProvenance?.origin_kind === 'github_release_records';
+  if (sourceKind === 'github_release_asset' || (fromGithubRelease && sourceKind !== 'github_zip_entry')) {
+    reasons.push('GitHub release assets are distribution metadata, not inspection evidence');
+  }
+  if (
+    sourceKind === 'github_zip_entry'
+    && (
+      fromGithubRelease
+      || /(?:^|\/)release[_-]bundle\.zip(?:$|[?#])/i.test(String(sourceProvenance?.archive_url || sourceProvenance?.source_url || ''))
+      || /(?:^|\/)release[_-]bundle\.zip$/i.test(String(sourceProvenance?.source_label || ''))
+    )
+  ) {
+    reasons.push('GitHub release bundle ZIP entries are distribution artifacts, not inspection evidence');
+  }
   if (NON_GENUINE_TEXT_PATTERN.test(documentText(document))) {
     reasons.push('document provenance text marks it as synthetic, generated, fixture, template, or guide material');
   }
@@ -740,6 +755,7 @@ async function classifyCandidate({
           relativePath: normalized,
           document,
           packageSlugs,
+          sourceKind,
           sourceProvenance,
         })
       : await hasGenuineLocalProvenance({
@@ -807,6 +823,7 @@ async function classifyCandidate({
         relativePath: normalized,
         document,
         packageSlugs,
+        sourceKind,
         sourceProvenance,
       })
     : await hasGenuineLocalProvenance({
@@ -2254,7 +2271,7 @@ export async function discoverInspectionEvidenceIntake({
         'tracked repo files',
         'docs/examples/tests/fixtures inside the checkout',
         'existing non-secret local files in the checkout',
-        'public GitHub issues, PR comments, release metadata/assets, workflow artifact metadata, and allowlisted public links when --include-github is used',
+        'public GitHub issues, PR comments, workflow artifact metadata, and allowlisted public links when --include-github is used',
       ],
       adapter_coverage: [
         'JSON inspection evidence contract files',
@@ -2273,6 +2290,7 @@ export async function discoverInspectionEvidenceIntake({
         'collection guides',
         'CI summaries',
         'release bundles',
+        'release assets',
       ],
     },
     searched_sources: [
