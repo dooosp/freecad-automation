@@ -132,7 +132,7 @@ The `fcad tolerance` coverage is intentionally narrow: the self-hosted macOS lan
 | --- | --- | --- |
 | macOS self-hosted with FreeCAD 1.1.x | Real runtime smoke | Source of truth for the listed live FreeCAD checks in CI, including narrow tolerance CSV smoke |
 | macOS hosted (`macos-14`) | Node contract lane only | No hosted FreeCAD install |
-| Ubuntu hosted (`ubuntu-24.04`) | Node contract, Node integration, snapshots, Python | No hosted FreeCAD install |
+| Ubuntu hosted (`ubuntu-24.04`) | Node contract, Node integration, snapshots, Studio browser smoke, Python | No hosted FreeCAD install |
 | Linux local with FreeCAD | Local-only runtime smoke if you provide a working runtime | Not a repository-owned CI claim |
 | Windows native / WSL -> Windows FreeCAD | Invocation/path contracts only | No repository-owned runtime smoke today |
 

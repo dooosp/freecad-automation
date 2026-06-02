@@ -91,6 +91,10 @@ function assertNoSecretOrAbsolutePath(value) {
   assert.equal(/api[_-]?key\s*=/i.test(text), false, 'diagnostics must not leak API keys');
   assert.equal(/secret\s*=/i.test(text), false, 'diagnostics must not leak secret query values');
   assert.equal(/https?:\/\/(?:localhost|127\.|10\.|192\.168\.|172\.)/i.test(text), false, 'diagnostics must not leak private URLs');
+  assert.equal(/https?:\/\/\[[0-9a-f:]+\]/i.test(text), false, 'diagnostics must not leak bracketed private IPv6 URLs');
+  assert.equal(text.includes('fd00::1'), false, 'diagnostics must not leak unique-local IPv6 hosts');
+  assert.equal(text.includes('fc00::1'), false, 'diagnostics must not leak unique-local IPv6 hosts');
+  assert.equal(text.includes('fe80::1'), false, 'diagnostics must not leak link-local IPv6 hosts');
   assert.equal(text.includes('private.local'), false, 'diagnostics must not leak .local private URLs');
 }
 
@@ -212,10 +216,10 @@ try {
         validation_stage: 'semantic',
         severity: 'error',
         code: 'stage5b.unsafe_source_ref',
-        message: `Authorization: Bearer gho_secretTOKEN123 from http://127.0.0.1:8080/private?token=github_pat_secretTOKEN123&secret=raw ${ROOT}/private.json`,
+        message: `Authorization: Bearer gho_secretTOKEN123 from http://127.0.0.1:8080/private?token=github_pat_secretTOKEN123&secret=raw and http://[fd00::1]/debug?token=github_pat_secretTOKEN123 ${ROOT}/private.json`,
         json_pointer: '/rejected_candidates/0/normalized_source_ref',
-        remediation: 'Remove Authorization header, api_key=raw, and private.local callback URL before retry.',
-        safe_source_ref: 'http://private.local/cmm?access_token=github_pat_secretTOKEN123',
+        remediation: 'Remove Authorization header, api_key=raw, private.local, and http://[fe80::1]/callback?secret=raw before retry.',
+        safe_source_ref: 'http://[fc00::1]/cmm?access_token=github_pat_secretTOKEN123',
       },
     ],
   }, {

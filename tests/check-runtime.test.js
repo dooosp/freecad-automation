@@ -168,9 +168,76 @@ assert.match(missingResult.text, /If you only need the manufacturing-review laye
 assert.equal(missingJsonResult.exitCode, 1);
 const missingJson = JSON.parse(missingJsonResult.text);
 assert.equal(missingJson.status, 'runtime_not_detected');
+assert.equal(missingJson.executable_detected, false);
+assert.equal(missingJson.probe_status, 'not_detected');
 assert.equal(missingJson.errors.includes('FreeCAD runtime not detected.'), true);
 assert.equal(missingJson.env_overrides.values[1].selected, true);
 assert.match(missingJson.support_boundary_note, /compatibility paths/);
 assert.equal(missingJson.remediation.length > 0, true);
+
+const probeFailureRuntime = {
+  available: true,
+  source: 'FREECAD_BIN',
+  mode: 'native',
+  executable: '/opt/freecad/bin/FreeCADCmd',
+  bundleRoot: '',
+  installRoot: '',
+  runtimeExecutable: '/opt/freecad/bin/FreeCADCmd',
+  pythonExecutable: '',
+  guiExecutable: '',
+  checkedCandidates: ['/opt/freecad/bin/FreeCADCmd'],
+};
+
+const probeFailureResult = collectOutput((logger) => printRuntimeDiagnostics({
+  logger,
+  runtime: probeFailureRuntime,
+  platform: 'linux',
+  env: {
+    FREECAD_BIN: '/opt/freecad/bin/FreeCADCmd',
+  },
+  detectDetails: () => ({
+    python: { executable: '', version: null, platform: null, error: null, source: null },
+    freecad: {
+      executable: probeFailureRuntime.runtimeExecutable,
+      version: null,
+      homePath: null,
+      modulePath: null,
+      error: 'No module named FreeCAD',
+      source: null,
+    },
+  }),
+}));
+
+assert.equal(probeFailureResult.exitCode, 1);
+assert.match(probeFailureResult.text, /Status: runtime probe failed/);
+
+const probeFailureJsonResult = collectOutput((logger) => printRuntimeDiagnostics({
+  logger,
+  format: 'json',
+  runtime: probeFailureRuntime,
+  platform: 'linux',
+  env: {
+    FREECAD_BIN: '/opt/freecad/bin/FreeCADCmd',
+  },
+  detectDetails: () => ({
+    python: { executable: '', version: null, platform: null, error: null, source: null },
+    freecad: {
+      executable: probeFailureRuntime.runtimeExecutable,
+      version: null,
+      homePath: null,
+      modulePath: null,
+      error: 'No module named FreeCAD',
+      source: null,
+    },
+  }),
+}));
+
+assert.equal(probeFailureJsonResult.exitCode, 1);
+const probeFailureJson = JSON.parse(probeFailureJsonResult.text);
+assert.equal(probeFailureJson.status, 'runtime_probe_failed');
+assert.equal(probeFailureJson.available, false);
+assert.equal(probeFailureJson.executable_detected, true);
+assert.equal(probeFailureJson.probe_status, 'failed');
+assert.equal(probeFailureJson.errors.some((entry) => entry.includes('FreeCAD runtime probe failed')), true);
 
 console.log('check-runtime.test.js: ok');

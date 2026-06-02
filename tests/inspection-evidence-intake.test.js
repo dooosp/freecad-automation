@@ -44,10 +44,10 @@ function makeFetchResponse(body, options = {}) {
   };
 }
 
-function makeGithubRunner({ issueBody = '', fail = false } = {}) {
+function makeGithubRunner({ issueBody = '', fail = false, failMessage = 'gh unavailable for fixture test' } = {}) {
   return async function githubRunner(command, args = []) {
     assert.equal(command, 'gh');
-    if (fail) throw new Error('gh unavailable for fixture test');
+    if (fail) throw new Error(failMessage);
     if (args[0] === '--version') {
       return { stdout: 'gh version 2.50.0\n' };
     }
@@ -578,6 +578,23 @@ try {
     true
   );
   assert.equal(githubUnavailableReport.packages[0].intake_action.status, 'hold_for_evidence_completion');
+
+  const githubPrivateErrorReport = await discoverInspectionEvidenceIntake({
+    projectRoot: tempRoot,
+    packageSlugs: ['github-table-part'],
+    includeGitHub: true,
+    githubRunner: makeGithubRunner({
+      fail: true,
+      failMessage: 'gh failed at http://[fd00::1]/debug?token=github_pat_secretTOKEN123&secret=raw and /Users/alice/private.json',
+    }),
+    generatedAt: '2026-05-23T00:00:00.000Z',
+  });
+  const skippedText = JSON.stringify(githubPrivateErrorReport.github_discovery.skipped_sources);
+  assert.equal(skippedText.includes('fd00::1'), false);
+  assert.equal(skippedText.includes('github_pat_secretTOKEN123'), false);
+  assert.equal(skippedText.includes('secret=raw'), false);
+  assert.equal(skippedText.includes('/Users/alice'), false);
+  assert.match(skippedText, /\[url\]/);
 
   writeMinimalCanonicalPackage(tempRoot, 'github-hold-part');
   const githubHoldReport = await discoverInspectionEvidenceIntake({

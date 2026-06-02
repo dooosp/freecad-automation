@@ -76,6 +76,9 @@ The manifest includes:
     "node_version": "v25.8.0",
     "platform": "darwin",
     "freecad_available": true,
+    "freecad_executable_detected": true,
+    "freecad_probe_status": "usable",
+    "freecad_status": "ready",
     "freecad_version": "1.1.0"
   },
   "timings": {

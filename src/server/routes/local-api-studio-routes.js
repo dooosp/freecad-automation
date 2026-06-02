@@ -5,6 +5,7 @@ import { translateStudioJobSubmission } from '../studio-job-bridge.js';
 import { toPublicDrawingPreviewPayload } from '../public-drawing-preview.js';
 import { LOCAL_API_VERSION } from '../local-api-contract.js';
 import { assertResponse, createErrorResponse } from '../local-api-response-helpers.js';
+import { redactPublicPathValues } from '../local-api-artifacts.js';
 
 function isAbsoluteFilesystemPath(value) {
   return typeof value === 'string'
@@ -35,6 +36,15 @@ function isPlainObject(value) {
 function invalidRequest(res, messages) {
   const response = createErrorResponse('invalid_request', messages);
   res.status(response.status).json(assertResponse('error', response.body));
+}
+
+function errorMessage(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function publicErrorMessage(error) {
+  const message = redactPublicPathValues(errorMessage(error));
+  return typeof message === 'string' && message.trim().length > 0 ? message : 'Request failed.';
 }
 
 function validateObjectRequestBody(body, errors) {
@@ -116,7 +126,7 @@ export function registerStudioRoutes(app, {
     } catch (error) {
       const response = createErrorResponse(
         'invalid_config',
-        [error instanceof Error ? error.message : String(error)]
+        [publicErrorMessage(error)]
       );
       res.status(response.status).json(assertResponse('error', response.body));
     }
@@ -133,7 +143,7 @@ export function registerStudioRoutes(app, {
     } catch (error) {
       const response = createErrorResponse(
         'design_failed',
-        [error instanceof Error ? error.message : String(error)]
+        [publicErrorMessage(error)]
       );
       res.status(response.status).json(assertResponse('error', response.body));
     }
@@ -158,11 +168,11 @@ export function registerStudioRoutes(app, {
         ...payload,
       }));
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const status = /TOML parse error|Config TOML is required|must include|invalid/i.test(message) ? 400 : 500;
+      const rawMessage = errorMessage(error);
+      const status = /TOML parse error|Config TOML is required|must include|invalid/i.test(rawMessage) ? 400 : 500;
       const response = createErrorResponse(
         'model_preview_failed',
-        [message],
+        [publicErrorMessage(error)],
         status
       );
       res.status(response.status).json(assertResponse('error', response.body));
@@ -188,11 +198,11 @@ export function registerStudioRoutes(app, {
         ...redactBootstrapPreviewPaths(projectRoot, payload),
       }));
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const status = /required|unsupported|must stay inside|must be inside|failed bootstrap intake/i.test(message) ? 400 : 500;
+      const rawMessage = errorMessage(error);
+      const status = /required|unsupported|must stay inside|must be inside|failed bootstrap intake/i.test(rawMessage) ? 400 : 500;
       const response = createErrorResponse(
         'import_bootstrap_failed',
-        [message],
+        [publicErrorMessage(error)],
         status
       );
       res.status(response.status).json(assertResponse('error', response.body));
@@ -218,11 +228,11 @@ export function registerStudioRoutes(app, {
         ...toPublicDrawingPreviewPayload(payload),
       }));
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const status = /TOML parse error|Config TOML is required|must include|invalid/i.test(message) ? 400 : 500;
+      const rawMessage = errorMessage(error);
+      const status = /TOML parse error|Config TOML is required|must include|invalid/i.test(rawMessage) ? 400 : 500;
       const response = createErrorResponse(
         'drawing_preview_failed',
-        [message],
+        [publicErrorMessage(error)],
         status
       );
       res.status(response.status).json(assertResponse('error', response.body));
@@ -272,11 +282,11 @@ export function registerStudioRoutes(app, {
         ...toPublicDrawingPreviewPayload(payload),
       }));
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const status = /No drawing preview found|editable plan path|Could not update|dim_intent|Invalid value|positive/i.test(message) ? 400 : 500;
+      const rawMessage = errorMessage(error);
+      const status = /No drawing preview found|editable plan path|Could not update|dim_intent|Invalid value|positive/i.test(rawMessage) ? 400 : 500;
       const response = createErrorResponse(
         'drawing_dimension_update_failed',
-        [message],
+        [publicErrorMessage(error)],
         status
       );
       res.status(response.status).json(assertResponse('error', response.body));

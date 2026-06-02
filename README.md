@@ -10,7 +10,7 @@ The repository has two public layers:
 Validation snapshot:
 
 - maintainer-local macOS checks cover FreeCAD 1.1.x for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, narrow `tolerance --csv`, and `report`
-- hosted CI runs explicit fast lanes: `test:node:contract`, `test:node:integration`, `test:snapshots`, and `test:py`; hosted CI does not install or launch FreeCAD
+- hosted CI runs explicit fast lanes: `test:node:contract`, `test:node:integration`, `test:snapshots`, `test:studio-browser-smoke`, and `test:py`; hosted CI does not install or launch FreeCAD
 - repository-owned runtime CI is the `FreeCAD Runtime Smoke (self-hosted macOS)` workflow for real `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, narrow `tolerance --csv`, and `report`
 - experimental or not yet automated for live FreeCAD execution on Windows native, WSL -> Windows FreeCAD, and Linux; those paths remain compatibility paths, not equal-maturity claims
 
@@ -124,7 +124,7 @@ Treat `ks_bracket` as the blocker-rich example and `quality_pass_bracket` as the
 
 - maintainer-local coverage path: macOS + `FreeCAD.app` 1.1.x for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, narrow `tolerance --csv`, and `report`
 - repository-owned runtime CI path: self-hosted macOS smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, narrow `tolerance --csv`, and `report`
-- hosted CI path: Node contract, Node integration, snapshots, and Python lanes without installing or launching FreeCAD
+- hosted CI path: Node contract, Node integration, snapshots, Studio browser smoke, and Python lanes without installing or launching FreeCAD
 - compatibility paths only today: Windows native, WSL -> Windows FreeCAD, and Linux runtime execution
 
 ## Target Use Cases
@@ -1115,6 +1115,7 @@ GitHub-hosted CI currently covers:
 - `test:node:contract` on `ubuntu-24.04` and `macos-14`
 - `test:node:integration` on `ubuntu-24.04`
 - `test:snapshots` on `ubuntu-24.04`
+- `test:studio-browser-smoke` on `ubuntu-24.04`
 - `test:py` on `ubuntu-24.04`
 
 GitHub-hosted CI does not currently install or launch FreeCAD.

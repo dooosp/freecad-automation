@@ -1203,6 +1203,8 @@ function makePartialExtractedEvidence() {
   assert.equal(model.failedGateNames.includes('Geometry'), true);
   assert.equal(model.failedGateChecks.find((entry) => entry.label === 'Geometry')?.displayStatus, 'Required missing');
   assert.equal(model.checks.unavailable.find((entry) => entry.label === 'Create quality JSON')?.displayStatus, 'Required missing');
+  assert.equal(model.checks.unavailable.find((entry) => entry.label === 'Ready for manufacturing review')?.displayStatus, 'Unknown');
+  assert.equal(model.failedGateNames.includes('Ready for manufacturing review'), false);
 }
 
 {

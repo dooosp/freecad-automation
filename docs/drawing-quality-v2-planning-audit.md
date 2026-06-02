@@ -21,7 +21,7 @@ Primary evidence used for this audit:
 - `node tests/runtime-smoke-cli.js`
 - `npm run test:runtime-smoke`
 - targeted drawing/report/Studio tests
-- latest runtime smoke outputs under timestamped `output/smoke/...` directories
+- historical/local runtime smoke outputs under timestamped `output/smoke/...` directories when present on the runner
 
 ## Executive Summary
 
@@ -63,7 +63,7 @@ What is already shipped and verified:
 - Studio quality surfaces consume report/drawing artifacts and expose semantic-quality evidence plus advisory suggested-action groups.
 - manufacturing readiness still depends on required Geometry / Drawing / DFM surfaces rather than advisory semantic/layout/reviewer signals.
 
-Current remediation-candidate runtime smoke under timestamped `output/smoke/...` directories confirms:
+The remediation-candidate runtime smoke captured in local timestamped `output/smoke/...` control-artifact directories confirmed:
 
 - `quality_pass_bracket`
   - `drawing_quality.status = pass`
@@ -121,7 +121,7 @@ Those smoke outputs preserve the Prompt 16 through Prompt 24 locks:
 
 ### Runtime-Smoke-Backed
 
-These surfaces are currently proven by real FreeCAD-backed smoke on macOS and by the latest runtime outputs:
+These surfaces are proven by real FreeCAD-backed smoke on macOS when the self-hosted/runtime lane runs; local timestamped runtime outputs are generated control artifacts, not checked-in evidence:
 
 - draw/report end-to-end artifact emission for both `quality_pass_bracket` and `ks_bracket`
 - `drawing_intent`, `feature_catalog`, `extracted_drawing_semantics`, `drawing_quality`, `drawing_planner`, draw manifest, report summary, and report manifest linkage

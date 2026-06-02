@@ -6,6 +6,7 @@ import {
 } from '../public/js/studio/artifact-insights.js';
 import {
   collectGeneratedArtifactGroups,
+  hasIndexedArtifactManifest,
 } from '../public/js/studio/artifacts-workspace.js';
 import {
   findStudioExampleById,
@@ -214,6 +215,24 @@ assert.equal(generatedGroupMap['cad-exports'].rows.find((row) => row.id === 'stl
 assert.equal(generatedGroupMap['cad-exports'].rows.find((row) => row.id === 'stl').canDownload, true);
 assert.equal(generatedGroupMap['quality-outputs'].rows.find((row) => row.id === 'manifest').canDownload, false);
 assert.equal(JSON.stringify(generatedGroups).includes('missing.step'), false);
+
+assert.equal(hasIndexedArtifactManifest({
+  artifacts: [
+    makeGeneratedArtifact({
+      id: 'step-only',
+      key: 'step',
+      type: 'model.step',
+      fileName: 'part.step',
+      extension: '.step',
+    }),
+  ],
+}), false);
+assert.equal(hasIndexedArtifactManifest({
+  manifest: {
+    manifest_type: 'fcad.artifact-manifest',
+  },
+  artifacts: [],
+}), true);
 
 const sparseGeneratedGroups = collectGeneratedArtifactGroups([
   makeGeneratedArtifact({

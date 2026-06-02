@@ -78,6 +78,9 @@
         "node_version",
         "platform",
         "freecad_available",
+        "freecad_executable_detected",
+        "freecad_probe_status",
+        "freecad_status",
         "freecad_version"
       ],
       "properties": {
@@ -92,6 +95,24 @@
         "freecad_available": {
           "type": [
             "boolean",
+            "null"
+          ]
+        },
+        "freecad_executable_detected": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "freecad_probe_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "freecad_status": {
+          "type": [
+            "string",
             "null"
           ]
         },

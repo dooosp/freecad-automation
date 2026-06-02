@@ -1556,6 +1556,8 @@ function browserSmokeRuntimeDiagnostics() {
     diagnostics_version: 'browser-smoke',
     status: 'ready',
     available: true,
+    executable_detected: true,
+    probe_status: 'usable',
     platform: process.platform,
     description: 'Browser smoke deterministic runtime stub.',
     source: 'browser-smoke',

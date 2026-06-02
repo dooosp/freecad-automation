@@ -282,6 +282,9 @@ function makeBaseInput(overrides = {}) {
   assert.equal(validation.ok, true, validation.errors.join('\n'));
   assert.equal(summary.overall_status, 'pass');
   assert.equal(summary.ready_for_manufacturing_review, true);
+  assert.equal(summary.runtime_status.available, true);
+  assert.equal(summary.runtime_status.executable_detected, true);
+  assert.equal(summary.runtime_status.probe_status, 'usable');
   assert.equal(summary.overall_score >= 95, true);
   assert.deepEqual(summary.blocking_issues, []);
   assert.equal(summary.missing_optional_artifacts.includes('fem'), false);
@@ -310,6 +313,22 @@ function makeBaseInput(overrides = {}) {
     summary.surfaces.drawing_quality.layout_readability.provenance.source_completeness.layout_report.source_kind,
     'layout_report'
   );
+}
+
+{
+  const summary = buildDecisionReportSummary(makeBaseInput({
+    runtimeInfo: {
+      status: 'runtime_probe_failed',
+      available: false,
+      executable_detected: true,
+      probe_status: 'failed',
+      mode: 'native',
+    },
+  }));
+  assert.equal(summary.runtime_status.available, false);
+  assert.equal(summary.runtime_status.executable_detected, true);
+  assert.equal(summary.runtime_status.probe_status, 'failed');
+  assert.equal(summary.runtime_status.status, 'runtime_probe_failed');
 }
 
 {
@@ -429,11 +448,11 @@ function makeBaseInput(overrides = {}) {
   );
   assert.equal(
     summary.artifacts_referenced.find((artifact) => artifact.key === 'report_manifest')?.status,
-    'generated'
+    'not_available'
   );
   assert.deepEqual(summary.blocking_issues, []);
   assert.equal(summary.ready_for_manufacturing_review, true);
-  assert.equal(summary.missing_optional_artifacts.includes('report_manifest'), false);
+  assert.equal(summary.missing_optional_artifacts.includes('report_manifest'), true);
 }
 
 {

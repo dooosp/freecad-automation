@@ -13,6 +13,7 @@ import {
   writeDrawingIntent,
 } from '../../../lib/drawing-intent.js';
 import { convertPathFromRuntime, getFreeCADRuntime } from '../../../lib/paths.js';
+import { buildRuntimeDiagnostics } from '../../../lib/runtime-diagnostics.js';
 import { collectRepoContext } from '../../../lib/output-manifest.js';
 import { loadShopProfile } from '../config/profile-service.js';
 import {
@@ -211,7 +212,7 @@ export function createReportService({
       readJsonIfExists(reportArtifacts.extracted_drawing_semantics),
     ]);
     const repoContext = collectRepoContext(freecadRoot);
-    const runtimeInfo = getFreeCADRuntimeFn();
+    const runtimeInfo = buildRuntimeDiagnostics({ runtime: getFreeCADRuntimeFn() });
 
     const preliminarySummary = buildDecisionReportSummary({
       configPath: resolve(freecadRoot, configPath || `${reportStem}.toml`),
