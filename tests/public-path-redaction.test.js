@@ -183,7 +183,10 @@ try {
   const healthPayload = await healthResponse.json();
   assert.equal(healthPayload.ok, true);
   assert.equal(validateLocalApiResponse('health', healthPayload).ok, true);
-  assert.equal(healthPayload.runtime.available, true);
+  assert.equal(healthPayload.runtime.available, false);
+  assert.equal(healthPayload.runtime.executable_detected, true);
+  assert.equal(healthPayload.runtime.status, 'runtime_probe_failed');
+  assert.equal(healthPayload.runtime.probe_status, 'failed');
   assert.equal(healthPayload.runtime.mode, 'macos-bundle');
   assert.equal(healthPayload.runtime.capability_map.inspect.requires_freecad_runtime, true);
   assertNoLeakedPathStrings(healthPayload, [

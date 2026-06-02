@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
@@ -500,10 +500,10 @@ export async function runDrawPipeline({
       .map((dp) => dp.path.replace(/\\/g, '/'));
     const qaScript = join(projectRoot, 'scripts', 'qa_scorer.py');
     const postprocessScript = join(projectRoot, 'scripts', 'postprocess_svg.py');
-    const failUnder = failUnderValue ? ` --fail-under ${failUnderValue}` : '';
+    const failUnderArgs = failUnderValue ? ['--fail-under', String(failUnderValue)] : [];
     const qaWeightPreset = weightsPresetValue || config.drawing_plan?.dimensioning?.qa_weight_preset || '';
-    const qaWeightArg = qaWeightPreset ? ` --weights-preset ${qaWeightPreset}` : '';
-    let configArg = '';
+    const qaWeightArgs = qaWeightPreset ? ['--weights-preset', String(qaWeightPreset)] : [];
+    let configArgs = [];
     let latestQaReport = null;
     let latestQaIssues = null;
 
@@ -512,27 +512,27 @@ export async function runDrawPipeline({
       const effectiveConfigPath = join(artifactDir, `${artifactStem}_effective_config.json`);
       writeJson(effectiveConfigPath, config);
       runLog.artifacts.effective_config = effectiveConfigPath;
-      configArg = ` --config "${effectiveConfigPath}"`;
+      configArgs = ['--config', effectiveConfigPath];
       endStage(configStage, 'ok');
     } catch (error) {
       onError(`  Effective config artifact warning: ${error.message}`);
       endStage(configStage, 'warning', { warning: error.message });
     }
 
-    let planArg = '';
+    let planArgs = [];
     if (config.drawing_plan) {
       const planStage = beginStage(runLog, 'save_plan');
       const planPath = join(artifactDir, `${artifactStem}_plan.toml`);
       try {
         writeFileSync(planPath, tomlStringify({ drawing_plan: config.drawing_plan }));
-        planArg = ` --plan "${planPath}"`;
+        planArgs = ['--plan', planPath];
         runLog.artifacts.plan = planPath;
         endStage(planStage, 'ok');
       } catch (tomlError) {
         onError(`  TOML stringify failed, falling back to JSON: ${tomlError.message}`);
         const jsonPath = planPath.replace('.toml', '.json');
         writeJson(jsonPath, { drawing_plan: config.drawing_plan });
-        planArg = ` --plan "${jsonPath}"`;
+        planArgs = ['--plan', jsonPath];
         runLog.artifacts.plan = jsonPath;
         endStage(planStage, 'ok', { format: 'json_fallback' });
       }
@@ -550,8 +550,9 @@ export async function runDrawPipeline({
         const qaBeforeStage = beginStage(runLog, 'qa_before', { svg: svgPath });
         try {
           const qaBeforeJson = svgPath.replace('.svg', '_qa_before.json');
-          execSync(
-            `python3 "${qaScript}" "${svgPath}" --json "${qaBeforeJson}"${planArg}${configArg}`,
+          execFileSync(
+            'python3',
+            [qaScript, svgPath, '--json', qaBeforeJson, ...planArgs, ...configArgs],
             { cwd: projectRoot, encoding: 'utf-8', timeout: 30_000 }
           );
           qaBefore = JSON.parse(readFileSync(qaBeforeJson, 'utf-8'));
@@ -567,8 +568,9 @@ export async function runDrawPipeline({
         onInfo('\nPost-processing SVG...');
         try {
           const strokeProfile = config.drawing_plan?.style?.stroke_profile || 'ks';
-          const postprocessOutput = execSync(
-            `python3 "${postprocessScript}" "${svgPath}" -o "${svgPath}" --report "${reportJson}" --profile ${strokeProfile}${planArg}`,
+          const postprocessOutput = execFileSync(
+            'python3',
+            [postprocessScript, svgPath, '-o', svgPath, '--report', reportJson, '--profile', String(strokeProfile), ...planArgs],
             { cwd: projectRoot, encoding: 'utf-8', timeout: 30_000 }
           );
           if (postprocessOutput.trim()) onInfo(postprocessOutput.trim());
@@ -598,8 +600,9 @@ export async function runDrawPipeline({
         const qaStage = beginStage(runLog, 'qa_after', { svg: svgPath });
         onInfo('\nQA Scoring...');
         try {
-          const qaOutput = execSync(
-            `python3 "${qaScript}" "${svgPath}" --json "${qaJson}"${planArg}${configArg}${qaWeightArg}${failUnder}`,
+          const qaOutput = execFileSync(
+            'python3',
+            [qaScript, svgPath, '--json', qaJson, ...planArgs, ...configArgs, ...qaWeightArgs, ...failUnderArgs],
             { cwd: projectRoot, encoding: 'utf-8', timeout: 30_000 }
           );
           if (qaOutput.trim()) onInfo(qaOutput.trim());

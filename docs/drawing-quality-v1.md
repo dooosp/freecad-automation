@@ -95,7 +95,7 @@ Commands run:
 - `node scripts/check-source-tree-hygiene.js`
 - `git diff --check`
 
-All of the above passed. Runtime smoke evidence was captured under `output/smoke/2026-04-22T11-30-40-150Z/`.
+All of the above passed in the historical local run for this audit. Its runtime smoke output was a local generated control artifact under `output/smoke/2026-04-22T11-30-40-150Z/`; that ignored directory is not expected to exist in a clean checkout and is not inspection evidence.
 
 ## Bracket Evidence
 

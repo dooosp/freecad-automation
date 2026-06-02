@@ -65,6 +65,53 @@ try {
   assert.equal(manifest.rule_packs.standards.id, 'ks-basic');
   assert.equal(manifest.artifacts[0].exists, true);
   assert.equal(typeof manifest.artifacts[0].sha256, 'string');
+  assert.equal(typeof manifest.runtime.freecad.executable_detected, 'boolean');
+  assert.equal(typeof manifest.runtime.freecad.probe_status, 'string');
+  assert.equal(typeof manifest.runtime.freecad.status, 'string');
+
+  const probeFailedManifest = await buildArtifactManifest({
+    projectRoot: ROOT,
+    interface: 'cli',
+    command: 'inspect',
+    status: 'partial',
+    artifacts: [
+      {
+        type: 'model.step',
+        path: artifactPath,
+        label: 'STEP model',
+      },
+    ],
+    timestamps: {
+      created_at: '2026-03-27T00:00:00.000Z',
+      started_at: '2026-03-27T00:00:00.000Z',
+      finished_at: '2026-03-27T00:00:01.000Z',
+    },
+    runtimeDiagnostics: {
+      status: 'runtime_probe_failed',
+      available: false,
+      executable_detected: true,
+      probe_status: 'failed',
+      platform: process.platform,
+      mode: 'native',
+      source: 'FREECAD_BIN',
+      executable: '/opt/freecad/bin/FreeCADCmd',
+      python_executable: '',
+      runtime_executable: '/opt/freecad/bin/FreeCADCmd',
+      gui_executable: '',
+      description: 'FreeCAD executable detected but probe failed.',
+      checked_candidates: ['/opt/freecad/bin/FreeCADCmd'],
+      version_details: {
+        freecad: {
+          version: '1.1.1',
+        },
+      },
+    },
+  });
+  assert.equal(probeFailedManifest.runtime.freecad.available, false);
+  assert.equal(probeFailedManifest.runtime.freecad.executable_detected, true);
+  assert.equal(probeFailedManifest.runtime.freecad.probe_status, 'failed');
+  assert.equal(probeFailedManifest.runtime.freecad.status, 'runtime_probe_failed');
+  assert.equal(probeFailedManifest.runtime.freecad.version, '1.1.1');
 
   const schema = JSON.parse(
     readFileSync(join(ROOT, 'schemas', 'artifact-manifest.schema.json'), 'utf8')
@@ -72,6 +119,7 @@ try {
   const ajv = new Ajv2020({ allErrors: true, strict: false });
   const validate = ajv.compile(schema);
   assert.equal(validate(manifest), true, (validate.errors || []).map((error) => error.message).join('\n'));
+  assert.equal(validate(probeFailedManifest), true, (validate.errors || []).map((error) => error.message).join('\n'));
 
   const manifestPath = join(TMP_DIR, 'artifact-manifest.json');
   await writeArtifactManifest(manifestPath, manifest);

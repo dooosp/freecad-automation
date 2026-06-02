@@ -80,6 +80,22 @@ function finiteNumberOrNull(value) {
   return Number.isFinite(number) ? number : null;
 }
 
+function normalizeRuntimeStatus(runtimeInfo = null) {
+  const status = safeString(runtimeInfo?.status);
+  const available = status
+    ? status === 'ready' && runtimeInfo?.available === true
+    : Boolean(runtimeInfo?.available ?? runtimeInfo?.mode);
+  return {
+    mode: runtimeInfo?.mode ?? runtimeInfo?.selected_runtime?.mode ?? null,
+    available,
+    status: status || (available ? 'ready' : 'unknown'),
+    executable_detected: typeof runtimeInfo?.executable_detected === 'boolean'
+      ? runtimeInfo.executable_detected
+      : Boolean(runtimeInfo?.available ?? runtimeInfo?.mode),
+    probe_status: runtimeInfo?.probe_status || (available ? 'usable' : 'unknown'),
+  };
+}
+
 function formatSchemaErrors(errors = []) {
   return errors.map((error) => `${error.instancePath || '/'} ${error.message}`);
 }
@@ -991,7 +1007,7 @@ export function buildDecisionReportSummary({
       'report_manifest',
       'Report output manifest',
       paths.report_manifest,
-      deriveArtifactStatus(paths.report_manifest, reportManifest, { generated: Boolean(paths.report_manifest) }),
+      deriveArtifactStatus(paths.report_manifest, reportManifest),
     ),
   ];
 
@@ -1013,10 +1029,7 @@ export function buildDecisionReportSummary({
     git_commit: gitCommit,
     git_branch: gitBranch,
     generated_at: reportGeneratedAt || new Date().toISOString(),
-    runtime_status: {
-      mode: runtimeInfo?.mode ?? null,
-      available: Boolean(runtimeInfo?.available ?? runtimeInfo?.mode),
-    },
+    runtime_status: normalizeRuntimeStatus(runtimeInfo),
     inputs_consumed: [
       artifactRef('config', 'Input config', configPath, configPath ? 'available' : 'not_run'),
       ...(reviewerFeedbackPath && ['available', 'partial', 'invalid'].includes(surfaces.drawing_quality.reviewer_feedback.status)

@@ -517,11 +517,24 @@ function renderGeneratedFilesPanel(artifacts = []) {
   });
 }
 
+export function hasIndexedArtifactManifest(activeJob = null) {
+  const manifest = activeJob?.manifest;
+  return Boolean(
+    manifest
+      && typeof manifest === 'object'
+      && (
+        manifest.command
+        || manifest.manifest_type
+        || manifest.schema_version
+        || manifest.manifest_version
+      )
+  );
+}
+
 function renderArtifactPipeline(activeJob) {
   const artifacts = activeJob?.artifacts || [];
-  const hasArtifacts = artifacts.length > 0;
   const hasReview = Boolean(findPreferredReviewPackArtifact(artifacts));
-  const hasManifest = Boolean(activeJob?.manifest?.command || hasArtifacts);
+  const hasManifest = hasIndexedArtifactManifest(activeJob);
   const hasPackage = Boolean(findPreferredReleaseBundleArtifact(artifacts) || findPreferredReleaseBundleManifestArtifact(artifacts));
   const hasDownload = artifacts.some((artifact) => artifact.capabilities?.can_download);
   const steps = [

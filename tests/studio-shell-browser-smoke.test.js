@@ -1556,6 +1556,8 @@ function browserSmokeRuntimeDiagnostics() {
     diagnostics_version: 'browser-smoke',
     status: 'ready',
     available: true,
+    executable_detected: true,
+    probe_status: 'usable',
     platform: process.platform,
     description: 'Browser smoke deterministic runtime stub.',
     source: 'browser-smoke',
@@ -1637,9 +1639,6 @@ let cdp = null;
 try {
   const port = await listen(server);
   const baseUrl = `http://127.0.0.1:${port}`;
-  const stage5bAuditJob = await seedStage5bAuditJob(jobStore, {
-    projectRoot: ROOT,
-  });
   const passQualityJob = await seedQualityDecisionJob(jobStore, {
     projectRoot: ROOT,
     configName: 'quality_pass_bracket',
@@ -1753,6 +1752,9 @@ try {
     {},
     seededManifest
   );
+  const stage5bAuditJob = await seedStage5bAuditJob(jobStore, {
+    projectRoot: ROOT,
+  });
   const seededShortJobId = seededJob.id.slice(0, 8);
 
   chrome = await launchChrome(chromeBinary);

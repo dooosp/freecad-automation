@@ -50,6 +50,28 @@ async function waitFor(assertion, { attempts = 10, delayMs = 50 } = {}) {
   throw lastError;
 }
 
+function createFailingStudioModelService(message) {
+  const fail = async () => {
+    throw new Error(message);
+  };
+  return {
+    validateConfigToml: fail,
+    designFromPrompt: fail,
+    buildPreview: fail,
+    getPreviewModelPath: () => null,
+    getPreviewPartPath: () => null,
+    dispose: async () => {},
+  };
+}
+
+function createQuietStudioDrawingService() {
+  return {
+    buildPreview: async () => ({ ok: true }),
+    updateDimension: async () => ({ ok: true }),
+    dispose: async () => {},
+  };
+}
+
 function seedBootstrapTrackedReviewContext() {
   mkdirSync(join(BOOTSTRAP_SESSION_DIR, 'source'), { recursive: true });
   mkdirSync(join(BOOTSTRAP_SESSION_DIR, 'artifacts'), { recursive: true });
@@ -499,6 +521,47 @@ try {
   const oversizedJsonPayload = await oversizedJsonResponse.json();
   assert.equal(oversizedJsonPayload.ok, false);
   assert.equal(oversizedJsonPayload.error.code, 'request_too_large');
+
+  const secretRouteError = `Studio preview failed at ${PRIVATE_RESULT_PATH} with Authorization: Bearer github_pat_routeSECRET123 and callback http://[fd00::1]/debug?token=gho_routeSECRET123&secret=raw plus C:\\private\\studio\\support.step`;
+  const { server: failingStudioServer } = createLocalApiServer({
+    projectRoot: ROOT,
+    jobsDir: join(tmpRoot, 'failing-studio-route-jobs'),
+    studioModelServiceFactory: () => createFailingStudioModelService(secretRouteError),
+    studioDrawingServiceFactory: () => createQuietStudioDrawingService(),
+  });
+  try {
+    const failingStudioPort = await listen(failingStudioServer);
+    const failingStudioBaseUrl = `http://127.0.0.1:${failingStudioPort}`;
+    const failingPreviewResponse = await fetch(`${failingStudioBaseUrl}/api/studio/model-preview`, {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        config_toml: 'name = "redaction_test"\n',
+      }),
+    });
+    assert.equal(failingPreviewResponse.status, 500);
+    const failingPreviewPayload = await failingPreviewResponse.json();
+    assert.equal(failingPreviewPayload.ok, false);
+    assert.equal(failingPreviewPayload.error.code, 'model_preview_failed');
+    assertNoLeakedPathStrings(failingPreviewPayload, [
+      PRIVATE_RESULT_PATH,
+      ROOT,
+      'C:\\private\\studio',
+      'fd00::1',
+      'github_pat_routeSECRET123',
+      'gho_routeSECRET123',
+    ]);
+    const failingPreviewText = JSON.stringify(failingPreviewPayload);
+    assert.equal(/authorization\s*[:=]/i.test(failingPreviewText), false);
+    assert.equal(/secret\s*=/i.test(failingPreviewText), false);
+    assert.match(failingPreviewText, /private-report\.json/);
+    assert.match(failingPreviewText, /\[redacted-url\]/);
+  } finally {
+    await new Promise((resolveClose) => failingStudioServer.close(resolveClose));
+  }
 
   const redactionSourceJob = await jobStore.createJob({
     type: 'report',

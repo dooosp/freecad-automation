@@ -230,6 +230,9 @@
               "additionalProperties": false,
               "required": [
                 "available",
+                "executable_detected",
+                "probe_status",
+                "status",
                 "mode",
                 "source",
                 "executable",
@@ -243,6 +246,21 @@
               "properties": {
                 "available": {
                   "type": "boolean"
+                },
+                "executable_detected": {
+                  "type": "boolean"
+                },
+                "probe_status": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "status": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "mode": {
                   "type": "string"

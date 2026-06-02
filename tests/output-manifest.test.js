@@ -77,6 +77,39 @@ try {
   assert.equal(manifest.linked_artifacts.reviewer_feedback_json, reviewerFeedbackPath);
   assert.equal(manifest.repo.branch, 'feat/output-manifest-foundation');
   assert.equal(manifest.timings.duration_ms, 2000);
+  assert.equal(typeof manifest.runtime.freecad_executable_detected, 'boolean');
+  assert.equal(typeof manifest.runtime.freecad_probe_status, 'string');
+  assert.equal(typeof manifest.runtime.freecad_status, 'string');
+
+  const probeFailedManifest = await buildOutputManifest({
+    projectRoot: ROOT,
+    repoContext: {
+      root: ROOT,
+      branch: 'feat/output-manifest-foundation',
+      headSha: 'abc123',
+      dirtyAtStart: false,
+    },
+    command: 'inspect',
+    inputPath,
+    outputs: [{ path: outputPath, kind: 'model.step' }],
+    status: 'warning',
+    runtimeDiagnostics: {
+      status: 'runtime_probe_failed',
+      available: false,
+      executable_detected: true,
+      probe_status: 'failed',
+      version_details: {
+        freecad: {
+          version: '1.1.1',
+        },
+      },
+    },
+  });
+  assert.equal(probeFailedManifest.runtime.freecad_available, false);
+  assert.equal(probeFailedManifest.runtime.freecad_executable_detected, true);
+  assert.equal(probeFailedManifest.runtime.freecad_probe_status, 'failed');
+  assert.equal(probeFailedManifest.runtime.freecad_status, 'runtime_probe_failed');
+  assert.equal(probeFailedManifest.runtime.freecad_version, '1.1.1');
 
   const derivedPath = createOutputManifestPath({
     primaryOutputPath: outputPath,

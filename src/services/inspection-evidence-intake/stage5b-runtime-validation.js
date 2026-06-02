@@ -13,7 +13,7 @@ export const STAGE5B_EVIDENCE_BOUNDARY_NOTE = 'Only genuine completed physical/s
 
 const WINDOWS_PATH_PATTERN = /(?:[A-Za-z]:\\(?:[^\\\r\n"'`<>|]+\\?)+|\\\\[^\s"'`<>|]+(?:\\[^\s"'`<>|]+)+)/g;
 const POSIX_PATH_PATTERN = /(?:\/(?:[^\/\s"'`<>()]+\/)+[^\/\s"'`<>()]+)/g;
-const URL_PATTERN = /https?:\/\/[^\s<>"'`)\]]+/gi;
+const URL_PATTERN = /https?:\/\/[^\s<>"'`]+/gi;
 
 function safeList(value) {
   return Array.isArray(value) ? value : [];
@@ -24,10 +24,12 @@ function isWindowsAbsolutePath(value) {
 }
 
 function isPrivateHostname(hostname) {
-  const host = String(hostname || '').toLowerCase();
+  const host = String(hostname || '').trim().toLowerCase().replace(/^\[|\]$/g, '');
+  const isIpv6 = host.includes(':');
   return host === 'localhost'
     || host === '::1'
     || host.endsWith('.local')
+    || (isIpv6 && (host.startsWith('fd') || host.startsWith('fc') || host.startsWith('fe80:')))
     || /^127\./.test(host)
     || /^10\./.test(host)
     || /^192\.168\./.test(host)

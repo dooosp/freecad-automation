@@ -981,6 +981,25 @@ function resolveOutputManifestStatus({ warnings = [], errors = [] } = {}) {
   return 'pass';
 }
 
+function drawingQualityManifestWarnings(drawingQuality = null) {
+  if (!drawingQuality || typeof drawingQuality !== 'object') return [];
+  const warnings = [];
+  const status = String(drawingQuality.status || '').trim().toLowerCase();
+  if (status && status !== 'pass') {
+    warnings.push(`Drawing quality status: ${status}.`);
+  }
+  for (const issue of drawingQuality.blocking_issues || []) {
+    const message = typeof issue === 'string' ? issue : issue?.message;
+    if (message) warnings.push(`Drawing quality blocker: ${message}`);
+  }
+  for (const warning of drawingQuality.warnings || []) {
+    if (typeof warning === 'string' && warning.trim()) {
+      warnings.push(`Drawing quality warning: ${warning.trim()}`);
+    }
+  }
+  return uniqueStrings(warnings);
+}
+
 async function emitOutputManifestSafe({
   command,
   commandArgs = [],
@@ -2871,6 +2890,10 @@ async function cmdDraw(rawArgs = []) {
       outputDir: configDocument.config.export?.directory || null,
       artifacts: collectDrawManifestArtifacts(result),
     });
+    const drawManifestWarnings = uniqueStrings([
+      ...(configDocument.summary?.warnings || []),
+      ...drawingQualityManifestWarnings(result.drawing_quality),
+    ]);
     await emitOutputManifestSafe({
       command: 'draw',
       commandArgs: rawArgs,
@@ -2890,7 +2913,7 @@ async function cmdDraw(rawArgs = []) {
         ...buildDrawLinkedArtifactsFromSvg(svgPath),
         ...(result.reviewer_feedback_path ? { reviewer_feedback_json: result.reviewer_feedback_path } : {}),
       },
-      warnings: configDocument.summary?.warnings || [],
+      warnings: drawManifestWarnings,
     });
     console.log(`Manifest: ${manifestPath}`);
     return result;

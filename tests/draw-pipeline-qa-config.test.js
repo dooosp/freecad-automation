@@ -10,7 +10,7 @@ const TEST_FILE = fileURLToPath(import.meta.url);
 const TEST_DIR = dirname(TEST_FILE);
 const PROJECT_ROOT = dirname(TEST_DIR);
 
-const tempRoot = mkdtempSync(join(tmpdir(), 'fcad-draw-qa-'));
+const tempRoot = mkdtempSync(join(tmpdir(), 'fcad-draw-qa-quote"-'));
 
 try {
   const outputDir = join(tempRoot, 'output');

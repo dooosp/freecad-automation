@@ -1469,8 +1469,16 @@ function buildReportSummaryChecks({ reportSummary = {}, reportArtifactPresent = 
   appendStatusCheck(
     groups,
     'Ready for manufacturing review',
-    reportSummary.ready_for_manufacturing_review === true ? 'pass' : 'fail',
-    reportSummary.ready_for_manufacturing_review === true ? 'Yes' : 'No',
+    reportSummary.ready_for_manufacturing_review === true
+      ? 'pass'
+      : reportSummary.ready_for_manufacturing_review === false
+        ? 'fail'
+        : 'unknown',
+    reportSummary.ready_for_manufacturing_review === true
+      ? 'Yes'
+      : reportSummary.ready_for_manufacturing_review === false
+        ? 'No'
+        : 'Unknown',
     { decision: true, surface: 'Decision' }
   );
 

@@ -2,7 +2,7 @@ import { execFile as execFileCallback } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { basename, dirname, extname, join, posix, resolve } from 'node:path';
+import { basename, dirname, extname, join, posix, resolve, win32 } from 'node:path';
 import { inflateRawSync } from 'node:zlib';
 import { promisify } from 'node:util';
 
@@ -51,7 +51,9 @@ const GITHUB_MAX_ZIP_ENTRIES = 50;
 const GITHUB_MAX_ZIP_INNER_BYTES = 256 * 1024;
 const GITHUB_MAX_ZIP_TOTAL_INNER_BYTES = 1024 * 1024;
 const GITHUB_MAX_REPO_DOC_LINK_FILES = 100;
-const URL_PATTERN = /https?:\/\/[^\s<>"'`)\]]+/gi;
+const URL_PATTERN = /https?:\/\/[^\s<>"'`]+/gi;
+const WINDOWS_PATH_PATTERN = /(?:[A-Za-z]:\\(?:[^\\\r\n"'`<>|]+\\?)+|\\\\[^\s"'`<>|]+(?:\\[^\s"'`<>|]+)+)/g;
+const POSIX_PATH_PATTERN = /(?:\/(?:[^\/\s"'`<>()]+\/)+[^\/\s"'`<>()]+)/g;
 
 const TABLE_HEADER_ALIASES = Object.freeze({
   schema_version: ['schema_version', 'schema', 'contract_version'],
@@ -1410,6 +1412,8 @@ async function defaultGithubFetch(url) {
 function sanitizeErrorMessage(error) {
   return String(error?.message || error || 'unknown error')
     .replace(URL_PATTERN, '[url]')
+    .replace(WINDOWS_PATH_PATTERN, (match) => win32.basename(match))
+    .replace(POSIX_PATH_PATTERN, (match) => basename(match))
     .replace(/[A-Za-z0-9_=-]{32,}/g, '[redacted]')
     .slice(0, 300);
 }
@@ -1423,10 +1427,12 @@ function urlHostLabel(rawUrl) {
 }
 
 function isPrivateHostname(hostname) {
-  const host = String(hostname || '').toLowerCase();
+  const host = String(hostname || '').trim().toLowerCase().replace(/^\[|\]$/g, '');
+  const isIpv6 = host.includes(':');
   return host === 'localhost'
     || host === '::1'
     || host.endsWith('.local')
+    || (isIpv6 && (host.startsWith('fd') || host.startsWith('fc') || host.startsWith('fe80:')))
     || /^127\./.test(host)
     || /^10\./.test(host)
     || /^192\.168\./.test(host)

@@ -78,7 +78,7 @@ export function printRuntimeDiagnostics({
   }
 
   logger('FreeCAD Automation runtime diagnostics');
-  logger(`Status: ${diagnostics.available ? 'ready' : 'runtime not detected'}`);
+  logger(`Status: ${diagnostics.status === 'ready' ? 'ready' : diagnostics.status === 'runtime_probe_failed' ? 'runtime probe failed' : 'runtime not detected'}`);
   logger(`Platform: ${diagnostics.platform}`);
 
   logSection(logger, 'Selected runtime');
