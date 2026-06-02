@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 
 import { buildRuntimeDiagnostics } from '../lib/runtime-diagnostics.js';
 import { redactPublicPathValues } from '../src/server/local-api-artifacts.js';
+import { createInternalErrorMiddleware } from '../src/server/local-api-response-helpers.js';
 import { createLocalApiServer } from '../src/server/local-api-server.js';
 import { validateLocalApiResponse } from '../src/server/local-api-schemas.js';
 import {
@@ -139,6 +140,35 @@ assertNoLeakedPathStrings(publicPathSanitized, [
   'customer secret',
 ]);
 assert.match(publicPathSanitized.message, /<path>\/part one\.step/);
+
+let internalErrorStatus = null;
+let internalErrorPayload = null;
+const internalErrorMiddleware = createInternalErrorMiddleware();
+internalErrorMiddleware(
+  new Error(`ENOENT: open /Users/alice/My Files/customer secret/preview.step?token=secret and ${WINDOWS_RUNTIME_FIXTURE}`),
+  {},
+  {
+    status(statusCode) {
+      internalErrorStatus = statusCode;
+      return this;
+    },
+    json(payload) {
+      internalErrorPayload = payload;
+      return this;
+    },
+  },
+  () => {}
+);
+assert.equal(internalErrorStatus, 500);
+assert.equal(internalErrorPayload.ok, false);
+assert.equal(internalErrorPayload.error.code, 'internal_error');
+assertNoLeakedSensitiveStrings(internalErrorPayload, [
+  '/Users/alice',
+  'My Files',
+  'customer secret',
+  WINDOWS_RUNTIME_FIXTURE,
+  'token=secret',
+]);
 
 const { server } = createLocalApiServer({
   projectRoot: ROOT,

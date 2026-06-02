@@ -163,7 +163,7 @@ export const TEST_SUITES = Object.freeze([
     id: 'hosted',
     npmScript: 'test:ci:hosted',
     packageCommand: 'node scripts/run-test-suite.js hosted',
-    members: Object.freeze(['test:node:contract', 'test:node:integration', 'test:snapshots', 'test:py']),
+    members: Object.freeze(['test:node:contract', 'test:node:integration', 'test:snapshots', 'test:studio-browser-smoke', 'test:py']),
   }),
   Object.freeze({
     id: 'node-lite',

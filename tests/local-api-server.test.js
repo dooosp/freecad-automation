@@ -1146,27 +1146,12 @@ try {
       },
     }),
   });
-  assert.equal(rerunReportResponse.status, 202);
+  assert.equal(rerunReportResponse.status, 400);
   const rerunReportPayload = await rerunReportResponse.json();
-  assert.equal(rerunReportPayload.job.type, 'report');
-  assert.equal('config_path' in rerunReportPayload.job.request, false);
-  assert.deepEqual(rerunReportPayload.job.request.artifact_ref, {
-    job_id: configSourceJob.id,
-    artifact_id: configArtifact.id,
-  });
-  assert.equal(rerunReportPayload.job.request.source_job_id, configSourceJob.id);
-  assert.equal(rerunReportPayload.job.request.options.studio.source_artifact_id, configArtifact.id);
-  assert.equal(rerunReportPayload.job.request.source_artifact_type, 'config.effective');
-  assert.equal(rerunReportPayload.job.request.source_label, 'Effective config copy');
-  assert.equal('source_artifact_path' in rerunReportPayload.job.request.options.studio, false);
-  assert.deepEqual(rerunReportPayload.job.request.options.report_options, { style: 'summary' });
-  assert.equal(JSON.stringify(rerunReportPayload.job.request).includes(configArtifactPath), false);
-
-  const rerunReportStatusResponse = await fetch(`${baseUrl}/jobs/${rerunReportPayload.job.id}`);
-  assert.equal(rerunReportStatusResponse.status, 200);
-  const rerunReportStatusPayload = await rerunReportStatusResponse.json();
-  assert.equal('config_path' in rerunReportStatusPayload.job.request, false);
-  assert.equal(JSON.stringify(rerunReportStatusPayload.job.request).includes(configArtifactPath), false);
+  assert.equal(rerunReportPayload.ok, false);
+  assert.equal(rerunReportPayload.error.code, 'invalid_request');
+  assert.match(rerunReportPayload.error.messages.join('\n'), /internal tracked artifact/i);
+  assert.equal(JSON.stringify(rerunReportPayload).includes(configArtifactPath), false);
 
   const modelSourceJob = await jobStore.createJob({
     type: 'create',

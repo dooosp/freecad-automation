@@ -1,10 +1,12 @@
 import { LOCAL_API_VERSION } from './local-api-contract.js';
 import { validateLocalApiResponse } from './local-api-schemas.js';
+import { redactPublicPathValues } from './local-api-artifacts.js';
 
 const MAX_ERROR_MESSAGE_LENGTH = 240;
 
 function normalizeErrorMessage(value) {
-  const text = String(value ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim();
+  const redacted = redactPublicPathValues(String(value ?? ''));
+  const text = String(redacted ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim();
   if (!text) return 'Request failed.';
   if (text.length <= MAX_ERROR_MESSAGE_LENGTH) return text;
   return `${text.slice(0, MAX_ERROR_MESSAGE_LENGTH)}... [${text.length} chars]`;

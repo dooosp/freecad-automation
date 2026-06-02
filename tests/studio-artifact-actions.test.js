@@ -109,6 +109,14 @@ assert.equal(canReenterModelWorkspace({
   exists: true,
 }), true);
 
+assert.equal(canReenterModelWorkspace({
+  type: 'config.effective',
+  file_name: 'effective-config.json',
+  extension: '.json',
+  exists: true,
+  scope: 'internal',
+}), false);
+
 assert.equal(canStartTrackedArtifactRun({
   type: 'model.step',
   file_name: 'part.step',
@@ -129,6 +137,14 @@ assert.equal(canStartTrackedArtifactRun({
   extension: '.step',
   exists: true,
 }, 'inspect'), true);
+
+assert.equal(canStartTrackedArtifactRun({
+  type: 'model.step',
+  file_name: 'part.step',
+  extension: '.step',
+  exists: true,
+  scope: 'internal',
+}, 'inspect'), false);
 
 assert.equal(canStartTrackedArtifactRun({
   type: 'model.step',
@@ -347,6 +363,24 @@ assert.deepEqual(deriveArtifactReentryCapabilities({
   canRunTrackedPack: false,
   canRunTrackedPromotionDryRun: false,
   canSeedReview: true,
+});
+
+assert.deepEqual(deriveArtifactReentryCapabilities({
+  type: 'drawing.qa-report',
+  file_name: 'sheet_qa.json',
+  extension: '.json',
+  exists: true,
+  scope: 'internal',
+}), {
+  canOpenInModel: false,
+  canRunTrackedReviewContext: false,
+  canRunTrackedReport: false,
+  canRunTrackedInspect: false,
+  canRunTrackedReadinessPack: false,
+  canRunTrackedStandardDocs: false,
+  canRunTrackedPack: false,
+  canRunTrackedPromotionDryRun: false,
+  canSeedReview: false,
 });
 
 assert.equal(canStartTrackedArtifactRun({

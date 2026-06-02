@@ -22,6 +22,7 @@ const readme = readText('README.md');
 const testingDoc = readText('docs/testing.md');
 const supportMatrix = readText('docs/support-matrix.md');
 const ciDiagnosticsScript = readText('.github/scripts/ci-diagnostics.sh');
+const gitignore = readText('.gitignore');
 
 function extractSection(markdown, heading) {
   const marker = `${heading}\n`;
@@ -68,6 +69,16 @@ Object.entries(getExpectedPackageScripts()).forEach(([scriptName, command]) => {
 
 assert.equal(packageJson.scripts['smoke:runtime'], 'npm run test:runtime-smoke');
 assert.equal(packageJson.scripts['check:runtime'], 'node scripts/check-runtime.js');
+assert.equal(packageJson.scripts['test:snapshots:update'], 'node scripts/run-snapshot-update.js');
+
+[
+  'output/',
+  '.ci/',
+  'tmp/codex/',
+  'local/stage5b-candidate-evidence-inbox/',
+].forEach((ignoredPath) => {
+  assert.match(gitignore, new RegExp(`^${ignoredPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'm'), `.gitignore should ignore ${ignoredPath}`);
+});
 
 const expectedPlainPythonCommands = PLAIN_PYTHON_COMMANDS;
 const expectedConditionalCommands = CONDITIONAL_COMMANDS.map((entry) => entry.name);
@@ -169,5 +180,12 @@ assert.match(diagnosticsRun.stdout, /inspection_evidence_status=not_inspection_e
 assert.match(diagnosticsRun.stdout, /FREECAD_BIN=<path>\/FreeCADCmd/);
 assert.match(diagnosticsRun.stdout, /FREECAD_APP=<path>\/FreeCAD\.app/);
 assert.equal(diagnosticsRun.stdout.includes('/private/tmp/freecad-secret'), false);
+
+const snapshotUpdateNoConfirm = spawnSync(process.execPath, ['scripts/run-snapshot-update.js', '--dry-run'], {
+  cwd: ROOT,
+  encoding: 'utf8',
+});
+assert.equal(snapshotUpdateNoConfirm.status, 2);
+assert.match(snapshotUpdateNoConfirm.stderr, /without --confirm or CONFIRM_UPDATE_SNAPSHOTS=1/);
 
 console.log('source-of-truth-drift.test.js: ok');
