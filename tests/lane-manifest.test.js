@@ -71,6 +71,7 @@ assert(
 );
 
 [
+  'npm run check:source-hygiene',
   'npm run test:node:contract',
   'npm run test:node:integration',
   'npm run test:snapshots',
@@ -87,6 +88,24 @@ assert.equal(
   false,
   'hosted workflow should not claim or run the FreeCAD runtime smoke lane'
 );
+assert.equal(
+  (hostedWorkflow.match(/persist-credentials: false/g) || []).length,
+  6,
+  'hosted workflow checkout steps should not persist Git credentials'
+);
+assert.equal(
+  hostedWorkflow.includes('python3 -m pip install --upgrade pip pytest'),
+  false,
+  'hosted Python lane should not install mutable latest pytest or self-upgrade pip'
+);
+assert(
+  hostedWorkflow.includes('.github/requirements/ci-python.txt'),
+  'hosted Python lane should install from the pinned CI requirements file'
+);
+assert(
+  hostedWorkflow.includes('npm ci --ignore-scripts --no-audit --prefer-offline'),
+  'hosted workflow should install Node dependencies without lifecycle scripts'
+);
 
 [
   'node bin/fcad.js check-runtime',
@@ -100,5 +119,18 @@ assert.equal(
     `self-hosted runtime workflow should include ${command}`
   );
 });
+assert(
+  runtimeWorkflow.includes("github.event.pull_request.head.repo.full_name == github.repository"),
+  'self-hosted runtime workflow should not run forked pull_request code'
+);
+assert.equal(
+  (runtimeWorkflow.match(/persist-credentials: false/g) || []).length,
+  1,
+  'self-hosted runtime checkout should not persist Git credentials'
+);
+assert(
+  runtimeWorkflow.includes('npm ci --ignore-scripts --no-audit --prefer-offline'),
+  'self-hosted runtime workflow should install Node dependencies without lifecycle scripts'
+);
 
 console.log('lane-manifest.test.js: ok');

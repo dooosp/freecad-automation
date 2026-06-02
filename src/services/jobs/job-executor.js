@@ -446,6 +446,12 @@ function isInspectableModelArtifactRecord(artifact = {}) {
     || /\bmodel\.(?:brep|brp|fcstd|step|stl|stp)\b/i.test(fields);
 }
 
+function assertUserFacingArtifactRef(artifact = {}) {
+  if (artifact.scope === 'internal') {
+    throw new Error('artifact_ref points to an internal tracked artifact; use a user-facing tracked artifact.');
+  }
+}
+
 function buildBundleImportManifestArtifacts(importRecords = []) {
   const bundleEntries = [];
   const extractedEntries = [];
@@ -958,6 +964,7 @@ export function createJobExecutor({
         if (!artifact.exists) {
           throw new Error(`Artifact ${artifact.file_name} is registered for job ${ref.job_id}, but the file is missing.`);
         }
+        assertUserFacingArtifactRef(artifact);
         if (!isInspectableModelArtifactRecord(artifact)) {
           throw new Error('inspect artifact_ref must point to a supported tracked model artifact.');
         }
@@ -1408,6 +1415,7 @@ export function createJobExecutor({
       if (!artifact.exists) {
         throw new Error(`Artifact ${artifact.file_name} is registered for job ${ref.job_id}, but the file is missing.`);
       }
+      assertUserFacingArtifactRef(artifact);
       if (!isInspectionEvidenceIntakeArtifactRecord(artifact)) {
         throw new Error('inspection-evidence-promotion-dry-run requires a registered inspection-evidence intake report artifact.');
       }

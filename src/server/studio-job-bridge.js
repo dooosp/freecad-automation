@@ -136,6 +136,14 @@ function trimArtifactRef(value = {}) {
   };
 }
 
+function internalArtifactRefError() {
+  return 'artifact_ref points to an internal tracked artifact; use a user-facing tracked artifact.';
+}
+
+function isInternalResolvedArtifact(resolved = {}) {
+  return resolved?.artifact?.scope === 'internal';
+}
+
 function isSafeTrackedId(value) {
   const raw = typeof value === 'string' ? value.trim() : '';
   const lower = raw.toLowerCase();
@@ -582,6 +590,12 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
           errors: ['inspection-evidence-promotion-dry-run requires a registered inspection-evidence intake report artifact.'],
         };
       }
+      if (isInternalResolvedArtifact(resolvedArtifact)) {
+        return {
+          ok: false,
+          errors: [internalArtifactRefError()],
+        };
+      }
 
       return {
         ok: true,
@@ -636,6 +650,13 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
       return {
         ok: false,
         errors: [error instanceof Error ? error.message : String(error)],
+      };
+    }
+
+    if (isInternalResolvedArtifact(baselineArtifact) || isInternalResolvedArtifact(candidateArtifact)) {
+      return {
+        ok: false,
+        errors: [internalArtifactRefError()],
       };
     }
 
@@ -707,6 +728,12 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
       return {
         ok: false,
         errors: [error instanceof Error ? error.message : String(error)],
+      };
+    }
+    if (isInternalResolvedArtifact(resolvedArtifact)) {
+      return {
+        ok: false,
+        errors: [internalArtifactRefError()],
       };
     }
 

@@ -16,6 +16,7 @@ import {
   buildOutputManifest,
   validateOutputManifest,
 } from '../lib/output-manifest.js';
+import { listOutputArtifacts } from '../scripts/check-source-tree-hygiene.js';
 import { buildDrawingQualitySummary } from '../src/services/drawing/drawing-quality-summary.js';
 import {
   buildExtractedDrawingSemantics,
@@ -575,9 +576,35 @@ try {
     rmSync(pollutionPath, { force: true });
   }
 
+  const screenshotPollutionPath = join(ROOT, 'docs', 'examples', 'motor-mount', 'private-screenshot.png');
+  try {
+    writeFileSync(screenshotPollutionPath, 'screenshot bytes\n', 'utf8');
+    const screenshotDirtyResult = spawnSync('node', ['scripts/check-source-tree-hygiene.js'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+    });
+    assert.notEqual(screenshotDirtyResult.status, 0, 'source hygiene should reject screenshots inside curated package roots');
+    assert.match(`${screenshotDirtyResult.stdout}\n${screenshotDirtyResult.stderr}`, /private-screenshot\.png/);
+  } finally {
+    rmSync(screenshotPollutionPath, { force: true });
+  }
+
   mkdirSync(join(ROOT, 'output'), { recursive: true });
   try {
     writeFileSync(outputPath, '{}\n', 'utf8');
+    const vanishedArtifacts = listOutputArtifacts({
+      statFile() {
+        const error = new Error('simulated vanished output artifact');
+        error.code = 'ENOENT';
+        throw error;
+      },
+    });
+    assert.equal(
+      vanishedArtifacts.some((artifact) => artifact.path === 'output/hygiene_probe_extracted_drawing_semantics.json'),
+      false,
+      'source hygiene should skip output artifacts that disappear during the output walk'
+    );
+
     const cleanResult = spawnSync('node', ['scripts/check-source-tree-hygiene.js'], {
       cwd: ROOT,
       encoding: 'utf8',

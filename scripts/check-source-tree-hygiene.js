@@ -3,6 +3,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { basename, join, relative, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const OUTPUT_DIR = resolve(ROOT, 'output');
@@ -32,6 +33,9 @@ const GENERATED_FILE_PATTERNS = [
   /_effective_config\.json$/i,
   /_plan\.(?:json|toml)$/i,
   /\.(?:step|stp|stl|brep|fcstd|dxf)$/i,
+  /(?:^|[-_.])screenshot[-_.].*\.(?:png|jpe?g|webp)$/i,
+  /\.(?:png|jpe?g|webp)$/i,
+  /\.zip$/i,
 ];
 
 const SOURCE_ALLOWED_DIRS = new Set([
@@ -57,6 +61,14 @@ function looksGenerated(path) {
 function isExpectedFixture(path) {
   const repoPath = toRepoPath(path);
   return repoPath.startsWith('tests/fixtures/') && basename(repoPath).startsWith('expected_');
+}
+
+function isAllowedFixtureArtifact(path) {
+  const repoPath = toRepoPath(path);
+  return (
+    /^tests\/fixtures\/imports\/[^/]+\.(?:step|stp|fcstd)$/i.test(repoPath)
+    || /^tests\/fixtures\/sample_part\.(?:step|stp)$/i.test(repoPath)
+  );
 }
 
 function getCuratedExampleRoots() {
@@ -86,12 +98,30 @@ const CURATED_EXAMPLE_ROOTS = getCuratedExampleRoots();
 function isCuratedExamplePackageArtifact(path) {
   const repoPath = toRepoPath(path);
   for (const root of CURATED_EXAMPLE_ROOTS) {
-    if (repoPath === root || repoPath.startsWith(`${root}/`)) return true;
+    const escapedRoot = root.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const packageArtifactPatterns = [
+      new RegExp(`^${escapedRoot}/cad/[^/]+\\.(?:step|stp|stl|brep|fcstd)$`, 'i'),
+      new RegExp(`^${escapedRoot}/drawing/[^/]+_drawing\\.svg$`, 'i'),
+      new RegExp(`^${escapedRoot}/drawing/[^/]+_drawing_intent\\.json$`, 'i'),
+      new RegExp(`^${escapedRoot}/drawing/[^/]+_extracted_drawing_semantics\\.json$`, 'i'),
+      new RegExp(`^${escapedRoot}/drawing/[^/]+_feature_catalog\\.json$`, 'i'),
+      new RegExp(`^${escapedRoot}/quality/[^/]+_create_quality\\.json$`, 'i'),
+      new RegExp(`^${escapedRoot}/quality/[^/]+_drawing_quality\\.json$`, 'i'),
+      new RegExp(`^${escapedRoot}/quality/[^/]+_drawing_qa\\.json$`, 'i'),
+      new RegExp(`^${escapedRoot}/release/release_bundle_manifest\\.json$`, 'i'),
+      new RegExp(`^${escapedRoot}/release/release_bundle\\.zip$`, 'i'),
+      new RegExp(`^${escapedRoot}/standard-docs(?:-[^/]+)?/standard_docs_manifest\\.json$`, 'i'),
+    ];
+    if (packageArtifactPatterns.some((pattern) => pattern.test(repoPath))) return true;
   }
   return false;
 }
 
-function listOutputArtifacts() {
+function isAllowedTrackedGeneratedArtifact(path) {
+  return isExpectedFixture(path) || isAllowedFixtureArtifact(path) || isCuratedExamplePackageArtifact(path);
+}
+
+export function listOutputArtifacts({ statFile = statSync } = {}) {
   const artifacts = [];
   if (!existsSync(OUTPUT_DIR)) return artifacts;
 
@@ -102,7 +132,13 @@ function listOutputArtifacts() {
       if (entry.isDirectory()) {
         visit(absPath);
       } else if (entry.isFile() && looksGenerated(repoPath)) {
-        const stats = statSync(absPath);
+        let stats;
+        try {
+          stats = statFile(absPath);
+        } catch (error) {
+          if (error?.code === 'ENOENT') continue;
+          throw error;
+        }
         artifacts.push({ path: repoPath, size_bytes: stats.size });
       }
     }
@@ -119,51 +155,76 @@ function parseGitStatusLine(line) {
   return { status, path: path.replace(/^"|"$/g, '') };
 }
 
-function listUnexpectedGeneratedFiles() {
-  const result = spawnSync('git', ['status', '--porcelain', '--untracked-files=all'], {
+export function listUnexpectedGeneratedFiles() {
+  const statusResult = spawnSync('git', ['status', '--porcelain', '--untracked-files=all'], {
     cwd: ROOT,
     encoding: 'utf8',
   });
-  if (result.status !== 0) {
-    throw new Error(`git status failed: ${(result.stderr || result.stdout || '').trim()}`);
+  if (statusResult.status !== 0) {
+    throw new Error(`git status failed: ${(statusResult.stderr || statusResult.stdout || '').trim()}`);
   }
 
-  return String(result.stdout || '')
+  const trackedResult = spawnSync('git', ['ls-files'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  });
+  if (trackedResult.status !== 0) {
+    throw new Error(`git ls-files failed: ${(trackedResult.stderr || trackedResult.stdout || '').trim()}`);
+  }
+
+  const unexpected = new Map();
+
+  String(statusResult.stdout || '')
     .split(/\r?\n/)
     .filter(Boolean)
     .map(parseGitStatusLine)
     .filter(({ path }) => {
       const firstSegment = path.split('/')[0];
-      if (isExpectedFixture(path)) return false;
-      if (isCuratedExamplePackageArtifact(path)) return false;
+      if (isAllowedTrackedGeneratedArtifact(path)) return false;
       return !SOURCE_ALLOWED_DIRS.has(firstSegment) && !isUnderOutput(path) && looksGenerated(path);
     })
-    .sort((a, b) => a.path.localeCompare(b.path));
+    .forEach((entry) => unexpected.set(entry.path, entry));
+
+  String(trackedResult.stdout || '')
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .filter((path) => !isAllowedTrackedGeneratedArtifact(path) && !isUnderOutput(path) && looksGenerated(path))
+    .forEach((path) => {
+      if (!unexpected.has(path)) unexpected.set(path, { status: 'tracked', path });
+    });
+
+  return [...unexpected.values()].sort((a, b) => a.path.localeCompare(b.path));
 }
 
-const outputArtifacts = listOutputArtifacts();
-const unexpected = listUnexpectedGeneratedFiles();
-const sourceTreeClean = unexpected.length === 0;
+function main() {
+  const outputArtifacts = listOutputArtifacts();
+  const unexpected = listUnexpectedGeneratedFiles();
+  const sourceTreeClean = unexpected.length === 0;
 
-console.log('Generated artifact paths:');
-if (outputArtifacts.length === 0) {
-  console.log('  (none under output/)');
-} else {
-  for (const artifact of outputArtifacts) {
-    console.log(`  ${artifact.path} (${artifact.size_bytes} bytes)`);
+  console.log('Generated artifact paths:');
+  if (outputArtifacts.length === 0) {
+    console.log('  (none under output/)');
+  } else {
+    for (const artifact of outputArtifacts) {
+      console.log(`  ${artifact.path} (${artifact.size_bytes} bytes)`);
+    }
+  }
+
+  console.log(`Source tree clean: ${sourceTreeClean ? 'yes' : 'no'}`);
+  console.log('Unexpected generated files outside output/ or fixture/package allowlists:');
+  if (unexpected.length === 0) {
+    console.log('  (none)');
+  } else {
+    for (const entry of unexpected) {
+      console.log(`  ${entry.status.trim() || '??'} ${entry.path}`);
+    }
+  }
+
+  if (!sourceTreeClean) {
+    process.exit(1);
   }
 }
 
-console.log(`Source tree clean: ${sourceTreeClean ? 'yes' : 'no'}`);
-console.log('Unexpected generated files outside output/:');
-if (unexpected.length === 0) {
-  console.log('  (none)');
-} else {
-  for (const entry of unexpected) {
-    console.log(`  ${entry.status.trim() || '??'} ${entry.path}`);
-  }
-}
-
-if (!sourceTreeClean) {
-  process.exit(1);
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main();
 }

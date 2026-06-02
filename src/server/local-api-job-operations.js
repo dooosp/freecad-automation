@@ -125,6 +125,9 @@ export function createLocalApiJobCoordinator({
     if (!artifact.exists) {
       throw new Error(`Artifact ${artifact.file_name} is registered for job ${jobId}, but the file is missing.`);
     }
+    if (artifact.scope === 'internal') {
+      throw new Error('artifact_ref points to an internal tracked artifact; use a user-facing tracked artifact.');
+    }
     const jobArtifacts = await jobStore.listArtifacts(jobId);
     return {
       jobId,

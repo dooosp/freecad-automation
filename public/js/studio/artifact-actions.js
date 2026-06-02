@@ -251,10 +251,11 @@ export function isStage5bEvidenceAuditArtifact(artifact = {}) {
 }
 
 export function canReenterModelWorkspace(artifact = {}) {
-  return artifact.exists !== false && isConfigLikeArtifact(artifact);
+  return artifact.scope !== 'internal' && artifact.exists !== false && isConfigLikeArtifact(artifact);
 }
 
 export function canStartTrackedArtifactRun(artifact = {}, type = 'report') {
+  if (artifact.scope === 'internal') return false;
   if (artifact.exists === false) return false;
   if (type === 'review-context') {
     return false;
@@ -284,7 +285,7 @@ export function deriveArtifactReentryCapabilities(artifact = {}) {
     canRunTrackedStandardDocs: canStartTrackedArtifactRun(artifact, 'generate-standard-docs'),
     canRunTrackedPack: canStartTrackedArtifactRun(artifact, 'pack'),
     canRunTrackedPromotionDryRun: canStartTrackedArtifactRun(artifact, 'inspection-evidence-promotion-dry-run'),
-    canSeedReview: artifact.exists !== false && isReviewSourceArtifact(artifact),
+    canSeedReview: artifact.scope !== 'internal' && artifact.exists !== false && isReviewSourceArtifact(artifact),
   };
 }
 

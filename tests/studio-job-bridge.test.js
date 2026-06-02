@@ -251,6 +251,32 @@ assert.deepEqual(inspectFromArtifact.request.artifact_ref, {
 assert.equal(inspectFromArtifact.request.options.studio.source_artifact_id, 'model-step');
 assert.equal(inspectFromArtifact.request.options.studio.source_label, 'example.step');
 
+const internalInspectFromArtifact = await translateStudioJobSubmission({
+  type: 'inspect',
+  artifact_ref: {
+    job_id: 'job-model',
+    artifact_id: 'internal-model-step',
+  },
+}, {
+  async resolveArtifactRef(ref) {
+    return {
+      jobId: ref.job_id,
+      artifact: {
+        id: ref.artifact_id,
+        path: '/tmp/internal.step',
+        type: 'model.step',
+        file_name: 'internal.step',
+        extension: '.step',
+        exists: true,
+        scope: 'internal',
+      },
+    };
+  },
+});
+
+assert.equal(internalInspectFromArtifact.ok, false);
+assert.match(internalInspectFromArtifact.errors.join('\n'), /internal tracked artifact/i);
+
 const reportFromArtifact = await translateStudioJobSubmission({
   type: 'report',
   artifact_ref: {
