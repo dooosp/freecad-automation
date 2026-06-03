@@ -6,7 +6,7 @@ Production readiness remains held. The canonical packages are not production-rea
 
 Generated quality, drawing, readiness, review, standard-doc, release, template, fixture, and collection-guide artifacts are not inspection evidence. Quality/drawing evidence is review evidence, not inspection evidence.
 
-For first-user Studio guidance, see [Studio first-user walkthrough](./studio-first-user-walkthrough.md). For DFM and readiness boundaries, see [DFM and readiness guide](./dfm-readiness-guide.md). For the final non-inspection software milestone summary, see [final non-inspection software closeout](./final-non-inspection-software-closeout.md). For the final Stage 5D feature expansion summary, see [Stage 5D feature expansion closeout](./stage-5d-feature-expansion-closeout.md).
+For first-user Studio guidance, see [Studio first-user walkthrough](./studio-first-user-walkthrough.md). For DFM and readiness boundaries, see [DFM and readiness guide](./dfm-readiness-guide.md). For the final non-inspection software milestone summary, see [final non-inspection software closeout](./final-non-inspection-software-closeout.md). For the maintainer freeze handoff, see [final maintainer handoff](./final-maintainer-handoff.md). For the final Stage 5D feature expansion summary, see [Stage 5D feature expansion closeout](./stage-5d-feature-expansion-closeout.md).
 
 ## Canonical Package Inventory
 
@@ -45,10 +45,12 @@ Production readiness requires genuine completed inspection evidence. The future 
 
 Do not fabricate, simulate, or infer measured values. Do not treat generated artifacts, templates, fixtures, collection guides, quality reports, drawing reports, readiness reports, review packs, standard docs, or release bundles as inspection evidence.
 
-## Suggested Next Non-Inspection Stages
+## Freeze Handoff Stop Point
 
-- Stage 5C-C canonical package integrity hardening
-- Stage 5C-D Studio first-user walkthrough polish
-- Stage 5C-E DFM/readiness documentation cleanup
-- Stage 5C-F final software closeout report: [final non-inspection software closeout](./final-non-inspection-software-closeout.md)
-- Stage 5D-H final feature expansion closeout: [Stage 5D feature expansion closeout](./stage-5d-feature-expansion-closeout.md)
+The current non-inspection software/project closeout is complete for handoff.
+Stop active hardening unless a later authorized evidence task brings genuine
+completed inspection records. The next readiness-changing condition is a
+completed physical, supplier, lab, or QA inspection record that validates
+against the inspection evidence contract, passes the Stage 5B review path, is
+explicitly authorized for canonical attachment, and then refreshes the
+review/readiness/standard-doc/release chain.

@@ -1,7 +1,7 @@
 # Release candidate closeout gap ledger
 
 This ledger is a current release-candidate closeout and gap record for the
-default branch after PR [#152](https://github.com/dooosp/freecad-automation/pull/152).
+default branch after PR [#153](https://github.com/dooosp/freecad-automation/pull/153).
 It is control documentation only. It does not attach evidence, mutate canonical
 package artifacts, regenerate readiness, deploy production, or expand runtime or
 CI coverage claims.
@@ -10,10 +10,11 @@ Audit basis:
 
 - Repository: `dooosp/freecad-automation`
 - Default branch: `master`
-- Audited head: `f4b38dec7b75671e73cd8d269955cdf837341b0b`
-- Latest audited merge: PR [#152](https://github.com/dooosp/freecad-automation/pull/152), `Harden Stage 5B attachment provenance`
+- Audited head: `95a471971a2b8462813683060b5197b42bdd2760`
+- Latest audited merge: PR [#153](https://github.com/dooosp/freecad-automation/pull/153), `READY_FOR_REVIEW: Harden release candidate closeout ledger`
 - Open PR state at audit time: `gh pr list --state open --limit 100` returned no open PR rows
-- GitHub CI at audited head: `Automation CI (hosted fast lanes)` passed on run `26861874057`; `FreeCAD Runtime Smoke (self-hosted macOS)` passed on run `26861907222`
+- Open issue state at audit time: `gh issue list --state open --limit 100` returned no open issue rows
+- GitHub CI at audited head: `Automation CI (hosted fast lanes)` passed on run `26883961540`; `FreeCAD Runtime Smoke (self-hosted macOS)` passed on run `26884015214`
 
 ## Complete software/control surfaces
 
@@ -27,7 +28,7 @@ evidence:
 | Candidate gate and local inbox boundary | The local candidate gate and ignored inbox convention exist for later received records; neither the inbox nor gate report is evidence. | `tests/stage5b-candidate-evidence-gate.test.js`, source hygiene, docs smoke |
 | Authorization record | The attachment authorization record exists as future human control metadata; it is not evidence and does not authorize attachment by itself. | `tests/stage5b-source-of-truth-guard.test.js`, `tests/first-user-docs-smoke.test.js` |
 | API/Studio/job/artifact boundaries | Tracked job and artifact preview routes preserve server-controlled paths and registered artifact refs. | `npm run test:node:contract`, `npm test`, Studio/API contract tests |
-| Release/runtime/CI hardening | Release bundle reproducibility, runtime output contracts, source hygiene, SHA-pinned workflow provenance, and self-hosted runtime governance are landed through PRs #144-#152. | `npm run test:node:contract`, `npm test`, workflow source checks, GitHub Actions on `master` |
+| Release/runtime/CI hardening | Release bundle reproducibility, runtime output contracts, source hygiene, SHA-pinned workflow provenance, self-hosted runtime governance, attachment provenance, and RC gap ledger handoff are landed through PRs #144-#153. | `npm run test:node:contract`, `npm test`, workflow source checks, GitHub Actions on `master` |
 
 ## Readiness truth
 
@@ -100,11 +101,12 @@ as satisfying `inspection_evidence`:
 - GitHub issues, PR bodies, comments, releases, assets, workflow metadata, or CI/GitHub metadata
 - CAD-generated, simulated, inferred, synthetic, or human-typed replacement measurements
 
-## Stop or continue point
+## Stop point
 
-Stop for release-candidate evidence/readiness purposes unless a later authorized
-task brings genuine completed inspection records. Continue only with scoped
-software/control hardening, documentation guard updates, or authorized private
-evidence review that preserves the no-evidence boundary until validation,
-authorization, attachment, and regenerated readiness refresh are actually
-finished.
+Stop active hardening for the release-candidate evidence/readiness path. Continue
+only when a later authorized evidence task brings genuine completed physical,
+supplier, lab, or QA inspection records for validation, review, authorization,
+attachment, and regenerated readiness refresh. Until those records arrive, the
+recommended maintainer action is handoff/monitoring only: preserve the
+no-evidence boundary, do not mutate canonical package artifacts, and do not
+claim readiness release.

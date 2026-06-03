@@ -189,13 +189,3 @@ jobs:
 
       - name: Run Python lane
         run: npm run test:py
-
-      - name: Upload Python Diagnostics
-        if: always()
-        # provenance: actions/upload-artifact@v7 -> 043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: python-lane-${{ github.run_id }}
-          path: .pytest_cache
-          if-no-files-found: warn
-          retention-days: 14
