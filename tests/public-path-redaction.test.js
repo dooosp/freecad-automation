@@ -218,6 +218,8 @@ try {
   assert.equal(healthPayload.runtime.status, 'runtime_probe_failed');
   assert.equal(healthPayload.runtime.probe_status, 'failed');
   assert.equal(healthPayload.runtime.mode, 'macos-bundle');
+  assert.equal(healthPayload.runtime.inspection_evidence_status, 'not_inspection_evidence');
+  assert.equal(healthPayload.runtime.readiness_effect, 'no_readiness_change');
   assert.equal(healthPayload.runtime.capability_map.inspect.requires_freecad_runtime, true);
   assertNoLeakedPathStrings(healthPayload, [
     ROOT,

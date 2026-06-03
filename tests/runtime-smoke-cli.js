@@ -16,22 +16,28 @@ import { validateArtifactManifest } from '../lib/artifact-manifest.js';
 import { validateCreateQualityReport } from '../lib/create-quality.js';
 import { validateOutputManifest } from '../lib/output-manifest.js';
 import {
+  buildRuntimeSmokeBoundary,
+  normalizeSmokeRunId,
+  resolveSmokeOutputDir,
+} from '../lib/runtime-smoke-governance.js';
+import {
   createQualityFixtureSmokeMatrix,
   getQualityFixtureExpectation,
   getQualityFixtureSmokeRecord,
 } from './quality-fixture-matrix.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
-const RUN_ID = String(process.env.FCAD_SMOKE_RUN_ID || new Date().toISOString().replace(/[:.]/g, '-')).replace(/[^A-Za-z0-9_.-]+/g, '-');
-const OUTPUT_DIR = join(ROOT, 'output', 'smoke', RUN_ID);
+const RUN_ID = normalizeSmokeRunId(process.env.FCAD_SMOKE_RUN_ID || new Date().toISOString().replace(/[:.]/g, '-'));
+const OUTPUT_DIR = resolveSmokeOutputDir(ROOT, RUN_ID);
 const CONFIG_DIR = join(OUTPUT_DIR, 'configs');
 const REPORT_DIR = OUTPUT_DIR;
 const MANIFEST_PATH = join(OUTPUT_DIR, 'smoke-manifest.json');
 
 const smokeManifest = {
+  ...buildRuntimeSmokeBoundary(),
   generated_at: new Date().toISOString(),
   run_id: RUN_ID,
-  output_dir: OUTPUT_DIR,
+  output_dir: relative(ROOT, OUTPUT_DIR).split(sep).join('/'),
   source_configs: [],
   commands: [],
   artifact_manifests: [],
@@ -1287,6 +1293,13 @@ assertArtifactManifest(
 
 writeFileSync(MANIFEST_PATH, JSON.stringify(smokeManifest, null, 2) + '\n', 'utf8');
 const persistedSmokeManifest = readJson(MANIFEST_PATH);
+assert.equal(persistedSmokeManifest.artifact_class, 'runtime_smoke_ci_metadata');
+assert.equal(persistedSmokeManifest.inspection_evidence_status, 'not_inspection_evidence');
+assert.equal(persistedSmokeManifest.readiness_effect, 'no_readiness_change');
+assert.equal(persistedSmokeManifest.release_artifact_status, 'not_release_artifact');
+assert.equal(persistedSmokeManifest.package_artifact_status, 'not_package_artifact');
+assert.match(persistedSmokeManifest.hard_evidence_rule, /Only genuine completed physical\/supplier\/lab\/QA inspection records/);
+assert.equal(persistedSmokeManifest.output_dir, `output/smoke/${RUN_ID}`);
 assert.equal(Array.isArray(persistedSmokeManifest.source_configs), true);
 assert.equal(Array.isArray(persistedSmokeManifest.commands), true);
 assert.equal(Array.isArray(persistedSmokeManifest.artifact_manifests), true);

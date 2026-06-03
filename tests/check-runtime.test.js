@@ -116,6 +116,54 @@ assert.deepEqual(readyJson, buildRuntimeDiagnostics({
 assert.equal(readyJson.command_classes.freecad_backed.includes('inspect'), true);
 assert.equal(readyJson.capability_map['check-runtime'].classification, 'diagnostics');
 assert.equal(readyJson.support_boundary_note, null);
+assert.equal(readyJson.artifact_class, 'runtime_diagnostics');
+assert.equal(readyJson.inspection_evidence_status, 'not_inspection_evidence');
+
+const redactedJsonResult = collectOutput((logger) => printRuntimeDiagnostics({
+  logger,
+  format: 'json',
+  redactPaths: true,
+  runtime: readyRuntime,
+  platform: 'darwin',
+  env: {
+    FREECAD_APP: '/Applications/FreeCAD.app',
+  },
+  detectDetails: () => ({
+    python: {
+      executable: readyRuntime.pythonExecutable,
+      version: '3.11.8',
+      platform: 'darwin',
+      error: null,
+      source: 'python-import',
+    },
+    freecad: {
+      executable: readyRuntime.runtimeExecutable,
+      version: '1.1.0',
+      homePath: '/Applications/FreeCAD.app/Contents/Resources',
+      modulePath: '/Applications/FreeCAD.app/Contents/Resources/lib/FreeCAD.so',
+      error: null,
+      source: 'python-import',
+    },
+  }),
+}));
+assert.equal(redactedJsonResult.exitCode, 0);
+const redactedJson = JSON.parse(redactedJsonResult.text);
+const redactedJsonText = JSON.stringify(redactedJson);
+[
+  '/Applications/FreeCAD.app',
+  '/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd',
+  '/Applications/FreeCAD.app/Contents/Resources/bin/python',
+  '/Applications/FreeCAD.app/Contents/MacOS/FreeCAD',
+  '/Applications/FreeCAD.app/Contents/Resources/lib/FreeCAD.so',
+].forEach((path) => {
+  assert.equal(redactedJsonText.includes(path), false, `redacted JSON should not include ${path}`);
+});
+assert.equal(redactedJson.selected_runtime.executable, '<path>/freecadcmd');
+assert.equal(redactedJson.selected_runtime.bundle_root, '<path>/FreeCAD.app');
+assert.equal(redactedJson.version_details.freecad.module_path, '<path>/FreeCAD.so');
+assert.equal(redactedJson.env_overrides.values[3].value, '<path>/FreeCAD.app');
+assert.equal(redactedJson.artifact_class, 'runtime_diagnostics');
+assert.equal(redactedJson.inspection_evidence_status, 'not_inspection_evidence');
 
 const missingRuntime = {
   available: false,

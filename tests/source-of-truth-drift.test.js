@@ -172,6 +172,7 @@ const diagnosticsRun = spawnSync('bash', ['.github/scripts/ci-diagnostics.sh'], 
     ...process.env,
     FREECAD_BIN: '/private/tmp/freecad-secret/FreeCADCmd',
     FREECAD_APP: '/Applications/FreeCAD.app',
+    RUNNER_NAME: 'private-mac-freecad-runner',
   },
 });
 assert.equal(diagnosticsRun.status, 0, diagnosticsRun.stderr || diagnosticsRun.stdout);
@@ -179,7 +180,9 @@ assert.match(diagnosticsRun.stdout, /artifact_class=ci_metadata_only/);
 assert.match(diagnosticsRun.stdout, /inspection_evidence_status=not_inspection_evidence/);
 assert.match(diagnosticsRun.stdout, /FREECAD_BIN=<path>\/FreeCADCmd/);
 assert.match(diagnosticsRun.stdout, /FREECAD_APP=<path>\/FreeCAD\.app/);
+assert.match(diagnosticsRun.stdout, /runner_name=<runner>/);
 assert.equal(diagnosticsRun.stdout.includes('/private/tmp/freecad-secret'), false);
+assert.equal(diagnosticsRun.stdout.includes('private-mac-freecad-runner'), false);
 
 const snapshotUpdateNoConfirm = spawnSync(process.execPath, ['scripts/run-snapshot-update.js', '--dry-run'], {
   cwd: ROOT,

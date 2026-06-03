@@ -1554,6 +1554,10 @@ function createBrowserSmokeExecutor({ projectRoot, jobStore }) {
 function browserSmokeRuntimeDiagnostics() {
   return {
     diagnostics_version: 'browser-smoke',
+    artifact_class: 'runtime_diagnostics',
+    inspection_evidence_status: 'not_inspection_evidence',
+    readiness_effect: 'no_readiness_change',
+    hard_evidence_rule: 'Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.',
     status: 'ready',
     available: true,
     executable_detected: true,

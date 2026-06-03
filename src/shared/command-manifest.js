@@ -11,7 +11,7 @@ const COMMAND_MANIFEST = Object.freeze([
     helpSection: 'diagnostics',
     helpEntries: Object.freeze([
       Object.freeze({
-        usage: 'fcad check-runtime [--json]',
+        usage: 'fcad check-runtime [--json] [--redact-paths]',
         summary: 'Show searched paths, selected runtime, detected versions, command coverage, and remediation',
       }),
     ]),
