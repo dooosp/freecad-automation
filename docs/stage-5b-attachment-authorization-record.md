@@ -50,9 +50,10 @@ is allowed to attach a reviewed/redacted genuine inspection record.
    boundaries, rollback guidance, and unchanged readiness truth.
 6. Explicit human authorization before attachment: record the human authorizer,
    authorization timestamp, package slug, reviewed/redacted evidence JSON path,
-   and approved mutation scope. Authorization records do not attach evidence;
-   PR comments do not attach evidence; comments or PR bodies alone do not
-   satisfy readiness.
+   approved mutation scope, and completed structured reviews for redaction,
+   provenance, package mapping, intake, dry-run, and audit. Authorization
+   records do not attach evidence; PR comments do not attach evidence; comments
+   or PR bodies alone do not satisfy readiness.
 7. Exact later task boundary for attachment: name the later task, issue, PR, or
    change request that is allowed to run canonical mutation. That later task is
    the only boundary where `review-context --inspection-evidence --attachment-authorization`,
@@ -76,12 +77,12 @@ do not invent missing measurements, reviewer data, provenance, or mapping.
 | Package slug | One canonical package slug. |
 | Candidate gate report ref | Ignored local-inbox path, safe sanitized repo-relative control ref, or private-control ref outside the repository root. |
 | Reviewed/redacted evidence JSON ref | Ignored local-inbox path, safe sanitized repo-relative control ref, or private-control ref outside the repository root. |
-| Redaction/privacy reviewer | Human reviewer and timestamp, or `unknown` if unavailable. |
-| Provenance/reviewer traceability reviewer | Human reviewer and timestamp, or `unknown` if unavailable. |
-| Package/part/revision mapping reviewer | Human reviewer and timestamp, or `unknown` if unavailable. |
-| Intake report reviewed | Safe ref plus result summary; control metadata only. |
-| Promotion dry-run reviewed | Safe ref plus attachment-ready/blocker summary; control metadata only. |
-| Audit output reviewed | Safe ref plus readiness-held summary; control metadata only. |
+| Redaction/privacy reviewer | Structured `redaction_review` object with `status`, `reviewed_by`, and `reviewed_at`; status must be complete/final/closed/released/approved. |
+| Provenance/reviewer traceability reviewer | Structured `provenance_review` object with `status`, `reviewed_by`, and `reviewed_at`; status must be complete/final/closed/released/approved. |
+| Package/part/revision mapping reviewer | Structured `package_mapping_review` object with `status`, `reviewed_by`, and `reviewed_at`; status must be complete/final/closed/released/approved. |
+| Intake report reviewed | Safe ref plus structured `intake_review`; control metadata only. |
+| Promotion dry-run reviewed | Safe ref plus structured `promotion_dry_run_review`; control metadata only. |
+| Audit output reviewed | Safe ref plus structured `audit_review`; control metadata only. |
 | Human authorizer | Named maintainer/owner who authorizes the later attachment task. |
 | Later attachment task boundary | Exact issue, PR, task, or change request allowed to run mutation. |
 | Approved commands | Explicit command boundary, usually `review-context --inspection-evidence --attachment-authorization`, `readiness-pack`, `generate-standard-docs`, and `pack`. |

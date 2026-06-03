@@ -1,13 +1,17 @@
 import { execFile as execFileCallback } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, dirname, extname, join, posix, resolve, win32 } from 'node:path';
 import { inflateRawSync } from 'node:zlib';
 import { promisify } from 'node:util';
 
-import { validateInspectionEvidence } from '../../../lib/inspection-evidence.js';
+import {
+  validateAttachableInspectionEvidence,
+  validateInspectionEvidence,
+} from '../../../lib/inspection-evidence.js';
 import { CANONICAL_PACKAGE_SLUGS } from '../../server/canonical-package-discovery.js';
+import { assertSafeStage5bInputFile } from '../../shared/stage5b-path-boundary.js';
 import { assertValidStage5bIntakeReport } from './stage5b-runtime-validation.js';
 
 const execFile = promisify(execFileCallback);
@@ -54,6 +58,7 @@ const GITHUB_MAX_REPO_DOC_LINK_FILES = 100;
 const URL_PATTERN = /https?:\/\/[^\s<>"'`]+/gi;
 const WINDOWS_PATH_PATTERN = /(?:[A-Za-z]:\\(?:[^\\\r\n"'`<>|]+\\?)+|\\\\[^\s"'`<>|]+(?:\\[^\s"'`<>|]+)+)/g;
 const POSIX_PATH_PATTERN = /(?:\/(?:[^\/\s"'`<>()]+\/)+[^\/\s"'`<>()]+)/g;
+const UNSAFE_PUBLIC_PROVENANCE_PATTERN = /github\.com\/[^/\s]+\/[^/\s]+\/(?:actions|suites|runs)|\/actions\/(?:runs|artifacts)\b|workflow[_-]?(?:run|artifact|metadata)?|(?:release[_-]?bundle|readiness[_-]?report|review[_-]?pack|artifact[_-]?manifest|output[_-]?manifest)/i;
 
 const TABLE_HEADER_ALIASES = Object.freeze({
   schema_version: ['schema_version', 'schema', 'contract_version'],
@@ -68,6 +73,9 @@ const TABLE_HEADER_ALIASES = Object.freeze({
   source_ref: ['source_ref', 'source_file', 'source_path', 'provenance', 'provenance_path'],
   overall_result: ['overall_result', 'overall_status', 'overall_disposition', 'inspection_result'],
   inspector: ['inspector', 'inspection_author', 'author'],
+  reviewed_by: ['reviewed_by', 'reviewer', 'qa_reviewer', 'approved_by', 'quality_reviewer'],
+  part_revision: ['part_revision', 'revision', 'drawing_revision', 'package_revision', 'inspected_revision'],
+  inspection_status: ['inspection_status', 'completion_status', 'record_status', 'status'],
   feature_id: ['feature_id', 'feature', 'feature_name', 'characteristic', 'characteristic_id', 'dimension_id'],
   drawing_ref: ['drawing_ref', 'drawing', 'drawing_reference'],
   requirement_ref: ['requirement_ref', 'requirement', 'requirement_reference', 'spec_ref'],
@@ -154,7 +162,7 @@ function isPackageInspectionPath(relativePath, slug) {
 
 async function pathExists(projectRoot, relativePath) {
   try {
-    await stat(resolve(projectRoot, relativePath));
+    await lstat(resolve(projectRoot, relativePath));
     return true;
   } catch {
     return false;
@@ -406,6 +414,9 @@ function normalizeTableEvidenceDocument(rows, relativePath) {
   setIfPresent(document, 'source_ref', firstTableValue(rows, TABLE_HEADER_ALIASES.source_ref) || relativePath);
   setIfPresent(document, 'overall_result', overallResult);
   setIfPresent(document, 'inspector', firstTableValue(rows, TABLE_HEADER_ALIASES.inspector));
+  setIfPresent(document, 'reviewed_by', firstTableValue(rows, TABLE_HEADER_ALIASES.reviewed_by));
+  setIfPresent(document, 'part_revision', firstTableValue(rows, TABLE_HEADER_ALIASES.part_revision));
+  setIfPresent(document, 'inspection_status', firstTableValue(rows, TABLE_HEADER_ALIASES.inspection_status));
 
   document.measured_features = rows.map((row) => {
     const feature = {};
@@ -533,6 +544,30 @@ function isExternalCandidate(candidate = {}) {
   return isGithubSourceKind(candidate.source_kind);
 }
 
+function localPathBoundaryRejection(error, label) {
+  return {
+    classification: 'invalid_provenance',
+    reasons: [`${label} failed Stage 5B path provenance boundary`],
+    validation_errors: [sanitizeErrorMessage(error)],
+  };
+}
+
+async function assertLocalCandidatePath(projectRoot, relativePath, label = 'inspection evidence candidate') {
+  try {
+    return {
+      ok: true,
+      boundary: await assertSafeStage5bInputFile(projectRoot, relativePath, { label }),
+      rejection: null,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      boundary: null,
+      rejection: localPathBoundaryRejection(error, label),
+    };
+  }
+}
+
 function safeReportSourceRef(value) {
   if (typeof value !== 'string' || !value.trim()) return null;
   const trimmed = value.trim();
@@ -550,9 +585,19 @@ function documentText(document = {}) {
     document.package_id,
     document.inspector,
     document.inspection_author,
+    document.reviewed_by,
+    document.qa_reviewer,
     document.source_ref,
     document.source_file,
   ].filter((value) => typeof value === 'string').join('\n');
+}
+
+function candidateAttachmentValidation(document = {}) {
+  const validation = validateAttachableInspectionEvidence(document);
+  return {
+    ok: validation.ok,
+    errors: validation.errors,
+  };
 }
 
 function documentAttachmentSignals(document = {}) {
@@ -609,6 +654,12 @@ async function hasGenuineLocalProvenance({
     reasons.push('source_ref/source_file is not under the same canonical package inspection directory');
   } else if (!(await pathExists(projectRoot, sourcePath)) && sourcePath !== relativePath) {
     reasons.push('source_ref/source_file provenance path was not found in the checkout');
+  } else if (sourcePath !== relativePath) {
+    const boundary = await assertLocalCandidatePath(projectRoot, sourcePath, 'inspection evidence source_ref');
+    if (!boundary.ok) {
+      reasons.push(...boundary.rejection.reasons);
+      reasons.push(...boundary.rejection.validation_errors);
+    }
   }
 
   return {
@@ -642,6 +693,16 @@ function hasGenuineGithubProvenance({
   }
   if (NON_GENUINE_TEXT_PATTERN.test(documentText(document))) {
     reasons.push('document provenance text marks it as synthetic, generated, fixture, template, or guide material');
+  }
+  const publicProvenanceText = [
+    sourceProvenance?.source_url,
+    sourceProvenance?.source_page_url,
+    sourceProvenance?.source_label,
+    sourceProvenance?.archive_url,
+    sourceProvenance?.inner_path,
+  ].filter((value) => typeof value === 'string').join('\n');
+  if (UNSAFE_PUBLIC_PROVENANCE_PATTERN.test(publicProvenanceText)) {
+    reasons.push('public provenance points at workflow artifacts, release/control bundles, readiness/review packs, or manifest metadata rather than completed inspection records');
   }
 
   const sourcePath = sourcePathFromDocument(document);
@@ -693,6 +754,16 @@ async function classifyCandidate({
     document_signals: null,
   };
 
+  if (!isGithubSourceKind(sourceKind)) {
+    const boundary = await assertLocalCandidatePath(projectRoot, normalized);
+    if (!boundary.ok) {
+      return {
+        ...baseCandidate,
+        ...boundary.rejection,
+      };
+    }
+  }
+
   if (isGeneratedArtifactPath(normalized)) {
     return {
       ...baseCandidate,
@@ -726,6 +797,7 @@ async function classifyCandidate({
 
     const document = safeObject(tableCandidate.document);
     const validation = validateInspectionEvidence(document);
+    const attachmentValidation = validation.ok ? candidateAttachmentValidation(document) : { ok: false, errors: [] };
     const documentPackageSlug = slug || packageSlugFromDocument(document, packageSlugs);
     const enriched = {
       ...tableBaseCandidate,
@@ -747,6 +819,14 @@ async function classifyCandidate({
         reasons: generatedError
           ? ['candidate is generated/non-inspection output even though it normalized to inspection-shaped table data']
           : ['candidate table does not normalize to the inspection evidence schema/contract'],
+      };
+    }
+    if (!attachmentValidation.ok) {
+      return {
+        ...enriched,
+        validation_errors: [...validation.errors, ...attachmentValidation.errors],
+        classification: 'invalid_provenance',
+        reasons: ['candidate table is not completed/reviewed/revision-mapped attachment-grade inspection provenance'],
       };
     }
 
@@ -794,6 +874,7 @@ async function classifyCandidate({
 
   const document = safeObject(parsed.document);
   const validation = validateInspectionEvidence(document);
+  const attachmentValidation = validation.ok ? candidateAttachmentValidation(document) : { ok: false, errors: [] };
   const documentPackageSlug = slug || packageSlugFromDocument(document, packageSlugs);
   const enriched = {
     ...baseCandidate,
@@ -814,7 +895,15 @@ async function classifyCandidate({
       classification: generatedError ? 'invalid_generated' : 'invalid_schema',
       reasons: generatedError
         ? ['candidate is generated/non-inspection output even though it is inspection-shaped']
-        : ['candidate does not satisfy the inspection evidence schema/contract'],
+      : ['candidate does not satisfy the inspection evidence schema/contract'],
+    };
+  }
+  if (!attachmentValidation.ok) {
+    return {
+      ...enriched,
+      validation_errors: [...validation.errors, ...attachmentValidation.errors],
+      classification: 'invalid_provenance',
+      reasons: ['candidate is not completed/reviewed/revision-mapped attachment-grade inspection provenance'],
     };
   }
 

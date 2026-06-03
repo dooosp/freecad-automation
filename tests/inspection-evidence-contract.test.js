@@ -3,8 +3,8 @@ import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import {
+  validateAttachableInspectionEvidence,
   validateAttachmentAuthorization,
-  validateInspectionEvidence,
 } from '../lib/inspection-evidence.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
@@ -23,21 +23,56 @@ const VALID_AUTHORIZATION_FIXTURE = readJson(join(
   'tests/fixtures/inspection-evidence/stage5b-attachment-authorization.valid.json'
 ));
 
+const ATTACHABLE_INSPECTION_RECORD = {
+  schema_version: '1.0',
+  evidence_type: 'inspection_evidence',
+  source_type: 'supplier_inspection_report',
+  package_id: 'provenance-hardened-part',
+  inspected_part: 'PROVENANCE-HARDENED-PART',
+  part_revision: 'A',
+  inspected_at: '2026-05-21T08:00:00Z',
+  inspection_status: 'completed',
+  inspector: 'Supplier QA inspector 42',
+  reviewed_by: 'Maintainer QA reviewer',
+  measurement_system: 'metric',
+  units: 'mm',
+  source_ref: 'docs/examples/provenance-hardened-part/inspection/supplier-final-inspection.json',
+  measured_features: [
+    {
+      feature_id: 'mount_hole_1',
+      drawing_ref: 'PHP-DWG-001:A',
+      requirement_ref: 'MOUNTING_HOLE_DIA',
+      nominal_value: 10,
+      measured_value: 9.98,
+      tolerance_upper: 0.05,
+      tolerance_lower: -0.05,
+      units: 'mm',
+      result: 'pass',
+      measurement_method: 'supplier_cmm',
+    },
+  ],
+  overall_result: 'pass',
+  traceability_refs: ['PHP-DWG-001 rev A', 'SUPPLIER-CERT-2026-05'],
+};
+
 function validInspectionEvidence(overrides = {}) {
   return {
-    ...JSON.parse(JSON.stringify(VALID_INSPECTION_FIXTURE)),
-    overall_result: 'pass',
+    ...JSON.parse(JSON.stringify(ATTACHABLE_INSPECTION_RECORD)),
     ...overrides,
   };
 }
 
 function assertPasses(name, document) {
-  const validation = validateInspectionEvidence(document);
+  const validation = validateAttachableInspectionEvidence(document, {
+    evidencePath: document.source_ref || document.source_file,
+  });
   assert.equal(validation.ok, true, `${name} should pass:\n${validation.errors.join('\n')}`);
 }
 
 function assertFails(name, document, pattern = /inspection|measured|source|artifact/i) {
-  const validation = validateInspectionEvidence(document);
+  const validation = validateAttachableInspectionEvidence(document, {
+    evidencePath: document.source_ref || document.source_file,
+  });
   assert.equal(validation.ok, false, `${name} should fail`);
   assert.match(validation.errors.join('\n'), pattern, `${name} should explain the boundary`);
 }
@@ -54,7 +89,12 @@ function assertSafeFixturePath(name, pathValue) {
   assert.equal(pathValue.startsWith('docs/examples/'), false, `${name} should not point at canonical examples`);
 }
 
-assertPasses('valid inspection evidence fixture file', VALID_INSPECTION_FIXTURE);
+assertPasses('attachable completed inspection evidence', ATTACHABLE_INSPECTION_RECORD);
+assertFails(
+  'schema-shaped test fixture is not direct attachment evidence',
+  VALID_INSPECTION_FIXTURE,
+  /fixture|synthetic|not canonical package readiness evidence/i
+);
 assertSafeFixturePath('valid fixture source_file', VALID_INSPECTION_FIXTURE.source_file);
 
 const generatedArtifacts = [
@@ -129,6 +169,55 @@ assertFails(
     overall_result: 'unknown',
   }),
   /measured_value|contains/i
+);
+
+assertFails(
+  'inspection evidence missing completed status',
+  validInspectionEvidence({ inspection_status: undefined, status: undefined }),
+  /inspection_status|completed/i
+);
+
+assertFails(
+  'inspection evidence missing reviewer traceability',
+  validInspectionEvidence({
+    reviewed_by: undefined,
+    approved_by: undefined,
+    qa_reviewer: undefined,
+    reviewer: undefined,
+    traceability_refs: [],
+  }),
+  /reviewer|traceability/i
+);
+
+assertFails(
+  'inspection evidence missing revision mapping',
+  validInspectionEvidence({
+    revision: undefined,
+    part_revision: undefined,
+    drawing_revision: undefined,
+    package_revision: undefined,
+    inspected_revision: undefined,
+  }),
+  /revision/i
+);
+
+assertFails(
+  'inspection evidence unknown overall result',
+  validInspectionEvidence({ overall_result: 'unknown' }),
+  /overall_result|pass, fail, or partial/i
+);
+
+assertFails(
+  'inspection evidence with CAD-generated measurement method',
+  validInspectionEvidence({
+    measured_features: [{
+      feature_id: 'mount_hole_1',
+      measured_value: 9.98,
+      result: 'pass',
+      measurement_method: 'FreeCAD geometry probe',
+    }],
+  }),
+  /CAD|generated|measurement/i
 );
 
 const inspectionShapedGeneratedArtifacts = [
@@ -206,7 +295,7 @@ for (const [name, sourceRef] of generatedArtifactSourceRefs) {
   );
 }
 
-assertPasses(
+assertFails(
   'unknown overall result with explicit feature result semantics',
   validInspectionEvidence({
     overall_result: 'unknown',
@@ -233,7 +322,8 @@ assertPasses(
         measurement_method: 'not_scheduled_for_first_article',
       },
     ],
-  })
+  }),
+  /overall_result|pass, fail, or partial/i
 );
 
 assertFails(
@@ -257,8 +347,26 @@ assertFails(
   /source_file|safe repo-relative/i
 );
 
+assertFails(
+  'test fixture source ref',
+  validInspectionEvidence({ source_ref: 'tests/fixtures/inspection-evidence/source/manual-caliper-check-record.json' }),
+  /source_ref|fixture/i
+);
+
+assertFails(
+  'schema source ref',
+  validInspectionEvidence({ source_ref: 'schemas/inspection-evidence.schema.json' }),
+  /source_ref|schema/i
+);
+
+assertFails(
+  'screenshot source ref',
+  validInspectionEvidence({ source_ref: 'docs/examples/provenance-hardened-part/inspection/supplier-screenshot.png' }),
+  /source_ref|screenshot|image/i
+);
+
 const validAuthorization = validateAttachmentAuthorization(VALID_AUTHORIZATION_FIXTURE, {
-  expectedInspectionEvidenceRef: 'tests/fixtures/inspection-evidence/valid-manual-caliper-inspection.json',
+  expectedInspectionEvidenceRef: 'docs/examples/provenance-hardened-part/inspection/supplier-final-inspection.json',
 });
 assert.equal(
   validAuthorization.ok,
@@ -270,7 +378,7 @@ const mismatchedAuthorization = validateAttachmentAuthorization({
   ...VALID_AUTHORIZATION_FIXTURE,
   reviewed_redacted_evidence_json_ref: 'tests/fixtures/inspection-evidence/other.json',
 }, {
-  expectedInspectionEvidenceRef: 'tests/fixtures/inspection-evidence/valid-manual-caliper-inspection.json',
+  expectedInspectionEvidenceRef: 'docs/examples/provenance-hardened-part/inspection/supplier-final-inspection.json',
 });
 assert.equal(mismatchedAuthorization.ok, false);
 assert.match(mismatchedAuthorization.errors.join('\n'), /must match the supplied inspection evidence path/i);
@@ -279,9 +387,18 @@ const inboxAuthorization = validateAttachmentAuthorization({
   ...VALID_AUTHORIZATION_FIXTURE,
   candidate_gate_report_ref: 'local/stage5b-candidate-evidence-inbox/quality-pass-bracket/gate.json',
 }, {
-  expectedInspectionEvidenceRef: 'tests/fixtures/inspection-evidence/valid-manual-caliper-inspection.json',
+  expectedInspectionEvidenceRef: 'docs/examples/provenance-hardened-part/inspection/supplier-final-inspection.json',
 });
 assert.equal(inboxAuthorization.ok, false);
 assert.match(inboxAuthorization.errors.join('\n'), /must not expose ignored local inbox records/i);
+
+const missingRedactionReview = validateAttachmentAuthorization({
+  ...VALID_AUTHORIZATION_FIXTURE,
+  redaction_review: undefined,
+}, {
+  expectedInspectionEvidenceRef: 'docs/examples/provenance-hardened-part/inspection/supplier-final-inspection.json',
+});
+assert.equal(missingRedactionReview.ok, false);
+assert.match(missingRedactionReview.errors.join('\n'), /redaction_review/i);
 
 console.log('inspection-evidence-contract.test.js: ok');

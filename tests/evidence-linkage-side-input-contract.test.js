@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -24,6 +24,8 @@ const CREATE_QUALITY_REPORT_PATH = resolve(
   ROOT,
   'docs/examples/motor-mount/quality/cnc_motor_mount_bracket_create_quality.json'
 );
+const DIRECT_ATTACHMENT_SLUG = 'stage5b-direct-attachment-test';
+const DIRECT_ATTACHMENT_ROOT = resolve(ROOT, 'docs/examples', DIRECT_ATTACHMENT_SLUG);
 
 function readJson(filePath) {
   return JSON.parse(readFileSync(filePath, 'utf8'));
@@ -90,28 +92,136 @@ function buildStubRunPythonJsonScript() {
   };
 }
 
+function buildDirectAttachmentEvidence(overrides = {}) {
+  return {
+    schema_version: '1.0',
+    evidence_type: 'inspection_evidence',
+    source_type: 'supplier_inspection_report',
+    package_id: DIRECT_ATTACHMENT_SLUG,
+    inspected_part: 'STAGE5B-DIRECT-ATTACHMENT-TEST',
+    part_revision: 'A',
+    inspected_at: '2026-05-21T08:00:00Z',
+    inspection_status: 'completed',
+    inspector: 'Supplier QA inspector 42',
+    reviewed_by: 'Maintainer QA reviewer',
+    measurement_system: 'metric',
+    units: 'mm',
+    source_ref: `docs/examples/${DIRECT_ATTACHMENT_SLUG}/inspection/supplier-final-inspection.json`,
+    measured_features: [
+      {
+        feature_id: 'mount_hole_1',
+        drawing_ref: 'SDAT-DWG-001:A',
+        requirement_ref: 'MOUNTING_HOLE_DIA',
+        nominal_value: 10,
+        measured_value: 9.98,
+        tolerance_upper: 0.05,
+        tolerance_lower: -0.05,
+        units: 'mm',
+        result: 'pass',
+        measurement_method: 'supplier_cmm',
+      },
+    ],
+    overall_result: 'pass',
+    traceability_refs: ['SDAT-DWG-001 rev A', 'SUPPLIER-CERT-2026-05'],
+    ...overrides,
+  };
+}
+
+function buildDirectAttachmentAuthorization(evidenceRef, authRef) {
+  return {
+    schema_version: '1.0',
+    record_type: 'stage5b_attachment_authorization',
+    authorized_attachment: true,
+    package_slug: DIRECT_ATTACHMENT_SLUG,
+    reviewed_redacted_evidence_json_ref: evidenceRef,
+    candidate_gate_report_ref: `docs/examples/${DIRECT_ATTACHMENT_SLUG}/inspection/stage5b_candidate_gate_report.json`,
+    intake_report_ref: `docs/examples/${DIRECT_ATTACHMENT_SLUG}/inspection/intake_report.json`,
+    promotion_dry_run_ref: `docs/examples/${DIRECT_ATTACHMENT_SLUG}/inspection/promotion_dry_run_manifest.json`,
+    audit_output_ref: `docs/examples/${DIRECT_ATTACHMENT_SLUG}/inspection/stage5b_audit_manifest.json`,
+    human_authorizer: 'Maintainer QA approver',
+    authorized_at: '2026-05-21T12:00:00Z',
+    redaction_review: {
+      status: 'complete',
+      reviewed_by: 'Maintainer privacy reviewer',
+      reviewed_at: '2026-05-21T11:30:00Z',
+      private_paths_redacted: true,
+      private_data_removed: true,
+    },
+    provenance_review: {
+      status: 'complete',
+      reviewed_by: 'Maintainer provenance reviewer',
+      reviewed_at: '2026-05-21T11:35:00Z',
+    },
+    package_mapping_review: {
+      status: 'complete',
+      reviewed_by: 'Maintainer mapping reviewer',
+      reviewed_at: '2026-05-21T11:40:00Z',
+    },
+    intake_review: {
+      status: 'complete',
+      reviewed_by: 'Maintainer intake reviewer',
+      reviewed_at: '2026-05-21T11:45:00Z',
+    },
+    promotion_dry_run_review: {
+      status: 'complete',
+      reviewed_by: 'Maintainer dry-run reviewer',
+      reviewed_at: '2026-05-21T11:50:00Z',
+    },
+    audit_review: {
+      status: 'complete',
+      reviewed_by: 'Maintainer audit reviewer',
+      reviewed_at: '2026-05-21T11:55:00Z',
+    },
+    later_attachment_task_boundary: 'test-only direct attachment coverage for a package-scoped evidence path',
+    approved_commands: [
+      `fcad review-context --inspection-evidence ${evidenceRef} --attachment-authorization ${authRef}`,
+    ],
+    readiness_held_acknowledgement: 'Canonical package readiness remains needs_more_evidence / hold_for_evidence_completion until a later authorized attachment task regenerates package artifacts.',
+    evidence_boundary_acknowledgement: 'Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.',
+  };
+}
+
 try {
   const contextPath = join(tempRoot, 'context.json');
-  const invalidInspectionEvidencePath = join(tempRoot, 'invalid_inspection_evidence.json');
   const unsafeOutsidePath = join(tempRoot, 'outside_dfm_report.json');
   const unsafeOutputDir = resolve(ROOT, 'output', 'evidence-linkage-side-input-contract-test');
   const unsafeTmpCodexDir = resolve(ROOT, 'tmp', 'codex', 'evidence-linkage-side-input-contract-test');
   const unsafeOutputPath = join(unsafeOutputDir, 'create_quality.json');
   const unsafeTmpCodexPath = join(unsafeTmpCodexDir, 'drawing_quality.json');
+  const directEvidenceRef = `docs/examples/${DIRECT_ATTACHMENT_SLUG}/inspection/supplier-final-inspection.json`;
+  const directAuthRef = `docs/examples/${DIRECT_ATTACHMENT_SLUG}/inspection/stage5b_attachment_authorization.json`;
+  const invalidInspectionEvidenceRef = `docs/examples/${DIRECT_ATTACHMENT_SLUG}/inspection/invalid-inspection-evidence.json`;
+  const directEvidencePath = resolve(ROOT, directEvidenceRef);
+  const directAuthPath = resolve(ROOT, directAuthRef);
+  const invalidInspectionEvidencePath = resolve(ROOT, invalidInspectionEvidenceRef);
+  const symlinkEvidenceRef = `docs/examples/${DIRECT_ATTACHMENT_SLUG}/inspection/symlink-inspection-evidence.json`;
+  const symlinkAuthRef = `docs/examples/${DIRECT_ATTACHMENT_SLUG}/inspection/symlink-stage5b-attachment-authorization.json`;
+  const symlinkEvidencePath = resolve(ROOT, symlinkEvidenceRef);
+  const symlinkAuthPath = resolve(ROOT, symlinkAuthRef);
   mkdirSync(unsafeOutputDir, { recursive: true });
   mkdirSync(unsafeTmpCodexDir, { recursive: true });
+  mkdirSync(resolve(directEvidencePath, '..'), { recursive: true });
   writeFileSync(invalidInspectionEvidencePath, JSON.stringify({
     schema_version: '1.0',
     evidence_type: 'inspection_evidence',
     source_type: 'manual_caliper_check',
-    inspected_part: 'side-input-contract-part',
+    package_id: DIRECT_ATTACHMENT_SLUG,
+    inspected_part: DIRECT_ATTACHMENT_SLUG,
     inspected_at: '2026-04-27T00:00:00Z',
-    source_ref: 'tests/fixtures/inspection-evidence/invalid.json',
+    source_ref: invalidInspectionEvidenceRef,
     overall_result: 'unknown',
   }, null, 2), 'utf8');
   writeFileSync(unsafeOutsidePath, '{"artifact_type":"dfm_report"}\n', 'utf8');
   writeFileSync(unsafeOutputPath, '{"artifact_type":"create_quality_report"}\n', { encoding: 'utf8', flag: 'w' });
   writeFileSync(unsafeTmpCodexPath, '{"artifact_type":"drawing_quality_report"}\n', { encoding: 'utf8', flag: 'w' });
+  writeFileSync(directEvidencePath, JSON.stringify(buildDirectAttachmentEvidence(), null, 2), 'utf8');
+  writeFileSync(directAuthPath, JSON.stringify(buildDirectAttachmentAuthorization(directEvidenceRef, directAuthRef), null, 2), 'utf8');
+  symlinkSync(directEvidencePath, symlinkEvidencePath);
+  writeFileSync(
+    symlinkAuthPath,
+    JSON.stringify(buildDirectAttachmentAuthorization(symlinkEvidenceRef, symlinkAuthRef), null, 2),
+    'utf8'
+  );
   writeFileSync(contextPath, JSON.stringify({
     metadata: {
       created_at: '2026-04-27T00:00:00Z',
@@ -207,29 +317,45 @@ try {
   assert.equal(readinessReport.readiness_summary.status, 'needs_more_evidence');
 
   const unauthorizedOutputPath = join(tempRoot, 'unauthorized-inspection-artifacts', 'review_pack.json');
-  await assert.rejects(
-    () => runReviewContextPipeline({
-      projectRoot: ROOT,
-      contextPath,
-      outputPath: unauthorizedOutputPath,
-      inspectionEvidencePath: VALID_INSPECTION_EVIDENCE_PATH,
-      runPythonJsonScript: buildStubRunPythonJsonScript(),
-      inspectModelIfAvailable: async () => null,
-      detectStepFeaturesIfAvailable: async () => null,
+	  await assert.rejects(
+	    () => runReviewContextPipeline({
+	      projectRoot: ROOT,
+	      contextPath,
+	      outputPath: unauthorizedOutputPath,
+	      inspectionEvidencePath: directEvidencePath,
+	      runPythonJsonScript: buildStubRunPythonJsonScript(),
+	      inspectModelIfAvailable: async () => null,
+	      detectStepFeaturesIfAvailable: async () => null,
     }),
     /requires --attachment-authorization/i
   );
-  assert.equal(existsSync(unauthorizedOutputPath), false);
+	  assert.equal(existsSync(unauthorizedOutputPath), false);
 
-  const inspectionResult = await runReviewContextPipeline({
-    projectRoot: ROOT,
-    contextPath,
-    outputPath: join(tempRoot, 'inspection-artifacts', 'review_pack.json'),
-    inspectionEvidencePath: VALID_INSPECTION_EVIDENCE_PATH,
-    attachmentAuthorizationPath: VALID_ATTACHMENT_AUTHORIZATION_PATH,
-    runPythonJsonScript: buildStubRunPythonJsonScript(),
-    inspectModelIfAvailable: async () => null,
-    detectStepFeaturesIfAvailable: async () => null,
+	  const fixtureOutputPath = join(tempRoot, 'fixture-inspection-artifacts', 'review_pack.json');
+	  await assert.rejects(
+	    () => runReviewContextPipeline({
+	      projectRoot: ROOT,
+	      contextPath,
+	      outputPath: fixtureOutputPath,
+	      inspectionEvidencePath: VALID_INSPECTION_EVIDENCE_PATH,
+	      attachmentAuthorizationPath: VALID_ATTACHMENT_AUTHORIZATION_PATH,
+	      runPythonJsonScript: buildStubRunPythonJsonScript(),
+	      inspectModelIfAvailable: async () => null,
+	      detectStepFeaturesIfAvailable: async () => null,
+	    }),
+	    /fixture|synthetic|not canonical package readiness evidence/i
+	  );
+	  assert.equal(existsSync(fixtureOutputPath), false);
+
+	  const inspectionResult = await runReviewContextPipeline({
+	    projectRoot: ROOT,
+	    contextPath,
+	    outputPath: join(tempRoot, 'inspection-artifacts', 'review_pack.json'),
+	    inspectionEvidencePath: directEvidencePath,
+	    attachmentAuthorizationPath: directAuthPath,
+	    runPythonJsonScript: buildStubRunPythonJsonScript(),
+	    inspectModelIfAvailable: async () => null,
+	    detectStepFeaturesIfAvailable: async () => null,
   });
   const inspectionReviewPack = readJson(inspectionResult.artifacts.reviewPackJson);
   assertValidDArtifact('review_pack', inspectionReviewPack, { command: 'review-context' });
@@ -238,28 +364,28 @@ try {
   );
   assert.equal(inspectionRecords.length, 1);
   assert.equal(inspectionRecords[0].inspection_evidence, true);
-  assert.equal(
-    inspectionRecords[0].source_ref,
-    'tests/fixtures/inspection-evidence/valid-manual-caliper-inspection.json'
-  );
+	  assert.equal(
+	    inspectionRecords[0].source_ref,
+	    directEvidenceRef
+	  );
   assert.equal(inspectionRecords[0].source_ref.startsWith('/'), false);
   assert.equal(inspectionRecords[0].source_ref.includes('..'), false);
   assert.equal(typeof inspectionRecords[0].sha256, 'string');
   assert.equal(inspectionRecords[0].sha256.length, 64);
   assert.equal(
     inspectionReviewPack.source_artifact_refs.some((ref) => (
-      ref.artifact_type === 'inspection_evidence'
-      && ref.path === 'tests/fixtures/inspection-evidence/valid-manual-caliper-inspection.json'
-      && ref.role === 'evidence'
-    )),
+	      ref.artifact_type === 'inspection_evidence'
+	      && ref.path === directEvidenceRef
+	      && ref.role === 'evidence'
+	    )),
     true
   );
   assert.equal(
     inspectionReviewPack.source_artifact_refs.some((ref) => (
-      ref.artifact_type === 'stage5b_attachment_authorization'
-      && ref.path === 'tests/fixtures/inspection-evidence/stage5b-attachment-authorization.valid.json'
-      && ref.role === 'input'
-    )),
+	      ref.artifact_type === 'stage5b_attachment_authorization'
+	      && ref.path === directAuthRef
+	      && ref.role === 'input'
+	    )),
     true
   );
   assert.equal(
@@ -280,10 +406,26 @@ try {
     inspectionReadinessReport.process_plan.summary.missing_inputs.includes('inspection_evidence'),
     false
   );
-  assert.equal(
-    inspectionReadinessReport.quality_risk.summary.missing_inputs.includes('inspection_evidence'),
-    false
-  );
+	  assert.equal(
+	    inspectionReadinessReport.quality_risk.summary.missing_inputs.includes('inspection_evidence'),
+	    false
+	  );
+
+	  const symlinkOutputPath = join(tempRoot, 'symlink-rejected', 'review_pack.json');
+	  await assert.rejects(
+	    () => runReviewContextPipeline({
+	      projectRoot: ROOT,
+	      contextPath,
+	      outputPath: symlinkOutputPath,
+	      inspectionEvidencePath: symlinkEvidencePath,
+	      attachmentAuthorizationPath: symlinkAuthPath,
+	      runPythonJsonScript: buildStubRunPythonJsonScript(),
+	      inspectModelIfAvailable: async () => null,
+	      detectStepFeaturesIfAvailable: async () => null,
+	    }),
+	    /symlink|symbolic link/i
+	  );
+	  assert.equal(existsSync(symlinkOutputPath), false);
 
   const generatedOutputPath = join(tempRoot, 'generated-rejected', 'review_pack.json');
   await assert.rejects(
@@ -368,6 +510,7 @@ try {
 } finally {
   rmSync(resolve(ROOT, 'output', 'evidence-linkage-side-input-contract-test'), { recursive: true, force: true });
   rmSync(resolve(ROOT, 'tmp', 'codex', 'evidence-linkage-side-input-contract-test'), { recursive: true, force: true });
+  rmSync(DIRECT_ATTACHMENT_ROOT, { recursive: true, force: true });
   rmSync(tempRoot, { recursive: true, force: true });
 }
 

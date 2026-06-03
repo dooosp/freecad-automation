@@ -6,7 +6,7 @@ import { buildReadinessReportFromReviewPack } from '../src/workflows/canonical-r
 
 const ROOT = resolve(import.meta.dirname, '..');
 const REVIEW_PACK_FIXTURE_PATH = join(ROOT, 'tests/fixtures/d-artifacts/sample_review_pack.canonical.json');
-const INSPECTION_SOURCE_REF = 'tests/fixtures/inspection-evidence/valid-manual-caliper-inspection.json';
+const INSPECTION_SOURCE_REF = 'docs/examples/readiness-evidence-part/inspection/inspection_evidence.json';
 
 function readJson(filePath) {
   return JSON.parse(readFileSync(filePath, 'utf8'));
@@ -65,7 +65,7 @@ function validInspectionEvidenceLedgerRecord() {
     category: 'inspection_evidence',
     classifications: ['inspection_evidence'],
     source_ref: INSPECTION_SOURCE_REF,
-    file_name: 'valid-manual-caliper-inspection.json',
+    file_name: 'inspection_evidence.json',
     title: 'Inspection evidence',
     score: null,
     rationale: 'Validated inspection evidence supplied as explicit review-context side input.',
@@ -108,6 +108,15 @@ function assertInspectionEvidenceMissing(name, reviewPack) {
 
 const withoutInspectionEvidence = basePartialInspectionPack();
 assertInspectionEvidenceMissing('review_pack without explicit inspection evidence', withoutInspectionEvidence);
+
+const passLookingNoUncertainty = basePartialInspectionPack();
+delete passLookingNoUncertainty.uncertainty_coverage_report;
+passLookingNoUncertainty.confidence = {
+  level: 'high',
+  score: 0.95,
+  rationale: 'Pass-looking review pack without explicit inspection evidence.',
+};
+assertInspectionEvidenceMissing('pass-looking review_pack without uncertainty report', passLookingNoUncertainty);
 
 const generatedEvidenceOnly = basePartialInspectionPack();
 addLedgerRecords(generatedEvidenceOnly, [
@@ -194,6 +203,21 @@ genericEvidence.source_artifact_refs.push({
   label: 'Generic evidence',
 });
 assertInspectionEvidenceMissing('generic evidence with inspection-like classification', genericEvidence);
+
+const inboxEvidence = basePartialInspectionPack();
+const inboxSourceRef = 'local/stage5b-candidate-evidence-inbox/readiness-evidence-part/inspection_evidence.json';
+addLedgerRecords(inboxEvidence, [{
+  ...validInspectionEvidenceLedgerRecord(),
+  evidence_id: `package:inspection_evidence:${inboxSourceRef}`,
+  source_ref: inboxSourceRef,
+}]);
+inboxEvidence.source_artifact_refs.push({
+  artifact_type: 'inspection_evidence',
+  path: inboxSourceRef,
+  role: 'evidence',
+  label: 'Inspection evidence',
+});
+assertInspectionEvidenceMissing('local inbox ledger evidence', inboxEvidence);
 
 const withValidatedInspectionEvidence = basePartialInspectionPack();
 addLedgerRecords(withValidatedInspectionEvidence, [validInspectionEvidenceLedgerRecord()]);

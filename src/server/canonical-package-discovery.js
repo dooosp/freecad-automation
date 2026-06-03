@@ -7,8 +7,8 @@ import {
   buildCanonicalArtifactCatalog,
 } from './canonical-artifact-key-contract.js';
 import {
+  validateAttachableInspectionEvidence,
   validateAttachmentAuthorization,
-  validateInspectionEvidence,
 } from '../../lib/inspection-evidence.js';
 
 export const CANONICAL_PACKAGE_SLUGS = Object.freeze([
@@ -129,12 +129,16 @@ async function canonicalInspectionEvidenceAttached(projectRoot, slug, relativePa
 
   try {
     const evidence = await readJson(projectRoot, relativePath, { required: true });
-    const evidenceValidation = validateInspectionEvidence(evidence);
+    const evidenceValidation = validateAttachableInspectionEvidence(evidence, {
+      evidencePath: relativePath,
+      expectedPackageSlug: slug,
+    });
     if (!evidenceValidation.ok) return false;
 
     const authorization = await readJson(projectRoot, authorizationPath, { required: true });
     const authorizationValidation = validateAttachmentAuthorization(authorization, {
       expectedInspectionEvidenceRef: relativePath,
+      expectedPackageSlug: slug,
     });
     return authorizationValidation.ok && authorization.package_slug === slug;
   } catch {
@@ -298,11 +302,15 @@ function readinessFromReport(readinessReport, readinessPath, inspectionEvidenceM
         ]),
       ];
 
+  const effectiveMissingInputs = inspectionEvidenceMissing
+    ? [...new Set([...missingInputs, 'inspection_evidence'])]
+    : missingInputs;
+
   return {
-    status: summary.status || null,
+    status: inspectionEvidenceMissing ? 'needs_more_evidence' : summary.status || null,
     score: summary.score ?? null,
-    gate_decision: summary.gate_decision || null,
-    missing_inputs: missingInputs,
+    gate_decision: inspectionEvidenceMissing ? 'hold_for_evidence_completion' : summary.gate_decision || null,
+    missing_inputs: effectiveMissingInputs,
     inspection_evidence_missing: inspectionEvidenceMissing,
     source_of_truth_path: readinessPath,
   };

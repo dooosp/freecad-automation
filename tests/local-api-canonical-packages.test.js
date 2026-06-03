@@ -99,16 +99,45 @@ function assertNoRouteFields(value) {
   }
 }
 
-function writeMinimalReadiness(projectRoot, slug) {
+function writeMinimalReadiness(projectRoot, slug, overrides = {}) {
   const readinessPath = join(projectRoot, 'docs', 'examples', slug, 'readiness', 'readiness_report.json');
   mkdirSync(join(projectRoot, 'docs', 'examples', slug, 'readiness'), { recursive: true });
   writeFileSync(readinessPath, JSON.stringify({
     readiness_summary: {
-      status: 'needs_more_evidence',
-      score: 0,
-      gate_decision: 'hold_for_evidence_completion',
-      missing_inputs: ['inspection_evidence'],
+      status: overrides.status || 'needs_more_evidence',
+      score: overrides.score ?? 0,
+      gate_decision: overrides.gate_decision || 'hold_for_evidence_completion',
+      missing_inputs: overrides.missing_inputs || ['inspection_evidence'],
     },
+  }, null, 2), 'utf8');
+}
+
+function writeAttachmentAuthorization(projectRoot, slug, evidenceRef) {
+  const authRef = join(projectRoot, 'docs', 'examples', slug, 'inspection', 'stage5b_attachment_authorization.json');
+  writeFileSync(authRef, JSON.stringify({
+    schema_version: '1.0',
+    record_type: 'stage5b_attachment_authorization',
+    authorized_attachment: true,
+    package_slug: slug,
+    reviewed_redacted_evidence_json_ref: `docs/examples/${slug}/inspection/inspection_evidence.json`,
+    candidate_gate_report_ref: `docs/examples/${slug}/inspection/stage5b_candidate_gate_report.json`,
+    intake_report_ref: `docs/examples/${slug}/inspection/intake_report.json`,
+    promotion_dry_run_ref: `docs/examples/${slug}/inspection/promotion_dry_run_manifest.json`,
+    audit_output_ref: `docs/examples/${slug}/inspection/stage5b_audit_manifest.json`,
+    human_authorizer: 'Canonical package test authorizer',
+    authorized_at: '2026-05-21T12:00:00Z',
+    redaction_review: { status: 'complete', reviewed_by: 'Redaction reviewer', reviewed_at: '2026-05-21T11:00:00Z' },
+    provenance_review: { status: 'complete', reviewed_by: 'Provenance reviewer', reviewed_at: '2026-05-21T11:05:00Z' },
+    package_mapping_review: { status: 'complete', reviewed_by: 'Mapping reviewer', reviewed_at: '2026-05-21T11:10:00Z' },
+    intake_review: { status: 'complete', reviewed_by: 'Intake reviewer', reviewed_at: '2026-05-21T11:15:00Z' },
+    promotion_dry_run_review: { status: 'complete', reviewed_by: 'Dry-run reviewer', reviewed_at: '2026-05-21T11:20:00Z' },
+    audit_review: { status: 'complete', reviewed_by: 'Audit reviewer', reviewed_at: '2026-05-21T11:25:00Z' },
+    later_attachment_task_boundary: 'canonical package discovery test fixture only',
+    approved_commands: [
+      `fcad review-context --inspection-evidence ${evidenceRef} --attachment-authorization docs/examples/${slug}/inspection/stage5b_attachment_authorization.json`,
+    ],
+    readiness_held_acknowledgement: 'Canonical package readiness remains needs_more_evidence / hold_for_evidence_completion until a later authorized attachment task regenerates package artifacts.',
+    evidence_boundary_acknowledgement: 'Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.',
   }, null, 2), 'utf8');
 }
 
@@ -289,11 +318,76 @@ try {
   assert.equal(validateLocalApiResponse('canonical_packages', invalidEvidencePayload).ok, true);
   const invalidEvidencePackage = invalidEvidencePayload.packages.find((pkg) => pkg.slug === 'quality-pass-bracket');
   assert.equal(invalidEvidencePackage.readiness.inspection_evidence_missing, true);
-  assert.equal(invalidEvidencePackage.readiness.status, 'needs_more_evidence');
-  assert.equal(invalidEvidencePackage.readiness.gate_decision, 'hold_for_evidence_completion');
-  assert.deepEqual(invalidEvidencePackage.readiness.missing_inputs, ['inspection_evidence']);
-  assert.equal(invalidEvidencePackage.inspection_evidence_path, null);
-} finally {
+	  assert.equal(invalidEvidencePackage.readiness.status, 'needs_more_evidence');
+	  assert.equal(invalidEvidencePackage.readiness.gate_decision, 'hold_for_evidence_completion');
+	  assert.deepEqual(invalidEvidencePackage.readiness.missing_inputs, ['inspection_evidence']);
+	  assert.equal(invalidEvidencePackage.inspection_evidence_path, null);
+
+	  const passLookingRoot = join(tmpRoot, 'pass-looking-readiness-root');
+	  for (const slug of EXPECTED_SLUGS) {
+	    writeMinimalReadiness(passLookingRoot, slug, slug === 'quality-pass-bracket'
+	      ? {
+	          status: 'production_ready',
+	          score: 96,
+	          gate_decision: 'release_ready',
+	          missing_inputs: [],
+	        }
+	      : {});
+	  }
+	  const passLookingPayload = await buildCanonicalPackagesPayload({ projectRoot: passLookingRoot });
+	  const passLookingPackage = passLookingPayload.packages.find((pkg) => pkg.slug === 'quality-pass-bracket');
+	  assert.equal(passLookingPackage.readiness.inspection_evidence_missing, true);
+	  assert.equal(passLookingPackage.readiness.status, 'needs_more_evidence');
+	  assert.equal(passLookingPackage.readiness.gate_decision, 'hold_for_evidence_completion');
+	  assert.deepEqual(passLookingPackage.readiness.missing_inputs, ['inspection_evidence']);
+	  assert.equal(passLookingPackage.inspection_evidence_path, null);
+
+	  const fixtureLikeRoot = join(tmpRoot, 'fixture-like-evidence-root');
+	  for (const slug of EXPECTED_SLUGS) {
+	    writeMinimalReadiness(fixtureLikeRoot, slug);
+	  }
+	  const fixtureLikeEvidenceDir = join(
+	    fixtureLikeRoot,
+	    'docs',
+	    'examples',
+	    'quality-pass-bracket',
+	    'inspection'
+	  );
+	  mkdirSync(fixtureLikeEvidenceDir, { recursive: true });
+	  const fixtureLikeEvidenceRef = 'docs/examples/quality-pass-bracket/inspection/inspection_evidence.json';
+	  writeFileSync(
+	    join(fixtureLikeEvidenceDir, 'inspection_evidence.json'),
+	    JSON.stringify({
+	      schema_version: '1.0',
+	      evidence_type: 'inspection_evidence',
+	      source_type: 'manual_caliper_check',
+	      package_id: 'quality-pass-bracket',
+	      inspected_part: 'quality-pass-bracket',
+	      part_revision: 'A',
+	      inspected_at: '2026-05-21T08:00:00Z',
+	      inspection_status: 'completed',
+	      inspector: 'Synthetic fixture inspector',
+	      reviewed_by: 'Fixture reviewer',
+	      measurement_system: 'metric',
+	      units: 'mm',
+	      source_ref: fixtureLikeEvidenceRef,
+	      measured_features: [{
+	        feature_id: 'fixture_feature',
+	        measured_value: 1,
+	        result: 'pass',
+	        measurement_method: 'manual_caliper_check',
+	      }],
+	      overall_result: 'pass',
+	      notes: 'Synthetic fixture record for tests. Not canonical package readiness evidence.',
+	    }, null, 2),
+	    'utf8'
+	  );
+	  writeAttachmentAuthorization(fixtureLikeRoot, 'quality-pass-bracket', fixtureLikeEvidenceRef);
+	  const fixtureLikePayload = await buildCanonicalPackagesPayload({ projectRoot: fixtureLikeRoot });
+	  const fixtureLikePackage = fixtureLikePayload.packages.find((pkg) => pkg.slug === 'quality-pass-bracket');
+	  assert.equal(fixtureLikePackage.readiness.inspection_evidence_missing, true);
+	  assert.equal(fixtureLikePackage.inspection_evidence_path, null);
+	} finally {
   await new Promise((resolveClose) => server.close(resolveClose));
   rmSync(tmpRoot, { recursive: true, force: true });
 }
