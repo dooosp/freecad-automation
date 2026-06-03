@@ -8,6 +8,7 @@ const EXAMPLE_INDEX_PATH = resolve(ROOT, 'docs', 'examples', 'README.md');
 const PROJECT_CLOSEOUT_STATUS_PATH = resolve(ROOT, 'docs', 'project-closeout-status.md');
 const FINAL_CLOSEOUT_PATH = resolve(ROOT, 'docs', 'final-non-inspection-software-closeout.md');
 const STAGE_5B_AUTOMATION_CLOSEOUT_PATH = resolve(ROOT, 'docs', 'stage-5b-automation-closeout-status.md');
+const RELEASE_CANDIDATE_GAP_LEDGER_PATH = resolve(ROOT, 'docs', 'release-candidate-closeout-gap-ledger.md');
 const STAGE_5B_OPERATIONAL_RUNBOOK_PATH = resolve(ROOT, 'docs', 'stage-5b-operational-runbook.md');
 const STAGE_5B_EVIDENCE_REQUEST_PACKET_PATH = resolve(ROOT, 'docs', 'stage-5b-evidence-request-packet.md');
 const STAGE_5B_ATTACHMENT_AUTHORIZATION_RECORD_PATH = resolve(ROOT, 'docs', 'stage-5b-attachment-authorization-record.md');
@@ -57,6 +58,21 @@ function assertNoPositiveProductionReadyClaim(text, label) {
   }
 }
 
+function assertNoPositiveCloseoutOverclaim(text, label) {
+  const unsafePatterns = [
+    /\b(?:readiness|readiness gate|gate decision)\b[^\n.]{0,120}\b(?:complete|cleared|approved|achieved|satisfied|released)\b/i,
+    /\b(?:inspection evidence|inspection_evidence)\b[^\n.]{0,120}\b(?:found|attached|promoted|satisfied|complete|cleared)\b/i,
+    /\bproduction deployment\b[^\n.]{0,120}\b(?:complete|done|approved|ready|live)\b/i,
+    /\bhosted CI\b[^\n.]{0,120}\b(?:proves|covers|verifies)\b[^\n.]{0,120}\b(?:live FreeCAD|FreeCAD launch|FreeCAD install|runtime-backed)\b/i,
+    /\b(?:Linux|Windows|WSL)\b[^\n.]{0,120}\brepository-owned live runtime smoke\b/i,
+  ];
+  const negated = /\b(?:not|no|does not|do not|did not|cannot|never|must not|without|only genuine|still requires|remains held|missing|compatibility-only)\b/i;
+  const unsafeLines = text.split('\n').filter((line) => (
+    unsafePatterns.some((pattern) => pattern.test(line)) && !negated.test(line)
+  ));
+  assert.deepEqual(unsafeLines, [], `${label} must not overclaim readiness, evidence attachment, production deployment, hosted CI, or runtime coverage`);
+}
+
 function parseCanonicalPackageList(markdown) {
   const matches = markdown.matchAll(/^- \[`([^`]+)`\]\(\.\/[^)]+\/README\.md\)$/gm);
   return Array.from(matches, (match) => match[1]);
@@ -67,6 +83,7 @@ assert.equal(existsSync(EXAMPLE_INDEX_PATH), true, 'canonical example index shou
 assert.equal(existsSync(PROJECT_CLOSEOUT_STATUS_PATH), true, 'project closeout status should exist');
 assert.equal(existsSync(FINAL_CLOSEOUT_PATH), true, 'final non-inspection software closeout should exist');
 assert.equal(existsSync(STAGE_5B_AUTOMATION_CLOSEOUT_PATH), true, 'Stage 5B automation closeout status should exist');
+assert.equal(existsSync(RELEASE_CANDIDATE_GAP_LEDGER_PATH), true, 'release candidate closeout gap ledger should exist');
 assert.equal(existsSync(STAGE_5B_OPERATIONAL_RUNBOOK_PATH), true, 'Stage 5B operational runbook should exist');
 assert.equal(existsSync(STAGE_5B_EVIDENCE_REQUEST_PACKET_PATH), true, 'Stage 5B evidence request packet should exist');
 assert.equal(existsSync(STAGE_5B_ATTACHMENT_AUTHORIZATION_RECORD_PATH), true, 'Stage 5B attachment authorization record should exist');
@@ -89,6 +106,7 @@ const exampleIndexText = readText(EXAMPLE_INDEX_PATH);
 const projectCloseoutStatusText = readText(PROJECT_CLOSEOUT_STATUS_PATH);
 const finalCloseoutText = readText(FINAL_CLOSEOUT_PATH);
 const stage5bAutomationCloseoutText = readText(STAGE_5B_AUTOMATION_CLOSEOUT_PATH);
+const releaseCandidateGapLedgerText = readText(RELEASE_CANDIDATE_GAP_LEDGER_PATH);
 const stage5bOperationalRunbookText = readText(STAGE_5B_OPERATIONAL_RUNBOOK_PATH);
 const stage5bEvidenceRequestPacketText = readText(STAGE_5B_EVIDENCE_REQUEST_PACKET_PATH);
 const stage5bAttachmentAuthorizationRecordText = readText(STAGE_5B_ATTACHMENT_AUTHORIZATION_RECORD_PATH);
@@ -156,6 +174,11 @@ assertMentions(
   rootReadmeText,
   /\[Stage 5B automation closeout status\]\(\.\/docs\/stage-5b-automation-closeout-status\.md\)/,
   'root README should link the Stage 5B automation closeout status'
+);
+assertMentions(
+  rootReadmeText,
+  /\[release candidate closeout gap ledger\]\(\.\/docs\/release-candidate-closeout-gap-ledger\.md\)/,
+  'root README should link the release candidate closeout gap ledger'
 );
 assertMentions(
   rootReadmeText,
@@ -343,10 +366,10 @@ assertMentions(
   /\[Stage 5B artifact\/schema catalog\]\(\.\/stage-5b-artifact-schema-catalog\.md\)/,
   'Stage 5B automation closeout should link the artifact/schema catalog'
 );
-for (const pr of ['#113', '#114', '#115', '#116', '#117', '#118', '#119', '#120', '#121', '#130', '#131', '#132', '#133', '#134', '#135', '#136', '#137', '#138', '#139', '#140', '#141', '#142', '#143']) {
+for (const pr of ['#113', '#114', '#115', '#116', '#117', '#118', '#119', '#120', '#121', '#130', '#131', '#132', '#133', '#134', '#135', '#136', '#137', '#138', '#139', '#140', '#141', '#142', '#143', '#144', '#145', '#146', '#147', '#148', '#149', '#150', '#151', '#152']) {
   assert.equal(stage5bAutomationCloseoutText.includes(pr), true, `Stage 5B automation closeout should mention PR ${pr}`);
 }
-assertMentions(stage5bAutomationCloseoutText, /through PR \[#143\]/, 'Stage 5B automation closeout should state the current PR chain endpoint');
+assertMentions(stage5bAutomationCloseoutText, /through PR \[#152\]/, 'Stage 5B automation closeout should state the current PR chain endpoint');
 for (const surface of [
   'inspection-evidence-intake',
   'table normalization',
@@ -359,6 +382,15 @@ for (const surface of [
   'attachment authorization record',
   'validation diagnostics',
   'tracked API/Studio review surfaces',
+  'release bundle reproducibility',
+  'first-user E2E',
+  'local API schema parity',
+  'Studio API fuzz',
+  'runtime output contract',
+  'CI/source hygiene',
+  'workflow provenance pinning',
+  'self-hosted runtime governance',
+  'attachment provenance',
 ]) {
   assert.equal(
     stage5bAutomationCloseoutText.includes(surface),
@@ -406,6 +438,7 @@ assertMentions(
   'Stage 5B automation closeout should reject generated, fake, or human-entered measurements'
 );
 assertNoPositiveProductionReadyClaim(stage5bAutomationCloseoutText, 'Stage 5B automation closeout should not claim production readiness');
+assertNoPositiveCloseoutOverclaim(stage5bAutomationCloseoutText, 'Stage 5B automation closeout');
 for (const slug of CANONICAL_PACKAGES) {
   assert.equal(
     stage5bAutomationCloseoutText.includes(`\`${slug}\``),
@@ -413,6 +446,74 @@ for (const slug of CANONICAL_PACKAGES) {
     `Stage 5B automation closeout should mention ${slug}`
   );
 }
+
+assertMentions(
+  releaseCandidateGapLedgerText,
+  /^# Release candidate closeout gap ledger/m,
+  'release candidate gap ledger should have the expected title'
+);
+assertMentions(releaseCandidateGapLedgerText, /PR \[#152\]/, 'release candidate gap ledger should reference PR #152');
+assertMentions(releaseCandidateGapLedgerText, /f4b38dec7b75671e73cd8d269955cdf837341b0b/, 'release candidate gap ledger should pin the audited head');
+assertMentions(releaseCandidateGapLedgerText, /no open PR rows/i, 'release candidate gap ledger should record open PR state');
+assertMentions(releaseCandidateGapLedgerText, /Automation CI \(hosted fast lanes\).*passed/i, 'release candidate gap ledger should record hosted CI state');
+assertMentions(releaseCandidateGapLedgerText, /FreeCAD Runtime Smoke \(self-hosted macOS\).*passed/i, 'release candidate gap ledger should record self-hosted runtime smoke state');
+for (const section of [
+  'Complete software/control surfaces',
+  'Readiness truth',
+  'Still requires real inspection evidence',
+  'Human or organization-settings dependent',
+  'Must not be treated as evidence',
+  'Stop or continue point',
+]) {
+  assert.equal(releaseCandidateGapLedgerText.includes(section), true, `release candidate gap ledger should include ${section}`);
+}
+for (const slug of CANONICAL_PACKAGES) {
+  assert.equal(
+    releaseCandidateGapLedgerText.includes(`\`${slug}\``),
+    true,
+    `release candidate gap ledger should mention ${slug}`
+  );
+}
+for (const boundary of [
+  'metadata',
+  'CI logs',
+  'screenshots',
+  'diagnostics',
+  'release bundles',
+  'generated outputs',
+  'authorization records',
+  'GitHub issues',
+  'CI/GitHub metadata',
+  'CAD-generated',
+]) {
+  assert.equal(
+    releaseCandidateGapLedgerText.includes(boundary),
+    true,
+    `release candidate gap ledger should reject ${boundary} as inspection evidence`
+  );
+}
+assertMentions(
+  releaseCandidateGapLedgerText,
+  /Only genuine completed physical\/supplier\/lab\/QA inspection records can satisfy/,
+  'release candidate gap ledger should preserve the hard evidence rule'
+);
+assertMentions(
+  releaseCandidateGapLedgerText,
+  /No genuine completed inspection evidence has been found or attached/i,
+  'release candidate gap ledger should state no genuine completed inspection evidence was found or attached'
+);
+assertMentions(
+  releaseCandidateGapLedgerText,
+  /Promotion\s+cannot run/i,
+  'release candidate gap ledger should state promotion cannot run'
+);
+assertMentions(
+  releaseCandidateGapLedgerText,
+  /`needs_more_evidence` \/ `hold_for_evidence_completion`/,
+  'release candidate gap ledger should preserve readiness-held package truth'
+);
+assertNoPositiveProductionReadyClaim(releaseCandidateGapLedgerText, 'release candidate gap ledger should not claim production readiness');
+assertNoPositiveCloseoutOverclaim(releaseCandidateGapLedgerText, 'release candidate gap ledger');
 
 assertMentions(
   stage5bOperationalRunbookText,
@@ -1005,6 +1106,11 @@ assertMentions(
   testingDocText,
   /Stage 5B automation closeout status/,
   'testing doc should document Stage 5B automation closeout docs-smoke coverage'
+);
+assertMentions(
+  testingDocText,
+  /release-candidate closeout gap ledger/,
+  'testing doc should document release candidate gap ledger docs-smoke coverage'
 );
 assertMentions(
   testingDocText,

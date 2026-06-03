@@ -476,10 +476,10 @@ try {
     includeGitHub: true,
     githubRepo: 'dooosp/freecad-automation',
     githubRunner: makeGithubRunner({
-      issueBody: 'Completed supplier CMM record: https://example.com/public/cmm/github-table-part-cmm.csv',
+      issueBody: 'Completed supplier CMM record: https://raw.githubusercontent.com/dooosp/freecad-automation/main/public/cmm/github-table-part-cmm.csv',
     }),
     githubFetch: async (url) => {
-      assert.equal(url, 'https://example.com/public/cmm/github-table-part-cmm.csv');
+      assert.equal(url, 'https://raw.githubusercontent.com/dooosp/freecad-automation/main/public/cmm/github-table-part-cmm.csv');
       return makeFetchResponse([
         'schema_version,evidence_type,source_type,package_id,inspected_at,inspection_status,inspector,reviewed_by,part_revision,units,overall_result,feature_id,measured_value,result,measurement_method',
         '1.0,inspection_evidence,cmm_report,github-table-part,2026-05-22T12:00:00Z,completed,Supplier CMM inspector,Maintainer QA reviewer,A,mm,pass,hole_a,8.01,pass,cmm_report',
@@ -492,7 +492,7 @@ try {
   assert.equal(githubTableReport.summary.accepted_candidate_count, 1);
   assert.equal(githubTableReport.github_discovery.enabled, true);
   assert.equal(githubTableReport.github_discovery.downloaded_candidates.length, 1);
-  assert.equal(githubTableReport.github_discovery.downloaded_candidates[0].source_url, 'https://example.com/public/cmm/github-table-part-cmm.csv');
+  assert.equal(githubTableReport.github_discovery.downloaded_candidates[0].source_url, 'https://raw.githubusercontent.com/dooosp/freecad-automation/main/public/cmm/github-table-part-cmm.csv');
   assert.equal(githubTableReport.github_discovery.rejection_classes.invalid_schema || 0, 0);
   assert.equal(githubTableReport.packages[0].classification, 'genuine_valid');
   assert.equal(githubTableReport.packages[0].accepted_candidates[0].source_kind, 'github_linked_file');
@@ -502,6 +502,35 @@ try {
   assert.equal(githubTableReport.packages[0].accepted_candidates[0].attachment_ready, true);
   assert.equal(githubTableReport.packages[0].intake_action.status, 'ready_for_canonical_attachment');
   assert.equal(githubTableReport.packages[0].intake_action.normalization_required, true);
+
+  const unsafePublicLinkReport = await discoverInspectionEvidenceIntake({
+    projectRoot: tempRoot,
+    packageSlugs: ['github-table-part'],
+    includeGitHub: true,
+    githubRepo: 'dooosp/freecad-automation',
+    githubRunner: makeGithubRunner({
+      issueBody: [
+        'Cleartext candidate: http://raw.githubusercontent.com/dooosp/freecad-automation/main/public/cmm/github-table-part-cmm.csv',
+        'Non-allowlisted candidate: https://example.com/public/cmm/github-table-part-cmm.csv',
+      ].join('\n'),
+    }),
+    githubFetch: async () => {
+      assert.fail('unsafe public GitHub candidate links must not be downloaded');
+    },
+    generatedAt: '2026-05-23T00:00:00.000Z',
+  });
+  assert.equal(unsafePublicLinkReport.summary.genuine_inspection_evidence_found, false);
+  assert.equal(unsafePublicLinkReport.github_discovery.downloaded_candidates.length, 0);
+  assert.equal(
+    unsafePublicLinkReport.github_discovery.skipped_sources.some((source) => source.reason_code === 'unsupported_url_scheme'),
+    true,
+    'cleartext public candidate links must be skipped'
+  );
+  assert.equal(
+    unsafePublicLinkReport.github_discovery.skipped_sources.some((source) => source.reason_code === 'non_allowlisted_public_host'),
+    true,
+    'non-allowlisted public candidate hosts must be skipped'
+  );
 
   writeMinimalCanonicalPackage(tempRoot, 'ambiguous-alpha-part');
   writeMinimalCanonicalPackage(tempRoot, 'ambiguous-beta-part');
@@ -521,7 +550,7 @@ try {
     includeGitHub: true,
     githubRepo: 'dooosp/freecad-automation',
     githubRunner: makeGithubRunner({
-      issueBody: 'Completed supplier CMM record: https://example.com/public/cmm/shared-mount-hole.csv',
+      issueBody: 'Completed supplier CMM record: https://raw.githubusercontent.com/dooosp/freecad-automation/main/public/cmm/shared-mount-hole.csv',
     }),
     githubFetch: async () => makeFetchResponse([
       'schema_version,evidence_type,source_type,inspected_part,inspected_at,inspection_status,inspector,reviewed_by,part_revision,units,source_ref,overall_result,feature_id,requirement_ref,nominal_value,measured_value,result,measurement_method',
@@ -555,7 +584,7 @@ try {
     packageSlugs: ['github-generated-part'],
     includeGitHub: true,
     githubRunner: makeGithubRunner({
-      issueBody: 'Generated review output is not evidence: https://example.com/public/quality/github-generated-part_create_quality.json',
+      issueBody: 'Generated review output is not evidence: https://raw.githubusercontent.com/dooosp/freecad-automation/main/public/quality/github-generated-part_create_quality.json',
     }),
     githubFetch: async () => makeFetchResponse(JSON.stringify({
       artifact_type: 'create_quality_report',
@@ -614,7 +643,7 @@ try {
   );
 
   writeMinimalCanonicalPackage(tempRoot, 'github-release-asset-part');
-  const releaseAssetUrl = 'https://example.com/releases/download/v1.1.0/inspection_evidence.json';
+  const releaseAssetUrl = 'https://github.com/dooosp/freecad-automation/releases/download/v1.1.0/inspection_evidence.json';
   const githubReleaseAssetReport = await discoverInspectionEvidenceIntake({
     projectRoot: tempRoot,
     packageSlugs: ['github-release-asset-part'],
@@ -658,7 +687,7 @@ try {
   );
 
   writeMinimalCanonicalPackage(tempRoot, 'github-release-bundle-part');
-  const releaseBundleUrl = 'https://example.com/releases/download/v1.1.0/release_bundle.zip';
+  const releaseBundleUrl = 'https://github.com/dooosp/freecad-automation/releases/download/v1.1.0/release_bundle.zip';
   const githubReleaseBundleReport = await discoverInspectionEvidenceIntake({
     projectRoot: tempRoot,
     packageSlugs: ['github-release-bundle-part'],
@@ -708,7 +737,7 @@ try {
     packageSlugs: ['github-zip-part'],
     includeGitHub: true,
     githubRunner: makeGithubRunner({
-      issueBody: 'Unsafe uploaded archive: https://example.com/public/inspection/unsafe.zip',
+      issueBody: 'Unsafe uploaded archive: https://raw.githubusercontent.com/dooosp/freecad-automation/main/public/inspection/unsafe.zip',
     }),
     githubFetch: async () => makeFetchResponse(makeStoredZipEntry('../evil.csv', 'not,evidence\n'), {
       contentType: 'application/zip',
@@ -762,7 +791,7 @@ try {
     packageSlugs: ['github-hold-part'],
     includeGitHub: true,
     githubRunner: makeGithubRunner({
-      issueBody: 'Incomplete caliper table: https://example.com/public/caliper/github-hold-part.csv',
+      issueBody: 'Incomplete caliper table: https://raw.githubusercontent.com/dooosp/freecad-automation/main/public/caliper/github-hold-part.csv',
     }),
     githubFetch: async () => makeFetchResponse([
       'schema_version,evidence_type,source_type,package_id,inspected_at,units,overall_result,feature_id,result,measurement_method',
