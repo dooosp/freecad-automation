@@ -48,6 +48,14 @@ const NON_GENUINE_TEXT_PATTERN = /synthetic|fixture|template|collection guide|ge
 
 const GITHUB_ALLOWED_FILE_EXTENSIONS = new Set(['.json', '.csv', '.tsv', '.md', '.markdown', '.txt']);
 const GITHUB_ALLOWED_ARCHIVE_EXTENSIONS = new Set(['.zip']);
+const GITHUB_ALLOWED_PUBLIC_LINK_HOSTS = new Set([
+  'github.com',
+  'raw.githubusercontent.com',
+  'gist.githubusercontent.com',
+  'objects.githubusercontent.com',
+  'release-assets.githubusercontent.com',
+  'codeload.github.com',
+]);
 const GITHUB_MAX_DOWNLOADS = 20;
 const GITHUB_MAX_TEXT_BYTES = 256 * 1024;
 const GITHUB_MAX_ZIP_BYTES = 2 * 1024 * 1024;
@@ -1546,6 +1554,11 @@ function isPrivateHostname(hostname) {
     || /^169\.254\./.test(host);
 }
 
+function isAllowedGithubPublicLinkHost(hostname) {
+  const host = String(hostname || '').trim().toLowerCase();
+  return GITHUB_ALLOWED_PUBLIC_LINK_HOSTS.has(host) || host.endsWith('.githubusercontent.com');
+}
+
 function sanitizePublicUrl(rawUrl) {
   const trimmed = String(rawUrl || '').trim().replace(/[.,;!?]+$/, '');
   try {
@@ -1572,6 +1585,26 @@ function sanitizePublicUrl(rawUrl) {
   } catch {
     return { ok: false, reason_code: 'invalid_url', host: null };
   }
+}
+
+function sanitizeGithubCandidateUrl(rawUrl) {
+  const sanitized = sanitizePublicUrl(rawUrl);
+  if (!sanitized.ok) return sanitized;
+  if (!sanitized.url.startsWith('https://')) {
+    return {
+      ok: false,
+      reason_code: 'unsupported_url_scheme',
+      host: sanitized.host || null,
+    };
+  }
+  if (!isAllowedGithubPublicLinkHost(sanitized.host)) {
+    return {
+      ok: false,
+      reason_code: 'non_allowlisted_public_host',
+      host: sanitized.host || null,
+    };
+  }
+  return sanitized;
 }
 
 function responseHeader(response, name) {
@@ -1610,11 +1643,52 @@ function allowedKindForUrl(url) {
   return null;
 }
 
-function extractCandidateLinks(text) {
+function extractCandidateLinkEntries(text) {
   return uniqueStrings(String(text || '').match(URL_PATTERN) || [])
-    .map((rawUrl) => sanitizePublicUrl(rawUrl))
-    .filter((entry) => entry.ok && allowedKindForUrl(entry.url))
+    .map((rawUrl) => {
+      const sanitized = sanitizeGithubCandidateUrl(rawUrl);
+      if (!sanitized.ok) {
+        return {
+          ok: false,
+          reason_code: sanitized.reason_code,
+          host: sanitized.host || null,
+        };
+      }
+      const kind = allowedKindForUrl(sanitized.url);
+      if (!kind) {
+        return {
+          ok: false,
+          reason_code: 'unsupported_public_link_extension',
+          host: sanitized.host || null,
+        };
+      }
+      return {
+        ok: true,
+        url: sanitized.url,
+        host: sanitized.host,
+        extension: sanitized.extension,
+        kind,
+      };
+    });
+}
+
+function extractCandidateLinks(text) {
+  return extractCandidateLinkEntries(text)
+    .filter((entry) => entry.ok)
     .map((entry) => entry.url);
+}
+
+function skippedPublicLink(entry, kind, sourcePageUrl = null, path = null) {
+  const skipped = {
+    kind,
+    status: 'skipped',
+    reason_code: entry.reason_code || 'unsafe_public_link',
+    reason: 'Public candidate link is not an HTTPS URL on the explicit GitHub download allowlist.',
+    host: entry.host || null,
+  };
+  if (sourcePageUrl) skipped.source_page_url = sourcePageUrl;
+  if (path) skipped.path = path;
+  return skipped;
 }
 
 function githubCandidatePath(sourceUrl, innerPath = null) {
@@ -1624,6 +1698,19 @@ function githubCandidatePath(sourceUrl, innerPath = null) {
   }
   const name = basename(new URL(sourceUrl).pathname).replace(/[^A-Za-z0-9._-]/g, '_') || `candidate-${hash}`;
   return `github-downloads/${hash}/${name}`;
+}
+
+function githubMetadataCandidatePath(kind, entry = {}) {
+  const basis = [
+    kind,
+    entry.url,
+    entry.workflowRun,
+    entry.tagName,
+    entry.name,
+    entry.title,
+  ].filter(Boolean).join('\n');
+  const hash = createHash('sha256').update(basis || kind).digest('hex').slice(0, 16);
+  return `github-metadata/${String(kind || 'unknown').replace(/[^A-Za-z0-9._-]/g, '_')}/${hash}.json`;
 }
 
 function safeSourcePageUrl(value) {
@@ -1786,7 +1873,7 @@ function candidateRefsFromEntries(kind, entries = [], skipped = [], rejected = [
           source_page_url: safeSourcePageUrl(entry.workflowRun),
         });
         rejected.push({
-          path: entry.workflowRun || entry.name || kind,
+          path: githubMetadataCandidatePath(kind, entry),
           source_kind: kind,
           source_format: 'github_metadata',
           adapter: 'github_metadata_scan',
@@ -1810,7 +1897,12 @@ function candidateRefsFromEntries(kind, entries = [], skipped = [], rejected = [
     }
 
     const entryRefs = [];
-    for (const sourceUrl of extractCandidateLinks([entry.body, entry.title, entry.name].filter(Boolean).join('\n'))) {
+    for (const linkEntry of extractCandidateLinkEntries([entry.body, entry.title, entry.name].filter(Boolean).join('\n'))) {
+      if (!linkEntry.ok) {
+        skipped.push(skippedPublicLink(linkEntry, 'github_linked_file', safeSourcePageUrl(entry.url)));
+        continue;
+      }
+      const sourceUrl = linkEntry.url;
       entryRefs.push({
         source_kind: 'github_linked_file',
         origin_kind: kind,
@@ -1822,8 +1914,15 @@ function candidateRefsFromEntries(kind, entries = [], skipped = [], rejected = [
 
     if (kind === 'github_release_records') {
       for (const asset of safeList(entry.assets)) {
-        const sanitized = sanitizePublicUrl(asset.url);
-        if (!sanitized.ok || !allowedKindForUrl(sanitized.url)) continue;
+        const sanitized = sanitizeGithubCandidateUrl(asset.url);
+        if (!sanitized.ok || !allowedKindForUrl(sanitized.url)) {
+          skipped.push(skippedPublicLink(
+            sanitized.ok ? { ...sanitized, reason_code: 'unsupported_public_link_extension' } : sanitized,
+            'github_release_asset',
+            safeSourcePageUrl(entry.url)
+          ));
+          continue;
+        }
         entryRefs.push({
           source_kind: 'github_release_asset',
           origin_kind: kind,
@@ -1837,7 +1936,7 @@ function candidateRefsFromEntries(kind, entries = [], skipped = [], rejected = [
 
     if (/inspection|cmm|caliper|gauge|first.article|supplier/i.test(JSON.stringify(entry)) && entryRefs.length === 0) {
       rejected.push({
-        path: entry.url || entry.tagName || entry.name || kind,
+        path: githubMetadataCandidatePath(kind, entry),
         source_kind: kind,
         source_format: 'github_metadata',
         adapter: 'github_metadata_scan',
@@ -1872,7 +1971,12 @@ async function repoDocCandidateRefs({ projectRoot, trackedPaths = [], sources = 
     try {
       const raw = await readFile(resolve(projectRoot, relativePath), 'utf8');
       scanned += 1;
-      for (const sourceUrl of extractCandidateLinks(raw)) {
+      for (const linkEntry of extractCandidateLinkEntries(raw)) {
+        if (!linkEntry.ok) {
+          skipped.push(skippedPublicLink(linkEntry, 'repo_doc_public_link', null, relativePath));
+          continue;
+        }
+        const sourceUrl = linkEntry.url;
         refs.push({
           source_kind: 'repo_doc_public_link',
           origin_kind: 'repo_doc_public_links',
@@ -2360,7 +2464,7 @@ export async function discoverInspectionEvidenceIntake({
         'tracked repo files',
         'docs/examples/tests/fixtures inside the checkout',
         'existing non-secret local files in the checkout',
-        'public GitHub issues, PR comments, workflow artifact metadata, and allowlisted public links when --include-github is used',
+        'public GitHub issues, PR comments, workflow artifact metadata, and HTTPS GitHub/GitHubusercontent allowlisted public links when --include-github is used',
       ],
       adapter_coverage: [
         'JSON inspection evidence contract files',

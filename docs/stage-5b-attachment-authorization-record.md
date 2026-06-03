@@ -17,9 +17,12 @@ Hard evidence rule: Only genuine completed physical/supplier/lab/QA inspection r
 Use this record only after the candidate gate report says
 `summary.eligible_for_stage5b_intake_review: true` and
 `decision.result: accept`. Keep raw/private records in the ignored local inbox
-or in an explicitly authorized private control location outside the repository
-root; do not copy raw supplier/lab/QA material, private URLs, credentials,
-tokens, unnecessary PII, or private machine paths into this tracked document.
+or in an explicitly authorized private retention location when needed, but do
+not use outside-root paths as canonical attachment or authorization refs. Any
+later command/control ref used for canonical attachment must be a safe
+repo-relative reviewed/redacted JSON ref. Do not copy raw supplier/lab/QA
+material, private URLs, credentials, tokens, unnecessary PII, or private
+machine paths into this tracked document.
 
 ## Authorization Checklist
 
@@ -66,17 +69,18 @@ is allowed to attach a reviewed/redacted genuine inspection record.
 
 ## Record Template
 
-Fill this out in a later authorized attachment task or in a private control
-record that is safe to share. Keep alternate private-control records outside
-the repository root unless a later task explicitly authorizes a sanitized
-tracked record. Leave values as `unknown` or `null` when they are unavailable;
-do not invent missing measurements, reviewer data, provenance, or mapping.
+Fill this out in a later authorized attachment task or in a safe repo-relative
+reviewed/redacted JSON control record that is safe to share. Keep raw private
+retention material out of tracked docs; when canonical attachment is explicitly
+authorized, use only safe repo-relative reviewed/redacted refs. Leave values as
+`unknown` or `null` when they are unavailable; do not invent missing
+measurements, reviewer data, provenance, or mapping.
 
 | Field | Required entry |
 | --- | --- |
 | Package slug | One canonical package slug. |
-| Candidate gate report ref | Ignored local-inbox path, safe sanitized repo-relative control ref, or private-control ref outside the repository root. |
-| Reviewed/redacted evidence JSON ref | Ignored local-inbox path, safe sanitized repo-relative control ref, or private-control ref outside the repository root. |
+| Candidate gate report ref | Ignored local-inbox path before attachment review, then a safe sanitized repo-relative reviewed/redacted control ref when canonical attachment is explicitly authorized. |
+| Reviewed/redacted evidence JSON ref | Ignored local-inbox path before attachment review, then a safe sanitized repo-relative reviewed/redacted evidence JSON ref when canonical attachment is explicitly authorized. |
 | Redaction/privacy reviewer | Structured `redaction_review` object with `status`, `reviewed_by`, and `reviewed_at`; status must be complete/final/closed/released/approved. |
 | Provenance/reviewer traceability reviewer | Structured `provenance_review` object with `status`, `reviewed_by`, and `reviewed_at`; status must be complete/final/closed/released/approved. |
 | Package/part/revision mapping reviewer | Structured `package_mapping_review` object with `status`, `reviewed_by`, and `reviewed_at`; status must be complete/final/closed/released/approved. |

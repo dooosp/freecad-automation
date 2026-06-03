@@ -100,9 +100,10 @@ it does not attach evidence, promote evidence, satisfy readiness, or mutate
 canonical artifacts.
 
 1. Accepted gate report: keep the accepted candidate gate report with the record
-   under the ignored local inbox, or keep any alternate private-control material
-   outside the repository root, and verify the report is schema-valid and
-   non-mutating.
+   under the ignored local inbox, and verify the report is schema-valid and
+   non-mutating. Private retention copies can stay outside the repository when
+   needed, but any later command/control ref used for canonical attachment must
+   be a safe repo-relative reviewed/redacted ref.
 2. Provenance and reviewer traceability: verify the candidate carries inspector,
    reviewer/approver, source reference, and traceability refs without relying on
    a PR body, comment, screenshot, release asset, generated report, or human-typed

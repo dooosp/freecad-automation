@@ -171,6 +171,21 @@ function assertNoControlSurfaceAttachmentOverclaim(text, label) {
   );
 }
 
+function assertNoPositiveCloseoutOverclaim(text, label) {
+  const unsafePatterns = [
+    /\b(?:readiness|readiness gate|gate decision)\b[^\n.]{0,120}\b(?:complete|cleared|approved|achieved|satisfied|released)\b/i,
+    /\b(?:inspection evidence|inspection_evidence)\b[^\n.]{0,120}\b(?:found|attached|promoted|satisfied|complete|cleared)\b/i,
+    /\bproduction deployment\b[^\n.]{0,120}\b(?:complete|done|approved|ready|live)\b/i,
+    /\bhosted CI\b[^\n.]{0,120}\b(?:proves|covers|verifies)\b[^\n.]{0,120}\b(?:live FreeCAD|FreeCAD launch|FreeCAD install|runtime-backed)\b/i,
+    /\b(?:Linux|Windows|WSL)\b[^\n.]{0,120}\brepository-owned live runtime smoke\b/i,
+  ];
+  const negated = /\b(?:not|no|does not|do not|did not|cannot|never|must not|without|only genuine|still requires|remains held|missing|compatibility-only)\b/i;
+  const unsafeLines = text.split('\n').filter((line) => (
+    unsafePatterns.some((pattern) => pattern.test(line)) && !negated.test(line)
+  ));
+  assert.deepEqual(unsafeLines, [], `${label} must not overclaim readiness, evidence attachment, production deployment, hosted CI, or runtime coverage`);
+}
+
 function artifactFixture(definition, overrides = {}) {
   return {
     id: `${definition.type}-0`,
@@ -359,6 +374,7 @@ const docs = {
   supportMatrix: readText('docs/support-matrix.md'),
   testing: readText('docs/testing.md'),
   closeout: readText('docs/stage-5b-automation-closeout-status.md'),
+  rcGapLedger: readText('docs/release-candidate-closeout-gap-ledger.md'),
   runbook: readText('docs/stage-5b-operational-runbook.md'),
   requestPacket: readText('docs/stage-5b-evidence-request-packet.md'),
   authorizationRecord: readText('docs/stage-5b-attachment-authorization-record.md'),
@@ -437,6 +453,15 @@ assert.match(docs.closeout, /PR #140|\[#140\]/, 'Stage 5B closeout should includ
 assert.match(docs.closeout, /PR #141|\[#141\]/, 'Stage 5B closeout should include the PR #141 negative contract state');
 assert.match(docs.closeout, /PR #142|\[#142\]/, 'Stage 5B closeout should include the PR #142 job/artifact lifecycle state');
 assert.match(docs.closeout, /PR #143|\[#143\]/, 'Stage 5B closeout should include the PR #143 lifecycle hardening state');
+assert.match(docs.closeout, /PR #144|\[#144\]/, 'Stage 5B closeout should include the PR #144 release bundle reproducibility state');
+assert.match(docs.closeout, /PR #145|\[#145\]/, 'Stage 5B closeout should include the PR #145 first-user E2E state');
+assert.match(docs.closeout, /PR #146|\[#146\]/, 'Stage 5B closeout should include the PR #146 local API schema parity state');
+assert.match(docs.closeout, /PR #147|\[#147\]/, 'Stage 5B closeout should include the PR #147 Studio API fuzz state');
+assert.match(docs.closeout, /PR #148|\[#148\]/, 'Stage 5B closeout should include the PR #148 runtime output contract state');
+assert.match(docs.closeout, /PR #149|\[#149\]/, 'Stage 5B closeout should include the PR #149 CI/source hygiene state');
+assert.match(docs.closeout, /PR #150|\[#150\]/, 'Stage 5B closeout should include the PR #150 workflow provenance pinning state');
+assert.match(docs.closeout, /PR #151|\[#151\]/, 'Stage 5B closeout should include the PR #151 self-hosted runtime governance state');
+assert.match(docs.closeout, /PR #152|\[#152\]/, 'Stage 5B closeout should include the PR #152 attachment provenance state');
 assert.match(docs.closeout, /\[Stage 5B operational runbook\]\(\.\/stage-5b-operational-runbook\.md\)/, 'Stage 5B closeout should link the operational runbook');
 assert.match(docs.closeout, /\[Stage 5B evidence request packet\]\(\.\/stage-5b-evidence-request-packet\.md\)/, 'Stage 5B closeout should link the evidence request packet');
 assert.match(docs.closeout, /\[Stage 5B attachment authorization record\]\(\.\/stage-5b-attachment-authorization-record\.md\)/, 'Stage 5B closeout should link the attachment authorization record');
@@ -457,6 +482,24 @@ assert.match(docs.closeout, /\[Stage 5B artifact\/schema catalog\]\(\.\/stage-5b
 ].forEach((needle) => {
   assert(docs.closeout.includes(needle), `Stage 5B closeout handoff ledger should include ${needle}`);
 });
+assert.match(docs.closeout, /through PR \[#152\]/, 'Stage 5B closeout should state the PR #152 endpoint');
+assert.match(docs.readme, /HTTPS GitHub\/GitHubusercontent allowlisted public links/, 'README should document the bounded GitHub public-link downloader host policy');
+assert.match(docs.supportMatrix, /HTTPS GitHub\/GitHubusercontent allowlisted public links/, 'support matrix should document the bounded GitHub public-link downloader host policy');
+assert.match(docs.inspectionContract, /HTTPS URLs on the explicit GitHub\/GitHubusercontent host allowlist/, 'inspection evidence contract should document the explicit GitHub downloader host allowlist');
+assert.match(docs.authorizationRecord, /safe repo-relative reviewed\/redacted/, 'authorization record should require repo-relative reviewed/redacted refs for canonical attachment');
+assert.match(docs.artifactSchemaCatalog, /safe repo-relative reviewed\/redacted authorization JSON/, 'artifact catalog should require repo-relative reviewed/redacted authorization JSON for canonical attachment');
+assert.doesNotMatch(docs.authorizationRecord, /private-control ref outside the repository root|private control record outside the repository root/i, 'authorization record should not allow outside-root private control refs as canonical attachment refs');
+assert.doesNotMatch(docs.artifactSchemaCatalog, /private control record outside the repository root/i, 'artifact catalog should not allow outside-root private control refs as canonical attachment refs');
+assert.match(docs.rcGapLedger, /^# Release candidate closeout gap ledger/m, 'RC gap ledger should exist with the expected title');
+assert.match(docs.rcGapLedger, /PR \[#152\]/, 'RC gap ledger should cite PR #152');
+assert.match(docs.rcGapLedger, /f4b38dec7b75671e73cd8d269955cdf837341b0b/, 'RC gap ledger should pin the audited head');
+assert.match(docs.rcGapLedger, /No genuine completed inspection evidence has been found or attached/i, 'RC gap ledger should keep no-evidence truth');
+assert.match(docs.rcGapLedger, /metadata[\s\S]+CI logs[\s\S]+screenshots[\s\S]+diagnostics[\s\S]+release bundles[\s\S]+generated outputs/i, 'RC gap ledger should reject non-evidence control artifacts');
+assert.match(docs.rcGapLedger, /GitHub repository settings[\s\S]+protected branch[\s\S]+runner availability/i, 'RC gap ledger should list human/org-settings dependent residuals');
+assert.match(docs.rcGapLedger, /Automation CI \(hosted fast lanes\).*passed/i, 'RC gap ledger should record hosted CI result without broadening coverage');
+assert.match(docs.rcGapLedger, /FreeCAD Runtime Smoke \(self-hosted macOS\).*passed/i, 'RC gap ledger should record self-hosted runtime smoke result without broadening coverage');
+assertNoPositiveCloseoutOverclaim(docs.closeout, 'Stage 5B closeout');
+assertNoPositiveCloseoutOverclaim(docs.rcGapLedger, 'RC gap ledger');
 assert.match(docs.testing, /stage5b-source-of-truth-guard\.test\.js/, 'testing docs should mention the Stage 5B source-of-truth guard');
 assert.match(docs.testing, /stage5b-artifact-catalog\.test\.js/, 'testing docs should mention the Stage 5B artifact catalog guard');
 assert.match(docs.testing, /Stage 5B operational runbook/, 'testing docs should mention the Stage 5B operational runbook');

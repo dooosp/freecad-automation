@@ -1,6 +1,6 @@
 # Stage 5B automation closeout status
 
-This document summarizes the Stage 5B automation chain through PR [#143](https://github.com/dooosp/freecad-automation/pull/143). It is a software/status closeout only. It does not attach inspection evidence, mutate canonical package artifacts, regenerate readiness, or claim production readiness.
+This document summarizes the Stage 5B automation chain through PR [#152](https://github.com/dooosp/freecad-automation/pull/152). It is a software/status closeout only. It does not attach inspection evidence, mutate canonical package artifacts, regenerate readiness, or claim production readiness.
 
 For day-to-day CLI/API/Studio operation, diagnostics, expected no-evidence output, and validation commands, use the [Stage 5B operational runbook](./stage-5b-operational-runbook.md). For supplier, lab, QA, or physical-inspection request wording before any candidate enters review, use the [Stage 5B evidence request packet](./stage-5b-evidence-request-packet.md). For future human sign-off metadata before canonical mutation, use the [Stage 5B attachment authorization record](./stage-5b-attachment-authorization-record.md). For the concise producer/schema/preview/evidence/readiness map of Stage 5B control outputs, use the [Stage 5B artifact/schema catalog](./stage-5b-artifact-schema-catalog.md).
 
@@ -11,7 +11,7 @@ For day-to-day CLI/API/Studio operation, diagnostics, expected no-evidence outpu
 | [#113](https://github.com/dooosp/freecad-automation/pull/113) | Merged | `80010308f961857820949c5dad1a014a82bbec3c` | Added `inspection-evidence-intake` automation and the standalone discovery/intake report. |
 | [#114](https://github.com/dooosp/freecad-automation/pull/114) | Merged | `9e0e9745cb0a8ba9cc6a94ef0379ae07a2169042` | Added tracked intake review surfaces so Studio can review registered intake artifacts. |
 | [#115](https://github.com/dooosp/freecad-automation/pull/115) | Merged | `02f8001e7965fb2fcc7f029e29ec3141150a9674` | Extended table normalization for explicit CSV, TSV, Markdown, TXT, and safety-checked ZIP table candidates. |
-| [#116](https://github.com/dooosp/freecad-automation/pull/116) | Merged | `8c1a84f7911a7b12a902cea3f1bffe07bc15aa1c` | Added bounded `include_github` discovery for public issues, PR/comments, releases/assets, workflow artifact metadata, and allowlisted public links. |
+| [#116](https://github.com/dooosp/freecad-automation/pull/116) | Merged | `8c1a84f7911a7b12a902cea3f1bffe07bc15aa1c` | Added bounded `include_github` discovery for public issues, PR/comments, releases/assets, workflow artifact metadata, and allowlisted public links. Current discovery only downloads HTTPS GitHub/GitHubusercontent allowlisted candidate links. |
 | [#117](https://github.com/dooosp/freecad-automation/pull/117) | Merged | `a4c4a8da1a19c5bff91fde05357ab3e1a60b8e70` | Added deterministic attachment planning without inferring measurements. |
 | [#118](https://github.com/dooosp/freecad-automation/pull/118) | Merged | `e290d16d8f8bcbff4a0731f4b42a2f727544a849` | Added `inspection-evidence-promotion-dry-run` and the promotion dry-run manifest. |
 | [#119](https://github.com/dooosp/freecad-automation/pull/119) | Merged | `194823df0abd36b68ef9f012373cbf0404b7e162` | Exposed promotion dry-run through tracked Studio review. |
@@ -32,6 +32,15 @@ For day-to-day CLI/API/Studio operation, diagnostics, expected no-evidence outpu
 | [#141](https://github.com/dooosp/freecad-automation/pull/141) | Merged | `74eda1576891bb0e1861a05635db150a5123da05` | Hardened local API artifact boundaries for preview/download surfaces. |
 | [#142](https://github.com/dooosp/freecad-automation/pull/142) | Merged | `93da3d0e9c5f5b41d0ac7ef55f47415da628f474` | Hardened local artifact and Stage 5B negative contracts. |
 | [#143](https://github.com/dooosp/freecad-automation/pull/143) | Merged | `c4c27dc49de9006859de4a88a01c78a9a952485e` | Hardened job artifact lifecycle boundaries. |
+| [#144](https://github.com/dooosp/freecad-automation/pull/144) | Merged | `05922e1e44d595cbba457a1bc0ceeee8360cb754` | Hardened release bundle reproducibility and provenance boundaries without changing readiness truth. |
+| [#145](https://github.com/dooosp/freecad-automation/pull/145) | Merged | `32507103cdbad80f342a385320683bbb99affacd` | Hardened first-user E2E drill boundaries across package, Studio, evidence, and no-regeneration flows. |
+| [#146](https://github.com/dooosp/freecad-automation/pull/146) | Merged | `d4ebe84aee78a1627ce6c73b644a511ab7dd62bc` | Hardened local API response schema parity for browser-visible contracts. |
+| [#147](https://github.com/dooosp/freecad-automation/pull/147) | Merged | `c87c3ec8f2b5789367518d58041a9334a9d264f5` | Hardened Studio API contract fuzz boundaries. |
+| [#148](https://github.com/dooosp/freecad-automation/pull/148) | Merged | `6102b0554b807e25a9bf4370cd6359d23233d800` | Hardened runtime output contract surfaces. |
+| [#149](https://github.com/dooosp/freecad-automation/pull/149) | Merged | `cf07df54d5fa4c66c6f66f049c016b330b241194` | Hardened CI supply-chain and source hygiene checks. |
+| [#150](https://github.com/dooosp/freecad-automation/pull/150) | Merged | `547a5a913d72f2c278abcf73d2d7eb14282c0cba` | Pinned workflow action provenance for SHA-backed CI/source hygiene. |
+| [#151](https://github.com/dooosp/freecad-automation/pull/151) | Merged | `59afbb7851ebbbe5ba5e4cef2092487e7be83f7b` | Hardened self-hosted runtime smoke governance. |
+| [#152](https://github.com/dooosp/freecad-automation/pull/152) | Merged | `f4b38dec7b75671e73cd8d269955cdf837341b0b` | Hardened Stage 5B attachment provenance and direct-attachment boundaries. |
 
 ## Handoff ledger
 
@@ -63,7 +72,7 @@ Stage 5B now has these software surfaces:
 - the Pre-Attachment Review Checklist in the operational runbook and request packet for accepted gate reports before any later authorized intake, dry-run, audit, or attachment task.
 - the [Stage 5B attachment authorization record](./stage-5b-attachment-authorization-record.md) for future human authorization metadata before canonical attachment.
 - the [Stage 5B artifact/schema catalog](./stage-5b-artifact-schema-catalog.md) for request packet, candidate gate report, attachment authorization record, intake report, promotion dry-run manifest, audit manifest, audit summary, and validation diagnostics producer/schema/preview/evidence/readiness boundaries.
-- release audit, local API preview/download, negative-contract, and job/artifact lifecycle hardening through PRs #140-#143.
+- release audit, local API preview/download, negative-contract, job/artifact lifecycle, release bundle reproducibility, first-user E2E, local API schema parity, Studio API fuzz, runtime output contract, CI/source hygiene, workflow provenance pinning, self-hosted runtime governance, and attachment provenance hardening through PRs #140-#152.
 - table normalization for explicit inspection tables in CSV, TSV, Markdown, TXT, and allowlisted ZIP entries.
 - include_github discovery (`--include-github`) for bounded public GitHub search and sanitized candidate provenance.
 - attachment planning that links only existing candidate/package signals and never invents measured values.
