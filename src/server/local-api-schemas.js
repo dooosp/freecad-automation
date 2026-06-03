@@ -408,6 +408,10 @@ const runtimeDiagnosticsSchema = {
   additionalProperties: false,
   required: [
     'diagnostics_version',
+    'artifact_class',
+    'inspection_evidence_status',
+    'readiness_effect',
+    'hard_evidence_rule',
     'status',
     'available',
     'executable_detected',
@@ -436,6 +440,10 @@ const runtimeDiagnosticsSchema = {
   ],
   properties: {
     diagnostics_version: { type: 'string', minLength: 1 },
+    artifact_class: { const: 'runtime_diagnostics' },
+    inspection_evidence_status: { const: 'not_inspection_evidence' },
+    readiness_effect: { const: 'no_readiness_change' },
+    hard_evidence_rule: { type: 'string', minLength: 1 },
     status: { enum: ['ready', 'runtime_not_detected', 'runtime_probe_failed'] },
     available: { type: 'boolean' },
     executable_detected: { type: 'boolean' },

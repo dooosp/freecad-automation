@@ -30,7 +30,11 @@ echo "github_sha=${GITHUB_SHA:-unknown}"
 echo "github_ref=${GITHUB_REF:-unknown}"
 echo "github_event_name=${GITHUB_EVENT_NAME:-unknown}"
 echo "runner_os=${RUNNER_OS:-unknown}"
-echo "runner_name=${RUNNER_NAME:-unknown}"
+if [ -n "${RUNNER_NAME:-}" ]; then
+  echo "runner_name=<runner>"
+else
+  echo "runner_name=unknown"
+fi
 echo "runner_arch=${RUNNER_ARCH:-unknown}"
 echo "pwd=<workspace>"
 echo "uname=$(uname -a 2>/dev/null || echo unavailable)"

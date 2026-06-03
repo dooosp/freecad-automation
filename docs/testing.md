@@ -36,7 +36,7 @@ The runtime domain runner uses the same FreeCAD-backed script path as the CLI an
 | `FreeCAD Runtime Smoke (self-hosted macOS)` | `test:runtime-smoke` plus runtime-backed Python smoke regressions, the quality fixture matrix, and a narrow tolerance CSV smoke | No Linux or Windows runtime ownership claims, and no broad tolerance or Monte Carlo maturity claim |
 <!-- GENERATED:workflow-mapping:end -->
 
-The hosted workflow is the fast PR lane and does not install or launch FreeCAD. Its Node contract lane also runs the non-mutating Stage 5B no-evidence CLI lane and audit CLI smoke with GitHub discovery disabled. The self-hosted workflow is the repository-owned runtime smoke source of truth for the listed real FreeCAD-backed checks on pull requests, manual reruns, and the weekly schedule.
+The hosted workflow is the fast PR lane and does not install or launch FreeCAD. Its Node contract lane also runs the non-mutating Stage 5B no-evidence CLI lane and audit CLI smoke with GitHub discovery disabled. The self-hosted workflow is the repository-owned runtime smoke source of truth for the listed real FreeCAD-backed checks, but PR runtime smoke is sequenced by `workflow_run` after `Automation CI (hosted fast lanes)` succeeds and is limited to same-repository heads. Manual dispatch and the weekly schedule are explicit maintainer/runtime-owner checks on `master`; PR branch reruns should come from rerunning hosted CI or from local disposable runtime smoke. CI captures a path-redacted `fcad check-runtime --json --redact-paths` contract for debugging only. See [self-hosted runtime governance](./self-hosted-runtime-governance.md).
 
 `npm run test:studio-browser-smoke` is a Chrome-capable Studio lane that runs locally and as a hosted Automation CI job. It proves real browser rendering for the covered Studio routes without claiming a FreeCAD runtime launch.
 
@@ -57,12 +57,12 @@ Manual verification for issue #31:
 
 ```bash
 gh workflow run automation-ci.yml --ref <branch-or-sha>
-gh workflow run freecad-runtime-smoke.yml --ref <branch-or-sha>
+gh workflow run freecad-runtime-smoke.yml --ref master
 gh run view <run-id> --json conclusion,jobs
 gh api repos/dooosp/freecad-automation/check-runs/<job-id>/annotations
 ```
 
-The acceptance check is not just green jobs: hosted fast lanes and the self-hosted runtime smoke must pass with no Node20 action-runtime deprecation annotations.
+The acceptance check is not just green jobs: hosted fast lanes must pass before any PR self-hosted runtime smoke, and the self-hosted runtime smoke must pass with no Node20 action-runtime deprecation annotations.
 
 ## Docs Smoke Coverage
 
@@ -122,7 +122,7 @@ The smoke lane verifies:
 - strict expected-fail checks for `ks_bracket` create/draw quality gates
 - strict pass checks for `quality_pass_bracket` create/draw quality gates plus `Ready for manufacturing review: Yes`
 
-The smoke harness validates the generated artifact manifests for `create`, `draw`, `fem`, `tolerance`, and `report`, asserts that create also produced a valid `<base>_create_quality.json` plus linked output manifest entry, and checks that required artifact types exist and recorded output files are non-empty. It also writes `output/smoke/<run-id>/smoke-manifest.json`, including observed quality fixture matrix outcomes, so workflow uploads can be inspected without replaying the run.
+The smoke harness validates the generated artifact manifests for `create`, `draw`, `fem`, `tolerance`, and `report`, asserts that create also produced a valid `<base>_create_quality.json` plus linked output manifest entry, and checks that required artifact types exist and recorded output files are non-empty. It also writes `output/smoke/<run-id>/smoke-manifest.json`, including observed quality fixture matrix outcomes and explicit non-evidence/no-readiness-effect boundary metadata, so workflow uploads can be inspected without replaying the run.
 
 The `fcad tolerance` coverage is intentionally narrow: the self-hosted macOS lane runs the checked-in PTU assembly through recommendation plus CSV export and manifest checks. It does not claim Linux or Windows runtime coverage, and it does not claim deeper Monte Carlo tolerance-analysis maturity.
 
@@ -130,7 +130,7 @@ The `fcad tolerance` coverage is intentionally narrow: the self-hosted macOS lan
 
 | Platform/runtime | Repository-owned verification | Notes |
 | --- | --- | --- |
-| macOS self-hosted with FreeCAD 1.1.x | Real runtime smoke | Source of truth for the listed live FreeCAD checks in CI, including narrow tolerance CSV smoke |
+| macOS self-hosted with FreeCAD 1.1.x | Real runtime smoke | Source of truth for the listed live FreeCAD checks in CI, including narrow tolerance CSV smoke; PR smoke runs only after hosted CI succeeds for a same-repository head |
 | macOS hosted (`macos-14`) | Node contract lane only | No hosted FreeCAD install |
 | Ubuntu hosted (`ubuntu-24.04`) | Node contract, Node integration, snapshots, Studio browser smoke, Python | No hosted FreeCAD install |
 | Linux local with FreeCAD | Local-only runtime smoke if you provide a working runtime | Not a repository-owned CI claim |

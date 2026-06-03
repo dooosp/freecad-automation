@@ -24,7 +24,7 @@ const CLI = join(ROOT, 'bin', 'fcad.js');
 const packageJson = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8'));
 
 const cliHelp = renderCliUsage();
-assert.match(cliHelp, /fcad check-runtime \[--json\]/);
+assert.match(cliHelp, /fcad check-runtime \[--json\] \[--redact-paths\]/);
 assert.match(cliHelp, /fcad readiness-report <config\.toml\|json> \[--out <readiness_report\.json>\]\s+legacy compatibility \/ non-canonical/i);
 assert.match(cliHelp, /fcad generate-standard-docs <config\.toml\|json> --readiness-report <readiness_report\.json>/i);
 assert.match(cliHelp, /fcad closeout-package <canonical-package-slug> --mode software-demo \[--out-dir <dir>\] \[--strict-boundary\]/i);

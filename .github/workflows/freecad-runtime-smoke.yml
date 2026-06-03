@@ -1,7 +1,9 @@
 name: FreeCAD Runtime Smoke (self-hosted macOS)
 
 on:
-  pull_request:
+  workflow_run:
+    workflows: ["Automation CI (hosted fast lanes)"]
+    types: [completed]
   workflow_dispatch:
   schedule:
     - cron: "0 3 * * 1"
@@ -13,21 +15,25 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 concurrency:
-  group: freecad-runtime-smoke-${{ github.ref }}
-  cancel-in-progress: false
+  group: freecad-runtime-smoke-${{ github.event.workflow_run.event || github.event_name }}-${{ github.event.workflow_run.head_branch || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   macos-runtime-smoke:
     name: Self-hosted macOS FreeCAD smoke
-    # Self-hosted runners must not execute forked pull_request code.
-    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
-    runs-on: [self-hosted, macOS, freecad]
+    # Pull request smoke is sequenced behind successful hosted CI and is limited
+    # to same-repository heads. Manual dispatch and the schedule are default-
+    # branch runtime-owner checks.
+    if: ${{ (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository && github.event.workflow_run.actor.login == 'dooosp' && ((github.event.workflow_run.event == 'pull_request') || (github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'master'))) || ((github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && github.ref == 'refs/heads/master' && github.actor == 'dooosp') }}
+    runs-on: [self-hosted, macOS, freecad, freecad-automation-runtime]
+    environment: freecad-runtime-smoke
     timeout-minutes: 45
     steps:
       - name: Checkout
         # provenance: actions/checkout@v6 -> de0fac2e4500dabe0009e67214ff5f5447ce83dd
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           persist-credentials: false
 
       - name: Setup Node
@@ -35,6 +41,9 @@ jobs:
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
         with:
           node-version: "24"
+
+      - name: Clear previous runtime smoke temp outputs
+        run: rm -rf .ci output/smoke .pytest_cache
 
       - name: CI Diagnostics
         run: |
@@ -48,7 +57,7 @@ jobs:
         run: node bin/fcad.js check-runtime
 
       - name: Capture runtime contract
-        run: node bin/fcad.js check-runtime --json > .ci/freecad-runtime.json
+        run: node bin/fcad.js check-runtime --json --redact-paths > .ci/freecad-runtime.json
 
       - name: Run CLI runtime smoke lane
         run: npm run test:runtime-smoke
@@ -79,7 +88,6 @@ jobs:
             .ci/freecad-runtime-diagnostics.txt
             .ci/freecad-runtime.json
             .ci/freecad-runtime-artifacts.txt
-            .pytest_cache
           if-no-files-found: warn
           retention-days: 14
 
@@ -93,3 +101,7 @@ jobs:
             output/smoke
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Cleanup runtime smoke temp outputs
+        if: always()
+        run: rm -rf .ci output/smoke .pytest_cache

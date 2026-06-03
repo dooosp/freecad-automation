@@ -9,6 +9,7 @@ import {
   detectRuntimeDetails,
   FREECAD_BACKED_COMMANDS,
   PLAIN_PYTHON_COMMANDS,
+  redactRuntimeDiagnosticsPaths,
   SUPPORT_BOUNDARY_NOTE,
 } from '../lib/runtime-diagnostics.js';
 import { getFreeCADRuntime } from '../lib/paths.js';
@@ -64,6 +65,7 @@ export function printRuntimeDiagnostics({
   env = process.env,
   detectDetails = detectRuntimeDetails,
   format = 'text',
+  redactPaths = false,
 } = {}) {
   const diagnostics = buildRuntimeDiagnostics({
     runtime,
@@ -73,7 +75,8 @@ export function printRuntimeDiagnostics({
   });
 
   if (format === 'json') {
-    logger(JSON.stringify(diagnostics, null, 2));
+    const output = redactPaths ? redactRuntimeDiagnosticsPaths(diagnostics) : diagnostics;
+    logger(JSON.stringify(output, null, 2));
     return diagnostics.available ? 0 : 1;
   }
 
@@ -136,6 +139,11 @@ export function printRuntimeDiagnostics({
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const useJson = process.argv.slice(2).includes('--json');
-  process.exit(printRuntimeDiagnostics({ format: useJson ? 'json' : 'text' }));
+  const args = process.argv.slice(2);
+  const useJson = args.includes('--json');
+  const redactPaths = args.includes('--redact-paths');
+  process.exit(printRuntimeDiagnostics({
+    format: useJson ? 'json' : 'text',
+    redactPaths,
+  }));
 }

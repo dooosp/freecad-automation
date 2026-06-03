@@ -549,6 +549,7 @@ async function main() {
     }
     process.exit(printRuntimeDiagnostics({
       format: options.json ? 'json' : 'text',
+      redactPaths: Boolean(options['redact-paths']),
     }));
   } else if (command === 'create') {
     await cmdCreate(args);

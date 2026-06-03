@@ -11,7 +11,7 @@ Validation snapshot:
 
 - maintainer-local macOS checks cover FreeCAD 1.1.x for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, narrow `tolerance --csv`, and `report`
 - hosted CI runs explicit fast lanes: `test:node:contract`, `test:node:integration`, `test:snapshots`, `test:studio-browser-smoke`, and `test:py`; hosted CI does not install or launch FreeCAD
-- repository-owned runtime CI is the `FreeCAD Runtime Smoke (self-hosted macOS)` workflow for real `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, narrow `tolerance --csv`, and `report`
+- repository-owned runtime CI is the `FreeCAD Runtime Smoke (self-hosted macOS)` workflow for real `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, narrow `tolerance --csv`, and `report`; PR runtime smoke runs only after hosted fast lanes pass for a same-repository head
 - experimental or not yet automated for live FreeCAD execution on Windows native, WSL -> Windows FreeCAD, and Linux; those paths remain compatibility paths, not equal-maturity claims
 
 Run `fcad check-runtime` first on any new machine and before troubleshooting a FreeCAD-backed failure.
@@ -123,7 +123,7 @@ Treat `ks_bracket` as the blocker-rich example and `quality_pass_bracket` as the
 ## Supported And Runtime Coverage Scope
 
 - maintainer-local coverage path: macOS + `FreeCAD.app` 1.1.x for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, narrow `tolerance --csv`, and `report`
-- repository-owned runtime CI path: self-hosted macOS smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, narrow `tolerance --csv`, and `report`
+- repository-owned runtime CI path: self-hosted macOS smoke for `check-runtime`, `create`, `draw --bom`, `inspect`, `fem`, narrow `tolerance --csv`, and `report`, sequenced after hosted fast lanes for same-repository PR heads
 - hosted CI path: Node contract, Node integration, snapshots, Studio browser smoke, and Python lanes without installing or launching FreeCAD
 - compatibility paths only today: Windows native, WSL -> Windows FreeCAD, and Linux runtime execution
 
@@ -1136,7 +1136,7 @@ The smoke script currently exercises:
 - `fcad tolerance --recommend --csv`
 - `fcad report`
 
-For CI, the repository also includes a self-hosted macOS workflow that uses the same smoke script and requires a runner labeled for FreeCAD with FreeCAD 1.1 installed. The tolerance coverage is intentionally narrow: it proves the checked-in PTU assembly can run through CSV export and manifest checks on that self-hosted macOS lane, without claiming Linux/Windows runtime coverage or broader Monte Carlo maturity.
+For CI, the repository also includes a self-hosted macOS workflow that uses the same smoke script and requires a runner labeled for FreeCAD with FreeCAD 1.1 installed. PR smoke is triggered only after `Automation CI (hosted fast lanes)` succeeds for a same-repository head; forks do not run on the self-hosted runner. The tolerance coverage is intentionally narrow: it proves the checked-in PTU assembly can run through CSV export and manifest checks on that self-hosted macOS lane, without claiming Linux/Windows runtime coverage or broader Monte Carlo maturity. Runtime workflow governance details live in [docs/self-hosted-runtime-governance.md](./docs/self-hosted-runtime-governance.md).
 
 ## Release Prep
 
