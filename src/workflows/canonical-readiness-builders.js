@@ -29,6 +29,9 @@ function isSafeRepoSourceRef(value) {
   if (normalized.split('/').includes('..')) return false;
   if (normalized === 'output' || normalized.startsWith('output/')) return false;
   if (normalized === 'tmp/codex' || normalized.startsWith('tmp/codex/')) return false;
+  if (normalized === 'local/stage5b-candidate-evidence-inbox' || normalized.startsWith('local/stage5b-candidate-evidence-inbox/')) return false;
+  if (normalized.startsWith('tests/fixtures/') || normalized.startsWith('schemas/')) return false;
+  if (!/^docs\/examples\/[^/]+\/inspection\/[^/]+\.json$/i.test(normalized)) return false;
   return true;
 }
 
@@ -147,12 +150,26 @@ function collectDataQualityMessages(reviewPack) {
 
 function collectMissingInputs(reviewPack) {
   const missingInputs = uniqueStrings(safeList(reviewPack.uncertainty_coverage_report?.missing_inputs));
-  if (!hasExplicitInspectionEvidence(reviewPack)) return missingInputs;
+  if (!hasExplicitInspectionEvidence(reviewPack)) return uniqueStrings([...missingInputs, 'inspection_evidence']);
   return missingInputs.filter((input) => input !== 'inspection_evidence');
 }
 
 function normalizeDataQualityNotesForInspectionEvidence(reviewPack, notes) {
-  if (!hasExplicitInspectionEvidence(reviewPack)) return notes;
+  if (!hasExplicitInspectionEvidence(reviewPack)) {
+    const existing = safeList(notes);
+    const hasMissingInspectionNote = existing.some((note) => (
+      typeof note?.message === 'string' && /Missing or limited inspection evidence/i.test(note.message)
+    ));
+    return hasMissingInspectionNote
+      ? existing
+      : [
+          ...existing,
+          {
+            severity: 'info',
+            message: 'Missing or limited inspection evidence; review-pack remains usable with partial evidence.',
+          },
+        ];
+  }
   return safeList(notes).filter((note) => {
     const message = note?.message;
     return !(typeof message === 'string' && /Missing or limited inspection evidence/i.test(message));
@@ -160,7 +177,6 @@ function normalizeDataQualityNotesForInspectionEvidence(reviewPack, notes) {
 }
 
 function normalizeReviewPackInspectionEvidenceCoverage(reviewPack) {
-  if (!hasExplicitInspectionEvidence(reviewPack)) return reviewPack;
   const normalized = cloneJson(reviewPack);
   const missingInputs = collectMissingInputs(normalized);
   const inspectionEvidenceRecords = getExplicitInspectionEvidenceRecords(normalized);
@@ -233,9 +249,12 @@ function getReviewPackUncertaintyReport(reviewPack) {
   return {
     analysis_confidence: reviewPack.confidence?.level || 'heuristic',
     numeric_score: reviewPack.confidence?.score ?? null,
-    partial_evidence: false,
-    missing_inputs: [],
-    coverage: safeObject(reviewPack.coverage),
+    partial_evidence: true,
+    missing_inputs: collectMissingInputs(reviewPack),
+    coverage: {
+      ...safeObject(reviewPack.coverage),
+      inspection_evidence_record_count: getExplicitInspectionEvidenceRecords(reviewPack).length,
+    },
     warnings: safeList(reviewPack.warnings),
   };
 }

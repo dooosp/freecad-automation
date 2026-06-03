@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -105,8 +105,13 @@ function makeValidInspectionEvidence(overrides = {}) {
     schema_version: '1.0',
     evidence_type: 'inspection_evidence',
     source_type: 'cmm_report',
+    package_id: 'demo-intake-part',
     inspected_part: 'demo-intake-part',
+    part_revision: 'A',
     inspected_at: '2026-05-18T15:30:00Z',
+    inspection_status: 'completed',
+    inspector: 'Supplier CMM inspector',
+    reviewed_by: 'Maintainer QA reviewer',
     measurement_system: 'metric',
     units: 'mm',
     source_ref: 'docs/examples/demo-intake-part/inspection/cmm-report-001.json',
@@ -316,12 +321,39 @@ try {
     'valid path should still reject generated side artifacts as non-inspection evidence'
   );
 
+  writeMinimalCanonicalPackage(tempRoot, 'symlink-intake-part');
+  mkdirSync(join(tempRoot, 'docs/examples/symlink-intake-part/inspection'), { recursive: true });
+  symlinkSync(
+    join(tempRoot, 'docs/examples/demo-intake-part/inspection/inspection_evidence.json'),
+    join(tempRoot, 'docs/examples/symlink-intake-part/inspection/inspection_evidence.json')
+  );
+  const symlinkReport = await discoverInspectionEvidenceIntake({
+    projectRoot: tempRoot,
+    packageSlugs: ['symlink-intake-part'],
+    includeGitHub: false,
+    trackedPaths: [
+      'docs/examples/symlink-intake-part/inspection/inspection_evidence.json',
+      'docs/examples/symlink-intake-part/readiness/readiness_report.json',
+    ],
+    generatedAt: '2026-05-23T00:00:00.000Z',
+  });
+  assert.equal(symlinkReport.summary.genuine_inspection_evidence_found, false);
+  assert.equal(
+    symlinkReport.rejected_candidates.some((candidate) => (
+      candidate.classification === 'invalid_provenance'
+      && candidate.path === 'docs/examples/symlink-intake-part/inspection/inspection_evidence.json'
+      && candidate.validation_errors.some((error) => /symlink|symbolic link/i.test(error))
+    )),
+    true,
+    'local intake must reject symlinked inspection evidence candidates before parsing'
+  );
+
   writeMinimalCanonicalPackage(tempRoot, 'table-intake-part');
   writeText(
     join(tempRoot, 'docs/examples/table-intake-part/inspection/cmm-report-rows.csv'),
     [
-      'schema_version,evidence_type,source_type,inspected_part,inspected_at,units,source_ref,overall_result,feature_id,drawing_ref,requirement_ref,nominal_value,measured_value,tolerance_upper,tolerance_lower,result,measurement_method',
-      '1.0,inspection_evidence,cmm_report,table-intake-part,2026-05-20T10:00:00Z,mm,docs/examples/table-intake-part/inspection/cmm-report-rows.csv,pass,hole_a,DWG-1:A,HOLE_A_DIA,8,8.01,0.05,-0.05,pass,cmm_report',
+      'schema_version,evidence_type,source_type,inspected_part,inspected_at,inspection_status,inspector,reviewed_by,part_revision,units,source_ref,overall_result,feature_id,drawing_ref,requirement_ref,nominal_value,measured_value,tolerance_upper,tolerance_lower,result,measurement_method',
+      '1.0,inspection_evidence,cmm_report,table-intake-part,2026-05-20T10:00:00Z,completed,Supplier CMM inspector,Maintainer QA reviewer,A,mm,docs/examples/table-intake-part/inspection/cmm-report-rows.csv,pass,hole_a,DWG-1:A,HOLE_A_DIA,8,8.01,0.05,-0.05,pass,cmm_report',
     ].join('\n')
   );
   writeText(
@@ -391,9 +423,9 @@ try {
   writeText(
     join(tempRoot, 'docs/examples/markdown-intake-part/inspection/first-article-table.md'),
     [
-      '| schema_version | evidence_type | source_type | inspected_part | inspected_at | units | source_ref | overall_result | feature_id | measured_value | result | measurement_method |',
-      '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
-      '| 1.0 | inspection_evidence | first_article_inspection | markdown-intake-part | 2026-05-20T10:00:00Z | mm | docs/examples/markdown-intake-part/inspection/first-article-table.md | pass | boss_height | 3.02 | pass | height_gauge |',
+      '| schema_version | evidence_type | source_type | inspected_part | inspected_at | inspection_status | inspector | reviewed_by | part_revision | units | source_ref | overall_result | feature_id | measured_value | result | measurement_method |',
+      '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+      '| 1.0 | inspection_evidence | first_article_inspection | markdown-intake-part | 2026-05-20T10:00:00Z | completed | Supplier FAI inspector | Maintainer QA reviewer | A | mm | docs/examples/markdown-intake-part/inspection/first-article-table.md | pass | boss_height | 3.02 | pass | height_gauge |',
     ].join('\n')
   );
 
@@ -449,8 +481,8 @@ try {
     githubFetch: async (url) => {
       assert.equal(url, 'https://example.com/public/cmm/github-table-part-cmm.csv');
       return makeFetchResponse([
-        'schema_version,evidence_type,source_type,package_id,inspected_at,units,overall_result,feature_id,measured_value,result,measurement_method',
-        '1.0,inspection_evidence,cmm_report,github-table-part,2026-05-22T12:00:00Z,mm,pass,hole_a,8.01,pass,cmm_report',
+        'schema_version,evidence_type,source_type,package_id,inspected_at,inspection_status,inspector,reviewed_by,part_revision,units,overall_result,feature_id,measured_value,result,measurement_method',
+        '1.0,inspection_evidence,cmm_report,github-table-part,2026-05-22T12:00:00Z,completed,Supplier CMM inspector,Maintainer QA reviewer,A,mm,pass,hole_a,8.01,pass,cmm_report',
       ].join('\n'), { contentType: 'text/csv' });
     },
     generatedAt: '2026-05-23T00:00:00.000Z',
@@ -492,8 +524,8 @@ try {
       issueBody: 'Completed supplier CMM record: https://example.com/public/cmm/shared-mount-hole.csv',
     }),
     githubFetch: async () => makeFetchResponse([
-      'schema_version,evidence_type,source_type,inspected_part,inspected_at,units,source_ref,overall_result,feature_id,requirement_ref,nominal_value,measured_value,result,measurement_method',
-      '1.0,inspection_evidence,cmm_report,supplier shared mounting plate,2026-05-22T12:00:00Z,mm,supplier/cmm/shared-mount-hole.csv,pass,shared_mount_hole,SHARED_MOUNT_HOLE_DIA,8,8.01,pass,cmm_report',
+      'schema_version,evidence_type,source_type,inspected_part,inspected_at,inspection_status,inspector,reviewed_by,part_revision,units,source_ref,overall_result,feature_id,requirement_ref,nominal_value,measured_value,result,measurement_method',
+      '1.0,inspection_evidence,cmm_report,supplier shared mounting plate,2026-05-22T12:00:00Z,completed,Supplier CMM inspector,Maintainer QA reviewer,A,mm,supplier/cmm/shared-mount-hole.csv,pass,shared_mount_hole,SHARED_MOUNT_HOLE_DIA,8,8.01,pass,cmm_report',
     ].join('\n'), { contentType: 'text/csv' }),
     generatedAt: '2026-05-23T00:00:00.000Z',
   });
@@ -548,6 +580,37 @@ try {
       && candidate.classification === 'invalid_generated'
     )),
     true
+  );
+
+  writeMinimalCanonicalPackage(tempRoot, 'github-actions-artifact-part');
+  const actionsArtifactUrl = 'https://github.com/dooosp/freecad-automation/actions/artifacts/123456/inspection_evidence.json';
+  const githubActionsArtifactReport = await discoverInspectionEvidenceIntake({
+    projectRoot: tempRoot,
+    packageSlugs: ['github-actions-artifact-part'],
+    includeGitHub: true,
+    githubRunner: makeGithubRunner({
+      issueBody: `Workflow artifact is not evidence: ${actionsArtifactUrl}`,
+    }),
+    githubFetch: async (url) => {
+      assert.equal(url, actionsArtifactUrl);
+      return makeFetchResponse(JSON.stringify(makeValidInspectionEvidence({
+        package_id: 'github-actions-artifact-part',
+        inspected_part: 'github-actions-artifact-part',
+        source_ref: 'docs/examples/github-actions-artifact-part/inspection/inspection_evidence.json',
+      })), { contentType: 'application/json' });
+    },
+    generatedAt: '2026-05-23T00:00:00.000Z',
+  });
+  assert.equal(githubActionsArtifactReport.summary.genuine_inspection_evidence_found, false);
+  assert.equal(githubActionsArtifactReport.github_discovery.downloaded_candidates.length, 1);
+  assert.equal(
+    githubActionsArtifactReport.rejected_candidates.some((candidate) => (
+      candidate.source_kind === 'github_linked_file'
+      && candidate.classification === 'invalid_provenance'
+      && candidate.reasons.some((reason) => /workflow artifacts|release\/control bundles|manifest metadata/i.test(reason))
+    )),
+    true,
+    'public GitHub Actions artifact links must not become genuine inspection evidence'
   );
 
   writeMinimalCanonicalPackage(tempRoot, 'github-release-asset-part');

@@ -10,11 +10,12 @@ import {
 } from '../../lib/context-loader.js';
 import {
   AttachmentAuthorizationValidationError,
+  assertAttachableInspectionEvidence,
   assertValidAttachmentAuthorization,
-  assertValidInspectionEvidence,
 } from '../../lib/inspection-evidence.js';
 import { resolveModelAnalysisInputs } from '../../lib/model-analysis.js';
 import { generateConfigFromAnalysis } from '../api/model.js';
+import { assertSafeStage5bInputFile } from '../shared/stage5b-path-boundary.js';
 
 function normalizeJsonOutputPath(pathValue) {
   if (!pathValue) return null;
@@ -163,13 +164,22 @@ async function buildInspectionEvidenceRecord(projectRoot, inspectionEvidencePath
     return { record: null, warning: null };
   }
 
-  const inspectionEvidence = await readJsonFile(inspectionEvidencePath);
-  assertValidInspectionEvidence(inspectionEvidence, { path: inspectionEvidencePath });
+  const evidenceBoundary = await assertSafeStage5bInputFile(projectRoot, inspectionEvidencePath, {
+    label: 'review-context inspection evidence',
+  });
+  const portable = {
+    ok: true,
+    sourceRef: evidenceBoundary.relative,
+    warning: null,
+  };
 
-  const portable = portableRepoPath(projectRoot, inspectionEvidencePath);
-  if (!portable.ok) {
-    return { record: null, warning: portable.warning };
-  }
+  const expectedPackageSlug = portable.sourceRef.match(/^docs\/examples\/([^/]+)\/inspection\//)?.[1] || null;
+  const inspectionEvidence = await readJsonFile(evidenceBoundary.absolute);
+  assertAttachableInspectionEvidence(inspectionEvidence, {
+    path: portable.sourceRef,
+    evidencePath: portable.sourceRef,
+    expectedPackageSlug,
+  });
 
   if (!attachmentAuthorizationPath) {
     throw new AttachmentAuthorizationValidationError([
@@ -177,21 +187,26 @@ async function buildInspectionEvidenceRecord(projectRoot, inspectionEvidencePath
     ], { path: inspectionEvidencePath });
   }
 
-  const authorizationPortable = portableRepoPath(projectRoot, attachmentAuthorizationPath);
-  if (!authorizationPortable.ok) {
-    return { record: null, warning: authorizationPortable.warning };
-  }
+  const authorizationBoundary = await assertSafeStage5bInputFile(projectRoot, attachmentAuthorizationPath, {
+    label: 'review-context attachment authorization',
+  });
+  const authorizationPortable = {
+    ok: true,
+    sourceRef: authorizationBoundary.relative,
+    warning: null,
+  };
 
-  const attachmentAuthorization = await readJsonFile(attachmentAuthorizationPath);
+  const attachmentAuthorization = await readJsonFile(authorizationBoundary.absolute);
   assertValidAttachmentAuthorization(attachmentAuthorization, {
-    path: attachmentAuthorizationPath,
+    path: authorizationPortable.sourceRef,
     expectedInspectionEvidenceRef: portable.sourceRef,
+    expectedPackageSlug,
   });
 
-  const fileBuffer = await readFile(inspectionEvidencePath);
-  const fileStat = await stat(inspectionEvidencePath);
-  const authorizationBuffer = await readFile(attachmentAuthorizationPath);
-  const authorizationStat = await stat(attachmentAuthorizationPath);
+  const fileBuffer = await readFile(evidenceBoundary.absolute);
+  const fileStat = await stat(evidenceBoundary.absolute);
+  const authorizationBuffer = await readFile(authorizationBoundary.absolute);
+  const authorizationStat = await stat(authorizationBoundary.absolute);
   return {
     record: {
       evidence_id: `package:inspection_evidence:${portable.sourceRef}`,

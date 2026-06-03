@@ -1,3 +1,5 @@
+import re
+
 from d_artifact_contract import build_confidence, build_contract_fields, build_coverage, summarize_part
 
 
@@ -188,6 +190,14 @@ def _is_safe_repo_source_ref(value):
     if normalized == "output" or normalized.startswith("output/"):
         return False
     if normalized == "tmp/codex" or normalized.startswith("tmp/codex/"):
+        return False
+    if normalized == "local/stage5b-candidate-evidence-inbox" or normalized.startswith(
+        "local/stage5b-candidate-evidence-inbox/"
+    ):
+        return False
+    if normalized.startswith("tests/fixtures/") or normalized.startswith("schemas/"):
+        return False
+    if not re.match(r"^docs/examples/[^/]+/inspection/[^/]+\.json$", normalized, re.I):
         return False
     return True
 
