@@ -375,6 +375,7 @@ const docs = {
   testing: readText('docs/testing.md'),
   closeout: readText('docs/stage-5b-automation-closeout-status.md'),
   rcGapLedger: readText('docs/release-candidate-closeout-gap-ledger.md'),
+  finalMaintainerHandoff: readText('docs/final-maintainer-handoff.md'),
   runbook: readText('docs/stage-5b-operational-runbook.md'),
   requestPacket: readText('docs/stage-5b-evidence-request-packet.md'),
   authorizationRecord: readText('docs/stage-5b-attachment-authorization-record.md'),
@@ -462,6 +463,7 @@ assert.match(docs.closeout, /PR #149|\[#149\]/, 'Stage 5B closeout should includ
 assert.match(docs.closeout, /PR #150|\[#150\]/, 'Stage 5B closeout should include the PR #150 workflow provenance pinning state');
 assert.match(docs.closeout, /PR #151|\[#151\]/, 'Stage 5B closeout should include the PR #151 self-hosted runtime governance state');
 assert.match(docs.closeout, /PR #152|\[#152\]/, 'Stage 5B closeout should include the PR #152 attachment provenance state');
+assert.match(docs.closeout, /PR #153|\[#153\]/, 'Stage 5B closeout should include the PR #153 RC gap ledger handoff state');
 assert.match(docs.closeout, /\[Stage 5B operational runbook\]\(\.\/stage-5b-operational-runbook\.md\)/, 'Stage 5B closeout should link the operational runbook');
 assert.match(docs.closeout, /\[Stage 5B evidence request packet\]\(\.\/stage-5b-evidence-request-packet\.md\)/, 'Stage 5B closeout should link the evidence request packet');
 assert.match(docs.closeout, /\[Stage 5B attachment authorization record\]\(\.\/stage-5b-attachment-authorization-record\.md\)/, 'Stage 5B closeout should link the attachment authorization record');
@@ -482,7 +484,7 @@ assert.match(docs.closeout, /\[Stage 5B artifact\/schema catalog\]\(\.\/stage-5b
 ].forEach((needle) => {
   assert(docs.closeout.includes(needle), `Stage 5B closeout handoff ledger should include ${needle}`);
 });
-assert.match(docs.closeout, /through PR \[#152\]/, 'Stage 5B closeout should state the PR #152 endpoint');
+assert.match(docs.closeout, /through PR \[#153\]/, 'Stage 5B closeout should state the PR #153 endpoint');
 assert.match(docs.readme, /HTTPS GitHub\/GitHubusercontent allowlisted public links/, 'README should document the bounded GitHub public-link downloader host policy');
 assert.match(docs.supportMatrix, /HTTPS GitHub\/GitHubusercontent allowlisted public links/, 'support matrix should document the bounded GitHub public-link downloader host policy');
 assert.match(docs.inspectionContract, /HTTPS URLs on the explicit GitHub\/GitHubusercontent host allowlist/, 'inspection evidence contract should document the explicit GitHub downloader host allowlist');
@@ -491,15 +493,22 @@ assert.match(docs.artifactSchemaCatalog, /safe repo-relative reviewed\/redacted 
 assert.doesNotMatch(docs.authorizationRecord, /private-control ref outside the repository root|private control record outside the repository root/i, 'authorization record should not allow outside-root private control refs as canonical attachment refs');
 assert.doesNotMatch(docs.artifactSchemaCatalog, /private control record outside the repository root/i, 'artifact catalog should not allow outside-root private control refs as canonical attachment refs');
 assert.match(docs.rcGapLedger, /^# Release candidate closeout gap ledger/m, 'RC gap ledger should exist with the expected title');
-assert.match(docs.rcGapLedger, /PR \[#152\]/, 'RC gap ledger should cite PR #152');
-assert.match(docs.rcGapLedger, /f4b38dec7b75671e73cd8d269955cdf837341b0b/, 'RC gap ledger should pin the audited head');
+assert.match(docs.rcGapLedger, /PR \[#153\]/, 'RC gap ledger should cite PR #153');
+assert.match(docs.rcGapLedger, /95a471971a2b8462813683060b5197b42bdd2760/, 'RC gap ledger should pin the audited head');
 assert.match(docs.rcGapLedger, /No genuine completed inspection evidence has been found or attached/i, 'RC gap ledger should keep no-evidence truth');
 assert.match(docs.rcGapLedger, /metadata[\s\S]+CI logs[\s\S]+screenshots[\s\S]+diagnostics[\s\S]+release bundles[\s\S]+generated outputs/i, 'RC gap ledger should reject non-evidence control artifacts');
 assert.match(docs.rcGapLedger, /GitHub repository settings[\s\S]+protected branch[\s\S]+runner availability/i, 'RC gap ledger should list human/org-settings dependent residuals');
 assert.match(docs.rcGapLedger, /Automation CI \(hosted fast lanes\).*passed/i, 'RC gap ledger should record hosted CI result without broadening coverage');
 assert.match(docs.rcGapLedger, /FreeCAD Runtime Smoke \(self-hosted macOS\).*passed/i, 'RC gap ledger should record self-hosted runtime smoke result without broadening coverage');
+assert.match(docs.rcGapLedger, /Stop active hardening/i, 'RC gap ledger should include the final freeze stop point');
+assert.match(docs.finalMaintainerHandoff, /^# Final maintainer handoff/m, 'final maintainer handoff should exist with the expected title');
+assert.match(docs.finalMaintainerHandoff, /PR \[#153\]/, 'final maintainer handoff should cite PR #153');
+assert.match(docs.finalMaintainerHandoff, /95a471971a2b8462813683060b5197b42bdd2760/, 'final maintainer handoff should pin the handoff head');
+assert.match(docs.finalMaintainerHandoff, /No genuine completed inspection evidence has been found or attached/i, 'final maintainer handoff should keep no-evidence truth');
+assert.match(docs.finalMaintainerHandoff, /Stop active hardening/i, 'final maintainer handoff should include the final freeze stop point');
 assertNoPositiveCloseoutOverclaim(docs.closeout, 'Stage 5B closeout');
 assertNoPositiveCloseoutOverclaim(docs.rcGapLedger, 'RC gap ledger');
+assertNoPositiveCloseoutOverclaim(docs.finalMaintainerHandoff, 'final maintainer handoff');
 assert.match(docs.testing, /stage5b-source-of-truth-guard\.test\.js/, 'testing docs should mention the Stage 5B source-of-truth guard');
 assert.match(docs.testing, /stage5b-artifact-catalog\.test\.js/, 'testing docs should mention the Stage 5B artifact catalog guard');
 assert.match(docs.testing, /Stage 5B operational runbook/, 'testing docs should mention the Stage 5B operational runbook');

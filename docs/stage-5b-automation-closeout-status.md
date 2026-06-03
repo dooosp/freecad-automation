@@ -1,6 +1,6 @@
 # Stage 5B automation closeout status
 
-This document summarizes the Stage 5B automation chain through PR [#152](https://github.com/dooosp/freecad-automation/pull/152). It is a software/status closeout only. It does not attach inspection evidence, mutate canonical package artifacts, regenerate readiness, or claim production readiness.
+This document summarizes the Stage 5B automation and handoff chain through PR [#153](https://github.com/dooosp/freecad-automation/pull/153). It is a software/status closeout only. It does not attach inspection evidence, mutate canonical package artifacts, regenerate readiness, or claim production readiness.
 
 For day-to-day CLI/API/Studio operation, diagnostics, expected no-evidence output, and validation commands, use the [Stage 5B operational runbook](./stage-5b-operational-runbook.md). For supplier, lab, QA, or physical-inspection request wording before any candidate enters review, use the [Stage 5B evidence request packet](./stage-5b-evidence-request-packet.md). For future human sign-off metadata before canonical mutation, use the [Stage 5B attachment authorization record](./stage-5b-attachment-authorization-record.md). For the concise producer/schema/preview/evidence/readiness map of Stage 5B control outputs, use the [Stage 5B artifact/schema catalog](./stage-5b-artifact-schema-catalog.md).
 
@@ -41,6 +41,7 @@ For day-to-day CLI/API/Studio operation, diagnostics, expected no-evidence outpu
 | [#150](https://github.com/dooosp/freecad-automation/pull/150) | Merged | `547a5a913d72f2c278abcf73d2d7eb14282c0cba` | Pinned workflow action provenance for SHA-backed CI/source hygiene. |
 | [#151](https://github.com/dooosp/freecad-automation/pull/151) | Merged | `59afbb7851ebbbe5ba5e4cef2092487e7be83f7b` | Hardened self-hosted runtime smoke governance. |
 | [#152](https://github.com/dooosp/freecad-automation/pull/152) | Merged | `f4b38dec7b75671e73cd8d269955cdf837341b0b` | Hardened Stage 5B attachment provenance and direct-attachment boundaries. |
+| [#153](https://github.com/dooosp/freecad-automation/pull/153) | Merged | `95a471971a2b8462813683060b5197b42bdd2760` | Added the release-candidate closeout gap ledger and final stop-point handoff while preserving the no-evidence readiness truth. |
 
 ## Handoff ledger
 
@@ -72,7 +73,7 @@ Stage 5B now has these software surfaces:
 - the Pre-Attachment Review Checklist in the operational runbook and request packet for accepted gate reports before any later authorized intake, dry-run, audit, or attachment task.
 - the [Stage 5B attachment authorization record](./stage-5b-attachment-authorization-record.md) for future human authorization metadata before canonical attachment.
 - the [Stage 5B artifact/schema catalog](./stage-5b-artifact-schema-catalog.md) for request packet, candidate gate report, attachment authorization record, intake report, promotion dry-run manifest, audit manifest, audit summary, and validation diagnostics producer/schema/preview/evidence/readiness boundaries.
-- release audit, local API preview/download, negative-contract, job/artifact lifecycle, release bundle reproducibility, first-user E2E, local API schema parity, Studio API fuzz, runtime output contract, CI/source hygiene, workflow provenance pinning, self-hosted runtime governance, and attachment provenance hardening through PRs #140-#152.
+- release audit, local API preview/download, negative-contract, job/artifact lifecycle, release bundle reproducibility, first-user E2E, local API schema parity, Studio API fuzz, runtime output contract, CI/source hygiene, workflow provenance pinning, self-hosted runtime governance, attachment provenance hardening, and RC gap ledger handoff through PRs #140-#153.
 - table normalization for explicit inspection tables in CSV, TSV, Markdown, TXT, and allowlisted ZIP entries.
 - include_github discovery (`--include-github`) for bounded public GitHub search and sanitized candidate provenance.
 - attachment planning that links only existing candidate/package signals and never invents measured values.

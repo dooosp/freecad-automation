@@ -152,6 +152,11 @@ assert(
   hostedWorkflow.includes('npm ci --ignore-scripts --no-audit --prefer-offline'),
   'hosted workflow should install Node dependencies without lifecycle scripts'
 );
+assert.equal(
+  hostedWorkflow.includes('path: .pytest_cache'),
+  false,
+  'hosted workflow should not upload raw pytest cache metadata as a CI artifact'
+);
 
 const workflowUses = collectWorkflowUses();
 const unapprovedWorkflowActions = workflowUses

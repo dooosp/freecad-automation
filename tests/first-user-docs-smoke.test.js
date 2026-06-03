@@ -7,6 +7,7 @@ const ROOT_README_PATH = resolve(ROOT, 'README.md');
 const EXAMPLE_INDEX_PATH = resolve(ROOT, 'docs', 'examples', 'README.md');
 const PROJECT_CLOSEOUT_STATUS_PATH = resolve(ROOT, 'docs', 'project-closeout-status.md');
 const FINAL_CLOSEOUT_PATH = resolve(ROOT, 'docs', 'final-non-inspection-software-closeout.md');
+const FINAL_MAINTAINER_HANDOFF_PATH = resolve(ROOT, 'docs', 'final-maintainer-handoff.md');
 const STAGE_5B_AUTOMATION_CLOSEOUT_PATH = resolve(ROOT, 'docs', 'stage-5b-automation-closeout-status.md');
 const RELEASE_CANDIDATE_GAP_LEDGER_PATH = resolve(ROOT, 'docs', 'release-candidate-closeout-gap-ledger.md');
 const STAGE_5B_OPERATIONAL_RUNBOOK_PATH = resolve(ROOT, 'docs', 'stage-5b-operational-runbook.md');
@@ -82,6 +83,7 @@ assert.equal(existsSync(ROOT_README_PATH), true, 'root README should exist');
 assert.equal(existsSync(EXAMPLE_INDEX_PATH), true, 'canonical example index should exist');
 assert.equal(existsSync(PROJECT_CLOSEOUT_STATUS_PATH), true, 'project closeout status should exist');
 assert.equal(existsSync(FINAL_CLOSEOUT_PATH), true, 'final non-inspection software closeout should exist');
+assert.equal(existsSync(FINAL_MAINTAINER_HANDOFF_PATH), true, 'final maintainer handoff should exist');
 assert.equal(existsSync(STAGE_5B_AUTOMATION_CLOSEOUT_PATH), true, 'Stage 5B automation closeout status should exist');
 assert.equal(existsSync(RELEASE_CANDIDATE_GAP_LEDGER_PATH), true, 'release candidate closeout gap ledger should exist');
 assert.equal(existsSync(STAGE_5B_OPERATIONAL_RUNBOOK_PATH), true, 'Stage 5B operational runbook should exist');
@@ -105,6 +107,7 @@ const rootReadmeText = readText(ROOT_README_PATH);
 const exampleIndexText = readText(EXAMPLE_INDEX_PATH);
 const projectCloseoutStatusText = readText(PROJECT_CLOSEOUT_STATUS_PATH);
 const finalCloseoutText = readText(FINAL_CLOSEOUT_PATH);
+const finalMaintainerHandoffText = readText(FINAL_MAINTAINER_HANDOFF_PATH);
 const stage5bAutomationCloseoutText = readText(STAGE_5B_AUTOMATION_CLOSEOUT_PATH);
 const releaseCandidateGapLedgerText = readText(RELEASE_CANDIDATE_GAP_LEDGER_PATH);
 const stage5bOperationalRunbookText = readText(STAGE_5B_OPERATIONAL_RUNBOOK_PATH);
@@ -169,6 +172,11 @@ assertMentions(
   rootReadmeText,
   /\[final non-inspection software closeout\]\(\.\/docs\/final-non-inspection-software-closeout\.md\)/,
   'root README should link the final non-inspection software closeout'
+);
+assertMentions(
+  rootReadmeText,
+  /\[final maintainer handoff\]\(\.\/docs\/final-maintainer-handoff\.md\)/,
+  'root README should link the final maintainer handoff'
 );
 assertMentions(
   rootReadmeText,
@@ -263,10 +271,17 @@ assertMentions(
 );
 assertMentions(
   projectCloseoutStatusText,
+  /\[final maintainer handoff\]\(\.\/final-maintainer-handoff\.md\)/,
+  'project closeout should link the final maintainer handoff'
+);
+assertMentions(
+  projectCloseoutStatusText,
   /\[Stage 5D feature expansion closeout\]\(\.\/stage-5d-feature-expansion-closeout\.md\)/,
   'project closeout should link the Stage 5D feature expansion closeout'
 );
 assertMentions(projectCloseoutStatusText, /config\s+-> cad\/export\s+-> quality\/drawing\s+-> review_pack\s+-> readiness_report\s+-> standard_docs\s+-> release_bundle\s+-> Studio reopen\/preview/, 'project closeout should include current artifact chain');
+assertMentions(projectCloseoutStatusText, /Freeze Handoff Stop Point/, 'project closeout should include final freeze stop point');
+assertMentions(projectCloseoutStatusText, /Stop active hardening unless a later authorized evidence task brings genuine\s+completed inspection records/, 'project closeout should stop active hardening until genuine records arrive');
 for (const [slug, score] of Object.entries({
   'quality-pass-bracket': 61,
   'plate-with-holes': 61,
@@ -326,6 +341,23 @@ assertMentions(
   'final closeout should record the preflight open PR status'
 );
 assertNoPositiveProductionReadyClaim(finalCloseoutText, 'final closeout should not claim production readiness');
+
+assertMentions(
+  finalMaintainerHandoffText,
+  /^# Final maintainer handoff/m,
+  'final maintainer handoff should have the expected title'
+);
+assertMentions(finalMaintainerHandoffText, /95a471971a2b8462813683060b5197b42bdd2760/, 'final maintainer handoff should pin the current default-branch head');
+assertMentions(finalMaintainerHandoffText, /PR \[#153\]/, 'final maintainer handoff should cite PR #153');
+assertMentions(finalMaintainerHandoffText, /no open PR rows/i, 'final maintainer handoff should record open PR state');
+assertMentions(finalMaintainerHandoffText, /no open issue rows/i, 'final maintainer handoff should record open issue state');
+assertMentions(finalMaintainerHandoffText, /No genuine completed inspection evidence has been found or attached/i, 'final maintainer handoff should preserve no-evidence truth');
+assertMentions(finalMaintainerHandoffText, /`needs_more_evidence`/, 'final maintainer handoff should mention needs_more_evidence');
+assertMentions(finalMaintainerHandoffText, /`hold_for_evidence_completion`/, 'final maintainer handoff should mention hold_for_evidence_completion');
+assertMentions(finalMaintainerHandoffText, /Stop active hardening/, 'final maintainer handoff should state the stop point');
+assertMentions(finalMaintainerHandoffText, /genuine completed physical, supplier, lab, or QA inspection\s+records arrive/, 'final maintainer handoff should name the next condition');
+assertNoPositiveProductionReadyClaim(finalMaintainerHandoffText, 'final maintainer handoff should not claim production readiness');
+assertNoPositiveCloseoutOverclaim(finalMaintainerHandoffText, 'final maintainer handoff');
 for (const [slug, score] of Object.entries({
   'quality-pass-bracket': 61,
   'plate-with-holes': 61,
@@ -366,10 +398,10 @@ assertMentions(
   /\[Stage 5B artifact\/schema catalog\]\(\.\/stage-5b-artifact-schema-catalog\.md\)/,
   'Stage 5B automation closeout should link the artifact/schema catalog'
 );
-for (const pr of ['#113', '#114', '#115', '#116', '#117', '#118', '#119', '#120', '#121', '#130', '#131', '#132', '#133', '#134', '#135', '#136', '#137', '#138', '#139', '#140', '#141', '#142', '#143', '#144', '#145', '#146', '#147', '#148', '#149', '#150', '#151', '#152']) {
+for (const pr of ['#113', '#114', '#115', '#116', '#117', '#118', '#119', '#120', '#121', '#130', '#131', '#132', '#133', '#134', '#135', '#136', '#137', '#138', '#139', '#140', '#141', '#142', '#143', '#144', '#145', '#146', '#147', '#148', '#149', '#150', '#151', '#152', '#153']) {
   assert.equal(stage5bAutomationCloseoutText.includes(pr), true, `Stage 5B automation closeout should mention PR ${pr}`);
 }
-assertMentions(stage5bAutomationCloseoutText, /through PR \[#152\]/, 'Stage 5B automation closeout should state the current PR chain endpoint');
+assertMentions(stage5bAutomationCloseoutText, /through PR \[#153\]/, 'Stage 5B automation closeout should state the current PR chain endpoint');
 for (const surface of [
   'inspection-evidence-intake',
   'table normalization',
@@ -391,6 +423,7 @@ for (const surface of [
   'workflow provenance pinning',
   'self-hosted runtime governance',
   'attachment provenance',
+  'RC gap ledger handoff',
 ]) {
   assert.equal(
     stage5bAutomationCloseoutText.includes(surface),
@@ -452,9 +485,10 @@ assertMentions(
   /^# Release candidate closeout gap ledger/m,
   'release candidate gap ledger should have the expected title'
 );
-assertMentions(releaseCandidateGapLedgerText, /PR \[#152\]/, 'release candidate gap ledger should reference PR #152');
-assertMentions(releaseCandidateGapLedgerText, /f4b38dec7b75671e73cd8d269955cdf837341b0b/, 'release candidate gap ledger should pin the audited head');
+assertMentions(releaseCandidateGapLedgerText, /PR \[#153\]/, 'release candidate gap ledger should reference PR #153');
+assertMentions(releaseCandidateGapLedgerText, /95a471971a2b8462813683060b5197b42bdd2760/, 'release candidate gap ledger should pin the audited head');
 assertMentions(releaseCandidateGapLedgerText, /no open PR rows/i, 'release candidate gap ledger should record open PR state');
+assertMentions(releaseCandidateGapLedgerText, /no open issue rows/i, 'release candidate gap ledger should record open issue state');
 assertMentions(releaseCandidateGapLedgerText, /Automation CI \(hosted fast lanes\).*passed/i, 'release candidate gap ledger should record hosted CI state');
 assertMentions(releaseCandidateGapLedgerText, /FreeCAD Runtime Smoke \(self-hosted macOS\).*passed/i, 'release candidate gap ledger should record self-hosted runtime smoke state');
 for (const section of [
@@ -463,7 +497,7 @@ for (const section of [
   'Still requires real inspection evidence',
   'Human or organization-settings dependent',
   'Must not be treated as evidence',
-  'Stop or continue point',
+  'Stop point',
 ]) {
   assert.equal(releaseCandidateGapLedgerText.includes(section), true, `release candidate gap ledger should include ${section}`);
 }
@@ -511,6 +545,11 @@ assertMentions(
   releaseCandidateGapLedgerText,
   /`needs_more_evidence` \/ `hold_for_evidence_completion`/,
   'release candidate gap ledger should preserve readiness-held package truth'
+);
+assertMentions(
+  releaseCandidateGapLedgerText,
+  /Stop active hardening/,
+  'release candidate gap ledger should state the final freeze stop point'
 );
 assertNoPositiveProductionReadyClaim(releaseCandidateGapLedgerText, 'release candidate gap ledger should not claim production readiness');
 assertNoPositiveCloseoutOverclaim(releaseCandidateGapLedgerText, 'release candidate gap ledger');
