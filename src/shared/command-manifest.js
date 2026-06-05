@@ -386,6 +386,21 @@ const COMMAND_MANIFEST = Object.freeze([
     }),
   }),
   Object.freeze({
+    name: 'stage5b-evidence-review-dry-run',
+    helpSection: 'plain-python-node',
+    helpEntries: Object.freeze([
+      Object.freeze({
+        usage: 'fcad stage5b-evidence-review-dry-run --package <canonical-package-slug> [--source <raw-source.json|csv|tsv>] --out-dir <ignored-dir> [--fixture]',
+        summary: 'Orchestrate source preflight, review-scoped candidate preparation, gate, audit planning, and readiness-held reporting without attaching evidence',
+      }),
+    ]),
+    runtime: Object.freeze({
+      classification: 'plain-python-node',
+      requiresFreecadRuntime: false,
+      note: 'Writes ignored local review/control artifacts only; it never attaches evidence, promotes evidence, regenerates readiness, or marks packages ready.',
+    }),
+  }),
+  Object.freeze({
     name: 'stage5b-surrogate-inspection-validation',
     helpSection: 'plain-python-node',
     helpEntries: Object.freeze([
@@ -665,6 +680,7 @@ const WORKFLOW_SPECIFIC_OPTIONS = Object.freeze([
   Object.freeze({ flag: '--manifest-out <path>', description: 'Write a provenance manifest for stdout-oriented commands such as inspect/fem/tolerance/dfm' }),
   Object.freeze({ flag: '--source <path>', description: 'Raw local Stage 5B source path for acquisition/preflight only; it is never attached by source preflight' }),
   Object.freeze({ flag: '--inbox-subdir <name>', description: 'Optional local inbox subdirectory for stage5b-evidence-source-kit/preflight' }),
+  Object.freeze({ flag: '--fixture', description: 'Create/use a synthetic ignored Stage 5B review dry-run source for test-only orchestration validation' }),
   Object.freeze({ flag: '--recommend', description: 'Auto-recommend fit specs (with tolerance)' }),
   Object.freeze({ flag: '--csv', description: 'Export tolerance report as CSV (with tolerance)' }),
   Object.freeze({ flag: '--monte-carlo', description: 'Include Monte Carlo simulation (with tolerance/report)' }),
@@ -688,6 +704,7 @@ const CLI_HELP_EXAMPLES = Object.freeze([
   'fcad closeout-package quality-pass-bracket --mode software-demo --out-dir output',
   'fcad stage5b-evidence-source-kit --package quality-pass-bracket',
   'fcad stage5b-evidence-source-preflight --package quality-pass-bracket --source local/stage5b-candidate-evidence-inbox/quality-pass-bracket/received-inspection-evidence.json --out local/stage5b-candidate-evidence-inbox/quality-pass-bracket/source-preflight-report.json',
+  'fcad stage5b-evidence-review-dry-run --package quality-pass-bracket --source local/stage5b-candidate-evidence-inbox/quality-pass-bracket/received-inspection-evidence.json --out-dir output/stage5b-review',
   'fcad stabilization-review output/rev_a_readiness_report.json output/rev_b_readiness_report.json --out output/readiness_delta.json',
   'fcad generate-standard-docs configs/examples/controller_housing_eol.toml --readiness-report output/controller_housing_readiness_report.json --out-dir output/controller_housing_standard_docs',
   'fcad review-context --model tests/fixtures/sample_part.step --bom tests/fixtures/sample_bom.csv --inspection tests/fixtures/sample_inspection.csv --quality tests/fixtures/sample_quality.csv --out output/sample_review_pack.json',
@@ -701,7 +718,7 @@ const CLI_HELP_NOTES = Object.freeze([
   'readiness-report <config> remains a legacy compatibility route; it is not the canonical D-backed readiness path.',
   'generate-standard-docs requires canonical readiness input via --readiness-report and will not synthesize or rebuild readiness downstream.',
   'closeout-package is local software/demo packaging only; it does not regenerate canonical artifacts or create inspection evidence.',
-  'stage5b-evidence-source-kit and stage5b-evidence-source-preflight are acquisition/preflight helpers only; they never attach evidence or change canonical readiness.',
+  'stage5b-evidence-source-kit, source-preflight, and evidence-review-dry-run are acquisition/review helpers only; they never attach evidence or change canonical readiness.',
   'sweep stays within the existing create/cost/fem/report service wrappers; it does not perform optimization.',
   'report remains FreeCAD-backed today, even when macOS falls back from freecadcmd to the bundled FreeCAD Python.',
   'Windows native, WSL -> Windows FreeCAD, and Linux runtime execution are compatibility paths, not equal-maturity claims.',

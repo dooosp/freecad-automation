@@ -82,6 +82,7 @@ import {
   buildStage5bEvidenceSourceKit,
   preflightStage5bEvidenceSource,
 } from '../src/services/inspection-evidence-intake/stage5b-evidence-source-kit-service.js';
+import { writeStage5bEvidenceReviewDryRun } from '../src/services/inspection-evidence-intake/stage5b-evidence-review-dry-run-service.js';
 import { writeStage5bSurrogateInspectionValidationBundle } from '../src/services/inspection-evidence-intake/stage5b-surrogate-inspection-validation-service.js';
 import {
   isStage5bRuntimeValidationError,
@@ -628,6 +629,63 @@ async function cmdStage5bEvidenceSourcePreflight(rawArgs = []) {
   }
 }
 
+async function cmdStage5bEvidenceReviewDryRun(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  rejectUnsupportedOptions('stage5b-evidence-review-dry-run', options, ['package', 'source', 'out-dir', 'fixture']);
+  const packageSlug = Object.hasOwn(options, 'package')
+    ? requireOptionValue('--package', options.package)
+    : positional[0] || null;
+  const sourcePath = Object.hasOwn(options, 'source')
+    ? requireOptionValue('--source', options.source)
+    : null;
+  const outDir = Object.hasOwn(options, 'out-dir')
+    ? requireOptionValue('--out-dir', options['out-dir'])
+    : null;
+  if (!outDir) {
+    console.error('Error: stage5b-evidence-review-dry-run requires --out-dir <dir>');
+    process.exit(1);
+  }
+  if (!packageSlug) {
+    console.error('Error: stage5b-evidence-review-dry-run requires --package <canonical-package-slug>');
+    process.exit(1);
+  }
+
+  try {
+    const result = await writeStage5bEvidenceReviewDryRun({
+      projectRoot: PROJECT_ROOT,
+      packageSlug,
+      sourcePath,
+      outDir,
+      fixture: options.fixture === true,
+    });
+    const manifest = result.manifest;
+    console.log(`Stage 5B evidence review dry-run manifest: ${result.paths.manifest}`);
+    console.log(`  Package: ${manifest.package_slug}`);
+    console.log(`  Fixture mode: ${manifest.test_scope.fixture_mode ? 'yes' : 'no'}`);
+    console.log(`  Source status: ${manifest.summary.source_status}`);
+    console.log(`  Source classification: ${manifest.summary.source_classification}`);
+    console.log(`  Review candidate generated: ${manifest.summary.candidate_generated ? 'yes' : 'no'}`);
+    console.log('  Inspection evidence attached: no');
+    console.log('  Canonical readiness regenerated: no');
+    console.log(`  Canonical readiness remains held: ${manifest.summary.readiness_remains_held ? 'yes' : 'no'}`);
+    console.log(`  Next authorization required: ${manifest.next_required_authorization_step.required ? 'yes' : 'no'}`);
+    return manifest;
+  } catch (error) {
+    if (isStage5bRuntimeValidationError(error)) {
+      const outputDir = resolve(PROJECT_ROOT, String(outDir));
+      const diagnosticsResult = await writeCliStage5bValidationDiagnostics(error, {
+        diagnosticsPath: join(outputDir, 'validation_diagnostics.json'),
+        artifactType: 'stage5b_evidence_review_dry_run_manifest',
+        command: 'stage5b-evidence-review-dry-run',
+      });
+      printCliStage5bValidationError(error, diagnosticsResult);
+      process.exit(1);
+    }
+    console.error(`Error: ${error.message}`);
+    process.exit(1);
+  }
+}
+
 async function cmdStage5bSurrogateInspectionValidation(rawArgs = []) {
   const { positional, options } = parseCliArgs(rawArgs);
   rejectUnsupportedOptions('stage5b-surrogate-inspection-validation', options, ['out-dir', 'package', 'packages']);
@@ -725,6 +783,8 @@ async function main() {
     await cmdStage5bEvidenceSourceKit(args);
   } else if (command === 'stage5b-evidence-source-preflight') {
     await cmdStage5bEvidenceSourcePreflight(args);
+  } else if (command === 'stage5b-evidence-review-dry-run') {
+    await cmdStage5bEvidenceReviewDryRun(args);
   } else if (command === 'stage5b-surrogate-inspection-validation') {
     await cmdStage5bSurrogateInspectionValidation(args);
   } else if (command === 'stabilization-review') {

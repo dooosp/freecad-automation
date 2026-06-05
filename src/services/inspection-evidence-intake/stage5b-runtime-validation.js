@@ -5,6 +5,7 @@ import {
   validateStage5bArtifact,
   validateStage5bAuditManifest,
   validateStage5bAuditSummaryMarkdown,
+  validateStage5bEvidenceReviewDryRunManifest,
   validateStage5bIntakeReport,
   validateStage5bPromotionDryRunManifest,
   validateStage5bSurrogateInspectionValidation,
@@ -229,6 +230,18 @@ export function assertValidStage5bAuditManifest(manifest, {
 } = {}) {
   return assertValidation(label, validateStage5bAuditManifest(manifest), {
     artifactType: 'stage5b_evidence_audit_manifest',
+    artifactPath,
+    projectRoot,
+  });
+}
+
+export function assertValidStage5bEvidenceReviewDryRunManifest(manifest, {
+  label = 'evidence review dry-run manifest',
+  artifactPath = null,
+  projectRoot = null,
+} = {}) {
+  return assertValidation(label, validateStage5bEvidenceReviewDryRunManifest(manifest), {
+    artifactType: 'stage5b_evidence_review_dry_run_manifest',
     artifactPath,
     projectRoot,
   });

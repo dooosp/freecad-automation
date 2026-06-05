@@ -14,6 +14,7 @@ const HARD_EVIDENCE_RULE = /Only genuine completed physical\/supplier\/lab\/QA i
 const EXPECTED_IDS = Object.freeze([
   'stage5b_evidence_request_packet',
   'stage5b_candidate_gate_report',
+  'stage5b_evidence_review_dry_run_manifest',
   'stage5b_attachment_authorization_record',
   'stage5b_surrogate_inspection_validation',
   'inspection_evidence_intake_report',
@@ -83,6 +84,15 @@ assert.match(candidateGate.preview_boundary, /Local review only/i);
 assert.match(candidateGate.inspection_evidence_status, /eligible for later Stage 5B intake review only/i);
 assert.match(candidateGate.readiness_effect, /does not attach evidence, promote evidence, satisfy readiness, or mutate canonical artifacts/i);
 assert.match(candidateGate.readiness_effect, /pre-attachment checklist/i);
+
+const reviewDryRun = catalog.find((entry) => entry.id === 'stage5b_evidence_review_dry_run_manifest');
+assert.equal(reviewDryRun.schema_path, 'schemas/stage5b-evidence-review-dry-run-manifest.schema.json');
+assert.match(reviewDryRun.schema_or_contract, /validateStage5bEvidenceReviewDryRunManifest/);
+assert.match(reviewDryRun.preview_boundary, /CLI\/local review only/i);
+assert.match(reviewDryRun.control_private_status, /raw source stays in the ignored inbox/i);
+assert.match(reviewDryRun.inspection_evidence_status, /without attachment/i);
+assert.match(reviewDryRun.readiness_effect, /canonical readiness unregenerated/i);
+assert.match(reviewDryRun.readiness_effect, /needs_more_evidence \/ hold_for_evidence_completion/i);
 
 const authorizationRecord = catalog.find((entry) => entry.id === 'stage5b_attachment_authorization_record');
 assert.equal(authorizationRecord.schema_path, null);
