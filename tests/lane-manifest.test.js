@@ -119,6 +119,10 @@ assert(
   contractLane.steps.some((step) => step.args.includes('tests/stage5b-surrogate-inspection-validation.test.js')),
   'contract lane should include the Stage 5B surrogate inspection validation guard'
 );
+assert(
+  contractLane.steps.some((step) => step.args.includes('tests/stage5b-evidence-source-kit.test.js')),
+  'contract lane should include the Stage 5B source acquisition/preflight guard'
+);
 
 [
   'npm run check:source-hygiene',

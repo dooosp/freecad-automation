@@ -12,6 +12,8 @@ Run these from the repository root. Use `fcad` when the package bin is on PATH, 
 
 ```bash
 mkdir -p output/stage5b-runbook
+fcad stage5b-evidence-source-kit [--package <canonical-package-slug>]
+fcad stage5b-evidence-source-preflight [--package <canonical-package-slug>] [--source local/stage5b-candidate-evidence-inbox/<package-slug>/<received-record.json|csv|tsv>] [--out local/stage5b-candidate-evidence-inbox/<package-slug>/source-preflight-report.json]
 fcad inspection-evidence-intake [--package <canonical-package-slug>] [--include-github] --out output/stage5b-runbook/inspection-evidence-intake-report.json
 fcad inspection-evidence-promotion-dry-run --intake-report output/stage5b-runbook/inspection-evidence-intake-report.json --out output/stage5b-runbook/promotion_dry_run_manifest.json
 fcad stage5b-evidence-audit --out-dir output/stage5b-runbook-audit [--include-github]
@@ -20,6 +22,8 @@ fcad stage5b-surrogate-inspection-validation --out-dir output/stage5b-runbook-su
 
 Expected no-evidence result:
 
+- `stage5b-evidence-source-kit` creates ignored package-scoped inbox folders and templates, reports `Acquisition/preflight only: yes`, `Inspection evidence attached: no`, and `Canonical readiness regenerated: no`.
+- `stage5b-evidence-source-preflight` reports `READY_FOR_SOURCE` when no source exists, or classifies a supplied source as `ready_for_stage5b_review`, `needs_more_source_detail`, or `unsafe_or_not_evidence` without attaching evidence.
 - `inspection-evidence-intake` reports `Genuine candidate found: no`, `Inspection evidence attached: no`, `accepted_candidate_count: 0`, and `attachment_ready_candidate_count: 0`.
 - `inspection-evidence-promotion-dry-run` reports `promotion_can_run: false`, `canonical_artifacts_mutated: false`, and no canonical next command.
 - `stage5b-evidence-audit` reports `Genuine candidate found: no`, `Inspection evidence attached: no`, `Promotion can run: no`, and `Readiness remains held: yes`.
@@ -50,8 +54,8 @@ and post-acceptance review path. It is a control document, not evidence.
 
 ## Local-Only Candidate Inbox
 
-Use one repo-relative local-only inbox for newly received records before the
-candidate gate:
+Use one repo-relative local-only inbox for newly received records before source
+preflight, candidate gate, intake, or dry-run review:
 
 ```text
 local/stage5b-candidate-evidence-inbox/<package-slug>/
@@ -61,6 +65,8 @@ Typical local paths are:
 
 ```text
 local/stage5b-candidate-evidence-inbox/<package-slug>/received-inspection-evidence.json
+local/stage5b-candidate-evidence-inbox/<package-slug>/received-inspection-evidence.csv
+local/stage5b-candidate-evidence-inbox/<package-slug>/source-preflight-report.json
 local/stage5b-candidate-evidence-inbox/<package-slug>/candidate-gate-report.json
 ```
 
@@ -70,14 +76,44 @@ Do not commit raw records, secrets, private URLs, PII, or supplier/lab/QA
 records from the inbox. The inbox itself is not canonical package evidence, and
 files inside it are not `inspection_evidence`.
 
+Create the package-scoped inbox, checklist, and JSON/CSV templates with:
+
+```bash
+fcad stage5b-evidence-source-kit --package <package-slug>
+```
+
+Then place the received source file under that ignored inbox and run:
+
+```bash
+fcad stage5b-evidence-source-preflight \
+  --package <package-slug> \
+  --source local/stage5b-candidate-evidence-inbox/<package-slug>/<received-record.json|csv|tsv> \
+  --out local/stage5b-candidate-evidence-inbox/<package-slug>/source-preflight-report.json
+```
+
+The source preflight report checks that the raw source path exists, is ignored by
+git, is not tracked, and contains package/part/revision mapping, inspection
+date, origin type, completed status, feature IDs, units, measured values,
+tolerances, per-feature result, overall result, and reviewer/approver
+traceability. It also flags PII, private URLs, absolute local paths, tokens,
+secrets, supplier-private originals, screenshots, CI artifacts, docs examples,
+templates, fixtures, CAD/generated values, readiness reports, and surrogate
+artifacts. The classification is only `ready_for_stage5b_review`,
+`needs_more_source_detail`, or `unsafe_or_not_evidence`; even a ready report is
+acquisition/preflight only and does not attach evidence, regenerate readiness,
+or mark a canonical package ready.
+
 Safe local flow:
 
 1. Receive a completed physical, supplier, lab, or QA inspection record.
-2. Place the received candidate JSON under the ignored local inbox.
-3. Run `node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json> --out <report.json>`, with `--out` pointing to a local inbox report when the report might describe private material.
-4. Review the accept/reject report.
-5. Use the Pre-Attachment Review Checklist and the Attachment Authorization Record below before any intake, dry-run, audit, or attachment task.
-6. Run intake, promotion dry-run, or audit later only if the task explicitly authorizes that review path. Later authorized attachment still needs validation, review, and deliberate `review-context --inspection-evidence --attachment-authorization` mutation outside this local-inbox guard task.
+2. Run `fcad stage5b-evidence-source-kit --package <package-slug>`.
+3. Place the received candidate JSON or CSV/TSV under the ignored local inbox.
+4. Run `fcad stage5b-evidence-source-preflight --package <package-slug> --source <repo-relative-source> --out <local-inbox-report.json>`.
+5. If preflight is not `ready_for_stage5b_review`, repair/redact/replace the source before continuing.
+6. Run `node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json> --out <report.json>`, with `--out` pointing to a local inbox report when the report might describe private material.
+7. Review the accept/reject report.
+8. Use the Pre-Attachment Review Checklist and the Attachment Authorization Record below before any intake, dry-run, audit, or attachment task.
+9. Run intake, promotion dry-run, or audit later only if the task explicitly authorizes that review path. Later authorized attachment still needs validation, review, and deliberate `review-context --inspection-evidence --attachment-authorization` mutation outside this local-inbox guard task.
 
 Before maintainers put a newly supplied JSON record into the Stage 5B intake/dry-run review path, run the local non-production candidate gate:
 
@@ -318,14 +354,16 @@ Do not fabricate, infer, simulate, CAD-generate, or promote measurements. Use `n
 For a future real evidence task:
 
 1. Collect a completed physical, supplier, lab, or QA inspection record outside the generated/control artifact chain.
-2. Serialize it to the inspection evidence JSON contract with explicit provenance and measured feature records.
-3. Place the received candidate JSON in `local/stage5b-candidate-evidence-inbox/<package-slug>/` without committing the raw/private file.
-4. Run `node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json>` and review the checklist. Rejections stop the record before intake/dry-run review.
-5. Run `fcad inspection-evidence-intake --out <report.json>` only if the task explicitly authorizes intake review.
-6. Run `fcad inspection-evidence-promotion-dry-run --intake-report <report.json> --out <promotion_dry_run_manifest.json>` and review blockers, match confidence, mutation boundaries, and rollback guidance.
-7. Complete or reference the Stage 5B attachment authorization record as control metadata only.
-8. Attach only when the dry-run is attachment-ready and the separate later task explicitly authorizes canonical mutation.
-9. Refresh `review-context --inspection-evidence --attachment-authorization`, `readiness-pack`, `generate-standard-docs`, and `pack` in that separate authorized task.
+2. Run `fcad stage5b-evidence-source-kit --package <package-slug>`.
+3. Place the received source in `local/stage5b-candidate-evidence-inbox/<package-slug>/` without committing the raw/private file.
+4. Run `fcad stage5b-evidence-source-preflight --package <package-slug> --source <repo-relative-source> --out <local-inbox-report.json>` and repair/redact/replace any `needs_more_source_detail` or `unsafe_or_not_evidence` result.
+5. Serialize a reviewed/redacted JSON contract with explicit provenance and measured feature records for later candidate gate review.
+6. Run `node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json>` and review the checklist. Rejections stop the record before intake/dry-run review.
+7. Run `fcad inspection-evidence-intake --out <report.json>` only if the task explicitly authorizes intake review.
+8. Run `fcad inspection-evidence-promotion-dry-run --intake-report <report.json> --out <promotion_dry_run_manifest.json>` and review blockers, match confidence, mutation boundaries, and rollback guidance.
+9. Complete or reference the Stage 5B attachment authorization record as control metadata only.
+10. Attach only when the dry-run is attachment-ready and the separate later task explicitly authorizes canonical mutation.
+11. Refresh `review-context --inspection-evidence --attachment-authorization`, `readiness-pack`, `generate-standard-docs`, and `pack` in that separate authorized task.
 
 Until that happens, the readiness truth remains unchanged.
 
@@ -337,6 +375,7 @@ Use these checks after runbook, docs, command-surface, or source-of-truth change
 git status --short
 git diff --check
 node tests/stage5b-candidate-evidence-gate.test.js
+node tests/stage5b-evidence-source-kit.test.js
 node tests/first-user-docs-smoke.test.js
 node tests/stage5b-source-of-truth-guard.test.js
 node tests/stage5b-artifact-catalog.test.js

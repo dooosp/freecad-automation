@@ -78,6 +78,10 @@ import { generateCloseoutPackage } from '../src/services/closeout-package/closeo
 import { discoverInspectionEvidenceIntake } from '../src/services/inspection-evidence-intake/inspection-evidence-intake-service.js';
 import { writeInspectionEvidencePromotionDryRunManifest } from '../src/services/inspection-evidence-intake/promotion-dry-run-service.js';
 import { writeStage5bEvidenceAuditBundle } from '../src/services/inspection-evidence-intake/stage5b-evidence-audit-service.js';
+import {
+  buildStage5bEvidenceSourceKit,
+  preflightStage5bEvidenceSource,
+} from '../src/services/inspection-evidence-intake/stage5b-evidence-source-kit-service.js';
 import { writeStage5bSurrogateInspectionValidationBundle } from '../src/services/inspection-evidence-intake/stage5b-surrogate-inspection-validation-service.js';
 import {
   isStage5bRuntimeValidationError,
@@ -526,6 +530,104 @@ async function cmdStage5bEvidenceAudit(rawArgs = []) {
   }
 }
 
+async function cmdStage5bEvidenceSourceKit(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  rejectUnsupportedOptions('stage5b-evidence-source-kit', options, ['package', 'packages', 'inbox-subdir', 'out']);
+  const packageSelector = Object.hasOwn(options, 'package')
+    ? requireOptionValue('--package', options.package)
+    : Object.hasOwn(options, 'packages')
+      ? requireOptionValue('--packages', options.packages)
+      : positional[0] || null;
+  const packageSlugs = packageSelector
+    ? String(packageSelector).split(',').map((slug) => slug.trim()).filter(Boolean)
+    : undefined;
+  const outputPath = Object.hasOwn(options, 'out')
+    ? normalizeJsonOutputPath(requireOptionValue('--out', options.out))
+    : null;
+
+  try {
+    const report = await buildStage5bEvidenceSourceKit({
+      projectRoot: PROJECT_ROOT,
+      packageSlugs,
+      inboxSubdir: Object.hasOwn(options, 'inbox-subdir')
+        ? requireOptionValue('--inbox-subdir', options['inbox-subdir'])
+        : null,
+    });
+    if (outputPath) {
+      await writeJsonFile(outputPath, report);
+    }
+    console.log('Stage 5B evidence source kit:');
+    console.log('  Acquisition/preflight only: yes');
+    console.log('  Inspection evidence attached: no');
+    console.log('  Canonical readiness regenerated: no');
+    report.inboxes.forEach((inbox) => {
+      console.log(`  Inbox: ${inbox.path}`);
+      console.log(`    Checklist: ${inbox.checklist_path}`);
+      console.log(`    JSON template: ${inbox.json_template_path}`);
+      console.log(`    CSV template: ${inbox.csv_template_path}`);
+      console.log(`    Ignored by git: ${inbox.ignored_by_git ? 'yes' : 'no'}`);
+      console.log(`    Tracked by git: ${inbox.tracked_by_git ? 'yes' : 'no'}`);
+    });
+    if (outputPath) {
+      console.log(`  Report: ${repoRelativePath(outputPath)}`);
+    }
+    return report;
+  } catch (error) {
+    console.error(`Error: ${error.message}`);
+    process.exit(1);
+  }
+}
+
+async function cmdStage5bEvidenceSourcePreflight(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  rejectUnsupportedOptions('stage5b-evidence-source-preflight', options, ['package', 'source', 'inbox-subdir', 'out']);
+  const packageSlug = Object.hasOwn(options, 'package')
+    ? requireOptionValue('--package', options.package)
+    : null;
+  const sourcePath = Object.hasOwn(options, 'source')
+    ? requireOptionValue('--source', options.source)
+    : positional[0] || null;
+  const outputPath = Object.hasOwn(options, 'out')
+    ? normalizeJsonOutputPath(requireOptionValue('--out', options.out))
+    : null;
+
+  try {
+    const report = await preflightStage5bEvidenceSource({
+      projectRoot: PROJECT_ROOT,
+      packageSlug,
+      sourcePath,
+      inboxSubdir: Object.hasOwn(options, 'inbox-subdir')
+        ? requireOptionValue('--inbox-subdir', options['inbox-subdir'])
+        : null,
+    });
+    if (outputPath) {
+      await writeJsonFile(outputPath, report);
+    }
+    console.log('Stage 5B evidence source preflight:');
+    console.log('  Acquisition/preflight only: yes');
+    console.log(`  Classification: ${report.classification}`);
+    console.log(`  Source status: ${report.summary.source_status}`);
+    console.log('  Inspection evidence attached: no');
+    console.log('  Canonical readiness regenerated: no');
+    console.log(`  Ready for later Stage 5B review: ${report.summary.ready_for_later_attachment_flow ? 'yes' : 'no'}`);
+    if (report.source?.path) {
+      console.log(`  Source: ${report.source.path}`);
+      console.log(`    Exists: ${report.source.exists ? 'yes' : 'no'}`);
+      console.log(`    Ignored by git: ${report.source.ignored_by_git ? 'yes' : 'no'}`);
+      console.log(`    Tracked by git: ${report.source.tracked_by_git ? 'yes' : 'no'}`);
+    } else {
+      console.log(`  Inbox: ${report.kit_inbox.path}`);
+    }
+    if (outputPath) {
+      console.log(`  Report: ${repoRelativePath(outputPath)}`);
+    }
+    return report;
+  } catch (error) {
+    console.error(`Error: ${error.message}`);
+    process.exit(1);
+  }
+}
+
 async function cmdStage5bSurrogateInspectionValidation(rawArgs = []) {
   const { positional, options } = parseCliArgs(rawArgs);
   rejectUnsupportedOptions('stage5b-surrogate-inspection-validation', options, ['out-dir', 'package', 'packages']);
@@ -619,6 +721,10 @@ async function main() {
     await cmdInspectionEvidencePromotionDryRun(args);
   } else if (command === 'stage5b-evidence-audit') {
     await cmdStage5bEvidenceAudit(args);
+  } else if (command === 'stage5b-evidence-source-kit') {
+    await cmdStage5bEvidenceSourceKit(args);
+  } else if (command === 'stage5b-evidence-source-preflight') {
+    await cmdStage5bEvidenceSourcePreflight(args);
   } else if (command === 'stage5b-surrogate-inspection-validation') {
     await cmdStage5bSurrogateInspectionValidation(args);
   } else if (command === 'stabilization-review') {
