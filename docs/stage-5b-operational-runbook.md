@@ -14,6 +14,7 @@ Run these from the repository root. Use `fcad` when the package bin is on PATH, 
 mkdir -p output/stage5b-runbook
 fcad stage5b-evidence-source-kit [--package <canonical-package-slug>]
 fcad stage5b-evidence-source-preflight [--package <canonical-package-slug>] [--source local/stage5b-candidate-evidence-inbox/<package-slug>/<received-record.json|csv|tsv>] [--out local/stage5b-candidate-evidence-inbox/<package-slug>/source-preflight-report.json]
+fcad stage5b-evidence-review-dry-run --package <canonical-package-slug> --source local/stage5b-candidate-evidence-inbox/<package-slug>/<received-record.json|csv|tsv> --out-dir output/stage5b-review-dry-run
 fcad inspection-evidence-intake [--package <canonical-package-slug>] [--include-github] --out output/stage5b-runbook/inspection-evidence-intake-report.json
 fcad inspection-evidence-promotion-dry-run --intake-report output/stage5b-runbook/inspection-evidence-intake-report.json --out output/stage5b-runbook/promotion_dry_run_manifest.json
 fcad stage5b-evidence-audit --out-dir output/stage5b-runbook-audit [--include-github]
@@ -24,6 +25,7 @@ Expected no-evidence result:
 
 - `stage5b-evidence-source-kit` creates ignored package-scoped inbox folders and templates, reports `Acquisition/preflight only: yes`, `Inspection evidence attached: no`, and `Canonical readiness regenerated: no`.
 - `stage5b-evidence-source-preflight` reports `READY_FOR_SOURCE` when no source exists, or classifies a supplied source as `ready_for_stage5b_review`, `needs_more_source_detail`, or `unsafe_or_not_evidence` without attaching evidence.
+- `stage5b-evidence-review-dry-run` writes an ignored review manifest plus local preflight, review-candidate, candidate-gate, and audit control outputs. It does not attach evidence, promote evidence, regenerate canonical readiness, or mark packages ready. Use `--fixture` only for synthetic ignored local-inbox orchestration tests labeled non-evidence.
 - `inspection-evidence-intake` reports `Genuine candidate found: no`, `Inspection evidence attached: no`, `accepted_candidate_count: 0`, and `attachment_ready_candidate_count: 0`.
 - `inspection-evidence-promotion-dry-run` reports `promotion_can_run: false`, `canonical_artifacts_mutated: false`, and no canonical next command.
 - `stage5b-evidence-audit` reports `Genuine candidate found: no`, `Inspection evidence attached: no`, `Promotion can run: no`, and `Readiness remains held: yes`.
@@ -110,10 +112,22 @@ Safe local flow:
 3. Place the received candidate JSON or CSV/TSV under the ignored local inbox.
 4. Run `fcad stage5b-evidence-source-preflight --package <package-slug> --source <repo-relative-source> --out <local-inbox-report.json>`.
 5. If preflight is not `ready_for_stage5b_review`, repair/redact/replace the source before continuing.
-6. Run `node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json> --out <report.json>`, with `--out` pointing to a local inbox report when the report might describe private material.
-7. Review the accept/reject report.
-8. Use the Pre-Attachment Review Checklist and the Attachment Authorization Record below before any intake, dry-run, audit, or attachment task.
-9. Run intake, promotion dry-run, or audit later only if the task explicitly authorizes that review path. Later authorized attachment still needs validation, review, and deliberate `review-context --inspection-evidence --attachment-authorization` mutation outside this local-inbox guard task.
+6. Run `fcad stage5b-evidence-review-dry-run --package <package-slug> --source <repo-relative-source> --out-dir output/stage5b-review-dry-run`.
+7. Review `stage5b_evidence_review_dry_run_manifest.json`, especially source status, redaction findings, package mapping, candidate-gate rejection for review-scoped material, nested audit outputs, blockers, and the next authorization step.
+8. Use the Pre-Attachment Review Checklist and the Attachment Authorization Record below before any real intake, dry-run, audit, or attachment task can affect canonical package artifacts.
+9. Run the real candidate gate, intake, promotion dry-run, or audit later only if a separate task explicitly authorizes that review path. Later authorized attachment still needs validation, review, and deliberate `review-context --inspection-evidence --attachment-authorization` mutation outside this dry-run guard task.
+
+For test-only orchestration validation without a real source, use:
+
+```bash
+fcad stage5b-evidence-review-dry-run \
+  --package <package-slug> \
+  --source local/stage5b-candidate-evidence-inbox/<package-slug>/synthetic-review-fixture.json \
+  --out-dir output/stage5b-review-dry-run-fixture \
+  --fixture
+```
+
+`--fixture` creates a synthetic ignored local-inbox source and labels the manifest as non-evidence. It proves orchestration behavior only; it does not produce a candidate that can satisfy canonical inspection evidence.
 
 Before maintainers put a newly supplied JSON record into the Stage 5B intake/dry-run review path, run the local non-production candidate gate:
 

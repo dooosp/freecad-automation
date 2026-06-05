@@ -1134,3 +1134,33 @@ export async function preflightStage5bEvidenceSource({
     evidence_boundary: buildBoundary(),
   };
 }
+
+export async function loadStage5bEvidenceSourceDocument({
+  projectRoot = process.cwd(),
+  sourcePath,
+} = {}) {
+  const root = resolve(projectRoot);
+  const sourceRef = relativePathFor(root, sourcePath);
+  if (!sourceRef.inside_project || !sourceRef.relative) {
+    throw new Error('Stage 5B source document must stay inside the repository root');
+  }
+
+  const sourceStats = await statIfExists(sourceRef.absolute);
+  const source = {
+    path: sourceRef.relative,
+    absolute_path: sourceRef.absolute,
+    source_format: sourceFormatForPath(sourceRef.relative),
+    exists: Boolean(sourceStats?.isFile()),
+    size_bytes: sourceStats?.isFile() ? sourceStats.size : null,
+  };
+  const parsed = await parseSource(source);
+  return {
+    source: {
+      path: source.path,
+      source_format: source.source_format,
+      exists: source.exists,
+      size_bytes: source.size_bytes,
+    },
+    ...parsed,
+  };
+}
