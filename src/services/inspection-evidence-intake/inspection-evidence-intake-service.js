@@ -44,7 +44,7 @@ const EVIDENCE_PATH_PATTERNS = Object.freeze([
   /supplier[-_ ]?inspection/i,
 ]);
 
-const NON_GENUINE_TEXT_PATTERN = /synthetic|fixture|template|collection guide|generated|not readiness evidence|not package readiness evidence/i;
+const NON_GENUINE_TEXT_PATTERN = /synthetic|surrogate|fixture|template|collection guide|generated|non[-/ ]?evidence|not readiness evidence|not package readiness evidence/i;
 
 const GITHUB_ALLOWED_FILE_EXTENSIONS = new Set(['.json', '.csv', '.tsv', '.md', '.markdown', '.txt']);
 const GITHUB_ALLOWED_ARCHIVE_EXTENSIONS = new Set(['.zip']);
@@ -2473,6 +2473,8 @@ export async function discoverInspectionEvidenceIntake({
       ],
       hard_evidence_rule: 'Only real completed physical/supplier/lab/QA inspection records with measured feature records, result semantics, and provenance can be accepted.',
       rejected_as_final_evidence: [
+        'surrogate inspection validation artifacts',
+        'synthetic Stage 5B pipeline fixtures',
         'generated CAD/drawing/quality/DFM/readiness/review/standard-doc/release artifacts',
         'intake reports',
         'promotion dry-run manifests',

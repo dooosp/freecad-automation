@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freecad-automation.local/schemas/stage5b-surrogate-inspection-validation.schema.json",
+  "title": "Stage 5B surrogate inspection validation",
+  "type": "object",
+  "required": [
+    "artifact_type",
+    "schema_version",
+    "generated_at",
+    "dry_run",
+    "non_evidence",
+    "surrogate_lane_only",
+    "requested_package_slugs",
+    "evidence_boundary",
+    "canonical_evidence_audit",
+    "packages",
+    "summary"
+  ],
+  "properties": {
+    "artifact_type": { "const": "surrogate_inspection_validation" },
+    "schema_version": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/schemaVersion" },
+    "generated_at": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/timestamp" },
+    "dry_run": { "const": true },
+    "non_evidence": { "const": true },
+    "surrogate_lane_only": { "const": true },
+    "requested_package_slugs": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/stringArray" },
+    "evidence_boundary": {
+      "type": "object",
+      "required": [
+        "hard_evidence_rule",
+        "synthetic_surrogate_values_are_not_evidence",
+        "surrogate_records_cannot_unlock_readiness",
+        "canonical_evidence_attached",
+        "product_inspection_readiness",
+        "canonical_artifacts_mutated"
+      ],
+      "properties": {
+        "hard_evidence_rule": { "type": "string", "minLength": 1 },
+        "synthetic_surrogate_values_are_not_evidence": { "const": true },
+        "surrogate_records_cannot_unlock_readiness": { "const": true },
+        "canonical_evidence_attached": { "const": false },
+        "product_inspection_readiness": { "const": false },
+        "canonical_artifacts_mutated": { "const": false },
+        "rejected_as_final_evidence": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/stringArray" }
+      },
+      "additionalProperties": true
+    },
+    "canonical_evidence_audit": {
+      "type": "object",
+      "required": ["outputs", "summary"],
+      "properties": {
+        "outputs": {
+          "type": "object",
+          "required": ["stage5b_audit_manifest"],
+          "properties": {
+            "stage5b_audit_manifest": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/artifactRef" }
+          },
+          "additionalProperties": true
+        },
+        "summary": {
+          "type": "object",
+          "required": [
+            "genuine_inspection_evidence_found",
+            "promotion_can_run",
+            "readiness_remains_held",
+            "canonical_artifacts_mutated"
+          ],
+          "properties": {
+            "genuine_inspection_evidence_found": { "const": false },
+            "promotion_can_run": { "const": false },
+            "readiness_remains_held": { "const": true },
+            "canonical_artifacts_mutated": { "const": false }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "packages": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/packageValidation" }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "package_count",
+        "surrogate_package_count",
+        "surrogate_record_count",
+        "surrogate_records_accepted_by_surrogate_lane",
+        "genuine_inspection_evidence_found",
+        "evidence_attached",
+        "product_inspection_readiness",
+        "canonical_artifacts_mutated",
+        "readiness_remains_held",
+        "readiness_truth"
+      ],
+      "properties": {
+        "package_count": { "type": "integer", "minimum": 0 },
+        "surrogate_package_count": { "type": "integer", "minimum": 0 },
+        "surrogate_record_count": { "type": "integer", "minimum": 0 },
+        "surrogate_records_accepted_by_surrogate_lane": { "type": "integer", "minimum": 0 },
+        "genuine_inspection_evidence_found": { "const": false },
+        "evidence_attached": { "const": false },
+        "product_inspection_readiness": { "const": false },
+        "canonical_artifacts_mutated": { "const": false },
+        "readiness_remains_held": { "const": true },
+        "readiness_truth": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "packageValidation": {
+      "type": "object",
+      "required": [
+        "slug",
+        "surrogate_lane",
+        "canonical_evidence_rejection",
+        "readiness_after_surrogate",
+        "surrogate_records"
+      ],
+      "properties": {
+        "slug": { "type": "string", "minLength": 1 },
+        "surrogate_lane": {
+          "type": "object",
+          "required": [
+            "status",
+            "parser_contract_validated",
+            "redaction_contract_validated",
+            "package_mapping_validated",
+            "audit_reporting_validated"
+          ],
+          "properties": {
+            "status": { "const": "accepted_surrogate_non_evidence" },
+            "parser_contract_validated": { "const": true },
+            "redaction_contract_validated": { "const": true },
+            "package_mapping_validated": { "const": true },
+            "audit_reporting_validated": { "const": true }
+          },
+          "additionalProperties": true
+        },
+        "canonical_evidence_rejection": {
+          "type": "object",
+          "required": [
+            "candidate_gate_decision",
+            "rejection_codes",
+            "attachable_evidence_valid",
+            "canonical_intake_classification",
+            "evidence_attached",
+            "product_inspection_readiness"
+          ],
+          "properties": {
+            "candidate_gate_decision": { "const": "reject" },
+            "rejection_codes": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/stringArray" },
+            "attachable_evidence_valid": { "const": false },
+            "canonical_intake_classification": { "const": "invalid_generated" },
+            "evidence_attached": { "const": false },
+            "product_inspection_readiness": { "const": false }
+          },
+          "additionalProperties": true
+        },
+        "readiness_after_surrogate": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/readinessState" },
+        "surrogate_records": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/surrogateRecord" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "surrogateRecord": {
+      "type": "object",
+      "required": [
+        "artifact_type",
+        "surrogate_lane_only",
+        "synthetic",
+        "non_evidence",
+        "canonical_evidence_eligible",
+        "inspection_shape"
+      ],
+      "properties": {
+        "artifact_type": { "const": "synthetic_stage5b_pipeline_fixture" },
+        "surrogate_lane_only": { "const": true },
+        "synthetic": { "const": true },
+        "non_evidence": { "const": true },
+        "canonical_evidence_eligible": { "const": false },
+        "inspection_shape": { "type": "object" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

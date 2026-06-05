@@ -31,6 +31,7 @@ assert.match(cliHelp, /fcad closeout-package <canonical-package-slug> --mode sof
 assert.match(cliHelp, /fcad inspection-evidence-intake \[--package <canonical-package-slug>\] \[--out <report\.json>\] \[--include-github\]/i);
 assert.match(cliHelp, /fcad inspection-evidence-promotion-dry-run --intake-report <report\.json> \[--out <promotion_dry_run_manifest\.json>\]/i);
 assert.match(cliHelp, /fcad stage5b-evidence-audit --out-dir <dir> \[--include-github\]/i);
+assert.match(cliHelp, /fcad stage5b-surrogate-inspection-validation --out-dir <dir> \[--package <canonical-package-slug>\]/i);
 assert.match(cliHelp, /fcad pack --readiness <readiness_report\.json>[\s\S]*--out <release_bundle\.zip> \[--generated-at <iso8601>\]/i);
 assert.match(cliHelp, /fcad review-context --model <file>[\s\S]*\[--inspection-evidence inspection_evidence\.json --attachment-authorization authorization_record\.json\][\s\S]*--out <review_pack\.json>/i);
 assert.match(cliHelp, /--inspection-evidence <path>\s+Genuine completed inspection evidence JSON side input for review-context; requires Stage 5B attachment authorization/i);
@@ -63,6 +64,7 @@ assert.equal(PLAIN_PYTHON_COMMANDS.includes('closeout-package'), true);
 assert.equal(PLAIN_PYTHON_COMMANDS.includes('inspection-evidence-intake'), true);
 assert.equal(PLAIN_PYTHON_COMMANDS.includes('inspection-evidence-promotion-dry-run'), true);
 assert.equal(PLAIN_PYTHON_COMMANDS.includes('stage5b-evidence-audit'), true);
+assert.equal(PLAIN_PYTHON_COMMANDS.includes('stage5b-surrogate-inspection-validation'), true);
 assert.deepEqual(STUDIO_ARTIFACT_JOB_COMMANDS, ['readiness-pack', 'generate-standard-docs', 'pack']);
 assert.deepEqual(STUDIO_PAIRED_ARTIFACT_JOB_COMMANDS, ['compare-rev', 'stabilization-review']);
 assert.deepEqual(STUDIO_ARTIFACT_COMPATIBLE_JOB_COMMANDS, ['inspect', 'report', 'readiness-pack', 'generate-standard-docs', 'pack', 'inspection-evidence-promotion-dry-run']);
@@ -70,10 +72,12 @@ assert.equal(LOCAL_API_JOB_COMMANDS.includes('review-context'), true);
 assert.equal(LOCAL_API_JOB_COMMANDS.includes('inspection-evidence-intake'), true);
 assert.equal(LOCAL_API_JOB_COMMANDS.includes('inspection-evidence-promotion-dry-run'), true);
 assert.equal(LOCAL_API_JOB_COMMANDS.includes('stage5b-evidence-audit'), true);
+assert.equal(LOCAL_API_JOB_COMMANDS.includes('stage5b-surrogate-inspection-validation'), false);
 assert.equal(STUDIO_JOB_COMMANDS.includes('review-context'), false);
 assert.equal(STUDIO_JOB_COMMANDS.includes('inspection-evidence-intake'), true);
 assert.equal(STUDIO_JOB_COMMANDS.includes('inspection-evidence-promotion-dry-run'), true);
 assert.equal(STUDIO_JOB_COMMANDS.includes('stage5b-evidence-audit'), true);
+assert.equal(STUDIO_JOB_COMMANDS.includes('stage5b-surrogate-inspection-validation'), false);
 assert.equal(
   formatCommandNameList(STUDIO_JOB_COMMANDS, { conjunction: 'or' }),
   'create, draw, inspect, report, compare-rev, readiness-pack, stabilization-review, generate-standard-docs, pack, inspection-evidence-intake, inspection-evidence-promotion-dry-run, or stage5b-evidence-audit'

@@ -78,6 +78,7 @@ import { generateCloseoutPackage } from '../src/services/closeout-package/closeo
 import { discoverInspectionEvidenceIntake } from '../src/services/inspection-evidence-intake/inspection-evidence-intake-service.js';
 import { writeInspectionEvidencePromotionDryRunManifest } from '../src/services/inspection-evidence-intake/promotion-dry-run-service.js';
 import { writeStage5bEvidenceAuditBundle } from '../src/services/inspection-evidence-intake/stage5b-evidence-audit-service.js';
+import { writeStage5bSurrogateInspectionValidationBundle } from '../src/services/inspection-evidence-intake/stage5b-surrogate-inspection-validation-service.js';
 import {
   isStage5bRuntimeValidationError,
   writeStage5bValidationDiagnosticsFile,
@@ -525,6 +526,47 @@ async function cmdStage5bEvidenceAudit(rawArgs = []) {
   }
 }
 
+async function cmdStage5bSurrogateInspectionValidation(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  rejectUnsupportedOptions('stage5b-surrogate-inspection-validation', options, ['out-dir', 'package', 'packages']);
+  const outDir = options['out-dir'];
+  if (!outDir || outDir === true) {
+    console.error('Error: stage5b-surrogate-inspection-validation requires --out-dir <dir>');
+    process.exit(1);
+  }
+  const packageSelector = options.package || options.packages || positional[0] || null;
+  const packageSlugs = packageSelector
+    ? String(packageSelector).split(',').map((slug) => slug.trim()).filter(Boolean)
+    : undefined;
+
+  try {
+    const result = await writeStage5bSurrogateInspectionValidationBundle({
+      projectRoot: PROJECT_ROOT,
+      outDir,
+      packageSlugs,
+    });
+    const manifest = result.manifest;
+    console.log(`Stage 5B surrogate inspection validation: ${result.manifest_path}`);
+    console.log(`  Surrogate records accepted by surrogate lane: ${manifest.summary.surrogate_records_accepted_by_surrogate_lane}`);
+    console.log('  Inspection evidence attached: no');
+    console.log(`  Canonical readiness remains held: ${manifest.summary.readiness_remains_held ? 'yes' : 'no'}`);
+    return manifest;
+  } catch (error) {
+    if (isStage5bRuntimeValidationError(error)) {
+      const outputDir = resolve(PROJECT_ROOT, String(outDir));
+      const diagnosticsResult = await writeCliStage5bValidationDiagnostics(error, {
+        diagnosticsPath: join(outputDir, 'validation_diagnostics.json'),
+        artifactType: 'surrogate_inspection_validation',
+        command: 'stage5b-surrogate-inspection-validation',
+      });
+      printCliStage5bValidationError(error, diagnosticsResult);
+      process.exit(1);
+    }
+    console.error(`Error: ${error.message}`);
+    process.exit(1);
+  }
+}
+
 async function main() {
   const [command, ...args] = process.argv.slice(2);
 
@@ -577,6 +619,8 @@ async function main() {
     await cmdInspectionEvidencePromotionDryRun(args);
   } else if (command === 'stage5b-evidence-audit') {
     await cmdStage5bEvidenceAudit(args);
+  } else if (command === 'stage5b-surrogate-inspection-validation') {
+    await cmdStage5bSurrogateInspectionValidation(args);
   } else if (command === 'stabilization-review') {
     await cmdStabilizationReview(args);
   } else if (command === 'generate-standard-docs') {
