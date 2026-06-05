@@ -7,6 +7,7 @@ import {
   validateStage5bAuditSummaryMarkdown,
   validateStage5bIntakeReport,
   validateStage5bPromotionDryRunManifest,
+  validateStage5bSurrogateInspectionValidation,
 } from '../../../lib/stage5b-artifact-contracts.js';
 
 export const STAGE5B_EVIDENCE_BOUNDARY_NOTE = 'Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.';
@@ -240,6 +241,18 @@ export function assertValidStage5bAuditSummaryMarkdown(markdown, {
 } = {}) {
   return assertValidation(label, validateStage5bAuditSummaryMarkdown(markdown), {
     artifactType: 'stage5b_evidence_audit_summary_markdown',
+    artifactPath,
+    projectRoot,
+  });
+}
+
+export function assertValidStage5bSurrogateInspectionValidation(manifest, {
+  label = 'surrogate inspection validation',
+  artifactPath = null,
+  projectRoot = null,
+} = {}) {
+  return assertValidation(label, validateStage5bSurrogateInspectionValidation(manifest), {
+    artifactType: 'surrogate_inspection_validation',
     artifactPath,
     projectRoot,
   });

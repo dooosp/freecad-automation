@@ -356,6 +356,21 @@ const COMMAND_MANIFEST = Object.freeze([
     }),
   }),
   Object.freeze({
+    name: 'stage5b-surrogate-inspection-validation',
+    helpSection: 'plain-python-node',
+    helpEntries: Object.freeze([
+      Object.freeze({
+        usage: 'fcad stage5b-surrogate-inspection-validation --out-dir <dir> [--package <canonical-package-slug>]',
+        summary: 'Write a synthetic surrogate non-evidence validation bundle for Stage 5B automation readiness',
+      }),
+    ]),
+    runtime: Object.freeze({
+      classification: 'plain-python-node',
+      requiresFreecadRuntime: false,
+      note: 'Generates labeled surrogate/non-evidence records from repo-local specs only, validates parser/redaction/mapping/gate/audit behavior, and keeps canonical readiness held.',
+    }),
+  }),
+  Object.freeze({
     name: 'stabilization-review',
     helpSection: 'plain-python-node',
     helpEntries: Object.freeze([

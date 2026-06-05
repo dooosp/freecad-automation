@@ -15,6 +15,7 @@ mkdir -p output/stage5b-runbook
 fcad inspection-evidence-intake [--package <canonical-package-slug>] [--include-github] --out output/stage5b-runbook/inspection-evidence-intake-report.json
 fcad inspection-evidence-promotion-dry-run --intake-report output/stage5b-runbook/inspection-evidence-intake-report.json --out output/stage5b-runbook/promotion_dry_run_manifest.json
 fcad stage5b-evidence-audit --out-dir output/stage5b-runbook-audit [--include-github]
+fcad stage5b-surrogate-inspection-validation --out-dir output/stage5b-runbook-surrogate [--package <canonical-package-slug>]
 ```
 
 Expected no-evidence result:
@@ -22,6 +23,22 @@ Expected no-evidence result:
 - `inspection-evidence-intake` reports `Genuine candidate found: no`, `Inspection evidence attached: no`, `accepted_candidate_count: 0`, and `attachment_ready_candidate_count: 0`.
 - `inspection-evidence-promotion-dry-run` reports `promotion_can_run: false`, `canonical_artifacts_mutated: false`, and no canonical next command.
 - `stage5b-evidence-audit` reports `Genuine candidate found: no`, `Inspection evidence attached: no`, `Promotion can run: no`, and `Readiness remains held: yes`.
+- `stage5b-surrogate-inspection-validation` reports `Inspection evidence attached: no` and `Canonical readiness remains held: yes` while validating parser, redaction, mapping, gate rejection, audit reporting, and readiness messaging with synthetic/surrogate/non-evidence records only.
+
+## Surrogate Automation-Readiness Lane
+
+Use `fcad stage5b-surrogate-inspection-validation --out-dir <dir> [--package <canonical-package-slug>]` when no genuine completed physical/supplier/lab/QA record exists and maintainers still need to prove the Stage 5B automation path can run. The command writes `surrogate_inspection_validation.json` and a nested canonical no-evidence audit bundle under the requested ignored output directory.
+
+This lane uses repo-local public examples, drawing intent, feature catalogs, and readiness metadata only. Representative values are labeled with `SURROGATE_NON_EVIDENCE:` and the generated inspection-shaped records are marked synthetic, surrogate, non-evidence, and ineligible for canonical evidence. The lane validates:
+
+- parser compatibility with the inspection-evidence shape
+- redaction/path-safety checks
+- package mapping from canonical package slugs
+- candidate gate rejection as real evidence
+- attachable-evidence rejection as real evidence
+- audit reporting and readiness-held messaging
+
+This lane never receives raw supplier/lab/QA/private files and never attaches evidence. Surrogate records must remain rejected by `validateAttachableInspectionEvidence`, the candidate gate, intake classification, and readiness logic. Canonical packages remain `needs_more_evidence` / `hold_for_evidence_completion` until a later explicitly authorized task attaches genuine completed evidence.
 
 ## Candidate Acceptance Gate
 
@@ -324,6 +341,7 @@ node tests/first-user-docs-smoke.test.js
 node tests/stage5b-source-of-truth-guard.test.js
 node tests/stage5b-artifact-catalog.test.js
 node tests/stage5b-artifact-contracts.test.js
+node tests/stage5b-surrogate-inspection-validation.test.js
 node tests/stage5b-evidence-audit-cli-smoke.test.js
 npm run test:stage5b:no-evidence
 npm run test:node:contract
