@@ -9,13 +9,13 @@ Audit evidence on 2026-06-06:
 
 - repository: `dooosp/freecad-automation`
 - default branch: `master`
-- audited default-branch head: `17332534923a8fe3ae703ce890f94d705ce24a6b`
+- audited default-branch head: `7d1972f8434efbb46e1bd6af5067e3ea7c07ba43`
 - active workflows: `Automation CI (hosted fast lanes)` and `FreeCAD Runtime Smoke (self-hosted macOS)`
 - GitHub branch-protection API for `master`: `Branch not protected`
 - open pull requests: none from `gh pr list --state open --limit 50`
-- PR #162 merged at `17332534923a8fe3ae703ce890f94d705ce24a6b`
-- latest audited `Automation CI (hosted fast lanes)` run on that head: success, run `27053597091`
-- latest audited `FreeCAD Runtime Smoke (self-hosted macOS)` run on that head: success, run `27053634677`
+- PR #163 merged at `7d1972f8434efbb46e1bd6af5067e3ea7c07ba43`
+- latest audited `Automation CI (hosted fast lanes)` run on that head: success, run `27054410434`
+- latest audited `FreeCAD Runtime Smoke (self-hosted macOS)` run on that head: success, run `27054452161`
 
 ## PR hosted checks
 
@@ -48,6 +48,30 @@ npm run test:ci:hosted
 `tests/lane-manifest.js` to `test:node:contract`, `test:node:integration`, and
 `test:snapshots`; it is not the full hosted checklist.
 
+## Maintainer handoff doctor
+
+After a maintainer PR train or before handing the repository back to humans,
+run the single local doctor:
+
+```bash
+npm run maintainer:doctor -- --clean
+```
+
+It writes `output/maintainer-doctor/maintainer_doctor_report.json` in ignored
+local output. The doctor runs or verifies source hygiene, the Stage 5B pipeline
+doctor, the release dry-run doctor, node contract discoverability,
+docs/source-of-truth guards, generated output policy, raw inbox tracking,
+workflow/check-name drift, and readiness/release/evidence overclaim guards.
+The report records the current truth: Stage 5B is still held, no genuine
+inspection evidence is attached, release publication has not happened, CI
+governance docs are present, and runtime smoke remains hosted/self-hosted or
+maintainer-local guidance rather than production proof.
+
+Use lower-level commands only when isolating a failed maintainer-doctor gate:
+`npm run test:stage5b:pipeline-doctor` for Stage 5B fixture pipeline drift,
+`npm run release:dry-run:doctor -- --clean` for release-bundle rehearsal drift,
+and `npm run check:source-hygiene` for generated output/source tree policy.
+
 ## Self-hosted runtime smoke
 
 `FreeCAD Runtime Smoke (self-hosted macOS)` is the repository-owned live FreeCAD
@@ -77,7 +101,8 @@ Post-merge expectation for `master`:
 
 ## Stage 5B placement
 
-Stage 5B and CI governance are closed through PR #162. Do not add new Stage 5B machinery unless
+Stage 5B and CI governance are closed through PR #162, and release dry-run
+governance is closed through PR #163. Do not add new Stage 5B machinery unless
 real drift is proven.
 
 Use `npm run test:stage5b:pipeline-doctor` only when Stage 5B docs, scripts,

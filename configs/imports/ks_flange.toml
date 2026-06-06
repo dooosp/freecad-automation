@@ -1,7 +1,7 @@
 name = "imported_ks_flange"
 
 [import]
-source_step = "/home/taeho/freecad-automation/output/ks_flange.step"
+source_step = "output/ks_flange.step"
 template_only = true
 
 # NOTE: This imported config is a template.

@@ -515,12 +515,12 @@ assert.match(docs.rcGapLedger, /Automation CI \(hosted fast lanes\).*passed/i, '
 assert.match(docs.rcGapLedger, /FreeCAD Runtime Smoke \(self-hosted macOS\).*passed/i, 'RC gap ledger should record self-hosted runtime smoke result without broadening coverage');
 assert.match(docs.rcGapLedger, /Stop active hardening/i, 'RC gap ledger should include the final freeze stop point');
 assert.match(docs.finalMaintainerHandoff, /^# Final maintainer handoff/m, 'final maintainer handoff should exist with the expected title');
-assert.match(docs.finalMaintainerHandoff, /PR \[#161\]/, 'final maintainer handoff should cite PR #161');
-assert.match(docs.finalMaintainerHandoff, /2457f693eaba3f93d10eb25bf87da813a3b0cee5/, 'final maintainer handoff should pin the handoff head');
-assert.match(docs.finalMaintainerHandoff, /27052805253/, 'final maintainer handoff should record the PR #161 hosted CI run');
-assert.match(docs.finalMaintainerHandoff, /27052849774/, 'final maintainer handoff should record the post-merge hosted CI run');
-assert.match(docs.finalMaintainerHandoff, /27052888366/, 'final maintainer handoff should record the post-merge self-hosted runtime smoke run');
-assert.match(docs.finalMaintainerHandoff, /No PR #160 or PR #161 self-hosted runtime-smoke pass is claimed here/, 'final maintainer handoff should avoid a PR runtime-smoke overclaim');
+assert.match(docs.finalMaintainerHandoff, /PR \[#163\]/, 'final maintainer handoff should cite PR #163');
+assert.match(docs.finalMaintainerHandoff, /7d1972f8434efbb46e1bd6af5067e3ea7c07ba43/, 'final maintainer handoff should pin the handoff head');
+assert.match(docs.finalMaintainerHandoff, /27054410434/, 'final maintainer handoff should record the post-merge hosted CI run');
+assert.match(docs.finalMaintainerHandoff, /27054452161/, 'final maintainer handoff should record the post-merge self-hosted runtime smoke run');
+assert.match(docs.finalMaintainerHandoff, /Stage 5B and CI governance are closed through PR #162/, 'final maintainer handoff should preserve the Stage 5B/CI governance closeout boundary');
+assert.match(docs.finalMaintainerHandoff, /release dry-run governance is closed through PR #163/, 'final maintainer handoff should record the release dry-run governance closeout boundary');
 assert.match(docs.finalMaintainerHandoff, /No genuine completed inspection evidence has been found or attached/i, 'final maintainer handoff should keep no-evidence truth');
 assert.match(docs.finalMaintainerHandoff, /Stop active hardening/i, 'final maintainer handoff should include the final freeze stop point');
 assertNoPositiveCloseoutOverclaim(docs.closeout, 'Stage 5B closeout');

@@ -75,6 +75,7 @@ Object.entries(getExpectedPackageScripts()).forEach(([scriptName, command]) => {
 assert.equal(packageJson.scripts['smoke:runtime'], 'npm run test:runtime-smoke');
 assert.equal(packageJson.scripts['check:runtime'], 'node scripts/check-runtime.js');
 assert.equal(packageJson.scripts['release:dry-run:doctor'], 'node scripts/release-dry-run-doctor.js');
+assert.equal(packageJson.scripts['maintainer:doctor'], 'node scripts/maintainer-doctor.js');
 assert.equal(packageJson.scripts['test:snapshots:update'], 'node scripts/run-snapshot-update.js');
 
 [
@@ -136,7 +137,8 @@ assert.match(testingDoc, /\[CI governance\]\(\.\/ci-governance\.md\)/);
 assert.match(ciGovernance, /^# CI governance and maintainer checklist/m);
 assert.match(ciGovernance, /Branch not protected/);
 assert.match(ciGovernance, /Stage 5B and CI governance are closed through PR #162/);
-assert.match(ciGovernance, /17332534923a8fe3ae703ce890f94d705ce24a6b/);
+assert.match(ciGovernance, /release dry-run\s+governance is closed through PR #163/i);
+assert.match(ciGovernance, /7d1972f8434efbb46e1bd6af5067e3ea7c07ba43/);
 hostedSuite.members.forEach((scriptName) => {
   assert(
     readmeTesting.includes(scriptName) || readme.includes(scriptName) || testingDoc.includes(scriptName),
@@ -147,6 +149,16 @@ assert(
   readme.includes('check:source-hygiene') && testingDoc.includes('check:source-hygiene') && ciGovernance.includes('npm run check:source-hygiene'),
   'source hygiene should be documented as a hosted and local maintainer check'
 );
+[
+  readme,
+  testingDoc,
+  ciGovernance,
+  readText('docs/final-maintainer-handoff.md'),
+].forEach((text) => {
+  assert(text.includes('npm run maintainer:doctor'), 'top-level maintainer doctor should be documented');
+  assert.match(text, /output\/maintainer-doctor|maintainer_doctor_report\.json/);
+  assert.match(text, /Stage 5B|release dry-run|source hygiene|node contract|source-of-truth/i);
+});
 [
   readme,
   ciGovernance,

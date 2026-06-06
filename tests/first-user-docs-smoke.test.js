@@ -347,15 +347,13 @@ assertMentions(
   /^# Final maintainer handoff/m,
   'final maintainer handoff should have the expected title'
 );
-assertMentions(finalMaintainerHandoffText, /2457f693eaba3f93d10eb25bf87da813a3b0cee5/, 'final maintainer handoff should pin the current default-branch head');
-assertMentions(finalMaintainerHandoffText, /PR \[#161\]/, 'final maintainer handoff should cite PR #161');
-assertMentions(finalMaintainerHandoffText, /27052805253/, 'final maintainer handoff should record the PR #161 hosted CI run');
-assertMentions(finalMaintainerHandoffText, /27052849774/, 'final maintainer handoff should record the post-merge hosted CI run');
-assertMentions(finalMaintainerHandoffText, /27052888366/, 'final maintainer handoff should record the post-merge runtime smoke run');
-assertMentions(finalMaintainerHandoffText, /27052184917/, 'final maintainer handoff should record the post-merge drift run');
-assertMentions(finalMaintainerHandoffText, /No PR #160 or PR #161 self-hosted runtime-smoke pass is claimed here/, 'final maintainer handoff should not overclaim PR runtime smoke');
+assertMentions(finalMaintainerHandoffText, /7d1972f8434efbb46e1bd6af5067e3ea7c07ba43/, 'final maintainer handoff should pin the current default-branch head');
+assertMentions(finalMaintainerHandoffText, /PR \[#163\]/, 'final maintainer handoff should cite PR #163');
+assertMentions(finalMaintainerHandoffText, /27054410434/, 'final maintainer handoff should record the post-merge hosted CI run');
+assertMentions(finalMaintainerHandoffText, /27054452161/, 'final maintainer handoff should record the post-merge runtime smoke run');
+assertMentions(finalMaintainerHandoffText, /Stage 5B and CI governance are closed through PR #162/, 'final maintainer handoff should preserve Stage 5B/CI governance closeout');
+assertMentions(finalMaintainerHandoffText, /release dry-run governance is closed through PR #163/, 'final maintainer handoff should record release dry-run governance closeout');
 assertMentions(finalMaintainerHandoffText, /no open PR rows/i, 'final maintainer handoff should record open PR state');
-assertMentions(finalMaintainerHandoffText, /no open issue rows/i, 'final maintainer handoff should record open issue state');
 assertMentions(finalMaintainerHandoffText, /No genuine completed inspection evidence has been found or attached/i, 'final maintainer handoff should preserve no-evidence truth');
 assertMentions(finalMaintainerHandoffText, /`needs_more_evidence`/, 'final maintainer handoff should mention needs_more_evidence');
 assertMentions(finalMaintainerHandoffText, /`hold_for_evidence_completion`/, 'final maintainer handoff should mention hold_for_evidence_completion');

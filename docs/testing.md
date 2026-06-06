@@ -40,6 +40,25 @@ The hosted workflow is the fast PR lane and does not install or launch FreeCAD. 
 
 `npm run test:studio-browser-smoke` is a Chrome-capable Studio lane that runs locally and as a hosted Automation CI job. It proves real browser rendering for the covered Studio routes without claiming a FreeCAD runtime launch.
 
+## Maintainer Handoff Doctor
+
+Use `npm run maintainer:doctor -- --clean` as the top-level local handoff check
+after maintainer PR trains or before handing the repo back for review. It writes
+`output/maintainer-doctor/maintainer_doctor_report.json` and composes the
+established safe guards: source hygiene, Stage 5B pipeline doctor, release
+dry-run doctor, node contract discoverability, docs/source-of-truth tests,
+generated output policy, raw inbox tracking, workflow/check-name drift, and
+readiness/release/evidence overclaim checks.
+
+Use lower-level doctors only to isolate a failing top-level gate:
+`npm run test:stage5b:pipeline-doctor` for the fixture-only Stage 5B chain,
+`npm run release:dry-run:doctor -- --clean` for the release rehearsal boundary,
+and `npm run check:source-hygiene` for generated artifact/source tree policy.
+The maintainer report must keep the current truth explicit: Stage 5B remains
+held, no real inspection evidence is attached, release publication has not
+happened, CI governance docs are present, and runtime smoke is hosted/self-hosted
+or local maintainer guidance rather than production proof.
+
 ## GitHub Actions Node24 Runtime
 
 The GitHub-hosted and self-hosted workflows opt JavaScript actions into the Node24 action runtime with `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"` and pin Node24-backed action majors to immutable commit SHAs with adjacent source-tag provenance comments:

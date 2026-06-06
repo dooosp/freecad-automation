@@ -6,6 +6,15 @@ Current truth: no genuine completed inspection evidence has been found or attach
 
 Hard evidence rule: Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.
 
+For repo-wide maintainer handoff after a PR train, start with
+`npm run maintainer:doctor -- --clean`. It writes
+`output/maintainer-doctor/maintainer_doctor_report.json` and verifies source
+hygiene, the Stage 5B pipeline doctor, release dry-run governance, node contract
+discoverability, docs/source-of-truth guards, generated output policy, raw inbox
+tracking, workflow/check-name drift, and overclaim guards. Use the Stage 5B
+commands below only to isolate or operate the Stage 5B portion of that top-level
+report.
+
 ## Quick CLI Path
 
 Run these from the repository root. Use `fcad` when the package bin is on PATH, or `node bin/fcad.js` from a checkout.

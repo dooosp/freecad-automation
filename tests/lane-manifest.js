@@ -15,6 +15,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'Pytest runner selection', args: Object.freeze(['tests/run-pytest-selection.test.js']) }),
       Object.freeze({ label: 'Command manifest', args: Object.freeze(['tests/command-manifest.test.js']) }),
       Object.freeze({ label: 'Lane manifest', args: Object.freeze(['tests/lane-manifest.test.js']) }),
+      Object.freeze({ label: 'Maintainer doctor', args: Object.freeze(['tests/maintainer-doctor.test.js']) }),
       Object.freeze({ label: 'Source-of-truth drift', args: Object.freeze(['tests/source-of-truth-drift.test.js']) }),
       Object.freeze({ label: 'Stage 5B source-of-truth guard', args: Object.freeze(['tests/stage5b-source-of-truth-guard.test.js']) }),
       Object.freeze({ label: 'Stage 5B artifact/schema catalog guard', args: Object.freeze(['tests/stage5b-artifact-catalog.test.js']) }),
