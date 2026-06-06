@@ -515,10 +515,11 @@ assert.match(docs.rcGapLedger, /Automation CI \(hosted fast lanes\).*passed/i, '
 assert.match(docs.rcGapLedger, /FreeCAD Runtime Smoke \(self-hosted macOS\).*passed/i, 'RC gap ledger should record self-hosted runtime smoke result without broadening coverage');
 assert.match(docs.rcGapLedger, /Stop active hardening/i, 'RC gap ledger should include the final freeze stop point');
 assert.match(docs.finalMaintainerHandoff, /^# Final maintainer handoff/m, 'final maintainer handoff should exist with the expected title');
-assert.match(docs.finalMaintainerHandoff, /PR \[#165\]/, 'final maintainer handoff should cite PR #165');
-assert.match(docs.finalMaintainerHandoff, /735e991d40d33b69987a4ddd52db810791e968d3/, 'final maintainer handoff should pin the handoff head');
-assert.match(docs.finalMaintainerHandoff, /27058839538/, 'final maintainer handoff should record the post-merge hosted CI run');
-assert.match(docs.finalMaintainerHandoff, /27058885140/, 'final maintainer handoff should record the post-merge self-hosted runtime smoke run');
+assert.match(docs.finalMaintainerHandoff, /PR #165/, 'final maintainer handoff should preserve the PR #165 bootstrap boundary');
+assert.match(docs.finalMaintainerHandoff, /PR \[#166\]/, 'final maintainer handoff should cite PR #166');
+assert.match(docs.finalMaintainerHandoff, /da3951e3daba015f272bf43f393f487276b32389/, 'final maintainer handoff should pin the refreshed handoff head');
+assert.match(docs.finalMaintainerHandoff, /27059357998/, 'final maintainer handoff should record the refreshed post-merge hosted CI run');
+assert.match(docs.finalMaintainerHandoff, /27059397711/, 'final maintainer handoff should record the refreshed post-merge self-hosted runtime smoke run');
 assert.match(docs.finalMaintainerHandoff, /Stage 5B and CI governance are closed through PR #162/, 'final maintainer handoff should preserve the Stage 5B/CI governance closeout boundary');
 assert.match(docs.finalMaintainerHandoff, /release dry-run governance is closed through PR #163/, 'final maintainer handoff should record the release dry-run governance closeout boundary');
 assert.match(docs.finalMaintainerHandoff, /maintainer doctor is closed through PR #164/, 'final maintainer handoff should record the maintainer doctor closeout boundary');

@@ -15,6 +15,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'Pytest runner selection', args: Object.freeze(['tests/run-pytest-selection.test.js']) }),
       Object.freeze({ label: 'Command manifest', args: Object.freeze(['tests/command-manifest.test.js']) }),
       Object.freeze({ label: 'Lane manifest', args: Object.freeze(['tests/lane-manifest.test.js']) }),
+      Object.freeze({ label: 'Maintainer doctors workflow', args: Object.freeze(['tests/maintainer-doctors-workflow.test.js']) }),
       Object.freeze({ label: 'Maintainer doctor', args: Object.freeze(['tests/maintainer-doctor.test.js']) }),
       Object.freeze({ label: 'Bootstrap doctor', args: Object.freeze(['tests/bootstrap-doctor.test.js']) }),
       Object.freeze({ label: 'Source-of-truth drift', args: Object.freeze(['tests/source-of-truth-drift.test.js']) }),
@@ -213,6 +214,12 @@ export const WORKFLOW_MAPPINGS = Object.freeze([
     commands: Object.freeze(['test:runtime-smoke']),
     scope: 'No Linux or Windows runtime ownership claims, and no broad tolerance or Monte Carlo maturity claim',
     suffix: 'plus runtime-backed Python smoke regressions, the quality fixture matrix, and a narrow tolerance CSV smoke',
+  }),
+  Object.freeze({
+    label: 'Maintainer Doctors (hosted schedule)',
+    commands: Object.freeze(['check:source-hygiene', 'bootstrap:doctor', 'maintainer:doctor', 'release:dry-run:doctor', 'test:stage5b:pipeline-doctor']),
+    scope: 'Governance and maintenance only; not release approval, production observation, evidence attachment, readiness proof, or doctor artifact upload',
+    suffix: 'plus `npm ci` and the source-of-truth drift guard',
   }),
 ]);
 
