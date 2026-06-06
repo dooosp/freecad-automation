@@ -4,6 +4,10 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
+import {
+  isCleanDetachedStage5bPipelineDoctorCheckout,
+} from '../src/services/inspection-evidence-intake/stage5b-evidence-pipeline-doctor-service.js';
+
 const ROOT = resolve(import.meta.dirname, '..');
 const PACKAGE_SLUG = 'quality-pass-bracket';
 const RUN_ID = `${process.pid}-${Date.now()}`;
@@ -95,6 +99,25 @@ const canonicalStatusBefore = docsExamplesStatus();
 const canonicalHashBefore = hashTrackedFiles(canonicalFiles);
 
 try {
+  assert.equal(isCleanDetachedStage5bPipelineDoctorCheckout({
+    current_branch: null,
+    head_sha: 'abc123',
+    dirty_tree: false,
+    checkout_safety: {
+      detached_head: true,
+      clean_detached_head_checkout_ok: true,
+    },
+  }), true, 'clean detached CI checkout should be accepted by the doctor preflight');
+  assert.equal(isCleanDetachedStage5bPipelineDoctorCheckout({
+    current_branch: null,
+    head_sha: 'abc123',
+    dirty_tree: true,
+    checkout_safety: {
+      detached_head: true,
+      clean_detached_head_checkout_ok: false,
+    },
+  }), false, 'dirty detached checkout should still be unsafe');
+
   const run = runFcad([
     'stage5b-evidence-pipeline-doctor',
     '--package',

@@ -212,6 +212,7 @@ async function collectRepoPreflight(projectRoot) {
     pwdResult,
     rootResult,
     branchResult,
+    headRefResult,
     headResult,
     defaultResult,
     remoteHeadResult,
@@ -220,32 +221,51 @@ async function collectRepoPreflight(projectRoot) {
     Promise.resolve({ ok: true, stdout: process.cwd() }),
     runGit(projectRoot, ['rev-parse', '--show-toplevel']),
     runGit(projectRoot, ['branch', '--show-current']),
+    runGit(projectRoot, ['rev-parse', '--abbrev-ref', 'HEAD']),
     runGit(projectRoot, ['rev-parse', 'HEAD']),
     runGit(projectRoot, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD']),
     runGit(projectRoot, ['rev-parse', 'origin/HEAD']),
     runGit(projectRoot, ['status', '--short']),
   ]);
   const repoRoot = rootResult.ok ? rootResult.stdout.trim() : null;
+  const branchName = branchResult.ok ? branchResult.stdout.trim() || null : null;
+  const headRef = headRefResult.ok ? headRefResult.stdout.trim() || null : null;
+  const headSha = headResult.ok ? headResult.stdout.trim() || null : null;
+  const gitDefaultHead = defaultResult.ok ? defaultResult.stdout.trim() || null : null;
+  const githubBaseRef = normalizeRepoPath(process.env.GITHUB_BASE_REF || '');
+  const remoteDefaultHead = gitDefaultHead || (githubBaseRef ? `origin/${githubBaseRef}` : null);
+  const remoteDefaultHeadSource = gitDefaultHead
+    ? 'git_symbolic_ref'
+    : githubBaseRef
+      ? 'github_base_ref_fallback'
+      : 'unavailable';
   const dirtyPaths = statusResult.ok
     ? statusResult.stdout.split('\n').map((line) => line.trim()).filter(Boolean)
     : [];
+  const detachedHead = !branchName && headRef === 'HEAD';
+  const cleanDetachedHeadCheckoutOk = Boolean(detachedHead && headSha && dirtyPaths.length === 0);
   return {
     pwd: pwdResult.stdout,
     repo_root: repoRoot,
     repo_root_basename: repoRoot ? basename(repoRoot) : null,
     repo_identity_ok: repoRoot ? basename(repoRoot) === 'freecad-automation' : false,
-    current_branch: branchResult.ok ? branchResult.stdout.trim() || null : null,
-    head_sha: headResult.ok ? headResult.stdout.trim() || null : null,
-    default_branch: defaultResult.ok ? defaultResult.stdout.trim() || null : null,
-    remote_default_head: defaultResult.ok ? defaultResult.stdout.trim() || null : null,
+    current_branch: branchName,
+    head_ref: headRef,
+    head_sha: headSha,
+    default_branch: remoteDefaultHead,
+    remote_default_head: remoteDefaultHead,
+    remote_default_head_source: remoteDefaultHeadSource,
     remote_default_head_sha: remoteHeadResult.ok ? remoteHeadResult.stdout.trim() || null : null,
     dirty_tree: dirtyPaths.length > 0,
     dirty_paths: dirtyPaths,
     checkout_safety: {
       repo_identity_ok: repoRoot ? basename(repoRoot) === 'freecad-automation' : false,
-      branch_discovered: Boolean(branchResult.ok && branchResult.stdout.trim()),
-      head_discovered: Boolean(headResult.ok && headResult.stdout.trim()),
-      remote_default_discovered: Boolean(defaultResult.ok && defaultResult.stdout.trim()),
+      branch_discovered: Boolean(branchName),
+      detached_head: detachedHead,
+      clean_detached_head_checkout_ok: cleanDetachedHeadCheckoutOk,
+      head_discovered: Boolean(headSha),
+      remote_default_discovered: Boolean(remoteDefaultHead),
+      remote_default_head_source: remoteDefaultHeadSource,
       dirty_tree_status_discovered: statusResult.ok,
       canonical_package_dirty_paths: dirtyPaths.filter((line) => /\sdocs\/examples\//.test(line)),
       raw_inbox_dirty_paths: dirtyPaths.filter((line) => /\slocal\/stage5b-candidate-evidence-inbox\//.test(line)),
@@ -259,6 +279,16 @@ function blocker(code, gate, message, evidence = {}) {
 
 function addBlocker(blockers, code, gate, message, evidence = {}) {
   blockers.push(blocker(code, gate, message, evidence));
+}
+
+export function isCleanDetachedStage5bPipelineDoctorCheckout(repoPreflight) {
+  return Boolean(
+    !repoPreflight?.current_branch
+    && repoPreflight?.head_sha
+    && repoPreflight?.dirty_tree === false
+    && repoPreflight?.checkout_safety?.detached_head === true
+    && repoPreflight?.checkout_safety?.clean_detached_head_checkout_ok === true
+  );
 }
 
 function uniqueBlockers(blockers = []) {
@@ -606,14 +636,14 @@ function addInspectionBlockers({
   if (!repoPreflight.repo_identity_ok) {
     addBlocker(blockers, 'repo_identity_invalid', 'repo_preflight', 'Repo root basename must be freecad-automation.', { repo_root: repoPreflight.repo_root });
   }
-  if (!repoPreflight.current_branch) {
-    addBlocker(blockers, 'branch_not_discovered', 'repo_preflight', 'Current branch could not be discovered.');
+  if (!repoPreflight.current_branch && !isCleanDetachedStage5bPipelineDoctorCheckout(repoPreflight)) {
+    addBlocker(blockers, 'branch_not_discovered', 'repo_preflight', 'Current branch could not be discovered outside a clean detached CI checkout.', {
+      head_ref: repoPreflight.head_ref,
+      dirty_tree: repoPreflight.dirty_tree,
+    });
   }
   if (!repoPreflight.head_sha) {
     addBlocker(blockers, 'head_sha_not_discovered', 'repo_preflight', 'HEAD SHA could not be discovered.');
-  }
-  if (!repoPreflight.remote_default_head) {
-    addBlocker(blockers, 'remote_default_head_not_discovered', 'repo_preflight', 'Remote default HEAD could not be discovered.');
   }
   safeList(repoPreflight.checkout_safety?.canonical_package_dirty_paths).forEach((pathValue) => {
     addBlocker(blockers, 'canonical_package_dirty_path', 'checkout_safety', 'Canonical package paths are dirty during the pipeline doctor run.', { path: pathValue });
