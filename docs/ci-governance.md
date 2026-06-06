@@ -9,13 +9,13 @@ Audit evidence on 2026-06-06:
 
 - repository: `dooosp/freecad-automation`
 - default branch: `master`
-- audited default-branch head: `7d1972f8434efbb46e1bd6af5067e3ea7c07ba43`
+- audited default-branch head: `735e991d40d33b69987a4ddd52db810791e968d3`
 - active workflows: `Automation CI (hosted fast lanes)` and `FreeCAD Runtime Smoke (self-hosted macOS)`
 - GitHub branch-protection API for `master`: `Branch not protected`
 - open pull requests: none from `gh pr list --state open --limit 50`
-- PR #163 merged at `7d1972f8434efbb46e1bd6af5067e3ea7c07ba43`
-- latest audited `Automation CI (hosted fast lanes)` run on that head: success, run `27054410434`
-- latest audited `FreeCAD Runtime Smoke (self-hosted macOS)` run on that head: success, run `27054452161`
+- PR #165 merged at `735e991d40d33b69987a4ddd52db810791e968d3`
+- latest audited `Automation CI (hosted fast lanes)` run on that head: success, run `27058839538`
+- latest audited `FreeCAD Runtime Smoke (self-hosted macOS)` run on that head: success, run `27058885140`
 
 ## PR hosted checks
 
@@ -115,9 +115,10 @@ Post-merge expectation for `master`:
 
 ## Stage 5B placement
 
-Stage 5B and CI governance are closed through PR #162, and release dry-run
-governance is closed through PR #163. Do not add new Stage 5B machinery unless
-real drift is proven.
+Stage 5B and CI governance are closed through PR #162, release dry-run
+governance is closed through PR #163, maintainer doctor is closed through PR
+#164, and bootstrap doctor is closed through PR #165. Do not add new Stage 5B
+machinery unless real drift is proven.
 
 Use `npm run test:stage5b:pipeline-doctor` only when Stage 5B docs, scripts,
 schemas, or runbook surfaces are touched, or when maintainers explicitly need
@@ -159,7 +160,7 @@ runtime-smoke evidence, and the release checklist in
 For a non-publishing local release-bundle rehearsal, run:
 
 ```bash
-npm run release:dry-run:doctor
+npm run release:dry-run:doctor -- --clean
 npm run check:source-hygiene
 ```
 

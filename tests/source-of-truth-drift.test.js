@@ -139,7 +139,11 @@ assert.match(ciGovernance, /^# CI governance and maintainer checklist/m);
 assert.match(ciGovernance, /Branch not protected/);
 assert.match(ciGovernance, /Stage 5B and CI governance are closed through PR #162/);
 assert.match(ciGovernance, /release dry-run\s+governance is closed through PR #163/i);
-assert.match(ciGovernance, /7d1972f8434efbb46e1bd6af5067e3ea7c07ba43/);
+assert.match(ciGovernance, /maintainer doctor is closed through PR\s+#164/i);
+assert.match(ciGovernance, /bootstrap doctor is closed through PR #165/i);
+assert.match(ciGovernance, /735e991d40d33b69987a4ddd52db810791e968d3/);
+assert.match(ciGovernance, /27058839538/);
+assert.match(ciGovernance, /27058885140/);
 hostedSuite.members.forEach((scriptName) => {
   assert(
     readmeTesting.includes(scriptName) || readme.includes(scriptName) || testingDoc.includes(scriptName),
