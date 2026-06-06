@@ -1,6 +1,6 @@
 # Stage 5B automation closeout status
 
-This document summarizes the Stage 5B automation and handoff chain through PR [#153](https://github.com/dooosp/freecad-automation/pull/153). It is a software/status closeout only. It does not attach inspection evidence, mutate canonical package artifacts, regenerate readiness, or claim production readiness.
+This document summarizes the Stage 5B automation and handoff chain through PR [#159](https://github.com/dooosp/freecad-automation/pull/159). It is a software/status closeout only. It does not attach inspection evidence, mutate canonical package artifacts, regenerate readiness, or claim production readiness.
 
 For day-to-day CLI/API/Studio operation, diagnostics, expected no-evidence output, and validation commands, use the [Stage 5B operational runbook](./stage-5b-operational-runbook.md). For supplier, lab, QA, or physical-inspection request wording before any candidate enters review, use the [Stage 5B evidence request packet](./stage-5b-evidence-request-packet.md). For future human sign-off metadata before canonical mutation, use the [Stage 5B attachment authorization record](./stage-5b-attachment-authorization-record.md). For the concise producer/schema/preview/evidence/readiness map of Stage 5B control outputs, use the [Stage 5B artifact/schema catalog](./stage-5b-artifact-schema-catalog.md).
 
@@ -42,6 +42,11 @@ For day-to-day CLI/API/Studio operation, diagnostics, expected no-evidence outpu
 | [#151](https://github.com/dooosp/freecad-automation/pull/151) | Merged | `59afbb7851ebbbe5ba5e4cef2092487e7be83f7b` | Hardened self-hosted runtime smoke governance. |
 | [#152](https://github.com/dooosp/freecad-automation/pull/152) | Merged | `f4b38dec7b75671e73cd8d269955cdf837341b0b` | Hardened Stage 5B attachment provenance and direct-attachment boundaries. |
 | [#153](https://github.com/dooosp/freecad-automation/pull/153) | Merged | `95a471971a2b8462813683060b5197b42bdd2760` | Added the release-candidate closeout gap ledger and final stop-point handoff while preserving the no-evidence readiness truth. |
+| [#155](https://github.com/dooosp/freecad-automation/pull/155) | Merged | `c4a4d3cb27ec0abf564e77864ded9ba62633cac3` | Added the surrogate inspection validation lane for automation-readiness checks with synthetic non-evidence only. |
+| [#156](https://github.com/dooosp/freecad-automation/pull/156) | Merged | `a72a401e0c843d75bc15ec26f1814b9a69976d93` | Added the source kit and source preflight helpers for ignored local candidate acquisition before any later authorized review. |
+| [#157](https://github.com/dooosp/freecad-automation/pull/157) | Merged | `1c4ebf7af1376b70e258b393eae78b5a80a0a815` | Added the review dry-run orchestration bridge without attaching evidence or regenerating readiness. |
+| [#158](https://github.com/dooosp/freecad-automation/pull/158) | Merged | `264bfc88c8679596ba1229c4bc2f3a0948ae0961` | Added the attachment controller that verifies authorization prerequisites and fails closed before any later explicit attachment task. |
+| [#159](https://github.com/dooosp/freecad-automation/pull/159) | Merged | `a14359118af06de217b2d46a1f00176dd1fca744` | Added the fixture-only pipeline doctor for source-kit -> source-preflight -> review-dry-run -> attachment-controller -> pipeline-doctor -> later explicit real attachment/regeneration goal. |
 
 ## Handoff ledger
 
@@ -49,16 +54,21 @@ Use this ordered handoff when maintainers need to see the complete Stage 5B chai
 
 1. Stage 5B evidence request packet: ask a supplier, lab, QA reviewer, or physical inspector for a completed real record. The packet is a request/checklist control document, not evidence.
 2. Local-only candidate inbox: place newly received JSON and gate reports under ignored `local/stage5b-candidate-evidence-inbox/<package-slug>/`. Do not commit raw records, secrets, private URLs, PII, or supplier/lab/QA records from this inbox.
-3. Candidate evidence gate: run `node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json> --out <report.json>` for a newly supplied JSON record. The gate produces an accept/reject checklist only.
-4. Pre-attachment review checklist: when a candidate gate report is accepted, verify provenance/reviewer traceability, package/part/revision mapping, redaction/privacy review, path safety, next intake/dry-run/audit commands, authorization before attachment, exact later task boundary for attachment, and readiness-held truth before any later authorized attachment task.
-5. Stage 5B attachment authorization record template: use `docs/stage-5b-attachment-authorization-record.md` as the control-metadata template/reference while planning the review path. Do not complete or treat that record as authorization until intake, dry-run, and audit outputs have been reviewed.
-6. Intake: run `inspection-evidence-intake` to search allowed sources and classify candidates without mutating canonical packages, only after the task explicitly authorizes intake review.
-7. Promotion dry-run: run `inspection-evidence-promotion-dry-run` from an intake report to plan future attachment only when a genuine validated candidate is attachment-ready.
-8. Audit: run `stage5b-evidence-audit` to write `intake_report.json`, `promotion_dry_run_manifest.json`, `stage5b_audit_manifest.json`, and `stage5b_audit_summary.md` as a non-mutating bundle.
-9. Studio/API review: queue intake, promotion dry-run, and audit jobs through `/jobs` or `/api/studio/jobs`; Review previews registered artifacts through tracked routes only.
-10. No-evidence lane: run `npm run test:stage5b:no-evidence` to prove the current documented CLI path finds no genuine evidence, promotes nothing, and leaves canonical artifacts unchanged.
-11. Artifact/schema catalog: use `docs/stage-5b-artifact-schema-catalog.md` to identify each control output's producer, schema or contract, preview boundary, non-evidence status, and readiness effect.
-12. Attachment authorization before mutation: complete or reference the Stage 5B attachment authorization record only after accepted gate, privacy, provenance, mapping, intake, dry-run, audit, and no-evidence review are complete. Authorization records do not attach evidence or satisfy readiness.
+3. Source kit and source preflight: run `fcad stage5b-evidence-source-kit --package <package-slug>`, place a received source only under the ignored inbox, then run `fcad stage5b-evidence-source-preflight --package <package-slug> --source <repo-relative-source> --out <local-inbox-report.json>`.
+4. Review dry-run: run `fcad stage5b-evidence-review-dry-run --package <package-slug> --source <repo-relative-source> --out-dir output/stage5b-review-dry-run` to plan redaction, candidate preparation, gate review, audit review, blockers, and readiness-held status without attachment.
+5. Attachment controller: run `fcad stage5b-evidence-attachment-controller --review-manifest <review-manifest.json> --authorization-record <authorization-record.json> --out-dir output/stage5b-attachment-controller --dry-run` to verify fail-closed authorization prerequisites before any later explicit attachment task.
+6. Pipeline doctor: run `fcad stage5b-evidence-pipeline-doctor --package <package-slug> --out-dir output/stage5b-evidence-pipeline-doctor` for the fixture-only regression guard of source-kit -> source-preflight -> review-dry-run -> attachment-controller -> pipeline-doctor -> later explicit real attachment/regeneration goal.
+7. Candidate evidence gate: run `node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json> --out <report.json>` for a newly supplied JSON record only in a later authorized real review path. The gate produces an accept/reject checklist only.
+8. Pre-attachment review checklist: when a candidate gate report is accepted, verify provenance/reviewer traceability, package/part/revision mapping, redaction/privacy review, path safety, next intake/dry-run/audit commands, authorization before attachment, exact later task boundary for attachment, and readiness-held truth before any later authorized attachment task.
+9. Stage 5B attachment authorization record template: use `docs/stage-5b-attachment-authorization-record.md` as the control-metadata template/reference while planning the review path. Do not complete or treat that record as authorization until intake, dry-run, and audit outputs have been reviewed.
+10. Intake: run `inspection-evidence-intake` to search allowed sources and classify candidates without mutating canonical packages, only after the task explicitly authorizes intake review.
+11. Promotion dry-run: run `inspection-evidence-promotion-dry-run` from an intake report to plan future attachment only when a genuine validated candidate is attachment-ready.
+12. Audit: run `stage5b-evidence-audit` to write `intake_report.json`, `promotion_dry_run_manifest.json`, `stage5b_audit_manifest.json`, and `stage5b_audit_summary.md` as a non-mutating bundle.
+13. Studio/API review: queue intake, promotion dry-run, and audit jobs through `/jobs` or `/api/studio/jobs`; Review previews registered artifacts through tracked routes only.
+14. Surrogate lane: run `stage5b-surrogate-inspection-validation` only to prove parser/redaction/mapping/gate/audit behavior with synthetic non-evidence when no genuine completed record exists.
+15. No-evidence lane: run `npm run test:stage5b:no-evidence` to prove the current documented CLI path finds no genuine evidence, promotes nothing, and leaves canonical artifacts unchanged.
+16. Artifact/schema catalog: use `docs/stage-5b-artifact-schema-catalog.md` to identify each control output's producer, schema or contract, preview boundary, non-evidence status, and readiness effect.
+17. Attachment authorization before mutation: complete or reference the Stage 5B attachment authorization record only after accepted gate, privacy, provenance, mapping, intake, dry-run, audit, and no-evidence review are complete. Authorization records do not attach evidence or satisfy readiness.
 
 The unchanged readiness truth across this chain is `needs_more_evidence / hold_for_evidence_completion`. No genuine completed `inspection_evidence` has been found or attached.
 
@@ -73,7 +83,12 @@ Stage 5B now has these software surfaces:
 - the Pre-Attachment Review Checklist in the operational runbook and request packet for accepted gate reports before any later authorized intake, dry-run, audit, or attachment task.
 - the [Stage 5B attachment authorization record](./stage-5b-attachment-authorization-record.md) for future human authorization metadata before canonical attachment.
 - the [Stage 5B artifact/schema catalog](./stage-5b-artifact-schema-catalog.md) for request packet, candidate gate report, attachment authorization record, intake report, promotion dry-run manifest, audit manifest, audit summary, and validation diagnostics producer/schema/preview/evidence/readiness boundaries.
-- release audit, local API preview/download, negative-contract, job/artifact lifecycle, release bundle reproducibility, first-user E2E, local API schema parity, Studio API fuzz, runtime output contract, CI/source hygiene, workflow provenance pinning, self-hosted runtime governance, attachment provenance hardening, and RC gap ledger handoff through PRs #140-#153.
+- `stage5b-surrogate-inspection-validation`, which exercises parser, redaction, mapping, gate, audit, and readiness-held behavior using synthetic/surrogate/non-evidence records only.
+- `stage5b-evidence-source-kit` and `stage5b-evidence-source-preflight`, which prepare ignored local inbox materials and verify candidate source safety before later review.
+- `stage5b-evidence-review-dry-run`, which chains source preflight, redaction planning, review-scoped candidate preparation, candidate gate, intake/dry-run/audit planning, and readiness-held reporting without attachment.
+- `stage5b-evidence-attachment-controller`, which verifies review and authorization prerequisites for a later explicit attachment task and fails closed without attaching evidence.
+- `stage5b-evidence-pipeline-doctor`, which proves the fixture-only safe chain source-kit -> source-preflight -> review-dry-run -> attachment-controller -> pipeline-doctor -> later explicit real attachment/regeneration goal.
+- release audit, local API preview/download, negative-contract, job/artifact lifecycle, release bundle reproducibility, first-user E2E, local API schema parity, Studio API fuzz, runtime output contract, CI/source hygiene, workflow provenance pinning, self-hosted runtime governance, attachment provenance hardening, RC gap ledger handoff through PRs #140-#153, and the source-kit/preflight, review dry-run, attachment-controller, surrogate-validation, and pipeline-doctor closeout surfaces through PRs #155-#159.
 - table normalization for explicit inspection tables in CSV, TSV, Markdown, TXT, and allowlisted ZIP entries.
 - include_github discovery (`--include-github`) for bounded public GitHub search and sanitized candidate provenance.
 - attachment planning that links only existing candidate/package signals and never invents measured values.
@@ -88,6 +103,12 @@ Current command entrypoints:
 fcad inspection-evidence-intake [--package <slug>] [--include-github] --out <report.json>
 fcad inspection-evidence-promotion-dry-run --intake-report <report.json> --out <promotion_dry_run_manifest.json>
 fcad stage5b-evidence-audit --out-dir <dir> [--include-github]
+fcad stage5b-evidence-source-kit [--package <canonical-package-slug>] [--out <report.json>]
+fcad stage5b-evidence-source-preflight [--package <canonical-package-slug>] [--source <raw-source.json|csv|tsv>] [--out <report.json>]
+fcad stage5b-evidence-review-dry-run --package <canonical-package-slug> [--source <raw-source.json|csv|tsv>] --out-dir <ignored-dir> [--fixture]
+fcad stage5b-evidence-attachment-controller --review-manifest <manifest.json> --authorization-record <path-or-url> --out-dir <ignored-dir> [--dry-run]
+fcad stage5b-evidence-pipeline-doctor [--package <canonical-package-slug>] [--out-dir <ignored-dir>]
+fcad stage5b-surrogate-inspection-validation --out-dir <dir> [--package <canonical-package-slug>]
 ```
 
 ## Evidence truth

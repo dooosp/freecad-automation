@@ -398,10 +398,10 @@ assertMentions(
   /\[Stage 5B artifact\/schema catalog\]\(\.\/stage-5b-artifact-schema-catalog\.md\)/,
   'Stage 5B automation closeout should link the artifact/schema catalog'
 );
-for (const pr of ['#113', '#114', '#115', '#116', '#117', '#118', '#119', '#120', '#121', '#130', '#131', '#132', '#133', '#134', '#135', '#136', '#137', '#138', '#139', '#140', '#141', '#142', '#143', '#144', '#145', '#146', '#147', '#148', '#149', '#150', '#151', '#152', '#153']) {
+for (const pr of ['#113', '#114', '#115', '#116', '#117', '#118', '#119', '#120', '#121', '#130', '#131', '#132', '#133', '#134', '#135', '#136', '#137', '#138', '#139', '#140', '#141', '#142', '#143', '#144', '#145', '#146', '#147', '#148', '#149', '#150', '#151', '#152', '#153', '#155', '#156', '#157', '#158', '#159']) {
   assert.equal(stage5bAutomationCloseoutText.includes(pr), true, `Stage 5B automation closeout should mention PR ${pr}`);
 }
-assertMentions(stage5bAutomationCloseoutText, /through PR \[#153\]/, 'Stage 5B automation closeout should state the current PR chain endpoint');
+assertMentions(stage5bAutomationCloseoutText, /through PR \[#159\]/, 'Stage 5B automation closeout should state the current PR chain endpoint');
 for (const surface of [
   'inspection-evidence-intake',
   'table normalization',
@@ -410,6 +410,12 @@ for (const surface of [
   'inspection-evidence-promotion-dry-run',
   'promotion dry-run',
   'stage5b-evidence-audit',
+  'stage5b-surrogate-inspection-validation',
+  'stage5b-evidence-source-kit',
+  'stage5b-evidence-source-preflight',
+  'stage5b-evidence-review-dry-run',
+  'stage5b-evidence-attachment-controller',
+  'stage5b-evidence-pipeline-doctor',
   'artifact/schema catalog',
   'attachment authorization record',
   'validation diagnostics',

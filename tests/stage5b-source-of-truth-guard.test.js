@@ -464,6 +464,11 @@ assert.match(docs.closeout, /PR #150|\[#150\]/, 'Stage 5B closeout should includ
 assert.match(docs.closeout, /PR #151|\[#151\]/, 'Stage 5B closeout should include the PR #151 self-hosted runtime governance state');
 assert.match(docs.closeout, /PR #152|\[#152\]/, 'Stage 5B closeout should include the PR #152 attachment provenance state');
 assert.match(docs.closeout, /PR #153|\[#153\]/, 'Stage 5B closeout should include the PR #153 RC gap ledger handoff state');
+assert.match(docs.closeout, /PR #155|\[#155\]/, 'Stage 5B closeout should include the PR #155 surrogate validation state');
+assert.match(docs.closeout, /PR #156|\[#156\]/, 'Stage 5B closeout should include the PR #156 source kit/preflight state');
+assert.match(docs.closeout, /PR #157|\[#157\]/, 'Stage 5B closeout should include the PR #157 review dry-run state');
+assert.match(docs.closeout, /PR #158|\[#158\]/, 'Stage 5B closeout should include the PR #158 attachment controller state');
+assert.match(docs.closeout, /PR #159|\[#159\]/, 'Stage 5B closeout should include the PR #159 pipeline doctor state');
 assert.match(docs.closeout, /\[Stage 5B operational runbook\]\(\.\/stage-5b-operational-runbook\.md\)/, 'Stage 5B closeout should link the operational runbook');
 assert.match(docs.closeout, /\[Stage 5B evidence request packet\]\(\.\/stage-5b-evidence-request-packet\.md\)/, 'Stage 5B closeout should link the evidence request packet');
 assert.match(docs.closeout, /\[Stage 5B attachment authorization record\]\(\.\/stage-5b-attachment-authorization-record\.md\)/, 'Stage 5B closeout should link the attachment authorization record');
@@ -480,11 +485,17 @@ assert.match(docs.closeout, /\[Stage 5B artifact\/schema catalog\]\(\.\/stage-5b
   'inspection-evidence-intake',
   'inspection-evidence-promotion-dry-run',
   'stage5b-evidence-audit',
+  'stage5b-surrogate-inspection-validation',
+  'stage5b-evidence-source-kit',
+  'stage5b-evidence-source-preflight',
+  'stage5b-evidence-review-dry-run',
+  'stage5b-evidence-attachment-controller',
+  'stage5b-evidence-pipeline-doctor',
   'needs_more_evidence / hold_for_evidence_completion',
 ].forEach((needle) => {
   assert(docs.closeout.includes(needle), `Stage 5B closeout handoff ledger should include ${needle}`);
 });
-assert.match(docs.closeout, /through PR \[#153\]/, 'Stage 5B closeout should state the PR #153 endpoint');
+assert.match(docs.closeout, /through PR \[#159\]/, 'Stage 5B closeout should state the PR #159 endpoint');
 assert.match(docs.readme, /HTTPS GitHub\/GitHubusercontent allowlisted public links/, 'README should document the bounded GitHub public-link downloader host policy');
 assert.match(docs.supportMatrix, /HTTPS GitHub\/GitHubusercontent allowlisted public links/, 'support matrix should document the bounded GitHub public-link downloader host policy');
 assert.match(docs.inspectionContract, /HTTPS URLs on the explicit GitHub\/GitHubusercontent host allowlist/, 'inspection evidence contract should document the explicit GitHub downloader host allowlist');
