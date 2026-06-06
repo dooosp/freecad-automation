@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freecad-automation.local/schemas/stage5b-evidence-attachment-control-manifest.schema.json",
+  "title": "Stage 5B evidence attachment control manifest",
+  "type": "object",
+  "required": [
+    "artifact_type",
+    "schema_version",
+    "generated_at",
+    "dry_run",
+    "non_mutating",
+    "review_manifest",
+    "authorization_record",
+    "repo_preflight",
+    "gates",
+    "blockers",
+    "next_commands",
+    "evidence_boundary",
+    "readiness_held_truth",
+    "summary"
+  ],
+  "properties": {
+    "artifact_type": { "const": "stage5b_evidence_attachment_control_manifest" },
+    "schema_version": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/schemaVersion" },
+    "generated_at": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/timestamp" },
+    "dry_run": { "type": "boolean" },
+    "non_mutating": { "const": true },
+    "review_manifest": {
+      "type": "object",
+      "required": ["path", "exists", "artifact_type"],
+      "properties": {
+        "path": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/repoPath" },
+        "exists": { "type": "boolean" },
+        "artifact_type": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "package_slug": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "sha256": {
+          "anyOf": [
+            { "type": "string", "minLength": 64, "maxLength": 64 },
+            { "type": "null" }
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "authorization_record": {
+      "type": "object",
+      "required": ["ref", "exists", "record_type"],
+      "properties": {
+        "ref": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/sourceRef" },
+        "exists": { "type": "boolean" },
+        "record_type": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "package_slug": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "repo_preflight": {
+      "type": "object",
+      "required": ["repo_root_basename", "repo_identity_ok", "current_branch", "head_sha", "remote_default_head", "dirty_tree"],
+      "properties": {
+        "repo_root_basename": { "type": "string" },
+        "repo_identity_ok": { "type": "boolean" },
+        "current_branch": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "head_sha": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "remote_default_head": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "dirty_tree": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "gates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "status", "required", "message"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["pass", "blocked"] },
+          "required": { "type": "boolean" },
+          "message": { "type": "string", "minLength": 1 },
+          "reasons": { "type": "array", "items": { "type": "string" } }
+        },
+        "additionalProperties": true
+      }
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "gate", "message"],
+        "properties": {
+          "code": { "type": "string", "minLength": 1 },
+          "gate": { "type": "string", "minLength": 1 },
+          "message": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": true
+      }
+    },
+    "next_commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["label", "allowed_now", "command"],
+        "properties": {
+          "label": { "type": "string", "minLength": 1 },
+          "allowed_now": { "type": "boolean" },
+          "command": {
+            "anyOf": [
+              { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/command" },
+              { "type": "null" }
+            ]
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "evidence_boundary": {
+      "type": "object",
+      "required": [
+        "hard_evidence_rule",
+        "controller_does_not_attach_evidence",
+        "controller_does_not_promote_evidence",
+        "controller_does_not_regenerate_readiness",
+        "later_explicit_attachment_task_required",
+        "rejected_as_real_evidence"
+      ],
+      "properties": {
+        "hard_evidence_rule": { "type": "string", "minLength": 1 },
+        "controller_does_not_attach_evidence": { "const": true },
+        "controller_does_not_promote_evidence": { "const": true },
+        "controller_does_not_regenerate_readiness": { "const": true },
+        "later_explicit_attachment_task_required": { "const": true },
+        "rejected_as_real_evidence": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/stringArray" }
+      },
+      "additionalProperties": true
+    },
+    "readiness_held_truth": {
+      "type": "object",
+      "required": [
+        "readiness_remains_held",
+        "status",
+        "gate_decision",
+        "canonical_readiness_regenerated",
+        "canonical_artifacts_mutated",
+        "packages_marked_ready"
+      ],
+      "properties": {
+        "readiness_remains_held": { "const": true },
+        "status": { "const": "needs_more_evidence" },
+        "gate_decision": { "const": "hold_for_evidence_completion" },
+        "canonical_readiness_regenerated": { "const": false },
+        "canonical_artifacts_mutated": { "const": false },
+        "packages_marked_ready": { "const": false }
+      },
+      "additionalProperties": true
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "attachment_control_status",
+        "decision",
+        "future_explicit_attachment_prerequisites_met",
+        "evidence_attached",
+        "canonical_artifacts_mutated",
+        "canonical_readiness_regenerated",
+        "packages_marked_ready",
+        "readiness_status",
+        "readiness_gate_decision"
+      ],
+      "properties": {
+        "attachment_control_status": {
+          "enum": [
+            "authorized_attachment_ready_dry_run",
+            "authorized_attachment_ready_control_only",
+            "hold_for_attachment_controller_blockers"
+          ]
+        },
+        "decision": { "enum": ["pass", "hold"] },
+        "future_explicit_attachment_prerequisites_met": { "type": "boolean" },
+        "evidence_attached": { "const": false },
+        "canonical_artifacts_mutated": { "const": false },
+        "canonical_readiness_regenerated": { "const": false },
+        "packages_marked_ready": { "const": false },
+        "readiness_status": { "const": "needs_more_evidence" },
+        "readiness_gate_decision": { "const": "hold_for_evidence_completion" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

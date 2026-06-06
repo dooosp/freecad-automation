@@ -33,6 +33,7 @@ assert.match(cliHelp, /fcad inspection-evidence-promotion-dry-run --intake-repor
 assert.match(cliHelp, /fcad stage5b-evidence-audit --out-dir <dir> \[--include-github\]/i);
 assert.match(cliHelp, /fcad stage5b-evidence-source-kit \[--package <canonical-package-slug>\] \[--out <report\.json>\]/i);
 assert.match(cliHelp, /fcad stage5b-evidence-source-preflight \[--package <canonical-package-slug>\] \[--source <raw-source\.json\|csv\|tsv>\] \[--out <report\.json>\]/i);
+assert.match(cliHelp, /fcad stage5b-evidence-attachment-controller --review-manifest <manifest\.json> --authorization-record <path-or-url> --out-dir <ignored-dir> \[--dry-run\]/i);
 assert.match(cliHelp, /fcad stage5b-surrogate-inspection-validation --out-dir <dir> \[--package <canonical-package-slug>\]/i);
 assert.match(cliHelp, /fcad pack --readiness <readiness_report\.json>[\s\S]*--out <release_bundle\.zip> \[--generated-at <iso8601>\]/i);
 assert.match(cliHelp, /fcad review-context --model <file>[\s\S]*\[--inspection-evidence inspection_evidence\.json --attachment-authorization authorization_record\.json\][\s\S]*--out <review_pack\.json>/i);
@@ -68,6 +69,7 @@ assert.equal(PLAIN_PYTHON_COMMANDS.includes('inspection-evidence-promotion-dry-r
 assert.equal(PLAIN_PYTHON_COMMANDS.includes('stage5b-evidence-audit'), true);
 assert.equal(PLAIN_PYTHON_COMMANDS.includes('stage5b-evidence-source-kit'), true);
 assert.equal(PLAIN_PYTHON_COMMANDS.includes('stage5b-evidence-source-preflight'), true);
+assert.equal(PLAIN_PYTHON_COMMANDS.includes('stage5b-evidence-attachment-controller'), true);
 assert.equal(PLAIN_PYTHON_COMMANDS.includes('stage5b-surrogate-inspection-validation'), true);
 assert.deepEqual(STUDIO_ARTIFACT_JOB_COMMANDS, ['readiness-pack', 'generate-standard-docs', 'pack']);
 assert.deepEqual(STUDIO_PAIRED_ARTIFACT_JOB_COMMANDS, ['compare-rev', 'stabilization-review']);
@@ -78,6 +80,7 @@ assert.equal(LOCAL_API_JOB_COMMANDS.includes('inspection-evidence-promotion-dry-
 assert.equal(LOCAL_API_JOB_COMMANDS.includes('stage5b-evidence-audit'), true);
 assert.equal(LOCAL_API_JOB_COMMANDS.includes('stage5b-evidence-source-kit'), false);
 assert.equal(LOCAL_API_JOB_COMMANDS.includes('stage5b-evidence-source-preflight'), false);
+assert.equal(LOCAL_API_JOB_COMMANDS.includes('stage5b-evidence-attachment-controller'), false);
 assert.equal(LOCAL_API_JOB_COMMANDS.includes('stage5b-surrogate-inspection-validation'), false);
 assert.equal(STUDIO_JOB_COMMANDS.includes('review-context'), false);
 assert.equal(STUDIO_JOB_COMMANDS.includes('inspection-evidence-intake'), true);
@@ -85,6 +88,7 @@ assert.equal(STUDIO_JOB_COMMANDS.includes('inspection-evidence-promotion-dry-run
 assert.equal(STUDIO_JOB_COMMANDS.includes('stage5b-evidence-audit'), true);
 assert.equal(STUDIO_JOB_COMMANDS.includes('stage5b-evidence-source-kit'), false);
 assert.equal(STUDIO_JOB_COMMANDS.includes('stage5b-evidence-source-preflight'), false);
+assert.equal(STUDIO_JOB_COMMANDS.includes('stage5b-evidence-attachment-controller'), false);
 assert.equal(STUDIO_JOB_COMMANDS.includes('stage5b-surrogate-inspection-validation'), false);
 assert.equal(
   formatCommandNameList(STUDIO_JOB_COMMANDS, { conjunction: 'or' }),

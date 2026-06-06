@@ -78,6 +78,7 @@ import { generateCloseoutPackage } from '../src/services/closeout-package/closeo
 import { discoverInspectionEvidenceIntake } from '../src/services/inspection-evidence-intake/inspection-evidence-intake-service.js';
 import { writeInspectionEvidencePromotionDryRunManifest } from '../src/services/inspection-evidence-intake/promotion-dry-run-service.js';
 import { writeStage5bEvidenceAuditBundle } from '../src/services/inspection-evidence-intake/stage5b-evidence-audit-service.js';
+import { writeStage5bEvidenceAttachmentControlManifest } from '../src/services/inspection-evidence-intake/stage5b-evidence-attachment-controller-service.js';
 import {
   buildStage5bEvidenceSourceKit,
   preflightStage5bEvidenceSource,
@@ -686,6 +687,67 @@ async function cmdStage5bEvidenceReviewDryRun(rawArgs = []) {
   }
 }
 
+async function cmdStage5bEvidenceAttachmentController(rawArgs = []) {
+  const { options } = parseCliArgs(rawArgs);
+  rejectUnsupportedOptions('stage5b-evidence-attachment-controller', options, ['review-manifest', 'authorization-record', 'out-dir', 'dry-run']);
+  const reviewManifest = Object.hasOwn(options, 'review-manifest')
+    ? requireOptionValue('--review-manifest', options['review-manifest'])
+    : null;
+  const authorizationRecord = Object.hasOwn(options, 'authorization-record')
+    ? requireOptionValue('--authorization-record', options['authorization-record'])
+    : null;
+  const outDir = Object.hasOwn(options, 'out-dir')
+    ? requireOptionValue('--out-dir', options['out-dir'])
+    : null;
+  if (!reviewManifest) {
+    console.error('Error: stage5b-evidence-attachment-controller requires --review-manifest <path>');
+    process.exit(1);
+  }
+  if (!authorizationRecord) {
+    console.error('Error: stage5b-evidence-attachment-controller requires --authorization-record <path-or-url>');
+    process.exit(1);
+  }
+  if (!outDir) {
+    console.error('Error: stage5b-evidence-attachment-controller requires --out-dir <dir>');
+    process.exit(1);
+  }
+
+  try {
+    const result = await writeStage5bEvidenceAttachmentControlManifest({
+      projectRoot: PROJECT_ROOT,
+      reviewManifestPath: reviewManifest,
+      authorizationRecord,
+      outDir,
+      dryRun: options['dry-run'] === true,
+    });
+    const manifest = result.manifest;
+    console.log(`Stage 5B evidence attachment controller manifest: ${result.output_path}`);
+    console.log(`  Decision: ${manifest.summary.decision.toUpperCase()}`);
+    console.log(`  Status: ${manifest.summary.attachment_control_status}`);
+    console.log(`  Blockers: ${manifest.summary.blocker_count}`);
+    console.log('  Inspection evidence attached: no');
+    console.log('  Canonical readiness regenerated: no');
+    console.log(`  Canonical readiness remains held: ${manifest.readiness_held_truth.readiness_remains_held ? 'yes' : 'no'}`);
+    if (manifest.summary.decision !== 'pass') {
+      process.exit(2);
+    }
+    return manifest;
+  } catch (error) {
+    if (isStage5bRuntimeValidationError(error)) {
+      const outputDir = resolve(PROJECT_ROOT, String(outDir));
+      const diagnosticsResult = await writeCliStage5bValidationDiagnostics(error, {
+        diagnosticsPath: join(outputDir, 'validation_diagnostics.json'),
+        artifactType: 'stage5b_evidence_attachment_control_manifest',
+        command: 'stage5b-evidence-attachment-controller',
+      });
+      printCliStage5bValidationError(error, diagnosticsResult);
+      process.exit(1);
+    }
+    console.error(`Error: ${error.message}`);
+    process.exit(1);
+  }
+}
+
 async function cmdStage5bSurrogateInspectionValidation(rawArgs = []) {
   const { positional, options } = parseCliArgs(rawArgs);
   rejectUnsupportedOptions('stage5b-surrogate-inspection-validation', options, ['out-dir', 'package', 'packages']);
@@ -785,6 +847,8 @@ async function main() {
     await cmdStage5bEvidenceSourcePreflight(args);
   } else if (command === 'stage5b-evidence-review-dry-run') {
     await cmdStage5bEvidenceReviewDryRun(args);
+  } else if (command === 'stage5b-evidence-attachment-controller') {
+    await cmdStage5bEvidenceAttachmentController(args);
   } else if (command === 'stage5b-surrogate-inspection-validation') {
     await cmdStage5bSurrogateInspectionValidation(args);
   } else if (command === 'stabilization-review') {
