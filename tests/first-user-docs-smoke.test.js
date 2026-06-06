@@ -347,12 +347,18 @@ assertMentions(
   /^# Final maintainer handoff/m,
   'final maintainer handoff should have the expected title'
 );
-assertMentions(finalMaintainerHandoffText, /7d1972f8434efbb46e1bd6af5067e3ea7c07ba43/, 'final maintainer handoff should pin the current default-branch head');
-assertMentions(finalMaintainerHandoffText, /PR \[#163\]/, 'final maintainer handoff should cite PR #163');
-assertMentions(finalMaintainerHandoffText, /27054410434/, 'final maintainer handoff should record the post-merge hosted CI run');
-assertMentions(finalMaintainerHandoffText, /27054452161/, 'final maintainer handoff should record the post-merge runtime smoke run');
+assertMentions(finalMaintainerHandoffText, /735e991d40d33b69987a4ddd52db810791e968d3/, 'final maintainer handoff should pin the current default-branch head');
+assertMentions(finalMaintainerHandoffText, /PR \[#165\]/, 'final maintainer handoff should cite PR #165');
+assertMentions(finalMaintainerHandoffText, /27058839538/, 'final maintainer handoff should record the post-merge hosted CI run');
+assertMentions(finalMaintainerHandoffText, /27058885140/, 'final maintainer handoff should record the post-merge runtime smoke run');
 assertMentions(finalMaintainerHandoffText, /Stage 5B and CI governance are closed through PR #162/, 'final maintainer handoff should preserve Stage 5B/CI governance closeout');
 assertMentions(finalMaintainerHandoffText, /release dry-run governance is closed through PR #163/, 'final maintainer handoff should record release dry-run governance closeout');
+assertMentions(finalMaintainerHandoffText, /maintainer doctor is closed through PR #164/, 'final maintainer handoff should record maintainer doctor closeout');
+assertMentions(finalMaintainerHandoffText, /bootstrap doctor is closed through PR #165/, 'final maintainer handoff should record bootstrap doctor closeout');
+assertMentions(finalMaintainerHandoffText, /Weekly default-branch drift check/, 'final maintainer handoff should include weekly commands');
+assertMentions(finalMaintainerHandoffText, /Before release publication review/, 'final maintainer handoff should include before-release commands');
+assertMentions(finalMaintainerHandoffText, /When genuine completed inspection evidence arrives/, 'final maintainer handoff should include real-evidence commands');
+assertMentions(finalMaintainerHandoffText, /Stop conditions/, 'final maintainer handoff should include stop conditions');
 assertMentions(finalMaintainerHandoffText, /no open PR rows/i, 'final maintainer handoff should record open PR state');
 assertMentions(finalMaintainerHandoffText, /No genuine completed inspection evidence has been found or attached/i, 'final maintainer handoff should preserve no-evidence truth');
 assertMentions(finalMaintainerHandoffText, /`needs_more_evidence`/, 'final maintainer handoff should mention needs_more_evidence');

@@ -9,13 +9,13 @@ deploy production.
 
 - Repository: `dooosp/freecad-automation`
 - Default branch: `master`
-- Verified default-branch head: `7d1972f8434efbb46e1bd6af5067e3ea7c07ba43`
-- Latest audited merge: PR [#163](https://github.com/dooosp/freecad-automation/pull/163), `[codex] Add release dry-run governance doctor`
+- Verified default-branch head: `735e991d40d33b69987a4ddd52db810791e968d3`
+- Latest audited merge: PR [#165](https://github.com/dooosp/freecad-automation/pull/165), `Add first-maintainer bootstrap doctor`
 - Open PR state at handoff: `gh pr list --state open --limit 50` returned no open PR rows
 - GitHub branch-protection API for `master`: `Branch not protected`
-- Post-merge master CI at `7d1972f8434efbb46e1bd6af5067e3ea7c07ba43`: `Automation CI (hosted fast lanes)` passed on run `27054410434`
-- Post-merge master runtime smoke at `7d1972f8434efbb46e1bd6af5067e3ea7c07ba43`: `FreeCAD Runtime Smoke (self-hosted macOS)` passed on run `27054452161`
-- Historical governance closeout: Stage 5B and CI governance are closed through PR #162, and release dry-run governance is closed through PR #163. No product readiness, production release, or inspection-evidence attachment is claimed from those governance checks.
+- Post-merge master CI at `735e991d40d33b69987a4ddd52db810791e968d3`: `Automation CI (hosted fast lanes)` passed on run `27058839538`
+- Post-merge master runtime smoke at `735e991d40d33b69987a4ddd52db810791e968d3`: `FreeCAD Runtime Smoke (self-hosted macOS)` passed on run `27058885140`
+- Historical governance closeout: Stage 5B and CI governance are closed through PR #162, release dry-run governance is closed through PR #163, maintainer doctor is closed through PR #164, and bootstrap doctor is closed through PR #165. No product readiness, production release, or inspection-evidence attachment is claimed from those governance checks.
 
 ## Local maintainer doctor
 
@@ -46,6 +46,47 @@ sensitive-data leakage guards. It writes
 `output/bootstrap-doctor/bootstrap_doctor_report.json` in ignored local output
 and does not publish, tag, upload, attach evidence, regenerate canonical
 readiness, change GitHub settings, call production, or require secrets.
+
+## Maintenance-mode command sets
+
+Weekly default-branch drift check:
+
+```bash
+git fetch origin master
+git status --short --branch
+npm run bootstrap:doctor -- --clean
+```
+
+Before release publication review:
+
+```bash
+npm run check:source-hygiene
+npm run maintainer:doctor -- --clean
+npm run release:dry-run:doctor -- --clean
+npm run test:stage5b:pipeline-doctor
+npm run test:node:contract
+npm test
+```
+
+On a FreeCAD-capable maintainer or self-hosted runtime machine, add:
+
+```bash
+fcad check-runtime
+npm run test:runtime-smoke
+```
+
+When genuine completed inspection evidence arrives, keep raw files in the
+ignored local inbox and run only the non-mutating review chain until a separate
+explicit attachment/regeneration task is authorized:
+
+```bash
+fcad stage5b-evidence-source-kit --package <canonical-package-slug>
+fcad stage5b-evidence-source-preflight --package <canonical-package-slug> --source local/stage5b-candidate-evidence-inbox/<canonical-package-slug>/received-inspection-evidence.json --out local/stage5b-candidate-evidence-inbox/<canonical-package-slug>/source-preflight-report.json
+fcad stage5b-evidence-review-dry-run --package <canonical-package-slug> --source local/stage5b-candidate-evidence-inbox/<canonical-package-slug>/received-inspection-evidence.json --out-dir output/stage5b-review-dry-run
+node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-reviewed-json> --out output/stage5b-candidate-gate-report.json
+fcad stage5b-evidence-attachment-controller --review-manifest output/stage5b-review-dry-run/stage5b_evidence_review_dry_run_manifest.json --authorization-record <repo-relative-authorization-record.json> --out-dir output/stage5b-attachment-controller --dry-run
+fcad stage5b-evidence-audit --out-dir output/stage5b-evidence-audit
+```
 
 ## Evidence and readiness truth
 
@@ -82,6 +123,29 @@ arrive in a separate later authorized task.
 - GitHub required-checks, protected branch rules, repository settings, runner
   ownership, and release publication decisions remain maintainer/org settings;
   see [CI governance and maintainer checklist](./ci-governance.md)
+
+## Stop conditions
+
+Stop and hand back to a human maintainer before any evidence attachment,
+readiness regeneration, release publication, production call, secret-bearing
+operation, or destructive git operation.
+
+- Evidence: stop if a candidate is not a completed physical/supplier/lab/QA
+  record, lacks provenance/reviewer/package/revision mapping, exposes private
+  URLs, PII, tokens, secrets, absolute paths, screenshots, CI artifacts, or
+  supplier/lab/QA raw originals in tracked output, or would require fabricating
+  or typing measured values.
+- Release publication: stop before creating tags, publishing a GitHub release,
+  uploading artifacts, npm publishing, or treating a dry-run bundle as
+  production/readiness proof.
+- Production: stop before any production endpoint, deployment, database,
+  secret store, telemetry/log pull, or customer/private system access.
+- Secrets and private data: stop if the next step would commit raw inbox files,
+  private URLs, tokens, credentials, PII, local host paths, or unredacted
+  supplier/lab/QA material.
+- Destructive git: stop before `git reset --hard`, `git clean`, branch deletion,
+  force-push, branch-protection bypass, or any cleanup outside the scoped
+  maintenance files.
 
 ## Next condition
 
