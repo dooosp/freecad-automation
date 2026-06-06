@@ -33,6 +33,20 @@ workflow/check-name drift, and overclaim guards. Use
 `npm run test:stage5b:pipeline-doctor`, `npm run release:dry-run:doctor -- --clean`,
 or `npm run check:source-hygiene` only when isolating a failed top-level gate.
 
+For a fresh-clone first-maintainer audit, run:
+
+```bash
+npm run bootstrap:doctor -- --clean
+```
+
+It validates `npm ci`, local CLI help, source hygiene, the maintainer doctor,
+release dry-run doctor, Stage 5B pipeline doctor, documented npm script names,
+docs/local-state alignment, generated-output policy, raw inbox tracking, and
+sensitive-data leakage guards. It writes
+`output/bootstrap-doctor/bootstrap_doctor_report.json` in ignored local output
+and does not publish, tag, upload, attach evidence, regenerate canonical
+readiness, change GitHub settings, call production, or require secrets.
+
 ## Evidence and readiness truth
 
 No genuine completed inspection evidence has been found or attached. All five

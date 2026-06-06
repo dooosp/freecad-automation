@@ -32,7 +32,7 @@ Config lifecycle:
 For a first local verification:
 
 ```bash
-npm install
+npm ci
 npm link
 fcad check-runtime
 npm run test:node:contract
@@ -118,6 +118,8 @@ Full details, workflow mapping, and local commands live in [docs/testing.md](./d
 Exact hosted check names, branch-protection expectations, self-hosted runtime smoke governance, and release-publication boundaries live in [docs/ci-governance.md](./docs/ci-governance.md).
 
 For a top-level maintainer handoff check after the recent PR train, run `npm run maintainer:doctor -- --clean`. It runs or verifies source hygiene, the Stage 5B pipeline doctor, the release dry-run doctor, node contract discoverability, docs/source-of-truth guards, generated output policy, raw inbox tracking, workflow/check-name drift, and overclaim guards. It writes `output/maintainer-doctor/maintainer_doctor_report.json`; the report is local ignored output and records that Stage 5B remains held, no real evidence is attached, release publication has not happened, CI governance docs are present, and runtime smoke is hosted/self-hosted guidance rather than production proof.
+
+For a fresh-clone maintainer bootstrap audit, run `npm run bootstrap:doctor -- --clean`. It validates `npm ci`, local CLI help, source hygiene, the maintainer doctor, the release dry-run doctor, the Stage 5B pipeline doctor, documented npm script names, docs/local-state alignment, generated-output policy, raw inbox tracking, and sensitive-data leakage guards. It writes `output/bootstrap-doctor/bootstrap_doctor_report.json` plus local ignored nested doctor outputs; it does not publish, tag, upload artifacts, attach evidence, regenerate canonical readiness, change GitHub settings, call production, or require secrets.
 
 For a release-bundle rehearsal that stays local and ignored, run `npm run release:dry-run:doctor` followed by `npm run check:source-hygiene`. The doctor writes only under `output/release-dry-run-doctor/`; it does not create tags, publish a GitHub release, upload artifacts, attach evidence, regenerate canonical readiness, or mutate checked-in package artifacts. The dry-run also leaves a local `release_bundle_artifact-manifest.json` in ignored output as CLI provenance; do not commit or upload it.
 

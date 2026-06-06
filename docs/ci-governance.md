@@ -67,6 +67,20 @@ inspection evidence is attached, release publication has not happened, CI
 governance docs are present, and runtime smoke remains hosted/self-hosted or
 maintainer-local guidance rather than production proof.
 
+For a fresh-clone first-maintainer audit, run:
+
+```bash
+npm run bootstrap:doctor -- --clean
+```
+
+It validates `npm ci`, local CLI help, source hygiene, the maintainer doctor,
+the release dry-run doctor, the Stage 5B pipeline doctor, documented npm script
+names, docs/local-state alignment, generated-output policy, raw inbox tracking,
+and sensitive-data leakage guards. It writes
+`output/bootstrap-doctor/bootstrap_doctor_report.json` in ignored local output
+and must not publish, tag, upload, attach evidence, regenerate canonical
+readiness, change GitHub settings, call production, or require secrets.
+
 Use lower-level commands only when isolating a failed maintainer-doctor gate:
 `npm run test:stage5b:pipeline-doctor` for Stage 5B fixture pipeline drift,
 `npm run release:dry-run:doctor -- --clean` for release-bundle rehearsal drift,

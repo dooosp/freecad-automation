@@ -50,6 +50,16 @@ dry-run doctor, node contract discoverability, docs/source-of-truth tests,
 generated output policy, raw inbox tracking, workflow/check-name drift, and
 readiness/release/evidence overclaim checks.
 
+Use `npm run bootstrap:doctor -- --clean` for a fresh-clone first-maintainer
+audit. It validates `npm ci`, local CLI help, source hygiene, maintainer doctor,
+release dry-run doctor, Stage 5B pipeline doctor, documented npm script names,
+docs/local-state alignment, generated-output policy, raw inbox tracking, and
+sensitive-data leakage guards. It writes
+`output/bootstrap-doctor/bootstrap_doctor_report.json` with local-only nested
+doctor output under ignored `output/`; it must not publish, tag, upload, attach
+evidence, regenerate canonical readiness, change GitHub settings, call
+production, or require secrets.
+
 Use lower-level doctors only to isolate a failing top-level gate:
 `npm run test:stage5b:pipeline-doctor` for the fixture-only Stage 5B chain,
 `npm run release:dry-run:doctor -- --clean` for the release rehearsal boundary,
