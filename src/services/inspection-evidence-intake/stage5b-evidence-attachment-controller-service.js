@@ -67,6 +67,17 @@ function normalizeStatus(value) {
   return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 }
 
+function githubActionsBranchFallback() {
+  return process.env.GITHUB_HEAD_REF
+    || process.env.GITHUB_REF_NAME
+    || null;
+}
+
+function githubActionsRemoteDefaultFallback() {
+  const ref = process.env.GITHUB_BASE_REF || null;
+  return ref ? `origin/${ref}` : null;
+}
+
 function isWindowsAbsolutePath(value) {
   return /^[A-Za-z]:[\\/]/.test(String(value || ''));
 }
@@ -225,14 +236,17 @@ async function collectRepoPreflight(projectRoot) {
   const dirtyPaths = statusResult.ok
     ? statusResult.stdout.split('\n').map((line) => line.trim()).filter(Boolean)
     : [];
+  const branchName = branchResult.ok
+    ? branchResult.stdout.trim() || githubActionsBranchFallback()
+    : githubActionsBranchFallback();
   const remoteDefaultHead = defaultResult.ok
     ? defaultResult.stdout.trim().replace(/^refs\/remotes\//, '')
-    : null;
+    : githubActionsRemoteDefaultFallback();
   return {
     repo_root: repoRoot,
     repo_root_basename: repoRoot ? basename(repoRoot) : null,
     repo_identity_ok: repoRoot ? basename(repoRoot) === 'freecad-automation' : false,
-    current_branch: branchResult.ok ? branchResult.stdout.trim() || null : null,
+    current_branch: branchName,
     head_sha: headResult.ok ? headResult.stdout.trim() || null : null,
     remote_default_head: remoteDefaultHead,
     remote_default_head_sha: remoteHeadResult.ok ? remoteHeadResult.stdout.trim() || null : null,
@@ -240,9 +254,11 @@ async function collectRepoPreflight(projectRoot) {
     dirty_paths: dirtyPaths,
     checkout_safety: {
       repo_identity_ok: repoRoot ? basename(repoRoot) === 'freecad-automation' : false,
-      branch_discovered: Boolean(branchResult.ok && branchResult.stdout.trim()),
+      branch_discovered: Boolean(branchName),
+      branch_discovery_source: branchResult.ok && branchResult.stdout.trim() ? 'git_branch' : githubActionsBranchFallback() ? 'github_actions_env' : null,
       head_discovered: Boolean(headResult.ok && headResult.stdout.trim()),
       remote_default_discovered: Boolean(remoteDefaultHead),
+      remote_default_discovery_source: defaultResult.ok ? 'git_symbolic_ref' : githubActionsRemoteDefaultFallback() ? 'github_actions_env' : null,
       dirty_tree_status_discovered: statusResult.ok,
       canonical_package_dirty_paths: dirtyPaths.filter((line) => /\sdocs\/examples\//.test(line)),
     },
