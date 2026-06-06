@@ -121,6 +121,11 @@ For a top-level maintainer handoff check after the recent PR train, run `npm run
 
 For a fresh-clone maintainer bootstrap audit, run `npm run bootstrap:doctor -- --clean`. It validates `npm ci`, local CLI help, source hygiene, the maintainer doctor, the release dry-run doctor, the Stage 5B pipeline doctor, documented npm script names, docs/local-state alignment, generated-output policy, raw inbox tracking, and sensitive-data leakage guards. It writes `output/bootstrap-doctor/bootstrap_doctor_report.json` plus local ignored nested doctor outputs; it does not publish, tag, upload artifacts, attach evidence, regenerate canonical readiness, change GitHub settings, call production, or require secrets.
 
+`Maintainer Doctors (hosted schedule)` is the manual/weekly governance check
+that runs the established local-only doctors on a hosted runner. It is not
+release approval, production observation, evidence attachment, or readiness
+proof, and it does not upload doctor reports as CI artifacts.
+
 For a release-bundle rehearsal that stays local and ignored, run `npm run release:dry-run:doctor` followed by `npm run check:source-hygiene`. The doctor writes only under `output/release-dry-run-doctor/`; it does not create tags, publish a GitHub release, upload artifacts, attach evidence, regenerate canonical readiness, or mutate checked-in package artifacts. The dry-run also leaves a local `release_bundle_artifact-manifest.json` in ignored output as CLI provenance; do not commit or upload it.
 
 ## Quality Fixtures

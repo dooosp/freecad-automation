@@ -9,13 +9,13 @@ deploy production.
 
 - Repository: `dooosp/freecad-automation`
 - Default branch: `master`
-- Audited default-branch head before this handoff update: `735e991d40d33b69987a4ddd52db810791e968d3`
-- Latest audited prior merge: PR [#165](https://github.com/dooosp/freecad-automation/pull/165), `Add first-maintainer bootstrap doctor`
+- Audited default-branch head before this handoff update: `da3951e3daba015f272bf43f393f487276b32389`
+- Latest audited prior merge: PR [#166](https://github.com/dooosp/freecad-automation/pull/166), `[codex] Refresh freeze maintenance handoff`
 - Open PR state at handoff: `gh pr list --state open --limit 50` returned no open PR rows
 - GitHub branch-protection API for `master`: `Branch not protected`
-- Post-merge master CI at `735e991d40d33b69987a4ddd52db810791e968d3`: `Automation CI (hosted fast lanes)` passed on run `27058839538`
-- Post-merge master runtime smoke at `735e991d40d33b69987a4ddd52db810791e968d3`: `FreeCAD Runtime Smoke (self-hosted macOS)` passed on run `27058885140`
-- Historical governance closeout: Stage 5B and CI governance are closed through PR #162, release dry-run governance is closed through PR #163, maintainer doctor is closed through PR #164, and bootstrap doctor is closed through PR #165. No product readiness, production release, or inspection-evidence attachment is claimed from those governance checks.
+- Post-merge master CI at `da3951e3daba015f272bf43f393f487276b32389`: `Automation CI (hosted fast lanes)` passed on run `27059357998`
+- Post-merge master runtime smoke at `da3951e3daba015f272bf43f393f487276b32389`: `FreeCAD Runtime Smoke (self-hosted macOS)` passed on run `27059397711`
+- Historical governance closeout: Stage 5B and CI governance are closed through PR #162, release dry-run governance is closed through PR #163, maintainer doctor is closed through PR #164, bootstrap doctor is closed through PR #165, and freeze maintenance handoff is refreshed through PR #166. No product readiness, production release, or inspection-evidence attachment is claimed from those governance checks.
 
 ## Local maintainer doctor
 
@@ -67,6 +67,14 @@ npm run test:stage5b:pipeline-doctor
 npm run test:node:contract
 npm test
 ```
+
+`Maintainer Doctors (hosted schedule)` now provides a manual or weekly hosted
+governance check for the established local doctors. It is a manual/weekly
+governance check only, not release approval, not production observation, not
+evidence attachment, and not readiness proof. It keeps doctor reports job-local
+instead of uploading them as CI artifacts.
+This is a manual or weekly hosted governance check.
+It is not evidence attachment and not readiness proof.
 
 On a FreeCAD-capable maintainer or self-hosted runtime machine, add:
 

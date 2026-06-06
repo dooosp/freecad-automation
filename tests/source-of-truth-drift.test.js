@@ -28,6 +28,7 @@ const ciDiagnosticsScript = readText('.github/scripts/ci-diagnostics.sh');
 const gitignore = readText('.gitignore');
 const hostedWorkflow = readText('.github/workflows/automation-ci.yml');
 const runtimeWorkflow = readText('.github/workflows/freecad-runtime-smoke.yml');
+const maintainerDoctorsWorkflow = readText('.github/workflows/maintainer-doctors.yml');
 
 function extractSection(markdown, heading) {
   const marker = `${heading}\n`;
@@ -141,9 +142,9 @@ assert.match(ciGovernance, /Stage 5B and CI governance are closed through PR #16
 assert.match(ciGovernance, /release dry-run\s+governance is closed through PR #163/i);
 assert.match(ciGovernance, /maintainer doctor is closed through PR\s+#164/i);
 assert.match(ciGovernance, /bootstrap doctor is closed through PR #165/i);
-assert.match(ciGovernance, /735e991d40d33b69987a4ddd52db810791e968d3/);
-assert.match(ciGovernance, /27058839538/);
-assert.match(ciGovernance, /27058885140/);
+assert.match(ciGovernance, /PR #166 merged at `da3951e3daba015f272bf43f393f487276b32389`/);
+assert.match(ciGovernance, /27059357998/);
+assert.match(ciGovernance, /27059397711/);
 hostedSuite.members.forEach((scriptName) => {
   assert(
     readmeTesting.includes(scriptName) || readme.includes(scriptName) || testingDoc.includes(scriptName),
@@ -238,6 +239,36 @@ assert(runtimeWorkflow.includes("github.event.workflow_run.actor.login == 'dooos
   'Post-merge expectation for `master`',
 ].forEach((needle) => {
   assert(ciGovernance.includes(needle), `CI governance should document runtime smoke boundary: ${needle}`);
+});
+
+assert.match(maintainerDoctorsWorkflow, /^name: Maintainer Doctors \(hosted schedule\)$/m);
+assert.match(maintainerDoctorsWorkflow, /^\s+workflow_dispatch:\s*$/m);
+assert.match(maintainerDoctorsWorkflow, /^\s+schedule:\s*\n\s+- cron: "0 8 \* \* 1"/m);
+assert.match(maintainerDoctorsWorkflow, /runs-on: ubuntu-24\.04/);
+assert.equal(maintainerDoctorsWorkflow.includes('self-hosted'), false);
+[
+  'npm ci',
+  'npm run check:source-hygiene',
+  'node tests/source-of-truth-drift.test.js',
+  'npm run bootstrap:doctor -- --clean',
+  'npm run maintainer:doctor -- --clean',
+  'npm run release:dry-run:doctor -- --clean',
+  'npm run test:stage5b:pipeline-doctor',
+].forEach((command) => {
+  assert(maintainerDoctorsWorkflow.includes(command), `maintainer doctors workflow should run ${command}`);
+});
+[
+  'Maintainer Doctors (hosted schedule)',
+  'workflow_dispatch',
+  'weekly schedule',
+  'governance and maintenance only',
+  'not release approval',
+  'not production observation',
+  'not evidence attachment',
+  'not readiness proof',
+  'does not upload doctor reports as CI artifacts',
+].forEach((needle) => {
+  assert(ciGovernance.includes(needle), `CI governance should document maintainer doctors boundary: ${needle}`);
 });
 
 const runtimeSmokeClaims = [

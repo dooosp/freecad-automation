@@ -1,0 +1,57 @@
+name: Maintainer Doctors (hosted schedule)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 8 * * 1"
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+concurrency:
+  group: maintainer-doctors-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  maintainer-doctors:
+    name: Hosted maintainer doctors
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - name: Checkout
+        # provenance: actions/checkout@v6 -> de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        # provenance: actions/setup-node@v6 -> 48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install Node Dependencies
+        run: npm ci
+
+      - name: Run source hygiene guard
+        run: npm run check:source-hygiene
+
+      - name: Run source-of-truth guard
+        run: node tests/source-of-truth-drift.test.js
+
+      - name: Run bootstrap doctor
+        run: npm run bootstrap:doctor -- --clean
+
+      - name: Run maintainer doctor
+        run: npm run maintainer:doctor -- --clean
+
+      - name: Run release dry-run doctor
+        run: npm run release:dry-run:doctor -- --clean
+
+      - name: Run Stage 5B pipeline doctor
+        run: npm run test:stage5b:pipeline-doctor

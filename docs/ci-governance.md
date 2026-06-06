@@ -9,13 +9,13 @@ Audit evidence on 2026-06-06:
 
 - repository: `dooosp/freecad-automation`
 - default branch: `master`
-- audited default-branch head: `735e991d40d33b69987a4ddd52db810791e968d3`
-- active workflows: `Automation CI (hosted fast lanes)` and `FreeCAD Runtime Smoke (self-hosted macOS)`
+- audited default-branch head: `da3951e3daba015f272bf43f393f487276b32389`
+- active workflows: `Automation CI (hosted fast lanes)`, `FreeCAD Runtime Smoke (self-hosted macOS)`, and `Maintainer Doctors (hosted schedule)`
 - GitHub branch-protection API for `master`: `Branch not protected`
 - open pull requests: none from `gh pr list --state open --limit 50`
-- PR #165 merged at `735e991d40d33b69987a4ddd52db810791e968d3`
-- latest audited `Automation CI (hosted fast lanes)` run on that head: success, run `27058839538`
-- latest audited `FreeCAD Runtime Smoke (self-hosted macOS)` run on that head: success, run `27058885140`
+- PR #166 merged at `da3951e3daba015f272bf43f393f487276b32389`
+- latest audited `Automation CI (hosted fast lanes)` run on that head: success, run `27059357998`
+- latest audited `FreeCAD Runtime Smoke (self-hosted macOS)` run on that head: success, run `27059397711`
 
 ## PR hosted checks
 
@@ -85,6 +85,32 @@ Use lower-level commands only when isolating a failed maintainer-doctor gate:
 `npm run test:stage5b:pipeline-doctor` for Stage 5B fixture pipeline drift,
 `npm run release:dry-run:doctor -- --clean` for release-bundle rehearsal drift,
 and `npm run check:source-hygiene` for generated output/source tree policy.
+
+## Scheduled maintainer doctors
+
+`Maintainer Doctors (hosted schedule)` is a manual and weekly schedule
+governance check for the established local-only doctors. It runs on
+`workflow_dispatch` and a conservative weekly schedule on a hosted
+`ubuntu-24.04` runner with `contents: read` permissions. It does not use a
+self-hosted runner.
+
+The workflow runs:
+
+```bash
+npm ci
+npm run check:source-hygiene
+node tests/source-of-truth-drift.test.js
+npm run bootstrap:doctor -- --clean
+npm run maintainer:doctor -- --clean
+npm run release:dry-run:doctor -- --clean
+npm run test:stage5b:pipeline-doctor
+```
+
+This is governance and maintenance only. It is not release approval, not production observation, not evidence attachment, and not readiness proof. It
+does not change branch protection, change repository settings, create tags,
+publish releases, upload release assets, call production endpoints, attach
+inspection evidence, regenerate canonical readiness, or upload doctor reports as CI artifacts. Doctor reports remain job-local ignored output.
+The workflow does not upload doctor reports as CI artifacts.
 
 ## Self-hosted runtime smoke
 
