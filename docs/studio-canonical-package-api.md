@@ -38,7 +38,7 @@ The preview response includes `slug`, `artifact_key`, repo-relative `path`, `con
 
 `release_bundle.zip` is listed in the package artifact catalog as `release_bundle`, but it is a package transport artifact only. It is intentionally not text-previewable through the canonical package preview route, and the canonical package API does not add a preview, download, or open route for it.
 
-The canonical package preview route can preview `release_bundle_manifest.json` and `release_bundle_checksums.sha256`; those text artifacts describe the bundle boundary. They do not make the ZIP browser-openable or production-ready.
+The canonical package preview route can preview `release_bundle_manifest.json` and `release_bundle_checksums.sha256`; those text artifacts describe the bundle boundary and checksum sidecar. `release_bundle_log.json` remains checked-in package provenance but is not a canonical package preview key today. These text artifacts do not make the ZIP browser-openable, downloadable, published, or production-ready.
 
 ## Evidence And Readiness Boundary
 

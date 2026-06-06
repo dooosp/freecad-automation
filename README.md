@@ -117,6 +117,8 @@ Deeper runtime-backed suites are available as `npm run test:runtime:model`, `tes
 Full details, workflow mapping, and local commands live in [docs/testing.md](./docs/testing.md).
 Exact hosted check names, branch-protection expectations, self-hosted runtime smoke governance, and release-publication boundaries live in [docs/ci-governance.md](./docs/ci-governance.md).
 
+For a release-bundle rehearsal that stays local and ignored, run `npm run release:dry-run:doctor` followed by `npm run check:source-hygiene`. The doctor writes only under `output/release-dry-run-doctor/`; it does not create tags, publish a GitHub release, upload artifacts, attach evidence, regenerate canonical readiness, or mutate checked-in package artifacts. The dry-run also leaves a local `release_bundle_artifact-manifest.json` in ignored output as CLI provenance; do not commit or upload it.
+
 ## Quality Fixtures
 
 The repository now keeps two explicit quality fixtures with different purposes:
@@ -466,7 +468,7 @@ AF5 publish/reopen contract:
 - `review-context` writes canonical `review_pack.json`.
 - `readiness-pack` or `readiness-report --review-pack` consumes `review_pack.json` and writes canonical `readiness_report.json`.
 - `generate-standard-docs` consumes `readiness_report.json` plus matching config lineage and writes `standard_docs_manifest.json` with generated document outputs.
-- `pack` consumes `readiness_report.json`, optionally `standard_docs_manifest.json`, and writes `release_bundle_manifest.json` plus `release_bundle.zip`.
+- `pack` consumes `readiness_report.json`, optionally `standard_docs_manifest.json`, and writes `release_bundle_manifest.json`, `release_bundle_log.json`, `release_bundle_checksums.sha256`, and `release_bundle.zip`.
 - Studio re-entry is tracked job/artifact re-entry through `/jobs`, `/jobs/:id/artifacts`, safe artifact routes, and selected-job deep links. Arbitrary local release-bundle or artifact import into the Package/Artifacts workspace is not part of this contract today; use tracked artifacts or the separate imported-CAD bootstrap lane.
 
 Phase-3 tracked execution model:

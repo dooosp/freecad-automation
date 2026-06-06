@@ -9,10 +9,13 @@ Audit evidence on 2026-06-06:
 
 - repository: `dooosp/freecad-automation`
 - default branch: `master`
-- audited default-branch head: `2457f693eaba3f93d10eb25bf87da813a3b0cee5`
+- audited default-branch head: `17332534923a8fe3ae703ce890f94d705ce24a6b`
 - active workflows: `Automation CI (hosted fast lanes)` and `FreeCAD Runtime Smoke (self-hosted macOS)`
 - GitHub branch-protection API for `master`: `Branch not protected`
 - open pull requests: none from `gh pr list --state open --limit 50`
+- PR #162 merged at `17332534923a8fe3ae703ce890f94d705ce24a6b`
+- latest audited `Automation CI (hosted fast lanes)` run on that head: success, run `27053597091`
+- latest audited `FreeCAD Runtime Smoke (self-hosted macOS)` run on that head: success, run `27053634677`
 
 ## PR hosted checks
 
@@ -74,7 +77,7 @@ Post-merge expectation for `master`:
 
 ## Stage 5B placement
 
-Stage 5B is closed through PR #161. Do not add new Stage 5B machinery unless
+Stage 5B and CI governance are closed through PR #162. Do not add new Stage 5B machinery unless
 real drift is proven.
 
 Use `npm run test:stage5b:pipeline-doctor` only when Stage 5B docs, scripts,
@@ -102,6 +105,10 @@ local inbox files, runtime smoke outputs, CI diagnostics, screenshots, release
 publication artifacts, or regenerated canonical readiness unless a later task
 explicitly authorizes that scoped mutation.
 
+Release bundle dry-runs must write only ignored output, normally under
+`output/release-dry-run-doctor/`, and must be followed by
+`npm run check:source-hygiene` before any commit.
+
 ## Release publication boundary
 
 Release publication remains a human maintainer decision. Before tagging or
@@ -109,6 +116,18 @@ publishing a GitHub release, confirm the exact `master` commit, the hosted PR or
 post-merge checks above, the relevant self-hosted runtime smoke or local
 runtime-smoke evidence, and the release checklist in
 [`docs/releases/v1.1.0-checklist.md`](./releases/v1.1.0-checklist.md).
+
+For a non-publishing local release-bundle rehearsal, run:
+
+```bash
+npm run release:dry-run:doctor
+npm run check:source-hygiene
+```
+
+The doctor only runs `fcad pack` against a checked-in canonical package into an
+ignored `output/` directory and writes a local doctor report there. It must not
+create tags, publish a GitHub release, upload artifacts, attach evidence,
+regenerate canonical readiness, or mutate checked-in package artifacts.
 
 Do not treat GitHub releases, release bundles, CI artifacts, comments,
 screenshots, or workflow metadata as inspection evidence or production-readiness

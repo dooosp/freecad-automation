@@ -76,6 +76,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'D artifact contracts', args: Object.freeze(['tests/d-artifact-schema.test.js']) }),
       Object.freeze({ label: 'C artifact contracts', args: Object.freeze(['tests/c-artifact-schema.test.js']) }),
       Object.freeze({ label: 'Release bundle packaging', args: Object.freeze(['tests/release-bundle.test.js']) }),
+      Object.freeze({ label: 'Release dry-run doctor', args: Object.freeze(['tests/release-dry-run-doctor.test.js']) }),
       Object.freeze({ label: 'D model-analysis fallback', args: Object.freeze(['tests/model-analysis-runtime.test.js']) }),
     ]),
   }),
