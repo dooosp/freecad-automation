@@ -495,7 +495,8 @@ assert.match(docs.closeout, /\[Stage 5B artifact\/schema catalog\]\(\.\/stage-5b
 ].forEach((needle) => {
   assert(docs.closeout.includes(needle), `Stage 5B closeout handoff ledger should include ${needle}`);
 });
-assert.match(docs.closeout, /through PR \[#159\]/, 'Stage 5B closeout should state the PR #159 endpoint');
+assert.match(docs.closeout, /PR #160|\[#160\]/, 'Stage 5B closeout should include the PR #160 governance closeout state');
+assert.match(docs.closeout, /through PR \[#160\]/, 'Stage 5B closeout should state the PR #160 endpoint');
 assert.match(docs.readme, /HTTPS GitHub\/GitHubusercontent allowlisted public links/, 'README should document the bounded GitHub public-link downloader host policy');
 assert.match(docs.supportMatrix, /HTTPS GitHub\/GitHubusercontent allowlisted public links/, 'support matrix should document the bounded GitHub public-link downloader host policy');
 assert.match(docs.inspectionContract, /HTTPS URLs on the explicit GitHub\/GitHubusercontent host allowlist/, 'inspection evidence contract should document the explicit GitHub downloader host allowlist');
@@ -513,8 +514,10 @@ assert.match(docs.rcGapLedger, /Automation CI \(hosted fast lanes\).*passed/i, '
 assert.match(docs.rcGapLedger, /FreeCAD Runtime Smoke \(self-hosted macOS\).*passed/i, 'RC gap ledger should record self-hosted runtime smoke result without broadening coverage');
 assert.match(docs.rcGapLedger, /Stop active hardening/i, 'RC gap ledger should include the final freeze stop point');
 assert.match(docs.finalMaintainerHandoff, /^# Final maintainer handoff/m, 'final maintainer handoff should exist with the expected title');
-assert.match(docs.finalMaintainerHandoff, /PR \[#153\]/, 'final maintainer handoff should cite PR #153');
-assert.match(docs.finalMaintainerHandoff, /95a471971a2b8462813683060b5197b42bdd2760/, 'final maintainer handoff should pin the handoff head');
+assert.match(docs.finalMaintainerHandoff, /PR \[#160\]/, 'final maintainer handoff should cite PR #160');
+assert.match(docs.finalMaintainerHandoff, /1d565a1272e5ebdd4053cd37168490be1fb1525a/, 'final maintainer handoff should pin the handoff head');
+assert.match(docs.finalMaintainerHandoff, /27052125178/, 'final maintainer handoff should record the PR #160 hosted CI run');
+assert.match(docs.finalMaintainerHandoff, /No PR #160 self-hosted runtime-smoke pass is claimed here/, 'final maintainer handoff should avoid a PR #160 runtime-smoke overclaim');
 assert.match(docs.finalMaintainerHandoff, /No genuine completed inspection evidence has been found or attached/i, 'final maintainer handoff should keep no-evidence truth');
 assert.match(docs.finalMaintainerHandoff, /Stop active hardening/i, 'final maintainer handoff should include the final freeze stop point');
 assertNoPositiveCloseoutOverclaim(docs.closeout, 'Stage 5B closeout');

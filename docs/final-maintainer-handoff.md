@@ -9,11 +9,12 @@ deploy production.
 
 - Repository: `dooosp/freecad-automation`
 - Default branch: `master`
-- Verified default-branch head: `95a471971a2b8462813683060b5197b42bdd2760`
-- Latest audited merge: PR [#153](https://github.com/dooosp/freecad-automation/pull/153), `READY_FOR_REVIEW: Harden release candidate closeout ledger`
+- Verified default-branch head: `1d565a1272e5ebdd4053cd37168490be1fb1525a`
+- Latest audited merge: PR [#160](https://github.com/dooosp/freecad-automation/pull/160), `Refresh Stage 5B governance closeout`
 - Open PR state at handoff: `gh pr list --state open --limit 100` returned no open PR rows
 - Open issue state at handoff: `gh issue list --state open --limit 100` returned no open issue rows
-- GitHub CI at handoff head: `Automation CI (hosted fast lanes)` passed on run `26883961540`; `FreeCAD Runtime Smoke (self-hosted macOS)` passed on run `26884015214`
+- GitHub CI at PR #160 head: `Automation CI (hosted fast lanes)` passed on run `27052125178`
+- Post-merge master drift found during maintainer readiness doctor: `Automation CI (hosted fast lanes)` run `27052184917` failed in the Node contract lane at `tests/stage5b-evidence-attachment-controller.test.js`; this maintenance cleanup repairs that preflight drift. No PR #160 self-hosted runtime-smoke pass is claimed here.
 
 ## Evidence and readiness truth
 

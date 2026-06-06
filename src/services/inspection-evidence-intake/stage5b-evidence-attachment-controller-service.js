@@ -78,6 +78,39 @@ function githubActionsRemoteDefaultFallback() {
   return ref ? `origin/${ref}` : null;
 }
 
+function githubActionsCurrentRefFallback() {
+  return process.env.GITHUB_REF_NAME || null;
+}
+
+function parseRemoteDefaultHead(stdout = '') {
+  const match = String(stdout).match(/^\s*HEAD branch:\s*(\S+)\s*$/m);
+  return match ? `origin/${match[1]}` : null;
+}
+
+async function readPackageName(projectRoot) {
+  try {
+    const packageJson = JSON.parse(await readFile(resolve(projectRoot, 'package.json'), 'utf8'));
+    return typeof packageJson.name === 'string' ? packageJson.name : null;
+  } catch {
+    return null;
+  }
+}
+
+function buildRepoIdentity(projectRoot, packageName) {
+  const rootBasename = projectRoot ? basename(projectRoot) : null;
+  const basenameMatches = rootBasename === 'freecad-automation';
+  const packageNameMatches = packageName === 'freecad-automation';
+  return {
+    ok: Boolean(projectRoot && (basenameMatches || packageNameMatches)),
+    rootBasename,
+    packageName,
+    evidence: {
+      root_basename_matches: basenameMatches,
+      package_name_matches: packageNameMatches,
+    },
+  };
+}
+
 function isWindowsAbsolutePath(value) {
   return /^[A-Za-z]:[\\/]/.test(String(value || ''));
 }
@@ -220,45 +253,77 @@ async function collectRepoPreflight(projectRoot) {
   const [
     rootResult,
     branchResult,
+    headRefResult,
     headResult,
     defaultResult,
-    remoteHeadResult,
+    remoteShowResult,
     statusResult,
   ] = await Promise.all([
     runGit(projectRoot, ['rev-parse', '--show-toplevel']),
     runGit(projectRoot, ['branch', '--show-current']),
+    runGit(projectRoot, ['rev-parse', '--abbrev-ref', 'HEAD']),
     runGit(projectRoot, ['rev-parse', 'HEAD']),
-    runGit(projectRoot, ['symbolic-ref', 'refs/remotes/origin/HEAD']),
-    runGit(projectRoot, ['rev-parse', 'origin/HEAD']),
+    runGit(projectRoot, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD']),
+    runGit(projectRoot, ['remote', 'show', 'origin']),
     runGit(projectRoot, ['status', '--short']),
   ]);
   const repoRoot = rootResult.ok ? rootResult.stdout.trim() : null;
+  const packageName = repoRoot ? await readPackageName(repoRoot) : null;
+  const repoIdentity = buildRepoIdentity(repoRoot, packageName);
   const dirtyPaths = statusResult.ok
     ? statusResult.stdout.split('\n').map((line) => line.trim()).filter(Boolean)
     : [];
   const branchName = branchResult.ok
-    ? branchResult.stdout.trim() || githubActionsBranchFallback()
-    : githubActionsBranchFallback();
-  const remoteDefaultHead = defaultResult.ok
-    ? defaultResult.stdout.trim().replace(/^refs\/remotes\//, '')
-    : githubActionsRemoteDefaultFallback();
+    ? branchResult.stdout.trim() || githubActionsBranchFallback() || githubActionsCurrentRefFallback()
+    : githubActionsBranchFallback() || githubActionsCurrentRefFallback();
+  const headRef = headRefResult.ok ? headRefResult.stdout.trim() || null : null;
+  const gitDefaultHead = defaultResult.ok ? defaultResult.stdout.trim() || null : null;
+  const remoteShowDefaultHead = remoteShowResult.ok ? parseRemoteDefaultHead(remoteShowResult.stdout) : null;
+  const githubBaseDefaultHead = githubActionsRemoteDefaultFallback();
+  const currentRefDefaultHead = branchName && ['master', 'main'].includes(branchName)
+    ? `origin/${branchName}`
+    : null;
+  const remoteDefaultHead = gitDefaultHead
+    || remoteShowDefaultHead
+    || githubBaseDefaultHead
+    || currentRefDefaultHead;
+  const remoteDefaultHeadSource = gitDefaultHead
+    ? 'git_symbolic_ref'
+    : remoteShowDefaultHead
+      ? 'git_remote_show'
+      : githubBaseDefaultHead
+        ? 'github_base_ref_fallback'
+        : currentRefDefaultHead
+          ? 'current_default_branch_fallback'
+          : 'unavailable';
+  const remoteHeadResult = remoteDefaultHead
+    ? await runGit(projectRoot, ['rev-parse', remoteDefaultHead])
+    : { ok: false, stdout: '' };
+  const detachedHead = !branchName && headRef === 'HEAD';
   return {
     repo_root: repoRoot,
-    repo_root_basename: repoRoot ? basename(repoRoot) : null,
-    repo_identity_ok: repoRoot ? basename(repoRoot) === 'freecad-automation' : false,
+    repo_root_basename: repoIdentity.rootBasename,
+    repo_package_name: repoIdentity.packageName,
+    repo_identity_ok: repoIdentity.ok,
+    repo_identity_evidence: repoIdentity.evidence,
     current_branch: branchName,
+    head_ref: headRef,
     head_sha: headResult.ok ? headResult.stdout.trim() || null : null,
     remote_default_head: remoteDefaultHead,
+    remote_default_head_source: remoteDefaultHeadSource,
     remote_default_head_sha: remoteHeadResult.ok ? remoteHeadResult.stdout.trim() || null : null,
     dirty_tree: dirtyPaths.length > 0,
     dirty_paths: dirtyPaths,
     checkout_safety: {
-      repo_identity_ok: repoRoot ? basename(repoRoot) === 'freecad-automation' : false,
+      repo_identity_ok: repoIdentity.ok,
+      repo_identity_evidence: repoIdentity.evidence,
       branch_discovered: Boolean(branchName),
-      branch_discovery_source: branchResult.ok && branchResult.stdout.trim() ? 'git_branch' : githubActionsBranchFallback() ? 'github_actions_env' : null,
+      detached_head: detachedHead,
+      clean_detached_head_checkout_ok: Boolean(detachedHead && headResult.ok && headResult.stdout.trim() && dirtyPaths.length === 0),
+      branch_discovery_source: branchResult.ok && branchResult.stdout.trim() ? 'git_branch' : githubActionsBranchFallback() || githubActionsCurrentRefFallback() ? 'github_actions_env' : null,
       head_discovered: Boolean(headResult.ok && headResult.stdout.trim()),
       remote_default_discovered: Boolean(remoteDefaultHead),
-      remote_default_discovery_source: defaultResult.ok ? 'git_symbolic_ref' : githubActionsRemoteDefaultFallback() ? 'github_actions_env' : null,
+      remote_default_head_source: remoteDefaultHeadSource,
       dirty_tree_status_discovered: statusResult.ok,
       canonical_package_dirty_paths: dirtyPaths.filter((line) => /\sdocs\/examples\//.test(line)),
     },
