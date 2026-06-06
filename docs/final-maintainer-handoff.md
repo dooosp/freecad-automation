@@ -9,12 +9,14 @@ deploy production.
 
 - Repository: `dooosp/freecad-automation`
 - Default branch: `master`
-- Verified default-branch head: `1d565a1272e5ebdd4053cd37168490be1fb1525a`
-- Latest audited merge: PR [#160](https://github.com/dooosp/freecad-automation/pull/160), `Refresh Stage 5B governance closeout`
+- Verified default-branch head: `2457f693eaba3f93d10eb25bf87da813a3b0cee5`
+- Latest audited merge: PR [#161](https://github.com/dooosp/freecad-automation/pull/161), `Fix Stage 5B preflight drift`
 - Open PR state at handoff: `gh pr list --state open --limit 100` returned no open PR rows
 - Open issue state at handoff: `gh issue list --state open --limit 100` returned no open issue rows
-- GitHub CI at PR #160 head: `Automation CI (hosted fast lanes)` passed on run `27052125178`
-- Post-merge master drift found during maintainer readiness doctor: `Automation CI (hosted fast lanes)` run `27052184917` failed in the Node contract lane at `tests/stage5b-evidence-attachment-controller.test.js`; this maintenance cleanup repairs that preflight drift. No PR #160 self-hosted runtime-smoke pass is claimed here.
+- GitHub CI at PR #161 head: `Automation CI (hosted fast lanes)` passed on run `27052805253`
+- Post-merge master CI at `2457f693eaba3f93d10eb25bf87da813a3b0cee5`: `Automation CI (hosted fast lanes)` passed on run `27052849774`
+- Post-merge master runtime smoke at `2457f693eaba3f93d10eb25bf87da813a3b0cee5`: `FreeCAD Runtime Smoke (self-hosted macOS)` passed on run `27052888366`
+- Historical drift repaired by PR #161: post-merge `Automation CI (hosted fast lanes)` run `27052184917` at PR #160 head failed in the Node contract lane at `tests/stage5b-evidence-attachment-controller.test.js`. No PR #160 or PR #161 self-hosted runtime-smoke pass is claimed here; the runtime claim above is post-merge `master` smoke for the PR #161 merge commit.
 
 ## Evidence and readiness truth
 
@@ -49,7 +51,8 @@ arrive in a separate later authorized task.
 - redaction/privacy approval depends on future private records
 - human authorization before canonical evidence attachment is still required
 - GitHub required-checks, protected branch rules, repository settings, runner
-  ownership, and release publication decisions remain maintainer/org settings
+  ownership, and release publication decisions remain maintainer/org settings;
+  see [CI governance and maintainer checklist](./ci-governance.md)
 
 ## Next condition
 

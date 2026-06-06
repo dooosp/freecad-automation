@@ -469,6 +469,8 @@ assert.match(docs.closeout, /PR #156|\[#156\]/, 'Stage 5B closeout should includ
 assert.match(docs.closeout, /PR #157|\[#157\]/, 'Stage 5B closeout should include the PR #157 review dry-run state');
 assert.match(docs.closeout, /PR #158|\[#158\]/, 'Stage 5B closeout should include the PR #158 attachment controller state');
 assert.match(docs.closeout, /PR #159|\[#159\]/, 'Stage 5B closeout should include the PR #159 pipeline doctor state');
+assert.match(docs.closeout, /PR #160|\[#160\]/, 'Stage 5B closeout should include the PR #160 governance closeout state');
+assert.match(docs.closeout, /PR #161|\[#161\]/, 'Stage 5B closeout should include the PR #161 maintainer-readiness drift repair state');
 assert.match(docs.closeout, /\[Stage 5B operational runbook\]\(\.\/stage-5b-operational-runbook\.md\)/, 'Stage 5B closeout should link the operational runbook');
 assert.match(docs.closeout, /\[Stage 5B evidence request packet\]\(\.\/stage-5b-evidence-request-packet\.md\)/, 'Stage 5B closeout should link the evidence request packet');
 assert.match(docs.closeout, /\[Stage 5B attachment authorization record\]\(\.\/stage-5b-attachment-authorization-record\.md\)/, 'Stage 5B closeout should link the attachment authorization record');
@@ -495,8 +497,7 @@ assert.match(docs.closeout, /\[Stage 5B artifact\/schema catalog\]\(\.\/stage-5b
 ].forEach((needle) => {
   assert(docs.closeout.includes(needle), `Stage 5B closeout handoff ledger should include ${needle}`);
 });
-assert.match(docs.closeout, /PR #160|\[#160\]/, 'Stage 5B closeout should include the PR #160 governance closeout state');
-assert.match(docs.closeout, /through PR \[#160\]/, 'Stage 5B closeout should state the PR #160 endpoint');
+assert.match(docs.closeout, /through PR \[#161\]/, 'Stage 5B closeout should state the PR #161 endpoint');
 assert.match(docs.readme, /HTTPS GitHub\/GitHubusercontent allowlisted public links/, 'README should document the bounded GitHub public-link downloader host policy');
 assert.match(docs.supportMatrix, /HTTPS GitHub\/GitHubusercontent allowlisted public links/, 'support matrix should document the bounded GitHub public-link downloader host policy');
 assert.match(docs.inspectionContract, /HTTPS URLs on the explicit GitHub\/GitHubusercontent host allowlist/, 'inspection evidence contract should document the explicit GitHub downloader host allowlist');
@@ -514,10 +515,12 @@ assert.match(docs.rcGapLedger, /Automation CI \(hosted fast lanes\).*passed/i, '
 assert.match(docs.rcGapLedger, /FreeCAD Runtime Smoke \(self-hosted macOS\).*passed/i, 'RC gap ledger should record self-hosted runtime smoke result without broadening coverage');
 assert.match(docs.rcGapLedger, /Stop active hardening/i, 'RC gap ledger should include the final freeze stop point');
 assert.match(docs.finalMaintainerHandoff, /^# Final maintainer handoff/m, 'final maintainer handoff should exist with the expected title');
-assert.match(docs.finalMaintainerHandoff, /PR \[#160\]/, 'final maintainer handoff should cite PR #160');
-assert.match(docs.finalMaintainerHandoff, /1d565a1272e5ebdd4053cd37168490be1fb1525a/, 'final maintainer handoff should pin the handoff head');
-assert.match(docs.finalMaintainerHandoff, /27052125178/, 'final maintainer handoff should record the PR #160 hosted CI run');
-assert.match(docs.finalMaintainerHandoff, /No PR #160 self-hosted runtime-smoke pass is claimed here/, 'final maintainer handoff should avoid a PR #160 runtime-smoke overclaim');
+assert.match(docs.finalMaintainerHandoff, /PR \[#161\]/, 'final maintainer handoff should cite PR #161');
+assert.match(docs.finalMaintainerHandoff, /2457f693eaba3f93d10eb25bf87da813a3b0cee5/, 'final maintainer handoff should pin the handoff head');
+assert.match(docs.finalMaintainerHandoff, /27052805253/, 'final maintainer handoff should record the PR #161 hosted CI run');
+assert.match(docs.finalMaintainerHandoff, /27052849774/, 'final maintainer handoff should record the post-merge hosted CI run');
+assert.match(docs.finalMaintainerHandoff, /27052888366/, 'final maintainer handoff should record the post-merge self-hosted runtime smoke run');
+assert.match(docs.finalMaintainerHandoff, /No PR #160 or PR #161 self-hosted runtime-smoke pass is claimed here/, 'final maintainer handoff should avoid a PR runtime-smoke overclaim');
 assert.match(docs.finalMaintainerHandoff, /No genuine completed inspection evidence has been found or attached/i, 'final maintainer handoff should keep no-evidence truth');
 assert.match(docs.finalMaintainerHandoff, /Stop active hardening/i, 'final maintainer handoff should include the final freeze stop point');
 assertNoPositiveCloseoutOverclaim(docs.closeout, 'Stage 5B closeout');

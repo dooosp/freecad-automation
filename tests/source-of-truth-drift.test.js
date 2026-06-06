@@ -21,8 +21,11 @@ const packageJson = JSON.parse(readText('package.json'));
 const readme = readText('README.md');
 const testingDoc = readText('docs/testing.md');
 const supportMatrix = readText('docs/support-matrix.md');
+const ciGovernance = readText('docs/ci-governance.md');
 const ciDiagnosticsScript = readText('.github/scripts/ci-diagnostics.sh');
 const gitignore = readText('.gitignore');
+const hostedWorkflow = readText('.github/workflows/automation-ci.yml');
+const runtimeWorkflow = readText('.github/workflows/freecad-runtime-smoke.yml');
 
 function extractSection(markdown, heading) {
   const marker = `${heading}\n`;
@@ -125,12 +128,21 @@ assert(hostedSuite, 'hosted test suite should exist in tests/lane-manifest.js');
 
 const readmeTesting = extractSection(readme, '## Testing');
 assert.match(readmeTesting, /node scripts\/run-test-suite\.js default-node/);
+assert.match(readme, /docs\/ci-governance\.md/);
+assert.match(testingDoc, /\[CI governance\]\(\.\/ci-governance\.md\)/);
+assert.match(ciGovernance, /^# CI governance and maintainer checklist/m);
+assert.match(ciGovernance, /Branch not protected/);
+assert.match(ciGovernance, /Stage 5B is closed through PR #161/);
 hostedSuite.members.forEach((scriptName) => {
   assert(
     readmeTesting.includes(scriptName) || readme.includes(scriptName) || testingDoc.includes(scriptName),
     `hosted lane member ${scriptName} should be documented in README or docs/testing.md`
   );
 });
+assert(
+  readme.includes('check:source-hygiene') && testingDoc.includes('check:source-hygiene') && ciGovernance.includes('npm run check:source-hygiene'),
+  'source hygiene should be documented as a hosted and local maintainer check'
+);
 assert.doesNotMatch(
   readmeTesting,
   /npm test.*tests\/test-runner\.js|tests\/test-runner\.js.*npm test/s,
@@ -139,6 +151,44 @@ assert.doesNotMatch(
 
 const runtimeSmokeLane = getTestSuite('hosted') && testingDoc.includes('FreeCAD Runtime Smoke (self-hosted macOS)');
 assert.equal(runtimeSmokeLane, true, 'docs/testing.md should name the self-hosted runtime smoke workflow');
+
+assert.match(hostedWorkflow, /^name: Automation CI \(hosted fast lanes\)$/m);
+assert.match(hostedWorkflow, /^\s+pull_request:\s*$/m);
+assert.match(hostedWorkflow, /^\s+workflow_dispatch:\s*$/m);
+assert.match(hostedWorkflow, /^\s+push:\s*\n\s+branches: \[master\]/m);
+[
+  ['Source hygiene guard', 'npm run check:source-hygiene'],
+  ['Node contract lane (ubuntu-24.04)', 'npm run test:node:contract'],
+  ['Node contract lane (macos-14)', 'npm run test:node:contract'],
+  ['Node integration lane', 'npm run test:node:integration'],
+  ['Snapshot lane', 'npm run test:snapshots'],
+  ['Studio browser smoke lane', 'npm run test:studio-browser-smoke'],
+  ['Python lane', 'npm run test:py'],
+].forEach(([checkName, command]) => {
+  assert(ciGovernance.includes(checkName), `CI governance should document hosted check ${checkName}`);
+  assert(ciGovernance.includes(command), `CI governance should document hosted command ${command}`);
+});
+
+assert.match(runtimeWorkflow, /^name: FreeCAD Runtime Smoke \(self-hosted macOS\)$/m);
+assert.match(runtimeWorkflow, /workflow_run:\s*\n\s*workflows:\s*\["Automation CI \(hosted fast lanes\)"\]\s*\n\s*types:\s*\[completed\]/);
+assert.match(runtimeWorkflow, /^\s+workflow_dispatch:\s*$/m);
+assert.match(runtimeWorkflow, /^\s+schedule:\s*\n\s+- cron: "0 3 \* \* 1"/m);
+assert(runtimeWorkflow.includes('runs-on: [self-hosted, macOS, freecad, freecad-automation-runtime]'));
+assert(runtimeWorkflow.includes('environment: freecad-runtime-smoke'));
+assert(runtimeWorkflow.includes("github.event.workflow_run.head_repository.full_name == github.repository"));
+assert(runtimeWorkflow.includes("github.event.workflow_run.actor.login == 'dooosp'"));
+[
+  'FreeCAD Runtime Smoke (self-hosted macOS)',
+  'Self-hosted macOS FreeCAD smoke',
+  '`freecad-automation-runtime`',
+  '`freecad-runtime-smoke`',
+  'workflow_run',
+  'same-repository heads',
+  'Forked PR code must not be checked out',
+  'Post-merge expectation for `master`',
+].forEach((needle) => {
+  assert(ciGovernance.includes(needle), `CI governance should document runtime smoke boundary: ${needle}`);
+});
 
 const runtimeSmokeClaims = [
   readme,
