@@ -1,6 +1,6 @@
 # Stage 5B automation closeout status
 
-This document summarizes the Stage 5B automation and handoff chain through PR [#159](https://github.com/dooosp/freecad-automation/pull/159). It is a software/status closeout only. It does not attach inspection evidence, mutate canonical package artifacts, regenerate readiness, or claim production readiness.
+This document summarizes the Stage 5B automation and handoff chain through PR [#160](https://github.com/dooosp/freecad-automation/pull/160). It is a software/status closeout only. It does not attach inspection evidence, mutate canonical package artifacts, regenerate readiness, or claim production readiness.
 
 For day-to-day CLI/API/Studio operation, diagnostics, expected no-evidence output, and validation commands, use the [Stage 5B operational runbook](./stage-5b-operational-runbook.md). For supplier, lab, QA, or physical-inspection request wording before any candidate enters review, use the [Stage 5B evidence request packet](./stage-5b-evidence-request-packet.md). For future human sign-off metadata before canonical mutation, use the [Stage 5B attachment authorization record](./stage-5b-attachment-authorization-record.md). For the concise producer/schema/preview/evidence/readiness map of Stage 5B control outputs, use the [Stage 5B artifact/schema catalog](./stage-5b-artifact-schema-catalog.md).
 
@@ -47,6 +47,7 @@ For day-to-day CLI/API/Studio operation, diagnostics, expected no-evidence outpu
 | [#157](https://github.com/dooosp/freecad-automation/pull/157) | Merged | `1c4ebf7af1376b70e258b393eae78b5a80a0a815` | Added the review dry-run orchestration bridge without attaching evidence or regenerating readiness. |
 | [#158](https://github.com/dooosp/freecad-automation/pull/158) | Merged | `264bfc88c8679596ba1229c4bc2f3a0948ae0961` | Added the attachment controller that verifies authorization prerequisites and fails closed before any later explicit attachment task. |
 | [#159](https://github.com/dooosp/freecad-automation/pull/159) | Merged | `a14359118af06de217b2d46a1f00176dd1fca744` | Added the fixture-only pipeline doctor for source-kit -> source-preflight -> review-dry-run -> attachment-controller -> pipeline-doctor -> later explicit real attachment/regeneration goal. |
+| [#160](https://github.com/dooosp/freecad-automation/pull/160) | Merged | `1d565a1272e5ebdd4053cd37168490be1fb1525a` | Refreshed the Stage 5B governance closeout and final handoff after the pipeline-doctor closeout while preserving the no-evidence readiness truth. |
 
 ## Handoff ledger
 
@@ -88,7 +89,7 @@ Stage 5B now has these software surfaces:
 - `stage5b-evidence-review-dry-run`, which chains source preflight, redaction planning, review-scoped candidate preparation, candidate gate, intake/dry-run/audit planning, and readiness-held reporting without attachment.
 - `stage5b-evidence-attachment-controller`, which verifies review and authorization prerequisites for a later explicit attachment task and fails closed without attaching evidence.
 - `stage5b-evidence-pipeline-doctor`, which proves the fixture-only safe chain source-kit -> source-preflight -> review-dry-run -> attachment-controller -> pipeline-doctor -> later explicit real attachment/regeneration goal.
-- release audit, local API preview/download, negative-contract, job/artifact lifecycle, release bundle reproducibility, first-user E2E, local API schema parity, Studio API fuzz, runtime output contract, CI/source hygiene, workflow provenance pinning, self-hosted runtime governance, attachment provenance hardening, RC gap ledger handoff through PRs #140-#153, and the source-kit/preflight, review dry-run, attachment-controller, surrogate-validation, and pipeline-doctor closeout surfaces through PRs #155-#159.
+- release audit, local API preview/download, negative-contract, job/artifact lifecycle, release bundle reproducibility, first-user E2E, local API schema parity, Studio API fuzz, runtime output contract, CI/source hygiene, workflow provenance pinning, self-hosted runtime governance, attachment provenance hardening, RC gap ledger handoff through PRs #140-#153, and the source-kit/preflight, review dry-run, attachment-controller, surrogate-validation, pipeline-doctor, and governance closeout surfaces through PRs #155-#160.
 - table normalization for explicit inspection tables in CSV, TSV, Markdown, TXT, and allowlisted ZIP entries.
 - include_github discovery (`--include-github`) for bounded public GitHub search and sanitized candidate provenance.
 - attachment planning that links only existing candidate/package signals and never invents measured values.

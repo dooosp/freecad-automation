@@ -172,6 +172,39 @@ async function isGitIgnored(projectRoot, relativePath) {
   return null;
 }
 
+function githubActionsCurrentRefFallback() {
+  return process.env.GITHUB_REF_NAME || null;
+}
+
+function parseRemoteDefaultHead(stdout = '') {
+  const match = String(stdout).match(/^\s*HEAD branch:\s*(\S+)\s*$/m);
+  return match ? `origin/${match[1]}` : null;
+}
+
+async function readPackageName(projectRoot) {
+  try {
+    const packageJson = JSON.parse(await readFile(resolve(projectRoot, 'package.json'), 'utf8'));
+    return typeof packageJson.name === 'string' ? packageJson.name : null;
+  } catch {
+    return null;
+  }
+}
+
+function buildRepoIdentity(projectRoot, packageName) {
+  const rootBasename = projectRoot ? basename(projectRoot) : null;
+  const basenameMatches = rootBasename === 'freecad-automation';
+  const packageNameMatches = packageName === 'freecad-automation';
+  return {
+    ok: Boolean(projectRoot && (basenameMatches || packageNameMatches)),
+    rootBasename,
+    packageName,
+    evidence: {
+      root_basename_matches: basenameMatches,
+      package_name_matches: packageNameMatches,
+    },
+  };
+}
+
 async function sha256IfReadable(pathValue) {
   try {
     return createHash('sha256').update(await readFile(pathValue)).digest('hex');
@@ -215,7 +248,7 @@ async function collectRepoPreflight(projectRoot) {
     headRefResult,
     headResult,
     defaultResult,
-    remoteHeadResult,
+    remoteShowResult,
     statusResult,
   ] = await Promise.all([
     Promise.resolve({ ok: true, stdout: process.cwd() }),
@@ -224,21 +257,38 @@ async function collectRepoPreflight(projectRoot) {
     runGit(projectRoot, ['rev-parse', '--abbrev-ref', 'HEAD']),
     runGit(projectRoot, ['rev-parse', 'HEAD']),
     runGit(projectRoot, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD']),
-    runGit(projectRoot, ['rev-parse', 'origin/HEAD']),
+    runGit(projectRoot, ['remote', 'show', 'origin']),
     runGit(projectRoot, ['status', '--short']),
   ]);
   const repoRoot = rootResult.ok ? rootResult.stdout.trim() : null;
-  const branchName = branchResult.ok ? branchResult.stdout.trim() || null : null;
+  const packageName = repoRoot ? await readPackageName(repoRoot) : null;
+  const repoIdentity = buildRepoIdentity(repoRoot, packageName);
+  const branchName = branchResult.ok ? branchResult.stdout.trim() || githubActionsCurrentRefFallback() || null : githubActionsCurrentRefFallback();
   const headRef = headRefResult.ok ? headRefResult.stdout.trim() || null : null;
   const headSha = headResult.ok ? headResult.stdout.trim() || null : null;
   const gitDefaultHead = defaultResult.ok ? defaultResult.stdout.trim() || null : null;
+  const remoteShowDefaultHead = remoteShowResult.ok ? parseRemoteDefaultHead(remoteShowResult.stdout) : null;
   const githubBaseRef = normalizeRepoPath(process.env.GITHUB_BASE_REF || '');
-  const remoteDefaultHead = gitDefaultHead || (githubBaseRef ? `origin/${githubBaseRef}` : null);
+  const githubBaseDefaultHead = githubBaseRef ? `origin/${githubBaseRef}` : null;
+  const currentRefDefaultHead = branchName && ['master', 'main'].includes(branchName)
+    ? `origin/${branchName}`
+    : null;
+  const remoteDefaultHead = gitDefaultHead
+    || remoteShowDefaultHead
+    || githubBaseDefaultHead
+    || currentRefDefaultHead;
   const remoteDefaultHeadSource = gitDefaultHead
     ? 'git_symbolic_ref'
-    : githubBaseRef
-      ? 'github_base_ref_fallback'
-      : 'unavailable';
+    : remoteShowDefaultHead
+      ? 'git_remote_show'
+      : githubBaseDefaultHead
+        ? 'github_base_ref_fallback'
+        : currentRefDefaultHead
+          ? 'current_default_branch_fallback'
+          : 'unavailable';
+  const remoteHeadResult = remoteDefaultHead
+    ? await runGit(projectRoot, ['rev-parse', remoteDefaultHead])
+    : { ok: false, stdout: '' };
   const dirtyPaths = statusResult.ok
     ? statusResult.stdout.split('\n').map((line) => line.trim()).filter(Boolean)
     : [];
@@ -247,8 +297,10 @@ async function collectRepoPreflight(projectRoot) {
   return {
     pwd: pwdResult.stdout,
     repo_root: repoRoot,
-    repo_root_basename: repoRoot ? basename(repoRoot) : null,
-    repo_identity_ok: repoRoot ? basename(repoRoot) === 'freecad-automation' : false,
+    repo_root_basename: repoIdentity.rootBasename,
+    repo_package_name: repoIdentity.packageName,
+    repo_identity_ok: repoIdentity.ok,
+    repo_identity_evidence: repoIdentity.evidence,
     current_branch: branchName,
     head_ref: headRef,
     head_sha: headSha,
@@ -259,7 +311,8 @@ async function collectRepoPreflight(projectRoot) {
     dirty_tree: dirtyPaths.length > 0,
     dirty_paths: dirtyPaths,
     checkout_safety: {
-      repo_identity_ok: repoRoot ? basename(repoRoot) === 'freecad-automation' : false,
+      repo_identity_ok: repoIdentity.ok,
+      repo_identity_evidence: repoIdentity.evidence,
       branch_discovered: Boolean(branchName),
       detached_head: detachedHead,
       clean_detached_head_checkout_ok: cleanDetachedHeadCheckoutOk,
@@ -634,7 +687,11 @@ function addInspectionBlockers({
   rawPrivateCopyGuard,
 }) {
   if (!repoPreflight.repo_identity_ok) {
-    addBlocker(blockers, 'repo_identity_invalid', 'repo_preflight', 'Repo root basename must be freecad-automation.', { repo_root: repoPreflight.repo_root });
+    addBlocker(blockers, 'repo_identity_invalid', 'repo_preflight', 'Repo identity must match freecad-automation package metadata or root basename.', {
+      repo_root: repoPreflight.repo_root,
+      repo_root_basename: repoPreflight.repo_root_basename,
+      repo_package_name: repoPreflight.repo_package_name,
+    });
   }
   if (!repoPreflight.current_branch && !isCleanDetachedStage5bPipelineDoctorCheckout(repoPreflight)) {
     addBlocker(blockers, 'branch_not_discovered', 'repo_preflight', 'Current branch could not be discovered outside a clean detached CI checkout.', {

@@ -347,8 +347,11 @@ assertMentions(
   /^# Final maintainer handoff/m,
   'final maintainer handoff should have the expected title'
 );
-assertMentions(finalMaintainerHandoffText, /95a471971a2b8462813683060b5197b42bdd2760/, 'final maintainer handoff should pin the current default-branch head');
-assertMentions(finalMaintainerHandoffText, /PR \[#153\]/, 'final maintainer handoff should cite PR #153');
+assertMentions(finalMaintainerHandoffText, /1d565a1272e5ebdd4053cd37168490be1fb1525a/, 'final maintainer handoff should pin the current default-branch head');
+assertMentions(finalMaintainerHandoffText, /PR \[#160\]/, 'final maintainer handoff should cite PR #160');
+assertMentions(finalMaintainerHandoffText, /27052125178/, 'final maintainer handoff should record the PR #160 hosted CI run');
+assertMentions(finalMaintainerHandoffText, /27052184917/, 'final maintainer handoff should record the post-merge drift run');
+assertMentions(finalMaintainerHandoffText, /No PR #160 self-hosted runtime-smoke pass is claimed here/, 'final maintainer handoff should not overclaim PR #160 runtime smoke');
 assertMentions(finalMaintainerHandoffText, /no open PR rows/i, 'final maintainer handoff should record open PR state');
 assertMentions(finalMaintainerHandoffText, /no open issue rows/i, 'final maintainer handoff should record open issue state');
 assertMentions(finalMaintainerHandoffText, /No genuine completed inspection evidence has been found or attached/i, 'final maintainer handoff should preserve no-evidence truth');
@@ -398,10 +401,10 @@ assertMentions(
   /\[Stage 5B artifact\/schema catalog\]\(\.\/stage-5b-artifact-schema-catalog\.md\)/,
   'Stage 5B automation closeout should link the artifact/schema catalog'
 );
-for (const pr of ['#113', '#114', '#115', '#116', '#117', '#118', '#119', '#120', '#121', '#130', '#131', '#132', '#133', '#134', '#135', '#136', '#137', '#138', '#139', '#140', '#141', '#142', '#143', '#144', '#145', '#146', '#147', '#148', '#149', '#150', '#151', '#152', '#153', '#155', '#156', '#157', '#158', '#159']) {
+for (const pr of ['#113', '#114', '#115', '#116', '#117', '#118', '#119', '#120', '#121', '#130', '#131', '#132', '#133', '#134', '#135', '#136', '#137', '#138', '#139', '#140', '#141', '#142', '#143', '#144', '#145', '#146', '#147', '#148', '#149', '#150', '#151', '#152', '#153', '#155', '#156', '#157', '#158', '#159', '#160']) {
   assert.equal(stage5bAutomationCloseoutText.includes(pr), true, `Stage 5B automation closeout should mention PR ${pr}`);
 }
-assertMentions(stage5bAutomationCloseoutText, /through PR \[#159\]/, 'Stage 5B automation closeout should state the current PR chain endpoint');
+assertMentions(stage5bAutomationCloseoutText, /through PR \[#160\]/, 'Stage 5B automation closeout should state the current PR chain endpoint');
 for (const surface of [
   'inspection-evidence-intake',
   'table normalization',
