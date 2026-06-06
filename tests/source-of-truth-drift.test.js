@@ -74,6 +74,7 @@ Object.entries(getExpectedPackageScripts()).forEach(([scriptName, command]) => {
 
 assert.equal(packageJson.scripts['smoke:runtime'], 'npm run test:runtime-smoke');
 assert.equal(packageJson.scripts['check:runtime'], 'node scripts/check-runtime.js');
+assert.equal(packageJson.scripts['bootstrap:doctor'], 'node scripts/bootstrap-doctor.js');
 assert.equal(packageJson.scripts['release:dry-run:doctor'], 'node scripts/release-dry-run-doctor.js');
 assert.equal(packageJson.scripts['maintainer:doctor'], 'node scripts/maintainer-doctor.js');
 assert.equal(packageJson.scripts['test:snapshots:update'], 'node scripts/run-snapshot-update.js');
@@ -158,6 +159,17 @@ assert(
   assert(text.includes('npm run maintainer:doctor'), 'top-level maintainer doctor should be documented');
   assert.match(text, /output\/maintainer-doctor|maintainer_doctor_report\.json/);
   assert.match(text, /Stage 5B|release dry-run|source hygiene|node contract|source-of-truth/i);
+});
+[
+  readme,
+  testingDoc,
+  ciGovernance,
+  readText('docs/final-maintainer-handoff.md'),
+].forEach((text) => {
+  assert(text.includes('npm run bootstrap:doctor'), 'fresh-clone bootstrap doctor should be documented');
+  assert.match(text, /output\/bootstrap-doctor|bootstrap_doctor_report\.json/);
+  assert.match(text, /npm ci|local CLI help|docs\/local-state|sensitive-data leakage/i);
+  assert.match(text, /no publish|does not publish|must not publish|publish, tag, upload|no tag/i);
 });
 [
   readme,
