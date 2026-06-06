@@ -1,0 +1,308 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freecad-automation.local/schemas/stage5b-evidence-pipeline-doctor-manifest.schema.json",
+  "title": "Stage 5B evidence pipeline doctor manifest",
+  "type": "object",
+  "required": [
+    "artifact_type",
+    "schema_version",
+    "generated_at",
+    "dry_run",
+    "fixture_only",
+    "non_mutating",
+    "package_slug",
+    "repo_preflight",
+    "command_contract",
+    "commands_run",
+    "artifacts",
+    "schemas",
+    "artifact_catalog",
+    "docs_runbook",
+    "npm_scripts",
+    "ci_workflows",
+    "readiness_packages",
+    "non_evidence_guards",
+    "raw_private_copy_guard",
+    "blockers",
+    "next_human_step",
+    "evidence_boundary",
+    "readiness_held_truth",
+    "summary",
+    "outputs"
+  ],
+  "properties": {
+    "artifact_type": { "const": "stage5b_evidence_pipeline_doctor_manifest" },
+    "schema_version": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/schemaVersion" },
+    "generated_at": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/timestamp" },
+    "dry_run": { "const": true },
+    "fixture_only": { "const": true },
+    "non_mutating": { "const": true },
+    "package_slug": { "type": "string", "minLength": 1 },
+    "repo_preflight": {
+      "type": "object",
+      "required": ["repo_root_basename", "repo_identity_ok", "current_branch", "head_sha", "remote_default_head", "dirty_tree", "checkout_safety"],
+      "properties": {
+        "repo_root_basename": { "type": "string" },
+        "repo_identity_ok": { "type": "boolean" },
+        "current_branch": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "head_sha": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "remote_default_head": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "dirty_tree": { "type": "boolean" },
+        "checkout_safety": { "type": "object" }
+      },
+      "additionalProperties": true
+    },
+    "command_contract": {
+      "type": "object",
+      "required": ["required_commands", "entries"],
+      "properties": {
+        "required_commands": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/stringArray" },
+        "entries": { "type": "array" }
+      },
+      "additionalProperties": true
+    },
+    "commands_run": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "command", "expected_status", "actual_status", "status", "mutates_canonical_artifacts"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "command": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/command" },
+          "expected_status": {
+            "anyOf": [
+              { "type": "integer" },
+              { "type": "array", "items": { "type": "integer" } }
+            ]
+          },
+          "actual_status": { "type": "integer" },
+          "status": { "enum": ["pass", "expected_hold", "failed"] },
+          "accepted_as_fail_closed": { "type": "boolean" },
+          "mutates_canonical_artifacts": { "const": false }
+        },
+        "additionalProperties": true
+      }
+    },
+    "artifacts": { "type": "array" },
+    "schemas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "exists"],
+        "properties": {
+          "path": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/repoPath" },
+          "exists": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "artifact_catalog": {
+      "type": "object",
+      "required": ["required_ids", "present_ids", "missing_ids"],
+      "properties": {
+        "required_ids": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/stringArray" },
+        "present_ids": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/stringArray" },
+        "missing_ids": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/stringArray" }
+      },
+      "additionalProperties": true
+    },
+    "docs_runbook": { "type": "array" },
+    "npm_scripts": { "type": "object" },
+    "ci_workflows": { "type": "array" },
+    "readiness_packages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["slug", "path", "exists", "status", "gate_decision", "readiness_remains_held"],
+        "properties": {
+          "slug": { "type": "string", "minLength": 1 },
+          "path": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/repoPath" },
+          "exists": { "type": "boolean" },
+          "status": {
+            "anyOf": [
+              { "type": "string" },
+              { "type": "null" }
+            ]
+          },
+          "gate_decision": {
+            "anyOf": [
+              { "type": "string" },
+              { "type": "null" }
+            ]
+          },
+          "readiness_remains_held": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "non_evidence_guards": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "source", "classification", "canonical_evidence_eligible", "evidence_attached"],
+        "properties": {
+          "kind": { "enum": ["surrogate", "generated", "docs", "ci", "readiness", "cad"] },
+          "source": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/sourceRef" },
+          "classification": {
+            "anyOf": [
+              { "type": "string" },
+              { "type": "null" }
+            ]
+          },
+          "canonical_evidence_eligible": { "const": false },
+          "evidence_attached": { "const": false }
+        },
+        "additionalProperties": true
+      }
+    },
+    "raw_private_copy_guard": {
+      "type": "object",
+      "required": ["marker_copied_to_output"],
+      "properties": {
+        "marker_copied_to_output": { "const": false },
+        "raw_inbox_tracked": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "gate", "message"],
+        "properties": {
+          "code": { "type": "string", "minLength": 1 },
+          "gate": { "type": "string", "minLength": 1 },
+          "message": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": true
+      }
+    },
+    "next_human_step": {
+      "type": "object",
+      "required": ["required", "instructions", "canonical_attachment_allowed_now", "canonical_readiness_regeneration_allowed_now"],
+      "properties": {
+        "required": { "const": true },
+        "instructions": { "type": "string", "minLength": 1 },
+        "canonical_attachment_allowed_now": { "const": false },
+        "canonical_readiness_regeneration_allowed_now": { "const": false }
+      },
+      "additionalProperties": true
+    },
+    "evidence_boundary": {
+      "type": "object",
+      "required": [
+        "hard_evidence_rule",
+        "pipeline_doctor_does_not_attach_evidence",
+        "pipeline_doctor_does_not_promote_evidence",
+        "pipeline_doctor_does_not_regenerate_readiness",
+        "pipeline_doctor_does_not_mark_packages_ready",
+        "later_explicit_real_attachment_regeneration_goal_required",
+        "fixture_surrogate_generated_docs_ci_readiness_cad_are_not_evidence",
+        "rejected_as_real_evidence"
+      ],
+      "properties": {
+        "hard_evidence_rule": { "type": "string", "minLength": 1 },
+        "pipeline_doctor_does_not_attach_evidence": { "const": true },
+        "pipeline_doctor_does_not_promote_evidence": { "const": true },
+        "pipeline_doctor_does_not_regenerate_readiness": { "const": true },
+        "pipeline_doctor_does_not_mark_packages_ready": { "const": true },
+        "later_explicit_real_attachment_regeneration_goal_required": { "const": true },
+        "fixture_surrogate_generated_docs_ci_readiness_cad_are_not_evidence": { "const": true },
+        "rejected_as_real_evidence": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/stringArray" }
+      },
+      "additionalProperties": true
+    },
+    "readiness_held_truth": {
+      "type": "object",
+      "required": [
+        "readiness_remains_held",
+        "status",
+        "gate_decision",
+        "canonical_readiness_regenerated",
+        "canonical_artifacts_mutated",
+        "packages_marked_ready"
+      ],
+      "properties": {
+        "readiness_remains_held": { "const": true },
+        "status": { "const": "needs_more_evidence" },
+        "gate_decision": { "const": "hold_for_evidence_completion" },
+        "canonical_readiness_regenerated": { "const": false },
+        "canonical_artifacts_mutated": { "const": false },
+        "packages_marked_ready": { "const": false }
+      },
+      "additionalProperties": true
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "pipeline_status",
+        "decision",
+        "blocker_count",
+        "fixture_only",
+        "evidence_attached",
+        "canonical_artifacts_mutated",
+        "canonical_readiness_regenerated",
+        "packages_marked_ready",
+        "readiness_status",
+        "readiness_gate_decision",
+        "readiness_remains_held",
+        "attachment_controller_fail_closed_proven",
+        "next_human_step"
+      ],
+      "properties": {
+        "pipeline_status": { "enum": ["pass_fixture_only_readiness_held", "hold_for_pipeline_doctor_blockers"] },
+        "decision": { "enum": ["pass", "hold"] },
+        "blocker_count": { "type": "integer", "minimum": 0 },
+        "fixture_only": { "const": true },
+        "evidence_attached": { "const": false },
+        "canonical_artifacts_mutated": { "const": false },
+        "canonical_readiness_regenerated": { "const": false },
+        "packages_marked_ready": { "const": false },
+        "readiness_status": { "const": "needs_more_evidence" },
+        "readiness_gate_decision": { "const": "hold_for_evidence_completion" },
+        "readiness_remains_held": { "const": true },
+        "attachment_controller_fail_closed_proven": { "type": "boolean" },
+        "next_human_step": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": true
+    },
+    "outputs": {
+      "type": "object",
+      "required": ["manifest"],
+      "properties": {
+        "manifest": {
+          "type": "object",
+          "required": ["path", "artifact_type", "sha256"],
+          "properties": {
+            "path": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/repoPath" },
+            "artifact_type": { "const": "stage5b_evidence_pipeline_doctor_manifest" },
+            "sha256": {
+              "anyOf": [
+                { "type": "string", "minLength": 64, "maxLength": 64 },
+                { "type": "null" }
+              ]
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

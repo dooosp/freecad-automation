@@ -6,7 +6,7 @@ export const TEST_LANES = Object.freeze([
     label: 'Node contract',
     npmScript: 'test:node:contract',
     packageCommand: 'node tests/run-node-lane.js contract',
-    scope: 'config migration/validation, runtime path resolution, invocation assembly, structural validation, canonical package integrity, and Stage 5B no-evidence/audit/surrogate/source-preflight/attachment-controller CLI smoke',
+    scope: 'config migration/validation, runtime path resolution, invocation assembly, structural validation, canonical package integrity, and Stage 5B no-evidence/audit/surrogate/source-preflight/attachment-controller/pipeline-doctor CLI smoke',
     freecadRequired: false,
     steps: Object.freeze([
       Object.freeze({ label: 'Config normalizer', args: Object.freeze(['tests/config-normalizer.test.js']) }),
@@ -70,6 +70,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'Stage 5B audit CLI smoke', args: Object.freeze(['tests/stage5b-evidence-audit-cli-smoke.test.js']) }),
       Object.freeze({ label: 'Stage 5B surrogate inspection validation', args: Object.freeze(['tests/stage5b-surrogate-inspection-validation.test.js']) }),
       Object.freeze({ label: 'Stage 5B evidence source kit/preflight', args: Object.freeze(['tests/stage5b-evidence-source-kit.test.js']) }),
+      Object.freeze({ label: 'Stage 5B evidence pipeline doctor', args: Object.freeze(['tests/stage5b-evidence-pipeline-doctor.test.js']) }),
       Object.freeze({ label: 'Readiness inspection evidence contract', args: Object.freeze(['tests/readiness-inspection-evidence-contract.test.js']) }),
       Object.freeze({ label: 'Design reviewer validation', args: Object.freeze(['tests/design-reviewer-validation.test.js']) }),
       Object.freeze({ label: 'D artifact contracts', args: Object.freeze(['tests/d-artifact-schema.test.js']) }),
@@ -83,7 +84,7 @@ export const TEST_LANES = Object.freeze([
     label: 'Stage 5B no-evidence',
     npmScript: 'test:stage5b:no-evidence',
     packageCommand: 'node tests/run-node-lane.js stage5b-no-evidence',
-    scope: 'local non-production CLI lane for source acquisition preflight, evidence review dry-run orchestration, evidence attachment-controller gating, inspection-evidence-intake, inspection-evidence-promotion-dry-run, stage5b-evidence-audit, and stage5b-surrogate-inspection-validation proving no genuine evidence is promoted',
+    scope: 'local non-production CLI lane for source acquisition preflight, evidence review dry-run orchestration, evidence attachment-controller gating, inspection-evidence-intake, inspection-evidence-promotion-dry-run, stage5b-evidence-audit, stage5b-surrogate-inspection-validation, and the fixture-only pipeline doctor proving no genuine evidence is promoted',
     freecadRequired: false,
     steps: Object.freeze([
       Object.freeze({ label: 'Stage 5B no-evidence CLI lane', args: Object.freeze(['tests/stage5b-no-evidence-lane.test.js']) }),
@@ -91,6 +92,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'Stage 5B evidence attachment controller', args: Object.freeze(['tests/stage5b-evidence-attachment-controller.test.js']) }),
       Object.freeze({ label: 'Stage 5B surrogate inspection validation', args: Object.freeze(['tests/stage5b-surrogate-inspection-validation.test.js']) }),
       Object.freeze({ label: 'Stage 5B evidence source kit/preflight', args: Object.freeze(['tests/stage5b-evidence-source-kit.test.js']) }),
+      Object.freeze({ label: 'Stage 5B evidence pipeline doctor', args: Object.freeze(['tests/stage5b-evidence-pipeline-doctor.test.js']) }),
     ]),
   }),
   Object.freeze({

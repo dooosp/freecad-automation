@@ -33,6 +33,7 @@
     "test:node:contract": "node tests/run-node-lane.js contract",
     "test:node:integration": "node tests/run-node-lane.js integration",
     "test:stage5b:no-evidence": "node tests/run-node-lane.js stage5b-no-evidence",
+    "test:stage5b:pipeline-doctor": "node tests/stage5b-evidence-pipeline-doctor.test.js",
     "test:studio-browser-smoke": "node tests/studio-shell-browser-smoke.test.js",
     "test:snapshots": "node tests/run-node-lane.js snapshots",
     "test:snapshots:update": "node scripts/run-snapshot-update.js",
