@@ -22,6 +22,8 @@ const readme = readText('README.md');
 const testingDoc = readText('docs/testing.md');
 const supportMatrix = readText('docs/support-matrix.md');
 const ciGovernance = readText('docs/ci-governance.md');
+const releaseChecklist = readText('docs/releases/v1.1.0-checklist.md');
+const studioCanonicalPackageApi = readText('docs/studio-canonical-package-api.md');
 const ciDiagnosticsScript = readText('.github/scripts/ci-diagnostics.sh');
 const gitignore = readText('.gitignore');
 const hostedWorkflow = readText('.github/workflows/automation-ci.yml');
@@ -72,6 +74,7 @@ Object.entries(getExpectedPackageScripts()).forEach(([scriptName, command]) => {
 
 assert.equal(packageJson.scripts['smoke:runtime'], 'npm run test:runtime-smoke');
 assert.equal(packageJson.scripts['check:runtime'], 'node scripts/check-runtime.js');
+assert.equal(packageJson.scripts['release:dry-run:doctor'], 'node scripts/release-dry-run-doctor.js');
 assert.equal(packageJson.scripts['test:snapshots:update'], 'node scripts/run-snapshot-update.js');
 
 [
@@ -132,7 +135,8 @@ assert.match(readme, /docs\/ci-governance\.md/);
 assert.match(testingDoc, /\[CI governance\]\(\.\/ci-governance\.md\)/);
 assert.match(ciGovernance, /^# CI governance and maintainer checklist/m);
 assert.match(ciGovernance, /Branch not protected/);
-assert.match(ciGovernance, /Stage 5B is closed through PR #161/);
+assert.match(ciGovernance, /Stage 5B and CI governance are closed through PR #162/);
+assert.match(ciGovernance, /17332534923a8fe3ae703ce890f94d705ce24a6b/);
 hostedSuite.members.forEach((scriptName) => {
   assert(
     readmeTesting.includes(scriptName) || readme.includes(scriptName) || testingDoc.includes(scriptName),
@@ -143,6 +147,24 @@ assert(
   readme.includes('check:source-hygiene') && testingDoc.includes('check:source-hygiene') && ciGovernance.includes('npm run check:source-hygiene'),
   'source hygiene should be documented as a hosted and local maintainer check'
 );
+[
+  readme,
+  ciGovernance,
+  releaseChecklist,
+].forEach((text) => {
+  assert(text.includes('npm run release:dry-run:doctor'), 'release dry-run doctor should be documented');
+  assert.match(text, /no publish|no tag|must not create tags|does not create tags|do not create tags|artifact upload|attach evidence|regenerate canonical readiness/i);
+});
+assert.match(releaseChecklist, /Release Bundle Dry-Run/);
+assert.match(releaseChecklist, /Human Publication Steps/);
+assert.doesNotMatch(releaseChecklist, /integration\/v1\.1-release-candidate/);
+assert.match(releaseChecklist, /release_bundle_manifest\.json/);
+assert.match(releaseChecklist, /release_bundle_checksums\.sha256/);
+assert.match(releaseChecklist, /release_bundle_log\.json/);
+assert.match(releaseChecklist, /release_bundle_artifact-manifest\.json/);
+assert.match(releaseChecklist, /must not be committed, uploaded as evidence, or attached to a\s+GitHub release by automation/);
+assert.match(studioCanonicalPackageApi, /does not add a preview, download, or open route/);
+assert.match(studioCanonicalPackageApi, /release_bundle_log\.json` remains checked-in package provenance but is not a canonical package preview key today/);
 assert.doesNotMatch(
   readmeTesting,
   /npm test.*tests\/test-runner\.js|tests\/test-runner\.js.*npm test/s,
