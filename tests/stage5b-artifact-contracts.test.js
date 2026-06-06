@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import { writeStage5bEvidenceAuditBundle } from '../src/services/inspection-evidence-intake/stage5b-evidence-audit-service.js';
@@ -32,7 +32,9 @@ function assertFails(label, validation, pattern) {
   assert.match(validation.errors.join('\n'), pattern, `${label} should explain the contract failure`);
 }
 
-const tempRoot = mkdtempSync(join(ROOT, 'tmp/codex/stage5b-contracts-'));
+const tempParent = join(ROOT, 'tmp/codex');
+mkdirSync(tempParent, { recursive: true });
+const tempRoot = mkdtempSync(join(tempParent, 'stage5b-contracts-'));
 
 try {
   const result = await writeStage5bEvidenceAuditBundle({

@@ -9,14 +9,29 @@ deploy production.
 
 - Repository: `dooosp/freecad-automation`
 - Default branch: `master`
-- Verified default-branch head: `2457f693eaba3f93d10eb25bf87da813a3b0cee5`
-- Latest audited merge: PR [#161](https://github.com/dooosp/freecad-automation/pull/161), `Fix Stage 5B preflight drift`
-- Open PR state at handoff: `gh pr list --state open --limit 100` returned no open PR rows
-- Open issue state at handoff: `gh issue list --state open --limit 100` returned no open issue rows
-- GitHub CI at PR #161 head: `Automation CI (hosted fast lanes)` passed on run `27052805253`
-- Post-merge master CI at `2457f693eaba3f93d10eb25bf87da813a3b0cee5`: `Automation CI (hosted fast lanes)` passed on run `27052849774`
-- Post-merge master runtime smoke at `2457f693eaba3f93d10eb25bf87da813a3b0cee5`: `FreeCAD Runtime Smoke (self-hosted macOS)` passed on run `27052888366`
-- Historical drift repaired by PR #161: post-merge `Automation CI (hosted fast lanes)` run `27052184917` at PR #160 head failed in the Node contract lane at `tests/stage5b-evidence-attachment-controller.test.js`. No PR #160 or PR #161 self-hosted runtime-smoke pass is claimed here; the runtime claim above is post-merge `master` smoke for the PR #161 merge commit.
+- Verified default-branch head: `7d1972f8434efbb46e1bd6af5067e3ea7c07ba43`
+- Latest audited merge: PR [#163](https://github.com/dooosp/freecad-automation/pull/163), `[codex] Add release dry-run governance doctor`
+- Open PR state at handoff: `gh pr list --state open --limit 50` returned no open PR rows
+- GitHub branch-protection API for `master`: `Branch not protected`
+- Post-merge master CI at `7d1972f8434efbb46e1bd6af5067e3ea7c07ba43`: `Automation CI (hosted fast lanes)` passed on run `27054410434`
+- Post-merge master runtime smoke at `7d1972f8434efbb46e1bd6af5067e3ea7c07ba43`: `FreeCAD Runtime Smoke (self-hosted macOS)` passed on run `27054452161`
+- Historical governance closeout: Stage 5B and CI governance are closed through PR #162, and release dry-run governance is closed through PR #163. No product readiness, production release, or inspection-evidence attachment is claimed from those governance checks.
+
+## Local maintainer doctor
+
+Run the top-level local doctor after future maintainer PR trains:
+
+```bash
+npm run maintainer:doctor -- --clean
+```
+
+It writes `output/maintainer-doctor/maintainer_doctor_report.json` in ignored
+local output. The doctor runs or verifies source hygiene, the Stage 5B pipeline
+doctor, the release dry-run doctor, node contract discoverability,
+docs/source-of-truth guards, generated output policy, raw inbox tracking,
+workflow/check-name drift, and overclaim guards. Use
+`npm run test:stage5b:pipeline-doctor`, `npm run release:dry-run:doctor -- --clean`,
+or `npm run check:source-hygiene` only when isolating a failed top-level gate.
 
 ## Evidence and readiness truth
 
