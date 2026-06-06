@@ -81,7 +81,15 @@ try {
     },
   });
 
-  assert.equal(result.exitCode, 0);
+  assert.equal(
+    result.exitCode,
+    0,
+    JSON.stringify({
+      summary: result.report.summary,
+      preflight: result.report.preflight,
+      static_checks: result.report.static_checks,
+    }, null, 2)
+  );
   assert.deepEqual(commandCalls, MAINTAINER_DOCTOR_CHECKS.filter((check) => check.mode === 'run').map((check) => check.id));
   assert.equal(existsSync(join(outDir, 'maintainer_doctor_report.json')), true);
 
