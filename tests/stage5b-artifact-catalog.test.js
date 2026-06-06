@@ -16,6 +16,7 @@ const EXPECTED_IDS = Object.freeze([
   'stage5b_candidate_gate_report',
   'stage5b_evidence_review_dry_run_manifest',
   'stage5b_attachment_authorization_record',
+  'stage5b_evidence_attachment_control_manifest',
   'stage5b_surrogate_inspection_validation',
   'inspection_evidence_intake_report',
   'inspection_evidence_promotion_dry_run_manifest',
@@ -104,6 +105,14 @@ assert.match(authorizationRecord.readiness_effect, /No readiness change/i);
 assert.match(authorizationRecord.readiness_effect, /later authorized attachment/i);
 assert.match(authorizationRecord.readiness_effect, /needs_more_evidence \/ hold_for_evidence_completion/i);
 assert(catalogDoc.includes('docs/stage-5b-attachment-authorization-record.md'), 'authorization record doc path should be discoverable');
+
+const attachmentController = catalog.find((entry) => entry.id === 'stage5b_evidence_attachment_control_manifest');
+assert.equal(attachmentController.schema_path, 'schemas/stage5b-evidence-attachment-control-manifest.schema.json');
+assert.match(attachmentController.schema_or_contract, /validateStage5bEvidenceAttachmentControlManifest/);
+assert.match(attachmentController.preview_boundary, /CLI\/local control output only/i);
+assert.match(attachmentController.control_private_status, /without copying raw sources or attaching evidence/i);
+assert.match(attachmentController.inspection_evidence_status, /dry-run-ready/i);
+assert.match(attachmentController.readiness_effect, /needs_more_evidence \/ hold_for_evidence_completion/i);
 
 const surrogateValidation = catalog.find((entry) => entry.id === 'stage5b_surrogate_inspection_validation');
 assert.equal(surrogateValidation.schema_path, 'schemas/stage5b-surrogate-inspection-validation.schema.json');

@@ -123,6 +123,10 @@ assert(
   contractLane.steps.some((step) => step.args.includes('tests/stage5b-evidence-source-kit.test.js')),
   'contract lane should include the Stage 5B source acquisition/preflight guard'
 );
+assert(
+  contractLane.steps.some((step) => step.args.includes('tests/stage5b-evidence-attachment-controller.test.js')),
+  'contract lane should include the Stage 5B evidence attachment controller guard'
+);
 
 [
   'npm run check:source-hygiene',

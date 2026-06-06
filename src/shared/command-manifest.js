@@ -401,6 +401,21 @@ const COMMAND_MANIFEST = Object.freeze([
     }),
   }),
   Object.freeze({
+    name: 'stage5b-evidence-attachment-controller',
+    helpSection: 'plain-python-node',
+    helpEntries: Object.freeze([
+      Object.freeze({
+        usage: 'fcad stage5b-evidence-attachment-controller --review-manifest <manifest.json> --authorization-record <path-or-url> --out-dir <ignored-dir> [--dry-run]',
+        summary: 'Verify Stage 5B review and authorization prerequisites for a later explicit attachment without attaching evidence',
+      }),
+    ]),
+    runtime: Object.freeze({
+      classification: 'plain-python-node',
+      requiresFreecadRuntime: false,
+      note: 'Writes one ignored control manifest with pass/hold gates, blockers, evidence boundaries, and readiness-held truth; it never attaches evidence or regenerates readiness.',
+    }),
+  }),
+  Object.freeze({
     name: 'stage5b-surrogate-inspection-validation',
     helpSection: 'plain-python-node',
     helpEntries: Object.freeze([
@@ -679,7 +694,10 @@ const WORKFLOW_SPECIFIC_OPTIONS = Object.freeze([
   Object.freeze({ flag: '--generated-at <iso8601>', description: 'Use a fixed release bundle timestamp with pack for deterministic bundle metadata and ZIP entries' }),
   Object.freeze({ flag: '--manifest-out <path>', description: 'Write a provenance manifest for stdout-oriented commands such as inspect/fem/tolerance/dfm' }),
   Object.freeze({ flag: '--source <path>', description: 'Raw local Stage 5B source path for acquisition/preflight only; it is never attached by source preflight' }),
+  Object.freeze({ flag: '--review-manifest <path>', description: 'Stage 5B review dry-run manifest consumed by the attachment controller' }),
+  Object.freeze({ flag: '--authorization-record <path-or-url>', description: 'Stage 5B authorization control record consumed by the attachment controller' }),
   Object.freeze({ flag: '--inbox-subdir <name>', description: 'Optional local inbox subdirectory for stage5b-evidence-source-kit/preflight' }),
+  Object.freeze({ flag: '--dry-run', description: 'Write dry-run-only Stage 5B controller output without authorizing immediate attachment' }),
   Object.freeze({ flag: '--fixture', description: 'Create/use a synthetic ignored Stage 5B review dry-run source for test-only orchestration validation' }),
   Object.freeze({ flag: '--recommend', description: 'Auto-recommend fit specs (with tolerance)' }),
   Object.freeze({ flag: '--csv', description: 'Export tolerance report as CSV (with tolerance)' }),
@@ -705,6 +723,7 @@ const CLI_HELP_EXAMPLES = Object.freeze([
   'fcad stage5b-evidence-source-kit --package quality-pass-bracket',
   'fcad stage5b-evidence-source-preflight --package quality-pass-bracket --source local/stage5b-candidate-evidence-inbox/quality-pass-bracket/received-inspection-evidence.json --out local/stage5b-candidate-evidence-inbox/quality-pass-bracket/source-preflight-report.json',
   'fcad stage5b-evidence-review-dry-run --package quality-pass-bracket --source local/stage5b-candidate-evidence-inbox/quality-pass-bracket/received-inspection-evidence.json --out-dir output/stage5b-review',
+  'fcad stage5b-evidence-attachment-controller --review-manifest output/stage5b-review/stage5b_evidence_review_dry_run_manifest.json --authorization-record output/stage5b-review/attachment-authorization.json --out-dir output/stage5b-attachment-controller --dry-run',
   'fcad stabilization-review output/rev_a_readiness_report.json output/rev_b_readiness_report.json --out output/readiness_delta.json',
   'fcad generate-standard-docs configs/examples/controller_housing_eol.toml --readiness-report output/controller_housing_readiness_report.json --out-dir output/controller_housing_standard_docs',
   'fcad review-context --model tests/fixtures/sample_part.step --bom tests/fixtures/sample_bom.csv --inspection tests/fixtures/sample_inspection.csv --quality tests/fixtures/sample_quality.csv --out output/sample_review_pack.json',
@@ -718,7 +737,7 @@ const CLI_HELP_NOTES = Object.freeze([
   'readiness-report <config> remains a legacy compatibility route; it is not the canonical D-backed readiness path.',
   'generate-standard-docs requires canonical readiness input via --readiness-report and will not synthesize or rebuild readiness downstream.',
   'closeout-package is local software/demo packaging only; it does not regenerate canonical artifacts or create inspection evidence.',
-  'stage5b-evidence-source-kit, source-preflight, and evidence-review-dry-run are acquisition/review helpers only; they never attach evidence or change canonical readiness.',
+  'stage5b-evidence-source-kit, source-preflight, evidence-review-dry-run, and evidence-attachment-controller are acquisition/review/control helpers only; they never attach evidence or change canonical readiness.',
   'sweep stays within the existing create/cost/fem/report service wrappers; it does not perform optimization.',
   'report remains FreeCAD-backed today, even when macOS falls back from freecadcmd to the bundled FreeCAD Python.',
   'Windows native, WSL -> Windows FreeCAD, and Linux runtime execution are compatibility paths, not equal-maturity claims.',

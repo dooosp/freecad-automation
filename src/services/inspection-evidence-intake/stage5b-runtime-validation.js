@@ -5,6 +5,7 @@ import {
   validateStage5bArtifact,
   validateStage5bAuditManifest,
   validateStage5bAuditSummaryMarkdown,
+  validateStage5bEvidenceAttachmentControlManifest,
   validateStage5bEvidenceReviewDryRunManifest,
   validateStage5bIntakeReport,
   validateStage5bPromotionDryRunManifest,
@@ -242,6 +243,18 @@ export function assertValidStage5bEvidenceReviewDryRunManifest(manifest, {
 } = {}) {
   return assertValidation(label, validateStage5bEvidenceReviewDryRunManifest(manifest), {
     artifactType: 'stage5b_evidence_review_dry_run_manifest',
+    artifactPath,
+    projectRoot,
+  });
+}
+
+export function assertValidStage5bEvidenceAttachmentControlManifest(manifest, {
+  label = 'evidence attachment control manifest',
+  artifactPath = null,
+  projectRoot = null,
+} = {}) {
+  return assertValidation(label, validateStage5bEvidenceAttachmentControlManifest(manifest), {
+    artifactType: 'stage5b_evidence_attachment_control_manifest',
     artifactPath,
     projectRoot,
   });
