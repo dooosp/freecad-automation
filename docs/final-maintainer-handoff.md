@@ -5,12 +5,12 @@ hardening run. It is a status note only. It does not attach inspection evidence,
 mutate canonical package artifacts, regenerate readiness, publish a release, or
 deploy production.
 
-## Current verified state
+## Audit basis for this handoff update
 
 - Repository: `dooosp/freecad-automation`
 - Default branch: `master`
-- Verified default-branch head: `735e991d40d33b69987a4ddd52db810791e968d3`
-- Latest audited merge: PR [#165](https://github.com/dooosp/freecad-automation/pull/165), `Add first-maintainer bootstrap doctor`
+- Audited default-branch head before this handoff update: `735e991d40d33b69987a4ddd52db810791e968d3`
+- Latest audited prior merge: PR [#165](https://github.com/dooosp/freecad-automation/pull/165), `Add first-maintainer bootstrap doctor`
 - Open PR state at handoff: `gh pr list --state open --limit 50` returned no open PR rows
 - GitHub branch-protection API for `master`: `Branch not protected`
 - Post-merge master CI at `735e991d40d33b69987a4ddd52db810791e968d3`: `Automation CI (hosted fast lanes)` passed on run `27058839538`
