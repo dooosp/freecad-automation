@@ -79,6 +79,13 @@ try {
   );
   assert.equal(report.checks.source_hygiene_after_dry_run, 'pass');
   assert.equal(report.checks.git_status_unchanged_outside_ignored_outputs, true);
+  assert.deepEqual(
+    report.commands.map((entry) => [entry.name, entry.argv[0]]),
+    [
+      ['pack', 'node'],
+      ['source_hygiene', 'node'],
+    ]
+  );
 
   const manifest = readJson(manifestPath);
   assert.equal(manifest.artifact_type, 'release_bundle_manifest');

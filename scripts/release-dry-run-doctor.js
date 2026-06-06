@@ -84,6 +84,21 @@ function run(command, args, { stdio = 'pipe' } = {}) {
   };
 }
 
+function publicCommand(argv) {
+  const normalizedRoot = ROOT.replace(/\\/g, '/');
+  return argv.map((value, index) => {
+    if (index === 0 && value === process.execPath) {
+      return 'node';
+    }
+    const stringValue = String(value);
+    const normalizedValue = stringValue.replace(/\\/g, '/');
+    if (normalizedValue.startsWith(`${normalizedRoot}/`)) {
+      return repoRelative(stringValue);
+    }
+    return stringValue;
+  });
+}
+
 function assertCommandOk(result, label) {
   assert.equal(
     result.status,
@@ -242,12 +257,12 @@ async function main() {
     commands: [
       {
         name: 'pack',
-        argv: packRun.command,
+        argv: publicCommand(packRun.command),
         status: packRun.status,
       },
       {
         name: 'source_hygiene',
-        argv: sourceHygieneRun.command,
+        argv: publicCommand(sourceHygieneRun.command),
         status: sourceHygieneRun.status,
       },
     ],
