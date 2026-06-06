@@ -20,6 +20,7 @@ fcad inspection-evidence-intake [--package <canonical-package-slug>] [--include-
 fcad inspection-evidence-promotion-dry-run --intake-report output/stage5b-runbook/inspection-evidence-intake-report.json --out output/stage5b-runbook/promotion_dry_run_manifest.json
 fcad stage5b-evidence-audit --out-dir output/stage5b-runbook-audit [--include-github]
 fcad stage5b-surrogate-inspection-validation --out-dir output/stage5b-runbook-surrogate [--package <canonical-package-slug>]
+fcad stage5b-evidence-pipeline-doctor --package <canonical-package-slug> --out-dir output/stage5b-evidence-pipeline-doctor
 ```
 
 Expected no-evidence result:
@@ -32,6 +33,7 @@ Expected no-evidence result:
 - `inspection-evidence-promotion-dry-run` reports `promotion_can_run: false`, `canonical_artifacts_mutated: false`, and no canonical next command.
 - `stage5b-evidence-audit` reports `Genuine candidate found: no`, `Inspection evidence attached: no`, `Promotion can run: no`, and `Readiness remains held: yes`.
 - `stage5b-surrogate-inspection-validation` reports `Inspection evidence attached: no` and `Canonical readiness remains held: yes` while validating parser, redaction, mapping, gate rejection, audit reporting, and readiness messaging with synthetic/surrogate/non-evidence records only.
+- `stage5b-evidence-pipeline-doctor` runs a complete fixture-only diagnostic of source-kit -> source-preflight -> review-dry-run -> attachment-controller -> pipeline-doctor -> later explicit real attachment/regeneration goal. It also runs surrogate/generated/docs/CI/readiness/CAD non-evidence guards, checks command/schema/catalog/docs/npm/CI drift, expects the attachment controller to fail closed, and writes one ignored manifest while keeping canonical readiness at `needs_more_evidence` / `hold_for_evidence_completion`.
 
 ## Surrogate Automation-Readiness Lane
 
@@ -47,6 +49,12 @@ This lane uses repo-local public examples, drawing intent, feature catalogs, and
 - audit reporting and readiness-held messaging
 
 This lane never receives raw supplier/lab/QA/private files and never attaches evidence. Surrogate records must remain rejected by `validateAttachableInspectionEvidence`, the candidate gate, intake classification, and readiness logic. Canonical packages remain `needs_more_evidence` / `hold_for_evidence_completion` until a later explicitly authorized task attaches genuine completed evidence.
+
+## Pipeline Doctor
+
+Use `fcad stage5b-evidence-pipeline-doctor --package <canonical-package-slug> --out-dir output/stage5b-evidence-pipeline-doctor` when maintainers need one safe end-to-end diagnostic that proves the no-real-evidence Stage 5B pipeline is still wired. The doctor uses only repo-local fixture/surrogate/non-evidence inputs, writes only ignored `output/` control artifacts plus ignored local-inbox fixtures, and never attaches evidence, promotes evidence, regenerates canonical readiness, or marks a package ready.
+
+The doctor validates the safe chain source-kit -> source-preflight -> review-dry-run -> attachment-controller -> pipeline-doctor -> later explicit real attachment/regeneration goal. It runs the surrogate lane, rejects surrogate/generated/docs/CI/readiness/CAD inputs as canonical evidence, checks schemas, the artifact catalog, README/runbook/support/testing docs, npm scripts, CI workflows, raw inbox tracking, output tracking, and all canonical readiness reports. Only genuine completed physical/supplier/lab/QA inspection records can satisfy `inspection_evidence`; after one is received, start a separate explicit real evidence attachment/regeneration goal.
 
 ## Candidate Acceptance Gate
 
@@ -119,7 +127,8 @@ Safe local flow:
 8. Complete or reference a safe Stage 5B attachment authorization record that scopes the review manifest, source preflight, review candidate, package, redaction/provenance/mapping reviews, audit review, human authorizer, exact later attachment task boundary, and readiness-held truth.
 9. Run `fcad stage5b-evidence-attachment-controller --review-manifest <review-manifest.json> --authorization-record <authorization-record.json> --out-dir output/stage5b-attachment-controller --dry-run`.
 10. If the controller reports `hold_for_attachment_controller_blockers`, repair the exact blockers and rerun source-kit/preflight/review-dry-run/controller as needed.
-11. Run the real candidate gate, intake, promotion dry-run, audit, attachment, or readiness regeneration later only if a separate task explicitly authorizes that review or mutation path. Later authorized attachment still needs validation, review, and deliberate `review-context --inspection-evidence --attachment-authorization` mutation outside this controller task.
+11. Optionally run `fcad stage5b-evidence-pipeline-doctor --package <package-slug> --out-dir output/stage5b-evidence-pipeline-doctor` for the fixture-only regression guard.
+12. Run the real candidate gate, intake, promotion dry-run, audit, attachment, or readiness regeneration later only if a separate task explicitly authorizes that review or mutation path. Later authorized attachment still needs validation, review, and deliberate `review-context --inspection-evidence --attachment-authorization` mutation outside this controller task.
 
 For test-only orchestration validation without a real source, use:
 

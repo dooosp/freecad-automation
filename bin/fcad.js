@@ -79,6 +79,7 @@ import { discoverInspectionEvidenceIntake } from '../src/services/inspection-evi
 import { writeInspectionEvidencePromotionDryRunManifest } from '../src/services/inspection-evidence-intake/promotion-dry-run-service.js';
 import { writeStage5bEvidenceAuditBundle } from '../src/services/inspection-evidence-intake/stage5b-evidence-audit-service.js';
 import { writeStage5bEvidenceAttachmentControlManifest } from '../src/services/inspection-evidence-intake/stage5b-evidence-attachment-controller-service.js';
+import { writeStage5bEvidencePipelineDoctorManifest } from '../src/services/inspection-evidence-intake/stage5b-evidence-pipeline-doctor-service.js';
 import {
   buildStage5bEvidenceSourceKit,
   preflightStage5bEvidenceSource,
@@ -789,6 +790,66 @@ async function cmdStage5bSurrogateInspectionValidation(rawArgs = []) {
   }
 }
 
+async function cmdStage5bEvidencePipelineDoctor(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  rejectUnsupportedOptions('stage5b-evidence-pipeline-doctor', options, ['package', 'out-dir', 'inbox-subdir', 'require-command']);
+  const packageSlug = Object.hasOwn(options, 'package')
+    ? requireOptionValue('--package', options.package)
+    : positional[0] || 'quality-pass-bracket';
+  const outDir = Object.hasOwn(options, 'out-dir')
+    ? requireOptionValue('--out-dir', options['out-dir'])
+    : 'output/stage5b-evidence-pipeline-doctor';
+  const inboxSubdir = Object.hasOwn(options, 'inbox-subdir')
+    ? requireOptionValue('--inbox-subdir', options['inbox-subdir'])
+    : null;
+  const extraRequiredCommands = Object.hasOwn(options, 'require-command')
+    ? String(requireOptionValue('--require-command', options['require-command']))
+      .split(',')
+      .map((commandName) => commandName.trim())
+      .filter(Boolean)
+    : [];
+
+  try {
+    const result = await writeStage5bEvidencePipelineDoctorManifest({
+      projectRoot: PROJECT_ROOT,
+      packageSlug,
+      outDir,
+      inboxSubdir,
+      extraRequiredCommands,
+    });
+    const manifest = result.manifest;
+    console.log(`Stage 5B evidence pipeline doctor: ${result.manifest_path}`);
+    console.log('  Fixture-only diagnostic: yes');
+    console.log(`  Decision: ${manifest.summary.decision.toUpperCase()}`);
+    console.log(`  Status: ${manifest.summary.pipeline_status}`);
+    console.log(`  Blockers: ${manifest.summary.blocker_count}`);
+    console.log('  Inspection evidence attached: no');
+    console.log('  Canonical readiness regenerated: no');
+    console.log(`  Canonical readiness remains held: ${manifest.readiness_held_truth.readiness_remains_held ? 'yes' : 'no'}`);
+    console.log(`  Next human step: ${manifest.next_human_step.instructions}`);
+    if (manifest.summary.decision !== 'pass') {
+      manifest.blockers.slice(0, 5).forEach((blockerEntry) => {
+        console.log(`  Blocker: ${blockerEntry.code} - ${blockerEntry.message}`);
+      });
+      process.exit(2);
+    }
+    return manifest;
+  } catch (error) {
+    if (isStage5bRuntimeValidationError(error)) {
+      const outputDir = resolve(PROJECT_ROOT, String(outDir));
+      const diagnosticsResult = await writeCliStage5bValidationDiagnostics(error, {
+        diagnosticsPath: join(outputDir, 'validation_diagnostics.json'),
+        artifactType: 'stage5b_evidence_pipeline_doctor_manifest',
+        command: 'stage5b-evidence-pipeline-doctor',
+      });
+      printCliStage5bValidationError(error, diagnosticsResult);
+      process.exit(1);
+    }
+    console.error(`Error: ${error.message}`);
+    process.exit(1);
+  }
+}
+
 async function main() {
   const [command, ...args] = process.argv.slice(2);
 
@@ -851,6 +912,8 @@ async function main() {
     await cmdStage5bEvidenceAttachmentController(args);
   } else if (command === 'stage5b-surrogate-inspection-validation') {
     await cmdStage5bSurrogateInspectionValidation(args);
+  } else if (command === 'stage5b-evidence-pipeline-doctor') {
+    await cmdStage5bEvidencePipelineDoctor(args);
   } else if (command === 'stabilization-review') {
     await cmdStabilizationReview(args);
   } else if (command === 'generate-standard-docs') {

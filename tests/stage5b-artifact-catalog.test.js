@@ -17,6 +17,7 @@ const EXPECTED_IDS = Object.freeze([
   'stage5b_evidence_review_dry_run_manifest',
   'stage5b_attachment_authorization_record',
   'stage5b_evidence_attachment_control_manifest',
+  'stage5b_evidence_pipeline_doctor_manifest',
   'stage5b_surrogate_inspection_validation',
   'inspection_evidence_intake_report',
   'inspection_evidence_promotion_dry_run_manifest',
@@ -113,6 +114,15 @@ assert.match(attachmentController.preview_boundary, /CLI\/local control output o
 assert.match(attachmentController.control_private_status, /without copying raw sources or attaching evidence/i);
 assert.match(attachmentController.inspection_evidence_status, /dry-run-ready/i);
 assert.match(attachmentController.readiness_effect, /needs_more_evidence \/ hold_for_evidence_completion/i);
+
+const pipelineDoctor = catalog.find((entry) => entry.id === 'stage5b_evidence_pipeline_doctor_manifest');
+assert.equal(pipelineDoctor.schema_path, 'schemas/stage5b-evidence-pipeline-doctor-manifest.schema.json');
+assert.match(pipelineDoctor.schema_or_contract, /validateStage5bEvidencePipelineDoctorManifest/);
+assert.match(pipelineDoctor.preview_boundary, /CLI\/local diagnostic output only/i);
+assert.match(pipelineDoctor.control_private_status, /fixture-only control manifest/i);
+assert.match(pipelineDoctor.inspection_evidence_status, /without attachment, promotion, readiness regeneration/i);
+assert.match(pipelineDoctor.readiness_effect, /later explicit real attachment\/regeneration goal/i);
+assert.match(pipelineDoctor.readiness_effect, /needs_more_evidence \/ hold_for_evidence_completion/i);
 
 const surrogateValidation = catalog.find((entry) => entry.id === 'stage5b_surrogate_inspection_validation');
 assert.equal(surrogateValidation.schema_path, 'schemas/stage5b-surrogate-inspection-validation.schema.json');
