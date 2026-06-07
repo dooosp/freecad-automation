@@ -5,17 +5,19 @@ It documents repository expectations only. It does not change GitHub branch
 protection, repository settings, runner ownership, release publication, or any
 production endpoint.
 
-Audit evidence on 2026-06-06:
+Audit evidence on 2026-06-07:
 
 - repository: `dooosp/freecad-automation`
 - default branch: `master`
-- audited default-branch head: `da3951e3daba015f272bf43f393f487276b32389`
+- audited default-branch head before this governance update: `be93a51808080f951fc155f1fab36c10f13e7f52`
 - active workflows: `Automation CI (hosted fast lanes)`, `FreeCAD Runtime Smoke (self-hosted macOS)`, and `Maintainer Doctors (hosted schedule)`
 - GitHub branch-protection API for `master`: `Branch not protected`
 - open pull requests: none from `gh pr list --state open --limit 50`
-- PR #166 merged at `da3951e3daba015f272bf43f393f487276b32389`
-- latest audited `Automation CI (hosted fast lanes)` run on that head: success, run `27059357998`
-- latest audited `FreeCAD Runtime Smoke (self-hosted macOS)` run on that head: success, run `27059397711`
+- open issues: none from `gh issue list --state open --limit 200`
+- PR #167 merged at `be93a51808080f951fc155f1fab36c10f13e7f52`
+- latest audited `Automation CI (hosted fast lanes)` run on that head: success, run `27062840652`
+- latest audited `FreeCAD Runtime Smoke (self-hosted macOS)` run on that head: success, run `27062881118`
+- latest audited manual `Maintainer Doctors (hosted schedule)` dispatch on that head: success, run `27078229830`
 
 ## PR hosted checks
 
@@ -143,8 +145,10 @@ Post-merge expectation for `master`:
 
 Stage 5B and CI governance are closed through PR #162, release dry-run
 governance is closed through PR #163, maintainer doctor is closed through PR
-#164, and bootstrap doctor is closed through PR #165. Do not add new Stage 5B
-machinery unless real drift is proven.
+#164, bootstrap doctor is closed through PR #165, freeze maintenance handoff is
+refreshed through PR #166, and scheduled maintainer doctors are closed through
+PR #167. Do not add new Stage 5B machinery, release behavior, production
+behavior, or CI machinery unless real drift is proven.
 
 Use `npm run test:stage5b:pipeline-doctor` only when Stage 5B docs, scripts,
 schemas, or runbook surfaces are touched, or when maintainers explicitly need
