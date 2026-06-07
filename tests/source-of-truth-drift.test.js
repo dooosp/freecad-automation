@@ -142,9 +142,10 @@ assert.match(ciGovernance, /Stage 5B and CI governance are closed through PR #16
 assert.match(ciGovernance, /release dry-run\s+governance is closed through PR #163/i);
 assert.match(ciGovernance, /maintainer doctor is closed through PR\s+#164/i);
 assert.match(ciGovernance, /bootstrap doctor is closed through PR #165/i);
-assert.match(ciGovernance, /PR #166 merged at `da3951e3daba015f272bf43f393f487276b32389`/);
-assert.match(ciGovernance, /27059357998/);
-assert.match(ciGovernance, /27059397711/);
+assert.match(ciGovernance, /PR #167 merged at `be93a51808080f951fc155f1fab36c10f13e7f52`/);
+assert.match(ciGovernance, /27062840652/);
+assert.match(ciGovernance, /27062881118/);
+assert.match(ciGovernance, /27078229830/);
 hostedSuite.members.forEach((scriptName) => {
   assert(
     readmeTesting.includes(scriptName) || readme.includes(scriptName) || testingDoc.includes(scriptName),

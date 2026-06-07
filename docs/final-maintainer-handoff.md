@@ -9,13 +9,15 @@ deploy production.
 
 - Repository: `dooosp/freecad-automation`
 - Default branch: `master`
-- Audited default-branch head before this handoff update: `da3951e3daba015f272bf43f393f487276b32389`
-- Latest audited prior merge: PR [#166](https://github.com/dooosp/freecad-automation/pull/166), `[codex] Refresh freeze maintenance handoff`
+- Audited default-branch head before this handoff update: `be93a51808080f951fc155f1fab36c10f13e7f52`
+- Latest audited prior merge: PR [#167](https://github.com/dooosp/freecad-automation/pull/167), `Add hosted maintainer doctor workflow`
 - Open PR state at handoff: `gh pr list --state open --limit 50` returned no open PR rows
+- Open issue state at handoff: `gh issue list --state open --limit 200` returned no open issue rows
 - GitHub branch-protection API for `master`: `Branch not protected`
-- Post-merge master CI at `da3951e3daba015f272bf43f393f487276b32389`: `Automation CI (hosted fast lanes)` passed on run `27059357998`
-- Post-merge master runtime smoke at `da3951e3daba015f272bf43f393f487276b32389`: `FreeCAD Runtime Smoke (self-hosted macOS)` passed on run `27059397711`
-- Historical governance closeout: Stage 5B and CI governance are closed through PR #162, release dry-run governance is closed through PR #163, maintainer doctor is closed through PR #164, bootstrap doctor is closed through PR #165, and freeze maintenance handoff is refreshed through PR #166. No product readiness, production release, or inspection-evidence attachment is claimed from those governance checks.
+- Post-merge master CI at `be93a51808080f951fc155f1fab36c10f13e7f52`: `Automation CI (hosted fast lanes)` passed on run `27062840652`
+- Post-merge master runtime smoke at `be93a51808080f951fc155f1fab36c10f13e7f52`: `FreeCAD Runtime Smoke (self-hosted macOS)` passed on run `27062881118`
+- Manual maintainer-doctors dispatch at `be93a51808080f951fc155f1fab36c10f13e7f52`: `Maintainer Doctors (hosted schedule)` passed on run `27078229830`
+- Historical governance closeout: Stage 5B and CI governance are closed through PR #162, release dry-run governance is closed through PR #163, maintainer doctor is closed through PR #164, bootstrap doctor is closed through PR #165, freeze maintenance handoff is refreshed through PR #166, and scheduled maintainer doctors are closed through PR #167. No product readiness, production release, or inspection-evidence attachment is claimed from those governance checks.
 
 ## Local maintainer doctor
 
@@ -82,6 +84,21 @@ On a FreeCAD-capable maintainer or self-hosted runtime machine, add:
 fcad check-runtime
 npm run test:runtime-smoke
 ```
+
+## Future work buckets
+
+Keep future work separated into these maintenance-mode buckets:
+
+1. Real completed inspection evidence arrival: use the ignored inbox and
+   non-mutating Stage 5B review chain below until a later explicit
+   attachment/regeneration task is authorized.
+2. Explicit human-approved release publication: run the release publication
+   review command set above, then stop for maintainer approval before creating
+   tags, publishing releases, or uploading release assets.
+3. Routine weekly maintainer doctors: use the hosted manual/weekly governance
+   workflow or the local bootstrap/maintainer doctors for drift checks only.
+4. Optional product feature work: start only from a separate scoped product
+   task; do not mix it with evidence, release, or maintainer-doctor upkeep.
 
 When genuine completed inspection evidence arrives, keep raw files in the
 ignored local inbox and run only the non-mutating review chain until a separate
