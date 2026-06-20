@@ -1,7 +1,11 @@
 import { deriveRecentJobDecisionState } from './recent-job-quality-status.js';
+import {
+  STUDIO_JOB_CONTEXT_ROUTES,
+  STUDIO_SURFACE_ROUTES,
+} from './studio-surfaces.js';
 
-const STUDIO_ROUTES = new Set(['start', 'model', 'drawing', 'review', 'artifacts']);
-const JOB_CONTEXT_ROUTES = new Set(['review', 'artifacts']);
+const STUDIO_ROUTES = new Set(STUDIO_SURFACE_ROUTES);
+const JOB_CONTEXT_ROUTES = new Set(STUDIO_JOB_CONTEXT_ROUTES);
 const ACTIVE_JOB_STATUSES = new Set(['queued', 'running']);
 
 function hashRouteValue(hashValue) {

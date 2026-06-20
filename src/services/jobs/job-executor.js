@@ -1,4 +1,4 @@
-import { basename, dirname, extname, isAbsolute, join, parse, relative, resolve } from 'node:path';
+import { basename, dirname, extname, isAbsolute, join, relative, resolve } from 'node:path';
 import { copyFile, mkdir, stat } from 'node:fs/promises';
 import {
   AfExecutionContractError,
@@ -51,9 +51,23 @@ import { loadRuleProfile, summarizeRuleProfile } from '../config/rule-profile-se
 import { validateLocalApiJobRequest } from '../../server/local-api-schemas.js';
 import { JOB_EXECUTOR_COMMANDS } from '../../shared/command-manifest.js';
 import {
+  applyArtifactPublicationBoundary,
+  collectCreateManifestArtifacts,
+  collectDrawManifestArtifacts,
+  collectReportManifestArtifacts,
+  inferCreateArtifactPaths,
+  inferDrawArtifactPaths,
+  inferReportArtifactPaths,
+} from '../../shared/artifact-surface.js';
+import {
   isLocalStage5bCandidateEvidenceInboxPath,
   normalizeRepoRelativePathText,
 } from '../../shared/stage5b-path-boundary.js';
+
+export {
+  applyArtifactPublicationBoundary,
+  collectReportManifestArtifacts,
+} from '../../shared/artifact-surface.js';
 
 const JOB_TYPES = new Set(JOB_EXECUTOR_COMMANDS);
 const INLINE_CONFIG_RELATIVE_PATH = 'inputs/inline-config.json';
@@ -102,96 +116,6 @@ function sanitizeResult(result) {
   delete next.svgContent;
   delete next.pdfBase64;
   return next;
-}
-
-function inferDrawArtifacts(result) {
-  const svgPath = result?.drawing_paths?.find((entry) => entry.format === 'svg')?.path
-    || result?.svg_path
-    || result?.drawing_path;
-  if (!svgPath) return {};
-  const normalizedPath = svgPath.replace(/\\/g, '/');
-  const stem = parse(normalizedPath).name.replace(/_drawing$/i, '');
-  const dir = dirname(normalizedPath);
-  return {
-    drawing: normalizedPath,
-    qa: normalizedPath.replace(/\.svg$/i, '_qa.json'),
-    qa_issues: normalizedPath.replace(/\.svg$/i, '_qa_issues.json'),
-    drawing_quality: normalizedPath.replace(/\.svg$/i, '_quality.json'),
-    drawing_intent: join(dir, `${stem}_drawing_intent.json`),
-    feature_catalog: join(dir, `${stem}_feature_catalog.json`),
-    extracted_drawing_semantics: join(dir, `${stem}_extracted_drawing_semantics.json`),
-    drawing_planner: join(dir, `${stem}_drawing_planner.json`),
-    repair_report: normalizedPath.replace(/\.svg$/i, '_repair_report.json'),
-    run_log: join(dir, `${stem}_run_log.json`),
-    effective_config: join(dir, `${stem}_effective_config.json`),
-    plan_toml: join(dir, `${stem}_plan.toml`),
-    plan_json: join(dir, `${stem}_plan.json`),
-    traceability: join(dir, `${stem}_traceability.json`),
-    layout_report: join(dir, `${stem}_layout_report.json`),
-    dimension_map: join(dir, `${stem}_dimension_map.json`),
-    dim_conflicts: join(dir, `${stem}_dim_conflicts.json`),
-    dedupe_diagnostics: join(dir, `${stem}_dedupe_diagnostics.json`),
-  };
-}
-
-function inferCreateArtifacts(result) {
-  return {
-    exports: (result?.exports || []).map((entry) => entry.path).filter(Boolean),
-  };
-}
-
-function inferReportArtifacts(result) {
-  return {
-    pdf: result?.pdf_path || result?.path || null,
-    ...(result?.drawing_intent_json ? { drawing_intent: result.drawing_intent_json } : {}),
-    ...(result?.feature_catalog_json ? { feature_catalog: result.feature_catalog_json } : {}),
-  };
-}
-
-function collectCreateManifestArtifacts(result) {
-  return (result?.exports || [])
-    .filter((entry) => entry?.path && entry?.format)
-    .map((entry) => ({
-      type: `model.${String(entry.format).toLowerCase()}`,
-      path: entry.path,
-      label: entry.format.toUpperCase(),
-      scope: 'user-facing',
-      stability: 'stable',
-    }));
-}
-
-function collectDrawManifestArtifacts(result) {
-  const paths = inferDrawArtifacts(result);
-  const mapping = [
-    ['drawing', 'drawing.svg', 'stable', 'user-facing'],
-    ['qa', 'drawing.qa-report', 'best-effort', 'user-facing'],
-    ['qa_issues', 'drawing.qa-issues', 'best-effort', 'user-facing'],
-    ['drawing_quality', 'drawing.quality-summary', 'stable', 'user-facing'],
-    ['drawing_intent', 'drawing-intent.json', 'stable', 'user-facing'],
-    ['feature_catalog', 'feature-catalog.json', 'best-effort', 'user-facing'],
-    ['extracted_drawing_semantics', 'drawing.extracted-semantics', 'best-effort', 'user-facing'],
-    ['drawing_planner', 'drawing.planner', 'best-effort', 'user-facing'],
-    ['repair_report', 'drawing.repair-report', 'best-effort', 'user-facing'],
-    ['run_log', 'draw.run-log', 'internal', 'internal'],
-    ['effective_config', 'config.effective', 'internal', 'internal'],
-    ['plan_toml', 'draw.plan.toml', 'best-effort', 'user-facing'],
-    ['plan_json', 'draw.plan.json', 'best-effort', 'user-facing'],
-    ['traceability', 'draw.traceability', 'best-effort', 'user-facing'],
-    ['layout_report', 'draw.layout-report', 'best-effort', 'user-facing'],
-    ['dimension_map', 'draw.dimension-map', 'internal', 'internal'],
-    ['dim_conflicts', 'draw.dimension-conflicts', 'internal', 'internal'],
-    ['dedupe_diagnostics', 'draw.dedupe-diagnostics', 'internal', 'internal'],
-  ];
-
-  return mapping
-    .filter(([key]) => paths[key])
-    .map(([key, type, stability, scope]) => ({
-      type,
-      path: paths[key],
-      label: key,
-      scope,
-      stability,
-    }));
 }
 
 async function pathExists(path) {
@@ -280,92 +204,6 @@ export async function prepareTrackedReportAnalysisResults({
   };
 }
 
-export function collectReportManifestArtifacts(result) {
-  const pdfPath = result?.pdf_path || result?.path;
-  const drawingIntent = result?.report_summary?.drawing_intent || result?.decision_summary?.drawing_intent || null;
-  const drawingIntentMetadata = drawingIntent && typeof drawingIntent === 'object'
-    ? {
-        includes_drawing_intent: true,
-        missing_semantics_policy: drawingIntent.missing_semantics_policy || 'advisory',
-      }
-    : null;
-  const artifacts = pdfPath
-    ? [{
-        type: 'report.pdf',
-        path: pdfPath,
-        label: 'PDF report',
-        scope: 'user-facing',
-        stability: 'stable',
-      }]
-    : [];
-
-  if (result?.summary_json) {
-    artifacts.push({
-      type: 'report.summary-json',
-      path: result.summary_json,
-      label: 'Report summary JSON',
-      scope: 'user-facing',
-      stability: 'stable',
-      ...(drawingIntentMetadata ? { metadata: drawingIntentMetadata } : {}),
-    });
-  }
-
-  if (result?.drawing_intent_json) {
-    artifacts.push({
-      type: 'drawing-intent.json',
-      path: result.drawing_intent_json,
-      label: 'Drawing intent JSON',
-      scope: 'user-facing',
-      stability: 'stable',
-    });
-  }
-
-  if (result?.feature_catalog_json) {
-    artifacts.push({
-      type: 'feature-catalog.json',
-      path: result.feature_catalog_json,
-      label: 'Conservative feature catalog JSON',
-      scope: 'user-facing',
-      stability: 'best-effort',
-    });
-  }
-  if (result?.extracted_drawing_semantics_json) {
-    artifacts.push({
-      type: 'drawing.extracted-semantics',
-      path: result.extracted_drawing_semantics_json,
-      label: 'Extracted drawing semantics JSON',
-      scope: 'user-facing',
-      stability: 'best-effort',
-    });
-  }
-
-  const seededArtifacts = result?.seeded_artifacts || {};
-  const seededMapping = [
-    ['create_quality', 'model.quality-summary', 'Create quality JSON'],
-    ['drawing_quality', 'drawing.quality-summary', 'Drawing quality JSON'],
-    ['extracted_drawing_semantics', 'drawing.extracted-semantics', 'Extracted drawing semantics JSON'],
-    ['drawing_planner', 'drawing.planner', 'Drawing planner advisory JSON'],
-    ['create_manifest', 'output.manifest.json', 'Create manifest JSON'],
-    ['drawing_manifest', 'drawing.output-manifest.json', 'Drawing manifest JSON'],
-    ['drawing_svg', 'drawing.svg', 'Drawing SVG'],
-    ['model_step', 'model.step', 'STEP model'],
-    ['model_stl', 'model.stl', 'STL model'],
-  ];
-
-  for (const [key, type, label] of seededMapping) {
-    if (!seededArtifacts[key]) continue;
-    artifacts.push({
-      type,
-      path: seededArtifacts[key],
-      label,
-      scope: 'user-facing',
-      stability: 'stable',
-    });
-  }
-
-  return artifacts;
-}
-
 function collectInspectManifestArtifacts(resolvedConfig) {
   return resolvedConfig?.filePath
     ? [{
@@ -408,30 +246,6 @@ function withTrackedExportDirectory(config = {}, outputDir, { ensureExport = fal
     };
   }
   return next;
-}
-
-function isPublishableArtifactPath({ projectRoot, jobDir, artifact }) {
-  if (!artifact?.path) return false;
-  return isPathWithinRoot(projectRoot, artifact.path) || isPathWithinRoot(jobDir, artifact.path);
-}
-
-export function applyArtifactPublicationBoundary({ projectRoot, jobDir, artifacts = [] }) {
-  return artifacts.map((artifact) => {
-    if (artifact?.scope !== 'user-facing') return artifact;
-    if (isPublishableArtifactPath({ projectRoot, jobDir, artifact })) return artifact;
-    return {
-      ...artifact,
-      scope: 'internal',
-      stability: artifact.stability || 'internal',
-      metadata: {
-        ...(artifact.metadata || {}),
-        publication_boundary: {
-          downgraded_to_internal: true,
-          reason: 'Artifact path is outside the project root and this tracked job storage root.',
-        },
-      },
-    };
-  });
 }
 
 function isInspectableModelArtifactRecord(artifact = {}) {
@@ -1608,14 +1422,14 @@ export function createJobExecutor({
           result = await executeCreate(job, resolvedConfig);
           artifacts = {
             ...artifacts,
-            ...inferCreateArtifacts(result),
+            ...inferCreateArtifactPaths(result),
           };
           manifestArtifacts.push(...collectCreateManifestArtifacts(result));
         } else if (job.type === 'draw') {
           result = await executeDraw(job, resolvedConfig);
           artifacts = {
             ...artifacts,
-            ...inferDrawArtifacts(result),
+            ...inferDrawArtifactPaths(result),
           };
           manifestArtifacts.push(...collectDrawManifestArtifacts(result));
         } else if (job.type === 'inspect') {
@@ -1628,7 +1442,7 @@ export function createJobExecutor({
           result = await executeReport(job, resolvedConfig);
           artifacts = {
             ...artifacts,
-            ...inferReportArtifacts(result),
+            ...inferReportArtifactPaths(result),
           };
           manifestArtifacts.push(...collectReportManifestArtifacts(result));
         } else if (job.type === 'review-context') {

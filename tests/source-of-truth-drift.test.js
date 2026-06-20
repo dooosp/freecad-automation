@@ -7,8 +7,30 @@ import {
   CONDITIONAL_COMMANDS,
   DIAGNOSTIC_COMMANDS,
   FREECAD_BACKED_COMMANDS,
+  JOB_EXECUTOR_COMMANDS,
+  LOCAL_API_CONFIG_JOB_COMMANDS,
+  LOCAL_API_JOB_COMMANDS,
+  LOCAL_API_OTHER_PUBLIC_JOB_COMMANDS,
   PLAIN_PYTHON_COMMANDS,
+  STUDIO_ARTIFACT_COMPATIBLE_JOB_COMMANDS,
+  STUDIO_ARTIFACT_JOB_COMMANDS,
+  STUDIO_JOB_COMMANDS,
+  STUDIO_PAIRED_ARTIFACT_JOB_COMMANDS,
 } from '../src/shared/command-manifest.js';
+import { validateLocalApiJobRequest } from '../src/server/local-api-schemas.js';
+import { validateStudioJobSubmission } from '../src/server/studio-job-bridge.js';
+import { validateJobRequest } from '../src/services/jobs/job-executor.js';
+import {
+  STUDIO_JOB_CONTEXT_ROUTES,
+  STUDIO_SURFACE_ROUTES,
+  getStudioSurfaceMetadata,
+} from '../public/js/studio/studio-surfaces.js';
+import {
+  workspaceDefinitions,
+  workspaceOrder,
+} from '../public/js/studio/workspaces.js';
+import enLocale from '../public/js/i18n/en.js';
+import koLocale from '../public/js/i18n/ko.js';
 import {
   getExpectedPackageScripts,
   getTestSuite,
@@ -29,6 +51,7 @@ const gitignore = readText('.gitignore');
 const hostedWorkflow = readText('.github/workflows/automation-ci.yml');
 const runtimeWorkflow = readText('.github/workflows/freecad-runtime-smoke.yml');
 const maintainerDoctorsWorkflow = readText('.github/workflows/maintainer-doctors.yml');
+const studioHtml = readText('public/studio.html');
 
 function extractSection(markdown, heading) {
   const marker = `${heading}\n`;
@@ -69,6 +92,79 @@ function assertSameCommands(actual, expected, label) {
   assert.deepEqual([...actual].sort(), [...expected].sort(), label);
 }
 
+function artifactRef(jobId = 'job-1', artifactId = 'artifact-1') {
+  return {
+    job_id: jobId,
+    artifact_id: artifactId,
+  };
+}
+
+function minimalLocalApiJobRequest(command) {
+  if (command === 'inspect') {
+    return { type: command, file_path: 'tests/fixtures/sample_part.step' };
+  }
+  if (LOCAL_API_CONFIG_JOB_COMMANDS.includes(command)) {
+    return { type: command, config: { name: 'drift_guard_part' } };
+  }
+  if (command === 'review-context') {
+    return { type: command, model_path: 'tests/fixtures/sample_part.step' };
+  }
+  if (command === 'compare-rev' || command === 'stabilization-review') {
+    return { type: command, baseline_path: 'output/baseline.json', candidate_path: 'output/candidate.json' };
+  }
+  if (command === 'readiness-pack') {
+    return { type: command, review_pack_path: 'output/review_pack.json' };
+  }
+  if (command === 'generate-standard-docs') {
+    return { type: command, config_path: 'configs/examples/quality_pass_bracket.toml', readiness_report_path: 'output/readiness_report.json' };
+  }
+  if (command === 'pack') {
+    return { type: command, readiness_report_path: 'output/readiness_report.json' };
+  }
+  if (command === 'inspection-evidence-intake') {
+    return { type: command, options: { include_github: false, package_slugs: ['quality-pass-bracket'] } };
+  }
+  if (command === 'inspection-evidence-promotion-dry-run') {
+    return { type: command, intake_report_path: 'output/intake_report.json' };
+  }
+  if (command === 'stage5b-evidence-audit') {
+    return { type: command, options: { include_github: false } };
+  }
+  throw new Error(`No local API drift request fixture for ${command}`);
+}
+
+function minimalStudioSubmission(command) {
+  if (['create', 'draw'].includes(command)) {
+    return { type: command, config_toml: 'name = "drift_guard_part"\n' };
+  }
+  if (command === 'report') {
+    return { type: command, config_toml: 'name = "drift_guard_part"\n' };
+  }
+  if (command === 'review-context') {
+    return { type: command, model_path: 'tests/fixtures/sample_part.step' };
+  }
+  if (command === 'inspection-evidence-intake') {
+    return { type: command, options: { include_github: false, package_slugs: ['quality-pass-bracket'] } };
+  }
+  if (command === 'inspection-evidence-promotion-dry-run') {
+    return { type: command, intake_report_path: 'output/intake_report.json' };
+  }
+  if (command === 'stage5b-evidence-audit') {
+    return { type: command, options: { include_github: false } };
+  }
+  if (STUDIO_PAIRED_ARTIFACT_JOB_COMMANDS.includes(command)) {
+    return {
+      type: command,
+      baseline_artifact_ref: artifactRef('job-baseline', 'artifact-baseline'),
+      candidate_artifact_ref: artifactRef('job-candidate', 'artifact-candidate'),
+    };
+  }
+  if (STUDIO_ARTIFACT_COMPATIBLE_JOB_COMMANDS.includes(command)) {
+    return { type: command, artifact_ref: artifactRef() };
+  }
+  throw new Error(`No Studio drift request fixture for ${command}`);
+}
+
 Object.entries(getExpectedPackageScripts()).forEach(([scriptName, command]) => {
   assert.equal(packageJson.scripts[scriptName], command, `${scriptName} should match tests/lane-manifest.js`);
 });
@@ -91,6 +187,71 @@ assert.equal(packageJson.scripts['test:snapshots:update'], 'node scripts/run-sna
 
 const expectedPlainPythonCommands = PLAIN_PYTHON_COMMANDS;
 const expectedConditionalCommands = CONDITIONAL_COMMANDS.map((entry) => entry.name);
+const studioSurfaceMetadata = getStudioSurfaceMetadata();
+
+assert.deepEqual(STUDIO_SURFACE_ROUTES, ['start', 'review', 'artifacts', 'model', 'drawing']);
+assert.deepEqual(STUDIO_JOB_CONTEXT_ROUTES, ['review', 'artifacts']);
+assert.deepEqual(workspaceOrder, STUDIO_SURFACE_ROUTES, 'Studio workspace order should come from shared surface metadata');
+assertSameCommands(
+  Object.keys(workspaceDefinitions),
+  STUDIO_SURFACE_ROUTES,
+  'Studio workspace definitions should cover the shared surface metadata'
+);
+studioSurfaceMetadata.forEach((surface) => {
+  assert.equal(workspaceDefinitions[surface.route].label, surface.label, `${surface.route} label should match surface metadata`);
+  assert.equal(workspaceDefinitions[surface.route].summary, surface.summary, `${surface.route} summary should match surface metadata`);
+  assert.equal(enLocale.messages[surface.labelI18nKey], surface.label, `${surface.route} English label should match surface metadata`);
+  assert.equal(enLocale.messages[surface.summaryI18nKey], surface.summary, `${surface.route} English summary should match surface metadata`);
+  assert.equal(typeof koLocale.messages[surface.labelI18nKey], 'string', `${surface.route} Korean label key should exist`);
+  assert.equal(typeof koLocale.messages[surface.summaryI18nKey], 'string', `${surface.route} Korean summary key should exist`);
+});
+
+const studioNavRoutes = [...studioHtml.matchAll(/<a class="nav-link" href="#([^"]+)" data-route="([^"]+)">/g)]
+  .map((match) => ({ hrefRoute: match[1], route: match[2] }));
+assert.deepEqual(
+  studioNavRoutes.map((entry) => entry.route),
+  STUDIO_SURFACE_ROUTES,
+  'Studio HTML nav routes should match shared surface metadata'
+);
+studioNavRoutes.forEach((entry) => {
+  assert.equal(entry.hrefRoute, entry.route, `Studio nav href should match route ${entry.route}`);
+});
+
+assertSameCommands(LOCAL_API_JOB_COMMANDS, JOB_EXECUTOR_COMMANDS, 'local API and job executor command lists should match');
+assertSameCommands(
+  LOCAL_API_JOB_COMMANDS,
+  [...LOCAL_API_CONFIG_JOB_COMMANDS, ...LOCAL_API_OTHER_PUBLIC_JOB_COMMANDS, 'inspect'],
+  'local API schema command partitions should cover every local API job command'
+);
+LOCAL_API_JOB_COMMANDS.forEach((command) => {
+  const request = minimalLocalApiJobRequest(command);
+  const schemaResult = validateLocalApiJobRequest(request);
+  assert.equal(schemaResult.ok, true, `${command} should be accepted by the local API job schema: ${schemaResult.errors.join(' | ')}`);
+  const executorResult = validateJobRequest(request);
+  assert.equal(executorResult.ok, true, `${command} should be accepted by the job executor validator: ${executorResult.errors.join(' | ')}`);
+});
+
+const studioSubmissionCommands = Object.freeze([...STUDIO_JOB_COMMANDS, 'review-context']);
+assertSameCommands(
+  studioSubmissionCommands,
+  [
+    ...STUDIO_ARTIFACT_JOB_COMMANDS,
+    ...STUDIO_PAIRED_ARTIFACT_JOB_COMMANDS,
+    'create',
+    'draw',
+    'inspect',
+    'report',
+    'review-context',
+    'inspection-evidence-intake',
+    'inspection-evidence-promotion-dry-run',
+    'stage5b-evidence-audit',
+  ],
+  'Studio submission partitions should cover every Studio job command'
+);
+studioSubmissionCommands.forEach((command) => {
+  const result = validateStudioJobSubmission(minimalStudioSubmission(command));
+  assert.equal(result.ok, true, `${command} should be accepted by Studio job submission validation: ${result.errors.join(' | ')}`);
+});
 
 assertSameCommands(
   extractReadmeClassificationCommands('Diagnostics'),

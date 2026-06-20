@@ -3,7 +3,9 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
+import { CLI_DISPATCH_COMMANDS } from '../bin/fcad.js';
 import {
+  CONDITIONAL_COMMANDS,
   DIAGNOSTIC_COMMANDS,
   FREECAD_BACKED_COMMANDS,
   LOCAL_API_JOB_COMMANDS,
@@ -13,6 +15,7 @@ import {
   STUDIO_JOB_COMMANDS,
   STUDIO_PAIRED_ARTIFACT_JOB_COMMANDS,
   formatCommandNameList,
+  getCommandManifest,
   getServeEntrypointMetadata,
   renderCommandUsage,
   renderCliUsage,
@@ -22,8 +25,26 @@ import {
 const ROOT = resolve(import.meta.dirname, '..');
 const CLI = join(ROOT, 'bin', 'fcad.js');
 const packageJson = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8'));
+const commandManifest = getCommandManifest();
+const manifestCommandNames = commandManifest.map((entry) => entry.name);
+
+function assertSameCommands(actual, expected, label) {
+  assert.deepEqual([...actual].sort(), [...expected].sort(), label);
+}
 
 const cliHelp = renderCliUsage();
+assertSameCommands(
+  CLI_DISPATCH_COMMANDS,
+  manifestCommandNames,
+  'CLI dispatch commands should match src/shared/command-manifest.js'
+);
+commandManifest.forEach((entry) => {
+  assert.equal(typeof entry.name, 'string');
+  assert(entry.helpEntries.length > 0, `${entry.name} should expose help entries`);
+  entry.helpEntries.forEach((helpEntry) => {
+    assert.match(cliHelp, new RegExp(helpEntry.usage.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  });
+});
 assert.match(cliHelp, /fcad check-runtime \[--json\] \[--redact-paths\]/);
 assert.match(cliHelp, /fcad readiness-report <config\.toml\|json> \[--out <readiness_report\.json>\]\s+legacy compatibility \/ non-canonical/i);
 assert.match(cliHelp, /fcad generate-standard-docs <config\.toml\|json> --readiness-report <readiness_report\.json>/i);
@@ -43,7 +64,7 @@ assert.match(cliHelp, /--strict-quality\s+Fail create or draw when blocking qual
 assert.match(cliHelp, /--generated-at <iso8601>\s+Use a fixed release bundle timestamp with pack for deterministic bundle metadata and ZIP entries/i);
 assert.match(cliHelp, /fcad serve \[port\] \[--jobs-dir <dir>\] \[--legacy-viewer\]/);
 
-for (const command of ['create', 'draw', 'inspect', 'report', 'pack', 'review-context']) {
+for (const command of manifestCommandNames.filter((name) => name !== 'help')) {
   const commandHelp = renderCommandUsage(command);
   assert.match(commandHelp, new RegExp(`fcad ${command.replace('-', '\\-')}`));
   assert.match(commandHelp, /Usage:/);
@@ -54,12 +75,41 @@ for (const command of ['create', 'draw', 'inspect', 'report', 'pack', 'review-co
   });
   assert.equal(run.status, 0, `${command} --help failed:\n${run.stdout}\n${run.stderr}`);
   assert.match(run.stdout, /Usage:/);
+  assert.equal(run.stdout.trim(), commandHelp);
 }
 
 const serveHelp = renderServeUsage();
 assert.match(serveHelp, /fcad serve - local API, studio shell, and legacy compatibility viewer/);
 assert.match(serveHelp, /npm run serve:legacy/);
 
+assertSameCommands(
+  DIAGNOSTIC_COMMANDS,
+  commandManifest
+    .filter((entry) => entry.runtime?.classification === 'diagnostics')
+    .map((entry) => entry.name),
+  'diagnostic runtime commands should be derived from manifest entries'
+);
+assertSameCommands(
+  FREECAD_BACKED_COMMANDS,
+  commandManifest
+    .filter((entry) => entry.runtime?.classification === 'freecad-backed')
+    .map((entry) => entry.name),
+  'FreeCAD-backed runtime commands should be derived from manifest entries'
+);
+assertSameCommands(
+  PLAIN_PYTHON_COMMANDS,
+  commandManifest
+    .filter((entry) => entry.runtime?.classification === 'plain-python-node')
+    .map((entry) => entry.name),
+  'plain-Python runtime commands should be derived from manifest entries'
+);
+assertSameCommands(
+  CONDITIONAL_COMMANDS.map((entry) => entry.name),
+  commandManifest
+    .filter((entry) => entry.runtime?.classification === 'mixed-conditional')
+    .map((entry) => entry.name),
+  'conditional runtime commands should be derived from manifest entries'
+);
 assert.deepEqual(DIAGNOSTIC_COMMANDS, ['check-runtime']);
 assert.equal(FREECAD_BACKED_COMMANDS.includes('inspect'), true);
 assert.equal(PLAIN_PYTHON_COMMANDS.includes('serve'), true);
