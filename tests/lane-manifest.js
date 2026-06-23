@@ -20,6 +20,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'Maintainer doctor', args: Object.freeze(['tests/maintainer-doctor.test.js']) }),
       Object.freeze({ label: 'Bootstrap doctor', args: Object.freeze(['tests/bootstrap-doctor.test.js']) }),
       Object.freeze({ label: 'Source-of-truth drift', args: Object.freeze(['tests/source-of-truth-drift.test.js']) }),
+      Object.freeze({ label: 'Job executor handler registry', args: Object.freeze(['tests/job-executor-handler-registry.test.js']) }),
       Object.freeze({ label: 'Stage 5B source-of-truth guard', args: Object.freeze(['tests/stage5b-source-of-truth-guard.test.js']) }),
       Object.freeze({ label: 'Stage 5B artifact/schema catalog guard', args: Object.freeze(['tests/stage5b-artifact-catalog.test.js']) }),
       Object.freeze({ label: 'Stage 5B artifact schema contracts', args: Object.freeze(['tests/stage5b-artifact-contracts.test.js']) }),

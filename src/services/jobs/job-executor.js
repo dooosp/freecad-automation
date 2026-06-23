@@ -3,10 +3,7 @@ import { copyFile, mkdir, stat } from 'node:fs/promises';
 import {
   AfExecutionContractError,
   buildAfArtifactContractFromDocument,
-  buildAfArtifactContractMetadata,
   buildAfExecutionStateDescriptor,
-  buildCompatibilityMarkers,
-  createAfArtifactIdentityRecord,
   validateDocsManifestAgainstReadiness,
 } from '../../../lib/af-execution-contract.js';
 import { buildArtifactManifest } from '../../../lib/artifact-manifest.js';
@@ -38,8 +35,6 @@ import { writeStage5bEvidenceAuditBundle } from '../inspection-evidence-intake/s
 import {
   assertValidStage5bIntakeReport,
   assertValidStage5bPromotionDryRunManifest,
-  buildStage5bValidationDiagnosticsPayload,
-  isStage5bRuntimeValidationError,
 } from '../inspection-evidence-intake/stage5b-runtime-validation.js';
 import {
   resolveBundleBackedCanonicalPath,
@@ -50,15 +45,14 @@ import {
 import { loadRuleProfile, summarizeRuleProfile } from '../config/rule-profile-service.js';
 import { validateLocalApiJobRequest } from '../../server/local-api-schemas.js';
 import { JOB_EXECUTOR_COMMANDS } from '../../shared/command-manifest.js';
+import { applyArtifactPublicationBoundary } from '../../shared/artifact-surface.js';
+import { executeJobByType } from './execution/handler-registry.js';
 import {
-  applyArtifactPublicationBoundary,
-  collectCreateManifestArtifacts,
-  collectDrawManifestArtifacts,
-  collectReportManifestArtifacts,
-  inferCreateArtifactPaths,
-  inferDrawArtifactPaths,
-  inferReportArtifactPaths,
-} from '../../shared/artifact-surface.js';
+  buildGenericAfMetadata,
+  buildReleaseBundleManifestMetadata,
+  buildReleaseBundleMetadata,
+} from './execution/metadata-builders.js';
+import { writeTrackedStage5bValidationDiagnostics } from './execution/stage5b-handlers.js';
 import {
   isLocalStage5bCandidateEvidenceInboxPath,
   normalizeRepoRelativePathText,
@@ -315,47 +309,6 @@ function formatBundleImportLog(record) {
   return `Imported ${kindLabel} from ${bundleName}:${entryName}${suffix}`;
 }
 
-function buildLineageIdentity(document = {}) {
-  const part = document?.part && typeof document.part === 'object' ? document.part : {};
-  return {
-    part_id: part.part_id || document.part_id || null,
-    name: part.name || null,
-    revision: part.revision || document.revision || null,
-  };
-}
-
-function buildReleaseBundleMetadata({
-  readinessReport,
-  releaseBundleManifest,
-}) {
-  const lineage = buildLineageIdentity(readinessReport);
-  return buildAfArtifactContractMetadata({
-    jobType: 'pack',
-    target: 'release_bundle',
-    artifactIdentity: createAfArtifactIdentityRecord({
-      artifactType: 'release_bundle',
-      schemaVersion: releaseBundleManifest?.schema_version || '1.0',
-      sourceArtifactRefs: releaseBundleManifest?.source_artifact_refs || [],
-      warnings: releaseBundleManifest?.warnings || [],
-      coverage: releaseBundleManifest?.coverage || {},
-      confidence: releaseBundleManifest?.confidence || {
-        level: 'heuristic',
-        score: 0.5,
-        rationale: 'Release bundle metadata was derived from the release bundle manifest.',
-      },
-      lineage,
-      compatibility: {
-        mode: 'canonical',
-        canonical_review_pack_backed: null,
-        markers: ['derived_transport_artifact', ...(buildCompatibilityMarkers(releaseBundleManifest).markers || [])],
-      },
-    }),
-    executionNotes: [
-      'release_bundle.zip is a derived transport artifact backed by canonical packaging metadata.',
-    ],
-  });
-}
-
 function findSourceArtifactRef(document = {}, artifactType) {
   return Array.isArray(document?.source_artifact_refs)
     ? document.source_artifact_refs.find((ref) => ref?.artifact_type === artifactType && typeof ref.path === 'string' && ref.path.trim())
@@ -400,33 +353,6 @@ function buildReadinessRehydratedConfig(readinessReport = {}) {
   }
 
   return config;
-}
-
-function buildReleaseBundleManifestMetadata({
-  readinessReport,
-  releaseBundleManifest,
-}) {
-  const lineage = buildLineageIdentity(readinessReport);
-  return buildAfArtifactContractMetadata({
-    jobType: 'pack',
-    artifactIdentity: createAfArtifactIdentityRecord({
-      artifactType: releaseBundleManifest?.artifact_type || 'release_bundle_manifest',
-      schemaVersion: releaseBundleManifest?.schema_version || '1.0',
-      sourceArtifactRefs: releaseBundleManifest?.source_artifact_refs || [],
-      warnings: releaseBundleManifest?.warnings || [],
-      coverage: releaseBundleManifest?.coverage || {},
-      confidence: releaseBundleManifest?.confidence || {
-        level: 'heuristic',
-        score: 0.5,
-        rationale: 'Release bundle manifest metadata was derived from the release bundle manifest.',
-      },
-      lineage,
-      compatibility: buildCompatibilityMarkers(releaseBundleManifest),
-    }),
-    executionNotes: [
-      'Release bundle manifest preserves readiness lineage for reopenable packaging metadata.',
-    ],
-  });
 }
 
 async function loadReviewPackHandoff(pathValue, { command }) {
@@ -1182,6 +1108,7 @@ export function createJobExecutor({
       outputPath,
       docsManifestPath,
       docsManifest,
+      trustedSourceRoots: [jobStore.jobsDir],
       allowBundledDocsManifestPair: Boolean(
         readinessImport.importRecord?.bundle_path
         && readinessImport.importRecord?.bundle_path === docsManifestImport.importRecord?.bundle_path
@@ -1315,74 +1242,6 @@ export function createJobExecutor({
     });
   }
 
-  async function writeTrackedStage5bValidationDiagnostics(job, error, {
-    artifacts,
-    manifestArtifacts,
-    diagnostics,
-  }) {
-    if (!isStage5bRuntimeValidationError(error)) return diagnostics;
-    if (![
-      'inspection-evidence-intake',
-      'inspection-evidence-promotion-dry-run',
-      'stage5b-evidence-audit',
-    ].includes(job.type)) {
-      return diagnostics;
-    }
-
-    const payload = buildStage5bValidationDiagnosticsPayload(error, {
-      projectRoot,
-      command: job.type,
-    });
-    const diagnosticsPath = await jobStore.writeJobFile(
-      job.id,
-      'artifacts/validation_diagnostics.json',
-      `${JSON.stringify(payload, null, 2)}\n`
-    );
-    artifacts.stage5b_validation_diagnostics = diagnosticsPath;
-    manifestArtifacts.push({
-      type: 'stage5b.validation-diagnostics',
-      path: diagnosticsPath,
-      label: 'Stage 5B validation diagnostics',
-      scope: 'user-facing',
-      stability: 'best-effort',
-      metadata: {
-        artifact_type: 'stage5b_validation_diagnostics',
-        diagnostic_count: payload.diagnostic_count,
-        validated_artifact_type: payload.artifact_type,
-        validation_status: payload.validation_status,
-        execution_notes: [
-          'Validation diagnostics are sanitized failure metadata for review only; they are not inspection evidence.',
-          'Diagnostics artifacts do not expose arbitrary local files and do not satisfy readiness evidence.',
-        ],
-      },
-    });
-    return {
-      ...diagnostics,
-      stage5b_validation_diagnostics: payload,
-    };
-  }
-
-  function buildGenericAfMetadata(jobType, document, executionNotes = []) {
-    return buildAfArtifactContractMetadata({
-      jobType,
-      artifactIdentity: createAfArtifactIdentityRecord({
-        artifactType: document?.artifact_type || jobType,
-        schemaVersion: document?.schema_version || '1.0',
-        sourceArtifactRefs: document?.source_artifact_refs || [],
-        warnings: document?.warnings || [],
-        coverage: document?.coverage || {},
-        confidence: document?.confidence || {
-          level: 'heuristic',
-          score: 0.5,
-          rationale: `${jobType} artifact metadata was derived from the canonical JSON output.`,
-        },
-        lineage: buildLineageIdentity(document),
-        compatibility: buildCompatibilityMarkers(document),
-      }),
-      executionNotes,
-    });
-  }
-
   return {
     async execute(jobId) {
       const claim = await jobStore.claimJobForExecution(jobId, 'executor_started');
@@ -1403,11 +1262,37 @@ export function createJobExecutor({
       let manifestConfigPath = null;
       let manifestConfigSummary = null;
       let manifestRuleProfile = null;
+      const handlerContext = {
+        projectRoot,
+        jobStore,
+        appendLog,
+        createLoggedRunner,
+        joinPath: join,
+        collectInspectManifestArtifacts,
+        executeCreate,
+        executeDraw,
+        executeInspect,
+        executeReport,
+        executeReviewContext,
+        executeCompareRev,
+        executeReadinessPack,
+        executeStabilizationReview,
+        executeGenerateStandardDocs,
+        executePack,
+        executeInspectionEvidenceIntake,
+        executeInspectionEvidencePromotionDryRun,
+        executeStage5bEvidenceAudit,
+        buildAfArtifactContractFromDocument,
+        buildGenericAfMetadata,
+        buildReleaseBundleMetadata,
+        buildReleaseBundleManifestMetadata,
+      };
       try {
         let result;
         let resolvedConfig = null;
         if (job.type === 'create' || job.type === 'draw' || job.type === 'inspect' || job.type === 'report' || job.type === 'generate-standard-docs') {
           resolvedConfig = await resolveConfigInput(job);
+          handlerContext.resolvedConfig = resolvedConfig;
           diagnostics = resolvedConfig.diagnostics || {};
           const configSummary = resolvedConfig.summary || null;
           manifestConfigPath = resolvedConfig.configPath || null;
@@ -1418,365 +1303,18 @@ export function createJobExecutor({
           }
         }
 
-        if (job.type === 'create') {
-          result = await executeCreate(job, resolvedConfig);
-          artifacts = {
-            ...artifacts,
-            ...inferCreateArtifactPaths(result),
+        const handlerOutcome = await executeJobByType(job, handlerContext);
+        result = handlerOutcome.result;
+        artifacts = {
+          ...artifacts,
+          ...(handlerOutcome.artifacts || {}),
+        };
+        manifestArtifacts.push(...(handlerOutcome.manifestArtifacts || []));
+        if (handlerOutcome.diagnostics) {
+          diagnostics = {
+            ...diagnostics,
+            ...handlerOutcome.diagnostics,
           };
-          manifestArtifacts.push(...collectCreateManifestArtifacts(result));
-        } else if (job.type === 'draw') {
-          result = await executeDraw(job, resolvedConfig);
-          artifacts = {
-            ...artifacts,
-            ...inferDrawArtifactPaths(result),
-          };
-          manifestArtifacts.push(...collectDrawManifestArtifacts(result));
-        } else if (job.type === 'inspect') {
-          result = await executeInspect(job, resolvedConfig);
-          artifacts = {
-            input_model: resolvedConfig.filePath,
-          };
-          manifestArtifacts.push(...collectInspectManifestArtifacts(resolvedConfig));
-        } else if (job.type === 'report') {
-          result = await executeReport(job, resolvedConfig);
-          artifacts = {
-            ...artifacts,
-            ...inferReportArtifactPaths(result),
-          };
-          manifestArtifacts.push(...collectReportManifestArtifacts(result));
-        } else if (job.type === 'review-context') {
-          result = await executeReviewContext(job);
-          artifacts = {
-            context: result.artifacts.context,
-            engineering_context: result.artifacts.engineeringContext || result.artifacts.context,
-            ingest_log: result.artifacts.ingestLog,
-            import_diagnostics: result.artifacts.importDiagnostics,
-            bootstrap_summary: result.artifacts.bootstrapSummary,
-            bootstrap_warnings: result.artifacts.bootstrapWarnings,
-            confidence_map: result.artifacts.confidenceMap,
-            ...(result.artifacts.draftConfig ? { draft_config: result.artifacts.draftConfig } : {}),
-            geometry: result.artifacts.geometry,
-            hotspots: result.artifacts.hotspots,
-            inspection_linkage: result.artifacts.inspectionLinkage,
-            inspection_outliers: result.artifacts.inspectionOutliers,
-            quality_linkage: result.artifacts.qualityLinkage,
-            quality_hotspots: result.artifacts.qualityHotspots,
-            review_priorities: result.artifacts.reviewPriorities,
-            review_pack_json: result.artifacts.reviewPackJson,
-            review_pack_markdown: result.artifacts.reviewPackMarkdown,
-            review_pack_pdf: result.artifacts.reviewPackPdf,
-            ...(result.artifacts.revisionComparison ? { revision_comparison: result.artifacts.revisionComparison } : {}),
-          };
-          manifestArtifacts.push(
-            { type: 'engineering_context.json', path: result.artifacts.engineeringContext || result.artifacts.context, label: 'Engineering context JSON', scope: 'user-facing', stability: 'stable' },
-            { type: 'ingest.log.json', path: result.artifacts.ingestLog, label: 'Ingest log JSON', scope: 'internal', stability: 'stable' },
-            { type: 'import_diagnostics.json', path: result.artifacts.importDiagnostics, label: 'Import diagnostics JSON', scope: 'user-facing', stability: 'stable' },
-            { type: 'bootstrap_summary.json', path: result.artifacts.bootstrapSummary, label: 'Bootstrap summary JSON', scope: 'user-facing', stability: 'stable' },
-            { type: 'bootstrap_warnings.json', path: result.artifacts.bootstrapWarnings, label: 'Bootstrap warnings JSON', scope: 'user-facing', stability: 'stable' },
-            { type: 'confidence_map.json', path: result.artifacts.confidenceMap, label: 'Confidence map JSON', scope: 'user-facing', stability: 'stable' },
-            ...(result.artifacts.draftConfig ? [{ type: 'config.bootstrap-draft', path: result.artifacts.draftConfig, label: 'Draft config TOML', scope: 'user-facing', stability: 'best-effort' }] : []),
-            { type: 'geometry_intelligence.json', path: result.artifacts.geometry, label: 'Geometry intelligence JSON', scope: 'user-facing', stability: 'stable' },
-            { type: 'manufacturing_hotspots.json', path: result.artifacts.hotspots, label: 'Manufacturing hotspots JSON', scope: 'user-facing', stability: 'stable' },
-            { type: 'quality-link.inspection-linkage.json', path: result.artifacts.inspectionLinkage, label: 'Inspection linkage JSON', scope: 'user-facing', stability: 'stable' },
-            { type: 'quality-link.inspection-outliers.json', path: result.artifacts.inspectionOutliers, label: 'Inspection outliers JSON', scope: 'user-facing', stability: 'stable' },
-            { type: 'quality-link.quality-linkage.json', path: result.artifacts.qualityLinkage, label: 'Quality linkage JSON', scope: 'user-facing', stability: 'stable' },
-            { type: 'quality-link.quality-hotspots.json', path: result.artifacts.qualityHotspots, label: 'Quality hotspots JSON', scope: 'user-facing', stability: 'stable' },
-            { type: 'quality-link.review-priorities.json', path: result.artifacts.reviewPriorities, label: 'Review priorities JSON', scope: 'user-facing', stability: 'stable' },
-            {
-              type: 'review-pack.json',
-              path: result.artifacts.reviewPackJson,
-              label: 'Review pack JSON',
-              scope: 'user-facing',
-              stability: 'stable',
-              metadata: buildAfArtifactContractFromDocument({
-                jobType: 'review-context',
-                target: 'review_pack',
-                document: result.reviewPackDocument,
-                path: result.artifacts.reviewPackJson,
-              }),
-            },
-            { type: 'review-pack.markdown', path: result.artifacts.reviewPackMarkdown, label: 'Review pack Markdown', scope: 'user-facing', stability: 'stable' },
-            { type: 'review-pack.pdf', path: result.artifacts.reviewPackPdf, label: 'Review pack PDF', scope: 'user-facing', stability: 'stable' },
-            ...(result.artifacts.revisionComparison ? [{
-              type: 'revision-comparison.json',
-              path: result.artifacts.revisionComparison,
-              label: 'Revision comparison JSON',
-              scope: 'user-facing',
-              stability: 'stable',
-            }] : []),
-          );
-        } else if (job.type === 'compare-rev') {
-          result = await executeCompareRev(job);
-          artifacts = {
-            revision_comparison: result.outputPath,
-          };
-          manifestArtifacts.push({
-            type: 'revision-comparison.json',
-            path: result.outputPath,
-            label: 'Revision comparison JSON',
-            scope: 'user-facing',
-            stability: 'stable',
-            metadata: buildGenericAfMetadata('compare-rev', result.comparison, [
-              'compare-rev compares canonical review-pack artifacts and preserves their lineage.',
-            ]),
-          });
-        } else if (job.type === 'readiness-pack') {
-          result = await executeReadinessPack(job);
-          artifacts = {
-            readiness_report: result.artifacts.json,
-            readiness_markdown: result.artifacts.markdown,
-          };
-          manifestArtifacts.push(
-            {
-              type: 'readiness-report.json',
-              path: result.artifacts.json,
-              label: 'Readiness report JSON',
-              scope: 'user-facing',
-              stability: 'stable',
-              metadata: buildAfArtifactContractFromDocument({
-                jobType: 'readiness-pack',
-                target: 'readiness_report',
-                document: result.report,
-                path: result.artifacts.json,
-              }),
-            },
-            { type: 'readiness-report.markdown', path: result.artifacts.markdown, label: 'Readiness report Markdown', scope: 'user-facing', stability: 'stable' },
-            { type: 'input.review-pack', path: result.reviewPackPath, label: 'Review pack JSON', scope: 'internal', stability: 'stable' },
-            ...(result.processPlanPath ? [{ type: 'input.process-plan', path: result.processPlanPath, label: 'Process plan JSON', scope: 'internal', stability: 'stable' }] : []),
-            ...(result.qualityRiskPath ? [{ type: 'input.quality-risk', path: result.qualityRiskPath, label: 'Quality risk JSON', scope: 'internal', stability: 'stable' }] : []),
-          );
-        } else if (job.type === 'stabilization-review') {
-          result = await executeStabilizationReview(job);
-          artifacts = {
-            stabilization_review: result.outputPath,
-          };
-          manifestArtifacts.push(
-            {
-              type: 'review.stabilization.json',
-              path: result.outputPath,
-              label: 'Stabilization review JSON',
-              scope: 'user-facing',
-              stability: 'stable',
-              metadata: buildGenericAfMetadata('stabilization-review', result.review, [
-                'stabilization-review compares canonical readiness artifacts and preserves their lineage.',
-              ]),
-            },
-            { type: 'input.readiness.baseline', path: result.baselinePath, label: 'Baseline readiness report JSON', scope: 'internal', stability: 'stable' },
-            { type: 'input.readiness.candidate', path: result.candidatePath, label: 'Candidate readiness report JSON', scope: 'internal', stability: 'stable' },
-          );
-        } else if (job.type === 'generate-standard-docs') {
-          result = await executeGenerateStandardDocs(job, resolvedConfig);
-          artifacts = {
-            out_dir: result.out_dir,
-            docs_manifest: result.artifacts.manifest,
-            ...(result.readiness_report_path ? { readiness_report: result.readiness_report_path } : {}),
-          };
-          manifestArtifacts.push(
-            ...Object.entries(result.artifacts).map(([filename, filePath]) => ({
-              type: filename === 'manifest' ? 'standard-docs.summary' : `standard-docs.${filename}`,
-              path: filePath,
-              label: filename,
-              scope: 'user-facing',
-              stability: filename === 'manifest' ? 'best-effort' : 'stable',
-              ...(filename === 'manifest'
-                ? {
-                    metadata: buildGenericAfMetadata('generate-standard-docs', result.manifest, [
-                      'generate-standard-docs consumes canonical readiness input and emits document drafts plus a manifest.',
-                    ]),
-                  }
-                : {}),
-            })),
-            ...(result.readiness_report_path ? [{
-              type: 'readiness-report.json',
-              path: result.readiness_report_path,
-              label: 'Canonical readiness report JSON',
-              scope: 'internal',
-              stability: 'stable',
-              metadata: buildAfArtifactContractFromDocument({
-                jobType: 'generate-standard-docs',
-                target: 'readiness_report',
-                document: result.report,
-                path: result.readiness_report_path,
-                strictReentry: true,
-              }),
-            }] : []),
-          );
-        } else if (job.type === 'pack') {
-          result = await executePack(job);
-          artifacts = {
-            release_bundle: result.bundle_zip_path,
-            release_bundle_manifest: result.manifest_path,
-            release_bundle_checksums: result.checksums_path,
-            release_bundle_log: result.log_path,
-          };
-          manifestArtifacts.push(
-            {
-              type: 'release-bundle.zip',
-              path: result.bundle_zip_path,
-              label: 'Release bundle ZIP',
-              scope: 'user-facing',
-              stability: 'stable',
-              metadata: buildReleaseBundleMetadata({
-                readinessReport: result.readinessReport,
-                releaseBundleManifest: result.manifest,
-              }),
-            },
-            {
-              type: 'release-bundle.manifest.json',
-              path: result.manifest_path,
-              label: 'Release bundle manifest JSON',
-              scope: 'user-facing',
-              stability: 'stable',
-              metadata: buildReleaseBundleManifestMetadata({
-                readinessReport: result.readinessReport,
-                releaseBundleManifest: result.manifest,
-              }),
-            },
-            { type: 'release-bundle.checksums', path: result.checksums_path, label: 'Release bundle checksums', scope: 'user-facing', stability: 'stable' },
-            { type: 'release-bundle.log.json', path: result.log_path, label: 'Release bundle log JSON', scope: 'user-facing', stability: 'stable' },
-            { type: 'input.readiness-report', path: result.readinessPath, label: 'Canonical readiness report JSON', scope: 'internal', stability: 'stable' },
-            ...(result.docsManifestPath ? [{ type: 'input.docs-manifest', path: result.docsManifestPath, label: 'Standard docs manifest JSON', scope: 'internal', stability: 'stable' }] : []),
-          );
-        } else if (job.type === 'inspection-evidence-intake') {
-          const intakeResult = await executeInspectionEvidenceIntake(job);
-          result = intakeResult.report;
-          artifacts = {
-            inspection_evidence_intake_report: intakeResult.reportPath,
-          };
-          manifestArtifacts.push({
-            type: 'inspection-evidence.intake-report',
-            path: intakeResult.reportPath,
-            label: 'Stage 5B inspection evidence intake report',
-            scope: 'user-facing',
-            stability: 'stable',
-            metadata: {
-              artifact_type: 'inspection_evidence_intake_report',
-              schema_version: intakeResult.report.schema_version || '1.0',
-              accepted_candidate_count: intakeResult.report.summary?.accepted_candidate_count ?? null,
-              rejected_candidate_count: intakeResult.report.summary?.rejected_candidate_count ?? null,
-              genuine_inspection_evidence_found: intakeResult.report.summary?.genuine_inspection_evidence_found === true,
-              readiness_truth: intakeResult.report.summary?.readiness_truth || null,
-              execution_notes: [
-                'inspection-evidence-intake reports are discovery/review artifacts only; they are not package inspection evidence.',
-                'Report preview is limited to registered tracked job artifact routes.',
-              ],
-            },
-          });
-        } else if (job.type === 'inspection-evidence-promotion-dry-run') {
-          const dryRunResult = await executeInspectionEvidencePromotionDryRun(job);
-          result = dryRunResult.manifest;
-          artifacts = {
-            inspection_evidence_promotion_dry_run_manifest: dryRunResult.manifestPath,
-          };
-          manifestArtifacts.push({
-            type: 'inspection-evidence.promotion-dry-run-manifest',
-            path: dryRunResult.manifestPath,
-            label: 'Stage 5B inspection evidence promotion dry-run manifest',
-            scope: 'user-facing',
-            stability: 'stable',
-            metadata: {
-              artifact_type: 'inspection_evidence_promotion_dry_run_manifest',
-              schema_version: dryRunResult.manifest.schema_version || '1.0',
-              promotion_can_run: dryRunResult.manifest.summary?.promotion_can_run === true,
-              ready_package_count: dryRunResult.manifest.summary?.ready_package_count ?? null,
-              blocked_package_count: dryRunResult.manifest.summary?.blocked_package_count ?? null,
-              canonical_artifacts_mutated: false,
-              readiness_expectation: dryRunResult.manifest.summary?.readiness_expectation || null,
-              execution_notes: [
-                'promotion dry-run manifests are planning/control artifacts only; they are not inspection evidence.',
-                'Dry-run execution writes only the tracked job manifest artifact and does not mutate canonical packages.',
-              ],
-            },
-          });
-        } else if (job.type === 'stage5b-evidence-audit') {
-          const auditResult = await executeStage5bEvidenceAudit(job);
-          result = auditResult.manifest;
-          const outputDir = auditResult.absolute_output_dir;
-          const intakePath = join(outputDir, 'intake_report.json');
-          const dryRunPath = join(outputDir, 'promotion_dry_run_manifest.json');
-          const auditManifestPath = join(outputDir, 'stage5b_audit_manifest.json');
-          const auditSummaryPath = join(outputDir, 'stage5b_audit_summary.md');
-          artifacts = {
-            stage5b_audit_intake_report: intakePath,
-            stage5b_audit_promotion_dry_run_manifest: dryRunPath,
-            stage5b_audit_manifest: auditManifestPath,
-            stage5b_audit_summary: auditSummaryPath,
-          };
-          manifestArtifacts.push(
-            {
-              type: 'inspection-evidence.intake-report',
-              path: intakePath,
-              label: 'Stage 5B audit intake report',
-              scope: 'user-facing',
-              stability: 'stable',
-              metadata: {
-                artifact_type: 'inspection_evidence_intake_report',
-                schema_version: auditResult.intake_report.schema_version || '1.0',
-                accepted_candidate_count: auditResult.intake_report.summary?.accepted_candidate_count ?? null,
-                rejected_candidate_count: auditResult.intake_report.summary?.rejected_candidate_count ?? null,
-                genuine_inspection_evidence_found: auditResult.intake_report.summary?.genuine_inspection_evidence_found === true,
-                execution_notes: [
-                  'Audit intake reports are discovery/review artifacts only; they are not package inspection evidence.',
-                  'Report preview is limited to registered tracked job artifact routes.',
-                ],
-              },
-            },
-            {
-              type: 'inspection-evidence.promotion-dry-run-manifest',
-              path: dryRunPath,
-              label: 'Stage 5B audit promotion dry-run manifest',
-              scope: 'user-facing',
-              stability: 'stable',
-              metadata: {
-                artifact_type: 'inspection_evidence_promotion_dry_run_manifest',
-                schema_version: auditResult.promotion_dry_run_manifest.schema_version || '1.0',
-                promotion_can_run: auditResult.promotion_dry_run_manifest.summary?.promotion_can_run === true,
-                canonical_artifacts_mutated: false,
-                execution_notes: [
-                  'Audit promotion dry-run manifests are planning/control artifacts only; they are not inspection evidence.',
-                  'Dry-run execution writes only tracked job artifacts and does not mutate canonical packages.',
-                ],
-              },
-            },
-            {
-              type: 'stage5b.evidence-audit-manifest',
-              path: auditManifestPath,
-              label: 'Stage 5B evidence audit manifest',
-              scope: 'user-facing',
-              stability: 'stable',
-              metadata: {
-                artifact_type: 'stage5b_evidence_audit_manifest',
-                schema_version: auditResult.manifest.schema_version || '1.0',
-                genuine_inspection_evidence_found: auditResult.manifest.summary?.genuine_inspection_evidence_found === true,
-                promotion_can_run: auditResult.manifest.summary?.promotion_can_run === true,
-                attachment_ready_candidate_count: auditResult.manifest.summary?.attachment_ready_candidate_count ?? null,
-                readiness_remains_held: auditResult.manifest.summary?.readiness_remains_held === true,
-                canonical_artifacts_mutated: false,
-                execution_notes: [
-                  'Stage 5B audit manifests are review/control artifacts only; they are not inspection evidence.',
-                  'Tracked audit execution does not attach evidence, regenerate readiness, or mutate canonical packages.',
-                ],
-              },
-            },
-            {
-              type: 'stage5b.evidence-audit-summary',
-              path: auditSummaryPath,
-              label: 'Stage 5B evidence audit summary',
-              scope: 'user-facing',
-              stability: 'stable',
-              metadata: {
-                artifact_type: 'stage5b_evidence_audit_summary_markdown',
-                schema_version: auditResult.manifest.schema_version || '1.0',
-                canonical_artifacts_mutated: false,
-                execution_notes: [
-                  'Stage 5B audit summaries are markdown views of the tracked audit manifest.',
-                ],
-              },
-            },
-          );
-        } else {
-          throw new Error(`Unsupported job type: ${job.type}`);
         }
 
         if (resolvedConfig?.rawConfigPath) {
@@ -1851,7 +1389,7 @@ export function createJobExecutor({
             execution_state: buildAfExecutionStateDescriptor('failed'),
           };
         }
-        diagnostics = await writeTrackedStage5bValidationDiagnostics(job, error, {
+        diagnostics = await writeTrackedStage5bValidationDiagnostics(job, error, handlerContext, {
           artifacts,
           manifestArtifacts,
           diagnostics,

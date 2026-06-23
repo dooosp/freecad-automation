@@ -164,6 +164,12 @@ function defaultBundlePathForSourceRef(ref) {
   }
 }
 
+function isCanonicalLineageRef(ref) {
+  if (ref?.artifact_type !== 'review_pack') return false;
+  const fileName = basename(String(ref.path || '').replace(/\\/g, '/'));
+  return fileName === 'review_pack.json';
+}
+
 function safeDisplayPath(rawPath) {
   const fileName = basename(String(rawPath || '').replace(/\\/g, '/'));
   return fileName || 'outside-bundle-root';
@@ -245,9 +251,13 @@ function resolveArtifactPath(rawPath, { projectRoot, readinessDir, allowedRoots 
 function sourceArtifactAllowed(ref, resolvedPath, {
   projectRoot,
   readinessDir,
+  trustedSourceRoots = [],
 }) {
   if (!ref?.path || !resolvedPath) {
     return { ok: true, reason: 'allowed' };
+  }
+  if (trustedSourceRoots.some((root) => isPathWithinRoot(root, resolvedPath))) {
+    return { ok: true, reason: 'allowed_tracked_job_artifact' };
   }
   const repoPath = pathWithinRootRelative(projectRoot, resolvedPath);
   if (!repoPath) {
@@ -266,14 +276,16 @@ function sourceArtifactAllowed(ref, resolvedPath, {
 function filterAllowedSourceArtifactRefs(refs = [], {
   projectRoot,
   readinessDir,
+  trustedSourceRoots = [],
   warnings,
   skippedArtifacts,
 }) {
+  const allowedRoots = uniqueStrings([projectRoot, readinessDir, ...trustedSourceRoots]);
   return safeList(refs).filter((ref) => {
     if (!ref?.path) return true;
-    const resolved = resolveArtifactPath(ref.path, { projectRoot, readinessDir });
+    const resolved = resolveArtifactPath(ref.path, { projectRoot, readinessDir, allowedRoots });
     const allowed = resolved.ok
-      ? sourceArtifactAllowed(ref, resolved.path, { projectRoot, readinessDir })
+      ? sourceArtifactAllowed(ref, resolved.path, { projectRoot, readinessDir, trustedSourceRoots })
       : resolved;
     if (resolved.ok && allowed.ok) return true;
     skippedArtifacts.push({
@@ -292,15 +304,17 @@ function manifestSourceArtifactRefs(refs = [], {
   projectRoot,
   readinessDir,
   outputDir,
+  trustedSourceRoots = [],
 }) {
+  const allowedRoots = uniqueStrings([projectRoot, readinessDir, ...trustedSourceRoots]);
   return safeList(refs)
     .map((ref) => {
       if (!ref?.path) return ref;
-      const resolved = resolveArtifactPath(ref.path, { projectRoot, readinessDir });
+      const resolved = resolveArtifactPath(ref.path, { projectRoot, readinessDir, allowedRoots });
       return {
         ...ref,
         path: resolved.ok
-          ? portablePath(projectRoot, resolved.path, [readinessDir, outputDir])
+          ? portablePath(projectRoot, resolved.path, [readinessDir, outputDir, ...trustedSourceRoots])
           : safeDisplayPath(ref.path),
       };
     })
@@ -397,6 +411,7 @@ export async function runReleaseBundleWorkflow({
   docsManifest = null,
   additionalWarnings = [],
   allowBundledDocsManifestPair = false,
+  trustedSourceRoots = [],
   generatedAt = null,
 } = {}) {
   const resolvedReadinessPath = resolve(readinessPath);
@@ -412,18 +427,29 @@ export async function runReleaseBundleWorkflow({
   const bundleEntries = [];
   const skippedArtifacts = [];
   const warnings = [...safeList(readinessReport.warnings), ...additionalWarnings];
+  const trustedSourceRootPaths = uniqueStrings(
+    safeList(trustedSourceRoots)
+      .filter((root) => typeof root === 'string' && root.trim())
+      .map((root) => resolve(root))
+  );
   await mkdir(outputDir, { recursive: true });
-  const readinessSourceArtifactRefs = filterAllowedSourceArtifactRefs(
+  const readinessSourceArtifactRefs = safeList(readinessReport.source_artifact_refs);
+  const bundledReadinessSourceArtifactRefs = filterAllowedSourceArtifactRefs(
     readinessReport.source_artifact_refs,
     {
       projectRoot,
       readinessDir,
+      trustedSourceRoots: trustedSourceRootPaths,
       warnings,
       skippedArtifacts,
     }
   );
+  const manifestReadinessSourceArtifactRefs = mergeSourceArtifactRefs(
+    bundledReadinessSourceArtifactRefs,
+    readinessSourceArtifactRefs.filter(isCanonicalLineageRef)
+  );
   const sourceArtifactRefs = mergeSourceArtifactRefs(
-    readinessSourceArtifactRefs,
+    manifestReadinessSourceArtifactRefs,
     [
       buildSourceArtifactRef(
         'readiness_report',
@@ -476,7 +502,7 @@ export async function runReleaseBundleWorkflow({
 
   const includedSourceTypes = new Set(['review_pack', 'config', 'engineering_context', 'cad_model', 'source_file']);
   const seenSourcePaths = new Set([resolvedReadinessPath, readinessMarkdownPath]);
-  const sortedRefs = [...readinessSourceArtifactRefs].sort((left, right) => {
+  const sortedRefs = [...bundledReadinessSourceArtifactRefs].sort((left, right) => {
     const leftKey = `${left?.artifact_type || ''}|${left?.path || ''}|${left?.label || ''}`;
     const rightKey = `${right?.artifact_type || ''}|${right?.path || ''}|${right?.label || ''}`;
     return leftKey.localeCompare(rightKey);
@@ -486,7 +512,11 @@ export async function runReleaseBundleWorkflow({
     if (!includedSourceTypes.has(ref?.artifact_type)) continue;
     if (!ref.path) continue;
 
-    const resolvedSource = resolveArtifactPath(ref.path, { projectRoot, readinessDir });
+    const resolvedSource = resolveArtifactPath(ref.path, {
+      projectRoot,
+      readinessDir,
+      allowedRoots: [projectRoot, readinessDir, ...trustedSourceRootPaths],
+    });
     if (!resolvedSource.ok) {
       skippedArtifacts.push({
         artifact_type: ref.artifact_type,
@@ -503,11 +533,11 @@ export async function runReleaseBundleWorkflow({
       skippedArtifacts.push({
         artifact_type: ref.artifact_type,
         role: ref.role || 'input',
-        source_path: portablePath(projectRoot, resolvedSourcePath, [readinessDir, outputDir]),
+        source_path: portablePath(projectRoot, resolvedSourcePath, [readinessDir, outputDir, ...trustedSourceRootPaths]),
         label: ref.label || null,
         reason: 'missing',
       });
-      warnings.push(`Optional source artifact was not found and was omitted: ${portablePath(projectRoot, resolvedSourcePath, [readinessDir, outputDir])}`);
+      warnings.push(`Optional source artifact was not found and was omitted: ${portablePath(projectRoot, resolvedSourcePath, [readinessDir, outputDir, ...trustedSourceRootPaths])}`);
       continue;
     }
 
@@ -592,7 +622,7 @@ export async function runReleaseBundleWorkflow({
       role: entry.role,
       label: entry.label,
       path: entry.path,
-      source_path: portablePath(projectRoot, entry.source_path, [readinessDir, outputDir]),
+      source_path: portablePath(projectRoot, entry.source_path, [readinessDir, outputDir, ...trustedSourceRootPaths]),
       sha256: entry.sha256,
       size_bytes: entry.size_bytes,
     })),
@@ -650,6 +680,7 @@ export async function runReleaseBundleWorkflow({
       projectRoot,
       readinessDir,
       outputDir,
+      trustedSourceRoots: trustedSourceRootPaths,
     }),
     canonical_artifact: buildCanonicalArtifactDescriptor(),
     contract: getCCommandContract('pack'),
@@ -675,7 +706,7 @@ export async function runReleaseBundleWorkflow({
         role: entry.role,
         label: entry.label,
         path: entry.path,
-        source_path: portablePath(projectRoot, entry.source_path, [readinessDir, outputDir]),
+        source_path: portablePath(projectRoot, entry.source_path, [readinessDir, outputDir, ...trustedSourceRootPaths]),
         size_bytes: entry.size_bytes,
         sha256: entry.sha256,
       })),
