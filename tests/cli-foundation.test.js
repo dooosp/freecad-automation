@@ -12,6 +12,13 @@ import {
   nowIso,
 } from '../src/cli/helpers.js';
 import { createCliOptionValidators } from '../src/cli/options.js';
+import {
+  buildDrawLinkedArtifactsFromSvg,
+  createCliOutputArtifactHelpers,
+  createOutputEntry,
+  createOutputEntriesFromExports,
+  createOutputEntriesFromPartFiles,
+} from '../src/cli/output-artifacts.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
 
@@ -65,6 +72,81 @@ try {
 }
 
 assert.match(nowIso(), /^\d{4}-\d{2}-\d{2}T/);
+
+const outputHelpers = createCliOutputArtifactHelpers({
+  projectRoot: ROOT,
+  buildDefaultOutputDir: (preferredPath) => (preferredPath ? resolve(ROOT, preferredPath) : join(ROOT, 'output')),
+});
+assert.deepEqual(createOutputEntry('model.step', '/tmp/demo.step'), {
+  kind: 'model.step',
+  path: '/tmp/demo.step',
+});
+assert.equal(createOutputEntry('', '/tmp/demo.step'), null);
+assert.deepEqual(createOutputEntriesFromExports([
+  { format: 'STEP', path: '/tmp/demo.step' },
+  { format: 'stl' },
+], 'model'), [
+  { kind: 'model.step', path: '/tmp/demo.step' },
+]);
+assert.deepEqual(createOutputEntriesFromPartFiles([
+  { path: '/tmp/part-a.stl' },
+  { ref: 'missing-path' },
+]), [
+  { kind: 'model.part-stl', path: '/tmp/part-a.stl' },
+]);
+assert.deepEqual(outputHelpers.buildExpectedModelOutputs({
+  name: '../demo',
+  export: { directory: 'out', formats: ['STEP', 'stl'] },
+}), [
+  { kind: 'model.step', path: join(ROOT, 'out', 'demo.STEP') },
+  { kind: 'model.stl', path: join(ROOT, 'out', 'demo.stl') },
+]);
+assert.deepEqual(outputHelpers.buildExpectedFemOutputs({
+  name: 'demo',
+  export: { directory: 'out', formats: ['step'] },
+}), [
+  { kind: 'analysis.fem.fcstd', path: join(ROOT, 'out', 'demo.FCStd') },
+  { kind: 'analysis.fem.step', path: join(ROOT, 'out', 'demo.step') },
+]);
+assert.deepEqual(outputHelpers.buildExpectedToleranceOutputs({
+  name: 'demo',
+  export: { directory: 'out' },
+  tolerance: { csv: true },
+}), [
+  { kind: 'analysis.tolerance.csv', path: join(ROOT, 'out', 'demo_tolerance.csv') },
+]);
+assert.deepEqual(outputHelpers.buildExpectedReportOutputs({
+  name: 'demo',
+  _report_output_dir: 'reports',
+}), [
+  { kind: 'report.pdf', path: join(ROOT, 'reports', 'demo_report.pdf') },
+  { kind: 'report.summary-json', path: join(ROOT, 'reports', 'demo_report_summary.json') },
+]);
+const expectedDraw = outputHelpers.buildExpectedDrawArtifacts({
+  name: 'demo',
+  export: { directory: 'out' },
+  drawing: { dxf: true, bom_csv: true },
+});
+assert.equal(expectedDraw.primaryOutputPath, join(ROOT, 'out', 'demo_drawing.svg'));
+assert.deepEqual(expectedDraw.outputs.map((entry) => entry.kind), [
+  'drawing.svg',
+  'drawing.quality-json',
+  'drawing.extracted-semantics-json',
+  'drawing.intent-json',
+  'drawing.feature-catalog-json',
+  'drawing.dxf',
+  'drawing.csv',
+]);
+assert.deepEqual(buildDrawLinkedArtifactsFromSvg(join(ROOT, 'out', 'demo_drawing.svg')), {
+  qa_json: join(ROOT, 'out', 'demo_drawing_qa.json'),
+  run_log_json: join(ROOT, 'out', 'demo_run_log.json'),
+  traceability_json: join(ROOT, 'out', 'demo_traceability.json'),
+  planner_json: join(ROOT, 'out', 'demo_drawing_planner.json'),
+  extracted_drawing_semantics_json: join(ROOT, 'out', 'demo_extracted_drawing_semantics.json'),
+  drawing_intent_json: join(ROOT, 'out', 'demo_drawing_intent.json'),
+  feature_catalog_json: join(ROOT, 'out', 'demo_feature_catalog.json'),
+  quality_json: join(ROOT, 'out', 'demo_drawing_quality.json'),
+});
 
 let forwardedStderr = '';
 const runWithCliStderr = createRunWithCliStderr(async (script, input, opts = {}) => {
