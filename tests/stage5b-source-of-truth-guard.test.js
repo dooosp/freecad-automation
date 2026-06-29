@@ -386,7 +386,11 @@ const docs = {
 };
 
 const sources = {
-  jobExecutor: readText('src/services/jobs/job-executor.js'),
+  jobExecutor: [
+    'src/services/jobs/job-executor.js',
+    'src/services/jobs/execution/handler-registry.js',
+    'src/services/jobs/execution/stage5b-handlers.js',
+  ].map(readText).join('\n'),
   localApiSchemas: readText('src/server/local-api-schemas.js'),
   studioBridge: readText('src/server/studio-job-bridge.js'),
   studioClient: readText('public/js/studio/jobs-client.js'),
@@ -606,7 +610,11 @@ for (const command of STAGE5B_COMMANDS) {
   assert(sources.reviewWorkspace.includes(`type: '${command}'`), `Review workspace should queue ${command}`);
   assert(sources.studioClient.includes(`type === '${command}'`), `Studio jobs client should list ${command}`);
   assert(sources.studioBridge.includes(`request.type === '${command}'`), `Studio bridge should special-case ${command}`);
-  assert(sources.jobExecutor.includes(`job.type === '${command}'`), `Job executor should execute ${command}`);
+  assert(
+    sources.jobExecutor.includes(`job.type === '${command}'`)
+      || sources.jobExecutor.includes(`'${command}':`),
+    `Job executor should execute ${command}`
+  );
 }
 
 assert.equal(

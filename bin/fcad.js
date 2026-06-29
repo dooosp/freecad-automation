@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { resolve, join, dirname, extname, parse, sep, isAbsolute, relative } from 'node:path';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { resolve, join, dirname, extname, parse, sep } from 'node:path';
+import { existsSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
   buildArtifactManifest,
@@ -50,13 +50,32 @@ import {
   writeOutputManifest,
 } from '../lib/output-manifest.js';
 import { runScript } from '../lib/runner.js';
-import { hasFreeCADRuntime, isWindowsAbsolutePath, normalizeLocalPath } from '../lib/paths.js';
+import { hasFreeCADRuntime } from '../lib/paths.js';
 import {
   buildModelRuntimeDiagnostic,
   defaultMetadataFallbackHint,
   runtimeDiagnosticsToWarnings,
 } from '../lib/runtime-diagnostics.js';
 import { printRuntimeDiagnostics } from '../scripts/check-runtime.js';
+import { parseCliArgs } from '../src/cli/args.js';
+import { dispatchCliCommand, listDispatchableCliCommandNames } from '../src/cli/dispatch.js';
+import {
+  createArtifactPaths,
+  createCliPathHelpers,
+  createRunWithCliStderr,
+  installCliStreamErrorHandlers,
+  nowIso,
+  siblingArtifactPath,
+  stemFromContext,
+} from '../src/cli/helpers.js';
+import { createCliOptionValidators } from '../src/cli/options.js';
+import {
+  buildDrawLinkedArtifactsFromSvg,
+  createCliOutputArtifactHelpers,
+  createOutputEntry,
+  createOutputEntriesFromExports,
+  createOutputEntriesFromPartFiles,
+} from '../src/cli/output-artifacts.js';
 import {
   createDfmService,
   createCostService,
@@ -106,39 +125,47 @@ import {
   renderCliUsage,
   renderServeUsage,
 } from '../src/shared/command-manifest.js';
+import {
+  collectCreateManifestArtifacts,
+  collectDrawManifestArtifacts,
+  collectReportManifestArtifacts,
+  createArtifactEntry,
+  createExportArtifactEntries,
+  createPartFileArtifactEntries,
+} from '../src/shared/artifact-surface.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(__dirname, '..');
 const VALID_DFM_PROCESSES = new Set(['machining', 'casting', 'sheet_metal', '3d_printing']);
 const VALIDATE_TIMEOUT_MS = 30_000;
 
-for (const stream of [process.stdout, process.stderr]) {
-  stream.on('error', (error) => {
-    if (error?.code !== 'EPIPE') {
-      throw error;
-    }
-  });
-}
+installCliStreamErrorHandlers();
 
-function runWithCliStderr(script, input, opts = {}) {
-  const forwardStderr = (text) => {
-    if (!text || !process.stderr || process.stderr.destroyed || process.stderr.writable === false) {
-      return;
-    }
-    process.stderr.write(text, (error) => {
-      if (error && error.code !== 'EPIPE') {
-        process.nextTick(() => {
-          throw error;
-        });
-      }
-    });
-  };
-
-  return runScript(script, input, {
-    ...opts,
-    onStderr: forwardStderr,
-  });
-}
+const runWithCliStderr = createRunWithCliStderr(runScript);
+const {
+  ensureNumericOption,
+  rejectUnsupportedOptions,
+  requireExistingInputFile,
+  requireOptionValue,
+  requireRepoScopedPath,
+} = createCliOptionValidators({ projectRoot: PROJECT_ROOT });
+const {
+  buildDefaultOutputDir,
+  cliRelativePath,
+  normalizeJsonOutputPath,
+  repoRelativePath,
+  resolveMaybe,
+} = createCliPathHelpers({ projectRoot: PROJECT_ROOT });
+const {
+  buildExpectedDrawArtifacts,
+  buildExpectedFemOutputs,
+  buildExpectedModelOutputs,
+  buildExpectedReportOutputs,
+  buildExpectedToleranceOutputs,
+} = createCliOutputArtifactHelpers({
+  buildDefaultOutputDir,
+  projectRoot: PROJECT_ROOT,
+});
 
 const runDfm = createDfmService();
 const runCost = createCostService();
@@ -147,137 +174,6 @@ const generateReport = createReportService();
 
 const USAGE = renderCliUsage();
 const SERVE_USAGE = renderServeUsage();
-
-function parseCliArgs(rawArgs = []) {
-  const positional = [];
-  const options = {};
-
-  for (let i = 0; i < rawArgs.length; i += 1) {
-    const arg = rawArgs[i];
-    if (!arg.startsWith('--')) {
-      positional.push(arg);
-      continue;
-    }
-
-    const withoutPrefix = arg.slice(2);
-    if (withoutPrefix.includes('=')) {
-      const [key, value] = withoutPrefix.split(/=(.*)/s, 2);
-      options[key] = value;
-      continue;
-    }
-
-    const nextArg = rawArgs[i + 1];
-    if (nextArg && !nextArg.startsWith('--')) {
-      options[withoutPrefix] = nextArg;
-      i += 1;
-    } else {
-      options[withoutPrefix] = true;
-    }
-  }
-
-  return { positional, options };
-}
-
-function ensureNumericOption(optionName, rawValue) {
-  if (rawValue === undefined || rawValue === null || rawValue === '') return undefined;
-  const numericValue = Number(rawValue);
-  if (!Number.isFinite(numericValue)) {
-    console.error(`Error: ${optionName} must be a finite number`);
-    process.exit(1);
-  }
-  return numericValue;
-}
-
-function requireOptionValue(optionName, value, usageHint = null) {
-  if (typeof value === 'string' && value && !value.startsWith('--')) {
-    return value;
-  }
-  console.error(`Error: ${optionName} requires a value`);
-  if (usageHint) console.error(`  ${usageHint}`);
-  process.exit(1);
-}
-
-function rejectUnsupportedOptions(command, options = {}, allowed = []) {
-  const allowedSet = new Set(allowed);
-  const unsupported = Object.keys(options).filter((key) => !allowedSet.has(key));
-  if (unsupported.length > 0) {
-    console.error(`Error: ${command} does not accept option(s): ${unsupported.map((key) => `--${key}`).join(', ')}`);
-    console.error(`  Allowed options: ${allowed.map((key) => `--${key}`).join(', ')}`);
-    process.exit(1);
-  }
-}
-
-function requireExistingInputFile(label, filePath) {
-  if (!filePath) return;
-  if (!existsSync(filePath)) {
-    console.error(`Error: ${label} file not found: ${filePath}`);
-    process.exit(1);
-  }
-}
-
-function requireRepoScopedPath(label, filePath) {
-  const relPath = relative(PROJECT_ROOT, resolve(filePath)).replace(/\\/g, '/');
-  if (!relPath || relPath.startsWith('..') || relPath.startsWith('/')) {
-    console.error(`Error: ${label} must stay inside the repository root`);
-    process.exit(1);
-  }
-  if (relPath.split('/').includes('..') || relPath.includes('\\') || relPath.startsWith('~')) {
-    console.error(`Error: ${label} failed repository path safety checks`);
-    process.exit(1);
-  }
-}
-
-function resolveMaybe(value) {
-  if (!value) return null;
-  const normalized = normalizeLocalPath(value);
-  if (typeof normalized !== 'string' || !normalized.trim()) return null;
-  if (isAbsolute(normalized) || isWindowsAbsolutePath(normalized)) {
-    return normalized;
-  }
-  return resolve(normalized);
-}
-
-function stemFromContext(context, fallback = 'artifact') {
-  return context?.part?.name || context?.part?.part_id || fallback;
-}
-
-function buildDefaultOutputDir(preferredPath) {
-  if (!preferredPath) return resolve(PROJECT_ROOT, 'output');
-  const resolved = resolveMaybe(preferredPath);
-  return resolved.endsWith('.json') ? dirname(resolved) : resolved;
-}
-
-function nowIso() {
-  return new Date().toISOString();
-}
-
-function createArtifactPaths(basePathOrDir, stem, suffixes) {
-  const result = {};
-  for (const [key, suffix] of Object.entries(suffixes)) {
-    result[key] = artifactPathFor(basePathOrDir, stem, suffix);
-  }
-  return result;
-}
-
-function normalizeJsonOutputPath(pathValue) {
-  if (!pathValue) return null;
-  const absPath = resolveMaybe(pathValue);
-  return absPath.toLowerCase().endsWith('.json') ? absPath : `${absPath}.json`;
-}
-
-function repoRelativePath(filePath) {
-  if (typeof filePath !== 'string' || !filePath.trim()) return filePath;
-  const relPath = relative(PROJECT_ROOT, resolve(filePath)).replace(/\\/g, '/');
-  return relPath && !relPath.startsWith('..') && !relPath.startsWith('/')
-    ? relPath
-    : filePath;
-}
-
-function siblingArtifactPath(primaryJsonPath, suffix) {
-  const parsed = parse(primaryJsonPath);
-  const stem = deriveArtifactStem(parsed.name, parsed.name);
-  return resolve(parsed.dir, `${stem}${suffix}`);
-}
 
 async function inspectModelIfAvailable(modelPath) {
   if (!modelPath || !hasFreeCADRuntime()) return null;
@@ -355,12 +251,6 @@ async function cmdCloseoutPackage(rawArgs = []) {
     console.error(`Error: ${error.message}`);
     process.exit(1);
   }
-}
-
-function cliRelativePath(pathValue) {
-  if (!pathValue || typeof pathValue !== 'string') return null;
-  const rel = relative(PROJECT_ROOT, pathValue).replaceAll('\\', '/');
-  return rel && !rel.startsWith('..') && !isAbsolute(rel) ? rel : pathValue;
 }
 
 async function writeCliStage5bValidationDiagnostics(error, {
@@ -850,117 +740,62 @@ async function cmdStage5bEvidencePipelineDoctor(rawArgs = []) {
   }
 }
 
-async function main() {
-  const [command, ...args] = process.argv.slice(2);
-
-  if (!command || command === 'help' || command === '--help') {
-    console.log(USAGE);
-    process.exit(0);
-  }
-
-  if (args.includes('--help') || args.includes('-h')) {
-    const commandUsage = renderCommandUsage(command);
-    if (commandUsage) {
-      console.log(commandUsage);
-      process.exit(0);
-    }
-  }
-
-  if (command === 'check-runtime') {
-    const { positional, options } = parseCliArgs(args);
-    if (positional.length > 0) {
-      console.error('Error: check-runtime does not accept positional arguments');
-      process.exit(1);
-    }
-    process.exit(printRuntimeDiagnostics({
-      format: options.json ? 'json' : 'text',
-      redactPaths: Boolean(options['redact-paths']),
-    }));
-  } else if (command === 'create') {
-    await cmdCreate(args);
-  } else if (command === 'review') {
-    await cmdProductionReview(args);
-  } else if (command === 'process-plan') {
-    await cmdProcessPlan(args);
-  } else if (command === 'line-plan') {
-    await cmdLinePlan(args);
-  } else if (command === 'quality-risk') {
-    await cmdQualityRisk(args);
-  } else if (command === 'investment-review') {
-    await cmdInvestmentReview(args);
-  } else if (command === 'readiness-pack') {
-    await cmdReadinessPack(args);
-  } else if (command === 'readiness-report') {
-    await cmdReadinessReport(args);
-  } else if (command === 'pack') {
-    await cmdPack(args);
-  } else if (command === 'closeout-package') {
-    await cmdCloseoutPackage(args);
-  } else if (command === 'inspection-evidence-intake') {
-    await cmdInspectionEvidenceIntake(args);
-  } else if (command === 'inspection-evidence-promotion-dry-run') {
-    await cmdInspectionEvidencePromotionDryRun(args);
-  } else if (command === 'stage5b-evidence-audit') {
-    await cmdStage5bEvidenceAudit(args);
-  } else if (command === 'stage5b-evidence-source-kit') {
-    await cmdStage5bEvidenceSourceKit(args);
-  } else if (command === 'stage5b-evidence-source-preflight') {
-    await cmdStage5bEvidenceSourcePreflight(args);
-  } else if (command === 'stage5b-evidence-review-dry-run') {
-    await cmdStage5bEvidenceReviewDryRun(args);
-  } else if (command === 'stage5b-evidence-attachment-controller') {
-    await cmdStage5bEvidenceAttachmentController(args);
-  } else if (command === 'stage5b-surrogate-inspection-validation') {
-    await cmdStage5bSurrogateInspectionValidation(args);
-  } else if (command === 'stage5b-evidence-pipeline-doctor') {
-    await cmdStage5bEvidencePipelineDoctor(args);
-  } else if (command === 'stabilization-review') {
-    await cmdStabilizationReview(args);
-  } else if (command === 'generate-standard-docs') {
-    await cmdGenerateStandardDocs(args);
-  } else if (command === 'ingest') {
-    await cmdIngest(args);
-  } else if (command === 'analyze-part') {
-    await cmdAnalyzePart(args);
-  } else if (command === 'quality-link') {
-    await cmdQualityLink(args);
-  } else if (command === 'review-pack') {
-    await cmdReviewPack(args);
-  } else if (command === 'review-context') {
-    await cmdReviewContext(args);
-  } else if (command === 'compare-rev') {
-    await cmdCompareRev(args);
-  } else if (command === 'design') {
-    await cmdDesign(args.join(' '));
-  } else if (command === 'sweep') {
-    await cmdSweep(args);
-  } else if (command === 'draw') {
-    await cmdDraw(args);
-  } else if (command === 'fem') {
-    await cmdFem(args);
-  } else if (command === 'tolerance') {
-    await cmdTolerance(args);
-  } else if (command === 'report') {
-    await cmdReport(args);
-  } else if (command === 'validate') {
-    const flags = args.filter(a => a.startsWith('--'));
-    const configArg = args.find(a => !a.startsWith('--'));
+const CLI_COMMAND_HANDLERS = Object.freeze({
+  create: cmdCreate,
+  review: cmdProductionReview,
+  'process-plan': cmdProcessPlan,
+  'line-plan': cmdLinePlan,
+  'quality-risk': cmdQualityRisk,
+  'investment-review': cmdInvestmentReview,
+  'readiness-pack': cmdReadinessPack,
+  'readiness-report': cmdReadinessReport,
+  pack: cmdPack,
+  'closeout-package': cmdCloseoutPackage,
+  'inspection-evidence-intake': cmdInspectionEvidenceIntake,
+  'inspection-evidence-promotion-dry-run': cmdInspectionEvidencePromotionDryRun,
+  'stage5b-evidence-audit': cmdStage5bEvidenceAudit,
+  'stage5b-evidence-source-kit': cmdStage5bEvidenceSourceKit,
+  'stage5b-evidence-source-preflight': cmdStage5bEvidenceSourcePreflight,
+  'stage5b-evidence-review-dry-run': cmdStage5bEvidenceReviewDryRun,
+  'stage5b-evidence-attachment-controller': cmdStage5bEvidenceAttachmentController,
+  'stage5b-surrogate-inspection-validation': cmdStage5bSurrogateInspectionValidation,
+  'stage5b-evidence-pipeline-doctor': cmdStage5bEvidencePipelineDoctor,
+  'stabilization-review': cmdStabilizationReview,
+  'generate-standard-docs': cmdGenerateStandardDocs,
+  ingest: cmdIngest,
+  'analyze-part': cmdAnalyzePart,
+  'quality-link': cmdQualityLink,
+  'review-pack': cmdReviewPack,
+  'review-context': cmdReviewContext,
+  'compare-rev': cmdCompareRev,
+  design: async (args) => cmdDesign(args.join(' ')),
+  sweep: cmdSweep,
+  draw: cmdDraw,
+  fem: cmdFem,
+  tolerance: cmdTolerance,
+  report: cmdReport,
+  validate: async (args) => {
+    const flags = args.filter((arg) => arg.startsWith('--'));
+    const configArg = args.find((arg) => !arg.startsWith('--'));
     await cmdValidate(configArg, flags);
-  } else if (command === 'validate-config') {
-    await cmdValidateConfig(args);
-  } else if (command === 'migrate-config') {
-    await cmdMigrateConfig(args);
-  } else if (command === 'dfm') {
-    await cmdDfm(args);
-  } else if (command === 'inspect') {
-    await cmdInspect(args);
-  } else if (command === 'serve') {
-    await cmdServe(args);
-  } else {
-    console.error(`Unknown command: ${command}`);
-    console.log(USAGE);
-    process.exit(1);
-  }
+  },
+  'validate-config': cmdValidateConfig,
+  'migrate-config': cmdMigrateConfig,
+  dfm: cmdDfm,
+  inspect: cmdInspect,
+  serve: cmdServe,
+});
+
+export const CLI_DISPATCH_COMMANDS = listDispatchableCliCommandNames(CLI_COMMAND_HANDLERS);
+
+async function main() {
+  await dispatchCliCommand({
+    argv: process.argv.slice(2),
+    usage: USAGE,
+    renderCommandUsage,
+    printRuntimeDiagnostics,
+    commands: CLI_COMMAND_HANDLERS,
+  });
 }
 
 function resolveConfigCommandInput(rawArgs = []) {
@@ -1153,166 +988,6 @@ async function writeCliManifest({
   return writeArtifactManifest(resolvedManifestPath, manifest);
 }
 
-function createExportArtifactEntries(exports = [], prefix = 'model') {
-  return (exports || [])
-    .filter((entry) => entry?.format && entry?.path)
-    .map((entry) => ({
-      type: `${prefix}.${String(entry.format).toLowerCase()}`,
-      path: entry.path,
-      label: entry.format.toUpperCase(),
-      scope: 'user-facing',
-      stability: 'stable',
-    }));
-}
-
-function createArtifactEntry(type, path, {
-  label = null,
-  scope = 'user-facing',
-  stability = 'stable',
-  metadata = undefined,
-} = {}) {
-  return {
-    type,
-    path,
-    label,
-    scope,
-    stability,
-    ...(metadata ? { metadata } : {}),
-  };
-}
-
-function drawingIntentManifestMetadata(reportSummary = null) {
-  const drawingIntent = reportSummary?.drawing_intent;
-  if (!drawingIntent || typeof drawingIntent !== 'object') return undefined;
-  return {
-    includes_drawing_intent: true,
-    missing_semantics_policy: drawingIntent.missing_semantics_policy || 'advisory',
-  };
-}
-
-function safeFilenameComponent(value, defaultValue = 'unnamed') {
-  const text = String(value || '').trim().replaceAll('\\', '/').replaceAll('\0', '');
-  const leaf = text.split('/').pop();
-  if (!leaf || leaf === '.' || leaf === '..') return defaultValue;
-  return leaf;
-}
-
-function createOutputEntry(kind, path) {
-  if (!kind || !path) return null;
-  return { kind, path };
-}
-
-function createOutputEntriesFromExports(exports = [], prefix = 'model') {
-  return (exports || [])
-    .filter((entry) => entry?.format && entry?.path)
-    .map((entry) => createOutputEntry(`${prefix}.${String(entry.format).toLowerCase()}`, entry.path))
-    .filter(Boolean);
-}
-
-function createOutputEntriesFromPartFiles(partFiles = [], kind = 'model.part-stl') {
-  return (partFiles || [])
-    .filter((entry) => entry?.path)
-    .map((entry) => createOutputEntry(kind, entry.path))
-    .filter(Boolean);
-}
-
-function createPartFileArtifactEntries(partFiles = [], type = 'model.part-stl') {
-  return (partFiles || [])
-    .filter((entry) => entry?.path)
-    .map((entry, index) => createArtifactEntry(type, entry.path, {
-      label: entry.label || entry.ref || `Part STL ${index + 1}`,
-      scope: 'user-facing',
-      stability: 'stable',
-    }))
-    .filter(Boolean);
-}
-
-function buildExpectedModelOutputs(config = {}) {
-  const exportConfig = config.export || {};
-  const formats = Array.isArray(exportConfig.formats) ? exportConfig.formats : [];
-  if (formats.length === 0) return [];
-  const outputDir = buildDefaultOutputDir(exportConfig.directory);
-  const stem = safeFilenameComponent(config.name, 'unnamed');
-  return formats.map((format) => createOutputEntry(`model.${String(format).toLowerCase()}`, join(outputDir, `${stem}.${format}`)));
-}
-
-function buildExpectedFemOutputs(config = {}) {
-  const outputDir = buildDefaultOutputDir(config.export?.directory);
-  const stem = safeFilenameComponent(config.name, 'unnamed');
-  return [
-    createOutputEntry('analysis.fem.fcstd', join(outputDir, `${stem}.FCStd`)),
-    ...buildExpectedModelOutputs(config).map((entry) => ({
-      ...entry,
-      kind: entry.kind.replace(/^model\./, 'analysis.fem.'),
-    })),
-  ].filter(Boolean);
-}
-
-function buildExpectedToleranceOutputs(config = {}) {
-  if (!config?.tolerance?.csv) return [];
-  const outputDir = buildDefaultOutputDir(config.export?.directory);
-  const stem = safeFilenameComponent(config.name, 'unnamed');
-  return [
-    createOutputEntry('analysis.tolerance.csv', join(outputDir, `${stem}_tolerance.csv`)),
-  ];
-}
-
-function buildExpectedReportOutputs(config = {}) {
-  const outputDir = config._report_output_dir
-    ? buildDefaultOutputDir(config._report_output_dir)
-    : resolve(PROJECT_ROOT, 'output');
-  const stem = safeFilenameComponent(config.name, 'unnamed');
-  return [
-    createOutputEntry('report.pdf', join(outputDir, `${stem}_report.pdf`)),
-    createOutputEntry('report.summary-json', join(outputDir, `${stem}_report_summary.json`)),
-  ];
-}
-
-function buildExpectedDrawArtifacts(config = {}) {
-  const outputDir = buildDefaultOutputDir(config.export?.directory);
-  const stem = safeFilenameComponent(config.name, 'unnamed');
-  const svgPath = join(outputDir, `${stem}_drawing.svg`);
-  return {
-    primaryOutputPath: svgPath,
-    outputs: [
-      createOutputEntry('drawing.svg', svgPath),
-      createOutputEntry('drawing.quality-json', svgPath.replace(/\.svg$/i, '_quality.json')),
-      createOutputEntry('drawing.extracted-semantics-json', join(outputDir, `${stem}_extracted_drawing_semantics.json`)),
-      createOutputEntry('drawing.intent-json', join(outputDir, `${stem}_drawing_intent.json`)),
-      createOutputEntry('drawing.feature-catalog-json', join(outputDir, `${stem}_feature_catalog.json`)),
-      config?.drawing?.dxf ? createOutputEntry('drawing.dxf', join(outputDir, `${stem}_front.dxf`)) : null,
-      config?.drawing?.bom_csv ? createOutputEntry('drawing.csv', join(outputDir, `${stem}_bom.csv`)) : null,
-    ].filter(Boolean),
-    linkedArtifacts: {
-      qa_json: svgPath.replace(/\.svg$/i, '_qa.json'),
-      run_log_json: join(outputDir, `${stem}_run_log.json`),
-      traceability_json: join(outputDir, `${stem}_traceability.json`),
-      planner_json: join(outputDir, `${stem}_drawing_planner.json`),
-      extracted_drawing_semantics_json: join(outputDir, `${stem}_extracted_drawing_semantics.json`),
-      drawing_intent_json: join(outputDir, `${stem}_drawing_intent.json`),
-      feature_catalog_json: join(outputDir, `${stem}_feature_catalog.json`),
-      quality_json: svgPath.replace(/\.svg$/i, '_quality.json'),
-    },
-  };
-}
-
-function buildDrawLinkedArtifactsFromSvg(svgPath) {
-  if (!svgPath) return {};
-  const normalizedPath = svgPath.replace(/\\/g, '/');
-  const stem = parse(normalizedPath).name.replace(/_drawing$/i, '');
-  const dir = dirname(normalizedPath);
-  return {
-    qa_json: normalizedPath.replace(/\.svg$/i, '_qa.json'),
-    run_log_json: join(dir, `${stem}_run_log.json`),
-    traceability_json: join(dir, `${stem}_traceability.json`),
-    planner_json: join(dir, `${stem}_drawing_planner.json`),
-    extracted_drawing_semantics_json: join(dir, `${stem}_extracted_drawing_semantics.json`),
-    drawing_intent_json: join(dir, `${stem}_drawing_intent.json`),
-    feature_catalog_json: join(dir, `${stem}_feature_catalog.json`),
-    quality_json: normalizedPath.replace(/\.svg$/i, '_quality.json'),
-  };
-}
-
 function resolveOutputManifestStatus({ warnings = [], errors = [] } = {}) {
   if (errors.length > 0) return 'fail';
   if (warnings.length > 0) return 'warning';
@@ -1442,82 +1117,6 @@ async function writeStdoutCommandManifest({
     ],
     details,
   });
-}
-
-function collectDrawManifestArtifacts(result) {
-  const svgPath = result?.drawing_paths?.find((entry) => entry.format === 'svg')?.path
-    || result?.svg_path
-    || result?.drawing_path;
-  if (!svgPath) return [];
-
-  const normalizedPath = svgPath.replace(/\\/g, '/');
-  const stem = parse(normalizedPath).name.replace(/_drawing$/i, '');
-  const dir = dirname(normalizedPath);
-  const candidates = [
-    createArtifactEntry('drawing.svg', normalizedPath, { label: 'SVG drawing' }),
-    createArtifactEntry('drawing.qa-report', normalizedPath.replace(/\.svg$/i, '_qa.json'), {
-      label: 'Drawing QA',
-      stability: 'best-effort',
-    }),
-    createArtifactEntry('drawing.qa-issues', normalizedPath.replace(/\.svg$/i, '_qa_issues.json'), {
-      label: 'Drawing QA issues',
-      stability: 'best-effort',
-    }),
-    createArtifactEntry('drawing.quality-summary', normalizedPath.replace(/\.svg$/i, '_quality.json'), {
-      label: 'Drawing quality summary',
-      stability: 'stable',
-    }),
-    createArtifactEntry('drawing.planner', join(dir, `${stem}_drawing_planner.json`), {
-      label: 'Drawing planner advisory JSON',
-      stability: 'best-effort',
-    }),
-    createArtifactEntry('drawing.repair-report', normalizedPath.replace(/\.svg$/i, '_repair_report.json'), {
-      label: 'Repair report',
-      stability: 'best-effort',
-    }),
-    createArtifactEntry('draw.run-log', join(dir, `${stem}_run_log.json`), {
-      label: 'Draw run log',
-      scope: 'internal',
-      stability: 'internal',
-    }),
-    createArtifactEntry('config.effective', join(dir, `${stem}_effective_config.json`), {
-      label: 'Effective config',
-      scope: 'internal',
-      stability: 'internal',
-    }),
-    createArtifactEntry('draw.plan.toml', join(dir, `${stem}_plan.toml`), {
-      label: 'Drawing plan TOML',
-      stability: 'best-effort',
-    }),
-    createArtifactEntry('draw.plan.json', join(dir, `${stem}_plan.json`), {
-      label: 'Drawing plan JSON',
-      stability: 'best-effort',
-    }),
-    createArtifactEntry('draw.traceability', join(dir, `${stem}_traceability.json`), {
-      label: 'Traceability map',
-      stability: 'best-effort',
-    }),
-    createArtifactEntry('draw.layout-report', join(dir, `${stem}_layout_report.json`), {
-      label: 'Layout report',
-      stability: 'best-effort',
-    }),
-    createArtifactEntry('draw.dimension-map', join(dir, `${stem}_dimension_map.json`), {
-      label: 'Dimension map',
-      scope: 'internal',
-      stability: 'internal',
-    }),
-    createArtifactEntry('draw.dimension-conflicts', join(dir, `${stem}_dim_conflicts.json`), {
-      label: 'Dimension conflicts',
-      scope: 'internal',
-      stability: 'internal',
-    }),
-    createArtifactEntry('draw.dedupe-diagnostics', join(dir, `${stem}_dedupe_diagnostics.json`), {
-      label: 'Dedupe diagnostics',
-      scope: 'internal',
-      stability: 'internal',
-    }),
-  ];
-  return candidates;
 }
 
 function defaultMigratedConfigPath(configPath, format) {
@@ -3226,7 +2825,7 @@ async function cmdDraw(rawArgs = []) {
       config: configDocument.config,
       primaryOutputPath: svgPath,
       outputDir: configDocument.config.export?.directory || null,
-      artifacts: collectDrawManifestArtifacts(result),
+      artifacts: collectDrawManifestArtifacts(result, { surface: 'cli' }),
     });
     const drawManifestWarnings = uniqueStrings([
       ...(configDocument.summary?.warnings || []),
@@ -3270,7 +2869,7 @@ async function cmdDraw(rawArgs = []) {
         config: configDocument.config,
         primaryOutputPath: strictSvgPath,
         outputDir: configDocument.config.export?.directory || null,
-        artifacts: collectDrawManifestArtifacts(error.result),
+        artifacts: collectDrawManifestArtifacts(error.result, { surface: 'cli' }),
         warnings: configDocument.summary?.warnings || [],
         details: {
           strict_quality: true,
@@ -3420,7 +3019,7 @@ async function cmdCreate(rawArgs = []) {
       primaryOutputPath: firstExportPath,
       outputDir: config.export?.directory || null,
       artifacts: [
-        ...createExportArtifactEntries(result.exports, 'model'),
+        ...collectCreateManifestArtifacts(result, { prefix: 'model' }),
         ...createPartFileArtifactEntries(result.assembly?.part_files),
         createArtifactEntry('model.create-quality', createQuality.path, {
           label: 'Create quality JSON',
@@ -4069,27 +3668,7 @@ async function cmdReport(rawArgs = []) {
       configSummary: configDocument.summary,
       config,
       primaryOutputPath: result.path,
-      artifacts: [
-        createArtifactEntry('report.pdf', result.path, { label: 'Engineering report PDF' }),
-        ...(result.summary_json
-          ? [createArtifactEntry('report.summary-json', result.summary_json, {
-              label: 'Engineering report summary JSON',
-              metadata: drawingIntentManifestMetadata(result.report_summary),
-            })]
-          : []),
-        ...(result.feature_catalog_json
-          ? [createArtifactEntry('feature-catalog.json', result.feature_catalog_json, {
-              label: 'Conservative feature catalog JSON',
-              stability: 'best-effort',
-            })]
-          : []),
-        ...(result.extracted_drawing_semantics_json
-          ? [createArtifactEntry('drawing.extracted-semantics-json', result.extracted_drawing_semantics_json, {
-              label: 'Extracted drawing semantics JSON',
-              stability: 'best-effort',
-            })]
-          : []),
-      ],
+      artifacts: collectReportManifestArtifacts(result, { surface: 'cli' }),
       details: {
         include_tolerance: includeTolerance,
         include_fem: includeFem,
@@ -4260,11 +3839,25 @@ async function cmdInspect(rawArgs = []) {
   }
 }
 
-main().catch((err) => {
-  if (err instanceof ArtifactSchemaValidationError) {
-    console.error(`Error: ${err.message}`);
-    process.exit(1);
+function isDirectCliEntrypoint() {
+  if (!process.argv[1]) return false;
+  const modulePath = fileURLToPath(import.meta.url);
+  const argvPath = resolve(process.argv[1]);
+  if (modulePath === argvPath) return true;
+  try {
+    return realpathSync(modulePath) === realpathSync(argvPath);
+  } catch {
+    return false;
   }
-  console.error(`Fatal: ${err.message}`);
-  process.exit(1);
-});
+}
+
+if (isDirectCliEntrypoint()) {
+  main().catch((err) => {
+    if (err instanceof ArtifactSchemaValidationError) {
+      console.error(`Error: ${err.message}`);
+      process.exit(1);
+    }
+    console.error(`Fatal: ${err.message}`);
+    process.exit(1);
+  });
+}

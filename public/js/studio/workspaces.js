@@ -30,6 +30,10 @@ import {
   deriveRecentJobQualityStatus,
   formatRecentJobQualityLine,
 } from './recent-job-quality-status.js';
+import {
+  STUDIO_SURFACE_ROUTES,
+  getStudioSurfaceMetadata,
+} from './studio-surfaces.js';
 import { renderReviewWorkspace } from './review-workspace.js';
 import { renderArtifactsWorkspace } from './artifacts-workspace.js';
 
@@ -2553,42 +2557,23 @@ function createConsoleWorkspace(state) {
   });
 }
 
-export const workspaceOrder = ['start', 'review', 'artifacts', 'model', 'drawing'];
-
-export const workspaceDefinitions = {
-  start: {
-    label: 'Console',
-    summary: 'Review-first launchpad for ingest, packs, compare, and reopen actions.',
-    render(state) {
-      return createConsoleWorkspace(state);
-    },
-  },
-  model: {
-    label: 'Model',
-    summary: 'Optional prep lane for configs and geometry previews before review.',
-    render(state) {
-      return createModelWorkspace(state);
-    },
-  },
-  drawing: {
-    label: 'Drawing',
-    summary: 'Optional sheet-prep lane when a review needs drawing output.',
-    render(state) {
-      return createDrawingWorkspace(state);
-    },
-  },
-  review: {
-    label: 'Review',
-    summary: 'Hotspots, quality linkage, recommended actions, and readiness signals.',
-    render(state) {
-      return renderReviewWorkspace(state);
-    },
-  },
-  artifacts: {
-    label: 'Packs',
-    summary: 'Review packs, readiness packages, compare baselines, exports, and reopen actions.',
-    render(state) {
-      return renderArtifactsWorkspace(state);
-    },
-  },
+const workspaceRenderers = {
+  start: createConsoleWorkspace,
+  review: renderReviewWorkspace,
+  artifacts: renderArtifactsWorkspace,
+  model: createModelWorkspace,
+  drawing: createDrawingWorkspace,
 };
+
+export const workspaceOrder = STUDIO_SURFACE_ROUTES;
+
+export const workspaceDefinitions = Object.fromEntries(
+  getStudioSurfaceMetadata().map((surface) => [
+    surface.route,
+    {
+      label: surface.label,
+      summary: surface.summary,
+      render: workspaceRenderers[surface.route],
+    },
+  ])
+);

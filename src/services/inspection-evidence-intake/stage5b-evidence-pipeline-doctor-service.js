@@ -356,13 +356,20 @@ function uniqueBlockers(blockers = []) {
   return result;
 }
 
+function isCliDispatchCommandPresent(binText, name) {
+  const escapedName = String(name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return binText.includes(`command === '${name}'`)
+    || binText.includes(`command === "${name}"`)
+    || new RegExp(`['"]${escapedName}['"]\\s*:`).test(binText);
+}
+
 function commandDriftChecks(projectRoot, requiredCommands = []) {
   const blockers = [];
   const binPath = resolve(projectRoot, 'bin/fcad.js');
   const binText = existsSync(binPath) ? String(readFileSyncSafe(binPath)) : '';
   const entries = requiredCommands.map((name) => {
     const entry = getCommandEntry(name);
-    const dispatchPresent = binText.includes(`command === '${name}'`) || binText.includes(`command === "${name}"`);
+    const dispatchPresent = isCliDispatchCommandPresent(binText, name);
     if (!entry) {
       addBlocker(blockers, 'command_missing_from_manifest', 'command_contract', `Required Stage 5B doctor command is missing from the command manifest: ${name}`, { command: name });
     }

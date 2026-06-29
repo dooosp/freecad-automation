@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { basename, join, resolve } from 'node:path';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { basename, join, relative, resolve } from 'node:path';
 
 import { createLocalApiServer } from '../src/server/local-api-server.js';
 import { listZipEntries } from '../lib/zip-archive.js';
@@ -9,20 +8,9 @@ import { listZipEntries } from '../lib/zip-archive.js';
 const ROOT = resolve(import.meta.dirname, '..');
 const REVIEW_PACK_FIXTURE = resolve(ROOT, 'tests/fixtures/d-artifacts/sample_review_pack.canonical.json');
 const READINESS_REPORT_FIXTURE = resolve(ROOT, 'tests/fixtures/c-artifacts/sample_readiness_report.canonical.json');
-const CONFIG_EXAMPLE = resolve(ROOT, 'configs/examples/controller_housing_eol.toml');
+const REVIEW_PACK_FIXTURE_RELATIVE = relative(ROOT, REVIEW_PACK_FIXTURE).replaceAll('\\', '/');
+const READINESS_REPORT_FIXTURE_RELATIVE = relative(ROOT, READINESS_REPORT_FIXTURE).replaceAll('\\', '/');
 const REVIEW_CONTEXT_FIXTURE = resolve(ROOT, 'tests/fixtures/sample_part_context.json');
-
-function writeAlignedConfig(filePath, {
-  templatePath = CONFIG_EXAMPLE,
-  name = 'sample_part',
-  revision = 'A',
-} = {}) {
-  const template = readFileSync(templatePath, 'utf8');
-  const next = template
-    .replace(/^name = ".*"$/m, `name = "${name}"`)
-    .replace(/^revision = ".*"$/m, `revision = "${revision}"`);
-  writeFileSync(filePath, next, 'utf8');
-}
 
 async function listen(server) {
   await new Promise((resolveListen) => server.listen(0, '127.0.0.1', resolveListen));
@@ -137,12 +125,13 @@ function assertManifestFile(job, fileName, {
   return artifact;
 }
 
-const tmpRoot = mkdtempSync(join(tmpdir(), 'fcad-af-jobs-'));
+const repoTmpBase = join(ROOT, 'tmp/codex');
+mkdirSync(repoTmpBase, { recursive: true });
+const repoTmpRoot = mkdtempSync(join(repoTmpBase, 'fcad-af-jobs-'));
 
 try {
-  const docsConfigPath = join(tmpRoot, 'sample_part_docs.toml');
-  writeAlignedConfig(docsConfigPath);
-  const reviewContextPath = join(tmpRoot, 'sample_part_context.runtime-safe.json');
+  const reviewContextPath = join(repoTmpRoot, 'sample_part_context.runtime-safe.json');
+  const reviewContextRequestPath = relative(ROOT, reviewContextPath).replaceAll('\\', '/');
   const reviewContextFixture = JSON.parse(readFileSync(REVIEW_CONTEXT_FIXTURE, 'utf8'));
   if (reviewContextFixture?.geometry_source && typeof reviewContextFixture.geometry_source === 'object') {
     delete reviewContextFixture.geometry_source.path;
@@ -150,14 +139,14 @@ try {
   writeFileSync(reviewContextPath, JSON.stringify(reviewContextFixture, null, 2), 'utf8');
   const { server, jobStore } = createLocalApiServer({
     projectRoot: ROOT,
-    jobsDir: join(tmpRoot, 'jobs'),
+    jobsDir: join(repoTmpRoot, 'jobs'),
   });
   const port = await listen(server);
   const baseUrl = `http://127.0.0.1:${port}`;
 
   const { response: initialReviewResponse, payload: initialReviewPayload } = await postJson(`${baseUrl}/api/studio/jobs`, {
     type: 'review-context',
-    context_path: reviewContextPath,
+    context_path: reviewContextRequestPath,
   });
   assert.equal(initialReviewResponse.status, 202);
   assert.equal(initialReviewPayload.job.execution.command, 'review-context');
@@ -216,8 +205,8 @@ try {
 
   const { response: compareResponse, payload: comparePayload } = await postJson(`${baseUrl}/jobs`, {
     type: 'compare-rev',
-    baseline_path: REVIEW_PACK_FIXTURE,
-    candidate_path: REVIEW_PACK_FIXTURE,
+    baseline_path: REVIEW_PACK_FIXTURE_RELATIVE,
+    candidate_path: REVIEW_PACK_FIXTURE_RELATIVE,
   });
   assert.equal(compareResponse.status, 202);
   assert.equal(comparePayload.job.execution.command, 'compare-rev');
@@ -226,8 +215,8 @@ try {
 
   const { response: stabilizationResponse, payload: stabilizationPayload } = await postJson(`${baseUrl}/jobs`, {
     type: 'stabilization-review',
-    baseline_path: READINESS_REPORT_FIXTURE,
-    candidate_path: READINESS_REPORT_FIXTURE,
+    baseline_path: READINESS_REPORT_FIXTURE_RELATIVE,
+    candidate_path: READINESS_REPORT_FIXTURE_RELATIVE,
   });
   assert.equal(stabilizationResponse.status, 202);
   assert.equal(stabilizationPayload.job.execution.command, 'stabilization-review');
@@ -346,10 +335,12 @@ try {
   ].forEach((staleName) => {
     assert.equal(zipEntryNames.includes(staleName), false, `release_bundle.zip should not contain stale entry ${staleName}`);
   });
-  const bundleOpenResponse = await fetch(`${baseUrl}${bundleArtifact.links.open}`);
-  assert.equal(bundleOpenResponse.status, 200);
-  const bundleOpenBytes = await bundleOpenResponse.arrayBuffer();
-  assert(bundleOpenBytes.byteLength > 0);
+  assert.equal(bundleArtifact.capabilities.can_open, false);
+  assert.equal(bundleArtifact.capabilities.can_download, true);
+  const bundleDownloadResponse = await fetch(`${baseUrl}${bundleArtifact.links.download}`);
+  assert.equal(bundleDownloadResponse.status, 200);
+  const bundleDownloadBytes = await bundleDownloadResponse.arrayBuffer();
+  assert(bundleDownloadBytes.byteLength > 0);
 
   const { response: repackResponse, payload: repackPayload } = await postJson(`${baseUrl}/api/studio/jobs`, {
     type: 'pack',
@@ -387,5 +378,5 @@ try {
   await new Promise((resolveClose) => server.close(resolveClose));
   console.log('af-execution-jobs.test.js: ok');
 } finally {
-  rmSync(tmpRoot, { recursive: true, force: true });
+  rmSync(repoTmpRoot, { recursive: true, force: true });
 }
