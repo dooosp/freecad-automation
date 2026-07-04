@@ -201,7 +201,7 @@ This keeps Codex focused on the existing `config -> create -> draw -> dfm -> tol
 
 ## Command Surface
 
-Run `fcad check-runtime` before any FreeCAD-backed command on a new machine and as the first troubleshooting step for runtime-backed failures. It prints searched candidate paths, the selected runtime, active env overrides, detected FreeCAD/Python details, command classes, and remediation guidance. Add `--json` when a tool needs the same machine-readable runtime contract that the local API exposes from `GET /health`.
+Run `fcad check-runtime` before any FreeCAD-backed command on a new machine and as the first troubleshooting step for runtime-backed failures. It prints searched candidate paths, the selected runtime, active env overrides, detected FreeCAD/Python details, command classes, and remediation guidance. Add `--json` when a tool needs the same machine-readable runtime contract that the local API exposes from `GET /health`, or `--fingerprint-out <runtime_fingerprint.json>` when a local reproducibility snapshot is needed.
 
 ### Command Classification
 
@@ -209,7 +209,7 @@ Run `fcad check-runtime` before any FreeCAD-backed command on a new machine and 
 | --- | --- | --- |
 | Diagnostics | `check-runtime` | does not require FreeCAD to be present |
 | FreeCAD-backed | `create`, `draw`, `inspect`, `fem`, `tolerance`, `report` | requires a working FreeCAD runtime |
-| Plain-Python / non-FreeCAD | `dfm`, `review`, `process-plan`, `line-plan`, `quality-risk`, `investment-review`, `readiness-pack`, `readiness-report`, `pack`, `closeout-package`, `inspection-evidence-intake`, `inspection-evidence-promotion-dry-run`, `stage5b-evidence-audit`, `stage5b-evidence-review-dry-run`, `stage5b-evidence-attachment-controller`, `stage5b-evidence-pipeline-doctor`, `stage5b-evidence-source-kit`, `stage5b-evidence-source-preflight`, `stage5b-surrogate-inspection-validation`, `stabilization-review`, `generate-standard-docs`, `ingest`, `quality-link`, `review-pack`, `review-context`, `compare-rev`, `validate`, `validate-config`, `migrate-config`, `serve` | runs without launching FreeCAD; canonical readiness packaging consumes `review_pack.json`, keeps `readiness_report.json` as the source of truth, and treats `readiness-report <config>` as legacy compatibility rather than the flagship path |
+| Plain-Python / non-FreeCAD | `dfm`, `review`, `process-plan`, `line-plan`, `quality-risk`, `investment-review`, `readiness-pack`, `readiness-report`, `pack`, `closeout-package`, `evidence-graph`, `inspection-evidence-intake`, `inspection-evidence-promotion-dry-run`, `stage5b-evidence-audit`, `stage5b-evidence-review-dry-run`, `stage5b-evidence-attachment-controller`, `stage5b-evidence-pipeline-doctor`, `stage5b-evidence-source-kit`, `stage5b-evidence-source-preflight`, `stage5b-surrogate-inspection-validation`, `stabilization-review`, `generate-standard-docs`, `ingest`, `quality-link`, `review-pack`, `review-context`, `compare-rev`, `validate`, `validate-config`, `migrate-config`, `serve` | runs without launching FreeCAD; canonical readiness packaging consumes `review_pack.json`, keeps `readiness_report.json` as the source of truth, and treats `readiness-report <config>` as legacy compatibility rather than the flagship path |
 | Mixed / conditional | `analyze-part`, `design`, `sweep` | `analyze-part` can inspect CAD through FreeCAD when needed; `design` ends by calling `create`; `sweep` stays inside the existing `create` / `cost` / `fem` / `report` service wrappers selected by the matrix file |
 
 ### Production-Readiness Commands
@@ -227,6 +227,7 @@ fcad readiness-report --review-pack <review_pack.json>
 fcad readiness-report <config.toml|json>   # legacy compatibility / non-canonical
 fcad pack --readiness <readiness_report.json> --out <release_bundle.zip>
 fcad closeout-package <canonical-package-slug> --mode software-demo --out-dir output
+fcad evidence-graph --package <canonical-package-slug> --review-pack <review_pack.json> --readiness <readiness_report.json> --out <evidence_graph.json>
 fcad inspection-evidence-intake [--package <canonical-package-slug>] [--include-github] --out output/inspection-evidence-intake-report.json
 fcad inspection-evidence-promotion-dry-run --intake-report output/inspection-evidence-intake-report.json --out output/promotion_dry_run_manifest.json
 fcad stage5b-evidence-audit --out-dir output/stage5b-evidence-audit [--include-github]
@@ -240,6 +241,10 @@ fcad stabilization-review <config.toml|json> --runtime <runtime.json>
 fcad stabilization-review <baseline_readiness_report.json> <candidate_readiness_report.json>
 fcad generate-standard-docs <config.toml|json> --readiness-report <readiness_report.json> [--out-dir <dir>]
 ```
+
+### Evidence graph
+
+The evidence graph is a read-only review artifact. It links package, review, generated quality, inspection, and readiness artifacts, but it does not attach evidence, regenerate readiness, or mutate canonical package files.
 
 Use `readiness-pack --review-pack ...` or `readiness-report --review-pack ...` for canonical C output. `readiness-report <config>` remains available only as a legacy compatibility route and should not be treated as canonical D-backed readiness provenance.
 
@@ -281,6 +286,7 @@ Low-confidence import findings stay visible as warnings and review-needed eviden
 ```bash
 fcad check-runtime
 fcad check-runtime --json
+fcad check-runtime --fingerprint-out <runtime_fingerprint.json>
 fcad create <config.toml|json> [--strict-quality]
 fcad draw <config.toml|json> [--bom] [--strict-quality] [--fail-under <number>]
 fcad report <config.toml|json>

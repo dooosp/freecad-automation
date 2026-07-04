@@ -69,6 +69,8 @@ Production readiness remains held until genuine completed inspection evidence ex
 
 For how DFM signals, readiness reports, release bundles, and missing inspection evidence relate to each other, see [DFM and readiness guide](./dfm-readiness-guide.md). For the final non-inspection software milestone summary, see [final non-inspection software closeout](./final-non-inspection-software-closeout.md).
 
+For the exact QIF-lite import and runtime fingerprint boundaries, see [inspection evidence contract](./inspection-evidence-contract.md) and [support matrix](./support-matrix.md). For the evidence graph boundary, see the [README command surface](../README.md#evidence-graph).
+
 ## Run Stage 5B audit from Review
 
 Use the Review workspace when maintainers need to repeat the Stage 5B evidence audit without reading raw CLI output. The Review card queues a local tracked `stage5b-evidence-audit` job; it does not ask anyone to type measured values, does not accept a browser-provided output directory, and does not attach evidence.
