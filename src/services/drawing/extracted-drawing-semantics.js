@@ -10,6 +10,10 @@ import {
   normalizeDrawingViewDescriptor,
   viewRequirementMatches,
 } from '../../../lib/drawing-intent.js';
+import {
+  aliasesForSemanticId,
+  normalizeSemanticToken,
+} from '../../../lib/drawing-semantic-aliases.js';
 
 import {
   buildPlannerActionsFromExtractedCoverage,
@@ -62,6 +66,60 @@ function normalizeText(value = null) {
 
 function normalizeComparable(value = null) {
   return normalizeText(value)?.toLowerCase().replace(/[^a-z0-9]+/g, '') || null;
+}
+
+function semanticIdForRequirement(requirement = {}) {
+  return normalizeText(requirement.id ?? requirement.dim_id ?? requirement.key ?? requirement.name);
+}
+
+function semanticTextTokens(value = null) {
+  if (typeof value !== 'string' && typeof value !== 'number') return [];
+  return String(value).toLowerCase().match(/[a-z0-9ø]+/g) || [];
+}
+
+function semanticAliasMatchesTokens(alias = '', tokens = []) {
+  if (!alias || tokens.length === 0) return false;
+  for (const token of tokens) {
+    if (token === alias) return true;
+    const suffix = token.slice(alias.length);
+    if (alias.length <= 3 && token.startsWith(alias) && /^[0-9]/.test(suffix)) {
+      return true;
+    }
+  }
+  for (let start = 0; start < tokens.length; start += 1) {
+    let joined = '';
+    for (let index = start; index < tokens.length; index += 1) {
+      joined += tokens[index];
+      if (joined === alias) return true;
+      if (joined.length >= alias.length) break;
+    }
+  }
+  return false;
+}
+
+function semanticAliasMatchesText(text = null, requirement = {}) {
+  const tokens = semanticTextTokens(text);
+  if (tokens.length === 0) return [];
+  return aliasesForSemanticId(semanticIdForRequirement(requirement))
+    .filter((alias) => semanticAliasMatchesTokens(alias, tokens));
+}
+
+function bestSemanticAliasRequirement(text = null, requirements = [], predicate = () => true) {
+  const matches = requirements
+    .filter((requirement) => predicate(requirement))
+    .map((requirement) => {
+      const aliases = semanticAliasMatchesText(text, requirement);
+      const score = aliases.reduce((max, alias) => Math.max(max, alias.length), 0);
+      return { requirement, score };
+    })
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return String(a.requirement?.id || '').localeCompare(String(b.requirement?.id || ''));
+    });
+  if (matches.length === 0) return null;
+  if (matches.length > 1 && matches[0].score === matches[1].score) return null;
+  return matches[0].requirement;
 }
 
 function roundConfidence(value) {
@@ -243,7 +301,9 @@ function classifyNoteCategory(text = '') {
 }
 
 function isMaterialLabelOnly(text = '') {
-  return normalizeComparable(text) === 'material';
+  const comparable = normalizeComparable(text);
+  const semantic = normalizeSemanticToken(text);
+  return comparable === 'material' || aliasesForSemanticId('MATERIAL').includes(semantic);
 }
 
 function materialCodeTokens(value = null) {
@@ -264,16 +324,77 @@ function materialCodeMatches(note = {}, required = {}) {
   return requiredTokens.some((token) => noteTokens.includes(token));
 }
 
+function toleranceSignatures(value = null) {
+  const text = normalizeText(value);
+  if (!text) return [];
+  const signatures = [];
+  const plusMinusMatch = text.match(/(?:±|\+\/-)\s*([0-9]+(?:\.[0-9]+)?)/);
+  if (plusMinusMatch) {
+    signatures.push(`plusminus:${Number.parseFloat(plusMinusMatch[1])}`);
+  }
+
+  const tokens = semanticTextTokens(text)
+    .filter((token) => !['general', 'tolerance', 'tol'].includes(token));
+  if (tokens.length > 0) {
+    signatures.push(`body:${tokens.join('')}`);
+  }
+  return uniqueStrings(signatures);
+}
+
+function toleranceSignaturesMatch(note = {}, required = {}) {
+  const noteSignatures = toleranceSignatures(note.raw_text);
+  if (noteSignatures.length === 0) return false;
+  const requiredSignatures = uniqueStrings([
+    ...toleranceSignatures(required.text),
+    ...toleranceSignatures(required.note),
+    ...toleranceSignatures(required.label),
+  ]);
+  return requiredSignatures.some((signature) => noteSignatures.includes(signature));
+}
+
+function aliasBackedNoteMatches(note = {}, required = {}) {
+  const requiredSemanticId = normalizeComparable(required.id);
+  if (requiredSemanticId === 'generaltolerance') {
+    return toleranceSignaturesMatch(note, required);
+  }
+  return false;
+}
+
+function dimensionValueMatches(requiredDimension = {}, value = null) {
+  const requiredValue = Number(requiredDimension.value_mm);
+  return Number.isFinite(value) && Number.isFinite(requiredValue) && requiredValue === value;
+}
+
+function matchAliasedRequiredDimension(rawText = '', requiredDimensions = [], value = null) {
+  if (!Number.isFinite(value)) return null;
+  return bestSemanticAliasRequirement(
+    rawText,
+    requiredDimensions,
+    (required) => dimensionValueMatches(required, value)
+  );
+}
+
+function looksLikeAliasedDimensionText(text = '', requiredDimensions = []) {
+  const { value } = parseDimensionValue(text);
+  return Boolean(matchAliasedRequiredDimension(text, requiredDimensions, value));
+}
+
+function isSvgDimensionText(text = '', requiredDimensions = []) {
+  return looksLikeDimensionText(text) || looksLikeAliasedDimensionText(text, requiredDimensions);
+}
+
 function matchRequiredNote(note = {}, requiredNotes = [], { allowMaterialCodeOnly = false } = {}) {
   const noteComparable = normalizeComparable(note?.raw_text);
   if (!noteComparable) return null;
   if (isMaterialLabelOnly(note?.raw_text)) return null;
   for (const required of requiredNotes) {
     if (normalizeComparable(required.id) === 'material' && normalizeText(required.text ?? required.note)) {
+      const materialAliasMatched = semanticAliasMatchesText(note.raw_text, required).length > 0;
       const materialTextMatched = uniqueStrings([required.text, required.note])
         .map((candidate) => normalizeComparable(candidate))
         .some((candidate) => candidate && noteComparable.includes(candidate));
       if (materialTextMatched) return required;
+      if (materialAliasMatched && materialCodeMatches(note, required)) return required;
       if (allowMaterialCodeOnly && materialCodeMatches(note, required)) return required;
       continue;
     }
@@ -288,6 +409,12 @@ function matchRequiredNote(note = {}, requiredNotes = [], { allowMaterialCodeOnl
       if (comparable && noteComparable.includes(comparable)) {
         return required;
       }
+    }
+    if (
+      semanticAliasMatchesText(note.raw_text, required).length > 0
+      && aliasBackedNoteMatches(note, required)
+    ) {
+      return required;
     }
   }
   return null;
@@ -475,9 +602,11 @@ function dedupeViewEntries(entries = []) {
 function collectDimensionsFromSvg(textNodes = [], svgPath = null, requiredDimensions = [], traceability = null) {
   const dimensions = [];
   for (const node of textNodes) {
-    if (!looksLikeDimensionText(node.text)) continue;
     const { value, unit } = parseDimensionValue(node.text);
-    const matchedRequired = findUniqueRequiredDimensionByValue(requiredDimensions, value);
+    if (!isSvgDimensionText(node.text, requiredDimensions)) continue;
+    const aliasMatchedRequired = matchAliasedRequiredDimension(node.text, requiredDimensions, value);
+    const matchedRequired = aliasMatchedRequired || findUniqueRequiredDimensionByValue(requiredDimensions, value);
+    const aliasMatched = matchedRequired && semanticAliasMatchesText(node.text, matchedRequired).length > 0;
     dimensions.push({
       id: node.id,
       raw_text: node.text,
@@ -486,7 +615,7 @@ function collectDimensionsFromSvg(textNodes = [], svgPath = null, requiredDimens
       matched_intent_id: matchedRequired?.id ?? null,
       matched_feature_id: matchedRequired ? matchFeatureId(matchedRequired, traceability) : null,
       source: resolveMaybe(svgPath),
-      confidence: roundConfidence(matchedRequired ? 0.84 : 0.62),
+      confidence: roundConfidence(matchedRequired ? (aliasMatched ? 0.88 : 0.84) : 0.62),
       provenance: createProvenance({
         artifactType: 'svg',
         path: svgPath,
@@ -498,10 +627,10 @@ function collectDimensionsFromSvg(textNodes = [], svgPath = null, requiredDimens
   return dimensions;
 }
 
-function collectNotesFromSvg(textNodes = [], svgPath = null, requiredNotes = []) {
+function collectNotesFromSvg(textNodes = [], svgPath = null, requiredNotes = [], requiredDimensions = []) {
   const notes = [];
   for (const node of textNodes) {
-    if (looksLikeDimensionText(node.text)) continue;
+    if (isSvgDimensionText(node.text, requiredDimensions)) continue;
     if (!/[A-Za-z]/.test(node.text)) continue;
     const viewDescriptor = normalizeDrawingViewDescriptor({ label: node.text });
     if (viewDescriptor.id && viewDescriptor.view_kind !== 'unknown') {
@@ -509,13 +638,14 @@ function collectNotesFromSvg(textNodes = [], svgPath = null, requiredNotes = [])
     }
     const category = classifyNoteCategory(node.text);
     const matchedRequired = matchRequiredNote({ raw_text: node.text }, requiredNotes);
+    const aliasMatched = matchedRequired && semanticAliasMatchesText(node.text, matchedRequired).length > 0;
     notes.push({
       id: node.id,
       raw_text: node.text,
       category,
       matched_intent_id: matchedRequired?.id ?? null,
       source: resolveMaybe(svgPath),
-      confidence: roundConfidence(matchedRequired ? 0.82 : category === 'unknown' ? 0.45 : 0.68),
+      confidence: roundConfidence(matchedRequired ? (aliasMatched ? 0.84 : 0.82) : category === 'unknown' ? 0.45 : 0.68),
       provenance: createProvenance({
         artifactType: 'svg',
         path: svgPath,
@@ -1167,7 +1297,7 @@ export function buildExtractedDrawingSemantics({
   const dimensions = collectDimensionsFromSvg(textNodes, drawingSvgPath, requiredDimensions, traceability);
   const notes = [
     ...materialTitleBlockNotes,
-    ...collectNotesFromSvg(textNodes, drawingSvgPath, requiredNotes),
+    ...collectNotesFromSvg(textNodes, drawingSvgPath, requiredNotes, requiredDimensions),
   ];
   const titleBlock = buildTitleBlock(notes);
   const coverage = buildCoverage(requiredDimensions, requiredNotes, requiredViews, dimensions, notes, views);
