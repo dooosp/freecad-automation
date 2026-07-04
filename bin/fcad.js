@@ -835,6 +835,7 @@ async function main() {
     renderCommandUsage,
     printRuntimeDiagnostics,
     commands: CLI_COMMAND_HANDLERS,
+    projectRoot: PROJECT_ROOT,
   });
 }
 

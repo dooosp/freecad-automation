@@ -11,14 +11,14 @@ const COMMAND_MANIFEST = Object.freeze([
     helpSection: 'diagnostics',
     helpEntries: Object.freeze([
       Object.freeze({
-        usage: 'fcad check-runtime [--json] [--redact-paths]',
-        summary: 'Show searched paths, selected runtime, detected versions, command coverage, and remediation',
+        usage: 'fcad check-runtime [--json] [--redact-paths] [--fingerprint-out <runtime_fingerprint.json>]',
+        summary: 'Show searched paths, selected runtime, detected versions, command coverage, remediation, and optional reproducibility context',
       }),
     ]),
     runtime: Object.freeze({
       classification: 'diagnostics',
       requiresFreecadRuntime: false,
-      note: 'Reports runtime discovery, selected executables, and command coverage without launching FreeCAD workflows.',
+      note: 'Reports runtime discovery, selected executables, and command coverage without launching FreeCAD workflows. The optional runtime fingerprint records local reproducibility context only, not inspection evidence or production readiness proof.',
     }),
   }),
   Object.freeze({
@@ -722,6 +722,7 @@ const WORKFLOW_SPECIFIC_OPTIONS = Object.freeze([
   Object.freeze({ flag: '--strict-boundary', description: 'Fail closeout-package if the source package or generated text crosses the evidence boundary' }),
   Object.freeze({ flag: '--strict-quality', description: 'Fail create or draw when blocking quality checks are found' }),
   Object.freeze({ flag: '--generated-at <iso8601>', description: 'Use a fixed release bundle timestamp with pack for deterministic bundle metadata and ZIP entries' }),
+  Object.freeze({ flag: '--fingerprint-out <runtime_fingerprint.json>', description: 'Write reproducibility context only; not inspection evidence or production readiness proof' }),
   Object.freeze({ flag: '--manifest-out <path>', description: 'Write a provenance manifest for stdout-oriented commands such as inspect/fem/tolerance/dfm' }),
   Object.freeze({ flag: '--source <path>', description: 'Raw local Stage 5B source path for acquisition/preflight only; it is never attached by source preflight' }),
   Object.freeze({ flag: '--review-manifest <path>', description: 'Stage 5B review dry-run manifest consumed by the attachment controller' }),
@@ -742,6 +743,7 @@ const WORKFLOW_SPECIFIC_OPTIONS = Object.freeze([
 const CLI_HELP_EXAMPLES = Object.freeze([
   'fcad check-runtime',
   'fcad check-runtime --json',
+  'fcad check-runtime --fingerprint-out output/runtime_fingerprint.json',
   'fcad create configs/examples/ks_bracket.toml',
   'fcad draw configs/examples/ks_bracket.toml --bom',
   'fcad inspect output/ks_bracket.step --manifest-out output/ks_bracket_inspect_manifest.json',
@@ -764,6 +766,7 @@ const CLI_HELP_EXAMPLES = Object.freeze([
 
 const CLI_HELP_NOTES = Object.freeze([
   'check-runtime is the central installation and troubleshooting entrypoint for runtime-backed commands.',
+  'The runtime fingerprint records local reproducibility context only; it is not inspection evidence or production readiness proof.',
   'analyze-part can run without FreeCAD when the supplied context already includes model metadata, and it now falls back to bounded metadata-only geometry when live shape inspection is weak or unavailable.',
   'readiness-pack is the flagship canonical C entrypoint when review_pack.json already exists.',
   'readiness-report <config> remains a legacy compatibility route; it is not the canonical D-backed readiness path.',

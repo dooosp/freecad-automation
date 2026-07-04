@@ -45,7 +45,9 @@ commandManifest.forEach((entry) => {
     assert.match(cliHelp, new RegExp(helpEntry.usage.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   });
 });
-assert.match(cliHelp, /fcad check-runtime \[--json\] \[--redact-paths\]/);
+assert.match(cliHelp, /fcad check-runtime \[--json\] \[--redact-paths\] \[--fingerprint-out <runtime_fingerprint\.json>\]/);
+assert.match(cliHelp, /--fingerprint-out <runtime_fingerprint\.json>\s+Write reproducibility context only; not inspection evidence or production readiness proof/i);
+assert.match(cliHelp, /runtime fingerprint records local reproducibility context only/i);
 assert.match(cliHelp, /fcad readiness-report <config\.toml\|json> \[--out <readiness_report\.json>\]\s+legacy compatibility \/ non-canonical/i);
 assert.match(cliHelp, /fcad generate-standard-docs <config\.toml\|json> --readiness-report <readiness_report\.json>/i);
 assert.match(cliHelp, /fcad closeout-package <canonical-package-slug> --mode software-demo \[--out-dir <dir>\] \[--strict-boundary\]/i);
