@@ -129,6 +129,7 @@ assert.deepEqual(STUDIO_ARTIFACT_JOB_COMMANDS, ['readiness-pack', 'generate-stan
 assert.deepEqual(STUDIO_PAIRED_ARTIFACT_JOB_COMMANDS, ['compare-rev', 'stabilization-review']);
 assert.deepEqual(STUDIO_ARTIFACT_COMPATIBLE_JOB_COMMANDS, ['inspect', 'report', 'readiness-pack', 'generate-standard-docs', 'pack', 'inspection-evidence-promotion-dry-run']);
 assert.equal(LOCAL_API_JOB_COMMANDS.includes('review-context'), true);
+assert.equal(LOCAL_API_JOB_COMMANDS.includes('evidence-graph'), true);
 assert.equal(LOCAL_API_JOB_COMMANDS.includes('inspection-evidence-intake'), true);
 assert.equal(LOCAL_API_JOB_COMMANDS.includes('inspection-evidence-promotion-dry-run'), true);
 assert.equal(LOCAL_API_JOB_COMMANDS.includes('stage5b-evidence-audit'), true);
@@ -137,6 +138,7 @@ assert.equal(LOCAL_API_JOB_COMMANDS.includes('stage5b-evidence-source-preflight'
 assert.equal(LOCAL_API_JOB_COMMANDS.includes('stage5b-evidence-attachment-controller'), false);
 assert.equal(LOCAL_API_JOB_COMMANDS.includes('stage5b-surrogate-inspection-validation'), false);
 assert.equal(STUDIO_JOB_COMMANDS.includes('review-context'), false);
+assert.equal(STUDIO_JOB_COMMANDS.includes('evidence-graph'), true);
 assert.equal(STUDIO_JOB_COMMANDS.includes('inspection-evidence-intake'), true);
 assert.equal(STUDIO_JOB_COMMANDS.includes('inspection-evidence-promotion-dry-run'), true);
 assert.equal(STUDIO_JOB_COMMANDS.includes('stage5b-evidence-audit'), true);
@@ -146,7 +148,7 @@ assert.equal(STUDIO_JOB_COMMANDS.includes('stage5b-evidence-attachment-controlle
 assert.equal(STUDIO_JOB_COMMANDS.includes('stage5b-surrogate-inspection-validation'), false);
 assert.equal(
   formatCommandNameList(STUDIO_JOB_COMMANDS, { conjunction: 'or' }),
-  'create, draw, inspect, report, compare-rev, readiness-pack, stabilization-review, generate-standard-docs, pack, inspection-evidence-intake, inspection-evidence-promotion-dry-run, or stage5b-evidence-audit'
+  'create, draw, inspect, report, compare-rev, readiness-pack, evidence-graph, stabilization-review, generate-standard-docs, pack, inspection-evidence-intake, inspection-evidence-promotion-dry-run, or stage5b-evidence-audit'
 );
 
 const serveEntrypoints = getServeEntrypointMetadata();

@@ -84,5 +84,40 @@ export function createReviewArtifactHandlers() {
         }],
       };
     },
+    'evidence-graph': async (job, context) => {
+      const result = await context.executeEvidenceGraph(job);
+      return {
+        result: result.graph,
+        artifacts: {
+          evidence_graph: result.outputPath,
+        },
+        manifestArtifacts: [
+          {
+            type: 'evidence-graph.json',
+            path: result.outputPath,
+            label: 'Evidence graph JSON',
+            scope: 'user-facing',
+            stability: 'stable',
+            metadata: context.buildGenericAfMetadata('evidence-graph', result.graph, [
+              'evidence-graph links existing review-pack and readiness-report artifacts without mutating package files.',
+            ]),
+          },
+          {
+            type: 'input.review-pack',
+            path: result.reviewPackPath,
+            label: 'Input review pack JSON',
+            scope: 'internal',
+            stability: 'stable',
+          },
+          {
+            type: 'input.readiness-report',
+            path: result.readinessReportPath,
+            label: 'Input readiness report JSON',
+            scope: 'internal',
+            stability: 'stable',
+          },
+        ],
+      };
+    },
   };
 }

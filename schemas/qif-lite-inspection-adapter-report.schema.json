@@ -58,12 +58,26 @@
             "required": [
               "package_id",
               "inspected_part",
-              "inspected_at"
+              "inspected_at",
+              "inspection_status",
+              "inspector",
+              "reviewed_by",
+              "part_revision"
             ],
             "properties": {
               "package_id": { "type": "string", "minLength": 1 },
               "inspected_part": { "type": "string", "minLength": 1 },
-              "inspected_at": { "type": "string", "minLength": 1 }
+              "inspected_at": { "type": "string", "minLength": 1 },
+              "inspection_status": {
+                "enum": [
+                  "completed",
+                  "final",
+                  "approved"
+                ]
+              },
+              "inspector": { "type": "string", "minLength": 1 },
+              "reviewed_by": { "type": "string", "minLength": 1 },
+              "part_revision": { "type": "string", "minLength": 1 }
             }
           }
         }

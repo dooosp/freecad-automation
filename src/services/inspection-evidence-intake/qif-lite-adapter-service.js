@@ -1,6 +1,9 @@
 import { execFile as execFileCallback } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
+
+import Ajv2020 from 'ajv/dist/2020.js';
 
 import {
   isUnsafeStage5bLocalPathText,
@@ -9,6 +12,20 @@ import {
 
 const execFile = promisify(execFileCallback);
 const ADAPTER_SCRIPT = fileURLToPath(new URL('../../../scripts/adapters/load_qif_lite_inspection.py', import.meta.url));
+const QIF_LITE_REPORT_SCHEMA = JSON.parse(readFileSync(
+  new URL('../../../schemas/qif-lite-inspection-adapter-report.schema.json', import.meta.url),
+  'utf8'
+));
+const ajv = new Ajv2020({ allErrors: true, strict: false });
+const validateQifLiteReport = ajv.compile(QIF_LITE_REPORT_SCHEMA);
+
+function assertValidQifLiteReport(report) {
+  if (validateQifLiteReport(report)) return report;
+  const errors = (validateQifLiteReport.errors || [])
+    .map((error) => `${error.instancePath || '/'} ${error.message}`)
+    .join(' | ');
+  throw new Error(`qif-lite adapter emitted invalid report: ${errors}`);
+}
 
 function validateSourceRef(sourceRef) {
   const raw = typeof sourceRef === 'string' ? sourceRef.trim() : '';
@@ -43,5 +60,5 @@ export async function adaptQifLiteInspectionXml({ inputPath, sourceRef, python =
     maxBuffer: 1024 * 1024,
   });
 
-  return JSON.parse(stdout);
+  return assertValidQifLiteReport(JSON.parse(stdout));
 }

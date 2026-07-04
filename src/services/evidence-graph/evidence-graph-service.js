@@ -85,6 +85,10 @@ function normalizeToken(value, fallback) {
     || fallback;
 }
 
+function normalizeOptionalPath(value) {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
 function recordType(record = {}) {
   return firstString(record.type, record.artifact_type, record.evidence_type, record.kind);
 }
@@ -137,8 +141,22 @@ function readinessSummary(readinessReport = {}) {
   };
 }
 
+function partIdentity({ packageId, reviewPack = {}, readinessReport = {} } = {}) {
+  const reviewPart = safeObject(safeObject(reviewPack).part);
+  const readinessPart = safeObject(safeObject(readinessReport).part);
+  return {
+    part_id: firstString(reviewPart.part_id, readinessPart.part_id, safeObject(reviewPack).part_id, safeObject(readinessReport).part_id, packageId),
+    name: firstString(reviewPart.name, readinessPart.name, safeObject(reviewPack).name, safeObject(readinessReport).name, packageId),
+    revision: firstString(reviewPart.revision, readinessPart.revision, safeObject(reviewPack).revision, safeObject(readinessReport).revision),
+  };
+}
+
 function evidenceLedgerRecords(reviewPack = {}) {
   return safeArray(safeObject(safeObject(reviewPack).evidence_ledger).records);
+}
+
+function sourceArtifactRefs(document = {}) {
+  return safeArray(safeObject(document).source_artifact_refs);
 }
 
 function topLevelArtifactType(document = {}) {
@@ -200,21 +218,51 @@ function hasDocumentSignal(source = {}, signal) {
   return value !== null && value !== undefined;
 }
 
+function hasReviewPackSignal(source = {}) {
+  const document = safeObject(source);
+  const part = safeObject(document.part);
+  const hasPartIdentity = Boolean(firstString(part.part_id, part.name, document.part_id, document.package_id));
+  return evidenceLedgerRecords(document).length > 0
+    && sourceArtifactRefs(document).length > 0
+    && hasPartIdentity;
+}
+
+function hasReadinessReportSignal(source = {}) {
+  const document = safeObject(source);
+  const nestedReadiness = safeObject(document.readiness_summary);
+  const part = safeObject(document.part);
+  const hasReadinessDecision = Boolean(
+    firstString(nestedReadiness.status)
+    && Number.isFinite(nestedReadiness.score)
+    && firstString(nestedReadiness.gate_decision)
+  );
+  const hasPartIdentity = Boolean(firstString(part.part_id, part.name, document.part_id, document.package_id));
+  return hasReadinessDecision
+    && sourceArtifactRefs(document).length > 0
+    && hasPartIdentity;
+}
+
 function assertInputKind({
   label,
   document,
   expectedType,
   expectedDescription = expectedType,
   rejectSignals = [],
+  hasExpectedSignal = null,
 }) {
   const source = safeObject(document);
   const explicitType = topLevelArtifactType(source);
-  if (explicitType && explicitType !== expectedType) {
+  if (!explicitType) {
+    throw new Error(`${label} input is not a ${expectedDescription}: artifact_type/type is required`);
+  }
+  if (explicitType !== expectedType) {
     throw new Error(`${label} input is not a ${expectedDescription}: artifact_type/type is ${explicitType}`);
   }
-  if (!explicitType && rejectSignals.some((signal) => hasDocumentSignal(source, signal))) {
+  if (rejectSignals.some((signal) => hasDocumentSignal(source, signal))) {
     throw new Error(`${label} input is not a ${expectedDescription}: document has incompatible readiness/review signals`);
   }
+  if (typeof hasExpectedSignal === 'function' && hasExpectedSignal(source)) return;
+  throw new Error(`${label} input is not a ${expectedDescription}: document does not contain required ${expectedDescription} signals`);
 }
 
 function assertIdentitiesMatch(label, requestedPackageId, identities = []) {
@@ -238,6 +286,7 @@ export function assertEvidenceGraphInputIdentity({ packageId, reviewPack = {}, r
     document: reviewPack,
     expectedType: 'review_pack',
     rejectSignals: ['readiness_summary', 'gate_decision', 'missing_inputs'],
+    hasExpectedSignal: hasReviewPackSignal,
   });
   assertInputKind({
     label: 'readiness',
@@ -245,6 +294,7 @@ export function assertEvidenceGraphInputIdentity({ packageId, reviewPack = {}, r
     expectedType: 'readiness_report',
     expectedDescription: 'readiness report',
     rejectSignals: ['evidence_ledger'],
+    hasExpectedSignal: hasReadinessReportSignal,
   });
 
   const reviewIdentities = extractPackageIdentities(reviewPack);
@@ -274,7 +324,13 @@ export function assertValidEvidenceGraph(graph) {
   return graph;
 }
 
-export function buildEvidenceGraph({ packageId, reviewPack = {}, readinessReport = {} } = {}) {
+export function buildEvidenceGraph({
+  packageId,
+  reviewPack = {},
+  readinessReport = {},
+  reviewPackPath = null,
+  readinessReportPath = null,
+} = {}) {
   assertEvidenceGraphInputIdentity({ packageId, reviewPack, readinessReport });
 
   const resolvedPackageId = firstString(
@@ -287,6 +343,21 @@ export function buildEvidenceGraph({ packageId, reviewPack = {}, readinessReport
 
   const packageNodeId = `package:${normalizeToken(resolvedPackageId, 'unknown-package')}`;
   const records = evidenceLedgerRecords(reviewPack);
+  const part = partIdentity({ packageId: resolvedPackageId, reviewPack, readinessReport });
+  const sourceArtifactRefs = [
+    {
+      artifact_type: 'review_pack',
+      path: normalizeOptionalPath(reviewPackPath),
+      role: 'graph_review_source',
+      label: 'Review pack JSON',
+    },
+    {
+      artifact_type: 'readiness_report',
+      path: normalizeOptionalPath(readinessReportPath),
+      role: 'graph_readiness_source',
+      label: 'Readiness report JSON',
+    },
+  ];
   const nodes = [
     {
       id: packageNodeId,
@@ -329,7 +400,20 @@ export function buildEvidenceGraph({ packageId, reviewPack = {}, readinessReport
 
   return {
     schema_version: EVIDENCE_GRAPH_SCHEMA_VERSION,
+    artifact_type: 'evidence_graph',
     package_id: resolvedPackageId,
+    part,
+    source_artifact_refs: sourceArtifactRefs,
+    coverage: {
+      review_record_count: records.length,
+      source_artifact_count: sourceArtifactRefs.length,
+    },
+    confidence: {
+      level: 'heuristic',
+      score: 0.82,
+      rationale: 'Evidence graph links existing review-pack ledger records and readiness summary fields without mutating source artifacts.',
+    },
+    warnings: [],
     summary: {
       node_count: nodes.length,
       edge_count: edges.length,

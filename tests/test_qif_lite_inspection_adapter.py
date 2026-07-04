@@ -13,6 +13,7 @@ def test_parse_qif_lite_xml_maps_measured_features(tmp_path):
     <InspectedPart>quality_pass_bracket_rev_a</InspectedPart>
     <InspectedAt>2026-07-01T09:00:00Z</InspectedAt>
     <SourceType>supplier_inspection_report</SourceType>
+    <InspectionStatus>completed</InspectionStatus>
     <OverallResult>pass</OverallResult>
     <Inspector>Supplier QA</Inspector>
     <ReviewedBy>Incoming QA</ReviewedBy>
@@ -57,6 +58,10 @@ def test_parse_qif_lite_xml_rejects_when_only_feature_is_not_measured(tmp_path):
     <InspectedPart>quality_pass_bracket_rev_a</InspectedPart>
     <InspectedAt>2026-07-01T09:00:00Z</InspectedAt>
     <SourceType>supplier_inspection_report</SourceType>
+    <InspectionStatus>completed</InspectionStatus>
+    <Inspector>Supplier QA</Inspector>
+    <ReviewedBy>Incoming QA</ReviewedBy>
+    <PartRevision>A</PartRevision>
     <OverallResult>pass</OverallResult>
     <Units>mm</Units>
     <Feature>
@@ -109,3 +114,46 @@ def test_parse_qif_lite_xml_rejects_missing_required_metadata(tmp_path):
     assert "missing_package_id" in report["classification"]["rejection_reasons"]
     assert "missing_inspected_part" in report["classification"]["rejection_reasons"]
     assert "missing_inspected_at" in report["classification"]["rejection_reasons"]
+    assert "missing_inspection_status" in report["classification"]["rejection_reasons"]
+    assert "missing_inspector" in report["classification"]["rejection_reasons"]
+    assert "missing_reviewed_by" in report["classification"]["rejection_reasons"]
+    assert "missing_part_revision" in report["classification"]["rejection_reasons"]
+
+
+def test_parse_qif_lite_xml_rejects_unsupported_source_type_without_invalid_enum(tmp_path):
+    xml_path = tmp_path / "supplier-qif-lite.xml"
+    xml_path.write_text(
+        """<?xml version="1.0"?>
+<QIFDocument>
+  <Inspection>
+    <PackageId>quality-pass-bracket</PackageId>
+    <InspectedPart>quality_pass_bracket_rev_a</InspectedPart>
+    <InspectedAt>2026-07-01T09:00:00Z</InspectedAt>
+    <SourceType>totally_fake_source</SourceType>
+    <InspectionStatus>completed</InspectionStatus>
+    <OverallResult>pass</OverallResult>
+    <Inspector>Supplier QA</Inspector>
+    <ReviewedBy>Incoming QA</ReviewedBy>
+    <PartRevision>A</PartRevision>
+    <Units>mm</Units>
+    <Feature>
+      <FeatureId>MOUNTING_HOLE_DIA</FeatureId>
+      <MeasuredValue>6.01</MeasuredValue>
+      <Result>pass</Result>
+      <MeasurementMethod>CMM</MeasurementMethod>
+    </Feature>
+  </Inspection>
+</QIFDocument>
+""",
+        encoding="utf-8",
+    )
+
+    report = parse_qif_lite_xml(
+        xml_path,
+        source_ref="docs/examples/quality-pass-bracket/inspection/supplier-qif-lite.xml",
+    )
+
+    assert report["classification"]["attachment_ready_candidate"] is False
+    assert report["inspection_evidence"]["source_type"] == "other_inspection_source"
+    assert report["inspection_evidence"]["source_type_raw"] == "totally_fake_source"
+    assert "unsupported_source_type" in report["classification"]["rejection_reasons"]

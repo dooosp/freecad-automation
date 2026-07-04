@@ -273,7 +273,13 @@ async function cmdEvidenceGraph(rawArgs = []) {
   try {
     const reviewPack = await readJsonFile(reviewPackPath);
     const readinessReport = await readJsonFile(readinessPath);
-    const graph = buildEvidenceGraph({ packageId, reviewPack, readinessReport });
+    const graph = buildEvidenceGraph({
+      packageId,
+      reviewPack,
+      readinessReport,
+      reviewPackPath: repoRelativePath(reviewPackPath),
+      readinessReportPath: repoRelativePath(readinessPath),
+    });
     assertValidEvidenceGraph(graph);
     const writtenPath = await writeJsonFile(outputPath, graph);
 

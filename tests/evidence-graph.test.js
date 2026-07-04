@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const ROOT = resolve(import.meta.dirname, '..');
@@ -15,6 +15,10 @@ function writeJson(filePath, value) {
   writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
 }
 
+function repoRelative(filePath) {
+  return relative(ROOT, filePath).replaceAll('\\', '/');
+}
+
 async function loadEvidenceGraphService() {
   try {
     return await import('../src/services/evidence-graph/evidence-graph-service.js');
@@ -26,6 +30,19 @@ async function loadEvidenceGraphService() {
 const reviewPack = {
   artifact_type: 'review_pack',
   package_id: 'quality-pass-bracket',
+  part: {
+    part_id: 'quality-pass-bracket',
+    name: 'Quality pass bracket',
+    revision: 'A',
+  },
+  source_artifact_refs: [
+    {
+      artifact_type: 'cad_model',
+      path: 'docs/examples/quality-pass-bracket/cad/quality_pass_bracket.step',
+      role: 'review_source',
+      label: 'CAD model',
+    },
+  ],
   evidence_ledger: {
     records: [
       {
@@ -46,8 +63,25 @@ const reviewPack = {
 };
 
 const readinessReport = {
-  status: 'needs_more_evidence',
-  gate_decision: 'hold_for_evidence_completion',
+  artifact_type: 'readiness_report',
+  part: {
+    part_id: 'quality-pass-bracket',
+    name: 'Quality pass bracket',
+    revision: 'A',
+  },
+  readiness_summary: {
+    status: 'needs_more_evidence',
+    score: 61,
+    gate_decision: 'hold_for_evidence_completion',
+  },
+  source_artifact_refs: [
+    {
+      artifact_type: 'review_pack',
+      path: 'docs/examples/quality-pass-bracket/review/review_pack.json',
+      role: 'readiness_source',
+      label: 'Review pack',
+    },
+  ],
   missing_inputs: ['inspection_evidence'],
 };
 
@@ -63,7 +97,16 @@ const graph = buildEvidenceGraph({
 });
 
 assert.equal(graph.schema_version, '1.0');
+assert.equal(graph.artifact_type, 'evidence_graph');
 assert.equal(graph.package_id, 'quality-pass-bracket');
+assert.deepEqual(graph.part, {
+  part_id: 'quality-pass-bracket',
+  name: 'Quality pass bracket',
+  revision: 'A',
+});
+assert.deepEqual(graph.source_artifact_refs.map((ref) => ref.artifact_type), ['review_pack', 'readiness_report']);
+assert.equal(graph.coverage.review_record_count, 2);
+assert.equal(graph.coverage.source_artifact_count, 2);
 assert.equal(graph.nodes.length, 3);
 assert.equal(graph.summary.node_count, 3);
 assert.equal(graph.summary.inspection_evidence_record_count, 1);
@@ -102,7 +145,7 @@ assert.throws(
     reviewPack,
     readinessReport: {
       ...readinessReport,
-      readiness_summary: { package_id: 'different-package' },
+      readiness_summary: { ...readinessReport.readiness_summary, package_id: 'different-package' },
     },
   }),
   /readiness report package identity.*different-package.*does not match.*quality-pass-bracket/i
@@ -129,6 +172,33 @@ assert.throws(
 assert.throws(
   () => assertEvidenceGraphInputIdentity({
     packageId: 'quality-pass-bracket',
+    reviewPack: {},
+    readinessReport,
+  }),
+  /review-pack input is not a review_pack.*artifact_type\/type is required/i
+);
+
+assert.throws(
+  () => assertEvidenceGraphInputIdentity({
+    packageId: 'quality-pass-bracket',
+    reviewPack: { artifact_type: 'review_pack', package_id: 'quality-pass-bracket' },
+    readinessReport,
+  }),
+  /review-pack input is not a review_pack.*required review_pack signals/i
+);
+
+assert.throws(
+  () => assertEvidenceGraphInputIdentity({
+    packageId: 'quality-pass-bracket',
+    reviewPack: { artifact_type: 'review_pack', review_priorities: ['generic note'], package_id: 'quality-pass-bracket' },
+    readinessReport,
+  }),
+  /review-pack input is not a review_pack.*required review_pack signals/i
+);
+
+assert.throws(
+  () => assertEvidenceGraphInputIdentity({
+    packageId: 'quality-pass-bracket',
     reviewPack,
     readinessReport: { artifact_type: 'review_pack', package_id: 'quality-pass-bracket' },
   }),
@@ -142,6 +212,48 @@ assert.throws(
     readinessReport: { package_id: 'quality-pass-bracket', evidence_ledger: { records: [] } },
   }),
   /readiness input is not a readiness report/i
+);
+
+assert.throws(
+  () => assertEvidenceGraphInputIdentity({
+    packageId: 'quality-pass-bracket',
+    reviewPack,
+    readinessReport: {},
+  }),
+  /readiness input is not a readiness report.*artifact_type\/type is required/i
+);
+
+assert.throws(
+  () => assertEvidenceGraphInputIdentity({
+    packageId: 'quality-pass-bracket',
+    reviewPack,
+    readinessReport: { artifact_type: 'readiness_report', package_id: 'quality-pass-bracket' },
+  }),
+  /readiness input is not a readiness report.*required readiness report signals/i
+);
+
+assert.throws(
+  () => assertEvidenceGraphInputIdentity({
+    packageId: 'quality-pass-bracket',
+    reviewPack,
+    readinessReport: { artifact_type: 'readiness_report', status: 'thin-ready-ish', package_id: 'quality-pass-bracket' },
+  }),
+  /readiness input is not a readiness report.*required readiness report signals/i
+);
+
+assert.throws(
+  () => assertEvidenceGraphInputIdentity({
+    packageId: 'quality-pass-bracket',
+    reviewPack,
+    readinessReport: {
+      ...readinessReport,
+      readiness_summary: {
+        status: 'needs_more_evidence',
+        gate_decision: 'hold_for_evidence_completion',
+      },
+    },
+  }),
+  /readiness input is not a readiness report.*required readiness report signals/i
 );
 
 const invalidGraphValidation = validateEvidenceGraph({ ...graph, nodes: [{ id: 'node:missing-label' }] });
@@ -180,6 +292,11 @@ try {
 
   const cliGraph = readJson(outPath);
   assert.equal(cliGraph.schema_version, '1.0');
+  assert.equal(cliGraph.artifact_type, 'evidence_graph');
+  assert.deepEqual(cliGraph.source_artifact_refs.map((ref) => ref.path), [
+    repoRelative(reviewPackPath),
+    repoRelative(readinessPath),
+  ]);
   assert.equal(cliGraph.summary.inspection_evidence_record_count, 1);
   assert.equal(cliGraph.summary.generated_artifact_count, 1);
   assert.equal(cliGraph.summary.readiness_gate_decision, 'hold_for_evidence_completion');
@@ -196,6 +313,7 @@ try {
     readiness_summary: {
       package_id: 'wrong-package',
       status: 'needs_more_evidence',
+      score: 61,
       gate_decision: 'hold_for_evidence_completion',
     },
   });
@@ -243,6 +361,32 @@ try {
     /package identity.*(hinge_block|quality_pass_bracket).*does not match.*controller-housing-eol/i
   );
   assert.equal(existsSync(fixtureMismatchOutPath), false, 'CLI must reject fixture identity mismatch before writing output');
+
+  const emptyReviewPackPath = join(tempRoot, 'empty_review_pack.json');
+  const emptyReadinessPath = join(tempRoot, 'empty_readiness_report.json');
+  const emptyOutPath = join(tempRoot, 'empty_evidence_graph.json');
+  writeJson(emptyReviewPackPath, {});
+  writeJson(emptyReadinessPath, {});
+
+  const emptyInputRun = spawnSync('node', [
+    CLI,
+    'evidence-graph',
+    '--package',
+    'quality-pass-bracket',
+    '--review-pack',
+    emptyReviewPackPath,
+    '--readiness',
+    emptyReadinessPath,
+    '--out',
+    emptyOutPath,
+  ], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  });
+
+  assert.notEqual(emptyInputRun.status, 0, 'empty JSON inputs should not produce an official evidence graph');
+  assert.match(emptyInputRun.stderr, /review-pack input is not a review_pack/i);
+  assert.equal(existsSync(emptyOutPath), false, 'CLI must reject unproven inputs before writing output');
 } finally {
   rmSync(tempRoot, { recursive: true, force: true });
 }

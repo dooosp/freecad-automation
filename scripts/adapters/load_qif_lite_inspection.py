@@ -12,6 +12,15 @@ SCHEMA_VERSION = "1.0"
 ADAPTER_NAME = "qif-lite"
 FINAL_OVERALL_RESULTS = {"pass", "fail", "partial"}
 FINAL_FEATURE_RESULTS = {"pass", "fail", "not_measured"}
+FINAL_INSPECTION_STATUSES = {"completed", "final", "approved"}
+SUPPORTED_SOURCE_TYPES = {
+    "cmm_report",
+    "manual_caliper_check",
+    "go_no_go_gauge",
+    "first_article_inspection",
+    "supplier_inspection_report",
+    "other_inspection_source",
+}
 
 
 def _local_name(tag: str) -> str:
@@ -103,18 +112,27 @@ def parse_qif_lite_xml(path: Path, source_ref: str) -> dict[str, Any]:
     package_id = _text(inspection, "PackageId")
     inspected_part = _text(inspection, "InspectedPart")
     inspected_at = _text(inspection, "InspectedAt")
+    source_type_raw = _text(inspection, "SourceType")
+    normalized_source_type = (source_type_raw or "").strip().lower()
+    source_type = normalized_source_type if normalized_source_type in SUPPORTED_SOURCE_TYPES else "other_inspection_source"
+    inspection_status_raw = _text(inspection, "InspectionStatus")
+    inspection_status = _normalized_result(inspection_status_raw, "unknown")
+    inspector = _text(inspection, "Inspector")
+    reviewed_by = _text(inspection, "ReviewedBy")
+    part_revision = _text(inspection, "PartRevision")
     overall_result = _normalized_result(_text(inspection, "OverallResult"), "unknown")
     evidence = {
         "schema_version": SCHEMA_VERSION,
         "evidence_type": "inspection_evidence",
-        "source_type": _text(inspection, "SourceType", "other_inspection_source"),
+        "source_type": source_type,
+        "source_type_raw": source_type_raw,
         "package_id": package_id,
         "inspected_part": inspected_part,
         "inspected_at": inspected_at,
-        "inspection_status": _text(inspection, "InspectionStatus", "completed"),
-        "inspector": _text(inspection, "Inspector"),
-        "reviewed_by": _text(inspection, "ReviewedBy"),
-        "part_revision": _text(inspection, "PartRevision"),
+        "inspection_status": inspection_status,
+        "inspector": inspector,
+        "reviewed_by": reviewed_by,
+        "part_revision": part_revision,
         "units": units,
         "measurement_system": _measurement_system(units),
         "overall_result": overall_result,
@@ -131,6 +149,20 @@ def parse_qif_lite_xml(path: Path, source_ref: str) -> dict[str, Any]:
         rejection_reasons.append("missing_inspected_part")
     if not inspected_at:
         rejection_reasons.append("missing_inspected_at")
+    if not source_type_raw:
+        rejection_reasons.append("missing_source_type")
+    elif source_type != normalized_source_type:
+        rejection_reasons.append("unsupported_source_type")
+    if not inspection_status_raw:
+        rejection_reasons.append("missing_inspection_status")
+    elif inspection_status not in FINAL_INSPECTION_STATUSES:
+        rejection_reasons.append("inspection_status_not_final")
+    if not inspector:
+        rejection_reasons.append("missing_inspector")
+    if not reviewed_by:
+        rejection_reasons.append("missing_reviewed_by")
+    if not part_revision:
+        rejection_reasons.append("missing_part_revision")
     if overall_result not in FINAL_OVERALL_RESULTS:
         rejection_reasons.append("overall_result_not_final")
     rejection_reasons.extend(feature_rejection_reasons)

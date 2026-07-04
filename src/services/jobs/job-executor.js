@@ -33,6 +33,10 @@ import { discoverInspectionEvidenceIntake } from '../inspection-evidence-intake/
 import { buildInspectionEvidencePromotionDryRunManifest } from '../inspection-evidence-intake/promotion-dry-run-service.js';
 import { writeStage5bEvidenceAuditBundle } from '../inspection-evidence-intake/stage5b-evidence-audit-service.js';
 import {
+  assertValidEvidenceGraph,
+  buildEvidenceGraph,
+} from '../evidence-graph/evidence-graph-service.js';
+import {
   assertValidStage5bIntakeReport,
   assertValidStage5bPromotionDryRunManifest,
 } from '../inspection-evidence-intake/stage5b-runtime-validation.js';
@@ -88,6 +92,7 @@ const DIRECT_JOB_PATH_FIELDS = Object.freeze({
   ],
   'compare-rev': ['baseline_path', 'candidate_path'],
   'readiness-pack': ['review_pack_path', 'process_plan_path', 'quality_risk_path'],
+  'evidence-graph': ['review_pack_path', 'readiness_report_path'],
   'stabilization-review': ['baseline_path', 'candidate_path'],
   'generate-standard-docs': ['config_path', 'readiness_report_path'],
   pack: ['readiness_report_path', 'docs_manifest_path'],
@@ -525,6 +530,34 @@ function validatePromotionDryRunRequest(request, errors) {
   }
 }
 
+function validateEvidenceGraphRequest(request, errors) {
+  if (request.type !== 'evidence-graph') return;
+
+  const packageId = typeof request.package_id === 'string' ? request.package_id.trim() : '';
+  if (!packageId) {
+    errors.push('evidence-graph package_id must be a non-empty string.');
+  } else if (
+    packageId === '.'
+    || packageId === '..'
+    || packageId.includes('/')
+    || packageId.includes('\\')
+    || packageId.includes('\0')
+    || packageId.startsWith('~')
+  ) {
+    errors.push('evidence-graph package_id must be a safe package slug.');
+  }
+
+  [
+    ['review_pack_path', request.review_pack_path],
+    ['readiness_report_path', request.readiness_report_path],
+  ].forEach(([fieldName, value]) => {
+    if (typeof value !== 'string' || value.trim().length === 0) return;
+    if (!isSafeRepoRelativeJsonPath(value)) {
+      errors.push(`evidence-graph ${fieldName} must be a safe repo-relative JSON path.`);
+    }
+  });
+}
+
 function validateInspectionEvidenceIntakeRequest(request, errors) {
   if (request.type !== 'inspection-evidence-intake') return;
   if (request.options !== undefined && !isPlainObject(request.options)) return;
@@ -602,6 +635,7 @@ export function validateJobRequest(body) {
     validateDirectJobPathFields(request, errors);
     validateInspectionEvidenceIntakeRequest(request, errors);
     validatePromotionDryRunRequest(request, errors);
+    validateEvidenceGraphRequest(request, errors);
     validateStage5bAuditRequest(request, errors);
   }
 
@@ -984,6 +1018,29 @@ export function createJobExecutor({
     };
   }
 
+  async function executeEvidenceGraph(job) {
+    await ensureJobArtifactDir(jobStore, job.id);
+    const reviewPackPath = resolveMaybe(projectRoot, job.request.review_pack_path);
+    const readinessReportPath = resolveMaybe(projectRoot, job.request.readiness_report_path);
+    const reviewPack = await readJsonFile(reviewPackPath);
+    const readinessReport = await readJsonFile(readinessReportPath);
+    const graph = assertValidEvidenceGraph(buildEvidenceGraph({
+      packageId: job.request.package_id,
+      reviewPack,
+      readinessReport,
+      reviewPackPath: job.request.review_pack_path,
+      readinessReportPath: job.request.readiness_report_path,
+    }));
+    const outputPath = buildJobArtifactPath(jobStore, job.id, 'evidence_graph.json');
+    await jobStore.writeJobFile(job.id, 'artifacts/evidence_graph.json', `${JSON.stringify(graph, null, 2)}\n`);
+    return {
+      graph,
+      outputPath,
+      reviewPackPath,
+      readinessReportPath,
+    };
+  }
+
   async function executeStabilizationReview(job) {
     await ensureJobArtifactDir(jobStore, job.id);
     const baselineImport = await resolveBundleBackedCanonicalPath({
@@ -1276,6 +1333,7 @@ export function createJobExecutor({
         executeReviewContext,
         executeCompareRev,
         executeReadinessPack,
+        executeEvidenceGraph,
         executeStabilizationReview,
         executeGenerateStandardDocs,
         executePack,

@@ -125,6 +125,14 @@ function minimalLocalApiJobRequest(command) {
   if (command === 'readiness-pack') {
     return { type: command, review_pack_path: 'output/review_pack.json' };
   }
+  if (command === 'evidence-graph') {
+    return {
+      type: command,
+      package_id: 'quality-pass-bracket',
+      review_pack_path: 'docs/examples/quality-pass-bracket/review/review_pack.json',
+      readiness_report_path: 'docs/examples/quality-pass-bracket/readiness/readiness_report.json',
+    };
+  }
   if (command === 'generate-standard-docs') {
     return { type: command, config_path: 'configs/examples/quality_pass_bracket.toml', readiness_report_path: 'output/readiness_report.json' };
   }
@@ -161,6 +169,14 @@ function minimalStudioSubmission(command) {
   }
   if (command === 'stage5b-evidence-audit') {
     return { type: command, options: { include_github: false } };
+  }
+  if (command === 'evidence-graph') {
+    return {
+      type: command,
+      package_id: 'quality-pass-bracket',
+      review_pack_path: 'docs/examples/quality-pass-bracket/review/review_pack.json',
+      readiness_report_path: 'docs/examples/quality-pass-bracket/readiness/readiness_report.json',
+    };
   }
   if (STUDIO_PAIRED_ARTIFACT_JOB_COMMANDS.includes(command)) {
     return {
@@ -252,6 +268,7 @@ assertSameCommands(
     'inspect',
     'report',
     'review-context',
+    'evidence-graph',
     'inspection-evidence-intake',
     'inspection-evidence-promotion-dry-run',
     'stage5b-evidence-audit',

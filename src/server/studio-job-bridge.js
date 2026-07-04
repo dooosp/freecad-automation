@@ -125,6 +125,17 @@ function canonicalReentryError(command, targets = []) {
   return `${command} requires ${artifactDescription} with AF contract metadata re-entry target ${targets.join(' or ')}.`;
 }
 
+function isSafePackageSlug(value) {
+  const raw = trimOptionalString(value);
+  return Boolean(raw)
+    && raw !== '.'
+    && raw !== '..'
+    && !raw.includes('/')
+    && !raw.includes('\\')
+    && !raw.includes('\0')
+    && !raw.startsWith('~');
+}
+
 export function validateStudioJobSubmission(body) {
   if (!isPlainObject(body)) {
     return { ok: false, errors: ['Request body must be a JSON object.'] };
@@ -138,6 +149,7 @@ export function validateStudioJobSubmission(body) {
     'artifact_ref',
     'baseline_artifact_ref',
     'candidate_artifact_ref',
+    'package_id',
     'context_path',
     'model_path',
     'bom_path',
@@ -150,6 +162,8 @@ export function validateStudioJobSubmission(body) {
     'feature_catalog_path',
     'dfm_report_path',
     'compare_to_path',
+    'review_pack_path',
+    'readiness_report_path',
     'intake_report_path',
     'drawing_settings',
     'drawing_preview_id',
@@ -176,6 +190,8 @@ export function validateStudioJobSubmission(body) {
   const hasModelPath = trimOptionalString(request.model_path).length > 0;
   const hasCompareToPath = trimOptionalString(request.compare_to_path).length > 0;
   const hasIntakeReportPath = trimOptionalString(request.intake_report_path).length > 0;
+  const hasReviewPackPath = trimOptionalString(request.review_pack_path).length > 0;
+  const hasReadinessReportPath = trimOptionalString(request.readiness_report_path).length > 0;
 
   validateArtifactRef(request.artifact_ref, 'artifact_ref', errors);
   validateArtifactRef(request.baseline_artifact_ref, 'baseline_artifact_ref', errors);
@@ -200,6 +216,8 @@ export function validateStudioJobSubmission(body) {
     'feature_catalog_path',
     'dfm_report_path',
     'compare_to_path',
+    'review_pack_path',
+    'readiness_report_path',
     'intake_report_path',
   ].forEach((fieldName) => {
     if (request[fieldName] !== undefined && trimOptionalString(request[fieldName]).length === 0) {
@@ -224,6 +242,14 @@ export function validateStudioJobSubmission(body) {
       errors.push(`${fieldName} must be a safe repo-relative path.`);
     }
   });
+  [
+    'review_pack_path',
+    'readiness_report_path',
+  ].forEach((fieldName) => {
+    if (request[fieldName] !== undefined && trimOptionalString(request[fieldName]).length > 0 && !isSafeRepoRelativeJsonPath(request[fieldName])) {
+      errors.push(`${fieldName} must be a safe repo-relative JSON path.`);
+    }
+  });
 
   if (request.type === 'review-context') {
     if (!hasContextPath && !hasModelPath) {
@@ -231,6 +257,42 @@ export function validateStudioJobSubmission(body) {
     }
     if (hasConfigToml || hasArtifactRef || hasBaselineArtifactRef || hasCandidateArtifactRef) {
       errors.push('review-context does not accept config_toml, artifact_ref, baseline_artifact_ref, or candidate_artifact_ref.');
+    }
+  } else if (request.type === 'evidence-graph') {
+    const unsupportedEvidenceGraphFields = [
+      'config_toml',
+      'artifact_ref',
+      'baseline_artifact_ref',
+      'candidate_artifact_ref',
+      'context_path',
+      'model_path',
+      'bom_path',
+      'inspection_path',
+      'quality_path',
+      'create_quality_path',
+      'drawing_quality_path',
+      'drawing_qa_path',
+      'drawing_intent_path',
+      'feature_catalog_path',
+      'dfm_report_path',
+      'compare_to_path',
+      'intake_report_path',
+      'drawing_settings',
+      'drawing_preview_id',
+      'drawing_plan',
+      'report_options',
+    ].filter((fieldName) => request[fieldName] !== undefined);
+    if (unsupportedEvidenceGraphFields.length > 0) {
+      errors.push(`evidence-graph does not accept ${unsupportedEvidenceGraphFields.join(', ')}.`);
+    }
+    if (!isSafePackageSlug(request.package_id)) {
+      errors.push('evidence-graph package_id must be a safe package slug.');
+    }
+    if (!hasReviewPackPath) {
+      errors.push('evidence-graph requires review_pack_path.');
+    }
+    if (!hasReadinessReportPath) {
+      errors.push('evidence-graph requires readiness_report_path.');
     }
   } else if (request.type === 'inspection-evidence-intake') {
     const unsupportedIntakeFields = [
@@ -412,6 +474,20 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
         ...(trimOptionalString(request.feature_catalog_path) ? { feature_catalog_path: trimOptionalString(request.feature_catalog_path) } : {}),
         ...(trimOptionalString(request.dfm_report_path) ? { dfm_report_path: trimOptionalString(request.dfm_report_path) } : {}),
         ...(trimOptionalString(request.compare_to_path) ? { compare_to_path: trimOptionalString(request.compare_to_path) } : {}),
+        ...(isPlainObject(request.options) ? { options: structuredClone(request.options) } : {}),
+      },
+    };
+  }
+
+  if (request.type === 'evidence-graph') {
+    return {
+      ok: true,
+      errors: [],
+      request: {
+        type: 'evidence-graph',
+        package_id: trimOptionalString(request.package_id),
+        review_pack_path: trimOptionalString(request.review_pack_path),
+        readiness_report_path: trimOptionalString(request.readiness_report_path),
         ...(isPlainObject(request.options) ? { options: structuredClone(request.options) } : {}),
       },
     };

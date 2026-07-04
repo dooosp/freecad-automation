@@ -20,7 +20,7 @@ const validateQifLiteReport = ajv.compile(QIF_LITE_REPORT_SCHEMA);
 test('adaptQifLiteInspectionXml returns inspection evidence shaped payload', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'fcad-qif-lite-'));
   const input = join(dir, 'supplier.xml');
-  await writeFile(input, '<QIFDocument><Inspection><PackageId>quality-pass-bracket</PackageId><InspectedPart>part-a</InspectedPart><InspectedAt>2026-07-01T09:00:00Z</InspectedAt><SourceType>supplier_inspection_report</SourceType><OverallResult>pass</OverallResult><Units>mm</Units><Feature><FeatureId>HOLE_DIA</FeatureId><MeasuredValue>6.01</MeasuredValue><Result>pass</Result><MeasurementMethod>CMM</MeasurementMethod></Feature></Inspection></QIFDocument>', 'utf8');
+  await writeFile(input, '<QIFDocument><Inspection><PackageId>quality-pass-bracket</PackageId><InspectedPart>part-a</InspectedPart><InspectedAt>2026-07-01T09:00:00Z</InspectedAt><SourceType>supplier_inspection_report</SourceType><InspectionStatus>completed</InspectionStatus><Inspector>Supplier QA</Inspector><ReviewedBy>Incoming QA</ReviewedBy><PartRevision>A</PartRevision><OverallResult>pass</OverallResult><Units>mm</Units><Feature><FeatureId>HOLE_DIA</FeatureId><MeasuredValue>6.01</MeasuredValue><Result>pass</Result><MeasurementMethod>CMM</MeasurementMethod></Feature></Inspection></QIFDocument>', 'utf8');
 
   const report = await adaptQifLiteInspectionXml({
     inputPath: input,
@@ -40,7 +40,7 @@ test('adaptQifLiteInspectionXml returns inspection evidence shaped payload', asy
 test('adaptQifLiteInspectionXml rejects candidate when only feature is not measured', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'fcad-qif-lite-'));
   const input = join(dir, 'supplier.xml');
-  await writeFile(input, '<QIFDocument><Inspection><PackageId>quality-pass-bracket</PackageId><InspectedPart>part-a</InspectedPart><InspectedAt>2026-07-01T09:00:00Z</InspectedAt><SourceType>supplier_inspection_report</SourceType><OverallResult>pass</OverallResult><Units>mm</Units><Feature><FeatureId>HOLE_DIA</FeatureId><Result>not_measured</Result><MeasurementMethod>CMM</MeasurementMethod></Feature></Inspection></QIFDocument>', 'utf8');
+  await writeFile(input, '<QIFDocument><Inspection><PackageId>quality-pass-bracket</PackageId><InspectedPart>part-a</InspectedPart><InspectedAt>2026-07-01T09:00:00Z</InspectedAt><SourceType>supplier_inspection_report</SourceType><InspectionStatus>completed</InspectionStatus><Inspector>Supplier QA</Inspector><ReviewedBy>Incoming QA</ReviewedBy><PartRevision>A</PartRevision><OverallResult>pass</OverallResult><Units>mm</Units><Feature><FeatureId>HOLE_DIA</FeatureId><Result>not_measured</Result><MeasurementMethod>CMM</MeasurementMethod></Feature></Inspection></QIFDocument>', 'utf8');
 
   const report = await adaptQifLiteInspectionXml({
     inputPath: input,
@@ -70,6 +70,31 @@ test('adaptQifLiteInspectionXml rejects candidate with missing required metadata
   assert.equal(report.classification.rejection_reasons.includes('missing_package_id'), true);
   assert.equal(report.classification.rejection_reasons.includes('missing_inspected_part'), true);
   assert.equal(report.classification.rejection_reasons.includes('missing_inspected_at'), true);
+  assert.equal(report.classification.rejection_reasons.includes('missing_inspection_status'), true);
+  assert.equal(report.classification.rejection_reasons.includes('missing_inspector'), true);
+  assert.equal(report.classification.rejection_reasons.includes('missing_reviewed_by'), true);
+  assert.equal(report.classification.rejection_reasons.includes('missing_part_revision'), true);
+  assert.equal(
+    validateQifLiteReport(report),
+    true,
+    `adapter report should satisfy schema: ${ajv.errorsText(validateQifLiteReport.errors)}`
+  );
+});
+
+test('adaptQifLiteInspectionXml rejects unsupported source types without emitting schema-invalid reports', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'fcad-qif-lite-'));
+  const input = join(dir, 'supplier.xml');
+  await writeFile(input, '<QIFDocument><Inspection><PackageId>quality-pass-bracket</PackageId><InspectedPart>part-a</InspectedPart><InspectedAt>2026-07-01T09:00:00Z</InspectedAt><SourceType>totally_fake_source</SourceType><InspectionStatus>completed</InspectionStatus><Inspector>Supplier QA</Inspector><ReviewedBy>Incoming QA</ReviewedBy><PartRevision>A</PartRevision><OverallResult>pass</OverallResult><Units>mm</Units><Feature><FeatureId>HOLE_DIA</FeatureId><MeasuredValue>6.01</MeasuredValue><Result>pass</Result><MeasurementMethod>CMM</MeasurementMethod></Feature></Inspection></QIFDocument>', 'utf8');
+
+  const report = await adaptQifLiteInspectionXml({
+    inputPath: input,
+    sourceRef: 'docs/examples/quality-pass-bracket/inspection/supplier.xml',
+  });
+
+  assert.equal(report.classification.attachment_ready_candidate, false);
+  assert.equal(report.inspection_evidence.source_type, 'other_inspection_source');
+  assert.equal(report.inspection_evidence.source_type_raw, 'totally_fake_source');
+  assert.equal(report.classification.rejection_reasons.includes('unsupported_source_type'), true);
   assert.equal(
     validateQifLiteReport(report),
     true,

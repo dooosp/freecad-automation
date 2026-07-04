@@ -103,6 +103,18 @@ export const localApiJobRequestSchema = {
     {
       type: 'object',
       additionalProperties: false,
+      required: ['type', 'package_id', 'review_pack_path', 'readiness_report_path'],
+      properties: {
+        type: { const: 'evidence-graph' },
+        package_id: { type: 'string', minLength: 1 },
+        review_pack_path: { type: 'string', minLength: 1 },
+        readiness_report_path: { type: 'string', minLength: 1 },
+        options: { type: 'object' },
+      },
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
       required: ['type', 'baseline_path', 'candidate_path'],
       properties: {
         type: { const: 'stabilization-review' },
@@ -215,6 +227,7 @@ export const publicJobRequestSchema = {
         source_artifact_id: { type: 'string', minLength: 1 },
         source_artifact_type: { type: 'string', minLength: 1 },
         source_label: { type: 'string', minLength: 1 },
+        package_id: { type: 'string', minLength: 1 },
         context_path: { type: 'string', minLength: 1 },
         model_path: { type: 'string', minLength: 1 },
         bom_path: { type: 'string', minLength: 1 },
