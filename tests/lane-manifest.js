@@ -66,6 +66,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'Bootstrap import service contracts', args: Object.freeze(['tests/bootstrap-import-service.test.js']) }),
       Object.freeze({ label: 'Evidence linkage side-input contract', args: Object.freeze(['tests/evidence-linkage-side-input-contract.test.js']) }),
       Object.freeze({ label: 'Inspection evidence contract', args: Object.freeze(['tests/inspection-evidence-contract.test.js']) }),
+      Object.freeze({ label: 'QIF-lite inspection adapter', args: Object.freeze(['tests/qif-lite-inspection-adapter.test.js']) }),
       Object.freeze({ label: 'Inspection evidence intake automation', args: Object.freeze(['tests/inspection-evidence-intake.test.js']) }),
       Object.freeze({ label: 'Inspection evidence promotion dry-run', args: Object.freeze(['tests/inspection-evidence-promotion-dry-run.test.js']) }),
       Object.freeze({ label: 'Stage 5B no-evidence CLI lane', args: Object.freeze(['tests/stage5b-no-evidence-lane.test.js']) }),
