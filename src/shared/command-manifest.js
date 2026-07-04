@@ -293,6 +293,21 @@ const COMMAND_MANIFEST = Object.freeze([
     }),
   }),
   Object.freeze({
+    name: 'evidence-graph',
+    helpSection: 'plain-python-node',
+    helpEntries: Object.freeze([
+      Object.freeze({
+        usage: 'fcad evidence-graph --package <slug> --review-pack <review_pack.json> --readiness <readiness_report.json> --out <evidence_graph.json>',
+        summary: 'Build a non-mutating evidence graph artifact from existing review and readiness JSON',
+      }),
+    ]),
+    runtime: Object.freeze({
+      classification: 'plain-python-node',
+      requiresFreecadRuntime: false,
+      note: 'Reads existing review-pack and readiness-report JSON, writes only the explicit graph output, and never attaches evidence, regenerates readiness, or mutates canonical package files.',
+    }),
+  }),
+  Object.freeze({
     name: 'inspection-evidence-intake',
     helpSection: 'plain-python-node',
     helpEntries: Object.freeze([

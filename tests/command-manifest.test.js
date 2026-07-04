@@ -56,6 +56,7 @@ assert.match(cliHelp, /fcad stage5b-evidence-source-kit \[--package <canonical-p
 assert.match(cliHelp, /fcad stage5b-evidence-source-preflight \[--package <canonical-package-slug>\] \[--source <raw-source\.json\|csv\|tsv>\] \[--out <report\.json>\]/i);
 assert.match(cliHelp, /fcad stage5b-evidence-attachment-controller --review-manifest <manifest\.json> --authorization-record <path-or-url> --out-dir <ignored-dir> \[--dry-run\]/i);
 assert.match(cliHelp, /fcad stage5b-surrogate-inspection-validation --out-dir <dir> \[--package <canonical-package-slug>\]/i);
+assert.match(cliHelp, /fcad evidence-graph --package <slug> --review-pack <review_pack\.json> --readiness <readiness_report\.json> --out <evidence_graph\.json>/i);
 assert.match(cliHelp, /fcad pack --readiness <readiness_report\.json>[\s\S]*--out <release_bundle\.zip> \[--generated-at <iso8601>\]/i);
 assert.match(cliHelp, /fcad review-context --model <file>[\s\S]*\[--inspection-evidence inspection_evidence\.json --attachment-authorization authorization_record\.json\][\s\S]*--out <review_pack\.json>/i);
 assert.match(cliHelp, /--inspection-evidence <path>\s+Genuine completed inspection evidence JSON side input for review-context; requires Stage 5B attachment authorization/i);
@@ -121,6 +122,7 @@ assert.equal(PLAIN_PYTHON_COMMANDS.includes('stage5b-evidence-source-kit'), true
 assert.equal(PLAIN_PYTHON_COMMANDS.includes('stage5b-evidence-source-preflight'), true);
 assert.equal(PLAIN_PYTHON_COMMANDS.includes('stage5b-evidence-attachment-controller'), true);
 assert.equal(PLAIN_PYTHON_COMMANDS.includes('stage5b-surrogate-inspection-validation'), true);
+assert.equal(PLAIN_PYTHON_COMMANDS.includes('evidence-graph'), true);
 assert.deepEqual(STUDIO_ARTIFACT_JOB_COMMANDS, ['readiness-pack', 'generate-standard-docs', 'pack']);
 assert.deepEqual(STUDIO_PAIRED_ARTIFACT_JOB_COMMANDS, ['compare-rev', 'stabilization-review']);
 assert.deepEqual(STUDIO_ARTIFACT_COMPATIBLE_JOB_COMMANDS, ['inspect', 'report', 'readiness-pack', 'generate-standard-docs', 'pack', 'inspection-evidence-promotion-dry-run']);
