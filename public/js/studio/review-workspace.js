@@ -24,6 +24,7 @@ import {
   deriveRecentJobDecisionState,
   formatRecentJobQualityLine,
 } from './recent-job-quality-status.js';
+import { renderEvidenceGraphSummary } from './evidence-graph-panel.js';
 import { applyTranslations } from '../i18n/index.js';
 
 function ensureReviewState(review = {}) {
@@ -227,6 +228,10 @@ function renderDetailSummary(card) {
       title: `${card.title} section is empty`,
       copy: card.summary,
     });
+  }
+
+  if (card.graphSummary) {
+    return renderEvidenceGraphSummary(card.graphSummary);
   }
 
   return createInfoGrid(
@@ -633,6 +638,8 @@ export function mountReviewWorkspace({ root, state, addLog, openJob, submitTrack
           || findBy('stage5b_audit_manifest', '.json'),
         stage5bValidationDiagnostics: findBy('stage5b.validation-diagnostics', '.json')
           || findBy('validation_diagnostics', '.json'),
+        evidenceGraph: findBy('evidence-graph', '.json')
+          || findBy('evidence_graph', '.json'),
       };
 
       const sourceEntries = Object.entries(sourceArtifacts).filter(([, artifact]) => artifact);

@@ -6,6 +6,7 @@ import {
   isRevisionComparisonArtifact,
   isStabilizationReviewArtifact,
 } from './artifact-actions.js';
+import { EVIDENCE_GRAPH_BOUNDARY } from './evidence-graph-panel.js';
 
 const TEXT_CONTENT_TYPES = [
   'application/json',
@@ -764,6 +765,7 @@ function buildCard({
   raw = null,
   empty = false,
   provenance = [],
+  graphSummary = null,
 }) {
   return {
     id,
@@ -777,7 +779,68 @@ function buildCard({
     raw,
     empty,
     provenance,
+    graphSummary,
   };
+}
+
+function graphSummary(document = {}) {
+  if (!isPlainObject(document)) return {};
+  return isPlainObject(document.summary) ? document.summary : document;
+}
+
+function formatEvidenceGraphCount(value) {
+  return Number.isFinite(value) ? String(value) : 'Unknown';
+}
+
+function evidenceGraphTone(summary = {}) {
+  const status = String(summary.readiness_status || '').toLowerCase();
+  const gate = String(summary.readiness_gate_decision || '').toLowerCase();
+  if (status === 'needs_more_evidence' || gate === 'hold_for_evidence_completion') return 'warn';
+  return Number(summary.inspection_evidence_record_count) > 0 ? 'ok' : 'info';
+}
+
+function buildEvidenceGraphCard({
+  graph = {},
+  artifact = null,
+  raw = null,
+  activeManifest = null,
+} = {}) {
+  const summary = graphSummary(graph);
+  const readinessStatus = formatReviewDisplayValue(summary.readiness_status, 'Unknown');
+  const gateDecision = formatReviewDisplayValue(summary.readiness_gate_decision, 'Unknown');
+  const inspectionEvidenceRecords = formatEvidenceGraphCount(summary.inspection_evidence_record_count);
+  const generatedArtifacts = formatEvidenceGraphCount(summary.generated_artifact_count);
+
+  return buildCard({
+    id: 'evidence-graph',
+    title: 'Evidence graph',
+    tone: evidenceGraphTone(summary),
+    score: Number.isFinite(summary.inspection_evidence_record_count)
+      ? summary.inspection_evidence_record_count
+      : null,
+    status: readinessStatus,
+    summary: `${readinessStatus} / ${gateDecision}; inspection evidence records: ${inspectionEvidenceRecords}; generated artifacts: ${generatedArtifacts}. ${EVIDENCE_GRAPH_BOUNDARY}`,
+    artifact,
+    normalized: [
+      buildReviewDisplayField('Readiness status', readinessStatus),
+      buildReviewDisplayField('Gate decision', gateDecision),
+      buildReviewDisplayField('Inspection evidence records', inspectionEvidenceRecords),
+      buildReviewDisplayField('Generated artifacts', generatedArtifacts),
+      buildReviewDisplayField('Nodes', formatEvidenceGraphCount(summary.node_count)),
+      buildReviewDisplayField('Edges', formatEvidenceGraphCount(summary.edge_count)),
+      buildReviewDisplayField('Evidence boundary', EVIDENCE_GRAPH_BOUNDARY),
+    ],
+    raw,
+    provenance: [
+      ...manifestNotes(activeManifest, artifact),
+      EVIDENCE_GRAPH_BOUNDARY,
+      'Preview is limited to registered tracked job artifact routes; no arbitrary local file path is opened.',
+    ],
+    graphSummary: {
+      ...summary,
+      evidence_boundary: EVIDENCE_GRAPH_BOUNDARY,
+    },
+  });
 }
 
 function formatValidationDiagnostic(diagnostic = {}) {
@@ -989,6 +1052,8 @@ export function buildReviewCards({ activeJob, artifacts = [], sourceMap = {} }) 
   const validationDiagnostics = sourceMap.stage5bValidationDiagnostics
     || activeJob?.diagnostics?.stage5b_validation_diagnostics
     || null;
+  const evidenceGraphArtifact = findArtifact(artifacts, ['evidence-graph', 'evidence_graph']);
+  const evidenceGraph = sourceMap.evidenceGraph;
   const stage5bAuditArtifact = findArtifact(artifacts, ['stage5b.evidence-audit-manifest', 'stage5b-evidence-audit', 'stage5b_audit_manifest']);
   const stage5bAudit = sourceMap.stage5bAudit;
   const inspectionIntakeArtifact = findArtifact(artifacts, ['inspection-evidence.intake-report', 'inspection-evidence-intake-report', 'intake-report']);
@@ -1016,6 +1081,16 @@ export function buildReviewCards({ activeJob, artifacts = [], sourceMap = {} }) 
             diagnosticsPayload: validationDiagnostics,
             artifact: validationDiagnosticsArtifact,
             raw: sourceMap.stage5bValidationDiagnosticsRaw,
+            activeManifest: manifest,
+          }),
+        ]
+      : []),
+    ...(evidenceGraph
+      ? [
+          buildEvidenceGraphCard({
+            graph: evidenceGraph,
+            artifact: evidenceGraphArtifact,
+            raw: sourceMap.evidenceGraphRaw,
             activeManifest: manifest,
           }),
         ]

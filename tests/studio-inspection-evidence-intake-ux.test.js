@@ -8,6 +8,8 @@ import {
   buildStage5bEvidenceAuditCard,
   buildReviewCards,
 } from '../public/js/studio/artifact-insights.js';
+import { EVIDENCE_GRAPH_BOUNDARY } from '../public/js/studio/evidence-graph-panel.js';
+import { translateText } from '../public/js/i18n/index.js';
 import { renderReviewWorkspace } from '../public/js/studio/review-workspace.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
@@ -359,6 +361,40 @@ const validationDiagnosticsArtifact = {
   },
 };
 
+const evidenceGraph = {
+  schema_version: '1.0',
+  package_id: 'quality-pass-bracket',
+  summary: {
+    node_count: 6,
+    edge_count: 5,
+    inspection_evidence_record_count: 0,
+    generated_artifact_count: 5,
+    readiness_gate_decision: 'hold_for_evidence_completion',
+    readiness_status: 'needs_more_evidence',
+  },
+  nodes: [],
+  edges: [],
+};
+
+const evidenceGraphArtifact = {
+  id: 'evidence-graph-0',
+  key: 'Evidence graph',
+  type: 'evidence-graph',
+  file_name: 'evidence_graph.json',
+  extension: '.json',
+  content_type: 'application/json; charset=utf-8',
+  exists: true,
+  capabilities: {
+    can_open: true,
+    can_download: true,
+    browser_safe: true,
+  },
+  links: {
+    open: '/jobs/job-graph/artifacts/evidence-graph-0/content',
+    download: '/jobs/job-graph/artifacts/evidence-graph-0/content?download=1',
+  },
+};
+
 const raw = JSON.stringify(intakeReport, null, 2);
 const card = buildInspectionEvidenceIntakeCard({
   report: intakeReport,
@@ -523,6 +559,52 @@ assert.equal(validationNormalized['Artifact type'], 'inspection_evidence_intake_
 assert.match(validationNormalized['Top diagnostic'], /stage5b\.generated_control_artifact_not_evidence/);
 assert.match(validationNormalized['Remediation'], /genuine completed physical\/supplier\/lab\/QA inspection records/);
 assert.match(validationNormalized['Evidence boundary'], /Only genuine completed physical\/supplier\/lab\/QA inspection records/);
+
+const evidenceGraphCards = buildReviewCards({
+  activeJob: {
+    manifest: {
+      command: 'evidence-graph',
+    },
+  },
+  artifacts: [evidenceGraphArtifact],
+  sourceMap: {
+    evidenceGraph,
+    evidenceGraphRaw: JSON.stringify(evidenceGraph, null, 2),
+  },
+});
+assert.equal(evidenceGraphCards[0].id, 'evidence-graph');
+assert.equal(evidenceGraphCards[0].title, 'Evidence graph');
+assert.equal(evidenceGraphCards[0].status, 'needs_more_evidence');
+assert.equal(evidenceGraphCards[0].tone, 'warn');
+const evidenceGraphNormalized = Object.fromEntries(evidenceGraphCards[0].normalized);
+assert.equal(evidenceGraphNormalized['Readiness status'], 'needs_more_evidence');
+assert.equal(evidenceGraphNormalized['Gate decision'], 'hold_for_evidence_completion');
+assert.equal(evidenceGraphNormalized['Inspection evidence records'], '0');
+assert.equal(evidenceGraphNormalized['Generated artifacts'], '5');
+assert.match(
+  evidenceGraphNormalized['Evidence boundary'],
+  /generated review\/control metadata.*do not satisfy inspection_evidence/i
+);
+assert.equal(
+  evidenceGraphCards[0].provenance.some((note) => /generated review\/control metadata.*not inspection evidence/i.test(note)),
+  true
+);
+
+assert.equal(translateText('Evidence graph', 'ko'), '근거 그래프');
+assert.equal(translateText('Evidence decision', 'ko'), '근거 결정');
+assert.equal(translateText('Evidence graph summary', 'ko'), '근거 그래프 요약');
+assert.equal(translateText('Readiness status', 'ko'), '준비 상태');
+assert.equal(translateText('Readiness status: needs_more_evidence', 'ko'), '준비 상태: 추가 근거 필요');
+assert.equal(translateText('Gate decision: hold_for_evidence_completion', 'ko'), '게이트 결정: 근거 완료까지 보류');
+assert.equal(translateText('Inspection evidence records', 'ko'), '검사 근거 기록');
+assert.equal(translateText('Inspection evidence records: 0', 'ko'), '검사 근거 기록: 0');
+assert.equal(translateText('Generated artifacts', 'ko'), '생성된 산출물');
+assert.equal(translateText('Nodes', 'ko'), '노드');
+assert.equal(translateText('needs_more_evidence', 'ko'), '추가 근거 필요');
+assert.equal(
+  translateText(EVIDENCE_GRAPH_BOUNDARY, 'ko'),
+  'Evidence graph 산출물은 생성된 검토/제어 메타데이터일 뿐입니다. 생성/검토/제어 그래프 노드는 검사 근거가 아니며 inspection_evidence를 충족하지 않습니다. 완료된 실제 물리/공급업체/랩/QA 검사 기록만 inspection_evidence를 충족할 수 있습니다.'
+);
 
 globalThis.document = {
   createElement(tagName) {
