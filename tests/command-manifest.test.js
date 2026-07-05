@@ -49,6 +49,8 @@ assert.match(cliHelp, /fcad check-runtime \[--json\] \[--redact-paths\]/);
 assert.match(cliHelp, /fcad readiness-report <config\.toml\|json> \[--out <readiness_report\.json>\]\s+legacy compatibility \/ non-canonical/i);
 assert.match(cliHelp, /fcad generate-standard-docs <config\.toml\|json> --readiness-report <readiness_report\.json>/i);
 assert.match(cliHelp, /fcad closeout-package <canonical-package-slug> --mode software-demo \[--out-dir <dir>\] \[--strict-boundary\]/i);
+assert.match(cliHelp, /fcad evidence-readiness-audit \[--out-dir <dir>\] \[--package <canonical-package-slug>\] \[--generated-at <iso8601>\] \[--clean\]/i);
+assert.match(cliHelp, /fcad evidence-artifacts-materialize \[--package <canonical-package-slug>\] \[--generated-at <iso8601>\] \[--dry-run\] \[--force\]/i);
 assert.match(cliHelp, /fcad inspection-evidence-intake \[--package <canonical-package-slug>\] \[--out <report\.json>\] \[--include-github\]/i);
 assert.match(cliHelp, /fcad inspection-evidence-promotion-dry-run --intake-report <report\.json> \[--out <promotion_dry_run_manifest\.json>\]/i);
 assert.match(cliHelp, /fcad stage5b-evidence-audit --out-dir <dir> \[--include-github\]/i);
@@ -114,6 +116,8 @@ assert.deepEqual(DIAGNOSTIC_COMMANDS, ['check-runtime']);
 assert.equal(FREECAD_BACKED_COMMANDS.includes('inspect'), true);
 assert.equal(PLAIN_PYTHON_COMMANDS.includes('serve'), true);
 assert.equal(PLAIN_PYTHON_COMMANDS.includes('closeout-package'), true);
+assert.equal(PLAIN_PYTHON_COMMANDS.includes('evidence-readiness-audit'), true);
+assert.equal(PLAIN_PYTHON_COMMANDS.includes('evidence-artifacts-materialize'), true);
 assert.equal(PLAIN_PYTHON_COMMANDS.includes('inspection-evidence-intake'), true);
 assert.equal(PLAIN_PYTHON_COMMANDS.includes('inspection-evidence-promotion-dry-run'), true);
 assert.equal(PLAIN_PYTHON_COMMANDS.includes('stage5b-evidence-audit'), true);
@@ -125,6 +129,8 @@ assert.deepEqual(STUDIO_ARTIFACT_JOB_COMMANDS, ['readiness-pack', 'generate-stan
 assert.deepEqual(STUDIO_PAIRED_ARTIFACT_JOB_COMMANDS, ['compare-rev', 'stabilization-review']);
 assert.deepEqual(STUDIO_ARTIFACT_COMPATIBLE_JOB_COMMANDS, ['inspect', 'report', 'readiness-pack', 'generate-standard-docs', 'pack', 'inspection-evidence-promotion-dry-run']);
 assert.equal(LOCAL_API_JOB_COMMANDS.includes('review-context'), true);
+assert.equal(LOCAL_API_JOB_COMMANDS.includes('evidence-readiness-audit'), true);
+assert.equal(LOCAL_API_JOB_COMMANDS.includes('evidence-artifacts-materialize'), false);
 assert.equal(LOCAL_API_JOB_COMMANDS.includes('inspection-evidence-intake'), true);
 assert.equal(LOCAL_API_JOB_COMMANDS.includes('inspection-evidence-promotion-dry-run'), true);
 assert.equal(LOCAL_API_JOB_COMMANDS.includes('stage5b-evidence-audit'), true);
@@ -133,6 +139,8 @@ assert.equal(LOCAL_API_JOB_COMMANDS.includes('stage5b-evidence-source-preflight'
 assert.equal(LOCAL_API_JOB_COMMANDS.includes('stage5b-evidence-attachment-controller'), false);
 assert.equal(LOCAL_API_JOB_COMMANDS.includes('stage5b-surrogate-inspection-validation'), false);
 assert.equal(STUDIO_JOB_COMMANDS.includes('review-context'), false);
+assert.equal(STUDIO_JOB_COMMANDS.includes('evidence-readiness-audit'), true);
+assert.equal(STUDIO_JOB_COMMANDS.includes('evidence-artifacts-materialize'), false);
 assert.equal(STUDIO_JOB_COMMANDS.includes('inspection-evidence-intake'), true);
 assert.equal(STUDIO_JOB_COMMANDS.includes('inspection-evidence-promotion-dry-run'), true);
 assert.equal(STUDIO_JOB_COMMANDS.includes('stage5b-evidence-audit'), true);
@@ -142,7 +150,7 @@ assert.equal(STUDIO_JOB_COMMANDS.includes('stage5b-evidence-attachment-controlle
 assert.equal(STUDIO_JOB_COMMANDS.includes('stage5b-surrogate-inspection-validation'), false);
 assert.equal(
   formatCommandNameList(STUDIO_JOB_COMMANDS, { conjunction: 'or' }),
-  'create, draw, inspect, report, compare-rev, readiness-pack, stabilization-review, generate-standard-docs, pack, inspection-evidence-intake, inspection-evidence-promotion-dry-run, or stage5b-evidence-audit'
+  'create, draw, inspect, report, compare-rev, readiness-pack, stabilization-review, generate-standard-docs, pack, evidence-readiness-audit, inspection-evidence-intake, inspection-evidence-promotion-dry-run, or stage5b-evidence-audit'
 );
 
 const serveEntrypoints = getServeEntrypointMetadata();

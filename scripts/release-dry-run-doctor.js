@@ -7,6 +7,7 @@ import { mkdir } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 
 import { listZipEntries } from '../lib/zip-archive.js';
+import { writeEvidenceReadinessAudit } from '../src/services/evidence-readiness-audit/evidence-readiness-audit-service.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const DEFAULT_PACKAGE = 'quality-pass-bracket';
@@ -157,6 +158,8 @@ async function main() {
   const logPath = join(outputDir, 'release_bundle_log.json');
   const checksumsPath = join(outputDir, 'release_bundle_checksums.sha256');
   const artifactManifestPath = join(outputDir, 'release_bundle_artifact-manifest.json');
+  const evidenceAuditPath = join(outputDir, 'evidence_readiness_audit.json');
+  const evidenceAuditSummaryPath = join(outputDir, 'evidence_readiness_audit.md');
   const doctorReportPath = join(outputDir, 'release_dry_run_doctor_report.json');
 
   assert.equal(existsSync(readinessPath), true, `Missing canonical readiness input: ${repoRelative(readinessPath)}`);
@@ -169,6 +172,13 @@ async function main() {
   await mkdir(outputDir, { recursive: true });
 
   const statusBefore = gitStatus();
+  const evidenceAudit = await writeEvidenceReadinessAudit({
+    projectRoot: ROOT,
+    outDir: outputDir,
+    packageSlugs: [options.packageSlug],
+    generatedAt: options.generatedAt,
+    clean: false,
+  });
   const packRun = run(process.execPath, [
     'bin/fcad.js',
     'pack',
@@ -229,6 +239,7 @@ async function main() {
       canonical_readiness_regenerated: false,
       canonical_package_artifacts_mutated: false,
       inspection_evidence_attached: false,
+      evidence_readiness_audit_ran: true,
       stage5b_evidence_attached_or_promoted: false,
       git_tag_created: false,
       github_release_created: false,
@@ -245,12 +256,20 @@ async function main() {
       release_bundle_log: repoRelative(logPath),
       release_bundle_checksums: repoRelative(checksumsPath),
       release_bundle_artifact_manifest: repoRelative(artifactManifestPath),
+      evidence_readiness_audit: repoRelative(evidenceAuditPath),
+      evidence_readiness_audit_summary: repoRelative(evidenceAuditSummaryPath),
       doctor_report: repoRelative(doctorReportPath),
     },
     checks: {
       manifest_contract_command: manifest.contract?.command,
       zip_entry_count: zipEntries.length,
       checksum_line_count: checksumLineCount,
+      evidence_readiness_audit_decision: evidenceAudit.audit.summary.decision,
+      evidence_readiness_release_overclaim_risk_count: evidenceAudit.audit.summary.release_overclaim_risk_count,
+      evidence_readiness_evidence_graph_package_count: evidenceAudit.audit.summary.evidence_graph_package_count,
+      evidence_readiness_runtime_fingerprint_package_count: evidenceAudit.audit.summary.runtime_fingerprint_package_count,
+      evidence_readiness_qif_lite_package_count: evidenceAudit.audit.summary.qif_lite_package_count,
+      evidence_readiness_pr170_artifact_coverage: evidenceAudit.audit.summary.pr170_artifact_coverage,
       source_hygiene_after_dry_run: 'pass',
       git_status_unchanged_outside_ignored_outputs: true,
     },

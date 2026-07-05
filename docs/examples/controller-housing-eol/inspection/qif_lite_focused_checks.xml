@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<QIFLiteInspection schema_version="1.0" generated_at="2026-07-05T00:00:00.000Z" package_slug="controller-housing-eol" evidence_class="generated_or_control" inspection_evidence_attached="false">
+  <EvidenceBoundary>Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence. Generated evidence graph, runtime fingerprint, and QIF-lite artifacts are review/control artifacts and do not satisfy inspection_evidence.</EvidenceBoundary>
+  <Readiness status="needs_more_evidence" gate_decision="hold_for_evidence_completion" score="52" />
+  <FocusedCheck id="inspection_evidence" status="held_missing" trusted_inspection_evidence="false" source="readiness_report" />
+  <FocusedCheck id="generated_review_control_artifacts" status="review_only" trusted_inspection_evidence="false" count="13" />
+  <FocusedCheck id="record:geometry:stress_or_tooling:inner_corner_risk" status="review_only" trusted_inspection_evidence="false" kind="geometry_hotspot" />
+  <FocusedCheck id="record:package:create_quality_report:docs/examples/controller-housing-eol/quality/controller_housing_eol_create_quality.json" status="review_only" trusted_inspection_evidence="false" kind="create_quality_report" />
+  <FocusedCheck id="record:package:drawing_quality_report:docs/examples/controller-housing-eol/quality/controller_housing_eol_drawing_quality.json" status="review_only" trusted_inspection_evidence="false" kind="drawing_quality_report" />
+  <FocusedCheck id="record:package:drawing_qa_report:docs/examples/controller-housing-eol/quality/controller_housing_eol_drawing_qa.json" status="review_only" trusted_inspection_evidence="false" kind="drawing_qa_report" />
+  <FocusedCheck id="record:package:drawing_intent:docs/examples/controller-housing-eol/drawing/controller_housing_eol_drawing_intent.json" status="review_only" trusted_inspection_evidence="false" kind="drawing_intent" />
+  <FocusedCheck id="record:package:feature_catalog:docs/examples/controller-housing-eol/drawing/controller_housing_eol_feature_catalog.json" status="review_only" trusted_inspection_evidence="false" kind="feature_catalog" />
+</QIFLiteInspection>

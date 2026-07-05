@@ -1,0 +1,281 @@
+{
+  "artifact_type": "evidence_graph",
+  "schema_version": "1.0",
+  "generated_at": "2026-07-05T00:00:00.000Z",
+  "package_slug": "hinge-block",
+  "source_of_truth": {
+    "review_pack": "docs/examples/hinge-block/review/review_pack.json",
+    "readiness_report": "docs/examples/hinge-block/readiness/readiness_report.json"
+  },
+  "boundary": {
+    "generated_control_only": true,
+    "inspection_evidence_attached": false,
+    "readiness_regenerated": false,
+    "hard_evidence_rule": "Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence. Generated evidence graph, runtime fingerprint, and QIF-lite artifacts are review/control artifacts and do not satisfy inspection_evidence."
+  },
+  "readiness": {
+    "status": "needs_more_evidence",
+    "score": 52,
+    "gate_decision": "hold_for_evidence_completion",
+    "missing_inputs": [],
+    "inspection_evidence_missing": true
+  },
+  "nodes": [
+    {
+      "id": "package:hinge-block",
+      "kind": "canonical_package",
+      "label": "hinge-block",
+      "evidence_class": "control",
+      "trusted_inspection_evidence": false
+    },
+    {
+      "id": "artifact:review_pack",
+      "kind": "review_pack",
+      "path": "docs/examples/hinge-block/review/review_pack.json",
+      "sha256": "58b230e6aabe31e2d5a2d7995ece3bb2f36be7e159c90bef389ae62b3749b7af",
+      "evidence_class": "generated_or_control",
+      "trusted_inspection_evidence": false
+    },
+    {
+      "id": "artifact:readiness_report",
+      "kind": "readiness_report",
+      "path": "docs/examples/hinge-block/readiness/readiness_report.json",
+      "sha256": "9702f851fac76ba2b961e058cec750e349a98c3a3c4501496572967228f6f7e2",
+      "evidence_class": "generated_or_control",
+      "trusted_inspection_evidence": false
+    },
+    {
+      "id": "artifact:evidence_graph",
+      "kind": "evidence_graph",
+      "path": "docs/examples/hinge-block/evidence/evidence_graph.json",
+      "evidence_class": "generated_or_control",
+      "trusted_inspection_evidence": false
+    },
+    {
+      "id": "artifact:runtime_fingerprint",
+      "kind": "runtime_fingerprint",
+      "path": "docs/examples/hinge-block/runtime/runtime_fingerprint.json",
+      "evidence_class": "generated_or_control",
+      "trusted_inspection_evidence": false
+    },
+    {
+      "id": "artifact:qif_lite_focused_checks",
+      "kind": "qif_lite_inspection_xml",
+      "path": "docs/examples/hinge-block/inspection/qif_lite_focused_checks.xml",
+      "evidence_class": "generated_or_control",
+      "trusted_inspection_evidence": false
+    },
+    {
+      "id": "source:0:create_quality_report",
+      "kind": "create_quality_report",
+      "path": "docs/examples/hinge-block/quality/hinge_block_create_quality.json",
+      "role": "evidence",
+      "label": "Create quality report",
+      "evidence_class": "generated_or_control",
+      "trusted_inspection_evidence": false
+    },
+    {
+      "id": "source:1:drawing_quality_report",
+      "kind": "drawing_quality_report",
+      "path": "docs/examples/hinge-block/quality/hinge_block_drawing_quality.json",
+      "role": "evidence",
+      "label": "Drawing quality report",
+      "evidence_class": "generated_or_control",
+      "trusted_inspection_evidence": false
+    },
+    {
+      "id": "source:2:drawing_qa_report",
+      "kind": "drawing_qa_report",
+      "path": "docs/examples/hinge-block/quality/hinge_block_drawing_qa.json",
+      "role": "evidence",
+      "label": "Drawing QA report",
+      "evidence_class": "generated_or_control",
+      "trusted_inspection_evidence": false
+    },
+    {
+      "id": "source:3:drawing_intent",
+      "kind": "drawing_intent",
+      "path": "docs/examples/hinge-block/drawing/hinge_block_drawing_intent.json",
+      "role": "evidence",
+      "label": "Drawing intent",
+      "evidence_class": "generated_or_control",
+      "trusted_inspection_evidence": false
+    },
+    {
+      "id": "source:4:feature_catalog",
+      "kind": "feature_catalog",
+      "path": "docs/examples/hinge-block/drawing/hinge_block_feature_catalog.json",
+      "role": "evidence",
+      "label": "Feature catalog",
+      "evidence_class": "generated_or_control",
+      "trusted_inspection_evidence": false
+    },
+    {
+      "id": "source:5:cad_model",
+      "kind": "cad_model",
+      "path": "docs/examples/hinge-block/cad/hinge_block.step",
+      "role": "input",
+      "label": "Geometry source",
+      "evidence_class": "generated_or_control",
+      "trusted_inspection_evidence": false
+    },
+    {
+      "id": "source:6:source_file",
+      "kind": "source_file",
+      "path": "docs/examples/hinge-block/cad/hinge_block.step",
+      "role": "evidence",
+      "label": "Context source file",
+      "evidence_class": "generated_or_control",
+      "trusted_inspection_evidence": false
+    },
+    {
+      "id": "record:geometry:stress_or_tooling:inner_corner_risk",
+      "kind": "geometry_hotspot",
+      "title": "Inner corner risk",
+      "category": "stress_or_tooling",
+      "source_ref": null,
+      "evidence_class": "generated_or_control",
+      "trusted_inspection_evidence": false
+    },
+    {
+      "id": "record:package:create_quality_report:docs/examples/hinge-block/quality/hinge_block_create_quality.json",
+      "kind": "create_quality_report",
+      "title": "Create quality report",
+      "category": "quality_evidence",
+      "source_ref": "docs/examples/hinge-block/quality/hinge_block_create_quality.json",
+      "evidence_class": "generated_or_control",
+      "trusted_inspection_evidence": false
+    },
+    {
+      "id": "record:package:drawing_quality_report:docs/examples/hinge-block/quality/hinge_block_drawing_quality.json",
+      "kind": "drawing_quality_report",
+      "title": "Drawing quality report",
+      "category": "quality_evidence",
+      "source_ref": "docs/examples/hinge-block/quality/hinge_block_drawing_quality.json",
+      "evidence_class": "generated_or_control",
+      "trusted_inspection_evidence": false
+    },
+    {
+      "id": "record:package:drawing_qa_report:docs/examples/hinge-block/quality/hinge_block_drawing_qa.json",
+      "kind": "drawing_qa_report",
+      "title": "Drawing QA report",
+      "category": "quality_evidence",
+      "source_ref": "docs/examples/hinge-block/quality/hinge_block_drawing_qa.json",
+      "evidence_class": "generated_or_control",
+      "trusted_inspection_evidence": false
+    },
+    {
+      "id": "record:package:drawing_intent:docs/examples/hinge-block/drawing/hinge_block_drawing_intent.json",
+      "kind": "drawing_intent",
+      "title": "Drawing intent",
+      "category": "design_traceability_evidence",
+      "source_ref": "docs/examples/hinge-block/drawing/hinge_block_drawing_intent.json",
+      "evidence_class": "generated_or_control",
+      "trusted_inspection_evidence": false
+    },
+    {
+      "id": "record:package:feature_catalog:docs/examples/hinge-block/drawing/hinge_block_feature_catalog.json",
+      "kind": "feature_catalog",
+      "title": "Feature catalog",
+      "category": "design_traceability_evidence",
+      "source_ref": "docs/examples/hinge-block/drawing/hinge_block_feature_catalog.json",
+      "evidence_class": "generated_or_control",
+      "trusted_inspection_evidence": false
+    }
+  ],
+  "edges": [
+    {
+      "from": "package:hinge-block",
+      "to": "artifact:review_pack",
+      "kind": "has_review_control_artifact"
+    },
+    {
+      "from": "artifact:review_pack",
+      "to": "artifact:readiness_report",
+      "kind": "feeds_readiness"
+    },
+    {
+      "from": "artifact:readiness_report",
+      "to": "artifact:qif_lite_focused_checks",
+      "kind": "readiness_gated_by"
+    },
+    {
+      "from": "artifact:runtime_fingerprint",
+      "to": "artifact:evidence_graph",
+      "kind": "records_runtime_context_for"
+    },
+    {
+      "from": "source:0:create_quality_report",
+      "to": "artifact:review_pack",
+      "kind": "referenced_by_review_pack"
+    },
+    {
+      "from": "source:1:drawing_quality_report",
+      "to": "artifact:review_pack",
+      "kind": "referenced_by_review_pack"
+    },
+    {
+      "from": "source:2:drawing_qa_report",
+      "to": "artifact:review_pack",
+      "kind": "referenced_by_review_pack"
+    },
+    {
+      "from": "source:3:drawing_intent",
+      "to": "artifact:review_pack",
+      "kind": "referenced_by_review_pack"
+    },
+    {
+      "from": "source:4:feature_catalog",
+      "to": "artifact:review_pack",
+      "kind": "referenced_by_review_pack"
+    },
+    {
+      "from": "source:5:cad_model",
+      "to": "artifact:review_pack",
+      "kind": "referenced_by_review_pack"
+    },
+    {
+      "from": "source:6:source_file",
+      "to": "artifact:review_pack",
+      "kind": "referenced_by_review_pack"
+    },
+    {
+      "from": "record:geometry:stress_or_tooling:inner_corner_risk",
+      "to": "artifact:review_pack",
+      "kind": "summarized_by_review_pack"
+    },
+    {
+      "from": "record:package:create_quality_report:docs/examples/hinge-block/quality/hinge_block_create_quality.json",
+      "to": "artifact:review_pack",
+      "kind": "summarized_by_review_pack"
+    },
+    {
+      "from": "record:package:drawing_quality_report:docs/examples/hinge-block/quality/hinge_block_drawing_quality.json",
+      "to": "artifact:review_pack",
+      "kind": "summarized_by_review_pack"
+    },
+    {
+      "from": "record:package:drawing_qa_report:docs/examples/hinge-block/quality/hinge_block_drawing_qa.json",
+      "to": "artifact:review_pack",
+      "kind": "summarized_by_review_pack"
+    },
+    {
+      "from": "record:package:drawing_intent:docs/examples/hinge-block/drawing/hinge_block_drawing_intent.json",
+      "to": "artifact:review_pack",
+      "kind": "summarized_by_review_pack"
+    },
+    {
+      "from": "record:package:feature_catalog:docs/examples/hinge-block/drawing/hinge_block_feature_catalog.json",
+      "to": "artifact:review_pack",
+      "kind": "summarized_by_review_pack"
+    }
+  ],
+  "summary": {
+    "node_count": 19,
+    "edge_count": 17,
+    "trusted_inspection_evidence_node_count": 0,
+    "generated_or_control_node_count": 19,
+    "source_ref_count": 7,
+    "review_record_count": 6
+  }
+}

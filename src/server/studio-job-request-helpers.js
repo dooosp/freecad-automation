@@ -31,6 +31,39 @@ export function validateStage5bAuditOptions(options, errors) {
   }
 }
 
+export function validateEvidenceReadinessAuditOptions(options, errors) {
+  if (options === undefined) return;
+  if (!isPlainObject(options)) return;
+  const unsupportedOptions = Object.keys(options).filter((key) => !['package_slugs', 'generated_at'].includes(key));
+  if (unsupportedOptions.length > 0) {
+    errors.push(`evidence-readiness-audit options only accepts package_slugs and generated_at; unsupported option(s): ${unsupportedOptions.join(', ')}.`);
+  }
+  if (
+    Object.hasOwn(options, 'package_slugs')
+    && (!Array.isArray(options.package_slugs)
+      || options.package_slugs.some((slug) => typeof slug !== 'string' || slug.trim().length === 0))
+  ) {
+    errors.push('evidence-readiness-audit options.package_slugs must be an array of non-empty strings when provided.');
+  }
+  if (
+    Object.hasOwn(options, 'generated_at')
+    && (typeof options.generated_at !== 'string' || Number.isNaN(Date.parse(options.generated_at)))
+  ) {
+    errors.push('evidence-readiness-audit options.generated_at must be an ISO timestamp string when provided.');
+  }
+}
+
+export function buildEvidenceReadinessAuditOptions(request) {
+  const options = {};
+  if (Array.isArray(request.options?.package_slugs)) {
+    options.package_slugs = request.options.package_slugs.map((slug) => slug.trim());
+  }
+  if (typeof request.options?.generated_at === 'string') {
+    options.generated_at = request.options.generated_at;
+  }
+  return options;
+}
+
 export function validateInspectionEvidenceIntakeOptions(options, errors) {
   if (options === undefined) return;
   if (!isPlainObject(options)) return;

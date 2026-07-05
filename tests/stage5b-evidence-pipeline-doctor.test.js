@@ -7,6 +7,11 @@ import { join, resolve } from 'node:path';
 import {
   isCleanDetachedStage5bPipelineDoctorCheckout,
 } from '../src/services/inspection-evidence-intake/stage5b-evidence-pipeline-doctor-service.js';
+import {
+  gitStatusLinePath,
+  isPr170GeneratedControlDirtyPath,
+  splitStage5bCanonicalDirtyPaths,
+} from '../src/services/inspection-evidence-intake/stage5b-repo-dirty-paths.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const PACKAGE_SLUG = 'quality-pass-bracket';
@@ -117,6 +122,31 @@ try {
       clean_detached_head_checkout_ok: false,
     },
   }), false, 'dirty detached checkout should still be unsafe');
+  assert.equal(
+    gitStatusLinePath('?? docs/examples/quality-pass-bracket/evidence/evidence_graph.json'),
+    'docs/examples/quality-pass-bracket/evidence/evidence_graph.json'
+  );
+  assert.equal(
+    isPr170GeneratedControlDirtyPath('?? docs/examples/quality-pass-bracket/inspection/qif_lite_focused_checks.xml'),
+    true
+  );
+  assert.equal(
+    isPr170GeneratedControlDirtyPath('?? docs/examples/quality-pass-bracket/inspection/manual_inspection_record.json'),
+    false
+  );
+  assert.deepEqual(splitStage5bCanonicalDirtyPaths([
+    '?? docs/examples/quality-pass-bracket/evidence/evidence_graph.json',
+    '?? docs/examples/quality-pass-bracket/inspection/qif_lite_focused_checks.xml',
+    '?? docs/examples/quality-pass-bracket/inspection/manual_inspection_record.json',
+  ]), {
+    canonicalPackageDirtyPaths: [
+      '?? docs/examples/quality-pass-bracket/inspection/manual_inspection_record.json',
+    ],
+    pr170GeneratedControlDirtyPaths: [
+      '?? docs/examples/quality-pass-bracket/evidence/evidence_graph.json',
+      '?? docs/examples/quality-pass-bracket/inspection/qif_lite_focused_checks.xml',
+    ],
+  });
 
   const run = runFcad([
     'stage5b-evidence-pipeline-doctor',
