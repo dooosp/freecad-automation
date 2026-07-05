@@ -34,6 +34,7 @@
     "maintainer:doctor": "node scripts/maintainer-doctor.js",
     "evidence:readiness:audit": "node bin/fcad.js evidence-readiness-audit --out-dir output/evidence-readiness-audit",
     "evidence:artifacts:materialize": "node bin/fcad.js evidence-artifacts-materialize",
+    "maintainer:decision-journal": "node bin/fcad.js maintainer-decision-journal",
     "smoke:runtime": "npm run test:runtime-smoke",
     "test:node:contract": "node tests/run-node-lane.js contract",
     "test:node:integration": "node tests/run-node-lane.js integration",

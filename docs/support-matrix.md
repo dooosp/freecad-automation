@@ -49,6 +49,7 @@ This matrix is the public support boundary for the current release. It separates
 - `evidence-graph`
 - `evidence-readiness-audit`
 - `evidence-artifacts-materialize`
+- `maintainer-decision-journal`
 - `inspection-evidence-intake`
 - `inspection-evidence-promotion-dry-run`
 - `stage5b-evidence-audit`

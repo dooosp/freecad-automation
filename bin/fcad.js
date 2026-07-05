@@ -99,6 +99,7 @@ import {
   buildEvidenceGraph,
 } from '../src/services/evidence-graph/evidence-graph-service.js';
 import { writeEvidenceReadinessAudit } from '../src/services/evidence-readiness-audit/evidence-readiness-audit-service.js';
+import { writeMaintainerDecisionJournal } from '../src/services/evidence-readiness-audit/maintainer-decision-journal-service.js';
 import { materializePr170EvidenceArtifacts } from '../src/services/evidence-readiness-audit/pr170-artifact-materializer.js';
 import { discoverInspectionEvidenceIntake } from '../src/services/inspection-evidence-intake/inspection-evidence-intake-service.js';
 import { writeInspectionEvidencePromotionDryRunManifest } from '../src/services/inspection-evidence-intake/promotion-dry-run-service.js';
@@ -367,6 +368,72 @@ async function cmdEvidenceArtifactsMaterialize(rawArgs = []) {
       console.log(`  - ${pkg.slug}: ${states}`);
     });
     return result;
+  } catch (error) {
+    console.error(`Error: ${error.message}`);
+    process.exit(1);
+  }
+}
+
+async function cmdMaintainerDecisionJournal(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  rejectUnsupportedOptions('maintainer-decision-journal', options, [
+    'audit',
+    'out-dir',
+    'decision',
+    'reason',
+    'actor',
+    'approver',
+    'allow-release-exception',
+    'generated-at',
+    'clean',
+  ]);
+  const outDir = options['out-dir'] && options['out-dir'] !== true
+    ? options['out-dir']
+    : 'output/maintainer-decision-journal';
+  const decision = options.decision && options.decision !== true
+    ? String(options.decision)
+    : 'hold';
+  const reason = options.reason && options.reason !== true
+    ? String(options.reason)
+    : 'Maintainer decision journal records the current evidence/readiness audit decision.';
+  const actor = options.actor && options.actor !== true ? String(options.actor) : 'local-maintainer';
+  const approver = options.approver && options.approver !== true ? String(options.approver) : null;
+  const generatedAt = options['generated-at'] && options['generated-at'] !== true
+    ? String(options['generated-at'])
+    : null;
+  let auditPath = options.audit && options.audit !== true
+    ? String(options.audit)
+    : positional[0] || 'output/evidence-readiness-audit/evidence_readiness_audit.json';
+
+  try {
+    if (!existsSync(resolve(PROJECT_ROOT, auditPath))) {
+      const auditResult = await writeEvidenceReadinessAudit({
+        projectRoot: PROJECT_ROOT,
+        outDir: 'output/evidence-readiness-audit',
+        generatedAt,
+        clean: false,
+      });
+      auditPath = auditResult.paths.audit;
+    }
+    const result = await writeMaintainerDecisionJournal({
+      projectRoot: PROJECT_ROOT,
+      auditPath,
+      outDir,
+      decision,
+      reason,
+      actor,
+      approver,
+      allowReleaseException: options['allow-release-exception'] === true,
+      generatedAt,
+      clean: options.clean === true,
+    });
+    console.log(`Maintainer decision journal: ${result.paths.journal}`);
+    console.log(`  Summary: ${result.paths.summary}`);
+    console.log(`  Latest decision: ${result.journal.summary.latest_decision}`);
+    console.log(`  Audit decision: ${result.journal.summary.audit_decision}`);
+    console.log(`  Release allowed: ${result.journal.summary.release_allowed ? 'yes' : 'no'}`);
+    console.log('  Boundary: local decision record only, no evidence attachment, no readiness regeneration, no release publication');
+    return result.journal;
   } catch (error) {
     console.error(`Error: ${error.message}`);
     process.exit(1);
@@ -874,6 +941,7 @@ const CLI_COMMAND_HANDLERS = Object.freeze({
   'evidence-graph': cmdEvidenceGraph,
   'evidence-readiness-audit': cmdEvidenceReadinessAudit,
   'evidence-artifacts-materialize': cmdEvidenceArtifactsMaterialize,
+  'maintainer-decision-journal': cmdMaintainerDecisionJournal,
   'inspection-evidence-intake': cmdInspectionEvidenceIntake,
   'inspection-evidence-promotion-dry-run': cmdInspectionEvidencePromotionDryRun,
   'stage5b-evidence-audit': cmdStage5bEvidenceAudit,

@@ -350,6 +350,21 @@ const COMMAND_MANIFEST = Object.freeze([
     }),
   }),
   Object.freeze({
+    name: 'maintainer-decision-journal',
+    helpSection: 'plain-python-node',
+    helpEntries: Object.freeze([
+      Object.freeze({
+        usage: 'fcad maintainer-decision-journal [--audit <evidence_readiness_audit.json>] [--decision hold|proceed|exception_requested|exception_approved] [--out-dir <dir>] [--reason <text>] [--clean]',
+        summary: 'Record a local maintainer decision journal entry and fail closed on release-overclaiming proceed decisions',
+      }),
+    ]),
+    runtime: Object.freeze({
+      classification: 'plain-python-node',
+      requiresFreecadRuntime: false,
+      note: 'Writes ignored local decision journal outputs only; it does not attach evidence, regenerate readiness, approve a release by itself, or publish artifacts.',
+    }),
+  }),
+  Object.freeze({
     name: 'inspection-evidence-intake',
     helpSection: 'plain-python-node',
     helpEntries: Object.freeze([
