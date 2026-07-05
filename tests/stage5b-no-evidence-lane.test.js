@@ -90,7 +90,7 @@ function assertNoEvidenceIntake(intake) {
   assert.match(intake.summary.readiness_truth, /needs_more_evidence \/ hold_for_evidence_completion/);
   assertCanonicalPackageSet(intake.packages, 'intake report');
   for (const pkg of intake.packages) {
-    assert.equal(pkg.classification, 'no_candidate', `${pkg.slug} should have no genuine candidate`);
+    assert.equal(pkg.classification, 'invalid_generated', `${pkg.slug} should only expose generated/control candidates`);
     assert.equal(pkg.accepted_candidates.length, 0, `${pkg.slug} should not accept candidates`);
     assert.equal(pkg.attachment_plan.attachment_ready, false, `${pkg.slug} attachment must not be ready`);
     assert.equal(pkg.attachment_plan.canonical_next_command, null, `${pkg.slug} should not expose a promotion command`);

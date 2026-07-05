@@ -18,6 +18,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'Lane manifest', args: Object.freeze(['tests/lane-manifest.test.js']) }),
       Object.freeze({ label: 'Maintainer doctors workflow', args: Object.freeze(['tests/maintainer-doctors-workflow.test.js']) }),
       Object.freeze({ label: 'Maintainer doctor', args: Object.freeze(['tests/maintainer-doctor.test.js']) }),
+      Object.freeze({ label: 'Maintainer decision journal', args: Object.freeze(['tests/maintainer-decision-journal.test.js']) }),
       Object.freeze({ label: 'Bootstrap doctor', args: Object.freeze(['tests/bootstrap-doctor.test.js']) }),
       Object.freeze({ label: 'Source-of-truth drift', args: Object.freeze(['tests/source-of-truth-drift.test.js']) }),
       Object.freeze({ label: 'Job executor handler registry', args: Object.freeze(['tests/job-executor-handler-registry.test.js']) }),

@@ -27,6 +27,10 @@ try {
     packageJson.scripts['evidence:readiness:audit'],
     'node bin/fcad.js evidence-readiness-audit --out-dir output/evidence-readiness-audit'
   );
+  assert.equal(
+    packageJson.scripts['maintainer:decision-journal'],
+    'node bin/fcad.js maintainer-decision-journal'
+  );
   Object.entries(REQUIRED_MAINTAINER_DOCTOR_SCRIPTS).forEach(([scriptName, command]) => {
     assert.equal(packageJson.scripts[scriptName], command, `${scriptName} should stay discoverable`);
   });
@@ -47,6 +51,7 @@ try {
   [
     'evidence_readiness_audit',
     'source_hygiene',
+    'maintainer_decision_journal',
     'stage5b_pipeline_doctor',
     'release_dry_run_doctor',
     'node_contract_discoverability',
@@ -60,6 +65,7 @@ try {
 
   assert.deepEqual(checkById.get('evidence_readiness_audit').argv, ['npm', 'run', 'evidence:readiness:audit', '--', '--clean']);
   assert.deepEqual(checkById.get('source_hygiene').argv, ['npm', 'run', 'check:source-hygiene']);
+  assert.deepEqual(checkById.get('maintainer_decision_journal').argv.slice(0, 6), ['npm', 'run', 'maintainer:decision-journal', '--', '--decision', 'hold']);
   assert.deepEqual(checkById.get('stage5b_pipeline_doctor').argv, ['npm', 'run', 'test:stage5b:pipeline-doctor']);
   assert.deepEqual(checkById.get('release_dry_run_doctor').argv, ['npm', 'run', 'release:dry-run:doctor', '--', '--clean']);
   assert.equal(
