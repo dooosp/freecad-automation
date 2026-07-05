@@ -252,6 +252,16 @@ function blockersFromGate(gateEntry) {
   return reasons.map((reason) => blocker(reason, gateEntry.id, gateEntry.message));
 }
 
+export function isCleanDetachedStage5bAttachmentControllerCheckout(repoPreflight) {
+  return Boolean(
+    !repoPreflight?.current_branch
+    && repoPreflight?.head_sha
+    && repoPreflight?.dirty_tree === false
+    && repoPreflight?.checkout_safety?.detached_head === true
+    && repoPreflight?.checkout_safety?.clean_detached_head_checkout_ok === true
+  );
+}
+
 async function collectRepoPreflight(projectRoot) {
   const [
     rootResult,
@@ -741,13 +751,17 @@ function buildNonEvidenceBoundaryGate(reviewManifest) {
 }
 
 function buildRepoGate(repoPreflight) {
+  const branchOrCleanDetached = Boolean(repoPreflight.current_branch)
+    || isCleanDetachedStage5bAttachmentControllerCheckout(repoPreflight);
   const safe = repoPreflight.repo_identity_ok
-    && Boolean(repoPreflight.current_branch)
+    && branchOrCleanDetached
     && Boolean(repoPreflight.head_sha)
     && Boolean(repoPreflight.remote_default_head);
   const reasons = [];
   if (!repoPreflight.repo_identity_ok) reasons.push('repo_identity_invalid');
-  if (!repoPreflight.current_branch) reasons.push('branch_not_discovered');
+  if (!repoPreflight.current_branch && !isCleanDetachedStage5bAttachmentControllerCheckout(repoPreflight)) {
+    reasons.push('branch_not_discovered');
+  }
   if (!repoPreflight.head_sha) reasons.push('head_not_discovered');
   if (!repoPreflight.remote_default_head) reasons.push('remote_default_head_not_discovered');
   if (repoPreflight.checkout_safety?.dirty_tree_status_discovered !== true) {
