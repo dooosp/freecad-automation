@@ -23,6 +23,10 @@ try {
     packageJson.scripts['maintainer:doctor'],
     'node scripts/maintainer-doctor.js'
   );
+  assert.equal(
+    packageJson.scripts['evidence:readiness:audit'],
+    'node bin/fcad.js evidence-readiness-audit --out-dir output/evidence-readiness-audit'
+  );
   Object.entries(REQUIRED_MAINTAINER_DOCTOR_SCRIPTS).forEach(([scriptName, command]) => {
     assert.equal(packageJson.scripts[scriptName], command, `${scriptName} should stay discoverable`);
   });
@@ -41,6 +45,7 @@ try {
 
   const checkById = new Map(MAINTAINER_DOCTOR_CHECKS.map((check) => [check.id, check]));
   [
+    'evidence_readiness_audit',
     'source_hygiene',
     'stage5b_pipeline_doctor',
     'release_dry_run_doctor',
@@ -53,6 +58,7 @@ try {
     'overclaim_guard',
   ].forEach((id) => assert(checkById.has(id), `missing maintainer doctor check ${id}`));
 
+  assert.deepEqual(checkById.get('evidence_readiness_audit').argv, ['npm', 'run', 'evidence:readiness:audit', '--', '--clean']);
   assert.deepEqual(checkById.get('source_hygiene').argv, ['npm', 'run', 'check:source-hygiene']);
   assert.deepEqual(checkById.get('stage5b_pipeline_doctor').argv, ['npm', 'run', 'test:stage5b:pipeline-doctor']);
   assert.deepEqual(checkById.get('release_dry_run_doctor').argv, ['npm', 'run', 'release:dry-run:doctor', '--', '--clean']);
@@ -105,6 +111,7 @@ try {
   assert.equal(report.boundary.inspection_evidence_attached, false);
   assert.equal(report.boundary.canonical_readiness_regenerated, false);
   assert.equal(report.current_repo_truth.stage5b_held, true);
+  assert.equal(report.current_repo_truth.evidence_readiness_audit_available, true);
   assert.equal(report.current_repo_truth.real_inspection_evidence_attached, false);
   assert.equal(report.current_repo_truth.release_published, false);
   assert.equal(report.current_repo_truth.ci_governance_docs_present, true);

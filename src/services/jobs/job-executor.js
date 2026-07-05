@@ -29,6 +29,7 @@ import {
   buildStabilizationReviewFromReadinessReports,
   writeCanonicalReadinessArtifacts,
 } from '../../workflows/canonical-readiness-builders.js';
+import { writeEvidenceReadinessAudit } from '../evidence-readiness-audit/evidence-readiness-audit-service.js';
 import { discoverInspectionEvidenceIntake } from '../inspection-evidence-intake/inspection-evidence-intake-service.js';
 import { buildInspectionEvidencePromotionDryRunManifest } from '../inspection-evidence-intake/promotion-dry-run-service.js';
 import { writeStage5bEvidenceAuditBundle } from '../inspection-evidence-intake/stage5b-evidence-audit-service.js';
@@ -601,6 +602,31 @@ function validateStage5bAuditRequest(request, errors) {
   }
 }
 
+function validateEvidenceReadinessAuditRequest(request, errors) {
+  if (request.type !== 'evidence-readiness-audit') return;
+  if (request.options !== undefined && !isPlainObject(request.options)) return;
+
+  const options = request.options || {};
+  const optionKeys = Object.keys(options);
+  const unsupportedOptions = optionKeys.filter((key) => !['package_slugs', 'generated_at'].includes(key));
+  if (unsupportedOptions.length > 0) {
+    errors.push(`evidence-readiness-audit options only accepts package_slugs and generated_at; unsupported option(s): ${unsupportedOptions.join(', ')}.`);
+  }
+  if (
+    Object.hasOwn(options, 'package_slugs')
+    && (!Array.isArray(options.package_slugs)
+      || options.package_slugs.some((slug) => typeof slug !== 'string' || slug.trim().length === 0))
+  ) {
+    errors.push('evidence-readiness-audit options.package_slugs must be an array of non-empty strings when provided.');
+  }
+  if (
+    Object.hasOwn(options, 'generated_at')
+    && (typeof options.generated_at !== 'string' || Number.isNaN(Date.parse(options.generated_at)))
+  ) {
+    errors.push('evidence-readiness-audit options.generated_at must be an ISO timestamp string when provided.');
+  }
+}
+
 function isInspectionEvidenceIntakeArtifactRecord(artifact = {}) {
   const search = [
     artifact.type,
@@ -637,6 +663,7 @@ export function validateJobRequest(body) {
     validatePromotionDryRunRequest(request, errors);
     validateEvidenceGraphRequest(request, errors);
     validateStage5bAuditRequest(request, errors);
+    validateEvidenceReadinessAuditRequest(request, errors);
   }
 
   return {
@@ -1299,6 +1326,20 @@ export function createJobExecutor({
     });
   }
 
+  async function executeEvidenceReadinessAudit(job) {
+    const outputDir = await ensureJobArtifactDir(jobStore, job.id);
+    const options = job.request.options || {};
+    return writeEvidenceReadinessAudit({
+      projectRoot,
+      outDir: outputDir,
+      packageSlugs: Array.isArray(options.package_slugs)
+        ? options.package_slugs.map((slug) => slug.trim()).filter(Boolean)
+        : undefined,
+      generatedAt: typeof options.generated_at === 'string' ? options.generated_at : null,
+      clean: false,
+    });
+  }
+
   return {
     async execute(jobId) {
       const claim = await jobStore.claimJobForExecution(jobId, 'executor_started');
@@ -1340,6 +1381,7 @@ export function createJobExecutor({
         executeInspectionEvidenceIntake,
         executeInspectionEvidencePromotionDryRun,
         executeStage5bEvidenceAudit,
+        executeEvidenceReadinessAudit,
         buildAfArtifactContractFromDocument,
         buildGenericAfMetadata,
         buildReleaseBundleMetadata,

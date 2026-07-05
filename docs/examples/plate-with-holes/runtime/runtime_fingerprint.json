@@ -1,0 +1,454 @@
+{
+  "artifact_type": "runtime_fingerprint",
+  "schema_version": "1.0",
+  "generated_at": "2026-07-05T00:00:00.000Z",
+  "package_slug": "plate-with-holes",
+  "boundary": {
+    "generated_control_only": true,
+    "inspection_evidence_attached": false,
+    "readiness_regenerated": false,
+    "hard_evidence_rule": "Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence. Generated evidence graph, runtime fingerprint, and QIF-lite artifacts are review/control artifacts and do not satisfy inspection_evidence."
+  },
+  "repo_context": {
+    "repo_root_basename": "freecad-automation",
+    "current_branch": "codex/mega-studio-api-contract-fuzz-audit",
+    "head_sha": "2b9c4215eceb23a9d013f48e5e47e8676fbef8ee",
+    "default_branch": "origin/master"
+  },
+  "runtime_context": {
+    "available": true,
+    "selected": {},
+    "versions": {},
+    "diagnostics": {
+      "diagnostics_version": "1.0",
+      "artifact_class": "runtime_diagnostics",
+      "inspection_evidence_status": "not_inspection_evidence",
+      "readiness_effect": "no_readiness_change",
+      "hard_evidence_rule": "Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.",
+      "status": "ready",
+      "available": true,
+      "executable_detected": true,
+      "probe_status": "usable",
+      "platform": "darwin",
+      "description": "macOS FreeCAD runtime (<redacted>/freecadcmd)",
+      "source": "auto-detect",
+      "mode": "macos-bundle",
+      "path_style": "posix",
+      "executable": "<redacted>/freecadcmd",
+      "python_executable": "<redacted>/python",
+      "runtime_executable": "<redacted>/freecadcmd",
+      "gui_executable": "<redacted>/FreeCAD",
+      "checked_candidates": [
+        "<redacted>/python",
+        "<redacted>/python3",
+        "<redacted>/python",
+        "<redacted>/python3",
+        "<redacted>/freecadcmd",
+        "<redacted>/freecad",
+        "<redacted>/FreeCADCmd",
+        "<redacted>/freecadcmd",
+        "<redacted>/freecad",
+        "<redacted>/FreeCADCmd",
+        "<redacted>/FreeCAD",
+        "<redacted>/FreeCAD"
+      ],
+      "selected_runtime": {
+        "summary": "macOS FreeCAD runtime (<redacted>/freecadcmd)",
+        "source": "auto-detect",
+        "mode": "macos-bundle",
+        "path_style": "posix",
+        "executable": "<redacted>/freecadcmd",
+        "bundle_root": "<redacted>/FreeCAD.app",
+        "install_root": "",
+        "runtime_executable": "<redacted>/freecadcmd",
+        "python_executable": "<redacted>/python",
+        "gui_executable": "<redacted>/FreeCAD"
+      },
+      "detected_runtime_paths": {
+        "checked_candidates": [
+          "<redacted>/python",
+          "<redacted>/python3",
+          "<redacted>/python",
+          "<redacted>/python3",
+          "<redacted>/freecadcmd",
+          "<redacted>/freecad",
+          "<redacted>/FreeCADCmd",
+          "<redacted>/freecadcmd",
+          "<redacted>/freecad",
+          "<redacted>/FreeCADCmd",
+          "<redacted>/FreeCAD",
+          "<redacted>/FreeCAD"
+        ],
+        "selected_candidates": [
+          "<redacted>/freecadcmd",
+          "<redacted>/python",
+          "<redacted>/freecadcmd",
+          "<redacted>/FreeCAD"
+        ]
+      },
+      "env_overrides": {
+        "resolution_order": [
+          "FREECAD_PYTHON",
+          "FREECAD_BIN",
+          "FREECAD_CMD",
+          "FREECAD_APP",
+          "FREECAD_DIR"
+        ],
+        "values": [
+          {
+            "name": "FREECAD_PYTHON",
+            "value": null,
+            "selected": false
+          },
+          {
+            "name": "FREECAD_BIN",
+            "value": null,
+            "selected": false
+          },
+          {
+            "name": "FREECAD_CMD",
+            "value": null,
+            "selected": false
+          },
+          {
+            "name": "FREECAD_APP",
+            "value": null,
+            "selected": false
+          },
+          {
+            "name": "FREECAD_DIR",
+            "value": null,
+            "selected": false
+          }
+        ]
+      },
+      "version_details": {
+        "python": {
+          "executable": "<redacted>/python",
+          "version": "3.11.14",
+          "platform": "darwin",
+          "source": "python-import",
+          "error": null
+        },
+        "freecad": {
+          "executable": "<redacted>/freecadcmd",
+          "version": "FreeCAD 1.1.1 Revision: 20260414 (Git shallow)",
+          "home_path": "<redacted>/FreeCAD.app",
+          "module_path": null,
+          "source": "runtime-version",
+          "error": null
+        }
+      },
+      "command_classes": {
+        "diagnostics": [
+          "check-runtime"
+        ],
+        "freecad_backed": [
+          "create",
+          "draw",
+          "inspect",
+          "fem",
+          "tolerance",
+          "report"
+        ],
+        "plain_python_or_node": [
+          "dfm",
+          "review",
+          "process-plan",
+          "line-plan",
+          "quality-risk",
+          "investment-review",
+          "readiness-pack",
+          "readiness-report",
+          "pack",
+          "closeout-package",
+          "evidence-readiness-audit",
+          "evidence-artifacts-materialize",
+          "inspection-evidence-intake",
+          "inspection-evidence-promotion-dry-run",
+          "stage5b-evidence-audit",
+          "stage5b-evidence-source-kit",
+          "stage5b-evidence-source-preflight",
+          "stage5b-evidence-review-dry-run",
+          "stage5b-evidence-attachment-controller",
+          "stage5b-evidence-pipeline-doctor",
+          "stage5b-surrogate-inspection-validation",
+          "stabilization-review",
+          "generate-standard-docs",
+          "ingest",
+          "quality-link",
+          "review-pack",
+          "review-context",
+          "compare-rev",
+          "validate",
+          "validate-config",
+          "migrate-config",
+          "serve"
+        ],
+        "mixed_or_conditional": [
+          {
+            "name": "analyze-part",
+            "note": "Runs in plain Python mode when the input context already includes model metadata, uses FreeCAD for live model inspection or STEP feature detection when available, and falls back to bounded metadata-only geometry artifacts when shape inspection is weak or unavailable."
+          },
+          {
+            "name": "design",
+            "note": "Generates config content first, then calls `create`, so the overall flow still needs FreeCAD for model creation."
+          },
+          {
+            "name": "sweep",
+            "note": "Follows the matrix-selected service wrappers; cost-only variants can stay plain Python, while create/fem/report variants require FreeCAD."
+          }
+        ]
+      },
+      "capability_map": {
+        "check-runtime": {
+          "classification": "diagnostics",
+          "requires_freecad_runtime": false,
+          "note": "Reports runtime discovery, selected executables, and command coverage without launching FreeCAD workflows."
+        },
+        "create": {
+          "classification": "freecad-backed",
+          "requires_freecad_runtime": true,
+          "note": null
+        },
+        "draw": {
+          "classification": "freecad-backed",
+          "requires_freecad_runtime": true,
+          "note": null
+        },
+        "inspect": {
+          "classification": "freecad-backed",
+          "requires_freecad_runtime": true,
+          "note": null
+        },
+        "fem": {
+          "classification": "freecad-backed",
+          "requires_freecad_runtime": true,
+          "note": null
+        },
+        "tolerance": {
+          "classification": "freecad-backed",
+          "requires_freecad_runtime": true,
+          "note": null
+        },
+        "report": {
+          "classification": "freecad-backed",
+          "requires_freecad_runtime": true,
+          "note": null
+        },
+        "dfm": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "review": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "process-plan": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "line-plan": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "quality-risk": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "investment-review": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "readiness-pack": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "readiness-report": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "pack": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "closeout-package": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "evidence-readiness-audit": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "evidence-artifacts-materialize": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "inspection-evidence-intake": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "inspection-evidence-promotion-dry-run": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "stage5b-evidence-audit": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "stage5b-evidence-source-kit": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "stage5b-evidence-source-preflight": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "stage5b-evidence-review-dry-run": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "stage5b-evidence-attachment-controller": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "stage5b-evidence-pipeline-doctor": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "stage5b-surrogate-inspection-validation": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "stabilization-review": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "generate-standard-docs": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "ingest": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "quality-link": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "review-pack": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "review-context": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "compare-rev": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "validate": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "validate-config": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "migrate-config": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "serve": {
+          "classification": "plain-python-node",
+          "requires_freecad_runtime": false,
+          "note": null
+        },
+        "analyze-part": {
+          "classification": "mixed-conditional",
+          "requires_freecad_runtime": null,
+          "note": "Runs in plain Python mode when the input context already includes model metadata, uses FreeCAD for live model inspection or STEP feature detection when available, and falls back to bounded metadata-only geometry artifacts when shape inspection is weak or unavailable."
+        },
+        "design": {
+          "classification": "mixed-conditional",
+          "requires_freecad_runtime": null,
+          "note": "Generates config content first, then calls `create`, so the overall flow still needs FreeCAD for model creation."
+        },
+        "sweep": {
+          "classification": "mixed-conditional",
+          "requires_freecad_runtime": null,
+          "note": "Follows the matrix-selected service wrappers; cost-only variants can stay plain Python, while create/fem/report variants require FreeCAD."
+        }
+      },
+      "warnings": [],
+      "errors": [],
+      "support_boundary_note": null,
+      "next_steps": [
+        "Run a real workflow such as `fcad create <config.toml>` or `fcad draw <config.toml> --bom` to verify the same runtime path end to end.",
+        "Use `npm run test:runtime-smoke` on a FreeCAD-capable macOS machine when you want the repository-owned smoke path."
+      ],
+      "remediation": []
+    },
+    "node": {
+      "version": "v25.8.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    }
+  },
+  "input_artifacts": {
+    "review_pack": {
+      "artifact_type": "review_pack",
+      "path": "docs/examples/plate-with-holes/review/review_pack.json",
+      "exists": true,
+      "size_bytes": 37156,
+      "sha256": "1c45a392a1c05dc505fa31adaab72faecfc89832c07eee825a392002c6d41070",
+      "evidence_class": "generated_or_control",
+      "trusted_inspection_evidence": false
+    },
+    "readiness_report": {
+      "artifact_type": "readiness_report",
+      "path": "docs/examples/plate-with-holes/readiness/readiness_report.json",
+      "exists": true,
+      "size_bytes": 77985,
+      "sha256": "3d76d03aa558c992ee298f898cca54228025fc968a59ff51ca9a2aca20f9881d",
+      "evidence_class": "generated_or_control",
+      "trusted_inspection_evidence": false
+    }
+  },
+  "source_hashes": {
+    "review_pack_payload_sha256": "3fa8ff5f065f467d66aaf032e0301119be6dfcfc673cb5efe86c7c98a5a10dda",
+    "readiness_report_payload_sha256": "69223089598c5e847f705872040084c6514f87826447e4bcbf0801ab7c52a5b8"
+  }
+}

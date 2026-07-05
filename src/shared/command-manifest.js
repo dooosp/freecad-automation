@@ -314,6 +314,42 @@ const COMMAND_MANIFEST = Object.freeze([
     }),
   }),
   Object.freeze({
+    name: 'evidence-readiness-audit',
+    helpSection: 'plain-python-node',
+    helpEntries: Object.freeze([
+      Object.freeze({
+        usage: 'fcad evidence-readiness-audit [--out-dir <dir>] [--package <canonical-package-slug>] [--generated-at <iso8601>] [--clean]',
+        summary: 'Summarize canonical package readiness, evidence boundaries, runtime context, release overclaim risk, and next safe commands',
+      }),
+    ]),
+    runtime: Object.freeze({
+      classification: 'plain-python-node',
+      requiresFreecadRuntime: false,
+      note: 'Reads checked-in canonical package artifacts and writes ignored local audit outputs only; it does not attach evidence, regenerate readiness, or publish releases.',
+    }),
+    surfaces: Object.freeze({
+      jobExecutor: true,
+      localApi: true,
+      studio: true,
+      studioSubmission: 'local-only',
+    }),
+  }),
+  Object.freeze({
+    name: 'evidence-artifacts-materialize',
+    helpSection: 'plain-python-node',
+    helpEntries: Object.freeze([
+      Object.freeze({
+        usage: 'fcad evidence-artifacts-materialize [--package <canonical-package-slug>] [--generated-at <iso8601>] [--dry-run] [--force]',
+        summary: 'Materialize generated/control evidence graph, runtime fingerprint, and QIF-lite package artifacts',
+      }),
+    ]),
+    runtime: Object.freeze({
+      classification: 'plain-python-node',
+      requiresFreecadRuntime: false,
+      note: 'Writes generated/control PR #170 evidence artifacts into checked-in canonical package directories; it does not attach inspection evidence or regenerate readiness.',
+    }),
+  }),
+  Object.freeze({
     name: 'inspection-evidence-intake',
     helpSection: 'plain-python-node',
     helpEntries: Object.freeze([
@@ -941,6 +977,7 @@ const JOB_EXECUTOR_COMMAND_ORDER = Object.freeze([
   'stabilization-review',
   'generate-standard-docs',
   'pack',
+  'evidence-readiness-audit',
   'inspection-evidence-intake',
   'inspection-evidence-promotion-dry-run',
   'stage5b-evidence-audit',
@@ -956,6 +993,7 @@ const STUDIO_JOB_COMMAND_ORDER = Object.freeze([
   'stabilization-review',
   'generate-standard-docs',
   'pack',
+  'evidence-readiness-audit',
   'inspection-evidence-intake',
   'inspection-evidence-promotion-dry-run',
   'stage5b-evidence-audit',
@@ -990,6 +1028,7 @@ const LOCAL_API_OTHER_PUBLIC_JOB_ORDER = Object.freeze([
   'stabilization-review',
   'generate-standard-docs',
   'pack',
+  'evidence-readiness-audit',
   'inspection-evidence-intake',
   'inspection-evidence-promotion-dry-run',
   'stage5b-evidence-audit',

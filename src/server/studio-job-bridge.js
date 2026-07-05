@@ -39,6 +39,8 @@ import {
   validateInspectionEvidenceIntakeOptions,
   validateOptionalObject,
   validateStage5bAuditOptions,
+  buildEvidenceReadinessAuditOptions,
+  validateEvidenceReadinessAuditOptions,
 } from './studio-job-request-helpers.js';
 
 const STUDIO_SUBMISSION_JOB_COMMANDS = Object.freeze([
@@ -356,6 +358,34 @@ export function validateStudioJobSubmission(body) {
     if (hasIntakeReportPath && !isSafeRepoRelativeJsonPath(request.intake_report_path)) {
       errors.push('inspection-evidence-promotion-dry-run intake_report_path must be a safe repo-relative JSON path.');
     }
+  } else if (request.type === 'evidence-readiness-audit') {
+    const unsupportedAuditFields = [
+      'config_toml',
+      'artifact_ref',
+      'baseline_artifact_ref',
+      'candidate_artifact_ref',
+      'context_path',
+      'model_path',
+      'bom_path',
+      'inspection_path',
+      'quality_path',
+      'create_quality_path',
+      'drawing_quality_path',
+      'drawing_qa_path',
+      'drawing_intent_path',
+      'feature_catalog_path',
+      'dfm_report_path',
+      'compare_to_path',
+      'intake_report_path',
+      'drawing_settings',
+      'drawing_preview_id',
+      'drawing_plan',
+      'report_options',
+    ].filter((fieldName) => request[fieldName] !== undefined);
+    if (unsupportedAuditFields.length > 0) {
+      errors.push(`evidence-readiness-audit does not accept ${unsupportedAuditFields.join(', ')}.`);
+    }
+    validateEvidenceReadinessAuditOptions(request.options, errors);
   } else if (request.type === 'stage5b-evidence-audit') {
     const unsupportedAuditFields = [
       'config_toml',
@@ -556,6 +586,18 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
         type: 'inspection-evidence-promotion-dry-run',
         intake_report_path: trimOptionalString(request.intake_report_path),
         ...(isPlainObject(request.options) ? { options: structuredClone(request.options) } : {}),
+      },
+    };
+  }
+
+  if (request.type === 'evidence-readiness-audit') {
+    const options = buildEvidenceReadinessAuditOptions(request);
+    return {
+      ok: true,
+      errors: [],
+      request: {
+        type: 'evidence-readiness-audit',
+        ...(Object.keys(options).length > 0 ? { options } : {}),
       },
     };
   }

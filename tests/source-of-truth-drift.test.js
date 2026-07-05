@@ -139,6 +139,9 @@ function minimalLocalApiJobRequest(command) {
   if (command === 'pack') {
     return { type: command, readiness_report_path: 'output/readiness_report.json' };
   }
+  if (command === 'evidence-readiness-audit') {
+    return { type: command, options: { package_slugs: ['quality-pass-bracket'] } };
+  }
   if (command === 'inspection-evidence-intake') {
     return { type: command, options: { include_github: false, package_slugs: ['quality-pass-bracket'] } };
   }
@@ -160,6 +163,9 @@ function minimalStudioSubmission(command) {
   }
   if (command === 'review-context') {
     return { type: command, model_path: 'tests/fixtures/sample_part.step' };
+  }
+  if (command === 'evidence-readiness-audit') {
+    return { type: command, options: { package_slugs: ['quality-pass-bracket'] } };
   }
   if (command === 'inspection-evidence-intake') {
     return { type: command, options: { include_github: false, package_slugs: ['quality-pass-bracket'] } };
@@ -269,6 +275,7 @@ assertSameCommands(
     'report',
     'review-context',
     'evidence-graph',
+    'evidence-readiness-audit',
     'inspection-evidence-intake',
     'inspection-evidence-promotion-dry-run',
     'stage5b-evidence-audit',

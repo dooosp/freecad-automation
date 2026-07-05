@@ -718,6 +718,45 @@ function formatStage5bNextSafeCommands(commands = []) {
   return values.length > 0 ? values.slice(0, 4).join(' • ') : 'No safe commands recorded';
 }
 
+function formatEvidenceReadinessPackageStates(packages = []) {
+  const values = safeList(packages)
+    .map((pkg) => {
+      if (!isPlainObject(pkg)) return null;
+      const readiness = safeObject(pkg.readiness);
+      return `${pkg.slug || 'unknown'}: ${readiness.status || 'unknown'} / ${readiness.gate_decision || 'unknown'}`;
+    })
+    .filter(Boolean);
+  return values.length > 0 ? values.slice(0, 5).join(' • ') : 'No package states recorded';
+}
+
+function formatPr170ArtifactCoverage(summary = {}) {
+  const coverage = safeObject(summary.pr170_artifact_coverage);
+  const packageCount = Number.isFinite(summary.package_count) ? summary.package_count : 0;
+  const complete = Number.isFinite(coverage.complete_package_count) ? coverage.complete_package_count : 0;
+  const missing = Number.isFinite(coverage.missing_package_count)
+    ? coverage.missing_package_count
+    : Math.max(0, packageCount - complete);
+  return `complete ${complete}/${packageCount}; missing ${missing}`;
+}
+
+function formatPr170ArtifactStates(packages = []) {
+  const values = safeList(packages)
+    .map((pkg) => {
+      if (!isPlainObject(pkg)) return null;
+      const artifacts = safeObject(pkg.pr170_artifacts);
+      const graph = safeObject(artifacts.evidence_graph).status || 'missing';
+      const runtime = safeObject(artifacts.runtime_fingerprint).status || 'missing';
+      const qif = safeObject(artifacts.qif_lite).status || 'missing';
+      return `${pkg.slug || 'unknown'}: graph ${graph}; runtime ${runtime}; qif_lite ${qif}`;
+    })
+    .filter(Boolean);
+  return values.length > 0 ? values.slice(0, 5).join(' • ') : 'No PR #170 artifact states recorded';
+}
+
+function formatEvidenceReadinessRuntime(runtime = {}) {
+  return runtime.available === true ? 'Available' : 'Unavailable';
+}
+
 function formatMutationBoundary(boundary = {}) {
   const futureRoots = safeList(boundary.allowed_future_mutation_roots);
   const files = safeList(boundary.files_that_would_be_mutated);
@@ -1046,8 +1085,65 @@ export function buildStage5bEvidenceAuditCard({
   });
 }
 
+export function buildEvidenceReadinessAuditCard({
+  audit = {},
+  artifact = null,
+  raw = null,
+  activeManifest = null,
+} = {}) {
+  const summary = safeObject(audit.summary);
+  const decision = safeObject(audit.maintainer_decision);
+  const heldCount = Number.isFinite(summary.held_package_count) ? summary.held_package_count : 0;
+  const packageCount = Number.isFinite(summary.package_count) ? summary.package_count : 0;
+  const trustedCount = Number.isFinite(summary.trusted_evidence_record_count)
+    ? summary.trusted_evidence_record_count
+    : 0;
+  const generatedCount = Number.isFinite(summary.generated_review_artifact_count)
+    ? summary.generated_review_artifact_count
+    : 0;
+  const releaseRiskCount = Number.isFinite(summary.release_overclaim_risk_count)
+    ? summary.release_overclaim_risk_count
+    : 0;
+  const hold = summary.decision === 'hold' || heldCount > 0 || releaseRiskCount > 0;
+  const boundary = audit.boundary?.hard_evidence_rule
+    || 'Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.';
+
+  return buildCard({
+    id: 'evidence-readiness-audit',
+    title: 'Evidence/readiness maintainer audit',
+    tone: hold ? 'warn' : 'ok',
+    score: heldCount,
+    status: hold ? 'Maintainer hold' : 'Maintainer pass',
+    summary: `${heldCount} of ${packageCount} canonical packages held; ${trustedCount} trusted inspection evidence records; ${generatedCount} generated review/control artifacts. ${decision.reason || 'Read-only audit.'}`,
+    artifact,
+    normalized: [
+      buildReviewDisplayField('Packages held', `${heldCount}/${packageCount}`),
+      buildReviewDisplayField('Trusted inspection evidence', String(trustedCount)),
+      buildReviewDisplayField('Generated review/control artifacts', String(generatedCount)),
+      buildReviewDisplayField('Evidence graph packages', String(summary.evidence_graph_package_count ?? 0)),
+      buildReviewDisplayField('Runtime fingerprint packages', String(summary.runtime_fingerprint_package_count ?? 0)),
+      buildReviewDisplayField('QIF-lite packages', String(summary.qif_lite_package_count ?? 0)),
+      buildReviewDisplayField('PR #170 artifact coverage', formatPr170ArtifactCoverage(summary)),
+      buildReviewDisplayField('PR #170 artifact states', formatPr170ArtifactStates(audit.packages)),
+      buildReviewDisplayField('Release overclaim risks', String(releaseRiskCount)),
+      buildReviewDisplayField('Runtime context', formatEvidenceReadinessRuntime(safeObject(audit.runtime_context))),
+      buildReviewDisplayField('Package readiness states', formatEvidenceReadinessPackageStates(audit.packages)),
+      buildReviewDisplayField('Next safe commands', formatStage5bNextSafeCommands(audit.next_safe_commands)),
+      buildReviewDisplayField('Evidence boundary', boundary),
+    ],
+    raw,
+    provenance: [
+      ...manifestNotes(activeManifest, artifact),
+      'Evidence/readiness audits are maintainer decision artifacts; they do not attach evidence or regenerate readiness.',
+      'Preview is limited to the registered tracked job artifact route.',
+    ],
+  });
+}
+
 export function buildReviewCards({ activeJob, artifacts = [], sourceMap = {} }) {
   const manifest = activeJob?.manifest || null;
+  const evidenceReadinessAuditArtifact = findArtifact(artifacts, ['evidence-readiness.audit-json', 'evidence_readiness_audit']);
+  const evidenceReadinessAudit = sourceMap.evidenceReadinessAudit;
   const validationDiagnosticsArtifact = findArtifact(artifacts, ['stage5b.validation-diagnostics', 'validation_diagnostics']);
   const validationDiagnostics = sourceMap.stage5bValidationDiagnostics
     || activeJob?.diagnostics?.stage5b_validation_diagnostics
@@ -1075,6 +1171,16 @@ export function buildReviewCards({ activeJob, artifacts = [], sourceMap = {} }) 
   const reviewPack = sourceMap.reviewPack;
 
   const cards = [
+    ...(evidenceReadinessAudit
+      ? [
+          buildEvidenceReadinessAuditCard({
+            audit: evidenceReadinessAudit,
+            artifact: evidenceReadinessAuditArtifact,
+            raw: sourceMap.evidenceReadinessAuditRaw,
+            activeManifest: manifest,
+          }),
+        ]
+      : []),
     ...(validationDiagnostics
       ? [
           buildStage5bValidationDiagnosticsCard({

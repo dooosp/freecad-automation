@@ -7,6 +7,9 @@ import { promisify } from 'node:util';
 
 import { assertValidStage5bEvidenceAttachmentControlManifest } from './stage5b-runtime-validation.js';
 import { assertValidStage5bEvidenceReviewDryRunManifest } from './stage5b-runtime-validation.js';
+import {
+  splitStage5bCanonicalDirtyPaths,
+} from './stage5b-repo-dirty-paths.js';
 
 const execFile = promisify(execFileCallback);
 
@@ -265,7 +268,7 @@ async function collectRepoPreflight(projectRoot) {
     runGit(projectRoot, ['rev-parse', 'HEAD']),
     runGit(projectRoot, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD']),
     runGit(projectRoot, ['remote', 'show', 'origin']),
-    runGit(projectRoot, ['status', '--short']),
+    runGit(projectRoot, ['status', '--short', '--untracked-files=all']),
   ]);
   const repoRoot = rootResult.ok ? rootResult.stdout.trim() : null;
   const packageName = repoRoot ? await readPackageName(repoRoot) : null;
@@ -273,6 +276,7 @@ async function collectRepoPreflight(projectRoot) {
   const dirtyPaths = statusResult.ok
     ? statusResult.stdout.split('\n').map((line) => line.trim()).filter(Boolean)
     : [];
+  const canonicalDirtyPaths = splitStage5bCanonicalDirtyPaths(dirtyPaths);
   const branchName = branchResult.ok
     ? branchResult.stdout.trim() || githubActionsBranchFallback() || githubActionsCurrentRefFallback()
     : githubActionsBranchFallback() || githubActionsCurrentRefFallback();
@@ -325,7 +329,8 @@ async function collectRepoPreflight(projectRoot) {
       remote_default_discovered: Boolean(remoteDefaultHead),
       remote_default_head_source: remoteDefaultHeadSource,
       dirty_tree_status_discovered: statusResult.ok,
-      canonical_package_dirty_paths: dirtyPaths.filter((line) => /\sdocs\/examples\//.test(line)),
+      canonical_package_dirty_paths: canonicalDirtyPaths.canonicalPackageDirtyPaths,
+      pr170_generated_control_dirty_paths: canonicalDirtyPaths.pr170GeneratedControlDirtyPaths,
     },
   };
 }

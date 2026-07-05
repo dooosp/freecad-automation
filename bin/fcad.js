@@ -98,6 +98,8 @@ import {
   assertValidEvidenceGraph,
   buildEvidenceGraph,
 } from '../src/services/evidence-graph/evidence-graph-service.js';
+import { writeEvidenceReadinessAudit } from '../src/services/evidence-readiness-audit/evidence-readiness-audit-service.js';
+import { materializePr170EvidenceArtifacts } from '../src/services/evidence-readiness-audit/pr170-artifact-materializer.js';
 import { discoverInspectionEvidenceIntake } from '../src/services/inspection-evidence-intake/inspection-evidence-intake-service.js';
 import { writeInspectionEvidencePromotionDryRunManifest } from '../src/services/inspection-evidence-intake/promotion-dry-run-service.js';
 import { writeStage5bEvidenceAuditBundle } from '../src/services/inspection-evidence-intake/stage5b-evidence-audit-service.js';
@@ -292,6 +294,79 @@ async function cmdEvidenceGraph(rawArgs = []) {
     console.log('  Inspection evidence attached: no');
     console.log('  Canonical readiness regenerated: no');
     return graph;
+  } catch (error) {
+    console.error(`Error: ${error.message}`);
+    process.exit(1);
+  }
+}
+
+async function cmdEvidenceReadinessAudit(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  rejectUnsupportedOptions('evidence-readiness-audit', options, ['out-dir', 'package', 'packages', 'generated-at', 'clean']);
+  const outDir = options['out-dir'] && options['out-dir'] !== true
+    ? options['out-dir']
+    : 'output/evidence-readiness-audit';
+  const packageSelector = options.package || options.packages || positional[0] || null;
+  const packageSlugs = packageSelector
+    ? String(packageSelector).split(',').map((slug) => slug.trim()).filter(Boolean)
+    : undefined;
+  const generatedAt = options['generated-at'] && options['generated-at'] !== true
+    ? String(options['generated-at'])
+    : null;
+
+  try {
+    const result = await writeEvidenceReadinessAudit({
+      projectRoot: PROJECT_ROOT,
+      outDir,
+      packageSlugs,
+      generatedAt,
+      clean: options.clean === true,
+    });
+    console.log(`Evidence/readiness audit: ${result.outputDir}`);
+    console.log(`  Audit JSON: ${result.paths.audit}`);
+    console.log(`  Audit summary: ${result.paths.summary}`);
+    console.log(`  Decision: ${result.audit.summary.decision}`);
+    console.log(`  Packages held: ${result.audit.summary.held_package_count}/${result.audit.summary.package_count}`);
+    console.log(`  Trusted inspection evidence records: ${result.audit.summary.trusted_evidence_record_count}`);
+    console.log(`  Generated review/control artifacts: ${result.audit.summary.generated_review_artifact_count}`);
+    console.log('  Boundary: read-only, no evidence attachment, no readiness regeneration, no release publication');
+    return result.audit;
+  } catch (error) {
+    console.error(`Error: ${error.message}`);
+    process.exit(1);
+  }
+}
+
+async function cmdEvidenceArtifactsMaterialize(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  rejectUnsupportedOptions('evidence-artifacts-materialize', options, ['package', 'packages', 'generated-at', 'dry-run', 'force']);
+  const packageSelector = options.package || options.packages || positional[0] || null;
+  const packageSlugs = packageSelector
+    ? String(packageSelector).split(',').map((slug) => slug.trim()).filter(Boolean)
+    : undefined;
+  const generatedAt = options['generated-at'] && options['generated-at'] !== true
+    ? String(options['generated-at'])
+    : null;
+
+  try {
+    const result = await materializePr170EvidenceArtifacts({
+      projectRoot: PROJECT_ROOT,
+      packageSlugs,
+      generatedAt,
+      dryRun: options['dry-run'] === true,
+      force: options.force === true,
+    });
+    console.log(`PR #170 evidence artifacts: ${result.dry_run ? 'dry-run' : 'materialized'}`);
+    console.log(`  Packages: ${result.summary.package_count}`);
+    console.log(`  Planned artifacts: ${result.summary.planned_artifact_count}`);
+    console.log(`  Written artifacts: ${result.summary.written_artifact_count}`);
+    console.log(`  Unchanged artifacts: ${result.summary.unchanged_artifact_count}`);
+    console.log('  Boundary: generated/control only, no evidence attachment, no readiness regeneration');
+    result.packages.forEach((pkg) => {
+      const states = pkg.artifacts.map((artifact) => `${artifact.artifact_type}:${artifact.status}`).join(', ');
+      console.log(`  - ${pkg.slug}: ${states}`);
+    });
+    return result;
   } catch (error) {
     console.error(`Error: ${error.message}`);
     process.exit(1);
@@ -797,6 +872,8 @@ const CLI_COMMAND_HANDLERS = Object.freeze({
   pack: cmdPack,
   'closeout-package': cmdCloseoutPackage,
   'evidence-graph': cmdEvidenceGraph,
+  'evidence-readiness-audit': cmdEvidenceReadinessAudit,
+  'evidence-artifacts-materialize': cmdEvidenceArtifactsMaterialize,
   'inspection-evidence-intake': cmdInspectionEvidenceIntake,
   'inspection-evidence-promotion-dry-run': cmdInspectionEvidencePromotionDryRun,
   'stage5b-evidence-audit': cmdStage5bEvidenceAudit,
