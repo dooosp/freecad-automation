@@ -480,6 +480,39 @@ try {
     );
   }
 
+  {
+    const aliasDrawingIntent = {
+      required_dimensions: [
+        { id: 'MOUNTING_HOLE_DIA', value_mm: 6, required: true },
+      ],
+      required_notes: [
+        { id: 'GENERAL_TOLERANCE', text: 'General tolerance: ±0.1', required: true },
+      ],
+    };
+    const aliasSemantics = buildExtractedDrawingSemantics({
+      drawingSvgPath: '/tmp/alias-comparison-regression.svg',
+      svgContent: [
+        '<svg xmlns="http://www.w3.org/2000/svg">',
+        '  <text x="10" y="10">MOUNTING HOLE DIA 6</text>',
+        '  <text x="10" y="20">TOL ±0.1</text>',
+        '</svg>',
+      ].join('\n'),
+      drawingIntent: aliasDrawingIntent,
+    });
+    const aliasComparison = compareDrawingIntentToExtractedSemantics(
+      aliasDrawingIntent,
+      aliasSemantics,
+      null,
+      null,
+      '/tmp/alias-comparison-regression_extracted_drawing_semantics.json'
+    );
+
+    assert.equal(aliasComparison.required_dimensions[0].classification, 'extracted');
+    assert.equal(aliasComparison.required_dimensions[0].matched_raw_text, 'MOUNTING HOLE DIA 6');
+    assert.equal(aliasComparison.required_notes[0].classification, 'extracted');
+    assert.equal(aliasComparison.required_notes[0].matched_raw_text, 'TOL ±0.1');
+  }
+
   const passContext = fixtureContexts.quality_pass_bracket;
   const passSummary = buildDecisionReportSummary(makeReportInput({
     fixtureName: 'quality_pass_bracket',

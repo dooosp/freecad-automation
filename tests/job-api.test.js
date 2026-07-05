@@ -104,6 +104,32 @@ try {
   assert.equal(invalidReviewTrackedAbsolutePath.ok, false);
   assert.match(invalidReviewTrackedAbsolutePath.errors.join('\n'), /safe repo-relative path/i);
 
+  const validEvidenceGraph = validateJobRequest({
+    type: 'evidence-graph',
+    package_id: 'quality-pass-bracket',
+    review_pack_path: 'docs/examples/quality-pass-bracket/review/review_pack.json',
+    readiness_report_path: 'docs/examples/quality-pass-bracket/readiness/readiness_report.json',
+  });
+  assert.equal(validEvidenceGraph.ok, true, validEvidenceGraph.errors?.join('\n'));
+
+  const invalidEvidenceGraphPackage = validateJobRequest({
+    type: 'evidence-graph',
+    package_id: '../quality-pass-bracket',
+    review_pack_path: 'docs/examples/quality-pass-bracket/review/review_pack.json',
+    readiness_report_path: 'docs/examples/quality-pass-bracket/readiness/readiness_report.json',
+  });
+  assert.equal(invalidEvidenceGraphPackage.ok, false);
+  assert.match(invalidEvidenceGraphPackage.errors.join('\n'), /package_id must be a safe package slug/i);
+
+  const invalidEvidenceGraphAbsolutePath = validateJobRequest({
+    type: 'evidence-graph',
+    package_id: 'quality-pass-bracket',
+    review_pack_path: '/tmp/review_pack.json',
+    readiness_report_path: 'docs/examples/quality-pass-bracket/readiness/readiness_report.json',
+  });
+  assert.equal(invalidEvidenceGraphAbsolutePath.ok, false);
+  assert.match(invalidEvidenceGraphAbsolutePath.errors.join('\n'), /review_pack_path must be a safe repo-relative/i);
+
   [
     {
       type: 'review-context',
@@ -141,6 +167,12 @@ try {
       type: 'stabilization-review',
       baseline_path: 'docs/examples/motor-mount/review/review_pack.json',
       candidate_path: '~/private/candidate.json',
+    },
+    {
+      type: 'evidence-graph',
+      package_id: 'quality-pass-bracket',
+      review_pack_path: 'docs/examples/quality-pass-bracket/review/review_pack.json',
+      readiness_report_path: '../private/readiness_report.json',
     },
   ].forEach((request) => {
     const validation = validateJobRequest(request);
@@ -342,6 +374,17 @@ try {
   assert.equal('artifact_ref' in publicInspectRequest, false);
   assert.equal(JSON.stringify(publicInspectRequest).includes('/tmp/private'), false);
   assert.equal(JSON.stringify(publicInspectRequest).includes('C:\\\\private\\\\secret'), false);
+
+  const publicEvidenceGraphRequest = toPublicJobRequest({
+    type: 'evidence-graph',
+    package_id: 'quality-pass-bracket',
+    review_pack_path: 'docs/examples/quality-pass-bracket/review/review_pack.json',
+    readiness_report_path: 'docs/examples/quality-pass-bracket/readiness/readiness_report.json',
+  });
+  assert.deepEqual(publicEvidenceGraphRequest, {
+    type: 'evidence-graph',
+    package_id: 'quality-pass-bracket',
+  });
 
   const internalPathFields = [
     'config_path',

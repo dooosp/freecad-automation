@@ -8,8 +8,19 @@ import {
   resolveExtractedDrawingSemanticsPath,
   validateExtractedDrawingSemantics,
 } from '../src/services/drawing/extracted-drawing-semantics.js';
+import {
+  aliasesForSemanticId,
+  normalizeSemanticToken,
+} from '../lib/drawing-semantic-aliases.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
+
+{
+  assert.equal(normalizeSemanticToken('HOLE DIA'), 'holedia');
+  const holeDiaAliases = aliasesForSemanticId('HOLE_DIA');
+  assert.equal(holeDiaAliases.includes('holedia'), true);
+  assert.equal(holeDiaAliases.includes('diameter'), true);
+}
 
 {
   const svgPath = join(ROOT, 'tests', 'fixtures', 'svg', 'techdraw_assembly.svg');
@@ -249,6 +260,118 @@ const ROOT = resolve(import.meta.dirname, '..');
 }
 
 {
+  const semantics = buildExtractedDrawingSemantics({
+    drawingSvgPath: '/tmp/alias-backed-svg-text.svg',
+    svgContent: [
+      '<svg xmlns="http://www.w3.org/2000/svg">',
+      '  <text x="10" y="10">DIA 9</text>',
+      '  <text x="10" y="20">MATL: AL6061</text>',
+      '  <text x="10" y="30">TOL ±0.2</text>',
+      '</svg>',
+    ].join('\n'),
+    drawingIntent: {
+      required_dimensions: [
+        { id: 'HOLE_DIA', value_mm: 9, required: true },
+      ],
+      required_notes: [
+        { id: 'MATERIAL', text: 'Material: AL6061', required: true },
+        { id: 'GENERAL_TOLERANCE', text: 'General tolerance: ±0.2', required: true },
+      ],
+    },
+  });
+
+  assert.equal(semantics.coverage.required_dimensions_extracted, 1);
+  assert.equal(semantics.coverage.required_notes_extracted, 2);
+  assert.equal(
+    semantics.dimensions.some((entry) => (
+      entry.raw_text === 'DIA 9'
+        && entry.matched_intent_id === 'HOLE_DIA'
+        && entry.confidence > 0.84
+    )),
+    true
+  );
+  assert.equal(
+    semantics.notes.some((entry) => entry.raw_text === 'MATL: AL6061' && entry.matched_intent_id === 'MATERIAL'),
+    true
+  );
+  assert.equal(
+    semantics.notes.some((entry) => entry.raw_text === 'TOL ±0.2' && entry.matched_intent_id === 'GENERAL_TOLERANCE'),
+    true
+  );
+}
+
+{
+  const labelOnly = buildExtractedDrawingSemantics({
+    drawingSvgPath: '/tmp/alias-label-only.svg',
+    svgContent: [
+      '<svg xmlns="http://www.w3.org/2000/svg">',
+      '  <text x="10" y="10">HOLE DIA</text>',
+      '  <text x="10" y="20">MATL</text>',
+      '</svg>',
+    ].join('\n'),
+    drawingIntent: {
+      required_dimensions: [
+        { id: 'HOLE_DIA', value_mm: 9, required: true },
+      ],
+      required_notes: [
+        { id: 'MATERIAL', text: 'Material: AL6061', required: true },
+      ],
+    },
+  });
+
+  assert.equal(labelOnly.coverage.required_dimensions_extracted, 0);
+  assert.equal(labelOnly.coverage.required_notes_extracted, 0);
+  assert.equal(labelOnly.dimensions.length, 0);
+  assert.equal(labelOnly.notes.some((entry) => entry.raw_text === 'MATL' && entry.matched_intent_id), false);
+  assert(labelOnly.unknowns.some((entry) => entry.includes('HOLE_DIA')));
+  assert(labelOnly.unknowns.some((entry) => entry.includes('MATERIAL')));
+}
+
+{
+  const diagramText = buildExtractedDrawingSemantics({
+    drawingSvgPath: '/tmp/alias-diagram-text.svg',
+    svgContent: [
+      '<svg xmlns="http://www.w3.org/2000/svg">',
+      '  <text x="10" y="10">DIAGRAM 9</text>',
+      '</svg>',
+    ].join('\n'),
+    drawingIntent: {
+      required_dimensions: [
+        { id: 'HOLE_DIA', value_mm: 9, required: true },
+      ],
+    },
+  });
+
+  assert.equal(diagramText.coverage.required_dimensions_extracted, 0);
+  assert.equal(
+    diagramText.dimensions.some((entry) => entry.raw_text === 'DIAGRAM 9' && entry.matched_intent_id === 'HOLE_DIA'),
+    false
+  );
+  assert(diagramText.unknowns.some((entry) => entry.includes('HOLE_DIA')));
+
+  const mismatchedTolerance = buildExtractedDrawingSemantics({
+    drawingSvgPath: '/tmp/alias-mismatched-tolerance.svg',
+    svgContent: [
+      '<svg xmlns="http://www.w3.org/2000/svg">',
+      '  <text x="10" y="10">TOL ±0.5</text>',
+      '</svg>',
+    ].join('\n'),
+    drawingIntent: {
+      required_notes: [
+        { id: 'GENERAL_TOLERANCE', text: 'General tolerance: ±0.1', required: true },
+      ],
+    },
+  });
+
+  assert.equal(mismatchedTolerance.coverage.required_notes_extracted, 0);
+  assert.equal(
+    mismatchedTolerance.notes.some((entry) => entry.raw_text === 'TOL ±0.5' && entry.matched_intent_id === 'GENERAL_TOLERANCE'),
+    false
+  );
+  assert(mismatchedTolerance.unknowns.some((entry) => entry.includes('GENERAL_TOLERANCE')));
+}
+
+{
   const unsupported = buildExtractedDrawingSemantics();
   assert.equal(unsupported.status, 'unsupported');
   assert.equal(unsupported.decision, 'advisory');
@@ -264,6 +387,20 @@ const ROOT = resolve(import.meta.dirname, '..');
   assert.equal(unknown.status, 'unknown');
   assert.equal(unknown.dimensions.length, 0);
   assert(unknown.unknowns.some((entry) => entry.includes('WIDTH')));
+
+  const aliasedUnsupported = buildExtractedDrawingSemantics({
+    drawingIntent: {
+      required_dimensions: [{ id: 'HOLE_DIA', value_mm: 9, required: true }],
+      required_notes: [{ id: 'MATERIAL', text: 'Material: AL6061', required: true }],
+    },
+  });
+  assert.equal(aliasedUnsupported.status, 'unsupported');
+  assert.equal(aliasedUnsupported.coverage.required_dimensions_extracted, 0);
+  assert.equal(aliasedUnsupported.coverage.required_notes_extracted, 0);
+  assert.equal(aliasedUnsupported.dimensions.length, 0);
+  assert.equal(aliasedUnsupported.notes.length, 0);
+  assert(aliasedUnsupported.unknowns.some((entry) => entry.includes('HOLE_DIA')));
+  assert(aliasedUnsupported.unknowns.some((entry) => entry.includes('MATERIAL')));
 }
 
 {

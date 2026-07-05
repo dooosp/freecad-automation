@@ -94,6 +94,10 @@ import { createModel, generateCreateQualityArtifact, inspectModel } from '../src
 import { createReportService } from '../src/api/report.js';
 import { runReviewContextPipeline } from '../src/orchestration/review-context-pipeline.js';
 import { generateCloseoutPackage } from '../src/services/closeout-package/closeout-package-service.js';
+import {
+  assertValidEvidenceGraph,
+  buildEvidenceGraph,
+} from '../src/services/evidence-graph/evidence-graph-service.js';
 import { discoverInspectionEvidenceIntake } from '../src/services/inspection-evidence-intake/inspection-evidence-intake-service.js';
 import { writeInspectionEvidencePromotionDryRunManifest } from '../src/services/inspection-evidence-intake/promotion-dry-run-service.js';
 import { writeStage5bEvidenceAuditBundle } from '../src/services/inspection-evidence-intake/stage5b-evidence-audit-service.js';
@@ -138,6 +142,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(__dirname, '..');
 const VALID_DFM_PROCESSES = new Set(['machining', 'casting', 'sheet_metal', '3d_printing']);
 const VALIDATE_TIMEOUT_MS = 30_000;
+const EVIDENCE_GRAPH_USAGE = 'fcad evidence-graph --package <slug> --review-pack <review_pack.json> --readiness <readiness_report.json> --out <evidence_graph.json>';
 
 installCliStreamErrorHandlers();
 
@@ -247,6 +252,46 @@ async function cmdCloseoutPackage(rawArgs = []) {
       console.log(`  - ${pack.directory_name}`);
     });
     return result;
+  } catch (error) {
+    console.error(`Error: ${error.message}`);
+    process.exit(1);
+  }
+}
+
+async function cmdEvidenceGraph(rawArgs = []) {
+  const { options } = parseCliArgs(rawArgs);
+  rejectUnsupportedOptions('evidence-graph', options, ['package', 'review-pack', 'readiness', 'out']);
+  const packageId = requireOptionValue('--package', options.package, EVIDENCE_GRAPH_USAGE);
+  const reviewPackPath = resolveMaybe(requireOptionValue('--review-pack', options['review-pack'], EVIDENCE_GRAPH_USAGE));
+  const readinessPath = resolveMaybe(requireOptionValue('--readiness', options.readiness, EVIDENCE_GRAPH_USAGE));
+  const outputPath = normalizeJsonOutputPath(requireOptionValue('--out', options.out, EVIDENCE_GRAPH_USAGE));
+
+  requireExistingInputFile('review-pack', reviewPackPath);
+  requireExistingInputFile('readiness report', readinessPath);
+  requireRepoScopedPath('evidence graph output', outputPath);
+
+  try {
+    const reviewPack = await readJsonFile(reviewPackPath);
+    const readinessReport = await readJsonFile(readinessPath);
+    const graph = buildEvidenceGraph({
+      packageId,
+      reviewPack,
+      readinessReport,
+      reviewPackPath: repoRelativePath(reviewPackPath),
+      readinessReportPath: repoRelativePath(readinessPath),
+    });
+    assertValidEvidenceGraph(graph);
+    const writtenPath = await writeJsonFile(outputPath, graph);
+
+    console.log(`Evidence graph: ${repoRelativePath(writtenPath)}`);
+    console.log(`  Package: ${graph.package_id}`);
+    console.log(`  Nodes: ${graph.summary.node_count}`);
+    console.log(`  Edges: ${graph.summary.edge_count}`);
+    console.log(`  Inspection evidence records: ${graph.summary.inspection_evidence_record_count}`);
+    console.log(`  Generated artifacts: ${graph.summary.generated_artifact_count}`);
+    console.log('  Inspection evidence attached: no');
+    console.log('  Canonical readiness regenerated: no');
+    return graph;
   } catch (error) {
     console.error(`Error: ${error.message}`);
     process.exit(1);
@@ -751,6 +796,7 @@ const CLI_COMMAND_HANDLERS = Object.freeze({
   'readiness-report': cmdReadinessReport,
   pack: cmdPack,
   'closeout-package': cmdCloseoutPackage,
+  'evidence-graph': cmdEvidenceGraph,
   'inspection-evidence-intake': cmdInspectionEvidenceIntake,
   'inspection-evidence-promotion-dry-run': cmdInspectionEvidencePromotionDryRun,
   'stage5b-evidence-audit': cmdStage5bEvidenceAudit,
@@ -795,6 +841,7 @@ async function main() {
     renderCommandUsage,
     printRuntimeDiagnostics,
     commands: CLI_COMMAND_HANDLERS,
+    projectRoot: PROJECT_ROOT,
   });
 }
 

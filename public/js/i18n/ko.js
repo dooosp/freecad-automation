@@ -38,6 +38,23 @@ const ARTIFACT_STABILITY_LABELS = {
   unknown: '알 수 없음',
 };
 
+const EVIDENCE_GRAPH_FIELD_LABELS = {
+  'Readiness status': '준비 상태',
+  'Gate decision': '게이트 결정',
+  'Inspection evidence records': '검사 근거 기록',
+  'Generated artifacts': '생성된 산출물',
+  Nodes: '노드',
+  Edges: '에지',
+  'Evidence boundary': '근거 경계',
+};
+
+const EVIDENCE_GRAPH_FIELD_VALUES = {
+  needs_more_evidence: '추가 근거 필요',
+  hold_for_evidence_completion: '근거 완료까지 보류',
+  Unknown: '알 수 없음',
+  'Evidence graph artifacts are generated review/control metadata only; generated, review, and control graph nodes are not inspection evidence and do not satisfy inspection_evidence. Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.': 'Evidence graph 산출물은 생성된 검토/제어 메타데이터일 뿐입니다. 생성/검토/제어 그래프 노드는 검사 근거가 아니며 inspection_evidence를 충족하지 않습니다. 완료된 실제 물리/공급업체/랩/QA 검사 기록만 inspection_evidence를 충족할 수 있습니다.',
+};
+
 function translateJobType(type = '') {
   return JOB_TYPE_LABELS[String(type || '').toLowerCase()] || type;
 }
@@ -52,6 +69,10 @@ function translateArtifactScope(scope = '') {
 
 function translateArtifactStability(stability = '') {
   return ARTIFACT_STABILITY_LABELS[String(stability || '').toLowerCase()] || stability;
+}
+
+function translateEvidenceGraphField(label = '', value = '') {
+  return `${EVIDENCE_GRAPH_FIELD_LABELS[label] || label}: ${EVIDENCE_GRAPH_FIELD_VALUES[value] || value}`;
 }
 
 const ko = {
@@ -1195,6 +1216,16 @@ const ko = {
     'No queued output yet': '아직 대기 중인 출력이 없습니다',
     'Tracked review, package, and export runs will appear here as soon as the local API records them.': '로컬 API가 기록하는 즉시 추적 검토, 패키지, 내보내기 실행이 여기에 표시됩니다.',
     'Review workspace': '검토 작업 영역',
+    'Evidence decision': '근거 결정',
+    'Evidence graph': '근거 그래프',
+    'Evidence graph summary': '근거 그래프 요약',
+    'Readiness status': '준비 상태',
+    'Inspection evidence records': '검사 근거 기록',
+    'Generated artifacts': '생성된 산출물',
+    'Nodes': '노드',
+    'Evidence boundary': '근거 경계',
+    'needs_more_evidence': '추가 근거 필요',
+    'Evidence graph artifacts are generated review/control metadata only; generated, review, and control graph nodes are not inspection evidence and do not satisfy inspection_evidence. Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.': 'Evidence graph 산출물은 생성된 검토/제어 메타데이터일 뿐입니다. 생성/검토/제어 그래프 노드는 검사 근거가 아니며 inspection_evidence를 충족하지 않습니다. 완료된 실제 물리/공급업체/랩/QA 검사 기록만 inspection_evidence를 충족할 수 있습니다.',
     'Source selection': '소스 선택',
     'Review board': '검토 보드',
     'Summary': '요약',
@@ -1643,6 +1674,10 @@ const ko = {
     {
       regex: /^Warnings: (.+)$/,
       replace: (match, warnings) => `경고: ${warnings}`,
+    },
+    {
+      regex: /^(Readiness status|Gate decision|Inspection evidence records|Generated artifacts|Nodes|Edges|Evidence boundary): (.+)$/,
+      replace: (match, label, value) => translateEvidenceGraphField(label, value),
     },
     {
       regex: /^Deprecations: (.+)$/,

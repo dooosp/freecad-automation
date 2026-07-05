@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freecad-automation.local/schemas/evidence-graph.schema.json",
+  "title": "Evidence Graph Artifact",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "package_id",
+    "part",
+    "source_artifact_refs",
+    "coverage",
+    "confidence",
+    "warnings",
+    "summary",
+    "nodes",
+    "edges"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "artifact_type": { "const": "evidence_graph" },
+    "package_id": { "type": "string", "minLength": 1 },
+    "part": {
+      "type": "object",
+      "required": [
+        "part_id",
+        "name",
+        "revision"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "part_id": { "type": ["string", "null"] },
+        "name": { "type": ["string", "null"] },
+        "revision": { "type": ["string", "null"] }
+      }
+    },
+    "source_artifact_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "artifact_type",
+          "path",
+          "role",
+          "label"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "artifact_type": {
+            "enum": [
+              "review_pack",
+              "readiness_report"
+            ]
+          },
+          "path": { "type": ["string", "null"] },
+          "role": { "type": "string", "minLength": 1 },
+          "label": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "required": [
+        "review_record_count",
+        "source_artifact_count"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "review_record_count": { "type": "integer", "minimum": 0 },
+        "source_artifact_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "confidence": {
+      "type": "object",
+      "required": [
+        "level",
+        "score",
+        "rationale"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "level": { "enum": ["heuristic"] },
+        "score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "rationale": { "type": "string", "minLength": 1 }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "node_count",
+        "edge_count",
+        "inspection_evidence_record_count",
+        "generated_artifact_count",
+        "readiness_gate_decision",
+        "readiness_status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "node_count": { "type": "integer", "minimum": 0 },
+        "edge_count": { "type": "integer", "minimum": 0 },
+        "inspection_evidence_record_count": { "type": "integer", "minimum": 0 },
+        "generated_artifact_count": { "type": "integer", "minimum": 0 },
+        "readiness_gate_decision": { "type": ["string", "null"] },
+        "readiness_status": { "type": ["string", "null"] }
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "label"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "kind": {
+            "enum": [
+              "package",
+              "inspection_evidence",
+              "generated_artifact",
+              "control_artifact",
+              "review_artifact"
+            ]
+          },
+          "label": { "type": "string", "minLength": 1 },
+          "package_id": { "type": "string", "minLength": 1 },
+          "record_id": { "type": ["string", "null"] },
+          "type": { "type": ["string", "null"] },
+          "artifact_type": { "type": ["string", "null"] },
+          "path": { "type": ["string", "null"] },
+          "inspection_evidence": { "type": "boolean" },
+          "generated_artifact": { "type": "boolean" }
+        }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "target",
+          "relationship"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "source": { "type": "string", "minLength": 1 },
+          "target": { "type": "string", "minLength": 1 },
+          "relationship": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

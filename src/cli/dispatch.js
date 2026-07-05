@@ -1,4 +1,4 @@
-import { parseCliArgs } from './args.js';
+import { parseCheckRuntimeOptions } from './check-runtime-options.js';
 
 export const BUILT_IN_CLI_COMMANDS = Object.freeze(['check-runtime', 'help']);
 
@@ -15,6 +15,7 @@ export async function dispatchCliCommand({
   renderCommandUsage,
   printRuntimeDiagnostics,
   commands = {},
+  projectRoot = process.cwd(),
 } = {}) {
   const [command, ...args] = argv;
 
@@ -32,14 +33,16 @@ export async function dispatchCliCommand({
   }
 
   if (command === 'check-runtime') {
-    const { positional, options } = parseCliArgs(args);
-    if (positional.length > 0) {
+    const parsed = parseCheckRuntimeOptions(args, { projectRoot });
+    if (parsed.positional.length > 0) {
       console.error('Error: check-runtime does not accept positional arguments');
       process.exit(1);
     }
     process.exit(printRuntimeDiagnostics({
-      format: options.json ? 'json' : 'text',
-      redactPaths: Boolean(options['redact-paths']),
+      format: parsed.useJson ? 'json' : 'text',
+      redactPaths: parsed.redactPaths,
+      fingerprintOut: parsed.fingerprintOut,
+      projectRoot,
     }));
   }
 

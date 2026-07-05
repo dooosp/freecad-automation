@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freecad-automation.local/schemas/runtime-fingerprint.schema.json",
+  "title": "FreeCAD Automation Runtime Fingerprint",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "repo",
+    "runtime",
+    "command_coverage",
+    "production_readiness_claim",
+    "evidence_boundary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "generated_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "repo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "branch",
+        "head_sha",
+        "dirty_at_start"
+      ],
+      "properties": {
+        "branch": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "head_sha": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dirty_at_start": {
+          "type": "boolean"
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform",
+        "freecad_status",
+        "freecad_version",
+        "freecad_executable_detected"
+      ],
+      "properties": {
+        "platform": {
+          "type": "string",
+          "minLength": 1
+        },
+        "freecad_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "freecad_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "freecad_executable_detected": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      }
+    },
+    "command_coverage": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "command",
+          "covered"
+        ],
+        "properties": {
+          "command": {
+            "type": "string",
+            "minLength": 1
+          },
+          "covered": {
+            "const": true
+          }
+        }
+      }
+    },
+    "production_readiness_claim": {
+      "const": false
+    },
+    "evidence_boundary": {
+      "const": "Runtime fingerprint proves local execution context only; it is not physical inspection evidence or production readiness proof."
+    }
+  }
+}

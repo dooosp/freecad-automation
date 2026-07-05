@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-import { resolve } from 'node:path';
+import { writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -13,6 +14,17 @@ import {
   SUPPORT_BOUNDARY_NOTE,
 } from '../lib/runtime-diagnostics.js';
 import { getFreeCADRuntime } from '../lib/paths.js';
+import {
+  buildRuntimeFingerprint,
+  collectRuntimeFingerprintRepoContext,
+} from '../src/services/runtime/runtime-fingerprint-service.js';
+import {
+  parseCheckRuntimeOptions,
+  resolveRuntimeFingerprintOutputPath,
+} from '../src/cli/check-runtime-options.js';
+
+const SCRIPT_PATH = fileURLToPath(import.meta.url);
+const PROJECT_ROOT = resolve(dirname(SCRIPT_PATH), '..');
 
 function formatValue(value, fallback = 'not set') {
   if (value === undefined || value === null) return fallback;
@@ -58,6 +70,41 @@ function renderCandidateEntries(diagnostics) {
     .map((candidate) => `${candidate}${selected.has(candidate) ? ' [selected]' : ''}`);
 }
 
+function commandCoverageFromDiagnostics(diagnostics = {}) {
+  const directCoverage = diagnostics.command_coverage;
+  if (Array.isArray(directCoverage)) {
+    return directCoverage
+      .map((entry) => entry?.command)
+      .filter(Boolean);
+  }
+
+  const classes = diagnostics.command_classes || {};
+  return [
+    ...(classes.diagnostics || []),
+    ...(classes.freecad_backed || []),
+    ...(classes.plain_python_or_node || []),
+    ...(classes.mixed_or_conditional || []).map((entry) => (
+      typeof entry === 'string' ? entry : entry?.name
+    )),
+  ].filter(Boolean);
+}
+
+function writeRuntimeFingerprint(diagnostics, fingerprintOut, { projectRoot = PROJECT_ROOT } = {}) {
+  if (!fingerprintOut) return;
+  const outputPath = resolveRuntimeFingerprintOutputPath(fingerprintOut, { projectRoot });
+  const fingerprint = buildRuntimeFingerprint({
+    repo: diagnostics.repo || collectRuntimeFingerprintRepoContext(projectRoot),
+    runtime: {
+      platform: diagnostics.platform,
+      freecad_status: diagnostics.status,
+      freecad_version: diagnostics.version_details?.freecad?.version ?? null,
+      freecad_executable_detected: diagnostics.executable_detected ?? null,
+    },
+    commands: commandCoverageFromDiagnostics(diagnostics),
+  });
+  writeFileSync(outputPath, `${JSON.stringify(fingerprint, null, 2)}\n`);
+}
+
 export function printRuntimeDiagnostics({
   logger = console.log,
   runtime = getFreeCADRuntime(),
@@ -66,6 +113,8 @@ export function printRuntimeDiagnostics({
   detectDetails = detectRuntimeDetails,
   format = 'text',
   redactPaths = false,
+  fingerprintOut = null,
+  projectRoot = PROJECT_ROOT,
 } = {}) {
   const diagnostics = buildRuntimeDiagnostics({
     runtime,
@@ -73,6 +122,7 @@ export function printRuntimeDiagnostics({
     env,
     detectDetails,
   });
+  writeRuntimeFingerprint(diagnostics, fingerprintOut, { projectRoot });
 
   if (format === 'json') {
     const output = redactPaths ? redactRuntimeDiagnosticsPaths(diagnostics) : diagnostics;
@@ -138,12 +188,12 @@ export function printRuntimeDiagnostics({
   return 1;
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const args = process.argv.slice(2);
-  const useJson = args.includes('--json');
-  const redactPaths = args.includes('--redact-paths');
+if (process.argv[1] && resolve(process.argv[1]) === SCRIPT_PATH) {
+  const options = parseCheckRuntimeOptions(process.argv.slice(2), { projectRoot: PROJECT_ROOT });
   process.exit(printRuntimeDiagnostics({
-    format: useJson ? 'json' : 'text',
-    redactPaths,
+    format: options.useJson ? 'json' : 'text',
+    redactPaths: options.redactPaths,
+    fingerprintOut: options.fingerprintOut,
+    projectRoot: PROJECT_ROOT,
   }));
 }

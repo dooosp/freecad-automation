@@ -218,6 +218,41 @@ assert.equal(invalidReviewContextSourceSubmission.ok, false);
 assert.match(invalidReviewContextSourceSubmission.errors.join('\n'), /requires either context_path or model_path/i);
 assert.match(invalidReviewContextSourceSubmission.errors.join('\n'), /does not accept config_toml, artifact_ref/i);
 
+const evidenceGraphSubmission = await translateStudioJobSubmission({
+  type: 'evidence-graph',
+  package_id: ' quality-pass-bracket ',
+  review_pack_path: 'docs/examples/quality-pass-bracket/review/review_pack.json',
+  readiness_report_path: 'docs/examples/quality-pass-bracket/readiness/readiness_report.json',
+  options: {
+    source: 'studio-card',
+  },
+});
+
+assert.equal(evidenceGraphSubmission.ok, true, evidenceGraphSubmission.errors?.join('\n'));
+assert.deepEqual(evidenceGraphSubmission.request, {
+  type: 'evidence-graph',
+  package_id: 'quality-pass-bracket',
+  review_pack_path: 'docs/examples/quality-pass-bracket/review/review_pack.json',
+  readiness_report_path: 'docs/examples/quality-pass-bracket/readiness/readiness_report.json',
+  options: {
+    source: 'studio-card',
+  },
+});
+
+const invalidEvidenceGraphSubmission = validateStudioJobSubmission({
+  type: 'evidence-graph',
+  package_id: '../quality-pass-bracket',
+  review_pack_path: '/tmp/review_pack.json',
+  readiness_report_path: 'docs/examples/quality-pass-bracket/readiness/readiness_report.txt',
+  config_toml: baseToml,
+});
+
+assert.equal(invalidEvidenceGraphSubmission.ok, false);
+assert.match(invalidEvidenceGraphSubmission.errors.join('\n'), /package_id must be a safe package slug/);
+assert.match(invalidEvidenceGraphSubmission.errors.join('\n'), /review_pack_path must be a safe repo-relative JSON path/);
+assert.match(invalidEvidenceGraphSubmission.errors.join('\n'), /readiness_report_path must be a safe repo-relative JSON path/);
+assert.match(invalidEvidenceGraphSubmission.errors.join('\n'), /evidence-graph does not accept config_toml/);
+
 const inspectFromArtifact = await translateStudioJobSubmission({
   type: 'inspect',
   artifact_ref: {

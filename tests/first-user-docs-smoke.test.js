@@ -21,6 +21,8 @@ const STUDIO_FIRST_USER_WALKTHROUGH_PATH = resolve(ROOT, 'docs', 'studio-first-u
 const STUDIO_CANONICAL_PACKAGE_API_PATH = resolve(ROOT, 'docs', 'studio-canonical-package-api.md');
 const TESTING_DOC_PATH = resolve(ROOT, 'docs', 'testing.md');
 const INSPECTION_CONTRACT_PATH = resolve(ROOT, 'docs', 'inspection-evidence-contract.md');
+const OUTPUT_MANIFEST_PATH = resolve(ROOT, 'docs', 'output-manifest.md');
+const SUPPORT_MATRIX_PATH = resolve(ROOT, 'docs', 'support-matrix.md');
 const INSPECTION_COLLECTION_DIR = resolve(ROOT, 'docs', 'inspection-evidence-collection');
 const SYNTHETIC_FIXTURE_REF = 'tests/fixtures/inspection-evidence/valid-manual-caliper-inspection.json';
 
@@ -97,6 +99,8 @@ assert.equal(existsSync(STUDIO_FIRST_USER_WALKTHROUGH_PATH), true, 'Studio first
 assert.equal(existsSync(STUDIO_CANONICAL_PACKAGE_API_PATH), true, 'Studio canonical package API doc should exist');
 assert.equal(existsSync(TESTING_DOC_PATH), true, 'testing doc should exist');
 assert.equal(existsSync(INSPECTION_CONTRACT_PATH), true, 'inspection evidence contract should exist');
+assert.equal(existsSync(OUTPUT_MANIFEST_PATH), true, 'output manifest doc should exist');
+assert.equal(existsSync(SUPPORT_MATRIX_PATH), true, 'support matrix doc should exist');
 assert.equal(
   existsSync(join(INSPECTION_COLLECTION_DIR, 'README.md')),
   true,
@@ -121,7 +125,30 @@ const studioFirstUserWalkthroughText = readText(STUDIO_FIRST_USER_WALKTHROUGH_PA
 const studioCanonicalPackageApiText = readText(STUDIO_CANONICAL_PACKAGE_API_PATH);
 const testingDocText = readText(TESTING_DOC_PATH);
 const inspectionContractText = readText(INSPECTION_CONTRACT_PATH);
+const outputManifestText = readText(OUTPUT_MANIFEST_PATH);
+const supportMatrixText = readText(SUPPORT_MATRIX_PATH);
 const collectionGuideIndexText = readText(join(INSPECTION_COLLECTION_DIR, 'README.md'));
+const differentiationRoadmapDocText = [
+  rootReadmeText,
+  inspectionContractText,
+  studioFirstUserWalkthroughText,
+  outputManifestText,
+  supportMatrixText,
+].join('\n\n');
+
+[
+  'QIF-lite',
+  'evidence graph',
+  'Runtime fingerprint',
+  'not inspection evidence',
+  'does not clear production readiness',
+].forEach((needle) => {
+  assert.equal(
+    differentiationRoadmapDocText.includes(needle),
+    true,
+    `differentiation roadmap docs should mention ${needle}`
+  );
+});
 
 assertMentions(
   rootReadmeText,

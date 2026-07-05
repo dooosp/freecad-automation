@@ -43,6 +43,9 @@ const packageJson = JSON.parse(readText('package.json'));
 const readme = readText('README.md');
 const testingDoc = readText('docs/testing.md');
 const supportMatrix = readText('docs/support-matrix.md');
+const inspectionEvidenceContract = readText('docs/inspection-evidence-contract.md');
+const studioFirstUserWalkthrough = readText('docs/studio-first-user-walkthrough.md');
+const outputManifest = readText('docs/output-manifest.md');
 const ciGovernance = readText('docs/ci-governance.md');
 const releaseChecklist = readText('docs/releases/v1.1.0-checklist.md');
 const studioCanonicalPackageApi = readText('docs/studio-canonical-package-api.md');
@@ -52,6 +55,9 @@ const hostedWorkflow = readText('.github/workflows/automation-ci.yml');
 const runtimeWorkflow = readText('.github/workflows/freecad-runtime-smoke.yml');
 const maintainerDoctorsWorkflow = readText('.github/workflows/maintainer-doctors.yml');
 const studioHtml = readText('public/studio.html');
+const QIF_LITE_BOUNDARY_PARAGRAPH = 'QIF-lite import is a narrow adapter for inspection-shaped XML supplied by a real physical, supplier, lab, or QA inspection source. It is not a complete QIF implementation and does not make an XML file attachment-ready by itself.';
+const EVIDENCE_GRAPH_BOUNDARY_PARAGRAPH = 'The evidence graph is a read-only review artifact. It links package, review, generated quality, inspection, and readiness artifacts, but it does not attach evidence, regenerate readiness, or mutate canonical package files.';
+const RUNTIME_FINGERPRINT_BOUNDARY_PARAGRAPH = 'The runtime fingerprint records local execution context and FreeCAD/runtime capability. It is reproducibility evidence only; it is not physical inspection evidence and does not clear production readiness.';
 
 function extractSection(markdown, heading) {
   const marker = `${heading}\n`;
@@ -92,6 +98,10 @@ function assertSameCommands(actual, expected, label) {
   assert.deepEqual([...actual].sort(), [...expected].sort(), label);
 }
 
+function countOccurrences(text, needle) {
+  return text.split(needle).length - 1;
+}
+
 function artifactRef(jobId = 'job-1', artifactId = 'artifact-1') {
   return {
     job_id: jobId,
@@ -114,6 +124,14 @@ function minimalLocalApiJobRequest(command) {
   }
   if (command === 'readiness-pack') {
     return { type: command, review_pack_path: 'output/review_pack.json' };
+  }
+  if (command === 'evidence-graph') {
+    return {
+      type: command,
+      package_id: 'quality-pass-bracket',
+      review_pack_path: 'docs/examples/quality-pass-bracket/review/review_pack.json',
+      readiness_report_path: 'docs/examples/quality-pass-bracket/readiness/readiness_report.json',
+    };
   }
   if (command === 'generate-standard-docs') {
     return { type: command, config_path: 'configs/examples/quality_pass_bracket.toml', readiness_report_path: 'output/readiness_report.json' };
@@ -151,6 +169,14 @@ function minimalStudioSubmission(command) {
   }
   if (command === 'stage5b-evidence-audit') {
     return { type: command, options: { include_github: false } };
+  }
+  if (command === 'evidence-graph') {
+    return {
+      type: command,
+      package_id: 'quality-pass-bracket',
+      review_pack_path: 'docs/examples/quality-pass-bracket/review/review_pack.json',
+      readiness_report_path: 'docs/examples/quality-pass-bracket/readiness/readiness_report.json',
+    };
   }
   if (STUDIO_PAIRED_ARTIFACT_JOB_COMMANDS.includes(command)) {
     return {
@@ -242,6 +268,7 @@ assertSameCommands(
     'inspect',
     'report',
     'review-context',
+    'evidence-graph',
     'inspection-evidence-intake',
     'inspection-evidence-promotion-dry-run',
     'stage5b-evidence-audit',
@@ -289,6 +316,41 @@ assertSameCommands(
   expectedConditionalCommands,
   'docs/support-matrix.md mixed list should match src/shared/command-manifest.js'
 );
+
+assert.match(
+  readme,
+  /fcad check-runtime --fingerprint-out <runtime_fingerprint\.json>/,
+  'README should document the runtime fingerprint command surface'
+);
+assert.match(
+  supportMatrix,
+  /### Runtime fingerprint/,
+  'support matrix should name the runtime fingerprint boundary'
+);
+assert.match(
+  supportMatrix,
+  /fcad check-runtime --fingerprint-out <runtime_fingerprint\.json>/,
+  'support matrix should document the runtime fingerprint command surface'
+);
+
+const differentiationRoadmapDocs = [
+  readme,
+  inspectionEvidenceContract,
+  studioFirstUserWalkthrough,
+  outputManifest,
+  supportMatrix,
+].join('\n\n');
+[
+  [QIF_LITE_BOUNDARY_PARAGRAPH, 'QIF-lite boundary paragraph'],
+  [EVIDENCE_GRAPH_BOUNDARY_PARAGRAPH, 'evidence graph boundary paragraph'],
+  [RUNTIME_FINGERPRINT_BOUNDARY_PARAGRAPH, 'runtime fingerprint boundary paragraph'],
+].forEach(([paragraph, label]) => {
+  assert.equal(
+    countOccurrences(differentiationRoadmapDocs, paragraph),
+    1,
+    `${label} should appear exactly once across the roadmap docs`
+  );
+});
 
 const hostedSuite = getTestSuite('hosted');
 assert(hostedSuite, 'hosted test suite should exist in tests/lane-manifest.js');
