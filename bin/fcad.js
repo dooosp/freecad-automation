@@ -124,6 +124,10 @@ import {
   isStage5bRuntimeValidationError,
   writeStage5bValidationDiagnosticsFile,
 } from '../src/services/inspection-evidence-intake/stage5b-runtime-validation.js';
+import {
+  createRevisionImpactReportFromPaths,
+  writeRevisionImpactArtifacts,
+} from '../src/services/revision-impact/revision-impact-service.js';
 import { runSweep } from '../src/services/sweep/sweep-service.js';
 import { loadRuleProfile, summarizeRuleProfile } from '../src/services/config/rule-profile-service.js';
 import {
@@ -2755,10 +2759,28 @@ async function cmdCompareRev(rawArgs = []) {
   const { positional, options } = parseCliArgs(rawArgs);
   const baselinePath = resolveMaybe(positional[0]);
   const candidatePath = resolveMaybe(positional[1]);
+  const impactOnlyOptionNames = [
+    'impact-md-out',
+    'baseline-readiness',
+    'candidate-readiness',
+    'baseline-config',
+    'candidate-config',
+    'baseline-evidence-envelope',
+    'candidate-evidence-envelope',
+    'baseline-evidence-receipt',
+    'candidate-evidence-receipt',
+    'generated-at',
+  ];
+  const impactRequested = options['impact-out'] !== undefined;
 
   if (!baselinePath || !candidatePath) {
     console.error('Error: compare-rev requires two JSON artifacts');
     console.error('  fcad compare-rev output/rev_a_review_pack.json output/rev_b_review_pack.json');
+    process.exit(1);
+  }
+
+  if (!impactRequested && impactOnlyOptionNames.some((name) => options[name] !== undefined)) {
+    console.error('Error: revision-impact companion options require --impact-out <revision_impact_report.json>');
     process.exit(1);
   }
 
@@ -2805,21 +2827,75 @@ async function cmdCompareRev(rawArgs = []) {
     ...diff,
   };
 
+  let impactAnalysis = null;
+  let impactOutputPath = null;
+  let impactMarkdownPath = null;
+  if (impactRequested) {
+    const resolveImpactInputPath = (optionName) => options[optionName] === undefined
+      ? null
+      : resolveMaybe(requireOptionValue(`--${optionName}`, options[optionName]));
+    impactOutputPath = normalizeJsonOutputPath(requireOptionValue('--impact-out', options['impact-out']));
+    impactMarkdownPath = options['impact-md-out'] !== undefined
+      ? resolveMaybe(requireOptionValue('--impact-md-out', options['impact-md-out']))
+      : impactOutputPath.replace(/\.json$/i, '.md');
+    impactAnalysis = await createRevisionImpactReportFromPaths({
+      projectRoot: PROJECT_ROOT,
+      baselineReviewPackPath: baselinePath,
+      candidateReviewPackPath: candidatePath,
+      baselineReadinessPath: resolveImpactInputPath('baseline-readiness'),
+      candidateReadinessPath: resolveImpactInputPath('candidate-readiness'),
+      baselineConfigPath: resolveImpactInputPath('baseline-config'),
+      candidateConfigPath: resolveImpactInputPath('candidate-config'),
+      baselineEvidenceEnvelopePath: resolveImpactInputPath('baseline-evidence-envelope'),
+      candidateEvidenceEnvelopePath: resolveImpactInputPath('candidate-evidence-envelope'),
+      baselineEvidenceReceiptPath: resolveImpactInputPath('baseline-evidence-receipt'),
+      candidateEvidenceReceiptPath: resolveImpactInputPath('candidate-evidence-receipt'),
+      generatedAt: options['generated-at'] === undefined
+        ? comparison.generated_at
+        : requireOptionValue('--generated-at', options['generated-at']),
+    });
+  }
+
   const outputPath = normalizeJsonOutputPath(options.out)
     || artifactPathFor(buildDefaultOutputDir(options['out-dir']), deriveArtifactStem(candidatePath, 'revision'), '_revision_comparison.json');
+  if (impactAnalysis) {
+    const reservedPaths = [outputPath, createManifestPath({ primaryOutputPath: outputPath })].map((pathValue) => resolve(pathValue));
+    const impactPaths = [impactOutputPath, impactMarkdownPath].map((pathValue) => resolve(pathValue));
+    if (new Set(impactPaths).size !== impactPaths.length || impactPaths.some((pathValue) => reservedPaths.includes(pathValue))) {
+      throw new Error('Revision comparison, impact JSON, impact Markdown, and artifact manifest outputs must use distinct paths');
+    }
+  }
   await writeValidatedJsonArtifact(outputPath, 'revision_comparison', comparison, {
     command: 'compare-rev',
   });
+  let impactArtifacts = null;
+  if (impactAnalysis) {
+    impactArtifacts = await writeRevisionImpactArtifacts({
+      projectRoot: PROJECT_ROOT,
+      report: impactAnalysis.report,
+      jsonPath: impactOutputPath,
+      markdownPath: impactMarkdownPath,
+      allowedOutputRoots: [...new Set([dirname(impactOutputPath), dirname(impactMarkdownPath)])],
+    });
+  }
   const manifestPath = await writeCliManifest({
     command: 'compare-rev',
     primaryOutputPath: outputPath,
     artifacts: [
       createArtifactEntry('revision-comparison.json', outputPath, { label: 'Revision comparison JSON' }),
+      ...(impactArtifacts ? [
+        createArtifactEntry('revision-impact.report-json', impactArtifacts.jsonPath, { label: 'Revision impact report JSON' }),
+        createArtifactEntry('revision-impact.report-markdown', impactArtifacts.markdownPath, { label: 'Revision impact report Markdown' }),
+      ] : []),
       createArtifactEntry('input.baseline', baselinePath, { label: 'Baseline JSON' }),
       createArtifactEntry('input.candidate', candidatePath, { label: 'Candidate JSON' }),
     ],
   });
   console.log(`Revision comparison: ${outputPath}`);
+  if (impactArtifacts) {
+    console.log(`Revision impact report: ${impactArtifacts.jsonPath}`);
+    console.log(`Revision impact Markdown: ${impactArtifacts.markdownPath}`);
+  }
   console.log(`Manifest: ${manifestPath}`);
 }
 

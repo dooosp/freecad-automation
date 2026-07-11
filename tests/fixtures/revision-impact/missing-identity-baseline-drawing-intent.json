@@ -1,0 +1,21 @@
+{
+  "artifact_type": "drawing_intent",
+  "schema_version": "1.0",
+  "test_scope": "fixture",
+  "production_trust": false,
+  "package_slug": "fixture-bracket",
+  "revision": null,
+  "required_dimensions": [
+    {
+      "id": "CHAR.HOLE_DIAMETER",
+      "feature": "FEATURE.HOLE_001",
+      "label": "Fixture hole diameter",
+      "dimension_type": "diameter",
+      "value_mm": 6,
+      "tolerance": "±0.20 mm",
+      "required": true,
+      "specification_ref": "DRW-FIXTURE-100:HOLE_DIAMETER",
+      "inspection_method": "CMM"
+    }
+  ]
+}
