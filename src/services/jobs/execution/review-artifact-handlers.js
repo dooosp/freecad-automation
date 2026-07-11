@@ -1,3 +1,38 @@
+function buildRevisionImpactAfMetadataDocument(result) {
+  const report = result.impactReport || {};
+  const baselineRefs = Array.isArray(report.baseline?.artifact_refs) ? report.baseline.artifact_refs : [];
+  const candidateRefs = Array.isArray(report.candidate?.artifact_refs) ? report.candidate.artifact_refs : [];
+  const sourceArtifactRefs = [
+    ...baselineRefs.map((path) => ({
+      artifact_type: 'revision-impact.baseline-input',
+      path,
+      role: 'input',
+      label: 'Baseline revision-impact input',
+    })),
+    ...candidateRefs.map((path) => ({
+      artifact_type: 'revision-impact.candidate-input',
+      path,
+      role: 'input',
+      label: 'Candidate revision-impact input',
+    })),
+  ];
+  const lineageId = result.comparison?.part_id
+    || report.candidate?.package_slug
+    || report.baseline?.package_slug
+    || null;
+  return {
+    artifact_type: report.artifact_type,
+    schema_version: report.schema_version,
+    source_artifact_refs: sourceArtifactRefs,
+    part: {
+      part_id: lineageId,
+      name: lineageId ? null : 'revision-impact-analysis',
+      revision: report.candidate?.revision || null,
+    },
+    warnings: [],
+  };
+}
+
 export function createReviewArtifactHandlers() {
   return {
     'review-context': async (job, context) => {
@@ -71,17 +106,52 @@ export function createReviewArtifactHandlers() {
         result,
         artifacts: {
           revision_comparison: result.outputPath,
+          revision_impact_report: result.impactJsonPath,
+          revision_impact_markdown: result.impactMarkdownPath,
         },
-        manifestArtifacts: [{
-          type: 'revision-comparison.json',
-          path: result.outputPath,
-          label: 'Revision comparison JSON',
-          scope: 'user-facing',
-          stability: 'stable',
-          metadata: context.buildGenericAfMetadata('compare-rev', result.comparison, [
-            'compare-rev compares canonical review-pack artifacts and preserves their lineage.',
-          ]),
-        }],
+        manifestArtifacts: [
+          {
+            type: 'revision-comparison.json',
+            path: result.outputPath,
+            label: 'Revision comparison JSON',
+            scope: 'user-facing',
+            stability: 'stable',
+            metadata: context.buildGenericAfMetadata('compare-rev', result.comparison, [
+              'compare-rev compares canonical review-pack artifacts and preserves their lineage.',
+            ]),
+          },
+          {
+            type: 'revision-impact.report-json',
+            path: result.impactJsonPath,
+            label: 'Revision impact report JSON',
+            scope: 'user-facing',
+            stability: 'stable',
+            metadata: context.buildGenericAfMetadata('compare-rev', buildRevisionImpactAfMetadataDocument(result), [
+              'Revision impact is decision support only; it does not attach evidence, mutate receipts, regenerate readiness, or publish a release.',
+            ]),
+          },
+          {
+            type: 'revision-impact.report-markdown',
+            path: result.impactMarkdownPath,
+            label: 'Revision impact report Markdown',
+            scope: 'user-facing',
+            stability: 'stable',
+          },
+          {
+            type: 'input.review-pack.baseline',
+            path: result.baselinePath,
+            label: 'Baseline review pack JSON',
+            scope: 'internal',
+            stability: 'stable',
+          },
+          {
+            type: 'input.review-pack.candidate',
+            path: result.candidatePath,
+            label: 'Candidate review pack JSON',
+            scope: 'internal',
+            stability: 'stable',
+          },
+        ],
       };
     },
     'evidence-graph': async (job, context) => {

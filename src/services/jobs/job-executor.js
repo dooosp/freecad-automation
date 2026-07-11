@@ -33,6 +33,10 @@ import { writeEvidenceReadinessAudit } from '../evidence-readiness-audit/evidenc
 import { discoverInspectionEvidenceIntake } from '../inspection-evidence-intake/inspection-evidence-intake-service.js';
 import { assertRegularReadinessPackHasNoInspectionEvidenceClaim } from '../inspection-evidence-intake/inspection-evidence-onboarding-service.js';
 import { buildInspectionEvidencePromotionDryRunManifest } from '../inspection-evidence-intake/promotion-dry-run-service.js';
+import {
+  createRevisionImpactReportFromPaths,
+  writeRevisionImpactArtifacts,
+} from '../revision-impact/revision-impact-service.js';
 import { writeStage5bEvidenceAuditBundle } from '../inspection-evidence-intake/stage5b-evidence-audit-service.js';
 import {
   assertValidEvidenceGraph,
@@ -92,7 +96,18 @@ const DIRECT_JOB_PATH_FIELDS = Object.freeze({
     'dfm_report_path',
     'compare_to_path',
   ],
-  'compare-rev': ['baseline_path', 'candidate_path'],
+  'compare-rev': [
+    'baseline_path',
+    'candidate_path',
+    'baseline_readiness_path',
+    'candidate_readiness_path',
+    'baseline_config_path',
+    'candidate_config_path',
+    'baseline_evidence_envelope_path',
+    'candidate_evidence_envelope_path',
+    'baseline_evidence_receipt_path',
+    'candidate_evidence_receipt_path',
+  ],
   'readiness-pack': ['review_pack_path', 'process_plan_path', 'quality_risk_path'],
   'evidence-graph': ['review_pack_path', 'readiness_report_path'],
   'stabilization-review': ['baseline_path', 'candidate_path'],
@@ -462,18 +477,23 @@ function isSafeRepoRelativeJsonPath(value) {
   return isSafeRepoRelativePath(value) && /\.json$/i.test(String(value || '').trim());
 }
 
-function isStudioResolvedArtifactRequest(request = {}) {
-  const source = String(request.options?.studio?.source || '').trim();
-  return source === 'artifact-reference' || source === 'artifact-comparison';
+function isPathInsideTrustedRoot(value, trustedPathRoots = []) {
+  if (typeof value !== 'string' || !isAbsolute(value)) return false;
+  const target = resolve(value);
+  return trustedPathRoots.some((rootValue) => {
+    if (typeof rootValue !== 'string' || !rootValue.trim()) return false;
+    const root = resolve(rootValue);
+    const rel = relative(root, target).replace(/\\/g, '/');
+    return rel === '' || (!rel.startsWith('../') && rel !== '..' && !isAbsolute(rel));
+  });
 }
 
-function validateDirectJobPathFields(request, errors) {
-  if (isStudioResolvedArtifactRequest(request)) return;
+function validateDirectJobPathFields(request, errors, { trustedPathRoots = [] } = {}) {
   const fields = DIRECT_JOB_PATH_FIELDS[request.type] || [];
   for (const field of fields) {
     const value = request[field];
     if (value === undefined || value === null || value === '') continue;
-    if (!isSafeRepoRelativePath(value)) {
+    if (!isSafeRepoRelativePath(value) && !isPathInsideTrustedRoot(value, trustedPathRoots)) {
       errors.push(`${request.type} ${field} must be a safe repo-relative path; use Studio artifact_ref re-entry for tracked artifacts.`);
     }
   }
@@ -643,7 +663,7 @@ function isInspectionEvidenceIntakeArtifactRecord(artifact = {}) {
     || search.includes('intake-report');
 }
 
-export function validateJobRequest(body) {
+export function validateJobRequest(body, { trustedPathRoots = [] } = {}) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     return { ok: false, errors: ['Request body must be a JSON object.'] };
   }
@@ -659,7 +679,7 @@ export function validateJobRequest(body) {
     }
     validateInspectRequest(request, errors);
     validateArtifactRefSafety(request, errors);
-    validateDirectJobPathFields(request, errors);
+    validateDirectJobPathFields(request, errors, { trustedPathRoots });
     validateInspectionEvidenceIntakeRequest(request, errors);
     validatePromotionDryRunRequest(request, errors);
     validateEvidenceGraphRequest(request, errors);
@@ -959,6 +979,9 @@ export function createJobExecutor({
     const baseline = await loadReviewPackHandoff(baselinePath, { command: 'compare-rev' });
     const candidate = await loadReviewPackHandoff(candidatePath, { command: 'compare-rev' });
     const outputPath = buildJobArtifactPath(jobStore, job.id, 'revision_comparison.json');
+    const impactJsonPath = buildJobArtifactPath(jobStore, job.id, 'revision_impact_report.json');
+    const impactMarkdownPath = buildJobArtifactPath(jobStore, job.id, 'revision_impact_report.md');
+    const executionGeneratedAt = new Date().toISOString();
     const result = await runPythonJsonScript(projectRoot, 'scripts/reporting/revision_diff.py', {
       baseline,
       candidate,
@@ -971,7 +994,7 @@ export function createJobExecutor({
       artifact_type: 'revision_comparison',
       schema_version: D_ARTIFACT_SCHEMA_VERSION,
       analysis_version: D_ANALYSIS_VERSION,
-      generated_at: new Date().toISOString(),
+      generated_at: executionGeneratedAt,
       part_id: baseline?.part?.part_id && baseline?.part?.part_id === candidate?.part?.part_id
         ? baseline.part.part_id
         : null,
@@ -1002,10 +1025,39 @@ export function createJobExecutor({
       ],
       ...result.comparison,
     };
+    const requestedGeneratedAt = typeof job.request.options?.generated_at === 'string'
+      ? job.request.options.generated_at.trim()
+      : '';
+    const impactAnalysis = await createRevisionImpactReportFromPaths({
+      projectRoot,
+      trustedInputRoots: [jobStore.jobsDir],
+      baselineReviewPackPath: baselinePath,
+      candidateReviewPackPath: candidatePath,
+      baselineReadinessPath: resolveMaybe(projectRoot, job.request.baseline_readiness_path),
+      candidateReadinessPath: resolveMaybe(projectRoot, job.request.candidate_readiness_path),
+      baselineConfigPath: resolveMaybe(projectRoot, job.request.baseline_config_path),
+      candidateConfigPath: resolveMaybe(projectRoot, job.request.candidate_config_path),
+      baselineEvidenceEnvelopePath: resolveMaybe(projectRoot, job.request.baseline_evidence_envelope_path),
+      candidateEvidenceEnvelopePath: resolveMaybe(projectRoot, job.request.candidate_evidence_envelope_path),
+      baselineEvidenceReceiptPath: resolveMaybe(projectRoot, job.request.baseline_evidence_receipt_path),
+      candidateEvidenceReceiptPath: resolveMaybe(projectRoot, job.request.candidate_evidence_receipt_path),
+      generatedAt: requestedGeneratedAt || executionGeneratedAt,
+    });
     await jobStore.writeJobFile(job.id, 'artifacts/revision_comparison.json', `${JSON.stringify(comparison, null, 2)}\n`);
+    const impactArtifacts = await writeRevisionImpactArtifacts({
+      projectRoot,
+      report: impactAnalysis.report,
+      jsonPath: impactJsonPath,
+      markdownPath: impactMarkdownPath,
+      allowedOutputRoots: [dirname(impactJsonPath)],
+      trustedOutputRoots: [jobStore.jobsDir],
+    });
     return {
       comparison,
+      impactReport: impactAnalysis.report,
       outputPath,
+      impactJsonPath: impactArtifacts.jsonPath,
+      impactMarkdownPath: impactArtifacts.markdownPath,
       baselinePath,
       candidatePath,
       bundleImports: summarizeBundleImports([baselineImport.importRecord, candidateImport.importRecord]),

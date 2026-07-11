@@ -112,6 +112,30 @@ try {
   });
   assert.equal(validEvidenceGraph.ok, true, validEvidenceGraph.errors?.join('\n'));
 
+  const validRevisionImpactCompanions = validateJobRequest({
+    type: 'compare-rev',
+    baseline_path: 'tests/fixtures/d-artifacts/sample_review_pack.canonical.json',
+    candidate_path: 'tests/fixtures/d-artifacts/sample_review_pack.canonical.json',
+    baseline_readiness_path: 'tests/fixtures/c-artifacts/sample_readiness_report.canonical.json',
+    candidate_readiness_path: 'tests/fixtures/c-artifacts/sample_readiness_report.canonical.json',
+    baseline_config_path: 'configs/examples/ks_bracket.toml',
+    candidate_config_path: 'configs/examples/ks_bracket.toml',
+    baseline_evidence_envelope_path: 'tests/fixtures/inspection-evidence-onboarding/synthetic-envelope.json',
+    candidate_evidence_envelope_path: 'tests/fixtures/inspection-evidence-onboarding/synthetic-envelope.json',
+    baseline_evidence_receipt_path: 'tests/fixtures/revision-impact/baseline-receipt.json',
+    candidate_evidence_receipt_path: 'tests/fixtures/revision-impact/candidate-receipt.json',
+    options: { generated_at: '2026-07-11T00:00:00Z' },
+  });
+  assert.equal(validRevisionImpactCompanions.ok, true, validRevisionImpactCompanions.errors?.join('\n'));
+
+  const trustedStudioResolvedComparison = validateJobRequest({
+    type: 'compare-rev',
+    baseline_path: '/tmp/fcad-tracked/jobs/baseline/review_pack.json',
+    candidate_path: '/tmp/fcad-tracked/jobs/candidate/review_pack.json',
+    options: { studio: { source: 'artifact-comparison' } },
+  }, { trustedPathRoots: ['/tmp/fcad-tracked/jobs'] });
+  assert.equal(trustedStudioResolvedComparison.ok, true, trustedStudioResolvedComparison.errors?.join('\n'));
+
   const invalidEvidenceGraphPackage = validateJobRequest({
     type: 'evidence-graph',
     package_id: '../quality-pass-bracket',
@@ -162,6 +186,19 @@ try {
       type: 'compare-rev',
       baseline_path: '/tmp/private/baseline.json',
       candidate_path: 'docs/examples/motor-mount/review/review_pack.json',
+    },
+    {
+      type: 'compare-rev',
+      baseline_path: 'docs/examples/motor-mount/review/review_pack.json',
+      candidate_path: 'docs/examples/motor-mount/review/review_pack.json',
+      candidate_evidence_receipt_path: '../private/attachment_receipt.json',
+    },
+    {
+      type: 'compare-rev',
+      baseline_path: '/tmp/tracked/baseline.json',
+      candidate_path: '/tmp/tracked/candidate.json',
+      baseline_config_path: '/tmp/private/config.toml',
+      options: { studio: { source: 'artifact-comparison' } },
     },
     {
       type: 'stabilization-review',
@@ -403,6 +440,14 @@ try {
     'compare_to_path',
     'baseline_path',
     'candidate_path',
+    'baseline_readiness_path',
+    'candidate_readiness_path',
+    'baseline_config_path',
+    'candidate_config_path',
+    'baseline_evidence_envelope_path',
+    'candidate_evidence_envelope_path',
+    'baseline_evidence_receipt_path',
+    'candidate_evidence_receipt_path',
     'review_pack_path',
     'process_plan_path',
     'quality_risk_path',

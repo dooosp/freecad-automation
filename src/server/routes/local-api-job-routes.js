@@ -22,6 +22,14 @@ const RETRY_INPUT_PATH_FIELDS = Object.freeze([
   'compare_to_path',
   'baseline_path',
   'candidate_path',
+  'baseline_readiness_path',
+  'candidate_readiness_path',
+  'baseline_config_path',
+  'candidate_config_path',
+  'baseline_evidence_envelope_path',
+  'candidate_evidence_envelope_path',
+  'baseline_evidence_receipt_path',
+  'candidate_evidence_receipt_path',
   'review_pack_path',
   'process_plan_path',
   'quality_risk_path',
@@ -199,7 +207,9 @@ export function registerJobRoutes(app, {
         return;
       }
 
-      const validation = validateJobRequest(structuredClone(sourceJob.request));
+      const validation = validateJobRequest(structuredClone(sourceJob.request), {
+        trustedPathRoots: [jobStore.jobsDir],
+      });
       if (!validation.ok) {
         const response = createErrorResponse(
           'invalid_retry_request',
