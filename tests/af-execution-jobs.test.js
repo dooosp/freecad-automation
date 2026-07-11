@@ -243,6 +243,7 @@ try {
   assertNoStaleCanonicalNames(docsArtifactsPayload.artifacts, 'generate-standard-docs');
   const docsReadinessArtifact = docsArtifactsPayload.artifacts.find((artifact) => artifact.contract?.reentry_target === 'readiness_report');
   assert.equal(Boolean(docsReadinessArtifact), true);
+  assert.equal(docsReadinessArtifact.scope, 'user-facing');
   const docsManifestArtifact = docsArtifactsPayload.artifacts.find((artifact) => artifact.type === 'standard-docs.summary');
   assert.equal(Boolean(docsManifestArtifact), true);
   assert.equal(docsManifestArtifact.file_name, 'standard_docs_manifest.json');
