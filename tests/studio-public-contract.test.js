@@ -158,6 +158,20 @@ const generatedGroups = collectGeneratedArtifactGroups([
     canOpen: false,
   }),
   makeGeneratedArtifact({
+    id: 'revision-impact-json',
+    key: 'revision_impact_report',
+    type: 'revision-impact.report-json',
+    fileName: 'revision_impact_report.json',
+    extension: '.json',
+  }),
+  makeGeneratedArtifact({
+    id: 'revision-impact-markdown',
+    key: 'revision_impact_markdown',
+    type: 'revision-impact.report-markdown',
+    fileName: 'revision_impact_report.md',
+    extension: '.md',
+  }),
+  makeGeneratedArtifact({
     id: 'report-pdf',
     key: 'report_pdf',
     type: 'report.pdf',
@@ -204,7 +218,12 @@ const generatedGroups = collectGeneratedArtifactGroups([
 ]);
 const generatedGroupMap = Object.fromEntries(generatedGroups.map((group) => [group.id, group]));
 assert.deepEqual(generatedGroupMap['cad-exports'].rows.map((row) => row.label), ['STEP model', 'STL mesh']);
-assert.deepEqual(generatedGroupMap.reports.rows.map((row) => row.label), ['PDF report', 'Report summary']);
+assert.deepEqual(generatedGroupMap.reports.rows.map((row) => row.label), [
+  'Revision impact JSON',
+  'Revision impact Markdown',
+  'PDF report',
+  'Report summary',
+]);
 assert.deepEqual(generatedGroupMap['quality-outputs'].rows.map((row) => row.label), [
   'Create quality JSON',
   'Drawing quality JSON',

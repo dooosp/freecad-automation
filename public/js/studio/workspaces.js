@@ -678,7 +678,7 @@ function createStartActionsCard(state) {
         },
         {
           kicker: 'Compare revisions',
-          title: 'Stage compare-rev and stabilization',
+          title: 'Stage Compare Revisions and stabilization',
           copy: 'Use the Packs workspace to choose the current run plus a baseline. When canonical inputs exist, Studio can queue tracked compare and stabilization jobs from there.',
           meta: latestCompareJob ? 'Latest comparison run available' : 'Use active plus baseline tracked runs',
           controls: [

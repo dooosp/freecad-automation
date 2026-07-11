@@ -146,6 +146,66 @@ assert.equal(comparisonViewer.kind, 'revision_comparison');
 assert.equal(comparisonViewer.title, 'Compare viewer');
 assert.equal(comparisonViewer.sections.some((section) => section.title === 'Revision story'), true);
 
+const revisionImpactArtifact = {
+  id: 'revision-impact-report',
+  type: 'revision-impact.report-json',
+  file_name: 'revision_impact_report.json',
+  extension: '.json',
+};
+const revisionImpactViewer = buildArtifactViewer({
+  artifact: revisionImpactArtifact,
+  parsedPayload: {
+    artifact_type: 'revision_impact_report',
+    schema_version: '1.0',
+    generated_at: '2026-07-11T00:00:00Z',
+    baseline: { package_slug: 'fixture-bracket', revision: 'A', artifact_refs: ['fixtures/baseline.json'], source_hashes: { review_pack: 'a'.repeat(64) } },
+    candidate: { package_slug: 'fixture-bracket', revision: 'B', artifact_refs: ['fixtures/candidate.json'], source_hashes: { review_pack: 'b'.repeat(64) } },
+    summary: {
+      decision: 'reinspection_required',
+      material_change_count: 1,
+      review_required_count: 0,
+      reinspection_required_count: 1,
+      unable_to_determine_count: 0,
+      readiness_review_required: true,
+    },
+    changes: [{
+      change_type: 'tolerance_change',
+      affected_entity_id: 'HOLE_LEFT_DIA',
+      determinability: 'determined',
+      rationale: 'The authoritative tolerance tightened.',
+    }],
+    evidence_applicability: {
+      assessments: [{ applicability_status: 'reinspection_required' }],
+      authoritative_evidence_state_changed: false,
+    },
+    reinspection_plan: {
+      items: [{ affected_entity_id: 'HOLE_LEFT_DIA', reason: 'Repeat the authoritative characteristic measurement.' }],
+    },
+    boundaries: {
+      inspection_evidence_attached: false,
+      existing_evidence_mutated: false,
+      evidence_superseded: false,
+      readiness_regenerated: false,
+    },
+  },
+});
+
+assert.equal(buildArtifactOpenLabel(revisionImpactArtifact), 'Open revision impact');
+assert.equal(revisionImpactViewer.kind, 'revision_impact_report');
+assert.equal(revisionImpactViewer.title, 'Revision impact viewer');
+assert.equal(revisionImpactViewer.sections.some((section) => section.title === 'Reinspection requirements'), true);
+assert.equal(revisionImpactViewer.sections.some((section) => section.title === 'Unresolved mappings'), true);
+assert.equal(revisionImpactViewer.sections.some((section) => section.title === 'Dimensions, tolerances, drawing and specification impacts'), true);
+assert.equal(revisionImpactViewer.sections.some((section) => section.title === 'Affected inspection characteristics'), true);
+assert.equal(
+  revisionImpactViewer.sections.find((section) => section.title === 'Source hashes and provenance')?.entries.includes(`Baseline review_pack • ${'a'.repeat(64)}`),
+  true
+);
+assert.equal(
+  revisionImpactViewer.sections.find((section) => section.title === 'Non-mutation boundaries')?.entries.includes('No inspection evidence was attached.'),
+  true
+);
+
 const stabilizationArtifact = {
   id: 'stabilization-review',
   type: 'review.stabilization.json',

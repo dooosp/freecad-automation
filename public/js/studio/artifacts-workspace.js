@@ -34,6 +34,7 @@ import {
   isReadinessReportArtifact,
   isReleaseBundleArtifact,
   isReviewPackArtifact,
+  isRevisionImpactArtifact,
 } from './artifact-actions.js';
 import {
   buildQualityDashboardModel,
@@ -322,6 +323,19 @@ function isReportSummaryArtifactForDownloads(artifact = {}) {
   ]);
 }
 
+function isRevisionImpactJsonArtifact(artifact = {}) {
+  return isAvailableArtifact(artifact)
+    && String(artifact.extension || '').toLowerCase() === '.json'
+    && isRevisionImpactArtifact(artifact);
+}
+
+function isRevisionImpactMarkdownArtifact(artifact = {}) {
+  const extension = String(artifact.extension || '').toLowerCase();
+  return isAvailableArtifact(artifact)
+    && (extension === '.md' || extension === '.markdown')
+    && isRevisionImpactArtifact(artifact);
+}
+
 function isCreateQualityArtifactForDownloads(artifact = {}) {
   return isAvailableArtifact(artifact) && artifactHasAny(artifact, [
     'create_quality',
@@ -392,6 +406,22 @@ export function collectGeneratedArtifactGroups(artifacts = []) {
   ].filter(Boolean);
 
   const reportRows = [
+    firstMatchingArtifact(artifacts, isRevisionImpactJsonArtifact)
+      ? buildGeneratedArtifactRow({
+          id: 'revision-impact-json',
+          label: 'Revision impact JSON',
+          hint: 'Canonical impact and reinspection report',
+          artifact: firstMatchingArtifact(artifacts, isRevisionImpactJsonArtifact),
+        })
+      : null,
+    firstMatchingArtifact(artifacts, isRevisionImpactMarkdownArtifact)
+      ? buildGeneratedArtifactRow({
+          id: 'revision-impact-markdown',
+          label: 'Revision impact Markdown',
+          hint: 'Derived human-readable impact view',
+          artifact: firstMatchingArtifact(artifacts, isRevisionImpactMarkdownArtifact),
+        })
+      : null,
     firstMatchingArtifact(artifacts, isPdfReportArtifact)
       ? buildGeneratedArtifactRow({
           id: 'pdf-report',
@@ -1638,7 +1668,7 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
     const baselineJobId = artifactsState.compare.job.id;
     const compareActions = [
       createButton({
-        label: 'Run compare-rev',
+        label: 'Run Compare Revisions',
         action: 'artifacts-run-compare',
         tone: 'ghost',
         disabled: !activeReviewPack || !baselineReviewPack,

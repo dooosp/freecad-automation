@@ -20,6 +20,13 @@ const STAGE5B_AUDIT_MATCHERS = [
   'stage5b_audit_summary',
   'stage5b audit summary',
 ];
+const REVISION_IMPACT_MATCHERS = [
+  'revision-impact.report-json',
+  'revision-impact.report-markdown',
+  'revision_impact_report.json',
+  'revision_impact_report.md',
+  'revision impact report',
+];
 const REVIEW_SOURCE_MATCHERS = [
   'readiness',
   'review.product',
@@ -34,6 +41,7 @@ const REVIEW_SOURCE_MATCHERS = [
   'process_plan',
   'line_plan',
   'drawing.qa-report',
+  ...REVISION_IMPACT_MATCHERS,
   ...INSPECTION_INTAKE_MATCHERS,
   ...INSPECTION_PROMOTION_DRY_RUN_MATCHERS,
   ...STAGE5B_AUDIT_MATCHERS,
@@ -225,6 +233,10 @@ export function isReleaseBundleManifestArtifact(artifact = {}) {
 
 export function isRevisionComparisonArtifact(artifact = {}) {
   return includesAny(artifactSearchText(artifact), REVISION_COMPARISON_MATCHERS);
+}
+
+export function isRevisionImpactArtifact(artifact = {}) {
+  return includesAny(artifactSearchText(artifact), REVISION_IMPACT_MATCHERS);
 }
 
 export function isStabilizationReviewArtifact(artifact = {}) {
