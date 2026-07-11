@@ -107,20 +107,32 @@
               "status": {
                 "enum": [
                   "ready_for_canonical_attachment",
+                  "awaiting_quarantine",
                   "hold_for_evidence_completion"
                 ]
               },
               "mode": {
                 "enum": [
                   "canonical_review_context_chain_required",
+                  "quarantine_first_onboarding_required",
                   "no_human_measurement_entry_requested"
                 ]
               },
               "candidate_path": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/repoPath" },
               "candidate_format": { "type": "string" },
               "normalization_required": { "type": "boolean" },
-              "normalized_contract_target": { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/repoPath" },
-              "canonical_commands": { "type": "object" },
+              "normalized_contract_target": {
+                "anyOf": [
+                  { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/repoPath" },
+                  { "type": "null" }
+                ]
+              },
+              "canonical_commands": {
+                "anyOf": [
+                  { "type": "object" },
+                  { "type": "null" }
+                ]
+              },
               "canonical_next_command": {
                 "anyOf": [
                   { "$ref": "https://freecad-automation.local/schemas/stage5b-artifact-common.schema.json#/$defs/command" },

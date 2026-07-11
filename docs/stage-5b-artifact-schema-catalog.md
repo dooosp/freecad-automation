@@ -11,6 +11,22 @@ in a later authorized task.
 
 Hard evidence rule: Only genuine completed physical/supplier/lab/QA inspection records can satisfy `inspection_evidence`. Packets, authorization records, schemas, reports, manifests, diagnostics, docs, fixtures, PR bodies, CI/GitHub metadata, release bundles, CAD measurements, and Studio cards are control or review material only.
 
+## Production onboarding contracts
+
+The legacy catalog below remains a map of discovery and non-evidence control
+outputs. Production onboarding is separately governed by these strict contracts:
+
+- `schemas/inspection-evidence-envelope.schema.json`
+- `schemas/inspection-evidence-onboarding-record.schema.json`
+- `schemas/inspection-evidence-authorization.schema.json`
+- `schemas/inspection-evidence-attachment-record.schema.json`
+- `schemas/inspection-evidence-readiness-authorization.schema.json`
+
+Structural schema validity alone never makes a file trusted evidence. The
+quarantine service must also prove source classification, semantic validity,
+configured revision, checksum continuity, reviewer/authorizer separation, the
+canonical attachment hash chain, and a separate readiness authorization.
+
 ## Catalog
 
 <!-- GENERATED:stage5b-artifact-catalog:start -->

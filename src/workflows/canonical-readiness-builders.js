@@ -1,12 +1,15 @@
-import { writeFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 
 import {
   C_ARTIFACT_SCHEMA_VERSION,
   assertValidCArtifact,
   getCCommandContract,
 } from '../../lib/c-artifact-schema.js';
-import { writeValidatedCArtifact } from '../../lib/context-loader.js';
+import { writeReadinessArtifactPair } from '../../lib/canonical-package-mutation-lock.js';
 import { assertValidDArtifact, buildSourceArtifactRef } from '../../lib/d-artifact-schema.js';
+
+const REPOSITORY_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
 function nowIso(explicitValue = null) {
   if (typeof explicitValue === 'string' && explicitValue.trim()) return explicitValue.trim();
@@ -75,9 +78,20 @@ function hasMatchingInspectionEvidenceSourceRef(sourceArtifactRefs = [], sourceR
   ));
 }
 
+function hasMatchingAttachmentRecordSourceRef(sourceArtifactRefs = [], sourceRef = null) {
+  return safeList(sourceArtifactRefs).some((ref) => (
+    ref?.artifact_type === 'inspection_evidence_attachment_record'
+    && ref?.role === 'input'
+    && ref?.path === sourceRef
+  ));
+}
+
 function isExplicitInspectionEvidenceRecord(record, sourceArtifactRefs = []) {
   const classifications = safeList(record?.classifications);
   const sourceRef = record?.source_ref;
+  const attachmentRecord = safeObject(record?.attachment_record);
+  const inspectionResult = safeObject(record?.inspection_result);
+  const recordText = JSON.stringify(record || {});
   return Boolean(
     record?.inspection_evidence === true
     && record?.type === 'inspection_evidence'
@@ -86,8 +100,28 @@ function isExplicitInspectionEvidenceRecord(record, sourceArtifactRefs = []) {
     && classifications.includes('inspection_evidence')
     && isSafeRepoSourceRef(sourceRef)
     && typeof record?.sha256 === 'string'
-    && record.sha256.length === 64
+    && /^[a-f0-9]{64}$/.test(record.sha256)
     && hasMatchingInspectionEvidenceSourceRef(sourceArtifactRefs, sourceRef)
+    && attachmentRecord.record_type === 'inspection_evidence_attachment_record'
+    && /^docs\/examples\/[^/]+\/inspection\/inspection_evidence_attachment\.json$/i.test(attachmentRecord.source_ref || '')
+    && /^[a-f0-9]{64}$/.test(attachmentRecord.sha256 || '')
+    && /^[a-f0-9]{64}$/.test(attachmentRecord.source_document_sha256 || '')
+    && typeof attachmentRecord.package_revision === 'string'
+    && attachmentRecord.package_revision.trim().length > 0
+    && hasMatchingAttachmentRecordSourceRef(sourceArtifactRefs, attachmentRecord.source_ref)
+    && ['pass', 'fail'].includes(inspectionResult.overall_result)
+    && Number.isInteger(inspectionResult.characteristic_count)
+    && inspectionResult.characteristic_count > 0
+    && Number.isInteger(inspectionResult.nonconforming_characteristic_count)
+    && inspectionResult.nonconforming_characteristic_count >= 0
+    && inspectionResult.nonconforming_characteristic_count <= inspectionResult.characteristic_count
+    && (
+      inspectionResult.readiness_disposition === 'conforming'
+        ? inspectionResult.overall_result === 'pass' && inspectionResult.nonconforming_characteristic_count === 0
+        : inspectionResult.readiness_disposition === 'hold_nonconforming'
+          && (inspectionResult.overall_result === 'fail' || inspectionResult.nonconforming_characteristic_count > 0)
+    )
+    && !/\b(?:synthetic|fixture|surrogate|simulated|test[-_ ]?only|non[-_ /]?evidence)\b/i.test(recordText)
   );
 }
 
@@ -95,10 +129,6 @@ function getExplicitInspectionEvidenceRecords(reviewPack = {}) {
   const records = safeList(reviewPack?.evidence_ledger?.records);
   const sourceArtifactRefs = safeList(reviewPack?.source_artifact_refs);
   return records.filter((record) => isExplicitInspectionEvidenceRecord(record, sourceArtifactRefs));
-}
-
-function hasExplicitInspectionEvidence(reviewPack = {}) {
-  return getExplicitInspectionEvidenceRecords(reviewPack).length > 0;
 }
 
 function buildCanonicalArtifactDescriptor(kind, contract) {
@@ -150,12 +180,23 @@ function collectDataQualityMessages(reviewPack) {
 
 function collectMissingInputs(reviewPack) {
   const missingInputs = uniqueStrings(safeList(reviewPack.uncertainty_coverage_report?.missing_inputs));
-  if (!hasExplicitInspectionEvidence(reviewPack)) return uniqueStrings([...missingInputs, 'inspection_evidence']);
-  return missingInputs.filter((input) => input !== 'inspection_evidence');
+  const records = getExplicitInspectionEvidenceRecords(reviewPack);
+  const withoutInspectionMarkers = missingInputs.filter((input) => ![
+    'inspection_evidence',
+    'inspection_evidence_ambiguous',
+    'inspection_evidence_nonconforming',
+  ].includes(input));
+  if (records.length === 0) return uniqueStrings([...withoutInspectionMarkers, 'inspection_evidence']);
+  if (records.length !== 1) return uniqueStrings([...withoutInspectionMarkers, 'inspection_evidence_ambiguous']);
+  if (records[0].inspection_result.readiness_disposition !== 'conforming') {
+    return uniqueStrings([...withoutInspectionMarkers, 'inspection_evidence_nonconforming']);
+  }
+  return withoutInspectionMarkers;
 }
 
 function normalizeDataQualityNotesForInspectionEvidence(reviewPack, notes) {
-  if (!hasExplicitInspectionEvidence(reviewPack)) {
+  const inspectionEvidenceRecords = getExplicitInspectionEvidenceRecords(reviewPack);
+  if (inspectionEvidenceRecords.length === 0) {
     const existing = safeList(notes);
     const hasMissingInspectionNote = existing.some((note) => (
       typeof note?.message === 'string' && /Missing or limited inspection evidence/i.test(note.message)
@@ -170,10 +211,20 @@ function normalizeDataQualityNotesForInspectionEvidence(reviewPack, notes) {
           },
         ];
   }
-  return safeList(notes).filter((note) => {
+  const retained = safeList(notes).filter((note) => {
     const message = note?.message;
     return !(typeof message === 'string' && /Missing or limited inspection evidence/i.test(message));
   });
+  if (inspectionEvidenceRecords.some((record) => record.inspection_result.readiness_disposition !== 'conforming')) {
+    return [
+      ...retained,
+      {
+        severity: 'high',
+        message: 'Attached inspection evidence contains a failed or not-accepted result; readiness remains on hold pending disposition and conforming evidence.',
+      },
+    ];
+  }
+  return retained;
 }
 
 function normalizeReviewPackInspectionEvidenceCoverage(reviewPack) {
@@ -187,6 +238,8 @@ function normalizeReviewPackInspectionEvidenceCoverage(reviewPack) {
     coverage: {
       ...safeObject(normalized.uncertainty_coverage_report?.coverage),
       inspection_evidence_record_count: inspectionEvidenceRecords.length,
+      inspection_evidence_conforming_count: inspectionEvidenceRecords.filter((record) => record.inspection_result.readiness_disposition === 'conforming').length,
+      inspection_evidence_nonconforming_count: inspectionEvidenceRecords.filter((record) => record.inspection_result.readiness_disposition !== 'conforming').length,
     },
   };
   normalized.data_quality_notes = normalizeDataQualityNotesForInspectionEvidence(
@@ -1105,13 +1158,17 @@ export function buildReadinessReportFromReviewPack({
   return report;
 }
 
-export async function writeCanonicalReadinessArtifacts(outputJsonPath, report) {
-  const jsonPath = await writeValidatedCArtifact(outputJsonPath, 'readiness_report', report, {
+export async function writeCanonicalReadinessArtifacts(outputJsonPath, report, { projectRoot = REPOSITORY_ROOT } = {}) {
+  assertValidCArtifact('readiness_report', report, {
     command: 'readiness-report',
+    path: resolve(outputJsonPath),
   });
-  const markdownPath = jsonPath.replace(/\.json$/i, '.md');
-  await writeFile(markdownPath, `${String(report.markdown || '').trim()}\n`, 'utf8');
-  return { json: jsonPath, markdown: markdownPath };
+  return writeReadinessArtifactPair({
+    projectRoot,
+    outputJsonPath,
+    jsonContent: `${JSON.stringify(report, null, 2)}\n`,
+    markdownContent: `${String(report.markdown || '').trim()}\n`,
+  });
 }
 
 function diffLists(baseline, candidate) {

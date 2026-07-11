@@ -302,27 +302,20 @@ try {
     ['mount_hole_a_diameter']
   );
   assert.deepEqual(validReport.packages[0].accepted_candidates[0].missing_required_features, []);
-  assert.equal(validReport.packages[0].accepted_candidates[0].attachment_ready, true);
+  assert.equal(validReport.packages[0].accepted_candidates[0].attachment_ready, false);
+  assert.equal(validReport.packages[0].accepted_candidates[0].attachment_plan.eligible_for_quarantine_review, true);
   assert.equal(
     validReport.packages[0].accepted_candidates[0].path,
     'docs/examples/demo-intake-part/inspection/inspection_evidence.json'
   );
-  assert.equal(validReport.packages[0].intake_action.status, 'ready_for_canonical_attachment');
+  assert.equal(validReport.packages[0].intake_action.status, 'awaiting_quarantine');
   assert.equal(validReport.packages[0].attachment_plan.matched_package, 'demo-intake-part');
   assert.equal(validReport.packages[0].attachment_plan.match_confidence, 'high');
-  assert.equal(validReport.packages[0].attachment_plan.attachment_ready, true);
-  assert.equal(
-    validReport.packages[0].attachment_plan.canonical_next_command.join(' '),
-    validReport.packages[0].intake_action.canonical_commands.review_context.join(' ')
-  );
-  assert.match(
-    validReport.packages[0].intake_action.canonical_commands.review_context.join(' '),
-    /--inspection-evidence docs\/examples\/demo-intake-part\/inspection\/inspection_evidence\.json/
-  );
-  assert.match(
-    validReport.packages[0].intake_action.canonical_commands.review_context.join(' '),
-    /--attachment-authorization docs\/examples\/demo-intake-part\/inspection\/stage5b_attachment_authorization\.json/
-  );
+  assert.equal(validReport.packages[0].attachment_plan.attachment_ready, false);
+  assert.equal(validReport.packages[0].attachment_plan.canonical_next_command, null);
+  assert.equal(validReport.packages[0].intake_action.canonical_commands, null);
+  assert.equal(validReport.packages[0].intake_action.canonical_next_command, null);
+  assert.equal(validReport.packages[0].intake_action.blockers.includes('quarantine_required'), true);
   assert.equal(
     validReport.rejected_candidates.some((candidate) => candidate.classification === 'invalid_generated'),
     true,
@@ -398,18 +391,13 @@ try {
   assert.equal(tableReport.packages[0].intake_action.normalization_required, true);
   assert.equal(
     tableReport.packages[0].intake_action.normalized_contract_target,
-    'docs/examples/table-intake-part/inspection/inspection_evidence.json'
+    null
   );
   assert.equal(tableReport.packages[0].attachment_plan.matched_package, 'table-intake-part');
-  assert.equal(tableReport.packages[0].attachment_plan.attachment_ready, true);
-  assert.match(
-    tableReport.packages[0].intake_action.canonical_commands.review_context.join(' '),
-    /--inspection-evidence docs\/examples\/table-intake-part\/inspection\/inspection_evidence\.json/
-  );
-  assert.match(
-    tableReport.packages[0].intake_action.canonical_commands.review_context.join(' '),
-    /--attachment-authorization docs\/examples\/table-intake-part\/inspection\/stage5b_attachment_authorization\.json/
-  );
+  assert.equal(tableReport.packages[0].attachment_plan.attachment_ready, false);
+  assert.equal(tableReport.packages[0].intake_action.status, 'awaiting_quarantine');
+  assert.equal(tableReport.packages[0].intake_action.canonical_commands, null);
+  assert.equal(tableReport.packages[0].intake_action.blockers.includes('quarantine_required'), true);
   assert.equal(
     tableReport.rejected_candidates.some((candidate) => (
       candidate.classification === 'invalid_generated'
@@ -507,8 +495,8 @@ try {
   assert.equal(githubTableReport.packages[0].accepted_candidates[0].source_format, 'csv');
   assert.equal(githubTableReport.packages[0].accepted_candidates[0].matched_package, 'github-table-part');
   assert.equal(githubTableReport.packages[0].accepted_candidates[0].match_confidence, 'high');
-  assert.equal(githubTableReport.packages[0].accepted_candidates[0].attachment_ready, true);
-  assert.equal(githubTableReport.packages[0].intake_action.status, 'ready_for_canonical_attachment');
+  assert.equal(githubTableReport.packages[0].accepted_candidates[0].attachment_ready, false);
+  assert.equal(githubTableReport.packages[0].intake_action.status, 'awaiting_quarantine');
   assert.equal(githubTableReport.packages[0].intake_action.normalization_required, true);
 
   const unsafePublicLinkReport = await discoverInspectionEvidenceIntake({

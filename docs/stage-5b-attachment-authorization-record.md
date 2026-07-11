@@ -1,5 +1,7 @@
 # Stage 5B attachment authorization record
 
+> **Legacy control record only:** this document does not satisfy the production `inspection_evidence_attachment_authorization` schema. The legacy direct `review-context --inspection-evidence --attachment-authorization`/ordinary-readiness sequence is disabled. Production authorization must be checksum-bound through [the onboarding contract](./inspection-evidence-contract.md).
+
 This record is control metadata, not `inspection_evidence`. It documents the
 future human authorization required before any genuine completed inspection
 record is attached to a canonical package. It does not attach evidence, promote
@@ -59,9 +61,9 @@ is allowed to attach a reviewed/redacted genuine inspection record.
    or PR bodies alone do not satisfy readiness.
 7. Exact later task boundary for attachment: name the later task, issue, PR, or
    change request that is allowed to run canonical mutation. That later task is
-   the only boundary where `review-context --inspection-evidence --attachment-authorization`,
-   `readiness-pack`, `generate-standard-docs`, and `pack` may be run against the
-   reviewed/redacted record.
+   the only boundary where the quarantine/validate/authorize/attach sequence may
+   proceed. Attachment-bound `review-context` follows the immutable receipt;
+   readiness regeneration requires a separate authorization.
 8. Readiness remains held until authorized attachment occurs: confirm readiness
    remains `needs_more_evidence` / `hold_for_evidence_completion`, and
    `inspection_evidence` remains missing, until the later authorized attachment
@@ -89,7 +91,7 @@ measurements, reviewer data, provenance, or mapping.
 | Audit output reviewed | Safe ref plus structured `audit_review`; control metadata only. |
 | Human authorizer | Named maintainer/owner who authorizes the later attachment task. |
 | Later attachment task boundary | Exact issue, PR, task, or change request allowed to run mutation. |
-| Approved commands | Explicit command boundary, usually `review-context --inspection-evidence --attachment-authorization`, `readiness-pack`, `generate-standard-docs`, and `pack`. |
+| Approved commands | For production onboarding: quarantine, validate, checksum-bound authorize, attach, attachment-bound `review-context`, and separately authorized readiness regeneration. This legacy record cannot authorize them by itself. |
 | Readiness-held acknowledgement | Statement that readiness remains held until the later authorized attachment task completes. |
 
 ## Non-Evidence Boundary

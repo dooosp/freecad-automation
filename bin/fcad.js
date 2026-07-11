@@ -102,6 +102,14 @@ import { writeEvidenceReadinessAudit } from '../src/services/evidence-readiness-
 import { writeMaintainerDecisionJournal } from '../src/services/evidence-readiness-audit/maintainer-decision-journal-service.js';
 import { materializePr170EvidenceArtifacts } from '../src/services/evidence-readiness-audit/pr170-artifact-materializer.js';
 import { discoverInspectionEvidenceIntake } from '../src/services/inspection-evidence-intake/inspection-evidence-intake-service.js';
+import {
+  assertRegularReadinessPackHasNoInspectionEvidenceClaim,
+  attachAuthorizedInspectionEvidence,
+  authorizeQuarantinedInspectionEvidence,
+  quarantineInspectionEvidenceCandidate,
+  regenerateAuthorizedInspectionEvidenceReadiness,
+  validateQuarantinedInspectionEvidence,
+} from '../src/services/inspection-evidence-intake/inspection-evidence-onboarding-service.js';
 import { writeInspectionEvidencePromotionDryRunManifest } from '../src/services/inspection-evidence-intake/promotion-dry-run-service.js';
 import { writeStage5bEvidenceAuditBundle } from '../src/services/inspection-evidence-intake/stage5b-evidence-audit-service.js';
 import { writeStage5bEvidenceAttachmentControlManifest } from '../src/services/inspection-evidence-intake/stage5b-evidence-attachment-controller-service.js';
@@ -517,6 +525,126 @@ async function cmdInspectionEvidenceIntake(rawArgs = []) {
   }
 
   return report;
+}
+
+async function cmdInspectionEvidenceQuarantine(rawArgs = []) {
+  const { options } = parseCliArgs(rawArgs);
+  rejectUnsupportedOptions('inspection-evidence-quarantine', options, [
+    'candidate', 'envelope', 'package', 'revision', 'actor',
+  ]);
+  const candidatePath = resolveMaybe(requireOptionValue('--candidate', options.candidate));
+  const envelopePath = resolveMaybe(requireOptionValue('--envelope', options.envelope));
+  try {
+    const result = await quarantineInspectionEvidenceCandidate({
+      projectRoot: PROJECT_ROOT,
+      candidatePath,
+      envelopePath,
+      packageSlug: requireOptionValue('--package', options.package),
+      packageRevision: requireOptionValue('--revision', options.revision),
+      actorRef: requireOptionValue('--actor', options.actor),
+    });
+    console.log(`Inspection evidence quarantine record: ${repoRelativePath(result.recordPath)}`);
+    console.log(`  State: ${result.record.state}`);
+    console.log(`  Candidate SHA-256: ${result.record.candidate.sha256}`);
+    console.log(`  Idempotent: ${result.idempotent ? 'yes' : 'no'}`);
+    console.log('  Canonical evidence attached: no');
+    console.log('  Canonical readiness regenerated: no');
+    if (result.record.state === 'rejected') process.exitCode = 2;
+    return result;
+  } catch (error) {
+    console.error(`Error: ${error.code || 'inspection_evidence_quarantine_failed'}: ${error.message}`);
+    process.exit(1);
+  }
+}
+
+async function cmdInspectionEvidenceValidate(rawArgs = []) {
+  const { options } = parseCliArgs(rawArgs);
+  rejectUnsupportedOptions('inspection-evidence-validate', options, ['record', 'actor']);
+  try {
+    const result = await validateQuarantinedInspectionEvidence({
+      projectRoot: PROJECT_ROOT,
+      recordPath: requireOptionValue('--record', options.record),
+      actorRef: requireOptionValue('--actor', options.actor),
+    });
+    console.log(`Inspection evidence validation state: ${result.record.state}`);
+    console.log(`  Validated record SHA-256: ${result.validatedRecordSha256}`);
+    console.log('  Attachment authorization still required: yes');
+    console.log('  Canonical evidence attached: no');
+    console.log('  Canonical readiness regenerated: no');
+    return result;
+  } catch (error) {
+    console.error(`Error: ${error.code || 'inspection_evidence_validation_failed'}: ${error.message}`);
+    process.exit(1);
+  }
+}
+
+async function cmdInspectionEvidenceAuthorize(rawArgs = []) {
+  const { options } = parseCliArgs(rawArgs);
+  rejectUnsupportedOptions('inspection-evidence-authorize', options, ['record', 'authorization', 'actor']);
+  try {
+    const result = await authorizeQuarantinedInspectionEvidence({
+      projectRoot: PROJECT_ROOT,
+      recordPath: requireOptionValue('--record', options.record),
+      authorizationPath: resolveMaybe(requireOptionValue('--authorization', options.authorization)),
+      actorRef: requireOptionValue('--actor', options.actor),
+    });
+    console.log(`Inspection evidence authorization state: ${result.record.state}`);
+    console.log(`  Authorization id: ${result.record.authorization.authorization_id}`);
+    console.log(`  Idempotent: ${result.idempotent ? 'yes' : 'no'}`);
+    console.log('  Canonical evidence attached: no');
+    console.log('  Canonical readiness regenerated: no');
+    return result;
+  } catch (error) {
+    console.error(`Error: ${error.code || 'inspection_evidence_authorization_failed'}: ${error.message}`);
+    process.exit(1);
+  }
+}
+
+async function cmdInspectionEvidenceAttach(rawArgs = []) {
+  const { options } = parseCliArgs(rawArgs);
+  rejectUnsupportedOptions('inspection-evidence-attach', options, ['record', 'actor']);
+  try {
+    const result = await attachAuthorizedInspectionEvidence({
+      projectRoot: PROJECT_ROOT,
+      recordPath: requireOptionValue('--record', options.record),
+      actorRef: requireOptionValue('--actor', options.actor),
+    });
+    console.log(`Inspection evidence attachment record: ${repoRelativePath(result.receiptPath)}`);
+    console.log(`  Attachment id: ${result.receipt.attachment_id}`);
+    console.log(`  Idempotent: ${result.idempotent ? 'yes' : 'no'}`);
+    console.log('  Canonical readiness regenerated: no');
+    return result;
+  } catch (error) {
+    console.error(`Error: ${error.code || 'inspection_evidence_attachment_failed'}: ${error.message}`);
+    process.exit(1);
+  }
+}
+
+async function cmdInspectionEvidenceRegenerateReadiness(rawArgs = []) {
+  const { options } = parseCliArgs(rawArgs);
+  rejectUnsupportedOptions('inspection-evidence-regenerate-readiness', options, [
+    'attachment-record', 'authorization', 'review-pack', 'out',
+  ]);
+  const attachmentRecordPath = requireOptionValue('--attachment-record', options['attachment-record']);
+  const readinessAuthorizationPath = resolveMaybe(requireOptionValue('--authorization', options.authorization));
+  const reviewPackPath = resolveMaybe(requireOptionValue('--review-pack', options['review-pack']));
+  const outputPath = resolveMaybe(requireOptionValue('--out', options.out));
+  try {
+    const result = await regenerateAuthorizedInspectionEvidenceReadiness({
+      projectRoot: PROJECT_ROOT,
+      attachmentRecordPath,
+      readinessAuthorizationPath,
+      reviewPackPath,
+      readinessOutputPath: outputPath,
+    });
+    console.log(`Authorized inspection evidence readiness JSON: ${result.artifacts.json}`);
+    console.log(`Authorized inspection evidence readiness Markdown: ${result.artifacts.markdown}`);
+    console.log(`  Status: ${result.report.readiness_summary.status}`);
+    return result;
+  } catch (error) {
+    console.error(`Error: ${error.code || 'inspection_evidence_readiness_regeneration_failed'}: ${error.message}`);
+    process.exit(1);
+  }
 }
 
 async function cmdInspectionEvidencePromotionDryRun(rawArgs = []) {
@@ -943,6 +1071,11 @@ const CLI_COMMAND_HANDLERS = Object.freeze({
   'evidence-artifacts-materialize': cmdEvidenceArtifactsMaterialize,
   'maintainer-decision-journal': cmdMaintainerDecisionJournal,
   'inspection-evidence-intake': cmdInspectionEvidenceIntake,
+  'inspection-evidence-quarantine': cmdInspectionEvidenceQuarantine,
+  'inspection-evidence-validate': cmdInspectionEvidenceValidate,
+  'inspection-evidence-authorize': cmdInspectionEvidenceAuthorize,
+  'inspection-evidence-attach': cmdInspectionEvidenceAttach,
+  'inspection-evidence-regenerate-readiness': cmdInspectionEvidenceRegenerateReadiness,
   'inspection-evidence-promotion-dry-run': cmdInspectionEvidencePromotionDryRun,
   'stage5b-evidence-audit': cmdStage5bEvidenceAudit,
   'stage5b-evidence-source-kit': cmdStage5bEvidenceSourceKit,
@@ -1592,7 +1725,7 @@ async function runProductionReadiness(rawArgs = [], { persistArtifacts = true } 
 
   const resolvedOutputPath = outputPath || artifactPathFor(outDir, stem, '_readiness_report.json');
   const artifacts = persistArtifacts
-    ? await writeReadinessArtifacts(resolvedOutputPath, report)
+    ? await writeReadinessArtifacts(resolvedOutputPath, report, { projectRoot: PROJECT_ROOT })
     : null;
   return {
     report,
@@ -1828,6 +1961,8 @@ async function cmdReadinessPack(rawArgs = [], {
     qualityRisk,
   } = await loadCanonicalReadinessSupportArtifacts(reviewPackInput.options, manifestCommand);
 
+  assertRegularReadinessPackHasNoInspectionEvidenceClaim(reviewPackInput.reviewPack);
+
   const report = buildReadinessReportFromReviewPack({
     reviewPack: reviewPackInput.reviewPack,
     reviewPackPath: repoRelativePath(reviewPackInput.reviewPackPath),
@@ -1839,7 +1974,7 @@ async function cmdReadinessPack(rawArgs = [], {
     reviewPackInput.stem,
     '_readiness_report.json'
   );
-  const artifacts = await writeCanonicalReadinessArtifacts(outputPath, report);
+  const artifacts = await writeCanonicalReadinessArtifacts(outputPath, report, { projectRoot: PROJECT_ROOT });
   const manifestPath = await writeCliManifest({
     command: manifestCommand,
     primaryOutputPath: artifacts.json,
@@ -1905,7 +2040,7 @@ async function cmdReadinessReport(rawArgs = []) {
       canonical_review_pack_backed: false,
     },
   });
-  await writeReadinessArtifacts(artifacts.json, legacyReport);
+  await writeReadinessArtifacts(artifacts.json, legacyReport, { projectRoot: PROJECT_ROOT });
   console.warn(`Warning: ${LEGACY_READINESS_REPORT_MESSAGE}`);
   console.log(`Legacy readiness report JSON: ${artifacts.json}`);
   console.log(`Legacy readiness report Markdown: ${artifacts.markdown}`);
@@ -2496,6 +2631,7 @@ async function cmdReviewContext(rawArgs = []) {
   const dfmReportPath = resolveMaybe(options['dfm-report']);
   const inspectionEvidencePath = resolveMaybe(options['inspection-evidence']);
   const attachmentAuthorizationPath = resolveMaybe(options['attachment-authorization']);
+  const attachmentRecordPath = resolveMaybe(options['evidence-attachment-record']);
   const compareToPath = resolveMaybe(options['compare-to']);
 
   if (!modelPath && !contextPath) {
@@ -2517,10 +2653,15 @@ async function cmdReviewContext(rawArgs = []) {
   requireExistingInputFile('dfm-report', dfmReportPath);
   requireExistingInputFile('inspection-evidence', inspectionEvidencePath);
   requireExistingInputFile('attachment-authorization', attachmentAuthorizationPath);
+  requireExistingInputFile('evidence-attachment-record', attachmentRecordPath);
   requireExistingInputFile('compare-to', compareToPath);
 
-  if (inspectionEvidencePath && !attachmentAuthorizationPath) {
-    console.error('Error: --inspection-evidence requires --attachment-authorization <authorization_record.json> after Stage 5B review authorization');
+  if (inspectionEvidencePath && (!attachmentAuthorizationPath || !attachmentRecordPath)) {
+    console.error('Error: --inspection-evidence requires both --attachment-authorization and --evidence-attachment-record from the canonical onboarding flow');
+    process.exit(1);
+  }
+  if (!inspectionEvidencePath && (attachmentAuthorizationPath || attachmentRecordPath)) {
+    console.error('Error: attachment authorization/record inputs are valid only with --inspection-evidence');
     process.exit(1);
   }
 
@@ -2539,6 +2680,7 @@ async function cmdReviewContext(rawArgs = []) {
     dfmReportPath,
     inspectionEvidencePath,
     attachmentAuthorizationPath,
+    attachmentRecordPath,
     compareToPath,
     outputPath: options.out || null,
     outDir: resolveMaybe(options['out-dir']) || null,
@@ -2598,7 +2740,8 @@ async function cmdReviewContext(rawArgs = []) {
       ...(featureCatalogPath ? [createArtifactEntry('input.feature-catalog', featureCatalogPath, { label: 'Input feature catalog JSON' })] : []),
       ...(dfmReportPath ? [createArtifactEntry('input.dfm-report', dfmReportPath, { label: 'Input DFM report' })] : []),
       ...(inspectionEvidencePath ? [createArtifactEntry('input.inspection-evidence', inspectionEvidencePath, { label: 'Input inspection evidence JSON' })] : []),
-      ...(attachmentAuthorizationPath ? [createArtifactEntry('input.stage5b-attachment-authorization', attachmentAuthorizationPath, { label: 'Stage 5B attachment authorization record' })] : []),
+      ...(attachmentAuthorizationPath ? [createArtifactEntry('input.inspection-evidence-attachment-authorization', attachmentAuthorizationPath, { label: 'Inspection evidence attachment authorization record' })] : []),
+      ...(attachmentRecordPath ? [createArtifactEntry('input.inspection-evidence-attachment-record', attachmentRecordPath, { label: 'Immutable inspection evidence attachment record' })] : []),
       ...(compareToPath ? [createArtifactEntry('input.baseline', compareToPath, { label: 'Baseline review-pack JSON' })] : []),
     ],
     details: {

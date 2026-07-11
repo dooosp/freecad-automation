@@ -44,6 +44,11 @@ const SOURCE_ALLOWED_DIRS = new Set([
   'output',
 ]);
 
+const FORBIDDEN_TRACKED_LOCAL_PREFIXES = Object.freeze([
+  'local/stage5b-candidate-evidence-inbox/',
+  'local/inspection-evidence-quarantine/',
+]);
+
 function toRepoPath(path) {
   return relative(ROOT, resolve(ROOT, path)).split(sep).join('/');
 }
@@ -192,6 +197,12 @@ export function listUnexpectedGeneratedFiles() {
     .forEach((path) => {
       if (!unexpected.has(path)) unexpected.set(path, { status: 'tracked', path });
     });
+
+  String(trackedResult.stdout || '')
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .filter((path) => FORBIDDEN_TRACKED_LOCAL_PREFIXES.some((prefix) => path.startsWith(prefix)))
+    .forEach((path) => unexpected.set(path, { status: 'tracked-private-evidence', path }));
 
   return [...unexpected.values()].sort((a, b) => a.path.localeCompare(b.path));
 }

@@ -152,7 +152,7 @@ The following are not `inspection_evidence` for canonical package readiness:
 - release assets
 - CAD-generated measurements
 
-Generated/fake/human-entered measurements are not created or accepted. This also rejects replacement typed values, inferred, simulated, synthetic, or CAD-generated measurements. Completed evidence must come from genuine physical inspection or a supplier/lab/QA inspection source, validate against the inspection evidence contract, and be attached later through the explicit `review-context --inspection-evidence <PATH_TO_COMPLETED_REAL_JSON> --attachment-authorization <AUTHORIZATION_RECORD_JSON>` path.
+Generated/fake/human-entered measurements are not created or accepted. This also rejects replacement typed values, inferred, simulated, synthetic, or CAD-generated measurements. Completed evidence must come from genuine physical inspection or a supplier/lab/QA inspection source and pass the authoritative quarantine, validation, checksum-bound authorization, immutable attachment, attachment-bound `review-context`, and separately authorized readiness-regeneration contract.
 
 Hard evidence rule: Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.
 

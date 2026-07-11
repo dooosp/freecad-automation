@@ -12,3 +12,7 @@ tmp/codex/
 # Local-only Stage 5B candidate evidence inbox.
 # Received supplier/lab/QA/private records and candidate gate reports stay out of git.
 local/stage5b-candidate-evidence-inbox/
+
+# Content-addressed, local-only inspection evidence quarantine.
+# Raw supplier/lab/QA records and mutable onboarding ledgers never enter git.
+local/inspection-evidence-quarantine/

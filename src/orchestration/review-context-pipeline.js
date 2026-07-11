@@ -8,14 +8,12 @@ import {
   readJsonFile,
   writeJsonFile,
 } from '../../lib/context-loader.js';
-import {
-  AttachmentAuthorizationValidationError,
-  assertAttachableInspectionEvidence,
-  assertValidAttachmentAuthorization,
-} from '../../lib/inspection-evidence.js';
+import { AttachmentAuthorizationValidationError } from '../../lib/inspection-evidence.js';
 import { resolveModelAnalysisInputs } from '../../lib/model-analysis.js';
 import { generateConfigFromAnalysis } from '../api/model.js';
 import { assertSafeStage5bInputFile } from '../shared/stage5b-path-boundary.js';
+import { verifyCanonicalInspectionEvidenceAttachment } from '../services/inspection-evidence-intake/inspection-evidence-onboarding-service.js';
+import { summarizeInspectionEvidenceResults } from '../../lib/inspection-evidence-onboarding.js';
 
 function normalizeJsonOutputPath(pathValue) {
   if (!pathValue) return null;
@@ -159,7 +157,12 @@ async function buildPackageEvidenceRecords(projectRoot, sideInputPaths = {}) {
   return { records, warnings: uniqueWarnings(warnings) };
 }
 
-async function buildInspectionEvidenceRecord(projectRoot, inspectionEvidencePath, attachmentAuthorizationPath = null) {
+async function buildInspectionEvidenceRecord(
+  projectRoot,
+  inspectionEvidencePath,
+  attachmentAuthorizationPath = null,
+  attachmentRecordPath = null
+) {
   if (!inspectionEvidencePath) {
     return { record: null, warning: null };
   }
@@ -173,17 +176,9 @@ async function buildInspectionEvidenceRecord(projectRoot, inspectionEvidencePath
     warning: null,
   };
 
-  const expectedPackageSlug = portable.sourceRef.match(/^docs\/examples\/([^/]+)\/inspection\//)?.[1] || null;
-  const inspectionEvidence = await readJsonFile(evidenceBoundary.absolute);
-  assertAttachableInspectionEvidence(inspectionEvidence, {
-    path: portable.sourceRef,
-    evidencePath: portable.sourceRef,
-    expectedPackageSlug,
-  });
-
   if (!attachmentAuthorizationPath) {
     throw new AttachmentAuthorizationValidationError([
-      'review-context --inspection-evidence requires --attachment-authorization <authorization_record.json> after Stage 5B review authorization',
+      'review-context --inspection-evidence requires the canonical checksum-bound --attachment-authorization <inspection_evidence_authorization.json> produced by quarantine onboarding',
     ], { path: inspectionEvidencePath });
   }
 
@@ -196,12 +191,24 @@ async function buildInspectionEvidenceRecord(projectRoot, inspectionEvidencePath
     warning: null,
   };
 
-  const attachmentAuthorization = await readJsonFile(authorizationBoundary.absolute);
-  assertValidAttachmentAuthorization(attachmentAuthorization, {
-    path: authorizationPortable.sourceRef,
-    expectedInspectionEvidenceRef: portable.sourceRef,
-    expectedPackageSlug,
-  });
+  if (!attachmentRecordPath) {
+    throw new AttachmentAuthorizationValidationError([
+      'review-context --inspection-evidence requires --evidence-attachment-record <inspection_evidence_attachment.json>; authorization alone cannot prove attachment',
+    ], { path: inspectionEvidencePath });
+  }
+  const verifiedAttachment = await verifyCanonicalInspectionEvidenceAttachment(projectRoot, attachmentRecordPath);
+  if (verifiedAttachment.envelopeArtifact.path !== portable.sourceRef) {
+    throw new AttachmentAuthorizationValidationError([
+      'supplied inspection evidence path does not match the immutable attachment record',
+    ], { path: inspectionEvidencePath });
+  }
+  if (verifiedAttachment.authorizationArtifact.path !== authorizationPortable.sourceRef) {
+    throw new AttachmentAuthorizationValidationError([
+      'supplied attachment authorization path does not match the immutable attachment record',
+    ], { path: attachmentAuthorizationPath });
+  }
+  const inspectionEvidence = verifiedAttachment.envelope;
+  const inspectionResult = summarizeInspectionEvidenceResults(inspectionEvidence);
 
   const fileBuffer = await readFile(evidenceBoundary.absolute);
   const fileStat = await stat(evidenceBoundary.absolute);
@@ -220,9 +227,10 @@ async function buildInspectionEvidenceRecord(projectRoot, inspectionEvidencePath
       sha256: createHash('sha256').update(fileBuffer).digest('hex'),
       label: 'Inspection evidence',
       inspection_evidence: true,
-      rationale: 'Validated inspection evidence supplied with explicit Stage 5B attachment authorization.',
+      rationale: 'Canonical inspection evidence verified through the immutable onboarding attachment chain.',
+      inspection_result: inspectionResult,
       attachment_authorization: {
-        record_type: 'stage5b_attachment_authorization',
+        record_type: 'inspection_evidence_attachment_authorization',
         source_ref: authorizationPortable.sourceRef,
         file_name: basename(authorizationPortable.sourceRef),
         size_bytes: authorizationStat.size,
@@ -230,7 +238,20 @@ async function buildInspectionEvidenceRecord(projectRoot, inspectionEvidencePath
         inspection_evidence: false,
         rationale: 'Control metadata authorizing this later attachment; not inspection evidence.',
       },
+      attachment_record: {
+        record_type: 'inspection_evidence_attachment_record',
+        source_ref: verifiedAttachment.receiptRef,
+        file_name: basename(verifiedAttachment.receiptRef),
+        sha256: verifiedAttachment.receiptSha256,
+        attachment_id: verifiedAttachment.receipt.attachment_id,
+        package_revision: verifiedAttachment.receipt.package_revision,
+        source_document_sha256: verifiedAttachment.receipt.source_document_sha256,
+        inspection_evidence: false,
+        rationale: 'Immutable attachment trust anchor; not inspection evidence by itself.',
+      },
     },
+    packageRevision: verifiedAttachment.receipt.package_revision,
+    subjectIdentifier: verifiedAttachment.envelope.subject.identifier,
     warning: null,
   };
 }
@@ -567,6 +588,7 @@ export async function runReviewContextPipeline({
   dfmReportPath = null,
   inspectionEvidencePath = null,
   attachmentAuthorizationPath = null,
+  attachmentRecordPath = null,
   compareToPath = null,
   outputPath = null,
   outDir = null,
@@ -590,6 +612,26 @@ export async function runReviewContextPipeline({
     outDir: outputDir,
     defaultStem,
   });
+
+  // Validate the complete attachment hash chain before ingest or any output write.
+  const inspectionEvidence = await buildInspectionEvidenceRecord(
+    projectRoot,
+    inspectionEvidencePath,
+    attachmentAuthorizationPath,
+    attachmentRecordPath
+  );
+  if (inspectionEvidence.record) {
+    if (revision !== inspectionEvidence.packageRevision) {
+      throw new AttachmentAuthorizationValidationError([
+        `review-context revision must explicitly match attached inspection evidence revision ${inspectionEvidence.packageRevision}`,
+      ], { path: attachmentRecordPath });
+    }
+    if (partId !== inspectionEvidence.subjectIdentifier) {
+      throw new AttachmentAuthorizationValidationError([
+        `review-context part id must explicitly match inspected subject ${inspectionEvidence.subjectIdentifier}`,
+      ], { path: attachmentRecordPath });
+    }
+  }
 
   let context;
   let ingestLog;
@@ -752,7 +794,6 @@ export async function runReviewContextPipeline({
     featureCatalogPath,
     dfmReportPath,
   });
-  const inspectionEvidence = await buildInspectionEvidenceRecord(projectRoot, inspectionEvidencePath, attachmentAuthorizationPath);
   const reviewPackageEvidence = [
     ...packageEvidence.records,
     ...(inspectionEvidence.record ? [inspectionEvidence.record] : []),
@@ -775,10 +816,16 @@ export async function runReviewContextPipeline({
       label: inspectionEvidence.record.label,
     });
     packageEvidenceSourceRefs.push({
-      artifact_type: 'stage5b_attachment_authorization',
+      artifact_type: 'inspection_evidence_attachment_authorization',
       path: inspectionEvidence.record.attachment_authorization.source_ref,
       role: 'input',
-      label: 'Stage 5B attachment authorization',
+      label: 'Inspection evidence attachment authorization',
+    });
+    packageEvidenceSourceRefs.push({
+      artifact_type: 'inspection_evidence_attachment_record',
+      path: inspectionEvidence.record.attachment_record.source_ref,
+      role: 'input',
+      label: 'Immutable inspection evidence attachment record',
     });
   }
   if (evidenceWarnings.length > 0) {

@@ -2,14 +2,16 @@ import { lstat, open, readFile, realpath, stat } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 
 import { LOCAL_API_SERVICE, LOCAL_API_VERSION } from './local-api-contract.js';
+import { parse as parseTOML } from 'smol-toml';
 import {
   CANONICAL_ARTIFACT_KEY_CONTRACT,
   buildCanonicalArtifactCatalog,
 } from './canonical-artifact-key-contract.js';
 import {
-  validateAttachableInspectionEvidence,
-  validateAttachmentAuthorization,
-} from '../../lib/inspection-evidence.js';
+  parseInspectionEvidenceJsonBytes,
+  sha256Bytes,
+  validateCanonicalInspectionEvidenceChain,
+} from '../../lib/inspection-evidence-onboarding.js';
 
 export const CANONICAL_PACKAGE_SLUGS = Object.freeze([
   'quality-pass-bracket',
@@ -122,25 +124,53 @@ async function canonicalInspectionEvidenceAttached(projectRoot, slug, relativePa
     return false;
   }
 
-  const authorizationPath = packageRelativePath(slug, 'inspection/stage5b_attachment_authorization.json');
-  if (!(await isSafeCanonicalEvidenceFile(projectRoot, authorizationPath))) {
+  const authorizationPath = packageRelativePath(slug, 'inspection/inspection_evidence_authorization.json');
+  const candidateEnvelopePath = packageRelativePath(slug, 'inspection/inspection_evidence_candidate_authorized.json');
+  const onboardingPath = packageRelativePath(slug, 'inspection/inspection_evidence_onboarding.json');
+  const attachmentPath = packageRelativePath(slug, 'inspection/inspection_evidence_attachment.json');
+  const configPath = packageRelativePath(slug, 'config.toml');
+  if (
+    !(await isSafeCanonicalEvidenceFile(projectRoot, authorizationPath))
+    || !(await isSafeCanonicalEvidenceFile(projectRoot, candidateEnvelopePath))
+    || !(await isSafeCanonicalEvidenceFile(projectRoot, onboardingPath))
+    || !(await isSafeCanonicalEvidenceFile(projectRoot, attachmentPath))
+    || !(await isSafeCanonicalEvidenceFile(projectRoot, configPath))
+  ) {
     return false;
   }
 
   try {
-    const evidence = await readJson(projectRoot, relativePath, { required: true });
-    const evidenceValidation = validateAttachableInspectionEvidence(evidence, {
-      evidencePath: relativePath,
-      expectedPackageSlug: slug,
-    });
-    if (!evidenceValidation.ok) return false;
-
-    const authorization = await readJson(projectRoot, authorizationPath, { required: true });
-    const authorizationValidation = validateAttachmentAuthorization(authorization, {
-      expectedInspectionEvidenceRef: relativePath,
-      expectedPackageSlug: slug,
-    });
-    return authorizationValidation.ok && authorization.package_slug === slug;
+    const evidenceBytes = await readFile(join(projectRoot, relativePath));
+    const candidateEnvelopeBytes = await readFile(join(projectRoot, candidateEnvelopePath));
+    const authorizationBytes = await readFile(join(projectRoot, authorizationPath));
+    const onboardingBytes = await readFile(join(projectRoot, onboardingPath));
+    const attachmentBytes = await readFile(join(projectRoot, attachmentPath));
+    const evidence = parseInspectionEvidenceJsonBytes(evidenceBytes);
+    const candidateEnvelope = parseInspectionEvidenceJsonBytes(candidateEnvelopeBytes);
+    const authorization = parseInspectionEvidenceJsonBytes(authorizationBytes);
+    const authorizedOnboardingRecord = parseInspectionEvidenceJsonBytes(onboardingBytes);
+    const attachment = parseInspectionEvidenceJsonBytes(attachmentBytes);
+    if (attachment.package_slug !== slug) return false;
+    const config = parseTOML(await readFile(join(projectRoot, configPath), 'utf8'));
+    const authoritativePackageRevision = typeof config?.product?.revision === 'string' && config.product.revision.trim()
+      ? config.product.revision.trim()
+      : null;
+    const authoritativeSubjectIdentifier = typeof config?.name === 'string' && config.name.trim()
+      ? config.name.trim()
+      : null;
+    return validateCanonicalInspectionEvidenceChain({
+      candidateEnvelope,
+      envelope: evidence,
+      authorization,
+      receipt: attachment,
+      authorizedOnboardingRecord,
+      authoritativePackageRevision,
+      authoritativeSubjectIdentifier,
+      candidateEnvelopeSha256: sha256Bytes(candidateEnvelopeBytes),
+      envelopeSha256: sha256Bytes(evidenceBytes),
+      authorizationSha256: sha256Bytes(authorizationBytes),
+      authorizedOnboardingRecordSha256: sha256Bytes(onboardingBytes),
+    }).ok;
   } catch {
     return false;
   }

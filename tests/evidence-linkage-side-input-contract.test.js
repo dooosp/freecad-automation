@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { runPythonJsonScript } from '../lib/context-loader.js';
@@ -327,9 +327,10 @@ try {
 	      inspectModelIfAvailable: async () => null,
 	      detectStepFeaturesIfAvailable: async () => null,
     }),
-    /requires --attachment-authorization/i
+    /requires .*--attachment-authorization/i
   );
 	  assert.equal(existsSync(unauthorizedOutputPath), false);
+	  assert.equal(existsSync(dirname(unauthorizedOutputPath)), false, 'unauthorized evidence must fail before any pipeline output is written');
 
 	  const fixtureOutputPath = join(tempRoot, 'fixture-inspection-artifacts', 'review_pack.json');
 	  await assert.rejects(
@@ -343,73 +344,26 @@ try {
 	      inspectModelIfAvailable: async () => null,
 	      detectStepFeaturesIfAvailable: async () => null,
 	    }),
-	    /fixture|synthetic|not canonical package readiness evidence/i
+	    /evidence-attachment-record|authorization alone cannot prove attachment/i
 	  );
 	  assert.equal(existsSync(fixtureOutputPath), false);
 
-	  const inspectionResult = await runReviewContextPipeline({
-	    projectRoot: ROOT,
-	    contextPath,
-	    outputPath: join(tempRoot, 'inspection-artifacts', 'review_pack.json'),
-	    inspectionEvidencePath: directEvidencePath,
-	    attachmentAuthorizationPath: directAuthPath,
-	    runPythonJsonScript: buildStubRunPythonJsonScript(),
-	    inspectModelIfAvailable: async () => null,
-	    detectStepFeaturesIfAvailable: async () => null,
-  });
-  const inspectionReviewPack = readJson(inspectionResult.artifacts.reviewPackJson);
-  assertValidDArtifact('review_pack', inspectionReviewPack, { command: 'review-context' });
-  const inspectionRecords = inspectionReviewPack.evidence_ledger.records.filter(
-    (record) => record.type === 'inspection_evidence'
-  );
-  assert.equal(inspectionRecords.length, 1);
-  assert.equal(inspectionRecords[0].inspection_evidence, true);
-	  assert.equal(
-	    inspectionRecords[0].source_ref,
-	    directEvidenceRef
+	  const legacyPathOnlyOutputPath = join(tempRoot, 'legacy-path-only-inspection-artifacts', 'review_pack.json');
+	  await assert.rejects(
+	    () => runReviewContextPipeline({
+	      projectRoot: ROOT,
+	      contextPath,
+	      outputPath: legacyPathOnlyOutputPath,
+	      inspectionEvidencePath: directEvidencePath,
+	      attachmentAuthorizationPath: directAuthPath,
+	      runPythonJsonScript: buildStubRunPythonJsonScript(),
+	      inspectModelIfAvailable: async () => null,
+	      detectStepFeaturesIfAvailable: async () => null,
+	    }),
+	    /evidence-attachment-record|authorization alone cannot prove attachment/i
 	  );
-  assert.equal(inspectionRecords[0].source_ref.startsWith('/'), false);
-  assert.equal(inspectionRecords[0].source_ref.includes('..'), false);
-  assert.equal(typeof inspectionRecords[0].sha256, 'string');
-  assert.equal(inspectionRecords[0].sha256.length, 64);
-  assert.equal(
-    inspectionReviewPack.source_artifact_refs.some((ref) => (
-	      ref.artifact_type === 'inspection_evidence'
-	      && ref.path === directEvidenceRef
-	      && ref.role === 'evidence'
-	    )),
-    true
-  );
-  assert.equal(
-    inspectionReviewPack.source_artifact_refs.some((ref) => (
-	      ref.artifact_type === 'stage5b_attachment_authorization'
-	      && ref.path === directAuthRef
-	      && ref.role === 'input'
-	    )),
-    true
-  );
-  assert.equal(
-    inspectionReviewPack.uncertainty_coverage_report.missing_inputs.includes('inspection_evidence'),
-    false,
-    'validated inspection evidence should close review-pack inspection_evidence coverage'
-  );
-  const inspectionReadinessReport = buildReadinessReportFromReviewPack({
-    reviewPack: inspectionReviewPack,
-    reviewPackPath: inspectionResult.artifacts.reviewPackJson,
-    generatedAt: '2026-04-27T00:00:00Z',
-  });
-  assert.equal(
-    inspectionReadinessReport.review_pack.uncertainty_coverage_report.missing_inputs.includes('inspection_evidence'),
-    false
-  );
-  assert.equal(
-    inspectionReadinessReport.process_plan.summary.missing_inputs.includes('inspection_evidence'),
-    false
-  );
-	  assert.equal(
-	    inspectionReadinessReport.quality_risk.summary.missing_inputs.includes('inspection_evidence'),
-	    false
-	  );
+	  assert.equal(existsSync(legacyPathOnlyOutputPath), false);
+	  assert.equal(existsSync(dirname(legacyPathOnlyOutputPath)), false, 'legacy path-only attachment must fail before side effects');
 
 	  const symlinkOutputPath = join(tempRoot, 'symlink-rejected', 'review_pack.json');
 	  await assert.rejects(
@@ -438,7 +392,7 @@ try {
       inspectModelIfAvailable: async () => null,
       detectStepFeaturesIfAvailable: async () => null,
     }),
-    /Inspection evidence validation failed.*(evidence_type|measured_features)/i
+	    /requires .*--attachment-authorization/i
   );
   assert.equal(existsSync(generatedOutputPath), false);
 
@@ -453,7 +407,7 @@ try {
       inspectModelIfAvailable: async () => null,
       detectStepFeaturesIfAvailable: async () => null,
     }),
-    /Inspection evidence validation failed.*measured_features/i
+	    /requires .*--attachment-authorization/i
   );
   assert.equal(existsSync(invalidOutputPath), false);
 

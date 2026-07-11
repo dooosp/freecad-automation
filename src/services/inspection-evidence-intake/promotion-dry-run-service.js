@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
 
 import {
@@ -8,45 +8,6 @@ import {
 } from './stage5b-runtime-validation.js';
 
 const MANIFEST_SCHEMA_VERSION = '1.0';
-const REVIEW_CONTEXT_SIDE_INPUTS = Object.freeze([
-  Object.freeze({
-    option: '--create-quality',
-    directory: 'quality',
-    pattern: /_create_quality\.json$/i,
-    label: 'Create quality report',
-  }),
-  Object.freeze({
-    option: '--drawing-quality',
-    directory: 'quality',
-    pattern: /_drawing_quality\.json$/i,
-    label: 'Drawing quality report',
-  }),
-  Object.freeze({
-    option: '--drawing-qa',
-    directory: 'quality',
-    pattern: /_drawing_qa\.json$/i,
-    label: 'Drawing QA report',
-  }),
-  Object.freeze({
-    option: '--drawing-intent',
-    directory: 'drawing',
-    pattern: /_drawing_intent\.json$/i,
-    label: 'Drawing intent',
-  }),
-  Object.freeze({
-    option: '--feature-catalog',
-    directory: 'drawing',
-    pattern: /_feature_catalog\.json$/i,
-    label: 'Feature catalog',
-  }),
-  Object.freeze({
-    option: '--dfm-report',
-    directory: 'quality',
-    pattern: /_dfm_report\.json$/i,
-    label: 'DFM report',
-  }),
-]);
-
 function safeList(value) {
   return Array.isArray(value) ? value : [];
 }
@@ -117,46 +78,6 @@ function sha256IfReadable(projectRoot, pathValue) {
   }
 }
 
-function sortedFiles(projectRoot, directory) {
-  try {
-    return readdirSync(resolve(projectRoot, directory)).sort();
-  } catch {
-    return [];
-  }
-}
-
-function findCanonicalModelPath(projectRoot, slug) {
-  const cadDir = `docs/examples/${slug}/cad`;
-  const entries = sortedFiles(projectRoot, cadDir);
-  const preferred = [
-    entries.find((entry) => /\.step$/i.test(entry)),
-    entries.find((entry) => /\.stp$/i.test(entry)),
-    entries.find((entry) => /\.fcstd$/i.test(entry)),
-    entries.find((entry) => /\.stl$/i.test(entry)),
-  ].find(Boolean);
-  return preferred ? `${cadDir}/${preferred}` : null;
-}
-
-function findSideInputPath(projectRoot, slug, definition) {
-  const directory = `docs/examples/${slug}/${definition.directory}`;
-  const entry = sortedFiles(projectRoot, directory).find((fileName) => definition.pattern.test(fileName));
-  return entry ? `${directory}/${entry}` : null;
-}
-
-function fileExists(projectRoot, relativePath) {
-  if (!relativePath || !isSafeRepoPath(relativePath)) return false;
-  try {
-    return statSync(resolve(projectRoot, relativePath)).isFile();
-  } catch {
-    return false;
-  }
-}
-
-function isExternalCandidate(candidate = {}) {
-  const kind = String(candidate.source_kind || '');
-  return kind.startsWith('github_') || kind === 'repo_doc_public_link';
-}
-
 function candidateEvidenceSourceRef(candidate = {}) {
   if (!candidate || typeof candidate !== 'object') return null;
   const signals = safeObject(candidate.document_signals);
@@ -175,148 +96,6 @@ function isFixtureCandidate(candidate = {}) {
   return path.startsWith('tests/fixtures/')
     || ref.startsWith('tests/fixtures/')
     || String(candidate.source_kind || '').includes('fixture');
-}
-
-function packageRoot(slug) {
-  return `docs/examples/${slug}`;
-}
-
-function packagePath(slug, suffix) {
-  return `${packageRoot(slug)}/${suffix}`;
-}
-
-function commandContainsOnlySafePaths(command = []) {
-  for (const value of command) {
-    if (typeof value !== 'string') return false;
-    if (!value.includes('/')) continue;
-    if (/^https?:\/\//i.test(value)) continue;
-    if (!isSafeRepoPath(value)) return false;
-  }
-  return true;
-}
-
-function expectedArtifacts(slug, { normalizationRequired = false } = {}) {
-  return [
-    ...(normalizationRequired ? [{
-      path: packagePath(slug, 'inspection/inspection_evidence.json'),
-      artifact_type: 'inspection_evidence',
-      action: 'would_write_before_review_context',
-    }] : []),
-    { path: packagePath(slug, 'review/review_pack.json'), artifact_type: 'review_pack', action: 'would_write' },
-    { path: packagePath(slug, 'review/review_pack.md'), artifact_type: 'review_pack_markdown', action: 'would_write' },
-    { path: packagePath(slug, 'review/review_pack.pdf'), artifact_type: 'review_pack_pdf', action: 'would_write' },
-    { path: packagePath(slug, 'readiness/readiness_report.json'), artifact_type: 'readiness_report', action: 'would_write' },
-    { path: packagePath(slug, 'readiness/readiness_report.md'), artifact_type: 'readiness_report_markdown', action: 'would_write' },
-    { path: packagePath(slug, 'standard-docs/standard_docs_manifest.json'), artifact_type: 'standard_docs_manifest', action: 'would_write' },
-    { path: packagePath(slug, 'standard-docs/process_flow.md'), artifact_type: 'process_flow', action: 'would_write' },
-    { path: packagePath(slug, 'standard-docs/control_plan_draft.csv'), artifact_type: 'control_plan', action: 'would_write' },
-    { path: packagePath(slug, 'standard-docs/inspection_checksheet_draft.csv'), artifact_type: 'inspection_checksheet', action: 'would_write' },
-    { path: packagePath(slug, 'standard-docs/pfmea_seed.csv'), artifact_type: 'pfmea_seed', action: 'would_write' },
-    { path: packagePath(slug, 'standard-docs/work_instruction_draft.md'), artifact_type: 'work_instruction', action: 'would_write' },
-    { path: packagePath(slug, 'release/release_bundle.zip'), artifact_type: 'release_bundle', action: 'would_write' },
-    { path: packagePath(slug, 'release/release_bundle_manifest.json'), artifact_type: 'release_bundle_manifest', action: 'would_write' },
-    { path: packagePath(slug, 'release/release_bundle_checksums.sha256'), artifact_type: 'release_bundle_checksums', action: 'would_write' },
-    { path: packagePath(slug, 'release/release_bundle_log.json'), artifact_type: 'release_bundle_log', action: 'would_write' },
-  ];
-}
-
-function buildCommands(projectRoot, slug, candidate) {
-  const modelPath = findCanonicalModelPath(projectRoot, slug);
-  const configPath = packagePath(slug, 'config.toml');
-  const normalizationRequired = candidate.source_format !== 'json' || isExternalCandidate(candidate);
-  const evidencePath = normalizationRequired
-    ? packagePath(slug, 'inspection/inspection_evidence.json')
-    : normalizeRepoPath(candidate.path);
-  const authorizationPath = packagePath(slug, 'inspection/stage5b_attachment_authorization.json');
-  const sideInputs = REVIEW_CONTEXT_SIDE_INPUTS
-    .map((definition) => ({
-      ...definition,
-      path: findSideInputPath(projectRoot, slug, definition),
-    }))
-    .filter((entry) => entry.path);
-  const reviewCommand = [
-    'fcad',
-    'review-context',
-    '--model',
-    modelPath,
-    ...sideInputs.flatMap((entry) => [entry.option, entry.path]),
-    '--inspection-evidence',
-    evidencePath,
-    '--attachment-authorization',
-    authorizationPath,
-    '--out',
-    packagePath(slug, 'review/review_pack.json'),
-  ];
-  const readinessCommand = [
-    'fcad',
-    'readiness-pack',
-    '--review-pack',
-    packagePath(slug, 'review/review_pack.json'),
-    '--out',
-    packagePath(slug, 'readiness/readiness_report.json'),
-  ];
-  const docsCommand = [
-    'fcad',
-    'generate-standard-docs',
-    configPath,
-    '--readiness-report',
-    packagePath(slug, 'readiness/readiness_report.json'),
-    '--out-dir',
-    packagePath(slug, 'standard-docs'),
-  ];
-  const packCommand = [
-    'fcad',
-    'pack',
-    '--readiness',
-    packagePath(slug, 'readiness/readiness_report.json'),
-    '--docs-manifest',
-    packagePath(slug, 'standard-docs/standard_docs_manifest.json'),
-    '--out',
-    packagePath(slug, 'release/release_bundle.zip'),
-  ];
-  const artifacts = expectedArtifacts(slug, { normalizationRequired });
-  return {
-    modelPath,
-    configPath,
-    evidencePath,
-    normalizationRequired,
-    sideInputs,
-    commands: [
-      {
-        step: 'attach_inspection_evidence',
-        command: reviewCommand,
-        expected_outputs: artifacts.filter((artifact) => artifact.path.includes('/review/')),
-        files_that_would_be_mutated: artifacts
-          .filter((artifact) => artifact.path.includes('/review/') || artifact.path.includes('/inspection/'))
-          .map((artifact) => artifact.path),
-      },
-      {
-        step: 'regenerate_readiness',
-        command: readinessCommand,
-        expected_outputs: artifacts.filter((artifact) => artifact.path.includes('/readiness/')),
-        files_that_would_be_mutated: artifacts
-          .filter((artifact) => artifact.path.includes('/readiness/'))
-          .map((artifact) => artifact.path),
-      },
-      {
-        step: 'regenerate_standard_docs',
-        command: docsCommand,
-        expected_outputs: artifacts.filter((artifact) => artifact.path.includes('/standard-docs/')),
-        files_that_would_be_mutated: artifacts
-          .filter((artifact) => artifact.path.includes('/standard-docs/'))
-          .map((artifact) => artifact.path),
-      },
-      {
-        step: 'regenerate_release_bundle',
-        command: packCommand,
-        expected_outputs: artifacts.filter((artifact) => artifact.path.includes('/release/')),
-        files_that_would_be_mutated: artifacts
-          .filter((artifact) => artifact.path.includes('/release/'))
-          .map((artifact) => artifact.path),
-      },
-    ],
-    expectedArtifacts: artifacts,
-  };
 }
 
 function findPackageReadyCandidates(pkg = {}, report = {}) {
@@ -426,15 +205,6 @@ function buildPackageChecks({
   ];
 }
 
-function evidencePathIsSafeForPackage(candidate, slug, evidencePath) {
-  if (!candidate) return false;
-  if (!isSafeRepoPath(evidencePath)) return false;
-  if (candidate.source_format !== 'json' || isExternalCandidate(candidate)) {
-    return evidencePath === packagePath(slug, 'inspection/inspection_evidence.json');
-  }
-  return evidencePath.startsWith(`${packageRoot(slug)}/inspection/`);
-}
-
 function promotionStatus({ candidate, blockers }) {
   if (blockers.includes('unsafe_evidence_path') || blockers.includes('unsafe_command_path')) {
     return 'blocked_safety_checks';
@@ -442,11 +212,10 @@ function promotionStatus({ candidate, blockers }) {
   if (blockers.includes('generated_candidate_rejected')) return 'blocked_generated_candidate';
   if (blockers.includes('ambiguous_package_match')) return 'blocked_ambiguous_candidate';
   if (!candidate || blockers.includes('no_genuine_valid_candidate')) return 'blocked_no_valid_candidate';
-  if (blockers.length > 0) return 'blocked_attachment_not_ready';
-  return 'ready_for_future_promotion_dry_run';
+  return 'blocked_attachment_not_ready';
 }
 
-function readinessExpectation(pkg, ready) {
+function readinessExpectation(pkg) {
   const before = safeObject(pkg.readiness_before);
   const after = safeObject(pkg.readiness_after);
   return {
@@ -456,47 +225,28 @@ function readinessExpectation(pkg, ready) {
       missing_inputs: safeList(after.missing_inputs).length > 0 ? after.missing_inputs : before.missing_inputs || ['inspection_evidence'],
       note: 'Dry-run does not mutate readiness; current held state remains the source of truth.',
     },
-    after_future_promotion: ready
-      ? {
-          expected_action: 'rerun review-context, readiness-pack, generate-standard-docs, and pack from the listed commands',
-          inspection_evidence_gap: 'expected_to_clear_only_if_review-context records the genuine inspection_evidence ledger entry',
-          readiness_overclaim_guard: 'Do not claim production readiness from this manifest; inspect regenerated readiness_report.json after the future run.',
-        }
-      : {
-          expected_action: 'no promotion command should run',
-          inspection_evidence_gap: 'remains_missing',
-          readiness_overclaim_guard: 'Canonical readiness remains held.',
-        },
+    after_future_promotion: {
+      expected_action: 'no legacy promotion command should run; enter the quarantine-first onboarding contract instead',
+      inspection_evidence_gap: 'remains_missing',
+      readiness_overclaim_guard: 'Canonical readiness remains held.',
+    },
   };
 }
 
-function packageMutationBoundary(slug, commands, expected, ready) {
+function packageMutationBoundary(commands) {
   return {
     dry_run_writes: ['promotion_dry_run_manifest.json'],
     canonical_artifacts_mutated_by_dry_run: false,
-    allowed_future_mutation_roots: ready ? [
-      packagePath(slug, 'inspection/'),
-      packagePath(slug, 'review/'),
-      packagePath(slug, 'readiness/'),
-      packagePath(slug, 'standard-docs/'),
-      packagePath(slug, 'release/'),
-    ] : [],
-    files_that_would_be_mutated: ready ? expected.map((artifact) => artifact.path) : [],
+    allowed_future_mutation_roots: [],
+    files_that_would_be_mutated: [],
     command_count: commands.length,
   };
 }
 
-function rollbackGuidance(slug, ready) {
-  if (!ready) {
-    return [
-      'No rollback is needed because no promotion commands should run.',
-      'Keep the canonical package readiness held until genuine completed inspection evidence is available.',
-    ];
-  }
+function rollbackGuidance() {
   return [
-    `Before any future promotion, review git diff for ${packageRoot(slug)} and confirm only the listed package artifacts changed.`,
-    `If a future promotion command is run by mistake, restore the affected ${packageRoot(slug)} files from version control or a clean branch before continuing.`,
-    'Delete the dry-run manifest if it is only a temporary control artifact.',
+    'No rollback is needed because no promotion commands should run.',
+    'Keep the canonical package readiness held until genuine completed inspection evidence is available.',
   ];
 }
 
@@ -504,21 +254,15 @@ function buildPackageDryRun({ projectRoot, intakeReport, pkg, testOnly, intakeRe
   const slug = String(pkg.slug || '').trim();
   const readyCandidates = findPackageReadyCandidates(pkg, intakeReport);
   const candidate = readyCandidates[0] || null;
-  const commandPlan = candidate ? buildCommands(projectRoot, slug, candidate) : null;
-  const evidencePathSafe = candidate
-    ? evidencePathIsSafeForPackage(candidate, slug, commandPlan.evidencePath)
-    : false;
-  const configExists = commandPlan ? fileExists(projectRoot, commandPlan.configPath) : false;
-  const commandsSafe = commandPlan
-    ? commandPlan.commands.every((entry) => commandContainsOnlySafePaths(entry.command))
-    : false;
+  const commandPlan = null;
+  const evidencePathSafe = candidate ? isSafeRepoPath(candidateEvidenceSourceRef(candidate)) : false;
+  const configExists = false;
+  const commandsSafe = false;
   const blockers = planBlockers(pkg, candidate, readyCandidates, { testOnly });
   if (candidate && !evidencePathSafe) blockers.push('unsafe_evidence_path');
-  if (candidate && !commandsSafe) blockers.push('unsafe_command_path');
-  if (candidate && !commandPlan.modelPath) blockers.push('missing_canonical_model_file');
-  if (candidate && !configExists) blockers.push('missing_package_config');
+  blockers.push('legacy_promotion_flow_superseded_by_quarantine_onboarding');
   const uniqueBlockers = uniqueStrings(blockers);
-  const ready = candidate && uniqueBlockers.length === 0;
+  const ready = false;
   const checks = buildPackageChecks({
     intakeReportOk,
     boundaryOk,
@@ -530,8 +274,8 @@ function buildPackageDryRun({ projectRoot, intakeReport, pkg, testOnly, intakeRe
     configExists,
     testOnly,
   });
-  const expected = ready ? commandPlan.expectedArtifacts : [];
-  const commands = ready ? commandPlan.commands : [];
+  const expected = [];
+  const commands = [];
 
   return {
     package_slug: slug,
@@ -540,20 +284,20 @@ function buildPackageDryRun({ projectRoot, intakeReport, pkg, testOnly, intakeRe
     candidate_path: candidate?.path || null,
     candidate_classification: candidate?.classification || pkg.classification || 'no_candidate',
     match_confidence: candidate?.match_confidence || pkg.attachment_plan?.match_confidence || 'none',
-    attachment_ready: candidate?.attachment_ready === true,
+    attachment_ready: false,
     test_only: testOnly === true,
     fixture_warning: testOnly === true
-      ? 'Test-only dry-run success proves orchestration only; it is not canonical inspection evidence.'
+      ? 'Legacy test-only dry-run inputs remain blocked; they are not canonical inspection evidence.'
       : null,
     blockers: uniqueBlockers,
     canonical_next_command: commands[0]?.command || null,
     commands_to_run: commands,
     expected_artifacts: expected,
     files_that_would_be_mutated: expected.map((artifact) => artifact.path),
-    mutation_boundaries: packageMutationBoundary(slug, commands, expected, ready),
+    mutation_boundaries: packageMutationBoundary(commands),
     safety_checks: checks,
-    readiness_expectation: readinessExpectation(pkg, ready),
-    rollback_guidance: rollbackGuidance(slug, ready),
+    readiness_expectation: readinessExpectation(pkg),
+    rollback_guidance: rollbackGuidance(),
   };
 }
 

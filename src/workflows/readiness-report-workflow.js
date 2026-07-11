@@ -1,6 +1,9 @@
-import { writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import { runPythonJsonScript, writeValidatedCArtifact } from '../../lib/context-loader.js';
+import { assertValidCArtifact } from '../../lib/c-artifact-schema.js';
+import { writeReadinessArtifactPair } from '../../lib/canonical-package-mutation-lock.js';
+import { runPythonJsonScript } from '../../lib/context-loader.js';
 import { createDfmService } from '../services/analysis/dfm-service.js';
 import { createCostService } from '../services/cost/cost-service.js';
 import { loadShopProfile } from '../services/config/profile-service.js';
@@ -16,6 +19,8 @@ import {
   getPartIdentity,
   summarizeActions,
 } from '../agents/common.js';
+
+const REPOSITORY_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
 function computeQualityScore(qualityRiskPack = {}) {
   const risks = Array.isArray(qualityRiskPack.quality_risks) ? qualityRiskPack.quality_risks : [];
@@ -286,11 +291,15 @@ export function createReadinessReportWorkflow() {
 
 export const runReadinessReportWorkflow = createReadinessReportWorkflow();
 
-export async function writeReadinessArtifacts(outputJsonPath, report) {
-  const jsonPath = await writeValidatedCArtifact(outputJsonPath, 'readiness_report', report, {
+export async function writeReadinessArtifacts(outputJsonPath, report, { projectRoot = REPOSITORY_ROOT } = {}) {
+  assertValidCArtifact('readiness_report', report, {
     command: 'readiness-report',
+    path: resolve(outputJsonPath),
   });
-  const markdownPath = jsonPath.replace(/\.json$/i, '.md');
-  await writeFile(markdownPath, `${report.markdown.trim()}\n`, 'utf8');
-  return { json: jsonPath, markdown: markdownPath };
+  return writeReadinessArtifactPair({
+    projectRoot,
+    outputJsonPath,
+    jsonContent: `${JSON.stringify(report, null, 2)}\n`,
+    markdownContent: `${report.markdown.trim()}\n`,
+  });
 }

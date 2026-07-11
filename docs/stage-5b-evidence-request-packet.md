@@ -1,5 +1,7 @@
 # Stage 5B evidence request packet
 
+> **Authoritative v1 supersession:** this packet collects source material only. The legacy direct `review-context --inspection-evidence --attachment-authorization` plus ordinary `readiness-pack` sequence is disabled. Use [the quarantine-first onboarding contract](./inspection-evidence-contract.md) for any production attachment.
+
 This packet is a request/checklist control document for suppliers, labs, QA
 reviewers, and physical inspectors. It is not `inspection_evidence`, does not
 attach evidence, and does not change readiness.
@@ -180,8 +182,7 @@ fcad inspection-evidence-promotion-dry-run --intake-report <report.json> --out <
 Acceptance by the candidate gate only means the record may enter intake/dry-run
 review. It does not prove readiness, attach evidence, mutate canonical package
 artifacts, or authorize promotion. A later task must explicitly approve any
-canonical mutation through `review-context --inspection-evidence --attachment-authorization`,
-`readiness-pack`, `generate-standard-docs`, and `pack`.
+canonical mutation through quarantine, validation, checksum-bound attachment authorization, immutable attachment, attachment-bound `review-context`, and a separate readiness-regeneration authorization.
 
 Before that later mutation task, maintainers must complete or reference the
 [Stage 5B attachment authorization record](./stage-5b-attachment-authorization-record.md).
@@ -237,12 +238,13 @@ evidence, promote evidence, satisfy readiness, or change package state.
    package/part/revision mapping, intake/dry-run/audit output review, explicit
    human authorization before attachment, exact later task boundary for
    attachment, and readiness remains held until authorized attachment occurs.
-8. Authorization before attachment: do not run `review-context
-   --inspection-evidence`, `readiness-pack`, `generate-standard-docs`, or `pack`
-   until a separate later task explicitly authorizes canonical mutation after
-   validation and review.
+8. Authorization before attachment: do not bypass `inspection-evidence-quarantine`,
+   `inspection-evidence-validate`, `inspection-evidence-authorize`, or
+   `inspection-evidence-attach`. Attachment-bound `review-context` comes only
+   after the immutable receipt, and readiness regeneration needs a second
+   checksum-bound authorization.
 9. Exact later attachment task boundary: name the later task, issue, PR, or
-   change request allowed to run `review-context --inspection-evidence --attachment-authorization`; PR
+   change request allowed to run the authoritative quarantine-first onboarding sequence; PR
    comments, authorization records, gate reports, inbox files, catalogs,
    schemas, dry-runs, and audits do not attach evidence or expand that boundary
    by themselves.

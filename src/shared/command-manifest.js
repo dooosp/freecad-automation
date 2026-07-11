@@ -386,6 +386,81 @@ const COMMAND_MANIFEST = Object.freeze([
     }),
   }),
   Object.freeze({
+    name: 'inspection-evidence-quarantine',
+    helpSection: 'plain-python-node',
+    helpEntries: Object.freeze([
+      Object.freeze({
+        usage: 'fcad inspection-evidence-quarantine --candidate <source> --envelope <envelope.json> --package <slug> --revision <revision> --actor <identity-ref>',
+        summary: 'Receive a candidate into content-addressed local quarantine without creating canonical evidence',
+      }),
+    ]),
+    runtime: Object.freeze({
+      classification: 'plain-python-node',
+      requiresFreecadRuntime: false,
+      note: 'Writes only under ignored local/inspection-evidence-quarantine; generated, synthetic, and unsupported candidates are rejected without attachment.',
+    }),
+  }),
+  Object.freeze({
+    name: 'inspection-evidence-validate',
+    helpSection: 'plain-python-node',
+    helpEntries: Object.freeze([
+      Object.freeze({
+        usage: 'fcad inspection-evidence-validate --record <onboarding-record.json> --actor <identity-ref>',
+        summary: 'Run structural and semantic validation on an unchanged quarantined candidate',
+      }),
+    ]),
+    runtime: Object.freeze({
+      classification: 'plain-python-node',
+      requiresFreecadRuntime: false,
+      note: 'Advances a valid local record only to awaiting_authorization; it never authorizes, attaches, or regenerates readiness.',
+    }),
+  }),
+  Object.freeze({
+    name: 'inspection-evidence-authorize',
+    helpSection: 'plain-python-node',
+    helpEntries: Object.freeze([
+      Object.freeze({
+        usage: 'fcad inspection-evidence-authorize --record <onboarding-record.json> --authorization <authorization.json> --actor <identity-ref>',
+        summary: 'Verify explicit human authorization bound to exact package, revision, envelope, candidate, and ledger hashes',
+      }),
+    ]),
+    runtime: Object.freeze({
+      classification: 'plain-python-node',
+      requiresFreecadRuntime: false,
+      note: 'Authorization is a separate control operation and does not attach evidence or regenerate readiness.',
+    }),
+  }),
+  Object.freeze({
+    name: 'inspection-evidence-attach',
+    helpSection: 'plain-python-node',
+    helpEntries: Object.freeze([
+      Object.freeze({
+        usage: 'fcad inspection-evidence-attach --record <onboarding-record.json> --actor <identity-ref>',
+        summary: 'Create an idempotent canonical envelope, authorization copy, and immutable attachment record',
+      }),
+    ]),
+    runtime: Object.freeze({
+      classification: 'plain-python-node',
+      requiresFreecadRuntime: false,
+      note: 'Mutates only the selected package inspection attachment files after all gates pass; canonical readiness is intentionally unchanged.',
+    }),
+  }),
+  Object.freeze({
+    name: 'inspection-evidence-regenerate-readiness',
+    helpSection: 'plain-python-node',
+    helpEntries: Object.freeze([
+      Object.freeze({
+        usage: 'fcad inspection-evidence-regenerate-readiness --attachment-record <record.json> --authorization <readiness-authorization.json> --review-pack <review_pack.json> --out <readiness_report.json>',
+        summary: 'Regenerate readiness only after separate authorization verifies an immutable attachment and attachment-bound review pack',
+      }),
+    ]),
+    runtime: Object.freeze({
+      classification: 'plain-python-node',
+      requiresFreecadRuntime: false,
+      note: 'This is the only public readiness path allowed to consume an inspection-evidence claim; it requires a separate checksum-bound authorization.',
+    }),
+  }),
+  Object.freeze({
     name: 'inspection-evidence-promotion-dry-run',
     helpSection: 'plain-python-node',
     helpEntries: Object.freeze([
@@ -607,7 +682,7 @@ const COMMAND_MANIFEST = Object.freeze([
     helpSection: 'plain-python-node',
     helpEntries: Object.freeze([
       Object.freeze({
-        usage: 'fcad review-context --model <file> [--bom bom.csv] [--inspection insp.csv] [--quality ncr.csv] [--create-quality create_quality.json] [--drawing-quality drawing_quality.json] [--drawing-qa drawing_qa.json] [--drawing-intent drawing_intent.json] [--feature-catalog feature_catalog.json] [--dfm-report dfm_report.json] [--inspection-evidence inspection_evidence.json --attachment-authorization authorization_record.json] --out <review_pack.json> [--compare-to baseline_review_pack.json]',
+        usage: 'fcad review-context --model <file> [--bom bom.csv] [--inspection insp.csv] [--quality ncr.csv] [--create-quality create_quality.json] [--drawing-quality drawing_quality.json] [--drawing-qa drawing_qa.json] [--drawing-intent drawing_intent.json] [--feature-catalog feature_catalog.json] [--dfm-report dfm_report.json] [--inspection-evidence inspection_evidence.json --attachment-authorization authorization_record.json --evidence-attachment-record attachment_record.json] --out <review_pack.json> [--compare-to baseline_review_pack.json]',
         summary: null,
       }),
     ]),
@@ -762,8 +837,9 @@ const SHARED_WORKFLOW_OPTIONS = Object.freeze([
   Object.freeze({ flag: '--drawing-intent <path>', description: 'Drawing intent JSON side input for review-context design traceability context' }),
   Object.freeze({ flag: '--feature-catalog <path>', description: 'Feature catalog JSON side input for review-context design traceability context' }),
   Object.freeze({ flag: '--dfm-report <path>', description: 'DFM report JSON side input for review-context quality evidence' }),
-  Object.freeze({ flag: '--inspection-evidence <path>', description: 'Genuine completed inspection evidence JSON side input for review-context; requires Stage 5B attachment authorization' }),
-  Object.freeze({ flag: '--attachment-authorization <path>', description: 'Stage 5B authorization control record required with --inspection-evidence; it is not inspection evidence' }),
+  Object.freeze({ flag: '--inspection-evidence <path>', description: 'Canonical attached inspection evidence envelope; requires its checksum-bound onboarding authorization and immutable receipt' }),
+  Object.freeze({ flag: '--attachment-authorization <path>', description: 'Canonical inspection_evidence_attachment_authorization produced by onboarding; legacy stage5b_attachment_authorization is rejected' }),
+  Object.freeze({ flag: '--evidence-attachment-record <path>', description: 'Immutable inspection_evidence_attachment_record required with --inspection-evidence' }),
 ]);
 
 const WORKFLOW_SPECIFIC_OPTIONS = Object.freeze([

@@ -57,7 +57,7 @@ Stage 5B remains parked until genuine completed inspection evidence exists.
 The following must wait for that evidence:
 
 - creating `docs/examples/<slug>/inspection/inspection_evidence.json`
-- attaching inspection evidence through `review-context --inspection-evidence --attachment-authorization`
+- attaching inspection evidence through quarantine, validation, checksum-bound authorization, immutable attachment, and attachment-bound `review-context`
 - regenerating review packs, readiness reports, standard docs, or release bundles because inspection evidence was added
 - changing readiness scores or clearing `hold_for_evidence_completion`
 - making production-readiness claims

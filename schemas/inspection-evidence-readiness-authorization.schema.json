@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dooosp.github.io/freecad-automation/schemas/inspection-evidence-readiness-authorization.schema.json",
+  "title": "Inspection Evidence Readiness Regeneration Authorization",
+  "type": "object",
+  "required": [
+    "artifact_type",
+    "schema_version",
+    "authorization_id",
+    "decision",
+    "authorized_operation",
+    "exception_requested",
+    "package_slug",
+    "package_revision",
+    "attachment_record_ref",
+    "attachment_record_sha256",
+    "review_pack_sha256",
+    "current_readiness_sha256",
+    "current_readiness_markdown_sha256",
+    "readiness_output_ref",
+    "authorized_by_ref",
+    "authorized_at"
+  ],
+  "properties": {
+    "artifact_type": { "const": "inspection_evidence_readiness_authorization" },
+    "schema_version": { "const": "1.0" },
+    "authorization_id": { "type": "string", "minLength": 3, "maxLength": 128 },
+    "decision": { "const": "authorized" },
+    "authorized_operation": { "const": "regenerate_readiness" },
+    "exception_requested": { "const": false },
+    "package_slug": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "package_revision": { "$ref": "#/$defs/revision" },
+    "attachment_record_ref": { "$ref": "#/$defs/safeRelativePath" },
+    "attachment_record_sha256": { "$ref": "#/$defs/sha256" },
+    "review_pack_sha256": { "$ref": "#/$defs/sha256" },
+    "current_readiness_sha256": { "$ref": "#/$defs/sha256" },
+    "current_readiness_markdown_sha256": { "$ref": "#/$defs/sha256" },
+    "readiness_output_ref": { "$ref": "#/$defs/safeRelativePath" },
+    "authorized_by_ref": { "$ref": "#/$defs/identityRef" },
+    "authorized_at": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "identityRef": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 256,
+      "pattern": "^(?!unknown$)(?!null$)(?!n/a$)[A-Za-z0-9][A-Za-z0-9._:@+-]+$"
+    },
+    "revision": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+    "safeRelativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    }
+  },
+  "additionalProperties": false
+}

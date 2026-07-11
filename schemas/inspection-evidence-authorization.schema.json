@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dooosp.github.io/freecad-automation/schemas/inspection-evidence-authorization.schema.json",
+  "title": "Inspection Evidence Attachment Authorization",
+  "type": "object",
+  "required": [
+    "artifact_type",
+    "schema_version",
+    "authorization_id",
+    "decision",
+    "authorized_operation",
+    "exception_requested",
+    "package_slug",
+    "package_revision",
+    "evidence_id",
+    "source_document_sha256",
+    "candidate_envelope_sha256",
+    "validated_record_sha256",
+    "reviewer",
+    "authorizer",
+    "authorized_at",
+    "confidentiality_review"
+  ],
+  "properties": {
+    "artifact_type": { "const": "inspection_evidence_attachment_authorization" },
+    "schema_version": { "const": "1.0" },
+    "authorization_id": { "type": "string", "minLength": 3, "maxLength": 128 },
+    "decision": { "const": "authorized" },
+    "authorized_operation": { "const": "attach" },
+    "exception_requested": { "const": false },
+    "package_slug": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "package_revision": { "$ref": "#/$defs/revision" },
+    "evidence_id": { "type": "string", "minLength": 3, "maxLength": 128 },
+    "source_document_sha256": { "$ref": "#/$defs/sha256" },
+    "candidate_envelope_sha256": { "$ref": "#/$defs/sha256" },
+    "validated_record_sha256": { "$ref": "#/$defs/sha256" },
+    "reviewer": { "$ref": "#/$defs/humanDecision" },
+    "authorizer": {
+      "type": "object",
+      "required": ["identity_ref"],
+      "properties": { "identity_ref": { "$ref": "#/$defs/identityRef" } },
+      "additionalProperties": false
+    },
+    "authorized_at": { "$ref": "#/$defs/dateTime" },
+    "confidentiality_review": {
+      "type": "object",
+      "required": ["decision", "reviewed_by_ref", "reviewed_at", "private_paths_removed", "secrets_removed", "redaction_approved"],
+      "properties": {
+        "decision": { "const": "approved" },
+        "reviewed_by_ref": { "$ref": "#/$defs/identityRef" },
+        "reviewed_at": { "$ref": "#/$defs/dateTime" },
+        "private_paths_removed": { "const": true },
+        "secrets_removed": { "const": true },
+        "redaction_approved": { "const": true }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "dateTime": { "type": "string", "format": "date-time" },
+    "nonPlaceholder": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "revision": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+    "identityRef": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 256,
+      "pattern": "^(?!unknown$)(?!null$)(?!n/a$)[A-Za-z0-9][A-Za-z0-9._:@+-]+$"
+    },
+    "humanDecision": {
+      "type": "object",
+      "required": ["identity_ref", "decision", "reviewed_at"],
+      "properties": {
+        "identity_ref": { "$ref": "#/$defs/identityRef" },
+        "decision": { "const": "approved" },
+        "reviewed_at": { "$ref": "#/$defs/dateTime" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
