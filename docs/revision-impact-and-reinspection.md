@@ -19,6 +19,7 @@ view:
 fcad compare-rev \
   output/baseline_review_pack.json \
   output/candidate_review_pack.json \
+  --out output/revision-impact/revision_comparison.json \
   --impact-out output/revision-impact/revision_impact_report.json \
   --generated-at 2026-07-11T00:00:00Z
 ```
@@ -29,6 +30,7 @@ Optional authoritative context can be supplied when it is available:
 fcad compare-rev \
   output/baseline_review_pack.json \
   output/candidate_review_pack.json \
+  --out output/revision-impact/revision_comparison.json \
   --impact-out output/revision-impact/revision_impact_report.json \
   --impact-md-out output/revision-impact/revision_impact_report.md \
   --baseline-readiness output/baseline_readiness_report.json \
@@ -44,6 +46,10 @@ The command succeeds when a valid analysis requires review or reinspection.
 Malformed inputs, unsafe paths, invalid bindings, or invalid output contracts
 fail before revision-impact output is published.
 
+`--generated-at` is optional for normal use. When omitted, the impact report
+reuses the timestamp captured for that `compare-rev` invocation. Supply a fixed
+value when proving byte-identical output.
+
 ## Canonical outputs
 
 - `revision_impact_report.json` is the canonical machine-readable artifact.
@@ -56,6 +62,22 @@ For a fixed input set and fixed `--generated-at`, both output files are
 byte-identical across runs. Change IDs, evidence-assessment IDs, and plan-item
 IDs are SHA-256-derived from sorted semantic inputs; timestamps, randomness,
 array position, and local paths are not identity inputs.
+
+When impact output is requested, each review pack is read and validated once.
+The legacy comparison, impact report, and input entries in the artifact
+manifest share that in-memory snapshot and its SHA-256, so an atomic source-file
+replacement during the run cannot mix revision generations across the bundle.
+
+CLI output is restricted to repository-approved ignored roots (`output/` or
+`tmp/codex/`). The JSON, derived Markdown, legacy comparison, and its manifest
+must share one safe directory. Tracked execution uses only the server-selected
+job artifact root. Callers cannot widen these boundaries by naming a source,
+tracked, or canonical directory as an allowed root. Existing symlink/hardlink
+targets and changed parent/target identities are rejected before publication;
+catchable mid-publication failures roll all prepared report files back. A
+directory lock prevents concurrent publishers from mixing generations, and a
+durable content-hash journal recovers a process/power interruption before the
+next preflight.
 
 ## What version 1 compares
 
@@ -75,6 +97,20 @@ tolerances, datum/reference requirements, drawing requirements, material,
 manufacturing process, quality gates, criticality, inspection method, and
 specification/evidence bindings.
 
+Drawing-intent requirements and explicit `inspection_requirement` linkage
+records are merged only by the same stable characteristic ID. Compatible fields
+are combined; conflicting normalized values are blocked as
+`unable_to_determine` instead of choosing one source silently.
+
+Extracted drawing semantics, create/drawing quality, drawing QA, DFM, quality
+risk, and evidence-graph records use bounded artifact-specific projections.
+Only explicit intent, requirement, rule, risk, feature, node, or edge identities
+are compared. Generated observations remain advisory: their changes require
+human review and are not promoted to released nominal changes or completed
+inspection results. A one-sided artifact surface or changed record without
+trustworthy stable identity is blocked rather than interpreted as an entity
+addition or removal.
+
 The workflow reads sanitized metadata and checksums. It does not read or publish
 private raw supplier/lab bytes unless an existing separately safe adapter has
 already produced an allowed normalized artifact.
@@ -91,6 +127,10 @@ face indexes to stable design identity, and does not attempt generalized BREP
 topology or geometric-similarity matching. Sequence-generated feature IDs are
 used only when their source contract declares them stable enough for the
 comparison.
+
+Evidence graphs are control/provenance context only. Nodes such as
+`source:<array-index>:...` are explicitly rejected as positional identity, and
+graph changes never make generated material trusted inspection evidence.
 
 When authoritative identity is absent or conflicting, the report keeps
 `unable_to_determine` visible and requires human review. It does not guess.
@@ -116,6 +156,11 @@ excluded only by the versioned normalization policy. Revision, checksums,
 evidence/characteristic/specification identity, material, process, nominal,
 tolerance, result semantics, authorization hash, and receipt hash are never
 treated as volatile.
+
+Stable-ID record collections are normalized independently of their source
+array order. Arrays that are themselves engineering values (for example an
+axis, coordinate, or datum sequence) retain order and are compared as ordered
+values.
 
 ## What causes reinspection
 
