@@ -1,0 +1,7 @@
+{
+  "artifact_type": "inspection_requirements",
+  "schema_version": "1.0",
+  "test_scope": "fixture",
+  "production_trust": false,
+  "items": [{ "characteristic_id": "CHAR.WIDTH", "characteristic_name": "Width", "nominal_value": 20, "unit": "mm", "specification_reference": "SPEC-100:WIDTH", "inspection_method": "caliper" }]
+}
