@@ -1,116 +1,286 @@
-# Inspection Evidence Contract
+# Inspection Evidence Onboarding Contract
 
-Inspection evidence means a genuine manufacturing or QA inspection record for a physical or supplier-inspected part. Examples include CMM reports, manual caliper checks, go/no-go gauge records, first article inspection, and supplier inspection reports.
+Inspection evidence is a genuine completed physical, supplier, lab, or QA
+record for an inspected part or released drawing. Repository-generated CAD,
+drawings, quality reports, readiness reports, CI output, QIF-lite control XML,
+surrogates, examples, and test fixtures are not inspection evidence.
 
-The minimal contract lives in [`../schemas/inspection-evidence.schema.json`](../schemas/inspection-evidence.schema.json). It requires an `inspection_evidence` type, an inspected part or package, an inspection date/time, a source type, a safe source reference, and measured feature records with explicit result semantics. Attachment-grade Stage 5B evidence also needs a completed/final inspection status, inspector and reviewer traceability, package/part/revision mapping, a record-level `pass`, `fail`, or `partial` disposition, and physical/supplier/lab/QA measurement provenance.
+This repository now implements the software contract for onboarding such a
+record. It still contains no genuine completed inspection record for any of the
+five canonical packages. All five packages remain `needs_more_evidence` with
+`hold_for_evidence_completion`.
 
-Generated CAD quality, drawing quality, drawing QA, drawing intent, feature catalog, DFM, readiness, and review-pack artifacts remain useful review evidence, but they are not inspection evidence by themselves. Readiness reports `inspection_evidence` as present only when `review_pack.json` includes the explicit validated and Stage 5B-authorized `inspection_evidence` ledger/source record written by `review-context`.
+## Authoritative schemas
 
-`fcad review-context --inspection-evidence <path> --attachment-authorization <authorization_record.json>` accepts only package-scoped JSON under `docs/examples/<package>/inspection/*.json` that validates against this contract and a separate Stage 5B authorization control record. Local direct-attachment paths are checked before parsing: symlinks, absolute/outside-repo paths, ignored inbox paths, `output/`, `tmp/codex/`, fixtures, schemas, generated/control artifacts, screenshots, release bundles, CI metadata, and stale/non-package paths are rejected. When both files are valid, the evidence file is recorded as an explicit review-pack evidence ledger/source record with a portable source ref and an authorization-control ref. Readiness can recognize that explicit authorized record as `inspection_evidence` coverage; generated quality and drawing artifacts still fail if passed as inspection evidence. The authorization record is control metadata only and never satisfies `inspection_evidence` by itself.
+- [`inspection-evidence-envelope.schema.json`](../schemas/inspection-evidence-envelope.schema.json)
+- [`inspection-evidence-onboarding-record.schema.json`](../schemas/inspection-evidence-onboarding-record.schema.json)
+- [`inspection-evidence-authorization.schema.json`](../schemas/inspection-evidence-authorization.schema.json)
+- [`inspection-evidence-attachment-record.schema.json`](../schemas/inspection-evidence-attachment-record.schema.json)
+- [`inspection-evidence-readiness-authorization.schema.json`](../schemas/inspection-evidence-readiness-authorization.schema.json)
 
-`fcad inspection-evidence-intake [--package <slug>] --out <report.json>` searches the allowed non-secret checkout sources and emits a machine-readable discovery/intake report. With `--include-github`, it also attempts bounded public GitHub discovery across issues, PR/comment bodies, releases/assets, workflow artifact metadata, and HTTPS GitHub/GitHubusercontent allowlisted public links referenced from repo docs or GitHub discussion surfaces. GitHub discovery gracefully records skip reasons when `gh`, the GitHub API, network fetches, cleartext URLs, or non-allowlisted public hosts are unavailable or rejected. It classifies candidates as `genuine_valid`, `invalid_generated`, `invalid_schema`, `invalid_provenance`, or `no_candidate`. A `genuine_valid` candidate must pass the schema plus the attachment-grade provenance markers above; public GitHub links that point at workflow/action artifacts, release/control bundles, readiness/review packs, or manifest metadata stay `invalid_provenance` even when the downloaded body is inspection-shaped. The command does not ask for human-entered measurements; if no genuine completed record is found, canonical packages stay `needs_more_evidence` / `hold_for_evidence_completion`.
+The older [`inspection-evidence.schema.json`](../schemas/inspection-evidence.schema.json)
+remains a compatibility/discovery shape. It is not sufficient for production
+attachment because it does not, by itself, prove quarantine, checksum continuity,
+authoritative revision, explicit authorization, or immutable attachment.
 
-QIF-lite import is a narrow adapter for inspection-shaped XML supplied by a real physical, supplier, lab, or QA inspection source. It is not a complete QIF implementation and does not make an XML file attachment-ready by itself.
+QIF-lite import is a narrow discovery adapter for inspection-shaped XML supplied
+by a real physical, supplier, lab, or QA source. It is not a complete QIF
+implementation and does not make XML attachment-ready; production onboarding v1
+deliberately accepts only the bounded JSON and CSV containers described below.
 
-For a newly supplied JSON record, maintainers can run `node scripts/stage5b-candidate-evidence-gate.js --candidate <repo-relative-json> --out <report.json>` before intake. Use the [`Stage 5B evidence request packet`](./stage-5b-evidence-request-packet.md) before that gate when asking a supplier, lab, QA reviewer, or physical inspector for completed real records. This local non-production gate emits a schema-backed candidate gate report with candidate path/source metadata, `summary.eligible_for_stage5b_intake_review`, an explicit `decision.result` accept/reject field, checklist items, rejection reasons, path safety/redaction notes, readiness-unchanged fields, and non-evidence boundary fields. `eligible_for_stage5b_intake_review: true` and `decision.result: accept` only mean the record may enter later authorized intake/dry-run review; they do not attach evidence, promote evidence, mutate canonical artifacts, satisfy readiness, or change the canonical `needs_more_evidence` / `hold_for_evidence_completion` truth. Accepted reports still require the runbook/request-packet Pre-Attachment Review Checklist and the [`Stage 5B attachment authorization record`](./stage-5b-attachment-authorization-record.md) for provenance/reviewer traceability, package/part/revision mapping, redaction/privacy review, path safety, next intake/dry-run/audit commands, explicit human authorization before attachment, the exact later task boundary for attachment, and readiness-held truth before any later authorized attachment task. The authorization record is control metadata, not `inspection_evidence`.
+For a newly supplied JSON record, maintainers may run the local
+`stage5b-candidate-evidence-gate` before intake. Its accept decision means only
+that the record may enter later authorized intake review. The candidate gate,
+request packet, and Stage 5B attachment authorization record remain control
+metadata: they do not attach evidence, satisfy readiness, or bypass the
+onboarding quarantine, validation, and checksum-bound authorization chain.
 
-Maintainers should stage newly received candidate JSON and the candidate gate
-report under the ignored local-only inbox `local/stage5b-candidate-evidence-inbox/<package-slug>/`.
-Use paths such as `local/stage5b-candidate-evidence-inbox/<package-slug>/received-inspection-evidence.json`
-or `local/stage5b-candidate-evidence-inbox/<package-slug>/received-inspection-evidence.csv`,
-`local/stage5b-candidate-evidence-inbox/<package-slug>/source-preflight-report.json`,
-and `local/stage5b-candidate-evidence-inbox/<package-slug>/candidate-gate-report.json`
-for local review. Do not commit raw records, secrets, private URLs, PII, or
-supplier/lab/QA records from this inbox. Ignored inbox files and candidate gate
-reports are staging/control material only; they are not `inspection_evidence`
-and are not canonical package artifacts.
+## Minimum authoritative envelope
 
-`fcad stage5b-evidence-source-kit [--package <slug>]` creates the ignored
-package-scoped inbox folder plus README/checklist and JSON/CSV source templates.
-`fcad stage5b-evidence-source-preflight --package <slug> --source <raw-source>
-[--out <report.json>]` checks that a supplied raw source exists, is ignored, is
-not tracked, carries package/part/revision mapping, inspection date, origin
-type, completed status, feature IDs, units, measured values, tolerances,
-per-feature result, overall result, and reviewer/approver traceability, and
-flags PII, private URLs, absolute local paths, tokens, secrets,
-supplier-private originals, screenshots, CI artifacts, docs examples,
-templates, fixtures, CAD/generated values, readiness reports, and surrogate
-artifacts. It classifies sources as `ready_for_stage5b_review`,
-`needs_more_source_detail`, or `unsafe_or_not_evidence`. This is
-acquisition/preflight only: it never attaches evidence, never runs
-`review-context`, never regenerates readiness, and never marks a canonical
-package ready.
+The final envelope records:
 
-`fcad stage5b-evidence-review-dry-run --package <slug> --source <raw-source>
---out-dir <ignored-dir> [--fixture]` is the CLI-only bridge after source
-preflight and before any future authorized attachment task. It verifies that the
-source is ignored and untracked, or is an explicitly requested synthetic
-repo-local fixture under the ignored inbox, classifies the source before any
-downstream planning, and writes only redacted/review-scoped candidate material
-under the ignored output directory. For `ready_for_stage5b_review` sources it
-runs the local candidate gate against that non-evidence derivative and nests the
-existing intake, promotion dry-run, and audit planning outputs when safely
-available. The single
-`stage5b_evidence_review_dry_run_manifest.json` records source status,
-redaction findings, provenance fields, package mapping, candidate path,
-commands run, outputs, blockers, readiness-held truth, and the next required
-authorization step. The command never attaches evidence, never promotes
-evidence, never regenerates canonical readiness, never authorizes
-`review-context`, and never marks packages ready. `--fixture` is for synthetic
-non-evidence orchestration validation only.
+- package slug and authoritative package revision;
+- inspected part, drawing, assembly, or lot identifier and revision. The schema
+  can represent all four; v1 production attachment deliberately accepts only
+  `identifier_type: part` exactly matching the canonical `config.toml` `name`.
+  Authoritative drawing/assembly/lot mappings are not implemented;
+- source organization and physical/supplier/lab/QA source type;
+- inspection method, final status, completion timestamp, and overall result;
+- inspector identity reference;
+- reviewer identity, approval decision, and review timestamp;
+- authorization id, authorizer reference, authorization timestamp, operation
+  scope, authorization ref, and authorization checksum;
+- measured characteristics with ids, values, units, results, and specification
+  references;
+- source document sanitized filename, media type, byte size, and SHA-256;
+- immutable provenance and checksum-bound custody events;
+- attachment request and canonical attachment timestamps;
+- confidentiality and redaction classification; and
+- a mandatory `synthetic` boundary. Production semantic validation requires
+  `synthetic: false`; marked fixtures may validate structurally but are always
+  rejected for production use.
 
-`fcad stage5b-evidence-attachment-controller --review-manifest
-<stage5b_evidence_review_dry_run_manifest.json> --authorization-record
-<path-or-url> --out-dir <ignored-dir> [--dry-run]` is the final CLI-only safe
-bridge before any later explicit attachment task. It verifies repo preflight,
-the review dry-run manifest, source preflight readiness, ignored or explicitly
-safe source handling, redacted/package-scoped/provenance-complete review
-candidate JSON, scoped authorization metadata, and the hard rejection boundary
-for surrogate/generated/docs/CI/readiness/spec/CAD/test-fixture material. It
-writes one `stage5b_evidence_attachment_control_manifest.json` with pass/hold
-gates, exact blockers, next commands, evidence boundaries, and readiness-held
-status. A passing dry-run status only means a future explicit attachment attempt
-has its controller prerequisites shaped; it still does not attach evidence,
-promote evidence, regenerate canonical readiness, or mark packages ready.
+The envelope never needs an absolute source path, private URL, token, credential,
+authorization header, or unnecessary personal data. Privacy-preserving identity
+references are allowed when they resolve through an authorized external system.
 
-For every candidate and package, the intake report also emits an attachment plan. The plan uses only safe deterministic signals already present in the candidate or canonical package files: explicit `package_id` / `inspected_part`, source path or sanitized public source link, package review-pack lineage, model or drawing filenames, measured `feature_id`, `requirement_ref`, drawing references, and nominal dimension values. It never infers new measurements. Key fields are:
+## State machine
 
-- `matched_package`: canonical package slug when one package is the best deterministic match; otherwise `null`.
-- `match_confidence`: `high`, `medium`, `low`, `ambiguous`, or `none`.
-- `candidate_package_matches`: scored package candidates and their match signals.
-- `matched_features`: measured candidate features linked to canonical feature IDs or required drawing-intent dimensions.
-- `unmatched_features`: measured candidate features that could not be linked without guessing.
-- `missing_required_features`: canonical required drawing-intent features/dimensions not covered by the candidate.
-- `attachment_ready`: true only for a genuine-valid candidate with high-confidence package matching and explicit provenance.
-- `blockers`: machine-readable hold reasons such as `no_genuine_valid_candidate`, `candidate_not_genuine_valid`, `no_package_match`, `ambiguous_package_match`, `insufficient_package_match_confidence`, or `missing_explicit_provenance`.
-- `canonical_next_command`: the next `fcad review-context --inspection-evidence ... --attachment-authorization ...` command when attachment is ready; otherwise `null`.
+```text
+discovered -> quarantined
+quarantined -> structurally_valid | rejected
+structurally_valid -> semantically_valid | rejected
+semantically_valid -> awaiting_authorization | rejected
+awaiting_authorization -> authorized | rejected
+authorized -> attached | rejected | superseded
+attached -> superseded
+rejected -> superseded
+```
 
-Ambiguous evidence is deliberately held. A genuine-valid candidate that matches multiple packages with equal non-explicit signals stays in the report as a candidate, but no package readiness is changed and `attachment_ready` remains false. Candidates with high-confidence matches are still only planned for canonical attachment; the intake command does not mutate review packs, readiness reports, standard docs, or release bundles.
+Every transition binds the unchanged source checksum, timestamp, actor reference,
+and stable reason code. No operation can skip quarantine, validation, or
+authorization. `rejected` cannot re-enter the flow; corrected bytes receive a new
+content-addressed record. Supersession preserves the prior record rather than
+overwriting it.
 
-`fcad inspection-evidence-promotion-dry-run --intake-report <report.json> --out <promotion_dry_run_manifest.json>` consumes an intake report and writes a deterministic machine-readable promotion dry-run manifest. The dry-run is a planning/control artifact only: it does not run `review-context`, does not attach evidence, does not regenerate readiness, does not update standard docs, and does not package a release bundle. For each package it records the selected package slug, evidence source ref, match confidence, `attachment_ready`, blockers, exact future commands, expected outputs, files that would be mutated by a future real promotion, safety checks, readiness expectation, and rollback guidance.
+## Production operations
 
-`fcad stage5b-evidence-audit --out-dir <dir> [--include-github]` runs the non-mutating chain end to end. It writes `intake_report.json`, runs promotion dry-run from that produced intake report into `promotion_dry_run_manifest.json`, then writes `stage5b_audit_manifest.json` and `stage5b_audit_summary.md`. The audit manifest links the intake and dry-run outputs by deterministic repo-relative path and SHA-256, summarizes searched source classes, accepted/rejected counts, GitHub skips/downloads, attachment-ready count, blockers, canonical package readiness states, next safe commands, the hard evidence boundary, and the readiness-held truth. The audit bundle is a control artifact only; it does not attach evidence, does not mutate canonical package artifacts, and does not make production-readiness claims.
+### 1. Quarantine
 
-`fcad stage5b-surrogate-inspection-validation --out-dir <dir> [--package <slug>]` is the safe automation-readiness lane when no genuine completed physical/supplier/lab/QA record exists. It generates `surrogate_inspection_validation.json` in ignored `output/`, using repo-local public specs/examples/CAD metadata only to produce representative inspection-shaped records. Every generated value is prefixed and labeled as synthetic/surrogate/non-evidence. The surrogate bundle validates parser, redaction, package mapping, candidate-gate rejection, audit reporting, and readiness messaging, then nests the canonical no-evidence audit bundle. It can never attach evidence, unlock `evidence_attached`, change product inspection readiness, or move canonical packages out of `needs_more_evidence` / `hold_for_evidence_completion`.
+```bash
+fcad inspection-evidence-quarantine \
+  --candidate <received-source> \
+  --envelope <candidate-envelope.json> \
+  --package <canonical-slug> \
+  --revision <authoritative-revision> \
+  --actor <identity-ref>
+```
 
-Real evidence attachment remains separate: a completed real package-scoped inspection JSON must come from a physical, supplier, lab, or QA source; must pass source preflight, the candidate gate, review dry-run, attachment controller, intake, promotion dry-run, audit, redaction, provenance, reviewer, package mapping, and authorization checks; and must be attached only by a later explicitly authorized task. Source preflight reports, surrogate records, generated CAD/spec/docs/CI values, similar values, fixtures, review dry-run manifests, attachment-control manifests, candidate gate reports, intake reports, promotion dry-run manifests, audit manifests, authorization records, release bundles, screenshots, comments, PR bodies, and collection guides are not canonical `inspection_evidence`.
+The command reads regular non-symlink files with size limits, writes
+content-addressed bytes only under ignored
+`local/inspection-evidence-quarantine/`, and records sanitized basenames and
+hashes. Copying a file into `docs/examples/` does not quarantine or authorize it.
+Generated/control/synthetic/unsupported content becomes `rejected`, never
+canonical evidence. Exact-byte copies of tracked repository artifacts are
+rejected by tracked-file fingerprint even after rename. Ignored local inbox
+files remain untrusted candidates and may enter quarantine; residence in the
+inbox is never evidence status.
 
-The Stage 5B control artifacts also have explicit machine-readable contracts: [`../schemas/stage5b-candidate-gate-report.schema.json`](../schemas/stage5b-candidate-gate-report.schema.json), [`../schemas/stage5b-surrogate-inspection-validation.schema.json`](../schemas/stage5b-surrogate-inspection-validation.schema.json), [`../schemas/stage5b-evidence-review-dry-run-manifest.schema.json`](../schemas/stage5b-evidence-review-dry-run-manifest.schema.json), [`../schemas/stage5b-evidence-attachment-control-manifest.schema.json`](../schemas/stage5b-evidence-attachment-control-manifest.schema.json), [`../schemas/stage5b-intake-report.schema.json`](../schemas/stage5b-intake-report.schema.json), [`../schemas/stage5b-promotion-dry-run-manifest.schema.json`](../schemas/stage5b-promotion-dry-run-manifest.schema.json), and [`../schemas/stage5b-audit-manifest.schema.json`](../schemas/stage5b-audit-manifest.schema.json). The concise [Stage 5B artifact/schema catalog](./stage-5b-artifact-schema-catalog.md) maps the request packet, candidate gate report, attachment authorization record, attachment-control manifest, surrogate validation bundle, review dry-run manifest, intake report, promotion dry-run manifest, audit manifest, audit summary, and validation diagnostics to their producer, schema or contract, location pattern, preview boundary, control/private status, `inspection_evidence` status, and readiness effect. `tests/stage5b-evidence-source-kit.test.js` validates the source acquisition/preflight kit, ignored inbox behavior, source classifications, unsafe-data warnings, tracked-file rejection, and readiness-held boundary. `tests/stage5b-evidence-review-dry-run.test.js` validates the source preflight to redacted candidate gate/intake/audit planning bridge, unsafe source rejection, fixture-only orchestration path, no raw source copying, and readiness-held manifest truth. `tests/stage5b-evidence-attachment-controller.test.js` validates fail-closed controller gates for missing inputs, unsafe source classes, private URLs/PII/tokens/absolute paths, dry-run-only readiness, canonical readiness hold, and no raw inbox copying. `tests/stage5b-candidate-evidence-gate.test.js` validates candidate gate report accept/reject semantics against the schema and semantic guard. `tests/stage5b-surrogate-inspection-validation.test.js` validates the surrogate/non-evidence lane and canonical rejection boundary. `tests/stage5b-artifact-catalog.test.js` keeps the catalog and schema discoverability aligned without treating any report as evidence. `tests/stage5b-artifact-contracts.test.js` validates real generated audit output against the intake, dry-run, and audit schemas and semantic guards for safe repo-relative paths, candidate classifications, attachment plans, blockers, readiness-held truth, and generated/control-artifact non-evidence boundaries.
+### 2. Validate
 
-When runtime validation rejects a Stage 5B control artifact, CLI commands print concise diagnostics with a code, JSON pointer, message, and remediation. When an output location is known, the command writes `validation_diagnostics.json` beside the failed output path. Tracked Studio/API jobs expose the same sanitized diagnostics as job diagnostics and, for Stage 5B validation failures, as a registered `stage5b.validation-diagnostics` artifact that Studio Review can summarize. These diagnostics are review/control metadata only; they do not satisfy `inspection_evidence`, do not request human-entered measurements, and do not mutate canonical package readiness.
+```bash
+fcad inspection-evidence-validate \
+  --record local/inspection-evidence-quarantine/<package>/<id>/onboarding-record.json \
+  --actor <reviewer-ref>
+```
 
-The same audit can be queued locally as a tracked job. `POST /jobs` and Studio Review accept `stage5b-evidence-audit` with only optional `include_github`; the server chooses the job artifact output directory, registers the intake report, promotion dry-run manifest, audit manifest, and audit summary, and exposes them only through tracked artifact routes. The same dry-run can also be queued locally as a tracked job. `POST /jobs` accepts a safe repo-relative `intake_report_path`; Studio Review queues it from the latest or selected registered `inspection-evidence.intake-report` artifact. The tracked result is registered as `inspection-evidence.promotion-dry-run-manifest` and can be previewed only through the tracked artifact route. The browser never supplies an arbitrary local file path for preview, and the audit/dry-run manifests remain control artifacts, not inspection evidence.
+Validation re-hashes the source and envelope, strictly checks the source
+container, validates envelope structure, verifies physical/supplier/lab/QA
+semantics, checks inspector/reviewer provenance, confidentiality, package and
+authoritative revision equality, measured units/specification refs, and rejects
+private paths/secrets/bypass fields. Success stops at `awaiting_authorization`
+and prints the exact validated-record SHA-256 needed by authorization.
 
-The dry-run only lists the future promotion chain when the intake report contains one genuine-valid, high-confidence, attachment-ready candidate with explicit provenance and safe repo-relative command paths. The command chain is `review-context --inspection-evidence --attachment-authorization`, `readiness-pack`, `generate-standard-docs`, and `pack`; the dry-run resolves the package model/config paths and any existing package quality/drawing side inputs before writing the manifest. If no attachment-ready valid evidence exists, or if the candidate is ambiguous, generated, fixture-only, missing provenance, missing package files, or path-unsafe, the manifest says no promotion can run and readiness remains held.
+### 3. Authorize
 
-The intake adapters can validate JSON contract files and row-oriented CSV, TSV, or Markdown tables with explicit inspection-evidence columns; TXT tables are also supported when they contain an explicit delimited or Markdown-style table. Table normalization maps only values already present in the source rows, such as `source_type`, `inspected_part`, `inspected_at`, `inspection_status`, `inspector`, `reviewed_by`, `part_revision`, `units`, `overall_result`, `feature_id`, `measured_value`, `result`, and `measurement_method`; it does not infer or generate measurement values. A table candidate must still normalize to the JSON schema, carry safe local or sanitized public GitHub-link provenance, and pass the package provenance gate. `review-context` remains a JSON-contract attachment path, so accepted table or external GitHub candidates must be serialized to `inspection_evidence.json` before canonical attachment.
+```bash
+fcad inspection-evidence-authorize \
+  --record <onboarding-record.json> \
+  --authorization <attachment-authorization.json> \
+  --actor <authorizer-ref>
+```
 
-GitHub downloads are intentionally narrow: only HTTPS URLs on the explicit GitHub/GitHubusercontent host allowlist are considered, and only JSON, CSV, TSV, Markdown, TXT, and ZIP extensions can be downloaded. Text candidates have byte limits; ZIP candidates are inspected in a temporary directory with archive-size, entry-count, inner-file-size, path-traversal, compression, and extension checks before any allowlisted inner file is parsed. Release assets, release-bundle ZIP entries, GitHub Actions/workflow artifact URLs, CI metadata, generated docs/outputs, screenshots, and manifest/readiness/review-pack links remain non-evidence provenance. The report records searched GitHub sources, skipped sources, downloaded candidate metadata, rejection classes, and sanitized provenance. It does not expose tokens, request headers, private URLs, or raw logs.
+The separate authorization must bind the candidate checksum, candidate-envelope
+checksum, validated ledger checksum, evidence id, package slug, package revision,
+reviewer, distinct authorizer, confidentiality review, and `attach` operation.
+The authorization reviewer timestamp must exactly match the quarantine ledger's
+`semantically_valid` transition, so review cannot predate quarantine or be
+replayed from an unrelated source review.
+`force`, `override`, `exception`, waiver, and decision-journal claims cannot
+bypass a required gate. Authorization metadata is not inspection evidence.
 
-Generated quality, DFM, readiness, review, standard-doc, release, manifest, CI summary, screenshot, and drawing artifacts are rejected even when they use CSV, TSV, Markdown, TXT, or inspection-shaped fields. Ignored inbox files, source preflight reports, review dry-run manifests, attachment-control manifests, candidate gate reports, authorization records, request packets, docs, diagnostics, schemas, fixtures, intake reports, dry-run manifests, audit outputs, screenshots, comments, PR bodies, release bundles, CAD measurements, and CI/GitHub metadata alone are also rejected. Fixtures may prove parser behavior in tests, but they are rejected as canonical package evidence.
+### 4. Attach
 
-Tracked Studio/API intake reports are discovery/review artifacts only. They can help maintainers inspect searched source classes, accepted/rejected counts, rejection classes, and package readiness, but they are not package readiness evidence. Report preview is limited to registered tracked job artifacts; the browser supplies a job id and artifact id, not an arbitrary local file path.
+```bash
+fcad inspection-evidence-attach \
+  --record <onboarding-record.json> \
+  --actor <same-authorizer-ref>
+```
 
-A non-canonical fixture lives at [`../tests/fixtures/inspection-evidence/valid-manual-caliper-inspection.json`](../tests/fixtures/inspection-evidence/valid-manual-caliper-inspection.json) for schema and validator tests only. It demonstrates the contract shape but is not package readiness evidence, and canonical packages remain `needs_more_evidence` until genuine inspection evidence is added to those packages.
+Attachment re-verifies every hash and the configured package revision, then uses
+create-only writes for:
 
-For each canonical package, including `quality-pass-bracket` and `hinge-block`, a non-canonical collection guide is available under [`inspection-evidence-collection/`](inspection-evidence-collection/). The guide is not readiness evidence; completed evidence must still be attached through `review-context --inspection-evidence --attachment-authorization` in a later Stage 5B flow.
+- `docs/examples/<package>/inspection/inspection_evidence.json`
+- `docs/examples/<package>/inspection/inspection_evidence_candidate_authorized.json`
+- `docs/examples/<package>/inspection/inspection_evidence_authorization.json`
+- `docs/examples/<package>/inspection/inspection_evidence_onboarding.json`
+- `docs/examples/<package>/inspection/inspection_evidence_attachment.json`
+
+The candidate-envelope copy preserves the exact authorization-bound input bytes;
+the attached envelope must validate as its exact allowlisted lifecycle transform.
+The onboarding JSON is the immutable authorized-state snapshot; the last file is
+the immutable trust anchor. It contains the source checksum,
+candidate-envelope checksum, authorization id/hash, package revision, attachment
+timestamp, immutable authorized-ledger snapshot hash, and resulting canonical
+envelope/authorization hashes. Repeating the same fully bound attachment returns
+the existing receipt; a conflicting source, revision, envelope, evidence id, or
+authorization fails closed. The `superseded` state is represented but no
+supersession command is implemented in this first version. Attachment records
+the readiness JSON and Markdown hashes before and after and requires both to be
+identical.
+Before canonical writes, attachment creates an immutable ignored local recovery
+plan bound to the actor, source/envelope/authorization/snapshot hashes,
+attachment timestamp, and pre-attachment readiness hash. A retry after process
+interruption may reuse only byte-identical partial canonical files; conflicts
+fail closed.
+
+The original received JSON/CSV bytes are not copied into the canonical package.
+They remain in ignored quarantine or in the authorized supplier/lab/QA source
+system; canonical files retain their checksum and sanitized external origin
+reference. Immutable retention, access control, and backup for the original
+record are operator responsibilities and an external production dependency.
+
+`review-context --inspection-evidence` now requires the canonical authorization
+and `--evidence-attachment-record`. It verifies the complete attachment chain
+before ingest or any output write. A path-only evidence/auth pair fails closed.
+
+### 5. Regenerate readiness separately
+
+Regular `readiness-pack` rejects review packs that claim `inspection_evidence`.
+After `review-context` has produced an attachment-bound canonical review pack, a
+second human authorization must bind the attachment-record hash, review-pack
+hash, current readiness JSON and Markdown hashes, package/revision, and canonical
+readiness output path:
+
+```bash
+fcad inspection-evidence-regenerate-readiness \
+  --attachment-record docs/examples/<package>/inspection/inspection_evidence_attachment.json \
+  --authorization <readiness-authorization.json> \
+  --review-pack docs/examples/<package>/review/review_pack.json \
+  --out docs/examples/<package>/readiness/readiness_report.json
+```
+
+Regeneration before attachment, with a forged review-pack ledger/result summary,
+or with stale hashes fails before readiness output is written. The command
+re-verifies under an exclusive local mutation lock immediately before replacing
+the two readiness artifacts. Attachment and every regular canonical-readiness
+writer use that same package lock. Once an attachment receipt exists, regular
+`readiness-pack` and legacy `readiness-report` writers fail closed for that
+canonical target; only this separately authorized operation may replace it.
+Both the requested JSON path and its derived Markdown path are checked for
+canonical symlink, directory-alias, and hardlink identity. Regular writers use
+temporary-file rename replacement so an output alias is never followed into a
+canonical readiness inode.
+Authorization timestamps more than five minutes in
+the future are rejected as clock-chronology anomalies. Attached evidence with an overall failure or any
+failed/not-accepted characteristic remains an explicit readiness hold; attachment
+preserves the record but does not convert a nonconformance into readiness.
+
+## Format support
+
+Production control contracts and the authoritative envelope are strict JSON;
+all JSON and CSV inputs require valid UTF-8 decoding without replacement
+characters. Envelope, authorization, ledger, receipt, and readiness-control JSON
+must use the deterministic two-space encoding with one trailing newline; duplicate
+object keys are rejected before schema validation. This prevents last-key-wins
+ambiguity in decisions, checksums, and synthetic/control markers.
+The quarantined source document may currently be:
+
+- JSON, parsed only for container integrity;
+- CSV, checked for balanced quotes, unique/non-empty headers, row-width
+  consistency, and row limits.
+
+The onboarding flow never infers measurements from these containers. Existing
+JSON/CSV/TSV/Markdown/TXT discovery adapters remain discovery aids only and
+cannot authorize or attach records.
+
+Deliberately unsupported for production onboarding are QIF/QIF 2.x/3.x,
+QIF-lite, arbitrary XML, PDF, TSV/Markdown/TXT normalization, spreadsheets,
+images, archives, CAD/FCStd/STEP/STL/BREP, drawings/SVG, CI artifacts, and
+release bundles. The generated QIF-lite file is a repository control artifact,
+not a QIF adapter and not evidence. A new adapter requires a genuine sample
+requirement, bounded parser, validation corpus, and explicit contract update.
+
+## Existing Stage 5B helpers
+
+See the [Stage 5B artifact/schema catalog](./stage-5b-artifact-schema-catalog.md)
+for the legacy discovery/control artifacts and their non-evidence boundaries.
+
+`inspection-evidence-intake`, source preflight, candidate gate, review dry-run,
+promotion dry-run, audit, attachment-controller, surrogate validation, and the
+pipeline doctor remain discovery/review/control helpers. They never authorize or
+attach evidence. A high-confidence discovery result is only eligible for
+quarantine review; `attachment_ready` remains false and no direct canonical
+command is emitted.
+
+`fcad inspection-evidence-intake --out <report.json>` may inspect legacy JSON
+records and CSV, TSV, or Markdown tables for discovery. That normalization does not infer or generate measurement values and never crosses the production trust
+boundary. Tracked Studio/API intake reports are discovery/review artifacts only.
+Report preview is limited to registered tracked job artifacts, never arbitrary
+local paths. The marked fixture is not package readiness evidence. The guide is not readiness evidence; collection guides remain non-canonical worksheets.
+
+The legacy acquisition helpers keep raw or private supplier/lab/QA records only
+under ignored `local/stage5b-candidate-evidence-inbox/`. Private URLs, PII,
+credentials, and raw records must not enter tracked control artifacts. Moving a
+file from that inbox does not authorize or attach it; production receipt begins
+again at the content-addressed quarantine boundary.
+
+Optional public discovery remains bounded to HTTPS URLs on the explicit GitHub/GitHubusercontent host allowlist. A downloaded file remains an untrusted
+candidate: host allowlisting is not provenance, authorization, or attachment.
+
+## Current external dependencies
+
+Software capability is implemented, but production readiness still needs real
+completed inspection records, authoritative released inspection plans and
+tolerances, source-organization confirmation, inspector/reviewer/authorizer
+references, privacy/redaction decisions, operator-controlled immutable retention
+of original source bytes, and authoritative package revision propagation.
+`quality-pass-bracket` has no configured product revision today, so
+its semantic gate fails closed. The other four configs declare revisions, while
+their checked-in review/readiness artifacts still carry `revision: null`; that
+upstream revision propagation must be resolved before a real readiness change.
+
+Package-specific measurement requirements remain in
+[`inspection-evidence-collection/`](inspection-evidence-collection/). Those
+guides, nominal dimensions, and tolerance hints are control material—not
+measurements and not a released inspection plan.

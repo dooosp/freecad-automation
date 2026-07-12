@@ -55,7 +55,7 @@ const hostedWorkflow = readText('.github/workflows/automation-ci.yml');
 const runtimeWorkflow = readText('.github/workflows/freecad-runtime-smoke.yml');
 const maintainerDoctorsWorkflow = readText('.github/workflows/maintainer-doctors.yml');
 const studioHtml = readText('public/studio.html');
-const QIF_LITE_BOUNDARY_PARAGRAPH = 'QIF-lite import is a narrow adapter for inspection-shaped XML supplied by a real physical, supplier, lab, or QA inspection source. It is not a complete QIF implementation and does not make an XML file attachment-ready by itself.';
+const QIF_LITE_BOUNDARY_PARAGRAPH = 'QIF-lite import is a narrow discovery adapter for inspection-shaped XML supplied by a real physical, supplier, lab, or QA source. It is not a complete QIF implementation and does not make XML attachment-ready; production onboarding v1 deliberately accepts only the bounded JSON and CSV containers described below.';
 const EVIDENCE_GRAPH_BOUNDARY_PARAGRAPH = 'The evidence graph is a read-only review artifact. It links package, review, generated quality, inspection, and readiness artifacts, but it does not attach evidence, regenerate readiness, or mutate canonical package files.';
 const RUNTIME_FINGERPRINT_BOUNDARY_PARAGRAPH = 'The runtime fingerprint records local execution context and FreeCAD/runtime capability. It is reproducibility evidence only; it is not physical inspection evidence and does not clear production readiness.';
 
@@ -347,13 +347,14 @@ const differentiationRoadmapDocs = [
   outputManifest,
   supportMatrix,
 ].join('\n\n');
+const normalizedDifferentiationRoadmapDocs = differentiationRoadmapDocs.replace(/\s+/g, ' ').trim();
 [
   [QIF_LITE_BOUNDARY_PARAGRAPH, 'QIF-lite boundary paragraph'],
   [EVIDENCE_GRAPH_BOUNDARY_PARAGRAPH, 'evidence graph boundary paragraph'],
   [RUNTIME_FINGERPRINT_BOUNDARY_PARAGRAPH, 'runtime fingerprint boundary paragraph'],
 ].forEach(([paragraph, label]) => {
   assert.equal(
-    countOccurrences(differentiationRoadmapDocs, paragraph),
+    countOccurrences(normalizedDifferentiationRoadmapDocs, paragraph),
     1,
     `${label} should appear exactly once across the roadmap docs`
   );

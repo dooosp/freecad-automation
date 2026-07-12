@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dooosp.github.io/freecad-automation/schemas/inspection-evidence-attachment-record.schema.json",
+  "title": "Immutable Inspection Evidence Attachment Record",
+  "type": "object",
+  "required": [
+    "artifact_type",
+    "schema_version",
+    "immutable",
+    "attachment_id",
+    "evidence_id",
+    "attached_at",
+    "package_slug",
+    "package_revision",
+    "source_document_sha256",
+    "candidate_envelope_sha256",
+    "authorized_onboarding_record_sha256",
+    "authorization",
+    "resulting_canonical_artifacts",
+    "readiness"
+  ],
+  "properties": {
+    "artifact_type": { "const": "inspection_evidence_attachment_record" },
+    "schema_version": { "const": "1.0" },
+    "immutable": { "const": true },
+    "attachment_id": { "type": "string", "minLength": 3, "maxLength": 160 },
+    "evidence_id": { "type": "string", "minLength": 3, "maxLength": 128 },
+    "attached_at": { "$ref": "#/$defs/dateTime" },
+    "package_slug": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "package_revision": { "$ref": "#/$defs/revision" },
+    "source_document_sha256": { "$ref": "#/$defs/sha256" },
+    "candidate_envelope_sha256": { "$ref": "#/$defs/sha256" },
+    "authorized_onboarding_record_sha256": { "$ref": "#/$defs/sha256" },
+    "authorization": {
+      "type": "object",
+      "required": ["authorization_id", "record_ref", "record_sha256", "source_record_sha256", "validated_record_sha256", "authorized_by_ref", "authorized_at"],
+      "properties": {
+        "authorization_id": { "type": "string", "minLength": 3 },
+        "record_ref": { "$ref": "#/$defs/safeRelativePath" },
+        "record_sha256": { "$ref": "#/$defs/sha256" },
+        "source_record_sha256": { "$ref": "#/$defs/sha256" },
+        "validated_record_sha256": { "$ref": "#/$defs/sha256" },
+        "authorized_by_ref": { "type": "string", "minLength": 3 },
+        "authorized_at": { "$ref": "#/$defs/dateTime" }
+      },
+      "additionalProperties": false
+    },
+    "resulting_canonical_artifacts": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "required": ["role", "path", "sha256"],
+        "properties": {
+          "role": { "enum": ["authorized_candidate_envelope", "evidence_envelope", "attachment_authorization", "authorized_onboarding_record"] },
+          "path": { "$ref": "#/$defs/safeRelativePath" },
+          "sha256": { "$ref": "#/$defs/sha256" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "readiness": {
+      "type": "object",
+      "required": ["regenerated", "before_sha256", "after_sha256", "before_markdown_sha256", "after_markdown_sha256"],
+      "properties": {
+        "regenerated": { "const": false },
+        "before_sha256": { "$ref": "#/$defs/sha256" },
+        "after_sha256": { "$ref": "#/$defs/sha256" },
+        "before_markdown_sha256": { "$ref": "#/$defs/sha256" },
+        "after_markdown_sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    },
+    "supersedes_attachment_id": { "type": ["string", "null"], "minLength": 3 }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "dateTime": { "type": "string", "format": "date-time" },
+    "revision": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+    "safeRelativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    }
+  },
+  "additionalProperties": false
+}

@@ -208,43 +208,23 @@ try {
 
   assert.equal(readyManifest.artifact_type, 'inspection_evidence_promotion_dry_run_manifest');
   assert.equal(readyManifest.dry_run, true);
-  assert.equal(readyManifest.summary.promotion_can_run, true);
+  assert.equal(readyManifest.summary.promotion_can_run, false);
   assert.equal(readyManifest.summary.canonical_artifacts_mutated, false);
   assert.equal(readyManifest.test_scope.test_only, true);
   assert.equal(readyManifest.packages[0].package_slug, readySlug);
-  assert.equal(readyManifest.packages[0].promotion_status, 'ready_for_future_promotion_dry_run');
+  assert.equal(readyManifest.packages[0].promotion_status, 'blocked_attachment_not_ready');
   assert.equal(readyManifest.packages[0].evidence_source_ref, `docs/examples/${readySlug}/inspection/inspection_evidence.json`);
   assert.equal(readyManifest.packages[0].match_confidence, 'high');
-  assert.equal(readyManifest.packages[0].attachment_ready, true);
-  assert.deepEqual(
-    readyManifest.packages[0].commands_to_run.map((step) => step.command.slice(0, 2).join(' ')),
-    ['fcad review-context', 'fcad readiness-pack', 'fcad generate-standard-docs', 'fcad pack']
-  );
-  assert.deepEqual(
-    readyManifest.packages[0].commands_to_run[0].command,
-    [
-      'fcad',
-      'review-context',
-      '--model',
-      `docs/examples/${readySlug}/cad/${readySlug}.step`,
-      '--inspection-evidence',
-      `docs/examples/${readySlug}/inspection/inspection_evidence.json`,
-      '--attachment-authorization',
-      `docs/examples/${readySlug}/inspection/stage5b_attachment_authorization.json`,
-      '--out',
-      `docs/examples/${readySlug}/review/review_pack.json`,
-    ]
-  );
+  assert.equal(readyManifest.packages[0].attachment_ready, false);
+  assert.deepEqual(readyManifest.packages[0].commands_to_run, []);
+  assert.deepEqual(readyManifest.packages[0].files_that_would_be_mutated, []);
+  assert.deepEqual(readyManifest.packages[0].expected_artifacts, []);
   assert.equal(
-    readyManifest.packages[0].files_that_would_be_mutated.includes(`docs/examples/${readySlug}/review/review_pack.json`),
+    readyManifest.packages[0].blockers.includes('legacy_promotion_flow_superseded_by_quarantine_onboarding'),
     true
   );
   assert.equal(
-    readyManifest.packages[0].expected_artifacts.some((artifact) => artifact.path === `docs/examples/${readySlug}/release/release_bundle.zip`),
-    true
-  );
-  assert.equal(
-    readyManifest.packages[0].safety_checks.every((check) => check.status === 'pass'),
+    readyManifest.packages[0].safety_checks.some((check) => check.status === 'fail'),
     true
   );
   assert.equal(
@@ -253,7 +233,7 @@ try {
   );
   assert.match(
     readyManifest.packages[0].rollback_guidance.join('\n'),
-    /review git diff/i
+    /no promotion commands should run/i
   );
 
   const outPath = join(tempRoot, 'output', 'promotion_dry_run_manifest.json');
@@ -268,7 +248,7 @@ try {
   assert.equal(writeResult.output_path, 'output/promotion_dry_run_manifest.json');
   assert.equal(existsSync(outPath), true);
   assert.equal(readFileSync(reviewPackPath, 'utf8'), reviewPackBefore, 'dry-run must not mutate canonical review_pack.json');
-  assert.equal(readJson(outPath).summary.promotion_can_run, true);
+  assert.equal(readJson(outPath).summary.promotion_can_run, false);
 
   const holdSlug = 'hold-part';
   preparePackage(tempRoot, holdSlug);

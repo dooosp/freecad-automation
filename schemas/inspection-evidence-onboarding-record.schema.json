@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dooosp.github.io/freecad-automation/schemas/inspection-evidence-onboarding-record.schema.json",
+  "title": "Inspection Evidence Onboarding State Record",
+  "type": "object",
+  "required": [
+    "artifact_type",
+    "schema_version",
+    "record_id",
+    "state",
+    "package_slug",
+    "package_revision",
+    "created_at",
+    "updated_at",
+    "candidate",
+    "envelope",
+    "authorization",
+    "attachment",
+    "transitions"
+  ],
+  "properties": {
+    "artifact_type": { "const": "inspection_evidence_onboarding_record" },
+    "schema_version": { "const": "1.0" },
+    "record_id": { "type": "string", "minLength": 3, "maxLength": 160 },
+    "state": { "$ref": "#/$defs/state" },
+    "package_slug": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "package_revision": { "$ref": "#/$defs/revision" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "candidate": {
+      "type": "object",
+      "required": ["original_filename", "quarantine_ref", "media_type", "size_bytes", "sha256", "classification", "classification_reasons"],
+      "properties": {
+        "original_filename": { "type": "string", "minLength": 1, "maxLength": 255, "pattern": "^[^/\\\\]+$" },
+        "quarantine_ref": { "$ref": "#/$defs/safeRelativePath" },
+        "media_type": { "type": "string", "minLength": 1 },
+        "size_bytes": { "type": "integer", "minimum": 1, "maximum": 10485760 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "classification": { "enum": ["candidate", "generated_or_control", "synthetic_fixture", "unsupported_format"] },
+        "classification_reasons": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }
+      },
+      "additionalProperties": false
+    },
+    "envelope": {
+      "type": "object",
+      "required": ["quarantine_ref", "sha256", "structurally_valid", "semantically_valid", "evidence_id"],
+      "properties": {
+        "quarantine_ref": { "$ref": "#/$defs/safeRelativePath" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "structurally_valid": { "type": "boolean" },
+        "semantically_valid": { "type": "boolean" },
+        "evidence_id": { "type": ["string", "null"], "minLength": 3 }
+      },
+      "additionalProperties": false
+    },
+    "authorization": {
+      "type": "object",
+      "required": ["record_ref", "record_sha256", "authorization_id", "validated_record_sha256"],
+      "properties": {
+        "record_ref": { "anyOf": [{ "$ref": "#/$defs/safeRelativePath" }, { "type": "null" }] },
+        "record_sha256": { "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+        "authorization_id": { "type": ["string", "null"], "minLength": 3 },
+        "validated_record_sha256": { "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] }
+      },
+      "additionalProperties": false
+    },
+    "attachment": {
+      "type": "object",
+      "required": ["record_ref", "record_sha256", "attached_at"],
+      "properties": {
+        "record_ref": { "anyOf": [{ "$ref": "#/$defs/safeRelativePath" }, { "type": "null" }] },
+        "record_sha256": { "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+        "attached_at": { "type": ["string", "null"], "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "transitions": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["from", "to", "at", "actor_ref", "reason_code", "candidate_sha256"],
+        "properties": {
+          "from": { "anyOf": [{ "$ref": "#/$defs/state" }, { "type": "null" }] },
+          "to": { "$ref": "#/$defs/state" },
+          "at": { "type": "string", "format": "date-time" },
+          "actor_ref": { "$ref": "#/$defs/identityRef" },
+          "reason_code": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-z0-9_]+$" },
+          "candidate_sha256": { "$ref": "#/$defs/sha256" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "$defs": {
+    "state": {
+      "enum": ["discovered", "quarantined", "structurally_valid", "semantically_valid", "awaiting_authorization", "authorized", "attached", "rejected", "superseded"]
+    },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "identityRef": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 256,
+      "pattern": "^(?!unknown$)(?!null$)(?!n/a$)[A-Za-z0-9][A-Za-z0-9._:@+-]+$"
+    },
+    "revision": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+    "safeRelativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    }
+  },
+  "additionalProperties": false
+}

@@ -311,13 +311,17 @@ try {
     promotionDryRunManifestPath: join(tempRoot, 'output/ready_promotion_dry_run_manifest.json'),
     generatedAt: '2026-05-24T00:00:00.000Z',
   });
-  assert.equal(readyDryRun.summary.promotion_can_run, true);
+  assert.equal(readyDryRun.summary.promotion_can_run, false);
+  assert.equal(
+    readyDryRun.summary.blockers.includes('legacy_promotion_flow_superseded_by_quarantine_onboarding'),
+    true
+  );
   assert.equal(readyAudit.summary.genuine_inspection_evidence_found, true);
-  assert.equal(readyAudit.summary.promotion_can_run, true);
+  assert.equal(readyAudit.summary.promotion_can_run, false);
   assert.equal(readyAudit.summary.readiness_remains_held, true);
-  assert.equal(readyAudit.readiness_held_truth.no_promotion_can_run, false);
+  assert.equal(readyAudit.readiness_held_truth.no_promotion_can_run, true);
   assert.equal(readyAudit.readiness_held_truth.readiness_remains_held, true);
-  assert.match(readyAudit.readiness_held_truth.statement, /did not attach inspection evidence/i);
+  assert.match(readyAudit.readiness_held_truth.statement, /no promotion can run/i);
   assert.match(readyAudit.readiness_held_truth.current_repo_truth, /no inspection_evidence has been attached/i);
 
   const generatedSlug = 'generated-artifact-part';

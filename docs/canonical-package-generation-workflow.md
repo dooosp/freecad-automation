@@ -54,7 +54,7 @@ fcad generate-standard-docs <config.toml> --readiness-report <readiness_report.j
 fcad pack --readiness <readiness_report.json> --docs-manifest <standard_docs_manifest.json> --out <release_bundle.zip> [--generated-at <iso8601>]
 ```
 
-Only pass `--inspection-evidence <path> --attachment-authorization <authorization_record.json>` to `fcad review-context` in a separate evidence-gated task with genuine completed inspection evidence JSON that validates against the inspection evidence contract and an explicit Stage 5B attachment authorization control record.
+Only pass the canonical evidence envelope, canonical onboarding authorization, and immutable attachment receipt to `fcad review-context` after the quarantine-first onboarding contract has attached a genuine completed record. The legacy Stage 5B control record and raw two-file path are insufficient.
 
 ## Generated artifact inventory
 

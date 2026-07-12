@@ -1394,8 +1394,9 @@ function planCandidateAttachment(candidate, profiles = []) {
     : best.score >= 40
       ? 'medium'
       : 'low';
-  const attachmentReady = matchConfidence === 'high' && explicitProvenance;
-  const blockers = [];
+  const matchReadyForQuarantine = matchConfidence === 'high' && explicitProvenance;
+  const attachmentReady = false;
+  const blockers = ['quarantine_required', 'authoritative_envelope_required', 'explicit_authorization_required'];
   if (matchConfidence !== 'high') blockers.push('insufficient_package_match_confidence');
   if (!explicitProvenance) blockers.push('missing_explicit_provenance');
 
@@ -1408,12 +1409,11 @@ function planCandidateAttachment(candidate, profiles = []) {
     missing_required_features: best.missing_required_features,
     attachment_ready: attachmentReady,
     blockers,
-    canonical_next_command: attachmentReady
-      ? canonicalCommandPlan(best.slug, candidate, { modelPath: best.canonical_model_path }).review_context
-      : null,
-    note: attachmentReady
-      ? 'High-confidence package match with explicit provenance; attach only through the canonical review-context chain.'
-      : 'Validated evidence requires review before canonical attachment.',
+    canonical_next_command: null,
+    eligible_for_quarantine_review: matchReadyForQuarantine,
+    note: matchReadyForQuarantine
+      ? 'High-confidence discovery match only. Receive the unchanged source and authoritative envelope through inspection-evidence-quarantine; discovery never authorizes or attaches evidence.'
+      : 'Discovered evidence requires package matching and quarantine review before any authorization decision.',
   };
 }
 
@@ -1452,55 +1452,6 @@ function packageHoldAttachmentPlan({
     blockers: [reason],
     canonical_next_command: null,
     note: 'No genuine completed inspection evidence was matched to this package; readiness must remain held.',
-  };
-}
-
-function canonicalCommandPlan(slug, acceptedCandidate, { modelPath = null } = {}) {
-  const packageRoot = `docs/examples/${slug}`;
-  const candidatePath = acceptedCandidate.path;
-  const attachmentPath = acceptedCandidate.source_format === 'json' && !isExternalCandidate(acceptedCandidate)
-    ? candidatePath
-    : `${packageRoot}/inspection/inspection_evidence.json`;
-  const authorizationPath = `${packageRoot}/inspection/stage5b_attachment_authorization.json`;
-  const safeModelPath = modelPath || `${packageRoot}/cad/canonical-model-file.step`;
-  return {
-    review_context: [
-      'fcad',
-      'review-context',
-      '--model',
-      safeModelPath,
-      '--inspection-evidence',
-      attachmentPath,
-      '--attachment-authorization',
-      authorizationPath,
-      '--out',
-      `${packageRoot}/review/review_pack.json`,
-    ],
-    readiness_pack: [
-      'fcad',
-      'readiness-pack',
-      '--review-pack',
-      `${packageRoot}/review/review_pack.json`,
-      '--out',
-      `${packageRoot}/readiness/readiness_report.json`,
-    ],
-    generate_standard_docs: [
-      'fcad',
-      'generate-standard-docs',
-      `${packageRoot}/config.toml`,
-      '--readiness-report',
-      `${packageRoot}/readiness/readiness_report.json`,
-      '--out-dir',
-      `${packageRoot}/standard-docs`,
-    ],
-    pack: [
-      'fcad',
-      'pack',
-      '--readiness',
-      `${packageRoot}/readiness/readiness_report.json`,
-      '--out',
-      `${packageRoot}/release/release_bundle.zip`,
-    ],
   };
 }
 
@@ -2363,9 +2314,8 @@ export async function discoverInspectionEvidenceIntake({
     }));
 
   const packages = [];
-  const packageProfileBySlug = new Map(packageProfiles.map((profile) => [profile.slug, profile]));
   for (const slug of normalizedSlugs) {
-    const packageAccepted = attachmentReadyCandidates.filter((candidate) => candidate.matched_package === slug);
+    const packageAccepted = acceptedCandidates.filter((candidate) => candidate.matched_package === slug);
     const packageRejected = rejectedCandidates.filter((candidate) => candidate.package_slug === slug);
     const packageCandidatePlans = acceptedCandidates.filter((candidate) => (
       candidate.matched_package === slug
@@ -2377,9 +2327,6 @@ export async function discoverInspectionEvidenceIntake({
       packageRejectedCandidates: packageRejected,
     });
     const readyPlan = packageAccepted[0]?.attachment_plan || null;
-    const commandPlan = packageAccepted.length > 0
-      ? canonicalCommandPlan(slug, packageAccepted[0], { modelPath: packageProfileBySlug.get(slug)?.canonical_model_path })
-      : null;
     const attachmentPlan = readyPlan || packageHoldAttachmentPlan({
       slug,
       candidatePlans: packageCandidatePlans,
@@ -2389,13 +2336,7 @@ export async function discoverInspectionEvidenceIntake({
       slug,
       classification,
       readiness_before: readiness,
-      readiness_after: packageAccepted.length > 0
-        ? {
-            ...readiness,
-            status: readiness.status || 'pending_regeneration',
-            gate_decision: readiness.gate_decision || 'pending_canonical_regeneration',
-          }
-        : readiness,
+      readiness_after: readiness,
       searched_sources: [
         {
           kind: 'canonical_package_expected_path',
@@ -2418,28 +2359,22 @@ export async function discoverInspectionEvidenceIntake({
       candidate_attachment_plans: packageCandidatePlans.map((candidate) => candidate.attachment_plan),
       intake_action: packageAccepted.length > 0
         ? {
-            status: 'ready_for_canonical_attachment',
-            mode: 'canonical_review_context_chain_required',
+            status: 'awaiting_quarantine',
+            mode: 'quarantine_first_onboarding_required',
             candidate_path: packageAccepted[0].path,
             candidate_format: packageAccepted[0].source_format,
-            normalization_required: packageAccepted[0].source_format !== 'json' || isExternalCandidate(packageAccepted[0]),
-            normalized_contract_target: packageAccepted[0].source_format === 'json' && !isExternalCandidate(packageAccepted[0])
-              ? packageAccepted[0].path
-              : `docs/examples/${slug}/inspection/inspection_evidence.json`,
-            canonical_commands: commandPlan,
-            canonical_next_command: readyPlan?.canonical_next_command || commandPlan.review_context,
+            normalization_required: true,
+            normalized_contract_target: null,
+            canonical_commands: null,
+            canonical_next_command: null,
             matched_package: readyPlan?.matched_package || slug,
             match_confidence: readyPlan?.match_confidence || 'high',
             matched_features: readyPlan?.matched_features || [],
             unmatched_features: readyPlan?.unmatched_features || [],
             missing_required_features: readyPlan?.missing_required_features || [],
-            attachment_ready: true,
-            blockers: [],
-            note: isExternalCandidate(packageAccepted[0])
-              ? 'GitHub discovery found a contract-valid external candidate; review and serialize it under the canonical package inspection path before review-context attachment. Do not hand-enter measurements.'
-              : packageAccepted[0].source_format === 'json'
-              ? 'Attach only through review-context, then regenerate readiness, standard-doc, and release artifacts.'
-              : 'Adapter validated explicit table rows; serialize the normalized inspection-evidence JSON contract before review-context attachment. Do not hand-enter measurements.',
+            attachment_ready: false,
+            blockers: attachmentPlan.blockers,
+            note: 'Discovery found a contract-shaped candidate. Receive the unchanged source plus authoritative envelope through inspection-evidence-quarantine; discovery cannot authorize, attach, or change readiness.',
           }
         : {
             status: 'hold_for_evidence_completion',

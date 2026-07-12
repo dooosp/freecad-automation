@@ -59,8 +59,9 @@ deliberate attachment. A future attachment task must:
 3. complete privacy, provenance, package/revision mapping, intake, dry-run, and
    audit review
 4. complete or reference explicit human authorization metadata
-5. run the later authorized `review-context --inspection-evidence --attachment-authorization`
-   path and then refresh readiness, standard docs, and release packaging
+5. run quarantine-first onboarding and attachment-bound `review-context`, then
+   use a separate checksum-bound authorization for readiness regeneration;
+   standard-doc and release work remain separately scoped
 
 Until that later task completes, there is no readiness release and no evidence
 attachment.

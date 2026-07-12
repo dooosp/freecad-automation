@@ -31,6 +31,7 @@ import {
 } from '../../workflows/canonical-readiness-builders.js';
 import { writeEvidenceReadinessAudit } from '../evidence-readiness-audit/evidence-readiness-audit-service.js';
 import { discoverInspectionEvidenceIntake } from '../inspection-evidence-intake/inspection-evidence-intake-service.js';
+import { assertRegularReadinessPackHasNoInspectionEvidenceClaim } from '../inspection-evidence-intake/inspection-evidence-onboarding-service.js';
 import { buildInspectionEvidencePromotionDryRunManifest } from '../inspection-evidence-intake/promotion-dry-run-service.js';
 import { writeStage5bEvidenceAuditBundle } from '../inspection-evidence-intake/stage5b-evidence-audit-service.js';
 import {
@@ -1024,6 +1025,7 @@ export function createJobExecutor({
     const processPlanPath = resolveMaybe(projectRoot, job.request.process_plan_path);
     const qualityRiskPath = resolveMaybe(projectRoot, job.request.quality_risk_path);
     const reviewPack = await loadReviewPackHandoff(reviewPackPath, { command: 'readiness-pack' });
+    assertRegularReadinessPackHasNoInspectionEvidenceClaim(reviewPack);
     const processPlan = processPlanPath ? await loadCanonicalSupportArtifact('process_plan', processPlanPath, 'readiness-pack') : null;
     const qualityRisk = qualityRiskPath ? await loadCanonicalSupportArtifact('quality_risk', qualityRiskPath, 'readiness-pack') : null;
     const outputPath = buildJobArtifactPath(jobStore, job.id, 'readiness_report.json');
@@ -1033,7 +1035,7 @@ export function createJobExecutor({
       processPlan,
       qualityRisk,
     });
-    const artifacts = await writeCanonicalReadinessArtifacts(outputPath, report);
+    const artifacts = await writeCanonicalReadinessArtifacts(outputPath, report, { projectRoot });
     const reportDocument = await readJsonFile(artifacts.json);
     return {
       report: reportDocument,

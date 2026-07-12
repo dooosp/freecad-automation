@@ -1,15 +1,18 @@
 # Controller Housing EOL Inspection Evidence Collection Guide
 
 This guide helps a human collect genuine inspection measurements for
-`docs/examples/controller-housing-eol`. It prepares a future completed evidence
-file at:
+`docs/examples/controller-housing-eol`. It is a collection worksheet, not an
+evidence file or attachment instruction. Never copy a candidate directly to the
+canonical package. A real source plus an authoritative envelope must pass
+quarantine, validation, checksum-bound authorization, and
+`inspection-evidence-attach`; only that command may create the canonical
+`inspection_evidence.json` and immutable receipt. Readiness regeneration is a
+separate authorized operation.
 
-`docs/examples/controller-housing-eol/inspection/inspection_evidence.json`
-
-This guide is not readiness evidence. The package remains missing
-`inspection_evidence` until a real completed JSON file is attached through the
-Stage 5B `review-context --inspection-evidence <PATH_TO_COMPLETED_REAL_JSON> --attachment-authorization <AUTHORIZATION_RECORD_JSON>`
-flow and the selected review/readiness artifacts are regenerated.
+This guide is not readiness evidence.
+The future target `docs/examples/controller-housing-eol/inspection/inspection_evidence.json`
+may be created only by attachment; `<PATH_TO_COMPLETED_REAL_JSON>` is a legacy
+placeholder, not permission to copy a candidate there.
 
 ## Evidence Boundary
 
@@ -35,8 +38,13 @@ flow and the selected review/readiness artifacts are regenerated.
 
 ## Required Inspection Metadata
 
-A completed evidence file must satisfy `schemas/inspection-evidence.schema.json`.
-Collect these values from the real inspection record:
+The legacy field names below are worksheet hints only. A production candidate
+must instead be represented by
+`schemas/inspection-evidence-envelope.schema.json`, including package/revision,
+source organization/type, final status, inspector and reviewer references,
+measurements/units/specifications, source checksum, provenance, attachment
+timestamps, and confidentiality/redaction. Collect these source values from the
+real record for later envelope preparation:
 
 - `schema_version`: `1.0`
 - `evidence_type`: `inspection_evidence`
@@ -48,10 +56,14 @@ Collect these values from the real inspection record:
 - `inspected_at` or `inspection_date`: real inspection date/time
 - `inspector` or `inspection_author`: real person, team, lab, or supplier
 - `measurement_system` or `units`: recommended `metric` and `mm`
-- `source_ref` or `source_file`: safe repo-relative reference to the real
-  inspection source record
+- `source_ref` or `source_file`: worksheet trace only; the authoritative envelope
+  uses a sanitized origin reference plus the quarantined source checksum, never a
+  private or absolute path
 - `measured_features`: at least one real measured feature record
 - `overall_result`: `pass`, `fail`, `partial`, or `unknown`
+
+`partial`, `unknown`, blank, and `not_measured` values are useful collection
+states only; they fail the production semantic gate.
 
 Each measured feature record needs `feature_id`, `result`,
 `measurement_method`, and `measured_value` when the result is `pass` or `fail`.
@@ -153,14 +165,10 @@ record before Stage 5B.
 
 ## Future Validation
 
-After a real completed JSON file exists at
-`docs/examples/controller-housing-eol/inspection/inspection_evidence.json`,
-validate it with the shared validator before attaching it:
-
-```bash
-node --input-type=module -e "import { readFileSync } from 'node:fs'; import { assertValidInspectionEvidence } from './lib/inspection-evidence.js'; const path = process.argv[1]; assertValidInspectionEvidence(JSON.parse(readFileSync(path, 'utf8')), { path }); console.log('valid inspection evidence: ' + path);" docs/examples/controller-housing-eol/inspection/inspection_evidence.json
-```
-
-Then Stage 5B may attach the completed real JSON through
-`review-context --inspection-evidence <PATH_TO_COMPLETED_REAL_JSON> --attachment-authorization <AUTHORIZATION_RECORD_JSON>` and
-regenerate only the selected review/readiness artifacts required by that stage.
+Do not copy the worksheet or source into the canonical package. Follow the five
+commands in
+[`../inspection-evidence-contract.md`](../inspection-evidence-contract.md):
+quarantine, validate against authoritative revision `C`, authorize, attach, then
+separately create an attachment-bound review pack with explicit
+`--part-id controller_housing_eol --revision C`. A second authorization is
+required before readiness regeneration.

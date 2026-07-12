@@ -228,29 +228,28 @@ withValidatedInspectionEvidence.source_artifact_refs.push({
   label: 'Inspection evidence',
 });
 
-const recognizedReport = buildReadinessReportFromReviewPack({
-  reviewPack: withValidatedInspectionEvidence,
-  reviewPackPath: 'tmp/non-canonical/review_pack.json',
-  generatedAt: '2026-04-27T00:00:00Z',
-});
-assert.equal(missingInputsFrom(recognizedReport).includes('inspection_evidence'), false);
-assert.equal(
-  recognizedReport.process_plan.summary.missing_inputs.includes('inspection_evidence'),
-  false
+assertInspectionEvidenceMissing(
+  'legacy path-only inspection evidence record without immutable attachment receipt',
+  withValidatedInspectionEvidence
 );
-assert.equal(
-  recognizedReport.quality_risk.summary.missing_inputs.includes('inspection_evidence'),
-  false
+
+const syntheticReceiptClaim = basePartialInspectionPack();
+const syntheticRecord = {
+  ...validInspectionEvidenceLedgerRecord(),
+  evidence_id: 'synthetic-fixture-receipt-claim',
+  attachment_record: {
+    record_type: 'inspection_evidence_attachment_record',
+    source_ref: 'docs/examples/readiness-evidence-part/inspection/inspection_evidence_attachment.json',
+    sha256: 'b'.repeat(64),
+    source_document_sha256: 'c'.repeat(64),
+    package_revision: 'SYNTHETIC-FIXTURE',
+  },
+};
+addLedgerRecords(syntheticReceiptClaim, [syntheticRecord]);
+syntheticReceiptClaim.source_artifact_refs.push(
+  { artifact_type: 'inspection_evidence', path: INSPECTION_SOURCE_REF, role: 'evidence', label: 'Synthetic fixture evidence' },
+  { artifact_type: 'inspection_evidence_attachment_record', path: syntheticRecord.attachment_record.source_ref, role: 'input', label: 'Synthetic fixture receipt' }
 );
-assert.equal(
-  recognizedReport.review_pack.uncertainty_coverage_report.coverage.inspection_evidence_record_count,
-  1
-);
-assert.equal(
-  (recognizedReport.review_pack.data_quality_notes || []).some((note) => (
-    /Missing or limited inspection evidence/i.test(note.message || '')
-  )),
-  false
-);
+assertInspectionEvidenceMissing('synthetic fixture receipt claim', syntheticReceiptClaim);
 
 console.log('readiness-inspection-evidence-contract.test.js: ok');

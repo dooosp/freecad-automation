@@ -1,5 +1,9 @@
 # Stage 5B operational runbook
 
+> **Authoritative v1 supersession:** the legacy two-file `review-context --inspection-evidence --attachment-authorization` path and ordinary `readiness-pack` promotion sequence are disabled. Legacy intake, dry-run, audit, and attachment-controller commands below are discovery/control aids only and always stop before canonical attachment. Production onboarding must use the quarantine, validation, checksum-bound authorization, immutable attachment, attachment-bound `review-context`, and separately authorized readiness-regeneration sequence in [the inspection-evidence contract](./inspection-evidence-contract.md).
+
+The historical placeholder `review-context --inspection-evidence <PATH_TO_COMPLETED_REAL_JSON>` is retained here only as a rejection/warning boundary; supplying a raw candidate through it is not a production attachment path.
+
 Use this runbook when maintainers need to run, review, diagnose, or explain the Stage 5B inspection-evidence automation chain from the CLI, tracked API, or Studio Review.
 
 Current truth: no genuine completed inspection evidence has been found or attached. Canonical packages remain `needs_more_evidence` with gate decision `hold_for_evidence_completion` until a real physical, supplier, lab, or QA inspection record is validated and deliberately attached.
@@ -137,7 +141,7 @@ Safe local flow:
 9. Run `fcad stage5b-evidence-attachment-controller --review-manifest <review-manifest.json> --authorization-record <authorization-record.json> --out-dir output/stage5b-attachment-controller --dry-run`.
 10. If the controller reports `hold_for_attachment_controller_blockers`, repair the exact blockers and rerun source-kit/preflight/review-dry-run/controller as needed.
 11. Optionally run `fcad stage5b-evidence-pipeline-doctor --package <package-slug> --out-dir output/stage5b-evidence-pipeline-doctor` for the fixture-only regression guard.
-12. Run the real candidate gate, intake, promotion dry-run, audit, attachment, or readiness regeneration later only if a separate task explicitly authorizes that review or mutation path. Later authorized attachment still needs validation, review, and deliberate `review-context --inspection-evidence --attachment-authorization` mutation outside this controller task.
+12. Run production onboarding later only if a separate task explicitly authorizes it. Follow `inspection-evidence-quarantine` -> `inspection-evidence-validate` -> `inspection-evidence-authorize` -> `inspection-evidence-attach`; only then run attachment-bound `review-context`, followed by separately authorized `inspection-evidence-regenerate-readiness`.
 
 For test-only orchestration validation without a real source, use:
 
@@ -221,10 +225,10 @@ canonical artifacts.
    privacy review, provenance/reviewer traceability, package/part/revision
    mapping, intake/dry-run/audit review, human authorizer, and exact later task
    boundary. The record itself is not `inspection_evidence`.
-8. Authorization before attachment: do not run `review-context
-   --inspection-evidence`, `readiness-pack`, `generate-standard-docs`, or `pack`
-   until a separate later task explicitly authorizes canonical mutation after
-   validation and review.
+8. Authorization before attachment: do not bypass quarantine, validation, the
+   checksum-bound attachment authorization, or the immutable receipt. Only then
+   may attachment-bound `review-context` run; readiness regeneration requires a
+   separate authorization, and later document/release operations are out of scope.
 9. Exact later attachment task boundary: name the later task, issue, PR, or
    change request that may run canonical mutation; no intake report, dry-run,
    audit, authorization record, or PR comment can expand that boundary by
@@ -252,8 +256,7 @@ authorization prerequisites are complete:
 Authorization records do not attach evidence, promote evidence, satisfy
 readiness, or mutate canonical package artifacts. PR comments do not attach
 evidence. The only later mutation boundary is an explicitly authorized task that
-runs `review-context --inspection-evidence --attachment-authorization`, then refreshes readiness, standard
-docs, and release packaging with verified outputs.
+runs the authoritative quarantine/validate/authorize/attach sequence, attachment-bound `review-context`, and separately authorized `inspection-evidence-regenerate-readiness`. Standard-doc or release work remains outside this onboarding contract and needs its own authorization.
 
 ## Audit Outputs
 
@@ -339,18 +342,20 @@ The Review cards should show the same no-evidence truth: no genuine evidence fou
 
 ## Promotion Dry-Run Meaning
 
-`inspection-evidence-promotion-dry-run` is a planning/control step. It reads an intake report and describes what a future promotion would do only if a genuine-valid, high-confidence, attachment-ready candidate exists.
+`inspection-evidence-promotion-dry-run` is a legacy planning/control step. It is now fail-closed: it emits no executable canonical promotion recipe and reports that the legacy flow is superseded by quarantine onboarding.
 
 When no valid candidate exists, the manifest must say promotion cannot run. It must not run `review-context`, attach evidence, mutate canonical package artifacts, regenerate readiness reports, update standard docs, or package release bundles.
 
-When genuine evidence exists later, the dry-run should list the future command chain and mutation boundaries:
+When genuine evidence exists later, use the authoritative sequence directly; the legacy dry-run must not list a promotion chain:
 
-- `review-context --inspection-evidence <PATH_TO_COMPLETED_REAL_JSON> --attachment-authorization <AUTHORIZATION_RECORD_JSON>`
-- `readiness-pack`
-- `generate-standard-docs`
-- `pack`
+- `inspection-evidence-quarantine`
+- `inspection-evidence-validate`
+- `inspection-evidence-authorize`
+- `inspection-evidence-attach`
+- attachment-bound `review-context` with the canonical envelope, canonical authorization, and immutable attachment receipt
+- separately authorized `inspection-evidence-regenerate-readiness`
 
-Run that future chain only in a separate evidence-gated task after the evidence record has been validated, reviewed, and explicitly authorized in the Stage 5B authorization control record.
+Run that future chain only in a separate evidence-gated task using the checksum-bound onboarding attachment authorization and the distinct readiness-regeneration authorization. The legacy Stage 5B control record may provide discovery context but cannot authorize either operation.
 
 ## Diagnostics Meaning
 
@@ -400,8 +405,8 @@ For a future real evidence task:
 9. Run `fcad stage5b-evidence-attachment-controller --review-manifest <review-manifest.json> --authorization-record <authorization-record.json> --out-dir <ignored-dir> --dry-run`; any hold blocker stops the future attachment attempt.
 10. Run `fcad inspection-evidence-intake --out <report.json>` only if the task explicitly authorizes intake review.
 11. Run `fcad inspection-evidence-promotion-dry-run --intake-report <report.json> --out <promotion_dry_run_manifest.json>` and review blockers, match confidence, mutation boundaries, and rollback guidance.
-12. Attach only when the controller and dry-run are attachment-ready and the separate later task explicitly authorizes canonical mutation.
-13. Refresh `review-context --inspection-evidence --attachment-authorization`, `readiness-pack`, `generate-standard-docs`, and `pack` in that separate authorized task.
+12. Treat controller and legacy dry-run output only as discovery/control context; neither can declare attachment-ready under the v1 production contract.
+13. Use the authoritative quarantine/validate/authorize/attach flow, then attachment-bound `review-context`, then separately authorized `inspection-evidence-regenerate-readiness`. Do not infer authorization for standard-doc or release work.
 
 Until that happens, the readiness truth remains unchanged.
 

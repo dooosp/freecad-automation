@@ -80,7 +80,7 @@ export function createCanonicalArtifactHandlers() {
             type: 'readiness-report.json',
             path: result.readiness_report_path,
             label: 'Canonical readiness report JSON',
-            scope: 'internal',
+            scope: 'user-facing',
             stability: 'stable',
             metadata: context.buildAfArtifactContractFromDocument({
               jobType: 'generate-standard-docs',

@@ -70,6 +70,8 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'Evidence graph tracked job', args: Object.freeze(['tests/evidence-graph-tracked-job.test.js']) }),
       Object.freeze({ label: 'Inspection evidence contract', args: Object.freeze(['tests/inspection-evidence-contract.test.js']) }),
       Object.freeze({ label: 'QIF-lite inspection adapter', args: Object.freeze(['tests/qif-lite-inspection-adapter.test.js']) }),
+      Object.freeze({ label: 'Inspection evidence onboarding contract', args: Object.freeze(['tests/inspection-evidence-onboarding.test.js']) }),
+      Object.freeze({ label: 'Inspection evidence onboarding CLI', args: Object.freeze(['tests/inspection-evidence-onboarding-cli.test.js']) }),
       Object.freeze({ label: 'Inspection evidence intake automation', args: Object.freeze(['tests/inspection-evidence-intake.test.js']) }),
       Object.freeze({ label: 'Inspection evidence promotion dry-run', args: Object.freeze(['tests/inspection-evidence-promotion-dry-run.test.js']) }),
       Object.freeze({ label: 'Stage 5B no-evidence CLI lane', args: Object.freeze(['tests/stage5b-no-evidence-lane.test.js']) }),
@@ -99,6 +101,7 @@ export const TEST_LANES = Object.freeze([
     freecadRequired: false,
     steps: Object.freeze([
       Object.freeze({ label: 'Stage 5B no-evidence CLI lane', args: Object.freeze(['tests/stage5b-no-evidence-lane.test.js']) }),
+      Object.freeze({ label: 'Inspection evidence onboarding CLI', args: Object.freeze(['tests/inspection-evidence-onboarding-cli.test.js']) }),
       Object.freeze({ label: 'Stage 5B evidence review dry-run orchestration', args: Object.freeze(['tests/stage5b-evidence-review-dry-run.test.js']) }),
       Object.freeze({ label: 'Stage 5B evidence attachment controller', args: Object.freeze(['tests/stage5b-evidence-attachment-controller.test.js']) }),
       Object.freeze({ label: 'Stage 5B surrogate inspection validation', args: Object.freeze(['tests/stage5b-surrogate-inspection-validation.test.js']) }),
