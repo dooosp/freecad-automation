@@ -10,6 +10,18 @@ The runtime fingerprint records local execution context and FreeCAD/runtime capa
 
 This matrix is the public support boundary for the current release. It separates repository-owned verification from compatibility paths that still depend on user-local validation.
 
+## Product and lifecycle alignment
+
+Runtime support and command lifecycle are separate dimensions. A command can be stable while remaining supported only on the listed runtime path, and a beta or maintainer command can run without FreeCAD. The shared manifest is authoritative for both dimensions.
+
+- `fcad --help` exposes 12 stable primary rows across review, compare/plan, and receive-results workflows.
+- `fcad help --all` keeps beta, experimental, maintainer, compatibility, deprecated-route, and internal commands discoverable.
+- `readiness-report --review-pack` remains compatible; `readiness-report <config>` remains available with a precise deprecation warning and `readiness-pack --review-pack` replacement.
+- `serve --legacy-viewer` and the `mfg-agent` alias remain compatibility routes.
+- Raw completed result files remain CLI-only under `inspection-result-normalize`; no browser upload or arbitrary Local API source path is supported.
+
+See [command lifecycle](./command-lifecycle.md) and [product workflows](./product-workflows.md).
+
 ## Runtime Verification Matrix
 
 | Platform / runtime path | `fcad check-runtime` detection | Repository-owned live verification | Current status | Notes |

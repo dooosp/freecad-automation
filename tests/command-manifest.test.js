@@ -18,6 +18,7 @@ import {
   getCommandManifest,
   getServeEntrypointMetadata,
   renderCommandUsage,
+  renderCliAllUsage,
   renderCliUsage,
   renderServeUsage,
 } from '../src/shared/command-manifest.js';
@@ -32,7 +33,8 @@ function assertSameCommands(actual, expected, label) {
   assert.deepEqual([...actual].sort(), [...expected].sort(), label);
 }
 
-const cliHelp = renderCliUsage();
+const defaultHelp = renderCliUsage();
+const allHelp = renderCliAllUsage();
 assertSameCommands(
   CLI_DISPATCH_COMMANDS,
   manifestCommandNames,
@@ -40,39 +42,65 @@ assertSameCommands(
 );
 commandManifest.forEach((entry) => {
   assert.equal(typeof entry.name, 'string');
+  assert(['stable', 'beta', 'experimental', 'maintainer', 'compatibility', 'deprecated', 'internal'].includes(entry.lifecycle), `${entry.name} should have exactly one known lifecycle`);
+  assert.equal(typeof entry.defaultHelpVisible, 'boolean', `${entry.name} should declare default help visibility`);
+  assert.equal(typeof entry.audience, 'string', `${entry.name} should declare an audience`);
+  assert(Object.hasOwn(entry, 'workflow'), `${entry.name} should declare a workflow`);
+  assert(Object.hasOwn(entry, 'replacement'), `${entry.name} should declare replacement metadata`);
+  assert.equal(entry.removalVersion, null, `${entry.name} should not announce an unapproved removal version`);
+  assert.equal(typeof entry.safetyBoundary, 'string', `${entry.name} should declare a safety boundary`);
   assert(entry.helpEntries.length > 0, `${entry.name} should expose help entries`);
   entry.helpEntries.forEach((helpEntry) => {
-    assert.match(cliHelp, new RegExp(helpEntry.usage.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.match(allHelp, new RegExp(helpEntry.usage.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   });
 });
-assert.match(cliHelp, /fcad check-runtime \[--json\] \[--redact-paths\] \[--fingerprint-out <runtime_fingerprint\.json>\]/);
-assert.match(cliHelp, /--fingerprint-out <runtime_fingerprint\.json>\s+Write reproducibility context only; not inspection evidence or production readiness proof/i);
-assert.match(cliHelp, /runtime fingerprint records local reproducibility context only/i);
-assert.match(cliHelp, /fcad readiness-report <config\.toml\|json> \[--out <readiness_report\.json>\]\s+legacy compatibility \/ non-canonical/i);
-assert.match(cliHelp, /fcad generate-standard-docs <config\.toml\|json> --readiness-report <readiness_report\.json>/i);
-assert.match(cliHelp, /fcad closeout-package <canonical-package-slug> --mode software-demo \[--out-dir <dir>\] \[--strict-boundary\]/i);
-assert.match(cliHelp, /fcad evidence-readiness-audit \[--out-dir <dir>\] \[--package <canonical-package-slug>\] \[--generated-at <iso8601>\] \[--clean\]/i);
-assert.match(cliHelp, /fcad evidence-artifacts-materialize \[--package <canonical-package-slug>\] \[--generated-at <iso8601>\] \[--dry-run\] \[--force\]/i);
-assert.match(cliHelp, /fcad maintainer-decision-journal \[--audit <evidence_readiness_audit\.json>\] \[--decision hold\|proceed\|exception_requested\|exception_approved\]/i);
-assert.match(cliHelp, /fcad inspection-evidence-intake \[--package <canonical-package-slug>\] \[--out <report\.json>\] \[--include-github\]/i);
-assert.match(cliHelp, /fcad inspection-evidence-quarantine --candidate <source> --envelope <envelope\.json> --package <slug> --revision <revision> --actor <identity-ref>/i);
-assert.match(cliHelp, /fcad inspection-evidence-regenerate-readiness --attachment-record <record\.json> --authorization <readiness-authorization\.json>/i);
-assert.match(cliHelp, /fcad inspection-evidence-promotion-dry-run --intake-report <report\.json> \[--out <promotion_dry_run_manifest\.json>\]/i);
-assert.match(cliHelp, /fcad stage5b-evidence-audit --out-dir <dir> \[--include-github\]/i);
-assert.match(cliHelp, /fcad stage5b-evidence-source-kit \[--package <canonical-package-slug>\] \[--out <report\.json>\]/i);
-assert.match(cliHelp, /fcad stage5b-evidence-source-preflight \[--package <canonical-package-slug>\] \[--source <raw-source\.json\|csv\|tsv>\] \[--out <report\.json>\]/i);
-assert.match(cliHelp, /fcad stage5b-evidence-attachment-controller --review-manifest <manifest\.json> --authorization-record <path-or-url> --out-dir <ignored-dir> \[--dry-run\]/i);
-assert.match(cliHelp, /fcad stage5b-surrogate-inspection-validation --out-dir <dir> \[--package <canonical-package-slug>\]/i);
-assert.match(cliHelp, /fcad evidence-graph --package <slug> --review-pack <review_pack\.json> --readiness <readiness_report\.json> --out <evidence_graph\.json>/i);
-assert.match(cliHelp, /fcad pack --readiness <readiness_report\.json>[\s\S]*--out <release_bundle\.zip> \[--generated-at <iso8601>\]/i);
-assert.match(cliHelp, /fcad review-context --model <file>[\s\S]*\[--inspection-evidence inspection_evidence\.json --attachment-authorization authorization_record\.json --evidence-attachment-record attachment_record\.json\][\s\S]*--out <review_pack\.json>/i);
-assert.match(cliHelp, /fcad compare-rev <baseline\.json> <candidate\.json>[\s\S]*--impact-out <revision_impact_report\.json>[\s\S]*--baseline-readiness <readiness_report\.json>[\s\S]*--candidate-evidence-receipt <attachment_receipt\.json>[\s\S]*--generated-at <iso8601>/i);
-assert.match(cliHelp, /--inspection-evidence <path>\s+Canonical attached inspection evidence envelope; requires its checksum-bound onboarding authorization and immutable receipt/i);
-assert.match(cliHelp, /--attachment-authorization <path>\s+Canonical inspection_evidence_attachment_authorization produced by onboarding; legacy stage5b_attachment_authorization is rejected/i);
-assert.match(cliHelp, /--evidence-attachment-record <path>\s+Immutable inspection_evidence_attachment_record required with --inspection-evidence/i);
-assert.match(cliHelp, /--strict-quality\s+Fail create or draw when blocking quality checks are found/i);
-assert.match(cliHelp, /--generated-at <iso8601>\s+Use a fixed release bundle timestamp with pack for deterministic bundle metadata and ZIP entries/i);
-assert.match(cliHelp, /fcad serve \[port\] \[--jobs-dir <dir>\] \[--legacy-viewer\]/);
+assert.equal(commandManifest.filter((entry) => entry.defaultHelpVisible).length, 12);
+assert.match(defaultHelp, /1\. Create or import and review/);
+assert.match(defaultHelp, /2\. Compare revisions and plan inspection/);
+assert.match(defaultHelp, /3\. Receive and normalize completed inspection results/);
+assert.doesNotMatch(defaultHelp, /fcad stage5b-evidence-audit/);
+assert.match(defaultHelp, /fcad inspection-result-normalize/);
+for (const section of ['Stable', 'Beta engineering tools', 'Experimental tools', 'Maintainer controls', 'Compatibility commands', 'Deprecated routes', 'Internal implementation commands']) assert.match(allHelp, new RegExp(section));
+assert.match(allHelp, /fcad check-runtime \[--json\] \[--redact-paths\] \[--fingerprint-out <runtime_fingerprint\.json>\]/);
+assert.match(allHelp, /--fingerprint-out <runtime_fingerprint\.json>\s+Write reproducibility context only; not inspection evidence or production readiness proof/i);
+assert.match(allHelp, /runtime fingerprint records local reproducibility context only/i);
+assert.match(allHelp, /fcad readiness-report <config\.toml\|json> \[--out <readiness_report\.json>\]\s+legacy compatibility \/ non-canonical/i);
+assert.match(allHelp, /fcad generate-standard-docs <config\.toml\|json> --readiness-report <readiness_report\.json>/i);
+assert.match(allHelp, /fcad closeout-package <canonical-package-slug> --mode software-demo \[--out-dir <dir>\] \[--strict-boundary\]/i);
+assert.match(allHelp, /fcad evidence-readiness-audit \[--out-dir <dir>\] \[--package <canonical-package-slug>\] \[--generated-at <iso8601>\] \[--clean\]/i);
+assert.match(allHelp, /fcad evidence-artifacts-materialize \[--package <canonical-package-slug>\] \[--generated-at <iso8601>\] \[--dry-run\] \[--force\]/i);
+assert.match(allHelp, /fcad maintainer-decision-journal \[--audit <evidence_readiness_audit\.json>\] \[--decision hold\|proceed\|exception_requested\|exception_approved\]/i);
+assert.match(allHelp, /fcad inspection-evidence-intake \[--package <canonical-package-slug>\] \[--out <report\.json>\] \[--include-github\]/i);
+assert.match(allHelp, /fcad inspection-evidence-quarantine --candidate <source> --envelope <envelope\.json> --package <slug> --revision <revision> --actor <identity-ref>/i);
+assert.match(allHelp, /fcad inspection-evidence-regenerate-readiness --attachment-record <record\.json> --authorization <readiness-authorization\.json>/i);
+assert.match(allHelp, /fcad inspection-evidence-promotion-dry-run --intake-report <report\.json> \[--out <promotion_dry_run_manifest\.json>\]/i);
+assert.match(allHelp, /fcad stage5b-evidence-audit --out-dir <dir> \[--include-github\]/i);
+assert.match(allHelp, /fcad stage5b-evidence-source-kit \[--package <canonical-package-slug>\] \[--out <report\.json>\]/i);
+assert.match(allHelp, /fcad stage5b-evidence-source-preflight \[--package <canonical-package-slug>\] \[--source <raw-source\.json\|csv\|tsv>\] \[--out <report\.json>\]/i);
+assert.match(allHelp, /fcad stage5b-evidence-attachment-controller --review-manifest <manifest\.json> --authorization-record <path-or-url> --out-dir <ignored-dir> \[--dry-run\]/i);
+assert.match(allHelp, /fcad stage5b-surrogate-inspection-validation --out-dir <dir> \[--package <canonical-package-slug>\]/i);
+assert.match(allHelp, /fcad evidence-graph --package <slug> --review-pack <review_pack\.json> --readiness <readiness_report\.json> --out <evidence_graph\.json>/i);
+assert.match(allHelp, /fcad pack --readiness <readiness_report\.json>[\s\S]*--out <release_bundle\.zip> \[--generated-at <iso8601>\]/i);
+assert.match(allHelp, /fcad review-context --model <file>[\s\S]*\[--inspection-evidence inspection_evidence\.json --attachment-authorization authorization_record\.json --evidence-attachment-record attachment_record\.json\][\s\S]*--out <review_pack\.json>/i);
+assert.match(allHelp, /fcad compare-rev <baseline\.json> <candidate\.json>[\s\S]*--impact-out <revision_impact_report\.json>[\s\S]*--baseline-readiness <readiness_report\.json>[\s\S]*--candidate-evidence-receipt <attachment_receipt\.json>[\s\S]*--generated-at <iso8601>/i);
+assert.match(allHelp, /--inspection-evidence <path>\s+Canonical attached inspection evidence envelope; requires its checksum-bound onboarding authorization and immutable receipt/i);
+assert.match(allHelp, /--attachment-authorization <path>\s+Canonical inspection_evidence_attachment_authorization produced by onboarding; legacy stage5b_attachment_authorization is rejected/i);
+assert.match(allHelp, /--evidence-attachment-record <path>\s+Immutable inspection_evidence_attachment_record required with --inspection-evidence/i);
+assert.match(allHelp, /--strict-quality\s+Fail create or draw when blocking quality checks are found/i);
+assert.match(allHelp, /--generated-at <iso8601>\s+Use a fixed release bundle timestamp with pack for deterministic bundle metadata and ZIP entries/i);
+assert.match(allHelp, /fcad serve \[port\] \[--jobs-dir <dir>\] \[--legacy-viewer\]/);
+
+const cliAllRun = spawnSync('node', [CLI, 'help', '--all'], { cwd: ROOT, encoding: 'utf8' });
+assert.equal(cliAllRun.status, 0, cliAllRun.stderr);
+assert.equal(cliAllRun.stdout.trim(), allHelp);
+const cliCommandHelpRun = spawnSync('node', [CLI, 'help', 'inspection-result-normalize'], { cwd: ROOT, encoding: 'utf8' });
+assert.equal(cliCommandHelpRun.status, 0, cliCommandHelpRun.stderr);
+assert.match(cliCommandHelpRun.stdout, /Lifecycle:\s+stable/);
+assert.match(cliCommandHelpRun.stdout, /ready_for_quarantine_review/);
+const readinessHelp = renderCommandUsage('readiness-report');
+assert.match(readinessHelp, /Deprecated route:/);
+assert.match(readinessHelp, /Behavior remains available: yes/);
+assert.match(readinessHelp, /readiness-pack --review-pack/);
 
 for (const command of manifestCommandNames.filter((name) => name !== 'help')) {
   const commandHelp = renderCommandUsage(command);

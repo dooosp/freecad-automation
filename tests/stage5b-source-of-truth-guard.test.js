@@ -9,7 +9,7 @@ import {
   STUDIO_ARTIFACT_COMPATIBLE_JOB_COMMANDS,
   STUDIO_JOB_COMMANDS,
   getCommandEntry,
-  renderCliUsage,
+  renderCliAllUsage,
 } from '../src/shared/command-manifest.js';
 import { validateLocalApiJobRequest } from '../src/server/local-api-schemas.js';
 import {
@@ -403,7 +403,7 @@ const sources = {
   studioUxTest: readText('tests/studio-inspection-evidence-intake-ux.test.js'),
 };
 
-const cliHelp = renderCliUsage();
+const cliHelp = renderCliAllUsage();
 for (const command of STAGE5B_COMMANDS) {
   const entry = getCommandEntry(command);
   assert(entry, `command manifest should include ${command}`);

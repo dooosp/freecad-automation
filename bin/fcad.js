@@ -159,6 +159,7 @@ import {
   GENERATE_STANDARD_DOCS_INPUT_MESSAGE,
   LEGACY_READINESS_REPORT_MESSAGE,
   renderCommandUsage,
+  renderCliAllUsage,
   renderCliUsage,
   renderServeUsage,
 } from '../src/shared/command-manifest.js';
@@ -212,6 +213,7 @@ const generateDrawing = createDrawingService();
 const generateReport = createReportService();
 
 const USAGE = renderCliUsage();
+const ALL_USAGE = renderCliAllUsage();
 const SERVE_USAGE = renderServeUsage();
 
 async function inspectModelIfAvailable(modelPath) {
@@ -1142,6 +1144,7 @@ async function main() {
   await dispatchCliCommand({
     argv: process.argv.slice(2),
     usage: USAGE,
+    allUsage: ALL_USAGE,
     renderCommandUsage,
     printRuntimeDiagnostics,
     commands: CLI_COMMAND_HANDLERS,

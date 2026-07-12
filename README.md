@@ -1,11 +1,27 @@
 # FreeCAD Automation
 
-FreeCAD Automation is a FreeCAD-backed automation pipeline for CAD generation, TechDraw drawings, inspection, FEM, reporting, and manufacturing-review artifacts.
+FreeCAD Automation turns FreeCAD configs and existing CAD files into traceable manufacturing review, revision-impact, inspection-planning, and evidence-onboarding artifacts. It is for engineers and reviewers who need a local, auditable path from design input to reviewable outputs without treating generated analysis as physical inspection evidence.
 
-The repository has two public layers:
+## Choose a workflow
+
+| Goal | Start with | Primary commands | Result |
+| --- | --- | --- | --- |
+| Create or import and review a design | config, STEP, FCStd, or an existing review artifact | `check-runtime`, `create`, `draw`, `inspect`, `review-context`, `readiness-pack`, `pack`, `serve` | model/drawing or import diagnostics, review pack, readiness report, and package artifacts |
+| Compare revisions and plan inspection | baseline and candidate review packs | `compare-rev`, `inspection-plan` | revision impact, reinspection requirements, inspection plan, checksheet, request, and blank result template |
+| Receive and normalize completed inspection results | a human-released plan plus an externally completed native CSV | `inspection-plan-release-record`, `inspection-result-normalize` | checksum-bound execution release and an untrusted result normalization no higher than `ready_for_quarantine_review` |
+
+Run `fcad --help` for this guided surface, `fcad help <command>` for one complete contract, and `fcad help --all` for beta, experimental, maintainer, compatibility, deprecated-route, and internal commands. The authoritative workflow guide is [docs/product-workflows.md](./docs/product-workflows.md), and every public command lifecycle is defined in [docs/command-lifecycle.md](./docs/command-lifecycle.md) from the shared command manifest.
+
+Commands that create, draw, inspect live CAD, run FEM/tolerance, or generate runtime-backed reports need a working FreeCAD runtime; `fcad check-runtime` is the safe first check. Review-pack, revision-impact, inspection-plan, release-record, and result-normalization operations are artifact-driven and do not launch FreeCAD.
+
+Readiness is a software review decision derived from explicit artifacts. `needs_more_evidence` and `hold_for_evidence_completion` remain correct while genuine inspection evidence is missing. Plans, release records, blank templates, normalization reports, generated CAD/drawing/QA values, CI output, and synthetic fixtures are not inspection evidence.
+
+Safe read-only orientation includes `fcad --help`, `fcad help --all`, `fcad check-runtime`, reading checked-in package artifacts, and opening Studio. Commands that write review, readiness, standard-document, release-bundle, evidence, authorization, or attachment outputs should be run only with an explicit output path and the authority required by that command contract.
+
+The implementation still has two runtime layers:
 
 - a runtime-backed CLI for CAD, TechDraw, FEM, tolerance, inspection, and reporting
-- a plain-Python/Node manufacturing-review layer for DFM, process planning, readiness review, stabilization review, and review-pack artifacts
+- a plain-Python/Node manufacturing-review layer for DFM, process planning, readiness review, revision impact, inspection planning, and result handoff
 
 Validation snapshot:
 
