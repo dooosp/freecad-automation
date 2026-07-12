@@ -7,6 +7,8 @@ import { mkdir } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 
 import { listZipEntries } from '../lib/zip-archive.js';
+import { writeEvidenceReadinessAudit } from '../src/services/evidence-readiness-audit/evidence-readiness-audit-service.js';
+import { writeMaintainerDecisionJournal } from '../src/services/evidence-readiness-audit/maintainer-decision-journal-service.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const DEFAULT_PACKAGE = 'quality-pass-bracket';
@@ -157,6 +159,10 @@ async function main() {
   const logPath = join(outputDir, 'release_bundle_log.json');
   const checksumsPath = join(outputDir, 'release_bundle_checksums.sha256');
   const artifactManifestPath = join(outputDir, 'release_bundle_artifact-manifest.json');
+  const evidenceAuditPath = join(outputDir, 'evidence_readiness_audit.json');
+  const evidenceAuditSummaryPath = join(outputDir, 'evidence_readiness_audit.md');
+  const decisionJournalPath = join(outputDir, 'maintainer_decision_journal.json');
+  const decisionJournalSummaryPath = join(outputDir, 'maintainer_decision_journal.md');
   const doctorReportPath = join(outputDir, 'release_dry_run_doctor_report.json');
 
   assert.equal(existsSync(readinessPath), true, `Missing canonical readiness input: ${repoRelative(readinessPath)}`);
@@ -169,6 +175,23 @@ async function main() {
   await mkdir(outputDir, { recursive: true });
 
   const statusBefore = gitStatus();
+  const evidenceAudit = await writeEvidenceReadinessAudit({
+    projectRoot: ROOT,
+    outDir: outputDir,
+    packageSlugs: [options.packageSlug],
+    generatedAt: options.generatedAt,
+    clean: false,
+  });
+  const decisionJournal = await writeMaintainerDecisionJournal({
+    projectRoot: ROOT,
+    auditPath: repoRelative(evidenceAuditPath),
+    outDir: outputDir,
+    decision: 'hold',
+    reason: 'Release dry-run records the audited readiness hold; no production release is authorized.',
+    actor: 'release-dry-run-doctor',
+    generatedAt: options.generatedAt,
+    clean: false,
+  });
   const packRun = run(process.execPath, [
     'bin/fcad.js',
     'pack',
@@ -229,6 +252,8 @@ async function main() {
       canonical_readiness_regenerated: false,
       canonical_package_artifacts_mutated: false,
       inspection_evidence_attached: false,
+      evidence_readiness_audit_ran: true,
+      maintainer_decision_journal_recorded: true,
       stage5b_evidence_attached_or_promoted: false,
       git_tag_created: false,
       github_release_created: false,
@@ -245,12 +270,26 @@ async function main() {
       release_bundle_log: repoRelative(logPath),
       release_bundle_checksums: repoRelative(checksumsPath),
       release_bundle_artifact_manifest: repoRelative(artifactManifestPath),
+      evidence_readiness_audit: repoRelative(evidenceAuditPath),
+      evidence_readiness_audit_summary: repoRelative(evidenceAuditSummaryPath),
+      maintainer_decision_journal: repoRelative(decisionJournalPath),
+      maintainer_decision_journal_summary: repoRelative(decisionJournalSummaryPath),
       doctor_report: repoRelative(doctorReportPath),
     },
     checks: {
       manifest_contract_command: manifest.contract?.command,
       zip_entry_count: zipEntries.length,
       checksum_line_count: checksumLineCount,
+      evidence_readiness_audit_decision: evidenceAudit.audit.summary.decision,
+      evidence_readiness_release_overclaim_risk_count: evidenceAudit.audit.summary.release_overclaim_risk_count,
+      evidence_readiness_evidence_graph_package_count: evidenceAudit.audit.summary.evidence_graph_package_count,
+      evidence_readiness_runtime_fingerprint_package_count: evidenceAudit.audit.summary.runtime_fingerprint_package_count,
+      evidence_readiness_qif_lite_package_count: evidenceAudit.audit.summary.qif_lite_package_count,
+      evidence_readiness_pr170_artifact_coverage: evidenceAudit.audit.summary.pr170_artifact_coverage,
+      maintainer_decision_journal_latest_decision: decisionJournal.journal.summary.latest_decision,
+      maintainer_decision_journal_release_allowed: decisionJournal.journal.summary.release_allowed,
+      maintainer_decision_journal_record_count: decisionJournal.journal.summary.record_count,
+      release_gate_blocks_overclaim_without_decision_record: decisionJournal.journal.summary.release_allowed === false,
       source_hygiene_after_dry_run: 'pass',
       git_status_unchanged_outside_ignored_outputs: true,
     },
@@ -264,6 +303,11 @@ async function main() {
         name: 'source_hygiene',
         argv: publicCommand(sourceHygieneRun.command),
         status: sourceHygieneRun.status,
+      },
+      {
+        name: 'maintainer_decision_journal',
+        argv: ['fcad', 'maintainer-decision-journal', '--decision', 'hold'],
+        status: 0,
       },
     ],
   };

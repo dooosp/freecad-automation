@@ -46,6 +46,10 @@ try {
   const reportPath = join(outDir, 'release_dry_run_doctor_report.json');
   const manifestPath = join(outDir, 'release_bundle_manifest.json');
   const artifactManifestPath = join(outDir, 'release_bundle_artifact-manifest.json');
+  const evidenceReadinessAuditPath = join(outDir, 'evidence_readiness_audit.json');
+  const evidenceReadinessAuditSummaryPath = join(outDir, 'evidence_readiness_audit.md');
+  const decisionJournalPath = join(outDir, 'maintainer_decision_journal.json');
+  const decisionJournalSummaryPath = join(outDir, 'maintainer_decision_journal.md');
   const checksumsPath = join(outDir, 'release_bundle_checksums.sha256');
   const bundlePath = join(outDir, 'release_bundle.zip');
   [
@@ -55,6 +59,10 @@ try {
     join(outDir, 'release_bundle_log.json'),
     checksumsPath,
     bundlePath,
+    evidenceReadinessAuditPath,
+    evidenceReadinessAuditSummaryPath,
+    decisionJournalPath,
+    decisionJournalSummaryPath,
   ].forEach((filePath) => {
     assert.equal(existsSync(filePath), true, `Expected release dry-run output: ${filePath}`);
   });
@@ -68,6 +76,8 @@ try {
   assert.equal(report.dry_run_boundary.canonical_readiness_regenerated, false);
   assert.equal(report.dry_run_boundary.canonical_package_artifacts_mutated, false);
   assert.equal(report.dry_run_boundary.inspection_evidence_attached, false);
+  assert.equal(report.dry_run_boundary.evidence_readiness_audit_ran, true);
+  assert.equal(report.dry_run_boundary.maintainer_decision_journal_recorded, true);
   assert.equal(report.dry_run_boundary.stage5b_evidence_attached_or_promoted, false);
   assert.equal(report.dry_run_boundary.git_tag_created, false);
   assert.equal(report.dry_run_boundary.github_release_created, false);
@@ -77,6 +87,30 @@ try {
     report.outputs.release_bundle_artifact_manifest,
     `${outDirRel}/release_bundle_artifact-manifest.json`
   );
+  assert.equal(
+    report.outputs.evidence_readiness_audit,
+    `${outDirRel}/evidence_readiness_audit.json`
+  );
+  assert.equal(
+    report.outputs.maintainer_decision_journal,
+    `${outDirRel}/maintainer_decision_journal.json`
+  );
+  assert.equal(report.checks.evidence_readiness_audit_decision, 'hold');
+  assert.equal(report.checks.evidence_readiness_release_overclaim_risk_count >= 1, true);
+  assert.equal(report.checks.evidence_readiness_evidence_graph_package_count, 1);
+  assert.equal(report.checks.evidence_readiness_runtime_fingerprint_package_count, 1);
+  assert.equal(report.checks.evidence_readiness_qif_lite_package_count, 1);
+  assert.deepEqual(report.checks.evidence_readiness_pr170_artifact_coverage, {
+    evidence_graph_package_count: 1,
+    runtime_fingerprint_package_count: 1,
+    qif_lite_package_count: 1,
+    complete_package_count: 1,
+    missing_package_count: 0,
+  });
+  assert.equal(report.checks.maintainer_decision_journal_latest_decision, 'hold');
+  assert.equal(report.checks.maintainer_decision_journal_release_allowed, false);
+  assert.equal(report.checks.maintainer_decision_journal_record_count, 1);
+  assert.equal(report.checks.release_gate_blocks_overclaim_without_decision_record, true);
   assert.equal(report.checks.source_hygiene_after_dry_run, 'pass');
   assert.equal(report.checks.git_status_unchanged_outside_ignored_outputs, true);
   assert.deepEqual(
@@ -84,10 +118,23 @@ try {
     [
       ['pack', 'node'],
       ['source_hygiene', 'node'],
+      ['maintainer_decision_journal', 'fcad'],
     ]
   );
 
   const manifest = readJson(manifestPath);
+  const evidenceReadinessAudit = readJson(evidenceReadinessAuditPath);
+  const decisionJournal = readJson(decisionJournalPath);
+  assert.equal(evidenceReadinessAudit.artifact_type, 'evidence_readiness_audit');
+  assert.equal(evidenceReadinessAudit.summary.decision, 'hold');
+  assert.equal(evidenceReadinessAudit.summary.release_overclaim_risk_count >= 1, true);
+  assert.equal(evidenceReadinessAudit.summary.qif_lite_package_count, 1);
+  assert.equal(evidenceReadinessAudit.summary.pr170_artifact_coverage.complete_package_count, 1);
+  assert.equal(evidenceReadinessAudit.summary.pr170_artifact_coverage.missing_package_count, 0);
+  assert.equal(decisionJournal.artifact_type, 'maintainer_decision_journal');
+  assert.equal(decisionJournal.summary.latest_decision, 'hold');
+  assert.equal(decisionJournal.summary.release_allowed, false);
+  assert.equal(decisionJournal.records[0].release_gate.release_allowed, false);
   assert.equal(manifest.artifact_type, 'release_bundle_manifest');
   assert.equal(manifest.contract.command, 'pack');
   assert.equal(

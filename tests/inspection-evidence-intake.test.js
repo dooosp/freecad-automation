@@ -198,7 +198,7 @@ try {
   assert.equal(noValidReport.packages[0].accepted_candidates.length, 0);
   assert.equal(noValidReport.packages[0].readiness_after.status, 'needs_more_evidence');
   assert.equal(noValidReport.packages[0].readiness_after.gate_decision, 'hold_for_evidence_completion');
-  assert.equal(noValidReport.packages[0].classification, 'no_candidate');
+  assert.equal(noValidReport.packages[0].classification, 'invalid_generated');
   assert.equal(noValidReport.packages[0].attachment_plan.attachment_ready, false);
   assert.equal(noValidReport.packages[0].attachment_plan.match_confidence, 'none');
   assert.equal(
@@ -212,6 +212,14 @@ try {
     )),
     true,
     'checked-in readiness reports must be rejected as generated/non-inspection artifacts'
+  );
+  assert.equal(
+    noValidReport.rejected_candidates.some((candidate) => (
+      candidate.classification === 'invalid_generated'
+      && /qif_lite_focused_checks\.xml$/.test(candidate.path)
+    )),
+    true,
+    'PR #170 QIF-lite focused checks must be rejected as generated/control artifacts, not inspection evidence'
   );
   assert.equal(
     noValidReport.rejected_candidates.some((candidate) => (

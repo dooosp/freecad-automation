@@ -3,6 +3,10 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
+import {
+  isCleanDetachedStage5bAttachmentControllerCheckout,
+} from '../src/services/inspection-evidence-intake/stage5b-evidence-attachment-controller-service.js';
+
 const ROOT = resolve(import.meta.dirname, '..');
 const PACKAGE_SLUG = 'quality-pass-bracket';
 const RUN_ID = `${process.pid}-${Date.now()}`;
@@ -241,6 +245,25 @@ const canonicalFiles = trackedDocsExampleFiles();
 const canonicalStatusBefore = docsExamplesStatus();
 
 try {
+  assert.equal(isCleanDetachedStage5bAttachmentControllerCheckout({
+    current_branch: null,
+    head_sha: 'abc123',
+    dirty_tree: false,
+    checkout_safety: {
+      detached_head: true,
+      clean_detached_head_checkout_ok: true,
+    },
+  }), true, 'clean detached checkout should be accepted by the attachment controller preflight');
+  assert.equal(isCleanDetachedStage5bAttachmentControllerCheckout({
+    current_branch: null,
+    head_sha: 'abc123',
+    dirty_tree: true,
+    checkout_safety: {
+      detached_head: true,
+      clean_detached_head_checkout_ok: false,
+    },
+  }), false, 'dirty detached checkout should still be unsafe for the attachment controller');
+
   const rawSource = `${INBOX_DIR}/received-valid-shaped-source.json`;
   writeJson(join(ROOT, rawSource), validRawSource());
   const validReview = runReviewDryRun({ name: 'valid-shaped-fixture', source: rawSource });

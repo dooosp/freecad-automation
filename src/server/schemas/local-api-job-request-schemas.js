@@ -150,6 +150,15 @@ export const localApiJobRequestSchema = {
       additionalProperties: false,
       required: ['type'],
       properties: {
+        type: { const: 'evidence-readiness-audit' },
+        options: { type: 'object' },
+      },
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['type'],
+      properties: {
         type: { const: 'inspection-evidence-intake' },
         options: { type: 'object' },
       },

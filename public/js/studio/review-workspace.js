@@ -132,12 +132,21 @@ function findLatestStage5bAuditJob(recentJobs = []) {
   return recentJobs.find((job) => String(job?.type || '').toLowerCase() === 'stage5b-evidence-audit') || null;
 }
 
+function findLatestEvidenceReadinessAuditJob(recentJobs = []) {
+  return recentJobs.find((job) => String(job?.type || '').toLowerCase() === 'evidence-readiness-audit') || null;
+}
+
 function renderInspectionIntakeLauncher(recentJobs = []) {
+  const latestEvidenceReadinessAudit = findLatestEvidenceReadinessAuditJob(recentJobs);
   const latestAudit = findLatestStage5bAuditJob(recentJobs);
   const latestIntake = findLatestInspectionIntakeJob(recentJobs);
   return el('div', {
     className: 'inspection-intake-launcher',
     children: [
+      el('p', {
+        className: 'inline-note',
+        text: 'Maintainer audit summarizes canonical package readiness, trusted-vs-generated evidence counts, runtime context, release overclaim risk, and exact safe next commands.',
+      }),
       el('p', {
         className: 'inline-note',
         text: 'Run the Stage 5B audit bundle without human-entered measurements. It summarizes intake, promotion dry-run blockers, readiness-held truth, and the evidence boundary without creating inspection evidence.',
@@ -146,9 +155,21 @@ function renderInspectionIntakeLauncher(recentJobs = []) {
         className: 'review-card-actions',
         children: [
           createButton({
+            label: 'Run maintainer audit',
+            action: 'run-evidence-readiness-audit',
+            tone: 'primary',
+          }),
+          createButton({
+            label: latestEvidenceReadinessAudit ? 'Open latest maintainer audit' : 'No maintainer audit yet',
+            action: 'open-latest-evidence-readiness-audit',
+            tone: 'ghost',
+            disabled: !latestEvidenceReadinessAudit,
+            dataset: latestEvidenceReadinessAudit ? { jobId: latestEvidenceReadinessAudit.id } : {},
+          }),
+          createButton({
             label: 'Run audit',
             action: 'run-stage5b-audit',
-            tone: 'primary',
+            tone: 'ghost',
           }),
           createButton({
             label: latestAudit ? 'Open latest audit' : 'No audit bundle yet',
@@ -268,10 +289,10 @@ export function renderReviewWorkspace(state) {
           el('div', {
             className: 'review-column review-column-left',
             children: [
-              createCard({
-                kicker: 'Stage 5B intake',
-                title: 'Evidence audit review',
-                copy: 'Run the bundled audit locally, then inspect the tracked audit artifacts in Review. No human-entered measurements are requested.',
+      createCard({
+                kicker: 'Maintainer audit · Stage 5B intake',
+                title: 'Evidence and readiness decision review',
+                copy: 'Run the maintainer audit or bundled Stage 5B audit locally, then inspect tracked artifacts in Review. No human-entered measurements are requested.',
                 body: [
                   el('div', {
                     dataset: { hook: 'review-intake-launcher' },
@@ -636,6 +657,9 @@ export function mountReviewWorkspace({ root, state, addLog, openJob, submitTrack
         stage5bAudit: findBy('stage5b.evidence-audit-manifest', '.json')
           || findBy('stage5b-evidence-audit', '.json')
           || findBy('stage5b_audit_manifest', '.json'),
+        evidenceReadinessAudit: findBy('evidence-readiness.audit-json', '.json')
+          || findBy('evidence-readiness-audit', '.json')
+          || findBy('evidence_readiness_audit', '.json'),
         stage5bValidationDiagnostics: findBy('stage5b.validation-diagnostics', '.json')
           || findBy('validation_diagnostics', '.json'),
         evidenceGraph: findBy('evidence-graph', '.json')
@@ -711,6 +735,45 @@ export function mountReviewWorkspace({ root, state, addLog, openJob, submitTrack
 
     if (actionTarget.dataset.action === 'open-latest-stage5b-audit' && actionTarget.dataset.jobId) {
       openJob(actionTarget.dataset.jobId, { route: 'review' });
+      return;
+    }
+
+    if (actionTarget.dataset.action === 'open-latest-evidence-readiness-audit' && actionTarget.dataset.jobId) {
+      openJob(actionTarget.dataset.jobId, { route: 'review' });
+      return;
+    }
+
+    if (actionTarget.dataset.action === 'run-evidence-readiness-audit') {
+      if (typeof submitTrackedJob !== 'function') {
+        addLog({
+          status: 'Maintainer audit',
+          message: 'Tracked maintainer audit submission is unavailable on this serve path.',
+          tone: 'warn',
+          time: 'review',
+        });
+        return;
+      }
+      submitTrackedJob({
+        type: 'evidence-readiness-audit',
+        options: {},
+        completionAction: {
+          preferredRoute: 'review',
+        },
+      }).then((job) => {
+        addLog({
+          status: 'Maintainer audit',
+          message: `Queued tracked evidence-readiness-audit ${shortJobId(job?.id || '')}.`,
+          tone: 'info',
+          time: 'review',
+        });
+      }).catch((error) => {
+        addLog({
+          status: 'Maintainer audit',
+          message: error instanceof Error ? error.message : String(error),
+          tone: 'warn',
+          time: 'review',
+        });
+      });
       return;
     }
 

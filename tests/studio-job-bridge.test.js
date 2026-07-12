@@ -525,6 +525,39 @@ const invalidReviewContextInboxPath = validateStudioJobSubmission({
 assert.equal(invalidReviewContextInboxPath.ok, false);
 assert.match(invalidReviewContextInboxPath.errors.join('\n'), /safe repo-relative/i);
 
+const evidenceReadinessAuditSubmission = await translateStudioJobSubmission({
+  type: 'evidence-readiness-audit',
+  options: {
+    package_slugs: ['quality-pass-bracket'],
+  },
+});
+
+assert.equal(evidenceReadinessAuditSubmission.ok, true, evidenceReadinessAuditSubmission.errors?.join('\n'));
+assert.equal(evidenceReadinessAuditSubmission.request.type, 'evidence-readiness-audit');
+assert.deepEqual(evidenceReadinessAuditSubmission.request.options, { package_slugs: ['quality-pass-bracket'] });
+assert.equal('out_dir' in evidenceReadinessAuditSubmission.request, false);
+
+const invalidEvidenceReadinessAuditWithArtifact = validateStudioJobSubmission({
+  type: 'evidence-readiness-audit',
+  artifact_ref: {
+    job_id: 'job-intake',
+    artifact_id: 'inspection-evidence-intake-report-0',
+  },
+});
+
+assert.equal(invalidEvidenceReadinessAuditWithArtifact.ok, false);
+assert.match(invalidEvidenceReadinessAuditWithArtifact.errors.join('\n'), /evidence-readiness-audit does not accept artifact_ref/i);
+
+const invalidEvidenceReadinessAuditOption = validateStudioJobSubmission({
+  type: 'evidence-readiness-audit',
+  options: {
+    out_dir: '../private',
+  },
+});
+
+assert.equal(invalidEvidenceReadinessAuditOption.ok, false);
+assert.match(invalidEvidenceReadinessAuditOption.errors.join('\n'), /options only accepts package_slugs and generated_at|out_dir/i);
+
 const stage5bAuditSubmission = await translateStudioJobSubmission({
   type: 'stage5b-evidence-audit',
   options: {

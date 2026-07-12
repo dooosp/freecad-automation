@@ -7,6 +7,9 @@ import { promisify } from 'node:util';
 
 import { assertValidStage5bEvidenceAttachmentControlManifest } from './stage5b-runtime-validation.js';
 import { assertValidStage5bEvidenceReviewDryRunManifest } from './stage5b-runtime-validation.js';
+import {
+  splitStage5bCanonicalDirtyPaths,
+} from './stage5b-repo-dirty-paths.js';
 
 const execFile = promisify(execFileCallback);
 
@@ -249,6 +252,16 @@ function blockersFromGate(gateEntry) {
   return reasons.map((reason) => blocker(reason, gateEntry.id, gateEntry.message));
 }
 
+export function isCleanDetachedStage5bAttachmentControllerCheckout(repoPreflight) {
+  return Boolean(
+    !repoPreflight?.current_branch
+    && repoPreflight?.head_sha
+    && repoPreflight?.dirty_tree === false
+    && repoPreflight?.checkout_safety?.detached_head === true
+    && repoPreflight?.checkout_safety?.clean_detached_head_checkout_ok === true
+  );
+}
+
 async function collectRepoPreflight(projectRoot) {
   const [
     rootResult,
@@ -265,7 +278,7 @@ async function collectRepoPreflight(projectRoot) {
     runGit(projectRoot, ['rev-parse', 'HEAD']),
     runGit(projectRoot, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD']),
     runGit(projectRoot, ['remote', 'show', 'origin']),
-    runGit(projectRoot, ['status', '--short']),
+    runGit(projectRoot, ['status', '--short', '--untracked-files=all']),
   ]);
   const repoRoot = rootResult.ok ? rootResult.stdout.trim() : null;
   const packageName = repoRoot ? await readPackageName(repoRoot) : null;
@@ -273,6 +286,7 @@ async function collectRepoPreflight(projectRoot) {
   const dirtyPaths = statusResult.ok
     ? statusResult.stdout.split('\n').map((line) => line.trim()).filter(Boolean)
     : [];
+  const canonicalDirtyPaths = splitStage5bCanonicalDirtyPaths(dirtyPaths);
   const branchName = branchResult.ok
     ? branchResult.stdout.trim() || githubActionsBranchFallback() || githubActionsCurrentRefFallback()
     : githubActionsBranchFallback() || githubActionsCurrentRefFallback();
@@ -325,7 +339,8 @@ async function collectRepoPreflight(projectRoot) {
       remote_default_discovered: Boolean(remoteDefaultHead),
       remote_default_head_source: remoteDefaultHeadSource,
       dirty_tree_status_discovered: statusResult.ok,
-      canonical_package_dirty_paths: dirtyPaths.filter((line) => /\sdocs\/examples\//.test(line)),
+      canonical_package_dirty_paths: canonicalDirtyPaths.canonicalPackageDirtyPaths,
+      pr170_generated_control_dirty_paths: canonicalDirtyPaths.pr170GeneratedControlDirtyPaths,
     },
   };
 }
@@ -736,13 +751,17 @@ function buildNonEvidenceBoundaryGate(reviewManifest) {
 }
 
 function buildRepoGate(repoPreflight) {
+  const branchOrCleanDetached = Boolean(repoPreflight.current_branch)
+    || isCleanDetachedStage5bAttachmentControllerCheckout(repoPreflight);
   const safe = repoPreflight.repo_identity_ok
-    && Boolean(repoPreflight.current_branch)
+    && branchOrCleanDetached
     && Boolean(repoPreflight.head_sha)
     && Boolean(repoPreflight.remote_default_head);
   const reasons = [];
   if (!repoPreflight.repo_identity_ok) reasons.push('repo_identity_invalid');
-  if (!repoPreflight.current_branch) reasons.push('branch_not_discovered');
+  if (!repoPreflight.current_branch && !isCleanDetachedStage5bAttachmentControllerCheckout(repoPreflight)) {
+    reasons.push('branch_not_discovered');
+  }
   if (!repoPreflight.head_sha) reasons.push('head_not_discovered');
   if (!repoPreflight.remote_default_head) reasons.push('remote_default_head_not_discovered');
   if (repoPreflight.checkout_safety?.dirty_tree_status_discovered !== true) {

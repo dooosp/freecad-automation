@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import {
   buildInspectionEvidenceIntakeCard,
   buildInspectionEvidencePromotionDryRunCard,
+  buildEvidenceReadinessAuditCard,
   buildStage5bEvidenceAuditCard,
   buildReviewCards,
 } from '../public/js/studio/artifact-insights.js';
@@ -309,6 +310,151 @@ const stage5bAuditArtifact = {
   },
 };
 
+const evidenceReadinessAuditManifest = {
+  artifact_type: 'evidence_readiness_audit',
+  schema_version: '1.0',
+  generated_at: '2026-07-05T00:00:00.000Z',
+  non_mutating: true,
+  dry_run: true,
+  boundary: {
+    canonical_artifacts_mutated: false,
+    inspection_evidence_attached: false,
+    readiness_regenerated: false,
+    release_published: false,
+    hard_evidence_rule: 'Only genuine completed physical/supplier/lab/QA inspection records can satisfy inspection_evidence.',
+  },
+  repo_context: {
+    repo_root_basename: 'freecad-automation',
+    current_branch: 'codex/evidence-readiness-audit',
+    head_sha: 'a'.repeat(40),
+    default_branch: 'origin/master',
+    dirty_path_count: 0,
+  },
+  runtime_context: {
+    available: true,
+    versions: {
+      freecad: '1.1.1',
+    },
+  },
+  summary: {
+    package_count: 5,
+    held_package_count: 5,
+    ready_package_count: 0,
+    authorized_inspection_evidence_record_count: 0,
+    trusted_evidence_record_count: 0,
+    generated_review_artifact_count: 45,
+    evidence_graph_package_count: 1,
+    runtime_fingerprint_package_count: 1,
+    qif_lite_package_count: 1,
+    pr170_artifact_coverage: {
+      evidence_graph_package_count: 1,
+      runtime_fingerprint_package_count: 1,
+      qif_lite_package_count: 1,
+      complete_package_count: 1,
+      missing_package_count: 4,
+    },
+    release_overclaim_risk_count: 5,
+    decision: 'hold',
+    primary_hold_reasons: ['inspection_evidence'],
+  },
+  packages: [
+    {
+      slug: 'quality-pass-bracket',
+      readiness: {
+        status: 'needs_more_evidence',
+        score: 61,
+        gate_decision: 'hold_for_evidence_completion',
+        hold_reasons: ['inspection_evidence'],
+      },
+      evidence_counts: {
+        trusted_inspection: 0,
+        generated_review: 9,
+      },
+      release_decision: {
+        overclaim_if_marked_ready: true,
+        reason: 'Release bundle presence does not mean production-ready.',
+      },
+      pr170_artifacts: {
+        evidence_graph: {
+          status: 'present_generated_control',
+          trusted_inspection_evidence: false,
+        },
+        runtime_fingerprint: {
+          status: 'present_generated_control',
+          trusted_inspection_evidence: false,
+        },
+        qif_lite: {
+          status: 'present_generated_control',
+          trusted_inspection_evidence: false,
+        },
+      },
+    },
+    {
+      slug: 'hinge-block',
+      readiness: {
+        status: 'needs_more_evidence',
+        score: 52,
+        gate_decision: 'hold_for_evidence_completion',
+        hold_reasons: ['inspection_evidence'],
+      },
+      evidence_counts: {
+        trusted_inspection: 0,
+        generated_review: 8,
+      },
+      release_decision: {
+        overclaim_if_marked_ready: true,
+        reason: 'Release bundle presence does not mean production-ready.',
+      },
+      pr170_artifacts: {
+        evidence_graph: {
+          status: 'missing',
+          trusted_inspection_evidence: false,
+        },
+        runtime_fingerprint: {
+          status: 'missing',
+          trusted_inspection_evidence: false,
+        },
+        qif_lite: {
+          status: 'missing',
+          trusted_inspection_evidence: false,
+        },
+      },
+    },
+  ],
+  maintainer_decision: {
+    decision: 'hold',
+    release_would_overclaim_readiness: true,
+    safe_to_publish_release: false,
+    reason: 'At least one canonical package remains held.',
+  },
+  next_safe_commands: [
+    {
+      name: 'rerun_evidence_readiness_audit',
+      command: ['fcad', 'evidence-readiness-audit', '--out-dir', 'output/evidence-readiness-audit', '--clean'],
+      mutates_canonical_artifacts: false,
+    },
+  ],
+};
+
+const evidenceReadinessAuditArtifact = {
+  id: 'evidence-readiness-audit-json-0',
+  key: 'Evidence readiness audit',
+  type: 'evidence-readiness.audit-json',
+  file_name: 'evidence_readiness_audit.json',
+  extension: '.json',
+  content_type: 'application/json; charset=utf-8',
+  exists: true,
+  capabilities: {
+    can_open: true,
+    can_download: true,
+    browser_safe: true,
+  },
+  links: {
+    open: '/jobs/job-evidence-readiness/artifacts/evidence-readiness-audit-json-0/content',
+    download: '/jobs/job-evidence-readiness/artifacts/evidence-readiness-audit-json-0/content?download=1',
+  },
+};
+
 const validationDiagnostics = {
   artifact_type: 'inspection_evidence_intake_report',
   artifact_path: 'output/jobs/job-validation/artifacts/intake_report.json',
@@ -487,6 +633,36 @@ assert.match(auditNormalized['Next safe commands'], /stage5b_evidence_audit: fca
 assert.match(auditNormalized['Readiness-held truth'], /readiness remains needs_more_evidence/);
 assert.match(auditNormalized['Evidence boundary'], /GitHub metadata alone.*not evidence/i);
 
+const evidenceReadinessRaw = JSON.stringify(evidenceReadinessAuditManifest, null, 2);
+const evidenceReadinessCard = buildEvidenceReadinessAuditCard({
+  audit: evidenceReadinessAuditManifest,
+  artifact: evidenceReadinessAuditArtifact,
+  raw: evidenceReadinessRaw,
+});
+
+assert.equal(evidenceReadinessCard.id, 'evidence-readiness-audit');
+assert.equal(evidenceReadinessCard.title, 'Evidence/readiness maintainer audit');
+assert.equal(evidenceReadinessCard.status, 'Maintainer hold');
+assert.equal(evidenceReadinessCard.tone, 'warn');
+assert.equal(evidenceReadinessCard.score, 5);
+assert.match(evidenceReadinessCard.summary, /5 of 5 canonical packages held/);
+assert.match(evidenceReadinessCard.summary, /0 trusted inspection evidence records/);
+const evidenceReadinessNormalized = Object.fromEntries(evidenceReadinessCard.normalized);
+assert.equal(evidenceReadinessNormalized['Packages held'], '5/5');
+assert.equal(evidenceReadinessNormalized['Trusted inspection evidence'], '0');
+assert.equal(evidenceReadinessNormalized['Generated review/control artifacts'], '45');
+assert.equal(evidenceReadinessNormalized['Evidence graph packages'], '1');
+assert.equal(evidenceReadinessNormalized['Runtime fingerprint packages'], '1');
+assert.equal(evidenceReadinessNormalized['QIF-lite packages'], '1');
+assert.equal(evidenceReadinessNormalized['PR #170 artifact coverage'], 'complete 1/5; missing 4');
+assert.match(evidenceReadinessNormalized['PR #170 artifact states'], /quality-pass-bracket: graph present_generated_control/);
+assert.match(evidenceReadinessNormalized['PR #170 artifact states'], /qif_lite present_generated_control/);
+assert.match(evidenceReadinessNormalized['PR #170 artifact states'], /hinge-block: graph missing/);
+assert.equal(evidenceReadinessNormalized['Release overclaim risks'], '5');
+assert.equal(evidenceReadinessNormalized['Runtime context'], 'Available');
+assert.match(evidenceReadinessNormalized['Next safe commands'], /fcad evidence-readiness-audit/);
+assert.match(evidenceReadinessNormalized['Evidence boundary'], /Only genuine completed/);
+
 const cards = buildReviewCards({
   activeJob: {
     manifest: {
@@ -531,6 +707,21 @@ const auditCards = buildReviewCards({
 });
 assert.equal(auditCards[0].id, 'stage5b-evidence-audit');
 assert.equal(auditCards[0].empty, false);
+
+const evidenceReadinessCards = buildReviewCards({
+  activeJob: {
+    manifest: {
+      command: 'evidence-readiness-audit',
+    },
+  },
+  artifacts: [evidenceReadinessAuditArtifact],
+  sourceMap: {
+    evidenceReadinessAudit: evidenceReadinessAuditManifest,
+    evidenceReadinessAuditRaw: evidenceReadinessRaw,
+  },
+});
+assert.equal(evidenceReadinessCards[0].id, 'evidence-readiness-audit');
+assert.equal(evidenceReadinessCards[0].empty, false);
 
 const validationCards = buildReviewCards({
   activeJob: {
@@ -642,6 +833,8 @@ const reviewTree = renderReviewWorkspace({
 });
 const renderedText = JSON.stringify(reviewTree);
 assert.match(renderedText, /Stage 5B audit/);
+assert.match(renderedText, /Maintainer audit/);
+assert.match(renderedText, /Run maintainer audit/);
 assert.match(renderedText, /Run audit/);
 assert.match(renderedText, /Open latest audit|No audit bundle yet/);
 assert.match(renderedText, /Stage 5B intake/);

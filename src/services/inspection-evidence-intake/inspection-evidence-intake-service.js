@@ -30,6 +30,10 @@ const GENERATED_PATH_PATTERNS = Object.freeze([
   /(^|\/)standard_docs_manifest\.(?:json|csv|tsv|md|markdown|txt)$/i,
   /(^|\/)release_bundle(?:\.zip|_manifest\.json|_log\.json|_checksums\.sha256)$/i,
   /(^|\/)release-bundle(?:\.zip|-manifest\.json|-log\.json|-checksums\.sha256)$/i,
+  /(^|\/)evidence_graph\.(?:json|csv|tsv|md|markdown|txt)$/i,
+  /(^|\/)runtime_fingerprint\.(?:json|csv|tsv|md|markdown|txt)$/i,
+  /(^|\/)qif[_-]lite(?:[_-][^/]*)?\.(?:xml|json|csv|tsv|md|markdown|txt)$/i,
+  /(^|\/)maintainer_decision_journal\.(?:json|csv|tsv|md|markdown|txt)$/i,
   /(^|\/)(?:artifact-manifest|output-manifest)\.(?:json|csv|tsv|md|markdown|txt)$/i,
   /(^|\/)validation_diagnostics\.json$/i,
 ]);
