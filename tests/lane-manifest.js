@@ -15,6 +15,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'Pytest runner selection', args: Object.freeze(['tests/run-pytest-selection.test.js']) }),
       Object.freeze({ label: 'CLI foundation modules', args: Object.freeze(['tests/cli-foundation.test.js']) }),
       Object.freeze({ label: 'Command manifest', args: Object.freeze(['tests/command-manifest.test.js']) }),
+      Object.freeze({ label: 'Local-first v1 product surface', args: Object.freeze(['tests/local-first-v1-product-surface.test.js']) }),
       Object.freeze({ label: 'Lane manifest', args: Object.freeze(['tests/lane-manifest.test.js']) }),
       Object.freeze({ label: 'Maintainer doctors workflow', args: Object.freeze(['tests/maintainer-doctors-workflow.test.js']) }),
       Object.freeze({ label: 'Maintainer doctor', args: Object.freeze(['tests/maintainer-doctor.test.js']) }),

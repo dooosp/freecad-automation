@@ -162,7 +162,7 @@ try {
     /does not match readiness report lineage/i
   );
 
-  const helpRun = runCli(['help']);
+  const helpRun = runCli(['help', '--all']);
   assert.equal(helpRun.status, 0, helpRun.stderr || helpRun.stdout);
   assert.match(helpRun.stdout, /readiness-report <config\.toml\|json> .*legacy compatibility/i);
   assert.match(helpRun.stdout, /generate-standard-docs <config\.toml\|json> \-\-readiness-report <readiness_report\.json>/i);

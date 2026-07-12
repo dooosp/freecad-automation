@@ -5,7 +5,7 @@ const HELP_SECTION_ORDER = Object.freeze([
   Object.freeze({ key: 'mixed-conditional', title: 'Mixed / conditional commands' }),
 ]);
 
-const COMMAND_MANIFEST = Object.freeze([
+const RAW_COMMAND_MANIFEST = Object.freeze([
   Object.freeze({
     name: 'check-runtime',
     helpSection: 'diagnostics',
@@ -872,6 +872,121 @@ const COMMAND_MANIFEST = Object.freeze([
   }),
 ]);
 
+const lifecycle = (value, {
+  defaultHelpVisible = false,
+  defaultHelpOrder = null,
+  audience = 'user',
+  workflow = null,
+  replacement = null,
+  safetyBoundary = 'Does not change trust, evidence, readiness, or release state unless the command contract explicitly says so.',
+  deprecatedRoutes = [],
+} = {}) => Object.freeze({
+  lifecycle: value,
+  defaultHelpVisible,
+  defaultHelpOrder,
+  audience,
+  workflow,
+  replacement,
+  removalVersion: null,
+  safetyBoundary,
+  deprecatedRoutes: Object.freeze(deprecatedRoutes.map((route) => Object.freeze({ ...route }))),
+});
+
+const stable = (workflow = null, options = {}) => lifecycle('stable', { workflow, ...options });
+const beta = (workflow = 'engineering', options = {}) => lifecycle('beta', { workflow, audience: 'engineer', ...options });
+const experimental = (workflow = 'engineering', options = {}) => lifecycle('experimental', { workflow, audience: 'engineer', ...options });
+const maintainer = (options = {}) => lifecycle('maintainer', { workflow: 'maintenance', audience: 'maintainer', ...options });
+const compatibility = (options = {}) => lifecycle('compatibility', { audience: 'compatibility', ...options });
+const internal = (options = {}) => lifecycle('internal', { audience: 'internal', ...options });
+
+const COMMAND_LIFECYCLE_METADATA = Object.freeze({
+  'check-runtime': stable('review', { defaultHelpVisible: true, defaultHelpOrder: 10, safetyBoundary: 'Diagnostics only; it does not run a CAD workflow or create inspection evidence.' }),
+  create: stable('review', { defaultHelpVisible: true, defaultHelpOrder: 20, safetyBoundary: 'Generates model artifacts; quality output is software analysis, not inspection evidence.' }),
+  draw: stable('review', { defaultHelpVisible: true, defaultHelpOrder: 30, safetyBoundary: 'Generates drawing artifacts; drawing QA is not physical inspection evidence.' }),
+  inspect: stable('review', { defaultHelpVisible: true, defaultHelpOrder: 40, safetyBoundary: 'Inspects supplied CAD and writes optional manifests without changing canonical readiness.' }),
+  fem: beta(),
+  tolerance: beta(),
+  report: beta(),
+  dfm: beta(),
+  review: beta('review'),
+  'process-plan': beta(),
+  'line-plan': experimental(),
+  'quality-risk': beta(),
+  'investment-review': experimental(),
+  'readiness-pack': stable('review', { defaultHelpVisible: true, defaultHelpOrder: 60, safetyBoundary: 'Packages readiness from explicit review artifacts; it does not invent or attach inspection evidence.' }),
+  'readiness-report': compatibility({
+    workflow: 'review',
+    replacement: 'readiness-pack --review-pack <review_pack.json>',
+    safetyBoundary: 'The --review-pack route remains compatible; the config-positional route is non-canonical and emits migration guidance.',
+    deprecatedRoutes: [{
+      usage: 'fcad readiness-report <config.toml|json>',
+      replacement: 'fcad readiness-pack --review-pack <review_pack.json>',
+      behaviorAvailable: true,
+      message: 'The config-positional route remains available but is non-canonical; use readiness-pack --review-pack for canonical C output.',
+    }],
+  }),
+  pack: stable('review', { defaultHelpVisible: true, defaultHelpOrder: 70, safetyBoundary: 'Packages an existing readiness report; it does not regenerate readiness or publish a release.' }),
+  'closeout-package': maintainer(),
+  'evidence-graph': beta('review'),
+  'evidence-readiness-audit': maintainer(),
+  'evidence-artifacts-materialize': maintainer(),
+  'maintainer-decision-journal': maintainer(),
+  'inspection-evidence-intake': maintainer(),
+  'inspection-evidence-quarantine': maintainer(),
+  'inspection-evidence-validate': maintainer(),
+  'inspection-evidence-authorize': maintainer(),
+  'inspection-evidence-attach': maintainer(),
+  'inspection-evidence-regenerate-readiness': maintainer(),
+  'inspection-evidence-promotion-dry-run': maintainer(),
+  'stage5b-evidence-audit': maintainer(),
+  'stage5b-evidence-source-kit': maintainer(),
+  'stage5b-evidence-source-preflight': maintainer(),
+  'stage5b-evidence-review-dry-run': maintainer(),
+  'stage5b-evidence-attachment-controller': maintainer(),
+  'stage5b-evidence-pipeline-doctor': maintainer(),
+  'stage5b-surrogate-inspection-validation': maintainer(),
+  'stabilization-review': beta(),
+  'inspection-plan': stable('compare-plan', { defaultHelpVisible: true, defaultHelpOrder: 20, safetyBoundary: 'Generates control material only; a human release is required before execution.' }),
+  'inspection-plan-release-record': stable('receive-results', { defaultHelpVisible: true, defaultHelpOrder: 10, safetyBoundary: 'Binds an explicit human release for inspection execution only; it is not product release or evidence authorization.' }),
+  'inspection-result-normalize': stable('receive-results', { defaultHelpVisible: true, defaultHelpOrder: 20, safetyBoundary: 'CLI-only raw-file handling; output is untrusted and no higher than ready_for_quarantine_review.' }),
+  'generate-standard-docs': beta('review'),
+  ingest: internal(),
+  'quality-link': internal(),
+  'review-pack': internal(),
+  'review-context': stable('review', { defaultHelpVisible: true, defaultHelpOrder: 50, safetyBoundary: 'Builds a traceable review pack; raw candidate files cannot be attached as evidence.' }),
+  'compare-rev': stable('compare-plan', { defaultHelpVisible: true, defaultHelpOrder: 10, safetyBoundary: 'Assesses revision impact without mutating evidence or canonical readiness.' }),
+  validate: beta(),
+  'validate-config': stable('review'),
+  'migrate-config': stable('review'),
+  serve: stable('review', { defaultHelpVisible: true, defaultHelpOrder: 80, safetyBoundary: 'Starts the local product surface; legacy viewer mode is compatibility-only.' }),
+  'analyze-part': beta(),
+  design: experimental(),
+  sweep: experimental(),
+  help: stable(null),
+});
+
+const COMMAND_MANIFEST = Object.freeze(RAW_COMMAND_MANIFEST.map((entry) => {
+  const metadata = COMMAND_LIFECYCLE_METADATA[entry.name];
+  if (!metadata) throw new Error(`Missing lifecycle metadata for command: ${entry.name}`);
+  return Object.freeze({ ...entry, ...metadata });
+}));
+
+const WORKFLOW_HELP_ORDER = Object.freeze([
+  Object.freeze({ key: 'review', title: '1. Create or import and review', start: 'Start with a config, STEP, FCStd, or existing review artifact.' }),
+  Object.freeze({ key: 'compare-plan', title: '2. Compare revisions and plan inspection', start: 'Start with baseline and candidate review packs.' }),
+  Object.freeze({ key: 'receive-results', title: '3. Receive and normalize completed inspection results', start: 'Start with a human-released plan and an externally completed native CSV.' }),
+]);
+
+const LIFECYCLE_HELP_ORDER = Object.freeze([
+  Object.freeze({ key: 'stable', title: 'Stable' }),
+  Object.freeze({ key: 'beta', title: 'Beta engineering tools' }),
+  Object.freeze({ key: 'experimental', title: 'Experimental tools' }),
+  Object.freeze({ key: 'maintainer', title: 'Maintainer controls' }),
+  Object.freeze({ key: 'compatibility', title: 'Compatibility commands' }),
+  Object.freeze({ key: 'deprecated', title: 'Deprecated routes' }),
+  Object.freeze({ key: 'internal', title: 'Internal implementation commands' }),
+]);
+
 const SHARED_WORKFLOW_OPTIONS = Object.freeze([
   Object.freeze({ flag: '--profile <name>', description: 'Shop profile under configs/profiles' }),
   Object.freeze({ flag: '--runtime <path>', description: 'Runtime JSON for line stabilization / launch review' }),
@@ -1000,13 +1115,7 @@ function deepClone(value) {
 }
 
 function listCommandEntries() {
-  return COMMAND_MANIFEST.map((entry) => ({
-    ...entry,
-    helpEntries: entry.helpEntries.map((helpEntry) => ({ ...helpEntry })),
-    runtime: entry.runtime ? { ...entry.runtime } : null,
-    surfaces: entry.surfaces ? { ...entry.surfaces } : null,
-    serve: entry.serve ? { ...entry.serve } : null,
-  }));
+  return COMMAND_MANIFEST.map((entry) => deepClone(entry));
 }
 
 function listHelpEntriesBySection(sectionKey) {
@@ -1062,10 +1171,30 @@ export function getCommandEntry(commandName) {
 export function renderCommandUsage(commandName) {
   const entry = getCommandEntry(commandName);
   if (!entry) return null;
-  if (entry.name === 'serve') return renderServeUsage();
+  if (entry.name === 'serve') {
+    return [
+      renderServeUsage(),
+      '',
+      'Lifecycle:',
+      `  ${entry.lifecycle}`,
+      `  Audience: ${entry.audience}`,
+      `  Workflow: ${entry.workflow || 'none'}`,
+      '',
+      'Safety boundary:',
+      `  ${entry.safetyBoundary}`,
+      '',
+      'Use `fcad --help` for the guided start or `fcad help --all` for every lifecycle.',
+    ].join('\n').trim();
+  }
 
   const lines = [
     `fcad ${entry.name}`,
+    '',
+    'Lifecycle:',
+    `  ${entry.lifecycle}`,
+    `  Audience: ${entry.audience}`,
+    `  Workflow: ${entry.workflow || 'none'}`,
+    ...(entry.replacement ? [`  Replacement: ${entry.replacement}`] : []),
     '',
     'Usage:',
     ...renderAlignedHelpLines(entry.helpEntries),
@@ -1078,7 +1207,11 @@ export function renderCommandUsage(commandName) {
     lines.push(`  ${entry.runtime.note}`);
   }
 
-  lines.push('', 'Use `fcad --help` for shared options, examples, and the full command list.');
+  lines.push('', 'Safety boundary:', `  ${entry.safetyBoundary}`);
+  for (const route of entry.deprecatedRoutes || []) {
+    lines.push('', 'Deprecated route:', `  ${route.usage}`, `  Replacement: ${route.replacement}`, `  Behavior remains available: ${route.behaviorAvailable ? 'yes' : 'no'}`, `  ${route.message}`);
+  }
+  lines.push('', 'Use `fcad --help` for the guided start or `fcad help --all` for every lifecycle.');
   return lines.join('\n').trim();
 }
 
@@ -1223,24 +1356,66 @@ export const LOCAL_API_OTHER_PUBLIC_JOB_COMMANDS = orderedCommandNames(
   (entry) => entry.surfaces?.localApi === true
 );
 
-export function renderCliUsage() {
+function renderDeprecatedRouteLines() {
+  return COMMAND_MANIFEST.flatMap((entry) => (entry.deprecatedRoutes || []).map((route) => ({
+    usage: route.usage,
+    summary: `${route.message} Replacement: ${route.replacement}`,
+  })));
+}
+
+export function renderCliUsage({ all = false } = {}) {
+  if (all) return renderCliAllUsage();
   const lines = [
-    'fcad | mfg-agent - FreeCAD-backed automation pipeline',
+    'fcad | mfg-agent - Local-first FreeCAD manufacturing workflow',
     '',
-    'FreeCAD-backed CLI for CAD, TechDraw, inspection, FEM, tolerance, and reporting,',
-    'plus a plain-Python/Node manufacturing-review layer.',
+    'FreeCAD Automation turns FreeCAD configs and existing CAD files into traceable',
+    'manufacturing review, revision-impact, inspection-planning, and evidence-onboarding artifacts.',
     '',
-    'Run this first on a new machine or before troubleshooting runtime-backed commands:',
-    '  fcad check-runtime',
-    '',
-    'Usage:',
+    'Choose a workflow:',
   ];
 
-  HELP_SECTION_ORDER.forEach((section) => {
-    lines.push(`  ${section.title}:`);
-    lines.push(...renderAlignedHelpLines(listHelpEntriesBySection(section.key)));
+  for (const workflow of WORKFLOW_HELP_ORDER) {
+    lines.push('', `  ${workflow.title}`);
+    lines.push(`    ${workflow.start}`);
+    const entries = COMMAND_MANIFEST
+      .filter((entry) => entry.defaultHelpVisible && entry.workflow === workflow.key)
+      .sort((a, b) => a.defaultHelpOrder - b.defaultHelpOrder)
+      .flatMap((entry) => entry.helpEntries);
+    lines.push(...renderAlignedHelpLines(entries));
+  }
+
+  lines.push(
+    '',
+    'Inspection safety boundary:',
+    '  Plans, release records, normalization reports, generated QA, and synthetic fixtures are not inspection evidence.',
+    '  Result normalization is CLI-only for raw source bytes and stops at ready_for_quarantine_review.',
+    '',
+    'Discovery:',
+    '  fcad help <command>   Complete usage, lifecycle, runtime, and safety boundary',
+    '  fcad help --all       Stable, beta, experimental, maintainer, compatibility, deprecated, and internal surfaces',
+  );
+
+  return lines.join('\n').trim();
+}
+
+export function renderCliAllUsage() {
+  const lines = [
+    'fcad | mfg-agent - complete command lifecycle inventory',
+    '',
+    'Direct invocation remains available for every listed command.',
+    '',
+  ];
+
+  for (const section of LIFECYCLE_HELP_ORDER) {
+    lines.push(`${section.title}:`);
+    const entries = section.key === 'deprecated'
+      ? renderDeprecatedRouteLines()
+      : COMMAND_MANIFEST
+        .filter((entry) => entry.lifecycle === section.key)
+        .flatMap((entry) => entry.helpEntries);
+    lines.push(...(entries.length ? renderAlignedHelpLines(entries) : ['    (none)']));
     lines.push('');
-  });
+  }
 
   lines.push('Options:');
   lines.push('  Shared workflow options:');
