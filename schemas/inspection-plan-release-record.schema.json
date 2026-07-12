@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dooosp.github.io/freecad-automation/schemas/inspection-plan-release-record.schema.json",
+  "title": "Inspection Plan Release Record",
+  "type": "object", "additionalProperties": false,
+  "required": ["artifact_type", "schema_version", "release_record_id", "state", "package", "inspection_scope", "authorization", "plan", "distributed_files", "released_at", "reviewers", "released_by", "generator_context", "boundaries"],
+  "properties": {
+    "artifact_type": { "const": "inspection_plan_release_record" },
+    "schema_version": { "const": "1.0" },
+    "release_record_id": { "$ref": "#/$defs/id" },
+    "state": { "const": "released_for_inspection_execution" },
+    "package": { "$ref": "#/$defs/package" },
+    "inspection_scope": { "enum": ["full", "delta"] },
+    "authorization": { "$ref": "#/$defs/boundFile" },
+    "plan": {
+      "type": "object", "additionalProperties": false, "required": ["plan_id", "path", "sha256", "status"],
+      "properties": { "plan_id": { "$ref": "#/$defs/id" }, "path": { "$ref": "#/$defs/safePath" }, "sha256": { "$ref": "#/$defs/sha" }, "status": { "const": "ready_for_human_release" } }
+    },
+    "distributed_files": { "type": "array", "minItems": 2, "maxItems": 3, "items": { "$ref": "#/$defs/distributed" } },
+    "released_at": { "$ref": "#/$defs/dateTime" },
+    "reviewers": {
+      "type": "object", "additionalProperties": false, "required": ["engineering", "quality"],
+      "properties": { "engineering": { "$ref": "#/$defs/review" }, "quality": { "$ref": "#/$defs/review" } }
+    },
+    "released_by": { "$ref": "#/$defs/identityRole" },
+    "generator_context": {
+      "type": "object", "additionalProperties": false, "required": ["generator", "version"],
+      "properties": { "generator": { "const": "fcad" }, "version": { "type": "string", "minLength": 1, "maxLength": 64 } }
+    },
+    "boundaries": {
+      "type": "object", "additionalProperties": false,
+      "required": ["inspection_evidence", "product_release", "readiness_approved", "evidence_attached", "readiness_regenerated", "cryptographic_signature", "authorization_scope"],
+      "properties": {
+        "inspection_evidence": { "const": false }, "product_release": { "const": false }, "readiness_approved": { "const": false }, "evidence_attached": { "const": false }, "readiness_regenerated": { "const": false }, "cryptographic_signature": { "const": false }, "authorization_scope": { "const": "inspection_execution_only" }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "minLength": 8, "maxLength": 160, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]+$" },
+    "sha": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "dateTime": { "type": "string", "minLength": 20, "maxLength": 64 },
+    "safePath": { "type": "string", "minLength": 1, "maxLength": 512, "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$)).+$" },
+    "identity": { "type": "string", "minLength": 3, "maxLength": 256 },
+    "package": { "type": "object", "additionalProperties": false, "required": ["slug", "revision"], "properties": { "slug": { "type": "string" }, "revision": { "type": "string" } } },
+    "boundFile": { "type": "object", "additionalProperties": false, "required": ["id", "path", "sha256"], "properties": { "id": { "$ref": "#/$defs/id" }, "path": { "$ref": "#/$defs/safePath" }, "sha256": { "$ref": "#/$defs/sha" } } },
+    "distributed": { "type": "object", "additionalProperties": false, "required": ["artifact_type", "path", "sha256"], "properties": { "artifact_type": { "enum": ["inspection_checksheet.csv", "supplier_inspection_request.md", "inspection_result_template.csv"] }, "path": { "$ref": "#/$defs/safePath" }, "sha256": { "$ref": "#/$defs/sha" } } },
+    "identityRole": { "type": "object", "additionalProperties": false, "required": ["identity_ref", "role_ref"], "properties": { "identity_ref": { "$ref": "#/$defs/identity" }, "role_ref": { "$ref": "#/$defs/identity" } } },
+    "review": { "type": "object", "additionalProperties": false, "required": ["identity_ref", "role_ref", "reviewed_at"], "properties": { "identity_ref": { "$ref": "#/$defs/identity" }, "role_ref": { "$ref": "#/$defs/identity" }, "reviewed_at": { "$ref": "#/$defs/dateTime" } } }
+  }
+}

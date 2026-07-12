@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dooosp.github.io/freecad-automation/schemas/inspection-plan-release-authorization.schema.json",
+  "title": "Inspection Plan Release Authorization",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["artifact_type", "schema_version", "authorization_id", "decision", "package", "plan", "distributed_files", "inspection_scope", "engineering_review", "quality_review", "released_by", "released_at", "external_controlled_document_ref", "confidentiality_classification", "notes", "boundaries"],
+  "properties": {
+    "artifact_type": { "const": "inspection_plan_release_authorization" },
+    "schema_version": { "const": "1.0" },
+    "authorization_id": { "$ref": "#/$defs/id" },
+    "decision": { "const": "release_for_inspection_execution" },
+    "package": { "$ref": "#/$defs/package" },
+    "plan": {
+      "type": "object", "additionalProperties": false,
+      "required": ["plan_id", "sha256"],
+      "properties": { "plan_id": { "$ref": "#/$defs/id" }, "sha256": { "$ref": "#/$defs/sha" } }
+    },
+    "distributed_files": {
+      "type": "object", "additionalProperties": false,
+      "required": ["checksheet", "supplier_request", "result_template"],
+      "properties": {
+        "checksheet": { "$ref": "#/$defs/file" },
+        "supplier_request": { "anyOf": [{ "$ref": "#/$defs/file" }, { "type": "null" }] },
+        "result_template": { "$ref": "#/$defs/file" }
+      }
+    },
+    "inspection_scope": { "enum": ["full", "delta"] },
+    "engineering_review": { "$ref": "#/$defs/review" },
+    "quality_review": { "$ref": "#/$defs/review" },
+    "released_by": { "$ref": "#/$defs/identityRole" },
+    "released_at": { "$ref": "#/$defs/dateTime" },
+    "external_controlled_document_ref": { "type": ["string", "null"], "maxLength": 512 },
+    "confidentiality_classification": { "enum": ["public", "internal", "confidential", "restricted"] },
+    "notes": { "type": ["string", "null"], "maxLength": 2000 },
+    "boundaries": {
+      "type": "object", "additionalProperties": false,
+      "required": ["inspection_evidence", "product_release", "readiness_approval", "evidence_attached", "readiness_regeneration_authorized", "scope"],
+      "properties": {
+        "inspection_evidence": { "const": false },
+        "product_release": { "const": false },
+        "readiness_approval": { "const": false },
+        "evidence_attached": { "const": false },
+        "readiness_regeneration_authorized": { "const": false },
+        "scope": { "const": "exact_bound_files_for_inspection_execution_only" }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "minLength": 8, "maxLength": 160, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]+$" },
+    "sha": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "dateTime": { "type": "string", "minLength": 20, "maxLength": 64 },
+    "identity": { "type": "string", "minLength": 3, "maxLength": 256, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+-]+$" },
+    "safePath": { "type": "string", "minLength": 1, "maxLength": 512, "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$)).+$" },
+    "package": {
+      "type": "object", "additionalProperties": false, "required": ["slug", "revision"],
+      "properties": { "slug": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" }, "revision": { "type": "string", "minLength": 1, "maxLength": 128 } }
+    },
+    "file": {
+      "type": "object", "additionalProperties": false, "required": ["path", "sha256"],
+      "properties": { "path": { "$ref": "#/$defs/safePath" }, "sha256": { "$ref": "#/$defs/sha" } }
+    },
+    "identityRole": {
+      "type": "object", "additionalProperties": false, "required": ["identity_ref", "role_ref"],
+      "properties": { "identity_ref": { "$ref": "#/$defs/identity" }, "role_ref": { "$ref": "#/$defs/identity" } }
+    },
+    "review": {
+      "type": "object", "additionalProperties": false, "required": ["identity_ref", "role_ref", "reviewed_at"],
+      "properties": { "identity_ref": { "$ref": "#/$defs/identity" }, "role_ref": { "$ref": "#/$defs/identity" }, "reviewed_at": { "$ref": "#/$defs/dateTime" } }
+    }
+  }
+}
