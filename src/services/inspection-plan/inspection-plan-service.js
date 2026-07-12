@@ -11,7 +11,7 @@ const SUPPORTED_UNITS = new Set(['mm', 'in', 'inch', 'deg', '°', 'N', 'N·m', '
 const RESULT_FIELDS = Object.freeze(['measured_value', 'measured_unit', 'result', 'completion_status', 'final_status']);
 const PROVENANCE_FIELDS = Object.freeze(['inspector_reference', 'reviewer_reference', 'source_file_sha256']);
 export const INSPECTION_CHECKSHEET_COLUMNS = Object.freeze(['plan_id', 'plan_item_id', 'package_slug', 'revision', 'characteristic_id', 'characteristic_name', 'inspection_purpose', 'nominal_value', 'lower_limit', 'upper_limit', 'unit', 'datum_reference', 'specification_reference', 'required_method', 'suggested_method', 'required_equipment_class', 'suggested_equipment_class', 'required_sampling', 'suggested_sampling', 'revision_impact_change_ids', 'actual_value', 'actual_unit', 'result']);
-export const INSPECTION_RESULT_TEMPLATE_COLUMNS = Object.freeze(['plan_id', 'plan_item_id', 'package_slug', 'revision', 'characteristic_id', 'control_material_notice', 'measured_value', 'measured_unit', 'result', 'completion_status', 'final_status', 'inspector_reference', 'reviewer_reference', 'source_file_sha256']);
+export const INSPECTION_RESULT_TEMPLATE_COLUMNS = Object.freeze(['plan_id', 'plan_sha256', 'plan_release_record_id', 'plan_release_record_sha256', 'plan_item_id', 'package_slug', 'revision', 'characteristic_id', 'control_material_notice', 'measured_value', 'measured_unit', 'result', 'completion_status', 'final_status', 'inspector_reference', 'reviewer_reference', 'source_file_sha256', 'method_used', 'equipment_reference', 'measurement_completed_at', 'remarks']);
 
 function sha(value) { return createHash('sha256').update(value).digest('hex'); }
 function engineeringNumber(value) { return Number.isFinite(value) ? Number(value.toFixed(12)) : value; }
@@ -127,11 +127,22 @@ export function buildInspectionPlan({ reviewPack, revisionImpact = null, require
 }
 
 export function renderInspectionChecksheet(plan) { return csv(INSPECTION_CHECKSHEET_COLUMNS, plan.items.map((item) => ({ ...item, plan_id: plan.plan_id, actual_value: '', actual_unit: '', result: '' })), new Set(['nominal_value', 'lower_limit', 'upper_limit', 'actual_value'])); }
-export function renderInspectionResultTemplate(plan) { return csv(INSPECTION_RESULT_TEMPLATE_COLUMNS, plan.items.map((item) => ({ plan_id: plan.plan_id, plan_item_id: item.plan_item_id, package_slug: item.package_slug, revision: item.revision, characteristic_id: item.characteristic_id, control_material_notice: 'generated blank template - not inspection evidence' })), new Set(['measured_value'])); }
+export function renderInspectionResultTemplate(plan) {
+  const planSha256 = sha(canonicalizeInspectionPlan(plan));
+  return csv(INSPECTION_RESULT_TEMPLATE_COLUMNS, plan.items.map((item) => ({
+    plan_id: plan.plan_id,
+    plan_sha256: planSha256,
+    plan_item_id: item.plan_item_id,
+    package_slug: item.package_slug,
+    revision: item.revision,
+    characteristic_id: item.characteristic_id,
+    control_material_notice: 'generated blank template - not inspection evidence',
+  })), new Set(['measured_value']));
+}
 export function renderSupplierInspectionRequest(plan, planChecksum) {
   const lines = ['# Supplier / Lab Inspection Request', '', `- Package: ${plan.package.slug || 'UNRESOLVED'}`, `- Revision: ${plan.package.revision || 'UNRESOLVED'}`, `- Inspection scope: ${plan.scope}`, `- Source plan ID: ${plan.plan_id}`, `- Source plan SHA-256: ${planChecksum}`, '', '## Characteristics', ''];
   for (const item of plan.items) lines.push(`- ${item.characteristic_id}: ${item.characteristic_name}; nominal=${item.nominal_value ?? 'UNRESOLVED'}; limits=${item.lower_limit ?? 'UNRESOLVED'}..${item.upper_limit ?? 'UNRESOLVED'} ${item.unit || ''}; required method=${item.required_method || 'UNRESOLVED'}; specification=${item.specification_reference || 'UNRESOLVED'}; change IDs=${item.revision_impact_change_ids.join('|') || 'none'}`);
-  lines.push('', '## Clarifications required', '', ...(plan.unresolved_requirements.length ? plan.unresolved_requirements.map((item) => `- ${item.message}`) : ['- None recorded by the generated plan.']), '', '## Return contract', '', '- Expected source file type: externally completed UTF-8 CSV or supported inspection-evidence envelope.', '- Provide inspector reference, reviewer reference, completion status, final status, measured value, measured unit, result, and source file SHA-256.', '- Do not include credentials, private URLs, or unnecessary personal information; redact confidential data not required by the plan.', '- Deliver the externally completed file through the inspection-evidence quarantine intake.', '- Returned files remain untrusted candidates until quarantine, structural validation, semantic validation, separate authorization, and attachment.', '', '> Generated control material. Engineering/quality review and human release are required before supplier or lab use. This request and its blank template are not inspection evidence.', '');
+  lines.push('', '## Clarifications required', '', ...(plan.unresolved_requirements.length ? plan.unresolved_requirements.map((item) => `- ${item.message}`) : ['- None recorded by the generated plan.']), '', '## Return contract', '', '- Expected source file type: externally completed native UTF-8 result CSV.', '- Preserve the plan and release-record checksum fields plus stable plan-item and characteristic IDs.', '- Provide inspector reference, reviewer reference, completion status, final status, measured value, measured unit, result, method, completion time, and source record SHA-256.', '- Do not include credentials, private URLs, or unnecessary personal information; redact confidential data not required by the plan.', '- Normalize the returned file against this exact released plan and release record before any quarantine review.', '- Returned files and normalization reports remain untrusted candidates until human review, quarantine, structural validation, semantic validation, separate authorization, and attachment.', '', '> Generated control material. Engineering/quality review and human release are required before supplier or lab use. This request and its blank template are not inspection evidence.', '');
   return `${lines.join('\n')}\n`;
 }
 

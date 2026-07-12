@@ -112,6 +112,10 @@ import {
   writeInspectionPlanOutputs,
 } from '../src/services/inspection-plan/inspection-plan-service.js';
 import {
+  createInspectionPlanReleaseRecordFromPaths,
+  writeInspectionPlanReleaseRecord,
+} from '../src/services/inspection-plan/inspection-plan-release-service.js';
+import {
   assertRegularReadinessPackHasNoInspectionEvidenceClaim,
   attachAuthorizedInspectionEvidence,
   authorizeQuarantinedInspectionEvidence,
@@ -1102,6 +1106,7 @@ const CLI_COMMAND_HANDLERS = Object.freeze({
   'stabilization-review': cmdStabilizationReview,
   'generate-standard-docs': cmdGenerateStandardDocs,
   'inspection-plan': cmdInspectionPlan,
+  'inspection-plan-release-record': cmdInspectionPlanReleaseRecord,
   ingest: cmdIngest,
   'analyze-part': cmdAnalyzePart,
   'quality-link': cmdQualityLink,
@@ -2311,6 +2316,25 @@ async function cmdInspectionPlan(rawArgs = []) {
   console.log(`Manifest: ${manifestPath}`);
   console.log(`  Status: ${plan.status}`);
   console.log('  Human release required: yes');
+}
+
+async function cmdInspectionPlanReleaseRecord(rawArgs = []) {
+  const { options } = parseCliArgs(rawArgs);
+  rejectUnsupportedOptions('inspection-plan-release-record', options, ['inspection-plan', 'authorization', 'out']);
+  const inspectionPlanPath = resolveMaybe(requireOptionValue('--inspection-plan', options['inspection-plan']));
+  const authorizationPath = resolveMaybe(requireOptionValue('--authorization', options.authorization));
+  const outputPath = resolveMaybe(requireOptionValue('--out', options.out));
+  const record = await createInspectionPlanReleaseRecordFromPaths({
+    projectRoot: PROJECT_ROOT,
+    inspectionPlanPath,
+    authorizationPath,
+    generatorVersion: process.env.npm_package_version || '1.0.0',
+  });
+  const path = await writeInspectionPlanReleaseRecord({ projectRoot: PROJECT_ROOT, record, outputPath });
+  console.log(`Inspection plan release record: ${path}`);
+  console.log(`  State: ${record.state}`);
+  console.log('  Scope: inspection execution only');
+  console.log('  Inspection evidence: no');
 }
 
 async function cmdGenerateStandardDocs(rawArgs = []) {

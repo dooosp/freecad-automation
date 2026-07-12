@@ -639,6 +639,21 @@ const COMMAND_MANIFEST = Object.freeze([
     }),
   }),
   Object.freeze({
+    name: 'inspection-plan-release-record',
+    helpSection: 'plain-python-node',
+    helpEntries: Object.freeze([
+      Object.freeze({
+        usage: 'fcad inspection-plan-release-record --inspection-plan <inspection_plan.json> --authorization <human_release_authorization.json> --out <inspection_plan_release_record.json>',
+        summary: 'Validate a human release-for-execution decision and bind the exact inspection plan and distributed files',
+      }),
+    ]),
+    runtime: Object.freeze({
+      classification: 'plain-python-node',
+      requiresFreecadRuntime: false,
+      note: 'Creates a checksum-bound inspection-execution control record only; it is not product release, evidence, attachment, or readiness approval.',
+    }),
+  }),
+  Object.freeze({
     name: 'generate-standard-docs',
     helpSection: 'plain-python-node',
     helpEntries: Object.freeze([

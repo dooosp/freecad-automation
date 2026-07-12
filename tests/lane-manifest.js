@@ -71,6 +71,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'Inspection evidence contract', args: Object.freeze(['tests/inspection-evidence-contract.test.js']) }),
       Object.freeze({ label: 'QIF-lite inspection adapter', args: Object.freeze(['tests/qif-lite-inspection-adapter.test.js']) }),
       Object.freeze({ label: 'Inspection evidence onboarding contract', args: Object.freeze(['tests/inspection-evidence-onboarding.test.js']) }),
+      Object.freeze({ label: 'Inspection result normalization contract', args: Object.freeze(['tests/inspection-result-normalization.test.js']) }),
       Object.freeze({ label: 'Revision impact report contract', args: Object.freeze(['tests/revision-impact-contract.test.js']) }),
       Object.freeze({ label: 'Revision impact fixture matrix', args: Object.freeze(['tests/revision-impact-fixture-matrix.test.js']) }),
       Object.freeze({ label: 'Revision impact deterministic service', args: Object.freeze(['tests/revision-impact-service.test.js']) }),
