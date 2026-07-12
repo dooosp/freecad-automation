@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import {
   link,
   mkdir,
@@ -10,7 +11,7 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 
 import {
   canonicalizeRevisionImpactJson,
@@ -210,7 +211,8 @@ const syntheticAssessment = buildRevisionImpactReport({
 assert.equal(syntheticAssessment.evidence_applicability.assessments[0].applicability_status, 'not_applicable');
 assert.equal(syntheticAssessment.evidence_applicability.assessments[0].human_decision_required, false);
 
-const tempRoot = await mkdtemp(join(ROOT, 'tmp', 'revision-impact-service-'));
+await mkdir(join(ROOT, 'tmp', 'codex'), { recursive: true });
+const tempRoot = await mkdtemp(join(ROOT, 'tmp', 'codex', 'revision-impact-service-'));
 const externalJobRoot = await realpath(await mkdtemp(join(tmpdir(), 'revision-impact-job-store-')));
 try {
   const invalidDir = join(tempRoot, 'invalid');
@@ -308,6 +310,44 @@ try {
     candidateReviewPackPath: candidatePath,
   }), errorCode('declared_artifact_hash_mismatch'));
 
+  const invalidEvidenceGraph = {
+    artifact_type: 'evidence_graph',
+    schema_version: '1.0',
+    package_slug: tamperedReview.package_slug,
+    nodes: [{ id: 'node:incomplete', kind: 'review_pack' }],
+    edges: [],
+  };
+  const invalidEvidenceGraphBytes = `${JSON.stringify(invalidEvidenceGraph, null, 2)}\n`;
+  const invalidEvidenceGraphPath = join(invalidDir, 'invalid-evidence-graph.json');
+  await writeFile(invalidEvidenceGraphPath, invalidEvidenceGraphBytes);
+  const invalidEvidenceGraphRef = relative(ROOT, invalidEvidenceGraphPath).replaceAll('\\', '/');
+  const graphReview = JSON.parse(await readFile(candidatePath, 'utf8'));
+  graphReview.source_artifact_refs.push({
+    artifact_type: 'evidence_graph',
+    path: invalidEvidenceGraphRef,
+    role: 'evidence',
+    label: 'Invalid evidence graph contract fixture',
+  });
+  const ledgerTemplate = graphReview.evidence_ledger.records.find((record) => record.sha256);
+  graphReview.evidence_ledger.records.push({
+    ...ledgerTemplate,
+    evidence_id: `package:evidence_graph:${invalidEvidenceGraphRef}`,
+    type: 'evidence_graph',
+    artifact_type: 'evidence_graph',
+    source_ref: invalidEvidenceGraphRef,
+    file_name: basename(invalidEvidenceGraphPath),
+    title: 'Invalid evidence graph contract fixture',
+    size_bytes: Buffer.byteLength(invalidEvidenceGraphBytes),
+    sha256: createHash('sha256').update(invalidEvidenceGraphBytes).digest('hex'),
+  });
+  const graphReviewPath = join(invalidDir, 'invalid-evidence-graph-review.json');
+  await writeFile(graphReviewPath, `${JSON.stringify(graphReview, null, 2)}\n`);
+  await assert.rejects(loadRevisionImpactInputSet({
+    projectRoot: ROOT,
+    baselineReviewPackPath: graphReviewPath,
+    candidateReviewPackPath: candidatePath,
+  }), errorCode('evidence_graph_invalid'));
+
   const loaded = await loadRevisionImpactInputSet({
     projectRoot: ROOT,
     baselineReviewPackPath: candidatePath,
@@ -402,7 +442,6 @@ try {
     projectRoot: ROOT,
     report: unchanged,
     jsonPath: 'docs/examples/quality-pass-bracket/revision_impact_report.json',
-    allowedOutputRoots: [ROOT],
   }), errorCode('canonical_output_forbidden'));
   await assert.rejects(writeRevisionImpactArtifacts({
     projectRoot: ROOT,
@@ -443,7 +482,7 @@ try {
     report: unchanged,
     jsonPath: atomicJsonPath,
     markdownPath: 'docs/examples/quality-pass-bracket/forbidden.md',
-    allowedOutputRoots: [outputDir, ROOT],
+    allowedOutputRoots: [outputDir],
   }), errorCode('canonical_output_forbidden'));
   await assert.rejects(readFile(atomicJsonPath), (error) => error.code === 'ENOENT');
 } finally {

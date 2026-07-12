@@ -82,9 +82,15 @@ The implementation will add direct focused tests; expected commands include:
 
 ```bash
 node tests/revision-impact-contract.test.js
-node tests/revision-impact-cli.test.js
-node tests/revision-impact-job.test.js
+node tests/revision-impact-service.test.js
+node tests/revision-impact-fixture-matrix.test.js
+node tests/revision-impact-semantic-adapters.test.js
+node --test tests/revision-impact-semantic-service.test.js
+node --test tests/revision-impact-output-safety.test.js
+node tests/revision-impact-cli-integration.test.js
+node tests/revision-impact-external-job-store.test.js
 node tests/revision-impact-studio.test.js
+node tests/af-execution-jobs.test.js
 node tests/command-manifest.test.js
 node tests/d-artifact-schema.test.js
 node tests/job-api.test.js
@@ -146,7 +152,7 @@ For all five packages verify the authoritative nested fields still show:
 ```text
 readiness_summary.status = needs_more_evidence
 readiness_summary.gate_decision = hold_for_evidence_completion
-process_plan.missing_inputs contains inspection_evidence
+process_plan.summary.missing_inputs contains inspection_evidence
 ```
 
 Also prove:

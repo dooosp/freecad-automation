@@ -99,8 +99,8 @@
         "nominal_value": 6,
         "unit": "mm",
         "tolerance": {
-          "lower": -0.1,
-          "upper": 0.1
+        "lower": -0.2,
+        "upper": 0.2
         },
         "datum_reference": "A|B",
         "critical": true,

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { createHash } from 'node:crypto';
 import { resolve, join, dirname, extname, parse, sep } from 'node:path';
 import { existsSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -126,6 +127,7 @@ import {
 } from '../src/services/inspection-evidence-intake/stage5b-runtime-validation.js';
 import {
   createRevisionImpactReportFromPaths,
+  preflightRevisionImpactArtifactTargets,
   writeRevisionImpactArtifacts,
 } from '../src/services/revision-impact/revision-impact-service.js';
 import { runSweep } from '../src/services/sweep/sweep-service.js';
@@ -1265,7 +1267,7 @@ async function loadConfigForCli(filepath) {
   return result.config;
 }
 
-async function writeCliManifest({
+async function buildCliManifest({
   command,
   status = 'succeeded',
   configPath = null,
@@ -1314,7 +1316,12 @@ async function writeCliManifest({
     primaryOutputPath,
     outputDir,
   });
-  return writeArtifactManifest(resolvedManifestPath, manifest);
+  return { manifest, manifestPath: resolvedManifestPath };
+}
+
+async function writeCliManifest(options) {
+  const { manifest, manifestPath } = await buildCliManifest(options);
+  return writeArtifactManifest(manifestPath, manifest);
 }
 
 function resolveOutputManifestStatus({ warnings = [], errors = [] } = {}) {
@@ -2830,6 +2837,7 @@ async function cmdCompareRev(rawArgs = []) {
   let impactAnalysis = null;
   let impactOutputPath = null;
   let impactMarkdownPath = null;
+  let impactArtifactPlan = null;
   if (impactRequested) {
     const resolveImpactInputPath = (optionName) => options[optionName] === undefined
       ? null
@@ -2858,39 +2866,96 @@ async function cmdCompareRev(rawArgs = []) {
 
   const outputPath = normalizeJsonOutputPath(options.out)
     || artifactPathFor(buildDefaultOutputDir(options['out-dir']), deriveArtifactStem(candidatePath, 'revision'), '_revision_comparison.json');
+  const manifestOutputPath = createManifestPath({ primaryOutputPath: outputPath });
+  const comparisonContent = `${JSON.stringify(comparison, null, 2)}\n`;
+  let impactArtifacts = null;
+  let manifestPath;
   if (impactAnalysis) {
-    const reservedPaths = [outputPath, createManifestPath({ primaryOutputPath: outputPath })].map((pathValue) => resolve(pathValue));
+    const reservedPaths = [outputPath, manifestOutputPath].map((pathValue) => resolve(pathValue));
     const impactPaths = [impactOutputPath, impactMarkdownPath].map((pathValue) => resolve(pathValue));
     if (new Set(impactPaths).size !== impactPaths.length || impactPaths.some((pathValue) => reservedPaths.includes(pathValue))) {
       throw new Error('Revision comparison, impact JSON, impact Markdown, and artifact manifest outputs must use distinct paths');
     }
-  }
-  await writeValidatedJsonArtifact(outputPath, 'revision_comparison', comparison, {
-    command: 'compare-rev',
-  });
-  let impactArtifacts = null;
-  if (impactAnalysis) {
-    impactArtifacts = await writeRevisionImpactArtifacts({
+    assertValidDArtifact('revision_comparison', comparison, { command: 'compare-rev', path: outputPath });
+    const comparisonCompanion = {
+      path: outputPath,
+      extension: '.json',
+      label: 'revision comparison JSON',
+      content: comparisonContent,
+    };
+    const previewPlan = await preflightRevisionImpactArtifactTargets({
       projectRoot: PROJECT_ROOT,
       report: impactAnalysis.report,
       jsonPath: impactOutputPath,
       markdownPath: impactMarkdownPath,
-      allowedOutputRoots: [...new Set([dirname(impactOutputPath), dirname(impactMarkdownPath)])],
+      companionArtifacts: [comparisonCompanion],
+    });
+    const precomputedEntry = (pathValue) => {
+      const entry = previewPlan.entries.find((item) => item.target === resolve(pathValue));
+      if (!entry) throw new Error(`Missing prepared output metadata for ${pathValue}`);
+      return {
+        exists: true,
+        size_bytes: Buffer.byteLength(entry.content),
+        sha256: createHash('sha256').update(entry.content).digest('hex'),
+      };
+    };
+    const manifestOptions = {
+      command: 'compare-rev',
+      primaryOutputPath: outputPath,
+      manifestPath: manifestOutputPath,
+      artifacts: [
+        {
+          ...createArtifactEntry('revision-comparison.json', outputPath, { label: 'Revision comparison JSON' }),
+          precomputed: precomputedEntry(outputPath),
+        },
+        {
+          ...createArtifactEntry('revision-impact.report-json', impactOutputPath, { label: 'Revision impact report JSON' }),
+          precomputed: precomputedEntry(impactOutputPath),
+        },
+        {
+          ...createArtifactEntry('revision-impact.report-markdown', impactMarkdownPath, { label: 'Revision impact report Markdown' }),
+          precomputed: precomputedEntry(impactMarkdownPath),
+        },
+        createArtifactEntry('input.baseline', baselinePath, { label: 'Baseline JSON' }),
+        createArtifactEntry('input.candidate', candidatePath, { label: 'Candidate JSON' }),
+      ],
+    };
+    const builtManifest = await buildCliManifest(manifestOptions);
+    const manifestContent = `${JSON.stringify(builtManifest.manifest, null, 2)}\n`;
+    impactArtifactPlan = await preflightRevisionImpactArtifactTargets({
+      projectRoot: PROJECT_ROOT,
+      report: impactAnalysis.report,
+      jsonPath: impactOutputPath,
+      markdownPath: impactMarkdownPath,
+      companionArtifacts: [
+        comparisonCompanion,
+        {
+          path: manifestOutputPath,
+          extension: '.json',
+          label: 'revision comparison artifact manifest',
+          content: manifestContent,
+        },
+      ],
+    });
+    impactArtifacts = await writeRevisionImpactArtifacts({
+      preparedPlan: impactArtifactPlan,
+    });
+    manifestPath = manifestOutputPath;
+  } else {
+    await writeValidatedJsonArtifact(outputPath, 'revision_comparison', comparison, {
+      command: 'compare-rev',
+    });
+    manifestPath = await writeCliManifest({
+      command: 'compare-rev',
+      primaryOutputPath: outputPath,
+      manifestPath: manifestOutputPath,
+      artifacts: [
+        createArtifactEntry('revision-comparison.json', outputPath, { label: 'Revision comparison JSON' }),
+        createArtifactEntry('input.baseline', baselinePath, { label: 'Baseline JSON' }),
+        createArtifactEntry('input.candidate', candidatePath, { label: 'Candidate JSON' }),
+      ],
     });
   }
-  const manifestPath = await writeCliManifest({
-    command: 'compare-rev',
-    primaryOutputPath: outputPath,
-    artifacts: [
-      createArtifactEntry('revision-comparison.json', outputPath, { label: 'Revision comparison JSON' }),
-      ...(impactArtifacts ? [
-        createArtifactEntry('revision-impact.report-json', impactArtifacts.jsonPath, { label: 'Revision impact report JSON' }),
-        createArtifactEntry('revision-impact.report-markdown', impactArtifacts.markdownPath, { label: 'Revision impact report Markdown' }),
-      ] : []),
-      createArtifactEntry('input.baseline', baselinePath, { label: 'Baseline JSON' }),
-      createArtifactEntry('input.candidate', candidatePath, { label: 'Candidate JSON' }),
-    ],
-  });
   console.log(`Revision comparison: ${outputPath}`);
   if (impactArtifacts) {
     console.log(`Revision impact report: ${impactArtifacts.jsonPath}`);

@@ -1,5 +1,14 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { basename, join, parse, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
@@ -25,6 +34,10 @@ function runCompare(args) {
 
 function readJson(pathValue) {
   return JSON.parse(readFileSync(pathValue, 'utf8'));
+}
+
+function sha256File(pathValue) {
+  return createHash('sha256').update(readFileSync(pathValue)).digest('hex');
 }
 
 function runFixedFixtureTwice({ name, baseline, candidate, generatedAt }) {
@@ -97,6 +110,16 @@ try {
   assert.equal(manifest.artifacts.some((entry) => entry.type === 'revision-comparison.json'), true);
   assert.equal(manifest.artifacts.some((entry) => entry.type === 'revision-impact.report-json' && basename(entry.path) === 'revision_impact_report.json'), true);
   assert.equal(manifest.artifacts.some((entry) => entry.type === 'revision-impact.report-markdown' && basename(entry.path) === 'revision_impact_report.md'), true);
+  for (const [type, pathValue] of [
+    ['revision-comparison.json', legacyPath],
+    ['revision-impact.report-json', impactPath],
+    ['revision-impact.report-markdown', impactMarkdownPath],
+  ]) {
+    const artifact = manifest.artifacts.find((entry) => entry.type === type);
+    assert.equal(artifact?.exists, true, `${type} should be precomputed as materialized`);
+    assert.equal(artifact?.size_bytes, readFileSync(pathValue).length, `${type} size`);
+    assert.equal(artifact?.sha256, sha256File(pathValue), `${type} hash`);
+  }
 
   const ignoredOutput = join(workDir, 'must_not_exist.json');
   const withoutImpact = runCompare(['--out', ignoredOutput, '--generated-at', fixedGeneratedAt]);
@@ -126,6 +149,102 @@ try {
   assert.notEqual(invalidInput.status, 0);
   assert.equal(existsSync(validationLegacyOutput), false);
   assert.equal(existsSync(validationImpactOutput), false);
+
+  const unsafeLegacyOutput = join(workDir, 'unsafe_target_must_not_write_legacy.json');
+  const unsafeImpactOutput = join(
+    ROOT,
+    'docs/examples/quality-pass-bracket/revision_impact_must_not_exist.json'
+  );
+  const unsafeImpactMarkdown = unsafeImpactOutput.replace(/\.json$/i, '.md');
+  const unsafeManifestOutput = join(
+    parse(unsafeLegacyOutput).dir,
+    `${parse(unsafeLegacyOutput).name}_artifact-manifest.json`
+  );
+  const unsafeTarget = runCompare([
+    '--out', unsafeLegacyOutput,
+    '--impact-out', unsafeImpactOutput,
+    '--generated-at', fixedGeneratedAt,
+  ]);
+  assert.notEqual(unsafeTarget.status, 0);
+  assert.match(unsafeTarget.stderr, /non-canonical|docs\/examples/i);
+  assert.equal(existsSync(unsafeLegacyOutput), false);
+  assert.equal(existsSync(unsafeManifestOutput), false);
+  assert.equal(existsSync(unsafeImpactOutput), false);
+  assert.equal(existsSync(unsafeImpactMarkdown), false);
+
+  const canonicalLegacyOutput = join(
+    ROOT,
+    'docs/examples/quality-pass-bracket/revision_comparison_must_not_exist.json'
+  );
+  const safeImpactForCanonicalLegacy = join(workDir, 'canonical-legacy-impact.json');
+  const canonicalLegacyTarget = runCompare([
+    '--out', canonicalLegacyOutput,
+    '--impact-out', safeImpactForCanonicalLegacy,
+    '--generated-at', fixedGeneratedAt,
+  ]);
+  assert.notEqual(canonicalLegacyTarget.status, 0);
+  assert.match(canonicalLegacyTarget.stderr, /docs\/examples|canonical/i);
+  assert.equal(existsSync(canonicalLegacyOutput), false);
+  assert.equal(existsSync(safeImpactForCanonicalLegacy), false);
+  assert.equal(existsSync(safeImpactForCanonicalLegacy.replace(/\.json$/i, '.md')), false);
+
+  const trackedImpactOutput = join(ROOT, 'src/revision_impact_must_not_exist.json');
+  const safeLegacyForTrackedImpact = join(workDir, 'tracked-impact-legacy.json');
+  const trackedImpactTarget = runCompare([
+    '--out', safeLegacyForTrackedImpact,
+    '--impact-out', trackedImpactOutput,
+    '--generated-at', fixedGeneratedAt,
+  ]);
+  assert.notEqual(trackedImpactTarget.status, 0);
+  assert.match(trackedImpactTarget.stderr, /approved output boundary|safe output/i);
+  assert.equal(existsSync(trackedImpactOutput), false);
+  assert.equal(existsSync(safeLegacyForTrackedImpact), false);
+
+  const manifestSymlinkLegacy = join(workDir, 'manifest-symlink-legacy.json');
+  const manifestSymlinkImpact = join(workDir, 'manifest-symlink-impact.json');
+  const parsedManifestSymlinkLegacy = parse(manifestSymlinkLegacy);
+  const manifestSymlinkPath = join(
+    parsedManifestSymlinkLegacy.dir,
+    `${parsedManifestSymlinkLegacy.name}_artifact-manifest.json`
+  );
+  const manifestSymlinkSentinel = join(workDir, 'manifest-symlink-sentinel.json');
+  const manifestSymlinkSentinelBytes = 'manifest symlink sentinel\n';
+  writeFileSync(manifestSymlinkSentinel, manifestSymlinkSentinelBytes, 'utf8');
+  symlinkSync(manifestSymlinkSentinel, manifestSymlinkPath);
+  const manifestSymlinkTarget = runCompare([
+    '--out', manifestSymlinkLegacy,
+    '--impact-out', manifestSymlinkImpact,
+    '--generated-at', fixedGeneratedAt,
+  ]);
+  assert.notEqual(manifestSymlinkTarget.status, 0);
+  assert.match(manifestSymlinkTarget.stderr, /symlink/i);
+  assert.equal(existsSync(manifestSymlinkLegacy), false);
+  assert.equal(existsSync(manifestSymlinkImpact), false);
+  assert.equal(readFileSync(manifestSymlinkSentinel, 'utf8'), manifestSymlinkSentinelBytes);
+
+  const preservedLegacyOutput = join(workDir, 'preflight_preserves_legacy.json');
+  const preservedManifestOutput = join(
+    parse(preservedLegacyOutput).dir,
+    `${parse(preservedLegacyOutput).name}_artifact-manifest.json`
+  );
+  const preservedLegacyBytes = 'legacy sentinel\n';
+  const preservedManifestBytes = 'manifest sentinel\n';
+  writeFileSync(preservedLegacyOutput, preservedLegacyBytes, 'utf8');
+  writeFileSync(preservedManifestOutput, preservedManifestBytes, 'utf8');
+  const missingJsonDir = join(workDir, 'preflight-json-dir-must-not-exist');
+  const missingMarkdownDir = join(workDir, 'preflight-markdown-dir-must-not-exist');
+  const invalidMarkdownTarget = runCompare([
+    '--out', preservedLegacyOutput,
+    '--impact-out', join(missingJsonDir, 'revision_impact_report.json'),
+    '--impact-md-out', join(missingMarkdownDir, 'revision_impact_report.txt'),
+    '--generated-at', fixedGeneratedAt,
+  ]);
+  assert.notEqual(invalidMarkdownTarget.status, 0);
+  assert.match(invalidMarkdownTarget.stderr, /must end in \.md/i);
+  assert.equal(readFileSync(preservedLegacyOutput, 'utf8'), preservedLegacyBytes);
+  assert.equal(readFileSync(preservedManifestOutput, 'utf8'), preservedManifestBytes);
+  assert.equal(existsSync(missingJsonDir), false);
+  assert.equal(existsSync(missingMarkdownDir), false);
 
   const unchangedReport = runFixedFixtureTwice({
     name: 'unchanged',

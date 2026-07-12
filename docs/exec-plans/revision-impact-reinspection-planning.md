@@ -22,8 +22,9 @@ ready, publish a release, create a tag, upload an artifact, or deploy anything.
   `aeed086176909e124e777b99811a6ec14763bec4`
 - refreshed PR #171 head: `f98d16a5a585fa9df234048398e70b765a68d956`
 - onboarding safety checkpoint: `69aa9eadb92e0a27a9f005493ff7f44de87fe0e6`
-- onboarding landing commit after restack: `e5dd01cb075e794002ab8c168c00dd83d4b47e62`
-- task branch: `codex/revision-impact-reinspection-planning`
+- onboarding feature commit after restack: `e5dd01cb075e794002ab8c168c00dd83d4b47e62`
+- finalized onboarding head: `66c396c4c189f7e2c06b3f6d207e74f6b2a46980`
+- task branch: `codex/revision-impact-reinspection-planning-restacked`
 - task worktree: a separate sibling worktree (absolute local path is kept only
   in ignored task evidence)
 
@@ -33,14 +34,17 @@ The dependency chain is intentionally stacked:
 origin/master aeed086
   -> PR #171 f98d16a
   -> inspection-evidence onboarding e5dd01c
+  -> onboarding artifact re-entry fix 66c396c
   -> revision-impact work
 ```
 
-The onboarding integration unit depends on PR #171's evidence-readiness command,
-job, and service surfaces. It does not directly require only the final PR commit,
-but the complete pinned PR head is the safest landing base. The original
-onboarding checkpoint remains recoverable on
-`codex/backup-inspection-evidence-onboarding-safety-69aa9ea`.
+Revision impact directly depends on the inspection-evidence envelope, receipt,
+privacy, parsing, and control-material contracts introduced by onboarding at
+`e5dd01c`; those contracts do not exist on `origin/master` or PR #171 alone.
+Revision-impact code has no demonstrated direct dependency on PR #171, but PR
+#171 remains a transitive dependency of the finalized onboarding branch and the
+safest pinned landing base. The original onboarding checkpoint remains
+recoverable on `codex/backup-inspection-evidence-onboarding-safety-69aa9ea`.
 
 ## Architecture before this change
 
@@ -233,7 +237,14 @@ supplied it.
 ## Read-only and output policy
 
 - CLI impact output is allowed only at an explicit safe non-canonical output
-  target; tracked jobs write only under the job store's artifact directory.
+  target under `output/` or `tmp/codex/`; tracked jobs write only under the job
+  store's explicitly trusted artifact directory. A caller-provided dirname can
+  narrow but cannot widen those roots.
+- Impact JSON, derived Markdown, legacy comparison, and the artifact manifest
+  share one safe directory. All four are prepared, target-identity checked,
+  staged, journaled, and rollback-published under one directory lock. A stale
+  interrupted journal restores the prior complete set (or finalizes an already
+  committed complete set) before another preflight proceeds.
 - Reject traversal, NUL/backslash tricks, symlink parent/target escapes, unsafe
   hardlink aliases, canonical package review/readiness/inspection/release roots,
   and partial JSON/Markdown publication.
@@ -279,7 +290,7 @@ supplied it.
 Land as reviewable stacked units:
 
 1. PR #171.
-2. Inspection-evidence onboarding (`e5dd01c`).
+2. Inspection-evidence onboarding (`e5dd01c`, finalized by `66c396c`).
 3. Revision-impact slice A: plans, schema, pure policy/service, CLI, fixtures,
    adversarial and compatibility tests.
 4. Revision-impact slice B: tracked job, Local API, artifact registration,
@@ -316,10 +327,10 @@ out of scope unless separately requested.
 
 ## Implementation ledger
 
-- [ ] Plans and pinned architecture/dependency evidence recorded.
-- [ ] Schema, validator, normalized domain policy, Markdown renderer, and CLI
+- [x] Plans and pinned architecture/dependency evidence recorded.
+- [x] Schema, validator, normalized domain policy, Markdown renderer, and CLI
   integration implemented and verified.
-- [ ] Job/API/artifact/Studio integration implemented and verified.
-- [ ] Fixtures, adversarial/regression tests, and docs implemented and verified.
-- [ ] Required lanes, deterministic reruns, canonical hashes, and final
+- [x] Job/API/artifact/Studio integration implemented and verified.
+- [x] Fixtures, adversarial/regression tests, and docs implemented and verified.
+- [x] Required lanes, deterministic reruns, canonical hashes, and final
   read-only review evidence recorded.

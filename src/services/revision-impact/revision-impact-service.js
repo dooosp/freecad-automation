@@ -2,12 +2,13 @@ import { randomUUID } from 'node:crypto';
 import { constants as fsConstants, readFileSync } from 'node:fs';
 import {
   lstat,
+  link,
   mkdir,
   open,
   realpath,
   rename,
   rm,
-  writeFile,
+  rmdir,
 } from 'node:fs/promises';
 import {
   basename,
@@ -46,7 +47,11 @@ import {
   renderRevisionImpactMarkdown,
 } from '../../../lib/revision-impact-contract.js';
 import { validateExtractedDrawingSemantics } from '../drawing/extracted-drawing-semantics.js';
-import { validateEvidenceGraph } from '../evidence-graph/evidence-graph-service.js';
+import { validateEvidenceGraph as validateCanonicalEvidenceGraph } from '../evidence-graph/evidence-graph-service.js';
+import {
+  collectRevisionImpactSemanticRecords,
+  validateRevisionImpactSemanticArtifact,
+} from './revision-impact-semantic-adapters.js';
 
 export const REVISION_IMPACT_MAX_JSON_BYTES = 4 * 1024 * 1024;
 export const REVISION_IMPACT_MAX_CONFIG_BYTES = 2 * 1024 * 1024;
@@ -113,6 +118,10 @@ const UNIT_ALIASES = new Map([
 ]);
 
 let atomicWriteCounter = 0;
+const preparedRevisionImpactPlans = new WeakSet();
+const APPROVED_INTERNAL_OUTPUT_ROOTS = Object.freeze(['output', 'tmp/codex']);
+const MAX_PREPARED_OUTPUT_BYTES = 16 * 1024 * 1024;
+const OUTPUT_TRANSACTION_JOURNAL = '.fcad-revision-impact-output.transaction.json';
 
 export class RevisionImpactServiceError extends Error {
   constructor(code, message, details = {}) {
@@ -195,9 +204,9 @@ async function resolveExistingTrustedRoots(pathValues, label) {
       throw serviceError('unsafe_trusted_root', `${label} must be an existing real directory`);
     }
     const real = await realpath(absolute);
-    // macOS commonly exposes /var as an ancestor alias of /private/var. The
-    // explicitly trusted leaf must be real; authorization then uses its
-    // canonical realpath so an ancestor alias cannot widen the boundary.
+    // macOS commonly exposes the system var hierarchy through an ancestor
+    // alias. The explicitly trusted leaf must be real; authorization then uses
+    // its canonical realpath so the ancestor alias cannot widen the boundary.
     roots.push(real);
   }
   return uniqueSorted(roots);
@@ -363,15 +372,45 @@ function validateDeclaredArtifact(kind, document, label) {
     }
     return;
   }
-  if (kind === 'create_quality') return assertValidation(validateCreateQualityReport(document), 'create_quality_invalid', label);
+  if (kind === 'create_quality') {
+    assertValidation(validateCreateQualityReport(document), 'create_quality_invalid', label);
+    return assertValidation(
+      validateRevisionImpactSemanticArtifact(kind, document),
+      'create_quality_semantic_invalid',
+      label
+    );
+  }
   if (kind === 'quality_risk') {
     assertValidCArtifact('quality_risk', document, { command: 'compare-rev', path: label });
-    return;
+    return assertValidation(
+      validateRevisionImpactSemanticArtifact(kind, document),
+      'quality_risk_semantic_invalid',
+      label
+    );
   }
   if (kind === 'extracted_drawing_semantics') {
-    return assertValidation(validateExtractedDrawingSemantics(document), 'extracted_drawing_semantics_invalid', label);
+    assertValidation(validateExtractedDrawingSemantics(document), 'extracted_drawing_semantics_invalid', label);
+    return assertValidation(
+      validateRevisionImpactSemanticArtifact(kind, document),
+      'extracted_drawing_semantics_semantic_invalid',
+      label
+    );
   }
-  if (kind === 'evidence_graph') return assertValidation(validateEvidenceGraph(document), 'evidence_graph_invalid', label);
+  if (kind === 'evidence_graph') {
+    assertValidation(validateCanonicalEvidenceGraph(document), 'evidence_graph_invalid', label);
+    return assertValidation(
+      validateRevisionImpactSemanticArtifact(kind, document),
+      'evidence_graph_semantic_invalid',
+      label
+    );
+  }
+  if (['drawing_quality', 'drawing_qa', 'dfm'].includes(kind)) {
+    return assertValidation(
+      validateRevisionImpactSemanticArtifact(kind, document),
+      `${kind}_invalid`,
+      label
+    );
+  }
   if (!document || typeof document !== 'object' || Array.isArray(document)) {
     throw serviceError('declared_artifact_invalid', `${label} must be a JSON object`);
   }
@@ -537,11 +576,7 @@ export async function loadRevisionImpactInputSet({
 function canonicalValue(value) {
   if (value === undefined) return null;
   if (value === null || typeof value !== 'object') return Object.is(value, -0) ? 0 : value;
-  if (Array.isArray(value)) {
-    return value.map(canonicalValue).sort((left, right) => (
-      compareCodePoints(canonicalizeRevisionImpactJson(left), canonicalizeRevisionImpactJson(right))
-    ));
-  }
+  if (Array.isArray(value)) return value.map(canonicalValue);
   const result = {};
   Object.keys(value).sort(compareCodePoints).forEach((key) => {
     if (!VOLATILE_KEYS.has(key) && value[key] !== undefined) result[key] = canonicalValue(value[key]);
@@ -773,7 +808,92 @@ function addStableRecord(map, missing, id, value, sourceKey, kind) {
   if (map.has(normalizedId)) {
     throw serviceError('duplicate_stable_id', `Duplicate ${kind} stable ID: ${normalizedId}`);
   }
-  map.set(normalizedId, { id: normalizedId, value: canonicalValue(value), sourceKey });
+  const normalizedValue = canonicalValue(value);
+  map.set(normalizedId, {
+    id: normalizedId,
+    value: normalizedValue,
+    sourceKey,
+    sourceValues: { [sourceKey]: normalizedValue },
+  });
+}
+
+const MERGED_SOURCE_PRIORITY = ['review_pack', 'drawing_intent', 'feature_catalog', 'config'];
+
+function preferredSourceKey(sourceKeys) {
+  const keys = uniqueSorted(sourceKeys.filter(Boolean));
+  return MERGED_SOURCE_PRIORITY.find((key) => keys.includes(key)) || keys[0] || null;
+}
+
+function mergeCompatibleValues(left, right) {
+  if (left === null || left === undefined) return { ok: true, value: canonicalValue(right) };
+  if (right === null || right === undefined) return { ok: true, value: canonicalValue(left) };
+  if (valuesEqual(left, right)) return { ok: true, value: canonicalValue(right) };
+  if (typeof left === 'object' && !Array.isArray(left)
+    && typeof right === 'object' && !Array.isArray(right)) {
+    const merged = {};
+    for (const key of uniqueSorted([...Object.keys(left), ...Object.keys(right)])) {
+      const result = mergeCompatibleValues(left[key], right[key]);
+      if (!result.ok) return { ok: false, value: null };
+      merged[key] = result.value;
+    }
+    return { ok: true, value: merged };
+  }
+  return { ok: false, value: null };
+}
+
+function mergeStableRecord(map, missing, conflicts, id, value, sourceKey, kind) {
+  const normalizedId = textOrNull(id);
+  if (!normalizedId) {
+    missing.push({ kind, value: canonicalValue(value), sourceKey });
+    return;
+  }
+  const normalizedValue = canonicalValue(value);
+  const existing = map.get(normalizedId);
+  if (!existing) {
+    map.set(normalizedId, {
+      id: normalizedId,
+      value: normalizedValue,
+      sourceKey,
+      sourceValues: { [sourceKey]: normalizedValue },
+    });
+    return;
+  }
+  if (Object.hasOwn(existing.sourceValues || {}, sourceKey)) {
+    throw serviceError('duplicate_stable_id', `Duplicate ${kind} stable ID: ${normalizedId}`);
+  }
+  const merged = mergeCompatibleValues(existing.value, normalizedValue);
+  if (!merged.ok) {
+    map.delete(normalizedId);
+    conflicts.push({
+      kind,
+      id: normalizedId,
+      source_keys: uniqueSorted([...Object.keys(existing.sourceValues || {}), existing.sourceKey, sourceKey]),
+      values: [existing.value, normalizedValue],
+    });
+    return;
+  }
+  const sourceValues = { ...(existing.sourceValues || { [existing.sourceKey]: existing.value }), [sourceKey]: normalizedValue };
+  map.set(normalizedId, {
+    id: normalizedId,
+    value: merged.value,
+    sourceKey: preferredSourceKey(Object.keys(sourceValues)),
+    sourceValues,
+  });
+}
+
+function recordChangeSourceKeys(before, after, selector = (recordValue) => recordValue) {
+  const beforeValues = before?.sourceValues || (before?.sourceKey ? { [before.sourceKey]: before.value } : {});
+  const afterValues = after?.sourceValues || (after?.sourceKey ? { [after.sourceKey]: after.value } : {});
+  const keys = uniqueSorted([...Object.keys(beforeValues), ...Object.keys(afterValues)]);
+  const changedKeys = keys.filter((key) => !valuesEqual(
+    Object.hasOwn(beforeValues, key) ? selector(beforeValues[key]) : null,
+    Object.hasOwn(afterValues, key) ? selector(afterValues[key]) : null
+  ));
+  const selected = preferredSourceKey(changedKeys.length > 0 ? changedKeys : keys);
+  return {
+    baselineSourceKey: selected || before?.sourceKey || null,
+    candidateSourceKey: selected || after?.sourceKey || null,
+  };
 }
 
 function normalizeDimensions(dimensions) {
@@ -793,64 +913,108 @@ function normalizeDimensions(dimensions) {
 function collectFeatures(side) {
   const map = new Map();
   const missing = [];
+  const conflicts = [];
+  asArray(side.reviewPack?.geometry_features?.records).forEach((feature) => mergeStableRecord(
+    map,
+    missing,
+    conflicts,
+    feature?.feature_id,
+    {
+      type: feature?.feature_type ?? null,
+      critical: feature?.critical === undefined ? null : feature.critical === true,
+      region_ref: feature?.region_ref ?? null,
+      details: feature?.details ?? null,
+    },
+    'review_pack',
+    'geometry feature'
+  ));
   if (side.featureCatalog) {
-    asArray(side.featureCatalog.features).forEach((feature) => addStableRecord(map, missing, feature?.feature_id, {
+    asArray(side.featureCatalog.features).forEach((feature) => mergeStableRecord(map, missing, conflicts, feature?.feature_id, {
       type: feature?.type ?? null,
-      critical: feature?.critical === true,
+      critical: feature?.critical === undefined ? null : feature.critical === true,
       dimensions: normalizeDimensions(feature?.dimensions),
     }, 'feature_catalog', 'feature'));
   } else {
-    asArray(side.config?.shapes).forEach((shape) => addStableRecord(map, missing, shape?.id, {
+    asArray(side.config?.shapes).forEach((shape) => mergeStableRecord(map, missing, conflicts, shape?.id, {
       type: shape?.type ?? null,
       dimensions: normalizeDimensions(shape),
     }, 'config', 'feature'));
   }
-  asArray(side.reviewPack?.geometry_features?.records).forEach((feature) => addStableRecord(map, missing, feature?.feature_id, {
-    type: feature?.feature_type ?? null,
-    region_ref: feature?.region_ref ?? null,
-    details: feature?.details ?? null,
-  }, 'review_pack', 'geometry feature'));
-  return { map, missing };
+  return { map, missing, conflicts };
+}
+
+function normalizedCharacteristic(item) {
+  const nominal = measurementFromObject(item);
+  const tolerance = normalizeTolerance(item?.tolerance, nominal.unit);
+  return {
+    feature_id: textOrNull(item?.feature || item?.feature_id),
+    nominal: nominal.value,
+    unit: nominal.unit,
+    nominal_determinability: nominal.determinability,
+    tolerance: tolerance.value,
+    tolerance_determinability: tolerance.determinability,
+    datum: canonicalValue(item?.datum || item?.datum_reference || item?.reference || null),
+    specification_ref: textOrNull(item?.specification_ref || item?.specification_reference || item?.spec_ref),
+    inspection_method: textOrNull(item?.inspection_method || item?.method),
+    required: item?.required === undefined ? null : item.required !== false,
+    process_sensitive: item?.process_sensitive === undefined ? null : item.process_sensitive === true,
+    critical: item?.critical === undefined ? null : item.critical === true,
+    label: textOrNull(item?.label || item?.dimension_name),
+    view: textOrNull(item?.view),
+  };
 }
 
 function collectCharacteristics(side) {
   const map = new Map();
   const missing = [];
+  const conflicts = [];
+  asArray(side.reviewPack?.inspection_linkage?.records)
+    .filter((item) => item?.record_role === 'inspection_requirement')
+    .forEach((item) => mergeStableRecord(
+      map,
+      missing,
+      conflicts,
+      item?.characteristic_id,
+      normalizedCharacteristic(item),
+      'review_pack',
+      'inspection requirement'
+    ));
   asArray(side.drawingIntent?.required_dimensions).forEach((item) => {
-    const nominal = measurementFromObject(item);
-    const tolerance = normalizeTolerance(item?.tolerance, nominal.unit);
-    addStableRecord(map, missing, item?.id || item?.characteristic_id || item?.requirement_id, {
-      feature_id: textOrNull(item?.feature || item?.feature_id),
-      nominal: nominal.value,
-      unit: nominal.unit,
-      nominal_determinability: nominal.determinability,
-      tolerance: tolerance.value,
-      tolerance_determinability: tolerance.determinability,
-      datum: canonicalValue(item?.datum || item?.reference || null),
-      specification_ref: textOrNull(item?.specification_ref || item?.spec_ref),
-      inspection_method: textOrNull(item?.inspection_method || item?.method),
-      required: item?.required !== false,
-      process_sensitive: item?.process_sensitive === true,
-      label: textOrNull(item?.label),
-      view: textOrNull(item?.view),
-    }, side.sources.drawing_intent ? 'drawing_intent' : 'config', 'characteristic');
+    mergeStableRecord(
+      map,
+      missing,
+      conflicts,
+      item?.id || item?.characteristic_id || item?.requirement_id,
+      normalizedCharacteristic(item),
+      side.sources.drawing_intent ? 'drawing_intent' : 'config',
+      'characteristic'
+    );
   });
-  return { map, missing };
+  return { map, missing, conflicts };
 }
 
-function collectQualityGates(side) {
+function collectSemanticSurface(side, kind, document = sourceDocument(side.raw, kind)) {
   const map = new Map();
-  const missing = [];
-  const risk = side.readiness?.quality_risk || sourceDocument(side.raw, 'quality_risk');
-  asArray(risk?.quality_gates).forEach((gate) => addStableRecord(
+  if (!document) return { available: false, map, unmapped: [], sourceKey: kind };
+  const collected = collectRevisionImpactSemanticRecords(kind, document);
+  for (const record of collected.records) {
+    if (map.has(record.id)) {
+      throw serviceError('duplicate_stable_id', `Duplicate ${kind} stable ID: ${record.id}`);
+    }
+    map.set(record.id, {
+      id: record.id,
+      value: canonicalValue(record.value),
+      sourceKey: side.sources[kind] ? kind : 'readiness_report',
+      featureId: textOrNull(record.featureId),
+      characteristicId: textOrNull(record.characteristicId),
+    });
+  }
+  return {
+    available: true,
     map,
-    missing,
-    gate?.gate_id || gate?.id,
-    gate,
-    side.sources.quality_risk ? 'quality_risk' : 'readiness_report',
-    'quality gate'
-  ));
-  return { map, missing };
+    unmapped: canonicalValue(collected.unmapped),
+    sourceKey: side.sources[kind] ? kind : 'readiness_report',
+  };
 }
 
 function sourceFor(side, key) {
@@ -870,8 +1034,10 @@ function createChange(changes, impactById, baseline, candidate, {
   severity = 'medium',
   requiredAction = 'human_review',
   impactStatus = 'review_required',
+  stableIdentityKey = null,
+  force = false,
 }) {
-  if (valuesEqual(before, after)) return null;
+  if (!force && valuesEqual(before, after)) return null;
   const baselineSource = baselineSourceKey ? sourceFor(baseline, baselineSourceKey) : null;
   const candidateSource = candidateSourceKey ? sourceFor(candidate, candidateSourceKey) : null;
   const basis = {
@@ -881,6 +1047,7 @@ function createChange(changes, impactById, baseline, candidate, {
     after: canonicalValue(after),
     unit,
     determinability,
+    ...(stableIdentityKey ? { stable_identity_key: stableIdentityKey } : {}),
   };
   const change = {
     change_id: buildRevisionImpactStableId('change', basis),
@@ -956,19 +1123,103 @@ function compareRecordMaps(changes, impactById, baseline, candidate, baselineRec
         impactStatus: 'review_required',
       });
     } else if (!valuesEqual(before.value, after.value)) {
+      const sourceKeys = recordChangeSourceKeys(before, after);
       createChange(changes, impactById, baseline, candidate, {
         type: modifiedType,
         entityId: id,
         before: before.value,
         after: after.value,
-        baselineSourceKey: before.sourceKey,
-        candidateSourceKey: after.sourceKey,
+        ...sourceKeys,
         rationale: `${label} ${id} changed under the same explicit stable identity.`,
         severity: 'high',
         requiredAction: REINSPECTION_CHANGE_TYPES.has(modifiedType) ? 'reinspect' : 'human_review',
         impactStatus: REINSPECTION_CHANGE_TYPES.has(modifiedType) ? 'reinspection_required' : 'review_required',
       });
     }
+  });
+}
+
+function semanticRecordEntityId(before, after, fallback) {
+  return after?.characteristicId
+    || before?.characteristicId
+    || after?.featureId
+    || before?.featureId
+    || fallback;
+}
+
+function compareSemanticSurface(changes, impactById, baseline, candidate, baselineSurface, candidateSurface, {
+  kind,
+  changeType,
+  label,
+}) {
+  if (baselineSurface.available !== candidateSurface.available) {
+    createChange(changes, impactById, baseline, candidate, {
+      type: 'unresolved_identity_change',
+      entityId: null,
+      before: { artifact_kind: kind, available: baselineSurface.available },
+      after: { artifact_kind: kind, available: candidateSurface.available },
+      baselineSourceKey: baselineSurface.available ? baselineSurface.sourceKey : null,
+      candidateSourceKey: candidateSurface.available ? candidateSurface.sourceKey : null,
+      determinability: 'unable_to_determine',
+      rationale: `${label} availability differs between revisions, so semantic addition or removal cannot be inferred safely.`,
+      severity: 'blocking',
+      requiredAction: 'resolve_identity_or_inputs',
+      impactStatus: 'unable_to_determine',
+    });
+    return;
+  }
+  if (!baselineSurface.available) return;
+
+  const hasUnmapped = baselineSurface.unmapped.length > 0 || candidateSurface.unmapped.length > 0;
+  if (hasUnmapped) {
+    createChange(changes, impactById, baseline, candidate, {
+      type: 'unresolved_identity_change',
+      entityId: null,
+      before: { artifact_kind: kind, baseline_unmapped_records: baselineSurface.unmapped },
+      after: { artifact_kind: kind, candidate_unmapped_records: candidateSurface.unmapped },
+      baselineSourceKey: baselineSurface.sourceKey,
+      candidateSourceKey: candidateSurface.sourceKey,
+      determinability: 'unable_to_determine',
+      rationale: `${label} contains records without trustworthy stable identity; no positional mapping or add/remove conclusion was guessed.`,
+      severity: 'blocking',
+      requiredAction: 'resolve_identity_or_inputs',
+      impactStatus: 'unable_to_determine',
+      stableIdentityKey: `${kind}:unmapped`,
+    });
+  }
+
+  const ids = uniqueSorted([...baselineSurface.map.keys(), ...candidateSurface.map.keys()]);
+  ids.forEach((id) => {
+    const before = baselineSurface.map.get(id);
+    const after = candidateSurface.map.get(id);
+    if ((!before || !after) && hasUnmapped) return;
+    const beforeValue = before ? {
+      value: before.value,
+      feature_id: before.featureId,
+      characteristic_id: before.characteristicId,
+    } : null;
+    const afterValue = after ? {
+      value: after.value,
+      feature_id: after.featureId,
+      characteristic_id: after.characteristicId,
+    } : null;
+    if (before && after && valuesEqual(beforeValue, afterValue)) return;
+    const entityId = semanticRecordEntityId(before, after, id);
+    createChange(changes, impactById, baseline, candidate, {
+      type: changeType,
+      entityId,
+      before: beforeValue,
+      after: afterValue,
+      baselineSourceKey: before?.sourceKey || null,
+      candidateSourceKey: after?.sourceKey || null,
+      rationale: before && after
+        ? `${label} ${entityId} changed under explicit stable semantic identity.`
+        : `${label} ${entityId} was ${before ? 'removed' : 'added'} under explicit stable semantic identity.`,
+      severity: 'high',
+      requiredAction: 'human_review',
+      impactStatus: 'review_required',
+      stableIdentityKey: `${kind}:${id}`,
+    });
   });
 }
 
@@ -997,6 +1248,11 @@ function compareCharacteristics(changes, impactById, baseline, candidate, baseli
     const left = before.value;
     const right = after.value;
     if (!valuesEqual(left.nominal, right.nominal) || left.unit !== right.unit) {
+      const sourceKeys = recordChangeSourceKeys(before, after, (value) => ({
+        nominal: value?.nominal ?? null,
+        unit: value?.unit ?? null,
+        nominal_determinability: value?.nominal_determinability ?? null,
+      }));
       const determined = left.nominal_determinability === 'determined'
         && right.nominal_determinability === 'determined' && left.unit === right.unit;
       createChange(changes, impactById, baseline, candidate, {
@@ -1004,8 +1260,7 @@ function compareCharacteristics(changes, impactById, baseline, candidate, baseli
         entityId: id,
         before: left.nominal,
         after: right.nominal,
-        baselineSourceKey: before.sourceKey,
-        candidateSourceKey: after.sourceKey,
+        ...sourceKeys,
         unit: determined ? right.unit : null,
         determinability: determined ? 'determined' : 'unable_to_determine',
         rationale: determined
@@ -1017,6 +1272,10 @@ function compareCharacteristics(changes, impactById, baseline, candidate, baseli
       });
     }
     if (!valuesEqual(left.tolerance, right.tolerance)) {
+      const sourceKeys = recordChangeSourceKeys(before, after, (value) => ({
+        tolerance: value?.tolerance ?? null,
+        tolerance_determinability: value?.tolerance_determinability ?? null,
+      }));
       const determined = left.tolerance_determinability === 'determined'
         && right.tolerance_determinability === 'determined';
       const direction = determined ? toleranceDirection(left.tolerance, right.tolerance) : 'unknown';
@@ -1027,8 +1286,7 @@ function compareCharacteristics(changes, impactById, baseline, candidate, baseli
         entityId: id,
         before: left.tolerance,
         after: right.tolerance,
-        baselineSourceKey: before.sourceKey,
-        candidateSourceKey: after.sourceKey,
+        ...sourceKeys,
         unit: determined ? (right.tolerance?.unit || left.tolerance?.unit || null) : null,
         determinability: determined ? 'determined' : 'unable_to_determine',
         rationale: tightened
@@ -1050,13 +1308,13 @@ function compareCharacteristics(changes, impactById, baseline, candidate, baseli
     ];
     fieldRules.forEach(([field, type, requiredAction, impactStatus]) => {
       if (!valuesEqual(left[field], right[field])) {
+        const sourceKeys = recordChangeSourceKeys(before, after, (value) => value?.[field] ?? null);
         createChange(changes, impactById, baseline, candidate, {
           type,
           entityId: id,
           before: left[field],
           after: right[field],
-          baselineSourceKey: before.sourceKey,
-          candidateSourceKey: after.sourceKey,
+          ...sourceKeys,
           rationale: `Characteristic ${id} ${field.replaceAll('_', ' ')} changed explicitly.`,
           severity: 'high',
           requiredAction,
@@ -1064,16 +1322,38 @@ function compareCharacteristics(changes, impactById, baseline, candidate, baseli
         });
       }
     });
+    if (!valuesEqual(left.critical, right.critical)) {
+      const sourceKeys = recordChangeSourceKeys(before, after, (value) => value?.critical ?? null);
+      const becameCritical = right.critical === true;
+      createChange(changes, impactById, baseline, candidate, {
+        type: 'critical_characteristic_change',
+        entityId: id,
+        before: left.critical,
+        after: right.critical,
+        ...sourceKeys,
+        rationale: becameCritical
+          ? `Characteristic ${id} became explicitly critical and requires future inspection.`
+          : `Characteristic ${id} criticality changed and prior evidence requires human review.`,
+        severity: 'high',
+        requiredAction: becameCritical ? 'reinspect' : 'human_review',
+        impactStatus: becameCritical ? 'reinspection_required' : 'review_required',
+      });
+    }
     const drawingBefore = { feature_id: left.feature_id, required: left.required, label: left.label, view: left.view };
     const drawingAfter = { feature_id: right.feature_id, required: right.required, label: right.label, view: right.view };
     if (!valuesEqual(drawingBefore, drawingAfter)) {
+      const sourceKeys = recordChangeSourceKeys(before, after, (value) => ({
+        feature_id: value?.feature_id ?? null,
+        required: value?.required ?? null,
+        label: value?.label ?? null,
+        view: value?.view ?? null,
+      }));
       createChange(changes, impactById, baseline, candidate, {
         type: 'drawing_requirement_change',
         entityId: id,
         before: drawingBefore,
         after: drawingAfter,
-        baselineSourceKey: before.sourceKey,
-        candidateSourceKey: after.sourceKey,
+        ...sourceKeys,
         rationale: `Drawing requirement ${id} changed under explicit identity.`,
         severity: 'medium',
         requiredAction: 'human_review',
@@ -1157,7 +1437,15 @@ function makeAssessment(baseline, candidate, id, relatedChangeIds, status, sourc
   return assessment;
 }
 
-function buildAssessments(baseline, candidate, changes, impactById, candidateCharacteristics, bindingIssues) {
+function buildAssessments(
+  baseline,
+  candidate,
+  changes,
+  impactById,
+  baselineCharacteristics,
+  candidateCharacteristics,
+  bindingIssues
+) {
   const assessments = new Map();
   const envelopeRef = baseline.sources.inspection_evidence_attachment_record?.ref
     || baseline.sources.inspection_evidence_envelope?.ref || null;
@@ -1169,11 +1457,17 @@ function buildAssessments(baseline, candidate, changes, impactById, candidateCha
     const id = textOrNull(characteristic?.characteristic_id);
     if (!id) throw serviceError('missing_characteristic_id', 'Evidence characteristic requires a stable characteristic_id');
     if (assessments.has(id)) throw serviceError('duplicate_characteristic_id', `Duplicate evidence characteristic ID: ${id}`);
+    const candidateCharacteristic = candidateCharacteristics.map.get(id)?.value || null;
+    const baselineCharacteristic = baselineCharacteristics.map.get(id)?.value || null;
+    const characteristicDefinition = candidateCharacteristic || baselineCharacteristic;
+    const featureId = candidateCharacteristic?.feature_id || null;
     const related = changes.filter((change) => (
       change.affected_entity_id === id
       || change.affected_entity_id === characteristic?.specification_ref
+      || (featureId && change.affected_entity_id === featureId
+        && change.change_type.startsWith('geometry_feature_'))
       || (['material_change', 'manufacturing_process_change'].includes(change.change_type)
-        && candidateCharacteristics.map.get(id)?.value?.process_sensitive === true)
+        && candidateCharacteristic?.process_sensitive !== false)
       || (change.change_type === 'unresolved_identity_change' && change.severity === 'blocking')
     )).map((change) => change.change_id);
     const status = untrustedEnvelope
@@ -1184,10 +1478,17 @@ function buildAssessments(baseline, candidate, changes, impactById, candidateCha
     assessments.set(id, makeAssessment(baseline, candidate, id, related, status, envelopeRef));
   });
 
-  for (const [id] of candidateCharacteristics.map) {
+  for (const [id, characteristic] of candidateCharacteristics.map) {
     if (assessments.has(id)) continue;
-    const related = changes.filter((change) => change.affected_entity_id === id).map((change) => change.change_id);
-    if (related.length === 0) continue;
+    const related = changes.filter((change) => (
+      change.affected_entity_id === id
+      || (characteristic.value.feature_id
+        && change.affected_entity_id === characteristic.value.feature_id
+        && change.change_type.startsWith('geometry_feature_'))
+      || (['material_change', 'manufacturing_process_change'].includes(change.change_type)
+        && characteristic.value.process_sensitive !== false)
+      || (change.change_type === 'unresolved_identity_change' && change.severity === 'blocking')
+    )).map((change) => change.change_id);
     assessments.set(id, makeAssessment(
       baseline,
       candidate,
@@ -1212,6 +1513,20 @@ function buildAssessments(baseline, candidate, changes, impactById, candidateCha
     ));
   }
   const identityChanges = changes.filter((change) => change.change_type === 'unresolved_identity_change');
+  identityChanges
+    .filter((change) => change.affected_entity_id)
+    .forEach((change) => {
+      const id = change.affected_entity_id;
+      if (assessments.has(id)) return;
+      assessments.set(id, makeAssessment(
+        baseline,
+        candidate,
+        id,
+        [change.change_id],
+        'unable_to_determine',
+        null
+      ));
+    });
   if (identityChanges.length > 0 && !assessments.has('identity_resolution')) {
     assessments.set('identity_resolution', makeAssessment(
       baseline,
@@ -1227,11 +1542,22 @@ function buildAssessments(baseline, candidate, changes, impactById, candidateCha
 
 function buildPlan(baseline, candidate, changes, assessments, impactById, candidateCharacteristics, blocked) {
   const targets = new Map();
-  assessments.filter((assessment) => assessment.applicability_status === 'reinspection_required').forEach((assessment) => {
+  assessments.filter((assessment) => (
+    assessment.applicability_status === 'reinspection_required'
+    && candidateCharacteristics.map.has(assessment.evidence_or_characteristic_id)
+  )).forEach((assessment) => {
     targets.set(assessment.evidence_or_characteristic_id, assessment.related_change_ids);
   });
+  const characteristicLinkedChangeIds = new Set(
+    assessments
+      .filter((assessment) => assessment.applicability_status === 'reinspection_required')
+      .filter((assessment) => candidateCharacteristics.map.has(assessment.evidence_or_characteristic_id))
+      .flatMap((assessment) => assessment.related_change_ids)
+  );
   changes.forEach((change) => {
     if (impactById.get(change.change_id)?.status !== 'reinspection_required') return;
+    if (change.change_type.startsWith('geometry_feature_')
+      && characteristicLinkedChangeIds.has(change.change_id)) return;
     const id = change.affected_entity_id;
     if (!id) return;
     targets.set(id, uniqueSorted([...(targets.get(id) || []), change.change_id]));
@@ -1380,15 +1706,58 @@ export function buildRevisionImpactReport({ baseline, candidate, generatedAt } =
 
   const leftFeatures = collectFeatures(left);
   const rightFeatures = collectFeatures(right);
-  compareRecordMaps(changes, impactById, left, right, leftFeatures, rightFeatures, {
-    addedType: 'geometry_feature_added',
-    removedType: 'geometry_feature_removed',
-    modifiedType: 'geometry_feature_modified',
-    label: 'Geometry feature',
-  });
+  const featureSurfaceKind = (side) => side.featureCatalog
+    ? 'feature_catalog'
+    : Array.isArray(side.config?.shapes)
+      ? 'config_shapes'
+      : 'review_pack';
+  const leftFeatureSurface = featureSurfaceKind(left);
+  const rightFeatureSurface = featureSurfaceKind(right);
+  if (leftFeatureSurface !== rightFeatureSurface) {
+    addIdentityGap(
+      changes,
+      impactById,
+      left,
+      right,
+      'feature_surface_availability',
+      { source: leftFeatureSurface },
+      { source: rightFeatureSurface },
+      'Feature-source availability differs between revisions, so feature addition or removal cannot be inferred safely.'
+    );
+  } else {
+    compareRecordMaps(changes, impactById, left, right, leftFeatures, rightFeatures, {
+      addedType: 'geometry_feature_added',
+      removedType: 'geometry_feature_removed',
+      modifiedType: 'geometry_feature_modified',
+      label: 'Geometry feature',
+    });
+  }
   const leftChars = collectCharacteristics(left);
   const rightChars = collectCharacteristics(right);
-  compareCharacteristics(changes, impactById, left, right, leftChars, rightChars);
+  const drawingIntentAvailabilityMismatch = Boolean(left.drawingIntent) !== Boolean(right.drawingIntent);
+  const characteristicSurfaceAvailable = (side) => Boolean(side.drawingIntent)
+    || Array.isArray(side.reviewPack?.inspection_linkage?.records);
+  const characteristicAvailabilityMismatch = characteristicSurfaceAvailable(left) !== characteristicSurfaceAvailable(right);
+  if (characteristicAvailabilityMismatch || drawingIntentAvailabilityMismatch) {
+    addIdentityGap(
+      changes,
+      impactById,
+      left,
+      right,
+      'inspection_requirement_availability',
+      {
+        drawing_intent: Boolean(left.drawingIntent),
+        characteristic_surface: characteristicSurfaceAvailable(left),
+      },
+      {
+        drawing_intent: Boolean(right.drawingIntent),
+        characteristic_surface: characteristicSurfaceAvailable(right),
+      },
+      'Drawing-intent or inspection-requirement availability differs between revisions, so characteristic addition or removal cannot be inferred safely.'
+    );
+  } else {
+    compareCharacteristics(changes, impactById, left, right, leftChars, rightChars);
+  }
   const unsupportedBaselineCharacteristics = [...leftChars.map.values()]
     .filter((entry) => entry.value.nominal_determinability === 'unable_to_determine'
       || entry.value.tolerance_determinability === 'unable_to_determine')
@@ -1411,24 +1780,71 @@ export function buildRevisionImpactReport({ baseline, candidate, generatedAt } =
       'Unsupported or ambiguous characteristic units prevent an exact deterministic comparison.'
     );
   }
-  const leftGates = collectQualityGates(left);
-  const rightGates = collectQualityGates(right);
-  compareRecordMaps(changes, impactById, left, right, leftGates, rightGates, {
-    addedType: 'quality_gate_change',
-    removedType: 'quality_gate_change',
-    modifiedType: 'quality_gate_change',
-    label: 'Quality gate',
+  const leftGates = collectSemanticSurface(
+    left,
+    'quality_risk',
+    left.readiness?.quality_risk || sourceDocument(left.raw, 'quality_risk')
+  );
+  const rightGates = collectSemanticSurface(
+    right,
+    'quality_risk',
+    right.readiness?.quality_risk || sourceDocument(right.raw, 'quality_risk')
+  );
+  compareSemanticSurface(changes, impactById, left, right, leftGates, rightGates, {
+    kind: 'quality_risk',
+    changeType: 'quality_gate_change',
+    label: 'Quality-risk record',
+  });
+
+  const semanticSurfacePolicies = [
+    ['extracted_drawing_semantics', 'drawing_requirement_change', 'Extracted drawing semantic'],
+    ['create_quality', 'quality_gate_change', 'Create-quality record'],
+    ['drawing_quality', 'quality_gate_change', 'Drawing-quality record'],
+    ['drawing_qa', 'quality_gate_change', 'Drawing-QA record'],
+    ['dfm', 'quality_gate_change', 'DFM record'],
+    ['evidence_graph', 'evidence_reference_change', 'Evidence-graph reference'],
+  ];
+  semanticSurfacePolicies.forEach(([kind, changeType, label]) => {
+    compareSemanticSurface(
+      changes,
+      impactById,
+      left,
+      right,
+      collectSemanticSurface(left, kind),
+      collectSemanticSurface(right, kind),
+      { kind, changeType, label }
+    );
   });
 
   const missingStable = [
     ...leftFeatures.missing, ...rightFeatures.missing,
     ...leftChars.missing, ...rightChars.missing,
-    ...leftGates.missing, ...rightGates.missing,
   ];
+  const sourceConflicts = [
+    ...leftFeatures.conflicts.map((conflict) => ({ side: 'baseline', conflict })),
+    ...rightFeatures.conflicts.map((conflict) => ({ side: 'candidate', conflict })),
+    ...leftChars.conflicts.map((conflict) => ({ side: 'baseline', conflict })),
+    ...rightChars.conflicts.map((conflict) => ({ side: 'candidate', conflict })),
+  ];
+  sourceConflicts.forEach(({ side, conflict }) => createChange(changes, impactById, left, right, {
+    type: 'unresolved_identity_change',
+    entityId: conflict.id,
+    before: side === 'baseline' ? { entity_id: conflict.id, ...conflict } : null,
+    after: side === 'candidate' ? { entity_id: conflict.id, ...conflict } : null,
+    determinability: 'unable_to_determine',
+    rationale: `Stable ${conflict.kind} ${conflict.id} conflicts across normalized source artifacts.`,
+    severity: 'blocking',
+    requiredAction: 'resolve_identity_or_inputs',
+    impactStatus: 'unable_to_determine',
+  }));
   if (missingStable.length > 0) {
     addIdentityGap(changes, impactById, left, right, 'stable_entity_identity',
-      { baseline_missing_count: leftFeatures.missing.length + leftChars.missing.length + leftGates.missing.length },
-      { candidate_missing_count: rightFeatures.missing.length + rightChars.missing.length + rightGates.missing.length },
+      {
+        baseline_missing_count: leftFeatures.missing.length + leftChars.missing.length,
+      },
+      {
+        candidate_missing_count: rightFeatures.missing.length + rightChars.missing.length,
+      },
       'One or more compared engineering entities lack stable identity; array position is never used as identity.');
   }
 
@@ -1439,10 +1855,11 @@ export function buildRevisionImpactReport({ baseline, candidate, generatedAt } =
     ['drawing_standard', 'specification_reference_change'],
     ['tolerance_policy', 'drawing_requirement_change'],
   ];
-  drawingFields.forEach(([field, type]) => {
+  if (!drawingIntentAvailabilityMismatch) drawingFields.forEach(([field, type]) => {
     const before = canonicalValue(left.drawingIntent?.[field] ?? null);
     const after = canonicalValue(right.drawingIntent?.[field] ?? null);
     if (!valuesEqual(before, after)) {
+      const unableToLinkGlobalDatum = field === 'datum_strategy';
       createChange(changes, impactById, left, right, {
         type,
         entityId: `drawing:${field}`,
@@ -1450,10 +1867,13 @@ export function buildRevisionImpactReport({ baseline, candidate, generatedAt } =
         after,
         baselineSourceKey: left.sources.drawing_intent ? 'drawing_intent' : 'config',
         candidateSourceKey: right.sources.drawing_intent ? 'drawing_intent' : 'config',
-        rationale: `Explicit drawing ${field.replaceAll('_', ' ')} changed.`,
-        severity: 'high',
-        requiredAction: type === 'datum_or_reference_change' ? 'reinspect' : 'human_review',
-        impactStatus: type === 'datum_or_reference_change' ? 'reinspection_required' : 'review_required',
+        determinability: unableToLinkGlobalDatum ? 'unable_to_determine' : 'determined',
+        rationale: unableToLinkGlobalDatum
+          ? 'The global drawing datum strategy changed without an explicit stable characteristic linkage.'
+          : `Explicit drawing ${field.replaceAll('_', ' ')} changed.`,
+        severity: unableToLinkGlobalDatum ? 'blocking' : 'high',
+        requiredAction: unableToLinkGlobalDatum ? 'resolve_identity_or_inputs' : 'human_review',
+        impactStatus: unableToLinkGlobalDatum ? 'unable_to_determine' : 'review_required',
       });
     }
   });
@@ -1505,7 +1925,15 @@ export function buildRevisionImpactReport({ baseline, candidate, generatedAt } =
   }
   changes.sort((first, second) => compareCodePoints(first.change_id, second.change_id));
   const blocked = changes.some((change) => change.severity === 'blocking' || change.determinability === 'unable_to_determine');
-  const assessments = buildAssessments(left, right, changes, impactById, rightChars, bindingIssues);
+  const assessments = buildAssessments(
+    left,
+    right,
+    changes,
+    impactById,
+    leftChars,
+    rightChars,
+    bindingIssues
+  );
   const plan = buildPlan(left, right, changes, assessments, impactById, rightChars, blocked);
   const reviewRequiredCount = changes.filter((change) => change.required_action === 'human_review').length
     + assessments.filter((assessment) => ['review_required', 'potentially_stale'].includes(assessment.applicability_status)).length;
@@ -1564,6 +1992,7 @@ async function ensureSafeOutputDirectory(projectRoot, targetDirectory) {
   if (!isInside(projectRoot, targetDirectory)) throw serviceError('output_path_escape', 'Output must remain inside the project root');
   const rel = repoRelative(projectRoot, targetDirectory);
   let current = projectRoot;
+  const created = [];
   for (const part of rel.split('/').filter(Boolean)) {
     current = resolve(current, part);
     try {
@@ -1574,9 +2003,11 @@ async function ensureSafeOutputDirectory(projectRoot, targetDirectory) {
     } catch (error) {
       if (error?.code !== 'ENOENT') throw error;
       await mkdir(current, { mode: 0o700 });
+      created.push(current);
     }
     if (await realpath(current) !== current) throw serviceError('output_symlink_escape', 'Output parent resolved through a symlink');
   }
+  return created;
 }
 
 async function inspectOutputTarget(target, label) {
@@ -1585,9 +2016,9 @@ async function inspectOutputTarget(target, label) {
     if (info.isSymbolicLink()) throw serviceError('symlink_output_forbidden', `${label} must not be a symlink`);
     if (!info.isFile()) throw serviceError('regular_output_required', `${label} must be a regular file`);
     if (info.nlink !== 1) throw serviceError('hardlink_output_forbidden', `${label} must not be a hardlink alias`);
-    return { exists: true };
+    return { exists: true, device: info.dev, inode: info.ino };
   } catch (error) {
-    if (error?.code === 'ENOENT') return { exists: false };
+    if (error?.code === 'ENOENT') return { exists: false, device: null, inode: null };
     throw error;
   }
 }
@@ -1618,12 +2049,12 @@ async function prepareOutputTarget(projectRoot, pathValue, allowedRoots, label, 
   const requested = isAbsolute(raw) ? resolve(raw) : resolve(projectRoot, raw);
   const canonicalParent = await canonicalizeProspectiveDirectory(dirname(requested), label);
   const target = resolve(canonicalParent, basename(requested));
+  if (isInside(projectRoot, target) && isCanonicalOutputPath(projectRoot, target)) {
+    throw serviceError('canonical_output_forbidden', `${label} must not write under docs/examples`);
+  }
   const matchingRoots = [...allowedRoots].filter((root) => isInside(root, target));
   if (matchingRoots.length === 0) {
     throw serviceError('output_path_escape', `${label} must remain inside an approved output boundary`);
-  }
-  if (isInside(projectRoot, target) && isCanonicalOutputPath(projectRoot, target)) {
-    throw serviceError('canonical_output_forbidden', `${label} must not write under docs/examples`);
   }
   if (extname(target).toLowerCase() !== extension) {
     throw serviceError('output_extension_invalid', `${label} must end in ${extension}`);
@@ -1631,38 +2062,443 @@ async function prepareOutputTarget(projectRoot, pathValue, allowedRoots, label, 
   const directoryBoundary = isInside(projectRoot, target)
     ? projectRoot
     : matchingRoots.sort((left, right) => left.length - right.length)[0];
-  await ensureSafeOutputDirectory(directoryBoundary, dirname(target));
   const state = await inspectOutputTarget(target, label);
-  return { target, ...state };
+  return { target, directoryBoundary, label, ...state };
 }
 
-async function replaceOutputPair(entries) {
+async function materializePreparedOutputTarget(entry) {
+  const current = await inspectOutputTarget(entry.target, entry.label);
+  if (current.exists !== entry.exists
+    || (current.exists && (current.device !== entry.device || current.inode !== entry.inode))) {
+    throw serviceError('output_target_changed', `${entry.label} changed after preflight`);
+  }
+  const directory = dirname(entry.target);
+  const directoryInfo = await lstat(directory);
+  if (directoryInfo.isSymbolicLink() || !directoryInfo.isDirectory() || await realpath(directory) !== directory) {
+    throw serviceError('output_symlink_escape', `${entry.label} parent changed after preflight`);
+  }
+  return {
+    ...entry,
+    ...current,
+    directory,
+    directoryDevice: directoryInfo.dev,
+    directoryInode: directoryInfo.ino,
+  };
+}
+
+async function assertPreparedOutputState(entry, { targetExpected = entry.exists } = {}) {
+  const directoryInfo = await lstat(entry.directory);
+  if (directoryInfo.isSymbolicLink()
+    || !directoryInfo.isDirectory()
+    || directoryInfo.dev !== entry.directoryDevice
+    || directoryInfo.ino !== entry.directoryInode
+    || await realpath(entry.directory) !== entry.directory) {
+    throw serviceError('output_directory_changed', `${entry.label} parent changed during publication`);
+  }
+  const current = await inspectOutputTarget(entry.target, entry.label);
+  if (current.exists !== targetExpected
+    || (targetExpected && (current.device !== entry.device || current.inode !== entry.inode))) {
+    throw serviceError('output_target_changed', `${entry.label} changed during publication`);
+  }
+}
+
+async function removeCreatedOutputDirectories(createdDirectories) {
+  for (const directory of [...createdDirectories].reverse()) {
+    await rmdir(directory).catch(() => {});
+  }
+}
+
+async function materializePreparedOutputTargets(entries) {
+  const createdDirectories = [];
+  try {
+    const directories = uniqueSorted(entries.map((entry) => dirname(entry.target)));
+    for (const directory of directories) {
+      const representative = entries.find((entry) => dirname(entry.target) === directory);
+      createdDirectories.push(...await ensureSafeOutputDirectory(representative.directoryBoundary, directory));
+    }
+    const materialized = [];
+    for (const entry of entries) materialized.push(await materializePreparedOutputTarget(entry));
+    return { entries: materialized, createdDirectories: uniqueSorted(createdDirectories) };
+  } catch (error) {
+    await removeCreatedOutputDirectories(createdDirectories);
+    throw error;
+  }
+}
+
+async function writeExclusiveStagedFile(pathValue, content) {
+  let handle;
+  try {
+    handle = await open(
+      pathValue,
+      fsConstants.O_WRONLY | fsConstants.O_CREAT | fsConstants.O_EXCL | (fsConstants.O_NOFOLLOW || 0),
+      0o600
+    );
+    await handle.writeFile(content);
+    await handle.sync();
+  } finally {
+    await handle?.close().catch(() => {});
+  }
+}
+
+function isProcessAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return true;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error?.code !== 'ESRCH';
+  }
+}
+
+function outputLockOwnerPath(directory, pid, token) {
+  return resolve(directory, `.fcad-revision-impact-output.lock.${pid}.${token}.owner`);
+}
+
+async function recoverStaleOutputLock(lockPath) {
+  let handle;
+  try {
+    handle = await open(lockPath, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW || 0));
+    const info = await handle.stat();
+    if (!info.isFile() || info.nlink < 1 || info.nlink > 2) return false;
+    let owner;
+    try {
+      owner = JSON.parse(await handle.readFile('utf8'));
+    } catch {
+      return false;
+    }
+    if (isProcessAlive(owner?.pid)) return false;
+    const stalePath = `${lockPath}.${process.pid}.${randomUUID()}.stale`;
+    await handle.close();
+    handle = null;
+    await rename(lockPath, stalePath);
+    const staleInfo = await lstat(stalePath);
+    if (staleInfo.dev !== info.dev || staleInfo.ino !== info.ino) {
+      throw serviceError('output_lock_changed', 'Revision-impact output lock changed during stale-lock recovery');
+    }
+    await rm(stalePath, { force: true });
+    if (Number.isInteger(owner?.pid)
+      && /^[A-Za-z0-9.-]{1,200}$/.test(owner?.token || '')) {
+      const ownerPath = outputLockOwnerPath(dirname(lockPath), owner.pid, owner.token);
+      try {
+        const ownerInfo = await lstat(ownerPath);
+        if (ownerInfo.dev === info.dev && ownerInfo.ino === info.ino) await rm(ownerPath, { force: true });
+      } catch (error) {
+        if (error?.code !== 'ENOENT') throw error;
+      }
+    }
+    if (/^[A-Za-z0-9.-]{1,200}$/.test(owner?.token || '')) {
+      await rm(journalUpdatePath(dirname(lockPath), owner.token), { force: true });
+    }
+    return true;
+  } catch (error) {
+    if (error?.code === 'ENOENT') return true;
+    if (error instanceof RevisionImpactServiceError) throw error;
+    return false;
+  } finally {
+    await handle?.close().catch(() => {});
+  }
+}
+
+async function acquireOutputDirectoryLock(directory, ownerToken = null) {
+  const lockPath = resolve(directory, '.fcad-revision-impact-output.lock');
+  const token = /^[A-Za-z0-9.-]{1,200}$/.test(ownerToken || '')
+    ? ownerToken
+    : `recovery.${randomUUID()}`;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const ownerPath = outputLockOwnerPath(directory, process.pid, token);
+    try {
+      await writeExclusiveStagedFile(ownerPath, `${JSON.stringify({
+        pid: process.pid,
+        token,
+        created_at: new Date().toISOString(),
+      })}\n`);
+      await link(ownerPath, lockPath);
+      const info = await lstat(lockPath);
+      return async () => {
+        try {
+          const current = await lstat(lockPath);
+          if (current.dev === info.dev && current.ino === info.ino) await rm(lockPath, { force: true });
+        } catch (error) {
+          if (error?.code !== 'ENOENT') throw error;
+        }
+        await rm(ownerPath, { force: true });
+      };
+    } catch (error) {
+      await rm(ownerPath, { force: true }).catch(() => {});
+      if (error?.code !== 'EEXIST') throw error;
+      if (attempt === 0 && await recoverStaleOutputLock(lockPath)) continue;
+      throw serviceError('output_directory_locked', 'Another revision-impact publication owns the output directory');
+    }
+  }
+  throw serviceError('output_directory_locked', 'Another revision-impact publication owns the output directory');
+}
+
+async function syncOutputDirectory(directory) {
+  let handle;
+  try {
+    handle = await open(directory, fsConstants.O_RDONLY);
+    await handle.sync();
+  } catch (error) {
+    // Some platforms do not permit fsync on directories. File fsync and atomic
+    // rename still provide the strongest portable boundary available here.
+    if (!['EBADF', 'EINVAL', 'EISDIR', 'ENOTSUP', 'EOPNOTSUPP', 'EPERM'].includes(error?.code)) {
+      throw error;
+    }
+  } finally {
+    await handle?.close().catch(() => {});
+  }
+}
+
+async function hashRecoveryFile(pathValue, label) {
+  let handle;
+  try {
+    handle = await open(pathValue, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW || 0));
+    const info = await handle.stat();
+    if (!info.isFile() || info.nlink !== 1) {
+      throw serviceError('output_recovery_failed', `${label} must be a single-link regular file`);
+    }
+    return { sha256: sha256Bytes(await handle.readFile()), info };
+  } catch (error) {
+    if (error?.code === 'ENOENT') return null;
+    throw error;
+  } finally {
+    await handle?.close().catch(() => {});
+  }
+}
+
+function outputJournalPath(directory) {
+  return resolve(directory, OUTPUT_TRANSACTION_JOURNAL);
+}
+
+function journalUpdatePath(directory, token) {
+  return resolve(directory, `.fcad-revision-impact-output.transaction.${token}.tmp`);
+}
+
+async function writeInitialOutputJournal(journalPath, journal, { testHardExitBeforeRename = false } = {}) {
+  const initialPath = journalUpdatePath(dirname(journalPath), journal.token);
+  await writeExclusiveStagedFile(initialPath, `${JSON.stringify(journal, null, 2)}\n`);
+  if (testHardExitBeforeRename) process.kill(process.pid, 'SIGKILL');
+  await rename(initialPath, journalPath);
+  await syncOutputDirectory(dirname(journalPath));
+}
+
+async function updateOutputJournal(journalPath, journal) {
+  const updatePath = journalUpdatePath(dirname(journalPath), journal.token);
+  await writeExclusiveStagedFile(updatePath, `${JSON.stringify(journal, null, 2)}\n`);
+  await rename(updatePath, journalPath);
+  await syncOutputDirectory(dirname(journalPath));
+}
+
+function assertRecoveryJournal(directory, journal) {
+  if (!journal || journal.schema_version !== '1.0'
+    || !['staging', 'prepared', 'committed'].includes(journal.phase)
+    || !/^[A-Za-z0-9.-]{1,200}$/.test(journal.token || '')
+    || !Array.isArray(journal.entries)
+    || journal.entries.length === 0) {
+    throw serviceError('output_recovery_failed', 'Interrupted output journal is malformed');
+  }
+  for (const entry of journal.entries) {
+    for (const field of ['target', 'temp', 'backup']) {
+      if (typeof entry?.[field] !== 'string'
+        || resolve(entry[field]) !== entry[field]
+        || dirname(entry[field]) !== directory) {
+        throw serviceError('output_recovery_failed', `Interrupted output journal has an unsafe ${field}`);
+      }
+    }
+    if (!/^[a-f0-9]{64}$/.test(entry.new_sha256 || '')
+      || (entry.original_exists && !/^[a-f0-9]{64}$/.test(entry.original_sha256 || ''))) {
+      throw serviceError('output_recovery_failed', 'Interrupted output journal has invalid content hashes');
+    }
+  }
+}
+
+async function readOutputJournal(journalPath) {
+  const loaded = await hashRecoveryFile(journalPath, 'output transaction journal');
+  if (!loaded) return null;
+  let journal;
+  try {
+    const handle = await open(journalPath, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW || 0));
+    try {
+      journal = JSON.parse(await handle.readFile('utf8'));
+    } finally {
+      await handle.close();
+    }
+  } catch (error) {
+    throw serviceError('output_recovery_failed', `Interrupted output journal cannot be parsed: ${error.message}`);
+  }
+  assertRecoveryJournal(dirname(journalPath), journal);
+  return journal;
+}
+
+async function recoverOutputJournalLocked(directory) {
+  const journalPath = outputJournalPath(directory);
+  const journal = await readOutputJournal(journalPath);
+  if (!journal) return false;
+
+  if (journal.phase === 'committed') {
+    for (const entry of journal.entries) {
+      const target = await hashRecoveryFile(entry.target, 'committed recovery target');
+      if (!target || target.sha256 !== entry.new_sha256) {
+        throw serviceError('output_recovery_failed', 'Committed output transaction is incomplete or changed');
+      }
+      await rm(entry.temp, { force: true });
+      await rm(entry.backup, { force: true });
+    }
+  } else {
+    for (const entry of [...journal.entries].reverse()) {
+      const backup = await hashRecoveryFile(entry.backup, 'recovery backup');
+      const target = await hashRecoveryFile(entry.target, 'recovery target');
+      if (backup) {
+        if (!entry.original_exists || backup.sha256 !== entry.original_sha256) {
+          throw serviceError('output_recovery_failed', 'Recovery backup does not match the recorded original');
+        }
+        if (target && target.sha256 !== entry.new_sha256) {
+          throw serviceError('output_recovery_failed', 'Recovery target was changed by another writer');
+        }
+        if (target) await rm(entry.target, { force: true });
+        await rename(entry.backup, entry.target);
+      } else if (entry.original_exists) {
+        if (!target || target.sha256 !== entry.original_sha256) {
+          throw serviceError('output_recovery_failed', 'Original output cannot be restored safely');
+        }
+      } else if (target) {
+        if (target.sha256 !== entry.new_sha256) {
+          throw serviceError('output_recovery_failed', 'Unexpected output occupies an interrupted transaction target');
+        }
+        await rm(entry.target, { force: true });
+      }
+      await rm(entry.temp, { force: true });
+    }
+  }
+  await rm(journalUpdatePath(directory, journal.token), { force: true });
+  await rm(journalPath, { force: true });
+  await syncOutputDirectory(directory);
+  return true;
+}
+
+async function maybeRecoverInterruptedOutput(directory) {
+  try {
+    await lstat(outputJournalPath(directory));
+  } catch (error) {
+    if (error?.code === 'ENOENT') return false;
+    throw error;
+  }
+  const releaseLock = await acquireOutputDirectoryLock(directory);
+  try {
+    return await recoverOutputJournalLocked(directory);
+  } finally {
+    await releaseLock();
+  }
+}
+
+async function replacePreparedOutputs(entries, {
+  testFailAfterCommitCount = null,
+  testHardExitAfterCommitCount = null,
+  testHardExitBeforeInitialJournalRename = false,
+} = {}) {
+  const directories = uniqueSorted(entries.map((entry) => entry.directory));
+  if (directories.length !== 1) {
+    throw serviceError('output_directory_mismatch', 'Prepared outputs must share one publication directory');
+  }
+  const directory = directories[0];
   const token = `${process.pid}.${atomicWriteCounter += 1}.${randomUUID()}`;
+  const releaseLock = await acquireOutputDirectoryLock(directory, token);
+  const journalPath = outputJournalPath(directory);
   const staged = [];
   const backups = [];
   const committed = [];
+  let journalWritten = false;
+  let rollbackComplete = false;
   let published = false;
+  let journal = null;
   try {
+    const journalEntries = [];
     for (const entry of entries) {
+      await assertPreparedOutputState(entry);
+      const original = entry.exists ? await hashRecoveryFile(entry.target, entry.label) : null;
+      if (entry.exists && (!original
+        || original.info.dev !== entry.device
+        || original.info.ino !== entry.inode)) {
+        throw serviceError('output_target_changed', `${entry.label} changed before journal preparation`);
+      }
       const temp = resolve(dirname(entry.target), `.${basename(entry.target)}.${token}.tmp`);
-      await writeFile(temp, entry.content, { flag: 'wx', mode: 0o600 });
-      staged.push({ ...entry, temp });
-    }
-    for (const entry of staged.filter((item) => item.exists)) {
       const backup = resolve(dirname(entry.target), `.${basename(entry.target)}.${token}.bak`);
-      await rename(entry.target, backup);
-      backups.push({ target: entry.target, backup });
+      journalEntries.push({
+        target: entry.target,
+        temp,
+        backup,
+        original_exists: entry.exists,
+        original_sha256: original?.sha256 || null,
+        original_device: entry.device,
+        original_inode: entry.inode,
+        new_sha256: sha256Bytes(entry.content),
+      });
+    }
+    journal = {
+      schema_version: '1.0',
+      token,
+      owner_pid: process.pid,
+      phase: 'staging',
+      entries: journalEntries,
+    };
+    await writeInitialOutputJournal(journalPath, journal, {
+      testHardExitBeforeRename: testHardExitBeforeInitialJournalRename,
+    });
+    journalWritten = true;
+
+    for (let index = 0; index < entries.length; index += 1) {
+      const entry = entries[index];
+      const journalEntry = journalEntries[index];
+      await writeExclusiveStagedFile(journalEntry.temp, entry.content);
+      staged.push({ ...entry, temp: journalEntry.temp, backup: journalEntry.backup });
+    }
+    journal = { ...journal, phase: 'prepared' };
+    await updateOutputJournal(journalPath, journal);
+    for (const entry of staged) await assertPreparedOutputState(entry);
+    for (const entry of staged.filter((item) => item.exists)) {
+      await assertPreparedOutputState(entry);
+      await rename(entry.target, entry.backup);
+      backups.push({ target: entry.target, backup: entry.backup });
     }
     for (const entry of staged) {
+      await assertPreparedOutputState(entry, { targetExpected: false });
       await rename(entry.temp, entry.target);
-      committed.push(entry.target);
+      const committedInfo = await lstat(entry.target);
+      committed.push({ target: entry.target, device: committedInfo.dev, inode: committedInfo.ino });
+      if (Number.isInteger(testFailAfterCommitCount) && committed.length === testFailAfterCommitCount) {
+        throw serviceError('simulated_output_interruption', 'Simulated revision-impact publication interruption');
+      }
+      if (Number.isInteger(testHardExitAfterCommitCount) && committed.length === testHardExitAfterCommitCount) {
+        process.kill(process.pid, 'SIGKILL');
+      }
     }
+    await syncOutputDirectory(directory);
+    journal = { ...journal, phase: 'committed' };
+    await updateOutputJournal(journalPath, journal);
     published = true;
   } catch (error) {
-    for (const target of committed.reverse()) await rm(target, { force: true }).catch(() => {});
     const restoreFailures = [];
+    for (const entry of committed.reverse()) {
+      try {
+        const current = await lstat(entry.target);
+        if (current.dev !== entry.device || current.ino !== entry.inode) {
+          restoreFailures.push({ target: entry.target, cause: 'committed output ownership changed before rollback' });
+          continue;
+        }
+        await rm(entry.target, { force: true });
+      } catch (removeError) {
+        if (removeError?.code !== 'ENOENT') {
+          restoreFailures.push({ target: entry.target, cause: removeError.message });
+        }
+      }
+    }
     for (const entry of backups.reverse()) {
       try {
+        const current = await inspectOutputTarget(entry.target, 'rollback target');
+        if (current.exists) {
+          restoreFailures.push({ target: entry.target, backup: entry.backup, cause: 'rollback target is occupied' });
+          continue;
+        }
         await rename(entry.backup, entry.target);
         entry.restored = true;
       } catch (restoreError) {
@@ -1672,63 +2508,163 @@ async function replaceOutputPair(entries) {
     if (restoreFailures.length > 0 && error && typeof error === 'object') {
       error.revisionImpactRollbackFailures = restoreFailures;
     }
+    rollbackComplete = restoreFailures.length === 0;
+    if (rollbackComplete && journalWritten) {
+      await rm(journalUpdatePath(directory, token), { force: true }).catch(() => {});
+      await rm(journalPath, { force: true }).catch(() => {});
+      await syncOutputDirectory(directory);
+    }
     throw error;
   } finally {
-    for (const entry of staged) await rm(entry.temp, { force: true }).catch(() => {});
+    if (published || rollbackComplete) {
+      for (const entry of staged) await rm(entry.temp, { force: true }).catch(() => {});
+    }
     if (published) {
       // Publication is complete. Backup cleanup is deliberately best-effort:
       // a cleanup failure must never roll back valid finals or destroy originals.
       for (const entry of backups) await rm(entry.backup, { force: true }).catch(() => {});
+      await rm(journalUpdatePath(directory, token), { force: true }).catch(() => {});
+      await rm(journalPath, { force: true }).catch(() => {});
+      await syncOutputDirectory(directory);
     }
+    await releaseLock();
   }
 }
 
-export async function writeRevisionImpactArtifacts({
+async function resolveApprovedOutputRoots({
   projectRoot,
-  report,
-  jsonPath,
-  markdownPath = null,
   allowedOutputRoots = null,
   trustedOutputRoots = [],
 } = {}) {
   const root = await resolveProjectRoot(projectRoot);
-  assertValidRevisionImpactReport(report, { context: 'revision-impact writer' });
   const externalRoots = await resolveExistingTrustedRoots(trustedOutputRoots, 'trusted output root');
-  const internalRoots = [];
-  for (const pathValue of (allowedOutputRoots?.length ? allowedOutputRoots : ['output', 'tmp', 'local'])) {
+  const approvedInternalRoots = [];
+  for (const pathValue of APPROVED_INTERNAL_OUTPUT_ROOTS) {
+    approvedInternalRoots.push(await canonicalizeProspectiveDirectory(resolve(root, pathValue), 'approved output root'));
+  }
+  const selectedRoots = [];
+  const requestedRoots = allowedOutputRoots?.length ? allowedOutputRoots : approvedInternalRoots;
+  for (const pathValue of requestedRoots) {
     const raw = assertPathText(pathValue, 'allowed output root');
     const requested = isAbsolute(raw) ? resolve(raw) : resolve(root, raw);
     const absolute = await canonicalizeProspectiveDirectory(requested, 'allowed output root');
     const insideProject = isInside(root, absolute);
     const insideTrustedExternalRoot = externalRoots.some((trustedRoot) => isInside(trustedRoot, absolute));
-    if ((!insideProject && !insideTrustedExternalRoot)
-      || (insideProject && isCanonicalOutputPath(root, absolute))) {
+    const insideApprovedInternalRoot = approvedInternalRoots.some((approvedRoot) => isInside(approvedRoot, absolute));
+    if ((!insideProject && !insideTrustedExternalRoot) || (insideProject && !insideApprovedInternalRoot)) {
       throw serviceError(
         'unsafe_allowed_output_root',
-        'Allowed output roots must be non-canonical project paths or children of an explicit trusted output root'
+        'Allowed output roots must stay under output, tmp/codex, or an explicit trusted tracked-job root'
       );
     }
-    internalRoots.push(absolute);
+    selectedRoots.push(absolute);
   }
-  const roots = uniqueSorted([...internalRoots, ...externalRoots]);
-  const json = await prepareOutputTarget(root, jsonPath, roots, 'revision impact JSON', '.json');
+  return { root, roots: uniqueSorted([...selectedRoots, ...externalRoots]) };
+}
+
+async function resolveRevisionImpactOutputTargets(options = {}) {
+  const { root, roots } = await resolveApprovedOutputRoots(options);
+  const { jsonPath, markdownPath = null } = options;
+  let json = await prepareOutputTarget(root, jsonPath, roots, 'revision impact JSON', '.json');
+  if (await maybeRecoverInterruptedOutput(dirname(json.target))) {
+    json = await prepareOutputTarget(root, jsonPath, roots, 'revision impact JSON', '.json');
+  }
   const markdown = markdownPath
     ? await prepareOutputTarget(root, markdownPath, roots, 'revision impact Markdown', '.md')
     : null;
   if (markdown && markdown.target === json.target) {
     throw serviceError('output_path_collision', 'JSON and Markdown outputs must use distinct paths');
   }
-  const jsonContent = canonicalizeRevisionImpactJson(report);
-  const markdownContent = markdown ? renderRevisionImpactMarkdown(report) : null;
-  await replaceOutputPair([
-    { ...json, content: jsonContent },
-    ...(markdown ? [{ ...markdown, content: markdownContent }] : []),
-  ]);
+  if (markdown && dirname(markdown.target) !== dirname(json.target)) {
+    throw serviceError('output_directory_mismatch', 'Revision impact JSON and Markdown must use the same safe output directory');
+  }
+  return { root, roots, json, markdown };
+}
+
+function boundedPreparedContent(content, label) {
+  if (typeof content !== 'string' && !Buffer.isBuffer(content)) {
+    throw serviceError('output_content_invalid', `${label} content must be a string or Buffer`);
+  }
+  if (Buffer.byteLength(content) > MAX_PREPARED_OUTPUT_BYTES) {
+    throw serviceError('output_content_oversized', `${label} exceeds the prepared output byte limit`);
+  }
+  return content;
+}
+
+async function prepareCompanionOutputTarget(root, roots, companion, outputDirectory) {
+  if (!companion || typeof companion !== 'object' || Array.isArray(companion)) {
+    throw serviceError('companion_output_invalid', 'Companion output must be an object');
+  }
+  const label = textOrNull(companion.label) || 'revision impact companion artifact';
+  const pathValue = assertPathText(companion.path, `${label} path`);
+  const extension = textOrNull(companion.extension)?.toLowerCase() || extname(pathValue).toLowerCase();
+  if (!['.json', '.md'].includes(extension)) {
+    throw serviceError('output_extension_invalid', `${label} must use a JSON or Markdown extension`);
+  }
+  const prepared = await prepareOutputTarget(root, pathValue, roots, label, extension);
+  if (dirname(prepared.target) !== outputDirectory) {
+    throw serviceError('output_directory_mismatch', 'All revision-impact command outputs must use the same safe directory');
+  }
   return {
+    ...prepared,
+    content: boundedPreparedContent(companion.content, label),
+  };
+}
+
+export async function preflightRevisionImpactArtifactTargets(options = {}) {
+  assertValidRevisionImpactReport(options.report, { context: 'revision-impact writer preflight' });
+  const { root, roots, json, markdown } = await resolveRevisionImpactOutputTargets(options);
+  const jsonContent = canonicalizeRevisionImpactJson(options.report);
+  const markdownContent = markdown ? renderRevisionImpactMarkdown(options.report) : null;
+  const preparedEntries = [
+    Object.freeze({ ...json, content: jsonContent }),
+    ...(markdown ? [Object.freeze({ ...markdown, content: markdownContent })] : []),
+  ];
+  for (const companion of asArray(options.companionArtifacts)) {
+    preparedEntries.push(Object.freeze(await prepareCompanionOutputTarget(
+      root,
+      roots,
+      companion,
+      dirname(json.target)
+    )));
+  }
+  const targets = preparedEntries.map((entry) => entry.target);
+  if (new Set(targets).size !== targets.length) {
+    throw serviceError('output_path_collision', 'Revision-impact command outputs must use distinct paths');
+  }
+  const entries = Object.freeze(preparedEntries);
+  const plan = Object.freeze({
+    entries,
     jsonPath: json.target,
     markdownPath: markdown?.target || null,
     jsonSha256: sha256Bytes(jsonContent),
     markdownSha256: markdownContent === null ? null : sha256Bytes(markdownContent),
+  });
+  preparedRevisionImpactPlans.add(plan);
+  return plan;
+}
+
+export async function writeRevisionImpactArtifacts(options = {}) {
+  const plan = options.preparedPlan || await preflightRevisionImpactArtifactTargets(options);
+  if (!preparedRevisionImpactPlans.has(plan)) {
+    throw serviceError('invalid_prepared_output_plan', 'Revision-impact output plan must come from the trusted preflight');
+  }
+  const materialized = await materializePreparedOutputTargets(plan.entries);
+  try {
+    await replacePreparedOutputs(materialized.entries, {
+      testFailAfterCommitCount: options.__testFailAfterCommitCount,
+      testHardExitAfterCommitCount: options.__testHardExitAfterCommitCount,
+      testHardExitBeforeInitialJournalRename: options.__testHardExitBeforeInitialJournalRename,
+    });
+  } catch (error) {
+    await removeCreatedOutputDirectories(materialized.createdDirectories);
+    throw error;
+  }
+  return {
+    jsonPath: plan.jsonPath,
+    markdownPath: plan.markdownPath,
+    jsonSha256: plan.jsonSha256,
+    markdownSha256: plan.markdownSha256,
   };
 }
 
