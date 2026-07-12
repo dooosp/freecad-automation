@@ -13,6 +13,17 @@ const artifactRefSchema = {
   },
 };
 
+const compareRevisionCompanionPathProperties = {
+  baseline_readiness_path: { type: 'string', minLength: 1 },
+  candidate_readiness_path: { type: 'string', minLength: 1 },
+  baseline_config_path: { type: 'string', minLength: 1 },
+  candidate_config_path: { type: 'string', minLength: 1 },
+  baseline_evidence_envelope_path: { type: 'string', minLength: 1 },
+  candidate_evidence_envelope_path: { type: 'string', minLength: 1 },
+  baseline_evidence_receipt_path: { type: 'string', minLength: 1 },
+  candidate_evidence_receipt_path: { type: 'string', minLength: 1 },
+};
+
 export const localApiJobRequestSchema = {
   $id: 'fcad.jobRequest',
   oneOf: [
@@ -85,6 +96,7 @@ export const localApiJobRequestSchema = {
         type: { const: 'compare-rev' },
         baseline_path: { type: 'string', minLength: 1 },
         candidate_path: { type: 'string', minLength: 1 },
+        ...compareRevisionCompanionPathProperties,
         options: { type: 'object' },
       },
     },
@@ -251,6 +263,7 @@ export const publicJobRequestSchema = {
         compare_to_path: { type: 'string', minLength: 1 },
         baseline_path: { type: 'string', minLength: 1 },
         candidate_path: { type: 'string', minLength: 1 },
+        ...compareRevisionCompanionPathProperties,
         review_pack_path: { type: 'string', minLength: 1 },
         readiness_report_path: { type: 'string', minLength: 1 },
         process_plan_path: { type: 'string', minLength: 1 },

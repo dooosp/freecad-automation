@@ -207,11 +207,32 @@ try {
     type: 'compare-rev',
     baseline_path: REVIEW_PACK_FIXTURE_RELATIVE,
     candidate_path: REVIEW_PACK_FIXTURE_RELATIVE,
+    options: {
+      generated_at: '2026-07-11T00:00:00Z',
+    },
   });
   assert.equal(compareResponse.status, 202);
   assert.equal(comparePayload.job.execution.command, 'compare-rev');
   const compareJob = await waitForJob(baseUrl, comparePayload.job.id);
   assert.equal(compareJob.execution.lifecycle_state, 'succeeded');
+  const compareImpactJson = await assertJobFileArtifact(jobStore, compareJob.id, {
+    fileName: 'revision_impact_report.json',
+    type: 'revision-impact.report-json',
+  });
+  const compareImpactMarkdown = await assertJobFileArtifact(jobStore, compareJob.id, {
+    fileName: 'revision_impact_report.md',
+    type: 'revision-impact.report-markdown',
+  });
+  const compareImpactDocument = readJson(compareImpactJson.path);
+  assert.equal(compareImpactDocument.artifact_type, 'revision_impact_report');
+  assert.equal(compareImpactDocument.generated_at, '2026-07-11T00:00:00Z');
+  assert.equal(existsSync(compareImpactMarkdown.path), true);
+  const compareJobRecord = await jobStore.getJob(compareJob.id);
+  assertManifestFile(compareJobRecord, 'revision_comparison.json', { type: 'revision-comparison.json' });
+  assertManifestFile(compareJobRecord, 'revision_impact_report.json', { type: 'revision-impact.report-json' });
+  assertManifestFile(compareJobRecord, 'revision_impact_report.md', { type: 'revision-impact.report-markdown' });
+  assert.equal(compareJobRecord.manifest.artifacts.some((entry) => entry.type === 'input.review-pack.baseline' && entry.scope === 'internal'), true);
+  assert.equal(compareJobRecord.manifest.artifacts.some((entry) => entry.type === 'input.review-pack.candidate' && entry.scope === 'internal'), true);
 
   const { response: stabilizationResponse, payload: stabilizationPayload } = await postJson(`${baseUrl}/jobs`, {
     type: 'stabilization-review',
@@ -262,7 +283,11 @@ try {
       artifact_id: docsReadinessArtifact.id,
     },
   });
-  assert.equal(packFromArtifactResponse.status, 202);
+  assert.equal(
+    packFromArtifactResponse.status,
+    202,
+    JSON.stringify(packFromArtifactPayload)
+  );
   assert.equal(packFromArtifactPayload.job.type, 'pack');
   assert.deepEqual(packFromArtifactPayload.job.request.artifact_ref, {
     job_id: docsJob.id,

@@ -250,7 +250,7 @@ export function registerStudioRoutes(app, {
       return;
     }
 
-    await jobCoordinator.enqueueJob(translated.request, res);
+    await jobCoordinator.enqueueStudioResolvedJob(translated.request, res);
   });
 
   app.post('/api/studio/drawing-previews/:id/dimensions', async (req, res) => {

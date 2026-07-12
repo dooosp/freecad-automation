@@ -67,8 +67,8 @@ export function createLocalApiJobCoordinator({
     };
   }
 
-  async function enqueueJob(request, res) {
-    const validation = validateJobRequest(request);
+  async function enqueueJob(request, res, { trustedPathRoots = [] } = {}) {
+    const validation = validateJobRequest(request, { trustedPathRoots });
     if (!validation.ok) {
       const response = createErrorResponse('invalid_request', validation.errors);
       res.status(response.status).json(assertResponse('error', response.body));
@@ -88,6 +88,10 @@ export function createLocalApiJobCoordinator({
         // The executor persists failures in the job store.
       });
     });
+  }
+
+  async function enqueueStudioResolvedJob(request, res) {
+    return enqueueJob(request, res, { trustedPathRoots: [jobStore.jobsDir] });
   }
 
   async function buildJobActionResponse({
@@ -139,6 +143,7 @@ export function createLocalApiJobCoordinator({
   return {
     prepareStudioJobBody,
     enqueueJob,
+    enqueueStudioResolvedJob,
     buildJobActionResponse,
     resolveArtifactRef,
   };
