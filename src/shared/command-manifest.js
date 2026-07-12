@@ -654,6 +654,21 @@ const COMMAND_MANIFEST = Object.freeze([
     }),
   }),
   Object.freeze({
+    name: 'inspection-result-normalize',
+    helpSection: 'plain-python-node',
+    helpEntries: Object.freeze([
+      Object.freeze({
+        usage: 'fcad inspection-result-normalize --inspection-plan <inspection_plan.json> --plan-release-record <inspection_plan_release_record.json> --source <completed_result.csv> --submission-metadata <metadata.json> --adapter plan-result-csv-v1 --out <inspection_result_normalization.json> [--summary-out <inspection_result_normalization.md>] [--generated-at <iso8601>]',
+        summary: 'Normalize a completed native CSV against its exact released plan as an untrusted quarantine-review candidate',
+      }),
+    ]),
+    runtime: Object.freeze({
+      classification: 'plain-python-node',
+      requiresFreecadRuntime: false,
+      note: 'CLI-only v1. It does not create, authorize, quarantine, attach, or supersede inspection evidence and does not regenerate readiness.',
+    }),
+  }),
+  Object.freeze({
     name: 'generate-standard-docs',
     helpSection: 'plain-python-node',
     helpEntries: Object.freeze([
