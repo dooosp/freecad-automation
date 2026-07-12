@@ -1,3 +1,5 @@
+import { createCanonicalReadinessArtifactEntry } from '../../../shared/artifact-surface.js';
+
 export function createCanonicalArtifactHandlers() {
   return {
     'readiness-pack': async (job, context) => {
@@ -76,20 +78,16 @@ export function createCanonicalArtifactHandlers() {
                 }
               : {}),
           })),
-          ...(result.readiness_report_path ? [{
-            type: 'readiness-report.json',
-            path: result.readiness_report_path,
-            label: 'Canonical readiness report JSON',
-            scope: 'user-facing',
-            stability: 'stable',
-            metadata: context.buildAfArtifactContractFromDocument({
+          ...(result.readiness_report_path ? [createCanonicalReadinessArtifactEntry(
+            result.readiness_report_path,
+            context.buildAfArtifactContractFromDocument({
               jobType: 'generate-standard-docs',
               target: 'readiness_report',
               document: result.report,
               path: result.readiness_report_path,
               strictReentry: true,
-            }),
-          }] : []),
+            })
+          )] : []),
         ],
       };
     },

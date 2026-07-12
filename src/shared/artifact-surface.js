@@ -85,6 +85,17 @@ export function createArtifactEntry(type, path, {
   };
 }
 
+export function createCanonicalReadinessArtifactEntry(path, metadata, {
+  scope = 'user-facing',
+} = {}) {
+  return createArtifactEntry('readiness-report.json', path, {
+    label: 'Canonical readiness report JSON',
+    scope,
+    stability: 'stable',
+    metadata,
+  });
+}
+
 export function drawingIntentManifestMetadata(reportSummary = null) {
   const drawingIntent = reportSummary?.drawing_intent;
   if (!drawingIntent || typeof drawingIntent !== 'object') return undefined;
