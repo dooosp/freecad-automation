@@ -143,6 +143,7 @@ export function createReviewArtifactHandlers() {
             label: 'Baseline review pack JSON',
             scope: 'internal',
             stability: 'stable',
+            precomputed: result.inputSnapshotMetadata.baseline,
           },
           {
             type: 'input.review-pack.candidate',
@@ -150,6 +151,7 @@ export function createReviewArtifactHandlers() {
             label: 'Candidate review pack JSON',
             scope: 'internal',
             stability: 'stable',
+            precomputed: result.inputSnapshotMetadata.candidate,
           },
         ],
       };

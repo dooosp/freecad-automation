@@ -384,6 +384,11 @@ function buildReadinessRehydratedConfig(readinessReport = {}) {
 
 async function loadReviewPackHandoff(pathValue, { command }) {
   const artifact = await readJsonFile(pathValue);
+  assertReviewPackHandoff(artifact, pathValue, { command });
+  return artifact;
+}
+
+function assertReviewPackHandoff(artifact, pathValue, { command }) {
   buildAfArtifactContractFromDocument({
     jobType: command,
     target: 'review_pack',
@@ -392,6 +397,18 @@ async function loadReviewPackHandoff(pathValue, { command }) {
     strictReentry: true,
   });
   return artifact;
+}
+
+function buildReviewPackSnapshotMetadata(side) {
+  const source = side?.sources?.review_pack;
+  if (!Buffer.isBuffer(source?.bytes) || !/^[a-f0-9]{64}$/.test(source?.sha256 || '')) {
+    throw new Error('Revision-impact review-pack snapshot metadata is unavailable');
+  }
+  return {
+    exists: true,
+    size_bytes: source.bytes.length,
+    sha256: source.sha256,
+  };
 }
 
 async function loadReadinessReportHandoff(pathValue, { command }) {
@@ -980,12 +997,38 @@ export function createJobExecutor({
     });
     const baselinePath = baselineImport.path;
     const candidatePath = candidateImport.path;
-    const baseline = await loadReviewPackHandoff(baselinePath, { command: 'compare-rev' });
-    const candidate = await loadReviewPackHandoff(candidatePath, { command: 'compare-rev' });
     const outputPath = buildJobArtifactPath(jobStore, job.id, 'revision_comparison.json');
     const impactJsonPath = buildJobArtifactPath(jobStore, job.id, 'revision_impact_report.json');
     const impactMarkdownPath = buildJobArtifactPath(jobStore, job.id, 'revision_impact_report.md');
     const executionGeneratedAt = new Date().toISOString();
+    const requestedGeneratedAt = typeof job.request.options?.generated_at === 'string'
+      ? job.request.options.generated_at.trim()
+      : '';
+    const impactAnalysis = await createRevisionImpactReportFromPaths({
+      projectRoot,
+      trustedInputRoots: [jobStore.jobsDir],
+      baselineReviewPackPath: baselinePath,
+      candidateReviewPackPath: candidatePath,
+      baselineReadinessPath: resolveMaybe(projectRoot, job.request.baseline_readiness_path),
+      candidateReadinessPath: resolveMaybe(projectRoot, job.request.candidate_readiness_path),
+      baselineConfigPath: resolveMaybe(projectRoot, job.request.baseline_config_path),
+      candidateConfigPath: resolveMaybe(projectRoot, job.request.candidate_config_path),
+      baselineEvidenceEnvelopePath: resolveMaybe(projectRoot, job.request.baseline_evidence_envelope_path),
+      candidateEvidenceEnvelopePath: resolveMaybe(projectRoot, job.request.candidate_evidence_envelope_path),
+      baselineEvidenceReceiptPath: resolveMaybe(projectRoot, job.request.baseline_evidence_receipt_path),
+      candidateEvidenceReceiptPath: resolveMaybe(projectRoot, job.request.candidate_evidence_receipt_path),
+      generatedAt: requestedGeneratedAt || executionGeneratedAt,
+    });
+    const baseline = assertReviewPackHandoff(
+      impactAnalysis.baseline.reviewPack,
+      baselinePath,
+      { command: 'compare-rev' }
+    );
+    const candidate = assertReviewPackHandoff(
+      impactAnalysis.candidate.reviewPack,
+      candidatePath,
+      { command: 'compare-rev' }
+    );
     const result = await runPythonJsonScript(projectRoot, 'scripts/reporting/revision_diff.py', {
       baseline,
       candidate,
@@ -1029,24 +1072,6 @@ export function createJobExecutor({
       ],
       ...result.comparison,
     };
-    const requestedGeneratedAt = typeof job.request.options?.generated_at === 'string'
-      ? job.request.options.generated_at.trim()
-      : '';
-    const impactAnalysis = await createRevisionImpactReportFromPaths({
-      projectRoot,
-      trustedInputRoots: [jobStore.jobsDir],
-      baselineReviewPackPath: baselinePath,
-      candidateReviewPackPath: candidatePath,
-      baselineReadinessPath: resolveMaybe(projectRoot, job.request.baseline_readiness_path),
-      candidateReadinessPath: resolveMaybe(projectRoot, job.request.candidate_readiness_path),
-      baselineConfigPath: resolveMaybe(projectRoot, job.request.baseline_config_path),
-      candidateConfigPath: resolveMaybe(projectRoot, job.request.candidate_config_path),
-      baselineEvidenceEnvelopePath: resolveMaybe(projectRoot, job.request.baseline_evidence_envelope_path),
-      candidateEvidenceEnvelopePath: resolveMaybe(projectRoot, job.request.candidate_evidence_envelope_path),
-      baselineEvidenceReceiptPath: resolveMaybe(projectRoot, job.request.baseline_evidence_receipt_path),
-      candidateEvidenceReceiptPath: resolveMaybe(projectRoot, job.request.candidate_evidence_receipt_path),
-      generatedAt: requestedGeneratedAt || executionGeneratedAt,
-    });
     const impactArtifactPlan = await preflightRevisionImpactArtifactTargets({
       projectRoot,
       report: impactAnalysis.report,
@@ -1073,6 +1098,10 @@ export function createJobExecutor({
       impactMarkdownPath: impactArtifacts.markdownPath,
       baselinePath,
       candidatePath,
+      inputSnapshotMetadata: {
+        baseline: buildReviewPackSnapshotMetadata(impactAnalysis.baseline),
+        candidate: buildReviewPackSnapshotMetadata(impactAnalysis.candidate),
+      },
       bundleImports: summarizeBundleImports([baselineImport.importRecord, candidateImport.importRecord]),
     };
   }
