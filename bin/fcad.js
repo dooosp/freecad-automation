@@ -3074,6 +3074,11 @@ async function cmdCompareRev(rawArgs = []) {
       command: 'compare-rev',
       primaryOutputPath: outputPath,
       manifestPath: manifestOutputPath,
+      timestamps: {
+        created_at: comparisonGeneratedAt,
+        started_at: comparisonGeneratedAt,
+        finished_at: comparisonGeneratedAt,
+      },
       artifacts: [
         {
           ...createArtifactEntry('revision-comparison.json', outputPath, { label: 'Revision comparison JSON' }),

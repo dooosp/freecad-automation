@@ -53,6 +53,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'Studio artifact re-entry', args: Object.freeze(['tests/studio-artifact-actions.test.js']) }),
       Object.freeze({ label: 'Studio quality dashboard', args: Object.freeze(['tests/studio-quality-dashboard.test.js']) }),
       Object.freeze({ label: 'Studio public contract helpers', args: Object.freeze(['tests/studio-public-contract.test.js']) }),
+      Object.freeze({ label: 'Studio Local-first v1 workflows', args: Object.freeze(['tests/studio-local-first-workflows.test.js']) }),
       Object.freeze({ label: 'Studio canonical package cards', args: Object.freeze(['tests/studio-canonical-package-cards.test.js']) }),
       Object.freeze({ label: 'Studio canonical artifact preview UX', args: Object.freeze(['tests/studio-canonical-artifact-preview-ux.test.js']) }),
       Object.freeze({ label: 'Studio responsive CSS', args: Object.freeze(['tests/studio-responsive-css.test.js']) }),
@@ -116,6 +117,17 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'Stage 5B surrogate inspection validation', args: Object.freeze(['tests/stage5b-surrogate-inspection-validation.test.js']) }),
       Object.freeze({ label: 'Stage 5B evidence source kit/preflight', args: Object.freeze(['tests/stage5b-evidence-source-kit.test.js']) }),
       Object.freeze({ label: 'Stage 5B evidence pipeline doctor', args: Object.freeze(['tests/stage5b-evidence-pipeline-doctor.test.js']) }),
+    ]),
+  }),
+  Object.freeze({
+    id: 'v1-acceptance',
+    label: 'Local-first v1 acceptance',
+    npmScript: 'test:v1:acceptance',
+    packageCommand: 'node tests/local-first-v1-acceptance.test.js',
+    scope: 'deterministic synthetic non-production software-wiring acceptance for review, revision/inspection planning, and CLI-only result normalization without canonical mutation',
+    freecadRequired: false,
+    steps: Object.freeze([
+      Object.freeze({ label: 'Local-first v1 acceptance', args: Object.freeze(['tests/local-first-v1-acceptance.test.js']) }),
     ]),
   }),
   Object.freeze({

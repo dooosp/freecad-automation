@@ -36,6 +36,7 @@ import {
 } from './studio-surfaces.js';
 import { renderReviewWorkspace } from './review-workspace.js';
 import { renderArtifactsWorkspace } from './artifacts-workspace.js';
+import { deriveLocalFirstWorkflowGuidance } from './local-first-workflows.js';
 
 function workspaceShell({ kicker, title, description, badges, controls, canvas }) {
   return el('section', {
@@ -2159,18 +2160,15 @@ function createConsoleHero(state) {
 
 function createConsoleWorkflowRail() {
   const steps = [
-    { index: '01', label: 'Input', tone: 'ok', active: true },
-    { index: '02', label: 'Review signals', tone: 'info' },
-    { index: '03', label: 'Package', tone: 'info' },
-    { index: '04', label: 'Model', tone: 'info' },
-    { index: '05', label: 'Drawing', tone: 'info' },
-    { index: '06', label: 'Export', tone: 'warn' },
+    { index: '01', label: 'Create or import & review', tone: 'ok', active: true },
+    { index: '02', label: 'Compare revisions & plan', tone: 'info' },
+    { index: '03', label: 'Receive results & onboard', tone: 'warn' },
   ];
 
   return createCard({
     kicker: 'Workflow progress',
-    title: 'Current location: Input',
-    copy: 'The console now stages context first and keeps downstream review, packaging, model inspection, drawing output, and export steps visible as one guided trail.',
+    title: 'Choose one Local-first workflow',
+    copy: 'Each workflow begins with explicit artifacts, derives one next safe action, and keeps runtime, generated outputs, and trust boundaries visible.',
     surface: 'canvas',
     body: [
       el('div', {
@@ -2192,58 +2190,38 @@ function createConsoleWorkflowRail() {
 }
 
 function createConsoleGuidedWorkflowCard(state) {
-  const recentJobs = state.data.recentJobs;
-  const latestReviewJob = findLatestTrackedJob(recentJobs, REVIEW_CONSOLE_JOB_TYPES.review);
-  const latestReadinessJob = findLatestTrackedJob(recentJobs, REVIEW_CONSOLE_JOB_TYPES.readiness);
-  const latestPackJob = findLatestTrackedJob(recentJobs, REVIEW_CONSOLE_JOB_TYPES.pack);
+  const workflows = deriveLocalFirstWorkflowGuidance(state);
 
   return createCard({
-    kicker: 'Guided workflow',
-    title: 'Move through the review console with a clear trail',
-    copy: 'The old guidance cards become one calmer list: connect context, scan signals, carry canonical packages, then reopen or export when the trail is ready.',
+    kicker: 'Three guided workflows',
+    title: 'Start from the artifact you actually have',
+    copy: 'Studio derives the next safe action from tracked artifacts and explicit state. It never infers that evidence is trusted or readiness is clear.',
     body: [
-      createList([
-        {
-          label: 'Connect source context',
-          copy: 'Load an example or config so the console can stage review-first work without jumping straight into geometry editing.',
-          meta: state.data.examples.items.length > 0 ? 'Ready' : 'Input pending',
-        },
-        {
-          label: 'Scan review signals',
-          copy: latestReviewJob ? 'A review-ready tracked run can reopen directly into the Review dashboard.' : 'Review cards will populate after the first tracked review-ready run.',
-          meta: latestReviewJob ? 'Available' : 'Pending',
-        },
-        {
-          label: 'Carry package baselines',
-          copy: latestReadinessJob ? 'Readiness-backed output is available for go/hold review and package decisions.' : 'Readiness packages stay visible here once canonical review inputs exist.',
-          meta: latestReadinessJob ? 'Ready' : 'Baseline needed',
-        },
-        {
-          label: 'Reopen or export intentionally',
-          copy: latestPackJob ? 'A package/export-oriented run is already present in the trail.' : 'Release bundle and export actions stay downstream from the tracked package trail.',
-          meta: latestPackJob ? 'Available' : 'Pending',
-        },
-      ]),
       el('div', {
-        className: 'console-inline-actions',
-        children: [
-          createButton({
-            label: 'Open Review',
-            action: latestReviewJob ? 'open-job' : 'go-artifacts',
-            tone: 'ghost',
-            dataset: latestReviewJob ? { jobId: latestReviewJob.id, route: 'review' } : {},
-          }),
-          createButton({
-            label: 'Open Package trail',
-            action: 'go-artifacts',
-            tone: 'ghost',
-          }),
-          createButton({
-            label: 'Open prompt flow',
-            action: 'open-prompt-flow',
-            tone: 'ghost',
-          }),
-        ],
+        className: 'local-first-workflow-grid',
+        dataset: { hook: 'local-first-workflows' },
+        children: workflows.map((workflow) => el('article', {
+          className: 'local-first-workflow-card',
+          dataset: { workflow: workflow.id, tone: workflow.tone },
+          children: [
+            el('p', { className: 'eyebrow', text: workflow.kicker }),
+            el('h4', { className: 'action-title', text: workflow.title }),
+            createInfoGrid([
+              { label: 'Expected starting artifact', value: workflow.startingArtifact },
+              { label: 'Current available artifacts', value: workflow.currentArtifacts },
+              { label: 'Next safe action', value: workflow.nextSafeAction },
+              { label: 'Runtime requirement', value: workflow.runtimeRequirement },
+              { label: 'Generated outputs', value: workflow.generatedOutputs },
+              { label: 'Safety boundary', value: workflow.safetyBoundary },
+            ]),
+            workflow.command ? el('code', { className: 'workflow-command', text: workflow.command }) : null,
+            workflow.action ? createButton({
+              label: workflow.actionLabel,
+              action: workflow.action,
+              tone: 'ghost',
+            }) : null,
+          ],
+        })),
       }),
     ],
   });
