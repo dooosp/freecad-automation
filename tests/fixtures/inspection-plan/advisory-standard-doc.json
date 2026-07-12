@@ -1,0 +1,5 @@
+{
+  "artifact_type": "standard_docs_manifest",
+  "schema_version": "1.0",
+  "inspection_checksheet_draft": [{ "characteristic_id": "CHAR.FAKE", "tolerance": "No deviation allowed" }]
+}

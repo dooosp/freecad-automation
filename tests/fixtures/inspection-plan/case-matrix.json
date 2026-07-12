@@ -1,0 +1,28 @@
+{
+  "artifact_type": "inspection_plan_fixture_matrix",
+  "schema_version": "1.0",
+  "test_scope": "fixture",
+  "production_trust": false,
+  "cases": [
+    { "id": "complete_authoritative_dimensional_requirement", "fixture": "complete-requirements.json", "expected": "ready_or_conflict_when_review_differs" },
+    { "id": "nominal_without_tolerance", "fixture": "nominal-without-tolerance.json", "expected": "review_required" },
+    { "id": "tolerance_without_stable_characteristic_id", "input": { "tolerance": { "lower": -0.1, "upper": 0.1 }, "unit": "mm" }, "expected": "blocked" },
+    { "id": "conflicting_drawing_and_requirement_values", "fixture": "complete-requirements.json", "expected": "blocked" },
+    { "id": "supported_unit_normalization", "input": { "characteristic_id": "CHAR.INCH", "nominal_value": 1, "unit": "inch" }, "expected": "25.4 mm" },
+    { "id": "unsupported_unit", "fixture": "unsupported-unit.json", "expected": "blocked" },
+    { "id": "full_scope_plan", "review_pack_fixture": "../revision-impact/tightened-tolerance-candidate-review-pack.json", "expected": "all_supported_requirements" },
+    { "id": "delta_tightened_tolerance", "revision_fixture": "../revision-impact/tightened-tolerance-candidate-review-pack.json", "expected": "linked_reinspection" },
+    { "id": "delta_changed_datum", "input": { "change_type": "datum_or_reference_change" }, "expected": "linked_review_or_reinspection" },
+    { "id": "new_critical_characteristic", "input": { "change_type": "critical_characteristic_change" }, "expected": "reinspection_item" },
+    { "id": "removed_characteristic_requiring_review", "input": { "affected_entity_id": "CHAR.REMOVED" }, "expected": "unresolved_delta_item" },
+    { "id": "material_process_change", "input": { "change_type": "manufacturing_process_change", "process_sensitive": true }, "expected": "review_item" },
+    { "id": "missing_package_revision", "input": { "revision": null }, "expected": "blocked" },
+    { "id": "revision_impact_package_mismatch", "input": { "candidate_package_slug": "other" }, "expected": "rejected" },
+    { "id": "revision_impact_source_hash_mismatch", "input": { "review_pack_sha256": "mismatch" }, "expected": "rejected" },
+    { "id": "generic_standard_doc_as_authority", "fixture": "advisory-standard-doc.json", "expected": "rejected" },
+    { "id": "advisory_dfm_suggestion", "input": { "artifact_type": "dfm", "suggested_method": "caliper" }, "expected": "advisory_only" },
+    { "id": "blank_result_template", "input": { "measured_value": "", "result": "" }, "expected": "generated_control" },
+    { "id": "fabricated_pass_template", "input": { "result": "PASS" }, "expected": "rejected" },
+    { "id": "duplicate_plan_item_ids", "input": { "duplicate": true }, "expected": "rejected" }
+  ]
+}

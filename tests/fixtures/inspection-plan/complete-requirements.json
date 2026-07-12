@@ -1,0 +1,19 @@
+{
+  "artifact_type": "inspection_requirements",
+  "schema_version": "1.0",
+  "test_scope": "fixture",
+  "production_trust": false,
+  "items": [{
+    "characteristic_id": "CHAR.HOLE_DIAMETER",
+    "feature_id": "FEATURE.HOLE_001",
+    "characteristic_name": "Released hole diameter",
+    "nominal_value": 6,
+    "tolerance": { "lower": -0.05, "upper": 0.05 },
+    "unit": "mm",
+    "datum_reference": "A|B",
+    "specification_reference": "SPEC-100:HOLE",
+    "inspection_method": "CMM",
+    "equipment_class": "calibrated_cmm",
+    "sampling": "100_percent"
+  }]
+}

@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dooosp.github.io/freecad-automation/schemas/inspection_plan.schema.json",
+  "title": "Canonical Inspection Plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["artifact_type", "schema_version", "generated_at", "plan_id", "status", "scope", "package", "source_snapshot", "authority_summary", "items", "unresolved_requirements", "derived_outputs", "boundaries"],
+  "properties": {
+    "artifact_type": { "const": "inspection_plan" },
+    "schema_version": { "const": "1.0" },
+    "generated_at": { "type": "string", "minLength": 20 },
+    "plan_id": { "$ref": "#/$defs/id" },
+    "status": { "enum": ["blocked", "review_required", "ready_for_human_release"] },
+    "scope": { "enum": ["full", "delta"] },
+    "package": {
+      "type": "object", "additionalProperties": false,
+      "required": ["slug", "revision", "part_identifier"],
+      "properties": { "slug": { "type": ["string", "null"] }, "revision": { "type": ["string", "null"] }, "part_identifier": { "type": ["string", "null"] } }
+    },
+    "source_snapshot": { "type": "object", "minProperties": 1, "additionalProperties": { "$ref": "#/$defs/source" } },
+    "authority_summary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["authoritative_item_count", "advisory_item_count", "blocked_item_count", "human_release_required"],
+      "properties": {
+        "authoritative_item_count": { "type": "integer", "minimum": 0 },
+        "advisory_item_count": { "type": "integer", "minimum": 0 },
+        "blocked_item_count": { "type": "integer", "minimum": 0 },
+        "human_release_required": { "const": true }
+      }
+    },
+    "items": { "type": "array", "items": { "$ref": "#/$defs/item" } },
+    "unresolved_requirements": { "type": "array", "items": { "type": "object", "required": ["code", "plan_item_id", "message"], "properties": { "code": { "type": "string" }, "plan_item_id": { "type": ["string", "null"] }, "message": { "type": "string" }, "source_refs": { "type": "array", "items": { "type": "string" } } }, "additionalProperties": false } },
+    "derived_outputs": { "type": "object", "additionalProperties": { "type": "object", "required": ["artifact_type", "generated_control_artifact"], "properties": { "artifact_type": { "type": "string" }, "generated_control_artifact": { "const": true } }, "additionalProperties": false } },
+    "boundaries": {
+      "type": "object", "additionalProperties": false,
+      "required": ["generated_control_artifact", "released_document", "inspection_evidence", "measured_results_present", "evidence_attached", "readiness_regenerated", "canonical_artifacts_mutated", "human_release_required"],
+      "properties": {
+        "generated_control_artifact": { "const": true }, "released_document": { "const": false }, "inspection_evidence": { "const": false }, "measured_results_present": { "const": false }, "evidence_attached": { "const": false }, "readiness_regenerated": { "const": false }, "canonical_artifacts_mutated": { "const": false }, "human_release_required": { "const": true }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{7,127}$" },
+    "sha": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "source": { "type": "object", "additionalProperties": false, "required": ["artifact_type", "path", "sha256"], "properties": { "artifact_type": { "type": "string" }, "path": { "type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$" }, "sha256": { "$ref": "#/$defs/sha" } } },
+    "authority": { "enum": ["authoritative_released_requirement", "explicit_review_requirement", "revision_impact_requirement", "advisory_generated_context", "unresolved"] },
+    "item": {
+      "type": "object", "additionalProperties": false,
+      "required": ["plan_item_id", "characteristic_id", "feature_id", "package_slug", "revision", "characteristic_name", "inspection_purpose", "revision_impact_change_ids", "nominal_value", "lower_limit", "upper_limit", "unit", "datum_reference", "specification_reference", "required_method", "suggested_method", "required_equipment_class", "suggested_equipment_class", "required_sampling", "suggested_sampling", "acceptance_rule", "required_result_fields", "required_provenance_fields", "source_artifact_refs", "field_authority", "human_review_required", "human_release_required", "current_status", "evidence_state_changed"],
+      "properties": {
+        "plan_item_id": { "$ref": "#/$defs/id" }, "characteristic_id": { "type": "string", "minLength": 1 }, "feature_id": { "type": ["string", "null"] }, "package_slug": { "type": ["string", "null"] }, "revision": { "type": ["string", "null"] }, "characteristic_name": { "type": "string", "minLength": 1 }, "inspection_purpose": { "type": "string", "minLength": 1 }, "revision_impact_change_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+        "nominal_value": { "type": ["number", "null"] }, "lower_limit": { "type": ["number", "null"] }, "upper_limit": { "type": ["number", "null"] }, "unit": { "type": ["string", "null"] }, "datum_reference": { "type": ["string", "null"] }, "specification_reference": { "type": ["string", "null"] }, "required_method": { "type": ["string", "null"] }, "suggested_method": { "type": ["string", "null"] }, "required_equipment_class": { "type": ["string", "null"] }, "suggested_equipment_class": { "type": ["string", "null"] }, "required_sampling": { "type": ["string", "null"] }, "suggested_sampling": { "type": ["string", "null"] }, "acceptance_rule": { "type": ["string", "null"] },
+        "required_result_fields": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" } }, "required_provenance_fields": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" } }, "source_artifact_refs": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" } }, "field_authority": { "type": "object", "minProperties": 1, "additionalProperties": { "$ref": "#/$defs/authority" } }, "human_review_required": { "type": "boolean" }, "human_release_required": { "const": true }, "current_status": { "const": "not_started" }, "evidence_state_changed": { "const": false }
+      }
+    }
+  }
+}
