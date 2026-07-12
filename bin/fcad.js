@@ -151,6 +151,7 @@ import {
   collectDrawManifestArtifacts,
   collectReportManifestArtifacts,
   createArtifactEntry,
+  createCanonicalReadinessArtifactEntry,
   createExportArtifactEntries,
   createPartFileArtifactEntries,
 } from '../src/shared/artifact-surface.js';
@@ -2290,13 +2291,15 @@ async function cmdGenerateStandardDocs(rawArgs = []) {
           stability: filename === 'manifest' ? 'best-effort' : 'stable',
         }
       )),
-      ...(result.readiness_report_path ? [createArtifactEntry(
-        'input.readiness-report',
+      ...(result.readiness_report_path ? [createCanonicalReadinessArtifactEntry(
         result.readiness_report_path,
-        {
-          label: 'Canonical readiness report JSON',
-          scope: 'internal',
-        }
+        buildAfArtifactContractFromDocument({
+          jobType: 'generate-standard-docs',
+          target: 'readiness_report',
+          document: readinessReport,
+          path: result.readiness_report_path,
+          strictReentry: true,
+        })
       )] : []),
     ],
     details: {

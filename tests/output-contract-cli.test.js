@@ -76,11 +76,13 @@ try {
     manifest.artifacts.some((artifact) => artifact.path.endsWith('standard_docs_manifest.json')),
     true
   );
-  assert.equal(
-    manifest.artifacts.some((artifact) => artifact.type === 'readiness-report.json'),
-    true,
-    'manifest should record readiness provenance for canonical docs generation'
-  );
+  const readinessArtifact = manifest.artifacts.find((artifact) => artifact.type === 'readiness-report.json');
+  assert.ok(readinessArtifact, 'manifest should record readiness provenance for canonical docs generation');
+  assert.equal(readinessArtifact.scope, 'user-facing');
+  assert.equal(readinessArtifact.stability, 'stable');
+  assert.equal(readinessArtifact.metadata.af_contract.job_type, 'generate-standard-docs');
+  assert.equal(readinessArtifact.metadata.af_contract.reentry_target, 'readiness_report');
+  assert.equal(readinessArtifact.metadata.af_contract.reentry_ready, true);
 
   console.log('output-contract-cli.test.js: ok');
 } finally {
