@@ -66,6 +66,7 @@ assert.match(cliHelp, /fcad stage5b-surrogate-inspection-validation --out-dir <d
 assert.match(cliHelp, /fcad evidence-graph --package <slug> --review-pack <review_pack\.json> --readiness <readiness_report\.json> --out <evidence_graph\.json>/i);
 assert.match(cliHelp, /fcad pack --readiness <readiness_report\.json>[\s\S]*--out <release_bundle\.zip> \[--generated-at <iso8601>\]/i);
 assert.match(cliHelp, /fcad review-context --model <file>[\s\S]*\[--inspection-evidence inspection_evidence\.json --attachment-authorization authorization_record\.json --evidence-attachment-record attachment_record\.json\][\s\S]*--out <review_pack\.json>/i);
+assert.match(cliHelp, /fcad compare-rev <baseline\.json> <candidate\.json>[\s\S]*--impact-out <revision_impact_report\.json>[\s\S]*--baseline-readiness <readiness_report\.json>[\s\S]*--candidate-evidence-receipt <attachment_receipt\.json>[\s\S]*--generated-at <iso8601>/i);
 assert.match(cliHelp, /--inspection-evidence <path>\s+Canonical attached inspection evidence envelope; requires its checksum-bound onboarding authorization and immutable receipt/i);
 assert.match(cliHelp, /--attachment-authorization <path>\s+Canonical inspection_evidence_attachment_authorization produced by onboarding; legacy stage5b_attachment_authorization is rejected/i);
 assert.match(cliHelp, /--evidence-attachment-record <path>\s+Immutable inspection_evidence_attachment_record required with --inspection-evidence/i);

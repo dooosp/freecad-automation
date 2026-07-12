@@ -702,7 +702,10 @@ const COMMAND_MANIFEST = Object.freeze([
     name: 'compare-rev',
     helpSection: 'plain-python-node',
     helpEntries: Object.freeze([
-      Object.freeze({ usage: 'fcad compare-rev <baseline.json> <candidate.json>', summary: null }),
+      Object.freeze({
+        usage: 'fcad compare-rev <baseline.json> <candidate.json> [--impact-out <revision_impact_report.json>] [--impact-md-out <revision_impact_report.md>] [--baseline-readiness <readiness_report.json>] [--candidate-readiness <readiness_report.json>] [--baseline-config <config.toml|json>] [--candidate-config <config.toml|json>] [--baseline-evidence-envelope <inspection_evidence.json>] [--candidate-evidence-envelope <inspection_evidence.json>] [--baseline-evidence-receipt <attachment_receipt.json>] [--candidate-evidence-receipt <attachment_receipt.json>] [--generated-at <iso8601>]',
+        summary: null,
+      }),
     ]),
     runtime: Object.freeze({
       classification: 'plain-python-node',

@@ -1,0 +1,397 @@
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { basename, join, parse, resolve } from 'node:path';
+import { spawn, spawnSync } from 'node:child_process';
+
+import { createRevisionImpactPythonRaceGate } from './helpers/revision-impact-python-race-gate.js';
+
+const ROOT = resolve(import.meta.dirname, '..');
+const CLI = join(ROOT, 'bin/fcad.js');
+const REVIEW_PACK = join(ROOT, 'tests/fixtures/d-artifacts/sample_review_pack.canonical.json');
+const REVISION_IMPACT_FIXTURE_ROOT = join(ROOT, 'tests/fixtures/revision-impact');
+const TMP_ROOT = join(ROOT, 'tmp/codex');
+mkdirSync(TMP_ROOT, { recursive: true });
+const workDir = mkdtempSync(join(TMP_ROOT, 'revision-impact-cli-'));
+
+function runComparePair(baselinePath, candidatePath, args) {
+  return spawnSync('node', [CLI, 'compare-rev', baselinePath, candidatePath, ...args], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 60_000,
+  });
+}
+
+function startComparePair(baselinePath, candidatePath, args, env = {}) {
+  const child = spawn('node', [CLI, 'compare-rev', baselinePath, candidatePath, ...args], {
+    cwd: ROOT,
+    env: { ...process.env, ...env },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let stdout = '';
+  let stderr = '';
+  const completed = new Promise((resolveResult, rejectResult) => {
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL');
+      rejectResult(new Error('Timed out waiting for compare-rev race regression'));
+    }, 60_000);
+    child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
+    child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+    child.on('error', (error) => {
+      clearTimeout(timer);
+      rejectResult(error);
+    });
+    child.on('close', (status, signal) => {
+      clearTimeout(timer);
+      resolveResult({ status, signal, stdout, stderr });
+    });
+  });
+  return { child, completed };
+}
+
+function runCompare(args) {
+  return runComparePair(REVIEW_PACK, REVIEW_PACK, args);
+}
+
+function readJson(pathValue) {
+  return JSON.parse(readFileSync(pathValue, 'utf8'));
+}
+
+function sha256File(pathValue) {
+  return createHash('sha256').update(readFileSync(pathValue)).digest('hex');
+}
+
+function runFixedFixtureTwice({ name, baseline, candidate, generatedAt }) {
+  const outputs = [];
+  for (const runName of ['first', 'second']) {
+    const outputDir = join(workDir, `${name}-${runName}`);
+    mkdirSync(outputDir, { recursive: true });
+    const legacyPath = join(outputDir, 'revision_comparison.json');
+    const impactPath = join(outputDir, 'revision_impact_report.json');
+    const markdownPath = join(outputDir, 'revision_impact_report.md');
+    const result = runComparePair(
+      join(REVISION_IMPACT_FIXTURE_ROOT, baseline),
+      join(REVISION_IMPACT_FIXTURE_ROOT, candidate),
+      ['--out', legacyPath, '--impact-out', impactPath, '--generated-at', generatedAt]
+    );
+    assert.equal(result.status, 0, `${name}/${runName}\n${result.stdout}\n${result.stderr}`);
+    outputs.push({
+      report: readJson(impactPath),
+      jsonBytes: readFileSync(impactPath),
+      markdownBytes: readFileSync(markdownPath),
+    });
+  }
+  assert.deepEqual(outputs[0].jsonBytes, outputs[1].jsonBytes, `${name} JSON must be byte-identical`);
+  assert.deepEqual(outputs[0].markdownBytes, outputs[1].markdownBytes, `${name} Markdown must be byte-identical`);
+  return outputs[0].report;
+}
+
+try {
+  const legacyOnlyPath = join(workDir, 'legacy_only.json');
+  const legacyOnly = runCompare(['--out', legacyOnlyPath]);
+  assert.equal(legacyOnly.status, 0, `${legacyOnly.stdout}\n${legacyOnly.stderr}`);
+  assert.equal(readJson(legacyOnlyPath).artifact_type, 'revision_comparison');
+  assert.equal(existsSync(join(workDir, 'revision_impact_report.json')), false);
+
+  const legacyPath = join(workDir, 'comparison.json');
+  const impactPath = join(workDir, 'revision_impact_report.json');
+  const impactMarkdownPath = join(workDir, 'revision_impact_report.md');
+  const fixedGeneratedAt = '2026-07-11T00:00:00Z';
+  const withImpact = runCompare([
+    '--out', legacyPath,
+    '--impact-out', impactPath,
+    '--generated-at', fixedGeneratedAt,
+  ]);
+  assert.equal(withImpact.status, 0, `${withImpact.stdout}\n${withImpact.stderr}`);
+  assert.equal(readJson(legacyPath).artifact_type, 'revision_comparison');
+  assert.equal(readJson(impactPath).artifact_type, 'revision_impact_report');
+  assert.equal(readJson(impactPath).generated_at, fixedGeneratedAt);
+  assert.equal(existsSync(impactMarkdownPath), true);
+
+  const defaultTimeLegacyPath = join(workDir, 'default_time_comparison.json');
+  const defaultTimeImpactPath = join(workDir, 'default_time_revision_impact_report.json');
+  const withDefaultGeneratedAt = runCompare([
+    '--out', defaultTimeLegacyPath,
+    '--impact-out', defaultTimeImpactPath,
+  ]);
+  assert.equal(
+    withDefaultGeneratedAt.status,
+    0,
+    `${withDefaultGeneratedAt.stdout}\n${withDefaultGeneratedAt.stderr}`
+  );
+  assert.equal(
+    readJson(defaultTimeImpactPath).generated_at,
+    readJson(defaultTimeLegacyPath).generated_at,
+    'optional --generated-at should reuse the comparison invocation timestamp'
+  );
+
+  const raceDir = join(workDir, 'single-snapshot-race');
+  mkdirSync(raceDir, { recursive: true });
+  const raceBaselinePath = join(
+    REVISION_IMPACT_FIXTURE_ROOT,
+    'tightened-tolerance-baseline-review-pack.json'
+  );
+  const originalCandidateBytes = readFileSync(join(
+    REVISION_IMPACT_FIXTURE_ROOT,
+    'tightened-tolerance-candidate-review-pack.json'
+  ));
+  const raceCandidatePath = join(raceDir, 'candidate-review-pack.json');
+  const replacementCandidatePath = join(raceDir, 'candidate-review-pack.replacement.json');
+  writeFileSync(raceCandidatePath, originalCandidateBytes);
+  writeFileSync(
+    replacementCandidatePath,
+    readFileSync(join(REVISION_IMPACT_FIXTURE_ROOT, 'unchanged-review-pack.json'))
+  );
+  const raceLegacyPath = join(raceDir, 'revision_comparison.json');
+  const raceImpactPath = join(raceDir, 'revision_impact_report.json');
+  const raceGate = createRevisionImpactPythonRaceGate(raceDir, 'python-gate');
+  const raceProcess = startComparePair(
+    raceBaselinePath,
+    raceCandidatePath,
+    [
+      '--out', raceLegacyPath,
+      '--impact-out', raceImpactPath,
+      '--generated-at', fixedGeneratedAt,
+    ],
+    raceGate.env
+  );
+  try {
+    await raceGate.waitUntilReady();
+    renameSync(replacementCandidatePath, raceCandidatePath);
+  } finally {
+    raceGate.release();
+  }
+  const raceResult = await raceProcess.completed;
+  assert.equal(raceResult.status, 0, `${raceResult.stdout}\n${raceResult.stderr}`);
+  const raceLegacy = readJson(raceLegacyPath);
+  const raceImpact = readJson(raceImpactPath);
+  assert.equal(readJson(raceCandidatePath).part.revision, 'A', 'candidate path should contain the replacement');
+  assert.equal(raceLegacy.revision.candidate, 'B', 'legacy comparison must use the loaded candidate snapshot');
+  assert.equal(raceImpact.candidate.revision, 'B', 'impact report must use the same candidate snapshot');
+  assert.equal(raceLegacy.revision.candidate, raceImpact.candidate.revision);
+  assert.equal(raceLegacy.generated_at, fixedGeneratedAt);
+  assert.equal(raceImpact.summary.decision, 'reinspection_required');
+  assert.equal(
+    raceImpact.candidate.source_hashes.review_pack,
+    createHash('sha256').update(originalCandidateBytes).digest('hex'),
+    'impact provenance must hash the candidate bytes used by both outputs'
+  );
+  const raceManifestPath = join(
+    parse(raceLegacyPath).dir,
+    `${parse(raceLegacyPath).name}_artifact-manifest.json`
+  );
+  const raceCandidateManifestEntry = readJson(raceManifestPath).artifacts.find(
+    (entry) => entry.type === 'input.candidate'
+  );
+  assert.equal(
+    raceCandidateManifestEntry?.sha256,
+    raceImpact.candidate.source_hashes.review_pack,
+    'manifest provenance must remain bound to the shared candidate snapshot'
+  );
+  assert.equal(raceCandidateManifestEntry?.size_bytes, originalCandidateBytes.length);
+
+  const parsedLegacy = parse(legacyPath);
+  const manifestPath = join(parsedLegacy.dir, `${parsedLegacy.name}_artifact-manifest.json`);
+  const manifest = readJson(manifestPath);
+  assert.equal(manifest.artifacts.some((entry) => entry.type === 'revision-comparison.json'), true);
+  assert.equal(manifest.artifacts.some((entry) => entry.type === 'revision-impact.report-json' && basename(entry.path) === 'revision_impact_report.json'), true);
+  assert.equal(manifest.artifacts.some((entry) => entry.type === 'revision-impact.report-markdown' && basename(entry.path) === 'revision_impact_report.md'), true);
+  for (const [type, pathValue] of [
+    ['revision-comparison.json', legacyPath],
+    ['revision-impact.report-json', impactPath],
+    ['revision-impact.report-markdown', impactMarkdownPath],
+  ]) {
+    const artifact = manifest.artifacts.find((entry) => entry.type === type);
+    assert.equal(artifact?.exists, true, `${type} should be precomputed as materialized`);
+    assert.equal(artifact?.size_bytes, readFileSync(pathValue).length, `${type} size`);
+    assert.equal(artifact?.sha256, sha256File(pathValue), `${type} hash`);
+  }
+
+  const ignoredOutput = join(workDir, 'must_not_exist.json');
+  const withoutImpact = runCompare(['--out', ignoredOutput, '--generated-at', fixedGeneratedAt]);
+  assert.notEqual(withoutImpact.status, 0);
+  assert.match(withoutImpact.stderr, /require --impact-out/i);
+  assert.equal(existsSync(ignoredOutput), false);
+
+  const collidingOutput = join(workDir, 'colliding-output.json');
+  const collision = runCompare([
+    '--out', collidingOutput,
+    '--impact-out', collidingOutput,
+    '--generated-at', fixedGeneratedAt,
+  ]);
+  assert.notEqual(collision.status, 0);
+  assert.match(collision.stderr, /must use distinct paths/i);
+  assert.equal(existsSync(collidingOutput), false);
+
+  const malformedReadiness = join(workDir, 'malformed-readiness.json');
+  writeFileSync(malformedReadiness, '{"artifact_type":"readiness_report",', 'utf8');
+  const validationLegacyOutput = join(workDir, 'validation_must_precede_legacy_write.json');
+  const validationImpactOutput = join(workDir, 'validation_must_precede_impact_write.json');
+  const invalidInput = runCompare([
+    '--out', validationLegacyOutput,
+    '--impact-out', validationImpactOutput,
+    '--baseline-readiness', malformedReadiness,
+  ]);
+  assert.notEqual(invalidInput.status, 0);
+  assert.equal(existsSync(validationLegacyOutput), false);
+  assert.equal(existsSync(validationImpactOutput), false);
+
+  const unsafeLegacyOutput = join(workDir, 'unsafe_target_must_not_write_legacy.json');
+  const unsafeImpactOutput = join(
+    ROOT,
+    'docs/examples/quality-pass-bracket/revision_impact_must_not_exist.json'
+  );
+  const unsafeImpactMarkdown = unsafeImpactOutput.replace(/\.json$/i, '.md');
+  const unsafeManifestOutput = join(
+    parse(unsafeLegacyOutput).dir,
+    `${parse(unsafeLegacyOutput).name}_artifact-manifest.json`
+  );
+  const unsafeTarget = runCompare([
+    '--out', unsafeLegacyOutput,
+    '--impact-out', unsafeImpactOutput,
+    '--generated-at', fixedGeneratedAt,
+  ]);
+  assert.notEqual(unsafeTarget.status, 0);
+  assert.match(unsafeTarget.stderr, /non-canonical|docs\/examples/i);
+  assert.equal(existsSync(unsafeLegacyOutput), false);
+  assert.equal(existsSync(unsafeManifestOutput), false);
+  assert.equal(existsSync(unsafeImpactOutput), false);
+  assert.equal(existsSync(unsafeImpactMarkdown), false);
+
+  const canonicalLegacyOutput = join(
+    ROOT,
+    'docs/examples/quality-pass-bracket/revision_comparison_must_not_exist.json'
+  );
+  const safeImpactForCanonicalLegacy = join(workDir, 'canonical-legacy-impact.json');
+  const canonicalLegacyTarget = runCompare([
+    '--out', canonicalLegacyOutput,
+    '--impact-out', safeImpactForCanonicalLegacy,
+    '--generated-at', fixedGeneratedAt,
+  ]);
+  assert.notEqual(canonicalLegacyTarget.status, 0);
+  assert.match(canonicalLegacyTarget.stderr, /docs\/examples|canonical/i);
+  assert.equal(existsSync(canonicalLegacyOutput), false);
+  assert.equal(existsSync(safeImpactForCanonicalLegacy), false);
+  assert.equal(existsSync(safeImpactForCanonicalLegacy.replace(/\.json$/i, '.md')), false);
+
+  const trackedImpactOutput = join(ROOT, 'src/revision_impact_must_not_exist.json');
+  const safeLegacyForTrackedImpact = join(workDir, 'tracked-impact-legacy.json');
+  const trackedImpactTarget = runCompare([
+    '--out', safeLegacyForTrackedImpact,
+    '--impact-out', trackedImpactOutput,
+    '--generated-at', fixedGeneratedAt,
+  ]);
+  assert.notEqual(trackedImpactTarget.status, 0);
+  assert.match(trackedImpactTarget.stderr, /approved output boundary|safe output/i);
+  assert.equal(existsSync(trackedImpactOutput), false);
+  assert.equal(existsSync(safeLegacyForTrackedImpact), false);
+
+  const manifestSymlinkLegacy = join(workDir, 'manifest-symlink-legacy.json');
+  const manifestSymlinkImpact = join(workDir, 'manifest-symlink-impact.json');
+  const parsedManifestSymlinkLegacy = parse(manifestSymlinkLegacy);
+  const manifestSymlinkPath = join(
+    parsedManifestSymlinkLegacy.dir,
+    `${parsedManifestSymlinkLegacy.name}_artifact-manifest.json`
+  );
+  const manifestSymlinkSentinel = join(workDir, 'manifest-symlink-sentinel.json');
+  const manifestSymlinkSentinelBytes = 'manifest symlink sentinel\n';
+  writeFileSync(manifestSymlinkSentinel, manifestSymlinkSentinelBytes, 'utf8');
+  symlinkSync(manifestSymlinkSentinel, manifestSymlinkPath);
+  const manifestSymlinkTarget = runCompare([
+    '--out', manifestSymlinkLegacy,
+    '--impact-out', manifestSymlinkImpact,
+    '--generated-at', fixedGeneratedAt,
+  ]);
+  assert.notEqual(manifestSymlinkTarget.status, 0);
+  assert.match(manifestSymlinkTarget.stderr, /symlink/i);
+  assert.equal(existsSync(manifestSymlinkLegacy), false);
+  assert.equal(existsSync(manifestSymlinkImpact), false);
+  assert.equal(readFileSync(manifestSymlinkSentinel, 'utf8'), manifestSymlinkSentinelBytes);
+
+  const preservedLegacyOutput = join(workDir, 'preflight_preserves_legacy.json');
+  const preservedManifestOutput = join(
+    parse(preservedLegacyOutput).dir,
+    `${parse(preservedLegacyOutput).name}_artifact-manifest.json`
+  );
+  const preservedLegacyBytes = 'legacy sentinel\n';
+  const preservedManifestBytes = 'manifest sentinel\n';
+  writeFileSync(preservedLegacyOutput, preservedLegacyBytes, 'utf8');
+  writeFileSync(preservedManifestOutput, preservedManifestBytes, 'utf8');
+  const missingJsonDir = join(workDir, 'preflight-json-dir-must-not-exist');
+  const missingMarkdownDir = join(workDir, 'preflight-markdown-dir-must-not-exist');
+  const invalidMarkdownTarget = runCompare([
+    '--out', preservedLegacyOutput,
+    '--impact-out', join(missingJsonDir, 'revision_impact_report.json'),
+    '--impact-md-out', join(missingMarkdownDir, 'revision_impact_report.txt'),
+    '--generated-at', fixedGeneratedAt,
+  ]);
+  assert.notEqual(invalidMarkdownTarget.status, 0);
+  assert.match(invalidMarkdownTarget.stderr, /must end in \.md/i);
+  assert.equal(readFileSync(preservedLegacyOutput, 'utf8'), preservedLegacyBytes);
+  assert.equal(readFileSync(preservedManifestOutput, 'utf8'), preservedManifestBytes);
+  assert.equal(existsSync(missingJsonDir), false);
+  assert.equal(existsSync(missingMarkdownDir), false);
+
+  const unchangedReport = runFixedFixtureTwice({
+    name: 'unchanged',
+    baseline: 'unchanged-review-pack.json',
+    candidate: 'unchanged-review-pack.json',
+    generatedAt: fixedGeneratedAt,
+  });
+  assert.equal(unchangedReport.summary.decision, 'no_material_change');
+  assert.equal(unchangedReport.summary.reinspection_required_count, 0);
+  assert.equal(unchangedReport.reinspection_plan.items.length, 0);
+  assert.equal(unchangedReport.boundaries.canonical_artifacts_mutated, false);
+  assert.equal(unchangedReport.boundaries.inspection_evidence_attached, false);
+
+  const toleranceReport = runFixedFixtureTwice({
+    name: 'tightened-tolerance',
+    baseline: 'tightened-tolerance-baseline-review-pack.json',
+    candidate: 'tightened-tolerance-candidate-review-pack.json',
+    generatedAt: fixedGeneratedAt,
+  });
+  const toleranceChange = toleranceReport.changes.find((change) => change.change_type === 'tolerance_change');
+  assert.equal(toleranceReport.summary.decision, 'reinspection_required');
+  assert.equal(toleranceChange?.affected_entity_id, 'CHAR.HOLE_DIAMETER');
+  assert.equal(
+    toleranceReport.evidence_applicability.assessments.some((assessment) => (
+      assessment.evidence_or_characteristic_id === 'CHAR.HOLE_DIAMETER'
+      && assessment.applicability_status === 'reinspection_required'
+      && assessment.authoritative_evidence_state_changed === false
+    )),
+    true
+  );
+  assert.equal(toleranceReport.reinspection_plan.items.length, 1);
+  assert.equal(toleranceReport.boundaries.readiness_regenerated, false);
+
+  const missingIdentityReport = runFixedFixtureTwice({
+    name: 'missing-identity',
+    baseline: 'missing-identity-baseline-review-pack.json',
+    candidate: 'missing-identity-candidate-review-pack.json',
+    generatedAt: fixedGeneratedAt,
+  });
+  assert.equal(missingIdentityReport.summary.decision, 'blocked_insufficient_identity_or_inputs');
+  assert.ok(missingIdentityReport.summary.unable_to_determine_count > 0);
+  assert.equal(
+    missingIdentityReport.changes.some((change) => (
+      change.change_type === 'unresolved_identity_change'
+      && change.determinability === 'unable_to_determine'
+      && change.affected_entity_id === null
+    )),
+    true,
+    'missing identity must remain unresolved without a guessed entity mapping'
+  );
+
+  console.log('revision-impact-cli-integration.test.js: ok');
+} finally {
+  rmSync(workDir, { recursive: true, force: true });
+}

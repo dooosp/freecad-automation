@@ -1,0 +1,382 @@
+{
+  "test_scope": "fixture",
+  "production_trust": false,
+  "artifact_type": "revision_impact_fixture_matrix",
+  "schema_version": "1.0",
+  "description": "Synthetic normalized inputs for deterministic revision-impact policy tests. These records are never inspection evidence.",
+  "cli_scenarios": {
+    "unchanged": {
+      "baseline_review_pack": "tests/fixtures/revision-impact/unchanged-review-pack.json",
+      "candidate_review_pack": "tests/fixtures/revision-impact/unchanged-review-pack.json",
+      "expected_decision": "no_material_change",
+      "expected_reinspection_count": 0
+    },
+    "tightened_tolerance": {
+      "baseline_review_pack": "tests/fixtures/revision-impact/tightened-tolerance-baseline-review-pack.json",
+      "candidate_review_pack": "tests/fixtures/revision-impact/tightened-tolerance-candidate-review-pack.json",
+      "expected_decision": "reinspection_required",
+      "expected_change_type": "tolerance_change",
+      "expected_characteristic_id": "CHAR.HOLE_DIAMETER",
+      "expected_reinspection_count": 1
+    },
+    "missing_identity": {
+      "baseline_review_pack": "tests/fixtures/revision-impact/missing-identity-baseline-review-pack.json",
+      "candidate_review_pack": "tests/fixtures/revision-impact/missing-identity-candidate-review-pack.json",
+      "expected_decision": "blocked_insufficient_identity_or_inputs",
+      "expected_change_type": "unresolved_identity_change",
+      "expected_determinability": "unable_to_determine",
+      "expected_reinspection_count": 0
+    }
+  },
+  "base": {
+    "package_slug": "fixture-bracket",
+    "part_id": "FIXTURE-BRACKET-PART",
+    "baseline_revision": "A",
+    "candidate_revision": "B",
+    "material": "AL6061-T6",
+    "manufacturing_process": "machining",
+    "features": [
+      {
+        "feature_id": "hole-left",
+        "feature_type": "hole",
+        "critical": true
+      },
+      {
+        "feature_id": "plate",
+        "feature_type": "primary_body",
+        "critical": false
+      }
+    ],
+    "characteristics": [
+      {
+        "characteristic_id": "HOLE_LEFT_DIA",
+        "feature_id": "hole-left",
+        "nominal_value": 6,
+        "unit": "mm",
+        "tolerance": {
+          "lower": -0.1,
+          "upper": 0.1
+        },
+        "datum_reference": "A|B",
+        "critical": true,
+        "process_sensitive": true,
+        "inspection_method": "CMM",
+        "specification_reference": "DRW-100:A"
+      },
+      {
+        "characteristic_id": "PLATE_WIDTH",
+        "feature_id": "plate",
+        "nominal_value": 100,
+        "unit": "mm",
+        "tolerance": {
+          "lower": -0.2,
+          "upper": 0.2
+        },
+        "datum_reference": "A",
+        "critical": false,
+        "inspection_method": "caliper",
+        "specification_reference": "DRW-100:A"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "no_material_change",
+      "candidate_revision": "A",
+      "expected_decision": "no_material_change",
+      "expected_change_count": 0,
+      "expected_reinspection_count": 0,
+      "expected_plan_status": "not_required"
+    },
+    {
+      "id": "metadata_only_change",
+      "candidate_metadata": {
+        "description": "Editorial wording only"
+      },
+      "expected_change_type": "metadata_change",
+      "expected_change_entity": "part:description",
+      "expected_required_action": "none",
+      "expected_decision": "review_required",
+      "expected_assessment_entity": "revision_provenance",
+      "expected_applicability": "review_required",
+      "expected_reinspection_count": 0,
+      "expected_plan_status": "review_required"
+    },
+    {
+      "id": "nominal_dimension_change",
+      "candidate_characteristic_overrides": {
+        "HOLE_LEFT_DIA": {
+          "nominal_value": 6.2
+        }
+      },
+      "expected_change_type": "nominal_dimension_change",
+      "expected_change_entity": "HOLE_LEFT_DIA",
+      "expected_required_action": "reinspect",
+      "expected_decision": "reinspection_required",
+      "expected_assessment_entity": "HOLE_LEFT_DIA",
+      "expected_applicability": "reinspection_required",
+      "expected_reinspection_count": 1,
+      "expected_plan_status": "planned"
+    },
+    {
+      "id": "tightened_tolerance",
+      "candidate_characteristic_overrides": {
+        "HOLE_LEFT_DIA": {
+          "tolerance": {
+            "lower": -0.05,
+            "upper": 0.05
+          }
+        }
+      },
+      "expected_change_type": "tolerance_change",
+      "expected_change_entity": "HOLE_LEFT_DIA",
+      "expected_required_action": "reinspect",
+      "expected_decision": "reinspection_required",
+      "expected_assessment_entity": "HOLE_LEFT_DIA",
+      "expected_applicability": "reinspection_required",
+      "expected_reinspection_count": 1,
+      "expected_plan_status": "planned"
+    },
+    {
+      "id": "loosened_tolerance",
+      "candidate_characteristic_overrides": {
+        "HOLE_LEFT_DIA": {
+          "tolerance": {
+            "lower": -0.2,
+            "upper": 0.2
+          }
+        }
+      },
+      "expected_change_type": "tolerance_change",
+      "expected_change_entity": "HOLE_LEFT_DIA",
+      "expected_required_action": "human_review",
+      "expected_decision": "review_required",
+      "expected_assessment_entity": "HOLE_LEFT_DIA",
+      "expected_applicability": "review_required",
+      "expected_reinspection_count": 0,
+      "expected_plan_status": "review_required"
+    },
+    {
+      "id": "changed_datum",
+      "candidate_characteristic_overrides": {
+        "HOLE_LEFT_DIA": {
+          "datum_reference": "A|C"
+        }
+      },
+      "expected_change_type": "datum_or_reference_change",
+      "expected_change_entity": "HOLE_LEFT_DIA",
+      "expected_required_action": "reinspect",
+      "expected_decision": "reinspection_required",
+      "expected_assessment_entity": "HOLE_LEFT_DIA",
+      "expected_applicability": "reinspection_required",
+      "expected_reinspection_count": 1,
+      "expected_plan_status": "planned"
+    },
+    {
+      "id": "added_critical_characteristic",
+      "candidate_characteristics_added": [
+        {
+          "characteristic_id": "PLATE_FLATNESS",
+          "feature_id": "plate",
+          "nominal_value": 0,
+          "unit": "mm",
+          "tolerance": {
+            "lower": 0,
+            "upper": 0.1
+          },
+          "critical": true,
+          "inspection_method": "surface-plate",
+          "specification_reference": "DRW-100:B"
+        }
+      ],
+      "expected_change_type": "critical_characteristic_change",
+      "expected_change_entity": "PLATE_FLATNESS",
+      "expected_required_action": "reinspect",
+      "expected_decision": "reinspection_required",
+      "expected_assessment_entity": "PLATE_FLATNESS",
+      "expected_applicability": "reinspection_required",
+      "expected_reinspection_count": 1,
+      "expected_plan_status": "planned"
+    },
+    {
+      "id": "removed_characteristic",
+      "candidate_characteristics_removed": [
+        "HOLE_LEFT_DIA"
+      ],
+      "expected_change_type": "critical_characteristic_change",
+      "expected_change_entity": "HOLE_LEFT_DIA",
+      "expected_required_action": "human_review",
+      "expected_decision": "review_required",
+      "expected_assessment_entity": "HOLE_LEFT_DIA",
+      "expected_assessment_present": false,
+      "expected_applicability": "review_required",
+      "expected_reinspection_count": 0,
+      "expected_plan_status": "review_required"
+    },
+    {
+      "id": "material_change",
+      "candidate_material": "AL7075-T6",
+      "expected_change_type": "material_change",
+      "expected_change_entity": "package:material",
+      "expected_required_action": "human_review",
+      "expected_decision": "review_required",
+      "expected_assessment_entity": "HOLE_LEFT_DIA",
+      "expected_applicability": "review_required",
+      "expected_reinspection_count": 0,
+      "expected_plan_status": "review_required"
+    },
+    {
+      "id": "manufacturing_process_change",
+      "candidate_manufacturing_process": "casting",
+      "expected_change_type": "manufacturing_process_change",
+      "expected_change_entity": "package:manufacturing_process",
+      "expected_required_action": "human_review",
+      "expected_decision": "review_required",
+      "expected_assessment_entity": "HOLE_LEFT_DIA",
+      "expected_applicability": "review_required",
+      "expected_reinspection_count": 0,
+      "expected_plan_status": "review_required"
+    },
+    {
+      "id": "content_change_without_revision_increment",
+      "candidate_revision": "A",
+      "candidate_characteristic_overrides": {
+        "HOLE_LEFT_DIA": {
+          "nominal_value": 6.2
+        }
+      },
+      "expected_change_type": "unresolved_identity_change",
+      "expected_change_entity": "package:revision_governance",
+      "expected_required_action": "resolve_identity_or_inputs",
+      "expected_determinability": "unable_to_determine",
+      "expected_decision": "blocked_insufficient_identity_or_inputs",
+      "expected_assessment_entity": "HOLE_LEFT_DIA",
+      "expected_applicability": "unable_to_determine",
+      "expected_reinspection_count": 1,
+      "expected_plan_status": "blocked",
+      "expected_unable_to_determine_min": 1
+    },
+    {
+      "id": "revision_increment_without_engineering_change",
+      "expected_change_type": "revision_identity_change",
+      "expected_change_entity": "package:revision",
+      "expected_required_action": "human_review",
+      "expected_decision": "review_required",
+      "expected_assessment_entity": "revision_provenance",
+      "expected_applicability": "review_required",
+      "expected_reinspection_count": 0,
+      "expected_plan_status": "review_required"
+    },
+    {
+      "id": "missing_baseline_revision",
+      "baseline_revision": null,
+      "expected_change_type": "unresolved_identity_change",
+      "expected_change_entity": null,
+      "expected_required_action": "resolve_identity_or_inputs",
+      "expected_determinability": "unable_to_determine",
+      "expected_decision": "blocked_insufficient_identity_or_inputs",
+      "expected_assessment_entity": "identity_resolution",
+      "expected_applicability": "unable_to_determine",
+      "expected_reinspection_count": 0,
+      "expected_plan_status": "blocked",
+      "expected_unable_to_determine_min": 1
+    },
+    {
+      "id": "missing_stable_feature_identity",
+      "candidate_features_added": [
+        {
+          "feature_type": "hole",
+          "critical": true
+        }
+      ],
+      "expected_change_type": "unresolved_identity_change",
+      "expected_change_entity": null,
+      "expected_required_action": "resolve_identity_or_inputs",
+      "expected_determinability": "unable_to_determine",
+      "expected_decision": "blocked_insufficient_identity_or_inputs",
+      "expected_assessment_entity": "identity_resolution",
+      "expected_applicability": "unable_to_determine",
+      "expected_reinspection_count": 0,
+      "expected_plan_status": "blocked",
+      "expected_unable_to_determine_min": 1
+    },
+    {
+      "id": "evidence_receipt_revision_mismatch",
+      "baseline_evidence": {
+        "test_scope": "fixture",
+        "production_trust": false,
+        "evidence_id": "fixture-evidence-001",
+        "package_revision": "Z",
+        "source_document_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "expected_change_type": "evidence_reference_change",
+      "expected_change_entity": "inspection:receipt_binding",
+      "expected_required_action": "resolve_identity_or_inputs",
+      "expected_determinability": "unable_to_determine",
+      "expected_binding_issue": "envelope package revision",
+      "expected_decision": "blocked_insufficient_identity_or_inputs",
+      "expected_assessment_entity": "identity_resolution",
+      "expected_applicability": "unable_to_determine",
+      "expected_reinspection_count": 0,
+      "expected_plan_status": "blocked",
+      "expected_unable_to_determine_min": 1
+    },
+    {
+      "id": "evidence_source_checksum_mismatch",
+      "baseline_evidence": {
+        "test_scope": "fixture",
+        "production_trust": false,
+        "evidence_id": "fixture-evidence-001",
+        "envelope_source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "receipt_source_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "expected_change_type": "evidence_reference_change",
+      "expected_change_entity": "inspection:receipt_binding",
+      "expected_required_action": "resolve_identity_or_inputs",
+      "expected_determinability": "unable_to_determine",
+      "expected_binding_issue": "source document checksum",
+      "expected_decision": "blocked_insufficient_identity_or_inputs",
+      "expected_reinspection_count": 0,
+      "expected_plan_status": "blocked",
+      "expected_unable_to_determine_min": 1
+    },
+    {
+      "id": "synthetic_generated_evidence_marker",
+      "baseline_evidence": {
+        "test_scope": "fixture",
+        "production_trust": false,
+        "synthetic": true,
+        "generated": true,
+        "evidence_id": "fixture-evidence-001"
+      },
+      "expected_change_type": "evidence_reference_change",
+      "expected_change_entity": "fixture-evidence-001",
+      "expected_required_action": "human_review",
+      "expected_decision": "review_required",
+      "expected_assessment_entity": "HOLE_LEFT_DIA",
+      "expected_applicability": "not_applicable",
+      "expected_reinspection_count": 0,
+      "expected_plan_status": "review_required"
+    },
+    {
+      "id": "unrelated_characteristic_unaffected",
+      "candidate_characteristic_overrides": {
+        "HOLE_LEFT_DIA": {
+          "nominal_value": 6.2
+        }
+      },
+      "expected_unaffected_characteristic": "PLATE_WIDTH",
+      "expected_change_type": "nominal_dimension_change",
+      "expected_change_entity": "HOLE_LEFT_DIA",
+      "expected_required_action": "reinspect",
+      "expected_decision": "reinspection_required",
+      "expected_assessment_entity": "PLATE_WIDTH",
+      "expected_assessment_present": true,
+      "expected_applicability": "unaffected",
+      "expected_additional_assessment_entity": "HOLE_LEFT_DIA",
+      "expected_additional_applicability": "reinspection_required",
+      "expected_reinspection_count": 1,
+      "expected_plan_status": "planned"
+    }
+  ]
+}

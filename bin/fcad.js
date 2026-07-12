@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { createHash } from 'node:crypto';
 import { resolve, join, dirname, extname, parse, sep } from 'node:path';
 import { existsSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -124,6 +125,11 @@ import {
   isStage5bRuntimeValidationError,
   writeStage5bValidationDiagnosticsFile,
 } from '../src/services/inspection-evidence-intake/stage5b-runtime-validation.js';
+import {
+  createRevisionImpactReportFromPaths,
+  preflightRevisionImpactArtifactTargets,
+  writeRevisionImpactArtifacts,
+} from '../src/services/revision-impact/revision-impact-service.js';
 import { runSweep } from '../src/services/sweep/sweep-service.js';
 import { loadRuleProfile, summarizeRuleProfile } from '../src/services/config/rule-profile-service.js';
 import {
@@ -1157,14 +1163,19 @@ async function loadCanonicalReviewPackInput(rawArgs = [], command) {
 
   requireExistingInputFile('review-pack', input.reviewPackPath);
   const reviewPack = await readJsonFile(input.reviewPackPath);
+  assertCanonicalReviewPackDocument(reviewPack, input.reviewPackPath, command);
+  return { ...input, reviewPack };
+}
+
+function assertCanonicalReviewPackDocument(reviewPack, pathValue, command) {
   buildAfArtifactContractFromDocument({
     jobType: command,
     target: 'review_pack',
     document: reviewPack,
-    path: input.reviewPackPath,
+    path: pathValue,
     strictReentry: true,
   });
-  return { ...input, reviewPack };
+  return reviewPack;
 }
 
 async function loadCanonicalReadinessReportInput(filePath, command, label = 'readiness report') {
@@ -1261,7 +1272,7 @@ async function loadConfigForCli(filepath) {
   return result.config;
 }
 
-async function writeCliManifest({
+async function buildCliManifest({
   command,
   status = 'succeeded',
   configPath = null,
@@ -1310,7 +1321,12 @@ async function writeCliManifest({
     primaryOutputPath,
     outputDir,
   });
-  return writeArtifactManifest(resolvedManifestPath, manifest);
+  return { manifest, manifestPath: resolvedManifestPath };
+}
+
+async function writeCliManifest(options) {
+  const { manifest, manifestPath } = await buildCliManifest(options);
+  return writeArtifactManifest(manifestPath, manifest);
 }
 
 function resolveOutputManifestStatus({ warnings = [], errors = [] } = {}) {
@@ -2755,6 +2771,19 @@ async function cmdCompareRev(rawArgs = []) {
   const { positional, options } = parseCliArgs(rawArgs);
   const baselinePath = resolveMaybe(positional[0]);
   const candidatePath = resolveMaybe(positional[1]);
+  const impactOnlyOptionNames = [
+    'impact-md-out',
+    'baseline-readiness',
+    'candidate-readiness',
+    'baseline-config',
+    'candidate-config',
+    'baseline-evidence-envelope',
+    'candidate-evidence-envelope',
+    'baseline-evidence-receipt',
+    'candidate-evidence-receipt',
+    'generated-at',
+  ];
+  const impactRequested = options['impact-out'] !== undefined;
 
   if (!baselinePath || !candidatePath) {
     console.error('Error: compare-rev requires two JSON artifacts');
@@ -2762,14 +2791,62 @@ async function cmdCompareRev(rawArgs = []) {
     process.exit(1);
   }
 
-  const baseline = await loadCanonicalReviewPackInput([
-    '--review-pack',
-    baselinePath,
-  ], 'compare-rev').then((input) => input.reviewPack);
-  const candidate = await loadCanonicalReviewPackInput([
-    '--review-pack',
-    candidatePath,
-  ], 'compare-rev').then((input) => input.reviewPack);
+  if (!impactRequested && impactOnlyOptionNames.some((name) => options[name] !== undefined)) {
+    console.error('Error: revision-impact companion options require --impact-out <revision_impact_report.json>');
+    process.exit(1);
+  }
+
+  const comparisonGeneratedAt = impactRequested && options['generated-at'] !== undefined
+    ? requireOptionValue('--generated-at', options['generated-at'])
+    : nowIso();
+  let impactAnalysis = null;
+  let impactOutputPath = null;
+  let impactMarkdownPath = null;
+  let impactArtifactPlan = null;
+  let baseline;
+  let candidate;
+  if (impactRequested) {
+    const resolveImpactInputPath = (optionName) => options[optionName] === undefined
+      ? null
+      : resolveMaybe(requireOptionValue(`--${optionName}`, options[optionName]));
+    impactOutputPath = normalizeJsonOutputPath(requireOptionValue('--impact-out', options['impact-out']));
+    impactMarkdownPath = options['impact-md-out'] !== undefined
+      ? resolveMaybe(requireOptionValue('--impact-md-out', options['impact-md-out']))
+      : impactOutputPath.replace(/\.json$/i, '.md');
+    impactAnalysis = await createRevisionImpactReportFromPaths({
+      projectRoot: PROJECT_ROOT,
+      baselineReviewPackPath: baselinePath,
+      candidateReviewPackPath: candidatePath,
+      baselineReadinessPath: resolveImpactInputPath('baseline-readiness'),
+      candidateReadinessPath: resolveImpactInputPath('candidate-readiness'),
+      baselineConfigPath: resolveImpactInputPath('baseline-config'),
+      candidateConfigPath: resolveImpactInputPath('candidate-config'),
+      baselineEvidenceEnvelopePath: resolveImpactInputPath('baseline-evidence-envelope'),
+      candidateEvidenceEnvelopePath: resolveImpactInputPath('candidate-evidence-envelope'),
+      baselineEvidenceReceiptPath: resolveImpactInputPath('baseline-evidence-receipt'),
+      candidateEvidenceReceiptPath: resolveImpactInputPath('candidate-evidence-receipt'),
+      generatedAt: comparisonGeneratedAt,
+    });
+    baseline = assertCanonicalReviewPackDocument(
+      impactAnalysis.baseline.reviewPack,
+      baselinePath,
+      'compare-rev'
+    );
+    candidate = assertCanonicalReviewPackDocument(
+      impactAnalysis.candidate.reviewPack,
+      candidatePath,
+      'compare-rev'
+    );
+  } else {
+    baseline = await loadCanonicalReviewPackInput([
+      '--review-pack',
+      baselinePath,
+    ], 'compare-rev').then((input) => input.reviewPack);
+    candidate = await loadCanonicalReviewPackInput([
+      '--review-pack',
+      candidatePath,
+    ], 'compare-rev').then((input) => input.reviewPack);
+  }
   const result = await runPythonJsonScript(PROJECT_ROOT, 'scripts/reporting/revision_diff.py', {
     baseline,
     candidate,
@@ -2783,7 +2860,7 @@ async function cmdCompareRev(rawArgs = []) {
     artifact_type: 'revision_comparison',
     schema_version: D_ARTIFACT_SCHEMA_VERSION,
     analysis_version: D_ANALYSIS_VERSION,
-    generated_at: nowIso(),
+    generated_at: comparisonGeneratedAt,
     part_id: baseline?.part?.part_id && baseline?.part?.part_id === candidate?.part?.part_id
       ? baseline.part.part_id
       : null,
@@ -2807,19 +2884,112 @@ async function cmdCompareRev(rawArgs = []) {
 
   const outputPath = normalizeJsonOutputPath(options.out)
     || artifactPathFor(buildDefaultOutputDir(options['out-dir']), deriveArtifactStem(candidatePath, 'revision'), '_revision_comparison.json');
-  await writeValidatedJsonArtifact(outputPath, 'revision_comparison', comparison, {
-    command: 'compare-rev',
-  });
-  const manifestPath = await writeCliManifest({
-    command: 'compare-rev',
-    primaryOutputPath: outputPath,
-    artifacts: [
-      createArtifactEntry('revision-comparison.json', outputPath, { label: 'Revision comparison JSON' }),
-      createArtifactEntry('input.baseline', baselinePath, { label: 'Baseline JSON' }),
-      createArtifactEntry('input.candidate', candidatePath, { label: 'Candidate JSON' }),
-    ],
-  });
+  const manifestOutputPath = createManifestPath({ primaryOutputPath: outputPath });
+  const comparisonContent = `${JSON.stringify(comparison, null, 2)}\n`;
+  let impactArtifacts = null;
+  let manifestPath;
+  if (impactAnalysis) {
+    const reservedPaths = [outputPath, manifestOutputPath].map((pathValue) => resolve(pathValue));
+    const impactPaths = [impactOutputPath, impactMarkdownPath].map((pathValue) => resolve(pathValue));
+    if (new Set(impactPaths).size !== impactPaths.length || impactPaths.some((pathValue) => reservedPaths.includes(pathValue))) {
+      throw new Error('Revision comparison, impact JSON, impact Markdown, and artifact manifest outputs must use distinct paths');
+    }
+    assertValidDArtifact('revision_comparison', comparison, { command: 'compare-rev', path: outputPath });
+    const comparisonCompanion = {
+      path: outputPath,
+      extension: '.json',
+      label: 'revision comparison JSON',
+      content: comparisonContent,
+    };
+    const previewPlan = await preflightRevisionImpactArtifactTargets({
+      projectRoot: PROJECT_ROOT,
+      report: impactAnalysis.report,
+      jsonPath: impactOutputPath,
+      markdownPath: impactMarkdownPath,
+      companionArtifacts: [comparisonCompanion],
+    });
+    const precomputedEntry = (pathValue) => {
+      const entry = previewPlan.entries.find((item) => item.target === resolve(pathValue));
+      if (!entry) throw new Error(`Missing prepared output metadata for ${pathValue}`);
+      return {
+        exists: true,
+        size_bytes: Buffer.byteLength(entry.content),
+        sha256: createHash('sha256').update(entry.content).digest('hex'),
+      };
+    };
+    const precomputedInputSnapshot = (side) => ({
+      exists: true,
+      size_bytes: side.sources.review_pack.bytes.length,
+      sha256: side.sources.review_pack.sha256,
+    });
+    const manifestOptions = {
+      command: 'compare-rev',
+      primaryOutputPath: outputPath,
+      manifestPath: manifestOutputPath,
+      artifacts: [
+        {
+          ...createArtifactEntry('revision-comparison.json', outputPath, { label: 'Revision comparison JSON' }),
+          precomputed: precomputedEntry(outputPath),
+        },
+        {
+          ...createArtifactEntry('revision-impact.report-json', impactOutputPath, { label: 'Revision impact report JSON' }),
+          precomputed: precomputedEntry(impactOutputPath),
+        },
+        {
+          ...createArtifactEntry('revision-impact.report-markdown', impactMarkdownPath, { label: 'Revision impact report Markdown' }),
+          precomputed: precomputedEntry(impactMarkdownPath),
+        },
+        {
+          ...createArtifactEntry('input.baseline', baselinePath, { label: 'Baseline JSON' }),
+          precomputed: precomputedInputSnapshot(impactAnalysis.baseline),
+        },
+        {
+          ...createArtifactEntry('input.candidate', candidatePath, { label: 'Candidate JSON' }),
+          precomputed: precomputedInputSnapshot(impactAnalysis.candidate),
+        },
+      ],
+    };
+    const builtManifest = await buildCliManifest(manifestOptions);
+    const manifestContent = `${JSON.stringify(builtManifest.manifest, null, 2)}\n`;
+    impactArtifactPlan = await preflightRevisionImpactArtifactTargets({
+      projectRoot: PROJECT_ROOT,
+      report: impactAnalysis.report,
+      jsonPath: impactOutputPath,
+      markdownPath: impactMarkdownPath,
+      companionArtifacts: [
+        comparisonCompanion,
+        {
+          path: manifestOutputPath,
+          extension: '.json',
+          label: 'revision comparison artifact manifest',
+          content: manifestContent,
+        },
+      ],
+    });
+    impactArtifacts = await writeRevisionImpactArtifacts({
+      preparedPlan: impactArtifactPlan,
+    });
+    manifestPath = manifestOutputPath;
+  } else {
+    await writeValidatedJsonArtifact(outputPath, 'revision_comparison', comparison, {
+      command: 'compare-rev',
+    });
+    manifestPath = await writeCliManifest({
+      command: 'compare-rev',
+      primaryOutputPath: outputPath,
+      manifestPath: manifestOutputPath,
+      artifacts: [
+        createArtifactEntry('revision-comparison.json', outputPath, { label: 'Revision comparison JSON' }),
+        createArtifactEntry('input.baseline', baselinePath, { label: 'Baseline JSON' }),
+        createArtifactEntry('input.candidate', candidatePath, { label: 'Candidate JSON' }),
+      ],
+    });
+  }
   console.log(`Revision comparison: ${outputPath}`);
+  if (impactArtifacts) {
+    console.log(`Revision impact report: ${impactArtifacts.jsonPath}`);
+    console.log(`Revision impact Markdown: ${impactArtifacts.markdownPath}`);
+  }
   console.log(`Manifest: ${manifestPath}`);
 }
 
