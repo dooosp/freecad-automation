@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dooosp.github.io/freecad-automation/schemas/inspection_result_normalization.schema.json",
+  "title": "Inspection Result Normalization",
+  "type": "object", "additionalProperties": false,
+  "required": ["artifact_type", "schema_version", "generated_at", "normalization_id", "status", "adapter", "plan_binding", "source_snapshot", "source_overall_result", "reconciliation_result", "summary", "measurements", "missing_items", "unexpected_items", "unresolved", "envelope_mapping", "next_step", "boundaries"],
+  "properties": {
+    "artifact_type": { "const": "inspection_result_normalization" }, "schema_version": { "const": "1.0" }, "generated_at": { "$ref": "#/$defs/dateTime" }, "normalization_id": { "$ref": "#/$defs/id" }, "status": { "enum": ["blocked", "review_required", "ready_for_quarantine_review"] },
+    "adapter": { "type": "object", "additionalProperties": false, "required": ["id", "version"], "properties": { "id": { "const": "plan-result-csv-v1" }, "version": { "const": "1.0" } } },
+    "plan_binding": { "type": "object", "additionalProperties": false, "required": ["plan_id", "plan_sha256", "release_record_id", "release_record_sha256", "package_slug", "revision"], "properties": { "plan_id": { "$ref": "#/$defs/id" }, "plan_sha256": { "$ref": "#/$defs/sha" }, "release_record_id": { "$ref": "#/$defs/id" }, "release_record_sha256": { "$ref": "#/$defs/sha" }, "package_slug": { "type": "string" }, "revision": { "type": "string" } } },
+    "source_snapshot": { "type": "object", "additionalProperties": false, "required": ["source_path", "source_sha256", "source_size_bytes", "submission_metadata_sha256", "released_template_sha256", "template_lineage"], "properties": { "source_path": { "type": "string" }, "source_sha256": { "$ref": "#/$defs/sha" }, "source_size_bytes": { "type": "integer", "minimum": 1 }, "submission_metadata_sha256": { "$ref": "#/$defs/sha" }, "released_template_sha256": { "$ref": "#/$defs/sha" }, "template_lineage": { "enum": ["derivative_of_released_native_template", "invalid_or_unproven"] } } },
+    "source_overall_result": { "type": ["string", "null"] }, "reconciliation_result": { "enum": ["internally_consistent", "inconsistent", "incomplete", "unable_to_determine"] },
+    "summary": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 }, "required": ["expected_item_count", "matched_item_count", "missing_item_count", "unexpected_item_count", "duplicate_item_count", "reported_pass_count", "reported_fail_count", "reported_not_accepted_count", "computed_pass_count", "computed_fail_count", "result_mismatch_count", "unresolved_count"] },
+    "measurements": { "type": "array", "items": { "$ref": "#/$defs/measurement" } }, "missing_items": { "type": "array", "items": { "type": "object" } }, "unexpected_items": { "type": "array", "items": { "type": "object" } }, "unresolved": { "type": "array", "items": { "type": "object" } },
+    "envelope_mapping": { "type": "object" }, "next_step": { "type": "object" },
+    "boundaries": { "type": "object", "additionalProperties": false, "required": ["untrusted_candidate", "inspection_evidence", "authorization_created", "evidence_attached", "evidence_superseded", "readiness_regenerated", "canonical_artifacts_mutated", "human_review_required"], "properties": { "untrusted_candidate": { "const": true }, "inspection_evidence": { "const": false }, "authorization_created": { "const": false }, "evidence_attached": { "const": false }, "evidence_superseded": { "const": false }, "readiness_regenerated": { "const": false }, "canonical_artifacts_mutated": { "const": false }, "human_review_required": { "const": true } } }
+  },
+  "$defs": {
+    "id": { "type": "string", "minLength": 8, "maxLength": 256 }, "sha": { "type": "string", "pattern": "^[a-f0-9]{64}$" }, "dateTime": { "type": "string", "minLength": 20, "maxLength": 64 },
+    "nullableNumber": { "type": ["number", "null"] }, "nullableText": { "type": ["string", "null"] },
+    "measurement": {
+      "type": "object", "additionalProperties": false,
+      "required": ["plan_item_id", "characteristic_id", "feature_id", "package_slug", "revision", "plan_release_record_id", "specification_reference", "plan_nominal", "plan_lower_limit", "plan_upper_limit", "plan_unit", "raw_measured_value", "raw_unit", "normalized_measured_value", "normalized_unit", "reported_result", "computed_result", "result_consistency", "method_required", "method_reported", "method_conformance", "equipment_required", "equipment_reported", "equipment_conformance", "reported_completion_status", "reported_final_status", "inspector_identity_ref", "reviewer_identity_ref", "measurement_completed_at", "reported_source_file_sha256", "remarks", "revision_impact_change_ids", "source_row_number", "source_artifact_sha256", "authority_references", "blockers", "review_requirements"],
+      "properties": {
+        "plan_item_id": { "$ref": "#/$defs/id" }, "characteristic_id": { "type": "string", "minLength": 1 }, "feature_id": { "$ref": "#/$defs/nullableText" }, "package_slug": { "type": "string" }, "revision": { "type": "string" }, "plan_release_record_id": { "$ref": "#/$defs/id" }, "specification_reference": { "$ref": "#/$defs/nullableText" },
+        "plan_nominal": { "$ref": "#/$defs/nullableNumber" }, "plan_lower_limit": { "$ref": "#/$defs/nullableNumber" }, "plan_upper_limit": { "$ref": "#/$defs/nullableNumber" }, "plan_unit": { "$ref": "#/$defs/nullableText" },
+        "raw_measured_value": { "type": "string" }, "raw_unit": { "type": "string" }, "normalized_measured_value": { "$ref": "#/$defs/nullableNumber" }, "normalized_unit": { "$ref": "#/$defs/nullableText" },
+        "reported_result": { "type": "string" }, "computed_result": { "enum": ["pass", "fail", "unable_to_determine"] }, "result_consistency": { "enum": ["consistent", "inconsistent", "not_computable", "missing_reported_result"] },
+        "method_required": { "$ref": "#/$defs/nullableText" }, "method_reported": { "type": "string" }, "method_conformance": { "enum": ["not_required", "missing", "conformant", "mismatch"] },
+        "equipment_required": { "$ref": "#/$defs/nullableText" }, "equipment_reported": { "$ref": "#/$defs/nullableText" }, "equipment_conformance": { "enum": ["not_required", "missing", "conformant", "mismatch"] },
+        "reported_completion_status": { "type": "string" }, "reported_final_status": { "type": "string" }, "inspector_identity_ref": { "type": "string" }, "reviewer_identity_ref": { "type": "string" }, "measurement_completed_at": { "$ref": "#/$defs/dateTime" }, "reported_source_file_sha256": { "$ref": "#/$defs/sha" }, "remarks": { "$ref": "#/$defs/nullableText" },
+        "revision_impact_change_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string" } }, "source_row_number": { "type": "integer", "minimum": 2 }, "source_artifact_sha256": { "$ref": "#/$defs/sha" }, "authority_references": { "type": "array", "items": { "type": "string" } }, "blockers": { "type": "array", "uniqueItems": true, "items": { "type": "string" } }, "review_requirements": { "type": "array", "uniqueItems": true, "items": { "type": "string" } }
+      }
+    }
+  }
+}

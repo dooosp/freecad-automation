@@ -116,6 +116,10 @@ import {
   writeInspectionPlanReleaseRecord,
 } from '../src/services/inspection-plan/inspection-plan-release-service.js';
 import {
+  normalizeInspectionResultFromPaths,
+  writeInspectionResultNormalizationOutputs,
+} from '../src/services/inspection-result/inspection-result-normalization-service.js';
+import {
   assertRegularReadinessPackHasNoInspectionEvidenceClaim,
   attachAuthorizedInspectionEvidence,
   authorizeQuarantinedInspectionEvidence,
@@ -1107,6 +1111,7 @@ const CLI_COMMAND_HANDLERS = Object.freeze({
   'generate-standard-docs': cmdGenerateStandardDocs,
   'inspection-plan': cmdInspectionPlan,
   'inspection-plan-release-record': cmdInspectionPlanReleaseRecord,
+  'inspection-result-normalize': cmdInspectionResultNormalize,
   ingest: cmdIngest,
   'analyze-part': cmdAnalyzePart,
   'quality-link': cmdQualityLink,
@@ -2335,6 +2340,30 @@ async function cmdInspectionPlanReleaseRecord(rawArgs = []) {
   console.log(`  State: ${record.state}`);
   console.log('  Scope: inspection execution only');
   console.log('  Inspection evidence: no');
+}
+
+async function cmdInspectionResultNormalize(rawArgs = []) {
+  const { options } = parseCliArgs(rawArgs);
+  rejectUnsupportedOptions('inspection-result-normalize', options, ['inspection-plan', 'plan-release-record', 'source', 'submission-metadata', 'adapter', 'adapter-version', 'out', 'summary-out', 'generated-at']);
+  const inspectionPlanPath = resolveMaybe(requireOptionValue('--inspection-plan', options['inspection-plan']));
+  const planReleaseRecordPath = resolveMaybe(requireOptionValue('--plan-release-record', options['plan-release-record']));
+  const sourcePath = resolveMaybe(requireOptionValue('--source', options.source));
+  const submissionMetadataPath = resolveMaybe(requireOptionValue('--submission-metadata', options['submission-metadata']));
+  const adapterId = requireOptionValue('--adapter', options.adapter);
+  const adapterVersion = options['adapter-version'] === undefined ? '1.0' : requireOptionValue('--adapter-version', options['adapter-version']);
+  const outputPath = resolveMaybe(requireOptionValue('--out', options.out));
+  const summaryPath = options['summary-out'] ? resolveMaybe(requireOptionValue('--summary-out', options['summary-out'])) : null;
+  const generatedAt = options['generated-at'] === undefined ? nowIso() : requireOptionValue('--generated-at', options['generated-at']);
+  const result = await normalizeInspectionResultFromPaths({ projectRoot: PROJECT_ROOT, inspectionPlanPath, planReleaseRecordPath, sourcePath, submissionMetadataPath, adapterId, adapterVersion, generatedAt });
+  const outputs = await writeInspectionResultNormalizationOutputs({ projectRoot: PROJECT_ROOT, normalization: result.normalization, snapshots: result.snapshots, outputPath, summaryPath });
+  console.log(`Inspection result normalization: ${outputs.json}`);
+  console.log(`Summary: ${outputs.markdown}`);
+  console.log(`Manifest: ${outputs.manifest}`);
+  console.log(`  Status: ${result.normalization.status}`);
+  console.log('  Inspection evidence: no');
+  console.log('  Human review and quarantine still required: yes');
+  if (result.normalization.status === 'blocked') process.exitCode = 2;
+  return result.normalization;
 }
 
 async function cmdGenerateStandardDocs(rawArgs = []) {

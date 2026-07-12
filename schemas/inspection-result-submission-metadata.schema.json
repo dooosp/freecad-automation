@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dooosp.github.io/freecad-automation/schemas/inspection-result-submission-metadata.schema.json",
+  "title": "Inspection Result Submission Metadata",
+  "type": "object", "additionalProperties": false,
+  "required": ["artifact_type", "schema_version", "package", "part_identifier", "plan_id", "plan_sha256", "plan_release_record_id", "plan_release_record_sha256", "source_organization", "source_type", "source_record_id", "original_sanitized_filename", "inspection_method", "completion_status", "completed_at", "inspector_identity_ref", "origin_reference", "confidentiality_classification", "redaction_status", "redacted_fields", "source_overall_result", "notes"],
+  "properties": {
+    "artifact_type": { "const": "inspection_result_submission_metadata" }, "schema_version": { "const": "1.0" },
+    "package": { "type": "object", "additionalProperties": false, "required": ["slug", "revision"], "properties": { "slug": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" }, "revision": { "type": "string", "minLength": 1, "maxLength": 128 } } },
+    "part_identifier": { "$ref": "#/$defs/text" }, "plan_id": { "$ref": "#/$defs/id" }, "plan_sha256": { "$ref": "#/$defs/sha" }, "plan_release_record_id": { "$ref": "#/$defs/id" }, "plan_release_record_sha256": { "$ref": "#/$defs/sha" },
+    "source_organization": { "$ref": "#/$defs/text" }, "source_type": { "enum": ["physical", "supplier", "lab", "qa"] }, "source_record_id": { "$ref": "#/$defs/text" },
+    "original_sanitized_filename": { "type": "string", "minLength": 1, "maxLength": 255, "pattern": "^[^/\\\\]+$" },
+    "inspection_method": { "$ref": "#/$defs/text" }, "completion_status": { "enum": ["complete", "completed", "final", "partial"] }, "completed_at": { "$ref": "#/$defs/dateTime" }, "inspector_identity_ref": { "$ref": "#/$defs/id" }, "origin_reference": { "$ref": "#/$defs/text" },
+    "confidentiality_classification": { "enum": ["public", "internal", "confidential", "restricted"] }, "redaction_status": { "enum": ["not_redacted", "redacted", "not_applicable"] }, "redacted_fields": { "type": "array", "maxItems": 100, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 128 } },
+    "source_overall_result": { "type": ["string", "null"], "enum": ["pass", "fail", "partial", "not_accepted", null] }, "notes": { "type": ["string", "null"], "maxLength": 2000 }
+  },
+  "$defs": { "id": { "type": "string", "minLength": 3, "maxLength": 256, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+-]+$" }, "sha": { "type": "string", "pattern": "^[a-f0-9]{64}$" }, "text": { "type": "string", "minLength": 1, "maxLength": 512 }, "dateTime": { "type": "string", "minLength": 20, "maxLength": 64 } }
+}

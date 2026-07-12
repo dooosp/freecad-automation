@@ -59,6 +59,7 @@ This matrix is the public support boundary for the current release. It separates
 - `inspection-evidence-promotion-dry-run`
 - `inspection-plan`
 - `inspection-plan-release-record`
+- `inspection-result-normalize`
 - `stage5b-evidence-audit`
 - `stage5b-evidence-source-kit`
 - `stage5b-evidence-source-preflight`
