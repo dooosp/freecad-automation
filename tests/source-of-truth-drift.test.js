@@ -136,6 +136,9 @@ function minimalLocalApiJobRequest(command) {
   if (command === 'generate-standard-docs') {
     return { type: command, config_path: 'configs/examples/quality_pass_bracket.toml', readiness_report_path: 'output/readiness_report.json' };
   }
+  if (command === 'inspection-plan') {
+    return { type: command, review_pack_path: 'output/review_pack.json', scope: 'full' };
+  }
   if (command === 'pack') {
     return { type: command, readiness_report_path: 'output/readiness_report.json' };
   }

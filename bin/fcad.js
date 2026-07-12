@@ -10,6 +10,7 @@ import {
   writeArtifactManifest,
 } from '../lib/artifact-manifest.js';
 import { deepMerge } from '../lib/config-loader.js';
+import { canonicalizeInspectionPlan } from '../lib/inspection-plan-contract.js';
 import {
   loadConfigWithDiagnostics,
   migrateConfigDocument,
@@ -103,6 +104,13 @@ import { writeEvidenceReadinessAudit } from '../src/services/evidence-readiness-
 import { writeMaintainerDecisionJournal } from '../src/services/evidence-readiness-audit/maintainer-decision-journal-service.js';
 import { materializePr170EvidenceArtifacts } from '../src/services/evidence-readiness-audit/pr170-artifact-materializer.js';
 import { discoverInspectionEvidenceIntake } from '../src/services/inspection-evidence-intake/inspection-evidence-intake-service.js';
+import {
+  createInspectionPlanFromPaths,
+  renderInspectionChecksheet,
+  renderInspectionResultTemplate,
+  renderSupplierInspectionRequest,
+  writeInspectionPlanOutputs,
+} from '../src/services/inspection-plan/inspection-plan-service.js';
 import {
   assertRegularReadinessPackHasNoInspectionEvidenceClaim,
   attachAuthorizedInspectionEvidence,
@@ -1093,6 +1101,7 @@ const CLI_COMMAND_HANDLERS = Object.freeze({
   'stage5b-evidence-pipeline-doctor': cmdStage5bEvidencePipelineDoctor,
   'stabilization-review': cmdStabilizationReview,
   'generate-standard-docs': cmdGenerateStandardDocs,
+  'inspection-plan': cmdInspectionPlan,
   ingest: cmdIngest,
   'analyze-part': cmdAnalyzePart,
   'quality-link': cmdQualityLink,
@@ -2222,6 +2231,86 @@ async function cmdStabilizationReview(rawArgs = []) {
   console.log(`Manifest: ${manifestPath}`);
   console.log(`  Runtime basis: ${report.stabilization_review.summary.runtime_basis}`);
   console.log(`  Top bottlenecks: ${(report.stabilization_review.summary.top_bottlenecks || []).length}`);
+}
+
+async function cmdInspectionPlan(rawArgs = []) {
+  const { options } = parseCliArgs(rawArgs);
+  rejectUnsupportedOptions('inspection-plan', options, [
+    'review-pack', 'revision-impact', 'readiness', 'config', 'requirements', 'scope', 'out', 'checksheet-out', 'request-out', 'result-template-out', 'generated-at',
+  ]);
+  const reviewPackPath = resolveMaybe(requireOptionValue('--review-pack', options['review-pack']));
+  const revisionImpactPath = options['revision-impact'] ? resolveMaybe(requireOptionValue('--revision-impact', options['revision-impact'])) : null;
+  const readinessPath = options.readiness ? resolveMaybe(requireOptionValue('--readiness', options.readiness)) : null;
+  const configPath = options.config ? resolveMaybe(requireOptionValue('--config', options.config)) : null;
+  const requirementsPath = options.requirements ? resolveMaybe(requireOptionValue('--requirements', options.requirements)) : null;
+  const scope = requireOptionValue('--scope', options.scope);
+  const outputPath = resolveMaybe(requireOptionValue('--out', options.out));
+  const checksheetPath = options['checksheet-out'] ? resolveMaybe(requireOptionValue('--checksheet-out', options['checksheet-out'])) : null;
+  const requestPath = options['request-out'] ? resolveMaybe(requireOptionValue('--request-out', options['request-out'])) : null;
+  const resultTemplatePath = options['result-template-out'] ? resolveMaybe(requireOptionValue('--result-template-out', options['result-template-out'])) : null;
+  const generatedAt = options['generated-at'] === undefined ? nowIso() : requireOptionValue('--generated-at', options['generated-at']);
+  if (!Number.isFinite(Date.parse(generatedAt))) throw new Error('--generated-at must be parseable ISO-8601 date/time text');
+
+  const plan = await createInspectionPlanFromPaths({
+    projectRoot: PROJECT_ROOT,
+    reviewPackPath,
+    revisionImpactPath,
+    readinessPath,
+    configPath,
+    requirementsPath,
+    scope,
+    generatedAt,
+  });
+  const planJson = canonicalizeInspectionPlan(plan);
+  const planSha = createHash('sha256').update(planJson).digest('hex');
+  const plannedOutputs = [
+    { type: 'inspection-plan.json', path: outputPath, label: 'Canonical inspection plan JSON', content: planJson },
+    ...(checksheetPath ? [{ type: 'inspection-checksheet.csv', path: checksheetPath, label: 'Supplier/lab inspection checksheet CSV', content: renderInspectionChecksheet(plan) }] : []),
+    ...(requestPath ? [{ type: 'supplier-inspection-request.md', path: requestPath, label: 'Supplier inspection request Markdown', content: renderSupplierInspectionRequest(plan, planSha) }] : []),
+    ...(resultTemplatePath ? [{ type: 'inspection-result-template.csv', path: resultTemplatePath, label: 'Blank inspection result template CSV', content: renderInspectionResultTemplate(plan) }] : []),
+  ];
+  const manifestArtifacts = [
+    ...plannedOutputs.map((entry) => ({
+      ...createArtifactEntry(entry.type, entry.path, { label: entry.label }),
+      precomputed: { exists: true, size_bytes: Buffer.byteLength(entry.content), sha256: createHash('sha256').update(entry.content).digest('hex') },
+    })),
+    createArtifactEntry('input.review-pack', reviewPackPath, { label: 'Canonical review pack JSON', scope: 'internal' }),
+    ...(revisionImpactPath ? [createArtifactEntry('input.revision-impact', revisionImpactPath, { label: 'Canonical revision impact report JSON', scope: 'internal' })] : []),
+    ...(readinessPath ? [createArtifactEntry('input.readiness-report', readinessPath, { label: 'Canonical readiness report JSON', scope: 'internal' })] : []),
+    ...(configPath ? [createArtifactEntry('input.config', configPath, { label: 'Configuration input', scope: 'internal' })] : []),
+    ...(requirementsPath ? [createArtifactEntry('input.inspection-requirements', requirementsPath, { label: 'Explicit inspection requirements JSON', scope: 'internal' })] : []),
+  ];
+  const manifestPath = createManifestPath({ primaryOutputPath: outputPath });
+  const { manifest } = await buildCliManifest({
+    command: 'inspection-plan',
+    primaryOutputPath: outputPath,
+    outputDir: dirname(outputPath),
+    artifacts: manifestArtifacts,
+    details: {
+      scope,
+      plan_id: plan.plan_id,
+      human_release_required: true,
+      inspection_evidence: false,
+      source_snapshot: plan.source_snapshot,
+    },
+    timestamps: { created_at: generatedAt, started_at: generatedAt, finished_at: generatedAt },
+  });
+  const outputs = await writeInspectionPlanOutputs({
+    projectRoot: PROJECT_ROOT,
+    plan,
+    outputPath,
+    checksheetPath,
+    requestPath,
+    resultTemplatePath,
+    additionalOutputs: [{ path: manifestPath, content: `${JSON.stringify(manifest, null, 2)}\n` }],
+  });
+  console.log(`Inspection plan: ${outputs.inspection_plan}`);
+  if (outputs.checksheet) console.log(`Checksheet: ${outputs.checksheet}`);
+  if (outputs.supplier_request) console.log(`Supplier request: ${outputs.supplier_request}`);
+  if (outputs.result_template) console.log(`Result template: ${outputs.result_template}`);
+  console.log(`Manifest: ${manifestPath}`);
+  console.log(`  Status: ${plan.status}`);
+  console.log('  Human release required: yes');
 }
 
 async function cmdGenerateStandardDocs(rawArgs = []) {

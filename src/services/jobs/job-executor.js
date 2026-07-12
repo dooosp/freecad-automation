@@ -36,6 +36,10 @@ import {
 import { writeEvidenceReadinessAudit } from '../evidence-readiness-audit/evidence-readiness-audit-service.js';
 import { discoverInspectionEvidenceIntake } from '../inspection-evidence-intake/inspection-evidence-intake-service.js';
 import { assertRegularReadinessPackHasNoInspectionEvidenceClaim } from '../inspection-evidence-intake/inspection-evidence-onboarding-service.js';
+import {
+  createInspectionPlanFromPaths,
+  writeInspectionPlanOutputs,
+} from '../inspection-plan/inspection-plan-service.js';
 import { buildInspectionEvidencePromotionDryRunManifest } from '../inspection-evidence-intake/promotion-dry-run-service.js';
 import {
   createRevisionImpactReportFromPaths,
@@ -117,6 +121,7 @@ const DIRECT_JOB_PATH_FIELDS = Object.freeze({
   'evidence-graph': ['review_pack_path', 'readiness_report_path'],
   'stabilization-review': ['baseline_path', 'candidate_path'],
   'generate-standard-docs': ['config_path', 'readiness_report_path'],
+  'inspection-plan': ['review_pack_path', 'revision_impact_path', 'readiness_report_path', 'config_path', 'requirements_path'],
   pack: ['readiness_report_path', 'docs_manifest_path'],
   'inspection-evidence-promotion-dry-run': ['intake_report_path'],
 });
@@ -602,6 +607,13 @@ function validateEvidenceGraphRequest(request, errors) {
   });
 }
 
+function validateInspectionPlanRequest(request, errors) {
+  if (request.type !== 'inspection-plan') return;
+  if (request.scope === 'delta' && !request.revision_impact_path) {
+    errors.push('inspection-plan delta scope requires revision_impact_path.');
+  }
+}
+
 function validateInspectionEvidenceIntakeRequest(request, errors) {
   if (request.type !== 'inspection-evidence-intake') return;
   if (request.options !== undefined && !isPlainObject(request.options)) return;
@@ -705,6 +717,7 @@ export function validateJobRequest(body, { trustedPathRoots = [] } = {}) {
     validateInspectionEvidenceIntakeRequest(request, errors);
     validatePromotionDryRunRequest(request, errors);
     validateEvidenceGraphRequest(request, errors);
+    validateInspectionPlanRequest(request, errors);
     validateStage5bAuditRequest(request, errors);
     validateEvidenceReadinessAuditRequest(request, errors);
   }
@@ -1251,6 +1264,33 @@ export function createJobExecutor({
     };
   }
 
+  async function executeInspectionPlan(job) {
+    const artifactDir = await ensureJobArtifactDir(jobStore, job.id);
+    const scope = job.request.scope || job.request.options?.scope || 'full';
+    const generatedAt = job.request.options?.generated_at || job.created_at || new Date().toISOString();
+    const plan = await createInspectionPlanFromPaths({
+      projectRoot,
+      reviewPackPath: resolveMaybe(projectRoot, job.request.review_pack_path),
+      revisionImpactPath: resolveMaybe(projectRoot, job.request.revision_impact_path),
+      readinessPath: resolveMaybe(projectRoot, job.request.readiness_report_path),
+      configPath: resolveMaybe(projectRoot, job.request.config_path),
+      requirementsPath: resolveMaybe(projectRoot, job.request.requirements_path),
+      trustedInputRoots: [jobStore.jobsDir],
+      scope,
+      generatedAt,
+    });
+    const outputs = await writeInspectionPlanOutputs({
+      projectRoot,
+      plan,
+      outputPath: join(artifactDir, 'inspection_plan.json'),
+      checksheetPath: join(artifactDir, 'inspection_checksheet.csv'),
+      requestPath: join(artifactDir, 'supplier_inspection_request.md'),
+      resultTemplatePath: join(artifactDir, 'inspection_result_template.csv'),
+      trustedOutputRoots: [artifactDir],
+    });
+    return { plan, outputs };
+  }
+
   async function executePack(job) {
     await ensureJobArtifactDir(jobStore, job.id);
     const rawReadinessPath = resolveMaybe(projectRoot, job.request.readiness_report_path);
@@ -1473,6 +1513,7 @@ export function createJobExecutor({
         executeEvidenceGraph,
         executeStabilizationReview,
         executeGenerateStandardDocs,
+        executeInspectionPlan,
         executePack,
         executeInspectionEvidenceIntake,
         executeInspectionEvidencePromotionDryRun,

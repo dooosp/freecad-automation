@@ -27,6 +27,7 @@ const REVISION_IMPACT_MATCHERS = [
   'revision_impact_report.md',
   'revision impact report',
 ];
+const INSPECTION_PLAN_MATCHERS = ['inspection-plan.json', 'inspection_plan.json', 'inspection plan json'];
 const REVIEW_SOURCE_MATCHERS = [
   'readiness',
   'review.product',
@@ -42,6 +43,7 @@ const REVIEW_SOURCE_MATCHERS = [
   'line_plan',
   'drawing.qa-report',
   ...REVISION_IMPACT_MATCHERS,
+  ...INSPECTION_PLAN_MATCHERS,
   ...INSPECTION_INTAKE_MATCHERS,
   ...INSPECTION_PROMOTION_DRY_RUN_MATCHERS,
   ...STAGE5B_AUDIT_MATCHERS,
@@ -237,6 +239,10 @@ export function isRevisionComparisonArtifact(artifact = {}) {
 
 export function isRevisionImpactArtifact(artifact = {}) {
   return includesAny(artifactSearchText(artifact), REVISION_IMPACT_MATCHERS);
+}
+
+export function isInspectionPlanArtifact(artifact = {}) {
+  return includesAny(artifactSearchText(artifact), INSPECTION_PLAN_MATCHERS);
 }
 
 export function isStabilizationReviewArtifact(artifact = {}) {

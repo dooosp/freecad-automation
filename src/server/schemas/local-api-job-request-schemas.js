@@ -30,6 +30,21 @@ export const localApiJobRequestSchema = {
     {
       type: 'object',
       additionalProperties: false,
+      required: ['type', 'review_pack_path', 'scope'],
+      properties: {
+        type: { const: 'inspection-plan' },
+        review_pack_path: { type: 'string', minLength: 1 },
+        revision_impact_path: { type: 'string', minLength: 1 },
+        readiness_report_path: { type: 'string', minLength: 1 },
+        config_path: { type: 'string', minLength: 1 },
+        requirements_path: { type: 'string', minLength: 1 },
+        scope: { enum: ['full', 'delta'] },
+        options: { type: 'object' },
+      },
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
       required: ['type'],
       properties: {
         type: { const: 'inspect' },

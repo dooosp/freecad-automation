@@ -91,6 +91,24 @@ export function createCanonicalArtifactHandlers() {
         ],
       };
     },
+    'inspection-plan': async (job, context) => {
+      const result = await context.executeInspectionPlan(job);
+      return {
+        result,
+        artifacts: result.outputs,
+        manifestArtifacts: [
+          { type: 'inspection-plan.json', path: result.outputs.inspection_plan, label: 'Canonical inspection plan JSON', scope: 'user-facing', stability: 'stable', metadata: { contract: 'inspection_plan/1.0', plan_id: result.plan.plan_id, source_snapshot: result.plan.source_snapshot, boundaries: result.plan.boundaries } },
+          { type: 'inspection-checksheet.csv', path: result.outputs.checksheet, label: 'Supplier/lab inspection checksheet CSV', scope: 'user-facing', stability: 'stable' },
+          { type: 'supplier-inspection-request.md', path: result.outputs.supplier_request, label: 'Supplier inspection request Markdown', scope: 'user-facing', stability: 'stable' },
+          { type: 'inspection-result-template.csv', path: result.outputs.result_template, label: 'Blank inspection result template CSV', scope: 'user-facing', stability: 'stable' },
+          { type: 'input.review-pack', path: job.request.review_pack_path, label: 'Canonical review pack JSON', scope: 'internal', stability: 'stable' },
+          ...(job.request.revision_impact_path ? [{ type: 'input.revision-impact', path: job.request.revision_impact_path, label: 'Canonical revision impact report JSON', scope: 'internal', stability: 'stable' }] : []),
+          ...(job.request.readiness_report_path ? [{ type: 'input.readiness-report', path: job.request.readiness_report_path, label: 'Canonical readiness report JSON', scope: 'internal', stability: 'stable' }] : []),
+          ...(job.request.config_path ? [{ type: 'input.config', path: job.request.config_path, label: 'Configuration input', scope: 'internal', stability: 'stable' }] : []),
+          ...(job.request.requirements_path ? [{ type: 'input.inspection-requirements', path: job.request.requirements_path, label: 'Explicit inspection requirements JSON', scope: 'internal', stability: 'stable' }] : []),
+        ],
+      };
+    },
     pack: async (job, context) => {
       const result = await context.executePack(job);
       return {
