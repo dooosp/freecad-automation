@@ -14,7 +14,11 @@ import {
   readJsonFile,
   runPythonJsonScript,
 } from '../../../lib/context-loader.js';
-import { D_ANALYSIS_VERSION, D_ARTIFACT_SCHEMA_VERSION } from '../../../lib/d-artifact-schema.js';
+import {
+  D_ANALYSIS_VERSION,
+  D_ARTIFACT_SCHEMA_VERSION,
+  assertValidDArtifact,
+} from '../../../lib/d-artifact-schema.js';
 import { isWindowsAbsolutePath, normalizeLocalPath } from '../../../lib/paths.js';
 import { runScript } from '../../../lib/runner.js';
 import { createDfmService } from '../../api/analysis.js';
@@ -35,6 +39,7 @@ import { assertRegularReadinessPackHasNoInspectionEvidenceClaim } from '../inspe
 import { buildInspectionEvidencePromotionDryRunManifest } from '../inspection-evidence-intake/promotion-dry-run-service.js';
 import {
   createRevisionImpactReportFromPaths,
+  preflightRevisionImpactArtifactTargets,
   writeRevisionImpactArtifacts,
 } from '../revision-impact/revision-impact-service.js';
 import { writeStage5bEvidenceAuditBundle } from '../inspection-evidence-intake/stage5b-evidence-audit-service.js';
@@ -959,7 +964,6 @@ export function createJobExecutor({
   }
 
   async function executeCompareRev(job) {
-    await ensureJobArtifactDir(jobStore, job.id);
     const baselineImport = await resolveBundleBackedCanonicalPath({
       jobStore,
       jobId: job.id,
@@ -1043,14 +1047,23 @@ export function createJobExecutor({
       candidateEvidenceReceiptPath: resolveMaybe(projectRoot, job.request.candidate_evidence_receipt_path),
       generatedAt: requestedGeneratedAt || executionGeneratedAt,
     });
-    await jobStore.writeJobFile(job.id, 'artifacts/revision_comparison.json', `${JSON.stringify(comparison, null, 2)}\n`);
-    const impactArtifacts = await writeRevisionImpactArtifacts({
+    const impactArtifactPlan = await preflightRevisionImpactArtifactTargets({
       projectRoot,
       report: impactAnalysis.report,
       jsonPath: impactJsonPath,
       markdownPath: impactMarkdownPath,
       allowedOutputRoots: [dirname(impactJsonPath)],
       trustedOutputRoots: [jobStore.jobsDir],
+      companionArtifacts: [{
+        path: outputPath,
+        extension: '.json',
+        label: 'revision comparison JSON',
+        content: `${JSON.stringify(comparison, null, 2)}\n`,
+      }],
+    });
+    assertValidDArtifact('revision_comparison', comparison, { command: 'compare-rev', path: outputPath });
+    const impactArtifacts = await writeRevisionImpactArtifacts({
+      preparedPlan: impactArtifactPlan,
     });
     return {
       comparison,
