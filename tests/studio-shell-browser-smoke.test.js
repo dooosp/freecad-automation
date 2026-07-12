@@ -1889,6 +1889,29 @@ try {
   });
   assert.equal(firstRunCard.text.includes('Stage 3 quality target'), true);
 
+  const localFirstWorkflows = await cdp.evaluate(`(() => {
+    const root = document.querySelector('[data-hook="local-first-workflows"]');
+    const cards = [...(root?.querySelectorAll('[data-workflow]') || [])];
+    const resultCard = root?.querySelector('[data-workflow="receive-results"]');
+    return {
+      count: cards.length,
+      titles: cards.map((card) => card.querySelector('.action-title')?.textContent || ''),
+      resultText: resultCard?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+      resultFileInputs: resultCard?.querySelectorAll('input[type="file"]').length || 0,
+      resultActions: [...(resultCard?.querySelectorAll('[data-action]') || [])].map((node) => node.dataset.action),
+    };
+  })()`);
+  assert.equal(localFirstWorkflows.count, 3);
+  assert.deepEqual(localFirstWorkflows.titles, [
+    'Create or Import & Review',
+    'Compare Revisions & Plan Inspection',
+    'Receive Results & Continue Onboarding',
+  ]);
+  assert.equal(localFirstWorkflows.resultText.includes('fcad inspection-result-normalize'), true);
+  assert.equal(localFirstWorkflows.resultText.includes('CLI-only raw bytes'), true);
+  assert.equal(localFirstWorkflows.resultFileInputs, 0);
+  assert.deepEqual(localFirstWorkflows.resultActions, []);
+
   await cdp.evaluate(`document.querySelector('[data-action="load-verified-bracket"]')?.click()`);
   await waitFor(async () => {
     const snapshot = await cdp.evaluate(`(() => ({

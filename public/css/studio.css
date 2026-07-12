@@ -2553,8 +2553,47 @@ body::after {
 
 .workflow-progress {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.65rem;
+}
+
+.local-first-workflow-grid {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.local-first-workflow-card {
+  display: grid;
+  gap: 0.85rem;
+  min-width: 0;
+  padding: 1rem;
+  border-radius: var(--radius-2);
+  border: 1px solid rgba(126, 164, 198, 0.16);
+  background: rgba(5, 13, 23, 0.46);
+}
+
+.local-first-workflow-card[data-tone="ok"] {
+  border-color: rgba(91, 214, 153, 0.24);
+}
+
+.local-first-workflow-card[data-tone="warn"] {
+  border-color: rgba(244, 184, 96, 0.24);
+}
+
+.workflow-command {
+  display: block;
+  max-width: 100%;
+  padding: 0.8rem;
+  overflow-x: auto;
+  border-radius: var(--radius-1);
+  border: 1px solid rgba(126, 164, 198, 0.14);
+  background: rgba(1, 8, 15, 0.72);
+  color: #bcecff;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .workflow-step {
