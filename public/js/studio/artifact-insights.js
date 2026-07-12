@@ -3,6 +3,7 @@ import {
   isReleaseBundleArtifact,
   isReleaseBundleManifestArtifact,
   isReviewPackArtifact,
+  isRevisionImpactArtifact,
   isRevisionComparisonArtifact,
   isStabilizationReviewArtifact,
 } from './artifact-actions.js';
@@ -110,6 +111,7 @@ export function classifyArtifact(artifact = {}) {
 
   if (isReleaseBundleArtifact(artifact)) return { badge: 'bundle', tone: 'warn' };
   if (isReleaseBundleManifestArtifact(artifact)) return { badge: 'bundle-manifest', tone: 'info' };
+  if (isRevisionImpactArtifact(artifact)) return { badge: 'revision-impact', tone: 'warn' };
   if (isRevisionComparisonArtifact(artifact)) return { badge: 'compare', tone: 'warn' };
   if (isStabilizationReviewArtifact(artifact)) return { badge: 'stabilization', tone: 'warn' };
   if (includesAny(search, ['validation-diagnostics', 'validation_diagnostics'])) return { badge: 'validation', tone: 'bad' };
@@ -419,6 +421,131 @@ function buildRevisionComparisonViewer(artifact, parsedPayload, identity) {
   };
 }
 
+function buildRevisionImpactViewer(artifact, parsedPayload, identity) {
+  const summary = safeObject(parsedPayload?.summary);
+  const baseline = safeObject(parsedPayload?.baseline);
+  const candidate = safeObject(parsedPayload?.candidate);
+  const changes = safeList(parsedPayload?.changes);
+  const assessments = safeList(parsedPayload?.evidence_applicability?.assessments);
+  const planItems = safeList(parsedPayload?.reinspection_plan?.items);
+  const unresolved = changes.filter((change) => change?.determinability === 'unable_to_determine');
+  const requirementChangeTypes = new Set([
+    'nominal_dimension_change',
+    'tolerance_change',
+    'datum_or_reference_change',
+    'drawing_requirement_change',
+    'quality_gate_change',
+    'inspection_method_requirement_change',
+    'specification_reference_change',
+  ]);
+  const requirementChanges = changes.filter((change) => requirementChangeTypes.has(change?.change_type));
+  const formatChange = (change) => {
+    const type = formatReviewDisplayValue(change?.change_type, 'change');
+    const entity = formatReviewDisplayValue(
+      change?.affected_entity_id || change?.affected_entity_or_characteristic_id || change?.entity_id,
+      'unresolved identity'
+    );
+    const rationale = formatReviewDisplayValue(change?.engineering_rationale || change?.rationale, 'Human review required.');
+    return `${type} • ${entity} — ${rationale}`;
+  };
+  const formatPlanItem = (item) => {
+    const entity = formatReviewDisplayValue(
+      item?.affected_entity_id || item?.affected_feature_or_characteristic_id || item?.characteristic_id || item?.feature_id,
+      'unresolved characteristic'
+    );
+    const reason = formatReviewDisplayValue(item?.reason_reinspection_is_required || item?.reason, 'Reinspection is required.');
+    return `${entity} — ${reason}`;
+  };
+  const applicabilityCounts = assessments.reduce((counts, assessment) => {
+    const key = formatReviewDisplayValue(assessment?.applicability_status, 'unknown');
+    counts[key] = (counts[key] || 0) + 1;
+    return counts;
+  }, {});
+  const sourceHashEntries = [
+    ...Object.entries(safeObject(baseline.source_hashes))
+      .map(([label, value]) => `Baseline ${label} • ${formatReviewDisplayValue(value, 'Unknown hash')}`),
+    ...Object.entries(safeObject(candidate.source_hashes))
+      .map(([label, value]) => `Candidate ${label} • ${formatReviewDisplayValue(value, 'Unknown hash')}`),
+  ];
+  const provenanceEntries = [
+    ...safeList(baseline.artifact_refs).map((value) => `Baseline • ${formatReviewDisplayValue(value, 'Unknown artifact')}`),
+    ...safeList(candidate.artifact_refs).map((value) => `Candidate • ${formatReviewDisplayValue(value, 'Unknown artifact')}`),
+  ];
+
+  return {
+    kind: 'revision_impact_report',
+    title: 'Revision impact viewer',
+    summary: `${formatReviewDisplayValue(summary.decision, 'Review required')} with ${summary.material_change_count || 0} material changes and ${summary.reinspection_required_count || 0} reinspection requirements.`,
+    highlights: [
+      { label: 'Decision', value: summary.decision || 'Unknown' },
+      { label: 'Material changes', value: String(summary.material_change_count || 0) },
+      { label: 'Reinspection required', value: String(summary.reinspection_required_count || 0) },
+      { label: 'Unable to determine', value: String(summary.unable_to_determine_count || 0) },
+    ],
+    sections: [
+      {
+        title: 'Comparison basis',
+        items: [
+          { label: 'Package', value: candidate.package_slug || baseline.package_slug || 'Unknown' },
+          { label: 'Baseline revision', value: baseline.revision || 'Unknown' },
+          { label: 'Candidate revision', value: candidate.revision || 'Unknown' },
+          { label: 'Readiness review required', value: summary.readiness_review_required ? 'Yes' : 'No' },
+        ],
+      },
+      {
+        title: 'Material engineering changes',
+        entries: changes.length > 0 ? changes.slice(0, 8).map(formatChange) : ['No material engineering change was identified.'],
+      },
+      {
+        title: 'Dimensions, tolerances, drawing and specification impacts',
+        entries: requirementChanges.length > 0
+          ? requirementChanges.slice(0, 8).map(formatChange)
+          : ['No dimension, tolerance, drawing, quality-gate, or specification impact was reported.'],
+      },
+      {
+        title: 'Evidence applicability',
+        items: Object.entries(applicabilityCounts).length > 0
+          ? Object.entries(applicabilityCounts).map(([label, value]) => ({ label, value: String(value) }))
+          : [{ label: 'Assessments', value: 'None' }],
+      },
+      {
+        title: 'Affected inspection characteristics',
+        entries: assessments.length > 0
+          ? assessments.slice(0, 8).map((assessment) => (
+              `${formatReviewDisplayValue(assessment?.evidence_or_characteristic_id, 'Unknown characteristic')} • ${formatReviewDisplayValue(assessment?.applicability_status, 'unknown')}`
+            ))
+          : ['No inspection characteristic applicability assessment was reported.'],
+      },
+      {
+        title: 'Reinspection requirements',
+        entries: planItems.length > 0 ? planItems.slice(0, 8).map(formatPlanItem) : ['No reinspection item was generated.'],
+      },
+      {
+        title: 'Unresolved mappings',
+        entries: unresolved.length > 0 ? unresolved.slice(0, 8).map(formatChange) : ['No unresolved stable-identity mapping was reported.'],
+      },
+      {
+        title: 'Source hashes and provenance',
+        entries: [...sourceHashEntries, ...provenanceEntries].length > 0
+          ? [...sourceHashEntries, ...provenanceEntries]
+          : ['No source hash or artifact reference was reported.'],
+      },
+      {
+        title: 'Non-mutation boundaries',
+        entries: [
+          'No inspection evidence was attached.',
+          'Existing evidence was not mutated.',
+          'No evidence was superseded.',
+          'Readiness was not regenerated.',
+          'A reinspection plan is not completed inspection evidence.',
+          'Human review is required before any evidence or readiness action.',
+        ],
+      },
+      ...buildCommonViewerSections(identity),
+    ],
+  };
+}
+
 function buildStabilizationViewer(artifact, parsedPayload, identity) {
   const summary = safeObject(parsedPayload?.summary);
   const deltas = safeObject(parsedPayload?.readiness_deltas);
@@ -515,6 +642,7 @@ function buildGenericViewer(artifact, identity) {
 }
 
 export function buildArtifactOpenLabel(artifact = {}) {
+  if (isRevisionImpactArtifact(artifact)) return 'Open revision impact';
   if (isReviewPackArtifact(artifact)) return 'Open review pack';
   if (isReadinessReportArtifact(artifact)) return 'Open readiness report';
   if (isReleaseBundleArtifact(artifact)) return 'Open release bundle';
@@ -535,6 +663,9 @@ export function buildArtifactViewer({
   }
   if (isReadinessReportArtifact(artifact) && isPlainObject(parsedPayload)) {
     return buildReadinessViewer(artifact, parsedPayload, identity);
+  }
+  if (isRevisionImpactArtifact(artifact) && isPlainObject(parsedPayload)) {
+    return buildRevisionImpactViewer(artifact, parsedPayload, identity);
   }
   if (isRevisionComparisonArtifact(artifact) && isPlainObject(parsedPayload)) {
     return buildRevisionComparisonViewer(artifact, parsedPayload, identity);
@@ -1163,6 +1294,8 @@ export function buildReviewCards({ activeJob, artifacts = [], sourceMap = {} }) 
   const investmentArtifact = readinessArtifact || findArtifact(artifacts, ['investment_review', 'review.investment-review']);
   const standardDocsArtifact = findArtifact(artifacts, ['standard_docs_manifest', 'standard-docs.summary']);
   const reviewPackArtifact = findArtifact(artifacts, ['review-pack', 'process_plan', 'line_plan', 'drawing.qa-report']);
+  const revisionImpactArtifact = findArtifact(artifacts, ['revision-impact.report-json', 'revision_impact_report.json']);
+  const revisionImpact = sourceMap.revisionImpact;
 
   const productReview = readiness?.product_review || sourceMap.productReview;
   const qualityRisk = readiness?.quality_risk || sourceMap.qualityRisk;
@@ -1171,6 +1304,35 @@ export function buildReviewCards({ activeJob, artifacts = [], sourceMap = {} }) 
   const reviewPack = sourceMap.reviewPack;
 
   const cards = [
+    ...(revisionImpact
+      ? [
+          buildCard({
+            id: 'revision-impact',
+            title: 'Revision impact and reinspection',
+            tone: revisionImpact.summary?.decision === 'no_material_change' ? 'ok' : 'warn',
+            score: revisionImpact.summary?.material_change_count ?? null,
+            status: formatReviewDisplayValue(revisionImpact.summary?.decision, 'Human review required'),
+            summary: `${revisionImpact.summary?.material_change_count || 0} material changes; ${revisionImpact.summary?.reinspection_required_count || 0} reinspection requirements; ${revisionImpact.summary?.unable_to_determine_count || 0} unresolved impacts.`,
+            artifact: revisionImpactArtifact,
+            normalized: [
+              buildReviewDisplayField('Baseline revision', revisionImpact.baseline?.revision, 'Unknown'),
+              buildReviewDisplayField('Candidate revision', revisionImpact.candidate?.revision, 'Unknown'),
+              buildReviewDisplayField('Readiness review required', revisionImpact.summary?.readiness_review_required ? 'Yes' : 'No'),
+              buildReviewDisplayField('Evidence state changed', revisionImpact.evidence_applicability?.authoritative_evidence_state_changed ? 'Yes' : 'No'),
+            ],
+            raw: sourceMap.revisionImpactRaw,
+            provenance: [
+              ...manifestNotes(manifest, revisionImpactArtifact),
+              'No inspection evidence was attached.',
+              'Existing evidence was not mutated.',
+              'No evidence was superseded.',
+              'Readiness was not regenerated.',
+              'A reinspection plan is not completed inspection evidence.',
+              'Human review is required before any evidence or readiness action.',
+            ],
+          }),
+        ]
+      : []),
     ...(evidenceReadinessAudit
       ? [
           buildEvidenceReadinessAuditCard({

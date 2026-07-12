@@ -77,6 +77,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'Revision impact output safety', args: Object.freeze(['tests/revision-impact-output-safety.test.js']) }),
       Object.freeze({ label: 'Revision impact semantic adapters', args: Object.freeze(['tests/revision-impact-semantic-adapters.test.js']) }),
       Object.freeze({ label: 'Revision impact semantic service', args: Object.freeze(['tests/revision-impact-semantic-service.test.js']) }),
+      Object.freeze({ label: 'Revision impact Studio contract', args: Object.freeze(['tests/revision-impact-studio.test.js']) }),
       Object.freeze({ label: 'Inspection evidence onboarding CLI', args: Object.freeze(['tests/inspection-evidence-onboarding-cli.test.js']) }),
       Object.freeze({ label: 'Inspection evidence intake automation', args: Object.freeze(['tests/inspection-evidence-intake.test.js']) }),
       Object.freeze({ label: 'Inspection evidence promotion dry-run', args: Object.freeze(['tests/inspection-evidence-promotion-dry-run.test.js']) }),
@@ -124,6 +125,8 @@ export const TEST_LANES = Object.freeze([
     freecadRequired: false,
     steps: Object.freeze([
       Object.freeze({ label: 'Job API contracts', args: Object.freeze(['tests/job-api.test.js']) }),
+      Object.freeze({ label: 'Revision impact CLI integration', args: Object.freeze(['tests/revision-impact-cli-integration.test.js']) }),
+      Object.freeze({ label: 'Revision impact external job store', args: Object.freeze(['tests/revision-impact-external-job-store.test.js']) }),
       Object.freeze({ label: 'Job queue controls', args: Object.freeze(['tests/job-queue-controls.test.js']) }),
       Object.freeze({ label: 'Public path redaction', args: Object.freeze(['tests/public-path-redaction.test.js']) }),
       Object.freeze({ label: 'Local API landing page', args: Object.freeze(['tests/local-api-server.test.js']) }),

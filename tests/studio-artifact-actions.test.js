@@ -5,6 +5,7 @@ import {
   canReenterModelWorkspace,
   canStartTrackedArtifactRun,
   deriveArtifactReentryCapabilities,
+  deriveStudioArtifactFamily,
   findDefaultArtifactForJob,
   findPreferredConfigArtifact,
   findPreferredDocsManifestArtifact,
@@ -22,6 +23,7 @@ import {
   isReleaseBundleArtifact,
   isReleaseBundleManifestArtifact,
   isReviewPackArtifact,
+  isRevisionImpactArtifact,
   isRevisionComparisonArtifact,
   isStabilizationReviewArtifact,
 } from '../public/js/studio/artifact-actions.js';
@@ -187,6 +189,17 @@ assert.equal(isRevisionComparisonArtifact({
   extension: '.json',
   exists: true,
 }), true);
+
+const revisionImpactArtifact = {
+  type: 'revision-impact.report-json',
+  file_name: 'revision_impact_report.json',
+  extension: '.json',
+  exists: true,
+};
+
+assert.equal(isRevisionImpactArtifact(revisionImpactArtifact), true);
+assert.equal(deriveStudioArtifactFamily(revisionImpactArtifact), 'review');
+assert.equal(canStartTrackedArtifactRun(revisionImpactArtifact, 'compare-rev'), false);
 
 assert.equal(isStabilizationReviewArtifact({
   type: 'review.stabilization.json',

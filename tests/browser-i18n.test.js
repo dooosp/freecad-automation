@@ -117,6 +117,22 @@ assert.equal(
   '수정한 뒤 추적 생성을 다시 실행하세요.'
 );
 assert.equal(translateText('Open compare workspace', 'ko'), '비교 작업 영역 열기');
+assert.equal(translateText('Run Compare Revisions', 'ko'), '리비전 비교 실행');
+assert.equal(translateText('Revision impact viewer', 'ko'), '리비전 영향 뷰어');
+assert.equal(translateText('Open revision impact', 'ko'), '리비전 영향 열기');
+assert.equal(translateText('Revision impact and reinspection', 'ko'), '리비전 영향 및 재검사');
+assert.equal(translateText('Reinspection requirements', 'ko'), '재검사 요구사항');
+assert.equal(translateText('Unresolved mappings', 'ko'), '해결되지 않은 매핑');
+assert.equal(translateText('Affected inspection characteristics', 'ko'), '영향받는 검사 특성');
+assert.equal(translateText('Source hashes and provenance', 'ko'), '소스 해시 및 출처');
+assert.equal(
+  translateText('No inspection evidence was attached.', 'ko'),
+  '검사 증거가 첨부되지 않았습니다.'
+);
+assert.equal(
+  translateText('A reinspection plan is not completed inspection evidence.', 'ko'),
+  '재검사 계획은 완료된 검사 증거가 아닙니다.'
+);
 assert.equal(translateText('3 recent jobs', 'ko'), '3개의 최근 작업');
 assert.equal(translateText('Select example', 'ko'), '예제 선택');
 assert.equal(translateText('Recent jobs loading', 'ko'), '최근 작업 불러오는 중');
