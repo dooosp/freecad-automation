@@ -5,12 +5,15 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  renameSync,
   rmSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { basename, join, parse, resolve } from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+
+import { createRevisionImpactPythonRaceGate } from './helpers/revision-impact-python-race-gate.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const CLI = join(ROOT, 'bin/fcad.js');
@@ -26,6 +29,33 @@ function runComparePair(baselinePath, candidatePath, args) {
     encoding: 'utf8',
     timeout: 60_000,
   });
+}
+
+function startComparePair(baselinePath, candidatePath, args, env = {}) {
+  const child = spawn('node', [CLI, 'compare-rev', baselinePath, candidatePath, ...args], {
+    cwd: ROOT,
+    env: { ...process.env, ...env },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let stdout = '';
+  let stderr = '';
+  const completed = new Promise((resolveResult, rejectResult) => {
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL');
+      rejectResult(new Error('Timed out waiting for compare-rev race regression'));
+    }, 60_000);
+    child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
+    child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+    child.on('error', (error) => {
+      clearTimeout(timer);
+      rejectResult(error);
+    });
+    child.on('close', (status, signal) => {
+      clearTimeout(timer);
+      resolveResult({ status, signal, stdout, stderr });
+    });
+  });
+  return { child, completed };
 }
 
 function runCompare(args) {
@@ -103,6 +133,71 @@ try {
     readJson(defaultTimeLegacyPath).generated_at,
     'optional --generated-at should reuse the comparison invocation timestamp'
   );
+
+  const raceDir = join(workDir, 'single-snapshot-race');
+  mkdirSync(raceDir, { recursive: true });
+  const raceBaselinePath = join(
+    REVISION_IMPACT_FIXTURE_ROOT,
+    'tightened-tolerance-baseline-review-pack.json'
+  );
+  const originalCandidateBytes = readFileSync(join(
+    REVISION_IMPACT_FIXTURE_ROOT,
+    'tightened-tolerance-candidate-review-pack.json'
+  ));
+  const raceCandidatePath = join(raceDir, 'candidate-review-pack.json');
+  const replacementCandidatePath = join(raceDir, 'candidate-review-pack.replacement.json');
+  writeFileSync(raceCandidatePath, originalCandidateBytes);
+  writeFileSync(
+    replacementCandidatePath,
+    readFileSync(join(REVISION_IMPACT_FIXTURE_ROOT, 'unchanged-review-pack.json'))
+  );
+  const raceLegacyPath = join(raceDir, 'revision_comparison.json');
+  const raceImpactPath = join(raceDir, 'revision_impact_report.json');
+  const raceGate = createRevisionImpactPythonRaceGate(raceDir, 'python-gate');
+  const raceProcess = startComparePair(
+    raceBaselinePath,
+    raceCandidatePath,
+    [
+      '--out', raceLegacyPath,
+      '--impact-out', raceImpactPath,
+      '--generated-at', fixedGeneratedAt,
+    ],
+    raceGate.env
+  );
+  try {
+    await raceGate.waitUntilReady();
+    renameSync(replacementCandidatePath, raceCandidatePath);
+  } finally {
+    raceGate.release();
+  }
+  const raceResult = await raceProcess.completed;
+  assert.equal(raceResult.status, 0, `${raceResult.stdout}\n${raceResult.stderr}`);
+  const raceLegacy = readJson(raceLegacyPath);
+  const raceImpact = readJson(raceImpactPath);
+  assert.equal(readJson(raceCandidatePath).part.revision, 'A', 'candidate path should contain the replacement');
+  assert.equal(raceLegacy.revision.candidate, 'B', 'legacy comparison must use the loaded candidate snapshot');
+  assert.equal(raceImpact.candidate.revision, 'B', 'impact report must use the same candidate snapshot');
+  assert.equal(raceLegacy.revision.candidate, raceImpact.candidate.revision);
+  assert.equal(raceLegacy.generated_at, fixedGeneratedAt);
+  assert.equal(raceImpact.summary.decision, 'reinspection_required');
+  assert.equal(
+    raceImpact.candidate.source_hashes.review_pack,
+    createHash('sha256').update(originalCandidateBytes).digest('hex'),
+    'impact provenance must hash the candidate bytes used by both outputs'
+  );
+  const raceManifestPath = join(
+    parse(raceLegacyPath).dir,
+    `${parse(raceLegacyPath).name}_artifact-manifest.json`
+  );
+  const raceCandidateManifestEntry = readJson(raceManifestPath).artifacts.find(
+    (entry) => entry.type === 'input.candidate'
+  );
+  assert.equal(
+    raceCandidateManifestEntry?.sha256,
+    raceImpact.candidate.source_hashes.review_pack,
+    'manifest provenance must remain bound to the shared candidate snapshot'
+  );
+  assert.equal(raceCandidateManifestEntry?.size_bytes, originalCandidateBytes.length);
 
   const parsedLegacy = parse(legacyPath);
   const manifestPath = join(parsedLegacy.dir, `${parsedLegacy.name}_artifact-manifest.json`);

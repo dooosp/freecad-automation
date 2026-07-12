@@ -245,6 +245,9 @@ supplied it.
   staged, journaled, and rollback-published under one directory lock. A stale
   interrupted journal restores the prior complete set (or finalizes an already
   committed complete set) before another preflight proceeds.
+- Impact mode reads each review pack once and reuses the same validated snapshot
+  for the legacy comparison, impact report, and manifest input hashes. Atomic
+  source replacement cannot mix generations within one published bundle.
 - Reject traversal, NUL/backslash tricks, symlink parent/target escapes, unsafe
   hardlink aliases, canonical package review/readiness/inspection/release roots,
   and partial JSON/Markdown publication.

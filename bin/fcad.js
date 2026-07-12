@@ -1163,14 +1163,19 @@ async function loadCanonicalReviewPackInput(rawArgs = [], command) {
 
   requireExistingInputFile('review-pack', input.reviewPackPath);
   const reviewPack = await readJsonFile(input.reviewPackPath);
+  assertCanonicalReviewPackDocument(reviewPack, input.reviewPackPath, command);
+  return { ...input, reviewPack };
+}
+
+function assertCanonicalReviewPackDocument(reviewPack, pathValue, command) {
   buildAfArtifactContractFromDocument({
     jobType: command,
     target: 'review_pack',
     document: reviewPack,
-    path: input.reviewPackPath,
+    path: pathValue,
     strictReentry: true,
   });
-  return { ...input, reviewPack };
+  return reviewPack;
 }
 
 async function loadCanonicalReadinessReportInput(filePath, command, label = 'readiness report') {
@@ -2791,53 +2796,15 @@ async function cmdCompareRev(rawArgs = []) {
     process.exit(1);
   }
 
-  const baseline = await loadCanonicalReviewPackInput([
-    '--review-pack',
-    baselinePath,
-  ], 'compare-rev').then((input) => input.reviewPack);
-  const candidate = await loadCanonicalReviewPackInput([
-    '--review-pack',
-    candidatePath,
-  ], 'compare-rev').then((input) => input.reviewPack);
-  const result = await runPythonJsonScript(PROJECT_ROOT, 'scripts/reporting/revision_diff.py', {
-    baseline,
-    candidate,
-    baseline_path: baselinePath,
-    candidate_path: candidatePath,
-  }, {
-    onStderr: (text) => process.stderr.write(text),
-  });
-  const diff = result.comparison;
-  const comparison = {
-    artifact_type: 'revision_comparison',
-    schema_version: D_ARTIFACT_SCHEMA_VERSION,
-    analysis_version: D_ANALYSIS_VERSION,
-    generated_at: nowIso(),
-    part_id: baseline?.part?.part_id && baseline?.part?.part_id === candidate?.part?.part_id
-      ? baseline.part.part_id
-      : null,
-    warnings: [],
-    coverage: {
-      source_artifact_count: 2,
-      source_file_count: 2,
-      review_priority_count: (baseline?.review_priorities || []).length + (candidate?.review_priorities || []).length,
-    },
-    confidence: {
-      level: 'heuristic',
-      score: 0.58,
-      rationale: 'Revision comparison is derived from canonical review-pack evidence and summary deltas.',
-    },
-    source_artifact_refs: [
-      buildSourceArtifactRef('review_pack', baselinePath, 'comparison_baseline', 'Baseline review pack JSON'),
-      buildSourceArtifactRef('review_pack', candidatePath, 'comparison_candidate', 'Candidate review pack JSON'),
-    ],
-    ...diff,
-  };
-
+  const comparisonGeneratedAt = impactRequested && options['generated-at'] !== undefined
+    ? requireOptionValue('--generated-at', options['generated-at'])
+    : nowIso();
   let impactAnalysis = null;
   let impactOutputPath = null;
   let impactMarkdownPath = null;
   let impactArtifactPlan = null;
+  let baseline;
+  let candidate;
   if (impactRequested) {
     const resolveImpactInputPath = (optionName) => options[optionName] === undefined
       ? null
@@ -2858,11 +2825,62 @@ async function cmdCompareRev(rawArgs = []) {
       candidateEvidenceEnvelopePath: resolveImpactInputPath('candidate-evidence-envelope'),
       baselineEvidenceReceiptPath: resolveImpactInputPath('baseline-evidence-receipt'),
       candidateEvidenceReceiptPath: resolveImpactInputPath('candidate-evidence-receipt'),
-      generatedAt: options['generated-at'] === undefined
-        ? comparison.generated_at
-        : requireOptionValue('--generated-at', options['generated-at']),
+      generatedAt: comparisonGeneratedAt,
     });
+    baseline = assertCanonicalReviewPackDocument(
+      impactAnalysis.baseline.reviewPack,
+      baselinePath,
+      'compare-rev'
+    );
+    candidate = assertCanonicalReviewPackDocument(
+      impactAnalysis.candidate.reviewPack,
+      candidatePath,
+      'compare-rev'
+    );
+  } else {
+    baseline = await loadCanonicalReviewPackInput([
+      '--review-pack',
+      baselinePath,
+    ], 'compare-rev').then((input) => input.reviewPack);
+    candidate = await loadCanonicalReviewPackInput([
+      '--review-pack',
+      candidatePath,
+    ], 'compare-rev').then((input) => input.reviewPack);
   }
+  const result = await runPythonJsonScript(PROJECT_ROOT, 'scripts/reporting/revision_diff.py', {
+    baseline,
+    candidate,
+    baseline_path: baselinePath,
+    candidate_path: candidatePath,
+  }, {
+    onStderr: (text) => process.stderr.write(text),
+  });
+  const diff = result.comparison;
+  const comparison = {
+    artifact_type: 'revision_comparison',
+    schema_version: D_ARTIFACT_SCHEMA_VERSION,
+    analysis_version: D_ANALYSIS_VERSION,
+    generated_at: comparisonGeneratedAt,
+    part_id: baseline?.part?.part_id && baseline?.part?.part_id === candidate?.part?.part_id
+      ? baseline.part.part_id
+      : null,
+    warnings: [],
+    coverage: {
+      source_artifact_count: 2,
+      source_file_count: 2,
+      review_priority_count: (baseline?.review_priorities || []).length + (candidate?.review_priorities || []).length,
+    },
+    confidence: {
+      level: 'heuristic',
+      score: 0.58,
+      rationale: 'Revision comparison is derived from canonical review-pack evidence and summary deltas.',
+    },
+    source_artifact_refs: [
+      buildSourceArtifactRef('review_pack', baselinePath, 'comparison_baseline', 'Baseline review pack JSON'),
+      buildSourceArtifactRef('review_pack', candidatePath, 'comparison_candidate', 'Candidate review pack JSON'),
+    ],
+    ...diff,
+  };
 
   const outputPath = normalizeJsonOutputPath(options.out)
     || artifactPathFor(buildDefaultOutputDir(options['out-dir']), deriveArtifactStem(candidatePath, 'revision'), '_revision_comparison.json');
@@ -2899,6 +2917,11 @@ async function cmdCompareRev(rawArgs = []) {
         sha256: createHash('sha256').update(entry.content).digest('hex'),
       };
     };
+    const precomputedInputSnapshot = (side) => ({
+      exists: true,
+      size_bytes: side.sources.review_pack.bytes.length,
+      sha256: side.sources.review_pack.sha256,
+    });
     const manifestOptions = {
       command: 'compare-rev',
       primaryOutputPath: outputPath,
@@ -2916,8 +2939,14 @@ async function cmdCompareRev(rawArgs = []) {
           ...createArtifactEntry('revision-impact.report-markdown', impactMarkdownPath, { label: 'Revision impact report Markdown' }),
           precomputed: precomputedEntry(impactMarkdownPath),
         },
-        createArtifactEntry('input.baseline', baselinePath, { label: 'Baseline JSON' }),
-        createArtifactEntry('input.candidate', candidatePath, { label: 'Candidate JSON' }),
+        {
+          ...createArtifactEntry('input.baseline', baselinePath, { label: 'Baseline JSON' }),
+          precomputed: precomputedInputSnapshot(impactAnalysis.baseline),
+        },
+        {
+          ...createArtifactEntry('input.candidate', candidatePath, { label: 'Candidate JSON' }),
+          precomputed: precomputedInputSnapshot(impactAnalysis.candidate),
+        },
       ],
     };
     const builtManifest = await buildCliManifest(manifestOptions);
