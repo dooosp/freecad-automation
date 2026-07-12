@@ -31,6 +31,8 @@ const RETRY_INPUT_PATH_FIELDS = Object.freeze([
   'baseline_evidence_receipt_path',
   'candidate_evidence_receipt_path',
   'review_pack_path',
+  'revision_impact_path',
+  'requirements_path',
   'process_plan_path',
   'quality_risk_path',
   'readiness_report_path',

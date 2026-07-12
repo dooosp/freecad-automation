@@ -1,5 +1,6 @@
 import {
   isReadinessReportArtifact,
+  isInspectionPlanArtifact,
   isReleaseBundleArtifact,
   isReleaseBundleManifestArtifact,
   isReviewPackArtifact,
@@ -112,6 +113,7 @@ export function classifyArtifact(artifact = {}) {
   if (isReleaseBundleArtifact(artifact)) return { badge: 'bundle', tone: 'warn' };
   if (isReleaseBundleManifestArtifact(artifact)) return { badge: 'bundle-manifest', tone: 'info' };
   if (isRevisionImpactArtifact(artifact)) return { badge: 'revision-impact', tone: 'warn' };
+  if (isInspectionPlanArtifact(artifact)) return { badge: 'inspection-plan', tone: 'warn' };
   if (isRevisionComparisonArtifact(artifact)) return { badge: 'compare', tone: 'warn' };
   if (isStabilizationReviewArtifact(artifact)) return { badge: 'stabilization', tone: 'warn' };
   if (includesAny(search, ['validation-diagnostics', 'validation_diagnostics'])) return { badge: 'validation', tone: 'bad' };
@@ -546,6 +548,31 @@ function buildRevisionImpactViewer(artifact, parsedPayload, identity) {
   };
 }
 
+function buildInspectionPlanViewer(artifact, parsedPayload, identity) {
+  const pkg = safeObject(parsedPayload.package);
+  const authority = safeObject(parsedPayload.authority_summary);
+  const items = safeList(parsedPayload.items);
+  const unresolved = safeList(parsedPayload.unresolved_requirements);
+  return {
+    kind: 'inspection_plan',
+    title: 'Inspection plan viewer',
+    summary: `${parsedPayload.status || 'Review required'} for ${pkg.slug || 'unknown package'} revision ${pkg.revision || 'unknown'}; human release remains required.`,
+    highlights: [
+      { label: 'Status', value: parsedPayload.status || 'Unknown' },
+      { label: 'Scope', value: parsedPayload.scope || 'Unknown' },
+      { label: 'Authoritative items', value: String(authority.authoritative_item_count || 0) },
+      { label: 'Blocked items', value: String(authority.blocked_item_count || 0) },
+    ],
+    sections: [
+      { title: 'Package and release boundary', items: [{ label: 'Package', value: pkg.slug || 'Unknown' }, { label: 'Revision', value: pkg.revision || 'Unknown' }, { label: 'Human release required', value: 'Yes' }, { label: 'Inspection evidence', value: 'No' }] },
+      { title: 'Characteristics', entries: items.length ? items.slice(0, 12).map((item) => `${item.characteristic_id} • ${item.characteristic_name} • ${item.nominal_value ?? 'UNRESOLVED'} [${item.lower_limit ?? 'UNRESOLVED'}, ${item.upper_limit ?? 'UNRESOLVED'}] ${item.unit || ''} • required=${item.required_method || 'UNRESOLVED'} • suggested=${item.suggested_method || 'none'} • changes=${safeList(item.revision_impact_change_ids).join('|') || 'none'}`) : ['No characteristics were planned.'] },
+      { title: 'Blockers and unresolved requirements', entries: unresolved.length ? unresolved.slice(0, 12).map((item) => item.message || item.code) : ['No unresolved requirement was recorded.'] },
+      { title: 'Safety boundary', entries: ['Generated control material only.', 'Engineering/quality review and human release are required.', 'The blank result template is not inspection evidence.', 'Completed external results must enter quarantine-first onboarding.'] },
+      ...buildCommonViewerSections(identity),
+    ],
+  };
+}
+
 function buildStabilizationViewer(artifact, parsedPayload, identity) {
   const summary = safeObject(parsedPayload?.summary);
   const deltas = safeObject(parsedPayload?.readiness_deltas);
@@ -666,6 +693,9 @@ export function buildArtifactViewer({
   }
   if (isRevisionImpactArtifact(artifact) && isPlainObject(parsedPayload)) {
     return buildRevisionImpactViewer(artifact, parsedPayload, identity);
+  }
+  if (isInspectionPlanArtifact(artifact) && isPlainObject(parsedPayload)) {
+    return buildInspectionPlanViewer(artifact, parsedPayload, identity);
   }
   if (isRevisionComparisonArtifact(artifact) && isPlainObject(parsedPayload)) {
     return buildRevisionComparisonViewer(artifact, parsedPayload, identity);
@@ -1296,6 +1326,8 @@ export function buildReviewCards({ activeJob, artifacts = [], sourceMap = {} }) 
   const reviewPackArtifact = findArtifact(artifacts, ['review-pack', 'process_plan', 'line_plan', 'drawing.qa-report']);
   const revisionImpactArtifact = findArtifact(artifacts, ['revision-impact.report-json', 'revision_impact_report.json']);
   const revisionImpact = sourceMap.revisionImpact;
+  const inspectionPlanArtifact = findArtifact(artifacts, ['inspection-plan.json', 'inspection_plan.json']);
+  const inspectionPlan = sourceMap.inspectionPlan;
 
   const productReview = readiness?.product_review || sourceMap.productReview;
   const qualityRisk = readiness?.quality_risk || sourceMap.qualityRisk;
@@ -1304,6 +1336,17 @@ export function buildReviewCards({ activeJob, artifacts = [], sourceMap = {} }) 
   const reviewPack = sourceMap.reviewPack;
 
   const cards = [
+    ...(inspectionPlan
+      ? [buildCard({
+          id: 'inspection-plan', title: 'Inspection plan', tone: inspectionPlan.status === 'ready_for_human_release' ? 'ok' : 'warn', score: inspectionPlan.items?.length ?? 0,
+          status: formatReviewDisplayValue(inspectionPlan.status, 'Human review required'),
+          summary: `${inspectionPlan.authority_summary?.authoritative_item_count || 0} authoritative items; ${inspectionPlan.authority_summary?.advisory_item_count || 0} advisory/review items; ${inspectionPlan.unresolved_requirements?.length || 0} unresolved requirements.`,
+          artifact: inspectionPlanArtifact,
+          normalized: [buildReviewDisplayField('Package', inspectionPlan.package?.slug, 'Unknown'), buildReviewDisplayField('Revision', inspectionPlan.package?.revision, 'Unknown'), buildReviewDisplayField('Scope', inspectionPlan.scope, 'Unknown'), buildReviewDisplayField('Human release required', 'Yes')],
+          raw: sourceMap.inspectionPlanRaw,
+          provenance: ['Generated control material only.', 'No inspection evidence was created or attached.', 'Completed external results must enter quarantine-first onboarding.'],
+        })]
+      : []),
     ...(revisionImpact
       ? [
           buildCard({

@@ -119,6 +119,8 @@ assert.equal(
 assert.equal(translateText('Open compare workspace', 'ko'), '비교 작업 영역 열기');
 assert.equal(translateText('Run Compare Revisions', 'ko'), '리비전 비교 실행');
 assert.equal(translateText('Revision impact viewer', 'ko'), '리비전 영향 뷰어');
+assert.equal(translateText('Inspection plan viewer', 'ko'), '검사 계획 뷰어');
+assert.equal(translateText('Human release required', 'ko'), '사람의 릴리스 필요');
 assert.equal(translateText('Open revision impact', 'ko'), '리비전 영향 열기');
 assert.equal(translateText('Revision impact and reinspection', 'ko'), '리비전 영향 및 재검사');
 assert.equal(translateText('Reinspection requirements', 'ko'), '재검사 요구사항');

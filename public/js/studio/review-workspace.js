@@ -666,6 +666,8 @@ export function mountReviewWorkspace({ root, state, addLog, openJob, submitTrack
           || findBy('evidence_graph', '.json'),
         revisionImpact: findBy('revision-impact.report-json', '.json')
           || findBy('revision_impact_report', '.json'),
+        inspectionPlan: findBy('inspection-plan.json', '.json')
+          || findBy('inspection_plan.json', '.json'),
       };
 
       const sourceEntries = Object.entries(sourceArtifacts).filter(([, artifact]) => artifact);

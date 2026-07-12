@@ -120,6 +120,11 @@ function artifactHasReentryTarget(artifact = {}, targets = []) {
   return targets.includes(artifactReentryTarget(artifact));
 }
 
+function isRevisionImpactArtifact(artifact = {}) {
+  const search = [artifact.type, artifact.key, artifact.file_name].filter(Boolean).join(' ').toLowerCase();
+  return search.includes('revision-impact') || search.includes('revision_impact_report');
+}
+
 function canonicalReentryError(command, targets = []) {
   const artifactDescription = targets.includes('review_pack')
     ? 'canonical review pack JSON or a release bundle'
@@ -833,6 +838,28 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
           errors: ['generate-standard-docs needs a config-like artifact in the same tracked job, or a release bundle that already carries canonical inputs.'],
         };
       }
+    }
+
+    if (request.type === 'inspection-plan') {
+      const selectedArtifact = resolvedArtifact.artifact;
+      if (!isReviewPackArtifact(selectedArtifact) || !artifactHasReentryTarget(selectedArtifact, ['review_pack'])) {
+        return { ok: false, errors: [canonicalReentryError('inspection-plan', ['review_pack'])] };
+      }
+      const scope = request.options?.scope || 'full';
+      const revisionImpactArtifact = (resolvedArtifact.jobArtifacts || []).find(isRevisionImpactArtifact);
+      if (scope === 'delta' && !revisionImpactArtifact?.path) {
+        return { ok: false, errors: ['inspection-plan delta scope requires a registered revision-impact artifact in the selected tracked job.'] };
+      }
+      return {
+        ok: true,
+        request: {
+          type: 'inspection-plan',
+          review_pack_path: selectedArtifact.path,
+          ...(revisionImpactArtifact?.path ? { revision_impact_path: revisionImpactArtifact.path } : {}),
+          scope,
+          options: buildResolvedArtifactOptions(request, resolvedArtifact),
+        },
+      };
     }
 
     if (request.type === 'pack') {

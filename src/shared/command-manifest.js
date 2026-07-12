@@ -618,6 +618,27 @@ const COMMAND_MANIFEST = Object.freeze([
     }),
   }),
   Object.freeze({
+    name: 'inspection-plan',
+    helpSection: 'plain-python-node',
+    helpEntries: Object.freeze([
+      Object.freeze({
+        usage: 'fcad inspection-plan --review-pack <review_pack.json> [--revision-impact <revision_impact_report.json>] [--readiness <readiness_report.json>] [--config <config.toml|json>] [--requirements <inspection_requirements.json>] --scope <full|delta> --out <inspection_plan.json> [--checksheet-out <inspection_checksheet.csv>] [--request-out <supplier_inspection_request.md>] [--result-template-out <inspection_result_template.csv>] [--generated-at <iso8601>]',
+        summary: 'Build one canonical inspection plan and optional blank supplier/lab documents without creating inspection evidence',
+      }),
+    ]),
+    runtime: Object.freeze({
+      classification: 'plain-python-node',
+      requiresFreecadRuntime: false,
+      note: 'Generated control material only; human release and quarantine-first onboarding remain required.',
+    }),
+    surfaces: Object.freeze({
+      jobExecutor: true,
+      localApi: true,
+      studio: true,
+      studioSubmission: 'artifact',
+    }),
+  }),
+  Object.freeze({
     name: 'generate-standard-docs',
     helpSection: 'plain-python-node',
     helpEntries: Object.freeze([
@@ -1070,6 +1091,7 @@ const JOB_EXECUTOR_COMMAND_ORDER = Object.freeze([
   'evidence-graph',
   'stabilization-review',
   'generate-standard-docs',
+  'inspection-plan',
   'pack',
   'evidence-readiness-audit',
   'inspection-evidence-intake',
@@ -1086,6 +1108,7 @@ const STUDIO_JOB_COMMAND_ORDER = Object.freeze([
   'evidence-graph',
   'stabilization-review',
   'generate-standard-docs',
+  'inspection-plan',
   'pack',
   'evidence-readiness-audit',
   'inspection-evidence-intake',
@@ -1095,6 +1118,7 @@ const STUDIO_JOB_COMMAND_ORDER = Object.freeze([
 const STUDIO_ARTIFACT_JOB_ORDER = Object.freeze([
   'readiness-pack',
   'generate-standard-docs',
+  'inspection-plan',
   'pack',
 ]);
 const STUDIO_ARTIFACT_COMPATIBLE_JOB_ORDER = Object.freeze([
@@ -1102,6 +1126,7 @@ const STUDIO_ARTIFACT_COMPATIBLE_JOB_ORDER = Object.freeze([
   'report',
   'readiness-pack',
   'generate-standard-docs',
+  'inspection-plan',
   'pack',
   'inspection-evidence-promotion-dry-run',
 ]);
@@ -1121,6 +1146,7 @@ const LOCAL_API_OTHER_PUBLIC_JOB_ORDER = Object.freeze([
   'evidence-graph',
   'stabilization-review',
   'generate-standard-docs',
+  'inspection-plan',
   'pack',
   'evidence-readiness-audit',
   'inspection-evidence-intake',

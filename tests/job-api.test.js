@@ -112,6 +112,21 @@ try {
   });
   assert.equal(validEvidenceGraph.ok, true, validEvidenceGraph.errors?.join('\n'));
 
+  const validInspectionPlan = validateJobRequest({
+    type: 'inspection-plan',
+    review_pack_path: 'tests/fixtures/revision-impact/tightened-tolerance-candidate-review-pack.json',
+    scope: 'full',
+    options: { generated_at: '2026-07-12T00:00:00Z' },
+  });
+  assert.equal(validInspectionPlan.ok, true, validInspectionPlan.errors?.join('\n'));
+  const invalidDeltaInspectionPlan = validateJobRequest({
+    type: 'inspection-plan',
+    review_pack_path: 'tests/fixtures/revision-impact/tightened-tolerance-candidate-review-pack.json',
+    scope: 'delta',
+  });
+  assert.equal(invalidDeltaInspectionPlan.ok, false);
+  assert.match(invalidDeltaInspectionPlan.errors.join('\n'), /delta scope requires revision_impact_path/i);
+
   const validRevisionImpactCompanions = validateJobRequest({
     type: 'compare-rev',
     baseline_path: 'tests/fixtures/d-artifacts/sample_review_pack.canonical.json',
