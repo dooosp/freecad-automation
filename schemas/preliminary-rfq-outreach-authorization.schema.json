@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/preliminary-rfq-outreach-authorization.schema.json",
+  "title": "Preliminary RFQ outreach authorization",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artifact_type",
+    "schema_version",
+    "decision",
+    "packet_sha256",
+    "approved_recipient_ids",
+    "rejected_recipient_ids",
+    "authorized_sender_identity",
+    "authorized_sending_account",
+    "confidentiality",
+    "authorized_at",
+    "operation_scope",
+    "prohibited_operations",
+    "safe_defaults",
+    "derived_bindings",
+    "deferred_decisions",
+    "dispatch_authorized",
+    "authorization_record_effect"
+  ],
+  "properties": {
+    "artifact_type": {
+      "const": "preliminary_rfq_outreach_authorization"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "decision": {
+      "const": "approved"
+    },
+    "packet_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "approved_recipient_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/recipientId"
+      }
+    },
+    "rejected_recipient_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/recipientId"
+      }
+    },
+    "authorized_sender_identity": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 160,
+      "pattern": "^[^\\r\\n<>]+$"
+    },
+    "authorized_sending_account": {
+      "type": "string",
+      "maxLength": 320,
+      "pattern": "^email:[^\\s<>@]+@[^\\s<>@]+\\.[^\\s<>@]+$"
+    },
+    "confidentiality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "classification",
+        "notice_required"
+      ],
+      "properties": {
+        "classification": {
+          "const": "internal"
+        },
+        "notice_required": {
+          "const": true
+        }
+      }
+    },
+    "authorized_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "operation_scope": {
+      "const": [
+        "preliminary_rfq_outreach"
+      ]
+    },
+    "prohibited_operations": {
+      "const": [
+        "procurement",
+        "purchase_order",
+        "commercial_commitment",
+        "payment",
+        "shipment",
+        "manufacturing",
+        "inspection_execution",
+        "technical_release",
+        "evidence_review_approval",
+        "evidence_authorization",
+        "evidence_attachment",
+        "evidence_supersession",
+        "readiness_authorization",
+        "readiness_regeneration",
+        "release_publication",
+        "deployment"
+      ]
+    },
+    "safe_defaults": {
+      "const": {
+        "confidentiality_classification": "internal",
+        "confidentiality_notice_required": true,
+        "one_reminder_authorized": false,
+        "factual_clarification_replies_authorized": false,
+        "budget_disclosure_authorized": false
+      }
+    },
+    "derived_bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "packet_version",
+        "recipient_count",
+        "maximum_number_of_messages",
+        "approved_message_candidate_sha256",
+        "approved_attachment_bundle_sha256"
+      ],
+      "properties": {
+        "packet_version": {
+          "type": "string",
+          "pattern": "^v[1-9][0-9]*$"
+        },
+        "recipient_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maximum_number_of_messages": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "approved_message_candidate_sha256": {
+          "$ref": "#/$defs/hashMap"
+        },
+        "approved_attachment_bundle_sha256": {
+          "$ref": "#/$defs/hashMap"
+        }
+      }
+    },
+    "deferred_decisions": {
+      "const": {
+        "internal_budget_ceiling": {
+          "status": "deferred_to_gate_b",
+          "value": null
+        },
+        "physical_part_availability": {
+          "status": "deferred_to_gate_c",
+          "value": null
+        },
+        "engineering_reviewer": {
+          "status": "deferred_to_gate_c",
+          "value": null
+        },
+        "quality_reviewer": {
+          "status": "deferred_to_gate_c",
+          "value": null
+        },
+        "vendor_selection": {
+          "status": "deferred_to_gate_b",
+          "value": null
+        },
+        "procurement_approval": {
+          "status": "deferred_to_gate_b",
+          "value": null
+        },
+        "technical_release_approval": {
+          "status": "deferred_to_gate_c",
+          "value": null
+        }
+      }
+    },
+    "dispatch_authorized": {
+      "const": false
+    },
+    "authorization_record_effect": {
+      "const": "records_gate_a_only_no_dispatch"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "recipientId": {
+      "type": "string",
+      "pattern": "^(?:mfg|insp)-[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "hashMap": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/sha256"
+      }
+    }
+  }
+}
