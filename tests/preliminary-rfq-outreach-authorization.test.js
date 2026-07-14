@@ -236,6 +236,10 @@ assert.deepEqual(authorization.prohibited_operations, FIXED_GATE_A_PROHIBITIONS)
 assert.equal(authorization.derived_bindings.recipient_count, 8);
 assert.equal(authorization.derived_bindings.maximum_number_of_messages, 8);
 assert.equal(authorization.dispatch_authorized, false);
+for (const deferredValue of ['internal_budget_ceiling', 'physical_part_availability', 'engineering_reviewer', 'quality_reviewer']) {
+  assert.equal(Object.hasOwn(authorization, deferredValue), false);
+  assert.equal(authorization.deferred_decisions[deferredValue].value, null);
+}
 assert.equal(validatePreliminaryRfqOutreachAuthorizationAgainstPacket({ authorization, packetBytes }).ok, true);
 assert.equal(authorizationSatisfiesGate(authorization, 'preliminary_rfq_outreach', { packetBytes }), true);
 for (const laterGate of ['vendor_selection_and_procurement', 'technical_release_and_inspection_execution', 'evidence_and_readiness']) {
@@ -250,6 +254,27 @@ assert.equal(authorizationSatisfiesGate(authorization, 'preliminary_rfq_outreach
 const removedProhibition = structuredClone(authorization);
 removedProhibition.prohibited_operations.pop();
 assert.equal(validatePreliminaryRfqOutreachAuthorization(removedProhibition).ok, false);
+
+const reorderedProhibitions = structuredClone(authorization);
+reorderedProhibitions.prohibited_operations.reverse();
+assert.equal(validatePreliminaryRfqOutreachAuthorization(reorderedProhibitions).ok, false);
+
+const substitutedProhibition = structuredClone(authorization);
+substitutedProhibition.prohibited_operations[0] = 'preliminary_rfq_outreach';
+assert.equal(validatePreliminaryRfqOutreachAuthorization(substitutedProhibition).ok, false);
+
+const extraAuthorizationProperty = structuredClone(authorization);
+extraAuthorizationProperty.procurement_authorized = true;
+assert.equal(validatePreliminaryRfqOutreachAuthorization(extraAuthorizationProperty).ok, false);
+
+const overlappingRecipients = structuredClone(authorization);
+overlappingRecipients.rejected_recipient_ids = [authorization.approved_recipient_ids[0]];
+assert.equal(validatePreliminaryRfqOutreachAuthorization(overlappingRecipients).ok, false);
+assert(validatePreliminaryRfqOutreachAuthorization(overlappingRecipients).errors.some((error) => error.code === 'recipient_sets_overlap'));
+
+const invalidAuthorizationScope = structuredClone(authorization);
+invalidAuthorizationScope.operation_scope = ['vendor_selection_and_procurement'];
+assert.equal(validatePreliminaryRfqOutreachAuthorization(invalidAuthorizationScope).ok, false);
 
 const subsetApproval = parseOneStepOutreachApproval(approvalText(packetSha256, 'mfg-bowon,insp-ktr'));
 const subsetAuthorization = buildPreliminaryRfqOutreachAuthorization({ packet, packetSha256, approval: subsetApproval, authorizedAt: AUTHORIZED_AT });
@@ -271,9 +296,33 @@ assert.throws(
   (error) => error.code === 'approval_sender_account_unconfirmed',
 );
 assert.throws(
+  () => buildPreliminaryRfqOutreachAuthorization({ packet, packetSha256, approval: parseOneStepOutreachApproval(approvalText(packetSha256, 'mfg-unknown')), authorizedAt: AUTHORIZED_AT }),
+  (error) => error.code === 'approval_recipient_unknown',
+);
+assert.throws(
+  () => parseOneStepOutreachApproval(approvalText(packetSha256).replace(/\nsender_identity:\n[^\n]+\n/, '\n')),
+  (error) => error.code === 'approval_field_missing',
+);
+assert.throws(
+  () => parseOneStepOutreachApproval(approvalText(packetSha256).replace(/\nsender_account:\n[^\n]+\n/, '\n')),
+  (error) => error.code === 'approval_field_missing',
+);
+assert.throws(
   () => parseOneStepOutreachApproval(`${approvalText(packetSha256)}\nrecipients:\nall-8\n`),
   (error) => error.code === 'approval_field_duplicate',
 );
+
+const duplicateRecipient = structuredClone(packet);
+duplicateRecipient.recipient_registry.recipients[1].recipient_id = duplicateRecipient.recipient_registry.recipients[0].recipient_id;
+assert(validatePreliminaryRfqOutreachPacket(duplicateRecipient).errors.some((error) => error.code === 'recipient_id_duplicate'));
+
+const missingPacketProhibition = structuredClone(packet);
+missingPacketProhibition.prohibited_operations.pop();
+assert(validatePreliminaryRfqOutreachPacket(missingPacketProhibition).errors.some((error) => error.code === 'packet_prohibitions'));
+
+const invalidPacketScope = structuredClone(packet);
+invalidPacketScope.allowed_operations = ['vendor_selection_and_procurement'];
+assert(validatePreliminaryRfqOutreachPacket(invalidPacketScope).errors.some((error) => error.code === 'packet_scope'));
 
 const missingWarning = structuredClone(packet);
 missingWarning.message_candidates.candidates[0].body = missingWarning.message_candidates.candidates[0].body.replace('DO NOT BEGIN WORK\n', '');
@@ -286,6 +335,10 @@ assert(validatePreliminaryRfqOutreachPacket(missingWarning).errors.some((error) 
 const staleMessage = structuredClone(packet);
 staleMessage.message_candidates.candidates[0].subject += ' changed';
 assert(validatePreliminaryRfqOutreachPacket(staleMessage).errors.some((error) => error.code === 'subject_hash_mismatch'));
+
+const staleBundle = structuredClone(packet);
+staleBundle.attachment_bundles.bundles[0].bundle_sha256 = 'b'.repeat(64);
+assert(validatePreliminaryRfqOutreachPacket(staleBundle).errors.some((error) => error.code === 'bundle_hash_mismatch'));
 
 const laterGateValue = structuredClone(packet);
 laterGateValue.internal_budget_ceiling = { currency: 'KRW', amount: 1 };
@@ -309,6 +362,7 @@ const packetPath = `${testRoot}/packet.json`;
 const decisionPath = `${testRoot}/approval.txt`;
 const outputPath = `${testRoot}/authorization.json`;
 const duplicatePacketPath = `${testRoot}/packet-duplicate.json`;
+const noncanonicalPacketPath = `${testRoot}/packet-noncanonical.json`;
 await mkdir(resolve(ROOT, testRoot), { recursive: true });
 try {
   for (const [fileName, bytes] of Object.entries(ATTACHMENT_BYTES)) {
@@ -329,6 +383,20 @@ try {
   await assert.rejects(
     recordPreliminaryRfqOutreachAuthorization({ projectRoot: ROOT, packetPath, decisionPath, outputPath, authorizedAt: AUTHORIZED_AT }),
     (error) => error.code === 'authorization_record_exists',
+  );
+  await assert.rejects(
+    recordPreliminaryRfqOutreachAuthorization({
+      projectRoot: ROOT,
+      packetPath,
+      decisionPath,
+      outputPath: 'docs/preliminary-rfq-outreach-authorization.record.json',
+      authorizedAt: AUTHORIZED_AT,
+    }),
+    (error) => error.code === 'unsafe_output_path',
+  );
+  await assert.rejects(
+    readFile(resolve(ROOT, 'docs/preliminary-rfq-outreach-authorization.record.json')),
+    (error) => error.code === 'ENOENT',
   );
 
   const cliOutputPath = `${testRoot}/authorization-cli.json`;
@@ -356,6 +424,18 @@ try {
     (error) => error.code === 'duplicate_json_key',
   );
 
+  await writeFile(resolve(ROOT, noncanonicalPacketPath), JSON.stringify(packet));
+  await assert.rejects(
+    recordPreliminaryRfqOutreachAuthorization({
+      projectRoot: ROOT,
+      packetPath: noncanonicalPacketPath,
+      decisionPath,
+      outputPath: `${testRoot}/noncanonical-result.json`,
+      authorizedAt: AUTHORIZED_AT,
+    }),
+    (error) => error.code === 'noncanonical_inspection_evidence_json',
+  );
+
   await writeFile(resolve(ROOT, testRoot, 'manufacturing_rfq.v2.md'), Buffer.alloc(128, 'x'));
   assert.equal((await verifyPreliminaryRfqOutreachPacketAttachmentBytes({ projectRoot: ROOT, packet })).ok, false);
   await assert.rejects(
@@ -371,5 +451,13 @@ try {
 } finally {
   await rm(resolve(ROOT, testRoot), { recursive: true, force: true });
 }
+
+const serviceSource = await readFile(resolve(ROOT, 'src/services/preliminary-rfq-outreach/preliminary-rfq-outreach-authorization-service.js'), 'utf8');
+const recorderSource = await readFile(resolve(ROOT, 'scripts/record-preliminary-rfq-outreach-authorization.js'), 'utf8');
+assert.doesNotMatch(
+  `${serviceSource}\n${recorderSource}`,
+  /(?:from\s+['"](?:node:(?:http|https|net|tls)|nodemailer|smtp-client|gmail)|\b(?:sendMail|createTransport)\s*\()/,
+);
+assert.match(serviceSource, /spawnSync\('git', \['check-ignore'/);
 
 console.log('preliminary-rfq-outreach-authorization.test.js: ok');
