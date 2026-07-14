@@ -8,8 +8,8 @@ Replace the preliminary RFQ approval dependency on procurement and technical-rel
 
 - Software base: `origin/master` at `bdb1db741c0f91c4581c898cb9ebb6da3ad678e7`.
 - Software branch: `codex/staged-preliminary-outreach-authorization`.
-- Software worktree: `/Users/jangtaeho/cad-projects/freecad-automation-outreach-authorization`.
-- Private operational artifacts remain ignored in `/Users/jangtaeho/cad-projects/freecad-automation-inspection-acquisition`.
+- Software worktree: isolated local checkout on `codex/staged-preliminary-outreach-authorization`.
+- Private operational artifacts remain ignored in a separate local operational worktree.
 - The operational worktree already contains an authorized legacy v3 single-operator record. Its bytes and status are historical evidence and must not be rewritten. A corrected pending packet therefore uses the next packet revision.
 - Dispatch remains `not_started`; the implementation contains no mail or contact-form transport.
 
