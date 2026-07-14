@@ -1024,6 +1024,8 @@ Runtime/profile examples:
 
 ## Architecture
 
+The [authoritative system blueprint](./docs/architecture/README.md) is the single architecture navigation entry point. It covers the current local product, trust and authorization boundaries, canonical artifact/state models, and the additive path through the first genuine production proof. The compact diagram below remains a legacy code-area orientation.
+
 ```text
 CLI (fcad / mfg-agent)
   |
@@ -1053,7 +1055,7 @@ CLI (fcad / mfg-agent)
 - `scripts/intent_compiler.py`: part-type inference and drawing-plan strategy
 - `schemas/`: output contracts for review, process-plan, line-plan, quality-risk, investment-review, readiness-report, stabilization-review, and standard-doc manifests
 
-See [production-readiness-refactor.md](./docs/production-readiness-refactor.md) for the codebase refactoring map.
+See the [authoritative system blueprint](./docs/architecture/README.md) for the whole-system reference and [production-readiness-refactor.md](./docs/production-readiness-refactor.md) for the codebase refactoring map.
 
 ## Installation
 
