@@ -2508,6 +2508,7 @@ function createConsoleWorkspace(state) {
     children: [
       createConsoleHero(state),
       createConsoleWorkflowRail(),
+      createCanonicalPackageCards(state),
       el('div', {
         className: 'console-grid',
         children: [
@@ -2515,7 +2516,6 @@ function createConsoleWorkspace(state) {
             className: 'console-column console-column-left',
             children: [
               createConsoleGuidedWorkflowCard(state),
-              createCanonicalPackageCards(state),
               createQuickLinksCard(state),
               createRecentJobsCard(state),
             ],

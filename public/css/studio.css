@@ -2680,6 +2680,7 @@ body::after {
 
 .canonical-package-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
 }
 
 .canonical-package-card {
@@ -2692,8 +2693,7 @@ body::after {
   background: rgba(5, 13, 23, 0.42);
 }
 
-.canonical-package-card-header,
-.canonical-artifact-ref {
+.canonical-package-card-header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.75rem;
@@ -2701,6 +2701,10 @@ body::after {
 }
 
 .canonical-artifact-ref {
+  display: grid;
+  grid-template-columns: minmax(8rem, 0.4fr) minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: start;
   padding: 0.65rem 0.75rem;
   border-radius: var(--radius-1);
   border: 1px solid rgba(126, 164, 198, 0.12);
@@ -2721,7 +2725,7 @@ body::after {
 }
 
 .canonical-artifact-path-actions {
-  justify-items: end;
+  justify-items: stretch;
 }
 
 .canonical-artifact-actions {
@@ -2769,6 +2773,7 @@ body::after {
 .canonical-preview-panel {
   display: grid;
   gap: 0.75rem;
+  min-width: 0;
   padding: 0.85rem;
   border-radius: var(--radius-1);
   border: 1px solid rgba(88, 214, 255, 0.2);
@@ -2798,6 +2803,7 @@ body::after {
 }
 
 .canonical-preview-content {
+  min-width: 0;
   max-height: 22rem;
   margin: 0;
   padding: 0.8rem;
