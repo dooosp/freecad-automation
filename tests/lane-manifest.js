@@ -39,6 +39,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'Runtime path contracts', args: Object.freeze(['tests/paths-runtime.test.js']) }),
       Object.freeze({ label: 'FreeCAD invocation contracts', args: Object.freeze(['tests/freecad-invocation.test.js']) }),
       Object.freeze({ label: 'Runtime smoke governance helpers', args: Object.freeze(['tests/runtime-smoke-governance.test.js']) }),
+      Object.freeze({ label: 'Runtime full output isolation', args: Object.freeze(['tests/test-runner-output-isolation.test.js']) }),
       Object.freeze({ label: 'Serve CLI', args: Object.freeze(['tests/serve-cli.test.js']) }),
       Object.freeze({ label: 'Create quality helper', args: Object.freeze(['tests/create-quality.test.js']) }),
       Object.freeze({ label: 'Quality fixture matrix contracts', args: Object.freeze(['tests/quality-fixture-matrix.test.js']) }),

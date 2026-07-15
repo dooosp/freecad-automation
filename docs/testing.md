@@ -238,6 +238,12 @@ npm run test:runtime:full
 ```
 <!-- GENERATED:runtime-domain-local:end -->
 
+The deeper integration runner writes each invocation beneath
+`output/test-runner/run-<id>/` and cleans only that run-owned directory. Existing
+user, audit, and job artifacts elsewhere under `output/` are preserved. Set
+`FCAD_TEST_RUN_ID` to a safe path component when a stable local run identifier
+is needed; otherwise the runner uses its process ID.
+
 ## Known Limitations
 
 - Hosted CI does not prove that FreeCAD launches successfully on Linux or macOS.
