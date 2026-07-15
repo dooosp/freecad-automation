@@ -1,5 +1,7 @@
 # Architecture V2
 
+> Historical layer view: this document remains authoritative for the `adapters -> geometry -> linkage -> decision -> reporting` analysis direction. The [authoritative system blueprint](./architecture/README.md) supersedes it as whole-system architecture navigation and adds Studio, Local API, jobs, artifact/state contracts, inspection evidence controls, and the real-world production boundary.
+
 ## Intent
 
 Architecture V2 keeps the current execution model while changing the product boundary from generation pipelines to engineering-context analysis.
