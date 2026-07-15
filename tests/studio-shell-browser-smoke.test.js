@@ -123,6 +123,8 @@ function pageTextExpression() {
 function canonicalPackageSnapshotExpression() {
   return `(() => {
     const cards = [...document.querySelectorAll('.canonical-package-card')];
+    const packageGrid = document.querySelector('[data-hook="canonical-package-cards"]');
+    const packageHost = packageGrid?.closest('.studio-card');
     const slugText = (card) => card.querySelector('.eyebrow')?.textContent?.trim() || '';
     const qualityPassCard = cards.find((card) => slugText(card) === 'quality-pass-bracket');
     const releaseBundleRef = [...(qualityPassCard?.querySelectorAll('.canonical-artifact-ref') || [])]
@@ -143,6 +145,16 @@ function canonicalPackageSnapshotExpression() {
       releaseBundleActions: actionSnapshot(releaseBundleRef),
       releaseBundleText: releaseBundleRef?.textContent?.replace(/\\s+/g, ' ').trim() || '',
       readinessActions: actionSnapshot(readinessRef),
+      layout: {
+        viewportWidth: window.innerWidth,
+        hostInsideConsoleColumn: Boolean(packageHost?.closest('.console-column')),
+        packageGridWidth: packageGrid?.getBoundingClientRect().width || 0,
+        packageGridOverflows: (packageGrid?.scrollWidth || 0) > (packageGrid?.clientWidth || 0) + 1,
+        cardWidth: qualityPassCard?.getBoundingClientRect().width || 0,
+        cardOverflows: (qualityPassCard?.scrollWidth || 0) > (qualityPassCard?.clientWidth || 0) + 1,
+        artifactLabelWidth: readinessRef?.querySelector('.canonical-artifact-label')?.getBoundingClientRect().width || 0,
+        artifactPathWidth: readinessRef?.querySelector('.canonical-path')?.getBoundingClientRect().width || 0,
+      },
     };
   })()`;
 }
@@ -150,6 +162,9 @@ function canonicalPackageSnapshotExpression() {
 function canonicalPreviewSnapshotExpression() {
   return `(() => {
     const panel = document.querySelector('[data-hook="canonical-artifact-preview"]');
+    const previewCard = panel?.closest('.canonical-package-card');
+    const peerCard = [...document.querySelectorAll('.canonical-package-card')]
+      .find((card) => card !== previewCard);
     return {
       text: panel?.textContent?.replace(/\\s+/g, ' ').trim() || '',
       title: panel?.querySelector('.canonical-preview-title')?.textContent?.trim() || '',
@@ -158,6 +173,13 @@ function canonicalPreviewSnapshotExpression() {
         href: entry.getAttribute('href') || '',
         download: entry.hasAttribute('download'),
       })),
+      layout: {
+        panelWidth: panel?.getBoundingClientRect().width || 0,
+        panelOverflows: (panel?.scrollWidth || 0) > (panel?.clientWidth || 0) + 1,
+        contentWidth: panel?.querySelector('.canonical-preview-content')?.getBoundingClientRect().width || 0,
+        previewCardHeight: previewCard?.getBoundingClientRect().height || 0,
+        peerCardHeight: peerCard?.getBoundingClientRect().height || 0,
+      },
     };
   })()`;
 }
@@ -1767,6 +1789,12 @@ try {
   await cdp.send('Runtime.enable');
   await cdp.send('Log.enable');
   await cdp.send('Page.enable');
+  await cdp.send('Emulation.setDeviceMetricsOverride', {
+    width: 1440,
+    height: 1000,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
   await cdp.send('Page.navigate', { url: `${baseUrl}/` });
 
   const initial = await waitForRoute(cdp, 'start', {
@@ -1832,6 +1860,14 @@ try {
     delayMs: 150,
   });
   assert.equal(canonicalPackageSnapshot.slugs.includes('hinge-block'), true);
+  assert.equal(canonicalPackageSnapshot.layout.viewportWidth, 1440);
+  assert.equal(canonicalPackageSnapshot.layout.hostInsideConsoleColumn, false);
+  assert.equal(canonicalPackageSnapshot.layout.packageGridWidth >= 950, true);
+  assert.equal(canonicalPackageSnapshot.layout.cardWidth >= 460, true);
+  assert.equal(canonicalPackageSnapshot.layout.artifactLabelWidth >= 120, true);
+  assert.equal(canonicalPackageSnapshot.layout.artifactPathWidth >= 260, true);
+  assert.equal(canonicalPackageSnapshot.layout.packageGridOverflows, false);
+  assert.equal(canonicalPackageSnapshot.layout.cardOverflows, false);
 
   await cdp.evaluate(`(() => {
     const card = [...document.querySelectorAll('.canonical-package-card')]
@@ -1861,6 +1897,13 @@ try {
     delayMs: 150,
   });
   assert.equal(canonicalPreviewSnapshot.content.includes('release_bundle.zip'), false);
+  assert.equal(canonicalPreviewSnapshot.layout.panelWidth >= 430, true);
+  assert.equal(canonicalPreviewSnapshot.layout.contentWidth >= 380, true);
+  assert.equal(canonicalPreviewSnapshot.layout.panelOverflows, false);
+  assert.equal(
+    canonicalPreviewSnapshot.layout.previewCardHeight >= canonicalPreviewSnapshot.layout.peerCardHeight + 250,
+    true
+  );
   await cdp.evaluate(`document.querySelector('[data-action="close-canonical-artifact-preview"]')?.click()`);
 
   const firstRunCard = await waitFor(async () => {
