@@ -1,8 +1,12 @@
-import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { createHarness } from '../test-runner-harness.js';
 import { CORE_CASE_LAYERS, FULL_ONLY_CASE_LAYERS } from '../test-runner-layers.js';
 import { createCaseRegistry } from './registry.js';
-import { describeFreeCADRuntime, hasFreeCADRuntime, OUTPUT_DIR } from './shared.js';
+import {
+  describeFreeCADRuntime,
+  hasFreeCADRuntime,
+  OUTPUT_DIR,
+  prepareTestRunnerOutputDirectory,
+} from './shared.js';
 
 export function parseProfileArg(argv = process.argv, env = process.env) {
   const raw = argv.find((arg) => arg.startsWith('--profile='));
@@ -47,9 +51,9 @@ export async function main({ argv = process.argv, env = process.env } = {}) {
   const profile = parseProfileArg(argv, env);
   console.log(`Profile: ${profile}`);
   console.log(`Runtime: ${describeFreeCADRuntime()}`);
+  console.log(`Output directory: ${OUTPUT_DIR}`);
 
-  if (existsSync(OUTPUT_DIR)) rmSync(OUTPUT_DIR, { recursive: true });
-  mkdirSync(OUTPUT_DIR, { recursive: true });
+  prepareTestRunnerOutputDirectory();
 
   if (!hasFreeCADRuntime()) {
     console.warn('FreeCAD runtime not available; running runtime-independent checks only.');
