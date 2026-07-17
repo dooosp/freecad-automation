@@ -12,14 +12,14 @@ echo "════════════════════════�
 echo " Seatbelt Retractor Demo Pipeline"
 echo "═══════════════════════════════════════════════════"
 
-# 0. Design review (optional — requires GEMINI_API_KEY)
+# 0. Design review (optional — explicit opt-in because this makes a billable API call)
 echo ""
-if [ -n "${GEMINI_API_KEY:-}" ]; then
-  echo "▶ Step 0: Design review (Gemini)..."
+if [ "${OPENAI_DEMO_REVIEW:-}" = "1" ]; then
+  echo "▶ Step 0: Design review (OpenAI GPT)..."
   node "$ROOT/scripts/design-reviewer.js" --review "$INPUT" --json || true
   echo "  ✓ Design review complete"
 else
-  echo "▶ Step 0: Design review skipped (no GEMINI_API_KEY)"
+  echo "▶ Step 0: Design review skipped (set OPENAI_DEMO_REVIEW=1 to allow the billable call)"
 fi
 
 # 1. Build CAD model (FreeCAD runtime-backed path)

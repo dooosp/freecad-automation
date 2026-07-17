@@ -790,6 +790,17 @@ Legacy note:
 - prompt streaming and the original all-in-one websocket viewer loop still live on the legacy path
 - if you need the working all-in-one browser demo, use the legacy viewer commands above until the remaining websocket-only flows are migrated
 
+Prompt-driven design review and prompt-to-TOML generation use the OpenAI
+Responses API. Set `OPENAI_API_KEY` in the environment, `.env.local`, or `.env`;
+the default model is `gpt-5.6-sol` and can be overridden with `OPENAI_MODEL`.
+The API is called only after an explicit design/review action. Each action makes
+one request by default, sends `store: false`, uses low reasoning effort, and caps
+output at `12000` tokens unless `OPENAI_MAX_OUTPUT_TOKENS` is set. Automatic
+repair requests stay disabled unless `OPENAI_ALLOW_REPAIR_RETRY=1` is explicitly
+set. Repository tests never make a billable OpenAI request unless a maintainer
+also opts in with `OPENAI_LIVE_TESTS=1`. The retractor demo likewise skips its
+optional AI review unless `OPENAI_DEMO_REVIEW=1` is explicitly set.
+
 FAQ:
 
 - If the browser opens `/`, that is now the preferred studio shell. Open `/api` for the API info page or use `fcad serve --legacy-viewer` for the older browser demo UI.

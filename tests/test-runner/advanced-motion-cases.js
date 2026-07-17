@@ -630,14 +630,14 @@ async function testMjcfConversion() {
 }
 
 // ---------------------------------------------------------------------------
-// Design Reviewer Tests (require GEMINI_API_KEY)
+// Design Reviewer Tests (explicitly opt in to billable OpenAI API calls)
 // ---------------------------------------------------------------------------
 
 async function testDesignReview() {
-  console.log('\n--- Test: Design review (Gemini) ---');
+  console.log('\n--- Test: Design review (OpenAI GPT) ---');
 
-  if (!process.env.GEMINI_API_KEY) {
-    console.log('  SKIP: GEMINI_API_KEY not set');
+  if (process.env.OPENAI_LIVE_TESTS !== '1') {
+    console.log('  SKIP: OPENAI_LIVE_TESTS=1 not set (avoids billable API calls)');
     return;
   }
 
@@ -668,10 +668,10 @@ async function testDesignReview() {
 }
 
 async function testDesignGenerate() {
-  console.log('\n--- Test: Design generate (Gemini) ---');
+  console.log('\n--- Test: Design generate (OpenAI GPT) ---');
 
-  if (!process.env.GEMINI_API_KEY) {
-    console.log('  SKIP: GEMINI_API_KEY not set');
+  if (process.env.OPENAI_LIVE_TESTS !== '1') {
+    console.log('  SKIP: OPENAI_LIVE_TESTS=1 not set (avoids billable API calls)');
     return;
   }
 
