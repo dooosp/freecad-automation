@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * design-reviewer.js — Gemini-powered kinematics design reviewer.
+ * design-reviewer.js — OpenAI GPT-powered kinematics design reviewer.
  *
  * Mode A: Review existing TOML → issues + corrected TOML + report
  *   node scripts/design-reviewer.js --review <path.toml> [--json]
@@ -14,7 +14,12 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse as parseTOML } from 'smol-toml';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import {
+  createOpenAIResponsesClient,
+  DEFAULT_OPENAI_MAX_OUTPUT_TOKENS,
+  DEFAULT_OPENAI_MODEL,
+  DEFAULT_OPENAI_TIMEOUT_MS,
+} from '../src/services/design/openai-responses-client.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -316,54 +321,70 @@ const SUPPORTED_ASSEMBLY_OPERATION_NAMES = new Set([
 ]);
 
 // ---------------------------------------------------------------------------
-// Gemini client
+// OpenAI Responses client
 // ---------------------------------------------------------------------------
 
-function initGemini() {
-  // Node v24: process.loadEnvFile() loads .env from cwd
-  try { process.loadEnvFile(); } catch { /* no .env file, ignore */ }
+const OPENAI_ENV_NAMES = [
+  'OPENAI_API_KEY',
+  'OPENAI_MODEL',
+  'OPENAI_MAX_OUTPUT_TOKENS',
+  'OPENAI_TIMEOUT_MS',
+  'OPENAI_ALLOW_REPAIR_RETRY',
+];
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    console.error('ERROR: GEMINI_API_KEY environment variable is required.');
-    console.error('Set it in .env or export GEMINI_API_KEY=...');
-    process.exit(2);
+function loadOpenAIEnvFiles() {
+  const preserved = new Map(
+    OPENAI_ENV_NAMES
+      .filter((name) => Object.hasOwn(process.env, name))
+      .map((name) => [name, process.env[name]]),
+  );
+  const root = resolve(import.meta.dirname, '..');
+
+  for (const envPath of [resolve(root, '.env'), resolve(root, '.env.local')]) {
+    try { process.loadEnvFile(envPath); } catch { /* optional local env file */ }
   }
-
-  const genAI = new GoogleGenerativeAI(apiKey);
-  return genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+  for (const [name, value] of preserved) process.env[name] = value;
 }
 
-async function callGeminiWithRetry(model, prompt, retries = 2) {
+function initOpenAI() {
+  loadOpenAIEnvFiles();
+  return createOpenAIResponsesClient({
+    apiKey: process.env.OPENAI_API_KEY,
+    model: process.env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL,
+    maxOutputTokens: process.env.OPENAI_MAX_OUTPUT_TOKENS || DEFAULT_OPENAI_MAX_OUTPUT_TOKENS,
+    timeoutMs: process.env.OPENAI_TIMEOUT_MS || DEFAULT_OPENAI_TIMEOUT_MS,
+  });
+}
+
+async function callOpenAIWithRetry(client, request, retries = 0) {
   let lastError;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const result = await model.generateContent(prompt);
-      return result.response.text();
+      return await client.complete(request);
     } catch (err) {
       lastError = err;
-      if (attempt < retries) {
+      if (attempt < retries && err.retryable !== false) {
         const delay = 1000 * (attempt + 1);
         await new Promise(r => setTimeout(r, delay));
+      } else {
+        break;
       }
     }
   }
-  throw new Error(`Gemini API failed after ${retries + 1} attempts: ${lastError.message}`);
+  throw new Error(`OpenAI API failed after ${retries + 1} attempt(s): ${lastError.message}`);
 }
 
 /**
- * Streaming Gemini call — invokes onChunk(deltaText, totalLength) for each chunk.
+ * Streaming OpenAI call — invokes onChunk(deltaText, totalLength) for each chunk.
  * Returns the full accumulated response text.
  */
-async function callGeminiStreaming(model, prompt, onChunk) {
-  const result = await model.generateContentStream(prompt);
-  let fullText = '';
-  for await (const chunk of result.stream) {
-    const delta = chunk.text();
-    fullText += delta;
-    if (onChunk) onChunk(delta, fullText.length);
-  }
-  return fullText;
+async function callOpenAIStreaming(client, request, onChunk) {
+  return client.stream({ ...request, onChunk });
+}
+
+function repairRetryEnabled(options = {}) {
+  if (typeof options.allowRepairRetry === 'boolean') return options.allowRepairRetry;
+  return process.env.OPENAI_ALLOW_REPAIR_RETRY === '1';
 }
 
 // ---------------------------------------------------------------------------
@@ -579,8 +600,7 @@ function validateTomlStructure(tomlStr) {
 // Review mode
 // ---------------------------------------------------------------------------
 
-async function reviewToml(filePath) {
-  const model = initGemini();
+async function reviewToml(filePath, options = {}) {
   const tomlContent = readFileSync(filePath, 'utf8');
 
   // Validate input TOML first
@@ -595,35 +615,41 @@ async function reviewToml(filePath) {
     };
   }
 
-  const prompt = `${SYSTEM_PROMPT}
-
-Review this TOML assembly config and provide issues, corrected TOML, and design report:
+  const client = options.client || initOpenAI();
+  const input = `Review this TOML assembly config and provide issues, corrected TOML, and design report:
 
 \`\`\`toml
 ${tomlContent}
 \`\`\``;
 
-  let response = await callGeminiWithRetry(model, prompt);
+  let response = await callOpenAIWithRetry(client, { instructions: SYSTEM_PROMPT, input });
 
   // Extract corrected TOML and validate it
   let correctedToml = extractTomlFromResponse(response);
   if (correctedToml) {
     const validation = validateTomlStructure(correctedToml);
     if (!validation.valid) {
-      // Retry with error feedback
-      const retryPrompt = `${prompt}
+      if (!repairRetryEnabled(options)) {
+        correctedToml = null;
+      } else {
+        // Optional second API call with validation feedback. Disabled by default for cost control.
+        const retryInput = `${input}
 
 Your previous corrected TOML had parse errors:
 ${validation.errors.join('\n')}
 
 Please fix these errors and output again with the same three sections.`;
-      response = await callGeminiWithRetry(model, retryPrompt, 1);
-      correctedToml = extractTomlFromResponse(response);
+        response = await callOpenAIWithRetry(
+          client,
+          { instructions: SYSTEM_PROMPT, input: retryInput },
+        );
+        correctedToml = extractTomlFromResponse(response);
 
-      if (correctedToml) {
-        const recheck = validateTomlStructure(correctedToml);
-        if (!recheck.valid) {
-          correctedToml = null; // Give up on corrected TOML
+        if (correctedToml) {
+          const recheck = validateTomlStructure(correctedToml);
+          if (!recheck.valid) {
+            correctedToml = null; // Give up on corrected TOML
+          }
         }
       }
     }
@@ -653,30 +679,36 @@ Please fix these errors and output again with the same three sections.`;
 // Design mode
 // ---------------------------------------------------------------------------
 
-async function designFromText(description) {
-  const model = initGemini();
+async function designFromText(description, options = {}) {
+  const client = options.client || initOpenAI();
 
-  const prompt = `${DESIGN_PROMPT}
-
-Design a mechanism for: "${description}"
+  const input = `Design a mechanism for: "${description}"
 
 Generate a complete, valid TOML config with realistic dimensions, proper clearances, and material assignments.`;
 
-  let response = await callGeminiWithRetry(model, prompt);
+  let response = await callOpenAIWithRetry(client, { instructions: DESIGN_PROMPT, input });
 
   let toml = extractTomlFromResponse(response);
   if (toml) {
     const validation = validateTomlStructure(toml);
     if (!validation.valid) {
-      // Retry with error feedback
-      const retryPrompt = `${prompt}
+      if (!repairRetryEnabled(options)) {
+        toml = null;
+      } else {
+        // Optional second API call with validation feedback. Disabled by default for cost control.
+        const retryInput = `${input}
 
 Your previous TOML had parse errors:
 ${validation.errors.join('\n')}
 
 Please fix and regenerate with the same two sections.`;
-      response = await callGeminiWithRetry(model, retryPrompt, 1);
-      toml = extractTomlFromResponse(response);
+        response = await callOpenAIWithRetry(
+          client,
+          { instructions: DESIGN_PROMPT, input: retryInput },
+        );
+        toml = extractTomlFromResponse(response);
+        if (toml && !validateTomlStructure(toml).valid) toml = null;
+      }
     }
   }
 
@@ -792,30 +824,40 @@ async function main() {
 // Design mode — streaming
 // ---------------------------------------------------------------------------
 
-async function designFromTextStreaming(description, onChunk) {
-  const model = initGemini();
+async function designFromTextStreaming(description, onChunk, options = {}) {
+  const client = options.client || initOpenAI();
 
-  const prompt = `${DESIGN_PROMPT}
-
-Design a mechanism for: "${description}"
+  const input = `Design a mechanism for: "${description}"
 
 Generate a complete, valid TOML config with realistic dimensions, proper clearances, and material assignments.`;
 
-  let response = await callGeminiStreaming(model, prompt, onChunk);
+  let response = await callOpenAIStreaming(
+    client,
+    { instructions: DESIGN_PROMPT, input },
+    onChunk,
+  );
 
   let toml = extractTomlFromResponse(response);
   if (toml) {
     const validation = validateTomlStructure(toml);
     if (!validation.valid) {
-      // Retry with error feedback (non-streaming — retry is fast)
-      const retryPrompt = `${prompt}
+      if (!repairRetryEnabled(options)) {
+        toml = null;
+      } else {
+        // Optional second API call with validation feedback. Disabled by default for cost control.
+        const retryInput = `${input}
 
 Your previous TOML had parse errors:
 ${validation.errors.join('\n')}
 
 Please fix and regenerate with the same two sections.`;
-      response = await callGeminiWithRetry(model, retryPrompt, 1);
-      toml = extractTomlFromResponse(response);
+        response = await callOpenAIWithRetry(
+          client,
+          { instructions: DESIGN_PROMPT, input: retryInput },
+        );
+        toml = extractTomlFromResponse(response);
+        if (toml && !validateTomlStructure(toml).valid) toml = null;
+      }
     }
   }
 

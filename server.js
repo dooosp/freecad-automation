@@ -106,7 +106,7 @@ export function startServer(port = 3000) {
     }
 
     try {
-      sendJSON(ws, { type: 'progress', text: 'Generating design with Gemini...' });
+      sendJSON(ws, { type: 'progress', text: 'Generating design with OpenAI GPT...' });
 
       let lastSendTime = 0;
       const result = await designFromTextStreaming(description.trim(), (delta, totalChars) => {
@@ -133,8 +133,8 @@ export function startServer(port = 3000) {
       // Automatically build the generated TOML
       await handleBuild(ws, result.toml);
     } catch (err) {
-      const msg = err.message.includes('GEMINI_API_KEY')
-        ? 'GEMINI_API_KEY not set. Add it to .env or export it.'
+      const msg = err.message.includes('OPENAI_API_KEY')
+        ? 'OPENAI_API_KEY not set. Add it to .env.local, .env, or export it.'
         : err.message;
       sendJSON(ws, { type: 'error', message: msg });
     }
