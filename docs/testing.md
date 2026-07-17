@@ -29,14 +29,16 @@ Runtime domain checks remain available for deeper local verification:
 OpenAI-backed design review and prompt-to-TOML generation are excluded from all
 default and runtime test lanes, even when `OPENAI_API_KEY` is present. The
 Responses API contract is covered with local mock responses by
-`tests/openai-responses-client.test.js`. A maintainer must set
-`OPENAI_LIVE_TESTS=1` explicitly to enable the two billable design calls in the
-full runtime suite. Automatic transient retries and automatic TOML repair calls
-are disabled by default; set `OPENAI_ALLOW_REPAIR_RETRY=1` only when one extra
-billable repair request is intentionally authorized. The client sends
-`store: false`, uses low reasoning effort, and caps output with
-`OPENAI_MAX_OUTPUT_TOKENS` (default `12000`). `OPENAI_MODEL` overrides the
-default `gpt-5.6-sol` model.
+`tests/openai-responses-client.test.js`. The client defaults to denying requests,
+and an authorized process is hard-capped at one request. Optional live-suite use
+must select only one case with `OPENAI_LIVE_TESTS=1` plus
+`OPENAI_LIVE_TEST_MODE=review` or `OPENAI_LIVE_TEST_MODE=design`; it is routed
+through the macOS Keychain one-request wrapper. Automatic transient retries and
+automatic TOML repair calls are disabled by default. The wrapper also forces
+repair retry off. The client sends `store: false`, uses low reasoning effort, and
+caps output with `OPENAI_MAX_OUTPUT_TOKENS` (default `12000`). `OPENAI_MODEL`
+overrides the default `gpt-5.6-sol` model. See the
+[OpenAI API cost-safety guide](./openai-cost-safety.md) before any live use.
 
 The runtime domain runner uses the same FreeCAD-backed script path as the CLI and will fail early if you request runtime-backed layers without a detectable runtime.
 

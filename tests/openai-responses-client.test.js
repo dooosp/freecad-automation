@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { Readable } from 'node:stream';
 
@@ -20,9 +21,25 @@ assert.equal(
   'direct output',
 );
 
+let blockedFetches = 0;
+const blockedClient = createOpenAIResponsesClient({
+  apiKey: 'test-only-key',
+  fetchFn: async () => {
+    blockedFetches += 1;
+    throw new Error('blocked client must never reach fetch');
+  },
+});
+await assert.rejects(
+  () => blockedClient.complete({ instructions: 'rules', input: 'request' }),
+  (error) => error.code === 'OPENAI_LIVE_REQUEST_NOT_AUTHORIZED' && error.retryable === false,
+);
+assert.equal(blockedFetches, 0, 'default-deny client must not reach the network layer');
+
 const requests = [];
 const client = createOpenAIResponsesClient({
   apiKey: 'test-only-key',
+  allowLiveRequests: true,
+  maxRequests: 99,
   maxOutputTokens: 2_048,
   fetchFn: async (url, options) => {
     requests.push({ url, options });
@@ -59,10 +76,16 @@ assert.deepEqual(requestBody.reasoning, { effort: 'low' });
 assert.equal(requestBody.max_output_tokens, 2_048);
 assert.equal(requestBody.store, false);
 assert.equal(requestBody.stream, undefined);
+await assert.rejects(
+  () => client.complete({ instructions: 'second call', input: 'must be blocked' }),
+  (error) => error.code === 'OPENAI_REQUEST_LIMIT_EXCEEDED' && error.retryable === false,
+);
+assert.equal(requests.length, 1, 'one-request authorization must be consumed before a second fetch');
 
 const streamRequests = [];
 const streamClient = createOpenAIResponsesClient({
   apiKey: 'test-only-key',
+  allowLiveRequests: true,
   fetchFn: async (_url, options) => {
     streamRequests.push(JSON.parse(options.body));
     return {
@@ -93,6 +116,7 @@ assert.equal(streamRequests[0].store, false);
 
 const authFailureClient = createOpenAIResponsesClient({
   apiKey: 'test-only-key',
+  allowLiveRequests: true,
   fetchFn: async () => ({
     ok: false,
     status: 401,
@@ -171,10 +195,44 @@ assert.match(
   /OPENAI_DEMO_REVIEW:-.*= "1"/,
   'the demo must require a separate explicit opt-in before making an API call',
 );
+assert.match(
+  demoScript,
+  /openai-keychain\.js" run --authorize-one-request/,
+  'the demo must route its optional API call through the one-request wrapper',
+);
 assert.doesNotMatch(
   demoScript,
   /if \[ -n "\$\{OPENAI_API_KEY/,
   'mere API-key presence must not trigger a demo API call',
+);
+
+const directReviewer = spawnSync(
+  process.execPath,
+  [new URL('../scripts/design-reviewer.js', import.meta.url).pathname, '--design', 'test', '--json'],
+  {
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      OPENAI_API_KEY: 'test-only-key',
+      OPENAI_ALLOW_LIVE_REQUEST: '0',
+    },
+  },
+);
+assert.equal(directReviewer.status, 2);
+assert.match(directReviewer.stdout, /OpenAI live request blocked/);
+assert.doesNotMatch(directReviewer.stdout, /test-only-key/);
+
+const wrapperWithoutAuthorization = spawnSync(
+  process.execPath,
+  [new URL('../scripts/openai-keychain.js', import.meta.url).pathname, 'run', '--design', 'test'],
+  { encoding: 'utf8' },
+);
+assert.equal(wrapperWithoutAuthorization.status, 2);
+assert.match(wrapperWithoutAuthorization.stderr, /--authorize-one-request/);
+assert.doesNotMatch(
+  `${wrapperWithoutAuthorization.stdout}${wrapperWithoutAuthorization.stderr}`,
+  /sk-[A-Za-z0-9]/,
+  'the wrapper must never print a credential',
 );
 
 console.log('openai-responses-client.test.js: ok');

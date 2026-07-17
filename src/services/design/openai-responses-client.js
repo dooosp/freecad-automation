@@ -3,6 +3,7 @@ const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses';
 export const DEFAULT_OPENAI_MODEL = 'gpt-5.6-sol';
 export const DEFAULT_OPENAI_MAX_OUTPUT_TOKENS = 12_000;
 export const DEFAULT_OPENAI_TIMEOUT_MS = 120_000;
+export const DEFAULT_OPENAI_MAX_REQUESTS = 1;
 
 function boundedInteger(value, fallback, { min, max }) {
   const parsed = Number.parseInt(String(value ?? ''), 10);
@@ -138,6 +139,8 @@ export function createOpenAIResponsesClient({
   model = DEFAULT_OPENAI_MODEL,
   maxOutputTokens = DEFAULT_OPENAI_MAX_OUTPUT_TOKENS,
   timeoutMs = DEFAULT_OPENAI_TIMEOUT_MS,
+  allowLiveRequests = false,
+  maxRequests = DEFAULT_OPENAI_MAX_REQUESTS,
   fetchFn = globalThis.fetch,
 } = {}) {
   if (typeof apiKey !== 'string' || !apiKey.trim()) {
@@ -156,12 +159,39 @@ export function createOpenAIResponsesClient({
     min: 1_000,
     max: 300_000,
   });
+  const requestLimit = boundedInteger(maxRequests, DEFAULT_OPENAI_MAX_REQUESTS, {
+    min: 1,
+    max: DEFAULT_OPENAI_MAX_REQUESTS,
+  });
+  let requestsStarted = 0;
+
+  function authorizeRequest() {
+    if (allowLiveRequests !== true) {
+      const error = new Error(
+        'OpenAI live request blocked. Use the explicit one-request authorization wrapper.',
+      );
+      error.code = 'OPENAI_LIVE_REQUEST_NOT_AUTHORIZED';
+      error.retryable = false;
+      throw error;
+    }
+    if (requestsStarted >= requestLimit) {
+      const error = new Error('OpenAI request limit exceeded for this process.');
+      error.code = 'OPENAI_REQUEST_LIMIT_EXCEEDED';
+      error.retryable = false;
+      throw error;
+    }
+
+    // Consume the authorization before fetch so failures cannot reuse the allowance.
+    requestsStarted += 1;
+  }
 
   return {
     model: selectedModel,
     maxOutputTokens: outputLimit,
+    maxRequests: requestLimit,
 
     async complete({ instructions, input }) {
+      authorizeRequest();
       return requestResponse(
         fetchFn,
         apiKey,
@@ -182,6 +212,7 @@ export function createOpenAIResponsesClient({
     },
 
     async stream({ instructions, input, onChunk }) {
+      authorizeRequest();
       return requestResponse(
         fetchFn,
         apiKey,

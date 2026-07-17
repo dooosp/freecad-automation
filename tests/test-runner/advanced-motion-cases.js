@@ -636,13 +636,13 @@ async function testMjcfConversion() {
 async function testDesignReview() {
   console.log('\n--- Test: Design review (OpenAI GPT) ---');
 
-  if (process.env.OPENAI_LIVE_TESTS !== '1') {
-    console.log('  SKIP: OPENAI_LIVE_TESTS=1 not set (avoids billable API calls)');
+  if (process.env.OPENAI_LIVE_TESTS !== '1' || process.env.OPENAI_LIVE_TEST_MODE !== 'review') {
+    console.log('  SKIP: one paid request requires OPENAI_LIVE_TESTS=1 and OPENAI_LIVE_TEST_MODE=review');
     return;
   }
 
   const inputToml = resolve(ROOT, 'configs/examples/seatbelt_retractor.toml');
-  const cmd = `node ${resolve(ROOT, 'scripts/design-reviewer.js')} --review ${inputToml} --json`;
+  const cmd = `node ${resolve(ROOT, 'scripts/openai-keychain.js')} run --authorize-one-request --review ${inputToml} --json`;
   let result;
   try {
     result = runJsonCommand(cmd, { timeout: 60_000, allowStdoutOnFailure: true });
@@ -670,12 +670,12 @@ async function testDesignReview() {
 async function testDesignGenerate() {
   console.log('\n--- Test: Design generate (OpenAI GPT) ---');
 
-  if (process.env.OPENAI_LIVE_TESTS !== '1') {
-    console.log('  SKIP: OPENAI_LIVE_TESTS=1 not set (avoids billable API calls)');
+  if (process.env.OPENAI_LIVE_TESTS !== '1' || process.env.OPENAI_LIVE_TEST_MODE !== 'design') {
+    console.log('  SKIP: one paid request requires OPENAI_LIVE_TESTS=1 and OPENAI_LIVE_TEST_MODE=design');
     return;
   }
 
-  const cmd = `node ${resolve(ROOT, 'scripts/design-reviewer.js')} --design "simple cam-follower" --json`;
+  const cmd = `node ${resolve(ROOT, 'scripts/openai-keychain.js')} run --authorize-one-request --design "simple cam-follower" --json`;
   let result;
   try {
     result = runJsonCommand(cmd, { timeout: 60_000, allowStdoutOnFailure: true });

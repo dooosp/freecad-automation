@@ -791,15 +791,15 @@ Legacy note:
 - if you need the working all-in-one browser demo, use the legacy viewer commands above until the remaining websocket-only flows are migrated
 
 Prompt-driven design review and prompt-to-TOML generation use the OpenAI
-Responses API. Set `OPENAI_API_KEY` in the environment, `.env.local`, or `.env`;
-the default model is `gpt-5.6-sol` and can be overridden with `OPENAI_MODEL`.
-The API is called only after an explicit design/review action. Each action makes
-one request by default, sends `store: false`, uses low reasoning effort, and caps
-output at `12000` tokens unless `OPENAI_MAX_OUTPUT_TOKENS` is set. Automatic
-repair requests stay disabled unless `OPENAI_ALLOW_REPAIR_RETRY=1` is explicitly
-set. Repository tests never make a billable OpenAI request unless a maintainer
-also opts in with `OPENAI_LIVE_TESTS=1`. The retractor demo likewise skips its
-optional AI review unless `OPENAI_DEMO_REVIEW=1` is explicitly set.
+Responses API. The default model is `gpt-5.6-sol` and can be overridden with
+`OPENAI_MODEL`. Merely setting `OPENAI_API_KEY` never authorizes a request: the
+client defaults to deny, and the macOS Keychain wrapper grants at most one
+request to one child process. It sends `store: false`, uses low reasoning effort,
+caps output at `12000` tokens unless `OPENAI_MAX_OUTPUT_TOKENS` is set, and
+disables repair retry. Repository tests use mock responses and make no billable
+request by default. See the [OpenAI API cost-safety guide](./docs/openai-cost-safety.md)
+for zero-cost tests, secure key storage, and the deliberately separate one-request
+paid-use command.
 
 FAQ:
 
