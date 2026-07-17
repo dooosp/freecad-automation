@@ -16,10 +16,10 @@ echo "════════════════════════�
 echo ""
 if [ "${OPENAI_DEMO_REVIEW:-}" = "1" ]; then
   echo "▶ Step 0: Design review (OpenAI GPT)..."
-  node "$ROOT/scripts/design-reviewer.js" --review "$INPUT" --json || true
+  node "$ROOT/scripts/openai-keychain.js" run --authorize-one-request --review "$INPUT" --json || true
   echo "  ✓ Design review complete"
 else
-  echo "▶ Step 0: Design review skipped (set OPENAI_DEMO_REVIEW=1 to allow the billable call)"
+  echo "▶ Step 0: Design review skipped (one paid request requires OPENAI_DEMO_REVIEW=1)"
 fi
 
 # 1. Build CAD model (FreeCAD runtime-backed path)

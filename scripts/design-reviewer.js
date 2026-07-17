@@ -16,6 +16,7 @@ import { resolve } from 'node:path';
 import { parse as parseTOML } from 'smol-toml';
 import {
   createOpenAIResponsesClient,
+  DEFAULT_OPENAI_MAX_REQUESTS,
   DEFAULT_OPENAI_MAX_OUTPUT_TOKENS,
   DEFAULT_OPENAI_MODEL,
   DEFAULT_OPENAI_TIMEOUT_MS,
@@ -329,6 +330,8 @@ const OPENAI_ENV_NAMES = [
   'OPENAI_MODEL',
   'OPENAI_MAX_OUTPUT_TOKENS',
   'OPENAI_TIMEOUT_MS',
+  'OPENAI_ALLOW_LIVE_REQUEST',
+  'OPENAI_REQUEST_LIMIT',
   'OPENAI_ALLOW_REPAIR_RETRY',
 ];
 
@@ -346,14 +349,20 @@ function loadOpenAIEnvFiles() {
   for (const [name, value] of preserved) process.env[name] = value;
 }
 
+let sharedOpenAIClient;
+
 function initOpenAI() {
+  if (sharedOpenAIClient) return sharedOpenAIClient;
   loadOpenAIEnvFiles();
-  return createOpenAIResponsesClient({
+  sharedOpenAIClient = createOpenAIResponsesClient({
     apiKey: process.env.OPENAI_API_KEY,
     model: process.env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL,
     maxOutputTokens: process.env.OPENAI_MAX_OUTPUT_TOKENS || DEFAULT_OPENAI_MAX_OUTPUT_TOKENS,
     timeoutMs: process.env.OPENAI_TIMEOUT_MS || DEFAULT_OPENAI_TIMEOUT_MS,
+    allowLiveRequests: process.env.OPENAI_ALLOW_LIVE_REQUEST === '1',
+    maxRequests: process.env.OPENAI_REQUEST_LIMIT || DEFAULT_OPENAI_MAX_REQUESTS,
   });
+  return sharedOpenAIClient;
 }
 
 async function callOpenAIWithRetry(client, request, retries = 0) {
