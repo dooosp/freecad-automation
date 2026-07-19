@@ -3825,7 +3825,18 @@ try {
     return snapshot;
   });
 
-  await cdp.evaluate(`document.getElementById('advanced-work-navigation').open = true`);
+  await cdp.evaluate(`document.getElementById('advanced-mode-toggle')?.click()`);
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => ({
+      open: document.getElementById('advanced-work-navigation')?.open ?? false,
+      checked: document.getElementById('advanced-mode-toggle')?.checked ?? false,
+      stored: localStorage.getItem('studio_experience_mode'),
+    }))()`);
+    assert.equal(snapshot.open, true);
+    assert.equal(snapshot.checked, true);
+    assert.equal(snapshot.stored, 'advanced');
+    return snapshot;
+  });
 
   await cdp.evaluate(`document.getElementById('jobs-toggle')?.click()`);
   let drawerSnapshot = await waitFor(async () => {
@@ -3915,6 +3926,19 @@ try {
     assert.equal(nextSnapshot.logExpanded, 'false');
     assert.equal(nextSnapshot.activeElementId, 'log-toggle');
     return nextSnapshot;
+  });
+
+  await cdp.evaluate(`document.getElementById('advanced-mode-toggle')?.click()`);
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => ({
+      open: document.getElementById('advanced-work-navigation')?.open ?? true,
+      checked: document.getElementById('advanced-mode-toggle')?.checked ?? true,
+      stored: localStorage.getItem('studio_experience_mode'),
+    }))()`);
+    assert.equal(snapshot.open, false);
+    assert.equal(snapshot.checked, false);
+    assert.equal(snapshot.stored, 'default');
+    return snapshot;
   });
 
   const initialLocale = await cdp.evaluate(localeSnapshotExpression());
