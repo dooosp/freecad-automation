@@ -48,6 +48,39 @@ async function waitFor(assertion, { attempts = 40, delayMs = 150 } = {}) {
   throw lastError;
 }
 
+async function keyboardActivate(cdp, selector) {
+  const targetSnapshot = await cdp.evaluate(`(() => {
+    const target = document.querySelector(${JSON.stringify(selector)});
+    if (!(target instanceof HTMLElement) || target.matches(':disabled,[aria-disabled="true"]')) {
+      return { focused: false, tagName: '' };
+    }
+    target.focus();
+    return {
+      focused: document.activeElement === target,
+      tagName: target.tagName,
+    };
+  })()`);
+  assert.equal(targetSnapshot.focused, true, `Expected keyboard target to be focusable: ${selector}`);
+  const isLink = targetSnapshot.tagName === 'A';
+  const key = isLink ? 'Enter' : ' ';
+  const code = isLink ? 'Enter' : 'Space';
+  const virtualKeyCode = isLink ? 13 : 32;
+  await cdp.send('Input.dispatchKeyEvent', {
+    type: 'keyDown',
+    key,
+    code,
+    windowsVirtualKeyCode: virtualKeyCode,
+    nativeVirtualKeyCode: virtualKeyCode,
+  });
+  await cdp.send('Input.dispatchKeyEvent', {
+    type: 'keyUp',
+    key,
+    code,
+    windowsVirtualKeyCode: virtualKeyCode,
+    nativeVirtualKeyCode: virtualKeyCode,
+  });
+}
+
 function summarizeException(details = {}) {
   return details.exception?.description
     || details.exception?.value
@@ -68,6 +101,10 @@ function studioSnapshotExpression() {
       hash: window.location.hash,
       pathname: window.location.pathname,
       navCount: document.querySelectorAll('.nav-link').length,
+      coreNavCount: document.querySelectorAll('.nav-link[data-nav-tier="core"]').length,
+      advancedNavCount: document.querySelectorAll('.nav-link[data-nav-tier="advanced"]').length,
+      homeChoiceCount: document.querySelectorAll('[data-hook="home-start-choices"] [data-start-goal]').length,
+      homeChoicePrimaryCount: document.querySelectorAll('[data-hook="home-start-choices"] [data-action-kind="primary"]').length,
       hasWorkspace: Boolean(root?.firstElementChild),
       workspaceClass: root?.firstElementChild?.className || '',
       summary,
@@ -80,6 +117,9 @@ function studioSnapshotExpression() {
 
 function drawerSnapshotExpression() {
   return `(() => ({
+    sidebarOpen: document.getElementById('studio-sidebar')?.classList.contains('is-open') || false,
+    mainInert: document.querySelector('.studio-main')?.inert ?? false,
+    skipLinkInert: document.querySelector('.skip-link')?.inert ?? false,
     jobsOpen: document.getElementById('jobs-drawer')?.classList.contains('is-open') || false,
     jobsExpanded: document.getElementById('jobs-toggle')?.getAttribute('aria-expanded') || '',
     logOpen: document.getElementById('log-drawer')?.classList.contains('is-open') || false,
@@ -1646,6 +1686,163 @@ function browserSmokeRuntimeDiagnostics() {
   };
 }
 
+const browserSmokeDesignRequests = [];
+
+function browserSmokeStudioModelServiceFactory() {
+  const previewId = 'browser-smoke-guided-model';
+  const modelPath = join(
+    ROOT,
+    'docs',
+    'examples',
+    'quality-pass-bracket',
+    'cad',
+    'quality_pass_bracket.stl',
+  );
+  const overview = {
+    name: 'quality-pass-bracket',
+    mode: 'part',
+    part_count: 0,
+    shape_count: 1,
+    operation_count: 0,
+    export_formats: ['step', 'stl'],
+    has_drawing: true,
+    has_motion: false,
+    has_fem: false,
+  };
+  const validation = {
+    warnings: [],
+    changed_fields: [],
+    deprecated_fields: [],
+  };
+
+  return {
+    async validateConfigToml() {
+      return { config: {}, summary: validation, overview };
+    },
+    async buildPreview({ buildSettings = {} } = {}) {
+      return {
+        preview: {
+          id: previewId,
+          built_at: '2026-07-17T00:00:00.000Z',
+          settings: {
+            include_step: buildSettings.include_step !== false,
+            include_stl: buildSettings.include_stl !== false,
+            per_part_stl: buildSettings.per_part_stl !== false,
+          },
+          overview,
+          validation,
+          logs: ['Browser smoke guided preview completed.'],
+          model: null,
+          assembly: null,
+          motion_data: null,
+          model_asset_url: `/api/studio/model-previews/${previewId}/model`,
+        },
+      };
+    },
+    getPreviewModelPath(id) {
+      return id === previewId ? modelPath : null;
+    },
+    getPreviewPartPath() {
+      return null;
+    },
+    async designFromPrompt(description) {
+      browserSmokeDesignRequests.push(description);
+      return {
+        toml: [
+          'name = "browser-smoke-ai-draft"',
+          '',
+          '[[shapes]]',
+          'id = "body"',
+          'type = "box"',
+          'length = 24',
+          'width = 18',
+          'height = 6',
+          '',
+        ].join('\n'),
+        report: { mechanism_type: 'browser smoke fixture' },
+        validation: { summary: validation, overview },
+      };
+    },
+    async dispose() {},
+  };
+}
+
+const browserSmokeImportRequests = [];
+
+function browserSmokeBootstrapImportServiceFactory() {
+  return async ({ model, bom, inspection, quality }) => {
+    browserSmokeImportRequests.push({ model, bom, inspection, quality });
+    return {
+      ok: true,
+      session_id: 'browser-smoke-import',
+      source: {
+        model_path: 'output/imports/browser-smoke-import/source/simple_bracket.step',
+        bom_path: null,
+        inspection_path: null,
+        quality_path: null,
+      },
+      bootstrap: {
+        import_diagnostics: {
+          source_model_path: 'output/imports/browser-smoke-import/source/simple_bracket.step',
+          file_type: 'step',
+          import_kind: 'part',
+          body_count: 1,
+          unit_assumption: {
+            unit: 'mm',
+            assumed: true,
+            rationale: 'Browser smoke fixture assumption.',
+          },
+          confidence: {
+            level: 'medium',
+            score: 0.62,
+            rationale: 'Browser smoke fixture confidence.',
+          },
+        },
+        bootstrap_summary: {
+          import_kind: 'part',
+          body_count: 1,
+          unit_system: 'mm',
+          review_gate: {
+            status: 'review_required',
+            correction_required: true,
+          },
+          dimensions_mm: { x: 40, y: 20, z: 8 },
+          feature_summary: { cylinder_count: 2, bolt_circle_count: 0, hotspot_count: 1 },
+        },
+        bootstrap_warnings: {
+          warning_count: 1,
+          warnings: ['Browser smoke fixture assumption requires confirmation.'],
+        },
+        confidence_map: {
+          import_bootstrap: {
+            overall: {
+              level: 'medium',
+              score: 0.62,
+              rationale: 'Browser smoke fixture confidence.',
+            },
+          },
+        },
+        draft_config_toml: 'name = "browser_smoke_import"\n',
+        geometry_intelligence: {},
+      },
+      tracked_review_seed: {
+        context_path: 'output/imports/browser-smoke-import/artifacts/engineering_context.json',
+        model_path: 'output/imports/browser-smoke-import/source/simple_bracket.step',
+        bom_path: null,
+        inspection_path: null,
+        quality_path: null,
+      },
+      artifacts: [
+        {
+          key: 'import_diagnostics',
+          path: 'output/imports/browser-smoke-import/artifacts/import_diagnostics.json',
+          file_name: 'import_diagnostics.json',
+        },
+      ],
+    };
+  };
+}
+
 const chromeBinary = findChromeBinary();
 if (!chromeBinary) {
   console.log('studio-shell-browser-smoke.test.js: skipped (Chrome not available)');
@@ -1657,6 +1854,8 @@ const { server, jobStore } = createLocalApiServer({
   jobsDir: JOBS_DIR,
   runtimeDiagnosticsFactory: browserSmokeRuntimeDiagnostics,
   executorFactory: createBrowserSmokeExecutor,
+  studioModelServiceFactory: browserSmokeStudioModelServiceFactory,
+  bootstrapImportServiceFactory: browserSmokeBootstrapImportServiceFactory,
 });
 
 let chrome = null;
@@ -1743,6 +1942,11 @@ try {
       },
     }, null, 2)}\n`
   );
+  const seededSystemRecordPath = await jobStore.writeJobFile(
+    seededJob.id,
+    'artifacts/browser-smoke-runtime-fingerprint.json',
+    '{"runtime":"browser-smoke","provenance":"synthetic"}\n'
+  );
   const seededManifest = await buildArtifactManifest({
     projectRoot: ROOT,
     interface: 'api',
@@ -1762,6 +1966,13 @@ try {
         type: 'review.readiness',
         path: seededReadinessPath,
         label: 'Browser smoke readiness artifact',
+        scope: 'user-facing',
+        stability: 'stable',
+      },
+      {
+        type: 'runtime.fingerprint',
+        path: seededSystemRecordPath,
+        label: 'Browser smoke runtime fingerprint',
         scope: 'user-facing',
         stability: 'stable',
       },
@@ -1803,8 +2014,404 @@ try {
     expectedHash: '',
   });
   const initialShellShape = await cdp.evaluate(studioSnapshotExpression());
-  assert.equal(initialShellShape.navCount, 5);
+  assert.equal(initialShellShape.navCount, 7);
+  assert.equal(initialShellShape.coreNavCount, 3);
+  assert.equal(initialShellShape.advancedNavCount, 4);
+  assert.equal(initialShellShape.homeChoiceCount, 3);
+  assert.equal(initialShellShape.homeChoicePrimaryCount, 3);
   assert.equal(initialShellShape.pathname, '/studio/');
+
+  const collapsedNavigationFocus = await cdp.evaluate(`(() => {
+    const disclosure = document.getElementById('advanced-work-navigation');
+    disclosure.open = false;
+    const artifactsLink = document.querySelector('.nav-link[data-route="artifacts"]');
+    artifactsLink.focus();
+    artifactsLink.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    return {
+      focusedRoute: document.activeElement?.dataset?.route || '',
+      disclosureOpen: disclosure.open,
+    };
+  })()`);
+  assert.equal(collapsedNavigationFocus.focusedRoute, 'start');
+  assert.equal(collapsedNavigationFocus.disclosureOpen, false);
+
+  const primitiveSnapshot = await cdp.evaluate(`(async () => {
+    const renderers = await import('/js/studio/renderers.js');
+    const host = document.createElement('div');
+    host.id = 'beginner-ux-primitive-smoke';
+    const stepper = renderers.createTaskStepper({
+      steps: [
+        { id: 'input', label: 'Choose input', state: 'complete' },
+        { id: 'review', label: 'Review action', state: 'current' },
+      ],
+    });
+    const summary = renderers.createActionSummary({
+      actionId: 'generate-model',
+      title: 'Generate model',
+      requiredInputs: ['example.toml'],
+      expectedOutputs: ['3D model'],
+      launchesFreeCAD: 'yes',
+      fileEffects: 'create',
+      networkAccess: 'no',
+      cost: 'none',
+    });
+    const result = renderers.createResultCard({
+      title: '3D model',
+      primaryAction: { label: 'Download', href: '/download/example' },
+      menuItems: [
+        { label: 'File information', action: 'show-info' },
+        { label: 'Download another copy', action: 'download-copy' },
+      ],
+    });
+    host.addEventListener('click', (event) => {
+      const item = event.target.closest('[data-menu-item="true"]');
+      if (item) host.dataset.activatedAction = item.dataset.action || '';
+    });
+    host.append(stepper, summary, result);
+    document.body.append(host);
+    const trigger = result.querySelector('.overflow-menu-trigger');
+    trigger.focus();
+    return {
+      currentStep: stepper.querySelector('[aria-current="step"]')?.dataset?.stepId || '',
+      summaryRows: summary.querySelectorAll('.info-row').length,
+      resultPrimaryCount: result.querySelectorAll('[data-action-kind="primary"]').length,
+      resultPrimaryTag: result.querySelector('[data-action-kind="primary"]')?.tagName || '',
+      resultPrimaryHref: result.querySelector('[data-action-kind="primary"]')?.getAttribute('href') || '',
+      menuLabel: trigger.getAttribute('aria-label'),
+    };
+  })()`);
+  assert.equal(primitiveSnapshot.currentStep, 'review');
+  assert.equal(primitiveSnapshot.summaryRows, 8);
+  assert.equal(primitiveSnapshot.resultPrimaryCount, 1);
+  assert.equal(primitiveSnapshot.resultPrimaryTag, 'A');
+  assert.equal(primitiveSnapshot.resultPrimaryHref, '/download/example');
+  assert.equal(primitiveSnapshot.menuLabel, 'More actions for 3D model');
+  await cdp.send('Input.dispatchKeyEvent', {
+    type: 'keyDown', key: 'ArrowDown', code: 'ArrowDown', windowsVirtualKeyCode: 40,
+  });
+  await cdp.send('Input.dispatchKeyEvent', {
+    type: 'keyUp', key: 'ArrowDown', code: 'ArrowDown', windowsVirtualKeyCode: 40,
+  });
+  assert.equal(await cdp.evaluate(`document.activeElement?.dataset?.action || ''`), 'show-info');
+  await cdp.send('Input.dispatchKeyEvent', {
+    type: 'keyDown', key: 'ArrowDown', code: 'ArrowDown', windowsVirtualKeyCode: 40,
+  });
+  await cdp.send('Input.dispatchKeyEvent', {
+    type: 'keyUp', key: 'ArrowDown', code: 'ArrowDown', windowsVirtualKeyCode: 40,
+  });
+  assert.equal(await cdp.evaluate(`document.activeElement?.dataset?.action || ''`), 'download-copy');
+  await keyboardActivate(cdp, '#beginner-ux-primitive-smoke [data-action="download-copy"]');
+  let primitiveMenuKeyboardSnapshot = await cdp.evaluate(`(() => ({
+    activatedAction: document.getElementById('beginner-ux-primitive-smoke')?.dataset?.activatedAction || '',
+    expanded: document.querySelector('#beginner-ux-primitive-smoke .overflow-menu-trigger')?.getAttribute('aria-expanded') || '',
+  }))()`);
+  assert.equal(primitiveMenuKeyboardSnapshot.activatedAction, 'download-copy');
+  assert.equal(primitiveMenuKeyboardSnapshot.expanded, 'false');
+  await cdp.evaluate(`document.querySelector('#beginner-ux-primitive-smoke .overflow-menu-trigger')?.focus()`);
+  await cdp.send('Input.dispatchKeyEvent', {
+    type: 'keyDown', key: 'ArrowUp', code: 'ArrowUp', windowsVirtualKeyCode: 38,
+  });
+  await cdp.send('Input.dispatchKeyEvent', {
+    type: 'keyUp', key: 'ArrowUp', code: 'ArrowUp', windowsVirtualKeyCode: 38,
+  });
+  assert.equal(await cdp.evaluate(`document.activeElement?.dataset?.action || ''`), 'download-copy');
+  await cdp.send('Input.dispatchKeyEvent', {
+    type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27,
+  });
+  await cdp.send('Input.dispatchKeyEvent', {
+    type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27,
+  });
+  primitiveMenuKeyboardSnapshot = await cdp.evaluate(`(() => {
+    const host = document.getElementById('beginner-ux-primitive-smoke');
+    const trigger = host?.querySelector('.overflow-menu-trigger');
+    const snapshot = {
+      expanded: trigger?.getAttribute('aria-expanded') || '',
+      focusReturned: document.activeElement === trigger,
+    };
+    host?.remove();
+    return snapshot;
+  })()`);
+  assert.equal(primitiveMenuKeyboardSnapshot.expanded, 'false');
+  assert.equal(primitiveMenuKeyboardSnapshot.focusReturned, true);
+
+  for (const width of [320, 768, 1024, 1440]) {
+    await cdp.send('Emulation.setDeviceMetricsOverride', {
+      width,
+      height: 900,
+      deviceScaleFactor: 1,
+      mobile: false,
+    });
+    const responsiveSnapshot = await waitFor(async () => {
+      const snapshot = await cdp.evaluate(`(() => {
+        const sidebarStyle = getComputedStyle(document.getElementById('studio-sidebar'));
+        const toggleStyle = getComputedStyle(document.getElementById('studio-nav-toggle'));
+        return {
+          innerWidth: window.innerWidth,
+          bodyScrollWidth: document.body.scrollWidth,
+          documentScrollWidth: document.documentElement.scrollWidth,
+          sidebarPosition: sidebarStyle.position,
+          navToggleDisplay: toggleStyle.display,
+        };
+      })()`);
+      assert.equal(snapshot.innerWidth, width);
+      assert.equal(snapshot.bodyScrollWidth <= width, true);
+      assert.equal(snapshot.documentScrollWidth <= width, true);
+      return snapshot;
+    });
+    if (width <= 768) {
+      assert.equal(responsiveSnapshot.sidebarPosition, 'fixed');
+      assert.notEqual(responsiveSnapshot.navToggleDisplay, 'none');
+    } else {
+      assert.notEqual(responsiveSnapshot.sidebarPosition, 'fixed');
+      assert.equal(responsiveSnapshot.navToggleDisplay, 'none');
+    }
+  }
+
+  await cdp.send('Emulation.setDeviceMetricsOverride', {
+    width: 320,
+    height: 900,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
+  await cdp.evaluate(`document.getElementById('studio-nav-toggle')?.click()`);
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => ({
+      open: document.getElementById('studio-sidebar')?.classList.contains('is-open') || false,
+      expanded: document.getElementById('studio-nav-toggle')?.getAttribute('aria-expanded') || '',
+      focusedRoute: document.activeElement?.dataset?.route || '',
+    }))()`);
+    assert.equal(snapshot.open, true);
+    assert.equal(snapshot.expanded, 'true');
+    assert.equal(snapshot.focusedRoute, 'start');
+    return snapshot;
+  });
+  const mobileFocusContract = await cdp.evaluate(`(() => {
+    const sidebar = document.getElementById('studio-sidebar');
+    const visibleFocusable = [...sidebar.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),summary,[tabindex]:not([tabindex="-1"])')]
+      .filter((element) => {
+        const closedDisclosure = element.closest('details:not([open])');
+        if (closedDisclosure && element.tagName !== 'SUMMARY') return false;
+        return element.getClientRects().length > 0;
+      });
+    visibleFocusable.at(-1)?.focus();
+    return {
+      firstId: visibleFocusable[0]?.id || '',
+      firstRoute: visibleFocusable[0]?.dataset?.route || '',
+      lastId: visibleFocusable.at(-1)?.id || '',
+      lastRoute: visibleFocusable.at(-1)?.dataset?.route || '',
+      focusedId: document.activeElement?.id || '',
+      focusedRoute: document.activeElement?.dataset?.route || '',
+      mainInert: document.querySelector('.studio-main')?.inert ?? false,
+      skipLinkInert: document.querySelector('.skip-link')?.inert ?? false,
+    };
+  })()`);
+  assert.equal(mobileFocusContract.mainInert, true);
+  assert.equal(mobileFocusContract.skipLinkInert, true);
+  assert.equal(mobileFocusContract.focusedId, mobileFocusContract.lastId);
+  assert.equal(mobileFocusContract.focusedRoute, mobileFocusContract.lastRoute);
+  await cdp.send('Input.dispatchKeyEvent', {
+    type: 'keyDown',
+    key: 'Tab',
+    code: 'Tab',
+    windowsVirtualKeyCode: 9,
+    nativeVirtualKeyCode: 9,
+  });
+  await cdp.send('Input.dispatchKeyEvent', {
+    type: 'keyUp',
+    key: 'Tab',
+    code: 'Tab',
+    windowsVirtualKeyCode: 9,
+    nativeVirtualKeyCode: 9,
+  });
+  const wrappedForwardFocus = await cdp.evaluate(`(() => ({
+    id: document.activeElement?.id || '',
+    route: document.activeElement?.dataset?.route || '',
+  }))()`);
+  assert.deepEqual(wrappedForwardFocus, {
+    id: mobileFocusContract.firstId,
+    route: mobileFocusContract.firstRoute,
+  });
+  await cdp.send('Input.dispatchKeyEvent', {
+    type: 'keyDown',
+    key: 'Tab',
+    code: 'Tab',
+    modifiers: 8,
+    windowsVirtualKeyCode: 9,
+    nativeVirtualKeyCode: 9,
+  });
+  await cdp.send('Input.dispatchKeyEvent', {
+    type: 'keyUp',
+    key: 'Tab',
+    code: 'Tab',
+    modifiers: 8,
+    windowsVirtualKeyCode: 9,
+    nativeVirtualKeyCode: 9,
+  });
+  const wrappedBackwardFocus = await cdp.evaluate(`(() => ({
+    id: document.activeElement?.id || '',
+    route: document.activeElement?.dataset?.route || '',
+  }))()`);
+  assert.deepEqual(wrappedBackwardFocus, {
+    id: mobileFocusContract.lastId,
+    route: mobileFocusContract.lastRoute,
+  });
+  await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape' });
+  await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape' });
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => ({
+      open: document.getElementById('studio-sidebar')?.classList.contains('is-open') || false,
+      expanded: document.getElementById('studio-nav-toggle')?.getAttribute('aria-expanded') || '',
+      activeElementId: document.activeElement?.id || '',
+      mainInert: document.querySelector('.studio-main')?.inert ?? true,
+      skipLinkInert: document.querySelector('.skip-link')?.inert ?? true,
+    }))()`);
+    assert.equal(snapshot.open, false);
+    assert.equal(snapshot.expanded, 'false');
+    assert.equal(snapshot.activeElementId, 'studio-nav-toggle');
+    assert.equal(snapshot.mainInert, false);
+    assert.equal(snapshot.skipLinkInert, false);
+    return snapshot;
+  });
+
+  const mobileTargetSnapshot = await cdp.evaluate(`(() => {
+    const selectors = [
+      '#studio-nav-toggle',
+      '#studio-locale-select',
+      '[data-start-goal="create-model"] [data-action-kind="primary"]',
+      '[data-start-goal="review-cad"] [data-action-kind="primary"]',
+      '[data-start-goal="previous-work"] [data-action-kind="primary"]',
+    ];
+    return selectors.map((selector) => {
+      const target = document.querySelector(selector);
+      const rect = target?.getBoundingClientRect();
+      return { selector, width: rect?.width || 0, height: rect?.height || 0 };
+    });
+  })()`);
+  mobileTargetSnapshot.forEach(({ selector, width, height }) => {
+    assert.equal(width >= 44, true, `${selector} width ${width}px is below 44px.`);
+    assert.equal(height >= 44, true, `${selector} height ${height}px is below 44px.`);
+  });
+
+  await cdp.send('Emulation.setEmulatedMedia', {
+    features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
+  });
+  const reducedMotionSnapshot = await cdp.evaluate(`(() => {
+    const target = document.querySelector('[data-start-goal="create-model"] [data-action-kind="primary"]');
+    const style = getComputedStyle(target);
+    return {
+      matches: matchMedia('(prefers-reduced-motion: reduce)').matches,
+      transitionDuration: style.transitionDuration,
+      animationDuration: style.animationDuration,
+      animationIterationCount: style.animationIterationCount,
+    };
+  })()`);
+  assert.equal(reducedMotionSnapshot.matches, true);
+  assert.equal(Number.parseFloat(reducedMotionSnapshot.transitionDuration) <= 0.00001, true);
+  assert.equal(Number.parseFloat(reducedMotionSnapshot.animationDuration) <= 0.00001, true);
+  assert.equal(reducedMotionSnapshot.animationIterationCount, '1');
+  await cdp.send('Emulation.setEmulatedMedia', { features: [] });
+
+  for (const drawer of [
+    { toggleId: 'jobs-toggle', closeId: 'jobs-close', openKey: 'jobsOpen' },
+    { toggleId: 'log-toggle', closeId: 'log-close', openKey: 'logOpen' },
+  ]) {
+    await cdp.evaluate(`(() => {
+      document.getElementById('studio-nav-toggle')?.click();
+      const advanced = document.getElementById('advanced-work-navigation');
+      if (advanced) advanced.open = true;
+    })()`);
+    await waitFor(async () => {
+      const snapshot = await cdp.evaluate(drawerSnapshotExpression());
+      assert.equal(snapshot.sidebarOpen, true);
+      assert.equal(snapshot.mainInert, true);
+      assert.equal(snapshot.skipLinkInert, true);
+      return snapshot;
+    });
+
+    await cdp.evaluate(`document.getElementById('${drawer.toggleId}')?.click()`);
+    await waitFor(async () => {
+      const snapshot = await cdp.evaluate(drawerSnapshotExpression());
+      assert.equal(snapshot[drawer.openKey], true);
+      assert.equal(snapshot.sidebarOpen, false);
+      assert.equal(snapshot.mainInert, false);
+      assert.equal(snapshot.skipLinkInert, false);
+      assert.equal(snapshot.activeElementId, drawer.closeId);
+      return snapshot;
+    });
+
+    await cdp.evaluate(`document.getElementById('${drawer.closeId}')?.click()`);
+    await waitFor(async () => {
+      const snapshot = await cdp.evaluate(drawerSnapshotExpression());
+      assert.equal(snapshot[drawer.openKey], false);
+      return snapshot;
+    });
+  }
+
+  await cdp.evaluate(`document.getElementById('studio-nav-toggle')?.click()`);
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(drawerSnapshotExpression());
+    assert.equal(snapshot.sidebarOpen, true);
+    return snapshot;
+  });
+  await cdp.evaluate(`document.querySelector('.nav-link[aria-current="page"]')?.click()`);
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(drawerSnapshotExpression());
+    assert.equal(snapshot.sidebarOpen, false);
+    assert.equal(snapshot.mainInert, false);
+    assert.equal(snapshot.skipLinkInert, false);
+    assert.equal(snapshot.activeElementId, 'studio-nav-toggle');
+    return snapshot;
+  });
+
+  await cdp.evaluate(`document.getElementById('studio-nav-toggle')?.click()`);
+  await waitFor(async () => {
+    const open = await cdp.evaluate(`document.getElementById('studio-sidebar')?.classList.contains('is-open') || false`);
+    assert.equal(open, true);
+    return open;
+  });
+  await cdp.send('Emulation.setDeviceMetricsOverride', {
+    width: 1024,
+    height: 900,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
+  await cdp.evaluate(`window.dispatchEvent(new Event('resize'))`);
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => ({
+      open: document.getElementById('studio-sidebar')?.classList.contains('is-open') || false,
+      mainInert: document.querySelector('.studio-main')?.inert ?? true,
+      scrimHidden: document.getElementById('studio-sidebar-scrim')?.hidden ?? false,
+      toggleDisplay: getComputedStyle(document.getElementById('studio-nav-toggle')).display,
+    }))()`);
+    assert.equal(snapshot.open, false);
+    assert.equal(snapshot.mainInert, false);
+    assert.equal(snapshot.scrimHidden, true);
+    assert.equal(snapshot.toggleDisplay, 'none');
+    return snapshot;
+  });
+
+  await cdp.send('Emulation.setDeviceMetricsOverride', {
+    width: 720,
+    height: 500,
+    deviceScaleFactor: 2,
+    mobile: false,
+  });
+  const twoHundredPercentReflowSnapshot = await cdp.evaluate(`(() => ({
+    innerWidth: window.innerWidth,
+    bodyScrollWidth: document.body.scrollWidth,
+    documentScrollWidth: document.documentElement.scrollWidth,
+    homeChoiceCount: document.querySelectorAll('[data-hook="home-start-choices"] [data-start-goal]').length,
+  }))()`);
+  assert.equal(twoHundredPercentReflowSnapshot.innerWidth, 720);
+  assert.equal(twoHundredPercentReflowSnapshot.bodyScrollWidth <= 720, true);
+  assert.equal(twoHundredPercentReflowSnapshot.documentScrollWidth <= 720, true);
+  assert.equal(twoHundredPercentReflowSnapshot.homeChoiceCount, 3);
+  await cdp.send('Emulation.setDeviceMetricsOverride', {
+    width: 1440,
+    height: 1000,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
 
   await cdp.evaluate(`(() => {
     const localeSelect = document.getElementById('studio-locale-select');
@@ -1819,6 +2426,393 @@ try {
     assert.equal(nextSnapshot.selectedLocale, 'en');
     assert.equal(nextSnapshot.activeRoute, 'start');
     return nextSnapshot;
+  });
+
+  const beginnerHome = await cdp.evaluate(`(() => {
+    const root = document.querySelector('.home-workspace');
+    const choices = [...document.querySelectorAll('[data-hook="home-start-choices"] [data-start-goal]')];
+    return {
+      labels: choices.map((choice) => choice.querySelector('h3')?.textContent?.trim() || ''),
+      actions: choices.map((choice) => choice.querySelector('[data-action-kind="primary"]')?.dataset?.action || ''),
+      text: root?.innerText || '',
+    };
+  })()`);
+  assert.deepEqual(beginnerHome.labels, [
+    'Create a new model',
+    'Review existing CAD',
+    'Open previous work',
+  ]);
+  assert.deepEqual(beginnerHome.actions, ['go-model', 'go-console', 'go-history']);
+  assertExcludesAll(beginnerHome.text, ['tracked', 'artifact', 'manifest', 'Stage 5B']);
+
+  let guidedModelPrimaryActions = 0;
+  await keyboardActivate(cdp, '[data-start-goal="create-model"] [data-action="go-model"]');
+  await waitForRoute(cdp, 'model', {
+    attempts: 50,
+    delayMs: 200,
+  });
+  const guidedSelectInput = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => {
+      const activeStep = document.querySelector('[data-model-guided-step]:not([hidden])');
+      return {
+        step: activeStep?.dataset?.modelGuidedStep || '',
+        primaryCount: [...(activeStep?.querySelectorAll('[data-action-kind="primary"]') || [])]
+          .filter((button) => !button.closest('[hidden]')).length,
+        continueDisabled: document.querySelector('[data-hook="guided-continue"]')?.disabled ?? true,
+        focusedStep: document.activeElement?.dataset?.modelGuidedStep || '',
+        advancedOpen: document.querySelector('[data-hook="model-advanced-tools"]')?.open || false,
+        advancedHidden: document.querySelector('[data-hook="model-advanced-content"]')?.hidden ?? false,
+        mounted: document.getElementById('workspace-root')?.dataset?.modelWorkspaceMounted === 'true',
+        loadError: document.querySelector('[data-hook="workspace-load-error"]')?.textContent?.trim() || '',
+        text: activeStep?.innerText || '',
+      };
+    })()`);
+    assert.equal(snapshot.step, 'select_input', JSON.stringify(snapshot));
+    assert.equal(snapshot.primaryCount, 1);
+    assert.equal(snapshot.continueDisabled, false);
+    assert.equal(snapshot.focusedStep, 'select_input', JSON.stringify(snapshot));
+    assert.equal(snapshot.mounted, true, snapshot.loadError || 'Model workspace controller did not mount.');
+    return snapshot;
+  });
+  assert.equal(guidedSelectInput.advancedOpen, false);
+  assert.equal(guidedSelectInput.advancedHidden, true);
+  assertExcludesAll(guidedSelectInput.text, ['tracked', 'artifact', 'manifest', 'build_settings']);
+
+  await cdp.evaluate(`document.querySelector('[data-hook="model-advanced-tools"] > summary')?.click()`);
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => ({
+      open: document.querySelector('[data-hook="model-advanced-tools"]')?.open || false,
+      hidden: document.querySelector('[data-hook="model-advanced-content"]')?.hidden ?? true,
+      trackedSummaryRows: document.querySelector('[data-action-summary="run-tracked-model-work"]')?.querySelectorAll('.info-row')?.length || 0,
+      hasTrackedCreate: Boolean(document.querySelector('[data-action="model-run-tracked-create"]')),
+      hasTrackedReport: Boolean(document.querySelector('[data-action="model-run-tracked-report"]')),
+      hasLegacyAssistantButton: Boolean(document.querySelector('[data-hook="draft-prompt"]')),
+      hasAiStartingMethod: Boolean(document.querySelector('[data-hook="guided-input-method"][value="ai"]')),
+    }))()`);
+    assert.equal(snapshot.open, true);
+    assert.equal(snapshot.hidden, false);
+    assert.equal(snapshot.trackedSummaryRows, 8);
+    assert.equal(snapshot.hasTrackedCreate, true);
+    assert.equal(snapshot.hasTrackedReport, true);
+    assert.equal(snapshot.hasLegacyAssistantButton, false);
+    assert.equal(snapshot.hasAiStartingMethod, true);
+    return snapshot;
+  });
+  await cdp.evaluate(`document.querySelector('[data-hook="model-advanced-tools"] > summary')?.click()`);
+  await waitFor(async () => {
+    const hidden = await cdp.evaluate(`document.querySelector('[data-hook="model-advanced-content"]')?.hidden ?? false`);
+    assert.equal(hidden, true);
+    return hidden;
+  });
+
+  await keyboardActivate(cdp, '[data-hook="guided-continue"]');
+  guidedModelPrimaryActions += 1;
+  const guidedPreflight = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => {
+      const activeStep = document.querySelector('[data-model-guided-step]:not([hidden])');
+      const actionSummary = activeStep?.querySelector('[data-action-summary="generate-model"]');
+      return {
+        step: activeStep?.dataset?.modelGuidedStep || '',
+        primaryCount: activeStep?.querySelectorAll('[data-action-kind="primary"]')?.length || 0,
+        summaryRows: actionSummary?.querySelectorAll('.info-row')?.length || 0,
+        generateDisabled: document.querySelector('[data-hook="guided-generate"]')?.disabled ?? true,
+        text: actionSummary?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+      };
+    })()`);
+    assert.equal(snapshot.step, 'preflight');
+    assert.equal(snapshot.primaryCount, 1);
+    assert.equal(snapshot.summaryRows, 8);
+    assert.equal(snapshot.generateDisabled, false);
+    return snapshot;
+  });
+  assertIncludesAll(guidedPreflight.text, [
+    'Required input',
+    'Expected output',
+    'Launches FreeCAD',
+    'File changes',
+    'Network access',
+    'External provider',
+    'Possible cost',
+    'Confirmation required',
+  ]);
+
+  await keyboardActivate(cdp, '[data-hook="guided-generate"]');
+  guidedModelPrimaryActions += 1;
+  const guidedResult = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => {
+      const activeStep = document.querySelector('[data-model-guided-step]:not([hidden])');
+      return {
+        step: activeStep?.dataset?.modelGuidedStep || '',
+        primaryCount: activeStep?.querySelectorAll('[data-action-kind="primary"]')?.length || 0,
+        summary: document.querySelector('[data-hook="guided-result-summary"]')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+        viewDisabled: document.querySelector('[data-hook="guided-view-result"]')?.disabled ?? false,
+      };
+    })()`);
+    assert.equal(snapshot.step, 'result');
+    assert.equal(snapshot.primaryCount, 1);
+    assert.equal(snapshot.viewDisabled, false);
+    assertIncludesAll(snapshot.summary, [
+      'Execution',
+      'Completed',
+      'Quality',
+      'Not available for preview',
+      'Primary result',
+      '3D model',
+    ]);
+    return snapshot;
+  }, {
+    attempts: 60,
+    delayMs: 200,
+  });
+  assert.equal(guidedModelPrimaryActions, 2);
+  assert.equal(guidedResult.step, 'result');
+
+  await keyboardActivate(cdp, '[data-hook="guided-view-result"]');
+  guidedModelPrimaryActions += 1;
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => ({
+      hidden: document.querySelector('[data-hook="guided-result-inspection"]')?.hidden ?? true,
+      focused: document.activeElement?.dataset?.hook || '',
+      hasCanvas: Boolean(document.querySelector('[data-hook="guided-result-inspection"] canvas')),
+      hasFallback: Boolean(document.querySelector('[data-hook="guided-viewport-unavailable"]')),
+    }))()`);
+    assert.equal(snapshot.hidden, false);
+    assert.equal(snapshot.focused, 'guided-result-inspection');
+    assert.equal(snapshot.hasCanvas || snapshot.hasFallback, true);
+    return snapshot;
+  });
+  assert.equal(guidedModelPrimaryActions, 3);
+
+  await cdp.evaluate(`document.querySelector('.nav-link[data-route="start"]')?.click()`);
+  await waitForRoute(cdp, 'start', {
+    attempts: 50,
+    delayMs: 200,
+  });
+  await cdp.evaluate(`document.querySelector('[data-start-goal="create-model"] [data-action="go-model"]')?.click()`);
+  await waitForRoute(cdp, 'model', {
+    attempts: 50,
+    delayMs: 200,
+  });
+  await waitFor(async () => {
+    const step = await cdp.evaluate(`document.querySelector('[data-model-guided-step]:not([hidden])')?.dataset?.modelGuidedStep || ''`);
+    assert.equal(step, 'select_input');
+    return step;
+  });
+
+  assert.equal(browserSmokeDesignRequests.length, 0);
+  await cdp.evaluate(`(() => {
+    const input = document.querySelector('[data-hook="guided-input-method"][value="ai"]');
+    if (!input) return false;
+    input.checked = true;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`);
+  const aiPreflight = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => {
+      const activeStep = document.querySelector('[data-model-guided-step]:not([hidden])');
+      const summary = document.querySelector('[data-action-summary="create-ai-draft"]');
+      const visiblePrimary = [...(activeStep?.querySelectorAll('[data-action-kind="primary"]') || [])]
+        .filter((button) => !button.closest('[hidden]'));
+      return {
+        methodCount: document.querySelectorAll('[data-hook="guided-input-method"]').length,
+        requestStageHidden: document.querySelector('[data-hook="guided-ai-request-stage"]')?.hidden ?? true,
+        reviewStageHidden: document.querySelector('[data-hook="guided-ai-review-stage"]')?.hidden ?? false,
+        summaryRows: summary?.querySelectorAll('.info-row')?.length || 0,
+        specificRows: document.querySelector('[data-hook="guided-ai-request-stage"] > .info-grid')?.querySelectorAll('.info-row')?.length || 0,
+        createDisabled: document.querySelector('[data-hook="ai-create-draft"]')?.disabled ?? false,
+        visiblePrimaryCount: visiblePrimary.length,
+        text: document.querySelector('[data-hook="guided-ai-panel"]')?.innerText || '',
+      };
+    })()`);
+    assert.equal(snapshot.methodCount, 3);
+    assert.equal(snapshot.requestStageHidden, false);
+    assert.equal(snapshot.reviewStageHidden, true);
+    assert.equal(snapshot.summaryRows, 8);
+    assert.equal(snapshot.specificRows, 3);
+    assert.equal(snapshot.createDisabled, true);
+    assert.equal(snapshot.visiblePrimaryCount, 1);
+    return snapshot;
+  });
+  assertIncludesAll(aiPreflight.text, [
+    'OpenAI API',
+    'The design description entered here',
+    'No — local files are not sent or changed',
+    'API KEY REQUIRED',
+    'Possible, based on API usage',
+    'A TOML draft that requires human review',
+    'Create AI draft',
+  ]);
+  assert.equal(browserSmokeDesignRequests.length, 0, 'selecting AI must not send the external request');
+
+  for (const width of [320, 768, 1024, 1440]) {
+    await cdp.send('Emulation.setDeviceMetricsOverride', {
+      width,
+      height: width <= 768 ? 900 : 1000,
+      deviceScaleFactor: 1,
+      mobile: false,
+    });
+    await waitFor(async () => {
+      const snapshot = await cdp.evaluate(`(() => ({
+        width: window.innerWidth,
+        bodyScrollWidth: document.body.scrollWidth,
+        documentScrollWidth: document.documentElement.scrollWidth,
+        panelWidth: document.querySelector('[data-hook="guided-ai-panel"]')?.getBoundingClientRect().width || 0,
+      }))()`);
+      assert.equal(snapshot.width, width);
+      assert.equal(snapshot.bodyScrollWidth <= width, true);
+      assert.equal(snapshot.documentScrollWidth <= width, true);
+      assert.equal(snapshot.panelWidth <= width, true);
+      return snapshot;
+    });
+  }
+
+  await cdp.evaluate(`(() => {
+    const prompt = document.querySelector('[data-hook="assistant-textarea"]');
+    if (!prompt) return false;
+    prompt.value = 'Create a small fixture bracket with one box body.';
+    prompt.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
+  })()`);
+  await waitFor(async () => {
+    const disabled = await cdp.evaluate(`document.querySelector('[data-hook="ai-create-draft"]')?.disabled ?? true`);
+    assert.equal(disabled, false);
+    return disabled;
+  });
+  assert.equal(browserSmokeDesignRequests.length, 0, 'typing the description must not send the request');
+
+  await cdp.evaluate(`(() => {
+    const button = document.querySelector('[data-hook="ai-create-draft"]');
+    button?.click();
+    button?.click();
+  })()`);
+  const aiReview = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => ({
+      step: document.querySelector('[data-model-guided-step]:not([hidden])')?.dataset?.modelGuidedStep || '',
+      requestStageHidden: document.querySelector('[data-hook="guided-ai-request-stage"]')?.hidden ?? false,
+      reviewStageHidden: document.querySelector('[data-hook="guided-ai-review-stage"]')?.hidden ?? true,
+      draft: document.querySelector('[data-hook="ai-draft-textarea"]')?.value || '',
+      generateDisabled: document.querySelector('[data-hook="guided-generate"]')?.disabled ?? false,
+      advancedBuildDisabled: document.querySelector('[data-hook="build-button"]')?.disabled ?? false,
+      text: document.querySelector('[data-hook="guided-ai-review-stage"]')?.innerText || '',
+    }))()`);
+    assert.equal(snapshot.step, 'select_input');
+    assert.equal(snapshot.requestStageHidden, true);
+    assert.equal(snapshot.reviewStageHidden, false);
+    assert.match(snapshot.draft, /browser-smoke-ai-draft/);
+    assert.equal(snapshot.generateDisabled, true);
+    assert.equal(snapshot.advancedBuildDisabled, true);
+    return snapshot;
+  }, { attempts: 50, delayMs: 100 });
+  assertIncludesAll(aiReview.text, [
+    'Review the AI draft before generation',
+    'AI output can be incomplete or incorrect',
+    'Validate reviewed draft',
+  ]);
+  assert.deepEqual(browserSmokeDesignRequests, [
+    'Create a small fixture bracket with one box body.',
+  ], 'explicit confirmation must send exactly one current request');
+
+  await cdp.evaluate(`document.querySelector('[data-hook="ai-validate-draft"]')?.click()`);
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => ({
+      step: document.querySelector('[data-model-guided-step]:not([hidden])')?.dataset?.modelGuidedStep || '',
+      generateDisabled: document.querySelector('[data-hook="guided-generate"]')?.disabled ?? true,
+      input: document.querySelector('[data-action-summary="generate-model"] .info-value')?.textContent?.trim() || '',
+    }))()`);
+    assert.equal(snapshot.step, 'preflight');
+    assert.equal(snapshot.generateDisabled, false);
+    assert.equal(snapshot.input, 'Prompt-generated TOML');
+    return snapshot;
+  }, { attempts: 50, delayMs: 100 });
+  assert.equal(browserSmokeDesignRequests.length, 1, 'local validation must not repeat the external request');
+
+  await cdp.evaluate(`document.querySelector('[data-hook="guided-back"]')?.click()`);
+  await waitFor(async () => {
+    const step = await cdp.evaluate(`document.querySelector('[data-model-guided-step]:not([hidden])')?.dataset?.modelGuidedStep || ''`);
+    assert.equal(step, 'select_input');
+    return step;
+  });
+  await cdp.evaluate(`(() => {
+    const draft = document.querySelector('[data-hook="ai-draft-textarea"]');
+    if (!draft) return false;
+    draft.value += '\\n# reviewed edit';
+    draft.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
+  })()`);
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => ({
+      validateLabel: document.querySelector('[data-hook="ai-validate-draft"]')?.textContent?.trim() || '',
+      phase: document.querySelector('[data-hook="guided-ai-panel"]')?.dataset?.phase || '',
+      reviewRequired: document.querySelector('[data-hook="guided-ai-panel"]')?.dataset?.reviewRequired || '',
+      generateDisabled: document.querySelector('[data-hook="guided-generate"]')?.disabled ?? false,
+      advancedBuildDisabled: document.querySelector('[data-hook="build-button"]')?.disabled ?? false,
+    }))()`);
+    assert.equal(snapshot.phase, 'review');
+    assert.equal(snapshot.reviewRequired, 'true');
+    assert.equal(snapshot.validateLabel, 'Validate reviewed draft');
+    assert.equal(snapshot.generateDisabled, true);
+    assert.equal(snapshot.advancedBuildDisabled, true);
+    return snapshot;
+  });
+  assert.equal(browserSmokeDesignRequests.length, 1, 'editing the draft must not send or repeat an external request');
+
+  await cdp.evaluate(`document.querySelector('.nav-link[data-route="start"]')?.click()`);
+  await waitForRoute(cdp, 'start', {
+    attempts: 50,
+    delayMs: 200,
+  });
+
+  await cdp.evaluate(`document.querySelector('[data-start-goal="review-cad"] [data-action="go-console"]')?.click()`);
+  await waitForRoute(cdp, 'console', {
+    attempts: 50,
+    delayMs: 200,
+  });
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => ({
+      focusedStep: document.activeElement?.dataset?.importGuidedStep || '',
+      advancedOpen: document.querySelector('[data-hook="import-advanced-tools"]')?.open || false,
+      primaryCount: document.querySelector('[data-import-guided-step]:not([hidden])')?.querySelectorAll('[data-action-kind="primary"]')?.length || 0,
+    }))()`);
+    assert.equal(snapshot.focusedStep, 'select_file');
+    assert.equal(snapshot.advancedOpen, false);
+    assert.equal(snapshot.primaryCount, 1);
+    return snapshot;
+  });
+
+  const guardedImportStepFocus = await cdp.evaluate(`(() => {
+    const originalRequestAnimationFrame = window.requestAnimationFrame;
+    const callbacks = [];
+    window.requestAnimationFrame = (callback) => {
+      callbacks.push(callback);
+      return callbacks.length;
+    };
+    try {
+      document.querySelector('[data-action="preview-import-bootstrap"]')?.click();
+      const immediateStep = document.activeElement?.dataset?.importGuidedStep || '';
+      document.getElementById('studio-locale-select')?.focus();
+      let flushedCallbacks = 0;
+      while (callbacks.length > 0 && flushedCallbacks < 10) {
+        callbacks.shift()(performance.now());
+        flushedCallbacks += 1;
+      }
+      return {
+        immediateStep,
+        activeElementId: document.activeElement?.id || '',
+        flushedCallbacks,
+      };
+    } finally {
+      window.requestAnimationFrame = originalRequestAnimationFrame;
+    }
+  })()`);
+  assert.equal(guardedImportStepFocus.immediateStep, 'select_file');
+  assert.equal(guardedImportStepFocus.activeElementId, 'studio-locale-select');
+  assert.equal(guardedImportStepFocus.flushedCallbacks, 2);
+
+  await cdp.evaluate(`document.querySelector('[data-hook="import-advanced-tools"] > summary')?.click()`);
+  await waitFor(async () => {
+    const open = await cdp.evaluate(`document.querySelector('[data-hook="import-advanced-tools"]')?.open || false`);
+    assert.equal(open, true);
+    return open;
   });
 
   const canonicalPackageSnapshot = await waitFor(async () => {
@@ -1967,7 +2961,7 @@ try {
       trackedCreateDisabled: document.querySelector('[data-action="start-run-tracked-create"]')?.disabled ?? true,
       trackedReportDisabled: document.querySelector('[data-action="start-run-tracked-report"]')?.disabled ?? true,
     }))()`);
-    assert.equal(snapshot.activeRoute, 'start');
+    assert.equal(snapshot.activeRoute, 'console');
     assert.equal(snapshot.selectedExample, 'quality_pass_bracket');
     assert.equal(snapshot.hasModelButton, true);
     assert.equal(snapshot.trackedText.includes('tracked create'), true);
@@ -2019,6 +3013,32 @@ try {
     attempts: 80,
     delayMs: 150,
   });
+
+  const completionNoticeIdempotence = await cdp.evaluate(`(async () => {
+    const host = document.getElementById('completion-notice-host');
+    const initialNotice = host?.firstElementChild || null;
+    let mutationCount = 0;
+    const observer = new MutationObserver((records) => {
+      mutationCount += records.length;
+    });
+    observer.observe(host, {
+      attributes: true,
+      characterData: true,
+      childList: true,
+      subtree: true,
+    });
+    const localeSelect = document.getElementById('studio-locale-select');
+    localeSelect.value = document.documentElement.lang;
+    localeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    observer.disconnect();
+    return {
+      mutationCount,
+      sameNoticeNode: host?.firstElementChild === initialNotice,
+    };
+  })()`);
+  assert.equal(completionNoticeIdempotence.sameNoticeNode, true);
+  assert.equal(completionNoticeIdempotence.mutationCount, 0);
 
   await cdp.evaluate(`(() => {
     const host = document.getElementById('completion-notice-host');
@@ -2121,6 +3141,72 @@ try {
     attempts: 50,
     delayMs: 200,
   });
+  const defaultReviewSummary = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => {
+      const summary = document.querySelector('[data-hook="review-beginner-summary"]');
+      const advanced = document.querySelector('[data-hook="review-advanced-tools"]');
+      const advancedNavigation = document.getElementById('advanced-work-navigation');
+      return {
+        text: summary?.innerText?.replace(/\\s+/g, ' ').trim() || '',
+        primaryCount: summary?.querySelectorAll('[data-action-kind="primary"]').length || 0,
+        advancedOpen: advanced?.open ?? true,
+        advancedNavigationOpen: advancedNavigation?.open ?? false,
+        storedMode: localStorage.getItem('studio_experience_mode'),
+        preferenceChecked: document.getElementById('advanced-mode-toggle')?.checked ?? true,
+        expertActionCount: advanced?.querySelectorAll('[data-action]').length || 0,
+      };
+    })()`);
+    assertIncludesAll(snapshot.text.toLowerCase(), [
+      'current decision',
+      'issues that need attention',
+      'recommended next step',
+      'supporting files',
+    ]);
+    assert.equal(snapshot.primaryCount, 1);
+    assert.equal(snapshot.advancedOpen, false);
+    assert.equal(snapshot.advancedNavigationOpen, true);
+    assert.equal(snapshot.preferenceChecked, false);
+    assert.equal(snapshot.expertActionCount > 0, true);
+    return snapshot;
+  }, {
+    attempts: 50,
+    delayMs: 150,
+  });
+  assert.equal(defaultReviewSummary.storedMode, null);
+  assertExcludesAll(defaultReviewSummary.text.toLowerCase(), [
+    'tracked',
+    'artifact',
+    'manifest',
+    'stage 5b',
+    'readiness',
+    'evidence',
+    'gate',
+  ]);
+  for (const width of [320, 768, 1024, 1440]) {
+    await cdp.send('Emulation.setDeviceMetricsOverride', {
+      width,
+      height: width <= 768 ? 900 : 1000,
+      deviceScaleFactor: 1,
+      mobile: false,
+    });
+    const reviewLayout = await waitFor(async () => {
+      const snapshot = await cdp.evaluate(`(() => ({
+        width: window.innerWidth,
+        bodyScrollWidth: document.body.scrollWidth,
+        documentScrollWidth: document.documentElement.scrollWidth,
+        summaryWidth: document.querySelector('[data-hook="review-beginner-summary"]')?.getBoundingClientRect().width || 0,
+        advancedOpen: document.querySelector('[data-hook="review-advanced-tools"]')?.open ?? true,
+      }))()`);
+      assert.equal(snapshot.width, width);
+      assert.equal(snapshot.bodyScrollWidth <= width, true);
+      assert.equal(snapshot.documentScrollWidth <= width, true);
+      assert.equal(snapshot.summaryWidth <= width, true);
+      assert.equal(snapshot.advancedOpen, false);
+      return snapshot;
+    });
+    assert.equal(reviewLayout.summaryWidth > 0, true);
+  }
+  await cdp.evaluate(`document.querySelector('[data-hook="review-advanced-tools"]').open = true`);
   const stage5bLauncher = await waitFor(async () => {
     const snapshot = await cdp.evaluate(`(() => {
       const launcher = document.querySelector('[data-hook="review-intake-launcher"]');
@@ -2190,6 +3276,27 @@ try {
     delayMs: 150,
   });
   assert.equal(stage5bCards.text.includes('needs_more_evidence / hold_for_evidence_completion'), true);
+  const stage5bBeginnerSummary = await waitFor(async () => {
+    const text = await cdp.evaluate(`document.querySelector('[data-hook="review-beginner-summary"]')?.innerText?.replace(/\\s+/g, ' ').trim() || ''`);
+    assertIncludesAll(text.toLowerCase(), [
+      'needs attention',
+      'additional checks need attention',
+      'recommended next step',
+    ]);
+    return text;
+  }, {
+    attempts: 60,
+    delayMs: 150,
+  });
+  assertExcludesAll(stage5bBeginnerSummary.toLowerCase(), [
+    'tracked',
+    'artifact',
+    'manifest',
+    'stage 5b',
+    'readiness',
+    'evidence',
+    'gate',
+  ]);
 
   await cdp.evaluate(`document.querySelector('[data-action="review-select-card"][data-card-id="stage5b-evidence-audit"]')?.click()`);
   const stage5bAuditDetail = await waitFor(async () => {
@@ -2479,9 +3586,10 @@ try {
   const failPageText = await cdp.evaluate(pageTextExpression());
   assertIncludesAll(failPageText, [
     'ks_bracket',
-    'Job succeeded',
-    'Quality failed',
-    'Ready No',
+    'Execution',
+    'Completed',
+    'Quality',
+    'Failed',
   ]);
   assertIncludesAll(failDashboardText, [
     'Quality Dashboard - ks_bracket',
@@ -2600,6 +3708,68 @@ try {
     delayMs: 200,
   });
 
+  const defaultAdvancedPreference = await cdp.evaluate(`(() => ({
+    open: document.getElementById('advanced-work-navigation')?.open ?? true,
+    checked: document.getElementById('advanced-mode-toggle')?.checked ?? true,
+    stored: localStorage.getItem('studio_experience_mode'),
+  }))()`);
+  assert.equal(defaultAdvancedPreference.open, false);
+  assert.equal(defaultAdvancedPreference.checked, false);
+  assert.equal(defaultAdvancedPreference.stored, null);
+
+  await cdp.evaluate(`(() => {
+    const navigation = document.getElementById('advanced-work-navigation');
+    if (navigation) navigation.open = true;
+    document.getElementById('advanced-mode-toggle')?.click();
+  })()`);
+  const savedAdvancedPreference = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => ({
+      open: document.getElementById('advanced-work-navigation')?.open ?? false,
+      checked: document.getElementById('advanced-mode-toggle')?.checked ?? false,
+      stored: localStorage.getItem('studio_experience_mode'),
+    }))()`);
+    assert.equal(snapshot.open, true);
+    assert.equal(snapshot.checked, true);
+    assert.equal(snapshot.stored, 'advanced');
+    return snapshot;
+  });
+  assert.equal(savedAdvancedPreference.stored, 'advanced');
+
+  await cdp.send('Page.reload', { ignoreCache: true });
+  await waitForRoute(cdp, 'start', {
+    attempts: 60,
+    delayMs: 150,
+  });
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => ({
+      open: document.getElementById('advanced-work-navigation')?.open ?? false,
+      checked: document.getElementById('advanced-mode-toggle')?.checked ?? false,
+      stored: localStorage.getItem('studio_experience_mode'),
+    }))()`);
+    assert.equal(snapshot.open, true);
+    assert.equal(snapshot.checked, true);
+    assert.equal(snapshot.stored, 'advanced');
+    return snapshot;
+  }, {
+    attempts: 60,
+    delayMs: 150,
+  });
+
+  await cdp.evaluate(`document.getElementById('advanced-mode-toggle')?.click()`);
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => ({
+      open: document.getElementById('advanced-work-navigation')?.open ?? true,
+      checked: document.getElementById('advanced-mode-toggle')?.checked ?? true,
+      stored: localStorage.getItem('studio_experience_mode'),
+    }))()`);
+    assert.equal(snapshot.open, false);
+    assert.equal(snapshot.checked, false);
+    assert.equal(snapshot.stored, 'default');
+    return snapshot;
+  });
+
+  await cdp.evaluate(`document.getElementById('advanced-work-navigation').open = true`);
+
   await cdp.evaluate(`document.getElementById('jobs-toggle')?.click()`);
   let drawerSnapshot = await waitFor(async () => {
     const nextSnapshot = await cdp.evaluate(drawerSnapshotExpression());
@@ -2697,11 +3867,13 @@ try {
   const alternateLocale = initialLocale.lang === 'ko' ? 'en' : 'ko';
   const forcedLocale = 'ko';
   const forcedLocaleLabels = {
-    start: '콘솔',
-    review: '검토',
-    artifacts: '패키지',
-    model: '모델',
-    drawing: '도면',
+    start: '홈',
+    history: '실행 내역',
+    artifacts: '결과 파일',
+    console: '검토 입력 도구',
+    review: '검토 및 준비 상태',
+    model: '모델 설정 편집',
+    drawing: '도면 편집',
   };
 
   await cdp.evaluate(`(() => {
@@ -2761,7 +3933,7 @@ try {
   assert.equal(localeSnapshot.startLabel, forcedLocaleLabels.start);
   assert.match(localeSnapshot.summary, /[가-힣]/);
 
-  const forcedLocaleRoutes = ['review', 'artifacts', 'model', 'drawing', 'start'];
+  const forcedLocaleRoutes = ['history', 'artifacts', 'console', 'review', 'model', 'drawing', 'start'];
   for (const route of forcedLocaleRoutes) {
     await cdp.evaluate(`document.querySelector('.nav-link[data-route="${route}"]')?.click()`);
     const snapshot = await waitForRoute(cdp, route, {
@@ -2786,8 +3958,8 @@ try {
     if (route === 'model') {
       const modelReadiness = await cdp.evaluate(modelRouteReadinessExpression());
       assert.equal(/Model|모델/.test(modelReadiness.text), true);
-      assert.equal(/Runtime pending|런타임 대기/.test(modelReadiness.text), true);
-      assert.equal(/API pending|API 대기/.test(modelReadiness.text), true);
+      assert.equal(/Runtime (?:pending|ready)|런타임/.test(modelReadiness.text), true);
+      assert.equal(/API (?:pending|connected)|API (?:대기|연결됨)/.test(modelReadiness.text), true);
       assert.equal(modelReadiness.hasValidate, true);
       assert.equal(modelReadiness.hasBuild, true);
       assert.equal(modelReadiness.hasTrackedCreate, true);
@@ -2796,7 +3968,7 @@ try {
     if (route === 'drawing') {
       const drawingReadiness = await cdp.evaluate(drawingRouteReadinessExpression());
       assert.equal(/Drawing|도면/.test(drawingReadiness.text), true);
-      assert.equal(/Runtime pending|런타임 대기/.test(drawingReadiness.text), true);
+      assert.equal(/Runtime pending|런타임 대기|Runtime detected|런타임 감지됨|Runtime ready|런타임 준비됨/.test(drawingReadiness.text), true);
       assert.equal(/No drawing yet|아직 도면/.test(drawingReadiness.text), true);
       assert.equal(/Sheet pending|시트 준비/.test(drawingReadiness.text), true);
       assert.equal(drawingReadiness.hasPreview, true);
@@ -2842,6 +4014,15 @@ try {
     delayMs: 150,
   });
   assert.equal(jobContext.text.includes('No tracked job selected'), false);
+  const koreanReviewOverview = await waitFor(async () => {
+    const text = await cdp.evaluate(`document.querySelector('[data-hook="review-beginner-summary"]')?.innerText?.replace(/\\s+/g, ' ').trim() || ''`);
+    assertIncludesAll(text, ['현재 결정', '확인이 필요한 문제', '권장 다음 단계', '보조 파일']);
+    return text;
+  }, {
+    attempts: 50,
+    delayMs: 150,
+  });
+  assert.equal(koreanReviewOverview.includes('Current decision'), false);
   const reviewCards = await waitFor(async () => {
     const nextCards = await cdp.evaluate(jobContextExpression('review-cards'));
     assert.equal(nextCards.text.length > 0, true);
@@ -2901,6 +4082,34 @@ try {
     delayMs: 200,
     expectedHash: `#artifacts?job=${seededJob.id}`,
   });
+  const koreanResultFilesSnapshot = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => {
+      const root = document.querySelector('.result-files-workspace');
+      const cards = [...root?.querySelectorAll('.result-card') || []];
+      return {
+        header: root?.querySelector('.section-header')?.innerText || '',
+        summary: root?.querySelector('[data-hook="artifacts-result-summary"]')?.innerText || '',
+        groupText: root?.querySelector('[data-hook="artifacts-result-groups"]')?.innerText || '',
+        cardActionCounts: cards.map((card) => ({
+          primary: card.querySelectorAll('[data-action-kind="primary"]').length,
+          overflow: card.querySelectorAll('.overflow-menu-trigger').length,
+        })),
+        advancedOpen: root?.querySelector('[data-hook="artifacts-advanced-tools"]')?.open || false,
+        systemOpen: root?.querySelector('[data-result-group="system"]')?.open || false,
+      };
+    })()`);
+    assert.equal(snapshot.summary.includes('browser_smoke_seed'), true);
+    assert.equal(snapshot.cardActionCounts.length > 0, true);
+    return snapshot;
+  }, {
+    attempts: 50,
+    delayMs: 150,
+  });
+  assert.equal(koreanResultFilesSnapshot.header.includes('결과 파일'), true);
+  assertIncludesAll(koreanResultFilesSnapshot.summary, ['실행', '완료', '품질', '결과 없음']);
+  assert.equal(koreanResultFilesSnapshot.cardActionCounts.every((card) => card.primary === 1 && card.overflow === 1), true);
+  assert.equal(koreanResultFilesSnapshot.advancedOpen, false);
+  assert.equal(koreanResultFilesSnapshot.systemOpen, false);
   jobContext = await waitFor(async () => {
     const nextContext = await cdp.evaluate(jobContextExpression('artifacts-job-summary'));
     assert.equal(nextContext.text.includes(seededShortJobId), true);
@@ -2935,18 +4144,24 @@ try {
       const generated = document.querySelector('[data-hook="artifacts-generated-files"]')?.closest('.studio-card');
       const quality = document.querySelector('[data-hook="artifacts-quality-dashboard"]');
       const actions = document.querySelector('[data-hook="artifacts-detail-actions"]');
+      const resultSummary = document.querySelector('[data-hook="artifacts-result-summary"]');
+      const advanced = document.querySelector('[data-hook="artifacts-advanced-tools"]');
       return {
         lang: document.documentElement.lang || '',
         text: root?.textContent?.replace(/\\s+/g, ' ').trim() || '',
         headerText: header?.textContent?.replace(/\\s+/g, ' ').trim() || '',
         generatedText: generated?.textContent?.replace(/\\s+/g, ' ').trim() || '',
         actionText: actions?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+        resultSummaryText: resultSummary?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+        advancedOpen: advanced?.open || false,
       };
     })()`);
     assert.equal(snapshot.lang, 'en');
-    assert.equal(snapshot.text.includes('Artifact management dashboard'), true);
+    assert.equal(snapshot.headerText.includes('Result files'), true);
+    assertIncludesAll(snapshot.resultSummaryText, ['Main result from this run', 'Execution', 'Completed', 'Quality']);
     assert.equal(snapshot.generatedText.includes('Your generated files'), true);
     assert.equal(snapshot.actionText.includes('Download'), true);
+    assert.equal(snapshot.advancedOpen, false);
     return snapshot;
   }, {
     attempts: 50,
@@ -2955,6 +4170,322 @@ try {
   assert.doesNotMatch(englishArtifactsSnapshot.headerText, /[가-힣]/);
   assert.doesNotMatch(englishArtifactsSnapshot.generatedText, /[가-힣]/);
   assert.doesNotMatch(englishArtifactsSnapshot.actionText, /[가-힣]/);
+
+  await cdp.send('Page.navigate', { url: `${baseUrl}/studio/#start` });
+  await waitForRoute(cdp, 'start', {
+    attempts: 50,
+    delayMs: 200,
+  });
+
+  await keyboardActivate(cdp, '[data-start-goal="previous-work"] [data-action="go-history"]');
+  await waitForRoute(cdp, 'history', {
+    attempts: 50,
+    delayMs: 200,
+  });
+  const historySnapshot = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => {
+      const root = document.querySelector('.run-history-workspace');
+      const cards = [...root?.querySelectorAll('[data-history-job-id]') || []];
+      const seeded = root?.querySelector('[data-history-job-id="${seededJob.id}"]');
+      return {
+        text: root?.innerText || '',
+        count: cards.length,
+        contracts: cards.map((card) => ({
+          primary: card.querySelectorAll('[data-action-kind="primary"]').length,
+          overflow: card.querySelectorAll('.overflow-menu-trigger').length,
+        })),
+        seededText: seeded?.innerText || '',
+      };
+    })()`);
+    assert.equal(snapshot.count > 0, true);
+    assert.equal(snapshot.seededText.length > 0, true);
+    return snapshot;
+  });
+  assertIncludesAll(historySnapshot.seededText, ['Execution: Completed', 'Quality: Not available', 'Open results']);
+  assert.match(historySnapshot.seededText, /(ago|now)/);
+  assert.equal(historySnapshot.contracts.every((card) => card.primary === 1 && card.overflow === 1), true);
+
+  let previousWorkPrimaryActions = 0;
+  await keyboardActivate(cdp, `[data-history-job-id="${seededJob.id}"] [data-action-kind="primary"]`);
+  previousWorkPrimaryActions += 1;
+  await waitForRoute(cdp, 'artifacts', {
+    attempts: 50,
+    delayMs: 200,
+    expectedHash: `#artifacts?job=${seededJob.id}`,
+  });
+  const previousWorkResult = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => {
+      const summary = document.querySelector('[data-hook="artifacts-result-summary"]');
+      const groups = document.querySelector('[data-hook="artifacts-result-groups"]');
+      const advanced = document.querySelector('[data-hook="artifacts-advanced-tools"]');
+      const system = document.querySelector('[data-result-group="system"]');
+      const card = summary?.querySelector('[data-primary-result="true"]');
+      const root = document.querySelector('.result-files-workspace');
+      return {
+        visibleText: root?.innerText || '',
+        summaryText: summary?.textContent || '',
+        groupText: groups?.textContent || '',
+        primaryCount: card?.querySelectorAll('[data-action-kind="primary"]').length || 0,
+        overflowCount: card?.querySelectorAll('.overflow-menu-trigger').length || 0,
+        advancedOpen: advanced?.open || false,
+        systemExists: Boolean(system),
+        systemOpen: system?.open || false,
+      };
+    })()`);
+    assert.equal(snapshot.summaryText.includes('browser_smoke_seed'), true);
+    assert.equal(snapshot.primaryCount, 1);
+    return snapshot;
+  });
+  assertIncludesAll(previousWorkResult.summaryText, ['Execution', 'Completed', 'Quality', 'Not available', 'Other result files']);
+  assertIncludesAll(previousWorkResult.groupText, ['Quality and review', 'System records']);
+  assert.equal(previousWorkResult.overflowCount, 1);
+  assert.equal(previousWorkResult.advancedOpen, false);
+  assert.equal(previousWorkResult.systemExists, true);
+  assert.equal(previousWorkResult.systemOpen, false);
+  assertExcludesAll(previousWorkResult.visibleText, ['artifact', 'Artifact', 'manifest', 'Manifest', 'tracked', 'Tracked', seededShortJobId]);
+
+  await keyboardActivate(cdp, '[data-primary-result="true"] [data-action-kind="primary"]');
+  previousWorkPrimaryActions += 1;
+  const primaryResultView = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => {
+      const title = document.querySelector('[data-hook="artifacts-selected-title"]');
+      const viewer = document.querySelector('[data-hook="artifacts-detail-viewer"]');
+      return {
+        title: title?.textContent || '',
+        viewerText: viewer?.innerText || '',
+        focused: document.activeElement === title,
+      };
+    })()`);
+    assert.equal(snapshot.focused, true);
+    assert.equal(snapshot.viewerText.length > 0, true);
+    return snapshot;
+  });
+  assert.equal(primaryResultView.title, 'Report');
+  assert.equal(previousWorkPrimaryActions, 2);
+
+  for (const width of [320, 768, 1024, 1440]) {
+    await cdp.send('Emulation.setDeviceMetricsOverride', {
+      width,
+      height: 900,
+      deviceScaleFactor: 1,
+      mobile: false,
+    });
+    await waitFor(async () => {
+      const snapshot = await cdp.evaluate(`(() => ({
+        innerWidth: window.innerWidth,
+        bodyScrollWidth: document.body.scrollWidth,
+        documentScrollWidth: document.documentElement.scrollWidth,
+        resultCardCount: document.querySelectorAll('.result-files-workspace .result-card').length,
+      }))()`);
+      assert.equal(snapshot.innerWidth, width);
+      assert.equal(snapshot.bodyScrollWidth <= width, true);
+      assert.equal(snapshot.documentScrollWidth <= width, true);
+      assert.equal(snapshot.resultCardCount > 0, true);
+      return snapshot;
+    });
+  }
+  await cdp.send('Emulation.setDeviceMetricsOverride', {
+    width: 1440,
+    height: 900,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
+
+  await cdp.send('Page.navigate', { url: `${baseUrl}/studio/#start` });
+  await waitForRoute(cdp, 'start', {
+    attempts: 50,
+    delayMs: 200,
+  });
+
+  let guidedImportPrimaryActions = 0;
+  await keyboardActivate(cdp, '[data-start-goal="review-cad"] [data-action="go-console"]');
+  await waitForRoute(cdp, 'console', {
+    attempts: 50,
+    delayMs: 200,
+  });
+  const guidedImportSelect = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => {
+      const activeStep = document.querySelector('[data-import-guided-step]:not([hidden])');
+      const actionSummary = activeStep?.querySelector('[data-action-summary="check-imported-cad"]');
+      return {
+        step: activeStep?.dataset?.importGuidedStep || '',
+        primaryCount: activeStep?.querySelectorAll('[data-action-kind="primary"]')?.length || 0,
+        summaryRows: actionSummary?.querySelectorAll('.info-row')?.length || 0,
+        advancedOpen: document.querySelector('[data-hook="import-advanced-tools"]')?.open || false,
+        text: activeStep?.innerText || '',
+      };
+    })()`);
+    assert.equal(snapshot.step, 'select_file');
+    assert.equal(snapshot.primaryCount, 1);
+    assert.equal(snapshot.summaryRows, 8);
+    assert.equal(snapshot.advancedOpen, false);
+    return snapshot;
+  });
+  assertIncludesAll(guidedImportSelect.text, ['32 MiB']);
+  assertExcludesAll(guidedImportSelect.text, ['tracked', 'artifact', 'manifest', 'Stage 5B', 'bootstrap']);
+
+  const oversizedImportDispatch = await cdp.evaluate(`(() => {
+    const input = document.getElementById('guided-import-model-file');
+    if (!(input instanceof HTMLInputElement)) return { dispatched: false, size: 0 };
+    const file = new File(['x'], 'oversized.step', { type: 'application/step' });
+    Object.defineProperty(file, 'size', { configurable: true, value: (32 * 1024 * 1024) + 1 });
+    Object.defineProperty(input, 'files', { configurable: true, value: [file] });
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    delete input.files;
+    return { dispatched: true, size: file.size };
+  })()`);
+  assert.deepEqual(oversizedImportDispatch, {
+    dispatched: true,
+    size: (32 * 1024 * 1024) + 1,
+  });
+
+  const importErrorSnapshot = () => `(() => {
+    const activeStep = document.querySelector('[data-import-guided-step]:not([hidden])');
+    return {
+      lang: document.documentElement.lang || '',
+      step: activeStep?.dataset?.importGuidedStep || '',
+      primaryCount: activeStep?.querySelectorAll('[data-action-kind="primary"]')?.length || 0,
+      message: activeStep?.querySelector('.inline-status-message')?.textContent?.trim() || '',
+    };
+  })()`;
+  let oversizedImportError = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(importErrorSnapshot());
+    assert.equal(snapshot.lang, 'en');
+    assert.equal(snapshot.step, 'select_file');
+    assert.equal(snapshot.primaryCount, 1);
+    assert.equal(
+      snapshot.message,
+      'This file is 32.1 MiB, which exceeds the 32 MiB local upload limit. Use a project-relative path for larger files.'
+    );
+    return snapshot;
+  });
+
+  await cdp.evaluate(`(() => {
+    const localeSelect = document.getElementById('studio-locale-select');
+    localeSelect.value = 'ko';
+    localeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
+  oversizedImportError = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(importErrorSnapshot());
+    assert.equal(snapshot.lang, 'ko');
+    assert.equal(snapshot.step, 'select_file');
+    assert.equal(snapshot.primaryCount, 1);
+    assert.equal(
+      snapshot.message,
+      '이 파일은 32.1 MiB로, 로컬 업로드 한도인 32 MiB보다 큽니다. 더 큰 파일은 프로젝트 상대경로를 사용하세요.'
+    );
+    return snapshot;
+  });
+
+  await cdp.evaluate(`(() => {
+    const localeSelect = document.getElementById('studio-locale-select');
+    localeSelect.value = 'en';
+    localeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
+  oversizedImportError = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(importErrorSnapshot());
+    assert.equal(snapshot.lang, 'en');
+    assert.equal(snapshot.step, 'select_file');
+    assert.equal(snapshot.primaryCount, 1);
+    assert.equal(
+      snapshot.message,
+      'This file is 32.1 MiB, which exceeds the 32 MiB local upload limit. Use a project-relative path for larger files.'
+    );
+    return snapshot;
+  });
+  assert.equal(oversizedImportError.message.includes('이 파일은'), false);
+
+  await keyboardActivate(cdp, '[data-hook="guided-import-choose"]');
+  guidedImportPrimaryActions += 1;
+  const documentNode = await cdp.send('DOM.getDocument');
+  const fileInputNode = await cdp.send('DOM.querySelector', {
+    nodeId: documentNode.root.nodeId,
+    selector: '#guided-import-model-file',
+  });
+  assert.equal(fileInputNode.nodeId > 0, true);
+  await cdp.send('DOM.setFileInputFiles', {
+    nodeId: fileInputNode.nodeId,
+    files: [join(ROOT, 'tests', 'fixtures', 'imports', 'simple_bracket.step')],
+  });
+
+  const guidedImportConfirm = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => {
+      const activeStep = document.querySelector('[data-import-guided-step]:not([hidden])');
+      const actionSummary = activeStep?.querySelector('[data-action-summary="start-imported-cad-review"]');
+      const technicalDetails = [...(activeStep?.querySelectorAll('details') || [])]
+        .find((details) => details.textContent.includes('Technical import details'));
+      return {
+        step: activeStep?.dataset?.importGuidedStep || '',
+        primaryCount: activeStep?.querySelectorAll('[data-action-kind="primary"]')?.length || 0,
+        summaryRows: actionSummary?.querySelectorAll('.info-row')?.length || 0,
+        startDisabled: document.querySelector('[data-hook="guided-import-start-review"]')?.disabled ?? true,
+        detailsOpen: technicalDetails?.open || false,
+        focusedStep: document.activeElement?.dataset?.importGuidedStep || '',
+        text: activeStep?.innerText?.replace(/\\s+/g, ' ').trim() || '',
+      };
+    })()`);
+    assert.equal(snapshot.step, 'confirm');
+    assert.equal(snapshot.primaryCount, 1);
+    assert.equal(snapshot.summaryRows, 8);
+    assert.equal(snapshot.startDisabled, false);
+    assert.equal(snapshot.detailsOpen, false);
+    assert.equal(snapshot.focusedStep, 'confirm');
+    assertIncludesAll(snapshot.text, ['FILE', 'Can be read', 'ASSUMPTIONS', '3 need confirmation', 'REVIEW', 'Ready to begin']);
+    return snapshot;
+  }, {
+    attempts: 60,
+    delayMs: 150,
+  });
+  assertExcludesAll(guidedImportConfirm.text, ['tracked', 'artifact', 'manifest', 'Stage 5B', 'bootstrap']);
+  assert.equal(browserSmokeImportRequests.length > 0, true);
+  assert.equal(browserSmokeImportRequests.at(-1).model.name, 'simple_bracket.step');
+  assert.equal(typeof browserSmokeImportRequests.at(-1).model.content_base64, 'string');
+  assert.equal(browserSmokeImportRequests.at(-1).model.content_base64.length > 0, true);
+
+  await keyboardActivate(cdp, '[data-hook="guided-import-start-review"]');
+  guidedImportPrimaryActions += 1;
+  const guidedImportResult = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => {
+      const activeStep = document.querySelector('[data-import-guided-step]:not([hidden])');
+      return {
+        step: activeStep?.dataset?.importGuidedStep || '',
+        primaryCount: activeStep?.querySelectorAll('[data-action-kind="primary"]')?.length || 0,
+        viewDisabled: document.querySelector('[data-hook="guided-import-view-result"]')?.disabled ?? true,
+        focusedStep: document.activeElement?.dataset?.importGuidedStep || '',
+        text: activeStep?.innerText?.replace(/\\s+/g, ' ').trim() || '',
+      };
+    })()`);
+    assert.equal(snapshot.step, 'result');
+    assert.equal(snapshot.primaryCount, 1);
+    assert.equal(snapshot.viewDisabled, false);
+    assert.equal(snapshot.focusedStep, 'result');
+    assertIncludesAll(snapshot.text, [
+      'EXECUTION',
+      'QUALITY',
+      'PRIMARY RESULT',
+      'CURRENT DECISION',
+      'ISSUES THAT NEED ATTENTION',
+      'RECOMMENDED NEXT STEP',
+      'View review result',
+    ]);
+    return snapshot;
+  }, {
+    attempts: 60,
+    delayMs: 200,
+  });
+  assert.equal(guidedImportResult.step, 'result');
+  assert.equal(guidedImportPrimaryActions, 2);
+
+  const guidedImportJobId = await cdp.evaluate(`document.querySelector('[data-hook="guided-import-view-result"]')?.dataset?.jobId || ''`);
+  assert.equal(guidedImportJobId.length > 0, true);
+  await keyboardActivate(cdp, '[data-hook="guided-import-view-result"]');
+  guidedImportPrimaryActions += 1;
+  await waitForRoute(cdp, 'review', {
+    attempts: 60,
+    delayMs: 200,
+    expectedHash: `#review?job=${guidedImportJobId}`,
+  });
+  assert.equal(guidedImportPrimaryActions, 3);
 
   const blockingLogs = cdp.logs.filter((entry) => (
     entry.source === 'network'
@@ -2968,7 +4499,7 @@ try {
       && entry.source !== 'network'
       && (
         String(entry.url || '').includes(baseUrl)
-        || /\/js\/(?:studio|i18n)\//.test(`${entry.url || ''} ${entry.text || ''}`)
+        || /\/js\/(?:studio|i18n|app)\//.test(`${entry.url || ''} ${entry.text || ''}`)
       )
   ));
   assert.deepEqual(consoleDiagnostics, [], consoleDiagnostics.map(summarizeLog).join('\n'));
@@ -2977,6 +4508,7 @@ try {
     String(details.url || '').includes(baseUrl)
       || String(details.exception?.description || '').includes('/js/studio')
       || String(details.exception?.description || '').includes('/js/i18n')
+      || String(details.exception?.description || '').includes('/js/app')
   ));
   assert.deepEqual(localExceptions, [], localExceptions.map(summarizeException).join('\n'));
 
@@ -2985,5 +4517,10 @@ try {
   await cdp?.close().catch(() => {});
   chrome?.child.kill('SIGKILL');
   await new Promise((resolveClose) => server.close(resolveClose));
-  rmSync(TMP_ROOT, { recursive: true, force: true });
+  rmSync(TMP_ROOT, {
+    recursive: true,
+    force: true,
+    maxRetries: 5,
+    retryDelay: 100,
+  });
 }

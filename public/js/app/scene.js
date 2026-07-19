@@ -4,6 +4,7 @@ import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { clearElement, makeElement } from './dom.js';
+import { resolvePartIndex } from './scene-interactions.js';
 
 const EDGE_THRESHOLD = 30;
 const EDGE_COLOR = 0x1a1a2e;
@@ -324,7 +325,7 @@ export function initScene({
     const intersects = raycaster.intersectObjects(meshes);
 
     if (intersects.length > 0) {
-      selectPart(intersects[0].object.userData.partIndex);
+      selectPart(resolvePartIndex(intersects[0].object, partMeshes.length));
     } else {
       selectPart(-1);
     }
@@ -345,12 +346,15 @@ export function initScene({
     const intersects = raycaster.intersectObjects(meshes);
 
     if (intersects.length > 0) {
-      renderer.domElement.style.cursor = 'pointer';
-      const index = intersects[0].object.userData.partIndex;
-      onStatus(`Part: ${partMeshes[index].label}`, 'success');
-    } else {
-      renderer.domElement.style.cursor = 'default';
+      const index = resolvePartIndex(intersects[0].object, partMeshes.length);
+      if (index >= 0) {
+        renderer.domElement.style.cursor = 'pointer';
+        onStatus(`Part: ${partMeshes[index].label}`, 'success');
+        return;
+      }
     }
+
+    renderer.domElement.style.cursor = 'default';
   }
 
   function onResize() {

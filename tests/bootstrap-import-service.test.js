@@ -3,7 +3,10 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import { createBootstrapImportService } from '../src/services/import/bootstrap-import-service.js';
+import {
+  createBootstrapImportService,
+  MAX_BOOTSTRAP_UPLOAD_BYTES,
+} from '../src/services/import/bootstrap-import-service.js';
 
 const tempRoot = mkdtempSync(join(tmpdir(), 'fcad-bootstrap-import-'));
 
@@ -137,6 +140,31 @@ try {
       throw new Error(`Unexpected script stub request: ${scriptRelativePath}`);
     },
   });
+
+  let oversizedAnalyzeModelCalls = 0;
+  const oversizedService = createBootstrapImportService({
+    analyzeModelFn: async () => {
+      oversizedAnalyzeModelCalls += 1;
+      return {};
+    },
+    runPythonJsonScriptFn: async () => {
+      throw new Error('Oversized upload reached runtime analysis.');
+    },
+  });
+  let oversizedContentBase64 = Buffer.alloc(MAX_BOOTSTRAP_UPLOAD_BYTES + 1).toString('base64');
+  await assert.rejects(
+    oversizedService({
+      projectRoot: tempRoot,
+      runScript: async () => ({}),
+      model: {
+        name: 'oversized.step',
+        content_base64: oversizedContentBase64,
+      },
+    }),
+    /Unsupported uploaded file size.*32 MiB/i
+  );
+  oversizedContentBase64 = null;
+  assert.equal(oversizedAnalyzeModelCalls, 0);
 
   const result = await service({
     projectRoot: tempRoot,

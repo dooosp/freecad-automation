@@ -2,9 +2,11 @@ import {
   createButton,
   createCard,
   createEmptyState,
+  createEmptyStateWithNextAction,
   createInfoGrid,
   createList,
   createPill,
+  createResultCard,
   createSectionHeader,
   el,
 } from './renderers.js';
@@ -46,10 +48,18 @@ import {
   deriveRecentJobQualityStatus,
   formatRecentJobQualityLine,
 } from './recent-job-quality-status.js';
-import { applyTranslations } from '../i18n/index.js';
+import {
+  collectResultFileGroups,
+  deriveResultFileAction,
+  resultFileLabelKey,
+  selectPrimaryResultArtifact,
+} from './result-files.js';
+import { applyTranslations, t } from '../i18n/index.js';
 
 function ensureArtifactsWorkspaceState(store = {}) {
   store.selectedArtifactId = store.selectedArtifactId || '';
+  store.viewedArtifactId = store.viewedArtifactId || '';
+  store.viewedJobId = store.viewedJobId || '';
   store.previewStatus = store.previewStatus || 'idle';
   store.previewText = store.previewText || '';
   store.previewArtifactId = store.previewArtifactId || '';
@@ -1350,120 +1360,312 @@ function renderQualityDashboard(model, state = {}) {
   });
 }
 
+function resultFileTitle(artifact = {}) {
+  const labelKey = resultFileLabelKey(artifact);
+  return labelKey ? t(labelKey) : (artifact.file_name || artifact.key || artifact.id || t('studio.artifacts.file.system'));
+}
+
+function localizedExecutionStatus(job = {}) {
+  const normalized = String(job.status || '').toLowerCase();
+  const supported = new Set(['queued', 'running', 'succeeded', 'failed', 'cancelled']);
+  return t(`studio.history.status.${supported.has(normalized) ? normalized : 'unknown'}`);
+}
+
+function localizedQualityStatus(job = {}) {
+  const quality = deriveRecentJobQualityStatus(job).qualityStatus;
+  const keys = {
+    'Quality passed': 'passed',
+    'Quality failed': 'failed',
+    'Quality warning': 'warning',
+  };
+  return t(`studio.history.quality.${keys[quality] || 'unknown'}`);
+}
+
+function resultArtifactMeta(artifact = {}) {
+  const availability = artifact.exists === false ? t('studio.artifacts.missing') : t('studio.artifacts.available');
+  return `${availability} · ${formatBytes(artifact.size_bytes)}`;
+}
+
+function createResultArtifactCard(artifact, { primarySummary = false } = {}) {
+  const action = deriveResultFileAction(artifact);
+  const title = resultFileTitle(artifact);
+  const primaryAction = action.kind === 'view'
+    ? {
+        label: t('studio.artifacts.action.view'),
+        action: 'artifacts-select-artifact',
+        dataset: { artifactId: artifact.id },
+      }
+    : action.kind === 'download'
+      ? {
+          label: t('studio.artifacts.action.download'),
+          href: action.downloadHref,
+          attrs: { rel: 'noreferrer' },
+        }
+      : {
+          label: t('studio.artifacts.action.details'),
+          action: 'artifacts-select-artifact',
+          dataset: { artifactId: artifact.id },
+        };
+  const menuItems = [
+    ...(action.openHref
+      ? [{
+          label: t('studio.artifacts.action.open-new'),
+          href: action.openHref,
+          attrs: { target: '_blank', rel: 'noreferrer noopener' },
+        }]
+      : []),
+    ...(action.downloadHref && action.kind !== 'download'
+      ? [{
+          label: t('studio.artifacts.action.download'),
+          href: action.downloadHref,
+          attrs: { rel: 'noreferrer' },
+        }]
+      : []),
+    {
+      label: t('studio.artifacts.action.file-info'),
+      action: 'artifacts-select-artifact',
+      dataset: { artifactId: artifact.id },
+    },
+  ];
+
+  return createResultCard({
+    title,
+    meta: resultArtifactMeta(artifact),
+    copy: artifact.file_name || artifact.key || '',
+    primaryAction,
+    menuItems,
+    menuLabel: `${t('studio.artifacts.action.more')} ${title}`,
+    dataset: {
+      resultArtifactId: artifact.id,
+      ...(primarySummary ? { primaryResult: 'true' } : {}),
+    },
+  });
+}
+
+function renderResultSummary(activeJob, { hydrating = false } = {}) {
+  if (hydrating || activeJob?.status === 'loading') {
+    return createEmptyState({
+      icon: '…',
+      title: t('studio.artifacts.loading.title'),
+      copy: t('studio.artifacts.loading.copy'),
+    });
+  }
+  if (!activeJob?.summary) {
+    return createEmptyStateWithNextAction({
+      icon: '↺',
+      title: t('studio.artifacts.empty.title'),
+      copy: t('studio.artifacts.empty.copy'),
+      action: {
+        label: t('studio.artifacts.empty.action'),
+        action: 'go-history',
+      },
+    });
+  }
+
+  const artifacts = activeJob.artifacts || [];
+  const primaryArtifact = selectPrimaryResultArtifact(artifacts, { jobType: activeJob.summary.type });
+  if (!primaryArtifact) {
+    return createEmptyState({
+      icon: '0',
+      title: t('studio.artifacts.none.title'),
+      copy: t('studio.artifacts.none.copy'),
+    });
+  }
+
+  return createCard({
+    kicker: t('studio.artifacts.summary.kicker'),
+    title: t('studio.artifacts.summary.title'),
+    copy: t('studio.artifacts.summary.copy'),
+    surface: 'canvas',
+    body: [
+      createInfoGrid([
+        { label: t('studio.artifacts.summary.run'), value: deriveRecentJobQualityStatus(activeJob.summary).configName },
+        { label: t('studio.artifacts.summary.primary'), value: resultFileTitle(primaryArtifact) },
+        { label: t('studio.artifacts.summary.execution'), value: localizedExecutionStatus(activeJob.summary) },
+        { label: t('studio.artifacts.summary.quality'), value: localizedQualityStatus(activeJob.summary) },
+        { label: t('studio.artifacts.summary.other'), value: String(Math.max(0, artifacts.length - 1)) },
+      ]),
+      createResultArtifactCard(primaryArtifact, { primarySummary: true }),
+    ],
+  });
+}
+
+function renderResultGroup(group) {
+  const title = t(`studio.artifacts.group.${group.id}`);
+  const cards = el('div', {
+    className: 'result-file-list',
+    children: group.artifacts.map((artifact) => createResultArtifactCard(artifact)),
+  });
+  if (group.id === 'system') {
+    return el('details', {
+      className: 'result-file-group result-file-group-system',
+      dataset: { resultGroup: group.id },
+      children: [
+        el('summary', {
+          className: 'result-file-group-summary',
+          text: `${title} (${group.artifacts.length})`,
+        }),
+        el('p', { className: 'result-file-group-copy', text: t('studio.artifacts.group.system.copy') }),
+        cards,
+      ],
+    });
+  }
+  return el('section', {
+    className: 'result-file-group',
+    attrs: { 'aria-labelledby': `result-group-${group.id}` },
+    dataset: { resultGroup: group.id },
+    children: [
+      el('h3', { className: 'result-file-group-title', text: title, attrs: { id: `result-group-${group.id}` } }),
+      cards,
+    ],
+  });
+}
+
+function renderResultGroups(activeJob, { hydrating = false } = {}) {
+  if (hydrating || activeJob?.status === 'loading' || !activeJob?.summary) return el('div');
+  const artifacts = activeJob.artifacts || [];
+  const primaryArtifact = selectPrimaryResultArtifact(artifacts, { jobType: activeJob.summary.type });
+  const groups = collectResultFileGroups(
+    artifacts.filter((artifact) => artifact.id !== primaryArtifact?.id)
+  ).filter((group) => group.artifacts.length > 0);
+
+  return createCard({
+    kicker: t('studio.artifacts.groups.kicker'),
+    title: t('studio.artifacts.groups.title'),
+    copy: t('studio.artifacts.groups.copy'),
+    body: groups.length > 0
+      ? groups.map(renderResultGroup)
+      : [el('p', { className: 'support-note', text: t('studio.artifacts.groups.none') })],
+  });
+}
+
 export function renderArtifactsWorkspace(state) {
   ensureArtifactsWorkspaceState(state.data.artifactsWorkspace);
   const activeJob = state.data.activeJob;
   const recentJobs = state.data.recentJobs.items || [];
 
   return el('section', {
-    className: 'workspace-shell artifacts-dashboard',
+    className: 'workspace-shell artifacts-dashboard result-files-workspace',
     children: [
       createSectionHeader({
-        kicker: 'Packs workspace',
-        title: 'Artifact management dashboard',
-        description: 'Review recent jobs, manifest status, package readiness, and safe download routes from one artifact-centered workspace.',
-        badges: [
-          { label: activeJob?.summary ? 'Tracked job selected' : 'No active package', tone: activeJob?.summary ? 'ok' : 'warn' },
-          { label: `${recentJobs.length || 0} recent runs`, tone: recentJobs.length ? 'info' : 'warn' },
-          { label: 'Manifest-backed download path', tone: 'ok' },
-        ],
+        kicker: t('studio.artifacts.kicker'),
+        title: t('studio.artifacts.title'),
+        description: t('studio.artifacts.description'),
       }),
+      el('div', { dataset: { hook: 'artifacts-result-summary' } }),
+      el('div', { dataset: { hook: 'artifacts-result-groups' } }),
       createCard({
-        kicker: 'Artifact pipeline',
-        title: 'Review-to-download flow',
-        copy: 'Keep the active artifact set grounded in standard review outputs, manifest indexing, package assembly, and explicit download readiness.',
+        kicker: t('studio.artifacts.selected.kicker'),
+        title: t('studio.artifacts.selected.title'),
+        copy: t('studio.artifacts.selected.copy'),
         surface: 'canvas',
         body: [
-          renderArtifactPipeline(activeJob),
+          el('h3', {
+            className: 'selected-result-title',
+            text: t('studio.artifacts.selected.title'),
+            attrs: { tabindex: '-1' },
+            dataset: { hook: 'artifacts-selected-title' },
+          }),
+          el('div', { className: 'selected-result-viewer', dataset: { hook: 'artifacts-detail-viewer' } }),
+          el('details', {
+            className: 'result-detail-disclosure',
+            children: [
+              el('summary', { text: t('studio.artifacts.follow-up.summary') }),
+              el('div', { className: 'review-detail-actions', dataset: { hook: 'artifacts-detail-actions' } }),
+            ],
+          }),
+          el('details', {
+            className: 'result-detail-disclosure',
+            children: [
+              el('summary', { text: t('studio.artifacts.records.summary') }),
+              el('div', { dataset: { hook: 'artifacts-detail-summary' } }),
+              el('pre', { className: 'artifact-raw-preview', dataset: { hook: 'artifacts-detail-preview' } }),
+              el('div', { className: 'review-provenance-list', dataset: { hook: 'artifacts-detail-notes' } }),
+            ],
+          }),
         ],
       }),
-      el('div', {
-        className: 'artifacts-dashboard-grid',
+      el('details', {
+        className: 'advanced-result-tools',
+        dataset: { hook: 'artifacts-advanced-tools' },
         children: [
-          el('div', {
-            className: 'artifacts-column artifacts-column-left',
+          el('summary', {
+            className: 'advanced-result-tools-summary',
             children: [
-              createCard({
-                kicker: 'Recent jobs',
-                title: 'Recent job flow',
-                copy: 'Keep the latest job visible while older runs stay compare-ready and reopenable.',
-                body: [
-                  el('div', { dataset: { hook: 'artifacts-timeline' } }),
-                ],
-              }),
-              createCard({
-                kicker: 'Package status',
-                title: activeJob?.summary ? `${activeJob.summary.type} ${shortJobId(activeJob.summary.id)}` : 'Select tracked job',
-                copy: 'Keep manifest facts, storage status, and export readiness visible while you inspect output files.',
-                body: [
-                  el('div', { dataset: { hook: 'artifacts-job-summary' } }),
-                ],
-              }),
-              createCard({
-                kicker: 'Quality dashboard',
-                title: 'Manufacturing quality snapshot',
-                copy: 'Prefer report_summary.json when it exists, then fall back to create/drawing/manifest evidence without inventing missing files.',
-                body: [
-                  el('div', { dataset: { hook: 'artifacts-quality-dashboard' } }),
-                ],
-              }),
-              createCard({
-                kicker: 'Compare',
-                title: 'Compare active package with baseline',
-                copy: 'Choose an older tracked run as the baseline. When both sides have standard review-pack or readiness inputs, Studio can queue compare-rev or stabilization-review here.',
-                body: [
-                  el('div', { dataset: { hook: 'artifacts-compare' } }),
-                ],
-              }),
-              createCard({
-                kicker: 'Live output queue',
-                title: 'Recent package and export activity',
-                copy: 'Keep package, report, and export activity visible as compact queue rows even when no artifact is selected.',
-                body: [
-                  renderOutputQueue(recentJobs),
-                ],
-              }),
+              el('span', { className: 'advanced-result-tools-title', text: t('studio.artifacts.advanced.summary') }),
+              el('span', { className: 'advanced-result-tools-copy', text: t('studio.artifacts.advanced.copy') }),
             ],
           }),
           el('div', {
-            className: 'artifacts-column artifacts-column-center',
+            className: 'advanced-result-tools-body',
             children: [
               createCard({
-                kicker: 'Generated files',
-                title: 'Your generated files',
-                copy: 'Download or inspect the main outputs from this run.',
+                kicker: 'Artifact pipeline',
+                title: 'Review-to-download flow',
+                copy: 'Keep the active artifact set grounded in standard review outputs, manifest indexing, package assembly, and explicit download readiness.',
                 surface: 'canvas',
-                body: [
+                body: [renderArtifactPipeline(activeJob)],
+              }),
+              el('div', {
+                className: 'artifacts-dashboard-grid',
+                children: [
                   el('div', {
-                    attrs: { id: 'studio-generated-files' },
-                    dataset: { hook: 'artifacts-generated-files' },
+                    className: 'artifacts-column artifacts-column-left',
+                    children: [
+                      createCard({
+                        kicker: 'Recent jobs',
+                        title: 'Recent job flow',
+                        copy: 'Keep the latest job visible while older runs stay compare-ready and reopenable.',
+                        body: [el('div', { dataset: { hook: 'artifacts-timeline' } })],
+                      }),
+                      createCard({
+                        kicker: 'Package status',
+                        title: activeJob?.summary ? `${activeJob.summary.type} ${shortJobId(activeJob.summary.id)}` : 'Select tracked job',
+                        copy: 'Keep manifest facts, storage status, and export readiness visible while you inspect output files.',
+                        body: [el('div', { dataset: { hook: 'artifacts-job-summary' } })],
+                      }),
+                      createCard({
+                        kicker: 'Quality dashboard',
+                        title: 'Manufacturing quality snapshot',
+                        copy: 'Prefer report_summary.json when it exists, then fall back to create/drawing/manifest evidence without inventing missing files.',
+                        body: [el('div', { dataset: { hook: 'artifacts-quality-dashboard' } })],
+                      }),
+                      createCard({
+                        kicker: 'Compare',
+                        title: 'Compare active package with baseline',
+                        copy: 'Choose an older tracked run as the baseline. When both sides have standard review-pack or readiness inputs, Studio can queue compare-rev or stabilization-review here.',
+                        body: [el('div', { dataset: { hook: 'artifacts-compare' } })],
+                      }),
+                    ],
                   }),
-                ],
-              }),
-              createCard({
-                kicker: 'All artifacts',
-                title: 'Current job output list',
-                copy: 'Artifacts stay grouped by job with type badges, open/download actions, and structured metadata.',
-                surface: 'canvas',
-                body: [
-                  el('div', { className: 'artifact-card-grid', dataset: { hook: 'artifacts-cards' } }),
-                ],
-              }),
-            ],
-          }),
-          el('div', {
-            className: 'artifacts-column artifacts-column-right',
-            children: [
-              createCard({
-                kicker: 'Structured inspector',
-                title: 'Artifact detail',
-                copy: 'Inspect the selected artifact, preview it when safe, and continue into follow-up actions without raw filesystem paths.',
-                surface: 'canvas',
-                body: [
-                  el('div', { dataset: { hook: 'artifacts-detail-summary' } }),
-                  el('div', { className: 'review-detail-actions', dataset: { hook: 'artifacts-detail-actions' } }),
-                  el('pre', { className: 'artifact-raw-preview', dataset: { hook: 'artifacts-detail-preview' } }),
-                  el('div', { className: 'review-provenance-list', dataset: { hook: 'artifacts-detail-notes' } }),
+                  el('div', {
+                    className: 'artifacts-column artifacts-column-center',
+                    children: [
+                      createCard({
+                        kicker: 'Generated files',
+                        title: 'Your generated files',
+                        copy: 'Download or inspect the main outputs from this run.',
+                        surface: 'canvas',
+                        body: [el('div', {
+                          attrs: { id: 'studio-generated-files' },
+                          dataset: { hook: 'artifacts-generated-files' },
+                        })],
+                      }),
+                      createCard({
+                        kicker: 'All artifacts',
+                        title: 'Current job output list',
+                        copy: 'Artifacts stay grouped by job with type badges, open/download actions, and structured metadata.',
+                        surface: 'canvas',
+                        body: [el('div', { className: 'artifact-card-grid', dataset: { hook: 'artifacts-cards' } })],
+                      }),
+                      createCard({
+                        kicker: 'Live output queue',
+                        title: 'Recent package and export activity',
+                        copy: 'Keep package, report, and export activity visible as compact queue rows even when no artifact is selected.',
+                        body: [renderOutputQueue(recentJobs)],
+                      }),
+                    ],
+                  }),
                 ],
               }),
             ],
@@ -1476,12 +1678,16 @@ export function renderArtifactsWorkspace(state) {
 
 export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJson }) {
   const artifactsState = ensureArtifactsWorkspaceState(state.data.artifactsWorkspace);
+  const resultSummaryElement = root.querySelector('[data-hook="artifacts-result-summary"]');
+  const resultGroupsElement = root.querySelector('[data-hook="artifacts-result-groups"]');
   const timelineElement = root.querySelector('[data-hook="artifacts-timeline"]');
   const jobSummaryElement = root.querySelector('[data-hook="artifacts-job-summary"]');
   const qualityDashboardElement = root.querySelector('[data-hook="artifacts-quality-dashboard"]');
   const compareElement = root.querySelector('[data-hook="artifacts-compare"]');
   const generatedFilesElement = root.querySelector('[data-hook="artifacts-generated-files"]');
   const cardsElement = root.querySelector('[data-hook="artifacts-cards"]');
+  const selectedTitleElement = root.querySelector('[data-hook="artifacts-selected-title"]');
+  const detailViewerElement = root.querySelector('[data-hook="artifacts-detail-viewer"]');
   const detailSummaryElement = root.querySelector('[data-hook="artifacts-detail-summary"]');
   const detailActionsElement = root.querySelector('[data-hook="artifacts-detail-actions"]');
   const detailPreviewElement = root.querySelector('[data-hook="artifacts-detail-preview"]');
@@ -1490,9 +1696,18 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
 
   function getSelectedArtifact() {
     const artifacts = state.data.activeJob.artifacts || [];
-    return artifacts.find((artifact) => artifact.id === artifactsState.selectedArtifactId)
-      || findDefaultArtifactForJob(artifacts)
-      || null;
+    const activeJobId = activeJobIdFromState(state);
+    if (artifactsState.viewedJobId !== activeJobId) {
+      artifactsState.viewedJobId = activeJobId;
+      artifactsState.viewedArtifactId = '';
+    }
+    const selected = artifacts.find((artifact) => artifact.id === artifactsState.selectedArtifactId);
+    if (selected) return selected;
+    const primary = selectPrimaryResultArtifact(artifacts, {
+      jobType: state.data.activeJob.summary?.type,
+    }) || findDefaultArtifactForJob(artifacts) || null;
+    artifactsState.selectedArtifactId = primary?.id || '';
+    return primary;
   }
 
   function getSelectedArtifactCacheKey(artifact = getSelectedArtifact()) {
@@ -1514,6 +1729,18 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
         state.data.activeJob.summary?.id || '',
         artifactsState.compare.jobId || ''
       )
+    );
+  }
+
+  function syncResultSummary() {
+    resultSummaryElement.replaceChildren(
+      renderResultSummary(state.data.activeJob, { hydrating: isHydratingSelectedJob() })
+    );
+  }
+
+  function syncResultGroups() {
+    resultGroupsElement.replaceChildren(
+      renderResultGroups(state.data.activeJob, { hydrating: isHydratingSelectedJob() })
     );
   }
 
@@ -2012,19 +2239,21 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
   function syncDetail() {
     const artifact = getSelectedArtifact();
     if (!artifact) {
-      detailSummaryElement.replaceChildren(
+      selectedTitleElement.textContent = t('studio.artifacts.selected.title');
+      detailViewerElement.replaceChildren(
         isHydratingSelectedJob()
           ? createEmptyState({
               icon: '...',
-              title: 'Loading artifacts',
-              copy: 'Waiting for the selected tracked job to hydrate before choosing an artifact.',
+              title: t('studio.artifacts.loading.title'),
+              copy: t('studio.artifacts.loading.copy'),
             })
           : createEmptyState({
               icon: '>',
-              title: 'Select an artifact',
-              copy: 'The detail panel will show structured reopen state, manifest notes, and a raw preview when the artifact is browser-friendly.',
+              title: t('studio.artifacts.empty.title'),
+              copy: t('studio.artifacts.empty.copy'),
             })
       );
+      detailSummaryElement.replaceChildren();
       detailActionsElement.replaceChildren();
       detailPreviewElement.hidden = true;
       detailPreviewElement.textContent = '';
@@ -2062,9 +2291,18 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
             }),
           ]
         : renderViewerBlock(artifactsState.viewerData);
+    selectedTitleElement.textContent = resultFileTitle(artifact);
+    detailViewerElement.replaceChildren(...(
+      artifactsState.viewedArtifactId === artifact.id
+        ? viewerBlocks
+        : [createEmptyState({
+            icon: '›',
+            title: t('studio.artifacts.selected.ready-title'),
+            copy: t('studio.artifacts.selected.ready-copy'),
+          })]
+    ));
     detailSummaryElement.replaceChildren(
-      createInfoGrid(buildArtifactDetailItems(artifact, state.data.activeJob)),
-      ...viewerBlocks
+      createInfoGrid(buildArtifactDetailItems(artifact, state.data.activeJob))
     );
 
     detailActionsElement.replaceChildren(
@@ -2139,19 +2377,6 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
             createButton({
               label: 'Tracked report',
               action: 'run-artifact-report',
-              tone: 'ghost',
-              dataset: {
-                jobId: state.data.activeJob.summary.id,
-                artifactId: artifact.id,
-              },
-            }),
-          ]
-        : []),
-      ...(state.data.activeJob.summary && reentry.canRunTrackedReviewContext
-        ? [
-            createButton({
-              label: 'Tracked review context',
-              action: 'run-artifact-review-context',
               tone: 'ghost',
               dataset: {
                 jobId: state.data.activeJob.summary.id,
@@ -2278,6 +2503,8 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
 
   async function syncAll() {
     if (destroyed) return;
+    syncResultSummary();
+    syncResultGroups();
     syncTimeline();
     syncJobSummary();
     await ensureQualityDashboard();
@@ -2344,6 +2571,8 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
 
     if (actionTarget.dataset.action === 'artifacts-select-artifact') {
       artifactsState.selectedArtifactId = actionTarget.dataset.artifactId || '';
+      artifactsState.viewedArtifactId = artifactsState.selectedArtifactId;
+      artifactsState.viewedJobId = activeJobIdFromState(state);
       artifactsState.previewStatus = 'idle';
       artifactsState.previewText = '';
       artifactsState.previewArtifactId = '';
@@ -2352,7 +2581,10 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
       artifactsState.viewerArtifactId = '';
       artifactsState.viewerError = '';
       artifactsState.viewerData = null;
-      syncAll();
+      syncAll().then(() => {
+        selectedTitleElement.focus({ preventScroll: true });
+        selectedTitleElement.scrollIntoView({ block: 'start' });
+      });
       return;
     }
 
@@ -2363,7 +2595,9 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
 
   root.addEventListener('click', handleClick);
   if (!artifactsState.selectedArtifactId) {
-    artifactsState.selectedArtifactId = findDefaultArtifactForJob(state.data.activeJob.artifacts || [])?.id || '';
+    artifactsState.selectedArtifactId = selectPrimaryResultArtifact(state.data.activeJob.artifacts || [], {
+      jobType: state.data.activeJob.summary?.type,
+    })?.id || '';
   }
   syncAll();
 

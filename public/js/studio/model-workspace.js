@@ -13,7 +13,21 @@ import {
   ensureModelTrackedRunState,
   resetModelTrackedRunState,
 } from './model-tracked-runs.js';
-import { applyTranslations } from '../i18n/index.js';
+import {
+  createModelGuidedStepStates,
+  ensureModelGuidedFlowState,
+  resetModelGuidedFlow,
+  resolveModelGuidedStep,
+  setModelGuidedStep,
+} from './model-guided-flow.js';
+import {
+  aiDraftRequiresReview,
+  ensureAiDraftState,
+  invalidateAiDraftValidation,
+  markAiDraftForReview,
+  markAiDraftValidated,
+} from './ai-guided-flow.js';
+import { applyTranslations, t } from '../i18n/index.js';
 
 function ensureModelState(model = {}) {
   model.validation = model.validation || {
@@ -27,11 +41,8 @@ function ensureModelState(model = {}) {
   model.buildState = model.buildState || 'idle';
   model.buildSummary = model.buildSummary || 'Choose input, then build to inspect the preview.';
   model.errorMessage = model.errorMessage || '';
-  model.assistant = model.assistant || {
-    busy: false,
-    error: '',
-    report: null,
-  };
+  ensureAiDraftState(model);
+  ensureModelGuidedFlowState(model);
   ensureModelTrackedRunState(model);
   model.buildSettings = model.buildSettings || {
     include_step: true,
@@ -236,6 +247,39 @@ function renderAssistantReport(container, assistantState) {
 export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
   const model = ensureModelState(state.data.model);
   const viewerStore = createViewerStore();
+  const guidedStepElements = [...root.querySelectorAll('[data-model-guided-step]')];
+  const guidedTaskStepElements = [...root.querySelectorAll('.task-stepper [data-step-id]')];
+  const guidedProgressElement = root.querySelector('[data-hook="guided-progress"]');
+  const guidedInputMethodInputs = [...root.querySelectorAll('[data-hook="guided-input-method"]')];
+  const guidedInputOptions = [...root.querySelectorAll('.guided-model-input-option')];
+  const guidedExamplePanel = root.querySelector('[data-hook="guided-example-panel"]');
+  const guidedFilePanel = root.querySelector('[data-hook="guided-file-panel"]');
+  const guidedAiPanel = root.querySelector('[data-hook="guided-ai-panel"]');
+  const guidedAiRequestStage = root.querySelector('[data-hook="guided-ai-request-stage"]');
+  const guidedAiReviewStage = root.querySelector('[data-hook="guided-ai-review-stage"]');
+  const guidedExampleSelect = root.querySelector('[data-hook="guided-example-select"]');
+  const guidedConfigFileInput = root.querySelector('[data-hook="guided-config-file"]');
+  const guidedOpenConfigButton = root.querySelector('[data-hook="guided-open-config"]');
+  const guidedFileNameElement = root.querySelector('[data-hook="guided-file-name"]');
+  const guidedInputHintElement = root.querySelector('[data-hook="guided-input-hint"]');
+  const guidedContinueButton = root.querySelector('[data-hook="guided-continue"]');
+  const guidedBackButton = root.querySelector('[data-hook="guided-back"]');
+  const guidedGenerateButton = root.querySelector('[data-hook="guided-generate"]');
+  const guidedGenerateHintElement = root.querySelector('[data-hook="guided-generate-hint"]');
+  const guidedErrorElement = root.querySelector('[data-hook="guided-error"]');
+  const guidedErrorMessageElement = root.querySelector('[data-hook="guided-error-message"]');
+  const guidedRunningMessageElement = root.querySelector('[data-model-guided-step="running"] .inline-status-message');
+  const guidedRunningLogElement = root.querySelector('[data-hook="guided-running-log"]');
+  const guidedResultSummaryElement = root.querySelector('[data-hook="guided-result-summary"]');
+  const guidedResultErrorElement = root.querySelector('[data-hook="guided-result-error"]');
+  const guidedResultErrorMessageElement = root.querySelector('[data-hook="guided-result-error-message"]');
+  const guidedViewResultButton = root.querySelector('[data-hook="guided-view-result"]');
+  const guidedResetButton = root.querySelector('[data-hook="guided-reset"]');
+  const guidedResultInspection = root.querySelector('[data-hook="guided-result-inspection"]');
+  const advancedToolsDisclosure = root.querySelector('[data-hook="model-advanced-tools"]');
+  const advancedToolsContent = root.querySelector('[data-hook="model-advanced-content"]');
+  const guidedActionInputElement = root.querySelector('[data-action-summary="generate-model"] .info-value');
+  const trackedActionInputElement = root.querySelector('[data-action-summary="run-tracked-model-work"] .info-value');
   const viewport = root.querySelector('[data-hook="viewport"]');
   const partsListElement = root.querySelector('[data-hook="parts-list"]');
   const modelInfoElement = root.querySelector('[data-hook="model-info"]');
@@ -246,6 +290,13 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
   const sourceSummaryElement = root.querySelector('[data-hook="source-summary"]');
   const assistantReportElement = root.querySelector('[data-hook="assistant-report"]');
   const assistantTextarea = root.querySelector('[data-hook="assistant-textarea"]');
+  const aiDraftTextarea = root.querySelector('[data-hook="ai-draft-textarea"]');
+  const aiCreateDraftButton = root.querySelector('[data-hook="ai-create-draft"]');
+  const aiValidateDraftButton = root.querySelector('[data-hook="ai-validate-draft"]');
+  const aiCreateHintElement = root.querySelector('[data-hook="ai-create-hint"]');
+  const aiReviewHintElement = root.querySelector('[data-hook="ai-review-hint"]');
+  const aiRequestErrorElement = root.querySelector('[data-hook="ai-request-error"]');
+  const aiRequestErrorMessageElement = root.querySelector('[data-hook="ai-request-error-message"]');
   const configTextarea = root.querySelector('[data-hook="config-textarea"]');
   const viewportCaptionElement = root.querySelector('[data-hook="viewport-caption"]');
   const exampleSelect = root.querySelector('[data-hook="example-select"]');
@@ -259,7 +310,6 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
   const trackedValidationNotesElement = root.querySelector('[data-hook="tracked-validation-notes"]');
   const trackedStatusElement = root.querySelector('[data-hook="tracked-status"]');
   const clearButton = root.querySelector('[data-hook="clear-result"]');
-  const designButton = root.querySelector('[data-hook="draft-prompt"]');
   const wireframeInput = root.querySelector('[data-hook="wireframe"]');
   const edgesInput = root.querySelector('[data-hook="edges"]');
   const opacityInput = root.querySelector('[data-hook="opacity"]');
@@ -290,29 +340,62 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
 
   let loadToken = 0;
   let destroyed = false;
+  let guidedStepFocusRequestEpoch = 0;
   let profileCatalogRequest = null;
   let animationController = null;
+  let sceneController = null;
+  let resultInspectionPreview = null;
 
-  const sceneController = initScene({
-    viewport,
-    partsListElement,
-    opacityInput,
-    state: viewerStore.state,
-    onResetScene: () => animationController?.clearMotion(),
-    onFrame: () => animationController?.tick(),
-  });
+  function renderViewportFallback() {
+    if (!viewport || viewport.dataset.sceneUnavailable === 'true') return;
+    viewport.dataset.sceneUnavailable = 'true';
+    const message = document.createElement('p');
+    message.className = 'empty-state-copy guided-model-viewport-fallback';
+    message.dataset.hook = 'guided-viewport-unavailable';
+    message.textContent = t('studio.model.guided.result.viewport-unavailable');
+    viewport.replaceChildren(message);
+  }
 
-  animationController = createAnimationController({
-    state: viewerStore.state,
-    getPartMeshes: () => sceneController.getPartMeshes(),
-    animationControlsElement,
-    playButton,
-    pauseButton,
-    resetButton,
-    timelineInput,
-    timeDisplayElement,
-    speedButtons,
-  });
+  function supportsWebGL() {
+    const probe = document.createElement('canvas');
+    const context = probe.getContext('webgl2') || probe.getContext('webgl');
+    if (!context) return false;
+    context.getExtension('WEBGL_lose_context')?.loseContext();
+    return true;
+  }
+
+  function ensureSceneController() {
+    if (destroyed || !guidedResultInspection?.isConnected || !viewport?.isConnected) return null;
+    if (sceneController) return sceneController;
+    if (viewport?.dataset.sceneUnavailable === 'true') return null;
+    if (!supportsWebGL()) {
+      renderViewportFallback();
+      return null;
+    }
+    sceneController = initScene({
+      viewport,
+      partsListElement,
+      opacityInput,
+      state: viewerStore.state,
+      onResetScene: () => animationController?.clearMotion(),
+      onFrame: () => animationController?.tick(),
+    });
+    animationController = createAnimationController({
+      state: viewerStore.state,
+      getPartMeshes: () => sceneController?.getPartMeshes() || [],
+      animationControlsElement,
+      playButton,
+      pauseButton,
+      resetButton,
+      timelineInput,
+      timeDisplayElement,
+      speedButtons,
+    });
+    sceneController.setWireframe(Boolean(model.controls.wireframe));
+    sceneController.setEdgesVisible(model.controls.edges !== false);
+    sceneController.updateOpacity(Number(model.controls.opacity || 100) / 100);
+    return sceneController;
+  }
 
   function setSurface(surface, label, copy, tone) {
     if (!surface) return;
@@ -366,6 +449,9 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     }
     if (assistantTextarea && assistantTextarea.value !== model.promptText) {
       assistantTextarea.value = model.promptText || '';
+    }
+    if (aiDraftTextarea && aiDraftTextarea.value !== model.configText) {
+      aiDraftTextarea.value = model.configText || '';
     }
     if (exampleSelect) {
       exampleSelect.value = state.data.examples.selectedId || exampleSelect.value;
@@ -449,18 +535,42 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
   function syncButtons() {
     const apiReady = state.connectionState === 'connected';
     const runtimeReady = state.data.health.available === true;
-    const canBuild = apiReady && runtimeReady && Boolean((model.configText || '').trim()) && model.buildState !== 'building';
+    const aiReviewRequired = aiDraftRequiresReview(model);
+    const modelBusy = model.buildState === 'building' || model.buildState === 'validating';
+    const canBuild = apiReady
+      && runtimeReady
+      && Boolean((model.configText || '').trim())
+      && !modelBusy
+      && !aiReviewRequired;
     const canTrack = apiReady
       && runtimeReady
       && Boolean((model.configText || '').trim())
-      && model.buildState !== 'building'
+      && !modelBusy
       && !model.trackedRun.submitting;
 
-    if (validateButton) validateButton.disabled = !apiReady || !Boolean((model.configText || '').trim()) || model.buildState === 'building';
+    if (validateButton) validateButton.disabled = !apiReady || !Boolean((model.configText || '').trim()) || modelBusy;
     if (buildButton) buildButton.disabled = !canBuild;
-    if (trackedCreateButton) trackedCreateButton.disabled = !canTrack;
-    if (trackedReportButton) trackedReportButton.disabled = !canTrack;
-    if (designButton) designButton.disabled = !apiReady || model.assistant.busy;
+    if (trackedCreateButton) trackedCreateButton.disabled = !canTrack || aiReviewRequired;
+    if (trackedReportButton) trackedReportButton.disabled = !canTrack || aiReviewRequired;
+    if (aiCreateDraftButton) {
+      aiCreateDraftButton.disabled = !apiReady
+        || model.assistant.busy
+        || !String(model.promptText || '').trim();
+    }
+    if (aiValidateDraftButton) {
+      aiValidateDraftButton.disabled = !apiReady
+        || model.assistant.busy
+        || model.buildState === 'validating'
+        || !String(model.configText || '').trim();
+    }
+    if (assistantTextarea) assistantTextarea.disabled = model.assistant.busy;
+    if (aiDraftTextarea) aiDraftTextarea.disabled = modelBusy;
+    if (configTextarea) configTextarea.disabled = modelBusy;
+    guidedInputMethodInputs.forEach((input) => {
+      input.disabled = model.assistant.busy;
+    });
+    if (guidedExampleSelect) guidedExampleSelect.disabled = model.assistant.busy;
+    if (guidedOpenConfigButton) guidedOpenConfigButton.disabled = model.assistant.busy;
     if (exampleButton) exampleButton.disabled = state.data.examples.items.length === 0;
     if (configFileButton) configFileButton.disabled = false;
     if (clearButton) clearButton.disabled = !model.preview && model.buildLog.length === 0;
@@ -534,9 +644,199 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
   }
 
   function syncControls() {
-    sceneController.setWireframe(Boolean(model.controls.wireframe));
-    sceneController.setEdgesVisible(model.controls.edges !== false);
-    sceneController.updateOpacity(Number(model.controls.opacity || 100) / 100);
+    sceneController?.setWireframe(Boolean(model.controls.wireframe));
+    sceneController?.setEdgesVisible(model.controls.edges !== false);
+    sceneController?.updateOpacity(Number(model.controls.opacity || 100) / 100);
+  }
+
+  function syncGuidedWorkflow({ focusStep = false } = {}) {
+    const flow = ensureModelGuidedFlowState(model);
+    const assistant = ensureAiDraftState(model);
+    const currentStep = resolveModelGuidedStep(model);
+    const stepStates = createModelGuidedStepStates(model);
+    const stepLabels = {
+      select_input: t('studio.model.guided.step.input'),
+      preflight: t('studio.model.guided.step.preflight'),
+      running: t('studio.model.guided.step.running'),
+      result: t('studio.model.guided.step.result'),
+    };
+
+    guidedStepElements.forEach((element) => {
+      const active = element.dataset.modelGuidedStep === currentStep;
+      element.hidden = !active;
+      element.dataset.state = active ? 'current' : 'inactive';
+    });
+    guidedTaskStepElements.forEach((element, index) => {
+      const stepState = stepStates.find((item) => item.id === element.dataset.stepId);
+      const stateName = stepState?.state || 'upcoming';
+      element.dataset.state = stateName;
+      if (stateName === 'current') element.setAttribute('aria-current', 'step');
+      else element.removeAttribute('aria-current');
+      const indexElement = element.querySelector('.task-step-index');
+      if (indexElement) indexElement.textContent = stateName === 'complete' ? '✓' : String(index + 1);
+    });
+    if (guidedProgressElement) guidedProgressElement.textContent = stepLabels[currentStep];
+
+    guidedInputMethodInputs.forEach((input) => {
+      input.checked = input.value === flow.inputMethod;
+    });
+    guidedInputOptions.forEach((option) => {
+      const input = option.querySelector('input');
+      option.dataset.selected = input?.value === flow.inputMethod ? 'true' : 'false';
+    });
+    if (guidedExamplePanel) guidedExamplePanel.hidden = flow.inputMethod !== 'example';
+    if (guidedFilePanel) guidedFilePanel.hidden = flow.inputMethod !== 'file';
+    if (guidedAiPanel) {
+      guidedAiPanel.hidden = flow.inputMethod !== 'ai';
+      guidedAiPanel.dataset.phase = assistant.phase;
+      guidedAiPanel.dataset.reviewRequired = aiDraftRequiresReview(model) ? 'true' : 'false';
+    }
+    const aiHasDraft = ['review', 'validating', 'validated'].includes(assistant.phase);
+    if (guidedAiRequestStage) guidedAiRequestStage.hidden = aiHasDraft;
+    if (guidedAiReviewStage) guidedAiReviewStage.hidden = !aiHasDraft;
+    if (guidedExampleSelect) {
+      guidedExampleSelect.value = state.data.examples.selectedId || guidedExampleSelect.value;
+    }
+    if (guidedFileNameElement) {
+      guidedFileNameElement.textContent = model.sourceType === 'local file'
+        ? `${t('studio.model.guided.input.file.selected')}: ${model.sourceName}`
+        : t('studio.model.guided.input.file.none');
+    }
+
+    const hasExamples = state.data.examples.items.length > 0;
+    const hasFile = model.sourceType === 'local file' && Boolean((model.configText || '').trim());
+    const apiReady = state.connectionState === 'connected';
+    const aiReviewRequired = aiDraftRequiresReview(model);
+    const canContinue = flow.inputMethod === 'example'
+      ? hasExamples
+      : flow.inputMethod === 'file'
+        ? hasFile
+        : assistant.phase === 'validated' && !aiDraftRequiresReview(model);
+    if (guidedContinueButton) guidedContinueButton.disabled = !canContinue;
+    if (guidedContinueButton) guidedContinueButton.hidden = flow.inputMethod === 'ai';
+    if (guidedInputHintElement) {
+      guidedInputHintElement.textContent = canContinue
+        ? t('studio.model.guided.input.ready')
+        : flow.inputMethod === 'example' && state.data.examples.status === 'ready'
+          ? t('studio.model.guided.input.examples-empty')
+          : flow.inputMethod === 'example'
+            ? t('studio.model.guided.input.examples-loading')
+            : flow.inputMethod === 'file'
+              ? t('studio.model.guided.input.file-needed')
+              : t('studio.model.ai.preflight.prompt-needed');
+    }
+
+    if (aiCreateHintElement) {
+      aiCreateHintElement.textContent = !String(model.promptText || '').trim()
+        ? t('studio.model.ai.preflight.prompt-needed')
+        : !apiReady
+          ? t('studio.model.ai.preflight.api-blocked')
+          : assistant.busy
+            ? t('studio.model.ai.preflight.requesting')
+            : t('studio.model.ai.preflight.ready');
+    }
+    if (aiReviewHintElement) {
+      aiReviewHintElement.textContent = assistant.phase === 'validated' && !aiDraftRequiresReview(model)
+        ? t('studio.model.ai.review.validated')
+        : assistant.phase === 'validating'
+          ? t('studio.model.ai.review.validating')
+          : t('studio.model.ai.review.required');
+    }
+    if (aiValidateDraftButton) {
+      aiValidateDraftButton.textContent = assistant.phase === 'validated' && !aiDraftRequiresReview(model)
+        ? t('studio.model.ai.review.continue')
+        : t('studio.model.ai.review.validate');
+    }
+    if (aiRequestErrorElement) aiRequestErrorElement.hidden = !assistant.error;
+    if (aiRequestErrorMessageElement) aiRequestErrorMessageElement.textContent = assistant.error;
+
+    const runtimeReady = state.data.health.available === true;
+    const inputReady = Boolean((model.configText || '').trim());
+    const canGenerate = apiReady
+      && runtimeReady
+      && inputReady
+      && model.buildState !== 'building'
+      && model.buildState !== 'validating'
+      && !model.trackedRun.submitting
+      && !aiReviewRequired;
+    if (guidedGenerateButton) guidedGenerateButton.disabled = !canGenerate;
+    if (guidedGenerateHintElement) {
+      guidedGenerateHintElement.textContent = !inputReady
+        ? t('studio.model.guided.preflight.input-blocked')
+        : aiReviewRequired
+          ? t('studio.model.ai.review.required')
+        : !apiReady
+          ? t('studio.model.guided.preflight.api-blocked')
+          : !runtimeReady
+            ? t('studio.model.guided.preflight.runtime-blocked')
+            : t('studio.model.guided.preflight.ready');
+    }
+    if (guidedActionInputElement) {
+      guidedActionInputElement.textContent = model.sourceName || t('studio.model.guided.preflight.input-fallback');
+    }
+    if (trackedActionInputElement) {
+      trackedActionInputElement.textContent = model.sourceName || t('studio.model.guided.preflight.input-fallback');
+    }
+
+    const guidedError = flow.error || (model.buildState === 'error' ? model.errorMessage : '');
+    if (guidedErrorElement) guidedErrorElement.hidden = !guidedError;
+    if (guidedErrorMessageElement) guidedErrorMessageElement.textContent = guidedError;
+    if (guidedRunningMessageElement) {
+      guidedRunningMessageElement.textContent = model.buildState === 'building'
+        ? t('studio.model.guided.running.building')
+        : t('studio.model.guided.running.validating');
+    }
+    if (guidedRunningLogElement) renderBuildLog(guidedRunningLogElement, model.buildLog);
+
+    if (guidedResultSummaryElement) {
+      renderInfoRows(guidedResultSummaryElement, [
+        [t('studio.model.guided.result.execution'), t('studio.model.guided.result.execution-complete')],
+        [t('studio.model.guided.result.quality'), t('studio.model.guided.result.quality-unavailable')],
+        [t('studio.model.guided.result.primary'), t('studio.model.guided.result.primary-value')],
+      ]);
+    }
+    const guidedResultError = currentStep === 'result'
+      ? flow.error || (model.buildState === 'error' ? model.errorMessage : '')
+      : '';
+    if (guidedResultErrorElement) guidedResultErrorElement.hidden = !guidedResultError;
+    if (guidedResultErrorMessageElement) guidedResultErrorMessageElement.textContent = guidedResultError;
+    if (guidedResultInspection) guidedResultInspection.hidden = !flow.resultExpanded;
+    if (screenshotButton) screenshotButton.disabled = !model.preview || !flow.resultExpanded;
+    if (fitViewButton) fitViewButton.disabled = !model.preview || !flow.resultExpanded;
+    if (advancedToolsContent) advancedToolsContent.hidden = !advancedToolsDisclosure?.open;
+
+    if (focusStep) {
+      const requestEpoch = ++guidedStepFocusRequestEpoch;
+      const requestActiveElement = root.ownerDocument.activeElement;
+      const focusTarget = guidedStepElements.find(
+        (element) => element.dataset.modelGuidedStep === currentStep,
+      );
+      const focusCurrentStep = () => {
+        const currentFocusTarget = guidedStepElements.find(
+          (element) => !element.hidden && element.dataset.modelGuidedStep === resolveModelGuidedStep(model),
+        );
+        if (
+          destroyed
+          || requestEpoch !== guidedStepFocusRequestEpoch
+          || !focusTarget?.isConnected
+          || currentFocusTarget !== focusTarget
+        ) return;
+
+        const activeElement = root.ownerDocument.activeElement;
+        if (
+          activeElement !== requestActiveElement
+          && activeElement !== focusTarget
+          && activeElement !== root
+          && activeElement !== root.ownerDocument.body
+        ) return;
+        focusTarget.focus();
+      };
+      focusCurrentStep();
+      requestAnimationFrame(() => {
+        focusCurrentStep();
+        requestAnimationFrame(focusCurrentStep);
+      });
+    }
   }
 
   function syncUi() {
@@ -554,6 +854,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     syncProfileCatalog();
     syncButtons();
     syncControls();
+    syncGuidedWorkflow();
     applyTranslations(root);
   }
 
@@ -561,8 +862,9 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     const currentPreview = model.preview;
     const currentToken = ++loadToken;
 
+    if (!sceneController) return;
     sceneController.clearScene();
-    animationController.clearMotion();
+    animationController?.clearMotion();
 
     if (!currentPreview) {
       syncUi();
@@ -594,9 +896,9 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
       }
 
       if (currentPreview.motion_data) {
-        animationController.setMotionData(currentPreview.motion_data);
+        animationController?.setMotionData(currentPreview.motion_data);
       } else {
-        animationController.clearMotion();
+        animationController?.clearMotion();
       }
     } catch (error) {
       model.buildState = 'error';
@@ -606,6 +908,58 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
       syncUi();
       throw error;
     }
+  }
+
+  function initializeGuidedResultInspection({ focus = false, requestActiveElement = null } = {}) {
+    const flow = ensureModelGuidedFlowState(model);
+    if (
+      destroyed
+      || !guidedResultInspection?.isConnected
+      || !viewport?.isConnected
+      || guidedResultInspection.hidden
+      || !flow.resultExpanded
+      || !model.preview
+    ) return;
+
+    if (focus) {
+      const activeElement = root.ownerDocument.activeElement;
+      if (
+        activeElement === requestActiveElement
+        || activeElement === guidedResultInspection
+        || activeElement === root
+        || activeElement === root.ownerDocument.body
+      ) {
+        guidedResultInspection.focus();
+      }
+    }
+
+    const inspectionPreview = model.preview;
+    if (resultInspectionPreview === inspectionPreview) return;
+    resultInspectionPreview = inspectionPreview;
+    window.dispatchEvent(new Event('resize'));
+    try {
+      const controller = ensureSceneController();
+      if (!controller) return;
+      loadPreviewIntoScene()
+        .then(() => {
+          if (!destroyed && guidedResultInspection?.isConnected) controller.fitView();
+        })
+        .catch(() => {
+          if (resultInspectionPreview === inspectionPreview) resultInspectionPreview = null;
+        });
+    } catch (error) {
+      if (resultInspectionPreview === inspectionPreview) resultInspectionPreview = null;
+      const current = ensureModelGuidedFlowState(model);
+      current.error = error instanceof Error ? error.message : String(error);
+      syncUi();
+    }
+  }
+
+  function queueGuidedResultInspectionInitialization({ focus = false } = {}) {
+    const requestActiveElement = root.ownerDocument.activeElement;
+    const initialize = () => initializeGuidedResultInspection({ focus, requestActiveElement });
+    requestAnimationFrame(initialize);
+    window.setTimeout(initialize, 100);
   }
 
   async function validateConfig() {
@@ -657,9 +1011,61 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     }
   }
 
+  async function validateAiDraft({ advance = true } = {}) {
+    if (!aiDraftRequiresReview(model)) {
+      if (advance) {
+        setModelGuidedStep(model, 'preflight');
+        syncGuidedWorkflow({ focusStep: true });
+        applyTranslations(root);
+      }
+      return true;
+    }
+
+    const assistant = ensureAiDraftState(model);
+    const candidateConfig = String(model.configText || '');
+    assistant.phase = 'validating';
+    assistant.error = '';
+    syncUi();
+
+    const valid = await validateConfig();
+    if (!valid) {
+      assistant.phase = 'review';
+      assistant.error = model.errorMessage || t('studio.model.ai.review.validation-failed');
+      syncUi();
+      return false;
+    }
+    if (candidateConfig !== String(model.configText || '')) {
+      invalidateAiDraftValidation(model);
+      assistant.error = t('studio.model.ai.review.changed-during-validation');
+      syncUi();
+      return false;
+    }
+
+    markAiDraftValidated(model);
+    if (advance) setModelGuidedStep(model, 'preflight');
+    syncUi();
+    if (advance) {
+      syncGuidedWorkflow({ focusStep: true });
+      applyTranslations(root);
+    }
+    return true;
+  }
+
   async function buildPreview() {
+    if (aiDraftRequiresReview(model)) {
+      model.errorMessage = t('studio.model.ai.review.required');
+      model.buildSummary = t('studio.model.ai.review.required');
+      syncUi();
+      return;
+    }
     const valid = await validateConfig();
     if (!valid) return;
+    if (aiDraftRequiresReview(model)) {
+      model.errorMessage = t('studio.model.ai.review.changed-during-validation');
+      model.buildSummary = model.errorMessage;
+      syncUi();
+      return;
+    }
 
     model.buildState = 'building';
     model.preview = null;
@@ -706,8 +1112,18 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
   }
 
   async function runTrackedCreate() {
+    if (aiDraftRequiresReview(model)) {
+      model.trackedRun.error = t('studio.model.ai.review.required');
+      syncUi();
+      return;
+    }
     const valid = await validateConfig();
     if (!valid) return;
+    if (aiDraftRequiresReview(model)) {
+      model.trackedRun.error = t('studio.model.ai.review.changed-during-validation');
+      syncUi();
+      return;
+    }
 
     try {
       model.trackedRun.submitting = true;
@@ -746,8 +1162,18 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
   }
 
   async function runTrackedReport() {
+    if (aiDraftRequiresReview(model)) {
+      model.trackedRun.error = t('studio.model.ai.review.required');
+      syncUi();
+      return;
+    }
     const valid = await validateConfig();
     if (!valid) return;
+    if (aiDraftRequiresReview(model)) {
+      model.trackedRun.error = t('studio.model.ai.review.changed-during-validation');
+      syncUi();
+      return;
+    }
 
     try {
       model.trackedRun.submitting = true;
@@ -816,37 +1242,28 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
   async function draftFromPrompt() {
     const description = String(model.promptText || '').trim();
     if (!description) {
-      model.assistant.error = 'Enter a prompt before asking the assistant to draft TOML.';
+      model.assistant.error = t('studio.model.ai.preflight.prompt-needed');
       syncUi();
       return;
     }
+    if (model.assistant.busy) return;
 
     model.assistant.busy = true;
     model.assistant.error = '';
+    model.assistant.phase = 'requesting';
     syncUi();
 
     try {
       const payload = await postJson('/api/studio/design', {
         description,
       });
-      model.assistant.report = payload.report || null;
-      model.assistant.error = '';
-      if (payload.toml) {
-        model.configText = payload.toml;
-        model.promptMode = true;
-        model.editingEnabled = true;
-        if (!model.sourceType) {
-          model.sourceType = 'assistant draft';
-          model.sourceName = 'Prompt-generated TOML';
-          model.sourcePath = 'In-memory draft';
-        }
+      if (!String(payload.toml || '').trim()) {
+        throw new Error(t('studio.model.ai.error.no-draft'));
       }
-      if (payload.validation?.overview) {
-        model.overview = payload.validation.overview;
-      }
-      if (payload.validation?.summary) {
-        model.validation = payload.validation.summary;
-      }
+      markAiDraftForReview(model, {
+        toml: payload.toml,
+        report: payload.report || null,
+      });
       syncUi();
       addLog({
         status: 'Assistant',
@@ -856,6 +1273,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
       });
     } catch (error) {
       model.assistant.error = error instanceof Error ? error.message : String(error);
+      model.assistant.phase = 'prompt';
       syncUi();
       addLog({
         status: 'Assistant',
@@ -865,6 +1283,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
       });
     } finally {
       model.assistant.busy = false;
+      if (model.assistant.phase === 'requesting') model.assistant.phase = 'prompt';
       syncUi();
     }
   }
@@ -877,6 +1296,10 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     model.sourceName = example.name;
     model.sourcePath = example.id || example.name || state.data.examples.sourceLabel;
     model.configText = example.content || '';
+    model.assistant.phase = 'prompt';
+    model.assistant.validatedConfigText = '';
+    model.assistant.report = null;
+    model.assistant.error = '';
     model.editingEnabled = true;
     model.buildSummary = `Loaded ${example.name}. Validate or build when ready.`;
     model.errorMessage = '';
@@ -890,8 +1313,8 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     };
     model.overview = null;
     model.buildLog = [];
-    sceneController.clearScene();
-    animationController.clearMotion();
+    sceneController?.clearScene();
+    animationController?.clearMotion();
     syncUi();
   }
 
@@ -901,6 +1324,10 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     model.sourceName = file.name;
     model.sourcePath = file.name;
     model.configText = await file.text();
+    model.assistant.phase = 'prompt';
+    model.assistant.validatedConfigText = '';
+    model.assistant.report = null;
+    model.assistant.error = '';
     model.editingEnabled = true;
     model.buildSummary = `Loaded ${file.name}. Validate or build when ready.`;
     model.errorMessage = '';
@@ -914,8 +1341,8 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     };
     model.overview = null;
     model.buildLog = [];
-    sceneController.clearScene();
-    animationController.clearMotion();
+    sceneController?.clearScene();
+    animationController?.clearMotion();
     syncUi();
   }
 
@@ -925,19 +1352,120 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     model.buildState = 'idle';
     model.errorMessage = '';
     model.buildSummary = 'Result cleared. The input and settings remain ready for the next build.';
-    sceneController.clearScene();
-    animationController.clearMotion();
+    sceneController?.clearScene();
+    animationController?.clearMotion();
     syncUi();
   }
+
+  guidedInputMethodInputs.forEach((input) => {
+    input.addEventListener('change', () => {
+      if (!input.checked) return;
+      if (model.assistant.busy) {
+        syncUi();
+        return;
+      }
+      const flow = ensureModelGuidedFlowState(model);
+      flow.inputMethod = ['example', 'file', 'ai'].includes(input.value) ? input.value : 'example';
+      flow.error = '';
+      syncUi();
+    });
+  });
+  guidedExampleSelect?.addEventListener('change', () => {
+    state.data.examples.selectedId = guidedExampleSelect.value;
+    syncUi();
+  });
+  guidedOpenConfigButton?.addEventListener('click', () => guidedConfigFileInput?.click());
+  guidedConfigFileInput?.addEventListener('change', async () => {
+    const [file] = [...(guidedConfigFileInput.files || [])];
+    if (!file) return;
+    const flow = ensureModelGuidedFlowState(model);
+    try {
+      await openConfigFile(file);
+      flow.inputMethod = 'file';
+      flow.error = '';
+    } catch (error) {
+      flow.error = error instanceof Error ? error.message : String(error);
+    } finally {
+      guidedConfigFileInput.value = '';
+      syncUi();
+    }
+  });
+  guidedContinueButton?.addEventListener('click', () => {
+    const flow = ensureModelGuidedFlowState(model);
+    if (flow.inputMethod === 'ai') return;
+    if (flow.inputMethod === 'example') loadSelectedExample();
+    if (!(model.configText || '').trim()) {
+      flow.error = flow.inputMethod === 'file'
+        ? t('studio.model.guided.input.file-needed')
+        : t('studio.model.guided.input.examples-empty');
+      syncUi();
+      return;
+    }
+    setModelGuidedStep(model, 'preflight');
+    syncGuidedWorkflow({ focusStep: true });
+    applyTranslations(root);
+  });
+  guidedBackButton?.addEventListener('click', () => {
+    setModelGuidedStep(model, 'select_input');
+    syncGuidedWorkflow({ focusStep: true });
+    applyTranslations(root);
+  });
+  guidedGenerateButton?.addEventListener('click', async () => {
+    const flow = setModelGuidedStep(model, 'preflight');
+    flow.error = '';
+    await buildPreview();
+    if (model.buildState === 'success' && model.preview) {
+      setModelGuidedStep(model, 'result');
+    } else {
+      const current = setModelGuidedStep(model, 'preflight', { clearError: false });
+      current.error = model.errorMessage || t('studio.model.guided.error.title');
+    }
+    syncGuidedWorkflow({ focusStep: true });
+    applyTranslations(root);
+  });
+  guidedViewResultButton?.addEventListener('click', () => {
+    const flow = ensureModelGuidedFlowState(model);
+    flow.resultExpanded = true;
+    syncUi();
+    queueGuidedResultInspectionInitialization({ focus: true });
+  });
+  guidedResetButton?.addEventListener('click', () => {
+    resetModelGuidedFlow(model);
+    clearResult();
+    syncGuidedWorkflow({ focusStep: true });
+    applyTranslations(root);
+  });
+  advancedToolsDisclosure?.addEventListener('toggle', () => {
+    if (advancedToolsContent) advancedToolsContent.hidden = !advancedToolsDisclosure.open;
+  });
 
   configTextarea?.addEventListener('input', () => {
     model.configText = configTextarea.value;
     model.editingEnabled = true;
+    invalidateAiDraftValidation(model);
+    syncUi();
   });
 
   assistantTextarea?.addEventListener('input', () => {
     model.promptText = assistantTextarea.value;
     model.promptMode = true;
+    model.assistant.error = '';
+    syncUi();
+  });
+
+  aiDraftTextarea?.addEventListener('input', () => {
+    model.configText = aiDraftTextarea.value;
+    model.editingEnabled = true;
+    invalidateAiDraftValidation(model);
+    model.assistant.error = '';
+    syncUi();
+  });
+
+  aiCreateDraftButton?.addEventListener('click', () => {
+    draftFromPrompt().catch(() => {});
+  });
+  aiValidateDraftButton?.addEventListener('click', () => {
+    validateAiDraft({ advance: true }).catch(() => {});
   });
 
   exampleSelect?.addEventListener('change', () => {
@@ -952,10 +1480,18 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     configFileInput.value = '';
   });
   validateButton?.addEventListener('click', () => {
+    if (model.sourceType === 'assistant draft') {
+      validateAiDraft({ advance: false }).catch(() => {});
+      return;
+    }
     validateConfig().catch(() => {});
   });
   buildButton?.addEventListener('click', () => {
-    buildPreview().catch(() => {});
+    setModelGuidedStep(model, 'preflight');
+    if (advancedToolsDisclosure) advancedToolsDisclosure.open = false;
+    if (advancedToolsContent) advancedToolsContent.hidden = true;
+    syncGuidedWorkflow({ focusStep: true });
+    applyTranslations(root);
   });
   trackedCreateButton?.addEventListener('click', () => {
     runTrackedCreate().catch(() => {});
@@ -964,23 +1500,20 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     runTrackedReport().catch(() => {});
   });
   clearButton?.addEventListener('click', clearResult);
-  designButton?.addEventListener('click', () => {
-    draftFromPrompt().catch(() => {});
-  });
-  screenshotButton?.addEventListener('click', () => sceneController.takeScreenshot());
-  fitViewButton?.addEventListener('click', () => sceneController.fitView());
+  screenshotButton?.addEventListener('click', () => ensureSceneController()?.takeScreenshot());
+  fitViewButton?.addEventListener('click', () => ensureSceneController()?.fitView());
 
   wireframeInput?.addEventListener('change', () => {
     model.controls.wireframe = wireframeInput.checked;
-    sceneController.setWireframe(wireframeInput.checked);
+    sceneController?.setWireframe(wireframeInput.checked);
   });
   edgesInput?.addEventListener('change', () => {
     model.controls.edges = edgesInput.checked;
-    sceneController.setEdgesVisible(edgesInput.checked);
+    sceneController?.setEdgesVisible(edgesInput.checked);
   });
   opacityInput?.addEventListener('input', () => {
     model.controls.opacity = Number(opacityInput.value);
-    sceneController.updateOpacity(model.controls.opacity / 100);
+    sceneController?.updateOpacity(model.controls.opacity / 100);
   });
 
   includeStepInput?.addEventListener('change', () => {
@@ -1015,10 +1548,13 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
   });
 
   syncUi();
-  loadPreviewIntoScene().catch(() => {});
+  if (model.preview && ensureModelGuidedFlowState(model).resultExpanded) {
+    queueGuidedResultInspectionInitialization();
+  }
   if (state.connectionState === 'connected' && model.profileCatalog.status === 'idle') {
     loadProfileCatalog().catch(() => {});
   }
+  root.dataset.modelWorkspaceMounted = 'true';
 
   return {
     syncFromShell() {
@@ -1026,9 +1562,11 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     },
     destroy() {
       destroyed = true;
+      guidedStepFocusRequestEpoch += 1;
+      delete root.dataset.modelWorkspaceMounted;
       loadToken += 1;
-      animationController.clearMotion();
-      sceneController.destroy?.();
+      animationController?.clearMotion();
+      sceneController?.destroy?.();
     },
   };
 }

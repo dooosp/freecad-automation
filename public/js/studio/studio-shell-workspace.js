@@ -58,6 +58,7 @@ export function createStudioWorkspaceController(app) {
 
   function renderWorkspace() {
     const renderEpoch = ++app.runtime.workspaceRenderEpoch;
+    const hasDeferredWorkspaceController = ['model', 'drawing'].includes(app.state.route);
     app.runtime.activeWorkspaceController?.destroy?.();
     app.runtime.activeWorkspaceController = null;
     app.elements.workspaceRoot.replaceChildren(workspaceDefinitions[app.state.route].render(app.state));
@@ -80,7 +81,7 @@ export function createStudioWorkspaceController(app) {
       });
     }
 
-    app.dom.applyPendingFocus();
+    if (!hasDeferredWorkspaceController) app.dom.applyPendingFocus();
     applyTranslations(app.elements.workspaceRoot);
 
     if (app.state.route === 'model') {
@@ -147,6 +148,13 @@ export function createStudioWorkspaceController(app) {
       sourcePath,
       configText,
       promptMode: false,
+      assistant: {
+        busy: false,
+        error: '',
+        report: null,
+        phase: 'prompt',
+        validatedConfigText: '',
+      },
       editingEnabled: true,
       buildState: 'idle',
       buildSummary: 'Config source loaded into Model. Validate or preview it, or queue a tracked run.',
@@ -204,6 +212,12 @@ export function createStudioWorkspaceController(app) {
 
   function openPromptFlow() {
     app.state.data.model.promptMode = true;
+    app.state.data.model.guidedFlow = {
+      ...app.state.data.model.guidedFlow,
+      step: 'select_input',
+      inputMethod: 'ai',
+      error: '',
+    };
     app.addLog({
       status: 'Launchpad',
       message: 'Prompt drafting is ready in the Model workspace.',

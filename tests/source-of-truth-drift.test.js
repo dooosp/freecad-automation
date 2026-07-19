@@ -224,8 +224,8 @@ const expectedPlainPythonCommands = PLAIN_PYTHON_COMMANDS;
 const expectedConditionalCommands = CONDITIONAL_COMMANDS.map((entry) => entry.name);
 const studioSurfaceMetadata = getStudioSurfaceMetadata();
 
-assert.deepEqual(STUDIO_SURFACE_ROUTES, ['start', 'review', 'artifacts', 'model', 'drawing']);
-assert.deepEqual(STUDIO_JOB_CONTEXT_ROUTES, ['review', 'artifacts']);
+assert.deepEqual(STUDIO_SURFACE_ROUTES, ['start', 'history', 'artifacts', 'console', 'model', 'drawing', 'review']);
+assert.deepEqual(STUDIO_JOB_CONTEXT_ROUTES, ['artifacts', 'review']);
 assert.deepEqual(workspaceOrder, STUDIO_SURFACE_ROUTES, 'Studio workspace order should come from shared surface metadata');
 assertSameCommands(
   Object.keys(workspaceDefinitions),
@@ -241,7 +241,7 @@ studioSurfaceMetadata.forEach((surface) => {
   assert.equal(typeof koLocale.messages[surface.summaryI18nKey], 'string', `${surface.route} Korean summary key should exist`);
 });
 
-const studioNavRoutes = [...studioHtml.matchAll(/<a class="nav-link" href="#([^"]+)" data-route="([^"]+)">/g)]
+const studioNavRoutes = [...studioHtml.matchAll(/<a\s+class="[^"]*\bnav-link\b[^"]*"[^>]*href="#([^"]+)"[^>]*data-route="([^"]+)"/g)]
   .map((match) => ({ hrefRoute: match[1], route: match[2] }));
 assert.deepEqual(
   studioNavRoutes.map((entry) => entry.route),

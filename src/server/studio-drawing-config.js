@@ -25,7 +25,11 @@ export function normalizeStudioDrawingSettings(settings = {}, config = {}) {
 export function applyStudioDrawingSettings(config, settings) {
   ensureDrawSchema(config);
   config.drawing.views = [...settings.views];
-  config.drawing.scale = settings.scale;
+  if (String(settings.scale).trim().toLowerCase() === DEFAULT_STUDIO_DRAWING_SCALE) {
+    delete config.drawing.scale;
+  } else {
+    config.drawing.scale = settings.scale;
+  }
   config.drawing.bom_csv = true;
 
   if (settings.section_assist && !config.drawing.section) {

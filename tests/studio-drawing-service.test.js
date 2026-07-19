@@ -8,9 +8,11 @@ import { toPublicDrawingPreviewPayload } from '../src/server/public-drawing-prev
 import { createStudioDrawingService } from '../src/server/studio-drawing-service.js';
 
 const tmpRoot = mkdtempSync(join(tmpdir(), 'fcad-studio-drawing-service-'));
+const generatedConfigs = [];
 
 function createFakeDrawingService() {
   return async function generateDrawing({ config }) {
+    generatedConfigs.push(structuredClone(config));
     const outputDir = config.export.directory;
     const currentValue = config.drawing_plan?.dim_intents?.find((entry) => entry.id === 'WIDTH')?.value_mm ?? 42;
     const svgPath = join(outputDir, `${config.name}_drawing.svg`);
@@ -95,6 +97,17 @@ try {
   assert.equal('artifacts' in publicFirst.preview, false);
   assert.equal(publicFirst.preview.svg.includes(first.preview.plan_path), false);
   assert.equal(publicFirst.preview.svg.includes(first.preview.artifacts.drawing), false);
+
+  const automaticScale = await service.buildPreview({
+    configToml,
+    drawingSettings: {
+      views: ['front', 'right'],
+      scale: 'auto',
+    },
+  });
+
+  assert.equal(Object.hasOwn(generatedConfigs.at(-1).drawing, 'scale'), false);
+  assert.equal(automaticScale.preview.overview.scale, 'auto');
 
   const trackedBeforeUpdate = await service.getTrackedDrawPlan({
     previewId: first.preview.id,

@@ -7,6 +7,34 @@ import {
 const STUDIO_ROUTES = new Set(STUDIO_SURFACE_ROUTES);
 const JOB_CONTEXT_ROUTES = new Set(STUDIO_JOB_CONTEXT_ROUTES);
 const ACTIVE_JOB_STATUSES = new Set(['queued', 'running']);
+const ADVANCED_STUDIO_ROUTES = new Set(['console', 'model', 'drawing', 'review']);
+
+export const STUDIO_EXPERIENCE_MODE_STORAGE_KEY = 'studio_experience_mode';
+
+export function normalizeStudioExperienceMode(value = '') {
+  return String(value || '').trim().toLowerCase() === 'advanced' ? 'advanced' : 'default';
+}
+
+export function readStudioExperienceMode(storageLike = null) {
+  try {
+    return normalizeStudioExperienceMode(storageLike?.getItem?.(STUDIO_EXPERIENCE_MODE_STORAGE_KEY));
+  } catch {
+    return 'default';
+  }
+}
+
+export function writeStudioExperienceMode(storageLike = null, value = 'default') {
+  const mode = normalizeStudioExperienceMode(value);
+  try {
+    storageLike?.setItem?.(STUDIO_EXPERIENCE_MODE_STORAGE_KEY, mode);
+  } catch {}
+  return mode;
+}
+
+export function shouldExpandAdvancedNavigation({ route = 'start', experienceMode = 'default' } = {}) {
+  return normalizeStudioExperienceMode(experienceMode) === 'advanced'
+    || ADVANCED_STUDIO_ROUTES.has(normalizeRoute(route));
+}
 
 function hashRouteValue(hashValue) {
   return String(hashValue || '')
@@ -184,8 +212,8 @@ export function deriveStudioChromeState(data = {}) {
   }
 
   const runtimeBadgeText = health.status === 'ready'
-    ? (health.available ? 'Runtime ready' : 'Runtime check required')
-    : (connectionState === 'legacy' ? 'Runtime unavailable on legacy path' : 'Runtime status pending');
+    ? (health.available ? 'FreeCAD ready' : 'FreeCAD setup required')
+    : (connectionState === 'legacy' ? 'FreeCAD unavailable on legacy path' : 'Checking FreeCAD');
   const projectBadgeTitle = health.projectRoot || landing?.project_root || 'Project root unavailable';
   const projectBadgeText = summarizeProjectPath(projectBadgeTitle);
   const connectionBadgeText = connectionState === 'connected'

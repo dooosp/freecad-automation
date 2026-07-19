@@ -58,7 +58,11 @@ assert.match(workspaceSource, /Generated outputs/);
 assert.match(workspaceSource, /Safety boundary/);
 assert.doesNotMatch(workflowSource, /type:\s*['"]file['"]/);
 assert.doesNotMatch(workflowSource, /inspection-evidence-(authorize|attach|regenerate-readiness)|mark-package-ready|publish-release/);
-assert.equal(getStudioSurfaceMetadata().length, 5, 'the redesign must not add a Studio navigation tab');
+assert.deepEqual(
+  getStudioSurfaceMetadata().map((surface) => surface.route),
+  ['start', 'history', 'artifacts', 'console', 'model', 'drawing', 'review'],
+  'beginner navigation should add only Home history and the advanced console compatibility surface'
+);
 
 assert.equal(translateText('Create or Import & Review', 'ko'), '생성 또는 가져오기 및 검토');
 assert.equal(translateText('Compare Revisions & Plan Inspection', 'ko'), '리비전 비교 및 검사 계획');

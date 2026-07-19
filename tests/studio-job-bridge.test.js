@@ -41,6 +41,18 @@ assert.equal(drawSubmission.request.config.drawing.scale, '1:2');
 assert.equal(drawSubmission.request.config.drawing.bom_csv, true);
 assert.deepEqual(drawSubmission.request.options, { qa: true });
 
+const automaticScaleDrawSubmission = await translateStudioJobSubmission({
+  type: 'draw',
+  config_toml: baseToml,
+  drawing_settings: {
+    views: ['front', 'iso'],
+    scale: 'auto',
+  },
+});
+
+assert.equal(automaticScaleDrawSubmission.ok, true, automaticScaleDrawSubmission.errors?.join('\n'));
+assert.equal(Object.hasOwn(automaticScaleDrawSubmission.request.config.drawing, 'scale'), false);
+
 const drawSubmissionWithPlan = await translateStudioJobSubmission({
   type: 'draw',
   config_toml: baseToml,

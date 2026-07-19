@@ -507,6 +507,28 @@ try {
   assertNoLeakedPathStrings(oversizedArtifactRefPayload, [ROOT, jobsDir, tmpRoot]);
   assert.equal(JSON.stringify(oversizedArtifactRefPayload).length < 1000, true);
 
+  const aboveDefaultLimitLength = (5 * 1024 * 1024) + 1000;
+  const largeImportBootstrapResponse = await fetch(`${baseUrl}/api/studio/import-bootstrap`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model_upload: {
+        name: 'large-import.step',
+        content_base64: 'A'.repeat(aboveDefaultLimitLength),
+      },
+    }),
+  });
+  assert.equal(largeImportBootstrapResponse.status, 200);
+  const largeImportBootstrapPayload = await largeImportBootstrapResponse.json();
+  assert.equal(largeImportBootstrapPayload.ok, true);
+  const largeImportBootstrapCall = bootstrapCalls.at(-1);
+  assert.equal(largeImportBootstrapCall.model.name, 'large-import.step');
+  assert.equal(largeImportBootstrapCall.model.content_base64.length, aboveDefaultLimitLength);
+  bootstrapCalls.pop();
+
   const oversizedJsonResponse = await fetch(`${baseUrl}/api/studio/design`, {
     method: 'POST',
     headers: {

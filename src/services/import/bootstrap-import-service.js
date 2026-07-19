@@ -9,6 +9,10 @@ import {
   SUPPORTED_IMPORT_EXTENSIONS,
 } from './step-import-service.js';
 
+export const MAX_BOOTSTRAP_UPLOAD_BYTES = 32 * 1024 * 1024;
+
+const MAX_BOOTSTRAP_UPLOAD_BASE64_CHARACTERS = Math.ceil(MAX_BOOTSTRAP_UPLOAD_BYTES / 3) * 4;
+
 function isPathInside(baseDir, targetPath) {
   const base = resolve(baseDir);
   const target = resolve(targetPath);
@@ -71,6 +75,10 @@ function decodeBase64(value = '') {
   }
 }
 
+function uploadedFileTooLargeError(fileName) {
+  return new Error(`Unsupported uploaded file size for ${fileName}: uploads must not exceed 32 MiB.`);
+}
+
 async function writeUploadedFile(targetDir, file, { required = false, supportedExtensions = null } = {}) {
   if (!file) {
     if (required) throw new Error('A required uploaded file is missing.');
@@ -92,10 +100,18 @@ async function writeUploadedFile(targetDir, file, { required = false, supportedE
   if (!contentBase64) {
     throw new Error(`Uploaded file ${fileName} is missing content_base64.`);
   }
+  if (contentBase64.length > MAX_BOOTSTRAP_UPLOAD_BASE64_CHARACTERS) {
+    throw uploadedFileTooLargeError(fileName);
+  }
+
+  const content = decodeBase64(contentBase64);
+  if (content.length > MAX_BOOTSTRAP_UPLOAD_BYTES) {
+    throw uploadedFileTooLargeError(fileName);
+  }
 
   await mkdir(targetDir, { recursive: true });
   const absolutePath = resolve(targetDir, fileName);
-  await writeFile(absolutePath, decodeBase64(contentBase64));
+  await writeFile(absolutePath, content);
   return {
     absolutePath,
     fileName,

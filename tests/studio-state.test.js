@@ -1,15 +1,43 @@
 import assert from 'node:assert/strict';
 
 import {
+  STUDIO_EXPERIENCE_MODE_STORAGE_KEY,
   deriveStudioChromeState,
   deriveStudioWorkspaceSelection,
   normalizeRoute,
+  normalizeStudioExperienceMode,
   parseStudioLocationState,
+  readStudioExperienceMode,
   serializeStudioLocationState,
+  shouldExpandAdvancedNavigation,
   summarizeProjectPath,
+  writeStudioExperienceMode,
 } from '../public/js/studio/studio-state.js';
 
+assert.equal(STUDIO_EXPERIENCE_MODE_STORAGE_KEY, 'studio_experience_mode');
+assert.equal(normalizeStudioExperienceMode('advanced'), 'advanced');
+assert.equal(normalizeStudioExperienceMode('unexpected'), 'default');
+
+const experienceStorage = new Map();
+const storage = {
+  getItem(key) {
+    return experienceStorage.get(key) || null;
+  },
+  setItem(key, value) {
+    experienceStorage.set(key, value);
+  },
+};
+assert.equal(readStudioExperienceMode(storage), 'default');
+assert.equal(writeStudioExperienceMode(storage, 'advanced'), 'advanced');
+assert.equal(readStudioExperienceMode(storage), 'advanced');
+assert.equal(shouldExpandAdvancedNavigation({ route: 'start', experienceMode: 'advanced' }), true);
+assert.equal(shouldExpandAdvancedNavigation({ route: 'review', experienceMode: 'default' }), true);
+assert.equal(shouldExpandAdvancedNavigation({ route: 'start', experienceMode: 'default' }), false);
+assert.equal(experienceStorage.get(STUDIO_EXPERIENCE_MODE_STORAGE_KEY), 'advanced');
+
 assert.equal(normalizeRoute('#drawing'), 'drawing');
+assert.equal(normalizeRoute('#history'), 'history');
+assert.equal(normalizeRoute('#console'), 'console');
 assert.equal(normalizeRoute(' review '), 'review');
 assert.equal(normalizeRoute('#unknown-route'), 'start');
 assert.equal(normalizeRoute('#review?job=job-123'), 'review');
@@ -61,6 +89,14 @@ assert.equal(
     selectedJobId: 'job-123',
   }),
   '#model'
+);
+
+assert.equal(
+  serializeStudioLocationState({
+    route: 'history',
+    selectedJobId: 'job-123',
+  }),
+  '#history'
 );
 
 assert.deepEqual(
@@ -137,7 +173,7 @@ const connected = deriveStudioChromeState({
 
 assert.equal(connected.connectionState, 'connected');
 assert.equal(connected.runtimeTone, 'ok');
-assert.equal(connected.runtimeBadgeText, 'Runtime ready');
+assert.equal(connected.runtimeBadgeText, 'FreeCAD ready');
 assert.equal(connected.connectionBadgeText, 'Local API connected');
 assert.equal(connected.jobBadgeText, 'Recent draw succeeded');
 assert.equal(connected.projectBadgeText, 'Project New/freecad-automation');
@@ -290,7 +326,7 @@ const legacy = deriveStudioChromeState({
 assert.equal(legacy.connectionState, 'legacy');
 assert.equal(legacy.connectionLabel, 'legacy shell');
 assert.equal(legacy.runtimeTone, 'warn');
-assert.equal(legacy.runtimeBadgeText, 'Runtime unavailable on legacy path');
+assert.equal(legacy.runtimeBadgeText, 'FreeCAD unavailable on legacy path');
 assert.equal(legacy.connectionBadgeText, 'Legacy shell fallback');
 assert.equal(legacy.jobBadgeText, 'No recent job');
 
