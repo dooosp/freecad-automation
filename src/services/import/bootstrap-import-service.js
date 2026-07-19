@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, realpath, stat, writeFile } from 'node:fs/promises';
 import { basename, extname, relative, resolve, sep } from 'node:path';
 
 import { runPythonJsonScript, writeJsonFile } from '../../../lib/context-loader.js';
@@ -67,28 +67,127 @@ function ensureProjectLocalPath(projectRoot, fileInfo, label) {
   }
 }
 
-function decodeBase64(value = '') {
+async function canonicalProjectRoot(projectRoot) {
   try {
-    return Buffer.from(String(value), 'base64');
+    return await realpath(resolve(projectRoot));
   } catch {
-    throw new Error('Uploaded file content must be valid base64.');
+    throw new Error('Project root is missing or unavailable.');
   }
 }
 
-function uploadedFileTooLargeError(fileName) {
-  return new Error(`Unsupported uploaded file size for ${fileName}: uploads must not exceed 32 MiB.`);
+async function canonicalProjectFile(projectRoot, filePath, label, {
+  requestProjectRoot = projectRoot,
+} = {}) {
+  const requestedPath = resolve(requestProjectRoot, filePath);
+  if (!isPathInside(requestProjectRoot, requestedPath)) {
+    throw new Error(`${label} path must stay inside the project root.`);
+  }
+  let requestedEntry;
+  try {
+    requestedEntry = await lstat(requestedPath);
+  } catch {
+    throw new Error(`${label} path is missing or unavailable.`);
+  }
+  if (requestedEntry.isSymbolicLink()) {
+    throw new Error(`${label} path must not use symbolic links.`);
+  }
+
+  let absolutePath;
+  try {
+    absolutePath = await realpath(requestedPath);
+  } catch {
+    throw new Error(`${label} path is missing or unavailable.`);
+  }
+  if (!isPathInside(projectRoot, absolutePath)) {
+    throw new Error(`${label} path must stay inside the project root.`);
+  }
+  let fileStats;
+  try {
+    fileStats = await stat(absolutePath);
+  } catch {
+    throw new Error(`${label} path is missing or unavailable.`);
+  }
+  if (!fileStats.isFile()) {
+    throw new Error(`${label} path must reference a regular file.`);
+  }
+  return absolutePath;
 }
 
-async function writeUploadedFile(targetDir, file, { required = false, supportedExtensions = null } = {}) {
+async function ensureProjectDirectory(projectRoot, directoryPath, label) {
+  const targetPath = resolve(directoryPath);
+  if (!isPathInside(projectRoot, targetPath)) {
+    throw new Error(`${label} must stay inside the project root.`);
+  }
+
+  const segments = relative(projectRoot, targetPath).split(sep).filter(Boolean);
+  let currentPath = projectRoot;
+  for (const segment of segments) {
+    const nextPath = resolve(currentPath, segment);
+    let entry;
+    try {
+      entry = await lstat(nextPath);
+    } catch (error) {
+      if (error?.code !== 'ENOENT') {
+        throw new Error(`${label} is unavailable.`);
+      }
+      try {
+        await mkdir(nextPath);
+        entry = await lstat(nextPath);
+      } catch {
+        throw new Error(`${label} is unavailable.`);
+      }
+    }
+    if (entry.isSymbolicLink()) {
+      throw new Error(`${label} must not use symbolic links.`);
+    }
+    if (!entry.isDirectory()) {
+      throw new Error(`${label} must reference a directory.`);
+    }
+    try {
+      currentPath = await realpath(nextPath);
+    } catch {
+      throw new Error(`${label} is unavailable.`);
+    }
+    if (!isPathInside(projectRoot, currentPath)) {
+      throw new Error(`${label} must stay inside the project root.`);
+    }
+  }
+  return currentPath;
+}
+
+function decodeBase64(value = '') {
+  const encoded = String(value);
+  if (encoded.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(encoded)) {
+    throw new Error('Uploaded file content must be valid base64.');
+  }
+  return Buffer.from(encoded, 'base64');
+}
+
+function uploadedFileTooLargeError() {
+  const error = new Error('Unsupported uploaded file size: uploads must not exceed 32 MiB.');
+  error.statusCode = 413;
+  return error;
+}
+
+async function writeUploadedFile(targetDir, file, {
+  projectRoot,
+  requestProjectRoot = projectRoot,
+  label = 'Uploaded file',
+  required = false,
+  supportedExtensions = null,
+} = {}) {
   if (!file) {
     if (required) throw new Error('A required uploaded file is missing.');
     return null;
   }
 
   if (typeof file.path === 'string' && file.path.trim()) {
+    const absolutePath = await canonicalProjectFile(projectRoot, file.path.trim(), label, {
+      requestProjectRoot,
+    });
     return {
-      absolutePath: resolve(file.path),
-      fileName: basename(file.path.trim()),
+      absolutePath,
+      fileName: basename(absolutePath),
     };
   }
 
@@ -96,22 +195,27 @@ async function writeUploadedFile(targetDir, file, { required = false, supportedE
   if (supportedExtensions && !supportedExtensions.has(extname(fileName).toLowerCase())) {
     throw new Error(`Unsupported uploaded file format: ${extname(fileName).toLowerCase() || 'unknown'}`);
   }
-  const contentBase64 = safeString(file.content_base64);
+  const contentBase64 = typeof file.content_base64 === 'string' ? file.content_base64 : '';
   if (!contentBase64) {
     throw new Error(`Uploaded file ${fileName} is missing content_base64.`);
   }
   if (contentBase64.length > MAX_BOOTSTRAP_UPLOAD_BASE64_CHARACTERS) {
-    throw uploadedFileTooLargeError(fileName);
+    throw uploadedFileTooLargeError();
   }
 
   const content = decodeBase64(contentBase64);
   if (content.length > MAX_BOOTSTRAP_UPLOAD_BYTES) {
-    throw uploadedFileTooLargeError(fileName);
+    throw uploadedFileTooLargeError();
   }
 
-  await mkdir(targetDir, { recursive: true });
-  const absolutePath = resolve(targetDir, fileName);
-  await writeFile(absolutePath, content);
+  const canonicalTargetDir = await ensureProjectDirectory(projectRoot, targetDir, 'Bootstrap source directory');
+  const writtenPath = resolve(canonicalTargetDir, fileName);
+  try {
+    await writeFile(writtenPath, content, { flag: 'wx' });
+  } catch {
+    throw new Error('Bootstrap storage failed.');
+  }
+  const absolutePath = await canonicalProjectFile(projectRoot, writtenPath, label);
   return {
     absolutePath,
     fileName,
@@ -324,36 +428,54 @@ export function createBootstrapImportService({
     quality = null,
     metadata = {},
   }) {
+    const requestProjectRoot = resolve(projectRoot);
+    const realProjectRoot = await canonicalProjectRoot(projectRoot);
     const sessionId = `bootstrap-${Date.now()}-${randomUUID().slice(0, 8)}`;
-    const sessionDir = resolve(projectRoot, 'output', 'imports', sessionId);
+    const sessionDir = resolve(realProjectRoot, 'output', 'imports', sessionId);
     const sourceDir = resolve(sessionDir, 'source');
     const artifactsDir = resolve(sessionDir, 'artifacts');
+    await ensureProjectDirectory(realProjectRoot, resolve(realProjectRoot, 'output', 'imports'), 'Bootstrap import directory');
 
     const modelFile = await writeUploadedFile(sourceDir, model, {
+      projectRoot: realProjectRoot,
+      requestProjectRoot,
+      label: 'Imported model',
       required: true,
       supportedExtensions: SUPPORTED_IMPORT_EXTENSIONS,
     });
     if (!extensionIsSupported(modelFile.fileName)) {
       throw new Error(`Unsupported import file format: ${extname(modelFile.fileName).toLowerCase() || 'unknown'}`);
     }
-    if (!isPathInside(projectRoot, modelFile.absolutePath)) {
+    if (!isPathInside(realProjectRoot, modelFile.absolutePath)) {
       throw new Error('Imported model path must be inside project root.');
     }
 
-    const bomFile = await writeUploadedFile(sourceDir, bom);
-    const inspectionFile = await writeUploadedFile(sourceDir, inspection);
-    const qualityFile = await writeUploadedFile(sourceDir, quality);
-    ensureProjectLocalPath(projectRoot, bomFile, 'BOM');
-    ensureProjectLocalPath(projectRoot, inspectionFile, 'Inspection');
-    ensureProjectLocalPath(projectRoot, qualityFile, 'Quality');
+    const bomFile = await writeUploadedFile(sourceDir, bom, {
+      projectRoot: realProjectRoot,
+      requestProjectRoot,
+      label: 'BOM',
+    });
+    const inspectionFile = await writeUploadedFile(sourceDir, inspection, {
+      projectRoot: realProjectRoot,
+      requestProjectRoot,
+      label: 'Inspection',
+    });
+    const qualityFile = await writeUploadedFile(sourceDir, quality, {
+      projectRoot: realProjectRoot,
+      requestProjectRoot,
+      label: 'Quality',
+    });
+    ensureProjectLocalPath(realProjectRoot, bomFile, 'BOM');
+    ensureProjectLocalPath(realProjectRoot, inspectionFile, 'Inspection');
+    ensureProjectLocalPath(realProjectRoot, qualityFile, 'Quality');
     const generatedAt = new Date().toISOString();
 
-    const analysis = await analyzeModelFn(projectRoot, runScript, modelFile.absolutePath);
+    const analysis = await analyzeModelFn(realProjectRoot, runScript, modelFile.absolutePath);
     if (analysis.import_diagnostics?.fail_closed) {
       throw new Error('Imported CAD failed bootstrap intake checks and must be corrected before review can start.');
     }
 
-    const ingestResult = await runPythonJsonScriptFn(projectRoot, 'scripts/ingest_context.py', {
+    const ingestResult = await runPythonJsonScriptFn(realProjectRoot, 'scripts/ingest_context.py', {
       model: modelFile.absolutePath,
       bom: bomFile?.absolutePath || null,
       inspection: inspectionFile?.absolutePath || null,
@@ -378,7 +500,7 @@ export function createBootstrapImportService({
       generatedAt,
     });
 
-    const geometryResult = await runPythonJsonScriptFn(projectRoot, 'scripts/analyze_part.py', {
+    const geometryResult = await runPythonJsonScriptFn(realProjectRoot, 'scripts/analyze_part.py', {
       context: engineeringContext,
       model_metadata: analysis.model_metadata || engineeringContext.geometry_source?.model_metadata || null,
       feature_hints: normalizeFeatureHints(analysis),
@@ -419,23 +541,23 @@ export function createBootstrapImportService({
     });
     const draftConfigToml = `${generateConfigFromAnalysis(analysis).trimEnd()}\n`;
 
-    await mkdir(artifactsDir, { recursive: true });
-    const draftConfigPath = resolve(artifactsDir, 'draft_config.toml');
+    const canonicalArtifactsDir = await ensureProjectDirectory(realProjectRoot, artifactsDir, 'Bootstrap artifacts directory');
+    const draftConfigPath = resolve(canonicalArtifactsDir, 'draft_config.toml');
     await writeFile(draftConfigPath, draftConfigToml, 'utf8');
     const finalizedEngineeringContext = attachBootstrapStateToContext(engineeringContext, {
-      projectRoot,
+      projectRoot: realProjectRoot,
       importDiagnostics: analysis.import_diagnostics || {},
       bootstrapSummary,
       confidenceMap,
       bootstrapWarnings: bootstrapWarnings.warnings,
       draftConfigPath,
     });
-    const engineeringContextPath = await writeJsonFile(resolve(artifactsDir, 'engineering_context.json'), finalizedEngineeringContext);
-    const geometryIntelligencePath = await writeJsonFile(resolve(artifactsDir, 'geometry_intelligence.json'), geometryResult.geometry_intelligence);
-    const importDiagnosticsPath = await writeJsonFile(resolve(artifactsDir, 'import_diagnostics.json'), importDiagnostics);
-    const bootstrapWarningsPath = await writeJsonFile(resolve(artifactsDir, 'bootstrap_warnings.json'), bootstrapWarnings);
-    const confidenceMapPath = await writeJsonFile(resolve(artifactsDir, 'confidence_map.json'), confidenceMap);
-    const bootstrapSummaryPath = await writeJsonFile(resolve(artifactsDir, 'bootstrap_summary.json'), bootstrapSummary);
+    const engineeringContextPath = await writeJsonFile(resolve(canonicalArtifactsDir, 'engineering_context.json'), finalizedEngineeringContext);
+    const geometryIntelligencePath = await writeJsonFile(resolve(canonicalArtifactsDir, 'geometry_intelligence.json'), geometryResult.geometry_intelligence);
+    const importDiagnosticsPath = await writeJsonFile(resolve(canonicalArtifactsDir, 'import_diagnostics.json'), importDiagnostics);
+    const bootstrapWarningsPath = await writeJsonFile(resolve(canonicalArtifactsDir, 'bootstrap_warnings.json'), bootstrapWarnings);
+    const confidenceMapPath = await writeJsonFile(resolve(canonicalArtifactsDir, 'confidence_map.json'), confidenceMap);
+    const bootstrapSummaryPath = await writeJsonFile(resolve(canonicalArtifactsDir, 'bootstrap_summary.json'), bootstrapSummary);
 
     const artifactMap = {
       import_diagnostics: importDiagnosticsPath,
@@ -451,10 +573,10 @@ export function createBootstrapImportService({
       ok: true,
       session_id: sessionId,
       source: {
-        model_path: normalizeRelativePath(projectRoot, modelFile.absolutePath),
-        bom_path: bomFile ? normalizeRelativePath(projectRoot, bomFile.absolutePath) : null,
-        inspection_path: inspectionFile ? normalizeRelativePath(projectRoot, inspectionFile.absolutePath) : null,
-        quality_path: qualityFile ? normalizeRelativePath(projectRoot, qualityFile.absolutePath) : null,
+        model_path: normalizeRelativePath(realProjectRoot, modelFile.absolutePath),
+        bom_path: bomFile ? normalizeRelativePath(realProjectRoot, bomFile.absolutePath) : null,
+        inspection_path: inspectionFile ? normalizeRelativePath(realProjectRoot, inspectionFile.absolutePath) : null,
+        quality_path: qualityFile ? normalizeRelativePath(realProjectRoot, qualityFile.absolutePath) : null,
       },
       bootstrap: {
         import_diagnostics: importDiagnostics,
@@ -465,13 +587,13 @@ export function createBootstrapImportService({
         geometry_intelligence: geometryResult.geometry_intelligence,
       },
       tracked_review_seed: {
-        context_path: normalizeRelativePath(projectRoot, engineeringContextPath),
-        model_path: normalizeRelativePath(projectRoot, modelFile.absolutePath),
-        bom_path: bomFile ? normalizeRelativePath(projectRoot, bomFile.absolutePath) : null,
-        inspection_path: inspectionFile ? normalizeRelativePath(projectRoot, inspectionFile.absolutePath) : null,
-        quality_path: qualityFile ? normalizeRelativePath(projectRoot, qualityFile.absolutePath) : null,
+        context_path: normalizeRelativePath(realProjectRoot, engineeringContextPath),
+        model_path: normalizeRelativePath(realProjectRoot, modelFile.absolutePath),
+        bom_path: bomFile ? normalizeRelativePath(realProjectRoot, bomFile.absolutePath) : null,
+        inspection_path: inspectionFile ? normalizeRelativePath(realProjectRoot, inspectionFile.absolutePath) : null,
+        quality_path: qualityFile ? normalizeRelativePath(realProjectRoot, qualityFile.absolutePath) : null,
       },
-      artifacts: buildArtifactList(projectRoot, artifactMap),
+      artifacts: buildArtifactList(realProjectRoot, artifactMap),
     };
   };
 }

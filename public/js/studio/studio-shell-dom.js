@@ -212,6 +212,8 @@ function completionNoticeKey(notice, locale = '') {
 
 export function createStudioShellDomController(app) {
   let lastCompletionNoticeKey = null;
+  let jobsDrawerReturnFocusTarget = app.elements.jobsToggle;
+  let logDrawerReturnFocusTarget = app.elements.logToggle;
 
   function syncChrome() {
     const workspace = workspaceDefinitions[app.state.route];
@@ -359,16 +361,28 @@ export function createStudioShellDomController(app) {
     applyTranslations(app.elements.logFeed);
   }
 
-  function setLogDrawer(open, { focusEntry = false } = {}) {
+  function setLogDrawer(open, {
+    focusEntry = false,
+    restoreFocus = false,
+    returnFocusTarget = app.elements.logToggle,
+  } = {}) {
+    if (open) logDrawerReturnFocusTarget = returnFocusTarget;
     app.elements.logDrawer.classList.toggle('is-open', open);
     app.elements.logToggle.setAttribute('aria-expanded', String(open));
     if (open && focusEntry) app.elements.logClose.focus();
+    if (!open && restoreFocus) logDrawerReturnFocusTarget.focus();
   }
 
-  function setJobsDrawer(open, { focusEntry = false } = {}) {
+  function setJobsDrawer(open, {
+    focusEntry = false,
+    restoreFocus = false,
+    returnFocusTarget = app.elements.jobsToggle,
+  } = {}) {
+    if (open) jobsDrawerReturnFocusTarget = returnFocusTarget;
     app.elements.jobsDrawer.classList.toggle('is-open', open);
     app.elements.jobsToggle.setAttribute('aria-expanded', String(open));
     if (open && focusEntry) app.elements.jobsClose.focus();
+    if (!open && restoreFocus) jobsDrawerReturnFocusTarget.focus();
   }
 
   function setSidebar(open, { restoreFocus = false } = {}) {

@@ -173,16 +173,35 @@ function studioSnapshotExpression() {
 }
 
 function drawerSnapshotExpression() {
-  return `(() => ({
-    sidebarOpen: document.getElementById('studio-sidebar')?.classList.contains('is-open') || false,
-    mainInert: document.querySelector('.studio-main')?.inert ?? false,
-    skipLinkInert: document.querySelector('.skip-link')?.inert ?? false,
-    jobsOpen: document.getElementById('jobs-drawer')?.classList.contains('is-open') || false,
-    jobsExpanded: document.getElementById('jobs-toggle')?.getAttribute('aria-expanded') || '',
-    logOpen: document.getElementById('log-drawer')?.classList.contains('is-open') || false,
-    logExpanded: document.getElementById('log-toggle')?.getAttribute('aria-expanded') || '',
-    activeElementId: document.activeElement?.id || '',
-  }))()`;
+  return `(() => {
+    const activeElement = document.activeElement;
+    const activeRect = activeElement?.getBoundingClientRect();
+    const activeStyle = activeElement instanceof Element ? getComputedStyle(activeElement) : null;
+    const activeElementVisible = Boolean(
+      activeElement instanceof HTMLElement
+      && activeElement.getClientRects().length > 0
+      && activeRect.width > 0
+      && activeRect.height > 0
+      && activeStyle?.display !== 'none'
+      && activeStyle?.visibility !== 'hidden'
+    );
+    return {
+      sidebarOpen: document.getElementById('studio-sidebar')?.classList.contains('is-open') || false,
+      mainInert: document.querySelector('.studio-main')?.inert ?? false,
+      skipLinkInert: document.querySelector('.skip-link')?.inert ?? false,
+      jobsOpen: document.getElementById('jobs-drawer')?.classList.contains('is-open') || false,
+      jobsExpanded: document.getElementById('jobs-toggle')?.getAttribute('aria-expanded') || '',
+      logOpen: document.getElementById('log-drawer')?.classList.contains('is-open') || false,
+      logExpanded: document.getElementById('log-toggle')?.getAttribute('aria-expanded') || '',
+      activeElementId: activeElement?.id || '',
+      activeElementVisible,
+      activeElementInViewport: activeElementVisible
+        && activeRect.left >= 0
+        && activeRect.top >= 0
+        && activeRect.right <= window.innerWidth
+        && activeRect.bottom <= window.innerHeight,
+    };
+  })()`;
 }
 
 function localeSnapshotExpression() {
@@ -2369,39 +2388,65 @@ try {
   await cdp.send('Emulation.setEmulatedMedia', { features: [] });
 
   for (const drawer of [
-    { toggleId: 'jobs-toggle', closeId: 'jobs-close', openKey: 'jobsOpen' },
-    { toggleId: 'log-toggle', closeId: 'log-close', openKey: 'logOpen' },
+    {
+      toggleId: 'jobs-toggle',
+      closeId: 'jobs-close',
+      openKey: 'jobsOpen',
+      expandedKey: 'jobsExpanded',
+    },
+    {
+      toggleId: 'log-toggle',
+      closeId: 'log-close',
+      openKey: 'logOpen',
+      expandedKey: 'logExpanded',
+    },
   ]) {
-    await cdp.evaluate(`(() => {
-      document.getElementById('studio-nav-toggle')?.click();
-      const advanced = document.getElementById('advanced-work-navigation');
-      if (advanced) advanced.open = true;
-    })()`);
-    await waitFor(async () => {
-      const snapshot = await cdp.evaluate(drawerSnapshotExpression());
-      assert.equal(snapshot.sidebarOpen, true);
-      assert.equal(snapshot.mainInert, true);
-      assert.equal(snapshot.skipLinkInert, true);
-      return snapshot;
-    });
+    for (const closeMethod of ['button', 'escape']) {
+      await cdp.evaluate(`(() => {
+        document.getElementById('studio-nav-toggle')?.click();
+        const advanced = document.getElementById('advanced-work-navigation');
+        if (advanced) advanced.open = true;
+      })()`);
+      await waitFor(async () => {
+        const snapshot = await cdp.evaluate(drawerSnapshotExpression());
+        assert.equal(snapshot.sidebarOpen, true);
+        assert.equal(snapshot.mainInert, true);
+        assert.equal(snapshot.skipLinkInert, true);
+        return snapshot;
+      });
 
-    await cdp.evaluate(`document.getElementById('${drawer.toggleId}')?.click()`);
-    await waitFor(async () => {
-      const snapshot = await cdp.evaluate(drawerSnapshotExpression());
-      assert.equal(snapshot[drawer.openKey], true);
-      assert.equal(snapshot.sidebarOpen, false);
-      assert.equal(snapshot.mainInert, false);
-      assert.equal(snapshot.skipLinkInert, false);
-      assert.equal(snapshot.activeElementId, drawer.closeId);
-      return snapshot;
-    });
+      await cdp.evaluate(`document.getElementById('${drawer.toggleId}')?.click()`);
+      await waitFor(async () => {
+        const snapshot = await cdp.evaluate(drawerSnapshotExpression());
+        assert.equal(snapshot[drawer.openKey], true);
+        assert.equal(snapshot[drawer.expandedKey], 'true');
+        assert.equal(snapshot.sidebarOpen, false);
+        assert.equal(snapshot.mainInert, false);
+        assert.equal(snapshot.skipLinkInert, false);
+        assert.equal(snapshot.activeElementId, drawer.closeId);
+        return snapshot;
+      });
 
-    await cdp.evaluate(`document.getElementById('${drawer.closeId}')?.click()`);
-    await waitFor(async () => {
-      const snapshot = await cdp.evaluate(drawerSnapshotExpression());
-      assert.equal(snapshot[drawer.openKey], false);
-      return snapshot;
-    });
+      if (closeMethod === 'button') {
+        await cdp.evaluate(`document.getElementById('${drawer.closeId}')?.click()`);
+      } else {
+        await cdp.send('Input.dispatchKeyEvent', {
+          type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27,
+        });
+        await cdp.send('Input.dispatchKeyEvent', {
+          type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27,
+        });
+      }
+      await waitFor(async () => {
+        const snapshot = await cdp.evaluate(drawerSnapshotExpression());
+        assert.equal(snapshot[drawer.openKey], false);
+        assert.equal(snapshot[drawer.expandedKey], 'false');
+        assert.equal(snapshot.activeElementId, 'studio-nav-toggle');
+        assert.equal(snapshot.activeElementVisible, true);
+        assert.equal(snapshot.activeElementInViewport, true);
+        return snapshot;
+      });
+    }
   }
 
   await cdp.evaluate(`document.getElementById('studio-nav-toggle')?.click()`);
@@ -4285,6 +4330,48 @@ try {
   assertIncludesAll(historySnapshot.seededText, ['Execution: Completed', 'Quality: Not available', 'Open results']);
   assert.match(historySnapshot.seededText, /(ago|now)/);
   assert.equal(historySnapshot.contracts.every((card) => card.primary === 1 && card.overflow === 1), true);
+
+  await cdp.send('Emulation.setDeviceMetricsOverride', {
+    width: 320,
+    height: 900,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
+  const historyCardSelector = `[data-history-job-id="${seededJob.id}"]`;
+  const historyOverflowTriggerSelector = `${historyCardSelector} .overflow-menu-trigger`;
+  const historyRunInformationSelector = `${historyCardSelector} [data-action="open-jobs-center"]`;
+  await cdp.evaluate(`document.querySelector(${JSON.stringify(historyOverflowTriggerSelector)})
+    ?.scrollIntoView({ block: 'center' })`);
+  await keyboardActivate(cdp, historyOverflowTriggerSelector);
+  assert.equal(
+    await cdp.evaluate(`document.querySelector(${JSON.stringify(historyRunInformationSelector)})?.textContent?.trim()`),
+    'Run information'
+  );
+  await keyboardActivate(cdp, historyRunInformationSelector);
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(drawerSnapshotExpression());
+    assert.equal(snapshot.jobsOpen, true);
+    assert.equal(snapshot.jobsExpanded, 'true');
+    assert.equal(snapshot.activeElementId, 'jobs-close');
+    return snapshot;
+  });
+  await keyboardActivate(cdp, '#jobs-close');
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(drawerSnapshotExpression());
+    const focusReturned = await cdp.evaluate(`document.activeElement
+      === document.querySelector(${JSON.stringify(historyOverflowTriggerSelector)})`);
+    assert.equal(snapshot.jobsOpen, false);
+    assert.equal(focusReturned, true);
+    assert.equal(snapshot.activeElementVisible, true);
+    assert.equal(snapshot.activeElementInViewport, true);
+    return snapshot;
+  });
+  await cdp.send('Emulation.setDeviceMetricsOverride', {
+    width: 1440,
+    height: 1000,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
 
   let previousWorkPrimaryActions = 0;
   await keyboardActivate(cdp, `[data-history-job-id="${seededJob.id}"] [data-action-kind="primary"]`);

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -7,6 +7,10 @@ import { buildImportBootstrapOptions } from '../public/js/studio/import-bootstra
 import { buildArtifactManifest } from '../lib/artifact-manifest.js';
 import { createLocalApiServer } from '../src/server/local-api-server.js';
 import { validateLocalApiResponse } from '../src/server/local-api-schemas.js';
+import {
+  createBootstrapImportService,
+  MAX_BOOTSTRAP_UPLOAD_BYTES,
+} from '../src/services/import/bootstrap-import-service.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const tmpRoot = mkdtempSync(join(tmpdir(), 'fcad-local-api-root-'));
@@ -528,6 +532,173 @@ try {
   assert.equal(largeImportBootstrapCall.model.name, 'large-import.step');
   assert.equal(largeImportBootstrapCall.model.content_base64.length, aboveDefaultLimitLength);
   bootstrapCalls.pop();
+
+  const guardedProjectRoot = join(tmpRoot, 'bootstrap-guard-project');
+  const guardedExternalRoot = join(tmpRoot, 'bootstrap-guard-external');
+  const guardedInputDir = join(guardedProjectRoot, 'inputs');
+  const guardedModelPath = join(guardedInputDir, 'valid.step');
+  const guardedExternalModelPath = join(guardedExternalRoot, 'outside.step');
+  const guardedEscapedModelPath = join(guardedInputDir, 'escaped.step');
+  const guardedLinkedModelPath = join(guardedInputDir, 'linked.step');
+  mkdirSync(guardedInputDir, { recursive: true });
+  mkdirSync(guardedExternalRoot, { recursive: true });
+  writeFileSync(guardedModelPath, 'guarded STEP fixture\n');
+  writeFileSync(guardedExternalModelPath, 'outside STEP fixture\n');
+  symlinkSync(guardedExternalModelPath, guardedEscapedModelPath);
+  symlinkSync(guardedModelPath, guardedLinkedModelPath);
+
+  let guardedAnalyzeCalls = 0;
+  let guardedRuntimeCalls = 0;
+  const guardedBootstrapImportService = createBootstrapImportService({
+    analyzeModelFn: async () => {
+      guardedAnalyzeCalls += 1;
+      return {};
+    },
+    runPythonJsonScriptFn: async () => {
+      guardedRuntimeCalls += 1;
+      throw new Error('Rejected HTTP import reached runtime analysis.');
+    },
+  });
+  const { server: guardedImportServer } = createLocalApiServer({
+    projectRoot: guardedProjectRoot,
+    jobsDir: join(tmpRoot, 'bootstrap-guard-jobs'),
+    studioModelServiceFactory: () => createFailingStudioModelService('Guarded model service should not run.'),
+    studioDrawingServiceFactory: () => createQuietStudioDrawingService(),
+    bootstrapImportServiceFactory: () => guardedBootstrapImportService,
+  });
+  try {
+    const guardedImportPort = await listen(guardedImportServer);
+    const guardedImportBaseUrl = `http://127.0.0.1:${guardedImportPort}`;
+
+    const traversalImportResponse = await fetch(`${guardedImportBaseUrl}/api/studio/import-bootstrap`, {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model_path: '../bootstrap-guard-external/outside.step',
+      }),
+    });
+    assert.equal(traversalImportResponse.status, 400);
+    const traversalImportPayload = await traversalImportResponse.json();
+    assert.equal(traversalImportPayload.ok, false);
+    assert.equal(traversalImportPayload.error.code, 'import_bootstrap_failed');
+    assert.match(traversalImportPayload.error.messages.join('\n'), /must stay inside the project root/i);
+    assertNoLeakedPathStrings(traversalImportPayload, [guardedProjectRoot, guardedExternalModelPath, tmpRoot]);
+    assert.equal(JSON.stringify(traversalImportPayload).length < 1000, true);
+
+    const symlinkImportResponse = await fetch(`${guardedImportBaseUrl}/api/studio/import-bootstrap`, {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model_path: 'inputs/escaped.step',
+      }),
+    });
+    assert.equal(symlinkImportResponse.status, 400);
+    const symlinkImportPayload = await symlinkImportResponse.json();
+    assert.equal(symlinkImportPayload.ok, false);
+    assert.equal(symlinkImportPayload.error.code, 'import_bootstrap_failed');
+    assert.match(symlinkImportPayload.error.messages.join('\n'), /must not use symbolic links/i);
+    assertNoLeakedPathStrings(symlinkImportPayload, [guardedProjectRoot, guardedExternalModelPath, tmpRoot]);
+    assert.equal(JSON.stringify(symlinkImportPayload).length < 1000, true);
+
+    const linkedImportResponse = await fetch(`${guardedImportBaseUrl}/api/studio/import-bootstrap`, {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model_path: 'inputs/linked.step',
+      }),
+    });
+    assert.equal(linkedImportResponse.status, 400);
+    const linkedImportPayload = await linkedImportResponse.json();
+    assert.equal(linkedImportPayload.ok, false);
+    assert.equal(linkedImportPayload.error.code, 'import_bootstrap_failed');
+    assert.match(linkedImportPayload.error.messages.join('\n'), /must not use symbolic links/i);
+    assertNoLeakedPathStrings(linkedImportPayload, [guardedProjectRoot, guardedModelPath, tmpRoot]);
+    assert.equal(JSON.stringify(linkedImportPayload).length < 1000, true);
+
+    const wrongContentTypeResponse = await fetch(`${guardedImportBaseUrl}/api/studio/import-bootstrap`, {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'text/plain',
+      },
+      body: JSON.stringify({
+        model_path: 'inputs/valid.step',
+      }),
+    });
+    assert.equal(wrongContentTypeResponse.status, 400);
+    const wrongContentTypePayload = await wrongContentTypeResponse.json();
+    assert.equal(wrongContentTypePayload.ok, false);
+    assert.equal(wrongContentTypePayload.error.code, 'import_bootstrap_failed');
+    assert.match(wrongContentTypePayload.error.messages.join('\n'), /required uploaded file is missing/i);
+    assertNoLeakedPathStrings(wrongContentTypePayload, [guardedProjectRoot, guardedModelPath, tmpRoot]);
+    assert.equal(JSON.stringify(wrongContentTypePayload).length < 1000, true);
+
+    const guardedImportsDir = join(guardedProjectRoot, 'output', 'imports');
+    let storageFailureResponse;
+    chmodSync(guardedImportsDir, 0o500);
+    try {
+      storageFailureResponse = await fetch(`${guardedImportBaseUrl}/api/studio/import-bootstrap`, {
+        method: 'POST',
+        headers: {
+          accept: 'application/json',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model_upload: {
+            name: 'storage-failure.step',
+            content_base64: Buffer.from('storage failure fixture\n').toString('base64'),
+          },
+        }),
+      });
+    } finally {
+      chmodSync(guardedImportsDir, 0o700);
+    }
+    assert.equal(storageFailureResponse.status, 500);
+    const storageFailurePayload = await storageFailureResponse.json();
+    assert.equal(storageFailurePayload.ok, false);
+    assert.equal(storageFailurePayload.error.code, 'import_bootstrap_failed');
+    assert.match(storageFailurePayload.error.messages.join('\n'), /directory is unavailable|storage failed/i);
+    assertNoLeakedPathStrings(storageFailurePayload, [guardedProjectRoot, guardedImportsDir, tmpRoot]);
+    assert.equal(JSON.stringify(storageFailurePayload).length < 1000, true);
+
+    let oversizedRouteContent = Buffer.alloc(MAX_BOOTSTRAP_UPLOAD_BYTES + 1).toString('base64');
+    const oversizedRouteResponse = await fetch(`${guardedImportBaseUrl}/api/studio/import-bootstrap`, {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model_upload: {
+          name: `github_pat_routeSECRET123-${'x'.repeat(4096)}.step`,
+          content_base64: oversizedRouteContent,
+        },
+      }),
+    });
+    oversizedRouteContent = null;
+    assert.equal(oversizedRouteResponse.status, 413);
+    const oversizedRoutePayload = await oversizedRouteResponse.json();
+    assert.equal(oversizedRoutePayload.ok, false);
+    assert.equal(oversizedRoutePayload.error.code, 'import_bootstrap_failed');
+    assert.match(oversizedRoutePayload.error.messages.join('\n'), /32 MiB/i);
+    assertNoLeakedPathStrings(oversizedRoutePayload, [guardedProjectRoot, guardedExternalModelPath, tmpRoot, 'github_pat_routeSECRET123']);
+    assert.equal(JSON.stringify(oversizedRoutePayload).includes('x'.repeat(100)), false);
+    assert.equal(JSON.stringify(oversizedRoutePayload).length < 1000, true);
+
+    assert.equal(guardedAnalyzeCalls, 0);
+    assert.equal(guardedRuntimeCalls, 0);
+  } finally {
+    await new Promise((resolveClose) => guardedImportServer.close(resolveClose));
+  }
 
   const oversizedJsonResponse = await fetch(`${baseUrl}/api/studio/design`, {
     method: 'POST',

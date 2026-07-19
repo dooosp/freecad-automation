@@ -862,7 +862,11 @@ export function bootStudioShell({
     }
 
     if (action === 'open-jobs-center') {
-      app.dom.setJobsDrawer(true);
+      const overflowTrigger = actionTarget.closest('.overflow-menu')?.querySelector('.overflow-menu-trigger');
+      app.dom.setJobsDrawer(true, {
+        focusEntry: true,
+        returnFocusTarget: overflowTrigger || actionTarget,
+      });
       return;
     }
 
@@ -1119,16 +1123,30 @@ export function bootStudioShell({
     const open = !app.elements.jobsDrawer.classList.contains('is-open');
     const openedFromModalSidebar = open && app.elements.sidebar.classList.contains('is-open');
     if (openedFromModalSidebar) app.dom.setSidebar(false);
-    app.dom.setJobsDrawer(open, { focusEntry: openedFromModalSidebar });
+    app.dom.setJobsDrawer(open, {
+      focusEntry: openedFromModalSidebar,
+      returnFocusTarget: openedFromModalSidebar
+        ? app.elements.navToggle
+        : app.elements.jobsToggle,
+    });
   });
-  app.elements.jobsClose.addEventListener('click', () => app.dom.setJobsDrawer(false));
+  app.elements.jobsClose.addEventListener('click', () => {
+    app.dom.setJobsDrawer(false, { restoreFocus: true });
+  });
   app.elements.logToggle.addEventListener('click', () => {
     const open = !app.elements.logDrawer.classList.contains('is-open');
     const openedFromModalSidebar = open && app.elements.sidebar.classList.contains('is-open');
     if (openedFromModalSidebar) app.dom.setSidebar(false);
-    app.dom.setLogDrawer(open, { focusEntry: openedFromModalSidebar });
+    app.dom.setLogDrawer(open, {
+      focusEntry: openedFromModalSidebar,
+      returnFocusTarget: openedFromModalSidebar
+        ? app.elements.navToggle
+        : app.elements.logToggle,
+    });
   });
-  app.elements.logClose.addEventListener('click', () => app.dom.setLogDrawer(false));
+  app.elements.logClose.addEventListener('click', () => {
+    app.dom.setLogDrawer(false, { restoreFocus: true });
+  });
   windowRef.addEventListener('keydown', (event) => {
     if (app.dom.containSidebarFocus(event)) {
       return;
@@ -1136,11 +1154,9 @@ export function bootStudioShell({
     if (event.key === 'Escape' && app.elements.sidebar.classList.contains('is-open')) {
       app.dom.setSidebar(false, { restoreFocus: true });
     } else if (event.key === 'Escape' && app.elements.jobsDrawer.classList.contains('is-open')) {
-      app.dom.setJobsDrawer(false);
-      app.elements.jobsToggle.focus();
+      app.dom.setJobsDrawer(false, { restoreFocus: true });
     } else if (event.key === 'Escape' && app.elements.logDrawer.classList.contains('is-open')) {
-      app.dom.setLogDrawer(false);
-      app.elements.logToggle.focus();
+      app.dom.setLogDrawer(false, { restoreFocus: true });
     }
   });
   initializeLocale();
