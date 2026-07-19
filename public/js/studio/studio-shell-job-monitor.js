@@ -125,6 +125,20 @@ export function createStudioJobMonitorController(app) {
 
     setCompletionNotice(buildStudioJobCompletionNotice(job, target, remainingActiveCount));
 
+    if (completionAction?.stayOnCurrentRoute === true) {
+      if (app.state.data.importBootstrap?.lastJobId === job.id) {
+        app.state.data.importBootstrap.reviewJob = job;
+      }
+      app.addLog({
+        status: 'Tracked run',
+        message: `${job.type} ${shortJobId(job.id)} finished. The current guided result remains open until the user chooses the next view.`,
+        tone: job.status === 'succeeded' ? 'ok' : 'warn',
+        time: 'job',
+      });
+      app.refreshShellChrome({ syncWorkspace: true });
+      return;
+    }
+
     if (!target.route) {
       app.addLog({
         status: 'Tracked run',

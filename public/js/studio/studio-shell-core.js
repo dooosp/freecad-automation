@@ -12,7 +12,17 @@ import {
   buildTrackedReportJobOptions,
   ensureModelTrackedRunState,
 } from './model-tracked-runs.js';
-import { deriveStudioChromeState } from './studio-state.js';
+import { invalidateAiDraftValidation } from './ai-guided-flow.js';
+import { buildImportBootstrapOptions } from './import-bootstrap-options.js';
+import {
+  buildImportBootstrapRequestBody,
+  ensureImportGuidedFlowState,
+  resetImportGuidedFlow,
+  setImportGuidedError,
+  setImportGuidedStep,
+  validateImportUploadFile,
+} from './import-guided-flow.js';
+import { deriveStudioChromeState, writeStudioExperienceMode } from './studio-state.js';
 import {
   bindStudioShellElements,
   createStudioShellDomController,
@@ -30,6 +40,7 @@ import {
   bindLocaleControls,
   initializeLocale,
   subscribeLocale,
+  t,
   translateText,
 } from '../i18n/index.js';
 
@@ -108,12 +119,17 @@ export function bootStudioShell({
   loadModelWorkspaceModule = () => import('./model-workspace.js'),
   loadDrawingWorkspaceModule = () => import('./drawing-workspace.js'),
 } = {}) {
+  let storage = null;
+  try {
+    storage = windowRef.localStorage;
+  } catch {}
+
   const app = {
     document: documentRef,
     window: windowRef,
     navigator: windowRef.navigator,
     elements: bindStudioShellElements(documentRef),
-    state: createStudioShellState(windowRef.location),
+    state: createStudioShellState(windowRef.location, storage),
     runtime: createStudioShellRuntime(),
     loaders: {
       loadModelWorkspaceModule,
@@ -425,6 +441,212 @@ export function bootStudioShell({
     }
   }
 
+  function currentImportBootstrap() {
+    const importBootstrap = app.state.data.importBootstrap || {};
+    ensureImportGuidedFlowState(importBootstrap);
+    app.state.data.importBootstrap = importBootstrap;
+    return importBootstrap;
+  }
+
+  function clearImportSource(importBootstrap) {
+    importBootstrap.modelFile = null;
+    importBootstrap.modelFileName = '';
+    importBootstrap.modelPath = '';
+    importBootstrap.bomPath = '';
+    importBootstrap.inspectionPath = '';
+    importBootstrap.qualityPath = '';
+  }
+
+  let importStepFocusRequestEpoch = 0;
+
+  function focusCurrentImportStep() {
+    const selector = '[data-import-guided-step]:not([hidden])';
+    const requestEpoch = ++importStepFocusRequestEpoch;
+    const focusTarget = app.elements.workspaceRoot.querySelector(selector);
+    const requestActiveElement = app.document.activeElement;
+    const focusStep = () => {
+      const currentFocusTarget = app.elements.workspaceRoot.querySelector(selector);
+      const activeElement = app.document.activeElement;
+      if (
+        requestEpoch !== importStepFocusRequestEpoch
+        || app.state.route !== 'console'
+        || !(focusTarget instanceof windowRef.HTMLElement)
+        || !focusTarget?.isConnected
+        || focusTarget.getClientRects().length === 0
+        || currentFocusTarget !== focusTarget
+        || (
+          activeElement !== requestActiveElement
+          && activeElement !== focusTarget
+          && activeElement !== app.elements.workspaceRoot
+          && activeElement !== app.document.body
+        )
+      ) {
+        return;
+      }
+      focusTarget.focus();
+    };
+    focusStep();
+    windowRef.requestAnimationFrame(() => {
+      focusStep();
+      windowRef.requestAnimationFrame(focusStep);
+    });
+  }
+
+  async function fileToBootstrapUpload(file) {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const chunkSize = 0x8000;
+    let binary = '';
+    for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+    }
+    return {
+      name: file.name,
+      content_base64: windowRef.btoa(binary),
+    };
+  }
+
+  async function previewImportBootstrap({ file = null, useProjectPath = false } = {}) {
+    const importBootstrap = currentImportBootstrap();
+    if (file) {
+      const sizeValidation = validateImportUploadFile(file);
+      if (!sizeValidation.ok) {
+        const errorParams = {
+          size: sizeValidation.sizeLabel,
+          limit: sizeValidation.limitLabel,
+        };
+        importBootstrap.modelFile = null;
+        importBootstrap.modelFileName = file.name;
+        importBootstrap.modelPath = '';
+        importBootstrap.preview = null;
+        importBootstrap.status = 'error';
+        importBootstrap.errorMessage = '';
+        setImportGuidedStep(importBootstrap, 'select_file');
+        setImportGuidedError(importBootstrap, {
+          key: 'studio.import.guided.file.too-large',
+          params: errorParams,
+        });
+        app.commitRender();
+        focusCurrentImportStep();
+        return;
+      }
+      importBootstrap.modelFile = file;
+      importBootstrap.modelFileName = file.name;
+      importBootstrap.modelPath = '';
+    } else if (useProjectPath) {
+      importBootstrap.modelFile = null;
+      importBootstrap.modelFileName = '';
+    }
+
+    if (!importBootstrap.modelFile && !String(importBootstrap.modelPath || '').trim()) {
+      importBootstrap.status = 'error';
+      importBootstrap.errorMessage = '';
+      setImportGuidedStep(importBootstrap, 'select_file');
+      setImportGuidedError(importBootstrap, {
+        key: 'studio.import.guided.file.required-error',
+      });
+      app.commitRender();
+      focusCurrentImportStep();
+      return;
+    }
+
+    importBootstrap.status = 'loading';
+    importBootstrap.preview = null;
+    importBootstrap.errorMessage = '';
+    importBootstrap.lastJobId = '';
+    importBootstrap.reviewJob = null;
+    importBootstrap.corrections = {};
+    setImportGuidedStep(importBootstrap, 'diagnostics');
+    app.commitRender();
+    focusCurrentImportStep();
+
+    try {
+      const modelUpload = importBootstrap.modelFile
+        ? await fileToBootstrapUpload(importBootstrap.modelFile)
+        : null;
+      const payload = await app.fetchJson('/api/studio/import-bootstrap', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(buildImportBootstrapRequestBody(importBootstrap, { modelUpload })),
+      });
+      importBootstrap.preview = payload;
+      importBootstrap.status = 'ready';
+      setImportGuidedStep(importBootstrap, 'confirm');
+      app.addLog({
+        status: 'Import check',
+        message: `Prepared import diagnostics for ${importBootstrap.modelFileName || importBootstrap.modelPath}.`,
+        tone: 'info',
+        time: 'import',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      importBootstrap.status = 'error';
+      importBootstrap.errorMessage = message;
+      setImportGuidedStep(importBootstrap, 'select_file');
+      setImportGuidedError(importBootstrap, { message });
+      app.addLog({
+        status: 'Import check',
+        message,
+        tone: 'warn',
+        time: 'import',
+      });
+    } finally {
+      app.commitRender();
+      focusCurrentImportStep();
+    }
+  }
+
+  async function submitImportReview() {
+    const importBootstrap = currentImportBootstrap();
+    const preview = importBootstrap.preview;
+    const seed = preview?.tracked_review_seed || {};
+    if (!seed.context_path || !seed.model_path) return;
+
+    importBootstrap.submitting = true;
+    importBootstrap.errorMessage = '';
+    setImportGuidedStep(importBootstrap, 'running');
+    app.commitRender();
+    focusCurrentImportStep();
+
+    try {
+      const job = await app.submitTrackedStudioRun({
+        type: 'review-context',
+        contextPath: seed.context_path,
+        modelPath: seed.model_path,
+        bomPath: seed.bom_path,
+        inspectionPath: seed.inspection_path,
+        qualityPath: seed.quality_path,
+        options: buildImportBootstrapOptions(preview, importBootstrap.corrections || {}),
+        completionAction: { stayOnCurrentRoute: true },
+      });
+      if (!job?.id) throw new Error('Tracked review did not return a job.');
+      importBootstrap.lastJobId = job.id;
+      importBootstrap.reviewJob = job;
+      importBootstrap.submitting = false;
+      setImportGuidedStep(importBootstrap, 'result');
+      app.addLog({
+        status: 'CAD review',
+        message: `Started the structured review for ${importBootstrap.modelFileName || importBootstrap.modelPath}.`,
+        tone: 'info',
+        time: 'job',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      importBootstrap.submitting = false;
+      importBootstrap.errorMessage = message;
+      setImportGuidedStep(importBootstrap, 'confirm');
+      setImportGuidedError(importBootstrap, { message });
+      app.addLog({
+        status: 'CAD review',
+        message,
+        tone: 'warn',
+        time: 'job',
+      });
+    } finally {
+      app.commitRender();
+      focusCurrentImportStep();
+    }
+  }
+
   async function handleShellAction(actionTarget) {
     const { action, jobId } = actionTarget.dataset;
 
@@ -548,9 +770,79 @@ export function bootStudioShell({
     }
 
     if (action === 'go-model') {
+      if (actionTarget.closest('[data-start-goal="create-model"]')) {
+        const currentFlow = app.state.data.model.guidedFlow || {};
+        app.state.data.model.guidedFlow = {
+          ...currentFlow,
+          step: 'select_input',
+          resultExpanded: false,
+          error: '',
+        };
+      }
       app.navigateTo('model', {
-        pendingFocus: app.state.data.model.configText ? 'config' : null,
+        pendingFocus: 'guided-model',
       });
+      return;
+    }
+
+    if (action === 'go-drawing') {
+      app.navigateTo('drawing');
+      return;
+    }
+
+    if (action === 'go-console') {
+      if (actionTarget.closest('[data-start-goal="review-cad"]')) {
+        const importBootstrap = currentImportBootstrap();
+        resetImportGuidedFlow(importBootstrap);
+        clearImportSource(importBootstrap);
+      }
+      app.navigateTo('console', { pendingFocus: 'import' });
+      return;
+    }
+
+    if (action === 'choose-import-model-file') {
+      app.elements.workspaceRoot.querySelector('#guided-import-model-file')?.click();
+      return;
+    }
+
+    if (action === 'preview-import-bootstrap') {
+      await previewImportBootstrap({ useProjectPath: true });
+      return;
+    }
+
+    if (action === 'submit-import-review') {
+      await submitImportReview();
+      return;
+    }
+
+    if (action === 'import-view-review-result') {
+      const { lastJobId } = currentImportBootstrap();
+      if (lastJobId) await app.openJob(lastJobId, { route: 'review' });
+      return;
+    }
+
+    if (action === 'import-open-result-files') {
+      const { lastJobId } = currentImportBootstrap();
+      if (lastJobId) await app.openJob(lastJobId, { route: 'artifacts' });
+      return;
+    }
+
+    if (action === 'import-start-another') {
+      const importBootstrap = currentImportBootstrap();
+      resetImportGuidedFlow(importBootstrap);
+      clearImportSource(importBootstrap);
+      app.commitRender();
+      focusCurrentImportStep();
+      return;
+    }
+
+    if (action === 'go-runtime-details') {
+      app.navigateTo('console');
+      return;
+    }
+
+    if (action === 'go-history') {
+      app.navigateTo('history');
       return;
     }
 
@@ -570,7 +862,11 @@ export function bootStudioShell({
     }
 
     if (action === 'open-jobs-center') {
-      app.dom.setJobsDrawer(true);
+      const overflowTrigger = actionTarget.closest('.overflow-menu')?.querySelector('.overflow-menu-trigger');
+      app.dom.setJobsDrawer(true, {
+        focusEntry: true,
+        returnFocusTarget: overflowTrigger || actionTarget,
+      });
       return;
     }
 
@@ -752,6 +1048,12 @@ export function bootStudioShell({
       const [file] = [...(target.files || [])];
       await app.workspace.openConfigFile(file);
       target.value = '';
+      return;
+    }
+
+    if (target instanceof windowRef.HTMLInputElement && target.id === 'guided-import-model-file') {
+      const [file] = [...(target.files || [])];
+      if (file) await previewImportBootstrap({ file });
     }
   });
 
@@ -765,29 +1067,98 @@ export function bootStudioShell({
     } else if (target.matches('[data-field="config-text"]')) {
       app.state.data.model.configText = target.value;
       app.state.data.model.editingEnabled = true;
+      invalidateAiDraftValidation(app.state.data.model);
+    } else if (target.matches('[data-field="import-model-path"]')) {
+      currentImportBootstrap().modelPath = target.value;
+    } else if (target.matches('[data-field="import-bom-path"]')) {
+      currentImportBootstrap().bomPath = target.value;
+    } else if (target.matches('[data-field="import-inspection-path"]')) {
+      currentImportBootstrap().inspectionPath = target.value;
+    } else if (target.matches('[data-field="import-quality-path"]')) {
+      currentImportBootstrap().qualityPath = target.value;
+    } else if (target.matches('[data-field="import-correction-kind"]')) {
+      currentImportBootstrap().corrections.importKind = target.value;
+    } else if (target.matches('[data-field="import-correction-unit"]')) {
+      currentImportBootstrap().corrections.unit = target.value;
+    } else if (target.matches('[data-field="import-correction-body-count"]')) {
+      currentImportBootstrap().corrections.bodyCount = target.value;
+    } else if (target.matches('[data-field="import-correction-note"]')) {
+      currentImportBootstrap().corrections.note = target.value;
     }
   });
 
   windowRef.addEventListener('hashchange', app.routing.handleHashChange);
-  app.elements.workspaceNav.addEventListener('keydown', app.routing.handleNavKeydown);
-  app.elements.jobsToggle.addEventListener('click', () => {
-    app.dom.setJobsDrawer(!app.elements.jobsDrawer.classList.contains('is-open'));
-  });
-  app.elements.jobsClose.addEventListener('click', () => app.dom.setJobsDrawer(false));
-  app.elements.logToggle.addEventListener('click', () => {
-    app.dom.setLogDrawer(!app.elements.logDrawer.classList.contains('is-open'));
-  });
-  app.elements.logClose.addEventListener('click', () => app.dom.setLogDrawer(false));
-  windowRef.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && app.elements.jobsDrawer.classList.contains('is-open')) {
-      app.dom.setJobsDrawer(false);
-      app.elements.jobsToggle.focus();
-    } else if (event.key === 'Escape' && app.elements.logDrawer.classList.contains('is-open')) {
-      app.dom.setLogDrawer(false);
-      app.elements.logToggle.focus();
+  windowRef.addEventListener('resize', () => {
+    if (windowRef.innerWidth > 920 && app.elements.sidebar.classList.contains('is-open')) {
+      app.dom.setSidebar(false);
     }
   });
-
+  app.elements.workspaceNav.addEventListener('keydown', app.routing.handleNavKeydown);
+  app.elements.advancedModeToggle.addEventListener('change', () => {
+    app.state.experienceMode = writeStudioExperienceMode(
+      storage,
+      app.elements.advancedModeToggle.checked ? 'advanced' : 'default'
+    );
+    app.commitRender();
+  });
+  app.elements.workspaceNav.addEventListener('click', (event) => {
+    if (!(event.target instanceof windowRef.Element)) return;
+    const link = event.target.closest('a[href]');
+    if (!link) return;
+    const sidebarWasOpen = app.elements.sidebar.classList.contains('is-open');
+    const sameRoute = link.classList.contains('nav-link')
+      && (link.dataset.route || 'start') === app.state.route;
+    if (sidebarWasOpen && sameRoute) event.preventDefault();
+    app.dom.setSidebar(false, {
+      restoreFocus: sidebarWasOpen && sameRoute,
+    });
+  });
+  app.elements.navToggle.addEventListener('click', () => {
+    app.dom.setSidebar(!app.elements.sidebar.classList.contains('is-open'));
+  });
+  app.elements.sidebarScrim.addEventListener('click', () => {
+    app.dom.setSidebar(false, { restoreFocus: true });
+  });
+  app.elements.jobsToggle.addEventListener('click', () => {
+    const open = !app.elements.jobsDrawer.classList.contains('is-open');
+    const openedFromModalSidebar = open && app.elements.sidebar.classList.contains('is-open');
+    if (openedFromModalSidebar) app.dom.setSidebar(false);
+    app.dom.setJobsDrawer(open, {
+      focusEntry: openedFromModalSidebar,
+      returnFocusTarget: openedFromModalSidebar
+        ? app.elements.navToggle
+        : app.elements.jobsToggle,
+    });
+  });
+  app.elements.jobsClose.addEventListener('click', () => {
+    app.dom.setJobsDrawer(false, { restoreFocus: true });
+  });
+  app.elements.logToggle.addEventListener('click', () => {
+    const open = !app.elements.logDrawer.classList.contains('is-open');
+    const openedFromModalSidebar = open && app.elements.sidebar.classList.contains('is-open');
+    if (openedFromModalSidebar) app.dom.setSidebar(false);
+    app.dom.setLogDrawer(open, {
+      focusEntry: openedFromModalSidebar,
+      returnFocusTarget: openedFromModalSidebar
+        ? app.elements.navToggle
+        : app.elements.logToggle,
+    });
+  });
+  app.elements.logClose.addEventListener('click', () => {
+    app.dom.setLogDrawer(false, { restoreFocus: true });
+  });
+  windowRef.addEventListener('keydown', (event) => {
+    if (app.dom.containSidebarFocus(event)) {
+      return;
+    }
+    if (event.key === 'Escape' && app.elements.sidebar.classList.contains('is-open')) {
+      app.dom.setSidebar(false, { restoreFocus: true });
+    } else if (event.key === 'Escape' && app.elements.jobsDrawer.classList.contains('is-open')) {
+      app.dom.setJobsDrawer(false, { restoreFocus: true });
+    } else if (event.key === 'Escape' && app.elements.logDrawer.classList.contains('is-open')) {
+      app.dom.setLogDrawer(false, { restoreFocus: true });
+    }
+  });
   initializeLocale();
   bindLocaleControls(documentRef.body);
   subscribeLocale(() => {

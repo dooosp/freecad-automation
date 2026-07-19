@@ -79,7 +79,7 @@
   </div>
 
   <div class="studio-shell">
-    <nav class="studio-sidebar" aria-label="Primary" data-i18n-aria-label="studio.sidebar.aria-label">
+    <nav id="studio-sidebar" class="studio-sidebar" aria-label="Primary" data-i18n-aria-label="studio.sidebar.aria-label">
       <div class="sidebar-brand">
         <div class="brand-lockup">
           <div class="brand-mark" aria-hidden="true">
@@ -88,57 +88,87 @@
             <span></span>
           </div>
           <div class="brand-copy">
-            <p class="brand-kicker" data-i18n="studio.brand.kicker">Preferred browser review console</p>
+            <p class="brand-kicker" data-i18n="studio.brand.kicker">Make, review, and reopen</p>
             <h1 class="brand-title" data-i18n="studio.brand.title">Automation Studio</h1>
-            <p class="brand-summary" data-i18n="studio.brand.summary">Move from context ingest to review packs, readiness, compare, and export decisions from one browser console.</p>
+            <p class="brand-summary" data-i18n="studio.brand.summary">Start with a goal, review what will happen, then open the result.</p>
           </div>
         </div>
       </div>
 
-      <div id="workspace-nav" class="workspace-nav" role="list">
-        <a class="nav-link" href="#start" data-route="start">
-          <span class="nav-label" data-i18n="studio.nav.start.label">Console</span>
-          <span class="nav-copy" data-i18n="studio.nav.start.copy">Review-first launchpad for ingest, packs, compare, and reopen actions.</span>
+      <div id="workspace-nav" class="workspace-nav">
+        <div class="core-navigation" role="list" data-i18n-aria-label="studio.sidebar.core.aria-label">
+        <a class="nav-link" href="#start" data-nav-tier="core" data-route="start">
+          <span class="nav-label" data-i18n="studio.nav.start.label">Home</span>
+          <span class="nav-copy" data-i18n="studio.nav.start.copy">Choose what you want to create, review, or reopen.</span>
         </a>
-        <a class="nav-link" href="#review" data-route="review">
-          <span class="nav-label" data-i18n="studio.nav.review.label">Review</span>
-          <span class="nav-copy" data-i18n="studio.nav.review.copy">Hotspots, quality linkage, recommended actions, and readiness signals.</span>
+        <a class="nav-link" href="#history" data-nav-tier="core" data-route="history">
+          <span class="nav-label" data-i18n="studio.nav.history.label">Run history</span>
+          <span class="nav-copy" data-i18n="studio.nav.history.copy">Return to recent models, drawings, reports, and reviews.</span>
         </a>
-        <a class="nav-link" href="#artifacts" data-route="artifacts">
-          <span class="nav-label" data-i18n="studio.nav.artifacts.label">Packs</span>
-          <span class="nav-copy" data-i18n="studio.nav.artifacts.copy">Review packs, readiness packages, compare baselines, exports, and reopen actions.</span>
+        <a class="nav-link" href="#artifacts" data-nav-tier="core" data-route="artifacts">
+          <span class="nav-label" data-i18n="studio.nav.artifacts.label">Result files</span>
+          <span class="nav-copy" data-i18n="studio.nav.artifacts.copy">Open generated models, drawings, reports, and supporting files.</span>
         </a>
-        <a class="nav-link" href="#model" data-route="model">
-          <span class="nav-label" data-i18n="studio.nav.model.label">Model</span>
-          <span class="nav-copy" data-i18n="studio.nav.model.copy">Optional prep lane for configs and geometry previews before review.</span>
-        </a>
-        <a class="nav-link" href="#drawing" data-route="drawing">
-          <span class="nav-label" data-i18n="studio.nav.drawing.label">Drawing</span>
-          <span class="nav-copy" data-i18n="studio.nav.drawing.copy">Optional sheet-prep lane when a review needs drawing output.</span>
-        </a>
-      </div>
-
-      <div class="sidebar-footer">
-        <div class="sidebar-note">
-          <span class="sidebar-note-label" data-i18n="studio.sidebar.note.label">Classic compatibility mode</span>
-          <p data-i18n="studio.sidebar.note.copy">Need the older all-in-one websocket viewer? Keep using the classic compatibility route for workflows that have not moved into Studio yet.</p>
         </div>
+
+        <details id="advanced-work-navigation" class="advanced-navigation">
+          <summary class="advanced-navigation-summary">
+            <span class="nav-label" data-i18n="studio.nav.advanced.label">Advanced work</span>
+            <span class="nav-copy" data-i18n="studio.nav.advanced.copy">Editing, readiness, inspection, API, and diagnostics.</span>
+          </summary>
+          <div class="advanced-navigation-list" role="list">
+            <label class="advanced-mode-preference" for="advanced-mode-toggle">
+              <input id="advanced-mode-toggle" type="checkbox">
+              <span>
+                <strong data-i18n="studio.nav.advanced.preference.label">Keep Advanced work open</strong>
+                <small data-i18n="studio.nav.advanced.preference.copy">Stored on this device only. Data and permissions do not change.</small>
+              </span>
+            </label>
+            <a class="nav-link nav-link-advanced" href="#console" data-nav-tier="advanced" data-route="console">
+              <span class="nav-label" data-i18n="studio.nav.console.label">Review intake tools</span>
+              <span class="nav-copy" data-i18n="studio.nav.console.copy">Existing import, comparison, package, and runtime controls.</span>
+            </a>
+            <a class="nav-link nav-link-advanced" href="#model" data-nav-tier="advanced" data-route="model">
+              <span class="nav-label" data-i18n="studio.nav.model.label">Model editing</span>
+              <span class="nav-copy" data-i18n="studio.nav.model.copy">Edit configurations, previews, exports, and view controls.</span>
+            </a>
+            <a class="nav-link nav-link-advanced" href="#drawing" data-nav-tier="advanced" data-route="drawing">
+              <span class="nav-label" data-i18n="studio.nav.drawing.label">Drawing editing</span>
+              <span class="nav-copy" data-i18n="studio.nav.drawing.copy">Prepare sheets and drawing-specific controls.</span>
+            </a>
+            <a class="nav-link nav-link-advanced" href="#review" data-nav-tier="advanced" data-route="review">
+              <span class="nav-label" data-i18n="studio.nav.review.label">Review and readiness</span>
+              <span class="nav-copy" data-i18n="studio.nav.review.copy">Detailed evidence, inspection, readiness, and Stage 5B controls.</span>
+            </a>
+            <a class="advanced-nav-action" href="/api" data-i18n="studio.nav.api.label">Local API</a>
+            <button id="jobs-toggle" class="advanced-nav-action" type="button" aria-expanded="false" aria-controls="jobs-drawer" data-i18n="studio.nav.monitor.label">
+              Run monitor
+            </button>
+            <button id="log-toggle" class="advanced-nav-action" type="button" aria-expanded="false" aria-controls="log-drawer" data-i18n="studio.nav.log.label">
+              Diagnostic log
+            </button>
+          </div>
+        </details>
       </div>
     </nav>
+    <button id="studio-sidebar-scrim" class="studio-sidebar-scrim" type="button" aria-label="Close navigation" data-i18n-aria-label="studio.sidebar.close" hidden></button>
 
     <div class="studio-main">
       <header class="app-bar">
+        <button id="studio-nav-toggle" class="toolbar-button studio-nav-toggle" type="button" aria-expanded="false" aria-controls="studio-sidebar" data-i18n="studio.sidebar.open">
+          Menu
+        </button>
         <div class="app-bar-title">
-          <p class="app-kicker" data-i18n="studio.app.kicker">Preferred browser review path</p>
+          <p class="app-kicker" data-i18n="studio.app.kicker">Goal-first workspace</p>
           <h2 class="app-title" data-i18n="studio.app.title">FreeCAD Automation Studio</h2>
           <p id="workspace-summary" class="workspace-summary">Workspace shell loading...</p>
         </div>
 
         <div class="app-bar-badges" role="status" aria-live="polite">
           <span id="runtime-badge" class="badge badge-runtime">Runtime pending</span>
-          <span id="project-badge" class="badge badge-project">Project root placeholder</span>
-          <span id="connection-badge" class="badge badge-connection">Connection pending</span>
-          <span id="job-badge" class="badge badge-job">No active job</span>
+          <span id="project-badge" class="badge badge-project badge-detail" hidden>Project root placeholder</span>
+          <span id="connection-badge" class="badge badge-connection badge-detail" hidden>Connection pending</span>
+          <span id="job-badge" class="badge badge-job badge-detail" hidden>No active job</span>
         </div>
 
         <div class="app-bar-actions">
@@ -149,18 +179,19 @@
               <option value="ko" data-i18n="locale.option.ko">Korean</option>
             </select>
           </label>
-          <button id="jobs-toggle" class="toolbar-button" type="button" aria-expanded="false" aria-controls="jobs-drawer">
-            Jobs center
-          </button>
-          <button id="log-toggle" class="toolbar-button" type="button" aria-expanded="false" aria-controls="log-drawer">
-            Log drawer
-          </button>
         </div>
       </header>
 
-      <div id="completion-notice-host" class="completion-notice-host" hidden></div>
+      <div
+        id="completion-notice-host"
+        class="completion-notice-host"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        hidden
+      ></div>
 
-      <main id="workspace-root" class="workspace-root" tabindex="-1" aria-live="polite"></main>
+      <main id="workspace-root" class="workspace-root" tabindex="-1"></main>
 
       <aside id="jobs-drawer" class="jobs-drawer" aria-label="Tracked jobs center">
         <div class="jobs-drawer-header">

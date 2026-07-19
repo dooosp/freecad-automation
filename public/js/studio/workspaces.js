@@ -8,16 +8,33 @@ import {
   createInfoGrid,
   createList,
   createMetricGrid,
+  createEmptyStateWithNextAction,
+  createInlineStatus,
+  createPrimaryAction,
+  createSecondaryAction,
   createSectionHeader,
   createSplitPane,
   createStatusStrip,
   createActionGrid,
+  createActionSummary,
+  createResultCard,
+  createTaskStepper,
   el,
 } from './renderers.js';
+import { getLocale, t } from '../i18n/index.js';
+import { ensureModelTrackedRunState } from './model-tracked-runs.js';
 import {
-  deriveModelTrackedRunPresentation,
-  ensureModelTrackedRunState,
-} from './model-tracked-runs.js';
+  createModelGuidedStepStates,
+  ensureModelGuidedFlowState,
+  resolveModelGuidedStep,
+} from './model-guided-flow.js';
+import { ensureAiDraftState } from './ai-guided-flow.js';
+import {
+  createImportGuidedStepStates,
+  ensureImportGuidedFlowState,
+  resolveImportGuidedError,
+  resolveImportGuidedStep,
+} from './import-guided-flow.js';
 import {
   buildCanonicalPackageSectionModel,
 } from './canonical-packages.js';
@@ -37,6 +54,7 @@ import {
 import { renderReviewWorkspace } from './review-workspace.js';
 import { renderArtifactsWorkspace } from './artifacts-workspace.js';
 import { deriveLocalFirstWorkflowGuidance } from './local-first-workflows.js';
+import { deriveJobsCenterActionEligibility } from './jobs-center.js';
 
 function workspaceShell({ kicker, title, description, badges, controls, canvas }) {
   return el('section', {
@@ -82,6 +100,25 @@ function formatDateTime(value) {
   }).format(date);
 }
 
+function formatRelativeTime(value) {
+  if (!value) return formatDateTime(value);
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return formatDateTime(value);
+  const differenceMs = date.getTime() - Date.now();
+  const absoluteMs = Math.abs(differenceMs);
+  const units = absoluteMs < 60_000
+    ? ['second', 1_000]
+    : absoluteMs < 3_600_000
+      ? ['minute', 60_000]
+      : absoluteMs < 86_400_000
+        ? ['hour', 3_600_000]
+        : ['day', 86_400_000];
+  return new Intl.RelativeTimeFormat(getLocale(), { numeric: 'auto' }).format(
+    Math.round(differenceMs / units[1]),
+    units[0]
+  );
+}
+
 function formatJobStatus(status) {
   return String(status || 'unknown')
     .replace(/_/g, ' ')
@@ -112,9 +149,11 @@ function recentJobActionLabel(recentJobsState) {
 }
 
 function ensureImportBootstrapState(state) {
-  return {
+  const importBootstrap = state.data.importBootstrap || {};
+  const defaults = {
     status: 'idle',
     modelPath: '',
+    modelFile: null,
     modelFileName: '',
     bomPath: '',
     inspectionPath: '',
@@ -122,26 +161,16 @@ function ensureImportBootstrapState(state) {
     preview: null,
     errorMessage: '',
     submitting: false,
-    ...(state.data.importBootstrap || {}),
+    lastJobId: '',
+    reviewJob: null,
+    corrections: {},
   };
-}
-
-function importBootstrapMeta(importBootstrap) {
-  if (importBootstrap.status === 'loading') return 'Generating diagnostics, warnings, and draft bootstrap artifacts...';
-  if (importBootstrap.status === 'ready') {
-    const warnings = importBootstrap.preview?.bootstrap?.bootstrap_warnings?.warning_count ?? 0;
-    return `${warnings} warning${warnings === 1 ? '' : 's'} visible before tracked review starts`;
-  }
-  if (importBootstrap.status === 'error') return importBootstrap.errorMessage || 'Bootstrap preview failed.';
-  if (importBootstrap.modelFileName) return `Local file selected: ${importBootstrap.modelFileName}`;
-  if (importBootstrap.modelPath) return `Project path selected: ${importBootstrap.modelPath}`;
-  return 'Use a checked-in path or a local file to bring existing CAD into the review loop.';
-}
-
-function importBootstrapPrimaryLabel(importBootstrap) {
-  return importBootstrap.qualityPath
-    ? 'Start review from imported STEP + quality context'
-    : 'Start review from imported STEP';
+  Object.entries(defaults).forEach(([key, value]) => {
+    if (importBootstrap[key] === undefined) importBootstrap[key] = value;
+  });
+  ensureImportGuidedFlowState(importBootstrap);
+  state.data.importBootstrap = importBootstrap;
+  return importBootstrap;
 }
 
 function formatConfidenceBadge(score) {
@@ -166,6 +195,7 @@ function createImportBootstrapCard(state) {
   const featureSummary = summary.feature_summary || {};
   const source = preview?.source || {};
   const corrections = importBootstrap.corrections || {};
+  const guidedError = resolveImportGuidedError(importBootstrap, t);
 
   if (importBootstrap.status === 'loading') {
     return createCard({
@@ -192,7 +222,7 @@ function createImportBootstrapCard(state) {
       body: [
         el('p', {
           className: 'support-note support-note-warn',
-          text: importBootstrap.errorMessage || 'Bootstrap preview failed.',
+          text: guidedError || importBootstrap.errorMessage || 'Bootstrap preview failed.',
         }),
       ],
     });
@@ -476,6 +506,307 @@ function isVerifiedBracketLoaded(model = {}) {
     || model.sourceName === `${VERIFIED_BRACKET_EXAMPLE_ID}.toml`;
 }
 
+function createHomeStartChoice({
+  goal,
+  title,
+  copy,
+  needed,
+  result,
+  freecad,
+  action,
+  actionLabel,
+}) {
+  return el('article', {
+    className: 'home-start-card',
+    dataset: { startGoal: goal },
+    children: [
+      el('div', {
+        className: 'home-start-card-copy',
+        children: [
+          el('h3', { className: 'home-start-card-title', text: title }),
+          el('p', { className: 'home-start-card-description', text: copy }),
+        ],
+      }),
+      createInfoGrid([
+        { label: t('studio.home.field.needed'), value: needed },
+        { label: t('studio.home.field.result'), value: result },
+        { label: t('studio.home.field.freecad'), value: freecad },
+      ]),
+      createPrimaryAction({ label: actionLabel, action }),
+    ],
+  });
+}
+
+function createHomeRuntimeStatus(state) {
+  const health = state.data.health || {};
+  if (health.status === 'ready' && health.available) {
+    return createInlineStatus({
+      title: t('studio.home.runtime.ready.title'),
+      copy: t('studio.home.runtime.ready.copy'),
+      tone: 'ok',
+    });
+  }
+  if (health.status === 'ready' || health.status === 'unavailable') {
+    return createInlineStatus({
+      title: t('studio.home.runtime.unavailable.title'),
+      copy: t('studio.home.runtime.unavailable.copy'),
+      tone: 'warn',
+      action: {
+        label: t('studio.home.runtime.unavailable.action'),
+        action: 'go-runtime-details',
+      },
+    });
+  }
+  return createInlineStatus({
+    title: t('studio.home.runtime.checking.title'),
+    copy: t('studio.home.runtime.checking.copy'),
+    tone: 'info',
+  });
+}
+
+function createHomeRecentRuns(state) {
+  const recentJobs = state.data.recentJobs || {};
+  const items = Array.isArray(recentJobs.items) ? recentJobs.items.slice(0, 3) : [];
+  let body;
+  if (recentJobs.status === 'loading') {
+    body = createEmptyState({
+      icon: '…',
+      title: t('studio.home.recent.loading.title'),
+      copy: t('studio.home.recent.loading.copy'),
+    });
+  } else if (recentJobs.status === 'unavailable') {
+    body = createEmptyStateWithNextAction({
+      icon: '!',
+      title: t('studio.home.recent.unavailable.title'),
+      copy: t('studio.home.recent.unavailable.copy'),
+      action: {
+        label: t('studio.home.recent.unavailable.action'),
+        action: 'go-runtime-details',
+      },
+    });
+  } else if (items.length === 0) {
+    body = createEmptyState({
+      icon: '↺',
+      title: t('studio.home.recent.empty.title'),
+      copy: t('studio.home.recent.empty.copy'),
+    });
+  } else {
+    body = el('div', {
+      className: 'home-recent-list',
+      children: items.map((job) =>
+        el('article', {
+          className: 'home-recent-item',
+          children: [
+            el('div', {
+              children: [
+                el('p', { className: 'home-recent-title', text: userRunTitle(job) }),
+                el('p', { className: 'home-recent-meta', text: `${userRunTypeLabel(job.type)} · ${formatRelativeTime(job.updated_at || job.created_at)}` }),
+              ],
+            }),
+            createSecondaryAction({
+              label: t('studio.home.recent.open'),
+              action: 'open-job',
+              dataset: { jobId: job.id, route: 'artifacts' },
+            }),
+          ],
+        })
+      ),
+    });
+  }
+
+  return createCard({
+    kicker: t('studio.home.recent.kicker'),
+    title: t('studio.home.recent.title'),
+    copy: t('studio.home.recent.copy'),
+    body: [body],
+  });
+}
+
+function createHomeWorkspace(state) {
+  return el('section', {
+    className: 'workspace-shell home-workspace',
+    children: [
+      createSectionHeader({
+        kicker: t('studio.home.kicker'),
+        title: t('studio.home.title'),
+        description: t('studio.home.description'),
+      }),
+      createHomeRuntimeStatus(state),
+      el('div', {
+        className: 'home-start-grid',
+        attrs: { 'aria-label': t('studio.home.choices.aria-label') },
+        dataset: { hook: 'home-start-choices' },
+        children: [
+          createHomeStartChoice({
+            goal: 'create-model',
+            title: t('studio.home.create.title'),
+            copy: t('studio.home.create.copy'),
+            needed: t('studio.home.create.needed'),
+            result: t('studio.home.create.result'),
+            freecad: t('studio.home.create.freecad'),
+            action: 'go-model',
+            actionLabel: t('studio.home.create.action'),
+          }),
+          createHomeStartChoice({
+            goal: 'review-cad',
+            title: t('studio.home.review.title'),
+            copy: t('studio.home.review.copy'),
+            needed: t('studio.home.review.needed'),
+            result: t('studio.home.review.result'),
+            freecad: t('studio.home.review.freecad'),
+            action: 'go-console',
+            actionLabel: t('studio.home.review.action'),
+          }),
+          createHomeStartChoice({
+            goal: 'previous-work',
+            title: t('studio.home.previous.title'),
+            copy: t('studio.home.previous.copy'),
+            needed: t('studio.home.previous.needed'),
+            result: t('studio.home.previous.result'),
+            freecad: t('studio.home.previous.freecad'),
+            action: 'go-history',
+            actionLabel: t('studio.home.previous.action'),
+          }),
+        ],
+      }),
+      createHomeRecentRuns(state),
+    ],
+  });
+}
+
+function userRunTypeLabel(type = '') {
+  const labels = {
+    create: t('studio.history.type.model'),
+    draw: t('studio.history.type.drawing'),
+    report: t('studio.history.type.report'),
+    review: t('studio.history.type.review'),
+  };
+  return labels[String(type).toLowerCase()] || t('studio.history.type.other');
+}
+
+function userRunTitle(job = {}) {
+  const derivedName = deriveRecentJobQualityStatus(job).configName;
+  return job.label
+    || job.config_name
+    || (derivedName && derivedName !== 'Unknown' ? derivedName : userRunTypeLabel(job.type));
+}
+
+function userExecutionStatus(status = '') {
+  const normalized = String(status).toLowerCase();
+  const supported = new Set(['queued', 'running', 'succeeded', 'failed', 'cancelled']);
+  return t(`studio.history.status.${supported.has(normalized) ? normalized : 'unknown'}`);
+}
+
+function userQualityStatus(job = {}) {
+  const qualityStatus = deriveRecentJobQualityStatus(job).qualityStatus;
+  const keys = {
+    'Quality passed': 'passed',
+    'Quality failed': 'failed',
+    'Quality warning': 'warning',
+  };
+  return t(`studio.history.quality.${keys[qualityStatus] || 'unknown'}`);
+}
+
+function createRunHistoryMenuItems(job = {}) {
+  const eligibility = deriveJobsCenterActionEligibility(job);
+  return [
+    ...(eligibility.canOpenReview
+      ? [{
+          label: t('studio.history.open-review'),
+          action: 'open-job',
+          dataset: { jobId: job.id, route: 'review' },
+        }]
+      : []),
+    {
+      label: t('studio.history.run-information'),
+      action: 'open-jobs-center',
+    },
+    ...(eligibility.canRetry
+      ? [{
+          label: t('studio.history.retry'),
+          action: 'retry-job',
+          dataset: { jobId: job.id },
+        }]
+      : []),
+    ...(eligibility.canCancel
+      ? [{
+          label: t('studio.history.cancel'),
+          action: 'cancel-job',
+          destructive: true,
+          dataset: { jobId: job.id },
+        }]
+      : []),
+  ];
+}
+
+function createRunHistoryWorkspace(state) {
+  const recentJobs = state.data.recentJobs || {};
+  const items = Array.isArray(recentJobs.items) ? recentJobs.items : [];
+  let body;
+
+  if (recentJobs.status === 'loading') {
+    body = createEmptyState({
+      icon: '…',
+      title: t('studio.history.loading.title'),
+      copy: t('studio.history.loading.copy'),
+    });
+  } else if (recentJobs.status === 'unavailable') {
+    body = createEmptyStateWithNextAction({
+      icon: '!',
+      title: t('studio.history.unavailable.title'),
+      copy: t('studio.history.unavailable.copy'),
+      action: {
+        label: t('studio.history.unavailable.action'),
+        action: 'go-runtime-details',
+      },
+    });
+  } else if (items.length === 0) {
+    body = createEmptyStateWithNextAction({
+      icon: '↺',
+      title: t('studio.history.empty.title'),
+      copy: t('studio.history.empty.copy'),
+      action: {
+        label: t('studio.history.empty.action'),
+        action: 'go-model',
+      },
+    });
+  } else {
+    body = el('div', {
+      className: 'run-history-list',
+      children: items.map((job) =>
+        createResultCard({
+          title: userRunTitle(job),
+          meta: `${userRunTypeLabel(job.type)} · ${formatRelativeTime(job.updated_at || job.created_at)}`,
+          copy: `${t('studio.history.execution')}: ${userExecutionStatus(job.status)} · ${t('studio.history.quality')}: ${userQualityStatus(job)}`,
+          primaryAction: {
+            label: t('studio.history.open'),
+            action: 'open-job',
+            dataset: { jobId: job.id, route: 'artifacts' },
+          },
+          menuItems: createRunHistoryMenuItems(job),
+          menuLabel: `${t('studio.history.more-actions')} ${userRunTitle(job)}`,
+          dataset: {
+            workflowStep: `history-${job.id}`,
+            historyJobId: job.id,
+          },
+        })
+      ),
+    });
+  }
+
+  return el('section', {
+    className: 'workspace-shell run-history-workspace',
+    children: [
+      createSectionHeader({
+        kicker: t('studio.history.kicker'),
+        title: t('studio.history.title'),
+        description: t('studio.history.description'),
+      }),
+      body,
+    ],
+  });
+}
+
 function canRunStartTrackedPath(state) {
   const model = state.data.model || {};
   return state.connectionState === 'connected'
@@ -496,7 +827,6 @@ function startTrackedPathMeta(state) {
 
 function createStartActionsCard(state) {
   const { examples, recentJobs } = state.data;
-  const importBootstrap = ensureImportBootstrapState(state);
   const canTryExample = examples.status === 'ready' && examples.items.length > 0;
   const canOpenRecent = recentJobs.status === 'ready' && recentJobs.items.length > 0;
   const latestReviewJob = findLatestTrackedJob(recentJobs, REVIEW_CONSOLE_JOB_TYPES.review);
@@ -542,75 +872,6 @@ function createStartActionsCard(state) {
         },
       ]),
       createActionGrid([
-        {
-          kicker: 'Import existing STEP / FCStd',
-          title: 'Start review from imported STEP',
-          copy: 'Bootstrap imported CAD into the review loop with diagnostics, warnings, confidence, and a tracked handoff. This gate stays review-first and does not pretend to reverse-engineer design intent.',
-          meta: importBootstrapMeta(importBootstrap),
-          controls: [
-            el('input', {
-              className: 'studio-input',
-              attrs: {
-                type: 'text',
-                placeholder: 'Project-relative path like tests/fixtures/imports/simple_bracket.step',
-                value: importBootstrap.modelPath || '',
-              },
-              dataset: { field: 'import-model-path' },
-            }),
-            createButton({
-              label: importBootstrap.modelFileName ? `Use local file: ${importBootstrap.modelFileName}` : 'Choose local STEP / FCStd',
-              action: 'choose-import-model-file',
-              tone: 'ghost',
-            }),
-            el('input', {
-              className: 'visually-hidden',
-              attrs: {
-                id: 'start-import-model-file',
-                type: 'file',
-                accept: '.step,.stp,.fcstd',
-              },
-            }),
-            el('input', {
-              className: 'studio-input',
-              attrs: {
-                type: 'text',
-                placeholder: 'Optional BOM path (csv/json)',
-                value: importBootstrap.bomPath || '',
-              },
-              dataset: { field: 'import-bom-path' },
-            }),
-            el('input', {
-              className: 'studio-input',
-              attrs: {
-                type: 'text',
-                placeholder: 'Optional inspection path (csv/json)',
-                value: importBootstrap.inspectionPath || '',
-              },
-              dataset: { field: 'import-inspection-path' },
-            }),
-            el('input', {
-              className: 'studio-input',
-              attrs: {
-                type: 'text',
-                placeholder: 'Optional quality path (csv/json)',
-                value: importBootstrap.qualityPath || '',
-              },
-              dataset: { field: 'import-quality-path' },
-            }),
-            createButton({
-              label: importBootstrap.status === 'loading' ? 'Previewing bootstrap...' : 'Preview bootstrap gate',
-              action: 'preview-import-bootstrap',
-              tone: 'primary',
-              disabled: importBootstrap.status === 'loading' || importBootstrap.submitting,
-            }),
-            createButton({
-              label: importBootstrap.submitting ? 'Submitting tracked review...' : importBootstrapPrimaryLabel(importBootstrap),
-              action: 'submit-import-review',
-              tone: 'ghost',
-              disabled: !importBootstrap.preview || importBootstrap.status === 'loading' || importBootstrap.submitting,
-            }),
-          ],
-        },
         {
           kicker: 'Start new review',
           title: 'Ingest fresh review context',
@@ -1013,70 +1274,672 @@ function createModelExampleSelect(state) {
   });
 }
 
+function createGuidedModelExampleSelect(state) {
+  const { examples } = state.data;
+  return el('select', {
+    className: 'studio-select',
+    attrs: {
+      'aria-label': t('studio.model.guided.input.example.select'),
+      'aria-describedby': 'guided-model-input-hint',
+      disabled: examples.items.length === 0,
+    },
+    dataset: { hook: 'guided-example-select' },
+    children: examples.items.length > 0
+      ? examples.items.map((example) =>
+          el('option', {
+            text: example.name,
+            attrs: {
+              value: getStudioExampleValue(example),
+              ...(getStudioExampleValue(example) === state.data.examples.selectedId
+                ? { selected: true }
+                : {}),
+            },
+          })
+        )
+      : [
+          el('option', {
+            text: examples.status === 'loading'
+              ? t('studio.model.guided.input.examples-loading')
+              : t('studio.model.guided.input.examples-empty'),
+            attrs: { value: '' },
+          }),
+        ],
+  });
+}
+
+function createGuidedModelViewport() {
+  return createCard({
+    kicker: t('studio.model.guided.result.primary'),
+    title: t('studio.model.guided.result.inspector-title'),
+    copy: t('studio.model.guided.result.inspector-copy'),
+    surface: 'canvas',
+    body: [
+      el('div', {
+        className: 'viewport-toolbar',
+        children: [
+          el('label', {
+            className: 'studio-toggle',
+            children: [
+              el('input', {
+                dataset: { hook: 'wireframe' },
+                attrs: { type: 'checkbox' },
+              }),
+              el('span', { text: 'Wireframe' }),
+            ],
+          }),
+          el('label', {
+            className: 'studio-toggle',
+            children: [
+              el('input', {
+                dataset: { hook: 'edges' },
+                attrs: { type: 'checkbox', checked: true },
+              }),
+              el('span', { text: 'Edges' }),
+            ],
+          }),
+          el('label', {
+            className: 'studio-range-row',
+            children: [
+              el('span', { text: 'Opacity' }),
+              el('input', {
+                dataset: { hook: 'opacity' },
+                attrs: { type: 'range', min: 10, max: 100, value: 100 },
+              }),
+            ],
+          }),
+          createButton({
+            label: 'Screenshot',
+            action: 'model-screenshot',
+            tone: 'ghost',
+            dataset: { hook: 'screenshot' },
+          }),
+          createButton({
+            label: 'Fit view',
+            action: 'model-fit-view',
+            tone: 'ghost',
+            dataset: { hook: 'fit-view' },
+          }),
+        ],
+      }),
+      el('div', {
+        className: 'studio-viewport-shell',
+        children: [
+          el('div', { className: 'studio-viewport', dataset: { hook: 'viewport' } }),
+        ],
+      }),
+      el('p', {
+        className: 'inline-note',
+        dataset: { hook: 'viewport-caption' },
+        text: t('studio.model.guided.result.inspector-copy'),
+      }),
+    ],
+  });
+}
+
+function guidedModelStepSection(step, currentStep, children) {
+  return el('section', {
+    className: 'guided-model-step',
+    attrs: {
+      tabindex: '-1',
+      ...(step !== currentStep ? { hidden: true } : {}),
+    },
+    dataset: {
+      modelGuidedStep: step,
+      workflowStep: `model-${step}`,
+    },
+    children,
+  });
+}
+
 function createModelWorkspace(state) {
   const model = ensureModelTrackedRunState(state.data.model);
-  const promptReady = Boolean(model.promptMode || model.promptText);
-  const buildTone = model.buildState === 'success' ? 'ok' : model.buildState === 'error' ? 'bad' : model.buildState === 'building' ? 'warn' : 'info';
-  const trackedRun = deriveModelTrackedRunPresentation({
-    model,
-    recentJobs: state.data.recentJobs.items || [],
-    jobMonitor: state.data.jobMonitor || {},
-  });
+  const guidedFlow = ensureModelGuidedFlowState(model);
+  const aiDraft = ensureAiDraftState(model);
+  const guidedStep = resolveModelGuidedStep(model);
+  const guidedStepLabels = {
+    select_input: t('studio.model.guided.step.input'),
+    preflight: t('studio.model.guided.step.preflight'),
+    running: t('studio.model.guided.step.running'),
+    result: t('studio.model.guided.step.result'),
+  };
+  const guidedSteps = createModelGuidedStepStates(model).map((step) => ({
+    ...step,
+    label: guidedStepLabels[step.id],
+  }));
+  const guidedCanContinue = guidedFlow.inputMethod === 'example'
+    ? state.data.examples.items.length > 0
+    : guidedFlow.inputMethod === 'file'
+      ? model.sourceType === 'local file' && Boolean(model.configText?.trim())
+      : aiDraft.phase === 'validated';
 
   return el('section', {
     className: 'workspace-shell model-workbench',
     children: [
       createSectionHeader({
-        kicker: 'Model workspace',
-        title: 'Choose input, build, then inspect the model result',
-        description: 'The model workbench keeps input, build posture, viewport inspection, metadata, parts, and motion in one place without leading with the TOML editor.',
-        badges: [
-          { label: model.configText ? 'Input loaded' : 'Input pending', tone: model.configText ? 'ok' : 'warn' },
-          { label: promptReady ? 'Assistant ready' : 'Assistant available', tone: 'info' },
-          { label: `Preview ${model.buildState || 'idle'}`, tone: buildTone },
-          { label: trackedRun.badgeLabel, tone: trackedRun.tone },
-        ],
+        kicker: t('studio.model.guided.kicker'),
+        title: t('studio.model.guided.title'),
+        description: t('studio.model.guided.description'),
+      }),
+      createTaskStepper({
+        label: t('studio.model.guided.progress'),
+        steps: guidedSteps,
+      }),
+      el('p', {
+        className: 'visually-hidden',
+        text: guidedStepLabels[guidedStep],
+        attrs: { role: 'status', 'aria-live': 'polite' },
+        dataset: { hook: 'guided-progress' },
       }),
       el('div', {
-        className: 'model-status-grid',
+        className: 'guided-model-flow',
         children: [
-          el('article', {
-            className: 'model-status-surface',
-            dataset: { hook: 'runtime-surface', tone: 'info' },
-            children: [
-              el('h3', { className: 'model-status-title', text: 'Runtime pending' }),
-              el('p', { className: 'model-status-copy', text: 'Runtime posture will resolve from the local API health check.' }),
-            ],
-          }),
-          el('article', {
-            className: 'model-status-surface',
-            dataset: { hook: 'connection-surface', tone: 'info' },
-            children: [
-              el('h3', { className: 'model-status-title', text: 'API pending' }),
-              el('p', { className: 'model-status-copy', text: 'Connection state will reflect whether the future-facing studio path is reachable.' }),
-            ],
-          }),
-          el('article', {
-            className: 'model-status-surface',
-            dataset: { hook: 'build-surface', tone: 'info' },
-            children: [
-              el('h3', { className: 'model-status-title', text: 'Idle' }),
-              el('p', { className: 'model-status-copy', text: 'Build remains the primary CTA in this workspace.' }),
-            ],
-          }),
-          el('article', {
-            className: 'model-status-surface',
-            dataset: { hook: 'result-surface', tone: 'info' },
-            children: [
-              el('h3', { className: 'model-status-title', text: 'Result pending' }),
-              el('p', { className: 'model-status-copy', text: 'The latest preview outcome will stay visible here.' }),
-            ],
-          }),
+          guidedModelStepSection('select_input', guidedStep, [
+            el('h2', {
+              className: 'guided-model-step-title',
+              text: t('studio.model.guided.input.title'),
+              dataset: { hook: 'guided-step-title' },
+            }),
+            el('p', {
+              className: 'guided-model-step-copy',
+              text: t('studio.model.guided.input.copy'),
+            }),
+            el('fieldset', {
+              className: 'guided-model-input-methods',
+              children: [
+                el('legend', {
+                  className: 'visually-hidden',
+                  text: t('studio.model.guided.input.title'),
+                }),
+                el('label', {
+                  className: 'guided-model-input-option',
+                  dataset: { selected: guidedFlow.inputMethod === 'example' ? 'true' : 'false' },
+                  children: [
+                    el('input', {
+                      attrs: {
+                        type: 'radio',
+                        name: 'guided-model-input-method',
+                        value: 'example',
+                        ...(guidedFlow.inputMethod === 'example' ? { checked: true } : {}),
+                      },
+                      dataset: { hook: 'guided-input-method' },
+                    }),
+                    el('span', {
+                      children: [
+                        el('strong', { text: t('studio.model.guided.input.example.label') }),
+                        el('small', { text: t('studio.model.guided.input.example.copy') }),
+                      ],
+                    }),
+                  ],
+                }),
+                el('label', {
+                  className: 'guided-model-input-option',
+                  dataset: { selected: guidedFlow.inputMethod === 'file' ? 'true' : 'false' },
+                  children: [
+                    el('input', {
+                      attrs: {
+                        type: 'radio',
+                        name: 'guided-model-input-method',
+                        value: 'file',
+                        ...(guidedFlow.inputMethod === 'file' ? { checked: true } : {}),
+                      },
+                      dataset: { hook: 'guided-input-method' },
+                    }),
+                    el('span', {
+                      children: [
+                        el('strong', { text: t('studio.model.guided.input.file.label') }),
+                        el('small', { text: t('studio.model.guided.input.file.copy') }),
+                      ],
+                    }),
+                  ],
+                }),
+                el('label', {
+                  className: 'guided-model-input-option',
+                  dataset: { selected: guidedFlow.inputMethod === 'ai' ? 'true' : 'false' },
+                  children: [
+                    el('input', {
+                      attrs: {
+                        type: 'radio',
+                        name: 'guided-model-input-method',
+                        value: 'ai',
+                        ...(guidedFlow.inputMethod === 'ai' ? { checked: true } : {}),
+                      },
+                      dataset: { hook: 'guided-input-method' },
+                    }),
+                    el('span', {
+                      children: [
+                        el('strong', { text: t('studio.model.ai.method.label') }),
+                        el('small', { text: t('studio.model.ai.method.copy') }),
+                      ],
+                    }),
+                  ],
+                }),
+              ],
+            }),
+            el('div', {
+              className: 'guided-model-input-panel',
+              attrs: guidedFlow.inputMethod !== 'example' ? { hidden: true } : {},
+              dataset: { hook: 'guided-example-panel' },
+              children: [
+                el('label', {
+                  className: 'studio-field',
+                  children: [
+                    el('span', {
+                      className: 'studio-field-label',
+                      text: t('studio.model.guided.input.example.select'),
+                    }),
+                    createGuidedModelExampleSelect(state),
+                  ],
+                }),
+              ],
+            }),
+            el('div', {
+              className: 'guided-model-input-panel',
+              attrs: guidedFlow.inputMethod !== 'file' ? { hidden: true } : {},
+              dataset: { hook: 'guided-file-panel' },
+              children: [
+                el('p', {
+                  className: 'guided-model-file-name',
+                  text: model.sourceType === 'local file'
+                    ? `${t('studio.model.guided.input.file.selected')}: ${model.sourceName}`
+                    : t('studio.model.guided.input.file.none'),
+                  dataset: { hook: 'guided-file-name' },
+                }),
+                createSecondaryAction({
+                  label: t('studio.model.guided.input.file.action'),
+                  action: 'model-guided-open-file',
+                  dataset: { hook: 'guided-open-config' },
+                }),
+                el('input', {
+                  className: 'visually-hidden',
+                  dataset: { hook: 'guided-config-file' },
+                  attrs: { type: 'file', accept: '.toml,.json,text/plain' },
+                }),
+              ],
+            }),
+            el('div', {
+              className: 'guided-model-input-panel guided-ai-panel',
+              attrs: guidedFlow.inputMethod !== 'ai' ? { hidden: true } : {},
+              dataset: { hook: 'guided-ai-panel' },
+              children: [
+                el('div', {
+                  className: 'guided-ai-stage',
+                  attrs: ['review', 'validating', 'validated'].includes(aiDraft.phase) ? { hidden: true } : {},
+                  dataset: { hook: 'guided-ai-request-stage' },
+                  children: [
+                    el('label', {
+                      className: 'studio-field',
+                      children: [
+                        el('span', {
+                          className: 'studio-field-label',
+                          text: t('studio.model.ai.prompt.label'),
+                        }),
+                        el('textarea', {
+                          className: 'studio-textarea studio-textarea-compact',
+                          text: model.promptText || '',
+                          dataset: {
+                            hook: 'assistant-textarea',
+                            field: 'prompt-text',
+                          },
+                          attrs: {
+                            placeholder: t('studio.model.ai.prompt.placeholder'),
+                            rows: 6,
+                          },
+                        }),
+                      ],
+                    }),
+                    createActionSummary({
+                      actionId: 'create-ai-draft',
+                      title: t('studio.model.ai.preflight.title'),
+                      description: t('studio.model.ai.preflight.copy'),
+                      requiredInputs: [t('studio.model.ai.preflight.submitted')],
+                      expectedOutputs: [t('studio.model.ai.preflight.result')],
+                      launchesFreeCAD: t('studio.model.ai.preflight.freecad'),
+                      fileEffects: t('studio.model.ai.preflight.local-files'),
+                      networkAccess: t('studio.model.ai.preflight.network'),
+                      provider: t('studio.model.ai.preflight.provider'),
+                      cost: t('studio.model.ai.preflight.cost'),
+                      safetyNotes: t('studio.model.ai.preflight.safety'),
+                    }),
+                    createInfoGrid([
+                      {
+                        label: t('studio.model.ai.preflight.submitted-label'),
+                        value: t('studio.model.ai.preflight.submitted'),
+                      },
+                      {
+                        label: t('studio.model.ai.preflight.local-files-label'),
+                        value: t('studio.model.ai.preflight.local-files'),
+                      },
+                      {
+                        label: t('studio.model.ai.preflight.api-key-label'),
+                        value: t('studio.model.ai.preflight.api-key'),
+                      },
+                    ]),
+                    el('div', {
+                      className: 'inline-status',
+                      attrs: { role: 'alert', hidden: !aiDraft.error },
+                      dataset: { hook: 'ai-request-error', tone: 'bad' },
+                      children: [
+                        el('div', {
+                          className: 'inline-status-copy',
+                          children: [
+                            el('p', {
+                              className: 'inline-status-title',
+                              text: t('studio.model.ai.error.title'),
+                            }),
+                            el('p', {
+                              className: 'inline-status-message',
+                              text: aiDraft.error,
+                              dataset: { hook: 'ai-request-error-message' },
+                            }),
+                          ],
+                        }),
+                      ],
+                    }),
+                    el('p', {
+                      className: 'inline-note',
+                      text: t('studio.model.ai.preflight.prompt-needed'),
+                      attrs: { id: 'guided-ai-create-hint' },
+                      dataset: { hook: 'ai-create-hint' },
+                    }),
+                    createPrimaryAction({
+                      label: t('studio.model.ai.preflight.confirm'),
+                      action: 'model-ai-create-draft',
+                      attrs: { 'aria-describedby': 'guided-ai-create-hint' },
+                      dataset: { hook: 'ai-create-draft' },
+                    }),
+                  ],
+                }),
+                el('div', {
+                  className: 'guided-ai-stage',
+                  attrs: ['review', 'validating', 'validated'].includes(aiDraft.phase) ? {} : { hidden: true },
+                  dataset: { hook: 'guided-ai-review-stage' },
+                  children: [
+                    el('h3', {
+                      className: 'guided-ai-review-title',
+                      text: t('studio.model.ai.review.title'),
+                    }),
+                    el('p', {
+                      className: 'guided-model-step-copy',
+                      text: t('studio.model.ai.review.copy'),
+                    }),
+                    el('label', {
+                      className: 'studio-field',
+                      children: [
+                        el('span', {
+                          className: 'studio-field-label',
+                          text: t('studio.model.ai.review.draft-label'),
+                        }),
+                        el('textarea', {
+                          className: 'studio-textarea studio-textarea-code studio-textarea-model',
+                          text: model.configText || '',
+                          dataset: {
+                            hook: 'ai-draft-textarea',
+                            field: 'config-text',
+                          },
+                          attrs: { rows: 14, spellcheck: 'false' },
+                        }),
+                      ],
+                    }),
+                    el('div', {
+                      className: 'studio-note-stack',
+                      dataset: { hook: 'assistant-report' },
+                    }),
+                    el('p', {
+                      className: 'inline-note',
+                      text: t('studio.model.ai.review.required'),
+                      attrs: { id: 'guided-ai-review-hint' },
+                      dataset: { hook: 'ai-review-hint' },
+                    }),
+                    createPrimaryAction({
+                      label: aiDraft.phase === 'validated'
+                        ? t('studio.model.ai.review.continue')
+                        : t('studio.model.ai.review.validate'),
+                      action: 'model-ai-validate-draft',
+                      attrs: { 'aria-describedby': 'guided-ai-review-hint' },
+                      dataset: { hook: 'ai-validate-draft' },
+                    }),
+                  ],
+                }),
+              ],
+            }),
+            el('p', {
+              className: 'inline-note',
+              text: guidedCanContinue
+                ? t('studio.model.guided.input.ready')
+                : guidedFlow.inputMethod === 'example'
+                  ? t('studio.model.guided.input.examples-loading')
+                  : guidedFlow.inputMethod === 'file'
+                    ? t('studio.model.guided.input.file-needed')
+                    : t('studio.model.ai.preflight.prompt-needed'),
+              attrs: { id: 'guided-model-input-hint' },
+              dataset: { hook: 'guided-input-hint' },
+            }),
+            createPrimaryAction({
+              label: t('studio.model.guided.input.continue'),
+              action: 'model-guided-continue',
+              disabled: !guidedCanContinue,
+              attrs: {
+                'aria-describedby': 'guided-model-input-hint',
+                ...(guidedFlow.inputMethod === 'ai' ? { hidden: true } : {}),
+              },
+              dataset: { hook: 'guided-continue' },
+            }),
+          ]),
+          guidedModelStepSection('preflight', guidedStep, [
+            el('h2', {
+              className: 'guided-model-step-title',
+              text: t('studio.model.guided.preflight.title'),
+              dataset: { hook: 'guided-step-title' },
+            }),
+            el('p', {
+              className: 'guided-model-step-copy',
+              text: t('studio.model.guided.preflight.copy'),
+            }),
+            createActionSummary({
+              actionId: 'generate-model',
+              title: t('studio.model.guided.preflight.action-title'),
+              description: t('studio.model.guided.preflight.action-copy'),
+              requiredInputs: [model.sourceName || t('studio.model.guided.preflight.input-fallback')],
+              expectedOutputs: [t('studio.model.guided.preflight.outputs')],
+              launchesFreeCAD: t('studio.model.guided.preflight.freecad'),
+              fileEffects: t('studio.model.guided.preflight.files'),
+              networkAccess: t('studio.model.guided.preflight.network'),
+              provider: t('studio.model.guided.preflight.provider'),
+              cost: t('studio.model.guided.preflight.cost'),
+              safetyNotes: t('studio.model.guided.preflight.safety'),
+            }),
+            el('div', {
+              className: 'inline-status',
+              attrs: { role: 'alert', hidden: true },
+              dataset: { hook: 'guided-error', tone: 'bad' },
+              children: [
+                el('div', {
+                  className: 'inline-status-copy',
+                  children: [
+                    el('p', {
+                      className: 'inline-status-title',
+                      text: t('studio.model.guided.error.title'),
+                    }),
+                    el('p', {
+                      className: 'inline-status-message',
+                      dataset: { hook: 'guided-error-message' },
+                    }),
+                  ],
+                }),
+              ],
+            }),
+            el('p', {
+              className: 'inline-note',
+              attrs: { id: 'guided-model-generate-hint' },
+              dataset: { hook: 'guided-generate-hint' },
+            }),
+            el('div', {
+              className: 'guided-model-step-actions',
+              children: [
+                createSecondaryAction({
+                  label: t('studio.model.guided.preflight.back'),
+                  action: 'model-guided-back',
+                  dataset: { hook: 'guided-back' },
+                }),
+                createPrimaryAction({
+                  label: t('studio.model.guided.generate.action'),
+                  action: 'model-guided-generate',
+                  attrs: { 'aria-describedby': 'guided-model-generate-hint' },
+                  dataset: { hook: 'guided-generate' },
+                }),
+              ],
+            }),
+          ]),
+          guidedModelStepSection('running', guidedStep, [
+            el('h2', {
+              className: 'guided-model-step-title',
+              text: t('studio.model.guided.running.title'),
+              dataset: { hook: 'guided-step-title' },
+            }),
+            createInlineStatus({
+              title: t('studio.model.guided.running.title'),
+              copy: model.buildState === 'building'
+                ? t('studio.model.guided.running.building')
+                : t('studio.model.guided.running.validating'),
+              tone: 'info',
+              live: 'polite',
+            }),
+            createDisclosure({
+              summary: t('studio.model.guided.running.details'),
+              body: [
+                el('div', {
+                  className: 'build-log studio-side-panel',
+                  dataset: { hook: 'guided-running-log' },
+                }),
+              ],
+            }),
+          ]),
+          guidedModelStepSection('result', guidedStep, [
+            el('h2', {
+              className: 'guided-model-step-title',
+              text: t('studio.model.guided.result.title'),
+              dataset: { hook: 'guided-step-title' },
+            }),
+            el('p', {
+              className: 'guided-model-step-copy',
+              text: t('studio.model.guided.result.copy'),
+            }),
+            el('div', {
+              className: 'studio-mini-grid guided-model-result-summary',
+              dataset: { hook: 'guided-result-summary' },
+            }),
+            el('div', {
+              className: 'inline-status',
+              attrs: { role: 'alert', hidden: true },
+              dataset: { hook: 'guided-result-error', tone: 'bad' },
+              children: [
+                el('div', {
+                  className: 'inline-status-copy',
+                  children: [
+                    el('p', {
+                      className: 'inline-status-title',
+                      text: t('studio.model.guided.result.error-title'),
+                    }),
+                    el('p', {
+                      className: 'inline-status-message',
+                      dataset: { hook: 'guided-result-error-message' },
+                    }),
+                  ],
+                }),
+              ],
+            }),
+            createResultCard({
+              title: t('studio.model.guided.result.card-title'),
+              meta: t('studio.model.guided.result.card-meta'),
+              copy: t('studio.model.guided.result.card-copy'),
+              primaryAction: {
+                label: t('studio.model.guided.result.view'),
+                action: 'model-guided-view-result',
+                dataset: { hook: 'guided-view-result' },
+              },
+              menuLabel: t('studio.model.guided.result.more'),
+              menuItems: [
+                {
+                  label: t('studio.model.guided.result.create-drawing'),
+                  action: 'go-drawing',
+                },
+                {
+                  label: t('studio.model.guided.result.start-another'),
+                  action: 'model-guided-reset',
+                  dataset: { hook: 'guided-reset' },
+                },
+              ],
+            }),
+            el('div', {
+              className: 'guided-model-result-inspection',
+              attrs: {
+                tabindex: '-1',
+                ...(!guidedFlow.resultExpanded ? { hidden: true } : {}),
+              },
+              dataset: { hook: 'guided-result-inspection' },
+              children: [createGuidedModelViewport()],
+            }),
+          ]),
         ],
       }),
-      el('div', {
-        className: 'model-grid',
+      el('details', {
+        className: 'guided-model-advanced-disclosure',
+        dataset: { hook: 'model-advanced-tools' },
         children: [
+          el('summary', {
+            className: 'guided-model-advanced-summary',
+            text: t('studio.model.guided.advanced.summary'),
+            attrs: { 'aria-controls': 'model-advanced-content' },
+          }),
+          el('p', {
+            className: 'guided-model-advanced-copy',
+            text: t('studio.model.guided.advanced.copy'),
+          }),
+          el('div', {
+            className: 'guided-model-advanced-content',
+            attrs: { id: 'model-advanced-content', hidden: true },
+            dataset: { hook: 'model-advanced-content' },
+            children: [
+              el('div', {
+            className: 'model-status-grid',
+            children: [
+              el('article', {
+                className: 'model-status-surface',
+                dataset: { hook: 'runtime-surface', tone: 'info' },
+                children: [
+                  el('h3', { className: 'model-status-title', text: 'Runtime pending' }),
+                  el('p', { className: 'model-status-copy', text: 'Runtime posture will resolve from the local API health check.' }),
+                ],
+              }),
+              el('article', {
+                className: 'model-status-surface',
+                dataset: { hook: 'connection-surface', tone: 'info' },
+                children: [
+                  el('h3', { className: 'model-status-title', text: 'API pending' }),
+                  el('p', { className: 'model-status-copy', text: 'Connection state will reflect whether the future-facing studio path is reachable.' }),
+                ],
+              }),
+              el('article', {
+                className: 'model-status-surface',
+                dataset: { hook: 'build-surface', tone: 'info' },
+                children: [
+                  el('h3', { className: 'model-status-title', text: 'Idle' }),
+                  el('p', { className: 'model-status-copy', text: 'Build remains the primary CTA in this workspace.' }),
+                ],
+              }),
+              el('article', {
+                className: 'model-status-surface',
+                dataset: { hook: 'result-surface', tone: 'info' },
+                children: [
+                  el('h3', { className: 'model-status-title', text: 'Result pending' }),
+                  el('p', { className: 'model-status-copy', text: 'The latest preview outcome will stay visible here.' }),
+                ],
+              }),
+            ],
+          }),
+          el('div', {
+            className: 'model-grid model-grid-advanced',
+            children: [
           el('div', {
             className: 'model-column model-column-left',
             children: [
@@ -1211,7 +2074,7 @@ function createModelWorkspace(state) {
                             dataset: { hook: 'validate-button' },
                           }),
                           createButton({
-                            label: 'Preview Build',
+                            label: t('studio.model.guided.advanced.review-preview'),
                             action: 'model-build',
                             tone: 'primary',
                             dataset: { hook: 'build-button' },
@@ -1233,6 +2096,19 @@ function createModelWorkspace(state) {
                       el('p', {
                         className: 'inline-note',
                         text: 'Use tracked runs when you want provenance, job history, and artifact-driven re-entry. Validation notes stay visible here before the run is queued.',
+                      }),
+                      createActionSummary({
+                        actionId: 'run-tracked-model-work',
+                        title: t('studio.model.guided.advanced.tracked-title'),
+                        description: t('studio.model.guided.advanced.tracked-copy'),
+                        requiredInputs: [model.sourceName || t('studio.model.guided.preflight.input-fallback')],
+                        expectedOutputs: [t('studio.model.guided.advanced.tracked-outputs')],
+                        launchesFreeCAD: t('studio.model.guided.preflight.freecad'),
+                        fileEffects: t('studio.model.guided.advanced.tracked-files'),
+                        networkAccess: t('studio.model.guided.preflight.network'),
+                        provider: t('studio.model.guided.preflight.provider'),
+                        cost: t('studio.model.guided.preflight.cost'),
+                        safetyNotes: t('studio.model.guided.advanced.tracked-safety'),
                       }),
                       el('div', { className: 'studio-note-stack', dataset: { hook: 'tracked-validation-notes' } }),
                       createDisclosure({
@@ -1328,114 +2204,6 @@ function createModelWorkspace(state) {
                   }),
                 ],
               }),
-              createCard({
-                kicker: 'Assistant',
-                title: 'Prompt-based design stays secondary',
-                copy: 'Use the assistant to draft or revise TOML, but keep the build-and-inspect loop in the foreground.',
-                body: [
-                  createDisclosure({
-                    summary: 'Prompt-assisted design',
-                    open: promptReady,
-                    body: [
-                      el('textarea', {
-                        className: 'studio-textarea studio-textarea-compact',
-                        text: model.promptText || '',
-                        dataset: {
-                          hook: 'assistant-textarea',
-                          field: 'prompt-text',
-                        },
-                        attrs: {
-                          placeholder: 'Describe geometry intent, manufacturing assumptions, and what should be generated.',
-                          rows: 6,
-                        },
-                      }),
-                      el('div', {
-                        className: 'model-action-row',
-                        children: [
-                          createButton({
-                            label: 'Draft TOML',
-                            action: 'model-draft-prompt',
-                            tone: 'ghost',
-                            dataset: { hook: 'draft-prompt' },
-                          }),
-                        ],
-                      }),
-                      el('div', { className: 'studio-note-stack', dataset: { hook: 'assistant-report' } }),
-                    ],
-                  }),
-                ],
-              }),
-            ],
-          }),
-          el('div', {
-            className: 'model-column model-column-center',
-            children: [
-              createCard({
-                kicker: 'Viewport',
-                title: 'Inspect the latest build result',
-                copy: 'The model canvas now leads the workspace so the user can see the outcome immediately after build.',
-                surface: 'canvas',
-                body: [
-                  el('div', {
-                    className: 'viewport-toolbar',
-                    children: [
-                      el('label', {
-                        className: 'studio-toggle',
-                        children: [
-                          el('input', {
-                            dataset: { hook: 'wireframe' },
-                            attrs: { type: 'checkbox' },
-                          }),
-                          el('span', { text: 'Wireframe' }),
-                        ],
-                      }),
-                      el('label', {
-                        className: 'studio-toggle',
-                        children: [
-                          el('input', {
-                            dataset: { hook: 'edges' },
-                            attrs: { type: 'checkbox', checked: true },
-                          }),
-                          el('span', { text: 'Edges' }),
-                        ],
-                      }),
-                      el('label', {
-                        className: 'studio-range-row',
-                        children: [
-                          el('span', { text: 'Opacity' }),
-                          el('input', {
-                            dataset: { hook: 'opacity' },
-                            attrs: { type: 'range', min: 10, max: 100, value: 100 },
-                          }),
-                        ],
-                      }),
-                      createButton({
-                        label: 'Screenshot',
-                        action: 'model-screenshot',
-                        tone: 'ghost',
-                        dataset: { hook: 'screenshot' },
-                      }),
-                      createButton({
-                        label: 'Fit view',
-                        action: 'model-fit-view',
-                        tone: 'ghost',
-                        dataset: { hook: 'fit-view' },
-                      }),
-                    ],
-                  }),
-                  el('div', {
-                    className: 'studio-viewport-shell',
-                    children: [
-                      el('div', { className: 'studio-viewport', dataset: { hook: 'viewport' } }),
-                    ],
-                  }),
-                  el('p', {
-                    className: 'inline-note',
-                    dataset: { hook: 'viewport-caption' },
-                    text: 'The viewport stays dominant so the workflow reads as choose input, preview, then inspect the result.',
-                  }),
-                ],
-              }),
             ],
           }),
           el('div', {
@@ -1510,6 +2278,10 @@ function createModelWorkspace(state) {
                   }),
                 ],
               }),
+            ],
+          }),
+        ],
+      }),
             ],
           }),
         ],
@@ -2502,31 +3274,436 @@ function createConsoleQueueCard(state) {
   });
 }
 
-function createConsoleWorkspace(state) {
+function guidedImportStepSection(step, currentStep, children) {
+  return el('section', {
+    className: 'guided-import-step',
+    attrs: {
+      tabindex: '-1',
+      ...(step !== currentStep ? { hidden: true } : {}),
+    },
+    dataset: {
+      importGuidedStep: step,
+      workflowStep: `import-${step}`,
+    },
+    children,
+  });
+}
+
+function createImportAdditionalMaterial(importBootstrap) {
+  return createDisclosure({
+    summary: t('studio.import.guided.additional.summary'),
+    body: [
+      el('p', {
+        className: 'guided-import-detail-copy',
+        text: t('studio.import.guided.additional.copy'),
+      }),
+      el('label', {
+        className: 'studio-field',
+        children: [
+          el('span', { className: 'studio-field-label', text: t('studio.import.guided.additional.model-path') }),
+          el('input', {
+            className: 'studio-input',
+            attrs: {
+              type: 'text',
+              placeholder: 'tests/fixtures/imports/simple_bracket.step',
+              value: importBootstrap.modelPath || '',
+            },
+            dataset: { field: 'import-model-path' },
+          }),
+        ],
+      }),
+      el('label', {
+        className: 'studio-field',
+        children: [
+          el('span', { className: 'studio-field-label', text: t('studio.import.guided.additional.bom') }),
+          el('input', {
+            className: 'studio-input',
+            attrs: { type: 'text', value: importBootstrap.bomPath || '' },
+            dataset: { field: 'import-bom-path' },
+          }),
+        ],
+      }),
+      el('label', {
+        className: 'studio-field',
+        children: [
+          el('span', { className: 'studio-field-label', text: t('studio.import.guided.additional.inspection') }),
+          el('input', {
+            className: 'studio-input',
+            attrs: { type: 'text', value: importBootstrap.inspectionPath || '' },
+            dataset: { field: 'import-inspection-path' },
+          }),
+        ],
+      }),
+      el('label', {
+        className: 'studio-field',
+        children: [
+          el('span', { className: 'studio-field-label', text: t('studio.import.guided.additional.quality') }),
+          el('input', {
+            className: 'studio-input',
+            attrs: { type: 'text', value: importBootstrap.qualityPath || '' },
+            dataset: { field: 'import-quality-path' },
+          }),
+        ],
+      }),
+      createSecondaryAction({
+        label: t('studio.import.guided.additional.check-path'),
+        action: 'preview-import-bootstrap',
+        disabled: importBootstrap.status === 'loading',
+      }),
+    ],
+  });
+}
+
+function importAssumptionCount(importBootstrap) {
+  const diagnostics = importBootstrap.preview?.bootstrap?.import_diagnostics || {};
+  const directAssumptions = [
+    diagnostics.import_kind,
+    diagnostics.unit_assumption?.unit,
+    Number.isFinite(Number(diagnostics.body_count)) ? diagnostics.body_count : null,
+  ].filter((value) => value !== null && value !== undefined && value !== '').length;
+  const warningCount = Number(importBootstrap.preview?.bootstrap?.bootstrap_warnings?.warning_count) || 0;
+  return Math.max(directAssumptions, warningCount, 1);
+}
+
+function createGuidedImportReviewWorkspace(state) {
+  const importBootstrap = ensureImportBootstrapState(state);
+  const guidedFlow = ensureImportGuidedFlowState(importBootstrap);
+  const guidedError = resolveImportGuidedError(importBootstrap, t);
+  const guidedStep = resolveImportGuidedStep(importBootstrap);
+  const detailedSteps = createImportGuidedStepStates(importBootstrap);
+  const activeDetailedStep = detailedSteps.find((step) => step.state === 'current')?.id || guidedStep;
+  const groupedStepIndex = activeDetailedStep === 'select_file'
+    ? 0
+    : ['diagnostics', 'confirm'].includes(activeDetailedStep)
+      ? 1
+      : 2;
+  const stepLabels = [
+    t('studio.import.guided.step.file'),
+    t('studio.import.guided.step.check'),
+    t('studio.import.guided.step.result'),
+  ];
+  const groupedSteps = stepLabels.map((label, index) => ({
+    id: ['select_file', 'import_check', 'review_result'][index],
+    label,
+    state: index < groupedStepIndex ? 'complete' : index === groupedStepIndex ? 'current' : 'upcoming',
+  }));
+  const preview = importBootstrap.preview;
+  const diagnostics = preview?.bootstrap?.import_diagnostics || {};
+  const seed = preview?.tracked_review_seed || {};
+  const canStartReview = Boolean(seed.context_path && seed.model_path);
+  const sourceLabel = importBootstrap.modelFileName
+    || importBootstrap.modelPath
+    || diagnostics.source_model_path
+    || t('studio.import.guided.file.none');
+  const reviewStatus = importBootstrap.reviewJob?.status || 'queued';
+  const reviewStatusLabel = reviewStatus === 'succeeded'
+    ? t('studio.import.guided.result.completed')
+    : reviewStatus === 'failed'
+      ? t('studio.import.guided.result.failed')
+      : t('studio.import.guided.result.running');
+  const reviewQualityLabel = reviewStatus === 'succeeded'
+    ? t('studio.import.guided.result.quality-ready')
+    : reviewStatus === 'failed'
+      ? t('studio.import.guided.result.quality-unavailable')
+      : t('studio.import.guided.result.quality-pending');
+  const reviewDecisionLabel = reviewStatus === 'succeeded'
+    ? t('studio.import.guided.result.decision-ready')
+    : reviewStatus === 'failed'
+      ? t('studio.import.guided.result.decision-failed')
+      : t('studio.import.guided.result.decision-running');
+  const reviewIssuesLabel = reviewStatus === 'failed'
+    ? t('studio.import.guided.result.issues-failed')
+    : reviewStatus === 'succeeded'
+      ? t('studio.import.guided.result.issues-ready')
+      : t('studio.import.guided.result.issues-pending');
+
+  return el('section', {
+    className: 'guided-import-workspace',
+    dataset: { hook: 'guided-import-workspace' },
+    children: [
+      createSectionHeader({
+        kicker: t('studio.import.guided.kicker'),
+        title: t('studio.import.guided.title'),
+        description: t('studio.import.guided.description'),
+      }),
+      createTaskStepper({
+        label: t('studio.import.guided.progress'),
+        steps: groupedSteps,
+      }),
+      el('p', {
+        className: 'visually-hidden',
+        text: groupedSteps[groupedStepIndex].label,
+        attrs: { role: 'status', 'aria-live': 'polite' },
+        dataset: { hook: 'guided-import-progress' },
+      }),
+      el('input', {
+        className: 'visually-hidden',
+        attrs: {
+          id: 'guided-import-model-file',
+          type: 'file',
+          accept: '.step,.stp,.fcstd',
+        },
+        dataset: { hook: 'guided-import-file' },
+      }),
+      el('div', {
+        className: 'guided-import-flow',
+        children: [
+          guidedImportStepSection('select_file', guidedStep, [
+            el('h2', {
+              className: 'guided-import-step-title',
+              text: t('studio.import.guided.file.title'),
+              dataset: { hook: 'guided-import-step-title' },
+            }),
+            el('p', {
+              className: 'guided-import-step-copy',
+              text: t('studio.import.guided.file.copy'),
+            }),
+            el('p', {
+              className: 'inline-note',
+              text: t('studio.import.guided.file.limit'),
+            }),
+            createActionSummary({
+              actionId: 'check-imported-cad',
+              title: t('studio.import.guided.file.summary-title'),
+              description: t('studio.import.guided.file.summary-copy'),
+              requiredInputs: [t('studio.import.guided.file.required-input')],
+              expectedOutputs: [t('studio.import.guided.file.expected-output')],
+              launchesFreeCAD: t('studio.import.guided.file.freecad'),
+              fileEffects: t('studio.import.guided.file.files'),
+              networkAccess: t('studio.import.guided.local-api'),
+              provider: t('studio.import.guided.none'),
+              cost: t('studio.import.guided.none'),
+              humanConfirmationRequired: true,
+              safetyNotes: t('studio.import.guided.file.safety'),
+            }),
+            guidedError
+              ? createInlineStatus({
+                  title: t('studio.import.guided.error.title'),
+                  copy: guidedError,
+                  tone: 'bad',
+                })
+              : null,
+            createPrimaryAction({
+              label: t('studio.import.guided.file.action'),
+              action: 'choose-import-model-file',
+              dataset: { hook: 'guided-import-choose' },
+            }),
+            createImportAdditionalMaterial(importBootstrap),
+          ]),
+          guidedImportStepSection('diagnostics', guidedStep, [
+            el('h2', {
+              className: 'guided-import-step-title',
+              text: t('studio.import.guided.diagnostics.title'),
+              dataset: { hook: 'guided-import-step-title' },
+            }),
+            el('p', {
+              className: 'guided-import-step-copy',
+              text: t('studio.import.guided.diagnostics.copy'),
+            }),
+            createInlineStatus({
+              title: t('studio.import.guided.diagnostics.status-title'),
+              copy: sourceLabel,
+              tone: 'info',
+            }),
+          ]),
+          guidedImportStepSection('confirm', guidedStep, [
+            el('h2', {
+              className: 'guided-import-step-title',
+              text: t('studio.import.guided.confirm.title'),
+              dataset: { hook: 'guided-import-step-title' },
+            }),
+            el('p', {
+              className: 'guided-import-step-copy',
+              text: t('studio.import.guided.confirm.copy'),
+            }),
+            createInfoGrid([
+              { label: t('studio.import.guided.confirm.file'), value: t('studio.import.guided.confirm.readable') },
+              {
+                label: t('studio.import.guided.confirm.assumptions'),
+                value: t('studio.import.guided.confirm.assumption-count', { count: importAssumptionCount(importBootstrap) }),
+              },
+              { label: t('studio.import.guided.confirm.review'), value: t('studio.import.guided.confirm.ready') },
+            ]),
+            createActionSummary({
+              actionId: 'start-imported-cad-review',
+              title: t('studio.import.guided.confirm.summary-title'),
+              description: t('studio.import.guided.confirm.summary-copy'),
+              requiredInputs: [sourceLabel, t('studio.import.guided.confirm.required-assumptions')],
+              expectedOutputs: [t('studio.import.guided.confirm.expected-output')],
+              launchesFreeCAD: t('studio.import.guided.confirm.freecad'),
+              fileEffects: t('studio.import.guided.confirm.files'),
+              networkAccess: t('studio.import.guided.local-api'),
+              provider: t('studio.import.guided.none'),
+              cost: t('studio.import.guided.none'),
+              humanConfirmationRequired: true,
+              safetyNotes: t('studio.import.guided.confirm.safety'),
+            }),
+            guidedError
+              ? createInlineStatus({
+                  title: t('studio.import.guided.error.title'),
+                  copy: guidedError,
+                  tone: 'bad',
+                })
+              : null,
+            !canStartReview && !guidedError
+              ? createInlineStatus({
+                  title: t('studio.import.guided.confirm.blocked-title'),
+                  copy: t('studio.import.guided.confirm.blocked-copy'),
+                  tone: 'warn',
+                  attrs: { id: 'guided-import-start-review-status' },
+                  action: {
+                    label: t('studio.import.guided.confirm.change-file'),
+                    action: 'choose-import-model-file',
+                  },
+                })
+              : null,
+            el('div', {
+              className: 'guided-import-step-actions',
+              children: [
+                createPrimaryAction({
+                  label: t('studio.import.guided.confirm.action'),
+                  action: 'submit-import-review',
+                  disabled: !canStartReview || importBootstrap.submitting,
+                  attrs: !canStartReview
+                    ? { 'aria-describedby': 'guided-import-start-review-status' }
+                    : {},
+                  dataset: { hook: 'guided-import-start-review' },
+                }),
+                createSecondaryAction({
+                  label: t('studio.import.guided.confirm.change-file'),
+                  action: 'choose-import-model-file',
+                }),
+              ],
+            }),
+            createDisclosure({
+              summary: t('studio.import.guided.confirm.details'),
+              body: [createImportBootstrapCard(state)],
+            }),
+          ]),
+          guidedImportStepSection('running', guidedStep, [
+            el('h2', {
+              className: 'guided-import-step-title',
+              text: t('studio.import.guided.running.title'),
+              dataset: { hook: 'guided-import-step-title' },
+            }),
+            el('p', {
+              className: 'guided-import-step-copy',
+              text: t('studio.import.guided.running.copy'),
+            }),
+            createInlineStatus({
+              title: t('studio.import.guided.running.status-title'),
+              copy: t('studio.import.guided.running.status-copy'),
+              tone: 'info',
+            }),
+          ]),
+          guidedImportStepSection('result', guidedStep, [
+            el('h2', {
+              className: 'guided-import-step-title',
+              text: t('studio.import.guided.result.title'),
+              dataset: { hook: 'guided-import-step-title' },
+            }),
+            el('p', {
+              className: 'guided-import-step-copy',
+              text: t('studio.import.guided.result.copy'),
+            }),
+            createInfoGrid([
+              { label: t('studio.import.guided.result.execution'), value: reviewStatusLabel },
+              { label: t('studio.import.guided.result.quality'), value: reviewQualityLabel },
+              { label: t('studio.import.guided.result.primary'), value: t('studio.import.guided.result.primary-value') },
+            ]),
+            createInfoGrid([
+              { label: t('studio.import.guided.result.decision'), value: reviewDecisionLabel },
+              { label: t('studio.import.guided.result.issues'), value: reviewIssuesLabel },
+              { label: t('studio.import.guided.result.next'), value: t('studio.import.guided.result.next-value') },
+            ]),
+            createResultCard({
+              title: t('studio.import.guided.result.card-title'),
+              meta: t('studio.import.guided.result.card-meta'),
+              copy: t('studio.import.guided.result.card-copy'),
+              primaryAction: {
+                label: t('studio.import.guided.result.view'),
+                action: 'import-view-review-result',
+                disabled: !importBootstrap.lastJobId,
+                dataset: {
+                  hook: 'guided-import-view-result',
+                  jobId: importBootstrap.lastJobId,
+                },
+              },
+              menuLabel: t('studio.import.guided.result.more'),
+              menuItems: [
+                {
+                  label: t('studio.import.guided.result.files'),
+                  action: 'import-open-result-files',
+                  disabled: !importBootstrap.lastJobId,
+                },
+                {
+                  label: t('studio.import.guided.result.start-another'),
+                  action: 'import-start-another',
+                },
+              ],
+            }),
+            createDisclosure({
+              summary: t('studio.import.guided.result.supporting'),
+              body: preview?.artifacts?.length
+                ? [createArtifactList(preview.artifacts.map((artifact) => ({
+                    title: artifact.file_name || artifact.key,
+                    meta: artifact.key,
+                    path: artifact.path,
+                  })))]
+                : [el('p', { className: 'support-note', text: t('studio.import.guided.result.supporting-empty') })],
+            }),
+          ]),
+        ],
+      }),
+    ],
+  });
+}
+
+function createAdvancedConsoleWorkspace(state) {
   return el('section', {
     className: 'workspace-shell console-workspace',
     children: [
-      createConsoleHero(state),
-      createConsoleWorkflowRail(),
-      createCanonicalPackageCards(state),
-      el('div', {
-        className: 'console-grid',
+      createGuidedImportReviewWorkspace(state),
+      el('details', {
+        className: 'guided-import-advanced-disclosure',
+        dataset: { hook: 'import-advanced-tools' },
         children: [
-          el('div', {
-            className: 'console-column console-column-left',
-            children: [
-              createConsoleGuidedWorkflowCard(state),
-              createQuickLinksCard(state),
-              createRecentJobsCard(state),
-            ],
+          el('summary', {
+            className: 'guided-import-advanced-summary',
+            text: t('studio.import.guided.advanced.summary'),
+          }),
+          el('p', {
+            className: 'guided-import-detail-copy',
+            text: t('studio.import.guided.advanced.copy'),
           }),
           el('div', {
-            className: 'console-column console-column-right',
+            className: 'guided-import-advanced-content',
             children: [
-              createImportBootstrapCard(state),
-              createConsoleQueueCard(state),
-              createDecisionPackagesCard(state),
-              createRuntimeHealthCard(state),
+              createConsoleHero(state),
+              createStartActionsCard(state),
+              createConsoleWorkflowRail(),
+              createCanonicalPackageCards(state),
+              el('div', {
+                className: 'console-grid',
+                children: [
+                  el('div', {
+                    className: 'console-column console-column-left',
+                    children: [
+                      createConsoleGuidedWorkflowCard(state),
+                      createQuickLinksCard(state),
+                      createRecentJobsCard(state),
+                    ],
+                  }),
+                  el('div', {
+                    className: 'console-column console-column-right',
+                    children: [
+                      createConsoleQueueCard(state),
+                      createDecisionPackagesCard(state),
+                      createRuntimeHealthCard(state),
+                    ],
+                  }),
+                ],
+              }),
             ],
           }),
         ],
@@ -2536,7 +3713,9 @@ function createConsoleWorkspace(state) {
 }
 
 const workspaceRenderers = {
-  start: createConsoleWorkspace,
+  start: createHomeWorkspace,
+  history: createRunHistoryWorkspace,
+  console: createAdvancedConsoleWorkspace,
   review: renderReviewWorkspace,
   artifacts: renderArtifactsWorkspace,
   model: createModelWorkspace,
@@ -2551,6 +3730,8 @@ export const workspaceDefinitions = Object.fromEntries(
     {
       label: surface.label,
       summary: surface.summary,
+      labelI18nKey: surface.labelI18nKey,
+      summaryI18nKey: surface.summaryI18nKey,
       render: workspaceRenderers[surface.route],
     },
   ])

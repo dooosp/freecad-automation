@@ -3,6 +3,7 @@ import {
   createCard,
   createEmptyState,
   createInfoGrid,
+  createPrimaryAction,
   createSectionHeader,
   el,
 } from './renderers.js';
@@ -25,7 +26,8 @@ import {
   formatRecentJobQualityLine,
 } from './recent-job-quality-status.js';
 import { renderEvidenceGraphSummary } from './evidence-graph-panel.js';
-import { applyTranslations } from '../i18n/index.js';
+import { buildReviewSummary } from './review-summary.js';
+import { applyTranslations, t } from '../i18n/index.js';
 
 function ensureReviewState(review = {}) {
   review.status = review.status || 'idle';
@@ -263,6 +265,151 @@ function renderDetailSummary(card) {
   );
 }
 
+const REVIEW_DECISION_KEYS = Object.freeze({
+  choose_run: 'studio.review.decision.choose-run',
+  preparing: 'studio.review.decision.preparing',
+  unavailable: 'studio.review.decision.unavailable',
+  needs_attention: 'studio.review.decision.needs-attention',
+  ready_for_review: 'studio.review.decision.ready',
+  more_information: 'studio.review.decision.more-information',
+});
+
+const REVIEW_NEXT_STEP_KEYS = Object.freeze({
+  choose_run: 'studio.review.next.choose-run',
+  preparing: 'studio.review.next.preparing',
+  unavailable: 'studio.review.next.unavailable',
+  needs_attention: 'studio.review.next.needs-attention',
+  ready_for_review: 'studio.review.next.ready',
+  more_information: 'studio.review.next.more-information',
+});
+
+function reviewDecisionCopy(summary) {
+  return t(REVIEW_DECISION_KEYS[summary.decision] || REVIEW_DECISION_KEYS.more_information);
+}
+
+function reviewNextStepCopy(summary) {
+  return summary.nextStep || t(REVIEW_NEXT_STEP_KEYS[summary.decision] || REVIEW_NEXT_STEP_KEYS.more_information);
+}
+
+function renderBeginnerIssues(summary) {
+  const children = [];
+  if (summary.issues.length > 0) {
+    children.push(el('ul', {
+      className: 'review-summary-list',
+      children: summary.issues.map((issue) => el('li', { text: issue })),
+    }));
+  }
+  if (summary.hasAdvancedIssues) {
+    children.push(el('p', { className: 'review-summary-note', text: t('studio.review.issues.advanced') }));
+  }
+  if (children.length === 0) {
+    children.push(el('p', { className: 'review-summary-note', text: t('studio.review.issues.none') }));
+  }
+  return children;
+}
+
+function renderSupportingFiles(summary) {
+  if (summary.supportingFiles.length === 0) {
+    return [el('p', { className: 'review-summary-note', text: t('studio.review.supporting-files.empty') })];
+  }
+  return summary.supportingFiles.map((file) => el('a', {
+    className: 'review-supporting-file-link',
+    text: t('studio.review.supporting-files.open', { name: file.label }),
+    attrs: {
+      href: file.href,
+      ...(file.opensInNewWindow ? { target: '_blank', rel: 'noreferrer noopener' } : { rel: 'noreferrer' }),
+    },
+  }));
+}
+
+function renderReviewPrimaryAction(activeJob) {
+  return createPrimaryAction(activeJob?.summary
+    ? {
+        label: t('studio.review.action.results'),
+        action: 'open-artifacts',
+      }
+    : {
+        label: t('studio.review.action.history'),
+        action: 'go-history',
+      });
+}
+
+function renderBeginnerReviewSummary(state) {
+  const summary = buildReviewSummary({
+    activeJob: state.data.activeJob,
+    reviewStatus: state.data.review.status,
+    cards: state.data.review.cards,
+  });
+
+  return el('article', {
+    className: 'studio-card review-beginner-summary',
+    dataset: {
+      hook: 'review-beginner-summary',
+      workflowStep: 'review-result',
+      tone: summary.tone,
+    },
+    children: [
+      el('div', {
+        className: 'review-summary-grid',
+        children: [
+          el('section', {
+            className: 'review-summary-section review-summary-decision',
+            children: [
+              el('p', { className: 'review-summary-label', text: t('studio.review.current-decision') }),
+              el('p', {
+                className: 'review-summary-value',
+                text: reviewDecisionCopy(summary),
+                dataset: { hook: 'review-current-decision' },
+              }),
+            ],
+          }),
+          el('section', {
+            className: 'review-summary-section',
+            children: [
+              el('p', { className: 'review-summary-label', text: t('studio.review.issues') }),
+              el('div', {
+                dataset: { hook: 'review-issues' },
+                children: renderBeginnerIssues(summary),
+              }),
+            ],
+          }),
+          el('section', {
+            className: 'review-summary-section',
+            children: [
+              el('p', { className: 'review-summary-label', text: t('studio.review.next-step') }),
+              el('p', {
+                className: 'review-summary-note',
+                text: reviewNextStepCopy(summary),
+                dataset: { hook: 'review-next-step' },
+              }),
+            ],
+          }),
+        ],
+      }),
+      el('details', {
+        className: 'review-supporting-files',
+        dataset: { hook: 'review-supporting-files' },
+        children: [
+          el('summary', {
+            text: t('studio.review.supporting-files.count', { count: summary.supportingFiles.length }),
+            dataset: { hook: 'review-supporting-files-label' },
+          }),
+          el('div', {
+            className: 'review-supporting-files-list',
+            dataset: { hook: 'review-supporting-files-list' },
+            children: renderSupportingFiles(summary),
+          }),
+        ],
+      }),
+      el('div', {
+        className: 'review-summary-actions',
+        dataset: { hook: 'review-summary-actions' },
+        children: [renderReviewPrimaryAction(state.data.activeJob)],
+      }),
+    ],
+  });
+}
+
 export function renderReviewWorkspace(state) {
   ensureReviewState(state.data.review);
   const activeJob = state.data.activeJob;
@@ -272,106 +419,114 @@ export function renderReviewWorkspace(state) {
     className: 'workspace-shell review-dashboard',
     children: [
       createSectionHeader({
-        kicker: 'Review workspace',
-        title: activeJob?.summary
-          ? `${activeJob.summary.type} ${shortJobId(activeJob.summary.id)} review dashboard`
-          : 'Review dashboard for signals, readiness, and manufacturing gates',
-        description: 'Choose a tracked source, scan the quality board, then inspect only the evidence areas that need deeper review.',
-        badges: [
-          { label: activeJob?.summary ? 'Tracked source selected' : 'No tracked source', tone: activeJob?.summary ? 'ok' : 'warn' },
-          { label: `${recentJobs.length || 0} recent sources`, tone: recentJobs.length ? 'info' : 'warn' },
-          { label: 'DFM · quality · readiness · standard docs', tone: 'info' },
-        ],
+        kicker: t('studio.review.kicker'),
+        title: t('studio.review.title'),
+        description: t('studio.review.description'),
       }),
-      el('div', {
-        className: 'review-dashboard-grid',
+      renderBeginnerReviewSummary(state),
+      el('details', {
+        className: 'review-advanced-tools',
+        attrs: state.experienceMode === 'advanced' ? { open: true } : {},
+        dataset: { hook: 'review-advanced-tools' },
         children: [
-          el('div', {
-            className: 'review-column review-column-left',
+          el('summary', {
+            className: 'review-advanced-summary',
             children: [
-      createCard({
-                kicker: 'Maintainer audit · Stage 5B intake',
-                title: 'Evidence and readiness decision review',
-                copy: 'Run the maintainer audit or bundled Stage 5B audit locally, then inspect tracked artifacts in Review. No human-entered measurements are requested.',
-                body: [
-                  el('div', {
-                    dataset: { hook: 'review-intake-launcher' },
-                    children: [renderInspectionIntakeLauncher(recentJobs)],
-                  }),
-                ],
-              }),
-              createCard({
-                kicker: 'Source selection',
-                title: 'Choose a tracked job',
-                copy: activeJob?.summary
-                  ? 'The review board reads from the selected tracked job and its manifest-backed artifact set.'
-                  : 'Open a tracked job to populate DFM, quality, readiness, and standard-doc cards.',
-                body: [
-                  el('div', { dataset: { hook: 'review-job-summary' } }),
-                  el('div', { dataset: { hook: 'review-recent-jobs' } }),
-                ],
-              }),
-              createCard({
-                kicker: 'Recent source changes',
-                title: 'Activity feed',
-                copy: 'Keep recent tracked review activity visible without leaving the dashboard.',
-                body: [
-                  el('div', { dataset: { hook: 'review-activity' } }),
-                ],
-              }),
+              el('span', { className: 'review-advanced-title', text: t('studio.review.advanced.summary') }),
+              el('span', { className: 'review-advanced-copy', text: t('studio.review.advanced.copy') }),
             ],
           }),
           el('div', {
-            className: 'review-column review-column-center',
+            className: 'review-advanced-body',
             children: [
-              createCard({
-                kicker: 'Review board',
-                title: 'Review signal board',
-                copy: 'Cards stay compact and status-first so changed, ready, and next-review areas surface first.',
-                surface: 'canvas',
-                body: [
-                  el('div', { dataset: { hook: 'review-status' } }),
-                  el('div', { className: 'review-card-grid', dataset: { hook: 'review-cards' } }),
+              createSectionHeader({
+                kicker: 'Review workspace',
+                title: activeJob?.summary
+                  ? `${activeJob.summary.type} ${shortJobId(activeJob.summary.id)} review dashboard`
+                  : 'Review dashboard for signals, readiness, and manufacturing gates',
+                description: 'Choose a tracked source, scan the quality board, then inspect only the evidence areas that need deeper review.',
+                badges: [
+                  { label: activeJob?.summary ? 'Tracked source selected' : 'No tracked source', tone: activeJob?.summary ? 'ok' : 'warn' },
+                  { label: `${recentJobs.length || 0} recent sources`, tone: recentJobs.length ? 'info' : 'warn' },
+                  { label: 'DFM · quality · readiness · standard docs', tone: 'info' },
                 ],
               }),
-            ],
-          }),
-          el('div', {
-            className: 'review-column review-column-right',
-            children: [
-              createCard({
-                kicker: 'Detail inspector',
-                title: 'Normalized summary, source output, generation history',
-                copy: 'Inspect the selected signal as a structured summary first, then switch to source output or generation history only when needed.',
-                surface: 'canvas',
-                body: [
+              el('div', {
+                className: 'review-dashboard-grid',
+                children: [
                   el('div', {
-                    className: 'inspector-tabs',
+                    className: 'review-column review-column-left',
                     children: [
-                      createButton({
-                        label: 'Summary',
-                        action: 'review-set-tab',
-                        tone: 'ghost',
-                        dataset: { tab: 'summary', hook: 'review-tab-summary' },
+                      createCard({
+                        kicker: 'Maintainer audit · Stage 5B intake',
+                        title: 'Evidence and readiness decision review',
+                        copy: 'Run the maintainer audit or bundled Stage 5B audit locally, then inspect tracked artifacts in Review. No human-entered measurements are requested.',
+                        body: [
+                          el('div', {
+                            dataset: { hook: 'review-intake-launcher' },
+                            children: [renderInspectionIntakeLauncher(recentJobs)],
+                          }),
+                        ],
                       }),
-                      createButton({
-                        label: 'Source output',
-                        action: 'review-set-tab',
-                        tone: 'ghost',
-                        dataset: { tab: 'raw', hook: 'review-tab-raw' },
+                      createCard({
+                        kicker: 'Source selection',
+                        title: 'Choose a tracked job',
+                        copy: activeJob?.summary
+                          ? 'The review board reads from the selected tracked job and its manifest-backed artifact set.'
+                          : 'Open a tracked job to populate DFM, quality, readiness, and standard-doc cards.',
+                        body: [
+                          el('div', { dataset: { hook: 'review-job-summary' } }),
+                          el('div', { dataset: { hook: 'review-recent-jobs' } }),
+                        ],
                       }),
-                      createButton({
-                        label: 'Generation history',
-                        action: 'review-set-tab',
-                        tone: 'ghost',
-                        dataset: { tab: 'provenance', hook: 'review-tab-provenance' },
+                      createCard({
+                        kicker: 'Recent source changes',
+                        title: 'Activity feed',
+                        copy: 'Keep recent tracked review activity visible without leaving the dashboard.',
+                        body: [el('div', { dataset: { hook: 'review-activity' } })],
                       }),
                     ],
                   }),
-                  el('div', { className: 'review-detail-actions', dataset: { hook: 'review-detail-actions' } }),
-                  el('section', { className: 'inspector-panel', dataset: { panel: 'summary' }, children: [el('div', { dataset: { hook: 'review-detail-summary' } })] }),
-                  el('section', { className: 'inspector-panel', dataset: { panel: 'raw' }, children: [el('pre', { className: 'artifact-raw-preview', dataset: { hook: 'review-detail-raw' } })] }),
-                  el('section', { className: 'inspector-panel', dataset: { panel: 'provenance' }, children: [el('div', { className: 'review-provenance-list', dataset: { hook: 'review-detail-provenance' } })] }),
+                  el('div', {
+                    className: 'review-column review-column-center',
+                    children: [
+                      createCard({
+                        kicker: 'Review board',
+                        title: 'Review signal board',
+                        copy: 'Cards stay compact and status-first so changed, ready, and next-review areas surface first.',
+                        surface: 'canvas',
+                        body: [
+                          el('div', { dataset: { hook: 'review-status' } }),
+                          el('div', { className: 'review-card-grid', dataset: { hook: 'review-cards' } }),
+                        ],
+                      }),
+                    ],
+                  }),
+                  el('div', {
+                    className: 'review-column review-column-right',
+                    children: [
+                      createCard({
+                        kicker: 'Detail inspector',
+                        title: 'Normalized summary, source output, generation history',
+                        copy: 'Inspect the selected signal as a structured summary first, then switch to source output or generation history only when needed.',
+                        surface: 'canvas',
+                        body: [
+                          el('div', {
+                            className: 'inspector-tabs',
+                            children: [
+                              createButton({ label: 'Summary', action: 'review-set-tab', tone: 'ghost', dataset: { tab: 'summary', hook: 'review-tab-summary' } }),
+                              createButton({ label: 'Source output', action: 'review-set-tab', tone: 'ghost', dataset: { tab: 'raw', hook: 'review-tab-raw' } }),
+                              createButton({ label: 'Generation history', action: 'review-set-tab', tone: 'ghost', dataset: { tab: 'provenance', hook: 'review-tab-provenance' } }),
+                            ],
+                          }),
+                          el('div', { className: 'review-detail-actions', dataset: { hook: 'review-detail-actions' } }),
+                          el('section', { className: 'inspector-panel', dataset: { panel: 'summary' }, children: [el('div', { dataset: { hook: 'review-detail-summary' } })] }),
+                          el('section', { className: 'inspector-panel', dataset: { panel: 'raw' }, children: [el('pre', { className: 'artifact-raw-preview', dataset: { hook: 'review-detail-raw' } })] }),
+                          el('section', { className: 'inspector-panel', dataset: { panel: 'provenance' }, children: [el('div', { className: 'review-provenance-list', dataset: { hook: 'review-detail-provenance' } })] }),
+                        ],
+                      }),
+                    ],
+                  }),
                 ],
               }),
             ],
@@ -384,6 +539,13 @@ export function renderReviewWorkspace(state) {
 
 export function mountReviewWorkspace({ root, state, addLog, openJob, submitTrackedJob }) {
   const review = ensureReviewState(state.data.review);
+  const beginnerSummaryElement = root.querySelector('[data-hook="review-beginner-summary"]');
+  const currentDecisionElement = root.querySelector('[data-hook="review-current-decision"]');
+  const issuesElement = root.querySelector('[data-hook="review-issues"]');
+  const nextStepElement = root.querySelector('[data-hook="review-next-step"]');
+  const supportingFilesLabelElement = root.querySelector('[data-hook="review-supporting-files-label"]');
+  const supportingFilesListElement = root.querySelector('[data-hook="review-supporting-files-list"]');
+  const summaryActionsElement = root.querySelector('[data-hook="review-summary-actions"]');
   const intakeLauncherElement = root.querySelector('[data-hook="review-intake-launcher"]');
   const jobSummaryElement = root.querySelector('[data-hook="review-job-summary"]');
   const recentJobsElement = root.querySelector('[data-hook="review-recent-jobs"]');
@@ -400,6 +562,23 @@ export function mountReviewWorkspace({ root, state, addLog, openJob, submitTrack
 
   function getSelectedCard() {
     return review.cards.find((card) => card.id === review.selectedCardId) || review.cards[0] || null;
+  }
+
+  function syncBeginnerSummary() {
+    const summary = buildReviewSummary({
+      activeJob: state.data.activeJob,
+      reviewStatus: review.status,
+      cards: review.cards,
+    });
+    beginnerSummaryElement.dataset.tone = summary.tone;
+    currentDecisionElement.textContent = reviewDecisionCopy(summary);
+    issuesElement.replaceChildren(...renderBeginnerIssues(summary));
+    nextStepElement.textContent = reviewNextStepCopy(summary);
+    supportingFilesLabelElement.textContent = t('studio.review.supporting-files.count', {
+      count: summary.supportingFiles.length,
+    });
+    supportingFilesListElement.replaceChildren(...renderSupportingFiles(summary));
+    summaryActionsElement.replaceChildren(renderReviewPrimaryAction(state.data.activeJob));
   }
 
   function syncJobSummary() {
@@ -591,6 +770,7 @@ export function mountReviewWorkspace({ root, state, addLog, openJob, submitTrack
 
   function syncAll() {
     if (destroyed) return;
+    syncBeginnerSummary();
     intakeLauncherElement?.replaceChildren(renderInspectionIntakeLauncher(state.data.recentJobs.items || []));
     syncJobSummary();
     recentJobsElement.replaceChildren(renderRecentJobs(state.data.recentJobs.items || []));

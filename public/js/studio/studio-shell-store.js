@@ -1,4 +1,4 @@
-import { parseStudioLocationState } from './studio-state.js';
+import { parseStudioLocationState, readStudioExperienceMode } from './studio-state.js';
 
 export const RECENT_JOBS_LIMIT = 12;
 export const JOB_MONITOR_POLL_MS = 2000;
@@ -14,12 +14,13 @@ export function createStudioShellRuntime() {
   };
 }
 
-export function createStudioShellState(locationLike = {}) {
+export function createStudioShellState(locationLike = {}, storageLike = null) {
   const initialLocationState = parseStudioLocationState(locationLike);
 
   return {
     route: initialLocationState.route,
     selectedJobId: initialLocationState.selectedJobId,
+    experienceMode: readStudioExperienceMode(storageLike),
     connectionState: 'placeholder',
     connectionLabel: 'checking',
     runtimeTone: 'info',
@@ -73,6 +74,12 @@ export function createStudioShellState(locationLike = {}) {
         configText: '',
         promptText: '',
         promptMode: false,
+        guidedFlow: {
+          step: 'select_input',
+          inputMethod: 'example',
+          resultExpanded: false,
+          error: '',
+        },
         editingEnabled: false,
         buildState: 'idle',
         buildSummary: '',
@@ -89,6 +96,8 @@ export function createStudioShellState(locationLike = {}) {
           busy: false,
           error: '',
           report: null,
+          phase: 'prompt',
+          validatedConfigText: '',
         },
         reportOptions: {
           includeDrawing: true,
@@ -143,6 +152,25 @@ export function createStudioShellState(locationLike = {}) {
           previewPlanRequested: false,
           preserveReason: '',
           submittedDrawingSettings: null,
+        },
+      },
+      importBootstrap: {
+        status: 'idle',
+        modelPath: '',
+        modelFile: null,
+        modelFileName: '',
+        bomPath: '',
+        inspectionPath: '',
+        qualityPath: '',
+        preview: null,
+        errorMessage: '',
+        submitting: false,
+        lastJobId: '',
+        reviewJob: null,
+        corrections: {},
+        guidedFlow: {
+          step: 'select_file',
+          error: '',
         },
       },
       activeJob: {

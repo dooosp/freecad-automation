@@ -1,12 +1,23 @@
 import { createLogEntry } from './renderers.js';
 import { renderJobsCenter } from './jobs-center.js';
-import { routeSupportsSelectedJob, serializeStudioLocationState } from './studio-state.js';
+import {
+  routeSupportsSelectedJob,
+  serializeStudioLocationState,
+  shouldExpandAdvancedNavigation,
+} from './studio-state.js';
 import { workspaceDefinitions } from './workspaces.js';
 import { RECENT_JOBS_LIMIT } from './studio-shell-store.js';
 import { applyTranslations, t, translateText } from '../i18n/index.js';
 
 export function bindStudioShellElements(documentRef = document) {
+  const skipLink = documentRef.querySelector('.skip-link');
   const workspaceRoot = documentRef.getElementById('workspace-root');
+  const sidebar = documentRef.getElementById('studio-sidebar');
+  const sidebarScrim = documentRef.getElementById('studio-sidebar-scrim');
+  const navToggle = documentRef.getElementById('studio-nav-toggle');
+  const studioMain = documentRef.querySelector('.studio-main');
+  const advancedWorkNavigation = documentRef.getElementById('advanced-work-navigation');
+  const advancedModeToggle = documentRef.getElementById('advanced-mode-toggle');
   const completionNoticeHost = documentRef.getElementById('completion-notice-host');
   const workspaceSummary = documentRef.getElementById('workspace-summary');
   const runtimeBadge = documentRef.getElementById('runtime-badge');
@@ -25,7 +36,14 @@ export function bindStudioShellElements(documentRef = document) {
   const navLinks = [...documentRef.querySelectorAll('.nav-link')];
 
   return {
+    skipLink,
     workspaceRoot,
+    sidebar,
+    sidebarScrim,
+    navToggle,
+    studioMain,
+    advancedWorkNavigation,
+    advancedModeToggle,
     completionNoticeHost,
     workspaceSummary,
     runtimeBadge,
@@ -43,7 +61,14 @@ export function bindStudioShellElements(documentRef = document) {
     workspaceNav,
     navLinks,
     requiredShellElements: Object.freeze([
+      ['skip-link', skipLink],
       ['workspace-root', workspaceRoot],
+      ['studio-sidebar', sidebar],
+      ['studio-sidebar-scrim', sidebarScrim],
+      ['studio-nav-toggle', navToggle],
+      ['studio-main', studioMain],
+      ['advanced-work-navigation', advancedWorkNavigation],
+      ['advanced-mode-toggle', advancedModeToggle],
       ['workspace-summary', workspaceSummary],
       ['runtime-badge', runtimeBadge],
       ['project-badge', projectBadge],
@@ -155,7 +180,41 @@ function createCompletionActionButton(documentRef, action = {}) {
   return button;
 }
 
+function completionNoticeKey(notice, locale = '') {
+  if (!notice) return JSON.stringify([locale, null]);
+
+  const messageParts = Array.isArray(notice.messageParts) && notice.messageParts.length > 0
+    ? notice.messageParts
+    : [notice.message];
+  const actions = Array.isArray(notice.actions)
+    ? notice.actions.map((action = {}) => ([
+      action.label || '',
+      action.action || '',
+      action.tone || '',
+      action.jobId || '',
+      action.route || '',
+    ]))
+    : [];
+
+  return JSON.stringify([
+    locale,
+    notice.jobId || '',
+    notice.tone || '',
+    notice.title || '',
+    messageParts.filter(Boolean),
+    notice.primaryRoute || '',
+    notice.primaryLabel || '',
+    notice.secondaryRoute || '',
+    notice.secondaryLabel || '',
+    actions,
+  ]);
+}
+
 export function createStudioShellDomController(app) {
+  let lastCompletionNoticeKey = null;
+  let jobsDrawerReturnFocusTarget = app.elements.jobsToggle;
+  let logDrawerReturnFocusTarget = app.elements.logToggle;
+
   function syncChrome() {
     const workspace = workspaceDefinitions[app.state.route];
     const {
@@ -164,9 +223,10 @@ export function createStudioShellDomController(app) {
       state,
     } = app;
 
-    documentRef.title = `${translateText(workspace.label)} | ${t('studio.title')}`;
-    elements.workspaceSummary.textContent = translateText(workspace.summary);
+    documentRef.title = `${t(workspace.labelI18nKey)} | ${t('studio.title')}`;
+    elements.workspaceSummary.textContent = t(workspace.summaryI18nKey);
     setBadgeText(elements.runtimeBadge, translateText(state.runtimeBadgeText));
+    elements.runtimeBadge.hidden = state.route === 'start';
     setBadgeText(
       elements.projectBadge,
       translateText(state.projectBadgeText),
@@ -190,6 +250,12 @@ export function createStudioShellDomController(app) {
       if (isActive) link.setAttribute('aria-current', 'page');
       else link.removeAttribute('aria-current');
     });
+
+    elements.advancedModeToggle.checked = state.experienceMode === 'advanced';
+    elements.advancedWorkNavigation.open = shouldExpandAdvancedNavigation({
+      route: state.route,
+      experienceMode: state.experienceMode,
+    });
   }
 
   function renderCompletionNotice() {
@@ -198,12 +264,21 @@ export function createStudioShellDomController(app) {
 
     if (!completionNoticeHost) return;
 
+    const nextCompletionNoticeKey = completionNoticeKey(
+      notice,
+      app.document.documentElement.lang || ''
+    );
+    if (nextCompletionNoticeKey === lastCompletionNoticeKey) return;
+
     if (!notice) {
       completionNoticeHost.hidden = true;
       completionNoticeHost.replaceChildren();
+      completionNoticeHost.dataset.i18nPreserve = 'true';
+      lastCompletionNoticeKey = nextCompletionNoticeKey;
       return;
     }
 
+    completionNoticeHost.removeAttribute('data-i18n-preserve');
     completionNoticeHost.hidden = false;
     completionNoticeHost.replaceChildren(app.document.createElement('div'));
     const container = completionNoticeHost.firstElementChild;
@@ -267,6 +342,8 @@ export function createStudioShellDomController(app) {
 
     container.append(copy, actions);
     applyTranslations(completionNoticeHost);
+    completionNoticeHost.dataset.i18nPreserve = 'true';
+    lastCompletionNoticeKey = nextCompletionNoticeKey;
   }
 
   function renderJobsDrawer() {
@@ -284,31 +361,135 @@ export function createStudioShellDomController(app) {
     applyTranslations(app.elements.logFeed);
   }
 
-  function setLogDrawer(open) {
+  function setLogDrawer(open, {
+    focusEntry = false,
+    restoreFocus = false,
+    returnFocusTarget = app.elements.logToggle,
+  } = {}) {
+    if (open) logDrawerReturnFocusTarget = returnFocusTarget;
     app.elements.logDrawer.classList.toggle('is-open', open);
     app.elements.logToggle.setAttribute('aria-expanded', String(open));
+    if (open && focusEntry) app.elements.logClose.focus();
+    if (!open && restoreFocus) logDrawerReturnFocusTarget.focus();
   }
 
-  function setJobsDrawer(open) {
+  function setJobsDrawer(open, {
+    focusEntry = false,
+    restoreFocus = false,
+    returnFocusTarget = app.elements.jobsToggle,
+  } = {}) {
+    if (open) jobsDrawerReturnFocusTarget = returnFocusTarget;
     app.elements.jobsDrawer.classList.toggle('is-open', open);
     app.elements.jobsToggle.setAttribute('aria-expanded', String(open));
+    if (open && focusEntry) app.elements.jobsClose.focus();
+    if (!open && restoreFocus) jobsDrawerReturnFocusTarget.focus();
+  }
+
+  function setSidebar(open, { restoreFocus = false } = {}) {
+    const {
+      navToggle,
+      skipLink,
+      sidebar,
+      sidebarScrim,
+      studioMain,
+    } = app.elements;
+    sidebar.classList.toggle('is-open', open);
+    navToggle.setAttribute('aria-expanded', String(open));
+    sidebarScrim.hidden = !open;
+    studioMain.inert = open;
+    skipLink.inert = open;
+    app.document.body.classList.toggle('sidebar-open', open);
+
+    if (open) {
+      const activeLink = sidebar.querySelector('.nav-link[aria-current="page"]')
+        || sidebar.querySelector('.nav-link');
+      const focusActiveLink = () => {
+        if (sidebar.classList.contains('is-open') && !sidebar.contains(app.document.activeElement)) {
+          activeLink?.focus();
+        }
+      };
+      app.window.requestAnimationFrame(focusActiveLink);
+      app.window.setTimeout(focusActiveLink, 100);
+    } else if (restoreFocus) {
+      navToggle.focus();
+    }
+  }
+
+  function sidebarFocusableElements() {
+    const selector = [
+      'a[href]',
+      'button:not([disabled])',
+      'input:not([disabled])',
+      'select:not([disabled])',
+      'summary',
+      '[tabindex]:not([tabindex="-1"])',
+    ].join(',');
+    return [...app.elements.sidebar.querySelectorAll(selector)]
+      .filter((element) => {
+        const closedDisclosure = element.closest('details:not([open])');
+        if (closedDisclosure && element.tagName !== 'SUMMARY') return false;
+        return element.getClientRects().length > 0;
+      });
+  }
+
+  function containSidebarFocus(event) {
+    if (event.key !== 'Tab' || !app.elements.sidebar.classList.contains('is-open')) return false;
+
+    const focusable = sidebarFocusableElements();
+    const first = focusable[0];
+    const last = focusable.at(-1);
+    if (!first || !last) return false;
+
+    const active = app.document.activeElement;
+    const focusEscaped = !app.elements.sidebar.contains(active);
+    if (event.shiftKey && (active === first || focusEscaped)) {
+      event.preventDefault();
+      last.focus();
+      return true;
+    }
+    if (!event.shiftKey && (active === last || focusEscaped)) {
+      event.preventDefault();
+      first.focus();
+      return true;
+    }
+    return false;
   }
 
   function applyPendingFocus() {
     if (!app.state.pendingFocus) return;
 
-    app.window.requestAnimationFrame(() => {
-      const selector = app.state.pendingFocus === 'prompt'
-        ? '[data-field="prompt-text"]'
-        : app.state.pendingFocus === 'config'
-          ? '[data-field="config-text"]'
-          : null;
+    const pendingFocus = app.state.pendingFocus;
+    const selector = pendingFocus === 'prompt'
+      ? '[data-field="prompt-text"]'
+      : pendingFocus === 'config'
+        ? '[data-field="config-text"]'
+        : pendingFocus === 'guided-model'
+          ? '[data-model-guided-step]:not([hidden])'
+          : pendingFocus === 'import'
+            ? '[data-import-guided-step]:not([hidden])'
+            : null;
+    const focusTarget = () => {
       if (selector) {
         const target = app.elements.workspaceRoot.querySelector(selector);
-        if (target instanceof app.window.HTMLElement) target.focus();
+        const activeElement = app.document.activeElement;
+        const focusStayedInWorkspace = activeElement !== app.elements.workspaceRoot
+          && app.elements.workspaceRoot.contains(activeElement);
+        if (
+          target instanceof app.window.HTMLElement
+          && activeElement !== target
+          && !target.contains(activeElement)
+          && !focusStayedInWorkspace
+        ) {
+          target.focus();
+        }
       }
-      app.state.pendingFocus = null;
+    };
+    app.state.pendingFocus = null;
+    app.window.requestAnimationFrame(() => {
+      focusTarget();
+      app.window.requestAnimationFrame(focusTarget);
     });
+    app.window.setTimeout(focusTarget, 100);
   }
 
   return {
@@ -318,6 +499,8 @@ export function createStudioShellDomController(app) {
     renderLogs,
     setLogDrawer,
     setJobsDrawer,
+    setSidebar,
+    containSidebarFocus,
     applyPendingFocus,
   };
 }

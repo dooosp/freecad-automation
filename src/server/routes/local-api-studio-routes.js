@@ -199,7 +199,9 @@ export function registerStudioRoutes(app, {
       }));
     } catch (error) {
       const rawMessage = errorMessage(error);
-      const status = /required|unsupported|must stay inside|must be inside|failed bootstrap intake/i.test(rawMessage) ? 400 : 500;
+      const status = error?.statusCode === 413
+        ? 413
+        : (/required|unsupported|missing|valid base64|must stay inside|must be inside|must reference|must not use symbolic links|failed bootstrap intake/i.test(rawMessage) ? 400 : 500);
       const response = createErrorResponse(
         'import_bootstrap_failed',
         [publicErrorMessage(error)],

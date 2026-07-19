@@ -61,23 +61,28 @@ export function createStudioShellRouting(app) {
 
   function handleHashChange() {
     const nextLocation = parseStudioLocationState(app.window.location);
+    const shouldFocusWorkspaceRoot = !app.state.pendingFocus;
     app.state.route = nextLocation.route;
     app.state.selectedJobId = nextLocation.selectedJobId;
     app.commitRender();
     syncSelectedJobFromLocation().catch(() => {});
-    app.elements.workspaceRoot.focus();
+    if (shouldFocusWorkspaceRoot) app.elements.workspaceRoot.focus();
   }
 
   function handleNavKeydown(event) {
-    const currentIndex = app.elements.navLinks.findIndex((link) => link === app.document.activeElement);
+    const visibleNavLinks = app.elements.navLinks.filter((link) => {
+      const disclosure = link.closest('details');
+      return !disclosure || disclosure.open;
+    });
+    const currentIndex = visibleNavLinks.findIndex((link) => link === app.document.activeElement);
     if (currentIndex === -1) return;
 
     if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
       event.preventDefault();
-      app.elements.navLinks[(currentIndex + 1) % app.elements.navLinks.length].focus();
+      visibleNavLinks[(currentIndex + 1) % visibleNavLinks.length].focus();
     } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
       event.preventDefault();
-      app.elements.navLinks[(currentIndex - 1 + app.elements.navLinks.length) % app.elements.navLinks.length].focus();
+      visibleNavLinks[(currentIndex - 1 + visibleNavLinks.length) % visibleNavLinks.length].focus();
     }
   }
 

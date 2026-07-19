@@ -41,9 +41,54 @@ assert.equal(resolveInitialLocale({
 assert.equal(formatLocaleCookie('ko-KR'), `${LOCALE_COOKIE_NAME}=ko; Path=/; Max-Age=31536000; SameSite=Lax`);
 
 const ko = createTranslator('ko');
+const en = createTranslator('en');
 assert.equal(ko.t('locale.label'), '언어');
 assert.equal(ko.t('index.title'), 'FreeCAD 클래식 뷰어');
 assert.equal(ko.t('index.mode.label'), '클래식 호환 모드');
+assert.equal(en.t('studio.nav.start.label'), 'Home');
+assert.equal(ko.t('studio.nav.start.label'), '홈');
+assert.equal(en.t('studio.nav.history.label'), 'Run history');
+assert.equal(en.t('studio.artifacts.title'), 'Result files');
+assert.equal(ko.t('studio.artifacts.title'), '결과 파일');
+assert.equal(ko.t('studio.artifacts.summary.execution'), '실행');
+assert.equal(ko.t('studio.artifacts.summary.quality'), '품질');
+assert.equal(ko.t('studio.artifacts.group.system'), '시스템 기록');
+assert.equal(ko.t('studio.artifacts.action.view'), '결과 보기');
+assert.equal(ko.t('studio.nav.history.label'), '실행 내역');
+assert.equal(en.t('studio.nav.artifacts.label'), 'Result files');
+assert.equal(ko.t('studio.nav.artifacts.label'), '결과 파일');
+assert.equal(en.t('studio.home.title'), 'What would you like to do?');
+assert.equal(ko.t('studio.home.title'), '무엇을 하시겠어요?');
+assert.equal(en.t('studio.home.create.action'), 'Start new model');
+assert.equal(ko.t('studio.home.create.action'), '새 모델 시작');
+assert.equal(en.t('studio.home.review.action'), 'Choose CAD file');
+assert.equal(ko.t('studio.home.review.action'), 'CAD 파일 선택');
+assert.equal(en.t('studio.home.previous.action'), 'View run history');
+assert.equal(ko.t('studio.home.previous.action'), '실행 내역 보기');
+assert.equal(en.t('studio.model.guided.input.continue'), 'Continue');
+assert.equal(ko.t('studio.model.guided.input.continue'), '계속');
+assert.equal(en.t('studio.model.guided.generate.action'), 'Generate model');
+assert.equal(ko.t('studio.model.guided.generate.action'), '모델 생성');
+assert.equal(en.t('studio.model.guided.result.view'), 'View 3D model');
+assert.equal(ko.t('studio.model.guided.result.view'), '3D 모델 보기');
+assert.equal(en.t('studio.action-summary.launches-freecad'), 'Launches FreeCAD');
+assert.equal(ko.t('studio.action-summary.launches-freecad'), 'FreeCAD 실행');
+assert.equal(
+  en.t('studio.import.guided.file.limit'),
+  'Local uploads are limited to 32 MiB. Use a project-relative path for larger files.'
+);
+assert.equal(
+  ko.t('studio.import.guided.file.limit'),
+  '로컬 업로드는 32 MiB로 제한됩니다. 더 큰 파일은 프로젝트 상대경로를 사용하세요.'
+);
+assert.equal(
+  en.t('studio.import.guided.file.too-large', { size: '40 MiB', limit: '32 MiB' }),
+  'This file is 40 MiB, which exceeds the 32 MiB local upload limit. Use a project-relative path for larger files.'
+);
+assert.equal(
+  ko.t('studio.import.guided.file.too-large', { size: '40 MiB', limit: '32 MiB' }),
+  '이 파일은 40 MiB로, 로컬 업로드 한도인 32 MiB보다 큽니다. 더 큰 파일은 프로젝트 상대경로를 사용하세요.'
+);
 assert.equal(translateText('Jobs center', 'ko'), '작업 센터');
 assert.equal(translateText('Open Jobs center', 'ko'), '작업 센터 열기');
 assert.equal(translateText('Retry tracked job', 'ko'), '추적 작업 다시 시도');
@@ -179,6 +224,10 @@ assert.equal(translateText('Runtime diagnostics available.', 'ko'), '런타임 �
 assert.equal(translateText('Runtime check required', 'ko'), '런타임 확인 필요');
 assert.equal(translateText('Runtime unavailable on legacy path', 'ko'), '레거시 경로에서는 런타임을 사용할 수 없음');
 assert.equal(translateText('Runtime status pending', 'ko'), '런타임 상태 확인 대기 중');
+assert.equal(translateText('FreeCAD ready', 'ko'), 'FreeCAD 준비됨');
+assert.equal(translateText('FreeCAD setup required', 'ko'), 'FreeCAD 설정 필요');
+assert.equal(translateText('FreeCAD unavailable on legacy path', 'ko'), '레거시 경로에서는 FreeCAD 사용 불가');
+assert.equal(translateText('Checking FreeCAD', 'ko'), 'FreeCAD 확인 중');
 assert.equal(
   translateText('No jobs have been tracked yet on this local API instance.', 'ko'),
   '이 로컬 API 인스턴스에는 아직 추적된 작업이 없습니다.'
@@ -258,6 +307,72 @@ assert.equal(translateText('Size unavailable', 'ko'), '크기를 사용할 수 �
 assert.equal(translateText('Validating', 'ko'), '검증 중');
 assert.equal(translateText('Building', 'ko'), '빌드 중');
 assert.equal(translateText('Needs attention', 'ko'), '확인 필요');
+assert.equal(
+  translateText('Choose input, then build to inspect the preview.', 'ko'),
+  '입력을 선택한 뒤 빌드하여 미리보기를 검토하세요.'
+);
+assert.equal(translateText('Config TOML is empty.', 'ko'), 'Config TOML이 비어 있습니다.');
+assert.equal(
+  translateText('Load or draft a config before validation.', 'ko'),
+  '검증하기 전에 설정을 불러오거나 초안을 작성하세요.'
+);
+assert.equal(
+  translateText('Checking config migration state and preview readiness...', 'ko'),
+  '설정 마이그레이션 상태와 미리보기 준비 상태를 확인하는 중...'
+);
+assert.equal(
+  translateText('Validated assembly config with 3 parts.', 'ko'),
+  '부품 3개가 포함된 어셈블리 설정을 검증했습니다.'
+);
+assert.equal(
+  translateText('Validated single-part config and preview settings.', 'ko'),
+  '단일 부품 설정과 미리보기 설정을 검증했습니다.'
+);
+assert.equal(
+  translateText('Validation failed before build could start.', 'ko'),
+  '빌드를 시작하기 전에 검증에 실패했습니다.'
+);
+assert.equal(
+  translateText('Running preview export and preparing the viewport assets...', 'ko'),
+  '미리보기 내보내기를 실행하고 뷰포트 파일을 준비하는 중...'
+);
+assert.equal(
+  translateText('Built assembly preview with 12 parts.', 'ko'),
+  '부품 12개가 포함된 어셈블리 미리보기를 생성했습니다.'
+);
+assert.equal(
+  translateText('Built model preview and loaded the viewport asset.', 'ko'),
+  '모델 미리보기를 생성하고 뷰포트 파일을 불러왔습니다.'
+);
+assert.equal(
+  translateText('Build failed before a preview could be inspected.', 'ko'),
+  '미리보기를 확인하기 전에 빌드에 실패했습니다.'
+);
+assert.equal(
+  translateText('Preview assets could not be loaded back into the viewport.', 'ko'),
+  '미리보기 파일을 뷰포트에 다시 불러오지 못했습니다.'
+);
+assert.equal(
+  translateText('Result cleared. The input and settings remain ready for the next build.', 'ko'),
+  '결과를 지웠습니다. 입력과 설정은 다음 빌드에 사용할 수 있도록 유지됩니다.'
+);
+assert.equal(
+  translateText('Loaded quality_pass_bracket.toml. Validate or build when ready.', 'ko'),
+  'quality_pass_bracket.toml 설정을 불러왔습니다. 준비되면 검증하거나 빌드하세요.'
+);
+
+const modelWorkspaceSource = readFileSync(join(ROOT, 'public/js/studio/model-workspace.js'), 'utf8');
+const directModelStatusMessages = [...modelWorkspaceSource.matchAll(
+  /model\.(?:buildSummary|errorMessage)\s*=\s*'([^']+)'/g
+)].map((match) => match[1]);
+assert.equal(directModelStatusMessages.length > 0, true);
+directModelStatusMessages.forEach((message) => {
+  assert.notEqual(
+    translateText(message, 'ko'),
+    message,
+    `Direct Model workflow status must have Korean coverage: ${message}`
+  );
+});
 assert.equal(
   translateText('Build logs will appear here once validation or preview work runs.', 'ko'),
   '검증 또는 미리보기 작업이 실행되면 빌드 로그가 여기에 표시됩니다.'

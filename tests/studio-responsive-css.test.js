@@ -4,8 +4,8 @@ import { resolve } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const css = readFileSync(resolve(ROOT, 'public/css/studio.css'), 'utf8');
-const redesignMarker = '/* freecad-studio-redesign-v3 overrides */';
-const redesignStart = css.indexOf(redesignMarker);
+const beginnerMarker = '/* beginner UX final cascade after the v3 theme overrides */';
+const beginnerStart = css.indexOf(beginnerMarker);
 
 function mediaBlock(source, condition, startIndex = 0) {
   const mediaStart = source.indexOf(`@media (${condition})`, startIndex);
@@ -35,24 +35,37 @@ function assertRule(block, selector, declarationPattern) {
   assert.match(rule, declarationPattern, `Expected ${selector} to include ${declarationPattern}.`);
 }
 
-assert.notEqual(redesignStart, -1, 'Expected the Studio redesign override marker.');
+assert.notEqual(beginnerStart, -1, 'Expected the beginner UX final cascade marker.');
 
-const narrowBlock = mediaBlock(css, 'max-width: 920px', redesignStart);
-assertRule(narrowBlock, '.studio-shell', /grid-template-columns:\s*1fr;/);
-assertRule(narrowBlock, '.studio-sidebar', /border-right:\s*0;/);
-assertRule(narrowBlock, '.studio-sidebar', /border-bottom:\s*1px solid/);
-assertRule(narrowBlock, '.app-bar', /grid-template-columns:\s*1fr;/);
-assertRule(narrowBlock, '.workspace-root', /min-width:\s*0;/);
-assertRule(narrowBlock, '.canonical-package-grid', /grid-template-columns:\s*1fr;/);
-assertRule(narrowBlock, '.canonical-package-card-header', /grid-template-columns:\s*1fr;/);
-assertRule(narrowBlock, '.canonical-artifact-ref', /grid-template-columns:\s*1fr;/);
-assertRule(narrowBlock, '.canonical-artifact-path-actions', /justify-items:\s*start;/);
-assertRule(narrowBlock, '.canonical-path', /text-align:\s*left;/);
-assertRule(narrowBlock, '.canonical-artifact-actions', /justify-content:\s*flex-start;/);
+const narrowBlock = mediaBlock(css, 'max-width: 920px', beginnerStart);
+assertRule(narrowBlock, '.studio-shell', /display:\s*block;/);
+assertRule(narrowBlock, '.studio-sidebar', /position:\s*fixed;/);
+assertRule(narrowBlock, '.studio-sidebar', /transform:\s*translateX\(-105%\);/);
+assertRule(narrowBlock, '.studio-sidebar', /visibility:\s*hidden;/);
+assertRule(narrowBlock, '.studio-sidebar', /border-bottom:\s*0;/);
+assertRule(narrowBlock, '.studio-sidebar.is-open', /transform:\s*translateX\(0\);/);
+assertRule(narrowBlock, '.studio-sidebar.is-open', /visibility:\s*visible;/);
+assertRule(narrowBlock, '.app-bar', /grid-template-columns:\s*auto minmax\(0, 1fr\) auto;/);
+assert.match(css, /\.studio-sidebar-scrim:not\(\[hidden\]\)[\s\S]*?position:\s*fixed;/);
+assert.match(css, /\.home-start-grid[\s\S]*?grid-template-columns:\s*1fr;/);
+assert.match(css, /@media \(prefers-reduced-motion:\s*reduce\)/);
 
-const compactBlock = mediaBlock(css, 'max-width: 640px', redesignStart);
-assertRule(compactBlock, '.workspace-root', /padding:\s*1rem;/);
-assertRule(compactBlock, '.app-bar', /padding:\s*1rem;/);
+const compactBlock = mediaBlock(css, 'max-width: 640px', beginnerStart);
 assertRule(compactBlock, '.studio-sidebar', /padding:\s*1rem;/);
+assertRule(
+  compactBlock,
+  '.action-button',
+  /min-height:\s*44px;/,
+);
+assertRule(
+  compactBlock,
+  '.overflow-menu-trigger',
+  /min-width:\s*44px;/,
+);
+
+const reducedMotionBlock = mediaBlock(css, 'prefers-reduced-motion: reduce');
+assertRule(reducedMotionBlock, '*', /transition-duration:\s*0\.01ms\s*!important;/);
+assertRule(reducedMotionBlock, '*', /animation-duration:\s*0\.01ms\s*!important;/);
+assertRule(reducedMotionBlock, '*', /animation-iteration-count:\s*1\s*!important;/);
 
 console.log('studio-responsive-css.test.js: ok');
