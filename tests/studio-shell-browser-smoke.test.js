@@ -848,8 +848,14 @@ function failQualityReportSummary() {
           minor: 0,
           info: 0,
         },
-        top_fixes: ['Increase edge distance around hole1 and hole3.'],
-        blocking_issues: ['hole1 edge distance 3.5 mm < 9.0 mm'],
+        top_fixes: [
+          "Move hole 'hole1' at least 5.5 mm away from the nearest box edge in 'gusset', or widen the local flange so the edge distance reaches 9.0 mm.",
+          "Move hole 'hole3' at least 5.5 mm away from the nearest box edge in 'gusset', or widen the local flange so the edge distance reaches 9.0 mm.",
+        ],
+        blocking_issues: [
+          "Hole 'hole1' edge distance 3.5mm < required 9.0mm (1.0x dia 9.0mm) in box 'gusset'",
+          "Hole 'hole3' edge distance 3.5mm < required 9.0mm (1.0x dia 9.0mm) in box 'gusset'",
+        ],
         warnings: [],
       },
     },
@@ -1843,6 +1849,38 @@ function browserSmokeStudioModelServiceFactory() {
   };
 }
 
+function browserSmokeDrawingServiceFactory() {
+  return {
+    async buildPreview({ drawingSettings = {} } = {}) {
+      return {
+        preview: {
+          id: 'browser-smoke-drawing',
+          drawn_at: '2026-07-19T00:00:00.000Z',
+          overview: {
+            name: 'quality_pass_bracket',
+            scale: drawingSettings.scale || 'auto',
+            views: drawingSettings.views || ['front', 'top', 'right', 'iso'],
+          },
+          scale: drawingSettings.scale || 'auto',
+          svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 24"><rect x="2" y="2" width="36" height="20" fill="none" stroke="currentColor"/></svg>',
+          bom: [{ id: 'body', count: 1 }],
+          annotations: ['Browser smoke drawing preview.'],
+          qa_summary: {
+            score: 96,
+            weight_profile: 'default',
+            planned_dimension_count: 1,
+            rendered_dimension_count: 1,
+            conflict_count: 0,
+          },
+          dimensions: [{ id: 'WIDTH', value_mm: 40, feature: 'body_width', required: true }],
+          logs: ['Browser smoke drawing preview completed.'],
+        },
+      };
+    },
+    async dispose() {},
+  };
+}
+
 const browserSmokeImportRequests = [];
 
 function browserSmokeBootstrapImportServiceFactory() {
@@ -1931,6 +1969,7 @@ const { server, jobStore } = createLocalApiServer({
   runtimeDiagnosticsFactory: browserSmokeRuntimeDiagnostics,
   executorFactory: createBrowserSmokeExecutor,
   studioModelServiceFactory: browserSmokeStudioModelServiceFactory,
+  studioDrawingServiceFactory: browserSmokeDrawingServiceFactory,
   bootstrapImportServiceFactory: browserSmokeBootstrapImportServiceFactory,
 });
 
@@ -2580,6 +2619,15 @@ try {
   assert.equal(guidedSelectInput.advancedHidden, true);
   assertExcludesAll(guidedSelectInput.text, ['tracked', 'artifact', 'manifest', 'build_settings']);
 
+  const selectedGuidedExample = await cdp.evaluate(`(() => {
+    const select = document.querySelector('[data-hook="guided-example-select"]');
+    if (!(select instanceof HTMLSelectElement)) return '';
+    select.value = 'quality_pass_bracket';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    return select.value;
+  })()`);
+  assert.equal(selectedGuidedExample, 'quality_pass_bracket');
+
   await cdp.evaluate(`document.querySelector('[data-hook="model-advanced-tools"] > summary')?.click()`);
   await waitFor(async () => {
     const snapshot = await cdp.evaluate(`(() => ({
@@ -2684,6 +2732,117 @@ try {
     return snapshot;
   });
   assert.equal(guidedModelPrimaryActions, 3);
+
+  await keyboardActivate(cdp, '[data-model-guided-step="result"] .result-card .overflow-menu-trigger');
+  const drawingHandoffVisible = await waitFor(async () => {
+    const visible = await cdp.evaluate(`(() => {
+      const action = document.querySelector('[data-model-guided-step="result"] [data-action="go-drawing"]');
+      return Boolean(action && !action.closest('[hidden]'));
+    })()`);
+    assert.equal(visible, true);
+    return visible;
+  });
+  assert.equal(drawingHandoffVisible, true);
+  await keyboardActivate(cdp, '[data-model-guided-step="result"] [data-action="go-drawing"]');
+  await waitForRoute(cdp, 'drawing', {
+    attempts: 50,
+    delayMs: 200,
+  });
+
+  const drawingBeforePreview = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => ({
+      previewSummaryRows: document.querySelector('[data-action-summary="preview-drawing"]')?.querySelectorAll('.info-row')?.length || 0,
+      reportHidden: document.querySelector('[data-hook="drawing-report-action"]')?.hidden ?? false,
+      previewDisabled: document.querySelector('[data-hook="drawing-generate"]')?.disabled ?? true,
+      previewLabel: document.querySelector('[data-hook="drawing-generate"]')?.textContent?.trim() || '',
+      mounted: document.getElementById('workspace-root')?.dataset?.drawingWorkspaceMounted === 'true',
+    }))()`);
+    assert.equal(snapshot.previewSummaryRows, 8);
+    assert.equal(snapshot.reportHidden, true);
+    assert.equal(snapshot.previewDisabled, false);
+    assert.equal(snapshot.previewLabel, 'Preview drawing');
+    assert.equal(snapshot.mounted, true);
+    return snapshot;
+  });
+  assert.equal(drawingBeforePreview.reportHidden, true);
+
+  await keyboardActivate(cdp, '[data-hook="drawing-generate"]');
+  const drawingReady = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => ({
+      reportHidden: document.querySelector('[data-hook="drawing-report-action"]')?.hidden ?? true,
+      reportSummaryRows: document.querySelector('[data-action-summary="create-drawing-report"]')?.querySelectorAll('.info-row')?.length || 0,
+      reportDisabled: document.querySelector('[data-hook="drawing-report"]')?.disabled ?? true,
+      reportLabel: document.querySelector('[data-hook="drawing-report"]')?.textContent?.trim() || '',
+      focusedHook: document.activeElement?.dataset?.hook || '',
+      canvasHasSvg: Boolean(document.querySelector('[data-hook="drawing-canvas"] svg')),
+      jobText: document.querySelector('[data-hook="drawing-job-surface"]')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+      summaryText: document.querySelector('[data-hook="drawing-summary"]')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+    }))()`);
+    assert.equal(snapshot.reportHidden, false, JSON.stringify(snapshot));
+    assert.equal(snapshot.reportSummaryRows, 8);
+    assert.equal(snapshot.reportDisabled, false);
+    assert.equal(snapshot.reportLabel, 'Create report');
+    assert.equal(snapshot.focusedHook, 'drawing-canvas');
+    assert.equal(snapshot.canvasHasSvg, true);
+    return snapshot;
+  }, {
+    attempts: 60,
+    delayMs: 150,
+  });
+  assert.equal(drawingReady.canvasHasSvg, true);
+
+  await cdp.evaluate(`(() => {
+    const localeSelect = document.getElementById('studio-locale-select');
+    localeSelect.value = 'ko';
+    localeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => ({
+      lang: document.documentElement.lang || '',
+      previewText: document.querySelector('[data-action-summary="preview-drawing"]')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+      reportText: document.querySelector('[data-action-summary="create-drawing-report"]')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+      reportLabel: document.querySelector('[data-hook="drawing-report"]')?.textContent?.trim() || '',
+    }))()`);
+    assert.equal(snapshot.lang, 'ko');
+    assertIncludesAll(snapshot.previewText, ['필요한 입력', '예상 결과', 'FreeCAD 실행', '파일 변경']);
+    assertIncludesAll(snapshot.reportText, ['추적 보고서 생성', '추적 보고서 PDF와 관련 산출물']);
+    assert.equal(snapshot.reportLabel, '보고서 생성');
+    return snapshot;
+  });
+
+  await cdp.evaluate(`(() => {
+    const localeSelect = document.getElementById('studio-locale-select');
+    localeSelect.value = 'en';
+    localeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
+  await waitFor(async () => {
+    const label = await cdp.evaluate(`document.querySelector('[data-hook="drawing-report"]')?.textContent?.trim() || ''`);
+    assert.equal(label, 'Create report');
+    return label;
+  });
+
+  await keyboardActivate(cdp, '[data-hook="drawing-report"]');
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(studioSnapshotExpression());
+    assert.equal(snapshot.activeRoute, 'artifacts');
+    assert.match(snapshot.hash, /^#artifacts\?job=[0-9a-f-]+$/);
+    assert.equal(snapshot.loadError, '');
+    return snapshot;
+  }, {
+    attempts: 80,
+    delayMs: 150,
+  });
+  const drawingReportResult = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => ({
+      jobType: document.querySelector('[data-hook="artifacts-result-summary"]')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+      jobId: new URLSearchParams(location.hash.split('?')[1] || '').get('job') || '',
+      hasPrimaryResult: Boolean(document.querySelector('.result-files-workspace .result-card')),
+    }))()`);
+    assert.equal(snapshot.jobId.length > 0, true);
+    assert.equal(snapshot.hasPrimaryResult, true);
+    return snapshot;
+  });
+  assert.equal(drawingReportResult.hasPrimaryResult, true);
 
   await cdp.evaluate(`document.querySelector('.nav-link[data-route="start"]')?.click()`);
   await waitForRoute(cdp, 'start', {
@@ -2877,7 +3036,7 @@ try {
     }))()`);
     assert.equal(snapshot.focusedStep, 'select_file');
     assert.equal(snapshot.advancedOpen, false);
-    assert.equal(snapshot.primaryCount, 1);
+    assert.equal(snapshot.primaryCount, 0);
     return snapshot;
   });
 
@@ -3685,6 +3844,31 @@ try {
 
   await openQualityJobFromTimeline(failQualityJob.id);
   const failDashboardText = await waitForDashboardText('Quality Dashboard - ks_bracket');
+  const failAttention = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => {
+      const attention = document.querySelector('[data-hook="artifacts-quality-attention"]');
+      return {
+        hidden: attention?.hidden ?? true,
+        text: attention?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+        advancedOpen: document.querySelector('[data-hook="artifacts-advanced-tools"]')?.open || false,
+      };
+    })()`);
+    assert.equal(snapshot.hidden, false);
+    assert.equal(snapshot.advancedOpen, false);
+    assertIncludesAll(snapshot.text, [
+      'This report needs attention',
+      'DFM score',
+      '70',
+      "Hole 'hole1' edge distance 3.5mm < required 9.0mm",
+      "Hole 'hole3' edge distance 3.5mm < required 9.0mm",
+      'at least 5.5 mm',
+      'widen the local flange',
+      'Verify the fix',
+      'rerun the checks and confirm DFM passes before release',
+    ]);
+    return snapshot;
+  });
+  assert.equal(failAttention.hidden, false);
   const failPageText = await cdp.evaluate(pageTextExpression());
   assertIncludesAll(failPageText, [
     'ks_bracket',
@@ -4484,7 +4668,7 @@ try {
       };
     })()`);
     assert.equal(snapshot.step, 'select_file');
-    assert.equal(snapshot.primaryCount, 1);
+    assert.equal(snapshot.primaryCount, 0);
     assert.equal(snapshot.summaryRows, 8);
     assert.equal(snapshot.advancedOpen, false);
     return snapshot;
@@ -4520,7 +4704,7 @@ try {
     const snapshot = await cdp.evaluate(importErrorSnapshot());
     assert.equal(snapshot.lang, 'en');
     assert.equal(snapshot.step, 'select_file');
-    assert.equal(snapshot.primaryCount, 1);
+    assert.equal(snapshot.primaryCount, 0);
     assert.equal(
       snapshot.message,
       'This file is 32.1 MiB, which exceeds the 32 MiB local upload limit. Use a project-relative path for larger files.'
@@ -4537,7 +4721,7 @@ try {
     const snapshot = await cdp.evaluate(importErrorSnapshot());
     assert.equal(snapshot.lang, 'ko');
     assert.equal(snapshot.step, 'select_file');
-    assert.equal(snapshot.primaryCount, 1);
+    assert.equal(snapshot.primaryCount, 0);
     assert.equal(
       snapshot.message,
       '이 파일은 32.1 MiB로, 로컬 업로드 한도인 32 MiB보다 큽니다. 더 큰 파일은 프로젝트 상대경로를 사용하세요.'
@@ -4554,7 +4738,7 @@ try {
     const snapshot = await cdp.evaluate(importErrorSnapshot());
     assert.equal(snapshot.lang, 'en');
     assert.equal(snapshot.step, 'select_file');
-    assert.equal(snapshot.primaryCount, 1);
+    assert.equal(snapshot.primaryCount, 0);
     assert.equal(
       snapshot.message,
       'This file is 32.1 MiB, which exceeds the 32 MiB local upload limit. Use a project-relative path for larger files.'
@@ -4563,8 +4747,8 @@ try {
   });
   assert.equal(oversizedImportError.message.includes('이 파일은'), false);
 
+  const importRequestsBeforeSelection = browserSmokeImportRequests.length;
   await keyboardActivate(cdp, '[data-hook="guided-import-choose"]');
-  guidedImportPrimaryActions += 1;
   const documentNode = await cdp.send('DOM.getDocument');
   const fileInputNode = await cdp.send('DOM.querySelector', {
     nodeId: documentNode.root.nodeId,
@@ -4575,6 +4759,30 @@ try {
     nodeId: fileInputNode.nodeId,
     files: [join(ROOT, 'tests', 'fixtures', 'imports', 'simple_bracket.step')],
   });
+
+  const guidedImportStaged = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => {
+      const activeStep = document.querySelector('[data-import-guided-step]:not([hidden])');
+      return {
+        step: activeStep?.dataset?.importGuidedStep || '',
+        primaryCount: activeStep?.querySelectorAll('[data-action-kind="primary"]')?.length || 0,
+        selectedFile: activeStep?.querySelector('.inline-status-message')?.textContent?.trim() || '',
+        checkLabel: document.querySelector('[data-hook="guided-import-check"]')?.textContent?.trim() || '',
+        focusedStep: document.activeElement?.dataset?.importGuidedStep || '',
+      };
+    })()`);
+    assert.equal(snapshot.step, 'select_file');
+    assert.equal(snapshot.primaryCount, 1);
+    assert.equal(snapshot.selectedFile, 'simple_bracket.step');
+    assert.equal(snapshot.checkLabel, 'Check file');
+    assert.equal(snapshot.focusedStep, 'select_file');
+    return snapshot;
+  });
+  assert.equal(guidedImportStaged.step, 'select_file');
+  assert.equal(browserSmokeImportRequests.length, importRequestsBeforeSelection);
+
+  await keyboardActivate(cdp, '[data-hook="guided-import-check"]');
+  guidedImportPrimaryActions += 1;
 
   const guidedImportConfirm = await waitFor(async () => {
     const snapshot = await cdp.evaluate(`(() => {
@@ -4615,17 +4823,18 @@ try {
   const guidedImportResult = await waitFor(async () => {
     const snapshot = await cdp.evaluate(`(() => {
       const activeStep = document.querySelector('[data-import-guided-step]:not([hidden])');
+      const viewButton = document.querySelector('[data-hook="guided-import-view-result"]');
       return {
         step: activeStep?.dataset?.importGuidedStep || '',
         primaryCount: activeStep?.querySelectorAll('[data-action-kind="primary"]')?.length || 0,
-        viewDisabled: document.querySelector('[data-hook="guided-import-view-result"]')?.disabled ?? true,
+        viewDisabled: viewButton?.disabled ?? true,
         focusedStep: document.activeElement?.dataset?.importGuidedStep || '',
         text: activeStep?.innerText?.replace(/\\s+/g, ' ').trim() || '',
       };
     })()`);
     assert.equal(snapshot.step, 'result');
     assert.equal(snapshot.primaryCount, 1);
-    assert.equal(snapshot.viewDisabled, false);
+    assert.equal(snapshot.viewDisabled, false, JSON.stringify(snapshot));
     assert.equal(snapshot.focusedStep, 'result');
     assertIncludesAll(snapshot.text, [
       'EXECUTION',

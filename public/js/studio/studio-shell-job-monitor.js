@@ -123,21 +123,31 @@ export function createStudioJobMonitorController(app) {
       .filter((entry) => entry.id !== job.id)
       .length;
 
-    setCompletionNotice(buildStudioJobCompletionNotice(job, target, remainingActiveCount));
-
     if (completionAction?.stayOnCurrentRoute === true) {
+      const activeGuidedStep = app.elements.workspaceRoot.querySelector(
+        '[data-import-guided-step]:not([hidden])',
+      );
+      const restoreGuidedFocus = Boolean(activeGuidedStep?.contains(app.document.activeElement));
       if (app.state.data.importBootstrap?.lastJobId === job.id) {
         app.state.data.importBootstrap.reviewJob = job;
       }
+      setCompletionNotice(buildStudioJobCompletionNotice(job, target, remainingActiveCount));
       app.addLog({
         status: 'Tracked run',
         message: `${job.type} ${shortJobId(job.id)} finished. The current guided result remains open until the user chooses the next view.`,
         tone: job.status === 'succeeded' ? 'ok' : 'warn',
         time: 'job',
       });
-      app.refreshShellChrome({ syncWorkspace: true });
+      app.commitRender();
+      if (restoreGuidedFocus) {
+        app.elements.workspaceRoot.querySelector(
+          '[data-import-guided-step]:not([hidden])',
+        )?.focus();
+      }
       return;
     }
+
+    setCompletionNotice(buildStudioJobCompletionNotice(job, target, remainingActiveCount));
 
     if (!target.route) {
       app.addLog({
@@ -230,6 +240,12 @@ export function createStudioJobMonitorController(app) {
         }
 
         if (!isActiveStudioJobStatus(job.status)) {
+          if (
+            entry.completionAction?.stayOnCurrentRoute === true
+            && app.state.data.importBootstrap?.lastJobId === job.id
+          ) {
+            app.state.data.importBootstrap.reviewJob = job;
+          }
           completedJobs.push({ job, completionAction: entry.completionAction });
           app.state.data.jobMonitor = upsertStudioMonitoredJob(app.state.data.jobMonitor, job, {
             lastPollTime: polledAt,

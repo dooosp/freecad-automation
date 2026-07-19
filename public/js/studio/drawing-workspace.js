@@ -13,6 +13,10 @@ import {
   buildDrawingPreviewResultSummary,
   previewReference,
 } from './drawing-preview-copy.js';
+import {
+  buildTrackedReportJobOptions,
+  ensureModelTrackedRunState,
+} from './model-tracked-runs.js';
 import { applyTranslations } from '../i18n/index.js';
 
 function ensureDrawingState(drawing = {}) {
@@ -169,6 +173,7 @@ export function mountDrawingWorkspace({
   submitTrackedJob,
 }) {
   const drawing = ensureDrawingState(state.data.drawing);
+  const model = ensureModelTrackedRunState(state.data.model);
   const viewerStore = createViewerStore();
   viewerStore.state.dimensions.history = structuredClone(drawing.history);
   viewerStore.state.dimensions.index = drawing.historyIndex;
@@ -195,11 +200,14 @@ export function mountDrawingWorkspace({
   const generateButton = root.querySelector('[data-hook="drawing-generate"]');
   const trackedRunButton = root.querySelector('[data-hook="drawing-tracked-run"]');
   const trackedStatusElement = root.querySelector('[data-hook="drawing-tracked-status"]');
+  const reportActionElement = root.querySelector('[data-hook="drawing-report-action"]');
+  const reportButton = root.querySelector('[data-hook="drawing-report"]');
   const configFileInput = root.querySelector('[data-hook="drawing-config-file"]');
 
   let destroyed = false;
   let renderedSignature = '';
   let drawingRenderer = null;
+  let reportSubmitting = false;
 
   function syncSettingsFromControls() {
     const views = viewInputs
@@ -220,6 +228,8 @@ export function mountDrawingWorkspace({
     const hasConfig = Boolean(String(state.data.model.configText || '').trim());
     const canPreview = apiReady && runtimeReady && hasConfig && drawing.status !== 'generating';
     const canRunTracked = canPreview && drawing.trackedRun.submitting !== true;
+    const hasPreview = drawing.status === 'ready' && Boolean(drawing.preview?.svg);
+    const canRunReport = apiReady && runtimeReady && hasConfig && hasPreview && !reportSubmitting;
 
     const views = new Set(drawing.settings.views || []);
     viewInputs.forEach((input) => {
@@ -230,6 +240,8 @@ export function mountDrawingWorkspace({
     if (detailAssistInput) detailAssistInput.checked = drawing.settings.detail_assist === true;
     if (generateButton) generateButton.disabled = !canPreview;
     if (trackedRunButton) trackedRunButton.disabled = !canRunTracked;
+    if (reportActionElement) reportActionElement.hidden = !hasPreview;
+    if (reportButton) reportButton.disabled = !canRunReport;
   }
 
   function syncSourceSummary() {
@@ -579,6 +591,8 @@ export function mountDrawingWorkspace({
         time: 'drawing',
       });
       syncAll();
+      canvasElement?.focus();
+      requestAnimationFrame(() => canvasElement?.focus());
     } catch (error) {
       drawing.status = 'error';
       drawing.errorMessage = error instanceof Error ? error.message : String(error);
@@ -648,6 +662,60 @@ export function mountDrawingWorkspace({
     }
   }
 
+  async function runTrackedReport() {
+    const configToml = String(model.configText || '').trim();
+    if (!configToml || drawing.status !== 'ready' || !drawing.preview?.svg) return;
+
+    reportSubmitting = true;
+    model.trackedRun = {
+      type: 'report',
+      lastJobId: '',
+      status: 'submitting',
+      submitting: true,
+      error: '',
+    };
+    syncAll();
+
+    try {
+      const job = await submitTrackedJob({
+        type: 'report',
+        configToml,
+        options: buildTrackedReportJobOptions({
+          ...model.reportOptions,
+          includeDrawing: true,
+        }),
+      });
+      model.trackedRun = {
+        type: 'report',
+        lastJobId: job.id,
+        status: job.status,
+        submitting: false,
+        error: '',
+      };
+      addLog({
+        status: 'Drawing',
+        message: `Queued a tracked report for ${model.sourceName || 'the active config'} after drawing review.`,
+        tone: 'info',
+        time: 'job',
+      });
+    } catch (error) {
+      model.trackedRun = {
+        ...model.trackedRun,
+        submitting: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+      addLog({
+        status: 'Drawing',
+        message: model.trackedRun.error,
+        tone: 'warn',
+        time: 'job',
+      });
+    } finally {
+      reportSubmitting = false;
+      syncAll();
+    }
+  }
+
   function handleClick(event) {
     const target = event.target instanceof Element ? event.target.closest('[data-action]') : null;
     if (!target) return;
@@ -659,6 +727,11 @@ export function mountDrawingWorkspace({
 
     if (target.dataset.action === 'drawing-run-tracked') {
       runTrackedDraw();
+      return;
+    }
+
+    if (target.dataset.action === 'drawing-run-report') {
+      runTrackedReport();
       return;
     }
 
@@ -759,6 +832,7 @@ export function mountDrawingWorkspace({
     },
   });
 
+  root.dataset.drawingWorkspaceMounted = 'true';
   syncAll();
 
   return {
@@ -767,6 +841,7 @@ export function mountDrawingWorkspace({
     },
     destroy() {
       destroyed = true;
+      delete root.dataset.drawingWorkspaceMounted;
       drawingRenderer?.destroy?.();
       root.removeEventListener('click', handleClick);
       root.removeEventListener('change', handleChange);

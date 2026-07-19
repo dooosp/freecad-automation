@@ -2468,6 +2468,20 @@ function createDrawingWorkspace(state) {
                     dataset: { hook: 'drawing-summary' },
                     text: 'Preview Drawing runs locally and quickly. Run Tracked Draw Job publishes the current sheet settings as a tracked job and artifact set.',
                   }),
+                  createActionSummary({
+                    actionId: 'preview-drawing',
+                    title: t('studio.drawing.preview.summary-title'),
+                    description: t('studio.drawing.preview.summary-copy'),
+                    requiredInputs: [t('studio.drawing.preview.required-input')],
+                    expectedOutputs: [t('studio.drawing.preview.expected-output')],
+                    launchesFreeCAD: t('studio.drawing.preview.freecad'),
+                    fileEffects: t('studio.drawing.preview.files'),
+                    networkAccess: t('studio.drawing.local-api'),
+                    provider: t('studio.drawing.none'),
+                    cost: t('studio.drawing.none'),
+                    humanConfirmationRequired: true,
+                    safetyNotes: t('studio.drawing.preview.safety'),
+                  }),
                   el('div', {
                     className: 'model-action-row',
                     children: [
@@ -2488,6 +2502,32 @@ function createDrawingWorkspace(state) {
                         action: 'drawing-fit',
                         tone: 'ghost',
                         dataset: { hook: 'drawing-fit-side' },
+                      }),
+                    ],
+                  }),
+                  el('div', {
+                    className: 'guided-follow-up-card',
+                    attrs: { hidden: drawingStatus === 'ready' ? undefined : '' },
+                    dataset: { hook: 'drawing-report-action' },
+                    children: [
+                      createActionSummary({
+                        actionId: 'create-drawing-report',
+                        title: t('studio.drawing.report.summary-title'),
+                        description: t('studio.drawing.report.summary-copy'),
+                        requiredInputs: [t('studio.drawing.report.required-input')],
+                        expectedOutputs: [t('studio.drawing.report.expected-output')],
+                        launchesFreeCAD: t('studio.drawing.report.freecad'),
+                        fileEffects: t('studio.drawing.report.files'),
+                        networkAccess: t('studio.drawing.local-api'),
+                        provider: t('studio.drawing.none'),
+                        cost: t('studio.drawing.none'),
+                        humanConfirmationRequired: true,
+                        safetyNotes: t('studio.drawing.report.safety'),
+                      }),
+                      createPrimaryAction({
+                        label: t('studio.drawing.report.action'),
+                        action: 'drawing-run-report',
+                        dataset: { hook: 'drawing-report' },
                       }),
                     ],
                   }),
@@ -2547,6 +2587,7 @@ function createDrawingWorkspace(state) {
                       el('div', {
                         className: 'drawing-canvas',
                         dataset: { hook: 'drawing-canvas' },
+                        attrs: { tabindex: '-1' },
                       }),
                     ],
                   }),
@@ -3391,11 +3432,15 @@ function createGuidedImportReviewWorkspace(state) {
   const diagnostics = preview?.bootstrap?.import_diagnostics || {};
   const seed = preview?.tracked_review_seed || {};
   const canStartReview = Boolean(seed.context_path && seed.model_path);
+  const hasSelectedLocalFile = Boolean(importBootstrap.modelFile && importBootstrap.modelFileName);
   const sourceLabel = importBootstrap.modelFileName
     || importBootstrap.modelPath
     || diagnostics.source_model_path
     || t('studio.import.guided.file.none');
-  const reviewStatus = importBootstrap.reviewJob?.status || 'queued';
+  const latestReviewJob = state.data.recentJobs?.items?.find(
+    (job) => job.id === importBootstrap.lastJobId,
+  ) || importBootstrap.reviewJob;
+  const reviewStatus = latestReviewJob?.status || 'queued';
   const reviewStatusLabel = reviewStatus === 'succeeded'
     ? t('studio.import.guided.result.completed')
     : reviewStatus === 'failed'
@@ -3466,7 +3511,7 @@ function createGuidedImportReviewWorkspace(state) {
               actionId: 'check-imported-cad',
               title: t('studio.import.guided.file.summary-title'),
               description: t('studio.import.guided.file.summary-copy'),
-              requiredInputs: [t('studio.import.guided.file.required-input')],
+              requiredInputs: [hasSelectedLocalFile ? sourceLabel : t('studio.import.guided.file.required-input')],
               expectedOutputs: [t('studio.import.guided.file.expected-output')],
               launchesFreeCAD: t('studio.import.guided.file.freecad'),
               fileEffects: t('studio.import.guided.file.files'),
@@ -3483,10 +3528,31 @@ function createGuidedImportReviewWorkspace(state) {
                   tone: 'bad',
                 })
               : null,
-            createPrimaryAction({
-              label: t('studio.import.guided.file.action'),
-              action: 'choose-import-model-file',
-              dataset: { hook: 'guided-import-choose' },
+            hasSelectedLocalFile
+              ? createInlineStatus({
+                  title: t('studio.import.guided.file.selected-title'),
+                  copy: sourceLabel,
+                  tone: 'info',
+                })
+              : null,
+            el('div', {
+              className: 'guided-import-step-actions',
+              children: [
+                hasSelectedLocalFile
+                  ? createPrimaryAction({
+                      label: t('studio.import.guided.file.check-action'),
+                      action: 'check-import-model-file',
+                      dataset: { hook: 'guided-import-check' },
+                    })
+                  : null,
+                createSecondaryAction({
+                  label: hasSelectedLocalFile
+                    ? t('studio.import.guided.file.change-action')
+                    : t('studio.import.guided.file.choose-action'),
+                  action: 'choose-import-model-file',
+                  dataset: { hook: 'guided-import-choose' },
+                }),
+              ].filter(Boolean),
             }),
             createImportAdditionalMaterial(importBootstrap),
           ]),
@@ -3623,7 +3689,7 @@ function createGuidedImportReviewWorkspace(state) {
               primaryAction: {
                 label: t('studio.import.guided.result.view'),
                 action: 'import-view-review-result',
-                disabled: !importBootstrap.lastJobId,
+                disabled: !importBootstrap.lastJobId || reviewStatus !== 'succeeded',
                 dataset: {
                   hook: 'guided-import-view-result',
                   jobId: importBootstrap.lastJobId,
