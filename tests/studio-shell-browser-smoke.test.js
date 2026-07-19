@@ -91,6 +91,63 @@ function summarizeLog(entry = {}) {
   return `${entry.source || 'log'} ${entry.level || ''} ${entry.url || ''} ${entry.text || ''}`.trim();
 }
 
+const EXPECTED_HEADLESS_WEBGL_WARNING_TEXT = [
+  'Automatic fallback to software WebGL has been deprecated. Please use the --enable-unsafe-swiftshader flag to opt in to lower security guarantees for trusted content.',
+  'GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels',
+];
+
+function isExpectedHeadlessWebGlWarning(entry = {}) {
+  const text = String(entry.text || '');
+  return entry.source === 'rendering'
+    && entry.level === 'warning'
+    && EXPECTED_HEADLESS_WEBGL_WARNING_TEXT.some((expectedText) => text.includes(expectedText));
+}
+
+for (const diagnosticCase of [
+  {
+    expected: true,
+    entry: {
+      source: 'rendering',
+      level: 'warning',
+      text: '[]Automatic fallback to software WebGL has been deprecated. Please use the --enable-unsafe-swiftshader flag to opt in to lower security guarantees for trusted content.',
+    },
+  },
+  {
+    expected: true,
+    entry: {
+      source: 'rendering',
+      level: 'warning',
+      text: '[.WebGL-0x1234]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels',
+    },
+  },
+  {
+    expected: false,
+    entry: {
+      source: 'rendering',
+      level: 'error',
+      text: '[.WebGL-0x1234]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels',
+    },
+  },
+  {
+    expected: false,
+    entry: {
+      source: 'javascript',
+      level: 'warning',
+      text: 'Automatic fallback to software WebGL has been deprecated. Please use the --enable-unsafe-swiftshader flag to opt in to lower security guarantees for trusted content.',
+    },
+  },
+  {
+    expected: false,
+    entry: {
+      source: 'rendering',
+      level: 'warning',
+      text: 'WebGL context lost while rendering the model.',
+    },
+  },
+]) {
+  assert.equal(isExpectedHeadlessWebGlWarning(diagnosticCase.entry), diagnosticCase.expected);
+}
+
 function studioSnapshotExpression() {
   return `(() => {
     const current = document.querySelector('.nav-link[aria-current="page"]');
@@ -4497,6 +4554,7 @@ try {
   const consoleDiagnostics = cdp.logs.filter((entry) => (
     ['warning', 'error'].includes(entry.level)
       && entry.source !== 'network'
+      && !isExpectedHeadlessWebGlWarning(entry)
       && (
         String(entry.url || '').includes(baseUrl)
         || /\/js\/(?:studio|i18n|app)\//.test(`${entry.url || ''} ${entry.text || ''}`)
