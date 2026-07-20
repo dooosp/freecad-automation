@@ -57,6 +57,38 @@ import {
 } from './result-files.js';
 import { applyTranslations, t } from '../i18n/index.js';
 
+const DFM_EDGE_DISTANCE_BLOCKER_PATTERN = /^Hole '([^']+)' edge distance (\d+(?:\.\d+)?)mm < required (\d+(?:\.\d+)?)mm \((\d+(?:\.\d+)?)x dia (\d+(?:\.\d+)?)mm\) in box '([^']+)'$/;
+const DFM_EDGE_DISTANCE_FIX_PATTERN = /^Move hole '([^']+)' at least (\d+(?:\.\d+)?) mm away from the nearest box edge in '([^']+)', or widen the local flange so the edge distance reaches (\d+(?:\.\d+)?) mm\.$/;
+
+export function localizeDfmAttentionText(value, locale) {
+  const raw = String(value ?? '');
+  const blocker = raw.match(DFM_EDGE_DISTANCE_BLOCKER_PATTERN);
+  if (blocker) {
+    const [, feature, measured, required, diameterMultiple, diameter, box] = blocker;
+    return t('studio.artifacts.attention.dfm.edge-distance-blocker', {
+      feature,
+      measured,
+      required,
+      diameterMultiple,
+      diameter,
+      box,
+    }, locale);
+  }
+
+  const fix = raw.match(DFM_EDGE_DISTANCE_FIX_PATTERN);
+  if (fix) {
+    const [, feature, moveDistance, box, required] = fix;
+    return t('studio.artifacts.attention.dfm.edge-distance-fix', {
+      feature,
+      moveDistance,
+      box,
+      required,
+    }, locale);
+  }
+
+  return raw;
+}
+
 function ensureArtifactsWorkspaceState(store = {}) {
   store.selectedArtifactId = store.selectedArtifactId || '';
   store.viewedArtifactId = store.viewedArtifactId || '';
@@ -1504,10 +1536,16 @@ function renderQualityAttentionCard(dashboardModel = {}, jobSummary = {}) {
       ? { label: t('studio.artifacts.attention.dfm-score'), value: String(dfm.score) }
       : null,
     Array.isArray(dfm.blockers) && dfm.blockers.length > 0
-      ? { label: t('studio.artifacts.attention.why'), value: dfm.blockers.join(' · ') }
+      ? {
+          label: t('studio.artifacts.attention.why'),
+          value: dfm.blockers.map((entry) => localizeDfmAttentionText(entry)).join(' · '),
+        }
       : null,
     Array.isArray(dfm.topFixes) && dfm.topFixes.length > 0
-      ? { label: t('studio.artifacts.attention.recovery'), value: dfm.topFixes.join(' · ') }
+      ? {
+          label: t('studio.artifacts.attention.recovery'),
+          value: dfm.topFixes.map((entry) => localizeDfmAttentionText(entry)).join(' · '),
+        }
       : null,
     { label: t('studio.artifacts.attention.next-label'), value: t('studio.artifacts.attention.next') },
   ].filter(Boolean);

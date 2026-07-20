@@ -2529,6 +2529,12 @@ function createDrawingWorkspace(state) {
                         action: 'drawing-run-report',
                         dataset: { hook: 'drawing-report' },
                       }),
+                      el('p', {
+                        className: 'inline-note',
+                        text: t('studio.drawing.report.status.idle'),
+                        attrs: { role: 'status', 'aria-live': 'polite' },
+                        dataset: { hook: 'drawing-report-status', tone: 'info' },
+                      }),
                     ],
                   }),
                   el('div', { className: 'studio-mini-grid', dataset: { hook: 'drawing-tracked-status' } }),
@@ -2587,7 +2593,11 @@ function createDrawingWorkspace(state) {
                       el('div', {
                         className: 'drawing-canvas',
                         dataset: { hook: 'drawing-canvas' },
-                        attrs: { tabindex: '-1' },
+                        attrs: {
+                          tabindex: '-1',
+                          role: 'region',
+                          'aria-label': t('studio.drawing.canvas.label'),
+                        },
                       }),
                     ],
                   }),

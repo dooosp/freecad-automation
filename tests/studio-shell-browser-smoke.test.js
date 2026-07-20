@@ -2755,16 +2755,79 @@ try {
       reportHidden: document.querySelector('[data-hook="drawing-report-action"]')?.hidden ?? false,
       previewDisabled: document.querySelector('[data-hook="drawing-generate"]')?.disabled ?? true,
       previewLabel: document.querySelector('[data-hook="drawing-generate"]')?.textContent?.trim() || '',
+      visiblePrimaryActions: [...document.querySelectorAll('#workspace-root .action-button-primary')]
+        .filter((button) => button instanceof HTMLElement && !button.closest('[hidden]') && button.getClientRects().length > 0)
+        .map((button) => button.dataset.action || button.textContent?.trim() || ''),
       mounted: document.getElementById('workspace-root')?.dataset?.drawingWorkspaceMounted === 'true',
     }))()`);
     assert.equal(snapshot.previewSummaryRows, 8);
     assert.equal(snapshot.reportHidden, true);
     assert.equal(snapshot.previewDisabled, false);
     assert.equal(snapshot.previewLabel, 'Preview drawing');
+    assert.deepEqual(snapshot.visiblePrimaryActions, ['drawing-generate']);
     assert.equal(snapshot.mounted, true);
     return snapshot;
   });
   assert.equal(drawingBeforePreview.reportHidden, true);
+
+  const drawingEmptyConfigReplacement = await cdp.evaluate(`(() => {
+    const input = document.querySelector('[data-hook="drawing-config-file"]');
+    if (!(input instanceof HTMLInputElement)) return { staged: false };
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([''], 'drawing-empty-config.toml', { type: 'text/plain' }));
+    input.files = transfer.files;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    return { staged: true };
+  })()`);
+  assert.equal(drawingEmptyConfigReplacement.staged, true);
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => ({
+      source: document.querySelector('[data-hook="drawing-source-summary"]')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+      previewDisabled: document.querySelector('[data-hook="drawing-generate"]')?.disabled ?? false,
+      visiblePrimaryActions: [...document.querySelectorAll('#workspace-root .action-button-primary')]
+        .filter((button) => button instanceof HTMLElement && !button.closest('[hidden]') && button.getClientRects().length > 0)
+        .map((button) => button.dataset.action || button.textContent?.trim() || ''),
+    }))()`);
+    assert.match(snapshot.source, /drawing-empty-config\.toml/);
+    assert.equal(snapshot.previewDisabled, true);
+    assert.deepEqual(snapshot.visiblePrimaryActions, ['drawing-load-example']);
+    return snapshot;
+  });
+
+  const drawingConfigReplacement = await cdp.evaluate(`(() => {
+    const input = document.querySelector('[data-hook="drawing-config-file"]');
+    if (!(input instanceof HTMLInputElement)) return { staged: false };
+    const file = new File([
+      'name = "drawing_current_config"\\n',
+      '[[shapes]]\\n',
+      'id = "body"\\n',
+      'type = "box"\\n',
+      'length = 24\\n',
+      'width = 18\\n',
+      'height = 6\\n',
+    ], 'drawing-current-config.toml', { type: 'text/plain' });
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    input.files = transfer.files;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    return { staged: true };
+  })()`);
+  assert.equal(drawingConfigReplacement.staged, true);
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => ({
+      source: document.querySelector('[data-hook="drawing-source-summary"]')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+      reportHidden: document.querySelector('[data-hook="drawing-report-action"]')?.hidden ?? false,
+      canvasHasSvg: Boolean(document.querySelector('[data-hook="drawing-canvas"] svg')),
+      visiblePrimaryActions: [...document.querySelectorAll('#workspace-root .action-button-primary')]
+        .filter((button) => button instanceof HTMLElement && !button.closest('[hidden]') && button.getClientRects().length > 0)
+        .map((button) => button.dataset.action || button.textContent?.trim() || ''),
+    }))()`);
+    assert.match(snapshot.source, /drawing-current-config\.toml/);
+    assert.equal(snapshot.reportHidden, true);
+    assert.equal(snapshot.canvasHasSvg, false);
+    assert.deepEqual(snapshot.visiblePrimaryActions, ['drawing-generate']);
+    return snapshot;
+  });
 
   await keyboardActivate(cdp, '[data-hook="drawing-generate"]');
   const drawingReady = await waitFor(async () => {
@@ -2773,8 +2836,14 @@ try {
       reportSummaryRows: document.querySelector('[data-action-summary="create-drawing-report"]')?.querySelectorAll('.info-row')?.length || 0,
       reportDisabled: document.querySelector('[data-hook="drawing-report"]')?.disabled ?? true,
       reportLabel: document.querySelector('[data-hook="drawing-report"]')?.textContent?.trim() || '',
+      reportStatus: document.querySelector('[data-hook="drawing-report-status"]')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
       focusedHook: document.activeElement?.dataset?.hook || '',
       canvasHasSvg: Boolean(document.querySelector('[data-hook="drawing-canvas"] svg')),
+      canvasRole: document.querySelector('[data-hook="drawing-canvas"]')?.getAttribute('role') || '',
+      canvasLabel: document.querySelector('[data-hook="drawing-canvas"]')?.getAttribute('aria-label') || '',
+      visiblePrimaryActions: [...document.querySelectorAll('#workspace-root .action-button-primary')]
+        .filter((button) => button instanceof HTMLElement && !button.closest('[hidden]') && button.getClientRects().length > 0)
+        .map((button) => button.dataset.action || button.textContent?.trim() || ''),
       jobText: document.querySelector('[data-hook="drawing-job-surface"]')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
       summaryText: document.querySelector('[data-hook="drawing-summary"]')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
     }))()`);
@@ -2782,8 +2851,12 @@ try {
     assert.equal(snapshot.reportSummaryRows, 8);
     assert.equal(snapshot.reportDisabled, false);
     assert.equal(snapshot.reportLabel, 'Create report');
-    assert.equal(snapshot.focusedHook, 'drawing-canvas');
+    assert.equal(snapshot.reportStatus, 'Ready to create a report from the current loaded config.');
+    assert.equal(snapshot.focusedHook, 'drawing-report');
     assert.equal(snapshot.canvasHasSvg, true);
+    assert.equal(snapshot.canvasRole, 'region');
+    assert.equal(snapshot.canvasLabel, 'Drawing preview canvas');
+    assert.deepEqual(snapshot.visiblePrimaryActions, ['drawing-run-report']);
     return snapshot;
   }, {
     attempts: 60,
@@ -2802,11 +2875,21 @@ try {
       previewText: document.querySelector('[data-action-summary="preview-drawing"]')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
       reportText: document.querySelector('[data-action-summary="create-drawing-report"]')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
       reportLabel: document.querySelector('[data-hook="drawing-report"]')?.textContent?.trim() || '',
+      reportStatus: document.querySelector('[data-hook="drawing-report-status"]')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+      canvasLabel: document.querySelector('[data-hook="drawing-canvas"]')?.getAttribute('aria-label') || '',
     }))()`);
     assert.equal(snapshot.lang, 'ko');
     assertIncludesAll(snapshot.previewText, ['필요한 입력', '예상 결과', 'FreeCAD 실행', '파일 변경']);
-    assertIncludesAll(snapshot.reportText, ['추적 보고서 생성', '추적 보고서 PDF와 관련 산출물']);
+    assertIncludesAll(snapshot.reportText, [
+      '추적 보고서 생성',
+      '현재 불러온 설정',
+      '보고서에서 도면을 다시 생성합니다',
+      '미리보기에서만 바꾼 치수와 시트 설정은 보고서에 포함되지 않습니다',
+      '추적 보고서 PDF와 관련 산출물',
+    ]);
     assert.equal(snapshot.reportLabel, '보고서 생성');
+    assert.equal(snapshot.reportStatus, '현재 불러온 설정으로 보고서를 생성할 준비가 되었습니다.');
+    assert.equal(snapshot.canvasLabel, '도면 미리보기 캔버스');
     return snapshot;
   });
 
@@ -2821,7 +2904,17 @@ try {
     return label;
   });
 
-  await keyboardActivate(cdp, '[data-hook="drawing-report"]');
+  const reportJobsBefore = (await jobStore.listJobs({ limit: 100 }))
+    .filter((job) => job.type === 'report').length;
+  const duplicateReportDispatch = await cdp.evaluate(`(() => {
+    const button = document.querySelector('[data-hook="drawing-report"]');
+    if (!(button instanceof HTMLButtonElement)) return { dispatched: false };
+    button.focus();
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    return { dispatched: true };
+  })()`);
+  assert.equal(duplicateReportDispatch.dispatched, true);
   await waitFor(async () => {
     const snapshot = await cdp.evaluate(studioSnapshotExpression());
     assert.equal(snapshot.activeRoute, 'artifacts');
@@ -2843,6 +2936,11 @@ try {
     return snapshot;
   });
   assert.equal(drawingReportResult.hasPrimaryResult, true);
+  const drawingReportJob = await jobStore.getJob(drawingReportResult.jobId);
+  assert.equal(configNameFromTrackedRequest(drawingReportJob.request), 'drawing_current_config');
+  const reportJobsAfter = (await jobStore.listJobs({ limit: 100 }))
+    .filter((job) => job.type === 'report').length;
+  assert.equal(reportJobsAfter, reportJobsBefore + 1);
 
   await cdp.evaluate(`document.querySelector('.nav-link[data-route="start"]')?.click()`);
   await waitForRoute(cdp, 'start', {

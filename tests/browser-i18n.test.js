@@ -15,6 +15,7 @@ import {
   createTranslator,
   translateText,
 } from '../public/js/i18n/index.js';
+import { localizeDfmAttentionText } from '../public/js/studio/artifacts-workspace.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
 
@@ -54,6 +55,22 @@ assert.equal(ko.t('studio.artifacts.summary.execution'), '실행');
 assert.equal(ko.t('studio.artifacts.summary.quality'), '품질');
 assert.equal(ko.t('studio.artifacts.group.system'), '시스템 기록');
 assert.equal(ko.t('studio.artifacts.action.view'), '결과 보기');
+const dfmEdgeDistanceBlocker = "Hole 'hole1' edge distance 3.5mm < required 9.0mm (1x dia 9.0mm) in box 'gusset'";
+const dfmEdgeDistanceFix = "Move hole 'hole3' at least 5.5 mm away from the nearest box edge in 'gusset', or widen the local flange so the edge distance reaches 9.0 mm.";
+assert.equal(
+  localizeDfmAttentionText(dfmEdgeDistanceBlocker, 'ko'),
+  "구멍 'hole1'의 가장자리 거리 3.5mm가 박스 'gusset'에서 요구 거리 9.0mm(1x 지름 9.0mm)보다 작습니다."
+);
+assert.equal(
+  localizeDfmAttentionText(dfmEdgeDistanceFix, 'ko'),
+  "구멍 'hole3' 위치를 박스 'gusset'의 가장 가까운 가장자리에서 최소 5.5mm 더 멀리 옮기거나, 가장자리 거리가 9.0mm에 도달하도록 해당 플랜지를 넓히세요."
+);
+assert.equal(localizeDfmAttentionText(dfmEdgeDistanceBlocker, 'en'), dfmEdgeDistanceBlocker);
+assert.equal(localizeDfmAttentionText(dfmEdgeDistanceFix, 'en'), dfmEdgeDistanceFix);
+assert.equal(
+  localizeDfmAttentionText("Unknown checker detail for feature 'hole7' at 4.25mm.", 'ko'),
+  "Unknown checker detail for feature 'hole7' at 4.25mm."
+);
 assert.equal(ko.t('studio.nav.history.label'), '실행 내역');
 assert.equal(en.t('studio.nav.artifacts.label'), 'Result files');
 assert.equal(ko.t('studio.nav.artifacts.label'), '결과 파일');
