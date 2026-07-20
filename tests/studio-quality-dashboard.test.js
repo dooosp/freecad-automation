@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 
 import {
+  buildQualityAttentionModel,
   buildQualityDashboardModel,
   formatQualityStatusLabel,
 } from '../public/js/studio/quality-dashboard.js';
@@ -1567,6 +1568,70 @@ assert.equal(formatQualityStatusLabel('missing', true), 'Required missing');
   );
   assert.equal(model.drawingQuality.extractedSemantics.suggestedActionGroups[0].items[0].recommendedFix.includes('section view'), true);
   assert.equal(model.readyLabel, 'Yes');
+}
+
+{
+  const blockers = [
+    "Hole 'hole1' edge distance 3.5mm < required 9.0mm (1.0x dia 9.0mm) in box 'gusset'",
+    "Hole 'hole3' edge distance 3.5mm < required 9.0mm (1.0x dia 9.0mm) in box 'gusset'",
+  ];
+  const topFixes = [
+    "Move hole 'hole1' at least 5.5 mm away from the nearest box edge in 'gusset', or widen the local flange so the edge distance reaches 9.0 mm.",
+    "Move hole 'hole3' at least 5.5 mm away from the nearest box edge in 'gusset', or widen the local flange so the edge distance reaches 9.0 mm.",
+  ];
+  const model = buildQualityDashboardModel({
+    artifacts: [
+      makeArtifact({
+        id: 'report-summary',
+        key: 'report_summary_json',
+        type: 'report.summary-json',
+        file_name: 'ks_bracket_report_summary.json',
+        extension: '.json',
+      }),
+    ],
+    artifactPayloads: {
+      'report-summary': {
+        overall_status: 'fail',
+        ready_for_manufacturing_review: false,
+        blocking_issues: [],
+        top_risks: [],
+        recommended_actions: [],
+        artifacts_referenced: [],
+        surfaces: {
+          create_quality: { available: false, status: 'not_run', blocking_issues: [], warnings: [] },
+          drawing_quality: { available: false, status: 'not_run', blocking_issues: [], warnings: [] },
+          dfm: {
+            available: true,
+            status: 'fail',
+            score: 70,
+            severity_counts: { critical: 2, major: 0, minor: 0, info: 0 },
+            blocking_issues: blockers,
+            top_fixes: topFixes,
+            warnings: [],
+          },
+        },
+      },
+    },
+  });
+
+  const attention = buildQualityAttentionModel({ jobType: 'report', dashboardModel: model });
+  assert.deepEqual(attention, {
+    overallStatus: 'fail',
+    dfm: {
+      status: 'fail',
+      score: 70,
+      blockers,
+      topFixes,
+    },
+  });
+  assert.equal(attention.dfm.blockers.some((entry) => entry.includes("'hole1'") && entry.includes('3.5mm < required 9.0mm')), true);
+  assert.equal(attention.dfm.blockers.some((entry) => entry.includes("'hole3'") && entry.includes('3.5mm < required 9.0mm')), true);
+  assert.equal(attention.dfm.topFixes.every((entry) => entry.includes('5.5 mm') && entry.includes('widen the local flange')), true);
+  assert.equal(buildQualityAttentionModel({ jobType: 'create', dashboardModel: model }), null);
+  assert.equal(buildQualityAttentionModel({
+    jobType: 'report',
+    dashboardModel: { ...model, overallStatus: 'pass', readyForManufacturingReview: true },
+  }), null);
 }
 
 console.log('studio-quality-dashboard.test.js: ok');

@@ -505,34 +505,48 @@ export function bootStudioShell({
     };
   }
 
-  async function previewImportBootstrap({ file = null, useProjectPath = false } = {}) {
+  function stageImportModelFile(file) {
     const importBootstrap = currentImportBootstrap();
-    if (file) {
-      const sizeValidation = validateImportUploadFile(file);
-      if (!sizeValidation.ok) {
-        const errorParams = {
-          size: sizeValidation.sizeLabel,
-          limit: sizeValidation.limitLabel,
-        };
-        importBootstrap.modelFile = null;
-        importBootstrap.modelFileName = file.name;
-        importBootstrap.modelPath = '';
-        importBootstrap.preview = null;
-        importBootstrap.status = 'error';
-        importBootstrap.errorMessage = '';
-        setImportGuidedStep(importBootstrap, 'select_file');
-        setImportGuidedError(importBootstrap, {
-          key: 'studio.import.guided.file.too-large',
-          params: errorParams,
-        });
-        app.commitRender();
-        focusCurrentImportStep();
-        return;
-      }
-      importBootstrap.modelFile = file;
+    const sizeValidation = validateImportUploadFile(file);
+    if (!sizeValidation.ok) {
+      const errorParams = {
+        size: sizeValidation.sizeLabel,
+        limit: sizeValidation.limitLabel,
+      };
+      importBootstrap.modelFile = null;
       importBootstrap.modelFileName = file.name;
       importBootstrap.modelPath = '';
-    } else if (useProjectPath) {
+      importBootstrap.preview = null;
+      importBootstrap.status = 'error';
+      importBootstrap.errorMessage = '';
+      setImportGuidedStep(importBootstrap, 'select_file');
+      setImportGuidedError(importBootstrap, {
+        key: 'studio.import.guided.file.too-large',
+        params: errorParams,
+      });
+      app.commitRender();
+      focusCurrentImportStep();
+      return;
+    }
+
+    importBootstrap.modelFile = file;
+    importBootstrap.modelFileName = file.name;
+    importBootstrap.modelPath = '';
+    importBootstrap.preview = null;
+    importBootstrap.status = 'idle';
+    importBootstrap.errorMessage = '';
+    importBootstrap.lastJobId = '';
+    importBootstrap.reviewJob = null;
+    importBootstrap.corrections = {};
+    setImportGuidedStep(importBootstrap, 'select_file');
+    setImportGuidedError(importBootstrap);
+    app.commitRender();
+    focusCurrentImportStep();
+  }
+
+  async function previewImportBootstrap({ useProjectPath = false } = {}) {
+    const importBootstrap = currentImportBootstrap();
+    if (useProjectPath) {
       importBootstrap.modelFile = null;
       importBootstrap.modelFileName = '';
     }
@@ -619,8 +633,9 @@ export function bootStudioShell({
         completionAction: { stayOnCurrentRoute: true },
       });
       if (!job?.id) throw new Error('Tracked review did not return a job.');
+      const latestKnownJob = app.state.data.recentJobs.items.find((entry) => entry.id === job.id) || job;
       importBootstrap.lastJobId = job.id;
-      importBootstrap.reviewJob = job;
+      importBootstrap.reviewJob = latestKnownJob;
       importBootstrap.submitting = false;
       setImportGuidedStep(importBootstrap, 'result');
       app.addLog({
@@ -805,6 +820,11 @@ export function bootStudioShell({
       return;
     }
 
+    if (action === 'check-import-model-file') {
+      await previewImportBootstrap();
+      return;
+    }
+
     if (action === 'preview-import-bootstrap') {
       await previewImportBootstrap({ useProjectPath: true });
       return;
@@ -816,8 +836,12 @@ export function bootStudioShell({
     }
 
     if (action === 'import-view-review-result') {
-      const { lastJobId } = currentImportBootstrap();
-      if (lastJobId) await app.openJob(lastJobId, { route: 'review' });
+      const { lastJobId, reviewJob } = currentImportBootstrap();
+      const latestKnownJob = app.state.data.recentJobs.items.find((entry) => entry.id === lastJobId)
+        || reviewJob;
+      if (lastJobId && latestKnownJob?.status === 'succeeded') {
+        await app.openJob(lastJobId, { route: 'review' });
+      }
       return;
     }
 
@@ -1053,7 +1077,8 @@ export function bootStudioShell({
 
     if (target instanceof windowRef.HTMLInputElement && target.id === 'guided-import-model-file') {
       const [file] = [...(target.files || [])];
-      if (file) await previewImportBootstrap({ file });
+      if (file) stageImportModelFile(file);
+      target.value = '';
     }
   });
 

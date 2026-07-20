@@ -1736,6 +1736,49 @@ function buildArtifactLinks(artifacts = []) {
     .filter(Boolean);
 }
 
+function exactDfmTextList(values = [], objectFields = []) {
+  return uniqueStrings(safeList(values).map((entry) => {
+    if (typeof entry === 'string') return entry;
+    if (!entry || typeof entry !== 'object') return '';
+    return objectFields
+      .map((field) => entry[field])
+      .find((value) => typeof value === 'string' && value.trim()) || '';
+  }));
+}
+
+function buildReportAttention(reportSummary = {}) {
+  const overallStatus = normalizeSurfaceStatus(reportSummary.overall_status);
+  if (overallStatus === 'pass' && reportSummary.ready_for_manufacturing_review !== false) return null;
+
+  const dfmSurface = safeObject(safeObject(reportSummary.surfaces).dfm);
+  const dfmStatus = normalizeSurfaceStatus(dfmSurface.status);
+  if (dfmStatus !== 'fail' && dfmStatus !== 'warning') return null;
+  const rawScore = dfmSurface.score;
+  const score = rawScore !== null
+    && rawScore !== undefined
+    && rawScore !== ''
+    && Number.isFinite(Number(rawScore))
+    ? Number(rawScore)
+    : null;
+
+  return {
+    overallStatus,
+    dfm: {
+      status: dfmStatus,
+      score,
+      blockers: exactDfmTextList(dfmSurface.blocking_issues, ['message', 'summary']),
+      topFixes: exactDfmTextList(dfmSurface.top_fixes, ['suggested_fix', 'message', 'summary']),
+    },
+  };
+}
+
+export function buildQualityAttentionModel({ jobType = '', dashboardModel = {} } = {}) {
+  if (normalizeString(jobType) !== 'report') return null;
+  if (dashboardModel?.source !== 'report_summary') return null;
+  if (dashboardModel?.overallStatus === 'pass' && dashboardModel?.readyForManufacturingReview !== false) return null;
+  return dashboardModel?.attention || null;
+}
+
 function buildReportSummaryModel({
   artifacts = [],
   reportSummary = {},
@@ -1809,6 +1852,7 @@ function buildReportSummaryModel({
     ]),
     warnings: uniqueStrings(safeList(reportSummary.warnings)),
     recommendedActions: uniqueStrings(safeList(reportSummary.recommended_actions)),
+    attention: buildReportAttention(reportSummary),
     artifactLinks: buildArtifactLinks(artifacts),
     drawingQuality: buildDrawingQualityPanel({
       artifacts,

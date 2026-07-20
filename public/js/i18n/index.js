@@ -228,6 +228,12 @@ export function applyTranslations(root = document.body) {
     }
     const originals = ATTRIBUTE_ORIGINALS.get(element);
     ['placeholder', 'title', 'aria-label'].forEach((attribute) => {
+      const controlledByDataI18n = {
+        placeholder: 'data-i18n-placeholder',
+        title: 'data-i18n-title',
+        'aria-label': 'data-i18n-aria-label',
+      }[attribute];
+      if (controlledByDataI18n && element.hasAttribute(controlledByDataI18n)) return;
       const value = element.getAttribute(attribute);
       if (value == null) return;
       if (!(attribute in originals)) {

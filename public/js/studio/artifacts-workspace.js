@@ -39,6 +39,7 @@ import {
   isRevisionImpactArtifact,
 } from './artifact-actions.js';
 import {
+  buildQualityAttentionModel,
   buildQualityDashboardModel,
   collectQualityDashboardArtifacts,
   formatQualityStatusLabel,
@@ -55,6 +56,38 @@ import {
   selectPrimaryResultArtifact,
 } from './result-files.js';
 import { applyTranslations, t } from '../i18n/index.js';
+
+const DFM_EDGE_DISTANCE_BLOCKER_PATTERN = /^Hole '([^']+)' edge distance (\d+(?:\.\d+)?)mm < required (\d+(?:\.\d+)?)mm \((\d+(?:\.\d+)?)x dia (\d+(?:\.\d+)?)mm\) in box '([^']+)'$/;
+const DFM_EDGE_DISTANCE_FIX_PATTERN = /^Move hole '([^']+)' at least (\d+(?:\.\d+)?) mm away from the nearest box edge in '([^']+)', or widen the local flange so the edge distance reaches (\d+(?:\.\d+)?) mm\.$/;
+
+export function localizeDfmAttentionText(value, locale) {
+  const raw = String(value ?? '');
+  const blocker = raw.match(DFM_EDGE_DISTANCE_BLOCKER_PATTERN);
+  if (blocker) {
+    const [, feature, measured, required, diameterMultiple, diameter, box] = blocker;
+    return t('studio.artifacts.attention.dfm.edge-distance-blocker', {
+      feature,
+      measured,
+      required,
+      diameterMultiple,
+      diameter,
+      box,
+    }, locale);
+  }
+
+  const fix = raw.match(DFM_EDGE_DISTANCE_FIX_PATTERN);
+  if (fix) {
+    const [, feature, moveDistance, box, required] = fix;
+    return t('studio.artifacts.attention.dfm.edge-distance-fix', {
+      feature,
+      moveDistance,
+      box,
+      required,
+    }, locale);
+  }
+
+  return raw;
+}
 
 function ensureArtifactsWorkspaceState(store = {}) {
   store.selectedArtifactId = store.selectedArtifactId || '';
@@ -1490,6 +1523,47 @@ function renderResultSummary(activeJob, { hydrating = false } = {}) {
   });
 }
 
+function renderQualityAttentionCard(dashboardModel = {}, jobSummary = {}) {
+  const attention = buildQualityAttentionModel({
+    jobType: jobSummary?.type,
+    dashboardModel,
+  });
+  if (!attention) return null;
+
+  const dfm = attention.dfm || {};
+  const rows = [
+    dfm.score !== null && dfm.score !== undefined
+      ? { label: t('studio.artifacts.attention.dfm-score'), value: String(dfm.score) }
+      : null,
+    Array.isArray(dfm.blockers) && dfm.blockers.length > 0
+      ? {
+          label: t('studio.artifacts.attention.why'),
+          value: dfm.blockers.map((entry) => localizeDfmAttentionText(entry)).join(' · '),
+        }
+      : null,
+    Array.isArray(dfm.topFixes) && dfm.topFixes.length > 0
+      ? {
+          label: t('studio.artifacts.attention.recovery'),
+          value: dfm.topFixes.map((entry) => localizeDfmAttentionText(entry)).join(' · '),
+        }
+      : null,
+    { label: t('studio.artifacts.attention.next-label'), value: t('studio.artifacts.attention.next') },
+  ].filter(Boolean);
+
+  return createCard({
+    kicker: t('studio.artifacts.attention.kicker'),
+    title: t('studio.artifacts.attention.title'),
+    copy: t('studio.artifacts.attention.copy'),
+    badges: [{
+      label: t('studio.artifacts.attention.badge'),
+      tone: attention.overallStatus === 'fail' ? 'bad' : 'warn',
+    }],
+    body: rows.length > 0
+      ? [createInfoGrid(rows)]
+      : [el('p', { className: 'support-note support-note-warn', text: t('studio.artifacts.attention.no-dfm-evidence') })],
+  });
+}
+
 function renderResultGroup(group) {
   const title = t(`studio.artifacts.group.${group.id}`);
   const cards = el('div', {
@@ -1553,6 +1627,10 @@ export function renderArtifactsWorkspace(state) {
         description: t('studio.artifacts.description'),
       }),
       el('div', { dataset: { hook: 'artifacts-result-summary' } }),
+      el('div', {
+        attrs: { hidden: true },
+        dataset: { hook: 'artifacts-quality-attention' },
+      }),
       el('div', { dataset: { hook: 'artifacts-result-groups' } }),
       createCard({
         kicker: t('studio.artifacts.selected.kicker'),
@@ -1679,6 +1757,7 @@ export function renderArtifactsWorkspace(state) {
 export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJson }) {
   const artifactsState = ensureArtifactsWorkspaceState(state.data.artifactsWorkspace);
   const resultSummaryElement = root.querySelector('[data-hook="artifacts-result-summary"]');
+  const qualityAttentionElement = root.querySelector('[data-hook="artifacts-quality-attention"]');
   const resultGroupsElement = root.querySelector('[data-hook="artifacts-result-groups"]');
   const timelineElement = root.querySelector('[data-hook="artifacts-timeline"]');
   const jobSummaryElement = root.querySelector('[data-hook="artifacts-job-summary"]');
@@ -1742,6 +1821,18 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
     resultGroupsElement.replaceChildren(
       renderResultGroups(state.data.activeJob, { hydrating: isHydratingSelectedJob() })
     );
+  }
+
+  function syncQualityAttention() {
+    const activeJob = state.data.activeJob;
+    const activeJobId = activeJob?.summary?.id || '';
+    const hasCurrentQualityModel = artifactsState.qualityStatus === 'ready'
+      && artifactsState.qualityCacheKey.startsWith(`${activeJobId}:`);
+    const card = hasCurrentQualityModel
+      ? renderQualityAttentionCard(artifactsState.qualityData, activeJob.summary)
+      : null;
+    qualityAttentionElement.hidden = !card;
+    qualityAttentionElement.replaceChildren(...(card ? [card] : []));
   }
 
   function syncJobSummary() {
@@ -2204,6 +2295,7 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
     artifactsState.qualityError = '';
     artifactsState.qualityData = null;
     artifactsState.qualityCacheKey = cacheKey;
+    syncQualityAttention();
     syncQualityDashboard();
 
     try {
@@ -2505,9 +2597,11 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
     if (destroyed) return;
     syncResultSummary();
     syncResultGroups();
+    syncQualityAttention();
     syncTimeline();
     syncJobSummary();
     await ensureQualityDashboard();
+    syncQualityAttention();
     syncQualityDashboard();
     syncCompare();
     syncGeneratedFiles();
