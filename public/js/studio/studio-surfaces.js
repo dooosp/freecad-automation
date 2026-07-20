@@ -50,7 +50,7 @@ const STUDIO_SURFACES = Object.freeze([
   Object.freeze({
     route: 'review',
     label: 'Review and readiness',
-    summary: 'Detailed evidence, inspection, readiness, and Stage 5B controls.',
+    summary: 'Detailed evidence, inspection, and readiness controls.',
     labelI18nKey: 'studio.nav.review.label',
     summaryI18nKey: 'studio.nav.review.copy',
     supportsSelectedJob: true,
