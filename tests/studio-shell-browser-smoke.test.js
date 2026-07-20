@@ -221,6 +221,8 @@ function localeSnapshotExpression() {
       title: document.title,
       summary: document.getElementById('workspace-summary')?.textContent?.trim() || '',
       startLabel: document.querySelector('.nav-link[data-route="start"] .nav-label')?.textContent?.trim() || '',
+      sidebarLabel: document.getElementById('studio-sidebar')?.getAttribute('aria-label') || '',
+      coreNavigationLabel: document.querySelector('.core-navigation')?.getAttribute('aria-label') || '',
       activeRoute: document.querySelector('.nav-link[aria-current="page"]')?.dataset?.route || '',
     };
   })()`;
@@ -2566,6 +2568,8 @@ try {
     assert.equal(nextSnapshot.lang, 'en');
     assert.equal(nextSnapshot.selectedLocale, 'en');
     assert.equal(nextSnapshot.activeRoute, 'start');
+    assert.equal(nextSnapshot.sidebarLabel, 'Primary');
+    assert.equal(nextSnapshot.coreNavigationLabel, 'Main navigation');
     return nextSnapshot;
   });
 
@@ -2685,6 +2689,7 @@ try {
     'Possible cost',
     'Confirmation required',
   ]);
+  assertExcludesAll(guidedPreflight.text, ['tracked', 'artifact', 'manifest', 'Stage 5B']);
 
   await keyboardActivate(cdp, '[data-hook="guided-generate"]');
   guidedModelPrimaryActions += 1;
@@ -2725,10 +2730,12 @@ try {
       focused: document.activeElement?.dataset?.hook || '',
       hasCanvas: Boolean(document.querySelector('[data-hook="guided-result-inspection"] canvas')),
       hasFallback: Boolean(document.querySelector('[data-hook="guided-viewport-unavailable"]')),
+      caption: document.querySelector('[data-hook="viewport-caption"]')?.textContent?.trim() || '',
     }))()`);
     assert.equal(snapshot.hidden, false);
     assert.equal(snapshot.focused, 'guided-result-inspection');
     assert.equal(snapshot.hasCanvas || snapshot.hasFallback, true);
+    assertExcludesAll(snapshot.caption, ['tracked', 'artifact', 'manifest', 'Stage 5B']);
     return snapshot;
   });
   assert.equal(guidedModelPrimaryActions, 3);

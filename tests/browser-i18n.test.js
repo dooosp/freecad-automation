@@ -55,6 +55,10 @@ assert.equal(ko.t('studio.artifacts.summary.execution'), '실행');
 assert.equal(ko.t('studio.artifacts.summary.quality'), '품질');
 assert.equal(ko.t('studio.artifacts.group.system'), '시스템 기록');
 assert.equal(ko.t('studio.artifacts.action.view'), '결과 보기');
+assert.equal(en.t('studio.nav.review.copy').includes('Stage 5B'), false);
+assert.equal(ko.t('studio.nav.review.copy').includes('Stage 5B'), false);
+assert.equal(en.t('studio.model.guided.preflight.safety').includes('tracked'), false);
+assert.equal(ko.t('studio.model.guided.preflight.safety').includes('추적'), false);
 const dfmEdgeDistanceBlocker = "Hole 'hole1' edge distance 3.5mm < required 9.0mm (1x dia 9.0mm) in box 'gusset'";
 const dfmEdgeDistanceFix = "Move hole 'hole3' at least 5.5 mm away from the nearest box edge in 'gusset', or widen the local flange so the edge distance reaches 9.0 mm.";
 assert.equal(

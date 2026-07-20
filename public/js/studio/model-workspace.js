@@ -528,7 +528,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
   function syncSummaryText() {
     statusSummaryElement.textContent = model.buildSummary;
     viewportCaptionElement.textContent = model.preview
-      ? 'Inspect the latest preview directly in the viewport. Tracked create/report can still run beside it for provenance and follow-on outputs.'
+      ? 'Inspect the latest preview directly in the viewport. Saved create and report workflows remain available in Advanced for history and follow-on results.'
       : 'The viewport stays dominant so the workflow reads as source selection -> preview -> result review.';
   }
 
