@@ -2268,6 +2268,7 @@ try {
           documentScrollWidth: document.documentElement.scrollWidth,
           sidebarPosition: sidebarStyle.position,
           navToggleDisplay: toggleStyle.display,
+          localeAccessibleName: document.getElementById('studio-locale-select')?.getAttribute('aria-label') || '',
         };
       })()`);
       assert.equal(snapshot.innerWidth, width);
@@ -2278,6 +2279,7 @@ try {
     if (width <= 768) {
       assert.equal(responsiveSnapshot.sidebarPosition, 'fixed');
       assert.notEqual(responsiveSnapshot.navToggleDisplay, 'none');
+      assert.match(responsiveSnapshot.localeAccessibleName, /^(Language|언어)$/);
     } else {
       assert.notEqual(responsiveSnapshot.sidebarPosition, 'fixed');
       assert.equal(responsiveSnapshot.navToggleDisplay, 'none');

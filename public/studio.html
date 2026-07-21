@@ -174,7 +174,13 @@
         <div class="app-bar-actions">
           <label class="locale-control" for="studio-locale-select">
             <span class="locale-control-label" data-i18n="locale.label">Language</span>
-            <select id="studio-locale-select" class="locale-select" data-locale-select>
+            <select
+              id="studio-locale-select"
+              class="locale-select"
+              aria-label="Language"
+              data-i18n-aria-label="locale.label"
+              data-locale-select
+            >
               <option value="en" data-i18n="locale.option.en">English</option>
               <option value="ko" data-i18n="locale.option.ko">Korean</option>
             </select>
