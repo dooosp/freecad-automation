@@ -1,6 +1,6 @@
 # Studio beginner UX simplification execution plan
 
-- Status: Code PR 1 through Code PR 7 implemented locally; automated Code PR 7 gates pass and five-user UAT is recorded as `FOLLOW_UP_REQUIRED`
+- Status: Studio beginner UX landed through PRs #189-#191; automated gates pass and five-user human UAT remains `FOLLOW_UP_REQUIRED`
 - Planning baseline: `origin/master` at `bf811e5580503db3556a0d5f61fc165aaf3ca5c9`
 - Design contract: [Studio information architecture](../design/studio-information-architecture.md)
 

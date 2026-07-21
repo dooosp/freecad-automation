@@ -6,6 +6,7 @@
 - Technical rehearsal: `P0`, excluded from every UAT calculation
 - Source plan: [Studio beginner UX simplification](../exec-plans/studio-beginner-ux-simplification.md)
 - Decision record: [Studio beginner UAT follow-up](studio-beginner-uat-follow-up.md)
+- Public result record: [Studio beginner UAT Round 1 aggregate](studio-beginner-uat-round-1-aggregate.md)
 
 This packet makes the five-person study repeatable. It does not contain a
 participant result and does not authorize an automated agent to stand in for a
@@ -23,9 +24,9 @@ human records are complete.
   outcomes, start a fresh session with the same participant label plus a
   revision suffix, and retain both records until the aggregate is approved.
   This retention rule does not apply when consent is refused or withdrawn.
-- Do not change the candidate frontend during the five scored sessions. If the
-  implementation changes, close the current round as incomplete and begin a
-  new round.
+- Do not change the frozen candidate during the five scored sessions. Any
+  candidate change invalidates the round and requires a new freeze, preflight,
+  bilingual review, and five-person round.
 - Default to no audio, video, or screen recording. If recording is necessary,
   obtain explicit consent and keep the recording outside the repository.
 - Anonymous-note consent is required before timing begins. If consent is not
@@ -57,15 +58,25 @@ and record the navigation as an incorrect selection and a safety intervention.
 
 ## Freeze and preflight the candidate
 
-From the candidate worktree, record these outputs once for the round and verify
-them again before every participant:
+Freeze the Round 1 candidate only after this preparation packet and its
+aggregate record have landed. In an administration checkout, resolve the
+chosen source ref exactly once (normally `origin/master`) and record both the
+source ref and the returned immutable commit. Create a clean, detached
+worktree at that commit. Do not fetch, pull, switch commits, or edit files in
+that candidate worktree between `P0` and the end of `P5`.
+
+From the detached candidate worktree, record these outputs once for the round:
 
 ```sh
-git branch --show-current
 git rev-parse HEAD
+git rev-parse 'HEAD^{tree}'
 git status --porcelain=v1 -uall
 node bin/fcad.js check-runtime
 ```
+
+`git status --porcelain=v1 -uall` must be empty at the freeze. Record the
+resolved commit, Git tree, empty status, and runtime result in the private round
+administration record. A branch name is not a candidate identity.
 
 Also generate a content fingerprint for every tracked or non-ignored untracked
 file in the candidate. This detects edits to files that were already dirty when
@@ -94,19 +105,24 @@ console.log(`candidate_tree_sha256=${hash.digest('hex')}`);
 NODE
 ```
 
-The intended candidate is branch `codex/studio-beginner-ux-plan` based on HEAD
-`bf811e5580503db3556a0d5f61fc165aaf3ca5c9` plus the unchanged local Studio
-diff. Because the candidate is dirty, HEAD alone is not a reproducible build
-identifier. Save the first `git status --porcelain=v1 -uall` output with the
-aggregate. Save the first `candidate_tree_sha256` as the round baseline and
-require an exact match before every participant. Stop the round if either the
-fingerprint changes or the status snapshot adds/removes a candidate path.
-Raw UAT records remain outside the repository and therefore do not alter the
-candidate fingerprint.
+Save the first `candidate_tree_sha256` as the private round baseline. You must
+require an exact match before every participant. Also require the resolved commit,
+Git tree, and empty status. Stop immediately if any value changes. A correction
+before `P1` requires a new freeze and new `P0`; a correction after `P1` starts
+invalidates the round and requires replacement observations for all five
+participant labels. Raw UAT records remain outside the repository and
+therefore do not alter the candidate fingerprint.
 
 The runtime preflight must report `Status: ready`. Record the operating system,
 Chrome version, display scale, initial browser zoom, initial reduced-motion
 preference, and participant-selected locale.
+
+Run the technical `P0` rehearsal and the human English/Korean semantic review
+against this exact frozen candidate before `P1`. Both gates must pass. Keep the
+detailed bilingual review outside the repository; publish only its status and
+non-identifying qualification category in the aggregate. If either gate causes
+a candidate correction, refreeze and repeat both gates before recruiting or
+observing a scored participant.
 
 ## Start one isolated participant session
 
@@ -441,10 +457,12 @@ template.
 - Recording used: NO / YES with separate consent reference
 - Date/time and timezone:
 - Facilitator label:
-- Candidate branch:
-- Candidate HEAD:
-- Candidate status snapshot matches round baseline: YES / NO
+- Candidate source ref:
+- Candidate resolved commit:
+- Candidate Git tree:
+- Candidate clean status matches round baseline: YES / NO
 - Candidate tree SHA-256 matches round baseline: YES / NO; value:
+- Facilitation packet commit:
 - OS and version:
 - Chrome version:
 - Display scale:
@@ -510,17 +528,23 @@ must be repeated; never silently reduce the denominator.
 
 ## Human bilingual meaning review template
 
-A person proficient in both English and Korean must inspect both locales in the
-same candidate. Review Home goals, the three journey steps, each action summary,
-execution versus quality status, errors, and recovery guidance.
+Before `P1`, a person proficient in both English and Korean must inspect both
+locales in the exact frozen candidate. Review Home goals, the three journey
+steps, each action summary, execution versus quality status, errors, and
+recovery guidance.
 
 | Surface/key | English meaning | Korean meaning | Equivalent | Severity if not | Recommended correction |
 | --- | --- | --- | --- | --- | --- |
 | Pending | - | - | Pending | - | - |
 
-Record reviewer qualification in a non-identifying form, such as “professional
-working proficiency in both languages.” Do not mark `UX-08` complete unless all
-reviewed rows are equivalent or the candidate is corrected and re-reviewed.
+Keep this row-level review in the private round record. In the public aggregate,
+record only the review status, number of surfaces checked, finding counts by
+severity, and a non-identifying qualification category such as “professional
+working proficiency in both languages.” Do not include reviewer identity,
+quotes, timestamps, or private evidence references. Do not mark `UX-08`
+complete unless all reviewed rows are equivalent. Any correction requires a
+new candidate freeze and re-review; if `P1` has started, invalidate and restart
+the round.
 
 ## Aggregate calculations
 
@@ -532,19 +556,23 @@ Calculate only after `P1` through `P5` have complete records.
 - `UAT-02` = median Task 1 primary-action count among completed Task 1 paths.
   Sort completed-path counts from low to high. For an odd count, use the middle
   value; for an even count, use the arithmetic mean of the two middle values.
-  Report the completed-path denominator. It may pass at `<= 3` only if
-  `UAT-01` also passes; otherwise the overall UAT decision remains fail or
-  follow-up.
+  Report the completed-path denominator and the sorted multiset. With no
+  completed paths, report `N/A`. It may pass at `<= 3` only if `UAT-01` also
+  passes. When the cohort is complete but `UAT-01` fails, record `UAT-02` as
+  `FAIL_DEPENDENCY` even if the descriptive median is `<= 3`.
 - `UAT-03 numerator` = rows scored `CORRECT` across the eight canonical
   opportunities for each of `P1` through `P5`.
 - `UAT-03 denominator` = exactly `40` (`8` canonical opportunities × `5`
   participants). `INCORRECT` and `UNREACHED` rows remain in the denominator and
-  add zero to the numerator. Pass at `32/40` or better.
-- A missing participant, missing required field, `MISSING` score, or
-  `FACILITATOR_MISSED` row keeps `UAT-03` `NOT_MEASURED` until a valid replacement
-  record exists. Never silently shrink the denominator. A consent-withdrawn
-  attempt is deleted and excluded under the cohort rule; recruit a replacement
-  under the same anonymous label so the final valid cohort remains five.
+  add zero to the numerator. Preserve the fixed journey subtotals: Task 1 is
+  `/15`, Task 3 is `/10`, and Task 4 is `/15`. Pass at `32/40` or better.
+- A missing valid participant record or required score keeps the relevant
+  metric `NOT_MEASURED`; never silently shrink a denominator. A
+  `FACILITATOR_MISSED` row or browser/runtime observation fault invalidates that
+  attempt and requires a replacement under the same anonymous label. A
+  consent-withdrawn attempt is deleted and excluded under the cohort rule;
+  recruit a replacement under the same anonymous label so the final valid
+  cohort remains five.
 
 Report Tasks 2 and 5 completion rates, action-summary comprehension, ease
 scores, 200% operability, and reduced-motion operability as diagnostic evidence.
@@ -564,5 +592,10 @@ the approved `UAT-01` through `UAT-03` criteria.
 5. Review notes for private paths, tokens, identifiers, customer data, or
    operational data before they leave the raw store.
 
-The round may close only after the aggregate, the three UAT calculations, the
-human bilingual review, and any evidence-backed remediation are complete.
+The round remains `FOLLOW_UP_REQUIRED` while any required observation is
+incomplete. It may close as `PASS` only when all three UAT thresholds pass, the
+candidate stayed unchanged, and the bilingual gate passed. A complete cohort
+below a threshold closes as `FAIL`. Any candidate change closes the attempt as
+`INVALIDATED_RESTART_REQUIRED` and starts a new round. The aggregate, the three
+UAT calculations, human bilingual review, and any evidence-backed remediation
+must all be complete before the follow-up decision changes.
