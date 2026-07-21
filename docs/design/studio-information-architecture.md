@@ -1,6 +1,6 @@
 # Studio information architecture
 
-- Status: authoritative UX contract; Code PR 1 through Code PR 7 implemented locally, with five-user UAT still `FOLLOW_UP_REQUIRED`
+- Status: authoritative UX contract; Studio beginner UX landed through PRs #189-#191, with five-user human UAT still `FOLLOW_UP_REQUIRED`
 - Baseline: `origin/master` at `bf811e5580503db3556a0d5f61fc165aaf3ca5c9`
 - Audience: product, design, frontend, accessibility, QA, and maintainers
 
