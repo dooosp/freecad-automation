@@ -331,7 +331,17 @@ function buildBootstrapSummaryDocument({
   warningCount,
   diagnosticsCount,
 }) {
-  const bbox = geometryIntelligence?.metrics?.bounding_box_mm || {};
+  const diagnostics = safeObject(analysis.import_diagnostics);
+  const geometryBBox = safeObject(geometryIntelligence?.metrics?.bounding_box_mm);
+  const analysisBBox = safeObject(analysis.bounding_box);
+  const diagnosticsBBox = safeObject(diagnostics.bounding_box);
+  const bbox = analysis.fallback === true || diagnostics.fallback_used === true
+    ? (Object.keys(analysisBBox).length > 0
+        ? analysisBBox
+        : Object.keys(diagnosticsBBox).length > 0
+          ? diagnosticsBBox
+          : geometryBBox)
+    : geometryBBox;
   const features = normalizeFeatureHints(analysis);
   return {
     artifact_type: 'bootstrap_summary',
