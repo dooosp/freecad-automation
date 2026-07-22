@@ -1,9 +1,9 @@
 # Studio beginner UAT follow-up decision
 
 - Decision date: 2026-07-17
-- Preparation update: 2026-07-21
+- Preparation update: 2026-07-22
 - Status: `FOLLOW_UP_REQUIRED`
-- Scope: Studio beginner UX landed through PRs #189-#191; human Round 1 preparation
+- Scope: Studio beginner UX landed through PRs #189-#194; frozen Round 1 candidate readiness
 - Human-study state: `NOT_RUN`
 - Actual Chrome UI 200% follow-up: `PASS` (agent-operated actual Chrome UI;
   not a human UAT substitute)
@@ -12,8 +12,8 @@
 - Human bilingual meaning review: `NOT_RUN`
 - Human-session packet: `READY_FOR_HUMAN_SESSIONS`
 - Historical technical rehearsal: `PASS` (`P0`; excluded from human UAT calculations)
-- Round 1 candidate pin: `NOT_RUN`
-- Round 1 candidate technical rehearsal: `NOT_RUN`
+- Round 1 candidate pin: `PASS`
+- Round 1 candidate technical rehearsal: `PASS` (`P0`; excluded from human UAT calculations)
 - Round 1 aggregate: [prepared, not started](studio-beginner-uat-round-1-aggregate.md)
 - Release meaning: automated local readiness is evidenced; human UAT acceptance
   is not established
@@ -33,21 +33,23 @@ retain this follow-up.
 
 ## Current landed preparation evidence
 
-PR #190 merged the reviewed Studio UX release candidate, and PR #191 merged the
-mobile locale-control accessibility repair discovered during exact-merge
-review. The following checks are preparation evidence for the current merged
-code, not the immutable identity of the future human-round candidate:
+PR #192 landed the human-session preparation packet. PR #193 then remediated
+transitive dependency advisories, and PR #194 corrected the fallback
+bootstrap-summary dimensions. Each candidate-changing remediation happened
+before scored sessions and therefore required a new freeze and `P0`. The
+following checks establish the final candidate's landed state:
 
 | Ref | Evidence | Result |
 | --- | --- | --- |
-| PR #191 head | Hosted CI run `29805853225` | `7/7` successful |
-| Merged `master` at `634e5000d5c8e44eb061051987e404b994b47788` | Hosted push run `29806058051` | Successful |
-| Same merged commit | Self-hosted FreeCAD runtime run `29806232749` | Successful |
+| PR #193 head | Hosted CI run `29883187902` | `7/7` successful |
+| PR #194 head | Hosted CI run `29883871565` | `7/7` successful |
+| Frozen candidate `3b2752e76e13e9f3cfa37d9edfb32a80b5b8b80d` | Hosted push run `29886562288` | Successful |
+| Same frozen commit | Self-hosted FreeCAD runtime run `29886702520` | Successful |
 
-The Round 1 candidate must be resolved and frozen only after the preparation
-documents land. Do not copy the snapshot SHA above into participant records as
-the candidate unless the later freeze independently resolves to that exact
-commit.
+The Round 1 candidate is now frozen as a clean detached worktree at the exact
+commit above. Its Git tree, clean-status result, and content fingerprint are
+recorded in the [redacted Round 1 aggregate](studio-beginner-uat-round-1-aggregate.md).
+The candidate must not be edited, fetched, or switched during the round.
 
 ## Available automated evidence
 
@@ -109,28 +111,31 @@ The [five-person UAT session kit](studio-beginner-uat-session-kit.md) now fixes
 the candidate preflight, per-participant job-store isolation, approved fixtures,
 verbatim English/Korean task cards, fixed eight-opportunity prediction scoring,
 task-level raw records, privacy boundary, aggregate calculations, and environment
-restoration. After these preparation documents land, the freeze resolves a
-source ref once and records a clean detached commit, Git tree, empty status,
-and content fingerprint. The exact frozen candidate must pass `P0` and a human
-English/Korean semantic review before `P1`. The packet also adds the
+restoration. The completed freeze resolved the source ref once and recorded a
+clean detached commit, Git tree, empty status, and content fingerprint. The
+exact frozen candidate passed `P0`; a human English/Korean semantic review must
+still pass before `P1`. The packet also adds the
 imported-CAD journey required to measure `UAT-03` while keeping the approved
 cohort at exactly `P1` through `P5`.
 
-A historical local `P0` technical rehearsal on the predecessor candidate used a
-fresh isolated job store and a dedicated loopback port. `/health` reported an
-available, ready FreeCAD runtime. The
-checked-in `ks_bracket.toml` report seed finished with execution `succeeded`,
-quality `fail`, DFM `fail` at `70`, and the expected `hole1`/`hole3` edge-distance
-blockers. A separate `quality_pass_bracket.toml` report seed finished with
-execution `succeeded`, a primary PDF result, and DFM `pass`; its overall quality
-remained `incomplete` because create/drawing quality sidecars were intentionally
-not seeded. The runtime also accepted the checked-in 32,571-byte synthetic STEP,
-reported `empty_import: false`, `fail_closed: false`, and a `160 × 100 × 8`
-bounding box, then completed the tracked `review-context` job. The server was
-stopped and the port was confirmed closed afterward. `P0` is environment
-evidence only and must never enter a human UAT numerator, denominator, median,
-or completion count. The Round 1 candidate `P0` is still `NOT_RUN` and must not
-inherit this predecessor result.
+The exact frozen candidate's local `P0` technical rehearsal used a fresh
+isolated job store and a dedicated loopback port. `/health` reported an
+available, ready FreeCAD 1.1.1 runtime. The checked-in `ks_bracket.toml` report
+seed finished with execution `succeeded`, quality `fail`, DFM `fail` at `70`,
+and the expected `hole1`/`hole3` edge-distance blockers. A separate
+`quality_pass_bracket.toml` report seed finished with execution `succeeded`, a
+primary PDF result, and DFM `pass`; its overall quality remained `incomplete`
+because create/drawing quality sidecars were intentionally not seeded. The
+runtime also accepted the checked-in 32,571-byte synthetic STEP, reported
+`empty_import: false`, `fail_closed: false`, and a `160 × 100 × 8` bounding box,
+then completed the tracked `review-context` job with JSON, Markdown, PDF, and
+engineering-context artifacts. Canonical import diagnostics, the API response,
+the persisted summary, and the tracked review-pack summary all reported the
+same `160 × 100 × 8` dimensions. The local Studio browser smoke passed, the
+server was stopped, and the port was confirmed closed afterward. Candidate
+identity and fingerprint still matched the freeze baseline. `P0` is `PASS`, but
+it is environment evidence only and must never enter a human UAT numerator,
+denominator, median, or completion count.
 
 ## Unmeasured acceptance criteria
 
@@ -142,12 +147,14 @@ inherit this predecessor result.
 
 ## Safe follow-up protocol
 
-1. After this packet lands, resolve the chosen source ref once and freeze a
-   clean detached candidate. Record its commit, Git tree, empty status, and
-   content fingerprint.
-2. Run `P0` and the human English/Korean semantic review against that exact
-   candidate. Correcting the candidate requires a new freeze and both gates
-   again; a change after `P1` starts invalidates and restarts the whole round.
+1. Preserve the existing clean detached candidate at
+   `3b2752e76e13e9f3cfa37d9edfb32a80b5b8b80d`. Do not re-resolve
+   `origin/master` after this status-only update; verify the recorded commit,
+   Git tree, empty status, and content fingerprint before every participant.
+2. Keep the completed `P0` result and run the remaining human English/Korean
+   semantic review against that exact candidate before `P1`. Correcting the
+   candidate requires a new freeze and both gates again; a change after `P1`
+   starts invalidates and restarts the whole round.
 3. Recruit five people who have not used Studio and assign only anonymous
    participant labels `P1` through `P5`.
 4. Use only the fixture mapping and isolated-session setup in the session kit.
