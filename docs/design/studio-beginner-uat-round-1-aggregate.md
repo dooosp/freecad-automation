@@ -21,12 +21,12 @@ the five scored sessions.
 
 | Field | Round value |
 | --- | --- |
-| Candidate pin | `NOT_RUN` |
-| Source ref | — |
-| Resolved commit | — |
-| Git tree (`HEAD^{tree}`) | — |
-| Clean `git status --porcelain=v1 -uall` | `NOT_RUN` |
-| `candidate_tree_sha256` baseline | — |
+| Candidate pin | `PASS` |
+| Source ref | `origin/master` |
+| Resolved commit | `3b2752e76e13e9f3cfa37d9edfb32a80b5b8b80d` |
+| Git tree (`HEAD^{tree}`) | `fe087a2ecd020bfab90c129133f4dfe822956843` |
+| Clean `git status --porcelain=v1 -uall` | `PASS` (empty) |
+| `candidate_tree_sha256` baseline | `246628eb4ce170c8e76e0175b81a3aff8a7d8077691ac785dcf4fe714525fd97` |
 | Exact identity verified before scored sessions | `NOT_MEASURED` / 5 |
 | Candidate unchanged through the round | `NOT_MEASURED` |
 
@@ -39,7 +39,7 @@ cohort.
 
 | Gate | Required result | Current state |
 | --- | --- | --- |
-| Frozen-candidate technical rehearsal (`P0`) | Runtime and all protocol fixtures pass on the exact candidate | `NOT_RUN` |
+| Frozen-candidate technical rehearsal (`P0`) | Runtime and all protocol fixtures pass on the exact candidate | `PASS` |
 | Human English/Korean semantic review | Equivalent meaning with no unresolved finding | `NOT_RUN` |
 | Scored cohort | Exactly five complete, valid human records | `NOT_RUN` |
 
