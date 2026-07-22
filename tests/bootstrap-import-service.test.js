@@ -35,11 +35,29 @@ try {
   mkdirSync(escapedUploadRoot, { recursive: true });
   symlinkSync(escapedUploadRoot, join(unsafeUploadProjectRoot, 'output'));
 
+  let analysisFallback = true;
+  let analysisBoundingBox = {
+    x: 40,
+    y: 20,
+    z: 8,
+  };
+  let diagnosticsBoundingBox = {
+    x: 41,
+    y: 21,
+    z: 9,
+  };
+  let geometryBoundingBox = {
+    x: 0,
+    y: 0,
+    z: 0,
+  };
+
   const service = createBootstrapImportService({
     analyzeModelFn: async () => ({
       success: true,
-      fallback: true,
+      fallback: analysisFallback,
       source_step: fixtureModelPath,
+      bounding_box: analysisBoundingBox,
       model_metadata: null,
       features: {
         cylinders: [],
@@ -50,6 +68,8 @@ try {
       import_diagnostics: {
         import_kind: 'part',
         body_count: 0,
+        bounding_box: diagnosticsBoundingBox,
+        fallback_used: analysisFallback,
         conditions: {
           empty_import: false,
           partial_import: true,
@@ -137,11 +157,7 @@ try {
             },
             derived_features: [],
             metrics: {
-              bounding_box_mm: {
-                x: 0,
-                y: 0,
-                z: 0,
-              },
+              bounding_box_mm: geometryBoundingBox,
             },
             warnings: [],
           },
@@ -317,6 +333,8 @@ try {
   assert.equal(result.ok, true);
   assert.equal(typeof result.bootstrap.draft_config_toml, 'string');
   assert.match(result.bootstrap.draft_config_toml, /source_step/);
+  assert.deepEqual(result.bootstrap.import_diagnostics.bounding_box, analysisBoundingBox);
+  assert.deepEqual(result.bootstrap.bootstrap_summary.dimensions_mm, analysisBoundingBox);
 
   const uploadedContent = 'uploaded STEP fixture\n';
   const uploadedResult = await service({
@@ -332,14 +350,44 @@ try {
   assert.equal(readFileSync(resolve(tempRoot, uploadedResult.source.model_path), 'utf8'), uploadedContent);
 
   const engineeringContextArtifact = result.artifacts.find((artifact) => artifact.key === 'engineering_context');
+  const bootstrapSummaryArtifact = result.artifacts.find((artifact) => artifact.key === 'bootstrap_summary');
   assert.ok(engineeringContextArtifact);
+  assert.ok(bootstrapSummaryArtifact);
   const engineeringContext = JSON.parse(readFileSync(resolve(tempRoot, engineeringContextArtifact.path), 'utf8'));
+  const bootstrapSummary = JSON.parse(readFileSync(resolve(tempRoot, bootstrapSummaryArtifact.path), 'utf8'));
 
+  assert.deepEqual(bootstrapSummary.dimensions_mm, analysisBoundingBox);
+  assert.deepEqual(engineeringContext.bootstrap.bootstrap_summary.dimensions_mm, analysisBoundingBox);
   assert.equal(engineeringContext.bootstrap.bootstrap_summary.review_gate.correction_required, true);
   assert.equal(engineeringContext.bootstrap.confidence_map.import_bootstrap.overall.level, 'low');
   assert.match(engineeringContext.bootstrap.draft_config_path, /^output\/imports\/bootstrap-/);
+  assert.deepEqual(engineeringContext.geometry_source.bootstrap_summary.dimensions_mm, analysisBoundingBox);
   assert.equal(engineeringContext.geometry_source.bootstrap_summary.review_gate.ready_for_review_context, true);
   assert.equal(engineeringContext.geometry_source.confidence_map.import_bootstrap.overall.level, 'low');
+
+  analysisBoundingBox = null;
+  diagnosticsBoundingBox = { x: 50, y: 25, z: 10 };
+  geometryBoundingBox = { x: 1, y: 1, z: 1 };
+  const diagnosticsFallbackResult = await service({
+    projectRoot: tempRoot,
+    runScript: async () => ({}),
+    model: { path: fixtureModelPath },
+  });
+  assert.deepEqual(
+    diagnosticsFallbackResult.bootstrap.bootstrap_summary.dimensions_mm,
+    diagnosticsBoundingBox
+  );
+
+  analysisFallback = false;
+  analysisBoundingBox = { x: 60, y: 30, z: 12 };
+  diagnosticsBoundingBox = { x: 70, y: 35, z: 14 };
+  geometryBoundingBox = { x: 80, y: 40, z: 16 };
+  const runtimeBackedResult = await service({
+    projectRoot: tempRoot,
+    runScript: async () => ({}),
+    model: { path: fixtureModelPath },
+  });
+  assert.deepEqual(runtimeBackedResult.bootstrap.bootstrap_summary.dimensions_mm, geometryBoundingBox);
 } finally {
   rmSync(tempRoot, { recursive: true, force: true });
   rmSync(externalRoot, { recursive: true, force: true });
