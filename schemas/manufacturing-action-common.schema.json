@@ -1,0 +1,574 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json",
+  "title": "Manufacturing Action Contract Common Definitions",
+  "$defs": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "artifactId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^[a-z0-9][a-z0-9._:-]*$"
+    },
+    "stableId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z0-9][a-z0-9_-]*$"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{3})?Z$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "repoPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*%(?:2[eE]|2[fF]|5[cC]))(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*[\\u0000-\\u001f]).+$"
+    },
+    "nonEmptyText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000,
+      "pattern": "\\S"
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "package_slug",
+        "part_id",
+        "revision",
+        "config_sha256"
+      ],
+      "properties": {
+        "package_slug": {
+          "const": "hinge-block"
+        },
+        "part_id": {
+          "const": "hinge_block"
+        },
+        "revision": {
+          "const": "A"
+        },
+        "config_sha256": {
+          "const": "992cf687e1da65f9ac89c12bd36ad7cd2b57367deb0cc6d50a74d4c03b7a52d1"
+        }
+      }
+    },
+    "lineageParent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_type",
+        "role",
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "artifact_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "role": {
+          "$ref": "#/$defs/stableId"
+        },
+        "path": {
+          "$ref": "#/$defs/repoPath"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "revisionLineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "mode",
+        "identity",
+        "parents"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "1.0"
+        },
+        "mode": {
+          "const": "proof"
+        },
+        "identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "parents": {
+          "type": "array",
+          "minItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/lineageParent"
+          }
+        }
+      }
+    },
+    "sourceSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "artifact_type",
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "role": {
+          "$ref": "#/$defs/stableId"
+        },
+        "artifact_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "path": {
+          "$ref": "#/$defs/repoPath"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "hashRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_type",
+        "artifact_id",
+        "role",
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "artifact_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "artifact_id": {
+          "$ref": "#/$defs/artifactId"
+        },
+        "role": {
+          "$ref": "#/$defs/stableId"
+        },
+        "path": {
+          "$ref": "#/$defs/repoPath"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "boundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "synthetic_demo",
+        "real_shop_floor_data",
+        "automatic_video_segmentation",
+        "computer_vision_model_used",
+        "lerobot_compatible",
+        "training_ready",
+        "inspection_evidence",
+        "evidence_attached",
+        "readiness_regenerated",
+        "product_release",
+        "production_readiness",
+        "human_review_required"
+      ],
+      "properties": {
+        "synthetic_demo": {
+          "const": true
+        },
+        "real_shop_floor_data": {
+          "const": false
+        },
+        "automatic_video_segmentation": {
+          "const": false
+        },
+        "computer_vision_model_used": {
+          "const": false
+        },
+        "lerobot_compatible": {
+          "const": false
+        },
+        "training_ready": {
+          "const": false
+        },
+        "inspection_evidence": {
+          "const": false
+        },
+        "evidence_attached": {
+          "const": false
+        },
+        "readiness_regenerated": {
+          "const": false
+        },
+        "product_release": {
+          "const": false
+        },
+        "production_readiness": {
+          "const": false
+        },
+        "human_review_required": {
+          "const": true
+        }
+      }
+    },
+    "localizedInstruction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ko",
+        "en"
+      ],
+      "properties": {
+        "ko": {
+          "$ref": "#/$defs/nonEmptyText"
+        },
+        "en": {
+          "$ref": "#/$defs/nonEmptyText"
+        }
+      }
+    },
+    "referenceSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "part_ids",
+        "feature_ids",
+        "quality_characteristic_ids",
+        "robot_joint_ids",
+        "tool_interface_ids",
+        "inspection_plan_item_ids"
+      ],
+      "properties": {
+        "part_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "const": "hinge_block"
+          }
+        },
+        "feature_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "base_block",
+              "left_ear",
+              "right_ear",
+              "hinge_pin_left",
+              "hinge_pin_right",
+              "mount_hole_left",
+              "mount_hole_right"
+            ]
+          }
+        },
+        "quality_characteristic_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "cd-01",
+              "cd-02",
+              "ftp-01",
+              "ftp-02"
+            ]
+          }
+        },
+        "robot_joint_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "j1_base_yaw",
+              "j2_shoulder_pitch",
+              "j3_elbow_pitch",
+              "j4_wrist_yaw",
+              "j5_wrist_pitch",
+              "j6_wrist_roll"
+            ]
+          }
+        },
+        "tool_interface_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "const": "tool_flange"
+          }
+        },
+        "inspection_plan_item_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/stableId"
+          }
+        }
+      }
+    },
+    "sourceUniverse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "part_ids",
+        "feature_ids",
+        "quality_characteristic_ids",
+        "robot_joint_ids",
+        "tool_interface_ids"
+      ],
+      "properties": {
+        "part_ids": {
+          "const": [
+            "hinge_block"
+          ]
+        },
+        "feature_ids": {
+          "const": [
+            "base_block",
+            "left_ear",
+            "right_ear",
+            "hinge_pin_left",
+            "hinge_pin_right",
+            "mount_hole_left",
+            "mount_hole_right"
+          ]
+        },
+        "quality_characteristic_ids": {
+          "const": [
+            "cd-01",
+            "cd-02",
+            "ftp-01",
+            "ftp-02"
+          ]
+        },
+        "robot_joint_ids": {
+          "const": [
+            "j1_base_yaw",
+            "j2_shoulder_pitch",
+            "j3_elbow_pitch",
+            "j4_wrist_yaw",
+            "j5_wrist_pitch",
+            "j6_wrist_roll"
+          ]
+        },
+        "tool_interface_ids": {
+          "const": [
+            "tool_flange"
+          ]
+        }
+      }
+    },
+    "unresolvedRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requirement_id",
+        "category",
+        "description",
+        "required_for",
+        "status"
+      ],
+      "properties": {
+        "requirement_id": {
+          "$ref": "#/$defs/stableId"
+        },
+        "category": {
+          "enum": [
+            "gripper",
+            "probe",
+            "fixture",
+            "part_robot_transform",
+            "trajectory",
+            "released_tolerance"
+          ]
+        },
+        "description": {
+          "$ref": "#/$defs/nonEmptyText"
+        },
+        "required_for": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/stableId"
+          }
+        },
+        "status": {
+          "const": "human_review_required"
+        }
+      }
+    },
+    "actionDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "order",
+        "action_id",
+        "primitive",
+        "actor_type",
+        "duration_ms",
+        "references",
+        "preconditions",
+        "postconditions",
+        "allowed_previous_action_ids",
+        "allowed_next_action_ids",
+        "instruction",
+        "instruction_origin",
+        "human_review_required",
+        "unresolved_requirement_ids"
+      ],
+      "properties": {
+        "order": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "action_id": {
+          "$ref": "#/$defs/stableId"
+        },
+        "primitive": {
+          "enum": [
+            "approach",
+            "grasp",
+            "transport",
+            "align",
+            "seat",
+            "probe",
+            "inspect",
+            "release"
+          ]
+        },
+        "actor_type": {
+          "const": "industrial_robot"
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 600000
+        },
+        "references": {
+          "$ref": "#/$defs/referenceSet"
+        },
+        "preconditions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/nonEmptyText"
+          }
+        },
+        "postconditions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/nonEmptyText"
+          }
+        },
+        "allowed_previous_action_ids": {
+          "type": "array",
+          "maxItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/stableId"
+          }
+        },
+        "allowed_next_action_ids": {
+          "type": "array",
+          "maxItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/stableId"
+          }
+        },
+        "instruction": {
+          "$ref": "#/$defs/localizedInstruction"
+        },
+        "instruction_origin": {
+          "const": "human_authored"
+        },
+        "human_review_required": {
+          "const": true
+        },
+        "unresolved_requirement_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/stableId"
+          }
+        }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stage",
+        "code",
+        "json_pointer",
+        "message",
+        "remediation"
+      ],
+      "properties": {
+        "stage": {
+          "enum": [
+            "schema",
+            "semantic",
+            "lineage",
+            "boundary",
+            "reference",
+            "timeline"
+          ]
+        },
+        "code": {
+          "$ref": "#/$defs/stableId"
+        },
+        "json_pointer": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^/"
+        },
+        "message": {
+          "$ref": "#/$defs/nonEmptyText"
+        },
+        "remediation": {
+          "$ref": "#/$defs/nonEmptyText"
+        }
+      }
+    }
+  }
+}

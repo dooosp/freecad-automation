@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freecad-automation.local/schemas/manufacturing-task-plan.schema.json",
+  "title": "Curated Manufacturing Robot Task Plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "artifact_id",
+    "identity",
+    "robot",
+    "source_universe",
+    "boundaries",
+    "actions",
+    "unresolved_requirements"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/schemaVersion"
+    },
+    "artifact_type": {
+      "const": "manufacturing_task_plan"
+    },
+    "artifact_id": {
+      "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/artifactId"
+    },
+    "identity": {
+      "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/identity"
+    },
+    "robot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "robot_config_path",
+        "robot_config_sha256",
+        "robot_id",
+        "tool_interface_id",
+        "joint_ids"
+      ],
+      "properties": {
+        "robot_config_path": {
+          "const": "configs/examples/robot_arm_6axis.toml"
+        },
+        "robot_config_sha256": {
+          "const": "afa6ab4970687c062b569618c81f8661d6865cfc1324764b25dc40f3168d4368"
+        },
+        "robot_id": {
+          "const": "6axis_industrial_robot_arm"
+        },
+        "tool_interface_id": {
+          "const": "tool_flange"
+        },
+        "joint_ids": {
+          "const": [
+            "j1_base_yaw",
+            "j2_shoulder_pitch",
+            "j3_elbow_pitch",
+            "j4_wrist_yaw",
+            "j5_wrist_pitch",
+            "j6_wrist_roll"
+          ]
+        }
+      }
+    },
+    "source_universe": {
+      "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/sourceUniverse"
+    },
+    "boundaries": {
+      "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/boundaries"
+    },
+    "actions": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {
+        "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/actionDefinition"
+      }
+    },
+    "unresolved_requirements": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/unresolvedRequirement"
+      }
+    }
+  }
+}

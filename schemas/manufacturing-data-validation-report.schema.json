@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freecad-automation.local/schemas/manufacturing-data-validation-report.schema.json",
+  "title": "Manufacturing Data Validation Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "artifact_id",
+    "generated_at",
+    "identity",
+    "revision_lineage",
+    "source_snapshots",
+    "boundaries",
+    "status",
+    "metrics",
+    "checks",
+    "diagnostics"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/schemaVersion"
+    },
+    "artifact_type": {
+      "const": "manufacturing_data_validation_report"
+    },
+    "artifact_id": {
+      "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/artifactId"
+    },
+    "generated_at": {
+      "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/timestamp"
+    },
+    "identity": {
+      "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/identity"
+    },
+    "revision_lineage": {
+      "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/revisionLineage"
+    },
+    "source_snapshots": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/sourceSnapshot"
+      }
+    },
+    "boundaries": {
+      "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/boundaries"
+    },
+    "status": {
+      "enum": [
+        "blocked",
+        "review_required",
+        "valid_synthetic_demo"
+      ]
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action_count",
+        "segment_count",
+        "unique_primitive_count",
+        "feature_coverage",
+        "joint_coverage",
+        "quality_coverage",
+        "language_coverage",
+        "unknown_reference_count",
+        "duplicate_reference_count",
+        "transition_violation_count",
+        "timeline_violation_count",
+        "unresolved_requirement_count",
+        "lineage_status",
+        "boundary_status"
+      ],
+      "properties": {
+        "action_count": {
+          "const": 10
+        },
+        "segment_count": {
+          "const": 10
+        },
+        "unique_primitive_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "feature_coverage": {
+          "$ref": "#/$defs/coverageMetric"
+        },
+        "joint_coverage": {
+          "$ref": "#/$defs/coverageMetric"
+        },
+        "quality_coverage": {
+          "$ref": "#/$defs/coverageMetric"
+        },
+        "language_coverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "korean_percent",
+            "english_percent"
+          ],
+          "properties": {
+            "korean_percent": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "english_percent": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            }
+          }
+        },
+        "unknown_reference_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "duplicate_reference_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "transition_violation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "timeline_violation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unresolved_requirement_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lineage_status": {
+          "enum": [
+            "valid",
+            "invalid"
+          ]
+        },
+        "boundary_status": {
+          "enum": [
+            "valid",
+            "invalid"
+          ]
+        }
+      }
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "check_id",
+          "status",
+          "violation_count",
+          "message",
+          "remediation"
+        ],
+        "properties": {
+          "check_id": {
+            "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/stableId"
+          },
+          "status": {
+            "enum": [
+              "pass",
+              "review_required",
+              "fail"
+            ]
+          },
+          "violation_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "message": {
+            "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/nonEmptyText"
+          },
+          "remediation": {
+            "anyOf": [
+              {
+                "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/nonEmptyText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/diagnostic"
+      }
+    }
+  },
+  "$defs": {
+    "coverageMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "referenced_count",
+        "total_count",
+        "coverage_percent"
+      ],
+      "properties": {
+        "referenced_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "coverage_percent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    }
+  }
+}

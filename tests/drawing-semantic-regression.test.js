@@ -16,7 +16,10 @@ import {
   buildOutputManifest,
   validateOutputManifest,
 } from '../lib/output-manifest.js';
-import { listOutputArtifacts } from '../scripts/check-source-tree-hygiene.js';
+import {
+  isCuratedSourceControlMaterial,
+  listOutputArtifacts,
+} from '../scripts/check-source-tree-hygiene.js';
 import { buildDrawingQualitySummary } from '../src/services/drawing/drawing-quality-summary.js';
 import {
   buildExtractedDrawingSemantics,
@@ -597,6 +600,16 @@ try {
 
   const pollutionPath = join(ROOT, 'configs', 'examples', 'hygiene_probe_extracted_drawing_semantics.json');
   const outputPath = join(ROOT, 'output', 'hygiene_probe_extracted_drawing_semantics.json');
+  assert.equal(
+    isCuratedSourceControlMaterial(join(ROOT, 'configs', 'examples', 'manufacturing', 'hinge_block_robot_inspection_task_plan.json')),
+    true,
+    'the exact manufacturing task plan should be recognized as curated source control material'
+  );
+  assert.equal(
+    isCuratedSourceControlMaterial(join(ROOT, 'configs', 'examples', 'manufacturing', 'other_robot_inspection_task_plan.json')),
+    false,
+    'the curated source exception must not allow arbitrary generated-looking task plans'
+  );
   try {
     writeFileSync(pollutionPath, '{}\n', 'utf8');
     const dirtyResult = spawnSync('node', ['scripts/check-source-tree-hygiene.js'], {

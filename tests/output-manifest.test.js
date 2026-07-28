@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -110,6 +111,75 @@ try {
   assert.equal(probeFailedManifest.runtime.freecad_probe_status, 'failed');
   assert.equal(probeFailedManifest.runtime.freecad_status, 'runtime_probe_failed');
   assert.equal(probeFailedManifest.runtime.freecad_version, '1.1.1');
+
+  const detachedInputBytes = Buffer.from('detached-input\n');
+  const detachedOutputBytes = Buffer.from('detached-output\n');
+  const detachedInputPath = join(TMP_DIR, 'not-published-input.json');
+  const detachedOutputPath = join(TMP_DIR, 'not-yet-published-output.json');
+  const detachedInputRecord = {
+    path: detachedInputPath,
+    sha256: createHash('sha256').update(detachedInputBytes).digest('hex'),
+    size_bytes: detachedInputBytes.length,
+  };
+  const detachedOutputRecords = [{
+    path: detachedOutputPath,
+    kind: 'manufacturing.action-dictionary',
+    exists: true,
+    size_bytes: detachedOutputBytes.length,
+    sha256: createHash('sha256').update(detachedOutputBytes).digest('hex'),
+  }];
+  const precomputedManifest = await buildOutputManifest({
+    projectRoot: ROOT,
+    repoContext: {
+      root: ROOT,
+      branch: 'codex/manufacturing-action-data-contract-v1',
+      headSha: 'def456',
+      dirtyAtStart: false,
+    },
+    command: 'manufacturing-action-dataset',
+    inputPath: detachedInputPath,
+    inputRecord: detachedInputRecord,
+    outputs: [{ path: detachedOutputPath, kind: 'manufacturing.action-dictionary' }],
+    outputRecords: detachedOutputRecords,
+    status: 'pass',
+    runtimeDiagnostics: {
+      status: 'not_invoked',
+      available: false,
+      executable_detected: false,
+      probe_status: 'not_invoked',
+      version_details: { freecad: { version: null } },
+    },
+  });
+  assert.deepEqual(precomputedManifest.input, detachedInputRecord);
+  assert.deepEqual(precomputedManifest.outputs, detachedOutputRecords);
+
+  await assert.rejects(
+    () => buildOutputManifest({
+      projectRoot: ROOT,
+      command: 'manufacturing-action-dataset',
+      inputRecord: { ...detachedInputRecord, unexpected: true },
+      outputRecords: detachedOutputRecords,
+    }),
+    /inputRecord\.unexpected is not supported/
+  );
+  await assert.rejects(
+    () => buildOutputManifest({
+      projectRoot: ROOT,
+      command: 'manufacturing-action-dataset',
+      inputRecord: detachedInputRecord,
+      outputRecords: [{ ...detachedOutputRecords[0], sha256: 'not-a-digest' }],
+    }),
+    /lowercase SHA-256/
+  );
+  await assert.rejects(
+    () => buildOutputManifest({
+      projectRoot: ROOT,
+      command: 'manufacturing-action-dataset',
+      outputs: [{ path: join(TMP_DIR, 'different.json'), kind: detachedOutputRecords[0].kind }],
+      outputRecords: detachedOutputRecords,
+    }),
+    /must match the declared output path and kind/
+  );
 
   const derivedPath = createOutputManifestPath({
     primaryOutputPath: outputPath,

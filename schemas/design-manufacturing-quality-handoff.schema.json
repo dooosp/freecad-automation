@@ -1,0 +1,247 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freecad-automation.local/schemas/design-manufacturing-quality-handoff.schema.json",
+  "title": "Design Manufacturing Quality Handoff",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "artifact_id",
+    "generated_at",
+    "identity",
+    "revision_lineage",
+    "source_snapshots",
+    "boundaries",
+    "design",
+    "manufacturing",
+    "quality",
+    "trust",
+    "localized_summary",
+    "approvals"
+  ],
+  "properties": {
+    "schema_version": {
+      "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/schemaVersion"
+    },
+    "artifact_type": {
+      "const": "design_manufacturing_quality_handoff"
+    },
+    "artifact_id": {
+      "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/artifactId"
+    },
+    "generated_at": {
+      "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/timestamp"
+    },
+    "identity": {
+      "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/identity"
+    },
+    "revision_lineage": {
+      "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/revisionLineage"
+    },
+    "source_snapshots": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/sourceSnapshot"
+      }
+    },
+    "boundaries": {
+      "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/boundaries"
+    },
+    "design": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "part_id",
+        "revision",
+        "feature_ids",
+        "source_digest"
+      ],
+      "properties": {
+        "part_id": {
+          "const": "hinge_block"
+        },
+        "revision": {
+          "const": "A"
+        },
+        "feature_ids": {
+          "const": [
+            "base_block",
+            "left_ear",
+            "right_ear",
+            "hinge_pin_left",
+            "hinge_pin_right",
+            "mount_hole_left",
+            "mount_hole_right"
+          ]
+        },
+        "source_digest": {
+          "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/sha256"
+        }
+      }
+    },
+    "manufacturing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action_ids",
+        "robot_joint_ids",
+        "tool_interface_ids",
+        "preconditions",
+        "postconditions",
+        "unresolved_requirement_ids"
+      ],
+      "properties": {
+        "action_ids": {
+          "type": "array",
+          "minItems": 10,
+          "maxItems": 10,
+          "items": {
+            "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/stableId"
+          }
+        },
+        "robot_joint_ids": {
+          "const": [
+            "j1_base_yaw",
+            "j2_shoulder_pitch",
+            "j3_elbow_pitch",
+            "j4_wrist_yaw",
+            "j5_wrist_pitch",
+            "j6_wrist_roll"
+          ]
+        },
+        "tool_interface_ids": {
+          "const": [
+            "tool_flange"
+          ]
+        },
+        "preconditions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/nonEmptyText"
+          }
+        },
+        "postconditions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/nonEmptyText"
+          }
+        },
+        "unresolved_requirement_ids": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/stableId"
+          }
+        }
+      }
+    },
+    "quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "quality_characteristic_ids",
+        "inspection_plan_ref",
+        "inspection_evidence",
+        "approval_granted"
+      ],
+      "properties": {
+        "quality_characteristic_ids": {
+          "const": [
+            "cd-01",
+            "cd-02",
+            "ftp-01",
+            "ftp-02"
+          ]
+        },
+        "inspection_plan_ref": {
+          "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/sourceSnapshot"
+        },
+        "inspection_evidence": {
+          "const": false
+        },
+        "approval_granted": {
+          "const": false
+        }
+      }
+    },
+    "trust": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lineage_status",
+        "exact_hashes",
+        "synthetic_only",
+        "remaining_holds"
+      ],
+      "properties": {
+        "lineage_status": {
+          "const": "valid"
+        },
+        "exact_hashes": {
+          "type": "array",
+          "minItems": 5,
+          "items": {
+            "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/sourceSnapshot"
+          }
+        },
+        "synthetic_only": {
+          "const": true
+        },
+        "remaining_holds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/nonEmptyText"
+          }
+        }
+      }
+    },
+    "localized_summary": {
+      "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/localizedInstruction"
+    },
+    "approvals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "engineering",
+        "manufacturing",
+        "quality",
+        "inspection",
+        "readiness",
+        "release",
+        "statement"
+      ],
+      "properties": {
+        "engineering": {
+          "const": false
+        },
+        "manufacturing": {
+          "const": false
+        },
+        "quality": {
+          "const": false
+        },
+        "inspection": {
+          "const": false
+        },
+        "readiness": {
+          "const": false
+        },
+        "release": {
+          "const": false
+        },
+        "statement": {
+          "$ref": "https://freecad-automation.local/schemas/manufacturing-action-common.schema.json#/$defs/nonEmptyText"
+        }
+      }
+    }
+  }
+}

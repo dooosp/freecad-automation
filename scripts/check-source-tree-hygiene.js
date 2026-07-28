@@ -49,6 +49,11 @@ const FORBIDDEN_TRACKED_LOCAL_PREFIXES = Object.freeze([
   'local/inspection-evidence-quarantine/',
 ]);
 
+// This is curated, reviewed source control material despite its generated-looking suffix.
+const CURATED_SOURCE_CONTROL_FILES = new Set([
+  'configs/examples/manufacturing/hinge_block_robot_inspection_task_plan.json',
+]);
+
 function toRepoPath(path) {
   return relative(ROOT, resolve(ROOT, path)).split(sep).join('/');
 }
@@ -74,6 +79,10 @@ function isAllowedFixtureArtifact(path) {
     /^tests\/fixtures\/imports\/[^/]+\.(?:step|stp|fcstd)$/i.test(repoPath)
     || /^tests\/fixtures\/sample_part\.(?:step|stp)$/i.test(repoPath)
   );
+}
+
+export function isCuratedSourceControlMaterial(path) {
+  return CURATED_SOURCE_CONTROL_FILES.has(toRepoPath(path));
 }
 
 function getCuratedExampleRoots() {
@@ -123,7 +132,10 @@ function isCuratedExamplePackageArtifact(path) {
 }
 
 function isAllowedTrackedGeneratedArtifact(path) {
-  return isExpectedFixture(path) || isAllowedFixtureArtifact(path) || isCuratedExamplePackageArtifact(path);
+  return isExpectedFixture(path)
+    || isAllowedFixtureArtifact(path)
+    || isCuratedExamplePackageArtifact(path)
+    || isCuratedSourceControlMaterial(path);
 }
 
 export function listOutputArtifacts({ statFile = statSync } = {}) {
