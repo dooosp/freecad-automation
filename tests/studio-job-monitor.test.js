@@ -171,7 +171,15 @@ assert.equal(
 );
 assert.deepEqual(
   resolveMonitoredJobCompletionTarget(
-    { type: 'manufacturing-action-dataset', status: 'failed' },
+    {
+      type: 'manufacturing-action-dataset',
+      status: 'failed',
+      diagnostics: {
+        manufacturing_action_demo: {
+          reason_code: 'REVISION_LINEAGE_IDENTITY_MISMATCH',
+        },
+      },
+    },
     {
       completionAction: {
         preferredRoute: 'review',
@@ -188,6 +196,26 @@ assert.deepEqual(
 );
 assert.deepEqual(
   resolveMonitoredJobCompletionTarget(
+    {
+      type: 'manufacturing-action-dataset',
+      status: 'failed',
+      diagnostics: {
+        manufacturing_action_demo: {
+          reason_code: 'SOURCE_HASH_MISMATCH',
+        },
+      },
+    },
+    { completionAction: { failureRoute: 'review' } }
+  ),
+  {
+    route: '',
+    secondaryRoute: '',
+    hasReviewOutputs: false,
+  },
+  'A generic manufacturing failure must not route to the bounded Review state.'
+);
+assert.deepEqual(
+  resolveMonitoredJobCompletionTarget(
     { type: 'report', status: 'failed' },
     { completionAction: { preferredRoute: 'review' } }
   ),
@@ -200,7 +228,15 @@ assert.deepEqual(
 );
 assert.equal(
   resolveMonitoredJobCompletionRoute(
-    { type: 'manufacturing-action-dataset', status: 'cancelled' },
+    {
+      type: 'manufacturing-action-dataset',
+      status: 'cancelled',
+      diagnostics: {
+        manufacturing_action_demo: {
+          reason_code: 'REVISION_LINEAGE_IDENTITY_MISMATCH',
+        },
+      },
+    },
     { failureRoute: 'review' }
   ),
   '',

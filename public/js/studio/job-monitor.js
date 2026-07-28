@@ -1,4 +1,8 @@
-import { isActiveStudioJobStatus, studioJobTone } from './jobs-client.js';
+import {
+  isActiveStudioJobStatus,
+  isManufacturingRoboticsMismatchFailure,
+  studioJobTone,
+} from './jobs-client.js';
 import { isReviewSourceArtifact } from './artifact-actions.js';
 import { deriveRecentJobQualityStatus } from './recent-job-quality-status.js';
 
@@ -128,7 +132,7 @@ export function resolveMonitoredJobCompletionTarget(job = {}, {
 } = {}) {
   const action = normalizeCompletionAction(completionAction);
   if (job?.status !== 'succeeded') {
-    const route = job?.status === 'failed'
+    const route = isManufacturingRoboticsMismatchFailure(job)
       ? normalizeCompletionRoute(action.failureRoute)
       : '';
     return {

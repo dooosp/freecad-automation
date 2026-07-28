@@ -11,6 +11,7 @@ import {
   MANUFACTURING_ROBOTICS_DEMO_PROFILE,
   MANUFACTURING_ROBOTICS_JOB_TYPE,
   MANUFACTURING_ROBOTICS_TRUST_DEMO,
+  isManufacturingRoboticsMismatchFailure,
 } from './jobs-client.js';
 import { applyTranslations, getLocale, t } from '../i18n/index.js';
 
@@ -422,10 +423,12 @@ export function buildManufacturingRoboticsViewModel({
     episodeAnnotation,
     actions,
   });
+  const isBlockedMismatch = isManufacturingRoboticsMismatchFailure(job || {});
 
   let phase = 'pre-run';
   if (requestStatus === 'submitting' || status === 'queued' || status === 'running') phase = 'running';
-  else if (status === 'failed' || status === 'cancelled' || diagnostic.reasonCode) phase = 'blocked';
+  else if (isBlockedMismatch) phase = 'blocked';
+  else if (status === 'failed' || status === 'cancelled') phase = 'error';
   else if (status === 'succeeded' && artifactLoadStatus === 'error') phase = 'artifact-error';
   else if (status === 'succeeded' && artifactLoadStatus !== 'ready') phase = 'loading';
   else if (status === 'succeeded') phase = 'success';

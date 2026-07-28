@@ -4,6 +4,38 @@ const TERMINAL_JOB_STATUSES = new Set(['succeeded', 'failed', 'cancelled']);
 export const MANUFACTURING_ROBOTICS_JOB_TYPE = 'manufacturing-action-dataset';
 export const MANUFACTURING_ROBOTICS_DEMO_PROFILE = 'hinge-block-synthetic-inspection-v1';
 export const MANUFACTURING_ROBOTICS_TRUST_DEMO = 'revision-mismatch';
+export const MANUFACTURING_ROBOTICS_MISMATCH_REASON_CODE = 'REVISION_LINEAGE_IDENTITY_MISMATCH';
+
+function manufacturingRoboticsDiagnosticCandidates(job = {}) {
+  return [
+    job?.diagnostics?.manufacturing_action_demo,
+    job?.diagnostics?.manufacturing_robotics_demo,
+    job?.result?.diagnostics?.manufacturing_action_demo,
+    job?.result?.diagnostics?.manufacturing_robotics_demo,
+    job?.result?.manufacturing_action_demo,
+    job?.result?.manufacturing_robotics_demo,
+    job?.metadata?.manufacturing_action_demo,
+    job?.metadata?.manufacturing_robotics_demo,
+    job?.error?.details?.manufacturing_action_demo,
+    job?.error?.details?.manufacturing_robotics_demo,
+    job?.diagnostics,
+    job?.result?.diagnostics,
+    job?.result,
+    job?.error?.details,
+  ].filter((candidate) => candidate && typeof candidate === 'object' && !Array.isArray(candidate));
+}
+
+export function getManufacturingRoboticsReasonCode(job = {}) {
+  const diagnostic = manufacturingRoboticsDiagnosticCandidates(job)
+    .find((candidate) => typeof candidate.reason_code === 'string');
+  return diagnostic?.reason_code || '';
+}
+
+export function isManufacturingRoboticsMismatchFailure(job = {}) {
+  return String(job?.type || '').toLowerCase() === MANUFACTURING_ROBOTICS_JOB_TYPE
+    && String(job?.status || '').toLowerCase() === 'failed'
+    && getManufacturingRoboticsReasonCode(job) === MANUFACTURING_ROBOTICS_MISMATCH_REASON_CODE;
+}
 
 function hasRequestValue(value) {
   return value !== undefined && value !== null && value !== '';
@@ -270,7 +302,7 @@ export function isReviewableStudioJob(job = {}) {
   const type = String(job?.type || '').toLowerCase();
   const status = String(job?.status || '').toLowerCase();
   if (type === MANUFACTURING_ROBOTICS_JOB_TYPE) {
-    return status === 'succeeded' || status === 'failed';
+    return status === 'succeeded' || isManufacturingRoboticsMismatchFailure(job);
   }
   return (
     type === 'inspect'

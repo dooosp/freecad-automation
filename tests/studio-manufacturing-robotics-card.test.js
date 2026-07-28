@@ -319,6 +319,24 @@ assert.deepEqual(extractManufacturingRoboticsDiagnostic(blockedJob), {
 });
 assert.equal(buildManufacturingRoboticsViewModel({ job: blockedJob }).phase, 'blocked');
 
+const genericFailedJob = {
+  id: 'job-manufacturing-generic-failure',
+  type: 'manufacturing-action-dataset',
+  status: 'failed',
+  diagnostics: {
+    manufacturing_action_demo: {
+      reason_code: 'SOURCE_HASH_MISMATCH',
+    },
+  },
+};
+const cancelledJob = {
+  ...blockedJob,
+  id: 'job-manufacturing-cancelled',
+  status: 'cancelled',
+};
+assert.equal(buildManufacturingRoboticsViewModel({ job: genericFailedJob }).phase, 'error');
+assert.equal(buildManufacturingRoboticsViewModel({ job: cancelledJob }).phase, 'error');
+
 const oldActiveJob = { ...successJob, id: 'job-previous-success' };
 const newQueuedJob = {
   id: 'job-new-queued',
@@ -427,5 +445,19 @@ assert.match(blockedHtml, /hinge-block \/ hinge_block \/ Revision A/);
 assert.match(blockedHtml, /hinge-block \/ hinge_block \/ Revision B/);
 assert.match(blockedHtml, />0 \/ 8</);
 assert.equal((blockedHtml.match(/data-action-kind="primary"/g) || []).length, 1);
+
+const genericFailureHtml = renderManufacturingRoboticsCard(cardStateFor(genericFailedJob, {
+  jobId: genericFailedJob.id,
+  job: genericFailedJob,
+})).outerHTML;
+assert.match(genericFailureHtml, /data-phase="error"/);
+assert.doesNotMatch(genericFailureHtml, />BLOCKED</);
+
+const cancelledHtml = renderManufacturingRoboticsCard(cardStateFor(cancelledJob, {
+  jobId: cancelledJob.id,
+  job: cancelledJob,
+})).outerHTML;
+assert.match(cancelledHtml, /data-phase="error"/);
+assert.doesNotMatch(cancelledHtml, />BLOCKED</);
 
 console.log('studio-manufacturing-robotics-card.test.js: ok');

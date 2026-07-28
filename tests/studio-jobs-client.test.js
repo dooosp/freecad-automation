@@ -3,10 +3,12 @@ import assert from 'node:assert/strict';
 import {
   MANUFACTURING_ROBOTICS_DEMO_PROFILE,
   MANUFACTURING_ROBOTICS_JOB_TYPE,
+  MANUFACTURING_ROBOTICS_MISMATCH_REASON_CODE,
   MANUFACTURING_ROBOTICS_TRUST_DEMO,
   buildStudioTrackedJobRequest,
   findResumableStudioJob,
   findResumableStudioJobs,
+  isManufacturingRoboticsMismatchFailure,
   isReviewableStudioJob,
   isActiveStudioJobStatus,
   submitStudioTrackedJob,
@@ -51,7 +53,30 @@ assert.equal(isReviewableStudioJob({ type: 'inspection-evidence-intake', status:
 assert.equal(isReviewableStudioJob({ type: 'inspection-evidence-promotion-dry-run', status: 'succeeded' }), true);
 assert.equal(isReviewableStudioJob({ type: 'stage5b-evidence-audit', status: 'succeeded' }), true);
 assert.equal(isReviewableStudioJob({ type: MANUFACTURING_ROBOTICS_JOB_TYPE, status: 'succeeded' }), true);
-assert.equal(isReviewableStudioJob({ type: MANUFACTURING_ROBOTICS_JOB_TYPE, status: 'failed' }), true);
+const manufacturingMismatchFailure = {
+  type: MANUFACTURING_ROBOTICS_JOB_TYPE,
+  status: 'failed',
+  diagnostics: {
+    manufacturing_action_demo: {
+      reason_code: MANUFACTURING_ROBOTICS_MISMATCH_REASON_CODE,
+    },
+  },
+};
+assert.equal(isManufacturingRoboticsMismatchFailure(manufacturingMismatchFailure), true);
+assert.equal(isReviewableStudioJob(manufacturingMismatchFailure), true);
+assert.equal(isReviewableStudioJob({ type: MANUFACTURING_ROBOTICS_JOB_TYPE, status: 'failed' }), false);
+assert.equal(isManufacturingRoboticsMismatchFailure({
+  ...manufacturingMismatchFailure,
+  diagnostics: {
+    manufacturing_action_demo: {
+      code: MANUFACTURING_ROBOTICS_MISMATCH_REASON_CODE,
+    },
+  },
+}), false, 'A generic code alias must not be promoted to the bounded trust-demo reason_code.');
+assert.equal(isManufacturingRoboticsMismatchFailure({
+  ...manufacturingMismatchFailure,
+  status: 'cancelled',
+}), false);
 assert.equal(isReviewableStudioJob({ type: 'compare-rev', status: 'succeeded' }), false);
 assert.equal(isReviewableStudioJob({ type: 'stabilization-review', status: 'succeeded' }), false);
 assert.equal(isReviewableStudioJob({ type: 'draw', status: 'succeeded' }), false);
