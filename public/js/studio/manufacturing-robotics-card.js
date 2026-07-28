@@ -424,9 +424,17 @@ export function buildManufacturingRoboticsViewModel({
     actions,
   });
   const isBlockedMismatch = isManufacturingRoboticsMismatchFailure(job || {});
+  const errorContext = requestStatus === 'error'
+    ? 'submission'
+    : status === 'failed'
+      ? 'execution'
+      : status === 'cancelled'
+        ? 'cancelled'
+        : 'submission';
 
   let phase = 'pre-run';
   if (requestStatus === 'submitting' || status === 'queued' || status === 'running') phase = 'running';
+  else if (requestStatus === 'error') phase = 'error';
   else if (isBlockedMismatch) phase = 'blocked';
   else if (status === 'failed' || status === 'cancelled') phase = 'error';
   else if (status === 'succeeded' && artifactLoadStatus === 'error') phase = 'artifact-error';
@@ -438,6 +446,7 @@ export function buildManufacturingRoboticsViewModel({
     phase,
     jobId: textValue(job?.id),
     jobStatus: status,
+    errorContext,
     diagnostic,
     actions,
     quality,
@@ -643,17 +652,32 @@ function renderLoading() {
   });
 }
 
-function renderError({ artifactError = false } = {}) {
+function renderError({ artifactError = false, errorContext = 'submission' } = {}) {
+  const content = artifactError
+    ? {
+        title: t('studio.manufacturing-robotics.artifact-error.title'),
+        copy: t('studio.manufacturing-robotics.artifact-error.copy'),
+      }
+    : errorContext === 'execution'
+      ? {
+          title: t('studio.manufacturing-robotics.execution-error.title'),
+          copy: t('studio.manufacturing-robotics.execution-error.copy'),
+        }
+      : errorContext === 'cancelled'
+        ? {
+            title: t('studio.manufacturing-robotics.cancelled.title'),
+            copy: t('studio.manufacturing-robotics.cancelled.copy'),
+          }
+        : {
+            title: t('studio.manufacturing-robotics.error.title'),
+            copy: t('studio.manufacturing-robotics.error.copy'),
+          };
   return el('div', {
     className: 'manufacturing-robotics-stage',
     children: [
       createInlineStatus({
-        title: artifactError
-          ? t('studio.manufacturing-robotics.artifact-error.title')
-          : t('studio.manufacturing-robotics.error.title'),
-        copy: artifactError
-          ? t('studio.manufacturing-robotics.artifact-error.copy')
-          : t('studio.manufacturing-robotics.error.copy'),
+        title: content.title,
+        copy: content.copy,
         tone: 'bad',
       }),
       createPrimaryAction({
@@ -1077,7 +1101,7 @@ function renderSuccess(viewModel, selectedActionId) {
 function renderCardBody(viewModel, cardState) {
   if (viewModel.phase === 'running') return renderRunning(viewModel);
   if (viewModel.phase === 'loading') return renderLoading();
-  if (viewModel.phase === 'error') return renderError();
+  if (viewModel.phase === 'error') return renderError({ errorContext: viewModel.errorContext });
   if (viewModel.phase === 'artifact-error') return renderError({ artifactError: true });
   if (viewModel.phase === 'blocked') return renderBlocked(viewModel);
   if (viewModel.phase === 'success') return renderSuccess(viewModel, cardState.selectedActionId);

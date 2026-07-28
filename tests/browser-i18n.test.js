@@ -88,6 +88,14 @@ assert.match(en.t('studio.manufacturing-robotics.preflight.safety'), /No FreeCAD
 assert.match(ko.t('studio.manufacturing-robotics.preflight.safety'), /FreeCAD 런타임.*로봇 하드웨어.*컴퓨터 비전.*LeRobot 내보내기.*사람의 검토/s);
 assert.equal(en.t('studio.manufacturing-robotics.quality.valid-status'), 'VALID SYNTHETIC DEMO');
 assert.equal(ko.t('studio.manufacturing-robotics.blocked.title'), 'BLOCKED');
+assert.equal(en.t('studio.manufacturing-robotics.phase.error'), 'Action unavailable');
+assert.equal(ko.t('studio.manufacturing-robotics.phase.error'), '작업을 사용할 수 없음');
+assert.match(en.t('studio.manufacturing-robotics.error.copy'), /request was not accepted/i);
+assert.match(ko.t('studio.manufacturing-robotics.error.copy'), /요청이 수락되지 않았습니다/);
+assert.match(en.t('studio.manufacturing-robotics.execution-error.copy'), /accepted.*ended in failure during execution/i);
+assert.match(ko.t('studio.manufacturing-robotics.execution-error.copy'), /수락했지만.*실행 중 실패 상태로 종료되었습니다/);
+assert.match(en.t('studio.manufacturing-robotics.cancelled.copy'), /accepted.*cancelled before completion/i);
+assert.match(ko.t('studio.manufacturing-robotics.cancelled.copy'), /수락했지만.*완료되기 전에 취소되었습니다/);
 assert.match(en.t('studio.manufacturing-robotics.lerobot.copy'), /not a LeRobot dataset or export/);
 assert.match(ko.t('studio.manufacturing-robotics.lerobot.copy'), /LeRobot 데이터 세트나 내보내기가 아닙니다/);
 

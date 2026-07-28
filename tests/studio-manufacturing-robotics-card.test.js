@@ -336,6 +336,13 @@ const cancelledJob = {
 };
 assert.equal(buildManufacturingRoboticsViewModel({ job: genericFailedJob }).phase, 'error');
 assert.equal(buildManufacturingRoboticsViewModel({ job: cancelledJob }).phase, 'error');
+assert.equal(buildManufacturingRoboticsViewModel({ job: genericFailedJob }).errorContext, 'execution');
+assert.equal(buildManufacturingRoboticsViewModel({ job: cancelledJob }).errorContext, 'cancelled');
+assert.equal(buildManufacturingRoboticsViewModel({ requestStatus: 'error' }).errorContext, 'submission');
+assert.equal(buildManufacturingRoboticsViewModel({
+  job: genericFailedJob,
+  requestStatus: 'error',
+}).errorContext, 'submission', 'A rejected retry must describe the new request, not the previous accepted job.');
 
 const oldActiveJob = { ...successJob, id: 'job-previous-success' };
 const newQueuedJob = {
@@ -402,7 +409,7 @@ function cardStateFor(job, manufacturingRobotics) {
       activeJob: {
         status: 'ready',
         summary: job,
-        artifacts: job.status === 'succeeded' ? registeredArtifacts : [],
+        artifacts: job?.status === 'succeeded' ? registeredArtifacts : [],
       },
       recentJobs: { items: [] },
       jobMonitor: { items: [] },
@@ -452,6 +459,8 @@ const genericFailureHtml = renderManufacturingRoboticsCard(cardStateFor(genericF
 })).outerHTML;
 assert.match(genericFailureHtml, /data-phase="error"/);
 assert.doesNotMatch(genericFailureHtml, />BLOCKED</);
+assert.match(genericFailureHtml, /accepted dataset job failed during execution/i);
+assert.doesNotMatch(genericFailureHtml, /could not be submitted|request was not accepted/i);
 
 const cancelledHtml = renderManufacturingRoboticsCard(cardStateFor(cancelledJob, {
   jobId: cancelledJob.id,
@@ -459,5 +468,17 @@ const cancelledHtml = renderManufacturingRoboticsCard(cardStateFor(cancelledJob,
 })).outerHTML;
 assert.match(cancelledHtml, /data-phase="error"/);
 assert.doesNotMatch(cancelledHtml, />BLOCKED</);
+assert.match(cancelledHtml, /Action unavailable/);
+assert.match(cancelledHtml, /accepted dataset job was cancelled/i);
+assert.doesNotMatch(cancelledHtml, /could not be submitted|request was not accepted|failed during execution/i);
+
+const submissionErrorHtml = renderManufacturingRoboticsCard(cardStateFor(null, {
+  requestStatus: 'error',
+  errorMessage: 'The local API did not accept the request.',
+})).outerHTML;
+assert.match(submissionErrorHtml, /data-phase="error"/);
+assert.match(submissionErrorHtml, /could not be submitted/i);
+assert.match(submissionErrorHtml, /request was not accepted/i);
+assert.doesNotMatch(submissionErrorHtml, /accepted dataset job|was cancelled|failed during execution/i);
 
 console.log('studio-manufacturing-robotics-card.test.js: ok');
