@@ -668,6 +668,12 @@ const RAW_COMMAND_MANIFEST = Object.freeze([
       requiresFreecadRuntime: false,
       note: 'Artifact-driven synthetic data generation only; it does not run FreeCAD, control a robot, attach evidence, regenerate readiness, or authorize release.',
     }),
+    surfaces: Object.freeze({
+      jobExecutor: true,
+      localApi: true,
+      studio: true,
+      studioSubmission: 'server-profile',
+    }),
   }),
   Object.freeze({
     name: 'inspection-plan-release-record',
@@ -1300,6 +1306,7 @@ const JOB_EXECUTOR_COMMAND_ORDER = Object.freeze([
   'stabilization-review',
   'generate-standard-docs',
   'inspection-plan',
+  'manufacturing-action-dataset',
   'pack',
   'evidence-readiness-audit',
   'inspection-evidence-intake',
@@ -1317,6 +1324,7 @@ const STUDIO_JOB_COMMAND_ORDER = Object.freeze([
   'stabilization-review',
   'generate-standard-docs',
   'inspection-plan',
+  'manufacturing-action-dataset',
   'pack',
   'evidence-readiness-audit',
   'inspection-evidence-intake',
@@ -1346,6 +1354,9 @@ const LOCAL_API_CONFIG_JOB_ORDER = Object.freeze([
   'create',
   'draw',
   'report',
+]);
+const LOCAL_API_SERVER_PROFILE_JOB_ORDER = Object.freeze([
+  'manufacturing-action-dataset',
 ]);
 const LOCAL_API_OTHER_PUBLIC_JOB_ORDER = Object.freeze([
   'review-context',
@@ -1395,6 +1406,11 @@ export const STUDIO_PAIRED_ARTIFACT_JOB_COMMANDS = orderedCommandNames(
 export const LOCAL_API_CONFIG_JOB_COMMANDS = orderedCommandNames(
   LOCAL_API_CONFIG_JOB_ORDER,
   (entry) => entry.surfaces?.localApi === true
+);
+export const LOCAL_API_SERVER_PROFILE_JOB_COMMANDS = orderedCommandNames(
+  LOCAL_API_SERVER_PROFILE_JOB_ORDER,
+  (entry) => entry.surfaces?.localApi === true
+    && entry.surfaces?.studioSubmission === 'server-profile'
 );
 export const LOCAL_API_OTHER_PUBLIC_JOB_COMMANDS = orderedCommandNames(
   LOCAL_API_OTHER_PUBLIC_JOB_ORDER,

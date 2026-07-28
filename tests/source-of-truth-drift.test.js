@@ -11,6 +11,7 @@ import {
   LOCAL_API_CONFIG_JOB_COMMANDS,
   LOCAL_API_JOB_COMMANDS,
   LOCAL_API_OTHER_PUBLIC_JOB_COMMANDS,
+  LOCAL_API_SERVER_PROFILE_JOB_COMMANDS,
   PLAIN_PYTHON_COMMANDS,
   STUDIO_ARTIFACT_COMPATIBLE_JOB_COMMANDS,
   STUDIO_ARTIFACT_JOB_COMMANDS,
@@ -116,6 +117,9 @@ function minimalLocalApiJobRequest(command) {
   if (LOCAL_API_CONFIG_JOB_COMMANDS.includes(command)) {
     return { type: command, config: { name: 'drift_guard_part' } };
   }
+  if (LOCAL_API_SERVER_PROFILE_JOB_COMMANDS.includes(command)) {
+    return { type: command, demo_profile: 'hinge-block-synthetic-inspection-v1' };
+  }
   if (command === 'review-context') {
     return { type: command, model_path: 'tests/fixtures/sample_part.step' };
   }
@@ -158,6 +162,9 @@ function minimalLocalApiJobRequest(command) {
 }
 
 function minimalStudioSubmission(command) {
+  if (command === 'manufacturing-action-dataset') {
+    return { type: command, demo_profile: 'hinge-block-synthetic-inspection-v1' };
+  }
   if (['create', 'draw'].includes(command)) {
     return { type: command, config_toml: 'name = "drift_guard_part"\n' };
   }
@@ -255,7 +262,12 @@ studioNavRoutes.forEach((entry) => {
 assertSameCommands(LOCAL_API_JOB_COMMANDS, JOB_EXECUTOR_COMMANDS, 'local API and job executor command lists should match');
 assertSameCommands(
   LOCAL_API_JOB_COMMANDS,
-  [...LOCAL_API_CONFIG_JOB_COMMANDS, ...LOCAL_API_OTHER_PUBLIC_JOB_COMMANDS, 'inspect'],
+  [
+    ...LOCAL_API_CONFIG_JOB_COMMANDS,
+    ...LOCAL_API_SERVER_PROFILE_JOB_COMMANDS,
+    ...LOCAL_API_OTHER_PUBLIC_JOB_COMMANDS,
+    'inspect',
+  ],
   'local API schema command partitions should cover every local API job command'
 );
 LOCAL_API_JOB_COMMANDS.forEach((command) => {
@@ -281,6 +293,7 @@ assertSameCommands(
     'evidence-readiness-audit',
     'inspection-evidence-intake',
     'inspection-evidence-promotion-dry-run',
+    'manufacturing-action-dataset',
     'stage5b-evidence-audit',
   ],
   'Studio submission partitions should cover every Studio job command'

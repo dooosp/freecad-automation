@@ -1,0 +1,30 @@
+{
+  "artifact_type": "review_pack",
+  "package_slug": "hinge-block",
+  "part_id": "hinge_block",
+  "revision": "B",
+  "part": {
+    "package_slug": "hinge-block",
+    "part_id": "hinge_block",
+    "revision": "B"
+  },
+  "revision_lineage": {
+    "schema_version": "1.0",
+    "mode": "proof",
+    "identity": {
+      "package_slug": "hinge-block",
+      "part_id": "hinge_block",
+      "revision": "B",
+      "config_sha256": "992cf687e1da65f9ac89c12bd36ad7cd2b57367deb0cc6d50a74d4c03b7a52d1"
+    },
+    "parents": [
+      {
+        "artifact_type": "config",
+        "role": "authoritative_config",
+        "path": "configs/examples/hinge_block.toml",
+        "sha256": "992cf687e1da65f9ac89c12bd36ad7cd2b57367deb0cc6d50a74d4c03b7a52d1",
+        "size_bytes": 7116
+      }
+    ]
+  }
+}

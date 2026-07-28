@@ -92,6 +92,31 @@ const drawingQuality = artifact({
 });
 assert.equal(selectPrimaryResultArtifact([drawingQuality, drawing], { jobType: 'draw' })?.id, 'drawing');
 assert.equal(selectPrimaryResultArtifact([report, quality], { jobType: 'review-context' })?.id, 'quality');
+
+const manufacturingArtifacts = [
+  artifact({ id: 'action-dictionary', type: 'manufacturing_action_dictionary', fileName: 'manufacturing_action_dictionary.json', extension: '.json' }),
+  artifact({ id: 'episode', type: 'manufacturing_episode_annotation', fileName: 'manufacturing_episode_annotation.json', extension: '.json' }),
+  artifact({ id: 'validation', type: 'manufacturing_data_validation_report', fileName: 'manufacturing_data_validation_report.json', extension: '.json' }),
+  artifact({ id: 'dataset-manifest', type: 'manufacturing_robotics_dataset_manifest', fileName: 'manufacturing_robotics_dataset_manifest.json', extension: '.json' }),
+  artifact({ id: 'handoff-json', type: 'design_manufacturing_quality_handoff', fileName: 'design_manufacturing_quality_handoff.json', extension: '.json' }),
+  artifact({ id: 'handoff-markdown', type: 'design_manufacturing_quality_handoff.md', fileName: 'design_manufacturing_quality_handoff.md', extension: '.md' }),
+  artifact({ id: 'artifact-manifest', type: 'artifact.manifest', fileName: 'artifact-manifest.json', extension: '.json' }),
+  artifact({ id: 'output-manifest', type: 'output.manifest', fileName: 'output-manifest.json', extension: '.json' }),
+];
+assert.equal(manufacturingArtifacts.length, 8);
+assert.equal(
+  selectPrimaryResultArtifact(manufacturingArtifacts, { jobType: 'manufacturing-action-dataset' })?.id,
+  'dataset-manifest'
+);
+const manufacturingGroups = Object.fromEntries(
+  collectResultFileGroups(manufacturingArtifacts).map((group) => [
+    group.id,
+    group.artifacts.map((entry) => entry.id),
+  ])
+);
+assert.deepEqual(manufacturingGroups.quality, ['validation', 'handoff-json', 'handoff-markdown']);
+assert.deepEqual(manufacturingGroups.technical, ['action-dictionary', 'episode']);
+assert.deepEqual(manufacturingGroups.system, ['dataset-manifest', 'artifact-manifest', 'output-manifest']);
 assert.equal(resultFileLabelKey(report), 'studio.artifacts.file.report');
 assert.equal(resultFileLabelKey(step), 'studio.artifacts.file.step');
 assert.equal(resultFileLabelKey(quality), 'studio.artifacts.file.quality');

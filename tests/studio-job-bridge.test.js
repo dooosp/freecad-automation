@@ -5,6 +5,48 @@ import {
   validateStudioJobSubmission,
 } from '../src/server/studio-job-bridge.js';
 
+let manufacturingResolverCalled = false;
+const manufacturingDemoSubmission = await translateStudioJobSubmission({
+  type: 'manufacturing-action-dataset',
+  demo_profile: 'hinge-block-synthetic-inspection-v1',
+}, {
+  resolveArtifactRef: async () => {
+    manufacturingResolverCalled = true;
+    throw new Error('manufacturing demo must not resolve browser artifacts');
+  },
+});
+assert.equal(manufacturingDemoSubmission.ok, true, manufacturingDemoSubmission.errors?.join('\n'));
+assert.deepEqual(manufacturingDemoSubmission.request, {
+  type: 'manufacturing-action-dataset',
+  demo_profile: 'hinge-block-synthetic-inspection-v1',
+});
+assert.equal(manufacturingResolverCalled, false);
+
+const manufacturingMismatchSubmission = await translateStudioJobSubmission({
+  type: 'manufacturing-action-dataset',
+  demo_profile: 'hinge-block-synthetic-inspection-v1',
+  trust_demo: 'revision-mismatch',
+});
+assert.equal(manufacturingMismatchSubmission.ok, true, manufacturingMismatchSubmission.errors?.join('\n'));
+assert.deepEqual(manufacturingMismatchSubmission.request, {
+  type: 'manufacturing-action-dataset',
+  demo_profile: 'hinge-block-synthetic-inspection-v1',
+  trust_demo: 'revision-mismatch',
+});
+
+for (const rejected of [
+  { type: 'manufacturing-action-dataset' },
+  { type: 'manufacturing-action-dataset', demo_profile: 'unknown-profile' },
+  { type: 'manufacturing-action-dataset', demo_profile: 'hinge-block-synthetic-inspection-v1', trust_demo: 'custom' },
+  { type: 'manufacturing-action-dataset', demo_profile: 'hinge-block-synthetic-inspection-v1', config_toml: 'name = "unsafe"' },
+  { type: 'manufacturing-action-dataset', demo_profile: 'hinge-block-synthetic-inspection-v1', artifact_ref: { job_id: 'job', artifact_id: 'artifact' } },
+  { type: 'manufacturing-action-dataset', demo_profile: 'hinge-block-synthetic-inspection-v1', options: { proof_lineage: true } },
+  { type: 'report', demo_profile: 'hinge-block-synthetic-inspection-v1', config_toml: 'name = "unsafe"' },
+]) {
+  const validation = validateStudioJobSubmission(rejected);
+  assert.equal(validation.ok, false, `unsafe manufacturing studio submission should fail: ${JSON.stringify(rejected)}`);
+}
+
 const baseToml = `
 name = "studio_bridge"
 

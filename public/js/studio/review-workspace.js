@@ -27,6 +27,10 @@ import {
 } from './recent-job-quality-status.js';
 import { renderEvidenceGraphSummary } from './evidence-graph-panel.js';
 import { buildReviewSummary } from './review-summary.js';
+import {
+  mountManufacturingRoboticsCard,
+  renderManufacturingRoboticsCard,
+} from './manufacturing-robotics-card.js';
 import { applyTranslations, t } from '../i18n/index.js';
 
 function ensureReviewState(review = {}) {
@@ -424,6 +428,7 @@ export function renderReviewWorkspace(state) {
         description: t('studio.review.description'),
       }),
       renderBeginnerReviewSummary(state),
+      renderManufacturingRoboticsCard(state),
       el('details', {
         className: 'review-advanced-tools',
         attrs: state.experienceMode === 'advanced' ? { open: true } : {},
@@ -559,6 +564,12 @@ export function mountReviewWorkspace({ root, state, addLog, openJob, submitTrack
   const detailPanels = [...root.querySelectorAll('[data-panel]')];
   const tabButtons = [...root.querySelectorAll('[data-action="review-set-tab"]')];
   let destroyed = false;
+  const manufacturingRoboticsCard = mountManufacturingRoboticsCard({
+    root,
+    state,
+    openJob,
+    submitTrackedJob,
+  });
 
   function getSelectedCard() {
     return review.cards.find((card) => card.id === review.selectedCardId) || review.cards[0] || null;
@@ -778,6 +789,7 @@ export function mountReviewWorkspace({ root, state, addLog, openJob, submitTrack
     syncStatus();
     syncCards();
     syncDetail();
+    manufacturingRoboticsCard.syncFromShell();
     applyTranslations(root);
   }
 
@@ -1099,6 +1111,7 @@ export function mountReviewWorkspace({ root, state, addLog, openJob, submitTrack
     },
     destroy() {
       destroyed = true;
+      manufacturingRoboticsCard.destroy();
       root.removeEventListener('click', handleClick);
     },
   };

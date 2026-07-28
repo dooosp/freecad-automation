@@ -353,6 +353,8 @@ export function createStudioJobMonitorController(app) {
     drawingPreviewId,
     reportOptions,
     options,
+    demoProfile,
+    trustDemo,
     completionAction,
   }) {
     const job = await submitStudioTrackedJob({
@@ -378,6 +380,8 @@ export function createStudioJobMonitorController(app) {
       drawingPreviewId,
       reportOptions,
       options,
+      demoProfile,
+      trustDemo,
     });
     beginJobMonitoring(job, { origin: 'submit', completionAction });
     return job;

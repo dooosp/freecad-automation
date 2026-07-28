@@ -52,6 +52,7 @@ const FORBIDDEN_TRACKED_LOCAL_PREFIXES = Object.freeze([
 // This is curated, reviewed source control material despite its generated-looking suffix.
 const CURATED_SOURCE_CONTROL_FILES = new Set([
   'configs/examples/manufacturing/hinge_block_robot_inspection_task_plan.json',
+  'configs/examples/manufacturing/hinge_block_synthetic_inspection_v1/inspection_plan.json',
 ]);
 
 function toRepoPath(path) {

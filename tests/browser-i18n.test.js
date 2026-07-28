@@ -15,6 +15,8 @@ import {
   createTranslator,
   translateText,
 } from '../public/js/i18n/index.js';
+import enDictionary from '../public/js/i18n/en.js';
+import koDictionary from '../public/js/i18n/ko.js';
 import { localizeDfmAttentionText } from '../public/js/studio/artifacts-workspace.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
@@ -78,6 +80,52 @@ assert.equal(
 assert.equal(ko.t('studio.nav.history.label'), '실행 내역');
 assert.equal(en.t('studio.nav.artifacts.label'), 'Result files');
 assert.equal(ko.t('studio.nav.artifacts.label'), '결과 파일');
+assert.equal(en.t('studio.manufacturing-robotics.title'), 'Manufacturing Robotics Data');
+assert.equal(ko.t('studio.manufacturing-robotics.title'), '제조 로봇 데이터');
+assert.equal(en.t('studio.manufacturing-robotics.action.generate'), 'Generate dataset');
+assert.equal(ko.t('studio.manufacturing-robotics.action.generate'), '데이터 세트 생성');
+assert.match(en.t('studio.manufacturing-robotics.preflight.safety'), /No FreeCAD runtime.*robot hardware.*computer vision.*LeRobot export.*Human review/is);
+assert.match(ko.t('studio.manufacturing-robotics.preflight.safety'), /FreeCAD 런타임.*로봇 하드웨어.*컴퓨터 비전.*LeRobot 내보내기.*사람의 검토/s);
+assert.equal(en.t('studio.manufacturing-robotics.quality.valid-status'), 'VALID SYNTHETIC DEMO');
+assert.equal(ko.t('studio.manufacturing-robotics.blocked.title'), 'BLOCKED');
+assert.match(en.t('studio.manufacturing-robotics.lerobot.copy'), /not a LeRobot dataset or export/);
+assert.match(ko.t('studio.manufacturing-robotics.lerobot.copy'), /LeRobot 데이터 세트나 내보내기가 아닙니다/);
+
+const manufacturingCardSource = readFileSync(
+  join(ROOT, 'public/js/studio/manufacturing-robotics-card.js'),
+  'utf8'
+);
+const manufacturingLiteralKeys = [...manufacturingCardSource.matchAll(
+  /t\(['"`](studio\.manufacturing-robotics\.[a-z0-9.-]+)['"`]/g
+)].map((match) => match[1]);
+const manufacturingDynamicKeys = [
+  ...['pre-run', 'running', 'loading', 'success', 'blocked', 'error', 'artifact-error']
+    .map((phase) => `studio.manufacturing-robotics.phase.${phase}`),
+  ...['ko', 'en']
+    .map((language) => `studio.manufacturing-robotics.action-detail.instruction-${language}`),
+  ...[
+    'episode-identity',
+    'task-instructions',
+    'action-semantics',
+    'robot-joint-references',
+    'segment-timing',
+    'source-lineage',
+  ].map((capability) => `studio.manufacturing-robotics.lerobot.available.${capability}`),
+  ...[
+    'observation-state',
+    'action-vector',
+    'frame-clock',
+    'parquet-storage',
+    'metadata-offsets',
+    'dataset-statistics',
+    'loader-validation',
+    'inspection-vision-modality',
+  ].map((capability) => `studio.manufacturing-robotics.lerobot.missing.${capability}`),
+];
+for (const key of new Set([...manufacturingLiteralKeys, ...manufacturingDynamicKeys])) {
+  assert.equal(Object.hasOwn(enDictionary.messages, key), true, `Missing English key: ${key}`);
+  assert.equal(Object.hasOwn(koDictionary.messages, key), true, `Missing Korean key: ${key}`);
+}
 assert.equal(en.t('studio.home.title'), 'What would you like to do?');
 assert.equal(ko.t('studio.home.title'), '무엇을 하시겠어요?');
 assert.equal(en.t('studio.home.create.action'), 'Start new model');

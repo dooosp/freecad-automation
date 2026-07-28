@@ -1,5 +1,5 @@
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from 'node:path';
-import { copyFile, mkdir, stat } from 'node:fs/promises';
+import { copyFile, mkdir, realpath, stat } from 'node:fs/promises';
 import {
   AfExecutionContractError,
   buildAfArtifactContractFromDocument,
@@ -40,6 +40,15 @@ import {
   writeCanonicalReadinessArtifacts,
 } from '../../workflows/canonical-readiness-builders.js';
 import { writeEvidenceReadinessAudit } from '../evidence-readiness-audit/evidence-readiness-audit-service.js';
+import {
+  MANUFACTURING_ACTION_DEMO_ERROR_CODES,
+  MANUFACTURING_ACTION_DEMO_EXPECTED_OUTPUT_COUNT,
+  mapManufacturingActionDemoFailure as mapDefaultManufacturingActionDemoFailure,
+  resolveManufacturingActionDemoProfile as resolveDefaultManufacturingActionDemoProfile,
+} from '../manufacturing-action-dataset/manufacturing-action-demo-profile.js';
+import {
+  generateManufacturingActionDataset as generateDefaultManufacturingActionDataset,
+} from '../manufacturing-action-dataset/manufacturing-action-dataset-service.js';
 import { discoverInspectionEvidenceIntake } from '../inspection-evidence-intake/inspection-evidence-intake-service.js';
 import { assertRegularReadinessPackHasNoInspectionEvidenceClaim } from '../inspection-evidence-intake/inspection-evidence-onboarding-service.js';
 import {
@@ -93,6 +102,8 @@ const INLINE_CONFIG_RELATIVE_PATH = 'inputs/inline-config.json';
 const EFFECTIVE_CONFIG_RELATIVE_PATH = 'inputs/effective-config.json';
 const MAX_TRACKED_ID_LENGTH = 128;
 const INSPECTABLE_MODEL_EXTENSIONS = new Set(['.brep', '.brp', '.fcstd', '.step', '.stl', '.stp']);
+const MANUFACTURING_ACTION_JOB_TYPE = 'manufacturing-action-dataset';
+const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const DIRECT_JOB_PATH_FIELDS = Object.freeze({
   create: ['config_path'],
   draw: ['config_path'],
@@ -149,6 +160,91 @@ function sanitizeResult(result) {
   delete next.svgContent;
   delete next.pdfBase64;
   return next;
+}
+
+function safeManufacturingIdentity(identity) {
+  if (!identity || typeof identity !== 'object' || Array.isArray(identity)) return null;
+  const next = {};
+  for (const key of ['package_slug', 'part_id', 'revision']) {
+    if (typeof identity[key] === 'string' && identity[key].trim()) {
+      next[key] = identity[key].trim();
+    }
+  }
+  if (SHA256_PATTERN.test(identity.config_sha256 || '')) {
+    next.config_sha256 = identity.config_sha256;
+  }
+  return Object.keys(next).length > 0 ? next : null;
+}
+
+function safeManufacturingSourceInputs(sources = []) {
+  if (!Array.isArray(sources)) return [];
+  return sources.flatMap((source) => {
+    if (!source || typeof source !== 'object' || Array.isArray(source)) return [];
+    const pathValue = typeof source.path === 'string'
+      && source.path.trim()
+      && !isAbsolute(source.path)
+      && !isWindowsAbsolutePath(source.path)
+      && !source.path.split(/[\\/]/).includes('..')
+      ? source.path.replaceAll('\\', '/')
+      : null;
+    if (
+      typeof source.role !== 'string'
+      || typeof source.artifact_type !== 'string'
+      || !pathValue
+      || !SHA256_PATTERN.test(source.sha256 || '')
+      || !Number.isSafeInteger(source.size_bytes)
+      || source.size_bytes < 0
+    ) {
+      return [];
+    }
+    return [{
+      role: source.role,
+      artifact_type: source.artifact_type,
+      path: pathValue,
+      sha256: source.sha256,
+      size_bytes: source.size_bytes,
+    }];
+  });
+}
+
+function buildManufacturingActionFailureContract(job, error) {
+  const mismatchCode = MANUFACTURING_ACTION_DEMO_ERROR_CODES.REVISION_LINEAGE_IDENTITY_MISMATCH;
+  const isBoundedMismatch = job?.request?.trust_demo === 'revision-mismatch'
+    && error?.code === mismatchCode;
+  if (isBoundedMismatch) {
+    return {
+      status: 'blocked',
+      code: mismatchCode,
+      reason_code: mismatchCode,
+      expected: safeManufacturingIdentity(error.expected),
+      received: safeManufacturingIdentity(error.received),
+      published: {
+        expected_count: MANUFACTURING_ACTION_DEMO_EXPECTED_OUTPUT_COUNT,
+        published_count: 0,
+      },
+      next_action: {
+        code: 'REGENERATE_REVIEW_FROM_AUTHORITATIVE_REVISION_A',
+        message: 'Regenerate the review artifact from the authoritative Revision A config.',
+      },
+    };
+  }
+
+  const allowedCode = Object.values(MANUFACTURING_ACTION_DEMO_ERROR_CODES).includes(error?.code)
+    ? error.code
+    : 'MANUFACTURING_ACTION_DEMO_FAILED';
+  return {
+    status: 'blocked',
+    code: allowedCode,
+    reason_code: allowedCode,
+    published: {
+      expected_count: MANUFACTURING_ACTION_DEMO_EXPECTED_OUTPUT_COUNT,
+      published_count: 0,
+    },
+    next_action: {
+      code: 'VERIFY_PINNED_DEMO_PROFILE',
+      message: 'Verify the pinned server-owned demo profile sources and retry.',
+    },
+  };
 }
 
 async function pathExists(path) {
@@ -780,6 +876,9 @@ export function createJobExecutor({
   jobStore,
   generateDrawing = createDrawingService(),
   generateReport = createReportService(),
+  generateManufacturingActionDataset = generateDefaultManufacturingActionDataset,
+  resolveManufacturingActionDemoProfile = resolveDefaultManufacturingActionDemoProfile,
+  mapManufacturingActionDemoFailure = mapDefaultManufacturingActionDemoFailure,
 }) {
   function appendLog(jobId, message) {
     return jobStore.appendLog(jobId, message).catch(() => {});
@@ -1903,6 +2002,87 @@ export function createJobExecutor({
     });
   }
 
+  async function executeManufacturingActionDataset(job) {
+    let resolution = null;
+    try {
+      resolution = await resolveManufacturingActionDemoProfile({
+        projectRoot,
+        demoProfile: job.request.demo_profile,
+        trustDemo: job.request.trust_demo || null,
+      });
+      const canonicalJobDir = await realpath(jobStore.getJobDir(job.id));
+      const outputDir = join(canonicalJobDir, 'artifacts');
+      const generated = await generateManufacturingActionDataset({
+        projectRoot,
+        ...resolution.input_paths,
+        generatedAt: resolution.generated_at,
+        proofLineage: resolution.proof_lineage === true,
+        outDir: outputDir,
+        trustedOutputRoots: [canonicalJobDir],
+        expectedSourceBindings: resolution.input_sources,
+      });
+      const datasetManifest = await readJsonFile(generated.outputs.dataset_manifest);
+      const identity = safeManufacturingIdentity(datasetManifest.identity || resolution.identity);
+      const sourceInputs = safeManufacturingSourceInputs(
+        datasetManifest.source_snapshots || resolution.input_sources
+      );
+      if (!identity || sourceInputs.length !== 5 || !datasetManifest.revision_lineage) {
+        throw new Error('Manufacturing action dataset did not preserve its fixed proof-lineage metadata.');
+      }
+
+      const proofLineagePolicy = Object.freeze({ required: true, mode: 'proof' });
+      const publication = {
+        expected_count: MANUFACTURING_ACTION_DEMO_EXPECTED_OUTPUT_COUNT,
+        published_count: Object.keys(generated.outputs || {}).length,
+        exact: Object.keys(generated.outputs || {}).length
+          === MANUFACTURING_ACTION_DEMO_EXPECTED_OUTPUT_COUNT,
+        bundle_sha256: SHA256_PATTERN.test(generated.bundle_sha256 || '')
+          ? generated.bundle_sha256
+          : null,
+      };
+      if (!publication.exact) {
+        throw new Error('Manufacturing action dataset did not publish its fixed eight-file output set.');
+      }
+
+      const result = {
+        status: generated.status,
+        artifact_id: generated.artifact_id,
+        demo_profile: resolution.demo_profile,
+        trust_demo: resolution.trust_demo,
+        generated_at: resolution.generated_at,
+        identity,
+        proof_lineage_policy: proofLineagePolicy,
+        source_inputs: sourceInputs,
+        boundaries: structuredClone(generated.boundaries || resolution.boundaries),
+        publication,
+        revisionLineage: structuredClone(datasetManifest.revision_lineage),
+        validation: {
+          status: generated.validation_report?.status || null,
+          metrics: structuredClone(generated.validation_report?.metrics || {}),
+        },
+      };
+
+      return {
+        result,
+        outputs: generated.outputs,
+        diagnostics: {
+          manufacturing_action_demo: {
+            demo_profile: result.demo_profile,
+            trust_demo: result.trust_demo,
+            generated_at: result.generated_at,
+            identity: result.identity,
+            proof_lineage_policy: result.proof_lineage_policy,
+            source_inputs: result.source_inputs,
+            boundaries: result.boundaries,
+            publication: result.publication,
+          },
+        },
+      };
+    } catch (error) {
+      throw mapManufacturingActionDemoFailure(error, resolution);
+    }
+  }
+
   return {
     async execute(jobId) {
       const claim = await jobStore.claimJobForExecution(jobId, 'executor_started');
@@ -1923,7 +2103,13 @@ export function createJobExecutor({
       let manifestConfigPath = null;
       let manifestConfigSummary = null;
       let manifestRuleProfile = null;
+      let failureResult = null;
+      const manufacturingActionProfileJob = job.type === MANUFACTURING_ACTION_JOB_TYPE;
+      const artifactBoundaryJobDir = manufacturingActionProfileJob
+        ? await realpath(jobStore.getJobDir(job.id))
+        : jobStore.getJobDir(job.id);
       let manifestProofLineage = job.request.options?.proof_lineage === true
+        || manufacturingActionProfileJob
         ? {
             required: true,
             mode: 'proof',
@@ -1965,6 +2151,7 @@ export function createJobExecutor({
         executeInspectionEvidencePromotionDryRun,
         executeStage5bEvidenceAudit,
         executeEvidenceReadinessAudit,
+        executeManufacturingActionDataset,
         buildAfArtifactContractFromDocument: (options) => buildAfArtifactContractFromDocument({
           ...options,
           ...proofAfMetadata,
@@ -2086,16 +2273,16 @@ export function createJobExecutor({
           requestId: job.id,
           configPath: manifestConfigPath,
           configSummary: manifestConfigSummary,
-          selectedProfile: job.request.options?.profile_name || null,
+          selectedProfile: job.request.demo_profile || job.request.options?.profile_name || null,
           ruleProfile: manifestRuleProfile,
           ...(manifestProofLineage ? {
             effectivePolicy: { proof_lineage: true },
-            portablePathRoot: jobStore.getJobDir(job.id),
+            portablePathRoot: artifactBoundaryJobDir,
             ...(manifestRevisionLineage ? { revisionLineage: manifestRevisionLineage } : {}),
           } : {}),
           artifacts: applyArtifactPublicationBoundary({
             projectRoot,
-            jobDir: jobStore.getJobDir(job.id),
+            jobDir: artifactBoundaryJobDir,
             artifacts: manifestArtifacts,
           }),
           timestamps: {
@@ -2113,6 +2300,15 @@ export function createJobExecutor({
         await appendLog(jobId, `Job ${job.type} finished successfully`);
         await jobStore.completeJob(jobId, sanitizeResult(result), artifacts, diagnostics, manifest);
       } catch (error) {
+        if (manufacturingActionProfileJob) {
+          failureResult = buildManufacturingActionFailureContract(job, error);
+          artifacts = {};
+          manifestArtifacts = [];
+          diagnostics = {
+            proof_lineage_policy: manifestProofLineage,
+            manufacturing_action_demo: failureResult,
+          };
+        }
         if (error instanceof AfExecutionContractError) {
           diagnostics = {
             ...diagnostics,
@@ -2125,7 +2321,12 @@ export function createJobExecutor({
           manifestArtifacts,
           diagnostics,
         });
-        await appendLog(jobId, `Job failed: ${error instanceof Error ? error.message : String(error)}`);
+        const publicError = manufacturingActionProfileJob
+          ? new Error(failureResult?.code === MANUFACTURING_ACTION_DEMO_ERROR_CODES.REVISION_LINEAGE_IDENTITY_MISMATCH
+            ? 'The selected proof review revision does not match the authoritative demo profile.'
+            : 'The server-owned manufacturing action demo could not complete safely.')
+          : error;
+        await appendLog(jobId, `Job failed: ${publicError instanceof Error ? publicError.message : String(publicError)}`);
         manifest = await buildArtifactManifest({
           projectRoot,
           interface: 'api',
@@ -2135,15 +2336,15 @@ export function createJobExecutor({
           requestId: job.id,
           configPath: manifestConfigPath,
           configSummary: manifestConfigSummary,
-          selectedProfile: job.request.options?.profile_name || null,
+          selectedProfile: job.request.demo_profile || job.request.options?.profile_name || null,
           ruleProfile: manifestRuleProfile,
           ...(manifestProofLineage ? {
             effectivePolicy: { proof_lineage: true },
-            portablePathRoot: jobStore.getJobDir(job.id),
+            portablePathRoot: artifactBoundaryJobDir,
           } : {}),
           artifacts: applyArtifactPublicationBoundary({
             projectRoot,
-            jobDir: jobStore.getJobDir(job.id),
+            jobDir: artifactBoundaryJobDir,
             artifacts: manifestArtifacts,
           }),
           warnings: diagnostics.config_warnings || [],
@@ -2157,11 +2358,20 @@ export function createJobExecutor({
             request: job.request,
             diagnostics,
             ...(manifestProofLineage ? { proof_lineage: manifestProofLineage } : {}),
-            error: error instanceof Error ? error.message : String(error),
-            error_code: error instanceof AfExecutionContractError ? error.code : null,
+            error: publicError instanceof Error ? publicError.message : String(publicError),
+            error_code: error instanceof AfExecutionContractError
+              ? error.code
+              : failureResult?.code || null,
           },
         });
-        await jobStore.failJob(jobId, error, artifacts, diagnostics, manifest);
+        await jobStore.failJob(
+          jobId,
+          publicError,
+          artifacts,
+          diagnostics,
+          manifest,
+          sanitizeResult(failureResult)
+        );
       }
     },
   };

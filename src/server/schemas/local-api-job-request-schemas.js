@@ -1,6 +1,7 @@
 import {
   LOCAL_API_CONFIG_JOB_COMMANDS,
   LOCAL_API_OTHER_PUBLIC_JOB_COMMANDS,
+  LOCAL_API_SERVER_PROFILE_JOB_COMMANDS,
 } from '../../shared/command-manifest.js';
 
 const artifactRefSchema = {
@@ -27,6 +28,16 @@ const compareRevisionCompanionPathProperties = {
 export const localApiJobRequestSchema = {
   $id: 'fcad.jobRequest',
   oneOf: [
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['type', 'demo_profile'],
+      properties: {
+        type: { enum: LOCAL_API_SERVER_PROFILE_JOB_COMMANDS },
+        demo_profile: { const: 'hinge-block-synthetic-inspection-v1' },
+        trust_demo: { const: 'revision-mismatch' },
+      },
+    },
     {
       type: 'object',
       additionalProperties: false,
@@ -301,6 +312,16 @@ export const localApiJobRequestSchema = {
 export const publicJobRequestSchema = {
   $id: 'fcad.publicJobRequest',
   oneOf: [
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['type', 'demo_profile'],
+      properties: {
+        type: { enum: LOCAL_API_SERVER_PROFILE_JOB_COMMANDS },
+        demo_profile: { const: 'hinge-block-synthetic-inspection-v1' },
+        trust_demo: { const: 'revision-mismatch' },
+      },
+    },
     {
       type: 'object',
       additionalProperties: false,

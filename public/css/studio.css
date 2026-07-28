@@ -4440,3 +4440,342 @@ body::after {
     width: 100%;
   }
 }
+
+/* Manufacturing Robotics Data stays inside Review and reuses tracked artifact links. */
+.manufacturing-robotics-card,
+.manufacturing-robotics-body,
+.manufacturing-robotics-stage,
+.manufacturing-robotics-success,
+.manufacturing-robotics-timeline-section,
+.manufacturing-robotics-result-panel,
+.manufacturing-action-detail,
+.manufacturing-handoff-section,
+.manufacturing-exact-hashes,
+.manufacturing-lerobot-list {
+  min-width: 0;
+}
+
+.manufacturing-robotics-card {
+  display: grid;
+  gap: 1rem;
+  border-color: rgba(88, 214, 255, 0.24);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(88, 214, 255, 0.09), transparent 28rem),
+    rgba(7, 16, 28, 0.78);
+}
+
+.manufacturing-robotics-card-header,
+.manufacturing-robotics-body,
+.manufacturing-robotics-preflight,
+.manufacturing-robotics-stage,
+.manufacturing-robotics-success,
+.manufacturing-robotics-timeline-section,
+.manufacturing-robotics-result-panel,
+.manufacturing-robotics-trust,
+.manufacturing-lerobot-header {
+  display: grid;
+  gap: 1rem;
+}
+
+.manufacturing-robotics-phase {
+  align-self: start;
+  white-space: normal;
+  text-align: center;
+}
+
+.manufacturing-robotics-phase-success {
+  border-color: rgba(99, 214, 163, 0.34);
+  color: var(--status-ok);
+}
+
+.manufacturing-robotics-phase-blocked,
+.manufacturing-robotics-phase-error,
+.manufacturing-robotics-phase-artifact-error {
+  border-color: rgba(255, 113, 113, 0.34);
+  color: var(--status-bad);
+}
+
+.manufacturing-robotics-expected,
+.manufacturing-robotics-result-panel,
+.manufacturing-action-detail,
+.manufacturing-handoff-section,
+.manufacturing-exact-hashes,
+.manufacturing-lerobot-list {
+  padding: 1rem;
+  border: 1px solid rgba(126, 164, 198, 0.18);
+  border-radius: 0.9rem;
+  background: rgba(5, 13, 23, 0.48);
+}
+
+.manufacturing-robotics-section-title,
+.manufacturing-action-instruction p,
+.manufacturing-handoff-section h4,
+.manufacturing-exact-hashes h4,
+.manufacturing-lerobot-list h4,
+.manufacturing-lerobot-header h3,
+.manufacturing-lerobot-header p,
+.manufacturing-robotics-boundary-note {
+  margin: 0;
+}
+
+.manufacturing-robotics-section-title,
+.manufacturing-handoff-section h4,
+.manufacturing-exact-hashes h4,
+.manufacturing-lerobot-list h4,
+.manufacturing-lerobot-header h3 {
+  color: var(--text-strong);
+}
+
+.manufacturing-robotics-output-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem 1.5rem;
+  margin: 0.75rem 0 0;
+  padding-left: 1.5rem;
+}
+
+.manufacturing-robotics-output-list code,
+.manufacturing-action-button,
+.manufacturing-action-detail .info-value,
+.manufacturing-robotics-result-panel .info-value,
+.manufacturing-boundary-item,
+.manufacturing-lerobot-list li {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.manufacturing-exact-hashes ul {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.7rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.manufacturing-exact-hashes code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.manufacturing-robotics-trust-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+  padding: 0.9rem;
+  border: 1px solid rgba(244, 184, 96, 0.24);
+  border-radius: 0.8rem;
+  background: rgba(244, 184, 96, 0.07);
+}
+
+.manufacturing-robotics-trust-choice input {
+  flex: 0 0 auto;
+  width: 1.2rem;
+  height: 1.2rem;
+  margin-top: 0.15rem;
+}
+
+.manufacturing-robotics-trust-choice label {
+  color: var(--text-strong);
+  font-weight: 700;
+}
+
+.manufacturing-robotics-primary-action {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+}
+
+.manufacturing-robotics-timeline-layout {
+  display: grid;
+  grid-template-columns: minmax(15rem, 0.8fr) minmax(0, 1.35fr);
+  align-items: start;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.manufacturing-action-timeline {
+  display: grid;
+  gap: 0.55rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.manufacturing-action-step {
+  min-width: 0;
+}
+
+.manufacturing-action-button {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.7rem;
+  border: 1px solid rgba(126, 164, 198, 0.18);
+  border-radius: 0.75rem;
+  color: var(--text-strong);
+  background: rgba(255, 255, 255, 0.025);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.manufacturing-action-button:hover {
+  border-color: var(--border-strong);
+}
+
+.manufacturing-action-button[aria-current="step"] {
+  border-color: rgba(88, 214, 255, 0.48);
+  background: rgba(88, 214, 255, 0.11);
+}
+
+.manufacturing-action-index {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  color: var(--canvas-0);
+  background: var(--accent);
+  font-weight: 800;
+}
+
+.manufacturing-action-button-copy {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.manufacturing-action-button-copy span {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.manufacturing-action-instructions,
+.manufacturing-robotics-panel-grid,
+.manufacturing-handoff-grid,
+.manufacturing-lerobot-grid,
+.manufacturing-boundary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+.manufacturing-action-instruction {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+  padding: 0.8rem;
+  border-radius: 0.7rem;
+  background: rgba(126, 208, 214, 0.07);
+}
+
+.manufacturing-action-instruction-label {
+  color: var(--accent-strong);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.manufacturing-robotics-status-callout {
+  margin: 0;
+  color: var(--status-ok);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.manufacturing-robotics-handoff {
+  grid-column: span 1;
+}
+
+.manufacturing-handoff-grid {
+  grid-template-columns: 1fr;
+}
+
+.manufacturing-robotics-boundary-note,
+.manufacturing-lerobot-header > p,
+.manufacturing-lerobot-list li {
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.manufacturing-boundary-grid {
+  margin: 0;
+}
+
+.manufacturing-boundary-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.6rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.65rem;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.manufacturing-boundary-item dt,
+.manufacturing-boundary-item dd {
+  margin: 0;
+}
+
+.manufacturing-boundary-item dt {
+  color: var(--text-muted);
+}
+
+.manufacturing-boundary-item dd {
+  color: var(--text-strong);
+  font-weight: 700;
+}
+
+.manufacturing-lerobot-list ul {
+  margin: 0.7rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.manufacturing-lerobot-list li + li {
+  margin-top: 0.45rem;
+}
+
+@media (max-width: 920px) {
+  .manufacturing-robotics-timeline-layout,
+  .manufacturing-robotics-panel-grid,
+  .manufacturing-action-instructions,
+  .manufacturing-lerobot-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .manufacturing-robotics-output-list,
+  .manufacturing-boundary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .manufacturing-robotics-expected,
+  .manufacturing-robotics-result-panel,
+  .manufacturing-action-detail,
+  .manufacturing-handoff-section,
+  .manufacturing-exact-hashes,
+  .manufacturing-lerobot-list {
+    padding: 0.85rem;
+  }
+
+  .manufacturing-robotics-primary-action,
+  .manufacturing-robotics-primary-action > .action-button {
+    width: 100%;
+  }
+
+  .manufacturing-action-button,
+  .manufacturing-robotics-trust-choice input {
+    min-height: 44px;
+  }
+
+  .manufacturing-robotics-trust-choice input {
+    min-width: 44px;
+    margin: 0;
+  }
+}

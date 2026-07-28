@@ -53,6 +53,8 @@ export function classifyResultFilePurpose(artifact = {}) {
     'investment_review',
     'dfm',
     'inspection',
+    'manufacturing_data_validation',
+    'manufacturing-data-validation',
     'revision-impact',
     'revision_impact',
     'revision-comparison',
@@ -94,6 +96,11 @@ function jobTypePreferenceScore(artifact = {}, jobType = '') {
   const normalizedType = String(jobType || '').trim().toLowerCase();
   const search = artifactSearchText(artifact);
   const extension = artifactExtension(artifact);
+
+  if (normalizedType === 'manufacturing-action-dataset'
+    && includesAny(search, ['manufacturing_robotics_dataset_manifest', 'manufacturing robotics dataset manifest'])) {
+    return -400;
+  }
 
   if (normalizedType === 'create' && (
     ['.fcstd', '.brep', '.brp', '.step', '.stp', '.stl'].includes(extension)

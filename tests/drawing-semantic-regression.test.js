@@ -606,6 +606,11 @@ try {
     'the exact manufacturing task plan should be recognized as curated source control material'
   );
   assert.equal(
+    isCuratedSourceControlMaterial(join(ROOT, 'configs', 'examples', 'manufacturing', 'hinge_block_synthetic_inspection_v1', 'inspection_plan.json')),
+    true,
+    'the exact synthetic proof inspection plan should be recognized as curated source control material'
+  );
+  assert.equal(
     isCuratedSourceControlMaterial(join(ROOT, 'configs', 'examples', 'manufacturing', 'other_robot_inspection_task_plan.json')),
     false,
     'the curated source exception must not allow arbitrary generated-looking task plans'

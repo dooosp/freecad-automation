@@ -1,6 +1,7 @@
 import { JOB_EXECUTOR_COMMANDS } from '../../../shared/command-manifest.js';
 import { createCanonicalArtifactHandlers } from './canonical-artifact-handlers.js';
 import { createEvidenceReadinessHandlers } from './evidence-readiness-handlers.js';
+import { createManufacturingActionHandlers } from './manufacturing-action-handlers.js';
 import { createReviewArtifactHandlers } from './review-artifact-handlers.js';
 import { createRuntimeBackedHandlers } from './runtime-backed-handlers.js';
 import { createStage5bHandlers } from './stage5b-handlers.js';
@@ -10,6 +11,7 @@ export function createJobHandlerRegistry(overrides = {}) {
     ...createRuntimeBackedHandlers(),
     ...createReviewArtifactHandlers(),
     ...createCanonicalArtifactHandlers(),
+    ...createManufacturingActionHandlers(),
     ...createEvidenceReadinessHandlers(),
     ...createStage5bHandlers(),
     ...overrides,
