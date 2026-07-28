@@ -113,6 +113,7 @@ import {
   renderSupplierInspectionRequest,
   writeInspectionPlanOutputs,
 } from '../src/services/inspection-plan/inspection-plan-service.js';
+import { generateManufacturingActionDataset } from '../src/services/manufacturing-action-dataset/manufacturing-action-dataset-service.js';
 import {
   createInspectionPlanReleaseRecordFromPaths,
   writeInspectionPlanReleaseRecord,
@@ -180,11 +181,13 @@ const PROJECT_ROOT = resolve(__dirname, '..');
 const VALID_DFM_PROCESSES = new Set(['machining', 'casting', 'sheet_metal', '3d_printing']);
 const VALIDATE_TIMEOUT_MS = 30_000;
 const EVIDENCE_GRAPH_USAGE = 'fcad evidence-graph --package <slug> --review-pack <review_pack.json> --readiness <readiness_report.json> --out <evidence_graph.json>';
+const MANUFACTURING_ACTION_DATASET_USAGE = 'fcad manufacturing-action-dataset --config <authoritative-config> --review-pack <proof-review-pack> --inspection-plan <proof-inspection-plan> --robot-config <robot-config> --task-plan <task-plan.json> --proof-lineage --generated-at <iso8601> --out-dir <directory>';
 const PROOF_LINEAGE_CLI_COMMANDS = new Set([
   'review-context',
   'readiness-pack',
   'readiness-report',
   'inspection-plan',
+  'manufacturing-action-dataset',
   'generate-standard-docs',
   'pack',
 ]);
@@ -1133,6 +1136,7 @@ const CLI_COMMAND_HANDLERS = Object.freeze({
   'stabilization-review': cmdStabilizationReview,
   'generate-standard-docs': cmdGenerateStandardDocs,
   'inspection-plan': cmdInspectionPlan,
+  'manufacturing-action-dataset': cmdManufacturingActionDataset,
   'inspection-plan-release-record': cmdInspectionPlanReleaseRecord,
   'inspection-result-normalize': cmdInspectionResultNormalize,
   ingest: cmdIngest,
@@ -2477,6 +2481,61 @@ async function cmdInspectionPlan(rawArgs = []) {
   console.log(`Manifest: ${manifestPath}`);
   console.log(`  Status: ${plan.status}`);
   console.log('  Human release required: yes');
+}
+
+async function cmdManufacturingActionDataset(rawArgs = []) {
+  const { positional, options } = parseCliArgs(rawArgs);
+  if (positional.length > 0) {
+    console.error('Error: manufacturing-action-dataset does not accept positional arguments');
+    console.error(`  ${MANUFACTURING_ACTION_DATASET_USAGE}`);
+    process.exit(1);
+  }
+  rejectUnsupportedOptions('manufacturing-action-dataset', options, [
+    'config', 'review-pack', 'inspection-plan', 'robot-config', 'task-plan',
+    'proof-lineage', 'generated-at', 'out-dir',
+  ]);
+  const proofLineage = strictProofLineageOption('manufacturing-action-dataset', options);
+  if (!proofLineage) {
+    console.error('Error: manufacturing-action-dataset requires --proof-lineage');
+    console.error(`  ${MANUFACTURING_ACTION_DATASET_USAGE}`);
+    process.exit(1);
+  }
+
+  const configPath = requireOptionValue('--config', options.config, MANUFACTURING_ACTION_DATASET_USAGE);
+  const reviewPackPath = requireOptionValue('--review-pack', options['review-pack'], MANUFACTURING_ACTION_DATASET_USAGE);
+  const inspectionPlanPath = requireOptionValue('--inspection-plan', options['inspection-plan'], MANUFACTURING_ACTION_DATASET_USAGE);
+  const robotConfigPath = requireOptionValue('--robot-config', options['robot-config'], MANUFACTURING_ACTION_DATASET_USAGE);
+  const taskPlanPath = requireOptionValue('--task-plan', options['task-plan'], MANUFACTURING_ACTION_DATASET_USAGE);
+  const generatedAt = requireOptionValue('--generated-at', options['generated-at'], MANUFACTURING_ACTION_DATASET_USAGE);
+  const outDir = requireOptionValue('--out-dir', options['out-dir'], MANUFACTURING_ACTION_DATASET_USAGE);
+
+  try {
+    const result = await generateManufacturingActionDataset({
+      projectRoot: PROJECT_ROOT,
+      configPath,
+      reviewPackPath,
+      inspectionPlanPath,
+      robotConfigPath,
+      taskPlanPath,
+      generatedAt,
+      proofLineage,
+      outDir,
+    });
+    console.log(`Manufacturing action dataset: ${repoRelativePath(result.output_dir)}`);
+    console.log(`  Status: ${result.status}`);
+    console.log(`  Artifact ID: ${result.artifact_id}`);
+    console.log('  Runtime: offline artifact-driven Node; FreeCAD and robot execution not used');
+    console.log('  Boundary: synthetic demo only; no shop-floor data, computer vision, LeRobot export, training readiness, inspection evidence, readiness regeneration, or product release');
+    console.log('  Human review required: yes');
+    return result;
+  } catch (error) {
+    const code = typeof error?.code === 'string' && error.code ? `${error.code}: ` : '';
+    console.error(`Error: ${code}${error?.message || String(error)}`);
+    if (typeof error?.stage === 'string' && error.stage) console.error(`  Stage: ${error.stage}`);
+    if (typeof error?.json_pointer === 'string' && error.json_pointer) console.error(`  Path: ${error.json_pointer}`);
+    if (typeof error?.remediation === 'string' && error.remediation) console.error(`  Remediation: ${error.remediation}`);
+    process.exit(1);
+  }
 }
 
 async function cmdInspectionPlanReleaseRecord(rawArgs = []) {

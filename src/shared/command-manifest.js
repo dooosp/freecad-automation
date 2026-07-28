@@ -655,6 +655,21 @@ const RAW_COMMAND_MANIFEST = Object.freeze([
     }),
   }),
   Object.freeze({
+    name: 'manufacturing-action-dataset',
+    helpSection: 'plain-python-node',
+    helpEntries: Object.freeze([
+      Object.freeze({
+        usage: 'fcad manufacturing-action-dataset --config <authoritative-config> --review-pack <proof-review-pack> --inspection-plan <proof-inspection-plan> --robot-config <robot-config> --task-plan <task-plan.json> --proof-lineage --generated-at <iso8601> --out-dir <directory>',
+        summary: 'Build a proof-lineage-bound offline synthetic manufacturing robotics dataset for human review',
+      }),
+    ]),
+    runtime: Object.freeze({
+      classification: 'plain-python-node',
+      requiresFreecadRuntime: false,
+      note: 'Artifact-driven synthetic data generation only; it does not run FreeCAD, control a robot, attach evidence, regenerate readiness, or authorize release.',
+    }),
+  }),
+  Object.freeze({
     name: 'inspection-plan-release-record',
     helpSection: 'plain-python-node',
     helpEntries: Object.freeze([
@@ -971,6 +986,7 @@ const COMMAND_LIFECYCLE_METADATA = Object.freeze({
   'stage5b-surrogate-inspection-validation': maintainer(),
   'stabilization-review': beta(),
   'inspection-plan': stable('compare-plan', { defaultHelpVisible: true, defaultHelpOrder: 20, safetyBoundary: 'Generates control material only; a human release is required before execution.' }),
+  'manufacturing-action-dataset': experimental('engineering', { safetyBoundary: 'Offline synthetic dataset generation only; no robot execution, real shop-floor data, computer vision, training readiness, inspection evidence, readiness mutation, or product release.' }),
   'inspection-plan-release-record': stable('receive-results', { defaultHelpVisible: true, defaultHelpOrder: 10, safetyBoundary: 'Binds an explicit human release for inspection execution only; it is not product release or evidence authorization.' }),
   'inspection-result-normalize': stable('receive-results', { defaultHelpVisible: true, defaultHelpOrder: 20, safetyBoundary: 'CLI-only raw-file handling; output is untrusted and no higher than ready_for_quarantine_review.' }),
   'generate-standard-docs': beta('review'),
@@ -1033,7 +1049,7 @@ const SHARED_WORKFLOW_OPTIONS = Object.freeze([
   Object.freeze({ flag: '--inspection-evidence <path>', description: 'Canonical attached inspection evidence envelope; requires its checksum-bound onboarding authorization and immutable receipt' }),
   Object.freeze({ flag: '--attachment-authorization <path>', description: 'Canonical inspection_evidence_attachment_authorization produced by onboarding; legacy stage5b_attachment_authorization is rejected' }),
   Object.freeze({ flag: '--evidence-attachment-record <path>', description: 'Immutable inspection_evidence_attachment_record required with --inspection-evidence' }),
-  Object.freeze({ flag: '--config <config.toml|json>', description: 'Authoritative config for proof-enabled review-context or inspection-plan ingress' }),
+  Object.freeze({ flag: '--config <config.toml|json>', description: 'Authoritative config for proof-enabled review-context, inspection-plan, or manufacturing-action-dataset ingress' }),
 ]);
 
 const WORKFLOW_SPECIFIC_OPTIONS = Object.freeze([
@@ -1048,8 +1064,11 @@ const WORKFLOW_SPECIFIC_OPTIONS = Object.freeze([
   Object.freeze({ flag: '--strict', description: 'Treat warnings as errors (with validate/dfm)' }),
   Object.freeze({ flag: '--strict-boundary', description: 'Fail closeout-package if the source package or generated text crosses the evidence boundary' }),
   Object.freeze({ flag: '--strict-quality', description: 'Fail create or draw when blocking quality checks are found' }),
-  Object.freeze({ flag: '--proof-lineage', description: 'Valueless opt-in for authoritative revision lineage on supported review, readiness, standard-docs, inspection-plan, and pack ingress' }),
-  Object.freeze({ flag: '--generated-at <iso8601>', description: 'Use a fixed timestamp on supported standard-docs, inspection-plan, and pack outputs for deterministic metadata' }),
+  Object.freeze({ flag: '--proof-lineage', description: 'Valueless opt-in for authoritative revision lineage on supported review, readiness, standard-docs, inspection-plan, manufacturing-action-dataset, and pack ingress' }),
+  Object.freeze({ flag: '--generated-at <iso8601>', description: 'Use a fixed timestamp on supported standard-docs, inspection-plan, manufacturing-action-dataset, and pack outputs for deterministic metadata' }),
+  Object.freeze({ flag: '--inspection-plan <path>', description: 'Proof inspection-plan JSON input for manufacturing-action-dataset' }),
+  Object.freeze({ flag: '--robot-config <path>', description: 'Repo-local robot configuration input for manufacturing-action-dataset' }),
+  Object.freeze({ flag: '--task-plan <path>', description: 'Curated manufacturing task-plan JSON input for manufacturing-action-dataset' }),
   Object.freeze({ flag: '--fingerprint-out <runtime_fingerprint.json>', description: 'Write reproducibility context only; not inspection evidence or production readiness proof' }),
   Object.freeze({ flag: '--manifest-out <path>', description: 'Write a provenance manifest for stdout-oriented commands such as inspect/fem/tolerance/dfm' }),
   Object.freeze({ flag: '--source <path>', description: 'Raw local Stage 5B source path for acquisition/preflight only; it is never attached by source preflight' }),

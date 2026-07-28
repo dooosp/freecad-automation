@@ -70,6 +70,7 @@ See [command lifecycle](./command-lifecycle.md) and [product workflows](./produc
 - `inspection-evidence-regenerate-readiness`
 - `inspection-evidence-promotion-dry-run`
 - `inspection-plan`
+- `manufacturing-action-dataset`
 - `inspection-plan-release-record`
 - `inspection-result-normalize`
 - `stage5b-evidence-audit`

@@ -1,0 +1,688 @@
+{
+  "schema_version": "1.0",
+  "artifact_type": "manufacturing_task_plan",
+  "artifact_id": "manufacturing-task-plan.hinge-block.robot-inspection.v1",
+  "identity": {
+    "package_slug": "hinge-block",
+    "part_id": "hinge_block",
+    "revision": "A",
+    "config_sha256": "992cf687e1da65f9ac89c12bd36ad7cd2b57367deb0cc6d50a74d4c03b7a52d1"
+  },
+  "robot": {
+    "robot_config_path": "configs/examples/robot_arm_6axis.toml",
+    "robot_config_sha256": "afa6ab4970687c062b569618c81f8661d6865cfc1324764b25dc40f3168d4368",
+    "robot_id": "6axis_industrial_robot_arm",
+    "tool_interface_id": "tool_flange",
+    "joint_ids": [
+      "j1_base_yaw",
+      "j2_shoulder_pitch",
+      "j3_elbow_pitch",
+      "j4_wrist_yaw",
+      "j5_wrist_pitch",
+      "j6_wrist_roll"
+    ]
+  },
+  "source_universe": {
+    "part_ids": [
+      "hinge_block"
+    ],
+    "feature_ids": [
+      "base_block",
+      "left_ear",
+      "right_ear",
+      "hinge_pin_left",
+      "hinge_pin_right",
+      "mount_hole_left",
+      "mount_hole_right"
+    ],
+    "quality_characteristic_ids": [
+      "cd-01",
+      "cd-02",
+      "ftp-01",
+      "ftp-02"
+    ],
+    "robot_joint_ids": [
+      "j1_base_yaw",
+      "j2_shoulder_pitch",
+      "j3_elbow_pitch",
+      "j4_wrist_yaw",
+      "j5_wrist_pitch",
+      "j6_wrist_roll"
+    ],
+    "tool_interface_ids": [
+      "tool_flange"
+    ]
+  },
+  "boundaries": {
+    "synthetic_demo": true,
+    "real_shop_floor_data": false,
+    "automatic_video_segmentation": false,
+    "computer_vision_model_used": false,
+    "lerobot_compatible": false,
+    "training_ready": false,
+    "inspection_evidence": false,
+    "evidence_attached": false,
+    "readiness_regenerated": false,
+    "product_release": false,
+    "production_readiness": false,
+    "human_review_required": true
+  },
+  "actions": [
+    {
+      "order": 1,
+      "action_id": "approach_hinge_block",
+      "primitive": "approach",
+      "actor_type": "industrial_robot",
+      "duration_ms": 1000,
+      "references": {
+        "part_ids": [
+          "hinge_block"
+        ],
+        "feature_ids": [
+          "base_block"
+        ],
+        "quality_characteristic_ids": [],
+        "robot_joint_ids": [
+          "j1_base_yaw",
+          "j2_shoulder_pitch",
+          "j3_elbow_pitch",
+          "j4_wrist_yaw",
+          "j5_wrist_pitch",
+          "j6_wrist_roll"
+        ],
+        "tool_interface_ids": [
+          "tool_flange"
+        ],
+        "inspection_plan_item_ids": []
+      },
+      "preconditions": [
+        "The synthetic episode starts with the hinge block available for a human-reviewed approach plan."
+      ],
+      "postconditions": [
+        "The synthetic sequence is ready for the planned grasp step; no physical proximity is asserted."
+      ],
+      "allowed_previous_action_ids": [],
+      "allowed_next_action_ids": [
+        "grasp_hinge_block"
+      ],
+      "instruction": {
+        "ko": "사람이 검토할 접근 계획에 따라 힌지 블록의 베이스 블록 참조로 이동합니다.",
+        "en": "Follow the human-reviewed approach plan toward the hinge block base reference."
+      },
+      "instruction_origin": "human_authored",
+      "human_review_required": true,
+      "unresolved_requirement_ids": [
+        "part_robot_transform_definition",
+        "collision_safe_trajectory_definition"
+      ]
+    },
+    {
+      "order": 2,
+      "action_id": "grasp_hinge_block",
+      "primitive": "grasp",
+      "actor_type": "industrial_robot",
+      "duration_ms": 800,
+      "references": {
+        "part_ids": [
+          "hinge_block"
+        ],
+        "feature_ids": [
+          "base_block"
+        ],
+        "quality_characteristic_ids": [],
+        "robot_joint_ids": [
+          "j1_base_yaw",
+          "j2_shoulder_pitch",
+          "j3_elbow_pitch",
+          "j4_wrist_yaw",
+          "j5_wrist_pitch",
+          "j6_wrist_roll"
+        ],
+        "tool_interface_ids": [
+          "tool_flange"
+        ],
+        "inspection_plan_item_ids": []
+      },
+      "preconditions": [
+        "The synthetic approach step is complete and a human has not yet approved a physical gripper."
+      ],
+      "postconditions": [
+        "The annotation records the intended grasp only; it does not assert a verified physical grip."
+      ],
+      "allowed_previous_action_ids": [
+        "approach_hinge_block"
+      ],
+      "allowed_next_action_ids": [
+        "transport_to_fixture"
+      ],
+      "instruction": {
+        "ko": "선정이 필요한 그리퍼를 가정하지 말고 베이스 블록 파지 의도만 기록합니다.",
+        "en": "Record only the intended base-block grasp without assuming an unselected gripper."
+      },
+      "instruction_origin": "human_authored",
+      "human_review_required": true,
+      "unresolved_requirement_ids": [
+        "gripper_selection",
+        "part_robot_transform_definition",
+        "collision_safe_trajectory_definition"
+      ]
+    },
+    {
+      "order": 3,
+      "action_id": "transport_to_fixture",
+      "primitive": "transport",
+      "actor_type": "industrial_robot",
+      "duration_ms": 1500,
+      "references": {
+        "part_ids": [
+          "hinge_block"
+        ],
+        "feature_ids": [
+          "base_block"
+        ],
+        "quality_characteristic_ids": [],
+        "robot_joint_ids": [
+          "j1_base_yaw",
+          "j2_shoulder_pitch",
+          "j3_elbow_pitch",
+          "j4_wrist_yaw",
+          "j5_wrist_pitch",
+          "j6_wrist_roll"
+        ],
+        "tool_interface_ids": [
+          "tool_flange"
+        ],
+        "inspection_plan_item_ids": []
+      },
+      "preconditions": [
+        "The synthetic grasp intent is recorded and the fixture remains an unresolved engineering input."
+      ],
+      "postconditions": [
+        "The sequence advances to fixture alignment without asserting a real transport path."
+      ],
+      "allowed_previous_action_ids": [
+        "grasp_hinge_block"
+      ],
+      "allowed_next_action_ids": [
+        "align_mounting_interface"
+      ],
+      "instruction": {
+        "ko": "정의되지 않은 실제 경로를 생성하지 않고 치구로 이송하는 합성 단계만 표시합니다.",
+        "en": "Mark the synthetic transport-to-fixture step without generating an undefined physical path."
+      },
+      "instruction_origin": "human_authored",
+      "human_review_required": true,
+      "unresolved_requirement_ids": [
+        "gripper_selection",
+        "fixture_definition",
+        "part_robot_transform_definition",
+        "collision_safe_trajectory_definition"
+      ]
+    },
+    {
+      "order": 4,
+      "action_id": "align_mounting_interface",
+      "primitive": "align",
+      "actor_type": "industrial_robot",
+      "duration_ms": 1000,
+      "references": {
+        "part_ids": [
+          "hinge_block"
+        ],
+        "feature_ids": [
+          "mount_hole_left",
+          "mount_hole_right"
+        ],
+        "quality_characteristic_ids": [
+          "cd-02"
+        ],
+        "robot_joint_ids": [
+          "j1_base_yaw",
+          "j2_shoulder_pitch",
+          "j3_elbow_pitch",
+          "j4_wrist_yaw",
+          "j5_wrist_pitch",
+          "j6_wrist_roll"
+        ],
+        "tool_interface_ids": [
+          "tool_flange"
+        ],
+        "inspection_plan_item_ids": []
+      },
+      "preconditions": [
+        "The synthetic transport step is complete and no part-to-fixture transform has been released."
+      ],
+      "postconditions": [
+        "The mounting-hole alignment intent is recorded for human review."
+      ],
+      "allowed_previous_action_ids": [
+        "transport_to_fixture"
+      ],
+      "allowed_next_action_ids": [
+        "seat_on_fixture"
+      ],
+      "instruction": {
+        "ko": "좌우 장착 구멍을 정렬 참조로 사용하되 실제 치구 좌표계는 사람이 정의하도록 남깁니다.",
+        "en": "Use the two mounting holes as alignment references while leaving the real fixture frame for human definition."
+      },
+      "instruction_origin": "human_authored",
+      "human_review_required": true,
+      "unresolved_requirement_ids": [
+        "gripper_selection",
+        "fixture_definition",
+        "part_robot_transform_definition",
+        "collision_safe_trajectory_definition"
+      ]
+    },
+    {
+      "order": 5,
+      "action_id": "seat_on_fixture",
+      "primitive": "seat",
+      "actor_type": "industrial_robot",
+      "duration_ms": 800,
+      "references": {
+        "part_ids": [
+          "hinge_block"
+        ],
+        "feature_ids": [
+          "base_block",
+          "mount_hole_left",
+          "mount_hole_right"
+        ],
+        "quality_characteristic_ids": [],
+        "robot_joint_ids": [
+          "j1_base_yaw",
+          "j2_shoulder_pitch",
+          "j3_elbow_pitch",
+          "j4_wrist_yaw",
+          "j5_wrist_pitch",
+          "j6_wrist_roll"
+        ],
+        "tool_interface_ids": [
+          "tool_flange"
+        ],
+        "inspection_plan_item_ids": []
+      },
+      "preconditions": [
+        "The mounting-interface alignment intent is recorded without a released fixture definition."
+      ],
+      "postconditions": [
+        "The synthetic sequence marks the part as ready for planned probing, not physically seated."
+      ],
+      "allowed_previous_action_ids": [
+        "align_mounting_interface"
+      ],
+      "allowed_next_action_ids": [
+        "probe_left_hinge_pin"
+      ],
+      "instruction": {
+        "ko": "베이스 블록을 치구에 안착시키는 의도를 기록하고 실제 접촉 조건은 승인 대상으로 남깁니다.",
+        "en": "Record the intent to seat the base block while leaving real contact conditions for approval."
+      },
+      "instruction_origin": "human_authored",
+      "human_review_required": true,
+      "unresolved_requirement_ids": [
+        "gripper_selection",
+        "fixture_definition",
+        "part_robot_transform_definition",
+        "collision_safe_trajectory_definition"
+      ]
+    },
+    {
+      "order": 6,
+      "action_id": "probe_left_hinge_pin",
+      "primitive": "probe",
+      "actor_type": "industrial_robot",
+      "duration_ms": 1200,
+      "references": {
+        "part_ids": [
+          "hinge_block"
+        ],
+        "feature_ids": [
+          "hinge_pin_left"
+        ],
+        "quality_characteristic_ids": [
+          "cd-01"
+        ],
+        "robot_joint_ids": [
+          "j1_base_yaw",
+          "j2_shoulder_pitch",
+          "j3_elbow_pitch",
+          "j4_wrist_yaw",
+          "j5_wrist_pitch",
+          "j6_wrist_roll"
+        ],
+        "tool_interface_ids": [
+          "tool_flange"
+        ],
+        "inspection_plan_item_ids": []
+      },
+      "preconditions": [
+        "The synthetic seating step is complete; probe selection and released tolerance remain unresolved."
+      ],
+      "postconditions": [
+        "The left hinge-pin feature is annotated for planned probing without producing inspection evidence."
+      ],
+      "allowed_previous_action_ids": [
+        "seat_on_fixture"
+      ],
+      "allowed_next_action_ids": [
+        "probe_right_hinge_pin"
+      ],
+      "instruction": {
+        "ko": "왼쪽 힌지 핀 구멍을 계획상 프로빙 대상으로 표시하되 측정값이나 합격 판정을 만들지 않습니다.",
+        "en": "Mark the left hinge-pin hole for planned probing without creating a measurement or acceptance result."
+      },
+      "instruction_origin": "human_authored",
+      "human_review_required": true,
+      "unresolved_requirement_ids": [
+        "probe_selection",
+        "fixture_definition",
+        "part_robot_transform_definition",
+        "collision_safe_trajectory_definition",
+        "released_numeric_tolerance"
+      ]
+    },
+    {
+      "order": 7,
+      "action_id": "probe_right_hinge_pin",
+      "primitive": "probe",
+      "actor_type": "industrial_robot",
+      "duration_ms": 1200,
+      "references": {
+        "part_ids": [
+          "hinge_block"
+        ],
+        "feature_ids": [
+          "hinge_pin_right"
+        ],
+        "quality_characteristic_ids": [
+          "cd-01"
+        ],
+        "robot_joint_ids": [
+          "j1_base_yaw",
+          "j2_shoulder_pitch",
+          "j3_elbow_pitch",
+          "j4_wrist_yaw",
+          "j5_wrist_pitch",
+          "j6_wrist_roll"
+        ],
+        "tool_interface_ids": [
+          "tool_flange"
+        ],
+        "inspection_plan_item_ids": []
+      },
+      "preconditions": [
+        "The left hinge-pin probing annotation is complete and no physical probe result exists."
+      ],
+      "postconditions": [
+        "The right hinge-pin feature is annotated for planned probing without producing inspection evidence."
+      ],
+      "allowed_previous_action_ids": [
+        "probe_left_hinge_pin"
+      ],
+      "allowed_next_action_ids": [
+        "inspect_hinge_ears"
+      ],
+      "instruction": {
+        "ko": "오른쪽 힌지 핀 구멍을 계획상 프로빙 대상으로 표시하되 측정값이나 합격 판정을 만들지 않습니다.",
+        "en": "Mark the right hinge-pin hole for planned probing without creating a measurement or acceptance result."
+      },
+      "instruction_origin": "human_authored",
+      "human_review_required": true,
+      "unresolved_requirement_ids": [
+        "probe_selection",
+        "fixture_definition",
+        "part_robot_transform_definition",
+        "collision_safe_trajectory_definition",
+        "released_numeric_tolerance"
+      ]
+    },
+    {
+      "order": 8,
+      "action_id": "inspect_hinge_ears",
+      "primitive": "inspect",
+      "actor_type": "industrial_robot",
+      "duration_ms": 1400,
+      "references": {
+        "part_ids": [
+          "hinge_block"
+        ],
+        "feature_ids": [
+          "left_ear",
+          "right_ear"
+        ],
+        "quality_characteristic_ids": [
+          "ftp-01"
+        ],
+        "robot_joint_ids": [
+          "j1_base_yaw",
+          "j2_shoulder_pitch",
+          "j3_elbow_pitch",
+          "j4_wrist_yaw",
+          "j5_wrist_pitch",
+          "j6_wrist_roll"
+        ],
+        "tool_interface_ids": [
+          "tool_flange"
+        ],
+        "inspection_plan_item_ids": []
+      },
+      "preconditions": [
+        "Both hinge-pin probing intentions are annotated; no vision model or physical inspection method is selected."
+      ],
+      "postconditions": [
+        "The two hinge ears are referenced for planned human-reviewed inspection only."
+      ],
+      "allowed_previous_action_ids": [
+        "probe_right_hinge_pin"
+      ],
+      "allowed_next_action_ids": [
+        "inspect_mounting_holes"
+      ],
+      "instruction": {
+        "ko": "양쪽 힌지 이어를 검사 대상으로 연결하되 자동 비전 결과나 실제 품질 판정을 생성하지 않습니다.",
+        "en": "Link both hinge ears to the inspection intent without generating automated vision results or a physical quality decision."
+      },
+      "instruction_origin": "human_authored",
+      "human_review_required": true,
+      "unresolved_requirement_ids": [
+        "fixture_definition",
+        "part_robot_transform_definition",
+        "collision_safe_trajectory_definition"
+      ]
+    },
+    {
+      "order": 9,
+      "action_id": "inspect_mounting_holes",
+      "primitive": "inspect",
+      "actor_type": "industrial_robot",
+      "duration_ms": 1400,
+      "references": {
+        "part_ids": [
+          "hinge_block"
+        ],
+        "feature_ids": [
+          "mount_hole_left",
+          "mount_hole_right"
+        ],
+        "quality_characteristic_ids": [
+          "cd-02",
+          "ftp-02"
+        ],
+        "robot_joint_ids": [
+          "j1_base_yaw",
+          "j2_shoulder_pitch",
+          "j3_elbow_pitch",
+          "j4_wrist_yaw",
+          "j5_wrist_pitch",
+          "j6_wrist_roll"
+        ],
+        "tool_interface_ids": [
+          "tool_flange"
+        ],
+        "inspection_plan_item_ids": []
+      },
+      "preconditions": [
+        "The hinge-ear inspection intent is recorded and no genuine inspection record is attached."
+      ],
+      "postconditions": [
+        "Both mounting holes are referenced for planned inspection without evidence or approval."
+      ],
+      "allowed_previous_action_ids": [
+        "inspect_hinge_ears"
+      ],
+      "allowed_next_action_ids": [
+        "release_and_retract"
+      ],
+      "instruction": {
+        "ko": "두 장착 구멍을 품질 특성과 연결하되 실제 검사 증거 또는 승인으로 해석하지 않습니다.",
+        "en": "Link both mounting holes to their quality characteristics without treating the annotation as inspection evidence or approval."
+      },
+      "instruction_origin": "human_authored",
+      "human_review_required": true,
+      "unresolved_requirement_ids": [
+        "fixture_definition",
+        "part_robot_transform_definition",
+        "collision_safe_trajectory_definition",
+        "released_numeric_tolerance"
+      ]
+    },
+    {
+      "order": 10,
+      "action_id": "release_and_retract",
+      "primitive": "release",
+      "actor_type": "industrial_robot",
+      "duration_ms": 1000,
+      "references": {
+        "part_ids": [
+          "hinge_block"
+        ],
+        "feature_ids": [
+          "base_block"
+        ],
+        "quality_characteristic_ids": [],
+        "robot_joint_ids": [
+          "j1_base_yaw",
+          "j2_shoulder_pitch",
+          "j3_elbow_pitch",
+          "j4_wrist_yaw",
+          "j5_wrist_pitch",
+          "j6_wrist_roll"
+        ],
+        "tool_interface_ids": [
+          "tool_flange"
+        ],
+        "inspection_plan_item_ids": []
+      },
+      "preconditions": [
+        "All planned synthetic inspection annotations are complete and remain unapproved."
+      ],
+      "postconditions": [
+        "The synthetic episode ends without claiming a physical release, readiness change, or product release."
+      ],
+      "allowed_previous_action_ids": [
+        "inspect_mounting_holes"
+      ],
+      "allowed_next_action_ids": [],
+      "instruction": {
+        "ko": "파지 해제와 후퇴 의도를 기록하되 실제 제품 출하나 생산 승인으로 해석하지 않습니다.",
+        "en": "Record the release-and-retract intent without implying physical product release or production approval."
+      },
+      "instruction_origin": "human_authored",
+      "human_review_required": true,
+      "unresolved_requirement_ids": [
+        "gripper_selection",
+        "part_robot_transform_definition",
+        "collision_safe_trajectory_definition"
+      ]
+    }
+  ],
+  "unresolved_requirements": [
+    {
+      "requirement_id": "gripper_selection",
+      "category": "gripper",
+      "description": "Select and validate a gripper before any physical handling; this repository establishes only the robot tool_flange interface.",
+      "required_for": [
+        "grasp_hinge_block",
+        "transport_to_fixture",
+        "align_mounting_interface",
+        "seat_on_fixture",
+        "release_and_retract"
+      ],
+      "status": "human_review_required"
+    },
+    {
+      "requirement_id": "probe_selection",
+      "category": "probe",
+      "description": "Select and validate a probe before any physical measurement; no probe is defined by the source robot configuration.",
+      "required_for": [
+        "probe_left_hinge_pin",
+        "probe_right_hinge_pin"
+      ],
+      "status": "human_review_required"
+    },
+    {
+      "requirement_id": "fixture_definition",
+      "category": "fixture",
+      "description": "Define and validate the physical fixture before placement, probing, or inspection; no fixture entity is present in the sources.",
+      "required_for": [
+        "transport_to_fixture",
+        "align_mounting_interface",
+        "seat_on_fixture",
+        "probe_left_hinge_pin",
+        "probe_right_hinge_pin",
+        "inspect_hinge_ears",
+        "inspect_mounting_holes"
+      ],
+      "status": "human_review_required"
+    },
+    {
+      "requirement_id": "part_robot_transform_definition",
+      "category": "part_robot_transform",
+      "description": "Define and validate the part-to-robot and part-to-fixture transforms before physical execution; no transform is established here.",
+      "required_for": [
+        "approach_hinge_block",
+        "grasp_hinge_block",
+        "transport_to_fixture",
+        "align_mounting_interface",
+        "seat_on_fixture",
+        "probe_left_hinge_pin",
+        "probe_right_hinge_pin",
+        "inspect_hinge_ears",
+        "inspect_mounting_holes",
+        "release_and_retract"
+      ],
+      "status": "human_review_required"
+    },
+    {
+      "requirement_id": "collision_safe_trajectory_definition",
+      "category": "trajectory",
+      "description": "Engineer and validate collision-safe trajectories and joint targets before physical execution; this plan contains no poses or targets.",
+      "required_for": [
+        "approach_hinge_block",
+        "grasp_hinge_block",
+        "transport_to_fixture",
+        "align_mounting_interface",
+        "seat_on_fixture",
+        "probe_left_hinge_pin",
+        "probe_right_hinge_pin",
+        "inspect_hinge_ears",
+        "inspect_mounting_holes",
+        "release_and_retract"
+      ],
+      "status": "human_review_required"
+    },
+    {
+      "requirement_id": "released_numeric_tolerance",
+      "category": "released_tolerance",
+      "description": "Obtain a released numeric tolerance before interpreting any planned probe or inspection action as an acceptance check.",
+      "required_for": [
+        "probe_left_hinge_pin",
+        "probe_right_hinge_pin",
+        "inspect_mounting_holes"
+      ],
+      "status": "human_review_required"
+    }
+  ]
+}

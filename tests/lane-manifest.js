@@ -96,6 +96,11 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'Revision lineage inspection planning', args: Object.freeze(['tests/revision-lineage-inspection-plan.test.js']) }),
       Object.freeze({ label: 'Revision lineage downstream continuity', args: Object.freeze(['tests/revision-lineage-downstream-continuity.test.js']) }),
       Object.freeze({ label: 'Revision lineage revision impact', args: Object.freeze(['tests/revision-lineage-revision-impact.test.js']) }),
+      Object.freeze({ label: 'Manufacturing action contracts', args: Object.freeze(['tests/manufacturing-action-contracts.test.js']) }),
+      Object.freeze({ label: 'Manufacturing action deterministic dataset', args: Object.freeze(['tests/manufacturing-action-dataset.test.js']) }),
+      Object.freeze({ label: 'Manufacturing action dataset input safety', args: Object.freeze(['tests/manufacturing-action-dataset-security.test.js']) }),
+      Object.freeze({ label: 'Atomic output publication security', args: Object.freeze(['tests/atomic-output-publication-security.test.js']) }),
+      Object.freeze({ label: 'Manufacturing action dataset CLI', args: Object.freeze(['tests/manufacturing-action-dataset-cli.test.js']) }),
       Object.freeze({ label: 'Inspection evidence onboarding CLI', args: Object.freeze(['tests/inspection-evidence-onboarding-cli.test.js']) }),
       Object.freeze({ label: 'Inspection evidence intake automation', args: Object.freeze(['tests/inspection-evidence-intake.test.js']) }),
       Object.freeze({ label: 'Inspection evidence promotion dry-run', args: Object.freeze(['tests/inspection-evidence-promotion-dry-run.test.js']) }),
@@ -254,6 +259,10 @@ export const RUNTIME_DOMAIN_SCRIPTS = Object.freeze([
   Object.freeze({ npmScript: 'test:runtime:full', packageCommand: 'node tests/test-runner.js --profile=full' }),
 ]);
 
+export const REPOSITORY_DOCTOR_SCRIPTS = Object.freeze([
+  Object.freeze({ npmScript: 'manufacturing-action-dataset:doctor', packageCommand: 'node scripts/manufacturing-action-dataset-doctor.js' }),
+]);
+
 export const WORKFLOW_MAPPINGS = Object.freeze([
   Object.freeze({
     label: 'Automation CI (hosted fast lanes)',
@@ -323,6 +332,9 @@ export function getExpectedPackageScripts() {
     entries[suite.npmScript] = suite.packageCommand;
   });
   RUNTIME_DOMAIN_SCRIPTS.forEach((script) => {
+    entries[script.npmScript] = script.packageCommand;
+  });
+  REPOSITORY_DOCTOR_SCRIPTS.forEach((script) => {
     entries[script.npmScript] = script.packageCommand;
   });
   return entries;
