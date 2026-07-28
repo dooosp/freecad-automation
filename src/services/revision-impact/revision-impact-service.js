@@ -46,6 +46,16 @@ import {
   hashRevisionImpactValue,
   renderRevisionImpactMarkdown,
 } from '../../../lib/revision-impact-contract.js';
+import {
+  RevisionLineageError,
+  assertRevisionLineage,
+  assertRevisionLineageIdentityAgreement,
+  assertRevisionLineageSnapshotCurrent,
+  buildRevisionLineage,
+  buildRevisionLineageParentFromSnapshot,
+  readAuthoritativeConfigSnapshot,
+  readRevisionLineageFileSnapshot,
+} from '../../../lib/revision-lineage-contract.js';
 import { validateExtractedDrawingSemantics } from '../drawing/extracted-drawing-semantics.js';
 import { validateEvidenceGraph as validateCanonicalEvidenceGraph } from '../evidence-graph/evidence-graph-service.js';
 import {
@@ -119,6 +129,9 @@ const UNIT_ALIASES = new Map([
 
 let atomicWriteCounter = 0;
 const preparedRevisionImpactPlans = new WeakSet();
+const proofRevisionImpactReports = new WeakMap();
+const loadedRevisionImpactProofStates = new WeakSet();
+const preparedRevisionImpactProofStates = new WeakMap();
 const APPROVED_INTERNAL_OUTPUT_ROOTS = Object.freeze(['output', 'tmp/codex']);
 const MAX_PREPARED_OUTPUT_BYTES = 16 * 1024 * 1024;
 const OUTPUT_TRANSACTION_JOURNAL = '.fcad-revision-impact-output.transaction.json';
@@ -136,12 +149,43 @@ function serviceError(code, message, details = {}) {
   return new RevisionImpactServiceError(code, message, details);
 }
 
+function asRevisionImpactLineageError(error, context) {
+  if (!(error instanceof RevisionLineageError)) return error;
+  return serviceError(error.code, `${context}: ${error.message}`, {
+    ...error.details,
+    lineage_reason_code: error.reason_code,
+  });
+}
+
+function runLineageAssertion(context, callback) {
+  try {
+    return callback();
+  } catch (error) {
+    throw asRevisionImpactLineageError(error, context);
+  }
+}
+
+async function runLineageOperation(context, callback) {
+  try {
+    return await callback();
+  } catch (error) {
+    throw asRevisionImpactLineageError(error, context);
+  }
+}
+
 function asObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 
 function asArray(value) {
   return Array.isArray(value) ? value : [];
+}
+
+function deepFreezeProofValue(value, seen = new WeakSet()) {
+  if (!value || typeof value !== 'object' || seen.has(value) || ArrayBuffer.isView(value)) return value;
+  seen.add(value);
+  Object.values(value).forEach((entry) => deepFreezeProofValue(entry, seen));
+  return Object.freeze(value);
 }
 
 function textOrNull(value) {
@@ -463,14 +507,14 @@ async function loadRevisionSide(projectRoot, label, {
   configPath = null,
   evidenceEnvelopePath = null,
   evidenceReceiptPath = null,
-}, trustedRoots = [projectRoot]) {
-  const reviewPack = await readStrictJson(
-    projectRoot,
-    reviewPackPath,
-    `${label} review pack`,
-    REVISION_IMPACT_MAX_JSON_BYTES,
-    trustedRoots
-  );
+}, trustedRoots = [projectRoot], preloaded = {}) {
+  const reviewPack = preloaded.reviewPack || await readStrictJson(
+      projectRoot,
+      reviewPackPath,
+      `${label} review pack`,
+      REVISION_IMPACT_MAX_JSON_BYTES,
+      trustedRoots
+    );
   assertValidDArtifact('review_pack', reviewPack.document, { command: 'compare-rev', path: reviewPack.source.ref });
   const side = {
     reviewPack: reviewPack.document,
@@ -495,7 +539,8 @@ async function loadRevisionSide(projectRoot, label, {
     side.sources.readiness_report = loaded.source;
   }
   if (configPath) {
-    const loaded = await readStrictConfig(projectRoot, configPath, `${label} config`, trustedRoots);
+    const loaded = preloaded.config
+      || await readStrictConfig(projectRoot, configPath, `${label} config`, trustedRoots);
     side.config = loaded.document;
     side.sources.config = loaded.source;
   }
@@ -537,6 +582,219 @@ async function loadRevisionSide(projectRoot, label, {
   return side;
 }
 
+function proofSourceFromSnapshot(projectRoot, snapshot) {
+  return {
+    bytes: snapshot.bytes,
+    absolute: resolve(projectRoot, snapshot.path),
+    ref: snapshot.path,
+    path: snapshot.path,
+    sha256: snapshot.sha256,
+    size_bytes: snapshot.size_bytes,
+    snapshot,
+  };
+}
+
+function parseProofReviewSnapshot(snapshot, label) {
+  const bytes = snapshot.bytes;
+  if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+    throw serviceError('malformed_identity', `${label} review pack must not contain a UTF-8 BOM`, {
+      cause_code: 'bom_forbidden',
+    });
+  }
+  let document;
+  try {
+    document = parseInspectionEvidenceJsonBytes(bytes, { requireCanonical: false });
+  } catch (error) {
+    throw serviceError('malformed_identity', `${label} review pack is not strict UTF-8 JSON: ${error.message}`, {
+      cause_code: error?.code || 'malformed_json',
+    });
+  }
+  assertDocumentSafety(document, `${label} review pack`);
+  return document;
+}
+
+function requiredProofAlias(value, path) {
+  if (value === undefined || value === null || (typeof value === 'string' && !value.trim())) {
+    throw serviceError('missing_identity', `${path} must be explicitly present in proof mode`, { path });
+  }
+  if (typeof value !== 'string' || value !== value.trim()) {
+    throw serviceError('malformed_identity', `${path} must be a non-blank string without surrounding whitespace`, { path });
+  }
+  return value;
+}
+
+function assertExactProofParent(lineage, expectedParent, label) {
+  const matches = lineage.parents.filter((parent) => parent.role === expectedParent.role);
+  if (matches.length === 0) {
+    throw serviceError('missing_parent', `${label} lacks ${expectedParent.role} parent`, {
+      role: expectedParent.role,
+    });
+  }
+  if (matches.length !== 1 || canonicalizeRevisionImpactJson(matches[0])
+    !== canonicalizeRevisionImpactJson(expectedParent)) {
+    throw serviceError('digest_mismatch', `${label} ${expectedParent.role} parent does not match the exact config snapshot`, {
+      role: expectedParent.role,
+      expected_parent: expectedParent,
+      actual_parents: matches,
+    });
+  }
+}
+
+function assertProofReviewBinding({ label, reviewPack, configSnapshot }) {
+  if (!reviewPack?.revision_lineage) {
+    throw serviceError('unsupported_legacy', `${label} review pack has no revision_lineage proof contract`);
+  }
+  const lineage = runLineageAssertion(
+    `${label} review lineage`,
+    () => assertRevisionLineage(reviewPack.revision_lineage)
+  );
+  runLineageAssertion(
+    `${label} config/review identity agreement`,
+    () => assertRevisionLineageIdentityAgreement([configSnapshot.identity, lineage])
+  );
+  const expectedConfigParent = runLineageAssertion(
+    `${label} config parent`,
+    () => buildRevisionLineageParentFromSnapshot({
+      artifactType: 'config',
+      role: 'authoritative_config',
+      snapshot: configSnapshot,
+    })
+  );
+  assertExactProofParent(lineage, expectedConfigParent, `${label} review pack`);
+
+  const topPartId = requiredProofAlias(reviewPack.part_id, `${label}.review_pack.part_id`);
+  const nestedPartId = requiredProofAlias(reviewPack.part?.part_id, `${label}.review_pack.part.part_id`);
+  const topRevision = requiredProofAlias(reviewPack.revision, `${label}.review_pack.revision`);
+  const nestedRevision = requiredProofAlias(reviewPack.part?.revision, `${label}.review_pack.part.revision`);
+  if (topPartId !== nestedPartId
+    || topPartId !== configSnapshot.identity.part_id
+    || topRevision !== nestedRevision
+    || topRevision !== configSnapshot.identity.revision) {
+    throw serviceError('conflicting_identity', `${label} review aliases conflict with its authoritative config`, {
+      top_part_id: topPartId,
+      nested_part_id: nestedPartId,
+      top_revision: topRevision,
+      nested_revision: nestedRevision,
+      authoritative_identity: configSnapshot.identity,
+    });
+  }
+  const metadataSlug = textOrNull(reviewPack.metadata?.package_slug);
+  if (metadataSlug !== null && metadataSlug !== configSnapshot.identity.package_slug) {
+    throw serviceError('conflicting_identity', `${label} review package slug conflicts with its authoritative config`);
+  }
+
+  const configRefs = asArray(reviewPack.source_artifact_refs)
+    .filter((ref) => ref?.artifact_type === 'config');
+  const matchingRef = configRefs.length === 1 ? configRefs[0] : null;
+  if (!matchingRef) {
+    throw serviceError('missing_parent', `${label} review pack must retain exactly one authoritative config source ref`);
+  }
+  if (matchingRef.path !== configSnapshot.path
+    || matchingRef.sha256 !== configSnapshot.sha256
+    || matchingRef.size_bytes !== configSnapshot.size_bytes) {
+    throw serviceError('digest_mismatch', `${label} review config source ref does not match the exact config snapshot`);
+  }
+  return { lineage, configParent: expectedConfigParent };
+}
+
+async function loadProofRevisionSide(projectRoot, label, options, selection, trustedRoots) {
+  const { reviewPackPath, configPath } = options;
+  if (!reviewPackPath || !configPath) {
+    throw serviceError('missing_parent', `${label} proof authority requires independent config and review-pack paths`);
+  }
+  const [configSnapshot, reviewSnapshot] = await Promise.all([
+    runLineageOperation(`${label} authoritative config`, () => readAuthoritativeConfigSnapshot({
+      projectRoot,
+      configPath,
+      selection,
+    })),
+    runLineageOperation(`${label} review snapshot`, () => readRevisionLineageFileSnapshot({
+      projectRoot,
+      path: reviewPackPath,
+      maxBytes: REVISION_IMPACT_MAX_JSON_BYTES,
+    })),
+  ]);
+  const reviewDocument = parseProofReviewSnapshot(reviewSnapshot, label);
+  const reviewBinding = assertProofReviewBinding({
+    label,
+    reviewPack: reviewDocument,
+    configSnapshot,
+  });
+  const side = await loadRevisionSide(projectRoot, label, options, trustedRoots, {
+    reviewPack: {
+      document: reviewDocument,
+      source: proofSourceFromSnapshot(projectRoot, reviewSnapshot),
+    },
+    config: {
+      document: configSnapshot.config,
+      source: proofSourceFromSnapshot(projectRoot, configSnapshot),
+    },
+  });
+  side.proof = Object.freeze({
+    identity: configSnapshot.identity,
+    configSnapshot,
+    reviewSnapshot,
+    reviewLineage: reviewBinding.lineage,
+    configParent: reviewBinding.configParent,
+  });
+  return deepFreezeProofValue(side);
+}
+
+function buildTwoSidedRevisionLineage(baseline, candidate) {
+  if (baseline.proof.configSnapshot.path === candidate.proof.configSnapshot.path
+    || baseline.proof.reviewSnapshot.path === candidate.proof.reviewSnapshot.path) {
+    throw serviceError(
+      'conflicting_identity',
+      'Baseline and candidate proof authority must use independent config and review snapshots'
+    );
+  }
+  const baselineIdentity = baseline.proof.identity;
+  const candidateIdentity = candidate.proof.identity;
+  if (baselineIdentity.package_slug !== candidateIdentity.package_slug
+    || baselineIdentity.part_id !== candidateIdentity.part_id) {
+    throw serviceError(
+      'conflicting_identity',
+      'Baseline and candidate proof identities must share package_slug and part_id',
+      { baseline_identity: baselineIdentity, candidate_identity: candidateIdentity }
+    );
+  }
+  const parents = [
+    runLineageAssertion('baseline config report parent', () => buildRevisionLineageParentFromSnapshot({
+      artifactType: 'config',
+      role: 'baseline_config',
+      snapshot: baseline.proof.configSnapshot,
+    })),
+    runLineageAssertion('baseline review report parent', () => buildRevisionLineageParentFromSnapshot({
+      artifactType: 'review_pack',
+      role: 'baseline_review_pack',
+      snapshot: baseline.proof.reviewSnapshot,
+    })),
+    runLineageAssertion('candidate config report parent', () => buildRevisionLineageParentFromSnapshot({
+      artifactType: 'config',
+      role: 'authoritative_config',
+      snapshot: candidate.proof.configSnapshot,
+    })),
+    runLineageAssertion('candidate review report parent', () => buildRevisionLineageParentFromSnapshot({
+      artifactType: 'review_pack',
+      role: 'candidate_review_pack',
+      snapshot: candidate.proof.reviewSnapshot,
+    })),
+  ];
+  const revisionLineage = runLineageAssertion(
+    'revision-impact report lineage',
+    () => buildRevisionLineage({ identity: candidateIdentity, parents })
+  );
+  return {
+    revisionLineage,
+    snapshots: Object.freeze([
+      baseline.proof.configSnapshot,
+      baseline.proof.reviewSnapshot,
+      candidate.proof.configSnapshot,
+      candidate.proof.reviewSnapshot,
+    ]),
+  };
+}
+
 export async function loadRevisionImpactInputSet({
   projectRoot,
   baselineReviewPackPath,
@@ -550,25 +808,62 @@ export async function loadRevisionImpactInputSet({
   baselineEvidenceReceiptPath = null,
   candidateEvidenceReceiptPath = null,
   trustedInputRoots = [],
+  requireAuthoritativeLineage = false,
+  baselineLineageSelection = null,
+  candidateLineageSelection = null,
 } = {}) {
+  if (typeof requireAuthoritativeLineage !== 'boolean') {
+    throw serviceError(
+      'malformed_identity',
+      'requireAuthoritativeLineage must be an explicit boolean'
+    );
+  }
   const root = await resolveProjectRoot(projectRoot);
   const externalRoots = await resolveExistingTrustedRoots(trustedInputRoots, 'trusted input root');
   const inputRoots = [root, ...externalRoots];
+  const baselineOptions = {
+    reviewPackPath: baselineReviewPackPath,
+    readinessPath: baselineReadinessPath,
+    configPath: baselineConfigPath,
+    evidenceEnvelopePath: baselineEvidenceEnvelopePath,
+    evidenceReceiptPath: baselineEvidenceReceiptPath,
+  };
+  const candidateOptions = {
+    reviewPackPath: candidateReviewPackPath,
+    readinessPath: candidateReadinessPath,
+    configPath: candidateConfigPath,
+    evidenceEnvelopePath: candidateEvidenceEnvelopePath,
+    evidenceReceiptPath: candidateEvidenceReceiptPath,
+  };
+
+  if (requireAuthoritativeLineage) {
+    if (!baselineLineageSelection || !candidateLineageSelection) {
+      throw serviceError(
+        'missing_identity',
+        'Proof-mode revision impact requires explicit baselineLineageSelection and candidateLineageSelection'
+      );
+    }
+    const [baseline, candidate] = await Promise.all([
+      loadProofRevisionSide(root, 'baseline', baselineOptions, baselineLineageSelection, inputRoots),
+      loadProofRevisionSide(root, 'candidate', candidateOptions, candidateLineageSelection, inputRoots),
+    ]);
+    const proof = buildTwoSidedRevisionLineage(baseline, candidate);
+    const proofState = Object.freeze({
+      projectRoot: root,
+      snapshots: proof.snapshots,
+    });
+    loadedRevisionImpactProofStates.add(proofState);
+    return {
+      baseline,
+      candidate,
+      revisionLineage: proof.revisionLineage,
+      proofState,
+    };
+  }
+
   const [baseline, candidate] = await Promise.all([
-    loadRevisionSide(root, 'baseline', {
-      reviewPackPath: baselineReviewPackPath,
-      readinessPath: baselineReadinessPath,
-      configPath: baselineConfigPath,
-      evidenceEnvelopePath: baselineEvidenceEnvelopePath,
-      evidenceReceiptPath: baselineEvidenceReceiptPath,
-    }, inputRoots),
-    loadRevisionSide(root, 'candidate', {
-      reviewPackPath: candidateReviewPackPath,
-      readinessPath: candidateReadinessPath,
-      configPath: candidateConfigPath,
-      evidenceEnvelopePath: candidateEvidenceEnvelopePath,
-      evidenceReceiptPath: candidateEvidenceReceiptPath,
-    }, inputRoots),
+    loadRevisionSide(root, 'baseline', baselineOptions, inputRoots),
+    loadRevisionSide(root, 'candidate', candidateOptions, inputRoots),
   ]);
   return { baseline, candidate };
 }
@@ -735,6 +1030,7 @@ function normalizeSide(side) {
     reviewPack.metadata?.package?.slug,
     readiness?.package_slug,
     readiness?.metadata?.package_slug,
+    config?.product?.package_slug,
     config?.package_slug,
     config?.package?.slug,
     envelope?.package?.slug,
@@ -746,6 +1042,7 @@ function normalizeSide(side) {
     reviewPack.part?.revision,
     readiness?.revision,
     readiness?.part?.revision,
+    config?.product?.revision,
     config?.revision,
     config?.package?.revision,
     envelope?.package?.revision,
@@ -756,8 +1053,10 @@ function normalizeSide(side) {
     reviewPack.part_id,
     reviewPack.part?.part_id,
     readiness?.part?.part_id,
+    config?.product?.part_id,
     config?.part_id,
     config?.part?.part_id,
+    config?.name,
   ]);
   const materialValues = collectExplicitValues([
     reviewPack.part?.material,
@@ -1613,19 +1912,78 @@ function reportSide(side) {
   const sourceKeys = Object.keys(side.sources).sort(compareCodePoints);
   return {
     package_slug: side.packageSlug,
+    part_id: side.partId,
     revision: side.revision,
     artifact_refs: uniqueSorted(sourceKeys.map((key) => side.sources[key].ref)),
     source_hashes: Object.fromEntries(sourceKeys.map((key) => [key, side.sources[key].sha256])),
   };
 }
 
-export function buildRevisionImpactReport({ baseline, candidate, generatedAt } = {}) {
+export function buildRevisionImpactReport({
+  baseline,
+  candidate,
+  generatedAt,
+  requireAuthoritativeLineage = false,
+  revisionLineage = null,
+  proofState = null,
+} = {}) {
   if (!baseline || !candidate) throw serviceError('revision_inputs_required', 'Baseline and candidate inputs are required');
+  if (typeof requireAuthoritativeLineage !== 'boolean') {
+    throw serviceError(
+      'malformed_identity',
+      'requireAuthoritativeLineage must be an explicit boolean'
+    );
+  }
   if (!isParseableTimestamp(generatedAt)) {
     throw serviceError('generated_at_required', 'generatedAt must be an injected RFC 3339 timestamp');
   }
   const left = normalizeSide(baseline);
   const right = normalizeSide(candidate);
+  let authoritativeLineage = null;
+  if (requireAuthoritativeLineage) {
+    if (!revisionLineage) {
+      throw serviceError('missing_parent', 'Proof-mode revision impact requires exact two-sided revision_lineage');
+    }
+    authoritativeLineage = runLineageAssertion(
+      'revision-impact report lineage',
+      () => assertRevisionLineage(revisionLineage)
+    );
+    const missingProofIdentity = [
+      left.packageSlug,
+      left.partId,
+      left.revision,
+      right.packageSlug,
+      right.partId,
+      right.revision,
+    ].some((value) => value === null);
+    if (missingProofIdentity) {
+      throw serviceError('missing_identity', 'Proof-mode revision impact requires explicit two-sided report identity');
+    }
+    if (left.packageSlug !== right.packageSlug || left.partId !== right.partId) {
+      throw serviceError(
+        'conflicting_identity',
+        'Proof-mode baseline and candidate must share package_slug and part_id'
+      );
+    }
+    if (right.packageSlug !== authoritativeLineage.identity.package_slug
+      || right.partId !== authoritativeLineage.identity.part_id
+      || right.revision !== authoritativeLineage.identity.revision
+      || right.sources.config?.sha256 !== authoritativeLineage.identity.config_sha256) {
+      throw serviceError(
+        'conflicting_identity',
+        'Proof-mode report subject must retain the exact candidate config identity',
+        {
+          report_candidate: {
+            package_slug: right.packageSlug,
+            part_id: right.partId,
+            revision: right.revision,
+            config_sha256: right.sources.config?.sha256 || null,
+          },
+          lineage_identity: authoritativeLineage.identity,
+        }
+      );
+    }
+  }
   if (left.packageSlug && right.packageSlug && left.packageSlug !== right.packageSlug) {
     throw serviceError('package_mismatch', 'Baseline and candidate package slugs must match');
   }
@@ -1953,6 +2311,7 @@ export function buildRevisionImpactReport({ baseline, candidate, generatedAt } =
     artifact_type: 'revision_impact_report',
     schema_version: REVISION_IMPACT_SCHEMA_VERSION,
     generated_at: generatedAt,
+    ...(authoritativeLineage ? { revision_lineage: authoritativeLineage } : {}),
     baseline: reportSide(left),
     candidate: reportSide(right),
     summary: {
@@ -1980,7 +2339,14 @@ export function buildRevisionImpactReport({ baseline, candidate, generatedAt } =
       measured_values_generated: false,
     },
   };
-  return assertValidRevisionImpactReport(report, { context: 'revision-impact service' });
+  const validatedReport = assertValidRevisionImpactReport(report, { context: 'revision-impact service' });
+  if (authoritativeLineage && loadedRevisionImpactProofStates.has(proofState)) {
+    proofRevisionImpactReports.set(validatedReport, Object.freeze({
+      proofState,
+      reportSha256: hashRevisionImpactValue(validatedReport),
+    }));
+  }
+  return validatedReport;
 }
 
 function isCanonicalOutputPath(projectRoot, absolute) {
@@ -2395,6 +2761,7 @@ async function replacePreparedOutputs(entries, {
   testFailAfterCommitCount = null,
   testHardExitAfterCommitCount = null,
   testHardExitBeforeInitialJournalRename = false,
+  beforeCommit = null,
 } = {}) {
   const directories = uniqueSorted(entries.map((entry) => entry.directory));
   if (directories.length !== 1) {
@@ -2455,6 +2822,12 @@ async function replacePreparedOutputs(entries, {
     journal = { ...journal, phase: 'prepared' };
     await updateOutputJournal(journalPath, journal);
     for (const entry of staged) await assertPreparedOutputState(entry);
+    if (beforeCommit !== null) {
+      if (typeof beforeCommit !== 'function') {
+        throw serviceError('invalid_publication_guard', 'beforeCommit publication guard must be a function');
+      }
+      await beforeCommit();
+    }
     for (const entry of staged.filter((item) => item.exists)) {
       await assertPreparedOutputState(entry);
       await rename(entry.target, entry.backup);
@@ -2611,8 +2984,39 @@ async function prepareCompanionOutputTarget(root, roots, companion, outputDirect
   };
 }
 
+async function assertProofRevisionImpactParentsCurrent(proofState) {
+  if (!loadedRevisionImpactProofStates.has(proofState)) {
+    throw serviceError(
+      'unsupported_legacy',
+      'Proof revision-impact publication requires trusted read-once parent snapshots'
+    );
+  }
+  await Promise.all(proofState.snapshots.map((snapshot) => runLineageOperation(
+    `revision-impact parent ${snapshot.path}`,
+    () => assertRevisionLineageSnapshotCurrent(snapshot, { projectRoot: proofState.projectRoot })
+  )));
+}
+
 export async function preflightRevisionImpactArtifactTargets(options = {}) {
   assertValidRevisionImpactReport(options.report, { context: 'revision-impact writer preflight' });
+  const proofRecord = proofRevisionImpactReports.get(options.report) || null;
+  if (options.report?.revision_lineage && !proofRecord) {
+    throw serviceError(
+      'unsupported_legacy',
+      'A revision_lineage report cannot be published without its trusted read-once proof state'
+    );
+  }
+  if (proofRecord && !options.report?.revision_lineage) {
+    throw serviceError('missing_parent', 'Trusted proof report lost its required revision_lineage before publication');
+  }
+  if (proofRecord && hashRevisionImpactValue(options.report) !== proofRecord.reportSha256) {
+    throw serviceError(
+      'conflicting_identity',
+      'Trusted proof report changed after its candidate identity and parent snapshots were bound'
+    );
+  }
+  const proofState = proofRecord?.proofState || null;
+  if (proofState) await assertProofRevisionImpactParentsCurrent(proofState);
   const { root, roots, json, markdown } = await resolveRevisionImpactOutputTargets(options);
   const jsonContent = canonicalizeRevisionImpactJson(options.report);
   const markdownContent = markdown ? renderRevisionImpactMarkdown(options.report) : null;
@@ -2641,6 +3045,7 @@ export async function preflightRevisionImpactArtifactTargets(options = {}) {
     markdownSha256: markdownContent === null ? null : sha256Bytes(markdownContent),
   });
   preparedRevisionImpactPlans.add(plan);
+  if (proofState) preparedRevisionImpactProofStates.set(plan, proofState);
   return plan;
 }
 
@@ -2649,12 +3054,20 @@ export async function writeRevisionImpactArtifacts(options = {}) {
   if (!preparedRevisionImpactPlans.has(plan)) {
     throw serviceError('invalid_prepared_output_plan', 'Revision-impact output plan must come from the trusted preflight');
   }
+  const proofState = preparedRevisionImpactProofStates.get(plan) || null;
+  if (proofState) await assertProofRevisionImpactParentsCurrent(proofState);
   const materialized = await materializePreparedOutputTargets(plan.entries);
   try {
     await replacePreparedOutputs(materialized.entries, {
       testFailAfterCommitCount: options.__testFailAfterCommitCount,
       testHardExitAfterCommitCount: options.__testHardExitAfterCommitCount,
       testHardExitBeforeInitialJournalRename: options.__testHardExitBeforeInitialJournalRename,
+      beforeCommit: proofState ? async () => {
+        if (typeof options.__testBeforeProofCommit === 'function') {
+          await options.__testBeforeProofCommit();
+        }
+        await assertProofRevisionImpactParentsCurrent(proofState);
+      } : null,
     });
   } catch (error) {
     await removeCreatedOutputDirectories(materialized.createdDirectories);
@@ -2669,7 +3082,15 @@ export async function writeRevisionImpactArtifacts(options = {}) {
 }
 
 export async function createRevisionImpactReportFromPaths(options = {}) {
-  const { baseline, candidate } = await loadRevisionImpactInputSet(options);
-  const report = buildRevisionImpactReport({ baseline, candidate, generatedAt: options.generatedAt });
+  const loaded = await loadRevisionImpactInputSet(options);
+  const { baseline, candidate, revisionLineage = null, proofState = null } = loaded;
+  const report = buildRevisionImpactReport({
+    baseline,
+    candidate,
+    generatedAt: options.generatedAt,
+    requireAuthoritativeLineage: options.requireAuthoritativeLineage === true,
+    revisionLineage,
+    proofState,
+  });
   return { report, baseline, candidate };
 }

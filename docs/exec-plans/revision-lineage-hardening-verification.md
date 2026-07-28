@@ -1,5 +1,15 @@
 # Revision Lineage Hardening Verification
 
+## Execution result
+
+- Internal repository verification: `PASS`
+- Final skeptical read-only review: `PASS`
+- External status: `HOLD_FOR_AUTHORITATIVE_BASELINE` and
+  `HOLD_FOR_GENUINE_INPUT`; canonical readiness remains
+  `hold_for_evidence_completion`
+- Scope claim: verified internal G-01 foundation only, not completion of the
+  roadmap's full Phase 1 external-packet criteria
+
 ## Objective
 
 Prove that opt-in revision-lineage hardening binds one selected canonical
@@ -12,9 +22,11 @@ unrelated canonical packages remain byte-identical, and no evidence, readiness,
 authorization, release, or publication claim is invented.
 
 This is the required verification companion to
-`docs/exec-plans/revision-lineage-hardening.md`. It describes future
-implementation verification; the plan-only PR contains no implementation or
-canonical-package mutation.
+`docs/exec-plans/revision-lineage-hardening.md`. It was executed on
+`codex/revision-lineage-hardening` from implementation base
+`44d1d6bb64d36f3cb89714c1469a606a7f3c24a9`; ignored command evidence is kept
+under `tmp/codex/`. The bounded canonical mutation is limited to the approved
+source config and its byte-identical package-local descendant.
 
 ## Evidence locations
 
@@ -55,9 +67,11 @@ Before implementation:
 9. Run the relevant baseline tests and retain exact failures; do not silently
    relabel a baseline failure as task-related or weaken it to obtain a pass.
 
-The current planning base is
-`9a54abb808b6844bd4efd35dec26e3907af9ab62`. A later implementation must record
-its own approved base rather than assuming this planning SHA is still current.
+The historical planning base was
+`9a54abb808b6844bd4efd35dec26e3907af9ab62`. The executed implementation pinned
+its own approved base,
+`44d1d6bb64d36f3cb89714c1469a606a7f3c24a9`, rather than assuming the planning
+SHA remained current.
 
 ## Verification order
 

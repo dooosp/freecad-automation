@@ -54,7 +54,7 @@ def build_confidence(level, score=None, rationale=None):
 
 def summarize_part(part):
     part = part or {}
-    return {
+    summary = {
         "part_id": part.get("part_id"),
         "name": part.get("name") or "unknown_part",
         "description": part.get("description"),
@@ -62,6 +62,9 @@ def summarize_part(part):
         "material": part.get("material"),
         "process": part.get("process"),
     }
+    if part.get("package_slug") is not None:
+        summary["package_slug"] = part.get("package_slug")
+    return summary
 
 
 def _dedupe_source_refs(values):
@@ -82,11 +85,19 @@ def _dedupe_source_refs(values):
             "role": role,
             "label": value.get("label"),
         }
+        sha256 = value.get("sha256")
+        size_bytes = value.get("size_bytes")
+        if isinstance(sha256, str) and sha256:
+            ref["sha256"] = sha256
+        if isinstance(size_bytes, int) and not isinstance(size_bytes, bool) and size_bytes >= 0:
+            ref["size_bytes"] = size_bytes
         dedupe_key = (
             ref["artifact_type"],
             ref["path"],
             ref["role"],
             ref["label"],
+            ref.get("sha256"),
+            ref.get("size_bytes"),
         )
         if dedupe_key in seen:
             continue
@@ -145,7 +156,7 @@ def build_contract_fields(
         len(metadata.get("source_files") or []),
     )
 
-    return {
+    contract = {
         "artifact_type": artifact_type,
         "schema_version": D_SCHEMA_VERSION,
         "analysis_version": D_ANALYSIS_VERSION,
@@ -157,3 +168,7 @@ def build_contract_fields(
         "confidence": confidence or build_confidence("medium"),
         "source_artifact_refs": resolved_source_refs,
     }
+    revision_lineage = (payload or {}).get("revision_lineage")
+    if isinstance(revision_lineage, dict):
+        contract["revision_lineage"] = revision_lineage
+    return contract

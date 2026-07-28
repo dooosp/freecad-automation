@@ -14,6 +14,8 @@ Run `fcad --help` for this guided surface, `fcad help <command>` for one complet
 
 Commands that create, draw, inspect live CAD, run FEM/tolerance, or generate runtime-backed reports need a working FreeCAD runtime; `fcad check-runtime` is the safe first check. Review-pack, revision-impact, inspection-plan, release-record, and result-normalization operations are artifact-driven and do not launch FreeCAD.
 
+For the opt-in authoritative config/digest chain used by one separately selected canonical package, read [revision-lineage proof mode](./docs/revision-lineage-proof-mode.md). It is an internal traceability foundation and does not imply production readiness, inspection evidence, or release authority.
+
 Readiness is a software review decision derived from explicit artifacts. `needs_more_evidence` and `hold_for_evidence_completion` remain correct while genuine inspection evidence is missing. Plans, release records, blank templates, normalization reports, generated CAD/drawing/QA values, CI output, and synthetic fixtures are not inspection evidence.
 
 Safe read-only orientation includes `fcad --help`, `fcad help --all`, `fcad check-runtime`, reading checked-in package artifacts, and opening Studio. Commands that write review, readiness, standard-document, release-bundle, evidence, authorization, or attachment outputs should be run only with an explicit output path and the authority required by that command contract.

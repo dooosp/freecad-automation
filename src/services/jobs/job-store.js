@@ -1,8 +1,173 @@
-import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, readdir, rename, stat, writeFile, appendFile } from 'node:fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import { constants } from 'node:fs';
+import {
+  appendFile,
+  lstat,
+  mkdir,
+  open,
+  readFile,
+  readdir,
+  realpath,
+  rename,
+  stat,
+  writeFile,
+} from 'node:fs/promises';
 import { basename, dirname, extname, isAbsolute, resolve, join, relative } from 'node:path';
 
 import { writeArtifactManifest } from '../../../lib/artifact-manifest.js';
+
+const SHA256_PATTERN = /^[a-f0-9]{64}$/;
+
+export class TrackedArtifactProofError extends Error {
+  constructor(code, message) {
+    super(message);
+    this.name = 'TrackedArtifactProofError';
+    this.code = code;
+    this.reason_code = code;
+  }
+}
+
+function proofError(code, message) {
+  return new TrackedArtifactProofError(code, message);
+}
+
+function pathIsWithin(rootPath, targetPath) {
+  const rel = relative(resolve(rootPath), resolve(targetPath)).replaceAll('\\', '/');
+  return rel === '' || (!rel.startsWith('../') && rel !== '..' && !isAbsolute(rel));
+}
+
+function sameFileIdentity(left, right) {
+  return left.dev === right.dev
+    && left.ino === right.ino
+    && left.size === right.size
+    && left.mtimeNs === right.mtimeNs
+    && left.ctimeNs === right.ctimeNs
+    && left.nlink === right.nlink;
+}
+
+function assertExpectedBinding(expectedBinding, actualBinding) {
+  if (!expectedBinding || typeof expectedBinding !== 'object' || Array.isArray(expectedBinding)) {
+    throw proofError(
+      'artifact_proof_binding_invalid',
+      'Proof re-entry requires an immutable registered artifact binding.'
+    );
+  }
+
+  const expectedPath = typeof expectedBinding.path === 'string' ? resolve(expectedBinding.path) : null;
+  const comparisons = [
+    ['job_id', expectedBinding.job_id, actualBinding.job_id],
+    ['artifact_id', expectedBinding.artifact_id, actualBinding.artifact_id],
+    ['path', expectedPath, resolve(actualBinding.path)],
+    ['sha256', expectedBinding.sha256, actualBinding.sha256],
+    ['size_bytes', expectedBinding.size_bytes, actualBinding.size_bytes],
+  ];
+  const mismatch = comparisons.find(([, expected, actual]) => expected !== actual);
+  if (mismatch) {
+    throw proofError(
+      'artifact_proof_binding_mismatch',
+      `Tracked artifact proof binding no longer matches its registered ${mismatch[0]}.`
+    );
+  }
+}
+
+async function readProofArtifactSnapshot(filePath, allowedRoot) {
+  const absoluteFilePath = resolve(filePath);
+  const absoluteAllowedRoot = resolve(allowedRoot);
+  let rootPath;
+  let resolvedPath;
+  let initial;
+  try {
+    [rootPath, resolvedPath, initial] = await Promise.all([
+      realpath(absoluteAllowedRoot),
+      realpath(absoluteFilePath),
+      lstat(absoluteFilePath, { bigint: true }),
+    ]);
+  } catch {
+    throw proofError(
+      'artifact_proof_path_unavailable',
+      'Registered artifact proof path is unavailable.'
+    );
+  }
+
+  if (!pathIsWithin(rootPath, resolvedPath)) {
+    throw proofError(
+      'artifact_proof_path_outside_job',
+      'Registered artifact proof path resolves outside its tracked job directory.'
+    );
+  }
+  if (resolvedPath !== absoluteFilePath || !initial.isFile() || initial.isSymbolicLink()) {
+    throw proofError(
+      'artifact_proof_unsafe_file_type',
+      'Registered artifact proof path must be a regular file and may not be a symbolic link.'
+    );
+  }
+  if (initial.nlink !== 1n) {
+    throw proofError(
+      'artifact_proof_hardlink_rejected',
+      'Registered artifact proof path may not be a hard-linked file.'
+    );
+  }
+  if (!Number.isInteger(constants.O_NOFOLLOW)) {
+    throw proofError(
+      'artifact_proof_nofollow_unavailable',
+      'This runtime cannot enforce no-follow reads for proof re-entry.'
+    );
+  }
+
+  let handle;
+  try {
+    handle = await open(absoluteFilePath, constants.O_RDONLY | constants.O_NOFOLLOW);
+    const opened = await handle.stat({ bigint: true });
+    if (!opened.isFile() || !sameFileIdentity(initial, opened)) {
+      throw proofError(
+        'artifact_proof_file_replaced',
+        'Registered artifact changed between proof path validation and read.'
+      );
+    }
+    const bytes = await handle.readFile();
+    const afterRead = await handle.stat({ bigint: true });
+    const [finalPathInfo, finalResolvedPath, finalRootPath] = await Promise.all([
+      lstat(absoluteFilePath, { bigint: true }),
+      realpath(absoluteFilePath),
+      realpath(absoluteAllowedRoot),
+    ]);
+    if (finalRootPath !== rootPath || !pathIsWithin(finalRootPath, finalResolvedPath)) {
+      throw proofError(
+        'artifact_proof_path_outside_job',
+        'Registered artifact proof path resolves outside its tracked job directory.'
+      );
+    }
+    if (finalResolvedPath !== absoluteFilePath || finalPathInfo.isSymbolicLink()) {
+      throw proofError(
+        'artifact_proof_unsafe_file_type',
+        'Registered artifact proof path must be a regular file and may not be a symbolic link.'
+      );
+    }
+    if (
+      !sameFileIdentity(opened, afterRead)
+      || !sameFileIdentity(opened, finalPathInfo)
+      || !finalPathInfo.isFile()
+    ) {
+      throw proofError(
+        'artifact_proof_file_replaced',
+        'Registered artifact changed while proof bytes were being read.'
+      );
+    }
+    return {
+      bytes: Buffer.from(bytes),
+      sha256: createHash('sha256').update(bytes).digest('hex'),
+      size_bytes: bytes.length,
+    };
+  } catch (error) {
+    if (error instanceof TrackedArtifactProofError) throw error;
+    throw proofError(
+      'artifact_proof_nofollow_read_failed',
+      'Registered artifact could not be read through a no-follow proof handle.'
+    );
+  } finally {
+    await handle?.close().catch(() => {});
+  }
+}
 
 function nowIso() {
   return new Date().toISOString();
@@ -47,6 +212,11 @@ function flattenManifestArtifacts(artifacts = []) {
         : 'internal',
       stability: artifact.stability || 'stable',
       metadata: artifact.metadata || null,
+      registered_exists: artifact.exists === true,
+      size_bytes: Number.isInteger(artifact.size_bytes) ? artifact.size_bytes : null,
+      sha256: SHA256_PATTERN.test(artifact.sha256 || '') ? artifact.sha256 : null,
+      registered_size_bytes: Number.isInteger(artifact.size_bytes) ? artifact.size_bytes : null,
+      registered_sha256: SHA256_PATTERN.test(artifact.sha256 || '') ? artifact.sha256 : null,
     }));
 }
 
@@ -66,7 +236,15 @@ function normalizeArtifactEntries(job) {
   const seenIds = new Map();
 
   return rawEntries.map((artifact, index) => {
-    const fileName = basename(artifact.path);
+    const serializedPath = artifact.path;
+    const artifactPath = job.manifest?.effective_policy?.proof_lineage === true
+      && serializedPath.startsWith('run/')
+      ? resolve(job.paths.root, serializedPath.slice('run/'.length))
+      : job.manifest?.effective_policy?.proof_lineage === true
+        && serializedPath.startsWith('repo/')
+        ? resolve(process.cwd(), serializedPath.slice('repo/'.length))
+        : serializedPath;
+    const fileName = basename(artifactPath);
     const extension = extname(fileName).toLowerCase();
     const baseId = artifact.id
       ? slugify(artifact.id)
@@ -78,11 +256,20 @@ function normalizeArtifactEntries(job) {
     return {
       id,
       key: artifact.key,
-      path: artifact.path,
+      path: artifactPath,
       type: artifact.type || null,
       scope: artifact.scope || null,
       stability: artifact.stability || null,
       metadata: artifact.metadata || null,
+      registered_exists: artifact.registered_exists === true,
+      size_bytes: Number.isInteger(artifact.size_bytes) ? artifact.size_bytes : null,
+      sha256: SHA256_PATTERN.test(artifact.sha256 || '') ? artifact.sha256 : null,
+      registered_size_bytes: Number.isInteger(artifact.registered_size_bytes)
+        ? artifact.registered_size_bytes
+        : null,
+      registered_sha256: SHA256_PATTERN.test(artifact.registered_sha256 || '')
+        ? artifact.registered_sha256
+        : null,
       file_name: fileName,
       extension,
     };
@@ -188,7 +375,82 @@ export function createJobStore({ jobsDir }) {
     });
   }
 
-  return {
+  async function readVerifiedArtifactSnapshot(id, artifactId, { expectedBinding = null } = {}) {
+    const safeJobId = assertSafeJobId(id);
+    const artifact = await store.getArtifact(safeJobId, artifactId);
+    if (!artifact) {
+      throw proofError(
+        'artifact_proof_not_registered',
+        `No registered artifact ${artifactId} was found for tracked job ${safeJobId}.`
+      );
+    }
+    if (
+      !SHA256_PATTERN.test(artifact.registered_sha256 || '')
+      || !Number.isInteger(artifact.registered_size_bytes)
+    ) {
+      throw proofError(
+        'artifact_proof_digest_missing',
+        `Tracked artifact ${artifact.file_name || artifact.id} has no registered SHA-256 and size binding.`
+      );
+    }
+
+    const jobDir = getJobDir(safeJobId);
+    let storeRootPath;
+    let jobRootPath;
+    let jobRootInfo;
+    try {
+      [storeRootPath, jobRootPath, jobRootInfo] = await Promise.all([
+        realpath(rootDir),
+        realpath(jobDir),
+        lstat(jobDir),
+      ]);
+    } catch {
+      throw proofError(
+        'artifact_proof_job_path_unavailable',
+        `Tracked job ${safeJobId} is unavailable for proof re-entry.`
+      );
+    }
+    if (jobRootInfo.isSymbolicLink() || !jobRootInfo.isDirectory() || !pathIsWithin(storeRootPath, jobRootPath)) {
+      throw proofError(
+        'artifact_proof_job_path_unsafe',
+        `Tracked job ${safeJobId} failed proof directory confinement checks.`
+      );
+    }
+
+    const snapshot = await readProofArtifactSnapshot(artifact.path, jobRootPath);
+    if (
+      snapshot.size_bytes !== artifact.registered_size_bytes
+      || snapshot.sha256 !== artifact.registered_sha256
+    ) {
+      throw proofError(
+        'artifact_proof_bytes_changed',
+        `Tracked artifact ${artifact.file_name || artifact.id} no longer matches its registered bytes.`
+      );
+    }
+
+    const binding = Object.freeze({
+      schema_version: '1.0',
+      job_id: safeJobId,
+      artifact_id: artifact.id,
+      path: artifact.path,
+      sha256: artifact.registered_sha256,
+      size_bytes: artifact.registered_size_bytes,
+    });
+    if (expectedBinding !== null) assertExpectedBinding(expectedBinding, binding);
+
+    const immutableBytes = Buffer.from(snapshot.bytes);
+    return Object.freeze({
+      binding,
+      path: artifact.path,
+      sha256: snapshot.sha256,
+      size_bytes: snapshot.size_bytes,
+      readDetachedBytes() {
+        return Buffer.from(immutableBytes);
+      },
+    });
+  }
+
+  const store = {
     jobsDir: rootDir,
     getJobDir,
     getJobPaths,
@@ -427,12 +689,18 @@ export function createJobStore({ jobsDir }) {
           file_name: artifact.file_name,
           extension: artifact.extension,
           exists: false,
-          size_bytes: null,
+          registered_exists: artifact.registered_exists,
+          size_bytes: artifact.size_bytes,
+          sha256: artifact.sha256,
+          registered_size_bytes: artifact.registered_size_bytes,
+          registered_sha256: artifact.registered_sha256,
+          current_size_bytes: null,
         };
         try {
           const info = await stat(artifact.path);
           record.exists = true;
-          record.size_bytes = info.size;
+          record.current_size_bytes = info.size;
+          if (!Number.isInteger(record.size_bytes)) record.size_bytes = info.size;
         } catch {
           // Keep missing artifact entries visible.
         }
@@ -444,5 +712,14 @@ export function createJobStore({ jobsDir }) {
       const artifacts = await this.listArtifacts(id);
       return artifacts.find((artifact) => artifact.id === artifactId) || null;
     },
+    async readVerifiedArtifactSnapshot(id, artifactId, { expectedBinding = null } = {}) {
+      return readVerifiedArtifactSnapshot(id, artifactId, { expectedBinding });
+    },
+    async verifyArtifactBinding(id, artifactId, { expectedBinding = null } = {}) {
+      const snapshot = await readVerifiedArtifactSnapshot(id, artifactId, { expectedBinding });
+      return snapshot.binding;
+    },
   };
+
+  return store;
 }

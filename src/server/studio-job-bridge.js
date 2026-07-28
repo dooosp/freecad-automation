@@ -54,16 +54,111 @@ const STUDIO_PAIRED_ARTIFACT_JOB_TYPES = new Set(STUDIO_PAIRED_ARTIFACT_JOB_COMM
 const STUDIO_JOB_TYPE_SENTENCE = formatCommandNameList(STUDIO_SUBMISSION_JOB_COMMANDS, { conjunction: 'or' });
 const STUDIO_ARTIFACT_TYPE_SENTENCE = formatCommandNameList(STUDIO_ARTIFACT_COMPATIBLE_JOB_COMMANDS, { conjunction: 'or', quote: 'double' });
 const STUDIO_PAIRED_ARTIFACT_TYPE_SENTENCE = formatCommandNameList(STUDIO_PAIRED_ARTIFACT_JOB_COMMANDS, { conjunction: 'or', quote: 'double' });
-function buildResolvedArtifactOptions(request, resolvedArtifact) {
+const SHA256_PATTERN = /^[a-f0-9]{64}$/;
+
+function proofLineageRequested(request = {}) {
+  return isPlainObject(request.options) && request.options.proof_lineage === true;
+}
+
+function sanitizedCallerStudioOptions(options = {}) {
+  const studio = isPlainObject(options.studio) ? structuredClone(options.studio) : {};
+  for (const key of [
+    'source_artifact_binding',
+    'baseline_artifact_binding',
+    'candidate_artifact_binding',
+    'config_artifact_binding',
+    'revision_impact_artifact_binding',
+    'docs_manifest_artifact_binding',
+  ]) {
+    delete studio[key];
+  }
+  return studio;
+}
+
+function freezeResolvedArtifactBinding(resolvedArtifact) {
+  const binding = resolvedArtifact?.artifactBinding;
+  if (!isPlainObject(binding)) {
+    throw new Error('Proof re-entry requires a verified registered artifact binding.');
+  }
+  const normalized = {
+    schema_version: binding.schema_version,
+    job_id: binding.job_id,
+    artifact_id: binding.artifact_id,
+    path: binding.path,
+    sha256: binding.sha256,
+    size_bytes: binding.size_bytes,
+  };
+  if (
+    normalized.schema_version !== '1.0'
+    || normalized.job_id !== resolvedArtifact.jobId
+    || normalized.artifact_id !== resolvedArtifact.artifact?.id
+    || normalized.path !== resolvedArtifact.artifact?.path
+    || !SHA256_PATTERN.test(normalized.sha256 || '')
+    || !Number.isSafeInteger(normalized.size_bytes)
+    || normalized.size_bytes < 0
+  ) {
+    throw new Error('Proof re-entry received an invalid or mismatched registered artifact binding.');
+  }
+  return Object.freeze(normalized);
+}
+
+async function resolveStudioArtifactRef(resolveArtifactRef, ref, request, { allowInternal = false } = {}) {
+  const proofLineage = proofLineageRequested(request);
+  const resolvedArtifact = await resolveArtifactRef(ref, {
+    proofLineage,
+    allowInternal,
+  });
+  if (proofLineage) freezeResolvedArtifactBinding(resolvedArtifact);
+  return resolvedArtifact;
+}
+
+async function resolveProofSiblingArtifact(resolveArtifactRef, request, sourceJobId, artifact) {
+  if (!proofLineageRequested(request) || !artifact?.id) return null;
+  return resolveStudioArtifactRef(resolveArtifactRef, {
+    job_id: sourceJobId,
+    artifact_id: artifact.id,
+  }, request, { allowInternal: true });
+}
+
+async function resolveRequiredProofConfigArtifact(resolveArtifactRef, request, resolvedArtifact, command) {
+  if (!proofLineageRequested(request)) return null;
+  const configArtifact = findPreferredConfigArtifact(resolvedArtifact.jobArtifacts || []);
+  if (!configArtifact?.path) {
+    throw new Error(`${command} proof continuation requires a registered config artifact in the selected tracked job.`);
+  }
+  const resolvedConfigArtifact = configArtifact.id === resolvedArtifact.artifact?.id
+    ? resolvedArtifact
+    : await resolveProofSiblingArtifact(
+        resolveArtifactRef,
+        request,
+        resolvedArtifact.jobId,
+        configArtifact
+      );
+  return {
+    path: configArtifact.path,
+    binding: freezeResolvedArtifactBinding(resolvedConfigArtifact),
+  };
+}
+
+function buildResolvedArtifactOptions(request, resolvedArtifact, additionalBindings = {}) {
   const options = isPlainObject(request.options) ? structuredClone(request.options) : {};
+  const proofBinding = proofLineageRequested(request)
+    ? freezeResolvedArtifactBinding(resolvedArtifact)
+    : null;
   options.studio = {
-    ...(isPlainObject(options.studio) ? options.studio : {}),
+    ...sanitizedCallerStudioOptions(options),
     source: 'artifact-reference',
     source_job_id: resolvedArtifact.jobId,
     source_artifact_id: resolvedArtifact.artifact.id,
     source_artifact_type: resolvedArtifact.artifact.type || '',
     source_label: resolvedArtifact.artifact.key || resolvedArtifact.artifact.file_name || resolvedArtifact.artifact.type || resolvedArtifact.artifact.id,
     source_artifact_path: resolvedArtifact.artifact.path,
+    ...(proofBinding ? { source_artifact_binding: proofBinding } : {}),
+    ...Object.fromEntries(
+      Object.entries(additionalBindings)
+        .filter(([, binding]) => binding)
+        .map(([key, binding]) => [key, Object.freeze({ ...binding })])
+    ),
   };
   return options;
 }
@@ -79,8 +174,14 @@ function buildReadinessRehydrationOptions(request, resolvedArtifact) {
 
 function buildResolvedPairOptions(request, baselineArtifact, candidateArtifact) {
   const options = isPlainObject(request.options) ? structuredClone(request.options) : {};
+  const baselineBinding = proofLineageRequested(request)
+    ? freezeResolvedArtifactBinding(baselineArtifact)
+    : null;
+  const candidateBinding = proofLineageRequested(request)
+    ? freezeResolvedArtifactBinding(candidateArtifact)
+    : null;
   options.studio = {
-    ...(isPlainObject(options.studio) ? options.studio : {}),
+    ...sanitizedCallerStudioOptions(options),
     source: 'artifact-comparison',
     baseline_job_id: baselineArtifact.jobId,
     baseline_artifact_id: baselineArtifact.artifact.id,
@@ -90,6 +191,8 @@ function buildResolvedPairOptions(request, baselineArtifact, candidateArtifact) 
     candidate_artifact_id: candidateArtifact.artifact.id,
     candidate_artifact_type: candidateArtifact.artifact.type || '',
     candidate_label: candidateArtifact.artifact.key || candidateArtifact.artifact.file_name || candidateArtifact.artifact.type || candidateArtifact.artifact.id,
+    ...(baselineBinding ? { baseline_artifact_binding: baselineBinding } : {}),
+    ...(candidateBinding ? { candidate_artifact_binding: candidateBinding } : {}),
   };
   return options;
 }
@@ -210,6 +313,13 @@ export function validateStudioJobSubmission(body) {
   validateOptionalObject(request.drawing_plan, 'drawing_plan', errors);
   validateOptionalObject(request.report_options, 'report_options', errors);
   validateOptionalObject(request.options, 'options', errors);
+  if (
+    isPlainObject(request.options)
+    && Object.hasOwn(request.options, 'proof_lineage')
+    && request.options.proof_lineage !== true
+  ) {
+    errors.push('options.proof_lineage must be exactly true when provided.');
+  }
   [
     'context_path',
     'model_path',
@@ -259,11 +369,21 @@ export function validateStudioJobSubmission(body) {
   });
 
   if (request.type === 'review-context') {
-    if (!hasContextPath && !hasModelPath) {
+    const proofArtifactContinuation = proofLineageRequested(request) && hasArtifactRef;
+    if (!hasContextPath && !hasModelPath && !proofArtifactContinuation) {
       errors.push('review-context requires either context_path or model_path.');
     }
-    if (hasConfigToml || hasArtifactRef || hasBaselineArtifactRef || hasCandidateArtifactRef) {
+    if (hasConfigToml
+      || (hasArtifactRef && !proofArtifactContinuation)
+      || hasBaselineArtifactRef
+      || hasCandidateArtifactRef) {
       errors.push('review-context does not accept config_toml, artifact_ref, baseline_artifact_ref, or candidate_artifact_ref.');
+    }
+    if (proofLineageRequested(request) && !hasArtifactRef) {
+      errors.push('review-context proof continuation requires artifact_ref so the server can resolve a registered config sibling and immutable binding.');
+    }
+    if (proofArtifactContinuation && (hasContextPath || hasModelPath)) {
+      errors.push('review-context proof continuation must use artifact_ref alone; direct context_path or model_path cannot provide a registered config binding.');
     }
   } else if (request.type === 'evidence-graph') {
     const unsupportedEvidenceGraphFields = [
@@ -464,6 +584,7 @@ export function validateStudioJobSubmission(body) {
 
   if (
     !STUDIO_ARTIFACT_COMPATIBLE_JOB_TYPES.has(request.type)
+    && !(request.type === 'review-context' && proofLineageRequested(request))
     && !STUDIO_PAIRED_ARTIFACT_JOB_TYPES.has(request.type)
     && request.artifact_ref !== undefined
   ) {
@@ -491,7 +612,7 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
   }
 
   const request = validation.request;
-  if (request.type === 'review-context') {
+  if (request.type === 'review-context' && !request.artifact_ref) {
     return {
       ok: true,
       errors: [],
@@ -552,7 +673,7 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
       const ref = trimArtifactRef(request.artifact_ref);
       let resolvedArtifact;
       try {
-        resolvedArtifact = await resolveArtifactRef(ref);
+        resolvedArtifact = await resolveStudioArtifactRef(resolveArtifactRef, ref, request);
       } catch (error) {
         return {
           ok: false,
@@ -631,8 +752,8 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
     let candidateArtifact;
     try {
       [baselineArtifact, candidateArtifact] = await Promise.all([
-        resolveArtifactRef(trimArtifactRef(request.baseline_artifact_ref)),
-        resolveArtifactRef(trimArtifactRef(request.candidate_artifact_ref)),
+        resolveStudioArtifactRef(resolveArtifactRef, trimArtifactRef(request.baseline_artifact_ref), request),
+        resolveStudioArtifactRef(resolveArtifactRef, trimArtifactRef(request.candidate_artifact_ref), request),
       ]);
     } catch (error) {
       return {
@@ -711,7 +832,11 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
 
     let resolvedArtifact;
     try {
-      resolvedArtifact = await resolveArtifactRef(trimArtifactRef(request.artifact_ref));
+      resolvedArtifact = await resolveStudioArtifactRef(
+        resolveArtifactRef,
+        trimArtifactRef(request.artifact_ref),
+        request
+      );
     } catch (error) {
       return {
         ok: false,
@@ -744,13 +869,27 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
     }
 
     if (request.type === 'review-context') {
+      let proofConfig = null;
+      try {
+        proofConfig = await resolveRequiredProofConfigArtifact(
+          resolveArtifactRef,
+          request,
+          resolvedArtifact,
+          'review-context'
+        );
+      } catch (error) {
+        return { ok: false, errors: [error instanceof Error ? error.message : String(error)] };
+      }
       if (isReviewContextArtifact(resolvedArtifact.artifact)) {
         return {
           ok: true,
           request: {
             type: 'review-context',
             context_path: resolvedArtifact.artifact.path,
-            options: buildResolvedArtifactOptions(request, resolvedArtifact),
+            ...(proofConfig ? { config_path: proofConfig.path } : {}),
+            options: buildResolvedArtifactOptions(request, resolvedArtifact, {
+              config_artifact_binding: proofConfig?.binding || null,
+            }),
           },
         };
       }
@@ -767,7 +906,10 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
         request: {
           type: 'review-context',
           model_path: resolvedArtifact.artifact.path,
-          options: buildResolvedArtifactOptions(request, resolvedArtifact),
+          ...(proofConfig ? { config_path: proofConfig.path } : {}),
+          options: buildResolvedArtifactOptions(request, resolvedArtifact, {
+            config_artifact_binding: proofConfig?.binding || null,
+          }),
         },
       };
     }
@@ -809,18 +951,39 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
         ? selectedArtifact
         : findPreferredConfigArtifact(resolvedArtifact.jobArtifacts || []);
       if (configArtifact?.path) {
+        let resolvedConfigArtifact;
+        try {
+          resolvedConfigArtifact = configArtifact.id === selectedArtifact.id
+            ? resolvedArtifact
+            : await resolveProofSiblingArtifact(
+                resolveArtifactRef,
+                request,
+                resolvedArtifact.jobId,
+                configArtifact
+              );
+        } catch (error) {
+          return { ok: false, errors: [error instanceof Error ? error.message : String(error)] };
+        }
         return {
           ok: true,
           request: {
             type: 'generate-standard-docs',
             config_path: configArtifact.path,
             readiness_report_path: selectedArtifact.path,
-            options: buildResolvedArtifactOptions(request, resolvedArtifact),
+            options: buildResolvedArtifactOptions(request, resolvedArtifact, {
+              config_artifact_binding: resolvedConfigArtifact?.artifactBinding || null,
+            }),
           },
         };
       }
 
       if (isReadinessReportArtifact(selectedArtifact)) {
+        if (proofLineageRequested(request)) {
+          return {
+            ok: false,
+            errors: ['generate-standard-docs proof continuation requires a registered config artifact in the selected tracked job.'],
+          };
+        }
         return {
           ok: true,
           request: {
@@ -850,14 +1013,38 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
       if (scope === 'delta' && !revisionImpactArtifact?.path) {
         return { ok: false, errors: ['inspection-plan delta scope requires a registered revision-impact artifact in the selected tracked job.'] };
       }
+      let resolvedRevisionImpactArtifact = null;
+      let proofConfig = null;
+      try {
+        resolvedRevisionImpactArtifact = revisionImpactArtifact
+          ? await resolveProofSiblingArtifact(
+              resolveArtifactRef,
+              request,
+              resolvedArtifact.jobId,
+              revisionImpactArtifact
+            )
+          : null;
+        proofConfig = await resolveRequiredProofConfigArtifact(
+          resolveArtifactRef,
+          request,
+          resolvedArtifact,
+          'inspection-plan'
+        );
+      } catch (error) {
+        return { ok: false, errors: [error instanceof Error ? error.message : String(error)] };
+      }
       return {
         ok: true,
         request: {
           type: 'inspection-plan',
           review_pack_path: selectedArtifact.path,
+          ...(proofConfig ? { config_path: proofConfig.path } : {}),
           ...(revisionImpactArtifact?.path ? { revision_impact_path: revisionImpactArtifact.path } : {}),
           scope,
-          options: buildResolvedArtifactOptions(request, resolvedArtifact),
+          options: buildResolvedArtifactOptions(request, resolvedArtifact, {
+            revision_impact_artifact_binding: resolvedRevisionImpactArtifact?.artifactBinding || null,
+            config_artifact_binding: proofConfig?.binding || null,
+          }),
         },
       };
     }
@@ -877,6 +1064,19 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
       const docsManifestArtifact = isReleaseBundleArtifact(selectedArtifact)
         ? null
         : findPreferredDocsManifestArtifact(resolvedArtifact.jobArtifacts || []);
+      let resolvedDocsManifestArtifact = null;
+      try {
+        resolvedDocsManifestArtifact = docsManifestArtifact
+          ? await resolveProofSiblingArtifact(
+              resolveArtifactRef,
+              request,
+              resolvedArtifact.jobId,
+              docsManifestArtifact
+            )
+          : null;
+      } catch (error) {
+        return { ok: false, errors: [error instanceof Error ? error.message : String(error)] };
+      }
 
       return {
         ok: true,
@@ -884,7 +1084,9 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
           type: 'pack',
           readiness_report_path: selectedArtifact.path,
           ...(docsManifestArtifact?.path ? { docs_manifest_path: docsManifestArtifact.path } : {}),
-          options: buildResolvedArtifactOptions(request, resolvedArtifact),
+          options: buildResolvedArtifactOptions(request, resolvedArtifact, {
+            docs_manifest_artifact_binding: resolvedDocsManifestArtifact?.artifactBinding || null,
+          }),
         },
       };
     }

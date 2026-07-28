@@ -116,7 +116,10 @@ export function createLocalApiJobCoordinator({
     });
   }
 
-  async function resolveArtifactRef({ job_id: jobId, artifact_id: artifactId }) {
+  async function resolveArtifactRef(
+    { job_id: jobId, artifact_id: artifactId },
+    { proofLineage = false, expectedBinding = null, allowInternal = false } = {}
+  ) {
     try {
       await jobStore.getJob(jobId);
     } catch {
@@ -129,14 +132,20 @@ export function createLocalApiJobCoordinator({
     if (!artifact.exists) {
       throw new Error(`Artifact ${artifact.file_name} is registered for job ${jobId}, but the file is missing.`);
     }
-    if (artifact.scope === 'internal') {
+    if (artifact.scope === 'internal' && allowInternal !== true) {
       throw new Error('artifact_ref points to an internal tracked artifact; use a user-facing tracked artifact.');
     }
+    const artifactBinding = proofLineage === true
+      ? Object.freeze({
+          ...(await jobStore.verifyArtifactBinding(jobId, artifactId, { expectedBinding })),
+        })
+      : null;
     const jobArtifacts = await jobStore.listArtifacts(jobId);
     return {
       jobId,
       artifact,
       jobArtifacts,
+      ...(artifactBinding ? { artifactBinding } : {}),
     };
   }
 

@@ -37,6 +37,7 @@ New package work should start with candidate selection and explicit approval bef
 
 - Source configs usually live under `configs/examples/`; promoted packages keep a package-local `docs/examples/<slug>/config.toml`.
 - The package-local config can be a direct copy of a source config or a curated version with explicit drawing intent.
+- A revision-lineage proof package must explicitly declare `product.package_slug`, `product.part_id`, and `product.revision`; for the first bounded rehearsal, `product.part_id` must equal the legacy top-level `name` alias.
 - Use `fcad validate-config <config.toml|json>` in a separately approved package-generation task to check user-facing config shape and migration state.
 - Do not run generation commands in a docs-only workflow update.
 
@@ -55,6 +56,13 @@ fcad pack --readiness <readiness_report.json> --docs-manifest <standard_docs_man
 ```
 
 Only pass the canonical evidence envelope, canonical onboarding authorization, and immutable attachment receipt to `fcad review-context` after the quarantine-first onboarding contract has attached a genuine completed record. The legacy Stage 5B control record and raw two-file path are insufficient.
+
+When a separately approved task uses revision-lineage proof mode, add
+`--config <authoritative-config> --proof-lineage` to `review-context`, propagate
+`--proof-lineage` through readiness, inspection planning, standard docs, and
+packaging, and use fixed generation timestamps where offered. Run the full
+chain twice in ignored directories before changing an allowlisted canonical
+descendant. See [revision-lineage proof mode](./revision-lineage-proof-mode.md).
 
 ## Generated artifact inventory
 

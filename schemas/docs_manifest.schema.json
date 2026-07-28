@@ -23,6 +23,15 @@
     "artifact_type": { "const": "docs_manifest" },
     "workflow": { "const": "standard_docs_generation" },
     "generated_at": { "type": "string" },
+    "effective_policy": {
+      "type": "object",
+      "required": ["proof_lineage"],
+      "properties": {
+        "proof_lineage": { "const": true }
+      },
+      "additionalProperties": false
+    },
+    "revision_lineage": { "$ref": "c_artifact_common.schema.json#/definitions/revisionLineage" },
     "draft_notice": { "type": "string" },
     "part": { "$ref": "c_artifact_common.schema.json#/definitions/partIdentity" },
     "warnings": { "$ref": "c_artifact_common.schema.json#/definitions/warningList" },
@@ -40,5 +49,15 @@
       }
     }
   },
+  "allOf": [
+    {
+      "if": { "required": ["effective_policy"] },
+      "then": { "required": ["revision_lineage"] }
+    },
+    {
+      "if": { "required": ["revision_lineage"] },
+      "then": { "required": ["effective_policy"] }
+    }
+  ],
   "additionalProperties": true
 }

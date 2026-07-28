@@ -44,6 +44,7 @@ import {
   D_ANALYSIS_VERSION,
   D_ARTIFACT_SCHEMA_VERSION,
 } from '../lib/d-artifact-schema.js';
+import { parseInspectionEvidenceJsonBytes } from '../lib/inspection-evidence-onboarding.js';
 import { resolveModelAnalysisInputs } from '../lib/model-analysis.js';
 import {
   buildOutputManifest,
@@ -53,6 +54,7 @@ import {
 } from '../lib/output-manifest.js';
 import { runScript } from '../lib/runner.js';
 import { hasFreeCADRuntime } from '../lib/paths.js';
+import { readRevisionLineageFileSnapshot } from '../lib/revision-lineage-contract.js';
 import {
   buildModelRuntimeDiagnostic,
   defaultMetadataFallbackHint,
@@ -178,6 +180,25 @@ const PROJECT_ROOT = resolve(__dirname, '..');
 const VALID_DFM_PROCESSES = new Set(['machining', 'casting', 'sheet_metal', '3d_printing']);
 const VALIDATE_TIMEOUT_MS = 30_000;
 const EVIDENCE_GRAPH_USAGE = 'fcad evidence-graph --package <slug> --review-pack <review_pack.json> --readiness <readiness_report.json> --out <evidence_graph.json>';
+const PROOF_LINEAGE_CLI_COMMANDS = new Set([
+  'review-context',
+  'readiness-pack',
+  'readiness-report',
+  'inspection-plan',
+  'generate-standard-docs',
+  'pack',
+]);
+
+function strictProofLineageOption(command, options = {}, { supported = true } = {}) {
+  if (!Object.hasOwn(options, 'proof-lineage')) return false;
+  if (!supported) {
+    throw new Error(`${command} is not proof-lineage eligible; use a supported authoritative ingress.`);
+  }
+  if (options['proof-lineage'] !== true) {
+    throw new Error(`${command} --proof-lineage is a valueless flag and must not be assigned a value.`);
+  }
+  return true;
+}
 
 installCliStreamErrorHandlers();
 
@@ -1141,8 +1162,14 @@ const CLI_COMMAND_HANDLERS = Object.freeze({
 export const CLI_DISPATCH_COMMANDS = listDispatchableCliCommandNames(CLI_COMMAND_HANDLERS);
 
 async function main() {
+  const argv = process.argv.slice(2);
+  const command = argv[0] || '';
+  if (command && !PROOF_LINEAGE_CLI_COMMANDS.has(command)) {
+    const { options } = parseCliArgs(argv.slice(1));
+    strictProofLineageOption(command, options, { supported: false });
+  }
   await dispatchCliCommand({
-    argv: process.argv.slice(2),
+    argv,
     usage: USAGE,
     allUsage: ALL_USAGE,
     renderCommandUsage,
@@ -1180,14 +1207,32 @@ function resolvePackInput(rawArgs = []) {
   return { positional, options, readinessPath, outputPath, outDir, stem };
 }
 
-async function loadCanonicalReviewPackInput(rawArgs = [], command) {
+async function loadCanonicalReviewPackInput(rawArgs = [], command, {
+  requireAuthoritativeLineage = false,
+} = {}) {
   const input = resolveReadinessBuilderInput(rawArgs);
   if (!input.reviewPackPath) return null;
 
   requireExistingInputFile('review-pack', input.reviewPackPath);
-  const reviewPack = await readJsonFile(input.reviewPackPath);
+  let reviewPackSnapshot = null;
+  let reviewPack;
+  if (requireAuthoritativeLineage) {
+    reviewPackSnapshot = await readRevisionLineageFileSnapshot({
+      projectRoot: PROJECT_ROOT,
+      path: repoRelativePath(input.reviewPackPath),
+    });
+    try {
+      reviewPack = parseInspectionEvidenceJsonBytes(reviewPackSnapshot.bytes, {
+        requireCanonical: false,
+      });
+    } catch (error) {
+      throw new Error(`${command} proof review pack is not valid JSON: ${error.message}`);
+    }
+  } else {
+    reviewPack = await readJsonFile(input.reviewPackPath);
+  }
   assertCanonicalReviewPackDocument(reviewPack, input.reviewPackPath, command);
-  return { ...input, reviewPack };
+  return { ...input, reviewPack, reviewPackSnapshot };
 }
 
 function assertCanonicalReviewPackDocument(reviewPack, pathValue, command) {
@@ -1309,6 +1354,8 @@ async function buildCliManifest({
   deprecations = [],
   details = undefined,
   related = undefined,
+  effectivePolicy = null,
+  revisionLineage = null,
   timestamps = null,
   manifestPath = null,
 }) {
@@ -1318,6 +1365,11 @@ async function buildCliManifest({
         silent: true,
       })
     : null;
+
+  const resolvedManifestPath = manifestPath || createManifestPath({
+    primaryOutputPath,
+    outputDir,
+  });
 
   const manifest = await buildArtifactManifest({
     projectRoot: PROJECT_ROOT,
@@ -1332,6 +1384,11 @@ async function buildCliManifest({
     artifacts,
     warnings,
     deprecations,
+    effectivePolicy,
+    revisionLineage,
+    ...(effectivePolicy?.proof_lineage === true ? {
+      portablePathRoot: dirname(resolvedManifestPath),
+    } : {}),
     timestamps: timestamps || {
       created_at: nowIso(),
       started_at: nowIso(),
@@ -1339,10 +1396,6 @@ async function buildCliManifest({
     },
     details,
     related,
-  });
-  const resolvedManifestPath = manifestPath || createManifestPath({
-    primaryOutputPath,
-    outputDir,
   });
   return { manifest, manifestPath: resolvedManifestPath };
 }
@@ -1749,8 +1802,8 @@ async function runProductionReadiness(rawArgs = [], { persistArtifacts = true } 
     options: {
       batchSize: ensureNumericOption('--batch', options.batch),
       profileName: options.profile || null,
-      process: options.process || config.manufacturing?.process || config.process || null,
-      material: options.material || config.manufacturing?.material || config.material || null,
+      process: options.process || config?.manufacturing?.process || config?.process || null,
+      material: options.material || config?.manufacturing?.material || config?.material || null,
       site: options.site || null,
       runtimeData,
       onStderr: (text) => process.stderr.write(text),
@@ -1986,8 +2039,18 @@ async function cmdReadinessPack(rawArgs = [], {
   optionalReviewPack = false,
   outputLabel = 'Readiness pack',
 } = {}) {
-  const reviewPackInput = await loadCanonicalReviewPackInput(rawArgs, manifestCommand);
+  const parsedInput = resolveReadinessBuilderInput(rawArgs);
+  const requireAuthoritativeLineage = strictProofLineageOption(manifestCommand, parsedInput.options);
+  if (requireAuthoritativeLineage && parsedInput.configPath) {
+    throw new Error(`${manifestCommand} --proof-lineage is available only with --review-pack; positional config compatibility mode is proof-ineligible.`);
+  }
+  const reviewPackInput = await loadCanonicalReviewPackInput(rawArgs, manifestCommand, {
+    requireAuthoritativeLineage,
+  });
   if (!reviewPackInput) {
+    if (requireAuthoritativeLineage) {
+      throw new Error(`${manifestCommand} --proof-lineage requires --review-pack <review_pack.json>.`);
+    }
     if (optionalReviewPack) return false;
     console.error('Error: readiness-pack requires --review-pack <review_pack.json>');
     process.exit(1);
@@ -2000,11 +2063,18 @@ async function cmdReadinessPack(rawArgs = [], {
     qualityRisk,
   } = await loadCanonicalReadinessSupportArtifacts(reviewPackInput.options, manifestCommand);
 
+  if (requireAuthoritativeLineage && (processPlanPath || qualityRiskPath)) {
+    throw new Error(`${manifestCommand} --proof-lineage derives process-plan and quality-risk from the bound review pack; prebuilt support artifacts are not proof-eligible.`);
+  }
+
   assertRegularReadinessPackHasNoInspectionEvidenceClaim(reviewPackInput.reviewPack);
 
   const report = buildReadinessReportFromReviewPack({
     reviewPack: reviewPackInput.reviewPack,
-    reviewPackPath: repoRelativePath(reviewPackInput.reviewPackPath),
+    reviewPackPath: reviewPackInput.reviewPackSnapshot?.path
+      || repoRelativePath(reviewPackInput.reviewPackPath),
+    reviewPackSnapshot: reviewPackInput.reviewPackSnapshot,
+    requireAuthoritativeLineage,
     processPlan,
     qualityRisk,
   });
@@ -2013,17 +2083,29 @@ async function cmdReadinessPack(rawArgs = [], {
     reviewPackInput.stem,
     '_readiness_report.json'
   );
-  const artifacts = await writeCanonicalReadinessArtifacts(outputPath, report, { projectRoot: PROJECT_ROOT });
+  const artifacts = await writeCanonicalReadinessArtifacts(outputPath, report, {
+    projectRoot: PROJECT_ROOT,
+    reviewPackSnapshot: reviewPackInput.reviewPackSnapshot,
+    requireAuthoritativeLineage,
+  });
+  const reviewPackManifestEntry = createArtifactEntry('input.review-pack', reviewPackInput.reviewPackPath, {
+    label: 'Review pack JSON',
+    scope: 'internal',
+  });
+  if (reviewPackInput.reviewPackSnapshot) {
+    reviewPackManifestEntry.precomputed = {
+      exists: true,
+      size_bytes: reviewPackInput.reviewPackSnapshot.size_bytes,
+      sha256: reviewPackInput.reviewPackSnapshot.sha256,
+    };
+  }
   const manifestPath = await writeCliManifest({
     command: manifestCommand,
     primaryOutputPath: artifacts.json,
     artifacts: [
       createArtifactEntry('review.readiness.json', artifacts.json, { label: 'Readiness report JSON' }),
       createArtifactEntry('review.readiness.markdown', artifacts.markdown, { label: 'Readiness report Markdown' }),
-      createArtifactEntry('input.review-pack', reviewPackInput.reviewPackPath, {
-        label: 'Review pack JSON',
-        scope: 'internal',
-      }),
+      reviewPackManifestEntry,
       ...(processPlanPath ? [createArtifactEntry('input.process-plan', processPlanPath, {
         label: 'Process plan JSON',
         scope: 'internal',
@@ -2033,6 +2115,27 @@ async function cmdReadinessPack(rawArgs = [], {
         scope: 'internal',
       })] : []),
     ],
+    ...(requireAuthoritativeLineage ? {
+      effectivePolicy: { proof_lineage: true },
+      revisionLineage: report.revision_lineage,
+      details: {
+        proof_lineage: {
+          required: true,
+          mode: 'proof',
+          review_pack_path: report.revision_lineage.parents.find(
+            (parent) => parent.role === 'review_pack'
+          )?.path || null,
+          review_pack_sha256: reviewPackInput.reviewPackSnapshot.sha256,
+          review_pack_size_bytes: reviewPackInput.reviewPackSnapshot.size_bytes,
+          config_sha256: report.revision_lineage.identity.config_sha256,
+        },
+      },
+      timestamps: {
+        created_at: report.generated_at,
+        started_at: report.generated_at,
+        finished_at: report.generated_at,
+      },
+    } : {}),
   });
   console.log(`${outputLabel} JSON: ${artifacts.json}`);
   console.log(`${outputLabel} Markdown: ${artifacts.markdown}`);
@@ -2090,6 +2193,7 @@ async function cmdReadinessReport(rawArgs = []) {
 
 async function cmdPack(rawArgs = []) {
   const { readinessPath, options, outputPath, outDir, stem } = resolvePackInput(rawArgs);
+  const requireAuthoritativeLineage = strictProofLineageOption('pack', options);
   if (!readinessPath) {
     console.error('Error: pack requires --readiness <readiness_report.json>');
     process.exit(1);
@@ -2113,6 +2217,8 @@ async function cmdPack(rawArgs = []) {
       readinessPath,
       docsManifest: docsInput.docsManifest,
       docsManifestPath: docsInput.docsManifestPath,
+      projectRoot: PROJECT_ROOT,
+      portablePathRoot: dirname(readinessPath),
     });
   }
   const resolvedOutputPath = outputPath || artifactPathFor(outDir, stem, '_release_bundle.zip');
@@ -2125,6 +2231,7 @@ async function cmdPack(rawArgs = []) {
     docsManifest: docsInput.docsManifest,
     additionalWarnings: docsInput.warnings,
     generatedAt,
+    requireAuthoritativeLineage,
   });
 
   const manifestPath = await writeCliManifest({
@@ -2148,6 +2255,22 @@ async function cmdPack(rawArgs = []) {
     related: {
       release_bundle_manifest: result.manifest_path,
     },
+    ...(requireAuthoritativeLineage ? {
+      effectivePolicy: { proof_lineage: true },
+      revisionLineage: readinessReport.revision_lineage,
+      details: {
+        proof_lineage: {
+          required: true,
+          mode: 'proof',
+          config_sha256: readinessReport.revision_lineage?.identity?.config_sha256 || null,
+        },
+      },
+      timestamps: {
+        created_at: result.manifest.generated_at,
+        started_at: result.manifest.generated_at,
+        finished_at: result.manifest.generated_at,
+      },
+    } : {}),
   });
 
   console.log(`Release bundle ZIP: ${result.bundle_zip_path}`);
@@ -2249,13 +2372,19 @@ async function cmdStabilizationReview(rawArgs = []) {
 async function cmdInspectionPlan(rawArgs = []) {
   const { options } = parseCliArgs(rawArgs);
   rejectUnsupportedOptions('inspection-plan', options, [
-    'review-pack', 'revision-impact', 'readiness', 'config', 'requirements', 'scope', 'out', 'checksheet-out', 'request-out', 'result-template-out', 'generated-at',
+    'review-pack', 'revision-impact', 'readiness', 'config', 'requirements', 'scope', 'out', 'checksheet-out', 'request-out', 'result-template-out', 'generated-at', 'proof-lineage',
   ]);
-  const reviewPackPath = resolveMaybe(requireOptionValue('--review-pack', options['review-pack']));
-  const revisionImpactPath = options['revision-impact'] ? resolveMaybe(requireOptionValue('--revision-impact', options['revision-impact'])) : null;
-  const readinessPath = options.readiness ? resolveMaybe(requireOptionValue('--readiness', options.readiness)) : null;
-  const configPath = options.config ? resolveMaybe(requireOptionValue('--config', options.config)) : null;
-  const requirementsPath = options.requirements ? resolveMaybe(requireOptionValue('--requirements', options.requirements)) : null;
+  const requireAuthoritativeLineage = strictProofLineageOption('inspection-plan', options);
+  const reviewPackOption = requireOptionValue('--review-pack', options['review-pack']);
+  const revisionImpactOption = options['revision-impact'] ? requireOptionValue('--revision-impact', options['revision-impact']) : null;
+  const readinessOption = options.readiness ? requireOptionValue('--readiness', options.readiness) : null;
+  const configOption = options.config ? requireOptionValue('--config', options.config) : null;
+  const requirementsOption = options.requirements ? requireOptionValue('--requirements', options.requirements) : null;
+  const reviewPackPath = resolveMaybe(reviewPackOption);
+  const revisionImpactPath = resolveMaybe(revisionImpactOption);
+  const readinessPath = resolveMaybe(readinessOption);
+  const configPath = resolveMaybe(configOption);
+  const requirementsPath = resolveMaybe(requirementsOption);
   const scope = requireOptionValue('--scope', options.scope);
   const outputPath = resolveMaybe(requireOptionValue('--out', options.out));
   const checksheetPath = options['checksheet-out'] ? resolveMaybe(requireOptionValue('--checksheet-out', options['checksheet-out'])) : null;
@@ -2263,16 +2392,29 @@ async function cmdInspectionPlan(rawArgs = []) {
   const resultTemplatePath = options['result-template-out'] ? resolveMaybe(requireOptionValue('--result-template-out', options['result-template-out'])) : null;
   const generatedAt = options['generated-at'] === undefined ? nowIso() : requireOptionValue('--generated-at', options['generated-at']);
   if (!Number.isFinite(Date.parse(generatedAt))) throw new Error('--generated-at must be parseable ISO-8601 date/time text');
+  if (requireAuthoritativeLineage && !configPath) {
+    throw new Error('inspection-plan --proof-lineage requires --config <config.toml|json>.');
+  }
+  if (requireAuthoritativeLineage) {
+    const proofRunRoot = dirname(reviewPackPath);
+    const proofOutputPaths = [outputPath, checksheetPath, requestPath, resultTemplatePath].filter(Boolean);
+    if (proofOutputPaths.some((pathValue) => dirname(resolve(pathValue)) !== proofRunRoot)) {
+      throw new Error(
+        'inspection-plan --proof-lineage outputs must share the review-pack run directory so run/ parents remain revalidatable.'
+      );
+    }
+  }
 
   const plan = await createInspectionPlanFromPaths({
     projectRoot: PROJECT_ROOT,
-    reviewPackPath,
-    revisionImpactPath,
-    readinessPath,
-    configPath,
-    requirementsPath,
+    reviewPackPath: requireAuthoritativeLineage ? reviewPackOption : reviewPackPath,
+    revisionImpactPath: requireAuthoritativeLineage ? revisionImpactOption : revisionImpactPath,
+    readinessPath: requireAuthoritativeLineage ? readinessOption : readinessPath,
+    configPath: requireAuthoritativeLineage ? configOption : configPath,
+    requirementsPath: requireAuthoritativeLineage ? requirementsOption : requirementsPath,
     scope,
     generatedAt,
+    requireAuthoritativeLineage,
   });
   const planJson = canonicalizeInspectionPlan(plan);
   const planSha = createHash('sha256').update(planJson).digest('hex');
@@ -2299,12 +2441,23 @@ async function cmdInspectionPlan(rawArgs = []) {
     primaryOutputPath: outputPath,
     outputDir: dirname(outputPath),
     artifacts: manifestArtifacts,
+    ...(requireAuthoritativeLineage ? {
+      effectivePolicy: { proof_lineage: true },
+      revisionLineage: plan.revision_lineage,
+    } : {}),
     details: {
       scope,
       plan_id: plan.plan_id,
       human_release_required: true,
       inspection_evidence: false,
       source_snapshot: plan.source_snapshot,
+      ...(requireAuthoritativeLineage ? {
+        proof_lineage: {
+          required: true,
+          mode: 'proof',
+          config_sha256: plan.revision_lineage?.identity?.config_sha256 || null,
+        },
+      } : {}),
     },
     timestamps: { created_at: generatedAt, started_at: generatedAt, finished_at: generatedAt },
   });
@@ -2371,14 +2524,20 @@ async function cmdInspectionResultNormalize(rawArgs = []) {
 
 async function cmdGenerateStandardDocs(rawArgs = []) {
   const { configPath, options } = resolveConfigCommandInput(rawArgs);
+  const requireAuthoritativeLineage = strictProofLineageOption('generate-standard-docs', options);
   if (!configPath) {
     console.error('Error: config file path required');
     process.exit(1);
   }
 
-  const configDocument = await loadConfigDocumentForCli(configPath);
-  const config = configDocument.config;
-  const runtimeData = await loadRuntimeData(options);
+  if (requireAuthoritativeLineage && options.runtime !== undefined) {
+    throw new Error('generate-standard-docs --proof-lineage does not accept unbound --runtime input.');
+  }
+  const configDocument = requireAuthoritativeLineage
+    ? null
+    : await loadConfigDocumentForCli(configPath);
+  const config = configDocument?.config || null;
+  const runtimeData = requireAuthoritativeLineage ? null : await loadRuntimeData(options);
   const readinessReportPath = resolveMaybe(options['readiness-report']);
   if (options['review-pack'] !== undefined) {
     console.error('Error: generate-standard-docs no longer accepts --review-pack; provide --readiness-report <readiness_report.json> instead.');
@@ -2388,27 +2547,115 @@ async function cmdGenerateStandardDocs(rawArgs = []) {
     console.error(`Error: ${GENERATE_STANDARD_DOCS_INPUT_MESSAGE}`);
     process.exit(1);
   }
+  const generatedAt = options['generated-at'] === undefined
+    ? null
+    : requireOptionValue('--generated-at', options['generated-at']);
+  if (generatedAt && Number.isNaN(Date.parse(generatedAt))) {
+    throw new Error('--generated-at must be parseable ISO-8601 date/time text.');
+  }
   const readinessReport = await loadCanonicalReadinessReportInput(
     readinessReportPath,
     'generate-standard-docs',
     'readiness-report'
   );
+  let proofManifestPath = null;
   const result = await runStandardDocsWorkflow({
     freecadRoot: PROJECT_ROOT,
     runScript: runWithCliStderr,
     loadConfig: loadConfigForCli,
-    configPath,
+    configPath: requireAuthoritativeLineage ? repoRelativePath(configPath) : configPath,
     config,
     options: {
       batchSize: ensureNumericOption('--batch', options.batch),
       profileName: options.profile || null,
-      process: options.process || config.manufacturing?.process || config.process || null,
-      material: options.material || config.manufacturing?.material || config.material || null,
+      process: options.process || config?.manufacturing?.process || config?.process || null,
+      material: options.material || config?.manufacturing?.material || config?.material || null,
       site: options.site || null,
       runtimeData,
       outDir: resolveMaybe(options['out-dir']),
       report: readinessReport,
-      reportPath: readinessReportPath,
+      reportPath: requireAuthoritativeLineage
+        ? repoRelativePath(readinessReportPath)
+        : readinessReportPath,
+      generatedAt,
+      requireAuthoritativeLineage,
+      prepareProofPublicationOutputs: requireAuthoritativeLineage
+        ? async ({
+            artifacts,
+            manifest,
+            revisionLineage,
+            configSnapshot,
+            readinessSnapshot,
+            precomputedMetadata,
+          }) => {
+            proofManifestPath = join(dirname(artifacts.manifest), 'artifact-manifest.json');
+            const manifestArtifacts = [
+              ...Object.entries(artifacts).map(([filename, filePath]) => ({
+                ...createArtifactEntry(
+                  filename === 'manifest' ? 'standard-docs.summary' : `standard-docs.${filename}`,
+                  filePath,
+                  {
+                    label: filename,
+                    stability: filename === 'manifest' ? 'best-effort' : 'stable',
+                  }
+                ),
+                precomputed: precomputedMetadata[resolve(filePath)],
+              })),
+              {
+                ...createArtifactEntry('input.readiness-report', readinessReportPath, {
+                  label: 'Canonical readiness report JSON',
+                  scope: 'internal',
+                }),
+                precomputed: {
+                  exists: true,
+                  size_bytes: readinessSnapshot.size_bytes,
+                  sha256: readinessSnapshot.sha256,
+                },
+              },
+              {
+                ...createArtifactEntry('input.config', configPath, {
+                  label: 'Authoritative configuration input',
+                  scope: 'internal',
+                }),
+                precomputed: {
+                  exists: true,
+                  size_bytes: configSnapshot.size_bytes,
+                  sha256: configSnapshot.sha256,
+                },
+              },
+            ];
+            const { manifest: artifactManifest } = await buildCliManifest({
+              command: 'generate-standard-docs',
+              configPath,
+              config: configSnapshot.config,
+              profileName: options.profile || null,
+              outputDir: dirname(artifacts.manifest),
+              manifestPath: proofManifestPath,
+              artifacts: manifestArtifacts,
+              effectivePolicy: { proof_lineage: true },
+              revisionLineage,
+              details: {
+                readiness_contract_mode: 'explicit_readiness_report',
+                canonical_review_pack_backed: true,
+                proof_lineage: {
+                  required: true,
+                  mode: 'proof',
+                  config_sha256: configSnapshot.sha256,
+                  readiness_sha256: readinessSnapshot.sha256,
+                },
+              },
+              timestamps: {
+                created_at: manifest.generated_at,
+                started_at: manifest.generated_at,
+                finished_at: manifest.generated_at,
+              },
+            });
+            return [{
+              path: proofManifestPath,
+              content: `${JSON.stringify(artifactManifest, null, 2)}\n`,
+            }];
+          }
+        : null,
       onStderr: (text) => process.stderr.write(text),
     },
   });
@@ -2420,43 +2667,49 @@ async function cmdGenerateStandardDocs(rawArgs = []) {
   console.log(`  Process flow: ${result.artifacts['process_flow.md']}`);
   console.log(`  Control plan: ${result.artifacts['control_plan_draft.csv']}`);
   console.log(`  Work instruction: ${result.artifacts['work_instruction_draft.md']}`);
-  const manifestPath = await writeCliManifest({
-    command: 'generate-standard-docs',
-    configPath,
-    configSummary: configDocument.summary,
-    config,
-    profileName: options.profile || null,
-    outputDir: result.out_dir,
-    artifacts: [
-      ...Object.entries(result.artifacts).map(([filename, filePath]) => createArtifactEntry(
-        filename === 'manifest' ? 'standard-docs.summary' : `standard-docs.${filename}`,
-        filePath,
-        {
-          label: filename,
-          stability: filename === 'manifest' ? 'best-effort' : 'stable',
-        }
-      )),
-      ...(result.readiness_report_path ? [createCanonicalReadinessArtifactEntry(
-        result.readiness_report_path,
-        buildAfArtifactContractFromDocument({
-          jobType: 'generate-standard-docs',
-          target: 'readiness_report',
-          document: readinessReport,
-          path: result.readiness_report_path,
-          strictReentry: true,
-        })
-      )] : []),
-    ],
-    details: {
-      readiness_contract_mode: 'explicit_readiness_report',
-      canonical_review_pack_backed: true,
-    },
-  });
+  const manifestPath = requireAuthoritativeLineage
+    ? proofManifestPath
+    : await writeCliManifest({
+        command: 'generate-standard-docs',
+        configPath,
+        configSummary: configDocument.summary,
+        config,
+        profileName: options.profile || null,
+        outputDir: result.out_dir,
+        artifacts: [
+          ...Object.entries(result.artifacts).map(([filename, filePath]) => createArtifactEntry(
+            filename === 'manifest' ? 'standard-docs.summary' : `standard-docs.${filename}`,
+            filePath,
+            {
+              label: filename,
+              stability: filename === 'manifest' ? 'best-effort' : 'stable',
+            }
+          )),
+          ...(result.readiness_report_path ? [createCanonicalReadinessArtifactEntry(
+            result.readiness_report_path,
+            buildAfArtifactContractFromDocument({
+              jobType: 'generate-standard-docs',
+              target: 'readiness_report',
+              document: readinessReport,
+              path: result.readiness_report_path,
+              strictReentry: true,
+            })
+          )] : []),
+        ],
+        details: {
+          readiness_contract_mode: 'explicit_readiness_report',
+          canonical_review_pack_backed: true,
+        },
+      });
+  if (!manifestPath) {
+    throw new Error('Proof standard-docs publication did not return its staged artifact manifest path.');
+  }
   console.log(`Manifest: ${manifestPath}`);
 }
 
 async function cmdIngest(rawArgs = []) {
   const { options } = parseCliArgs(rawArgs);
+  strictProofLineageOption('ingest', options, { supported: false });
   const modelPath = resolveMaybe(options.model);
   const bomPath = resolveMaybe(options.bom);
   const inspectionPath = resolveMaybe(options.inspection);
@@ -2690,6 +2943,7 @@ async function cmdQualityLink(rawArgs = []) {
 
 async function cmdReviewPack(rawArgs = []) {
   const { positional, options } = parseCliArgs(rawArgs);
+  strictProofLineageOption('review-pack', options, { supported: false });
   const contextPath = resolveMaybe(options.context || positional[0]);
   const geometryPath = resolveMaybe(options.geometry);
   const reviewPath = resolveMaybe(options.review);
@@ -2782,6 +3036,12 @@ async function cmdReviewPack(rawArgs = []) {
 
 async function cmdReviewContext(rawArgs = []) {
   const { positional, options } = parseCliArgs(rawArgs);
+  const requireAuthoritativeLineage = strictProofLineageOption('review-context', options);
+  const authoritativeConfigOption = Object.hasOwn(options, 'config')
+    ? requireOptionValue('--config', options.config)
+    : null;
+  const authoritativeConfigPath = resolveMaybe(authoritativeConfigOption);
+  const authoritativeConfigLocator = authoritativeConfigOption;
   const contextPath = resolveMaybe(options.context);
   const modelPath = resolveMaybe(options.model || (!contextPath ? positional[0] : null));
   const bomPath = resolveMaybe(options.bom);
@@ -2797,6 +3057,13 @@ async function cmdReviewContext(rawArgs = []) {
   const attachmentAuthorizationPath = resolveMaybe(options['attachment-authorization']);
   const attachmentRecordPath = resolveMaybe(options['evidence-attachment-record']);
   const compareToPath = resolveMaybe(options['compare-to']);
+
+  if (requireAuthoritativeLineage && !authoritativeConfigPath) {
+    throw new Error('review-context --proof-lineage requires --config <config.toml|json>.');
+  }
+  if (!requireAuthoritativeLineage && Object.hasOwn(options, 'config')) {
+    throw new Error('review-context --config is accepted only with the valueless --proof-lineage flag.');
+  }
 
   if (!modelPath && !contextPath) {
     console.error('Error: review-context requires --model <file> or --context <context.json>');
@@ -2819,6 +3086,7 @@ async function cmdReviewContext(rawArgs = []) {
   requireExistingInputFile('attachment-authorization', attachmentAuthorizationPath);
   requireExistingInputFile('evidence-attachment-record', attachmentRecordPath);
   requireExistingInputFile('compare-to', compareToPath);
+  requireExistingInputFile('config', authoritativeConfigPath);
 
   if (inspectionEvidencePath && (!attachmentAuthorizationPath || !attachmentRecordPath)) {
     console.error('Error: --inspection-evidence requires both --attachment-authorization and --evidence-attachment-record from the canonical onboarding flow');
@@ -2829,8 +3097,67 @@ async function cmdReviewContext(rawArgs = []) {
     process.exit(1);
   }
 
+  const workflow = [contextPath ? 'context-input' : 'ingest', 'analyze-part', 'quality-link', 'review-pack', ...(compareToPath ? ['compare-rev'] : [])];
+  const buildReviewContextManifestArtifacts = (artifacts, {
+    precomputedMetadata = {},
+    authoritativeConfig = null,
+  } = {}) => {
+    const entries = [
+      createArtifactEntry('context.json', artifacts.context, { label: 'Engineering context JSON' }),
+      createArtifactEntry('ingest.log.json', artifacts.ingestLog, { label: 'Ingest log JSON' }),
+      createArtifactEntry('analysis.geometry.json', artifacts.geometry, { label: 'Geometry intelligence JSON' }),
+      createArtifactEntry('analysis.hotspots.json', artifacts.hotspots, { label: 'Manufacturing hotspots JSON' }),
+      createArtifactEntry('quality-link.inspection-linkage.json', artifacts.inspectionLinkage, { label: 'Inspection linkage JSON' }),
+      createArtifactEntry('quality-link.inspection-outliers.json', artifacts.inspectionOutliers, { label: 'Inspection outliers JSON' }),
+      createArtifactEntry('quality-link.quality-linkage.json', artifacts.qualityLinkage, { label: 'Quality linkage JSON' }),
+      createArtifactEntry('quality-link.quality-hotspots.json', artifacts.qualityHotspots, { label: 'Quality hotspots JSON' }),
+      createArtifactEntry('quality-link.review-priorities.json', artifacts.reviewPriorities, { label: 'Review priorities JSON' }),
+      createArtifactEntry('review-pack.json', artifacts.reviewPackJson, { label: 'Review pack JSON' }),
+      createArtifactEntry('review-pack.markdown', artifacts.reviewPackMarkdown, { label: 'Review pack Markdown' }),
+      createArtifactEntry('review-pack.pdf', artifacts.reviewPackPdf, { label: 'Review pack PDF' }),
+      ...(artifacts.revisionComparison ? [createArtifactEntry('revision-comparison.json', artifacts.revisionComparison, { label: 'Revision comparison JSON' })] : []),
+      ...(contextPath ? [createArtifactEntry('input.context', contextPath, { label: 'Input context JSON' })] : []),
+      ...(modelPath ? [createArtifactEntry('input.model', modelPath, { label: 'Input model' })] : []),
+      ...(bomPath ? [createArtifactEntry('input.bom', bomPath, { label: 'Input BOM CSV' })] : []),
+      ...(inspectionPath ? [createArtifactEntry('input.inspection', inspectionPath, { label: 'Input inspection CSV' })] : []),
+      ...(qualityPath ? [createArtifactEntry('input.quality', qualityPath, { label: 'Input quality CSV' })] : []),
+      ...(createQualityPath ? [createArtifactEntry('input.create-quality', createQualityPath, { label: 'Input create quality report' })] : []),
+      ...(drawingQualityPath ? [createArtifactEntry('input.drawing-quality', drawingQualityPath, { label: 'Input drawing quality report' })] : []),
+      ...(drawingQaPath ? [createArtifactEntry('input.drawing-qa', drawingQaPath, { label: 'Input drawing QA report' })] : []),
+      ...(drawingIntentPath ? [createArtifactEntry('input.drawing-intent', drawingIntentPath, { label: 'Input drawing intent JSON' })] : []),
+      ...(featureCatalogPath ? [createArtifactEntry('input.feature-catalog', featureCatalogPath, { label: 'Input feature catalog JSON' })] : []),
+      ...(dfmReportPath ? [createArtifactEntry('input.dfm-report', dfmReportPath, { label: 'Input DFM report' })] : []),
+      ...(inspectionEvidencePath ? [createArtifactEntry('input.inspection-evidence', inspectionEvidencePath, { label: 'Input inspection evidence JSON' })] : []),
+      ...(attachmentAuthorizationPath ? [createArtifactEntry('input.inspection-evidence-attachment-authorization', attachmentAuthorizationPath, { label: 'Inspection evidence attachment authorization record' })] : []),
+      ...(attachmentRecordPath ? [createArtifactEntry('input.inspection-evidence-attachment-record', attachmentRecordPath, { label: 'Immutable inspection evidence attachment record' })] : []),
+      ...(compareToPath ? [createArtifactEntry('input.baseline', compareToPath, { label: 'Baseline review-pack JSON' })] : []),
+      ...(authoritativeConfig ? [createArtifactEntry('input.config', authoritativeConfigPath, {
+        label: 'Authoritative proof-lineage config',
+        scope: 'internal',
+      })] : []),
+    ];
+    return entries.map((entry) => {
+      const generatedMetadata = precomputedMetadata[resolve(entry.path)];
+      if (generatedMetadata) return { ...entry, precomputed: generatedMetadata };
+      if (authoritativeConfig && entry.type === 'input.config') {
+        return {
+          ...entry,
+          precomputed: {
+            exists: true,
+            size_bytes: authoritativeConfig.size_bytes,
+            sha256: authoritativeConfig.sha256,
+          },
+        };
+      }
+      return entry;
+    });
+  };
+
+  let proofManifestPath = null;
   const result = await runReviewContextPipeline({
     projectRoot: PROJECT_ROOT,
+    authoritativeConfigPath: authoritativeConfigLocator,
+    requireAuthoritativeLineage,
     contextPath,
     modelPath,
     bomPath,
@@ -2856,6 +3183,42 @@ async function cmdReviewContext(rawArgs = []) {
     facility: options.facility || null,
     supplier: options.supplier || null,
     manufacturingNotes: options['manufacturing-notes'] || null,
+    prepareProofPublicationOutputs: requireAuthoritativeLineage
+      ? async ({ artifacts, reviewPack, revisionLineage, authoritativeConfig, precomputedMetadata }) => {
+          const manifestArtifacts = buildReviewContextManifestArtifacts(artifacts, {
+            precomputedMetadata,
+            authoritativeConfig,
+          });
+          const { manifest, manifestPath } = await buildCliManifest({
+            command: 'review-context',
+            configPath: authoritativeConfigPath,
+            primaryOutputPath: artifacts.reviewPackJson,
+            artifacts: manifestArtifacts,
+            effectivePolicy: { proof_lineage: true },
+            revisionLineage,
+            details: {
+              workflow,
+              proof_lineage: {
+                required: true,
+                mode: 'proof',
+                authoritative_config_path: authoritativeConfig.path,
+                config_sha256: authoritativeConfig.sha256,
+                config_size_bytes: authoritativeConfig.size_bytes,
+              },
+            },
+            timestamps: {
+              created_at: reviewPack.generated_at,
+              started_at: reviewPack.generated_at,
+              finished_at: reviewPack.generated_at,
+            },
+          });
+          proofManifestPath = manifestPath;
+          return [{
+            path: manifestPath,
+            content: `${JSON.stringify(manifest, null, 2)}\n`,
+          }];
+        }
+      : null,
     runPythonJsonScript,
     inspectModelIfAvailable,
     detectStepFeaturesIfAvailable,
@@ -2875,43 +3238,17 @@ async function cmdReviewContext(rawArgs = []) {
     console.log(`Revision comparison: ${result.artifacts.revisionComparison}`);
   }
 
-  const manifestPath = await writeCliManifest({
-    command: 'review-context',
-    primaryOutputPath: result.artifacts.reviewPackJson,
-    artifacts: [
-      createArtifactEntry('context.json', result.artifacts.context, { label: 'Engineering context JSON' }),
-      createArtifactEntry('ingest.log.json', result.artifacts.ingestLog, { label: 'Ingest log JSON' }),
-      createArtifactEntry('analysis.geometry.json', result.artifacts.geometry, { label: 'Geometry intelligence JSON' }),
-      createArtifactEntry('analysis.hotspots.json', result.artifacts.hotspots, { label: 'Manufacturing hotspots JSON' }),
-      createArtifactEntry('quality-link.inspection-linkage.json', result.artifacts.inspectionLinkage, { label: 'Inspection linkage JSON' }),
-      createArtifactEntry('quality-link.inspection-outliers.json', result.artifacts.inspectionOutliers, { label: 'Inspection outliers JSON' }),
-      createArtifactEntry('quality-link.quality-linkage.json', result.artifacts.qualityLinkage, { label: 'Quality linkage JSON' }),
-      createArtifactEntry('quality-link.quality-hotspots.json', result.artifacts.qualityHotspots, { label: 'Quality hotspots JSON' }),
-      createArtifactEntry('quality-link.review-priorities.json', result.artifacts.reviewPriorities, { label: 'Review priorities JSON' }),
-      createArtifactEntry('review-pack.json', result.artifacts.reviewPackJson, { label: 'Review pack JSON' }),
-      createArtifactEntry('review-pack.markdown', result.artifacts.reviewPackMarkdown, { label: 'Review pack Markdown' }),
-      createArtifactEntry('review-pack.pdf', result.artifacts.reviewPackPdf, { label: 'Review pack PDF' }),
-      ...(result.artifacts.revisionComparison ? [createArtifactEntry('revision-comparison.json', result.artifacts.revisionComparison, { label: 'Revision comparison JSON' })] : []),
-      ...(contextPath ? [createArtifactEntry('input.context', contextPath, { label: 'Input context JSON' })] : []),
-      ...(modelPath ? [createArtifactEntry('input.model', modelPath, { label: 'Input model' })] : []),
-      ...(bomPath ? [createArtifactEntry('input.bom', bomPath, { label: 'Input BOM CSV' })] : []),
-      ...(inspectionPath ? [createArtifactEntry('input.inspection', inspectionPath, { label: 'Input inspection CSV' })] : []),
-      ...(qualityPath ? [createArtifactEntry('input.quality', qualityPath, { label: 'Input quality CSV' })] : []),
-      ...(createQualityPath ? [createArtifactEntry('input.create-quality', createQualityPath, { label: 'Input create quality report' })] : []),
-      ...(drawingQualityPath ? [createArtifactEntry('input.drawing-quality', drawingQualityPath, { label: 'Input drawing quality report' })] : []),
-      ...(drawingQaPath ? [createArtifactEntry('input.drawing-qa', drawingQaPath, { label: 'Input drawing QA report' })] : []),
-      ...(drawingIntentPath ? [createArtifactEntry('input.drawing-intent', drawingIntentPath, { label: 'Input drawing intent JSON' })] : []),
-      ...(featureCatalogPath ? [createArtifactEntry('input.feature-catalog', featureCatalogPath, { label: 'Input feature catalog JSON' })] : []),
-      ...(dfmReportPath ? [createArtifactEntry('input.dfm-report', dfmReportPath, { label: 'Input DFM report' })] : []),
-      ...(inspectionEvidencePath ? [createArtifactEntry('input.inspection-evidence', inspectionEvidencePath, { label: 'Input inspection evidence JSON' })] : []),
-      ...(attachmentAuthorizationPath ? [createArtifactEntry('input.inspection-evidence-attachment-authorization', attachmentAuthorizationPath, { label: 'Inspection evidence attachment authorization record' })] : []),
-      ...(attachmentRecordPath ? [createArtifactEntry('input.inspection-evidence-attachment-record', attachmentRecordPath, { label: 'Immutable inspection evidence attachment record' })] : []),
-      ...(compareToPath ? [createArtifactEntry('input.baseline', compareToPath, { label: 'Baseline review-pack JSON' })] : []),
-    ],
-    details: {
-      workflow: [contextPath ? 'context-input' : 'ingest', 'analyze-part', 'quality-link', 'review-pack', ...(compareToPath ? ['compare-rev'] : [])],
-    },
-  });
+  const manifestPath = requireAuthoritativeLineage
+    ? proofManifestPath
+    : await writeCliManifest({
+        command: 'review-context',
+        primaryOutputPath: result.artifacts.reviewPackJson,
+        artifacts: buildReviewContextManifestArtifacts(result.artifacts),
+        details: { workflow },
+      });
+  if (!manifestPath) {
+    throw new Error('Proof review-context publication did not return its staged artifact manifest path.');
+  }
   console.log(`Manifest: ${manifestPath}`);
 }
 

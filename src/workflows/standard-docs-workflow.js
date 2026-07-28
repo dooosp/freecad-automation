@@ -1,9 +1,24 @@
+import { createHash } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { join, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 
-import { getCCommandContract } from '../../lib/c-artifact-schema.js';
+import { publishAtomicOutputSet } from '../../lib/atomic-output-publication.js';
+import { assertValidCArtifact, getCCommandContract } from '../../lib/c-artifact-schema.js';
 import { writeValidatedCArtifact } from '../../lib/context-loader.js';
 import { buildSourceArtifactRef } from '../../lib/d-artifact-schema.js';
+import { parseInspectionEvidenceJsonBytes } from '../../lib/inspection-evidence-onboarding.js';
+import {
+  RevisionLineageError,
+  assertRevisionLineage,
+  assertRevisionLineageIdentityAgreement,
+  assertRevisionLineageSnapshotCurrent,
+  buildRevisionLineage,
+  buildRevisionLineageParent,
+  buildRevisionLineageParentFromSnapshot,
+  readAuthoritativeConfigSnapshot,
+  readRevisionLineageFileSnapshot,
+} from '../../lib/revision-lineage-contract.js';
 import { getPartIdentity } from '../agents/common.js';
 import { createStandardDocTemplateService } from '../services/report/standard-doc-template-service.js';
 import { loadShopProfile } from '../services/config/profile-service.js';
@@ -36,9 +51,162 @@ function mergeSourceArtifactRefs(primary = [], secondary = []) {
       path: ref.path || null,
       role: ref.role,
       label: ref.label || null,
+      ...(typeof ref.sha256 === 'string' ? { sha256: ref.sha256 } : {}),
+      ...(Number.isInteger(ref.size_bytes) ? { size_bytes: ref.size_bytes } : {}),
     });
   }
   return merged;
+}
+
+function lineageError(code, message, details = {}) {
+  return new RevisionLineageError(code, message, details);
+}
+
+function assertProofPath(value, label) {
+  if (
+    typeof value !== 'string'
+    || !value.trim()
+    || value !== value.trim()
+    || isAbsolute(value)
+    || value.includes('\\')
+    || value.split('/').some((segment) => !segment || segment === '.' || segment === '..')
+  ) {
+    throw lineageError('unsafe_path', `Proof standard docs require a safe repository-relative ${label}.`);
+  }
+  return value;
+}
+
+function proofRunLocator(pathValue, portablePathRoot, label) {
+  const relPath = relative(portablePathRoot, pathValue).replace(/\\/g, '/');
+  if (!relPath || relPath === '..' || relPath.startsWith('../') || isAbsolute(relPath)) {
+    throw lineageError('path_escape', `Proof ${label} is outside its explicit portable run root.`);
+  }
+  return `run/${relPath}`;
+}
+
+function exactParent(lineage, role, artifactType) {
+  const matches = lineage.parents.filter((parent) => (
+    parent.role === role && parent.artifact_type === artifactType
+  ));
+  if (matches.length !== 1) {
+    throw lineageError('missing_parent', `Proof readiness must contain exactly one ${role} parent.`, {
+      role,
+      artifact_type: artifactType,
+      match_count: matches.length,
+    });
+  }
+  return matches[0];
+}
+
+function assertParentMatchesSnapshot(parent, snapshot, label) {
+  if (
+    parent.path !== snapshot.path
+    || parent.sha256 !== snapshot.sha256
+    || parent.size_bytes !== snapshot.size_bytes
+  ) {
+    throw lineageError('digest_mismatch', `${label} does not match the exact proof snapshot.`, {
+      role: parent.role,
+      artifact_type: parent.artifact_type,
+    });
+  }
+}
+
+function assertReadinessAliases(readinessReport, identity) {
+  const part = readinessReport?.part || {};
+  for (const [field, expected] of [
+    ['package_slug', identity.package_slug],
+    ['part_id', identity.part_id],
+    ['revision', identity.revision],
+  ]) {
+    if (typeof part[field] !== 'string' || !part[field].trim()) {
+      throw lineageError('missing_identity', `Proof readiness part.${field} is required.`);
+    }
+    if (part[field] !== expected) {
+      throw lineageError('conflicting_identity', `Proof readiness part.${field} disagrees with revision_lineage.`);
+    }
+  }
+}
+
+function sha256(value) {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+async function createProofStandardDocsContext({
+  freecadRoot,
+  configPath,
+  authoritativeConfigSnapshot = null,
+  readinessReportPath,
+  readinessReport,
+  lineageSelection,
+}) {
+  const configLocator = assertProofPath(configPath, 'config path');
+  const readinessLocator = assertProofPath(readinessReportPath, 'readiness-report path');
+  const configSnapshot = authoritativeConfigSnapshot || await readAuthoritativeConfigSnapshot({
+    projectRoot: freecadRoot,
+    configPath: configLocator,
+    ...(lineageSelection === undefined ? {} : { selection: lineageSelection }),
+  });
+  if (configSnapshot.path !== configLocator) {
+    throw lineageError('conflicting_identity', 'Proof config snapshot path does not match configPath.');
+  }
+  const readinessSnapshot = await readRevisionLineageFileSnapshot({
+    projectRoot: freecadRoot,
+    path: readinessLocator,
+  });
+  let snapshottedReadiness;
+  try {
+    snapshottedReadiness = parseInspectionEvidenceJsonBytes(readinessSnapshot.bytes, {
+      requireCanonical: true,
+    });
+  } catch (error) {
+    throw lineageError('malformed_identity', `Proof readiness snapshot is not valid strict JSON: ${error.message}`);
+  }
+  assertValidCArtifact('readiness_report', snapshottedReadiness, {
+    command: 'generate-standard-docs',
+    path: readinessLocator,
+  });
+  if (!isDeepStrictEqual(readinessReport, snapshottedReadiness)) {
+    throw lineageError('input_changed_during_read', 'Loaded readiness report does not match its exact proof snapshot.');
+  }
+  if (!snapshottedReadiness.revision_lineage) {
+    throw lineageError('unsupported_legacy', 'Proof standard docs require readiness revision_lineage.');
+  }
+  const readinessLineage = assertRevisionLineage(snapshottedReadiness.revision_lineage);
+  assertRevisionLineageIdentityAgreement([configSnapshot.identity, readinessLineage]);
+  assertReadinessAliases(snapshottedReadiness, readinessLineage.identity);
+  const expectedConfigParent = buildRevisionLineageParentFromSnapshot({
+    artifactType: 'config',
+    role: 'authoritative_config',
+    snapshot: configSnapshot,
+  });
+  assertParentMatchesSnapshot(
+    exactParent(readinessLineage, 'authoritative_config', 'config'),
+    expectedConfigParent,
+    'Readiness authoritative config parent'
+  );
+  const readinessParent = buildRevisionLineageParent({
+    artifactType: 'readiness_report',
+    role: 'readiness_report',
+    path: proofRunLocator(
+      readinessSnapshot.path,
+      dirname(readinessSnapshot.path),
+      'readiness report'
+    ),
+    sha256: readinessSnapshot.sha256,
+    sizeBytes: readinessSnapshot.size_bytes,
+  });
+  const revisionLineage = buildRevisionLineage({
+    identity: readinessLineage.identity,
+    parents: [...readinessLineage.parents, readinessParent],
+  });
+  return {
+    config: configSnapshot.config,
+    configSnapshot,
+    readinessReport: snapshottedReadiness,
+    readinessSnapshot,
+    readinessParent,
+    revisionLineage,
+  };
 }
 
 function repoRelativePath(projectRoot, filePath) {
@@ -126,10 +294,29 @@ export function createStandardDocsWorkflow() {
     config,
     options = {},
   }) {
-    const loadedConfig = config ?? await loadConfig(configPath);
+    const requireAuthoritativeLineage = options.requireAuthoritativeLineage === true;
+    if (options.requireAuthoritativeLineage !== undefined
+      && options.requireAuthoritativeLineage !== true
+      && options.requireAuthoritativeLineage !== false) {
+      throw lineageError('malformed_policy', 'requireAuthoritativeLineage must be a boolean.');
+    }
+    if (requireAuthoritativeLineage && (!options.report || !options.reportPath)) {
+      throw lineageError('missing_parent', 'Proof standard docs require an explicit readiness report object and path.');
+    }
+    const proofContext = requireAuthoritativeLineage
+        ? await createProofStandardDocsContext({
+          freecadRoot,
+          configPath,
+          authoritativeConfigSnapshot: options.authoritativeConfigSnapshot || null,
+          readinessReportPath: options.reportPath,
+          readinessReport: options.report,
+          lineageSelection: options.lineageSelection,
+        })
+      : null;
+    const loadedConfig = proofContext?.config || config || await loadConfig(configPath);
     const siteProfile = options.siteProfile || await loadShopProfile(freecadRoot, options.profileName || null, { silent: true });
     const ruleProfile = options.ruleProfile || await loadRuleProfile(freecadRoot, loadedConfig, { silent: true });
-    const report = options.report || await runReadinessReportWorkflow({
+    const report = proofContext?.readinessReport || options.report || await runReadinessReportWorkflow({
       freecadRoot,
       runScript,
       loadConfig,
@@ -140,9 +327,8 @@ export function createStandardDocsWorkflow() {
     assertConfigMatchesReadinessLineage(loadedConfig, report, { configPath });
     const defaultDir = resolve(freecadRoot, 'output', `${report.part?.name || 'part'}_standard_docs`);
     const outDir = resolve(options.outDir || defaultDir);
-    await mkdir(outDir, { recursive: true });
     const readinessReportPath = options.reportPath
-      ? resolve(options.reportPath)
+      ? resolve(freecadRoot, options.reportPath)
       : await writeValidatedCArtifact(
           join(outDir, 'readiness_report.json'),
           'readiness_report',
@@ -152,15 +338,42 @@ export function createStandardDocsWorkflow() {
 
     const documents = generateStandardDocs(report, { siteProfile, ruleProfile });
     const artifacts = {};
-    for (const [filename, content] of Object.entries(documents)) {
-      artifacts[filename] = await writeTextFile(join(outDir, filename), content);
+    for (const filename of Object.keys(documents)) artifacts[filename] = join(outDir, filename);
+
+    const generatedAt = options.generatedAt || report.generated_at;
+    if (requireAuthoritativeLineage && (
+      typeof generatedAt !== 'string'
+      || !generatedAt.trim()
+      || Number.isNaN(Date.parse(generatedAt))
+    )) {
+      throw lineageError('malformed_identity', 'Proof standard docs require a fixed parseable generated_at.');
     }
+
+    const readinessSourceRef = proofContext
+      ? {
+          artifact_type: 'readiness_report',
+          path: proofContext.readinessParent.path,
+          role: 'input',
+          label: 'Canonical readiness report JSON',
+          sha256: proofContext.readinessSnapshot.sha256,
+          size_bytes: proofContext.readinessSnapshot.size_bytes,
+        }
+      : buildSourceArtifactRef(
+          'readiness_report',
+          repoRelativePath(freecadRoot, readinessReportPath),
+          'input',
+          'Canonical readiness report JSON'
+        );
 
     const manifest = {
       schema_version: '1.0',
       artifact_type: 'docs_manifest',
       workflow: 'standard_docs_generation',
-      generated_at: new Date().toISOString(),
+      generated_at: generatedAt || new Date().toISOString(),
+      ...(proofContext ? {
+        effective_policy: { proof_lineage: true },
+        revision_lineage: proofContext.revisionLineage,
+      } : {}),
       draft_notice: 'Generated planning aid only. Engineering review required before controlled-document use.',
       part: report.part,
       warnings: uniqueStrings(report.warnings || []),
@@ -175,12 +388,7 @@ export function createStandardDocsWorkflow() {
       },
       source_artifact_refs: mergeSourceArtifactRefs(
         report.source_artifact_refs || [],
-        [buildSourceArtifactRef(
-          'readiness_report',
-          repoRelativePath(freecadRoot, readinessReportPath),
-          'input',
-          'Canonical readiness report JSON'
-        )]
+        [readinessSourceRef]
       ),
       canonical_artifact: {
         json_is_source_of_truth: true,
@@ -199,23 +407,92 @@ export function createStandardDocsWorkflow() {
       rule_profile: summarizeRuleProfile(ruleProfile),
       documents: Object.entries(artifacts).map(([filename, path]) => ({
         filename,
-        path: repoRelativePath(freecadRoot, path),
+        path: proofContext
+          ? proofRunLocator(path, outDir, 'standard-doc document')
+          : repoRelativePath(freecadRoot, path),
       })),
     };
-
-    artifacts.manifest = await writeValidatedCArtifact(
-      join(outDir, 'standard_docs_manifest.json'),
-      'docs_manifest',
-      manifest,
-      { command: 'generate-standard-docs' }
-    );
+    const manifestPath = join(outDir, 'standard_docs_manifest.json');
+    if (proofContext) {
+      assertValidCArtifact('docs_manifest', manifest, {
+        command: 'generate-standard-docs',
+        path: manifestPath,
+      });
+      const outputs = [
+        ...Object.entries(documents).map(([filename, content]) => ({
+          path: artifacts[filename],
+          content,
+        })),
+        { path: manifestPath, content: `${JSON.stringify(manifest, null, 2)}\n` },
+      ];
+      const precomputedMetadata = Object.fromEntries(outputs.map((entry) => {
+        const bytes = Buffer.isBuffer(entry.content) ? entry.content : Buffer.from(entry.content, 'utf8');
+        return [resolve(entry.path), {
+          exists: true,
+          size_bytes: bytes.length,
+          sha256: sha256(bytes),
+        }];
+      }));
+      const additionalOutputs = typeof options.prepareProofPublicationOutputs === 'function'
+        ? await options.prepareProofPublicationOutputs({
+            artifacts: { ...artifacts, manifest: manifestPath },
+            manifest,
+            revisionLineage: proofContext.revisionLineage,
+            configSnapshot: proofContext.configSnapshot,
+            readinessSnapshot: proofContext.readinessSnapshot,
+            precomputedMetadata,
+          })
+        : [];
+      for (const entry of additionalOutputs || []) {
+        if (!entry?.path || entry.content === undefined) {
+          throw new Error('Proof standard-docs additional outputs require path and content.');
+        }
+        outputs.push(entry);
+      }
+      if (new Set(outputs.map((entry) => resolve(entry.path))).size !== outputs.length) {
+        throw new Error('Proof standard-docs outputs must have unique paths.');
+      }
+      if (outputs.some((entry) => dirname(resolve(entry.path)) !== outDir)) {
+        throw new Error('Proof standard-docs outputs must share the standard-docs output directory.');
+      }
+      await Promise.all([
+        assertRevisionLineageSnapshotCurrent(proofContext.configSnapshot, { projectRoot: freecadRoot }),
+        assertRevisionLineageSnapshotCurrent(proofContext.readinessSnapshot, { projectRoot: freecadRoot }),
+      ]);
+      await mkdir(outDir, { recursive: true });
+      await publishAtomicOutputSet({
+        directory: outDir,
+        outputs,
+        hooks: options.publicationHooks || {},
+      });
+    } else {
+      await mkdir(outDir, { recursive: true });
+      for (const [filename, content] of Object.entries(documents)) {
+        artifacts[filename] = await writeTextFile(join(outDir, filename), content);
+      }
+      await writeValidatedCArtifact(
+        manifestPath,
+        'docs_manifest',
+        manifest,
+        { command: 'generate-standard-docs' }
+      );
+    }
+    artifacts.manifest = manifestPath;
 
     return {
       report,
+      config: loadedConfig,
       readiness_report_path: readinessReportPath,
       out_dir: outDir,
       artifacts,
       manifest,
+      ...(proofContext ? {
+        revisionLineage: proofContext.revisionLineage,
+        proofSnapshots: {
+          config: proofContext.configSnapshot,
+          readiness: proofContext.readinessSnapshot,
+        },
+      } : {}),
     };
   };
 }

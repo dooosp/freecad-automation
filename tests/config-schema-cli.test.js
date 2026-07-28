@@ -46,6 +46,28 @@ formats = ["step"]
 directory = "output"
 `, 'utf8');
 
+  const validIdentityConfigPath = join(TMP_DIR, 'valid-identity-config.json');
+  writeFileSync(validIdentityConfigPath, JSON.stringify({
+    config_version: 1,
+    name: 'hinge_block',
+    product: {
+      package_slug: 'hinge-block',
+      part_id: 'hinge_block',
+      revision: 'A',
+    },
+  }), 'utf8');
+
+  const invalidIdentityConfigPath = join(TMP_DIR, 'invalid-identity-config.json');
+  writeFileSync(invalidIdentityConfigPath, JSON.stringify({
+    config_version: 1,
+    name: 'hinge_block',
+    product: {
+      package_slug: 1,
+      part_id: [],
+      revision: {},
+    },
+  }), 'utf8');
+
   const invalidConfigPath = join(TMP_DIR, 'invalid-config.json');
   writeFileSync(invalidConfigPath, JSON.stringify({
     config_version: 1,
@@ -126,6 +148,20 @@ directory = "output"
   assert.equal(validParsed.counts.errors, 0);
   assert.equal(validParsed.counts.warnings, 0);
   assert.equal(validParsed.target_version, 1);
+
+  const validIdentity = runCli(['validate-config', validIdentityConfigPath, '--json']);
+  assert.equal(validIdentity.status, 0, validIdentity.stderr || validIdentity.stdout);
+  assert.equal(JSON.parse(validIdentity.stdout).valid, true);
+
+  const invalidIdentity = runCli(['validate-config', invalidIdentityConfigPath, '--json']);
+  assert.notEqual(invalidIdentity.status, 0, 'typed product identity fields should reject non-strings');
+  const invalidIdentityParsed = JSON.parse(invalidIdentity.stdout);
+  for (const field of ['package_slug', 'part_id', 'revision']) {
+    assert(
+      invalidIdentityParsed.errors.some((entry) => entry.includes(`root.product.${field}`)),
+      `product.${field} type mismatch should be surfaced`
+    );
+  }
 
   const invalidJson = runCli(['validate-config', invalidConfigPath, '--json']);
   assert.notEqual(invalidJson.status, 0, 'invalid config should fail validation');

@@ -39,6 +39,40 @@ try {
   const mismatchPath = join(temp, 'revision-impact-mismatch.json');
   await writeFile(mismatchPath, `${JSON.stringify({ artifact_type: 'revision_impact_report', candidate: { package_slug: 'fixture-bracket', revision: 'B', source_hashes: { review_pack: '0'.repeat(64) } }, reinspection_plan: { items: [] }, evidence_applicability: { assessments: [], authoritative_evidence_state_changed: false } })}\n`);
   await assert.rejects(createInspectionPlanFromPaths({ projectRoot: ROOT, reviewPackPath: REVIEW, revisionImpactPath: mismatchPath, trustedInputRoots: [temp], scope: 'delta', generatedAt }), /source-hash mismatch/);
+  const snapshot = { review_pack: { artifact_type: 'review_pack', path: 'fixture.json', sha256: 'a'.repeat(64) } };
+  assert.throws(
+    () => buildInspectionPlan({
+      reviewPack: review,
+      config: { product: { package_slug: 'fixture-bracket', part_id: 'OTHER-PART', revision: 'B' } },
+      sourceSnapshot: snapshot,
+      scope: 'full',
+      generatedAt,
+    }),
+    /config part ID mismatch/
+  );
+  assert.throws(
+    () => buildInspectionPlan({
+      reviewPack: review,
+      revisionImpact: {
+        artifact_type: 'revision_impact_report',
+        candidate: { package_slug: 'fixture-bracket', part_id: 'OTHER-PART', revision: 'B' },
+      },
+      sourceSnapshot: snapshot,
+      scope: 'full',
+      generatedAt,
+    }),
+    /revision-impact candidate part ID mismatch/
+  );
+  assert.throws(
+    () => buildInspectionPlan({
+      reviewPack: review,
+      readiness: { package_slug: 'fixture-bracket', revision: 'B', part: { part_id: 'FIXTURE-BRACKET-100', revision: 'C' } },
+      sourceSnapshot: snapshot,
+      scope: 'full',
+      generatedAt,
+    }),
+    /readiness revision aliases conflict/
+  );
   review.inspection_linkage.records[0].unit = 'inch'; review.inspection_linkage.records[0].nominal_value = 1; review.inspection_linkage.records[0].tolerance = { lower: -0.01, upper: 0.01 };
   const normalized = buildInspectionPlan({ reviewPack: review, sourceSnapshot: { review_pack: { artifact_type: 'review_pack', path: 'fixture.json', sha256: 'a'.repeat(64) } }, scope: 'full', generatedAt });
   assert.equal(normalized.items[0].unit, 'mm'); assert.equal(normalized.items[0].nominal_value, 25.4); assert.equal(normalized.items[0].lower_limit, 25.146);

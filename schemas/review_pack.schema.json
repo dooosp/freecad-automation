@@ -37,6 +37,9 @@
     "artifact_type": {
       "const": "review_pack"
     },
+    "revision_lineage": {
+      "$ref": "d_artifact_common.schema.json#/$defs/revisionLineage"
+    },
     "canonical_artifact": {
       "type": "object",
       "required": [

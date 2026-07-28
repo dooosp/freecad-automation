@@ -12,6 +12,14 @@ FreeCAD Automation now emits an additive output manifest for the core `fcad` art
 
 This output manifest is separate from the existing `artifact-manifest` contract. The goal is narrower and more direct: make it easy to answer which input produced which outputs, under which runtime and git state, and with which warnings or failures.
 
+Revision-lineage proof flows extend the existing manifest contracts rather than
+introducing another manifest type. A successful proof manifest includes
+`effective_policy.proof_lineage: true` and the validated `revision_lineage`.
+A failed proof run retains the effective policy and error evidence without
+claiming lineage that was not established. Proof-mode locators are portable and
+omit private runtime executable paths; legacy manifest behavior is unchanged.
+See [revision-lineage proof mode](./revision-lineage-proof-mode.md).
+
 For `create`, the manifest's `linked_artifacts.quality_json` field now points at the additive `<base>_create_quality.json` report when create exported model artifacts and quality evaluation ran.
 
 ## Naming

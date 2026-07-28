@@ -92,4 +92,42 @@ try {
 assert.equal(docsError instanceof AfExecutionContractError, true);
 assert.equal(docsError.code, 'invalid_docs_manifest_handoff');
 
+const proofReadinessPath = resolve(ROOT, 'tmp/codex/run-a/readiness_report.json');
+const proofDocsManifest = {
+  part: readinessReport.part,
+  effective_policy: { proof_lineage: true },
+  source_artifact_refs: [{
+    artifact_type: 'readiness_report',
+    path: 'run/readiness_report.json',
+    role: 'input',
+  }],
+};
+assert.doesNotThrow(() => validateDocsManifestAgainstReadiness({
+  readinessReport,
+  readinessPath: proofReadinessPath,
+  docsManifest: proofDocsManifest,
+  docsManifestPath: resolve(ROOT, 'tmp/codex/run-a/standard-docs/standard_docs_manifest.json'),
+  projectRoot: ROOT,
+  portablePathRoot: resolve(ROOT, 'tmp/codex/run-a'),
+}));
+for (const namespace of ['input', 'runtime']) {
+  assert.throws(
+    () => validateDocsManifestAgainstReadiness({
+      readinessReport,
+      readinessPath: proofReadinessPath,
+      docsManifest: {
+        ...proofDocsManifest,
+        source_artifact_refs: [{
+          artifact_type: 'readiness_report',
+          path: `${namespace}/readiness_report.json`,
+          role: 'input',
+        }],
+      },
+      projectRoot: ROOT,
+      portablePathRoot: resolve(ROOT, 'tmp/codex/run-a'),
+    }),
+    (error) => error instanceof AfExecutionContractError && error.code === 'invalid_docs_manifest_handoff'
+  );
+}
+
 console.log('af-execution-contract.test.js: ok');

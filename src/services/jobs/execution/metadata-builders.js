@@ -3,17 +3,28 @@ import {
   buildCompatibilityMarkers,
   createAfArtifactIdentityRecord,
 } from '../../../../lib/af-execution-contract.js';
+import { assertRevisionLineage } from '../../../../lib/revision-lineage-contract.js';
 
 function buildLineageIdentity(document = {}) {
   const part = document?.part && typeof document.part === 'object' ? document.part : {};
+  const revisionLineage = document?.revision_lineage
+    ? assertRevisionLineage(document.revision_lineage)
+    : null;
   return {
-    part_id: part.part_id || document.part_id || null,
+    package_slug: revisionLineage?.identity?.package_slug || part.package_slug || document.package_slug || null,
+    part_id: revisionLineage?.identity?.part_id || part.part_id || document.part_id || null,
     name: part.name || null,
-    revision: part.revision || document.revision || null,
+    revision: revisionLineage?.identity?.revision || part.revision || document.revision || null,
+    config_sha256: revisionLineage?.identity?.config_sha256 || part.config_sha256 || document.config_sha256 || null,
   };
 }
 
-export function buildGenericAfMetadata(jobType, document, executionNotes = []) {
+export function buildGenericAfMetadata(
+  jobType,
+  document,
+  executionNotes = [],
+  { effectivePolicy = null, sourceArtifactBinding = null } = {}
+) {
   return buildAfArtifactContractMetadata({
     jobType,
     artifactIdentity: createAfArtifactIdentityRecord({
@@ -29,14 +40,19 @@ export function buildGenericAfMetadata(jobType, document, executionNotes = []) {
       },
       lineage: buildLineageIdentity(document),
       compatibility: buildCompatibilityMarkers(document),
+      revisionLineage: document?.revision_lineage || null,
     }),
     executionNotes,
+    effectivePolicy,
+    sourceArtifactBinding,
   });
 }
 
 export function buildReleaseBundleMetadata({
   readinessReport,
   releaseBundleManifest,
+  effectivePolicy = null,
+  sourceArtifactBinding = null,
 }) {
   const lineage = buildLineageIdentity(readinessReport);
   return buildAfArtifactContractMetadata({
@@ -54,6 +70,7 @@ export function buildReleaseBundleMetadata({
         rationale: 'Release bundle metadata was derived from the release bundle manifest.',
       },
       lineage,
+      revisionLineage: readinessReport?.revision_lineage || null,
       compatibility: {
         mode: 'canonical',
         canonical_review_pack_backed: null,
@@ -63,12 +80,16 @@ export function buildReleaseBundleMetadata({
     executionNotes: [
       'release_bundle.zip is a derived transport artifact backed by canonical packaging metadata.',
     ],
+    effectivePolicy,
+    sourceArtifactBinding,
   });
 }
 
 export function buildReleaseBundleManifestMetadata({
   readinessReport,
   releaseBundleManifest,
+  effectivePolicy = null,
+  sourceArtifactBinding = null,
 }) {
   const lineage = buildLineageIdentity(readinessReport);
   return buildAfArtifactContractMetadata({
@@ -86,9 +107,12 @@ export function buildReleaseBundleManifestMetadata({
       },
       lineage,
       compatibility: buildCompatibilityMarkers(releaseBundleManifest),
+      revisionLineage: readinessReport?.revision_lineage || releaseBundleManifest?.revision_lineage || null,
     }),
     executionNotes: [
       'Release bundle manifest preserves readiness lineage for reopenable packaging metadata.',
     ],
+    effectivePolicy,
+    sourceArtifactBinding,
   });
 }

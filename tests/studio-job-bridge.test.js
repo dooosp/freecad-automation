@@ -188,6 +188,96 @@ const invalidReviewContextSubmission = validateStudioJobSubmission({
 assert.equal(invalidReviewContextSubmission.ok, false);
 assert.match(invalidReviewContextSubmission.errors.join('\n'), /review-context does not accept config_toml, artifact_ref/);
 
+const invalidDirectProofReviewContext = validateStudioJobSubmission({
+  type: 'review-context',
+  context_path: 'output/imports/bootstrap-123/artifacts/engineering_context.json',
+  options: { proof_lineage: true },
+});
+assert.equal(invalidDirectProofReviewContext.ok, false);
+assert.match(
+  invalidDirectProofReviewContext.errors.join('\n'),
+  /requires artifact_ref.*registered config sibling.*immutable binding/i
+);
+
+const proofReviewContextArtifact = {
+  id: 'engineering-context',
+  path: '/tmp/jobs/job-proof-review/artifacts/engineering_context.json',
+  type: 'engineering-context.json',
+  file_name: 'engineering_context.json',
+  extension: '.json',
+  exists: true,
+  scope: 'user-facing',
+};
+const proofReviewConfigArtifact = {
+  id: 'authoritative-config',
+  path: '/tmp/jobs/job-proof-review/artifacts/config.toml',
+  type: 'input.config',
+  file_name: 'config.toml',
+  extension: '.toml',
+  exists: true,
+  scope: 'internal',
+};
+const proofReviewBinding = (artifact) => ({
+  schema_version: '1.0',
+  job_id: 'job-proof-review',
+  artifact_id: artifact.id,
+  path: artifact.path,
+  sha256: artifact.id === 'authoritative-config' ? 'a'.repeat(64) : 'b'.repeat(64),
+  size_bytes: artifact.id === 'authoritative-config' ? 128 : 256,
+});
+const proofReviewFromArtifact = await translateStudioJobSubmission({
+  type: 'review-context',
+  artifact_ref: {
+    job_id: 'job-proof-review',
+    artifact_id: 'engineering-context',
+  },
+  options: { proof_lineage: true },
+}, {
+  async resolveArtifactRef(ref, options = {}) {
+    assert.equal(options.proofLineage, true);
+    const artifact = ref.artifact_id === 'authoritative-config'
+      ? proofReviewConfigArtifact
+      : proofReviewContextArtifact;
+    return {
+      jobId: 'job-proof-review',
+      artifact,
+      jobArtifacts: [proofReviewContextArtifact, proofReviewConfigArtifact],
+      artifactBinding: proofReviewBinding(artifact),
+    };
+  },
+});
+assert.equal(proofReviewFromArtifact.ok, true, proofReviewFromArtifact.errors?.join('\n'));
+assert.equal(proofReviewFromArtifact.request.context_path, proofReviewContextArtifact.path);
+assert.equal(proofReviewFromArtifact.request.config_path, proofReviewConfigArtifact.path);
+assert.deepEqual(
+  proofReviewFromArtifact.request.options.studio.source_artifact_binding,
+  proofReviewBinding(proofReviewContextArtifact)
+);
+assert.deepEqual(
+  proofReviewFromArtifact.request.options.studio.config_artifact_binding,
+  proofReviewBinding(proofReviewConfigArtifact)
+);
+
+const rejectedProofReviewWithoutConfig = await translateStudioJobSubmission({
+  type: 'review-context',
+  artifact_ref: {
+    job_id: 'job-proof-review',
+    artifact_id: 'engineering-context',
+  },
+  options: { proof_lineage: true },
+}, {
+  async resolveArtifactRef() {
+    return {
+      jobId: 'job-proof-review',
+      artifact: proofReviewContextArtifact,
+      jobArtifacts: [proofReviewContextArtifact],
+      artifactBinding: proofReviewBinding(proofReviewContextArtifact),
+    };
+  },
+});
+assert.equal(rejectedProofReviewWithoutConfig.ok, false);
+assert.match(rejectedProofReviewWithoutConfig.errors.join('\n'), /requires a registered config artifact/i);
+
 const invalidUnsafeArtifactRef = validateStudioJobSubmission({
   type: 'inspect',
   artifact_ref: {

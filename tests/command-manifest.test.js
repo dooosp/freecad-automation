@@ -87,7 +87,8 @@ assert.match(allHelp, /--inspection-evidence <path>\s+Canonical attached inspect
 assert.match(allHelp, /--attachment-authorization <path>\s+Canonical inspection_evidence_attachment_authorization produced by onboarding; legacy stage5b_attachment_authorization is rejected/i);
 assert.match(allHelp, /--evidence-attachment-record <path>\s+Immutable inspection_evidence_attachment_record required with --inspection-evidence/i);
 assert.match(allHelp, /--strict-quality\s+Fail create or draw when blocking quality checks are found/i);
-assert.match(allHelp, /--generated-at <iso8601>\s+Use a fixed release bundle timestamp with pack for deterministic bundle metadata and ZIP entries/i);
+assert.match(allHelp, /--generated-at <iso8601>\s+Use a fixed timestamp on supported standard-docs, inspection-plan, and pack outputs for deterministic metadata/i);
+assert.match(allHelp, /--proof-lineage\s+Valueless opt-in for authoritative revision lineage on supported review, readiness, standard-docs, inspection-plan, and pack ingress/i);
 assert.match(allHelp, /fcad serve \[port\] \[--jobs-dir <dir>\] \[--legacy-viewer\]/);
 
 const cliAllRun = spawnSync('node', [CLI, 'help', '--all'], { cwd: ROOT, encoding: 'utf8' });
