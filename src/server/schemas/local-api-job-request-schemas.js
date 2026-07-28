@@ -39,8 +39,24 @@ export const localApiJobRequestSchema = {
         config_path: { type: 'string', minLength: 1 },
         requirements_path: { type: 'string', minLength: 1 },
         scope: { enum: ['full', 'delta'] },
-        options: { type: 'object' },
+        options: {
+          type: 'object',
+          properties: {
+            proof_lineage: { const: true },
+          },
+        },
       },
+      allOf: [
+        {
+          if: {
+            required: ['options'],
+            properties: {
+              options: { required: ['proof_lineage'] },
+            },
+          },
+          then: { required: ['config_path'] },
+        },
+      ],
     },
     {
       type: 'object',
@@ -84,6 +100,7 @@ export const localApiJobRequestSchema = {
       required: ['type'],
       properties: {
         type: { const: 'review-context' },
+        config_path: { type: 'string', minLength: 1 },
         context_path: { type: 'string', minLength: 1 },
         model_path: { type: 'string', minLength: 1 },
         bom_path: { type: 'string', minLength: 1 },
@@ -96,11 +113,36 @@ export const localApiJobRequestSchema = {
         feature_catalog_path: { type: 'string', minLength: 1 },
         dfm_report_path: { type: 'string', minLength: 1 },
         compare_to_path: { type: 'string', minLength: 1 },
-        options: { type: 'object' },
+        options: {
+          type: 'object',
+          properties: {
+            proof_lineage: { const: true },
+          },
+        },
       },
       anyOf: [
         { required: ['context_path'] },
         { required: ['model_path'] },
+      ],
+      allOf: [
+        {
+          if: {
+            required: ['options'],
+            properties: {
+              options: { required: ['proof_lineage'] },
+            },
+          },
+          then: { required: ['config_path'] },
+        },
+        {
+          if: { required: ['config_path'] },
+          then: {
+            required: ['options'],
+            properties: {
+              options: { required: ['proof_lineage'] },
+            },
+          },
+        },
       ],
     },
     {
@@ -124,7 +166,12 @@ export const localApiJobRequestSchema = {
         review_pack_path: { type: 'string', minLength: 1 },
         process_plan_path: { type: 'string', minLength: 1 },
         quality_risk_path: { type: 'string', minLength: 1 },
-        options: { type: 'object' },
+        options: {
+          type: 'object',
+          properties: {
+            proof_lineage: { const: true },
+          },
+        },
       },
     },
     {
@@ -158,7 +205,12 @@ export const localApiJobRequestSchema = {
         type: { const: 'generate-standard-docs' },
         config_path: { type: 'string', minLength: 1 },
         readiness_report_path: { type: 'string', minLength: 1 },
-        options: { type: 'object' },
+        options: {
+          type: 'object',
+          properties: {
+            proof_lineage: { const: true },
+          },
+        },
       },
     },
     {
@@ -169,7 +221,12 @@ export const localApiJobRequestSchema = {
         type: { const: 'pack' },
         readiness_report_path: { type: 'string', minLength: 1 },
         docs_manifest_path: { type: 'string', minLength: 1 },
-        options: { type: 'object' },
+        options: {
+          type: 'object',
+          properties: {
+            proof_lineage: { const: true },
+          },
+        },
       },
     },
     {
@@ -215,6 +272,27 @@ export const localApiJobRequestSchema = {
       properties: {
         type: { const: 'stage5b-evidence-audit' },
         options: { type: 'object' },
+      },
+    },
+  ],
+  allOf: [
+    {
+      if: {
+        required: ['type'],
+        properties: {
+          type: {
+            not: {
+              enum: ['review-context', 'readiness-pack', 'generate-standard-docs', 'inspection-plan', 'pack'],
+            },
+          },
+        },
+      },
+      then: {
+        properties: {
+          options: {
+            not: { required: ['proof_lineage'] },
+          },
+        },
       },
     },
   ],
@@ -286,6 +364,26 @@ export const publicJobRequestSchema = {
         docs_manifest_path: { type: 'string', minLength: 1 },
         config_path: { type: 'string', minLength: 1 },
         options: { type: 'object' },
+      },
+    },
+  ],
+  allOf: [
+    {
+      if: {
+        required: ['options'],
+        properties: {
+          options: { required: ['proof_lineage'] },
+        },
+      },
+      then: {
+        properties: {
+          type: { enum: ['review-context', 'readiness-pack', 'generate-standard-docs', 'inspection-plan', 'pack'] },
+          options: {
+            properties: {
+              proof_lineage: { const: true },
+            },
+          },
+        },
       },
     },
   ],

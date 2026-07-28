@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import { readFile, stat, writeFile } from 'node:fs/promises';
-import { basename, dirname, relative, resolve } from 'node:path';
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 
 import {
   artifactPathFor,
@@ -9,7 +9,18 @@ import {
   writeJsonFile,
 } from '../../lib/context-loader.js';
 import { AttachmentAuthorizationValidationError } from '../../lib/inspection-evidence.js';
+import { publishAtomicOutputSet } from '../../lib/atomic-output-publication.js';
+import { assertValidDArtifact } from '../../lib/d-artifact-schema.js';
 import { resolveModelAnalysisInputs } from '../../lib/model-analysis.js';
+import {
+  RevisionLineageError,
+  assertRevisionLineage,
+  assertRevisionLineageIdentityAgreement,
+  assertRevisionLineageSnapshotCurrent,
+  buildRevisionLineage,
+  buildRevisionLineageParent,
+  readAuthoritativeConfigSnapshot,
+} from '../../lib/revision-lineage-contract.js';
 import { generateConfigFromAnalysis } from '../api/model.js';
 import { assertSafeStage5bInputFile } from '../shared/stage5b-path-boundary.js';
 import { verifyCanonicalInspectionEvidenceAttachment } from '../services/inspection-evidence-intake/inspection-evidence-onboarding-service.js';
@@ -214,6 +225,7 @@ async function buildInspectionEvidenceRecord(
   const fileStat = await stat(evidenceBoundary.absolute);
   const authorizationBuffer = await readFile(authorizationBoundary.absolute);
   const authorizationStat = await stat(authorizationBoundary.absolute);
+  const attachmentRecordStat = await stat(resolve(projectRoot, verifiedAttachment.receiptRef));
   return {
     record: {
       evidence_id: `package:inspection_evidence:${portable.sourceRef}`,
@@ -243,6 +255,7 @@ async function buildInspectionEvidenceRecord(
         source_ref: verifiedAttachment.receiptRef,
         file_name: basename(verifiedAttachment.receiptRef),
         sha256: verifiedAttachment.receiptSha256,
+        size_bytes: attachmentRecordStat.size,
         attachment_id: verifiedAttachment.receipt.attachment_id,
         package_revision: verifiedAttachment.receipt.package_revision,
         source_document_sha256: verifiedAttachment.receipt.source_document_sha256,
@@ -405,6 +418,135 @@ function buildOutputPaths({ outputPath, outDir, defaultStem }) {
     reviewPriorities: siblingArtifactPath(primaryOutputPath, '_review_priorities.json'),
     revisionComparison: siblingArtifactPath(primaryOutputPath, '_revision_comparison.json'),
   };
+}
+
+function lineageError(code, message, details = {}) {
+  return new RevisionLineageError(code, message, details);
+}
+
+function optionalIdentityValue(value, path) {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== 'string' || !value.trim()) {
+    throw lineageError('malformed_identity', `${path} must be a non-blank string when supplied in proof mode.`, { path });
+  }
+  return value.trim();
+}
+
+function assertCallerIdentityMatchesConfig({ partId, revision }, identity) {
+  const suppliedPartId = optionalIdentityValue(partId, 'review-context part_id');
+  const suppliedRevision = optionalIdentityValue(revision, 'review-context revision');
+  const conflicts = [];
+  if (suppliedPartId !== null && suppliedPartId !== identity.part_id) {
+    conflicts.push(`part_id ${suppliedPartId} does not match authoritative config ${identity.part_id}`);
+  }
+  if (suppliedRevision !== null && suppliedRevision !== identity.revision) {
+    conflicts.push(`revision ${suppliedRevision} does not match authoritative config ${identity.revision}`);
+  }
+  if (conflicts.length > 0) {
+    throw lineageError('conflicting_identity', `Proof review-context caller identity conflicts with the authoritative config: ${conflicts.join('; ')}.`, {
+      conflicts,
+    });
+  }
+}
+
+function bindContextToAuthoritativeIdentity(contextValue, identity) {
+  const context = safeObject(contextValue);
+  const part = safeObject(context.part);
+  const contextPackageSlug = optionalIdentityValue(part.package_slug, 'review context part.package_slug');
+  const contextPartId = optionalIdentityValue(part.part_id, 'review context part.part_id');
+  const contextRevision = optionalIdentityValue(part.revision, 'review context part.revision');
+  const conflicts = [];
+  if (contextPackageSlug !== null && contextPackageSlug !== identity.package_slug) {
+    conflicts.push(`context package_slug ${contextPackageSlug} does not match ${identity.package_slug}`);
+  }
+  if (contextPartId !== null && contextPartId !== identity.part_id) {
+    conflicts.push(`context part_id ${contextPartId} does not match ${identity.part_id}`);
+  }
+  if (contextRevision !== null && contextRevision !== identity.revision) {
+    conflicts.push(`context revision ${contextRevision} does not match ${identity.revision}`);
+  }
+  if (conflicts.length > 0) {
+    throw lineageError('conflicting_identity', `Proof review-context input identity conflicts with the authoritative config: ${conflicts.join('; ')}.`, {
+      conflicts,
+    });
+  }
+  return {
+    ...context,
+    part: {
+      ...part,
+      package_slug: identity.package_slug,
+      part_id: identity.part_id,
+      revision: identity.revision,
+      name: part.name || identity.part_id,
+    },
+  };
+}
+
+function assertProofReviewPackIdentity(reviewPack, revisionLineage) {
+  assertValidDArtifact('review_pack', reviewPack, { command: 'review-context' });
+  const actualLineage = assertRevisionLineage(reviewPack.revision_lineage);
+  assertRevisionLineageIdentityAgreement([revisionLineage, actualLineage]);
+  const part = safeObject(reviewPack.part);
+  const aliases = {
+    nested_package_slug: optionalIdentityValue(part.package_slug, 'review_pack.part.package_slug'),
+    top_part_id: optionalIdentityValue(reviewPack.part_id, 'review_pack.part_id'),
+    nested_part_id: optionalIdentityValue(part.part_id, 'review_pack.part.part_id'),
+    top_revision: optionalIdentityValue(reviewPack.revision, 'review_pack.revision'),
+    nested_revision: optionalIdentityValue(part.revision, 'review_pack.part.revision'),
+  };
+  if (Object.values(aliases).some((value) => value === null)) {
+    throw lineageError('missing_identity', 'Proof review pack requires explicit nested package slug plus top-level and nested part/revision identity.', { aliases });
+  }
+  const identity = revisionLineage.identity;
+  if (
+    aliases.top_part_id !== aliases.nested_part_id
+    || aliases.top_revision !== aliases.nested_revision
+    || aliases.nested_package_slug !== identity.package_slug
+    || aliases.top_part_id !== identity.part_id
+    || aliases.top_revision !== identity.revision
+  ) {
+    throw lineageError('conflicting_identity', 'Proof review pack package slug, top-level/nested part and revision, and authoritative config identities must agree exactly.', {
+      aliases,
+      authoritative_identity: identity,
+    });
+  }
+  return actualLineage;
+}
+
+async function buildProofWorkingPaths(finalPaths) {
+  const outputDirectory = dirname(finalPaths.reviewPackJson);
+  await mkdir(outputDirectory, { recursive: true });
+  const stagingDirectory = await mkdtemp(join(outputDirectory, '.fcad-review-context-stage-'));
+  const paths = Object.fromEntries(
+    Object.entries(finalPaths).map(([key, value]) => [key, join(stagingDirectory, basename(value))])
+  );
+  return { outputDirectory, stagingDirectory, paths };
+}
+
+async function collectProofPublicationOutputs(workingPaths, finalPaths) {
+  const outputs = [];
+  const metadata = {};
+  for (const [key, workingPath] of Object.entries(workingPaths)) {
+    let info;
+    try {
+      info = await stat(workingPath);
+    } catch (error) {
+      if (error?.code === 'ENOENT' && ['draftConfig', 'revisionComparison'].includes(key)) continue;
+      throw error;
+    }
+    if (!info.isFile()) {
+      throw lineageError('unsafe_output', `Proof review output is not a regular file: ${key}.`, { key });
+    }
+    const content = await readFile(workingPath);
+    const finalPath = finalPaths[key];
+    outputs.push({ path: finalPath, content });
+    metadata[resolve(finalPath)] = {
+      exists: true,
+      size_bytes: content.length,
+      sha256: createHash('sha256').update(content).digest('hex'),
+    };
+  }
+  return { outputs, metadata };
 }
 
 function uniqueWarnings(...lists) {
@@ -575,6 +717,12 @@ function buildBootstrapSummary({
 
 export async function runReviewContextPipeline({
   projectRoot,
+  authoritativeConfigPath = null,
+  authoritativeConfigSnapshot: providedAuthoritativeConfigSnapshot = null,
+  requireAuthoritativeLineage = false,
+  proofLineageSelection = undefined,
+  prepareProofPublicationOutputs = null,
+  proofPublicationHooks = {},
   contextPath = null,
   modelPath,
   bomPath = null,
@@ -605,13 +753,68 @@ export async function runReviewContextPipeline({
   inspectModelIfAvailable,
   detectStepFeaturesIfAvailable,
 }) {
-  const defaultStem = deriveArtifactStem(outputPath || modelPath || bomPath || inspectionPath || qualityPath, partName || 'engineering_part');
+  if (requireAuthoritativeLineage !== true && requireAuthoritativeLineage !== false) {
+    throw lineageError('malformed_policy', 'requireAuthoritativeLineage must be a boolean.', {
+      require_authoritative_lineage: requireAuthoritativeLineage,
+    });
+  }
+
+  let authoritativeConfigSnapshot = null;
+  let revisionLineage = null;
+  if (requireAuthoritativeLineage === true) {
+    if (!authoritativeConfigPath) {
+      throw lineageError('missing_parent', 'Proof review-context requires an authoritative config path.', {
+        parent: 'authoritative_config',
+      });
+    }
+    authoritativeConfigSnapshot = providedAuthoritativeConfigSnapshot || await readAuthoritativeConfigSnapshot({
+      projectRoot,
+      configPath: authoritativeConfigPath,
+      ...(proofLineageSelection === undefined ? {} : { selection: proofLineageSelection }),
+    });
+    if (authoritativeConfigSnapshot.path !== authoritativeConfigPath) {
+      throw lineageError('conflicting_identity', 'Proof authoritative config snapshot path does not match authoritativeConfigPath.', {
+        authoritative_config_path: authoritativeConfigPath,
+        snapshot_path: authoritativeConfigSnapshot.path,
+      });
+    }
+    assertCallerIdentityMatchesConfig({ partId, revision }, authoritativeConfigSnapshot.identity);
+    const configParent = buildRevisionLineageParent({
+      artifactType: 'config',
+      role: 'authoritative_config',
+      path: authoritativeConfigSnapshot.path,
+      sha256: authoritativeConfigSnapshot.sha256,
+      sizeBytes: authoritativeConfigSnapshot.size_bytes,
+    });
+    revisionLineage = buildRevisionLineage({
+      identity: authoritativeConfigSnapshot.identity,
+      parents: [configParent],
+    });
+  } else if (authoritativeConfigPath) {
+    throw lineageError('unsupported_legacy', 'authoritativeConfigPath is accepted only when requireAuthoritativeLineage is true.');
+  }
+
+  const effectivePartId = revisionLineage?.identity.part_id || partId;
+  const effectiveRevision = revisionLineage?.identity.revision || revision;
+  const effectivePartName = partName || authoritativeConfigSnapshot?.config?.name || null;
+  const defaultStem = deriveArtifactStem(outputPath || modelPath || bomPath || inspectionPath || qualityPath, effectivePartName || 'engineering_part');
   const outputDir = resolve(outDir || dirname(outputPath || artifactPathFor(resolve(projectRoot, 'output'), defaultStem, '_review_pack.json')));
-  const paths = buildOutputPaths({
+  const finalPaths = buildOutputPaths({
     outputPath,
     outDir: outputDir,
     defaultStem,
   });
+  let paths = finalPaths;
+  let proofStagingDirectory = null;
+  let proofOutputDirectory = null;
+  if (requireAuthoritativeLineage === true) {
+    const proofPaths = await buildProofWorkingPaths(finalPaths);
+    paths = proofPaths.paths;
+    proofStagingDirectory = proofPaths.stagingDirectory;
+    proofOutputDirectory = proofPaths.outputDirectory;
+  }
+
+  try {
 
   // Validate the complete attachment hash chain before ingest or any output write.
   const inspectionEvidence = await buildInspectionEvidenceRecord(
@@ -621,12 +824,12 @@ export async function runReviewContextPipeline({
     attachmentRecordPath
   );
   if (inspectionEvidence.record) {
-    if (revision !== inspectionEvidence.packageRevision) {
+    if (effectiveRevision !== inspectionEvidence.packageRevision) {
       throw new AttachmentAuthorizationValidationError([
         `review-context revision must explicitly match attached inspection evidence revision ${inspectionEvidence.packageRevision}`,
       ], { path: attachmentRecordPath });
     }
-    if (partId !== inspectionEvidence.subjectIdentifier) {
+    if (effectivePartId !== inspectionEvidence.subjectIdentifier) {
       throw new AttachmentAuthorizationValidationError([
         `review-context part id must explicitly match inspected subject ${inspectionEvidence.subjectIdentifier}`,
       ], { path: attachmentRecordPath });
@@ -655,9 +858,9 @@ export async function runReviewContextPipeline({
       bom: bomPath,
       inspection: inspectionPath,
       quality: qualityPath,
-      part_name: partName,
-      part_id: partId,
-      revision,
+      part_name: effectivePartName,
+      part_id: effectivePartId,
+      revision: effectiveRevision,
       material,
       process: manufacturingProcess,
       facility,
@@ -668,6 +871,26 @@ export async function runReviewContextPipeline({
     });
     context = ingestResult.context;
     ingestLog = ingestResult.ingest_log;
+  }
+
+  if (revisionLineage) {
+    context = bindContextToAuthoritativeIdentity(context, revisionLineage.identity);
+  }
+
+  let proofGeneratedAt = null;
+  if (revisionLineage) {
+    const candidate = context?.metadata?.created_at;
+    if (
+      typeof candidate !== 'string'
+      || !candidate.trim()
+      || Number.isNaN(Date.parse(candidate))
+    ) {
+      throw lineageError(
+        'malformed_identity',
+        'Proof review-context requires metadata.created_at to be a fixed parseable timestamp.'
+      );
+    }
+    proofGeneratedAt = candidate.trim();
   }
 
   const resolvedModelPath = modelPath || context?.geometry_source?.path || null;
@@ -755,6 +978,7 @@ export async function runReviewContextPipeline({
 
   const analysisResult = await runPythonJsonScript(projectRoot, 'scripts/analyze_part.py', {
     context,
+    ...(proofGeneratedAt ? { generated_at: proofGeneratedAt } : {}),
     model_metadata: analysisInputs.modelMetadata,
     feature_hints: analysisInputs.featureHints,
     geometry_source: context?.geometry_source || (resolvedModelPath ? { path: resolvedModelPath } : {}),
@@ -773,6 +997,7 @@ export async function runReviewContextPipeline({
 
   const linkageResult = await runPythonJsonScript(projectRoot, 'scripts/quality_link.py', {
     context,
+    ...(proofGeneratedAt ? { generated_at: proofGeneratedAt } : {}),
     geometry_intelligence: portableAnalysisResult.geometry_intelligence,
     manufacturing_hotspots: portableAnalysisResult.manufacturing_hotspots,
   }, {
@@ -807,25 +1032,43 @@ export async function runReviewContextPipeline({
     path: record.source_ref,
     role: 'evidence',
     label: record.label,
+    sha256: record.sha256,
+    size_bytes: record.size_bytes,
   }));
+  if (authoritativeConfigSnapshot) {
+    packageEvidenceSourceRefs.unshift({
+      artifact_type: 'config',
+      path: authoritativeConfigSnapshot.path,
+      role: 'input',
+      label: 'Authoritative proof-lineage config',
+      sha256: authoritativeConfigSnapshot.sha256,
+      size_bytes: authoritativeConfigSnapshot.size_bytes,
+    });
+  }
   if (inspectionEvidence.record) {
     packageEvidenceSourceRefs.push({
       artifact_type: inspectionEvidence.record.artifact_type,
       path: inspectionEvidence.record.source_ref,
       role: 'evidence',
       label: inspectionEvidence.record.label,
+      sha256: inspectionEvidence.record.sha256,
+      size_bytes: inspectionEvidence.record.size_bytes,
     });
     packageEvidenceSourceRefs.push({
       artifact_type: 'inspection_evidence_attachment_authorization',
       path: inspectionEvidence.record.attachment_authorization.source_ref,
       role: 'input',
       label: 'Inspection evidence attachment authorization',
+      sha256: inspectionEvidence.record.attachment_authorization.sha256,
+      size_bytes: inspectionEvidence.record.attachment_authorization.size_bytes,
     });
     packageEvidenceSourceRefs.push({
       artifact_type: 'inspection_evidence_attachment_record',
       path: inspectionEvidence.record.attachment_record.source_ref,
       role: 'input',
       label: 'Immutable inspection evidence attachment record',
+      sha256: inspectionEvidence.record.attachment_record.sha256,
+      size_bytes: inspectionEvidence.record.attachment_record.size_bytes,
     });
   }
   if (evidenceWarnings.length > 0) {
@@ -851,7 +1094,11 @@ export async function runReviewContextPipeline({
     },
     package_evidence: reviewPackageEvidence,
     source_artifact_refs: packageEvidenceSourceRefs,
-    output_dir: outputDir,
+    ...(revisionLineage ? {
+      revision_lineage: revisionLineage,
+      generated_at: proofGeneratedAt,
+    } : {}),
+    output_dir: dirname(paths.reviewPackJson),
     output_stem: deriveArtifactStem(paths.reviewPackJson, defaultStem),
     output_json_path: paths.reviewPackJson,
     output_markdown_path: paths.reviewPackMarkdown,
@@ -861,6 +1108,9 @@ export async function runReviewContextPipeline({
     onStderr: (text) => process.stderr.write(text),
   });
   reviewPackResult.summary = sanitizeRepoLocalArtifactValue(projectRoot, reviewPackResult.summary);
+  if (revisionLineage) {
+    assertProofReviewPackIdentity(reviewPackResult.summary, revisionLineage);
+  }
   await writeJsonFile(paths.reviewPackJson, reviewPackResult.summary);
 
   let revisionComparison = null;
@@ -973,6 +1223,54 @@ export async function runReviewContextPipeline({
     await writeFile(paths.draftConfig, generatedDraftConfigToml, 'utf8');
   }
 
+  let proofPublicationArtifacts = [];
+  let proofPublicationMetadata = null;
+  if (revisionLineage) {
+    const prepared = await collectProofPublicationOutputs(paths, finalPaths);
+    proofPublicationMetadata = prepared.metadata;
+    if (typeof prepareProofPublicationOutputs === 'function') {
+      const additionalOutputs = await prepareProofPublicationOutputs({
+        artifacts: {
+          ...finalPaths,
+          draftConfig: generatedDraftConfigToml ? finalPaths.draftConfig : null,
+          revisionComparison: revisionComparison ? finalPaths.revisionComparison : null,
+        },
+        reviewPack: reviewPackResult.summary,
+        revisionLineage,
+        authoritativeConfig: {
+          path: authoritativeConfigSnapshot.path,
+          sha256: authoritativeConfigSnapshot.sha256,
+          size_bytes: authoritativeConfigSnapshot.size_bytes,
+        },
+        precomputedMetadata: prepared.metadata,
+      });
+      if (!Array.isArray(additionalOutputs)) {
+        throw lineageError('unsafe_output', 'Proof publication callback must return an array of outputs.');
+      }
+      const occupied = new Set(prepared.outputs.map((entry) => resolve(entry.path)));
+      for (const output of additionalOutputs) {
+        const target = resolve(output?.path || '');
+        if (!output?.path || output.content === undefined || dirname(target) !== proofOutputDirectory || occupied.has(target)) {
+          throw lineageError('unsafe_output', 'Proof publication callback returned an unsafe or duplicate output target.', {
+            path: output?.path || null,
+          });
+        }
+        occupied.add(target);
+        prepared.outputs.push({ path: target, content: output.content });
+        proofPublicationArtifacts.push(target);
+      }
+    }
+    await assertRevisionLineageSnapshotCurrent(authoritativeConfigSnapshot, { projectRoot });
+    await publishAtomicOutputSet({
+      directory: proofOutputDirectory,
+      outputs: prepared.outputs,
+      hooks: proofPublicationHooks,
+    });
+    await rm(proofStagingDirectory, { recursive: true, force: true });
+    proofStagingDirectory = null;
+    paths = finalPaths;
+  }
+
   return {
     context,
     ingestLog,
@@ -980,6 +1278,17 @@ export async function runReviewContextPipeline({
     manufacturingHotspots: portableAnalysisResult.manufacturing_hotspots,
     linkage: portableLinkageResult,
     reviewPack: reviewPackResult.summary,
+    revisionLineage,
+    authoritativeConfig: authoritativeConfigSnapshot ? {
+      path: authoritativeConfigSnapshot.path,
+      sha256: authoritativeConfigSnapshot.sha256,
+      size_bytes: authoritativeConfigSnapshot.size_bytes,
+    } : null,
+    proofPublication: revisionLineage ? {
+      atomic: true,
+      additional_artifacts: proofPublicationArtifacts,
+      metadata: proofPublicationMetadata,
+    } : null,
     artifacts: {
       context: paths.context,
       engineeringContext: paths.engineeringContext,
@@ -996,11 +1305,17 @@ export async function runReviewContextPipeline({
       qualityLinkage: paths.qualityLinkage,
       qualityHotspots: paths.qualityHotspots,
       reviewPriorities: paths.reviewPriorities,
-      reviewPackJson: reviewPackResult.artifacts.json,
-      reviewPackMarkdown: reviewPackResult.artifacts.markdown,
-      reviewPackPdf: reviewPackResult.artifacts.pdf,
+      reviewPackJson: paths.reviewPackJson,
+      reviewPackMarkdown: paths.reviewPackMarkdown,
+      reviewPackPdf: paths.reviewPackPdf,
       revisionComparison: revisionComparison ? paths.revisionComparison : null,
     },
     revisionComparison,
   };
+  } catch (error) {
+    if (proofStagingDirectory) {
+      await rm(proofStagingDirectory, { recursive: true, force: true }).catch(() => {});
+    }
+    throw error;
+  }
 }

@@ -41,6 +41,7 @@ function boundaries() {
 function revisionIdentity(revision, ref, hash) {
   return {
     package_slug: 'sample-bracket',
+    part_id: 'PART-100',
     revision,
     artifact_refs: [ref],
     source_hashes: { review_pack: hash },
@@ -460,6 +461,9 @@ assertInvalidWith(revisionMismatch, 'assessment_candidate_revision_mismatch');
 const packageMismatch = clone(blockedReport);
 packageMismatch.candidate.package_slug = 'other-package';
 assertInvalidWith(packageMismatch, 'package_mismatch');
+const partMismatch = clone(blockedReport);
+partMismatch.candidate.part_id = 'PART-OTHER';
+assertInvalidWith(partMismatch, 'part_id_mismatch');
 const unstableRefs = clone(noChangeReport);
 unstableRefs.baseline.artifact_refs = ['z/source.json', 'a/source.json'];
 assertInvalidWith(unstableRefs, 'non_deterministic_order');

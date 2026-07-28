@@ -2,9 +2,16 @@
 
 ## Status and pinned context
 
-- Plan state: `PLAN_ONLY`
-- Implementation state: `NOT_STARTED`
+- Plan state: `EXECUTED`
+- Implementation state: `VERIFIED_WITH_EXTERNAL_HOLDS`
 - Repository: `freecad-automation`
+- Implementation base: `origin/master` at
+  `44d1d6bb64d36f3cb89714c1469a606a7f3c24a9`
+- Implementation branch: `codex/revision-lineage-hardening`
+- Selected package: `docs/examples/hinge-block`
+- Authoritative identity: `hinge-block` / `hinge_block` / revision `A`
+- Authoritative config SHA-256:
+  `992cf687e1da65f9ac89c12bd36ad7cd2b57367deb0cc6d50a74d4c03b7a52d1`
 - Planning base: `origin/master` at
   `9a54abb808b6844bd4efd35dec26e3907af9ab62`
 - Planning branch: `codex/revision-lineage-hardening-plan`
@@ -14,10 +21,13 @@
 - Verification companion:
   `docs/exec-plans/revision-lineage-hardening-verification.md`
 
-This planning change authorizes no implementation, canonical-package
-regeneration, evidence mutation, human authorization, release, publication, or
-production-readiness claim. It does not move or modify the frozen Studio UAT
-candidate at `3b2752e76e13e9f3cfa37d9edfb32a80b5b8b80d`.
+The approved internal implementation and bounded two-file canonical curation
+are complete. This does not authorize evidence mutation, human authorization,
+product release, publication, or a production-readiness claim. It does not move
+or modify the frozen Studio UAT candidate at
+`3b2752e76e13e9f3cfa37d9edfb32a80b5b8b80d`. Selected-package revision impact
+remains `HOLD_FOR_AUTHORITATIVE_BASELINE`, and real release/result/evidence
+continuity remains `HOLD_FOR_GENUINE_INPUT`.
 
 ## Goal
 
@@ -476,10 +486,10 @@ skipping artifact-only lineage validation or weakening the stop conditions.
 
 - [x] Planning base and architecture evidence recorded.
 - [x] Main plan and verification companion drafted.
-- [ ] First proof package, source config, and authoritative identity separately
+- [x] First proof package, source config, and authoritative identity separately
   selected and authorized.
-- [ ] Shared proof-lineage contract implemented.
-- [ ] Cross-artifact propagation and stale-binding rejection implemented.
-- [ ] Jobs/API/re-entry/bundle continuity implemented.
-- [ ] Selected-package source config and descendants deterministically curated.
-- [ ] Companion verification completed with a valid final read-only review.
+- [x] Shared proof-lineage contract implemented.
+- [x] Cross-artifact propagation and stale-binding rejection implemented.
+- [x] Jobs/API/re-entry/bundle continuity implemented.
+- [x] Selected-package source config and descendants deterministically curated.
+- [x] Companion verification completed with a valid final read-only review.

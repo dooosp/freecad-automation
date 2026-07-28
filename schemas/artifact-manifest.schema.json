@@ -358,6 +358,12 @@
         "null"
       ]
     },
+    "effective_policy": {
+      "$ref": "#/$defs/effectivePolicy"
+    },
+    "revision_lineage": {
+      "$ref": "#/$defs/revisionLineage"
+    },
     "details": {
       "type": "object"
     },
@@ -365,7 +371,72 @@
       "type": "object"
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "required": ["effective_policy", "status"],
+        "properties": {
+          "status": { "const": "succeeded" },
+          "effective_policy": {
+            "required": ["proof_lineage"],
+            "properties": {
+              "proof_lineage": { "const": true }
+            }
+          }
+        }
+      },
+      "then": {
+        "required": ["revision_lineage"]
+      }
+    }
+  ],
   "$defs": {
+    "effectivePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["proof_lineage"],
+      "properties": {
+        "proof_lineage": { "type": "boolean" }
+      }
+    },
+    "revisionLineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "mode", "identity", "parents"],
+      "properties": {
+        "schema_version": { "const": "1.0" },
+        "mode": { "const": "proof" },
+        "identity": { "$ref": "#/$defs/revisionLineageIdentity" },
+        "parents": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/revisionLineageParent" }
+        }
+      }
+    },
+    "revisionLineageIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["package_slug", "part_id", "revision", "config_sha256"],
+      "properties": {
+        "package_slug": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "part_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "revision": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "config_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "revisionLineageParent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_type", "role", "path", "sha256"],
+      "properties": {
+        "artifact_type": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "role": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "path": { "type": "string", "minLength": 1, "maxLength": 1024 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "size_bytes": { "type": "integer", "minimum": 0 }
+      }
+    },
     "packSummary": {
       "anyOf": [
         {

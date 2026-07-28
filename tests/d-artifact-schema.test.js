@@ -96,9 +96,29 @@ try {
   assert.equal(review.summary.schema_version, '1.0');
   assert.equal(review.summary.analysis_version, 'd1');
   assert.equal(review.summary.canonical_artifact.json_is_source_of_truth, true);
+  assert.equal(Object.hasOwn(review.summary.part, 'package_slug'), false);
   assert.ok(review.summary.executive_summary.headline);
   assert.ok(review.summary.evidence_ledger.records.length > 0);
   assert.ok(review.summary.source_artifact_refs.length >= reviewSourceRefs.length);
+
+  const packagedContext = structuredClone(context);
+  packagedContext.part.package_slug = 'sample-part';
+  const packagedReview = runPython('scripts/reporting/review_pack.py', {
+    context: packagedContext,
+    geometry_intelligence: analysis.geometry_intelligence,
+    manufacturing_hotspots: analysis.manufacturing_hotspots,
+    inspection_linkage: linkage.inspection_linkage,
+    inspection_outliers: linkage.inspection_outliers,
+    quality_linkage: linkage.quality_linkage,
+    quality_hotspots: linkage.quality_hotspots,
+    review_priorities: linkage.review_priorities,
+    generated_at: generatedAt,
+    source_artifact_refs: reviewSourceRefs,
+    output_dir: TMP_DIR,
+    output_stem: 'sample_part_with_package',
+  });
+  assertArtifact('review_pack', packagedReview.summary);
+  assert.equal(packagedReview.summary.part.package_slug, 'sample-part');
 
   const comparisonPath = join(TMP_DIR, 'sample_comparison.json');
   const compareRun = runCli([

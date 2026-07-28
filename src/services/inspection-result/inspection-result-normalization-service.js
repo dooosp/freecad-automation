@@ -7,12 +7,18 @@ import { publishAtomicOutputSet } from '../../../lib/atomic-output-publication.j
 import { parseInspectionEvidenceJsonBytes } from '../../../lib/inspection-evidence-onboarding.js';
 import { assertValidInspectionPlan } from '../../../lib/inspection-plan-contract.js';
 import {
+  assertValidInspectionPlanReleaseAuthorization,
   assertValidInspectionPlanReleaseRecord,
   assertValidInspectionResultNormalization,
   assertValidInspectionResultSubmissionMetadata,
   canonicalizeInspectionControlDocument,
 } from '../../../lib/inspection-result-contract.js';
+import {
+  RevisionLineageError,
+  verifyRevisionLineageParentReference,
+} from '../../../lib/revision-lineage-contract.js';
 import { INSPECTION_RESULT_TEMPLATE_COLUMNS } from '../inspection-plan/inspection-plan-service.js';
+import { assertInspectionPlanRevisionLineageContinuity } from '../inspection-plan/inspection-plan-release-service.js';
 import { prepareSafeOutputDirectory, readSafeSnapshot, sha256 } from './safe-snapshot.js';
 
 const MAX_JSON_BYTES = 4 * 1024 * 1024;
@@ -44,6 +50,78 @@ function parseCanonicalJson(snapshot, label) {
 
 function assertBinding(actual, expected, label) {
   if (actual !== expected) throw new Error(`${label} mismatch`);
+}
+
+function lineageError(code, message, details = {}) {
+  return new RevisionLineageError(code, message, details);
+}
+
+function assertProofPolicy(value) {
+  if (value !== true && value !== false) {
+    throw lineageError('malformed_identity', 'requireAuthoritativeLineage must be a boolean');
+  }
+  return value === true;
+}
+
+function assertProofBinding(actual, expected, label, code = 'conflicting_identity') {
+  if (actual !== expected) {
+    throw lineageError(code, `${label} mismatch`, { expected, actual });
+  }
+}
+
+function canonicalEqual(actual, expected) {
+  return JSON.stringify(actual) === JSON.stringify(expected);
+}
+
+function assertProofReleaseAuthorizationBinding({ authorization, authorizationSnapshot, releaseRecord, planSnapshot }) {
+  assertProofBinding(authorizationSnapshot.sha256, releaseRecord.authorization.sha256, 'release-authorization SHA-256', 'digest_mismatch');
+  assertProofBinding(authorization.authorization_id, releaseRecord.authorization.id, 'release-authorization ID');
+  assertProofBinding(authorization.plan.plan_id, releaseRecord.plan.plan_id, 'release-authorization plan ID');
+  assertProofBinding(authorization.plan.sha256, releaseRecord.plan.sha256, 'release-authorization plan SHA-256', 'digest_mismatch');
+  assertProofBinding(authorization.plan.sha256, planSnapshot.sha256, 'release-authorization current plan SHA-256', 'digest_mismatch');
+  assertProofBinding(authorization.package.slug, releaseRecord.package.slug, 'release-authorization package slug');
+  assertProofBinding(authorization.package.revision, releaseRecord.package.revision, 'release-authorization package revision');
+  assertProofBinding(authorization.inspection_scope, releaseRecord.inspection_scope, 'release-authorization inspection scope');
+  assertProofBinding(authorization.released_at, releaseRecord.released_at, 'release-authorization release timestamp');
+  if (!canonicalEqual(authorization.engineering_review, releaseRecord.reviewers.engineering)
+    || !canonicalEqual(authorization.quality_review, releaseRecord.reviewers.quality)
+    || !canonicalEqual(authorization.released_by, releaseRecord.released_by)) {
+    throw lineageError('conflicting_identity', 'Release record human-review custody does not match the exact authorization');
+  }
+  const recordFiles = new Map(releaseRecord.distributed_files.map((entry) => [entry.artifact_type, entry]));
+  const authorizationFiles = [
+    ['checksheet', 'inspection_checksheet.csv'],
+    ['supplier_request', 'supplier_inspection_request.md'],
+    ['result_template', 'inspection_result_template.csv'],
+  ];
+  for (const [key, artifactType] of authorizationFiles) {
+    const expected = authorization.distributed_files[key];
+    const actual = recordFiles.get(artifactType);
+    if ((expected === null || expected === undefined) !== (actual === undefined)) {
+      throw lineageError('missing_parent', `Release record distributed ${artifactType} binding does not match its authorization`);
+    }
+    if (expected && (expected.path !== actual.path || expected.sha256 !== actual.sha256)) {
+      throw lineageError('digest_mismatch', `Release record distributed ${artifactType} binding does not match its authorization`);
+    }
+  }
+}
+
+async function assertSnapshotCurrent({ projectRoot, snapshot, label, maxBytes }) {
+  let current;
+  try {
+    current = await readSafeSnapshot({ projectRoot, path: snapshot.relativePath, label, maxBytes });
+  } catch (error) {
+    throw lineageError('stale_parent', `${label} is no longer a current safe snapshot`, { cause_code: error?.code || null });
+  }
+  if (current.sha256 !== snapshot.sha256
+    || current.size !== snapshot.size
+    || current.dev !== snapshot.dev
+    || current.ino !== snapshot.ino) {
+    throw lineageError('stale_parent', `${label} changed after proof validation`, {
+      expected_sha256: snapshot.sha256,
+      actual_sha256: current.sha256,
+    });
+  }
 }
 
 function assertSafeText(value, label) {
@@ -304,7 +382,19 @@ export function getInspectionResultAdapter(id, version = '1.0') {
   return adapter;
 }
 
-export async function normalizeInspectionResultFromPaths({ projectRoot, inspectionPlanPath, planReleaseRecordPath, sourcePath, submissionMetadataPath, adapterId, adapterVersion = '1.0', generatedAt, afterSnapshot = null }) {
+export async function normalizeInspectionResultFromPaths({
+  projectRoot,
+  inspectionPlanPath,
+  planReleaseRecordPath,
+  sourcePath,
+  submissionMetadataPath,
+  adapterId,
+  adapterVersion = '1.0',
+  generatedAt,
+  afterSnapshot = null,
+  requireAuthoritativeLineage = false,
+}) {
+  const proof = assertProofPolicy(requireAuthoritativeLineage);
   if (!Number.isFinite(Date.parse(generatedAt || ''))) throw new Error('generatedAt must be parseable ISO-8601 text');
   const adapter = getInspectionResultAdapter(adapterId, adapterVersion);
   const [planSnapshot, releaseSnapshot, sourceSnapshot, metadataSnapshot] = await Promise.all([
@@ -316,7 +406,21 @@ export async function normalizeInspectionResultFromPaths({ projectRoot, inspecti
   const plan = assertValidInspectionPlan(parseCanonicalJson(planSnapshot, 'inspection plan'));
   const releaseRecord = assertValidInspectionPlanReleaseRecord(parseCanonicalJson(releaseSnapshot, 'plan release record'));
   const metadata = assertValidInspectionResultSubmissionMetadata(parseCanonicalJson(metadataSnapshot, 'submission metadata'));
+  const lineage = proof ? assertInspectionPlanRevisionLineageContinuity(plan) : null;
   scanMetadataSafety(metadata);
+  if (proof) {
+    assertProofBinding(releaseRecord.plan.plan_id, plan.plan_id, 'release-record plan ID');
+    assertProofBinding(releaseRecord.plan.sha256, planSnapshot.sha256, 'release-record plan SHA-256', 'digest_mismatch');
+    assertProofBinding(releaseRecord.package.slug, lineage.identity.package_slug, 'release-record package slug');
+    assertProofBinding(releaseRecord.package.revision, lineage.identity.revision, 'release-record package revision');
+    assertProofBinding(metadata.plan_id, plan.plan_id, 'submission-metadata plan ID');
+    assertProofBinding(metadata.plan_sha256, planSnapshot.sha256, 'submission-metadata plan SHA-256', 'digest_mismatch');
+    assertProofBinding(metadata.plan_release_record_id, releaseRecord.release_record_id, 'submission-metadata release-record ID');
+    assertProofBinding(metadata.plan_release_record_sha256, releaseSnapshot.sha256, 'submission-metadata release-record SHA-256', 'digest_mismatch');
+    assertProofBinding(metadata.package.slug, lineage.identity.package_slug, 'submission-metadata package slug');
+    assertProofBinding(metadata.package.revision, lineage.identity.revision, 'submission-metadata package revision');
+    assertProofBinding(metadata.part_identifier, lineage.identity.part_id, 'submission-metadata part identifier');
+  }
   assertBinding(plan.schema_version, '1.0', 'inspection plan schema version');
   assertBinding(releaseRecord.plan.plan_id, plan.plan_id, 'release-record plan ID');
   assertBinding(releaseRecord.plan.sha256, planSnapshot.sha256, 'release-record plan SHA-256');
@@ -329,13 +433,49 @@ export async function normalizeInspectionResultFromPaths({ projectRoot, inspecti
   assertBinding(metadata.package.slug, plan.package.slug, 'metadata package slug');
   assertBinding(metadata.package.revision, plan.package.revision, 'metadata package revision');
   assertBinding(metadata.part_identifier, plan.package.part_identifier, 'metadata part identifier');
+  let releaseAuthorizationSnapshot = null;
+  if (proof) {
+    releaseAuthorizationSnapshot = await readSafeSnapshot({
+      projectRoot,
+      path: releaseRecord.authorization.path,
+      label: 'release authorization',
+      maxBytes: MAX_JSON_BYTES,
+    });
+    const releaseAuthorization = assertValidInspectionPlanReleaseAuthorization(
+      parseCanonicalJson(releaseAuthorizationSnapshot, 'release authorization')
+    );
+    assertProofReleaseAuthorizationBinding({
+      authorization: releaseAuthorization,
+      authorizationSnapshot: releaseAuthorizationSnapshot,
+      releaseRecord,
+      planSnapshot,
+    });
+  }
   const templateBinding = releaseRecord.distributed_files.find((entry) => entry.artifact_type === 'inspection_result_template.csv');
   if (!templateBinding) throw new Error('Release record does not bind a native result template');
   const templateSnapshot = await readSafeSnapshot({ projectRoot, path: templateBinding.path, label: 'released result template', maxBytes: adapter.maxSourceBytes });
+  if (proof) {
+    assertProofBinding(templateSnapshot.sha256, templateBinding.sha256, 'released template SHA-256', 'digest_mismatch');
+    assertProofBinding(metadata.original_sanitized_filename, basename(sourceSnapshot.path), 'submission source filename');
+  }
   assertBinding(templateSnapshot.sha256, templateBinding.sha256, 'released template SHA-256');
   if (sourceSnapshot.sha256 === templateSnapshot.sha256) throw new Error('Exact released blank result template cannot be normalized');
   assertBinding(metadata.original_sanitized_filename, basename(sourceSnapshot.path), 'metadata original sanitized filename');
   await afterSnapshot?.({ planSnapshot, releaseSnapshot, sourceSnapshot, metadataSnapshot, templateSnapshot });
+  if (proof) {
+    await Promise.all([
+      assertSnapshotCurrent({ projectRoot, snapshot: planSnapshot, label: 'inspection plan', maxBytes: MAX_JSON_BYTES }),
+      assertSnapshotCurrent({ projectRoot, snapshot: releaseSnapshot, label: 'plan release record', maxBytes: MAX_JSON_BYTES }),
+      assertSnapshotCurrent({ projectRoot, snapshot: sourceSnapshot, label: 'completed result source', maxBytes: adapter.maxSourceBytes }),
+      assertSnapshotCurrent({ projectRoot, snapshot: metadataSnapshot, label: 'submission metadata', maxBytes: MAX_JSON_BYTES }),
+      assertSnapshotCurrent({ projectRoot, snapshot: templateSnapshot, label: 'released result template', maxBytes: adapter.maxSourceBytes }),
+      assertSnapshotCurrent({ projectRoot, snapshot: releaseAuthorizationSnapshot, label: 'release authorization', maxBytes: MAX_JSON_BYTES }),
+      ...lineage.parents.map((parent) => verifyRevisionLineageParentReference(parent, {
+        projectRoot,
+        portablePathRoot: dirname(planSnapshot.path),
+      })),
+    ]);
+  }
   const rows = adapter.parse(sourceSnapshot.bytes);
   const normalization = adapter.normalize({ plan, releaseRecord, releaseRecordSha256: releaseSnapshot.sha256, sourceSnapshot, metadata, metadataSnapshot, rows, templateSnapshot, generatedAt });
   return { normalization, snapshots: { plan: planSnapshot, releaseRecord: releaseSnapshot, source: sourceSnapshot, metadata: metadataSnapshot, template: templateSnapshot } };

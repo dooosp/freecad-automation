@@ -12,6 +12,7 @@
     "plan_id": { "$ref": "#/$defs/id" },
     "status": { "enum": ["blocked", "review_required", "ready_for_human_release"] },
     "scope": { "enum": ["full", "delta"] },
+    "revision_lineage": { "$ref": "#/$defs/revisionLineage" },
     "package": {
       "type": "object", "additionalProperties": false,
       "required": ["slug", "revision", "part_identifier"],
@@ -42,7 +43,38 @@
   "$defs": {
     "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{7,127}$" },
     "sha": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-    "source": { "type": "object", "additionalProperties": false, "required": ["artifact_type", "path", "sha256"], "properties": { "artifact_type": { "type": "string" }, "path": { "type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$" }, "sha256": { "$ref": "#/$defs/sha" } } },
+    "source": { "type": "object", "additionalProperties": false, "required": ["artifact_type", "path", "sha256"], "properties": { "artifact_type": { "type": "string" }, "path": { "type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$" }, "sha256": { "$ref": "#/$defs/sha" }, "size_bytes": { "type": "integer", "minimum": 0 } } },
+    "revisionLineageIdentity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["package_slug", "part_id", "revision", "config_sha256"],
+      "properties": {
+        "package_slug": { "type": "string", "minLength": 1 },
+        "part_id": { "type": "string", "minLength": 1 },
+        "revision": { "type": "string", "minLength": 1 },
+        "config_sha256": { "$ref": "#/$defs/sha" }
+      }
+    },
+    "revisionLineageParent": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifact_type", "role", "path", "sha256"],
+      "properties": {
+        "artifact_type": { "type": "string", "minLength": 1 },
+        "role": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$" },
+        "sha256": { "$ref": "#/$defs/sha" },
+        "size_bytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "revisionLineage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "mode", "identity", "parents"],
+      "properties": {
+        "schema_version": { "const": "1.0" },
+        "mode": { "const": "proof" },
+        "identity": { "$ref": "#/$defs/revisionLineageIdentity" },
+        "parents": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/revisionLineageParent" } }
+      }
+    },
     "authority": { "enum": ["authoritative_released_requirement", "explicit_review_requirement", "revision_impact_requirement", "advisory_generated_context", "unresolved"] },
     "item": {
       "type": "object", "additionalProperties": false,

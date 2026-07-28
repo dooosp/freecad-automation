@@ -35,6 +35,17 @@
 
 The exact list must be read from the manifest rather than duplicated into code. This document summarizes policy and user navigation only.
 
+## Revision-lineage policy
+
+`--proof-lineage` is an opt-in policy flag, not a lifecycle promotion. Supported
+review, readiness, inspection-plan, standard-doc, and pack entrypoints carry the
+effective policy and exact lineage through their artifacts and tracked jobs.
+Commands without a complete authoritative-input contract reject the flag before
+opening outputs; they do not silently downgrade to legacy behavior. Existing
+command lifecycle, default-help visibility, and legacy invocations are
+unchanged. See [revision-lineage proof mode](./revision-lineage-proof-mode.md)
+for the supported chain and hold conditions.
+
 ## Compatibility and deprecation routes
 
 - `readiness-pack --review-pack <review_pack.json>` is the canonical readiness entrypoint.
@@ -44,5 +55,6 @@ The exact list must be read from the manifest rather than duplicated into code. 
 - `mfg-agent` remains an alias for `fcad`.
 - Natural-language `design` remains experimental.
 - Existing Stage 5B helpers and doctors remain maintainer-facing and directly invokable.
+- `readiness-report --review-pack` can opt into proof mode; the config-positional compatibility route cannot.
 
 No command is removed by lifecycle classification. Lifecycle controls default presentation and migration guidance, not dispatch reachability.

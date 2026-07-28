@@ -224,6 +224,10 @@ const RAW_COMMAND_MANIFEST = Object.freeze([
         usage: 'fcad readiness-pack --review-pack <review_pack.json> [--out <readiness_report.json>] [--process-plan <process_plan.json>] [--quality-risk <quality_risk.json>]',
         summary: null,
       }),
+      Object.freeze({
+        usage: 'fcad readiness-pack --review-pack <review_pack.json> --proof-lineage [--out <readiness_report.json>]',
+        summary: 'Opt-in proof mode preserves the exact review-pack parent digest and authoritative config identity',
+      }),
     ]),
     runtime: Object.freeze({
       classification: 'plain-python-node',
@@ -249,6 +253,10 @@ const RAW_COMMAND_MANIFEST = Object.freeze([
         usage: 'fcad readiness-report <config.toml|json> [--out <readiness_report.json>]',
         summary: 'legacy compatibility / non-canonical',
       }),
+      Object.freeze({
+        usage: 'fcad readiness-report --review-pack <review_pack.json> --proof-lineage [--out <readiness_report.json>]',
+        summary: 'Proof mode is available only for canonical review-pack-backed readiness',
+      }),
     ]),
     runtime: Object.freeze({
       classification: 'plain-python-node',
@@ -263,6 +271,10 @@ const RAW_COMMAND_MANIFEST = Object.freeze([
       Object.freeze({
         usage: 'fcad pack --readiness <readiness_report.json> [--docs-manifest <standard_docs_manifest.json>] --out <release_bundle.zip> [--generated-at <iso8601>]',
         summary: null,
+      }),
+      Object.freeze({
+        usage: 'fcad pack --readiness <readiness_report.json> [--docs-manifest <standard_docs_manifest.json>] --proof-lineage --out <release_bundle.zip> [--generated-at <iso8601>]',
+        summary: 'Opt-in proof mode requires proof readiness lineage and publishes the release outputs atomically',
       }),
     ]),
     runtime: Object.freeze({
@@ -625,6 +637,10 @@ const RAW_COMMAND_MANIFEST = Object.freeze([
         usage: 'fcad inspection-plan --review-pack <review_pack.json> [--revision-impact <revision_impact_report.json>] [--readiness <readiness_report.json>] [--config <config.toml|json>] [--requirements <inspection_requirements.json>] --scope <full|delta> --out <inspection_plan.json> [--checksheet-out <inspection_checksheet.csv>] [--request-out <supplier_inspection_request.md>] [--result-template-out <inspection_result_template.csv>] [--generated-at <iso8601>]',
         summary: 'Build one canonical inspection plan and optional blank supplier/lab documents without creating inspection evidence',
       }),
+      Object.freeze({
+        usage: 'fcad inspection-plan --review-pack <review_pack.json> --config <config.toml|json> --scope <full|delta> --proof-lineage --out <inspection_plan.json>',
+        summary: 'Opt-in proof mode requires explicit authoritative lineage across every supplied parent',
+      }),
     ]),
     runtime: Object.freeze({
       classification: 'plain-python-node',
@@ -675,6 +691,10 @@ const RAW_COMMAND_MANIFEST = Object.freeze([
       Object.freeze({
         usage: 'fcad generate-standard-docs <config.toml|json> --readiness-report <readiness_report.json> [--out-dir <dir>]',
         summary: null,
+      }),
+      Object.freeze({
+        usage: 'fcad generate-standard-docs <config.toml|json> --readiness-report <readiness_report.json> --proof-lineage [--generated-at <iso8601>] [--out-dir <dir>]',
+        summary: 'Opt-in proof mode binds deterministic standard docs to the exact config and readiness snapshots',
       }),
     ]),
     runtime: Object.freeze({
@@ -735,6 +755,10 @@ const RAW_COMMAND_MANIFEST = Object.freeze([
       Object.freeze({
         usage: 'fcad review-context --model <file> [--bom bom.csv] [--inspection insp.csv] [--quality ncr.csv] [--create-quality create_quality.json] [--drawing-quality drawing_quality.json] [--drawing-qa drawing_qa.json] [--drawing-intent drawing_intent.json] [--feature-catalog feature_catalog.json] [--dfm-report dfm_report.json] [--inspection-evidence inspection_evidence.json --attachment-authorization authorization_record.json --evidence-attachment-record attachment_record.json] --out <review_pack.json> [--compare-to baseline_review_pack.json]',
         summary: null,
+      }),
+      Object.freeze({
+        usage: 'fcad review-context (--model <file> | --context <context.json>) --config <config.toml|json> --proof-lineage --out <review_pack.json>',
+        summary: 'Opt-in proof mode binds the review pack to the approved authoritative config identity and exact SHA-256',
       }),
     ]),
     runtime: Object.freeze({
@@ -1009,6 +1033,7 @@ const SHARED_WORKFLOW_OPTIONS = Object.freeze([
   Object.freeze({ flag: '--inspection-evidence <path>', description: 'Canonical attached inspection evidence envelope; requires its checksum-bound onboarding authorization and immutable receipt' }),
   Object.freeze({ flag: '--attachment-authorization <path>', description: 'Canonical inspection_evidence_attachment_authorization produced by onboarding; legacy stage5b_attachment_authorization is rejected' }),
   Object.freeze({ flag: '--evidence-attachment-record <path>', description: 'Immutable inspection_evidence_attachment_record required with --inspection-evidence' }),
+  Object.freeze({ flag: '--config <config.toml|json>', description: 'Authoritative config for proof-enabled review-context or inspection-plan ingress' }),
 ]);
 
 const WORKFLOW_SPECIFIC_OPTIONS = Object.freeze([
@@ -1023,7 +1048,8 @@ const WORKFLOW_SPECIFIC_OPTIONS = Object.freeze([
   Object.freeze({ flag: '--strict', description: 'Treat warnings as errors (with validate/dfm)' }),
   Object.freeze({ flag: '--strict-boundary', description: 'Fail closeout-package if the source package or generated text crosses the evidence boundary' }),
   Object.freeze({ flag: '--strict-quality', description: 'Fail create or draw when blocking quality checks are found' }),
-  Object.freeze({ flag: '--generated-at <iso8601>', description: 'Use a fixed release bundle timestamp with pack for deterministic bundle metadata and ZIP entries' }),
+  Object.freeze({ flag: '--proof-lineage', description: 'Valueless opt-in for authoritative revision lineage on supported review, readiness, standard-docs, inspection-plan, and pack ingress' }),
+  Object.freeze({ flag: '--generated-at <iso8601>', description: 'Use a fixed timestamp on supported standard-docs, inspection-plan, and pack outputs for deterministic metadata' }),
   Object.freeze({ flag: '--fingerprint-out <runtime_fingerprint.json>', description: 'Write reproducibility context only; not inspection evidence or production readiness proof' }),
   Object.freeze({ flag: '--manifest-out <path>', description: 'Write a provenance manifest for stdout-oriented commands such as inspect/fem/tolerance/dfm' }),
   Object.freeze({ flag: '--source <path>', description: 'Raw local Stage 5B source path for acquisition/preflight only; it is never attached by source preflight' }),
@@ -1380,7 +1406,8 @@ export function renderCliUsage({ all = false } = {}) {
     const entries = COMMAND_MANIFEST
       .filter((entry) => entry.defaultHelpVisible && entry.workflow === workflow.key)
       .sort((a, b) => a.defaultHelpOrder - b.defaultHelpOrder)
-      .flatMap((entry) => entry.helpEntries);
+      .map((entry) => entry.helpEntries[0])
+      .filter(Boolean);
     lines.push(...renderAlignedHelpLines(entries));
   }
 

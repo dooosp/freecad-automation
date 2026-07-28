@@ -1,12 +1,20 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { validateCArtifact } from '../lib/c-artifact-schema.js';
-import { createZipArchive, listZipEntries } from '../lib/zip-archive.js';
+import { createZipArchive, listZipEntries, readZipEntry } from '../lib/zip-archive.js';
 import { runReleaseBundleWorkflow } from '../src/workflows/release-bundle-workflow.js';
 import { assertTextSnapshot } from './helpers/text-snapshot.js';
 
@@ -376,6 +384,186 @@ try {
   assert.equal(/\/(?:Users|private|tmp|var)\//.test(deterministicText), false, 'portable release metadata must not expose host absolute paths');
   assert.equal(/[A-Za-z]:[\\/]/.test(deterministicText), false, 'portable release metadata must not expose Windows absolute paths');
 
+  const proofDir = join(REPO_TMP_DIR, 'proof-atomic-flow');
+  const proofReadinessPath = join(proofDir, 'readiness_report.json');
+  const proofBundlePath = join(proofDir, 'release_bundle.zip');
+  mkdirSync(proofDir, { recursive: true });
+  const configBytes = readFileSync(CONFIG_EXAMPLE);
+  const configSha256 = createHash('sha256').update(configBytes).digest('hex');
+  const proofReadiness = {
+    ...readJson(docsReadinessOut),
+    part: {
+      ...readJson(docsReadinessOut).part,
+      package_slug: 'fixture-package',
+      part_id: 'BRKT-100',
+      revision: 'A',
+    },
+    revision_lineage: {
+      schema_version: '1.0',
+      mode: 'proof',
+      identity: {
+        package_slug: 'fixture-package',
+        part_id: 'BRKT-100',
+        revision: 'A',
+        config_sha256: configSha256,
+      },
+      parents: [{
+        artifact_type: 'config',
+        role: 'authoritative_config',
+        path: 'configs/examples/controller_housing_eol.toml',
+        sha256: configSha256,
+        size_bytes: configBytes.length,
+      }],
+    },
+    source_artifact_refs: [{
+      artifact_type: 'config',
+      role: 'input',
+      path: 'configs/examples/controller_housing_eol.toml',
+      label: 'Proof config snapshot',
+      sha256: configSha256,
+      size_bytes: configBytes.length,
+    }],
+  };
+  writeFileSync(proofReadinessPath, `${JSON.stringify(proofReadiness, null, 2)}\n`, 'utf8');
+  const proofResult = await runReleaseBundleWorkflow({
+    projectRoot: ROOT,
+    readinessPath: proofReadinessPath,
+    readinessReport: proofReadiness,
+    outputPath: proofBundlePath,
+    generatedAt: '2026-05-31T00:00:00.000Z',
+    requireAuthoritativeLineage: true,
+  });
+  assert.deepEqual(proofResult.manifest.effective_policy, { proof_lineage: true });
+  assert.deepEqual(proofResult.manifest.revision_lineage.identity, proofReadiness.revision_lineage.identity);
+
+  const duplicateProofReadinessPath = join(proofDir, 'duplicate-proof-readiness.json');
+  writeFileSync(
+    duplicateProofReadinessPath,
+    `${JSON.stringify(proofReadiness, null, 2)}\n`.replace(
+      '"schema_version": "1.0",',
+      '"schema_version": "1.0",\n  "schema_version": "1.0",'
+    ),
+    'utf8'
+  );
+  const duplicateProofOutputDir = join(proofDir, 'duplicate-control-output');
+  await assert.rejects(
+    () => runReleaseBundleWorkflow({
+      projectRoot: ROOT,
+      readinessPath: duplicateProofReadinessPath,
+      readinessReport: proofReadiness,
+      outputPath: join(duplicateProofOutputDir, 'release_bundle.zip'),
+      generatedAt: '2026-05-31T00:00:00.000Z',
+      requireAuthoritativeLineage: true,
+    }),
+    (error) => error?.code === 'duplicate_json_key'
+  );
+  assert.equal(existsSync(duplicateProofOutputDir), false);
+
+  const bomProofReadinessPath = join(proofDir, 'bom-proof-readiness.json');
+  writeFileSync(
+    bomProofReadinessPath,
+    Buffer.concat([
+      Buffer.from([0xef, 0xbb, 0xbf]),
+      Buffer.from(`${JSON.stringify(proofReadiness, null, 2)}\n`),
+    ])
+  );
+  const bomProofOutputDir = join(proofDir, 'bom-control-output');
+  await assert.rejects(
+    () => runReleaseBundleWorkflow({
+      projectRoot: ROOT,
+      readinessPath: bomProofReadinessPath,
+      readinessReport: proofReadiness,
+      outputPath: join(bomProofOutputDir, 'release_bundle.zip'),
+      generatedAt: '2026-05-31T00:00:00.000Z',
+      requireAuthoritativeLineage: true,
+    }),
+    (error) => error?.code === 'noncanonical_inspection_evidence_json'
+  );
+  assert.equal(existsSync(bomProofOutputDir), false);
+
+  const proofManifestInZip = JSON.parse((await readZipEntry(
+    readFileSync(proofBundlePath),
+    'release_bundle_manifest.json'
+  )).data.toString('utf8'));
+  assert.deepEqual(proofManifestInZip, proofResult.manifest);
+  const proofOutputs = [
+    proofBundlePath,
+    join(proofDir, 'release_bundle_manifest.json'),
+    join(proofDir, 'release_bundle_log.json'),
+    join(proofDir, 'release_bundle_checksums.sha256'),
+  ];
+  const proofBeforeInterruption = Object.fromEntries(proofOutputs.map((path) => [path, hashFile(path)]));
+  await assert.rejects(
+    runReleaseBundleWorkflow({
+      projectRoot: ROOT,
+      readinessPath: proofReadinessPath,
+      readinessReport: proofReadiness,
+      outputPath: proofBundlePath,
+      generatedAt: '2026-05-31T00:00:01.000Z',
+      requireAuthoritativeLineage: true,
+      publicationHooks: {
+        afterCommit: ({ index }) => {
+          if (index === 1) throw new Error('simulated proof bundle interruption');
+        },
+      },
+    }),
+    /simulated proof bundle interruption/
+  );
+  for (const path of proofOutputs) {
+    assert.equal(hashFile(path), proofBeforeInterruption[path], `proof transaction must restore ${path}`);
+  }
+  const digestMismatchReadiness = structuredClone(proofReadiness);
+  digestMismatchReadiness.source_artifact_refs[0].sha256 = '0'.repeat(64);
+  const digestMismatchPath = join(proofDir, 'digest-mismatch-readiness.json');
+  writeFileSync(digestMismatchPath, `${JSON.stringify(digestMismatchReadiness, null, 2)}\n`, 'utf8');
+  await assert.rejects(
+    runReleaseBundleWorkflow({
+      projectRoot: ROOT,
+      readinessPath: digestMismatchPath,
+      readinessReport: digestMismatchReadiness,
+      outputPath: join(proofDir, 'digest-mismatch.zip'),
+      generatedAt: '2026-05-31T00:00:00.000Z',
+      requireAuthoritativeLineage: true,
+    }),
+    /source digest mismatch/
+  );
+  assert.equal(existsSync(join(proofDir, 'digest-mismatch.zip')), false);
+
+  const proofSourceRealDir = join(proofDir, 'ancestor-source-real');
+  const proofSourceLinkDir = join(proofDir, 'ancestor-source-link');
+  const proofSymlinkReadinessPath = join(proofSourceLinkDir, 'readiness_report.json');
+  const proofSymlinkOutputDir = join(proofDir, 'ancestor-symlink-output');
+  mkdirSync(proofSourceRealDir, { recursive: true });
+  writeFileSync(
+    join(proofSourceRealDir, 'readiness_report.json'),
+    `${JSON.stringify(proofReadiness, null, 2)}\n`,
+    'utf8'
+  );
+  symlinkSync(proofSourceRealDir, proofSourceLinkDir, 'dir');
+  await assert.rejects(
+    runReleaseBundleWorkflow({
+      projectRoot: ROOT,
+      readinessPath: proofSymlinkReadinessPath,
+      readinessReport: proofReadiness,
+      outputPath: join(proofSymlinkOutputDir, 'release_bundle.zip'),
+      generatedAt: '2026-05-31T00:00:00.000Z',
+      requireAuthoritativeLineage: true,
+    }),
+    (error) => error?.message === `Proof bundle source is not a safe single-link regular file: ${proofSymlinkReadinessPath}`
+  );
+  for (const outputName of [
+    'release_bundle.zip',
+    'release_bundle_manifest.json',
+    'release_bundle_log.json',
+    'release_bundle_checksums.sha256',
+  ]) {
+    assert.equal(
+      existsSync(join(proofSymlinkOutputDir, outputName)),
+      false,
+      `ancestor-symlink proof source must not publish ${outputName}`
+    );
+  }
+
   const cliDeterministicDir = join(REPO_TMP_DIR, 'cli-deterministic-flow');
   const cliPackA = runCli([
     'pack',
@@ -425,6 +613,16 @@ try {
   assert.equal(utf8Entries.length, 1);
   assert.equal(utf8Entries[0].name, '문서/요약.txt');
   assert.equal(utf8Entries[0].utf8, true, 'ZIP entries with UTF-8 filenames should set the UTF-8 flag');
+  const tamperedZipPath = join(TMP_DIR, 'tampered-entry.zip');
+  const tamperedZip = Buffer.from(readFileSync(utf8ZipPath));
+  const payloadOffset = tamperedZip.indexOf(Buffer.from('utf8 filename regression\n'));
+  assert.notEqual(payloadOffset, -1);
+  tamperedZip[payloadOffset] ^= 0x01;
+  writeFileSync(tamperedZipPath, tamperedZip);
+  await assert.rejects(
+    readZipEntry(tamperedZipPath, '문서/요약.txt'),
+    /CRC or size mismatch/
+  );
 
   console.log('release-bundle.test.js: ok');
 } finally {

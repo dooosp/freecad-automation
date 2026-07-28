@@ -3,6 +3,7 @@
 import json
 import os
 import sys
+from datetime import datetime
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PARENT_DIR = os.path.dirname(SCRIPT_DIR)
@@ -13,7 +14,7 @@ from _bootstrap import read_input, respond, respond_error, safe_filename_compone
 from reporting.review_templates import build_markdown_sections, build_review_pack_data
 
 
-def _write_pdf(path, title, markdown_text):
+def _write_pdf(path, title, markdown_text, generated_at=None):
     try:
         import matplotlib
         matplotlib.use("Agg")
@@ -21,7 +22,14 @@ def _write_pdf(path, title, markdown_text):
         from matplotlib.backends.backend_pdf import PdfPages
 
         wrapped_text = markdown_text.replace("# ", "").replace("## ", "")
-        with PdfPages(path) as pdf:
+        pdf_metadata = None
+        if generated_at:
+            fixed_time = datetime.fromisoformat(str(generated_at).replace("Z", "+00:00"))
+            pdf_metadata = {
+                "CreationDate": fixed_time,
+                "ModDate": fixed_time,
+            }
+        with PdfPages(path, metadata=pdf_metadata) as pdf:
             fig = plt.figure(figsize=(11.69, 8.27))
             ax = fig.add_axes([0.05, 0.05, 0.9, 0.9])
             ax.axis("off")
@@ -101,7 +109,12 @@ def main():
         with open(markdown_path, "w", encoding="utf-8") as handle:
             handle.write(markdown_text)
 
-        _write_pdf(pdf_path, f"Review Pack: {part.get('name', stem)}", markdown_text)
+        _write_pdf(
+            pdf_path,
+            f"Review Pack: {part.get('name', stem)}",
+            markdown_text,
+            summary.get("generated_at") if payload.get("revision_lineage") else None,
+        )
 
         respond({
             "success": True,

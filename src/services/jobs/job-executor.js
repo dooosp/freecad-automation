@@ -20,6 +20,12 @@ import {
   assertValidDArtifact,
 } from '../../../lib/d-artifact-schema.js';
 import { isWindowsAbsolutePath, normalizeLocalPath } from '../../../lib/paths.js';
+import { parseInspectionEvidenceJsonBytes } from '../../../lib/inspection-evidence-onboarding.js';
+import {
+  assertRevisionLineagePackageSelection,
+  readAuthoritativeConfigSnapshot,
+  readRevisionLineageFileSnapshot,
+} from '../../../lib/revision-lineage-contract.js';
 import { runScript } from '../../../lib/runner.js';
 import { createDfmService } from '../../api/analysis.js';
 import { createDrawingService, runDrawPipeline } from '../../api/drawing.js';
@@ -92,6 +98,7 @@ const DIRECT_JOB_PATH_FIELDS = Object.freeze({
   draw: ['config_path'],
   report: ['config_path'],
   'review-context': [
+    'config_path',
     'context_path',
     'model_path',
     'bom_path',
@@ -428,7 +435,12 @@ async function loadReadinessReportHandoff(pathValue, { command }) {
   return artifact;
 }
 
-async function loadDocsManifestHandoff(pathValue, { readinessReport, readinessPath, allowBundledPair = false }) {
+async function loadDocsManifestHandoff(pathValue, {
+  readinessReport,
+  readinessPath,
+  allowBundledPair = false,
+  projectRoot,
+}) {
   const artifact = await readJsonFile(pathValue);
   assertValidCArtifact('docs_manifest', artifact, { command: 'pack', path: pathValue });
   validateDocsManifestAgainstReadiness({
@@ -437,6 +449,8 @@ async function loadDocsManifestHandoff(pathValue, { readinessReport, readinessPa
     docsManifest: artifact,
     docsManifestPath: pathValue,
     allowBundledPair,
+    projectRoot,
+    portablePathRoot: dirname(readinessPath),
   });
   return artifact;
 }
@@ -614,6 +628,37 @@ function validateInspectionPlanRequest(request, errors) {
   }
 }
 
+function validateProofLineageRequest(request, errors, { trustedPathRoots = [] } = {}) {
+  const options = isPlainObject(request.options) ? request.options : {};
+  if (!Object.hasOwn(options, 'proof_lineage')) return;
+
+  if (!['review-context', 'readiness-pack', 'generate-standard-docs', 'inspection-plan', 'pack'].includes(request.type)) {
+    errors.push('options.proof_lineage is supported only for review-context, readiness-pack, generate-standard-docs, inspection-plan, and pack tracked jobs.');
+    return;
+  }
+  if (options.proof_lineage !== true) {
+    errors.push(`${request.type} options.proof_lineage must be the boolean true when provided.`);
+  }
+  if (['review-context', 'generate-standard-docs', 'inspection-plan'].includes(request.type)
+    && (typeof request.config_path !== 'string' || !request.config_path.trim())) {
+    errors.push(`${request.type} proof lineage requires config_path.`);
+  }
+  const configBinding = options.studio?.config_artifact_binding;
+  const hasVerifiedConfigBindingShape = isPlainObject(configBinding)
+    && configBinding.path === request.config_path
+    && isPathInsideTrustedRoot(request.config_path, trustedPathRoots);
+  if (['review-context', 'generate-standard-docs', 'inspection-plan'].includes(request.type)
+    && request.config_path
+    && !isSafeRepoRelativePath(request.config_path)
+    && !hasVerifiedConfigBindingShape) {
+    errors.push(`${request.type} proof lineage config_path must be safe repo-relative or a server-resolved tracked artifact binding.`);
+  }
+  if (request.type === 'generate-standard-docs'
+    && options.studio?.config_rehydration === 'readiness_report') {
+    errors.push('generate-standard-docs proof lineage does not allow readiness-derived config fallback.');
+  }
+}
+
 function validateInspectionEvidenceIntakeRequest(request, errors) {
   if (request.type !== 'inspection-evidence-intake') return;
   if (request.options !== undefined && !isPlainObject(request.options)) return;
@@ -718,6 +763,7 @@ export function validateJobRequest(body, { trustedPathRoots = [] } = {}) {
     validatePromotionDryRunRequest(request, errors);
     validateEvidenceGraphRequest(request, errors);
     validateInspectionPlanRequest(request, errors);
+    validateProofLineageRequest(request, errors, { trustedPathRoots });
     validateStage5bAuditRequest(request, errors);
     validateEvidenceReadinessAuditRequest(request, errors);
   }
@@ -747,6 +793,119 @@ export function createJobExecutor({
         if (typeof options.onStderr === 'function') options.onStderr(text);
       },
     });
+  }
+
+  function resolveStudioArtifactBinding(job, bindingKey, inputPath) {
+    if (job.request.options?.proof_lineage !== true) return null;
+    const binding = job.request.options?.studio?.[bindingKey] || null;
+    if (!binding) {
+      if (inputPath && isPathInsideTrustedRoot(inputPath, [jobStore.jobsDir])) {
+        throw new Error(`Proof tracked-artifact re-entry requires options.studio.${bindingKey}.`);
+      }
+      return null;
+    }
+    if (!inputPath || resolve(binding.path || '') !== resolve(inputPath)) {
+      throw new Error(`Proof tracked-artifact ${bindingKey} does not match the consumed input path.`);
+    }
+    return binding;
+  }
+
+  async function verifyStudioArtifactBinding(job, bindingKey, inputPath) {
+    const binding = resolveStudioArtifactBinding(job, bindingKey, inputPath);
+    if (!binding) return null;
+    return jobStore.verifyArtifactBinding(binding.job_id, binding.artifact_id, {
+      expectedBinding: binding,
+    });
+  }
+
+  function isBundleInputPath(inputPath) {
+    return typeof inputPath === 'string' && extname(inputPath).toLowerCase() === '.zip';
+  }
+
+  async function stageStudioArtifactProofInput(job, {
+    bindingKey,
+    inputPath,
+    relativePath,
+    label,
+  }) {
+    const locator = proofRepoRelativePath(job, inputPath, label);
+    const binding = resolveStudioArtifactBinding(job, bindingKey, inputPath);
+    if (!binding || !inputPath || isBundleInputPath(inputPath)) {
+      return {
+        path: inputPath,
+        locator,
+        sourceArtifactBinding: binding,
+        snapshot: null,
+      };
+    }
+
+    const exactSnapshot = await jobStore.readVerifiedArtifactSnapshot(binding.job_id, binding.artifact_id, {
+      expectedBinding: binding,
+    });
+    const stagedPath = await jobStore.writeJobFile(job.id, relativePath, exactSnapshot.readDetachedBytes());
+    const stagedLocator = proofRepoRelativePath(job, stagedPath, label);
+    return {
+      path: stagedPath,
+      locator: stagedLocator,
+      sourceArtifactBinding: null,
+      snapshot: {
+        path: stagedLocator,
+        relativePath: stagedLocator,
+        sha256: exactSnapshot.sha256,
+        size_bytes: exactSnapshot.size_bytes,
+        bytes: exactSnapshot.readDetachedBytes(),
+      },
+    };
+  }
+
+  async function buildBoundAuthoritativeConfigSnapshot(job, {
+    inputPath,
+    bindingKey = 'config_artifact_binding',
+    authoritativeConfigPath,
+  }) {
+    if (!inputPath || isBundleInputPath(inputPath)) return null;
+    const binding = resolveStudioArtifactBinding(job, bindingKey, inputPath);
+    if (!binding) return null;
+    const exactSnapshot = await jobStore.readVerifiedArtifactSnapshot(binding.job_id, binding.artifact_id, {
+      expectedBinding: binding,
+    });
+    const repoSnapshot = await readAuthoritativeConfigSnapshot({
+      projectRoot,
+      configPath: authoritativeConfigPath,
+    });
+    if (
+      repoSnapshot.sha256 !== exactSnapshot.sha256
+      || repoSnapshot.size_bytes !== exactSnapshot.size_bytes
+    ) {
+      throw new Error('Proof tracked config bytes do not match the authoritative repository config snapshot.');
+    }
+    return repoSnapshot;
+  }
+
+  function findAuthoritativeConfigParentPath(document, label) {
+    const parent = Array.isArray(document?.revision_lineage?.parents)
+      ? document.revision_lineage.parents.find((entry) => entry?.role === 'authoritative_config' && entry?.artifact_type === 'config')
+      : null;
+    const pathValue = typeof parent?.path === 'string' ? parent.path.trim() : '';
+    if (!pathValue) {
+      throw new Error(`${label} is missing its authoritative_config parent path.`);
+    }
+    return pathValue;
+  }
+
+  function proofRepoRelativePath(job, inputPath, label) {
+    if (!inputPath || job.request.options?.proof_lineage !== true) return inputPath;
+    const absolute = resolveMaybe(projectRoot, inputPath);
+    const locator = relative(resolve(projectRoot), absolute).replaceAll('\\', '/');
+    if (
+      !locator
+      || locator === '..'
+      || locator.startsWith('../')
+      || isAbsolute(locator)
+    ) {
+      throw new Error(`Proof ${label} must resolve to a repository-relative path.`);
+    }
+    return locator;
   }
 
   async function persistValidatedConfig(job, {
@@ -825,6 +984,7 @@ export function createJobExecutor({
         if (!isInspectableModelArtifactRecord(artifact)) {
           throw new Error('inspect artifact_ref must point to a supported tracked model artifact.');
         }
+        await verifyStudioArtifactBinding(job, 'source_artifact_binding', artifact.path);
         return {
           filePath: artifact.path,
           diagnostics: {
@@ -844,6 +1004,7 @@ export function createJobExecutor({
 
     if (job.request.config_path) {
       const configPath = resolveMaybe(projectRoot, job.request.config_path);
+      await verifyStudioArtifactBinding(job, 'config_artifact_binding', configPath);
       const loaded = await loadConfigWithDiagnostics(configPath);
       return {
         config: loaded.config,
@@ -952,11 +1113,30 @@ export function createJobExecutor({
   }
 
   async function executeReviewContext(job) {
-    await ensureJobArtifactDir(jobStore, job.id);
+    const contextPath = resolveMaybe(projectRoot, job.request.context_path);
+    const modelPath = resolveMaybe(projectRoot, job.request.model_path);
+    const sourceInput = await stageStudioArtifactProofInput(job, {
+      bindingKey: 'source_artifact_binding',
+      inputPath: contextPath || modelPath,
+      relativePath: `inputs/review-context-source${extname(contextPath || modelPath || '') || '.json'}`,
+      label: 'review-context source input',
+    });
+    const authoritativeConfigPath = job.request.options?.proof_lineage === true
+      ? (isSafeRepoRelativePath(job.request.config_path)
+          ? job.request.config_path
+          : assertRevisionLineagePackageSelection().authoritative_config_path)
+      : proofRepoRelativePath(job, job.request.config_path || null, 'review-context config input');
+    const authoritativeConfigSnapshot = await buildBoundAuthoritativeConfigSnapshot(job, {
+      inputPath: resolveMaybe(projectRoot, job.request.config_path),
+      authoritativeConfigPath,
+    });
     const result = await runReviewContextPipeline({
       projectRoot,
-      contextPath: resolveMaybe(projectRoot, job.request.context_path),
-      modelPath: resolveMaybe(projectRoot, job.request.model_path),
+      authoritativeConfigPath,
+      authoritativeConfigSnapshot,
+      requireAuthoritativeLineage: job.request.options?.proof_lineage === true,
+      contextPath: contextPath ? sourceInput.path : null,
+      modelPath: contextPath ? modelPath : sourceInput.path,
       bomPath: resolveMaybe(projectRoot, job.request.bom_path),
       inspectionPath: resolveMaybe(projectRoot, job.request.inspection_path),
       qualityPath: resolveMaybe(projectRoot, job.request.quality_path),
@@ -994,19 +1174,36 @@ export function createJobExecutor({
   }
 
   async function executeCompareRev(job) {
+    const proofLineage = job.request.options?.proof_lineage === true;
+    const baselineInput = await stageStudioArtifactProofInput(job, {
+      bindingKey: 'baseline_artifact_binding',
+      inputPath: resolveMaybe(projectRoot, job.request.baseline_path),
+      relativePath: 'imports/baseline_review_pack.json',
+      label: 'compare-rev baseline input',
+    });
+    const candidateInput = await stageStudioArtifactProofInput(job, {
+      bindingKey: 'candidate_artifact_binding',
+      inputPath: resolveMaybe(projectRoot, job.request.candidate_path),
+      relativePath: 'imports/candidate_review_pack.json',
+      label: 'compare-rev candidate input',
+    });
     const baselineImport = await resolveBundleBackedCanonicalPath({
       jobStore,
       jobId: job.id,
-      inputPath: resolveMaybe(projectRoot, job.request.baseline_path),
+      inputPath: baselineInput.path,
       target: 'review_pack',
       outputFileName: 'baseline_review_pack.json',
+      proofLineage,
+      sourceArtifactBinding: baselineInput.sourceArtifactBinding,
     });
     const candidateImport = await resolveBundleBackedCanonicalPath({
       jobStore,
       jobId: job.id,
-      inputPath: resolveMaybe(projectRoot, job.request.candidate_path),
+      inputPath: candidateInput.path,
       target: 'review_pack',
       outputFileName: 'candidate_review_pack.json',
+      proofLineage,
+      sourceArtifactBinding: candidateInput.sourceArtifactBinding,
     });
     const baselinePath = baselineImport.path;
     const candidatePath = candidateImport.path;
@@ -1120,29 +1317,88 @@ export function createJobExecutor({
   }
 
   async function executeReadinessPack(job) {
-    await ensureJobArtifactDir(jobStore, job.id);
+    const artifactDir = await ensureJobArtifactDir(jobStore, job.id);
+    const proofLineage = job.request.options?.proof_lineage === true;
+    const reviewPackInput = await stageStudioArtifactProofInput(job, {
+      bindingKey: 'source_artifact_binding',
+      inputPath: resolveMaybe(projectRoot, job.request.review_pack_path),
+      relativePath: 'artifacts/review_pack.json',
+      label: 'readiness review-pack input',
+    });
     const reviewPackImport = await resolveBundleBackedCanonicalPath({
       jobStore,
       jobId: job.id,
-      inputPath: resolveMaybe(projectRoot, job.request.review_pack_path),
+      inputPath: reviewPackInput.path,
       target: 'review_pack',
       outputFileName: 'review_pack.json',
+      proofLineage,
+      sourceArtifactBinding: reviewPackInput.sourceArtifactBinding,
     });
-    const reviewPackPath = reviewPackImport.path;
+    let reviewPackPath = reviewPackImport.path;
+    let proofReviewPackPath = proofRepoRelativePath(
+      job,
+      reviewPackPath,
+      'readiness review-pack input'
+    );
     const processPlanPath = resolveMaybe(projectRoot, job.request.process_plan_path);
     const qualityRiskPath = resolveMaybe(projectRoot, job.request.quality_risk_path);
-    const reviewPack = await loadReviewPackHandoff(reviewPackPath, { command: 'readiness-pack' });
+    if (proofLineage && (processPlanPath || qualityRiskPath)) {
+      throw new Error('Proof readiness-pack derives process-plan and quality-risk from the bound review pack; prebuilt support artifacts are not proof-eligible.');
+    }
+    let reviewPackSnapshot = reviewPackInput.snapshot;
+    if (proofLineage) {
+      const sourceSnapshot = reviewPackSnapshot || await readRevisionLineageFileSnapshot({
+        projectRoot,
+        path: proofReviewPackPath,
+      });
+      if (!reviewPackSnapshot && dirname(resolve(reviewPackPath)) !== artifactDir) {
+        reviewPackPath = await jobStore.writeJobFile(
+          job.id,
+          'artifacts/review_pack.json',
+          sourceSnapshot.bytes
+        );
+        proofReviewPackPath = proofRepoRelativePath(
+          job,
+          reviewPackPath,
+          'staged readiness review-pack input'
+        );
+      }
+      if (!reviewPackSnapshot) {
+        reviewPackSnapshot = await readRevisionLineageFileSnapshot({
+          projectRoot,
+          path: proofReviewPackPath,
+        });
+        if (
+          reviewPackSnapshot.sha256 !== sourceSnapshot.sha256
+          || reviewPackSnapshot.size_bytes !== sourceSnapshot.size_bytes
+        ) {
+          throw new Error('Staged proof review-pack bytes do not match the bound source snapshot.');
+        }
+      }
+    }
+    const reviewPack = proofLineage
+      ? parseInspectionEvidenceJsonBytes(reviewPackSnapshot.bytes, { requireCanonical: false })
+      : await loadReviewPackHandoff(reviewPackPath, { command: 'readiness-pack' });
+    if (proofLineage) {
+      assertReviewPackHandoff(reviewPack, reviewPackPath, { command: 'readiness-pack' });
+    }
     assertRegularReadinessPackHasNoInspectionEvidenceClaim(reviewPack);
     const processPlan = processPlanPath ? await loadCanonicalSupportArtifact('process_plan', processPlanPath, 'readiness-pack') : null;
     const qualityRisk = qualityRiskPath ? await loadCanonicalSupportArtifact('quality_risk', qualityRiskPath, 'readiness-pack') : null;
     const outputPath = buildJobArtifactPath(jobStore, job.id, 'readiness_report.json');
     const report = buildReadinessReportFromReviewPack({
       reviewPack,
-      reviewPackPath,
+      reviewPackPath: proofLineage ? proofReviewPackPath : reviewPackPath,
+      reviewPackSnapshot,
+      requireAuthoritativeLineage: proofLineage,
       processPlan,
       qualityRisk,
     });
-    const artifacts = await writeCanonicalReadinessArtifacts(outputPath, report, { projectRoot });
+    const artifacts = await writeCanonicalReadinessArtifacts(outputPath, report, {
+      projectRoot,
+      reviewPackSnapshot,
+      requireAuthoritativeLineage: proofLineage,
+    });
     const reportDocument = await readJsonFile(artifacts.json);
     return {
       report: reportDocument,
@@ -1179,19 +1435,36 @@ export function createJobExecutor({
 
   async function executeStabilizationReview(job) {
     await ensureJobArtifactDir(jobStore, job.id);
+    const proofLineage = job.request.options?.proof_lineage === true;
+    const baselineInput = await stageStudioArtifactProofInput(job, {
+      bindingKey: 'baseline_artifact_binding',
+      inputPath: resolveMaybe(projectRoot, job.request.baseline_path),
+      relativePath: 'imports/baseline_readiness_report.json',
+      label: 'stabilization baseline input',
+    });
+    const candidateInput = await stageStudioArtifactProofInput(job, {
+      bindingKey: 'candidate_artifact_binding',
+      inputPath: resolveMaybe(projectRoot, job.request.candidate_path),
+      relativePath: 'imports/candidate_readiness_report.json',
+      label: 'stabilization candidate input',
+    });
     const baselineImport = await resolveBundleBackedCanonicalPath({
       jobStore,
       jobId: job.id,
-      inputPath: resolveMaybe(projectRoot, job.request.baseline_path),
+      inputPath: baselineInput.path,
       target: 'readiness_report',
       outputFileName: 'baseline_readiness_report.json',
+      proofLineage,
+      sourceArtifactBinding: baselineInput.sourceArtifactBinding,
     });
     const candidateImport = await resolveBundleBackedCanonicalPath({
       jobStore,
       jobId: job.id,
-      inputPath: resolveMaybe(projectRoot, job.request.candidate_path),
+      inputPath: candidateInput.path,
       target: 'readiness_report',
       outputFileName: 'candidate_readiness_report.json',
+      proofLineage,
+      sourceArtifactBinding: candidateInput.sourceArtifactBinding,
     });
     const baselinePath = baselineImport.path;
     const candidatePath = candidateImport.path;
@@ -1216,40 +1489,80 @@ export function createJobExecutor({
 
   async function executeGenerateStandardDocs(job, resolvedConfig = null) {
     const outDir = buildJobArtifactPath(jobStore, job.id, 'standard-docs');
-    await mkdir(outDir, { recursive: true });
+    const proofLineage = job.request.options?.proof_lineage === true;
+    const readinessInput = await stageStudioArtifactProofInput(job, {
+      bindingKey: 'source_artifact_binding',
+      inputPath: resolveMaybe(projectRoot, job.request.readiness_report_path),
+      relativePath: 'inputs/readiness_report.json',
+      label: 'standard-docs readiness input',
+    });
     const readinessImport = job.request.readiness_report_path
       ? await resolveBundleBackedCanonicalPath({
           jobStore,
           jobId: job.id,
-          inputPath: resolveMaybe(projectRoot, job.request.readiness_report_path),
+          inputPath: readinessInput.path,
           target: 'readiness_report',
           outputFileName: 'readiness_report.json',
+          proofLineage,
+          sourceArtifactBinding: readinessInput.sourceArtifactBinding,
         })
       : { path: null, importRecord: null };
     const readinessReportPath = readinessImport.path;
     const readinessReport = await loadReadinessReportHandoff(readinessReportPath, { command: 'generate-standard-docs' });
+    const configInputPath = resolveMaybe(projectRoot, job.request.config_path);
+    const directAuthoritativeConfigPath = proofRepoRelativePath(
+      job,
+      job.request.config_path || null,
+      'standard-docs config input'
+    );
+    const authoritativeConfigPath = proofLineage
+      ? (isSafeRepoRelativePath(job.request.config_path) && !isBundleInputPath(configInputPath)
+          ? directAuthoritativeConfigPath
+          : findAuthoritativeConfigParentPath(readinessReport, 'Proof readiness report'))
+      : directAuthoritativeConfigPath;
+    const authoritativeConfigSnapshot = await buildBoundAuthoritativeConfigSnapshot(job, {
+      inputPath: configInputPath,
+      authoritativeConfigPath,
+    });
     const configImport = resolvedConfig
       ? { path: resolvedConfig.configPath, importRecord: null }
+      : proofLineage && authoritativeConfigSnapshot
+        ? { path: resolveMaybe(projectRoot, authoritativeConfigPath), importRecord: null }
       : await resolveBundleBackedConfigPath({
           jobStore,
           jobId: job.id,
-          inputPath: resolveMaybe(projectRoot, job.request.config_path),
+          inputPath: configInputPath,
+          proofLineage,
+          sourceArtifactBinding: proofLineage && !authoritativeConfigSnapshot
+            ? resolveStudioArtifactBinding(job, 'config_artifact_binding', configInputPath)
+            : null,
         });
-    const configPath = configImport.path;
-    const loaded = resolvedConfig || await loadConfigWithDiagnostics(configPath);
+    const configPath = proofLineage
+      ? authoritativeConfigPath
+      : configImport.path;
+    const loaded = proofLineage
+      ? null
+      : resolvedConfig || await loadConfigWithDiagnostics(configPath);
 
     const result = await runStandardDocsWorkflow({
       freecadRoot: projectRoot,
       runScript: createLoggedRunner(job.id),
       loadConfig: async (filepath) => (await loadConfigWithDiagnostics(filepath)).config,
-      configPath,
-      config: loaded.config,
+      configPath: proofRepoRelativePath(job, configPath, 'standard-docs config input'),
+      config: loaded?.config || null,
       options: {
         profileName: job.request.options?.profile_name || null,
         runtimeData: job.request.options?.runtime_data || null,
         outDir,
         report: readinessReport,
-        reportPath: readinessReportPath,
+        reportPath: proofRepoRelativePath(
+          job,
+          readinessReportPath,
+          'standard-docs readiness input'
+        ),
+        generatedAt: job.request.options?.generated_at || null,
+        requireAuthoritativeLineage: proofLineage,
+        authoritativeConfigSnapshot,
       },
     });
 
@@ -1266,18 +1579,110 @@ export function createJobExecutor({
 
   async function executeInspectionPlan(job) {
     const artifactDir = await ensureJobArtifactDir(jobStore, job.id);
+    const proofLineage = job.request.options?.proof_lineage === true;
     const scope = job.request.scope || job.request.options?.scope || 'full';
     const generatedAt = job.request.options?.generated_at || job.created_at || new Date().toISOString();
+    const reviewPackInput = await stageStudioArtifactProofInput(job, {
+      bindingKey: 'source_artifact_binding',
+      inputPath: resolveMaybe(projectRoot, job.request.review_pack_path),
+      relativePath: 'inputs/inspection-review_pack.json',
+      label: 'inspection review-pack source',
+    });
+    const revisionImpactInput = await stageStudioArtifactProofInput(job, {
+      bindingKey: 'revision_impact_artifact_binding',
+      inputPath: resolveMaybe(projectRoot, job.request.revision_impact_path),
+      relativePath: 'inputs/inspection-revision_impact_report.json',
+      label: 'inspection revision-impact source',
+    });
+    const readinessInput = {
+      path: resolveMaybe(projectRoot, job.request.readiness_report_path),
+      locator: proofRepoRelativePath(job, resolveMaybe(projectRoot, job.request.readiness_report_path), 'inspection readiness source'),
+      sourceArtifactBinding: null,
+      snapshot: null,
+    };
+    const requirementsInput = {
+      path: resolveMaybe(projectRoot, job.request.requirements_path),
+      locator: proofRepoRelativePath(job, resolveMaybe(projectRoot, job.request.requirements_path), 'inspection requirements source'),
+      sourceArtifactBinding: null,
+      snapshot: null,
+    };
+    const configInputPath = resolveMaybe(projectRoot, job.request.config_path);
+    const stageProofInput = async ({ input, filename, label }) => {
+      const inputPath = input.path;
+      if (!inputPath || !proofLineage) return proofRepoRelativePath(job, inputPath, label);
+      const sourceLocator = input.locator || proofRepoRelativePath(job, inputPath, label);
+      const sourceSnapshot = input.snapshot || await readRevisionLineageFileSnapshot({
+        projectRoot,
+        path: sourceLocator,
+      });
+      const stagedPath = dirname(resolve(inputPath)) === artifactDir
+        ? resolve(inputPath)
+        : await jobStore.writeJobFile(job.id, `artifacts/${filename}`, sourceSnapshot.bytes);
+      const stagedLocator = proofRepoRelativePath(job, stagedPath, `staged ${label}`);
+      const stagedSnapshot = await readRevisionLineageFileSnapshot({
+        projectRoot,
+        path: stagedLocator,
+      });
+      if (
+        stagedSnapshot.sha256 !== sourceSnapshot.sha256
+        || stagedSnapshot.size_bytes !== sourceSnapshot.size_bytes
+      ) {
+        throw new Error(`Staged proof ${label} bytes do not match the bound source snapshot.`);
+      }
+      return stagedLocator;
+    };
+    const proofReviewPackPath = await stageProofInput({
+      input: reviewPackInput,
+      filename: 'review_pack.json',
+      label: 'inspection review-pack input',
+    });
+    const proofRevisionImpactPath = await stageProofInput({
+      input: revisionImpactInput,
+      filename: 'revision_impact_report.json',
+      label: 'inspection revision-impact input',
+    });
+    const proofReadinessPath = await stageProofInput({
+      input: readinessInput,
+      filename: 'readiness_report.json',
+      label: 'inspection readiness input',
+    });
+    const proofRequirementsPath = await stageProofInput({
+      input: requirementsInput,
+      filename: 'inspection_requirements.json',
+      label: 'inspection requirements input',
+    });
+    const proofReviewPackDocument = proofLineage
+      ? parseInspectionEvidenceJsonBytes(
+          (reviewPackInput.snapshot || await readRevisionLineageFileSnapshot({ projectRoot, path: proofReviewPackPath })).bytes,
+          { requireCanonical: false }
+        )
+      : null;
+    const directAuthoritativeConfigPath = proofRepoRelativePath(
+      job,
+      job.request.config_path || null,
+      'inspection config input'
+    );
+    const authoritativeConfigPath = proofLineage
+      ? (isSafeRepoRelativePath(job.request.config_path)
+          ? directAuthoritativeConfigPath
+          : findAuthoritativeConfigParentPath(proofReviewPackDocument, 'Proof review pack'))
+      : directAuthoritativeConfigPath;
+    const authoritativeConfigSnapshot = await buildBoundAuthoritativeConfigSnapshot(job, {
+      inputPath: configInputPath,
+      authoritativeConfigPath,
+    });
     const plan = await createInspectionPlanFromPaths({
       projectRoot,
-      reviewPackPath: resolveMaybe(projectRoot, job.request.review_pack_path),
-      revisionImpactPath: resolveMaybe(projectRoot, job.request.revision_impact_path),
-      readinessPath: resolveMaybe(projectRoot, job.request.readiness_report_path),
-      configPath: resolveMaybe(projectRoot, job.request.config_path),
-      requirementsPath: resolveMaybe(projectRoot, job.request.requirements_path),
+      reviewPackPath: proofReviewPackPath,
+      revisionImpactPath: proofRevisionImpactPath,
+      readinessPath: proofReadinessPath,
+      configPath: authoritativeConfigPath,
+      authoritativeConfigSnapshot,
+      requirementsPath: proofRequirementsPath,
       trustedInputRoots: [jobStore.jobsDir],
       scope,
       generatedAt,
+      requireAuthoritativeLineage: proofLineage,
     });
     const outputs = await writeInspectionPlanOutputs({
       projectRoot,
@@ -1293,19 +1698,39 @@ export function createJobExecutor({
 
   async function executePack(job) {
     await ensureJobArtifactDir(jobStore, job.id);
-    const rawReadinessPath = resolveMaybe(projectRoot, job.request.readiness_report_path);
+    const proofLineage = job.request.options?.proof_lineage === true;
+    const readinessInput = await stageStudioArtifactProofInput(job, {
+      bindingKey: 'source_artifact_binding',
+      inputPath: resolveMaybe(projectRoot, job.request.readiness_report_path),
+      relativePath: 'inputs/readiness_report.json',
+      label: 'pack readiness input',
+    });
+    const docsManifestInput = await stageStudioArtifactProofInput(job, {
+      bindingKey: 'docs_manifest_artifact_binding',
+      inputPath: resolveMaybe(projectRoot, job.request.docs_manifest_path),
+      relativePath: 'inputs/standard_docs_manifest.json',
+      label: 'pack docs manifest input',
+    });
+    const rawReadinessPath = readinessInput.path;
+    const rawDocsManifestPath = docsManifestInput.path;
     const readinessImport = await resolveBundleBackedCanonicalPath({
       jobStore,
       jobId: job.id,
       inputPath: rawReadinessPath,
       target: 'readiness_report',
       outputFileName: 'readiness_report.json',
+      proofLineage,
+      sourceArtifactBinding: readinessInput.sourceArtifactBinding,
     });
     const docsManifestImport = await resolveBundleBackedDocsManifestPath({
       jobStore,
       jobId: job.id,
-      explicitPath: resolveMaybe(projectRoot, job.request.docs_manifest_path),
+      explicitPath: rawDocsManifestPath,
       fallbackBundlePath: rawReadinessPath,
+      proofLineage,
+      sourceArtifactBinding: rawDocsManifestPath
+        ? docsManifestInput.sourceArtifactBinding
+        : readinessInput.sourceArtifactBinding,
     });
     const readinessPath = readinessImport.path;
     const docsManifestPath = docsManifestImport.path;
@@ -1314,6 +1739,7 @@ export function createJobExecutor({
       ? await loadDocsManifestHandoff(docsManifestPath, {
           readinessReport,
           readinessPath,
+          projectRoot,
           allowBundledPair: Boolean(
             readinessImport.importRecord?.bundle_path
             && readinessImport.importRecord?.bundle_path === docsManifestImport.importRecord?.bundle_path
@@ -1333,6 +1759,7 @@ export function createJobExecutor({
         readinessImport.importRecord?.bundle_path
         && readinessImport.importRecord?.bundle_path === docsManifestImport.importRecord?.bundle_path
       ),
+      requireAuthoritativeLineage: proofLineage,
     });
     return {
       ...result,
@@ -1496,6 +1923,25 @@ export function createJobExecutor({
       let manifestConfigPath = null;
       let manifestConfigSummary = null;
       let manifestRuleProfile = null;
+      let manifestProofLineage = job.request.options?.proof_lineage === true
+        ? {
+            required: true,
+            mode: 'proof',
+            authoritative_config_path: job.request.config_path || null,
+            config_sha256: null,
+            config_size_bytes: null,
+          }
+        : null;
+      let manifestRevisionLineage = null;
+      if (manifestProofLineage) {
+        manifestConfigPath = resolveMaybe(projectRoot, job.request.config_path);
+      }
+      const proofAfMetadata = manifestProofLineage
+        ? {
+            effectivePolicy: { proof_lineage: true },
+            sourceArtifactBinding: job.request.options?.studio?.source_artifact_binding || null,
+          }
+        : {};
       const handlerContext = {
         projectRoot,
         jobStore,
@@ -1519,15 +1965,33 @@ export function createJobExecutor({
         executeInspectionEvidencePromotionDryRun,
         executeStage5bEvidenceAudit,
         executeEvidenceReadinessAudit,
-        buildAfArtifactContractFromDocument,
-        buildGenericAfMetadata,
-        buildReleaseBundleMetadata,
-        buildReleaseBundleManifestMetadata,
+        buildAfArtifactContractFromDocument: (options) => buildAfArtifactContractFromDocument({
+          ...options,
+          ...proofAfMetadata,
+        }),
+        buildGenericAfMetadata: (jobType, document, executionNotes = [], options = {}) => buildGenericAfMetadata(
+          jobType,
+          document,
+          executionNotes,
+          { ...options, ...proofAfMetadata }
+        ),
+        buildReleaseBundleMetadata: (options) => buildReleaseBundleMetadata({
+          ...options,
+          ...proofAfMetadata,
+        }),
+        buildReleaseBundleManifestMetadata: (options) => buildReleaseBundleManifestMetadata({
+          ...options,
+          ...proofAfMetadata,
+        }),
       };
       try {
         let result;
         let resolvedConfig = null;
-        if (job.type === 'create' || job.type === 'draw' || job.type === 'inspect' || job.type === 'report' || job.type === 'generate-standard-docs') {
+        if (job.type === 'create'
+          || job.type === 'draw'
+          || job.type === 'inspect'
+          || job.type === 'report'
+          || (job.type === 'generate-standard-docs' && job.request.options?.proof_lineage !== true)) {
           resolvedConfig = await resolveConfigInput(job);
           handlerContext.resolvedConfig = resolvedConfig;
           diagnostics = resolvedConfig.diagnostics || {};
@@ -1551,6 +2015,30 @@ export function createJobExecutor({
           diagnostics = {
             ...diagnostics,
             ...handlerOutcome.diagnostics,
+          };
+        }
+        if (manifestProofLineage) {
+          const lineage = result?.revisionLineage
+            || result?.reviewPack?.revision_lineage
+            || result?.plan?.revision_lineage
+            || result?.manifest?.revision_lineage
+            || result?.report?.revision_lineage
+            || result?.readinessReport?.revision_lineage
+            || null;
+          manifestRevisionLineage = lineage;
+          const configParent = Array.isArray(lineage?.parents)
+            ? lineage.parents.find((parent) => parent?.role === 'authoritative_config') || null
+            : null;
+          manifestProofLineage = {
+            ...manifestProofLineage,
+            authoritative_config_path: configParent?.path
+              || manifestProofLineage.authoritative_config_path,
+            config_sha256: lineage?.identity?.config_sha256 || null,
+            config_size_bytes: configParent?.size_bytes ?? null,
+          };
+          diagnostics = {
+            ...diagnostics,
+            proof_lineage_policy: manifestProofLineage,
           };
         }
 
@@ -1600,6 +2088,11 @@ export function createJobExecutor({
           configSummary: manifestConfigSummary,
           selectedProfile: job.request.options?.profile_name || null,
           ruleProfile: manifestRuleProfile,
+          ...(manifestProofLineage ? {
+            effectivePolicy: { proof_lineage: true },
+            portablePathRoot: jobStore.getJobDir(job.id),
+            ...(manifestRevisionLineage ? { revisionLineage: manifestRevisionLineage } : {}),
+          } : {}),
           artifacts: applyArtifactPublicationBoundary({
             projectRoot,
             jobDir: jobStore.getJobDir(job.id),
@@ -1613,6 +2106,7 @@ export function createJobExecutor({
           details: {
             request: job.request,
             diagnostics,
+            ...(manifestProofLineage ? { proof_lineage: manifestProofLineage } : {}),
           },
         });
 
@@ -1643,6 +2137,10 @@ export function createJobExecutor({
           configSummary: manifestConfigSummary,
           selectedProfile: job.request.options?.profile_name || null,
           ruleProfile: manifestRuleProfile,
+          ...(manifestProofLineage ? {
+            effectivePolicy: { proof_lineage: true },
+            portablePathRoot: jobStore.getJobDir(job.id),
+          } : {}),
           artifacts: applyArtifactPublicationBoundary({
             projectRoot,
             jobDir: jobStore.getJobDir(job.id),
@@ -1658,6 +2156,7 @@ export function createJobExecutor({
           details: {
             request: job.request,
             diagnostics,
+            ...(manifestProofLineage ? { proof_lineage: manifestProofLineage } : {}),
             error: error instanceof Error ? error.message : String(error),
             error_code: error instanceof AfExecutionContractError ? error.code : null,
           },

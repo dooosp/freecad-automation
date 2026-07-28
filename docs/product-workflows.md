@@ -18,6 +18,14 @@ Primary commands are `check-runtime`, `create`, `draw`, `inspect`, `review-conte
 
 The next safe action follows explicit artifacts: create or import when no model exists, run `review-context` when no review pack exists, and run `readiness-pack` only from the intended review pack. A readiness report can remain `needs_more_evidence`; packaging it does not clear its gates or publish a release.
 
+For a separately selected canonical package, the same artifact-driven path can
+opt into revision-lineage proof mode. `--proof-lineage` requires an explicit
+authoritative config at review ingress and carries its package slug, part ID,
+revision, config digest, and exact parent digests through readiness, inspection
+planning, standard docs, packaging, and tracked re-entry. It never supplies a
+missing baseline, physical result, inspection evidence, or human authority. See
+[revision-lineage proof mode](./revision-lineage-proof-mode.md).
+
 ## 2. Compare revisions and plan inspection
 
 Start with baseline and candidate review packs.
@@ -30,7 +38,7 @@ baseline review pack + candidate review pack
   -> checksheet, supplier request, and blank result template
 ```
 
-Use `compare-rev` and then `inspection-plan`. These commands are artifact-driven and do not require FreeCAD when their inputs already exist. Stable change IDs and reinspection items remain visible. The plan and its derivatives are generated control material, not evidence.
+Use `compare-rev` and then `inspection-plan`. These commands are artifact-driven and do not require FreeCAD when their inputs already exist. Stable change IDs and reinspection items remain visible. The plan and its derivatives are generated control material, not evidence. Proof-mode revision comparison additionally requires independently authoritative baseline and candidate config/review snapshots; without that baseline the selected-package edge remains held rather than deriving history from current files.
 
 When a plan reaches `ready_for_human_release`, the next action is external engineering/quality review. The software must not create release authorization automatically. `inspection-plan-release-record` validates an explicit human authorization against the exact plan and distributed bytes; its scope is inspection execution only.
 

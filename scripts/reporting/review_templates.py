@@ -487,6 +487,7 @@ def build_review_pack_data(payload):
             "derived_renderers": ["markdown", "pdf"],
         },
         "part": {
+            **({"package_slug": part.get("package_slug")} if part.get("package_slug") is not None else {}),
             "part_id": part.get("part_id"),
             "name": part.get("name"),
             "description": part.get("description"),

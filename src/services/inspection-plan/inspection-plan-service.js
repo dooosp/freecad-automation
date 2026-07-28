@@ -6,6 +6,17 @@ import { parse as parseToml } from 'smol-toml';
 import { parseInspectionEvidenceJsonBytes, validateInspectionEvidenceControlMaterial } from '../../../lib/inspection-evidence-onboarding.js';
 import { assertValidInspectionPlan, canonicalizeInspectionPlan } from '../../../lib/inspection-plan-contract.js';
 import { publishAtomicOutputSet } from '../../../lib/atomic-output-publication.js';
+import {
+  RevisionLineageError,
+  assertRevisionLineage,
+  assertRevisionLineageIdentityAgreement,
+  assertRevisionLineageSnapshotCurrent,
+  buildRevisionLineage,
+  buildRevisionLineageParent,
+  buildRevisionLineageParentFromSnapshot,
+  readAuthoritativeConfigSnapshot,
+  readRevisionLineageFileSnapshot,
+} from '../../../lib/revision-lineage-contract.js';
 
 const SUPPORTED_UNITS = new Set(['mm', 'in', 'inch', 'deg', '°', 'N', 'N·m', 'Nm']);
 const RESULT_FIELDS = Object.freeze(['measured_value', 'measured_unit', 'result', 'completion_status', 'final_status']);
@@ -23,9 +34,142 @@ function portablePath(projectRoot, path) {
 }
 function packageIdentity(reviewPack) {
   return {
-    slug: reviewPack.package_slug || reviewPack.metadata?.package_slug || null,
+    slug: reviewPack.package_slug || reviewPack.part?.package_slug || reviewPack.metadata?.package_slug || null,
     revision: reviewPack.revision || reviewPack.part?.revision || null,
     part_identifier: reviewPack.part_id || reviewPack.part?.part_id || null,
+  };
+}
+function explicitTextValues(values) {
+  return [...new Set(values
+    .filter((value) => typeof value === 'string' && value.trim())
+    .map((value) => value.trim()))];
+}
+function documentIdentity(document, kind) {
+  if (!document || typeof document !== 'object' || Array.isArray(document)) return null;
+  const lineageIdentity = document.revision_lineage?.identity || {};
+  const subject = (kind.startsWith('revision-impact') || kind.includes('revision_impact'))
+    ? document.candidate || {}
+    : document;
+  const packageSlugs = explicitTextValues([
+    lineageIdentity.package_slug,
+    subject.package_slug,
+    subject.package?.slug,
+    subject.metadata?.package_slug,
+    subject.product?.package_slug,
+  ]);
+  const partIds = explicitTextValues([
+    lineageIdentity.part_id,
+    subject.part_id,
+    subject.part?.part_id,
+    subject.part_identifier,
+    subject.product?.part_id,
+  ]);
+  const revisions = explicitTextValues([
+    lineageIdentity.revision,
+    subject.revision,
+    subject.part?.revision,
+    subject.package?.revision,
+    subject.product?.revision,
+  ]);
+  for (const [field, values] of [['package slug', packageSlugs], ['part ID', partIds], ['revision', revisions]]) {
+    if (values.length > 1) throw new Error(`${kind} ${field} aliases conflict`);
+  }
+  return {
+    slug: packageSlugs[0] || null,
+    part_identifier: partIds[0] || null,
+    revision: revisions[0] || null,
+  };
+}
+function assertAvailableIdentityAgreement(expected, document, kind) {
+  const actual = documentIdentity(document, kind);
+  if (!actual) return;
+  for (const [field, label] of [['slug', 'package slug'], ['part_identifier', 'part ID'], ['revision', 'revision']]) {
+    if (actual[field] !== null && actual[field] !== expected[field]) {
+      throw new Error(`${kind} ${label} mismatch`);
+    }
+  }
+}
+function proofError(code, message, details = {}) {
+  return new RevisionLineageError(code, message, details);
+}
+function proofRunLocator(pathValue, portablePathRoot) {
+  if (typeof pathValue !== 'string' || typeof portablePathRoot !== 'string') {
+    throw proofError('unsafe_path', 'Proof run locators require explicit input paths and a portable root');
+  }
+  const rel = relative(portablePathRoot, pathValue).replaceAll('\\', '/');
+  if (!rel || rel === '..' || rel.startsWith('../') || isAbsolute(rel)) {
+    throw proofError('path_escape', 'Proof input is outside the explicit portable run root', {
+      path: pathValue,
+    });
+  }
+  return `run/${rel}`;
+}
+function requireProofIdentity(identity, kind) {
+  for (const [field, label] of [['slug', 'package slug'], ['part_identifier', 'part ID'], ['revision', 'revision']]) {
+    if (!identity?.[field]) throw proofError('missing_identity', `${kind} ${label} is required in proof mode`, { artifact_type: kind, field });
+  }
+  return identity;
+}
+function assertExactLineageParent(lineage, expected, kind) {
+  const matches = lineage.parents.filter((parent) => parent.role === expected.role);
+  if (matches.length === 0) {
+    throw proofError('missing_parent', `${kind} lacks required ${expected.role} parent`, { artifact_type: kind, role: expected.role });
+  }
+  const actual = matches[0];
+  if (matches.length !== 1
+    || actual.artifact_type !== expected.artifact_type
+    || actual.role !== expected.role
+    || actual.path !== expected.path
+    || actual.sha256 !== expected.sha256
+    || (actual.size_bytes ?? null) !== (expected.size_bytes ?? null)) {
+    throw proofError('digest_mismatch', `${kind} ${expected.role} parent does not match the exact snapshot`, { artifact_type: kind, role: expected.role });
+  }
+}
+function assertProofDocument({
+  document,
+  snapshot,
+  kind,
+  identity,
+  configParent,
+  requiredParent = null,
+  portablePathRoot,
+}) {
+  if (!document?.revision_lineage) {
+    throw proofError('unsupported_legacy', `${kind} is proof-ineligible because revision_lineage is missing`, { artifact_type: kind });
+  }
+  const lineage = assertRevisionLineage(document.revision_lineage);
+  assertRevisionLineageIdentityAgreement([identity, lineage]);
+  assertExactLineageParent(lineage, configParent, kind);
+  if (requiredParent) assertExactLineageParent(lineage, requiredParent, kind);
+  const documentIdentityValue = requireProofIdentity(documentIdentity(document, kind), kind);
+  if (documentIdentityValue.slug !== identity.package_slug
+    || documentIdentityValue.part_identifier !== identity.part_id
+    || documentIdentityValue.revision !== identity.revision) {
+    throw proofError('conflicting_identity', `${kind} identity fields disagree with revision_lineage`, { artifact_type: kind });
+  }
+  return buildRevisionLineageParent({
+    artifactType: kind,
+    role: kind,
+    path: proofRunLocator(snapshot.path, portablePathRoot),
+    sha256: snapshot.sha256,
+    sizeBytes: snapshot.size_bytes,
+  });
+}
+async function loadProofJson(projectRoot, path, artifactType) {
+  const snapshot = await readRevisionLineageFileSnapshot({ projectRoot, path });
+  const document = parseInspectionEvidenceJsonBytes(snapshot.bytes, { requireCanonical: false });
+  const safety = validateInspectionEvidenceControlMaterial(document);
+  if (!safety.ok) throw proofError('malformed_identity', `${artifactType} input contains unsafe control material`, { artifact_type: artifactType });
+  if (document.artifact_type !== artifactType) throw proofError('unsupported_legacy', `Expected ${artifactType} input`, { artifact_type: document.artifact_type || null });
+  return {
+    document,
+    trustedSnapshot: snapshot,
+    snapshot: {
+      artifact_type: artifactType,
+      path: snapshot.path,
+      sha256: snapshot.sha256,
+      size_bytes: snapshot.size_bytes,
+    },
   };
 }
 function authority(value, level = 'explicit_review_requirement') { return value === null || value === undefined ? 'unresolved' : level; }
@@ -51,11 +195,38 @@ function csv(columns, rows, numeric = new Set()) {
   return `${columns.join(',')}\n${rows.map((row) => columns.map((column) => csvCell(row[column], numeric.has(column) ? 'number' : 'text')).join(',')).join('\n')}\n`;
 }
 
-export function buildInspectionPlan({ reviewPack, revisionImpact = null, requirements = null, sourceSnapshot, scope = 'full', generatedAt }) {
+export function buildInspectionPlan({
+  reviewPack,
+  revisionImpact = null,
+  readiness = null,
+  config = null,
+  requirements = null,
+  sourceSnapshot,
+  scope = 'full',
+  generatedAt,
+  requireAuthoritativeLineage = false,
+  revisionLineage = null,
+}) {
   if (!['full', 'delta'].includes(scope)) throw new Error('scope must be full or delta');
   if (scope === 'delta' && revisionImpact?.artifact_type !== 'revision_impact_report') throw new Error('delta scope requires a revision_impact_report');
   const pkg = packageIdentity(reviewPack);
-  if (revisionImpact && (revisionImpact.candidate?.package_slug !== pkg.slug || revisionImpact.candidate?.revision !== pkg.revision)) throw new Error('revision-impact package/revision mismatch');
+  assertAvailableIdentityAgreement(pkg, reviewPack, 'review-pack');
+  assertAvailableIdentityAgreement(pkg, config, 'config');
+  assertAvailableIdentityAgreement(pkg, readiness, 'readiness');
+  assertAvailableIdentityAgreement(pkg, revisionImpact, 'revision-impact candidate');
+  assertAvailableIdentityAgreement(pkg, requirements, 'inspection requirements');
+  if (requireAuthoritativeLineage === true) {
+    requireProofIdentity(pkg, 'review_pack');
+    if (!revisionLineage) throw proofError('missing_parent', 'Proof inspection plan requires reconciled revision_lineage');
+    const lineage = assertRevisionLineage(revisionLineage);
+    if (pkg.slug !== lineage.identity.package_slug
+      || pkg.part_identifier !== lineage.identity.part_id
+      || pkg.revision !== lineage.identity.revision) {
+      throw proofError('conflicting_identity', 'Inspection-plan package identity disagrees with revision_lineage');
+    }
+  } else if (revisionLineage) {
+    throw proofError('unsupported_legacy', 'revision_lineage cannot be emitted without explicit proof activation');
+  }
   const impactItems = new Map((revisionImpact?.reinspection_plan?.items || []).map((item) => [item.affected_entity_id, item]));
   const impactAssessments = new Map((revisionImpact?.evidence_applicability?.assessments || []).map((item) => [item.evidence_or_characteristic_id, item]));
   const reviewRecords = (reviewPack.inspection_linkage?.records || []).filter((record) => record.record_role === 'inspection_requirement').map((record) => ({ ...record, _authority: 'explicit_review_requirement' }));
@@ -119,6 +290,7 @@ export function buildInspectionPlan({ reviewPack, revisionImpact = null, require
   const planId = stableId('inspection-plan', [pkg.slug, pkg.revision, scope, ...items.map((item) => item.plan_item_id)]);
   return assertValidInspectionPlan({
     artifact_type: 'inspection_plan', schema_version: '1.0', generated_at: generatedAt, plan_id: planId, status, scope, package: pkg, source_snapshot: sourceSnapshot,
+    ...(requireAuthoritativeLineage ? { revision_lineage: revisionLineage } : {}),
     authority_summary: { authoritative_item_count: items.filter((item) => !item.human_review_required).length, advisory_item_count: items.filter((item) => item.human_review_required).length, blocked_item_count: blocked, human_release_required: true },
     items, unresolved_requirements: unresolved.sort((a, b) => `${a.plan_item_id}:${a.code}`.localeCompare(`${b.plan_item_id}:${b.code}`)),
     derived_outputs: { checksheet: { artifact_type: 'inspection_checksheet.csv', generated_control_artifact: true }, supplier_request: { artifact_type: 'supplier_inspection_request.md', generated_control_artifact: true }, result_template: { artifact_type: 'inspection_result_template.csv', generated_control_artifact: true } },
@@ -174,17 +346,156 @@ async function loadConfigSnapshot(projectRoot, path, trustedInputRoots) {
   return { document, snapshot: { artifact_type: 'config', path: pathRef, sha256: sha(bytes) } };
 }
 
-export async function createInspectionPlanFromPaths({ projectRoot, reviewPackPath, revisionImpactPath = null, readinessPath = null, configPath = null, requirementsPath = null, trustedInputRoots = [], scope, generatedAt, afterSnapshot = null }) {
-  const review = await loadJson(projectRoot, reviewPackPath, 'review_pack', trustedInputRoots);
-  const impact = revisionImpactPath ? await loadJson(projectRoot, revisionImpactPath, 'revision_impact_report', trustedInputRoots) : null;
-  const readiness = readinessPath ? await loadJson(projectRoot, readinessPath, 'readiness_report', trustedInputRoots) : null;
-  const config = configPath ? await loadConfigSnapshot(projectRoot, configPath, trustedInputRoots) : null;
-  const requirements = requirementsPath ? await loadJson(projectRoot, requirementsPath, 'inspection_requirements', trustedInputRoots) : null;
-  const sourceSnapshot = { review_pack: review.snapshot, ...(impact ? { revision_impact: impact.snapshot } : {}), ...(readiness ? { readiness: readiness.snapshot } : {}), ...(config ? { config: config.snapshot } : {}), ...(requirements ? { requirements: requirements.snapshot } : {}) };
+export async function createInspectionPlanFromPaths({
+  projectRoot,
+  reviewPackPath,
+  revisionImpactPath = null,
+  readinessPath = null,
+  configPath = null,
+  authoritativeConfigSnapshot = null,
+  requirementsPath = null,
+  trustedInputRoots = [],
+  scope,
+  generatedAt,
+  afterSnapshot = null,
+  requireAuthoritativeLineage = false,
+  lineageSelection = undefined,
+}) {
+  const proof = requireAuthoritativeLineage === true;
+  if (requireAuthoritativeLineage !== false && !proof) {
+    throw proofError('malformed_identity', 'requireAuthoritativeLineage must be a boolean');
+  }
+  if (proof && !configPath) throw proofError('missing_identity', 'Proof inspection plan requires configPath');
+  const proofPath = (value) => {
+    if (typeof value !== 'string' || !value.trim() || value !== value.trim()) {
+      throw proofError('unsafe_path', 'Proof inspection-plan inputs require explicit repo-relative paths');
+    }
+    return value;
+  };
+  const review = proof
+    ? await loadProofJson(projectRoot, proofPath(reviewPackPath), 'review_pack')
+    : await loadJson(projectRoot, reviewPackPath, 'review_pack', trustedInputRoots);
+  const impact = revisionImpactPath
+    ? (proof
+        ? await loadProofJson(projectRoot, proofPath(revisionImpactPath), 'revision_impact_report')
+        : await loadJson(projectRoot, revisionImpactPath, 'revision_impact_report', trustedInputRoots))
+    : null;
+  const readiness = readinessPath
+    ? (proof
+        ? await loadProofJson(projectRoot, proofPath(readinessPath), 'readiness_report')
+        : await loadJson(projectRoot, readinessPath, 'readiness_report', trustedInputRoots))
+    : null;
+  let config;
+  if (proof) {
+    const proofConfigPath = proofPath(configPath);
+    const trustedSnapshot = authoritativeConfigSnapshot || await readAuthoritativeConfigSnapshot({
+      projectRoot,
+      configPath: proofConfigPath,
+      ...(lineageSelection === undefined ? {} : { selection: lineageSelection }),
+    });
+    if (trustedSnapshot.path !== proofConfigPath) {
+      throw proofError('conflicting_identity', 'Proof config snapshot path does not match configPath', {
+        expected_path: proofConfigPath,
+        snapshot_path: trustedSnapshot.path,
+      });
+    }
+    config = {
+      document: trustedSnapshot.config,
+      trustedSnapshot,
+      snapshot: {
+        artifact_type: 'config',
+        path: trustedSnapshot.path,
+        sha256: trustedSnapshot.sha256,
+        size_bytes: trustedSnapshot.size_bytes,
+      },
+    };
+  } else {
+    config = configPath ? await loadConfigSnapshot(projectRoot, configPath, trustedInputRoots) : null;
+  }
+  const requirements = requirementsPath
+    ? (proof
+        ? await loadProofJson(projectRoot, proofPath(requirementsPath), 'inspection_requirements')
+        : await loadJson(projectRoot, requirementsPath, 'inspection_requirements', trustedInputRoots))
+    : null;
+  const actualSourceSnapshot = { review_pack: review.snapshot, ...(impact ? { revision_impact: impact.snapshot } : {}), ...(readiness ? { readiness: readiness.snapshot } : {}), ...(config ? { config: config.snapshot } : {}), ...(requirements ? { requirements: requirements.snapshot } : {}) };
+  const portablePathRoot = proof ? dirname(review.trustedSnapshot.path) : null;
+  const sourceSnapshot = proof
+    ? Object.fromEntries(Object.entries(actualSourceSnapshot).map(([key, entry]) => [key, {
+        ...entry,
+        path: entry.artifact_type === 'config'
+          ? entry.path
+          : proofRunLocator(entry.path, portablePathRoot),
+      }]))
+    : actualSourceSnapshot;
   const expectedReviewHash = impact?.document?.candidate?.source_hashes?.review_pack;
   if (expectedReviewHash && expectedReviewHash !== review.snapshot.sha256) throw new Error('revision-impact source-hash mismatch for review pack');
-  await afterSnapshot?.({ sourceSnapshot: structuredClone(sourceSnapshot) });
-  return buildInspectionPlan({ reviewPack: review.document, revisionImpact: impact?.document || null, requirements: requirements?.document || null, sourceSnapshot, scope, generatedAt });
+  await afterSnapshot?.({ sourceSnapshot: structuredClone(actualSourceSnapshot) });
+  let revisionLineage = null;
+  if (proof) {
+    const identity = config.trustedSnapshot.identity;
+    const configParent = buildRevisionLineageParentFromSnapshot({
+      artifactType: 'config',
+      role: 'authoritative_config',
+      snapshot: config.trustedSnapshot,
+    });
+    const reviewParent = assertProofDocument({
+      document: review.document,
+      snapshot: review.trustedSnapshot,
+      kind: 'review_pack',
+      identity,
+      configParent,
+      portablePathRoot,
+    });
+    const parents = [configParent, reviewParent];
+    if (readiness) {
+      parents.push(assertProofDocument({
+        document: readiness.document,
+        snapshot: readiness.trustedSnapshot,
+        kind: 'readiness_report',
+        identity,
+        configParent,
+        requiredParent: reviewParent,
+        portablePathRoot,
+      }));
+    }
+    if (impact) {
+      parents.push(assertProofDocument({
+        document: impact.document,
+        snapshot: impact.trustedSnapshot,
+        kind: 'revision_impact_report',
+        identity,
+        configParent,
+        requiredParent: { ...reviewParent, role: 'candidate_review_pack' },
+        portablePathRoot,
+      }));
+    }
+    if (requirements) {
+      parents.push(assertProofDocument({
+        document: requirements.document,
+        snapshot: requirements.trustedSnapshot,
+        kind: 'inspection_requirements',
+        identity,
+        configParent,
+        portablePathRoot,
+      }));
+    }
+    for (const entry of [config, review, impact, readiness, requirements].filter((item) => item?.trustedSnapshot)) {
+      await assertRevisionLineageSnapshotCurrent(entry.trustedSnapshot, { projectRoot });
+    }
+    revisionLineage = buildRevisionLineage({ identity, parents });
+  }
+  return buildInspectionPlan({
+    reviewPack: review.document,
+    revisionImpact: impact?.document || null,
+    readiness: readiness?.document || null,
+    config: config?.document || null,
+    requirements: requirements?.document || null,
+    sourceSnapshot,
+    scope,
+    generatedAt,
+    requireAuthoritativeLineage: proof,
+    revisionLineage,
+  });
 }
 
 export async function writeInspectionPlanOutputs({ projectRoot, plan, outputPath, checksheetPath = null, requestPath = null, resultTemplatePath = null, trustedOutputRoots = [], additionalOutputs = [], publicationHooks = {} }) {

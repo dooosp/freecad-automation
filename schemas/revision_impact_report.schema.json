@@ -19,6 +19,7 @@
     "artifact_type": { "const": "revision_impact_report" },
     "schema_version": { "const": "1.0" },
     "generated_at": { "type": "string", "format": "date-time" },
+    "revision_lineage": { "$ref": "#/$defs/revisionLineage" },
     "baseline": { "$ref": "#/$defs/revisionIdentity" },
     "candidate": { "$ref": "#/$defs/revisionIdentity" },
     "summary": {
@@ -99,6 +100,60 @@
   },
   "additionalProperties": false,
   "$defs": {
+    "revisionLineage": {
+      "type": "object",
+      "required": ["schema_version", "mode", "identity", "parents"],
+      "properties": {
+        "schema_version": { "const": "1.0" },
+        "mode": { "const": "proof" },
+        "identity": { "$ref": "#/$defs/revisionLineageIdentity" },
+        "parents": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/revisionLineageParent" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "revisionLineageIdentity": {
+      "type": "object",
+      "required": ["package_slug", "part_id", "revision", "config_sha256"],
+      "properties": {
+        "package_slug": { "$ref": "#/$defs/packageSlug" },
+        "part_id": { "$ref": "#/$defs/revisionLineageText" },
+        "revision": { "$ref": "#/$defs/revisionLineageText" },
+        "config_sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    },
+    "revisionLineageParent": {
+      "type": "object",
+      "required": ["artifact_type", "role", "path", "sha256"],
+      "properties": {
+        "artifact_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-z][a-z0-9._-]*$"
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-z][a-z0-9._-]*$"
+        },
+        "path": { "$ref": "#/$defs/portableRef" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "size_bytes": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "revisionLineageText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^(?!\\s)(?!.*\\s$)[^\\u0000-\\u001F\\u007F]+$"
+    },
     "reportDecision": {
       "enum": [
         "no_material_change",
@@ -133,6 +188,7 @@
       "required": ["package_slug", "revision", "artifact_refs", "source_hashes"],
       "properties": {
         "package_slug": { "$ref": "#/$defs/nullablePackageSlug" },
+        "part_id": { "$ref": "#/$defs/nullableEntityId" },
         "revision": { "$ref": "#/$defs/nullableRevision" },
         "artifact_refs": {
           "type": "array",

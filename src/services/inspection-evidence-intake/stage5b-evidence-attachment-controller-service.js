@@ -5,6 +5,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { promisify } from 'node:util';
 
+import { RevisionLineageError } from '../../../lib/revision-lineage-contract.js';
 import { assertValidStage5bEvidenceAttachmentControlManifest } from './stage5b-runtime-validation.js';
 import { assertValidStage5bEvidenceReviewDryRunManifest } from './stage5b-runtime-validation.js';
 import {
@@ -874,7 +875,17 @@ export async function writeStage5bEvidenceAttachmentControlManifest({
   outDir,
   dryRun = false,
   generatedAt = null,
+  requireAuthoritativeLineage = false,
 } = {}) {
+  if (requireAuthoritativeLineage !== true && requireAuthoritativeLineage !== false) {
+    throw new RevisionLineageError('malformed_identity', 'requireAuthoritativeLineage must be a boolean');
+  }
+  if (requireAuthoritativeLineage === true) {
+    throw new RevisionLineageError(
+      'unsupported_legacy',
+      'Stage 5B review-dry-run attachment control is proof-ineligible; use the checksum-bound inspection-evidence authorization and attachment lifecycle'
+    );
+  }
   const root = resolve(projectRoot);
   const generated = nowIso(generatedAt);
   const outputDir = await assertIgnoredOutputDir(root, outDir || 'output/stage5b-evidence-attachment-controller');

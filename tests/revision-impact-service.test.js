@@ -89,6 +89,8 @@ const unchanged = buildRevisionImpactReport({
   generatedAt: GENERATED_AT,
 });
 assert.equal(unchanged.summary.decision, 'no_material_change');
+assert.equal(unchanged.baseline.part_id, 'PART-100');
+assert.equal(unchanged.candidate.part_id, 'PART-100');
 assert.equal(unchanged.reinspection_plan.items.length, 0);
 assert.equal(unchanged.boundaries.canonical_artifacts_mutated, false);
 assert.equal(unchanged.boundaries.inspection_evidence_attached, false);
@@ -180,6 +182,30 @@ const missingIdentity = buildRevisionImpactReport({
 assert.equal(missingIdentity.baseline.package_slug, null);
 assert.equal(missingIdentity.baseline.revision, null);
 assert.equal(missingIdentity.summary.decision, 'blocked_insufficient_identity_or_inputs');
+
+const productIdentityOnlyBaseline = makeSide({ revision: 'A' });
+const productIdentityOnlyCandidate = makeSide({ revision: 'B' });
+for (const side of [productIdentityOnlyBaseline, productIdentityOnlyCandidate]) {
+  delete side.reviewPack.part_id;
+  delete side.reviewPack.part.part_id;
+  delete side.reviewPack.metadata.package_slug;
+  side.config = {
+    product: {
+      package_slug: 'sample-bracket',
+      part_id: 'PART-100',
+      revision: side.reviewPack.revision,
+    },
+  };
+}
+const productIdentityOnly = buildRevisionImpactReport({
+  baseline: productIdentityOnlyBaseline,
+  candidate: productIdentityOnlyCandidate,
+  generatedAt: GENERATED_AT,
+});
+assert.equal(productIdentityOnly.baseline.package_slug, 'sample-bracket');
+assert.equal(productIdentityOnly.baseline.part_id, 'PART-100');
+assert.equal(productIdentityOnly.baseline.revision, 'A');
+assert.equal(productIdentityOnly.candidate.revision, 'B');
 
 assert.throws(
   () => buildRevisionImpactReport({

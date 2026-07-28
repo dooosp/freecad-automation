@@ -20,6 +20,7 @@ def run_json_script(script_path, payload):
 
 def test_review_pack_generates_artifacts(tmp_path):
     context = json.loads((FIXTURES / "sample_part_context.json").read_text(encoding="utf-8"))
+    context["part"]["package_slug"] = "sample-part"
     analysis = run_json_script("scripts/analyze_part.py", {"context": context})
     linkage = run_json_script(
         "scripts/quality_link.py",
@@ -65,6 +66,7 @@ def test_review_pack_generates_artifacts(tmp_path):
     assert "numeric_score" in summary["uncertainty_coverage_report"]
     assert summary["data_quality_notes"]
     assert summary["part"]["name"] == "sample_part"
+    assert summary["part"]["package_slug"] == "sample-part"
     assert summary["geometry_hotspots"]
     assert summary["inspection_anomalies"]
     assert summary["quality_linkage"]["records"]

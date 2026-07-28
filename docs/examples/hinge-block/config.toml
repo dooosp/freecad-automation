@@ -3,6 +3,8 @@ name = "hinge_block"
 batch_size = 24
 
 [product]
+package_slug = "hinge-block"
+part_id = "hinge_block"
 family = "mechanism_support"
 module_type = "Hinge block"
 vehicle_program = "Automation fixture support"

@@ -26,6 +26,7 @@
     "artifact_type": { "const": "readiness_report" },
     "workflow": { "const": "production_readiness" },
     "part": { "$ref": "c_artifact_common.schema.json#/definitions/partIdentity" },
+    "revision_lineage": { "$ref": "c_artifact_common.schema.json#/definitions/revisionLineage" },
     "generated_at": { "type": "string" },
     "readiness_summary": {
       "type": "object",
