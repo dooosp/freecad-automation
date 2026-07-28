@@ -1,6 +1,6 @@
 # Manufacturing Robotics demo screenshot capture list
 
-- Capture state: `P0_CAPTURED_AND_VISUALLY_REVIEWED`
+- Capture state: `CAPTURED_FROM_P0`
 - Actual browser screenshots in this directory: `6`
 - Human participant screenshots: prohibited
 
@@ -12,12 +12,12 @@ development worktree and present them as product evidence.
 
 | Proposed filename | Locale | View/state | Required visible evidence | State |
 | --- | --- | --- | --- | --- |
-| `01-en-prerun.png` | EN | pre-run card | approved profile, expected outputs, local/offline and fixed trust statements | `CAPTURED_AND_REVIEWED` |
-| `02-ko-prerun.png` | KO | pre-run card | equivalent Korean meaning and one primary action | `CAPTURED_AND_REVIEWED` |
-| `03-en-success-timeline.png` | EN | successful action 6 | ten actions plus CAD feature, quality and joint links | `CAPTURED_AND_REVIEWED` |
-| `04-ko-handoff.png` | KO | handoff | Design / Manufacturing / Quality / Trust sections | `CAPTURED_AND_REVIEWED` |
-| `05-en-trust-lerobot-gap.png` | EN | trust/gap | `NOT_EXPORTABLE_YET`, compatible false, training-ready false, format and vision distinctions | `CAPTURED_AND_REVIEWED` |
-| `06-ko-blocked-mismatch.png` | KO | bounded failure | `BLOCKED`, stable reason, Revision A/B, `0 / 8`, safe next action | `CAPTURED_AND_REVIEWED` |
+| `01-en-prerun.png` | EN | pre-run card | approved profile, expected outputs, local/offline and fixed trust statements | `CAPTURED_FROM_P0` |
+| `02-ko-prerun.png` | KO | pre-run card | equivalent Korean meaning and one primary action | `CAPTURED_FROM_P0` |
+| `03-en-success-timeline.png` | EN | successful action 6 | ten actions plus CAD feature, quality and joint links | `CAPTURED_FROM_P0` |
+| `04-ko-handoff.png` | KO | handoff | Design / Manufacturing / Quality / Trust sections | `CAPTURED_FROM_P0` |
+| `05-en-trust-lerobot-gap.png` | EN | trust/gap | `NOT_EXPORTABLE_YET`, compatible false, training-ready false, format and vision distinctions | `CAPTURED_FROM_P0` |
+| `06-ko-blocked-mismatch.png` | KO | bounded failure | `BLOCKED`, stable reason, Revision A/B, `0 / 8`, safe next action | `CAPTURED_FROM_P0` |
 
 ## Capture protocol
 
@@ -35,6 +35,6 @@ development worktree and present them as product evidence.
 7. Confirm every screenshot still matches the frozen candidate before adding it.
 
 All six files are actual browser captures. Their candidate identity, viewport,
-visual review, and final detached-candidate byte check are recorded in the
-private P0 evidence. They do not represent human UAT, physical execution,
-inspection evidence, production readiness, or a LeRobot export.
+visual review, and detached-candidate state check are recorded in the private
+P0 evidence. They do not represent human UAT, physical execution, inspection
+evidence, production readiness, or a LeRobot export.
