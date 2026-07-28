@@ -113,6 +113,11 @@ function normalizeCompletionAction(completionAction = null) {
   return completionAction;
 }
 
+function normalizeCompletionRoute(route = '') {
+  const normalized = String(route || '').trim().toLowerCase();
+  return normalized === 'review' || normalized === 'artifacts' ? normalized : '';
+}
+
 function hasReviewOutputs(artifacts = []) {
   return artifacts.some((artifact) => artifact?.exists !== false && isReviewSourceArtifact(artifact));
 }
@@ -121,16 +126,19 @@ export function resolveMonitoredJobCompletionTarget(job = {}, {
   artifacts = [],
   completionAction = null,
 } = {}) {
+  const action = normalizeCompletionAction(completionAction);
   if (job?.status !== 'succeeded') {
+    const route = job?.status === 'failed'
+      ? normalizeCompletionRoute(action.failureRoute)
+      : '';
     return {
-      route: '',
+      route,
       secondaryRoute: '',
       hasReviewOutputs: false,
     };
   }
 
   const normalizedType = String(job?.type || '').toLowerCase();
-  const action = normalizeCompletionAction(completionAction);
   const reviewOutputsPresent = hasReviewOutputs(artifacts);
   const sourceArtifactFamily = String(action.sourceArtifactFamily || '').trim().toLowerCase();
   let route = '';

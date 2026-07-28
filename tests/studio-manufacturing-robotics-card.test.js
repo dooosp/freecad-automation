@@ -10,6 +10,7 @@ import {
   extractManufacturingRoboticsDiagnostic,
   findManufacturingRoboticsCardJob,
   renderManufacturingRoboticsCard,
+  shouldIgnoreManufacturingRoboticsActiveJob,
 } from '../public/js/studio/manufacturing-robotics-card.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
@@ -177,14 +178,41 @@ const registeredArtifacts = Array.from({ length: 8 }, (_, index) => ({
 assert.deepEqual(createManufacturingRoboticsSubmission(), {
   type: 'manufacturing-action-dataset',
   demoProfile: 'hinge-block-synthetic-inspection-v1',
-  completionAction: { preferredRoute: 'review' },
+  completionAction: {
+    preferredRoute: 'review',
+    failureRoute: 'review',
+  },
 });
 assert.deepEqual(createManufacturingRoboticsSubmission({ trustDemo: true }), {
   type: 'manufacturing-action-dataset',
   demoProfile: 'hinge-block-synthetic-inspection-v1',
   trustDemo: 'revision-mismatch',
-  completionAction: { preferredRoute: 'review' },
+  completionAction: {
+    preferredRoute: 'review',
+    failureRoute: 'review',
+  },
 });
+
+const previousSuccessJob = {
+  id: 'job-previous-success',
+  type: 'manufacturing-action-dataset',
+  status: 'succeeded',
+};
+assert.equal(shouldIgnoreManufacturingRoboticsActiveJob(previousSuccessJob, {
+  jobId: previousSuccessJob.id,
+  ignoredActiveJobId: previousSuccessJob.id,
+  requestStatus: 'submitting',
+}), true, 'Submission refresh must not clear the previous active-job guard before the new job is acquired.');
+assert.equal(shouldIgnoreManufacturingRoboticsActiveJob(previousSuccessJob, {
+  jobId: 'job-new-queued',
+  ignoredActiveJobId: previousSuccessJob.id,
+  requestStatus: 'idle',
+}), true, 'The previous success must not reclaim the card after the new job is acquired.');
+assert.equal(shouldIgnoreManufacturingRoboticsActiveJob(previousSuccessJob, {
+  jobId: previousSuccessJob.id,
+  ignoredActiveJobId: previousSuccessJob.id,
+  requestStatus: 'error',
+}), false, 'A failed submission may restore the still-active previous job.');
 
 const successJob = {
   id: 'job-manufacturing-success',

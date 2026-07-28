@@ -615,6 +615,16 @@ try {
     false,
     'the curated source exception must not allow arbitrary generated-looking task plans'
   );
+  assert.equal(
+    isCuratedSourceControlMaterial(join(ROOT, 'docs', 'portfolio', 'manufacturing-robotics-demo', 'screenshots', '01-en-prerun.png')),
+    true,
+    'the exact reviewed manufacturing robotics portfolio capture should be curated source control material'
+  );
+  assert.equal(
+    isCuratedSourceControlMaterial(join(ROOT, 'docs', 'portfolio', 'manufacturing-robotics-demo', 'screenshots', '07-unreviewed.png')),
+    false,
+    'the portfolio screenshot exception must not allow arbitrary images in the curated directory'
+  );
   try {
     writeFileSync(pollutionPath, '{}\n', 'utf8');
     const dirtyResult = spawnSync('node', ['scripts/check-source-tree-hygiene.js'], {

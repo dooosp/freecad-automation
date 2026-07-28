@@ -169,6 +169,43 @@ assert.equal(
   ),
   ''
 );
+assert.deepEqual(
+  resolveMonitoredJobCompletionTarget(
+    { type: 'manufacturing-action-dataset', status: 'failed' },
+    {
+      completionAction: {
+        preferredRoute: 'review',
+        failureRoute: 'review',
+      },
+    }
+  ),
+  {
+    route: 'review',
+    secondaryRoute: '',
+    hasReviewOutputs: false,
+  },
+  'The bounded mismatch may opt in to opening its blocked Review result.'
+);
+assert.deepEqual(
+  resolveMonitoredJobCompletionTarget(
+    { type: 'report', status: 'failed' },
+    { completionAction: { preferredRoute: 'review' } }
+  ),
+  {
+    route: '',
+    secondaryRoute: '',
+    hasReviewOutputs: false,
+  },
+  'Generic failures must retain the existing Jobs-center completion behavior.'
+);
+assert.equal(
+  resolveMonitoredJobCompletionRoute(
+    { type: 'manufacturing-action-dataset', status: 'cancelled' },
+    { failureRoute: 'review' }
+  ),
+  '',
+  'Cancellation must not be treated as the bounded failed result.'
+);
 
 const passedCompletionNotice = buildStudioJobCompletionNotice(
   {

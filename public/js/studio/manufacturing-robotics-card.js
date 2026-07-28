@@ -487,8 +487,18 @@ export function createManufacturingRoboticsSubmission({ trustDemo = false } = {}
     type: MANUFACTURING_ROBOTICS_JOB_TYPE,
     demoProfile: MANUFACTURING_ROBOTICS_DEMO_PROFILE,
     ...(trustDemo ? { trustDemo: MANUFACTURING_ROBOTICS_TRUST_DEMO } : {}),
-    completionAction: { preferredRoute: 'review' },
+    completionAction: {
+      preferredRoute: 'review',
+      failureRoute: 'review',
+    },
   };
+}
+
+export function shouldIgnoreManufacturingRoboticsActiveJob(activeJob = null, cardState = {}) {
+  const activeJobId = textValue(activeJob?.id);
+  if (!activeJobId || activeJobId !== textValue(cardState.ignoredActiveJobId)) return false;
+  return textValue(cardState.requestStatus) === 'submitting'
+    || activeJobId !== textValue(cardState.jobId);
 }
 
 function phaseLabel(phase) {
@@ -1201,10 +1211,7 @@ export function mountManufacturingRoboticsCard({
   function adoptActiveJob() {
     const activeJob = state.data.activeJob?.summary;
     if (!isManufacturingRoboticsJob(activeJob) || !activeJob?.id) return;
-    if (
-      activeJob.id !== cardState.jobId
-      && activeJob.id === cardState.ignoredActiveJobId
-    ) return;
+    if (shouldIgnoreManufacturingRoboticsActiveJob(activeJob, cardState)) return;
     if (cardState.jobId !== activeJob.id) {
       cardState.jobId = activeJob.id;
       cardState.job = activeJob;
