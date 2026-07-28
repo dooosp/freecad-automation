@@ -2,7 +2,7 @@
 
 ## Status and pinned context
 
-- Plan state: `VERIFIED_LOCALLY_PUBLICATION_PENDING`
+- Plan state: `VERIFIED_SYNTHETIC_MANUFACTURING_DATA_SLICE`
 - Repository: `freecad-automation`
 - Base: `origin/master` at
   `ea1ff2b722756054a9118cedb308f29e88d89077`
@@ -344,4 +344,4 @@ Acceptance: internal status may become
 - [x] CLI, manifests, atomic publication, doctor, and docs implemented.
 - [x] Focused/full verification and canonical hash comparison passed.
 - [x] Skeptical and security reviews passed without diff drift.
-- [ ] Commit, push, Draft PR, and CI closeout completed.
+- [x] Commit, push, Draft PR #198, and hosted CI closeout completed.

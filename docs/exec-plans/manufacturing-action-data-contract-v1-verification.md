@@ -279,5 +279,9 @@ PRODUCTION_RELEASE: NOT_PERFORMED
 
 Independent skeptical and security re-reviews passed with no unresolved
 finding and no diff-inventory drift after the two contract remediations.
-Commit, push, Draft PR publication, and its CI result remain the external
-closeout steps.
+The implementation was committed as `1d3b4e7`, pushed to
+`codex/manufacturing-action-data-contract-v1`, and published as Draft PR #198.
+Hosted CI run `30332228969` passed all seven jobs: Ubuntu and macOS Node
+contract lanes, Node integration, Python, snapshots, source hygiene, and
+Studio browser smoke. The PR body retains every synthetic-only limitation and
+external hold.
