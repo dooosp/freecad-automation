@@ -19,6 +19,62 @@ const TEXT_CONTENT_TYPES = [
   'text/',
 ];
 const TRUNCATED_PREVIEW_MARKER = 'truncated for the studio preview';
+const MANUFACTURING_ROBOTICS_ARTIFACTS = Object.freeze([
+  Object.freeze({
+    fileName: 'manufacturing_action_dictionary.json',
+    type: 'manufacturing-action.dictionary.json',
+    payloadType: 'manufacturing_action_dictionary',
+    group: 'domain',
+  }),
+  Object.freeze({
+    fileName: 'manufacturing_episode_annotation.json',
+    type: 'manufacturing-action.episode-annotation.json',
+    payloadType: 'manufacturing_episode_annotation',
+    group: 'domain',
+  }),
+  Object.freeze({
+    fileName: 'manufacturing_data_validation_report.json',
+    type: 'manufacturing-action.validation-report.json',
+    payloadType: 'manufacturing_data_validation_report',
+    group: 'domain',
+  }),
+  Object.freeze({
+    fileName: 'manufacturing_robotics_dataset_manifest.json',
+    type: 'manufacturing-action.dataset-manifest.json',
+    payloadType: 'manufacturing_robotics_dataset_manifest',
+    group: 'domain',
+  }),
+  Object.freeze({
+    fileName: 'design_manufacturing_quality_handoff.json',
+    type: 'manufacturing-action.handoff.json',
+    payloadType: 'design_manufacturing_quality_handoff',
+    group: 'domain',
+  }),
+  Object.freeze({
+    fileName: 'design_manufacturing_quality_handoff.md',
+    type: 'manufacturing-action.handoff.markdown',
+    payloadType: '',
+    group: 'domain',
+  }),
+  Object.freeze({
+    fileName: 'artifact-manifest.json',
+    type: 'manufacturing-action.artifact-manifest.json',
+    payloadType: '',
+    group: 'artifact-manifest',
+  }),
+  Object.freeze({
+    fileName: 'output-manifest.json',
+    type: 'manufacturing-action.output-manifest.json',
+    payloadType: '',
+    group: 'output-manifest',
+  }),
+]);
+const MANUFACTURING_ROBOTICS_EXPECTED_COUNTS = Object.freeze({
+  datasetMembers: 3,
+  domainFiles: 6,
+  declaredOutputs: 7,
+  registeredFiles: 8,
+});
 
 function includesAny(haystack, needles = []) {
   return needles.some((needle) => haystack.includes(needle));
@@ -317,6 +373,227 @@ function buildCommonViewerSections(identity = {}) {
   }
 
   return sections;
+}
+
+function findManufacturingRoboticsArtifact(artifact = {}, parsedPayload = null) {
+  const fileName = String(artifact.file_name || '').trim().toLowerCase();
+  const type = String(artifact.type || '').trim().toLowerCase();
+  const payloadType = String(parsedPayload?.artifact_type || '').trim().toLowerCase();
+  const payloadCommand = String(parsedPayload?.command || '').trim().toLowerCase();
+
+  return MANUFACTURING_ROBOTICS_ARTIFACTS.find((entry) => {
+    if (type === entry.type || (entry.payloadType && type === entry.payloadType)) return true;
+    if (entry.payloadType && payloadType === entry.payloadType) return true;
+    if (fileName !== entry.fileName) return false;
+    if (entry.group === 'artifact-manifest' || entry.group === 'output-manifest') {
+      return payloadCommand === 'manufacturing-action-dataset';
+    }
+    return true;
+  }) || null;
+}
+
+function safeManufacturingToken(value, fallback = 'Unknown', maxLength = 160) {
+  if (typeof value !== 'string') return fallback;
+  const normalized = value.replace(/[\u0000-\u001f\u007f]+/g, ' ').trim();
+  if (!normalized) return fallback;
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}…` : normalized;
+}
+
+function formatManufacturingDigest(value) {
+  const digest = String(value || '').trim().toLowerCase();
+  if (!/^[a-f0-9]{64}$/.test(digest)) return 'Unavailable';
+  return `${digest.slice(0, 12)}…${digest.slice(-8)}`;
+}
+
+function buildManufacturingProvenanceEntries(records = [], fallback) {
+  const entries = safeList(records).slice(0, 5).map((record) => {
+    const source = safeObject(record);
+    const role = safeManufacturingToken(source.role);
+    const artifactType = safeManufacturingToken(source.artifact_type);
+    const digest = formatManufacturingDigest(source.sha256);
+    const size = Number.isInteger(source.size_bytes) && source.size_bytes >= 0
+      ? formatBytes(source.size_bytes)
+      : 'Unknown size';
+    // Source paths are intentionally omitted. The viewer exposes only bounded,
+    // non-navigable provenance metadata from the closed profile.
+    return `${role} • ${artifactType} • SHA-256 ${digest} • ${size}`;
+  });
+  return entries.length > 0 ? entries : [fallback];
+}
+
+function formatObservedManufacturingCount(observed, expected) {
+  if (!Number.isInteger(observed)) return `${expected} (closed profile)`;
+  if (observed === expected) return String(observed);
+  return `${observed} observed; ${expected} required`;
+}
+
+function buildManufacturingCountItems(artifact, parsedPayload, relatedArtifacts) {
+  const selectedDescriptor = findManufacturingRoboticsArtifact(artifact, parsedPayload);
+  const relatedDescriptors = [...safeList(relatedArtifacts), artifact]
+    .map((entry) => findManufacturingRoboticsArtifact(entry))
+    .filter(Boolean);
+  const uniqueRelatedFiles = new Set(relatedDescriptors.map((entry) => entry.fileName));
+  const hasRegisteredSet = safeList(relatedArtifacts).length > 0;
+  const datasetMemberCount = Array.isArray(parsedPayload?.members)
+    ? parsedPayload.members.length
+    : null;
+  const manifestDomainCount = selectedDescriptor?.group === 'artifact-manifest'
+    && Array.isArray(parsedPayload?.artifacts)
+    ? parsedPayload.artifacts.length
+    : null;
+  const manifestOutputCount = selectedDescriptor?.group === 'output-manifest'
+    && Array.isArray(parsedPayload?.outputs)
+    ? parsedPayload.outputs.length
+    : null;
+  const relatedDomainCount = hasRegisteredSet
+    ? [...uniqueRelatedFiles].filter((fileName) => (
+      MANUFACTURING_ROBOTICS_ARTIFACTS.find((entry) => entry.fileName === fileName)?.group === 'domain'
+    )).length
+    : null;
+  const relatedOutputCount = hasRegisteredSet
+    ? [...uniqueRelatedFiles].filter((fileName) => fileName !== 'output-manifest.json').length
+    : null;
+  const registeredCount = hasRegisteredSet ? uniqueRelatedFiles.size : null;
+
+  return [
+    {
+      label: 'Dataset members',
+      value: formatObservedManufacturingCount(
+        datasetMemberCount,
+        MANUFACTURING_ROBOTICS_EXPECTED_COUNTS.datasetMembers
+      ),
+      note: '3 means the curated task plan, action dictionary, and episode annotation recorded by the dataset manifest.',
+    },
+    {
+      label: 'Domain files',
+      value: formatObservedManufacturingCount(
+        manifestDomainCount ?? relatedDomainCount,
+        MANUFACTURING_ROBOTICS_EXPECTED_COUNTS.domainFiles
+      ),
+      note: '6 means the closed domain output set recorded by artifact-manifest.json.',
+    },
+    {
+      label: 'Declared outputs',
+      value: formatObservedManufacturingCount(
+        manifestOutputCount ?? relatedOutputCount,
+        MANUFACTURING_ROBOTICS_EXPECTED_COUNTS.declaredOutputs
+      ),
+      note: '7 means the six domain files plus artifact-manifest.json; output-manifest.json does not list itself.',
+    },
+    {
+      label: 'Registered result files',
+      value: formatObservedManufacturingCount(
+        registeredCount,
+        MANUFACTURING_ROBOTICS_EXPECTED_COUNTS.registeredFiles
+      ),
+      note: '8 means the seven declared outputs plus output-manifest.json registered on the tracked job.',
+    },
+  ];
+}
+
+function buildManufacturingBoundaryEntries(parsedPayload = {}) {
+  const boundaries = safeObject(parsedPayload.boundaries || parsedPayload.details?.boundaries);
+  if (Object.keys(boundaries).length === 0) {
+    return [
+      'This manifest does not repeat the dataset boundary flags; inspect manufacturing_robotics_dataset_manifest.json for the canonical flags.',
+      'This viewer grants no inspection evidence, engineering or quality approval, readiness, or product release status.',
+    ];
+  }
+
+  const syntheticOnly = boundaries.synthetic_demo === true && boundaries.real_shop_floor_data === false;
+  const noEvidence = boundaries.inspection_evidence === false && boundaries.evidence_attached === false;
+  const noReadiness = boundaries.readiness_regenerated === false && boundaries.production_readiness === false;
+  const noRelease = boundaries.product_release === false;
+  const humanReview = boundaries.human_review_required === true;
+  const noModelClaims = boundaries.automatic_video_segmentation === false
+    && boundaries.computer_vision_model_used === false
+    && boundaries.lerobot_compatible === false
+    && boundaries.training_ready === false;
+
+  return [
+    syntheticOnly
+      ? 'Synthetic demo metadata only; no real shop-floor data is represented.'
+      : 'Data-origin boundary does not match the closed synthetic demo profile; human review is required.',
+    noEvidence
+      ? 'No inspection evidence is attached or created by this artifact.'
+      : 'Evidence boundary does not match the closed profile; do not treat this artifact as inspection evidence.',
+    humanReview
+      ? 'No engineering or quality approval is granted; human review remains required.'
+      : 'No engineering or quality approval is granted by this viewer; the human-review boundary is unavailable.',
+    noReadiness
+      ? 'Readiness was not regenerated, and this artifact does not establish production readiness.'
+      : 'Readiness boundary does not match the closed profile; this viewer does not establish readiness.',
+    noRelease
+      ? 'No product release is performed or authorized.'
+      : 'Release boundary does not match the closed profile; this viewer does not authorize release.',
+    noModelClaims
+      ? 'Not LeRobot-compatible or training-ready; no computer-vision model or automatic video segmentation was used.'
+      : 'Robotics/model boundary does not match the closed profile; no compatibility or training claim is made.',
+  ];
+}
+
+function buildManufacturingRoboticsViewer(artifact, parsedPayload, relatedArtifacts) {
+  const revisionLineage = safeObject(parsedPayload.revision_lineage);
+  const payloadIdentity = safeObject(parsedPayload.identity);
+  const lineageIdentity = safeObject(revisionLineage.identity);
+  const identity = Object.keys(payloadIdentity).length > 0 ? payloadIdentity : lineageIdentity;
+  const sourceSnapshots = safeList(parsedPayload.source_snapshots);
+  const lineageParents = safeList(revisionLineage.parents);
+  const registeredCountItem = buildManufacturingCountItems(
+    artifact,
+    parsedPayload,
+    relatedArtifacts
+  ).find((item) => item.label === 'Registered result files');
+
+  return {
+    kind: 'manufacturing_robotics',
+    title: 'Manufacturing robotics trust viewer',
+    summary: 'This is a synthetic, metadata-only manufacturing dataset artifact. It does not establish inspection evidence, engineering or quality approval, readiness, or product release.',
+    highlights: [
+      { label: 'Document type', value: safeManufacturingToken(parsedPayload.artifact_type || artifact.type) },
+      { label: 'Package', value: safeManufacturingToken(identity.package_slug) },
+      { label: 'Part / revision', value: `${safeManufacturingToken(identity.part_id)} • rev ${safeManufacturingToken(identity.revision)}` },
+      { label: 'Registered files', value: registeredCountItem?.value || '8 (closed profile)' },
+    ],
+    sections: [
+      {
+        title: 'Identity',
+        items: [
+          { label: 'Package slug', value: safeManufacturingToken(identity.package_slug) },
+          { label: 'Part ID', value: safeManufacturingToken(identity.part_id) },
+          { label: 'Revision', value: safeManufacturingToken(identity.revision) },
+          { label: 'Config SHA-256', value: formatManufacturingDigest(identity.config_sha256) },
+        ],
+      },
+      {
+        title: 'Revision lineage',
+        items: [
+          { label: 'Schema version', value: safeManufacturingToken(revisionLineage.schema_version) },
+          { label: 'Mode', value: revisionLineage.mode === 'proof' ? 'proof' : 'Unknown' },
+          { label: 'Recorded parents', value: String(lineageParents.length) },
+        ],
+        entries: buildManufacturingProvenanceEntries(
+          lineageParents,
+          'No lineage parents are repeated in this document.'
+        ),
+      },
+      {
+        title: 'Source snapshots',
+        entries: buildManufacturingProvenanceEntries(
+          sourceSnapshots,
+          'No source snapshots are repeated in this document; use revision lineage for parent metadata.'
+        ),
+      },
+      {
+        title: 'Manifest count guide',
+        items: buildManufacturingCountItems(artifact, parsedPayload, relatedArtifacts),
+      },
+      {
+        title: 'Trust boundaries',
+        entries: buildManufacturingBoundaryEntries(parsedPayload),
+      },
+    ],
+  };
 }
 
 function buildReviewPackViewer(artifact, parsedPayload, identity) {
@@ -685,6 +962,9 @@ export function buildArtifactViewer({
 } = {}) {
   const identity = getArtifactIdentity(artifact, parsedPayload);
 
+  if (findManufacturingRoboticsArtifact(artifact, parsedPayload) && isPlainObject(parsedPayload)) {
+    return buildManufacturingRoboticsViewer(artifact, parsedPayload, relatedArtifacts);
+  }
   if (isReviewPackArtifact(artifact) && isPlainObject(parsedPayload)) {
     return buildReviewPackViewer(artifact, parsedPayload, identity);
   }

@@ -197,6 +197,28 @@ Treat that execution plan as the task-specific source of truth for this worktree
 - Progress tracking files for this task:
   - `tmp/codex/dfm-actionable-suggestions-status.md`
   - `tmp/codex/dfm-actionable-suggestions-tool-evidence.md`
-  - `tmp/codex/dfm-actionable-suggestions-verification-status.md`
+- `tmp/codex/dfm-actionable-suggestions-verification-status.md`
 - Verification/remediation plan for this task:
   - `docs/exec-plans/dfm-actionable-suggestions-verification.md`
+
+## Task addendum: manufacturing-robotics-studio-demo-v1
+
+For this task, follow:
+- `docs/exec-plans/manufacturing-robotics-studio-demo-v1.md`
+
+Treat that execution plan as the task-specific source of truth for this worktree.
+
+### Task-specific demo constraints
+- Goal: expose the shipped manufacturing-action dataset service as a bounded bilingual demonstration inside the existing Studio Review surface.
+- Reuse the exact-eight-output service through Local API and tracked jobs; do not duplicate generation or validation logic.
+- Browser requests may select only the server-owned `hinge-block-synthetic-inspection-v1` profile and the optional enumerated revision-mismatch demonstration.
+- Do not expose arbitrary paths, inline inputs, revisions, hashes, uploads, or output directories.
+- Preserve proof lineage, atomic publication, canonical packages, existing routes, locale behavior, and all evidence/readiness/release holds.
+- Do not claim real shop-floor data, computer vision, LeRobot compatibility/export, training readiness, physical evidence, production readiness, or human acceptance.
+- Prepare but do not execute or fabricate five-person human UAT.
+- Verification/remediation plan:
+  - `docs/exec-plans/manufacturing-robotics-studio-demo-v1-verification.md`
+- Progress tracking files:
+  - `tmp/codex/manufacturing-robotics-studio-demo-v1-status.md`
+  - `tmp/codex/manufacturing-robotics-studio-demo-v1-tool-evidence.md`
+  - `tmp/codex/manufacturing-robotics-studio-demo-v1-verification-status.md`

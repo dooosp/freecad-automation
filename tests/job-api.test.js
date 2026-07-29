@@ -25,6 +25,37 @@ try {
   assert.equal(invalidExtraField.ok, false);
   assert.match(invalidExtraField.errors.join('\n'), /unsupported property "unexpected"/);
 
+  const manufacturingDemo = validateJobRequest({
+    type: 'manufacturing-action-dataset',
+    demo_profile: 'hinge-block-synthetic-inspection-v1',
+  });
+  assert.equal(manufacturingDemo.ok, true, manufacturingDemo.errors.join('\n'));
+  const manufacturingMismatchDemo = validateJobRequest({
+    type: 'manufacturing-action-dataset',
+    demo_profile: 'hinge-block-synthetic-inspection-v1',
+    trust_demo: 'revision-mismatch',
+  });
+  assert.equal(manufacturingMismatchDemo.ok, true, manufacturingMismatchDemo.errors.join('\n'));
+  for (const unsafeRequest of [
+    { type: 'manufacturing-action-dataset' },
+    { type: 'manufacturing-action-dataset', demo_profile: 'unknown-profile' },
+    { type: 'manufacturing-action-dataset', demo_profile: 'hinge-block-synthetic-inspection-v1', trust_demo: 'custom' },
+    { type: 'manufacturing-action-dataset', demo_profile: 'hinge-block-synthetic-inspection-v1', config_path: 'configs/examples/hinge_block.toml' },
+    { type: 'manufacturing-action-dataset', demo_profile: 'hinge-block-synthetic-inspection-v1', out_dir: 'output/demo' },
+    { type: 'manufacturing-action-dataset', demo_profile: 'hinge-block-synthetic-inspection-v1', revision: 'A' },
+    { type: 'manufacturing-action-dataset', demo_profile: 'hinge-block-synthetic-inspection-v1', config_sha256: 'a'.repeat(64) },
+    { type: 'manufacturing-action-dataset', demo_profile: 'hinge-block-synthetic-inspection-v1', generated_at: '2026-07-28T00:00:00Z' },
+    { type: 'manufacturing-action-dataset', demo_profile: 'hinge-block-synthetic-inspection-v1', options: { proof_lineage: false } },
+  ]) {
+    const validation = validateJobRequest(unsafeRequest);
+    assert.equal(validation.ok, false, `unsafe manufacturing demo request should fail: ${JSON.stringify(unsafeRequest)}`);
+  }
+  assert.deepEqual(toPublicJobRequest(manufacturingMismatchDemo.request), {
+    type: 'manufacturing-action-dataset',
+    demo_profile: 'hinge-block-synthetic-inspection-v1',
+    trust_demo: 'revision-mismatch',
+  });
+
   const invalidInspectAbsolutePath = validateJobRequest({
     type: 'inspect',
     file_path: '/tmp/private/sample.step',

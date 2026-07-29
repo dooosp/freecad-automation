@@ -49,9 +49,16 @@ const FORBIDDEN_TRACKED_LOCAL_PREFIXES = Object.freeze([
   'local/inspection-evidence-quarantine/',
 ]);
 
-// This is curated, reviewed source control material despite its generated-looking suffix.
+// These are curated, reviewed source control materials despite their generated-looking suffixes.
 const CURATED_SOURCE_CONTROL_FILES = new Set([
   'configs/examples/manufacturing/hinge_block_robot_inspection_task_plan.json',
+  'configs/examples/manufacturing/hinge_block_synthetic_inspection_v1/inspection_plan.json',
+  'docs/portfolio/manufacturing-robotics-demo/screenshots/01-en-prerun.png',
+  'docs/portfolio/manufacturing-robotics-demo/screenshots/02-ko-prerun.png',
+  'docs/portfolio/manufacturing-robotics-demo/screenshots/03-en-success-timeline.png',
+  'docs/portfolio/manufacturing-robotics-demo/screenshots/04-ko-handoff.png',
+  'docs/portfolio/manufacturing-robotics-demo/screenshots/05-en-trust-lerobot-gap.png',
+  'docs/portfolio/manufacturing-robotics-demo/screenshots/06-ko-blocked-mismatch.png',
 ]);
 
 function toRepoPath(path) {

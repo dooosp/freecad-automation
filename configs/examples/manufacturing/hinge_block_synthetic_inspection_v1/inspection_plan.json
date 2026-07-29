@@ -1,0 +1,85 @@
+{
+  "artifact_type": "inspection_plan",
+  "schema_version": "1.0",
+  "generated_at": "2026-07-28T00:00:00.000Z",
+  "plan_id": "inspection-plan:7e8127e7b0ac426e3c498a92",
+  "status": "ready_for_human_release",
+  "scope": "full",
+  "package": {
+    "slug": "hinge-block",
+    "revision": "A",
+    "part_identifier": "hinge_block"
+  },
+  "source_snapshot": {
+    "review_pack": {
+      "artifact_type": "review_pack",
+      "path": "run/review_pack.json",
+      "sha256": "edc47d89e71b4cd02a8d7e4f610e767bc835d1d5a2c5c963980b9a6af5d1383c",
+      "size_bytes": 785
+    },
+    "config": {
+      "artifact_type": "config",
+      "path": "configs/examples/hinge_block.toml",
+      "sha256": "992cf687e1da65f9ac89c12bd36ad7cd2b57367deb0cc6d50a74d4c03b7a52d1",
+      "size_bytes": 7116
+    }
+  },
+  "revision_lineage": {
+    "schema_version": "1.0",
+    "mode": "proof",
+    "identity": {
+      "package_slug": "hinge-block",
+      "part_id": "hinge_block",
+      "revision": "A",
+      "config_sha256": "992cf687e1da65f9ac89c12bd36ad7cd2b57367deb0cc6d50a74d4c03b7a52d1"
+    },
+    "parents": [
+      {
+        "artifact_type": "config",
+        "role": "authoritative_config",
+        "path": "configs/examples/hinge_block.toml",
+        "sha256": "992cf687e1da65f9ac89c12bd36ad7cd2b57367deb0cc6d50a74d4c03b7a52d1",
+        "size_bytes": 7116
+      },
+      {
+        "artifact_type": "review_pack",
+        "role": "review_pack",
+        "path": "run/review_pack.json",
+        "sha256": "edc47d89e71b4cd02a8d7e4f610e767bc835d1d5a2c5c963980b9a6af5d1383c",
+        "size_bytes": 785
+      }
+    ]
+  },
+  "authority_summary": {
+    "authoritative_item_count": 0,
+    "advisory_item_count": 0,
+    "blocked_item_count": 0,
+    "human_release_required": true
+  },
+  "items": [],
+  "unresolved_requirements": [],
+  "derived_outputs": {
+    "checksheet": {
+      "artifact_type": "inspection_checksheet.csv",
+      "generated_control_artifact": true
+    },
+    "supplier_request": {
+      "artifact_type": "supplier_inspection_request.md",
+      "generated_control_artifact": true
+    },
+    "result_template": {
+      "artifact_type": "inspection_result_template.csv",
+      "generated_control_artifact": true
+    }
+  },
+  "boundaries": {
+    "generated_control_artifact": true,
+    "released_document": false,
+    "inspection_evidence": false,
+    "measured_results_present": false,
+    "evidence_attached": false,
+    "readiness_regenerated": false,
+    "canonical_artifacts_mutated": false,
+    "human_release_required": true
+  }
+}

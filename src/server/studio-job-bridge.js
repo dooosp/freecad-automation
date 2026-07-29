@@ -55,6 +55,9 @@ const STUDIO_JOB_TYPE_SENTENCE = formatCommandNameList(STUDIO_SUBMISSION_JOB_COM
 const STUDIO_ARTIFACT_TYPE_SENTENCE = formatCommandNameList(STUDIO_ARTIFACT_COMPATIBLE_JOB_COMMANDS, { conjunction: 'or', quote: 'double' });
 const STUDIO_PAIRED_ARTIFACT_TYPE_SENTENCE = formatCommandNameList(STUDIO_PAIRED_ARTIFACT_JOB_COMMANDS, { conjunction: 'or', quote: 'double' });
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
+const MANUFACTURING_ACTION_JOB_TYPE = 'manufacturing-action-dataset';
+const MANUFACTURING_ACTION_DEMO_PROFILE = 'hinge-block-synthetic-inspection-v1';
+const MANUFACTURING_ACTION_TRUST_DEMO = 'revision-mismatch';
 
 function proofLineageRequested(request = {}) {
   return isPlainObject(request.options) && request.options.proof_lineage === true;
@@ -255,6 +258,8 @@ export function validateStudioJobSubmission(body) {
   const errors = [];
   const supportedFields = new Set([
     'type',
+    'demo_profile',
+    'trust_demo',
     'config_toml',
     'artifact_ref',
     'baseline_artifact_ref',
@@ -290,6 +295,26 @@ export function validateStudioJobSubmission(body) {
 
   if (!STUDIO_JOB_TYPES.has(request.type)) {
     errors.push(`type must be one of ${STUDIO_JOB_TYPE_SENTENCE}.`);
+  }
+
+  if (request.type === MANUFACTURING_ACTION_JOB_TYPE) {
+    if (request.demo_profile !== MANUFACTURING_ACTION_DEMO_PROFILE) {
+      errors.push(`manufacturing-action-dataset demo_profile must be exactly "${MANUFACTURING_ACTION_DEMO_PROFILE}".`);
+    }
+    if (
+      request.trust_demo !== undefined
+      && request.trust_demo !== MANUFACTURING_ACTION_TRUST_DEMO
+    ) {
+      errors.push(`manufacturing-action-dataset trust_demo must be exactly "${MANUFACTURING_ACTION_TRUST_DEMO}" when provided.`);
+    }
+    const unsupportedProfileFields = Object.keys(request).filter(
+      (fieldName) => !['type', 'demo_profile', 'trust_demo'].includes(fieldName)
+    );
+    if (unsupportedProfileFields.length > 0) {
+      errors.push(`manufacturing-action-dataset does not accept ${unsupportedProfileFields.join(', ')}.`);
+    }
+  } else if (request.demo_profile !== undefined || request.trust_demo !== undefined) {
+    errors.push('demo_profile and trust_demo are only supported for type "manufacturing-action-dataset".');
   }
 
   const hasConfigToml = typeof request.config_toml === 'string' && request.config_toml.trim().length > 0;
@@ -368,7 +393,10 @@ export function validateStudioJobSubmission(body) {
     }
   });
 
-  if (request.type === 'review-context') {
+  if (request.type === MANUFACTURING_ACTION_JOB_TYPE) {
+    // The closed profile is resolved by the executor. No browser-provided path or option
+    // is copied into the trusted job request.
+  } else if (request.type === 'review-context') {
     const proofArtifactContinuation = proofLineageRequested(request) && hasArtifactRef;
     if (!hasContextPath && !hasModelPath && !proofArtifactContinuation) {
       errors.push('review-context requires either context_path or model_path.');
@@ -612,6 +640,20 @@ export async function translateStudioJobSubmission(body, { resolveArtifactRef } 
   }
 
   const request = validation.request;
+  if (request.type === MANUFACTURING_ACTION_JOB_TYPE) {
+    return {
+      ok: true,
+      errors: [],
+      request: {
+        type: MANUFACTURING_ACTION_JOB_TYPE,
+        demo_profile: MANUFACTURING_ACTION_DEMO_PROFILE,
+        ...(request.trust_demo === MANUFACTURING_ACTION_TRUST_DEMO
+          ? { trust_demo: MANUFACTURING_ACTION_TRUST_DEMO }
+          : {}),
+      },
+    };
+  }
+
   if (request.type === 'review-context' && !request.artifact_ref) {
     return {
       ok: true,

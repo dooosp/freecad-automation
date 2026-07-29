@@ -6,6 +6,9 @@ import {
   createJobHandlerRegistry,
   executeJobByType,
 } from '../src/services/jobs/execution/handler-registry.js';
+import {
+  MANUFACTURING_ACTION_TRACKED_ARTIFACTS,
+} from '../src/services/jobs/execution/manufacturing-action-handlers.js';
 
 assert.deepEqual(
   Object.keys(JOB_HANDLER_REGISTRY).sort(),
@@ -27,6 +30,35 @@ for (const command of JOB_EXECUTOR_COMMANDS) {
     `${command} should have an executable handler`
   );
 }
+
+const manufacturingOutputs = Object.fromEntries(
+  MANUFACTURING_ACTION_TRACKED_ARTIFACTS.map(({ key, filename }) => [key, `/tmp/job/artifacts/${filename}`])
+);
+const manufacturingOutcome = await executeJobByType(
+  { type: 'manufacturing-action-dataset' },
+  {
+    executeManufacturingActionDataset: async () => ({
+      result: { status: 'valid_synthetic_demo' },
+      outputs: manufacturingOutputs,
+      diagnostics: { manufacturing_action_demo: { published: { expected_count: 8, published_count: 8 } } },
+    }),
+  }
+);
+assert.equal(Object.keys(manufacturingOutcome.artifacts).length, 8);
+assert.equal(manufacturingOutcome.manifestArtifacts.length, 8);
+assert.equal(manufacturingOutcome.manifestArtifacts.every((artifact) => artifact.scope === 'user-facing'), true);
+await assert.rejects(
+  () => executeJobByType(
+    { type: 'manufacturing-action-dataset' },
+    {
+      executeManufacturingActionDataset: async () => ({
+        result: { status: 'valid_synthetic_demo' },
+        outputs: { ...manufacturingOutputs, unexpected: '/tmp/job/artifacts/unexpected.json' },
+      }),
+    }
+  ),
+  /fixed eight-file output set/
+);
 
 await assert.rejects(
   () => executeJobByType({ type: 'unsupported-command' }, {}),

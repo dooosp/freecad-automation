@@ -5,6 +5,29 @@ const RESULT_GROUP_ORDER = Object.freeze([
   'system',
 ]);
 
+const MANUFACTURING_ACTION_JOB_TYPE = 'manufacturing-action-dataset';
+const VALID_SYNTHETIC_DEMO_STATUS = 'valid_synthetic_demo';
+
+const MANUFACTURING_RESULT_FILE_LABELS_BY_FILENAME = Object.freeze({
+  'manufacturing_action_dictionary.json': 'studio.artifacts.file.manufacturing-action-dictionary',
+  'manufacturing_episode_annotation.json': 'studio.artifacts.file.manufacturing-episode-annotation',
+  'manufacturing_data_validation_report.json': 'studio.artifacts.file.manufacturing-data-validation',
+  'manufacturing_robotics_dataset_manifest.json': 'studio.artifacts.file.manufacturing-dataset-manifest',
+  'design_manufacturing_quality_handoff.json': 'studio.artifacts.file.manufacturing-handoff-json',
+  'design_manufacturing_quality_handoff.md': 'studio.artifacts.file.manufacturing-handoff-markdown',
+});
+
+const MANUFACTURING_RESULT_FILE_LABELS_BY_TYPE = Object.freeze({
+  'manufacturing-action.dictionary.json': 'studio.artifacts.file.manufacturing-action-dictionary',
+  'manufacturing-action.episode-annotation.json': 'studio.artifacts.file.manufacturing-episode-annotation',
+  'manufacturing-action.validation-report.json': 'studio.artifacts.file.manufacturing-data-validation',
+  'manufacturing-action.dataset-manifest.json': 'studio.artifacts.file.manufacturing-dataset-manifest',
+  'manufacturing-action.handoff.json': 'studio.artifacts.file.manufacturing-handoff-json',
+  'manufacturing-action.handoff.markdown': 'studio.artifacts.file.manufacturing-handoff-markdown',
+  'manufacturing-action.artifact-manifest.json': 'studio.artifacts.file.manufacturing-artifact-manifest',
+  'manufacturing-action.output-manifest.json': 'studio.artifacts.file.manufacturing-output-manifest',
+});
+
 function artifactSearchText(artifact = {}) {
   return [
     artifact.type,
@@ -20,6 +43,10 @@ function artifactSearchText(artifact = {}) {
 
 function artifactExtension(artifact = {}) {
   return String(artifact.extension || '').trim().toLowerCase();
+}
+
+function normalizedArtifactIdentifier(value) {
+  return String(value || '').trim().toLowerCase();
 }
 
 function includesAny(value, needles = []) {
@@ -53,6 +80,8 @@ export function classifyResultFilePurpose(artifact = {}) {
     'investment_review',
     'dfm',
     'inspection',
+    'manufacturing_data_validation',
+    'manufacturing-data-validation',
     'revision-impact',
     'revision_impact',
     'revision-comparison',
@@ -90,10 +119,29 @@ export function collectResultFileGroups(artifacts = []) {
   }));
 }
 
+export function deriveManufacturingDatasetValidationStatus(job = {}) {
+  const source = job && typeof job === 'object' && !Array.isArray(job) ? job : {};
+  if (normalizedArtifactIdentifier(source.type) !== MANUFACTURING_ACTION_JOB_TYPE) return '';
+
+  const result = source.result && typeof source.result === 'object' && !Array.isArray(source.result)
+    ? source.result
+    : {};
+  const validation = result.validation && typeof result.validation === 'object' && !Array.isArray(result.validation)
+    ? result.validation
+    : {};
+  const status = normalizedArtifactIdentifier(validation.status || result.status);
+  return status === VALID_SYNTHETIC_DEMO_STATUS ? status : '';
+}
+
 function jobTypePreferenceScore(artifact = {}, jobType = '') {
   const normalizedType = String(jobType || '').trim().toLowerCase();
   const search = artifactSearchText(artifact);
   const extension = artifactExtension(artifact);
+
+  if (normalizedType === 'manufacturing-action-dataset'
+    && includesAny(search, ['manufacturing_robotics_dataset_manifest', 'manufacturing robotics dataset manifest'])) {
+    return -400;
+  }
 
   if (normalizedType === 'create' && (
     ['.fcstd', '.brep', '.brp', '.step', '.stp', '.stl'].includes(extension)
@@ -167,6 +215,13 @@ export function deriveResultFileAction(artifact = {}) {
 export function resultFileLabelKey(artifact = {}) {
   const search = artifactSearchText(artifact);
   const extension = artifactExtension(artifact);
+  const manufacturingLabel = MANUFACTURING_RESULT_FILE_LABELS_BY_FILENAME[
+    normalizedArtifactIdentifier(artifact.file_name)
+  ] || MANUFACTURING_RESULT_FILE_LABELS_BY_TYPE[
+    normalizedArtifactIdentifier(artifact.type)
+  ];
+
+  if (manufacturingLabel) return manufacturingLabel;
 
   if (extension === '.pdf') return 'studio.artifacts.file.report';
   if (extension === '.fcstd' || extension === '.brep' || extension === '.brp') return 'studio.artifacts.file.model';

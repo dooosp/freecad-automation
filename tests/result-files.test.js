@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 
 import {
   collectResultFileGroups,
+  deriveManufacturingDatasetValidationStatus,
   deriveResultFileAction,
   resultFileLabelKey,
   selectPrimaryResultArtifact,
@@ -92,6 +93,80 @@ const drawingQuality = artifact({
 });
 assert.equal(selectPrimaryResultArtifact([drawingQuality, drawing], { jobType: 'draw' })?.id, 'drawing');
 assert.equal(selectPrimaryResultArtifact([report, quality], { jobType: 'review-context' })?.id, 'quality');
+
+const manufacturingArtifacts = [
+  artifact({ id: 'action-dictionary', type: 'manufacturing-action.dictionary.json', fileName: 'manufacturing_action_dictionary.json', extension: '.json' }),
+  artifact({ id: 'episode', type: 'manufacturing-action.episode-annotation.json', fileName: 'manufacturing_episode_annotation.json', extension: '.json' }),
+  artifact({ id: 'validation', type: 'manufacturing-action.validation-report.json', fileName: 'manufacturing_data_validation_report.json', extension: '.json' }),
+  artifact({ id: 'dataset-manifest', type: 'manufacturing-action.dataset-manifest.json', fileName: 'manufacturing_robotics_dataset_manifest.json', extension: '.json' }),
+  artifact({ id: 'handoff-json', type: 'manufacturing-action.handoff.json', fileName: 'design_manufacturing_quality_handoff.json', extension: '.json' }),
+  artifact({ id: 'handoff-markdown', type: 'manufacturing-action.handoff.markdown', fileName: 'design_manufacturing_quality_handoff.md', extension: '.md' }),
+  artifact({ id: 'artifact-manifest', type: 'manufacturing-action.artifact-manifest.json', fileName: 'artifact-manifest.json', extension: '.json' }),
+  artifact({ id: 'output-manifest', type: 'manufacturing-action.output-manifest.json', fileName: 'output-manifest.json', extension: '.json' }),
+];
+assert.equal(manufacturingArtifacts.length, 8);
+assert.equal(
+  selectPrimaryResultArtifact(manufacturingArtifacts, { jobType: 'manufacturing-action-dataset' })?.id,
+  'dataset-manifest'
+);
+const manufacturingGroups = Object.fromEntries(
+  collectResultFileGroups(manufacturingArtifacts).map((group) => [
+    group.id,
+    group.artifacts.map((entry) => entry.id),
+  ])
+);
+assert.deepEqual(manufacturingGroups.quality, ['validation', 'handoff-json', 'handoff-markdown']);
+assert.deepEqual(manufacturingGroups.technical, ['action-dictionary', 'episode']);
+assert.deepEqual(manufacturingGroups.system, ['dataset-manifest', 'artifact-manifest', 'output-manifest']);
+assert.deepEqual(
+  manufacturingArtifacts.map((entry) => resultFileLabelKey(entry)),
+  [
+    'studio.artifacts.file.manufacturing-action-dictionary',
+    'studio.artifacts.file.manufacturing-episode-annotation',
+    'studio.artifacts.file.manufacturing-data-validation',
+    'studio.artifacts.file.manufacturing-dataset-manifest',
+    'studio.artifacts.file.manufacturing-handoff-json',
+    'studio.artifacts.file.manufacturing-handoff-markdown',
+    'studio.artifacts.file.manufacturing-artifact-manifest',
+    'studio.artifacts.file.manufacturing-output-manifest',
+  ]
+);
+assert.notEqual(resultFileLabelKey(manufacturingArtifacts[4]), 'studio.artifacts.file.quality');
+assert.notEqual(resultFileLabelKey(manufacturingArtifacts[5]), 'studio.artifacts.file.quality');
+assert.equal(resultFileLabelKey(manifest), 'studio.artifacts.file.system');
+
+const manufacturingValidationJob = {
+  type: 'manufacturing-action-dataset',
+  result: {
+    status: 'valid_synthetic_demo',
+    validation: { status: 'valid_synthetic_demo' },
+  },
+};
+assert.equal(
+  deriveManufacturingDatasetValidationStatus(manufacturingValidationJob),
+  'valid_synthetic_demo'
+);
+assert.equal(
+  deriveManufacturingDatasetValidationStatus({
+    ...manufacturingValidationJob,
+    type: 'report',
+  }),
+  ''
+);
+assert.equal(
+  deriveManufacturingDatasetValidationStatus({
+    type: 'manufacturing-action-dataset',
+    result: { validation: { status: 'failed' } },
+  }),
+  ''
+);
+assert.equal(
+  deriveManufacturingDatasetValidationStatus({
+    type: 'manufacturing-action-dataset',
+    result: { status: 'valid_synthetic_demo' },
+  }),
+  'valid_synthetic_demo'
+);
 assert.equal(resultFileLabelKey(report), 'studio.artifacts.file.report');
 assert.equal(resultFileLabelKey(step), 'studio.artifacts.file.step');
 assert.equal(resultFileLabelKey(quality), 'studio.artifacts.file.quality');

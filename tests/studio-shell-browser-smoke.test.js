@@ -48,7 +48,7 @@ async function waitFor(assertion, { attempts = 40, delayMs = 150 } = {}) {
   throw lastError;
 }
 
-async function keyboardActivate(cdp, selector) {
+async function keyboardActivate(cdp, selector, activationKey = '') {
   const targetSnapshot = await cdp.evaluate(`(() => {
     const target = document.querySelector(${JSON.stringify(selector)});
     if (!(target instanceof HTMLElement) || target.matches(':disabled,[aria-disabled="true"]')) {
@@ -61,16 +61,18 @@ async function keyboardActivate(cdp, selector) {
     };
   })()`);
   assert.equal(targetSnapshot.focused, true, `Expected keyboard target to be focusable: ${selector}`);
-  const isLink = targetSnapshot.tagName === 'A';
-  const key = isLink ? 'Enter' : ' ';
-  const code = isLink ? 'Enter' : 'Space';
-  const virtualKeyCode = isLink ? 13 : 32;
+  const useEnter = activationKey === 'Enter'
+    || (!activationKey && targetSnapshot.tagName === 'A');
+  const key = useEnter ? 'Enter' : ' ';
+  const code = useEnter ? 'Enter' : 'Space';
+  const virtualKeyCode = useEnter ? 13 : 32;
   await cdp.send('Input.dispatchKeyEvent', {
     type: 'keyDown',
     key,
     code,
     windowsVirtualKeyCode: virtualKeyCode,
     nativeVirtualKeyCode: virtualKeyCode,
+    ...(useEnter ? { text: '\r', unmodifiedText: '\r' } : {}),
   });
   await cdp.send('Input.dispatchKeyEvent', {
     type: 'keyUp',
@@ -223,6 +225,8 @@ function localeSnapshotExpression() {
       startLabel: document.querySelector('.nav-link[data-route="start"] .nav-label')?.textContent?.trim() || '',
       sidebarLabel: document.getElementById('studio-sidebar')?.getAttribute('aria-label') || '',
       coreNavigationLabel: document.querySelector('.core-navigation')?.getAttribute('aria-label') || '',
+      runtimeBadgeText: document.getElementById('runtime-badge')?.textContent?.trim() || '',
+      runtimeBadgeTitle: document.getElementById('runtime-badge')?.getAttribute('title') || '',
       activeRoute: document.querySelector('.nav-link[aria-current="page"]')?.dataset?.route || '',
     };
   })()`;
@@ -1677,9 +1681,15 @@ function configNameFromTrackedRequest(request = {}) {
   return configToml.match(/^\s*name\s*=\s*["']([^"']+)["']/m)?.[1] || 'quality_pass_bracket';
 }
 
-function createBrowserSmokeExecutor({ projectRoot, jobStore }) {
+function createBrowserSmokeExecutor({ projectRoot, jobStore, baseExecutor }) {
   return {
     async execute(jobId) {
+      const pendingJob = await jobStore.getJob(jobId);
+      if (pendingJob?.type === 'manufacturing-action-dataset') {
+        await baseExecutor.execute(jobId);
+        return;
+      }
+
       const claim = await jobStore.claimJobForExecution(jobId, 'browser_smoke_executor_started');
       if (!claim.ok) return;
 
@@ -1959,9 +1969,519 @@ function browserSmokeBootstrapImportServiceFactory() {
   };
 }
 
+async function runManufacturingFocusLifecycleSmoke(browserWebSocketUrl) {
+  const { server: focusServer, jobStore: focusJobStore } = createLocalApiServer({
+    projectRoot: ROOT,
+    jobsDir: join(TMP_ROOT, 'manufacturing-focus-jobs'),
+    runtimeDiagnosticsFactory: browserSmokeRuntimeDiagnostics,
+    executorFactory: createBrowserSmokeExecutor,
+    studioModelServiceFactory: browserSmokeStudioModelServiceFactory,
+    studioDrawingServiceFactory: browserSmokeDrawingServiceFactory,
+    bootstrapImportServiceFactory: browserSmokeBootstrapImportServiceFactory,
+  });
+  let focusCdp = null;
+
+  function assertResourcePath(paths, expectedPath) {
+    assert.equal(
+      paths.some((path) => path === expectedPath),
+      true,
+      `Expected browser resource timing for ${expectedPath}: ${JSON.stringify(paths)}`
+    );
+  }
+
+  async function settleFocus() {
+    await focusCdp.evaluate(`new Promise((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        setTimeout(resolve, 150);
+      };
+      setTimeout(finish, 250);
+      requestAnimationFrame(() => requestAnimationFrame(finish));
+    })`);
+  }
+
+  try {
+    const focusPort = await listen(focusServer);
+    const focusBaseUrl = `http://127.0.0.1:${focusPort}`;
+    focusCdp = new CdpSession(await openPageTarget(browserWebSocketUrl));
+    await focusCdp.connect();
+    await focusCdp.send('Runtime.enable');
+    await focusCdp.send('Log.enable');
+    await focusCdp.send('Page.enable');
+    await focusCdp.send('Page.bringToFront');
+    await focusCdp.send('Emulation.setDeviceMetricsOverride', {
+      width: 1440,
+      height: 1000,
+      deviceScaleFactor: 1,
+      mobile: false,
+    });
+    await focusCdp.send('Page.navigate', { url: `${focusBaseUrl}/studio/#review` });
+    await waitForRoute(focusCdp, 'review', {
+      attempts: 50,
+      delayMs: 200,
+    });
+    await waitFor(async () => {
+      const paths = await focusCdp.evaluate(`performance.getEntriesByType('resource').map((entry) => {
+        try { return new URL(entry.name).pathname; } catch { return entry.name; }
+      })`);
+      for (const expectedPath of ['/health', '/api/examples', '/api/canonical-packages', '/jobs']) {
+        assert.equal(paths.includes(expectedPath), true, JSON.stringify(paths));
+      }
+      return paths;
+    }, {
+      attempts: 50,
+      delayMs: 100,
+    });
+    await focusCdp.evaluate(`new Promise((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 100)));
+    })`);
+
+    const initialCard = await waitFor(async () => {
+      const snapshot = await focusCdp.evaluate(`(() => ({
+        phase: document.querySelector('[data-hook="manufacturing-robotics-card"]')?.dataset.phase || '',
+        trustDemoPresent: Boolean(document.getElementById('manufacturing-robotics-trust-demo')),
+        generatePresent: Boolean(document.querySelector('[data-action="manufacturing-robotics-generate"]')),
+      }))()`);
+      assert.equal(snapshot.phase, 'pre-run');
+      assert.equal(snapshot.trustDemoPresent, true);
+      assert.equal(snapshot.generatePresent, true);
+      return snapshot;
+    });
+    assert.equal(initialCard.phase, 'pre-run');
+    await focusCdp.evaluate(`(() => {
+      window.__manufacturingLivePreviousCard = document.querySelector(
+        '[data-hook="manufacturing-robotics-card"]'
+      );
+      performance.clearResourceTimings();
+    })()`);
+
+    await waitFor(async () => {
+      const checked = await focusCdp.evaluate(`(() => {
+        const checkbox = document.getElementById('manufacturing-robotics-trust-demo');
+        if (!checkbox?.checked) checkbox?.click();
+        return checkbox?.checked ?? false;
+      })()`);
+      assert.equal(checked, true);
+      return checked;
+    }, {
+      attempts: 20,
+      delayMs: 100,
+    });
+    await keyboardActivate(
+      focusCdp,
+      '[data-action="manufacturing-robotics-generate"]',
+      'Enter'
+    );
+
+    const blocked = await waitFor(async () => {
+      const snapshot = await focusCdp.evaluate(`(() => {
+        const card = document.querySelector('[data-hook="manufacturing-robotics-card"]');
+        const recovery = card?.querySelector(
+          '[data-action="manufacturing-robotics-regenerate-approved"]'
+        );
+        const params = new URLSearchParams(window.location.hash.split('?')[1] || '');
+        return {
+          phase: card?.dataset.phase || '',
+          jobId: params.get('job') || '',
+          hash: window.location.hash,
+          previousCardDisconnected: !window.__manufacturingLivePreviousCard?.isConnected,
+          focused: document.activeElement === recovery,
+          activeTag: document.activeElement?.tagName || '',
+          activeAction: document.activeElement?.dataset?.action || '',
+          text: card?.textContent || '',
+          resourcePaths: performance.getEntriesByType('resource').map((entry) => {
+            try { return new URL(entry.name).pathname; } catch { return entry.name; }
+          }),
+        };
+      })()`);
+      assert.equal(snapshot.phase, 'blocked', JSON.stringify(snapshot));
+      assert.equal(snapshot.jobId.length > 0, true);
+      assert.equal(snapshot.hash, `#review?job=${snapshot.jobId}`);
+      assert.equal(snapshot.previousCardDisconnected, true);
+      assert.equal(snapshot.text.includes('REVISION_LINEAGE_IDENTITY_MISMATCH'), true);
+      assert.equal(snapshot.text.includes('0 / 8'), true);
+      assert.equal(snapshot.focused, true, JSON.stringify(snapshot));
+      return snapshot;
+    }, {
+      attempts: 120,
+      delayMs: 150,
+    });
+    assert.equal(blocked.activeTag, 'BUTTON');
+    assert.equal(blocked.activeAction, 'manufacturing-robotics-regenerate-approved');
+    assertResourcePath(blocked.resourcePaths, '/api/studio/jobs');
+    assertResourcePath(blocked.resourcePaths, `/jobs/${blocked.jobId}`);
+    assertResourcePath(blocked.resourcePaths, `/jobs/${blocked.jobId}/artifacts`);
+
+    await settleFocus();
+    const settledBlockedFocus = await focusCdp.evaluate(`(() => ({
+      action: document.activeElement?.dataset?.action || '',
+      phase: document.querySelector('[data-hook="manufacturing-robotics-card"]')?.dataset.phase || '',
+    }))()`);
+    assert.deepEqual(settledBlockedFocus, {
+      action: 'manufacturing-robotics-regenerate-approved',
+      phase: 'blocked',
+    });
+
+    await focusCdp.evaluate(`(() => {
+      window.__manufacturingLivePreviousCard = document.querySelector(
+        '[data-hook="manufacturing-robotics-card"]'
+      );
+      performance.clearResourceTimings();
+    })()`);
+    await keyboardActivate(
+      focusCdp,
+      '[data-action="manufacturing-robotics-regenerate-approved"]',
+      'Enter'
+    );
+
+    const recovered = await waitFor(async () => {
+      const snapshot = await focusCdp.evaluate(`(() => {
+        const card = document.querySelector('[data-hook="manufacturing-robotics-card"]');
+        const primary = card?.querySelector('[data-action="manufacturing-robotics-open-artifacts"]');
+        const params = new URLSearchParams(window.location.hash.split('?')[1] || '');
+        return {
+          phase: card?.dataset.phase || '',
+          jobId: params.get('job') || '',
+          hash: window.location.hash,
+          previousCardDisconnected: !window.__manufacturingLivePreviousCard?.isConnected,
+          focused: document.activeElement === primary,
+          activeTag: document.activeElement?.tagName || '',
+          activeAction: document.activeElement?.dataset?.action || '',
+          primaryJobId: primary?.dataset.jobId || '',
+          actionCount: card?.querySelectorAll(
+            '[data-action="manufacturing-robotics-select-action"]'
+          ).length || 0,
+          resourcePaths: performance.getEntriesByType('resource').map((entry) => {
+            try { return new URL(entry.name).pathname; } catch { return entry.name; }
+          }),
+        };
+      })()`);
+      assert.equal(snapshot.phase, 'success', JSON.stringify(snapshot));
+      assert.equal(snapshot.jobId.length > 0, true);
+      assert.notEqual(snapshot.jobId, blocked.jobId);
+      assert.equal(snapshot.hash, `#review?job=${snapshot.jobId}`);
+      assert.equal(snapshot.previousCardDisconnected, true);
+      assert.equal(snapshot.primaryJobId, snapshot.jobId);
+      assert.equal(snapshot.actionCount, 10);
+      assert.equal(snapshot.focused, true, JSON.stringify(snapshot));
+      return snapshot;
+    }, {
+      attempts: 160,
+      delayMs: 150,
+    });
+    assert.equal(recovered.activeTag, 'BUTTON');
+    assert.equal(recovered.activeAction, 'manufacturing-robotics-open-artifacts');
+    assertResourcePath(recovered.resourcePaths, '/api/studio/jobs');
+    assertResourcePath(recovered.resourcePaths, `/jobs/${recovered.jobId}`);
+    assertResourcePath(recovered.resourcePaths, `/jobs/${recovered.jobId}/artifacts`);
+
+    await settleFocus();
+    const settledRecoveryFocus = await focusCdp.evaluate(`(() => ({
+      action: document.activeElement?.dataset?.action || '',
+      phase: document.querySelector('[data-hook="manufacturing-robotics-card"]')?.dataset.phase || '',
+    }))()`);
+    assert.deepEqual(settledRecoveryFocus, {
+      action: 'manufacturing-robotics-open-artifacts',
+      phase: 'success',
+    });
+
+    const artifactCounts = await focusCdp.evaluate(`(async () => {
+      const blockedPayload = await fetch('/jobs/${blocked.jobId}/artifacts').then((response) => response.json());
+      const recoveredPayload = await fetch('/jobs/${recovered.jobId}/artifacts').then((response) => response.json());
+      return {
+        blocked: blockedPayload.artifacts?.length || 0,
+        recovered: recoveredPayload.artifacts?.length || 0,
+      };
+    })()`);
+    assert.deepEqual(artifactCounts, { blocked: 0, recovered: 8 });
+    const blockedJob = await focusJobStore.getJob(blocked.jobId);
+    const recoveredJob = await focusJobStore.getJob(recovered.jobId);
+    assert.equal(blockedJob.status, 'failed');
+    assert.equal(recoveredJob.status, 'succeeded');
+
+    const remountRegressions = await focusCdp.evaluate(`(async () => {
+      const cardModule = await import('/js/studio/manufacturing-robotics-card.js');
+      const waitUntil = async (predicate, label) => {
+        for (let attempt = 0; attempt < 100; attempt += 1) {
+          if (predicate()) return;
+          await new Promise((resolve) => setTimeout(resolve, 20));
+        }
+        throw new Error('Timed out waiting for ' + label);
+      };
+      const emptyData = () => ({
+        review: { manufacturingRobotics: { trustDemo: true } },
+        activeJob: { status: 'idle', summary: null, artifacts: [] },
+        recentJobs: { items: [] },
+        jobMonitor: { items: [] },
+      });
+
+      const submitHost = document.createElement('div');
+      submitHost.id = 'manufacturing-submit-remount-regression';
+      document.body.append(submitHost);
+      const submitState = { route: 'review', data: emptyData() };
+      let rejectSubmission;
+      const deferredSubmission = new Promise((resolve, reject) => {
+        rejectSubmission = reject;
+      });
+      const mountSubmitCard = () => {
+        submitHost.replaceChildren(cardModule.renderManufacturingRoboticsCard(submitState));
+        return cardModule.mountManufacturingRoboticsCard({
+          root: submitHost,
+          state: submitState,
+          submitTrackedJob: async () => deferredSubmission,
+          openJob: async () => {},
+        });
+      };
+      let submitController = mountSubmitCard();
+      const firstSubmitCard = submitHost.querySelector('[data-hook="manufacturing-robotics-card"]');
+      const generate = submitHost.querySelector('[data-action="manufacturing-robotics-generate"]');
+      generate.focus();
+      generate.click();
+      await waitUntil(
+        () => submitState.data.review.manufacturingRobotics.requestStatus === 'submitting',
+        'delayed submission state'
+      );
+      const submitHandoffArmed = Boolean(
+        submitState.data.review.manufacturingRobotics.focusHandoff
+      );
+      const localeControl = document.getElementById('studio-locale-select');
+      localeControl.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+      localeControl.focus();
+      const pointerHandoffCancelled = (
+        submitState.data.review.manufacturingRobotics.focusHandoff === null
+      );
+      submitController.destroy();
+      submitController = mountSubmitCard();
+      rejectSubmission(new Error('delayed remount rejection'));
+      await waitUntil(
+        () => submitState.data.review.manufacturingRobotics.requestStatus === 'error'
+          && Boolean(submitHost.querySelector('[data-action="manufacturing-robotics-retry"]')),
+        'remounted submission error render'
+      );
+      const submissionResult = {
+        handoffArmed: submitHandoffArmed,
+        pointerHandoffCancelled,
+        oldCardDisconnected: !firstSubmitCard.isConnected,
+        requestStatus: submitState.data.review.manufacturingRobotics.requestStatus,
+        retryVisible: Boolean(
+          submitHost.querySelector('[data-action="manufacturing-robotics-retry"]')
+        ),
+      };
+      submitController.destroy();
+      submitHost.remove();
+
+      const focusHost = document.createElement('div');
+      focusHost.id = 'manufacturing-focus-cancellation-regression';
+      document.body.append(focusHost);
+      const focusState = { route: 'review', data: emptyData() };
+      let rejectFocusSubmission;
+      const focusSubmission = new Promise((resolve, reject) => {
+        rejectFocusSubmission = reject;
+      });
+      focusHost.replaceChildren(cardModule.renderManufacturingRoboticsCard(focusState));
+      const focusController = cardModule.mountManufacturingRoboticsCard({
+        root: focusHost,
+        state: focusState,
+        submitTrackedJob: async () => focusSubmission,
+        openJob: async () => {},
+      });
+      const focusGenerate = focusHost.querySelector(
+        '[data-action="manufacturing-robotics-generate"]'
+      );
+      focusGenerate.focus();
+      focusGenerate.click();
+      await waitUntil(
+        () => focusState.data.review.manufacturingRobotics.requestStatus === 'submitting',
+        'focus-only cancellation submission'
+      );
+      const focusHandoffArmed = Boolean(
+        focusState.data.review.manufacturingRobotics.focusHandoff
+      );
+      localeControl.focus();
+      const focusHandoffCancelled = (
+        focusState.data.review.manufacturingRobotics.focusHandoff === null
+      );
+      rejectFocusSubmission(new Error('focus-only cancellation rejection'));
+      await waitUntil(
+        () => focusState.data.review.manufacturingRobotics.requestStatus === 'error',
+        'focus-only cancellation cleanup'
+      );
+      focusController.destroy();
+      focusHost.remove();
+      const focusCancellationResult = {
+        handoffArmed: focusHandoffArmed,
+        focusHandoffCancelled,
+      };
+
+      const recoveredJobId = ${JSON.stringify(recovered.jobId)};
+      const recoveredSummary = await fetch('/jobs/' + recoveredJobId)
+        .then((response) => response.json())
+        .then((payload) => payload.job);
+      const recoveredArtifacts = await fetch('/jobs/' + recoveredJobId + '/artifacts')
+        .then((response) => response.json())
+        .then((payload) => payload.artifacts);
+      const payloadNames = new Set([
+        'manufacturing_action_dictionary.json',
+        'manufacturing_episode_annotation.json',
+        'manufacturing_data_validation_report.json',
+        'manufacturing_robotics_dataset_manifest.json',
+        'design_manufacturing_quality_handoff.json',
+      ]);
+      const delayedLinks = new Set(
+        recoveredArtifacts
+          .filter((artifact) => payloadNames.has(artifact.file_name))
+          .map((artifact) => new URL(artifact.links.open, window.location.href).href)
+      );
+      const originalFetch = window.fetch.bind(window);
+      const heldFetches = [];
+      window.fetch = (input, options) => {
+        const url = new URL(
+          input instanceof Request ? input.url : String(input),
+          window.location.href
+        ).href;
+        if (delayedLinks.has(url) && heldFetches.length < delayedLinks.size) {
+          return new Promise((resolve, reject) => {
+            heldFetches.push({ input, options, resolve, reject });
+          });
+        }
+        return originalFetch(input, options);
+      };
+
+      const artifactHost = document.createElement('div');
+      artifactHost.id = 'manufacturing-artifact-remount-regression';
+      document.body.append(artifactHost);
+      const artifactState = {
+        route: 'review',
+        data: {
+          review: {
+            manufacturingRobotics: {
+              jobId: recoveredJobId,
+              job: recoveredSummary,
+            },
+          },
+          activeJob: {
+            status: 'ready',
+            summary: recoveredSummary,
+            artifacts: recoveredArtifacts,
+          },
+          recentJobs: { items: [] },
+          jobMonitor: { items: [] },
+        },
+      };
+      const mountArtifactCard = () => {
+        artifactHost.replaceChildren(cardModule.renderManufacturingRoboticsCard(artifactState));
+        return cardModule.mountManufacturingRoboticsCard({
+          root: artifactHost,
+          state: artifactState,
+          submitTrackedJob: async () => null,
+          openJob: async () => {},
+        });
+      };
+      let artifactController = mountArtifactCard();
+      const firstArtifactCard = artifactHost.querySelector(
+        '[data-hook="manufacturing-robotics-card"]'
+      );
+      await waitUntil(
+        () => heldFetches.length === delayedLinks.size
+          && artifactState.data.review.manufacturingRobotics.artifactLoadStatus === 'loading',
+        'owned artifact load'
+      );
+      artifactController.destroy();
+      const statusAfterDestroy = (
+        artifactState.data.review.manufacturingRobotics.artifactLoadStatus
+      );
+      artifactController = mountArtifactCard();
+      await waitUntil(
+        () => artifactState.data.review.manufacturingRobotics.artifactLoadStatus === 'ready'
+          && artifactHost.querySelector('[data-hook="manufacturing-robotics-card"]')?.dataset.phase === 'success',
+        'remounted artifact reload'
+      );
+      await Promise.all(heldFetches.map(async (entry) => {
+        try {
+          entry.resolve(await originalFetch(entry.input, entry.options));
+        } catch (error) {
+          entry.reject(error);
+        }
+      }));
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const artifactResult = {
+        heldCount: heldFetches.length,
+        delayedLinkCount: delayedLinks.size,
+        oldCardDisconnected: !firstArtifactCard.isConnected,
+        statusAfterDestroy,
+        finalStatus: artifactState.data.review.manufacturingRobotics.artifactLoadStatus,
+        finalPhase: artifactHost.querySelector(
+          '[data-hook="manufacturing-robotics-card"]'
+        )?.dataset.phase || '',
+        actionCount: artifactHost.querySelectorAll(
+          '[data-action="manufacturing-robotics-select-action"]'
+        ).length,
+      };
+      artifactController.destroy();
+      artifactHost.remove();
+      window.fetch = originalFetch;
+
+      return { submissionResult, focusCancellationResult, artifactResult };
+    })()`);
+    assert.deepEqual(remountRegressions.submissionResult, {
+      handoffArmed: true,
+      pointerHandoffCancelled: true,
+      oldCardDisconnected: true,
+      requestStatus: 'error',
+      retryVisible: true,
+    });
+    assert.deepEqual(remountRegressions.focusCancellationResult, {
+      handoffArmed: true,
+      focusHandoffCancelled: true,
+    });
+    assert.deepEqual(remountRegressions.artifactResult, {
+      heldCount: 5,
+      delayedLinkCount: 5,
+      oldCardDisconnected: true,
+      statusAfterDestroy: 'idle',
+      finalStatus: 'ready',
+      finalPhase: 'success',
+      actionCount: 10,
+    });
+
+    const localExceptions = focusCdp.exceptions.filter((details) => (
+      String(details.url || '').includes(focusBaseUrl)
+      || String(details.exception?.description || '').includes('/js/studio')
+    ));
+    assert.deepEqual(localExceptions, [], localExceptions.map(summarizeException).join('\n'));
+  } finally {
+    await focusCdp?.send('Page.navigate', { url: 'about:blank' }).catch(() => {});
+    await focusCdp?.close().catch(() => {});
+    const closed = new Promise((resolveClose) => focusServer.close(resolveClose));
+    focusServer.closeIdleConnections?.();
+    focusServer.closeAllConnections?.();
+    await closed;
+  }
+}
+
 const chromeBinary = findChromeBinary();
 if (!chromeBinary) {
   console.log('studio-shell-browser-smoke.test.js: skipped (Chrome not available)');
+  process.exit(0);
+}
+
+if (process.argv.includes('--manufacturing-focus-only')) {
+  let focusChrome = null;
+  try {
+    focusChrome = await launchChrome(chromeBinary);
+    await runManufacturingFocusLifecycleSmoke(focusChrome.browserWebSocketUrl);
+    console.log('studio-shell-browser-smoke.test.js: manufacturing focus lifecycle ok');
+  } finally {
+    focusChrome?.child.kill('SIGKILL');
+    rmSync(TMP_ROOT, {
+      recursive: true,
+      force: true,
+      maxRetries: 5,
+      retryDelay: 100,
+    });
+  }
   process.exit(0);
 }
 
@@ -3550,7 +4070,453 @@ try {
     'evidence',
     'gate',
   ]);
+  const manufacturingTrustBefore = await cdp.evaluate(`(() => {
+    const checkbox = document.getElementById('manufacturing-robotics-trust-demo');
+    const action = document.querySelector('[data-action="manufacturing-robotics-generate"]');
+    return {
+      checked: checkbox?.checked ?? false,
+      actionLabel: action?.textContent?.trim() || '',
+    };
+  })()`);
+  await keyboardActivate(cdp, '#manufacturing-robotics-trust-demo');
+  const manufacturingTrustAfter = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => {
+      const checkbox = document.getElementById('manufacturing-robotics-trust-demo');
+      const action = document.querySelector('[data-action="manufacturing-robotics-generate"]');
+      return {
+        checked: checkbox?.checked ?? false,
+        actionLabel: action?.textContent?.trim() || '',
+        focused: document.activeElement === checkbox,
+        activeTag: document.activeElement?.tagName || '',
+      };
+    })()`);
+    assert.equal(snapshot.checked, !manufacturingTrustBefore.checked);
+    assert.equal(snapshot.focused, true, JSON.stringify(snapshot));
+    return snapshot;
+  });
+  assert.notEqual(manufacturingTrustAfter.actionLabel, manufacturingTrustBefore.actionLabel);
+  assert.equal(manufacturingTrustAfter.activeTag, 'INPUT');
+  await keyboardActivate(cdp, '#manufacturing-robotics-trust-demo');
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => ({
+      checked: document.getElementById('manufacturing-robotics-trust-demo')?.checked ?? true,
+      focusedId: document.activeElement?.id || '',
+    }))()`);
+    assert.equal(snapshot.checked, manufacturingTrustBefore.checked);
+    assert.equal(snapshot.focusedId, 'manufacturing-robotics-trust-demo');
+    return snapshot;
+  });
+
+  const manufacturingTimelineFixture = await cdp.evaluate(`(async () => {
+    const cardModule = await import('/js/studio/manufacturing-robotics-card.js');
+    const actions = [1, 2].map((order) => ({
+      order,
+      action_id: 'action_0' + order,
+      primitive: order === 1 ? 'approach' : 'inspect',
+      actor_type: 'robot',
+      duration_ms: 1000,
+      instruction: {
+        ko: 'Synthetic Korean instruction ' + order,
+        en: 'Synthetic English instruction ' + order,
+      },
+      references: {
+        part_ids: ['hinge_block'],
+        feature_ids: ['base_block'],
+        quality_characteristic_ids: ['cd-01'],
+        robot_joint_ids: ['j1_base_yaw'],
+        tool_interface_ids: ['tool_flange'],
+        inspection_plan_item_ids: ['inspection-01'],
+      },
+      preconditions: ['fixture_review_required'],
+      postconditions: ['synthetic_step_recorded'],
+      instruction_origin: 'browser_smoke_fixture',
+      human_review_required: true,
+    }));
+    const job = {
+      id: 'manufacturing-focus-smoke-job',
+      type: 'manufacturing-action-dataset',
+      status: 'succeeded',
+    };
+    const artifacts = Array.from({ length: 8 }, (_, index) => ({
+      id: 'manufacturing-focus-artifact-' + index,
+      exists: true,
+    }));
+    const state = {
+      data: {
+        review: {
+          manufacturingRobotics: {
+            jobId: job.id,
+            job,
+            requestStatus: 'idle',
+            artifactLoadStatus: 'ready',
+            loadedJobId: job.id,
+            selectedActionId: 'action_01',
+            payloads: {
+              actionDictionary: {
+                actions,
+                source_universe: {
+                  feature_ids: ['base_block'],
+                  robot_joint_ids: ['j1_base_yaw'],
+                  quality_characteristic_ids: ['cd-01'],
+                },
+              },
+              episodeAnnotation: { annotation_origin: 'browser_smoke_fixture', segments: [] },
+              validationReport: { metrics: {} },
+              datasetManifest: { dataset: { action_count: 2, segment_count: 0 } },
+              handoff: {},
+            },
+          },
+        },
+        activeJob: { status: 'ready', summary: job, artifacts },
+        recentJobs: { items: [] },
+        jobMonitor: { items: [] },
+      },
+    };
+    const host = document.createElement('div');
+    host.id = 'manufacturing-timeline-focus-smoke';
+    host.append(cardModule.renderManufacturingRoboticsCard(state));
+    document.body.append(host);
+    const controller = cardModule.mountManufacturingRoboticsCard({
+      root: host,
+      state,
+      submitTrackedJob: async () => null,
+      openJob: async () => {},
+    });
+    window.__manufacturingTimelineFocusSmoke = { controller, host, state };
+    return {
+      buttonCount: host.querySelectorAll('[data-action="manufacturing-robotics-select-action"]').length,
+      selectedActionId: state.data.review.manufacturingRobotics.selectedActionId,
+    };
+  })()`);
+  assert.equal(manufacturingTimelineFixture.buttonCount, 2);
+  assert.equal(manufacturingTimelineFixture.selectedActionId, 'action_01');
+  await keyboardActivate(
+    cdp,
+    '#manufacturing-timeline-focus-smoke [data-action="manufacturing-robotics-select-action"][data-action-id="action_02"]',
+    'Enter'
+  );
+  const manufacturingTimelineFocus = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => {
+      const fixture = window.__manufacturingTimelineFocusSmoke;
+      const button = fixture?.host.querySelector(
+        '[data-action="manufacturing-robotics-select-action"][data-action-id="action_02"]'
+      );
+      return {
+        selectedActionId: fixture?.state.data.review.manufacturingRobotics.selectedActionId || '',
+        current: button?.getAttribute('aria-current') || '',
+        focused: document.activeElement === button,
+        activeTag: document.activeElement?.tagName || '',
+        detail: fixture?.host.querySelector('.manufacturing-action-detail')?.textContent || '',
+      };
+    })()`);
+    assert.equal(snapshot.selectedActionId, 'action_02', JSON.stringify(snapshot));
+    assert.equal(snapshot.current, 'step');
+    assert.equal(snapshot.focused, true, JSON.stringify(snapshot));
+    assert.equal(snapshot.detail.includes('action_02'), true);
+    return snapshot;
+  });
+  assert.equal(manufacturingTimelineFocus.activeTag, 'BUTTON');
+  await cdp.evaluate(`(() => {
+    const fixture = window.__manufacturingTimelineFocusSmoke;
+    fixture?.controller.destroy();
+    fixture?.host.remove();
+    delete window.__manufacturingTimelineFocusSmoke;
+  })()`);
+  const manufacturingRecoveryFixture = await cdp.evaluate(`(async () => {
+    const cardModule = await import('/js/studio/manufacturing-robotics-card.js');
+    const boundaries = {
+      synthetic_demo: true,
+      real_shop_floor_data: false,
+      automatic_video_segmentation: false,
+      computer_vision_model_used: false,
+      lerobot_compatible: false,
+      training_ready: false,
+      inspection_evidence: false,
+      evidence_attached: false,
+      readiness_regenerated: false,
+      product_release: false,
+      production_readiness: false,
+      human_review_required: true,
+    };
+    const action = {
+      order: 1,
+      action_id: 'action_01',
+      primitive: 'approach',
+      actor_type: 'robot',
+      duration_ms: 1000,
+      instruction: { ko: '합성 접근', en: 'Synthetic approach' },
+      references: {
+        part_ids: ['hinge_block'],
+        feature_ids: ['base_block'],
+        quality_characteristic_ids: ['cd-01'],
+        robot_joint_ids: ['j1_base_yaw'],
+        tool_interface_ids: ['tool_flange'],
+        inspection_plan_item_ids: ['inspection-01'],
+      },
+      preconditions: ['fixture_review_required'],
+      postconditions: ['synthetic_step_recorded'],
+      instruction_origin: 'browser_smoke_fixture',
+      human_review_required: true,
+    };
+    const payloads = new Map([
+      ['manufacturing_action_dictionary.json', {
+        artifact_type: 'manufacturing_action_dictionary',
+        actions: [action],
+        source_universe: {
+          feature_ids: ['base_block'],
+          robot_joint_ids: ['j1_base_yaw'],
+          quality_characteristic_ids: ['cd-01'],
+        },
+        boundaries,
+      }],
+      ['manufacturing_episode_annotation.json', {
+        artifact_type: 'manufacturing_episode_annotation',
+        annotation_origin: 'browser_smoke_fixture',
+        segments: [{ action_id: 'action_01', start_ms: 0, end_ms: 1000, duration_ms: 1000 }],
+        boundaries,
+      }],
+      ['manufacturing_data_validation_report.json', {
+        artifact_type: 'manufacturing_data_validation_report',
+        status: 'valid_synthetic_demo',
+        metrics: { action_count: 1, segment_count: 1 },
+        boundaries,
+      }],
+      ['manufacturing_robotics_dataset_manifest.json', {
+        artifact_type: 'manufacturing_robotics_dataset_manifest',
+        dataset: { action_count: 1, segment_count: 1 },
+        boundaries,
+      }],
+      ['design_manufacturing_quality_handoff.json', {
+        artifact_type: 'design_manufacturing_quality_handoff',
+        boundaries,
+      }],
+    ]);
+    const artifactTypes = {
+      'manufacturing_action_dictionary.json': 'manufacturing-action.dictionary.json',
+      'manufacturing_episode_annotation.json': 'manufacturing-action.episode-annotation.json',
+      'manufacturing_data_validation_report.json': 'manufacturing-action.validation-report.json',
+      'manufacturing_robotics_dataset_manifest.json': 'manufacturing-action.dataset-manifest.json',
+      'design_manufacturing_quality_handoff.json': 'manufacturing-action.handoff.json',
+    };
+    const artifacts = [...payloads.keys()].map((fileName, index) => ({
+      id: 'manufacturing-recovery-artifact-' + index,
+      type: artifactTypes[fileName],
+      file_name: fileName,
+      extension: '.json',
+      content_type: 'application/json',
+      exists: true,
+      capabilities: { can_open: true },
+      links: { open: '/__manufacturing-recovery-focus-smoke/' + fileName },
+    }));
+    artifacts.push(
+      {
+        id: 'manufacturing-recovery-handoff-markdown',
+        type: 'manufacturing-action.handoff.markdown',
+        file_name: 'design_manufacturing_quality_handoff.md',
+        exists: true,
+      },
+      {
+        id: 'manufacturing-recovery-artifact-manifest',
+        type: 'manufacturing-action.artifact-manifest.json',
+        file_name: 'artifact-manifest.json',
+        exists: true,
+      },
+      {
+        id: 'manufacturing-recovery-output-manifest',
+        type: 'manufacturing-action.output-manifest.json',
+        file_name: 'output-manifest.json',
+        exists: true,
+      },
+    );
+    const blockedJob = {
+      id: 'manufacturing-focus-blocked-job',
+      type: 'manufacturing-action-dataset',
+      status: 'failed',
+      diagnostics: {
+        manufacturing_action_demo: {
+          reason_code: 'REVISION_LINEAGE_IDENTITY_MISMATCH',
+          expected: { package_slug: 'hinge-block', part_id: 'hinge_block', revision: 'A' },
+          received: { package_slug: 'hinge-block', part_id: 'hinge_block', revision: 'B' },
+          published: { expected_count: 8, published_count: 0 },
+        },
+      },
+    };
+    const successJob = {
+      id: 'manufacturing-focus-recovery-job',
+      type: 'manufacturing-action-dataset',
+      status: 'succeeded',
+      result: {
+        status: 'valid_synthetic_demo',
+        publication: { expected_count: 8, published_count: 8, exact: true },
+      },
+    };
+    const state = {
+      route: 'review',
+      data: {
+        review: { manufacturingRobotics: { trustDemo: true } },
+        activeJob: { status: 'idle', summary: null, artifacts: [] },
+        recentJobs: { items: [] },
+        jobMonitor: { items: [] },
+      },
+    };
+    const submissions = [];
+    const queuedJobs = [
+      { ...blockedJob, status: 'queued', diagnostics: undefined },
+      { ...successJob, status: 'queued', result: undefined },
+    ];
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = async (input, options) => {
+      const url = String(input);
+      const prefix = '/__manufacturing-recovery-focus-smoke/';
+      if (url.startsWith(prefix)) {
+        const fileName = url.slice(prefix.length);
+        return new Response(JSON.stringify(payloads.get(fileName)), {
+          status: payloads.has(fileName) ? 200 : 404,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      return originalFetch(input, options);
+    };
+    const host = document.createElement('div');
+    host.id = 'manufacturing-recovery-focus-smoke';
+    host.append(cardModule.renderManufacturingRoboticsCard(state));
+    document.body.append(host);
+    const controller = cardModule.mountManufacturingRoboticsCard({
+      root: host,
+      state,
+      submitTrackedJob: async (submission) => {
+        submissions.push(submission);
+        return queuedJobs[submissions.length - 1];
+      },
+      openJob: async () => {},
+    });
+    window.__manufacturingRecoveryFocusSmoke = {
+      controller,
+      host,
+      state,
+      submissions,
+      blockedJob,
+      successJob,
+      artifacts,
+      originalFetch,
+    };
+    return {
+      trustDemo: state.data.review.manufacturingRobotics.trustDemo,
+      generatePresent: Boolean(host.querySelector('[data-action="manufacturing-robotics-generate"]')),
+    };
+  })()`);
+  assert.equal(manufacturingRecoveryFixture.trustDemo, true);
+  assert.equal(manufacturingRecoveryFixture.generatePresent, true);
+  await keyboardActivate(
+    cdp,
+    '#manufacturing-recovery-focus-smoke [data-action="manufacturing-robotics-generate"]',
+    'Enter'
+  );
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => {
+      const fixture = window.__manufacturingRecoveryFocusSmoke;
+      return {
+        submissions: fixture?.submissions.length || 0,
+        jobId: fixture?.state.data.review.manufacturingRobotics.jobId || '',
+        phase: fixture?.host.querySelector('[data-hook="manufacturing-robotics-card"]')?.dataset.phase || '',
+      };
+    })()`);
+    assert.equal(snapshot.submissions, 1);
+    assert.equal(snapshot.jobId, 'manufacturing-focus-blocked-job');
+    assert.equal(snapshot.phase, 'running');
+    return snapshot;
+  });
+  await cdp.evaluate(`(() => {
+    const fixture = window.__manufacturingRecoveryFocusSmoke;
+    fixture.state.data.activeJob = {
+      status: 'ready',
+      summary: fixture.blockedJob,
+      artifacts: [],
+    };
+    fixture.controller.syncFromShell();
+  })()`);
+  const manufacturingBlockedFocus = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => {
+      const fixture = window.__manufacturingRecoveryFocusSmoke;
+      return {
+        phase: fixture?.host.querySelector('[data-hook="manufacturing-robotics-card"]')?.dataset.phase || '',
+        blockedCopy: fixture?.host.textContent || '',
+      };
+    })()`);
+    assert.equal(snapshot.phase, 'blocked');
+    assert.equal(snapshot.blockedCopy.includes('0 / 8'), true);
+    return snapshot;
+  });
+  assert.equal(manufacturingBlockedFocus.blockedCopy.includes('Revision B'), true);
+  await keyboardActivate(
+    cdp,
+    '#manufacturing-recovery-focus-smoke [data-action="manufacturing-robotics-regenerate-approved"]',
+    'Enter'
+  );
+  await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => {
+      const fixture = window.__manufacturingRecoveryFocusSmoke;
+      return {
+        submissions: fixture?.submissions.length || 0,
+        firstTrustDemo: fixture?.submissions[0]?.trustDemo || '',
+        secondTrustDemo: fixture?.submissions[1]?.trustDemo || '',
+        jobId: fixture?.state.data.review.manufacturingRobotics.jobId || '',
+        blockedStatus: fixture?.blockedJob.status || '',
+      };
+    })()`);
+    assert.equal(snapshot.submissions, 2);
+    assert.equal(snapshot.firstTrustDemo, 'revision-mismatch');
+    assert.equal(snapshot.secondTrustDemo, '');
+    assert.equal(snapshot.jobId, 'manufacturing-focus-recovery-job');
+    assert.equal(snapshot.blockedStatus, 'failed');
+    return snapshot;
+  });
+  await cdp.evaluate(`(() => {
+    const fixture = window.__manufacturingRecoveryFocusSmoke;
+    fixture.state.data.activeJob = {
+      status: 'ready',
+      summary: fixture.successJob,
+      artifacts: fixture.artifacts,
+    };
+    fixture.controller.syncFromShell();
+  })()`);
+  const manufacturingRecoveryFocus = await waitFor(async () => {
+    const snapshot = await cdp.evaluate(`(() => {
+      const fixture = window.__manufacturingRecoveryFocusSmoke;
+      return {
+        phase: fixture?.host.querySelector('[data-hook="manufacturing-robotics-card"]')?.dataset.phase || '',
+        jobId: fixture?.state.data.review.manufacturingRobotics.jobId || '',
+        blockedStatus: fixture?.blockedJob.status || '',
+      };
+    })()`);
+    assert.equal(snapshot.phase, 'success');
+    assert.equal(snapshot.jobId, 'manufacturing-focus-recovery-job');
+    assert.equal(snapshot.blockedStatus, 'failed');
+    return snapshot;
+  }, {
+    attempts: 60,
+    delayMs: 150,
+  });
+  await cdp.evaluate(`(() => {
+    const fixture = window.__manufacturingRecoveryFocusSmoke;
+    fixture?.controller.destroy();
+    fixture?.host.remove();
+    if (fixture?.originalFetch) window.fetch = fixture.originalFetch;
+    delete window.__manufacturingRecoveryFocusSmoke;
+  })()`);
   for (const width of [320, 768, 1024, 1440]) {
+    // A tracked job may finish between widths and hand the shell to Artifacts.
+    // Restore the Review surface before measuring the layout under test.
+    const activeRoute = await cdp.evaluate(
+      `document.querySelector('.nav-link[aria-current="page"]')?.dataset?.route || ''`
+    );
+    if (activeRoute !== 'review') {
+      await cdp.send('Page.navigate', { url: `${baseUrl}/studio/#review` });
+      await waitForRoute(cdp, 'review', {
+        attempts: 50,
+        delayMs: 200,
+      });
+    }
     await cdp.send('Emulation.setDeviceMetricsOverride', {
       width,
       height: width <= 768 ? 900 : 1000,
@@ -3560,16 +4526,23 @@ try {
     const reviewLayout = await waitFor(async () => {
       const snapshot = await cdp.evaluate(`(() => ({
         width: window.innerWidth,
+        hash: window.location.hash,
+        activeRoute: document.querySelector('.nav-link[aria-current="page"]')?.dataset?.route || '',
         bodyScrollWidth: document.body.scrollWidth,
         documentScrollWidth: document.documentElement.scrollWidth,
+        summaryExists: Boolean(document.querySelector('[data-hook="review-beginner-summary"]')),
         summaryWidth: document.querySelector('[data-hook="review-beginner-summary"]')?.getBoundingClientRect().width || 0,
+        advancedExists: Boolean(document.querySelector('[data-hook="review-advanced-tools"]')),
         advancedOpen: document.querySelector('[data-hook="review-advanced-tools"]')?.open ?? true,
+        storedMode: localStorage.getItem('studio_experience_mode'),
+        preferenceChecked: document.getElementById('advanced-mode-toggle')?.checked ?? true,
+        activeElementId: document.activeElement?.id || '',
       }))()`);
       assert.equal(snapshot.width, width);
       assert.equal(snapshot.bodyScrollWidth <= width, true);
       assert.equal(snapshot.documentScrollWidth <= width, true);
       assert.equal(snapshot.summaryWidth <= width, true);
-      assert.equal(snapshot.advancedOpen, false);
+      assert.equal(snapshot.advancedOpen, false, JSON.stringify(snapshot));
       return snapshot;
     });
     assert.equal(reviewLayout.summaryWidth > 0, true);
@@ -4277,10 +5250,16 @@ try {
     return snapshot;
   });
 
+  const runtimeReadyLabels = {
+    en: 'FreeCAD ready',
+    ko: 'FreeCAD 준비됨',
+  };
   const initialLocale = await cdp.evaluate(localeSnapshotExpression());
   assert.equal(['en', 'ko'].includes(initialLocale.lang), true);
   assert.equal(initialLocale.selectedLocale, initialLocale.lang);
   assert.equal(initialLocale.activeRoute, 'start');
+  assert.equal(initialLocale.runtimeBadgeText, runtimeReadyLabels[initialLocale.lang]);
+  assert.equal(initialLocale.runtimeBadgeTitle, runtimeReadyLabels[initialLocale.lang]);
   const alternateLocale = initialLocale.lang === 'ko' ? 'en' : 'ko';
   const forcedLocale = 'ko';
   const forcedLocaleLabels = {
@@ -4307,6 +5286,8 @@ try {
     assert.equal(nextSnapshot.activeRoute, 'start');
     assert.equal(nextSnapshot.cookie.includes('ui_locale=' + alternateLocale), true);
     assert.equal(nextSnapshot.storedLocale, alternateLocale);
+    assert.equal(nextSnapshot.runtimeBadgeText, runtimeReadyLabels[alternateLocale]);
+    assert.equal(nextSnapshot.runtimeBadgeTitle, runtimeReadyLabels[alternateLocale]);
     return nextSnapshot;
   });
   assert.notEqual(localeSnapshot.startLabel, initialLocale.startLabel);
@@ -4326,6 +5307,8 @@ try {
     assert.equal(nextSnapshot.activeRoute, 'start');
     assert.equal(nextSnapshot.cookie.includes('ui_locale=' + initialLocale.lang), true);
     assert.equal(nextSnapshot.storedLocale, initialLocale.lang);
+    assert.equal(nextSnapshot.runtimeBadgeText, runtimeReadyLabels[initialLocale.lang]);
+    assert.equal(nextSnapshot.runtimeBadgeTitle, runtimeReadyLabels[initialLocale.lang]);
     return nextSnapshot;
   });
   assert.equal(localeSnapshot.startLabel, initialLocale.startLabel);
@@ -4345,6 +5328,8 @@ try {
     assert.equal(nextSnapshot.activeRoute, 'start');
     assert.equal(nextSnapshot.cookie.includes(`ui_locale=${forcedLocale}`), true);
     assert.equal(nextSnapshot.storedLocale, forcedLocale);
+    assert.equal(nextSnapshot.runtimeBadgeText, runtimeReadyLabels[forcedLocale]);
+    assert.equal(nextSnapshot.runtimeBadgeTitle, runtimeReadyLabels[forcedLocale]);
     return nextSnapshot;
   });
   assert.equal(localeSnapshot.startLabel, forcedLocaleLabels.start);
@@ -4970,6 +5955,9 @@ try {
     expectedHash: `#review?job=${guidedImportJobId}`,
   });
   assert.equal(guidedImportPrimaryActions, 3);
+
+  await runManufacturingFocusLifecycleSmoke(chrome.browserWebSocketUrl);
+  await cdp.send('Page.bringToFront');
 
   const blockingLogs = cdp.logs.filter((entry) => (
     entry.source === 'network'

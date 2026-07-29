@@ -1,0 +1,86 @@
+{
+  "schema_version": "1.0",
+  "record_type": "manufacturing_robotics_human_uat_result",
+  "record_origin": "synthetic_test_fixture",
+  "round_id": "MR-UAT-TEST-R1",
+  "participant_label": "P1",
+  "attempt_label": "P1",
+  "candidate": {
+    "resolved_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "git_tree": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "candidate_tree_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "clean_status_matches": true
+  },
+  "protocol": {
+    "new_to_studio": true,
+    "anonymous_notes_consent": true,
+    "p0_excluded": true,
+    "valid_attempt": true,
+    "invalid_reason": null,
+    "all_required_fields_complete": true,
+    "sensitive_data_review_complete": true
+  },
+  "round_gates": {
+    "p0_status": "PASS",
+    "human_bilingual_review_status": "PASS",
+    "material_bilingual_error_count": 0,
+    "candidate_unchanged": true
+  },
+  "locale": "en",
+  "observations": {
+    "dataset_summary_reached": true,
+    "dataset_summary_without_help": true,
+    "action_feature_link_explained": true,
+    "synthetic_vs_real_explained": true,
+    "lerobot_gap_explained": true,
+    "revision_mismatch_explained": true,
+    "completed_path_primary_actions": 4
+  },
+  "predictions": [
+    {
+      "opportunity_id": "MR-PRED-01",
+      "reached": true,
+      "score": "CORRECT"
+    },
+    {
+      "opportunity_id": "MR-PRED-02",
+      "reached": true,
+      "score": "CORRECT"
+    },
+    {
+      "opportunity_id": "MR-PRED-03",
+      "reached": true,
+      "score": "CORRECT"
+    },
+    {
+      "opportunity_id": "MR-PRED-04",
+      "reached": true,
+      "score": "CORRECT"
+    },
+    {
+      "opportunity_id": "MR-PRED-05",
+      "reached": true,
+      "score": "CORRECT"
+    },
+    {
+      "opportunity_id": "MR-PRED-06",
+      "reached": true,
+      "score": "CORRECT"
+    },
+    {
+      "opportunity_id": "MR-PRED-07",
+      "reached": true,
+      "score": "CORRECT"
+    },
+    {
+      "opportunity_id": "MR-PRED-08",
+      "reached": true,
+      "score": "CORRECT"
+    }
+  ],
+  "accessibility": {
+    "keyboard_operable": "PASS",
+    "zoom_200_operable": "PASS",
+    "reduced_motion_operable": "PASS"
+  }
+}

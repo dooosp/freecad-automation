@@ -27,6 +27,10 @@ import {
 } from './recent-job-quality-status.js';
 import { renderEvidenceGraphSummary } from './evidence-graph-panel.js';
 import { buildReviewSummary } from './review-summary.js';
+import {
+  mountManufacturingRoboticsCard,
+  renderManufacturingRoboticsCard,
+} from './manufacturing-robotics-card.js';
 import { applyTranslations, t } from '../i18n/index.js';
 
 function ensureReviewState(review = {}) {
@@ -283,7 +287,13 @@ const REVIEW_NEXT_STEP_KEYS = Object.freeze({
   more_information: 'studio.review.next.more-information',
 });
 
-function reviewDecisionCopy(summary) {
+function reviewDecisionCopy(summary, activeJob = null) {
+  if (
+    summary.decision === 'more_information'
+    && activeJob?.summary?.type === 'manufacturing-action-dataset'
+  ) {
+    return t('studio.review.decision.manufacturing-general-more-information');
+  }
   return t(REVIEW_DECISION_KEYS[summary.decision] || REVIEW_DECISION_KEYS.more_information);
 }
 
@@ -424,6 +434,7 @@ export function renderReviewWorkspace(state) {
         description: t('studio.review.description'),
       }),
       renderBeginnerReviewSummary(state),
+      renderManufacturingRoboticsCard(state),
       el('details', {
         className: 'review-advanced-tools',
         attrs: state.experienceMode === 'advanced' ? { open: true } : {},
@@ -559,6 +570,12 @@ export function mountReviewWorkspace({ root, state, addLog, openJob, submitTrack
   const detailPanels = [...root.querySelectorAll('[data-panel]')];
   const tabButtons = [...root.querySelectorAll('[data-action="review-set-tab"]')];
   let destroyed = false;
+  const manufacturingRoboticsCard = mountManufacturingRoboticsCard({
+    root,
+    state,
+    openJob,
+    submitTrackedJob,
+  });
 
   function getSelectedCard() {
     return review.cards.find((card) => card.id === review.selectedCardId) || review.cards[0] || null;
@@ -571,7 +588,7 @@ export function mountReviewWorkspace({ root, state, addLog, openJob, submitTrack
       cards: review.cards,
     });
     beginnerSummaryElement.dataset.tone = summary.tone;
-    currentDecisionElement.textContent = reviewDecisionCopy(summary);
+    currentDecisionElement.textContent = reviewDecisionCopy(summary, state.data.activeJob);
     issuesElement.replaceChildren(...renderBeginnerIssues(summary));
     nextStepElement.textContent = reviewNextStepCopy(summary);
     supportingFilesLabelElement.textContent = t('studio.review.supporting-files.count', {
@@ -778,6 +795,7 @@ export function mountReviewWorkspace({ root, state, addLog, openJob, submitTrack
     syncStatus();
     syncCards();
     syncDetail();
+    manufacturingRoboticsCard.syncFromShell();
     applyTranslations(root);
   }
 
@@ -1099,6 +1117,7 @@ export function mountReviewWorkspace({ root, state, addLog, openJob, submitTrack
     },
     destroy() {
       destroyed = true;
+      manufacturingRoboticsCard.destroy();
       root.removeEventListener('click', handleClick);
     },
   };

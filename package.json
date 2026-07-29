@@ -33,6 +33,7 @@
     "release:dry-run:doctor": "node scripts/release-dry-run-doctor.js",
     "maintainer:doctor": "node scripts/maintainer-doctor.js",
     "manufacturing-action-dataset:doctor": "node scripts/manufacturing-action-dataset-doctor.js",
+    "manufacturing-robotics-uat:aggregate": "node scripts/manufacturing-robotics-uat-aggregate.js",
     "evidence:readiness:audit": "node bin/fcad.js evidence-readiness-audit --out-dir output/evidence-readiness-audit",
     "evidence:artifacts:materialize": "node bin/fcad.js evidence-artifacts-materialize",
     "maintainer:decision-journal": "node bin/fcad.js maintainer-decision-journal",

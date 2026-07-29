@@ -112,7 +112,12 @@ try {
   assert.equal(entry.workflow, 'engineering');
   assert.equal(entry.runtime.classification, 'plain-python-node');
   assert.equal(entry.runtime.requiresFreecadRuntime, false);
-  assert.equal(entry.surfaces, undefined, 'command must not acquire job, Local API, or Studio surfaces');
+  assert.deepEqual(entry.surfaces, {
+    jobExecutor: true,
+    localApi: true,
+    studio: true,
+    studioSubmission: 'server-profile',
+  });
   assert.equal(entry.helpEntries.length, 1);
   assert.equal(entry.helpEntries[0].usage, EXPECTED_USAGE);
   assert.match(entry.safetyBoundary, /synthetic dataset generation only/i);
@@ -126,8 +131,8 @@ try {
   assert.match(renderCommandUsage('manufacturing-action-dataset'), /plain-python-node/);
   assert.equal(CLI_DISPATCH_COMMANDS.includes('manufacturing-action-dataset'), true);
   assert.equal(PLAIN_PYTHON_COMMANDS.includes('manufacturing-action-dataset'), true);
-  assert.equal(LOCAL_API_JOB_COMMANDS.includes('manufacturing-action-dataset'), false);
-  assert.equal(STUDIO_JOB_COMMANDS.includes('manufacturing-action-dataset'), false);
+  assert.equal(LOCAL_API_JOB_COMMANDS.includes('manufacturing-action-dataset'), true);
+  assert.equal(STUDIO_JOB_COMMANDS.includes('manufacturing-action-dataset'), true);
 
   const defaultHelpRun = runCli(['--help']);
   assert.equal(defaultHelpRun.status, 0, defaultHelpRun.stderr);

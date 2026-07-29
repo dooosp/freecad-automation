@@ -169,6 +169,79 @@ assert.equal(
   ),
   ''
 );
+assert.deepEqual(
+  resolveMonitoredJobCompletionTarget(
+    {
+      type: 'manufacturing-action-dataset',
+      status: 'failed',
+      diagnostics: {
+        manufacturing_action_demo: {
+          reason_code: 'REVISION_LINEAGE_IDENTITY_MISMATCH',
+        },
+      },
+    },
+    {
+      completionAction: {
+        preferredRoute: 'review',
+        failureRoute: 'review',
+      },
+    }
+  ),
+  {
+    route: 'review',
+    secondaryRoute: '',
+    hasReviewOutputs: false,
+  },
+  'The bounded mismatch may opt in to opening its blocked Review result.'
+);
+assert.deepEqual(
+  resolveMonitoredJobCompletionTarget(
+    {
+      type: 'manufacturing-action-dataset',
+      status: 'failed',
+      diagnostics: {
+        manufacturing_action_demo: {
+          reason_code: 'SOURCE_HASH_MISMATCH',
+        },
+      },
+    },
+    { completionAction: { failureRoute: 'review' } }
+  ),
+  {
+    route: '',
+    secondaryRoute: '',
+    hasReviewOutputs: false,
+  },
+  'A generic manufacturing failure must not route to the bounded Review state.'
+);
+assert.deepEqual(
+  resolveMonitoredJobCompletionTarget(
+    { type: 'report', status: 'failed' },
+    { completionAction: { preferredRoute: 'review' } }
+  ),
+  {
+    route: '',
+    secondaryRoute: '',
+    hasReviewOutputs: false,
+  },
+  'Generic failures must retain the existing Jobs-center completion behavior.'
+);
+assert.equal(
+  resolveMonitoredJobCompletionRoute(
+    {
+      type: 'manufacturing-action-dataset',
+      status: 'cancelled',
+      diagnostics: {
+        manufacturing_action_demo: {
+          reason_code: 'REVISION_LINEAGE_IDENTITY_MISMATCH',
+        },
+      },
+    },
+    { failureRoute: 'review' }
+  ),
+  '',
+  'Cancellation must not be treated as the bounded failed result.'
+);
 
 const passedCompletionNotice = buildStudioJobCompletionNotice(
   {
@@ -202,6 +275,32 @@ assert.deepEqual(passedCompletionNotice.messageParts, [
 ]);
 assert.deepEqual(
   passedCompletionNotice.actions.map((action) => [action.label, action.action, action.route]),
+  [
+    ['Open Review', 'open-job', 'review'],
+    ['Open Artifacts', 'open-job', 'artifacts'],
+  ]
+);
+
+const manufacturingCompletionNotice = buildStudioJobCompletionNotice(
+  {
+    id: 'job-manufacturing-success-123456789',
+    type: 'manufacturing-action-dataset',
+    status: 'succeeded',
+    result: {
+      status: 'valid_synthetic_demo',
+      publication: { expected_count: 8, published_count: 8, exact: true },
+    },
+  },
+  {
+    route: 'review',
+    secondaryRoute: 'artifacts',
+  },
+  0
+);
+assert.equal(manufacturingCompletionNotice.tone, 'ok');
+assert.equal(manufacturingCompletionNotice.title, 'Tracked manufacturing-action-dataset completed');
+assert.deepEqual(
+  manufacturingCompletionNotice.actions.map((action) => [action.label, action.action, action.route]),
   [
     ['Open Review', 'open-job', 'review'],
     ['Open Artifacts', 'open-job', 'artifacts'],
@@ -289,6 +388,36 @@ assert.deepEqual(
     ['Open Jobs center', 'open-jobs-center'],
   ]
 );
+
+const mismatchCompletionNotice = buildStudioJobCompletionNotice(
+  {
+    id: 'job-manufacturing-mismatch-123456789',
+    type: 'manufacturing-action-dataset',
+    status: 'failed',
+    diagnostics: {
+      manufacturing_action_demo: {
+        reason_code: 'REVISION_LINEAGE_IDENTITY_MISMATCH',
+      },
+    },
+  },
+  { route: 'review' },
+  0
+);
+assert.equal(mismatchCompletionNotice.tone, 'bad');
+assert.equal(mismatchCompletionNotice.title, 'Tracked manufacturing-action-dataset failed');
+assert.equal(mismatchCompletionNotice.primaryRoute, 'review');
+assert.equal(mismatchCompletionNotice.primaryLabel, 'Open Review');
+assert.match(mismatchCompletionNotice.message, /bounded revision mismatch/i);
+assert.match(mismatchCompletionNotice.message, /server-pinned synthetic Revision A recovery/);
+assert.equal(mismatchCompletionNotice.message.includes('retry when the source issue is fixed'), false);
+assert.deepEqual(
+  mismatchCompletionNotice.actions.map((action) => [action.label, action.action, action.route || '']),
+  [
+    ['Open Review', 'open-job', 'review'],
+    ['Open Jobs center', 'open-jobs-center', ''],
+  ]
+);
+assert.equal(mismatchCompletionNotice.actions.some((action) => action.action === 'retry-job'), false);
 
 const cancelledJobCompletionNotice = buildStudioJobCompletionNotice(
   {

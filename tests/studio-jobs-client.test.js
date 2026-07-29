@@ -1,8 +1,14 @@
 import assert from 'node:assert/strict';
 
 import {
+  MANUFACTURING_ROBOTICS_DEMO_PROFILE,
+  MANUFACTURING_ROBOTICS_JOB_TYPE,
+  MANUFACTURING_ROBOTICS_MISMATCH_REASON_CODE,
+  MANUFACTURING_ROBOTICS_TRUST_DEMO,
+  buildStudioTrackedJobRequest,
   findResumableStudioJob,
   findResumableStudioJobs,
+  isManufacturingRoboticsMismatchFailure,
   isReviewableStudioJob,
   isActiveStudioJobStatus,
   submitStudioTrackedJob,
@@ -46,10 +52,71 @@ assert.equal(isReviewableStudioJob({ type: 'report', status: 'succeeded' }), tru
 assert.equal(isReviewableStudioJob({ type: 'inspection-evidence-intake', status: 'succeeded' }), true);
 assert.equal(isReviewableStudioJob({ type: 'inspection-evidence-promotion-dry-run', status: 'succeeded' }), true);
 assert.equal(isReviewableStudioJob({ type: 'stage5b-evidence-audit', status: 'succeeded' }), true);
+assert.equal(isReviewableStudioJob({ type: MANUFACTURING_ROBOTICS_JOB_TYPE, status: 'succeeded' }), true);
+const manufacturingMismatchFailure = {
+  type: MANUFACTURING_ROBOTICS_JOB_TYPE,
+  status: 'failed',
+  diagnostics: {
+    manufacturing_action_demo: {
+      reason_code: MANUFACTURING_ROBOTICS_MISMATCH_REASON_CODE,
+    },
+  },
+};
+assert.equal(isManufacturingRoboticsMismatchFailure(manufacturingMismatchFailure), true);
+assert.equal(isReviewableStudioJob(manufacturingMismatchFailure), true);
+assert.equal(isReviewableStudioJob({ type: MANUFACTURING_ROBOTICS_JOB_TYPE, status: 'failed' }), false);
+assert.equal(isManufacturingRoboticsMismatchFailure({
+  ...manufacturingMismatchFailure,
+  diagnostics: {
+    manufacturing_action_demo: {
+      code: MANUFACTURING_ROBOTICS_MISMATCH_REASON_CODE,
+    },
+  },
+}), false, 'A generic code alias must not be promoted to the bounded trust-demo reason_code.');
+assert.equal(isManufacturingRoboticsMismatchFailure({
+  ...manufacturingMismatchFailure,
+  status: 'cancelled',
+}), false);
 assert.equal(isReviewableStudioJob({ type: 'compare-rev', status: 'succeeded' }), false);
 assert.equal(isReviewableStudioJob({ type: 'stabilization-review', status: 'succeeded' }), false);
 assert.equal(isReviewableStudioJob({ type: 'draw', status: 'succeeded' }), false);
 assert.equal(isReviewableStudioJob({ type: 'inspect', status: 'running' }), false);
+
+assert.deepEqual(buildStudioTrackedJobRequest({
+  type: MANUFACTURING_ROBOTICS_JOB_TYPE,
+  demoProfile: MANUFACTURING_ROBOTICS_DEMO_PROFILE,
+}), {
+  type: MANUFACTURING_ROBOTICS_JOB_TYPE,
+  demo_profile: MANUFACTURING_ROBOTICS_DEMO_PROFILE,
+});
+assert.deepEqual(buildStudioTrackedJobRequest({
+  type: MANUFACTURING_ROBOTICS_JOB_TYPE,
+  demoProfile: MANUFACTURING_ROBOTICS_DEMO_PROFILE,
+  trustDemo: MANUFACTURING_ROBOTICS_TRUST_DEMO,
+}), {
+  type: MANUFACTURING_ROBOTICS_JOB_TYPE,
+  demo_profile: MANUFACTURING_ROBOTICS_DEMO_PROFILE,
+  trust_demo: MANUFACTURING_ROBOTICS_TRUST_DEMO,
+});
+assert.throws(() => buildStudioTrackedJobRequest({
+  type: MANUFACTURING_ROBOTICS_JOB_TYPE,
+  demoProfile: 'unknown-profile',
+}), /approved server-owned demo profile/);
+assert.throws(() => buildStudioTrackedJobRequest({
+  type: MANUFACTURING_ROBOTICS_JOB_TYPE,
+  demoProfile: MANUFACTURING_ROBOTICS_DEMO_PROFILE,
+  trustDemo: 'arbitrary-failure',
+}), /unsupported trust demo/);
+assert.throws(() => buildStudioTrackedJobRequest({
+  type: MANUFACTURING_ROBOTICS_JOB_TYPE,
+  demoProfile: MANUFACTURING_ROBOTICS_DEMO_PROFILE,
+  contextPath: '/private/local/input.json',
+}), /does not accept browser paths/);
+assert.throws(() => buildStudioTrackedJobRequest({
+  type: MANUFACTURING_ROBOTICS_JOB_TYPE,
+  demoProfile: MANUFACTURING_ROBOTICS_DEMO_PROFILE,
+  options: { proofLineage: false },
+}), /does not accept browser paths or arbitrary options/);
 
 let capturedRequest = null;
 const originalFetch = globalThis.fetch;
@@ -107,6 +174,19 @@ try {
     dfm_report_path: 'docs/examples/infotainment-display-bracket/quality-risk.json',
     compare_to_path: 'docs/examples/motor-mount/review/review_pack.json',
   });
+
+  await submitStudioTrackedJob({
+    type: MANUFACTURING_ROBOTICS_JOB_TYPE,
+    demoProfile: MANUFACTURING_ROBOTICS_DEMO_PROFILE,
+    trustDemo: MANUFACTURING_ROBOTICS_TRUST_DEMO,
+  });
+  assert.deepEqual(capturedRequest.body, {
+    type: MANUFACTURING_ROBOTICS_JOB_TYPE,
+    demo_profile: MANUFACTURING_ROBOTICS_DEMO_PROFILE,
+    trust_demo: MANUFACTURING_ROBOTICS_TRUST_DEMO,
+  });
+  assert.equal(JSON.stringify(capturedRequest.body).includes('/private/'), false);
+  assert.equal(Object.hasOwn(capturedRequest.body, 'options'), false);
 } finally {
   globalThis.fetch = originalFetch;
 }

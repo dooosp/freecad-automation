@@ -1,0 +1,446 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freecad-automation.local/schemas/manufacturing-robotics-uat-result.schema.json",
+  "title": "Private Manufacturing Robotics Human UAT Result",
+  "description": "Closed, non-identifying raw record for one P1-P5 Manufacturing Robotics Studio UAT attempt. Raw records stay outside the repository.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_type",
+    "record_origin",
+    "round_id",
+    "participant_label",
+    "attempt_label",
+    "candidate",
+    "protocol",
+    "round_gates",
+    "locale",
+    "observations",
+    "predictions",
+    "accessibility"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "record_type": {
+      "const": "manufacturing_robotics_human_uat_result"
+    },
+    "record_origin": {
+      "enum": [
+        "private_human_session",
+        "synthetic_test_fixture"
+      ]
+    },
+    "round_id": {
+      "type": "string",
+      "pattern": "^MR-UAT-(?:TEST-)?R[1-9][0-9]*$"
+    },
+    "participant_label": {
+      "enum": [
+        "P1",
+        "P2",
+        "P3",
+        "P4",
+        "P5"
+      ]
+    },
+    "attempt_label": {
+      "type": "string",
+      "pattern": "^P[1-5](?:-R[1-9][0-9]*)?$"
+    },
+    "candidate": {
+      "$ref": "#/$defs/candidate"
+    },
+    "protocol": {
+      "$ref": "#/$defs/protocol"
+    },
+    "round_gates": {
+      "$ref": "#/$defs/roundGates"
+    },
+    "locale": {
+      "enum": [
+        "en",
+        "ko"
+      ]
+    },
+    "observations": {
+      "$ref": "#/$defs/observations"
+    },
+    "predictions": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {
+        "$ref": "#/$defs/prediction"
+      }
+    },
+    "accessibility": {
+      "$ref": "#/$defs/accessibility"
+    }
+  },
+  "$defs": {
+    "gitSha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resolved_commit",
+        "git_tree",
+        "candidate_tree_sha256",
+        "clean_status_matches"
+      ],
+      "properties": {
+        "resolved_commit": {
+          "$ref": "#/$defs/gitSha"
+        },
+        "git_tree": {
+          "$ref": "#/$defs/gitSha"
+        },
+        "candidate_tree_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "clean_status_matches": {
+          "type": "boolean"
+        }
+      }
+    },
+    "protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "new_to_studio",
+        "anonymous_notes_consent",
+        "p0_excluded",
+        "valid_attempt",
+        "invalid_reason",
+        "all_required_fields_complete",
+        "sensitive_data_review_complete"
+      ],
+      "properties": {
+        "new_to_studio": {
+          "const": true
+        },
+        "anonymous_notes_consent": {
+          "const": true
+        },
+        "p0_excluded": {
+          "const": true
+        },
+        "valid_attempt": {
+          "type": "boolean"
+        },
+        "invalid_reason": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "enum": [
+                "browser_or_runtime_observation_fault",
+                "candidate_identity_changed",
+                "facilitator_missed_prediction",
+                "incomplete_required_field",
+                "protocol_deviation"
+              ]
+            }
+          ]
+        },
+        "all_required_fields_complete": {
+          "type": "boolean"
+        },
+        "sensitive_data_review_complete": {
+          "type": "boolean"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "valid_attempt": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "invalid_reason": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "invalid_reason": {
+                "enum": [
+                  "browser_or_runtime_observation_fault",
+                  "candidate_identity_changed",
+                  "facilitator_missed_prediction",
+                  "incomplete_required_field",
+                  "protocol_deviation"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "roundGates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "p0_status",
+        "human_bilingual_review_status",
+        "material_bilingual_error_count",
+        "candidate_unchanged"
+      ],
+      "properties": {
+        "p0_status": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "NOT_RUN"
+          ]
+        },
+        "human_bilingual_review_status": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "NOT_RUN"
+          ]
+        },
+        "material_bilingual_error_count": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "candidate_unchanged": {
+          "type": "boolean"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "human_bilingual_review_status": {
+                "const": "PASS"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "material_bilingual_error_count": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "material_bilingual_error_count": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "observations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dataset_summary_reached",
+        "dataset_summary_without_help",
+        "action_feature_link_explained",
+        "synthetic_vs_real_explained",
+        "lerobot_gap_explained",
+        "revision_mismatch_explained",
+        "completed_path_primary_actions"
+      ],
+      "properties": {
+        "dataset_summary_reached": {
+          "type": "boolean"
+        },
+        "dataset_summary_without_help": {
+          "type": "boolean"
+        },
+        "action_feature_link_explained": {
+          "type": "boolean"
+        },
+        "synthetic_vs_real_explained": {
+          "type": "boolean"
+        },
+        "lerobot_gap_explained": {
+          "type": "boolean"
+        },
+        "revision_mismatch_explained": {
+          "type": "boolean"
+        },
+        "completed_path_primary_actions": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "dataset_summary_without_help": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "dataset_summary_reached": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "dataset_summary_reached": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "completed_path_primary_actions": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 50
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "completed_path_primary_actions": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "prediction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "opportunity_id",
+        "reached",
+        "score"
+      ],
+      "properties": {
+        "opportunity_id": {
+          "enum": [
+            "MR-PRED-01",
+            "MR-PRED-02",
+            "MR-PRED-03",
+            "MR-PRED-04",
+            "MR-PRED-05",
+            "MR-PRED-06",
+            "MR-PRED-07",
+            "MR-PRED-08"
+          ]
+        },
+        "reached": {
+          "type": "boolean"
+        },
+        "score": {
+          "enum": [
+            "CORRECT",
+            "INCORRECT",
+            "UNREACHED",
+            "FACILITATOR_MISSED"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "score": {
+                "enum": [
+                  "CORRECT",
+                  "INCORRECT",
+                  "FACILITATOR_MISSED"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "reached": {
+                "const": true
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "reached": {
+                "const": false
+              }
+            }
+          }
+        }
+      ]
+    },
+    "accessibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "keyboard_operable",
+        "zoom_200_operable",
+        "reduced_motion_operable"
+      ],
+      "properties": {
+        "keyboard_operable": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "NOT_RUN"
+          ]
+        },
+        "zoom_200_operable": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "NOT_RUN"
+          ]
+        },
+        "reduced_motion_operable": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "NOT_RUN"
+          ]
+        }
+      }
+    }
+  }
+}

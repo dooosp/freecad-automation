@@ -1,6 +1,140 @@
 const ACTIVE_JOB_STATUSES = new Set(['queued', 'running']);
 const TERMINAL_JOB_STATUSES = new Set(['succeeded', 'failed', 'cancelled']);
 
+export const MANUFACTURING_ROBOTICS_JOB_TYPE = 'manufacturing-action-dataset';
+export const MANUFACTURING_ROBOTICS_DEMO_PROFILE = 'hinge-block-synthetic-inspection-v1';
+export const MANUFACTURING_ROBOTICS_TRUST_DEMO = 'revision-mismatch';
+export const MANUFACTURING_ROBOTICS_MISMATCH_REASON_CODE = 'REVISION_LINEAGE_IDENTITY_MISMATCH';
+
+function manufacturingRoboticsDiagnosticCandidates(job = {}) {
+  return [
+    job?.diagnostics?.manufacturing_action_demo,
+    job?.diagnostics?.manufacturing_robotics_demo,
+    job?.result?.diagnostics?.manufacturing_action_demo,
+    job?.result?.diagnostics?.manufacturing_robotics_demo,
+    job?.result?.manufacturing_action_demo,
+    job?.result?.manufacturing_robotics_demo,
+    job?.metadata?.manufacturing_action_demo,
+    job?.metadata?.manufacturing_robotics_demo,
+    job?.error?.details?.manufacturing_action_demo,
+    job?.error?.details?.manufacturing_robotics_demo,
+    job?.diagnostics,
+    job?.result?.diagnostics,
+    job?.result,
+    job?.error?.details,
+  ].filter((candidate) => candidate && typeof candidate === 'object' && !Array.isArray(candidate));
+}
+
+export function getManufacturingRoboticsReasonCode(job = {}) {
+  const diagnostic = manufacturingRoboticsDiagnosticCandidates(job)
+    .find((candidate) => typeof candidate.reason_code === 'string');
+  return diagnostic?.reason_code || '';
+}
+
+export function isManufacturingRoboticsMismatchFailure(job = {}) {
+  return String(job?.type || '').toLowerCase() === MANUFACTURING_ROBOTICS_JOB_TYPE
+    && String(job?.status || '').toLowerCase() === 'failed'
+    && getManufacturingRoboticsReasonCode(job) === MANUFACTURING_ROBOTICS_MISMATCH_REASON_CODE;
+}
+
+function hasRequestValue(value) {
+  return value !== undefined && value !== null && value !== '';
+}
+
+export function buildStudioTrackedJobRequest({
+  type,
+  configToml,
+  artifactRef,
+  baselineArtifactRef,
+  candidateArtifactRef,
+  contextPath,
+  modelPath,
+  bomPath,
+  inspectionPath,
+  qualityPath,
+  createQualityPath,
+  drawingQualityPath,
+  drawingQaPath,
+  drawingIntentPath,
+  featureCatalogPath,
+  dfmReportPath,
+  compareToPath,
+  intakeReportPath,
+  drawingSettings,
+  drawingPreviewId,
+  reportOptions,
+  options,
+  demoProfile,
+  trustDemo,
+} = {}) {
+  if (type === MANUFACTURING_ROBOTICS_JOB_TYPE) {
+    if (demoProfile !== MANUFACTURING_ROBOTICS_DEMO_PROFILE) {
+      throw new Error('Manufacturing Robotics Data requires the approved server-owned demo profile.');
+    }
+    if (hasRequestValue(trustDemo) && trustDemo !== MANUFACTURING_ROBOTICS_TRUST_DEMO) {
+      throw new Error('Manufacturing Robotics Data received an unsupported trust demo.');
+    }
+
+    const forbiddenValues = [
+      configToml,
+      artifactRef,
+      baselineArtifactRef,
+      candidateArtifactRef,
+      contextPath,
+      modelPath,
+      bomPath,
+      inspectionPath,
+      qualityPath,
+      createQualityPath,
+      drawingQualityPath,
+      drawingQaPath,
+      drawingIntentPath,
+      featureCatalogPath,
+      dfmReportPath,
+      compareToPath,
+      intakeReportPath,
+      drawingSettings,
+      drawingPreviewId,
+      reportOptions,
+      options,
+    ];
+    if (forbiddenValues.some(hasRequestValue)) {
+      throw new Error('Manufacturing Robotics Data does not accept browser paths or arbitrary options.');
+    }
+
+    return {
+      type,
+      demo_profile: demoProfile,
+      ...(trustDemo ? { trust_demo: trustDemo } : {}),
+    };
+  }
+
+  return {
+    type,
+    ...(configToml ? { config_toml: configToml } : {}),
+    ...(artifactRef ? { artifact_ref: artifactRef } : {}),
+    ...(baselineArtifactRef ? { baseline_artifact_ref: baselineArtifactRef } : {}),
+    ...(candidateArtifactRef ? { candidate_artifact_ref: candidateArtifactRef } : {}),
+    ...(contextPath ? { context_path: contextPath } : {}),
+    ...(modelPath ? { model_path: modelPath } : {}),
+    ...(bomPath ? { bom_path: bomPath } : {}),
+    ...(inspectionPath ? { inspection_path: inspectionPath } : {}),
+    ...(qualityPath ? { quality_path: qualityPath } : {}),
+    ...(createQualityPath ? { create_quality_path: createQualityPath } : {}),
+    ...(drawingQualityPath ? { drawing_quality_path: drawingQualityPath } : {}),
+    ...(drawingQaPath ? { drawing_qa_path: drawingQaPath } : {}),
+    ...(drawingIntentPath ? { drawing_intent_path: drawingIntentPath } : {}),
+    ...(featureCatalogPath ? { feature_catalog_path: featureCatalogPath } : {}),
+    ...(dfmReportPath ? { dfm_report_path: dfmReportPath } : {}),
+    ...(compareToPath ? { compare_to_path: compareToPath } : {}),
+    ...(intakeReportPath ? { intake_report_path: intakeReportPath } : {}),
+    ...(drawingSettings ? { drawing_settings: drawingSettings } : {}),
+    ...(drawingPreviewId ? { drawing_preview_id: drawingPreviewId } : {}),
+    ...(reportOptions ? { report_options: reportOptions } : {}),
+    ...(options ? { options } : {}),
+  };
+}
+
 async function parseError(response) {
   try {
     const payload = await response.json();
@@ -64,36 +198,40 @@ export async function submitStudioTrackedJob({
   drawingPreviewId,
   reportOptions,
   options,
+  demoProfile,
+  trustDemo,
 }) {
   const payload = await fetchJobJson('/api/studio/jobs', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
     },
-    body: JSON.stringify({
+    body: JSON.stringify(buildStudioTrackedJobRequest({
       type,
-      ...(configToml ? { config_toml: configToml } : {}),
-      ...(artifactRef ? { artifact_ref: artifactRef } : {}),
-      ...(baselineArtifactRef ? { baseline_artifact_ref: baselineArtifactRef } : {}),
-      ...(candidateArtifactRef ? { candidate_artifact_ref: candidateArtifactRef } : {}),
-      ...(contextPath ? { context_path: contextPath } : {}),
-      ...(modelPath ? { model_path: modelPath } : {}),
-      ...(bomPath ? { bom_path: bomPath } : {}),
-      ...(inspectionPath ? { inspection_path: inspectionPath } : {}),
-      ...(qualityPath ? { quality_path: qualityPath } : {}),
-      ...(createQualityPath ? { create_quality_path: createQualityPath } : {}),
-      ...(drawingQualityPath ? { drawing_quality_path: drawingQualityPath } : {}),
-      ...(drawingQaPath ? { drawing_qa_path: drawingQaPath } : {}),
-      ...(drawingIntentPath ? { drawing_intent_path: drawingIntentPath } : {}),
-      ...(featureCatalogPath ? { feature_catalog_path: featureCatalogPath } : {}),
-      ...(dfmReportPath ? { dfm_report_path: dfmReportPath } : {}),
-      ...(compareToPath ? { compare_to_path: compareToPath } : {}),
-      ...(intakeReportPath ? { intake_report_path: intakeReportPath } : {}),
-      ...(drawingSettings ? { drawing_settings: drawingSettings } : {}),
-      ...(drawingPreviewId ? { drawing_preview_id: drawingPreviewId } : {}),
-      ...(reportOptions ? { report_options: reportOptions } : {}),
-      ...(options ? { options } : {}),
-    }),
+      configToml,
+      artifactRef,
+      baselineArtifactRef,
+      candidateArtifactRef,
+      contextPath,
+      modelPath,
+      bomPath,
+      inspectionPath,
+      qualityPath,
+      createQualityPath,
+      drawingQualityPath,
+      drawingQaPath,
+      drawingIntentPath,
+      featureCatalogPath,
+      dfmReportPath,
+      compareToPath,
+      intakeReportPath,
+      drawingSettings,
+      drawingPreviewId,
+      reportOptions,
+      options,
+      demoProfile,
+      trustDemo,
+    })),
   });
 
   return payload.job || null;
@@ -162,6 +300,10 @@ export function supportsStudioJobRetry(job = {}) {
 
 export function isReviewableStudioJob(job = {}) {
   const type = String(job?.type || '').toLowerCase();
+  const status = String(job?.status || '').toLowerCase();
+  if (type === MANUFACTURING_ROBOTICS_JOB_TYPE) {
+    return status === 'succeeded' || isManufacturingRoboticsMismatchFailure(job);
+  }
   return (
     type === 'inspect'
     || type === 'report'
@@ -173,7 +315,7 @@ export function isReviewableStudioJob(job = {}) {
     || type === 'inspection-evidence-promotion-dry-run'
     || type === 'stage5b-evidence-audit'
   )
-    && String(job?.status || '').toLowerCase() === 'succeeded';
+    && status === 'succeeded';
 }
 
 export function studioJobTone(status) {

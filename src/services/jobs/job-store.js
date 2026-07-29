@@ -640,7 +640,7 @@ export function createJobStore({ jobsDir }) {
         return saveJob(nextJob);
       });
     },
-    async failJob(id, error, artifacts = {}, diagnostics = {}, manifest = null) {
+    async failJob(id, error, artifacts = {}, diagnostics = {}, manifest = null, result = null) {
       return withJobLock(id, async () => {
         const current = await this.getJob(id);
         if (current.status === 'cancelled') {
@@ -653,6 +653,7 @@ export function createJobStore({ jobsDir }) {
         nextJob.error = {
           message: error instanceof Error ? error.message : String(error),
         };
+        nextJob.result = result;
         nextJob.artifacts = artifacts;
         nextJob.diagnostics = diagnostics;
         nextJob.manifest = manifest;

@@ -606,9 +606,24 @@ try {
     'the exact manufacturing task plan should be recognized as curated source control material'
   );
   assert.equal(
+    isCuratedSourceControlMaterial(join(ROOT, 'configs', 'examples', 'manufacturing', 'hinge_block_synthetic_inspection_v1', 'inspection_plan.json')),
+    true,
+    'the exact synthetic proof inspection plan should be recognized as curated source control material'
+  );
+  assert.equal(
     isCuratedSourceControlMaterial(join(ROOT, 'configs', 'examples', 'manufacturing', 'other_robot_inspection_task_plan.json')),
     false,
     'the curated source exception must not allow arbitrary generated-looking task plans'
+  );
+  assert.equal(
+    isCuratedSourceControlMaterial(join(ROOT, 'docs', 'portfolio', 'manufacturing-robotics-demo', 'screenshots', '01-en-prerun.png')),
+    true,
+    'the exact reviewed manufacturing robotics portfolio capture should be curated source control material'
+  );
+  assert.equal(
+    isCuratedSourceControlMaterial(join(ROOT, 'docs', 'portfolio', 'manufacturing-robotics-demo', 'screenshots', '07-unreviewed.png')),
+    false,
+    'the portfolio screenshot exception must not allow arbitrary images in the curated directory'
   );
   try {
     writeFileSync(pollutionPath, '{}\n', 'utf8');

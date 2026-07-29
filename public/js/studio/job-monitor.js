@@ -1,4 +1,8 @@
-import { isActiveStudioJobStatus, studioJobTone } from './jobs-client.js';
+import {
+  isActiveStudioJobStatus,
+  isManufacturingRoboticsMismatchFailure,
+  studioJobTone,
+} from './jobs-client.js';
 import { isReviewSourceArtifact } from './artifact-actions.js';
 import { deriveRecentJobQualityStatus } from './recent-job-quality-status.js';
 
@@ -113,6 +117,11 @@ function normalizeCompletionAction(completionAction = null) {
   return completionAction;
 }
 
+function normalizeCompletionRoute(route = '') {
+  const normalized = String(route || '').trim().toLowerCase();
+  return normalized === 'review' || normalized === 'artifacts' ? normalized : '';
+}
+
 function hasReviewOutputs(artifacts = []) {
   return artifacts.some((artifact) => artifact?.exists !== false && isReviewSourceArtifact(artifact));
 }
@@ -121,16 +130,19 @@ export function resolveMonitoredJobCompletionTarget(job = {}, {
   artifacts = [],
   completionAction = null,
 } = {}) {
+  const action = normalizeCompletionAction(completionAction);
   if (job?.status !== 'succeeded') {
+    const route = isManufacturingRoboticsMismatchFailure(job)
+      ? normalizeCompletionRoute(action.failureRoute)
+      : '';
     return {
-      route: '',
+      route,
       secondaryRoute: '',
       hasReviewOutputs: false,
     };
   }
 
   const normalizedType = String(job?.type || '').toLowerCase();
-  const action = normalizeCompletionAction(completionAction);
   const reviewOutputsPresent = hasReviewOutputs(artifacts);
   const sourceArtifactFamily = String(action.sourceArtifactFamily || '').trim().toLowerCase();
   let route = '';
@@ -248,6 +260,37 @@ export function buildStudioJobCompletionNotice(job = {}, target = {}, remainingA
   }
 
   if (status === 'failed') {
+    if (isManufacturingRoboticsMismatchFailure(job)) {
+      const messageParts = [
+        'The bounded revision mismatch published no dataset files. Open Review to run the server-pinned synthetic Revision A recovery.',
+        stillRunningCopy,
+      ].filter(Boolean);
+      return {
+        jobId: job.id,
+        tone: 'bad',
+        title: `Tracked ${jobType} failed`,
+        message: messageParts.join(' '),
+        messageParts,
+        primaryRoute: 'review',
+        primaryLabel: 'Open Review',
+        secondaryRoute: '',
+        secondaryLabel: '',
+        actions: [
+          buildOpenJobAction({
+            label: 'Open Review',
+            jobId: job.id,
+            route: 'review',
+            tone: 'primary',
+          }),
+          {
+            label: 'Open Jobs center',
+            action: 'open-jobs-center',
+            tone: 'ghost',
+          },
+        ],
+      };
+    }
+
     const messageParts = [
       'Job failed before Studio could finish the tracked flow. Open Jobs center to inspect status, then retry when the source issue is fixed.',
       stillRunningCopy,

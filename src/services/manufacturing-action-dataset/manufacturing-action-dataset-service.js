@@ -194,6 +194,115 @@ function assertOutputLocator(value) {
   return locator.replace(/\/$/, '');
 }
 
+function strictDescendantLocator(root, target) {
+  const locator = relative(root, target).replaceAll('\\', '/');
+  if (!locator
+    || locator === '..'
+    || locator.startsWith('../')
+    || isAbsolute(locator)
+    || locator.split('/').some((segment) => !segment || segment === '.' || segment === '..')) {
+    return null;
+  }
+  return locator;
+}
+
+async function pinOutputBoundaryRoot(rootValue, label, { requireCanonicalInput = false } = {}) {
+  const requestedRoot = resolve(rootValue);
+  let info;
+  let canonicalRoot;
+  try {
+    [info, canonicalRoot] = await Promise.all([
+      lstat(requestedRoot),
+      realpath(requestedRoot),
+    ]);
+  } catch (error) {
+    throw serviceError('unsafe_output_path', `${label} must be an existing real directory.`, {
+      stage: 'schema',
+      jsonPointer: '/out_dir',
+      cause: error,
+    });
+  }
+  if (!info.isDirectory()
+    || info.isSymbolicLink()
+    || (requireCanonicalInput && canonicalRoot !== requestedRoot)) {
+    throw serviceError('unsafe_output_path', `${label} must be a real non-symlink directory.`, {
+      stage: 'schema',
+      jsonPointer: '/out_dir',
+    });
+  }
+  return Object.freeze({
+    requested_root: requestedRoot,
+    root: canonicalRoot,
+    root_dev: info.dev,
+    root_ino: info.ino,
+  });
+}
+
+async function resolveOutputBoundary({ projectRoot, outDir, trustedOutputRoots = [] }) {
+  if (!Array.isArray(trustedOutputRoots)
+    || trustedOutputRoots.length > 8
+    || trustedOutputRoots.some((entry) => typeof entry !== 'string'
+      || !entry.trim()
+      || entry !== entry.trim()
+      || !isAbsolute(entry)
+      || entry.includes('\\')
+      || /[\u0000-\u001f\u007f]/.test(entry)
+      || resolve(entry) !== entry)) {
+    throw serviceError('unsafe_output_path', 'trustedOutputRoots must be a bounded server-owned path list.', {
+      stage: 'schema',
+      jsonPointer: '/out_dir',
+    });
+  }
+
+  if (typeof outDir !== 'string' || !isAbsolute(outDir)) {
+    const locator = assertOutputLocator(outDir);
+    const rootPin = await pinOutputBoundaryRoot(projectRoot, 'projectRoot', {
+      requireCanonicalInput: true,
+    });
+    return Object.freeze({
+      ...rootPin,
+      locator,
+      output_directory: resolve(rootPin.root, locator),
+      kind: 'repository_ignored_root',
+    });
+  }
+
+  if (trustedOutputRoots.length === 0) {
+    assertOutputLocator(outDir);
+  }
+
+  if (typeof outDir !== 'string'
+    || outDir !== outDir.trim()
+    || outDir.includes('\\')
+    || /[\u0000-\u001f\u007f]/.test(outDir)
+    || outDir.split('/').some((segment) => segment === '.' || segment === '..')
+    || resolve(outDir) !== outDir) {
+    throw serviceError('unsafe_output_path', 'Trusted output path must be an exact normalized absolute path.', {
+      stage: 'schema',
+      jsonPointer: '/out_dir',
+    });
+  }
+
+  const matchingRoot = trustedOutputRoots
+    .map((entry) => resolve(entry))
+    .sort((left, right) => right.length - left.length)
+    .find((entry) => strictDescendantLocator(entry, outDir));
+  if (!matchingRoot) {
+    throw serviceError('unsafe_output_path', 'Absolute out dir must stay below an explicit server-owned trusted output root.', {
+      stage: 'schema',
+      jsonPointer: '/out_dir',
+    });
+  }
+  const rootPin = await pinOutputBoundaryRoot(matchingRoot, 'Trusted output root');
+  const locator = strictDescendantLocator(matchingRoot, outDir);
+  return Object.freeze({
+    ...rootPin,
+    locator,
+    output_directory: resolve(rootPin.root, locator),
+    kind: 'server_trusted_root',
+  });
+}
+
 function strictUtf8(bytes, label) {
   if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
     throw serviceError('bom_forbidden', `${label} must not contain a UTF-8 byte-order mark.`, {
@@ -366,6 +475,49 @@ function snapshotRecord(snapshot, { artifactType, role, path = snapshot.path }) 
     sha256: snapshot.sha256,
     size_bytes: snapshot.size_bytes,
   });
+}
+
+function assertExpectedSourceBindings(expectedBindings, snapshots) {
+  if (expectedBindings === null || expectedBindings === undefined) return;
+  const requiredKeys = ['artifact_type', 'path', 'role', 'sha256', 'size_bytes'];
+  const expectedRoles = [
+    'authoritative_config',
+    'review_pack',
+    'inspection_plan',
+    'robot_config',
+    'manufacturing_task_plan',
+  ];
+  if (!Array.isArray(expectedBindings)
+    || expectedBindings.length !== expectedRoles.length
+    || expectedBindings.some((entry) => {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return true;
+      const keys = Object.keys(entry).sort();
+      return keys.length !== requiredKeys.length
+        || keys.some((key, index) => key !== requiredKeys[index]);
+    })) {
+    throw serviceError('profile_source_binding_invalid', 'Expected source bindings must declare the exact five server-owned profile inputs.', {
+      stage: 'schema',
+      jsonPointer: '/expected_source_bindings',
+    });
+  }
+  const expectedByRole = new Map(expectedBindings.map((entry) => [entry.role, entry]));
+  if (expectedByRole.size !== expectedRoles.length
+    || expectedRoles.some((role) => !expectedByRole.has(role))) {
+    throw serviceError('profile_source_binding_invalid', 'Expected source bindings contain missing or duplicate input roles.', {
+      stage: 'schema',
+      jsonPointer: '/expected_source_bindings',
+    });
+  }
+  for (const actual of snapshots) {
+    const expected = expectedByRole.get(actual.role);
+    if (!expected || requiredKeys.some((key) => expected[key] !== actual[key])) {
+      throw serviceError('profile_source_mismatch', `The ${actual.role} input does not match the exact server-owned profile binding.`, {
+        stage: 'lineage',
+        jsonPointer: '/expected_source_bindings',
+        details: { role: actual.role },
+      });
+    }
+  }
 }
 
 function assertExactOrderedArray(actual, expected, label) {
@@ -555,6 +707,7 @@ async function readAndReconcileInputs({
   inspectionPlanPath,
   robotConfigPath,
   taskPlanPath,
+  expectedSourceBindings = null,
 }) {
   const paths = {
     configPath: assertRepoRelativePath(configPath, 'config path'),
@@ -575,6 +728,14 @@ async function readAndReconcileInputs({
     readRevisionLineageFileSnapshot({ projectRoot, path: paths.inspectionPlanPath, maxBytes: MAX_CONTROL_BYTES }),
     readRevisionLineageFileSnapshot({ projectRoot, path: paths.robotConfigPath, maxBytes: MAX_CONTROL_BYTES }),
     readRevisionLineageFileSnapshot({ projectRoot, path: paths.taskPlanPath, maxBytes: MAX_CONTROL_BYTES }),
+  ]);
+
+  assertExpectedSourceBindings(expectedSourceBindings, [
+    snapshotRecord(configSnapshot, { artifactType: 'config', role: 'authoritative_config' }),
+    snapshotRecord(reviewSnapshot, { artifactType: 'review_pack', role: 'review_pack' }),
+    snapshotRecord(inspectionSnapshot, { artifactType: 'inspection_plan', role: 'inspection_plan' }),
+    snapshotRecord(robotSnapshot, { artifactType: 'robot_config', role: 'robot_config' }),
+    snapshotRecord(taskSnapshot, { artifactType: 'manufacturing_task_plan', role: 'manufacturing_task_plan' }),
   ]);
 
   const reviewPack = parseJsonSnapshot(reviewSnapshot, 'review pack');
@@ -1186,15 +1347,39 @@ async function assertAllSnapshotsCurrent(inputs, projectRoot) {
   await Promise.all(inputs.snapshots.map((snapshot) => assertRevisionLineageSnapshotCurrent(snapshot, { projectRoot })));
 }
 
-async function prepareSafeOutputDirectory(projectRoot, outputLocator) {
-  const root = await realpath(resolve(projectRoot));
-  if (root !== resolve(projectRoot)) {
-    throw serviceError('unsafe_project_root', 'projectRoot must be a real non-symlink directory.', {
+async function assertOutputBoundaryRootCurrent(boundary, phase) {
+  let info;
+  let canonical;
+  try {
+    [info, canonical] = await Promise.all([
+      lstat(boundary.root),
+      realpath(boundary.root),
+    ]);
+  } catch (error) {
+    throw serviceError('unsafe_output_path', `Output boundary root became unavailable during ${phase}.`, {
       stage: 'schema',
+      jsonPointer: '/out_dir',
+      cause: error,
     });
   }
-  let current = root;
-  for (const segment of outputLocator.split('/')) {
+  if (!info.isDirectory()
+    || info.isSymbolicLink()
+    || canonical !== boundary.root
+    || info.dev !== boundary.root_dev
+    || info.ino !== boundary.root_ino) {
+    throw serviceError('unsafe_output_path', `Output boundary root changed during ${phase}.`, {
+      stage: 'schema',
+      jsonPointer: '/out_dir',
+    });
+  }
+}
+
+async function prepareSafeOutputDirectory(boundary) {
+  await assertOutputBoundaryRootCurrent(boundary, 'output preparation');
+  let current = boundary.root;
+  const traversed = [];
+  for (const segment of boundary.locator.split('/')) {
+    traversed.push(segment);
     current = resolve(current, segment);
     let info;
     try {
@@ -1215,13 +1400,14 @@ async function prepareSafeOutputDirectory(projectRoot, outputLocator) {
       });
     }
     const canonical = await realpath(current);
-    const rel = relative(root, canonical).replaceAll('\\', '/');
-    if (canonical !== current || rel === '..' || rel.startsWith('../') || isAbsolute(rel)) {
-      throw serviceError('unsafe_output_path', 'Output directory path must not traverse a symbolic-link ancestor or escape the repository.', {
+    const rel = strictDescendantLocator(boundary.root, canonical);
+    if (canonical !== current || rel !== traversed.join('/')) {
+      throw serviceError('unsafe_output_path', 'Output directory path must not traverse a symbolic-link ancestor or escape its trusted boundary.', {
         stage: 'schema',
         jsonPointer: '/out_dir',
       });
     }
+    await assertOutputBoundaryRootCurrent(boundary, 'output preparation');
   }
   return current;
 }
@@ -1340,13 +1526,14 @@ async function prepareInternal(options = {}) {
     generatedAt,
     proofLineage,
     outDir,
+    trustedOutputRoots = [],
+    expectedSourceBindings = null,
   } = options;
   if (typeof projectRoot !== 'string' || !projectRoot.trim()) {
     throw serviceError('missing_project_root', 'projectRoot is required.', { stage: 'schema' });
   }
   assertProofActivation(proofLineage);
   assertGeneratedAt(generatedAt);
-  const outputLocator = assertOutputLocator(outDir);
   const requestedRoot = resolve(projectRoot);
   const root = await realpath(requestedRoot);
   if (root !== requestedRoot) {
@@ -1354,6 +1541,11 @@ async function prepareInternal(options = {}) {
       stage: 'schema',
     });
   }
+  const outputBoundary = await resolveOutputBoundary({
+    projectRoot: root,
+    outDir,
+    trustedOutputRoots,
+  });
   const repoContext = collectRepoContext(root);
   const inputs = await readAndReconcileInputs({
     projectRoot: root,
@@ -1362,15 +1554,9 @@ async function prepareInternal(options = {}) {
     inspectionPlanPath,
     robotConfigPath,
     taskPlanPath,
+    expectedSourceBindings,
   });
-  const outputDirectory = resolve(root, outputLocator);
-  const outputRelative = relative(root, outputDirectory).replaceAll('\\', '/');
-  if (!(outputRelative.startsWith('output/') || outputRelative.startsWith('tmp/codex/'))) {
-    throw serviceError('unsafe_output_path', 'Resolved output directory escaped the allowed ignored roots.', {
-      stage: 'schema',
-      jsonPointer: '/out_dir',
-    });
-  }
+  const outputDirectory = outputBoundary.output_directory;
   for (const snapshot of inputs.snapshots) {
     const inputAbsolute = resolve(root, snapshot.path);
     const rel = relative(outputDirectory, inputAbsolute).replaceAll('\\', '/');
@@ -1397,6 +1583,7 @@ async function prepareInternal(options = {}) {
   return {
     root,
     outputDirectory,
+    outputBoundary,
     inputs,
     documents: { ...domain.documents, ...manifests.documents },
     payloads,
@@ -1418,16 +1605,19 @@ export async function prepareManufacturingActionDataset(options = {}) {
       [...prepared.payloads].map(([name, bytes]) => [name, Buffer.from(bytes)])
     )),
     bundle_sha256: prepared.bundle_sha256,
+    revision_lineage: clone(prepared.inputs.revisionLineage),
+    source_snapshots: Object.freeze(
+      prepared.inputs.sourceSnapshots.map((entry) => Object.freeze({ ...entry }))
+    ),
     boundaries: Object.freeze(fixedBoundaries()),
   });
 }
 
 export async function generateManufacturingActionDataset(options = {}) {
   const prepared = await prepareInternal(options);
-  const outputLocator = assertOutputLocator(options.outDir);
   let safelyPreparedDirectory;
   try {
-    safelyPreparedDirectory = await prepareSafeOutputDirectory(prepared.root, outputLocator);
+    safelyPreparedDirectory = await prepareSafeOutputDirectory(prepared.outputBoundary);
   } catch (error) {
     if (error instanceof ManufacturingActionDatasetError) throw error;
     throw serviceError('output_directory_preflight_failed', 'Output directory could not be prepared safely.', {
@@ -1497,6 +1687,11 @@ export async function generateManufacturingActionDataset(options = {}) {
     outputs: Object.freeze(Object.fromEntries(
       Object.entries(OUTPUT_FILENAMES).map(([key, filename]) => [key, resolve(canonicalDirectory, filename)])
     )),
+    bundle_sha256: prepared.bundle_sha256,
+    revision_lineage: clone(prepared.inputs.revisionLineage),
+    source_snapshots: Object.freeze(
+      prepared.inputs.sourceSnapshots.map((entry) => Object.freeze({ ...entry }))
+    ),
     validation_report: clone(prepared.documents.validation_report),
     boundaries: Object.freeze(fixedBoundaries()),
   });
