@@ -14,6 +14,7 @@ const aiGuidedFlow = read('public/js/studio/ai-guided-flow.js');
 const importGuidedFlow = read('public/js/studio/import-guided-flow.js');
 const resultFiles = read('public/js/studio/result-files.js');
 const artifactsWorkspace = read('public/js/studio/artifacts-workspace.js');
+const shellJobMonitor = read('public/js/studio/studio-shell-job-monitor.js');
 const reviewWorkspace = read('public/js/studio/review-workspace.js');
 const reviewSummary = read('public/js/studio/review-summary.js');
 const shellCore = read('public/js/studio/studio-shell-core.js');
@@ -69,6 +70,21 @@ assert.match(workspaces, /function createAdvancedConsoleWorkspace\b/);
 ].forEach((name) => {
   assert.match(resultFiles, new RegExp(`export function ${name}\\b`), `${name} must be exported`);
 });
+assert.match(
+  shellJobMonitor,
+  /import\s*\{\s*selectPrimaryResultArtifact\s*\}\s*from\s*['"]\.\/result-files\.js['"]/,
+  'tracked manufacturing jobs must reuse the shared primary-result selector',
+);
+assert.match(
+  shellJobMonitor,
+  /summary\.type[\s\S]{0,160}manufacturing-action-dataset[\s\S]{0,220}selectPrimaryResultArtifact\(app\.state\.data\.activeJob\.artifacts,\s*\{\s*jobType:\s*summary\.type\s*\}\)[\s\S]{0,160}findDefaultArtifactForJob/,
+  'opening a manufacturing job must select its dataset manifest while preserving the generic fallback',
+);
+assert.match(
+  artifactsWorkspace,
+  /const relatedArtifacts = Array\.isArray\(state\.data\.activeJob\.artifacts\)[\s\S]{0,120}\[\.\.\.state\.data\.activeJob\.artifacts\]/,
+  'artifact viewers must receive the current tracked result-file set for count interpretation',
+);
 assert.match(artifactsWorkspace, /hook:\s*'artifacts-result-summary'/);
 assert.match(artifactsWorkspace, /hook:\s*'artifacts-result-groups'/);
 assert.match(artifactsWorkspace, /hook:\s*'artifacts-advanced-tools'/);

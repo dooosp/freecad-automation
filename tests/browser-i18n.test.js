@@ -55,8 +55,14 @@ assert.equal(en.t('studio.artifacts.title'), 'Result files');
 assert.equal(ko.t('studio.artifacts.title'), '결과 파일');
 assert.equal(ko.t('studio.artifacts.summary.execution'), '실행');
 assert.equal(ko.t('studio.artifacts.summary.quality'), '품질');
+assert.equal(en.t('studio.artifacts.summary.dataset-validation'), 'Dataset validation');
+assert.equal(ko.t('studio.artifacts.summary.dataset-validation'), '데이터셋 검증');
+assert.match(en.t('studio.artifacts.summary.dataset-validation-boundary'), /no inspection evidence, approval, readiness, or release/);
+assert.match(ko.t('studio.artifacts.summary.dataset-validation-boundary'), /검사 증거, 승인, 준비 상태 또는 릴리스/);
 assert.equal(ko.t('studio.artifacts.group.system'), '시스템 기록');
 assert.equal(ko.t('studio.artifacts.action.view'), '결과 보기');
+assert.equal(en.t('studio.artifacts.file.manufacturing-handoff-json'), 'Design / manufacturing / quality handoff (JSON; no approval)');
+assert.equal(ko.t('studio.artifacts.file.manufacturing-handoff-json'), '설계 / 제조 / 품질 인계(JSON, 승인 아님)');
 assert.equal(en.t('studio.nav.review.copy').includes('Stage 5B'), false);
 assert.equal(ko.t('studio.nav.review.copy').includes('Stage 5B'), false);
 assert.equal(en.t('studio.model.guided.preflight.safety').includes('tracked'), false);
@@ -84,6 +90,10 @@ assert.equal(en.t('studio.manufacturing-robotics.title'), 'Manufacturing Robotic
 assert.equal(ko.t('studio.manufacturing-robotics.title'), '제조 로봇 데이터');
 assert.equal(en.t('studio.manufacturing-robotics.action.generate'), 'Generate dataset');
 assert.equal(ko.t('studio.manufacturing-robotics.action.generate'), '데이터 세트 생성');
+assert.match(en.t('studio.manufacturing-robotics.cancelled.copy'), /server-pinned profile/);
+assert.match(ko.t('studio.manufacturing-robotics.cancelled.copy'), /서버에 고정된 프로필/);
+assert.equal(en.t('studio.review.decision.manufacturing-general-more-information'), 'General CAD review needs more information');
+assert.equal(ko.t('studio.review.decision.manufacturing-general-more-information'), '일반 CAD 검토에는 추가 정보가 필요합니다');
 assert.match(en.t('studio.manufacturing-robotics.preflight.safety'), /No FreeCAD runtime.*robot hardware.*computer vision.*LeRobot export.*Human review/is);
 assert.match(ko.t('studio.manufacturing-robotics.preflight.safety'), /FreeCAD 런타임.*로봇 하드웨어.*컴퓨터 비전.*LeRobot 내보내기.*사람의 검토/s);
 assert.equal(en.t('studio.manufacturing-robotics.quality.valid-status'), 'VALID SYNTHETIC DEMO');
@@ -170,7 +180,24 @@ assert.equal(translateText('Jobs center', 'ko'), '작업 센터');
 assert.equal(translateText('Open Jobs center', 'ko'), '작업 센터 열기');
 assert.equal(translateText('Retry tracked job', 'ko'), '추적 작업 다시 시도');
 assert.equal(translateText('Tracked report completed', 'ko'), '추적 보고서 완료');
+assert.equal(translateText('Tracked manufacturing-action-dataset completed', 'ko'), '추적 제조 액션 데이터 세트 완료');
 assert.equal(translateText('Tracked create failed', 'ko'), '추적 생성 실패');
+assert.equal(translateText('Tracked manufacturing-action-dataset failed', 'ko'), '추적 제조 액션 데이터 세트 실패');
+assert.equal(
+  translateText('The bounded revision mismatch published no dataset files. Open Review to run the server-pinned synthetic Revision A recovery.', 'ko'),
+  '제한된 리비전 불일치로 데이터 세트 파일이 게시되지 않았습니다. 검토를 열고 서버에 고정된 합성 리비전 A 복구를 실행하세요.'
+);
+assert.equal(translateText('Manufacturing robotics trust viewer', 'ko'), '제조 로봇 신뢰 검토');
+assert.equal(translateText('Manifest count guide', 'ko'), '매니페스트 수량 안내');
+assert.equal(translateText('Registered result files', 'ko'), '등록된 결과 파일');
+assert.equal(
+  translateText('No inspection evidence is attached or created by this artifact.', 'ko'),
+  '이 산출물에는 검사 증거가 첨부되어 있지 않으며 검사 증거를 생성하지도 않습니다.'
+);
+assert.equal(
+  translateText('7 means the six domain files plus artifact-manifest.json; output-manifest.json does not list itself.', 'ko'),
+  '7은 도메인 파일 6개와 artifact-manifest.json을 뜻하며, output-manifest.json은 자신을 목록에 포함하지 않습니다.'
+);
 assert.equal(
   translateText('Open Artifacts to inspect generated files and quality outputs.', 'ko'),
   '생성 파일과 품질 출력을 검토하려면 산출물을 여세요.'

@@ -1,6 +1,7 @@
 import {
   findDefaultArtifactForJob,
 } from './artifact-actions.js';
+import { selectPrimaryResultArtifact } from './result-files.js';
 import {
   describeJobMonitorTransition,
   ensureStudioJobMonitorState,
@@ -529,9 +530,10 @@ export function createStudioJobMonitorController(app) {
           (artifact) => artifact.id === app.state.data.artifactsWorkspace.selectedArtifactId
         )
       ) {
-        app.state.data.artifactsWorkspace.selectedArtifactId = findDefaultArtifactForJob(
-          app.state.data.activeJob.artifacts
-        )?.id || '';
+        const defaultArtifact = String(summary.type || '').trim().toLowerCase() === 'manufacturing-action-dataset'
+          ? selectPrimaryResultArtifact(app.state.data.activeJob.artifacts, { jobType: summary.type })
+          : findDefaultArtifactForJob(app.state.data.activeJob.artifacts);
+        app.state.data.artifactsWorkspace.selectedArtifactId = defaultArtifact?.id || '';
       }
       app.addLog({
         status: 'Artifacts',

@@ -51,6 +51,7 @@ import {
 } from './recent-job-quality-status.js';
 import {
   collectResultFileGroups,
+  deriveManufacturingDatasetValidationStatus,
   deriveResultFileAction,
   resultFileLabelKey,
   selectPrimaryResultArtifact,
@@ -1414,6 +1415,21 @@ function localizedQualityStatus(job = {}) {
   return t(`studio.history.quality.${keys[quality] || 'unknown'}`);
 }
 
+function resultSummaryValidationItem(job = {}) {
+  const manufacturingValidationStatus = deriveManufacturingDatasetValidationStatus(job);
+  if (manufacturingValidationStatus) {
+    return {
+      label: t('studio.artifacts.summary.dataset-validation'),
+      value: t('studio.manufacturing-robotics.quality.valid-status'),
+      note: t('studio.artifacts.summary.dataset-validation-boundary'),
+    };
+  }
+  return {
+    label: t('studio.artifacts.summary.quality'),
+    value: localizedQualityStatus(job),
+  };
+}
+
 function resultArtifactMeta(artifact = {}) {
   const availability = artifact.exists === false ? t('studio.artifacts.missing') : t('studio.artifacts.available');
   return `${availability} · ${formatBytes(artifact.size_bytes)}`;
@@ -1505,6 +1521,8 @@ function renderResultSummary(activeJob, { hydrating = false } = {}) {
     });
   }
 
+  const validationItem = resultSummaryValidationItem(activeJob.summary);
+
   return createCard({
     kicker: t('studio.artifacts.summary.kicker'),
     title: t('studio.artifacts.summary.title'),
@@ -1515,7 +1533,7 @@ function renderResultSummary(activeJob, { hydrating = false } = {}) {
         { label: t('studio.artifacts.summary.run'), value: deriveRecentJobQualityStatus(activeJob.summary).configName },
         { label: t('studio.artifacts.summary.primary'), value: resultFileTitle(primaryArtifact) },
         { label: t('studio.artifacts.summary.execution'), value: localizedExecutionStatus(activeJob.summary) },
-        { label: t('studio.artifacts.summary.quality'), value: localizedQualityStatus(activeJob.summary) },
+        validationItem,
         { label: t('studio.artifacts.summary.other'), value: String(Math.max(0, artifacts.length - 1)) },
       ]),
       createResultArtifactCard(primaryArtifact, { primarySummary: true }),
@@ -2224,12 +2242,16 @@ export function mountArtifactsWorkspace({ root, state, addLog, openJob, fetchJso
         parsedPayload = raw ? parseArtifactPayload(artifact, raw) : null;
       }
 
-      const relatedArtifacts = [];
+      const relatedArtifacts = Array.isArray(state.data.activeJob.artifacts)
+        ? [...state.data.activeJob.artifacts]
+        : [];
       const relatedPayloads = {};
       if (isReleaseBundleArtifact(artifact)) {
         const companionManifestArtifact = findPreferredReleaseBundleManifestArtifact(state.data.activeJob.artifacts || []);
         if (companionManifestArtifact) {
-          relatedArtifacts.push(companionManifestArtifact);
+          if (!relatedArtifacts.some((entry) => entry.id === companionManifestArtifact.id)) {
+            relatedArtifacts.push(companionManifestArtifact);
+          }
           const relatedRaw = await fetchArtifactText(companionManifestArtifact, 250000);
           relatedPayloads[companionManifestArtifact.id] = relatedRaw
             ? parseArtifactPayload(companionManifestArtifact, relatedRaw)

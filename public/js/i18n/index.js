@@ -28,7 +28,7 @@ const DICTIONARIES = {
 };
 
 const TEXT_NODE_ORIGINALS = new WeakMap();
-const ATTRIBUTE_ORIGINALS = new WeakMap();
+const ATTRIBUTE_TRANSLATIONS = new WeakMap();
 const listeners = new Set();
 
 let currentLocale = DEFAULT_LOCALE;
@@ -223,10 +223,10 @@ export function applyTranslations(root = document.body) {
   }
 
   root.querySelectorAll('*').forEach((element) => {
-    if (!ATTRIBUTE_ORIGINALS.has(element)) {
-      ATTRIBUTE_ORIGINALS.set(element, {});
+    if (!ATTRIBUTE_TRANSLATIONS.has(element)) {
+      ATTRIBUTE_TRANSLATIONS.set(element, {});
     }
-    const originals = ATTRIBUTE_ORIGINALS.get(element);
+    const translations = ATTRIBUTE_TRANSLATIONS.get(element);
     ['placeholder', 'title', 'aria-label'].forEach((attribute) => {
       const controlledByDataI18n = {
         placeholder: 'data-i18n-placeholder',
@@ -236,10 +236,17 @@ export function applyTranslations(root = document.body) {
       if (controlledByDataI18n && element.hasAttribute(controlledByDataI18n)) return;
       const value = element.getAttribute(attribute);
       if (value == null) return;
-      if (!(attribute in originals)) {
-        originals[attribute] = value;
+      if (!(attribute in translations)) {
+        translations[attribute] = { source: value, rendered: value };
       }
-      element.setAttribute(attribute, translateAttributeValue(originals[attribute], currentLocale));
+      const translation = translations[attribute];
+      // Renderer-owned dynamic attributes become the next locale source when they change.
+      if (value !== translation.rendered) {
+        translation.source = value;
+      }
+      const rendered = translateAttributeValue(translation.source, currentLocale);
+      element.setAttribute(attribute, rendered);
+      translation.rendered = rendered;
     });
   });
 }
