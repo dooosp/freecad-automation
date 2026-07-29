@@ -429,4 +429,152 @@ for (const artifact of af5ArtifactSurface) {
   }
 }
 
+const manufacturingArtifactSurface = [
+  ['action-dictionary', 'manufacturing-action.dictionary.json', 'manufacturing_action_dictionary.json'],
+  ['episode-annotation', 'manufacturing-action.episode-annotation.json', 'manufacturing_episode_annotation.json'],
+  ['validation-report', 'manufacturing-action.validation-report.json', 'manufacturing_data_validation_report.json'],
+  ['dataset-manifest', 'manufacturing-action.dataset-manifest.json', 'manufacturing_robotics_dataset_manifest.json'],
+  ['handoff-json', 'manufacturing-action.handoff.json', 'design_manufacturing_quality_handoff.json'],
+  ['handoff-markdown', 'manufacturing-action.handoff.markdown', 'design_manufacturing_quality_handoff.md'],
+  ['artifact-manifest', 'manufacturing-action.artifact-manifest.json', 'artifact-manifest.json'],
+  ['output-manifest', 'manufacturing-action.output-manifest.json', 'output-manifest.json'],
+].map(([id, type, fileName]) => ({
+  id,
+  type,
+  file_name: fileName,
+  extension: fileName.endsWith('.json') ? '.json' : '.md',
+  exists: true,
+}));
+const manufacturingIdentity = {
+  package_slug: 'hinge-block',
+  part_id: 'hinge_block',
+  revision: 'A',
+  config_sha256: 'a'.repeat(64),
+};
+const manufacturingSources = [
+  ['authoritative_config', 'config.toml', '/Users/private/authoritative-config.toml'],
+  ['review_pack', 'review_pack', '../outside/review_pack.json'],
+  ['inspection_plan', 'inspection_plan', 'run/inspection_plan.json'],
+  ['robot_config', 'robot_config', 'configs/robot.toml'],
+  ['manufacturing_task_plan', 'manufacturing_task_plan', 'configs/task-plan.json'],
+].map(([role, artifactType, path], index) => ({
+  role,
+  artifact_type: artifactType,
+  path,
+  sha256: String(index + 1).repeat(64),
+  size_bytes: 100 + index,
+}));
+const manufacturingBoundaries = {
+  synthetic_demo: true,
+  real_shop_floor_data: false,
+  automatic_video_segmentation: false,
+  computer_vision_model_used: false,
+  lerobot_compatible: false,
+  training_ready: false,
+  inspection_evidence: false,
+  evidence_attached: false,
+  readiness_regenerated: false,
+  product_release: false,
+  production_readiness: false,
+  human_review_required: true,
+};
+const manufacturingDatasetArtifact = manufacturingArtifactSurface.find((artifact) => artifact.id === 'dataset-manifest');
+const manufacturingViewer = buildArtifactViewer({
+  artifact: manufacturingDatasetArtifact,
+  parsedPayload: {
+    artifact_type: 'manufacturing_robotics_dataset_manifest',
+    identity: manufacturingIdentity,
+    revision_lineage: {
+      schema_version: '1.0',
+      mode: 'proof',
+      identity: manufacturingIdentity,
+      parents: manufacturingSources,
+    },
+    source_snapshots: manufacturingSources,
+    boundaries: manufacturingBoundaries,
+    members: [
+      { role: 'manufacturing_task_plan' },
+      { role: 'action_dictionary' },
+      { role: 'episode_annotation' },
+    ],
+  },
+  relatedArtifacts: manufacturingArtifactSurface,
+});
+
+assert.equal(manufacturingViewer.kind, 'manufacturing_robotics');
+assert.equal(manufacturingViewer.title, 'Manufacturing robotics trust viewer');
+assert.match(manufacturingViewer.summary, /does not establish inspection evidence/i);
+assert.equal(
+  manufacturingViewer.sections.find((section) => section.title === 'Identity')
+    ?.items.find((item) => item.label === 'Part ID')?.value,
+  'hinge_block'
+);
+assert.equal(
+  manufacturingViewer.sections.find((section) => section.title === 'Revision lineage')?.entries.length,
+  5
+);
+assert.equal(
+  manufacturingViewer.sections.find((section) => section.title === 'Source snapshots')?.entries.length,
+  5
+);
+const manufacturingCounts = Object.fromEntries(
+  manufacturingViewer.sections.find((section) => section.title === 'Manifest count guide')
+    .items.map((item) => [item.label, item])
+);
+assert.equal(manufacturingCounts['Dataset members'].value, '3');
+assert.equal(manufacturingCounts['Domain files'].value, '6');
+assert.equal(manufacturingCounts['Declared outputs'].value, '7');
+assert.equal(manufacturingCounts['Registered result files'].value, '8');
+assert.match(manufacturingCounts['Dataset members'].note, /task plan, action dictionary, and episode annotation/);
+assert.match(manufacturingCounts['Domain files'].note, /artifact-manifest\.json/);
+assert.match(manufacturingCounts['Declared outputs'].note, /does not list itself/);
+assert.match(manufacturingCounts['Registered result files'].note, /output-manifest\.json registered/);
+const manufacturingTrustCopy = manufacturingViewer.sections
+  .find((section) => section.title === 'Trust boundaries').entries.join(' ');
+assert.match(manufacturingTrustCopy, /No inspection evidence is attached or created/);
+assert.match(manufacturingTrustCopy, /No engineering or quality approval is granted/);
+assert.match(manufacturingTrustCopy, /does not establish production readiness/);
+assert.match(manufacturingTrustCopy, /No product release is performed or authorized/);
+assert.match(manufacturingTrustCopy, /Not LeRobot-compatible or training-ready/);
+const serializedManufacturingViewer = JSON.stringify(manufacturingViewer);
+assert.equal(serializedManufacturingViewer.includes('/Users/private/authoritative-config.toml'), false);
+assert.equal(serializedManufacturingViewer.includes('../outside/review_pack.json'), false);
+assert.equal(serializedManufacturingViewer.includes('run/inspection_plan.json'), false);
+
+const manufacturingArtifactManifestViewer = buildArtifactViewer({
+  artifact: manufacturingArtifactSurface.find((artifact) => artifact.id === 'artifact-manifest'),
+  parsedPayload: {
+    command: 'manufacturing-action-dataset',
+    revision_lineage: {
+      schema_version: '1.0',
+      mode: 'proof',
+      identity: manufacturingIdentity,
+      parents: manufacturingSources,
+    },
+    details: { boundaries: manufacturingBoundaries },
+    artifacts: Array.from({ length: 6 }, (_, index) => ({ path: `run/domain-${index}.json` })),
+  },
+  relatedArtifacts: manufacturingArtifactSurface,
+});
+assert.equal(manufacturingArtifactManifestViewer.kind, 'manufacturing_robotics');
+assert.equal(
+  manufacturingArtifactManifestViewer.sections.find((section) => section.title === 'Manifest count guide')
+    .items.find((item) => item.label === 'Domain files')?.value,
+  '6'
+);
+
+const unrelatedOutputManifestViewer = buildArtifactViewer({
+  artifact: {
+    id: 'generic-output-manifest',
+    type: 'output.manifest',
+    file_name: 'output-manifest.json',
+    extension: '.json',
+  },
+  parsedPayload: {
+    command: 'create',
+    outputs: [],
+  },
+});
+assert.equal(unrelatedOutputManifestViewer.kind, 'generic');
+
 console.log('studio-artifact-viewers.test.js: ok');

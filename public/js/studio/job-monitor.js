@@ -260,6 +260,37 @@ export function buildStudioJobCompletionNotice(job = {}, target = {}, remainingA
   }
 
   if (status === 'failed') {
+    if (isManufacturingRoboticsMismatchFailure(job)) {
+      const messageParts = [
+        'The bounded revision mismatch published no dataset files. Open Review to run the server-pinned synthetic Revision A recovery.',
+        stillRunningCopy,
+      ].filter(Boolean);
+      return {
+        jobId: job.id,
+        tone: 'bad',
+        title: `Tracked ${jobType} failed`,
+        message: messageParts.join(' '),
+        messageParts,
+        primaryRoute: 'review',
+        primaryLabel: 'Open Review',
+        secondaryRoute: '',
+        secondaryLabel: '',
+        actions: [
+          buildOpenJobAction({
+            label: 'Open Review',
+            jobId: job.id,
+            route: 'review',
+            tone: 'primary',
+          }),
+          {
+            label: 'Open Jobs center',
+            action: 'open-jobs-center',
+            tone: 'ghost',
+          },
+        ],
+      };
+    }
+
     const messageParts = [
       'Job failed before Studio could finish the tracked flow. Open Jobs center to inspect status, then retry when the source issue is fixed.',
       stillRunningCopy,

@@ -287,7 +287,13 @@ const REVIEW_NEXT_STEP_KEYS = Object.freeze({
   more_information: 'studio.review.next.more-information',
 });
 
-function reviewDecisionCopy(summary) {
+function reviewDecisionCopy(summary, activeJob = null) {
+  if (
+    summary.decision === 'more_information'
+    && activeJob?.summary?.type === 'manufacturing-action-dataset'
+  ) {
+    return t('studio.review.decision.manufacturing-general-more-information');
+  }
   return t(REVIEW_DECISION_KEYS[summary.decision] || REVIEW_DECISION_KEYS.more_information);
 }
 
@@ -582,7 +588,7 @@ export function mountReviewWorkspace({ root, state, addLog, openJob, submitTrack
       cards: review.cards,
     });
     beginnerSummaryElement.dataset.tone = summary.tone;
-    currentDecisionElement.textContent = reviewDecisionCopy(summary);
+    currentDecisionElement.textContent = reviewDecisionCopy(summary, state.data.activeJob);
     issuesElement.replaceChildren(...renderBeginnerIssues(summary));
     nextStepElement.textContent = reviewNextStepCopy(summary);
     supportingFilesLabelElement.textContent = t('studio.review.supporting-files.count', {

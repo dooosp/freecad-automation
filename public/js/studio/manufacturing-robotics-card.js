@@ -1234,6 +1234,18 @@ export function mountManufacturingRoboticsCard({
   const phase = cardRoot.querySelector('[data-hook="manufacturing-robotics-phase"]');
   let destroyed = false;
   let loadSequence = 0;
+  let pendingFocusHandoff = null;
+
+  function armFocusHandoff(control, { targetAction, phase: targetPhase }) {
+    pendingFocusHandoff = cardRoot.ownerDocument.activeElement === control
+      ? { source: control, targetAction, targetPhase }
+      : null;
+  }
+
+  function findActionControl(action) {
+    return [...cardRoot.querySelectorAll('[data-action]')]
+      .find((control) => control.dataset.action === action) || null;
+  }
 
   function adoptActiveJob() {
     const activeJob = state.data.activeJob?.summary;
@@ -1254,14 +1266,34 @@ export function mountManufacturingRoboticsCard({
     cardState.ignoredActiveJobId = '';
   }
 
-  function render() {
+  function render({ restoreFocus = null } = {}) {
     if (destroyed) return;
     const viewModel = cardViewModel(state, cardState);
+    const activeElement = cardRoot.ownerDocument.activeElement;
+    if (
+      pendingFocusHandoff
+      && activeElement
+      && activeElement !== pendingFocusHandoff.source
+      && activeElement !== cardRoot.ownerDocument.body
+      && activeElement !== cardRoot.ownerDocument.documentElement
+    ) {
+      pendingFocusHandoff = null;
+    }
     cardRoot.dataset.phase = viewModel.phase;
     phase.className = `pill manufacturing-robotics-phase manufacturing-robotics-phase-${viewModel.phase}`;
     phase.textContent = phaseLabel(viewModel.phase);
     body.replaceChildren(renderCardBody(viewModel, cardState));
     applyTranslations(cardRoot);
+    const explicitFocusTarget = restoreFocus?.();
+    if (explicitFocusTarget) {
+      explicitFocusTarget.focus?.({ preventScroll: true });
+      return;
+    }
+    if (pendingFocusHandoff?.targetPhase === viewModel.phase) {
+      const focusTarget = findActionControl(pendingFocusHandoff.targetAction);
+      pendingFocusHandoff = null;
+      focusTarget?.focus?.({ preventScroll: true });
+    }
   }
 
   async function loadArtifacts({ force = false } = {}) {
@@ -1322,8 +1354,13 @@ export function mountManufacturingRoboticsCard({
   function handleChange(event) {
     const control = event.target.closest?.('[data-manufacturing-robotics-trust-demo="true"]');
     if (!control || !cardRoot.contains(control)) return;
+    const shouldRestoreFocus = cardRoot.ownerDocument.activeElement === control;
     cardState.trustDemo = control.checked === true;
-    render();
+    render({
+      restoreFocus: shouldRestoreFocus
+        ? () => cardRoot.querySelector('[data-manufacturing-robotics-trust-demo="true"]')
+        : null,
+    });
   }
 
   function handleClick(event) {
@@ -1331,14 +1368,28 @@ export function mountManufacturingRoboticsCard({
     if (!control || !cardRoot.contains(control)) return;
     const action = control.dataset.action;
     if (action === 'manufacturing-robotics-generate' || action === 'manufacturing-robotics-retry') {
+      if (cardState.trustDemo) {
+        armFocusHandoff(control, {
+          targetAction: 'manufacturing-robotics-regenerate-approved',
+          phase: 'blocked',
+        });
+      }
       submit().catch(() => {});
       return;
     }
     if (action === 'manufacturing-robotics-regenerate-approved') {
+      armFocusHandoff(control, {
+        targetAction: 'manufacturing-robotics-open-artifacts',
+        phase: 'success',
+      });
       submit({ trustDemo: false }).catch(() => {});
       return;
     }
     if (action === 'manufacturing-robotics-run-blocked-demo') {
+      armFocusHandoff(control, {
+        targetAction: 'manufacturing-robotics-regenerate-approved',
+        phase: 'blocked',
+      });
       submit({ trustDemo: true }).catch(() => {});
       return;
     }
@@ -1347,8 +1398,15 @@ export function mountManufacturingRoboticsCard({
       return;
     }
     if (action === 'manufacturing-robotics-select-action') {
-      cardState.selectedActionId = textValue(control.dataset.actionId);
-      render();
+      const selectedActionId = textValue(control.dataset.actionId);
+      const shouldRestoreFocus = cardRoot.ownerDocument.activeElement === control;
+      cardState.selectedActionId = selectedActionId;
+      render({
+        restoreFocus: shouldRestoreFocus
+          ? () => [...cardRoot.querySelectorAll('[data-action="manufacturing-robotics-select-action"]')]
+              .find((candidate) => candidate.dataset.actionId === selectedActionId)
+          : null,
+      });
       return;
     }
     if (action === 'manufacturing-robotics-open-artifacts') {
@@ -1375,6 +1433,7 @@ export function mountManufacturingRoboticsCard({
     destroy() {
       destroyed = true;
       loadSequence += 1;
+      pendingFocusHandoff = null;
       cardRoot.removeEventListener('change', handleChange);
       cardRoot.removeEventListener('click', handleClick);
     },
