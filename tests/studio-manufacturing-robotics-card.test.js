@@ -7,6 +7,7 @@ import {
   MANUFACTURING_ROBOTICS_EXPECTED_OUTPUT_COUNT,
   buildManufacturingRoboticsViewModel,
   createManufacturingRoboticsSubmission,
+  ensureManufacturingRoboticsCardState,
   extractManufacturingRoboticsDiagnostic,
   findManufacturingRoboticsCardJob,
   renderManufacturingRoboticsCard,
@@ -192,6 +193,37 @@ assert.deepEqual(createManufacturingRoboticsSubmission({ trustDemo: true }), {
     failureRoute: 'review',
   },
 });
+
+const persistentFocusState = {
+  jobId: 'job-before-remount',
+  requestStatus: 'idle',
+  focusHandoff: {
+    jobId: 'job-after-remount',
+    targetPhase: 'blocked',
+    targetAction: 'manufacturing-robotics-regenerate-approved',
+  },
+};
+const persistentFocusReview = { manufacturingRobotics: persistentFocusState };
+const normalizedPersistentFocusState = ensureManufacturingRoboticsCardState(persistentFocusReview);
+assert.equal(normalizedPersistentFocusState, persistentFocusState);
+assert.equal(persistentFocusReview.manufacturingRobotics, persistentFocusState);
+assert.deepEqual(normalizedPersistentFocusState.focusHandoff, {
+  jobId: 'job-after-remount',
+  targetPhase: 'blocked',
+  targetAction: 'manufacturing-robotics-regenerate-approved',
+});
+persistentFocusState.focusHandoff = {
+  jobId: 'job-after-remount',
+  targetPhase: 'success',
+  targetAction: 'arbitrary-selector',
+};
+assert.equal(ensureManufacturingRoboticsCardState(persistentFocusReview).focusHandoff, null);
+persistentFocusState.focusHandoff = {
+  jobId: 'job-after-remount',
+  targetPhase: 'blocked',
+  targetAction: 'manufacturing-robotics-open-artifacts',
+};
+assert.equal(ensureManufacturingRoboticsCardState(persistentFocusReview).focusHandoff, null);
 
 const previousSuccessJob = {
   id: 'job-previous-success',

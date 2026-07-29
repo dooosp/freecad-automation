@@ -71,6 +71,18 @@ const BOUNDARY_KEYS = Object.freeze([
   'human_review_required',
 ]);
 
+const cardRuntimeByState = new WeakMap();
+
+function ensureCardRuntime(cardState) {
+  if (!cardRuntimeByState.has(cardState)) {
+    cardRuntimeByState.set(cardState, {
+      activeSync: null,
+      submissionSequence: 0,
+    });
+  }
+  return cardRuntimeByState.get(cardState);
+}
+
 export const LEROBOT_AVAILABLE_CAPABILITIES = Object.freeze([
   'episode-identity',
   'task-instructions',
@@ -479,7 +491,22 @@ export function buildManufacturingRoboticsViewModel({
 
 export function ensureManufacturingRoboticsCardState(review = {}) {
   const existing = objectValue(review.manufacturingRobotics);
-  review.manufacturingRobotics = {
+  const focusHandoff = objectValue(existing.focusHandoff);
+  const targetPhase = textValue(focusHandoff.targetPhase);
+  const targetAction = textValue(focusHandoff.targetAction);
+  const normalizedFocusHandoff = (
+    (targetPhase === 'blocked'
+      && targetAction === 'manufacturing-robotics-regenerate-approved')
+    || (targetPhase === 'success'
+      && targetAction === 'manufacturing-robotics-open-artifacts')
+  )
+    ? {
+        jobId: textValue(focusHandoff.jobId),
+        targetPhase,
+        targetAction,
+      }
+    : null;
+  const normalized = {
     jobId: textValue(existing.jobId),
     job: isObject(existing.job) ? existing.job : null,
     requestStatus: textValue(existing.requestStatus, 'idle'),
@@ -490,8 +517,12 @@ export function ensureManufacturingRoboticsCardState(review = {}) {
     trustDemo: existing.trustDemo === true,
     errorMessage: textValue(existing.errorMessage),
     ignoredActiveJobId: textValue(existing.ignoredActiveJobId),
+    focusHandoff: normalizedFocusHandoff,
   };
-  return review.manufacturingRobotics;
+  for (const key of Object.keys(existing)) delete existing[key];
+  Object.assign(existing, normalized);
+  review.manufacturingRobotics = existing;
+  return existing;
 }
 
 export function createManufacturingRoboticsSubmission({ trustDemo = false } = {}) {
@@ -1230,15 +1261,18 @@ export function mountManufacturingRoboticsCard({
   const cardRoot = root.querySelector('[data-hook="manufacturing-robotics-card"]');
   if (!cardRoot) return { syncFromShell() {}, destroy() {} };
   const cardState = ensureManufacturingRoboticsCardState(state.data.review);
+  const cardRuntime = ensureCardRuntime(cardState);
   const body = cardRoot.querySelector('[data-hook="manufacturing-robotics-body"]');
   const phase = cardRoot.querySelector('[data-hook="manufacturing-robotics-phase"]');
   let destroyed = false;
   let loadSequence = 0;
-  let pendingFocusHandoff = null;
+  let artifactLoadOwner = null;
+  let focusDeliverySequence = 0;
 
-  function armFocusHandoff(control, { targetAction, phase: targetPhase }) {
-    pendingFocusHandoff = cardRoot.ownerDocument.activeElement === control
-      ? { source: control, targetAction, targetPhase }
+  function armFocusHandoff(event, control, { targetAction, phase: targetPhase }) {
+    cardState.focusHandoff = event.detail === 0
+      && cardRoot.ownerDocument.activeElement === control
+      ? { jobId: '', targetAction, targetPhase }
       : null;
   }
 
@@ -1250,6 +1284,8 @@ export function mountManufacturingRoboticsCard({
   function adoptActiveJob() {
     const activeJob = state.data.activeJob?.summary;
     if (!isManufacturingRoboticsJob(activeJob) || !activeJob?.id) return;
+    if (cardState.requestStatus === 'submitting') return;
+    if (cardState.focusHandoff?.jobId && cardState.focusHandoff.jobId !== activeJob.id) return;
     if (shouldIgnoreManufacturingRoboticsActiveJob(activeJob, cardState)) return;
     if (cardState.jobId !== activeJob.id) {
       cardState.jobId = activeJob.id;
@@ -1266,19 +1302,84 @@ export function mountManufacturingRoboticsCard({
     cardState.ignoredActiveJobId = '';
   }
 
+  function isShellTransientFocus(activeElement) {
+    const documentRef = cardRoot.ownerDocument;
+    return !activeElement
+      || activeElement === documentRef.body
+      || activeElement === documentRef.documentElement
+      || activeElement === documentRef.getElementById('workspace-root');
+  }
+
+  function clearFocusHandoff() {
+    cardState.focusHandoff = null;
+    focusDeliverySequence += 1;
+  }
+
+  function scheduleFocusHandoff(viewModel) {
+    const handoff = cardState.focusHandoff;
+    if (!handoff?.jobId) return;
+    const activeJob = state.data.activeJob;
+    const selectedJobReady = state.route === 'review'
+      && activeJob?.status === 'ready'
+      && activeJob?.summary?.id === handoff.jobId
+      && viewModel.jobId === handoff.jobId;
+    if (!selectedJobReady) return;
+
+    if (viewModel.phase !== handoff.targetPhase) {
+      const mayStillReachSuccess = handoff.targetPhase === 'success' && viewModel.phase === 'loading';
+      if (!mayStillReachSuccess) clearFocusHandoff();
+      return;
+    }
+    if (
+      handoff.targetPhase === 'success'
+      && (cardState.artifactLoadStatus !== 'ready' || cardState.loadedJobId !== handoff.jobId)
+    ) {
+      return;
+    }
+
+    const sequence = ++focusDeliverySequence;
+    const attemptFocus = ({ settle = false } = {}) => {
+      if (destroyed || sequence !== focusDeliverySequence) return;
+      const currentHandoff = cardState.focusHandoff;
+      const currentViewModel = cardViewModel(state, cardState);
+      const currentActiveJob = state.data.activeJob;
+      if (
+        !currentHandoff
+        || currentHandoff.jobId !== handoff.jobId
+        || currentHandoff.targetAction !== handoff.targetAction
+        || currentHandoff.targetPhase !== handoff.targetPhase
+        || state.route !== 'review'
+        || currentActiveJob?.status !== 'ready'
+        || currentActiveJob?.summary?.id !== handoff.jobId
+        || currentViewModel.jobId !== handoff.jobId
+        || currentViewModel.phase !== handoff.targetPhase
+      ) {
+        return;
+      }
+      const focusTarget = findActionControl(handoff.targetAction);
+      if (!(focusTarget instanceof cardRoot.ownerDocument.defaultView.HTMLElement) || !focusTarget.isConnected) {
+        return;
+      }
+      const activeElement = cardRoot.ownerDocument.activeElement;
+      if (activeElement !== focusTarget && !isShellTransientFocus(activeElement)) {
+        clearFocusHandoff();
+        return;
+      }
+      focusTarget.focus({ preventScroll: true });
+      if (settle && cardRoot.ownerDocument.activeElement === focusTarget) {
+        clearFocusHandoff();
+      }
+    };
+
+    cardRoot.ownerDocument.defaultView.requestAnimationFrame(() => {
+      cardRoot.ownerDocument.defaultView.requestAnimationFrame(() => attemptFocus());
+    });
+    cardRoot.ownerDocument.defaultView.setTimeout(() => attemptFocus({ settle: true }), 100);
+  }
+
   function render({ restoreFocus = null } = {}) {
     if (destroyed) return;
     const viewModel = cardViewModel(state, cardState);
-    const activeElement = cardRoot.ownerDocument.activeElement;
-    if (
-      pendingFocusHandoff
-      && activeElement
-      && activeElement !== pendingFocusHandoff.source
-      && activeElement !== cardRoot.ownerDocument.body
-      && activeElement !== cardRoot.ownerDocument.documentElement
-    ) {
-      pendingFocusHandoff = null;
-    }
     cardRoot.dataset.phase = viewModel.phase;
     phase.className = `pill manufacturing-robotics-phase manufacturing-robotics-phase-${viewModel.phase}`;
     phase.textContent = phaseLabel(viewModel.phase);
@@ -1289,11 +1390,7 @@ export function mountManufacturingRoboticsCard({
       explicitFocusTarget.focus?.({ preventScroll: true });
       return;
     }
-    if (pendingFocusHandoff?.targetPhase === viewModel.phase) {
-      const focusTarget = findActionControl(pendingFocusHandoff.targetAction);
-      pendingFocusHandoff = null;
-      focusTarget?.focus?.({ preventScroll: true });
-    }
+    scheduleFocusHandoff(viewModel);
   }
 
   async function loadArtifacts({ force = false } = {}) {
@@ -1304,6 +1401,8 @@ export function mountManufacturingRoboticsCard({
     if (!force && (cardState.loadedJobId === job.id || cardState.artifactLoadStatus === 'loading')) return;
 
     const sequence = ++loadSequence;
+    const owner = { jobId: job.id, sequence };
+    artifactLoadOwner = owner;
     cardState.artifactLoadStatus = 'loading';
     cardState.errorMessage = '';
     render();
@@ -1320,11 +1419,14 @@ export function mountManufacturingRoboticsCard({
       cardState.loadedJobId = '';
       cardState.artifactLoadStatus = 'error';
       cardState.errorMessage = t('studio.manufacturing-robotics.artifact-error.copy');
+    } finally {
+      if (artifactLoadOwner === owner) artifactLoadOwner = null;
     }
     render();
   }
 
   async function submit({ trustDemo = cardState.trustDemo } = {}) {
+    const submissionSequence = ++cardRuntime.submissionSequence;
     cardState.ignoredActiveJobId = textValue(state.data.activeJob?.summary?.id);
     cardState.trustDemo = trustDemo === true;
     cardState.requestStatus = 'submitting';
@@ -1338,15 +1440,26 @@ export function mountManufacturingRoboticsCard({
       const job = await submitTrackedJob(createManufacturingRoboticsSubmission({
         trustDemo: cardState.trustDemo,
       }));
-      if (destroyed) return;
-      if (!job?.id) throw new Error('Tracked manufacturing job did not return an id.');
+      if (submissionSequence !== cardRuntime.submissionSequence) return;
+      if (!job?.id) {
+        clearFocusHandoff();
+        throw new Error('Tracked manufacturing job did not return an id.');
+      }
+      if (cardState.focusHandoff && !cardState.focusHandoff.jobId) {
+        cardState.focusHandoff.jobId = job.id;
+      }
       cardState.jobId = job.id;
       cardState.job = job;
       cardState.requestStatus = 'idle';
     } catch {
-      if (destroyed) return;
+      if (submissionSequence !== cardRuntime.submissionSequence) return;
+      clearFocusHandoff();
       cardState.requestStatus = 'error';
       cardState.errorMessage = t('studio.manufacturing-robotics.error.copy');
+    }
+    if (destroyed) {
+      cardRuntime.activeSync?.();
+      return;
     }
     render();
   }
@@ -1369,16 +1482,18 @@ export function mountManufacturingRoboticsCard({
     const action = control.dataset.action;
     if (action === 'manufacturing-robotics-generate' || action === 'manufacturing-robotics-retry') {
       if (cardState.trustDemo) {
-        armFocusHandoff(control, {
+        armFocusHandoff(event, control, {
           targetAction: 'manufacturing-robotics-regenerate-approved',
           phase: 'blocked',
         });
+      } else {
+        clearFocusHandoff();
       }
       submit().catch(() => {});
       return;
     }
     if (action === 'manufacturing-robotics-regenerate-approved') {
-      armFocusHandoff(control, {
+      armFocusHandoff(event, control, {
         targetAction: 'manufacturing-robotics-open-artifacts',
         phase: 'success',
       });
@@ -1386,7 +1501,7 @@ export function mountManufacturingRoboticsCard({
       return;
     }
     if (action === 'manufacturing-robotics-run-blocked-demo') {
-      armFocusHandoff(control, {
+      armFocusHandoff(event, control, {
         targetAction: 'manufacturing-robotics-regenerate-approved',
         phase: 'blocked',
       });
@@ -1415,6 +1530,18 @@ export function mountManufacturingRoboticsCard({
     }
   }
 
+  function handlePointerDown() {
+    if (cardState.focusHandoff) clearFocusHandoff();
+  }
+
+  function handleDocumentFocusIn(event) {
+    const handoff = cardState.focusHandoff;
+    if (!handoff) return;
+    const focusTarget = findActionControl(handoff.targetAction);
+    if (event.target === focusTarget || isShellTransientFocus(event.target)) return;
+    clearFocusHandoff();
+  }
+
   function syncFromShell() {
     if (destroyed) return;
     adoptActiveJob();
@@ -1426,6 +1553,9 @@ export function mountManufacturingRoboticsCard({
 
   cardRoot.addEventListener('change', handleChange);
   cardRoot.addEventListener('click', handleClick);
+  cardRoot.ownerDocument.addEventListener('pointerdown', handlePointerDown, true);
+  cardRoot.ownerDocument.addEventListener('focusin', handleDocumentFocusIn, true);
+  cardRuntime.activeSync = syncFromShell;
   syncFromShell();
 
   return {
@@ -1433,9 +1563,23 @@ export function mountManufacturingRoboticsCard({
     destroy() {
       destroyed = true;
       loadSequence += 1;
-      pendingFocusHandoff = null;
+      if (
+        artifactLoadOwner
+        && cardState.jobId === artifactLoadOwner.jobId
+        && cardState.artifactLoadStatus === 'loading'
+      ) {
+        cardState.artifactLoadStatus = cardState.loadedJobId === artifactLoadOwner.jobId
+          ? 'ready'
+          : 'idle';
+      }
+      artifactLoadOwner = null;
+      focusDeliverySequence += 1;
+      if (state.route !== 'review') cardState.focusHandoff = null;
+      if (cardRuntime.activeSync === syncFromShell) cardRuntime.activeSync = null;
       cardRoot.removeEventListener('change', handleChange);
       cardRoot.removeEventListener('click', handleClick);
+      cardRoot.ownerDocument.removeEventListener('pointerdown', handlePointerDown, true);
+      cardRoot.ownerDocument.removeEventListener('focusin', handleDocumentFocusIn, true);
     },
   };
 }
