@@ -171,6 +171,10 @@ test('UAT packet fixes the cohort, denominators, thresholds, privacy, and restar
     'Do not use `--allow-test-fixtures` for a human round',
     '`INVALIDATED_RESTART_REQUIRED`',
     'Do not combine observations from two candidates',
+    'Ask `MR-PRED-02`',
+    'Action 1 starts unselected',
+    'checking it starts no job and changes no completed result',
+    'separately enabled blocked-demo button',
   ]) {
     assertContains(session, phrase, 'UAT session kit');
   }
