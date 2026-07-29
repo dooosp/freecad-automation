@@ -5,12 +5,14 @@ import { resolve } from 'node:path';
 import {
   LEROBOT_AVAILABLE_CAPABILITIES,
   MANUFACTURING_ROBOTICS_EXPECTED_OUTPUT_COUNT,
+  MANUFACTURING_ROBOTICS_MINIMUM_PROGRESS_MS,
   buildManufacturingRoboticsViewModel,
   createManufacturingRoboticsSubmission,
   ensureManufacturingRoboticsCardState,
   extractManufacturingRoboticsDiagnostic,
   findManufacturingRoboticsCardJob,
   renderManufacturingRoboticsCard,
+  resolveManufacturingRoboticsPresentationPhase,
   shouldIgnoreManufacturingRoboticsActiveJob,
 } from '../public/js/studio/manufacturing-robotics-card.js';
 
@@ -215,9 +217,30 @@ assert.deepEqual(normalizedPersistentFocusState.focusHandoff, {
 persistentFocusState.focusHandoff = {
   jobId: 'job-after-remount',
   targetPhase: 'success',
+  targetAction: 'manufacturing-robotics-select-action',
+};
+assert.deepEqual(ensureManufacturingRoboticsCardState(persistentFocusReview).focusHandoff, {
+  jobId: 'job-after-remount',
+  targetPhase: 'success',
+  targetAction: 'manufacturing-robotics-select-action',
+});
+persistentFocusState.focusHandoff = {
+  jobId: 'job-after-remount',
+  targetPhase: 'success',
   targetAction: 'arbitrary-selector',
 };
 assert.equal(ensureManufacturingRoboticsCardState(persistentFocusReview).focusHandoff, null);
+
+assert.equal(MANUFACTURING_ROBOTICS_MINIMUM_PROGRESS_MS, 5000);
+assert.equal(resolveManufacturingRoboticsPresentationPhase('loading', 10_000, 9_999), 'preparing');
+assert.equal(resolveManufacturingRoboticsPresentationPhase('success', 10_000, 9_999), 'preparing');
+assert.equal(resolveManufacturingRoboticsPresentationPhase('success', 10_000, 10_000), 'success');
+assert.equal(resolveManufacturingRoboticsPresentationPhase('running', 10_000, 9_999), 'running');
+assert.equal(resolveManufacturingRoboticsPresentationPhase('blocked', 10_000, 9_999), 'blocked');
+const progressReview = { manufacturingRobotics: { progressVisibleUntil: 12_345 } };
+assert.equal(ensureManufacturingRoboticsCardState(progressReview).progressVisibleUntil, 12_345);
+progressReview.manufacturingRobotics.progressVisibleUntil = 'not-a-timestamp';
+assert.equal(ensureManufacturingRoboticsCardState(progressReview).progressVisibleUntil, 0);
 persistentFocusState.focusHandoff = {
   jobId: 'job-after-remount',
   targetPhase: 'blocked',
@@ -449,13 +472,17 @@ function cardStateFor(job, manufacturingRobotics) {
   };
 }
 
+const preRunHtml = renderManufacturingRoboticsCard(cardStateFor(null, {})).outerHTML;
+assert.match(preRunHtml, /data-action="manufacturing-robotics-generate"/);
+assert.doesNotMatch(preRunHtml, /manufacturing-robotics-trust-demo/);
+
 const successHtml = renderManufacturingRoboticsCard(cardStateFor(successJob, {
   jobId: successJob.id,
   job: successJob,
   artifactLoadStatus: 'ready',
   loadedJobId: successJob.id,
   payloads,
-  selectedActionId: 'action_01',
+  selectedActionId: '',
 })).outerHTML;
 assert.match(successHtml, /Manufacturing Robotics Data/);
 assert.match(successHtml, /VALID SYNTHETIC DEMO/);
@@ -463,16 +490,50 @@ assert.match(successHtml, /NOT_EXPORTABLE_YET/);
 assert.match(successHtml, /LEROBOT_COMPATIBLE/);
 assert.match(successHtml, /TRAINING_READY/);
 assert.equal((successHtml.match(/>false</g) || []).length >= 2, true);
-assert.match(successHtml, /curated_task_plan/);
 assert.match(successHtml, /fixture_review_required/);
 assert.match(successHtml, /run\/inspection_plan\.json/);
 assert.match(successHtml, /inputs\/source_5\.json/);
 assert.match(successHtml, /data-action="manufacturing-robotics-open-artifacts"/);
 assert.match(successHtml, /data-action="manufacturing-robotics-run-blocked-demo"/);
-assert.match(successHtml, /aria-live="polite"/);
+assert.match(successHtml, /Select a timeline action/);
+assert.doesNotMatch(successHtml, /class="manufacturing-action-detail"/);
+assert.match(successHtml, /id="manufacturing-robotics-trust-demo"/);
+assert.doesNotMatch(successHtml, /id="manufacturing-robotics-trust-demo"[^>]*checked/);
+assert.match(successHtml, /data-action="manufacturing-robotics-run-blocked-demo"[^>]*disabled="true"/);
 assert.equal((successHtml.match(/data-action="manufacturing-robotics-select-action"/g) || []).length, 10);
-assert.equal((successHtml.match(/aria-current="step"/g) || []).length >= 2, true);
+assert.equal((successHtml.match(/aria-current="step"/g) || []).length, 0);
 assert.equal((successHtml.match(/data-action-kind="primary"/g) || []).length, 1);
+
+const selectedSuccessHtml = renderManufacturingRoboticsCard(cardStateFor(successJob, {
+  jobId: successJob.id,
+  job: successJob,
+  artifactLoadStatus: 'ready',
+  loadedJobId: successJob.id,
+  payloads,
+  selectedActionId: 'action_01',
+  trustDemo: true,
+})).outerHTML;
+assert.match(selectedSuccessHtml, /aria-live="polite"/);
+assert.match(selectedSuccessHtml, /Action detail · action_01/);
+assert.match(selectedSuccessHtml, /curated_task_plan/);
+assert.equal((selectedSuccessHtml.match(/aria-current="step"/g) || []).length >= 2, true);
+assert.match(selectedSuccessHtml, /id="manufacturing-robotics-trust-demo"[^>]*checked="true"/);
+assert.doesNotMatch(
+  selectedSuccessHtml,
+  /data-action="manufacturing-robotics-run-blocked-demo"[^>]*disabled="true"/
+);
+
+const preparingHtml = renderManufacturingRoboticsCard(cardStateFor(successJob, {
+  jobId: successJob.id,
+  job: successJob,
+  artifactLoadStatus: 'ready',
+  loadedJobId: successJob.id,
+  payloads,
+  progressVisibleUntil: Date.now() + MANUFACTURING_ROBOTICS_MINIMUM_PROGRESS_MS,
+})).outerHTML;
+assert.match(preparingHtml, /data-phase="preparing"/);
+assert.match(preparingHtml, /Tracked job succeeded; preparing its result view/);
+assert.doesNotMatch(preparingHtml, /Ten-action manufacturing timeline/);
 
 const blockedHtml = renderManufacturingRoboticsCard(cardStateFor(blockedJob, {
   jobId: blockedJob.id,

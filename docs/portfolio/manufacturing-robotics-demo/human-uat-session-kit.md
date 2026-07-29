@@ -199,6 +199,23 @@ Style-only wording differences are non-material but may still be remediated.
 Immediately before each listed action, ask: “What do you expect will happen
 next?” Do not reveal the oracle until the session ends.
 
+Use this exact timing so every opportunity is observable:
+
+1. Ask `MR-PRED-01` while the approved Generate button is still untouched.
+2. After the participant answers, activate Generate. Ask `MR-PRED-02`
+   immediately when the card shows the real queued/running state and before the
+   summary appears. The neutral verified-result preparation handoff may remain
+   visible while the answer is captured, but do not postpone this prompt until
+   that handoff or ask it during pre-run.
+3. After success, Action 1 starts unselected. Ask `MR-PRED-03`, then let the
+   participant select Action 1. Repeat the same sequence for Action 6 and
+   `MR-PRED-04`.
+4. After the completed result-file task, return to the successful Review card.
+   Ask `MR-PRED-06` before checking the mismatch preparation option. Confirm
+   that checking it starts no job and changes no completed result. Then ask
+   `MR-PRED-07` before activating the separately enabled blocked-demo button.
+5. Ask `MR-PRED-08` before activating the approved Revision A recovery.
+
 | ID | Opportunity | Correct prediction oracle |
 | --- | --- | --- |
 | `MR-PRED-01` | Before approved `Generate dataset` | A tracked local generation job starts; the UI shows in-progress state, not instant fabricated results. |

@@ -90,6 +90,28 @@ assert.equal(en.t('studio.manufacturing-robotics.title'), 'Manufacturing Robotic
 assert.equal(ko.t('studio.manufacturing-robotics.title'), '제조 로봇 데이터');
 assert.equal(en.t('studio.manufacturing-robotics.action.generate'), 'Generate dataset');
 assert.equal(ko.t('studio.manufacturing-robotics.action.generate'), '데이터 세트 생성');
+assert.equal(
+  en.t('studio.manufacturing-robotics.trust-demo.label'),
+  'Arm bounded revision-mismatch demo'
+);
+assert.equal(
+  ko.t('studio.manufacturing-robotics.trust-demo.label'),
+  '제한된 리비전 불일치 데모 준비'
+);
+assert.match(en.t('studio.manufacturing-robotics.trust-demo.copy'), /does not start a job or change the completed result/i);
+assert.match(ko.t('studio.manufacturing-robotics.trust-demo.copy'), /작업을 시작하거나 완료된 결과를 변경하지 않습니다/);
+assert.equal(
+  en.t('studio.manufacturing-robotics.action-detail.select-title'),
+  'Select a timeline action'
+);
+assert.equal(
+  ko.t('studio.manufacturing-robotics.action-detail.select-title'),
+  '타임라인 액션을 선택하세요'
+);
+assert.match(en.t('studio.manufacturing-robotics.action-detail.select-copy'), /does not generate a new dataset/i);
+assert.match(ko.t('studio.manufacturing-robotics.action-detail.select-copy'), /새 데이터 세트가 생성되지 않습니다/);
+assert.match(en.t('studio.manufacturing-robotics.preparing.copy'), /does not fabricate a result or change the tracked job status/i);
+assert.match(ko.t('studio.manufacturing-robotics.preparing.copy'), /결과를 만들어 내거나 추적 작업 상태를 변경하지 않습니다/);
 assert.match(en.t('studio.manufacturing-robotics.cancelled.copy'), /server-pinned profile/);
 assert.match(ko.t('studio.manufacturing-robotics.cancelled.copy'), /서버에 고정된 프로필/);
 assert.equal(en.t('studio.review.decision.manufacturing-general-more-information'), 'General CAD review needs more information');
@@ -117,7 +139,7 @@ const manufacturingLiteralKeys = [...manufacturingCardSource.matchAll(
   /t\(['"`](studio\.manufacturing-robotics\.[a-z0-9.-]+)['"`]/g
 )].map((match) => match[1]);
 const manufacturingDynamicKeys = [
-  ...['pre-run', 'running', 'loading', 'success', 'blocked', 'error', 'artifact-error']
+  ...['pre-run', 'running', 'preparing', 'loading', 'success', 'blocked', 'error', 'artifact-error']
     .map((phase) => `studio.manufacturing-robotics.phase.${phase}`),
   ...['ko', 'en']
     .map((language) => `studio.manufacturing-robotics.action-detail.instruction-${language}`),
