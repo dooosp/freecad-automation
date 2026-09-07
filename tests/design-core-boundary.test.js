@@ -29,6 +29,8 @@ const run = createDesignService({
   },
 });
 const args = { freecadRoot: '/synthetic-root', runScript, loadConfig, mode: 'build' };
+await assert.rejects(() => run({ ...args, toml: 'final = ""\n' + toml }));
+assert.deepEqual(calls, [], 'empty explicit final must be rejected before build side effects');
 for (const invalid of ['name = [', toml + '\n[[operations]]\nop = "cut"\nbase = "plate"\ntool = "missing_hole"\n', toml + '\n[[operations]]\nop = "cut"\nbase = "plate"\ntool = { type = "cylinder", radius = "bad", height = 8 }\n']) {
   await assert.rejects(() => run({ ...args, toml: invalid }));
   assert.deepEqual(calls, [], 'invalid build must have no write/load/runtime side effects');

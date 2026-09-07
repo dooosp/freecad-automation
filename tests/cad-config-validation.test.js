@@ -50,6 +50,8 @@ rotation = [0, 0, 1, 90]
 assert.equal(validateCadToml(assembly + '\n[assembly.joints]\nid = "bad_table"\n').valid, false);
 assert.equal(validateCadToml(assembly + '\n[[assembly.joints]]\nid = "j"\npart = "p"\naxis = [0, "bad", 1]\nanchor = [0, 0, 0]\n').valid, false);
 assert.equal(validateCadToml(assembly).valid, true, 'runtime-supported axis-angle placement remains accepted');
+assert.equal(validateCadToml(assembly.replace('id = "p"', 'id = "p"\nfinal = ""')).valid, false);
+assert.equal(validateCadToml('name = "part"\nfinal = ""\n[[shapes]]\nid = "body"\ntype = "box"\nlength = 10\nwidth = 10\nheight = 10\n').valid, false);
 assert.equal(validateCadToml(assembly.replace('ref = "p"', 'ref = "missing"')).valid, false);
 for (const file of ['configs/examples/quality_pass_bracket.toml', 'docs/examples/plate-with-holes/config.toml', 'docs/examples/hinge-block/config.toml']) {
   const text = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');

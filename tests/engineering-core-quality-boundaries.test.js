@@ -216,3 +216,36 @@ test('a cutter overwritten before use is outside primitive-cylinder support', ()
   modified.operations.unshift({ op: 'cut', base: 'hole', tool: 'trim', result: 'hole' });
   requireUnavailable(reportFor({ configValue: modified }), 'overwritten cylinder tool');
 });
+
+test('decimal diameter tolerance accepts the boundary and rejects values beyond it', () => {
+  const c = config(); c.shapes[1].radius = 4; c.drawing_intent.required_dimensions[0].value_mm = 8;
+  for (const [actual, expected] of [[8.05, 'pass'], [7.95, 'pass'], [8.050000000000002, 'fail'], [8.050001, 'fail'], [7.949999, 'fail']]) {
+    const observed = geometry(); observed.cylindrical_faces[0].diameter_mm = actual;
+    const report = reportFor({ configValue: c, generated: observed, reimported: observed });
+    assert(report.engineering_quality.measurements.filter(r => r.measurement_type === 'hole_diameter').every(r => r.status === expected), String(actual));
+  }
+});
+test('decimal center tolerance applies to candidate matching and final measurement', () => {
+  const c = config(); c.shapes[1].position = [125, 10, -2];
+  c.drawing_intent.required_dimensions[0].expected_center_xy_mm = [125, 10];
+  for (const [x, expected] of [[125.2, 'pass'], [124.8, 'pass'], [125.200001, 'unavailable']]) {
+    const observed = geometry(); observed.cylindrical_faces[0].center_mm = [x, 10, 0];
+    const report = reportFor({ configValue: c, generated: observed, reimported: observed });
+    assert(report.engineering_quality.measurements.filter(r => r.measurement_type === 'hole_center').every(r => r.status === expected), String(x));
+  }
+});
+test('decimal tolerance preserves exponent notation and two-dimensional distance', () => {
+  const c = config();
+  c.drawing_intent.required_dimensions[0].tolerance_mm = 1e-7;
+  for (const [diameter, expected] of [[6.0000001, 'pass'], [6.000000100000001, 'fail']]) {
+    const observed = geometry(); observed.cylindrical_faces[0].diameter_mm = diameter;
+    const report = reportFor({ configValue: c, reimported: observed });
+    assert.equal(report.engineering_quality.measurements.find(r => r.validation_kind === 'reimported_step_geometry_check' && r.measurement_type === 'hole_diameter').status, expected);
+  }
+  c.drawing_intent.required_dimensions[0].center_tolerance_mm = 0.5;
+  for (const [center, expected] of [[[10.3, 10.4], 'pass'], [[10.300001, 10.4], 'unavailable']]) {
+    const observed = geometry(); observed.cylindrical_faces[0].center_mm = [...center, 0];
+    const report = reportFor({ configValue: c, reimported: observed });
+    assert.equal(report.engineering_quality.measurements.find(r => r.validation_kind === 'reimported_step_geometry_check' && r.measurement_type === 'hole_center').status, expected);
+  }
+});
