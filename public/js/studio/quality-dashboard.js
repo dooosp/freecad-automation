@@ -737,6 +737,10 @@ function buildEngineeringFailureNextActions({ failedRows = [], unavailableRows =
   };
 }
 
+function hasInvalidCenterProjection(createQuality = {}) {
+  return safeList(createQuality.engineering_quality?.measurements).some(row => !validCreateQualityProjection(row));
+}
+
 function buildEngineeringQualitySummary(createQuality = {}) {
   if (!createQuality || Object.keys(createQuality).length === 0) return null;
 
@@ -758,7 +762,7 @@ function buildEngineeringQualitySummary(createQuality = {}) {
     row.status === 'missing' || row.status === 'unavailable' || row.status === 'not_available'
   ));
   const status = normalizeSurfaceStatus(
-    (safeList(engineering.measurements).some(row => !validCreateQualityProjection(row)) ? 'unavailable' : null)
+    (hasInvalidCenterProjection(createQuality) ? 'unavailable' : null)
     || engineering.status
     || createQuality.status
     || (failedRows.length > 0 ? 'fail' : unavailableRows.length > 0 ? 'warning' : 'pass')
@@ -1790,6 +1794,17 @@ function buildReportSummaryModel({
   createQuality = {},
   drawingQuality = {},
 } = {}) {
+  if (hasInvalidCenterProjection(createQuality)) {
+    reportSummary = {
+      ...reportSummary,
+      overall_status: normalizeSurfaceStatus(reportSummary.overall_status) === 'fail' ? 'fail' : 'incomplete',
+      ready_for_manufacturing_review: false,
+      surfaces: { ...safeObject(reportSummary.surfaces), create_quality: {
+        ...safeObject(reportSummary.surfaces?.create_quality), status: 'unavailable',
+        warnings: [...safeList(reportSummary.surfaces?.create_quality?.warnings), 'Inconsistent center projection metadata; measurement unavailable.'],
+      } },
+    };
+  }
   const surfaces = safeObject(reportSummary.surfaces);
   const createSurface = safeObject(surfaces.create_quality);
   const drawingSurface = safeObject(surfaces.drawing_quality);
@@ -1875,7 +1890,7 @@ function summarizeCreateFallback(createQuality = {}) {
   const invalidShape = createQuality.geometry?.valid_shape === false
     || blockingIssues.some((issue) => /invalid/i.test(issue));
   return {
-    status: normalizeSurfaceStatus(createQuality.status || (invalidShape ? 'fail' : 'pass')),
+    status: normalizeSurfaceStatus(hasInvalidCenterProjection(createQuality) ? 'unavailable' : createQuality.status || (invalidShape ? 'fail' : 'pass')),
     invalidShape,
     blockers: blockingIssues,
     warnings: uniqueStrings(safeList(createQuality.warnings)),

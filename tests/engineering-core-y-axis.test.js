@@ -24,9 +24,10 @@ function report({ c = config(), generated = geometry(), step = geometry() } = {}
 }
 const rows = r => r.engineering_quality.measurements;
 const stepRow = (r, type) => rows(r).find(m => m.validation_kind === 'reimported_step_geometry_check' && m.measurement_type === type);
-function dashboard(r) {
+function dashboard(r, withSummary = false) {
   const artifact = { id: 'quality', key: 'create_quality', type: 'model.quality-summary', file_name: 'create_quality.json', extension: '.json', exists: true };
-  return buildQualityDashboardModel({ artifacts: [artifact], artifactPayloads: { quality: r } });
+  const summary = { id: 'summary', key: 'report_summary_json', type: 'report.summary-json', file_name: 'test_report_summary.json', extension: '.json', exists: true };
+  return buildQualityDashboardModel({ artifacts: withSummary ? [artifact, summary] : [artifact], artifactPayloads: { quality: r, summary: { overall_status: 'pass', ready_for_manufacturing_review: true, surfaces: { create_quality: { status: 'pass' } } } } });
 }
 
 test('Y cylinders are measured in XZ independently for generated and STEP geometry', () => {
@@ -111,6 +112,12 @@ test('malformed projection metadata fails schema, semantic validation and Studio
     const rendered = dashboard(bad).engineeringQuality.sections.flatMap(s => s.rows).find(s => s.id === row.requirement_id);
     assert.notEqual(rendered.statusLabel, 'PASS');
     assert.notEqual(dashboard(bad).engineeringQuality.statusLabel, 'PASS');
+    assert.notEqual(dashboard(bad).surfaces.find(s => s.id === 'geometry').status, 'pass');
+    const summarized = dashboard(bad, true);
+    assert.equal(summarized.source, 'report_summary');
+    assert.notEqual(summarized.surfaces.find(s => s.id === 'geometry').status, 'pass');
+    assert.notEqual(summarized.overallStatus, 'pass');
+    assert.notEqual(summarized.readyForManufacturingReview, true);
   }
 });
 test('revision semantic records retain projection meaning while ignoring face indices', () => {
@@ -150,6 +157,10 @@ test('legacy Z measurements retain only XY fields', () => {
   }
   assert.equal(validateCreateQualityReport(r).ok, true);
   assert.equal(validateRevisionImpactSemanticArtifact('create_quality', r).ok, true);
+  const explicitNull = structuredClone(c);
+  delete explicitNull.drawing_intent.required_dimensions[0].expected_center_xy_mm;
+  explicitNull.drawing_intent.required_dimensions[0].center_mm = null;
+  assert.notEqual(report({ c: explicitNull, generated: g, step: g }).status, 'pass');
   // Preserve legacy nullish alias precedence for Z inputs.
   for (const xy of [[21, 28], null]) {
     intent.expected_center_xy_mm = xy; intent.expected_center_mm = [21, 28, 0];
