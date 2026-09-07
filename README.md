@@ -2,6 +2,8 @@
 
 FreeCAD Automation turns FreeCAD configs and existing CAD files into traceable manufacturing review, revision-impact, inspection-planning, and evidence-onboarding artifacts. It is for engineers and reviewers who need a local, auditable path from design input to reviewable outputs without treating generated analysis as physical inspection evidence.
 
+People or external AI tools can author TOML for the same local CAD engine. The optional AI adapter uses deterministic canonical config validation and delegates build execution to the existing model service; the CLI `create` path also exports and reimports outputs for quality checks. Model creation, observed shape validity, drawing QA, physical inspection evidence, and manufacturing approval are separate results. See the [bounded engineering core and verified results](./docs/engineering-core-refocus-results.md) for supported hole checks and limitations. `design` remains experimental, as already defined by the command manifest.
+
 ## Choose a workflow
 
 | Goal | Start with | Primary commands | Result |

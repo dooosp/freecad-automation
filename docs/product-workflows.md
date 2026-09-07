@@ -6,6 +6,10 @@ FreeCAD Automation turns FreeCAD configs and existing CAD files into traceable m
 
 Start with a versioned config, STEP/FCStd file, or existing review artifact.
 
+An externally authored TOML does not require AI-provider access. The optional AI build adapter validates structure and execution references before writing a config, then calls the existing `createModel` service. Its build response means model execution completed; use CLI `create` for the existing export/reimport quality pipeline. Explicit boolean shape-validity observations are required for a quality PASS. Positive volume and face count cannot substitute for validity.
+
+Required hole checks support single parts with explicit, unmodified Z-axis cylindrical cutters and uniquely corresponding observed cylinder faces. Generated shape and reimported STEP produce separate measurement rows. Assemblies, inclined/Y-axis holes, ambiguous or split faces, modified cutters, and cavities whose persistence after later fuse/common cannot be established remain unavailable. Default quality behavior remains warning-friendly; explicit `--strict-quality` controls failure exit. Details and runtime examples are in [engineering core results](./engineering-core-refocus-results.md).
+
 ```text
 config or STEP/FCStd
   -> model, drawing, or import diagnostics
@@ -29,6 +33,8 @@ missing baseline, physical result, inspection evidence, or human authority. See
 ## 2. Compare revisions and plan inspection
 
 Start with baseline and candidate review packs.
+
+Supply both actual revision configs to compare stable feature IDs and explicit nominal requirements. Identical inputs and `generated-at` give deterministic revision-impact JSON/Markdown; reordering unordered input records changes source hashes but preserves semantic decisions. Ignored test outputs are excluded from canonical evidence linkage by the existing review-context policy. A diagnostic run can therefore prove CAD and config changes while quality/drawing evidence linkage remains unavailable. It cannot promote generated values into inspection evidence.
 
 ```text
 baseline review pack + candidate review pack

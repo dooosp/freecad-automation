@@ -53,7 +53,7 @@ for the supported chain and hold conditions.
 - `readiness-report <config.toml|json>` remains functional, prints an exact non-canonical warning, and points to `readiness-pack --review-pack`; no removal version is announced.
 - `fcad serve` starts Studio and the Local API. `fcad serve --legacy-viewer` and `npm run serve:legacy` remain compatibility-only.
 - `mfg-agent` remains an alias for `fcad`.
-- Natural-language `design` remains experimental.
+- Natural-language `design` remains experimental and supplies optional draft advice. Deterministic config validation and the existing model service own validation/execution; AI advice does not authorize quality or manufacturing approval. See [engineering core results](./engineering-core-refocus-results.md).
 - Existing Stage 5B helpers and doctors remain maintainer-facing and directly invokable.
 - `readiness-report --review-pack` can opt into proof mode; the config-positional compatibility route cannot.
 

@@ -1,5 +1,7 @@
 # Quality Baseline
 
+The historical observations below are unchanged. The separate [2026-09-07 engineering-core verification](./engineering-core-refocus-results.md) records FreeCAD 1.1.3 results for isolated A/B copies, observed validity, and name-independent STEP hole checks; it does not regenerate these historical packages or readiness reports.
+
 - baseline git commit: `baba643b1933cdef5dbf02a568c45e4fd90433fb`
 - baseline branch for this follow-up: `origin/master`
 - runtime availability:
