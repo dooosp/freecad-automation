@@ -8,11 +8,19 @@ import { join, relative, resolve, sep } from 'node:path';
 import { parse, stringify } from 'smol-toml';
 import { validateOutputManifest } from '../lib/output-manifest.js';
 import { validateArtifactManifest } from '../lib/artifact-manifest.js';
-import { validateCreateQualityReport } from '../lib/create-quality.js';
+import { DEFAULT_CREATE_QUALITY_THRESHOLDS, validateCreateQualityReport } from '../lib/create-quality.js';
 import { buildRuntimeSmokeBoundary } from '../lib/runtime-smoke-governance.js';
 import { FIXTURES, prepareConfig } from './helpers/engineering-core-fixtures.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
+const OBSERVATIONS = [
+  ['generated_shape_geometry_check', 'generated_shape_geometry'],
+  ['reimported_step_geometry_check', 'reimported_step_geometry'],
+];
+const HINGE_PINS = [
+  { id: 'hinge_pin_left', center: [21, 27] },
+  { id: 'hinge_pin_right', center: [69, 27] },
+];
 const runId = `runtime-${Date.now()}-${process.pid}`;
 const out = resolve(ROOT, 'output/engineering-core-refocus', runId);
 assert(!existsSync(out), 'fresh run directory required');
@@ -24,9 +32,10 @@ const hash = p => createHash('sha256').update(readFileSync(p)).digest('hex');
 const result = {
   ...buildRuntimeSmokeBoundary(), run_id: runId,
   code_sha: spawnSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).stdout.trim(),
+  runtime_driver_sha256: hash(import.meta.filename),
   dirty_at_start: !!spawnSync('git', ['status', '--porcelain'], { cwd: ROOT, encoding: 'utf8' }).stdout.trim(),
   environment: { os: `${platform()} ${release()}`, node: process.version },
-  commands: [], cases: [], comparisons: [], injections: [], errors: [],
+  commands: [], cases: [], comparisons: [], injections: [], invariances: [], errors: [],
   notes: ['CAD runtime observations only; no physical inspection, readiness change or manufacturing approval.', 'Ignored quality/drawing sidecars cannot become canonical review evidence; linkage remains unavailable.', 'Drawing existence and intent semantics checked; visual layout NOT_RUN.'],
 };
 const save = () => writeFileSync(join(out, 'results.json'), JSON.stringify(result, null, 2) + '\n');
@@ -63,6 +72,101 @@ function owned(path) {
 function output(man, kind) {
   return owned(man.value.outputs.find(o => o.kind === kind)?.path);
 }
+function runtimeConfig(fixture, source, revision) {
+  const config = prepareConfig(ROOT, runId, fixture, source, revision);
+  // Add BREP only after the helper has moved the copy away from canonical outputs.
+  assert(resolve(ROOT, config.export.directory).startsWith(out + sep));
+  config.export.formats = [...new Set([...config.export.formats, 'brep'])];
+  return config;
+}
+function writeConfig(config) {
+  const dir = resolve(ROOT, config.export.directory);
+  assert(dir.startsWith(out + sep));
+  mkdirSync(dir, { recursive: true });
+  owned(dir);
+  assert.equal(spawnSync('git', ['check-ignore', '--quiet', relative(ROOT, dir)], { cwd: ROOT }).status, 0);
+  const configPath = join(dir, 'config.toml');
+  writeFileSync(configPath, stringify(config));
+  assert.equal(resolve(ROOT, parse(readFileSync(configPath, 'utf8')).export.directory), dir);
+  owned(configPath);
+  return { dir, configPath };
+}
+function assertBrep(create, quality) {
+  assert.equal(validateCreateQualityReport(quality).ok, true);
+  const brep = output(create, 'model.brep');
+  assert.equal(owned(quality.primary_outputs.brep), brep);
+  const roundtrip = quality.brep_roundtrip;
+  assert.equal(roundtrip.exported, true);
+  assert.equal(roundtrip.reimport_attempted, true);
+  assert.equal(roundtrip.reimport_valid, true);
+  assert.equal(roundtrip.reimported_geometry?.valid_shape, true);
+  assert(Number.isFinite(roundtrip.volume_delta_percent));
+  assert(roundtrip.volume_delta_percent <= DEFAULT_CREATE_QUALITY_THRESHOLDS.max_step_volume_delta_percent);
+  assert(Number.isFinite(roundtrip.bbox_delta?.max_abs_mm));
+  assert(roundtrip.bbox_delta.max_abs_mm <= DEFAULT_CREATE_QUALITY_THRESHOLDS.max_bbox_delta_mm);
+  return relative(ROOT, brep);
+}
+function observedRow(rows, featureId, kind, type) {
+  const matches = rows.filter(r => r.feature_id === featureId && r.validation_kind === kind && r.measurement_type === type);
+  assert.equal(matches.length, 1, `${featureId} ${kind} ${type}: one observed row required`);
+  return matches[0];
+}
+function assertYRows(rows, pin, { diameter = 8, center = pin.center, failedType = null } = {}) {
+  for (const [kind, source] of OBSERVATIONS) {
+    for (const type of ['hole_diameter', 'hole_center']) {
+      const row = observedRow(rows, pin.id, kind, type);
+      assert.equal(row.status, type === failedType ? 'fail' : 'pass', `${pin.id} ${kind} ${type}`);
+      assert.equal(row.source, source);
+      assert.equal(row.hole_axis, 'y');
+      assert.equal(row.center_plane, 'xz');
+      assert.equal(row.expected_center_xy_mm, null);
+      assert.equal(row.actual_center_xy_mm, null);
+      assert.deepEqual(row.expected_center_xz_mm, pin.center);
+      assert(Array.isArray(row.actual_center_xz_mm) && row.actual_center_xz_mm.length === 2);
+      assert(row.actual_center_xz_mm.every(Number.isFinite));
+      assert(Math.hypot(...row.actual_center_xz_mm.map((v, i) => v - center[i])) <= DEFAULT_CREATE_QUALITY_THRESHOLDS.max_engineering_center_delta_mm);
+      if (type === 'hole_diameter') {
+        assert.equal(row.expected_value_mm, 8);
+        assert(Number.isFinite(row.actual_value_mm));
+        assert(Math.abs(row.actual_value_mm - diameter) <= DEFAULT_CREATE_QUALITY_THRESHOLDS.max_engineering_dimension_delta_mm);
+      }
+    }
+  }
+}
+function fixHingeCenterRequirements(config) {
+  const dimensions = config.drawing_intent.required_dimensions;
+  const index = dimensions.findIndex(d => d.id === 'HINGE_PIN_DIA');
+  const group = dimensions[index];
+  assert.equal(group?.value_mm, 8);
+  assert.equal(group.feature, 'hinge_pin_left,hinge_pin_right');
+  const pins = HINGE_PINS.map((pin, i) => {
+    const shape = config.shapes.find(s => s.id === pin.id);
+    assert.equal(shape?.radius, 4);
+    assert.deepEqual(shape.position, [pin.center[0], 28, pin.center[1]]);
+    assert.deepEqual(shape.direction, [0, 1, 0]);
+    assert.equal(shape.height, 24);
+    return { ...group, id: i === 0 ? group.id : 'HINGE_PIN_RIGHT_DIA', feature: pin.id, expected_center_xz_mm: [...pin.center] };
+  });
+  // Create-only probes need one independent XZ requirement for each feature.
+  dimensions.splice(index, 1, ...pins);
+}
+function geometryDelta(baseline, candidate) {
+  assert(baseline.valid_shape === true && candidate.valid_shape === true);
+  assert(Number.isFinite(baseline.volume) && baseline.volume > 0);
+  assert(Number.isFinite(candidate.volume) && candidate.volume > 0);
+  const volumeDeltaPercent = Math.abs(candidate.volume - baseline.volume) / baseline.volume * 100;
+  assert(volumeDeltaPercent <= DEFAULT_CREATE_QUALITY_THRESHOLDS.max_step_volume_delta_percent);
+  const bboxDeltas = ['min', 'max', 'size'].flatMap(key => {
+    assert(Array.isArray(baseline.bbox?.[key]) && baseline.bbox[key].length === 3);
+    assert(Array.isArray(candidate.bbox?.[key]) && candidate.bbox[key].length === 3);
+    assert(baseline.bbox[key].every(Number.isFinite) && candidate.bbox[key].every(Number.isFinite));
+    return candidate.bbox[key].map((value, i) => Math.abs(value - baseline.bbox[key][i]));
+  });
+  const bboxMaxDeltaMm = Math.max(...bboxDeltas);
+  assert(bboxMaxDeltaMm <= DEFAULT_CREATE_QUALITY_THRESHOLDS.max_bbox_delta_mm);
+  return { volume_delta_percent: volumeDeltaPercent, bbox_max_delta_mm: bboxMaxDeltaMm };
+}
+let hingeBaselineA = null;
 try {
   const runtime = cli(['check-runtime']);
   result.runtime_probe = runtime.stdout;
@@ -74,13 +178,8 @@ try {
       try {
         const sourcePath = resolve(ROOT, fixture.source);
         const source = parse(readFileSync(sourcePath, 'utf8'));
-        const config = prepareConfig(ROOT, runId, fixture, source, revision);
-        const dir = resolve(ROOT, config.export.directory);
-        mkdirSync(dir, { recursive: true });
-        const configPath = join(dir, 'config.toml');
-        writeFileSync(configPath, stringify(config));
-        assert.equal(resolve(ROOT, parse(readFileSync(configPath, 'utf8')).export.directory), dir);
-        owned(configPath); // Check resolved/symlink path before launching anything.
+        const config = runtimeConfig(fixture, source, revision);
+        const { dir, configPath } = writeConfig(config);
         record.source = { path: fixture.source, sha256: hash(sourcePath) };
         record.config = { path: relative(ROOT, configPath), sha256: hash(configPath), synthetic_identity_fields: ['package_slug', 'part_id', 'revision'].filter(k => source.product?.[k] === undefined) };
         cli(['create', configPath], dir);
@@ -89,7 +188,7 @@ try {
         record.runtime = create.value.runtime;
         const qualityPath = owned(create.value.linked_artifacts.quality_json);
         const quality = read(qualityPath);
-        assert.equal(validateCreateQualityReport(quality).ok, true);
+        record.brep_path = assertBrep(create, quality);
         record.create_quality = quality.status;
         record.valid_shape = quality.geometry.valid_shape;
         record.step_roundtrip = quality.step_roundtrip;
@@ -107,34 +206,32 @@ try {
             assert(diameter, `${id} ${kind}: required observed row`);
             assert.equal(diameter.status, 'pass', `${id} ${kind}: supported Z hole must pass`);
             assert.equal(diameter.source, kind === 'generated_shape_geometry_check' ? 'generated_shape_geometry' : 'reimported_step_geometry');
-              assert(Math.abs(diameter.actual_value_mm - (revision === 'A' ? fixture.a : fixture.b)) <= 0.05);
-              const center = rows.find(r => r.feature_id === id && r.validation_kind === kind && r.measurement_type === 'hole_center');
-              assert(center);
-              assert.equal(center.status, 'pass');
-              assert.equal(center.source, diameter.source);
-              assert(Math.hypot(...center.actual_center_xy_mm.map((v, i) => v - fixture.centers[index][i])) <= 0.2);
+            assert(Math.abs(diameter.actual_value_mm - (revision === 'A' ? fixture.a : fixture.b)) <= 0.05);
+            const center = rows.find(r => r.feature_id === id && r.validation_kind === kind && r.measurement_type === 'hole_center');
+            assert(center);
+            assert.equal(center.status, 'pass');
+            assert.equal(center.source, diameter.source);
+            assert(Math.hypot(...center.actual_center_xy_mm.map((v, i) => v - fixture.centers[index][i])) <= 0.2);
           }
         }
-        if (fixture.id === 'quality-pass-bracket') assert.equal(quality.status, 'pass');
+        assert.equal(quality.status, 'pass', `${fixture.id}/${revision}: all required quality checks must pass`);
         if (fixture.id === 'hinge-block') {
-          assert.notEqual(quality.status, 'pass');
-          for (const id of ['hinge_pin_left', 'hinge_pin_right']) {
-            for (const kind of ['generated_shape_geometry_check', 'reimported_step_geometry_check']) {
-              for (const type of ['hole_diameter', 'hole_center']) {
-                assert.equal(rows.find(r => r.feature_id === id && r.validation_kind === kind && r.measurement_type === type)?.status, 'unavailable');
-              }
-            }
-          }
+          for (const pin of HINGE_PINS) assertYRows(rows, pin);
+          assert.equal(rows.length, 16);
+          assert(rows.every(row => row.status === 'pass'));
+          if (revision === 'A') hingeBaselineA = { quality, qualityPath };
         }
         cli(['draw', configPath], dir);
         const draw = manifest(dir, 'draw', 'output', configPath);
         record.draw_manifest = relative(ROOT, draw.path);
         const svg = output(draw, 'drawing.svg');
         assert(readFileSync(svg, 'utf8').includes('<svg'));
+        record.drawing_svg_path = relative(ROOT, svg);
         const drawingQuality = output(draw, 'drawing.quality-json');
         const intentPath = output(draw, 'drawing.intent-json');
         const catalog = output(draw, 'drawing.feature-catalog-json');
         record.drawing_quality = read(drawingQuality).status;
+        assert.equal(record.drawing_quality, 'pass', `${fixture.id}/${revision}: drawing quality must pass`);
         const intent = read(intentPath);
         assert.equal(intent.required_dimensions.find(d => d.id === fixture.requirement).value_mm, revision === 'A' ? fixture.a : fixture.b);
         const model = output(create, 'model.step');
@@ -181,31 +278,90 @@ try {
   for (const injection of ['diameter', 'center']) {
     try {
       const source = parse(readFileSync(resolve(ROOT, fixture.source), 'utf8'));
-      const config = prepareConfig(ROOT, runId, fixture, source, 'A');
+      const config = runtimeConfig(fixture, source, 'A');
       config.export.directory = `output/engineering-core-refocus/${runId}/error-${injection}`;
-      const dir = resolve(ROOT, config.export.directory); mkdirSync(dir);
       const hole = config.shapes.find(s => s.id === 'hole_left');
       if (injection === 'diameter') hole.radius = 4;
       else {
         hole.position[0] = 32;
         config.drawing_intent.required_dimensions.find(d => d.id === fixture.requirement).expected_center_xy_mm = [30, 30];
       }
-      const configPath = join(dir, 'config.toml'); writeFileSync(configPath, stringify(config)); owned(configPath);
+      const { dir, configPath } = writeConfig(config);
       cli(['create', configPath], dir);
       const create = manifest(dir, 'create', 'output', configPath);
       const quality = read(owned(create.value.linked_artifacts.quality_json));
+      const brep = assertBrep(create, quality);
       assert.notEqual(quality.status, 'pass');
       const row = quality.engineering_quality.measurements.find(r => r.feature_id === 'hole_left' && r.validation_kind === 'reimported_step_geometry_check' && r.measurement_type === `hole_${injection}`);
       assert.equal(row?.status, 'fail');
       if (injection === 'diameter') { assert.equal(row.actual_value_mm, 8); assert.equal(row.expected_value_mm, 6); }
       else { assert.deepEqual(row.actual_center_xy_mm, [32, 30]); assert.deepEqual(row.expected_center_xy_mm, [30, 30]); }
-      result.injections.push({ injection, status: 'DETECTED', manifest: relative(ROOT, create.path), input_sha256: hash(configPath), measurement: row, default_exit_code: 0 });
+      result.injections.push({ injection, status: 'DETECTED', manifest: relative(ROOT, create.path), input_sha256: hash(configPath), measurement: row, brep_path: brep, brep_roundtrip: quality.brep_roundtrip, default_exit_code: 0 });
     } catch (error) { result.errors.push(`injection/${injection}: ${error}`); }
   }
+  const hinge = FIXTURES.find(f => f.id === 'hinge-block');
+  for (const injection of ['y-diameter', 'y-center-x', 'y-center-z']) {
+    try {
+      const source = parse(readFileSync(resolve(ROOT, hinge.source), 'utf8'));
+      const config = runtimeConfig(hinge, source, 'A');
+      config.export.directory = `output/engineering-core-refocus/${runId}/error-${injection}`;
+      fixHingeCenterRequirements(config);
+      const hole = config.shapes.find(s => s.id === 'hinge_pin_left');
+      if (injection === 'y-diameter') hole.radius = 5;
+      else hole.position[injection === 'y-center-x' ? 0 : 2] += 1;
+      const { dir, configPath } = writeConfig(config);
+      cli(['create', configPath], dir);
+      const create = manifest(dir, 'create', 'output', configPath);
+      const quality = read(owned(create.value.linked_artifacts.quality_json));
+      const brep = assertBrep(create, quality);
+      assert.equal(quality.status, 'fail');
+      const rows = quality.engineering_quality.measurements;
+      const failedType = injection === 'y-diameter' ? 'hole_diameter' : 'hole_center';
+      assertYRows(rows, HINGE_PINS[0], {
+        diameter: injection === 'y-diameter' ? 10 : 8,
+        center: injection === 'y-center-x' ? [22, 27] : injection === 'y-center-z' ? [21, 28] : [21, 27],
+        failedType,
+      });
+      assertYRows(rows, HINGE_PINS[1]);
+      assert.equal(rows.filter(row => row.status === 'fail').length, 2);
+      assert(rows.filter(row => row.feature_id !== 'hinge_pin_left').every(row => row.status === 'pass'));
+      const measurements = OBSERVATIONS.map(([kind]) => observedRow(rows, 'hinge_pin_left', kind, failedType));
+      for (const row of measurements) {
+        if (failedType === 'hole_center') assert(row.expected_source_field.endsWith('.expected_center_xz_mm'));
+      }
+      result.injections.push({ injection, status: 'DETECTED', manifest: relative(ROOT, create.path), input_sha256: hash(configPath), measurements, brep_path: brep, brep_roundtrip: quality.brep_roundtrip, default_exit_code: 0 });
+    } catch (error) { result.errors.push(`injection/${injection}: ${error}`); }
+  }
+  try {
+    assert(hingeBaselineA, 'successful hinge A observations required for axial invariance');
+    const source = parse(readFileSync(resolve(ROOT, hinge.source), 'utf8'));
+    const config = runtimeConfig(hinge, source, 'A');
+    config.export.directory = `output/engineering-core-refocus/${runId}/y-origin-shift`;
+    fixHingeCenterRequirements(config);
+    config.shapes.find(s => s.id === 'hinge_pin_left').position[1] = 29;
+    const { dir, configPath } = writeConfig(config);
+    cli(['create', configPath], dir);
+    const create = manifest(dir, 'create', 'output', configPath);
+    const quality = read(owned(create.value.linked_artifacts.quality_json));
+    const brep = assertBrep(create, quality);
+    assert.equal(quality.status, 'pass');
+    const rows = quality.engineering_quality.measurements;
+    for (const pin of HINGE_PINS) assertYRows(rows, pin);
+    assert.equal(rows.length, 16);
+    assert(rows.every(row => row.status === 'pass'));
+    const baseline = hingeBaselineA.quality;
+    const deltas = {
+      generated: geometryDelta(baseline.geometry, quality.geometry),
+      step: geometryDelta(baseline.step_roundtrip.reimported_geometry, quality.step_roundtrip.reimported_geometry),
+      brep: geometryDelta(baseline.brep_roundtrip.reimported_geometry, quality.brep_roundtrip.reimported_geometry),
+    };
+    result.invariances.push({ change: 'hinge_pin_left axial origin Y 28 -> 29 mm; fixed XZ [21,27]', status: 'PASS', baseline_quality_path: relative(ROOT, hingeBaselineA.qualityPath), manifest: relative(ROOT, create.path), input_sha256: hash(configPath), geometry_deltas: deltas, measurements: rows, brep_path: brep, brep_roundtrip: quality.brep_roundtrip });
+  } catch (error) { result.errors.push(`invariance/y-origin-shift: ${error}`); }
 } catch (error) { result.errors.push(String(error)); }
 save();
 console.log(`Runtime results: ${relative(ROOT, join(out, 'results.json'))}`);
 assert.equal(result.errors.length, 0, result.errors.join('\n'));
 assert.equal(result.cases.length, 6);
 assert.equal(result.comparisons.length, 3);
-assert.equal(result.injections.length, 2);
+assert.equal(result.injections.length, 5);
+assert.equal(result.invariances.length, 1);
