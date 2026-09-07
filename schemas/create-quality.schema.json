@@ -359,6 +359,29 @@
         "matched_face_index",
         "message"
       ],
+      "oneOf": [
+        { "not": { "anyOf": [
+          { "required": ["hole_axis"] }, { "required": ["center_plane"] },
+          { "required": ["expected_center_xz_mm"] }, { "required": ["actual_center_xz_mm"] }
+        ] } },
+        {
+          "required": ["hole_axis", "center_plane"],
+          "properties": { "hole_axis": { "const": "z" }, "center_plane": { "const": "xy" } },
+          "not": { "anyOf": [{ "required": ["expected_center_xz_mm"] }, { "required": ["actual_center_xz_mm"] }] }
+        },
+        {
+          "required": ["hole_axis", "center_plane", "expected_center_xz_mm", "actual_center_xz_mm"],
+          "properties": {
+            "hole_axis": { "const": "y" }, "center_plane": { "const": "xz" },
+            "expected_center_xy_mm": { "type": "null" }, "actual_center_xy_mm": { "type": "null" }
+          },
+          "if": { "properties": { "status": { "const": "pass" } } },
+          "then": { "properties": {
+            "expected_center_xz_mm": { "$ref": "#/$defs/vector2" },
+            "actual_center_xz_mm": { "$ref": "#/$defs/vector2" }
+          } }
+        }
+      ],
       "properties": {
         "requirement_id": { "type": "string", "minLength": 1 },
         "source_requirement_id": { "type": "string", "minLength": 1 },
@@ -379,6 +402,10 @@
             { "$ref": "#/$defs/vector2" }
           ]
         },
+        "hole_axis": { "enum": ["y", "z"] },
+        "center_plane": { "enum": ["xy", "xz"] },
+        "expected_center_xz_mm": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/vector2" }] },
+        "actual_center_xz_mm": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/vector2" }] },
         "tolerance_mm": { "type": "number", "minimum": 0 },
         "delta_mm": { "type": ["number", "null"], "minimum": 0 },
         "center_delta_mm": { "type": ["number", "null"], "minimum": 0 },

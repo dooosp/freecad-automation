@@ -1,3 +1,5 @@
+import { validCreateQualityProjection } from '#create-quality-projection';
+
 function normalizeString(value) {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
 }
@@ -376,16 +378,18 @@ function measurementLabel(measurement = {}) {
   const feature = formatFeatureLabel(measurement.feature_id, measurement.source_requirement_id || measurement.requirement_id);
   const type = normalizeString(measurement.measurement_type);
   if (type === 'hole_diameter') return `${feature || 'Hole'} diameter`;
-  if (type === 'hole_center') return `${feature || 'Hole'} center`;
+  if (type === 'hole_center') return `${feature || 'Hole'} center${measurement.center_plane === 'xz' ? ' (XZ)' : ''}`;
   return humanizeToken(measurement.requirement_id || measurement.measurement_type || 'Engineering check');
 }
 
 function measurementExpectedActual(measurement = {}) {
   const type = normalizeString(measurement.measurement_type);
   if (type === 'hole_center') {
+    const plane = measurement.center_plane === 'xz' ? 'xz' : 'xy';
+    const valid = validCreateQualityProjection(measurement);
     return {
-      expected: formatMeasurementValue(measurement.expected_center_xy_mm, { unit: 'mm' }),
-      actual: formatMeasurementValue(measurement.actual_center_xy_mm, { unit: 'mm' }),
+      expected: formatMeasurementValue(valid ? measurement[`expected_center_${plane}_mm`] : null, { unit: 'mm' }),
+      actual: formatMeasurementValue(valid ? measurement[`actual_center_${plane}_mm`] : null, { unit: 'mm' }),
       delta: formatMeasurementValue(
         measurement.center_delta_mm ?? measurement.delta_mm ?? measurement.source_center_delta_mm,
         { unit: 'mm' }
@@ -444,14 +448,14 @@ function buildEngineeringRow({
 function buildEngineeringMeasurementRow(measurement = {}) {
   const values = measurementExpectedActual(measurement);
   const label = measurementLabel(measurement);
-  const detail = measurement.message
+  const detail = !validCreateQualityProjection(measurement) ? 'Inconsistent center projection metadata; measurement unavailable.' : measurement.message
     || (normalizeSurfaceStatus(measurement.status) === 'pass'
       ? `${label} is within the reported tolerance.`
       : '');
   return buildEngineeringRow({
     id: measurement.requirement_id || `${measurement.source || 'engineering'}-${label}`,
     label,
-    status: measurement.status,
+    status: validCreateQualityProjection(measurement) ? measurement.status : 'unavailable',
     expected: values.expected,
     actual: values.actual,
     delta: values.delta,
@@ -754,7 +758,8 @@ function buildEngineeringQualitySummary(createQuality = {}) {
     row.status === 'missing' || row.status === 'unavailable' || row.status === 'not_available'
   ));
   const status = normalizeSurfaceStatus(
-    engineering.status
+    (safeList(engineering.measurements).some(row => !validCreateQualityProjection(row)) ? 'unavailable' : null)
+    || engineering.status
     || createQuality.status
     || (failedRows.length > 0 ? 'fail' : unavailableRows.length > 0 ? 'warning' : 'pass')
   );

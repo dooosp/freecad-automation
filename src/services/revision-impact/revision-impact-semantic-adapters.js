@@ -1,3 +1,4 @@
+import { validCreateQualityProjection } from '#create-quality-projection';
 const SUPPORTED_KINDS = new Set([
   'extracted_drawing_semantics',
   'create_quality',
@@ -241,6 +242,7 @@ function validateCreateQuality(document, errors) {
       requireArray(errors, document.engineering_quality.measurements, '$.engineering_quality.measurements');
       validateObjectItems(errors, document.engineering_quality.measurements, '$.engineering_quality.measurements');
       document.engineering_quality.measurements?.forEach((item, index) => {
+        if (isPlainObject(item) && !validCreateQualityProjection(item)) pushError(errors, `$.engineering_quality.measurements[${index}] has inconsistent center projection metadata`);
         validateOptionalId(errors, item, ['requirement_id', 'source_requirement_id', 'feature_id'], `$.engineering_quality.measurements[${index}]`);
       });
     }

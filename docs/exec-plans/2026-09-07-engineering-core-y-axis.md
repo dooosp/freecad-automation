@@ -1,0 +1,13 @@
+# Bounded Y-axis hole verification
+
+Approved follow-up to engineering-core refocus, based on `1d02385dfca30c90a922bde3de64a6fd3ad0ab1d`. Work in `codex/engineering-core-y-axis-v1`; preserve the prior candidate, original dirty checkout, robotics/UAT branches, canonical packages and readiness. No provider calls, secrets, remote writes, releases, or approvals.
+
+1. Capture preflight, protected hashes and baseline tests in ignored `tmp/codex/engineering-core-y-axis/`.
+2. Write failing tests for Y-axis diameter and XZ center observations, direction/origin invariance, wrong diameter/X/Z, depth, missing/ambiguous faces and malformed projection metadata. Preserve all Z regressions.
+3. Add optional `hole_axis`/`center_plane` and XZ center fields to the existing quality contract. Y rows use `hole_axis: y`, `center_plane: xz`, null legacy XY fields, and explicit `expected_center_xz_mm`/`actual_center_xz_mm`. Existing Z output retains its existing fields. New readers accept old reports; older strict readers reject extended reports rather than interpret XZ as XY. Keep the existing schema version and manifests; document this forward-compatibility limit.
+4. Reuse existing 3D cylinder metadata and exact tolerance comparison. Match Y-axis cylinders in XZ and check cutter depth in Y. Keep single-solid, primitive cutter, unique-face, lineage, validity and conservative unsupported constraints. Do not add X-axis, inclined holes, assemblies or split-face grouping.
+5. Update only necessary consumers: provenance, semantic validation and Studio projected values/labels. Preserve locale support and routes.
+6. Run isolated three-part A/B CAD/drawing/revision checks. Hinge pins retain 8 mm and literal XZ centers [21,27]/[69,27]. Test actual Y diameter 10 mm, X/Z displacement and harmless axial-origin movement. Add BREP to test-copy exports and verify the existing reimport path. Render generated SVG drawings for a bounded visual review; do not represent that as human UAT or manufacturing approval.
+7. Run source hygiene, contract, integration, snapshots, browser smoke, v1 acceptance, Python, canonical integrity and runtime smoke. Review the cumulative BASE diff with unchanged before/after fingerprints. Keep small local commits and publish a separate results document; historical results remain unchanged.
+
+Each implementation follows RED → observed failure → minimal correction → regression checks. Output directories are rewritten and checked before execution. All runtime artifacts stay under ignored `output/engineering-core-refocus/`; task controls stay under this repository's `tmp/codex/`.

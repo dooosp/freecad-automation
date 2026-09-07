@@ -11,7 +11,8 @@
     "url": "https://github.com/dooosp/freecad-automation/issues"
   },
   "imports": {
-    "#i18n-contract": "./src/shared/i18n-contract.js"
+    "#i18n-contract": "./src/shared/i18n-contract.js",
+    "#create-quality-projection": "./src/shared/create-quality-projection.js"
   },
   "keywords": [
     "freecad",
