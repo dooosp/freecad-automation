@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { validateTomlStructure } from '../scripts/design-reviewer.js';
+import { designFromText, designFromTextStreaming, reviewToml, validateTomlStructure } from '../scripts/design-reviewer.js';
 
 const validAssemblyToml = `
 name = "test_cam"
@@ -148,5 +148,35 @@ assert.equal(invalid.errors.some((e) => e.includes('unknown part "missing_part"'
 const invalidAssemblyShell = validateTomlStructure(invalidAssemblyShellToml);
 assert.equal(invalidAssemblyShell.valid, false);
 assert.equal(invalidAssemblyShell.errors.some((e) => e.includes('Part "housing" operation "shell" is not supported')), true);
+
+
+// Synthetic provider responses cannot silently become engineering approval.
+const syntheticResponse = `### ISSUES
+\`\`\`json
+[]
+\`\`\`
+### GENERATED TOML
+\`\`\`toml
+${validSinglePartToml}
+\`\`\`
+### DESIGN REPORT
+\`\`\`json
+{"recommendation":"Candidate idea", "materials_assigned":{}}
+\`\`\``;
+const chunks = [];
+const client = {
+  complete: async () => syntheticResponse,
+  stream: async ({ onChunk }) => { onChunk(syntheticResponse, syntheticResponse.length); return syntheticResponse; },
+};
+for (const result of [
+  await designFromText('a block', { client }),
+  await designFromTextStreaming('a block', chunk => chunks.push(chunk), { client }),
+  await reviewToml(new URL('../configs/examples/quality_pass_bracket.toml', import.meta.url), { client }),
+]) {
+  assert.match(result.report.recommendation, /AI draft advice/);
+  assert.match(result.report.recommendation, /not.*(?:inspection|manufacturing)/);
+  assert.equal(result.rawResponse, syntheticResponse);
+}
+assert.deepEqual(chunks, [syntheticResponse], 'stream delta contract is preserved');
 
 console.log('design-reviewer-validation.test.js: ok');

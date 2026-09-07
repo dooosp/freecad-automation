@@ -1,10 +1,13 @@
 import { join } from 'node:path';
+import { validateCadToml } from '../../../lib/cad-config-validation.js';
+import { createModel } from '../model/create-service.js';
 import { writeFile, mkdir, unlink } from 'node:fs/promises';
 
 export function createDesignService({
   designFromTextFn,
   reviewTomlFn,
-  validateTomlFn,
+  validateTomlFn = validateCadToml,
+  createModelFn = createModel,
   writeFileFn = writeFile,
   mkdirFn = mkdir,
   unlinkFn = unlink,
@@ -31,8 +34,7 @@ export function createDesignService({
 
       const reviewFn = reviewTomlFn
         || (await import(`${freecadRoot}/scripts/design-reviewer.js`)).reviewToml;
-      const validateFn = validateTomlFn
-        || (await import(`${freecadRoot}/scripts/design-reviewer.js`)).validateTomlStructure;
+      const validateFn = validateTomlFn;
 
       const tmpDir = join(freecadRoot, 'configs', 'generated');
       await mkdirFn(tmpDir, { recursive: true });
@@ -50,14 +52,15 @@ export function createDesignService({
 
     if (mode === 'build') {
       if (!toml) throw new Error('toml required for build mode');
+      const validation = validateTomlFn(toml);
+      if (!validation.valid) throw new Error(`CAD config validation failed: ${validation.errors.join('; ')}`);
 
       const outDir = join(freecadRoot, 'configs', 'generated');
       await mkdirFn(outDir, { recursive: true });
       const configPath = join(outDir, `design_${Date.now()}.toml`);
       await writeFileFn(configPath, toml, 'utf8');
 
-      const config = await loadConfig(configPath);
-      const result = await runScript('create_model.py', config, { timeout: 120_000 });
+      const result = await createModelFn({ freecadRoot, runScript, loadConfig, configPath });
       return { ...result, configPath: configPath.replace(`${freecadRoot}/`, '') };
     }
 

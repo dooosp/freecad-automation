@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * design-reviewer.js — OpenAI GPT-powered kinematics design reviewer.
+ * design-reviewer.js — optional AI config drafting and advisory review adapter.
  *
  * Mode A: Review existing TOML → issues + corrected TOML + report
  *   node scripts/design-reviewer.js --review <path.toml> [--json]
@@ -13,7 +13,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { parse as parseTOML } from 'smol-toml';
+import { validateCadToml as validateTomlStructure } from '../lib/cad-config-validation.js';
 import {
   createOpenAIResponsesClient,
   DEFAULT_OPENAI_MAX_REQUESTS,
@@ -26,32 +26,7 @@ import {
 // Constants
 // ---------------------------------------------------------------------------
 
-const SYSTEM_PROMPT = `You are a senior mechanical engineer reviewing canonical TOML configs for the freecad-automation repository. These configs must work with fcad create/draw/dfm/tolerance/report flows, not a generic CAD or MuJoCo schema.
-
-## Your Expertise
-1. **Mechanism analysis**: Identify parts, DOF, motion chains, and coupling types.
-2. **Dimensional design**:
-   - Shaft sizing: τ = F × r, minimum 3mm radius for any rotating shaft
-   - Shaft-bore fit: H7/g6 tolerance → clearance 0.01–0.05mm (bore_radius - shaft_radius)
-   - Cam pressure angle must be < 30°
-   - Gear module × teeth / 2 = pitch radius
-3. **Layout / interference**:
-   - Every pair of adjacent bodies must have >= 0.5mm clearance between bounding geometries
-   - Zero overlap/intersection between any two placed parts
-   - Joint anchors must lie within the part's bounding volume
-4. **Material properties** (add \`material\` field to each shape):
-   - steel: density 7850 kg/m³, friction [0.6, 0.005, 0.0001]
-   - aluminum: density 2700 kg/m³, friction [0.4, 0.003, 0.0001]
-   - brass: density 8500 kg/m³, friction [0.35, 0.003, 0.0001]
-   - plastic: density 1200 kg/m³, friction [0.3, 0.002, 0.00005]
-   - rubber: density 1100 kg/m³, friction [0.9, 0.01, 0.0005]
-5. **Checklist** (always verify):
-   - Shaft OD vs bore ID clearance (0.01–0.05mm)
-   - Cam base_radius + max_lift vs follower reach
-   - Gear ratio consistency (teeth count vs declared ratio)
-   - No part-part interference at any assembly position
-   - Joint anchors within part bounds
-   - Spring coil_d fits inside housing
+const SYSTEM_PROMPT = `You provide optional draft advice for freecad-automation configs. Preserve explicit user requirements, feature IDs and units. Output only repository-supported config syntax. Do not assign unspecified tolerances, clearances, materials or loads as verified facts. Label any necessary assumptions in comments and the existing report recommendation. AI advice is not measured shape validity, clearance inspection, drawing QA or manufacturing approval. Unknown report values must be null or empty, not invented measurements.
 
 ## Output Format
 You MUST output exactly three sections in this order:
@@ -66,7 +41,6 @@ You MUST output exactly three sections in this order:
 ### CORRECTED TOML
 \`\`\`toml
 # The full corrected TOML with all fixes applied
-# Add material field to every first shape in each part
 # Add inline comments explaining each fix: # FIX: description
 \`\`\`
 
@@ -74,17 +48,17 @@ You MUST output exactly three sections in this order:
 \`\`\`json
 {
   "mechanism_type": "e.g. spool-cam-pawl retractor",
-  "dof": 3,
+  "dof": null,
   "motion_chain": ["spool(revolute)", "lock_cam(gear 1:1)", "pawl(cam_follower prismatic)"],
-  "materials_assigned": {"part_id": "material_name"},
-  "clearances_mm": [{"pair": ["part_a", "part_b"], "min_clearance": 1.5}],
+  "materials_assigned": {},
+  "clearances_mm": [],
   "total_issues": 8,
   "critical_count": 2,
   "recommendation": "summary"
 }
 \`\`\``;
 
-const DESIGN_PROMPT = `You are a senior mechanical engineer. Given a natural language description of a mechanism, generate a complete TOML config for the FreeCAD parametric CAD system.
+const DESIGN_PROMPT = `You provide optional draft advice for freecad-automation configs. Preserve explicit user requirements, feature IDs and units. Output only repository-supported config syntax. Do not assign unspecified tolerances, clearances, materials or loads as verified facts. Label any necessary assumptions in comments and the existing report recommendation. AI advice is not measured shape validity, clearance inspection, drawing QA or manufacturing approval. Unknown report values must be null or empty, not invented measurements.
 
 ## TOML Structure
 - Prefer **single-part mode** for one static body:
@@ -104,7 +78,6 @@ const DESIGN_PROMPT = `You are a senior mechanical engineer. Given a natural lan
     library/robot_wrist (diameter, length, wall_thickness, bore_d),
     library/tool_flange (diameter, thickness, bolt_count, bolt_circle_d, bolt_d, pilot_d, pin_d)
   - Each shape MUST have an \`id\` field (unique within the part, e.g. "body", "shaft", "flange")
-  - Each shape MUST have a \`material\` field (steel/aluminum/brass/plastic/rubber)
   - Shape \`rotation\` format: \`[axis_x, axis_y, axis_z, angle_degrees]\` (axis-angle, 4 elements)
   - Part operations must use canonical \`op\` key, never \`type\`
   - Single-part \`[[operations]]\` may use: fuse, cut, common, fillet, chamfer, shell, circular_pattern
@@ -116,172 +89,6 @@ const DESIGN_PROMPT = `You are a senior mechanical engineer. Given a natural lan
   - Do NOT use \`assembly.parts.children\` or any hierarchy-only schema
 - Joint types: revolute, prismatic, cylindrical
 - Coupling types: gear, belt, cam_follower
-
-## Design Rules
-- Shaft-bore clearance: 0.01–0.05mm (H7/g6 fit)
-- Adjacent parts: >= 0.5mm clearance
-- Cam pressure angle < 30°
-- All dimensions in mm
-- Joint anchors within part bounding volumes
-- Realistic material assignments
-- Do NOT invent unsupported shape types, operation names, or config fields
-- Generated TOML must parse cleanly with smol-toml and follow repository canonical schema
-
-## Example TOML (6-axis robot arm)
-\`\`\`toml
-name = "6axis_robot_arm"
-
-[export]
-formats = ["step", "stl"]
-directory = "./output"
-per_part_stl = true
-
-# ── Part Definitions ────────────────────────────
-[[parts]]
-id = "base"
-  [[parts.shapes]]
-  id = "pedestal"
-  type = "library/robot_base"
-  diameter = 200
-  height = 50
-  bolt_count = 8
-  bolt_d = 10
-  cable_hole_d = 50
-  material = "steel"
-
-[[parts]]
-id = "shoulder"
-  [[parts.shapes]]
-  id = "link"
-  type = "library/robot_link"
-  length = 300
-  width = 100
-  taper_ratio = 0.8
-  motor_d = 95
-  wall_thickness = 6
-  bore_d = 20
-  material = "aluminum"
-
-[[parts]]
-id = "upper_arm"
-  [[parts.shapes]]
-  id = "link"
-  type = "library/robot_link"
-  length = 400
-  width = 80
-  taper_ratio = 0.75
-  wall_thickness = 5
-  bore_d = 15
-  material = "aluminum"
-
-[[parts]]
-id = "forearm"
-  [[parts.shapes]]
-  id = "link"
-  type = "library/robot_link"
-  length = 350
-  width = 60
-  taper_ratio = 0.7
-  wall_thickness = 4
-  bore_d = 12
-  material = "aluminum"
-
-[[parts]]
-id = "wrist_pitch"
-  [[parts.shapes]]
-  id = "housing"
-  type = "library/robot_wrist"
-  diameter = 50
-  length = 80
-  wall_thickness = 4
-  bore_d = 10
-  material = "steel"
-
-[[parts]]
-id = "wrist_roll"
-  [[parts.shapes]]
-  id = "housing"
-  type = "library/robot_wrist"
-  diameter = 40
-  length = 60
-  wall_thickness = 3
-  bore_d = 8
-  material = "steel"
-
-[[parts]]
-id = "tool_flange"
-  [[parts.shapes]]
-  id = "flange"
-  type = "library/tool_flange"
-  diameter = 63
-  thickness = 12
-  bolt_count = 4
-  bolt_d = 6
-  pilot_d = 31.5
-  material = "steel"
-
-# ── Assembly ────────────────────────────────────
-[assembly]
-
-[[assembly.parts]]
-ref = "base"
-position = [0, 0, 0]
-
-[[assembly.parts]]
-ref = "shoulder"
-position = [0, 0, 50]
-rotation = [1, 0, 0, 90]
-
-[[assembly.parts]]
-ref = "upper_arm"
-position = [0, 0, 350]
-
-[[assembly.parts]]
-ref = "forearm"
-position = [0, 0, 750]
-
-[[assembly.parts]]
-ref = "wrist_pitch"
-position = [0, 0, 1100]
-
-[[assembly.parts]]
-ref = "wrist_roll"
-position = [0, 0, 1180]
-
-[[assembly.parts]]
-ref = "tool_flange"
-position = [0, 0, 1240]
-
-# ── Joints ──────────────────────────────────────
-[[assembly.joints]]
-id = "j1_base"
-type = "revolute"
-part = "shoulder"
-axis = [0, 0, 1]
-anchor = [0, 0, 50]
-
-[[assembly.joints]]
-id = "j2_shoulder"
-type = "revolute"
-part = "upper_arm"
-axis = [0, 1, 0]
-anchor = [0, 0, 350]
-
-[[assembly.joints]]
-id = "j3_elbow"
-type = "revolute"
-part = "forearm"
-axis = [0, 1, 0]
-anchor = [0, 0, 750]
-
-# ── Motion ──────────────────────────────────────
-[assembly.motion]
-driver = "j1_base"
-range = [0, 180]
-duration = 3.0
-steps = 90
-loop = true
-\`\`\`
 
 ## Output Format
 Output exactly two sections:
@@ -303,23 +110,6 @@ Output exactly two sections:
   "recommendation": "summary"
 }
 \`\`\``;
-
-const SUPPORTED_SHAPE_TYPES = new Set([
-  'box', 'cylinder', 'sphere', 'cone', 'torus',
-  'revolution', 'extrusion', 'loft', 'sweep', 'import',
-  'library/ball_bearing', 'library/spur_gear', 'library/stepped_shaft',
-  'library/helical_gear', 'library/disc_cam', 'library/pulley',
-  'library/coil_spring', 'library/robot_base', 'library/robot_link',
-  'library/robot_wrist', 'library/tool_flange',
-]);
-
-const SUPPORTED_SINGLE_PART_OPERATION_NAMES = new Set([
-  'fuse', 'cut', 'common', 'fillet', 'chamfer', 'shell', 'circular_pattern',
-]);
-
-const SUPPORTED_ASSEMBLY_OPERATION_NAMES = new Set([
-  'fuse', 'cut', 'common', 'fillet', 'chamfer', 'circular_pattern',
-]);
 
 // ---------------------------------------------------------------------------
 // OpenAI Responses client
@@ -430,184 +220,16 @@ function extractJsonFromResponse(text, section) {
 }
 
 // ---------------------------------------------------------------------------
-// TOML validation
-// ---------------------------------------------------------------------------
-
-function opName(op = {}) {
-  return typeof op.op === 'string' ? op.op : op.type;
-}
-
-function validateRotationArray(rotation, label, errors) {
-  if (!Array.isArray(rotation) || (rotation.length !== 3 && rotation.length !== 4)) {
-    errors.push(`${label} rotation must have 3 or 4 numeric elements`);
-  }
-}
-
-function validateShapeList(shapes, scopeLabel, errors) {
-  const shapeIds = new Set();
-  if (!Array.isArray(shapes) || shapes.length === 0) {
-    errors.push(`${scopeLabel} has no shapes`);
-    return shapeIds;
-  }
-
-  for (const shape of shapes) {
-    const id = shape?.id;
-    const type = shape?.type;
-
-    if (!id) {
-      errors.push(`${scopeLabel} shape missing "id" field`);
-    } else if (shapeIds.has(id)) {
-      errors.push(`${scopeLabel} has duplicate shape id "${id}"`);
-    } else {
-      shapeIds.add(id);
-    }
-
-    if (!type) {
-      errors.push(`${scopeLabel} shape "${id || '?'}" missing "type" field`);
-    } else if (!SUPPORTED_SHAPE_TYPES.has(type)) {
-      errors.push(`${scopeLabel} shape "${id || '?'}" uses unsupported type "${type}"`);
-    }
-
-    if (shape?.rotation !== undefined) {
-      validateRotationArray(shape.rotation, `${scopeLabel} shape "${id || '?'}"`, errors);
-    }
-  }
-
-  return shapeIds;
-}
-
-function validateOperationList(operations, availableIds, scopeLabel, errors, supportedOps) {
-  if (!Array.isArray(operations)) return;
-
-  for (const operation of operations) {
-    const op = opName(operation);
-    if (!op) {
-      errors.push(`${scopeLabel} operation is missing canonical "op" field`);
-      continue;
-    }
-    if (!supportedOps.has(op)) {
-      errors.push(`${scopeLabel} operation "${op}" is not supported`);
-      continue;
-    }
-
-    if (['fuse', 'cut', 'common'].includes(op)) {
-      if (typeof operation.base === 'string' && !availableIds.has(operation.base)) {
-        errors.push(`${scopeLabel} operation "${op}" references unknown base "${operation.base}"`);
-      }
-      if (typeof operation.tool === 'string' && !availableIds.has(operation.tool)) {
-        errors.push(`${scopeLabel} operation "${op}" references unknown tool "${operation.tool}"`);
-      }
-      if (typeof operation.result === 'string') availableIds.add(operation.result);
-    } else if (['fillet', 'chamfer', 'shell', 'circular_pattern'].includes(op)) {
-      if (typeof operation.target === 'string' && !availableIds.has(operation.target)) {
-        errors.push(`${scopeLabel} operation "${op}" references unknown target "${operation.target}"`);
-      }
-      if (typeof operation.result === 'string') availableIds.add(operation.result);
-    }
-  }
-}
-
-function validateTomlStructure(tomlStr) {
-  const errors = [];
-
-  let config;
-  try {
-    config = parseTOML(tomlStr);
-  } catch (err) {
-    return { valid: false, errors: [`TOML parse error: ${err.message}`], config: null };
-  }
-
-  if (!config.name) errors.push('Missing top-level "name" field');
-
-  const hasSinglePart = Array.isArray(config.shapes) && config.shapes.length > 0;
-  const parts = Array.isArray(config.parts) ? config.parts : [];
-  const hasAssemblyParts = parts.length > 0;
-  const hasAssemblySection = !!config.assembly;
-
-  if (!hasSinglePart && !hasAssemblyParts) {
-    errors.push('Config must define either top-level [[shapes]] or [[parts]]');
-  }
-  if (hasSinglePart && hasAssemblyParts) {
-    errors.push('Config mixes single-part [[shapes]] with assembly [[parts]]');
-  }
-  if (hasAssemblyParts !== hasAssemblySection) {
-    errors.push('Assembly mode requires both top-level [[parts]] and [assembly]');
-  }
-
-  if (hasSinglePart) {
-    const shapeIds = validateShapeList(config.shapes, 'Config', errors);
-    validateOperationList(
-      config.operations,
-      shapeIds,
-      'Config',
-      errors,
-      SUPPORTED_SINGLE_PART_OPERATION_NAMES,
-    );
-    if (config.final && !shapeIds.has(config.final)) {
-      errors.push(`Config final "${config.final}" does not match any known shape/result id`);
-    }
-  }
-
-  const partIds = new Set();
-  for (const p of parts) {
-    if (!p.id) {
-      errors.push('Part missing "id" field');
-      continue;
-    }
-    if (partIds.has(p.id)) {
-      errors.push(`Duplicate part id "${p.id}"`);
-      continue;
-    }
-    partIds.add(p.id);
-
-    const shapeIds = validateShapeList(p.shapes, `Part "${p.id}"`, errors);
-    validateOperationList(
-      p.operations,
-      shapeIds,
-      `Part "${p.id}"`,
-      errors,
-      SUPPORTED_ASSEMBLY_OPERATION_NAMES,
-    );
-    if (p.final && !shapeIds.has(p.final)) {
-      errors.push(`Part "${p.id}" final "${p.final}" does not match any known shape/result id`);
-    }
-  }
-
-  const assembly = config.assembly;
-  if (assembly) {
-    const asmParts = assembly.parts || [];
-    if (asmParts.length === 0) errors.push('Assembly has no parts');
-    for (const ap of asmParts) {
-      if (!ap.ref) errors.push('Assembly part missing "ref"');
-      if (ap.ref && !partIds.has(ap.ref)) errors.push(`Assembly references unknown part "${ap.ref}"`);
-      if (ap.rotation !== undefined) validateRotationArray(ap.rotation, `Assembly part "${ap.ref || '?'}"`, errors);
-    }
-    for (const joint of assembly.joints || []) {
-      if (!joint.id) errors.push('Assembly joint missing "id"');
-      if (!joint.part) errors.push(`Assembly joint "${joint.id || '?'}" missing "part"`);
-      if (joint.part && !partIds.has(joint.part)) {
-        errors.push(`Assembly joint "${joint.id || '?'}" references unknown part "${joint.part}"`);
-      }
-      if (!Array.isArray(joint.axis) || joint.axis.length !== 3) {
-        errors.push(`Assembly joint "${joint.id || '?'}" must define 3-element axis`);
-      }
-      if (!Array.isArray(joint.anchor) || joint.anchor.length !== 3) {
-        errors.push(`Assembly joint "${joint.id || '?'}" must define 3-element anchor`);
-      }
-    }
-    for (const coupling of assembly.couplings || []) {
-      if (!coupling.type) errors.push('Assembly coupling missing "type"');
-      if (!coupling.driver) errors.push(`Assembly coupling "${coupling.type || '?'}" missing "driver"`);
-      if (!coupling.follower) errors.push(`Assembly coupling "${coupling.type || '?'}" missing "follower"`);
-    }
-  }
-
-  return { valid: errors.length === 0, errors, config };
-}
-
-// ---------------------------------------------------------------------------
 // Review mode
 // ---------------------------------------------------------------------------
+
+function labelDraftAdvice(report) {
+  const advice = report && typeof report === 'object' && !Array.isArray(report) ? report : {};
+  return {
+    ...advice,
+    recommendation: `AI draft advice only; not CAD validation, inspection evidence or manufacturing approval. ${typeof advice.recommendation === 'string' ? advice.recommendation : ''}`.trim(),
+  };
+}
 
 async function reviewToml(filePath, options = {}) {
   const tomlContent = readFileSync(filePath, 'utf8');
@@ -681,7 +303,7 @@ Please fix these errors and output again with the same three sections.`;
     try { report = JSON.parse(reportJson); } catch { /* use empty */ }
   }
 
-  return { issues, correctedToml, report, rawResponse: response };
+  return { issues, correctedToml, report: labelDraftAdvice(report), rawResponse: response };
 }
 
 // ---------------------------------------------------------------------------
@@ -693,7 +315,7 @@ async function designFromText(description, options = {}) {
 
   const input = `Design a mechanism for: "${description}"
 
-Generate a complete, valid TOML config with realistic dimensions, proper clearances, and material assignments.`;
+Draft a supported TOML candidate preserving the supplied requirements; explicitly label any assumptions.`;
 
   let response = await callOpenAIWithRetry(client, { instructions: DESIGN_PROMPT, input });
 
@@ -727,7 +349,7 @@ Please fix and regenerate with the same two sections.`;
     try { report = JSON.parse(reportJson); } catch { /* use empty */ }
   }
 
-  return { toml, report, rawResponse: response };
+  return { toml, report: labelDraftAdvice(report), rawResponse: response };
 }
 
 // ---------------------------------------------------------------------------
@@ -838,7 +460,7 @@ async function designFromTextStreaming(description, onChunk, options = {}) {
 
   const input = `Design a mechanism for: "${description}"
 
-Generate a complete, valid TOML config with realistic dimensions, proper clearances, and material assignments.`;
+Draft a supported TOML candidate preserving the supplied requirements; explicitly label any assumptions.`;
 
   let response = await callOpenAIStreaming(
     client,
@@ -876,7 +498,7 @@ Please fix and regenerate with the same two sections.`;
     try { report = JSON.parse(reportJson); } catch { /* use empty */ }
   }
 
-  return { toml, report, rawResponse: response };
+  return { toml, report: labelDraftAdvice(report), rawResponse: response };
 }
 
 // Export for programmatic use

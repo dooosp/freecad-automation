@@ -114,6 +114,8 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'Stage 5B evidence source kit/preflight', args: Object.freeze(['tests/stage5b-evidence-source-kit.test.js']) }),
       Object.freeze({ label: 'Stage 5B evidence pipeline doctor', args: Object.freeze(['tests/stage5b-evidence-pipeline-doctor.test.js']) }),
       Object.freeze({ label: 'Readiness inspection evidence contract', args: Object.freeze(['tests/readiness-inspection-evidence-contract.test.js']) }),
+      Object.freeze({ label: 'CAD config validation', args: Object.freeze(['tests/cad-config-validation.test.js']) }),
+      Object.freeze({ label: 'Design core boundary', args: Object.freeze(['tests/design-core-boundary.test.js']) }),
       Object.freeze({ label: 'Design reviewer validation', args: Object.freeze(['tests/design-reviewer-validation.test.js']) }),
       Object.freeze({ label: 'OpenAI Responses client contract', args: Object.freeze(['tests/openai-responses-client.test.js']) }),
       Object.freeze({ label: 'D artifact contracts', args: Object.freeze(['tests/d-artifact-schema.test.js']) }),
