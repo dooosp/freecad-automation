@@ -1,5 +1,6 @@
 // All geometry in this file is synthetic unit-test input, never runtime evidence.
 import assert from 'node:assert/strict';
+import { test } from 'node:test';
 import {
   buildCreateQualityReport,
   validateCreateQualityReport,
@@ -85,3 +86,133 @@ assert.equal(reportFor().status, 'pass');
 assert.equal(reportFor({ generated: geometry({ valid_shape: undefined, validShape: true }) }).geometry.valid_shape, true);
 assert.equal(reportFor({ generated: geometry({ valid_shape: false, validShape: true }) }).geometry.valid_shape, false);
 console.log('engineering core validity boundaries passed');
+
+test('STEP checks are name independent and catch STEP-only diameter errors', () => {
+const renamed = reportFor({ name: 'external_design_731' });
+const stepRows = renamed.engineering_quality.measurements.filter(row => row.validation_kind === 'reimported_step_geometry_check');
+assert.ok(stepRows.length > 0, 'supported geometry must be checked independently of config.name');
+assert.ok(stepRows.every(row => row.source === 'reimported_step_geometry'));
+assert.deepEqual(renamed.engineering_quality, reportFor({ name: 'quality_pass_bracket' }).engineering_quality);
+const changedStep = geometry();
+changedStep.cylindrical_faces[0] = { ...changedStep.cylindrical_faces[0], radius_mm: 4, diameter_mm: 8 };
+const wrongDiameter = reportFor({ reimported: changedStep });
+const wrongRow = wrongDiameter.engineering_quality.measurements.find(row => row.validation_kind === 'reimported_step_geometry_check' && row.measurement_type === 'hole_diameter');
+assert.equal(wrongRow.status, 'fail');
+assert.equal(wrongRow.actual_value_mm, 8);
+assert.equal(wrongRow.expected_value_mm, 6);
+assert.equal(wrongDiameter.status, 'fail');
+
+});
+
+function requireUnavailable(candidate, label) {
+  assert.notEqual(candidate.status, 'pass', label);
+  const rows = candidate.engineering_quality.measurements.filter(row => row.validation_kind === 'reimported_step_geometry_check');
+  assert.ok(rows.some(row => ['unavailable', 'missing', 'fail'].includes(row.status)), label);
+  assert.equal(validateCreateQualityReport(candidate).ok, true, label);
+}
+for (const [label, face] of [
+  ['moved center', { center_mm: [12, 10, 0] }],
+  ['wrong axis', { axis: [1, 0, 0] }],
+  ['missing axis', { axis: undefined }],
+  ['zero axis', { axis: [0, 0, 0] }],
+  ['invalid axis', { axis: [0, 0, '1'] }],
+  ['missing axis center', { center_mm: undefined }],
+  ['invalid center', { center_mm: [10, '10', 0] }],
+]) {
+  test(label, () => {
+  const observed = geometry();
+  observed.cylindrical_faces[0] = { ...observed.cylindrical_faces[0], ...face };
+  requireUnavailable(reportFor({ reimported: observed }), label);
+  });
+}
+test('missing face', () => requireUnavailable(reportFor({ reimported: geometry({ cylindrical_faces: [] }) }), 'missing face'));
+test('ambiguous faces and duplicate consumption', () => {
+const ambiguous = geometry();
+ambiguous.cylindrical_faces.push({ ...ambiguous.cylindrical_faces[0], face_index: 8 });
+requireUnavailable(reportFor({ reimported: ambiguous }), 'ambiguous faces');
+const duplicate = config();
+duplicate.shapes.push({ ...duplicate.shapes[1], id: 'second_hole' });
+duplicate.operations.push({ op: 'cut', base: 'final', tool: 'second_hole', result: 'final_two' });
+duplicate.drawing_intent.required_dimensions.push({ ...duplicate.drawing_intent.required_dimensions[0], id: 'SECOND_DIA', feature: 'second_hole' });
+const doubleUse = reportFor({ configValue: duplicate });
+for (const kind of ['generated_shape_geometry_check', 'reimported_step_geometry_check']) {
+  assert.ok(doubleUse.engineering_quality.measurements.filter(row => row.validation_kind === kind && row.measurement_type === 'hole_diameter').every(row => row.status === 'unavailable'), 'one observed face cannot verify two distinct holes');
+}
+});
+
+for (const value of [-0.1, Infinity, NaN, '0.05']) {
+  for (const field of ['tolerance_mm', 'center_tolerance_mm']) {
+    test(`invalid ${field}: ${value}`, () => {
+    const invalid = config(); invalid.drawing_intent.required_dimensions[0][field] = value;
+    requireUnavailable(reportFor({ configValue: invalid }), `invalid ${field}: ${value}`);
+    });
+  }
+}
+for (const [index, mutate] of [
+  c => { c.shapes[1].direction = [0, 1, 0]; },
+  c => { c.shapes[1].rotation = [1, 0, 0, 90]; },
+  c => { delete c.shapes[1].position; },
+  c => { c.drawing_intent.required_dimensions[0].expected_center_xy_mm = [10, Infinity]; },
+  c => { c.final = 'plate'; },
+  c => { c.shapes.push({ ...c.shapes[1] }); },
+  c => { c.assembly = { parts: [] }; },
+].entries()) {
+  test(`unsupported authored input ${index}`, () => {
+  const unsupported = config(); mutate(unsupported);
+  requireUnavailable(reportFor({ configValue: unsupported }), 'unsupported/ambiguous authored input');
+  });
+}
+test('local face index, axis direction and observed wrong authored center', () => {
+const reorderedFace = geometry(); reorderedFace.cylindrical_faces[0].face_index = 99;
+assert.equal(reportFor({ reimported: reorderedFace }).status, 'pass', 'face index is only local observation provenance');
+const negativeZ = geometry(); negativeZ.cylindrical_faces[0].axis = [0, 0, -1];
+assert.equal(reportFor({ reimported: negativeZ }).status, 'pass');
+const authoredWrongCenter = config(); authoredWrongCenter.shapes[1].position[0] = 12;
+const matchingAuthored = geometry(); matchingAuthored.cylindrical_faces[0].center_mm[0] = 12;
+const centerError = reportFor({ configValue: authoredWrongCenter, generated: matchingAuthored, reimported: matchingAuthored });
+assert.ok(centerError.engineering_quality.measurements.some(row => row.measurement_type === 'hole_center' && row.status === 'fail' && row.actual_center_xy_mm[0] === 12));
+});
+
+test('face outside cutter depth is not identified by XY/diameter alone', () => {
+  const observed = geometry();
+  observed.cylindrical_faces[0].bbox = { min: [7, 7, 100], max: [13, 13, 104], size: [6, 6, 4] };
+  requireUnavailable(reportFor({ reimported: observed }), 'face outside cutter depth');
+});
+test('nonfinite or negative global measurement tolerances are rejected', () => {
+  for (const value of [-1, Infinity, NaN, '0.05']) {
+    assert.throws(() => reportFor({ thresholds: { max_engineering_dimension_delta_mm: value } }), /threshold/i);
+  }
+});
+test('small differences are compared before presentation rounding', () => {
+  const exact = config(); exact.drawing_intent.required_dimensions[0].tolerance_mm = 0;
+  const observed = geometry(); observed.cylindrical_faces[0].diameter_mm = 6.000001;
+  assert.equal(reportFor({ configValue: exact, reimported: observed }).status, 'fail');
+});
+
+test('later fusion cannot prove a hole from an outer boss face', () => {
+  const filled = config();
+  filled.shapes.push({ id: 'plug', type: 'cylinder', radius: 3, height: 6, position: [10, 10, 0] });
+  filled.operations.push({ op: 'fuse', base: 'final', tool: 'plug', result: 'filled' });
+  const observed = geometry();
+  observed.cylindrical_faces[0].bbox = { min: [7, 7, 4], max: [13, 13, 6], size: [6, 6, 2] };
+  requireUnavailable(reportFor({ configValue: filled, generated: observed, reimported: observed }), 'filled hole with exterior boss');
+});
+test('required diameter intents cannot disappear when feature/requirement links are missing', () => {
+  for (const field of ['feature', 'id']) {
+    for (const value of [undefined, '', []]) {
+      const missing = config(); missing.drawing_intent.required_dimensions[0][field] = value;
+      requireUnavailable(reportFor({ configValue: missing }), `missing ${field}`);
+    }
+  }
+});
+test('non-cylinder surface evidence is unavailable', () => {
+  const observed = geometry(); observed.cylindrical_faces[0].surface_type = 'Plane';
+  requireUnavailable(reportFor({ reimported: observed }), 'non-cylinder evidence');
+});
+
+test('a cutter overwritten before use is outside primitive-cylinder support', () => {
+  const modified = config();
+  modified.shapes.push({ id: 'trim', type: 'box', length: 2, width: 10, height: 10 });
+  modified.operations.unshift({ op: 'cut', base: 'hole', tool: 'trim', result: 'hole' });
+  requireUnavailable(reportFor({ configValue: modified }), 'overwritten cylinder tool');
+});

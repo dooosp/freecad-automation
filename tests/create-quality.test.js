@@ -409,7 +409,7 @@ assert.equal(failedStepLeftDiameter?.validation_kind, 'reimported_step_geometry_
 assert.match(failedStepLeftDiameter?.message || '', /STEP re-import did not produce geometry/);
 assert.match(
   qualityPassFailedStepRoundtripReport.blocking_issues.join('\n'),
-  /Engineering quality: STEP re-import did not produce geometry for fixture-scoped validation of hole_left/
+  /Engineering quality: STEP re-import did not produce geometry for hole validation of hole_left/
 );
 assert.equal(
   provenanceById(qualityPassFailedStepRoundtripReport).get('hole_left_step_diameter')?.source,
@@ -481,9 +481,9 @@ assert.equal(
 );
 assert.equal(
   engineeringMeasurementsBySource(genericHoleRoundtripReport, 'reimported_step_geometry').length,
-  0
+  2
 );
-assert.equal(provenanceById(genericHoleRoundtripReport).has('mount_hole_step_diameter'), false);
+assert.equal(provenanceById(genericHoleRoundtripReport).has('mount_hole_step_diameter'), true);
 
 const wrongHoleDiameterConfig = await loadExampleConfig('quality_fail_wrong_hole_diameter');
 const wrongHoleDiameterReport = buildCreateQualityReport({
@@ -781,7 +781,7 @@ assert.notEqual(
 );
 assert.match(
   unavailableStepHoleMeasurementReport.blocking_issues.join('\n'),
-  /Engineering quality: STEP re-imported geometry has no cylindrical hole face matching hole_left/
+  /Engineering quality: STEP re-imported geometry: No Z-axis cylindrical face matches the authored position and cutter depth for hole_left/
 );
 assert.equal(
   provenanceById(unavailableStepHoleMeasurementReport).get('hole_left_step_diameter')?.source,
