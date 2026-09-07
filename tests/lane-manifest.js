@@ -42,6 +42,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'Runtime full output isolation', args: Object.freeze(['tests/test-runner-output-isolation.test.js']) }),
       Object.freeze({ label: 'Serve CLI', args: Object.freeze(['tests/serve-cli.test.js']) }),
       Object.freeze({ label: 'Engineering core quality boundaries', args: Object.freeze(['tests/engineering-core-quality-boundaries.test.js']) }),
+      Object.freeze({ label: 'Engineering core workflow regression', args: Object.freeze(['tests/engineering-core-workflow-regression.test.js']) }),
       Object.freeze({ label: 'Create quality helper', args: Object.freeze(['tests/create-quality.test.js']) }),
       Object.freeze({ label: 'Quality fixture matrix contracts', args: Object.freeze(['tests/quality-fixture-matrix.test.js']) }),
       Object.freeze({ label: 'Drawing intent foundation', args: Object.freeze(['tests/drawing-intent-foundation.test.js']) }),
@@ -228,6 +229,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'CLI runtime smoke', args: Object.freeze(['tests/runtime-smoke-cli.js']) }),
       Object.freeze({ label: 'Local API runtime smoke', args: Object.freeze(['tests/local-api.integration.test.js']) }),
       Object.freeze({ label: 'Repeat export runtime regression', args: Object.freeze(['tests/export-repeat.test.js']) }),
+      Object.freeze({ label: 'Engineering core A/B runtime regression', args: Object.freeze(['tests/engineering-core-runtime.test.js']) }),
     ]),
   }),
 ]);
