@@ -1611,6 +1611,7 @@ try:
 
     # -- Build 3D Model --
     is_assembly = "parts" in config and "assembly" in config
+    source_shapes = {}
 
     if is_assembly:
         from _assembly import build_assembly
@@ -1627,6 +1628,7 @@ try:
         shapes = {}
         for spec in config.get("shapes", []):
             shapes[spec["id"]] = make_shape(spec)
+            source_shapes[spec['id']] = shapes[spec['id']].copy()
         for op_spec in config.get("operations", []):
             op = op_spec["op"]
             if op in ("fuse", "cut", "common"):
@@ -1853,6 +1855,15 @@ try:
             if plan_intents:
                 try:
                     from _dim_plan import render_plan_dimensions_svg
+                    from _dimension_anchors import resolve_named_dimension
+                    named_anchors = {
+                        di.get('id'): resolve_named_dimension(di, config, source_shapes,
+                            compound, vname, vd['circles'])
+                        for di in plan_intents if di.get('view', vname) == vname
+                    }
+                    for dim_id in named_anchors:
+                        if sum(di.get('id') == dim_id and di.get('view',vname) == vname for di in plan_intents) > 1:
+                            named_anchors[dim_id] = {'status': 'unresolved', 'reason': 'duplicate_dimension_id'}
                     auto_vals = _collect_auto_dim_values(vd)
                     auto_dims_for_view = [
                         d for d in dim_telemetry.get("auto_dimensions", [])
@@ -1875,7 +1886,7 @@ try:
                         dedupe_policy=plan_dedupe_policy,
                         dedupe_tol_mm=plan_dedupe_tol,
                         process_groups=_pgroups, annotation_planner=planner,
-                        cell_bounds=_cell_bounds(vname))
+                        cell_bounds=_cell_bounds(vname), named_anchors=named_anchors)
                     if plan_svg:
                         svg += '\n' + plan_svg
                 except Exception as e:

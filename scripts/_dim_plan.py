@@ -5,6 +5,7 @@ Can be unit-tested independently.
 """
 
 import math
+import json
 from html import escape
 import xml.etree.ElementTree as ET
 
@@ -452,6 +453,7 @@ def render_plan_dimensions_svg(
     style_cfg=None, telemetry=None,
     existing_auto_dims=None, dedupe_policy="smart", dedupe_tol_mm=0.5,
     process_groups=None, annotation_planner=None, cell_bounds=None,
+    named_anchors=None,
 ):
     """Render plan-driven dimensions for a specific view.
 
@@ -504,6 +506,8 @@ def render_plan_dimensions_svg(
             rec["reason"] = reason
         if extra and isinstance(extra, dict):
             rec.update(extra)
+        if named_anchors is not None and di.get('id') in named_anchors:
+            rec['observation'] = named_anchors[di['id']]
         telemetry.setdefault("plan_dimensions", []).append(rec)
 
     # D4 manufacturing: track process group for inter-group gap
@@ -531,8 +535,21 @@ def render_plan_dimensions_svg(
         style = di.get("style", "linear")
         value_mm = di.get("value_mm")
         fid = str(di.get("id", "")).upper()
+        anchor = (named_anchors or {}).get(di.get('id'))
+        if anchor and anchor.get('status') == 'resolved' and (
+                anchor.get('dim_id') != di.get('id') or anchor.get('view') != vname
+                or anchor.get('style') != style
+                or not isinstance(value_mm,(int,float)) or not isinstance(anchor.get('value_mm'),(int,float))
+                or not math.isclose(anchor['value_mm'],value_mm,rel_tol=1e-6,abs_tol=1e-4)
+                or sorted(anchor.get('feature_ids', [])) != sorted(x.strip() for x in str(di.get('feature','')).split(',') if x.strip())):
+            anchor = {'status': 'unresolved', 'reason': 'named_anchor_context_conflict'}
+        if named_anchors is not None and (not anchor or anchor.get('status') != 'resolved'):
+            out.extend(_render_review_marker(di, cx, cy, h_stack,
+                annotation_planner=annotation_planner, cell_bounds=cell_bounds))
+            _record(di, 'skipped_no_anchor', reason=(anchor or {}).get('reason', 'named_anchor_unavailable'))
+            continue
 
-        if value_mm is not None and style == "linear" and fid not in DIA_FEATURES:
+        if not anchor and value_mm is not None and style == "linear" and fid not in DIA_FEATURES:
             anchor_reason = _linear_anchor_reason(di, bounds)
             if anchor_reason:
                 out.extend(_render_review_marker(di, cx, cy, h_stack,
@@ -548,7 +565,7 @@ def render_plan_dimensions_svg(
             dedupe_policy=dedupe_policy,
             tol=dedupe_tol_mm if isinstance(dedupe_tol_mm, (int, float)) else 0.5,
         )
-        if dedupe_match:
+        if dedupe_match and not anchor:
             _record(
                 di, "skipped_duplicate", reason="already_in_auto_dims",
                 extra={"dedupe_match": dedupe_match}
@@ -576,11 +593,18 @@ def render_plan_dimensions_svg(
             continue
 
         # Route by style
+        def observed_elements(elements):
+            if not anchor:
+                return elements
+            metadata = escape(json.dumps(anchor, separators=(',', ':')), quote=True)
+            return [e.replace('<text ', f'<text data-observation="{metadata}" ', 1)
+                    if e.startswith('<text ') else e for e in elements]
+
         if style == "diameter" or (style == "linear" and fid in DIA_FEATURES):
             if circles:
-                elems = _render_diameter(di, circles, cx, cy, scale, bcx, bcy,
+                elems = _render_diameter(di, anchor.get('circles_uv',circles) if anchor else circles, cx, cy, scale, bcx, bcy,
                     annotation_planner=annotation_planner, cell_bounds=cell_bounds)
-                out.extend(elems)
+                out.extend(observed_elements(elems))
                 if elems:
                     _record(di, "rendered", rendered=True)
                 else:
@@ -588,17 +612,17 @@ def render_plan_dimensions_svg(
             else:
                 _record(di, "skipped_view", reason="diameter_intent_requires_circular_view")
         elif style == "linear":
-            vertical = fid in V_FEATURES
+            vertical = anchor['vertical'] if anchor else fid in V_FEATURES
             side = _placement_cfg(di).get("side") or ("right" if vertical else "bottom")
             opposite = "left" if vertical else "top"
             on_opposite = side in (("left", "top_left", "bottom_left") if vertical
                                   else ("top", "top_left", "top_right"))
             stack = opposite_stacks[opposite] if on_opposite else (v_stack if vertical else h_stack)
             elems, next_stack = _place_linear(
-                di, bounds, cx, cy, scale, bcx, bcy, stack, vertical,
+                di, anchor['bounds_uv'] if anchor else bounds, cx, cy, scale, bcx, bcy, stack, vertical,
                 eff_gap, eff_offset, eff_overshoot, annotation_planner, cell_bounds)
             if elems:
-                out.extend(elems)
+                out.extend(observed_elements(elems))
                 if on_opposite:
                     opposite_stacks[opposite] = next_stack
                 elif vertical:

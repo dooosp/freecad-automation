@@ -12,6 +12,32 @@ from _annotation_planner import AnnotationPlanner
 from _dim_plan import render_plan_dimensions_svg
 
 
+def test_named_anchor_uses_whole_view_origin_and_preserves_observation():
+    observation = dict(status='resolved', source='freecad_final_topology',
+        dim_id='THK', feature_ids=['plate'], view='front', style='linear',
+        value_mm=4, bounds_uv=[30,10,30,14], vertical=True,
+        requirement_ids=['PLATE_THICKNESS'], members=[])
+    tree, record, _, _ = render(dict(id='THK', feature='plate', value_mm=4, view='front'),
+        bounds=(30,10,175,22), named_anchors={'THK': observation})
+    assert record['status'] == 'rendered'
+    assert record['observation'] == observation
+    label = tree.find(".//text[@data-dim-id='THK']")
+    assert label.get('data-observation')
+    lines = tree.findall('.//line')
+    # View midpoint=(102.5,16), not the plate feature's midpoint.
+    assert {float(lines[0].get('y1')),float(lines[1].get('y1'))} == {102,106}
+
+
+def test_conflicting_named_anchor_cannot_label_another_feature():
+    observation = dict(status='resolved', source='freecad_final_topology', dim_id='THK',
+        feature_ids=['other'], view='front', style='linear', value_mm=8,
+        bounds_uv=[0,0,0,8], vertical=True, members=[])
+    tree, row, _, _ = render(dict(id='THK', feature='plate', view='front', value_mm=4),
+        named_anchors={'THK': observation})
+    assert row['status'] == 'skipped_no_anchor'
+    assert not tree.findall('.//*[@data-value-mm]')
+
+
 def render(intent, *, bounds=(0, 0, 100, 40), circles=(), **kwargs):
     telemetry = {}
     svg, hs, vs = render_plan_dimensions_svg(
