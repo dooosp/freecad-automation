@@ -294,14 +294,16 @@ def _dim_diameter(px, py, radius_scaled, radius_mm, angle_deg=45, tol_text="",
                 crossings += annotation_planner.segment_overlap_score(ex, ey, shx, ey)
             angle_diff = abs(((a_deg - angle_deg + 180) % 360) - 180)
             score = overflow * 10000 + overlap * 100 + crossings * 100 + angle_diff * .01 + (length-base_len) * .1
-            candidates.append((score, (sx, sy, ex, ey, shx, tx, ty, angle)))
-    _, (sx, sy, ex, ey, shx, tx, ty, angle) = min(candidates, key=lambda c: c[0])
+            candidates.append((score, overflow, (sx, sy, ex, ey, shx, tx, ty, angle)))
+    _, overflow, (sx, sy, ex, ey, shx, tx, ty, angle) = min(candidates, key=lambda c: c[0])
     out = [f'<line x1="{sx:.2f}" y1="{sy:.2f}" x2="{ex:.2f}" y2="{ey:.2f}"/>',
            f'<line x1="{ex:.2f}" y1="{ey:.2f}" x2="{shx:.2f}" y2="{ey:.2f}"/>',
            _arrow_head(sx, sy, angle + math.pi),
            f'<text x="{tx:.2f}" y="{ty:.2f}" text-anchor="middle" '
            f'font-family="{DIM_FONT}" font-size="{DIM_FONT_SIZE}" '
            f'fill="{DIM_COLOR}">{_escape(text)}</text>']
+    if overflow > 0:
+        out = ['<g class="diameter-dimension" data-layout-overflow="true">', *out, '</g>']
     if annotation_planner:
         annotation_planner.register_svg('\n'.join(out))
     return out

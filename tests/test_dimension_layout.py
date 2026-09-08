@@ -11,6 +11,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from _annotation_planner import AnnotationPlanner
 from _drawing_svg import _dim_diameter
 from _dim_baseline import render_baseline_dimensions_svg
+from _dim_plan import render_plan_dimensions_svg
+from qa_scorer import collect_annotation_layout
 # Load the real pure renderer definitions without entering stdin/FreeCAD CLI.
 _generator = Path(__file__).resolve().parents[1] / "scripts/generate_drawing.py"
 _module = ast.parse(_generator.read_text())
@@ -125,3 +127,47 @@ def test_datum_letter_fits_its_frame_with_stroke_clearance():
                 assert frame is not None
                 assert box.y > frame.y + .175
                 assert box.y + box.h < frame.y + frame.h - .175
+
+
+def test_diameter_unavoidable_cell_overflow_reaches_final_svg_qa():
+    fragment = '\n'.join(_dim_diameter(100, 100, 5, 5, cell_bounds=(98, 98, 102, 102)))
+    root = ET.fromstring('<svg><rect class="sheet-frame" x="0" y="0" width="200" height="200"/>'
+                        + fragment + '</svg>')
+    assert root.find("g[@class='diameter-dimension']").get('data-layout-overflow') == 'true'
+    assert root.find('.//text').text == '⌀10'
+    assert len(root.findall('.//line')) == 2
+    layout = collect_annotation_layout(ET.ElementTree(root))
+    overflow = [finding for finding in layout['findings'] if finding['type'] == 'annotation_cell_overflow']
+    assert len(overflow) == 1
+    assert overflow[0]['labels'] == ['⌀10']
+    assert layout['advisory_only'] is True
+
+
+def test_diameter_clear_cell_preserves_unwrapped_output_without_overflow_hint():
+    fragment = '\n'.join(_dim_diameter(100, 100, 5, 5, cell_bounds=(50, 50, 150, 150)))
+    root = ET.fromstring('<svg><rect class="sheet-frame" x="0" y="0" width="200" height="200"/>'
+                        + fragment + '</svg>')
+    assert root.find('.//*[@data-layout-overflow]') is None
+    assert root.find('g') is None
+    assert root.find('text').text == '⌀10'
+    assert len(root.findall('line')) == 2
+    assert not any(finding['type'] == 'annotation_cell_overflow'
+                   for finding in collect_annotation_layout(ET.ElementTree(root))['findings'])
+
+
+def test_overflow_wrapper_preserves_plan_diameter_identity_tolerance_and_telemetry():
+    telemetry = {}
+    fragment, _, _ = render_plan_dimensions_svg(
+        [dict(id='HOLE_DIA', style='diameter', value_mm=10, tolerance='H7')],
+        'top', (0, 0, 100, 40), [(50, 20, 5)], [], 100, 100, 1, 0, 0,
+        telemetry=telemetry, dedupe_policy='off', cell_bounds=(98, 98, 102, 102))
+    root = ET.fromstring(fragment)
+    assert root.find('.//*[@data-layout-overflow="true"]') is not None
+    label = root.find('.//text[@data-dim-id="HOLE_DIA"]')
+    assert float(label.get('data-value-mm')) == 10
+    assert label.text == 'Ø10 H7'
+    record = telemetry['plan_dimensions'][0]
+    assert record['status'] == 'rendered'
+    assert record['rendered'] is True
+    assert record['value_mm'] == 10
+    assert record['tolerance'] == 'H7'

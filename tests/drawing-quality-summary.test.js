@@ -725,4 +725,50 @@ test('a unique numeric SVG match does not prove the labeled feature dimension', 
   assert.deepEqual(summary.semantic_quality.missing_required_dimensions, ['CONNECTOR_SLOT_SIZE']);
 });
 
+for (const [id, rawText] of [
+  ['MOUNTING_HOLE_DIA', 'Ø4'],
+  ['HOLE_DIA', 'DIA 4'],
+  ['HOLE_DIA', 'DIAMETER 4'],
+  ['R', 'R4'],
+  ['MM', 'MM 4'],
+  ['DEG', 'DEG 4'],
+]) {
+  test(`generic notation ${rawText} cannot identify required feature ${id}`, () => {
+    const drawingIntent = { required_dimensions: [
+      { id, feature: 'mounting_holes', value_mm: 4 },
+    ] };
+    const svgContent = `<svg><g class="some-unrelated-hole"><text x="30" y="40">${rawText}</text></g></svg>`;
+    const extracted = buildExtractedDrawingSemantics({
+      drawingIntent, svgContent, drawingSvgPath: '/tmp/unrelated-dimension.svg',
+    });
+    const summary = buildDrawingQualitySummary({
+      ...makeBaseArtifacts(), drawingIntent, svgContent,
+      dimensionMap: { plan_dimensions: [] }, traceability: { links: [] },
+      extractedDrawingSemantics: extracted,
+      bomPath: null, bomEntries: [], bomRows: [],
+    });
+    assert.equal(summary.semantic_quality.extracted_evidence.required_dimensions[0].classification, 'extracted');
+    assert.equal(summary.semantic_quality.required_dimensions_present, 0);
+    assert.deepEqual(summary.semantic_quality.missing_required_dimensions, [id]);
+    assert.equal(summary.status, 'pass');
+    assert.equal(summary.semantic_quality.decision, 'advisory');
+  });
+}
+
+test('a named mounting-hole diameter label retains independently extracted coverage', () => {
+  const drawingIntent = { required_dimensions: [
+    { id: 'MOUNTING_HOLE_DIA', feature: 'mounting_holes', value_mm: 4, dimension_type: 'diameter' },
+  ] };
+  const svgContent = '<svg><text x="30" y="40">MOUNTING HOLE DIA 4</text></svg>';
+  const summary = buildDrawingQualitySummary({
+    ...makeBaseArtifacts(), drawingIntent, svgContent,
+    dimensionMap: { plan_dimensions: [] }, traceability: { links: [] },
+    extractedDrawingSemantics: buildExtractedDrawingSemantics({
+      drawingIntent, svgContent, drawingSvgPath: '/tmp/named-dimension.svg',
+    }),
+  });
+  assert.equal(summary.semantic_quality.required_dimensions_present, 1);
+  assert.deepEqual(summary.semantic_quality.missing_required_dimensions, []);
+});
+
 console.log('drawing-quality-summary.test.js: ok');

@@ -324,8 +324,11 @@ function hasRequiredDimensionEvidence(requirement, evidence, extractedEvidence, 
     entry.id === matched.matched_extracted_id
   ));
   const rawLabel = normalizeSemanticToken(observed?.raw_text);
+  // Symbols, quantity names and units describe a measurement, not the feature
+  // being measured. Keep their aliases usable for identified plan rows above.
+  const genericNotation = new Set(['ø', 'r', 'dia', 'diameter', 'radius', 'mm', 'cm', 'm', 'in', 'inch', 'deg', 'degree', 'degrees']);
   const labelIdentifiesDimension = aliasesForSemanticId(requirement.id ?? requirement.dim_id).some((alias) => (
-    rawLabel.startsWith(alias) && /^\d/.test(rawLabel.slice(alias.length))
+    !genericNotation.has(alias) && rawLabel.startsWith(alias) && /^\d/.test(rawLabel.slice(alias.length))
   ));
   return Boolean(observed && labelIdentifiesDimension && dimensionDetailsMatch(requirement, observed));
 }
