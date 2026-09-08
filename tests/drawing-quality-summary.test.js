@@ -218,7 +218,7 @@ function makeBaseArtifacts() {
     bomPath: null,
     bomEntries: [],
     bomRows: [],
-    svgContent: `<svg>${unitDimensionText(unitDimension('WIDTH', 'body_width'))}<g class="general-notes"><text>MACHINED PART</text></g></svg>`,
+    svgContent: `<svg>${makeBaseArtifacts().dimensionMap.plan_dimensions.map(row => unitDimensionText(row)).join('')}<g class="general-notes"><text>MACHINED PART</text></g></svg>`,
   });
   assert.equal(summary.status, 'pass');
   assert.equal(summary.semantic_quality.decision, 'advisory');

@@ -142,8 +142,15 @@ def _observe(intent, spec, source, final, view, circles, measurement):
                 candidates.append((points, [i for i,_ in shared]))
         if not candidates:
             raise ValueError('named_extent_boundary_missing')
-        # Prefer a silhouette-side corner, stable under whole-model translation.
-        points, indices = sorted(candidates, key=lambda c: tuple(c[0][0]))[0]
+        # Choose the boundary on the authored label side, so a right-side
+        # dimension does not start on the opposite edge and cross the part.
+        vertical = axis == uv[1]
+        placement = intent.get('placement') or {}
+        side = placement.get('side',intent.get('placement_side')) or ('right' if vertical else 'bottom')
+        lateral = uv[0] if vertical else uv[1]
+        prefer_max = side not in ('left','top_left','bottom_left') if vertical else side in ('top','top_left','top_right')
+        points, indices = sorted(candidates, key=lambda c: (
+            (-1 if prefer_max else 1)*c[0][0][lateral], tuple(c[0][0])))[0]
         witnesses = dict(final_edge_indices=indices)
     elif kind == 'cylinder' and axis == 2:
         sides = [f for f in source.Faces if isinstance(f.Surface, Part.Cylinder)]

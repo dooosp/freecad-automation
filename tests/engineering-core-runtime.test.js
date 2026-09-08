@@ -353,7 +353,7 @@ try {
         assert.equal(rows[0].status,'rendered');
         assert(rows[0].observation.members.every(m => Math.abs(m.value_mm-expected) < 1e-6));
         assert.equal(rows[0].observation.value_mm,expected);
-        if (scenario === 'translation') assert.deepEqual(rows[0].observation.bounds_uv,[10,30,10,34]);
+        if (scenario === 'translation') assert.deepEqual(rows[0].observation.bounds_uv,[155,30,155,34]);
       } else {
         assert(rows.every(r => r.status === 'skipped_no_anchor' && r.rendered === false));
         if (scenario === 'nominal-only') assert.equal(rows[0].observation.value_mm,4);

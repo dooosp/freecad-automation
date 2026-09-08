@@ -232,6 +232,27 @@ function decodeXmlText(text = '') {
 
 // Bounded XML context scan for generated plain-text labels. CSS selectors,
 // nested text markup and nonrendered containers cannot qualify dimensions.
+function unsupportedTextTransform(value = '') {
+  const pattern = /([a-z]+)\s*\(([^)]*)\)/gi;
+  for (const match of value.matchAll(pattern)) {
+    const args = match[2].trim().split(/[\s,]+/).map(Number);
+    if (!args.length || !args.every(Number.isFinite)) return true;
+    const kind = match[1].toLowerCase();
+    if (kind === 'scale') { if (args.length > 2 || args.some(v => v === 0)) return true; }
+    else if (kind === 'matrix') { if (args.length !== 6 || Math.abs(args[0]*args[3]-args[1]*args[2]) < 1e-12) return true; }
+    else if (kind === 'translate') { if (args.length > 2) return true; }
+    else if (kind === 'rotate') { if (![1,3].includes(args.length)) return true; }
+    else return true;
+  }
+  return Boolean(value.replace(pattern,'').trim());
+}
+
+function transparentPaint(value) {
+  return ['none','transparent'].includes(value)
+    || /^rgba\([^,]+,[^,]+,[^,]+,\s*0(?:\.0*)?\s*\)$/i.test(value)
+    || /^rgba?\([^)]*\/\s*0(?:\.0*)?%?\s*\)$/i.test(value);
+}
+
 function dimensionTextContexts(svg) {
   const contexts = new Map();
   const stack = [];
@@ -249,7 +270,7 @@ function dimensionTextContexts(svg) {
     const attrs = extractSvgAttributes(token.slice(token.indexOf(tag)+tag.length, -1));
     const parent = stack.at(-1) || {};
     const css = String(attrs.style || '').toLowerCase();
-    const props = Object.fromEntries(css.split(';').filter(p => p.includes(':')).map(p => p.split(':').map(x => x.trim())));
+    const props = Object.fromEntries(css.split(';').filter(p => p.includes(':')).map(p => p.split(':').map(x => x.replace(/!important\s*$/i,'').trim())));
     const inherited = (key, fallback) => props[key] ?? attrs[key] ?? parent[key] ?? fallback;
     const fill = inherited('fill','black'), stroke = inherited('stroke','none');
     const fontSize = inherited('font-size','12');
@@ -260,6 +281,7 @@ function dimensionTextContexts(svg) {
       || (attrs.opacity !== undefined && Number(attrs.opacity) === 0)
       || (props.opacity !== undefined && parseFloat(props.opacity) === 0)
       || attrs['clip-path'] || attrs.mask || attrs.filter || props['clip-path'] || props.mask || props.filter
+      || props.transform || unsupportedTextTransform(attrs.transform || '')
       || parseFloat(fontSize) <= 0
       || /(?:display\s*:\s*none|visibility\s*:\s*(?:hidden|collapse)|(?:^|;)\s*opacity\s*:\s*0(?:\s|;|$))/.test(css),
       views: [...(parent.views || []), attrs['data-view-id'], attrs['data-view']].filter(Boolean),
@@ -268,8 +290,8 @@ function dimensionTextContexts(svg) {
       fill, stroke, 'font-size':fontSize, 'fill-opacity':fillOpacity, 'stroke-opacity':strokeOpacity,
     };
     if (tag === 'text') {
-      if ((['none','transparent'].includes(fill) || Number(fillOpacity) === 0)
-          && (['none','transparent'].includes(stroke) || Number(strokeOpacity) === 0)) state.blocked = true;
+      if ((transparentPaint(fill) || Number(fillOpacity) === 0)
+          && (transparentPaint(stroke) || Number(strokeOpacity) === 0)) state.blocked = true;
       contexts.set(match.index, state);
     }
     if (!/\/\s*>$/.test(token)) stack.push(state);
@@ -328,9 +350,11 @@ function parseDimensionValue(rawText = '') {
     || matches[0];
   const value = Number.parseFloat(rawValue);
   const upper = normalized.toUpperCase();
+  const explicitUnit = [...normalized.matchAll(/\d\s*([a-zµμ]+)\b/gi)]
+    .map(match => match[1].toLowerCase()).find(token => token !== 'x');
   const unit = upper.includes('DEG') || normalized.includes('°')
     ? 'deg'
-    : 'mm';
+    : explicitUnit || 'mm';
   return {
     value: Number.isFinite(value) ? value : null,
     unit,

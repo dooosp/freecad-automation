@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 
 import { hasObservedDimension } from '../../../lib/drawing-dimension-evidence.js';
 import { buildExtractedDrawingSemantics, compareDrawingIntentToExtractedSemantics } from './extracted-drawing-semantics.js';
@@ -760,10 +761,15 @@ export function buildDrawingQualitySummary({
 
   const planDimensions = asArray(dimensionMap?.plan_dimensions);
   const requiredDimensions = planDimensions.filter((entry) => entry?.required === true);
-  const mappedRequiredDimensions = requiredDimensions.filter(isMappedRequiredDimension);
+  const finalSvgDimensions = typeof svgContent === 'string'
+    ? buildExtractedDrawingSemantics({ svgContent, drawingIntent }).dimensions : null;
+  const mappedInFinalSvg = row => isMappedRequiredDimension(row) && (finalSvgDimensions === null
+    || finalSvgDimensions.some(observed => observed.emitted_dim_id === row.dim_id
+      && hasObservedDimension(observed) && isDeepStrictEqual(observed.observation,row.observation)));
+  const mappedRequiredDimensions = requiredDimensions.filter(mappedInFinalSvg);
   const missingRequiredIntents = uniqueStrings(
     requiredDimensions
-      .filter((entry) => !isMappedRequiredDimension(entry))
+      .filter((entry) => !mappedInFinalSvg(entry))
       .map((entry) => entry?.dim_id)
   );
   const conflictCount = Number(dimConflicts?.summary?.count);

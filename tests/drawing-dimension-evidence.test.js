@@ -43,10 +43,12 @@ for (const mutate of [
 }
 for (const svg of [label(observation,'8'), label(observation,'4','OTHER'),
   label(observation,'4 cm'), label(observation,'4 in'), label(observation,'Ø4'),
+  label(observation,'PLATE_THICKNESS 4 in'),
   label() + label(observation,'8'), '<text data-dim-id="THK" data-observation="bad">4</text>']) {
   assert.equal(extract(svg).coverage.required_dimensions_extracted, 0);
 }
 assert.equal(extract(label()+label()).coverage.required_dimensions_extracted, 1);
+assert.equal(extract(label().replace('<text ','<text fill="rgb(0,0,0)" ')).coverage.required_dimensions_extracted,1);
 for (const svg of [
   `<defs>${label()}</defs>`, `<!-- ${label()} -->`, `<g display="none">${label()}</g>`,
   `<g style="opacity:0">${label()}</g>`, `<g data-view-id="top">${label()}</g>`,
@@ -57,6 +59,10 @@ for (const svg of [
   label().replace('data-dim-id="THK"', 'data-dim-id=OTHER data-dim-id="THK"'),
   label().replace('<text ', '<text data-value-mm="8" '),
   `<g style="opacity:0.0!important">${label()}</g>`,
+  `<g transform="scale(0)">${label()}</g>`,
+  label().replace('<text ', '<text fill="rgba(0,0,0,0)" '),
+  label().replace('<text ', '<text style="fill:none!important;stroke:none!important" '),
+  label().replace('<text ', '<text style="fill-opacity:0!important;stroke:none" '),
 ]) assert.equal(extract(svg).coverage.required_dimensions_extracted, 0, svg);
 const forgedLegacy = structuredClone(valid);
 delete forgedLegacy.dimensions[0].observation;
@@ -74,6 +80,11 @@ assert.equal(quality(row, valid).semantic_quality.critical_features_covered, 0);
 assert.equal(buildDrawingQualitySummary({ drawingIntent, dimensionMap: { plan_dimensions:[row] },
   extractedDrawingSemantics:valid, svgContent:'<svg/>',
 }).semantic_quality.required_dimensions_present,0);
+const emptySvgQuality = buildDrawingQualitySummary({ drawingSvgPath:'/tmp/unit.svg', drawingIntent,
+  dimensionMap:{plan_dimensions:[row]}, extractedDrawingSemantics:valid, svgContent:'<svg/>',
+  qaReport:{}, layoutReport:{}, dimConflicts:{}, traceability:{} });
+assert.equal(emptySvgQuality.dimensions.mapped_count,0);
+assert(emptySvgQuality.blocking_issues.some(i => i.code === 'required-dimension-coverage'));
 for (const field of ['matched_feature_id','feature_id']) {
   assert.equal(hasObservedDimension({ ...valid.dimensions[0], [field]:'other' },requirement),false);
 }

@@ -45,6 +45,8 @@ class NamedAnchors(unittest.TestCase):
             self.assertAlmostEqual(result['value_mm'], value)
             self.assertEqual(len(result['members']), len(intent['feature'].split(',')))
             self.assertEqual(result['bounds_uv'][3] - result['bounds_uv'][1], value)
+            if intent['id'] == 'THK':
+                self.assertEqual(result['bounds_uv'], [20,0,20,4])
 
     def test_unobserved_or_ambiguous_geometry_stays_unresolved(self):
         intent = dict(id='STANDOFF_HEIGHT', feature='boss1,boss2', value_mm=8)
