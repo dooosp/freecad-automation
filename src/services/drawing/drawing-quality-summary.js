@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
+import { aliasesForSemanticId, normalizeSemanticToken } from '../../../lib/drawing-semantic-aliases.js';
 import { compareDrawingIntentToExtractedSemantics } from './extracted-drawing-semantics.js';
 import { evaluateLayoutReadability, summarizeLayoutReadabilityActions } from './layout-readability.js';
 import {
@@ -282,6 +283,53 @@ function buildDimensionEvidence(dimensionMap = null, traceability = null) {
   };
 }
 
+function dimensionDetailsMatch(requirement, observed) {
+  const expectedValue = requirement.value_mm;
+  if (expectedValue !== undefined && expectedValue !== null) {
+    const observedValue = observed.value_mm ?? observed.value;
+    // A shared nominal is corroboration only; it cannot establish identity.
+    // Missing values must not become zero through Number(null).
+    if (!Number.isFinite(expectedValue) || !Number.isFinite(observedValue)) return false;
+    if (Math.abs(expectedValue - observedValue) > Math.max(1e-4, Math.abs(expectedValue) * 1e-6)) return false;
+  }
+  for (const [expected, actual] of [
+    [requirement.feature ?? requirement.feature_id, observed.feature ?? observed.feature_id ?? observed.matched_feature_id],
+    [requirement.view, observed.view],
+    [requirement.dimension_type ?? requirement.style, observed.dimension_type ?? observed.style],
+  ]) {
+    if (expected && actual && normalizeComparable(expected) !== normalizeComparable(actual)) return false;
+  }
+  return true;
+}
+
+function hasRequiredDimensionEvidence(requirement, evidence, extractedEvidence, extractedSemantics) {
+  const dimensionId = normalizeComparable(requirement.id ?? requirement.dim_id);
+  const identities = new Set(aliasesForSemanticId(requirement.id ?? requirement.dim_id)
+    .map(normalizeComparable).filter(Boolean));
+  if ([...evidence.renderedDimensions.entries()].some(([id, observed]) => (
+    identities.has(id) && dimensionDetailsMatch(requirement, observed)
+  ))) return true;
+
+  // Reuse independently inspected, labeled SVG evidence when the renderer did
+  // not emit a matching plan row. The legacy scanner can assign an intent and
+  // feature from a unique nominal alone, so those copied fields are not identity.
+  const inspectedSvg = asArray(extractedEvidence?.sources).some((source) => (
+    source?.artifact_type === 'svg' && source?.inspected === true
+  ));
+  if (!inspectedSvg) return false;
+  const matched = asArray(extractedEvidence?.required_dimensions).find((entry) => (
+    normalizeComparable(entry.requirement_id) === dimensionId && entry.classification === 'extracted'
+  ));
+  const observed = matched && asArray(extractedSemantics?.dimensions).find((entry) => (
+    entry.id === matched.matched_extracted_id
+  ));
+  const rawLabel = normalizeSemanticToken(observed?.raw_text);
+  const labelIdentifiesDimension = aliasesForSemanticId(requirement.id ?? requirement.dim_id).some((alias) => (
+    rawLabel.startsWith(alias) && /^\d/.test(rawLabel.slice(alias.length))
+  ));
+  return Boolean(observed && labelIdentifiesDimension && dimensionDetailsMatch(requirement, observed));
+}
+
 function itemName(item = {}) {
   return item.label || item.id || 'unnamed requirement';
 }
@@ -334,6 +382,13 @@ function buildSemanticDrawingQualityReport({
   const evidence = buildDimensionEvidence(dimensionMap, traceability);
   const producedViewSet = new Set(producedViews.map(normalizeComparable).filter(Boolean));
   const svgText = extractSvgText(svgContent);
+  const extractedEvidence = compareDrawingIntentToExtractedSemantics(
+    drawingIntent,
+    extractedDrawingSemantics,
+    featureCatalog,
+    planner,
+    extractedDrawingSemanticsPath
+  );
 
   const coveredFeatures = features.required.filter((feature) => (
     evidence.renderedFeatures.has(normalizeComparable(feature.id))
@@ -343,12 +398,9 @@ function buildSemanticDrawingQualityReport({
           && evidence.renderedDimensions.has(normalizeComparable(dimension.id))
       ))
   ));
-  const presentDimensions = dimensions.required.filter((dimension) => {
-    const dimKey = normalizeComparable(dimension.id ?? dimension.dim_id);
-    if (dimKey && evidence.renderedDimensions.has(dimKey)) return true;
-    const featureKey = normalizeComparable(dimension.feature ?? dimension.feature_id);
-    return Boolean(featureKey && evidence.renderedFeatures.has(featureKey));
-  });
+  const presentDimensions = dimensions.required.filter((dimension) => (
+    hasRequiredDimensionEvidence(dimension, evidence, extractedEvidence, extractedDrawingSemantics)
+  ));
   const presentNotes = notes.required.filter((note) => hasTextEvidence(note, svgText));
   const presentViews = views.required.filter((view) => producedViewSet.has(normalizeComparable(view.id ?? view.view)));
 
@@ -404,13 +456,6 @@ function buildSemanticDrawingQualityReport({
   const score = metricScores.length
     ? Number((metricScores.reduce((sum, value) => sum + value, 0) / metricScores.length).toFixed(2))
     : null;
-  const extractedEvidence = compareDrawingIntentToExtractedSemantics(
-    drawingIntent,
-    extractedDrawingSemantics,
-    featureCatalog,
-    planner,
-    extractedDrawingSemanticsPath
-  );
   const extractedCoverageComplete = Number(extractedEvidence.coverage?.total_required || 0) > 0
     && Number(extractedEvidence.coverage?.total_missing || 0) === 0
     && Number(extractedEvidence.coverage?.total_unknown || 0) === 0

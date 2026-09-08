@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
+import test from 'node:test';
 
 import {
   buildDrawingQualitySummary,
   shouldFailDrawingQualityGate,
 } from '../src/services/drawing/drawing-quality-summary.js';
+import { buildExtractedDrawingSemantics } from '../src/services/drawing/extracted-drawing-semantics.js';
 
 function makeBaseArtifacts() {
   return {
@@ -613,5 +615,114 @@ function makeBaseArtifacts() {
   assert.equal(summary.recommended_actions.some((entry) => entry.includes('RF-001')), true);
   assert.equal(summary.reviewer_feedback.items.find((entry) => entry.id === 'RF-002')?.resolution_state, 'accepted');
 }
+
+test('a dimension on the same feature does not prove other required dimensions', () => {
+  const summary = buildDrawingQualitySummary({
+    ...makeBaseArtifacts(),
+    drawingIntent: {
+      required_dimensions: [
+        { id: 'PLATE_LENGTH', feature: 'plate', value_mm: 145 },
+        { id: 'PLATE_THICKNESS', feature: 'plate', value_mm: 4 },
+        { id: 'SLOT_POSITION', feature: 'plate', value_mm: 145 },
+      ],
+    },
+    dimensionMap: { plan_dimensions: [
+      { dim_id: 'PLATE_LENGTH', feature: 'plate', value_mm: 145, rendered: true, status: 'rendered' },
+      { dim_id: 'THK', feature: 'plate', value_mm: 4, rendered: false, status: 'skipped_no_anchor' },
+    ] },
+    traceability: { links: [] },
+  });
+  assert.equal(summary.semantic_quality.required_dimensions_present, 1);
+  assert.deepEqual(summary.semantic_quality.missing_required_dimensions, ['PLATE_THICKNESS', 'SLOT_POSITION']);
+  assert.equal(summary.semantic_quality.score_basis.required_dimension_coverage_percent, 33.33);
+  assert.equal(summary.status, 'pass');
+  assert.equal(summary.semantic_quality.decision, 'advisory');
+  assert.deepEqual(summary.blocking_issues, []);
+});
+
+for (const [label, observed] of [
+  ['wrong nominal', { value_mm: 145 }],
+  ['missing nominal', { value_mm: null }],
+  ['wrong view', { view: 'top' }],
+  ['wrong style', { style: 'diameter' }],
+  ['wrong feature', { feature: 'other_plate' }],
+]) {
+  test(`matching dimension ID cannot hide ${label}`, () => {
+    const summary = buildDrawingQualitySummary({
+      ...makeBaseArtifacts(),
+      drawingIntent: { required_dimensions: [
+        { id: 'THK', feature: 'plate', value_mm: 4, dimension_type: 'linear', view: 'front' },
+      ] },
+      dimensionMap: { plan_dimensions: [
+        { dim_id: 'THK', feature: 'plate', value_mm: 4, style: 'linear', view: 'front',
+          rendered: true, status: 'rendered', ...observed },
+      ] },
+      traceability: { links: [] },
+    });
+    assert.equal(summary.semantic_quality.required_dimensions_present, 0);
+    assert.deepEqual(summary.semantic_quality.missing_required_dimensions, ['THK']);
+  });
+}
+
+test('supported semantic identity aliases retain dimension coverage with matching evidence', () => {
+  const summary = buildDrawingQualitySummary({
+    ...makeBaseArtifacts(),
+    drawingIntent: { required_dimensions: [
+      { id: 'MOUNTING_HOLE_DIA', feature: 'mounting_holes', value_mm: 4, dimension_type: 'diameter', view: 'top' },
+    ] },
+    dimensionMap: { plan_dimensions: [
+      { dim_id: 'HOLE_DIA', feature: 'mounting_holes', value_mm: 4, style: 'diameter', view: 'top',
+        rendered: true, status: 'rendered' },
+    ] },
+    traceability: { links: [] },
+  });
+  assert.equal(summary.semantic_quality.required_dimensions_present, 1);
+  assert.deepEqual(summary.semantic_quality.missing_required_dimensions, []);
+});
+
+test('independently extracted labeled SVG evidence can satisfy an intent without a plan row', () => {
+  const drawingIntent = { required_dimensions: [
+    { id: 'WIDTH', feature: 'plate', value_mm: 42 },
+  ] };
+  const svgContent = '<svg><text x="30" y="40">WIDTH 42</text></svg>';
+  const extracted = buildExtractedDrawingSemantics({
+    drawingIntent, svgContent, drawingSvgPath: '/tmp/dimension-evidence.svg',
+  });
+  const input = {
+    ...makeBaseArtifacts(), drawingIntent, svgContent,
+    dimensionMap: { plan_dimensions: [] }, traceability: { links: [] },
+    extractedDrawingSemantics: extracted,
+  };
+  const observed = buildDrawingQualitySummary(input);
+  assert.equal(observed.semantic_quality.extracted_evidence.required_dimensions[0].classification, 'extracted');
+  assert.equal(observed.semantic_quality.required_dimensions_present, 1);
+  assert.deepEqual(observed.semantic_quality.missing_required_dimensions, []);
+
+  const uninspected = buildDrawingQualitySummary({
+    ...input,
+    extractedDrawingSemantics: { ...extracted, sources: extracted.sources.map((source) => ({ ...source, inspected: false })) },
+  });
+  assert.equal(uninspected.semantic_quality.required_dimensions_present, 0);
+});
+
+test('a unique numeric SVG match does not prove the labeled feature dimension', () => {
+  const drawingIntent = { required_dimensions: [
+    { id: 'CONNECTOR_SLOT_SIZE', feature: 'slot', value_mm: 18 },
+  ] };
+  const svgContent = '<svg><g class="hole-chain"><text x="30" y="40">18</text></g></svg>';
+  const extracted = buildExtractedDrawingSemantics({
+    drawingIntent, svgContent, drawingSvgPath: '/tmp/hole-chain.svg',
+  });
+  const summary = buildDrawingQualitySummary({
+    ...makeBaseArtifacts(), drawingIntent, svgContent,
+    dimensionMap: { plan_dimensions: [] }, traceability: { links: [] },
+    extractedDrawingSemantics: extracted,
+  });
+  // The legacy text scanner matches by nominal alone. That advisory match
+  // cannot establish that the hole-chain dimension belongs to the slot.
+  assert.equal(summary.semantic_quality.extracted_evidence.required_dimensions[0].classification, 'extracted');
+  assert.equal(summary.semantic_quality.required_dimensions_present, 0);
+  assert.deepEqual(summary.semantic_quality.missing_required_dimensions, ['CONNECTOR_SLOT_SIZE']);
+});
 
 console.log('drawing-quality-summary.test.js: ok');

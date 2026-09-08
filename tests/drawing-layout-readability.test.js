@@ -163,3 +163,71 @@ import { evaluateLayoutReadability } from '../src/services/drawing/layout-readab
   assert.equal(result.provenance.source_completeness.svg_view_metadata.completeness_state, 'missing');
   assert.equal(result.recommended_actions[0].includes('layout report'), true);
 }
+
+function annotationEvidence(overrides = {}) {
+  return {
+    drawingSvgPath: '/tmp/final.svg',
+    layoutReport: { views: { front: { fit: { overflow: false } } }, summary: { overflow_views: [] } },
+    qaPath: '/tmp/final_qa.json',
+    qaReport: {
+      metrics: { overflow_count: 0, text_overlap_pairs: 0, dim_overlap_pairs: 0, notes_overflow: false },
+      details: { annotation_layout: {
+        status: 'complete', advisory_only: true, method: 'final_svg_bounded_annotations',
+        text_bounds: 'font_width_estimate', checked_text_count: 1, unsupported_elements: [], findings: [],
+        ...overrides,
+      } },
+    },
+  };
+}
+
+{
+  const result = evaluateLayoutReadability(annotationEvidence({ findings: [{
+    type: 'text_line_overlap', view: 'front', element_ids: ['label', 'leader'], labels: ['Ø8'],
+    bounding_boxes: [{ x: 40, y: 46, w: 2.2, h: 4.8 }, { x: 35, y: 48, w: 20, h: 0 }],
+  }] }));
+  assert.equal(result.status, 'warning');
+  assert.equal(result.advisory_only, true);
+  assert.equal(result.warning_count, 1);
+  assert.equal(result.findings[0].type, 'text_line_overlap');
+  assert.deepEqual(result.findings[0].element_ids, ['label', 'leader']);
+  assert.equal(result.findings[0].source_ref, 'details.annotation_layout.findings.0');
+  assert.equal(result.findings[0].bounding_boxes[0].x, 40);
+}
+
+{
+  const result = evaluateLayoutReadability(annotationEvidence({
+    status: 'partial', unsupported_elements: [{ element_id: 'unknown', tag: 'text', reason: 'unsupported transform: skewX' }],
+  }));
+  assert.equal(result.evidence_state, 'partial');
+  assert.equal(result.completeness_state, 'partial');
+  assert.equal(result.score, null);
+  assert(result.findings.some(f => f.type === 'unsupported_annotation_layout'));
+  assert.equal(result.provenance.source_completeness.qa_annotation_layout.completeness_state, 'partial');
+}
+
+{
+  const result = evaluateLayoutReadability(annotationEvidence({ status: 'complete', findings: null }));
+  assert.equal(result.score, null);
+  assert.equal(result.evidence_state, 'partial');
+  assert(result.findings.some(f => f.type === 'unsupported_annotation_layout'));
+  const input = annotationEvidence();
+  delete input.qaReport.details.annotation_layout;
+  input.qaReport.metrics.text_overlap_pairs = null;
+  input.qaReport.metrics.dim_overlap_pairs = null;
+  assert.equal(evaluateLayoutReadability(input).score, null, 'null metrics are not observed zero counts');
+}
+
+{
+  const result = evaluateLayoutReadability(annotationEvidence({ findings: [{
+    type: 'annotation_cell_overflow', view: 'top', element_ids: ['retained-dimension'], labels: ['R5'],
+    bounding_boxes: [{ x: 40, y: 38, w: 2.2, h: 2.4 }],
+  }] }));
+  assert.equal(result.status, 'warning');
+  assert.equal(result.advisory_only, true);
+  assert.equal(result.warning_count, 1);
+  assert.equal(result.findings[0].type, 'annotation_cell_overflow');
+  assert.equal(result.findings[0].advisory_only, true);
+  assert.deepEqual(result.findings[0].element_ids, ['retained-dimension']);
+  assert.equal(result.findings[0].source_ref, 'details.annotation_layout.findings.0');
+  assert.equal(result.completeness_state, 'complete');
+}

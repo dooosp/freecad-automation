@@ -230,8 +230,40 @@ try {
         const drawingQuality = output(draw, 'drawing.quality-json');
         const intentPath = output(draw, 'drawing.intent-json');
         const catalog = output(draw, 'drawing.feature-catalog-json');
-        record.drawing_quality = read(drawingQuality).status;
+        const drawingReport = read(drawingQuality);
+        record.drawing_quality = drawingReport.status;
         assert.equal(record.drawing_quality, 'pass', `${fixture.id}/${revision}: drawing quality must pass`);
+        const qa = read(owned(drawingReport.qa_file));
+        assert.equal(qa.metrics.notes_overflow, false, 'declared footer notes must remain inside their region');
+        const layout = drawingReport.layout_readability;
+        assert.equal(layout.advisory_only, true);
+        assert.notEqual(layout.completeness_state, 'complete', 'curved boundaries cannot yield complete bounded annotation evidence');
+        assert.equal(layout.score, null, 'incomplete annotation inspection has no full layout score');
+        record.drawing_semantics = {
+          decision: drawingReport.semantic_quality.decision,
+          advisory_decision: drawingReport.semantic_quality.advisory_decision,
+          required_dimensions_present: drawingReport.semantic_quality.required_dimensions_present,
+          required_dimensions_total: drawingReport.semantic_quality.required_dimensions_total,
+          required_blockers: drawingReport.semantic_quality.required_blockers,
+        };
+        record.layout = {
+          status: layout.status, score: layout.score, completeness: layout.completeness_state,
+          findings: layout.findings.map(f => ({ type: f.type, view_ids: f.view_ids, labels: f.labels })),
+          notes_overflow: qa.metrics.notes_overflow,
+        };
+        if (fixture.id === 'plate-with-holes') {
+          const map = read(owned(drawingReport.dimension_map_file));
+          for (const id of ['THK', 'CONNECTOR_SLOT_POSITION', 'STANDOFF_HEIGHT']) {
+            const dimension = map.plan_dimensions.find(d => d.dim_id === id);
+            assert.equal(dimension?.status, 'skipped_no_anchor', `${id}: an unsupported feature span cannot become an overall dimension`);
+            assert.equal(dimension.rendered, false);
+          }
+          for (const id of ['PLATE_THICKNESS', 'CONNECTOR_SLOT_POSITION', 'STANDOFF_HEIGHT']) {
+            const requirement = config.drawing_intent.required_dimensions.find(d => d.id === id);
+            assert(drawingReport.semantic_quality.missing_required_dimensions.includes(requirement.label || id), `${id}: cannot count as present`);
+          }
+          assert.equal(record.drawing_semantics.advisory_decision, 'needs_attention');
+        }
         const intent = read(intentPath);
         assert.equal(intent.required_dimensions.find(d => d.id === fixture.requirement).value_mm, revision === 'A' ? fixture.a : fixture.b);
         const model = output(create, 'model.step');

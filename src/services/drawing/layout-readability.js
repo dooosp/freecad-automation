@@ -25,8 +25,44 @@ function cleanText(value, fallback = null) {
 }
 
 function finiteNumber(value) {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : null;
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function nonnegativeCount(value) {
+  return Number.isInteger(value) && value >= 0;
+}
+
+function annotationLayoutEvidence(details, metrics) {
+  const provided = Object.hasOwn(details, 'annotation_layout')
+    || Object.hasOwn(metrics, 'annotation_layout_status');
+  const raw = asObject(details.annotation_layout);
+  const supportedTypes = new Set(['text_line_overlap', 'annotation_frame_overflow', 'notes_region_overflow', 'annotation_cell_overflow']);
+  const validFinding = (entry) => entry && supportedTypes.has(entry.type)
+    && typeof entry.view === 'string' && entry.view.trim()
+    && Array.isArray(entry.element_ids) && entry.element_ids.length > 0
+    && entry.element_ids.every((id) => typeof id === 'string' && id.trim())
+    && Array.isArray(entry.labels) && entry.labels.every((label) => typeof label === 'string')
+    && Array.isArray(entry.bounding_boxes) && entry.bounding_boxes.length > 0
+    && entry.bounding_boxes.every((box) => box && ['x', 'y', 'w', 'h'].every((key) => finiteNumber(box[key]) !== null)
+      && box.w >= 0 && box.h >= 0);
+  const valid = ['complete', 'partial', 'unsupported', 'not_evaluated'].includes(raw.status)
+    && raw.advisory_only === true && raw.method === 'final_svg_bounded_annotations'
+    && nonnegativeCount(raw.checked_text_count)
+    && Array.isArray(raw.findings) && raw.findings.every(validFinding)
+    && Array.isArray(raw.unsupported_elements)
+    && raw.unsupported_elements.every((entry) => entry && typeof entry.element_id === 'string'
+      && entry.element_id.trim() && typeof entry.reason === 'string' && entry.reason.trim())
+    && (raw.status !== 'complete' || (raw.unsupported_elements.length === 0 && raw.checked_text_count > 0));
+  return {
+    provided,
+    valid,
+    complete: valid && raw.status === 'complete',
+    status: valid ? raw.status : 'partial',
+    findings: valid ? raw.findings : [],
+    reasons: valid
+      ? raw.unsupported_elements.map((entry) => `${entry.element_id}: ${entry.reason}`)
+      : ['Final SVG annotation layout evidence is malformed or missing.'],
+  };
 }
 
 function resolveMaybe(path) {
@@ -35,6 +71,7 @@ function resolveMaybe(path) {
 
 function sourceKindForArtifact(artifactType = null, method = null) {
   if (artifactType === 'layout_report') return 'layout_report';
+  if (artifactType === 'qa_report' && method === 'final_svg_bounded_annotations') return 'qa_annotation_layout';
   if (artifactType === 'qa_report') return 'qa_metrics';
   if (artifactType === 'svg') return 'svg_view_metadata';
   if (method === 'layout_readability_preflight') return 'metadata_preflight';
@@ -43,6 +80,8 @@ function sourceKindForArtifact(artifactType = null, method = null) {
 
 function sourceRefForSource(source = {}) {
   const method = cleanText(source.method, 'source');
+  if (Number.isInteger(source.annotation_index)) return `details.annotation_layout.findings.${source.annotation_index}`;
+  if (method === 'final_svg_bounded_annotations') return 'details.annotation_layout';
   if (cleanText(source.layout_view_key)) return `views.${source.layout_view_key}`;
   if (cleanText(source.layout_region_ref)) return source.layout_region_ref;
   if (cleanText(source.metric)) return `metrics.${source.metric}`;
@@ -253,16 +292,17 @@ export function evaluateLayoutReadability({
   const layoutSummary = asObject(safeLayout.summary);
   const qaMetrics = asObject(safeQa.metrics);
   const qaDetails = asObject(safeQa.details);
+  const annotationEvidence = annotationLayoutEvidence(qaDetails, qaMetrics);
   const svgViews = collectSvgViewMetadata(svgContent, drawingSvgPath);
   const metadataByView = viewMetadataMap(safeLayout, svgViews);
 
   const hasLayoutViewData = Object.keys(layoutViews).length > 0;
   const hasOverflowEvidence = Array.isArray(layoutSummary.overflow_views)
-    || Number.isFinite(Number(qaMetrics.overflow_count))
+    || nonnegativeCount(qaMetrics.overflow_count)
     || Array.isArray(qaDetails.overflows);
   const hasTextOverlapEvidence = Array.isArray(qaDetails.text_overlaps)
-    || Number.isFinite(Number(qaMetrics.text_overlap_pairs));
-  const hasDimensionOverlapEvidence = Number.isFinite(Number(qaMetrics.dim_overlap_pairs));
+    || nonnegativeCount(qaMetrics.text_overlap_pairs);
+  const hasDimensionOverlapEvidence = nonnegativeCount(qaMetrics.dim_overlap_pairs);
   const hasNotesOverflowEvidence = typeof qaMetrics.notes_overflow === 'boolean';
   const hasSvgViewMetadata = svgViews.length > 0;
   const hasLayoutArtifact = Boolean(layoutReport && typeof layoutReport === 'object');
@@ -323,6 +363,20 @@ export function evaluateLayoutReadability({
     qa_metrics: qaCompleteness,
     svg_view_metadata: svgCompleteness,
   };
+  if (annotationEvidence.provided) {
+    sourceCompleteness.qa_annotation_layout = completenessRecord({
+      sourceKind: 'qa_annotation_layout',
+      sourceArtifact: 'qa_report',
+      path: qaPath,
+      method: 'final_svg_bounded_annotations',
+      hasArtifact: true,
+      hasEvidence: annotationEvidence.valid,
+      complete: annotationEvidence.complete,
+      unsupported: annotationEvidence.status === 'unsupported',
+      missingReasons: annotationEvidence.complete ? [] : annotationEvidence.reasons,
+      evidenceKeys: annotationEvidence.valid ? ['details.annotation_layout'] : [],
+    });
+  }
 
   const sources = uniqueSources([
     hasLayoutViewData || Object.keys(layoutSummary).length > 0
@@ -345,6 +399,12 @@ export function evaluateLayoutReadability({
           view_ids: svgViews.map((entry) => entry.id),
           evidence_state: svgCompleteness.evidence_state,
           completeness_state: svgCompleteness.completeness_state,
+        })
+      : null,
+    annotationEvidence.provided
+      ? createSource('qa_report', qaPath, 'final_svg_bounded_annotations', {
+          evidence_state: sourceCompleteness.qa_annotation_layout.evidence_state,
+          completeness_state: sourceCompleteness.qa_annotation_layout.completeness_state,
         })
       : null,
   ]);
@@ -451,12 +511,54 @@ export function evaluateLayoutReadability({
     }));
   }
 
+  const annotationMessages = {
+    text_line_overlap: ['A drawing annotation crosses a visible line in the final SVG.', 'Reposition the annotation or reroute its leader to clear the visible line.'],
+    annotation_frame_overflow: ['A drawing annotation extends outside the sheet frame in the final SVG.', 'Move the complete annotation inside the sheet frame.'],
+    notes_region_overflow: ['General notes extend outside their declared region in the final SVG.', 'Wrap or reposition the complete notes within their declared region.'],
+    annotation_cell_overflow: ['Annotation placement metadata in the final SVG reports overflow beyond its view cell.', 'Reposition the complete annotation within its view cell or adjust the view layout.'],
+  };
+  annotationEvidence.findings.forEach((entry, index) => {
+    const [message, recommendation] = annotationMessages[entry.type];
+    findings.push(buildFinding({
+      type: entry.type,
+      message,
+      recommendation,
+      viewIds: [entry.view],
+      elementIds: entry.element_ids,
+      labels: entry.labels,
+      boundingBoxes: entry.bounding_boxes,
+      rawSource: {
+        artifact_type: 'qa_report',
+        path: resolveMaybe(qaPath),
+        method: 'final_svg_bounded_annotations',
+        annotation_index: index,
+      },
+    }));
+  });
+  if (annotationEvidence.provided && !annotationEvidence.complete) {
+    findings.push(buildFinding({
+      type: 'unsupported_annotation_layout',
+      severity: 'info',
+      message: 'Final SVG annotation checks are incomplete; unsupported or missing evidence cannot establish clear layout.',
+      recommendation: 'Review the final SVG and resolve the reported unsupported annotation evidence before relying on a layout score.',
+      rawSource: {
+        artifact_type: 'qa_report',
+        path: resolveMaybe(qaPath),
+        method: 'final_svg_bounded_annotations',
+        reasons: annotationEvidence.reasons,
+      },
+      evidenceState: sourceCompleteness.qa_annotation_layout.evidence_state,
+      completenessState: sourceCompleteness.qa_annotation_layout.completeness_state,
+    }));
+  }
+
   const coreEvidenceAvailable = hasLayoutViewData
     || hasOverflowEvidence
     || hasTextOverlapEvidence
     || hasDimensionOverlapEvidence
     || hasNotesOverflowEvidence
-    || hasSvgViewMetadata;
+    || hasSvgViewMetadata
+    || annotationEvidence.provided;
 
   if (!coreEvidenceAvailable) {
     findings.push(buildFinding({
@@ -479,6 +581,7 @@ export function evaluateLayoutReadability({
   const evidenceState = !coreEvidenceAvailable
     ? 'missing'
     : hasLayoutViewData && hasOverflowEvidence && hasTextOverlapEvidence && hasDimensionOverlapEvidence && hasNotesOverflowEvidence
+        && (!annotationEvidence.provided || annotationEvidence.complete)
       ? 'available'
       : 'partial';
   const completenessState = evidenceState === 'available' ? 'complete' : evidenceState;
@@ -489,7 +592,8 @@ export function evaluateLayoutReadability({
         - Math.min(35, overflowViews.length * 18)
         - Math.min(30, Math.max(textOverlaps.length, finiteNumber(qaMetrics.text_overlap_pairs) || 0) * 12)
         - Math.min(20, dimensionOverlapPairs * 10)
-        - (qaMetrics.notes_overflow === true ? 10 : 0),
+        - (qaMetrics.notes_overflow === true ? 10 : 0)
+        - Math.min(30, annotationEvidence.findings.length * 10),
       1
     ), 0, 100)
     : null;
@@ -546,6 +650,7 @@ export function evaluateLayoutReadability({
         dimension_overlap: hasDimensionOverlapEvidence,
         notes_overflow: hasNotesOverflowEvidence,
         svg_view_metadata: hasSvgViewMetadata,
+        annotation_layout: annotationEvidence.provided && annotationEvidence.complete,
       },
     },
   };
