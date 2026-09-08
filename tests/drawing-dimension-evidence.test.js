@@ -85,6 +85,10 @@ const emptySvgQuality = buildDrawingQualitySummary({ drawingSvgPath:'/tmp/unit.s
   qaReport:{}, layoutReport:{}, dimConflicts:{}, traceability:{} });
 assert.equal(emptySvgQuality.dimensions.mapped_count,0);
 assert(emptySvgQuality.blocking_issues.some(i => i.code === 'required-dimension-coverage'));
+const conflictingSvgQuality = buildDrawingQualitySummary({ drawingSvgPath:'/tmp/unit.svg', drawingIntent,
+  dimensionMap:{plan_dimensions:[row]}, svgContent:`<svg>${label()}${label(observation,'8')}</svg>`,
+  qaReport:{}, layoutReport:{}, dimConflicts:{}, traceability:{} });
+assert.equal(conflictingSvgQuality.dimensions.mapped_count,0);
 for (const field of ['matched_feature_id','feature_id']) {
   assert.equal(hasObservedDimension({ ...valid.dimensions[0], [field]:'other' },requirement),false);
 }

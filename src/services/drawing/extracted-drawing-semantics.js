@@ -708,6 +708,7 @@ function collectDimensionsFromSvg(textNodes = [], svgPath = null, requiredDimens
     if (repeats.some(d => d.value !== entry.value || JSON.stringify(d.observation) !== JSON.stringify(entry.observation))) {
       entry.matched_intent_id = null;
       entry.matched_feature_id = null;
+      entry.observation = null;
       entry.confidence = 0.4;
     }
   }
