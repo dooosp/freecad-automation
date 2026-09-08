@@ -8,6 +8,8 @@ Three repair functions targeting the main QA score deductions:
 Each function takes an ElementTree, mutates it in-place, and returns a
 result dict with "summary" (counts) and "changes" (per-element log).
 """
+import math
+import textwrap
 import xml.etree.ElementTree as ET
 
 from svg_common import (
@@ -22,16 +24,37 @@ from svg_common import (
 # ---------------------------------------------------------------------------
 
 _NOTES_X = 19.0
-_NOTES_Y_START = 236.0
-_NOTES_Y_MAX = 268.0
+_NOTES_Y_START = 252.0
+_NOTES_Y_MAX = 272.0
 _NOTES_LINE_H = 4.0
 _NOTES_FONT_SIZE = 2.0
 _NOTES_CHAR_W = 0.55
-_NOTES_MAX_WIDTH = 180.0
+_NOTES_MAX_WIDTH = 212.0
+
+
+def _notes_region(group):
+    """Return declared text-baseline bounds, or the legacy A3 footer bounds."""
+    defaults = {"x": _NOTES_X, "y-min": _NOTES_Y_START,
+                "y-max": _NOTES_Y_MAX, "width": _NOTES_MAX_WIDTH}
+    declared = [key for key in defaults if group.get(f"data-layout-{key}") is not None]
+    if not declared:
+        return defaults, "legacy_a3_footer"
+    if len(declared) != len(defaults):
+        return None, "incomplete_declared_region"
+    try:
+        region = {key: float(group.get(f"data-layout-{key}")) for key in defaults}
+    except (TypeError, ValueError):
+        return None, "invalid_declared_region"
+    if (not all(math.isfinite(value) for value in region.values())
+            or region["x"] < 0 or region["width"] <= 0
+            or region["x"] + region["width"] > 420
+            or not 0 <= region["y-min"] <= region["y-max"] <= 297):
+        return None, "invalid_declared_region"
+    return region, "declared"
 
 
 def rebuild_notes(tree):
-    """Rebuild general-notes <text> elements with word-wrap and y-clamp.
+    """Reflow notes inside their reserved region without discarding overflow.
 
     Returns {
         "summary": {"lines_total", "lines_rendered", "truncated", "texts_wrapped"},
@@ -42,13 +65,14 @@ def rebuild_notes(tree):
     root = tree.getroot()
     notes_group = None
     for elem in root.iter():
-        if local_tag(elem) == "g" and elem.get("class") == "general-notes":
+        if local_tag(elem) == "g" and "general-notes" in elem.get("class", "").split():
             notes_group = elem
             break
 
     empty = {
         "summary": {"lines_total": 0, "lines_rendered": 0,
-                     "truncated": False, "texts_wrapped": 0},
+                     "truncated": False, "texts_wrapped": 0,
+                     "overflow": False, "layout_status": "not_evaluated"},
         "changes": [],
         "risks": [],
     }
@@ -59,56 +83,61 @@ def rebuild_notes(tree):
     if not texts:
         return empty
 
-    max_chars = int(_NOTES_MAX_WIDTH / (_NOTES_FONT_SIZE * _NOTES_CHAR_W))
+    region, layout_source = _notes_region(notes_group)
+    if region is None:
+        return {
+            "summary": {"lines_total": len(texts), "lines_rendered": len(texts),
+                        "truncated": False, "texts_wrapped": 0,
+                        "overflow": None, "layout_status": "unavailable",
+                        "layout_source": layout_source},
+            "changes": [],
+            "risks": [{"code": "notes_layout_unavailable", "severity": "warning",
+                       "view": "page", "reason": "Invalid or incomplete declared notes region; original content and placement retained."}],
+        }
     texts_wrapped = 0
 
     # Collect all content preserving header/body distinction
     raw_lines = []
     for t in texts:
-        content = t.text or ""
-        is_header = t.get("font-weight") == "bold"
+        content = "".join(t.itertext())
         attrs = {k: v for k, v in t.attrib.items()
                  if k not in ("x", "y", "text")}
-
-        if is_header or len(content) <= max_chars:
-            raw_lines.append({"text": content, "attrs": attrs})
-        else:
+        try:
+            font_size = float(t.get("font-size", notes_group.get("font-size", _NOTES_FONT_SIZE)))
+        except (TypeError, ValueError):
+            font_size = _NOTES_FONT_SIZE
+        if not math.isfinite(font_size) or font_size <= 0:
+            font_size = _NOTES_FONT_SIZE
+        max_chars = max(1, int(region["width"] / (font_size * _NOTES_CHAR_W)))
+        wrapped = textwrap.wrap(content, width=max_chars, expand_tabs=False,
+                                replace_whitespace=False, break_long_words=True,
+                                break_on_hyphens=False) or [""]
+        if len(wrapped) > 1:
             texts_wrapped += 1
-            words = content.split(" ")
-            current = ""
-            first = True
-            for w in words:
-                if current and len(current) + 1 + len(w) > max_chars:
-                    raw_lines.append({
-                        "text": current,
-                        "attrs": attrs if first else {},
-                    })
-                    current = "   " + w
-                    first = False
-                else:
-                    current = (current + " " + w).strip() if current else w
-            if current:
-                raw_lines.append({
-                    "text": current,
-                    "attrs": attrs if first else {},
-                })
+        for index, line in enumerate(wrapped):
+            line_attrs = dict(attrs)
+            if index:
+                # A multiline note keeps its styling without duplicating an SVG ID.
+                line_attrs.pop("id", None)
+            raw_lines.append({"text": line, "attrs": line_attrs,
+                              "width_mm": len(line) * font_size * _NOTES_CHAR_W})
 
     # Remove existing text children
     for t in texts:
         notes_group.remove(t)
 
-    # Re-create within y bounds
+    # Re-create every line. A region that cannot hold the content is unavailable,
+    # not a reason to hide notes or reduce their text size.
     lines_total = len(raw_lines)
     lines_rendered = 0
-    truncated = False
+    overflow_lines = 0
 
     for i, line_info in enumerate(raw_lines):
-        y = _NOTES_Y_START + i * _NOTES_LINE_H
-        if y > _NOTES_Y_MAX:
-            truncated = True
-            break
+        y = region["y-min"] + i * _NOTES_LINE_H
+        if y > region["y-max"] or line_info["width_mm"] > region["width"]:
+            overflow_lines += 1
         new_t = ET.SubElement(notes_group, svg_tag("text"))
-        new_t.set("x", str(_NOTES_X))
+        new_t.set("x", str(region["x"]))
         new_t.set("y", f"{y:.1f}")
         for k, v in line_info["attrs"].items():
             new_t.set(k, v)
@@ -123,17 +152,17 @@ def rebuild_notes(tree):
         "count": lines_rendered,
         "note": f"Rebuilt {lines_rendered}/{lines_total} lines, "
                 f"wrapped {texts_wrapped} long texts"
-                + (", truncated overflow" if truncated else ""),
+                + (f", retained {overflow_lines} overflowing lines" if overflow_lines else ""),
     }]
 
     risks = []
-    if truncated:
+    if overflow_lines:
         risks.append({
-            "code": "notes_reflowed",
+            "code": "notes_layout_overflow",
             "severity": "warning",
             "view": "page",
-            "reason": f"Notes truncated: {lines_total - lines_rendered} lines "
-                      f"exceeded y_max={_NOTES_Y_MAX}mm",
+            "reason": f"All notes retained; {overflow_lines} lines exceed the "
+                      f"reserved width={region['width']}mm or y_max={region['y-max']}mm. Layout is unavailable.",
         })
     else:
         risks.append({
@@ -148,8 +177,12 @@ def rebuild_notes(tree):
         "summary": {
             "lines_total": lines_total,
             "lines_rendered": lines_rendered,
-            "truncated": truncated,
+            "truncated": False,
             "texts_wrapped": texts_wrapped,
+            "overflow": bool(overflow_lines),
+            "overflow_lines": overflow_lines,
+            "layout_status": "unavailable" if overflow_lines else "available",
+            "layout_source": layout_source,
         },
         "changes": changes,
         "risks": risks,
@@ -160,19 +193,21 @@ def rebuild_notes(tree):
 # 2. repair_text_overlaps — iterative de-overlap
 # ---------------------------------------------------------------------------
 
-def _text_priority(elem, parent_class):
-    """Assign priority: 0=fixed, 1=prefer-fixed, 2=movable."""
+def _text_priority(elem, parent_class, bound_annotation=False):
+    """Assign priority: 0=bound/fixed, 2=unbound/movable."""
+    classes = f"{parent_class or ''} {elem.get('class', '')}".split()
+    if (bound_annotation or elem.get("data-dim-id") is not None
+            or "general-notes" in classes
+            or any(cls.startswith(prefix) for cls in classes for prefix in ANNOTATION_PREFIXES)):
+        # Reposition the whole annotation in its renderer; moving this text alone
+        # would detach it from a leader, datum frame or deliberate notes region.
+        return 0
     y_val = float(elem.get("y", "0"))
     if y_val > TITLEBLOCK_Y:
         return 0
     ff = elem.get("font-family", "")
     if "monospace" in ff.lower():
         return 0
-
-    if parent_class:
-        for prefix in ANNOTATION_PREFIXES:
-            if parent_class.startswith(prefix):
-                return 1
 
     return 2
 
@@ -182,7 +217,7 @@ def _collect_texts_with_info(tree):
     results = []
     root = tree.getroot()
 
-    def _walk(parent, parent_class):
+    def _walk(parent, parent_class, bound_annotation=False):
         for child in parent:
             tag = local_tag(child)
             if tag == "text":
@@ -196,7 +231,7 @@ def _collect_texts_with_info(tree):
                 view = classify_by_position(cx, cy)
                 if view is None:
                     continue
-                pri = _text_priority(child, parent_class)
+                pri = _text_priority(child, parent_class, bound_annotation)
                 results.append({
                     "elem": child,
                     "bbox": bb,
@@ -208,8 +243,8 @@ def _collect_texts_with_info(tree):
                     "orig_y": float(child.get("y", "0")),
                 })
             elif tag == "g":
-                cls = child.get("class", "") or parent_class
-                _walk(child, cls)
+                cls = " ".join([parent_class, child.get("class", "")]).strip()
+                _walk(child, cls, bound_annotation or child.get("data-dim-id") is not None)
 
     _walk(root, "")
     return results
@@ -329,6 +364,19 @@ def repair_text_overlaps(tree, max_iter=40, step_mm=2.5,
                     break
 
     risks = []
+    fixed_pairs = sum(
+        1 for view_texts in by_view.values()
+        for index, first in enumerate(view_texts)
+        for second in view_texts[index + 1:]
+        if first["priority"] == second["priority"] == 0
+        and first["bbox"].iou(second["bbox"]) > iou_thresh
+    )
+    if fixed_pairs:
+        risks.append({
+            "code": "annotation_overlap_requires_layout", "severity": "warning",
+            "view": "page",
+            "reason": f"{fixed_pairs} overlapping bound annotation pairs retained; their renderer must reposition the complete annotations.",
+        })
     # Flag texts moved significantly
     big_movers = [info for info in infos
                   if abs(info["shift_y"]) + abs(info["shift_x"]) > 12.0]
@@ -346,6 +394,7 @@ def repair_text_overlaps(tree, max_iter=40, step_mm=2.5,
             "pairs_resolved": total_resolved,
             "texts_moved": len(moved_set),
             "iterations": total_iters,
+            "unresolved_fixed_pairs": fixed_pairs,
         },
         "changes": changes,
         "risks": risks,

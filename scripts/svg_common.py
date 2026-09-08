@@ -5,6 +5,7 @@ All constants are grounded in generate_drawing.py output structure.
 """
 import xml.etree.ElementTree as ET
 import re
+import math
 from dataclasses import dataclass
 
 SVG_NS = "http://www.w3.org/2000/svg"
@@ -255,6 +256,245 @@ def elem_bbox_approx(elem):
         return BBox.union_all(child_bbs)
 
     return None
+
+
+# Page-space evidence for the SVG subset emitted by this drawing pipeline.
+# Keep elem_bbox_approx local: legacy repair callers mutate local coordinates.
+_SVG_NUMBER = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
+_IDENTITY = (1., 0., 0., 1., 0., 0.)
+_DRAWABLE = {"text", "line", "polyline", "polygon", "path", "rect", "circle", "ellipse", "use", "image"}
+
+
+def _number(value, default=None):
+    if value is None:
+        return default
+    if not re.fullmatch(_SVG_NUMBER, str(value).strip()):
+        raise ValueError("unsupported or nonfinite numeric attribute")
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError("nonfinite numeric attribute")
+    return number
+
+
+def _numbers(value):
+    value = str(value)
+    tokens = re.findall(_SVG_NUMBER, value)
+    remainder = re.sub(_SVG_NUMBER, "", value)
+    if remainder.strip(" ,\t\r\n"):
+        raise ValueError("unsupported numeric list")
+    return [_number(token) for token in tokens]
+
+
+def _multiply(a, b):
+    result = (a[0]*b[0]+a[2]*b[1], a[1]*b[0]+a[3]*b[1],
+              a[0]*b[2]+a[2]*b[3], a[1]*b[2]+a[3]*b[3],
+              a[0]*b[4]+a[2]*b[5]+a[4], a[1]*b[4]+a[3]*b[5]+a[5])
+    if not all(math.isfinite(v) for v in result):
+        raise ValueError("nonfinite transform")
+    return result
+
+
+def _transform(value):
+    value = value or ""
+    matrix, position = _IDENTITY, 0
+    for match in re.finditer(r"([A-Za-z]+)\s*\(([^)]*)\)", value):
+        if value[position:match.start()].strip(" ,\t\r\n"):
+            raise ValueError("unsupported transform")
+        name, values = match[1], _numbers(match[2])
+        if name == "translate" and len(values) in (1, 2):
+            local = (1, 0, 0, 1, values[0], values[1] if len(values) == 2 else 0)
+        elif name == "scale" and len(values) in (1, 2):
+            local = (values[0], 0, 0, values[-1], 0, 0)
+        elif name == "rotate" and len(values) in (1, 3):
+            angle = math.radians(values[0])
+            cosine, sine = math.cos(angle), math.sin(angle)
+            local = (cosine, sine, -sine, cosine, 0, 0)
+            if len(values) == 3:
+                x, y = values[1:]
+                local = _multiply(_multiply((1, 0, 0, 1, x, y), local), (1, 0, 0, 1, -x, -y))
+        elif name == "matrix" and len(values) == 6:
+            local = tuple(values)
+        else:
+            raise ValueError("unsupported transform: " + name)
+        if local[0]*local[3]-local[1]*local[2] == 0:
+            raise ValueError("degenerate transform")
+        matrix = _multiply(matrix, local)
+        position = match.end()
+    if value[position:].strip(" ,\t\r\n"):
+        raise ValueError("unsupported transform")
+    return matrix
+
+
+def _point(matrix, point):
+    x, y = point
+    result = (matrix[0]*x+matrix[2]*y+matrix[4], matrix[1]*x+matrix[3]*y+matrix[5])
+    if not all(math.isfinite(v) for v in result):
+        raise ValueError("nonfinite page coordinate")
+    return result
+
+
+def _point_bbox(points):
+    if not points:
+        return None
+    xs, ys = zip(*points)
+    return BBox(min(xs), min(ys), max(xs)-min(xs), max(ys)-min(ys))
+
+
+def _rect_points(x, y, width, height):
+    if width < 0 or height < 0:
+        raise ValueError("negative extent")
+    return [(x, y), (x+width, y), (x+width, y+height), (x, y+height)]
+
+
+def _linear_path(value):
+    """Only actual straight SVG segments; curves are not guessed from numbers."""
+    tokens = re.findall(r"[A-Za-z]|" + _SVG_NUMBER, value)
+    if re.sub(r"[A-Za-z]|" + _SVG_NUMBER, "", value).strip(" ,\t\r\n"):
+        raise ValueError("unsupported path syntax")
+    current, start, command, points, segments = (0., 0.), None, None, [], []
+    index = 0
+    while index < len(tokens):
+        if tokens[index].isalpha():
+            command = tokens[index]
+            index += 1
+            if command not in "MmLlHhVvZz":
+                raise ValueError("curved path unsupported for line collision")
+            if command in "Zz":
+                if start is None:
+                    raise ValueError("path close without start")
+                segments.append((current, start)); current = start; command = None
+                continue
+        if command is None:
+            raise ValueError("path command missing")
+        count = 1 if command in "HhVv" else 2
+        if index+count > len(tokens) or any(t.isalpha() for t in tokens[index:index+count]):
+            raise ValueError("incomplete path coordinates")
+        values = [_number(t) for t in tokens[index:index+count]]
+        index += count
+        if command in "Hh":
+            target = (values[0] + (current[0] if command == "h" else 0), current[1])
+        elif command in "Vv":
+            target = (current[0], values[0] + (current[1] if command == "v" else 0))
+        else:
+            target = tuple(values[i] + (current[i] if command.islower() else 0) for i in (0, 1))
+        if command in "Mm":
+            start = target; command = "l" if command == "m" else "L"
+        else:
+            segments.append((current, target))
+        points.append(target); current = target
+    return points, segments
+
+
+@dataclass
+class SvgElementContext:
+    element: object
+    classes: frozenset
+    bbox: object
+    segments: tuple = ()
+    text_polygon: tuple = ()
+    view_id: str = None
+    notes_region: object = None
+    unsupported_reason: str = None
+    layout_overflow: bool = False
+
+
+def iter_svg_context(root):
+    """Visible leaves, inherited style/classes, page geometry and honest gaps.
+
+    Text bounds remain font-width estimates, not browser glyph measurements.
+    Unsupported transforms, curved paths and positioned tspans yield bbox None.
+    """
+    stylesheet = any(local_tag(elem) == "style" and _text_content(elem).strip() for elem in root.iter())
+
+    def visit(elem, inherited, classes, matrix, view_id, notes_region, reason=None, layout_overflow=False):
+        tag = local_tag(elem)
+        if tag in {"defs", "style", "metadata", "title", "desc", "clipPath", "mask", "pattern", "marker", "symbol"}:
+            return
+        styles = dict(inherited)
+        styles.update({k: elem.get(k) for k in ("font-size", "text-anchor", "visibility", "clip-path", "mask", "filter") if elem.get(k) is not None})
+        own_style = dict(re.findall(r"([\w-]+)\s*:\s*([^;]+)", elem.get("style", "")))
+        styles.update(own_style)
+        if elem.get("display") == "none" or own_style.get("display") == "none":
+            return
+        classes = classes | frozenset(elem.get("class", "").split())
+        view_id = elem.get("data-view-id", view_id)
+        layout_overflow = layout_overflow or elem.get("data-layout-overflow") == "true"
+        try:
+            matrix = _multiply(matrix, _transform(elem.get("transform")))
+            if own_style.get("transform") or any(styles.get(k, "none") != "none" for k in ("clip-path", "mask", "filter")):
+                raise ValueError("CSS transform, clipping or filter unsupported")
+            if tag == "svg" and elem is not root:
+                raise ValueError("nested SVG viewport unsupported")
+            if elem.get("data-region-bounds") is not None:
+                if matrix[1] != 0 or matrix[2] != 0:
+                    raise ValueError("rotated or skewed notes region unsupported")
+                bounds = _numbers(elem.get("data-region-bounds"))
+                if len(bounds) != 4:
+                    raise ValueError("invalid region bounds")
+                notes_region = _point_bbox([_point(matrix, p) for p in _rect_points(*bounds)])
+        except (ValueError, OverflowError) as error:
+            reason = reason or str(error)
+        if tag in _DRAWABLE and styles.get("visibility") not in {"hidden", "collapse"}:
+            bbox, segments, polygon = None, [], []
+            try:
+                if reason:
+                    raise ValueError(reason)
+                get = lambda key, default=0.: _number(elem.get(key), default)
+                points = []
+                if tag == "text":
+                    if any(child.attrib for child in elem) or any(elem.get(k) for k in ("dx", "dy", "textLength", "lengthAdjust", "rotate")):
+                        raise ValueError("positioned or styled text runs unsupported")
+                    size = _number(styles.get("font-size"), 2.)
+                    if size <= 0:
+                        raise ValueError("nonpositive font size")
+                    width = len(_text_content(elem))*size*.55
+                    anchor = styles.get("text-anchor", "start")
+                    if anchor not in {"start", "middle", "end"}:
+                        raise ValueError("unsupported text anchor")
+                    x = get("x") - (width/2 if anchor == "middle" else width if anchor == "end" else 0)
+                    points = _rect_points(x, get("y")-size, width, size*1.2)
+                    polygon = [_point(matrix, p) for p in points]
+                elif tag == "line":
+                    points = [(get("x1"), get("y1")), (get("x2"), get("y2"))]
+                    segments = [(points[0], points[1])]
+                elif tag in {"polyline", "polygon"}:
+                    values = _numbers(elem.get("points", ""))
+                    if len(values) < 4 or len(values) % 2:
+                        raise ValueError("invalid polyline points")
+                    points = list(zip(values[::2], values[1::2]))
+                    segments = list(zip(points, points[1:]))
+                    if tag == "polygon":
+                        segments.append((points[-1], points[0]))
+                elif tag == "path":
+                    points, segments = _linear_path(elem.get("d", ""))
+                elif tag == "rect":
+                    if get("rx") or get("ry"):
+                        raise ValueError("rounded rectangle unsupported for line collision")
+                    points = _rect_points(get("x"), get("y"), get("width"), get("height"))
+                    segments = list(zip(points, points[1:]+points[:1]))
+                elif tag in {"circle", "ellipse"}:
+                    rx = get("r") if tag == "circle" else get("rx")
+                    ry = get("r") if tag == "circle" else get("ry")
+                    points = _rect_points(get("cx")-rx, get("cy")-ry, 2*rx, 2*ry)
+                else:
+                    raise ValueError("unsupported drawable: " + tag)
+                bbox = _point_bbox([_point(matrix, p) for p in points])
+                segments = [(_point(matrix, a), _point(matrix, b)) for a, b in segments]
+            except (ValueError, OverflowError) as error:
+                reason = str(error)
+            yield SvgElementContext(elem, classes, bbox, tuple(segments), tuple(polygon), view_id, notes_region, reason, layout_overflow)
+        # Text children belong to their text run, not separate drawable leaves.
+        if tag != "text":
+            for child in elem:
+                yield from visit(child, styles, classes, matrix, view_id, notes_region, reason, layout_overflow)
+    yield from visit(root, {}, frozenset(), _IDENTITY, None, None,
+                     "stylesheet cascade unsupported" if stylesheet else None)
+
+
+def iter_svg_elements(root):
+    """Stable planner API: (element, inherited class tokens, page BBox or None)."""
+    for context in iter_svg_context(root):
+        yield context.element, context.classes, context.bbox
 
 
 def group_center(g_elem):

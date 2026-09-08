@@ -19,6 +19,7 @@ from svg_common import (
     cell_bbox, classify_by_position, group_center, count_paths,
     elem_bbox_approx, polyline_coords, count_long_floats_in_str,
     HIDDEN_CLASSES, GEOMETRY_CLASSES, CELLS, BBox,
+    ANNOTATION_PREFIXES, iter_svg_context,
 )
 
 
@@ -170,26 +171,21 @@ def detect_overflow(tree):
 
     Returns list of overflow details.
     """
-    root = tree.getroot()
     overflows = []
-
-    for elem in root:
-        cls = elem.get("class", "")
-        if cls not in GEOMETRY_CLASSES:
+    groups = {}
+    for context in iter_svg_context(tree.getroot()):
+        geometry = context.classes & GEOMETRY_CLASSES
+        if not geometry or context.bbox is None:
             continue
-
-        center = group_center(elem)
-        if not center:
+        view = context.view_id or classify_by_position(*context.bbox.center())
+        if view not in CELLS:
             continue
+        key = (view, sorted(geometry)[0])
+        groups.setdefault(key, []).append(context.bbox)
 
-        view = classify_by_position(*center)
-        if not view:
-            continue
-
+    for (view, cls), boxes in groups.items():
         cell = cell_bbox(view)
-        bb = elem_bbox_approx(elem)
-        if bb is None:
-            continue
+        bb = BBox.union_all(boxes)
 
         # Check if group bbox exceeds cell
         dx_left = max(0, cell.x - bb.x)
@@ -216,17 +212,18 @@ def detect_text_overlaps(tree):
     """
     # Collect all text elements with their bboxes, grouped by view
     by_view = {}  # view_name -> list of {bbox, text}
-    for elem in tree.iter():
+    for context in iter_svg_context(tree.getroot()):
+        elem = context.element
         if local_tag(elem) != "text":
             continue
-        bb = elem_bbox_approx(elem)
+        bb = context.bbox
         if bb is None or bb.area() < 0.1:
             continue
-        content = elem.text or ""
+        content = "".join(elem.itertext())
         if not content.strip():
             continue
         cx, cy = bb.center()
-        view = classify_by_position(cx, cy) or "page"
+        view = context.view_id or classify_by_position(cx, cy) or "page"
         by_view.setdefault(view, []).append(
             {"bbox": bb, "text": content[:30]})
 
@@ -248,6 +245,111 @@ def detect_text_overlaps(tree):
                     })
 
     return overlaps
+
+
+def _annotation(context):
+    return bool(context.classes & {"general-notes", "radius-dimension"}) or any(
+        token.startswith(ANNOTATION_PREFIXES) for token in context.classes)
+
+
+def _outside_region(box, region):
+    return box.x < region.x or box.y < region.y or box.x+box.w > region.x+region.w or box.y+box.h > region.y+region.h
+
+
+def _segment_crosses_polygon(segment, polygon):
+    """Clip a segment to the interior of a convex text quadrilateral.
+
+    AABB overlap alone is insufficient for diagonal leaders/rotated text.
+    Boundary-only contact does not count as crossing text.
+    """
+    if len(polygon) != 4:
+        return False
+    area = sum(polygon[i][0]*polygon[(i+1)%4][1]-polygon[(i+1)%4][0]*polygon[i][1] for i in range(4))
+    if area == 0:
+        return False
+    sign = 1 if area > 0 else -1
+    a, b = segment
+    low, high = 0., 1.
+    for p, q in zip(polygon, polygon[1:]+polygon[:1]):
+        edge = (q[0]-p[0], q[1]-p[1])
+        start = sign*(edge[0]*(a[1]-p[1])-edge[1]*(a[0]-p[0]))
+        change = sign*(edge[0]*(b[1]-a[1])-edge[1]*(b[0]-a[0]))
+        if change == 0:
+            if start <= 0:
+                return False
+            continue
+        bound = -start/change
+        if change > 0:
+            low = max(low, bound)
+        else:
+            high = min(high, bound)
+        if low >= high:
+            return False
+    return low < high and high > 0 and low < 1
+
+
+def collect_annotation_layout(tree):
+    """Advisory final-SVG checks; never reinterpret these as view overflow."""
+    contexts = list(iter_svg_context(tree.getroot()))
+    annotations = [c for c in contexts if _annotation(c) and local_tag(c.element) == "text"]
+    axis_aligned_frame = lambda c: local_tag(c.element) == "rect" and len(c.segments) == 4 and all(
+        a[0] == b[0] or a[1] == b[1] for a, b in c.segments)
+    frames = [c for c in contexts if "sheet-frame" in c.classes and c.bbox is not None and axis_aligned_frame(c)]
+    findings, unsupported = [], []
+    ids = {id(c.element): c.element.get("id") or f"svg:{local_tag(c.element)}:{i}" for i, c in enumerate(contexts)}
+    bbox_dict = lambda box: {"x": box.x, "y": box.y, "w": box.w, "h": box.h}
+
+    def unknown(context, reason):
+        item = {"element_id": ids[id(context.element)], "tag": local_tag(context.element), "reason": reason}
+        if item not in unsupported:
+            unsupported.append(item)
+
+    def finding(kind, annotation, other=None, region=None):
+        involved = [annotation] + ([other] if other is not None else [])
+        entry = {"type": kind, "view": annotation.view_id or "page",
+                 "element_ids": [ids[id(c.element)] for c in involved],
+                 "labels": ["".join(annotation.element.itertext())],
+                 "bounding_boxes": [bbox_dict(c.bbox) for c in involved if c.bbox is not None]}
+        if region is not None:
+            entry["region_bounds"] = bbox_dict(region)
+        findings.append(entry)
+
+    relevant_obstacles = [c for c in contexts if local_tag(c.element) != "text" or
+                          (c.classes & GEOMETRY_CLASSES) or _annotation(c) or "sheet-frame" in c.classes or "title-block" in c.classes]
+    for context in contexts:
+        if context.unsupported_reason:
+            unknown(context, context.unsupported_reason)
+        elif "sheet-frame" in context.classes and not axis_aligned_frame(context):
+            unknown(context, "non-axis-aligned sheet frame unsupported")
+        elif local_tag(context.element) in {"circle", "ellipse"}:
+            unknown(context, "curved boundary collision not evaluated")
+
+    for annotation in annotations:
+        if annotation.bbox is None:
+            continue
+        if not frames:
+            unknown(annotation, "explicit sheet frame unavailable")
+        elif any(_outside_region(annotation.bbox, f.bbox) for f in frames):
+            finding("annotation_frame_overflow", annotation)
+        if "general-notes" in annotation.classes:
+            if annotation.notes_region is None:
+                unknown(annotation, "explicit notes region unavailable")
+            elif annotation.layout_overflow or _outside_region(annotation.bbox, annotation.notes_region):
+                finding("notes_region_overflow", annotation, region=annotation.notes_region)
+        elif annotation.layout_overflow:
+            finding("annotation_cell_overflow", annotation)
+        for obstacle in relevant_obstacles:
+            if obstacle.bbox is None or not obstacle.segments or not annotation.bbox.overlaps(obstacle.bbox):
+                continue
+            if any(_segment_crosses_polygon(segment, annotation.text_polygon) for segment in obstacle.segments):
+                finding("text_line_overlap", annotation, obstacle)
+
+    supported = sum(c.bbox is not None for c in annotations)
+    status = "not_evaluated" if not annotations else "complete" if not unsupported else "partial" if supported else "unsupported"
+    return {"status": status, "advisory_only": True,
+            "method": "final_svg_bounded_annotations", "text_bounds": "font_width_estimate",
+            "checked_text_count": supported, "unsupported_elements": unsupported,
+            "findings": findings}
 
 
 def detect_dim_overlaps(tree):
@@ -287,17 +389,24 @@ def detect_dim_overlaps(tree):
 
 
 def check_notes_overflow(tree):
-    """Check if general-notes text extends into title block area (y > 270)."""
-    max_y = 270.0  # title block starts around y=247, with margin
+    """Use declared final note bounds; retain the old baseline test for old SVGs.
 
-    for elem in tree.iter():
-        if local_tag(elem) == "g" and elem.get("class") == "general-notes":
-            for child in elem:
-                if local_tag(child) == "text":
-                    y = float(child.get("y", 0))
-                    if y > max_y:
-                        return True
-    return False
+    None means the supplied bounds/transform could not be evaluated.
+    """
+    unknown = False
+    for context in iter_svg_context(tree.getroot()):
+        if "general-notes" not in context.classes or local_tag(context.element) != "text":
+            continue
+        if context.layout_overflow:
+            return True
+        if context.unsupported_reason or context.bbox is None:
+            unknown = True
+        elif context.notes_region is not None:
+            if _outside_region(context.bbox, context.notes_region):
+                return True
+        elif float(context.element.get("y", 0)) > 270.0:
+            return True
+    return None if unknown else False
 
 
 # -- P1 Metrics ----------------------------------------------------------------
@@ -421,6 +530,11 @@ def _extract_tolerance(text):
     return None
 
 
+def _is_review_marker(elem):
+    """Review identifiers are not dimensional observations, even when numeric."""
+    return "review-marker" in elem.get("class", "").split() or elem.get("data-review-dim-id") is not None
+
+
 def _extract_dim_entries(tree):
     """Extract structured dimension entries from text elements, grouped by view.
 
@@ -430,7 +544,7 @@ def _extract_dim_entries(tree):
     view_entries = {}
     for elem in tree.iter():
         tag = local_tag(elem)
-        if tag != "text":
+        if tag != "text" or _is_review_marker(elem):
             continue
         text = (elem.text or "").strip()
         if not text:
@@ -474,7 +588,7 @@ def _extract_dim_numbers(tree):
 def _has_matching_pcd_callout(tree, pcd_value):
     tol = max(0.5, 0.002 * abs(float(pcd_value)))
     for elem in tree.iter():
-        if local_tag(elem) != "text" or not elem.text:
+        if local_tag(elem) != "text" or not elem.text or _is_review_marker(elem):
             continue
         text = (elem.text or "").strip()
         if "PCD" not in text.upper():
@@ -503,7 +617,7 @@ def check_dim_completeness(tree, plan):
     # Collect all text content from SVG
     all_texts = []
     for elem in tree.iter():
-        if local_tag(elem) == "text":
+        if local_tag(elem) == "text" and not _is_review_marker(elem):
             t = (elem.text or "").strip()
             if t:
                 all_texts.append(t)
@@ -719,7 +833,7 @@ def check_required_presence(tree, plan):
     svg_values = []
     seen_value_attrs = False
     for elem in tree.iter():
-        if local_tag(elem) != "text":
+        if local_tag(elem) != "text" or _is_review_marker(elem):
             continue
         value_attr = elem.get("data-value-mm")
         if value_attr is not None:
@@ -776,7 +890,7 @@ def check_value_consistency(tree, plan):
     svg_values = []
     seen_value_attrs = False
     for elem in tree.iter():
-        if local_tag(elem) != "text":
+        if local_tag(elem) != "text" or _is_review_marker(elem):
             continue
         value_attr = elem.get("data-value-mm")
         if value_attr is not None:
@@ -918,6 +1032,7 @@ def collect_metrics(tree, plan=None, stroke_profile="ks"):
     """
     overflows = detect_overflow(tree)
     text_overlaps = detect_text_overlaps(tree)
+    annotation_layout = collect_annotation_layout(tree)
     has_plan = plan is not None
 
     # Phase 20-A: required presence check
@@ -933,6 +1048,10 @@ def collect_metrics(tree, plan=None, stroke_profile="ks"):
         "text_overlap_pairs": len(text_overlaps),
         "dim_overlap_pairs": detect_dim_overlaps(tree),
         "notes_overflow": check_notes_overflow(tree),
+        "annotation_layout_status": annotation_layout["status"],
+        "annotation_overlap_count": sum(f["type"] == "text_line_overlap" for f in annotation_layout["findings"]),
+        "annotation_frame_overflow_count": sum(f["type"] == "annotation_frame_overflow" for f in annotation_layout["findings"]),
+        "notes_region_overflow_count": sum(f["type"] == "notes_region_overflow" for f in annotation_layout["findings"]),
         "gdt_unanchored": count_gdt_unanchored(tree),
         "dense_iso": check_dense_iso(tree),
         "stroke_violations": count_stroke_violations(tree, profile_name=stroke_profile),
@@ -953,6 +1072,7 @@ def collect_metrics(tree, plan=None, stroke_profile="ks"):
         "_details": {
             "overflows": overflows,
             "text_overlaps": text_overlaps[:10],  # limit detail output
+            "annotation_layout": annotation_layout,
             "required_presence_missing_ids": _pres_missing if has_plan else [],
         },
     }

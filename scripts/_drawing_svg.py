@@ -256,109 +256,126 @@ def _dim_vertical(y1, y2, x_base, x_dim, value_mm, tol_text=""):
 
 
 def _dim_diameter(px, py, radius_scaled, radius_mm, angle_deg=45, tol_text="",
-                  cell_bounds=None):
-    """Diameter dimension: leader line from circle + diameter text.
+                  cell_bounds=None, annotation_planner=None,
+                  leader_offset_mm=0, display_text=None):
+    """Place a complete anchored leader, shelf and label within occupied space.
 
-    cell_bounds: (x_min, y_min, x_max, y_max) — if provided, selects best
-    angle that keeps leader fully inside the cell.
+    Candidate scoring is a layout heuristic, not a geometry validity check.
+    Text bounds include the displayed tolerance; the circle anchor is preserved.
     """
-    out = []
-    leader_len = max(min(radius_scaled * 0.8, 20), 6)
-    shelf_len = 8
-
-    # If cell bounds given, pick the best angle that stays in bounds
-    if cell_bounds:
-        bx0, by0, bx1, by1 = cell_bounds
-        margin = shelf_len + 4  # text space
-        best_angle = math.radians(angle_deg)
-        best_score = float('inf')
-        for a_deg in range(0, 360, 15):
-            a = math.radians(a_deg)
-            sx_c = px + radius_scaled * math.cos(a)
-            sy_c = py - radius_scaled * math.sin(a)
-            ex_c = sx_c + leader_len * math.cos(a)
-            ey_c = sy_c - leader_len * math.sin(a)
-            s_dir = 1 if math.cos(a) >= 0 else -1
-            shx_c = ex_c + s_dir * shelf_len
-            # Penalty: how far outside the cell
-            overshoot = 0
-            for xx in (sx_c, ex_c, shx_c):
-                overshoot += max(0, bx0 - xx) + max(0, xx - bx1)
-            for yy in (sy_c, ey_c):
-                overshoot += max(0, by0 - yy) + max(0, yy - by1)
-            # Small bonus for being close to the requested angle
-            angle_diff = abs(((a_deg - angle_deg + 180) % 360) - 180)
-            score = overshoot * 100 + angle_diff * 0.1
-            if score < best_score:
-                best_score = score
-                best_angle = a
-        angle = best_angle
-    else:
-        angle = math.radians(angle_deg)
-
-    sx = px + radius_scaled * math.cos(angle)
-    sy = py - radius_scaled * math.sin(angle)
-    ex = sx + leader_len * math.cos(angle)
-    ey = sy - leader_len * math.sin(angle)
-    # Leader line
-    out.append(f'<line x1="{sx:.2f}" y1="{sy:.2f}" '
-               f'x2="{ex:.2f}" y2="{ey:.2f}"/>')
-    # Horizontal shelf
-    shelf_dir = 1 if math.cos(angle) >= 0 else -1
-    shx = ex + shelf_dir * shelf_len
-    out.append(f'<line x1="{ex:.2f}" y1="{ey:.2f}" '
-               f'x2="{shx:.2f}" y2="{ey:.2f}"/>')
-    # Arrow at circle edge
-    out.append(_arrow_head(sx, sy, angle + math.pi))
-    # Text (with optional tolerance grade)
     d_mm = radius_mm * 2
-    text = f"\u2300{d_mm:.1f}" if d_mm != int(d_mm) else f"\u2300{int(d_mm)}"
+    text = display_text or (f"⌀{d_mm:.1f}" if d_mm != int(d_mm) else f"⌀{int(d_mm)}")
     if tol_text:
         text += f" {tol_text}"
-    tx = (ex + shx) / 2
-    ty = ey - 1.2
-    out.append(f'<text x="{tx:.2f}" y="{ty:.2f}" text-anchor="middle" '
-               f'font-family="{DIM_FONT}" font-size="{DIM_FONT_SIZE}" '
-               f'fill="{DIM_COLOR}">{text}</text>')
+    font_size = float(DIM_FONT_SIZE)
+    text_w = max(font_size, len(text) * font_size * 0.65)
+    shelf_len = max(8, text_w + 1)
+    base_len = max(min(radius_scaled * 0.8, 20), 6) + max(0, leader_offset_mm)
+    angles = [angle_deg] + [a for a in range(0, 360, 15) if a != angle_deg]
+    candidates = []
+    for length in (base_len, base_len + 6, base_len + 12, base_len + 20):
+        for a_deg in angles:
+            angle = math.radians(a_deg)
+            sx, sy = px + radius_scaled * math.cos(angle), py - radius_scaled * math.sin(angle)
+            ex, ey = sx + length * math.cos(angle), sy - length * math.sin(angle)
+            shx = ex + (1 if math.cos(angle) >= 0 else -1) * shelf_len
+            tx, ty = (ex + shx) / 2, ey - 1.2
+            box = (tx - text_w / 2 - .5, ty - font_size - .5,
+                   tx + text_w / 2 + .5, ty + .8)
+            overflow = 0
+            if cell_bounds:
+                bx0, by0, bx1, by1 = cell_bounds
+                overflow = sum(max(0, bx0-x) + max(0, x-bx1) for x in (sx, ex, shx, box[0], box[2]))
+                overflow += sum(max(0, by0-y) + max(0, y-by1) for y in (sy, ey, box[1], box[3]))
+            overlap = annotation_planner.overlap_score(*box) if annotation_planner else 0
+            crossings = 0
+            if annotation_planner:
+                crossings = annotation_planner.segment_overlap_score(sx, sy, ex, ey)
+                crossings += annotation_planner.segment_overlap_score(ex, ey, shx, ey)
+            angle_diff = abs(((a_deg - angle_deg + 180) % 360) - 180)
+            score = overflow * 10000 + overlap * 100 + crossings * 100 + angle_diff * .01 + (length-base_len) * .1
+            candidates.append((score, (sx, sy, ex, ey, shx, tx, ty, angle)))
+    _, (sx, sy, ex, ey, shx, tx, ty, angle) = min(candidates, key=lambda c: c[0])
+    out = [f'<line x1="{sx:.2f}" y1="{sy:.2f}" x2="{ex:.2f}" y2="{ey:.2f}"/>',
+           f'<line x1="{ex:.2f}" y1="{ey:.2f}" x2="{shx:.2f}" y2="{ey:.2f}"/>',
+           _arrow_head(sx, sy, angle + math.pi),
+           f'<text x="{tx:.2f}" y="{ty:.2f}" text-anchor="middle" '
+           f'font-family="{DIM_FONT}" font-size="{DIM_FONT_SIZE}" '
+           f'fill="{DIM_COLOR}">{_escape(text)}</text>']
+    if annotation_planner:
+        annotation_planner.register_svg('\n'.join(out))
     return out
 
 
-def _dim_radius(cx_pg, cy_pg, mx_pg, my_pg, radius_scaled, radius_mm):
-    """Radius dimension: leader from arc surface outward + 'R{value}' text."""
-    out = []
+def _dim_radius(cx_pg, cy_pg, mx_pg, my_pg, radius_scaled, radius_mm,
+                annotation_planner=None, cell_bounds=None):
+    """Place a connected radius callout while retaining its observed arc point.
+
+    The arrow-bearing stem remains radial. Only the external elbow and label
+    placement vary; candidates never move the anchor to an unobserved arc.
+    An unavoidable overflow retains the callout and marks it for layout review.
+    """
     # Direction from center to midpoint (radially outward) in page coords
     dx = mx_pg - cx_pg
     dy = my_pg - cy_pg
     dist = math.hypot(dx, dy)
     if dist < 0.1:
-        return out
+        return []
     ndx, ndy = dx / dist, dy / dist
 
     # Point on arc surface (page coords)
     ax = cx_pg + ndx * radius_scaled
     ay = cy_pg + ndy * radius_scaled
 
-    # Leader end (outside arc)
-    leader_len = max(radius_scaled * 0.6, 5)
-    ex = ax + ndx * leader_len
-    ey = ay + ndy * leader_len
-
-    # Leader line
-    out.append(f'<line x1="{ax:.2f}" y1="{ay:.2f}" '
-               f'x2="{ex:.2f}" y2="{ey:.2f}"/>')
-
-    # Arrow at arc surface (pointing toward center)
+    text = f"R{radius_mm:.1f}" if radius_mm != int(radius_mm) else f"R{int(radius_mm)}"
+    font_size = float(DIM_FONT_SIZE)
+    text_w = max(font_size, len(text) * font_size * .65)
+    shelf_len = max(8, text_w + 1)
+    base_len = max(radius_scaled * .6, 5)
+    preferred_side = 1 if ndx >= 0 else -1
+    candidates = []
+    for length in (base_len, 2, base_len + 6, base_len + 12):
+        # A radial stem long enough to carry the existing arrowhead.
+        rx, ry = ax + ndx * length, ay + ndy * length
+        for offset in (0, -6, 6, -12, 12, -20, 20):
+            ex, ey = rx - ndy * offset, ry + ndx * offset
+            for side in (preferred_side, -preferred_side):
+                shx = ex + side * shelf_len
+                tx, ty = (ex + shx) / 2, ey - 1.2
+                box = (tx-text_w/2-.5, ty-font_size-.5,
+                       tx+text_w/2+.5, ty+.8)
+                overflow = 0
+                if cell_bounds:
+                    bx0, by0, bx1, by1 = cell_bounds
+                    overflow = sum(max(0, bx0-x) + max(0, x-bx1)
+                                   for x in (ax, rx, ex, shx, box[0], box[2]))
+                    overflow += sum(max(0, by0-y) + max(0, y-by1)
+                                    for y in (ay, ry, ey, box[1], box[3]))
+                overlap, crossings = 0, 0
+                if annotation_planner:
+                    overlap = annotation_planner.overlap_score(*box)
+                    crossings = sum(annotation_planner.segment_overlap_score(*segment)
+                                    for segment in ((ax, ay, rx, ry), (rx, ry, ex, ey),
+                                                    (ex, ey, shx, ey)))
+                score = (overflow*10000 + overlap*100 + crossings*100
+                         + abs(offset)*.1 + abs(length-base_len)*.1
+                         + (side != preferred_side)*.1)
+                candidates.append((score, overflow, rx, ry, ex, ey, shx, tx, ty))
+    _, overflow, rx, ry, ex, ey, shx, tx, ty = min(candidates, key=lambda c: c[0])
+    overflow_attr = ' data-layout-overflow="true"' if overflow > 0 else ''
+    out = [f'<g class="radius-dimension"{overflow_attr}>',
+           f'<line x1="{ax:.2f}" y1="{ay:.2f}" x2="{rx:.2f}" y2="{ry:.2f}"/>']
+    if (rx, ry) != (ex, ey):
+        out.append(f'<line x1="{rx:.2f}" y1="{ry:.2f}" x2="{ex:.2f}" y2="{ey:.2f}"/>')
+    out.append(f'<line x1="{ex:.2f}" y1="{ey:.2f}" x2="{shx:.2f}" y2="{ey:.2f}"/>')
     arr_angle = math.atan2(-ndy, -ndx)
     out.append(_arrow_head(ax, ay, arr_angle))
-
-    # Text
-    text = f"R{radius_mm:.1f}" if radius_mm != int(radius_mm) else f"R{int(radius_mm)}"
-    anchor = "start" if ndx >= 0 else "end"
-    tx = ex + 1.5 * ndx
-    ty = ey + 1.5 * ndy + 1.0
-    out.append(f'<text x="{tx:.2f}" y="{ty:.2f}" text-anchor="{anchor}" '
+    out.append(f'<text x="{tx:.2f}" y="{ty:.2f}" text-anchor="middle" '
                f'font-family="{DIM_FONT}" font-size="{DIM_FONT_SIZE}" '
                f'fill="{DIM_COLOR}">{text}</text>')
+    out.append('</g>')
+    if annotation_planner:
+        annotation_planner.register_svg('\n'.join(out))
     return out
 
 
@@ -381,7 +398,8 @@ def _collect_auto_dim_values(vd):
 
 def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
                           tolerances=None, return_stacks=False,
-                          style_cfg=None, telemetry=None, dedupe_state=None):
+                          style_cfg=None, telemetry=None, dedupe_state=None,
+                          annotation_planner=None):
     """Generate ISO 129 dimension lines for a view.
 
     - Bounding dimensions (overall width + height) for front/top/right
@@ -509,34 +527,6 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
             _record_conflict("overall_height", "cell_right_limit",
                              detail={"value_mm": round(height_mm, 3)})
 
-    # Hole diameters (deduplicated by radius within tolerance)
-    # Clamp leader endpoints within cell boundaries
-    cell_x0 = cx - CELL_W / 2 + 2
-    cell_y0 = cy - CELL_H / 2 + 2
-    seen_radii = []
-    leader_angle = 45
-    for cu, cv, cr in circles:
-        # Skip duplicate radii (same size holes)
-        is_dup = any(abs(cr - sr) < 0.1 for sr in seen_radii)
-        if is_dup:
-            continue
-        seen_radii.append(cr)
-
-        px, py = pg(cu, cv)
-        r_scaled = cr * scale
-        if r_scaled < 1.5:
-            continue  # too small to dimension
-        dia_mm = cr * 2
-        if _is_redundant_across_views("diameter", dia_mm):
-            _record_conflict("hole_diameter", "cross_view_redundant",
-                             severity="info", detail={"value_mm": round(dia_mm, 3)})
-            continue
-        out.extend(_dim_diameter(px, py, r_scaled, cr, angle_deg=leader_angle,
-                                 tol_text=hole_tol,
-                                 cell_bounds=(cell_x0, cell_y0, cell_right, cell_bottom)))
-        _record_dim("hole_diameter", dia_mm, detail={"center_uv": [round(cu, 3), round(cv, 3)]})
-        leader_angle += 30  # stagger angles for multiple holes
-
     # -- Feature chain dimensions (hole positions from edges) --
     if circles:
         # Deduplicate circle u-positions (tolerance 1mm model space)
@@ -609,6 +599,38 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
             _record_conflict("chain_vertical", "stack_limit",
                              detail={"segments": len(v_segments), "max_stacks": max_v_stacks})
 
+    if annotation_planner:
+        annotation_planner.register_svg('\n'.join(out) + '</g>')
+
+    # Hole diameters (deduplicated by radius within tolerance)
+    # Clamp leader endpoints within cell boundaries
+    cell_x0 = cx - CELL_W / 2 + 2
+    cell_y0 = cy - CELL_H / 2 + 2
+    seen_radii = []
+    leader_angle = 45
+    for cu, cv, cr in circles:
+        # Skip duplicate radii (same size holes)
+        is_dup = any(abs(cr - sr) < 0.1 for sr in seen_radii)
+        if is_dup:
+            continue
+        seen_radii.append(cr)
+
+        px, py = pg(cu, cv)
+        r_scaled = cr * scale
+        if r_scaled < 1.5:
+            continue  # too small to dimension
+        dia_mm = cr * 2
+        if _is_redundant_across_views("diameter", dia_mm):
+            _record_conflict("hole_diameter", "cross_view_redundant",
+                             severity="info", detail={"value_mm": round(dia_mm, 3)})
+            continue
+        out.extend(_dim_diameter(px, py, r_scaled, cr, angle_deg=leader_angle,
+                                 tol_text=hole_tol,
+                                 cell_bounds=(cell_x0, cell_y0, cell_right, cell_bottom),
+                                 annotation_planner=annotation_planner))
+        _record_dim("hole_diameter", dia_mm, detail={"center_uv": [round(cu, 3), round(cv, 3)]})
+        leader_angle += 30  # stagger angles for multiple holes
+
     # -- Radius dimensions (fillet/round arcs) --
     if arcs:
         hidden_groups = {1, 3, 6, 9}
@@ -629,7 +651,9 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
                 continue
             cx_pg, cy_pg = pg(c_u, c_v)
             mx_pg, my_pg = pg(m_u, m_v)
-            out.extend(_dim_radius(cx_pg, cy_pg, mx_pg, my_pg, r_scaled, r))
+            out.extend(_dim_radius(cx_pg, cy_pg, mx_pg, my_pg, r_scaled, r,
+                                   annotation_planner=annotation_planner,
+                                   cell_bounds=(cell_x0, cell_y0, cell_right, cell_bottom)))
             _record_dim("radius", r, detail={"center_uv": [round(c_u, 3), round(c_v, 3)]})
 
     out.append('</g>')

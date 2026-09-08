@@ -5,6 +5,10 @@ Can be unit-tested independently.
 """
 
 import math
+from html import escape
+import xml.etree.ElementTree as ET
+
+from svg_common import iter_svg_elements
 from _svg_utils import arrow_head as _arrow_head
 
 # ---- Constants (duplicated from generate_drawing.py to avoid FreeCAD import) ----
@@ -133,7 +137,7 @@ def _find_closest_circle(value_mm, circles, scale):
         if diff < best_diff:
             best_diff = diff
             best = (cu, cv, cr)
-    if best and best_diff < target_r * 0.3:  # within 30%
+    if best and best_diff <= max(1e-4, abs(target_r) * 1e-6):
         return best
     return None
 
@@ -176,61 +180,45 @@ def _placement_cfg(di):
 
 # ---- Dimension renderers ----
 
-def _render_diameter(di, circles, cx, cy, scale, bcx, bcy):
-    """Render a diameter dimension for a plan intent."""
+def _tolerance_text(di):
+    """Carry a supplied tolerance through without inferring a new one."""
+    value = di.get("tolerance", di.get("tol_text", ""))
+    return str(value) if value is not None else ""
+
+
+def _dimension_text(di):
+    text = _format_value(di["value_mm"])
+    tolerance = _tolerance_text(di)
+    return text + (" " + tolerance if tolerance else "")
+
+
+def _render_diameter(di, circles, cx, cy, scale, bcx, bcy,
+                     annotation_planner=None, cell_bounds=None):
+    """Reuse the coherent leader placement used by automatic dimensions."""
+    from _drawing_svg import _dim_diameter
+
     value_mm = di.get("value_mm")
     if value_mm is None:
         return []
-
     circle = _find_closest_circle(value_mm, circles, scale)
     if not circle:
         return []
-
     cu, cv, cr = circle
-    px = cx + (cu - bcx) * scale
-    py = cy - (cv - bcy) * scale
-    r_scaled = cr * scale
-
-    out = []
     plc = _placement_cfg(di)
     angle_deg = plc.get("angle_deg")
-    if angle_deg is None and plc.get("side") in _SIDE_TO_ANGLE:
-        angle_deg = _SIDE_TO_ANGLE[plc["side"]]
     if angle_deg is None:
-        angle_deg = 45.0
-    angle = math.radians(angle_deg)
-    leader_len = max(min(r_scaled * 0.8, 20), 6)
-    if plc.get("offset_mm") is not None:
-        leader_len = max(4.0, leader_len + plc["offset_mm"])
-    shelf_len = 8
-
-    sx = px + r_scaled * math.cos(angle)
-    sy = py - r_scaled * math.sin(angle)
-    ex = sx + leader_len * math.cos(angle)
-    ey = sy - leader_len * math.sin(angle)
-
-    # Leader line
-    out.append(f'<line x1="{sx:.2f}" y1="{sy:.2f}" '
-               f'x2="{ex:.2f}" y2="{ey:.2f}"/>')
-    # Horizontal shelf
-    shelf_dir = 1 if math.cos(angle) >= 0 else -1
-    shx = ex + shelf_dir * shelf_len
-    out.append(f'<line x1="{ex:.2f}" y1="{ey:.2f}" '
-               f'x2="{shx:.2f}" y2="{ey:.2f}"/>')
-    # Arrow
-    arr_angle = math.atan2(-(sy - py), sx - px)
-    out.append(_arrow_head(sx, sy, arr_angle))
-    # Text
-    text = f"\u00d8{_format_value(value_mm)}"
-    anchor = "start" if shelf_dir >= 0 else "end"
-    tx = shx + 0.5 * shelf_dir
-    ty = ey - 0.5
-    dim_id = di.get("id", "")
-    out.append(f'<text x="{tx:.2f}" y="{ty:.2f}" text-anchor="{anchor}" '
-               f'font-family="{DIM_FONT}" font-size="{DIM_FONT_SIZE}" '
-               f'fill="{DIM_COLOR}" data-dim-id="{dim_id}" '
-               f'data-value-mm="{value_mm}">{text}</text>')
-    return out
+        angle_deg = _SIDE_TO_ANGLE.get(plc.get("side"), 45.0)
+    elements = _dim_diameter(
+        cx + (cu - bcx) * scale, cy - (cv - bcy) * scale,
+        cr * scale, cr, angle_deg=angle_deg,
+        annotation_planner=annotation_planner, cell_bounds=cell_bounds,
+        leader_offset_mm=plc.get("offset_mm", 0),
+        display_text="Ø" + _dimension_text(di),
+    )
+    identity = (f'data-dim-id="{escape(str(di.get("id", "")), quote=True)}" '
+                f'data-value-mm="{escape(str(value_mm), quote=True)}"')
+    return [element.replace("<text ", "<text " + identity + " ", 1)
+            if element.startswith("<text ") else element for element in elements]
 
 
 def _render_linear_h(di, bounds, cx, cy, scale, bcx, bcy, h_stack,
@@ -280,8 +268,8 @@ def _render_linear_h(di, bounds, cx, cy, scale, bcx, bcy, h_stack,
     # Text
     tx = (left + right) / 2
     ty = y_dim - 1.0 if not side_top else y_dim + 3.2
-    text = _format_value(value_mm)
-    dim_id = di.get("id", "")
+    text = escape(_dimension_text(di))
+    dim_id = escape(str(di.get("id", "")), quote=True)
     out.append(f'<text x="{tx:.2f}" y="{ty:.2f}" text-anchor="middle" '
                f'font-family="{DIM_FONT}" font-size="{DIM_FONT_SIZE}" '
                f'fill="{DIM_COLOR}" data-dim-id="{dim_id}" '
@@ -341,8 +329,8 @@ def _render_linear_v(di, bounds, cx, cy, scale, bcx, bcy, v_stack,
     # Text
     tx = x_dim - 1.5 if not side_left else x_dim + 1.5
     ty = (top + bottom) / 2
-    text = _format_value(value_mm)
-    dim_id = di.get("id", "")
+    text = escape(_dimension_text(di))
+    dim_id = escape(str(di.get("id", "")), quote=True)
     out.append(f'<text x="{tx:.2f}" y="{ty:.2f}" text-anchor="middle" '
                f'font-family="{DIM_FONT}" font-size="{DIM_FONT_SIZE}" '
                f'fill="{DIM_COLOR}" data-dim-id="{dim_id}" '
@@ -352,14 +340,88 @@ def _render_linear_v(di, bounds, cx, cy, scale, bcx, bcy, v_stack,
     return out, v_stack + 1
 
 
-def _render_review_marker(di, cx, cy, h_stack):
-    """Render a red REVIEW marker for missing value_mm."""
-    fid = di.get("id", "?")
-    y = cy + 30 + h_stack * 5
-    return [f'<text x="{cx:.2f}" y="{y:.2f}" text-anchor="middle" '
-            f'font-family="{DIM_FONT}" font-size="2.5" '
-            f'fill="{REVIEW_COLOR}" font-weight="bold">'
-            f'[REVIEW: {fid}]</text>']
+def _fragment_score(elements, annotation_planner=None, cell_bounds=None):
+    """Use the shared page-space SVG bounds for bounded layout candidates."""
+    score, overflow = 0.0, 0.0
+    tree = ET.fromstring("<svg>" + "".join(elements) + "</svg>")
+    for element, _classes, box in iter_svg_elements(tree):
+        if box is None:
+            return float("inf"), float("inf")
+        if cell_bounds:
+            x0, y0, x1, y1 = cell_bounds
+            overflow += (max(0, x0 - box.x) + max(0, box.x + box.w - x1)
+                         + max(0, y0 - box.y) + max(0, box.y + box.h - y1))
+        if annotation_planner is not None:
+            padding = 0.4 if element.tag.endswith("line") else 0.2
+            score += annotation_planner.overlap_score(
+                box.x - padding, box.y - padding,
+                box.x + box.w + padding, box.y + box.h + padding)
+    return score, overflow
+
+
+def _render_review_marker(di, cx, cy, h_stack, annotation_planner=None,
+                          cell_bounds=None):
+    """Mark an unresolved intent without pretending its value was rendered."""
+    fid = str(di.get("id", "?"))
+    text = "[REVIEW: " + fid + "]"
+    # Keep identity on a review-specific attribute: dimension-presence QA must
+    # not consume this marker as evidence for the unresolved nominal.
+    width = len(text) * 2.5 * 0.55
+    x, y = cx, cy + 30 + h_stack * 5
+    if cell_bounds:
+        x0, y0, x1, y1 = cell_bounds
+        x = max(x0 + width / 2 + 1, min(cx, x1 - width / 2 - 1))
+        candidates = [(x - width / 2, y1 - 5 - row * 4) for row in range(5)]
+        if annotation_planner is not None:
+            bx, by = annotation_planner.find_best_position(candidates, width, 3)
+            x, y = bx + width / 2, by + 2.5
+        else:
+            y = candidates[0][1] + 2.5
+    elements = [f'<text class="review-marker" data-review-dim-id="{escape(fid, quote=True)}" '
+                f'x="{x:.2f}" y="{y:.2f}" text-anchor="middle" '
+                f'font-family="{DIM_FONT}" font-size="2.5" '
+                f'fill="{REVIEW_COLOR}" font-weight="bold">{escape(text)}</text>']
+    if annotation_planner is not None:
+        annotation_planner.register_svg("".join(elements))
+    return elements
+
+
+def _linear_anchor_reason(di, bounds):
+    """Only overall spans with matching measured projection are resolved here.
+
+    Named feature endpoints and datum references are not available to this
+    renderer. A numerically coincident auto dimension is not that evidence.
+    """
+    fid = str(di.get("id", "")).upper()
+    if fid not in H_FEATURES and fid not in V_FEATURES:
+        return "linear_feature_anchor_unavailable"
+    u0, v0, u1, v1 = bounds
+    extent = abs(v1 - v0) if fid in V_FEATURES else abs(u1 - u0)
+    value = di.get("value_mm")
+    if not math.isclose(value, extent, rel_tol=1e-6, abs_tol=1e-4):
+        return "linear_value_does_not_match_projected_extent"
+    return None
+
+
+def _place_linear(di, bounds, cx, cy, scale, bcx, bcy, stack, vertical,
+                  gap, offset, overshoot, annotation_planner, cell_bounds):
+    renderer = _render_linear_v if vertical else _render_linear_h
+    rows = range(stack, stack + 6) if annotation_planner is not None else (stack,)
+    best = None
+    for row in rows:
+        elements, next_row = renderer(di, bounds, cx, cy, scale, bcx, bcy, row,
+                                     gap=gap, offset=offset, overshoot=overshoot)
+        score, overflow = _fragment_score(elements, annotation_planner, cell_bounds)
+        if overflow > 1e-6:
+            continue
+        candidate = (score + (row - stack) * 0.01, elements, next_row)
+        if best is None or candidate[0] < best[0]:
+            best = candidate
+    if best is None:
+        return [], stack
+    if annotation_planner is not None:
+        annotation_planner.register_svg("".join(best[1]))
+    return best[1], best[2]
 
 
 # ---- View-to-feature routing ----
@@ -389,7 +451,7 @@ def render_plan_dimensions_svg(
     existing_dim_values=None, required_only=False,
     style_cfg=None, telemetry=None,
     existing_auto_dims=None, dedupe_policy="smart", dedupe_tol_mm=0.5,
-    process_groups=None,
+    process_groups=None, annotation_planner=None, cell_bounds=None,
 ):
     """Render plan-driven dimensions for a specific view.
 
@@ -435,6 +497,9 @@ def render_plan_dimensions_svg(
                 if rendered else None
             ),
         }
+        for key in ("tolerance", "tolerance_mm", "tol_text"):
+            if key in di:
+                rec[key] = di[key]
         if reason:
             rec["reason"] = reason
         if extra and isinstance(extra, dict):
@@ -443,6 +508,7 @@ def render_plan_dimensions_svg(
 
     # D4 manufacturing: track process group for inter-group gap
     _prev_process_step = None
+    opposite_stacks = {"top": 0, "left": 0}
 
     for di in dim_intents:
         if not _intent_matches_view(di, vname):
@@ -464,7 +530,15 @@ def render_plan_dimensions_svg(
 
         style = di.get("style", "linear")
         value_mm = di.get("value_mm")
-        fid = di.get("id", "")
+        fid = str(di.get("id", "")).upper()
+
+        if value_mm is not None and style == "linear" and fid not in DIA_FEATURES:
+            anchor_reason = _linear_anchor_reason(di, bounds)
+            if anchor_reason:
+                out.extend(_render_review_marker(di, cx, cy, h_stack,
+                    annotation_planner=annotation_planner, cell_bounds=cell_bounds))
+                _record(di, "skipped_no_anchor", reason=anchor_reason)
+                continue
 
         # Skip if already placed by auto-dims (policy-driven)
         dedupe_match = _find_auto_dedupe_match(
@@ -494,7 +568,8 @@ def render_plan_dimensions_svg(
         # No value → review marker
         if value_mm is None:
             if di.get("required"):
-                out.extend(_render_review_marker(di, cx, cy, h_stack))
+                out.extend(_render_review_marker(di, cx, cy, h_stack,
+                    annotation_planner=annotation_planner, cell_bounds=cell_bounds))
                 _record(di, "missing_value", reason="required_dim_missing_value")
             else:
                 _record(di, "missing_value_optional", reason="optional_dim_missing_value")
@@ -503,7 +578,8 @@ def render_plan_dimensions_svg(
         # Route by style
         if style == "diameter" or (style == "linear" and fid in DIA_FEATURES):
             if circles:
-                elems = _render_diameter(di, circles, cx, cy, scale, bcx, bcy)
+                elems = _render_diameter(di, circles, cx, cy, scale, bcx, bcy,
+                    annotation_planner=annotation_planner, cell_bounds=cell_bounds)
                 out.extend(elems)
                 if elems:
                     _record(di, "rendered", rendered=True)
@@ -512,24 +588,29 @@ def render_plan_dimensions_svg(
             else:
                 _record(di, "skipped_view", reason="diameter_intent_requires_circular_view")
         elif style == "linear":
-            if fid in V_FEATURES:
-                elems, v_stack = _render_linear_v(
-                    di, bounds, cx, cy, scale, bcx, bcy, v_stack,
-                    gap=eff_gap, offset=eff_offset, overshoot=eff_overshoot)
+            vertical = fid in V_FEATURES
+            side = _placement_cfg(di).get("side") or ("right" if vertical else "bottom")
+            opposite = "left" if vertical else "top"
+            on_opposite = side in (("left", "top_left", "bottom_left") if vertical
+                                  else ("top", "top_left", "top_right"))
+            stack = opposite_stacks[opposite] if on_opposite else (v_stack if vertical else h_stack)
+            elems, next_stack = _place_linear(
+                di, bounds, cx, cy, scale, bcx, bcy, stack, vertical,
+                eff_gap, eff_offset, eff_overshoot, annotation_planner, cell_bounds)
+            if elems:
                 out.extend(elems)
-                if elems:
-                    _record(di, "rendered", rendered=True)
+                if on_opposite:
+                    opposite_stacks[opposite] = next_stack
+                elif vertical:
+                    v_stack = next_stack
                 else:
-                    _record(di, "skipped_layout", reason="vertical_linear_layout_failed")
+                    h_stack = next_stack
+                _record(di, "rendered", rendered=True,
+                        extra={"anchor_evidence": "matching_projected_extent"})
             else:
-                elems, h_stack = _render_linear_h(
-                    di, bounds, cx, cy, scale, bcx, bcy, h_stack,
-                    gap=eff_gap, offset=eff_offset, overshoot=eff_overshoot)
-                out.extend(elems)
-                if elems:
-                    _record(di, "rendered", rendered=True)
-                else:
-                    _record(di, "skipped_layout", reason="horizontal_linear_layout_failed")
+                out.extend(_render_review_marker(di, cx, cy, h_stack,
+                    annotation_planner=annotation_planner, cell_bounds=cell_bounds))
+                _record(di, "skipped_layout", reason="linear_dimension_outside_cell")
         elif style == "radius":
             _record(di, "delegated", reason="radius_auto_dim")
         elif style == "callout":

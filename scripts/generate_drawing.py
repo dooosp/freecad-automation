@@ -172,7 +172,8 @@ def project_view(shape, direction, view_name):
 
 # -- SVG Rendering -------------------------------------------------------------
 
-def render_datums_svg(vname, bounds, cx, cy, scale):
+def render_datums_svg(vname, bounds, cx, cy, scale,
+                      annotation_planner=None, cell_bounds=None):
     """Render ISO 5459 datum feature indicators on view edges.
 
     Places filled triangles with datum letter frames (A, B, C) on
@@ -189,6 +190,7 @@ def render_datums_svg(vname, bounds, cx, cy, scale):
         return cx + (u - bcx) * scale, cy - (v - bcy) * scale
 
     out.append(f'<g class="datums-{vname}">')
+    layout_overflow = False
 
     for letter, edge, frac in DATUM_VIEW_MAP[vname]:
         if edge == "bottom":
@@ -226,6 +228,26 @@ def render_datums_svg(vname, bounds, cx, cy, scale):
         else:
             continue
 
+        # Move the frame along its reference edge; the feature triangle stays
+        # fixed. Score against completed dimension/extension line fragments.
+        candidates = []
+        for offset in (0, -6, 6, -12, 12, -18, 18, -24, 24, -36, 36):
+            dx, dy = (offset, 0) if edge in ("bottom", "top") else (0, offset)
+            box = (fx+dx-.5, fy+dy-.5, fx+dx+DATUM_FRAME_S+.5, fy+dy+DATUM_FRAME_S+.5)
+            overflow = 0
+            if cell_bounds:
+                bx0, by0, bx1, by1 = cell_bounds
+                overflow = max(0, bx0-box[0]) + max(0, by0-box[1]) + max(0, box[2]-bx1) + max(0, box[3]-by1)
+            overlap = annotation_planner.overlap_score(*box) if annotation_planner else 0
+            crossings = (annotation_planner.segment_overlap_score(t3[0], t3[1], lx2+dx, ly2+dy)
+                         if annotation_planner else 0)
+            candidates.append((overflow*10000+overlap*100+crossings*100+abs(offset)*.1,
+                               dx, dy, overflow))
+        _, dx, dy, overflow = min(candidates, key=lambda item: item[0])
+        fx, fy, lx2, ly2 = fx+dx, fy+dy, lx2+dx, ly2+dy
+        layout_overflow = layout_overflow or overflow > 0
+        annotation_start = len(out)
+
         # Filled triangle
         out.append(f'  <polygon points="{t1[0]:.2f},{t1[1]:.2f} '
                    f'{t2[0]:.2f},{t2[1]:.2f} {t3[0]:.2f},{t3[1]:.2f}" '
@@ -245,9 +267,13 @@ def render_datums_svg(vname, bounds, cx, cy, scale):
         tx = fx + DATUM_FRAME_S / 2
         ty = fy + DATUM_FRAME_S * 0.72
         out.append(f'  <text x="{tx:.2f}" y="{ty:.2f}" text-anchor="middle" '
-                   f'font-family="sans-serif" font-size="3.5" '
+                   f'font-family="sans-serif" font-size="3" '
                    f'font-weight="bold" fill="#000">{letter}</text>')
+        if annotation_planner:
+            annotation_planner.register_svg('\n'.join(out[annotation_start:]))
 
+    if layout_overflow:
+        out[0] = f'<g class="datums-{vname}" data-layout-overflow="true">'
     out.append('</g>')
     return '\n'.join(out)
 
@@ -655,9 +681,9 @@ def compose_drawing(views_svg, name, bom, scale, bbox,
 
     # ISO 5457 double border
     bw, bh = PAGE_W - 2 * MARGIN, PAGE_H - 2 * MARGIN
-    p.append(f'<rect x="{MARGIN}" y="{MARGIN}" width="{bw}" height="{bh}" '
+    p.append(f'<rect class="sheet-frame" x="{MARGIN}" y="{MARGIN}" width="{bw}" height="{bh}" '
              f'fill="none" stroke="black" stroke-width="0.7"/>')
-    p.append(f'<rect x="{MARGIN+1}" y="{MARGIN+1}" width="{bw-2}" height="{bh-2}" '
+    p.append(f'<rect class="sheet-frame" x="{MARGIN+1}" y="{MARGIN+1}" width="{bw-2}" height="{bh-2}" '
              f'fill="none" stroke="black" stroke-width="0.35"/>')
 
     # Cell dividers (lighter, less distracting)
@@ -680,7 +706,7 @@ def compose_drawing(views_svg, name, bom, scale, bbox,
     tb_bottom = PAGE_H - MARGIN
 
     # Title block background
-    p.append(f'<rect x="{tb_x}" y="{tb_y}" width="{tb_w}" height="{tb_h}" '
+    p.append(f'<rect class="title-block" x="{tb_x}" y="{tb_y}" width="{tb_w}" height="{tb_h}" '
              f'fill="#fafafa" stroke="black" stroke-width="0.5"/>')
 
     # Layout: left zone (BOM + legend) | right zone (ISO 7200 fields)
@@ -738,9 +764,9 @@ def compose_drawing(views_svg, name, bom, scale, bbox,
     sym_y = tb_bottom - row_h / 2
     p.append(_render_3rd_angle_symbol(sym_x, sym_y, size=8))
 
-    # Bounding box info (small text under sheet size)
-    bbox_x = col_div_x + 2
-    bbox_y = tb_y + 3 * row_h + 3.5
+    # Bounding box info beside the sheet value, clear of the field label.
+    bbox_x = col_div_x + 30
+    bbox_y = tb_bottom - 1.5
     p.append(f'<text x="{bbox_x:.1f}" y="{bbox_y:.1f}" font-family="monospace" '
              f'font-size="1.8" fill="#999">'
              f'BBox: {bbox.XLength:.0f} x {bbox.YLength:.0f} x {bbox.ZLength:.0f} mm</text>')
@@ -774,7 +800,7 @@ def compose_drawing(views_svg, name, bom, scale, bbox,
                  f'font-size="2.5" font-weight="bold" fill="#333">BILL OF MATERIALS</text>')
         # Column headers
         hy = by + 7
-        p.append(f'<line x1="{bx}" y1="{hy+1}" x2="{rz_x-3}" y2="{hy+1}" '
+        p.append(f'<line x1="{bx}" y1="{hy+1}" x2="{tb_x+108}" y2="{hy+1}" '
                  f'stroke="#ccc" stroke-width="0.2"/>')
         p.append(f'<text x="{bx}" y="{hy}" font-family="monospace" '
                  f'font-size="2" fill="#888" letter-spacing="0.2">'
@@ -809,12 +835,18 @@ def compose_drawing(views_svg, name, bom, scale, bbox,
             notes.append(f"UNLESS OTHERWISE SPECIFIED: {sf_default}")
 
     if notes:
-        note_x = tb_x + 4
-        notes_h = estimate_notes_height(notes, max_width=lz_w - 8)
-        note_y = tb_bottom - 10 - notes_h
-        note_svg, _nh = render_general_notes_svg(notes, note_x, note_y, max_width=lz_w - 8)
+        # Baselines are bounded independently of content height. A long note
+        # stays visible and is reported by final SVG QA rather than truncated.
+        note_x = tb_x + (112 if bom else 4)
+        note_width = lz_w - (116 if bom else 8)
+        note_y, note_last_y = tb_y + 5, tb_bottom - 10
+        note_svg, _nh = render_general_notes_svg(notes, note_x, note_y, max_width=note_width)
         if note_svg:
-            p.append(note_svg)
+            region = f'{note_x:g} {tb_y+2:g} {note_width:g} {note_last_y-tb_y:g}'
+            attrs = (f'data-region-bounds="{region}" '
+                     f'data-layout-x="{note_x:g}" data-layout-y-min="{note_y:g}" '
+                     f'data-layout-y-max="{note_last_y:g}" data-layout-width="{note_width:g}"')
+            p.append(note_svg.replace('<g ', f'<g {attrs} ', 1))
 
     # ── Revision Table (above title block, right side) ──
     if revisions:
@@ -1784,6 +1816,8 @@ try:
     # Plan-aware view options (Phase 19)
     plan_view_opts = config.get("drawing_plan", {}).get("views", {}).get("options", {})
 
+    planner = AnnotationPlanner()
+    dimension_stacks = {}
     for vname, vd in view_data.items():
         planned_view_cfg = (view_plan.views.get(vname, {})
                             if view_plan and view_plan.views else {})
@@ -1799,6 +1833,7 @@ try:
                               vd["cx"], vd["cy"], scale,
                               show_hidden=vh, show_centerlines=vcl,
                               simplify_iso=is_iso)
+        planner.register_svg(svg)
         # Append dimension lines (front/top/right only)
         if show_dims and vname != "iso":
             dim_style_cfg = config.get("drawing_plan", {}).get("style", {})
@@ -1807,9 +1842,11 @@ try:
                 vd["cx"], vd["cy"], scale,
                 arcs=vd.get("arcs"), tolerances=tol_cfg,
                 return_stacks=True, style_cfg=dim_style_cfg,
-                telemetry=dim_telemetry, dedupe_state=auto_dedupe_state)
+                telemetry=dim_telemetry, dedupe_state=auto_dedupe_state,
+                annotation_planner=planner)
             dim_svg, h_stk, v_stk = dim_result
             if dim_svg:
+                planner.register_svg(dim_svg)
                 svg += '\n' + dim_svg
             # Phase 20-A: plan-driven dimensions
             plan_intents = resolved_plan_intents
@@ -1837,14 +1874,13 @@ try:
                         existing_auto_dims=auto_dims_for_view,
                         dedupe_policy=plan_dedupe_policy,
                         dedupe_tol_mm=plan_dedupe_tol,
-                        process_groups=_pgroups)
+                        process_groups=_pgroups, annotation_planner=planner,
+                        cell_bounds=_cell_bounds(vname))
                     if plan_svg:
                         svg += '\n' + plan_svg
                 except Exception as e:
                     log(f"  Plan dims skipped ({vname}): {e}")
-            datum_svg = render_datums_svg(vname, vd["bounds"], vd["cx"], vd["cy"], scale)
-            if datum_svg:
-                svg += '\n' + datum_svg
+            dimension_stacks[vname] = (h_stk, v_stk)
         views_svg[vname] = svg
 
     if not views_svg:
@@ -1953,26 +1989,10 @@ try:
             views_svg["front"] += '\n' + balloon_svg
             log(f"  Balloons: {len(bom)} items on front view")
 
-    # -- Annotation Planner (collision-free placement for callouts) --
-    planner = AnnotationPlanner()
-    # Pre-register dimension/datum regions as obstacles for each view
-    for vn, vd in view_data.items():
-        if vn == "iso":
-            continue
-        vb = vd["bounds"]
-        vcx, vcy = vd["cx"], vd["cy"]
-        bu0, bv0, bu1, bv1 = vb
-        vbcx, vbcy = (bu0 + bu1) / 2, (bv0 + bv1) / 2
-        # View edge region in page coords
-        vl = vcx + (bu0 - vbcx) * scale
-        vt = vcy - (bv1 - vbcy) * scale
-        vr = vcx + (bu1 - vbcx) * scale
-        vbot = vcy - (bv0 - vbcy) * scale
-        # Register shape region (avoid placing annotations on top of geometry)
-        planner.register(vl, vt, vr, vbot)
-        # Register dimension zone below/right (DIM_OFFSET + 2 stacks)
-        planner.register(vl, vbot + DIM_GAP, vr, vbot + DIM_OFFSET + FEAT_DIM_STACK * 2)
-        planner.register(vr + DIM_GAP, vt, vr + DIM_OFFSET + FEAT_DIM_STACK * 2, vbot)
+    # Reserve final view fragments (including sections and balloons) for later
+    # callouts, retaining the planner already shared with dimensions.
+    for fragment in views_svg.values():
+        planner.register_svg(fragment)
 
     # -- Surface Finish (ISO 1302) --
     extra_svg_parts = []
@@ -2043,7 +2063,10 @@ try:
                 bl_svg = render_baseline_dimensions_svg(
                     dim_features, origin, "horizontal",
                     vd["bounds"], vd["cx"], vd["cy"], scale,
-                    style_cfg=bl_style)
+                    style_cfg=bl_style, annotation_planner=planner,
+                    start_offset=bl_style.get("dim_offset", DIM_OFFSET) +
+                    dimension_stacks.get(bv, (0, 0))[0] * bl_style.get("feat_dim_stack", FEAT_DIM_STACK),
+                    cell_bounds=_cell_bounds(bv))
                 if bl_svg:
                     views_svg[bv] += '\n' + bl_svg
                     log(f"  Baseline dimensions: added to {bv}")
@@ -2055,6 +2078,19 @@ try:
                     views_svg[bv] += '\n' + ord_svg
                     log(f"  Ordinate dimensions: added to {bv}")
             break  # Only add to one view
+
+    # Place datum frames after every dimension family, including baseline and
+    # ordinate extension lines, so their real occupied columns inform placement.
+    if show_dims:
+        for fragment in views_svg.values():
+            planner.register_svg(fragment)
+        for vname, vd in view_data.items():
+            if vname == "iso" or vname not in views_svg:
+                continue
+            datum_svg = render_datums_svg(vname, vd["bounds"], vd["cx"], vd["cy"], scale,
+                annotation_planner=planner, cell_bounds=_cell_bounds(vname))
+            if datum_svg:
+                views_svg[vname] += '\n' + datum_svg
 
     # -- GD&T --
     gdt_entries = []

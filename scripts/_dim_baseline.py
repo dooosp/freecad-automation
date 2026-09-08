@@ -5,6 +5,8 @@ cumulative tolerance stack-up.
 """
 
 import math
+import json
+from html import escape as _escape_attr
 from _svg_utils import escape as _escape
 
 
@@ -19,7 +21,9 @@ BASELINE_ROW_SPACING = 5.0  # spacing between baseline dimension rows
 
 
 def render_baseline_dimensions_svg(features, origin, axis, bounds,
-                                   cx, cy, scale, style_cfg=None):
+                                   cx, cy, scale, style_cfg=None,
+                                   annotation_planner=None, start_offset=None,
+                                   cell_bounds=None):
     """Render baseline (datum-referenced) dimensions.
 
     All dimensions reference a single datum origin, eliminating cumulative
@@ -51,14 +55,52 @@ def render_baseline_dimensions_svg(features, origin, axis, bounds,
     def pg(u, v):
         return cx + (u - bcx) * scale, cy - (v - bcy) * scale
 
+    # Only equal projected endpoints with equal tolerances are equivalent.
+    # Keep source feature identities even when their shared dimension is drawn once.
+    coordinate = 0 if axis == "horizontal" else 1
+    grouped = {}
+    for feat in features:
+        key = (float(feat["position"][coordinate]), str(feat.get("tolerance", "")))
+        if key not in grouped:
+            grouped[key] = dict(feat, feature_ids=[])
+        grouped[key]["feature_ids"].append(str(feat.get("label", "")))
+    features = list(grouped.values())
     ox, oy = pg(*origin)
+    _, geometry_bottom = pg(u0, v0)
+    geometry_right, _ = pg(u1, v1)
+    layout_overflow = False
+
+    def pick_row(initial, midpoint, label, vertical=False):
+        nonlocal layout_overflow
+        # Reserve readable label bounds as rows move, without shifting anchors.
+        width = max(3, len(label) * float(DIM_FONT_SIZE) * .65)
+        choices = []
+        for step in range(12):
+            row = initial + step * eff_row_spacing
+            # Vertical text is start-anchored at (row+1.5, midpoint+1)
+            # and rotated -90 degrees: its full width extends upward.
+            # Keep the same conservative glyph estimate plus .5 mm padding.
+            box = ((row-2, midpoint+.5-width, row+2.6, midpoint+1.5)
+                   if vertical else (midpoint-width/2, row-4.5, midpoint+width/2, row+.5))
+            overflow = 0
+            if cell_bounds:
+                bx0, by0, bx1, by1 = cell_bounds
+                overflow = max(0, bx0-box[0]) + max(0, by0-box[1]) + max(0, box[2]-bx1) + max(0, box[3]-by1)
+            overlap = annotation_planner.overlap_score(*box) if annotation_planner else 0
+            choices.append((overflow*10000 + overlap*100 + step*.1, row, box, overflow))
+        _, row, box, overflow = min(choices, key=lambda c: c[0])
+        layout_overflow = layout_overflow or overflow > 0
+        if annotation_planner:
+            annotation_planner.register(*box)
+        return row
+
     out = ['<g class="baseline-dimensions">']
 
     if axis == "horizontal":
         # Sort features by distance from origin along u-axis
         sorted_feats = sorted(features, key=lambda f: abs(f["position"][0] - origin[0]))
 
-        base_y = oy + eff_gap * scale + 10  # start below geometry
+        base_y = geometry_bottom + (start_offset if start_offset is not None else eff_gap + 10)
 
         for i, feat in enumerate(sorted_feats):
             fu, fv = feat["position"]
@@ -68,9 +110,12 @@ def render_baseline_dimensions_svg(features, origin, axis, bounds,
             if dist < 0.1:
                 continue  # skip datum itself
 
-            dim_y = base_y + i * eff_row_spacing
             value = f"{dist:.1f}" if dist != int(dist) else f"{int(dist)}"
 
+            tol = feat.get("tolerance", "")
+            label = f"{value}{tol}" if tol else value
+            dim_y = pick_row(base_y + i * eff_row_spacing, (ox + fx)/2, label)
+            out.append(f'<g data-feature-ids="{_escape_attr(json.dumps(feat["feature_ids"]))}">')
             # Extension lines (from geometry to dimension line)
             out.append(_ext_line_v(ox, oy, dim_y + 2))
             out.append(_ext_line_v(fx, fy, dim_y + 2))
@@ -94,11 +139,12 @@ def render_baseline_dimensions_svg(features, origin, axis, bounds,
             out.append(f'<text x="{tx:.2f}" y="{ty:.2f}" text-anchor="middle" '
                        f'font-family="sans-serif" font-size="{DIM_FONT_SIZE}" '
                        f'fill="#000">{_escape(label)}</text>')
+            out.append('</g>')
 
     elif axis == "vertical":
         sorted_feats = sorted(features, key=lambda f: abs(f["position"][1] - origin[1]))
 
-        base_x = ox + eff_gap * scale + 10
+        base_x = geometry_right + (start_offset if start_offset is not None else eff_gap + 10)
 
         for i, feat in enumerate(sorted_feats):
             fu, fv = feat["position"]
@@ -108,9 +154,12 @@ def render_baseline_dimensions_svg(features, origin, axis, bounds,
             if dist < 0.1:
                 continue
 
-            dim_x = base_x + i * eff_row_spacing
             value = f"{dist:.1f}" if dist != int(dist) else f"{int(dist)}"
 
+            tol = feat.get("tolerance", "")
+            label = f"{value}{tol}" if tol else value
+            dim_x = pick_row(base_x + i * eff_row_spacing, (oy + fy)/2, label, vertical=True)
+            out.append(f'<g data-feature-ids="{_escape_attr(json.dumps(feat["feature_ids"]))}">')
             out.append(_ext_line_h(ox, oy, dim_x + 2))
             out.append(_ext_line_h(fx, fy, dim_x + 2))
 
@@ -131,9 +180,15 @@ def render_baseline_dimensions_svg(features, origin, axis, bounds,
                        f'font-family="sans-serif" font-size="{DIM_FONT_SIZE}" '
                        f'fill="#000" transform="rotate(-90,{tx:.2f},{ty:.2f})">'
                        f'{_escape(label)}</text>')
+            out.append('</g>')
 
+    if layout_overflow:
+        out[0] = '<g class="baseline-dimensions" data-layout-overflow="true">'
     out.append('</g>')
-    return '\n'.join(out)
+    svg = '\n'.join(out)
+    if annotation_planner:
+        annotation_planner.register_svg(svg)
+    return svg
 
 
 def render_ordinate_dimensions_svg(features, origin, direction, bounds,
@@ -283,4 +338,3 @@ def _ext_line_h(x_start, y, x_end):
     return (f'<line x1="{x_start:.2f}" y1="{y:.2f}" '
             f'x2="{x_end:.2f}" y2="{y:.2f}" '
             f'stroke="#000" stroke-width="{DIM_LINE_W}"/>')
-
