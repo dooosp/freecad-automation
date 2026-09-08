@@ -15,6 +15,17 @@ import {
 
 const ROOT = resolve(import.meta.dirname, '..');
 
+// Numeric coincidence and generic diameter notation do not identify a feature.
+for (const raw of ['4', 'Ø4', 'DIA 4', 'PLATE_THICKNESS 4']) {
+  const semantics = buildExtractedDrawingSemantics({
+    svgContent: `<svg><text>${raw}</text></svg>`, drawingSvgPath: '/tmp/raw.svg',
+    drawingIntent: { required_dimensions: [{ id: 'PLATE_THICKNESS', feature: 'plate',
+      view: 'front', dimension_type: 'linear', value_mm: 4, required: true }] },
+  });
+  assert.equal(semantics.coverage.required_dimensions_extracted, 0, raw);
+  assert(semantics.dimensions.every(d => d.matched_intent_id === null), raw);
+}
+
 {
   assert.equal(normalizeSemanticToken('HOLE DIA'), 'holedia');
   const holeDiaAliases = aliasesForSemanticId('HOLE_DIA');
@@ -61,10 +72,10 @@ const ROOT = resolve(import.meta.dirname, '..');
   assert.equal(first.status, 'partial');
   assert(first.methods.includes('svg_text_scan'));
   assert(first.methods.includes('layout_report_views'));
-  assert.equal(first.coverage.required_dimensions_extracted, 1);
+  assert.equal(first.coverage.required_dimensions_extracted, 0);
   assert.equal(first.coverage.required_views_extracted, 1);
   assert.equal(first.coverage.required_notes_extracted, 0);
-  assert.equal(first.dimensions.some((entry) => entry.raw_text === '2X Ø16' && entry.matched_intent_id === 'HOLE_PATTERN_DIA'), true);
+  assert.equal(first.dimensions.some((entry) => entry.raw_text === '2X Ø16' && entry.matched_intent_id === null), true);
   assert.equal(first.views.some((entry) => entry.id === 'top' && entry.matched_intent_id === 'top'), true);
   assert.equal(first.notes.some((entry) => entry.raw_text === '2X Ø16'), false);
   assert.equal(first.dimensions.some((entry) => entry.raw_text === '2026'), false);
@@ -79,18 +90,17 @@ const ROOT = resolve(import.meta.dirname, '..');
   );
   assert.equal(comparison.status, 'partial');
   assert.equal(comparison.file, '/tmp/assembly_extracted_drawing_semantics.json');
-  assert.equal(comparison.coverage.required_dimensions.extracted, 1);
+  assert.equal(comparison.coverage.required_dimensions.extracted, 0);
   assert.equal(comparison.coverage.required_notes.unknown, 1);
   assert.equal(comparison.coverage.required_views.extracted, 1);
-  assert.equal(comparison.required_dimensions[0].classification, 'extracted');
-  assert.equal(comparison.required_dimensions[0].matched_extracted_id, 'svg_text_001');
+  assert.equal(comparison.required_dimensions[0].classification, 'unknown');
+  assert.equal(comparison.required_dimensions[0].matched_extracted_id, null);
   assert.equal(comparison.required_notes[0].classification, 'unknown');
   assert.equal(comparison.required_views[0].classification, 'extracted');
   assert(comparison.unknowns.some((entry) => entry.includes('MATERIAL')));
-  assert.equal(comparison.suggested_action_details.length, 1);
-  assert.equal(comparison.suggested_action_details[0].category, 'note');
-  assert.equal(comparison.suggested_action_details[0].classification, 'unknown');
-  assert.equal(comparison.suggested_actions[0].includes('Material: AL6061'), true);
+  assert.equal(comparison.suggested_action_details.length, 3);
+  assert(comparison.suggested_action_details.some(a => a.category === 'note' && a.classification === 'unknown'));
+  assert(comparison.suggested_actions.some(a => a.includes('Material: AL6061')));
 }
 
 {
@@ -118,7 +128,7 @@ const ROOT = resolve(import.meta.dirname, '..');
   });
 
   assert.equal(semantics.status, 'partial');
-  assert.equal(semantics.coverage.required_dimensions_extracted, 1);
+  assert.equal(semantics.coverage.required_dimensions_extracted, 0);
   assert.equal(semantics.coverage.required_notes_extracted, 1);
   assert.equal(semantics.coverage.required_views_extracted, 1);
   assert.equal(semantics.title_block.material?.raw_text, 'Material: AL6061');
@@ -144,13 +154,13 @@ const ROOT = resolve(import.meta.dirname, '..');
     },
   });
 
-  assert.equal(semantics.coverage.required_dimensions_extracted, 2);
+  assert.equal(semantics.coverage.required_dimensions_extracted, 0);
   assert.equal(
-    semantics.dimensions.some((entry) => entry.raw_text === '⌀9 H8' && entry.matched_intent_id === 'MOUNTING_HOLE_DIA'),
+    semantics.dimensions.some((entry) => entry.raw_text === '⌀9 H8' && entry.matched_intent_id === null),
     true
   );
   assert.equal(
-    semantics.dimensions.some((entry) => entry.raw_text === '2X ⌀16 H7' && entry.matched_intent_id === 'HOLE_PATTERN_DIA'),
+    semantics.dimensions.some((entry) => entry.raw_text === '2X ⌀16 H7' && entry.matched_intent_id === null),
     true
   );
   assert.equal(semantics.notes.some((entry) => entry.raw_text === '⌀9 H8'), false);
@@ -280,13 +290,13 @@ const ROOT = resolve(import.meta.dirname, '..');
     },
   });
 
-  assert.equal(semantics.coverage.required_dimensions_extracted, 1);
+  assert.equal(semantics.coverage.required_dimensions_extracted, 0);
   assert.equal(semantics.coverage.required_notes_extracted, 2);
   assert.equal(
     semantics.dimensions.some((entry) => (
       entry.raw_text === 'DIA 9'
-        && entry.matched_intent_id === 'HOLE_DIA'
-        && entry.confidence > 0.84
+        && entry.matched_intent_id === null
+        && entry.confidence < 0.75
     )),
     true
   );
@@ -464,8 +474,9 @@ const ROOT = resolve(import.meta.dirname, '..');
     null,
     '/tmp/all-good_extracted_drawing_semantics.json'
   );
-  assert.deepEqual(comparison.suggested_action_details, []);
-  assert.deepEqual(comparison.suggested_actions, []);
+  assert.equal(comparison.coverage.required_dimensions.extracted, 0);
+  assert.equal(comparison.required_dimensions[0].classification, 'unknown');
+  assert.equal(comparison.suggested_action_details.length, 1);
 }
 
 {

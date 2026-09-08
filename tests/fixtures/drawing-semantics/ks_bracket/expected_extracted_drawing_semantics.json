@@ -8,7 +8,7 @@
   ],
   "coverage": {
     "required_dimensions_total": 3,
-    "required_dimensions_extracted": 2,
+    "required_dimensions_extracted": 0,
     "required_notes_total": 2,
     "required_notes_extracted": 2,
     "required_views_total": 4,
@@ -20,10 +20,7 @@
     "right",
     "top"
   ],
-  "matched_dimension_ids": [
-    "MOUNTING_HOLE_DIA",
-    "WEB_HEIGHT"
-  ],
+  "matched_dimension_ids": [],
   "matched_note_ids": [
     "MATERIAL",
     "SURFACE_FINISH"
@@ -34,6 +31,8 @@
     "drawing_number": null
   },
   "unknowns": [
-    "Required dimension not reliably extracted: BASE_PLATE_ENVELOPE."
+    "Required dimension not reliably extracted: MOUNTING_HOLE_DIA.",
+    "Required dimension not reliably extracted: BASE_PLATE_ENVELOPE.",
+    "Required dimension not reliably extracted: WEB_HEIGHT."
   ]
 }

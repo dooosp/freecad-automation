@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join, parse, resolve } from 'node:path';
 
 import Ajv2020 from 'ajv/dist/2020.js';
+import { hasObservedDimension } from '../../../lib/drawing-dimension-evidence.js';
 
 import {
   collectRequiredDrawingViews,
@@ -229,9 +230,59 @@ function decodeXmlText(text = '') {
   return String(text).replace(/&(amp|lt|gt|quot|apos);|&#x[0-9a-f]+;|&#\d+;/gi, decodeEntity);
 }
 
+// Bounded XML context scan for generated plain-text labels. CSS selectors,
+// nested text markup and nonrendered containers cannot qualify dimensions.
+function dimensionTextContexts(svg) {
+  const contexts = new Map();
+  const stack = [];
+  const tags = /<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<[^>]+>/g;
+  let invalid = /<style\b/i.test(svg);
+  for (const match of svg.matchAll(tags)) {
+    const token = match[0];
+    if (/^<\?|^<!/.test(token)) continue;
+    const tag = /^<\/?\s*([\w:-]+)/.exec(token)?.[1]?.toLowerCase();
+    if (!tag) { invalid = true; continue; }
+    if (/^<\//.test(token)) {
+      if (stack.pop()?.tag !== tag) invalid = true;
+      continue;
+    }
+    const attrs = extractSvgAttributes(token.slice(token.indexOf(tag)+tag.length, -1));
+    const parent = stack.at(-1) || {};
+    const css = String(attrs.style || '').toLowerCase();
+    const props = Object.fromEntries(css.split(';').filter(p => p.includes(':')).map(p => p.split(':').map(x => x.trim())));
+    const inherited = (key, fallback) => props[key] ?? attrs[key] ?? parent[key] ?? fallback;
+    const fill = inherited('fill','black'), stroke = inherited('stroke','none');
+    const fontSize = inherited('font-size','12');
+    const fillOpacity = inherited('fill-opacity','1'), strokeOpacity = inherited('stroke-opacity','1');
+    const state = { tag, blocked: parent.blocked || attrs.__duplicate === true || attrs.__invalid === true
+      || ['defs','symbol','clippath','mask','pattern','marker','metadata','title','desc','script','style'].includes(tag)
+      || attrs.display === 'none' || ['hidden','collapse'].includes(attrs.visibility)
+      || (attrs.opacity !== undefined && Number(attrs.opacity) === 0)
+      || (props.opacity !== undefined && parseFloat(props.opacity) === 0)
+      || attrs['clip-path'] || attrs.mask || attrs.filter || props['clip-path'] || props.mask || props.filter
+      || parseFloat(fontSize) <= 0
+      || /(?:display\s*:\s*none|visibility\s*:\s*(?:hidden|collapse)|(?:^|;)\s*opacity\s*:\s*0(?:\s|;|$))/.test(css),
+      views: [...(parent.views || []), attrs['data-view-id'], attrs['data-view']].filter(Boolean),
+      features: [...(parent.features || []), attrs['data-feature-id'], attrs['data-feature']].filter(Boolean),
+      styles: [...(parent.styles || []), attrs['data-dimension-style'], attrs['data-style']].filter(Boolean),
+      fill, stroke, 'font-size':fontSize, 'fill-opacity':fillOpacity, 'stroke-opacity':strokeOpacity,
+    };
+    if (tag === 'text') {
+      if ((['none','transparent'].includes(fill) || Number(fillOpacity) === 0)
+          && (['none','transparent'].includes(stroke) || Number(strokeOpacity) === 0)) state.blocked = true;
+      contexts.set(match.index, state);
+    }
+    if (!/\/\s*>$/.test(token)) stack.push(state);
+  }
+  if (stack.length) invalid = true;
+  if (invalid) for (const state of contexts.values()) state.blocked = true;
+  return contexts;
+}
+
 function extractSvgTextNodes(svgContent = null) {
   if (typeof svgContent !== 'string' || !svgContent.trim()) return [];
   const nodes = [];
+  const contexts = dimensionTextContexts(svgContent);
   const pattern = /<text\b([^>]*)>([\s\S]*?)<\/text>/gi;
   let match;
   let index = 0;
@@ -246,6 +297,7 @@ function extractSvgTextNodes(svgContent = null) {
       id: `svg_text_${String(++index).padStart(3, '0')}`,
       text,
       attributes,
+      dimensionContext: rawInner.includes('<') ? null : contexts.get(match.index),
     });
   }
   return nodes;
@@ -426,24 +478,6 @@ function matchRequiredView(view = {}, requiredViews = []) {
   return requiredViews.find((required) => viewRequirementMatches(required, descriptor)) || null;
 }
 
-function findUniqueRequiredDimensionByValue(requiredDimensions = [], value = null) {
-  if (!Number.isFinite(value)) return null;
-  const matches = requiredDimensions.filter((required) => Number(required.value_mm) === value);
-  return matches.length === 1 ? matches[0] : null;
-}
-
-function matchFeatureId(requiredDimension = {}, traceability = null) {
-  const requiredFeature = normalizeText(requiredDimension.feature ?? requiredDimension.feature_id);
-  if (requiredFeature) return requiredFeature;
-  const dimId = normalizeComparable(requiredDimension.id ?? requiredDimension.dim_id);
-  if (!dimId) return null;
-  const link = asArray(traceability?.links).find((entry) => (
-    normalizeComparable(entry?.dim_id ?? entry?.dimension_id) === dimId
-      && normalizeText(entry?.feature_id ?? entry?.feature)
-  ));
-  return normalizeText(link?.feature_id ?? link?.feature);
-}
-
 function collectViewsFromLayout(layoutReport = null, layoutReportPath = null, requiredViews = []) {
   const views = [];
   for (const [viewId, entry] of Object.entries(asObject(layoutReport?.views))) {
@@ -491,11 +525,13 @@ function collectViewsFromLayout(layoutReport = null, layoutReportPath = null, re
 
 function extractSvgAttributes(attributeText = '') {
   const attrs = {};
-  const pattern = /([:\w-]+)\s*=\s*"([^"]*)"/g;
+  const pattern = /([:\w-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
   let match;
   while ((match = pattern.exec(attributeText)) !== null) {
-    attrs[match[1]] = decodeXmlText(match[2] || '');
+    if (Object.hasOwn(attrs, match[1])) attrs.__duplicate = true;
+    attrs[match[1]] = decodeXmlText(match[2] ?? match[3] ?? '');
   }
+  if (attributeText.replace(pattern, '').replace(/\/\s*$/, '').trim()) attrs.__invalid = true;
   return attrs;
 }
 
@@ -604,18 +640,35 @@ function collectDimensionsFromSvg(textNodes = [], svgPath = null, requiredDimens
   for (const node of textNodes) {
     const { value, unit } = parseDimensionValue(node.text);
     if (!isSvgDimensionText(node.text, requiredDimensions)) continue;
-    const aliasMatchedRequired = matchAliasedRequiredDimension(node.text, requiredDimensions, value);
-    const matchedRequired = aliasMatchedRequired || findUniqueRequiredDimensionByValue(requiredDimensions, value);
-    const aliasMatched = matchedRequired && semanticAliasMatchesText(node.text, matchedRequired).length > 0;
+    const attrs = extractSvgAttributes(node.attributes);
+    let observation = null;
+    try { observation = JSON.parse(attrs['data-observation'] || 'null'); } catch { /* Raw text remains unqualified. */ }
+    const emitted = attrs['data-dim-id'] || null;
+    const evidence = { observation, emitted_dim_id: emitted, value, unit, raw_text: node.text };
+    if (attrs['data-value-mm'] !== undefined) evidence.value_mm = Number(attrs['data-value-mm']);
+    const context = node.dimensionContext;
+    const observedFeatures = [...(Array.isArray(observation?.feature_ids) ? observation.feature_ids : [])].sort().join(',');
+    if (!context || context.blocked || attrs.__duplicate || attrs.__invalid
+        || context.views.some(v => v !== observation?.view)
+        || context.styles.some(v => v !== observation?.style)
+        || context.features.some(v => v.split(',').map(x => x.trim()).sort().join(',') !== observedFeatures)) {
+      observation = null;
+      evidence.observation = null;
+    }
+    if (!hasObservedDimension(evidence)) observation = null;
+    const candidates = requiredDimensions.filter(r => hasObservedDimension(evidence, r));
+    const matchedRequired = candidates.length === 1 ? candidates[0] : null;
     dimensions.push({
       id: node.id,
       raw_text: node.text,
       value,
       unit,
+      emitted_dim_id: emitted,
+      observation,
       matched_intent_id: matchedRequired?.id ?? null,
-      matched_feature_id: matchedRequired ? matchFeatureId(matchedRequired, traceability) : null,
+      matched_feature_id: matchedRequired ? observation.feature_ids.join(',') : null,
       source: resolveMaybe(svgPath),
-      confidence: roundConfidence(matchedRequired ? (aliasMatched ? 0.88 : 0.84) : 0.62),
+      confidence: roundConfidence(matchedRequired ? 0.95 : 0.62),
       provenance: createProvenance({
         artifactType: 'svg',
         path: svgPath,
@@ -623,6 +676,16 @@ function collectDimensionsFromSvg(textNodes = [], svgPath = null, requiredDimens
         svg_text_id: node.id,
       }),
     });
+  }
+  // Conflicting repeats of one emitted ID cannot be resolved by confidence order.
+  for (const entry of dimensions) {
+    if (!entry.emitted_dim_id) continue;
+    const repeats = dimensions.filter(d => d.emitted_dim_id === entry.emitted_dim_id);
+    if (repeats.some(d => d.value !== entry.value || JSON.stringify(d.observation) !== JSON.stringify(entry.observation))) {
+      entry.matched_intent_id = null;
+      entry.matched_feature_id = null;
+      entry.confidence = 0.4;
+    }
   }
   return dimensions;
 }
@@ -896,10 +959,11 @@ function compareRequiredDimensions(requiredDimensions = [], extractedDrawingSema
     const matches = sortByConfidence(dimensions.filter((entry) => (
       normalizeComparable(entry.matched_intent_id) === requirementId
     )));
-    const reliable = matches.filter(reliableMatch);
+    const qualified = entry => reliableMatch(entry) && hasObservedDimension(entry, requirement);
+    const reliable = matches.filter(qualified);
     const bestReliable = reliable[0] || null;
     const candidateMatches = matches
-      .filter((entry) => !reliableMatch(entry))
+      .filter((entry) => !qualified(entry))
       .map((entry) => candidateMatch(entry, 'Matched extracted dimension stayed below the reliable confidence threshold.'));
 
     if (bestReliable) {

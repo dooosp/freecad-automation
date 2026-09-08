@@ -186,6 +186,22 @@
         "unit": { "type": ["string", "null"] },
         "matched_intent_id": { "type": ["string", "null"] },
         "matched_feature_id": { "type": ["string", "null"] },
+        "emitted_dim_id": { "type": ["string", "null"] },
+        "observation": {
+          "type": ["object", "null"],
+          "required": ["source", "status", "dim_id", "feature_ids", "view", "style", "value_mm", "members"],
+          "properties": {
+            "source": { "const": "freecad_final_topology" },
+            "status": { "const": "resolved" },
+            "dim_id": { "type": "string" },
+            "feature_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" } },
+            "requirement_ids": { "type": "array", "items": { "type": "string" } },
+            "view": { "enum": ["front", "top", "right"] },
+            "style": { "enum": ["linear", "diameter"] },
+            "value_mm": { "type": "number" },
+            "members": { "type": "array", "minItems": 1, "items": { "type": "object" } }
+          }
+        },
         "source": { "type": ["string", "null"] },
         "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
         "provenance": { "$ref": "#/$defs/provenance" }

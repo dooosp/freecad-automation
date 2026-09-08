@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { unitDimension, unitDimensionText } from './helpers/dimension-observation.js';
 
 import {
   buildDrawingQualitySummary,
@@ -56,9 +57,9 @@ function makeBaseArtifacts() {
     dimensionMapPath: '/tmp/ks_bracket_dimension_map.json',
     dimensionMap: {
       plan_dimensions: [
-        { dim_id: 'WIDTH', required: true, rendered: true, status: 'rendered', feature: 'body_width' },
-        { dim_id: 'HEIGHT', required: true, rendered: true, status: 'rendered', feature: 'body_height' },
-        { dim_id: 'HOLE_DIA', required: true, rendered: true, status: 'rendered', feature: 'hole_1' },
+        unitDimension('WIDTH', 'body_width'),
+        unitDimension('HEIGHT', 'body_height'),
+        unitDimension('HOLE_DIA', 'hole_1'),
       ],
       auto_dimensions: [],
       summary: {
@@ -217,7 +218,7 @@ function makeBaseArtifacts() {
     bomPath: null,
     bomEntries: [],
     bomRows: [],
-    svgContent: '<svg><g class="general-notes"><text>MACHINED PART</text></g></svg>',
+    svgContent: `<svg>${unitDimensionText(unitDimension('WIDTH', 'body_width'))}<g class="general-notes"><text>MACHINED PART</text></g></svg>`,
   });
   assert.equal(summary.status, 'pass');
   assert.equal(summary.semantic_quality.decision, 'advisory');
@@ -284,9 +285,9 @@ function makeBaseArtifacts() {
     ...makeBaseArtifacts(),
     dimensionMap: {
       plan_dimensions: [
-        { dim_id: 'WIDTH', required: true, rendered: true, status: 'rendered', feature: 'body_width' },
+        unitDimension('WIDTH', 'body_width'),
         { dim_id: 'HEIGHT', required: true, rendered: false, status: 'missing', feature: 'body_height' },
-        { dim_id: 'HOLE_DIA', required: true, rendered: true, status: 'rendered', feature: 'hole_1' },
+        unitDimension('HOLE_DIA', 'hole_1'),
       ],
       auto_dimensions: [],
       summary: {
@@ -627,7 +628,7 @@ test('a dimension on the same feature does not prove other required dimensions',
       ],
     },
     dimensionMap: { plan_dimensions: [
-      { dim_id: 'PLATE_LENGTH', feature: 'plate', value_mm: 145, rendered: true, status: 'rendered' },
+      unitDimension('PLATE_LENGTH', 'plate', 145),
       { dim_id: 'THK', feature: 'plate', value_mm: 4, rendered: false, status: 'skipped_no_anchor' },
     ] },
     traceability: { links: [] },
@@ -671,8 +672,7 @@ test('supported semantic identity aliases retain dimension coverage with matchin
       { id: 'MOUNTING_HOLE_DIA', feature: 'mounting_holes', value_mm: 4, dimension_type: 'diameter', view: 'top' },
     ] },
     dimensionMap: { plan_dimensions: [
-      { dim_id: 'HOLE_DIA', feature: 'mounting_holes', value_mm: 4, style: 'diameter', view: 'top',
-        rendered: true, status: 'rendered' },
+      unitDimension('HOLE_DIA', 'mounting_holes', 4, 'diameter', 'top', 'MOUNTING_HOLE_DIA'),
     ] },
     traceability: { links: [] },
   });
@@ -684,7 +684,7 @@ test('independently extracted labeled SVG evidence can satisfy an intent without
   const drawingIntent = { required_dimensions: [
     { id: 'WIDTH', feature: 'plate', value_mm: 42 },
   ] };
-  const svgContent = '<svg><text x="30" y="40">WIDTH 42</text></svg>';
+  const svgContent = `<svg>${unitDimensionText(unitDimension('WIDTH', 'plate', 42), 'WIDTH 42')}</svg>`;
   const extracted = buildExtractedDrawingSemantics({
     drawingIntent, svgContent, drawingSvgPath: '/tmp/dimension-evidence.svg',
   });
@@ -699,7 +699,7 @@ test('independently extracted labeled SVG evidence can satisfy an intent without
   assert.deepEqual(observed.semantic_quality.missing_required_dimensions, []);
 
   const uninspected = buildDrawingQualitySummary({
-    ...input,
+    ...input, svgContent: null,
     extractedDrawingSemantics: { ...extracted, sources: extracted.sources.map((source) => ({ ...source, inspected: false })) },
   });
   assert.equal(uninspected.semantic_quality.required_dimensions_present, 0);
@@ -718,9 +718,8 @@ test('a unique numeric SVG match does not prove the labeled feature dimension', 
     dimensionMap: { plan_dimensions: [] }, traceability: { links: [] },
     extractedDrawingSemantics: extracted,
   });
-  // The legacy text scanner matches by nominal alone. That advisory match
-  // cannot establish that the hole-chain dimension belongs to the slot.
-  assert.equal(summary.semantic_quality.extracted_evidence.required_dimensions[0].classification, 'extracted');
+  // Unidentified numeric text cannot establish a feature dimension.
+  assert.equal(summary.semantic_quality.extracted_evidence.required_dimensions[0].classification, 'unknown');
   assert.equal(summary.semantic_quality.required_dimensions_present, 0);
   assert.deepEqual(summary.semantic_quality.missing_required_dimensions, ['CONNECTOR_SLOT_SIZE']);
 });
@@ -747,7 +746,7 @@ for (const [id, rawText] of [
       extractedDrawingSemantics: extracted,
       bomPath: null, bomEntries: [], bomRows: [],
     });
-    assert.equal(summary.semantic_quality.extracted_evidence.required_dimensions[0].classification, 'extracted');
+    assert.equal(summary.semantic_quality.extracted_evidence.required_dimensions[0].classification, 'unknown');
     assert.equal(summary.semantic_quality.required_dimensions_present, 0);
     assert.deepEqual(summary.semantic_quality.missing_required_dimensions, [id]);
     assert.equal(summary.status, 'pass');
@@ -759,7 +758,7 @@ test('a named mounting-hole diameter label retains independently extracted cover
   const drawingIntent = { required_dimensions: [
     { id: 'MOUNTING_HOLE_DIA', feature: 'mounting_holes', value_mm: 4, dimension_type: 'diameter' },
   ] };
-  const svgContent = '<svg><text x="30" y="40">MOUNTING HOLE DIA 4</text></svg>';
+  const svgContent = `<svg>${unitDimensionText(unitDimension('MOUNTING_HOLE_DIA', 'mounting_holes', 4, 'diameter', 'top'), 'MOUNTING HOLE DIA 4')}</svg>`;
   const summary = buildDrawingQualitySummary({
     ...makeBaseArtifacts(), drawingIntent, svgContent,
     dimensionMap: { plan_dimensions: [] }, traceability: { links: [] },

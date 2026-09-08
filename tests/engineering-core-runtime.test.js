@@ -35,7 +35,7 @@ const result = {
   runtime_driver_sha256: hash(import.meta.filename),
   dirty_at_start: !!spawnSync('git', ['status', '--porcelain'], { cwd: ROOT, encoding: 'utf8' }).stdout.trim(),
   environment: { os: `${platform()} ${release()}`, node: process.version },
-  commands: [], cases: [], comparisons: [], injections: [], invariances: [], errors: [],
+  commands: [], cases: [], comparisons: [], injections: [], invariances: [], anchor_cases: [], errors: [],
   notes: ['CAD runtime observations only; no physical inspection, readiness change or manufacturing approval.', 'Ignored quality/drawing sidecars cannot become canonical review evidence; linkage remains unavailable.', 'Drawing existence and intent semantics checked; visual layout NOT_RUN.'],
 };
 const save = () => writeFileSync(join(out, 'results.json'), JSON.stringify(result, null, 2) + '\n');
@@ -253,15 +253,24 @@ try {
         };
         if (fixture.id === 'plate-with-holes') {
           const map = read(owned(drawingReport.dimension_map_file));
-          for (const id of ['THK', 'CONNECTOR_SLOT_POSITION', 'STANDOFF_HEIGHT']) {
+          for (const id of ['CONNECTOR_SLOT_POSITION']) {
             const dimension = map.plan_dimensions.find(d => d.dim_id === id);
             assert.equal(dimension?.status, 'skipped_no_anchor', `${id}: an unsupported feature span cannot become an overall dimension`);
             assert.equal(dimension.rendered, false);
           }
-          for (const id of ['PLATE_THICKNESS', 'CONNECTOR_SLOT_POSITION', 'STANDOFF_HEIGHT']) {
+          for (const id of ['CONNECTOR_SLOT_POSITION']) {
             const requirement = config.drawing_intent.required_dimensions.find(d => d.id === id);
             assert(drawingReport.semantic_quality.missing_required_dimensions.includes(requirement.label || id), `${id}: cannot count as present`);
           }
+          for (const [id, value, count] of [['THK',4,1], ['STANDOFF_HEIGHT',8,4]]) {
+            const row = map.plan_dimensions.find(d => d.dim_id === id);
+            assert.equal(row?.status, 'rendered', `${id}: named final geometry must be anchored`);
+            assert.equal(row.observation.source, 'freecad_final_topology');
+            assert.equal(row.observation.value_mm, value);
+            assert.equal(row.observation.members.length, count);
+            assert(row.observation.members.every(m => Math.abs(m.value_mm - value) < 1e-6));
+          }
+          assert.equal(record.drawing_semantics.required_dimensions_present, 5);
           assert.equal(record.drawing_semantics.advisory_decision, 'needs_attention');
         }
         const intent = read(intentPath);
@@ -306,6 +315,55 @@ try {
     }
   }
   // Actual geometry errors: keep A requirements and change only the cutter.
+  const plate = FIXTURES.find(f => f.id === 'plate-with-holes');
+  for (const scenario of ['thickness-B', 'height-B', 'height-mismatch', 'nominal-only', 'removed-boss', 'duplicate-id', 'translation', 'wrong-view']) {
+    try {
+      const config = runtimeConfig(plate, parse(readFileSync(resolve(ROOT, plate.source),'utf8')), 'A');
+      config.export.directory = `output/engineering-core-refocus/${runId}/anchor-${scenario}`;
+      const plan = config.drawing_plan.dim_intents;
+      const requirements = config.drawing_intent.required_dimensions;
+      if (scenario === 'thickness-B') {
+        config.shapes.find(s => s.id === 'plate').height = 5;
+        for (const s of config.shapes.filter(s => s.id.startsWith('standoff'))) s.position[2] = 5;
+        plan.find(d => d.id === 'THK').value_mm = 5;
+        requirements.find(d => d.id === 'PLATE_THICKNESS').value_mm = 5;
+      } else if (scenario === 'height-B') {
+        for (const s of config.shapes.filter(s => s.id.startsWith('standoff'))) s.height = 10;
+        plan.find(d => d.id === 'STANDOFF_HEIGHT').value_mm = 10;
+        requirements.find(d => d.id === 'STANDOFF_HEIGHT').value_mm = 10;
+      } else if (scenario === 'height-mismatch') config.shapes.find(s => s.id === 'standoff1').height = 9;
+      else if (scenario === 'nominal-only') {
+        plan.find(d => d.id === 'THK').value_mm = 6;
+        requirements.find(d => d.id === 'PLATE_THICKNESS').value_mm = 6;
+      } else if (scenario === 'removed-boss') config.operations = config.operations.filter(op => op.tool !== 'standoff2');
+      else if (scenario === 'duplicate-id') plan.push({ ...plan.find(d => d.id === 'THK'), feature: 'standoff1', value_mm: 8 });
+      else if (scenario === 'translation') {
+        for (const s of config.shapes) s.position = (s.position || [0,0,0]).map((v,i) => v + [10,20,30][i]);
+      } else if (scenario === 'wrong-view') plan.find(d => d.id === 'THK').view = 'top';
+      const {dir,configPath} = writeConfig(config);
+      cli(['draw',configPath],dir);
+      const draw = manifest(dir,'draw','output',configPath);
+      const quality = read(output(draw,'drawing.quality-json'));
+      const map = read(owned(quality.dimension_map_file));
+      const target = ['height-B','height-mismatch','removed-boss'].includes(scenario) ? 'STANDOFF_HEIGHT' : 'THK';
+      const rows = map.plan_dimensions.filter(d => d.dim_id === target);
+      assert(rows.length > 0);
+      if (['thickness-B','height-B','translation'].includes(scenario)) {
+        const expected = scenario === 'thickness-B' ? 5 : scenario === 'height-B' ? 10 : 4;
+        assert.equal(rows[0].status,'rendered');
+        assert(rows[0].observation.members.every(m => Math.abs(m.value_mm-expected) < 1e-6));
+        assert.equal(rows[0].observation.value_mm,expected);
+        if (scenario === 'translation') assert.deepEqual(rows[0].observation.bounds_uv,[10,30,10,34]);
+      } else {
+        assert(rows.every(r => r.status === 'skipped_no_anchor' && r.rendered === false));
+        if (scenario === 'nominal-only') assert.equal(rows[0].observation.value_mm,4);
+        if (scenario === 'duplicate-id') assert.equal(rows.length,2);
+      }
+      result.anchor_cases.push({ scenario, status:'PASS', rows, drawing_quality:quality.status,
+        manifest:relative(ROOT,draw.path), input_sha256:hash(configPath) });
+    } catch(error) { result.errors.push(`anchor/${scenario}: ${error}`); }
+    save();
+  }
   const fixture = FIXTURES[0];
   for (const injection of ['diameter', 'center']) {
     try {
@@ -397,3 +455,4 @@ assert.equal(result.cases.length, 6);
 assert.equal(result.comparisons.length, 3);
 assert.equal(result.injections.length, 5);
 assert.equal(result.invariances.length, 1);
+assert.equal(result.anchor_cases.length, 8);

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { unitDimension, unitDimensionText } from './helpers/dimension-observation.js';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
@@ -196,8 +197,8 @@ function qualityPassArtifacts(jobDir) {
     dimensionMapPath: join(artifactDir, 'quality_pass_bracket_dimension_map.json'),
     dimensionMap: {
       plan_dimensions: [
-        { dim_id: 'HOLE_LEFT_DIA', required: true, rendered: true, status: 'rendered', feature: 'hole_left' },
-        { dim_id: 'HOLE_RIGHT_DIA', required: true, rendered: true, status: 'rendered', feature: 'hole_right' },
+        unitDimension('HOLE_LEFT_DIA', 'hole_left', 6, 'diameter', 'top'),
+        unitDimension('HOLE_RIGHT_DIA', 'hole_right', 10, 'diameter', 'top'),
         { dim_id: 'CHAMFER_SIZE', required: false, rendered: false, status: 'missing', feature: 'chamfer_3' },
       ],
       summary: { skipped_duplicate_count: 0 },
@@ -207,8 +208,8 @@ function qualityPassArtifacts(jobDir) {
     generatedViews: ['top', 'iso'],
     svgContent: [
       '<svg xmlns="http://www.w3.org/2000/svg">',
-      '  <text x="10" y="10">6</text>',
-      '  <text x="10" y="20">10</text>',
+      unitDimensionText(unitDimension('HOLE_LEFT_DIA', 'hole_left', 6, 'diameter', 'top')),
+      unitDimensionText(unitDimension('HOLE_RIGHT_DIA', 'hole_right', 10, 'diameter', 'top')),
       '  <text x="10" y="30">Material: AL6061</text>',
       '</svg>',
     ].join('\n'),
@@ -510,8 +511,8 @@ try {
       '/tmp/alias-comparison-regression_extracted_drawing_semantics.json'
     );
 
-    assert.equal(aliasComparison.required_dimensions[0].classification, 'extracted');
-    assert.equal(aliasComparison.required_dimensions[0].matched_raw_text, 'MOUNTING HOLE DIA 6');
+    assert.equal(aliasComparison.required_dimensions[0].classification, 'unknown');
+    assert.equal(aliasComparison.required_dimensions[0].matched_raw_text, null);
     assert.equal(aliasComparison.required_notes[0].classification, 'extracted');
     assert.equal(aliasComparison.required_notes[0].matched_raw_text, 'TOL ±0.1');
   }
@@ -541,7 +542,7 @@ try {
   assert.equal(failValidation.ok, true, failValidation.errors.join('\n'));
   assert.equal(failSummary.overall_status, 'fail');
   assert.equal(failSummary.ready_for_manufacturing_review, false);
-  assert.deepEqual(failSummary.surfaces.drawing_quality.missing_required_dimensions, ['MOUNTING_HOLE_DIA']);
+  assert.deepEqual(failSummary.surfaces.drawing_quality.missing_required_dimensions, ['MOUNTING_HOLE_DIA', 'BASE_PLATE_ENVELOPE', 'WEB_HEIGHT']);
   assert(failSummary.top_risks.some((risk) => risk.includes('Missing required drawing dimensions: MOUNTING_HOLE_DIA')));
   assert(failSummary.recommended_actions.some((action) => action.includes('MOUNTING_HOLE_DIA')));
   assert.equal(failSummary.surfaces.drawing_quality.semantic_quality.extracted_evidence.suggested_action_details.length > 0, true);
