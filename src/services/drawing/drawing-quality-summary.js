@@ -227,29 +227,6 @@ function collectIntentFeatures(drawingIntent = {}, featureCatalog = null) {
   };
 }
 
-function extractSvgText(svgContent = null) {
-  if (typeof svgContent !== 'string' || !svgContent.trim()) return '';
-  return svgContent
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function hasTextEvidence(requirement = {}, svgText = '') {
-  const source = normalizeComparable(svgText);
-  if (!source) return false;
-  const candidates = uniqueStrings([
-    requirement.id,
-    requirement.label,
-    requirement.text,
-    requirement.note,
-  ]);
-  return candidates.some((candidate) => {
-    const normalized = normalizeComparable(candidate);
-    return Boolean(normalized && source.includes(normalized));
-  });
-}
-
 function buildDimensionEvidence(dimensionMap = null, traceability = null) {
   const renderedDimensions = new Map();
   const renderedFeatures = new Set();
@@ -307,8 +284,8 @@ function coverageScore(present, total) {
 }
 
 function requiredEvidenceBlockers(extractedEvidence = {}) {
-  const hasInspectedEvidence = asArray(extractedEvidence?.sources).some((source) => source?.inspected === true);
-  if (!hasInspectedEvidence) return [];
+  const inspectedSources = asArray(extractedEvidence?.sources).filter((source) => source?.inspected === true);
+  if (!inspectedSources.length) return [];
 
   const groups = [
     { key: 'required_dimensions', noun: 'dimension' },
@@ -317,6 +294,8 @@ function requiredEvidenceBlockers(extractedEvidence = {}) {
   ];
   const blockers = [];
   for (const group of groups) {
+    // Rechecking notes alone does not claim a new inspection of other artifacts.
+    if (group.key !== 'required_notes' && inspectedSources.every(source => source.method === 'svg_note_text_scan')) continue;
     for (const entry of asArray(extractedEvidence[group.key])) {
       const classification = normalizeId(entry?.classification);
       if (!classification || classification === 'extracted') continue;
@@ -348,9 +327,9 @@ function buildSemanticDrawingQualityReport({
   const views = collectIntentViews(intent);
   const evidence = buildDimensionEvidence(dimensionMap, traceability);
   const producedViewSet = new Set(producedViews.map(normalizeComparable).filter(Boolean));
-  const svgText = extractSvgText(svgContent);
-  const svgDimensions = typeof svgContent === 'string'
-    ? buildExtractedDrawingSemantics({ svgContent, drawingIntent }).dimensions : null;
+  const svgSemantics = typeof svgContent === 'string'
+    ? buildExtractedDrawingSemantics({ svgContent, drawingIntent }) : null;
+  const svgDimensions = svgSemantics?.dimensions ?? null;
   if (svgDimensions !== null) {
     evidence.renderedFeatures.clear();
     for (const row of svgDimensions.filter(row => row.matched_intent_id && hasObservedDimension(row))) {
@@ -362,7 +341,8 @@ function buildSemanticDrawingQualityReport({
     extractedDrawingSemantics,
     featureCatalog,
     planner,
-    extractedDrawingSemanticsPath
+    extractedDrawingSemanticsPath,
+    svgSemantics
   );
 
   const coveredFeatures = features.required.filter((feature) => (
@@ -372,7 +352,11 @@ function buildSemanticDrawingQualityReport({
   const presentDimensions = dimensions.required.filter((dimension) => (
     hasRequiredDimensionEvidence(dimension, evidence, extractedEvidence, extractedDrawingSemantics, svgDimensions)
   ));
-  const presentNotes = notes.required.filter((note) => hasTextEvidence(note, svgText));
+  const presentNoteIds = new Set((svgSemantics?.notes || []).map(note => note.matched_intent_id).filter(Boolean));
+  const presentNotes = notes.required.filter((note) => presentNoteIds.has(note.id));
+  const optionalNoteIds = new Set((notes.optional.length ? buildExtractedDrawingSemantics({ svgContent,
+    drawingIntent: { required_notes: notes.optional.map(note => ({ ...note, required: true, optional: false })) },
+  }).notes : []).map(note => note.matched_intent_id).filter(Boolean));
   const presentViews = views.required.filter((view) => producedViewSet.has(normalizeComparable(view.id ?? view.view)));
 
   const missingCriticalFeatures = features.required.filter((feature) => !coveredFeatures.includes(feature)).map(itemName);
@@ -383,7 +367,7 @@ function buildSemanticDrawingQualityReport({
   const optionalMissing = [
     ...features.optional.filter((feature) => !evidence.renderedFeatures.has(normalizeComparable(feature.id))).map((feature) => `Optional feature not evidenced: ${itemName(feature)}.`),
     ...dimensions.optional.filter((dimension) => !evidence.renderedDimensions.has(normalizeComparable(dimension.id))).map((dimension) => `Optional dimension not evidenced: ${itemName(dimension)}.`),
-    ...notes.optional.filter((note) => !hasTextEvidence(note, svgText)).map((note) => `Optional note not evidenced: ${itemName(note)}.`),
+    ...notes.optional.filter((note) => !optionalNoteIds.has(note.id)).map((note) => `Optional note not evidenced: ${itemName(note)}.`),
     ...views.optional.filter((view) => !producedViewSet.has(normalizeComparable(view.id ?? view.view))).map((view) => `Optional view not evidenced: ${itemName(view)}.`),
   ];
 

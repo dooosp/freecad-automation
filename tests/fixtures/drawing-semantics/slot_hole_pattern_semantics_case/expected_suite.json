@@ -126,7 +126,7 @@
         { "requirement_id": "section_a_a", "classification": "missing" }
       ],
       "unmatched_dimensions": ["PCD 60"],
-      "unmatched_notes": ["Break sharp edges"],
+      "unmatched_notes": [],
       "missing_required_items": ["section_a_a"]
     },
     "blocking_issue_codes": ["required-dimension-coverage"],

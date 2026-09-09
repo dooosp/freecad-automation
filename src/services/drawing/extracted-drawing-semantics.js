@@ -287,6 +287,9 @@ function dimensionTextContexts(svg) {
       views: [...(parent.views || []), attrs['data-view-id'], attrs['data-view']].filter(Boolean),
       features: [...(parent.features || []), attrs['data-feature-id'], attrs['data-feature']].filter(Boolean),
       styles: [...(parent.styles || []), attrs['data-dimension-style'], attrs['data-style']].filter(Boolean),
+      noteGroup: tag === 'g' && /(?:^|\s)general-notes(?:\s|$)/.test(attrs.class || '')
+        ? match.index : parent.noteGroup,
+      noteIds: [...(parent.noteIds || []), attrs['data-note-id']].filter(Boolean),
       fill, stroke, 'font-size':fontSize, 'fill-opacity':fillOpacity, 'stroke-opacity':strokeOpacity,
     };
     if (tag === 'text') {
@@ -400,32 +403,12 @@ function materialCodeMatches(note = {}, required = {}) {
   return requiredTokens.some((token) => noteTokens.includes(token));
 }
 
-function toleranceSignatures(value = null) {
-  const text = normalizeText(value);
-  if (!text) return [];
-  const signatures = [];
-  const plusMinusMatch = text.match(/(?:±|\+\/-)\s*([0-9]+(?:\.[0-9]+)?)/);
-  if (plusMinusMatch) {
-    signatures.push(`plusminus:${Number.parseFloat(plusMinusMatch[1])}`);
-  }
-
-  const tokens = semanticTextTokens(text)
-    .filter((token) => !['general', 'tolerance', 'tol'].includes(token));
-  if (tokens.length > 0) {
-    signatures.push(`body:${tokens.join('')}`);
-  }
-  return uniqueStrings(signatures);
-}
-
 function toleranceSignaturesMatch(note = {}, required = {}) {
-  const noteSignatures = toleranceSignatures(note.raw_text);
-  if (noteSignatures.length === 0) return false;
-  const requiredSignatures = uniqueStrings([
-    ...toleranceSignatures(required.text),
-    ...toleranceSignatures(required.note),
-    ...toleranceSignatures(required.label),
-  ]);
-  return requiredSignatures.some((signature) => noteSignatures.includes(signature));
+  const value = text => String(text || '').replace(/^\s*\d+[.)]\s+/, '')
+    .match(/^(?:GENERAL\s+)?TOL(?:ERANCES?)?\s*:?\s*(?:±|\+\/-)\s*([0-9]+(?:\.[0-9]+)?)\s*(?:mm)?$/i)?.[1];
+  const actual = value(note.raw_text);
+  return actual !== undefined && [required.text, required.note, required.label]
+    .some(text => value(text) !== undefined && Number(value(text)) === Number(actual));
 }
 
 function aliasBackedNoteMatches(note = {}, required = {}) {
@@ -461,28 +444,29 @@ function isSvgDimensionText(text = '', requiredDimensions = []) {
 
 function matchRequiredNote(note = {}, requiredNotes = [], { allowMaterialCodeOnly = false } = {}) {
   const noteComparable = normalizeComparable(note?.raw_text);
-  if (!noteComparable) return null;
+  if (!noteTextKey(note?.raw_text)) return null;
+  if (note.provenance?.note_context === 'conflicting') return null;
   if (isMaterialLabelOnly(note?.raw_text)) return null;
   for (const required of requiredNotes) {
+    const emittedId = note.provenance?.emitted_note_id;
+    if (emittedId && emittedId !== required.id) continue;
     if (normalizeComparable(required.id) === 'material' && normalizeText(required.text ?? required.note)) {
       const materialAliasMatched = semanticAliasMatchesText(note.raw_text, required).length > 0;
-      const materialTextMatched = uniqueStrings([required.text, required.note])
-        .map((candidate) => normalizeComparable(candidate))
-        .some((candidate) => candidate && noteComparable.includes(candidate));
+      const materialBody = text => noteTextKey(String(text || '').replace(/^\s*\d+[.)]\s+/, '')
+        .replace(/^(?:MATERIAL|MATL|MAT)\b\s*:?\s*/i, ''));
+      const materialTextMatched = (materialAliasMatched || allowMaterialCodeOnly) && uniqueStrings([required.text, required.note])
+        .some(candidate => materialBody(candidate) === materialBody(note.raw_text));
       if (materialTextMatched) return required;
-      if (materialAliasMatched && materialCodeMatches(note, required)) return required;
-      if (allowMaterialCodeOnly && materialCodeMatches(note, required)) return required;
+      const labelledCodeOnly = /^(?:MATERIAL|MATL|MAT)\s*:?\s*(?:AL\d{3,4}|SS\d{3,4}|SUS\d{3,4}|SCM\d{3,4})\s*$/i
+        .test(String(note.raw_text).replace(/^\s*\d+[.)]\s+/, ''));
+      if (labelledCodeOnly && (materialAliasMatched || allowMaterialCodeOnly) && materialCodeMatches(note, required)) return required;
       continue;
     }
-    const candidates = uniqueStrings([
-      required.id,
-      required.label,
-      required.text,
-      required.note,
-    ]);
+    const authored = uniqueStrings([required.text, required.note]);
+    const candidates = authored.length ? authored : uniqueStrings([required.label, required.id]);
     for (const candidate of candidates) {
-      const comparable = normalizeComparable(candidate);
-      if (comparable && noteComparable.includes(comparable)) {
+      const comparable = noteTextKey(candidate);
+      if (comparable && noteTextKey(note.raw_text) === comparable) {
         return required;
       }
     }
@@ -715,17 +699,58 @@ function collectDimensionsFromSvg(textNodes = [], svgPath = null, requiredDimens
   return dimensions;
 }
 
+function noteTextKey(text) {
+  // Preserve signs, values and Unicode; only list numbering, case and whitespace
+  // are presentation differences. An ID or a substring cannot prove the body.
+  return String(text || '').normalize('NFKC').replace(/^\s*\d+[.)]\s+/, '')
+    .toLowerCase().replace(/\s+/g, '');
+}
+
+function noteTextNodes(textNodes) {
+  const result = [], groups = new Map();
+  for (const node of textNodes) {
+    const index = extractSvgAttributes(node.attributes)['data-note-index'];
+    const context = node.dimensionContext;
+    if (!index || context?.noteGroup === undefined) { result.push(node); continue; }
+    const key = `${context.noteGroup}:${index}`;
+    if (!groups.has(key)) {
+      const joined = { ...node, text: '', dimensionContext: { ...context, noteIds: [] }, textIds: [] };
+      groups.set(key, joined); result.push(joined);
+    }
+    const joined = groups.get(key);
+    joined.text += `${joined.text ? ' ' : ''}${node.text}`;
+    joined.textIds.push(node.id);
+    joined.dimensionContext.blocked ||= context.blocked;
+    joined.dimensionContext.noteIds.push(...context.noteIds);
+  }
+  return result;
+}
+
 function collectNotesFromSvg(textNodes = [], svgPath = null, requiredNotes = [], requiredDimensions = []) {
   const notes = [];
-  for (const node of textNodes) {
+  const nodes = noteTextNodes(textNodes);
+  const idBodies = new Map();
+  for (const node of nodes) {
+    if (!node.dimensionContext || node.dimensionContext.blocked) continue;
+    for (const id of node.dimensionContext.noteIds) {
+      if (!idBodies.has(id)) idBodies.set(id, new Set());
+      idBodies.get(id).add(noteTextKey(node.text));
+    }
+  }
+  for (const node of nodes) {
+    if (!node.dimensionContext || node.dimensionContext.blocked) continue;
     if (isSvgDimensionText(node.text, requiredDimensions)) continue;
-    if (!/[A-Za-z]/.test(node.text)) continue;
+    if (!/\p{L}/u.test(node.text)) continue;
     const viewDescriptor = normalizeDrawingViewDescriptor({ label: node.text });
     if (viewDescriptor.id && viewDescriptor.view_kind !== 'unknown') {
       continue;
     }
     const category = classifyNoteCategory(node.text);
-    const matchedRequired = matchRequiredNote({ raw_text: node.text }, requiredNotes);
+    const ids = [...new Set(node.dimensionContext.noteIds)];
+    const conflicting = ids.length > 1 || ids.some(id => idBodies.get(id)?.size > 1);
+    const identity = { ...(ids.length ? { emitted_note_id: ids[0] } : {}),
+      ...(conflicting ? { note_context: 'conflicting' } : {}) };
+    const matchedRequired = matchRequiredNote({ raw_text: node.text, provenance: identity }, requiredNotes);
     const aliasMatched = matchedRequired && semanticAliasMatchesText(node.text, matchedRequired).length > 0;
     notes.push({
       id: node.id,
@@ -739,6 +764,8 @@ function collectNotesFromSvg(textNodes = [], svgPath = null, requiredNotes = [],
         path: svgPath,
         method: 'svg_note_text_scan',
         svg_text_id: node.id,
+        ...(node.textIds ? { svg_text_ids: node.textIds } : {}),
+        ...identity,
       }),
     });
   }
@@ -749,6 +776,7 @@ function collectMaterialTitleBlockNotesFromSvg(textNodes = [], svgPath = null, r
   const notes = [];
   for (let index = 0; index < textNodes.length; index += 1) {
     const labelNode = textNodes[index];
+    if (!labelNode.dimensionContext || labelNode.dimensionContext.blocked) continue;
     if (!isMaterialLabelOnly(labelNode.text)) continue;
     const labelPosition = parseSvgTextPosition(labelNode);
     if (labelPosition.x === null || labelPosition.y === null) continue;
@@ -757,6 +785,7 @@ function collectMaterialTitleBlockNotesFromSvg(textNodes = [], svgPath = null, r
       .slice(index + 1)
       .map((node) => ({ node, position: parseSvgTextPosition(node) }))
       .filter(({ node, position }) => {
+        if (!node.dimensionContext || node.dimensionContext.blocked) return false;
         if (!isTitleBlockMaterialValueCandidate(node)) return false;
         if (position.x === null || position.y === null) return false;
         return Math.abs(position.x - labelPosition.x) <= 0.75
@@ -767,8 +796,11 @@ function collectMaterialTitleBlockNotesFromSvg(textNodes = [], svgPath = null, r
 
     if (!valueNode) continue;
     const rawText = `Material: ${valueNode.text}`;
+    const ids = [...new Set([...labelNode.dimensionContext.noteIds, ...valueNode.dimensionContext.noteIds])];
+    const identity = { ...(ids.length ? { emitted_note_id: ids[0] } : {}),
+      ...(ids.length > 1 ? { note_context: 'conflicting' } : {}) };
     const matchedRequired = matchRequiredNote(
-      { raw_text: rawText },
+      { raw_text: rawText, provenance: identity },
       requiredNotes,
       { allowMaterialCodeOnly: true }
     );
@@ -785,6 +817,7 @@ function collectMaterialTitleBlockNotesFromSvg(textNodes = [], svgPath = null, r
         method: 'svg_title_block_material_pair',
         label_svg_text_id: labelNode.id,
         value_svg_text_id: valueNode.id,
+        ...identity,
       }),
     });
   }
@@ -1078,6 +1111,9 @@ function compareRequiredNotes(requiredNotes = [], extractedDrawingSemantics = nu
     const requirementId = normalizeComparable(requirement.id);
     const matches = sortByConfidence(notes.filter((entry) => (
       normalizeComparable(entry.matched_intent_id) === requirementId
+      && matchRequiredNote(entry, [requirement], {
+        allowMaterialCodeOnly: entry.provenance?.method === 'svg_title_block_material_pair',
+      })
     )));
     const reliable = matches.filter(reliableMatch);
     const bestReliable = reliable[0] || null;
@@ -1280,7 +1316,8 @@ export function compareDrawingIntentToExtractedSemantics(
   extractedDrawingSemantics = null,
   featureCatalog = null,
   planner = null,
-  extractedDrawingSemanticsPath = null
+  extractedDrawingSemanticsPath = null,
+  currentNoteSemantics = null
 ) {
   const intent = asObject(drawingIntent);
   const requiredDimensions = collectIntentDimensions(intent);
@@ -1291,7 +1328,7 @@ export function compareDrawingIntentToExtractedSemantics(
     : null;
 
   const dimensionComparison = compareRequiredDimensions(requiredDimensions, semantics);
-  const noteComparison = compareRequiredNotes(requiredNotes, semantics);
+  const noteComparison = compareRequiredNotes(requiredNotes, currentNoteSemantics ?? semantics);
   const viewComparison = compareRequiredViews(requiredViews, semantics);
   const coverage = summarizeComparisonCoverage({
     dimensions: dimensionComparison,
@@ -1300,11 +1337,13 @@ export function compareDrawingIntentToExtractedSemantics(
   });
 
   const comparison = {
-    status: semantics?.status || (extractedDrawingSemanticsPath ? 'not_available' : 'not_run'),
+    status: semantics?.status || currentNoteSemantics?.status || (extractedDrawingSemanticsPath ? 'not_available' : 'not_run'),
     advisory_only: semantics?.decision !== 'enforced',
     file: resolveMaybe(extractedDrawingSemanticsPath),
     path: resolveMaybe(extractedDrawingSemanticsPath),
-    sources: asArray(semantics?.sources),
+    sources: [...asArray(semantics?.sources), ...asArray(currentNoteSemantics?.sources)
+      .filter(source => source.artifact_type === 'svg' && source.method === 'svg_text_scan')
+      .map(source => ({ ...source, method: 'svg_note_text_scan' }))],
     coverage,
     required_dimensions: dimensionComparison.required,
     required_notes: noteComparison.required,
@@ -1388,6 +1427,20 @@ export function buildExtractedDrawingSemantics({
     ...materialTitleBlockNotes,
     ...collectNotesFromSvg(textNodes, drawingSvgPath, requiredNotes, requiredDimensions),
   ];
+  // Title-block pairs and ordinary notes share the same explicit-ID boundary.
+  for (const requirement of requiredNotes) {
+    const identified = notes.filter(note => !isMaterialLabelOnly(note.raw_text) && (
+      note.matched_intent_id === requirement.id || note.provenance.emitted_note_id === requirement.id
+    ));
+    if (identified.some(note => !matchRequiredNote(note, [requirement], {
+      allowMaterialCodeOnly: note.provenance.method === 'svg_title_block_material_pair',
+    }))) {
+      for (const note of identified) {
+        note.matched_intent_id = null;
+        note.provenance.note_context = 'conflicting';
+      }
+    }
+  }
   const titleBlock = buildTitleBlock(notes);
   const coverage = buildCoverage(requiredDimensions, requiredNotes, requiredViews, dimensions, notes, views);
 
