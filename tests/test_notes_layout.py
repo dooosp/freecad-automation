@@ -3,10 +3,71 @@
 from pathlib import Path
 import sys
 import xml.etree.ElementTree as ET
+from types import SimpleNamespace
+import ast
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 from svg_repair import rebuild_notes, repair_text_overlaps
+# Execute the real pure renderer definitions, without the stdin/FreeCAD CLI body.
+_generator = Path(__file__).resolve().parents[1] / "scripts/generate_drawing.py"
+_module = ast.parse(_generator.read_text())
+_module.body = _module.body[:next(i for i, node in enumerate(_module.body) if isinstance(node, ast.Try))]
+_namespace = {"__file__": str(_generator)}
+exec(compile(_module, str(_generator), "exec"), _namespace)
+compose_drawing = _namespace["compose_drawing"]
+
+
+def compose_notes(intent, notes=None):
+    svg = compose_drawing({}, "Note test", [], 1,
+        SimpleNamespace(XLength=10, YLength=10, ZLength=4), notes_list=notes,
+        drawing_intent=intent)
+    tree = ET.ElementTree(ET.fromstring(svg))
+    group = next(e for e in tree.getroot().iter() if e.get("class") == "general-notes")
+    return tree, group
+
+
+def test_required_note_body_survives_explicit_plan_and_basic_fallback():
+    intent = {"required_notes": [
+        {"id": "PROCESS", "text": "Process: machining", "required": True},
+        {"id": "TRACEABILITY", "text": "Lot traceability label area opposite connector slot."},
+        {"id": "EVIDENCE_BOUNDARY", "text": "Generated artifacts are not inspection evidence."},
+    ]}
+    for notes in [None, ["Keep authored plan note"]]:
+        _, group = compose_notes(intent, notes)
+        content = " ".join(group.itertext())
+        for text in ["Process: machining", "Lot traceability label area opposite connector slot.",
+                     "Generated artifacts are not inspection evidence."]:
+            assert text in content
+        assert ("Keep authored plan note" if notes else "DEBURR ALL EDGES") in content
+
+
+def test_note_merge_preserves_categories_and_skips_optional_or_id_only_entries():
+    notes = ["Process: machining"]
+    intent = {"required_notes": [
+        {"id":"PROCESS", "text":"  Process: machining  "},
+        {"id":"OTHER_PROCESS", "category":"manufacturing", "text":"Keep coolant log."},
+        {"id":"OPTIONAL", "text":"Do not add optional text", "optional":True},
+        {"id":"NOT_REQUIRED", "text":"Do not add unrequired text", "required":False},
+        {"id":"ID_ONLY"}, "Keep the supplied text.",
+    ]}
+    _, group = compose_notes(intent, notes)
+    content = " ".join(group.itertext())
+    assert content.count("Process: machining") == 1
+    assert "Keep coolant log." in content and "Keep the supplied text." in content
+    assert "Do not add" not in content and "ID_ONLY" not in content
+    assert notes == ["Process: machining"], "caller-owned plan must not be mutated"
+
+
+def test_wrapped_required_note_keeps_line_association_after_repair():
+    text = "Retain every word of this required manufacturing note " * 20
+    tree, group = compose_notes({"required_notes":[{"id":"LONG", "text":text}]}, ["Keep original"])
+    assert all(e.get("data-note-index") for e in list(group)[1:])
+    before = "".join("".join(group.itertext()).split())
+    result = rebuild_notes(tree)
+    assert "".join("".join(group.itertext()).split()) == before
+    assert all(e.get("data-note-index") for e in list(group)[1:])
+    assert result["summary"]["overflow"] is True
 
 
 def notes_tree(lines, region=None):

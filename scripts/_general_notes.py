@@ -39,6 +39,32 @@ def _normalize_note_key(value):
     return "".join(ch.lower() for ch in _normalize_note_text(value) if ch.isalnum())
 
 
+def merge_required_notes(notes, drawing_intent=None):
+    """Append explicitly authored required text, preserving plan/fallback notes."""
+    result = list(notes or [])
+    seen = {_normalize_note_text(text).casefold() for text in result}
+    intent = drawing_intent if isinstance(drawing_intent, dict) else {}
+    entries = intent.get("required_notes")
+    if entries is None:
+        entries = intent.get("notes", [])
+        if isinstance(entries, dict):
+            entries = entries.get("required", [])
+    for entry in entries if isinstance(entries, list) else []:
+        if isinstance(entry, dict):
+            if entry.get("required") is False or entry.get("optional") is True:
+                continue
+            text = entry.get("text") or entry.get("note")
+        else:
+            text = entry
+        if not isinstance(text, str):
+            continue
+        text = _normalize_note_text(text)
+        if text and text.casefold() not in seen:
+            result.append(text)
+            seen.add(text.casefold())
+    return result
+
+
 def _collect_required_note_texts(drawing_intent=None):
     mapping = {}
     required_notes = drawing_intent.get("required_notes", []) if isinstance(drawing_intent, dict) else []
@@ -295,12 +321,12 @@ def render_general_notes_svg(notes, x, y, max_width=200):
         prefix = f'{ni+1}. '
         wrapped = _wrap_text(note, max_chars)
         # First line with bullet number
-        out.append(f'<text x="{x:.1f}" y="{cur_y:.1f}">'
+        out.append(f'<text data-note-index="{ni+1}" x="{x:.1f}" y="{cur_y:.1f}">'
                    f'{_escape(prefix + wrapped[0])}</text>')
         cur_y += LINE_H
         # Continuation lines (indented)
         for wline in wrapped[1:]:
-            out.append(f'<text x="{x + WRAP_INDENT:.1f}" y="{cur_y:.1f}">'
+            out.append(f'<text data-note-index="{ni+1}" x="{x + WRAP_INDENT:.1f}" y="{cur_y:.1f}">'
                        f'{_escape(wline)}</text>')
             cur_y += LINE_H
 

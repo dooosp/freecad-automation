@@ -23,7 +23,7 @@ from _bootstrap import (
 )
 from _feature_inference import infer_features_from_config
 from _view_planner import plan_views
-from _general_notes import (build_general_notes, build_revision_table,
+from _general_notes import (build_general_notes, build_revision_table, merge_required_notes,
                             render_revision_table_svg, render_general_notes_svg,
                             estimate_notes_height, _std_ref)
 from _dim_baseline import (render_baseline_dimensions_svg,
@@ -669,7 +669,7 @@ def compose_drawing(views_svg, name, bom, scale, bbox,
                     mates=None, tol_specs=None, meta=None, style_cfg=None,
                     extra_svg="", revisions=None, notes_list=None,
                     gdt_entries=None, feature_graph=None,
-                    view_data=None, view_metadata=None):
+                    view_data=None, view_metadata=None, drawing_intent=None):
     """Assemble full A3 landscape SVG with views, ISO 7200 title block, BOM, legend, GD&T."""
     meta = meta or {}
     style_cfg = style_cfg or {}
@@ -834,6 +834,7 @@ def compose_drawing(views_svg, name, bom, scale, bbox,
         if sf_default:
             notes.append(f"UNLESS OTHERWISE SPECIFIED: {sf_default}")
 
+    notes = merge_required_notes(notes, drawing_intent)
     if notes:
         # Baselines are bounded independently of content height. A long note
         # stays visible and is reported by final SVG QA rather than truncated.
@@ -2140,7 +2141,8 @@ try:
         extra_svg=extra_svg,
         revisions=revisions, notes_list=notes_list,
         gdt_entries=gdt_entries, feature_graph=feature_graph,
-        view_data=view_data, view_metadata=view_metadata)
+        view_data=view_data, view_metadata=view_metadata,
+        drawing_intent=config.get("drawing_intent", {}))
 
     # -- Save SVG --
     export_dir = config.get("export", {}).get("directory", ".")
