@@ -621,7 +621,22 @@ assert.equal(ksDrawingQuality.semantic_quality.extracted_evidence.coverage.requi
 assert.equal(ksDrawingQuality.semantic_quality.extracted_evidence.required_dimensions.some((entry) => entry.classification === 'unknown' || entry.classification === 'missing'), true);
 assert.equal(
   ksDrawingQuality.semantic_quality.extracted_evidence.required_dimensions.find((entry) => entry.requirement_id === 'MOUNTING_HOLE_DIA')?.classification,
-  'extracted'
+  'unknown'
+);
+// An invalid final shape cannot qualify the automatic diameter text as an
+// observed required dimension. Keep the unresolved plan evidence explicit.
+assert.equal(createQuality.geometry.valid_shape, false);
+const ksDimensionMap = readJson(join(OUTPUT_DIR, 'ks_bracket_runtime_smoke_dimension_map.json'));
+const ksHolePlan = ksDimensionMap.plan_dimensions.find((entry) => entry.dim_id === 'HOLE_DIA');
+assert.equal(ksHolePlan?.status, 'skipped_no_anchor');
+assert.equal(ksHolePlan?.rendered, false);
+assert.equal(ksHolePlan?.observation?.status, 'unresolved');
+assert.equal(ksHolePlan?.observation?.reason, 'unsupported_view_or_invalid_shape');
+assert.equal(ksHolePlan?.observation?.value_mm, null);
+assert.match(readFileSync(join(OUTPUT_DIR, 'ks_bracket_runtime_smoke_drawing.svg'), 'utf8'), /\[REVIEW: HOLE_DIA\]/);
+assert.equal(
+  ksDrawingQuality.semantic_quality.required_blockers.some((entry) => entry.includes('MOUNTING_HOLE_DIA')),
+  true
 );
 assert.equal(
   ksDrawingQuality.semantic_quality.extracted_evidence.required_dimensions.find((entry) => entry.requirement_id === 'BASE_PLATE_ENVELOPE')?.classification,
