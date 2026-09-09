@@ -108,3 +108,21 @@ for (const note of [
   const drawingIntent={required_notes:[{...note,required:true}]};
   assert.equal(extract(`<text>${note.wrong}</text>`,drawingIntent).coverage.required_notes_extracted,0);
 });
+
+for (const [id, text, lines] of [
+  ['PROCESS', 'Process: machining', ['Not for AL6061', 'Process: machining']],
+  ['MATERIAL', 'Material: AL6061', ['AL6061', 'is prohibited']],
+]) test(`material pairing preserves every line of a logical note: ${id}`, () => {
+  const drawingIntent = { enforceable: true, required_notes: [{ id, text, required: true }] };
+  const body = '<g class="general-notes"><text x="10" y="10">MATERIAL</text>'
+    + lines.map((line, index) => `<text data-note-index="1" x="10" y="${15 + index * 5}">${line}</text>`).join('')
+    + '</g>';
+  const semantics = extract(body, drawingIntent);
+  assert.equal(semantics.coverage.required_notes_extracted, 0);
+  const logicalNote = semantics.notes.find(note => note.raw_text === lines.join(' '));
+  assert.equal(logicalNote?.provenance.svg_text_ids.length, 2);
+  const summary = quality(body, drawingIntent);
+  assert.equal(summary.semantic_quality.required_notes_present, 0);
+  assert.equal(summary.semantic_quality.extracted_evidence.coverage.required_notes.extracted, 0);
+  assert.notEqual(summary.semantic_quality.decision, 'pass');
+});

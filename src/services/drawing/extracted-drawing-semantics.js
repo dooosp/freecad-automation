@@ -704,6 +704,11 @@ function noteTextKey(text) {
     .toLowerCase().replace(/\s+/g, '');
 }
 
+function isGroupedNoteLine(node) {
+  return node.dimensionContext?.noteGroup !== undefined
+    && Boolean(extractSvgAttributes(node.attributes)['data-note-index']);
+}
+
 function noteTextNodes(textNodes) {
   const result = [], groups = new Map();
   for (const node of textNodes) {
@@ -775,6 +780,8 @@ function collectMaterialTitleBlockNotesFromSvg(textNodes = [], svgPath = null, r
   for (let index = 0; index < textNodes.length; index += 1) {
     const labelNode = textNodes[index];
     if (!labelNode.dimensionContext || labelNode.dimensionContext.blocked) continue;
+    // A title-block pair cannot consume or qualify part of a logical note.
+    if (isGroupedNoteLine(labelNode)) continue;
     if (!isMaterialLabelOnly(labelNode.text)) continue;
     const labelPosition = parseSvgTextPosition(labelNode);
     if (labelPosition.x === null || labelPosition.y === null) continue;
@@ -784,6 +791,7 @@ function collectMaterialTitleBlockNotesFromSvg(textNodes = [], svgPath = null, r
       .map((node) => ({ node, position: parseSvgTextPosition(node) }))
       .filter(({ node, position }) => {
         if (!node.dimensionContext || node.dimensionContext.blocked) return false;
+        if (isGroupedNoteLine(node)) return false;
         if (!isTitleBlockMaterialValueCandidate(node)) return false;
         if (position.x === null || position.y === null) return false;
         return Math.abs(position.x - labelPosition.x) <= 0.75
