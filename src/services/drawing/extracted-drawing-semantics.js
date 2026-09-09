@@ -395,11 +395,8 @@ function materialCodeTokens(value = null) {
 function materialCodeMatches(note = {}, required = {}) {
   const noteTokens = materialCodeTokens(note.raw_text);
   if (noteTokens.length === 0) return false;
-  const requiredTokens = uniqueStrings([
-    ...materialCodeTokens(required.text),
-    ...materialCodeTokens(required.note),
-    ...materialCodeTokens(required.label),
-  ]);
+  const authored = uniqueStrings([required.text, required.note]);
+  const requiredTokens = uniqueStrings((authored.length ? authored : [required.label]).flatMap(materialCodeTokens));
   return requiredTokens.some((token) => noteTokens.includes(token));
 }
 
@@ -407,7 +404,8 @@ function toleranceSignaturesMatch(note = {}, required = {}) {
   const value = text => String(text || '').replace(/^\s*\d+[.)]\s+/, '')
     .match(/^(?:GENERAL\s+)?TOL(?:ERANCES?)?\s*:?\s*(?:±|\+\/-)\s*([0-9]+(?:\.[0-9]+)?)\s*(?:mm)?$/i)?.[1];
   const actual = value(note.raw_text);
-  return actual !== undefined && [required.text, required.note, required.label]
+  const authored = uniqueStrings([required.text, required.note]);
+  return actual !== undefined && (authored.length ? authored : [required.label])
     .some(text => value(text) !== undefined && Number(value(text)) === Number(actual));
 }
 
@@ -1425,7 +1423,9 @@ export function buildExtractedDrawingSemantics({
   const dimensions = collectDimensionsFromSvg(textNodes, drawingSvgPath, requiredDimensions, traceability);
   const notes = [
     ...materialTitleBlockNotes,
-    ...collectNotesFromSvg(textNodes, drawingSvgPath, requiredNotes, requiredDimensions),
+    ...collectNotesFromSvg(textNodes.filter(node => !materialTitleBlockNotes.some(
+      pair => pair.provenance.value_svg_text_id === node.id
+    )), drawingSvgPath, requiredNotes, requiredDimensions),
   ];
   // Title-block pairs and ordinary notes share the same explicit-ID boundary.
   for (const requirement of requiredNotes) {

@@ -85,6 +85,19 @@ def test_extra_required_notes_fit_two_footer_columns_without_shrinking_text():
     assert check_notes_overflow(tree) is False
 
 
+def test_note_convention_uses_declared_width_for_second_column():
+    from qa_scorer import check_note_convention
+    tree, group = compose_notes({"required_notes":[{"id":"BOUNDARY",
+        "text":"Generated quality and drawing artifacts are not inspection evidence."}]},
+        [f"Keep original note {i}." for i in range(5)])
+    rebuild_notes(tree)
+    assert check_note_convention(tree) == 0
+    # Legacy SVGs still use their existing x=200 convention.
+    legacy, legacy_group = notes_tree(["NOTES:", "1. Retain note"])
+    legacy_group[-1].set("x", "199")
+    assert check_note_convention(legacy) > 0
+
+
 def notes_tree(lines, region=None):
     root = ET.Element("svg", {"viewBox": "0 0 420 297"})
     group = ET.SubElement(root, "g", {"class": "general-notes", "font-size": "2"})

@@ -802,10 +802,14 @@ def check_note_convention(tree):
             if avg_spacing < 3.0 or avg_spacing > 6.0:
                 violations += 1
 
-    # Check 3: text should not extend beyond x=200 (wrap width)
+    # Check 3: respect a declared footer region; old SVGs retain x=200.
+    contexts = {context.element: context for context in iter_svg_context(tree.getroot())}
     for te in text_elems:
-        bbox = elem_bbox_approx(te)
-        if bbox and bbox.x + bbox.w > 200:
+        context = contexts.get(te)
+        region = context.notes_region if context else None
+        bbox = context.bbox if context else elem_bbox_approx(te)
+        limit = region.x + region.w if region else 200
+        if bbox and bbox.x + bbox.w > limit:
             violations += 1
             break
 

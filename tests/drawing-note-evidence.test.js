@@ -91,3 +91,20 @@ for (const [id,text,body] of [
   assert.equal(summary.semantic_quality.required_notes_present,0);
   assert.notEqual(summary.semantic_quality.decision,'pass');
 });
+
+for (const body of [
+  '<text x="10" y="10">MATERIAL</text><text x="10" y="15" data-note-id="MATERIAL">AL6061</text>',
+  '<g data-note-id="MATERIAL"><text x="10" y="10">MATERIAL</text><text x="10" y="15">AL6061</text></g>',
+]) test(`material pair retains compatible explicit identity: ${body}`, () => {
+  const drawingIntent = {required_notes:[{id:'MATERIAL',text:'Material: AL6061',required:true}]};
+  assert.equal(extract(body,drawingIntent).coverage.required_notes_extracted,1);
+  assert.equal(quality(body,drawingIntent).semantic_quality.required_notes_present,1);
+});
+
+for (const note of [
+  {id:'MATERIAL',text:'Material: AL6061',label:'Material: SS304',wrong:'MATL: SS304'},
+  {id:'GENERAL_TOLERANCE',text:'General tolerance: ±0.1',label:'General tolerance: ±0.5',wrong:'TOL ±0.5'},
+]) test(`display label cannot override authored note value: ${note.id}`, () => {
+  const drawingIntent={required_notes:[{...note,required:true}]};
+  assert.equal(extract(`<text>${note.wrong}</text>`,drawingIntent).coverage.required_notes_extracted,0);
+});
