@@ -10,6 +10,8 @@ import { validateOutputManifest } from '../lib/output-manifest.js';
 import { validateArtifactManifest } from '../lib/artifact-manifest.js';
 import { DEFAULT_CREATE_QUALITY_THRESHOLDS, validateCreateQualityReport } from '../lib/create-quality.js';
 import { buildRuntimeSmokeBoundary } from '../lib/runtime-smoke-governance.js';
+import { buildDrawingQualitySummary } from '../src/services/drawing/drawing-quality-summary.js';
+import { buildExtractedDrawingSemantics } from '../src/services/drawing/extracted-drawing-semantics.js';
 import { FIXTURES, prepareConfig } from './helpers/engineering-core-fixtures.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
@@ -35,7 +37,7 @@ const result = {
   runtime_driver_sha256: hash(import.meta.filename),
   dirty_at_start: !!spawnSync('git', ['status', '--porcelain'], { cwd: ROOT, encoding: 'utf8' }).stdout.trim(),
   environment: { os: `${platform()} ${release()}`, node: process.version },
-  commands: [], cases: [], comparisons: [], injections: [], invariances: [], anchor_cases: [], errors: [],
+  commands: [], cases: [], comparisons: [], injections: [], invariances: [], anchor_cases: [], note_injections: [], errors: [],
   notes: ['CAD runtime observations only; no physical inspection, readiness change or manufacturing approval.', 'Ignored quality/drawing sidecars cannot become canonical review evidence; linkage remains unavailable.', 'Drawing existence and intent semantics checked; visual layout NOT_RUN.'],
 };
 const save = () => writeFileSync(join(out, 'results.json'), JSON.stringify(result, null, 2) + '\n');
@@ -244,8 +246,34 @@ try {
           advisory_decision: drawingReport.semantic_quality.advisory_decision,
           required_dimensions_present: drawingReport.semantic_quality.required_dimensions_present,
           required_dimensions_total: drawingReport.semantic_quality.required_dimensions_total,
+          required_notes_present: drawingReport.semantic_quality.required_notes_present,
+          required_notes_total: drawingReport.semantic_quality.required_notes_total,
           required_blockers: drawingReport.semantic_quality.required_blockers,
         };
+        const expectedNotes = { 'quality-pass-bracket': 1, 'plate-with-holes': 3, 'hinge-block': 2 }[fixture.id];
+        assert.equal(record.drawing_semantics.required_notes_present, expectedNotes);
+        assert.equal(record.drawing_semantics.required_notes_total, expectedNotes);
+        assert.equal(drawingReport.semantic_quality.extracted_evidence.coverage.required_notes.extracted, expectedNotes);
+        if (fixture.id === 'plate-with-holes' && revision === 'A') {
+          const actualSvg = readFileSync(svg, 'utf8');
+          const observed = buildExtractedDrawingSemantics({ svgContent: actualSvg, drawingSvgPath: svg, drawingIntent: config.drawing_intent });
+          const processLabel = /<text\b[^>]*>[^<]*Process: machining[^<]*<\/text>/i;
+          assert(processLabel.test(actualSvg), 'actual process note must exist before SVG fault injection');
+          for (const [kind, changed] of [
+            ['removed', actualSvg.replace(processLabel, '')],
+            ['hidden', actualSvg.replace(processLabel, text => text.replace('<text ', '<text display="none" '))],
+            ['wrong-process', actualSvg.replace('Process: machining', 'Process: casting')],
+          ]) {
+            const faultPath = join(dir, `note-fault-${kind}.svg`); writeFileSync(faultPath, changed);
+            const summary = buildDrawingQualitySummary({ svgContent: changed, drawingSvgPath: faultPath,
+              drawingIntent: config.drawing_intent, extractedDrawingSemantics: observed });
+            assert.equal(summary.semantic_quality.required_notes_present, 2);
+            assert.equal(summary.semantic_quality.extracted_evidence.coverage.required_notes.extracted, 2);
+            result.note_injections.push({ kind, status:'DETECTED', evidence_kind:'modified_actual_svg_with_original_note_sidecar',
+              source_svg:relative(ROOT,svg), modified_svg:relative(ROOT,faultPath), sha256:hash(faultPath),
+              physical_inspection:false });
+          }
+        }
         record.layout = {
           status: layout.status, score: layout.score, completeness: layout.completeness_state,
           findings: layout.findings.map(f => ({ type: f.type, view_ids: f.view_ids, labels: f.labels })),
@@ -456,3 +484,4 @@ assert.equal(result.comparisons.length, 3);
 assert.equal(result.injections.length, 5);
 assert.equal(result.invariances.length, 1);
 assert.equal(result.anchor_cases.length, 8);
+assert.equal(result.note_injections.length, 3);

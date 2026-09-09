@@ -841,10 +841,13 @@ def compose_drawing(views_svg, name, bom, scale, bbox,
         note_x = tb_x + (112 if bom else 4)
         note_width = lz_w - (116 if bom else 8)
         note_y, note_last_y = tb_y + 5, tb_bottom - 10
+        note_columns = 2 if (note_width >= 200 and
+            estimate_notes_height(notes, note_width) > note_last_y - note_y + 4) else 1
         note_svg, _nh = render_general_notes_svg(notes, note_x, note_y, max_width=note_width)
         if note_svg:
             region = f'{note_x:g} {tb_y+2:g} {note_width:g} {note_last_y-tb_y:g}'
             attrs = (f'data-region-bounds="{region}" '
+                     f'data-layout-columns="{note_columns}" '
                      f'data-layout-x="{note_x:g}" data-layout-y-min="{note_y:g}" '
                      f'data-layout-y-max="{note_last_y:g}" data-layout-width="{note_width:g}"')
             p.append(note_svg.replace('<g ', f'<g {attrs} ', 1))

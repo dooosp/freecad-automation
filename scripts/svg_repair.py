@@ -95,6 +95,9 @@ def rebuild_notes(tree):
                        "view": "page", "reason": "Invalid or incomplete declared notes region; original content and placement retained."}],
         }
     texts_wrapped = 0
+    columns = 2 if notes_group.get("data-layout-columns") == "2" and region["width"] > 8 else 1
+    column_width = (region["width"] - (8 if columns == 2 else 0)) / columns
+    body_rows = max(1, int((region["y-max"] - region["y-min"]) / _NOTES_LINE_H))
 
     # Collect all content preserving header/body distinction
     raw_lines = []
@@ -108,7 +111,7 @@ def rebuild_notes(tree):
             font_size = _NOTES_FONT_SIZE
         if not math.isfinite(font_size) or font_size <= 0:
             font_size = _NOTES_FONT_SIZE
-        max_chars = max(1, int(region["width"] / (font_size * _NOTES_CHAR_W)))
+        max_chars = max(1, int(column_width / (font_size * _NOTES_CHAR_W)))
         wrapped = textwrap.wrap(content, width=max_chars, expand_tabs=False,
                                 replace_whitespace=False, break_long_words=True,
                                 break_on_hyphens=False) or [""]
@@ -132,12 +135,26 @@ def rebuild_notes(tree):
     lines_rendered = 0
     overflow_lines = 0
 
+    body_slot = 0
     for i, line_info in enumerate(raw_lines):
-        y = region["y-min"] + i * _NOTES_LINE_H
-        if y > region["y-max"] or line_info["width_mm"] > region["width"]:
+        column, row = 0, i
+        if columns == 2 and i:
+            # Keep a logical note together when it fits one column.
+            note_index = line_info["attrs"].get("data-note-index")
+            if note_index and note_index != raw_lines[i-1]["attrs"].get("data-note-index"):
+                length = 1
+                while i + length < len(raw_lines) and raw_lines[i+length]["attrs"].get("data-note-index") == note_index:
+                    length += 1
+                if length <= body_rows and body_slot < body_rows < body_slot + length:
+                    body_slot = body_rows
+            column = min(body_slot // body_rows, columns - 1)
+            row = body_slot - column * body_rows + 1
+            body_slot += 1
+        y = region["y-min"] + row * _NOTES_LINE_H
+        if y > region["y-max"] or line_info["width_mm"] > column_width:
             overflow_lines += 1
         new_t = ET.SubElement(notes_group, svg_tag("text"))
-        new_t.set("x", str(region["x"]))
+        new_t.set("x", str(region["x"] + column * (column_width + 8)))
         new_t.set("y", f"{y:.1f}")
         for k, v in line_info["attrs"].items():
             new_t.set(k, v)

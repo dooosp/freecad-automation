@@ -70,6 +70,21 @@ def test_wrapped_required_note_keeps_line_association_after_repair():
     assert result["summary"]["overflow"] is True
 
 
+def test_extra_required_notes_fit_two_footer_columns_without_shrinking_text():
+    tree, group = compose_notes({"required_notes":[
+        {"id":f"NOTE_{i}", "text":f"Keep required note {i}."} for i in range(1, 9)
+    ]}, ["Keep required note 1."])
+    result = rebuild_notes(tree)
+    assert result["summary"]["overflow"] is False
+    body = list(group)[1:]
+    assert {float(e.get("x")) for e in body} == {19, 129}
+    assert all(256 <= float(e.get("y")) <= 272 for e in body)
+    assert all(float(e.get("font-size", group.get("font-size"))) == 2 for e in body)
+    assert len(body) == 8
+    from qa_scorer import check_notes_overflow
+    assert check_notes_overflow(tree) is False
+
+
 def notes_tree(lines, region=None):
     root = ET.Element("svg", {"viewBox": "0 0 420 297"})
     group = ET.SubElement(root, "g", {"class": "general-notes", "font-size": "2"})
