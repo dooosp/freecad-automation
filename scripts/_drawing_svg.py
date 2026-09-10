@@ -194,7 +194,7 @@ def render_view_svg(vname, groups, bounds, circles, cx, cy, scale,
 
     return '\n'.join(out)
 
-def _dim_horizontal(x1, x2, y_base, y_dim, value_mm, tol_text=""):
+def _dim_horizontal(x1, x2, y_base, y_dim, value_mm, tol_text="", *, svg_element_id=None):
     """Horizontal dimension: extension lines + dim line + arrows + text."""
     out = []
     # Extension lines (vertical, from shape to dimension line)
@@ -212,9 +212,10 @@ def _dim_horizontal(x1, x2, y_base, y_dim, value_mm, tol_text=""):
     tx = (x1 + x2) / 2
     ty = y_dim - 1.0
     text = f"{value_mm:.1f}" if value_mm != int(value_mm) else f"{int(value_mm)}"
+    identity = f' id="{_escape(svg_element_id)}"' if svg_element_id else ""
     out.append(f'<text x="{tx:.2f}" y="{ty:.2f}" text-anchor="middle" '
                f'font-family="{DIM_FONT}" font-size="{DIM_FONT_SIZE}" '
-               f'fill="{DIM_COLOR}">{text}</text>')
+               f'fill="{DIM_COLOR}"{identity}>{text}</text>')
     # Tolerance annotation (smaller, below dimension text)
     if tol_text:
         out.append(f'<text x="{tx:.2f}" y="{ty+3.2:.2f}" text-anchor="middle" '
@@ -223,7 +224,7 @@ def _dim_horizontal(x1, x2, y_base, y_dim, value_mm, tol_text=""):
     return out
 
 
-def _dim_vertical(y1, y2, x_base, x_dim, value_mm, tol_text=""):
+def _dim_vertical(y1, y2, x_base, x_dim, value_mm, tol_text="", *, svg_element_id=None):
     """Vertical dimension: extension lines + dim line + arrows + text."""
     out = []
     # Extension lines (horizontal, from shape to dimension line)
@@ -241,9 +242,10 @@ def _dim_vertical(y1, y2, x_base, x_dim, value_mm, tol_text=""):
     tx = x_dim - 1.5
     ty = (y1 + y2) / 2
     text = f"{value_mm:.1f}" if value_mm != int(value_mm) else f"{int(value_mm)}"
+    identity = f' id="{_escape(svg_element_id)}"' if svg_element_id else ""
     out.append(f'<text x="{tx:.2f}" y="{ty:.2f}" text-anchor="middle" '
                f'font-family="{DIM_FONT}" font-size="{DIM_FONT_SIZE}" '
-               f'fill="{DIM_COLOR}" '
+               f'fill="{DIM_COLOR}"{identity} '
                f'transform="rotate(-90,{tx:.2f},{ty:.2f})">{text}</text>')
     # Tolerance annotation (smaller, offset along dimension line)
     if tol_text:
@@ -417,7 +419,12 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
         }
         if detail:
             rec.update(detail)
+        # Only these labels have stable SVG identities. A telemetry status alone
+        # cannot prove that a label survived downstream SVG processing.
+        if kind in ("overall_width", "overall_height"):
+            rec["svg_element_id"] = dim_id
         telemetry["auto_dimensions"].append(rec)
+        return rec
 
     def _record_conflict(kind, reason, *, severity="warning", detail=None):
         if telemetry is None:
@@ -485,9 +492,10 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
             _record_conflict("overall_width", "cross_view_redundant",
                              severity="info", detail={"value_mm": round(width_mm, 3)})
         elif y_dim < cell_bottom:
+            record = _record_dim("overall_width", width_mm)
             out.extend(_dim_horizontal(left, right, bottom, y_dim, width_mm,
-                                       tol_text=gen_tol))
-            _record_dim("overall_width", width_mm)
+                                       tol_text=gen_tol,
+                                       svg_element_id=record["svg_element_id"] if record else None))
             h_stack += 1
         else:
             _record_conflict("overall_width", "cell_bottom_limit",
@@ -501,9 +509,10 @@ def render_dimensions_svg(vname, bounds, circles, cx, cy, scale, arcs=None,
             _record_conflict("overall_height", "cross_view_redundant",
                              severity="info", detail={"value_mm": round(height_mm, 3)})
         elif x_dim < cell_right:
+            record = _record_dim("overall_height", height_mm)
             out.extend(_dim_vertical(top, bottom, right, x_dim, height_mm,
-                                     tol_text=gen_tol))
-            _record_dim("overall_height", height_mm)
+                                     tol_text=gen_tol,
+                                     svg_element_id=record["svg_element_id"] if record else None))
             v_stack += 1
         else:
             _record_conflict("overall_height", "cell_right_limit",

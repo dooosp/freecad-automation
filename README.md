@@ -308,6 +308,8 @@ Inside the create-quality report, `generated_shape_geometry` marks measurements 
 
 `fcad draw` also writes an additive `<base>_drawing_quality.json` summary beside the existing draw sidecars. It aggregates required-dimension coverage, conflict counts, layout overlap signals, BOM consistency, and traceability coverage into one status block. Default draw still completes with warnings, while `--strict-quality` exits non-zero when blocking draw-quality issues remain.
 
+Required-dimension coverage includes a deduplicated base-length, base-width, or overall-height intent only when its smart-dedupe reference matches a unique automatic extent label in the final SVG, with the same view, axis, and numeric value. When such links exist, `dimensions.auto_represented_dimensions` records them separately. Missing SVG identities, approximate/value-only matches, and unanchored local features remain uncovered. This is annotation coverage; model-feature traceability and other quality gates are unchanged.
+
 `fcad report` now also writes an additive `<base>_report_summary.json` beside the PDF. The summary keeps the first-page executive decision fields machine-readable:
 
 - `overall_status`: `pass | warning | fail | incomplete`
