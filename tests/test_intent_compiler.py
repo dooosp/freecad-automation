@@ -102,6 +102,12 @@ class TestBoxClassification(unittest.TestCase):
         self.assertTrue({"THK", "HOLE_DIA"}.issubset(required))
         self.assertTrue({"BORE_ID", "BEARING_SEAT", "WALL_THK"}.isdisjoint(required))
 
+    def test_flat_mount_plan_keeps_length_and_width_distinct(self):
+        plan = compile_config(mounting_plate())["drawing_plan"]
+        values = {intent["id"]: intent["value_mm"] for intent in plan["dim_intents"]}
+        self.assertEqual(values["WIDTH"], 120)
+        self.assertEqual(values["BASE_W"], 60)
+
 
 if __name__ == "__main__":
     unittest.main()

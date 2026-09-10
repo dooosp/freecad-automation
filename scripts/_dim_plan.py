@@ -20,13 +20,16 @@ DIM_EXT_OVERSHOOT = 1.5
 REVIEW_COLOR = "#D00"  # red for review markers
 
 
-def _style_bucket(di):
+def _style_bucket(di, vname=None):
     """Map plan dim_intent to a coarse style bucket for dedupe matching."""
     style = (di.get("style") or "linear").lower()
     fid = (di.get("id") or "").upper()
     if style == "diameter" or fid in DIA_FEATURES:
         return "diameter"
-    if style == "linear" and fid in V_FEATURES:
+    # In the top view, box width (model Y) is vertical, not model X.
+    top_base_width = ((vname or di.get("view")) == "top"
+                      and (di.get("feature") == "base_width" or fid == "BASE_W"))
+    if style == "linear" and (fid in V_FEATURES or top_base_width):
         return "linear_v"
     if style == "linear":
         return "linear_h"
@@ -48,7 +51,7 @@ def _auto_categories_for_bucket(bucket):
 
 
 def _find_auto_dedupe_match(di, existing_auto_dims, existing_values=None,
-                            dedupe_policy="smart", tol=0.5):
+                            dedupe_policy="smart", tol=0.5, vname=None):
     """Return dedupe match details if this plan dim duplicates auto dims.
 
     dedupe_policy:
@@ -76,7 +79,7 @@ def _find_auto_dedupe_match(di, existing_auto_dims, existing_values=None,
                     "auto_category": None,
                     "auto_value_mm": ev,
                     "delta_mm": round(delta, 4),
-                    "bucket": _style_bucket(di),
+                    "bucket": _style_bucket(di, vname),
                     "policy": policy,
                     "source": "legacy_values",
                 }
@@ -84,7 +87,7 @@ def _find_auto_dedupe_match(di, existing_auto_dims, existing_values=None,
     if not existing_auto_dims:
         return None
 
-    bucket = _style_bucket(di)
+    bucket = _style_bucket(di, vname)
     allowed = _auto_categories_for_bucket(bucket)
 
     best = None
@@ -473,6 +476,7 @@ def render_plan_dimensions_svg(
             existing_values=existing_dim_values,
             dedupe_policy=dedupe_policy,
             tol=dedupe_tol_mm if isinstance(dedupe_tol_mm, (int, float)) else 0.5,
+            vname=vname,
         )
         if dedupe_match:
             _record(
@@ -512,7 +516,7 @@ def render_plan_dimensions_svg(
             else:
                 _record(di, "skipped_view", reason="diameter_intent_requires_circular_view")
         elif style == "linear":
-            if fid in V_FEATURES:
+            if _style_bucket(di, vname) == "linear_v":
                 elems, v_stack = _render_linear_v(
                     di, bounds, cx, cy, scale, bcx, bcy, v_stack,
                     gap=eff_gap, offset=eff_offset, overshoot=eff_overshoot)
