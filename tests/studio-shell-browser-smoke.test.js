@@ -1658,6 +1658,29 @@ try {
     configName: 'optional_quality_bracket',
     reportSummary: optionalQualityReportSummary(),
   });
+  const missingQualityJob = await jobStore.createJob({
+    type: 'create',
+    config: { name: 'mount_without_qa', shapes: [{ id: 'plate', type: 'box', length: 120, width: 60, height: 3 }] },
+  });
+  const missingQualityStepPath = await jobStore.writeJobFile(
+    missingQualityJob.id,
+    'artifacts/mount_without_qa.step',
+    'ISO-10303-21;\n/* Browser smoke placeholder; no geometry validation. */\nEND-ISO-10303-21;\n'
+  );
+  const missingQualityManifest = await buildArtifactManifest({
+    projectRoot: ROOT,
+    interface: 'api', command: 'create', jobType: 'create', status: 'succeeded',
+    requestId: missingQualityJob.id,
+    artifacts: [{ type: 'model.step', path: missingQualityStepPath, label: 'STEP', scope: 'user-facing', stability: 'stable' }],
+    timestamps: { created_at: missingQualityJob.created_at, finished_at: new Date().toISOString() },
+  });
+  await jobStore.completeJob(
+    missingQualityJob.id,
+    { success: true, source: 'browser-smoke' },
+    { step: missingQualityStepPath },
+    {},
+    missingQualityManifest
+  );
   const seededJob = await jobStore.createJob({
     type: 'report',
     config: {
@@ -2527,6 +2550,21 @@ try {
     'Computed in report',
   ]);
   assertExcludesAll(optionalDashboardText, ['in_memory', 'not_available']);
+
+  await cdp.send('Page.navigate', { url: `${baseUrl}/studio/#artifacts?job=${missingQualityJob.id}` });
+  await waitForRoute(cdp, 'artifacts', { expectedHash: `#artifacts?job=${missingQualityJob.id}` });
+  const missingDashboardText = await waitForDashboardText('Quality Dashboard - mount_without_qa');
+  assertIncludesAll(missingDashboardText, [
+    'Drawing semantic QA not available for this job.',
+    'Passed checks (0)',
+    'Failed checks (0)',
+    'Not run or unavailable (4)',
+    'Required missing',
+    'Run drawing semantic QA to produce drawing_quality output.',
+  ]);
+  assertExcludesAll(missingDashboardText, [
+    'Geometry failed', 'Drawing failed', 'No drawing action required.', 'score 0',
+  ]);
 
   await cdp.evaluate(`document.querySelector('.nav-link[data-route="start"]')?.click()`);
   await waitForRoute(cdp, 'start', {
