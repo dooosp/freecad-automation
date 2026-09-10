@@ -126,9 +126,20 @@ def classify_part_type(config):
             return "bushing_plate"
 
         # Fallback for box+holes: bracket (thin) vs housing (thick)
-        box_shapes = [s for s in shapes if s.get("type") == "box"]
+        # Cut tools describe removed material, not the body's thickness.
+        box_shapes = [
+            s for s in shapes
+            if s.get("type") == "box" and s.get("id") not in cut_tools
+        ]
+        # Match the dimensions used by the box builder; retain legacy size fallback.
+        box_dimensions = [
+            [s["length"], s["width"], s["height"]]
+            if all(key in s for key in ("length", "width", "height"))
+            else s.get("size", [999, 999, 999])
+            for s in box_shapes
+        ]
         min_thickness = min(
-            (min(s.get("size", [999, 999, 999])) for s in box_shapes),
+            (min(dimensions) for dimensions in box_dimensions),
             default=999
         )
         if min_thickness < 25:
