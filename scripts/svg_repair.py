@@ -101,9 +101,13 @@ def rebuild_notes(tree):
     lines_total = len(raw_lines)
     lines_rendered = 0
     truncated = False
+    # Align short blocks above the reserved legend space. Starting every block
+    # at 236 mm moves otherwise fitting notes across the title-block border.
+    # Keep the existing upper bound and capacity for longer blocks.
+    y_start = max(_NOTES_Y_START, _NOTES_Y_MAX - (lines_total - 1) * _NOTES_LINE_H)
 
     for i, line_info in enumerate(raw_lines):
-        y = _NOTES_Y_START + i * _NOTES_LINE_H
+        y = y_start + i * _NOTES_LINE_H
         if y > _NOTES_Y_MAX:
             truncated = True
             break
