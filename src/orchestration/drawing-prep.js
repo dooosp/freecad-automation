@@ -21,7 +21,7 @@ export function ensureDrawSchema(config) {
   config.drawing.meta = config.drawing.meta || {};
   const meta = config.drawing.meta;
   meta.part_name = meta.part_name || config.name || 'unnamed';
-  meta.material = meta.material || config.material || 'UNKNOWN';
+  meta.material = meta.material || config.manufacturing?.material || config.material || 'UNKNOWN';
   meta.units = meta.units || config.drawing.units;
   meta.tolerance_grade = meta.tolerance_grade || meta.tolerance || '';
   meta.surface_roughness_default = meta.surface_roughness_default
