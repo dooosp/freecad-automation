@@ -1,6 +1,9 @@
 const en = {
   localeName: 'English',
   messages: {
+    'viewer.partName': 'Part {number}',
+    'viewer.showPart': 'Show part: {name}',
+    'viewer.visible': 'Visible',
     'locale.label': 'Language',
     'locale.option.en': 'English',
     'locale.option.ko': 'Korean',

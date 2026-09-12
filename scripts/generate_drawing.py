@@ -639,6 +639,20 @@ def place_gdt_on_view(gdt_entries, view_data, scale, planner=None):
     return placements
 
 
+def is_auto_scale_hint(scale_hint):
+    """Studio's explicit AUTO token has the same meaning as an omitted scale."""
+    return not scale_hint or str(scale_hint).strip().lower() == "auto"
+
+
+def resolve_drawing_scale(scale_hint, bbox):
+    if is_auto_scale_hint(scale_hint):
+        return nice_scale(auto_scale(bbox, CELL_W, CELL_H))
+    if ":" in str(scale_hint):
+        num, den = str(scale_hint).split(":")
+        return float(num) / float(den)
+    return float(scale_hint)
+
+
 def format_scale(scale):
     """Retain fractional fit scales instead of rounding them to a false ratio."""
     value = 1 / scale if scale < 1 else scale
@@ -1426,7 +1440,7 @@ def build_layout_report(view_data, scale, requested_scale=None, initial_scale=No
         }
 
     initial_scale = scale if initial_scale is None else initial_scale
-    explicit = bool(requested_scale)
+    explicit = not is_auto_scale_hint(requested_scale)
     adjusted = not math.isclose(scale, initial_scale, rel_tol=1e-9, abs_tol=1e-12)
     return {
         "page": {
@@ -1641,15 +1655,7 @@ try:
     bbox = tight_bbox(compound)
     log(f"  BBox: {bbox.XLength:.1f} x {bbox.YLength:.1f} x {bbox.ZLength:.1f} mm")
 
-    if scale_hint:
-        if ":" in str(scale_hint):
-            num, den = str(scale_hint).split(":")
-            scale = float(num) / float(den)
-        else:
-            scale = float(scale_hint)
-    else:
-        raw = auto_scale(bbox, CELL_W, CELL_H)
-        scale = nice_scale(raw)
+    scale = resolve_drawing_scale(scale_hint, bbox)
 
     log(f"  Scale: {scale}")
 

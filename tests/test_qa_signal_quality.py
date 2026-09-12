@@ -8,12 +8,14 @@ signals keep high precision/recall as rules evolve.
 import os
 import sys
 import xml.etree.ElementTree as ET
+import pytest
 
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(PROJECT_ROOT, "scripts"))
 
-from qa_scorer import collect_metrics, extract_issue_signals  # noqa: E402
+from qa_scorer import (collect_metrics, extract_issue_signals,
+                       check_required_presence, check_value_consistency)  # noqa: E402
 
 
 SVG_NS = "http://www.w3.org/2000/svg"
@@ -35,6 +37,40 @@ def _svg_tree(*elements):
         "</svg>"
     )
     return ET.ElementTree(ET.fromstring(raw))
+
+
+@pytest.mark.parametrize("auto_first", [False, True])
+@pytest.mark.parametrize("actual, presence, inconsistent", [(95, 100, 0), (92, 0, 1)])
+def test_mixed_auto_and_planned_dimensions_are_order_independent(auto_first, actual, presence, inconsistent):
+    # Match generated SVG semantics: planned metadata precedes auto_top_003 in another view.
+    planned = '<g class="dimensions-front plan-dimensions-front"><text data-dim-id="HEIGHT" data-value-mm="38">38</text></g>'
+    automatic = f'<g class="dimensions-top"><g><text id="auto_top_003">{actual}</text></g></g>'
+    plan = {"dim_intents": [{"id": "BASE_W", "value_mm": 95, "required": True}]}
+    tree = _svg_tree(*( [automatic, planned] if auto_first else [planned, automatic] ))
+    assert check_required_presence(tree, plan) == (presence, 1, [] if presence else ["BASE_W"])
+    assert check_value_consistency(tree, plan) == inconsistent
+
+
+@pytest.mark.parametrize("with_metadata", [False, True])
+def test_required_dimension_does_not_match_numeric_titles_notes_or_unrelated_text(with_metadata):
+    elements = [
+        '<text>95</text>', '<g class="title-block"><text>95</text></g>',
+        '<g class="general-notes"><text>95 pieces</text></g>',
+        '<g class="dimensions-top"><title>95</title><desc>95</desc><text>92</text></g>',
+    ]
+    if with_metadata:
+        elements.append('<g class="dimensions-front"><text data-dim-id="HEIGHT" data-value-mm="38">38</text></g>')
+    tree = _svg_tree(*elements)
+    plan = {"dim_intents": [{"id": "BASE_W", "value_mm": 95, "required": True}]}
+    assert check_required_presence(tree, plan) == (0, 1, ["BASE_W"])
+    assert check_value_consistency(tree, plan) == 1
+
+
+def test_dimension_metadata_is_preferred_per_element_not_for_the_whole_svg():
+    tree = _svg_tree('<g class="dimensions-top"><text data-dim-id="BASE_W" data-value-mm="92">95</text></g>')
+    plan = {"dim_intents": [{"id": "BASE_W", "value_mm": 95, "required": True}]}
+    assert check_required_presence(tree, plan) == (0, 1, ["BASE_W"])
+    assert check_value_consistency(tree, plan) == 1
 
 
 def _plan(required_view="front", required_value=10):

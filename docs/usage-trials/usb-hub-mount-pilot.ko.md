@@ -103,7 +103,7 @@ comparison.ko.md                 결과 비교와 다음 행동 하나
 
 ## 7. 새 세션의 코덱스에게 전달할 현재 상태
 
-- 저장소: `/Users/jangtaeho/cad-projects/freecad-automation`
+- 저장소: `freecad-automation` 저장소 루트
 - 확인된 기능 기준 커밋: `82f7a17e267b448776c52156f6c890e836d5a58e`
 - 이 문서를 작성한 브랜치: `codex/mega-studio-api-contract-fuzz-audit`
 - 2026-09-12 확인 당시 기본 브랜치는 `master`다. 다음 세션은 현재 상태와 기준 커밋 포함 여부를 다시 확인한다. 문서나 기준 커밋이 현재 체크아웃에 없으면 위 원격 브랜치를 확인한다. 브랜치를 바꾸거나 격리가 필요하면 AGENTS.md에 따라 새 worktree를 사용한다.
@@ -115,7 +115,7 @@ comparison.ko.md                 결과 비교와 다음 행동 하나
 다음 시작 지시문을 사용한다.
 
 ```text
-/Users/jangtaeho/cad-projects/freecad-automation에서
+freecad-automation 저장소 루트에서
 docs/usage-trials/usb-hub-mount-pilot.ko.md를 읽고 첫 실사용 시험을 진행해줘.
 repo preflight와 기준 커밋 82f7a17 포함 여부를 먼저 확인해줘.
 목표는 내가 실제 사용하는 USB 허브의 고정 문제를 해결하는 평판 한 개야.

@@ -9,11 +9,12 @@ import { TestElement, installDrawingTestDom, drawingWorkspaceRoot } from './help
 
 const barrel = new URL('../public/js/app/index.js', import.meta.url).href;
 const hooks = registerHooks({ load(url, context, nextLoad) {
-  if (url === barrel) return { format: 'module', shortCircuit: true, source: "export { createDrawingRenderer } from './drawing.js'; export { createViewerStore } from './store.js'; export const initScene = () => new Proxy({}, { get: () => () => {} }); export const createAnimationController = () => new Proxy({}, { get: () => () => {} }); export const renderModelInfo = () => {};" };
+  if (url === barrel) return { format: 'module', shortCircuit: true, source: "export { createDrawingRenderer } from './drawing.js'; export { createViewerStore } from './store.js'; export const sceneCalls = []; export const initScene = () => { const calls = []; sceneCalls.push(calls); return new Proxy({}, { get: (_, method) => (...args) => { calls.push([method, ...args]); } }); }; export const createAnimationController = () => new Proxy({}, { get: () => () => {} }); export const renderModelInfo = () => {};" };
   return nextLoad(url, context);
 } });
 const { mountDrawingWorkspace } = await import('../public/js/studio/drawing-workspace.js');
 const { mountModelWorkspace } = await import('../public/js/studio/model-workspace.js');
+const { sceneCalls } = await import(barrel);
 hooks.deregister();
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 const preview = (id = 'A', value = 142) => ({ id, svg: '<svg/>', drawn_at: String(value), dimensions: [{ id: 'WIDTH', value_mm: value }], editable_plan_available: true });
@@ -25,7 +26,7 @@ function setup(t) {
   t.after(() => { if (savedCss === undefined) delete globalThis.CSS; else globalThis.CSS = savedCss; });
   const savedFetch = globalThis.fetch;
   const requests = [];
-  globalThis.fetch = (url, options) => new Promise((resolve, reject) => requests.push({ url, body: JSON.parse(options.body), resolve: (payload) => resolve({ ok: true, json: async () => payload }), reject }));
+  globalThis.fetch = (url, options = {}) => new Promise((resolve, reject) => requests.push({ url, body: options.body ? JSON.parse(options.body) : undefined, resolve: (payload) => resolve({ ok: true, json: async () => payload, arrayBuffer: async () => payload }), reject }));
   const state = createStudioShellState();
   state.connectionState = 'connected';
   state.data.health.available = true;
@@ -169,6 +170,54 @@ function mountModel(t, state, callbacks = {}) {
   t.after(() => controller.destroy());
   return { root, controller, click: (hook) => root.querySelector(`[data-hook="${hook}"]`).dispatch('click', {}) };
 }
+
+test('delayed assembly assets receive current viewport options after each mesh load and locale remount', async (t) => {
+  const { state, requests } = setup(t);
+  state.data.model.preview = { id: 'cam-preview', assembly: { part_files: [
+    { ref: 'cam', asset_url: '/assets/cam.stl' }, { ref: 'base', asset_url: '/assets/base.stl' },
+  ] } };
+  state.data.model.controls = { wireframe: true, opacity: 54, edges: false };
+  function assertAppliedAfterLoad(calls, expected) {
+    const loaded = calls.findLastIndex(([method]) => method === 'addPartMesh');
+    assert.ok(loaded >= 0, 'asset reaches the scene');
+    const afterLoad = calls.slice(loaded + 1);
+    for (const [method, value] of Object.entries(expected)) {
+      assert.deepEqual(afterLoad.findLast(([name]) => name === method), [method, value],
+        `${method} must reach freshly loaded materials, not only the empty scene`);
+    }
+  }
+  const first = mountModel(t, state);
+  const firstCalls = sceneCalls.at(-1);
+  requests[0].resolve(new ArrayBuffer(4)); await settle();
+  assertAppliedAfterLoad(firstCalls, { setWireframe: true, updateOpacity: 0.54, setEdgesVisible: false });
+  // Options may change while another part is still being fetched.
+  state.data.model.controls = { wireframe: false, opacity: 72, edges: true };
+  first.controller.syncFromShell();
+  requests[1].resolve(new ArrayBuffer(4)); await settle();
+  assertAppliedAfterLoad(firstCalls, { setWireframe: false, updateOpacity: 0.72, setEdgesVisible: true });
+  first.controller.destroy();
+  setLocale('ko', { persist: false });
+  mountModel(t, state);
+  const remountCalls = sceneCalls.at(-1);
+  requests[2].resolve(new ArrayBuffer(4)); await settle();
+  requests[3].resolve(new ArrayBuffer(4)); await settle();
+  assertAppliedAfterLoad(remountCalls, { setWireframe: false, updateOpacity: 0.72, setEdgesVisible: true });
+});
+
+test('delayed single-part asset receives current viewport options after replacement', async (t) => {
+  const { state, requests } = setup(t);
+  state.data.model.preview = { id: 'plate-preview', model_asset_url: '/assets/plate.stl' };
+  state.data.model.controls = { wireframe: true, opacity: 54, edges: false };
+  mountModel(t, state);
+  const calls = sceneCalls.at(-1);
+  requests[0].resolve(new ArrayBuffer(4)); await settle();
+  const loaded = calls.findLastIndex(([method]) => method === 'loadStl');
+  assert.ok(loaded >= 0);
+  const afterLoad = calls.slice(loaded + 1);
+  for (const [method, value] of [['setWireframe', true], ['updateOpacity', 0.54], ['setEdgesVisible', false]]) {
+    assert.deepEqual(afterLoad.findLast(([name]) => name === method), [method, value]);
+  }
+});
 
 test('model build retains newer typed input and marks its older result stale', async (t) => {
   const { state, requests } = setup(t); const model = mountModel(t, state);
