@@ -57,6 +57,14 @@ The migration/validation layer currently applies these safe defaults when the re
 - `export.formats = ["step"]`
 - `fem.analysis_type = "static"`
 
+## Automatic Drawing Plans
+
+Without an explicit `drawing_plan.part_type`, the intent compiler selects a drawing template from the input shapes and operations. A single horizontal box with canonical `length`, `width`, and `height`, where `0 < height < min(length, width, 25)` mm, uses the `plate` template when its only operations are a sequential chain of cylinder cuts ending at `final` (or the last operation when `final` is omitted). The body and holes must have no rotation, and the cylinders must use the default positive Z direction. Existing assembly, section-view, fused-bracket, and six-or-more-hole bushing-plate rules take precedence.
+
+The flat-plate plan requires `WIDTH`, `HEIGHT`, `THK`, `HOLE_DIA`, and `BASE_W`. It does not invent a `WEB_H` requirement. It reuses the previous bracket QA weight preset; the remaining quality gates still apply. Other geometry and legacy `size` inputs retain the existing classification rules. This is input-based template selection, not proof of valid geometry or manufacturing suitability.
+
+An explicit `drawing_plan.part_type = "bracket"` continues to select the bracket template with its required `WEB_H`. User `dim_intents` still patch the selected template by ID, including additional requirements and explicit values; automatic classification does not remove them.
+
 ## Drawing Intent
 
 `drawing_intent` is optional semantic metadata for what a generated drawing is expected to communicate. It can describe part type, process, material, critical features, required dimensions, required notes, datum strategy, required views, drawing standard, tolerance policy, and `missing_semantics_policy`.
