@@ -15,7 +15,7 @@ import {
 } from './drawing-preview-copy.js';
 import { applyTranslations } from '../i18n/index.js';
 import { syncSectionBadges } from './renderers.js';
-import { drawingWorkspaceBadges, drawingWorkspaceSummary, workingConfigRows } from './workbench-presentation.js';
+import { drawingInputSnapshot, isDrawingPreviewStale, STALE_DRAWING_COPY, drawingWorkspaceBadges, drawingWorkspaceSummary, workingConfigRows } from './workbench-presentation.js';
 
 function ensureDrawingState(drawing = {}) {
   drawing.status = drawing.status || 'idle';
@@ -169,8 +169,9 @@ export function mountDrawingWorkspace({
   loadSelectedExampleIntoSharedModel,
   loadConfigFileIntoSharedModel,
   submitTrackedJob,
+  onDraftChange = () => {},
 }) {
-  const drawing = ensureDrawingState(state.data.drawing);
+  let drawing = ensureDrawingState(state.data.drawing);
   const viewerStore = createViewerStore();
   viewerStore.state.dimensions.history = structuredClone(drawing.history);
   viewerStore.state.dimensions.index = drawing.historyIndex;
@@ -201,10 +202,29 @@ export function mountDrawingWorkspace({
   const trackedRunButton = root.querySelector('[data-hook="drawing-tracked-run"]');
   const trackedStatusElement = root.querySelector('[data-hook="drawing-tracked-status"]');
   const configFileInput = root.querySelector('[data-hook="drawing-config-file"]');
+  const exampleSelect = root.querySelector('[data-hook="example-select"]');
 
   let destroyed = false;
   let renderedSignature = '';
   let drawingRenderer = null;
+  let dimensionsSignature = '';
+
+  function requestIsCurrent(request) {
+    if (state.data.drawing !== drawing || drawing.activeRequest !== request) return false;
+    if (request.input === drawingInputSnapshot(state.data.model, drawing.settings)) return true;
+    drawing.activeRequest = null;
+    drawing.status = drawing.preview ? 'ready' : 'idle';
+    drawing.summary = STALE_DRAWING_COPY;
+    drawingRenderer?.clearPendingEdit();
+    syncAll();
+    return false;
+  }
+
+  function startRequest() {
+    const request = { input: drawingInputSnapshot(state.data.model, drawing.settings), settings: structuredClone(drawing.settings) };
+    drawing.activeRequest = request;
+    return request;
+  }
 
   function syncSettingsFromControls() {
     const views = viewInputs
@@ -226,6 +246,7 @@ export function mountDrawingWorkspace({
     const canPreview = apiReady && runtimeReady && hasConfig && drawing.status !== 'generating';
     const canRunTracked = canPreview && drawing.trackedRun.submitting !== true;
 
+    if (exampleSelect) exampleSelect.value = state.data.examples.selectedId || '';
     const views = new Set(drawing.settings.views || []);
     viewInputs.forEach((input) => {
       input.checked = views.has(input.dataset.view);
@@ -245,8 +266,9 @@ export function mountDrawingWorkspace({
     syncSectionBadges(root, drawingWorkspaceBadges(state));
     const runtimeAvailable = state.data.health.status === 'ready' && state.data.health.available;
     const hasConfig = Boolean(state.data.model.configText?.trim());
-    const ready = drawing.status === 'ready' && drawing.preview?.svg;
-    const tone = ready ? 'ok' : drawing.status === 'error' ? 'bad' : drawing.status === 'generating' ? 'warn' : 'info';
+    const stale = isDrawingPreviewStale(drawing, state.data.model);
+    const ready = drawing.status === 'ready' && drawing.preview?.svg && !stale;
+    const tone = stale ? 'warn' : ready ? 'ok' : drawing.status === 'error' ? 'bad' : drawing.status === 'generating' ? 'warn' : 'info';
 
     setSurface(
       sourceSurface,
@@ -266,14 +288,14 @@ export function mountDrawingWorkspace({
     );
     setSurface(
       jobSurface,
-      drawing.status === 'generating' ? 'Generating' : ready ? 'Drawing ready' : drawing.status === 'error' ? 'Drawing failed' : 'No drawing yet',
-      drawing.summary || 'Preview Drawing iterates locally, while tracked drawing uses the shell monitor and recent jobs list.',
+      stale ? 'Drawing needs regeneration' : drawing.status === 'generating' ? 'Generating' : ready ? 'Drawing ready' : drawing.status === 'error' ? 'Drawing failed' : 'No drawing yet',
+      stale ? STALE_DRAWING_COPY : drawing.summary || 'Preview Drawing iterates locally, while tracked drawing uses the shell monitor and recent jobs list.',
       tone,
     );
     setSurface(
       resultSurface,
-      ready ? 'Sheet ready' : drawing.status === 'error' ? 'Last run failed' : 'Sheet pending',
-      ready
+      stale ? 'Previous sheet' : ready ? 'Sheet ready' : drawing.status === 'error' ? 'Last run failed' : 'Sheet pending',
+      stale ? STALE_DRAWING_COPY : ready
         ? buildDrawingPreviewResultSummary(drawing.preview, drawing.settings)
         : (drawing.errorMessage || 'BOM, annotations, QA, and dimension status summarize here after the first render.'),
       tone,
@@ -346,7 +368,12 @@ export function mountDrawingWorkspace({
 
   async function updateDimension({ dimId, valueMm, historyOp = 'edit' }) {
     const previewId = drawing.preview?.id;
-    if (!previewId) return;
+    if (!previewId || isDrawingPreviewStale(drawing, state.data.model)) {
+      drawingRenderer?.clearPendingEdit();
+      return;
+    }
+    const request = startRequest();
+    const submittedDraft = drawing.dimensionDrafts?.[dimId];
 
     drawing.status = 'generating';
     drawing.errorMessage = '';
@@ -359,7 +386,10 @@ export function mountDrawingWorkspace({
         value_mm: valueMm,
         history_op: historyOp,
       });
+      if (!requestIsCurrent(request)) return;
       drawingRenderer?.handleDimensionUpdated(payload.update);
+      if (drawing.dimensionDrafts?.[dimId] === submittedDraft) delete drawing.dimensionDrafts[dimId];
+      drawing.activeRequest = null;
       drawing.status = 'ready';
       drawing.errorMessage = '';
       drawing.preview = payload.preview;
@@ -372,6 +402,8 @@ export function mountDrawingWorkspace({
       });
       syncAll();
     } catch (error) {
+      if (!requestIsCurrent(request)) return;
+      drawing.activeRequest = null;
       drawing.errorMessage = error instanceof Error ? error.message : String(error);
       drawing.summary = drawing.errorMessage;
       drawingRenderer?.clearPendingEdit();
@@ -387,6 +419,15 @@ export function mountDrawingWorkspace({
 
   function syncDimensions() {
     const dimensions = drawing.preview?.dimensions || [];
+    const owner = JSON.stringify([previewReference(drawing.preview || {}), drawingInputSnapshot(state.data.model, drawing.settings)]);
+    if (drawing.dimensionDraftOwner !== owner) {
+      drawing.dimensionDraftOwner = owner;
+      drawing.dimensionDrafts = Object.create(null);
+      drawing.dimensionFocus = '';
+    }
+    const signature = JSON.stringify([owner, dimensions, drawing.preview?.editable_plan_available, isDrawingPreviewStale(drawing, state.data.model)]);
+    if (dimensionsSignature === signature) return;
+    dimensionsSignature = signature;
     if (!dimensions.length) {
       const note = document.createElement('p');
       note.className = 'inline-note';
@@ -425,7 +466,7 @@ export function mountDrawingWorkspace({
         input.type = 'number';
         input.step = '0.1';
         input.min = '0.01';
-        input.value = formatNumber(dimension.value_mm);
+        input.value = drawing.dimensionDrafts[dimension.id] ?? formatNumber(dimension.value_mm);
         input.dataset.dimId = dimension.id;
 
         const applyButton = document.createElement('button');
@@ -434,12 +475,15 @@ export function mountDrawingWorkspace({
         applyButton.textContent = 'Apply';
         applyButton.dataset.action = 'drawing-apply-dimension';
         applyButton.dataset.dimId = dimension.id;
+        applyButton.disabled = isDrawingPreviewStale(drawing, state.data.model);
 
         controls.append(input, applyButton);
         card.append(copy, controls);
         return card;
       })
     );
+    const focused = [...dimensionsElement.querySelectorAll('input[data-dim-id]')].find((input) => input.dataset.dimId === drawing.dimensionFocus);
+    focused?.focus();
   }
 
   function syncHistory() {
@@ -469,7 +513,7 @@ export function mountDrawingWorkspace({
   }
 
   function syncSummary() {
-    summaryElement.textContent = drawingWorkspaceSummary(drawing);
+    summaryElement.textContent = drawingWorkspaceSummary(drawing, state.data.model);
   }
 
   function syncTrackedStatus() {
@@ -533,6 +577,25 @@ export function mountDrawingWorkspace({
 
   function syncAll() {
     if (destroyed) return;
+    // Shared source loaders replace the drawing owner without remounting this UI.
+    // Rebind before accepting another request, and detach the former plan's state.
+    if (state.data.drawing !== drawing) {
+      drawing = ensureDrawingState(state.data.drawing);
+      viewerStore.state.dimensions.history = structuredClone(drawing.history);
+      viewerStore.state.dimensions.index = drawing.historyIndex;
+      viewerStore.state.drawing.lastPlanPath = previewReference(drawing.preview || {});
+      // clearPendingEdit synchronously publishes viewer history to this owner.
+      drawingRenderer?.clearPendingEdit();
+      renderedSignature = '';
+      dimensionsSignature = '';
+    }
+    if (drawing.activeRequest && drawing.activeRequest.input !== drawingInputSnapshot(state.data.model, drawing.settings)) {
+      drawing.activeRequest = null;
+      drawing.status = drawing.preview ? 'ready' : 'idle';
+      drawing.summary = STALE_DRAWING_COPY;
+      drawingRenderer?.clearPendingEdit();
+    }
+    onDraftChange();
     syncControls();
     syncSourceSummary();
     syncStatusSurfaces();
@@ -558,6 +621,7 @@ export function mountDrawingWorkspace({
     }
 
     syncSettingsFromControls();
+    const request = startRequest();
     drawing.status = 'generating';
     drawing.errorMessage = '';
     drawing.summary = 'Generating drawing, sheet QA, and drawing-sidecar data...';
@@ -566,10 +630,13 @@ export function mountDrawingWorkspace({
     try {
       const payload = await postJson('/api/studio/drawing-preview', {
         config_toml: configToml,
-        drawing_settings: drawing.settings,
+        drawing_settings: request.settings,
       });
+      if (!requestIsCurrent(request)) return;
+      drawing.activeRequest = null;
       drawing.status = 'ready';
       drawing.preview = payload.preview;
+      drawing.previewInputSnapshot = request.input;
       if (state.data.model.configText.trim() === configToml) {
         state.data.model.overview = payload.preview.overview || state.data.model.overview;
       }
@@ -582,6 +649,8 @@ export function mountDrawingWorkspace({
       });
       syncAll();
     } catch (error) {
+      if (!requestIsCurrent(request)) return;
+      drawing.activeRequest = null;
       drawing.status = 'error';
       drawing.errorMessage = error instanceof Error ? error.message : String(error);
       drawing.summary = drawing.errorMessage;
@@ -615,7 +684,7 @@ export function mountDrawingWorkspace({
         type: 'draw',
         configToml,
         drawingSettings: drawing.settings,
-        drawingPreviewId: drawing.preview?.id || '',
+        drawingPreviewId: isDrawingPreviewStale(drawing, state.data.model) ? '' : drawing.preview?.id || '',
         completionAction: {
           type: 'open-artifacts-on-success',
           route: 'artifacts',
@@ -708,6 +777,11 @@ export function mountDrawingWorkspace({
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
 
+    if (target === exampleSelect) {
+      state.data.examples.selectedId = exampleSelect.value;
+      return;
+    }
+
     if (target === configFileInput) {
       const [file] = [...(configFileInput.files || [])];
       if (file) {
@@ -720,10 +794,18 @@ export function mountDrawingWorkspace({
 
     if (target.matches('[data-hook="drawing-view"], [data-hook="drawing-scale"], [data-hook="drawing-section-assist"], [data-hook="drawing-detail-assist"]')) {
       syncSettingsFromControls();
-      syncSummary();
+      syncAll();
     }
   }
 
+  function handleDraftInput(event) {
+    const target = event.target;
+    if (!target?.matches?.('input[data-dim-id]')) return;
+    drawing.dimensionDrafts[target.dataset.dimId] = target.value;
+    drawing.dimensionFocus = target.dataset.dimId;
+  }
+
+  root.addEventListener('input', handleDraftInput);
   root.addEventListener('click', handleClick);
   root.addEventListener('change', handleChange);
 
@@ -770,6 +852,7 @@ export function mountDrawingWorkspace({
     destroy() {
       destroyed = true;
       drawingRenderer?.destroy?.();
+      root.removeEventListener('input', handleDraftInput);
       root.removeEventListener('click', handleClick);
       root.removeEventListener('change', handleChange);
     },

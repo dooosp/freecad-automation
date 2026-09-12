@@ -1,3 +1,4 @@
+import { drawingInputSnapshot } from '../public/js/studio/workbench-presentation.js';
 import assert from 'node:assert/strict';
 import { registerHooks } from 'node:module';
 import { test } from 'node:test';
@@ -71,6 +72,8 @@ function setupWorkspace(t, index = 0) {
   setLocale('en', { persist: false });
   const preview = { id: 'A', preview_reference: 'preview-A', svg: '<svg viewBox="0 0 400 300"/>', drawn_at: '2026-01-01', dimensions: [] };
   const state = { connectionState: 'connected', data: { drawing: { status: 'ready', preview, history: [structuredClone(edit)], historyIndex: index }, health: { available: true }, model: { configText: '[model]' }, recentJobs: { items: [] } } };
+  state.data.drawing.settings = { views: ['front', 'top', 'right', 'iso'], scale: 'auto', section_assist: false, detail_assist: false };
+  state.data.drawing.previewInputSnapshot = drawingInputSnapshot(state.data.model, state.data.drawing.settings);
   const mounts = [];
   function mount() {
     const root = drawingWorkspaceRoot();

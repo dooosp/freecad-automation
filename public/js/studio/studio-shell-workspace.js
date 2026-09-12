@@ -89,6 +89,7 @@ export function createStudioWorkspaceController(app) {
           root: app.elements.workspaceRoot,
           state: app.state,
           addLog: app.addLog,
+          onDraftChange: app.persistDraft,
           submitTrackedJob: app.submitTrackedStudioRun,
         })
       );
@@ -98,6 +99,7 @@ export function createStudioWorkspaceController(app) {
           root: app.elements.workspaceRoot,
           state: app.state,
           addLog: app.addLog,
+          onDraftChange: app.persistDraft,
           navigateTo: app.navigateTo,
           openJob: app.openJob,
           loadSelectedExampleIntoSharedModel,
@@ -117,6 +119,12 @@ export function createStudioWorkspaceController(app) {
       ...app.state.data.drawing,
       status: 'idle',
       summary: 'Generate drawing to open the sheet-first workbench.',
+      activeRequest: null,
+      previewInputSnapshot: null,
+      dimensionDraftOwner: '',
+      dimensionDrafts: {},
+      dimensionFocus: '',
+      historyPlanReference: '',
       errorMessage: '',
       preview: null,
       history: [],
@@ -142,6 +150,7 @@ export function createStudioWorkspaceController(app) {
   }) {
     app.state.data.model = {
       ...app.state.data.model,
+      recoveredDraft: false,
       sourceType,
       sourceName,
       sourcePath,

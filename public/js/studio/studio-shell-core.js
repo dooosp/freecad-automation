@@ -1,3 +1,4 @@
+import { persistStudioDraft, restoreStudioDraft, studioSessionStorage } from './studio-draft-recovery.js';
 import { buildStudioArtifactRef, deriveStudioArtifactFamily } from './artifact-actions.js';
 import {
   buildCanonicalArtifactPreviewRoute,
@@ -153,7 +154,12 @@ export function bootStudioShell({
     app.dom.renderLogs();
   };
 
+  const draftStorage = studioSessionStorage(windowRef);
+  restoreStudioDraft(app.state, draftStorage);
+  app.persistDraft = () => persistStudioDraft(app.state, draftStorage);
+
   app.commitRender = function commitRender() {
+    app.persistDraft();
     syncDerivedState();
     app.dom.syncChrome();
     app.dom.renderCompletionNotice();
@@ -767,6 +773,10 @@ export function bootStudioShell({
       app.state.data.model.editingEnabled = true;
     }
   });
+
+  app.elements.workspaceRoot.addEventListener('input', () => app.persistDraft());
+  app.elements.workspaceRoot.addEventListener('change', () => app.persistDraft());
+  windowRef.addEventListener('pagehide', () => app.persistDraft());
 
   windowRef.addEventListener('hashchange', app.routing.handleHashChange);
   app.elements.workspaceNav.addEventListener('keydown', app.routing.handleNavKeydown);
