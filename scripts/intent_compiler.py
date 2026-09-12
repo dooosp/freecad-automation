@@ -411,7 +411,25 @@ def merge_plan(config, template):
         plan["notes"] = {}
         plan["scale"] = {"mode": "auto", "min": 0.4, "max": 2.5}
 
-    # Override with existing plan values (config explicit > template)
+    # Legacy drawing fields override template defaults. Normalize only the
+    # supported input shapes into their drawing_plan counterparts.
+    drawing = config.get("drawing", {})
+    if isinstance(drawing, dict):
+        drawing_overrides = {}
+        drawing_views = drawing.get("views")
+        if isinstance(drawing_views, list):
+            drawing_overrides["views"] = {"enabled": drawing_views}
+
+        drawing_notes = drawing.get("notes")
+        if isinstance(drawing_notes, list):
+            drawing_overrides["notes"] = {"general": drawing_notes}
+        elif (isinstance(drawing_notes, dict)
+              and isinstance(drawing_notes.get("general"), list)):
+            drawing_overrides["notes"] = {"general": drawing_notes["general"]}
+
+        _deep_merge(plan, drawing_overrides)
+
+    # Existing drawing_plan values have final priority over drawing fields.
     _deep_merge(plan, existing_plan)
 
     # Override part_type if explicitly set

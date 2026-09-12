@@ -229,5 +229,71 @@ class TestBoxClassification(unittest.TestCase):
         self.assertIn("V4:", result.stderr)
 
 
+class TestDrawingInputPrecedence(unittest.TestCase):
+    def test_explicit_drawing_views_and_list_notes_override_template_defaults(self):
+        config = mounting_plate()
+        config["drawing"] = {
+            "views": ["front", "top", "right"],
+            "notes": ["EXPLICIT USER NOTE - KEEP"],
+        }
+
+        plan = compile_config(config)["drawing_plan"]
+
+        self.assertEqual(plan["views"]["enabled"], ["front", "top", "right"])
+        self.assertEqual(plan["notes"]["general"], ["EXPLICIT USER NOTE - KEEP"])
+        self.assertEqual(plan["notes"]["placement"], "bottom_left")
+
+    def test_explicit_drawing_notes_object_is_preserved(self):
+        config = mounting_plate()
+        config["drawing"] = {
+            "notes": {"general": ["OBJECT-SHAPED USER NOTE - KEEP"]},
+        }
+
+        notes = compile_config(config)["drawing_plan"]["notes"]
+
+        self.assertEqual(notes["general"], ["OBJECT-SHAPED USER NOTE - KEEP"])
+        self.assertEqual(notes["placement"], "bottom_left")
+
+    def test_explicit_empty_drawing_notes_do_not_restore_template_notes(self):
+        config = mounting_plate()
+        config["drawing"] = {"notes": []}
+
+        notes = compile_config(config)["drawing_plan"]["notes"]
+
+        self.assertEqual(notes["general"], [])
+        self.assertEqual(notes["placement"], "bottom_left")
+
+    def test_partial_plan_overrides_notes_while_drawing_supplies_views(self):
+        config = mounting_plate()
+        config["drawing"] = {
+            "views": ["front", "top", "right"],
+            "notes": ["DRAWING NOTE"],
+        }
+        config["drawing_plan"] = {
+            "notes": {"general": ["EXPLICIT PLAN NOTE - KEEP"]},
+        }
+
+        plan = compile_config(config)["drawing_plan"]
+
+        self.assertEqual(plan["views"]["enabled"], ["front", "top", "right"])
+        self.assertEqual(plan["notes"]["general"], ["EXPLICIT PLAN NOTE - KEEP"])
+
+    def test_explicit_plan_views_and_notes_win_over_drawing_fields(self):
+        config = mounting_plate()
+        config["drawing"] = {
+            "views": ["front", "top", "right"],
+            "notes": ["DRAWING NOTE"],
+        }
+        config["drawing_plan"] = {
+            "views": {"enabled": ["front", "top", "right", "iso"]},
+            "notes": {"general": ["PLAN NOTE"]},
+        }
+
+        plan = compile_config(config)["drawing_plan"]
+
+        self.assertEqual(plan["views"]["enabled"], ["front", "top", "right", "iso"])
+        self.assertEqual(plan["notes"]["general"], ["PLAN NOTE"])
+
+
 if __name__ == "__main__":
     unittest.main()
