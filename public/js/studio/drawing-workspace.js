@@ -174,6 +174,9 @@ export function mountDrawingWorkspace({
   const viewerStore = createViewerStore();
   viewerStore.state.dimensions.history = structuredClone(drawing.history);
   viewerStore.state.dimensions.index = drawing.historyIndex;
+  // Restore the history owner too, so mounting the same preview keeps its undo cursor.
+  // Older in-memory state predates the owner field and belongs to its current preview.
+  viewerStore.state.drawing.lastPlanPath = drawing.historyPlanReference ?? previewReference(drawing.preview || {});
 
   const runtimeSurface = root.querySelector('[data-hook="drawing-runtime-surface"]');
   const sourceSurface = root.querySelector('[data-hook="drawing-source-surface"]');
@@ -442,6 +445,7 @@ export function mountDrawingWorkspace({
   function syncHistory() {
     drawing.history = structuredClone(viewerStore.state.dimensions.history);
     drawing.historyIndex = viewerStore.state.dimensions.index;
+    drawing.historyPlanReference = viewerStore.state.drawing.lastPlanPath;
 
     if (!drawing.history.length) {
       const note = document.createElement('p');
@@ -458,7 +462,7 @@ export function mountDrawingWorkspace({
         .reverse()
         .map((entry, index) => ({
           label: `${entry.dimId}: ${entry.oldValue} -> ${entry.newValue}`,
-          meta: index === 0 ? 'Latest' : `${drawing.history.length - index}`,
+          meta: drawing.history.length - index - 1 <= drawing.historyIndex ? 'Applied' : 'Undone',
         })),
       'Dimension history will appear here after the first change.'
     );
