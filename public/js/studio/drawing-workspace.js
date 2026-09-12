@@ -17,6 +17,9 @@ import { applyTranslations } from '../i18n/index.js';
 import { syncSectionBadges } from './renderers.js';
 import { drawingInputSnapshot, isDrawingPreviewStale, STALE_DRAWING_COPY, drawingWorkspaceBadges, drawingWorkspaceSummary, workingConfigRows } from './workbench-presentation.js';
 
+// Route/locale remounts replace the renderer while a shared request can continue.
+const mountedDrawingWorkspaces = new WeakMap();
+
 function ensureDrawingState(drawing = {}) {
   drawing.status = drawing.status || 'idle';
   drawing.summary = drawing.summary || 'Preview Drawing keeps the sheet-first loop fast, or Run Tracked Draw Job to publish the run.';
@@ -184,11 +187,20 @@ export function mountDrawingWorkspace({
 }) {
   let drawing = ensureDrawingState(state.data.drawing);
   const viewerStore = createViewerStore();
-  viewerStore.state.dimensions.history = structuredClone(drawing.history);
-  viewerStore.state.dimensions.index = drawing.historyIndex;
-  // Restore the history owner too, so mounting the same preview keeps its undo cursor.
-  // Older in-memory state predates the owner field and belongs to its current preview.
-  viewerStore.state.drawing.lastPlanPath = drawing.historyPlanReference ?? previewReference(drawing.preview || {});
+  restoreRendererHistory();
+
+  function restoreRendererHistory() {
+    viewerStore.state.dimensions.history = structuredClone(drawing.history);
+    viewerStore.state.dimensions.index = drawing.historyIndex;
+    // Older in-memory history belongs to its current preview.
+    viewerStore.state.drawing.lastPlanPath = drawing.historyPlanReference ?? previewReference(drawing.preview || {});
+  }
+
+  function publishRendererHistory() {
+    drawing.history = structuredClone(viewerStore.state.dimensions.history);
+    drawing.historyIndex = viewerStore.state.dimensions.index;
+    drawing.historyPlanReference = viewerStore.state.drawing.lastPlanPath;
+  }
 
   const runtimeSurface = root.querySelector('[data-hook="drawing-runtime-surface"]');
   const sourceSurface = root.querySelector('[data-hook="drawing-source-surface"]');
@@ -410,7 +422,10 @@ export function mountDrawingWorkspace({
         history_op: historyOp,
       });
       if (!requestIsCurrent(request)) return;
+      restoreRendererHistory();
       drawingRenderer?.handleDimensionUpdated(payload.update);
+      // An accepted response may belong to a renderer retired during the request.
+      publishRendererHistory();
       if (drawing.dimensionDrafts?.[dimId] === submittedDraft) delete drawing.dimensionDrafts[dimId];
       drawing.activeRequest = null;
       drawing.status = 'ready';
@@ -514,10 +529,6 @@ export function mountDrawingWorkspace({
   }
 
   function syncHistory() {
-    drawing.history = structuredClone(viewerStore.state.dimensions.history);
-    drawing.historyIndex = viewerStore.state.dimensions.index;
-    drawing.historyPlanReference = viewerStore.state.drawing.lastPlanPath;
-
     if (!drawing.history.length) {
       const note = document.createElement('p');
       note.className = 'inline-note';
@@ -603,19 +614,20 @@ export function mountDrawingWorkspace({
   }
 
   function syncAll() {
-    if (destroyed) return;
+    if (destroyed) {
+      if (state.data.drawing === drawing) mountedDrawingWorkspaces.get(state)?.();
+      return;
+    }
     // Shared source loaders replace the drawing owner without remounting this UI.
     // Rebind before accepting another request, and detach the former plan's state.
     if (state.data.drawing !== drawing) {
       drawing = ensureDrawingState(state.data.drawing);
-      viewerStore.state.dimensions.history = structuredClone(drawing.history);
-      viewerStore.state.dimensions.index = drawing.historyIndex;
-      viewerStore.state.drawing.lastPlanPath = previewReference(drawing.preview || {});
-      // clearPendingEdit synchronously publishes viewer history to this owner.
-      drawingRenderer?.clearPendingEdit();
       renderedSignature = '';
       dimensionsSignature = '';
     }
+    // Shared history is canonical; rendering must never publish a pre-response copy.
+    restoreRendererHistory();
+    if (!hasPendingRequest()) drawingRenderer?.clearPendingEdit();
     if (drawing.activeRequest && drawing.activeRequest.input !== drawingInputSnapshot(state.data.model, drawing.settings)) {
       drawing.activeRequest = null;
       drawing.status = drawing.preview ? 'ready' : 'idle';
@@ -864,12 +876,15 @@ export function mountDrawingWorkspace({
       return state.data.model.configText || '';
     },
     onDrawingStateChange({ dimensions }) {
+      if (destroyed || state.data.drawing !== drawing) return;
       viewerStore.state.dimensions.history = dimensions.history;
       viewerStore.state.dimensions.index = dimensions.index;
+      publishRendererHistory();
       syncHistory();
     },
   });
 
+  mountedDrawingWorkspaces.set(state, syncAll);
   syncAll();
 
   return {
@@ -878,6 +893,7 @@ export function mountDrawingWorkspace({
     },
     destroy() {
       destroyed = true;
+      if (mountedDrawingWorkspaces.get(state) === syncAll) mountedDrawingWorkspaces.delete(state);
       drawingRenderer?.destroy?.();
       root.removeEventListener('input', handleDraftInput);
       root.removeEventListener('click', handleClick);
