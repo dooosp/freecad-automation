@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 
 import {
   buildDrawingCanvasCaption,
+  buildDrawingQaRows,
   buildDrawingPreviewReadySummary,
   buildDrawingPreviewResultSummary,
 } from '../public/js/studio/drawing-preview-copy.js';
@@ -51,5 +52,20 @@ const submitting = 'Submitting tracked draw while keeping the preview sheet avai
 assert.equal(drawingWorkspaceSummary({
   ...readyDrawing, summary: submitting, trackedRun: { submitting: true },
 }), submitting);
+
+const qaRows = Object.fromEntries(buildDrawingQaRows({
+  score: 89, planned_dimension_count: 7, rendered_dimension_count: 1,
+  auto_dimension_count: 10, total_rendered_dimension_count: 11,
+  conflict_count: 0, informational_conflict_count: 7,
+}));
+assert.equal(qaRows['Total rendered dimensions'], '11');
+assert.equal(qaRows['Rendered plan dimensions'], '1');
+assert.equal(qaRows['Auto dimensions'], '10');
+assert.equal(qaRows.Conflicts, '0');
+assert.equal(qaRows['Informational notices'], '7');
+const legacyQaRows = Object.fromEntries(buildDrawingQaRows({ rendered_dimension_count: 1 }));
+assert.equal(legacyQaRows['Rendered plan dimensions'], '1');
+assert.equal(legacyQaRows['Total rendered dimensions'], 'Unavailable');
+assert.equal(legacyQaRows['Informational notices'], 'Unavailable');
 
 console.log('studio-drawing-workspace.test.js: ok');

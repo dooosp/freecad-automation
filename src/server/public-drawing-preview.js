@@ -87,13 +87,22 @@ function buildPreviewReference(preview = {}) {
 }
 
 function buildEditablePlanReference(preview = {}) {
-  return preview.plan_path ? `preview-plan:${buildPreviewToken(preview)}` : '';
+  return hasEditablePlan(preview) ? `preview-plan:${buildPreviewToken(preview)}` : '';
+}
+
+function hasEditablePlan(preview = {}) {
+  return Boolean(preview.plan_path)
+    && Array.isArray(preview.dimensions)
+    && preview.dimensions.some((dimension) => typeof dimension?.id === 'string'
+      && dimension.id.trim()
+      && Number.isFinite(dimension.value_mm)
+      && dimension.value_mm > 0);
 }
 
 function buildArtifactCapabilities(preview = {}) {
   const artifacts = isPlainObject(preview.artifacts) ? preview.artifacts : {};
   return {
-    editable_plan: Boolean(preview.plan_path),
+    editable_plan: hasEditablePlan(preview),
     traceability: hasData(preview.traceability) || hasData(artifacts.traceability),
     layout_report: hasData(preview.layout_report) || hasData(artifacts.layout_report),
     repair_report: hasData(preview.repair_report) || hasData(artifacts.repair_report),
@@ -108,7 +117,7 @@ export function toPublicDrawingPreview(preview = {}) {
   const dimensions = Array.isArray(source.dimensions)
     ? sanitizePublicValue(structuredClone(source.dimensions))
     : [];
-  const editablePlanAvailable = Boolean(source.plan_path);
+  const editablePlanAvailable = hasEditablePlan(source);
   const qaSummary = hasData(source.qa_summary)
     ? sanitizePublicValue(structuredClone(source.qa_summary))
     : null;
@@ -130,7 +139,7 @@ export function toPublicDrawingPreview(preview = {}) {
     editable_plan_reference: buildEditablePlanReference(source),
     editable_plan_available: editablePlanAvailable,
     dimension_editing_available: editablePlanAvailable && dimensions.length > 0,
-    tracked_draw_bridge_available: editablePlanAvailable,
+    tracked_draw_bridge_available: Boolean(source.plan_path),
     artifact_capabilities: buildArtifactCapabilities(source),
   };
 }

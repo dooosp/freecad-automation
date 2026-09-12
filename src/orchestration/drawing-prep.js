@@ -47,7 +47,8 @@ export function ensureDrawingViews(config, defaultViews = ['front', 'top', 'righ
 export function syncDrawingViewsFromPlan(config) {
   const planViews = config.drawing_plan?.views?.enabled;
   if (Array.isArray(planViews) && planViews.length > 0) {
-    config.drawing.views = planViews;
+    config.drawing = config.drawing || {};
+    config.drawing.views = [...planViews];
   }
 }
 

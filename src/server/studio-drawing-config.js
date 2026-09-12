@@ -7,9 +7,12 @@ export const DEFAULT_STUDIO_DRAWING_VIEWS = ['front', 'top', 'right', 'iso'];
 export const DEFAULT_STUDIO_DRAWING_SCALE = 'auto';
 
 export function normalizeStudioDrawingSettings(settings = {}, config = {}) {
-  const configViews = Array.isArray(config.drawing?.views) && config.drawing.views.length > 0
-    ? config.drawing.views
-    : DEFAULT_STUDIO_DRAWING_VIEWS;
+  const planViews = config.drawing_plan?.views?.enabled;
+  const configViews = Array.isArray(planViews) && planViews.length > 0
+    ? planViews
+    : Array.isArray(config.drawing?.views) && config.drawing.views.length > 0
+      ? config.drawing.views
+      : DEFAULT_STUDIO_DRAWING_VIEWS;
   const requestedViews = Array.isArray(settings.views) && settings.views.length > 0
     ? settings.views
     : configViews;
@@ -26,6 +29,12 @@ export function applyStudioDrawingSettings(config, settings) {
   ensureDrawSchema(config);
   config.drawing.views = [...settings.views];
   config.drawing.scale = settings.scale;
+  if (config.drawing_plan) {
+    config.drawing_plan.views = {
+      ...config.drawing_plan.views,
+      enabled: [...settings.views],
+    };
+  }
   config.drawing.bom_csv = true;
 
   if (settings.section_assist && !config.drawing.section) {

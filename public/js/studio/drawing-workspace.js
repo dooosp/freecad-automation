@@ -8,6 +8,7 @@ import {
   updateDrawingTrackedRunFromJob,
 } from './drawing-tracked-runs.js';
 import {
+  buildDrawingQaRows,
   buildDrawingPreviewReadySummary,
   buildDrawingPreviewResultSummary,
   previewReference,
@@ -337,13 +338,7 @@ export function mountDrawingWorkspace({
       return;
     }
 
-    renderInfoRows(qaElement, [
-      ['QA score', qaSummary.score == null ? 'Unavailable' : `${qaSummary.score}/100`],
-      ['Weight profile', qaSummary.weight_profile || 'default'],
-      ['Planned dimensions', qaSummary.planned_dimension_count == null ? 'Unavailable' : String(qaSummary.planned_dimension_count)],
-      ['Rendered dimensions', qaSummary.rendered_dimension_count == null ? 'Unavailable' : String(qaSummary.rendered_dimension_count)],
-      ['Conflicts', qaSummary.conflict_count == null ? 'Unavailable' : String(qaSummary.conflict_count)],
-    ]);
+    renderInfoRows(qaElement, buildDrawingQaRows(qaSummary));
   }
 
   async function updateDimension({ dimId, valueMm, historyOp = 'edit' }) {
