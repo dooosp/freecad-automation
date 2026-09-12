@@ -5,6 +5,7 @@ import {
   buildDrawingPreviewReadySummary,
   buildDrawingPreviewResultSummary,
 } from '../public/js/studio/drawing-preview-copy.js';
+import { drawingWorkspaceSummary } from '../public/js/studio/workbench-presentation.js';
 
 const preview = {
   id: 'preview-1',
@@ -38,5 +39,17 @@ assert.match(resultSummary, /Preview reference: drawing-preview:preview-1/);
 assert.match(resultSummary, /Edit loop source: preview-plan:preview-1/);
 assert.match(resultSummary, /BOM lines: 1/);
 assert.match(resultSummary, /Editable dimensions: 1/);
+
+// A retained preview must not hide an annotation error or tracked submission state.
+const readyDrawing = { status: 'ready', preview, trackedRun: { submitting: false } };
+assert.equal(drawingWorkspaceSummary(readyDrawing), 'Drawing ready. Review dimensions before saving.');
+const annotationError = 'Enter a valid positive dimension value before applying.';
+assert.equal(drawingWorkspaceSummary({ ...readyDrawing, errorMessage: annotationError }), annotationError);
+const submissionError = 'Tracked draw could not be queued: connection unavailable';
+assert.equal(drawingWorkspaceSummary({ ...readyDrawing, errorMessage: submissionError }), submissionError);
+const submitting = 'Submitting tracked draw while keeping the preview sheet available.';
+assert.equal(drawingWorkspaceSummary({
+  ...readyDrawing, summary: submitting, trackedRun: { submitting: true },
+}), submitting);
 
 console.log('studio-drawing-workspace.test.js: ok');

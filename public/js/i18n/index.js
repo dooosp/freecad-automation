@@ -230,10 +230,13 @@ export function applyTranslations(root = document.body) {
     ['placeholder', 'title', 'aria-label'].forEach((attribute) => {
       const value = element.getAttribute(attribute);
       if (value == null) return;
-      if (!(attribute in originals)) {
-        originals[attribute] = value;
+      const previous = originals[attribute];
+      if (!previous || value !== previous.rendered) {
+        originals[attribute] = { source: value };
       }
-      element.setAttribute(attribute, translateAttributeValue(originals[attribute], currentLocale));
+      const rendered = translateAttributeValue(originals[attribute].source, currentLocale);
+      originals[attribute].rendered = rendered;
+      element.setAttribute(attribute, rendered);
     });
   });
 }

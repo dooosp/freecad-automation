@@ -305,7 +305,12 @@ export function createStudioShellDomController(app) {
           : null;
       if (selector) {
         const target = app.elements.workspaceRoot.querySelector(selector);
-        if (target instanceof app.window.HTMLElement) target.focus();
+        if (target instanceof app.window.HTMLElement) {
+          for (let parent = target.parentElement; parent; parent = parent.parentElement) {
+            if (parent.tagName === 'DETAILS') parent.open = true;
+          }
+          target.focus();
+        }
       }
       app.state.pendingFocus = null;
     });

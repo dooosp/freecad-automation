@@ -12,7 +12,9 @@ import {
   resolveInitialLocale,
 } from '#i18n-contract';
 import {
+  applyTranslations,
   createTranslator,
+  setLocale,
   translateText,
 } from '../public/js/i18n/index.js';
 
@@ -74,6 +76,11 @@ assert.equal(translateText('Copy failed', 'ko'), '복사 실패');
 assert.equal(translateText('Preview', 'ko'), '미리보기');
 assert.equal(translateText('Close preview', 'ko'), '미리보기 닫기');
 assert.equal(translateText('Preview failed', 'ko'), '미리보기 실패');
+// Model build states must not leak untranslated enum values into Korean badges.
+for (const state of ['success', 'building', 'validating', 'error']) {
+  assert.doesNotMatch(translateText(`Preview ${state}`, 'ko'), /[A-Za-z]/);
+}
+assert.doesNotMatch(translateText('Tracked run idle', 'ko'), /[A-Za-z]/);
 assert.equal(translateText('Canonical artifact preview', 'ko'), '표준 산출물 미리보기');
 assert.equal(translateText('Preview truncated by server size limit.', 'ko'), '서버 크기 제한으로 미리보기가 잘렸습니다.');
 assert.equal(
@@ -328,5 +335,34 @@ assert.equal(translateText('Category', 'ko'), '분류');
 assert.equal(translateText('Item', 'ko'), '항목');
 assert.equal(translateText('Value', 'ko'), '값');
 assert.equal(translateText('Unknown', 'ko'), '알 수 없음');
+
+// A runtime update must replace a cached tooltip, including after a locale switch.
+const originalDocument = globalThis.document;
+const originalNodeFilter = globalThis.NodeFilter;
+const attributes = new Map([['title', 'Runtime pending']]);
+const badge = {
+  getAttribute(name) { return attributes.get(name) ?? null; },
+  setAttribute(name, value) { attributes.set(name, value); },
+};
+const tooltipRoot = { querySelectorAll(selector) { return selector === '*' ? [badge] : []; } };
+try {
+  globalThis.NodeFilter = { SHOW_TEXT: 4 };
+  globalThis.document = {
+    documentElement: { dataset: {} },
+    createTreeWalker() { return { nextNode() { return null; } }; },
+  };
+  setLocale('ko', { persist: false });
+  applyTranslations(tooltipRoot);
+  assert.equal(badge.getAttribute('title'), '런타임 대기 중');
+  badge.setAttribute('title', 'Runtime ready');
+  applyTranslations(tooltipRoot);
+  assert.equal(badge.getAttribute('title'), '런타임 준비됨');
+  setLocale('en', { persist: false });
+  applyTranslations(tooltipRoot);
+  assert.equal(badge.getAttribute('title'), 'Runtime ready');
+} finally {
+  globalThis.document = originalDocument;
+  globalThis.NodeFilter = originalNodeFilter;
+}
 
 console.log('browser-i18n.test.js: ok');
