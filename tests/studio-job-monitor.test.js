@@ -373,3 +373,56 @@ assert.deepEqual(
 );
 
 console.log('studio-job-monitor.test.js: ok');
+
+// Real monitor controller, with controlled transport/state transitions (no runtime kill).
+const { createStudioJobMonitorController } = await import('../public/js/studio/studio-shell-job-monitor.js');
+const { createStudioShellState, createStudioShellRuntime } = await import('../public/js/studio/studio-shell-store.js');
+const { deriveJobsCenterActionEligibility } = await import('../public/js/studio/jobs-center.js');
+const { test } = await import('node:test');
+function cancelMonitorFixture(t) {
+  const savedFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = savedFetch; });
+  const state = createStudioShellState(); const logs = []; const calls = [];
+  const queued = { id: 'cancel-race', type: 'report', status: 'queued', capabilities: { cancellation_supported: true } };
+  state.data.recentJobs.items = [queued]; state.data.activeJob.summary = queued;
+  state.data.jobMonitor = upsertStudioMonitoredJob(state.data.jobMonitor, queued, { completionAction: { type: 'open-artifacts-on-success' } });
+  const app = { state, runtime: createStudioShellRuntime(), window: { clearTimeout() {}, setTimeout() { return 1; } }, addLog: (log) => logs.push(log), refreshShellChrome() {}, commitRender() {}, dom: { renderCompletionNotice() {} }, fetchJson: async () => ({ artifacts: [] }), navigateTo() {} };
+  return { ...app, queued, logs, calls, controller: createStudioJobMonitorController(app) };
+}
+
+test('cancel race immediately refreshes running capabilities and retains completion monitoring', async (t) => {
+  const fixture = cancelMonitorFixture(t); const { state, queued, calls, logs, controller } = fixture;
+  const running = { ...queued, status: 'running', capabilities: { cancellation_supported: false } };
+  globalThis.fetch = async (url) => {
+    calls.push(url);
+    return url.endsWith('/cancel')
+      ? { ok: false, status: 409, json: async () => ({ error: { messages: ['Safe mid-command cancellation unsupported.'] } }) }
+      : { ok: true, json: async () => ({ job: running }) };
+  };
+  await assert.rejects(controller.cancelTrackedJobById(queued.id), /safe mid-command cancellation/i);
+  assert.deepEqual(calls, ['/jobs/cancel-race/cancel', '/jobs/cancel-race']);
+  assert.equal(state.data.activeJob.summary.status, 'running');
+  assert.equal(deriveJobsCenterActionEligibility(state.data.recentJobs.items[0]).canCancel, false);
+  assert.equal(findStudioMonitoredJob(state.data.jobMonitor, queued.id).completionAction.type, 'open-artifacts-on-success');
+  assert.equal(fixture.runtime.jobMonitorTimer, 1);
+  assert.ok(logs.every((log) => !/cancelled/i.test(log.message)));
+});
+
+test('queued cancellation records cancelled only from confirmed API response', async (t) => {
+  const { state, queued, logs, controller } = cancelMonitorFixture(t);
+  const cancelled = { ...queued, status: 'cancelled', capabilities: { cancellation_supported: false } };
+  globalThis.fetch = async (url) => ({ ok: true, json: async () => url.endsWith('/cancel') ? { job: cancelled } : { jobs: [cancelled] } });
+  assert.equal((await controller.cancelTrackedJobById(queued.id)).status, 'cancelled');
+  assert.equal(state.data.activeJob.summary.status, 'cancelled');
+  assert.equal(listActiveStudioMonitoredJobs(state.data.jobMonitor).length, 0);
+  assert.ok(logs.some((log) => /Cancelled queued/.test(log.message)));
+});
+
+test('failed cancellation plus disconnected refresh never invents a terminal state', async (t) => {
+  const { state, queued, controller, calls } = cancelMonitorFixture(t);
+  globalThis.fetch = async (url) => { calls.push(url); throw new Error('Failed to fetch'); };
+  await assert.rejects(controller.cancelTrackedJobById(queued.id), /Failed to fetch/);
+  assert.equal(calls.length, 2);
+  assert.equal(state.data.activeJob.summary.status, 'queued');
+  assert.equal(listActiveStudioMonitoredJobs(state.data.jobMonitor).length, 1);
+});

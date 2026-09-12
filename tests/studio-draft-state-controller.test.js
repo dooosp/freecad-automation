@@ -21,6 +21,8 @@ const preview = (id = 'A', value = 142) => ({ id, svg: '<svg/>', drawn_at: Strin
 function setup(t) {
   const restore = installDrawingTestDom();
   setLocale('en', { persist: false });
+  const savedCss = globalThis.CSS; globalThis.CSS = { escape: (value) => value };
+  t.after(() => { if (savedCss === undefined) delete globalThis.CSS; else globalThis.CSS = savedCss; });
   const savedFetch = globalThis.fetch;
   const requests = [];
   globalThis.fetch = (url, options) => new Promise((resolve, reject) => requests.push({ url, body: JSON.parse(options.body), resolve: (payload) => resolve({ ok: true, json: async () => payload }), reject }));
@@ -34,7 +36,7 @@ function setup(t) {
   const mounts = [];
   function mount(callbacks = {}) {
     const root = drawingWorkspaceRoot();
-    for (const [tag, hook] of [['select', 'example-select'], ['input', 'drawing-config-file']]) {
+    for (const [tag, hook] of [['select', 'example-select'], ['input', 'drawing-config-file'], ['button', 'drawing-generate'], ['button', 'drawing-tracked-run']]) {
       const element = new TestElement(tag); element.dataset.hook = hook; root.append(element);
     }
     const scale = new TestElement('select'); scale.dataset.hook = 'drawing-scale'; root.append(scale);
@@ -156,14 +158,14 @@ test('unavailable/corrupt session storage does not break editing or shell defaul
   assert.equal(state.data.drawing.settings.scale, 'auto'); assert.equal(state.data.model.preview, null);
 });
 
-function mountModel(t, state) {
+function mountModel(t, state, callbacks = {}) {
   state.data.model.profileCatalog.status = 'ready';
   const root = new TestElement();
-  for (const name of ['source-summary', 'validation-summary', 'validation-warnings', 'tracked-validation-notes', 'tracked-status', 'build-log', 'assistant-report', 'parts-list', 'animation-controls', 'model-info', 'build-summary', 'viewport-caption', 'build-button', 'load-example', 'clear-result', 'config-textarea']) {
+  for (const name of ['source-summary', 'validation-summary', 'validation-warnings', 'tracked-validation-notes', 'tracked-status', 'build-log', 'assistant-report', 'parts-list', 'animation-controls', 'model-info', 'build-summary', 'viewport-caption', 'build-button', 'draft-prompt', 'validate-button', 'tracked-create-button', 'tracked-report-button', 'load-example', 'clear-result', 'config-textarea']) {
     const element = new TestElement(name.endsWith('button') ? 'button' : 'div'); element.dataset.hook = name;
     const card = new TestElement(); card.className = 'studio-card'; card.append(element); root.append(card);
   }
-  const controller = mountModelWorkspace({ root, state, addLog() {} });
+  const controller = mountModelWorkspace({ root, state, addLog() {}, ...callbacks });
   t.after(() => controller.destroy());
   return { root, controller, click: (hook) => root.querySelector(`[data-hook="${hook}"]`).dispatch('click', {}) };
 }
@@ -278,3 +280,204 @@ test('Drawing example selector propagates the selected example to the actual sha
   assert.equal(state.data.model.configText, '[model]\nlength = 155');
   assert.equal(state.data.examples.selectedId, 'pcb');
 });
+
+function applyDimension(active, value) {
+  const input = active.input(); input.value = value;
+  active.root.dispatch('input', { target: input });
+  active.root.dispatch('click', { target: active.root.querySelector('[data-action="drawing-apply-dimension"]') });
+}
+
+test('failed annotation releases controls, preserves last sheet and draft, and permits retry', async (t) => {
+  const { state, requests, mount } = setup(t); const active = mount();
+  applyDimension(active, '150');
+  assert.equal(state.data.drawing.status, 'generating');
+  requests[0].reject(new Error('Failed to fetch')); await settle();
+  assert.equal(state.data.drawing.status, 'error');
+  assert.equal(state.data.drawing.activeRequest, null);
+  assert.equal(state.data.drawing.preview.id, 'A');
+  assert.equal(active.input().value, '150');
+  assert.equal(active.root.querySelector('[data-hook="drawing-generate"]').disabled, false);
+  assert.equal(active.root.querySelector('[data-hook="drawing-tracked-run"]').disabled, false);
+  applyDimension(active, '150'); assert.equal(requests.length, 2);
+  requests[1].resolve({ update: { dim_id: 'WIDTH', old_value: 142, new_value: 150, history_op: 'edit' }, preview: preview('A', 150) }); await settle();
+  assert.equal(state.data.drawing.status, 'ready'); assert.equal(state.data.drawing.errorMessage, '');
+});
+
+for (const value of ['', '-1', '0', 'Infinity', '1e999', '150oops']) {
+  test(`invalid annotation ${JSON.stringify(value)} is rejected before API and can be corrected`, async (t) => {
+    const { state, requests, mount } = setup(t); const active = mount();
+    applyDimension(active, value);
+    assert.equal(requests.length, 0);
+    assert.equal(active.input().value, value, 'invalid draft stays exactly as typed');
+    active.workspace.syncFromShell();
+    assert.equal(active.input().value, value, 'polling preserves even an empty draft');
+    assert.equal(state.data.drawing.preview.id, 'A');
+    assert.notEqual(state.data.drawing.status, 'generating');
+    assert.match(state.data.drawing.errorMessage, /positive dimension/);
+    applyDimension(active, '150'); assert.equal(requests.length, 1);
+    requests[0].reject(new Error('Controlled failure')); await settle();
+  });
+}
+
+test('annotation and drawing preview ignore same-input in-flight repeats but allow completed repeats', async (t) => {
+  const { requests, mount } = setup(t); const active = mount();
+  applyDimension(active, '150');
+  assert.equal(active.root.querySelector('[data-action="drawing-apply-dimension"]').disabled, true);
+  applyDimension(active, '150'); active.click('drawing-generate');
+  assert.equal(requests.length, 1);
+  requests[0].resolve({ update: { dim_id: 'WIDTH', history_op: 'edit' }, preview: preview('A', 150) }); await settle();
+  assert.equal(active.root.querySelector('[data-action="drawing-apply-dimension"]').disabled, false);
+  active.click('drawing-generate'); active.click('drawing-generate'); assert.equal(requests.length, 2);
+  requests[1].resolve({ preview: preview('B') }); await settle();
+  active.click('drawing-generate'); assert.equal(requests.length, 3);
+  requests[2].resolve({ preview: preview('C') }); await settle();
+});
+
+test('tracked draw guards pending submission and permits retry after rejection', async (t) => {
+  const { state, mount } = setup(t); const submissions = [];
+  const active = mount({ submitTrackedJob: (body) => new Promise((resolve, reject) => submissions.push({ body, resolve, reject })) });
+  active.click('drawing-run-tracked'); active.click('drawing-run-tracked');
+  assert.equal(submissions.length, 1);
+  submissions[0].reject(new Error('Connection lost')); await settle();
+  assert.equal(state.data.drawing.trackedRun.submitting, false);
+  active.click('drawing-run-tracked'); assert.equal(submissions.length, 2);
+  submissions[1].resolve({ id: 'draw-retry', status: 'queued' }); await settle();
+  active.click('drawing-run-tracked'); assert.equal(submissions.length, 3, 'completed POST is allowed again');
+  submissions[2].resolve({ id: 'draw-repeat', status: 'queued' }); await settle();
+});
+
+test('invalid TOML fails cleanly; corrected model build ignores duplicates and preserves last result on failure', async (t) => {
+  const { state, requests } = setup(t); const active = mountModel(t, state);
+  state.data.model.preview = { id: 'last-valid' };
+  active.click('build-button'); active.click('build-button'); assert.equal(requests.length, 1);
+  assert.equal(active.root.querySelector('[data-hook="build-button"]').disabled, true);
+  requests[0].reject(new Error('Invalid TOML')); await settle();
+  assert.equal(state.data.model.buildState, 'error'); assert.equal(state.data.model.preview.id, 'last-valid');
+  assert.equal(active.root.querySelector('[data-hook="build-button"]').disabled, false);
+  state.data.model.configText = '[model]\nlength = 155';
+  active.click('build-button'); requests[1].resolve({ overview: {} }); await settle();
+  active.click('build-button'); assert.equal(requests.length, 3);
+  requests[2].reject(new Error('Runtime disconnected')); await settle();
+  assert.equal(state.data.model.preview.id, 'last-valid');
+  active.click('build-button'); requests[3].resolve({ overview: {} }); await settle();
+  requests[4].resolve({ preview: { id: 'recovered' } }); await settle();
+  assert.equal(state.data.model.buildState, 'success'); assert.equal(state.data.model.preview.id, 'recovered');
+});
+
+for (const type of ['create', 'report']) {
+  test(`tracked ${type} guards validation and submit, then permits retry and completed repeat`, async (t) => {
+    const { state, requests } = setup(t); const submissions = [];
+    const active = mountModel(t, state, { submitTrackedJob: (body) => new Promise((resolve, reject) => submissions.push({ body, resolve, reject })) });
+    const click = () => active.click(`tracked-${type}-button`);
+    click(); click(); assert.equal(requests.length, 1);
+    requests[0].resolve({ overview: {} }); await settle(); click();
+    assert.equal(requests.length, 1); assert.equal(submissions.length, 1);
+    submissions[0].reject(new Error('Connection lost')); await settle();
+    assert.equal(state.data.model.trackedRun.submitting, false);
+    click(); requests[1].resolve({ overview: {} }); await settle();
+    submissions[1].resolve({ id: `${type}-retry`, status: 'queued' }); await settle();
+    click(); assert.equal(requests.length, 3);
+    requests[2].reject(new Error('Invalid TOML')); await settle();
+    assert.equal(state.data.model.trackedRun.submitting, false);
+  });
+}
+
+
+test('obsolete tracked validation cannot unlock a newer source submission', async (t) => {
+  const { state, requests } = setup(t); const submissions = [];
+  const active = mountModel(t, state, { submitTrackedJob: (body) => new Promise((resolve) => submissions.push({ body, resolve })) });
+  active.click('tracked-create-button');
+  state.data.examples.items = [{ id: 'new', name: 'new.toml', content: '[model]\nlength = 155' }]; state.data.examples.selectedId = 'new';
+  active.click('load-example'); active.click('tracked-create-button');
+  requests[1].resolve({ overview: {} }); await settle(); assert.equal(submissions.length, 1);
+  requests[0].reject(new Error('Old validation failed')); await settle();
+  assert.equal(state.data.model.trackedRun.submitting, true);
+  active.click('tracked-create-button'); assert.equal(requests.length, 2);
+  submissions[0].resolve({ id: 'new-job', status: 'queued' }); await settle();
+  assert.equal(state.data.model.trackedRun.lastJobId, 'new-job');
+});
+
+test('tracked drawing completion from a replaced source cannot unlock or overwrite newer submission', async (t) => {
+  const { state, mount } = setup(t); const submissions = [];
+  const active = mount({ ...sharedSourceCallbacks(state), submitTrackedJob: (body) => new Promise((resolve) => submissions.push({ body, resolve })) });
+  active.click('drawing-run-tracked');
+  state.data.examples.items = [{ id: 'new', name: 'new.toml', content: '[model]\nlength = 155' }]; state.data.examples.selectedId = 'new';
+  active.click('drawing-load-example'); active.click('drawing-run-tracked');
+  submissions[0].resolve({ id: 'old-job', status: 'queued' }); await settle();
+  assert.equal(state.data.drawing.trackedRun.submitting, true);
+  assert.notEqual(state.data.drawing.trackedRun.lastJobId, 'old-job');
+  submissions[1].resolve({ id: 'new-job', status: 'queued' }); await settle();
+  assert.equal(state.data.drawing.trackedRun.lastJobId, 'new-job');
+});
+
+
+test('clearing a displayed model during tracked submission does not strand the submission lock', async (t) => {
+  const { state, requests } = setup(t); const submissions = [];
+  const active = mountModel(t, state, { submitTrackedJob: (body) => new Promise((resolve) => submissions.push({ body, resolve })) });
+  state.data.model.preview = { id: 'old-preview' };
+  active.click('tracked-create-button'); requests[0].resolve({ overview: {} }); await settle();
+  active.click('clear-result');
+  submissions[0].resolve({ id: 'submitted-job', status: 'queued' }); await settle();
+  assert.equal(state.data.model.preview, null);
+  assert.equal(state.data.model.trackedRun.submitting, false);
+  assert.equal(state.data.model.trackedRun.lastJobId, 'submitted-job');
+});
+
+
+const { createStudioJobMonitorController } = await import('../public/js/studio/studio-shell-job-monitor.js');
+const { createStudioShellRuntime } = await import('../public/js/studio/studio-shell-store.js');
+for (const type of ['create', 'report']) {
+  for (const phase of ['validation', 'POST']) {
+    for (const outcome of ['success', 'failure']) {
+      test(`prompt replacement during ${type} ${phase}: old ${outcome} never strands or unlocks newer submission`, async (t) => {
+        const { state, requests } = setup(t);
+        const monitor = createStudioJobMonitorController({ state, runtime: createStudioShellRuntime(), window: { clearTimeout() {}, setTimeout() { return 1; } }, addLog() {}, refreshShellChrome() {} });
+        const active = mountModel(t, state, { submitTrackedJob: monitor.submitTrackedStudioRun });
+        state.data.model.promptText = 'Make a 155 mm plate';
+        active.click(`tracked-${type}-button`);
+        if (phase === 'POST') { requests[0].resolve({ overview: {} }); await settle(); }
+        const obsolete = requests.at(-1);
+        active.click('draft-prompt');
+        assert.equal(requests.at(-1).url, '/api/studio/design');
+        requests.at(-1).resolve({ toml: '[model]\nlength = 155' }); await settle();
+        assert.equal(state.data.model.configText, '[model]\nlength = 155');
+        assert.equal(state.data.model.trackedRun.submitting, false, 'replacing source releases old source lock');
+        assert.equal(state.data.model.buildState, 'idle');
+        active.click(`tracked-${type}-button`);
+        const currentValidation = requests.at(-1);
+        assert.equal(currentValidation.url, '/api/studio/validate-config');
+        currentValidation.resolve({ overview: {} }); await settle();
+        const currentPost = requests.at(-1); assert.equal(currentPost.url, '/api/studio/jobs');
+        if (outcome === 'failure') obsolete.reject(new Error('Old request disconnected'));
+        else obsolete.resolve(phase === 'POST' ? { job: { id: 'old-accepted', type, status: 'queued' } } : { overview: {} });
+        await settle();
+        assert.equal(state.data.model.trackedRun.submitting, true, 'old response cannot release newer lock');
+        assert.notEqual(state.data.model.trackedRun.lastJobId, 'old-accepted');
+        assert.equal(state.data.jobMonitor.items.some((job) => job.id === 'old-accepted'), phase === 'POST' && outcome === 'success', 'central monitor retains any already accepted job');
+        currentPost.resolve({ job: { id: 'current-accepted', type, status: 'queued' } }); await settle();
+        assert.equal(state.data.model.trackedRun.submitting, false);
+        assert.equal(state.data.model.trackedRun.lastJobId, 'current-accepted');
+        assert.equal(state.data.model.configText, '[model]\nlength = 155');
+      });
+    }
+  }
+}
+
+
+for (const locale of ['en', 'ko']) {
+  for (const failure of ['Failed to fetch', 'No drawing preview found for id expired-preview.']) {
+    test(`${locale} annotation failure gives recoverable guidance and retains raw ${failure} in logs`, async (t) => {
+      const { state, requests, mount } = setup(t); setLocale(locale, { persist: false });
+      const logs = []; const active = mount({ addLog: (entry) => logs.push(entry) });
+      applyDimension(active, '150'); requests[0].reject(new Error(failure)); await settle();
+      const summary = active.root.querySelector('[data-hook="drawing-summary"]').textContent;
+      if (locale === 'ko') assert.match(summary, failure === 'Failed to fetch' ? /연결.*다시/ : /미리보기.*다시/);
+      else assert.match(summary, failure === 'Failed to fetch' ? /connection.*retry/i : /Preview Drawing.*reapply/i);
+      assert.ok(logs.some((entry) => entry.message === failure));
+      assert.equal(state.data.drawing.status, 'error');
+      assert.equal(state.data.drawing.preview.id, 'A');
+      assert.equal(active.input().value, '150');
+      assert.equal(active.root.querySelector('[data-hook="drawing-generate"]').disabled, false);
+    });
+  }
+}

@@ -354,7 +354,29 @@ export function createStudioJobMonitorController(app) {
   }
 
   async function cancelTrackedJobById(jobId) {
-    const payload = await cancelStudioJob(jobId);
+    let payload;
+    try {
+      payload = await cancelStudioJob(jobId);
+    } catch (error) {
+      // A queued job can start before the cancellation reaches the API. Refresh
+      // its authoritative capabilities now rather than leaving a stale Cancel action.
+      let currentJob = null;
+      try {
+        currentJob = await pollStudioJob(jobId);
+      } catch {
+        // Preserve the original failure and monitored state during an outage.
+      }
+      if (currentJob?.id) {
+        const entry = findStudioMonitoredJob(app.state.data.jobMonitor, jobId);
+        beginJobMonitoring(currentJob, { completionAction: entry?.completionAction, announce: false });
+      } else {
+        scheduleJobMonitoring();
+      }
+      if (currentJob?.status === 'running' && currentJob.capabilities?.cancellation_supported === false) {
+        throw new Error('This job is already running. Safe mid-command cancellation is unsupported; monitoring will continue until it finishes.');
+      }
+      throw error;
+    }
     const job = payload?.job || null;
     if (!job?.id) {
       throw new Error(`Cancel for ${jobId} did not return a job payload.`);
