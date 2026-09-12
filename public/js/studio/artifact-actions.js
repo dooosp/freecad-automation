@@ -131,6 +131,43 @@ export function buildStudioArtifactRef(jobId, artifactId) {
   };
 }
 
+export function deriveArtifactContentActions(artifact = {}) {
+  const canOpen = artifact.exists !== false
+    && artifact.capabilities?.can_open === true
+    && typeof artifact.links?.open === 'string'
+    && artifact.links.open.length > 0;
+  const canDownload = artifact.exists !== false
+    && artifact.capabilities?.can_download === true
+    && typeof artifact.links?.download === 'string'
+    && artifact.links.download.length > 0;
+  const open = canOpen
+    ? {
+        kind: 'open',
+        label: 'Open',
+        href: artifact.links.open,
+        target: '_blank',
+        rel: 'noreferrer noopener',
+      }
+    : null;
+  const download = canDownload
+    ? {
+        kind: 'download',
+        label: 'Download',
+        href: artifact.links.download,
+        target: null,
+        rel: 'noreferrer',
+      }
+    : null;
+
+  return {
+    canOpen,
+    canDownload,
+    open,
+    download,
+    preferred: open || download,
+  };
+}
+
 export function deriveStudioArtifactFamily(artifact = {}) {
   if (canReenterModelWorkspace(artifact)) return 'config';
   if (isReviewSourceArtifact(artifact)) return 'review';

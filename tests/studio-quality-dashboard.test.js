@@ -12,6 +12,8 @@ function makeArtifact({
   file_name,
   extension,
   exists = true,
+  canOpen = true,
+  canDownload = true,
 }) {
   return {
     id,
@@ -20,11 +22,59 @@ function makeArtifact({
     file_name,
     extension,
     exists,
+    capabilities: {
+      can_open: canOpen,
+      can_download: canDownload,
+    },
     links: {
       open: `/artifacts/job-1/${id}`,
       download: `/artifacts/job-1/${id}/download`,
     },
   };
+}
+
+{
+  const model = buildQualityDashboardModel({
+    artifacts: [
+      makeArtifact({
+        id: 'download-only-svg',
+        key: 'drawing_svg',
+        type: 'drawing.svg',
+        file_name: 'capability_probe_drawing.svg',
+        extension: '.svg',
+        canOpen: false,
+      }),
+      makeArtifact({
+        id: 'openable-step',
+        key: 'model_step',
+        type: 'model.step',
+        file_name: 'capability_probe.step',
+        extension: '.step',
+      }),
+      makeArtifact({
+        id: 'private-pdf',
+        key: 'report_pdf',
+        type: 'report.pdf',
+        file_name: 'capability_probe_report.pdf',
+        extension: '.pdf',
+        canOpen: false,
+        canDownload: false,
+      }),
+    ],
+  });
+
+  const drawingLink = model.artifactLinks.find((artifact) => artifact.id === 'drawing_svg');
+  assert.equal(drawingLink.actionLabel, 'Download');
+  assert.equal(drawingLink.href, '/artifacts/job-1/download-only-svg/download');
+  assert.equal(drawingLink.canOpen, false);
+  assert.equal(drawingLink.canDownload, true);
+  assert.equal(drawingLink.target, null);
+
+  const stepLink = model.artifactLinks.find((artifact) => artifact.id === 'model_step');
+  assert.equal(stepLink.actionLabel, 'Open');
+  assert.equal(stepLink.href, '/artifacts/job-1/openable-step');
+  assert.equal(stepLink.target, '_blank');
+  assert.equal(model.artifactLinks.some((artifact) => artifact.id === 'report_pdf'), false);
 }
 
 function makeEngineeringMeasurement({

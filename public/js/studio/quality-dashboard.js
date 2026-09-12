@@ -1,3 +1,5 @@
+import { deriveArtifactContentActions } from './artifact-actions.js';
+
 function normalizeString(value) {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
 }
@@ -1716,8 +1718,13 @@ function buildArtifactLinks(artifacts = []) {
 
   return linkDefinitions
     .map((definition) => {
-      const artifact = artifacts.find((entry) => entry?.exists !== false && definition.match(entry)) || null;
+      const artifact = artifacts.find((entry) => (
+        entry?.exists !== false
+        && definition.match(entry)
+        && deriveArtifactContentActions(entry).preferred
+      )) || null;
       if (!artifact) return null;
+      const actions = deriveArtifactContentActions(artifact);
       return {
         id: definition.id,
         label: definition.label,
@@ -1726,8 +1733,15 @@ function buildArtifactLinks(artifacts = []) {
         status: 'available',
         statusLabel: formatQualityStatusLabel('available', definition.required !== false),
         fileName: artifact.file_name || artifact.key || artifact.id || definition.label,
-        href: artifact.links?.open || null,
-        downloadHref: artifact.links?.download || null,
+        href: actions.preferred.href,
+        actionKind: actions.preferred.kind,
+        actionLabel: actions.preferred.label,
+        target: actions.preferred.target,
+        rel: actions.preferred.rel,
+        openHref: actions.open?.href || null,
+        downloadHref: actions.download?.href || null,
+        canOpen: actions.canOpen,
+        canDownload: actions.canDownload,
         artifactId: artifact.id || null,
         artifactKey: artifact.key || null,
         sourceArtifactId: artifact.id || artifact.key || null,

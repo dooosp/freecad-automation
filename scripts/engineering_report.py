@@ -299,6 +299,9 @@ def generate_legacy_report(config):
     import matplotlib.pyplot as plt
     from matplotlib.backends.backend_pdf import PdfPages
     import numpy as np
+    from _report_styles import apply_style
+
+    report_style = apply_style(content=config)
 
     export_dir = config.get("export", {}).get("directory", ".")
     pdf_path = _resolve_output_path(config, output_stem, export_dir)
@@ -576,6 +579,9 @@ def generate_legacy_report(config):
         "success": True,
         "path": pdf_path,
         "size_bytes": file_size,
+        "report_language": report_style["font_language"],
+        "font_family": report_style["font_family"],
+        "font_support": report_style["font_support"],
     }
 
 if __name__ == '__main__':

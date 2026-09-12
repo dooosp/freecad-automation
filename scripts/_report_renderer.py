@@ -147,7 +147,7 @@ def render_report(config, template, data, output_path, decision_summary=None, re
     Returns:
         str - Path to generated PDF
     """
-    style = apply_style(template)
+    style = apply_style(template, content=config)
     metadata = template.get('_metadata', {})
 
     with PdfPages(output_path) as pdf:
