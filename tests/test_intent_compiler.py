@@ -109,7 +109,12 @@ class TestBoxClassification(unittest.TestCase):
         self.assertEqual(values["WIDTH"], 120)
         self.assertEqual(values["BASE_W"], 60)
 
-    def test_in_place_cuts_and_implicit_final_still_select_plate(self):
+    def test_implicit_final_uses_last_inserted_result(self):
+        config = mounting_plate()
+        del config["final"]
+        self.assertEqual(compile_config(config)["drawing_plan"]["part_type"], "plate")
+
+    def test_in_place_cuts_require_explicit_plate_final(self):
         config = mounting_plate()
         del config["final"]
         for op in config["operations"]:
@@ -117,6 +122,10 @@ class TestBoxClassification(unittest.TestCase):
             op["base"] = "plate"
             op["result"] = "plate"
         config["shapes"][1]["direction"] = [0, 0, 1]
+        # In-place replacement does not change insertion order: the runtime's
+        # implicit final shape is the last hole tool, not the updated plate.
+        self.assertEqual(compile_config(config)["drawing_plan"]["part_type"], "bracket")
+        config["final"] = "plate"
         self.assertEqual(compile_config(config)["drawing_plan"]["part_type"], "plate")
 
     def test_fused_web_keeps_bracket_requirement(self):

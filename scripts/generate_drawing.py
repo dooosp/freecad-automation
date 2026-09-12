@@ -738,13 +738,6 @@ def compose_drawing(views_svg, name, bom, scale, bbox,
     sym_y = tb_bottom - row_h / 2
     p.append(_render_3rd_angle_symbol(sym_x, sym_y, size=8))
 
-    # Bounding box info (small text under sheet size)
-    bbox_x = col_div_x + 2
-    bbox_y = tb_y + 3 * row_h + 3.5
-    p.append(f'<text x="{bbox_x:.1f}" y="{bbox_y:.1f}" font-family="monospace" '
-             f'font-size="1.8" fill="#999">'
-             f'BBox: {bbox.XLength:.0f} x {bbox.YLength:.0f} x {bbox.ZLength:.0f} mm</text>')
-
     # ── Left Zone: Line Legend + BOM ──────────────────────────────────────
     lz_w = rz_x - tb_x
 
@@ -2151,6 +2144,10 @@ try:
         },
     }
     traceability = build_traceability_payload(model_name, feature_graph, dim_telemetry)
+    if not is_assembly:
+        from _drawing_traceability import link_plate_runtime_dimensions
+        link_plate_runtime_dimensions(config, final_name, parts_metadata[final_name],
+                                      view_data, dim_telemetry, traceability)
 
     # -- Response --
     scale_label = f"1:{round(1/scale)}" if scale < 1 else f"{round(scale)}:1"

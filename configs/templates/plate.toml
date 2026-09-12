@@ -67,7 +67,7 @@ view = "right"
 style = "linear"
 required = true
 priority = 90
-placement = { side = "left" }
+placement = { side = "right" }
 reason = "Base plate thickness — structural strength"
 
 [[dim_intents]]

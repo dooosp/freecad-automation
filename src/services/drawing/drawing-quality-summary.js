@@ -2,6 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
 import { resolveAutoDimensionCoverage } from './auto-dimension-coverage.js';
+import { currentTraceability } from './current-traceability.js';
 import { compareDrawingIntentToExtractedSemantics } from './extracted-drawing-semantics.js';
 import { evaluateLayoutReadability, summarizeLayoutReadabilityActions } from './layout-readability.js';
 import {
@@ -547,13 +548,15 @@ function collectTraceabilityGaps(requiredDimensions = [], traceability = null) {
   }
 
   const unresolved = new Set(uniqueStrings(traceability?.summary?.unresolved_dimensions || []));
+  const linked = new Set();
   for (const link of asArray(traceability?.links)) {
     const dimId = typeof link?.dim_id === 'string' ? link.dim_id : null;
     if (!dimId) continue;
     if (!link?.feature_id) unresolved.add(dimId);
+    else linked.add(dimId);
   }
 
-  return requiredIds.filter((id) => unresolved.has(id));
+  return requiredIds.filter((id) => unresolved.has(id) || !linked.has(id));
 }
 
 export function applyReviewerFeedbackToDrawingQualitySummary(summary, reviewerFeedbackSummary = null) {
@@ -751,6 +754,7 @@ export function buildDrawingQualitySummary({
   const planDimensions = asArray(dimensionMap?.plan_dimensions);
   const requiredDimensions = planDimensions.filter((entry) => entry?.required === true);
   const autoRepresentations = resolveAutoDimensionCoverage(dimensionMap, svgContent);
+  traceability = currentTraceability(traceability, dimensionMap, svgContent, autoRepresentations);
   const isCovered = (entry) => isMappedRequiredDimension(entry) || autoRepresentations.has(entry);
   const mappedRequiredDimensions = requiredDimensions.filter(isCovered);
   const autoRepresentedDimensions = requiredDimensions
@@ -762,9 +766,14 @@ export function buildDrawingQualitySummary({
       .map((entry) => entry?.dim_id)
   );
   const conflictCount = Number(dimConflicts?.summary?.count);
-  const normalizedConflictCount = Number.isFinite(conflictCount)
-    ? conflictCount
-    : asArray(dimConflicts?.conflicts).length;
+  const informationalConflictCount = asArray(dimConflicts?.conflicts).filter((entry) => (
+    entry?.severity === 'info'
+      && ['cross_view_redundant', 'plan_dim_skipped_due_to_auto_match'].includes(entry?.reason)
+  )).length;
+  const normalizedConflictCount = Math.max(
+    Number.isFinite(conflictCount) ? conflictCount : 0,
+    asArray(dimConflicts?.conflicts).length,
+  ) - informationalConflictCount;
   const duplicateCount = inferDuplicateCount(dimensionMap, dimConflicts);
 
   const expectedItems = asArray(bomEntries).length;
@@ -950,6 +959,7 @@ export function buildDrawingQualitySummary({
       coverage_percent: dimensionCoveragePercent,
       missing_required_intents: missingRequiredIntents,
       conflict_count: normalizedConflictCount,
+      ...(informationalConflictCount > 0 ? { informational_conflict_count: informationalConflictCount } : {}),
       duplicate_count: duplicateCount,
     },
     bom: {

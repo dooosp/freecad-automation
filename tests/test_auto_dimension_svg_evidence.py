@@ -10,6 +10,18 @@ from _drawing_svg import render_dimensions_svg
 
 
 class TestAutomaticExtentEvidence(unittest.TestCase):
+    def test_hole_record_identifies_the_diameter_and_its_projected_center(self):
+        telemetry = {}
+        svg = render_dimensions_svg('top', (0, 0, 120, 60), [(12, 12, 2.25)],
+                                    100, 100, 1, telemetry=telemetry)
+        record = next(d for d in telemetry['auto_dimensions'] if d['category'] == 'hole_diameter')
+        self.assertEqual(record.get('svg_element_id'), record['dim_id'])
+        labels = [t for t in ET.fromstring(svg).iter('text') if t.get('id') == record['dim_id']]
+        self.assertEqual(len(labels), 1)
+        self.assertEqual(labels[0].text, '⌀4.5')
+        self.assertEqual(float(labels[0].get('data-center-u')), 12)
+        self.assertEqual(float(labels[0].get('data-center-v')), 12)
+
     def test_extent_records_point_to_unique_numeric_labels_across_views(self):
         telemetry = {}
         svg_parts = []
