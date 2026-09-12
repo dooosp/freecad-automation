@@ -179,7 +179,8 @@ def _placement_cfg(di):
 
 # ---- Dimension renderers ----
 
-def _render_diameter(di, circles, cx, cy, scale, bcx, bcy):
+def _render_diameter(di, circles, cx, cy, scale, bcx, bcy,
+                     svg_element_id=None, anchor_evidence=None):
     """Render a diameter dimension for a plan intent."""
     value_mm = di.get("value_mm")
     if value_mm is None:
@@ -190,6 +191,8 @@ def _render_diameter(di, circles, cx, cy, scale, bcx, bcy):
         return []
 
     cu, cv, cr = circle
+    if anchor_evidence is not None:
+        anchor_evidence.update(center_uv=[cu, cv], svg_element_id=svg_element_id)
     px = cx + (cu - bcx) * scale
     py = cy - (cv - bcy) * scale
     r_scaled = cr * scale
@@ -229,7 +232,9 @@ def _render_diameter(di, circles, cx, cy, scale, bcx, bcy):
     tx = shx + 0.5 * shelf_dir
     ty = ey - 0.5
     dim_id = di.get("id", "")
-    out.append(f'<text x="{tx:.2f}" y="{ty:.2f}" text-anchor="{anchor}" '
+    identity = (f'id="{svg_element_id}" data-center-u="{cu}" data-center-v="{cv}" '
+                if svg_element_id else '')
+    out.append(f'<text {identity}x="{tx:.2f}" y="{ty:.2f}" text-anchor="{anchor}" '
                f'font-family="{DIM_FONT}" font-size="{DIM_FONT_SIZE}" '
                f'fill="{DIM_COLOR}" data-dim-id="{dim_id}" '
                f'data-value-mm="{value_mm}">{text}</text>')
@@ -447,7 +452,7 @@ def render_plan_dimensions_svg(
     # D4 manufacturing: track process group for inter-group gap
     _prev_process_step = None
 
-    for di in dim_intents:
+    for intent_index, di in enumerate(dim_intents, 1):
         if not _intent_matches_view(di, vname):
             continue
 
@@ -507,10 +512,14 @@ def render_plan_dimensions_svg(
         # Route by style
         if style == "diameter" or (style == "linear" and fid in DIA_FEATURES):
             if circles:
-                elems = _render_diameter(di, circles, cx, cy, scale, bcx, bcy)
+                anchor_evidence = {}
+                elems = _render_diameter(
+                    di, circles, cx, cy, scale, bcx, bcy,
+                    svg_element_id=f"plan_{vname}_{intent_index:03d}",
+                    anchor_evidence=anchor_evidence)
                 out.extend(elems)
                 if elems:
-                    _record(di, "rendered", rendered=True)
+                    _record(di, "rendered", rendered=True, extra=anchor_evidence)
                 else:
                     _record(di, "skipped_no_anchor", reason="no_matching_circle")
             else:
