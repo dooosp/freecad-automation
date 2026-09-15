@@ -18,6 +18,20 @@ function runCli(args) {
 }
 
 try {
+  const diameterIntentConfig = (members) => ({
+    config_version: 1,
+    drawing_plan: { dim_intents: [{ id: 'HOLE_DIA', member_feature_ids: members }] },
+  });
+  const diameterGroup = validateConfigDocument(diameterIntentConfig(['hole_H1', 'hole_H2']));
+  assert.equal(diameterGroup.valid, true);
+  assert.deepEqual(diameterGroup.config.drawing_plan.dim_intents[0].member_feature_ids,
+    ['hole_H1', 'hole_H2'], 'preserve explicit measured-hole group membership');
+  for (const invalid of [null, 'hole_H1', [], ['hole_H1', 'hole_H1'], [''], [7]]) {
+    const result = validateConfigDocument(diameterIntentConfig(invalid));
+    assert.equal(result.valid, false, `reject malformed diameter group ${JSON.stringify(invalid)}`);
+    assert.ok(result.summary.errors.some((error) => error.includes('member_feature_ids')));
+  }
+
   // The assembly runtime accepts Euler angles and axis-angle placements.
   const fourBar = await loadConfigWithDiagnostics(resolve(ROOT, 'configs/examples/four_bar_linkage.toml'));
   assert.deepEqual(fourBar.config.assembly.parts[2].rotation.length, 4);

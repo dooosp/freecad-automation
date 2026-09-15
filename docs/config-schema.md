@@ -67,7 +67,23 @@ An explicit `drawing_plan.part_type = "bracket"` continues to select the bracket
 
 ### Flat-plate drawing evidence
 
-For this supported plate recipe, `fcad draw` links the required linear dimensions to the final FreeCAD body's measured bounds. The top-view mounting-hole diameter also requires every configured hole to match one complete, full-height cylindrical face, with a common diameter and the expected center. Mixed sizes, missing holes, open edge notches, and ambiguous geometry remain unverified. Face references in `<name>_traceability.json` identify this run's topology; they are not stable revision identifiers.
+For the supported horizontal single-box/cylinder-cut recipe, `fcad draw` links required linear dimensions to the final FreeCAD body's measured bounds. Runtime evidence eligibility also accepts this same recipe with six or more holes, while preserving its existing automatic `bushing_plate` template classification. Set `drawing_plan.part_type = "plate"` explicitly when the flat-plate template is appropriate, as in [the USB hub reference example](../configs/examples/usb_hub_reference_mount.json).
+
+The top-view mounting-hole diameter requires every configured hole to match one complete, full-height cylindrical face. An unscoped diameter intent still requires a common diameter across all holes. For mixed diameters, each required `mounting_hole_diameter` intent can declare a nonempty, unique `member_feature_ids` array naming its cylindrical cut tools:
+
+```json
+{
+  "id": "PANEL_HOLE_DIA",
+  "feature": "mounting_hole_diameter",
+  "view": "top",
+  "style": "diameter",
+  "required": true,
+  "value_mm": 5.5,
+  "member_feature_ids": ["hole_P1", "hole_P2", "hole_P3", "hole_P4"]
+}
+```
+
+Each selected member must exist in the measured hole set and match the declared diameter. Evidence contains only that group's face references and centers. The rendered diameter label must have a unique projected anchor inside the selected group. A group that excludes the renderer's anchor stays unresolved; this selector does not relocate labels or support arbitrary same-diameter subgroups. Unscoped mixed sizes, missing holes, open edge notches, invalid groups, wrong values, and ambiguous geometry remain unverified. Face references in `<name>_traceability.json` identify this run's topology; they are not stable revision identifiers.
 
 A deduplicated automatic label counts as displayed only when its unique ID, value, view, and category match the final SVG; hole labels also need matching projected centers. Runtime links require that current annotation evidence as well. Unknown features and unsupported geometry do not gain links from equal numeric values. Metadata rounding can leave high-precision dimensions unverified.
 

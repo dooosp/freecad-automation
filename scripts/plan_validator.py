@@ -49,7 +49,7 @@ KNOWN_INTENT_KEYS = {"id", "feature", "view", "style", "required", "priority",
                       "reason", "value_mm", "confidence", "source", "review",
                       "placement", "placement_side", "placement_offset_mm",
                       "placement_angle_deg", "dedupe",
-                      "process_step", "tolerance_grade"}
+                      "process_step", "tolerance_grade", "member_feature_ids"}
 KNOWN_NOTE_KEYS = {"general", "placement"}
 
 

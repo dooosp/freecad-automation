@@ -29,17 +29,21 @@ def drawing_dir():
         yield Path(directory)
 
 
-def draw(directory, config):
+def draw(directory, config, *, strict=False, expected_code=0):
     config['export'] = {'directory': str(directory / 'output'), 'formats': ['step']}
     config['manufacturing'] = {'material': 'AL6061'}
     path = directory / 'input.json'
     path.write_text(json.dumps(config))
-    result = subprocess.run(['node', 'bin/fcad.js', 'draw', str(path)], cwd=ROOT,
+    command = ['node', 'bin/fcad.js', 'draw', str(path)]
+    if strict:
+        command.append('--strict-quality')
+    result = subprocess.run(command, cwd=ROOT,
                             text=True, capture_output=True)
-    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.returncode == expected_code, result.stdout + result.stderr
     output = directory / 'output'
-    trace = json.loads((output / 'device_mount_traceability.json').read_text())
-    quality = json.loads((output / 'device_mount_drawing_quality.json').read_text())
+    name = config['name']
+    trace = json.loads((output / f'{name}_traceability.json').read_text())
+    quality = json.loads((output / f'{name}_drawing_quality.json').read_text())
     return {link['dim_id']: link for link in trace['links']}, quality
 
 
@@ -91,6 +95,66 @@ def test_inconsistent_or_unproven_dimensions_stay_unverified(drawing_dir, proble
         config['drawing_plan'] = {'part_type': 'bracket'}
         expected_missing = 'WEB_H'
     links, quality = draw(drawing_dir, config)
+    assert links[expected_missing]['feature_id'] is None
+    assert expected_missing in quality['traceability']['unmapped_required_entities']
+    assert quality['status'] == 'fail'
+
+
+def reference_plate():
+    return json.loads((ROOT / 'configs/examples/usb_hub_reference_mount.json').read_text())
+
+
+def test_eight_hole_plate_links_explicit_diameter_groups(drawing_dir):
+    config = reference_plate()
+    links, quality = draw(drawing_dir, config)
+    for dim_id, value in {'WIDTH': 142, 'HEIGHT': 4, 'THK': 4, 'BASE_W': 74}.items():
+        assert links[dim_id]['feature_id'] == 'plate'
+        assert links[dim_id]['evidence']['model_value_mm'] == value
+    expected = {
+        'HOLE_DIA': (4, {'hole_H1', 'hole_H2', 'hole_H3', 'hole_H4'},
+                     [[29, 24.4], [29, 49.6], [113, 24.4], [113, 49.6]]),
+        'PANEL_HOLE_DIA': (5.5, {'hole_P1', 'hole_P2', 'hole_P3', 'hole_P4'},
+                           [[12, 12], [12, 62], [130, 12], [130, 62]]),
+    }
+    for dim_id, (diameter, members, centers) in expected.items():
+        link = links[dim_id]
+        evidence = link['evidence']
+        assert evidence['source'] == 'freecad_runtime'
+        assert evidence['model_value_mm'] == diameter
+        assert set(evidence['member_feature_ids']) == members
+        assert evidence['centers_xy'] == centers
+        assert len(set(evidence['face_refs'])) == 4
+        assert link['feature_id'] in members
+        assert evidence['center_uv'] in centers
+        assert link['svg_element_id']
+    assert set(links['HOLE_DIA']['evidence']['face_refs']).isdisjoint(
+        links['PANEL_HOLE_DIA']['evidence']['face_refs'])
+    assert quality['traceability']['coverage_percent'] == 100
+    assert quality['status'] == 'pass'
+
+
+@pytest.mark.parametrize('problem', [
+    'unknown_member', 'mixed_members', 'unscoped_group', 'wrong_nominal',
+    'missing_hole', 'edge_notch', 'anchor_outside_group',
+])
+def test_explicit_groups_do_not_certify_unproven_holes(drawing_dir, problem):
+    config = reference_plate()
+    hub, panel = config['drawing_plan']['dim_intents']
+    expected_missing = 'PANEL_HOLE_DIA'
+    if problem == 'unknown_member':
+        panel['member_feature_ids'][-1] = 'absent_hole'
+    elif problem == 'mixed_members':
+        panel['member_feature_ids'][-1] = 'hole_H4'
+    elif problem == 'unscoped_group':
+        del panel['member_feature_ids']
+    elif problem == 'wrong_nominal':
+        panel['value_mm'] = 5.6
+    elif problem in ('missing_hole', 'edge_notch'):
+        config['shapes'][-1]['position'][0] = 200 if problem == 'missing_hole' else 142
+    else:
+        # The rendered automatic label is anchored on P1, not this requested P4.
+        panel['member_feature_ids'] = ['hole_P4']
+    links, quality = draw(drawing_dir, config, strict=True, expected_code=1)
     assert links[expected_missing]['feature_id'] is None
     assert expected_missing in quality['traceability']['unmapped_required_entities']
     assert quality['status'] == 'fail'

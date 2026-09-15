@@ -6,7 +6,7 @@ Config-only feature inference is not sufficient for these links.
 
 import math
 
-from intent_compiler import classify_part_type
+from intent_compiler import _is_flat_mounting_plate, classify_part_type
 from _dim_plan import _style_bucket
 
 
@@ -49,11 +49,27 @@ def _annotation(dimension, auto_dimensions):
     return auto
 
 
+def _dimension_holes(intent, measured_holes):
+    """Preserve whole-pattern semantics unless a valid group is explicit."""
+    if 'member_feature_ids' not in intent:
+        return measured_holes
+    members = intent['member_feature_ids']
+    if (not isinstance(members, list) or not members
+            or not all(isinstance(member, str) and member for member in members)
+            or len(set(members)) != len(members)):
+        return []
+    selected = set(members)
+    if not selected.issubset({hole['id'] for hole, _ in measured_holes}):
+        return []
+    return [(hole, face) for hole, face in measured_holes if hole['id'] in selected]
+
+
 def link_plate_runtime_dimensions(config, model_object_id, metadata, view_data, telemetry, traceability):
     """Add measured links only for the supported single-box plate recipe.
 
-    Unmatched dimensions retain their unresolved state. Hole groups must have
-    equal diameters and one full-height cylindrical face per configured hole.
+    Unmatched dimensions retain their unresolved state. Explicit hole groups
+    must have equal diameters; unscoped intents still cover the whole pattern.
+    Every configured hole must match one full-height cylindrical face.
     Face references are local to this run, not stable across model revisions.
     """
     # Inline boolean tools are supported by the runtime, but are outside this
@@ -61,11 +77,17 @@ def link_plate_runtime_dimensions(config, model_object_id, metadata, view_data, 
     if any(not isinstance(op.get('tool'), str) for op in config.get('operations', [])
            if op.get('op') == 'cut'):
         return
-    if (classify_part_type(config) != 'plate' or not metadata.get('valid_shape')
+    if (classify_part_type(config) not in {'plate', 'bushing_plate'}
+            or not metadata.get('valid_shape')
             or metadata.get('solid_count') != 1):
         return
-    box = next(s for s in config['shapes'] if s.get('type') == 'box')
+    boxes = [s for s in config['shapes'] if s.get('type') == 'box']
     holes = [s for s in config['shapes'] if s.get('type') == 'cylinder']
+    # Many-hole plates keep their legacy template classification. Evidence
+    # eligibility depends on the same bounded recipe, not the template name.
+    if not _is_flat_mounting_plate(config, boxes, holes):
+        return
+    box = boxes[0]
     bbox = metadata.get('bbox', {})
     sizes = [box[key] for key in ('length', 'width', 'height')]
     if (not _vector_equal(bbox.get('size'), sizes)
@@ -107,6 +129,7 @@ def link_plate_runtime_dimensions(config, model_object_id, metadata, view_data, 
         measured_holes = []
 
     links = {link['dim_id']: link for link in traceability['links']}
+    intents = {intent.get('id'): intent for intent in config.get('drawing_plan', {}).get('dim_intents', [])}
     for dimension in telemetry.get('plan_dimensions', []):
         feature = dimension.get('feature')
         link = links.get(dimension.get('dim_id'))
@@ -137,10 +160,11 @@ def link_plate_runtime_dimensions(config, model_object_id, metadata, view_data, 
             resolved = box['id']
         elif (feature == 'mounting_hole_diameter' and dimension.get('style') == 'diameter'
               and view == 'top' and measured_holes):
-            if not all(_same(value, face['diameter_mm']) for _, face in measured_holes):
+            group = _dimension_holes(intents.get(dimension.get('dim_id'), {}), measured_holes)
+            if not group or not all(_same(value, face['diameter_mm']) for _, face in group):
                 continue
             center = annotation.get('center_uv')
-            anchors = [(hole, face) for hole, face in measured_holes
+            anchors = [(hole, face) for hole, face in group
                        if _vector_equal(center, hole.get('position', [0, 0, 0])[:2])]
             if len(anchors) != 1:
                 continue
@@ -149,9 +173,9 @@ def link_plate_runtime_dimensions(config, model_object_id, metadata, view_data, 
                 continue
             resolved = anchors[0][0]['id']
             evidence.update(measurement='cylindrical_faces', center_uv=center,
-                            member_feature_ids=[h['id'] for h, _ in measured_holes],
-                            centers_xy=[h.get('position', [0, 0, 0])[:2] for h, _ in measured_holes],
-                            face_refs=[f'{model_object_id}:Face{f["face_index"]}' for _, f in measured_holes])
+                            member_feature_ids=[h['id'] for h, _ in group],
+                            centers_xy=[h.get('position', [0, 0, 0])[:2] for h, _ in group],
+                            face_refs=[f'{model_object_id}:Face{f["face_index"]}' for _, f in group])
         if resolved:
             link.update(feature_id=resolved, source='freecad_runtime', evidence=evidence,
                         drawing_object_id=annotation.get('drawing_object_id'),

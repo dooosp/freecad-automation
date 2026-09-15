@@ -96,6 +96,16 @@ class TestBoxClassification(unittest.TestCase):
         self.assertEqual(plan["part_type"], "housing")
         self.assertIn("BORE_ID", {intent["id"] for intent in plan["dim_intents"]})
 
+    def test_explicit_diameter_group_is_not_reported_as_a_typo(self):
+        config = mounting_plate()
+        config['drawing_plan'] = {'dim_intents': [{
+            'id': 'HOLE_DIA',
+            'member_feature_ids': ['hole1', 'hole2', 'hole3', 'hole4'],
+        }]}
+        result = subprocess.run([sys.executable, str(COMPILER)],
+                                input=json.dumps(config), text=True, capture_output=True, check=True)
+        assert 'member_feature_ids' not in result.stderr, result.stderr
+
     def test_flat_mount_has_no_invented_web_requirement(self):
         plan = compile_config(mounting_plate())["drawing_plan"]
         self.assertEqual(plan["part_type"], "plate")
