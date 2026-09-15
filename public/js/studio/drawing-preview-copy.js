@@ -55,6 +55,20 @@ function factLine(items = []) {
 
 export { previewReference };
 
+export function buildDrawingQaRows(summary = {}) {
+  const count = (value) => value == null ? 'Unavailable' : String(value);
+  return [
+    ['QA score', summary.score == null ? 'Unavailable' : `${summary.score}/100`],
+    ['Weight profile', summary.weight_profile || 'default'],
+    ['Planned dimensions', count(summary.planned_dimension_count)],
+    ['Total rendered dimensions', count(summary.total_rendered_dimension_count)],
+    ['Rendered plan dimensions', count(summary.rendered_dimension_count)],
+    ['Auto dimensions', count(summary.auto_dimension_count)],
+    ['Conflicts', count(summary.conflict_count)],
+    ['Informational notices', count(summary.informational_conflict_count)],
+  ];
+}
+
 export function buildDrawingPreviewResultSummary(preview = {}, fallbackSettings = {}) {
   return factLine(previewFactItems(preview, fallbackSettings));
 }

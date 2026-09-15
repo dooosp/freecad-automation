@@ -96,13 +96,21 @@ function buildQaSummary({
 }) {
   const summary = dimensionMap?.summary || {};
   const conflicts = Array.isArray(dimConflicts?.conflicts) ? dimConflicts.conflicts : [];
+  const renderedPlanCount = summary.rendered_plan_count ?? summary.plan_rendered_count ?? null;
+  const autoCount = summary.auto_count ?? summary.auto_dimension_count ?? null;
+  const informationalCount = conflicts.filter((conflict) => conflict?.severity === 'info').length;
+  const reportedConflictCount = dimConflicts?.summary?.count ?? summary.conflict_count ?? 0;
   return {
     score: qa?.score ?? null,
     weight_profile: qa?.weightProfile || null,
-    planned_dimension_count: summary.plan_dimension_count ?? dimensions.length,
-    rendered_dimension_count: summary.plan_rendered_count ?? null,
-    auto_dimension_count: summary.auto_dimension_count ?? null,
-    conflict_count: dimConflicts?.summary?.count ?? conflicts.length,
+    planned_dimension_count: summary.plan_count ?? summary.plan_dimension_count ?? dimensions.length,
+    rendered_dimension_count: renderedPlanCount,
+    auto_dimension_count: autoCount,
+    total_rendered_dimension_count: Number.isFinite(renderedPlanCount) && Number.isFinite(autoCount)
+      ? renderedPlanCount + autoCount
+      : null,
+    conflict_count: Math.max(reportedConflictCount, conflicts.length) - informationalCount,
+    informational_conflict_count: informationalCount,
   };
 }
 
@@ -214,7 +222,7 @@ export function createStudioDrawingService({
           config,
           planPath,
         });
-      } else if (!config.drawing_plan) {
+      } else {
         try {
           compileDrawingPlanFn({
             projectRoot,
