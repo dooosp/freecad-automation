@@ -3,7 +3,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { clearElement, makeElement } from './dom.js';
+import { clearElement } from './dom.js';
+import { createAssemblyPartControls } from './assembly-parts.js';
+import { updateSceneOpacity } from './scene-materials.js';
 import { resolvePartIndex } from './scene-interactions.js';
 
 const EDGE_THRESHOLD = 30;
@@ -32,6 +34,7 @@ export function initScene({
   partsListElement,
   opacityInput,
   state,
+  partDisplayState = {},
   onStatus = () => {},
   onResetScene = () => {},
   onFrame = () => {},
@@ -47,6 +50,7 @@ export function initScene({
   let currentMesh = null;
   let assemblyGroup = null;
   let partMeshes = [];
+  let assemblyPreviewId = null;
   let keyLight;
   let fillLight;
   let rimLight;
@@ -66,50 +70,12 @@ export function initScene({
     });
   }
 
-  function buildPartsList() {
-    clearElement(partsListElement);
-    partsListElement.appendChild(makeElement('h3', { text: 'Parts' }));
-
-    for (let index = 0; index < partMeshes.length; index += 1) {
-      const part = partMeshes[index];
-      const item = makeElement('div', {
-        className: index === sceneState.selectedPartIndex ? 'part-item selected' : 'part-item',
-      });
-      item.dataset.index = String(index);
-
-      const swatch = makeElement('span', { className: 'part-swatch' });
-      swatch.style.background = `#${part.material.color.getHexString()}`;
-      item.appendChild(swatch);
-      item.appendChild(makeElement('span', {
-        className: 'part-label',
-        text: part.label || part.id || `Part ${index + 1}`,
-      }));
-      partsListElement.appendChild(item);
-    }
-
-    partsListElement.querySelectorAll('.part-item').forEach((element) => {
-      element.addEventListener('click', () => {
-        selectPart(Number.parseInt(element.dataset.index, 10));
-      });
-    });
-  }
-
-  function selectPart(index) {
-    if (sceneState.selectedPartIndex >= 0 && sceneState.selectedPartIndex < partMeshes.length) {
-      partMeshes[sceneState.selectedPartIndex].material.emissive.setHex(0x000000);
-    }
-
-    if (index === sceneState.selectedPartIndex) {
-      sceneState.selectedPartIndex = -1;
-    } else {
-      sceneState.selectedPartIndex = index;
-      if (index >= 0 && index < partMeshes.length) {
-        partMeshes[index].material.emissive.setHex(0x264f78);
-      }
-    }
-
-    buildPartsList();
-  }
+  const partControls = createAssemblyPartControls({
+    element: partsListElement,
+    sceneState,
+    getParts: () => partMeshes,
+    saved: partDisplayState,
+  });
 
   function fitCamera(object) {
     const box = new THREE.Box3().setFromObject(object);
@@ -225,8 +191,9 @@ export function initScene({
     fitCamera(currentMesh);
   }
 
-  function prepareAssembly(manifest) {
+  function prepareAssembly(manifest, previewId = null) {
     clearScene();
+    assemblyPreviewId = previewId;
     sceneState.pendingManifest = manifest;
     sceneState.receivedPartCount = 0;
 
@@ -273,7 +240,7 @@ export function initScene({
 
     if (sceneState.receivedPartCount >= sceneState.pendingManifest.length) {
       fitCamera(assemblyGroup);
-      buildPartsList();
+      partControls.build(assemblyPreviewId);
       sceneState.pendingManifest = null;
     }
   }
@@ -287,18 +254,14 @@ export function initScene({
 
   function setEdgesVisible(visible) {
     sceneState.edgesVisible = visible;
-    for (const part of partMeshes) {
-      if (part.edgeLines) part.edgeLines.visible = visible;
-    }
+    partControls.sync();
     if (currentMesh?.userData.edgeLines) {
       currentMesh.userData.edgeLines.visible = visible;
     }
   }
 
   function updateOpacity(value) {
-    for (const part of partMeshes) {
-      part.material.opacity = value;
-    }
+    updateSceneOpacity(defaultMaterial, partMeshes, value);
   }
 
   function takeScreenshot() {
@@ -321,13 +284,13 @@ export function initScene({
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
     raycaster.setFromCamera(mouse, camera);
-    const meshes = partMeshes.map((part) => part.mesh);
+    const meshes = partMeshes.filter((part) => part.mesh.visible).map((part) => part.mesh);
     const intersects = raycaster.intersectObjects(meshes);
 
     if (intersects.length > 0) {
-      selectPart(resolvePartIndex(intersects[0].object, partMeshes.length));
+      partControls.select(resolvePartIndex(intersects[0].object, partMeshes.length));
     } else {
-      selectPart(-1);
+      partControls.select(-1);
     }
   }
 
@@ -342,7 +305,7 @@ export function initScene({
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
     raycaster.setFromCamera(mouse, camera);
-    const meshes = partMeshes.map((part) => part.mesh);
+    const meshes = partMeshes.filter((part) => part.mesh.visible).map((part) => part.mesh);
     const intersects = raycaster.intersectObjects(meshes);
 
     if (intersects.length > 0) {

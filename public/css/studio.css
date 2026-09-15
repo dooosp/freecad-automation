@@ -1127,7 +1127,16 @@ textarea {
 
 .timeline-content {
   display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-1);
+  overflow-wrap: anywhere;
+}
+
+.timeline-content .job-title-row,
+.timeline-content .job-title {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .artifact-raw-preview {
@@ -1509,6 +1518,38 @@ textarea {
 .part-item.selected {
   border-color: rgba(104, 181, 255, 0.32);
   background: rgba(104, 181, 255, 0.12);
+}
+
+.part-select {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  flex: 1;
+  padding: 0.3rem 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.part-visibility {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.part-visibility input {
+  accent-color: var(--accent);
+}
+
+.part-hidden .part-swatch,
+.part-hidden .part-label {
+  opacity: 0.5;
 }
 
 .part-swatch {
@@ -3021,11 +3062,28 @@ body::after {
 }
 
 .app-bar {
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   padding: 1.15rem 1.7rem;
   background: rgba(5, 13, 23, 0.72);
   border-bottom-color: rgba(126, 164, 198, 0.16);
+}
+
+.app-bar-title,
+.app-bar-actions,
+.app-bar-badges {
+  min-width: 0;
+}
+
+.app-bar-actions {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.app-bar-badges {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  justify-content: flex-start;
 }
 
 .app-title {
@@ -3307,6 +3365,8 @@ body::after {
 .review-column,
 .artifacts-column {
   display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
   align-content: start;
 }
@@ -3670,6 +3730,14 @@ body::after {
   padding: 1rem;
 }
 
+.review-dashboard-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
+}
+
+:is(.review-dashboard, .artifacts-dashboard) .studio-card {
+  min-width: 0;
+}
+
 .review-column-right .studio-card[data-surface="canvas"],
 .artifacts-column-right .studio-card[data-surface="canvas"] {
   min-height: 100%;
@@ -3682,7 +3750,20 @@ body::after {
 }
 
 .review-job-row {
-  grid-template-columns: minmax(0, 1.2fr) minmax(7rem, auto) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.review-job-source {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.review-job-row .pill {
+  justify-self: start;
+}
+
+.review-job-row .action-button {
+  justify-self: end;
 }
 
 .review-job-time {
@@ -3742,7 +3823,31 @@ body::after {
 }
 
 .artifacts-dashboard-grid {
-  grid-template-columns: minmax(18rem, 0.9fr) minmax(22rem, 1fr) minmax(21rem, 0.95fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
+}
+
+.artifacts-dashboard .artifact-card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+}
+
+.artifact-card {
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.artifact-card > *,
+.artifact-card-header > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.artifact-card-header > :first-child {
+  flex: 1 1 12rem;
+}
+
+.artifact-card :is(.artifact-title, .artifact-meta, .action-button) {
+  overflow-wrap: anywhere;
+  max-width: 100%;
 }
 
 .artifact-pipeline {
@@ -3963,6 +4068,13 @@ body::after {
   .app-bar {
     grid-template-columns: 1fr;
     align-items: start;
+  }
+
+  .app-bar-title,
+  .app-bar-badges,
+  .app-bar-actions {
+    grid-column: auto;
+    grid-row: auto;
   }
 
   .app-bar-badges,

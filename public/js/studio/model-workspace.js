@@ -364,6 +364,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
       partsListElement,
       opacityInput,
       state: viewerStore.state,
+      partDisplayState: (model.partDisplayState ||= {}),
       onResetScene: () => animationController?.clearMotion(),
       onFrame: () => animationController?.tick(),
     });
@@ -866,7 +867,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
           label: item.label || item.ref || item.id || `Part ${index + 1}`,
           material: item.material || null,
         }));
-        sceneController.prepareAssembly(manifest);
+        sceneController.prepareAssembly(manifest, currentPreview.id);
 
         for (const part of currentPreview.assembly.part_files) {
           const response = await fetch(part.asset_url);
@@ -874,6 +875,8 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
           const arrayBuffer = await response.arrayBuffer();
           if (destroyed || currentToken !== loadToken) return;
           sceneController.addPartMesh(arrayBuffer);
+          // Fetches complete after the initial UI sync and may outlive option edits.
+          syncControls();
         }
       } else if (currentPreview.model_asset_url) {
         const response = await fetch(currentPreview.model_asset_url);
@@ -881,6 +884,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onD
         const arrayBuffer = await response.arrayBuffer();
         if (destroyed || currentToken !== loadToken) return;
         sceneController.loadStl(arrayBuffer);
+        syncControls();
       }
 
       if (currentPreview.motion_data) {
