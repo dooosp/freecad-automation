@@ -287,6 +287,102 @@ function applyDimension(active, value) {
   active.root.dispatch('click', { target: active.root.querySelector('[data-action="drawing-apply-dimension"]') });
 }
 
+function drawingHistoryKey(active, operation) {
+  document.dispatch('keydown', { target: active.root, key: operation === 'undo' ? 'z' : 'y', ctrlKey: true, preventDefault() {} });
+}
+
+for (const operation of ['edit', 'undo', 'redo']) {
+  test(`pending ${operation} completion refreshes the remounted Drawing and preserves its history cursor`, async (t) => {
+    const { state, requests, mount } = setup(t);
+    const edit = { dimId: 'WIDTH', oldValue: 142, newValue: 150 };
+    const initialValue = operation === 'undo' ? 150 : 142;
+    const finalValue = operation === 'undo' ? 142 : 150;
+    state.data.drawing.preview = preview('A', initialValue);
+    if (operation !== 'edit') {
+      state.data.drawing.history = [edit];
+      state.data.drawing.historyIndex = operation === 'undo' ? 0 : -1;
+    }
+    const first = mount();
+    if (operation === 'edit') applyDimension(first, '150');
+    else drawingHistoryKey(first, operation);
+    assert.equal(requests.length, 1);
+    first.workspace.destroy();
+    setLocale('ko', { persist: false });
+    const second = mount();
+    assert.equal(second.root.querySelector('[data-action="drawing-apply-dimension"]').disabled, true);
+    requests[0].resolve({ update: { dim_id: 'WIDTH', old_value: initialValue, new_value: finalValue, history_op: operation }, preview: preview('A', finalValue) });
+    await settle();
+
+    assert.equal(state.data.drawing.activeRequest, null);
+    assert.equal(second.root.querySelector('[data-action="drawing-apply-dimension"]').disabled, false, 'completion refreshes current controls without a shell sync');
+    assert.equal(second.input().value, String(finalValue));
+    assert.deepEqual(state.data.drawing.history, [edit]);
+    assert.equal(state.data.drawing.historyIndex, operation === 'undo' ? -1 : 0);
+    assert.match(second.root.querySelector('[data-hook="drawing-history"]').textContent, operation === 'undo' ? /실행 취소됨/ : /적용됨/);
+    second.workspace.syncFromShell();
+    assert.deepEqual(state.data.drawing.history, [edit], 'polling cannot restore the pre-response history copy');
+    assert.equal(state.data.drawing.historyIndex, operation === 'undo' ? -1 : 0);
+    const nextOperation = operation === 'undo' ? 'redo' : 'undo';
+    drawingHistoryKey(second, nextOperation);
+    assert.equal(requests.length, 2, 'the mounted renderer can use the accepted history');
+    assert.deepEqual(requests[1].body, { dim_id: 'WIDTH', value_mm: operation === 'undo' ? 150 : 142, history_op: nextOperation });
+    requests[1].reject(new Error('Controlled follow-up failure')); await settle();
+  });
+}
+
+test('failed pending annotation refreshes remounted controls without adding history or dropping its draft', async (t) => {
+  const { state, requests, mount } = setup(t);
+  const first = mount(); applyDimension(first, '150');
+  first.workspace.destroy();
+  const second = mount();
+  requests[0].reject(new Error('Failed to fetch')); await settle();
+  assert.equal(state.data.drawing.status, 'error');
+  assert.equal(state.data.drawing.activeRequest, null);
+  assert.equal(second.root.querySelector('[data-action="drawing-apply-dimension"]').disabled, false, 'failure refreshes controls without a shell sync');
+  assert.equal(second.root.querySelector('[data-hook="drawing-generate"]').disabled, false);
+  assert.equal(second.input().value, '150');
+  assert.equal(state.data.drawing.preview.dimensions[0].value_mm, 142);
+  assert.deepEqual(state.data.drawing.history, []);
+  assert.equal(state.data.drawing.historyIndex, -1);
+  assert.match(second.root.querySelector('[data-hook="drawing-summary"]').textContent, /Reconnect/);
+  applyDimension(second, '150');
+  assert.equal(requests.length, 2, 'retry is available from the remounted controls');
+  requests[1].resolve({ update: { dim_id: 'WIDTH', old_value: 142, new_value: 150, history_op: 'edit' }, preview: preview('A', 150) }); await settle();
+  assert.deepEqual(state.data.drawing.history, [{ dimId: 'WIDTH', oldValue: 142, newValue: 150 }]);
+});
+
+test('remounted annotation completion preserves a newer unsubmitted dimension draft', async (t) => {
+  const { state, requests, mount } = setup(t);
+  const first = mount(); applyDimension(first, '150'); first.workspace.destroy();
+  const second = mount();
+  second.input().value = '153'; second.root.dispatch('input', { target: second.input() });
+  requests[0].resolve({ update: { dim_id: 'WIDTH', old_value: 142, new_value: 150, history_op: 'edit' }, preview: preview('A', 150) }); await settle();
+  assert.equal(second.input().value, '153');
+  assert.equal(state.data.drawing.preview.dimensions[0].value_mm, 150);
+  assert.deepEqual(state.data.drawing.history, [{ dimId: 'WIDTH', oldValue: 142, newValue: 150 }]);
+  assert.equal(second.root.querySelector('[data-action="drawing-apply-dimension"]').disabled, false);
+});
+
+for (const outcome of ['success', 'failure']) {
+  test(`retired annotation ${outcome} cannot publish into a remounted replacement source`, async (t) => {
+    const { state, requests, mount } = setup(t);
+    const first = mount(); applyDimension(first, '150'); first.workspace.destroy();
+    state.data.examples.items = [{ id: 'new', name: 'new.toml', content: '[model]\nlength = 155' }]; state.data.examples.selectedId = 'new';
+    const second = mount(sharedSourceCallbacks(state)); second.click('drawing-load-example'); second.click('drawing-generate');
+    requests[1].resolve({ preview: preview('new-source', 155) }); await settle();
+    if (outcome === 'success') requests[0].resolve({ update: { dim_id: 'WIDTH', old_value: 142, new_value: 150, history_op: 'edit' }, preview: preview('A', 150) });
+    else requests[0].reject(new Error('Retired request failure'));
+    await settle();
+    assert.equal(state.data.drawing.preview.id, 'new-source');
+    assert.equal(state.data.drawing.status, 'ready');
+    assert.equal(second.input().value, '155');
+    assert.equal(second.root.querySelector('[data-action="drawing-apply-dimension"]').disabled, false);
+    assert.deepEqual(state.data.drawing.history, []);
+    assert.equal(state.data.drawing.historyIndex, -1);
+    assert.equal(state.data.drawing.errorMessage, '');
+  });
+}
+
 test('failed annotation releases controls, preserves last sheet and draft, and permits retry', async (t) => {
   const { state, requests, mount } = setup(t); const active = mount();
   applyDimension(active, '150');
