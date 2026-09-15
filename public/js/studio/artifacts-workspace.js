@@ -1283,13 +1283,9 @@ function renderArtifactLinks(artifactLinks = []) {
 
 function renderQualityDashboard(model, state = {}) {
   const checks = model.checks || {};
-  const requiredUnavailable = (checks.unavailable || []).filter((entry) => entry.required && !entry.decision);
-  const failedChecks = [
-    ...(checks.failed || []).filter((entry) => !entry.decision),
-    ...requiredUnavailable,
-  ];
+  const failedChecks = (checks.failed || []).filter((entry) => !entry.decision);
   const passedChecks = (checks.passed || []).filter((entry) => !entry.decision);
-  const unavailableChecks = (checks.unavailable || []).filter((entry) => !entry.required || entry.decision);
+  const unavailableChecks = checks.unavailable || [];
   const commonHeader = [
     ...renderQualityDashboardHeader(model),
     ...renderDecisionNotes(model),
@@ -1348,6 +1344,11 @@ function renderQualityDashboard(model, state = {}) {
           title: 'Passed checks',
           empty: 'No passed checks were reported for this artifact set.',
           items: passedChecks,
+        }),
+        renderCheckSection({
+          title: 'Not run or unavailable',
+          empty: 'No unavailable checks were reported for this artifact set.',
+          items: unavailableChecks,
         }),
         renderArtifactLinks(model.artifactLinks),
       ].filter(Boolean),
