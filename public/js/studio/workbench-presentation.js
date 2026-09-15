@@ -2,8 +2,8 @@ import { deriveModelTrackedRunPresentation } from './model-tracked-runs.js';
 
 export function isModelPreviewStale(model = {}) {
   return Boolean(model.preview)
-    && typeof model.previewConfigText === 'string'
-    && model.previewConfigText !== model.configText;
+    && ((typeof model.previewConfigText === 'string' && model.previewConfigText !== model.configText)
+      || (Boolean(model.previewBuildSettings) && JSON.stringify(model.previewBuildSettings) !== JSON.stringify(model.buildSettings)));
 }
 
 export function modelWorkspaceBadges(state) {
@@ -32,14 +32,24 @@ export function modelWorkspaceBadges(state) {
   ];
 }
 
+export function drawingInputSnapshot(model = {}, settings = {}) {
+  return JSON.stringify([model.sourceType || '', model.sourcePath || '', model.sourceName || '', String(model.configText || '').trim(), settings]);
+}
+
+export function isDrawingPreviewStale(drawing = {}, model = {}) {
+  return Boolean(drawing.preview) && drawing.previewInputSnapshot !== drawingInputSnapshot(model, drawing.settings);
+}
+
+export const STALE_DRAWING_COPY = 'Input or sheet settings changed. Regenerate the drawing before reviewing or saving it.';
+
 export function drawingWorkspaceBadges(state) {
   const drawing = state.data.drawing;
   const hasConfig = Boolean(state.data.model.configText?.trim());
   return [
     { label: hasConfig ? 'Config loaded' : 'Config needed', tone: hasConfig ? 'ok' : 'warn' },
     {
-      label: `Drawing ${drawing.status === 'ready' ? 'ready' : drawing.status === 'error' ? 'error' : drawing.status === 'generating' ? 'generating' : 'pending'}`,
-      tone: drawing.status === 'ready' ? 'ok' : drawing.status === 'error' ? 'bad' : drawing.status === 'generating' ? 'warn' : 'info',
+      label: isDrawingPreviewStale(drawing, state.data.model) ? 'Drawing needs regeneration' : `Drawing ${drawing.status === 'ready' ? 'ready' : drawing.status === 'error' ? 'error' : drawing.status === 'generating' ? 'generating' : 'pending'}`,
+      tone: isDrawingPreviewStale(drawing, state.data.model) ? 'warn' : drawing.status === 'ready' ? 'ok' : drawing.status === 'error' ? 'bad' : drawing.status === 'generating' ? 'warn' : 'info',
     },
   ];
 }
@@ -48,10 +58,12 @@ export function workingConfigRows(model = {}) {
   return [
     ['Working config', model.configText?.trim() ? (model.overview?.name || 'Pending validation') : 'Not loaded'],
     ['Loaded from', model.sourceName || 'In-memory draft'],
+    ...(model.recoveredDraft ? [['Draft recovery', 'Restored input for this tab. Regenerate previews; artifacts were not restored.']] : []),
   ];
 }
 
-export function drawingWorkspaceSummary(drawing = {}) {
+export function drawingWorkspaceSummary(drawing = {}, model) {
+  if (model && isDrawingPreviewStale(drawing, model)) return STALE_DRAWING_COPY;
   if (drawing.errorMessage) return drawing.errorMessage;
   return drawing.status === 'ready' && drawing.preview && !drawing.trackedRun?.submitting
     ? 'Drawing ready. Review dimensions before saving.'

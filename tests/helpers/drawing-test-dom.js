@@ -12,6 +12,7 @@ export class TestElement {
     this.clientWidth = 400;
     this.clientHeight = 300;
   }
+  get ownerDocument() { return globalThis.document; }
   addEventListener(type, fn) { if (!this.listeners.has(type)) this.listeners.set(type, new Set()); this.listeners.get(type).add(fn); }
   removeEventListener(type, fn) { this.listeners.get(type)?.delete(fn); }
   dispatch(type, event) { for (const fn of this.listeners.get(type) || []) fn(event); }
@@ -48,7 +49,7 @@ export class TestElement {
 }
 
 export function installDrawingTestDom() {
-  const saved = new Map(['document', 'window', 'Element', 'HTMLElement', 'NodeFilter', 'DOMParser'].map((key) => [key, globalThis[key]]));
+  const saved = new Map(['document', 'window', 'Element', 'HTMLElement', 'NodeFilter', 'DOMParser', 'requestAnimationFrame'].map((key) => [key, globalThis[key]]));
   const document = new TestElement('document');
   document.documentElement = new TestElement('html');
   document.createElement = (tag) => new TestElement(tag);
@@ -62,6 +63,7 @@ export function installDrawingTestDom() {
   Object.assign(globalThis, {
     document, window: new TestElement('window'), Element: TestElement, HTMLElement: TestElement,
     NodeFilter: { SHOW_TEXT: 4 },
+    requestAnimationFrame: (callback) => callback(),
     DOMParser: class {
       parseFromString() {
         const svg = new TestElement('svg');

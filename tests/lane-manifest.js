@@ -64,6 +64,7 @@ export const TEST_LANES = Object.freeze([
       Object.freeze({ label: 'Studio responsive CSS', args: Object.freeze(['tests/studio-responsive-css.test.js']) }),
       Object.freeze({ label: 'Studio scene interactions', args: Object.freeze(['tests/scene-interactions.test.js']) }),
       Object.freeze({ label: 'Studio drawing workspace helpers', args: Object.freeze(['tests/studio-drawing-workspace.test.js']) }),
+      Object.freeze({ label: 'Studio draft and request state controller', args: Object.freeze(['tests/studio-draft-state-controller.test.js']) }),
       Object.freeze({ label: 'Drawing annotation history controller', args: Object.freeze(['tests/drawing-history-controller.test.js']) }),
       Object.freeze({ label: 'Studio jobs client', args: Object.freeze(['tests/studio-jobs-client.test.js']) }),
       Object.freeze({ label: 'Studio inspection evidence intake UX', args: Object.freeze(['tests/studio-inspection-evidence-intake-ux.test.js']) }),

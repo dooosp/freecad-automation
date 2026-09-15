@@ -231,7 +231,7 @@ function renderAssistantReport(container, assistantState) {
   renderList(container, entries, 'The assistant returned TOML, but no review summary was attached.');
 }
 
-export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
+export function mountModelWorkspace({ root, state, addLog, submitTrackedJob, onDraftChange = () => {} }) {
   const model = ensureModelState(state.data.model);
   const viewerStore = createViewerStore();
   const guidedStepElements = [...root.querySelectorAll('[data-model-guided-step]')];
@@ -828,6 +828,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
 
   function syncUi() {
     if (destroyed) return;
+    onDraftChange();
     syncTextFields();
     syncSourceSummary();
     syncValidationSummary();
@@ -888,6 +889,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
         animationController?.clearMotion();
       }
     } catch (error) {
+      if (destroyed || currentToken !== loadToken || model.preview !== currentPreview) return;
       model.buildState = 'error';
       model.errorMessage = error instanceof Error ? error.message : String(error);
       model.buildSummary = 'Preview assets could not be loaded back into the viewport.';
@@ -949,7 +951,17 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     window.setTimeout(initialize, 100);
   }
 
-  async function validateConfig() {
+  function beginPreviewRequest() {
+    const request = {};
+    model.activePreviewRequest = request;
+    return request;
+  }
+
+  function ownsPreviewRequest(request) {
+    return state.data.model === model && model.activePreviewRequest === request;
+  }
+
+  async function validateConfig(request = beginPreviewRequest()) {
     if (!(model.configText || '').trim()) {
       model.buildState = 'error';
       model.errorMessage = 'Config TOML is empty.';
@@ -968,6 +980,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
       const payload = await postJson('/api/studio/validate-config', {
         config_toml: configText,
       });
+      if (!ownsPreviewRequest(request)) return false;
       if (model.configText !== configText) {
         model.buildState = 'idle';
         model.buildSummary = 'Input changed. Validate the current config before building.';
@@ -990,6 +1003,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
       syncUi();
       return true;
     } catch (error) {
+      if (!ownsPreviewRequest(request)) return false;
       model.buildState = 'error';
       model.errorMessage = error instanceof Error ? error.message : String(error);
       model.buildSummary = 'Validation failed before build could start.';
@@ -1052,8 +1066,9 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
       syncUi();
       return;
     }
-    const valid = await validateConfig();
-    if (!valid) return;
+    const request = beginPreviewRequest();
+    const valid = await validateConfig(request);
+    if (!valid || !ownsPreviewRequest(request)) return;
     if (aiDraftRequiresReview(model)) {
       model.errorMessage = t('studio.model.ai.review.changed-during-validation');
       model.buildSummary = model.errorMessage;
@@ -1069,11 +1084,14 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
 
     try {
       const configText = model.configText;
+      const buildSettings = structuredClone(model.buildSettings);
       const payload = await postJson('/api/studio/model-preview', {
         config_toml: configText,
-        build_settings: model.buildSettings,
+        build_settings: buildSettings,
       });
+      if (!ownsPreviewRequest(request)) return;
       model.preview = payload.preview || null;
+      model.previewBuildSettings = buildSettings;
       model.previewConfigText = configText;
       model.validation = payload.preview?.validation || model.validation;
       model.overview = model.configText === configText ? (payload.preview?.overview || model.overview) : null;
@@ -1083,7 +1101,8 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
         ? `Built assembly preview with ${payload.preview.assembly.part_count} parts.`
         : 'Built model preview and loaded the viewport asset.';
       syncUi();
-      await loadPreviewIntoScene();
+      if (!destroyed) await loadPreviewIntoScene();
+      if (!ownsPreviewRequest(request)) return;
       addLog({
         status: 'Model workspace',
         message: model.buildSummary,
@@ -1091,6 +1110,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
         time: 'build',
       });
     } catch (error) {
+      if (!ownsPreviewRequest(request)) return false;
       model.buildState = 'error';
       model.errorMessage = error instanceof Error ? error.message : String(error);
       model.buildSummary = 'Build failed before a preview could be inspected.';
@@ -1256,6 +1276,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
       if (!String(payload.toml || '').trim()) {
         throw new Error(t('studio.model.ai.error.no-draft'));
       }
+      model.activePreviewRequest = null;
       markAiDraftForReview(model, {
         toml: payload.toml,
         report: payload.report || null,
@@ -1288,6 +1309,8 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
     const example = getSelectedStudioExample(state.data.examples);
     if (!example) return;
 
+    model.activePreviewRequest = null;
+    model.recoveredDraft = false;
     model.sourceType = 'example';
     model.sourceName = example.name;
     model.sourcePath = example.id || example.name || state.data.examples.sourceLabel;
@@ -1316,6 +1339,8 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
 
   async function openConfigFile(file) {
     if (!file) return;
+    model.activePreviewRequest = null;
+    model.recoveredDraft = false;
     model.sourceType = 'local file';
     model.sourceName = file.name;
     model.sourcePath = file.name;
@@ -1343,6 +1368,7 @@ export function mountModelWorkspace({ root, state, addLog, submitTrackedJob }) {
   }
 
   function clearResult() {
+    model.activePreviewRequest = null;
     model.preview = null;
     model.buildLog = [];
     model.buildState = 'idle';
