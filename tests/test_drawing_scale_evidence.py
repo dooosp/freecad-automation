@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 import sys
 import xml.etree.ElementTree as ET
+from types import SimpleNamespace
 
 import pytest
 
@@ -14,8 +15,34 @@ _definitions = {'__file__': str(_script)}
 exec(compile(_script.read_text().split('# -- Main Pipeline ')[0], str(_script), 'exec'), _definitions)
 compose_drawing = _definitions['compose_drawing']
 build_layout_report = _definitions['build_layout_report']
+resolve_drawing_scale = _definitions['resolve_drawing_scale']
 from _drawing_svg import render_view_svg, render_dimensions_svg
 from _dim_plan import render_plan_dimensions_svg
+
+
+@pytest.mark.parametrize('hint', [None, 'auto', 'AUTO', ' auto '])
+def test_studio_auto_token_uses_fitted_scale_and_remains_non_explicit(hint):
+    bbox = SimpleNamespace(XLength=142, YLength=74, ZLength=4)
+    factor = resolve_drawing_scale(hint, bbox)
+    assert factor == 0.5
+    # Auto can be fit-adjusted without becoming an unmet explicit-scale gate.
+    evidence = build_layout_report({}, 0.25, requested_scale=hint, initial_scale=factor)['scale']
+    assert evidence['mode'] == 'auto'
+    assert evidence['requested'] is None
+    assert evidence['requested_factor'] is None
+    assert evidence['fit_adjusted'] is True
+    assert evidence['explicit_scale_satisfied'] is None
+
+
+@pytest.mark.parametrize('hint, factor', [('1:1', 1), ('1:2', 0.5), ('2:1', 2), (0.75, 0.75), ('0.75', 0.75)])
+def test_explicit_scale_resolution_and_unmet_scale_evidence_are_preserved(hint, factor):
+    bbox = SimpleNamespace(XLength=142, YLength=74, ZLength=4)
+    assert resolve_drawing_scale(hint, bbox) == factor
+    evidence = build_layout_report({}, factor / 2, requested_scale=hint, initial_scale=factor)['scale']
+    assert evidence['mode'] == 'explicit'
+    assert evidence['requested'] == hint
+    assert evidence['requested_factor'] == factor
+    assert evidence['explicit_scale_satisfied'] is False
 
 
 @pytest.mark.parametrize('scale', [1, 0.5, 0.75056023, 1.5])

@@ -700,6 +700,35 @@ def check_note_convention(tree):
 
 # -- Phase 20-A: Presence Enforcement Metrics ----------------------------------
 
+def _dimension_values(tree):
+    """Read planned metadata and automatic dimension text independent of SVG order.
+
+    Plain text is evidence only inside dimension groups; title-block numbers and
+    general notes cannot establish the presence of a geometric dimension.
+    """
+    values = []
+
+    def visit(elem, in_dimensions=False):
+        classes = elem.get("class", "").split()
+        in_dimensions = in_dimensions or any(_is_dimension_group_class(cls) for cls in classes)
+        if local_tag(elem) == "text":
+            value_attr = elem.get("data-value-mm")
+            if value_attr is not None:
+                try:
+                    values.append(float(value_attr))
+                except ValueError:
+                    pass
+            elif in_dimensions:
+                text = "".join(elem.itertext()).strip()
+                for match in _re.finditer(r'[\d]+\.?\d*', text):
+                    values.append(float(match.group()))
+        for child in elem:
+            visit(child, in_dimensions)
+
+    visit(tree.getroot())
+    return values
+
+
 def check_required_presence(tree, plan):
     """Check required dim_intents presence in SVG.
 
@@ -715,30 +744,7 @@ def check_required_presence(tree, plan):
     if not required:
         return 100, 0, []
 
-    # Collect all numeric values from SVG text, preferring explicit dim metadata.
-    svg_values = []
-    seen_value_attrs = False
-    for elem in tree.iter():
-        if local_tag(elem) != "text":
-            continue
-        value_attr = elem.get("data-value-mm")
-        if value_attr is not None:
-            try:
-                svg_values.append(float(value_attr))
-                seen_value_attrs = True
-            except ValueError:
-                pass
-            continue
-        if seen_value_attrs:
-            continue
-        t = (elem.text or "").strip()
-        if not t:
-            continue
-        for m in _re.finditer(r'[\d]+\.?\d*', t):
-            try:
-                svg_values.append(float(m.group()))
-            except ValueError:
-                pass
+    svg_values = _dimension_values(tree)
 
     missing = []
     for di in required:
@@ -772,28 +778,7 @@ def check_value_consistency(tree, plan):
     if not with_values:
         return 0
 
-    # Collect all numeric values from SVG text, preferring explicit dim metadata.
-    svg_values = []
-    seen_value_attrs = False
-    for elem in tree.iter():
-        if local_tag(elem) != "text":
-            continue
-        value_attr = elem.get("data-value-mm")
-        if value_attr is not None:
-            try:
-                svg_values.append(float(value_attr))
-                seen_value_attrs = True
-            except ValueError:
-                pass
-            continue
-        if seen_value_attrs:
-            continue
-        t = (elem.text or "").strip()
-        for m in _re.finditer(r'[\d]+\.?\d*', t):
-            try:
-                svg_values.append(float(m.group()))
-            except ValueError:
-                pass
+    svg_values = _dimension_values(tree)
 
     inconsistencies = 0
     for di in with_values:
